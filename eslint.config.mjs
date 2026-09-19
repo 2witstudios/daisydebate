@@ -32,6 +32,11 @@ export default [
         'error',
         { argsIgnorePattern: '^_' },
       ],
+      complexity: ['error', 10],
+      'max-lines': [
+        'error',
+        { max: 300, skipBlankLines: true, skipComments: true },
+      ],
     },
   },
   {
@@ -119,7 +124,20 @@ export default [
     },
   },
   {
-    files: ['scripts/**/*.ts', '**/*.config.*'],
+    files: ['scripts/**/*.ts'],
+    rules: {
+      // Repo tooling is procedural CLI glue; application source remains subject
+      // to the stricter complexity and size ratchets.
+      complexity: ['error', 15],
+      'max-lines': [
+        'error',
+        { max: 400, skipBlankLines: true, skipComments: true },
+      ],
+      'no-console': 'off',
+    },
+  },
+  {
+    files: ['**/*.config.*'],
     rules: { 'no-console': 'off' },
   },
 ];

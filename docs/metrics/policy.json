@@ -1,0 +1,14 @@
+{
+  "coverage": {
+    "@daisy/auth": { "lines": 100, "functions": 100 },
+    "@daisy/config": { "lines": 75, "functions": 85 },
+    "@daisy/db": { "lines": 90, "functions": 30 },
+    "@daisy/debate-engine": { "lines": 95, "functions": 100 },
+    "@daisy/errors": { "lines": 100, "functions": 100 },
+    "@daisy/logger": { "lines": 100, "functions": 65 },
+    "@daisy/observability": { "lines": 95, "functions": 85 },
+    "@daisy/protocol": { "lines": 100, "functions": 100 },
+    "@daisy/redis": { "lines": 15, "functions": 65 },
+    "@daisy/web": { "lines": 90, "functions": 85 }
+  }
+}

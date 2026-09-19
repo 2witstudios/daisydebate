@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        task: [format:check, lint, knip, typecheck, test, build]
+        task: [format:check, lint, knip, metrics:check, typecheck, test, build]
     env:
       TURBO_TELEMETRY_DISABLED: '1'
       NEXT_TELEMETRY_DISABLED: '1'

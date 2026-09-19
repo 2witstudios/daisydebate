@@ -78,15 +78,12 @@ export function requireSameOrigin(request: Request, origin: string) {
   if (request.headers.get('origin') !== new URL(origin).origin)
     throw createAppError('AUTHORIZATION');
 }
-/** Bound the stream itself; Content-Length is untrusted and may be absent. */
-export async function readJson(
+
+async function readChunks(
   request: Request,
-  maxBytes = 4096,
-): Promise<unknown> {
-  if (!request.headers.get('content-type')?.startsWith('application/json'))
-    throw createAppError('VALIDATION');
-  const reader = request.body?.getReader();
-  if (!reader) throw createAppError('VALIDATION');
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  maxBytes: number,
+) {
   const chunks: Uint8Array[] = [];
   let length = 0;
   try {
@@ -104,12 +101,30 @@ export async function readJson(
   } finally {
     reader.releaseLock();
   }
+  return { chunks, length };
+}
+
+function combineChunks(chunks: readonly Uint8Array[], length: number) {
   const bytes = new Uint8Array(length);
   let offset = 0;
   for (const chunk of chunks) {
     bytes.set(chunk, offset);
     offset += chunk.length;
   }
+  return bytes;
+}
+
+/** Bound the stream itself; Content-Length is untrusted and may be absent. */
+export async function readJson(
+  request: Request,
+  maxBytes = 4096,
+): Promise<unknown> {
+  if (!request.headers.get('content-type')?.startsWith('application/json'))
+    throw createAppError('VALIDATION');
+  const reader = request.body?.getReader();
+  if (!reader) throw createAppError('VALIDATION');
+  const { chunks, length } = await readChunks(request, reader, maxBytes);
+  const bytes = combineChunks(chunks, length);
   try {
     return JSON.parse(new TextDecoder().decode(bytes)) as unknown;
   } catch {
