@@ -1,0 +1,25 @@
+{
+  "name": "@daisy/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test src",
+    "test:integration": "bun test ./integration/db.integration.ts",
+    "db:generate": "bun --bun x drizzle-kit generate",
+    "db:migrate": "bun scripts/migrate.ts",
+    "db:studio": "bun --bun x drizzle-kit studio",
+    "db:reset": "bun scripts/reset.ts"
+  },
+  "dependencies": {
+    "drizzle-orm": "0.45.2"
+  },
+  "devDependencies": {
+    "drizzle-kit": "0.31.10",
+    "riteway": "9.3.0"
+  }
+}

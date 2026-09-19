@@ -1,0 +1,36 @@
+{
+  "name": "@daisy/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --env-file=../../.env --bun next dev",
+    "build": "NODE_ENV=production bun --bun next build",
+    "start": "NODE_ENV=production bun src/server/start.ts",
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "bun test src",
+    "test:integration": "bun test ./integration/foundation.integration.ts",
+    "test:e2e": "node node_modules/@playwright/test/cli.js test"
+  },
+  "dependencies": {
+    "next": "16.3.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "zod": "4.6.5",
+    "@daisy/auth": "workspace:*",
+    "@daisy/debate-engine": "workspace:*",
+    "@daisy/protocol": "workspace:*",
+    "@daisy/errors": "workspace:*",
+    "@daisy/config": "workspace:*",
+    "@daisy/db": "workspace:*",
+    "@daisy/redis": "workspace:*",
+    "@daisy/logger": "workspace:*",
+    "@daisy/observability": "workspace:*"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "riteway": "9.3.0"
+  }
+}

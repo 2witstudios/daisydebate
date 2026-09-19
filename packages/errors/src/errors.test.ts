@@ -1,0 +1,83 @@
+import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { createAppError, isAppError, toPublicError } from './index';
+
+setupRitewayBun();
+
+describe('isAppError', () => {
+  test('recognizes errors minted by the public factory', () => {
+    assert({
+      given: 'an error created through createAppError',
+      should: 'be recognized as an app error',
+      actual: isAppError(createAppError('NOT_FOUND')),
+      expected: true,
+    });
+  });
+
+  test('rejects lookalikes that merely carry a code property', () => {
+    assert({
+      given: 'a driver error with a code property',
+      should: 'not be recognized as an app error',
+      actual: isAppError(
+        Object.assign(new Error('connect ECONNREFUSED'), {
+          code: 'ERR_POSTGRES_CONNECTION_REFUSED',
+        }),
+      ),
+      expected: false,
+    });
+    assert({
+      given: 'a plain object claiming an error code',
+      should: 'not be recognized as an app error',
+      actual: isAppError({ code: 'VALIDATION' }),
+      expected: false,
+    });
+    assert({
+      given: 'a non-error value',
+      should: 'not be recognized as an app error',
+      actual: isAppError(undefined),
+      expected: false,
+    });
+  });
+});
+
+describe('error mapping', () => {
+  test('internal details and cause never cross the public boundary', () => {
+    const cause = new Error('password=secret');
+    const error = createAppError('INFRASTRUCTURE', 'postgres://secret', cause);
+    assert({
+      given: 'an infrastructure error created with a cause',
+      should: 'retain the cause internally',
+      actual: error.cause,
+      expected: cause,
+    });
+    assert({
+      given: 'an infrastructure error at a public boundary',
+      should: 'map to a stable 503 body with a request id',
+      actual: toPublicError(error, 'request-1'),
+      expected: {
+        status: 503,
+        body: {
+          error: {
+            code: 'INFRASTRUCTURE',
+            message: 'Service temporarily unavailable',
+            requestId: 'request-1',
+          },
+        },
+      },
+    });
+    assert({
+      given: 'an unexpected error carrying a secret',
+      should: 'serialize without the secret',
+      actual: JSON.stringify(toPublicError(cause, 'request-1')).includes(
+        'secret',
+      ),
+      expected: false,
+    });
+    assert({
+      given: 'a forged payload claiming a public code',
+      should: 'map to INTERNAL status',
+      actual: toPublicError({ code: 'VALIDATION', message: 'forged' }, 'r')
+        .status,
+      expected: 500,
+    });
+  });
+});

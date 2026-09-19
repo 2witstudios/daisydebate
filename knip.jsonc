@@ -1,0 +1,12 @@
+{
+  // Dead-code gate: unused files, exports and dependencies fail the run.
+  // Run with `bun run knip` (under Bun, per the toolchain contract).
+  "$schema": "./node_modules/knip/schema.json",
+  "workspaces": {
+    "apps/web": {
+      // @daisy/protocol is wired through next.config.ts `transpilePackages`
+      // (a string reference knip cannot see); it must stay declared.
+      "ignoreDependencies": ["@daisy/protocol"],
+    },
+  },
+}

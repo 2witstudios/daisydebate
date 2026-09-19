@@ -1,0 +1,35 @@
+{
+  "$schema": "https://turborepo.dev/schema.json",
+  "globalDependencies": [
+    "packages/typescript-config/*.json",
+    "eslint.config.mjs",
+    ".prettierrc.json"
+  ],
+  "globalEnv": ["NODE_ENV", "APP_VERSION", "GIT_COMMIT"],
+  "globalPassThroughEnv": [
+    "DATABASE_URL",
+    "TEST_DATABASE_URL",
+    "REDIS_URL",
+    "TEST_REDIS_URL",
+    "REDIS_NAMESPACE",
+    "PUBLIC_APP_URL",
+    "LOG_LEVEL",
+    "FOUNDATION_PROOF_ENABLED",
+    "NEXT_MANUAL_SIG_HANDLE",
+    "E2E_POSTGRES_PORT"
+  ],
+  "tasks": {
+    "dev": { "cache": false, "persistent": true },
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**"]
+    },
+    "typecheck": { "dependsOn": ["^typecheck"], "outputs": [] },
+    "lint": { "outputs": [] },
+    "format:check": { "outputs": [] },
+    "test": { "dependsOn": ["^typecheck"], "outputs": [] },
+    "test:integration": { "cache": false },
+    "test:e2e": { "dependsOn": ["build"], "cache": false },
+    "check": { "dependsOn": ["typecheck", "lint", "test", "build"] }
+  }
+}

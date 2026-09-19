@@ -1,0 +1,104 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+# Deliberately supported major action pins; Dependabot proposes major upgrades.
+# No shared task-output cache: correctness runs fresh; setup-bun caches its binary.
+jobs:
+  checks:
+    name: ${{ matrix.task }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        task: [format:check, lint, knip, typecheck, test, build]
+    env:
+      TURBO_TELEMETRY_DISABLED: '1'
+      NEXT_TELEMETRY_DISABLED: '1'
+      DATABASE_URL: postgres://daisy:ci-only@postgres:5432/daisy_test
+      REDIS_URL: redis://redis:6379
+      PUBLIC_APP_URL: https://ci.example.invalid
+      APP_VERSION: ci
+      GIT_COMMIT: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+      - run: bun install --frozen-lockfile
+      - run: bun run ${{ matrix.task }}
+
+  integration:
+    name: Infrastructure and browser contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      TURBO_TELEMETRY_DISABLED: '1'
+      NEXT_TELEMETRY_DISABLED: '1'
+      DATABASE_URL: postgres://daisy:ci-only@127.0.0.1:5432/daisy_test
+      TEST_DATABASE_URL: postgres://daisy:ci-only@127.0.0.1:5432/daisy_test
+      REDIS_URL: redis://127.0.0.1:6379/1
+      TEST_REDIS_URL: redis://127.0.0.1:6379/1
+      REDIS_NAMESPACE: ci
+      PUBLIC_APP_URL: http://127.0.0.1:3100
+      NODE_ENV: development
+      FOUNDATION_PROOF_ENABLED: 'true'
+      APP_VERSION: ci
+      GIT_COMMIT: ${{ github.sha }}
+    services:
+      postgres:
+        image: postgres:18.3-alpine
+        env:
+          POSTGRES_DB: daisy_test
+          POSTGRES_USER: daisy
+          POSTGRES_PASSWORD: ci-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U daisy -d daisy_test"
+          --health-interval 3s --health-timeout 3s --health-retries 20
+      redis:
+        image: redis:8.6.1-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 3s --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+      # Playwright's test runner executes under its supported Node LTS environment.
+      # Bun remains the only package manager and application runtime.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - run: bun install --frozen-lockfile
+      - name: Create the loopback e2e role (production-refined credentials)
+        run: |
+          psql postgresql://daisy:ci-only@127.0.0.1:5432/postgres \
+            -c "CREATE ROLE daisy_e2e LOGIN PASSWORD 'e2e-loopback-only';" \
+            -c "GRANT CONNECT ON DATABASE daisy_test TO daisy_e2e;"
+      - run: bun db:migrate
+      - name: Verify migration reruns are idempotent
+        run: bun db:migrate
+      - run: bun test:integration
+      - name: Install Chromium and system dependencies
+        working-directory: apps/web
+        run: node node_modules/@playwright/test/cli.js install --with-deps chromium
+      - name: Browser end-to-end against the production server
+        env:
+          E2E_POSTGRES_PORT: '5432'
+        run: bun test:e2e

@@ -1,0 +1,46 @@
+{
+  "name": "daisy",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.2",
+  "engines": {
+    "bun": "1.4.2"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "bun --env-file=.env run turbo run dev",
+    "build": "NODE_ENV=production turbo run build",
+    "start": "bun run --cwd apps/web start",
+    "typecheck": "turbo run typecheck",
+    "lint": "eslint . && bun scripts/check-boundaries.ts",
+    "knip": "bunx --bun knip",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "turbo run test",
+    "test:integration": "bun --env-file=.env run turbo run test:integration",
+    "test:e2e": "bun --env-file=.env run turbo run test:e2e",
+    "check": "bun format:check && bun lint && bun run knip && bun typecheck && bun run test && bun run build",
+    "db:generate": "bun run --cwd packages/db db:generate",
+    "db:migrate": "bun --env-file=.env packages/db/scripts/migrate.ts",
+    "db:studio": "bun --env-file=.env run --cwd packages/db db:studio",
+    "db:reset": "bun --env-file=.env packages/db/scripts/reset.ts",
+    "infra:up": "docker compose --env-file .env -f infra/compose.yaml up -d --wait",
+    "infra:down": "docker compose --env-file .env -f infra/compose.yaml down",
+    "infra:logs": "docker compose --env-file .env -f infra/compose.yaml logs -f",
+    "audit": "bun audit"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@types/bun": "1.4.2",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.5",
+    "knip": "6.37.0",
+    "prettier": "3.9.8",
+    "turbo": "2.11.2",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.70.0"
+  }
+}

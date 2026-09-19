@@ -1,0 +1,21 @@
+{
+  "name": "@daisy/debate-engine",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test src"
+  },
+  "dependencies": {
+    "@adobe/data": "0.10.19",
+    "@daisy/errors": "workspace:*",
+    "@daisy/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "riteway": "9.3.0"
+  }
+}
