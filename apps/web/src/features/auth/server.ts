@@ -1,3 +1,7 @@
+import { betterAuth } from 'better-auth';
+import type { BetterAuthOptions } from 'better-auth';
+import { magicLink } from 'better-auth/plugins';
+import { passkey } from '@better-auth/passkey';
 import { createAppError } from '@daisy/errors';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
@@ -21,12 +25,51 @@ export type AuthRateLimiter = {
   }>;
 };
 /**
+ * The composed Better Auth instance with the passwordless plugins applied.
+ * Created lazily by the factory; importing this module performs no I/O.
+ */
+type AuthInstance = ReturnType<typeof composeBetterAuth>;
+
+const composeBetterAuth = (dependencies: {
+  readonly config: AuthConfig;
+  readonly database: BetterAuthOptions['database'];
+  readonly emailSender: AuthEmailSender;
+}) => {
+  const origin = new URL(dependencies.config.PUBLIC_APP_URL).origin;
+  return betterAuth({
+    baseURL: dependencies.config.PUBLIC_APP_URL,
+    trustedOrigins: [origin],
+    secret: dependencies.config.BETTER_AUTH_SECRET,
+    database: dependencies.database,
+    emailAndPassword: { enabled: false },
+    plugins: [
+      magicLink({
+        sendMagicLink: async ({ email, url }) => {
+          await dependencies.emailSender.send({
+            to: email,
+            subject: 'Sign in to Daisy',
+            text: `Open the link to continue: ${url}`,
+            html: `<p>Open the link to continue: <a href="${url}">Sign in to Daisy</a></p>`,
+          });
+        },
+      }),
+      passkey({
+        rpID: new URL(dependencies.config.PUBLIC_APP_URL).hostname,
+        rpName: 'Daisy',
+        origin,
+      }),
+    ],
+  });
+};
+
+/**
  * Composition of one auth instance over the existing process resources.
  * The database adapter is an opaque capability from @daisy/db — this seam
  * never opens a second SQL or Redis pool and never imports transport code.
  */
-export type AuthServer<Database> = {
+export type AuthServer<Database extends BetterAuthOptions['database']> = {
   readonly config: AuthConfig;
+  readonly instance: AuthInstance;
   readonly database: Database;
   readonly mail: {
     readonly send: (message: AuthEmailMessage) => Promise<void>;
@@ -42,7 +85,9 @@ export type AuthServer<Database> = {
  * injected dependencies; it performs no I/O and dials no service. Importing
  * this module requires no credentials and contacts nothing.
  */
-export function createAuthServer<Database>(dependencies: {
+export function createAuthServer<
+  Database extends BetterAuthOptions['database'],
+>(dependencies: {
   readonly env: Record<string, string | undefined>;
   readonly database: Database;
   readonly emailSender: AuthEmailSender;
@@ -54,6 +99,11 @@ export function createAuthServer<Database>(dependencies: {
   const config = readAuthConfig(dependencies.env);
   return {
     config,
+    instance: composeBetterAuth({
+      config,
+      database: dependencies.database,
+      emailSender: dependencies.emailSender,
+    }),
     database: dependencies.database,
     mail: {
       send: async (message) => {

@@ -1,4 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { memoryAdapter } from '@better-auth/memory-adapter';
+import type { BetterAuthOptions } from 'better-auth';
 import { fixedClock, sequentialId } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import { createAuthServer, type AuthEmailMessage } from './server';
@@ -26,11 +28,21 @@ const message: AuthEmailMessage = {
 };
 
 const create = (overrides?: {
+  env?: Record<string, string | undefined>;
   emailSender?: ReturnType<typeof capturingSender>;
+  database?: BetterAuthOptions['database'];
 }) =>
   createAuthServer({
-    env,
-    database: { health: async () => true },
+    env: overrides?.env ?? env,
+    database:
+      overrides?.database ??
+      memoryAdapter({
+        user: [],
+        session: [],
+        account: [],
+        verification: [],
+        passkey: [],
+      }),
     emailSender: overrides?.emailSender ?? capturingSender(),
     limiter: { consume: async () => ({ allowed: true, retryAfterSeconds: 0 }) },
     logger: silentLogger,
@@ -68,7 +80,7 @@ describe('auth server composition', () => {
     try {
       createAuthServer({
         env: { ...env, BETTER_AUTH_SECRET: 'short' },
-        database: { health: async () => true },
+        database: memoryAdapter({ user: [], session: [], account: [] }),
         emailSender: capturingSender(),
         limiter: {
           consume: async () => ({ allowed: true, retryAfterSeconds: 0 }),
@@ -91,13 +103,27 @@ describe('auth server composition', () => {
     });
   });
 
-  test('composes lazily without dialing the injected database adapter', () => {
-    let adapterCalls = 0;
-    const database = {
-      health: () => {
-        adapterCalls += 1;
-        return Promise.resolve(true);
-      },
+  test('composes lazily without querying the injected database adapter', async () => {
+    let adapterQueries = 0;
+    const underlying = memoryAdapter({
+      user: [],
+      session: [],
+      account: [],
+      verification: [],
+      passkey: [],
+    });
+    const database: BetterAuthOptions['database'] = (options) => {
+      const adapter = underlying(options);
+      return new Proxy(adapter, {
+        get(target, property) {
+          const value = Reflect.get(target, property);
+          if (typeof value !== 'function') return value;
+          return (...args: readonly unknown[]) => {
+            adapterQueries += 1;
+            return value.apply(target, args);
+          };
+        },
+      });
     };
     const server = createAuthServer({
       env,
@@ -110,14 +136,26 @@ describe('auth server composition', () => {
       clock: fixedClock('2026-09-20T00:00:00.000Z'),
       ids: sequentialId('auth'),
     });
+    const composed = {
+      synchronous: typeof server.config === 'object',
+      adapterQueries,
+    };
+    await server.instance.api.signInMagicLink({
+      body: { email: 'player@daisy.example.com' },
+      headers: new Headers({ origin: 'http://localhost:3000' }),
+    });
     assert({
-      given: 'a scripted database adapter',
-      should: 'compose synchronously without touching the adapter or pools',
+      given: 'a query-counting database adapter',
+      should:
+        'compose with zero queries and reach the adapter only through operations',
       actual: {
-        synchronous: typeof server.config === 'object',
-        adapterCalls,
+        composed,
+        reachedAdapterOnlyThroughOperations: adapterQueries > 0,
       },
-      expected: { synchronous: true, adapterCalls: 0 },
+      expected: {
+        composed: { synchronous: true, adapterQueries: 0 },
+        reachedAdapterOnlyThroughOperations: true,
+      },
     });
   });
 
@@ -136,7 +174,7 @@ describe('auth server composition', () => {
   test('maps sender failure to a retryable error without provider detail', async () => {
     const server = createAuthServer({
       env,
-      database: { health: async () => true },
+      database: memoryAdapter({ user: [], session: [], account: [] }),
       emailSender: {
         send: async () => {
           throw new Error('resend provider exception AB12CD');
