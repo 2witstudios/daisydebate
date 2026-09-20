@@ -77,28 +77,42 @@ export function readServerConfig(
  * Narrow server authentication configuration, validated only when the auth
  * composition is activated: baseline startup never requires auth variables.
  */
-export const authConfigSchema = z.object({
-  /** 64 characters from 32 random bytes (hex); see `bun auth:provision`. */
-  BETTER_AUTH_SECRET: z.string().regex(/^\S{64}$/),
-  PUBLIC_APP_URL: z.url().refine((value) => {
-    try {
-      return ['http:', 'https:'].includes(new URL(value).protocol);
-    } catch {
-      return false;
-    }
-  }, 'Expected HTTP(S) URL'),
-  RESEND_API_KEY: z.string().regex(/^\S+$/),
-  /** Sender email header value; newlines and malformed mailboxes are rejected. */
-  AUTH_EMAIL_FROM: z
-    .string()
-    .refine(
-      (value) =>
-        /^(?:[^<>\r\n]+ <[^\s@<>]+@[^\s@<>]+>|[^\s@<>]+@[^\s@<>]+)$/.test(
-          value,
-        ),
-      'Expected an email address or display name with an email address',
-    ),
-});
+export const authConfigSchema = z
+  .object({
+    /** 64 characters from 32 random bytes (hex); see `bun auth:provision`. */
+    BETTER_AUTH_SECRET: z.string().regex(/^\S{64}$/),
+    PUBLIC_APP_URL: z.url().refine((value) => {
+      try {
+        return ['http:', 'https:'].includes(new URL(value).protocol);
+      } catch {
+        return false;
+      }
+    }, 'Expected HTTP(S) URL'),
+    RESEND_API_KEY: z.string().regex(/^\S+$/),
+    /** Sender email header value; newlines and malformed mailboxes are rejected. */
+    AUTH_EMAIL_FROM: z
+      .string()
+      .refine(
+        (value) =>
+          /^(?:[^<>\r\n]+ <[^\s@<>]+@[^\s@<>]+>|[^\s@<>]+@[^\s@<>]+)$/.test(
+            value,
+          ),
+        'Expected an email address or display name with an email address',
+      ),
+    NODE_ENV: z
+      .enum(['development', 'test', 'production'])
+      .default('development'),
+  })
+  .superRefine((config, ctx) => {
+    if (config.NODE_ENV !== 'production') return;
+    if (!config.PUBLIC_APP_URL.startsWith('https:'))
+      ctx.addIssue({
+        code: 'custom',
+        path: ['PUBLIC_APP_URL'],
+        message: 'Production requires HTTPS',
+      });
+  })
+  .transform(({ NODE_ENV: _nodeEnv, ...auth }) => auth);
 export type AuthConfig = z.infer<typeof authConfigSchema>;
 /** Validation reports field names only: never echo secret values. */
 export function readAuthConfig(

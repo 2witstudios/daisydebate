@@ -164,6 +164,44 @@ describe('authentication configuration', () => {
     });
   });
 
+  test('production auth rejects a non-HTTPS application URL', () => {
+    let message = '';
+    try {
+      readAuthConfig({
+        ...authEnv,
+        NODE_ENV: 'production',
+        PUBLIC_APP_URL: 'http://daisy.example.com',
+      });
+    } catch (error) {
+      message = String(error);
+    }
+    assert({
+      given: 'a production environment with an http application URL',
+      should: 'reject the configuration naming PUBLIC_APP_URL',
+      actual: message.includes('PUBLIC_APP_URL'),
+      expected: true,
+    });
+  });
+
+  test('non-production auth still accepts http application URLs', () => {
+    assert({
+      given: 'a development environment with a localhost http URL',
+      should: 'validate exactly the four auth fields',
+      actual: Object.keys(
+        readAuthConfig({
+          ...authEnv,
+          PUBLIC_APP_URL: 'http://localhost:3000',
+        }),
+      ).sort(),
+      expected: [
+        'AUTH_EMAIL_FROM',
+        'BETTER_AUTH_SECRET',
+        'PUBLIC_APP_URL',
+        'RESEND_API_KEY',
+      ],
+    });
+  });
+
   test('browser allowlist never carries authentication configuration', () => {
     assert({
       given: 'a server environment including all auth variables',
