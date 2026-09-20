@@ -42,7 +42,9 @@ jobs:
     name: Send structured documentation event
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    if: github.event.pull_request.merged == true
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.fork == false
     steps:
       - uses: actions/checkout@v7
         with:
@@ -73,3 +75,42 @@ jobs:
             "${{ github.event.pull_request.merge_commit_sha }}" | paste -sd, -)"
           export DOC_CHANGED_FILES
           bun scripts/dispatch-docs.ts
+      - name: Report the failed dispatch to incidents
+        if: failure()
+        env:
+          PAGESPACE_INCIDENTS_WEBHOOK_URL: ${{ secrets.PAGESPACE_INCIDENTS_WEBHOOK_URL }}
+          PAGESPACE_INCIDENTS_WEBHOOK_SECRET: ${{ secrets.PAGESPACE_INCIDENTS_WEBHOOK_SECRET }}
+          DOCS_FAILURE_PR: ${{ github.event.pull_request.number }}
+          DOCS_FAILURE_TITLE: ${{ github.event.pull_request.title }}
+          DOCS_FAILURE_URL: ${{ github.event.pull_request.html_url }}
+        run: >-
+          bun scripts/notify-drive.ts incidents
+          --pr "$DOCS_FAILURE_PR"
+          --title "$DOCS_FAILURE_TITLE"
+          --url "$DOCS_FAILURE_URL"
+
+  fork-merge-notice:
+    name: Notice the skipped documentation event for a fork merge
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.fork == true
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+      - name: Report the skipped dispatch to incidents
+        env:
+          PAGESPACE_INCIDENTS_WEBHOOK_URL: ${{ secrets.PAGESPACE_INCIDENTS_WEBHOOK_URL }}
+          PAGESPACE_INCIDENTS_WEBHOOK_SECRET: ${{ secrets.PAGESPACE_INCIDENTS_WEBHOOK_SECRET }}
+          DOCS_FAILURE_PR: ${{ github.event.pull_request.number }}
+          DOCS_FAILURE_URL: ${{ github.event.pull_request.html_url }}
+        run: >-
+          bun scripts/notify-drive.ts incidents
+          --pr "$DOCS_FAILURE_PR"
+          --url "$DOCS_FAILURE_URL"
+          --skipped "true"

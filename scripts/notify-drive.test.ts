@@ -2,8 +2,10 @@ import { describe, test } from 'riteway/bun';
 import { setupRitewayBun, assert } from 'riteway/bun';
 import {
   CHANNELS,
+  composeDocsFailureMessage,
   composeIncidentMessage,
   composeMergeMessage,
+  deliverWithRetry,
   extractTaskIds,
   postDocumentationEvent,
   signPayload,
@@ -102,7 +104,162 @@ describe('composeMergeMessage', async () => {
   });
 });
 
+describe('deliverWithRetry', async () => {
+  const delayLog: number[] = [];
+  const delay = async (ms: number) => {
+    delayLog.push(ms);
+  };
+  const ok = () => new Response('ok', { status: 200 });
+
+  test('retries retryable statuses and succeeds', async () => {
+    delayLog.length = 0;
+    const responses = [
+      new Response('a', { status: 503 }),
+      new Response('b', { status: 429 }),
+      ok(),
+    ];
+    const response = await deliverWithRetry({
+      send: () => Promise.resolve(responses.shift() ?? ok()),
+      delays: [10, 20],
+      delay,
+    });
+    assert({
+      given: 'two retryable responses followed by success',
+      should: 'return the successful response after backing off twice',
+      actual: { status: response.status, backoffs: [...delayLog] },
+      expected: { status: 200, backoffs: [10, 20] },
+    });
+  });
+
+  test('does not retry non-retryable statuses', async () => {
+    delayLog.length = 0;
+    let calls = 0;
+    await deliverWithRetry({
+      send: () => {
+        calls += 1;
+        return Promise.resolve(new Response('no', { status: 401 }));
+      },
+      delays: [10],
+      delay,
+    });
+    assert({
+      given: 'a 401 response',
+      should: 'send once with no backoff',
+      actual: { calls, backoffs: [...delayLog] },
+      expected: { calls: 1, backoffs: [] },
+    });
+  });
+
+  test('rethrows network errors after exhausting retries', async () => {
+    delayLog.length = 0;
+    let calls = 0;
+    let thrown = '';
+    try {
+      await deliverWithRetry({
+        send: () => {
+          calls += 1;
+          return Promise.reject(new Error('connection reset'));
+        },
+        delays: [10, 20],
+        delay,
+      });
+    } catch (error) {
+      thrown = (error as Error).message;
+    }
+    assert({
+      given: 'a sender that always fails',
+      should: 'attempt three times then throw',
+      actual: { calls, thrown },
+      expected: { calls: 3, thrown: 'connection reset' },
+    });
+  });
+});
+
+describe('composeDocsFailureMessage', async () => {
+  test('summarizes the failed documentation event with replay hint', async () => {
+    const actual = composeDocsFailureMessage({
+      pr: 12,
+      title: 'feat: add tournaments\u200b',
+      url: 'https://github.test/pr/12',
+    });
+    assert({
+      given: 'a failed documentation dispatch',
+      should: 'render a sanitized incident message with a replay hint',
+      actual,
+      expected:
+        '🔴 Documentation event failed for #12 — feat: add tournaments\nhttps://github.test/pr/12\nReplay with `bun docs:dispatch` after fixing the workflow.',
+    });
+  });
+
+  test('summarizes a skipped fork-merge dispatch without the untrusted title', async () => {
+    const actual = composeDocsFailureMessage({
+      pr: 13,
+      url: 'https://github.test/pr/13',
+      skipped: true,
+    });
+    assert({
+      given: 'a merged fork PR whose dispatch is skipped',
+      should: 'render a skip notice with the manual replay hint',
+      actual,
+      expected:
+        '🟡 Documentation event skipped for merged fork PR #13 — replay manually with `bun docs:dispatch` from a trusted checkout.\nhttps://github.test/pr/13\nhttps://github.com/2witstudios/daisydebate/blob/main/docs/operations/documentation-review-workflows.md',
+    });
+  });
+});
+
 describe('postDocumentationEvent', async () => {
+  const validEvent = {
+    eventVersion: 'docs-event-v1' as const,
+    eventId: 'evt-1',
+    eventType: 'pull_request.merged' as const,
+    occurredAt: '2026-09-20T00:00:00.000Z',
+    repository: 'daisydebate',
+    baseRef: 'main',
+    commit: 'abc123',
+    pullRequest: null,
+    taskIds: [],
+    changedFiles: [],
+    classification: { changeKind: 'unknown' as const, pipelines: [] as const, reasons: [] },
+    sourceRefs: [],
+    idempotencyKey: 'daisydebate:abc123:pull_request.merged',
+  };
+
+  test('retries retryable webhook responses and succeeds', async () => {
+    const originalUrl = process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL;
+    const originalSecret =
+      process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET;
+    process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL =
+      'https://pagespace.test/api/webhooks/agent';
+    process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET = 'test-secret';
+    let calls = 0;
+    const fetchImpl = (async (_url: unknown, init?: RequestInit) => {
+      calls += 1;
+      if (calls < 3) return new Response('busy', { status: 503 });
+      return new Response('accepted', { status: 200 });
+    }) as unknown as typeof fetch;
+
+    try {
+      await postDocumentationEvent(validEvent, {
+        fetchImpl,
+        delays: [0, 0],
+        delay: async () => {},
+      });
+    } finally {
+      if (originalUrl)
+        process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL = originalUrl;
+      else delete process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL;
+      if (originalSecret)
+        process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET = originalSecret;
+      else delete process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET;
+    }
+    assert({
+      given: 'two 503 responses followed by a 200',
+      should: 'retry with re-signed requests until accepted',
+      actual: calls,
+      expected: 3,
+    });
+  });
+
   test('rejects a webhook URL that is not https', async () => {
     const originalUrl = process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL;
     const originalSecret =

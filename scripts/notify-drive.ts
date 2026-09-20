@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 import { createHmac } from 'node:crypto';
 import type { DocumentationEvent } from './docs-pipeline';
+import { assessEventText } from './docs-contracts';
 
 const TASK_ID_PATTERN = /\b[A-Z]{2,6}-\d+(?:\.\d+)?\b/g;
 
@@ -63,6 +64,25 @@ export function composeIncidentMessage(input: {
   ].join('\n');
 }
 
+export function composeDocsFailureMessage(input: {
+  pr: number;
+  title?: string;
+  url: string;
+  skipped?: boolean;
+}): string {
+  const { title } = assessEventText({ title: input.title ?? '' });
+  const summary = input.skipped
+    ? `🟡 Documentation event skipped for merged fork PR #${input.pr} — replay manually with \`bun docs:dispatch\` from a trusted checkout.`
+    : `🔴 Documentation event failed for #${input.pr}${title ? ` — ${title}` : ''}`;
+  return [
+    summary,
+    input.url,
+    input.skipped
+      ? 'https://github.com/2witstudios/daisydebate/blob/main/docs/operations/documentation-review-workflows.md'
+      : 'Replay with `bun docs:dispatch` after fixing the workflow.',
+  ].join('\n');
+}
+
 export function composeMergeMessage(input: {
   pr: number;
   title: string;
@@ -119,38 +139,84 @@ function requireHttpsWebhook(name: string, value: string): URL {
   return url;
 }
 
+export const DEFAULT_RETRY_DELAYS_MS: readonly number[] = [500, 2000];
+
+const isRetryableStatus = (status: number): boolean =>
+  status === 429 || status >= 500;
+
+export type DeliveryOptions = {
+  readonly delays?: readonly number[];
+  readonly delay?: (ms: number) => Promise<void>;
+  readonly fetchImpl?: typeof fetch;
+};
+
+export async function deliverWithRetry(input: {
+  readonly send: () => Promise<Response>;
+  readonly delays?: readonly number[];
+  readonly delay?: (ms: number) => Promise<void>;
+}): Promise<Response> {
+  const delays = input.delays ?? DEFAULT_RETRY_DELAYS_MS;
+  const delay = input.delay ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
+  let attempt = 0;
+  for (;;) {
+    let response: Response;
+    try {
+      response = await input.send();
+    } catch (error) {
+      if (attempt >= delays.length)
+        throw error instanceof Error ? error : new Error(String(error));
+      await delay(delays[attempt]);
+      attempt += 1;
+      continue;
+    }
+    if (response.ok || !isRetryableStatus(response.status) || attempt >= delays.length)
+      return response;
+    await delay(delays[attempt]);
+    attempt += 1;
+  }
+}
+
 async function postSignedWebhook(input: {
   readonly label: string;
   readonly url: URL;
   readonly secret: string;
   readonly rawBody: string;
+  readonly delivery?: DeliveryOptions;
 }): Promise<Response> {
-  const timestampSeconds = Math.floor(Date.now() / 1000);
-  try {
-    return await fetch(input.url, {
-      method: 'POST',
-      redirect: 'error',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-pagespace-timestamp': String(timestampSeconds),
-        'x-pagespace-signature': signPayload(
-          input.secret,
-          timestampSeconds,
-          input.rawBody,
-        ),
-      },
-      body: input.rawBody,
-    });
-  } catch (error) {
-    throw new Error(
-      `Webhook ${input.label} request failed: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
+  const fetchImpl = input.delivery?.fetchImpl ?? fetch;
+  return deliverWithRetry({
+    delays: input.delivery?.delays,
+    delay: input.delivery?.delay,
+    send: async () => {
+      const timestampSeconds = Math.floor(Date.now() / 1000);
+      try {
+        return await fetchImpl(input.url, {
+          method: 'POST',
+          redirect: 'error',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-pagespace-timestamp': String(timestampSeconds),
+            'x-pagespace-signature': signPayload(
+              input.secret,
+              timestampSeconds,
+              input.rawBody,
+            ),
+          },
+          body: input.rawBody,
+        });
+      } catch (error) {
+        throw new Error(
+          `Webhook ${input.label} request failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    },
+  });
 }
 
 export async function postToDrive(
   channel: Channel,
   content: string,
+  delivery?: DeliveryOptions,
 ): Promise<void> {
   const rawUrl = process.env[CHANNEL_ENV[channel].url];
   const secret = process.env[CHANNEL_ENV[channel].secret];
@@ -166,6 +232,7 @@ export async function postToDrive(
     url,
     secret,
     rawBody,
+    delivery,
   });
   if (!response.ok) {
     throw new Error(
@@ -176,6 +243,7 @@ export async function postToDrive(
 
 export async function postDocumentationEvent(
   event: DocumentationEvent,
+  delivery?: DeliveryOptions,
 ): Promise<void> {
   const rawUrl = process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL;
   const secret = process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET;
@@ -197,6 +265,7 @@ export async function postDocumentationEvent(
     url,
     secret,
     rawBody,
+    delivery,
   });
   if (!response.ok) {
     throw new Error(
@@ -235,6 +304,13 @@ async function main(): Promise<void> {
   let content: string;
   if (flags.message) {
     content = flags.message;
+  } else if (channel === 'incidents' && flags.pr !== undefined) {
+    content = composeDocsFailureMessage({
+      pr: Number(requireFlag(flags, 'pr')),
+      title: flags.title,
+      url: requireFlag(flags, 'url'),
+      skipped: flags.skipped === 'true',
+    });
   } else if (channel === 'incidents') {
     content = composeIncidentMessage({
       ref: requireFlag(flags, 'ref'),
