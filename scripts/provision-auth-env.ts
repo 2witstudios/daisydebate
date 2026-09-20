@@ -1,5 +1,11 @@
 /**
- * Provision BETTER_AUTH_SECRET in the local .env when it is absent or empty.
+ * Provision BETTER_AUTH_SECRET in the local .env as a canonical
+ * `BETTER_AUTH_SECRET=<value>` assignment. A canonical non-empty value is
+ * preserved verbatim. Non-canonical but loader-supported assignments
+ * (`export BETTER_AUTH_SECRET=…`, `BETTER_AUTH_SECRET = …`) rotate: the
+ * generated value is appended as the final assignment so dotenv-style
+ * last-assignment loaders honor it, and the stale line is left untouched,
+ * which makes every repeated run a no-op from then on.
  * The value is written directly into .env and never printed or logged.
  * Usage: bun scripts/provision-auth-env.ts
  */
@@ -35,9 +41,7 @@ export function provisionAuthSecret(
       'Generated auth secret must be 64 non-whitespace characters',
     );
   const written = effective
-    ? `${content.slice(0, effective.index)}BETTER_AUTH_SECRET=${secret}${
-        effective[0].endsWith('\r') ? '\r' : ''
-      }${content.slice(effective.index + effective[0].length)}`
+    ? `${content.slice(0, effective.index)}BETTER_AUTH_SECRET=${secret}${content.slice(effective.index + effective[0].length)}`
     : `${content}${content && !content.endsWith('\n') ? '\n' : ''}BETTER_AUTH_SECRET=${secret}\n`;
   return { content: written, changed: true };
 }
