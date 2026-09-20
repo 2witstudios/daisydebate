@@ -3,6 +3,7 @@ import {
   createDoctorReport,
   formatDoctorReport,
   isMigrationCurrent,
+  readCommittedMigrationHashes,
 } from './doctor';
 
 setupRitewayBun();
@@ -73,6 +74,17 @@ describe('migration currency', () => {
         ),
       ],
       expected: [true, false, false],
+    });
+  });
+
+  test('reads the hashes of committed migration SQL', async () => {
+    assert({
+      given: 'the committed migration journal and SQL files',
+      should: 'return the migration hashes in journal order',
+      actual: await readCommittedMigrationHashes(),
+      expected: [
+        '18b8ceed0a16e3f7b68844efc8eadae18b6183cbde61aec8e3c58c9741cb187a',
+      ],
     });
   });
 });

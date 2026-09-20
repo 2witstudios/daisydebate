@@ -1,5 +1,6 @@
 import { SQL, RedisClient } from 'bun';
 import { readServerConfig } from '@daisy/config';
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
@@ -33,6 +34,27 @@ export function isMigrationCurrent(
   return (
     committedTags.length === appliedTags.length &&
     committedTags.every((tag, index) => tag === appliedTags[index])
+  );
+}
+
+export async function readCommittedMigrationHashes(): Promise<
+  readonly string[]
+> {
+  const journal = JSON.parse(
+    await readFile(
+      resolve(root, 'packages/db/migrations/meta/_journal.json'),
+      'utf8',
+    ),
+  ) as { entries?: readonly { tag: string }[] };
+
+  return Promise.all(
+    (journal.entries ?? []).map(async ({ tag }) => {
+      const sql = await readFile(
+        resolve(root, 'packages/db/migrations', `${tag}.sql`),
+        'utf8',
+      );
+      return createHash('sha256').update(sql).digest('hex');
+    }),
   );
 }
 
@@ -115,27 +137,27 @@ async function checkMigrationCurrency(
   if (!url) return fail('migration-currency', 'DATABASE_URL unavailable');
   let client: SQL | undefined;
   try {
-    const journal = JSON.parse(
-      await readFile(
-        resolve(root, 'packages/db/migrations/meta/_journal.json'),
-        'utf8',
-      ),
-    ) as { entries?: readonly { tag: string }[] };
-    const committedTags = (journal.entries ?? []).map((entry) => entry.tag);
+    const committedHashes = await readCommittedMigrationHashes();
     client = new SQL(url, { max: 1, connectionTimeout: 3 });
     const rows = await client`
-      select created_at
+      select hash
       from drizzle.__drizzle_migrations
       order by created_at asc
     `;
-    if (!isMigrationCurrent(committedTags, committedTags.slice(0, rows.length)))
+    const appliedHashes = rows.map((row) => row.hash);
+    if (
+      !appliedHashes.every(
+        (hash): hash is string => typeof hash === 'string',
+      ) ||
+      !isMigrationCurrent(committedHashes, appliedHashes)
+    )
       return fail(
         'migration-currency',
-        `expected ${committedTags.length}, applied ${rows.length}`,
+        `migration drift: expected ${committedHashes.length}, applied ${rows.length}`,
       );
     return pass(
       'migration-currency',
-      `${committedTags.length} migration${committedTags.length === 1 ? '' : 's'}`,
+      `${committedHashes.length} migration${committedHashes.length === 1 ? '' : 's'}`,
     );
   } catch {
     return fail('migration-currency', 'migration table unavailable');
