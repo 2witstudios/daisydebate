@@ -1,4 +1,5 @@
 import { SQL } from 'bun';
+import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { fixedClock, sequentialId } from '@daisy/clock';
 import { createDatabase } from '@daisy/db';
@@ -32,7 +33,7 @@ const logger: Logger = {
 };
 
 test('Better Auth persists through the existing database pool', async () => {
-  const email = `auth-${crypto.randomUUID()}@example.test`;
+  const email = `auth-${createId()}@example.test`;
   const sent: AuthEmailMessage[] = [];
   const database = createDatabase({ url });
   const auth = createAuthServer({
