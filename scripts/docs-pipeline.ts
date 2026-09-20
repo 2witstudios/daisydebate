@@ -140,7 +140,7 @@ export function classifyDocumentationChange(input: {
   const technicalFiles =
     hasAny(
       nonTestFiles,
-      /^(docs\/|packages\/(protocol|debate-engine|db|auth|config)\/)/,
+      /^(docs\/|packages\/(protocol|debate-engine|db|auth|config|redis)\/)/,
     ) ||
     hasAny(
       nonTestFiles,

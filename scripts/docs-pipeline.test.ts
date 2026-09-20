@@ -35,6 +35,19 @@ describe('classifyDocumentationChange', async () => {
     });
   });
 
+  test('routes redis adapter behavior changes to technical documentation', async () => {
+    const actual = classifyDocumentationChange({
+      title: 'fix: correct presence key lifetime',
+      changedFiles: ['packages/redis/src/index.ts'],
+    });
+    assert({
+      given: 'a redis adapter behavior fix',
+      should: 'include the technical documentation pipeline',
+      actual: actual.pipelines,
+      expected: ['technical-docs'],
+    });
+  });
+
   test('requires an explicit blog marker', async () => {
     const actual = classifyDocumentationChange({
       title: 'feat: add tournament registration',

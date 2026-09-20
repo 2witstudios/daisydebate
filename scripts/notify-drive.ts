@@ -112,11 +112,17 @@ export async function postToDrive(
 export async function postDocumentationEvent(
   event: DocumentationEvent,
 ): Promise<void> {
-  const url = process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL;
+  const webhookUrl = process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL;
   const secret = process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET;
-  if (!url || !secret) {
+  if (!webhookUrl || !secret) {
     throw new Error(
       'Missing PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL or PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET',
+    );
+  }
+  const url = new URL(webhookUrl);
+  if (url.protocol !== 'https:') {
+    throw new Error(
+      'PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL must use https to protect the signed event',
     );
   }
   const rawBody = JSON.stringify({
@@ -126,6 +132,7 @@ export async function postDocumentationEvent(
   const timestampSeconds = Math.floor(Date.now() / 1000);
   const response = await fetch(url, {
     method: 'POST',
+    redirect: 'error',
     headers: {
       'Content-Type': 'application/json',
       'x-pagespace-timestamp': String(timestampSeconds),
