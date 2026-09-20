@@ -40,7 +40,7 @@ DATABASE_URL="$TEST_DATABASE_URL" bun db:migrate
 | `bun typecheck`                   | `tsc --noEmit` per workspace (web runs `next typegen` first)                                                 |
 | `bun check`                       | format:check + lint + knip + invariants + evidence + typecheck + test + metrics + build — run before pushing |
 | `bun check:affected`              | Fast per-vertical inner loop: lint/prettier on changed files, boundaries, affected turbo graph               |
-| `bun migrations:check`            | Fail a branch that rewrites/reorders shared migrations vs `origin/main`                                      |
+| `bun migrations:check`            | Fail a branch that rewrites/edits/reorders shared migrations vs `origin/main`                                |
 | `bun evidence`                    | Orphan-suite and CI-wiring audit: every test tier is claimed by a real runner                                |
 | `bun db:generate`                 | Generate migration SQL from schema changes (review the SQL!)                                                 |
 | `bun db:migrate`                  | Apply pending migrations                                                                                     |

@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const root = resolve(import.meta.dir, '..');
@@ -34,17 +35,23 @@ const prettierExtensions = new Set([
 
 const extension = (file: string): string => file.slice(file.lastIndexOf('.'));
 
+export const parseBaseRef = (argv: readonly string[]): string =>
+  argv.slice(2).find((arg) => !arg.startsWith('--')) ?? 'origin/main';
+
 export function partitionAffected(
   changedFiles: readonly string[],
+  missingFiles: readonly string[] = [],
 ): AffectedPlan {
+  const missing = new Set(missingFiles);
+  const onDisk = (file: string) => !missing.has(file);
   const inWorkspace = (file: string) =>
     file.startsWith('apps/') || file.startsWith('packages/');
   return {
-    lintFiles: changedFiles.filter((file) =>
-      eslintExtensions.has(extension(file)),
+    lintFiles: changedFiles.filter(
+      (file) => onDisk(file) && eslintExtensions.has(extension(file)),
     ),
-    prettierFiles: changedFiles.filter((file) =>
-      prettierExtensions.has(extension(file)),
+    prettierFiles: changedFiles.filter(
+      (file) => onDisk(file) && prettierExtensions.has(extension(file)),
     ),
     runTurbo: changedFiles.some(inWorkspace),
     runRootScriptsTests: changedFiles.some(
@@ -163,14 +170,23 @@ async function runGate(gate: Gate): Promise<boolean> {
 
 if (import.meta.main) {
   try {
-    const baseRef = process.argv[2] ?? 'origin/main';
-    const mergeBase = await gitOutput(['merge-base', 'HEAD', baseRef]);
+    const mergeBase = await gitOutput([
+      'merge-base',
+      'HEAD',
+      parseBaseRef(process.argv),
+    ]);
     const changedFiles = await collectChangedFiles(mergeBase);
     const results: { name: string; ok: boolean }[] = [];
     if (changedFiles.length === 0) {
       results.push({ name: 'no changes since base', ok: true });
     } else {
-      for (const gate of planGates(partitionAffected(changedFiles), mergeBase))
+      const missingFiles = changedFiles.filter(
+        (file) => !existsSync(resolve(root, file)),
+      );
+      for (const gate of planGates(
+        partitionAffected(changedFiles, missingFiles),
+        mergeBase,
+      ))
         results.push({ name: gate.name, ok: await runGate(gate) });
     }
     process.stdout.write(

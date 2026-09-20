@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { partitionAffected, planGates } from './check-affected';
+import { parseBaseRef, partitionAffected, planGates } from './check-affected';
 
 setupRitewayBun();
 
@@ -36,6 +36,31 @@ describe('partitionAffected', () => {
       should: 'run the turbo affected gate',
       actual: partitionAffected(['packages/protocol/src/index.ts']).runTurbo,
       expected: true,
+    });
+  });
+
+  test('excludes deleted files from lint and prettier but keeps workspace selection', () => {
+    const plan = partitionAffected(
+      [
+        'packages/protocol/src/gone.ts',
+        'apps/web/src/features/kept.ts',
+        'docs/removed.md',
+      ],
+      ['packages/protocol/src/gone.ts', 'docs/removed.md'],
+    );
+    assert({
+      given: 'a mix of existing and deleted files',
+      should: 'drop only nonexistent files from the file-based gates',
+      actual: {
+        lintFiles: plan.lintFiles,
+        prettierFiles: plan.prettierFiles,
+        runTurbo: plan.runTurbo,
+      },
+      expected: {
+        lintFiles: ['apps/web/src/features/kept.ts'],
+        prettierFiles: ['apps/web/src/features/kept.ts'],
+        runTurbo: true,
+      },
     });
   });
 
@@ -81,6 +106,47 @@ describe('planGates', () => {
       should: 'filter turbo to affected packages and dependents',
       actual: turbo?.args.slice(-2),
       expected: ['--filter', '...[abc123]'],
+    });
+  });
+
+  test('deletion-only changes skip the eslint and prettier gates', () => {
+    const gates = planGates(
+      partitionAffected(
+        ['packages/protocol/src/gone.ts'],
+        ['packages/protocol/src/gone.ts'],
+      ),
+      'abc123',
+    );
+    assert({
+      given: 'only a deleted workspace file',
+      should: 'run boundaries and turbo without file-based gates',
+      actual: gates.map(({ name }) => name),
+      expected: ['boundaries', 'turbo affected (typecheck, test)'],
+    });
+  });
+});
+
+describe('parseBaseRef', () => {
+  test('defaults to origin/main when only flags are passed', () => {
+    assert({
+      given: 'argv containing only a --json flag',
+      should: 'keep the default base ref',
+      actual: parseBaseRef(['bun', 'scripts/check-affected.ts', '--json']),
+      expected: 'origin/main',
+    });
+  });
+
+  test('uses the first positional argument as the base ref', () => {
+    assert({
+      given: 'a positional ref followed by a flag',
+      should: 'select the positional ref',
+      actual: parseBaseRef([
+        'bun',
+        'scripts/check-affected.ts',
+        '--json',
+        'origin/develop',
+      ]),
+      expected: 'origin/develop',
     });
   });
 });

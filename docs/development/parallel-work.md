@@ -38,8 +38,8 @@ PageSpace's lesson: branch debris accumulates faster than agents clean it
 
 - **Migrations.** One migration writer at a time across the whole
   repository; generation collides on the journal and applied migrations
-  are immutable. `bun migrations:check` fails a PR that rewrites or
-  reorders shared migrations; see
+  are immutable. `bun migrations:check` fails a PR that rewrites, edits,
+  or reorders shared migrations; see
   [database operations](../operations/database.md).
 - **Shared app-router files.** `src/app/layout.tsx`, `globals.css`, and
   `middleware`/`proxy` are coordination points: changing them belongs to
