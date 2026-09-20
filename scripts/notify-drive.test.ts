@@ -1,6 +1,7 @@
 import { describe, test } from 'riteway/bun';
 import { setupRitewayBun, assert } from 'riteway/bun';
 import {
+  CHANNELS,
   composeIncidentMessage,
   composeMergeMessage,
   extractTaskIds,
@@ -8,6 +9,18 @@ import {
 } from './notify-drive';
 
 setupRitewayBun();
+
+describe('CHANNELS', async () => {
+  test('provides the four designated PageSpace channels', async () => {
+    assert({
+      given: 'the notify-drive channel registry',
+      should:
+        'list standup, epic-updates, sprint-room and incidents as valid channels',
+      actual: [...CHANNELS].sort(),
+      expected: ['epic-updates', 'incidents', 'sprint-room', 'standup'],
+    });
+  });
+});
 
 describe('extractTaskIds', async () => {
   test('extracts epic leaf IDs from commit text', async () => {

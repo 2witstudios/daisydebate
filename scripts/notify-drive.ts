@@ -52,10 +52,19 @@ export function composeMergeMessage(input: {
   ].join('\n');
 }
 
-const CHANNELS = ['incidents', 'sprint-room', 'epic-updates'] as const;
+export const CHANNELS = [
+  'standup',
+  'incidents',
+  'sprint-room',
+  'epic-updates',
+] as const;
 type Channel = (typeof CHANNELS)[number];
 
 const CHANNEL_ENV: Record<Channel, { url: string; secret: string }> = {
+  standup: {
+    url: 'PAGESPACE_STANDUP_WEBHOOK_URL',
+    secret: 'PAGESPACE_STANDUP_WEBHOOK_SECRET',
+  },
   incidents: {
     url: 'PAGESPACE_INCIDENTS_WEBHOOK_URL',
     secret: 'PAGESPACE_INCIDENTS_WEBHOOK_SECRET',

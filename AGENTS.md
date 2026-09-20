@@ -151,7 +151,9 @@ Reviews use the [review record](docs/development/review-record.md) format.
 
 While work is open, post the daily Yesterday / Today / Blockers standup and
 send scope, ceremony, epic, or incident updates to the designated PageSpace
-channels. Keep durable environment findings in Agent Memory. Deploy-rail and
+channels: standup for daily standups, epic-updates for epic milestones,
+sprint-room for merge notices and discussion, incidents for failures.
+Keep durable environment findings in Agent Memory. Deploy-rail and
 production-data changes require a human-only sign-off leaf; agents never
 self-approve.
 
