@@ -3,7 +3,7 @@ import pino from 'pino';
 const eventRegistry = {
   'runtime.initialize': 'info',
   'request.unhandled': 'error',
-  'http.request': 'info',
+  'http.request.completed': 'info',
   'http.request.cancelled': 'warn',
   'http.request.failed': 'error',
   'server.start': 'info',

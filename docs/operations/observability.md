@@ -12,9 +12,10 @@ and exporters belong to deployment, not the repository.
 - `apps/web/src/instrumentation.ts` registers server runtime initialization
   and `onRequestError`, tagging unhandled failures with route, request ID,
   and deployment identity.
-- `handleOperation` (web server layer) logs every API operation with
-  `operation`, `requestId`, `traceId`, `durationMs`, `status`, and
-  `errorCode` on failure — structured fields, never formatted strings.
+- `handleOperation` (web server layer) binds a request-scoped child logger with
+  `operation`, `requestId`, and `traceId`, then emits
+  `http.request.completed`, `http.request.cancelled`, or `http.request.failed`
+  with structured lifecycle fields — never formatted strings.
 - The logger embeds `appVersion` and `gitCommit` (deployment identity) in
   every line; production config refuses to boot without them.
 - Logger events use a compile-time vocabulary and registry-declared severity;

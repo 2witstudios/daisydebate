@@ -9,10 +9,16 @@ setupRitewayBun();
 // Seed process-local resources before touching the HTTP boundary so this test
 // never constructs real database or Redis clients.
 const recorded: { event: string; message: string; fields: unknown }[] = [];
-const recorder: Logger = {
-  log: (event, fields, message) => recorded.push({ event, fields, message }),
-  child: () => recorder,
-};
+const createRecorder = (boundFields: Record<string, unknown> = {}): Logger => ({
+  log: (event, fields, message) =>
+    recorded.push({
+      event,
+      fields: { ...boundFields, ...fields },
+      message,
+    }),
+  child: (fields) => createRecorder({ ...boundFields, ...fields }),
+});
+const recorder = createRecorder();
 const seededResources = {
   config: readServerConfig({
     NODE_ENV: 'test',
@@ -91,7 +97,21 @@ describe('handleOperation', () => {
       given: 'a completed operation',
       should: 'log completion as an info-severity event',
       actual: recorded.at(-1)?.event,
-      expected: 'http.request',
+      expected: 'http.request.completed',
+    });
+    assert({
+      given: 'a request-scoped operation logger',
+      should: 'bind request correlation and operation context',
+      actual: (({ operation, requestId, traceId }) => ({
+        operation,
+        requestId,
+        traceId,
+      }))(recorded.at(-1)?.fields as Record<string, unknown>),
+      expected: {
+        operation: 'test.operation',
+        requestId: response.headers.get('x-request-id'),
+        traceId: undefined,
+      },
     });
   });
 
@@ -157,6 +177,7 @@ describe('handleOperation', () => {
   });
 
   test('maps unexpected failures to INTERNAL and never exposes causes', async () => {
+    recorded.length = 0;
     const response = await handleOperation(
       new Request('http://localhost/api/foundation/proof'),
       'test.operation',
@@ -184,6 +205,12 @@ describe('handleOperation', () => {
       actual: JSON.stringify(body).includes('ECONNREFUSED'),
       expected: false,
     });
+    assert({
+      given: 'an unexpected infrastructure failure',
+      should: 'emit the failed lifecycle event',
+      actual: recorded.at(-1)?.event,
+      expected: 'http.request.failed',
+    });
   });
 
   test('cancelled requests log without error-level noise and return 499', async () => {
@@ -208,6 +235,19 @@ describe('handleOperation', () => {
       should: 'log as a warn-severity event',
       actual: recorded.at(-1)?.event,
       expected: 'http.request.cancelled',
+    });
+    assert({
+      given: 'an aborted request',
+      should: 'include request-scoped operation context',
+      actual: recorded.at(-1)?.fields,
+      expected: {
+        operation: 'test.operation',
+        requestId: response.headers.get('x-request-id'),
+        traceId: undefined,
+        durationMs: (recorded.at(-1)?.fields as { durationMs: number })
+          .durationMs,
+        errorCode: 'REQUEST_CANCELLED',
+      },
     });
   });
 

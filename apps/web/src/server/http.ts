@@ -22,17 +22,18 @@ export async function handleOperation(
     let logger: Logger | undefined;
     try {
       // Construction failures must map through the public error contract too.
-      logger = getResources().logger;
+      logger = getResources().logger.child({
+        requestId: id,
+        traceId: currentTraceId(),
+        operation,
+      });
       request.signal.throwIfAborted();
       const response = await handler(id);
       response.headers.set('x-request-id', id);
       response.headers.set('Cache-Control', 'no-store');
       logger.log(
-        'http.request',
+        'http.request.completed',
         {
-          operation,
-          requestId: id,
-          traceId: currentTraceId(),
           durationMs: Math.round(performance.now() - start),
           status: response.status,
         },
@@ -45,9 +46,6 @@ export async function handleOperation(
         logger?.log(
           'http.request.cancelled',
           {
-            operation,
-            requestId: id,
-            traceId: currentTraceId(),
             durationMs: Math.round(performance.now() - start),
             errorCode: 'REQUEST_CANCELLED',
           },
@@ -62,9 +60,6 @@ export async function handleOperation(
       logger?.log(
         'http.request.failed',
         {
-          operation,
-          requestId: id,
-          traceId: currentTraceId(),
           durationMs: Math.round(performance.now() - start),
           errorCode: mapped.body.error.code,
         },
