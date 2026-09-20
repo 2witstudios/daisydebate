@@ -10,6 +10,14 @@
       }
     },
     {
+      "id": "debate.participants.seats-unique",
+      "check": "participant-seats-unique",
+      "testReference": {
+        "path": "packages/debate-engine/src/engine.test.ts",
+        "name": "rejects duplicate participant seats"
+      }
+    },
+    {
       "id": "debate.phase.active.requires-ready-participants",
       "check": "active-requires-ready-participants",
       "testReference": {
@@ -39,6 +47,14 @@
       "testReference": {
         "path": "packages/debate-engine/src/engine.test.ts",
         "name": "rejects illegal phase transitions"
+      }
+    },
+    {
+      "id": "debate.phase.completed.terminal",
+      "check": "completed-is-terminal",
+      "testReference": {
+        "path": "packages/debate-engine/src/engine.test.ts",
+        "name": "rejects transitions after completion"
       }
     }
   ]

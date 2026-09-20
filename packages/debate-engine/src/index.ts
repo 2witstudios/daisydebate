@@ -16,11 +16,13 @@ export type DebateRuntime = {
 };
 export const debateInvariantIds = {
   participantIdentitiesUnique: 'debate.participants.identities-unique',
+  participantSeatsUnique: 'debate.participants.seats-unique',
   startedRequiresReadyParticipants:
     'debate.phase.active.requires-ready-participants',
   joiningRequiresWaitingPhase: 'debate.participant.join.waiting-phase',
   readinessRequiresWaitingPhase: 'debate.participant.ready.waiting-phase',
   legalPhaseTransition: 'debate.phase.transition.legal',
+  completedIsTerminal: 'debate.phase.completed.terminal',
 } as const;
 function validateSnapshot(input: unknown): DebateSnapshot {
   const result = debateSnapshotSchema.safeParse(input);
@@ -28,13 +30,15 @@ function validateSnapshot(input: unknown): DebateSnapshot {
     throw createAppError('VALIDATION', 'Invalid debate snapshot', result.error);
   const snapshot = result.data;
   const { participants, phase } = snapshot;
-  if (
-    new Set(participants.map((p) => p.id)).size !== participants.length ||
-    new Set(participants.map((p) => p.side)).size !== participants.length
-  )
+  if (new Set(participants.map((p) => p.id)).size !== participants.length)
     throw createInvariantError(
       debateInvariantIds.participantIdentitiesUnique,
-      'Participant identities and competitive sides must be unique',
+      'Participant identities must be unique',
+    );
+  if (new Set(participants.map((p) => p.side)).size !== participants.length)
+    throw createInvariantError(
+      debateInvariantIds.participantSeatsUnique,
+      'Participant seats must be unique',
     );
   if (
     phase !== 'waiting' &&
@@ -75,6 +79,11 @@ export function restoreDebateRuntime(input: unknown): DebateRuntime {
     },
     transition(phase) {
       const snapshot = adapter.snapshot();
+      if (snapshot.phase === 'completed')
+        throw createInvariantError(
+          debateInvariantIds.completedIsTerminal,
+          'Completed debates are terminal',
+        );
       const legal =
         (snapshot.phase === 'waiting' && phase === 'active') ||
         (snapshot.phase === 'active' && phase === 'completed');

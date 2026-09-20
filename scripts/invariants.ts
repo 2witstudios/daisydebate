@@ -70,6 +70,20 @@ const fixtures: Readonly<Record<string, Fixture>> = {
       runtime.dispose();
     }
   },
+  'participant-seats-unique': () => {
+    const runtime = createRuntime();
+    try {
+      restoreDebateRuntime({
+        ...runtime.snapshot(),
+        participants: [
+          { id: firstId, side: 'affirmative', ready: false },
+          { id: secondId, side: 'affirmative', ready: false },
+        ],
+      });
+    } finally {
+      runtime.dispose();
+    }
+  },
   'active-requires-ready-participants': () =>
     createRuntime().transition('active'),
   'joining-requires-waiting-phase': () => {
@@ -92,6 +106,15 @@ const fixtures: Readonly<Record<string, Fixture>> = {
     const runtime = createRuntime();
     try {
       runtime.transition('completed');
+    } finally {
+      runtime.dispose();
+    }
+  },
+  'completed-is-terminal': () => {
+    const runtime = createActiveRuntime();
+    try {
+      runtime.transition('completed');
+      runtime.transition('active');
     } finally {
       runtime.dispose();
     }

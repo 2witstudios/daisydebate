@@ -111,6 +111,39 @@ describe('ECS adapter contract', () => {
     world.dispose();
   });
 
+  test('rejects duplicate participant seats', () => {
+    const world = create();
+    const snapshot = world.snapshot();
+    const firstParticipant = {
+      id,
+      side: 'affirmative' as const,
+      ready: false,
+    };
+    const secondParticipant = {
+      id: second,
+      side: 'affirmative' as const,
+      ready: false,
+    };
+
+    let error: unknown;
+    try {
+      restoreDebateRuntime({
+        ...snapshot,
+        participants: [firstParticipant, secondParticipant],
+      });
+    } catch (caught) {
+      error = caught;
+    }
+
+    assert({
+      given: 'a restored snapshot with participants assigned to one seat',
+      should: 'identify the participant seat uniqueness invariant',
+      actual: (error as { invariantId?: string }).invariantId,
+      expected: 'debate.participants.seats-unique',
+    });
+    world.dispose();
+  });
+
   test('rejects joining after a debate starts', () => {
     const world = create();
     world.join({ participantId: id, side: 'affirmative' });
@@ -176,6 +209,31 @@ describe('ECS adapter contract', () => {
       should: 'identify the legal phase transition invariant',
       actual: (error as { invariantId?: string }).invariantId,
       expected: 'debate.phase.transition.legal',
+    });
+    world.dispose();
+  });
+
+  test('rejects transitions after completion', () => {
+    const world = create();
+    world.join({ participantId: id, side: 'affirmative' });
+    world.join({ participantId: second, side: 'negative' });
+    world.markReady(id);
+    world.markReady(second);
+    world.transition('active');
+    world.transition('completed');
+
+    let error: unknown;
+    try {
+      world.transition('active');
+    } catch (caught) {
+      error = caught;
+    }
+
+    assert({
+      given: 'a completed debate and a requested phase transition',
+      should: 'identify the completed-is-terminal invariant',
+      actual: (error as { invariantId?: string }).invariantId,
+      expected: 'debate.phase.completed.terminal',
     });
     world.dispose();
   });
