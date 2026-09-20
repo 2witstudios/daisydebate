@@ -79,4 +79,26 @@ describe('typed debate scenarios', () => {
       },
     });
   });
+
+  test('verifies rejected operations preserve state and identify the invariant', () => {
+    const result = runScenario({
+      ...scenario,
+      name: 'rejection-atomicity',
+      when: [
+        {
+          type: 'expect-rejection',
+          operation: { type: 'transition', phase: 'active' },
+          invariantId: 'debate.phase.active.requires-ready-participants',
+        },
+      ],
+      expect: { ...scenario.expect, phase: 'waiting', participantIds: [] },
+    });
+
+    assert({
+      given: 'a scenario containing a rejected active-phase transition',
+      should: 'finish with the unchanged waiting snapshot',
+      actual: { phase: result.phase, participantIds: result.participants },
+      expected: { phase: 'waiting', participantIds: [] },
+    });
+  });
 });

@@ -13,7 +13,15 @@ export type ScenarioAction =
       readonly side: Participant['side'];
     }
   | { readonly type: 'ready'; readonly participant: number }
-  | { readonly type: 'transition'; readonly phase: DebatePhase };
+  | { readonly type: 'transition'; readonly phase: DebatePhase }
+  | {
+      readonly type: 'expect-rejection';
+      readonly operation: Exclude<
+        ScenarioAction,
+        { readonly type: 'expect-rejection' }
+      >;
+      readonly invariantId: string;
+    };
 
 export type DebateScenario = {
   readonly name: string;
@@ -23,6 +31,7 @@ export type DebateScenario = {
     readonly resolution: string;
   };
   readonly when: readonly ScenarioAction[];
+  readonly unsupported?: string;
   readonly expect: {
     readonly id: string;
     readonly createdAt: string;
@@ -52,6 +61,10 @@ export class ScenarioExpectationError extends Error {
 }
 
 export function runScenario(scenario: DebateScenario): DebateSnapshot {
+  if (scenario.unsupported !== undefined)
+    throw new Error(
+      `Scenario "${scenario.name}" is unsupported: ${scenario.unsupported}`,
+    );
   const { given } = scenario;
   const ids = fixedIds(given.ids);
   const debateId = ids.next();
@@ -64,19 +77,23 @@ export function runScenario(scenario: DebateScenario): DebateSnapshot {
 
   try {
     scenario.when.forEach((action) => {
-      if (action.type === 'join') {
-        runtime.join({
-          participantId:
-            participantIds[action.participant - 1] ??
-            failParticipant(action.participant),
-          side: action.side,
-        });
-      } else if (action.type === 'ready') {
-        runtime.markReady(
-          participantIds[action.participant - 1] ??
-            failParticipant(action.participant),
-        );
-      } else runtime.transition(action.phase);
+      if (action.type === 'expect-rejection') {
+        const before = runtime.snapshot();
+        let error: unknown;
+        try {
+          applyAction(runtime, action.operation, participantIds);
+        } catch (caught) {
+          error = caught;
+        }
+        if (
+          error === undefined ||
+          invariantId(error) !== action.invariantId ||
+          JSON.stringify(runtime.snapshot()) !== JSON.stringify(before)
+        )
+          throw new Error(
+            `Scenario "${scenario.name}" expected atomic rejection with invariant "${action.invariantId}"`,
+          );
+      } else applyAction(runtime, action, participantIds);
     });
 
     const snapshot = runtime.snapshot();
@@ -85,6 +102,33 @@ export function runScenario(scenario: DebateScenario): DebateSnapshot {
   } finally {
     runtime.dispose();
   }
+}
+
+function applyAction(
+  runtime: ReturnType<typeof createDebateRuntime>,
+  action: Exclude<ScenarioAction, { readonly type: 'expect-rejection' }>,
+  participantIds: readonly string[],
+): void {
+  if (action.type === 'join') {
+    runtime.join({
+      participantId:
+        participantIds[action.participant - 1] ??
+        failParticipant(action.participant),
+      side: action.side,
+    });
+  } else if (action.type === 'ready') {
+    runtime.markReady(
+      participantIds[action.participant - 1] ??
+        failParticipant(action.participant),
+    );
+  } else runtime.transition(action.phase);
+}
+
+function invariantId(error: unknown): string | undefined {
+  if (error === null || typeof error !== 'object' || !('invariantId' in error))
+    return undefined;
+  const value = (error as { invariantId?: unknown }).invariantId;
+  return typeof value === 'string' ? value : undefined;
 }
 
 function failParticipant(index: number): never {
@@ -129,8 +173,13 @@ if (import.meta.main) {
   const name = Bun.argv[2];
   if (!name) throw new Error('Usage: bun scenario <name>');
   try {
-    runScenario(await loadScenario(name));
-    console.log(`Scenario passed: ${name}`);
+    const scenario = await loadScenario(name);
+    if (scenario.unsupported !== undefined) {
+      console.log(`Scenario boundary documented: ${name}`);
+    } else {
+      runScenario(scenario);
+      console.log(`Scenario passed: ${name}`);
+    }
   } catch (error) {
     console.error(
       error instanceof ScenarioExpectationError
