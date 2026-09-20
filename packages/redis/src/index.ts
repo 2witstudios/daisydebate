@@ -18,13 +18,20 @@ export function createRedis({
   url,
   namespace,
   eventSink,
-}: RedisConfig & { readonly eventSink?: RedisEventSink }) {
+  client: injectedClient,
+}: RedisConfig & {
+  readonly eventSink?: RedisEventSink;
+  /** Overrides dialing `url`; tests inject a scripted client at this seam. */
+  readonly client?: RedisClient;
+}) {
   redisKey(namespace);
-  const client = new RedisClient(url, {
-    connectionTimeout: 2000,
-    enableOfflineQueue: false,
-    maxRetries: 2,
-  });
+  const client =
+    injectedClient ??
+    new RedisClient(url, {
+      connectionTimeout: 2000,
+      enableOfflineQueue: false,
+      maxRetries: 2,
+    });
   const reportFailure = (operation: string) =>
     eventSink?.('redis.command.failed', { operation }, 'Redis command failed');
   return {
