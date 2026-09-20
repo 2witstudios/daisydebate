@@ -2,6 +2,7 @@ import { expect } from 'bun:test';
 import { propagation, ROOT_CONTEXT, trace } from '@opentelemetry/api';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  currentTraceId,
   extractTraceContext,
   isValidTraceparent,
   requestId,
@@ -51,13 +52,24 @@ describe('correlation', () => {
       expected: false,
     });
   });
+
+  test('has no trace id outside an active span', () => {
+    assert({
+      given: 'no active span',
+      should: 'report no trace id',
+      actual: currentTraceId(),
+      expected: undefined,
+    });
+  });
 });
 
 describe('tracing', () => {
-  test('extracts a valid ingress traceparent for the host provider', () => {
+  test('extracts a valid ingress traceparent for the host provider through the propagation getter', () => {
+    let readKeys: string[] = [];
     propagation.setGlobalPropagator({
-      extract: (activeContext, carrier) => {
-        const value = carrier.traceparent;
+      extract: (activeContext, carrier, carrierGetter) => {
+        readKeys = carrierGetter.keys(carrier);
+        const value = carrierGetter.get(carrier, 'traceparent');
         return typeof value === 'string'
           ? trace.setSpanContext(activeContext, {
               traceId: value.split('-')[1] ?? '',
@@ -77,10 +89,16 @@ describe('tracing', () => {
     );
 
     assert({
-      given: 'a valid ingress traceparent',
-      should: 'provide its trace id to the host tracing provider',
-      actual: trace.getSpanContext(extracted)?.traceId,
-      expected: '4bf92f3577b34da6a3ce929d0e0e4736',
+      given: 'a valid ingress traceparent and a carrier-reading propagator',
+      should: 'hand the getter the ingress keys and expose the trace id',
+      actual: {
+        keys: readKeys,
+        traceId: trace.getSpanContext(extracted)?.traceId,
+      },
+      expected: {
+        keys: ['traceparent', 'tracestate'],
+        traceId: '4bf92f3577b34da6a3ce929d0e0e4736',
+      },
     });
     assert({
       given: 'a malformed traceparent',
