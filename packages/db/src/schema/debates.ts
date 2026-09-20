@@ -1,6 +1,5 @@
 import {
   pgTable,
-  uuid,
   text,
   timestamp,
   integer,
@@ -13,8 +12,8 @@ import { users } from './users';
 export const debates = pgTable(
   'debates',
   {
-    id: uuid('id').primaryKey(),
-    createdBy: uuid('created_by').references(() => users.id, {
+    id: text('id').primaryKey(),
+    createdBy: text('created_by').references(() => users.id, {
       onDelete: 'restrict',
     }),
     resolution: text('resolution').notNull(),

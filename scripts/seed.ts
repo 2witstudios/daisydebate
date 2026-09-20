@@ -14,7 +14,7 @@ try {
     for (const user of agentSeedUsers)
       await transaction`
         insert into users (id, username)
-        values (${user.userId}::uuid, ${user.username})
+        values (${user.userId}, ${user.username})
         on conflict (id) do update
         set username = excluded.username
       `;
@@ -22,8 +22,8 @@ try {
     await transaction`
       insert into debates (id, created_by, resolution, format, snapshot)
       values (
-        ${agentSeedDebate.debateId}::uuid,
-        ${agentSeedDebate.createdBy}::uuid,
+        ${agentSeedDebate.debateId},
+        ${agentSeedDebate.createdBy},
         ${agentSeedDebate.resolution},
         ${agentSeedDebate.format},
         ${JSON.stringify(agentSeedDebate.snapshot)}::jsonb

@@ -1,3 +1,4 @@
+import { createId } from '@paralleldrive/cuid2';
 import {
   boolean,
   integer,
@@ -6,14 +7,13 @@ import {
   text,
   timestamp,
   uniqueIndex,
-  uuid,
 } from 'drizzle-orm/pg-core';
 import { users } from './users';
 
 export const sessions = pgTable(
   'session',
   {
-    id: uuid('id').defaultRandom().primaryKey(),
+    id: text('id').primaryKey().$defaultFn(createId),
     expiresAt: timestamp('expires_at', {
       withTimezone: true,
       mode: 'date',
@@ -27,7 +27,7 @@ export const sessions = pgTable(
       .defaultNow(),
     ipAddress: text('ip_address'),
     userAgent: text('user_agent'),
-    userId: uuid('user_id')
+    userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
   },
@@ -40,10 +40,10 @@ export const sessions = pgTable(
 export const accounts = pgTable(
   'account',
   {
-    id: uuid('id').defaultRandom().primaryKey(),
+    id: text('id').primaryKey().$defaultFn(createId),
     accountId: text('account_id').notNull(),
     providerId: text('provider_id').notNull(),
-    userId: uuid('user_id')
+    userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     accessToken: text('access_token'),
@@ -78,7 +78,7 @@ export const accounts = pgTable(
 export const verifications = pgTable(
   'verification',
   {
-    id: uuid('id').defaultRandom().primaryKey(),
+    id: text('id').primaryKey().$defaultFn(createId),
     identifier: text('identifier').notNull(),
     value: text('value').notNull(),
     expiresAt: timestamp('expires_at', {
@@ -101,10 +101,10 @@ export const verifications = pgTable(
 export const passkeys = pgTable(
   'passkey',
   {
-    id: uuid('id').defaultRandom().primaryKey(),
+    id: text('id').primaryKey().$defaultFn(createId),
     name: text('name'),
     publicKey: text('public_key').notNull(),
-    userId: uuid('user_id')
+    userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     credentialID: text('credential_id').notNull(),

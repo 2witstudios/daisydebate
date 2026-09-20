@@ -12,9 +12,9 @@ if (!new URL(url).pathname.endsWith('_test'))
   throw new Error('Test database name must end in _test');
 
 const seedIds = [
-  '00000000-0000-4000-8000-000000000001',
-  '00000000-0000-4000-8000-000000000002',
-  '00000000-0000-4000-8000-000000000101',
+  'k2v9x0f4m8q3w1z7c5n6b4d2',
+  'a7b3c9d1e5f2k4m6n8p1r3t5',
+  'c8d4e2f6a1b3k5m7n9p2r4t6',
 ];
 
 async function runSeed(): Promise<void> {
@@ -34,22 +34,22 @@ async function runSeed(): Promise<void> {
 }
 
 describe('agent seed', () => {
-  test('rerunning the seed preserves UUIDs, data, and its durable version marker', async () => {
+  test('rerunning the seed preserves identifiers, data, and its durable version marker', async () => {
     const database = new SQL(url, { max: 1 });
     try {
       await runSeed();
       const first = await database`
         select
-          (select jsonb_agg(to_jsonb(users) order by id) from users where id in (${seedIds[0]}::uuid, ${seedIds[1]}::uuid)) as users,
-          (select jsonb_agg(to_jsonb(debates) order by id) from debates where id = ${seedIds[2]}::uuid) as debates,
+          (select jsonb_agg(to_jsonb(users) order by id) from users where id in (${seedIds[0]}, ${seedIds[1]})) as users,
+          (select jsonb_agg(to_jsonb(debates) order by id) from debates where id = ${seedIds[2]}) as debates,
           (select jsonb_agg(to_jsonb(seed_versions) order by seed_name) from seed_versions where seed_name = 'agent') as versions
       `;
 
       await runSeed();
       const second = await database`
         select
-          (select jsonb_agg(to_jsonb(users) order by id) from users where id in (${seedIds[0]}::uuid, ${seedIds[1]}::uuid)) as users,
-          (select jsonb_agg(to_jsonb(debates) order by id) from debates where id = ${seedIds[2]}::uuid) as debates,
+          (select jsonb_agg(to_jsonb(users) order by id) from users where id in (${seedIds[0]}, ${seedIds[1]})) as users,
+          (select jsonb_agg(to_jsonb(debates) order by id) from debates where id = ${seedIds[2]}) as debates,
           (select jsonb_agg(to_jsonb(seed_versions) order by seed_name) from seed_versions where seed_name = 'agent') as versions
       `;
 
@@ -62,8 +62,8 @@ describe('agent seed', () => {
       });
     } finally {
       try {
-        await database`delete from debates where id = ${seedIds[2]}::uuid`;
-        await database`delete from users where id in (${seedIds[0]}::uuid, ${seedIds[1]}::uuid)`;
+        await database`delete from debates where id = ${seedIds[2]}`;
+        await database`delete from users where id in (${seedIds[0]}, ${seedIds[1]})`;
         await database`delete from seed_versions where seed_name = 'agent'`;
       } finally {
         await database.close();

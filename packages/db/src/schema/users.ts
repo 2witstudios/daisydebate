@@ -6,13 +6,12 @@ import {
   text,
   timestamp,
   uniqueIndex,
-  uuid,
 } from 'drizzle-orm/pg-core';
 
 export const users = pgTable(
   'users',
   {
-    id: uuid('id').primaryKey(),
+    id: text('id').primaryKey(),
     username: text('username'),
     email: text('email'),
     emailVerified: boolean('email_verified').notNull().default(false),

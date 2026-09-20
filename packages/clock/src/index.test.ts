@@ -49,8 +49,8 @@ describe('clock and identity primitives', () => {
 
     assert({
       given: 'the system clock and identity implementations',
-      should: 'provide an ISO timestamp and a UUID identity',
-      actual: [expectIsoTimestamp(timestamp), expectUuid(id)],
+      should: 'provide an ISO timestamp and an unguessable cuid2 identity',
+      actual: [expectIsoTimestamp(timestamp), expectCuid2(id)],
       expected: [true, true],
     });
   });
@@ -60,8 +60,6 @@ function expectIsoTimestamp(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value);
 }
 
-function expectUuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
-    value,
-  );
+function expectCuid2(value: string): boolean {
+  return /^[a-z0-9]{24}$/.test(value);
 }

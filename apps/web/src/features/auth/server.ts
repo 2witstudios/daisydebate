@@ -2,6 +2,7 @@ import { betterAuth } from 'better-auth';
 import type { BetterAuthOptions } from 'better-auth';
 import { magicLink } from 'better-auth/plugins';
 import { passkey } from '@better-auth/passkey';
+import { createId } from '@paralleldrive/cuid2';
 import { createAppError } from '@daisy/errors';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
@@ -43,7 +44,8 @@ const composeBetterAuth = (dependencies: {
     database: dependencies.database,
     advanced: {
       database: {
-        generateId: 'uuid',
+        // Entity identifiers are unguessable cuid2, not UUIDs.
+        generateId: () => createId(),
       },
     },
     emailAndPassword: { enabled: false },

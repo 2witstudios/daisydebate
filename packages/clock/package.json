@@ -10,6 +10,9 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test src"
   },
+  "dependencies": {
+    "@paralleldrive/cuid2": "3.3.0"
+  },
   "devDependencies": {
     "riteway": "9.3.0"
   }

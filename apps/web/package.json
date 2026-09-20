@@ -24,6 +24,7 @@
     "@daisy/observability": "workspace:*",
     "@daisy/protocol": "workspace:*",
     "@daisy/redis": "workspace:*",
+    "@paralleldrive/cuid2": "3.3.0",
     "better-auth": "1.7.5",
     "next": "16.3.5",
     "react": "19.3.0",

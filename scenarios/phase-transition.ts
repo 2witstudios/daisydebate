@@ -5,9 +5,9 @@ const scenario: DebateScenario = {
   given: {
     clock: '2026-01-01T00:00:00.000Z',
     ids: [
-      '11111111-1111-4111-8111-111111111111',
-      '22222222-2222-4222-8222-222222222222',
-      '33333333-3333-4333-8333-333333333333',
+      'k2v9x0f4m8q3w1z7c5n6b4d2',
+      'a7b3c9d1e5f2k4m6n8p1r3t5',
+      'c8d4e2f6a1b3k5m7n9p2r4t6',
     ],
     resolution: 'A representative resolution',
   },
@@ -20,13 +20,10 @@ const scenario: DebateScenario = {
     { type: 'transition', phase: 'completed' },
   ],
   expect: {
-    id: '11111111-1111-4111-8111-111111111111',
+    id: 'k2v9x0f4m8q3w1z7c5n6b4d2',
     createdAt: '2026-01-01T00:00:00.000Z',
     phase: 'completed',
-    participantIds: [
-      '22222222-2222-4222-8222-222222222222',
-      '33333333-3333-4333-8333-333333333333',
-    ],
+    participantIds: ['a7b3c9d1e5f2k4m6n8p1r3t5', 'c8d4e2f6a1b3k5m7n9p2r4t6'],
   },
 };
 

@@ -102,7 +102,7 @@ export const userRow = (record: {
 ];
 
 export const sampleDebate = () => ({
-  id: '5b0f0000-0000-4000-8000-000000000001',
+  id: 'k2v9x0f4m8q3w1z7c5n6b4d2',
   createdBy: null,
   resolution: 'A representative resolution',
   format: 'public-forum',
@@ -113,7 +113,7 @@ export const sampleDebate = () => ({
 });
 
 export const sampleUser = () => ({
-  id: '5b0f0000-0000-4000-8000-000000000002',
+  id: 'a7b3c9d1e5f2k4m6n8p1r3t5',
   username: 'demo',
   email: null,
   emailVerified: false,
