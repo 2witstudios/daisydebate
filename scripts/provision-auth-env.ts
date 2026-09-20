@@ -19,20 +19,25 @@ export function provisionAuthSecret(
   content: string,
   { generate }: { generate: () => string },
 ): { content: string; changed: boolean } {
-  const existing = content.match(/^BETTER_AUTH_SECRET=(.*)$/m);
-  // An existing non-empty value is preserved verbatim; an empty assignment
-  // counts as absent so copying .env.example yields a provisioned .env.
-  if (existing && existing[1] !== '') return { content, changed: false };
+  // dotenv-style loaders honor the last assignment, so only the final
+  // BETTER_AUTH_SECRET line counts as the effective value. A whitespace-only
+  // value counts as absent so blank and CRLF assignments regenerate.
+  const assignments = [...content.matchAll(/^BETTER_AUTH_SECRET=.*$/gm)];
+  const effective = assignments.at(-1);
+  if (
+    effective &&
+    effective[0].slice('BETTER_AUTH_SECRET='.length).trim() !== ''
+  )
+    return { content, changed: false };
   const secret = generate();
   if (!secretCharset.test(secret))
     throw new Error(
       'Generated auth secret must be 64 non-whitespace characters',
     );
-  const written = existing
-    ? content.replace(
-        /^BETTER_AUTH_SECRET=.*$/m,
-        `BETTER_AUTH_SECRET=${secret}`,
-      )
+  const written = effective
+    ? `${content.slice(0, effective.index)}BETTER_AUTH_SECRET=${secret}${
+        effective[0].endsWith('\r') ? '\r' : ''
+      }${content.slice(effective.index + effective[0].length)}`
     : `${content}${content && !content.endsWith('\n') ? '\n' : ''}BETTER_AUTH_SECRET=${secret}\n`;
   return { content: written, changed: true };
 }

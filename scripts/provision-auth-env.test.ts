@@ -64,6 +64,65 @@ describe('auth secret provisioning', () => {
     });
   });
 
+  test('treats a whitespace-only assignment as absent and fills it', () => {
+    const result = provisionAuthSecret('BETTER_AUTH_SECRET=   \n', {
+      generate: () => marker,
+    });
+    assert({
+      given: 'a .env whose BETTER_AUTH_SECRET line holds only whitespace',
+      should: 'replace the blank value with a generated one',
+      actual: result.content,
+      expected: `BETTER_AUTH_SECRET=${marker}\n`,
+    });
+  });
+
+  test('treats a CRLF blank assignment as absent and keeps the line ending', () => {
+    const result = provisionAuthSecret('BETTER_AUTH_SECRET=\r\n', {
+      generate: () => marker,
+    });
+    assert({
+      given: 'a CRLF .env whose BETTER_AUTH_SECRET line has no value',
+      should: 'fill the value and keep the CRLF ending',
+      actual: result.content,
+      expected: `BETTER_AUTH_SECRET=${marker}\r\n`,
+    });
+  });
+
+  test('honors the last assignment when the variable is duplicated', () => {
+    const content = 'BETTER_AUTH_SECRET=\nBETTER_AUTH_SECRET=kept\n';
+    const result = provisionAuthSecret(content, { generate: () => marker });
+    assert({
+      given: 'an empty assignment followed by a valued duplicate',
+      should: 'preserve the file because the last value wins',
+      actual: { changed: result.changed, content: result.content },
+      expected: { changed: false, content },
+    });
+  });
+
+  test('fills only the last assignment when later duplicates are empty', () => {
+    const content = 'BETTER_AUTH_SECRET=stale\nBETTER_AUTH_SECRET=\n';
+    const result = provisionAuthSecret(content, { generate: () => marker });
+    assert({
+      given: 'a valued assignment followed by an empty duplicate',
+      should: 'replace the effective last assignment only',
+      actual: result.content,
+      expected: `BETTER_AUTH_SECRET=stale\nBETTER_AUTH_SECRET=${marker}\n`,
+    });
+  });
+
+  test('writes generated values containing replacement patterns literally', () => {
+    const dollarSecret = `$&${'x'.repeat(62)}`;
+    const result = provisionAuthSecret('BETTER_AUTH_SECRET=\n', {
+      generate: () => dollarSecret,
+    });
+    assert({
+      given: 'a generated value containing `$&`',
+      should: 'write the value literally without pattern interpretation',
+      actual: result.content,
+      expected: `BETTER_AUTH_SECRET=${dollarSecret}\n`,
+    });
+  });
+
   test('appends with a separating newline when the file lacks a trailing one', () => {
     const result = provisionAuthSecret('LOG_LEVEL=info', {
       generate: () => marker,
