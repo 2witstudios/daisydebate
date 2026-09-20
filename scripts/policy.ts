@@ -1,5 +1,6 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
+import * as ts from 'typescript';
 
 const root = resolve(import.meta.dir, '..');
 const registryPath = join(root, 'policy/exceptions.json');
@@ -58,6 +59,73 @@ const rules: Readonly<Record<PolicyRule, RegExp>> = {
     /\b(?:z\.uuid\s*\(|uuid\s*\(|uuidv[134]\s*\(|from\s+['"]uuid['"]|::uuid\b)/i,
 };
 
+function aliasedRandomUuidFindings(
+  path: string,
+  content: string,
+): readonly PolicyFinding[] {
+  const sourceFile = ts.createSourceFile(
+    path,
+    content,
+    ts.ScriptTarget.Latest,
+    true,
+    path.endsWith('.tsx')
+      ? ts.ScriptKind.TSX
+      : path.endsWith('.jsx')
+        ? ts.ScriptKind.JSX
+        : ts.ScriptKind.TS,
+  );
+  const aliases = new Set<string>();
+  const findings: PolicyFinding[] = [];
+
+  function collectAliases(node: ts.Node): void {
+    if (
+      ts.isImportDeclaration(node) &&
+      ts.isStringLiteral(node.moduleSpecifier) &&
+      (node.moduleSpecifier.text === 'node:crypto' ||
+        node.moduleSpecifier.text === 'crypto') &&
+      node.importClause?.namedBindings &&
+      ts.isNamedImports(node.importClause.namedBindings)
+    ) {
+      for (const element of node.importClause.namedBindings.elements) {
+        if (
+          element.propertyName?.text === 'randomUUID' &&
+          ts.isIdentifier(element.name)
+        )
+          aliases.add(element.name.text);
+      }
+    }
+    ts.forEachChild(node, collectAliases);
+  }
+
+  const findingLines = new Set<number>();
+  function collectCalls(node: ts.Node): void {
+    if (
+      ts.isCallExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      aliases.has(node.expression.text) &&
+      !findingLines.has(
+        sourceFile.getLineAndCharacterOfPosition(node.getStart()).line + 1,
+      )
+    ) {
+      const line =
+        sourceFile.getLineAndCharacterOfPosition(node.getStart()).line + 1;
+      findingLines.add(line);
+      findings.push({
+        path,
+        line,
+        rule: 'direct-random-uuid',
+        detail: content.split('\n')[line - 1]?.trim() ?? '',
+      });
+    }
+
+    ts.forEachChild(node, collectCalls);
+  }
+
+  collectAliases(sourceFile);
+  collectCalls(sourceFile);
+  return findings;
+}
+
 export function scanPolicyText(
   path: string,
   content: string,
@@ -77,7 +145,17 @@ export function scanPolicyText(
         });
     }
   }
-  return findings;
+  const existingLines = new Set(
+    findings
+      .filter(({ rule }) => rule === 'direct-random-uuid')
+      .map(({ line }) => line),
+  );
+  return [
+    ...findings,
+    ...aliasedRandomUuidFindings(path, content).filter(
+      ({ line }) => !existingLines.has(line),
+    ),
+  ];
 }
 
 export type PolicyRegistryValidationOptions = {

@@ -25,6 +25,25 @@ describe('policy scanner', () => {
     });
   });
 
+  test('detects random UUID calls through aliased imports', () => {
+    assert({
+      given: 'application source importing randomUUID under a local alias',
+      should: 'report the aliased call as direct random UUID generation',
+      actual: scanPolicyText(
+        'src/example.ts',
+        "import { randomUUID as nextId } from 'node:crypto';\nconst id = nextId();",
+      ),
+      expected: [
+        {
+          path: 'src/example.ts',
+          line: 2,
+          rule: 'direct-random-uuid',
+          detail: 'const id = nextId();',
+        },
+      ],
+    });
+  });
+
   test('rejects broad or unapproved exception entries', () => {
     assert({
       given: 'an exception with a wildcard path and unknown category',
