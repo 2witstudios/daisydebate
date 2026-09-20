@@ -110,6 +110,54 @@ describe('auth secret provisioning', () => {
     });
   });
 
+  test('rotates an export-prefixed assignment by appending the canonical value last', () => {
+    const content =
+      'export BETTER_AUTH_SECRET=stale\nDATABASE_URL=postgres://localhost/daisy\n';
+    const result = provisionAuthSecret(content, { generate: () => marker });
+    assert({
+      given: 'an export-prefixed existing assignment',
+      should:
+        'rotate by appending the canonical assignment so last-assignment loaders honor it',
+      actual: {
+        changed: result.changed,
+        staleLineKept: result.content.includes(
+          'export BETTER_AUTH_SECRET=stale\n',
+        ),
+        canonicalAssignmentLast: result.content.endsWith(
+          `BETTER_AUTH_SECRET=${marker}\n`,
+        ),
+        keepsExisting: result.content.includes(
+          'DATABASE_URL=postgres://localhost/daisy\n',
+        ),
+      },
+      expected: {
+        changed: true,
+        staleLineKept: true,
+        canonicalAssignmentLast: true,
+        keepsExisting: true,
+      },
+    });
+  });
+
+  test('rotates a space-padded assignment and converges on the next run', () => {
+    const content = 'BETTER_AUTH_SECRET = stale\n';
+    const first = provisionAuthSecret(content, { generate: () => marker });
+    const second = provisionAuthSecret(first.content, {
+      generate: () => marker,
+    });
+    assert({
+      given: 'a space-padded existing assignment',
+      should:
+        'append the canonical assignment once and treat the canonical result as preserved',
+      actual: {
+        changed: first.changed,
+        paddedLineKept: first.content.includes('BETTER_AUTH_SECRET = stale\n'),
+        rerunChanged: second.changed,
+      },
+      expected: { changed: true, paddedLineKept: true, rerunChanged: false },
+    });
+  });
+
   test('writes generated values containing replacement patterns literally', () => {
     const dollarSecret = `$&${'x'.repeat(62)}`;
     const result = provisionAuthSecret('BETTER_AUTH_SECRET=\n', {

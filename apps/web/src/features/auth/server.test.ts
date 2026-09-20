@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { memoryAdapter } from '@better-auth/memory-adapter';
 import type { BetterAuthOptions } from 'better-auth';
+import { isAppError } from '@daisy/errors';
 import { fixedClock, sequentialId } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import { createAuthServer, type AuthEmailMessage } from './server';
@@ -137,7 +138,8 @@ describe('auth server composition', () => {
       ids: sequentialId('auth'),
     });
     const composed = {
-      synchronous: typeof server.config === 'object',
+      configValidated:
+        server.config.BETTER_AUTH_SECRET === env.BETTER_AUTH_SECRET,
       adapterQueries,
     };
     await server.instance.api.signInMagicLink({
@@ -147,13 +149,13 @@ describe('auth server composition', () => {
     assert({
       given: 'a query-counting database adapter',
       should:
-        'compose with zero queries and reach the adapter only through operations',
+        'compose the validated configuration with zero queries and reach the adapter only through operations',
       actual: {
         composed,
         reachedAdapterOnlyThroughOperations: adapterQueries > 0,
       },
       expected: {
-        composed: { synchronous: true, adapterQueries: 0 },
+        composed: { configValidated: true, adapterQueries: 0 },
         reachedAdapterOnlyThroughOperations: true,
       },
     });
@@ -187,25 +189,26 @@ describe('auth server composition', () => {
       clock: fixedClock('2026-09-20T00:00:00.000Z'),
       ids: sequentialId('auth'),
     });
+    let appError = false;
     let code = '';
     let text = '';
     try {
       await server.mail.send(message);
     } catch (error) {
+      appError = isAppError(error);
       code = String((error as { code?: string }).code);
       text = String(error);
     }
     assert({
       given: 'a failing email sender',
-      should: 'surface a stable retryable error that never leaks the cause',
+      should:
+        'surface a factory-minted retryable error that never leaks the cause',
       actual: {
+        appError,
         code,
-        safeMessage:
-          text.includes('temporarily unavailable') &&
-          !text.includes('resend') &&
-          !text.includes('AB12CD'),
+        safeMessage: !text.includes('resend') && !text.includes('AB12CD'),
       },
-      expected: { code: 'INFRASTRUCTURE', safeMessage: true },
+      expected: { appError: true, code: 'INFRASTRUCTURE', safeMessage: true },
     });
   });
 
