@@ -24,3 +24,14 @@ export function sequentialId(prefix = 'id'): IdGenerator {
     next: () => `${prefix}-${++sequence}`,
   };
 }
+
+export function fixedIds(values: readonly string[]): IdGenerator {
+  let index = 0;
+  return {
+    next: () => {
+      const value = values[index++];
+      if (value === undefined) throw new Error('Fixed identity list exhausted');
+      return value;
+    },
+  };
+}

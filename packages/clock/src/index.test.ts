@@ -1,5 +1,11 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { fixedClock, sequentialId, systemClock, systemId } from './index';
+import {
+  fixedClock,
+  fixedIds,
+  sequentialId,
+  systemClock,
+  systemId,
+} from './index';
 
 setupRitewayBun();
 
@@ -23,6 +29,17 @@ describe('clock and identity primitives', () => {
       should: 'return sequential identities from its configured prefix',
       actual: [ids.next(), ids.next(), ids.next()],
       expected: ['test-1', 'test-2', 'test-3'],
+    });
+  });
+
+  test('fixed identities return the configured ordered identities', () => {
+    const ids = fixedIds(['first', 'second']);
+
+    assert({
+      given: 'a deterministic identity list',
+      should: 'return each configured identity in order',
+      actual: [ids.next(), ids.next()],
+      expected: ['first', 'second'],
     });
   });
 

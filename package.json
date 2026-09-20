@@ -23,6 +23,7 @@
     "invariants": "bun scripts/invariants.ts",
     "doctor": "bun --env-file=.env scripts/doctor.ts",
     "verify": "bun --env-file=.env scripts/verify.ts",
+    "scenario": "bun scripts/scenario.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "bun test scripts && turbo run test",
@@ -52,6 +53,7 @@
     "typescript-eslint": "8.70.0"
   },
   "dependencies": {
+    "@daisy/clock": "workspace:*",
     "@daisy/config": "workspace:*",
     "@daisy/debate-engine": "workspace:*"
   }

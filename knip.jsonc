@@ -2,6 +2,8 @@
   // Dead-code gate: unused files, exports and dependencies fail the run.
   // Run with `bun run knip` (under Bun, per the toolchain contract).
   "$schema": "./node_modules/knip/schema.json",
+  // Scenario documents are loaded by the `bun scenario <name>` CLI.
+  "ignore": ["scenarios/*.ts"],
   "workspaces": {
     "apps/web": {
       // @daisy/protocol is wired through next.config.ts `transpilePackages`

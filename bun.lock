@@ -5,6 +5,7 @@
     "": {
       "name": "daisy",
       "dependencies": {
+        "@daisy/clock": "workspace:*",
         "@daisy/config": "workspace:*",
         "@daisy/debate-engine": "workspace:*",
       },
