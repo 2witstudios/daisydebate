@@ -33,6 +33,17 @@ try {
           resolution = excluded.resolution,
           format = excluded.format,
           snapshot = excluded.snapshot
+      `;
+
+    await transaction`
+      insert into seed_versions (seed_name, version)
+      values ('agent', ${agentSeedVersion})
+      on conflict (seed_name) do update
+      set version = excluded.version,
+          updated_at = case
+            when seed_versions.version <> excluded.version then excluded.updated_at
+            else seed_versions.updated_at
+          end
     `;
   });
 } finally {
