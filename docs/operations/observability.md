@@ -22,6 +22,10 @@ and exporters belong to deployment, not the repository.
   callers emit through one event-based method, and untrusted runtime event
   names normalize to `telemetry.unknown_event`. Dynamic operation names remain
   structured context fields.
+- Database and Redis adapters accept provider-neutral injected event sinks and
+  emit `db.query.failed` or `redis.command.failed` with the operation name when
+  an external query or command fails. They rethrow the original failure and do
+  not depend on the logger package.
 
 ## How to answer production questions
 

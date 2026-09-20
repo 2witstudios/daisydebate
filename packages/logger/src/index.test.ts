@@ -139,4 +139,17 @@ describe('structured logging', () => {
       expected: 'telemetry.unknown_event',
     });
   });
+
+  test('accepts adapter failure events in the public vocabulary', () => {
+    const logger = createLogger({ service: 'test' });
+    const events: EventName[] = ['db.query.failed', 'redis.command.failed'];
+    for (const event of events) logger.log(event, {}, 'failed');
+
+    assert({
+      given: 'database and Redis adapter failure events',
+      should: 'be accepted by the logger event vocabulary',
+      actual: events,
+      expected: ['db.query.failed', 'redis.command.failed'],
+    });
+  });
 });

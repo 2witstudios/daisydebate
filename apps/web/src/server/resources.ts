@@ -6,21 +6,26 @@ import { createLogger } from '@daisy/logger';
 
 function createResources() {
   const config = readServerConfig(process.env);
+  const logger = createLogger({
+    service: 'web',
+    level: config.LOG_LEVEL,
+    appVersion: config.APP_VERSION,
+    gitCommit: config.GIT_COMMIT,
+  });
   return {
     config,
     clock: systemClock,
     ids: systemId,
-    database: createDatabase({ url: config.DATABASE_URL }),
+    database: createDatabase({
+      url: config.DATABASE_URL,
+      eventSink: (event, fields, message) => logger.log(event, fields, message),
+    }),
     redis: createRedis({
       url: config.REDIS_URL,
       namespace: config.REDIS_NAMESPACE,
+      eventSink: (event, fields, message) => logger.log(event, fields, message),
     }),
-    logger: createLogger({
-      service: 'web',
-      level: config.LOG_LEVEL,
-      appVersion: config.APP_VERSION,
-      gitCommit: config.GIT_COMMIT,
-    }),
+    logger,
     draining: false,
   };
 }

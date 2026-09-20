@@ -1,5 +1,10 @@
 import { RedisClient } from 'bun';
 export type RedisConfig = { readonly url: string; readonly namespace: string };
+export type RedisEventSink = (
+  event: 'redis.command.failed',
+  fields: Readonly<Record<string, unknown>>,
+  message: string,
+) => void;
 export function redisKey(namespace: string, ...segments: string[]): string {
   if (
     ![namespace, ...segments].every((segment) =>
@@ -9,36 +14,62 @@ export function redisKey(namespace: string, ...segments: string[]): string {
     throw new Error('Invalid Redis key segment');
   return [namespace, 'v1', ...segments].join(':');
 }
-export function createRedis({ url, namespace }: RedisConfig) {
+export function createRedis({
+  url,
+  namespace,
+  eventSink,
+}: RedisConfig & { readonly eventSink?: RedisEventSink }) {
   redisKey(namespace);
   const client = new RedisClient(url, {
     connectionTimeout: 2000,
     enableOfflineQueue: false,
     maxRetries: 2,
   });
+  const reportFailure = (operation: string) =>
+    eventSink?.('redis.command.failed', { operation }, 'Redis command failed');
   return {
     async health() {
-      await client.connect();
-      return (await client.ping()) === 'PONG';
+      try {
+        await client.connect();
+        return (await client.ping()) === 'PONG';
+      } catch (error) {
+        reportFailure('health');
+        throw error;
+      }
     },
     async setEphemeral(key: string, value: string, ttlSeconds: number) {
       if (!Number.isSafeInteger(ttlSeconds) || ttlSeconds < 1)
         throw new Error('TTL must be a positive integer');
-      await client.connect();
-      await client.send('SET', [
-        redisKey(namespace, key),
-        value,
-        'EX',
-        String(ttlSeconds),
-      ]);
+      try {
+        await client.connect();
+        await client.send('SET', [
+          redisKey(namespace, key),
+          value,
+          'EX',
+          String(ttlSeconds),
+        ]);
+      } catch (error) {
+        reportFailure('setEphemeral');
+        throw error;
+      }
     },
     async get(key: string) {
-      await client.connect();
-      return client.get(redisKey(namespace, key));
+      try {
+        await client.connect();
+        return await client.get(redisKey(namespace, key));
+      } catch (error) {
+        reportFailure('get');
+        throw error;
+      }
     },
     async delete(key: string) {
-      await client.connect();
-      await client.del(redisKey(namespace, key));
+      try {
+        await client.connect();
+        await client.del(redisKey(namespace, key));
+      } catch (error) {
+        reportFailure('delete');
+        throw error;
+      }
     },
     close() {
       client.close();

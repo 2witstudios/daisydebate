@@ -20,12 +20,19 @@ export type NewDebate = {
   readonly format: string;
   readonly snapshot: unknown;
 };
+export type DatabaseEventSink = (
+  event: 'db.query.failed',
+  fields: Readonly<Record<string, unknown>>,
+  message: string,
+) => void;
 export function createDatabase({
   url,
   maxConnections = 10,
+  eventSink,
 }: {
   url: string;
   maxConnections?: number;
+  eventSink?: DatabaseEventSink;
 }) {
   const client = new SQL(url, {
     max: maxConnections,
@@ -34,36 +41,59 @@ export function createDatabase({
     connection: { statement_timeout: 5000, lock_timeout: 2000 },
   });
   const database = drizzle({ client });
+  const reportFailure = (operation: string) =>
+    eventSink?.('db.query.failed', { operation }, 'Database query failed');
   return {
     async health() {
-      await database.execute(sql`select 1`);
+      try {
+        await database.execute(sql`select 1`);
+      } catch (error) {
+        reportFailure('health');
+        throw error;
+      }
       return true;
     },
     async close() {
       await client.close({ timeout: 5 });
     },
     async createUser(input: { id: string; username: string }) {
-      const [row] = await database.insert(users).values(input).returning();
+      let row;
+      try {
+        [row] = await database.insert(users).values(input).returning();
+      } catch (error) {
+        reportFailure('createUser');
+        throw error;
+      }
       if (!row) throw new Error('User insert returned no row');
       return row;
     },
     async createDebate(input: NewDebate): Promise<DebateRecord> {
-      return database.transaction(async (tx) => {
-        const [row] = await tx
-          .insert(debates)
-          .values({ ...input, createdBy: input.createdBy ?? null })
-          .returning();
-        if (!row) throw new Error('Debate insert returned no row');
-        return row;
-      });
+      try {
+        return await database.transaction(async (tx) => {
+          const [row] = await tx
+            .insert(debates)
+            .values({ ...input, createdBy: input.createdBy ?? null })
+            .returning();
+          if (!row) throw new Error('Debate insert returned no row');
+          return row;
+        });
+      } catch (error) {
+        reportFailure('createDebate');
+        throw error;
+      }
     },
     async getDebate(id: string): Promise<DebateRecord | null> {
-      const [row] = await database
-        .select()
-        .from(debates)
-        .where(eq(debates.id, id))
-        .limit(1);
-      return row ?? null;
+      try {
+        const [row] = await database
+          .select()
+          .from(debates)
+          .where(eq(debates.id, id))
+          .limit(1);
+        return row ?? null;
+      } catch (error) {
+        reportFailure('getDebate');
+        throw error;
+      }
     },
     /** Null means optimistic conflict or absent record. Retry only after re-reading and re-running the domain operation. */
     async saveSnapshot(input: {
@@ -72,21 +102,26 @@ export function createDatabase({
       snapshot: unknown;
       updatedAt: string;
     }): Promise<DebateRecord | null> {
-      const [row] = await database
-        .update(debates)
-        .set({
-          snapshot: input.snapshot,
-          version: sql`${debates.version}+1`,
-          updatedAt: input.updatedAt,
-        })
-        .where(
-          and(
-            eq(debates.id, input.id),
-            eq(debates.version, input.expectedVersion),
-          ),
-        )
-        .returning();
-      return row ?? null;
+      try {
+        const [row] = await database
+          .update(debates)
+          .set({
+            snapshot: input.snapshot,
+            version: sql`${debates.version}+1`,
+            updatedAt: input.updatedAt,
+          })
+          .where(
+            and(
+              eq(debates.id, input.id),
+              eq(debates.version, input.expectedVersion),
+            ),
+          )
+          .returning();
+        return row ?? null;
+      } catch (error) {
+        reportFailure('saveSnapshot');
+        throw error;
+      }
     },
   };
 }
