@@ -4,4 +4,4 @@ export const proofDebateInputSchema = z.strictObject({
   resolution: z.string().trim().min(1).max(500),
 });
 
-export const proofDebateIdSchema = z.uuid();
+export const proofDebateIdSchema = z.string().regex(/^[a-z0-9]{24}$/);

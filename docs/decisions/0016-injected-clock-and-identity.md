@@ -5,8 +5,8 @@ Status: accepted.
 Shared application and domain code must not read wall-clock time or generate
 identities implicitly. `@daisy/clock` owns the small contracts and edge
 implementations needed to make those inputs explicit: `Clock` with `now()` and
-`IdGenerator` with `next()`. Its system implementations use the runtime clock
-and UUID generator; `fixedClock`, `sequentialId`, and `fixedIds` provide
+`IdGenerator` with `next()`. Its system implementations use the runtime clock and the cuid2 generator
+(ADR 0018); `fixedClock`, `sequentialId`, and `fixedIds` provide
 deterministic implementations for tests and other callers that need
 reproducible behavior.
 

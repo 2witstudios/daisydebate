@@ -23,6 +23,7 @@ jobs:
           [
             format:check,
             lint,
+            policy,
             knip,
             invariants,
             evidence,

@@ -19,8 +19,10 @@ and detailed procedures in the linked documents, not here.
 - Package responsibilities and allowed edges: [architecture overview](docs/architecture/overview.md).
 - Local setup and command catalog: [local development](docs/development/local-development.md).
 - Test tiers and test rules: [testing](docs/development/testing.md).
+- Policy decisions and the policy gate: [identifier strategy](docs/decisions/0018-cuid2-identifiers.md), [token and secret ownership](docs/decisions/0019-token-secret-ownership.md), [auth activation](docs/decisions/0020-auth-activation-gates.md), and [AIDD overrides](docs/decisions/0021-repository-aidd-overrides.md).
 - Structural change recipes: [extending the repository](docs/development/extending.md).
 - Parallel sessions, branches, and vertical ownership: [parallel work](docs/development/parallel-work.md).
+- Preferred multi-agent orchestration: [pu workflow](docs/development/pu-workflow.md).
 
 ## Dependency rules
 
@@ -48,6 +50,11 @@ and detailed procedures in the linked documents, not here.
 
 ## Design constraints
 
+- Security practices follow Eric Elliott's guidance: zero trust at every
+  boundary, pure functions everywhere, unguessable cuid2 identifiers
+  (`@paralleldrive/cuid2`) instead of UUIDs, SHA3-256 hashing for secret
+  storage and comparison, and OS CSPRNG entropy (never `Math.random`)
+  wherever randomness touches anything security-adjacent.
 - Prefer pure functions. Domain, protocol, and feature logic have no ambient
   clock, environment, randomness, or I/O. Inject time, IDs, and resources at
   the edges; rejected operations leave state unchanged.
@@ -57,7 +64,9 @@ and detailed procedures in the linked documents, not here.
   and must use validated namespaced keys with expiry. See
   [persistence](docs/architecture/persistence.md) and
   [database operations](docs/operations/database.md).
-- Use UTC ISO timestamps, UUID IDs, and integer millisecond durations. Use
+- Use UTC ISO timestamps, cuid2 application IDs, documented UUID exceptions, and integer millisecond durations. cuid2 IDs are identifiers, never bearer secrets. Use
+  structured logging; never log credentials, cookies, raw request bodies, or
+  raw exceptions. Public errors must not expose internals.
   structured logging; never log credentials, cookies, raw request bodies, or
   raw exceptions. Public errors must not expose internals.
 - Schema changes use `bun db:generate`, reviewed SQL and metadata, forward
@@ -81,6 +90,11 @@ and detailed procedures in the linked documents, not here.
   skip instead of throwing on missing services, and gates that silently
   stop running in CI. `bun invariants` and `bun evidence` are part of
   `bun check`.
+- Repository overrides are explicit: Bun/RITEway replace generic Vitest guidance,
+  `@daisy/errors` plus native `Error.cause` replaces `error-causes`, durable
+  behavior uses real integration tests, and unit IDs are deterministic while
+  integration isolation may use CSPRNG IDs. `bun policy` enforces the
+  ADR-linked, time-bounded exception registry.
 - This file is the only agent-facing operating map. Never fork it into a
   second top-level agent document (CLAUDE.md and friends); docs drift
   becomes contradictory instructions.
@@ -151,7 +165,9 @@ Reviews use the [review record](docs/development/review-record.md) format.
 
 While work is open, post the daily Yesterday / Today / Blockers standup and
 send scope, ceremony, epic, or incident updates to the designated PageSpace
-channels. Keep durable environment findings in Agent Memory. Deploy-rail and
+channels: standup for daily standups, epic-updates for epic milestones,
+sprint-room for merge notices and discussion, incidents for failures.
+Keep durable environment findings in Agent Memory. Deploy-rail and
 production-data changes require a human-only sign-off leaf; agents never
 self-approve.
 

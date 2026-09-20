@@ -1,10 +1,38 @@
 #!/usr/bin/env bun
 import { createHmac } from 'node:crypto';
+import type { DocumentationEvent } from './docs-pipeline';
+import { assessEventText } from './docs-contracts';
 
 const TASK_ID_PATTERN = /\b[A-Z]{2,6}-\d+(?:\.\d+)?\b/g;
 
+export const TASK_ID_STOPWORDS: readonly string[] = [
+  'API',
+  'ASCII',
+  'CD',
+  'CI',
+  'CSS',
+  'DOC',
+  'FIXME',
+  'HTTP',
+  'HTTPS',
+  'IEEE',
+  'ISO',
+  'JSON',
+  'OS',
+  'PR',
+  'RFC',
+  'SHA',
+  'SQL',
+  'TODO',
+  'URL',
+  'UTF',
+  'UUID',
+];
+
 export function extractTaskIds(text: string): string[] {
-  return [...new Set(text.match(TASK_ID_PATTERN) ?? [])];
+  return [...new Set(text.match(TASK_ID_PATTERN) ?? [])].filter(
+    (taskId) => !TASK_ID_STOPWORDS.includes(taskId.split('-')[0]),
+  );
 }
 
 export function signPayload(
@@ -36,6 +64,25 @@ export function composeIncidentMessage(input: {
   ].join('\n');
 }
 
+export function composeDocsFailureMessage(input: {
+  pr: number;
+  title?: string;
+  url: string;
+  skipped?: boolean;
+}): string {
+  const { title } = assessEventText({ title: input.title ?? '' });
+  const summary = input.skipped
+    ? `🟡 Documentation event skipped for merged fork PR #${input.pr} — replay manually with \`bun docs:dispatch\` from a trusted checkout.`
+    : `🔴 Documentation event failed for #${input.pr}${title ? ` — ${title}` : ''}`;
+  return [
+    summary,
+    input.url,
+    input.skipped
+      ? 'https://github.com/2witstudios/daisydebate/blob/main/docs/operations/documentation-review-workflows.md'
+      : 'Replay with `bun docs:dispatch` after fixing the workflow.',
+  ].join('\n');
+}
+
 export function composeMergeMessage(input: {
   pr: number;
   title: string;
@@ -52,10 +99,19 @@ export function composeMergeMessage(input: {
   ].join('\n');
 }
 
-const CHANNELS = ['incidents', 'sprint-room', 'epic-updates'] as const;
+export const CHANNELS = [
+  'standup',
+  'incidents',
+  'sprint-room',
+  'epic-updates',
+] as const;
 type Channel = (typeof CHANNELS)[number];
 
 const CHANNEL_ENV: Record<Channel, { url: string; secret: string }> = {
+  standup: {
+    url: 'PAGESPACE_STANDUP_WEBHOOK_URL',
+    secret: 'PAGESPACE_STANDUP_WEBHOOK_SECRET',
+  },
   incidents: {
     url: 'PAGESPACE_INCIDENTS_WEBHOOK_URL',
     secret: 'PAGESPACE_INCIDENTS_WEBHOOK_SECRET',
@@ -70,31 +126,155 @@ const CHANNEL_ENV: Record<Channel, { url: string; secret: string }> = {
   },
 };
 
+function requireHttpsWebhook(name: string, value: string): URL {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`${name} is not a valid URL`);
+  }
+  if (url.protocol !== 'https:') {
+    throw new Error(`${name} must use https to protect the signed payload`);
+  }
+  return url;
+}
+
+export const DEFAULT_RETRY_DELAYS_MS: readonly number[] = [500, 2000];
+
+const isRetryableStatus = (status: number): boolean =>
+  status === 429 || status >= 500;
+
+export type DeliveryOptions = {
+  readonly delays?: readonly number[];
+  readonly delay?: (ms: number) => Promise<void>;
+  readonly fetchImpl?: typeof fetch;
+};
+
+export async function deliverWithRetry(input: {
+  readonly send: () => Promise<Response>;
+  readonly delays?: readonly number[];
+  readonly delay?: (ms: number) => Promise<void>;
+}): Promise<Response> {
+  const delays = input.delays ?? DEFAULT_RETRY_DELAYS_MS;
+  const delay =
+    input.delay ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
+  let attempt = 0;
+  for (;;) {
+    let response: Response;
+    try {
+      response = await input.send();
+    } catch (error) {
+      if (attempt >= delays.length)
+        throw error instanceof Error ? error : new Error(String(error));
+      await delay(delays[attempt]);
+      attempt += 1;
+      continue;
+    }
+    if (
+      response.ok ||
+      !isRetryableStatus(response.status) ||
+      attempt >= delays.length
+    )
+      return response;
+    await delay(delays[attempt]);
+    attempt += 1;
+  }
+}
+
+async function postSignedWebhook(input: {
+  readonly label: string;
+  readonly url: URL;
+  readonly secret: string;
+  readonly rawBody: string;
+  readonly delivery?: DeliveryOptions;
+}): Promise<Response> {
+  const fetchImpl = input.delivery?.fetchImpl ?? fetch;
+  return deliverWithRetry({
+    delays: input.delivery?.delays,
+    delay: input.delivery?.delay,
+    send: async () => {
+      const timestampSeconds = Math.floor(Date.now() / 1000);
+      try {
+        return await fetchImpl(input.url, {
+          method: 'POST',
+          redirect: 'error',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-pagespace-timestamp': String(timestampSeconds),
+            'x-pagespace-signature': signPayload(
+              input.secret,
+              timestampSeconds,
+              input.rawBody,
+            ),
+          },
+          body: input.rawBody,
+        });
+      } catch (error) {
+        throw new Error(
+          `Webhook ${input.label} request failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    },
+  });
+}
+
 export async function postToDrive(
   channel: Channel,
   content: string,
+  delivery?: DeliveryOptions,
 ): Promise<void> {
-  const url = process.env[CHANNEL_ENV[channel].url];
+  const rawUrl = process.env[CHANNEL_ENV[channel].url];
   const secret = process.env[CHANNEL_ENV[channel].secret];
-  if (!url || !secret) {
+  if (!rawUrl || !secret) {
     throw new Error(
       `Missing ${CHANNEL_ENV[channel].url} or ${CHANNEL_ENV[channel].secret}`,
     );
   }
+  const url = requireHttpsWebhook(CHANNEL_ENV[channel].url, rawUrl);
   const rawBody = JSON.stringify({ content, username: 'Daisy CI' });
-  const timestampSeconds = Math.floor(Date.now() / 1000);
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-pagespace-timestamp': String(timestampSeconds),
-      'x-pagespace-signature': signPayload(secret, timestampSeconds, rawBody),
-    },
-    body: rawBody,
+  const response = await postSignedWebhook({
+    label: channel,
+    url,
+    secret,
+    rawBody,
+    delivery,
   });
   if (!response.ok) {
     throw new Error(
       `Webhook ${channel} responded ${response.status}: ${await response.text()}`,
+    );
+  }
+}
+
+export async function postDocumentationEvent(
+  event: DocumentationEvent,
+  delivery?: DeliveryOptions,
+): Promise<void> {
+  const rawUrl = process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL;
+  const secret = process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET;
+  if (!rawUrl || !secret) {
+    throw new Error(
+      'Missing PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL or PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET',
+    );
+  }
+  const url = requireHttpsWebhook(
+    'PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL',
+    rawUrl,
+  );
+  const rawBody = JSON.stringify({
+    event,
+    username: 'Daisy Documentation Agent',
+  });
+  const response = await postSignedWebhook({
+    label: 'documentation-agent',
+    url,
+    secret,
+    rawBody,
+    delivery,
+  });
+  if (!response.ok) {
+    throw new Error(
+      `Documentation agent webhook responded ${response.status}: ${await response.text()}`,
     );
   }
 }
@@ -129,6 +309,13 @@ async function main(): Promise<void> {
   let content: string;
   if (flags.message) {
     content = flags.message;
+  } else if (channel === 'incidents' && flags.pr !== undefined) {
+    content = composeDocsFailureMessage({
+      pr: Number(requireFlag(flags, 'pr')),
+      title: flags.title,
+      url: requireFlag(flags, 'url'),
+      skipped: flags.skipped === 'true',
+    });
   } else if (channel === 'incidents') {
     content = composeIncidentMessage({
       ref: requireFlag(flags, 'ref'),

@@ -49,9 +49,7 @@ test('production security and correlation headers are present', async ({
   );
   expect(headers['x-content-type-options']).toBe('nosniff');
   expect(headers['x-frame-options']).toBe('DENY');
-  expect(headers['x-request-id']).toMatch(
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
-  );
+  expect(headers['x-request-id']).toMatch(/^[a-z0-9]{24}$/);
 });
 
 test('nonce CSP covers the scripts of every served route', async ({

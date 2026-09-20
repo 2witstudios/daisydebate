@@ -26,6 +26,13 @@ PageSpace's lesson: branch debris accumulates faster than agents clean it
 - Worktrees (`git worktree`, or `pu` slots) are the supported way to run
   multiple sessions on one machine; give each worktree its own `.env`
   slot per the isolation recipe.
+- The parent checkout stays on `main` and stays clear of committed work.
+  Agents never run git in the parent checkout — no commits, checkouts,
+  merges, or pulls there. All branch work happens inside the agent's own
+  worktree, and new work reaches `main` only through a vertical branch
+  and its PR. A worktree cannot commit to a branch another worktree has
+  checked out, so a direct commit landing on `main` is always a
+  parent-checkout violation, not a worktree accident.
 - Worktree agents never write the task board directly. The session that
   owns the checkout (the orchestrator) claims leaves, advances statuses,
   and posts updates; subagents report back through their prompt channel.

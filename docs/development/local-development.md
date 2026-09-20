@@ -57,6 +57,19 @@ deployment identity, and the development-only proof flag. The Compose
 PostgreSQL is exposed on host port `15432` to coexist with host-level
 Postgres installs; `.env.example` matches.
 
+Authentication variables (`BETTER_AUTH_SECRET`, `RESEND_API_KEY`,
+`AUTH_EMAIL_FROM`) are documented in `.env.example` and validated only when
+the auth composition activates — baseline startup and `bun doctor` never
+require them. Run `bun auth:provision` to generate a 64-character
+`BETTER_AUTH_SECRET` into `.env` whenever a canonical
+`BETTER_AUTH_SECRET=<value>` assignment is missing. A canonical value is
+always preserved; non-canonical but loader-supported assignments
+(`export BETTER_AUTH_SECRET=…`, `BETTER_AUTH_SECRET = …`) rotate: the
+generated value is appended as the final assignment (dotenv last-assignment
+semantics), the stale line is left untouched, and repeated runs are no-ops.
+The value is never printed or committed. Live email delivery additionally
+needs owner-provisioned Resend credentials.
+
 ## Parallel sessions on one machine
 
 Multiple local sessions (git worktrees, `pu` slots) share nothing when each

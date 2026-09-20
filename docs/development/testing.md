@@ -2,7 +2,8 @@
 
 Four tiers, all runnable locally. Faster tiers must not require slower
 infrastructure. All unit tests follow TDD and the RITEway format (ADR 0014);
-`packages/debate-engine/src/engine.test.ts` is the canonical example.
+`packages/debate-engine/src/engine.test.ts` is the canonical example. Generic
+AIDD/Vitest guidance is overridden here by Bun and RITEway (ADR 0021).
 
 ## Tiers
 
@@ -24,7 +25,7 @@ infrastructure. All unit tests follow TDD and the RITEway format (ADR 0014);
    `infra/init-test-database.sql`); on volumes initialized before that role
    existed, create it manually (see `docs/operations/database.md`).
 4. **CI parity** — `bun check` approximates the CI checks job (format, lint,
-   knip, invariants, evidence, typecheck, unit tests, metrics policy,
+   policy, knip, invariants, evidence, typecheck, unit tests, metrics policy,
    production build). CI additionally runs the
    integration tier with service containers and the browser tier in the
    dedicated `e2e.yml` workflow (one E2E owner per PR; `bun evidence`
@@ -47,9 +48,15 @@ not exist — PageSpace lost entire tiers this way. `bun evidence` (in
   instead of failing is GUARD_MISSING.
 - Every `*.e2e.ts` is claimed by the Playwright config, and exactly one
   workflow runs `test:e2e`.
-- The `knip`, `invariants`, `evidence`, and `migrations:check` gates must
+- The `knip`, `policy`, `invariants`, `evidence`, and `migrations:check` gates must
   appear in `ci.yml`, so deleting a job breaks CI instead of silently
   retiring a gate.
+- `bun policy` scans repository-owned source for direct UUID generation and UUID
+  contracts. Only exact, documented entries in `policy/exceptions.json` can
+  allow framework, tooling, migration, or integration-isolation uses. Every
+  exception must link an existing ADR and include a future-or-today ISO
+  `reviewBy` date; missing, expired, duplicate, or nonexistent-path entries
+  fail the gate.
 
 ## Rules
 
@@ -66,8 +73,8 @@ not exist — PageSpace lost entire tiers this way. `bun evidence` (in
 - **Dead code.** `bun run knip` fails on unused files, exports and
   dependencies; keep findings at zero (ADR 0013).
 - Tests are deterministic: inject clocks/IDs; never sleep-and-hope; no
-  cross-test shared state; unique UUIDs/namespaces; clean only records you
-  created.
+  cross-test shared state; use deterministic unit IDs and CSPRNG isolation IDs
+  only in real-service integration tests; clean only records you created.
 - Integration tests read `TEST_DATABASE_URL` (must end in `_test`) and
   `TEST_REDIS_URL`; never point them at development or production data.
   Missing services hard-fail (`throw`), never skip.
@@ -76,6 +83,9 @@ not exist — PageSpace lost entire tiers this way. `bun evidence` (in
 - New domain behavior lands with engine tests first; new durable behavior
   lands with an integration test through the application operation, not by
   mocking the database.
+- Auth work follows route gate → Principal resolution → authorization → atomic
+  rate limit. A limiter outage must use the operation's documented safe failure
+  behavior; tests must cover the outage path before route activation.
 - Playwright config env demonstrates the full production-refined
   configuration; keep it that way so e2e failures catch config regressions.
 

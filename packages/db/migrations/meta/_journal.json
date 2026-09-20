@@ -15,6 +15,13 @@
       "when": 1789865745953,
       "tag": "0001_zippy_shen",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789935152194,
+      "tag": "0002_auth_persistence",
+      "breakpoints": true
     }
   ]
 }

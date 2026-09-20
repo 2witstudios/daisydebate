@@ -8,7 +8,7 @@ import {
 
 setupRitewayBun();
 
-const id = '11111111-1111-4111-8111-111111111111';
+const id = 'k2v9x0f4m8q3w1z7c5n6b4d2';
 
 describe('command schema', () => {
   test('validates intent, rejects future versions and extraneous fields', () => {
