@@ -1,6 +1,9 @@
 # 0022: Legacy durable identifier compatibility
 
-Status: accepted.
+Status: superseded by [ADR 0023](0023-greenfield-baseline.md). The repository
+squashed the UUID-era migrations into a cuid2-native baseline and
+`@daisy/protocol` no longer accepts UUID identifiers; this record is retained
+only as the paper trail of the decision it reversed.
 
 ADR 0018 made `@paralleldrive/cuid2` the minting strategy for all new
 repository-owned identifiers and converted `users` and `debates` id columns

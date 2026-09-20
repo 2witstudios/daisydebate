@@ -9,7 +9,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "bun test src",
-    "test:integration": "bun test ./integration/db.integration.ts ./integration/auth-migrations.integration.ts ./integration/auth-migrations-rejection.integration.ts ./integration/seed.integration.test.ts",
+    "test:integration": "bun test ./integration/db.integration.ts ./integration/seed.integration.test.ts",
     "db:generate": "bun --bun x drizzle-kit generate",
     "db:migrate": "bun scripts/migrate.ts",
     "db:studio": "bun --bun x drizzle-kit studio",

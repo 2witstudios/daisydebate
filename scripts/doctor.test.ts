@@ -83,9 +83,7 @@ describe('migration currency', () => {
       should: 'return the migration hashes in journal order',
       actual: await readCommittedMigrationHashes(),
       expected: [
-        '18b8ceed0a16e3f7b68844efc8eadae18b6183cbde61aec8e3c58c9741cb187a',
-        '0c65b0d134f7d1ee56c904385d3e7f322eb92d9914fa57a0978d665a0f789af5',
-        '21333072c9f8253a9809ff1c3f2014535c0f4524c2294a86a0d57a053a00d456',
+        'dd8e9ee51c1dff111cf2d975378c3cdc6bbfc77b1834a66d6905cc998d7301bb',
       ],
     });
   });

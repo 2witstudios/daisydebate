@@ -19,7 +19,7 @@ and detailed procedures in the linked documents, not here.
 - Package responsibilities and allowed edges: [architecture overview](docs/architecture/overview.md).
 - Local setup and command catalog: [local development](docs/development/local-development.md).
 - Test tiers and test rules: [testing](docs/development/testing.md).
-- Policy decisions and the policy gate: [identifier strategy](docs/decisions/0018-cuid2-identifiers.md), [token and secret ownership](docs/decisions/0019-token-secret-ownership.md), [auth activation](docs/decisions/0020-auth-activation-gates.md), and [AIDD overrides](docs/decisions/0021-repository-aidd-overrides.md).
+- Policy decisions and the policy gate: [identifier strategy](docs/decisions/0018-cuid2-identifiers.md), [token and secret ownership](docs/decisions/0019-token-secret-ownership.md), [auth activation](docs/decisions/0020-auth-activation-gates.md), [AIDD overrides](docs/decisions/0021-repository-aidd-overrides.md), and [greenfield baseline](docs/decisions/0023-greenfield-baseline.md).
 - Structural change recipes: [extending the repository](docs/development/extending.md).
 - Parallel sessions, branches, and vertical ownership: [parallel work](docs/development/parallel-work.md).
 - Preferred multi-agent orchestration: [pu workflow](docs/development/pu-workflow.md).
@@ -60,6 +60,13 @@ and detailed procedures in the linked documents, not here.
   the edges; rejected operations leave state unchanged.
 - Validate untrusted input, environment, and serialized messages at trust
   boundaries. Pass explicit principals into operations.
+- Greenfield over backward compatibility: Daisy is pre-ship and has no
+  deployed consumers, so no compat surface may outlive the mistake that
+  required it. When a foundational choice proves wrong before first ship,
+  remove it outright — rewrite the baseline, delete the compatibility code,
+  tests, and policy exceptions, and supersede the documenting ADR. Never
+  accrete legacy modes, dual-shape validators, or migration replay fixtures
+  for behavior nobody depends on (ADR 0023).
 - PostgreSQL is the durable source of competitive truth. Redis is expendable
   and must use validated namespaced keys with expiry. See
   [persistence](docs/architecture/persistence.md) and
@@ -69,7 +76,10 @@ and detailed procedures in the linked documents, not here.
   raw exceptions. Public errors must not expose internals.
 - Schema changes use `bun db:generate`, reviewed SQL and metadata, forward
   migrations, and expand/contract for rolling deployments. Never rewrite an
-  applied migration or reset production.
+  applied migration or reset production; the only sanctioned history rewrite
+  is a greenfield baseline squash recorded in
+  `policy/migration-baselines.json` (ADR 0023), which requires resetting
+  every local and test database once.
 
 ## Test contract
 

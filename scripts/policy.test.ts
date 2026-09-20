@@ -1,5 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { scanPolicyText, validatePolicyRegistry } from './policy';
+import {
+  scanPolicyText,
+  validateMigrationBaselines,
+  validatePolicyRegistry,
+} from './policy';
 
 setupRitewayBun();
 
@@ -157,6 +161,56 @@ describe('policy scanner', () => {
         },
       ),
       expected: ['registry[1]: duplicate src/example.ts|direct-random-uuid'],
+    });
+  });
+});
+
+describe('migration baseline registry', () => {
+  const knownPaths = new Set(['docs/decisions/0023-greenfield-baseline.md']);
+  const validBaseline = {
+    baseJournalHash: `sha256:${'a'.repeat(64)}`,
+    adr: 'docs/decisions/0023-greenfield-baseline.md',
+    owner: 'platform',
+    reason: 'one-time cuid2-native baseline squash',
+    reviewBy: '2026-09-20',
+  };
+
+  test('accepts a well-formed, unexpired sanctioned baseline', () => {
+    assert({
+      given: 'a baseline entry with a content hash, ADR and live review date',
+      should: 'report no registry problems',
+      actual: validateMigrationBaselines(
+        { version: 1, baselines: [validBaseline] },
+        { knownPaths, today: '2026-09-20' },
+      ),
+      expected: [],
+    });
+  });
+
+  test('rejects malformed hashes, unknown ADRs and expired reviews', () => {
+    assert({
+      given:
+        'baseline entries with a bare hash, missing ADR file and an expired review date',
+      should: 'reject every entry with the specific registry problem',
+      actual: validateMigrationBaselines(
+        {
+          version: 1,
+          baselines: [
+            { ...validBaseline, baseJournalHash: 'abc123' },
+            {
+              ...validBaseline,
+              adr: 'docs/decisions/9999-missing.md',
+              reviewBy: '2026-01-01',
+            },
+          ],
+        },
+        { knownPaths, today: '2026-09-20' },
+      ),
+      expected: [
+        'baselines[0]: baseJournalHash must be sha256:<64 lowercase hex>',
+        'baselines[1]: ADR does not exist: docs/decisions/9999-missing.md',
+        'baselines[1]: reviewBy has expired: 2026-01-01',
+      ],
     });
   });
 });

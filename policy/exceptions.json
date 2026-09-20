@@ -27,33 +27,6 @@
       "category": "tooling",
       "owner": "platform",
       "reason": "The lint contract fixture intentionally names forbidden ambient APIs."
-    },
-    {
-      "path": "packages/db/migrations/0000_optimal_calypso.sql",
-      "adr": "docs/decisions/0018-cuid2-identifiers.md",
-      "reviewBy": "2027-09-20",
-      "rule": "repository-owned-uuid",
-      "category": "migration",
-      "owner": "db",
-      "reason": "Applied migration history is immutable."
-    },
-    {
-      "path": "packages/db/migrations/meta/0000_snapshot.json",
-      "adr": "docs/decisions/0018-cuid2-identifiers.md",
-      "reviewBy": "2027-09-20",
-      "rule": "repository-owned-uuid",
-      "category": "migration",
-      "owner": "db",
-      "reason": "Applied migration metadata is immutable."
-    },
-    {
-      "path": "packages/db/migrations/meta/0001_snapshot.json",
-      "adr": "docs/decisions/0018-cuid2-identifiers.md",
-      "reviewBy": "2027-09-20",
-      "rule": "repository-owned-uuid",
-      "category": "migration",
-      "owner": "db",
-      "reason": "Applied migration metadata is immutable."
     }
   ]
 }
