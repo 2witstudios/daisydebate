@@ -134,6 +134,36 @@ describe('authentication configuration', () => {
     });
   });
 
+  test('rejects invalid sender mailbox syntax', () => {
+    let message = '';
+    try {
+      readAuthConfig({ ...authEnv, AUTH_EMAIL_FROM: 'Daisy @' });
+    } catch (error) {
+      message = String(error);
+    }
+    assert({
+      given: 'an authentication sender without a valid mailbox',
+      should: 'reject the sender configuration by field name',
+      actual: message.includes('AUTH_EMAIL_FROM'),
+      expected: true,
+    });
+  });
+
+  test('rejects non-HTTP application URLs', () => {
+    let message = '';
+    try {
+      readAuthConfig({ ...authEnv, PUBLIC_APP_URL: 'ftp://daisy.example.com' });
+    } catch (error) {
+      message = String(error);
+    }
+    assert({
+      given: 'an application URL with an unsupported scheme',
+      should: 'reject the URL configuration by field name',
+      actual: message.includes('PUBLIC_APP_URL'),
+      expected: true,
+    });
+  });
+
   test('browser allowlist never carries authentication configuration', () => {
     assert({
       given: 'a server environment including all auth variables',

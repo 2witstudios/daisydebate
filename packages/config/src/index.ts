@@ -80,10 +80,24 @@ export function readServerConfig(
 export const authConfigSchema = z.object({
   /** 64 characters from 32 random bytes (hex); see `bun auth:provision`. */
   BETTER_AUTH_SECRET: z.string().regex(/^\S{64}$/),
-  PUBLIC_APP_URL: z.url(),
+  PUBLIC_APP_URL: z.url().refine((value) => {
+    try {
+      return ['http:', 'https:'].includes(new URL(value).protocol);
+    } catch {
+      return false;
+    }
+  }, 'Expected HTTP(S) URL'),
   RESEND_API_KEY: z.string().regex(/^\S+$/),
-  /** Sender email header value; newlines are rejected as header injection. */
-  AUTH_EMAIL_FROM: z.string().regex(/^[^\r\n]*@[^\r\n]*$/),
+  /** Sender email header value; newlines and malformed mailboxes are rejected. */
+  AUTH_EMAIL_FROM: z
+    .string()
+    .refine(
+      (value) =>
+        /^(?:[^<>\r\n]+ <[^\s@<>]+@[^\s@<>]+>|[^\s@<>]+@[^\s@<>]+)$/.test(
+          value,
+        ),
+      'Expected an email address or display name with an email address',
+    ),
 });
 export type AuthConfig = z.infer<typeof authConfigSchema>;
 /** Validation reports field names only: never echo secret values. */
