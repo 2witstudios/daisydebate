@@ -22,6 +22,7 @@
     "@daisy/protocol": "workspace:*",
     "@daisy/errors": "workspace:*",
     "@daisy/config": "workspace:*",
+    "@daisy/clock": "workspace:*",
     "@daisy/db": "workspace:*",
     "@daisy/redis": "workspace:*",
     "@daisy/logger": "workspace:*",

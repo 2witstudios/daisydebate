@@ -1,4 +1,5 @@
 import { readServerConfig } from '@daisy/config';
+import { systemClock, systemId } from '@daisy/clock';
 import { createDatabase } from '@daisy/db';
 import { createRedis } from '@daisy/redis';
 import { createLogger } from '@daisy/logger';
@@ -7,6 +8,8 @@ function createResources() {
   const config = readServerConfig(process.env);
   return {
     config,
+    clock: systemClock,
+    ids: systemId,
     database: createDatabase({ url: config.DATABASE_URL }),
     redis: createRedis({
       url: config.REDIS_URL,

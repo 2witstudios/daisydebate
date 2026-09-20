@@ -1,3 +1,4 @@
+import type { Clock, IdGenerator } from '@daisy/clock';
 import { createAppError, isAppError } from '@daisy/errors';
 import { requirePermission, type Principal } from '@daisy/auth';
 import {
@@ -36,15 +37,15 @@ async function withDurableContext<T>(operation: () => Promise<T>): Promise<T> {
 
 export async function createProofDebate(
   input: unknown,
-  identity: { id: string; createdAt: string },
+  primitives: { clock: Clock; ids: IdGenerator },
 ): Promise<DebateSnapshot> {
   requireProofEnabled();
   requirePermission(proofPrincipal, 'debate:create');
   const { resolution } = parseValidated(proofDebateInputSchema, input);
   const runtime = createDebateRuntime({
-    id: identity.id,
+    id: primitives.ids.next(),
     resolution,
-    createdAt: identity.createdAt,
+    createdAt: primitives.clock.now(),
   });
   try {
     const snapshot = runtime.snapshot();

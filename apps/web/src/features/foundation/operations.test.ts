@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError, isAppError } from '@daisy/errors';
+import { fixedClock } from '@daisy/clock';
 import { readServerConfig } from '@daisy/config';
 
 setupRitewayBun();
@@ -12,9 +13,9 @@ const database: {
   getDebate: () => Promise.resolve(undefined),
 };
 
-const identity = {
-  id: '11111111-1111-4111-8111-111111111111',
-  createdAt: '2026-01-01T00:00:00.000Z',
+const primitives = {
+  clock: fixedClock('2026-01-01T00:00:00.000Z'),
+  ids: { next: () => '11111111-1111-4111-8111-111111111111' },
 };
 
 // Seed process-local resources before touching operations so this test never
@@ -55,7 +56,7 @@ describe('foundation operation error mapping', () => {
     const caught = await capture(
       createProofDebate(
         { resolution: 'A representative resolution' },
-        identity,
+        primitives,
       ),
     );
     assert({
@@ -71,7 +72,7 @@ describe('foundation operation error mapping', () => {
     const caught = await capture(
       createProofDebate(
         { resolution: 'A representative resolution' },
-        identity,
+        primitives,
       ),
     );
     assert({
@@ -92,7 +93,7 @@ describe('foundation operation identity', () => {
     };
     const snapshot = await createProofDebate(
       { resolution: 'A representative resolution' },
-      identity,
+      primitives,
     );
     assert({
       given: 'injected identity and timestamp',
@@ -103,9 +104,9 @@ describe('foundation operation identity', () => {
         persistedId,
       },
       expected: {
-        id: identity.id,
-        createdAt: identity.createdAt,
-        persistedId: identity.id,
+        id: '11111111-1111-4111-8111-111111111111',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        persistedId: '11111111-1111-4111-8111-111111111111',
       },
     });
   });

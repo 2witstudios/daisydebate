@@ -14,9 +14,10 @@ export const runtime = 'nodejs';
 export function POST(request: Request) {
   return handleOperation(request, 'foundation.proof.create', async () => {
     requireSameOrigin(request, getResources().config.PUBLIC_APP_URL);
+    const resources = getResources();
     const snapshot = await createProofDebate(await readJson(request), {
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
+      clock: resources.clock,
+      ids: resources.ids,
     });
     return Response.json(snapshot, { status: 201 });
   });

@@ -21,6 +21,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@daisy/auth": "workspace:*",
+        "@daisy/clock": "workspace:*",
         "@daisy/config": "workspace:*",
         "@daisy/db": "workspace:*",
         "@daisy/debate-engine": "workspace:*",

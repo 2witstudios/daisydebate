@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { systemId } from '@daisy/clock';
 export function proxy(request: NextRequest) {
-  const requestId = crypto.randomUUID();
+  const requestId = systemId.next();
   const { pathname } = request.nextUrl;
   // Development-only architectural proof: refuse at the edge with a real 404
   // before routing when the deployment did not enable it.
@@ -13,7 +14,7 @@ export function proxy(request: NextRequest) {
       headers: { 'x-request-id': requestId },
     });
   }
-  const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
+  const nonce = Buffer.from(systemId.next()).toString('base64');
   const development = process.env.NODE_ENV === 'development';
   const policy = [
     "default-src 'self'",
