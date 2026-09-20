@@ -6,13 +6,14 @@ Shared application and domain code must not read wall-clock time or generate
 identities implicitly. `@daisy/clock` owns the small contracts and edge
 implementations needed to make those inputs explicit: `Clock` with `now()` and
 `IdGenerator` with `next()`. Its system implementations use the runtime clock
-and UUID generator; `fixedClock` and `sequentialId` provide deterministic
-implementations for tests and other callers that need reproducible behavior.
+and UUID generator; `fixedClock`, `sequentialId`, and `fixedIds` provide
+deterministic implementations for tests and other callers that need
+reproducible behavior.
 
 The package public API is limited to `Clock`, `IdGenerator`, `systemClock`,
-`systemId`, `fixedClock`, and `sequentialId` from its root export. It has no
-runtime or workspace dependencies and may not depend on domain, protocol,
-framework, persistence, logging, or other infrastructure packages. Consumers
+`systemId`, `fixedClock`, `sequentialId`, and `fixedIds` from its root export.
+It has no runtime or workspace dependencies and may not depend on domain,
+protocol, framework, persistence, logging, or other infrastructure packages. Consumers
 receive the contracts through their owning operation or adapter; domain logic
 remains pure and does not import runtime implementations.
 
