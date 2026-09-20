@@ -97,25 +97,24 @@ export function createAuthServer<
   readonly ids: IdGenerator;
 }): AuthServer<Database> {
   const config = readAuthConfig(dependencies.env);
+  const sendMail: AuthEmailSender['send'] = async (message) => {
+    try {
+      await dependencies.emailSender.send(message);
+    } catch (error) {
+      // Delivery failure is a generic retryable outcome: never surface
+      // or log the provider exception, recipient or message body here.
+      throw createAppError('INFRASTRUCTURE', undefined, error);
+    }
+  };
   return {
     config,
     instance: composeBetterAuth({
       config,
       database: dependencies.database,
-      emailSender: dependencies.emailSender,
+      emailSender: { send: sendMail },
     }),
     database: dependencies.database,
-    mail: {
-      send: async (message) => {
-        try {
-          await dependencies.emailSender.send(message);
-        } catch (error) {
-          // Delivery failure is a generic retryable outcome: never surface
-          // or log the provider exception, recipient or message body here.
-          throw createAppError('INFRASTRUCTURE', undefined, error);
-        }
-      },
-    },
+    mail: { send: sendMail },
     limiter: dependencies.limiter,
     logger: dependencies.logger,
     clock: dependencies.clock,

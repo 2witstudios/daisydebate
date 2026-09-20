@@ -81,6 +81,41 @@ describe('auth client entrypoint', () => {
     });
   });
 
+  test('sends magic-link sign-in requests through the browser client transport', async () => {
+    const requests: Array<{
+      readonly url: string;
+      readonly method: string | undefined;
+      readonly body: string | undefined;
+    }> = [];
+    const customFetchImpl = async (
+      input: RequestInfo | URL,
+      init?: RequestInit,
+    ) => {
+      requests.push({
+        url: String(input),
+        method: init?.method,
+        body: typeof init?.body === 'string' ? init.body : undefined,
+      });
+      return Response.json({ status: true });
+    };
+    await authClient.signIn.magicLink({
+      email: 'player@daisy.example.com',
+      fetchOptions: { customFetchImpl },
+    });
+    assert({
+      given: 'a magic-link sign-in through the browser client',
+      should: 'send the expected POST request and email body',
+      actual: requests,
+      expected: [
+        {
+          url: '/api/auth/sign-in/magic-link',
+          method: 'POST',
+          body: JSON.stringify({ email: 'player@daisy.example.com' }),
+        },
+      ],
+    });
+  });
+
   test('keeps server configuration and secrets outside its import graph', async () => {
     const { built, modules } = await scanImportGraph();
     const violations = modules.filter((module) =>
@@ -97,20 +132,11 @@ describe('auth client entrypoint', () => {
   });
 
   test('imports with no credentials in the environment', async () => {
-    const strippedEnv = Object.fromEntries(
-      Object.entries(process.env).filter(
-        ([name]) =>
-          ![
-            'BETTER_AUTH_SECRET',
-            'RESEND_API_KEY',
-            'AUTH_EMAIL_FROM',
-            'PUBLIC_APP_URL',
-          ].includes(name),
-      ),
-    );
+    const strippedEnv = { NODE_ENV: process.env.NODE_ENV ?? 'test' };
     const probe = Bun.spawnSync(
       [
         process.execPath,
+        '--no-env-file',
         '-e',
         'await import("./src/lib/auth-client.ts"); console.log("imported")',
       ],
