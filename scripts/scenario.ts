@@ -31,6 +31,26 @@ export type DebateScenario = {
   };
 };
 
+export type ScenarioExpectationReport = {
+  readonly type: 'scenario-expectation-failed';
+  readonly scenario: string;
+  readonly step: keyof DebateScenario['expect'];
+  readonly expected: unknown;
+  readonly actual: unknown;
+};
+
+export class ScenarioExpectationError extends Error {
+  readonly report: ScenarioExpectationReport;
+
+  constructor(report: ScenarioExpectationReport) {
+    super(
+      `Scenario "${report.scenario}" failed at step "${String(report.step)}": expected ${JSON.stringify(report.expected)} but received ${JSON.stringify(report.actual)}`,
+    );
+    this.name = 'ScenarioExpectationError';
+    this.report = report;
+  }
+}
+
 export function runScenario(scenario: DebateScenario): DebateSnapshot {
   const { given } = scenario;
   const ids = fixedIds(given.ids);
@@ -82,17 +102,18 @@ function assertScenario(
     phase: snapshot.phase,
     participantIds: snapshot.participants.map(({ id }) => id),
   };
-  if (
-    actual.id !== expected.id ||
-    actual.createdAt !== expected.createdAt ||
-    actual.phase !== expected.phase ||
-    JSON.stringify(actual.participantIds) !==
-      JSON.stringify(expected.participantIds)
-  ) {
-    throw new Error(
-      `Scenario "${scenario.name}" expected ${JSON.stringify(expected)} but received ${JSON.stringify(actual)}`,
-    );
-  }
+  const step = (['id', 'createdAt', 'phase', 'participantIds'] as const).find(
+    (candidate) =>
+      JSON.stringify(expected[candidate]) !== JSON.stringify(actual[candidate]),
+  );
+  if (step !== undefined)
+    throw new ScenarioExpectationError({
+      type: 'scenario-expectation-failed',
+      scenario: scenario.name,
+      step,
+      expected: expected[step],
+      actual: actual[step],
+    });
 }
 
 async function loadScenario(name: string): Promise<DebateScenario> {
@@ -111,7 +132,13 @@ if (import.meta.main) {
     runScenario(await loadScenario(name));
     console.log(`Scenario passed: ${name}`);
   } catch (error) {
-    console.error(error instanceof Error ? error.message : error);
+    console.error(
+      error instanceof ScenarioExpectationError
+        ? JSON.stringify(error.report)
+        : error instanceof Error
+          ? error.message
+          : error,
+    );
     process.exitCode = 1;
   }
 }

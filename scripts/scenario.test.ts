@@ -1,5 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { runScenario, type DebateScenario } from './scenario';
+import {
+  runScenario,
+  ScenarioExpectationError,
+  type DebateScenario,
+} from './scenario';
 
 setupRitewayBun();
 
@@ -51,11 +55,28 @@ describe('typed debate scenarios', () => {
   });
 
   test('rejects an expectation that does not match the engine result', () => {
-    expect(() =>
+    let error: unknown;
+    try {
       runScenario({
         ...scenario,
         expect: { ...scenario.expect, phase: 'waiting' },
-      }),
-    ).toThrow(/expected .*but received/);
+      });
+    } catch (caught) {
+      error = caught;
+    }
+
+    assert({
+      given: 'a lifecycle scenario whose phase expectation is violated',
+      should:
+        'report the failing expectation step with expected and actual values',
+      actual: error instanceof ScenarioExpectationError ? error.report : error,
+      expected: {
+        type: 'scenario-expectation-failed',
+        scenario: 'lifecycle',
+        step: 'phase',
+        expected: 'waiting',
+        actual: 'completed',
+      },
+    });
   });
 });
