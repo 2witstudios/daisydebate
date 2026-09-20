@@ -24,12 +24,32 @@ infrastructure. All unit tests follow TDD and the RITEway format (ADR 0014);
    `infra/init-test-database.sql`); on volumes initialized before that role
    existed, create it manually (see `docs/operations/database.md`).
 4. **CI parity** — `bun check` approximates the CI checks job (format, lint,
-   typecheck, unit tests, metrics policy, production build). CI additionally
-   runs the
-   integration tier with service containers and the browser tier with
-   Chromium. `bun verify` runs those additional gates locally and also applies
+   knip, invariants, evidence, typecheck, unit tests, metrics policy,
+   production build). CI additionally runs the
+   integration tier with service containers and the browser tier in the
+   dedicated `e2e.yml` workflow (one E2E owner per PR; `bun evidence`
+   fails if a second workflow also runs `test:e2e`). `bun verify` runs those additional gates locally and also applies
    the committed migrations twice to `TEST_DATABASE_URL` to prove reruns are
    idempotent.
+
+## Suite wiring (`bun evidence`)
+
+A suite that nothing invokes is indistinguishable from a suite that does
+not exist — PageSpace lost entire tiers this way. `bun evidence` (in
+`bun check` and CI) is the live audit:
+
+- Every `*.test.ts` must sit in a claimed location: a package's `src/`
+  (`bun test src`), root `scripts/` (`bun test scripts`), or the root
+  eslint config test (`bun lint`). Anything else is an ORPHAN_SUITE.
+- Every `integration/` suite must be named by its workspace's
+  `test:integration` script and must **throw** when
+  `TEST_DATABASE_URL`/`TEST_REDIS_URL` is missing — a guard that skips
+  instead of failing is GUARD_MISSING.
+- Every `*.e2e.ts` is claimed by the Playwright config, and exactly one
+  workflow runs `test:e2e`.
+- The `knip`, `invariants`, `evidence`, and `migrations:check` gates must
+  appear in `ci.yml`, so deleting a job breaks CI instead of silently
+  retiring a gate.
 
 ## Rules
 
@@ -50,6 +70,7 @@ infrastructure. All unit tests follow TDD and the RITEway format (ADR 0014);
   created.
 - Integration tests read `TEST_DATABASE_URL` (must end in `_test`) and
   `TEST_REDIS_URL`; never point them at development or production data.
+  Missing services hard-fail (`throw`), never skip.
 - No test skips, `console` noise, or relaxed strictness to force green.
   Flaky tests are bugs.
 - New domain behavior lands with engine tests first; new durable behavior

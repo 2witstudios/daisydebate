@@ -45,6 +45,27 @@ a docs update in the same PR.
    version → map infrastructure failures to stable public errors.
 4. Update `docs/domains/engine.md` when lifecycle or invariants change.
 
+## Adding a product vertical
+
+A vertical is a self-contained feature slice several agents can build in
+parallel. See `docs/development/parallel-work.md` for the coordination
+rules.
+
+1. Create the application operations in
+   `apps/web/src/features/<vertical>/` (validation, principals,
+   orchestration) — never a global `lib/`.
+2. Create a route group `apps/web/src/app/(<vertical>)/` for pages and
+   `src/app/api/<vertical>/` for handlers. Route groups isolate URL
+   structure without touching other verticals' paths.
+3. Shared app-router files (`src/app/layout.tsx`, `globals.css`) are
+   coordination points: changing them belongs to a dedicated change that
+   vertical PRs rebase onto, not to a vertical PR.
+4. Add engine/protocol capability through the existing recipes first;
+   a vertical composes the domain, it does not fork it.
+5. Extend `apps/web/e2e` with the vertical's user-visible contracts.
+6. Update the "Where work belongs" table in `README.md` and this file in
+   the same PR.
+
 ## Adding a protocol message
 
 1. Add the message to the discriminated union (command or event) or snapshot

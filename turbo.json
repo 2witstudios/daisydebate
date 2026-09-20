@@ -16,7 +16,13 @@
     "LOG_LEVEL",
     "FOUNDATION_PROOF_ENABLED",
     "NEXT_MANUAL_SIG_HANDLE",
-    "E2E_POSTGRES_PORT"
+    "E2E_POSTGRES_PORT",
+    "PORT",
+    "E2E_PORT",
+    "E2E_REDIS_PORT",
+    "DAISY_STACK_NAME",
+    "DAISY_PG_PORT",
+    "DAISY_REDIS_PORT"
   ],
   "tasks": {
     "dev": { "cache": false, "persistent": true },
