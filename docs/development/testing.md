@@ -56,3 +56,11 @@ infrastructure. All unit tests follow TDD and the RITEway format (ADR 0014);
   mocking the database.
 - Playwright config env demonstrates the full production-refined
   configuration; keep it that way so e2e failures catch config regressions.
+
+## CI Artifacts
+
+The Browser E2E workflow uploads `apps/web/test-results` and
+`apps/web/playwright-report` after each non-cancelled run. On failures these
+contain screenshots, videos, traces, the HTML report, and the production
+server's structured `server.log`; server logs run at `info` level so request
+IDs can be correlated with browser failures without rerunning CI.

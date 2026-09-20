@@ -16,10 +16,14 @@ export default defineConfig({
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL,
+    screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
+    video: 'retain-on-failure',
   },
   webServer: {
-    command: 'bun run start',
+    // Keep structured server output beside Playwright's failure artifacts.
+    command:
+      'mkdir -p test-results && bun run start > test-results/server.log 2>&1',
     url: `${baseURL}/api/health/live`,
     name: 'production web',
     timeout: 60_000,
@@ -36,7 +40,7 @@ export default defineConfig({
       REDIS_URL: 'redis://localhost:6379/2',
       REDIS_NAMESPACE: 'e2e',
       FOUNDATION_PROOF_ENABLED: 'false',
-      LOG_LEVEL: 'warn',
+      LOG_LEVEL: 'info',
     },
   },
 });
