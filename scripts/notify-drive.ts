@@ -80,27 +80,66 @@ const CHANNEL_ENV: Record<Channel, { url: string; secret: string }> = {
   },
 };
 
+function requireHttpsWebhook(name: string, value: string): URL {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`${name} is not a valid URL`);
+  }
+  if (url.protocol !== 'https:') {
+    throw new Error(`${name} must use https to protect the signed payload`);
+  }
+  return url;
+}
+
+async function postSignedWebhook(input: {
+  readonly label: string;
+  readonly url: URL;
+  readonly secret: string;
+  readonly rawBody: string;
+}): Promise<Response> {
+  const timestampSeconds = Math.floor(Date.now() / 1000);
+  try {
+    return await fetch(input.url, {
+      method: 'POST',
+      redirect: 'error',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-pagespace-timestamp': String(timestampSeconds),
+        'x-pagespace-signature': signPayload(
+          input.secret,
+          timestampSeconds,
+          input.rawBody,
+        ),
+      },
+      body: input.rawBody,
+    });
+  } catch (error) {
+    throw new Error(
+      `Webhook ${input.label} request failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
 export async function postToDrive(
   channel: Channel,
   content: string,
 ): Promise<void> {
-  const url = process.env[CHANNEL_ENV[channel].url];
+  const rawUrl = process.env[CHANNEL_ENV[channel].url];
   const secret = process.env[CHANNEL_ENV[channel].secret];
-  if (!url || !secret) {
+  if (!rawUrl || !secret) {
     throw new Error(
       `Missing ${CHANNEL_ENV[channel].url} or ${CHANNEL_ENV[channel].secret}`,
     );
   }
+  const url = requireHttpsWebhook(CHANNEL_ENV[channel].url, rawUrl);
   const rawBody = JSON.stringify({ content, username: 'Daisy CI' });
-  const timestampSeconds = Math.floor(Date.now() / 1000);
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-pagespace-timestamp': String(timestampSeconds),
-      'x-pagespace-signature': signPayload(secret, timestampSeconds, rawBody),
-    },
-    body: rawBody,
+  const response = await postSignedWebhook({
+    label: channel,
+    url,
+    secret,
+    rawBody,
   });
   if (!response.ok) {
     throw new Error(
@@ -112,33 +151,26 @@ export async function postToDrive(
 export async function postDocumentationEvent(
   event: DocumentationEvent,
 ): Promise<void> {
-  const webhookUrl = process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL;
+  const rawUrl = process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL;
   const secret = process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET;
-  if (!webhookUrl || !secret) {
+  if (!rawUrl || !secret) {
     throw new Error(
       'Missing PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL or PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET',
     );
   }
-  const url = new URL(webhookUrl);
-  if (url.protocol !== 'https:') {
-    throw new Error(
-      'PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL must use https to protect the signed event',
-    );
-  }
+  const url = requireHttpsWebhook(
+    'PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL',
+    rawUrl,
+  );
   const rawBody = JSON.stringify({
     event,
     username: 'Daisy Documentation Agent',
   });
-  const timestampSeconds = Math.floor(Date.now() / 1000);
-  const response = await fetch(url, {
-    method: 'POST',
-    redirect: 'error',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-pagespace-timestamp': String(timestampSeconds),
-      'x-pagespace-signature': signPayload(secret, timestampSeconds, rawBody),
-    },
-    body: rawBody,
+  const response = await postSignedWebhook({
+    label: 'documentation-agent',
+    url,
+    secret,
+    rawBody,
   });
   if (!response.ok) {
     throw new Error(

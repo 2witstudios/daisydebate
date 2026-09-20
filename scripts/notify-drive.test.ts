@@ -102,43 +102,46 @@ describe('postDocumentationEvent', async () => {
       'http://pagespace.ai/api/webhooks/token';
     process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET = 'test-secret';
 
-    let thrown: unknown;
     try {
-      await postDocumentationEvent({
-        eventVersion: 'docs-event-v1',
-        eventId: 'evt-1',
-        eventType: 'pull_request.merged',
-        occurredAt: '2026-09-20T00:00:00.000Z',
-        repository: 'daisydebate',
-        baseRef: 'main',
-        commit: 'abc123',
-        pullRequest: null,
-        taskIds: [],
-        changedFiles: [],
-        classification: {
-          changeKind: 'unknown',
-          pipelines: [],
-          reasons: [],
-        },
-        sourceRefs: [],
-        idempotencyKey: 'daisydebate:abc123:pull_request.merged',
+      let thrown: unknown;
+      try {
+        await postDocumentationEvent({
+          eventVersion: 'docs-event-v1',
+          eventId: 'evt-1',
+          eventType: 'pull_request.merged',
+          occurredAt: '2026-09-20T00:00:00.000Z',
+          repository: 'daisydebate',
+          baseRef: 'main',
+          commit: 'abc123',
+          pullRequest: null,
+          taskIds: [],
+          changedFiles: [],
+          classification: {
+            changeKind: 'unknown',
+            pipelines: [],
+            reasons: [],
+          },
+          sourceRefs: [],
+          idempotencyKey: 'daisydebate:abc123:pull_request.merged',
+        });
+      } catch (error) {
+        thrown = error;
+      }
+
+      assert({
+        given: 'an http webhook URL',
+        should: 'reject before sending the signed event',
+        actual: thrown instanceof Error && thrown.message.includes('https'),
+        expected: true,
       });
-    } catch (error) {
-      thrown = error;
+    } finally {
+      if (originalUrl)
+        process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL = originalUrl;
+      else delete process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL;
+      if (originalSecret)
+        process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET =
+          originalSecret;
+      else delete process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET;
     }
-
-    assert({
-      given: 'an http webhook URL',
-      should: 'reject before sending the signed event',
-      actual: thrown instanceof Error && thrown.message.includes('https'),
-      expected: true,
-    });
-
-    if (originalUrl)
-      process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL = originalUrl;
-    else delete process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL;
-    if (originalSecret)
-      process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET = originalSecret;
-    else delete process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET;
   });
 });
