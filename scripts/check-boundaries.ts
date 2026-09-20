@@ -1,6 +1,11 @@
 import { readdir } from 'node:fs/promises';
 import { resolve, relative, dirname } from 'node:path';
 import ts from 'typescript';
+import {
+  architectureExceptionRegistry,
+  checkArchitectureExceptions,
+  findArchitectureExceptionMarkers,
+} from './architecture-exceptions';
 
 type Manifest = {
   name: string;
@@ -28,6 +33,7 @@ const byName = new Map(
   workspaces.map((workspace) => [workspace.manifest.name, workspace]),
 );
 const issues: string[] = [];
+const architectureExceptionMarkers: string[] = [];
 const allowed: Record<string, readonly string[]> = {
   'debate-engine': ['errors', 'protocol'],
   protocol: ['errors'],
@@ -76,6 +82,9 @@ for (const workspace of workspaces) {
     absolute: true,
   })) {
     if (file.includes('/node_modules/') || file.includes('/.next/')) continue;
+    architectureExceptionMarkers.push(
+      ...findArchitectureExceptionMarkers(await Bun.file(file).text()),
+    );
     const source = ts.createSourceFile(
       file,
       await Bun.file(file).text(),
@@ -136,6 +145,13 @@ for (const workspace of workspaces) {
     walk(source);
   }
 }
+issues.push(
+  ...checkArchitectureExceptions(
+    architectureExceptionRegistry,
+    architectureExceptionMarkers,
+    new Date().toISOString().slice(0, 10),
+  ),
+);
 if (issues.length) {
   console.error([...new Set(issues)].join('\n'));
   process.exit(1);
