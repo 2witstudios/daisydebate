@@ -97,7 +97,7 @@ Rules that keep sessions safe:
   without it a session could silently boot its suite against another
   session's already-running server.
 - Unit tests need no isolation. Integration tests always scope their own
-  UUIDs and Redis namespaces, so two sessions can share one test database
+  unique identifiers and Redis namespaces, so two sessions can share one test database
   for short checks — but concurrent `bun db:migrate` or `bun verify`
   against the same `TEST_DATABASE_URL` can race; prefer one test database
   per stack.

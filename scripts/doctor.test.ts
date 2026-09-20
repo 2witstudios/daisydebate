@@ -66,11 +66,11 @@ describe('migration currency', () => {
       given: 'committed and applied migration tags',
       should: 'accept an exact match and reject drift',
       actual: [
-        isMigrationCurrent(['0000_optimal_calypso'], ['0000_optimal_calypso']),
-        isMigrationCurrent(['0000_optimal_calypso'], []),
+        isMigrationCurrent(['0000_baseline'], ['0000_baseline']),
+        isMigrationCurrent(['0000_baseline'], []),
         isMigrationCurrent(
-          ['0000_optimal_calypso'],
-          ['0000_optimal_calypso', '0001_unexpected'],
+          ['0000_baseline'],
+          ['0000_baseline', '0001_unexpected'],
         ),
       ],
       expected: [true, false, false],
