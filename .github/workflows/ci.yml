@@ -120,4 +120,12 @@ jobs:
         env:
           PAGESPACE_INCIDENTS_WEBHOOK_URL: ${{ secrets.PAGESPACE_INCIDENTS_WEBHOOK_URL }}
           PAGESPACE_INCIDENTS_WEBHOOK_SECRET: ${{ secrets.PAGESPACE_INCIDENTS_WEBHOOK_SECRET }}
-        run: bun scripts/notify-drive.ts incidents --ref '${{ github.ref_name }}' --sha '${{ github.sha }}' --run-url '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}' --tasks '${{ github.ref_name }}'
+          NOTIFY_REF: ${{ github.ref_name }}
+          NOTIFY_SHA: ${{ github.sha }}
+          NOTIFY_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: >-
+          bun scripts/notify-drive.ts incidents
+          --ref "$NOTIFY_REF"
+          --sha "$NOTIFY_SHA"
+          --run-url "$NOTIFY_RUN_URL"
+          --tasks "$NOTIFY_REF"

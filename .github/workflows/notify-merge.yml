@@ -23,11 +23,17 @@ jobs:
         env:
           PAGESPACE_SPRINT_ROOM_WEBHOOK_URL: ${{ secrets.PAGESPACE_SPRINT_ROOM_WEBHOOK_URL }}
           PAGESPACE_SPRINT_ROOM_WEBHOOK_SECRET: ${{ secrets.PAGESPACE_SPRINT_ROOM_WEBHOOK_SECRET }}
+          NOTIFY_PR: ${{ github.event.pull_request.number }}
+          NOTIFY_TITLE: ${{ github.event.pull_request.title }}
+          NOTIFY_URL: ${{ github.event.pull_request.html_url }}
+          NOTIFY_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          NOTIFY_BASE: ${{ github.event.pull_request.base.ref }}
+          NOTIFY_TASKS: ${{ github.event.pull_request.title }} ${{ github.event.pull_request.head.ref }} ${{ github.event.pull_request.body }}
         run: >-
           bun scripts/notify-drive.ts sprint-room
-          --pr '${{ github.event.pull_request.number }}'
-          --title '${{ github.event.pull_request.title }}'
-          --url '${{ github.event.pull_request.html_url }}'
-          --sha '${{ github.event.pull_request.merge_commit_sha }}'
-          --base '${{ github.event.pull_request.base.ref }}'
-          --tasks '${{ github.event.pull_request.title }} ${{ github.event.pull_request.head.ref }} ${{ github.event.pull_request.body }}'
+          --pr "$NOTIFY_PR"
+          --title "$NOTIFY_TITLE"
+          --url "$NOTIFY_URL"
+          --sha "$NOTIFY_SHA"
+          --base "$NOTIFY_BASE"
+          --tasks "$NOTIFY_TASKS"
