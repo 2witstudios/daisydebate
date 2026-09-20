@@ -62,6 +62,31 @@ describe('ECS adapter contract', () => {
     world.dispose();
   });
 
+  test('rejects a transition that breaks a registered invariant atomically', () => {
+    const world = create();
+    const before = world.snapshot();
+    let error: unknown;
+    try {
+      world.transition('active');
+    } catch (caught) {
+      error = caught;
+    }
+    assert({
+      given:
+        'a transition that would violate the active-phase readiness invariant',
+      should: 'identify the registered invariant on the error',
+      actual: (error as { invariantId?: string }).invariantId,
+      expected: 'debate.phase.active.requires-ready-participants',
+    });
+    assert({
+      given: 'a transition rejected by a registered invariant',
+      should: 'leave the runtime snapshot unchanged',
+      actual: world.snapshot(),
+      expected: before,
+    });
+    world.dispose();
+  });
+
   test('rejects invalid restored state and unknown snapshot versions', () => {
     const world = create();
     expect(() =>

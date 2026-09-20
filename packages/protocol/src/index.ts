@@ -65,6 +65,8 @@ export const errorSchema = z.strictObject({
   ]),
   message: z.string(),
   requestId: z.string().max(128),
+  invariantId: z.string().trim().min(1).max(128).optional(),
 });
 export type Command = z.infer<typeof commandSchema>;
 export type DebateEvent = z.infer<typeof eventSchema>;
+export type ProtocolError = z.infer<typeof errorSchema>;

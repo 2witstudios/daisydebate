@@ -1,4 +1,4 @@
-import { createAppError } from '@daisy/errors';
+import { createAppError, createInvariantError } from '@daisy/errors';
 import {
   debateSnapshotSchema,
   type DebateSnapshot,
@@ -14,6 +14,14 @@ export type DebateRuntime = {
   transition(phase: DebatePhase): void;
   dispose(): void;
 };
+export const debateInvariantIds = {
+  participantIdentitiesUnique: 'debate.participants.identities-unique',
+  startedRequiresReadyParticipants:
+    'debate.phase.active.requires-ready-participants',
+  joiningRequiresWaitingPhase: 'debate.participant.join.waiting-phase',
+  readinessRequiresWaitingPhase: 'debate.participant.ready.waiting-phase',
+  legalPhaseTransition: 'debate.phase.transition.legal',
+} as const;
 function validateSnapshot(input: unknown): DebateSnapshot {
   const result = debateSnapshotSchema.safeParse(input);
   if (!result.success)
@@ -24,16 +32,16 @@ function validateSnapshot(input: unknown): DebateSnapshot {
     new Set(participants.map((p) => p.id)).size !== participants.length ||
     new Set(participants.map((p) => p.side)).size !== participants.length
   )
-    throw createAppError(
-      'INVARIANT',
+    throw createInvariantError(
+      debateInvariantIds.participantIdentitiesUnique,
       'Participant identities and competitive sides must be unique',
     );
   if (
     phase !== 'waiting' &&
     (participants.length !== 2 || participants.some((p) => !p.ready))
   )
-    throw createAppError(
-      'INVARIANT',
+    throw createInvariantError(
+      debateInvariantIds.startedRequiresReadyParticipants,
       'Started debates require two ready participants',
     );
   return snapshot;
@@ -46,7 +54,10 @@ export function restoreDebateRuntime(input: unknown): DebateRuntime {
     join({ participantId, side }) {
       const snapshot = adapter.snapshot();
       if (snapshot.phase !== 'waiting')
-        throw createAppError('INVARIANT', 'Joining requires waiting phase');
+        throw createInvariantError(
+          debateInvariantIds.joiningRequiresWaitingPhase,
+          'Joining requires waiting phase',
+        );
       const candidate = { id: participantId, side, ready: false };
       validateSnapshot({
         ...snapshot,
@@ -56,7 +67,10 @@ export function restoreDebateRuntime(input: unknown): DebateRuntime {
     },
     markReady(participantId) {
       if (adapter.snapshot().phase !== 'waiting')
-        throw createAppError('INVARIANT', 'Readiness requires waiting phase');
+        throw createInvariantError(
+          debateInvariantIds.readinessRequiresWaitingPhase,
+          'Readiness requires waiting phase',
+        );
       adapter.markReady(participantId);
     },
     transition(phase) {
@@ -65,7 +79,10 @@ export function restoreDebateRuntime(input: unknown): DebateRuntime {
         (snapshot.phase === 'waiting' && phase === 'active') ||
         (snapshot.phase === 'active' && phase === 'completed');
       if (!legal)
-        throw createAppError('INVARIANT', 'Illegal debate phase transition');
+        throw createInvariantError(
+          debateInvariantIds.legalPhaseTransition,
+          'Illegal debate phase transition',
+        );
       validateSnapshot({ ...snapshot, phase });
       adapter.transition(phase);
     },

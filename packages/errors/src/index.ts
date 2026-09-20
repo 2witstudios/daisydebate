@@ -10,7 +10,10 @@ const definitions = {
   INTERNAL: [500, 'Unexpected internal error'],
 } as const;
 export type ErrorCode = keyof typeof definitions;
-export type AppError = Error & { readonly code: ErrorCode };
+export type AppError = Error & {
+  readonly code: ErrorCode;
+  readonly invariantId?: string;
+};
 const knownErrors = new WeakSet<Error>();
 /** Details and cause remain internal. Public messages are fixed by error code. */
 export function createAppError(
@@ -22,14 +25,33 @@ export function createAppError(
   knownErrors.add(error);
   return error;
 }
+/** Create an invariant failure with an identity safe to expose to callers. */
+export function createInvariantError(
+  invariantId: string,
+  message: string = definitions.INVARIANT[1],
+  cause?: unknown,
+): AppError {
+  const error = createAppError('INVARIANT', message, cause);
+  Object.assign(error, { invariantId });
+  return error;
+}
 /** Only factory-minted errors carry a trustworthy public code. */
 export function isAppError(error: unknown): error is AppError {
   return error instanceof Error && knownErrors.has(error);
 }
 export function toPublicError(error: unknown, requestId: string) {
   const code = isAppError(error) ? error.code : 'INTERNAL';
+  const invariantId =
+    code === 'INVARIANT' && isAppError(error) ? error.invariantId : undefined;
   return {
     status: definitions[code][0],
-    body: { error: { code, message: definitions[code][1], requestId } },
+    body: {
+      error: {
+        code,
+        message: definitions[code][1],
+        requestId,
+        ...(invariantId === undefined ? {} : { invariantId }),
+      },
+    },
   };
 }

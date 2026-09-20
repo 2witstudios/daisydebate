@@ -1,5 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { commandSchema, eventSchema, debateSnapshotSchema } from './index';
+import {
+  commandSchema,
+  errorSchema,
+  eventSchema,
+  debateSnapshotSchema,
+} from './index';
 
 setupRitewayBun();
 
@@ -68,6 +73,24 @@ describe('event and snapshot schemas', () => {
         phase: 'waiting',
         createdAt: '2026-01-01T00:00:00.000Z',
         participants: [],
+      }).success,
+      expected: true,
+    });
+  });
+});
+
+describe('error schema', () => {
+  test('accepts a stable invariant identity on invariant errors', () => {
+    assert({
+      given: 'a version 1 invariant error with its registered identity',
+      should: 'accept the portable error contract',
+      actual: errorSchema.safeParse({
+        version: 1,
+        type: 'error',
+        code: 'INVARIANT',
+        message: 'Domain operation is not allowed',
+        requestId: 'request-1',
+        invariantId: 'debate.phase.active.requires-ready-participants',
       }).success,
       expected: true,
     });

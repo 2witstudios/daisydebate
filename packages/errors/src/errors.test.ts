@@ -1,5 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createAppError, isAppError, toPublicError } from './index';
+import {
+  createAppError,
+  createInvariantError,
+  isAppError,
+  toPublicError,
+} from './index';
 
 setupRitewayBun();
 
@@ -40,6 +45,24 @@ describe('isAppError', () => {
 });
 
 describe('error mapping', () => {
+  test('preserves a stable invariant identity at the public boundary', () => {
+    const error = createInvariantError(
+      'debate.phase.active.requires-ready-participants',
+    );
+    assert({
+      given: 'a registered invariant failure',
+      should: 'carry its stable invariant identity internally',
+      actual: error.invariantId,
+      expected: 'debate.phase.active.requires-ready-participants',
+    });
+    assert({
+      given: 'a registered invariant failure at a public boundary',
+      should: 'include its stable invariant identity in the error body',
+      actual: toPublicError(error, 'request-1').body.error.invariantId,
+      expected: 'debate.phase.active.requires-ready-participants',
+    });
+  });
+
   test('internal details and cause never cross the public boundary', () => {
     const cause = new Error('password=secret');
     const error = createAppError('INFRASTRUCTURE', 'postgres://secret', cause);
