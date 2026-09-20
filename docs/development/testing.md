@@ -26,7 +26,9 @@ infrastructure. All unit tests follow TDD and the RITEway format (ADR 0014);
 4. **CI parity** — `bun check` approximates the CI checks job (format, lint,
    typecheck, unit tests, production build). CI additionally runs the
    integration tier with service containers and the browser tier with
-   Chromium.
+   Chromium. `bun verify` runs those additional gates locally and also applies
+   the committed migrations twice to `TEST_DATABASE_URL` to prove reruns are
+   idempotent.
 
 ## Rules
 

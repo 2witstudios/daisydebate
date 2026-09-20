@@ -28,6 +28,7 @@ DATABASE_URL="$TEST_DATABASE_URL" bun db:migrate
 | `bun test`                        | Fast deterministic unit/domain tests; no services or Next boot      |
 | `bun test:integration`            | Database, Redis, and web vertical tests against real services       |
 | `bun test:e2e`                    | Playwright against the production server build                      |
+| `bun verify`                      | `bun check` plus migration-idempotency, integration, and E2E gates  |
 | `bun lint`                        | ESLint plus `scripts/check-boundaries.ts` architecture verification |
 | `bun format` / `bun format:check` | Prettier write / verify                                             |
 | `bun typecheck`                   | `tsc --noEmit` per workspace (web runs `next typegen` first)        |
