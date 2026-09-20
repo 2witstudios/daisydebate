@@ -28,6 +28,7 @@ const server = createServer((request, response) => {
   }
   void handle(request, response).catch(() => {
     resources.logger.error(
+      'http.request',
       { operation: 'http.request', errorCode: 'INTERNAL' },
       'Request failed',
     );
@@ -40,6 +41,7 @@ server.headersTimeout = 15_000;
 server.keepAliveTimeout = 5_000;
 server.listen(port, '0.0.0.0', () =>
   resources.logger.info(
+    'server.start',
     { operation: 'server.start', port },
     'Server listening',
   ),
@@ -47,7 +49,11 @@ server.listen(port, '0.0.0.0', () =>
 async function shutdown() {
   if (resources.draining) return;
   resources.draining = true;
-  resources.logger.info({ operation: 'server.shutdown' }, 'Draining requests');
+  resources.logger.info(
+    'server.shutdown',
+    { operation: 'server.shutdown' },
+    'Draining requests',
+  );
   const deadline = setTimeout(() => {
     server.closeAllConnections();
     process.exit(1);

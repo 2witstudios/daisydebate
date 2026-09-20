@@ -9,6 +9,7 @@ export async function register() {
       appVersion: process.env.APP_VERSION ?? 'development',
       gitCommit: process.env.GIT_COMMIT ?? 'unknown',
     }).info(
+      'runtime.initialize',
       { operation: 'runtime.initialize' },
       'Application runtime initialized',
     );
@@ -27,6 +28,7 @@ export const onRequestError: Instrumentation.onRequestError = async (
     appVersion: process.env.APP_VERSION ?? 'development',
     gitCommit: process.env.GIT_COMMIT ?? 'unknown',
   }).error(
+    'request.unhandled',
     {
       operation: 'request.unhandled',
       requestId: typeof id === 'string' ? id : undefined,

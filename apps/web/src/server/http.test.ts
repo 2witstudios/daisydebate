@@ -10,10 +10,12 @@ setupRitewayBun();
 // never constructs real database or Redis clients.
 const recorded: { level: string; message: string; fields: unknown }[] = [];
 const recorder: Logger = {
-  info: (fields, message) => recorded.push({ level: 'info', fields, message }),
-  warn: (fields, message) => recorded.push({ level: 'warn', fields, message }),
-  error: (fields, message) =>
-    recorded.push({ level: 'error', fields, message }),
+  info: (event, fields, message) =>
+    recorded.push({ level: 'info', fields: { event, ...fields }, message }),
+  warn: (event, fields, message) =>
+    recorded.push({ level: 'warn', fields: { event, ...fields }, message }),
+  error: (event, fields, message) =>
+    recorded.push({ level: 'error', fields: { event, ...fields }, message }),
   child: () => recorder,
 };
 const seededResources = {

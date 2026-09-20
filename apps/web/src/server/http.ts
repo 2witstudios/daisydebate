@@ -28,6 +28,7 @@ export async function handleOperation(
       response.headers.set('x-request-id', id);
       response.headers.set('Cache-Control', 'no-store');
       logger.info(
+        'http.request',
         {
           operation,
           requestId: id,
@@ -42,6 +43,7 @@ export async function handleOperation(
       // Client cancellation is expected traffic, not a failure signal.
       if (request.signal.aborted) {
         logger?.warn(
+          'http.request',
           {
             operation,
             requestId: id,
@@ -58,6 +60,7 @@ export async function handleOperation(
       }
       const mapped = toPublicError(error, id);
       logger?.error(
+        'http.request',
         {
           operation,
           requestId: id,
