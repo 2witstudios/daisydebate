@@ -90,6 +90,24 @@ test('proof vertical rejects invalid, cross-origin, and unknown requests', async
   expect(malformed.status).toBe(400);
 });
 
+test('proof route reads legacy UUID identifiers without reminting them', async () => {
+  // Durable pre-cuid2 debates keep canonical lowercase UUID identities; the
+  // route must treat the legacy shape as valid and resolve it against storage
+  // (404 for an unknown record), not reject it as malformed (400).
+  const legacyId = '0f0e6d1c-2b3a-4455-9a8b-7c6d5e4f3a21';
+  const unknownLegacy = await fetchById(legacyId);
+  expect(unknownLegacy.status).toBe(404);
+  expect(
+    ((await unknownLegacy.json()) as { error: { code: string } }).error.code,
+  ).toBe('NOT_FOUND');
+
+  const uppercased = await fetchById(legacyId.toUpperCase());
+  expect(uppercased.status).toBe(400);
+  expect(
+    ((await uppercased.json()) as { error: { code: string } }).error.code,
+  ).toBe('VALIDATION');
+});
+
 afterAll(async () => {
   const cleanup = new SQL(testDatabaseUrl);
   try {

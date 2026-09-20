@@ -3,8 +3,20 @@ import { z } from 'zod';
  * Entity identifiers are cuid2 (`@paralleldrive/cuid2`): 24 lowercase
  * alphanumeric characters. The shape is validated at the trust boundary;
  * id minting stays app-side and is never derived from input.
+ *
+ * Narrow backward compatibility (ADR 0022): durable records minted before
+ * ADR 0018 keep canonical lowercase UUID identities. Version-1 snapshots,
+ * commands, and events therefore accept exactly two shapes — new cuid2 and
+ * legacy canonical lowercase UUID — and nothing else. Parsing never
+ * normalizes or repairs input, so identity is preserved verbatim.
  */
-export const idSchema = z.string().regex(/^[a-z0-9]{24}$/);
+export const cuid2IdPattern = /^[a-z0-9]{24}$/;
+export const legacyUuidIdPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+export const idSchema = z
+  .string()
+  .regex(cuid2IdPattern)
+  .or(z.string().regex(legacyUuidIdPattern));
 export const phaseSchema = z.enum(['waiting', 'active', 'completed']);
 export const participantSchema = z.strictObject({
   id: idSchema,

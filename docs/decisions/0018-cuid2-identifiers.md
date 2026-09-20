@@ -27,8 +27,11 @@ columns and routes, so the baseline now matches the policy:
   empty id; `users` and `debates` keep application-supplied ids.
 - Better Auth composes `advanced.database.generateId` as a cuid2 generator,
   so user, session, account, verification, and passkey rows use cuid2.
-- `@daisy/protocol` validates identifier shape at the trust boundary with
-  the pattern `^[a-z0-9]{24}$`; parsing never normalizes or repairs input.
+- `@daisy/protocol` validates identifier shape at the trust boundary. New
+  identifiers match `^[a-z0-9]{24}$`; durable records minted before this
+  decision keep canonical lowercase UUID identities and are accepted for
+  backward compatibility (ADR 0022). Parsing never normalizes or repairs
+  input.
 - The pre-ship auth migration converts the `users` and `debates` id columns
   with an explicit foreign-key drop/re-add and hard-fails on case-folded
   username collisions before applying.
