@@ -1,5 +1,10 @@
 import { createAppError, toPublicError } from '@daisy/errors';
-import { currentTraceId, requestId, withSpan } from '@daisy/observability';
+import {
+  currentTraceId,
+  extractTraceContext,
+  requestId,
+  withSpan,
+} from '@daisy/observability';
 import type { Logger } from '@daisy/logger';
 import { type ZodType } from 'zod';
 import { getResources } from './resources';
@@ -18,59 +23,64 @@ export async function handleOperation(
 ): Promise<Response> {
   const id = requestId(request.headers.get('x-request-id'));
   const start = performance.now();
-  return withSpan(operation, { 'request.id': id }, async () => {
-    let logger: Logger | undefined;
-    try {
-      // Construction failures must map through the public error contract too.
-      logger = getResources().logger.child({
-        requestId: id,
-        traceId: currentTraceId(),
-        operation,
-      });
-      request.signal.throwIfAborted();
-      const response = await handler(id);
-      response.headers.set('x-request-id', id);
-      response.headers.set('Cache-Control', 'no-store');
-      logger.log(
-        'http.request.completed',
-        {
-          durationMs: Math.round(performance.now() - start),
-          status: response.status,
-        },
-        'Request completed',
-      );
-      return response;
-    } catch (error) {
-      // Client cancellation is expected traffic, not a failure signal.
-      if (request.signal.aborted) {
-        logger?.log(
-          'http.request.cancelled',
+  return withSpan(
+    operation,
+    { 'request.id': id },
+    async () => {
+      let logger: Logger | undefined;
+      try {
+        // Construction failures must map through the public error contract too.
+        logger = getResources().logger.child({
+          requestId: id,
+          traceId: currentTraceId(),
+          operation,
+        });
+        request.signal.throwIfAborted();
+        const response = await handler(id);
+        response.headers.set('x-request-id', id);
+        response.headers.set('Cache-Control', 'no-store');
+        logger.log(
+          'http.request.completed',
           {
             durationMs: Math.round(performance.now() - start),
-            errorCode: 'REQUEST_CANCELLED',
+            status: response.status,
           },
-          'Request cancelled before completion',
+          'Request completed',
         );
-        return new Response(null, {
-          status: 499,
+        return response;
+      } catch (error) {
+        // Client cancellation is expected traffic, not a failure signal.
+        if (request.signal.aborted) {
+          logger?.log(
+            'http.request.cancelled',
+            {
+              durationMs: Math.round(performance.now() - start),
+              errorCode: 'REQUEST_CANCELLED',
+            },
+            'Request cancelled before completion',
+          );
+          return new Response(null, {
+            status: 499,
+            headers: { 'x-request-id': id, 'Cache-Control': 'no-store' },
+          });
+        }
+        const mapped = toPublicError(error, id);
+        logger?.log(
+          'http.request.failed',
+          {
+            durationMs: Math.round(performance.now() - start),
+            errorCode: mapped.body.error.code,
+          },
+          'Request failed',
+        );
+        return Response.json(mapped.body, {
+          status: mapped.status,
           headers: { 'x-request-id': id, 'Cache-Control': 'no-store' },
         });
       }
-      const mapped = toPublicError(error, id);
-      logger?.log(
-        'http.request.failed',
-        {
-          durationMs: Math.round(performance.now() - start),
-          errorCode: mapped.body.error.code,
-        },
-        'Request failed',
-      );
-      return Response.json(mapped.body, {
-        status: mapped.status,
-        headers: { 'x-request-id': id, 'Cache-Control': 'no-store' },
-      });
-    }
-  });
+    },
+    extractTraceContext(request.headers),
+  );
 }
 export function requireSameOrigin(request: Request, origin: string) {
   if (request.headers.get('origin') !== new URL(origin).origin)

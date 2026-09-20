@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { systemId } from '@daisy/clock';
+import { isValidTraceparent } from '@daisy/observability';
 export function proxy(request: NextRequest) {
   const requestId = systemId.next();
   const { pathname } = request.nextUrl;
@@ -32,6 +33,8 @@ export function proxy(request: NextRequest) {
   const headers = new Headers(request.headers);
   // Never trust caller-supplied identifiers; proxy ingress establishes correlation.
   headers.set('x-request-id', requestId);
+  if (!isValidTraceparent(headers.get('traceparent')))
+    headers.delete('traceparent');
   headers.set('x-nonce', nonce);
   headers.set('Content-Security-Policy', policy);
   const response = NextResponse.next({ request: { headers } });

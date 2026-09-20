@@ -16,6 +16,8 @@ and exporters belong to deployment, not the repository.
   `operation`, `requestId`, and `traceId`, then emits
   `http.request.completed`, `http.request.cancelled`, or `http.request.failed`
   with structured lifecycle fields — never formatted strings.
+- The Next Proxy validates an ingress `traceparent` before forwarding it; the
+  HTTP boundary extracts that W3C context as the parent of the request span.
 - The logger embeds `appVersion` and `gitCommit` (deployment identity) in
   every line; production config refuses to boot without them.
 - Logger events use a compile-time vocabulary and registry-declared severity;
