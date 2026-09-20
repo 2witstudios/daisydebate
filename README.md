@@ -44,6 +44,7 @@ Agents: read `AGENTS.md` first — it is the binding engineering contract.
 
 ```sh
 bun check              # format, lint+boundaries, typecheck, unit tests, build
+bun invariants         # execute every registered domain invariant fixture
 bun verify             # bun check plus migration, integration, and browser gates
 bun test:integration   # real PostgreSQL/Redis + web vertical proof
 bun test:e2e           # production-mode browser suite (Playwright)

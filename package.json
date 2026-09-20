@@ -20,6 +20,7 @@
     "metrics": "bun scripts/metrics.ts",
     "metrics:snapshot": "bun scripts/metrics.ts --append",
     "metrics:check": "bun scripts/metrics.ts --check",
+    "invariants": "bun scripts/invariants.ts",
     "doctor": "bun --env-file=.env scripts/doctor.ts",
     "verify": "bun --env-file=.env scripts/verify.ts",
     "format": "prettier --write .",
@@ -51,6 +52,7 @@
     "typescript-eslint": "8.70.0"
   },
   "dependencies": {
-    "@daisy/config": "workspace:*"
+    "@daisy/config": "workspace:*",
+    "@daisy/debate-engine": "workspace:*"
   }
 }

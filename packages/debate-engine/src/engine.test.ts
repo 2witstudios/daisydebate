@@ -87,6 +87,99 @@ describe('ECS adapter contract', () => {
     world.dispose();
   });
 
+  test('rejects duplicate participant identities', () => {
+    const world = create();
+    const snapshot = world.snapshot();
+    const participant = { id, side: 'affirmative' as const, ready: false };
+
+    let error: unknown;
+    try {
+      restoreDebateRuntime({
+        ...snapshot,
+        participants: [participant, participant],
+      });
+    } catch (caught) {
+      error = caught;
+    }
+
+    assert({
+      given: 'a restored snapshot with duplicate participant identities',
+      should: 'identify the participant identity invariant',
+      actual: (error as { invariantId?: string }).invariantId,
+      expected: 'debate.participants.identities-unique',
+    });
+    world.dispose();
+  });
+
+  test('rejects joining after a debate starts', () => {
+    const world = create();
+    world.join({ participantId: id, side: 'affirmative' });
+    world.join({ participantId: second, side: 'negative' });
+    world.markReady(id);
+    world.markReady(second);
+    world.transition('active');
+
+    let error: unknown;
+    try {
+      world.join({
+        participantId: '33333333-3333-4333-8333-333333333333',
+        side: 'affirmative',
+      });
+    } catch (caught) {
+      error = caught;
+    }
+
+    assert({
+      given: 'a join operation after the debate starts',
+      should: 'identify the waiting-phase join invariant',
+      actual: (error as { invariantId?: string }).invariantId,
+      expected: 'debate.participant.join.waiting-phase',
+    });
+    world.dispose();
+  });
+
+  test('rejects readiness changes after a debate starts', () => {
+    const world = create();
+    world.join({ participantId: id, side: 'affirmative' });
+    world.join({ participantId: second, side: 'negative' });
+    world.markReady(id);
+    world.markReady(second);
+    world.transition('active');
+
+    let error: unknown;
+    try {
+      world.markReady(id);
+    } catch (caught) {
+      error = caught;
+    }
+
+    assert({
+      given: 'a readiness operation after the debate starts',
+      should: 'identify the waiting-phase readiness invariant',
+      actual: (error as { invariantId?: string }).invariantId,
+      expected: 'debate.participant.ready.waiting-phase',
+    });
+    world.dispose();
+  });
+
+  test('rejects illegal phase transitions', () => {
+    const world = create();
+    let error: unknown;
+    try {
+      world.transition('completed');
+    } catch (caught) {
+      error = caught;
+    }
+
+    assert({
+      given: 'a transition that skips the active phase',
+      should: 'identify the legal phase transition invariant',
+      actual: (error as { invariantId?: string }).invariantId,
+      expected: 'debate.phase.transition.legal',
+    });
+    world.dispose();
+  });
+
   test('rejects invalid restored state and unknown snapshot versions', () => {
     const world = create();
     expect(() =>

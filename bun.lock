@@ -6,6 +6,7 @@
       "name": "daisy",
       "dependencies": {
         "@daisy/config": "workspace:*",
+        "@daisy/debate-engine": "workspace:*",
       },
       "devDependencies": {
         "@eslint/js": "9.39.5",

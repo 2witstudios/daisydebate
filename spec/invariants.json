@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "invariants": [
+    {
+      "id": "debate.participants.identities-unique",
+      "check": "participant-identities-unique",
+      "testReference": {
+        "path": "packages/debate-engine/src/engine.test.ts",
+        "name": "rejects duplicate participant identities"
+      }
+    },
+    {
+      "id": "debate.phase.active.requires-ready-participants",
+      "check": "active-requires-ready-participants",
+      "testReference": {
+        "path": "packages/debate-engine/src/engine.test.ts",
+        "name": "rejects a transition that breaks a registered invariant atomically"
+      }
+    },
+    {
+      "id": "debate.participant.join.waiting-phase",
+      "check": "joining-requires-waiting-phase",
+      "testReference": {
+        "path": "packages/debate-engine/src/engine.test.ts",
+        "name": "rejects joining after a debate starts"
+      }
+    },
+    {
+      "id": "debate.participant.ready.waiting-phase",
+      "check": "readiness-requires-waiting-phase",
+      "testReference": {
+        "path": "packages/debate-engine/src/engine.test.ts",
+        "name": "rejects readiness changes after a debate starts"
+      }
+    },
+    {
+      "id": "debate.phase.transition.legal",
+      "check": "legal-phase-transition",
+      "testReference": {
+        "path": "packages/debate-engine/src/engine.test.ts",
+        "name": "rejects illegal phase transitions"
+      }
+    }
+  ]
+}
