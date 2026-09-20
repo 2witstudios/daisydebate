@@ -31,7 +31,7 @@
     "test:lint": "bun test eslint.config.test.ts",
     "test:integration": "bun --env-file=.env run turbo run test:integration",
     "test:e2e": "bun --env-file=.env run turbo run test:e2e",
-    "check": "bun format:check && bun lint && bun run knip && bun typecheck && bun run test && bun run build",
+    "check": "bun format:check && bun lint && bun run knip && bun typecheck && bun run test && bun run metrics:check && bun run build",
     "db:generate": "bun run --cwd packages/db db:generate",
     "db:migrate": "bun --env-file=.env packages/db/scripts/migrate.ts",
     "db:seed": "bun --env-file=.env scripts/seed.ts",

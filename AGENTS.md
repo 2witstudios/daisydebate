@@ -88,8 +88,8 @@ values in `.env`; initialize with `bun install --frozen-lockfile` and
   `--json` for a machine-readable report. It should pass before service-based
   work.
 - `bun check`: the pre-push gate: `format:check`, lint and boundaries, Knip,
-  typecheck, unit tests, and production build. It does not boot Next or require
-  integration services.
+  typecheck, unit tests, metrics policy, and production build. It does not
+  boot Next or require integration services.
 - `bun verify`: runs `check`, integration tests, browser E2E, and applies
   migrations twice to `TEST_DATABASE_URL` to prove idempotency. It requires
   isolated services and a test database. Add `--json` for a report.

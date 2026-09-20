@@ -26,24 +26,24 @@ DATABASE_URL="$TEST_DATABASE_URL" bun db:migrate
 
 ## Commands
 
-| Command                           | What it does                                                        |
-| --------------------------------- | ------------------------------------------------------------------- |
-| `bun dev`                         | All dev processes (currently the web app) via turbo                 |
-| `bun dev:agent`                   | Start local dependencies, migrate, seed, launch web, and wait ready |
-| `bun build`                       | Production builds through the turbo graph                           |
-| `bun test`                        | Fast deterministic unit/domain tests; no services or Next boot      |
-| `bun test:integration`            | Database, Redis, and web vertical tests against real services       |
-| `bun test:e2e`                    | Playwright against the production server build                      |
-| `bun verify`                      | `bun check` plus migration-idempotency, integration, and E2E gates  |
-| `bun lint`                        | ESLint plus `scripts/check-boundaries.ts` architecture verification |
-| `bun format` / `bun format:check` | Prettier write / verify                                             |
-| `bun typecheck`                   | `tsc --noEmit` per workspace (web runs `next typegen` first)        |
-| `bun check`                       | format:check + lint + typecheck + test + build — run before pushing |
-| `bun db:generate`                 | Generate migration SQL from schema changes (review the SQL!)        |
-| `bun db:migrate`                  | Apply pending migrations                                            |
-| `bun db:seed`                     | Idempotently upsert the deterministic agent seed and version marker |
-| `bun db:studio`                   | Drizzle Studio (local only, never expose)                           |
-| `bun infra:up/down/logs`          | Compose lifecycle for PostgreSQL and Redis                          |
+| Command                           | What it does                                                                        |
+| --------------------------------- | ----------------------------------------------------------------------------------- |
+| `bun dev`                         | All dev processes (currently the web app) via turbo                                 |
+| `bun dev:agent`                   | Start local dependencies, migrate, seed, launch web, and wait ready                 |
+| `bun build`                       | Production builds through the turbo graph                                           |
+| `bun test`                        | Fast deterministic unit/domain tests; no services or Next boot                      |
+| `bun test:integration`            | Database, Redis, and web vertical tests against real services                       |
+| `bun test:e2e`                    | Playwright against the production server build                                      |
+| `bun verify`                      | `bun check` plus migration-idempotency, integration, and E2E gates                  |
+| `bun lint`                        | ESLint plus `scripts/check-boundaries.ts` architecture verification                 |
+| `bun format` / `bun format:check` | Prettier write / verify                                                             |
+| `bun typecheck`                   | `tsc --noEmit` per workspace (web runs `next typegen` first)                        |
+| `bun check`                       | format:check + lint + typecheck + test + metrics:check + build — run before pushing |
+| `bun db:generate`                 | Generate migration SQL from schema changes (review the SQL!)                        |
+| `bun db:migrate`                  | Apply pending migrations                                                            |
+| `bun db:seed`                     | Idempotently upsert the deterministic agent seed and version marker                 |
+| `bun db:studio`                   | Drizzle Studio (local only, never expose)                                           |
+| `bun infra:up/down/logs`          | Compose lifecycle for PostgreSQL and Redis                                          |
 
 ## Environment
 
