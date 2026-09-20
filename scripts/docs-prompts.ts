@@ -25,74 +25,73 @@ const RECORD_CLAUSE =
   '`). Record failed and partial runs as status failed or partial; never ' +
   'leave a page half-edited.';
 
-export const DOCUMENTATION_PROMPTS: Readonly<
-  Record<DocumentPipeline, string>
-> = {
-  'technical-docs': [
-    'Update the technical documentation Canvas for the merged change.',
-    UNTRUSTED_CLAUSE,
-    PROVENANCE_CLAUSE,
-    SECTION_CLAUSE,
-    'If the source contradicts published text, mark the page stale and ' +
-      'create a review task; do not rewrite a published page on your own ' +
-      'authority.',
-    RECORD_CLAUSE,
-  ].join('\n\n'),
-  'user-docs': [
-    'Update the user-facing documentation Canvas for the merged change.',
-    UNTRUSTED_CLAUSE,
-    'Describe user-visible behavior only: tasks, steps, and outcomes. Keep ' +
-      'product voice; avoid changelog-style notes.',
-    SECTION_CLAUSE,
-    RECORD_CLAUSE,
-  ].join('\n\n'),
-  blog: [
-    'Draft a blog post revision for the merged change.',
-    UNTRUSTED_CLAUSE,
-    'Blog output is always a draft revision; never publish. State only what ' +
-      'the cited sources support.',
-    PROVENANCE_CLAUSE,
-    RECORD_CLAUSE,
-  ].join('\n\n'),
-  'accuracy-review': [
-    'Audit the target Canvas against the current repository.',
-    UNTRUSTED_CLAUSE,
-    PROVENANCE_CLAUSE,
-    'For each claim record: page ID, section ID, claim, source checked, ' +
-      'current evidence, severity (blocker, major, minor, editorial), and a ' +
-      'recommended action. Validate the findings against the run-record ' +
-      'schema before writing.',
-    'Never replace a published page when evidence conflicts; mark it stale ' +
-      'or invalid and create a review task.',
-    RECORD_CLAUSE,
-  ].join('\n\n'),
-  'adversarial-review': [
-    'Try to disprove the target Canvas: missing permissions, invalid inputs, ' +
-      'retries, moved or deleted resources, clean-environment setup, and ' +
-      'documented task order.',
-    UNTRUSTED_CLAUSE,
-    'Report counterexamples as findings with severity; do not invent fixes ' +
-      'or rewrite behavior silently.',
-    PROVENANCE_CLAUSE,
-    RECORD_CLAUSE,
-  ].join('\n\n'),
-  'prose-review': [
-    'Improve clarity and reader task completion in a review revision.',
-    UNTRUSTED_CLAUSE,
-    'Preserve factual claims, source anchors, semantic sections, and the ' +
-      'visual language. Do not redesign the page during a prose-only change.',
-    RECORD_CLAUSE,
-  ].join('\n\n'),
-  'anti-slop-review': [
-    'Remove generic introductions, repeated summaries, unsupported ' +
-      'certainty, vague benefits, filler, fake specificity, and templated AI ' +
-      'phrasing in a review revision.',
-    UNTRUSTED_CLAUSE,
-    'Targeted rewrites only; keep every factual claim and source anchor ' +
-      'intact, and do not flatten intentional product voice.',
-    RECORD_CLAUSE,
-  ].join('\n\n'),
-};
+export const DOCUMENTATION_PROMPTS: Readonly<Record<DocumentPipeline, string>> =
+  {
+    'technical-docs': [
+      'Update the technical documentation Canvas for the merged change.',
+      UNTRUSTED_CLAUSE,
+      PROVENANCE_CLAUSE,
+      SECTION_CLAUSE,
+      'If the source contradicts published text, mark the page stale and ' +
+        'create a review task; do not rewrite a published page on your own ' +
+        'authority.',
+      RECORD_CLAUSE,
+    ].join('\n\n'),
+    'user-docs': [
+      'Update the user-facing documentation Canvas for the merged change.',
+      UNTRUSTED_CLAUSE,
+      'Describe user-visible behavior only: tasks, steps, and outcomes. Keep ' +
+        'product voice; avoid changelog-style notes.',
+      SECTION_CLAUSE,
+      RECORD_CLAUSE,
+    ].join('\n\n'),
+    blog: [
+      'Draft a blog post revision for the merged change.',
+      UNTRUSTED_CLAUSE,
+      'Blog output is always a draft revision; never publish. State only what ' +
+        'the cited sources support.',
+      PROVENANCE_CLAUSE,
+      RECORD_CLAUSE,
+    ].join('\n\n'),
+    'accuracy-review': [
+      'Audit the target Canvas against the current repository.',
+      UNTRUSTED_CLAUSE,
+      PROVENANCE_CLAUSE,
+      'For each claim record: page ID, section ID, claim, source checked, ' +
+        'current evidence, severity (blocker, major, minor, editorial), and a ' +
+        'recommended action. Validate the findings against the run-record ' +
+        'schema before writing.',
+      'Never replace a published page when evidence conflicts; mark it stale ' +
+        'or invalid and create a review task.',
+      RECORD_CLAUSE,
+    ].join('\n\n'),
+    'adversarial-review': [
+      'Try to disprove the target Canvas: missing permissions, invalid inputs, ' +
+        'retries, moved or deleted resources, clean-environment setup, and ' +
+        'documented task order.',
+      UNTRUSTED_CLAUSE,
+      'Report counterexamples as findings with severity; do not invent fixes ' +
+        'or rewrite behavior silently.',
+      PROVENANCE_CLAUSE,
+      RECORD_CLAUSE,
+    ].join('\n\n'),
+    'prose-review': [
+      'Improve clarity and reader task completion in a review revision.',
+      UNTRUSTED_CLAUSE,
+      'Preserve factual claims, source anchors, semantic sections, and the ' +
+        'visual language. Do not redesign the page during a prose-only change.',
+      RECORD_CLAUSE,
+    ].join('\n\n'),
+    'anti-slop-review': [
+      'Remove generic introductions, repeated summaries, unsupported ' +
+        'certainty, vague benefits, filler, fake specificity, and templated AI ' +
+        'phrasing in a review revision.',
+      UNTRUSTED_CLAUSE,
+      'Targeted rewrites only; keep every factual claim and source anchor ' +
+        'intact, and do not flatten intentional product voice.',
+      RECORD_CLAUSE,
+    ].join('\n\n'),
+  };
 
 export function promptFor(pipeline: DocumentPipeline): {
   readonly version: string;

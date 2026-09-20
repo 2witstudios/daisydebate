@@ -48,7 +48,8 @@ describe('extractTaskIds', async () => {
 
   test('filters technical-acronym false positives', async () => {
     assert({
-      given: 'text with HTTP status codes and CI references alongside a real task',
+      given:
+        'text with HTTP status codes and CI references alongside a real task',
       should: 'keep only the real task ID',
       actual: extractTaskIds('returns HTTP-200 and CI-123 logs for ENG-1.1'),
       expected: ['ENG-1.1'],
@@ -219,7 +220,11 @@ describe('postDocumentationEvent', async () => {
     pullRequest: null,
     taskIds: [],
     changedFiles: [],
-    classification: { changeKind: 'unknown' as const, pipelines: [] as const, reasons: [] },
+    classification: {
+      changeKind: 'unknown' as const,
+      pipelines: [] as const,
+      reasons: [],
+    },
     sourceRefs: [],
     idempotencyKey: 'daisydebate:abc123:pull_request.merged',
   };
@@ -232,7 +237,7 @@ describe('postDocumentationEvent', async () => {
       'https://pagespace.test/api/webhooks/agent';
     process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET = 'test-secret';
     let calls = 0;
-    const fetchImpl = (async (_url: unknown, init?: RequestInit) => {
+    const fetchImpl = (async (_url: unknown, _init?: RequestInit) => {
       calls += 1;
       if (calls < 3) return new Response('busy', { status: 503 });
       return new Response('accepted', { status: 200 });
@@ -249,7 +254,8 @@ describe('postDocumentationEvent', async () => {
         process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL = originalUrl;
       else delete process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL;
       if (originalSecret)
-        process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET = originalSecret;
+        process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET =
+          originalSecret;
       else delete process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET;
     }
     assert({

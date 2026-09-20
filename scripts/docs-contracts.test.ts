@@ -2,13 +2,12 @@ import { describe, test } from 'riteway/bun';
 import { setupRitewayBun, assert } from 'riteway/bun';
 import {
   assessEventText,
-  canApplyRevision,
   flagPromptInjection,
   parseDocumentationEvent,
   parseRunRecord,
-  publicationDecision,
   sanitizeUntrustedText,
 } from './docs-contracts';
+import { canApplyRevision, publicationDecision } from './docs-policy';
 import { createDocumentationEvent } from './docs-pipeline';
 
 setupRitewayBun();
@@ -110,7 +109,8 @@ describe('assessEventText', async () => {
     assert({
       given: 'a body with injected instructions',
       should: 'flag the event and name the body field in the reasons',
-      actual: actual.textRisk === 'flagged' &&
+      actual:
+        actual.textRisk === 'flagged' &&
         actual.reasons.some((reason) => reason.includes('body')),
       expected: true,
     });
@@ -138,7 +138,9 @@ describe('parseDocumentationEvent', async () => {
   });
 
   test('accepts an event produced by this repository', async () => {
-    const actual = parseDocumentationEvent(JSON.parse(JSON.stringify(validEvent)));
+    const actual = parseDocumentationEvent(
+      JSON.parse(JSON.stringify(validEvent)),
+    );
     assert({
       given: 'a serialized repository event',
       should: 'parse to an equivalent typed event',
@@ -165,8 +167,7 @@ describe('parseDocumentationEvent', async () => {
     assert({
       given: 'an event with an unknown version and unknown pipelines',
       should: 'fail closed naming both problems',
-      actual: message.includes('eventVersion') &&
-        message.includes('pipelines'),
+      actual: message.includes('eventVersion') && message.includes('pipelines'),
       expected: true,
     });
   });
@@ -308,7 +309,8 @@ describe('publicationDecision', async () => {
     assert({
       given: 'injection-flagged event text',
       should: 'route to review with a reason naming the risk',
-      actual: actual.decision === 'review' &&
+      actual:
+        actual.decision === 'review' &&
         actual.reasons.some((reason) => reason.includes('injection')),
       expected: true,
     });

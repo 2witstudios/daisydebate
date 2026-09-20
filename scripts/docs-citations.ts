@@ -28,12 +28,16 @@ export type CitationReport = {
 
 export async function verifyCitations(input: {
   readonly citations: readonly Citation[];
-  readonly exists: (path: string, commit?: string) => boolean | Promise<boolean>;
+  readonly exists: (
+    path: string,
+    commit?: string,
+  ) => boolean | Promise<boolean>;
 }): Promise<CitationReport> {
   const verified: Citation[] = [];
   const unverified: { citation: Citation }[] = [];
   for (const citation of input.citations) {
-    if (await input.exists(citation.path, citation.commit)) verified.push(citation);
+    if (await input.exists(citation.path, citation.commit))
+      verified.push(citation);
     else unverified.push({ citation });
   }
   return { verified, unverified };
@@ -49,9 +53,7 @@ export function provenanceMismatches(
   const mismatches: string[] = [];
   const expectedSnapshot = `${event.repository}@${event.commit}`;
   if (manifest.sourceSnapshot !== expectedSnapshot)
-    mismatches.push(
-      `sourceSnapshot must echo ${expectedSnapshot}`,
-    );
+    mismatches.push(`sourceSnapshot must echo ${expectedSnapshot}`);
   if (!manifest.promptVersion)
     mismatches.push('promptVersion must record the prompt version used');
   else if (manifest.promptVersion !== DOCUMENTATION_PROMPT_VERSION)

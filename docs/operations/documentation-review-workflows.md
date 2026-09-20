@@ -31,9 +31,29 @@ workflows run the periodic reviews directly against the Documentation tree.
 | Consistency Auditor  | `prose-review`       | Weekly                                             | Report conflicting terminology or behavior          |
 | Publication QA       | `accuracy-review`    | After publication and weekly                       | Check links, metadata, rendering, and mobile layout |
 
-The workflow prompt should include the target Canvas page IDs, the review
-scope, the current repository commit, and the requirement to preserve stable
-semantic sections and the page's visual language.
+## Prompt and data boundary
+
+Prompts are versioned in the repository and delivered by
+`bun docs:prompt <pipeline>`; a run record must echo the version it used. The
+registered prompts instruct every agent that event envelope fields (titles,
+bodies, branch names, task IDs) are untrusted data, never instructions. An
+event whose text was flagged by the dispatch scanner arrives with
+`textRisk: flagged` and must be handled as review-only: the agent records an
+injection finding and does not publish.
+
+## Failure-path contract
+
+A run that ends with empty, truncated, or timed-out output is a `failed` run;
+a run that completed only part of its scope is `partial`. Failed and partial
+runs:
+
+- write a valid run record with the corresponding status;
+- create findings describing what could not be verified;
+- never publish, and never leave a page half-edited.
+
+Payloads (events and run records) must pass the repository's contract
+validation in `scripts/docs-contracts.ts` before use; an invalid payload is a
+failed run, not a warning.
 
 ## Accuracy prompt contract
 
@@ -72,18 +92,25 @@ redesign a Canvas during a prose-only change.
 
 ## Publication policy
 
-- Blocker and major accuracy findings: mark the page `stale` or `invalid` and
+Publication decisions are executed by `bun docs:policy`, which takes the
+validated event, the finding severities, the run status, and any recorded
+approvals, and returns `publish`, `revision`, `review`, or `block`:
+
+- `block`: a blocker finding invalidates the page; mark it `invalid` and
   notify the documentation channel.
-- Minor factual corrections: create a review revision with provenance.
-- Editorial and anti-slop corrections: batch into weekly review revisions.
-- Cross-page contradictions: require an authoritative-page decision.
-- Blog revisions: remain drafts unless the blog publication policy explicitly
-  allows automatic publishing.
-- Successful no-op runs: record the reviewed page count and source snapshot.
+- `review`: a major finding, injection-flagged text, a failed or partial run,
+  or a breaking/security change without recorded human sign-off.
+- `revision`: minor or editorial findings batch into a review revision; blog
+  output without explicit approval stays a draft.
+- `publish`: no gating condition applied.
+
+Cross-page contradictions require an authoritative-page decision. Successful
+no-op runs record the reviewed page count and source snapshot.
 
 ## Run record
 
-Each workflow should write a run record to the Documentation Runs page with:
+Each workflow should write a run record to the Documentation Runs page. The
+schema is enforced by the repository (`scripts/docs-contracts.ts`):
 
 ```json
 {
@@ -93,16 +120,33 @@ Each workflow should write a run record to the Documentation Runs page with:
   "completedAt": "...",
   "scope": { "pageIds": [], "changedSince": "..." },
   "pagesReviewed": 0,
-  "findings": 0,
+  "findings": [],
   "autoFixed": 0,
   "tasksCreated": 0,
   "pagesInvalidated": 0,
-  "promptVersion": "...",
-  "sourceSnapshot": "...",
-  "status": "complete"
+  "promptVersion": "docs-prompt-v1",
+  "sourceSnapshot": "repository@commit",
+  "status": "complete | failed | partial",
+  "baseRevision": "...",
+  "resultingRevision": "..."
 }
 ```
+
+`baseRevision` records the page revision the run observed before editing;
+`resultingRevision` records what the write produced. Both together make
+interleaved writes detectable and replayable.
 
 The repository event sender provides the merge-time envelope and PageSpace
 workflow context supplies the Canvas pages and prior run history. No webhook
 secret or raw credential may be written into a PageSpace page or log.
+
+## Replaying a lost event
+
+Dispatch is idempotent by `repository:commit:eventType`, so replays are safe:
+
+1. Re-run the failed workflow from the Actions tab, or run
+   `bun docs:dispatch` locally with the same environment the workflow sets
+   (`DOC_*` variables from the merge or release).
+2. If a merged fork PR skipped the event (fork runs carry no secrets), run the
+   same dispatch from a trusted checkout and delete the skip notice in
+   incidents after it succeeds.

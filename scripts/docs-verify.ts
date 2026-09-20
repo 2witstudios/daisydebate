@@ -41,10 +41,17 @@ const exists = async (path: string, commit?: string): Promise<boolean> =>
 
 async function main(): Promise<void> {
   const raw = JSON.parse(await new Response(Bun.stdin.stream()).text());
-  if (!isRecord(raw)) throw new Error('verification input must be a JSON object');
+  if (!isRecord(raw))
+    throw new Error('verification input must be a JSON object');
   const event = parseDocumentationEvent(raw.event);
-  if (!isRecord(raw.manifest) && typeof raw.citationsText !== 'string' && !Array.isArray(raw.citations))
-    throw new Error('provide a manifest, citationsText, or citations to verify');
+  if (
+    !isRecord(raw.manifest) &&
+    typeof raw.citationsText !== 'string' &&
+    !Array.isArray(raw.citations)
+  )
+    throw new Error(
+      'provide a manifest, citationsText, or citations to verify',
+    );
 
   const citations: readonly Citation[] = Array.isArray(raw.citations)
     ? raw.citations
@@ -57,8 +64,9 @@ async function main(): Promise<void> {
     exists,
   });
 
-  const provenance =
-    isRecord(raw.manifest) ? provenanceMismatches(event, raw.manifest) : [];
+  const provenance = isRecord(raw.manifest)
+    ? provenanceMismatches(event, raw.manifest)
+    : [];
 
   const output = {
     idempotencyKey: event.idempotencyKey,

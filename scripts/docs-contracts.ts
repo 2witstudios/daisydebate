@@ -7,15 +7,11 @@ import {
   type ChangeKind,
   type DocumentEventType,
   type DocumentPipeline,
-  type DocumentationClassification,
   type DocumentationEvent,
   type TextRisk,
 } from './docs-pipeline';
 
-export type { TextRisk };
-
-const CONTROL_AND_FORMAT_PATTERN =
-  /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]/g;
+const CONTROL_AND_FORMAT_PATTERN = /(?!\n)[\p{Cc}\p{Cf}]/gu;
 
 export function sanitizeUntrustedText(value: string, max = 4000): string {
   return value
@@ -34,9 +30,10 @@ const INJECTION_PATTERNS: readonly RegExp[] = [
   /\b(?:reveal|print|show|expose|output|include)\b[^.\n]*\b(?:secrets?|tokens?|passwords?|credentials?|api[- ]?keys?|webhook\s+secrets?)\b/i,
 ];
 
-export function flagPromptInjection(
-  text: string,
-): { readonly flagged: boolean; readonly reasons: readonly string[] } {
+export function flagPromptInjection(text: string): {
+  readonly flagged: boolean;
+  readonly reasons: readonly string[];
+} {
   const reasons = INJECTION_PATTERNS.filter((pattern) =>
     pattern.test(text),
   ).map((pattern) => `matched injection pattern ${pattern.source}`);
@@ -96,8 +93,7 @@ const readPath = (container: Record<string, unknown>, path: string): unknown =>
   path
     .split('.')
     .reduce<unknown>(
-      (node, segment) =>
-        isRecord(node) ? node[segment] : undefined,
+      (node, segment) => (isRecord(node) ? node[segment] : undefined),
       container,
     );
 
@@ -148,12 +144,17 @@ function fail(problems: readonly Problems[]): never {
   );
 }
 
-const pullRequestProblems = (root: Record<string, unknown>): readonly Problems[] => {
+const pullRequestProblems = (
+  root: Record<string, unknown>,
+): readonly Problems[] => {
   const pullRequest = root.pullRequest;
   if (!isRecord(pullRequest)) return [];
   const problems: Problems[] = [];
   if (!Number.isInteger(pullRequest.number))
-    problems.push({ path: 'pullRequest.number', problem: 'must be an integer' });
+    problems.push({
+      path: 'pullRequest.number',
+      problem: 'must be an integer',
+    });
   checkString(problems, root, 'pullRequest.title');
   checkOptionalString(problems, root, 'pullRequest.body');
   checkString(problems, root, 'pullRequest.url');
@@ -226,7 +227,10 @@ export function parseDocumentationEvent(raw: unknown): DocumentationEvent {
     });
   checkOptionalStringArray(problems, raw, 'textRiskReasons');
   if (raw.pullRequest !== null && !isRecord(raw.pullRequest))
-    problems.push({ path: 'pullRequest', problem: 'must be an object or null' });
+    problems.push({
+      path: 'pullRequest',
+      problem: 'must be an object or null',
+    });
   else if (isRecord(raw.pullRequest))
     problems.push(...pullRequestProblems(raw));
   if (!isRecord(raw.classification))
@@ -247,7 +251,7 @@ export const FINDING_SEVERITIES = [
 ] as const;
 export type FindingSeverity = (typeof FINDING_SEVERITIES)[number];
 
-export type DocumentationFinding = {
+type DocumentationFinding = {
   readonly pageId: string;
   readonly sectionId: string;
   readonly claim: string;
@@ -262,7 +266,10 @@ export type DocumentationRunRecord = {
   readonly workflow: string;
   readonly startedAt: string;
   readonly completedAt: string;
-  readonly scope: { readonly pageIds: readonly string[]; readonly changedSince: string };
+  readonly scope: {
+    readonly pageIds: readonly string[];
+    readonly changedSince: string;
+  };
   readonly pagesReviewed: number;
   readonly findings: readonly DocumentationFinding[];
   readonly autoFixed: number;
@@ -289,7 +296,10 @@ const findingProblems = (
     'recommendedAction',
   ] as const)
     if (!isNonEmptyString(finding[field]))
-      problems.push({ path: `findings[${index}].${field}`, problem: 'must be a non-empty string' });
+      problems.push({
+        path: `findings[${index}].${field}`,
+        problem: 'must be a non-empty string',
+      });
   if (
     !isString(finding.severity) ||
     !FINDING_SEVERITIES.includes(finding.severity as FindingSeverity)
@@ -302,9 +312,17 @@ const findingProblems = (
 };
 
 export function parseRunRecord(raw: unknown): DocumentationRunRecord {
-  if (!isRecord(raw)) fail([{ path: 'runRecord', problem: 'must be an object' }]);
+  if (!isRecord(raw))
+    fail([{ path: 'runRecord', problem: 'must be an object' }]);
   const problems: Problems[] = [];
-  for (const field of ['runId', 'workflow', 'startedAt', 'completedAt', 'promptVersion', 'sourceSnapshot'] as const)
+  for (const field of [
+    'runId',
+    'workflow',
+    'startedAt',
+    'completedAt',
+    'promptVersion',
+    'sourceSnapshot',
+  ] as const)
     checkString(problems, raw, field);
   checkOptionalString(problems, raw, 'baseRevision');
   checkOptionalString(problems, raw, 'resultingRevision');
@@ -314,7 +332,12 @@ export function parseRunRecord(raw: unknown): DocumentationRunRecord {
     checkStringArray(problems, raw, 'scope.pageIds');
     checkString(problems, raw, 'scope.changedSince');
   }
-  for (const field of ['pagesReviewed', 'autoFixed', 'tasksCreated', 'pagesInvalidated'] as const)
+  for (const field of [
+    'pagesReviewed',
+    'autoFixed',
+    'tasksCreated',
+    'pagesInvalidated',
+  ] as const)
     if (!isFiniteNonNegativeInteger(raw[field]))
       problems.push({ path: field, problem: 'must be a non-negative integer' });
   if (!Array.isArray(raw.findings)) {
@@ -329,7 +352,10 @@ export function parseRunRecord(raw: unknown): DocumentationRunRecord {
         });
     });
   }
-  if (!isString(raw.status) || !RUN_RECORD_STATUSES.includes(raw.status as RunRecordStatus))
+  if (
+    !isString(raw.status) ||
+    !RUN_RECORD_STATUSES.includes(raw.status as RunRecordStatus)
+  )
     problems.push({
       path: 'status',
       problem: `must be one of ${RUN_RECORD_STATUSES.join(', ')}`,
@@ -337,92 +363,3 @@ export function parseRunRecord(raw: unknown): DocumentationRunRecord {
   if (problems.length > 0) fail(problems);
   return raw as unknown as DocumentationRunRecord;
 }
-
-export type PublicationDecision = 'publish' | 'revision' | 'review' | 'block';
-
-export type PublicationApprovals = {
-  readonly human?: { readonly by: string; readonly at: string };
-  readonly blog?: { readonly by: string; readonly at: string };
-};
-
-const isValidApproval = (
-  approval: PublicationApprovals['human'],
-): approval is { readonly by: string; readonly at: string } =>
-  approval !== undefined &&
-  isNonEmptyString(approval.by) &&
-  isString(approval.at) &&
-  !Number.isNaN(Date.parse(approval.at));
-
-export function publicationDecision(input: {
-  readonly changeKind: ChangeKind;
-  readonly pipelines: readonly DocumentPipeline[];
-  readonly findings: readonly FindingSeverity[];
-  readonly runStatus: RunRecordStatus;
-  readonly textRisk: TextRisk;
-  readonly approvals?: PublicationApprovals;
-}): { readonly decision: PublicationDecision; readonly reasons: readonly string[] } {
-  const reasons: string[] = [];
-  const decision = (candidate: PublicationDecision): PublicationDecision =>
-    candidate;
-  if (input.runStatus !== 'complete') {
-    reasons.push(
-      `the run did not complete (status ${input.runStatus}); edits are held for review`,
-    );
-    return { decision: decision('review'), reasons };
-  }
-  if (input.findings.includes('blocker')) {
-    reasons.push('a blocker finding invalidates the page');
-    return { decision: decision('block'), reasons };
-  }
-  if (input.findings.includes('major')) {
-    reasons.push('a major finding marks the page stale for review');
-    return { decision: decision('review'), reasons };
-  }
-  if (input.textRisk === 'flagged') {
-    reasons.push(
-      'the event text matched an injection pattern; a human must review the candidate',
-    );
-    return { decision: decision('review'), reasons };
-  }
-  if (input.pipelines.includes('blog')) {
-    if (isValidApproval(input.approvals?.blog)) {
-      reasons.push(`blog publication approved by ${input.approvals.blog.by}`);
-    } else {
-      reasons.push('blog revisions remain drafts without explicit approval');
-      return { decision: decision('revision'), reasons };
-    }
-  }
-  if (
-    (input.changeKind === 'breaking' || input.changeKind === 'security') &&
-    !input.pipelines.includes('blog')
-  ) {
-    if (isValidApproval(input.approvals?.human)) {
-      reasons.push(
-        `${input.changeKind} publication approved by ${input.approvals.human.by}`,
-      );
-    } else {
-      reasons.push(
-        `${input.changeKind} changes require recorded human sign-off before publication`,
-      );
-      return { decision: decision('review'), reasons };
-    }
-  }
-  if (input.findings.includes('minor') || input.findings.includes('editorial')) {
-    reasons.push('minor or editorial findings batch into a review revision');
-    return { decision: decision('revision'), reasons };
-  }
-  reasons.push('no gating condition applied');
-  return { decision: decision('publish'), reasons };
-}
-
-export function canApplyRevision(input: {
-  readonly expectedRevision: string | undefined;
-  readonly currentRevision: string;
-}): boolean {
-  return (
-    input.expectedRevision !== undefined &&
-    input.expectedRevision === input.currentRevision
-  );
-}
-
-export type { ChangeKind, DocumentPipeline, DocumentationClassification };

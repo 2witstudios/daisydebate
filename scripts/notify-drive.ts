@@ -30,9 +30,9 @@ export const TASK_ID_STOPWORDS: readonly string[] = [
 ];
 
 export function extractTaskIds(text: string): string[] {
-  return [
-    ...new Set(text.match(TASK_ID_PATTERN) ?? []),
-  ].filter((taskId) => !TASK_ID_STOPWORDS.includes(taskId.split('-')[0]));
+  return [...new Set(text.match(TASK_ID_PATTERN) ?? [])].filter(
+    (taskId) => !TASK_ID_STOPWORDS.includes(taskId.split('-')[0]),
+  );
 }
 
 export function signPayload(
@@ -156,7 +156,8 @@ export async function deliverWithRetry(input: {
   readonly delay?: (ms: number) => Promise<void>;
 }): Promise<Response> {
   const delays = input.delays ?? DEFAULT_RETRY_DELAYS_MS;
-  const delay = input.delay ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
+  const delay =
+    input.delay ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
   let attempt = 0;
   for (;;) {
     let response: Response;
@@ -169,7 +170,11 @@ export async function deliverWithRetry(input: {
       attempt += 1;
       continue;
     }
-    if (response.ok || !isRetryableStatus(response.status) || attempt >= delays.length)
+    if (
+      response.ok ||
+      !isRetryableStatus(response.status) ||
+      attempt >= delays.length
+    )
       return response;
     await delay(delays[attempt]);
     attempt += 1;

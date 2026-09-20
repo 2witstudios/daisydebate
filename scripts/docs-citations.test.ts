@@ -73,7 +73,10 @@ describe('verifyCitations', async () => {
     assert({
       given: 'no citations',
       should: 'report nothing verified or unverified',
-      actual: { verified: actual.verified.length, unverified: actual.unverified.length },
+      actual: {
+        verified: actual.verified.length,
+        unverified: actual.unverified.length,
+      },
       expected: { verified: 0, unverified: 0 },
     });
   });
@@ -114,7 +117,8 @@ describe('provenanceMismatches', async () => {
     assert({
       given: 'a manifest with a stale snapshot and prompt version',
       should: 'name both mismatches',
-      actual: actual.length === 2 &&
+      actual:
+        actual.length === 2 &&
         actual[0].includes('sourceSnapshot') &&
         actual[1].includes('promptVersion'),
       expected: true,
