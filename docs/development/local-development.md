@@ -7,10 +7,15 @@ Prerequisites: Bun 1.4.2 (`.bun-version` pins it), Docker with Compose, Node
 git clone <repo> && cd daisydebate
 bun install --frozen-lockfile
 cp .env.example .env
-bun infra:up        # postgres (host port 15432) + redis (6379), healthchecked
-bun db:migrate      # applies migrations to $DATABASE_URL
-bun dev             # Next.js on http://localhost:3000
+bun dev:agent       # infra, migration, deterministic seed, web, readiness
 ```
+
+`bun dev:agent` is the clean-environment path. It starts PostgreSQL and Redis,
+applies migrations, upserts the fixed local seed, launches the existing web
+development task, waits for `/api/health/ready`, and prints the web URL,
+seeded development identities, and seed version. It does not print database
+URLs or passwords. Use `bun dev` when the services and database are already
+prepared.
 
 Migrate the test database once for integration tests:
 
@@ -24,6 +29,7 @@ DATABASE_URL="$TEST_DATABASE_URL" bun db:migrate
 | Command                           | What it does                                                        |
 | --------------------------------- | ------------------------------------------------------------------- |
 | `bun dev`                         | All dev processes (currently the web app) via turbo                 |
+| `bun dev:agent`                   | Start local dependencies, migrate, seed, launch web, and wait ready |
 | `bun build`                       | Production builds through the turbo graph                           |
 | `bun test`                        | Fast deterministic unit/domain tests; no services or Next boot      |
 | `bun test:integration`            | Database, Redis, and web vertical tests against real services       |
@@ -35,6 +41,7 @@ DATABASE_URL="$TEST_DATABASE_URL" bun db:migrate
 | `bun check`                       | format:check + lint + typecheck + test + build — run before pushing |
 | `bun db:generate`                 | Generate migration SQL from schema changes (review the SQL!)        |
 | `bun db:migrate`                  | Apply pending migrations                                            |
+| `bun db:seed`                     | Upsert the deterministic agent development seed                     |
 | `bun db:studio`                   | Drizzle Studio (local only, never expose)                           |
 | `bun infra:up/down/logs`          | Compose lifecycle for PostgreSQL and Redis                          |
 

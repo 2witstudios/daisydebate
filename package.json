@@ -12,6 +12,7 @@
   ],
   "scripts": {
     "dev": "bun --env-file=.env run turbo run dev",
+    "dev:agent": "bun --env-file=.env scripts/dev-agent.ts",
     "build": "NODE_ENV=production turbo run build",
     "start": "bun run --cwd apps/web start",
     "typecheck": "turbo run typecheck",
@@ -33,6 +34,7 @@
     "check": "bun format:check && bun lint && bun run knip && bun typecheck && bun run test && bun run build",
     "db:generate": "bun run --cwd packages/db db:generate",
     "db:migrate": "bun --env-file=.env packages/db/scripts/migrate.ts",
+    "db:seed": "bun --env-file=.env scripts/seed.ts",
     "db:studio": "bun --env-file=.env run --cwd packages/db db:studio",
     "db:reset": "bun --env-file=.env packages/db/scripts/reset.ts",
     "infra:up": "docker compose --env-file .env -f infra/compose.yaml up -d --wait",

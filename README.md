@@ -19,13 +19,15 @@ Playwright · Docker Compose · GitHub Actions.
 ```sh
 bun install --frozen-lockfile
 cp .env.example .env
-bun infra:up
-bun db:migrate
-bun dev
+bun dev:agent
 ```
 
-Then `DATABASE_URL="$TEST_DATABASE_URL" bun db:migrate` (with `.env`
-sourced) to enable integration tests.
+`bun dev:agent` starts the Compose services, applies migrations, loads the
+deterministic development seed, starts the web app, waits for readiness, and
+prints the local URL, seeded development identities, and seed version. Use
+`bun dev` when the infrastructure and database are already running. Then
+`DATABASE_URL="$TEST_DATABASE_URL" bun db:migrate` (with `.env` sourced) to
+enable integration tests.
 
 ## Where work belongs
 
