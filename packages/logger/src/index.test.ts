@@ -152,4 +152,25 @@ describe('structured logging', () => {
       expected: ['db.query.failed', 'redis.command.failed'],
     });
   });
+
+  test('accepts invariant violation events at error severity', () => {
+    let output = '';
+    const logger = createLogger({
+      service: 'test',
+      destination: { write: (text) => (output += text) },
+    });
+    logger.log(
+      'invariant.violated',
+      { invariantId: 'debate.phase.active.requires-ready-participants' },
+      'invariant violated',
+    );
+    const entry = JSON.parse(output) as { event: string; level: number };
+
+    assert({
+      given: 'a production invariant violation event',
+      should: 'emit the stable event at error severity',
+      actual: { event: entry.event, level: entry.level },
+      expected: { event: 'invariant.violated', level: 50 },
+    });
+  });
 });

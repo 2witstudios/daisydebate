@@ -19,18 +19,19 @@ structured fields.
 
 The current registry is:
 
-| Event                     | Severity | Owner / emission boundary                    |
-| ------------------------- | -------- | -------------------------------------------- |
-| `runtime.initialize`      | info     | Next runtime initialization                  |
-| `server.start`            | info     | HTTP server listening                        |
-| `server.shutdown`         | info     | Shutdown begins draining                     |
-| `http.request.completed`  | info     | Request operation returns a response         |
-| `http.request.cancelled`  | warn     | Request aborts before completion             |
-| `http.request.failed`     | error    | Request operation or server handler fails    |
-| `request.unhandled`       | error    | Next reports an unhandled request failure    |
-| `db.query.failed`         | error    | Database adapter query/transaction failure   |
-| `redis.command.failed`    | error    | Redis adapter command failure                |
-| `telemetry.unknown_event` | warn     | Logger receives an unregistered runtime name |
+| Event                     | Severity | Owner / emission boundary                         |
+| ------------------------- | -------- | ------------------------------------------------- |
+| `runtime.initialize`      | info     | Next runtime initialization                       |
+| `server.start`            | info     | HTTP server listening                             |
+| `server.shutdown`         | info     | Shutdown begins draining                          |
+| `http.request.completed`  | info     | Request operation returns a response              |
+| `http.request.cancelled`  | warn     | Request aborts before completion                  |
+| `http.request.failed`     | error    | Request operation or server handler fails         |
+| `invariant.violated`      | error    | Request operation violates a registered invariant |
+| `request.unhandled`       | error    | Next reports an unhandled request failure         |
+| `db.query.failed`         | error    | Database adapter query/transaction failure        |
+| `redis.command.failed`    | error    | Redis adapter command failure                     |
+| `telemetry.unknown_event` | warn     | Logger receives an unregistered runtime name      |
 
 All entries include logger base fields (`service`, `appVersion`, and
 `gitCommit`) and the canonical `event` field. Request events also carry

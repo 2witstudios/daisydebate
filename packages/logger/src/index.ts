@@ -6,6 +6,7 @@ const eventRegistry = {
   'http.request.completed': 'info',
   'http.request.cancelled': 'warn',
   'http.request.failed': 'error',
+  'invariant.violated': 'error',
   'db.query.failed': 'error',
   'redis.command.failed': 'error',
   'server.start': 'info',

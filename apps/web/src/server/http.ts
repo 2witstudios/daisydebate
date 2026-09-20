@@ -65,6 +65,12 @@ export async function handleOperation(
           });
         }
         const mapped = toPublicError(error, id);
+        if (mapped.body.error.invariantId !== undefined)
+          logger?.log(
+            'invariant.violated',
+            { invariantId: mapped.body.error.invariantId },
+            'Invariant violated',
+          );
         logger?.log(
           'http.request.failed',
           {

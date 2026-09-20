@@ -1,6 +1,6 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createAppError } from '@daisy/errors';
+import { createAppError, createInvariantError } from '@daisy/errors';
 import { readServerConfig } from '@daisy/config';
 import type { Logger } from '@daisy/logger';
 
@@ -173,6 +173,25 @@ describe('handleOperation', () => {
       should: 'include a request id',
       actual: Boolean(body.error.requestId),
       expected: true,
+    });
+  });
+
+  test('emits invariant telemetry with the stable invariant identity', async () => {
+    recorded.length = 0;
+    const invariantId = 'debate.phase.active.requires-ready-participants';
+    await handleOperation(
+      new Request('http://localhost/api/foundation/proof'),
+      'test.operation',
+      () => Promise.reject(createInvariantError(invariantId)),
+    );
+    const invariantEvent = recorded.find(
+      ({ event }) => event === 'invariant.violated',
+    );
+    assert({
+      given: 'a production invariant failure',
+      should: 'emit an invariant violation event with its stable identity',
+      actual: (invariantEvent?.fields as { invariantId?: string }).invariantId,
+      expected: invariantId,
     });
   });
 
