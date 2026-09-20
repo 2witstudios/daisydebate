@@ -1,0 +1,117 @@
+{
+  "version": 1,
+  "exceptions": [
+    {
+      "path": "packages/clock/src/index.ts",
+      "rule": "direct-random-uuid",
+      "category": "framework",
+      "owner": "platform",
+      "reason": "Legacy system IdGenerator edge; cuid2 migration is a later application change."
+    },
+    {
+      "path": "packages/observability/src/index.ts",
+      "rule": "direct-random-uuid",
+      "category": "tooling",
+      "owner": "platform",
+      "reason": "Request correlation fallback is tooling-owned and not a domain identifier."
+    },
+    {
+      "path": "apps/web/integration/foundation.integration.ts",
+      "rule": "direct-random-uuid",
+      "category": "integration-isolation",
+      "owner": "web",
+      "reason": "CSPRNG ID isolates a real PostgreSQL integration record."
+    },
+    {
+      "path": "packages/db/integration/db.integration.ts",
+      "rule": "direct-random-uuid",
+      "category": "integration-isolation",
+      "owner": "db",
+      "reason": "CSPRNG IDs isolate real durable integration records."
+    },
+    {
+      "path": "packages/redis/integration/redis.integration.ts",
+      "rule": "direct-random-uuid",
+      "category": "integration-isolation",
+      "owner": "redis",
+      "reason": "CSPRNG namespace isolates a real Redis integration client."
+    },
+    {
+      "path": "eslint.config.test.ts",
+      "rule": "direct-random-uuid",
+      "category": "tooling",
+      "owner": "platform",
+      "reason": "The lint contract fixture intentionally names forbidden ambient APIs."
+    },
+    {
+      "path": "packages/db/integration/seed.integration.test.ts",
+      "rule": "repository-owned-uuid",
+      "category": "migration",
+      "owner": "db",
+      "reason": "Existing UUID column compatibility assertions remain until the cuid2 schema migration."
+    },
+    {
+      "path": "packages/db/integration/db.integration.ts",
+      "rule": "repository-owned-uuid",
+      "category": "migration",
+      "owner": "db",
+      "reason": "Existing UUID column compatibility assertions remain until the cuid2 schema migration."
+    },
+    {
+      "path": "scripts/seed.ts",
+      "rule": "repository-owned-uuid",
+      "category": "migration",
+      "owner": "db",
+      "reason": "Seed SQL targets the existing UUID schema and is outside this policy-only change."
+    },
+    {
+      "path": "packages/db/migrations/0000_optimal_calypso.sql",
+      "rule": "repository-owned-uuid",
+      "category": "migration",
+      "owner": "db",
+      "reason": "Applied migration history is immutable."
+    },
+    {
+      "path": "packages/db/migrations/meta/0000_snapshot.json",
+      "rule": "repository-owned-uuid",
+      "category": "migration",
+      "owner": "db",
+      "reason": "Applied migration metadata is immutable."
+    },
+    {
+      "path": "packages/db/migrations/meta/0001_snapshot.json",
+      "rule": "repository-owned-uuid",
+      "category": "migration",
+      "owner": "db",
+      "reason": "Applied migration metadata is immutable."
+    },
+    {
+      "path": "packages/db/src/schema/users.ts",
+      "rule": "repository-owned-uuid",
+      "category": "migration",
+      "owner": "db",
+      "reason": "The current Drizzle schema mirrors the applied UUID migration."
+    },
+    {
+      "path": "packages/db/src/schema/debates.ts",
+      "rule": "repository-owned-uuid",
+      "category": "migration",
+      "owner": "db",
+      "reason": "The current Drizzle schema mirrors the applied UUID migration."
+    },
+    {
+      "path": "packages/protocol/src/index.ts",
+      "rule": "repository-owned-uuid",
+      "category": "migration",
+      "owner": "protocol",
+      "reason": "The public protocol still validates the existing UUID contract."
+    },
+    {
+      "path": "apps/web/src/features/foundation/schemas.ts",
+      "rule": "repository-owned-uuid",
+      "category": "migration",
+      "owner": "web",
+      "reason": "The foundation proof route validates the existing UUID contract."
+    }
+  ]
+}

@@ -131,6 +131,7 @@ const rootClaimProblems = (scripts: ScriptMap): readonly EvidenceProblem[] => {
   const claims: readonly [string, string][] = [
     ['test', 'bun test scripts'],
     ['lint', 'eslint.config.test.ts'],
+    ['check', 'policy'],
     ['check', 'invariants'],
     ['check', 'evidence'],
   ];
@@ -205,7 +206,13 @@ const ciWiringProblems = async (): Promise<readonly EvidenceProblem[]> => {
       code: 'E2E_DUPLICATED',
       detail: 'ci.yml runs the browser suite; e2e.yml is the single E2E owner',
     });
-  for (const gate of ['knip', 'invariants', 'evidence', 'migrations:check'])
+  for (const gate of [
+    'knip',
+    'policy',
+    'invariants',
+    'evidence',
+    'migrations:check',
+  ])
     if (!ciWorkflow?.includes(gate))
       problems.push({
         code: 'UNRUN_SUITE',

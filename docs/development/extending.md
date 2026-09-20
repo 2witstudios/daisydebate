@@ -3,6 +3,22 @@
 Recipes for the four most common structural changes. Structural changes need
 a docs update in the same PR.
 
+## Policy-first developer flow
+
+1. Read ADRs 0018-0021 before adding identifiers, auth, secrets, or durable
+   behavior.
+2. Write the RITEway unit test first with injected deterministic IDs and clocks.
+3. Add a real guarded integration test for durable PostgreSQL/Redis behavior;
+   use a CSPRNG isolation ID only at that service boundary.
+4. If compatibility requires UUID or direct randomness, add a narrow entry to
+   `policy/exceptions.json` with path, rule, owner, reason, and category, then
+   run `bun policy`.
+5. Run `bun check`; do not implement the cuid2 schema migration or activate an
+   auth route as part of policy-only work.
+
+For parallel or isolated work, follow the preferred [`pu` workflow](pu-workflow.md).
+Direct single-agent work may proceed without `pu`.
+
 ## Adding a package
 
 1. Justify it: a package exists for a responsibility with an owner — never

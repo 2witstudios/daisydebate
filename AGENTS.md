@@ -19,8 +19,10 @@ and detailed procedures in the linked documents, not here.
 - Package responsibilities and allowed edges: [architecture overview](docs/architecture/overview.md).
 - Local setup and command catalog: [local development](docs/development/local-development.md).
 - Test tiers and test rules: [testing](docs/development/testing.md).
+- Policy decisions and the policy gate: [identifier strategy](docs/decisions/0018-cuid2-identifiers.md), [auth activation](docs/decisions/0020-auth-activation-gates.md), and [AIDD overrides](docs/decisions/0021-repository-aidd-overrides.md).
 - Structural change recipes: [extending the repository](docs/development/extending.md).
 - Parallel sessions, branches, and vertical ownership: [parallel work](docs/development/parallel-work.md).
+- Preferred multi-agent orchestration: [pu workflow](docs/development/pu-workflow.md).
 
 ## Dependency rules
 
@@ -57,7 +59,7 @@ and detailed procedures in the linked documents, not here.
   and must use validated namespaced keys with expiry. See
   [persistence](docs/architecture/persistence.md) and
   [database operations](docs/operations/database.md).
-- Use UTC ISO timestamps, UUID IDs, and integer millisecond durations. Use
+- Use UTC ISO timestamps, cuid2 application IDs, documented UUID exceptions, and integer millisecond durations. Use
   structured logging; never log credentials, cookies, raw request bodies, or
   raw exceptions. Public errors must not expose internals.
 - Schema changes use `bun db:generate`, reviewed SQL and metadata, forward
@@ -81,6 +83,10 @@ and detailed procedures in the linked documents, not here.
   skip instead of throwing on missing services, and gates that silently
   stop running in CI. `bun invariants` and `bun evidence` are part of
   `bun check`.
+- Repository overrides are explicit: Bun/RITEway replace generic Vitest guidance,
+  `@daisy/errors` plus native `Error.cause` replaces `error-causes`, durable
+  behavior uses real integration tests, and unit IDs are deterministic while
+  integration isolation may use CSPRNG IDs. `bun policy` enforces the registry.
 - This file is the only agent-facing operating map. Never fork it into a
   second top-level agent document (CLAUDE.md and friends); docs drift
   becomes contradictory instructions.
