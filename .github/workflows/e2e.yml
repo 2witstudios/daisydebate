@@ -2,6 +2,7 @@ name: Browser E2E
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 permissions:
@@ -70,7 +71,7 @@ jobs:
           E2E_POSTGRES_PORT: 5432
 
       - name: Upload browser artifacts
-        if: ${{ !cancelled() }}
+        if: ${{ failure() }}
         uses: actions/upload-artifact@v5
         with:
           name: e2e-artifacts-${{ github.run_id }}
@@ -78,4 +79,4 @@ jobs:
             apps/web/test-results/
             apps/web/playwright-report/
           if-no-files-found: ignore
-          retention-days: 30
+          retention-days: 7
