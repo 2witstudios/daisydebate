@@ -20,9 +20,10 @@
     "metrics": "bun scripts/metrics.ts",
     "metrics:snapshot": "bun scripts/metrics.ts --append",
     "metrics:check": "bun scripts/metrics.ts --check",
+    "doctor": "bun --env-file=.env scripts/doctor.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "turbo run test",
+    "test": "bun test scripts && turbo run test",
     "test:lint": "bun test eslint.config.test.ts",
     "test:integration": "bun --env-file=.env run turbo run test:integration",
     "test:e2e": "bun --env-file=.env run turbo run test:e2e",
@@ -47,5 +48,8 @@
     "turbo": "2.11.2",
     "typescript": "6.0.3",
     "typescript-eslint": "8.70.0"
+  },
+  "dependencies": {
+    "@daisy/config": "workspace:*"
   }
 }

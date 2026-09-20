@@ -1,0 +1,78 @@
+import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import {
+  createDoctorReport,
+  formatDoctorReport,
+  isMigrationCurrent,
+} from './doctor';
+
+setupRitewayBun();
+
+describe('doctor report', () => {
+  test('preserves the stable check order and derives overall health', () => {
+    const report = createDoctorReport([
+      { name: 'redis', status: 'pass', detail: 'PONG' },
+      { name: 'bun-version', status: 'pass', detail: '1.4.2' },
+      { name: 'env', status: 'fail', detail: 'DATABASE_URL' },
+    ]);
+
+    assert({
+      given: 'doctor checks in arbitrary order with one failure',
+      should: 'return an ordered report marked unhealthy',
+      actual: report,
+      expected: {
+        ok: false,
+        checks: [
+          { name: 'bun-version', status: 'pass', detail: '1.4.2' },
+          { name: 'env', status: 'fail', detail: 'DATABASE_URL' },
+          { name: 'postgres', status: 'fail', detail: 'not checked' },
+          { name: 'migration-currency', status: 'fail', detail: 'not checked' },
+          { name: 'redis', status: 'pass', detail: 'PONG' },
+          { name: 'boundaries', status: 'fail', detail: 'not checked' },
+        ],
+      },
+    });
+  });
+
+  test('renders machine-readable and human-readable reports without changing data', () => {
+    const report = createDoctorReport([
+      { name: 'bun-version', status: 'pass', detail: '1.4.2' },
+      { name: 'env', status: 'pass', detail: 'valid' },
+      { name: 'postgres', status: 'pass', detail: 'reachable' },
+      { name: 'migration-currency', status: 'pass', detail: '1 migration' },
+      { name: 'redis', status: 'pass', detail: 'PONG' },
+      { name: 'boundaries', status: 'pass', detail: 'verified' },
+    ]);
+
+    assert({
+      given: 'a healthy doctor report',
+      should: 'render stable JSON',
+      actual: JSON.parse(formatDoctorReport(report, true)),
+      expected: report,
+    });
+    assert({
+      given: 'a healthy doctor report',
+      should: 'render a passing text summary',
+      actual: formatDoctorReport(report, false),
+      expected:
+        'Daisy doctor: PASS\nPASS bun-version: 1.4.2\nPASS env: valid\nPASS postgres: reachable\nPASS migration-currency: 1 migration\nPASS redis: PONG\nPASS boundaries: verified\n',
+    });
+  });
+});
+
+describe('migration currency', () => {
+  test('requires the applied migrations to exactly match the committed journal', () => {
+    assert({
+      given: 'committed and applied migration tags',
+      should: 'accept an exact match and reject drift',
+      actual: [
+        isMigrationCurrent(['0000_optimal_calypso'], ['0000_optimal_calypso']),
+        isMigrationCurrent(['0000_optimal_calypso'], []),
+        isMigrationCurrent(
+          ['0000_optimal_calypso'],
+          ['0000_optimal_calypso', '0001_unexpected'],
+        ),
+      ],
+      expected: [true, false, false],
+    });
+  });
+});

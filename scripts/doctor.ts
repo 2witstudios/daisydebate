@@ -1,0 +1,200 @@
+import { SQL, RedisClient } from 'bun';
+import { readServerConfig } from '@daisy/config';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+
+const checkNames = [
+  'bun-version',
+  'env',
+  'postgres',
+  'migration-currency',
+  'redis',
+  'boundaries',
+] as const;
+
+type CheckName = (typeof checkNames)[number];
+type CheckStatus = 'pass' | 'fail';
+export type DoctorCheck = {
+  readonly name: CheckName;
+  readonly status: CheckStatus;
+  readonly detail: string;
+};
+export type DoctorReport = {
+  readonly ok: boolean;
+  readonly checks: readonly DoctorCheck[];
+};
+
+const root = resolve(import.meta.dir, '..');
+
+export function isMigrationCurrent(
+  committedTags: readonly string[],
+  appliedTags: readonly string[],
+): boolean {
+  return (
+    committedTags.length === appliedTags.length &&
+    committedTags.every((tag, index) => tag === appliedTags[index])
+  );
+}
+
+export function createDoctorReport(
+  checks: readonly DoctorCheck[],
+): DoctorReport {
+  const byName = new Map(checks.map((check) => [check.name, check]));
+  const orderedChecks = checkNames.map(
+    (name): DoctorCheck =>
+      byName.get(name) ?? { name, status: 'fail', detail: 'not checked' },
+  );
+  return {
+    ok: orderedChecks.every((check) => check.status === 'pass'),
+    checks: orderedChecks,
+  };
+}
+
+export function formatDoctorReport(
+  report: DoctorReport,
+  json: boolean,
+): string {
+  if (json) return `${JSON.stringify(report, null, 2)}\n`;
+  return [
+    `Daisy doctor: ${report.ok ? 'PASS' : 'FAIL'}`,
+    ...report.checks.map(
+      (check) =>
+        `${check.status === 'pass' ? 'PASS' : 'FAIL'} ${check.name}: ${check.detail}`,
+    ),
+    '',
+  ].join('\n');
+}
+
+function pass(name: CheckName, detail: string): DoctorCheck {
+  return { name, status: 'pass', detail };
+}
+
+function fail(name: CheckName, detail: string): DoctorCheck {
+  return { name, status: 'fail', detail };
+}
+
+async function checkBunVersion(): Promise<DoctorCheck> {
+  try {
+    const expected = (
+      await Bun.file(resolve(root, '.bun-version')).text()
+    ).trim();
+    return Bun.version === expected
+      ? pass('bun-version', Bun.version)
+      : fail('bun-version', `expected ${expected}, got ${Bun.version}`);
+  } catch {
+    return fail('bun-version', 'version file unavailable');
+  }
+}
+
+function checkEnvironment(): DoctorCheck {
+  try {
+    readServerConfig(process.env);
+    return pass('env', 'valid');
+  } catch (error) {
+    return fail('env', error instanceof Error ? error.message : 'invalid');
+  }
+}
+
+async function checkPostgres(url: string | undefined): Promise<DoctorCheck> {
+  if (!url) return fail('postgres', 'DATABASE_URL unavailable');
+  let client: SQL | undefined;
+  try {
+    client = new SQL(url, { max: 1, connectionTimeout: 3 });
+    await client`select 1`;
+    return pass('postgres', 'reachable');
+  } catch {
+    return fail('postgres', 'unreachable');
+  } finally {
+    await client?.close({ timeout: 5 });
+  }
+}
+
+async function checkMigrationCurrency(
+  url: string | undefined,
+): Promise<DoctorCheck> {
+  if (!url) return fail('migration-currency', 'DATABASE_URL unavailable');
+  let client: SQL | undefined;
+  try {
+    const journal = JSON.parse(
+      await readFile(
+        resolve(root, 'packages/db/migrations/meta/_journal.json'),
+        'utf8',
+      ),
+    ) as { entries?: readonly { tag: string }[] };
+    const committedTags = (journal.entries ?? []).map((entry) => entry.tag);
+    client = new SQL(url, { max: 1, connectionTimeout: 3 });
+    const rows = await client`
+      select created_at
+      from drizzle.__drizzle_migrations
+      order by created_at asc
+    `;
+    if (!isMigrationCurrent(committedTags, committedTags.slice(0, rows.length)))
+      return fail(
+        'migration-currency',
+        `expected ${committedTags.length}, applied ${rows.length}`,
+      );
+    return pass(
+      'migration-currency',
+      `${committedTags.length} migration${committedTags.length === 1 ? '' : 's'}`,
+    );
+  } catch {
+    return fail('migration-currency', 'migration table unavailable');
+  } finally {
+    await client?.close({ timeout: 5 });
+  }
+}
+
+async function checkRedis(url: string | undefined): Promise<DoctorCheck> {
+  if (!url) return fail('redis', 'REDIS_URL unavailable');
+  let client: RedisClient | undefined;
+  try {
+    client = new RedisClient(url);
+    await client.connect();
+    return (await client.ping()) === 'PONG'
+      ? pass('redis', 'PONG')
+      : fail('redis', 'unexpected response');
+  } catch {
+    return fail('redis', 'unreachable');
+  } finally {
+    client?.close();
+  }
+}
+
+async function checkBoundaries(): Promise<DoctorCheck> {
+  const process = Bun.spawn(['bun', 'scripts/check-boundaries.ts'], {
+    cwd: root,
+    stdout: 'ignore',
+    stderr: 'ignore',
+  });
+  return (await process.exited) === 0
+    ? pass('boundaries', 'verified')
+    : fail('boundaries', 'failed');
+}
+
+export async function runDoctor(): Promise<DoctorReport> {
+  const env = checkEnvironment();
+  const [bunVersion, postgres, migrations, redis, boundaries] =
+    await Promise.all([
+      checkBunVersion(),
+      checkPostgres(process.env.DATABASE_URL),
+      checkMigrationCurrency(process.env.DATABASE_URL),
+      checkRedis(process.env.REDIS_URL),
+      checkBoundaries(),
+    ]);
+  return createDoctorReport([
+    bunVersion,
+    env,
+    postgres,
+    migrations,
+    redis,
+    boundaries,
+  ]);
+}
+
+if (import.meta.main) {
+  const report = await runDoctor();
+  process.stdout.write(
+    formatDoctorReport(report, process.argv.includes('--json')),
+  );
+  process.exitCode = report.ok ? 0 : 1;
+}
