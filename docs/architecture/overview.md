@@ -29,20 +29,20 @@ acyclic graph, explicit exports, Adobe isolation).
 
 ## Package map and ownership
 
-| Package                      | Responsibility                                                                   | May depend on                                                            | Owner role        |
-| ---------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ----------------- |
-| `apps/web`                   | Delivery: routes, sessions of UI, health endpoints, process lifecycle            | protocol, engine, auth, errors, config, db, redis, logger, observability | web/product teams |
-| `packages/debate-engine`     | Debate domain runtime; Adobe ECS lives behind its private adapter                | protocol, errors                                                         | domain engineers  |
-| `packages/protocol`          | Portable versioned commands, events, snapshots, stable error codes               | errors (codes), zod                                                      | protocol owner    |
-| `packages/db`                | Drizzle schema, migrations, transactional record adapters                        | config, errors                                                           | platform/data     |
-| `packages/redis`             | Namespaced ephemeral key operations and lifecycle                                | config, errors                                                           | platform/data     |
-| `packages/auth`              | Principal/permission vocabulary; trusted authentication adapters plug here       | errors                                                                   | identity owner    |
-| `packages/errors`            | Error codes and the public/internal error mapping                                | —                                                                        | platform          |
-| `packages/config`            | Typed environment schemas: server, browser, test                                 | zod                                                                      | platform          |
-| `packages/clock`             | Injected clock and identity primitives; system and deterministic implementations | —                                                                        | platform          |
-| `packages/logger`            | Structured logging facade over pino with redaction                               | pino                                                                     | platform          |
-| `packages/observability`     | Spans, trace/request correlation, timeouts                                       | logger, `@opentelemetry/api`                                             | platform          |
-| `packages/typescript-config` | Shared strict tsconfig                                                           | —                                                                        | platform          |
+| Package                      | Responsibility                                                                                                                          | May depend on                                                            | Owner role        |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ----------------- |
+| `apps/web`                   | Delivery: routes, sessions of UI, health endpoints, process lifecycle                                                                   | protocol, engine, auth, errors, config, db, redis, logger, observability | web/product teams |
+| `packages/debate-engine`     | Debate domain runtime; Adobe ECS lives behind its private adapter                                                                       | protocol, errors                                                         | domain engineers  |
+| `packages/protocol`          | Portable versioned commands, events, snapshots, stable error codes                                                                      | errors (codes), zod                                                      | protocol owner    |
+| `packages/db`                | Drizzle schema, migrations, transactional record adapters                                                                               | config, errors                                                           | platform/data     |
+| `packages/redis`             | Namespaced ephemeral key operations and lifecycle                                                                                       | config, errors                                                           | platform/data     |
+| `packages/auth`              | Principal/permission vocabulary; trusted authentication adapters plug here                                                              | errors                                                                   | identity owner    |
+| `packages/errors`            | Error codes and the public/internal error mapping                                                                                       | —                                                                        | platform          |
+| `packages/config`            | Typed environment schemas: server, browser, test                                                                                        | zod                                                                      | platform          |
+| `packages/clock`             | Injected clock and identity primitives; public exports: `Clock`, `IdGenerator`, `systemClock`, `systemId`, `fixedClock`, `sequentialId` | —                                                                        | platform          |
+| `packages/logger`            | Structured logging facade over pino with redaction                                                                                      | pino                                                                     | platform          |
+| `packages/observability`     | Spans, trace/request correlation, timeouts                                                                                              | logger, `@opentelemetry/api`                                             | platform          |
+| `packages/typescript-config` | Shared strict tsconfig                                                                                                                  | —                                                                        | platform          |
 
 New packages need: responsibility, explicit `exports`, allowed dependencies,
 an owner, tests, and a row in this table (`docs/development/extending.md`).
