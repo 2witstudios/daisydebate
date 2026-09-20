@@ -8,14 +8,9 @@ setupRitewayBun();
 
 // Seed process-local resources before touching the HTTP boundary so this test
 // never constructs real database or Redis clients.
-const recorded: { level: string; message: string; fields: unknown }[] = [];
+const recorded: { event: string; message: string; fields: unknown }[] = [];
 const recorder: Logger = {
-  info: (event, fields, message) =>
-    recorded.push({ level: 'info', fields: { event, ...fields }, message }),
-  warn: (event, fields, message) =>
-    recorded.push({ level: 'warn', fields: { event, ...fields }, message }),
-  error: (event, fields, message) =>
-    recorded.push({ level: 'error', fields: { event, ...fields }, message }),
+  log: (event, fields, message) => recorded.push({ event, fields, message }),
   child: () => recorder,
 };
 const seededResources = {
@@ -94,9 +89,9 @@ describe('handleOperation', () => {
     });
     assert({
       given: 'a completed operation',
-      should: 'log completion at info level',
-      actual: recorded.at(-1)?.level,
-      expected: 'info',
+      should: 'log completion as an info-severity event',
+      actual: recorded.at(-1)?.event,
+      expected: 'http.request',
     });
   });
 
@@ -210,9 +205,9 @@ describe('handleOperation', () => {
     });
     assert({
       given: 'an aborted request',
-      should: 'log at warn level only',
-      actual: recorded.at(-1)?.level,
-      expected: 'warn',
+      should: 'log as a warn-severity event',
+      actual: recorded.at(-1)?.event,
+      expected: 'http.request.cancelled',
     });
   });
 

@@ -17,8 +17,9 @@ and exporters belong to deployment, not the repository.
   `errorCode` on failure — structured fields, never formatted strings.
 - The logger embeds `appVersion` and `gitCommit` (deployment identity) in
   every line; production config refuses to boot without them.
-- Logger events use a compile-time vocabulary and normalize untrusted runtime
-  event names to `telemetry.unknown_event`; dynamic operation names remain
+- Logger events use a compile-time vocabulary and registry-declared severity;
+  callers emit through one event-based method, and untrusted runtime event
+  names normalize to `telemetry.unknown_event`. Dynamic operation names remain
   structured context fields.
 
 ## How to answer production questions

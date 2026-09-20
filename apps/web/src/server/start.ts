@@ -27,8 +27,8 @@ const server = createServer((request, response) => {
     return;
   }
   void handle(request, response).catch(() => {
-    resources.logger.error(
-      'http.request',
+    resources.logger.log(
+      'http.request.failed',
       { operation: 'http.request', errorCode: 'INTERNAL' },
       'Request failed',
     );
@@ -40,7 +40,7 @@ server.requestTimeout = 30_000;
 server.headersTimeout = 15_000;
 server.keepAliveTimeout = 5_000;
 server.listen(port, '0.0.0.0', () =>
-  resources.logger.info(
+  resources.logger.log(
     'server.start',
     { operation: 'server.start', port },
     'Server listening',
@@ -49,7 +49,7 @@ server.listen(port, '0.0.0.0', () =>
 async function shutdown() {
   if (resources.draining) return;
   resources.draining = true;
-  resources.logger.info(
+  resources.logger.log(
     'server.shutdown',
     { operation: 'server.shutdown' },
     'Draining requests',

@@ -8,7 +8,7 @@ export async function register() {
       level: process.env.LOG_LEVEL ?? 'info',
       appVersion: process.env.APP_VERSION ?? 'development',
       gitCommit: process.env.GIT_COMMIT ?? 'unknown',
-    }).info(
+    }).log(
       'runtime.initialize',
       { operation: 'runtime.initialize' },
       'Application runtime initialized',
@@ -27,7 +27,7 @@ export const onRequestError: Instrumentation.onRequestError = async (
     level: process.env.LOG_LEVEL ?? 'info',
     appVersion: process.env.APP_VERSION ?? 'development',
     gitCommit: process.env.GIT_COMMIT ?? 'unknown',
-  }).error(
+  }).log(
     'request.unhandled',
     {
       operation: 'request.unhandled',

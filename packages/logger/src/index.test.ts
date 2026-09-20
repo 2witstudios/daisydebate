@@ -1,9 +1,69 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createLogger, type EventName } from './index';
+import {
+  createLogger,
+  type EventName,
+  type Logger,
+  type LogFields,
+} from './index';
 
 setupRitewayBun();
 
 describe('structured logging', () => {
+  test('derives the emitted level from the event registry', () => {
+    let output = '';
+    const logger = createLogger({
+      service: 'test',
+      destination: { write: (text) => (output += text) },
+    });
+    logger.log('request.unhandled', {}, 'failed');
+    const entry = JSON.parse(output) as {
+      event: string;
+      level: number;
+    };
+    assert({
+      given: 'an event with a registry-declared error severity',
+      should: 'emit the event name and its registry severity',
+      actual: { event: entry.event, level: entry.level },
+      expected: { event: 'request.unhandled', level: 50 },
+    });
+  });
+
+  test('exposes no caller-selected severity methods', () => {
+    const logger = createLogger({ service: 'test' });
+    // @ts-expect-error Severity methods are private to the logger implementation.
+    type NoInfoMethod = Logger['info'];
+    void (null as unknown as NoInfoMethod);
+    assert({
+      given: 'a constructed logger',
+      should: 'expose only event-based emission',
+      actual: Object.keys(logger).sort(),
+      expected: ['child', 'log'],
+    });
+  });
+
+  test('emits one canonical event field even when fields contain an event', () => {
+    let output = '';
+    const logger = createLogger({
+      service: 'test',
+      destination: { write: (text) => (output += text) },
+    });
+    logger.log(
+      'server.start',
+      { event: 'spoofed' } as unknown as LogFields,
+      'started',
+    );
+    const entry = JSON.parse(output) as { event: string };
+    assert({
+      given: 'fields containing an untrusted event value',
+      should: 'emit exactly one typed canonical event field',
+      actual: {
+        event: entry.event,
+        occurrences: output.match(/"event"/g)?.length,
+      },
+      expected: { event: 'server.start', occurrences: 1 },
+    });
+  });
+
   test('logs structured context and redacts authentication fields', () => {
     let output = '';
     const logger = createLogger({
@@ -14,7 +74,7 @@ describe('structured logging', () => {
         },
       },
     });
-    logger.child({ requestId: 'request-1' }).info(
+    logger.child({ requestId: 'request-1' }).log(
       'server.start',
       {
         authorization: 'secret',
@@ -50,7 +110,7 @@ describe('structured logging', () => {
   test('rejects events outside the public vocabulary at compile time', () => {
     const logger = createLogger({ service: 'test' });
     // @ts-expect-error Event names are intentionally closed to known telemetry events.
-    logger.info('not-a-telemetry-event', {}, 'invalid');
+    logger.log('not-a-telemetry-event', {}, 'invalid');
     const event: EventName = 'server.start';
     assert({
       given: 'a known telemetry event name',
@@ -66,7 +126,7 @@ describe('structured logging', () => {
       service: 'test',
       destination: { write: (text) => (output += text) },
     });
-    logger.info(
+    logger.log(
       'not-a-telemetry-event' as EventName,
       {},
       'invalid runtime event',

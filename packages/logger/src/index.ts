@@ -1,31 +1,36 @@
 import pino from 'pino';
 
-export type EventName =
-  | 'runtime.initialize'
-  | 'request.unhandled'
-  | 'http.request'
-  | 'server.start'
-  | 'server.shutdown'
-  | 'telemetry.unknown_event';
-export type LogFields = Readonly<Record<string, unknown>>;
+const eventRegistry = {
+  'runtime.initialize': 'info',
+  'request.unhandled': 'error',
+  'http.request': 'info',
+  'http.request.cancelled': 'warn',
+  'http.request.failed': 'error',
+  'server.start': 'info',
+  'server.shutdown': 'info',
+  'telemetry.unknown_event': 'warn',
+} as const satisfies Record<string, 'info' | 'warn' | 'error'>;
+
+export type EventName = keyof typeof eventRegistry;
+export type LogFields = Readonly<Record<string, unknown>> & {
+  readonly event?: never;
+};
 export type Logger = {
-  info: (event: EventName, fields: LogFields, message: string) => void;
-  warn: (event: EventName, fields: LogFields, message: string) => void;
-  error: (event: EventName, fields: LogFields, message: string) => void;
+  log: (event: EventName, fields: LogFields, message: string) => void;
   child: (fields: LogFields) => Logger;
 };
-const eventNames = new Set<EventName>([
-  'runtime.initialize',
-  'request.unhandled',
-  'http.request',
-  'server.start',
-  'server.shutdown',
-  'telemetry.unknown_event',
-]);
+const eventNames = new Set<EventName>(
+  Object.keys(eventRegistry) as EventName[],
+);
 const normalizeEvent = (event: string): EventName =>
   eventNames.has(event as EventName)
     ? (event as EventName)
     : 'telemetry.unknown_event';
+const stripEvent = (fields: LogFields): LogFields => {
+  const safeFields = { ...fields };
+  Reflect.deleteProperty(safeFields, 'event');
+  return safeFields;
+};
 export function createLogger({
   service,
   level = 'info',
@@ -64,13 +69,14 @@ export function createLogger({
   };
   const instance = destination ? pino(options, destination) : pino(options);
   const wrap = (logger: pino.Logger): Logger => ({
-    info: (event, fields, message) =>
-      logger.info({ ...fields, event: normalizeEvent(event) }, message),
-    warn: (event, fields, message) =>
-      logger.warn({ ...fields, event: normalizeEvent(event) }, message),
-    error: (event, fields, message) =>
-      logger.error({ ...fields, event: normalizeEvent(event) }, message),
-    child: (fields) => wrap(logger.child(fields)),
+    log: (event, fields, message) => {
+      const normalizedEvent = normalizeEvent(event);
+      logger[eventRegistry[normalizedEvent]](
+        { ...stripEvent(fields), event: normalizedEvent },
+        message,
+      );
+    },
+    child: (fields) => wrap(logger.child(stripEvent(fields))),
   });
   return wrap(instance);
 }
