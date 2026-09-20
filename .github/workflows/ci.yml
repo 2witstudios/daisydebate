@@ -102,3 +102,22 @@ jobs:
         env:
           E2E_POSTGRES_PORT: '5432'
         run: bun test:e2e
+
+  notify-drive:
+    name: Report failure to drive Incidents
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    needs: [checks, integration]
+    if: failure()
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+      - name: Post the failure to the Incidents channel
+        env:
+          PAGESPACE_INCIDENTS_WEBHOOK_URL: ${{ secrets.PAGESPACE_INCIDENTS_WEBHOOK_URL }}
+          PAGESPACE_INCIDENTS_WEBHOOK_SECRET: ${{ secrets.PAGESPACE_INCIDENTS_WEBHOOK_SECRET }}
+        run: bun scripts/notify-drive.ts incidents --ref '${{ github.ref_name }}' --sha '${{ github.sha }}' --run-url '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}' --tasks '${{ github.ref_name }}'

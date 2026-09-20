@@ -1,0 +1,33 @@
+name: Notify drive on merge
+on:
+  pull_request:
+    types: [closed]
+permissions: {}
+concurrency:
+  group: notify-drive-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+jobs:
+  sprint-room:
+    name: Post the merge to Sprint Room
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    if: github.event.pull_request.merged == true
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+      - name: Post the merge to the Sprint Room channel
+        env:
+          PAGESPACE_SPRINT_ROOM_WEBHOOK_URL: ${{ secrets.PAGESPACE_SPRINT_ROOM_WEBHOOK_URL }}
+          PAGESPACE_SPRINT_ROOM_WEBHOOK_SECRET: ${{ secrets.PAGESPACE_SPRINT_ROOM_WEBHOOK_SECRET }}
+        run: >-
+          bun scripts/notify-drive.ts sprint-room
+          --pr '${{ github.event.pull_request.number }}'
+          --title '${{ github.event.pull_request.title }}'
+          --url '${{ github.event.pull_request.html_url }}'
+          --sha '${{ github.event.pull_request.merge_commit_sha }}'
+          --base '${{ github.event.pull_request.base.ref }}'
+          --tasks '${{ github.event.pull_request.title }} ${{ github.event.pull_request.head.ref }} ${{ github.event.pull_request.body }}'
