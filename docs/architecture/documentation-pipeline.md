@@ -1,0 +1,109 @@
+# Canvas documentation pipeline
+
+PageSpace Canvas pages in the `Daisy Debate` drive are the canonical published artifacts for technical
+documentation, user-facing documentation, and blog posts. Git is the evidence
+source: commits, pull requests, changed files, tests, releases, and task IDs
+are sent to PageSpace as a versioned event envelope.
+
+The documentation tree starts at the top-level `Documentation` folder in that
+drive. It is not a separate drive and new content must be created below this
+folder. The `Documentation Agent` lives in the sibling `Agents` folder beside
+the Scrum Master, Builder, and Reviewer agents, and owns the page discovery and
+creation workflow.
+
+## Event flow
+
+1. A merge or release produces a structured documentation event. Free text
+   from the trigger (title, body, branch) is sanitized and scanned for
+   instruction-smuggling; flagged text sets `textRisk: flagged` on the event
+   and is routed to review-only handling.
+2. Deterministic classification selects technical docs, user docs, blog, or a
+   no-op. Conventional-commit prefixes dominate generic keyword scanning, and
+   a `!` bang or breaking/security keywords raise the change kind. A bug fix
+   with no changed contract must not create documentation work.
+3. The local Bun CLI or CI invokes the PageSpace Documentation Agent in the
+   existing drive using the drive-scoped PageSpace CLI/SDK credential.
+   Delivery retries transient webhook failures (429/5xx, network errors) with
+   backoff; exhausted retries post to the incidents channel so a lost event
+   is loud, not silent. Fork PR merges cannot carry secrets, so they post a
+   skip notice instead and are replayed manually.
+4. The agent lists the Documentation folder, finds the registered page, and
+   creates a child page when no suitable page exists.
+5. The agent edits a review Canvas or review revision, not an unrelated page.
+6. Accuracy, adversarial, prose, and anti-slop checks validate the candidate.
+7. Publication follows the risk policy executed by `bun docs:policy`;
+   breaking and security changes additionally require recorded human
+   sign-off.
+
+Replay is always safe: dispatch is idempotent by the event's
+`idempotencyKey` (`repository:commit:eventType`), so a failed workflow can be
+re-run or `bun docs:dispatch` invoked again locally without duplicating work.
+
+## Data boundary
+
+Event envelope text is untrusted data, never instructions for the agent. The
+registered prompts (`bun docs:prompt <pipeline>`, versioned in
+`scripts/docs-prompts.ts`) instruct agents to treat envelope fields as data,
+to record an injection finding, and to stop when the text attempts to change
+their rules. Flagged events never auto-publish.
+
+## Canvas contract
+
+Each canonical page should retain stable semantic sections and a provenance
+manifest. Content updates must preserve the page's visual language and update
+only affected sections where possible. The manifest records the source commit,
+changed paths, task IDs, prompt and validation versions, content/source hashes,
+publication state, and invalidation history.
+
+Page writes use optimistic concurrency: a write must carry the
+`expectedRevision` observed on the page, and it is applied only when it still
+matches the page's current revision. A mismatch means another event interleaved;
+the agent re-reads and re-plans instead of overwriting.
+
+Recommended states are `fresh`, `needs-review`, `stale`, `invalid`, and
+`superseded`. Deleted or renamed source behavior invalidates dependent sections;
+an unrelated bug fix leaves them unchanged.
+
+Manifests are verified, not trusted: `bun docs:verify` checks that the
+manifest echoes the event's `repository@commit` and prompt version, and that
+cited paths (optionally pinned as `path@commit`) resolve in the repository.
+
+## Scheduled maintenance
+
+Merge-triggered workflows create or update content. Scheduled PageSpace
+workflows maintain it:
+
+- accuracy audit: compare claims, examples, links, and source anchors with the
+  current repository;
+- adversarial review: try invalid inputs, missing permissions, retries, moved
+  resources, and clean-environment workflows;
+- prose review: improve clarity and reader task completion without changing
+  facts;
+- anti-slop review: remove generic introductions, repetition, unsupported
+  claims, and templated AI phrasing;
+- consistency review: detect contradictory terminology and behavior across
+  pages;
+- publication QA: check rendered Canvas layout, mobile behavior, metadata, and
+  public links.
+
+Review workflows write findings and create tasks before making high-risk edits.
+Low-risk prose fixes may be applied to a review revision. A successful no-op is
+also recorded as a run result. A run that produces empty, truncated, or timed-
+out output is recorded with status `failed` or `partial`; such runs never edit
+a page beyond what was already validated, and never publish.
+
+## Safety rules
+
+- PageSpace writes are idempotent by repository, commit, event type, and stable
+  documentation key, and are guarded by the revision contract above.
+- The PageSpace token is server-only and never included in logs or Canvas
+  content. Webhooks are HTTPS-only and signed per payload.
+- AI agents must cite source paths and commits for technical claims;
+  `bun docs:verify` rejects citations that do not resolve.
+- Published pages are not rewritten when source evidence conflicts; they are
+  marked stale and routed to review.
+- Blog publication requires an explicit blog classification or task marker and
+  remains a draft until explicitly approved.
+- Breaking and security documentation requires recorded human sign-off before
+  publication, matching the repository's human-only sign-off rule for
+  production-facing changes.
