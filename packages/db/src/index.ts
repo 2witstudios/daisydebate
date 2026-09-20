@@ -29,17 +29,22 @@ export function createDatabase({
   url,
   maxConnections = 10,
   eventSink,
+  client: injectedClient,
 }: {
   url: string;
   maxConnections?: number;
   eventSink?: DatabaseEventSink;
+  /** Overrides dialing `url`; tests inject a scripted client at this seam. */
+  client?: SQL;
 }) {
-  const client = new SQL(url, {
-    max: maxConnections,
-    connectionTimeout: 3,
-    idleTimeout: 20,
-    connection: { statement_timeout: 5000, lock_timeout: 2000 },
-  });
+  const client =
+    injectedClient ??
+    new SQL(url, {
+      max: maxConnections,
+      connectionTimeout: 3,
+      idleTimeout: 20,
+      connection: { statement_timeout: 5000, lock_timeout: 2000 },
+    });
   const database = drizzle({ client });
   const reportFailure = (operation: string) =>
     eventSink?.('db.query.failed', { operation }, 'Database query failed');
@@ -57,15 +62,14 @@ export function createDatabase({
       await client.close({ timeout: 5 });
     },
     async createUser(input: { id: string; username: string }) {
-      let row;
       try {
-        [row] = await database.insert(users).values(input).returning();
+        const [row] = await database.insert(users).values(input).returning();
+        if (!row) throw new Error('User insert returned no row');
+        return row;
       } catch (error) {
         reportFailure('createUser');
         throw error;
       }
-      if (!row) throw new Error('User insert returned no row');
-      return row;
     },
     async createDebate(input: NewDebate): Promise<DebateRecord> {
       try {

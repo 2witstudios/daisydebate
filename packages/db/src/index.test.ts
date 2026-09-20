@@ -1,9 +1,10 @@
+import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { getTableName } from 'drizzle-orm';
 import { debates } from './schema/debates';
 import { users } from './schema/users';
 import { createDatabase } from './index';
-import { expect } from 'bun:test';
+import { createTestDatabase } from './index.test-support';
 
 setupRitewayBun();
 
@@ -14,6 +15,19 @@ describe('persistence schema', () => {
       should: 'map to independent PostgreSQL tables',
       actual: [getTableName(debates), getTableName(users)],
       expected: ['debates', 'users'],
+    });
+  });
+});
+
+describe('database health', () => {
+  test('reports healthy after a successful round trip', async () => {
+    const { database } = createTestDatabase([[]]);
+
+    assert({
+      given: 'a database answering a round-trip query',
+      should: 'report health',
+      actual: await database.health(),
+      expected: true,
     });
   });
 });
