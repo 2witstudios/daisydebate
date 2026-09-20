@@ -26,6 +26,7 @@
     "migrations:check": "bun scripts/check-migration-journal.ts",
     "check:affected": "bun scripts/check-affected.ts",
     "doctor": "bun --env-file=.env scripts/doctor.ts",
+    "auth:provision": "bun scripts/provision-auth-env.ts",
     "verify": "bun --env-file=.env scripts/verify.ts",
     "scenario": "bun scripts/scenario.ts",
     "format": "prettier --write .",

@@ -1,0 +1,48 @@
+# 0017: Better Auth passwordless authentication boundaries
+
+Status: accepted.
+
+Daisy adopts Better Auth, pinned to `1.7.5` together with
+`@better-auth/passkey` and `@better-auth/drizzle-adapter` at the same version,
+for email magic-link and passkey authentication over the existing PostgreSQL
+database. Passwords, OAuth, and password reset stay disabled. The version is
+verified against the npm registry before installation and re-verified against
+the version-matched official documentation before each implementation stage.
+
+Ownership follows the repository edges. `apps/web` owns all Better Auth
+configuration and application orchestration: the server composition lives in
+`apps/web/src/features/auth/`, and `apps/web/src/lib/auth.ts` plus
+`apps/web/src/lib/auth-client.ts` are the reserved narrow composition
+entrypoints through which route handlers and React components reach the
+composed instance — they exist only when a real consumer imports them, and
+feature behavior lives under `features/auth`, never in `lib`. `packages/auth`
+remains the framework-free Principal/Permission vocabulary and must never
+import Better Auth, Next, React, Drizzle, or Bun APIs; trusted authentication
+adapters resolve into its `Principal` contract. `packages/db` constructs the
+Drizzle auth adapter around its existing Bun SQL pool and exposes only an
+opaque adapter capability through its public API; raw Drizzle and Bun SQL
+access stays private to `db`. Rate limiting consumes the existing
+`@daisy/redis` client; the auth seam never opens a second SQL or Redis pool.
+
+The server auth instance is created through a lazy, resource-injected factory
+(`createAuthServer`) that accepts the database adapter, an email sender, a
+rate limiter, a logger, and the injected application clock and identity
+generator. Configuration (`BETTER_AUTH_SECRET`, `PUBLIC_APP_URL`,
+`RESEND_API_KEY`, `AUTH_EMAIL_FROM`) is validated server-side at factory call
+time through `@daisy/config`, reporting field names only; importing modules
+requires no credentials and dials no service. Email delivery goes through an
+injected `send` function (Resend in production, captured or failing senders in
+tests), so builds and unit suites never require live mail. Resend
+credentials and sender DNS are human-provisioned prerequisites; implementation
+stages proceed against injected senders without claiming live delivery.
+
+Why: Better Auth supplies maintained WebAuthn/passkey and magic-link flows
+instead of handmade cryptography, while the pinning, adapter ownership, and
+lazy factory keep the framework at the delivery edge — the domain, protocol,
+and `packages/auth` contracts stay extraction-ready, tests stay deterministic,
+and baseline startup is unaffected until authentication activates.
+
+Tradeoffs: a version-pinned third-party framework in the security-critical
+path (audited at every upgrade, never patched through custom forks), and a
+thin indirection (factory plus injected senders) that pays for itself in
+testability and in the human-owned provisioning boundary.

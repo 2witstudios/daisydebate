@@ -73,6 +73,30 @@ export function readServerConfig(
     );
   return result.data;
 }
+/**
+ * Narrow server authentication configuration, validated only when the auth
+ * composition is activated: baseline startup never requires auth variables.
+ */
+export const authConfigSchema = z.object({
+  /** 64 characters from 32 random bytes (hex); see `bun auth:provision`. */
+  BETTER_AUTH_SECRET: z.string().regex(/^\S{64}$/),
+  PUBLIC_APP_URL: z.url(),
+  RESEND_API_KEY: z.string().regex(/^\S+$/),
+  /** Sender email header value; newlines are rejected as header injection. */
+  AUTH_EMAIL_FROM: z.string().regex(/^[^\r\n]*@[^\r\n]*$/),
+});
+export type AuthConfig = z.infer<typeof authConfigSchema>;
+/** Validation reports field names only: never echo secret values. */
+export function readAuthConfig(
+  env: Record<string, string | undefined>,
+): AuthConfig {
+  const result = authConfigSchema.safeParse(env);
+  if (!result.success)
+    throw new Error(
+      `Invalid auth configuration: ${result.error.issues.map((issue) => issue.path.join('.')).join(', ')}`,
+    );
+  return result.data;
+}
 export function readBrowserConfig(env: Record<string, string | undefined>) {
   return z
     .object({ PUBLIC_APP_URL: z.url() })
