@@ -36,4 +36,27 @@ describe('proxy trace context propagation', () => {
       expected: null,
     });
   });
+
+  test('answers the disabled foundation proof with a real 404 at the edge', () => {
+    const previous = process.env.FOUNDATION_PROOF_ENABLED;
+    process.env.FOUNDATION_PROOF_ENABLED = 'false';
+    try {
+      const response = proxy(
+        new NextRequest('https://daisy.invalid/foundation'),
+      );
+
+      assert({
+        given: 'the architectural proof path while the proof is disabled',
+        should: 'refuse the request with a 404 carrying the correlation id',
+        actual: {
+          status: response.status,
+          hasRequestId: Boolean(response.headers.get('x-request-id')),
+        },
+        expected: { status: 404, hasRequestId: true },
+      });
+    } finally {
+      if (previous === undefined) delete process.env.FOUNDATION_PROOF_ENABLED;
+      else process.env.FOUNDATION_PROOF_ENABLED = previous;
+    }
+  });
 });

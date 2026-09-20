@@ -7,7 +7,7 @@ setupRitewayBun();
 
 const database: {
   createDebate: (record: { id: string }) => Promise<void>;
-  getDebate: (id: string) => Promise<undefined>;
+  getDebate: (id: string) => Promise<Record<string, unknown> | undefined>;
 } = {
   createDebate: () => Promise.resolve(),
   getDebate: () => Promise.resolve(undefined),
@@ -34,7 +34,7 @@ Reflect.set(globalThis, 'daisyResources', {
   database,
 });
 
-const { createProofDebate } = await import('./operations');
+const { createProofDebate, getProofDebate } = await import('./operations');
 
 const capture = async (operation: Promise<unknown>): Promise<unknown> => {
   try {
@@ -108,6 +108,48 @@ describe('foundation operation identity', () => {
         createdAt: '2026-01-01T00:00:00.000Z',
         persistedId: '11111111-1111-4111-8111-111111111111',
       },
+    });
+  });
+});
+
+describe('foundation debate retrieval', () => {
+  test('restores the stored snapshot for a stored debate', async () => {
+    const stored = await createProofDebate(
+      { resolution: 'A representative resolution' },
+      primitives,
+    );
+    database.getDebate = () =>
+      Promise.resolve({
+        id: stored.id,
+        createdBy: null,
+        resolution: stored.resolution,
+        format: stored.format,
+        snapshot: stored,
+        version: 1,
+        createdAt: stored.createdAt,
+        updatedAt: stored.createdAt,
+      });
+    const restored = await getProofDebate(stored.id);
+
+    assert({
+      given: 'a stored debate snapshot',
+      should: 'restore the runtime state from the durable record',
+      actual: restored,
+      expected: stored,
+    });
+  });
+
+  test('answers a missing debate with NOT_FOUND', async () => {
+    database.getDebate = () => Promise.resolve(undefined);
+    const caught = await capture(
+      getProofDebate('5b0f0000-0000-4000-8000-000000000009'),
+    );
+
+    assert({
+      given: 'a debate id matching no stored record',
+      should: 'map the absence to a NOT_FOUND app error',
+      actual: isAppError(caught) ? caught.code : 'not-an-app-error',
+      expected: 'NOT_FOUND',
     });
   });
 });
