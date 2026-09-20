@@ -112,10 +112,8 @@ test('pool lifecycle closes and the app failure boundary reports without SQL mat
       foreignKeyRejected,
       reported: reportedAfterOperation.map(({ event, fields, message }) => ({
         event,
-        operation: (fields as { operation?: string }).operation,
-        leaksMaterial:
-          JSON.stringify({ fields, message }).includes('insert into') ||
-          JSON.stringify({ fields, message }).includes('references'),
+        fields,
+        message,
       })),
     },
     expected: {
@@ -123,8 +121,8 @@ test('pool lifecycle closes and the app failure boundary reports without SQL mat
       reported: [
         {
           event: 'db.query.failed',
-          operation: 'createDebate',
-          leaksMaterial: false,
+          fields: { operation: 'createDebate' },
+          message: 'Database query failed',
         },
       ],
     },

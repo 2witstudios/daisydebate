@@ -40,11 +40,11 @@ const legacyDebateRowQuery = `select id, created_by, resolution, format, snapsho
 test('populated pre-auth databases upgrade forward without losing identity', async () => {
   const name = newScratchName();
   await createScratchDatabase(testDatabaseUrl, name);
-  await seedPreAuthState(testDatabaseUrl, name, [
-    [legacyUserId, 'Aurora'],
-    ['1c2c3c4c-5c6c-4c7c-8c9c-0c1c2c3c4c5c', 'Borealis'],
-  ]);
   try {
+    await seedPreAuthState(testDatabaseUrl, name, [
+      [legacyUserId, 'Aurora'],
+      ['1c2c3c4c-5c6c-4c7c-8c9c-0c1c2c3c4c5c', 'Borealis'],
+    ]);
     const migrateClient = new SQL(scratchUrl(testDatabaseUrl, name), {
       max: 1,
     });

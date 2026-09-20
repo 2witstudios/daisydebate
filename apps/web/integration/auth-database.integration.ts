@@ -146,8 +146,11 @@ const sessionBoundary = (
   cookieTokenMatchesRow: row?.token === verified.token,
 });
 
+// Better Auth rejects a consumed token with its INVALID_TOKEN redirect
+// (302); an unexpected 5xx would be an infrastructure failure, not a
+// rejection, and the body must never carry a fresh session token.
 const replayRejected = (status: number, body: { token?: string }) =>
-  status !== 200 && body.token === undefined;
+  status === 302 && body.token === undefined;
 
 test('redeeming the captured link durably creates a verified user and session', async () => {
   const { email, userId } = await runAuth(
@@ -242,6 +245,22 @@ test('redeeming the captured link durably creates a verified user and session', 
         actual: { rejected: replayRejected(replay.status, replayBody) },
         expected: { rejected: true },
       });
+
+      const replayProbe = new SQL(url);
+      try {
+        const persistedSessions = (await replayProbe.unsafe(
+          'select id from session where user_id = $1',
+          [verified.user.id],
+        )) as { id: string }[];
+        assert({
+          given: 'the persisted sessions after the replayed token',
+          should: 'keep the original session as the only authentication state',
+          actual: persistedSessions.map(({ id }) => id),
+          expected: [verified.session.id],
+        });
+      } finally {
+        await replayProbe.close();
+      }
 
       assert({
         given: 'the integration run with its captured logger',

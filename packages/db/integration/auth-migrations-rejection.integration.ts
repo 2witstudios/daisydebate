@@ -51,11 +51,11 @@ const legacyUsers = async (url: string, name: string) => {
 test('case-fold username collisions reject the whole forward migration atomically', async () => {
   const name = newScratchName();
   await createScratchDatabase(testDatabaseUrl, name);
-  await seedPreAuthState(testDatabaseUrl, name, [
-    [legacyUserId, 'Aurora'],
-    [legacySecondUserId, 'aurora'],
-  ]);
   try {
+    await seedPreAuthState(testDatabaseUrl, name, [
+      [legacyUserId, 'Aurora'],
+      [legacySecondUserId, 'aurora'],
+    ]);
     let rejected = false;
     const migrateClient = new SQL(scratchUrl(testDatabaseUrl, name), {
       max: 1,
