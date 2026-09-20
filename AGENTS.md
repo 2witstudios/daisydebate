@@ -1,43 +1,144 @@
-# Daisy engineering contract
+# Daisy engineering map
 
-**Don't code from model memory when versioned or official documentation is available.** Read current official docs before adding or configuring dependencies; check compatibility with our pinned versions, and update `docs/dependencies.md` and an ADR for consequential choices.
+This file is the short operating map for the repository. It states the rules
+that apply everywhere and points to the deeper source of truth. Keep behavior
+and detailed procedures in the linked documents, not here.
 
-For Next.js work, read the version-matched docs shipped with our installed package at `apps/web/node_modules/next/dist/docs/` (or the resolved equivalent) first, and follow its AI-agent guide. If dependencies are absent, run `bun install --frozen-lockfile` first.
+## Start here
 
-## Architecture
+- Runtime and package manager: Bun 1.4.2, pinned by `.bun-version` and
+  `package.json`. Use Bun only: never npm, npx, yarn, or pnpm.
+- Repository shape: Bun workspaces plus Turborepo; one modular monolith.
+- Delivery: `apps/web` owns Next.js routes and feature-local application
+  operations.
+- Domain: `packages/debate-engine` (`@daisy/debate-engine`) is framework-free.
+- Contracts: `packages/protocol` owns portable, versioned JSON contracts.
+- Adapters: `packages/db` owns PostgreSQL; `packages/redis` owns expendable
+  Redis state. Database rows are persistence representations, not domain
+  entities.
+- Package responsibilities and allowed edges: [architecture overview](docs/architecture/overview.md).
+- Local setup and command catalog: [local development](docs/development/local-development.md).
+- Test tiers and test rules: [testing](docs/development/testing.md).
+- Structural change recipes: [extending the repository](docs/development/extending.md).
 
-Bun workspaces + Turbo; modular monolith. `apps/web` owns delivery and feature-local application operations. Domain lives in `@daisy/debate-engine`; the Adobe Data ECS dependency stays private there. `protocol` owns portable versioned JSON contracts. `db` and `redis` are inward-facing adapters; rows are not domain entities. React and Next never enter domain/protocol. Import workspace public APIs only; declare direct dependencies. ESLint and `scripts/check-boundaries.ts` enforce boundaries and cycles.
+## Dependency rules
 
-Keep new work in an owning feature/package. Do not add broad utils, services, registry, or barrel files. New packages need responsibility, public exports, allowed dependencies, owner role, tests and a package-map entry. Add shared abstractions only for actual consumers. No Rust, Kubernetes, Kafka, or event sourcing in this foundation.
+- Dependencies point inward: delivery and feature operations may call domain,
+  protocol, and adapters; domain and protocol never import React, Next,
+  Drizzle, Bun SQL, Redis, HTTP, or framework session globals.
+- Import workspace public APIs only. Declare every direct dependency in the
+  owning package. The ESLint rules and `scripts/check-boundaries.ts` enforce
+  declared dependencies, the acyclic graph, explicit exports, and Adobe ECS
+  isolation.
+- Put new work in its owning feature or package. Do not add broad `utils`,
+  service, registry, or barrel files. Shared abstractions require two real
+  consumers.
+- A new package requires a responsibility, owner, explicit public exports,
+  allowed dependencies, tests, and a package-map row. Add package-specific
+  `AGENTS.md` only when its rules differ from this contract.
+- Before adding or configuring a dependency, read its version-matched official
+  documentation. Record significant direct dependencies in
+  [the dependency registry](docs/dependencies.md); add an ADR for consequential
+  choices. For Next.js, read the installed docs under
+  `apps/web/node_modules/next/dist/docs/` first.
+- No Rust, Kubernetes, Kafka, event sourcing, second Redis client, speculative
+  shared package, or second validation/error/state-management library in this
+  foundation without an explicit architectural decision.
 
-## Code standards
+## Design constraints
 
-This is a Bun repo: never use npm, npx, yarn or pnpm — only `bun`, `bun add`, `bun run` and `bunx` (with `--bun` for installed tool CLIs, e.g. `bunx --bun knip`).
+- Prefer pure functions. Domain, protocol, and feature logic have no ambient
+  clock, environment, randomness, or I/O. Inject time, IDs, and resources at
+  the edges; rejected operations leave state unchanged.
+- Validate untrusted input, environment, and serialized messages at trust
+  boundaries. Pass explicit principals into operations.
+- PostgreSQL is the durable source of competitive truth. Redis is expendable
+  and must use validated namespaced keys with expiry. See
+  [persistence](docs/architecture/persistence.md) and
+  [database operations](docs/operations/database.md).
+- Use UTC ISO timestamps, UUID IDs, and integer millisecond durations. Use
+  structured logging; never log credentials, cookies, raw request bodies, or
+  raw exceptions. Public errors must not expose internals.
+- Schema changes use `bun db:generate`, reviewed SQL and metadata, forward
+  migrations, and expand/contract for rolling deployments. Never rewrite an
+  applied migration or reset production.
 
-**Pure functions by default.** Same inputs, same outputs: no ambient reads (clock, environment, randomness) and no I/O inside domain, protocol and feature logic. Effects live at the edges — route handlers and adapters — with time, IDs and resources injected. Rejected operations must leave state unchanged.
+## Test contract
 
-**TDD.** Write the failing test first (red), make it pass (green), then refactor. New behavior lands with its tests in the same change. Never skip, disable or weaken a test to get green; a flaky test is a bug.
+- Use TDD: red, green, refactor. New behavior lands with tests in the same
+  change; never skip, weaken, or disable tests.
+- Tests use RITEway's `riteway/bun` imports and call `setupRitewayBun()` once
+  per file. Prefer `assert({ given, should, actual, expected })`; use
+  `expect(...).toThrow()` or `rejects.toThrow()` only for exception paths.
+  The canonical example is `packages/debate-engine/src/engine.test.ts`.
+- Inject clocks and IDs. Do not sleep-and-hope, share mutable test state, or
+  point integration tests at non-test data. `TEST_DATABASE_URL` must end in
+  `_test`; integration also requires `TEST_REDIS_URL`.
+- `bun run knip` is a required dead-code gate for unused files, exports, and
+  dependencies. Keep `knip.jsonc` ignores limited to genuine implicit uses.
 
-**RITEway tests.** Tests run on `bun test` and import `describe`, `test`, `assert` and `setupRitewayBun` from `riteway/bun`. Call `setupRitewayBun()` once per test file and assert with `assert({ given, should, actual, expected })`; use `expect(...).toThrow()/rejects.toThrow()` only for exception paths. `given`/`should` read as a specification sentence — the failing assertion is the bug report. `packages/debate-engine/src/engine.test.ts` is the canonical example.
+## Verification commands
 
-**Knip gate.** `bun run knip` (in `bun check` and CI) fails on unused files, exports and dependencies. Fix findings by deleting dead code or declaring real usage; keep `knip.jsonc` ignores limited to genuine implicit references (e.g. `transpilePackages`), with the reason documented there.
+Run commands from the repository root. Environment-dependent commands use the
+values in `.env`; initialize with `bun install --frozen-lockfile` and
+`cp .env.example .env` when needed.
+
+- `bun doctor`: checks Bun version, environment parsing, PostgreSQL reachability,
+  migration currency, Redis reachability, and architecture boundaries. Add
+  `--json` for a machine-readable report. It should pass before service-based
+  work.
+- `bun check`: the pre-push gate: `format:check`, lint and boundaries, Knip,
+  typecheck, unit tests, and production build. It does not boot Next or require
+  integration services.
+- `bun verify`: runs `check`, integration tests, browser E2E, and applies
+  migrations twice to `TEST_DATABASE_URL` to prove idempotency. It requires
+  isolated services and a test database. Add `--json` for a report.
+- `bun scenario <name>`: runs `scenarios/<name>.ts` as a deterministic domain
+  lifecycle scenario; unsupported scenarios report a documented boundary.
+  Scenario rejection steps also prove atomic state preservation.
+- `bun invariants`: validates `spec/invariants.json` against the engine registry,
+  referenced test source names, and registered negative fixtures. Add `--json`
+  for a report.
+- `bun test`: fast deterministic tests. `bun test:integration` requires
+  `bun infra:up` and migrated test services. `bun test:e2e` runs Playwright
+  against the production build and uses Node 24 only as its driver runtime.
+
+## Local workflow
+
+1. `bun install --frozen-lockfile`
+2. `cp .env.example .env`
+3. `bun infra:up`
+4. `bun db:migrate`
+5. `bun dev` or the clean-environment `bun dev:agent`
+6. `bun doctor`, then the relevant tests and verification gates
+
+Use `bun db:generate` for schema changes, review generated SQL, and use
+`bun db:studio` only for local inspection. See [database operations](docs/operations/database.md)
+for test roles, reset restrictions, and migration safety.
 
 ## Work management
 
-All repo work is planned and tracked in the PageSpace "Daisy Debate" drive (`lguvh1y1ejhadk96xcftohha`, via the `pagespace` CLI); its `Tasks` page is the operating system — follow it. Canonical copies of these standards live there, but this file remains the locally binding version.
+All repository work is planned in the PageSpace "Daisy Debate" drive
+(`lguvh1y1ejhadk96xcftohha`, via the `pagespace` CLI); its `Tasks` page is the
+operating system. Work only on committed tasks: claim `Ready` leaves, advance
+In Progress to In Review at handoff, and mark Done only when acceptance
+criteria are proven. Status belongs in the status field; task bodies are
+acceptance criteria (`Given X, should Y`).
 
-Work only on committed tasks: claim `Ready` leaves, advance In Progress → In Review at handoff, and mark Done only when acceptance criteria are proven. Titles put an em-dash between label and description; leaf bodies are acceptance criteria ("Given X, should Y"); status lives only in the status field. Post a daily standup (Yesterday / Today / Blockers) to `Standup` while work is open; send scope and ceremony updates to `Sprint Room`, epic transitions to `Epic Updates`, and environmental failures or blockers older than 24h honestly to `Incidents` with the task ID (CI posts its own failures and merges to these channels automatically — don't duplicate). Keep durable environment findings in your Agent Memory doc. Deploy-rail and production-data changes always keep a human-only sign-off leaf; agents never self-approve.
+While work is open, post the daily Yesterday / Today / Blockers standup and
+send scope, ceremony, epic, or incident updates to the designated PageSpace
+channels. Keep durable environment findings in Agent Memory. Deploy-rail and
+production-data changes require a human-only sign-off leaf; agents never
+self-approve.
 
-## Workflow
+## Deeper decisions
 
-Use Bun 1.4.2 exclusively for packages/runtime/scripts. Node 24 is only the upstream-supported Playwright driver runtime. `bun install`; `cp .env.example .env`; `bun infra:up`; `bun db:migrate`; `bun dev`.
+- Architecture: `docs/architecture/` and `docs/domains/`
+- Development: `docs/development/`
+- Operations: `docs/operations/`
+- Decision records: `docs/decisions/`
+- Dependency rationale and versions: `docs/dependencies.md`
 
-Before completion: `bun check`; `bun test:integration` against isolated services; `bun test:e2e` for route/browser changes. `bun test` runs fast deterministic Bun tests; no Next boot for domain tests. `bun check` covers formatting, lint, typecheck, unit tests and production build. CI separately requires integration and browser tests. Never hide failures by relaxing strictness or skipping tests.
-
-## Data and safety
-
-Validate untrusted inputs, environment and serialized messages. Pass explicit principals into operations; no framework session globals in domain. Use structured logger fields, never credentials, cookies, raw request bodies or raw exceptions. Stable public errors must not reveal internals. UTC ISO timestamps, UUID IDs, integer millisecond durations; inject domain time/IDs.
-
-PostgreSQL owns durable competitive records; Redis is expendable. Generate migrations with `bun db:generate`, review SQL, commit SQL and metadata, verify on an empty database. Never rewrite applied migrations; expand/contract for rolling deployments. Never run reset against production. Mutations must address transactions, authorization, idempotency and concurrency deliberately.
-
-Review `docs/architecture/overview.md`, ownership map, relevant ADRs and domain docs before structural changes. Update docs with behavior changes. Keep commits scoped; never commit secrets, generated build outputs or `.pu` runtime files. Work independently within assigned files and coordinate before changing another owner's public API.
+Update the relevant deeper document when behavior or architecture changes.
+Keep commits scoped and never commit `.env`, secrets, generated build output,
+or `.pu/` runtime files.
