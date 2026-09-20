@@ -17,6 +17,36 @@ export default [
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
+  {
+    files: ['**/*.{js,mjs,ts,tsx}'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "CallExpression[callee.object.name='Date'][callee.property.name='now']",
+          message:
+            'Inject a clock instead of reading the current time directly.',
+        },
+        {
+          selector: "NewExpression[callee.name='Date'][arguments.length=0]",
+          message:
+            'Inject a clock instead of constructing the current time directly.',
+        },
+        {
+          selector:
+            "CallExpression[callee.object.name='Math'][callee.property.name='random']",
+          message: 'Inject a deterministic identity or randomness source.',
+        },
+        {
+          selector:
+            "CallExpression[callee.object.name='crypto'][callee.property.name='randomUUID']",
+          message:
+            'Inject an identity generator instead of creating an ID directly.',
+        },
+      ],
+    },
+  },
   // App Router only: the pages-dir heuristic cannot resolve from the repo root.
   ...nextVitals.map((config) => ({
     ...config,
@@ -135,6 +165,15 @@ export default [
       ],
       'no-console': 'off',
     },
+  },
+  {
+    files: [
+      'packages/clock/**/*.ts',
+      'packages/observability/**/*.ts',
+      'scripts/**/*.ts',
+      '**/integration/**/*.ts',
+    ],
+    rules: { 'no-restricted-syntax': 'off' },
   },
   {
     files: ['**/*.config.*'],

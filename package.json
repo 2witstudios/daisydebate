@@ -23,6 +23,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "turbo run test",
+    "test:lint": "bun test eslint.config.test.ts",
     "test:integration": "bun --env-file=.env run turbo run test:integration",
     "test:e2e": "bun --env-file=.env run turbo run test:e2e",
     "check": "bun format:check && bun lint && bun run knip && bun typecheck && bun run test && bun run build",
@@ -42,6 +43,7 @@
     "eslint-config-next": "16.3.5",
     "knip": "6.37.0",
     "prettier": "3.9.8",
+    "riteway": "9.3.0",
     "turbo": "2.11.2",
     "typescript": "6.0.3",
     "typescript-eslint": "8.70.0"
