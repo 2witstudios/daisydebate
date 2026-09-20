@@ -61,11 +61,13 @@ describe('auth instance composition', () => {
         baseURL: options.baseURL,
         trustedOrigins: options.trustedOrigins,
         passwordEnabled: options.emailAndPassword?.enabled,
+        idGenerator: typeof options.advanced?.database?.generateId,
       },
       expected: {
         baseURL: 'http://localhost:3000',
         trustedOrigins: ['http://localhost:3000'],
         passwordEnabled: false,
+        idGenerator: 'function',
       },
     });
   });

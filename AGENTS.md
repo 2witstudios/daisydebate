@@ -50,6 +50,11 @@ and detailed procedures in the linked documents, not here.
 
 ## Design constraints
 
+- Security practices follow Eric Elliott's guidance: zero trust at every
+  boundary, pure functions everywhere, unguessable cuid2 identifiers
+  (`@paralleldrive/cuid2`) instead of UUIDs, SHA3-256 hashing for secret
+  storage and comparison, and OS CSPRNG entropy (never `Math.random`)
+  wherever randomness touches anything security-adjacent.
 - Prefer pure functions. Domain, protocol, and feature logic have no ambient
   clock, environment, randomness, or I/O. Inject time, IDs, and resources at
   the edges; rejected operations leave state unchanged.
@@ -60,6 +65,8 @@ and detailed procedures in the linked documents, not here.
   [persistence](docs/architecture/persistence.md) and
   [database operations](docs/operations/database.md).
 - Use UTC ISO timestamps, cuid2 application IDs, documented UUID exceptions, and integer millisecond durations. cuid2 IDs are identifiers, never bearer secrets. Use
+  structured logging; never log credentials, cookies, raw request bodies, or
+  raw exceptions. Public errors must not expose internals.
   structured logging; never log credentials, cookies, raw request bodies, or
   raw exceptions. Public errors must not expose internals.
 - Schema changes use `bun db:generate`, reviewed SQL and metadata, forward

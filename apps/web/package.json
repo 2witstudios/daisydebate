@@ -9,7 +9,7 @@
     "start": "NODE_ENV=production bun src/server/start.ts",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "bun test src",
-    "test:integration": "bun test ./integration/foundation.integration.ts",
+    "test:integration": "bun test ./integration/foundation.integration.ts ./integration/auth-database.integration.ts",
     "test:e2e": "node node_modules/@playwright/test/cli.js test"
   },
   "dependencies": {
@@ -24,6 +24,7 @@
     "@daisy/observability": "workspace:*",
     "@daisy/protocol": "workspace:*",
     "@daisy/redis": "workspace:*",
+    "@paralleldrive/cuid2": "3.3.0",
     "better-auth": "1.7.5",
     "next": "16.3.5",
     "react": "19.3.0",

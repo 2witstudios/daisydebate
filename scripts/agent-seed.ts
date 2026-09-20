@@ -2,17 +2,17 @@ export const agentSeedVersion = 'agent-seed-v1';
 
 export const agentSeedUsers = [
   {
-    userId: '00000000-0000-4000-8000-000000000001',
+    userId: 'k2v9x0f4m8q3w1z7c5n6b4d2',
     username: 'agent-alice',
   },
   {
-    userId: '00000000-0000-4000-8000-000000000002',
+    userId: 'a7b3c9d1e5f2k4m6n8p1r3t5',
     username: 'agent-bob',
   },
 ] as const;
 
 export const agentSeedDebate = {
-  debateId: '00000000-0000-4000-8000-000000000101',
+  debateId: 'c8d4e2f6a1b3k5m7n9p2r4t6',
   createdBy: agentSeedUsers[0].userId,
   resolution:
     'Resolved: a deterministic local seed makes agent development repeatable.',

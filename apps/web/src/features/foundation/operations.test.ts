@@ -15,7 +15,7 @@ const database: {
 
 const primitives = {
   clock: fixedClock('2026-01-01T00:00:00.000Z'),
-  ids: { next: () => '11111111-1111-4111-8111-111111111111' },
+  ids: { next: () => 'd5e8f2a4c6b1k3m7n9p2r4t6' },
 };
 
 // Seed process-local resources before touching operations so this test never
@@ -104,9 +104,9 @@ describe('foundation operation identity', () => {
         persistedId,
       },
       expected: {
-        id: '11111111-1111-4111-8111-111111111111',
+        id: 'd5e8f2a4c6b1k3m7n9p2r4t6',
         createdAt: '2026-01-01T00:00:00.000Z',
-        persistedId: '11111111-1111-4111-8111-111111111111',
+        persistedId: 'd5e8f2a4c6b1k3m7n9p2r4t6',
       },
     });
   });
@@ -141,9 +141,7 @@ describe('foundation debate retrieval', () => {
 
   test('answers a missing debate with NOT_FOUND', async () => {
     database.getDebate = () => Promise.resolve(undefined);
-    const caught = await capture(
-      getProofDebate('5b0f0000-0000-4000-8000-000000000009'),
-    );
+    const caught = await capture(getProofDebate('z9x7v5t3r1p8n6m4k2b5d7f1'));
 
     assert({
       given: 'a debate id matching no stored record',

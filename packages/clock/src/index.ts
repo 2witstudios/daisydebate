@@ -1,3 +1,5 @@
+import { createId } from '@paralleldrive/cuid2';
+
 export type Clock = {
   now(): string;
 };
@@ -11,7 +13,7 @@ export const systemClock: Clock = {
 };
 
 export const systemId: IdGenerator = {
-  next: () => crypto.randomUUID(),
+  next: () => createId(),
 };
 
 export function fixedClock(instant: string): Clock {

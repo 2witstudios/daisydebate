@@ -80,13 +80,13 @@ test('proof vertical rejects invalid, cross-origin, and unknown requests', async
   );
   expect(crossOrigin.status).toBe(403);
 
-  const missing = await fetchById(crypto.randomUUID());
+  const missing = await fetchById('m4n6p8r2t4v6x8z1k3b5c7d9');
   expect(missing.status).toBe(404);
   expect(
     ((await missing.json()) as { error: { code: string } }).error.code,
   ).toBe('NOT_FOUND');
 
-  const malformed = await fetchById('not-a-uuid');
+  const malformed = await fetchById('not-a-cuid2-identifier');
   expect(malformed.status).toBe(400);
 });
 

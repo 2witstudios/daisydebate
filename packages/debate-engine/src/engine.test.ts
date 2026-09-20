@@ -4,8 +4,8 @@ import { createDebateRuntime, restoreDebateRuntime } from './index';
 
 setupRitewayBun();
 
-const id = '11111111-1111-4111-8111-111111111111';
-const second = '22222222-2222-4222-8222-222222222222';
+const id = 'k2v9x0f4m8q3w1z7c5n6b4d2';
+const second = 'a7b3c9d1e5f2k4m6n8p1r3t5';
 const create = () =>
   createDebateRuntime({
     id,
@@ -155,7 +155,7 @@ describe('ECS adapter contract', () => {
     let error: unknown;
     try {
       world.join({
-        participantId: '33333333-3333-4333-8333-333333333333',
+        participantId: 'c8d4e2f6a1b3k5m7n9p2r4t6',
         side: 'affirmative',
       });
     } catch (caught) {
