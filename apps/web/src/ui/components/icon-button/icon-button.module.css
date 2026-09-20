@@ -1,0 +1,21 @@
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.iconButton:hover {
+  background: var(--surface-overlay);
+  color: var(--text);
+}

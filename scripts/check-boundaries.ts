@@ -34,6 +34,22 @@ const byName = new Map(
 );
 const issues: string[] = [];
 const architectureExceptionMarkers: string[] = [];
+// ADR 0006: Adobe vendor packages live in the engine adapter only. The web
+// UI shell attempted an exception (ADR 0017 attempt) but client-side ECS
+// codegen conflicts with the strict CSP; the boundary stays engine-only.
+export const adobeWorkspaces = ['@daisy/debate-engine'] as const;
+
+export const adobeIsolationIssue = (
+  workspaceName: string,
+  specifier: string,
+  kind: 'dependency' | 'import',
+): string | null => {
+  if (!specifier.startsWith('@adobe/')) return null;
+  if ((adobeWorkspaces as readonly string[]).includes(workspaceName)) {
+    return null;
+  }
+  return `${workspaceName}: Adobe ${kind} outside the engine`;
+};
 const allowed: Record<string, readonly string[]> = {
   'debate-engine': ['errors', 'protocol'],
   protocol: ['errors'],
@@ -71,11 +87,12 @@ for (const workspace of workspaces) {
       !restrictions.includes(dependency.replace('@daisy/', ''))
     )
       issues.push(`${workspace.path}: forbidden dependency ${dependency}`);
-    if (
-      dependency.startsWith('@adobe/') &&
-      workspace.manifest.name !== '@daisy/debate-engine'
-    )
-      issues.push(`${workspace.path}: Adobe dependency outside engine`);
+    const dependencyIssue = adobeIsolationIssue(
+      workspace.manifest.name,
+      dependency,
+      'dependency',
+    );
+    if (dependencyIssue) issues.push(dependencyIssue);
   }
   for await (const file of new Bun.Glob('**/*.{ts,tsx}').scan({
     cwd: resolve(root, workspace.path),
@@ -117,11 +134,12 @@ for (const workspace of workspaces) {
           issues.push(
             `${relative(root, file)}: workspace deep import ${specifier}`,
           );
-        if (
-          specifier.startsWith('@adobe/') &&
-          workspace.manifest.name !== '@daisy/debate-engine'
-        )
-          issues.push(`${relative(root, file)}: Adobe import outside engine`);
+        const importIssue = adobeIsolationIssue(
+          workspace.manifest.name,
+          specifier,
+          'import',
+        );
+        if (importIssue) issues.push(importIssue);
       }
     };
     const walk = (node: ts.Node) => {

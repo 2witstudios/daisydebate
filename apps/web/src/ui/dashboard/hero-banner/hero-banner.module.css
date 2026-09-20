@@ -1,0 +1,98 @@
+.hero {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-8);
+  min-height: 280px;
+  padding: var(--space-8);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  isolation: isolate;
+}
+
+.photo {
+  object-fit: cover;
+  object-position: 50% 62%;
+  /* Native greens here; just settle it into the UI. */
+  filter: brightness(0.82) saturate(0.85);
+  z-index: -2;
+}
+
+/* Legibility scrim — the one materially motivated gradient. */
+.scrim {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(
+      76deg,
+      rgba(6, 10, 8, 0.85) 10%,
+      rgba(6, 10, 8, 0.35) 48%,
+      rgba(6, 10, 8, 0.05) 78%
+    ),
+    linear-gradient(to top, rgba(6, 10, 8, 0.78), transparent 48%);
+}
+
+.content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  max-width: 660px;
+}
+
+.headline {
+  margin: 0;
+  font-size: var(--font-size-3xl);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  color: var(--text-on-media);
+  text-wrap: balance;
+  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.45);
+}
+
+.sub {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-lg);
+  color: color-mix(in srgb, var(--text-on-media) 85%, transparent);
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.4);
+}
+
+.quote {
+  position: relative;
+  align-self: center;
+  margin: 0;
+  font-family: var(--font-display), Georgia, serif;
+  font-style: italic;
+  font-size: var(--font-size-md);
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--text-on-media) 80%, transparent);
+  text-align: right;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.45);
+}
+
+@media (max-width: 960px) {
+  .hero {
+    min-height: 240px;
+    padding: var(--space-6);
+  }
+
+  .headline {
+    font-size: var(--font-size-2xl);
+  }
+
+  .quote {
+    display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .hero {
+    min-height: 216px;
+    padding: var(--space-5);
+  }
+}

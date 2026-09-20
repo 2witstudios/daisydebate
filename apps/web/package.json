@@ -13,20 +13,20 @@
     "test:e2e": "node node_modules/@playwright/test/cli.js test"
   },
   "dependencies": {
+    "@daisy/auth": "workspace:*",
+    "@daisy/clock": "workspace:*",
+    "@daisy/config": "workspace:*",
+    "@daisy/db": "workspace:*",
+    "@daisy/debate-engine": "workspace:*",
+    "@daisy/errors": "workspace:*",
+    "@daisy/logger": "workspace:*",
+    "@daisy/observability": "workspace:*",
+    "@daisy/protocol": "workspace:*",
+    "@daisy/redis": "workspace:*",
     "next": "16.3.5",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "zod": "4.6.5",
-    "@daisy/auth": "workspace:*",
-    "@daisy/debate-engine": "workspace:*",
-    "@daisy/protocol": "workspace:*",
-    "@daisy/errors": "workspace:*",
-    "@daisy/config": "workspace:*",
-    "@daisy/clock": "workspace:*",
-    "@daisy/db": "workspace:*",
-    "@daisy/redis": "workspace:*",
-    "@daisy/logger": "workspace:*",
-    "@daisy/observability": "workspace:*"
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",

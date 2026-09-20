@@ -1,0 +1,72 @@
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--rail-width);
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    'sidebar topbar topbar'
+    'sidebar main rail';
+  min-height: 100vh;
+  align-items: start;
+}
+
+.sidebar {
+  grid-area: sidebar;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  height: 100vh;
+  /* Sticky + z-index creates the sidebar's stacking context; 20 keeps the
+     flyout submenus painted above the main column (topbar sits at 10 but
+     never overlaps the sidebar column). */
+  overflow: visible;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+}
+
+.topbar {
+  grid-area: topbar;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.main {
+  grid-area: main;
+  min-width: 0;
+}
+
+.rail {
+  grid-area: rail;
+  position: sticky;
+  top: var(--topbar-height);
+  height: calc(100vh - var(--topbar-height));
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  min-width: 0;
+}
+
+@media (max-width: 1100px) {
+  .shell {
+    grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+    grid-template-areas:
+      'sidebar topbar'
+      'sidebar main'
+      'sidebar rail';
+  }
+
+  /* The rail reflows beneath the main column as a secondary surface. */
+  .rail {
+    position: static;
+    height: auto;
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+}
+
+@media (max-width: 900px) {
+  .shell {
+    --sidebar-width: 64px;
+  }
+}

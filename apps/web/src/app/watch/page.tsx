@@ -9,6 +9,7 @@ export default function WatchPage() {
       title="Watch"
       lede="Follow live debates as a spectator."
       planned={[
+        'Watch consolidates live spectating and the recordings archive',
         'Spectator rooms with delayed state',
         'Live phase and clock display',
         'Reactions and moderated chat',

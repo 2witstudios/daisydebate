@@ -11,6 +11,8 @@ const routeTitles: Record<string, string> = {
   '/leaderboard': 'Leaderboard',
   '/tournaments': 'Tournaments',
   '/recordings': 'Recordings',
+  '/train': 'Train',
+  '/prep': 'Prep',
   '/settings': 'Settings',
 };
 
@@ -23,7 +25,7 @@ test('route shells render with their metadata titles', async ({ page }) => {
         : new RegExp(`^${title} · Daisy$`),
     );
     await expect(page.locator('main h1')).toHaveText(
-      route === '/' ? 'Daisy' : title,
+      route === '/' ? 'Join the marketplace of ideas' : title,
     );
   }
 });
