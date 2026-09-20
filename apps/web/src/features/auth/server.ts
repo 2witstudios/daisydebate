@@ -41,6 +41,11 @@ const composeBetterAuth = (dependencies: {
     trustedOrigins: [origin],
     secret: dependencies.config.BETTER_AUTH_SECRET,
     database: dependencies.database,
+    advanced: {
+      database: {
+        generateId: 'uuid',
+      },
+    },
     emailAndPassword: { enabled: false },
     plugins: [
       magicLink({

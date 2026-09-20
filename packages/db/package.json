@@ -16,6 +16,7 @@
     "db:reset": "bun scripts/reset.ts"
   },
   "dependencies": {
+    "@better-auth/drizzle-adapter": "1.7.5",
     "drizzle-orm": "0.45.2"
   },
   "devDependencies": {

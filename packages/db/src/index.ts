@@ -1,8 +1,10 @@
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { eq, and, sql } from 'drizzle-orm';
+import { drizzleAdapter } from '@better-auth/drizzle-adapter';
 import { users } from './schema/users';
 import { debates } from './schema/debates';
+import { accounts, passkeys, sessions, verifications } from './schema/auth';
 export type DebateRecord = {
   readonly id: string;
   readonly createdBy: string | null;
@@ -46,9 +48,20 @@ export function createDatabase({
       connection: { statement_timeout: 5000, lock_timeout: 2000 },
     });
   const database = drizzle({ client });
+  const authAdapter = drizzleAdapter(database, {
+    provider: 'pg',
+    schema: {
+      user: users,
+      session: sessions,
+      account: accounts,
+      verification: verifications,
+      passkey: passkeys,
+    },
+  });
   const reportFailure = (operation: string) =>
     eventSink?.('db.query.failed', { operation }, 'Database query failed');
   return {
+    authAdapter,
     async health() {
       try {
         await database.execute(sql`select 1`);

@@ -1,6 +1,7 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { getTableName } from 'drizzle-orm';
+import { getTableConfig } from 'drizzle-orm/pg-core';
 import { debates } from './schema/debates';
 import { users } from './schema/users';
 import { createDatabase } from './index';
@@ -15,6 +16,43 @@ describe('persistence schema', () => {
       should: 'map to independent PostgreSQL tables',
       actual: [getTableName(debates), getTableName(users)],
       expected: ['debates', 'users'],
+    });
+  });
+
+  test('supports legacy and provisional authentication profiles', () => {
+    const columns = users as unknown as Record<string, { notNull?: boolean }>;
+
+    assert({
+      given: 'legacy users and verified users before username onboarding',
+      should:
+        'retain identity fields while allowing only the username to remain provisional',
+      actual: {
+        hasEmail: 'email' in columns,
+        hasEmailVerified: 'emailVerified' in columns,
+        hasName: 'name' in columns,
+        hasImage: 'image' in columns,
+        usernameRequired: columns.username?.notNull,
+      },
+      expected: {
+        hasEmail: true,
+        hasEmailVerified: true,
+        hasName: true,
+        hasImage: true,
+        usernameRequired: false,
+      },
+    });
+  });
+
+  test('declares case-folded username uniqueness', () => {
+    const config = getTableConfig(users);
+
+    assert({
+      given: 'historical usernames that must keep their spelling',
+      should: 'enforce uniqueness on their case-folded values',
+      actual: config.indexes.some(
+        (index) => index.config.name === 'users_username_lower_unique',
+      ),
+      expected: true,
     });
   });
 });
