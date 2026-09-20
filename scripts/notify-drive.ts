@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 import { createHmac } from 'node:crypto';
+import type { DocumentationEvent } from './docs-pipeline';
 
 const TASK_ID_PATTERN = /\b[A-Z]{2,6}-\d+(?:\.\d+)?\b/g;
 
@@ -104,6 +105,37 @@ export async function postToDrive(
   if (!response.ok) {
     throw new Error(
       `Webhook ${channel} responded ${response.status}: ${await response.text()}`,
+    );
+  }
+}
+
+export async function postDocumentationEvent(
+  event: DocumentationEvent,
+): Promise<void> {
+  const url = process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL;
+  const secret = process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET;
+  if (!url || !secret) {
+    throw new Error(
+      'Missing PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL or PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET',
+    );
+  }
+  const rawBody = JSON.stringify({
+    event,
+    username: 'Daisy Documentation Agent',
+  });
+  const timestampSeconds = Math.floor(Date.now() / 1000);
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-pagespace-timestamp': String(timestampSeconds),
+      'x-pagespace-signature': signPayload(secret, timestampSeconds, rawBody),
+    },
+    body: rawBody,
+  });
+  if (!response.ok) {
+    throw new Error(
+      `Documentation agent webhook responded ${response.status}: ${await response.text()}`,
     );
   }
 }

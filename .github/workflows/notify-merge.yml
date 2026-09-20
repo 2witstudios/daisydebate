@@ -37,3 +37,39 @@ jobs:
           --sha "$NOTIFY_SHA"
           --base "$NOTIFY_BASE"
           --tasks "$NOTIFY_TASKS"
+
+  documentation-event:
+    name: Send structured documentation event
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    if: github.event.pull_request.merged == true
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+      - name: Classify merged files
+        env:
+          DOC_EVENT_ID: ${{ github.event.pull_request.id }}-${{ github.event.pull_request.merge_commit_sha }}
+          DOC_OCCURRED_AT: ${{ github.event.pull_request.merged_at }}
+          DOC_REPOSITORY: ${{ github.repository }}
+          DOC_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          DOC_COMMIT: ${{ github.event.pull_request.merge_commit_sha }}
+          DOC_PR_NUMBER: ${{ github.event.pull_request.number }}
+          DOC_TITLE: ${{ github.event.pull_request.title }}
+          DOC_PR_URL: ${{ github.event.pull_request.html_url }}
+          DOC_AUTHOR: ${{ github.event.pull_request.user.login }}
+          DOC_MERGED_BY: ${{ github.event.sender.login }}
+          DOC_BRANCH: ${{ github.event.pull_request.head.ref }}
+          DOC_BODY: ${{ github.event.pull_request.body }}
+          PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL: ${{ secrets.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL }}
+          PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET: ${{ secrets.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET }}
+        run: |
+          DOC_CHANGED_FILES="$(git diff --name-only \
+            "${{ github.event.pull_request.base.sha }}" \
+            "${{ github.event.pull_request.merge_commit_sha }}" | paste -sd, -)"
+          export DOC_CHANGED_FILES
+          bun scripts/dispatch-docs.ts
