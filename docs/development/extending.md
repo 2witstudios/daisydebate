@@ -11,8 +11,9 @@ a docs update in the same PR.
 3. Add a real guarded integration test for durable PostgreSQL/Redis behavior;
    use a CSPRNG isolation ID only at that service boundary.
 4. If compatibility requires UUID or direct randomness, add a narrow entry to
-   `policy/exceptions.json` with path, rule, owner, reason, and category, then
-   run `bun policy`.
+   `policy/exceptions.json` with path, rule, owner, reason, category, an
+   existing ADR reference, and a future-or-today `reviewBy` date, then run
+   `bun policy`.
 5. Run `bun check`; do not implement the cuid2 schema migration or activate an
    auth route as part of policy-only work.
 

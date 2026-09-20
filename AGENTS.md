@@ -86,7 +86,8 @@ and detailed procedures in the linked documents, not here.
 - Repository overrides are explicit: Bun/RITEway replace generic Vitest guidance,
   `@daisy/errors` plus native `Error.cause` replaces `error-causes`, durable
   behavior uses real integration tests, and unit IDs are deterministic while
-  integration isolation may use CSPRNG IDs. `bun policy` enforces the registry.
+  integration isolation may use CSPRNG IDs. `bun policy` enforces the
+  ADR-linked, time-bounded exception registry.
 - This file is the only agent-facing operating map. Never fork it into a
   second top-level agent document (CLAUDE.md and friends); docs drift
   becomes contradictory instructions.

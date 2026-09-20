@@ -34,7 +34,8 @@
 - Given durable behavior, should have a real integration test through the
   application operation, with service guards that fail rather than skip.
 - Given an intentional UUID/framework/tooling/migration exception, should have a
-  path, rule, owner, and reason in the registry before the check can pass.
+  path, rule, owner, reason, existing ADR reference, and future review date in
+  the registry before the check can pass.
 - Given parallel agent work, should use isolated `pu` worktrees and leave task
   board updates to the orchestrator; given single-agent work, should not require
   `pu`.

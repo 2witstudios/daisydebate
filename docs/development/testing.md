@@ -53,7 +53,10 @@ not exist — PageSpace lost entire tiers this way. `bun evidence` (in
   retiring a gate.
 - `bun policy` scans repository-owned source for direct UUID generation and UUID
   contracts. Only exact, documented entries in `policy/exceptions.json` can
-  allow framework, tooling, migration, or integration-isolation uses.
+  allow framework, tooling, migration, or integration-isolation uses. Every
+  exception must link an existing ADR and include a future-or-today ISO
+  `reviewBy` date; missing, expired, duplicate, or nonexistent-path entries
+  fail the gate.
 
 ## Rules
 

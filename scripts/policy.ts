@@ -37,6 +37,8 @@ export type PolicyException = {
   readonly category: PolicyCategory;
   readonly owner: string;
   readonly reason: string;
+  readonly adr: string;
+  readonly reviewBy: string;
 };
 export type PolicyFinding = {
   readonly path: string;
@@ -78,37 +80,101 @@ export function scanPolicyText(
   return findings;
 }
 
-export function validatePolicyRegistry(registry: {
-  version?: unknown;
-  exceptions?: unknown;
-}): readonly string[] {
+export type PolicyRegistryValidationOptions = {
+  readonly knownPaths?: ReadonlySet<string>;
+  readonly today?: string;
+};
+
+type RegistryEntry = Partial<PolicyException>;
+
+function requiredFieldProblems(
+  entry: RegistryEntry,
+  prefix: string,
+): readonly string[] {
+  return (
+    ['path', 'rule', 'category', 'owner', 'reason', 'adr', 'reviewBy'] as const
+  )
+    .filter(
+      (field) => typeof entry[field] !== 'string' || entry[field].trim() === '',
+    )
+    .map((field) => `${prefix}: ${field} is required`);
+}
+
+function referenceProblems(
+  entry: RegistryEntry,
+  prefix: string,
+  knownPaths: ReadonlySet<string> | undefined,
+): readonly string[] {
   const problems: string[] = [];
+  if (typeof entry.path === 'string' && entry.path.includes('*'))
+    problems.push(`${prefix}: wildcard paths are not allowed`);
+  if (
+    typeof entry.path === 'string' &&
+    knownPaths &&
+    !knownPaths.has(entry.path)
+  )
+    problems.push(`${prefix}: path does not exist: ${entry.path}`);
+  if (typeof entry.rule === 'string' && !(entry.rule in rules))
+    problems.push(`${prefix}: unknown rule ${entry.rule}`);
+  if (
+    typeof entry.category === 'string' &&
+    !categories.has(entry.category as PolicyCategory)
+  )
+    problems.push(`${prefix}: unknown category ${entry.category}`);
+  if (
+    typeof entry.adr === 'string' &&
+    !/^docs\/decisions\/\d{4}-[a-z0-9-]+\.md$/.test(entry.adr)
+  )
+    problems.push(`${prefix}: invalid ADR reference ${entry.adr}`);
+  if (typeof entry.adr === 'string' && knownPaths && !knownPaths.has(entry.adr))
+    problems.push(`${prefix}: ADR does not exist: ${entry.adr}`);
+  return problems;
+}
+
+function reviewDateProblems(
+  reviewBy: string | undefined,
+  prefix: string,
+  today: string,
+): readonly string[] {
+  if (typeof reviewBy !== 'string') return [];
+  const validDate =
+    /^\d{4}-\d{2}-\d{2}$/.test(reviewBy) &&
+    !Number.isNaN(Date.parse(`${reviewBy}T00:00:00Z`)) &&
+    new Date(`${reviewBy}T00:00:00Z`).toISOString().startsWith(reviewBy);
+  if (!validDate) return [`${prefix}: reviewBy must be an ISO date`];
+  return reviewBy < today
+    ? [`${prefix}: reviewBy has expired: ${reviewBy}`]
+    : [];
+}
+
+function exceptionProblems(
+  entry: RegistryEntry,
+  prefix: string,
+  options: PolicyRegistryValidationOptions,
+  today: string,
+): readonly string[] {
+  return [
+    ...requiredFieldProblems(entry, prefix),
+    ...referenceProblems(entry, prefix, options.knownPaths),
+    ...reviewDateProblems(entry.reviewBy, prefix, today),
+  ];
+}
+
+export function validatePolicyRegistry(
+  registry: { version?: unknown; exceptions?: unknown },
+  options: PolicyRegistryValidationOptions = {},
+): readonly string[] {
+  const problems: string[] = [];
+  const today = options.today ?? new Date().toISOString().slice(0, 10);
   if (registry.version !== 1) problems.push('registry: version must be 1');
   if (!Array.isArray(registry.exceptions)) {
     return [...problems, 'registry: exceptions must be an array'];
   }
   const seen = new Set<string>();
   for (const [index, value] of registry.exceptions.entries()) {
-    const entry = value as Partial<PolicyException>;
+    const entry = value as RegistryEntry;
     const prefix = `registry[${index}]`;
-    for (const field of [
-      'path',
-      'rule',
-      'category',
-      'owner',
-      'reason',
-    ] as const)
-      if (typeof entry[field] !== 'string' || entry[field].trim() === '')
-        problems.push(`${prefix}: ${field} is required`);
-    if (typeof entry.path === 'string' && entry.path.includes('*'))
-      problems.push(`${prefix}: wildcard paths are not allowed`);
-    if (typeof entry.rule === 'string' && !(entry.rule in rules))
-      problems.push(`${prefix}: unknown rule ${entry.rule}`);
-    if (
-      typeof entry.category === 'string' &&
-      !categories.has(entry.category as PolicyCategory)
-    )
-      problems.push(`${prefix}: unknown category ${entry.category}`);
+    problems.push(...exceptionProblems(entry, prefix, options, today));
     const key = `${entry.path}|${entry.rule}`;
     if (seen.has(key)) problems.push(`${prefix}: duplicate ${key}`);
     seen.add(key);
@@ -116,16 +182,20 @@ export function validatePolicyRegistry(registry: {
   return problems;
 }
 
-async function filesIn(directory: string): Promise<readonly string[]> {
+async function filesIn(
+  directory: string,
+  extensions: ReadonlySet<string> | undefined,
+): Promise<readonly string[]> {
   const entries = await readdir(directory, { withFileTypes: true });
   const files: string[] = [];
   for (const entry of entries) {
     if (entry.isDirectory()) {
       if (!skipped.has(entry.name))
-        files.push(...(await filesIn(join(directory, entry.name))));
+        files.push(...(await filesIn(join(directory, entry.name), extensions)));
     } else if (
       entry.isFile() &&
-      scannedExtensions.has(entry.name.slice(entry.name.lastIndexOf('.')))
+      (extensions === undefined ||
+        extensions.has(entry.name.slice(entry.name.lastIndexOf('.'))))
     ) {
       files.push(join(directory, entry.name));
     }
@@ -138,12 +208,16 @@ export async function collectPolicy(): Promise<PolicyReport> {
     version?: unknown;
     exceptions?: readonly PolicyException[];
   };
-  const problems = validatePolicyRegistry(registry);
+  const repositoryFiles = await filesIn(root, scannedExtensions);
+  const knownPaths = new Set(
+    (await filesIn(root, undefined)).map((file) => relative(root, file)),
+  );
+  const problems = validatePolicyRegistry(registry, { knownPaths });
   const exceptions = new Set(
     (registry.exceptions ?? []).map(({ path, rule }) => `${path}|${rule}`),
   );
   const findings: PolicyFinding[] = [];
-  for (const file of await filesIn(root)) {
+  for (const file of repositoryFiles) {
     const path = relative(root, file);
     if (path === 'scripts/policy.ts' || path === 'scripts/policy.test.ts')
       continue;
