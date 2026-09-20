@@ -156,6 +156,13 @@ test('redeeming the captured link durably creates a verified user and session', 
         body: { email },
         headers: new Headers({ origin: auth.config.PUBLIC_APP_URL }),
       });
+      // Fail loudly here rather than redeeming a token parsed from nothing.
+      assert({
+        given: 'the magic-link request',
+        should: 'capture exactly one outbound message to redeem',
+        actual: sent.length,
+        expected: 1,
+      });
       const token = capturedToken(sent[0]!);
 
       // Redeem through the real HTTP handler so the session cookie is the

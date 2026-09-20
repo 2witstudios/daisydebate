@@ -116,9 +116,13 @@ export const countFixtureRows = async (
       await probe.close();
     }
   };
+  // Count by exact value first, then by containment of the unique fixture
+  // email: if Better Auth ever adds fields to the stored payload, the exact
+  // delete in removeFixture would match nothing and this count must still
+  // expose the leftover instead of silently passing.
   const verifications = await count(
-    'select count(*)::int as c from verification where value = $1',
-    [verificationValue(email)],
+    'select count(*)::int as c from verification where value = $1 or value like $2',
+    [verificationValue(email), `%${email}%`],
   );
   const users = userId
     ? await count('select count(*)::int as c from users where id = $1', [

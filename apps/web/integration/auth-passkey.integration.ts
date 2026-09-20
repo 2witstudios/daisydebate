@@ -2,7 +2,7 @@ import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createDatabase } from '@daisy/db';
-import { createTestAuthServer } from './auth-helpers';
+import { createTestAuthServer, isCuid2 } from './auth-helpers';
 
 setupRitewayBun();
 
@@ -102,7 +102,7 @@ test('passkey records round-trip through the Better Auth adapter on the shared p
       given: 'a passkey record created through the auth adapter',
       should: 'be retrievable by credential and renamable in place',
       actual: {
-        cuid2Id: /^[a-z0-9]{24}$/.test(passkey.id),
+        cuid2Id: isCuid2(passkey.id),
         ownedByFixtureUser: passkey.userId === userId,
         foundByCredential: found?.id === passkey.id,
         renamed: renamed?.name,
