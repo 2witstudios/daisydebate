@@ -6,6 +6,7 @@ import {
   type DocumentEventType,
 } from './docs-pipeline';
 import { assessEventText } from './docs-contracts';
+import { DOCUMENTATION_PROMPT_VERSION } from './docs-prompts';
 import { extractTaskIds, postDocumentationEvent } from './notify-drive';
 
 const required = (name: string): string => {
@@ -48,6 +49,7 @@ const event = createDocumentationEvent({
     [assessed.title, assessed.branch, assessed.body].filter(Boolean).join(' '),
   ),
   changedFiles: parseChangedFiles(required('DOC_CHANGED_FILES')),
+  promptVersion: DOCUMENTATION_PROMPT_VERSION,
   textRisk: assessed.textRisk,
   textRiskReasons: assessed.reasons,
 });
