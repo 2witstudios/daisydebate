@@ -16,7 +16,7 @@
     "build": "NODE_ENV=production turbo run build",
     "start": "bun run --cwd apps/web start",
     "typecheck": "turbo run typecheck",
-    "lint": "eslint . && bun scripts/check-boundaries.ts",
+    "lint": "eslint . && bun scripts/check-boundaries.ts && bun test eslint.config.test.ts",
     "knip": "bunx --bun knip",
     "metrics": "bun scripts/metrics.ts",
     "metrics:snapshot": "bun scripts/metrics.ts --append",
