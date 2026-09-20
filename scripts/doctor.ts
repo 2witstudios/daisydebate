@@ -146,15 +146,23 @@ async function checkMigrationCurrency(
     `;
     const appliedHashes = rows.map((row) => row.hash);
     if (
-      !appliedHashes.every(
-        (hash): hash is string => typeof hash === 'string',
-      ) ||
-      !isMigrationCurrent(committedHashes, appliedHashes)
+      !appliedHashes.every((hash): hash is string => typeof hash === 'string')
     )
       return fail(
         'migration-currency',
-        `migration drift: expected ${committedHashes.length}, applied ${rows.length}`,
+        'migration drift: non-string hash recorded',
       );
+    if (!isMigrationCurrent(committedHashes, appliedHashes)) {
+      const firstDivergence = committedHashes.findIndex(
+        (hash, index) => appliedHashes[index] !== hash,
+      );
+      return fail(
+        'migration-currency',
+        firstDivergence === -1
+          ? `migration drift: ${appliedHashes.length} applied migrations against ${committedHashes.length} committed migrations`
+          : `migration drift: first divergence at migration ${firstDivergence + 1} of ${committedHashes.length}`,
+      );
+    }
     return pass(
       'migration-currency',
       `${committedHashes.length} migration${committedHashes.length === 1 ? '' : 's'}`,
