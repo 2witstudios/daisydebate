@@ -9,6 +9,81 @@ import {
 setupRitewayBun();
 
 describe('classifyDocumentationChange', async () => {
+  test('treats a conventional-commit bang as a breaking change', async () => {
+    const actual = classifyDocumentationChange({
+      title: 'feat(envelopes)!: replace the protocol envelope shape',
+      changedFiles: ['packages/protocol/src/events.ts'],
+    });
+    assert({
+      given: 'a conventional commit with a breaking bang',
+      should: 'classify as breaking and route technical and user docs',
+      actual: {
+        changeKind: actual.changeKind,
+        pipelines: [...actual.pipelines].sort(),
+      },
+      expected: {
+        changeKind: 'breaking',
+        pipelines: ['technical-docs', 'user-docs'],
+      },
+    });
+  });
+
+  test('prefers the conventional type over generic keyword scanning', async () => {
+    assert({
+      given: 'a docs-prefixed change',
+      should: 'classify as documentation-only even though the body says add',
+      actual: classifyDocumentationChange({
+        title: 'docs: rewrite the lobby guide',
+        body: 'adds setup steps',
+        changedFiles: ['README.md'],
+      }).changeKind,
+      expected: 'documentation-only',
+    });
+    assert({
+      given: 'a test-prefixed change touching source files',
+      should: 'classify as test-only rather than feature',
+      actual: classifyDocumentationChange({
+        title: 'test: cover tournament rejection paths',
+        changedFiles: ['apps/web/src/features/tournaments/operations.ts'],
+      }).changeKind,
+      expected: 'test-only',
+    });
+  });
+
+  test('still lets breaking and security keywords outrank the prefix', async () => {
+    assert({
+      given: 'a security keyword in a fix-prefixed title',
+      should: 'classify as security',
+      actual: classifyDocumentationChange({
+        title: 'fix: auth token rotation drops active sessions',
+        changedFiles: ['packages/db/src/index.ts'],
+      }).changeKind,
+      expected: 'security',
+    });
+    assert({
+      given: 'a deprecation keyword without a prefix',
+      should: 'classify as breaking',
+      actual: classifyDocumentationChange({
+        title: 'remove the deprecated passkey endpoint',
+        changedFiles: ['apps/web/src/features/auth/operations.ts'],
+      }).changeKind,
+      expected: 'breaking',
+    });
+  });
+
+  test('reports unknown for an empty change instead of pretending', async () => {
+    const actual = classifyDocumentationChange({
+      title: '',
+      changedFiles: [],
+    });
+    assert({
+      given: 'an empty title and no changed files',
+      should: 'classify as unknown with a no-op reason',
+      actual: { changeKind: actual.changeKind, pipelines: actual.pipelines },
+      expected: { changeKind: 'unknown', pipelines: [] },
+    });
+  });
+
   test('routes a public feature to technical and user documentation', async () => {
     const actual = classifyDocumentationChange({
       title: 'feat: add tournament registration',
@@ -82,6 +157,7 @@ describe('createDocumentationEvent', async () => {
       },
       taskIds: ['ENG-1.1'],
       changedFiles: ['packages/protocol/src/events.ts'],
+      promptVersion: 'docs-prompt-v1',
     });
     assert({
       given: 'a merge event',
@@ -90,11 +166,13 @@ describe('createDocumentationEvent', async () => {
         version: actual.eventVersion,
         sourceRefs: actual.sourceRefs,
         idempotencyKey: actual.idempotencyKey,
+        promptVersion: actual.promptVersion,
       },
       expected: {
         version: 'docs-event-v1',
         sourceRefs: ['packages/protocol/src/events.ts'],
         idempotencyKey: 'daisydebate:abc123:pull_request.merged',
+        promptVersion: 'docs-prompt-v1',
       },
     });
   });

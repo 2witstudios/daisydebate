@@ -43,6 +43,15 @@ describe('extractTaskIds', async () => {
       expected: [],
     });
   });
+
+  test('filters technical-acronym false positives', async () => {
+    assert({
+      given: 'text with HTTP status codes and CI references alongside a real task',
+      should: 'keep only the real task ID',
+      actual: extractTaskIds('returns HTTP-200 and CI-123 logs for ENG-1.1'),
+      expected: ['ENG-1.1'],
+    });
+  });
 });
 
 describe('signPayload', async () => {

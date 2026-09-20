@@ -4,8 +4,34 @@ import type { DocumentationEvent } from './docs-pipeline';
 
 const TASK_ID_PATTERN = /\b[A-Z]{2,6}-\d+(?:\.\d+)?\b/g;
 
+export const TASK_ID_STOPWORDS: readonly string[] = [
+  'API',
+  'ASCII',
+  'CD',
+  'CI',
+  'CSS',
+  'DOC',
+  'FIXME',
+  'HTTP',
+  'HTTPS',
+  'IEEE',
+  'ISO',
+  'JSON',
+  'OS',
+  'PR',
+  'RFC',
+  'SHA',
+  'SQL',
+  'TODO',
+  'URL',
+  'UTF',
+  'UUID',
+];
+
 export function extractTaskIds(text: string): string[] {
-  return [...new Set(text.match(TASK_ID_PATTERN) ?? [])];
+  return [
+    ...new Set(text.match(TASK_ID_PATTERN) ?? []),
+  ].filter((taskId) => !TASK_ID_STOPWORDS.includes(taskId.split('-')[0]));
 }
 
 export function signPayload(

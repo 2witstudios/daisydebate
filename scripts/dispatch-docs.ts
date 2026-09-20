@@ -1,5 +1,11 @@
 #!/usr/bin/env bun
-import { createDocumentationEvent, parseChangedFiles } from './docs-pipeline';
+import {
+  createDocumentationEvent,
+  DOCUMENT_EVENT_TYPES,
+  parseChangedFiles,
+  type DocumentEventType,
+} from './docs-pipeline';
+import { assessEventText } from './docs-contracts';
 import { extractTaskIds, postDocumentationEvent } from './notify-drive';
 
 const required = (name: string): string => {
@@ -8,27 +14,42 @@ const required = (name: string): string => {
   return value;
 };
 
+const eventType = (): DocumentEventType => {
+  const value = process.env.DOC_EVENT_TYPE ?? 'pull_request.merged';
+  if (!DOCUMENT_EVENT_TYPES.includes(value as DocumentEventType))
+    throw new Error(
+      `DOC_EVENT_TYPE must be one of ${DOCUMENT_EVENT_TYPES.join(', ')}`,
+    );
+  return value as DocumentEventType;
+};
+
+const assessed = assessEventText({
+  title: required('DOC_TITLE'),
+  body: process.env.DOC_BODY ?? null,
+  branch: process.env.DOC_BRANCH ?? null,
+});
+
 const event = createDocumentationEvent({
   eventId: required('DOC_EVENT_ID'),
-  eventType: 'pull_request.merged',
+  eventType: eventType(),
   occurredAt: required('DOC_OCCURRED_AT'),
   repository: required('DOC_REPOSITORY'),
   baseRef: required('DOC_BASE_REF'),
   commit: required('DOC_COMMIT'),
   pullRequest: {
     number: Number(required('DOC_PR_NUMBER')),
-    title: required('DOC_TITLE'),
-    body: process.env.DOC_BODY ?? null,
+    title: assessed.title,
+    body: assessed.body === '' ? null : assessed.body,
     url: required('DOC_PR_URL'),
     author: process.env.DOC_AUTHOR ?? null,
     mergedBy: process.env.DOC_MERGED_BY ?? null,
   },
   taskIds: extractTaskIds(
-    [process.env.DOC_TITLE, process.env.DOC_BRANCH, process.env.DOC_BODY]
-      .filter(Boolean)
-      .join(' '),
+    [assessed.title, assessed.branch, assessed.body].filter(Boolean).join(' '),
   ),
   changedFiles: parseChangedFiles(required('DOC_CHANGED_FILES')),
+  textRisk: assessed.textRisk,
+  textRiskReasons: assessed.reasons,
 });
 
 if (event.classification.pipelines.length === 0) {
@@ -38,6 +59,6 @@ if (event.classification.pipelines.length === 0) {
 } else {
   await postDocumentationEvent(event);
   process.stdout.write(
-    `Documentation event dispatched to ${event.classification.pipelines.join(', ')}\n`,
+    `Documentation event dispatched to ${event.classification.pipelines.join(', ')} (text risk: ${assessed.textRisk})\n`,
   );
 }

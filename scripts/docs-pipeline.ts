@@ -2,6 +2,15 @@
 
 export const DOCUMENT_EVENT_VERSION = 'docs-event-v1';
 
+export const DOCUMENT_EVENT_TYPES = [
+  'pull_request.merged',
+  'release.published',
+] as const;
+export type DocumentEventType = (typeof DOCUMENT_EVENT_TYPES)[number];
+
+export const TEXT_RISKS = ['clean', 'flagged'] as const;
+export type TextRisk = (typeof TEXT_RISKS)[number];
+
 export const DOCUMENT_PIPELINES = [
   'technical-docs',
   'user-docs',
@@ -36,7 +45,7 @@ export type DocumentationClassification = {
 export type DocumentationEvent = {
   readonly eventVersion: typeof DOCUMENT_EVENT_VERSION;
   readonly eventId: string;
-  readonly eventType: 'pull_request.merged' | 'release.published';
+  readonly eventType: DocumentEventType;
   readonly occurredAt: string;
   readonly repository: string;
   readonly baseRef: string;
@@ -53,6 +62,9 @@ export type DocumentationEvent = {
   readonly changedFiles: readonly string[];
   readonly classification: DocumentationClassification;
   readonly sourceRefs: readonly string[];
+  readonly promptVersion?: string;
+  readonly textRisk?: TextRisk;
+  readonly textRiskReasons?: readonly string[];
   readonly idempotencyKey: string;
 };
 
@@ -66,6 +78,21 @@ const configurationPattern =
 const bugPattern = /\b(fix|bug|patch)\b/i;
 const refactorPattern = /\b(refactor|chore|cleanup)\b/i;
 
+const conventionalPrefixPattern = /^(\w+)(?:\([^)]*\))?:/;
+const conventionalBangPattern = /^[a-z]+(?:\([^)]*\))?!:/im;
+const CONVENTIONAL_KINDS: Readonly<Record<string, ChangeKind>> = {
+  feat: 'feature',
+  fix: 'bug-fix',
+  refactor: 'refactor',
+  chore: 'refactor',
+  test: 'test-only',
+  docs: 'documentation-only',
+  build: 'configuration',
+  ci: 'configuration',
+  perf: 'refactor',
+  style: 'refactor',
+};
+
 const isTestFile = (file: string): boolean =>
   /(^|\/)(__tests__|test|tests)(\/|\.)|\.test\.[^.]+$|\.spec\.[^.]+$/i.test(
     file,
@@ -75,20 +102,24 @@ const hasAny = (files: readonly string[], pattern: RegExp): boolean =>
   files.some((file) => pattern.test(file));
 
 function determineChangeKind(
+  title: string,
   text: string,
   files: readonly string[],
   onlyTests: boolean,
   technicalFiles: boolean,
 ): ChangeKind {
   if (onlyTests) return 'test-only';
+  if (conventionalBangPattern.test(text)) return 'breaking';
   if (breakingPattern.test(text)) return 'breaking';
   if (securityPattern.test(text)) return 'security';
+  const prefix = conventionalPrefixPattern.exec(title)?.[1]?.toLowerCase();
+  if (prefix && CONVENTIONAL_KINDS[prefix]) return CONVENTIONAL_KINDS[prefix];
   if (contractPattern.test(text) || technicalFiles) return 'contract';
   if (configurationPattern.test(text)) return 'configuration';
   if (bugPattern.test(text)) return 'bug-fix';
   if (refactorPattern.test(text)) return 'refactor';
   if (featurePattern.test(text)) return 'feature';
-  return files.length === 0 ? 'unknown' : 'unknown';
+  return 'unknown';
 }
 
 function selectPipelines(input: {
@@ -153,6 +184,7 @@ export function classifyDocumentationChange(input: {
   const explicitlyBlog = /(^|\s)#?blog\b|blog[-_:]/i.test(text);
 
   const changeKind = determineChangeKind(
+    input.title,
     text,
     input.changedFiles,
     onlyTests,
@@ -180,6 +212,9 @@ export function createDocumentationEvent(input: {
   readonly taskIds: readonly string[];
   readonly changedFiles: readonly string[];
   readonly sourceRefs?: readonly string[];
+  readonly promptVersion?: string;
+  readonly textRisk?: TextRisk;
+  readonly textRiskReasons?: readonly string[];
 }): DocumentationEvent {
   const classification = classifyDocumentationChange({
     title: input.pullRequest?.title ?? '',

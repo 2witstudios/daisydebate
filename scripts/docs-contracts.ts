@@ -1,14 +1,18 @@
 import {
   CHANGE_KINDS,
+  DOCUMENT_EVENT_TYPES,
   DOCUMENT_EVENT_VERSION,
   DOCUMENT_PIPELINES,
+  TEXT_RISKS,
   type ChangeKind,
+  type DocumentEventType,
   type DocumentPipeline,
   type DocumentationClassification,
   type DocumentationEvent,
+  type TextRisk,
 } from './docs-pipeline';
 
-export type TextRisk = 'clean' | 'flagged';
+export type { TextRisk };
 
 const CONTROL_AND_FORMAT_PATTERN =
   /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]/g;
@@ -126,6 +130,16 @@ function checkStringArray(
     problems.push({ path, problem: 'must be an array of strings' });
 }
 
+function checkOptionalStringArray(
+  problems: Problems[],
+  container: Record<string, unknown>,
+  path: string,
+): void {
+  const value = readPath(container, path);
+  if (value !== null && value !== undefined && !Array.isArray(value))
+    problems.push({ path, problem: 'must be an array of strings or absent' });
+}
+
 function fail(problems: readonly Problems[]): never {
   throw new Error(
     `Invalid documentation payload: ${problems
@@ -186,10 +200,10 @@ export function parseDocumentationEvent(raw: unknown): DocumentationEvent {
       path: 'eventVersion',
       problem: `must be "${DOCUMENT_EVENT_VERSION}"`,
     });
-  if (raw.eventType !== 'pull_request.merged' && raw.eventType !== 'release.published')
+  if (!DOCUMENT_EVENT_TYPES.includes(raw.eventType as DocumentEventType))
     problems.push({
       path: 'eventType',
-      problem: "must be 'pull_request.merged' or 'release.published'",
+      problem: `must be one of ${DOCUMENT_EVENT_TYPES.join(', ')}`,
     });
   checkString(problems, raw, 'eventId');
   checkString(problems, raw, 'occurredAt');
@@ -200,6 +214,17 @@ export function parseDocumentationEvent(raw: unknown): DocumentationEvent {
   checkStringArray(problems, raw, 'taskIds');
   checkStringArray(problems, raw, 'changedFiles');
   checkStringArray(problems, raw, 'sourceRefs');
+  checkOptionalString(problems, raw, 'promptVersion');
+  if (
+    raw.textRisk !== null &&
+    raw.textRisk !== undefined &&
+    !TEXT_RISKS.includes(raw.textRisk as TextRisk)
+  )
+    problems.push({
+      path: 'textRisk',
+      problem: `must be one of ${TEXT_RISKS.join(', ')}`,
+    });
+  checkOptionalStringArray(problems, raw, 'textRiskReasons');
   if (raw.pullRequest !== null && !isRecord(raw.pullRequest))
     problems.push({ path: 'pullRequest', problem: 'must be an object or null' });
   else if (isRecord(raw.pullRequest))
