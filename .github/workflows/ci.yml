@@ -19,7 +19,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        task: [format:check, lint, knip, metrics:check, typecheck, test, build]
+        task:
+          [
+            format:check,
+            lint,
+            knip,
+            invariants,
+            evidence,
+            metrics:check,
+            typecheck,
+            test,
+            build,
+          ]
     env:
       TURBO_TELEMETRY_DISABLED: '1'
       NEXT_TELEMETRY_DISABLED: '1'
@@ -38,8 +49,24 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run ${{ matrix.task }}
 
+  migrations:
+    name: Migration journal collision guard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    # Full history: the guard compares the committed journal against the
+    # merge base with origin/main, so a shallow checkout cannot run it.
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+      - run: bun migrations:check
+
   integration:
-    name: Infrastructure and browser contracts
+    name: Infrastructure contracts
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
@@ -79,12 +106,6 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: '1.4.2'
-      # Playwright's test runner executes under its supported Node LTS environment.
-      # Bun remains the only package manager and application runtime.
-      - uses: actions/setup-node@v7
-        with:
-          node-version: '24'
-          package-manager-cache: false
       - run: bun install --frozen-lockfile
       - name: Create the loopback e2e role (production-refined credentials)
         run: |
@@ -95,19 +116,14 @@ jobs:
       - name: Verify migration reruns are idempotent
         run: bun db:migrate
       - run: bun test:integration
-      - name: Install Chromium and system dependencies
-        working-directory: apps/web
-        run: node node_modules/@playwright/test/cli.js install --with-deps chromium
-      - name: Browser end-to-end against the production server
-        env:
-          E2E_POSTGRES_PORT: '5432'
-        run: bun test:e2e
+      # The browser E2E tier is owned by e2e.yml (a single E2E owner keeps
+      # per-PR cost at one Chromium run; bun evidence enforces the split).
 
   notify-drive:
     name: Report failure to drive Incidents
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    needs: [checks, integration]
+    needs: [checks, migrations, integration]
     if: failure()
     steps:
       - uses: actions/checkout@v7

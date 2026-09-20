@@ -26,24 +26,27 @@ DATABASE_URL="$TEST_DATABASE_URL" bun db:migrate
 
 ## Commands
 
-| Command                           | What it does                                                                        |
-| --------------------------------- | ----------------------------------------------------------------------------------- |
-| `bun dev`                         | All dev processes (currently the web app) via turbo                                 |
-| `bun dev:agent`                   | Start local dependencies, migrate, seed, launch web, and wait ready                 |
-| `bun build`                       | Production builds through the turbo graph                                           |
-| `bun test`                        | Fast deterministic unit/domain tests; no services or Next boot                      |
-| `bun test:integration`            | Database, Redis, and web vertical tests against real services                       |
-| `bun test:e2e`                    | Playwright against the production server build                                      |
-| `bun verify`                      | `bun check` plus migration-idempotency, integration, and E2E gates                  |
-| `bun lint`                        | ESLint plus `scripts/check-boundaries.ts` architecture verification                 |
-| `bun format` / `bun format:check` | Prettier write / verify                                                             |
-| `bun typecheck`                   | `tsc --noEmit` per workspace (web runs `next typegen` first)                        |
-| `bun check`                       | format:check + lint + typecheck + test + metrics:check + build — run before pushing |
-| `bun db:generate`                 | Generate migration SQL from schema changes (review the SQL!)                        |
-| `bun db:migrate`                  | Apply pending migrations                                                            |
-| `bun db:seed`                     | Idempotently upsert the deterministic agent seed and version marker                 |
-| `bun db:studio`                   | Drizzle Studio (local only, never expose)                                           |
-| `bun infra:up/down/logs`          | Compose lifecycle for PostgreSQL and Redis                                          |
+| Command                           | What it does                                                                                                 |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `bun dev`                         | All dev processes (currently the web app) via turbo                                                          |
+| `bun dev:agent`                   | Start local dependencies, migrate, seed, launch web, and wait ready                                          |
+| `bun build`                       | Production builds through the turbo graph                                                                    |
+| `bun test`                        | Fast deterministic unit/domain tests; no services or Next boot                                               |
+| `bun test:integration`            | Database, Redis, and web vertical tests against real services                                                |
+| `bun test:e2e`                    | Playwright against the production server build                                                               |
+| `bun verify`                      | `bun check` plus migration-idempotency, integration, and E2E gates                                           |
+| `bun lint`                        | ESLint plus `scripts/check-boundaries.ts` architecture verification                                          |
+| `bun format` / `bun format:check` | Prettier write / verify                                                                                      |
+| `bun typecheck`                   | `tsc --noEmit` per workspace (web runs `next typegen` first)                                                 |
+| `bun check`                       | format:check + lint + knip + invariants + evidence + typecheck + test + metrics + build — run before pushing |
+| `bun check:affected`              | Fast per-vertical inner loop: lint/prettier on changed files, boundaries, affected turbo graph               |
+| `bun migrations:check`            | Fail a branch that rewrites/reorders shared migrations vs `origin/main`                                      |
+| `bun evidence`                    | Orphan-suite and CI-wiring audit: every test tier is claimed by a real runner                                |
+| `bun db:generate`                 | Generate migration SQL from schema changes (review the SQL!)                                                 |
+| `bun db:migrate`                  | Apply pending migrations                                                                                     |
+| `bun db:seed`                     | Idempotently upsert the deterministic agent seed and version marker                                          |
+| `bun db:studio`                   | Drizzle Studio (local only, never expose)                                                                    |
+| `bun infra:up/down/logs`          | Compose lifecycle for PostgreSQL and Redis                                                                   |
 
 ## Environment
 
@@ -53,6 +56,40 @@ refinements reject HTTP public URLs, development credentials, missing
 deployment identity, and the development-only proof flag. The Compose
 PostgreSQL is exposed on host port `15432` to coexist with host-level
 Postgres installs; `.env.example` matches.
+
+## Parallel sessions on one machine
+
+Multiple local sessions (git worktrees, `pu` slots) share nothing when each
+pins its own Compose stack. Give every session a distinct
+`DAISY_STACK_NAME` and host ports, then point its URLs at those ports — the
+knobs are ordinary `.env` values, and Compose reads them through
+`--env-file .env` (see `infra/compose.yaml`):
+
+```sh
+cp .env.example .env
+# In the slot's .env:
+#   DAISY_STACK_NAME=daisy-slot2   distinct containers + volumes per stack
+#   DAISY_PG_PORT=25432            Postgres host port (DB names stay the same)
+#   DAISY_REDIS_PORT=26379         Redis host port
+#   PORT=3001 PUBLIC_APP_URL=http://localhost:3001
+#   E2E_PORT=13100 E2E_POSTGRES_PORT=25432 E2E_REDIS_PORT=26379
+```
+
+Rules that keep sessions safe:
+
+- A distinct stack name is the isolation boundary: its containers and
+  volumes are separate, so `bun infra:down` in one session cannot kill
+  another session's services and databases never collide.
+- An explicit `E2E_PORT` also disables Playwright's `reuseExistingServer`;
+  without it a session could silently boot its suite against another
+  session's already-running server.
+- Unit tests need no isolation. Integration tests always scope their own
+  UUIDs and Redis namespaces, so two sessions can share one test database
+  for short checks — but concurrent `bun db:migrate` or `bun verify`
+  against the same `TEST_DATABASE_URL` can race; prefer one test database
+  per stack.
+- Generating migrations is still single-writer at a time; see
+  `docs/operations/database.md` and `bun migrations:check`.
 
 ## Conventions that save review time
 

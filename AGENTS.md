@@ -20,6 +20,7 @@ and detailed procedures in the linked documents, not here.
 - Local setup and command catalog: [local development](docs/development/local-development.md).
 - Test tiers and test rules: [testing](docs/development/testing.md).
 - Structural change recipes: [extending the repository](docs/development/extending.md).
+- Parallel sessions, branches, and vertical ownership: [parallel work](docs/development/parallel-work.md).
 
 ## Dependency rules
 
@@ -76,6 +77,13 @@ and detailed procedures in the linked documents, not here.
   `_test`; integration also requires `TEST_REDIS_URL`.
 - `bun run knip` is a required dead-code gate for unused files, exports, and
   dependencies. Keep `knip.jsonc` ignores limited to genuine implicit uses.
+- `bun evidence` fails on suites no runner claims, integration guards that
+  skip instead of throwing on missing services, and gates that silently
+  stop running in CI. `bun invariants` and `bun evidence` are part of
+  `bun check`.
+- This file is the only agent-facing operating map. Never fork it into a
+  second top-level agent document (CLAUDE.md and friends); docs drift
+  becomes contradictory instructions.
 
 ## Verification commands
 
@@ -88,8 +96,14 @@ values in `.env`; initialize with `bun install --frozen-lockfile` and
   `--json` for a machine-readable report. It should pass before service-based
   work.
 - `bun check`: the pre-push gate: `format:check`, lint and boundaries, Knip,
-  typecheck, unit tests, metrics policy, and production build. It does not
-  boot Next or require integration services.
+  invariants, evidence, typecheck, unit tests, metrics policy, and production
+  build. It does not boot Next or require integration services.
+- `bun check:affected`: fast per-vertical inner loop over changed files and
+  the affected turbo graph. A convenience, never a substitute for `bun check`.
+- `bun migrations:check`: fails a branch that rewrites, reorders, truncates,
+  or chain-breaks shared migrations relative to `origin/main`. Required
+  before pushing `packages/db/migrations/` changes; migration generation is
+  single-writer at a time.
 - `bun verify`: runs `check`, integration tests, browser E2E, and applies
   migrations twice to `TEST_DATABASE_URL` to prove idempotency. It requires
   isolated services and a test database. Add `--json` for a report.
@@ -112,6 +126,10 @@ values in `.env`; initialize with `bun install --frozen-lockfile` and
 5. `bun dev` or the clean-environment `bun dev:agent`
 6. `bun doctor`, then the relevant tests and verification gates
 
+Multiple local sessions (git worktrees, `pu` slots) each pin their own
+Compose stack via `DAISY_STACK_NAME` and port knobs; see
+[local development](docs/development/local-development.md#parallel-sessions-on-one-machine).
+
 Use `bun db:generate` for schema changes, review generated SQL, and use
 `bun db:studio` only for local inspection. See [database operations](docs/operations/database.md)
 for test roles, reset restrictions, and migration safety.
@@ -124,6 +142,12 @@ operating system. Work only on committed tasks: claim `Ready` leaves, advance
 In Progress to In Review at handoff, and mark Done only when acceptance
 criteria are proven. Status belongs in the status field; task bodies are
 acceptance criteria (`Given X, should Y`).
+
+Parallel sessions follow [parallel work](docs/development/parallel-work.md):
+short-lived vertical branches, one open vertical per agent, worktree agents
+never write the board (the orchestrator owns task and memory writes), and a
+deviation from the plan means updating the plan before declaring done.
+Reviews use the [review record](docs/development/review-record.md) format.
 
 While work is open, post the daily Yesterday / Today / Blockers standup and
 send scope, ceremony, epic, or incident updates to the designated PageSpace
