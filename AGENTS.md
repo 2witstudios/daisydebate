@@ -67,8 +67,6 @@ and detailed procedures in the linked documents, not here.
 - Use UTC ISO timestamps, cuid2 application IDs, documented UUID exceptions, and integer millisecond durations. cuid2 IDs are identifiers, never bearer secrets. Use
   structured logging; never log credentials, cookies, raw request bodies, or
   raw exceptions. Public errors must not expose internals.
-  structured logging; never log credentials, cookies, raw request bodies, or
-  raw exceptions. Public errors must not expose internals.
 - Schema changes use `bun db:generate`, reviewed SQL and metadata, forward
   migrations, and expand/contract for rolling deployments. Never rewrite an
   applied migration or reset production.

@@ -2,12 +2,7 @@ import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createDatabase } from '@daisy/db';
-import {
-  countFixtureRows,
-  createTestAuthServer,
-  emptyCounts,
-  fixtureEmail,
-} from './auth-helpers';
+import { createTestAuthServer } from './auth-helpers';
 
 setupRitewayBun();
 
@@ -175,7 +170,16 @@ test('passkey records round-trip through the Better Auth adapter on the shared p
   assert({
     given: 'the bounded fixture cleanup after the passkey round trip',
     should: 'leave no fixture records behind',
-    actual: await countFixtureRows(url, fixtureEmail(), undefined),
-    expected: emptyCounts,
+    actual: {
+      usersRemaining: await rowCount(
+        'select count(*)::int as c from users where id = $1',
+        [userId],
+      ),
+      passkeysRemaining: await rowCount(
+        'select count(*)::int as c from passkey where user_id = $1',
+        [userId],
+      ),
+    },
+    expected: { usersRemaining: 0, passkeysRemaining: 0 },
   });
 });
