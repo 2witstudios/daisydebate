@@ -17,10 +17,10 @@ export const users = pgTable(
     emailVerified: boolean('email_verified').notNull().default(false),
     name: text('name').notNull().default(''),
     image: text('image'),
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' })
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
       .notNull()
       .defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' })
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
       .notNull()
       .defaultNow(),
     version: integer('version').notNull().default(1),
