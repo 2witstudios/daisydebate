@@ -7,7 +7,6 @@ const config: NextConfig = {
     '@daisy/logger',
     '@daisy/observability',
     '@daisy/config',
-    '@adobe/data',
   ],
   transpilePackages: [
     '@daisy/debate-engine',
