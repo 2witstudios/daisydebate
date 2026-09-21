@@ -17,9 +17,16 @@ const seedIds = [
   'c8d4e2f6a1b3k5m7n9p2r4t6',
 ];
 
+const repositoryRoot = new URL('../../..', import.meta.url).pathname;
+
+/**
+ * Runs the seed entry point directly instead of `bun run db:seed`, whose
+ * `--env-file=.env` exists to supply the development DATABASE_URL. The only
+ * database URL the child can see is the `_test` URL validated above.
+ */
 async function runSeed(): Promise<void> {
-  const process = Bun.spawn(['bun', 'run', 'db:seed'], {
-    cwd: new URL('../..', import.meta.url).pathname,
+  const process = Bun.spawn(['bun', 'scripts/seed.ts'], {
+    cwd: repositoryRoot,
     env: { ...Bun.env, DATABASE_URL: url },
     stdout: 'pipe',
     stderr: 'pipe',
