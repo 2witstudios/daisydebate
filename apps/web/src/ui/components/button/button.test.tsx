@@ -5,8 +5,6 @@ import { Button } from './button';
 
 setupRitewayBun();
 
-// CSS module class maps resolve empty under bun test, so these assert
-// structure and semantics; styled-class fidelity belongs to the browser e2e.
 describe('Button', () => {
   test('renders children as a button by default', () => {
     const html = renderToString(h(Button, { children: 'Register' }));
