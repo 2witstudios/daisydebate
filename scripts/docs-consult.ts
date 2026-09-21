@@ -57,12 +57,12 @@ function trustedKeys(
   } as const;
 }
 
+type ConversationState = 'answered' | 'pending' | 'absent' | 'unreadable';
+
 // Instructions first, untrusted data last and nonce-fenced. Every receipt key
 // trusted CI context knows is interpolated here so the row stays reconcilable
 // even when the model misreads the payload; the model supplies only what it
 // alone knows (timing, outcome, what it reviewed and found).
-type ConversationState = 'answered' | 'pending' | 'absent' | 'unreadable';
-
 export function composeConsultQuestion(input: {
   readonly event: DocumentationEvent;
   readonly pipeline: DocumentPipeline;
@@ -422,7 +422,7 @@ export async function dispatchDocumentationEvent(
       }
       if (state === 'answered') return answered;
       throw new Error(
-        `Documentation Agent consult for ${pipeline} failed in PageSpace (responded ${response.status}: ${reported}) and its conversation holds no answer. The run may have recorded its receipt before failing: if ${receipt} shows complete, nothing is lost; otherwise replay with ${replay}`,
+        `Documentation Agent consult for ${pipeline} failed in PageSpace (responded ${response.status}: ${reported}) and ${state === 'unreadable' ? 'its conversation could not be read' : 'its conversation holds no answer'}. The run may have recorded its receipt before failing: if ${receipt} shows complete, nothing is lost; otherwise replay with ${replay}`,
       );
     }
     // Any other 5xx can come from a gateway in front of a run that is still

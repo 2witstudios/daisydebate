@@ -354,8 +354,9 @@ describe('dispatchDocumentationEvent settlement', async () => {
       actual: {
         reads: counts.messages,
         routeFailed: message.includes('failed in PageSpace'),
+        unread: message.includes('its conversation could not be read'),
       },
-      expected: { reads: 2, routeFailed: true },
+      expected: { reads: 2, routeFailed: true, unread: true },
     });
   });
 });
