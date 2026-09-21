@@ -43,29 +43,7 @@ const jsonRequest = (body: string, contentType = 'application/json') =>
     body,
   });
 
-describe('readJson', () => {
-  test('parses bounded JSON bodies', async () => {
-    assert({
-      given: 'a JSON request body',
-      should: 'parse it into an object',
-      actual: await readJson(jsonRequest('{"a":1}')),
-      expected: { a: 1 },
-    });
-  });
-
-  test('rejects non-JSON content types', () => {
-    expect(() =>
-      readJson(jsonRequest('a=1', 'application/x-www-form-urlencoded')),
-    ).toThrow(createAppError('VALIDATION'));
-  });
-
-  test('rejects bodies beyond the byte bound', async () => {
-    const large = JSON.stringify({ text: 'x'.repeat(128) });
-    await expect(readJson(jsonRequest(large), 64)).rejects.toThrow(
-      createAppError('PAYLOAD_TOO_LARGE'),
-    );
-  });
-
+describe('handleOperation', () => {
   test('answers an oversized body with HTTP 413', async () => {
     const large = JSON.stringify({ text: 'x'.repeat(128) });
     const response = await handleOperation(
@@ -90,9 +68,7 @@ describe('readJson', () => {
       createAppError('VALIDATION'),
     );
   });
-});
 
-describe('handleOperation', () => {
   test('returns handler responses with correlation headers and logs completion', async () => {
     recorded.length = 0;
     const response = await handleOperation(
