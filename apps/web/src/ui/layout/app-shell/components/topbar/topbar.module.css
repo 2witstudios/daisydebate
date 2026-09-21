@@ -76,7 +76,7 @@
   padding: 0 4px;
   border-radius: var(--radius-round);
   background: var(--live);
-  color: #fff;
+  color: var(--text-on-live);
   font-size: 10px;
   font-weight: 800;
   line-height: 16px;

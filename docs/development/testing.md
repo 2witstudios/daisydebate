@@ -133,8 +133,10 @@ and orphan-checks them like any `*.test.ts` suite.
 - **Effect extraction.** `useEffect` never runs under `react-dom/server`, so
   a component whose only work is an effect keeps a thin shell and moves the
   write into a pure function that takes its DOM target as a parameter; the
-  test passes a plain recording object. `theme-effect.tsx` and
-  `apply-theme.ts` are the example.
+  test passes a plain recording object. When the side effects need an
+  order, put them in a controller that takes them as injected functions.
+  `ui/theme/apply-theme.ts` and `ui/theme/theme-controller.ts` (used by
+  `theme-provider.tsx`) are the example.
 
 ## Test file naming
 

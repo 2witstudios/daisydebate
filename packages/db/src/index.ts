@@ -89,6 +89,37 @@ export function createDatabase({
     async close() {
       await client.close({ timeout: 5 });
     },
+    /**
+     * Retention (AUTH-7.5a): deletes at most `limit` verification rows whose
+     * expiry is before `before`. The batch is chosen by an expiry predicate
+     * live rows can never satisfy, and `SKIP LOCKED` lets concurrent workers
+     * split a backlog without waiting on or double-deleting each other.
+     * Returns the number deleted; a missing, fractional or non-positive
+     * limit, or an unparsable cutoff, is refused.
+     */
+    async purgeExpiredVerifications(input: { before: string; limit: number }) {
+      if (
+        !Number.isSafeInteger(input.limit) ||
+        input.limit < 1 ||
+        Number.isNaN(Date.parse(input.before))
+      )
+        throw new Error('Invalid verification purge bounds');
+      try {
+        const deleted = await database.execute(
+          sql`delete from ${verifications} where ${verifications.id} in (
+            select ${verifications.id} from ${verifications}
+            where ${verifications.expiresAt} < ${input.before}::timestamptz
+            order by ${verifications.expiresAt}
+            limit ${input.limit}
+            for update skip locked
+          ) returning ${verifications.id}`,
+        );
+        return deleted.length;
+      } catch (error) {
+        reportFailure('purgeExpiredVerifications');
+        throw error;
+      }
+    },
     /** Idempotent: a retried send with the same provider message ID is a no-op. */
     async recordEmailDelivery(input: {
       providerMessageId: string;

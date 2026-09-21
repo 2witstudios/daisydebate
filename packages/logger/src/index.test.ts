@@ -186,6 +186,8 @@ describe('structured logging', () => {
       'auth.mail.sent',
       'auth.mail.failed',
       'auth.mail.receipt_failed',
+      'auth.cleanup.completed',
+      'auth.cleanup.failed',
     ];
     for (const event of events) logger.log(event, {}, 'auth');
     const entries = output
@@ -204,6 +206,8 @@ describe('structured logging', () => {
         ['auth.mail.sent', 30],
         ['auth.mail.failed', 50],
         ['auth.mail.receipt_failed', 50],
+        ['auth.cleanup.completed', 30],
+        ['auth.cleanup.failed', 50],
       ],
     });
   });

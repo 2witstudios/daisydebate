@@ -3,6 +3,7 @@ import next from 'next';
 import { z } from 'zod';
 import { readAuthConfig } from '@daisy/config';
 import { createIngressListener } from './ingress';
+import { startMaintenance } from './maintenance';
 import { getResources, closeResources } from './resources';
 
 // Next 16 types NODE_ENV as read-only; the process supervisor sets it before launch.
@@ -50,9 +51,21 @@ server.listen(port, '0.0.0.0', () =>
     'Server listening',
   ),
 );
+// Bounded retention runs at start and then hourly in this process; `unref` never holds it open.
+const maintenance = startMaintenance({
+  database: resources.database,
+  clock: resources.clock,
+  logger: resources.logger,
+  timers: {
+    setInterval: (tick, ms) => setInterval(tick, ms).unref(),
+    clearInterval: (handle) => clearInterval(handle as NodeJS.Timeout),
+  },
+});
 async function shutdown() {
   if (resources.draining) return;
   resources.draining = true;
+  // Ends any cleanup between batches; awaited before the pool closes below.
+  const maintenanceStopped = maintenance.stop();
   resources.logger.log(
     'server.shutdown',
     { operation: 'server.shutdown' },
@@ -69,6 +82,7 @@ async function shutdown() {
     server.close((error) => (error ? reject(error) : resolve())),
   );
   await app.close();
+  await maintenanceStopped;
   await closeResources();
   clearTimeout(deadline);
 }

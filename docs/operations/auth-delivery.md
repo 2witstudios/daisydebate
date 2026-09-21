@@ -77,3 +77,27 @@ live under `<REDIS_NAMESPACE>:v1:rl:<sha3-256>` and expire within 60 seconds.
 - Webhooks that fail signature or tolerance answer `400`; events for a message
   recorded moments earlier answer `503` so the provider retries; events for
   unknown old messages are acknowledged and dropped.
+
+## Retention of verification records
+
+Magic-link requests write a `verification` row (hashed token identifier; the
+requested email is inside `value`). Redeeming deletes the row; unredeemed rows
+are purged by a job in each server process (once at start-up, then hourly),
+only once expired for more than 24 hours, at most 20 batches of 500 per run (a
+bigger backlog drains over later runs). Runs are idempotent and safe across
+instances (`SKIP LOCKED`). On shutdown the job stops between batches and the
+server waits for it before closing the database, so a normal restart never
+raises a false `auth.cleanup.failed`. Events: `auth.cleanup.completed`
+(`deleted`, `batches`) and `auth.cleanup.failed` (alert on this one; a failing
+run is retried next hour).
+
+No manual action is needed. To purge sooner, restart a server instance (it
+cleans once at start-up) or run one bounded batch in `psql`, repeating until it
+reports `DELETE 0`:
+
+```sql
+DELETE FROM verification WHERE id IN (
+  SELECT id FROM verification
+  WHERE expires_at < now() - interval '24 hours'
+  ORDER BY expires_at LIMIT 500 FOR UPDATE SKIP LOCKED);
+```
