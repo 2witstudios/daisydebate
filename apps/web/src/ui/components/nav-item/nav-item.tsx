@@ -1,6 +1,6 @@
 'use client';
 
-import { useUiState } from '../../store/store';
+import { usePathname } from 'next/navigation';
 import { dispatch, transactions } from '../../transactions';
 import { renderNavItem } from './nav-item.render';
 import type { IconName } from '../icon/icon';
@@ -14,12 +14,16 @@ export type NavItemProps = {
 };
 
 export function NavItem({ href, icon, label, subItems }: NavItemProps) {
-  const activeRoute = useUiState((state) => state.resources.activeRoute);
+  // The URL is the single source of truth for the active route, so
+  // deep links and back/forward mark the right item. Clicking still
+  // mirrors the route into the shell store for non-URL consumers.
+  const pathname = usePathname();
+  const active = pathname === href;
   return renderNavItem({
     href,
     icon,
     label,
-    active: activeRoute === href,
+    active,
     commitActiveRoute: () => dispatch(transactions.setActiveRoute, href),
     subItems,
   });

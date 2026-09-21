@@ -43,11 +43,11 @@ export function ActionTile({
         strokeWidth={1.6}
         className={`${styles.glyph} ${tintClass}`}
       />
-      <span className={styles.body}>
+      <div className={styles.body}>
         <h3 className={styles.title}>{title}</h3>
         <p className={styles.description}>{description}</p>
-      </span>
-      <span className={styles.footer}>
+      </div>
+      <div className={styles.footer}>
         {status ? (
           <StatusLine tone={status.tone}>{status.text}</StatusLine>
         ) : (
@@ -56,7 +56,7 @@ export function ActionTile({
         <span className={styles.chevron} aria-hidden="true">
           ›
         </span>
-      </span>
+      </div>
     </Link>
   );
 }

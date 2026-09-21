@@ -33,6 +33,10 @@
   color: var(--gold);
 }
 
+.neutral {
+  color: #dde7de;
+}
+
 .body {
   display: flex;
   flex-direction: column;

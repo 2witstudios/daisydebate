@@ -41,7 +41,7 @@ export function renderNavItem(props: NavItemRenderProps): ReactNode {
         ) : null}
       </Link>
       {hasChildren ? (
-        <span className={styles.flyout} aria-label={`${label} sub-navigation`}>
+        <span className={styles.flyout}>
           {subItems.map((child) => (
             <Link
               key={child.href}

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { SearchInput } from '../../../../components/search-input/search-input';
 import { IconButton } from '../../../../components/icon-button/icon-button';
 import { Avatar } from '../../../../components/avatar/avatar';
@@ -40,7 +41,7 @@ export function Topbar() {
   const viewer = useUiState((state) => state.resources.viewer);
   return (
     <header className={styles.topbar}>
-      <a href="/" className={styles.brand}>
+      <Link href="/" className={styles.brand}>
         <span className={styles.logo} aria-hidden="true">
           <BrandMark />
         </span>
@@ -49,7 +50,7 @@ export function Topbar() {
           Sharper minds.
           <br />A brighter world.
         </span>
-      </a>
+      </Link>
       <div className={styles.search}>
         <SearchInput />
       </div>

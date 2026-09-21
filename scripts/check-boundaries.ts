@@ -6,6 +6,10 @@ import {
   checkArchitectureExceptions,
   findArchitectureExceptionMarkers,
 } from './architecture-exceptions';
+import {
+  adobeIsolationIssue,
+  allowedWorkspaceDependencies as allowed,
+} from './boundaries-rules';
 
 type Manifest = {
   name: string;
@@ -34,33 +38,6 @@ const byName = new Map(
 );
 const issues: string[] = [];
 const architectureExceptionMarkers: string[] = [];
-// ADR 0006: Adobe vendor packages live in the engine adapter only. The web
-// UI shell attempted an exception (ADR 0017 attempt) but client-side ECS
-// codegen conflicts with the strict CSP; the boundary stays engine-only.
-export const adobeWorkspaces = ['@daisy/debate-engine'] as const;
-
-export const adobeIsolationIssue = (
-  workspaceName: string,
-  specifier: string,
-  kind: 'dependency' | 'import',
-): string | null => {
-  if (!specifier.startsWith('@adobe/')) return null;
-  if ((adobeWorkspaces as readonly string[]).includes(workspaceName)) {
-    return null;
-  }
-  return `${workspaceName}: Adobe ${kind} outside the engine`;
-};
-const allowed: Record<string, readonly string[]> = {
-  'debate-engine': ['errors', 'protocol'],
-  protocol: ['errors'],
-  auth: ['errors'],
-  errors: [],
-  db: ['config', 'errors'],
-  redis: ['config', 'errors'],
-  config: [],
-  logger: [],
-  observability: ['logger'],
-};
 const visit = (name: string, trail: string[]) => {
   if (trail.includes(name)) {
     issues.push(`Dependency cycle: ${[...trail, name].join(' -> ')}`);

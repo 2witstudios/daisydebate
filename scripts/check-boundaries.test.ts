@@ -1,4 +1,4 @@
-import { adobeIsolationIssue, adobeWorkspaces } from './check-boundaries';
+import { adobeIsolationIssue, adobeWorkspaces } from './boundaries-rules';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 
 setupRitewayBun();

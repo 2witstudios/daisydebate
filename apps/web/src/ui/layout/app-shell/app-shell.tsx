@@ -15,6 +15,8 @@ export type AppShellProps = {
 /**
  * Full-viewport chrome: fixed sidebar, topbar over the content column, and a
  * right rail. Owns interior layout only; content owns its own appearance.
+ * The root layout owns the page's single <main> landmark; this column is a
+ * plain region of it.
  */
 export function AppShell({ children, rail }: AppShellProps) {
   return (
@@ -26,7 +28,7 @@ export function AppShell({ children, rail }: AppShellProps) {
       <div className={styles.topbar}>
         <Topbar />
       </div>
-      <main className={styles.main}>{children}</main>
+      <div className={styles.main}>{children}</div>
       <aside className={styles.rail} aria-label="Sidebar">
         <RightRail>{rail}</RightRail>
       </aside>
