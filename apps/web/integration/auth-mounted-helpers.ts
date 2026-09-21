@@ -1,7 +1,6 @@
 import { beforeAll } from 'bun:test';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
-import { createHash } from 'node:crypto';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 
 /**
@@ -176,9 +175,6 @@ export const cookieHeader = (response: Response) =>
     .join('; ');
 
 export const fixtureEmail = () => `auth-${createId()}@example.test`;
-
-export const sha3 = (value: string) =>
-  createHash('sha3-256').update(value).digest('hex');
 
 export async function withSql<T>(work: (sql: SQL) => Promise<T>): Promise<T> {
   const sql = new SQL(testDatabaseUrl as string);
