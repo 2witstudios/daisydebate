@@ -6,9 +6,5 @@ export const shellPlugin = {
       ...state,
       resources: { ...state.resources, searchQuery },
     }),
-    setActiveRoute: (state: UiState, activeRoute: string): UiState => ({
-      ...state,
-      resources: { ...state.resources, activeRoute },
-    }),
   },
 };

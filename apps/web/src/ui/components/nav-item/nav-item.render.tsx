@@ -13,14 +13,12 @@ export type NavItemRenderProps = {
   readonly icon: IconName;
   readonly label: string;
   readonly active: boolean;
-  /** Void action: commits this route as active in the shell state. */
-  readonly commitActiveRoute: () => void;
   /** Optional sub-navigation revealed on hover and keyboard focus. */
   readonly subItems?: readonly NavItemChild[] | undefined;
 };
 
 export function renderNavItem(props: NavItemRenderProps): ReactNode {
-  const { href, icon, label, active, commitActiveRoute, subItems } = props;
+  const { href, icon, label, active, subItems } = props;
   const hasChildren = subItems !== undefined && subItems.length > 0;
   return (
     <span className={styles.wrapper}>
@@ -30,7 +28,6 @@ export function renderNavItem(props: NavItemRenderProps): ReactNode {
           .filter(Boolean)
           .join(' ')}
         aria-current={active ? 'page' : undefined}
-        onClick={commitActiveRoute}
       >
         <Icon name={icon} size={18} />
         <span className={styles.label}>{label}</span>
@@ -47,7 +44,6 @@ export function renderNavItem(props: NavItemRenderProps): ReactNode {
               key={child.href}
               href={child.href}
               className={styles.flyoutItem}
-              onClick={commitActiveRoute}
             >
               {child.label}
             </Link>
