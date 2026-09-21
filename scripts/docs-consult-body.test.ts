@@ -90,7 +90,7 @@ describe('dispatchDocumentationEvent with a lost response body', async () => {
   });
 
   test('does not call an unreadable conversation never reached', async () => {
-    const { fetchImpl } = routedFetch({
+    const { counts, fetchImpl } = routedFetch({
       consult: async () => new Response('', { status: 502 }),
       readStatus: 503,
     });
@@ -98,18 +98,20 @@ describe('dispatchDocumentationEvent with a lost response body', async () => {
       dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
         ...baseOptions,
         ...instant,
+        timeoutMs: 50,
         fetchImpl,
       }),
     );
     assert({
       given: 'a gateway 502 and conversation reads that keep failing',
       should:
-        'report an unknown outcome with the next attempt, not a same-attempt replay',
+        'keep polling to the deadline, then report an unknown outcome with the next attempt',
       actual: {
         neverReached: message.includes('never reached PageSpace'),
         nextAttempt: message.includes('DOC_REPLAY_ATTEMPT=1 '),
+        keptPolling: counts.messages > 2,
       },
-      expected: { neverReached: false, nextAttempt: true },
+      expected: { neverReached: false, nextAttempt: true, keptPolling: true },
     });
   });
 });

@@ -222,14 +222,16 @@ describe('dispatchDocumentationEvent receipt', async () => {
   test('does not send a consult the reservation left no time for', async () => {
     const { counts, fetchImpl } = routedFetch({
       consult: async () => ok(),
-      appendDelayMs: 100,
+      appendDelayMs: 1_000,
     });
+    // Real timers with wide margins: the loop's start guard has 500ms to
+    // pass, and the append then outlasts the consult window by 500ms.
     const message = await failureOf(
       dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
         ...baseOptions,
         fetchImpl,
-        budgetMs: 200,
-        requestTimeoutMs: 150,
+        budgetMs: 2_000,
+        requestTimeoutMs: 1_500,
         attempt: 2,
       }),
     );

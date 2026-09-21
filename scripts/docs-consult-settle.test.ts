@@ -290,7 +290,7 @@ describe('dispatchDocumentationEvent settlement', async () => {
     });
   });
 
-  test('reads again when a route failure meets an unreadable conversation', async () => {
+  test('reads again when a route failure meets an empty conversation', async () => {
     let reads = 0;
     const { counts, fetchImpl } = routedFetch({
       consult: async () => routeFailure(),
@@ -333,6 +333,29 @@ describe('dispatchDocumentationEvent settlement', async () => {
         reads: counts.messages,
       },
       expected: { outcome: ['dispatched'], reads: 4 },
+    });
+  });
+
+  test('reads again when a route failure meets an unreadable conversation', async () => {
+    const { counts, fetchImpl } = routedFetch({
+      consult: async () => routeFailure(),
+      readStatus: 503,
+    });
+    const message = await failureOf(
+      dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
+        ...baseOptions,
+        ...instant,
+        fetchImpl,
+      }),
+    );
+    assert({
+      given: 'a route 500 whose conversation reads keep failing',
+      should: 'read once more, then fail as a route failure without polling',
+      actual: {
+        reads: counts.messages,
+        routeFailed: message.includes('failed in PageSpace'),
+      },
+      expected: { reads: 2, routeFailed: true },
     });
   });
 });

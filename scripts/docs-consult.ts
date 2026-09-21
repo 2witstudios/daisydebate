@@ -205,9 +205,10 @@ export async function dispatchDocumentationEvent(
     }
   };
 
-  // Once the question has been seen, an unreadable conversation is a blip, not
-  // proof the request vanished; before that, one grace read decides, and a
-  // failed read reports 'unreadable' rather than claiming the id was unused. Polling
+  // Only a successful read that finds no conversation, twice, ends the wait
+  // early as 'absent'. A failed read proves nothing either way, so polling
+  // goes on to the deadline and reports 'unreadable' only then, when the full
+  // wait has really passed. Polling
   // stops at the consult's deadline, but each read is bounded by the budget,
   // so the read after a consult times out still has time to answer.
   const awaitAnswer = async (
@@ -219,7 +220,7 @@ export async function dispatchDocumentationEvent(
       const state = await readConversation(conversationId, budgetEnd);
       if (state === 'answered') return 'answered';
       if (state === 'pending') seenQuestion = true;
-      if (!seenQuestion && reads >= 1) return state;
+      if (!seenQuestion && reads >= 1 && state === 'absent') return 'absent';
       if (Date.now() >= deadline) return seenQuestion ? 'pending' : state;
       // Never sleep past the deadline: the next read, bounded by the budget,
       // then still ends inside it.
@@ -370,8 +371,9 @@ export async function dispatchDocumentationEvent(
     const settle = async (cause: string): Promise<ConsultOutcome> => {
       const state = await awaitAnswer(conversationId, deadline);
       if (state === 'answered') return answered;
-      // An absent conversation means the id was never used, so the same
-      // attempt replays it; a request that did land late is refused with 409.
+      // A conversation twice read as missing almost certainly never used its
+      // id, so the same attempt replays it; if it did land, the replay is
+      // refused with 409 and the runbook's already-dispatched step applies.
       if (state === 'absent')
         throw new Error(
           `Documentation Agent consult for ${pipeline} never reached PageSpace (${cause}). Its receipt, ${receipt}, stays failed unless the request lands late; replay with DOC_REPLAY_ATTEMPT=${attempt} DOC_PIPELINES=${pipeline}`,
