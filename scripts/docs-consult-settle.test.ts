@@ -136,12 +136,17 @@ describe('dispatchDocumentationEvent settlement', async () => {
     }
     assert({
       given: 'a run whose conversation still lacks an answer at the deadline',
-      should: 'throw and point at the next replay attempt',
+      should:
+        'say the run may still finish, name its receipt row, and give a targeted replay',
       actual: {
         names: message.includes('technical-docs did not answer'),
-        replay: message.includes('DOC_REPLAY_ATTEMPT=1'),
+        mayFinish: message.includes('The run may still finish'),
+        row: message.includes('row 2 of Documentation Runs'),
+        replay: message.includes(
+          'DOC_REPLAY_ATTEMPT=1 DOC_PIPELINES=technical-docs',
+        ),
       },
-      expected: { names: true, replay: true },
+      expected: { names: true, mayFinish: true, row: true, replay: true },
     });
   });
 

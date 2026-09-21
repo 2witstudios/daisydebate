@@ -17,14 +17,15 @@ import {
 // The consult route answers only when the run finishes, and a run takes
 // minutes. The answer can still be lost on its way back (a dropped connection,
 // a gateway 5xx), so the socket is not the receipt, the conversation is: the
-// route persists the question before the run and the answer after it. Runs
-// whose request ended early never answered, and two consults in flight at once
-// were both cut off, so pipelines are consulted one at a time. Each waits up to
-// DEFAULT_WAIT_MS; together they share DEFAULT_BUDGET_MS, which ends inside the
-// 30-minute CI job so an expired budget fails the step, and posts the incident,
-// before the job is cancelled.
-const DEFAULT_WAIT_MS = 13 * 60_000;
-const DEFAULT_BUDGET_MS = 28 * 60_000;
+// route persists the question before the run and the answer after it. Under
+// load, two consults in flight at once were both cut off and a run took 16
+// minutes, so pipelines are consulted one at a time: each waits up to
+// DEFAULT_WAIT_MS, all share DEFAULT_BUDGET_MS, and the budget ends inside the
+// 45-minute CI job so an expired budget fails the step, and posts the
+// incident, before the job is cancelled. No answer by then means unknown, not
+// dead: a late run still rewrites its reserved row.
+const DEFAULT_WAIT_MS = 20 * 60_000;
+const DEFAULT_BUDGET_MS = 42 * 60_000;
 const DEFAULT_POLL_INTERVAL_MS = 15_000;
 
 export type ConsultOutcome = {
@@ -313,7 +314,7 @@ export async function dispatchDocumentationEvent(
           `Documentation Agent consult for ${pipeline} never reached PageSpace: ${cause}`,
         );
       throw new Error(
-        `Documentation Agent consult for ${pipeline} did not answer within ${waitSeconds}s (${cause}); its conversation ${conversationId} holds the question but no answer, and that id is now taken, so if the run died replay with DOC_REPLAY_ATTEMPT=${attempt + 1}`,
+        `Documentation Agent consult for ${pipeline} did not answer within ${waitSeconds}s (${cause}). The run may still finish: its receipt is row ${runRow} of Documentation Runs. If that row turns complete, nothing is lost; if it stays failed, replay with DOC_REPLAY_ATTEMPT=${attempt + 1} DOC_PIPELINES=${pipeline}`,
       );
     };
     const controller = new AbortController();

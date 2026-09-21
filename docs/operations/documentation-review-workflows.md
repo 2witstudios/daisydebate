@@ -117,7 +117,9 @@ field per column (header row = field names), counts as integers, objects and
 arrays as JSON. Dispatch reserves each run's row before the consult by
 appending it with every trusted key and `status: failed`, so concurrent runs
 never share a row and a run that never finishes stays visible; the agent
-rewrites that row only. The consult prompt is generated from that layout, and
+rewrites that row only. Never delete a Runs row: deleting shifts every row
+below it, so an in-flight run would rewrite someone else's receipt. Correct a
+bad row in place instead. The consult prompt is generated from that layout, and
 `bun docs:reconcile` reads the sheet back through it, failing on a drifted
 header or an invalid row rather than skipping it:
 
