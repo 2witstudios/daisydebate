@@ -2,11 +2,16 @@ import { betterAuth } from 'better-auth';
 import type { BetterAuthOptions } from 'better-auth';
 import { magicLink } from 'better-auth/plugins';
 import { passkey } from '@better-auth/passkey';
-import { createId } from '@paralleldrive/cuid2';
 import { createAppError } from '@daisy/errors';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import { readAuthConfig, type AuthConfig } from '@daisy/config';
+import {
+  clientIpOptions,
+  createRateLimitGate,
+  type AuthRateLimiter,
+  type ClientIpTrust,
+} from './rate-limit';
 
 /** Application-level email contract; the Resend transport plugs in here. */
 export type AuthEmailMessage = {
@@ -18,13 +23,6 @@ export type AuthEmailMessage = {
 export type AuthEmailSender = {
   readonly send: (message: AuthEmailMessage) => Promise<void>;
 };
-/** Atomic multi-instance limiter contract backed by @daisy/redis. */
-export type AuthRateLimiter = {
-  readonly consume: (key: string) => Promise<{
-    readonly allowed: boolean;
-    readonly retryAfterSeconds: number;
-  }>;
-};
 /**
  * The composed Better Auth instance with the passwordless plugins applied.
  * Created lazily by the factory; importing this module performs no I/O.
@@ -35,6 +33,10 @@ const composeBetterAuth = (dependencies: {
   readonly config: AuthConfig;
   readonly database: BetterAuthOptions['database'];
   readonly emailSender: AuthEmailSender;
+  readonly limiter: AuthRateLimiter;
+  readonly logger: Logger;
+  readonly ids: IdGenerator;
+  readonly clientIp: ClientIpTrust | undefined;
 }) => {
   const origin = new URL(dependencies.config.PUBLIC_APP_URL).origin;
   return betterAuth({
@@ -44,9 +46,22 @@ const composeBetterAuth = (dependencies: {
     database: dependencies.database,
     advanced: {
       database: {
-        // Entity identifiers are unguessable cuid2, not UUIDs.
-        generateId: () => createId(),
+        // Entity identifiers come from the injected generator (cuid2 at
+        // the production edge, ADR 0018), never an ambient one.
+        generateId: () => dependencies.ids.next(),
       },
+      // No request header names the client unless explicitly trusted.
+      ipAddress: clientIpOptions(dependencies.clientIp),
+    },
+    // The injected atomic limiter is the only rate limit. Better Auth's
+    // built-in limiter never sees direct `auth.api` calls and cannot fail
+    // closed with a 503, so the gate below replaces it.
+    rateLimit: { enabled: false },
+    hooks: {
+      before: createRateLimitGate({
+        limiter: dependencies.limiter,
+        logger: dependencies.logger,
+      }),
     },
     emailAndPassword: { enabled: false },
     plugins: [
@@ -102,6 +117,12 @@ export function createAuthServer<
   readonly logger: Logger;
   readonly clock: Clock;
   readonly ids: IdGenerator;
+  /**
+   * Trusted client-IP header(s) for rate-limit keying. Omitted means no
+   * request header is believed; the deployment's proxy header is supplied
+   * here when routes activate (ADR 0020).
+   */
+  readonly clientIp?: ClientIpTrust | undefined;
 }): AuthServer<Database> {
   const config = readAuthConfig(dependencies.env);
   const sendMail: AuthEmailSender['send'] = async (message) => {
@@ -110,8 +131,18 @@ export function createAuthServer<
     } catch (error) {
       // Delivery failure is a generic retryable outcome: never surface
       // or log the provider exception, recipient or message body here.
+      dependencies.logger.log(
+        'http.request.failed',
+        { operation: 'auth.mail.send', errorCode: 'INFRASTRUCTURE' },
+        'Auth mail delivery failed',
+      );
       throw createAppError('INFRASTRUCTURE', undefined, error);
     }
+    dependencies.logger.log(
+      'http.request.completed',
+      { operation: 'auth.mail.send' },
+      'Auth mail delivered',
+    );
   };
   return {
     config,
@@ -119,6 +150,10 @@ export function createAuthServer<
       config,
       database: dependencies.database,
       emailSender: { send: sendMail },
+      limiter: dependencies.limiter,
+      logger: dependencies.logger,
+      ids: dependencies.ids,
+      clientIp: dependencies.clientIp,
     }),
     database: dependencies.database,
     mail: { send: sendMail },

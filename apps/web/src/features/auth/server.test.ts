@@ -211,24 +211,4 @@ describe('auth server composition', () => {
       expected: { appError: true, code: 'INFRASTRUCTURE', safeMessage: true },
     });
   });
-
-  test('exposes the deterministic application dependencies verbatim', async () => {
-    const server = create();
-    assert({
-      given: 'a fixed clock, sequential ids and a scripted limiter',
-      should: 'read time, identity and limits only from the injections',
-      actual: {
-        instant: server.clock.now(),
-        firstId: server.ids.next(),
-        secondId: server.ids.next(),
-        limit: await server.limiter.consume('key'),
-      },
-      expected: {
-        instant: '2026-09-20T00:00:00.000Z',
-        firstId: 'auth-1',
-        secondId: 'auth-2',
-        limit: { allowed: true, retryAfterSeconds: 0 },
-      },
-    });
-  });
 });

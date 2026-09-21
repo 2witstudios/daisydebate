@@ -1,0 +1,236 @@
+import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { memoryAdapter } from '@better-auth/memory-adapter';
+import { fixedClock, sequentialId } from '@daisy/clock';
+import type { Logger } from '@daisy/logger';
+import { logsLeakSecrets } from './log-leaks';
+import type { AuthRateLimiter } from './rate-limit';
+import { createAuthServer, type AuthEmailMessage } from './server';
+
+setupRitewayBun();
+
+const env = {
+  BETTER_AUTH_SECRET:
+    '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
+  PUBLIC_APP_URL: 'http://localhost:3000',
+  RESEND_API_KEY: 're_test_000000000000000000000000',
+  AUTH_EMAIL_FROM: 'Daisy <no-reply@daisy.example.com>',
+};
+const email = 'player@daisy.example.com';
+const allowing: AuthRateLimiter = {
+  consume: async () => ({ allowed: true, retryAfterSeconds: 0 }),
+};
+
+type Entry = readonly unknown[];
+const recordingLogger = (entries: Entry[]): Logger => ({
+  log: (...entry) => {
+    entries.push(entry);
+  },
+  child: () => recordingLogger(entries),
+});
+
+const compose = (overrides: {
+  limiter?: AuthRateLimiter;
+  deliveryFailure?: Error;
+}) => {
+  const sent: AuthEmailMessage[] = [];
+  const logged: Entry[] = [];
+  const tables = {
+    user: [],
+    session: [],
+    account: [],
+    verification: [] as { id: string }[],
+    passkey: [],
+  };
+  const server = createAuthServer({
+    env,
+    database: memoryAdapter(tables),
+    emailSender: {
+      send: async (message) => {
+        if (overrides.deliveryFailure) throw overrides.deliveryFailure;
+        sent.push(message);
+      },
+    },
+    limiter: overrides.limiter ?? allowing,
+    logger: recordingLogger(logged),
+    clock: fixedClock('2026-09-20T00:00:00.000Z'),
+    ids: sequentialId('auth'),
+  });
+  const requestLink = async () => {
+    try {
+      await server.instance.api.signInMagicLink({
+        body: { email },
+        headers: new Headers({ origin: env.PUBLIC_APP_URL }),
+      });
+      return 'OK';
+    } catch (error) {
+      return String((error as { status?: unknown }).status);
+    }
+  };
+  return { server, sent, logged, tables, requestLink };
+};
+
+describe('auth server injected seams', () => {
+  test('mints entity identifiers from the injected generator', async () => {
+    const { requestLink, tables } = compose({});
+    await requestLink();
+    assert({
+      given: 'a sequential id generator and one magic-link request',
+      should: 'persist the verification record under the first injected id',
+      actual: tables.verification.map(({ id }) => id),
+      expected: ['auth-1'],
+    });
+  });
+
+  test('a denying limiter blocks the magic-link send', async () => {
+    const keys: string[] = [];
+    const { requestLink, sent, tables, logged } = compose({
+      limiter: {
+        consume: async (key) => {
+          keys.push(key);
+          return { allowed: false, retryAfterSeconds: 30 };
+        },
+      },
+    });
+    const outcome = await requestLink();
+    assert({
+      given: 'a limiter that denies the request',
+      should:
+        'reject with 429 before any durable work, mail, or secret-bearing key or log',
+      actual: {
+        outcome,
+        consulted: keys.length > 0,
+        sent: sent.length,
+        verifications: tables.verification.length,
+        logged: logged.length > 0,
+        leaks: logsLeakSecrets([keys, logged], [email]),
+      },
+      expected: {
+        outcome: 'TOO_MANY_REQUESTS',
+        consulted: true,
+        sent: 0,
+        verifications: 0,
+        logged: true,
+        leaks: false,
+      },
+    });
+  });
+
+  test('a throwing limiter fails closed', async () => {
+    const { requestLink, sent, tables, logged } = compose({
+      limiter: {
+        consume: async () => {
+          throw new Error(`redis down while limiting ${email}`);
+        },
+      },
+    });
+    const outcome = await requestLink();
+    assert({
+      given: 'a limiter outage',
+      should: 'deny with 503, send nothing, persist nothing, and log safely',
+      actual: {
+        outcome,
+        sent: sent.length,
+        verifications: tables.verification.length,
+        logged: logged.length > 0,
+        leaks: logsLeakSecrets(logged, [email, 'redis down']),
+      },
+      expected: {
+        outcome: 'SERVICE_UNAVAILABLE',
+        sent: 0,
+        verifications: 0,
+        logged: true,
+        leaks: false,
+      },
+    });
+  });
+
+  test('a synchronously throwing limiter fails closed', async () => {
+    const { requestLink, sent, tables, logged } = compose({
+      limiter: {
+        consume: () => {
+          throw new Error(`invalid limiter key for ${email}`);
+        },
+      },
+    });
+    const outcome = await requestLink();
+    assert({
+      given: 'a limiter that throws before returning a promise',
+      should: 'converge on the same safe 503 denial as a rejected promise',
+      actual: {
+        outcome,
+        sent: sent.length,
+        verifications: tables.verification.length,
+        events: logged.map(([event, fields]) => [event, fields]),
+        leaks: logsLeakSecrets(logged, [email, 'invalid limiter key']),
+      },
+      expected: {
+        outcome: 'SERVICE_UNAVAILABLE',
+        sent: 0,
+        verifications: 0,
+        events: [
+          [
+            'http.request.failed',
+            {
+              operation: 'auth.rate_limit',
+              path: '/sign-in/magic-link',
+              errorCode: 'INFRASTRUCTURE',
+            },
+          ],
+        ],
+        leaks: false,
+      },
+    });
+  });
+
+  test('throttles the HTTP handler through the same limiter', async () => {
+    const { server } = compose({
+      limiter: {
+        consume: async () => ({ allowed: false, retryAfterSeconds: 30 }),
+      },
+    });
+    const response = await server.instance.handler(
+      new Request(`${env.PUBLIC_APP_URL}/api/auth/get-session`),
+    );
+    assert({
+      given: 'a denied non-mail auth request through the HTTP handler',
+      should: 'answer 429 with the limiter retry hint',
+      actual: {
+        status: response.status,
+        retryAfter: response.headers.get('retry-after'),
+      },
+      expected: { status: 429, retryAfter: '30' },
+    });
+  });
+
+  test('logs mail failure through the injected logger without secrets', async () => {
+    const { requestLink, logged, tables } = compose({
+      deliveryFailure: new Error('resend provider exception AB12CD'),
+    });
+    await requestLink();
+    const token = String(
+      (tables.verification[0] as { identifier?: string } | undefined)
+        ?.identifier,
+    );
+    assert({
+      given: 'a failing email sender during a magic-link request',
+      should: 'log the failure with no recipient, token or provider detail',
+      actual: {
+        events: logged.map(([event]) => event),
+        leaks: logsLeakSecrets(logged, [email, token, 'AB12CD', 'resend']),
+      },
+      expected: { events: ['http.request.failed'], leaks: false },
+    });
+  });
+
+  test('the leak detector flags a leaking entry', () => {
+    assert({
+      given: 'log entries where one carries the recipient',
+      should: 'report a leak, and report none once it is removed',
+      actual: [
+        logsLeakSecrets([['event', { to: email }, 'sent']], [email]),
+        logsLeakSecrets([['event', { operation: 'send' }, 'sent']], [email]),
+      ],
+      expected: [true, false],
+    });
+  });
+});

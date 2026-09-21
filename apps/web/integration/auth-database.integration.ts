@@ -10,13 +10,15 @@ import {
   fixtureEmail,
   isCuid2,
   isDate,
-  logsLeakSecrets,
   removeFixture,
   verificationValue,
   verifyUrl,
-  type RecordedLogs,
   type SentMessages,
 } from './auth-helpers';
+import {
+  logsLeakSecrets,
+  type RecordedLogs,
+} from '../src/features/auth/log-leaks';
 
 setupRitewayBun();
 
@@ -264,9 +266,13 @@ test('redeeming the captured link durably creates a verified user and session', 
 
       assert({
         given: 'the integration run with its captured logger',
-        should: 'never log credential, token or email material',
-        actual: logsLeakSecrets(logged, [token, email]),
-        expected: false,
+        should:
+          'capture the mail delivery log entry and never log token or email material',
+        actual: {
+          events: logged.map(([event]) => event),
+          leaks: logsLeakSecrets(logged, [token, email]),
+        },
+        expected: { events: ['http.request.completed'], leaks: false },
       });
     },
   );
