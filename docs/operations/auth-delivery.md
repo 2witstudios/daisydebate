@@ -1,7 +1,7 @@
 # Authentication delivery and abuse protection
 
 Operational contract for `/api/auth/*`, `/auth/confirm` and
-`/api/webhooks/resend` (ADR 0024). Full incident runbooks belong to the
+`/api/webhooks/resend` (ADR 0025). Full incident runbooks belong to the
 observability leaf (AUTH-6.4); this page holds the facts operators need to
 deploy and to reason about failures.
 

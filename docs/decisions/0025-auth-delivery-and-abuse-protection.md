@@ -1,4 +1,4 @@
-# 0024: authentication delivery and abuse protection
+# 0025: authentication delivery and abuse protection
 
 Status: accepted.
 
