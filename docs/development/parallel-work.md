@@ -33,16 +33,18 @@ PageSpace's lesson: branch debris accumulates faster than agents clean it
   and its PR. A worktree cannot commit to a branch another worktree has
   checked out, so a direct commit landing on `main` is always a
   parent-checkout violation, not a worktree accident.
-- Worktree agents never write the task board directly. The session that
-  owns the checkout (the orchestrator) claims leaves, advances statuses,
-  and posts updates; subagents report back through their prompt channel.
-  Artifact pages are different: every agent publishes its own handoff or
-  review record in the drive's `Plans`/`Reviews` folders, because those are
-  the record a reviewer reads. `/tmp` and agent-local notes are scratch.
+- Every agent, worktree or not, keeps its tasks current on the board
+  through the `pagespace` CLI: it claims leaves, advances statuses, creates
+  follow-up tasks and records evidence. No agent edits the acceptance
+  criteria or scope of a task delegated to it, and Done comes from an
+  independent review record, never from the agent that did the work. Every
+  agent also publishes its own handoff or review record in the drive's
+  `Plans`/`Reviews` folders, because those are the record a reviewer reads.
+  `/tmp` and agent-local notes are scratch.
 - Deviating from a task's acceptance criteria is allowed exactly one way:
-  update the task body (or the plan) to describe the new approach
-  **before** declaring the work done. Silent scope substitution is the
-  failure mode this prevents.
+  take it back to whoever delegated the task, who updates the task body (or
+  the plan) to describe the new approach **before** the work is declared
+  done. Silent scope substitution is the failure mode this prevents.
 
 ## What each session must not own concurrently
 
