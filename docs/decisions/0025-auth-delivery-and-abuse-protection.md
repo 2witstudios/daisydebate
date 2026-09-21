@@ -58,7 +58,7 @@ adds the delivery and abuse controls ADR 0020 requires before activation.
   guidance.
 - **Verification retention (AUTH-7.5a).** Better Auth's `verification.value`
   holds the plaintext email JSON and Better Auth does not purge expired rows,
-  so the server purges them itself: an hourly in-process job deletes rows
+  so the server purges them itself: an in-process job (at start-up, then hourly) deletes rows
   expired more than 24 hours ago, at most 20 batches of 500 per run
   (`DELETE … WHERE id IN (SELECT … LIMIT … FOR UPDATE SKIP LOCKED)` on the
   existing expiry index; no migration, no new service). Every instance runs it;

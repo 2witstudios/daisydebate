@@ -80,19 +80,27 @@ export function startVerificationCleanup({
   cleanup,
   timers,
   intervalMs = HOUR_MS,
+  runOnStart = false,
 }: {
   readonly cleanup: { readonly run: () => Promise<CleanupResult> };
   readonly timers: Timers;
   readonly intervalMs?: number;
+  /** Also clean once now: processes restarted more often than hourly still purge. */
+  readonly runOnStart?: boolean;
 }) {
   let running = false;
-  const handle = timers.setInterval(() => {
+  // Returned so callers (and tests) can await the run; timers ignore it.
+  const tick = () => {
     if (running) return undefined;
     running = true;
-    // Returned so callers (and tests) can await the run; timers ignore it.
     return cleanup.run().finally(() => {
       running = false;
     });
-  }, intervalMs);
-  return { stop: () => timers.clearInterval(handle) };
+  };
+  const handle = timers.setInterval(tick, intervalMs);
+  return {
+    /** The start-up run, when `runOnStart` is set. */
+    initial: runOnStart ? tick() : undefined,
+    stop: () => timers.clearInterval(handle),
+  };
 }

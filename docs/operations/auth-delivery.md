@@ -82,7 +82,7 @@ live under `<REDIS_NAMESPACE>:v1:rl:<sha3-256>` and expire within 60 seconds.
 
 Magic-link requests write a `verification` row (hashed token identifier; the
 requested email is inside `value`). Redeeming deletes the row; unredeemed rows
-are purged by an hourly job in each server process, only once expired for more
+are purged by a job in each server process (once at start-up, then hourly), only once expired for more
 than 24 hours, at most 20 batches of 500 per run (a bigger backlog drains over
 later runs). Runs are idempotent and safe across instances (`SKIP LOCKED`).
 Events: `auth.cleanup.completed` (`deleted`, `batches`) and

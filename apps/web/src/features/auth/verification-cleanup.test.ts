@@ -200,4 +200,26 @@ describe('verification cleanup schedule', () => {
       expected: { started: 1, secondTickRan: false },
     });
   });
+  test('runOnStart runs one cleanup immediately so short-lived processes still purge', async () => {
+    const { state, timers } = fakeTimers();
+    let runs = 0;
+    const schedule = startVerificationCleanup({
+      cleanup: {
+        run: async () => {
+          runs += 1;
+          return { ok: true, deleted: 0, batches: 0 };
+        },
+      },
+      timers,
+      runOnStart: true,
+    });
+    await schedule.initial;
+    await state.tick?.();
+    assert({
+      given: 'a schedule started with runOnStart, then its first hourly tick',
+      should: 'have run once at start and once for the tick',
+      actual: runs,
+      expected: 2,
+    });
+  });
 });

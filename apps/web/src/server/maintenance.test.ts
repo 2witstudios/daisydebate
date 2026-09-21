@@ -5,7 +5,7 @@ import { startMaintenance } from './maintenance';
 setupRitewayBun();
 
 describe('server maintenance', () => {
-  test('an hourly tick purges verification rows expired before the 24-hour grace, and stop clears the timer', async () => {
+  test('the start-up run and one hourly tick purges verification rows expired before the 24-hour grace, and stop clears the timer', async () => {
     const purged: Array<{ before: string; limit: number }> = [];
     const handles: string[] = [];
     let tick: () => unknown = () => undefined;
@@ -27,15 +27,20 @@ describe('server maintenance', () => {
         clearInterval: (handle) => void handles.push(String(handle)),
       },
     });
+    await maintenance.initial;
     await tick();
     maintenance.stop();
     assert({
-      given: 'the production maintenance composition and one hourly tick',
+      given:
+        'the production maintenance composition, its start-up run and one hourly tick',
       should:
         'purge with a cutoff 24 hours before now in bounded batches and clear its timer on stop',
       actual: { purged, handles },
       expected: {
-        purged: [{ before: '2026-09-19T12:00:00.000Z', limit: 500 }],
+        purged: Array(2).fill({
+          before: '2026-09-19T12:00:00.000Z',
+          limit: 500,
+        }),
         handles: ['timer'],
       },
     });

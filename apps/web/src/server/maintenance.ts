@@ -33,5 +33,6 @@ export function startMaintenance({
       logger,
     }),
     timers,
+    runOnStart: true,
   });
 }
