@@ -74,8 +74,8 @@ export const debateRow = (record: {
   record.resolution,
   record.format,
   record.snapshot,
-  record.createdAt,
-  record.updatedAt,
+  new Date(record.createdAt),
+  new Date(record.updatedAt),
   record.version,
 ];
 
@@ -86,8 +86,8 @@ export const userRow = (record: {
   emailVerified: boolean;
   name: string;
   image: string | null;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: Date;
+  updatedAt: Date;
   version: number;
 }): unknown[] => [
   record.id,
@@ -119,7 +119,7 @@ export const sampleUser = () => ({
   emailVerified: false,
   name: '',
   image: null,
-  createdAt: '2026-01-01T00:00:00.000Z',
-  updatedAt: '2026-01-01T00:00:00.000Z',
+  createdAt: new Date('2026-01-01T00:00:00.000Z'),
+  updatedAt: new Date('2026-01-01T00:00:00.000Z'),
   version: 1,
 });

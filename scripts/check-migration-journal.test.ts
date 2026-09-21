@@ -258,7 +258,17 @@ describe('excuseSanctionedSquash', () => {
   const baseline = {
     baseJournalHash: journalFingerprint(base),
     adr: 'docs/decisions/0023-greenfield-baseline.md',
+    reviewBy: '2027-03-20',
   };
+  const today = '2026-09-20';
+  const squashedHead = [{ tag: '0000_fresh_baseline' }];
+  const excuseWith = (reviewBy: unknown, on = today) =>
+    excuseSanctionedSquash(findJournalProblems(base, squashedHead), {
+      base,
+      head: squashedHead,
+      baselines: [{ ...baseline, reviewBy }],
+      today: on,
+    });
 
   test('excuses a full-history replacement only for the recorded base journal', () => {
     const head = [{ tag: '0000_fresh_baseline' }];
@@ -266,6 +276,7 @@ describe('excuseSanctionedSquash', () => {
       base,
       head,
       baselines: [baseline],
+      today,
     });
     assert({
       given: 'a squash whose base journal hash is sanctioned',
@@ -284,8 +295,10 @@ describe('excuseSanctionedSquash', () => {
         {
           baseJournalHash: journalFingerprint(head),
           adr: 'docs/decisions/0023-greenfield-baseline.md',
+          reviewBy: '2027-03-20',
         },
       ],
+      today,
     });
     assert({
       given: 'a squash whose base journal hash is not sanctioned',
@@ -302,7 +315,7 @@ describe('excuseSanctionedSquash', () => {
     ];
     const result = excuseSanctionedSquash(
       findJournalProblems(base, brokenHead),
-      { base, head: brokenHead, baselines: [baseline] },
+      { base, head: brokenHead, baselines: [baseline], today },
     );
     assert({
       given: 'a sanctioned squash whose head journal is internally broken',
@@ -314,6 +327,68 @@ describe('excuseSanctionedSquash', () => {
         sanctioned: result.sanctioned,
       },
       expected: { keepsDuplicateTag: true, sanctioned: false },
+    });
+  });
+
+  test('honors a sanction through its reviewBy date', () => {
+    assert({
+      given: 'a matching sanction whose reviewBy is today',
+      should: 'still excuse the squash',
+      actual: excuseWith('2027-03-20', '2027-03-20'),
+      expected: { problems: [], sanctioned: true },
+    });
+  });
+
+  test('rejects a matching sanction that has expired', () => {
+    const result = excuseWith('2027-03-20', '2027-03-21');
+    assert({
+      given: 'a matching sanction whose reviewBy is in the past',
+      should: 'keep the rewrite problems and explain the expiry',
+      actual: {
+        sanctioned: result.sanctioned,
+        codes: result.problems.map(({ code }) => code).sort(),
+        detail: result.problems.find(({ code }) => code === 'EXPIRED_SANCTION')
+          ?.detail,
+      },
+      expected: {
+        sanctioned: false,
+        codes: ['EXPIRED_SANCTION', 'REWRITTEN_HISTORY', 'TRUNCATED_HISTORY'],
+        detail:
+          'policy/migration-baselines.json sanction for this base journal expired on 2027-03-20 (today is 2027-03-21); renew it through docs/decisions/0023-greenfield-baseline.md or drop the rewrite',
+      },
+    });
+  });
+
+  test('rejects a matching sanction without a usable reviewBy', () => {
+    assert({
+      given: 'matching sanctions whose reviewBy is missing or malformed',
+      should: 'refuse each one as an invalid sanction',
+      actual: [undefined, 20270320, '', '2027-3-20', '2027-02-30', 'never'].map(
+        (reviewBy) => {
+          const result = excuseWith(reviewBy);
+          return [
+            result.sanctioned,
+            result.problems.some(({ code }) => code === 'INVALID_SANCTION'),
+            result.problems.length,
+          ];
+        },
+      ),
+      expected: Array.from({ length: 6 }, () => [false, true, 3]),
+    });
+  });
+
+  test('prefers an unexpired sanction over an expired duplicate', () => {
+    const head = squashedHead;
+    assert({
+      given: 'an expired and an unexpired sanction for the same base journal',
+      should: 'excuse the squash',
+      actual: excuseSanctionedSquash(findJournalProblems(base, head), {
+        base,
+        head,
+        baselines: [{ ...baseline, reviewBy: '2020-01-01' }, baseline],
+        today,
+      }),
+      expected: { problems: [], sanctioned: true },
     });
   });
 });
