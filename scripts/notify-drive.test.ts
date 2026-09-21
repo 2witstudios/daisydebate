@@ -7,7 +7,6 @@ import {
   composeMergeMessage,
   deliverWithRetry,
   extractTaskIds,
-  postDocumentationEvent,
   signPayload,
 } from './notify-drive';
 
@@ -205,115 +204,5 @@ describe('composeDocsFailureMessage', async () => {
       expected:
         '🟡 Documentation event skipped for merged fork PR #13 — replay manually with `bun docs:dispatch` from a trusted checkout.\nhttps://github.test/pr/13\nhttps://github.com/2witstudios/daisydebate/blob/main/docs/operations/documentation-review-workflows.md',
     });
-  });
-});
-
-describe('postDocumentationEvent', async () => {
-  const validEvent = {
-    eventVersion: 'docs-event-v1' as const,
-    eventId: 'evt-1',
-    eventType: 'pull_request.merged' as const,
-    occurredAt: '2026-09-20T00:00:00.000Z',
-    repository: 'daisydebate',
-    baseRef: 'main',
-    commit: 'abc123',
-    pullRequest: null,
-    taskIds: [],
-    changedFiles: [],
-    classification: {
-      changeKind: 'unknown' as const,
-      pipelines: [] as const,
-      reasons: [],
-    },
-    sourceRefs: [],
-    idempotencyKey: 'daisydebate:abc123:pull_request.merged',
-  };
-
-  test('retries retryable webhook responses and succeeds', async () => {
-    const originalUrl = process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL;
-    const originalSecret =
-      process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET;
-    process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL =
-      'https://pagespace.test/api/webhooks/agent';
-    process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET = 'test-secret';
-    let calls = 0;
-    const fetchImpl = (async (_url: unknown, _init?: RequestInit) => {
-      calls += 1;
-      if (calls < 3) return new Response('busy', { status: 503 });
-      return new Response('accepted', { status: 200 });
-    }) as unknown as typeof fetch;
-
-    try {
-      await postDocumentationEvent(validEvent, {
-        fetchImpl,
-        delays: [0, 0],
-        delay: async () => {},
-      });
-    } finally {
-      if (originalUrl)
-        process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL = originalUrl;
-      else delete process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL;
-      if (originalSecret)
-        process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET =
-          originalSecret;
-      else delete process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET;
-    }
-    assert({
-      given: 'two 503 responses followed by a 200',
-      should: 'retry with re-signed requests until accepted',
-      actual: calls,
-      expected: 3,
-    });
-  });
-
-  test('rejects a webhook URL that is not https', async () => {
-    const originalUrl = process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL;
-    const originalSecret =
-      process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET;
-    process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL =
-      'http://pagespace.ai/api/webhooks/token';
-    process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET = 'test-secret';
-
-    try {
-      let thrown: unknown;
-      try {
-        await postDocumentationEvent({
-          eventVersion: 'docs-event-v1',
-          eventId: 'evt-1',
-          eventType: 'pull_request.merged',
-          occurredAt: '2026-09-20T00:00:00.000Z',
-          repository: 'daisydebate',
-          baseRef: 'main',
-          commit: 'abc123',
-          pullRequest: null,
-          taskIds: [],
-          changedFiles: [],
-          classification: {
-            changeKind: 'unknown',
-            pipelines: [],
-            reasons: [],
-          },
-          sourceRefs: [],
-          idempotencyKey: 'daisydebate:abc123:pull_request.merged',
-        });
-      } catch (error) {
-        thrown = error;
-      }
-
-      assert({
-        given: 'an http webhook URL',
-        should: 'reject before sending the signed event',
-        actual: thrown instanceof Error && thrown.message.includes('https'),
-        expected: true,
-      });
-    } finally {
-      if (originalUrl)
-        process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL = originalUrl;
-      else delete process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL;
-      if (originalSecret)
-        process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET =
-          originalSecret;
-      else delete process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET;
-    }
   });
 });

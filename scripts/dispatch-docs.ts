@@ -7,7 +7,8 @@ import {
 } from './docs-pipeline';
 import { assessEventText } from './docs-contracts';
 import { DOCUMENTATION_PROMPT_VERSION } from './docs-prompts';
-import { extractTaskIds, postDocumentationEvent } from './notify-drive';
+import { dispatchDocumentationEvent } from './docs-consult';
+import { extractTaskIds } from './notify-drive';
 
 const required = (name: string): string => {
   const value = process.env[name];
@@ -59,8 +60,13 @@ if (event.classification.pipelines.length === 0) {
     `Documentation no-op: ${event.classification.reasons.join('; ')}\n`,
   );
 } else {
-  await postDocumentationEvent(event);
+  const outcomes = await dispatchDocumentationEvent(event);
   process.stdout.write(
-    `Documentation event dispatched to ${event.classification.pipelines.join(', ')} (text risk: ${assessed.textRisk})\n`,
+    `Documentation Agent consulted (text risk: ${assessed.textRisk}): ${outcomes
+      .map(
+        ({ pipeline, conversationId, outcome }) =>
+          `${pipeline} → ${conversationId} (${outcome})`,
+      )
+      .join(', ')}\n`,
   );
 }

@@ -1,6 +1,5 @@
 #!/usr/bin/env bun
 import { createHmac } from 'node:crypto';
-import type { DocumentationEvent } from './docs-pipeline';
 import { assessEventText } from './docs-contracts';
 
 const TASK_ID_PATTERN = /\b[A-Z]{2,6}-\d+(?:\.\d+)?\b/g;
@@ -242,39 +241,6 @@ export async function postToDrive(
   if (!response.ok) {
     throw new Error(
       `Webhook ${channel} responded ${response.status}: ${await response.text()}`,
-    );
-  }
-}
-
-export async function postDocumentationEvent(
-  event: DocumentationEvent,
-  delivery?: DeliveryOptions,
-): Promise<void> {
-  const rawUrl = process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL;
-  const secret = process.env.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET;
-  if (!rawUrl || !secret) {
-    throw new Error(
-      'Missing PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL or PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET',
-    );
-  }
-  const url = requireHttpsWebhook(
-    'PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL',
-    rawUrl,
-  );
-  const rawBody = JSON.stringify({
-    event,
-    username: 'Daisy Documentation Agent',
-  });
-  const response = await postSignedWebhook({
-    label: 'documentation-agent',
-    url,
-    secret,
-    rawBody,
-    delivery,
-  });
-  if (!response.ok) {
-    throw new Error(
-      `Documentation agent webhook responded ${response.status}: ${await response.text()}`,
     );
   }
 }
