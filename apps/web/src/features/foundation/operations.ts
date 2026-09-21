@@ -18,7 +18,7 @@ import { proofDebateIdSchema, proofDebateInputSchema } from './schemas';
 const proofPrincipal: Principal = {
   kind: 'service',
   serviceId: 'foundation-proof',
-  permissions: ['debate:create'],
+  permissions: ['debate:create', 'debate:read'],
 };
 
 function requireProofEnabled() {
@@ -38,9 +38,10 @@ async function withDurableContext<T>(operation: () => Promise<T>): Promise<T> {
 export async function createProofDebate(
   input: unknown,
   primitives: { clock: Clock; ids: IdGenerator },
+  principal: Principal = proofPrincipal,
 ): Promise<DebateSnapshot> {
   requireProofEnabled();
-  requirePermission(proofPrincipal, 'debate:create');
+  requirePermission(principal, 'debate:create');
   const { resolution } = parseValidated(proofDebateInputSchema, input);
   const runtime = createDebateRuntime({
     id: primitives.ids.next(),
@@ -65,16 +66,16 @@ export async function createProofDebate(
 }
 
 /**
- * Reads go through the same Principal gate as creation. `@daisy/auth` has no
- * read permission yet, so the proof principal reads back under the one
- * permission it holds rather than being widened to `debate:manage`.
+ * Reads pass the Principal gate before any database access and require
+ * `debate:read`; holding `debate:create` alone does not admit a read. The
+ * proof principal holds exactly create and read, never `debate:manage`.
  */
 export async function getProofDebate(
   id: string,
   principal: Principal = proofPrincipal,
 ): Promise<DebateSnapshot> {
   requireProofEnabled();
-  requirePermission(principal, 'debate:create');
+  requirePermission(principal, 'debate:read');
   const debateId = parseValidated(proofDebateIdSchema, id);
   return withDurableContext(async () => {
     const record = await getResources().database.getDebate(debateId);
