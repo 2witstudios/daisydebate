@@ -12,3 +12,5 @@ test-results/
 .pu/
 .DS_Store
 .opencode/
+# Agent worktrees only; the rest of .claude/ stays visible to git.
+.claude/worktrees/
