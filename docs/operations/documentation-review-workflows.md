@@ -181,7 +181,7 @@ PageSpace refuses a taken id with 409 rather than running the agent again.
    answer in time, or whose conversation could not be read gives the next
    attempt: replay it only if that row is still failed, since a run can
    record its receipt before its answer is lost. A consult that never
-   reached PageSpace (a successful read found no conversation), or was left
+   reached PageSpace (successful reads found no conversation), or was left
    unsent because the budget ran out (before or after its row was reserved)
    or reserving its row failed, gives the same attempt, since its id was
    almost certainly never used; if that request did land, the replay is

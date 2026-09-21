@@ -38,23 +38,23 @@ creation workflow.
    gateway 5xx (including a 5xx whose body is lost mid-read), dispatch reads
    that conversation instead; a status below 500 is final even when its body
    is lost, so a 409 still reads as already dispatched. An answer there is
-   success; a conversation that a successful read finds missing means the
-   request almost certainly never landed. A conversation that cannot be read
-   proves nothing, so it is polled to the deadline like one still
-   unanswered; either is then reported as a failure, though the run may
-   finish late and still rewrite its reserved row. A 5xx carrying the
-   consult route's own JSON error is different: the route answers only once
-   its run has stopped, so dispatch reads the conversation (once more if it
-   reads empty or cannot be read) and, finding no answer, fails at once
-   naming the receipt row and a targeted replay instead of polling to the
-   deadline. Each consult waits up to 20 minutes and all of them share a
-   42-minute budget counted from the start of the 45-minute CI job (the
-   job's first step records when it ends), so the step fails and the
-   incident posts before the job is cancelled. Each consult stops 30 seconds
-   before the budget does, reserving time to read its conversation, and a
-   pipeline starts only while it would get time of its own, checked again
-   after its row is reserved; one left with none is reported unsent, naming
-   its row and the replay that reaches it.
+   success; a conversation that two successful reads find missing (or one at
+   the deadline) means the request almost certainly never landed. A
+   conversation that cannot be read proves nothing, so it is polled to the
+   deadline like one still unanswered; either is then reported as a failure,
+   though the run may finish late and still rewrite its reserved row. A 5xx
+   carrying the consult route's own JSON error is different: the route
+   answers only once its run has stopped, so dispatch reads the conversation
+   (once more if it reads empty or cannot be read) and, finding no answer,
+   fails at once naming the receipt row and a targeted replay instead of
+   polling to the deadline. Each consult waits up to 20 minutes and all of
+   them share a 42-minute budget counted from the start of the 45-minute CI
+   job (the job's first step records when it ends), so the step fails and
+   the incident posts before the job is cancelled. Each consult stops 30
+   seconds before the budget does, reserving time to read its conversation,
+   and a pipeline starts only while it would get time of its own, checked
+   again after its row is reserved; one left with none is reported unsent,
+   naming its row and the replay that reaches it.
    Any refusal or failure posts to the incidents channel so a lost event is
    loud, not silent.
    Fork PR merges cannot carry secrets, so they post a skip notice instead and

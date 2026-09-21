@@ -114,4 +114,28 @@ describe('dispatchDocumentationEvent with a lost response body', async () => {
       expected: { neverReached: false, nextAttempt: true, keptPolling: true },
     });
   });
+
+  test('does not let a failed read spend the grace read', async () => {
+    const { counts, fetchImpl } = routedFetch({
+      consult: async () => new Response('', { status: 502 }),
+      readStatus: (read) => (read === 1 ? 503 : undefined),
+      roles: () => [],
+    });
+    const message = await failureOf(
+      dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
+        ...baseOptions,
+        ...instant,
+        fetchImpl,
+      }),
+    );
+    assert({
+      given: 'a first conversation read that fails, then empty reads',
+      should: 'need two successful empty reads before calling it never reached',
+      actual: {
+        reads: counts.messages,
+        neverReached: message.includes('never reached PageSpace'),
+      },
+      expected: { reads: 3, neverReached: true },
+    });
+  });
 });

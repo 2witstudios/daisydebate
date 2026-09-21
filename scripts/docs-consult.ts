@@ -212,8 +212,8 @@ export async function dispatchDocumentationEvent(
     }
   };
 
-  // A successful read that finds no conversation ends the wait as 'absent'
-  // once the first read (a grace read) is spent, or at the deadline. A failed
+  // Two successful reads that find no conversation end the wait as 'absent'
+  // (the first is a grace read), as does one at the deadline. A failed
   // read proves nothing either way, so polling goes on to the deadline and
   // reports 'unreadable' only then, when the full wait has really passed.
   // Polling stops at the consult's deadline, but each read is bounded by the
@@ -223,11 +223,13 @@ export async function dispatchDocumentationEvent(
     deadline: number,
   ): Promise<ConversationState> => {
     let seenQuestion = false;
-    for (let reads = 0; ; reads += 1) {
+    let emptyReads = 0;
+    for (;;) {
       const state = await readConversation(conversationId, budgetEnd);
       if (state === 'answered') return 'answered';
       if (state === 'pending') seenQuestion = true;
-      if (!seenQuestion && reads >= 1 && state === 'absent') return 'absent';
+      if (state === 'absent') emptyReads += 1;
+      if (!seenQuestion && emptyReads >= 2) return 'absent';
       if (Date.now() >= deadline) return seenQuestion ? 'pending' : state;
       // Never sleep past the deadline: the next read, bounded by the budget,
       // then still ends inside it.
