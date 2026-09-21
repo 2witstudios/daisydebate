@@ -257,12 +257,20 @@ describe('dispatchDocumentationEvent settlement', async () => {
         failed: message.includes(
           'technical-docs failed in PageSpace (responded 500: Failed to generate response from agent: provider unavailable)',
         ),
+        hedged: message.includes('shows complete, nothing is lost'),
         row: message.includes('row 2 of Documentation Runs'),
         replay: message.includes(
           'DOC_REPLAY_ATTEMPT=1 DOC_PIPELINES=technical-docs',
         ),
       },
-      expected: { reads: 1, waits: 0, failed: true, row: true, replay: true },
+      expected: {
+        reads: 1,
+        waits: 0,
+        failed: true,
+        hedged: true,
+        row: true,
+        replay: true,
+      },
     });
   });
 
@@ -280,6 +288,27 @@ describe('dispatchDocumentationEvent settlement', async () => {
       should: 'trust the conversation and report dispatched',
       actual: outcomes.map((outcome) => outcome.outcome),
       expected: ['dispatched'],
+    });
+  });
+
+  test('reads again when a route failure meets an unreadable conversation', async () => {
+    let reads = 0;
+    const { counts, fetchImpl } = routedFetch({
+      consult: async () => routeFailure(),
+      roles: () => (++reads < 2 ? [] : ['user', 'assistant']),
+    });
+    const outcomes = await dispatchDocumentationEvent(
+      mergeEvent('fix: only technical'),
+      { ...baseOptions, ...instant, fetchImpl },
+    );
+    assert({
+      given: 'a route 500 whose first conversation read comes back empty',
+      should: 'read once more before failing, and find the saved answer',
+      actual: {
+        outcome: outcomes.map((outcome) => outcome.outcome),
+        reads: counts.messages,
+      },
+      expected: { outcome: ['dispatched'], reads: 2 },
     });
   });
 

@@ -41,8 +41,9 @@ creation workflow.
    unanswered at the deadline is reported as a failure, though the run may
    finish late and still rewrite its reserved row. A 5xx carrying the consult
    route's own JSON error is different: the route answers only once its run
-   has ended, so dispatch reads the conversation once and, finding no answer,
-   fails at once with a targeted replay instead of polling to the deadline.
+   has stopped, so dispatch reads the conversation (once more if it reads
+   empty) and, finding no answer, fails at once naming the receipt row and a
+   targeted replay instead of polling to the deadline.
    Each consult waits up to
    20 minutes and all of them share a 42-minute budget counted from the start
    of the 45-minute CI job (the job's first step records when it ends), so

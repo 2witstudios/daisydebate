@@ -176,10 +176,12 @@ PageSpace refuses a taken id with 409 rather than running the agent again.
    `2`, …), which addresses a fresh conversation, and set `DOC_PIPELINES` to
    just the uncovered pipelines (comma-separated) so the healthy ones are not
    run again. A name the event does not route to is rejected.
-   A dispatch failure names the replay to use: a consult that PageSpace
-   reported as failed, or that did not answer in time, gives the next
-   attempt; a consult left unsent because the budget ran out after its row was
-   reserved gives the same attempt, since its id was never used.
+   A dispatch failure names its receipt row and the replay to use. A consult
+   that PageSpace reported as failed, or that did not answer in time, gives
+   the next attempt: replay it only if that row is still failed, since a run
+   can record its receipt before its answer is lost. A consult left unsent
+   because the budget ran out after its row was reserved gives the same
+   attempt, since its id was never used.
 3. If a merged fork PR skipped the event (fork runs carry no secrets), run the
    same dispatch from a trusted checkout and delete the skip notice in
    incidents after it succeeds.

@@ -381,15 +381,22 @@ export async function dispatchDocumentationEvent(
     );
     if ('cause' in sent) return settle(sent.cause);
     const { response, body } = sent;
-    // The route answers only once its run has ended, so its own failure is
-    // final: one read finds an answer saved before the failure, and polling
-    // for more would only spend the deadline other pipelines need.
+    // The route answers only once it has stopped, so its own failure is
+    // final: a read finds an answer saved before the failure, and polling for
+    // more would only spend the deadline other pipelines need. An empty or
+    // unreadable conversation may be a blip, so it earns one more read.
     const reported = routeFailure(response, body);
     if (reported !== undefined) {
-      if ((await readConversation(conversationId, budgetEnd)) === 'answered')
-        return answered;
+      let state = await readConversation(conversationId, budgetEnd);
+      if (state === 'absent') {
+        await delay(
+          Math.min(pollIntervalMs, Math.max(0, deadline - Date.now())),
+        );
+        state = await readConversation(conversationId, budgetEnd);
+      }
+      if (state === 'answered') return answered;
       throw new Error(
-        `Documentation Agent consult for ${pipeline} failed in PageSpace (responded ${response.status}: ${reported}). PageSpace ended the run without an answer, so ${receipt} stays failed; replay with ${replay}`,
+        `Documentation Agent consult for ${pipeline} failed in PageSpace (responded ${response.status}: ${reported}) and its conversation holds no answer. The run may have recorded its receipt before failing: if ${receipt} shows complete, nothing is lost; otherwise replay with ${replay}`,
       );
     }
     // Any other 5xx can come from a gateway in front of a run that is still
