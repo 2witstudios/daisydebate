@@ -195,8 +195,11 @@ describe('dispatchDocumentationEvent receipt', async () => {
         unsent: message.includes(
           'technical-docs was not sent: the dispatch budget ran out',
         ),
+        replay: message.includes(
+          'no row was reserved; replay with DOC_REPLAY_ATTEMPT=0 DOC_PIPELINES=technical-docs',
+        ),
       },
-      expected: { consults: 0, appends: 0, unsent: true },
+      expected: { consults: 0, appends: 0, unsent: true, replay: true },
     });
   });
 

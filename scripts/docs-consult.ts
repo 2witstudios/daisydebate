@@ -338,8 +338,9 @@ export async function dispatchDocumentationEvent(
     );
     // A conversation that already exists was dispatched before (a re-run of
     // the workflow): report it without reserving a row or running the agent.
-    // A lookup that fails reads as absent, so a transient failure (or a race
-    // between identical dispatches) can still reach the consult; PageSpace
+    // A lookup that fails (unreadable) or finds nothing falls through to the
+    // consult, so a transient failure (or a race between identical
+    // dispatches) can still reach it; PageSpace
     // then refuses the id with 409 and the extra reserved row stays failed,
     // which the reconciler never counts as a receipt.
     const existing = await readConversation(conversationId, budgetEnd);
@@ -434,7 +435,7 @@ export async function dispatchDocumentationEvent(
     // settlement window; otherwise the question would be sent and abandoned.
     if (Date.now() >= budgetEnd - requestTimeoutMs) {
       failures.push(
-        `Documentation Agent consult for ${pipeline} was not sent: the dispatch budget ran out; re-run the dispatch to reach it`,
+        `Documentation Agent consult for ${pipeline} was not sent: the dispatch budget ran out and no row was reserved; replay with DOC_REPLAY_ATTEMPT=${attempt} DOC_PIPELINES=${pipeline}`,
       );
       continue;
     }

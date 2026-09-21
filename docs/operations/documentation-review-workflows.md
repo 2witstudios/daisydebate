@@ -176,17 +176,18 @@ PageSpace refuses a taken id with 409 rather than running the agent again.
    `2`, …), which addresses a fresh conversation, and set `DOC_PIPELINES` to
    just the uncovered pipelines (comma-separated) so the healthy ones are not
    run again. A name the event does not route to is rejected.
-   A dispatch failure names its receipt row and the replay to use. A consult
-   that PageSpace reported as failed, that did not answer in time, or whose
-   conversation could not be read gives the next attempt: replay it only if that row is still failed, since a run
-   can record its receipt before its answer is lost. A consult that never
+   A dispatch failure names the replay to use, and its receipt row when one
+   was reserved. A consult that PageSpace reported as failed, that did not
+   answer in time, or whose conversation could not be read gives the next
+   attempt: replay it only if that row is still failed, since a run can
+   record its receipt before its answer is lost. A consult that never
    reached PageSpace (a successful read found no conversation), or was left
-   unsent because the budget ran out after its row was reserved, gives the
-   same attempt,
-   since its id was almost certainly never used; if that request did land,
-   the replay is refused as `already-dispatched` rather than run twice, and
-   the step above recovers it once `bun docs:reconcile` still lists it. A 4xx refusal is
-   final and gives no replay.
+   unsent because the budget ran out (before or after its row was reserved),
+   gives the same attempt, since its id was almost certainly never used; if
+   that request did land, the replay is refused as `already-dispatched`
+   rather than run twice, and the step above recovers it once
+   `bun docs:reconcile` still lists it. A 4xx refusal is final and gives no
+   replay.
 3. If a merged fork PR skipped the event (fork runs carry no secrets), run the
    same dispatch from a trusted checkout and delete the skip notice in
    incidents after it succeeds.
