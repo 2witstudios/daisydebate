@@ -78,15 +78,15 @@ describe('dispatchDocumentationEvent', async () => {
   });
 
   test('does not retry a non-idempotent consult', async () => {
-    let attempts = 0;
-    const fetchImpl = (async () => {
-      attempts += 1;
-      return new Response('busy', { status: 503 });
-    }) as unknown as typeof fetch;
+    const { counts, fetchImpl } = routedFetch({
+      consult: async () => new Response('busy', { status: 503 }),
+      roles: () => [],
+    });
     let threw = false;
     try {
       await dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
         ...baseOptions,
+        ...instant,
         fetchImpl,
       });
     } catch {
@@ -94,10 +94,74 @@ describe('dispatchDocumentationEvent', async () => {
     }
     assert({
       given: 'a 503 on a merge routed to one pipeline',
-      should:
-        'fail after exactly one attempt rather than double-running the agent',
-      actual: { attempts, threw },
-      expected: { attempts: 1, threw: true },
+      should: 'send exactly one consult rather than double-running the agent',
+      actual: { consults: counts.consult, threw },
+      expected: { consults: 1, threw: true },
+    });
+  });
+
+  test('settles a gateway 5xx by reading the conversation', async () => {
+    const { fetchImpl } = routedFetch({
+      consult: async () => new Response('', { status: 502 }),
+      roles: () => ['user', 'assistant'],
+    });
+    const outcomes = await dispatchDocumentationEvent(
+      mergeEvent('fix: only technical'),
+      { ...baseOptions, ...instant, fetchImpl },
+    );
+    assert({
+      given: 'a 502 from a gateway while the run behind it finishes',
+      should: 'report dispatched rather than raise a false incident',
+      actual: outcomes.map((outcome) => outcome.outcome),
+      expected: ['dispatched'],
+    });
+  });
+
+  test('fails fast on a 5xx whose request never landed', async () => {
+    const { fetchImpl } = routedFetch({
+      consult: async () => new Response('', { status: 502 }),
+      roles: () => [],
+    });
+    let message = 'no throw';
+    try {
+      await dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
+        ...baseOptions,
+        ...instant,
+        fetchImpl,
+      });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    assert({
+      given: 'a 502 and a conversation that never appears',
+      should: 'fail naming the status as the cause',
+      actual: message,
+      expected:
+        'Documentation Agent consult for technical-docs never reached PageSpace: responded 502',
+    });
+  });
+
+  test('fails at once on a 4xx refusal without reading the conversation', async () => {
+    const { counts, fetchImpl } = routedFetch({
+      consult: async () =>
+        new Response('{"error":"forbidden"}', { status: 403 }),
+      roles: () => ['user', 'assistant'],
+    });
+    let message = 'no throw';
+    try {
+      await dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
+        ...baseOptions,
+        ...instant,
+        fetchImpl,
+      });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    assert({
+      given: 'a definitive 403 from the consult route',
+      should: 'throw the refusal without polling',
+      actual: { reads: counts.messages, refused: message.includes('403') },
+      expected: { reads: 0, refused: true },
     });
   });
 

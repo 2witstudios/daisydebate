@@ -196,6 +196,18 @@ export async function dispatchDocumentationEvent(
       attempt,
     );
     const deadline = Date.now() + timeoutMs;
+    const settle = async (cause: string): Promise<ConsultOutcome> => {
+      const state = await awaitAnswer(conversationId, deadline);
+      if (state === 'answered')
+        return { pipeline, conversationId, outcome: 'dispatched' };
+      if (state === 'absent')
+        throw new Error(
+          `Documentation Agent consult for ${pipeline} never reached PageSpace: ${cause}`,
+        );
+      throw new Error(
+        `Documentation Agent consult for ${pipeline} did not answer within ${Math.round(timeoutMs / 1000)}s (${cause}); its conversation ${conversationId} holds the question but no answer, and that id is now taken, so if the run died replay with DOC_REPLAY_ATTEMPT=${attempt + 1}`,
+      );
+    };
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     let response: Response;
@@ -217,32 +229,26 @@ export async function dispatchDocumentationEvent(
         }),
       });
     } catch (error) {
-      const cause = isAbort(error)
-        ? `no answer within ${Math.round(timeoutMs / 1000)}s`
-        : error instanceof Error
-          ? error.message
-          : String(error);
-      const state = await awaitAnswer(conversationId, deadline);
-      if (state === 'answered')
-        return { pipeline, conversationId, outcome: 'dispatched' };
-      if (state === 'absent')
-        throw new Error(
-          `Documentation Agent consult for ${pipeline} never reached PageSpace: ${cause}`,
-        );
-      throw new Error(
-        `Documentation Agent consult for ${pipeline} did not answer within ${Math.round(timeoutMs / 1000)}s (${cause}); its conversation ${conversationId} holds the question but no answer, and that id is now taken, so if the run died replay with DOC_REPLAY_ATTEMPT=${attempt + 1}`,
+      return settle(
+        isAbort(error)
+          ? `no answer within ${Math.round(timeoutMs / 1000)}s`
+          : error instanceof Error
+            ? error.message
+            : String(error),
       );
     } finally {
       clearTimeout(timer);
     }
+    const body = await response.text();
+    // A 5xx can come from a gateway in front of a run that is still going: a
+    // live 502 arrived after 36s with the question already persisted. So it is
+    // settled like a dropped connection; a 4xx refusal is definitive.
+    if (response.status >= 500)
+      return settle(`responded ${response.status}${body ? `: ${body}` : ''}`);
     return {
       pipeline,
       conversationId,
-      outcome: classifyConsultResponse(
-        pipeline,
-        response.status,
-        await response.text(),
-      ),
+      outcome: classifyConsultResponse(pipeline, response.status, body),
     };
   };
 

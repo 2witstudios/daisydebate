@@ -110,8 +110,13 @@ no-op runs record the reviewed page count and source snapshot.
 
 ## Run record
 
-Each workflow should write a run record to the Documentation Runs page. The
-schema is enforced by the repository (`scripts/docs-contracts.ts`):
+Each workflow writes one run record per run to the Documentation Runs sheet.
+The schema is enforced by the repository (`scripts/docs-contracts.ts`), and
+`scripts/docs-runs-sheet.ts` is the only statement of the sheet's layout: one
+field per column (header row = field names), counts as integers, objects and
+arrays as JSON. The consult prompt is generated from that layout, and
+`bun docs:reconcile` reads the sheet back through it, failing on a drifted
+header or an invalid row rather than skipping it:
 
 ```json
 {
@@ -129,13 +134,22 @@ schema is enforced by the repository (`scripts/docs-contracts.ts`):
   "sourceSnapshot": "repository@commit",
   "status": "complete | failed | partial",
   "baseRevision": "...",
-  "resultingRevision": "..."
+  "resultingRevision": "...",
+  "idempotencyKey": "repository:commit:eventType",
+  "notes": "..."
 }
 ```
 
 `baseRevision` records the page revision the run observed before editing;
 `resultingRevision` records what the write produced. Both together make
-interleaved writes detectable and replayable.
+interleaved writes detectable and replayable. Those two, `idempotencyKey`
+(present when an event triggered the run) and `notes` (one sentence on what
+changed, or why nothing did) are optional.
+
+`bun docs:reconcile --since 24h` recomputes the events merged pull requests
+should have produced and lists every routed pipeline with no run record, keyed
+on `(sourceSnapshot, workflow)`. It is report-only: it posts nothing and exits 0
+whatever it finds, but a refused read or an invalid row exits non-zero.
 
 The repository supplies the event and every run-record key; the agent reads
 the Canvas pages and prior run history itself. No token, webhook secret, or
