@@ -1,13 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { fixedClock } from '@daisy/clock';
-import {
-  createVerificationCleanup,
-  startVerificationCleanup,
-} from './verification-cleanup';
+import { createVerificationCleanup } from './verification-cleanup';
 
 setupRitewayBun();
 
-const HOUR = 3_600_000;
 const now = '2026-09-20T12:00:00.000Z';
 
 type Logged = { event: string; fields: Record<string, unknown> };
@@ -142,104 +138,56 @@ describe('verification cleanup run', () => {
       expected: { ok: false, deleted: 3, batches: 1 },
     });
   });
-});
-
-describe('verification cleanup schedule', () => {
-  const fakeTimers = () => {
-    const state: {
-      tick?: () => unknown;
-      cleared: unknown[];
-      interval?: number;
-    } = { cleared: [] };
-    return {
-      state,
-      timers: {
-        setInterval: (tick: () => unknown, ms: number) => {
-          state.tick = tick;
-          state.interval = ms;
-          return 'handle';
-        },
-        clearInterval: (handle: unknown) => void state.cleared.push(handle),
+  test('stop ends the run between batches without failing', async () => {
+    let calls = 0;
+    const { logged, logger } = recorder();
+    const cleanup = createVerificationCleanup({
+      purge: async () => {
+        calls += 1;
+        cleanup.stop();
+        return 3;
       },
-    };
-  };
-
-  test('runs hourly, keeps running after a failed run, and stops cleanly', async () => {
-    const { state, timers } = fakeTimers();
-    const outcomes: boolean[] = [];
-    const runs = [false, true];
-    const schedule = startVerificationCleanup({
-      cleanup: {
-        run: async () => {
-          const ok = runs.shift() ?? true;
-          outcomes.push(ok);
-          return { ok, deleted: 0, batches: 0 };
-        },
-      },
-      timers,
+      clock: fixedClock(now),
+      logger,
+      batchSize: 3,
+      maxBatches: 10,
     });
-    // The tick returns its run's completion, so no timing is inferred.
-    await state.tick?.();
-    await state.tick?.();
-    schedule.stop();
+    const result = await cleanup.run();
     assert({
-      given: 'two sequential ticks where the first run fails',
-      should: 'schedule every hour, run both ticks and clear the timer on stop',
-      actual: { interval: state.interval, outcomes, cleared: state.cleared },
+      given: 'a stop requested while the first full batch is being deleted',
+      should:
+        'finish that batch, start no more, and complete normally with its counts',
+      actual: {
+        calls,
+        result,
+        events: logged.map(({ event }) => event),
+      },
       expected: {
-        interval: HOUR,
-        outcomes: [false, true],
-        cleared: ['handle'],
+        calls: 1,
+        result: { ok: true, deleted: 3, batches: 1 },
+        events: ['auth.cleanup.completed'],
       },
     });
   });
 
-  test('a tick that starts while the previous run is still going is skipped', async () => {
-    const { state, timers } = fakeTimers();
-    let started = 0;
-    let release: () => void = () => undefined;
-    startVerificationCleanup({
-      cleanup: {
-        run: () => {
-          started += 1;
-          return new Promise((resolve) => {
-            release = () => resolve({ ok: true, deleted: 0, batches: 0 });
-          });
-        },
-      },
-      timers,
+  test('an unusable clock value is a failed run, never a throw', async () => {
+    const { logged, logger } = recorder();
+    const cleanup = createVerificationCleanup({
+      purge: async () => 0,
+      clock: { now: () => 'not a timestamp' },
+      logger,
     });
-    const first = state.tick?.();
-    const second = state.tick?.();
-    release();
-    await first;
     assert({
-      given: 'an hourly tick arriving during a long run',
-      should: 'not start a second overlapping run in the same process',
-      actual: { started, secondTickRan: second !== undefined },
-      expected: { started: 1, secondTickRan: false },
-    });
-  });
-  test('runOnStart runs one cleanup immediately so short-lived processes still purge', async () => {
-    const { state, timers } = fakeTimers();
-    let runs = 0;
-    const schedule = startVerificationCleanup({
-      cleanup: {
-        run: async () => {
-          runs += 1;
-          return { ok: true, deleted: 0, batches: 0 };
-        },
+      given: 'a clock that returns an unparsable timestamp',
+      should: 'report ok:false and log auth.cleanup.failed instead of throwing',
+      actual: {
+        result: await cleanup.run(),
+        events: logged.map(({ event }) => event),
       },
-      timers,
-      runOnStart: true,
-    });
-    await schedule.initial;
-    await state.tick?.();
-    assert({
-      given: 'a schedule started with runOnStart, then its first hourly tick',
-      should: 'have run once at start and once for the tick',
-      actual: runs,
-      expected: 2,
+      expected: {
+        result: { ok: false, deleted: 0, batches: 0 },
+        events: ['auth.cleanup.failed'],
+      },
     });
   });
 });

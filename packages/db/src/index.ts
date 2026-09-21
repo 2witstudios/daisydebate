@@ -94,7 +94,8 @@ export function createDatabase({
      * expiry is before `before`. The batch is chosen by an expiry predicate
      * live rows can never satisfy, and `SKIP LOCKED` lets concurrent workers
      * split a backlog without waiting on or double-deleting each other.
-     * Returns the number deleted; an unbounded or malformed call is refused.
+     * Returns the number deleted; a missing, fractional or non-positive
+     * limit, or an unparsable cutoff, is refused.
      */
     async purgeExpiredVerifications(input: { before: string; limit: number }) {
       if (

@@ -1,5 +1,3 @@
-import type { Clock } from '@daisy/clock';
-import type { Logger } from '@daisy/logger';
 import {
   createVerificationCleanup,
   startVerificationCleanup,
@@ -10,6 +8,8 @@ import {
  * hourly verification cleanup over the existing database pool. Timers are
  * injected so the composition is testable; production passes the globals.
  */
+type CleanupOptions = Parameters<typeof createVerificationCleanup>[0];
+
 export function startMaintenance({
   database,
   clock,
@@ -17,22 +17,16 @@ export function startMaintenance({
   timers,
 }: {
   readonly database: {
-    readonly purgeExpiredVerifications: (input: {
-      before: string;
-      limit: number;
-    }) => Promise<number>;
+    readonly purgeExpiredVerifications: CleanupOptions['purge'];
   };
-  readonly clock: Clock;
-  readonly logger: Logger;
+  readonly clock: CleanupOptions['clock'];
+  readonly logger: CleanupOptions['logger'];
   readonly timers: Parameters<typeof startVerificationCleanup>[0]['timers'];
 }) {
-  return startVerificationCleanup({
-    cleanup: createVerificationCleanup({
-      purge: (input) => database.purgeExpiredVerifications(input),
-      clock,
-      logger,
-    }),
-    timers,
-    runOnStart: true,
+  const cleanup = createVerificationCleanup({
+    purge: (input) => database.purgeExpiredVerifications(input),
+    clock,
+    logger,
   });
+  return startVerificationCleanup({ cleanup, timers, runOnStart: true });
 }

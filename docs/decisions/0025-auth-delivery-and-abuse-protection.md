@@ -58,13 +58,15 @@ adds the delivery and abuse controls ADR 0020 requires before activation.
   guidance.
 - **Verification retention (AUTH-7.5a).** Better Auth's `verification.value`
   holds the plaintext email JSON and Better Auth does not purge expired rows,
-  so the server purges them itself: an in-process job (at start-up, then hourly) deletes rows
-  expired more than 24 hours ago, at most 20 batches of 500 per run
+  so the server purges them itself: an in-process job (at start-up, then
+  hourly) deletes rows expired more than 24 hours ago, at most 20 batches of
+  500 per run
   (`DELETE … WHERE id IN (SELECT … LIMIT … FOR UPDATE SKIP LOCKED)` on the
   existing expiry index; no migration, no new service). Every instance runs it;
   concurrent runs split work without double deletes and live rows can never
   match the predicate. It logs `auth.cleanup.completed` (counts only) or
-  `auth.cleanup.failed` (stable code). Sessions and `email_delivery_event`
+  `auth.cleanup.failed` (stable code). Shutdown stops the job between batches
+  and waits for it before the pool closes. Sessions and `email_delivery_event`
   retention remain with AUTH-7.5.
 
 Why: each control closes a distinct failure the spec names (link prefetch,

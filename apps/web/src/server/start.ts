@@ -64,7 +64,8 @@ const maintenance = startMaintenance({
 async function shutdown() {
   if (resources.draining) return;
   resources.draining = true;
-  maintenance.stop();
+  // Ends any cleanup between batches; awaited before the pool closes below.
+  const maintenanceStopped = maintenance.stop();
   resources.logger.log(
     'server.shutdown',
     { operation: 'server.shutdown' },
@@ -81,6 +82,7 @@ async function shutdown() {
     server.close((error) => (error ? reject(error) : resolve())),
   );
   await app.close();
+  await maintenanceStopped;
   await closeResources();
   clearTimeout(deadline);
 }

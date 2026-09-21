@@ -36,13 +36,20 @@ export function createVerificationCleanup({
   readonly batchSize?: number;
   readonly maxBatches?: number;
 }) {
+  let stopped = false;
   return {
+    /** Ends a run between batches so shutdown never closes the pool under it. */
+    stop: () => {
+      stopped = true;
+    },
     async run(): Promise<CleanupResult> {
-      const before = new Date(Date.parse(clock.now()) - graceMs).toISOString();
       let deleted = 0;
       let batches = 0;
       try {
-        while (batches < maxBatches) {
+        const before = new Date(
+          Date.parse(clock.now()) - graceMs,
+        ).toISOString();
+        while (!stopped && batches < maxBatches) {
           const count = await purge({ before, limit: batchSize });
           batches += 1;
           deleted += count;
@@ -82,25 +89,36 @@ export function startVerificationCleanup({
   intervalMs = HOUR_MS,
   runOnStart = false,
 }: {
-  readonly cleanup: { readonly run: () => Promise<CleanupResult> };
+  readonly cleanup: {
+    readonly run: () => Promise<CleanupResult>;
+    readonly stop?: () => void;
+  };
   readonly timers: Timers;
   readonly intervalMs?: number;
   /** Also clean once now: processes restarted more often than hourly still purge. */
   readonly runOnStart?: boolean;
 }) {
-  let running = false;
+  let stopped = false;
+  let current: Promise<unknown> | undefined;
   // Returned so callers (and tests) can await the run; timers ignore it.
   const tick = () => {
-    if (running) return undefined;
-    running = true;
-    return cleanup.run().finally(() => {
-      running = false;
+    if (stopped || current) return undefined;
+    const run = cleanup.run().finally(() => {
+      current = undefined;
     });
+    current = run;
+    return run;
   };
   const handle = timers.setInterval(tick, intervalMs);
   return {
     /** The start-up run, when `runOnStart` is set. */
     initial: runOnStart ? tick() : undefined,
-    stop: () => timers.clearInterval(handle),
+    /** Stops scheduling and resolves once any run in progress has ended. */
+    stop: async () => {
+      stopped = true;
+      timers.clearInterval(handle);
+      cleanup.stop?.();
+      await current;
+    },
   };
 }

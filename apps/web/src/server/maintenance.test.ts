@@ -29,7 +29,7 @@ describe('server maintenance', () => {
     });
     await maintenance.initial;
     await tick();
-    maintenance.stop();
+    await maintenance.stop();
     assert({
       given:
         'the production maintenance composition, its start-up run and one hourly tick',
