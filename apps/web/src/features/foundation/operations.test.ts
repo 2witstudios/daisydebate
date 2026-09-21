@@ -34,7 +34,8 @@ Reflect.set(globalThis, 'daisyResources', {
   database,
 });
 
-const { createProofDebate, getProofDebate } = await import('./operations');
+const { createProofDebate, getProofDebate, proofPrincipal } =
+  await import('./operations');
 
 const capture = async (operation: Promise<unknown>): Promise<unknown> => {
   try {
@@ -151,7 +152,7 @@ describe('foundation debate retrieval', () => {
     });
   });
 
-  test('refuses a principal without the proof permission', async () => {
+  test('refuses a principal holding only debate:create', async () => {
     let reads = 0;
     database.getDebate = () => {
       reads += 1;
@@ -160,19 +161,99 @@ describe('foundation debate retrieval', () => {
     const caught = await capture(
       getProofDebate('z9x7v5t3r1p8n6m4k2b5d7f1', {
         kind: 'service',
-        serviceId: 'unprivileged',
-        permissions: [],
+        serviceId: 'create-only',
+        permissions: ['debate:create'],
       }),
     );
 
     assert({
-      given: 'a principal lacking the proof permission',
+      given: 'a principal holding debate:create but not debate:read',
       should: 'refuse with AUTHORIZATION before touching the database',
       actual: {
         code: isAppError(caught) ? caught.code : 'not-an-app-error',
         reads,
       },
       expected: { code: 'AUTHORIZATION', reads: 0 },
+    });
+  });
+
+  test('admits a principal holding only debate:read', async () => {
+    let reads = 0;
+    database.getDebate = () => {
+      reads += 1;
+      return Promise.resolve(undefined);
+    };
+    const caught = await capture(
+      getProofDebate('z9x7v5t3r1p8n6m4k2b5d7f1', {
+        kind: 'service',
+        serviceId: 'read-only',
+        permissions: ['debate:read'],
+      }),
+    );
+
+    assert({
+      given: 'a principal holding debate:read and an unknown debate id',
+      should: 'pass the gate, read the database, and report NOT_FOUND',
+      actual: {
+        code: isAppError(caught) ? caught.code : 'not-an-app-error',
+        reads,
+      },
+      expected: { code: 'NOT_FOUND', reads: 1 },
+    });
+  });
+});
+
+describe('foundation debate creation gate', () => {
+  test('refuses a principal holding only debate:read', async () => {
+    let writes = 0;
+    database.createDebate = () => {
+      writes += 1;
+      return Promise.resolve();
+    };
+    const caught = await capture(
+      createProofDebate(
+        { resolution: 'A representative resolution' },
+        primitives,
+        {
+          kind: 'service',
+          serviceId: 'read-only',
+          permissions: ['debate:read'],
+        },
+      ),
+    );
+
+    assert({
+      given: 'a principal holding debate:read but not debate:create',
+      should: 'refuse with AUTHORIZATION before touching the database',
+      actual: {
+        code: isAppError(caught) ? caught.code : 'not-an-app-error',
+        writes,
+      },
+      expected: { code: 'AUTHORIZATION', writes: 0 },
+    });
+  });
+});
+
+describe('foundation proof principal', () => {
+  test('holds exactly the create and read permissions', () => {
+    assert({
+      given: 'the hardcoded foundation proof service principal',
+      should: 'hold debate:create and debate:read and nothing else, immutably',
+      actual: {
+        principal: proofPrincipal,
+        frozen:
+          Object.isFrozen(proofPrincipal) &&
+          proofPrincipal.kind === 'service' &&
+          Object.isFrozen(proofPrincipal.permissions),
+      },
+      expected: {
+        principal: {
+          kind: 'service',
+          serviceId: 'foundation-proof',
+          permissions: ['debate:create', 'debate:read'],
+        },
+        frozen: true,
+      },
     });
   });
 });

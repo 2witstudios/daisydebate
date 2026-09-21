@@ -1,5 +1,9 @@
 import { createAppError } from '@daisy/errors';
-export type Permission = 'debate:create' | 'debate:manage';
+/**
+ * Each permission stands alone: none implies another, so `debate:create` and
+ * `debate:manage` do not grant `debate:read`.
+ */
+export type Permission = 'debate:create' | 'debate:read' | 'debate:manage';
 export type Principal =
   | { readonly kind: 'anonymous' }
   | {
