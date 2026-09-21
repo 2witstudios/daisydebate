@@ -1,18 +1,26 @@
 import type { Metadata } from 'next';
 import { RouteShell } from '../ui/route-shell';
+import { ThemeSwitcher } from '../../ui/components/theme-switcher/theme-switcher';
 
 export const metadata: Metadata = { title: 'Settings' };
 
 export default function SettingsPage() {
   return (
-    <RouteShell
-      title="Settings"
-      lede="Account, appearance, and notification preferences."
-      planned={[
-        'Profile and account management',
-        'Notification and privacy controls',
-        'Session and device management',
-      ]}
-    />
+    <>
+      <RouteShell
+        title="Settings"
+        lede="Account and notification preferences."
+        planned={[
+          'Profile and account management',
+          'Notification and privacy controls',
+          'Session and device management',
+        ]}
+      />
+      <section aria-labelledby="appearance-heading">
+        <h2 id="appearance-heading">Appearance</h2>
+        <p>Choose a theme, or follow your device setting.</p>
+        <ThemeSwitcher />
+      </section>
+    </>
   );
 }

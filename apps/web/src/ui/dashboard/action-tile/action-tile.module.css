@@ -22,7 +22,7 @@
 }
 
 .glyph {
-  color: #dde7de;
+  color: var(--glyph);
 }
 
 .accent {
@@ -34,7 +34,7 @@
 }
 
 .neutral {
-  color: #dde7de;
+  color: var(--glyph);
 }
 
 .body {

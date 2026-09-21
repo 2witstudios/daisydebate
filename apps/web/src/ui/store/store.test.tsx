@@ -78,10 +78,10 @@ describe('UI store snapshot subscription', () => {
       notifications += 1;
     });
     setUiState(state);
-    const next = transactions.setThemeColor(state, 'light');
+    const next = transactions.setSearchQuery(state, 'ranked');
     setUiState(next);
     unsubscribe();
-    setUiState(transactions.setThemeColor(next, 'dark'));
+    setUiState(transactions.setSearchQuery(next, 'elo'));
     assert({
       given:
         'a subscriber across identical, changed, and post-unsubscribe swaps',
