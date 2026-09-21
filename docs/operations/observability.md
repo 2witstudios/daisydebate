@@ -44,26 +44,34 @@ not a history of emitted events. See [ADR 0015](../decisions/0015-event-stream-a
 The logger currently accepts these events. The registry, rather than caller
 selected log levels, controls severity:
 
-| Event                     | Severity | Meaning                                             |
-| ------------------------- | -------- | --------------------------------------------------- |
-| `runtime.initialize`      | info     | The application runtime initialized                 |
-| `server.start`            | info     | The HTTP server began listening                     |
-| `server.shutdown`         | info     | Shutdown began draining requests                    |
-| `http.request.completed`  | info     | A request operation returned a response             |
-| `http.request.cancelled`  | warn     | A client/request signal aborted before completion   |
-| `http.request.failed`     | error    | A request operation or server handler failed        |
-| `invariant.violated`      | error    | A request operation violated a registered invariant |
-| `request.unhandled`       | error    | Next reported an unhandled request failure          |
-| `db.query.failed`         | error    | A database query or transaction failed              |
-| `redis.command.failed`    | error    | A Redis command failed                              |
-| `telemetry.unknown_event` | warn     | An unregistered runtime event name was normalized   |
+| Event                         | Severity | Meaning                                                                |
+| ----------------------------- | -------- | ---------------------------------------------------------------------- |
+| `runtime.initialize`          | info     | The application runtime initialized                                    |
+| `server.start`                | info     | The HTTP server began listening                                        |
+| `server.shutdown`             | info     | Shutdown began draining requests                                       |
+| `http.request.completed`      | info     | A request operation returned a response                                |
+| `http.request.cancelled`      | warn     | A client/request signal aborted before completion                      |
+| `http.request.failed`         | error    | A request operation or server handler failed                           |
+| `invariant.violated`          | error    | A request operation violated a registered invariant                    |
+| `auth.rate_limit.denied`      | warn     | The auth rate-limit gate denied a request (public 429)                 |
+| `auth.rate_limit.unavailable` | error    | The auth limiter or client resolution failed; denied with a public 503 |
+| `auth.mail.sent`              | info     | An auth email was handed to the mail transport                         |
+| `auth.mail.failed`            | error    | Auth email delivery failed                                             |
+| `request.unhandled`           | error    | Next reported an unhandled request failure                             |
+| `db.query.failed`             | error    | A database query or transaction failed                                 |
+| `redis.command.failed`        | error    | A Redis command failed                                                 |
+| `telemetry.unknown_event`     | warn     | An unregistered runtime event name was normalized                      |
 
 Lifecycle events describe runtime, server, and request progress. Failure events
 describe invariant violations, unhandled requests, and adapter failures;
 `http.request.cancelled` is an expected client-abort signal and is intentionally
 warning-level rather than an error. Invariant events carry only the stable
 `invariantId`; adapter events preserve the original failure for the caller to
-handle and record only the safe operation context.
+handle and record only the safe operation context. Auth events carry only
+`operation`, the stable auth route `path`, and an `errorCode`: never the
+recipient, token, link URL, client address, limiter key, or provider
+exception. `auth.rate_limit.denied` is expected traffic and is warning-level;
+alert on `auth.rate_limit.unavailable` and `auth.mail.failed`.
 
 ## How to answer production questions
 

@@ -132,14 +132,14 @@ export function createAuthServer<
       // Delivery failure is a generic retryable outcome: never surface
       // or log the provider exception, recipient or message body here.
       dependencies.logger.log(
-        'http.request.failed',
+        'auth.mail.failed',
         { operation: 'auth.mail.send', errorCode: 'INFRASTRUCTURE' },
         'Auth mail delivery failed',
       );
       throw createAppError('INFRASTRUCTURE', undefined, error);
     }
     dependencies.logger.log(
-      'http.request.completed',
+      'auth.mail.sent',
       { operation: 'auth.mail.send' },
       'Auth mail delivered',
     );

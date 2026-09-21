@@ -93,9 +93,12 @@ const denial = (
   retryAfterSeconds?: unknown,
 ) => {
   // Only the stable route path and code are logged: never the key, client
-  // address, request body, or the limiter's raw exception.
+  // address, request body, or the limiter's raw exception. A denial is
+  // expected traffic (warn); only an outage is an error.
   logger.log(
-    'http.request.failed',
+    errorCode === 'RATE_LIMIT'
+      ? 'auth.rate_limit.denied'
+      : 'auth.rate_limit.unavailable',
     { operation: 'auth.rate_limit', path, errorCode },
     errorCode === 'RATE_LIMIT'
       ? 'Auth request rate limited'
