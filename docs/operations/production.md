@@ -41,7 +41,11 @@ Next build, serves requests over a custom HTTP server, and owns lifecycle:
    merely forwards: it is client-writable, so clients could forge their auth
    rate-limit identity. Unset, no header is believed and all clients share
    one rate-limit bucket per auth path — safe, but coarse. Invalid header
-   names or proxy entries fail auth configuration by field name.
+   names or proxy entries fail auth configuration by field name. Proxy
+   validation is intentionally stricter than Better Auth's own, so that
+   nothing accepted here is dropped at runtime: write IPv4 proxies in IPv4
+   form (`10.0.0.0/8`), never as IPv4-mapped IPv6 (`::ffff:10.0.0.0/104`,
+   which Better Auth would ignore), and without leading-zero prefixes.
 4. Scale horizontally: the app is stateless except pools/logger/draining.
    Multi-instance safety relies on PostgreSQL for truth and Redis for
    coordination; sticky sessions are not part of any design.

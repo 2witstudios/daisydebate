@@ -137,4 +137,62 @@ describe('auth client-IP trust from configuration', () => {
       expected: [true, false],
     });
   });
+
+  test('every accepted proxy form is honored by Better Auth', async () => {
+    // Contract: configuration must accept only what Better Auth 1.7.5 acts
+    // on. A proxy entry it drops leaves the chain unbelieved, so the request
+    // would fall into the shared bucket instead of the client's.
+    const accepted: (readonly [entry: string, proxyHop: string])[] = [
+      ['10.0.0.5', '10.0.0.5'],
+      ['10.0.0.0/8', '10.1.2.3'],
+      ['192.0.2.0/24', '192.0.2.1'],
+      ['10.0.0.5/32', '10.0.0.5'],
+      ['2001:db8::1', '2001:db8::1'],
+      ['2001:DB8::/32', '2001:db8:1::9'],
+      ['2001:db8::1/128', '2001:db8::1'],
+      ['::1', '::1'],
+    ];
+    const keys = await Promise.all(
+      accepted.map(async ([entry, proxyHop]) => {
+        const consumed = await compose({
+          env: {
+            AUTH_TRUSTED_IP_HEADERS: 'x-forwarded-for',
+            AUTH_TRUSTED_PROXIES: entry,
+          },
+        }).getSession({
+          'x-forwarded-for': `198.51.100.9, 203.0.113.8, ${proxyHop}`,
+        });
+        return consumed[0];
+      }),
+    );
+    assert({
+      given: 'each proxy form the configuration accepts, behind a hop chain',
+      should: 'skip the proxy hop and key the first untrusted hop as client',
+      actual: keys,
+      expected: accepted.map(() => 'auth:client:203.0.113.8:/get-session'),
+    });
+  });
+
+  test('rejects IPv4-mapped IPv6 proxy ranges at composition', () => {
+    const mapped = [
+      '::ffff:10.0.0.0/104',
+      '::ffff:a00:0/104',
+      '0:0:0:0:0:ffff:10.0.0.1/120',
+    ];
+    assert({
+      given: 'mapped ranges Better Auth would drop with only a warning',
+      should: 'refuse to compose rather than run with an untrusted proxy',
+      actual: mapped.map((entry) => {
+        try {
+          compose({ env: { AUTH_TRUSTED_PROXIES: entry } });
+          return 'composed';
+        } catch (error) {
+          return String(error);
+        }
+      }),
+      expected: mapped.map(
+        () => 'Error: Invalid auth configuration: AUTH_TRUSTED_PROXIES.0',
+      ),
+    });
+  });
 });

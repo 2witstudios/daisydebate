@@ -99,7 +99,7 @@ describe('auth client-IP trust configuration', () => {
       '10.0.0.1/',
     ];
     assert({
-      given: 'proxy entries Better Auth would silently ignore',
+      given: 'proxy entries that are not an IP address or a valid range',
       should: 'reject every one by field name without echoing the value',
       actual: invalid.map((entry) => {
         const message = failure({ AUTH_TRUSTED_PROXIES: `10.0.0.1,${entry}` });
@@ -108,6 +108,43 @@ describe('auth client-IP trust configuration', () => {
         );
       }),
       expected: invalid.map(() => true),
+    });
+  });
+
+  test('rejects IPv6 proxies that embed an IPv4 address', () => {
+    // Better Auth 1.7.5 reduces an IPv4-mapped address to four bytes and
+    // caps its prefix at 32, so these ranges would be dropped at runtime.
+    const embedded = [
+      '::ffff:10.0.0.0/104',
+      '::ffff:a00:0/104',
+      '0:0:0:0:0:ffff:10.0.0.1/120',
+      '::ffff:10.0.0.1',
+      '::FFFF:a00:1',
+      '64:ff9b::10.0.0.1',
+    ];
+    assert({
+      given: 'IPv4-mapped and dotted IPv6 proxy entries',
+      should: 'reject each by field name so operators write the IPv4 form',
+      actual: embedded.map((entry) =>
+        failure({ AUTH_TRUSTED_PROXIES: entry }).includes(
+          'Invalid auth configuration: AUTH_TRUSTED_PROXIES',
+        ),
+      ),
+      expected: embedded.map(() => true),
+    });
+  });
+
+  test('is deliberately stricter than Better Auth about prefix syntax', () => {
+    assert({
+      given: 'a leading-zero prefix that Better Auth itself would accept',
+      should: 'reject it rather than normalize: one canonical spelling only',
+      actual: [
+        failure({ AUTH_TRUSTED_PROXIES: '10.0.0.0/08' }).includes(
+          'AUTH_TRUSTED_PROXIES',
+        ),
+        failure({ AUTH_TRUSTED_PROXIES: '10.0.0.0/8' }),
+      ],
+      expected: [true, 'accepted'],
     });
   });
 });

@@ -75,9 +75,21 @@ export function readServerConfig(
 }
 // RFC 9110 field-name token: anything else makes `Headers.get` throw.
 const headerName = z.string().regex(/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/);
-// Better Auth silently ignores a malformed proxy entry, which would quietly
-// stop trusting a real proxy, so each entry must parse as an IP or CIDR.
-const proxyAddress = z.union([z.ipv4(), z.ipv6(), z.cidrv4(), z.cidrv6()]);
+// IPv6 that embeds IPv4: dotted notation, or the IPv4-mapped block ::ffff:0:0/96
+// written in hex (only zero groups, then ffff, then exactly two groups).
+const embedsIpv4 = (value: string) =>
+  value.includes('.') ||
+  /^[0:]*:ffff:[0-9a-f]{1,4}:[0-9a-f]{1,4}$/i.test(value.split('/')[0] ?? '');
+// The accepted set must stay a subset of what Better Auth acts on: it drops
+// an entry it cannot parse with only a warning, quietly untrusting a real
+// proxy. It reduces IPv4-mapped IPv6 to four bytes and caps that prefix at
+// 32, so mapped ranges are refused outright; operators write the IPv4 form.
+// Stricter than Better Auth on purpose (no leading-zero prefixes either).
+const proxyAddress = z.union([
+  z.ipv4(),
+  z.cidrv4(),
+  z.union([z.ipv6(), z.cidrv6()]).refine((value) => !embedsIpv4(value)),
+]);
 /** Optional comma-separated list: absent or blank means an empty list. */
 const commaList = (entry: z.ZodType<string, string>) =>
   z
