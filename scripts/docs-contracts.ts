@@ -280,6 +280,8 @@ export type DocumentationRunRecord = {
   readonly status: RunRecordStatus;
   readonly baseRevision?: string;
   readonly resultingRevision?: string;
+  readonly idempotencyKey?: string;
+  readonly notes?: string;
 };
 
 const findingProblems = (
@@ -324,8 +326,13 @@ export function parseRunRecord(raw: unknown): DocumentationRunRecord {
     'sourceSnapshot',
   ] as const)
     checkString(problems, raw, field);
-  checkOptionalString(problems, raw, 'baseRevision');
-  checkOptionalString(problems, raw, 'resultingRevision');
+  for (const field of [
+    'baseRevision',
+    'resultingRevision',
+    'idempotencyKey',
+    'notes',
+  ] as const)
+    checkOptionalString(problems, raw, field);
   if (!isRecord(raw.scope))
     problems.push({ path: 'scope', problem: 'must be an object' });
   else {

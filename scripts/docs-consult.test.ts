@@ -7,6 +7,7 @@ import {
 } from './docs-consult';
 import { CUID2, mergeEvent } from './docs-consult.test-support';
 import { DOCUMENTATION_PROMPT_VERSION, promptFor } from './docs-prompts';
+import { RUN_RECORD_COLUMNS } from './docs-runs-sheet';
 import { DOCUMENTATION_RUNS_SHEET_ID } from './pagespace-docs';
 
 setupRitewayBun();
@@ -100,31 +101,42 @@ describe('composeConsultQuestion', async () => {
     assert({
       given: 'a merge event',
       should:
-        'name the Runs sheet and pre-fill every key the record clause asks for',
+        'name the Runs sheet and pre-fill every key that trusted context knows',
       actual: {
         sheet: question.includes(DOCUMENTATION_RUNS_SHEET_ID),
-        runId: question.includes('runId = dabc'),
-        workflow: question.includes('workflow = technical-docs'),
+        runId: question.includes('A runId = dabc'),
+        workflow: question.includes('B workflow = technical-docs'),
         snapshot: question.includes(
-          'sourceSnapshot = 2witstudios/daisydebate@merge007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          'F sourceSnapshot = 2witstudios/daisydebate@merge007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
         ),
-        prNumber: question.includes('prNumber = 7'),
         promptVersion: question.includes(
-          `promptVersion = ${DOCUMENTATION_PROMPT_VERSION}`,
+          `G promptVersion = ${DOCUMENTATION_PROMPT_VERSION}`,
         ),
         idempotencyKey: question.includes(
-          `idempotencyKey = ${event.idempotencyKey}`,
+          `H idempotencyKey = ${event.idempotencyKey}`,
         ),
+        changedSince: question.includes(`"changedSince":"${event.occurredAt}"`),
       },
       expected: {
         sheet: true,
         runId: true,
         workflow: true,
         snapshot: true,
-        prNumber: true,
         promptVersion: true,
         idempotencyKey: true,
+        changedSince: true,
       },
+    });
+  });
+
+  test('instructs every column of the run-record contract', async () => {
+    assert({
+      given: 'the Runs sheet contract',
+      should: 'give the agent a line for each column, in order',
+      actual: RUN_RECORD_COLUMNS.every(({ column, field }) =>
+        question.includes(`\n${column} ${field} = `),
+      ),
+      expected: true,
     });
   });
 

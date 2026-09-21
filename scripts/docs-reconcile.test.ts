@@ -4,10 +4,13 @@ import {
   composeReconcileMessage,
   expectedEvents,
   findMissingRuns,
+  pullRequestsFromSlurp,
+  readRunRecords,
   selectReconcilableMerges,
   type MergedPullRequest,
 } from './docs-reconcile';
 import type { DocumentationRunRecord } from './docs-contracts';
+import { RUN_RECORD_COLUMNS } from './docs-runs-sheet';
 
 setupRitewayBun();
 
@@ -239,6 +242,111 @@ describe('composeReconcileMessage', async () => {
         namesPipeline: true,
         namesSnapshot: true,
       },
+    });
+  });
+});
+
+describe('pullRequestsFromSlurp', async () => {
+  test('flattens every page gh --paginate --slurp returns', async () => {
+    assert({
+      given: 'two pages of pull requests wrapped in one outer array',
+      should: 'return the pull requests of every page, in order',
+      actual: pullRequestsFromSlurp(
+        JSON.stringify([[{ number: 3 }, { number: 2 }], [{ number: 1 }]]),
+      ).map((pullRequest) => pullRequest.number),
+      expected: [3, 2, 1],
+    });
+  });
+});
+
+describe('readRunRecords', async () => {
+  const cell = (raw: string) => ({ raw, value: raw });
+  const header = {
+    rowIndex: 0,
+    cells: Object.fromEntries(
+      RUN_RECORD_COLUMNS.map(({ column, field }) => [column, cell(field)]),
+    ),
+  };
+  const row = (rowIndex: number, runId: string) => ({
+    rowIndex,
+    cells: {
+      A: cell(runId),
+      B: cell('technical-docs'),
+      C: cell('2026-09-21T03:50:00Z'),
+      D: cell('2026-09-21T03:56:00Z'),
+      E: cell('complete'),
+      F: cell(`${REPOSITORY}@merge007`),
+      G: cell('docs-prompt-v1'),
+      I: cell('{"pageIds":[],"changedSince":"2026-09-21T03:40:00Z"}'),
+      J: cell('0'),
+      K: cell('[]'),
+      L: cell('0'),
+      M: cell('0'),
+      N: cell('0'),
+    },
+  });
+
+  test('pages through the Runs sheet with the bearer token', async () => {
+    const requests: { body: Record<string, unknown>; auth: string | null }[] =
+      [];
+    const fetchImpl = (async (_url: unknown, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      requests.push({
+        body,
+        auth: new Headers(init?.headers).get('Authorization'),
+      });
+      const first = body.fromRow === 0;
+      return new Response(
+        JSON.stringify({
+          rows: first ? [header, row(1, 'dabc')] : [row(2, 'ddef')],
+          hasMore: first,
+          nextFromRow: first ? 2 : null,
+        }),
+        { status: 200 },
+      );
+    }) as unknown as typeof fetch;
+    const records = await readRunRecords({
+      token: 'tok',
+      apiUrl: 'https://pagespace.test',
+      fetchImpl,
+    });
+    assert({
+      given: 'a sheet that answers in two pages',
+      should: 'follow nextFromRow and return every record, authenticated',
+      actual: {
+        runIds: records.map((record) => record.runId),
+        fromRows: requests.map((request) => request.body.fromRow),
+        auth: requests.map((request) => request.auth),
+      },
+      expected: {
+        runIds: ['dabc', 'ddef'],
+        fromRows: [0, 2],
+        auth: ['Bearer tok', 'Bearer tok'],
+      },
+    });
+  });
+
+  test('fails loudly when PageSpace refuses the read', async () => {
+    const fetchImpl = (async () =>
+      new Response('{"error":"forbidden"}', {
+        status: 403,
+      })) as unknown as typeof fetch;
+    let message = 'no throw';
+    try {
+      await readRunRecords({
+        token: 'tok',
+        apiUrl: 'https://pagespace.test',
+        fetchImpl,
+      });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    assert({
+      given: 'a 403 from the sheets route',
+      should: 'throw rather than reconcile against no records',
+      actual: message,
+      expected:
+        'Reading Documentation Runs responded 403: {"error":"forbidden"}',
     });
   });
 });
