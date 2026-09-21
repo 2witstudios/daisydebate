@@ -11,7 +11,8 @@ export type AuthPanelCopy = {
 export type AuthFrameProps = {
   /** Explains the step. It never holds a control: people act on the left. */
   readonly panel: AuthPanelCopy;
-  readonly footer: ReactNode;
+  /** A reassurance line under the step; omit when the step needs none. */
+  readonly footer?: ReactNode;
   readonly children: ReactNode;
 };
 
@@ -30,7 +31,8 @@ export function AuthFrame({ panel, footer, children }: AuthFrameProps) {
           </span>
         </Link>
         <div className="flex max-w-auth-copy flex-col gap-8">{children}</div>
-        <p className="text-sm text-ink-muted">{footer}</p>
+        {/* The slot stays when empty so the step keeps its vertical place. */}
+        <div className="text-sm text-ink-muted">{footer}</div>
       </div>
       <aside className="relative isolate flex w-auth-panel shrink-0 flex-col justify-end gap-4 overflow-hidden rounded-xl bg-surface-emerald p-10 text-ink max-rail:hidden">
         <DaisyMark
@@ -85,10 +87,6 @@ export function AuthHeading({
     </div>
   );
 }
-
-/** The one footer line every step without its own reassurance uses. */
-export const passwordlessFooter =
-  'No passwords, ever. Daisy signs you in with a passkey or an emailed link.';
 
 /** Brand panel for steps whose left column needs no explanation. */
 export const taglinePanel: AuthPanelCopy = {

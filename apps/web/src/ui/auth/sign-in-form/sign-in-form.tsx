@@ -1,11 +1,6 @@
 import { Button } from '../../components/button/button';
 import { Icon } from '../../components/icon/icon';
-import {
-  AuthFrame,
-  AuthHeading,
-  passwordlessFooter,
-  taglinePanel,
-} from '../auth-frame/auth-frame';
+import { AuthFrame, AuthHeading, taglinePanel } from '../auth-frame/auth-frame';
 import { EmailField } from '../email-field/email-field';
 import { Notice } from '../notice/notice';
 import { signInNotices } from '../sign-in-notices';
@@ -45,13 +40,13 @@ export function SignInForm({
   const copy = notice === undefined ? undefined : signInNotices[notice];
   const refusesEmail = notice === 'undeliverable';
   return (
-    <AuthFrame panel={taglinePanel} footer={passwordlessFooter}>
+    <AuthFrame panel={taglinePanel}>
       <AuthHeading
         eyebrow="Sign in or create an account"
         title="Take the floor."
       >
-        Enter your email. If this device has your Daisy passkey, your browser
-        will offer it. If not, we will email you a sign-in link.
+        Enter your email and we&apos;ll send you a sign-in link. Saved a passkey
+        on this device? Your browser will offer it.
       </AuthHeading>
       <form
         className="flex flex-col gap-3"

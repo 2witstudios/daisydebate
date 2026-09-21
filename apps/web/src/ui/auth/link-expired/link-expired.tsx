@@ -1,10 +1,5 @@
 import { Button } from '../../components/button/button';
-import {
-  AuthFrame,
-  AuthHeading,
-  passwordlessFooter,
-  taglinePanel,
-} from '../auth-frame/auth-frame';
+import { AuthFrame, AuthHeading, taglinePanel } from '../auth-frame/auth-frame';
 import { EmailField } from '../email-field/email-field';
 import { LinkForm, type LinkFormTarget } from '../link-form';
 import { Notice } from '../notice/notice';
@@ -17,7 +12,7 @@ export type LinkExpiredProps = {
 /** A used or expired link: say what happened, then fix it in place. */
 export function LinkExpired({ target, notice }: LinkExpiredProps) {
   return (
-    <AuthFrame panel={taglinePanel} footer={passwordlessFooter}>
+    <AuthFrame panel={taglinePanel}>
       <AuthHeading
         eyebrow="Link expired"
         title="This link can no longer be used."
