@@ -131,22 +131,24 @@ describe('dispatchDocumentationEvent receipt', async () => {
       } catch (error) {
         message = (error as Error).message;
       }
-      return { consults: stub.counts.consult, message };
+      return {
+        consults: stub.counts.consult,
+        unsent: message.startsWith(
+          'Documentation Agent consult for technical-docs was not sent',
+        ),
+        rowIndex: message.includes(
+          'Reserving the technical-docs run record returned no usable row index',
+        ),
+      };
     };
-    const refused = {
-      consults: 0,
-      message: 'Documentation Agent consult for technical-docs was not sent',
-    };
+    const refused = { consults: 0, unsent: true, rowIndex: true };
     const missing = await outcomesFor({ appended: 1 });
     const asText = await outcomesFor({ firstRowIndex: '6' });
     assert({
       given: 'an append answer with the row index missing, or as text',
       should:
         'throw before consulting, rather than point the agent at the wrong row',
-      actual: {
-        missing: { ...missing, message: missing.message.split(':')[0] },
-        asText: { ...asText, message: asText.message.split(':')[0] },
-      },
+      actual: { missing, asText },
       expected: { missing: refused, asText: refused },
     });
   });
