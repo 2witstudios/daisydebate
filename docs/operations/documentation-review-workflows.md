@@ -173,11 +173,13 @@ PageSpace refuses a taken id with 409 rather than running the agent again.
 2. If a pipeline reports `already-dispatched` but `bun docs:reconcile` still
    lists it as uncovered, its earlier run holds its id without having
    written a run record: it was cut off, or it is still going. Wait until
-   that run's conversation has an answer or an hour has passed since it was
-   dispatched, then replay it with `DOC_REPLAY_ATTEMPT=1` (then `2`, …),
-   which addresses a fresh conversation, and set `DOC_PIPELINES` to just the
-   uncovered pipelines (comma-separated) so the healthy ones are not run
-   again. A name the event does not route to is rejected.
+   that run's conversation has an answer or an hour after the failure that
+   dispatch reported for it (90 minutes after its dispatch if none was
+   reported, which covers the 20-minute consult window), then replay it with
+   `DOC_REPLAY_ATTEMPT=1` (then `2`, …), which addresses a fresh
+   conversation, and set `DOC_PIPELINES` to just the uncovered pipelines
+   (comma-separated) so the healthy ones are not run again. A name the event
+   does not route to is rejected.
    A dispatch failure names the replay to use, and its receipt row when one
    was reserved. A consult that PageSpace itself reported as failed has
    ended: replay it with the next attempt if its row is still failed, since
