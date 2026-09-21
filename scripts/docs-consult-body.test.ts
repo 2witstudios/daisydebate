@@ -52,7 +52,7 @@ describe('dispatchDocumentationEvent with a lost response body', async () => {
       given: 'a lost 502 body and a conversation that never appears',
       should: 'fail as never reached, naming the body failure and the replay',
       actual: message,
-      expected: `Documentation Agent consult for technical-docs never reached PageSpace (body dropped). Its receipt, row 2 of Documentation Runs, stays failed unless the request lands late; replay with DOC_REPLAY_ATTEMPT=0 DOC_PIPELINES=technical-docs. If that replay reports already-dispatched while bun docs:reconcile still lists it, the request landed late: ${lateReplay}`,
+      expected: `Documentation Agent consult for technical-docs never reached PageSpace (responded 502; body lost: body dropped). Its receipt, row 2 of Documentation Runs, stays failed unless the request lands late; replay with DOC_REPLAY_ATTEMPT=0 DOC_PIPELINES=technical-docs. If that replay reports already-dispatched while bun docs:reconcile still lists it, the request landed late: ${lateReplay}`,
     });
   });
 

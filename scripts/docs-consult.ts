@@ -339,7 +339,9 @@ export async function dispatchDocumentationEvent(
     } catch (error) {
       return response.status < 500
         ? { response, body: `(body lost: ${causeOf(error)})` }
-        : { cause: causeOf(error) };
+        : {
+            cause: `responded ${response.status}; body lost: ${causeOf(error)}`,
+          };
     }
   };
 
