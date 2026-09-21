@@ -25,17 +25,29 @@ export type SignInPort = {
   readonly signInWithPasskey: () => Promise<PasskeyOutcome>;
 };
 
+// Both helpers call the port inside `try`: an adapter can throw before it
+// returns a promise (client init, argument validation), and a `.catch()` on
+// the result would never see that, leaving the screen pending forever.
+
 /** A port that throws is treated as unavailable: the screen never hangs. */
-export const requestLinkSafely = (
+export const requestLinkSafely = async (
   port: SignInPort,
   email: string,
-): Promise<LinkRequestOutcome> =>
-  port
-    .requestLink(email)
-    .catch((): LinkRequestOutcome => ({ kind: 'unavailable' }));
+): Promise<LinkRequestOutcome> => {
+  try {
+    return await port.requestLink(email);
+  } catch {
+    return { kind: 'unavailable' };
+  }
+};
 
 /** A ceremony that throws is a failure, never a false success. */
-export const signInWithPasskeySafely = (
+export const signInWithPasskeySafely = async (
   port: SignInPort,
-): Promise<PasskeyOutcome> =>
-  port.signInWithPasskey().catch((): PasskeyOutcome => ({ kind: 'failed' }));
+): Promise<PasskeyOutcome> => {
+  try {
+    return await port.signInWithPasskey();
+  } catch {
+    return { kind: 'failed' };
+  }
+};

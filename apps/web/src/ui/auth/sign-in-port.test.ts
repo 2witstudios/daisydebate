@@ -12,6 +12,16 @@ const throwingPort: SignInPort = {
   signInWithPasskey: () => Promise.reject(new Error('ceremony blew up')),
 };
 
+// Throws before any promise exists: client init or argument validation.
+const synchronouslyThrowingPort: SignInPort = {
+  requestLink: () => {
+    throw new Error('client not initialised');
+  },
+  signInWithPasskey: () => {
+    throw new Error('WebAuthn options invalid');
+  },
+};
+
 const passingPort: SignInPort = {
   requestLink: (email) =>
     Promise.resolve(
@@ -38,6 +48,18 @@ describe('requestLinkSafely', () => {
       expected: { kind: 'unavailable' },
     });
   });
+
+  test('turns a synchronous throw into unavailable', async () => {
+    assert({
+      given: 'a port that throws before returning a promise',
+      should: 'still settle as unavailable instead of escaping',
+      actual: await requestLinkSafely(
+        synchronouslyThrowingPort,
+        'j@school.edu',
+      ),
+      expected: { kind: 'unavailable' },
+    });
+  });
 });
 
 describe('signInWithPasskeySafely', () => {
@@ -55,6 +77,15 @@ describe('signInWithPasskeySafely', () => {
       given: 'a ceremony that throws',
       should: 'report a failure',
       actual: await signInWithPasskeySafely(throwingPort),
+      expected: { kind: 'failed' },
+    });
+  });
+
+  test('turns a synchronous throw into a failure', async () => {
+    assert({
+      given: 'a ceremony that throws before returning a promise',
+      should: 'still settle as a failure instead of escaping',
+      actual: await signInWithPasskeySafely(synchronouslyThrowingPort),
       expected: { kind: 'failed' },
     });
   });
