@@ -139,6 +139,20 @@ const composeBetterAuth = (dependencies: {
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
         if (ctx.path !== '/sign-in/magic-link') return;
+        for (const destination of [
+          ctx.body?.callbackURL,
+          ctx.body?.newUserCallbackURL,
+          ctx.body?.errorCallbackURL,
+        ])
+          // Local paths only: external, protocol-relative and encoded forms fail.
+          if (
+            destination !== undefined &&
+            safeLocalDestination(destination, '') === ''
+          )
+            throw new APIError('FORBIDDEN', {
+              code: 'INVALID_CALLBACK_URL',
+              message: 'Invalid callback URL',
+            });
         const email =
           typeof ctx.body?.email === 'string'
             ? ctx.body.email.trim().toLowerCase()
@@ -193,9 +207,11 @@ const composeBetterAuth = (dependencies: {
             'token',
             source.searchParams.get('token') ?? '',
           );
+          // Better Auth defaults an absent destination to "/"; ours is /lobby.
+          const requested = source.searchParams.get('callbackURL');
           link.searchParams.set(
             'callbackURL',
-            safeLocalDestination(source.searchParams.get('callbackURL')),
+            safeLocalDestination(requested === '/' ? null : requested),
           );
           const newUser = source.searchParams.get('newUserCallbackURL');
           if (newUser)

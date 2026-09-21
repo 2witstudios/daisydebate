@@ -1,3 +1,4 @@
+import { createAppError } from '@daisy/errors';
 import { handleOperation } from '../../server/http';
 
 type Handler = (request: Request) => Promise<Response>;
@@ -35,12 +36,24 @@ const withRetryAfter = (response: Response) =>
  * URL, query or credentials, and safe public errors for thrown failures
  * (a limiter outage surfaces as a 503, never as an allowed request).
  */
-export function createAuthRouteHandlers(auth: () => { handler: Handler }) {
+export function createAuthRouteHandlers(
+  auth: () => { handler: Handler; config: { PUBLIC_APP_URL: string } },
+) {
   const handle = async (request: Request) =>
     withRetryAfter(
-      await handleOperation(request, 'auth.request', async () =>
-        preserve(await auth().handler(request)),
-      ),
+      await handleOperation(request, 'auth.request', async () => {
+        const server = auth();
+        // Better Auth only enforces origin on cookie-bearing requests; every
+        // state-changing auth call must additionally come from our own origin.
+        if (
+          request.method !== 'GET' &&
+          request.method !== 'HEAD' &&
+          request.headers.get('origin') !==
+            new URL(server.config.PUBLIC_APP_URL).origin
+        )
+          throw createAppError('AUTHORIZATION');
+        return preserve(await server.handler(request));
+      }),
     );
   return {
     GET: handle,
