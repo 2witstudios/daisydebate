@@ -10,4 +10,15 @@
   --radius-badge: 4px;
   --text-badge: 0.625rem;
   --container-search: 420px;
+  --spacing-search-x: 2px;
+  --spacing-search-y: 1px;
+  /* Unstyled route copy keeps the browser's default rhythm (em, so it scales
+     with the element's own size). */
+  --text-prose-h1: 2em;
+  --text-prose-h2: 1.5em;
+  --spacing-prose-h1: 0.67em;
+  --spacing-prose-h2: 0.83em;
+  --spacing-prose-block: 1em;
+  --spacing-prose-list: 40px;
+  --font-mono: ui-monospace, monospace;
 }

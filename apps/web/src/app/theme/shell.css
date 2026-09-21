@@ -53,7 +53,7 @@
   grid-area: rail;
 }
 
-@utility h-rail {
+@utility h-rail-viewport {
   height: calc(100vh - var(--spacing-topbar));
 }
 

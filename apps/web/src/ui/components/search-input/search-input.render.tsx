@@ -25,7 +25,7 @@ export function renderSearchInput(props: SearchInputRenderProps): ReactNode {
         placeholder={placeholder}
         aria-label={label}
         className={
-          'flex-1 border-none bg-transparent text-base text-ink outline-none placeholder:text-ink-faint'
+          'flex-1 border-none bg-transparent px-search-x py-search-y text-base text-ink outline-none placeholder:text-ink-faint'
         }
         onChange={(event) => typeSearchQuery(event.currentTarget.value)}
       />

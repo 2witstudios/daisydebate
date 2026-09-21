@@ -31,7 +31,7 @@ export function FeaturedTournament() {
   const tournament = useUiState((state) => state.resources.tournament);
   return (
     <section className="relative flex min-h-tournament-min items-stretch overflow-hidden rounded-lg border border-border-strong bg-surface-emerald">
-      <div className="relative z-10 flex shrink grow basis-tournament-body flex-col items-start gap-3 p-6 max-narrow:basis-full">
+      <div className="relative z-1 flex shrink grow basis-tournament-body flex-col items-start gap-3 p-6 max-narrow:basis-full">
         <header className="flex items-center gap-2 text-gold">
           <Icon name="trophy" size={18} />
           <h2 className="text-md font-heavy text-ink">Featured Tournament</h2>

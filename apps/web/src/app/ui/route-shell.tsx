@@ -1,3 +1,4 @@
+import { prose } from './prose-class';
 type RouteShellProps = {
   readonly title: string;
   readonly lede: string;
@@ -11,10 +12,10 @@ type RouteShellProps = {
 export function RouteShell({ title, lede, planned }: RouteShellProps) {
   return (
     <section>
-      <h1>{title}</h1>
-      <p>{lede}</p>
-      <h2>Planned capabilities</h2>
-      <ul>
+      <h1 className={prose.h1}>{title}</h1>
+      <p className={prose.p}>{lede}</p>
+      <h2 className={prose.h2}>Planned capabilities</h2>
+      <ul className={prose.ul}>
         {planned.map((item) => (
           <li key={item}>{item}</li>
         ))}
