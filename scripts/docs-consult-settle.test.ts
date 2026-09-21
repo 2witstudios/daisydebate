@@ -1,6 +1,6 @@
 import { describe, test } from 'riteway/bun';
 import { setupRitewayBun, assert } from 'riteway/bun';
-import { dispatchDocumentationEvent } from './docs-consult';
+import { conversationIdFor, dispatchDocumentationEvent } from './docs-consult';
 import {
   baseOptions,
   failureOf,
@@ -12,6 +12,13 @@ import {
 } from './docs-consult.test-support';
 
 setupRitewayBun();
+
+// The advice every late-landing outcome ends with, for attempt 0's event.
+const lateReplay = `replay with DOC_REPLAY_ATTEMPT=1 DOC_PIPELINES=technical-docs once conversation ${conversationIdFor(
+  mergeEvent('fix: only technical').idempotencyKey,
+  'technical-docs',
+  0,
+)} has an answer or an hour after this failure, whichever comes first; replaying sooner can start a second run beside a live one`;
 
 describe('dispatchDocumentationEvent settlement', async () => {
   test('settles a gateway 5xx by reading the conversation', async () => {
@@ -50,8 +57,7 @@ describe('dispatchDocumentationEvent settlement', async () => {
       given: 'a 502 and a conversation that never appears',
       should: 'fail naming the status as the cause',
       actual: message,
-      expected:
-        'Documentation Agent consult for technical-docs never reached PageSpace (responded 502). Its receipt, row 2 of Documentation Runs, stays failed unless the request lands late; replay with DOC_REPLAY_ATTEMPT=0 DOC_PIPELINES=technical-docs. A 409 proves only that the conversation exists, so if that replay reports already-dispatched while bun docs:reconcile still lists it, replay with DOC_REPLAY_ATTEMPT=1 DOC_PIPELINES=technical-docs',
+      expected: `Documentation Agent consult for technical-docs never reached PageSpace (responded 502). Its receipt, row 2 of Documentation Runs, stays failed unless the request lands late; replay with DOC_REPLAY_ATTEMPT=0 DOC_PIPELINES=technical-docs. If that replay reports already-dispatched while bun docs:reconcile still lists it, the request landed late: ${lateReplay}`,
     });
   });
 

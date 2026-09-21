@@ -379,6 +379,12 @@ export async function dispatchDocumentationEvent(
       );
     const waitSeconds = Math.round((deadline - Date.now()) / 1000);
     const replay = replayWith(pipeline, attempt + 1);
+    // Nothing tells a live run from a dead one, and a live run's row stays
+    // failed until it ends. PageSpace caps a consult run at 20 tool steps and
+    // the longest seen took about 25 minutes, so an hour bounds the wait: a
+    // replay held until the conversation answers or that hour passes can
+    // neither run beside a live run nor strand a dead one.
+    const lateReplay = `replay with ${replay} once conversation ${conversationId} has an answer or an hour after this failure, whichever comes first; replaying sooner can start a second run beside a live one`;
     const answered = {
       pipeline,
       conversationId,
@@ -393,10 +399,10 @@ export async function dispatchDocumentationEvent(
       // that the conversation exists; the message says what to do then.
       if (state === 'absent')
         throw new Error(
-          `${consultFor(pipeline)} never reached PageSpace (${cause}). Its receipt, ${receipt}, stays failed unless the request lands late; replay with ${replayWith(pipeline, attempt)}. A 409 proves only that the conversation exists, so if that replay reports already-dispatched while bun docs:reconcile still lists it, replay with ${replay}`,
+          `${consultFor(pipeline)} never reached PageSpace (${cause}). Its receipt, ${receipt}, stays failed unless the request lands late; replay with ${replayWith(pipeline, attempt)}. If that replay reports already-dispatched while bun docs:reconcile still lists it, the request landed late: ${lateReplay}`,
         );
       throw new Error(
-        `${consultFor(pipeline)} did not answer within ${waitSeconds}s (${cause}). The run may still be going: its receipt is ${receipt} and its answer lands in conversation ${conversationId}. Do not replay while that conversation has no answer and the row is failed, or two runs edit the same pages. If the row turns complete, nothing is lost; if the conversation answers and the row stays failed, replay with ${replay}`,
+        `${consultFor(pipeline)} did not answer within ${waitSeconds}s (${cause}). The run may still be going: its receipt is ${receipt}. If the row turns complete, nothing is lost. Otherwise ${lateReplay}`,
       );
     };
     const sent = await send(

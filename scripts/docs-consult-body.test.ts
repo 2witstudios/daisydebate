@@ -12,6 +12,13 @@ import {
 
 setupRitewayBun();
 
+// The advice every late-landing outcome ends with, for attempt 0's event.
+const lateReplay = `replay with DOC_REPLAY_ATTEMPT=1 DOC_PIPELINES=technical-docs once conversation ${conversationIdFor(
+  mergeEvent('fix: only technical').idempotencyKey,
+  'technical-docs',
+  0,
+)} has an answer or an hour after this failure, whichever comes first; replaying sooner can start a second run beside a live one`;
+
 // A consult whose status arrived but whose body was lost on the way back.
 const dispatchDropped = (status: number, roles: readonly string[]) => {
   const { fetchImpl, counts } = routedFetch({
@@ -45,8 +52,7 @@ describe('dispatchDocumentationEvent with a lost response body', async () => {
       given: 'a lost 502 body and a conversation that never appears',
       should: 'fail as never reached, naming the body failure and the replay',
       actual: message,
-      expected:
-        'Documentation Agent consult for technical-docs never reached PageSpace (body dropped). Its receipt, row 2 of Documentation Runs, stays failed unless the request lands late; replay with DOC_REPLAY_ATTEMPT=0 DOC_PIPELINES=technical-docs. A 409 proves only that the conversation exists, so if that replay reports already-dispatched while bun docs:reconcile still lists it, replay with DOC_REPLAY_ATTEMPT=1 DOC_PIPELINES=technical-docs',
+      expected: `Documentation Agent consult for technical-docs never reached PageSpace (body dropped). Its receipt, row 2 of Documentation Runs, stays failed unless the request lands late; replay with DOC_REPLAY_ATTEMPT=0 DOC_PIPELINES=technical-docs. If that replay reports already-dispatched while bun docs:reconcile still lists it, the request landed late: ${lateReplay}`,
     });
   });
 
@@ -161,11 +167,11 @@ describe('dispatchDocumentationEvent with a lost response body', async () => {
     assert({
       given: 'a run still unanswered at the deadline',
       should:
-        'name its conversation and forbid a replay while that run may still be going',
+        'name its conversation and hold the replay until it answers or an hour has passed',
       actual: {
         conversation: message.includes(`conversation ${conversation}`),
-        holdOff: message.includes(
-          'Do not replay while that conversation has no answer and the row is failed',
+        holdOff: message.endsWith(
+          `the row turns complete, nothing is lost. Otherwise ${lateReplay}`,
         ),
       },
       expected: { conversation: true, holdOff: true },

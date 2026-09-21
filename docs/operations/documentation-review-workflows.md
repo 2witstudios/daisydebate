@@ -171,28 +171,33 @@ PageSpace refuses a taken id with 409 rather than running the agent again.
    (`DOC_*` variables from the merge or release, plus `PAGESPACE_TOKEN`).
    Pipelines that already ran report `already-dispatched`.
 2. If a pipeline reports `already-dispatched` but `bun docs:reconcile` still
-   lists it as uncovered, its earlier run was cut off before writing a run
-   record and still holds its id. Replay it with `DOC_REPLAY_ATTEMPT=1` (then
-   `2`, …), which addresses a fresh conversation, and set `DOC_PIPELINES` to
-   just the uncovered pipelines (comma-separated) so the healthy ones are not
-   run again. A name the event does not route to is rejected.
+   lists it as uncovered, its earlier run holds its id without having
+   written a run record: it was cut off, or it is still going. Wait until
+   that run's conversation has an answer or an hour has passed since it was
+   dispatched, then replay it with `DOC_REPLAY_ATTEMPT=1` (then `2`, …),
+   which addresses a fresh conversation, and set `DOC_PIPELINES` to just the
+   uncovered pipelines (comma-separated) so the healthy ones are not run
+   again. A name the event does not route to is rejected.
    A dispatch failure names the replay to use, and its receipt row when one
-   was reserved. A consult that PageSpace reported as failed, that did not
-   answer in time, or whose conversation could not be read gives the next
-   attempt: replay it only if that row is still failed, since a run can
-   record its receipt before its answer is lost. A run that did not answer
-   in time may still be going (PageSpace sets no time limit on a run, and
-   its row stays failed until it ends), so the failure also names its
-   conversation: do not replay while that conversation has no answer and the
-   row is failed, or two runs edit the same pages. A consult that never
-   reached PageSpace (successful reads found no conversation), or was left
-   unsent because the budget ran out (before or after its row was reserved)
-   or reserving its row failed, gives the same attempt, since its id was
-   almost certainly never used. PageSpace claims an id before it saves the
-   question, so a 409 on that replay proves only that the conversation
-   exists: if it reports `already-dispatched` while `bun docs:reconcile`
-   still lists the pipeline, use the step above. A 4xx refusal is final and
-   gives no replay.
+   was reserved. A consult that PageSpace itself reported as failed has
+   ended: replay it with the next attempt if its row is still failed, since
+   a run can record its receipt before its answer is lost. A consult that
+   did not answer in time, or whose conversation could not be read, may
+   still be running: PageSpace sets no time limit on a run, and its row
+   stays failed until it ends. If the row turns complete, nothing is lost;
+   otherwise replay with the next attempt once the named conversation has an
+   answer or an hour after the failure, whichever comes first (PageSpace
+   caps a consult run at 20 tool steps, and the longest seen took about 25
+   minutes). Replaying sooner can start a second run beside a live one;
+   never replaying can strand a dead one. A consult that never reached
+   PageSpace (successful reads found no conversation), or was left unsent
+   because the budget ran out (before or after its row was reserved) or
+   reserving its row failed, gives the same attempt, since its id was almost
+   certainly never used. PageSpace claims an id before it saves the
+   question, so if that replay reports `already-dispatched` while
+   `bun docs:reconcile` still lists the pipeline, the request landed late:
+   treat it like a consult that did not answer in time. A 4xx refusal is
+   final and gives no replay.
 3. If a merged fork PR skipped the event (fork runs carry no secrets), run the
    same dispatch from a trusted checkout and delete the skip notice in
    incidents after it succeeds.
