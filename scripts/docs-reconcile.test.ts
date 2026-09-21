@@ -389,4 +389,32 @@ describe('readRunRecords', async () => {
       expected: true,
     });
   });
+
+  test('gives up on a sheet read PageSpace never answers', async () => {
+    const fetchImpl = ((_url: unknown, init?: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () =>
+          reject(new DOMException('timed out', 'TimeoutError')),
+        );
+      })) as unknown as typeof fetch;
+    let message = 'no throw';
+    try {
+      await readRunRecords({
+        token: 'tok',
+        apiUrl: 'https://pagespace.test',
+        fetchImpl,
+        timeoutMs: 20,
+      });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    assert({
+      given: 'a sheets read that is accepted and never answered',
+      should: 'throw at its deadline instead of hanging the sweep',
+      actual: message.startsWith(
+        'Reading Documentation Runs did not answer within',
+      ),
+      expected: true,
+    });
+  });
 });

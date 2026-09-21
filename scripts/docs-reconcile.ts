@@ -267,24 +267,39 @@ function validPage(value: unknown, fromRow: number): RowsPage {
 // against the run-record contract. A refused read throws: reconciling against
 // no records would report every merge uncovered and prove nothing.
 export async function readRunRecords(
-  options: PagespaceApiOptions & { readonly fetchImpl?: typeof fetch } = {},
+  options: PagespaceApiOptions & {
+    readonly fetchImpl?: typeof fetch;
+    readonly timeoutMs?: number;
+  } = {},
 ): Promise<readonly DocumentationRunRecord[]> {
   const { apiUrl, headers } = pagespaceApi(options);
   const fetchImpl = options.fetchImpl ?? fetch;
+  const timeoutMs = options.timeoutMs ?? 60_000;
   const endpoint = new URL('/api/mcp/sheets', apiUrl).toString();
   const rows: SheetRow[] = [];
   for (let fromRow: number | null = 0; fromRow !== null;) {
-    const response = await fetchImpl(endpoint, {
-      method: 'POST',
-      redirect: 'error',
-      headers,
-      body: JSON.stringify({
-        operation: 'get-rows',
-        pageId: DOCUMENTATION_RUNS_SHEET_ID,
-        fromRow,
-        limit: 5000,
-      }),
-    });
+    let response: Response;
+    try {
+      response = await fetchImpl(endpoint, {
+        method: 'POST',
+        redirect: 'error',
+        headers,
+        signal: AbortSignal.timeout(timeoutMs),
+        body: JSON.stringify({
+          operation: 'get-rows',
+          pageId: DOCUMENTATION_RUNS_SHEET_ID,
+          fromRow,
+          limit: 5000,
+        }),
+      });
+    } catch (error) {
+      const name = (error as { name?: unknown } | null)?.name;
+      if (name === 'TimeoutError' || name === 'AbortError')
+        throw new Error(
+          `Reading Documentation Runs did not answer within ${Math.round(timeoutMs / 1000)}s at row ${fromRow}`,
+        );
+      throw error;
+    }
     const body = await response.text();
     if (!response.ok)
       throw new Error(

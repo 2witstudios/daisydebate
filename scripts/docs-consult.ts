@@ -319,8 +319,10 @@ export async function dispatchDocumentationEvent(
     );
     // A conversation that already exists was dispatched before (a re-run of
     // the workflow): report it without reserving a row or running the agent.
-    // Only a race between two identical dispatches gets past this to a 409,
-    // leaving its reserved row honestly marked failed.
+    // A lookup that fails reads as absent, so a transient failure (or a race
+    // between identical dispatches) can still reach the consult; PageSpace
+    // then refuses the id with 409 and the extra reserved row stays failed,
+    // which the reconciler never counts as a receipt.
     if ((await readConversation(conversationId, budgetEnd)) !== 'absent')
       return { pipeline, conversationId, outcome: 'already-dispatched' };
     const runRow = await reserveRunRow(pipeline, conversationId);
