@@ -70,7 +70,11 @@ always preserved; non-canonical but loader-supported assignments
 generated value is appended as the final assignment (dotenv last-assignment
 semantics), the stale line is left untouched, and repeated runs are no-ops.
 The value is never printed or committed. Live email delivery additionally
-needs owner-provisioned Resend credentials.
+needs owner-provisioned Resend credentials. The optional
+`AUTH_TRUSTED_IP_HEADERS` and `AUTH_TRUSTED_PROXIES` lists declare which
+proxy-overwritten header names the client address for auth rate limiting;
+leave them unset locally (no header is believed). See
+[production operations](../operations/production.md#releases).
 
 ## Parallel sessions on one machine
 

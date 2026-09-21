@@ -73,6 +73,32 @@ export function readServerConfig(
     );
   return result.data;
 }
+// RFC 9110 field-name token: anything else makes `Headers.get` throw.
+const headerName = z.string().regex(/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/);
+// IPv6 that embeds IPv4: dotted notation, or the IPv4-mapped block ::ffff:0:0/96
+// written in hex (only zero groups, then ffff, then exactly two groups).
+const embedsIpv4 = (value: string) =>
+  value.includes('.') ||
+  /^[0:]*:ffff:[0-9a-f]{1,4}:[0-9a-f]{1,4}$/i.test(value.split('/')[0] ?? '');
+// The accepted set must stay a subset of what Better Auth acts on: it drops
+// an entry it cannot parse with only a warning, quietly untrusting a real
+// proxy. It reduces IPv4-mapped IPv6 to four bytes and caps that prefix at
+// 32, so mapped ranges are refused outright; operators write the IPv4 form.
+// Stricter than Better Auth on purpose (no leading-zero prefixes either).
+const proxyAddress = z.union([
+  z.ipv4(),
+  z.cidrv4(),
+  z.union([z.ipv6(), z.cidrv6()]).refine((value) => !embedsIpv4(value)),
+]);
+/** Optional comma-separated list: absent or blank means an empty list. */
+const commaList = (entry: z.ZodType<string, string>) =>
+  z
+    .string()
+    .default('')
+    .transform((value) =>
+      value.trim() === '' ? [] : value.split(',').map((item) => item.trim()),
+    )
+    .pipe(z.array(entry));
 /**
  * Narrow server authentication configuration, validated only when the auth
  * composition is activated: baseline startup never requires auth variables.
@@ -99,6 +125,14 @@ export const authConfigSchema = z
           ),
         'Expected an email address or display name with an email address',
       ),
+    /**
+     * Request headers believed to name the client address for rate-limit
+     * keying. Set only to the header the deployment's own reverse proxy
+     * overwrites; the default believes none.
+     */
+    AUTH_TRUSTED_IP_HEADERS: commaList(headerName),
+    /** Proxy IPs or CIDR ranges skipped when a trusted header holds a chain. */
+    AUTH_TRUSTED_PROXIES: commaList(proxyAddress),
     NODE_ENV: z
       .enum(['development', 'test', 'production'])
       .default('development'),
