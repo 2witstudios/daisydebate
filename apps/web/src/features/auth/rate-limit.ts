@@ -28,15 +28,26 @@ export type ClientIpTrust = {
   readonly trustedProxies?: readonly string[];
 };
 
-/** Maps the trust declaration onto Better Auth's `advanced.ipAddress`. */
-export const clientIpOptions = (trust: ClientIpTrust | undefined) => ({
-  // An empty list (not undefined) is what stops Better Auth falling back to
-  // its default of believing `x-forwarded-for`.
-  ipAddressHeaders: [...(trust?.trustedHeaders ?? [])],
-  ...(trust?.trustedProxies
-    ? { trustedProxies: [...trust.trustedProxies] }
-    : {}),
-});
+// RFC 9110 field-name token. Anything else makes `Headers.get` throw on
+// every request, so it is rejected once, at composition.
+const headerName = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
+
+/**
+ * Maps the trust declaration onto Better Auth's `advanced.ipAddress`.
+ * Fails fast like `readAuthConfig`: names the option, never echoes values.
+ */
+export const clientIpOptions = (trust: ClientIpTrust | undefined) => {
+  if (trust?.trustedHeaders.some((name) => !headerName.test(name)))
+    throw new Error('Invalid auth configuration: clientIp.trustedHeaders');
+  return {
+    // An empty list (not undefined) is what stops Better Auth falling back
+    // to its default of believing `x-forwarded-for`.
+    ipAddressHeaders: [...(trust?.trustedHeaders ?? [])],
+    ...(trust?.trustedProxies
+      ? { trustedProxies: [...trust.trustedProxies] }
+      : {}),
+  };
+};
 
 const magicLinkPath = '/sign-in/magic-link';
 
@@ -106,32 +117,43 @@ const denial = (
  * runs before every endpoint handler, for HTTP requests and direct
  * `auth.api.*` calls alike, so a denied request performs no durable work.
  * A limiter outage fails closed with a public 503.
+ *
+ * `resolveClient` defaults to Better Auth's `getIP`, which believes only the
+ * headers configured through `clientIpOptions`.
  */
 export const createRateLimitGate = (dependencies: {
   readonly limiter: AuthRateLimiter;
   readonly logger: Logger;
+  readonly resolveClient?: typeof getIP;
 }) =>
   createAuthMiddleware(async (context) => {
     const { path } = context;
-    // Direct `auth.api.*` calls carry no Request, only forwarded Headers.
-    const source = context.request ?? context.headers;
-    const client = source ? getIP(source, context.context.options) : null;
-    const keys = [
-      `auth:client:${client ?? 'unknown'}:${path}`,
-      ...recipientKeys(path, context.body),
-    ];
-    // Invoked and validated inside try/await so a limiter that throws
-    // synchronously, rejects, or answers nonsense converges on the same
-    // fail-closed 503.
-    const consume = async (key: string) => {
+    const resolveClient = dependencies.resolveClient ?? getIP;
+    // Everything the gate depends on runs inside try/await, so client
+    // resolution that throws and a limiter that throws synchronously,
+    // rejects, or answers nonsense all converge on the same fail-closed 503.
+    const failClosed = async <Result>(work: () => Result | Promise<Result>) => {
       try {
-        return readDecision(await dependencies.limiter.consume(key));
+        return await work();
       } catch {
         throw denial(dependencies.logger, path, 'INFRASTRUCTURE');
       }
     };
+    const keys = await failClosed(() => {
+      // Direct `auth.api.*` calls carry no Request, only forwarded Headers.
+      const source = context.request ?? context.headers;
+      const client = source
+        ? resolveClient(source, context.context.options)
+        : null;
+      return [
+        `auth:client:${client ?? 'unknown'}:${path}`,
+        ...recipientKeys(path, context.body),
+      ];
+    });
     for (const key of keys) {
-      const decision = await consume(key);
+      const decision = await failClosed(async () =>
+        readDecision(await dependencies.limiter.consume(key)),
+      );
       if (!decision.allowed)
         throw denial(
           dependencies.logger,
