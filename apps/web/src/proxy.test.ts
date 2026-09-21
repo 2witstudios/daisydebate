@@ -1,4 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { createHash } from 'node:crypto';
 import { NextRequest } from 'next/server';
 import { proxy } from './proxy';
 
@@ -58,5 +59,67 @@ describe('proxy trace context propagation', () => {
       if (previous === undefined) delete process.env.FOUNDATION_PROOF_ENABLED;
       else process.env.FOUNDATION_PROOF_ENABLED = previous;
     }
+  });
+});
+
+const directives = (env: 'production' | 'development') => {
+  const previous = process.env.NODE_ENV;
+  Reflect.set(process.env, 'NODE_ENV', env);
+  try {
+    const policy =
+      proxy(new NextRequest('https://daisy.invalid/')).headers.get(
+        'Content-Security-Policy',
+      ) ?? '';
+    return new Map(
+      policy.split('; ').map((directive) => {
+        const [name = '', ...sources] = directive.split(' ');
+        return [name, sources] as const;
+      }),
+    );
+  } finally {
+    Reflect.set(process.env, 'NODE_ENV', previous);
+  }
+};
+
+describe('proxy content security policy', () => {
+  test('keeps production style elements nonce-only', () => {
+    const sources = directives('production').get('style-src') ?? [];
+    assert({
+      given: 'a production request',
+      should: 'authorize style elements by nonce without unsafe-inline',
+      actual: {
+        self: sources.includes("'self'"),
+        nonce: sources.some((source) => source.startsWith("'nonce-")),
+        unsafeInline: sources.includes("'unsafe-inline'"),
+      },
+      expected: { self: true, nonce: true, unsafeInline: false },
+    });
+  });
+
+  test('authorizes only the exact next/image style attributes by hash', () => {
+    const hash = (style: string) =>
+      `'sha256-${createHash('sha256').update(style).digest('base64')}'`;
+    assert({
+      given: 'a production request',
+      should:
+        'allow the fill and default next/image style attributes and nothing else',
+      actual: directives('production').get('style-src-attr'),
+      expected: [
+        "'unsafe-hashes'",
+        hash(
+          'position:absolute;height:100%;width:100%;left:0;top:0;right:0;bottom:0;color:transparent',
+        ),
+        hash('color:transparent'),
+      ],
+    });
+  });
+
+  test('leaves development on the permissive style policy', () => {
+    assert({
+      given: 'a development request',
+      should: 'not emit a separate style attribute directive',
+      actual: directives('development').has('style-src-attr'),
+      expected: false,
+    });
   });
 });

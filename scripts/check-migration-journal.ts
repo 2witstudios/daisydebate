@@ -15,7 +15,9 @@ export type JournalProblemCode =
   | 'REWRITTEN_HISTORY'
   | 'REWRITTEN_METADATA'
   | 'REWRITTEN_SQL'
-  | 'BROKEN_CHAIN';
+  | 'BROKEN_CHAIN'
+  | 'EXPIRED_SANCTION'
+  | 'INVALID_SANCTION';
 
 export type JournalProblem = {
   readonly code: JournalProblemCode;
@@ -25,6 +27,8 @@ export type JournalProblem = {
 export type SanctionedBaseline = {
   readonly baseJournalHash: string;
   readonly adr: string;
+  /** Untrusted policy-file value; only a valid, unexpired ISO date excuses. */
+  readonly reviewBy?: unknown;
 };
 
 export type SharedMigrationFile = {
@@ -156,12 +160,38 @@ export const journalFingerprint = (
   return `sha256:${hasher.digest('hex')}`;
 };
 
+const isIsoDate = (value: unknown): value is string =>
+  typeof value === 'string' &&
+  /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+  !Number.isNaN(Date.parse(`${value}T00:00:00Z`)) &&
+  new Date(`${value}T00:00:00Z`).toISOString().startsWith(value);
+
+/** Same rule as `bun policy`: a sanction is live through its reviewBy day. */
+const sanctionProblem = (
+  { adr, reviewBy }: SanctionedBaseline,
+  today: string,
+): JournalProblem | null => {
+  if (!isIsoDate(reviewBy))
+    return {
+      code: 'INVALID_SANCTION',
+      detail: `${baselinesPath} sanction for this base journal needs an ISO reviewBy date (YYYY-MM-DD); an undated sanction never excuses a rewrite`,
+    };
+  if (reviewBy < today)
+    return {
+      code: 'EXPIRED_SANCTION',
+      detail: `${baselinesPath} sanction for this base journal expired on ${reviewBy} (today is ${today}); renew it through ${adr} or drop the rewrite`,
+    };
+  return null;
+};
+
 export const excuseSanctionedSquash = (
   problems: readonly JournalProblem[],
   options: {
     readonly base: readonly JournalEntry[];
     readonly head: readonly JournalEntry[];
     readonly baselines: readonly SanctionedBaseline[];
+    /** UTC calendar day (YYYY-MM-DD), injected by the caller. */
+    readonly today: string;
   },
 ): {
   readonly problems: readonly JournalProblem[];
@@ -172,13 +202,19 @@ export const excuseSanctionedSquash = (
     problems.every(({ code }) => squashExcusable(code));
   if (!headInternallyValid) return { problems, sanctioned: false };
   const fingerprint = journalFingerprint(options.base);
-  if (
-    !options.baselines.some(
-      ({ baseJournalHash }) => baseJournalHash === fingerprint,
-    )
-  )
-    return { problems, sanctioned: false };
-  return { problems: [], sanctioned: true };
+  const sanctionProblems = options.baselines
+    .filter(({ baseJournalHash }) => baseJournalHash === fingerprint)
+    .map((baseline) => sanctionProblem(baseline, options.today));
+  if (sanctionProblems.length === 0) return { problems, sanctioned: false };
+  if (sanctionProblems.includes(null))
+    return { problems: [], sanctioned: true };
+  return {
+    problems: [
+      ...problems,
+      ...sanctionProblems.filter((problem) => problem !== null),
+    ],
+    sanctioned: false,
+  };
 };
 
 export function createMigrationCheckReport(
@@ -296,6 +332,7 @@ async function readSharedMigrationFiles(
 
 export async function runMigrationCheck(
   baseRef = parseBaseRef(process.argv),
+  today = new Date().toISOString().slice(0, 10),
 ): Promise<MigrationCheckReport> {
   const mergeBase = await gitOutput(['merge-base', 'HEAD', baseRef]);
   const base = parseJournal(await readCommittedJournal(mergeBase));
@@ -312,6 +349,7 @@ export async function runMigrationCheck(
     base,
     head,
     baselines: await readSanctionedBaselines(),
+    today,
   });
   return createMigrationCheckReport(
     baseRef,

@@ -1,6 +1,20 @@
+import { createHash } from 'node:crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import { systemId } from '@daisy/clock';
 import { isValidTraceparent } from '@daisy/observability';
+// A nonce never authorizes a `style="…"` attribute, and `next/image` always
+// server-renders one. Hash the exact strings it emits (`fill`, and the default)
+// so every other inline style attribute stays refused. The CSP e2e fails if a
+// Next upgrade changes them. CSP mandates SHA-2 here; nothing secret is hashed.
+const styleAttributeSources = [
+  'position:absolute;height:100%;width:100%;left:0;top:0;right:0;bottom:0;color:transparent',
+  'color:transparent',
+]
+  .map(
+    (style) =>
+      `'sha256-${createHash('sha256').update(style).digest('base64')}'`,
+  )
+  .join(' ');
 export function proxy(request: NextRequest) {
   const requestId = systemId.next();
   const { pathname } = request.nextUrl;
@@ -21,6 +35,9 @@ export function proxy(request: NextRequest) {
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${development ? " 'unsafe-eval'" : ''}`,
     `style-src 'self' ${development ? "'unsafe-inline'" : `'nonce-${nonce}'`}`,
+    ...(development
+      ? []
+      : [`style-src-attr 'unsafe-hashes' ${styleAttributeSources}`]),
     "img-src 'self' data: blob:",
     "font-src 'self'",
     "object-src 'none'",

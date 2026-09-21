@@ -5,7 +5,7 @@
  */
 
 // ADR 0006: Adobe vendor packages live in the engine adapter only. The web
-// UI shell attempted an exception (ADR 0017 attempt) but client-side ECS
+// UI shell attempted an exception (ADR 0024 attempt) but client-side ECS
 // codegen conflicts with the strict CSP; the boundary stays engine-only.
 export const adobeWorkspaces = ['@daisy/debate-engine'] as const;
 

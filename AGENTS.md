@@ -117,11 +117,13 @@ values in `.env`; initialize with `bun install --frozen-lockfile` and
   migration currency, Redis reachability, and architecture boundaries. Add
   `--json` for a machine-readable report. It should pass before service-based
   work.
-- `bun check`: the pre-push gate: `format:check`, lint and boundaries, Knip,
-  invariants, evidence, typecheck, unit tests, metrics policy, and production
-  build. It does not boot Next or require integration services.
+- `bun check`: the pre-push gate: `format:check`, lint and boundaries, policy,
+  Knip, invariants, evidence, typecheck, unit tests, metrics policy, and
+  production build. It does not boot Next or require integration services.
 - `bun check:affected`: fast per-vertical inner loop over changed files and
   the affected turbo graph. A convenience, never a substitute for `bun check`.
+  The committed `.githooks/pre-push` hook runs it on every push once a clone
+  opts in with `bun hooks:install`; CI enforces the full gate.
 - `bun migrations:check`: fails a branch that rewrites, reorders, truncates,
   or chain-breaks shared migrations relative to `origin/main`. Required
   before pushing `packages/db/migrations/` changes; migration generation is

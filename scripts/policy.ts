@@ -310,6 +310,26 @@ export function validateMigrationBaselines(
   return problems;
 }
 
+// Citations read "ADR 0017", so two records sharing a number make every such
+// citation ambiguous. Nested directories and unnumbered files are ignored.
+export function duplicateAdrNumberProblems(
+  paths: Iterable<string>,
+): readonly string[] {
+  const byNumber = new Map<string, string[]>();
+  for (const path of paths) {
+    const number = /^docs\/decisions\/(\d{4})-[^/]+\.md$/.exec(path)?.[1];
+    if (number !== undefined)
+      byNumber.set(number, [...(byNumber.get(number) ?? []), path]);
+  }
+  return [...byNumber]
+    .filter(([, files]) => files.length > 1)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(
+      ([number, files]) =>
+        `decisions: ADR number ${number} is shared by ${[...files].sort().join(', ')}`,
+    );
+}
+
 async function filesIn(
   directory: string,
   extensions: ReadonlySet<string> | undefined,
@@ -353,6 +373,7 @@ export async function collectPolicy(): Promise<PolicyReport> {
   const problems = [
     ...validatePolicyRegistry(registry, { knownPaths }),
     ...validateMigrationBaselines(baselinesRegistry, { knownPaths }),
+    ...duplicateAdrNumberProblems(knownPaths),
   ];
   const exceptions = new Set(
     (registry.exceptions ?? []).map(({ path, rule }) => `${path}|${rule}`),

@@ -13,7 +13,11 @@ bun run metrics:check    # run coverage and enforce policy floors
 bun run metrics:snapshot # append one snapshot to docs/metrics/history.jsonl
 ```
 
-Snapshots are appended manually at release or milestone boundaries. The
+Snapshots are appended manually at release or milestone boundaries. Capture
+them on an up-to-date `main` after the milestone's pull requests have merged,
+then land the one-line append as its own small PR: the recorded `gitCommit` is
+`HEAD` at capture time, so a snapshot taken on a feature branch names a commit
+that excludes sibling work and may never reach `main`. The
 history file is JSONL: one independently readable snapshot per line. It
 contains the commit SHA when the repository has history; churn is `null` when
 no file changed in the 90-day window.

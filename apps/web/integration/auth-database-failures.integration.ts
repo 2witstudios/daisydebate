@@ -3,6 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { isAppError } from '@daisy/errors';
 import { createDatabase } from '@daisy/db';
+import type { RecordedLogs } from '../src/features/auth/log-leaks';
 import {
   countFixtureRows,
   createTestAuthServer,
@@ -132,7 +133,7 @@ test('pool lifecycle closes and the app failure boundary reports without SQL mat
 
 test('a persistence failure inside Better Auth leaks no SQL, parameters, token or email', async () => {
   const email = fixtureEmail();
-  const recorded: unknown[] = [];
+  const recorded: RecordedLogs = [];
   const database = createDatabase({ url });
   const auth = createTestAuthServer(database.authAdapter, {
     sent: [],
@@ -145,6 +146,17 @@ test('a persistence failure inside Better Auth leaks no SQL, parameters, token o
   );
   let status: number;
   let body: string;
+  // mockRestore() clears call history, so snapshot before restoring. Errors
+  // serialize to {} under JSON.stringify, so expand message and cause too.
+  const expand = (value: unknown): unknown =>
+    value instanceof Error
+      ? {
+          name: value.name,
+          message: value.message,
+          cause: expand(value.cause),
+        }
+      : value;
+  let consoleCalls: unknown[] = [];
   try {
     const response = await auth.instance.handler(
       new Request(`${auth.config.PUBLIC_APP_URL}/api/auth/sign-in/magic-link`, {
@@ -159,10 +171,12 @@ test('a persistence failure inside Better Auth leaks no SQL, parameters, token o
     status = response.status;
     body = await response.text();
   } finally {
+    consoleCalls = spies.flatMap((spy) =>
+      spy.mock.calls.map((c) => c.map(expand)),
+    );
     for (const spy of spies) spy.mockRestore();
   }
 
-  const consoleCalls = spies.flatMap((spy) => spy.mock.calls);
   const emitted = JSON.stringify([consoleCalls, recorded, body]);
   assert({
     given: 'the shared pool failing during a real magic-link request',
