@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { tiles } from './tiles';
+import { definesClass } from '../test-support/css-classes';
 
 setupRitewayBun();
 
@@ -12,9 +13,7 @@ const undefinedClasses = (
   names: readonly string[],
 ): readonly string[] => {
   const css = readFileSync(join(import.meta.dir, cssPath), 'utf8');
-  return [...new Set(names)].filter(
-    (name) => !new RegExp(`\\.${name}[\\s.{]`).test(css),
-  );
+  return [...new Set(names)].filter((name) => !definesClass(css, name));
 };
 
 describe('tile destinations', () => {

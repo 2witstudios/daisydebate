@@ -5,38 +5,34 @@ import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { iconPaths } from './icons';
 import { tiles } from '../../dashboard/tiles';
+import { extractIconNames } from '../../test-support/icon-references';
 
 setupRitewayBun();
 
 // IconName is an open string key, so a typo renders an empty <svg> silently.
-// The expected names are derived from the consumers instead of a hand-kept
-// list: every literal icon reference in non-test source under src/.
+// Expected names come from the consumers, not a hand-kept list: string
+// literals passed to icon props in non-test source (forms and limits are
+// documented in test-support/icon-references.ts), plus the tile data itself.
 const sourceDirectory = join(import.meta.dir, '../../..');
-
-const iconReferences = [
-  /<Icon(?:Button)?\b[^>]*?\bname="([^"]+)"/g,
-  /\bicon="([^"]+)"/g,
-  /\b(?:icon|glyph): '([^']+)'/g,
-];
 
 const sourceFiles = (directory: string): readonly string[] =>
   readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const path = join(directory, entry.name);
-    if (entry.isDirectory()) return sourceFiles(path);
+    if (entry.isDirectory())
+      return entry.name === 'test-support' ? [] : sourceFiles(path);
     return /\.tsx?$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name)
       ? [path]
       : [];
   });
 
-const referencedIcons = (): readonly string[] => {
-  const names = sourceFiles(sourceDirectory).flatMap((file) => {
-    const source = readFileSync(file, 'utf8');
-    return iconReferences.flatMap((pattern) =>
-      [...source.matchAll(pattern)].map((match) => match[1] ?? ''),
-    );
-  });
-  return [...new Set(names)].sort();
-};
+const referencedIcons = (): readonly string[] => [
+  ...new Set([
+    ...sourceFiles(sourceDirectory).flatMap((file) =>
+      extractIconNames(readFileSync(file, 'utf8')),
+    ),
+    ...tiles.map((tile) => tile.glyph),
+  ]),
+];
 
 const isDrawn = (name: string): boolean =>
   renderToString(h('svg', null, iconPaths[name])) !== '<svg></svg>';
@@ -62,7 +58,7 @@ describe('icon set', () => {
 
   test('draws every icon that source references', () => {
     assert({
-      given: 'every icon name referenced anywhere in the app source',
+      given: 'every literal icon name passed to an icon prop in app source',
       should: 'have drawable shapes (no silently empty icons)',
       actual: referencedIcons().filter((name) => !isDrawn(name)),
       expected: [],

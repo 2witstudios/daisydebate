@@ -5,6 +5,7 @@ import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { PresenceDot } from './presence-dot';
 import type { Presence } from '../../types/presence/presence';
+import { definesClass } from '../../test-support/css-classes';
 
 setupRitewayBun();
 
@@ -39,7 +40,7 @@ describe('PresenceDot', () => {
     assert({
       given: 'each presence value used as a CSS module key',
       should: 'be defined in the stylesheet so no dot renders unstyled',
-      actual: statuses.filter((presence) => !css.includes(`.${presence} {`)),
+      actual: statuses.filter((presence) => !definesClass(css, presence)),
       expected: [],
     });
   });

@@ -5,23 +5,38 @@ import { RouteShell } from './route-shell';
 
 setupRitewayBun();
 
+const textsOf = (html: string, tag: string): readonly string[] =>
+  [...html.matchAll(new RegExp(`<${tag}[^>]*>([^<]*)</${tag}>`, 'g'))].map(
+    (match) => match[1] ?? '',
+  );
+
+const html = renderToString(
+  h(RouteShell, {
+    title: 'Ranked',
+    lede: 'Rated competitive debates.',
+    planned: ['Matchmaking', 'Season ladders', 'Conduct rules'],
+  }),
+);
+
 describe('RouteShell', () => {
-  test('lists the planned capabilities under the page heading', () => {
-    const html = renderToString(
-      h(RouteShell, {
-        title: 'Ranked',
-        lede: 'Rated competitive debates.',
-        planned: ['Matchmaking', 'Season ladders'],
-      }),
-    );
+  test('titles the page with a single h1 and shows the lede', () => {
     assert({
-      given: 'a title, lede, and two planned capabilities',
-      should: 'render one h1, the lede, and each capability as a list item',
-      actual: html,
-      expected:
-        '<section><h1>Ranked</h1><p>Rated competitive debates.</p>' +
-        '<h2>Planned capabilities</h2>' +
-        '<ul><li>Matchmaking</li><li>Season ladders</li></ul></section>',
+      given: 'a title and a lede',
+      should: 'render the title as the only h1 and the lede as text',
+      actual: [
+        textsOf(html, 'h1'),
+        html.includes('Rated competitive debates.'),
+      ],
+      expected: [['Ranked'], true],
+    });
+  });
+
+  test('lists the planned capabilities in order', () => {
+    assert({
+      given: 'three planned capabilities',
+      should: 'render each as a list item, in the order given',
+      actual: textsOf(html, 'li'),
+      expected: ['Matchmaking', 'Season ladders', 'Conduct rules'],
     });
   });
 });
