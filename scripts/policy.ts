@@ -260,6 +260,56 @@ export function validatePolicyRegistry(
   return problems;
 }
 
+export type MigrationBaseline = {
+  readonly baseJournalHash: string;
+  readonly adr: string;
+  readonly owner: string;
+  readonly reason: string;
+  readonly reviewBy: string;
+};
+
+export function validateMigrationBaselines(
+  registry: { version?: unknown; baselines?: unknown },
+  options: PolicyRegistryValidationOptions = {},
+): readonly string[] {
+  const problems: string[] = [];
+  const today = options.today ?? new Date().toISOString().slice(0, 10);
+  if (registry.version !== 1) problems.push('registry: version must be 1');
+  if (!Array.isArray(registry.baselines)) {
+    return [...problems, 'registry: baselines must be an array'];
+  }
+  for (const [index, value] of registry.baselines.entries()) {
+    const entry = value as Partial<MigrationBaseline>;
+    const prefix = `baselines[${index}]`;
+    for (const field of [
+      'baseJournalHash',
+      'adr',
+      'owner',
+      'reason',
+      'reviewBy',
+    ] as const)
+      if (typeof entry[field] !== 'string' || entry[field].trim() === '')
+        problems.push(`${prefix}: ${field} is required`);
+    if (
+      typeof entry.baseJournalHash === 'string' &&
+      !/^sha256:[0-9a-f]{64}$/.test(entry.baseJournalHash)
+    )
+      problems.push(
+        `${prefix}: baseJournalHash must be sha256:<64 lowercase hex>`,
+      );
+    problems.push(
+      ...referenceProblems(
+        { adr: entry.adr } as RegistryEntry,
+        prefix,
+        options.knownPaths,
+      ),
+    );
+    if (typeof entry.reviewBy === 'string')
+      problems.push(...reviewDateProblems(entry.reviewBy, prefix, today));
+  }
+  return problems;
+}
+
 async function filesIn(
   directory: string,
   extensions: ReadonlySet<string> | undefined,
@@ -286,11 +336,24 @@ export async function collectPolicy(): Promise<PolicyReport> {
     version?: unknown;
     exceptions?: readonly PolicyException[];
   };
+  const baselinesRegistry = (await Bun.file(
+    resolve(root, 'policy/migration-baselines.json'),
+  ).exists())
+    ? ((await Bun.file(
+        resolve(root, 'policy/migration-baselines.json'),
+      ).json()) as {
+        version?: unknown;
+        baselines?: readonly MigrationBaseline[];
+      })
+    : { version: 1, baselines: [] };
   const repositoryFiles = await filesIn(root, scannedExtensions);
   const knownPaths = new Set(
     (await filesIn(root, undefined)).map((file) => relative(root, file)),
   );
-  const problems = validatePolicyRegistry(registry, { knownPaths });
+  const problems = [
+    ...validatePolicyRegistry(registry, { knownPaths }),
+    ...validateMigrationBaselines(baselinesRegistry, { knownPaths }),
+  ];
   const exceptions = new Set(
     (registry.exceptions ?? []).map(({ path, rule }) => `${path}|${rule}`),
   );

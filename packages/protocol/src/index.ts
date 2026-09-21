@@ -2,9 +2,11 @@ import { z } from 'zod';
 /**
  * Entity identifiers are cuid2 (`@paralleldrive/cuid2`): 24 lowercase
  * alphanumeric characters. The shape is validated at the trust boundary;
- * id minting stays app-side and is never derived from input.
+ * id minting stays app-side and is never derived from input. Exactly one
+ * shape is accepted (ADR 0023): parsing never normalizes or repairs input.
  */
-export const idSchema = z.string().regex(/^[a-z0-9]{24}$/);
+export const cuid2IdPattern = /^[a-z0-9]{24}$/;
+export const idSchema = z.string().regex(cuid2IdPattern);
 export const phaseSchema = z.enum(['waiting', 'active', 'completed']);
 export const participantSchema = z.strictObject({
   id: idSchema,

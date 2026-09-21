@@ -22,6 +22,11 @@ export type JournalProblem = {
   readonly detail: string;
 };
 
+export type SanctionedBaseline = {
+  readonly baseJournalHash: string;
+  readonly adr: string;
+};
+
 export type SharedMigrationFile = {
   readonly tag: string;
   readonly base: string | undefined;
@@ -30,6 +35,7 @@ export type SharedMigrationFile = {
 
 export type MigrationCheckReport = {
   readonly ok: boolean;
+  readonly sanctioned: boolean;
   readonly baseRef: string;
   readonly baseCount: number;
   readonly headCount: number;
@@ -132,14 +138,59 @@ export function findSharedFileProblems(
   return problems;
 }
 
+/**
+ * A sanctioned baseline squash (ADR 0023) is the one allowed way to replace
+ * committed history: a policy-file entry records the exact fingerprint of the
+ * replaced journal, so the excuse is inert once the squashed baseline lands.
+ */
+const squashExcusable = (code: JournalProblemCode): boolean =>
+  code === 'TRUNCATED_HISTORY' ||
+  code === 'REWRITTEN_HISTORY' ||
+  code === 'REWRITTEN_METADATA';
+
+export const journalFingerprint = (
+  entries: readonly JournalEntry[],
+): string => {
+  const hasher = new Bun.CryptoHasher('sha256');
+  hasher.update(stableStringify(entries));
+  return `sha256:${hasher.digest('hex')}`;
+};
+
+export const excuseSanctionedSquash = (
+  problems: readonly JournalProblem[],
+  options: {
+    readonly base: readonly JournalEntry[];
+    readonly head: readonly JournalEntry[];
+    readonly baselines: readonly SanctionedBaseline[];
+  },
+): {
+  readonly problems: readonly JournalProblem[];
+  readonly sanctioned: boolean;
+} => {
+  const headInternallyValid =
+    options.base.length > 0 &&
+    problems.every(({ code }) => squashExcusable(code));
+  if (!headInternallyValid) return { problems, sanctioned: false };
+  const fingerprint = journalFingerprint(options.base);
+  if (
+    !options.baselines.some(
+      ({ baseJournalHash }) => baseJournalHash === fingerprint,
+    )
+  )
+    return { problems, sanctioned: false };
+  return { problems: [], sanctioned: true };
+};
+
 export function createMigrationCheckReport(
   baseRef: string,
   base: readonly JournalEntry[],
   head: readonly JournalEntry[],
   problems: readonly JournalProblem[],
+  sanctioned = false,
 ): MigrationCheckReport {
   return {
     ok: problems.length === 0,
+    sanctioned,
     baseRef,
     baseCount: base.length,
     headCount: head.length,
@@ -153,7 +204,16 @@ export function formatMigrationCheckReport(
 ): string {
   if (json) return `${JSON.stringify(report, null, 2)}\n`;
   if (report.ok)
-    return `Migrations: PASS (${report.headCount} committed, base ${report.baseCount} from ${report.baseRef})\n`;
+    return [
+      `Migrations: PASS (${report.headCount} committed, base ${report.baseCount} from ${report.baseRef})`,
+      ...(report.sanctioned
+        ? [
+            '  Sanctioned baseline squash applied (policy/migration-baselines.json);',
+            '  every pre-existing local and test database must be reset once.',
+          ]
+        : []),
+      '',
+    ].join('\n');
   return [
     'Migrations: FAIL',
     ...report.problems.map(({ code, detail }) => `  ${code}: ${detail}`),
@@ -182,6 +242,27 @@ async function gitOutput(args: readonly string[]): Promise<string> {
 export async function readCommittedJournal(ref: string): Promise<string> {
   return gitOutput(['show', `${ref}:${journalPath}`]);
 }
+
+export const baselinesPath = 'policy/migration-baselines.json';
+
+export const readSanctionedBaselines = async (): Promise<
+  readonly SanctionedBaseline[]
+> => {
+  const file = resolve(root, baselinesPath);
+  const fileHandle = Bun.file(file);
+  if (!(await fileHandle.exists())) return [];
+  const parsed = (await fileHandle.json()) as {
+    baselines?: unknown;
+  };
+  if (!Array.isArray(parsed.baselines)) return [];
+  return parsed.baselines.filter(
+    (entry): entry is SanctionedBaseline =>
+      typeof entry === 'object' &&
+      entry !== null &&
+      typeof (entry as SanctionedBaseline).baseJournalHash === 'string' &&
+      typeof (entry as SanctionedBaseline).adr === 'string',
+  );
+};
 
 async function readOptionalCommittedFile(
   ref: string,
@@ -223,10 +304,22 @@ export async function runMigrationCheck(
     .map(({ tag }, index) => (head[index]?.tag === tag ? tag : undefined))
     .filter((tag): tag is string => tag !== undefined);
   const sharedFiles = await readSharedMigrationFiles(mergeBase, sharedTags);
-  return createMigrationCheckReport(baseRef, base, head, [
+  const problems = [
     ...findJournalProblems(base, head),
     ...findSharedFileProblems(sharedFiles),
-  ]);
+  ];
+  const excused = excuseSanctionedSquash(problems, {
+    base,
+    head,
+    baselines: await readSanctionedBaselines(),
+  });
+  return createMigrationCheckReport(
+    baseRef,
+    base,
+    head,
+    excused.problems,
+    excused.sanctioned,
+  );
 }
 
 if (import.meta.main) {

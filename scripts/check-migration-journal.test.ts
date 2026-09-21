@@ -1,8 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   createMigrationCheckReport,
+  excuseSanctionedSquash,
   findJournalProblems,
   findSharedFileProblems,
+  journalFingerprint,
   parseBaseRef,
   parseJournal,
 } from './check-migration-journal';
@@ -229,6 +231,89 @@ describe('parseBaseRef', () => {
         '--json',
       ]),
       expected: 'origin/develop',
+    });
+  });
+});
+
+describe('journalFingerprint', () => {
+  test('is stable across JSON key order and sensitive to content', () => {
+    const timedBase = [{ tag: '0000_init', when: 1000 }];
+    const reordered = [{ when: 1000, tag: '0000_init' }];
+    const edited = [{ tag: '0000_init', when: 2000 }];
+    assert({
+      given: 'the same journal with reordered keys or edited content',
+      should: 'hash equal only for identical history',
+      actual: {
+        reorderedEqual:
+          journalFingerprint(timedBase) === journalFingerprint(reordered),
+        editedEqual:
+          journalFingerprint(timedBase) === journalFingerprint(edited),
+      },
+      expected: { reorderedEqual: true, editedEqual: false },
+    });
+  });
+});
+
+describe('excuseSanctionedSquash', () => {
+  const baseline = {
+    baseJournalHash: journalFingerprint(base),
+    adr: 'docs/decisions/0023-greenfield-baseline.md',
+  };
+
+  test('excuses a full-history replacement only for the recorded base journal', () => {
+    const head = [{ tag: '0000_fresh_baseline' }];
+    const result = excuseSanctionedSquash(findJournalProblems(base, head), {
+      base,
+      head,
+      baselines: [baseline],
+    });
+    assert({
+      given: 'a squash whose base journal hash is sanctioned',
+      should: 'excuse the rewrite and mark the report sanctioned',
+      actual: result,
+      expected: { problems: [], sanctioned: true },
+    });
+  });
+
+  test('keeps the failure when no sanctioned baseline matches', () => {
+    const head = [{ tag: '0000_fresh_baseline' }];
+    const result = excuseSanctionedSquash(findJournalProblems(base, head), {
+      base,
+      head,
+      baselines: [
+        {
+          baseJournalHash: journalFingerprint(head),
+          adr: 'docs/decisions/0023-greenfield-baseline.md',
+        },
+      ],
+    });
+    assert({
+      given: 'a squash whose base journal hash is not sanctioned',
+      should: 'keep every rewrite problem and stay unsanctioned',
+      actual: result.problems.map(({ code }) => code).sort(),
+      expected: ['REWRITTEN_HISTORY', 'TRUNCATED_HISTORY'],
+    });
+  });
+
+  test('keeps duplicate tags or chain breaks even when sanctioned', () => {
+    const brokenHead = [
+      { tag: '0000_fresh_baseline' },
+      { tag: '0000_fresh_baseline' },
+    ];
+    const result = excuseSanctionedSquash(
+      findJournalProblems(base, brokenHead),
+      { base, head: brokenHead, baselines: [baseline] },
+    );
+    assert({
+      given: 'a sanctioned squash whose head journal is internally broken',
+      should: 'keep the structural problems',
+      actual: {
+        keepsDuplicateTag: result.problems.some(
+          ({ code }) => code === 'DUPLICATE_TAG',
+        ),
+        sanctioned: result.sanctioned,
+      },
+      expected: { keepsDuplicateTag: true, sanctioned: false },
     });
   });
 });

@@ -19,11 +19,11 @@ describe('persistence schema', () => {
     });
   });
 
-  test('supports legacy and provisional authentication profiles', () => {
+  test('supports provisional authentication profiles', () => {
     const columns = users as unknown as Record<string, { notNull?: boolean }>;
 
     assert({
-      given: 'legacy users and verified users before username onboarding',
+      given: 'verified users before username onboarding',
       should:
         'retain identity fields while allowing only the username to remain provisional',
       actual: {

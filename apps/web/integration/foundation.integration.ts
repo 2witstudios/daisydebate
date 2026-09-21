@@ -88,6 +88,12 @@ test('proof vertical rejects invalid, cross-origin, and unknown requests', async
 
   const malformed = await fetchById('not-a-cuid2-identifier');
   expect(malformed.status).toBe(400);
+
+  const legacyUuid = await fetchById('0f0e6d1c-2b3a-4455-9a8b-7c6d5e4f3a21');
+  expect(legacyUuid.status).toBe(400);
+  expect(
+    ((await legacyUuid.json()) as { error: { code: string } }).error.code,
+  ).toBe('VALIDATION');
 });
 
 afterAll(async () => {

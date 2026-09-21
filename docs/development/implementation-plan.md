@@ -31,16 +31,16 @@ perform the cuid2 migration or activate auth routes.
   have a path, rule, owner, reason, existing ADR reference, and future review
   date before the policy gate can pass.
 
-### Phase B: Identifier migration
+### Phase B: Identifier baseline
 
-Migrate durable application-owned identifiers from the existing UUID contract to
-cuid2 using reviewed expand/contract database changes and coordinated protocol
-rollout. This phase is intentionally not implemented by the policy PR.
+Application-owned identifiers are cuid2 from the first migration onward: the
+UUID-era migrations were squashed into a single cuid2-native baseline (ADR 0023) and the protocol accepts exactly one identifier shape. No rollout
+compatibility machinery exists or is planned.
 
-- Given an existing durable UUID identifier, should preserve rollout safety and
-  data integrity through a forward, reviewed migration.
-- Given a migrated application operation, should persist and validate cuid2 IDs
-  while keeping documented framework, migration, and protocol exceptions.
+- Given a new application operation, should persist and validate cuid2 IDs
+  with no legacy identifier carve-outs.
+- Given any non-conforming identifier, should be rejected at the protocol
+  trust boundary.
 
 ### Phase C: Auth security activation
 

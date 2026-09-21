@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "baselines": [
+    {
+      "baseJournalHash": "sha256:cc8a87a3e35dbc0382d4f9a90358055245e516ade4735069a54083a04db6122f",
+      "adr": "docs/decisions/0023-greenfield-baseline.md",
+      "owner": "platform",
+      "reason": "One-time squash of the UUID-era migrations 0000-0002 into a single cuid2-native baseline before first ship; inert once the squashed baseline lands on the default branch.",
+      "reviewBy": "2027-03-20"
+    }
+  ]
+}
