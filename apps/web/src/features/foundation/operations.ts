@@ -64,8 +64,17 @@ export async function createProofDebate(
   }
 }
 
-export async function getProofDebate(id: string): Promise<DebateSnapshot> {
+/**
+ * Reads go through the same Principal gate as creation. `@daisy/auth` has no
+ * read permission yet, so the proof principal reads back under the one
+ * permission it holds rather than being widened to `debate:manage`.
+ */
+export async function getProofDebate(
+  id: string,
+  principal: Principal = proofPrincipal,
+): Promise<DebateSnapshot> {
   requireProofEnabled();
+  requirePermission(principal, 'debate:create');
   const debateId = parseValidated(proofDebateIdSchema, id);
   return withDurableContext(async () => {
     const record = await getResources().database.getDebate(debateId);

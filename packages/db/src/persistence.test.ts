@@ -166,6 +166,21 @@ describe('database optimistic snapshot saves', () => {
     });
   });
 
+  test('returns debate timestamps as the UTC instant the driver returned', async () => {
+    // Bun SQL yields timestamptz as Date; the record must not relabel that
+    // instant with the host offset (TZ=America/Chicago once produced -06).
+    const record = sampleDebate();
+    const { database } = createTestDatabase([[debateRow(record)]]);
+    const loaded = await database.getDebate(record.id);
+
+    assert({
+      given: 'a debate row whose driver timestamps are Date values',
+      should: 'expose UTC ISO strings for the same instant in any timezone',
+      actual: [loaded?.createdAt, loaded?.updatedAt],
+      expected: ['2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'],
+    });
+  });
+
   test('returns the advanced record when the expected version matches', async () => {
     const record = sampleDebate();
     const advanced = {

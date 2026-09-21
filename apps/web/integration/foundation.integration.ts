@@ -80,6 +80,24 @@ test('proof vertical rejects invalid, cross-origin, and unknown requests', async
   );
   expect(crossOrigin.status).toBe(403);
 
+  for (const headers of [
+    { origin: 'https://evil.example' },
+    { 'sec-fetch-site': 'cross-site' },
+  ]) {
+    const crossOriginRead = await GET(
+      new Request(`${origin}/api/foundation/proof?id=${createdIds[0]}`, {
+        headers,
+      }),
+    );
+    expect(crossOriginRead.status).toBe(403);
+  }
+  const sameOriginRead = await GET(
+    new Request(`${origin}/api/foundation/proof?id=${createdIds[0]}`, {
+      headers: { 'sec-fetch-site': 'same-origin' },
+    }),
+  );
+  expect(sameOriginRead.status).toBe(200);
+
   const missing = await fetchById('m4n6p8r2t4v6x8z1k3b5c7d9');
   expect(missing.status).toBe(404);
   expect(

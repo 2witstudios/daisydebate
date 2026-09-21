@@ -43,6 +43,22 @@ describe('persistence schema', () => {
     });
   });
 
+  test('reads user timestamps as the instant the driver returned', () => {
+    // Bun SQL returns timestamptz as Date. Better Auth models these fields as
+    // Date, and a string-mode column would relabel the UTC wall time with the
+    // process's local offset before the auth adapter re-parses it.
+    const stored = new Date('2026-01-01T00:00:00.000Z');
+
+    assert({
+      given: 'user timestamps shared with the Better Auth adapter',
+      should: 'pass the driver Date through unchanged in any process timezone',
+      actual: [users.createdAt, users.updatedAt].map((column) =>
+        column.mapFromDriverValue(stored as never),
+      ),
+      expected: [stored, stored],
+    });
+  });
+
   test('declares case-folded username uniqueness', () => {
     const config = getTableConfig(users);
 

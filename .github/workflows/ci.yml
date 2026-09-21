@@ -35,8 +35,9 @@ jobs:
     env:
       TURBO_TELEMETRY_DISABLED: '1'
       NEXT_TELEMETRY_DISABLED: '1'
-      DATABASE_URL: postgres://daisy:ci-only@postgres:5432/daisy_test
-      REDIS_URL: redis://redis:6379
+      # No DATABASE_URL or REDIS_URL here on purpose: this job declares no
+      # services, and none of these static/unit/build gates parse or dial
+      # them (environment is validated lazily at runtime, not at build).
       PUBLIC_APP_URL: https://ci.example.invalid
       APP_VERSION: ci
       GIT_COMMIT: ${{ github.sha }}

@@ -150,4 +150,29 @@ describe('foundation debate retrieval', () => {
       expected: 'NOT_FOUND',
     });
   });
+
+  test('refuses a principal without the proof permission', async () => {
+    let reads = 0;
+    database.getDebate = () => {
+      reads += 1;
+      return Promise.resolve(undefined);
+    };
+    const caught = await capture(
+      getProofDebate('z9x7v5t3r1p8n6m4k2b5d7f1', {
+        kind: 'service',
+        serviceId: 'unprivileged',
+        permissions: [],
+      }),
+    );
+
+    assert({
+      given: 'a principal lacking the proof permission',
+      should: 'refuse with AUTHORIZATION before touching the database',
+      actual: {
+        code: isAppError(caught) ? caught.code : 'not-an-app-error',
+        reads,
+      },
+      expected: { code: 'AUTHORIZATION', reads: 0 },
+    });
+  });
 });

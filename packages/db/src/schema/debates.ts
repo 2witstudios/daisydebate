@@ -19,10 +19,10 @@ export const debates = pgTable(
     resolution: text('resolution').notNull(),
     format: text('format').notNull(),
     snapshot: jsonb('snapshot').notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' })
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
       .notNull()
       .defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' })
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
       .notNull()
       .defaultNow(),
     version: integer('version').notNull().default(1),

@@ -65,6 +65,7 @@ export const errorSchema = z.strictObject({
     'AUTHORIZATION',
     'NOT_FOUND',
     'CONFLICT',
+    'PAYLOAD_TOO_LARGE',
     'INVARIANT',
     'RATE_LIMIT',
     'INFRASTRUCTURE',
