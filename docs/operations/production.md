@@ -34,7 +34,15 @@ Next build, serves requests over a custom HTTP server, and owns lifecycle:
    `DATABASE_URL` (non-development credentials), `REDIS_URL`,
    `REDIS_NAMESPACE`, `LOG_LEVEL`. Configuration refinement fails startup on
    missing identity or insecure defaults — do not work around it.
-3. Scale horizontally: the app is stateless except pools/logger/draining.
+3. Behind a reverse proxy, set `AUTH_TRUSTED_IP_HEADERS` to the one header
+   that proxy overwrites on every request (for example `x-real-ip`), and
+   `AUTH_TRUSTED_PROXIES` (IPs or CIDR ranges) only when that header carries
+   a hop chain such as `x-forwarded-for`. Never name a header the proxy
+   merely forwards: it is client-writable, so clients could forge their auth
+   rate-limit identity. Unset, no header is believed and all clients share
+   one rate-limit bucket per auth path — safe, but coarse. Invalid header
+   names or proxy entries fail auth configuration by field name.
+4. Scale horizontally: the app is stateless except pools/logger/draining.
    Multi-instance safety relies on PostgreSQL for truth and Redis for
    coordination; sticky sessions are not part of any design.
 

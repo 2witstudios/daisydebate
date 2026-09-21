@@ -7,6 +7,7 @@ import type { Clock, IdGenerator } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import { readAuthConfig, type AuthConfig } from '@daisy/config';
 import {
+  clientIpFromConfig,
   clientIpOptions,
   createRateLimitGate,
   type AuthRateLimiter,
@@ -118,9 +119,9 @@ export function createAuthServer<
   readonly clock: Clock;
   readonly ids: IdGenerator;
   /**
-   * Trusted client-IP header(s) for rate-limit keying. Omitted means no
-   * request header is believed; the deployment's proxy header is supplied
-   * here when routes activate (ADR 0020).
+   * Trusted client-IP header(s) for rate-limit keying. Omitted means the
+   * validated `AUTH_TRUSTED_IP_HEADERS` / `AUTH_TRUSTED_PROXIES` apply,
+   * which believe no request header unless the deployment sets them.
    */
   readonly clientIp?: ClientIpTrust | undefined;
 }): AuthServer<Database> {
@@ -153,7 +154,8 @@ export function createAuthServer<
       limiter: dependencies.limiter,
       logger: dependencies.logger,
       ids: dependencies.ids,
-      clientIp: dependencies.clientIp,
+      // Explicit injection wins; otherwise the validated environment decides.
+      clientIp: dependencies.clientIp ?? clientIpFromConfig(config),
     }),
     database: dependencies.database,
     mail: { send: sendMail },

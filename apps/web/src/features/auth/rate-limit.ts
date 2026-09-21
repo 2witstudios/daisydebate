@@ -14,8 +14,8 @@ export type AuthRateLimiter = {
  * Which request headers may name the client address. Forwarding headers are
  * client-writable unless a proxy the deployment controls overwrites them, so
  * trust is explicit and the default believes none: every client then shares
- * one bucket per path. That is deliberate until route activation (ADR 0020)
- * configures the deployment's proxy header.
+ * one bucket per path. A deployment names its proxy header through
+ * `AUTH_TRUSTED_IP_HEADERS` / `AUTH_TRUSTED_PROXIES` (`readAuthConfig`).
  *
  * A trusted header holding several hops resolves as Better Auth 1.7.5 does:
  * with `trustedProxies` (IPs or CIDR ranges) the chain is walked right to
@@ -27,6 +27,21 @@ export type ClientIpTrust = {
   readonly trustedHeaders: readonly string[];
   readonly trustedProxies?: readonly string[];
 };
+
+/**
+ * The deployment's trust declaration as parsed by `readAuthConfig`. Empty
+ * lists (the default when the variables are absent) believe no header, and
+ * an empty proxy list is omitted so a multi-hop value stays unbelieved.
+ */
+export const clientIpFromConfig = (config: {
+  readonly AUTH_TRUSTED_IP_HEADERS: readonly string[];
+  readonly AUTH_TRUSTED_PROXIES: readonly string[];
+}): ClientIpTrust => ({
+  trustedHeaders: config.AUTH_TRUSTED_IP_HEADERS,
+  ...(config.AUTH_TRUSTED_PROXIES.length > 0
+    ? { trustedProxies: config.AUTH_TRUSTED_PROXIES }
+    : {}),
+});
 
 // RFC 9110 field-name token. Anything else makes `Headers.get` throw on
 // every request, so it is rejected once, at composition.
