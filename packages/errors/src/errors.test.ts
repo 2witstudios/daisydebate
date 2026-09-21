@@ -45,6 +45,24 @@ describe('isAppError', () => {
 });
 
 describe('error mapping', () => {
+  test('maps an oversized payload to HTTP 413 with a fixed public message', () => {
+    assert({
+      given: 'a payload-too-large error at a public boundary',
+      should: 'map to a stable 413 body',
+      actual: toPublicError(createAppError('PAYLOAD_TOO_LARGE'), 'request-1'),
+      expected: {
+        status: 413,
+        body: {
+          error: {
+            code: 'PAYLOAD_TOO_LARGE',
+            message: 'Request body too large',
+            requestId: 'request-1',
+          },
+        },
+      },
+    });
+  });
+
   test('preserves a stable invariant identity at the public boundary', () => {
     const error = createInvariantError(
       'debate.phase.active.requires-ready-participants',

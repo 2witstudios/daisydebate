@@ -126,4 +126,19 @@ describe('error schema', () => {
       expected: true,
     });
   });
+
+  test('accepts the payload-too-large code', () => {
+    assert({
+      given: 'a version 1 error reporting an oversized request body',
+      should: 'accept the portable error contract',
+      actual: errorSchema.safeParse({
+        version: 1,
+        type: 'error',
+        code: 'PAYLOAD_TOO_LARGE',
+        message: 'Request body too large',
+        requestId: 'request-1',
+      }).success,
+      expected: true,
+    });
+  });
 });
