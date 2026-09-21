@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { SQL } from 'bun';
+import { resolve } from 'node:path';
 
 setupRitewayBun();
 
@@ -17,7 +18,9 @@ const seedIds = [
   'c8d4e2f6a1b3k5m7n9p2r4t6',
 ];
 
-const repositoryRoot = new URL('../../..', import.meta.url).pathname;
+// A filesystem path, not URL.pathname: that stays percent-encoded, so a
+// checkout path containing a space would not exist as a spawn cwd.
+const repositoryRoot = resolve(import.meta.dir, '../../..');
 
 /**
  * Runs the seed entry point directly instead of `bun run db:seed`, whose
