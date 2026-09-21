@@ -135,7 +135,7 @@ header or an invalid row rather than skipping it:
   "autoFixed": 0,
   "tasksCreated": 0,
   "pagesInvalidated": 0,
-  "promptVersion": "docs-prompt-v1",
+  "promptVersion": "docs-prompt-v2",
   "sourceSnapshot": "repository@commit",
   "status": "complete | failed | partial",
   "baseRevision": "...",

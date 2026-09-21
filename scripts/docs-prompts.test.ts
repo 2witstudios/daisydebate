@@ -31,6 +31,20 @@ describe('DOCUMENTATION_PROMPTS', async () => {
       expected: true,
     });
   });
+
+  test('forbids the agent closing or rescoping existing tasks', async () => {
+    assert({
+      given: 'any registered prompt',
+      should:
+        'let the agent create review tasks but never change an existing task, since Done comes from an independent review',
+      actual: DOCUMENT_PIPELINES.every((pipeline) =>
+        /never change the status, criteria or scope of an existing task/i.test(
+          DOCUMENTATION_PROMPTS[pipeline],
+        ),
+      ),
+      expected: true,
+    });
+  });
 });
 
 describe('promptFor', async () => {
