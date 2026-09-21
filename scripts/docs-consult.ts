@@ -292,7 +292,9 @@ export async function dispatchDocumentationEvent(
       if (state === 'pending') seenQuestion = true;
       if (!seenQuestion && reads >= 1) return 'absent';
       if (Date.now() >= deadline) return seenQuestion ? 'pending' : 'absent';
-      await delay(pollIntervalMs);
+      // Never sleep past the deadline: the next read, bounded by the budget,
+      // then still ends inside it.
+      await delay(Math.min(pollIntervalMs, deadline - Date.now()));
     }
   };
 

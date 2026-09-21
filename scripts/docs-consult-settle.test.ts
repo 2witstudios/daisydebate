@@ -195,4 +195,34 @@ describe('dispatchDocumentationEvent settlement', async () => {
       expected: ['dispatched'],
     });
   });
+
+  test('never waits between polls past the consult deadline', async () => {
+    const { fetchImpl } = routedFetch({
+      consult: async () => new Response('', { status: 502 }),
+      roles: () => ['user'],
+    });
+    const started = Date.now();
+    let message = 'no throw';
+    try {
+      await dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
+        ...baseOptions,
+        fetchImpl,
+        timeoutMs: 50,
+        pollIntervalMs: 10_000,
+      });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    assert({
+      given:
+        'a poll interval far longer than the time left before the deadline',
+      should:
+        'shorten the wait to the deadline instead of overrunning the budget',
+      actual: {
+        reportedPending: message.includes('did not answer within'),
+        finishedWell: Date.now() - started < 2_000,
+      },
+      expected: { reportedPending: true, finishedWell: true },
+    });
+  });
 });
