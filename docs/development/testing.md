@@ -49,9 +49,10 @@ not exist — PageSpace lost entire tiers this way. `bun evidence` (in
   instead of failing is GUARD_MISSING.
 - Every `*.e2e.ts` is claimed by the Playwright config, and exactly one
   workflow runs `test:e2e`.
-- `*.integration.tsx` and `*.e2e.tsx` are recognized as suites but no
-  runner executes them (Playwright matches only `*.e2e.ts`; `bun test src`
-  does not glob `*.integration.tsx`), so they fail as ORPHAN_SUITE.
+- `bun test src` globs only `*.test.ts(x)`, and Playwright matches only
+  `*.e2e.ts` under `apps/web/e2e/`. A `*.integration.ts(x)` or
+  `*.e2e.ts(x)` under `src/`, and any `*.e2e.tsx`, is recognized as a
+  suite but executed by no runner, so it fails as ORPHAN_SUITE.
 - The `knip`, `policy`, `invariants`, `evidence`, and `migrations:check` gates must
   appear in `ci.yml`, so deleting a job breaks CI instead of silently
   retiring a gate.

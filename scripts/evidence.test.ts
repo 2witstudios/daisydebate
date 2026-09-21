@@ -93,6 +93,32 @@ describe('classifyTestFile', () => {
     });
   });
 
+  test('flags integration and e2e suffixes under src/ as orphans', () => {
+    assert({
+      given:
+        'an .integration.ts and an .e2e.ts under a workspace src/, which bun test src never globs',
+      should: 'mark both orphans instead of counting them as unit suites',
+      actual: [
+        'packages/db/src/foo.integration.ts',
+        'packages/db/src/foo.e2e.ts',
+      ].map(classifyTestFile),
+      expected: ['orphan', 'orphan'],
+    });
+  });
+
+  test('keeps real integration and e2e directories claimed', () => {
+    assert({
+      given: 'suites under integration/ and apps/web/e2e/',
+      should: 'stay claimed by their own runners',
+      actual: [
+        'packages/db/integration/db.integration.ts',
+        'packages/db/integration/seed.integration.test.ts',
+        'apps/web/e2e/app.e2e.ts',
+      ].map(classifyTestFile),
+      expected: ['integration', 'integration', 'e2e'],
+    });
+  });
+
   test('flags TSX suites no runner globs as orphans', () => {
     assert({
       given:

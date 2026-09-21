@@ -48,10 +48,10 @@ export function classifyTestFile(relativePath: string): TestTier {
     relativePath.endsWith('.e2e.ts')
   )
     return 'e2e';
-  // No runner globs .integration.tsx or .e2e.tsx (Playwright's testMatch is
-  // **/*.e2e.ts), so those fall through to orphan.
-  if (/\/src\/.+\.(test\.tsx?|integration\.ts)$/.test(relativePath))
-    return 'unit';
+  // `bun test src` globs only *.test.ts(x). An .integration or .e2e suffix
+  // under src/, and any .integration.tsx or .e2e.tsx (Playwright's testMatch
+  // is **/*.e2e.ts), is executed by no runner and falls through to orphan.
+  if (/\/src\/.+\.test\.tsx?$/.test(relativePath)) return 'unit';
   return 'orphan';
 }
 
