@@ -30,15 +30,17 @@ export type EvidenceReport = {
   readonly problems: readonly EvidenceProblem[];
 };
 
-const testFilePattern = /(\.test\.ts|\.integration\.ts|\.e2e\.ts)$/;
+// Every suite-shaped name is visible to the gate, TSX included, so a file no
+// runner executes surfaces as an orphan instead of vanishing from the audit.
+const testFilePattern = /\.(test|integration|e2e)\.tsx?$/;
 
 export function isTestFilePath(relativePath: string): boolean {
   return testFilePattern.test(relativePath);
 }
 
 export function classifyTestFile(relativePath: string): TestTier {
-  if (relativePath.startsWith('scripts/') && relativePath.endsWith('.test.ts'))
-    return 'root-script';
+  // `bun test <dir>` globs *.test.ts and *.test.tsx alike.
+  if (/^scripts\/.+\.test\.tsx?$/.test(relativePath)) return 'root-script';
   if (relativePath === 'eslint.config.test.ts') return 'root-config';
   if (relativePath.includes('/integration/')) return 'integration';
   if (
@@ -46,7 +48,10 @@ export function classifyTestFile(relativePath: string): TestTier {
     relativePath.endsWith('.e2e.ts')
   )
     return 'e2e';
-  if (/\/src\/.+\.(test|integration)\.ts$/.test(relativePath)) return 'unit';
+  // No runner globs .integration.tsx or .e2e.tsx (Playwright's testMatch is
+  // **/*.e2e.ts), so those fall through to orphan.
+  if (/\/src\/.+\.(test\.tsx?|integration\.ts)$/.test(relativePath))
+    return 'unit';
   return 'orphan';
 }
 
