@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import { Icon, type IconName } from '../icon/icon';
-import styles from './stat.module.css';
 
 export type StatProps = {
   readonly value: ReactNode;
@@ -10,10 +9,14 @@ export type StatProps = {
 
 export function Stat({ value, icon, label }: StatProps) {
   return (
-    <span className={styles.stat}>
+    <span
+      className={
+        'inline-flex items-baseline gap-1 text-sm whitespace-nowrap text-ink-muted tabular-nums'
+      }
+    >
       {icon ? <Icon name={icon} size={14} /> : null}
-      <span className={styles.value}>{value}</span>
-      {label ? <span className={styles.label}>{label}</span> : null}
+      <span className={'font-strong text-ink'}>{value}</span>
+      {label ? <span className={'text-xs text-ink-faint'}>{label}</span> : null}
     </span>
   );
 }

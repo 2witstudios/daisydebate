@@ -1,13 +1,14 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { PresenceDot } from './presence-dot';
 import type { Presence } from '../../types/presence/presence';
-import { definesClass } from '../../test-support/css-classes';
+import { presenceDotClass } from './presence-dot-class';
 
 setupRitewayBun();
+
+const base =
+  'inline-block size-presence-dot rounded-round border-2 border-surface';
 
 const statuses: readonly Presence[] = [
   'online',
@@ -32,16 +33,17 @@ describe('PresenceDot', () => {
     });
   });
 
-  test('has a stylesheet class for every presence', () => {
-    const css = readFileSync(
-      join(import.meta.dir, 'presence-dot.module.css'),
-      'utf8',
-    );
+  test('gives every presence its own fill', () => {
     assert({
-      given: 'each presence value used as a CSS module key',
-      should: 'be defined in the stylesheet so no dot renders unstyled',
-      actual: statuses.filter((presence) => !definesClass(css, presence)),
-      expected: [],
+      given: 'each presence value',
+      should: 'add a distinct fill token to the shared dot classes',
+      actual: statuses.map((presence) => presenceDotClass(presence)),
+      expected: [
+        `${base} bg-online`,
+        `${base} bg-live`,
+        `${base} bg-gold`,
+        `${base} bg-ink-faint`,
+      ],
     });
   });
 });

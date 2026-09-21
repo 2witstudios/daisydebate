@@ -1,6 +1,5 @@
 import { NavItem } from '../../../../components/nav-item/nav-item';
 import { Icon } from '../../../../components/icon/icon';
-import styles from './sidebar.module.css';
 
 const navigation = [
   { href: '/', icon: 'home', label: 'Home' },
@@ -32,8 +31,11 @@ const navigation = [
 
 export function Sidebar() {
   return (
-    <nav aria-label="Primary" className={styles.sidebar}>
-      <ul className={styles.list}>
+    <nav
+      aria-label="Primary"
+      className="flex h-full flex-col justify-between py-4"
+    >
+      <ul className="flex list-none flex-col gap-1 p-4 max-compact:px-2 max-compact:py-0">
         {navigation.map((item) => (
           <li key={item.href}>
             <NavItem
@@ -45,8 +47,8 @@ export function Sidebar() {
           </li>
         ))}
       </ul>
-      <p className={styles.quote}>
-        <Icon name="quote" size={18} className={styles.quoteMark} />
+      <p className="mx-5 mt-6 mb-2 flex flex-col gap-2 rounded-md border border-border bg-surface px-4 py-5 text-sm text-ink-muted italic max-compact:hidden short:hidden">
+        <Icon name="quote" size={18} className="text-accent" />
         <span>
           Better arguments.
           <br />A more thoughtful world.

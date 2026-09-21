@@ -11,9 +11,12 @@ const stylesheet = join(import.meta.dir, 'globals.css');
 /** Compiles the real globals.css with exactly the given candidate classes. */
 const compile = async (classes: string): Promise<string> => {
   const source = `${readFileSync(stylesheet, 'utf8')}\n@source inline("${classes}");`;
-  const result = await postcss([tailwind()]).process(source, {
-    from: stylesheet,
-  });
+  const result = await postcss([tailwind() as postcss.AcceptedPlugin]).process(
+    source,
+    {
+      from: stylesheet,
+    },
+  );
   return result.css;
 };
 

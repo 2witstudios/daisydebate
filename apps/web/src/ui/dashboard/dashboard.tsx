@@ -3,7 +3,6 @@ import { ActionTile } from './action-tile/action-tile';
 import { tiles } from './tiles';
 import { FeaturedTournament } from './featured-tournament/featured-tournament';
 import { LiveNow } from './live-now/live-now';
-import styles from './dashboard.module.css';
 
 /**
  * Main-column composition of the home dashboard. Pure layout: owns the
@@ -11,16 +10,19 @@ import styles from './dashboard.module.css';
  */
 export function Dashboard() {
   return (
-    <div className={styles.column}>
+    <div className="mx-auto flex w-full max-w-dash-column flex-col gap-5 px-6 pt-5 pb-8">
       <HeroBanner />
-      <ul className={styles.tiles} aria-label="Debate destinations">
+      <ul
+        className="grid grid-cols-4 gap-4 max-wide:grid-cols-3 max-tiles:grid-cols-2 max-tiny:grid-cols-1"
+        aria-label="Debate destinations"
+      >
         {tiles.map((tile) => (
-          <li key={tile.href} className={styles.tileCell}>
+          <li key={tile.href} className="min-w-0">
             <ActionTile {...tile} />
           </li>
         ))}
       </ul>
-      <div className={styles.lower}>
+      <div className="grid grid-cols-dash-lower gap-4 max-compact:grid-cols-1">
         <FeaturedTournament />
         <LiveNow />
       </div>

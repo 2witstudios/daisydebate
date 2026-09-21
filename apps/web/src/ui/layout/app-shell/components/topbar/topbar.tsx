@@ -10,7 +10,6 @@ import { Icon } from '../../../../components/icon/icon';
 import { Tier } from '../../../../types/tier/tier';
 import { useUiState } from '../../../../store/store';
 import { avatarSrc } from '../../../../assets';
-import styles from './topbar.module.css';
 
 /** The Daisy mark: eight petals around a solid disc. Filled, not stroked. */
 function BrandMark() {
@@ -40,45 +39,61 @@ export function Topbar() {
   );
   const viewer = useUiState((state) => state.resources.viewer);
   return (
-    <header className={styles.topbar}>
-      <Link href="/" className={styles.brand}>
-        <span className={styles.logo} aria-hidden="true">
+    <header className="flex h-topbar items-center gap-6 px-6 max-compact:gap-4 max-compact:px-4">
+      <Link
+        href="/"
+        className="flex items-center gap-3 text-ink no-underline hover:no-underline"
+      >
+        <span
+          className="inline-flex size-shell-logo items-center justify-center rounded-sm bg-accent text-accent-ink"
+          aria-hidden="true"
+        >
           <BrandMark />
         </span>
-        <span className={styles.wordmark}>Daisy</span>
-        <span className={styles.tagline}>
+        <span className="font-display text-xl leading-shell-brand font-semibold tracking-tight max-narrow:hidden">
+          Daisy
+        </span>
+        <span className="flex flex-col border-l border-border pl-2 text-shell-tagline leading-shell-tagline font-strong tracking-widest text-ink-faint uppercase max-rail:hidden">
           Sharper minds.
           <br />A brighter world.
         </span>
       </Link>
-      <div className={styles.search}>
+      <div className="flex flex-1 justify-center">
         <SearchInput />
       </div>
-      <div className={styles.actions}>
-        <span className={styles.bell}>
+      <div className="flex items-center gap-4">
+        <span className="relative inline-flex">
           <IconButton name="bell" label="Notifications" />
           {notificationsCount > 0 ? (
-            <span className={styles.count} aria-hidden="true">
+            <span
+              className="absolute -top-shell-hair -right-shell-hair h-shell-count min-w-shell-count rounded-round bg-live px-1 text-center text-shell-count leading-shell-count font-black text-ink-on-live"
+              aria-hidden="true"
+            >
               {notificationsCount}
             </span>
           ) : null}
         </span>
-        <button type="button" className={styles.profile}>
+        <button
+          type="button"
+          className="flex cursor-pointer items-center gap-3 rounded-md bg-transparent px-3 py-2 text-ink hover:bg-surface-overlay"
+        >
           <Avatar name={viewer.name} src={avatarSrc(viewer.name)} size="md" />
-          <span className={styles.profileMeta}>
-            <span className={styles.profileNameRow}>
-              <span className={styles.profileName}>{viewer.name}</span>
+          <span className="flex flex-col items-start gap-shell-hair max-compact:hidden">
+            <span className="inline-flex items-center gap-2">
+              <span className="text-sm leading-tight font-bold">
+                {viewer.name}
+              </span>
               <PresenceDot presence="online" />
             </span>
-            <span className={styles.profileStats}>
+            <span className="inline-flex items-center gap-3">
               <Stat icon="chart" value={viewer.rating} />
-              <span className={styles.tier}>
+              <span className="inline-flex items-center gap-1 text-xs font-black tracking-wide text-tier-diamond">
                 <Icon name="gem" size={13} />
                 {Tier.label[viewer.tier]}
               </span>
             </span>
           </span>
-          <Icon name="chevronDown" size={16} className={styles.chevron} />
+          <Icon name="chevronDown" size={16} className="text-ink-faint" />
         </button>
       </div>
     </header>

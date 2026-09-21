@@ -44,7 +44,7 @@ describe('ActivityFeed', () => {
       should: 'render the headline with a decorative icon and no avatar name',
       actual: [
         html.includes('Registration open'),
-        html.includes('visually-hidden'),
+        html.includes('sr-only'),
         /<span[^>]* aria-hidden="true"><svg/.test(html),
       ],
       expected: [true, false, true],

@@ -1,3 +1,13 @@
 /* Component-owned size and motion tokens (ADR 0028). Theme variables only; classes stay in the markup. */
 @theme {
+  --spacing-avatar-sm: 28px;
+  --spacing-avatar-md: 36px;
+  --spacing-avatar-lg: 44px;
+  --spacing-avatar-presence: 2px;
+  --spacing-presence-dot: 10px;
+  --spacing-badge-x: 6px;
+  --spacing-badge-y: 2px;
+  --radius-badge: 4px;
+  --text-badge: 0.625rem;
+  --container-search: 420px;
 }

@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import { Icon, type IconName } from '../icon/icon';
-import styles from './panel.module.css';
 
 export type PanelProps = {
   readonly title: ReactNode;
@@ -12,15 +11,17 @@ export type PanelProps = {
 
 export function Panel({ title, icon, action, children }: PanelProps) {
   return (
-    <section className={styles.panel}>
-      <header className={styles.header}>
+    <section className={'rounded-md border border-border bg-surface p-5'}>
+      <header className={'mb-4 flex items-center gap-2 text-ink'}>
         {icon ? (
-          <span className={styles.icon}>
+          <span className={'inline-flex text-accent'}>
             <Icon name={icon} size={17} />
           </span>
         ) : null}
-        <h2 className={styles.title}>{title}</h2>
-        {action ? <div className={styles.action}>{action}</div> : null}
+        <h2 className={'text-md leading-tight font-heavy tracking-tight'}>
+          {title}
+        </h2>
+        {action ? <div className={'ml-auto'}>{action}</div> : null}
       </header>
       {children}
     </section>

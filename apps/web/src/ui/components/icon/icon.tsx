@@ -1,6 +1,6 @@
 import type { SVGProps } from 'react';
 import { iconPaths, type IconName } from './icons';
-import styles from './icon.module.css';
+import { cn } from '../../cn';
 
 export type IconProps = {
   readonly name: IconName;
@@ -30,7 +30,7 @@ export function Icon({
       role={label ? 'img' : undefined}
       aria-label={label}
       aria-hidden={label ? undefined : true}
-      className={[styles.icon, className].filter(Boolean).join(' ')}
+      className={cn('block shrink-0', className)}
       {...rest}
     >
       {iconPaths[name]}

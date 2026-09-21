@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes } from 'react';
 import { Icon, type IconName } from '../icon/icon';
-import styles from './icon-button.module.css';
+import { cn } from '../../cn';
 
 export type IconButtonProps = {
   readonly name: IconName;
@@ -19,7 +19,10 @@ export function IconButton({
       type="button"
       aria-label={label}
       title={label}
-      className={[styles.iconButton, className].filter(Boolean).join(' ')}
+      className={cn(
+        'inline-flex size-8 cursor-pointer items-center justify-center rounded-sm bg-transparent text-ink-muted transition-colors duration-120 ease-standard hover:bg-surface-overlay hover:text-ink',
+        className,
+      )}
       {...rest}
     >
       <Icon name={name} size={18} />

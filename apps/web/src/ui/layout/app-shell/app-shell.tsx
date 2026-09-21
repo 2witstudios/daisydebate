@@ -2,7 +2,6 @@ import type { ReactNode } from 'react';
 import { Sidebar } from './components/sidebar/sidebar';
 import { Topbar } from './components/topbar/topbar';
 import { RightRail } from './components/right-rail/right-rail';
-import styles from './app-shell.module.css';
 
 export type AppShellProps = {
   /** Main content column. */
@@ -19,15 +18,18 @@ export type AppShellProps = {
  */
 export function AppShell({ children, rail }: AppShellProps) {
   return (
-    <div className={styles.shell}>
-      <div className={styles.sidebar}>
+    <div className="grid min-h-screen grid-shell items-start max-rail:grid-shell-reflow max-compact:grid-shell-icons">
+      <div className="sticky top-0 z-20 h-screen border-r border-border bg-surface area-sidebar">
         <Sidebar />
       </div>
-      <div className={styles.topbar}>
+      <div className="sticky top-0 z-10 border-b border-border bg-surface area-topbar">
         <Topbar />
       </div>
-      <div className={styles.main}>{children}</div>
-      <aside className={styles.rail} aria-label="Sidebar">
+      <div className="min-w-0 area-main">{children}</div>
+      <aside
+        className="sticky top-topbar h-rail min-w-0 border-l border-border bg-surface area-rail max-rail:static max-rail:h-auto max-rail:border-t max-rail:border-l-0"
+        aria-label="Sidebar"
+      >
         <RightRail>{rail}</RightRail>
       </aside>
     </div>

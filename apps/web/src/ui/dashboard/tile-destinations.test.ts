@@ -1,20 +1,13 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { tiles } from './tiles';
-import { definesClass } from '../test-support/css-classes';
+import { statusDotClass } from '../components/status-line/status-line-class';
+import { actionTileTintClass } from './action-tile/action-tile-class';
 
 setupRitewayBun();
 
 const appDirectory = join(import.meta.dir, '../../app');
-
-const undefinedClasses = (
-  cssPath: string,
-  names: readonly string[],
-): readonly string[] => {
-  const css = readFileSync(join(import.meta.dir, cssPath), 'utf8');
-  return [...new Set(names)].filter((name) => !definesClass(css, name));
-};
 
 describe('tile destinations', () => {
   test('point at routes that exist', () => {
@@ -28,21 +21,17 @@ describe('tile destinations', () => {
     });
   });
 
-  test('use only tints and tones the stylesheets define', () => {
+  test('use only tints and tones the class functions define', () => {
     assert({
       given: 'every tint and status tone in use, including the neutral default',
-      should: 'resolve to a defined CSS module class, never "undefined"',
+      should: 'resolve to a real class, never "undefined"',
       actual: [
-        undefinedClasses(
-          'action-tile/action-tile.module.css',
-          tiles.map((tile) => tile.tint ?? 'neutral'),
-        ),
-        undefinedClasses(
-          '../components/status-line/status-line.module.css',
-          tiles.map((tile) => tile.status?.tone ?? 'neutral'),
-        ),
-      ],
-      expected: [[], []],
+        ...tiles.map((tile) => actionTileTintClass(tile.tint ?? 'neutral')),
+        ...tiles.map((tile) => statusDotClass(tile.status?.tone ?? 'neutral')),
+      ].filter(
+        (classes) => classes === undefined || classes.includes('undefined'),
+      ),
+      expected: [],
     });
   });
 });

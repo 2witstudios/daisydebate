@@ -1,7 +1,7 @@
 import type { KeyboardEvent, ReactNode } from 'react';
 import { Icon } from '../icon/icon';
 import type { ThemePreference } from '../../theme/theme-preference';
-import styles from './theme-switcher.module.css';
+import { optionClass, switcherClass } from './theme-switcher-class';
 
 const options = [
   { value: 'dark', label: 'Dark', icon: 'moon' },
@@ -51,7 +51,7 @@ export function renderThemeSwitcher({
       ?.focus();
   };
   return (
-    <div role="radiogroup" aria-label="Theme" className={styles.switcher}>
+    <div role="radiogroup" aria-label="Theme" className={switcherClass}>
       {options.map(({ value, label, icon }) => {
         const checked = value === preference;
         return (
@@ -62,7 +62,7 @@ export function renderThemeSwitcher({
             aria-checked={checked}
             tabIndex={checked ? 0 : -1}
             data-preference={value}
-            className={styles.option}
+            className={optionClass(checked)}
             onClick={() => selectPreference(value)}
             onKeyDown={onKeyDown}
           >
