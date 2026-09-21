@@ -70,6 +70,11 @@ an owner, tests, and a row in this table (`docs/development/extending.md`).
 3. Domain invariants live in `@daisy/debate-engine`; adapters never decide
    domain rules.
 4. Shared UI only becomes shared when two real consumers exist.
+5. Client UI shell state (`apps/web/src/ui/`) lives in an in-house,
+   eval-free observable store (ADR 0017): immutable snapshots flow down,
+   void transactions flow up. Adobe vendor imports stay confined to the
+   engine adapter; client-side ECS is rejected — its codegen requires
+   `unsafe-eval`, conflicting with the strict CSP.
 
 Detailed documents: persistence and Redis semantics
 (`docs/architecture/persistence.md`), engine boundary

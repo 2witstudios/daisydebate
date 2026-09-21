@@ -1,0 +1,19 @@
+.stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.value {
+  font-weight: 650;
+  color: var(--text);
+}
+
+.label {
+  color: var(--text-faint);
+  font-size: var(--font-size-xs);
+}

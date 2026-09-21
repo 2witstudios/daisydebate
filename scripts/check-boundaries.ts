@@ -6,6 +6,10 @@ import {
   checkArchitectureExceptions,
   findArchitectureExceptionMarkers,
 } from './architecture-exceptions';
+import {
+  adobeIsolationIssue,
+  allowedWorkspaceDependencies as allowed,
+} from './boundaries-rules';
 
 type Manifest = {
   name: string;
@@ -34,17 +38,6 @@ const byName = new Map(
 );
 const issues: string[] = [];
 const architectureExceptionMarkers: string[] = [];
-const allowed: Record<string, readonly string[]> = {
-  'debate-engine': ['errors', 'protocol'],
-  protocol: ['errors'],
-  auth: ['errors'],
-  errors: [],
-  db: ['config', 'errors'],
-  redis: ['config', 'errors'],
-  config: [],
-  logger: [],
-  observability: ['logger'],
-};
 const visit = (name: string, trail: string[]) => {
   if (trail.includes(name)) {
     issues.push(`Dependency cycle: ${[...trail, name].join(' -> ')}`);
@@ -71,11 +64,12 @@ for (const workspace of workspaces) {
       !restrictions.includes(dependency.replace('@daisy/', ''))
     )
       issues.push(`${workspace.path}: forbidden dependency ${dependency}`);
-    if (
-      dependency.startsWith('@adobe/') &&
-      workspace.manifest.name !== '@daisy/debate-engine'
-    )
-      issues.push(`${workspace.path}: Adobe dependency outside engine`);
+    const dependencyIssue = adobeIsolationIssue(
+      workspace.manifest.name,
+      dependency,
+      'dependency',
+    );
+    if (dependencyIssue) issues.push(dependencyIssue);
   }
   for await (const file of new Bun.Glob('**/*.{ts,tsx}').scan({
     cwd: resolve(root, workspace.path),
@@ -117,11 +111,12 @@ for (const workspace of workspaces) {
           issues.push(
             `${relative(root, file)}: workspace deep import ${specifier}`,
           );
-        if (
-          specifier.startsWith('@adobe/') &&
-          workspace.manifest.name !== '@daisy/debate-engine'
-        )
-          issues.push(`${relative(root, file)}: Adobe import outside engine`);
+        const importIssue = adobeIsolationIssue(
+          workspace.manifest.name,
+          specifier,
+          'import',
+        );
+        if (importIssue) issues.push(importIssue);
       }
     };
     const walk = (node: ts.Node) => {
