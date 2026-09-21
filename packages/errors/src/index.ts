@@ -4,6 +4,7 @@ const definitions = {
   AUTHORIZATION: [403, 'Permission denied'],
   NOT_FOUND: [404, 'Resource not found'],
   CONFLICT: [409, 'Resource conflict'],
+  PAYLOAD_TOO_LARGE: [413, 'Request body too large'],
   INVARIANT: [422, 'Domain operation is not allowed'],
   RATE_LIMIT: [429, 'Too many requests'],
   INFRASTRUCTURE: [503, 'Service temporarily unavailable'],

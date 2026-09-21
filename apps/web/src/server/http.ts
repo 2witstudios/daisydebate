@@ -93,6 +93,26 @@ export function requireSameOrigin(request: Request, origin: string) {
     throw createAppError('AUTHORIZATION');
 }
 
+/**
+ * Same-origin gate for safe, side-effect-free reads. It refuses only POSITIVE
+ * cross-site evidence: fetch metadata other than same-origin/none (direct
+ * navigation), or an Origin that differs. A missing Origin must pass because
+ * browsers omit it on same-origin GETs. A request carrying neither header is
+ * therefore allowed — non-browser clients, but also a legacy browser's
+ * cross-site no-cors GET, whose response stays unreadable without CORS.
+ * Do not reuse this to guard state changes or sensitive reads; those need a
+ * fail-closed check such as requireSameOrigin or an authenticated principal.
+ */
+export function requireSameOriginRead(request: Request, origin: string) {
+  const site = request.headers.get('sec-fetch-site');
+  const claimed = request.headers.get('origin');
+  if (
+    (site !== null && site !== 'same-origin' && site !== 'none') ||
+    (claimed !== null && claimed !== new URL(origin).origin)
+  )
+    throw createAppError('AUTHORIZATION');
+}
+
 async function readChunks(
   request: Request,
   reader: ReadableStreamDefaultReader<Uint8Array>,
@@ -108,7 +128,7 @@ async function readChunks(
       length += value.length;
       if (length > maxBytes) {
         await reader.cancel();
-        throw createAppError('VALIDATION');
+        throw createAppError('PAYLOAD_TOO_LARGE');
       }
       chunks.push(value);
     }

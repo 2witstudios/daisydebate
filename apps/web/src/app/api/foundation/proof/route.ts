@@ -3,6 +3,7 @@ import {
   handleOperation,
   readJson,
   requireSameOrigin,
+  requireSameOriginRead,
 } from '../../../../server/http';
 import {
   createProofDebate,
@@ -25,6 +26,7 @@ export function POST(request: Request) {
 
 export function GET(request: Request) {
   return handleOperation(request, 'foundation.proof.fetch', async () => {
+    requireSameOriginRead(request, getResources().config.PUBLIC_APP_URL);
     const id = new URL(request.url).searchParams.get('id') ?? '';
     return Response.json(await getProofDebate(id));
   });

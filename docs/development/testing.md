@@ -94,6 +94,39 @@ not exist — PageSpace lost entire tiers this way. `bun evidence` (in
 - Playwright config env demonstrates the full production-refined
   configuration; keep it that way so e2e failures catch config regressions.
 
+## UI component tests
+
+UI under `apps/web/src/ui/` is Tier 1: tests sit next to the component as
+`<name>.test.tsx`, render with `react-dom/server`'s `renderToString`, and
+assert behavior (landmarks, accessible names, link targets, store-driven
+content) rather than markup snapshots. No DOM library is installed or needed.
+`bun test src` runs them; note `bun evidence` currently matches `*.test.ts`
+only, so `.test.tsx` suites are run but not counted in its audit.
+
+- CSS modules resolve to `undefined` under `bun test`, so never assert on
+  generated class names. To lock class correctness, read the `.module.css`
+  file and assert the key is defined (see `presence-dot.test.tsx`).
+- Store-driven components read the module-level store: call
+  `setUiState({ ...createInitialState(), … })` at the start of each test so
+  no test depends on another's state.
+- `next/link`, `next/image`, and `usePathname` render under plain
+  `react-dom/server` (`usePathname` returns `null`).
+- **The `.render.tsx` split.** When a component needs client hooks or the
+  store but its markup deserves direct tests, split it: `<name>.tsx` is the
+  `'use client'` shell that reads hooks and passes plain props and void
+  callbacks; `<name>.render.tsx` exports a pure `render<Name>(props)`
+  function with no hooks. The pure half gets the unit tests
+  (`<name>.render.test.tsx`), including callbacks, which can be invoked
+  straight off the returned element's props. `nav-item` and `search-input`
+  are the examples. Do not split components that render fine as-is.
+
+## Test file naming
+
+New packages name their suite `src/index.test.ts`. Existing subject-named
+suites (`errors.test.ts`, `protocol.test.ts`, `auth.test.ts`,
+`engine.test.ts`) stay as they are; do not rename them. App and UI tests are
+named after the file they specify.
+
 ## CI Artifacts
 
 The Browser E2E workflow uploads `apps/web/test-results` and

@@ -34,7 +34,6 @@ type ActivityRow = {
 type UiResources = {
   readonly themeColor: 'dark' | 'light';
   readonly searchQuery: string;
-  readonly activeRoute: string;
   readonly notificationsCount: number;
   readonly viewer: Viewer;
   readonly onlineCount: number;
@@ -58,7 +57,6 @@ export const createInitialState = (): UiState => ({
   resources: {
     themeColor: 'dark',
     searchQuery: '',
-    activeRoute: '/',
     notificationsCount: 1,
     viewer,
     onlineCount: 1248,

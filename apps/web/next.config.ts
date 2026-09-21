@@ -1,13 +1,14 @@
 import type { NextConfig } from 'next';
 const config: NextConfig = {
   poweredByHeader: false,
+  // The repo forbids a second agent doc (root AGENTS.md); stop `next dev` generating them.
+  agentRules: false,
   serverExternalPackages: [
     '@daisy/db',
     '@daisy/redis',
     '@daisy/logger',
     '@daisy/observability',
     '@daisy/config',
-    '@adobe/data',
   ],
   transpilePackages: [
     '@daisy/debate-engine',
