@@ -64,14 +64,16 @@ function capturingSender() {
 describe('auth server composition', () => {
   test('composes the validated configuration from the injected environment', () => {
     assert({
-      given: 'an environment holding the four auth variables',
-      should: 'expose the validated auth configuration',
+      given: 'an environment holding the four required auth variables',
+      should: 'expose the validated configuration with empty client-IP trust',
       actual: create().config,
       expected: {
         BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET,
         PUBLIC_APP_URL: env.PUBLIC_APP_URL,
         RESEND_API_KEY: env.RESEND_API_KEY,
         AUTH_EMAIL_FROM: env.AUTH_EMAIL_FROM,
+        AUTH_TRUSTED_IP_HEADERS: [],
+        AUTH_TRUSTED_PROXIES: [],
       },
     });
   });

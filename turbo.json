@@ -31,7 +31,9 @@
       "passThroughEnv": [
         "BETTER_AUTH_SECRET",
         "RESEND_API_KEY",
-        "AUTH_EMAIL_FROM"
+        "AUTH_EMAIL_FROM",
+        "AUTH_TRUSTED_IP_HEADERS",
+        "AUTH_TRUSTED_PROXIES"
       ]
     },
     "build": {

@@ -173,4 +173,36 @@ describe('structured logging', () => {
       expected: { event: 'invariant.violated', level: 50 },
     });
   });
+
+  test('declares auth events with severities that match their meaning', () => {
+    let output = '';
+    const logger = createLogger({
+      service: 'test',
+      destination: { write: (text) => (output += text) },
+    });
+    const events: EventName[] = [
+      'auth.rate_limit.denied',
+      'auth.rate_limit.unavailable',
+      'auth.mail.sent',
+      'auth.mail.failed',
+    ];
+    for (const event of events) logger.log(event, {}, 'auth');
+    const entries = output
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line) as { event: string; level: number })
+      .map(({ event, level }) => [event, level]);
+
+    assert({
+      given: 'rate-limit and mail delivery events',
+      should: 'log an expected denial as a warning and outages as errors',
+      actual: entries,
+      expected: [
+        ['auth.rate_limit.denied', 40],
+        ['auth.rate_limit.unavailable', 50],
+        ['auth.mail.sent', 30],
+        ['auth.mail.failed', 50],
+      ],
+    });
+  });
 });

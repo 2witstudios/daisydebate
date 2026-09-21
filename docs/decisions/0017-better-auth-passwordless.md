@@ -32,7 +32,8 @@ The server auth instance is created through a lazy, resource-injected factory
 (`createAuthServer`) that accepts the database adapter, an email sender, a
 rate limiter, a logger, and the injected application clock and identity
 generator. Configuration (`BETTER_AUTH_SECRET`, `PUBLIC_APP_URL`,
-`RESEND_API_KEY`, `AUTH_EMAIL_FROM`) is validated server-side at factory call
+`RESEND_API_KEY`, `AUTH_EMAIL_FROM`, and the optional client-IP trust lists
+`AUTH_TRUSTED_IP_HEADERS` / `AUTH_TRUSTED_PROXIES`) is validated server-side at factory call
 time through `@daisy/config`, reporting field names only; importing modules
 requires no credentials and dials no service. Email delivery goes through an
 injected `send` function (Resend in production, captured or failing senders in
