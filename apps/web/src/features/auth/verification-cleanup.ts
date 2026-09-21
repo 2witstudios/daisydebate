@@ -67,7 +67,7 @@ export function createVerificationCleanup({
 }
 
 type Timers = {
-  readonly setInterval: (tick: () => void, ms: number) => unknown;
+  readonly setInterval: (tick: () => unknown, ms: number) => unknown;
   readonly clearInterval: (handle: unknown) => void;
 };
 
@@ -87,9 +87,10 @@ export function startVerificationCleanup({
 }) {
   let running = false;
   const handle = timers.setInterval(() => {
-    if (running) return;
+    if (running) return undefined;
     running = true;
-    void cleanup.run().finally(() => {
+    // Returned so callers (and tests) can await the run; timers ignore it.
+    return cleanup.run().finally(() => {
       running = false;
     });
   }, intervalMs);

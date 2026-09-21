@@ -8,7 +8,7 @@ describe('server maintenance', () => {
   test('an hourly tick purges verification rows expired before the 24-hour grace, and stop clears the timer', async () => {
     const purged: Array<{ before: string; limit: number }> = [];
     const handles: string[] = [];
-    let tick: () => void = () => undefined;
+    let tick: () => unknown = () => undefined;
     const logger = { log: () => undefined, child: () => logger } as never;
     const maintenance = startMaintenance({
       database: {
@@ -27,8 +27,7 @@ describe('server maintenance', () => {
         clearInterval: (handle) => void handles.push(String(handle)),
       },
     });
-    tick();
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await tick();
     maintenance.stop();
     assert({
       given: 'the production maintenance composition and one hourly tick',

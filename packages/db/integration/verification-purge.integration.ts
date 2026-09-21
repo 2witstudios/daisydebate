@@ -1,4 +1,4 @@
-import { expect, test } from 'bun:test';
+import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { createDatabase } from '../src';
@@ -10,6 +10,8 @@ if (!url)
   );
 if (!new URL(url).pathname.endsWith('_test'))
   throw new Error('Test database name must end in _test');
+
+setupRitewayBun();
 
 const HOUR = 3_600_000;
 const now = Date.parse('2026-09-20T12:00:00.000Z');
@@ -60,9 +62,18 @@ test('only rows expired more than 24 hours ago are deleted; grace and live rows 
       before: cutoff,
       limit: 100,
     });
-    expect(deleted).toBeGreaterThanOrEqual(2);
-    expect(again).toBe(0);
-    expect(await remaining(tag)).toBe(2);
+    assert({
+      given:
+        'rows expired 30h and 25h ago, 23h ago (grace) and not yet expired',
+      should:
+        'delete the two beyond the grace period, keep the other two, and make a repeat run a no-op',
+      actual: {
+        deletedAtLeastTwo: deleted >= 2,
+        repeat: again,
+        remaining: await remaining(tag),
+      },
+      expected: { deletedAtLeastTwo: true, repeat: 0, remaining: 2 },
+    });
   } finally {
     await database.close();
     await purgeAll(tag);
@@ -92,9 +103,22 @@ test("a run deletes at most one batch and never touches this suite's user or its
         await sql`SELECT id FROM session WHERE id = ${`${tag}-session`}`
       ).length,
     }));
-    expect(deleted).toBeLessThanOrEqual(2);
-    expect(await remaining(tag)).toBeGreaterThanOrEqual(ids.length - 2);
-    expect(owned).toEqual({ users: 1, sessions: 1 });
+    assert({
+      given:
+        'five expired rows, a batch limit of two, and a user with an expired session',
+      should:
+        'delete at most two rows and leave the user and the session untouched',
+      actual: {
+        atMostTwo: deleted <= 2,
+        keptAtLeast: (await remaining(tag)) >= ids.length - 2,
+        owned,
+      },
+      expected: {
+        atMostTwo: true,
+        keptAtLeast: true,
+        owned: { users: 1, sessions: 1 },
+      },
+    });
   } finally {
     await database.close();
     await purgeAll(tag);
@@ -124,8 +148,15 @@ test('concurrent workers delete each expired row exactly once', async () => {
       }
     };
     const totals = await Promise.all(workers.map(drain));
-    expect(await remaining(tag)).toBe(0);
-    expect(totals.reduce((sum, total) => sum + total, 0)).toBe(ids.length);
+    assert({
+      given: 'forty expired rows and four workers draining in batches of five',
+      should: 'delete every row and count each deletion exactly once',
+      actual: {
+        remaining: await remaining(tag),
+        deletions: totals.reduce((sum, total) => sum + total, 0),
+      },
+      expected: { remaining: 0, deletions: ids.length },
+    });
   } finally {
     await Promise.all(workers.map((worker) => worker.close()));
     await purgeAll(tag);

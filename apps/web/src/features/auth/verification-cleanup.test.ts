@@ -126,12 +126,15 @@ describe('verification cleanup run', () => {
 
 describe('verification cleanup schedule', () => {
   const fakeTimers = () => {
-    const state: { tick?: () => void; cleared: unknown[]; interval?: number } =
-      { cleared: [] };
+    const state: {
+      tick?: () => unknown;
+      cleared: unknown[];
+      interval?: number;
+    } = { cleared: [] };
     return {
       state,
       timers: {
-        setInterval: (tick: () => void, ms: number) => {
+        setInterval: (tick: () => unknown, ms: number) => {
           state.tick = tick;
           state.interval = ms;
           return 'handle';
@@ -155,10 +158,9 @@ describe('verification cleanup schedule', () => {
       },
       timers,
     });
-    state.tick?.();
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    state.tick?.();
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    // The tick returns its run's completion, so no timing is inferred.
+    await state.tick?.();
+    await state.tick?.();
     schedule.stop();
     assert({
       given: 'two sequential ticks where the first run fails',
@@ -187,15 +189,15 @@ describe('verification cleanup schedule', () => {
       },
       timers,
     });
-    state.tick?.();
-    state.tick?.();
+    const first = state.tick?.();
+    const second = state.tick?.();
     release();
-    await Promise.resolve();
+    await first;
     assert({
       given: 'an hourly tick arriving during a long run',
       should: 'not start a second overlapping run in the same process',
-      actual: started,
-      expected: 1,
+      actual: { started, secondTickRan: second !== undefined },
+      expected: { started: 1, secondTickRan: false },
     });
   });
 });
