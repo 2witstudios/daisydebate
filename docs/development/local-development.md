@@ -115,7 +115,24 @@ bun hooks:install   # git config core.hooksPath .githooks
 
 After that every `git push` that sends commits first runs
 `bun check:affected` against `origin/main` (run `git fetch origin` if the base
-is missing) and aborts the push on failure. It deliberately runs the fast
+is missing) and aborts the push on failure.
+
+`bun check:affected` inspects the checked-out working tree, so the hook can
+only vouch for `HEAD`. It classifies every ref git reports for the push:
+
+| Pushed ref                                                       | Behavior                                             |
+| ---------------------------------------------------------------- | ---------------------------------------------------- |
+| Branch deletion                                                  | Allowed; nothing is sent                             |
+| Branch or tag (annotated tags are peeled) whose commit is `HEAD` | Verified; the check runs once per push               |
+| Commit already contained in a remote-tracking branch             | Allowed with a notice; nothing new is sent           |
+| Any other commit (non-checked-out branch, old unpushed tag)      | Push refused: check that ref out and push from there |
+
+One refused ref refuses the whole push, including multi-ref pushes. The check
+covers the working tree, so the hook prints a notice when uncommitted changes
+are present; commit or set them aside if you want the result to describe
+exactly the pushed commit.
+
+The hook deliberately runs the fast
 affected gate, not the full chain: run `bun check` yourself before opening a
 PR, and CI remains the enforcement of record. `core.hooksPath` lives in the
 repository's shared git config, so it also applies to every worktree of that
