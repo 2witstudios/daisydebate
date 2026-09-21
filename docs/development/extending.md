@@ -27,7 +27,8 @@ Direct single-agent work may proceed without `pu`.
    real consumers first.
 2. Create `packages/<name>/` with `package.json` (exact versions, explicit
    `exports` mapping only public entry points), `tsconfig.json` extending
-   `@daisy/typescript-config/base.json`, `src/index.ts`, and tests.
+   `@daisy/typescript-config/base.json`, `src/index.ts`, and tests in
+   `src/index.test.ts` (see [test file naming](testing.md#test-file-naming)).
 3. Declare exactly the dependencies you import; allowed workspace edges are
    listed in `scripts/check-boundaries.ts` — extend the allowlist only when
    the edge is architecturally justified.
