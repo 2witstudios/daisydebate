@@ -15,11 +15,11 @@ import { proofDebateIdSchema, proofDebateInputSchema } from './schemas';
  * domain runtime → durable adapter → PostgreSQL. Gated by
  * FOUNDATION_PROOF_ENABLED; production configuration forbids enabling it.
  */
-const proofPrincipal: Principal = {
+export const proofPrincipal: Principal = Object.freeze({
   kind: 'service',
   serviceId: 'foundation-proof',
-  permissions: ['debate:create', 'debate:read'],
-};
+  permissions: Object.freeze(['debate:create', 'debate:read'] as const),
+});
 
 function requireProofEnabled() {
   if (!getResources().config.FOUNDATION_PROOF_ENABLED)

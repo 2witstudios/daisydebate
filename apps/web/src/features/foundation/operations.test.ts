@@ -34,7 +34,8 @@ Reflect.set(globalThis, 'daisyResources', {
   database,
 });
 
-const { createProofDebate, getProofDebate } = await import('./operations');
+const { createProofDebate, getProofDebate, proofPrincipal } =
+  await import('./operations');
 
 const capture = async (operation: Promise<unknown>): Promise<unknown> => {
   try {
@@ -229,6 +230,30 @@ describe('foundation debate creation gate', () => {
         writes,
       },
       expected: { code: 'AUTHORIZATION', writes: 0 },
+    });
+  });
+});
+
+describe('foundation proof principal', () => {
+  test('holds exactly the create and read permissions', () => {
+    assert({
+      given: 'the hardcoded foundation proof service principal',
+      should: 'hold debate:create and debate:read and nothing else, immutably',
+      actual: {
+        principal: proofPrincipal,
+        frozen:
+          Object.isFrozen(proofPrincipal) &&
+          proofPrincipal.kind === 'service' &&
+          Object.isFrozen(proofPrincipal.permissions),
+      },
+      expected: {
+        principal: {
+          kind: 'service',
+          serviceId: 'foundation-proof',
+          permissions: ['debate:create', 'debate:read'],
+        },
+        frozen: true,
+      },
     });
   });
 });
