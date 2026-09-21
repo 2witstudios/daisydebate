@@ -1,3 +1,8 @@
+import {
+  stylingRuleApplies,
+  stylingRules,
+  type StylingRule,
+} from './policy-styling';
 import { readFile, readdir } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 import * as ts from 'typescript';
@@ -32,10 +37,7 @@ const categories = new Set<PolicyCategory>([
 ]);
 
 export type PolicyRule =
-  | 'direct-random-uuid'
-  | 'repository-owned-uuid'
-  | 'inline-style'
-  | 'tailwind-lint-disable';
+  'direct-random-uuid' | 'repository-owned-uuid' | StylingRule;
 export type PolicyCategory =
   'framework' | 'integration-isolation' | 'migration' | 'tooling';
 export type PolicyException = {
@@ -63,18 +65,8 @@ const rules: Readonly<Record<PolicyRule, RegExp>> = {
   'direct-random-uuid': /\b(?:crypto\.)?randomUUID\s*\(/,
   'repository-owned-uuid':
     /\b(?:z\.uuid\s*\(|uuid\s*\(|uuidv[134]\s*\(|from\s+['"]uuid['"]|::uuid\b)/i,
-  // Tailwind ships as a build-time stylesheet only (ADR 0028): the nonce CSP
-  // forbids inline style attributes and runtime style elements.
-  'inline-style': /\bstyle=[{"']|<style[\s>]/,
-  // A silenced Tailwind rule is a token-lock exception and needs a registry
-  // entry with an ADR, like every other exception.
-  'tailwind-lint-disable': /eslint-disable[^\n]*better-tailwindcss/,
+  ...stylingRules,
 };
-
-// Inline styles are a markup concern: only shipped TSX is scanned for them.
-const ruleApplies = (rule: PolicyRule, path: string): boolean =>
-  rule !== 'inline-style' ||
-  (path.endsWith('.tsx') && !path.endsWith('.test.tsx'));
 
 function aliasedRandomUuidFindings(
   path: string,
@@ -153,7 +145,7 @@ export function scanPolicyText(
       PolicyRule,
       RegExp,
     ][]) {
-      if (ruleApplies(rule, path) && pattern.test(line))
+      if (stylingRuleApplies(rule, path) && pattern.test(line))
         findings.push({
           path,
           line: lineIndex + 1,
@@ -395,8 +387,7 @@ export async function collectPolicy(): Promise<PolicyReport> {
   const findings: PolicyFinding[] = [];
   for (const file of repositoryFiles) {
     const path = relative(root, file);
-    if (path === 'scripts/policy.ts' || path === 'scripts/policy.test.ts')
-      continue;
+    if (/^scripts\/policy(-styling|\.test)?\.ts$/.test(path)) continue;
     for (const finding of scanPolicyText(path, await readFile(file, 'utf8')))
       if (!exceptions.has(`${finding.path}|${finding.rule}`))
         findings.push(finding);
