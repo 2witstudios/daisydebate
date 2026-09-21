@@ -67,6 +67,14 @@ and detailed procedures in the linked documents, not here.
   tests, and policy exceptions, and supersede the documenting ADR. Never
   accrete legacy modes, dual-shape validators, or migration replay fixtures
   for behavior nobody depends on (ADR 0023).
+- Transitions are total. Once we decide to replace an approach (a pipeline,
+  integration, transport, or tool), replace it in one move: delete the old
+  code path and its tests, config, CI steps, secrets, docs, and everything it
+  created outside the repo (PageSpace workflows, webhooks, triggers, data
+  rows). Never keep a fallback, dual path, compat special case, or "kept for
+  now" remnant of an approach abandoned because it did not work, and never
+  write docs that narrate the old way. If a removal must wait on a deploy,
+  track it as a task, not a comment.
 - PostgreSQL is the durable source of competitive truth. Redis is expendable
   and must use validated namespaced keys with expiry. See
   [persistence](docs/architecture/persistence.md) and
@@ -173,10 +181,37 @@ In Progress to In Review at handoff, and mark Done only when acceptance
 criteria are proven. Status belongs in the status field; task bodies are
 acceptance criteria (`Given X, should Y`).
 
+PageSpace is the workspace, not only the board. Plans, prompts, handoffs and
+review records are task artifacts: they live in the drive's `Plans`,
+`Prompts` and `Reviews` folders (one subfolder per epic), reusable prompts
+and skills live in `Library`, and tasks link them with page mentions. The
+rules are the drive's "Task artifacts and linking" page
+(`szsrb6lui57zjemvl25ywfox`); read it before producing any of these.
+Your agent's built-in todo lists, plan mode files, memory stores, local
+`plan.md`/`TODO.md` files and `/tmp` are scratch only, whichever agent you
+are (Claude Code, Codex, OpenCode): anything another session or a reviewer
+needs must be a PageSpace page. Every agent publishes its own artifact
+pages and keeps its tasks current; no agent edits the criteria or scope of a
+task delegated to it, and Done is granted from an independent review record,
+never by the agent that did the work.
+
+Open and update pull requests with the `/pr` skill: the description links
+the task, plan and prompt pages (and handoff and reviews as they land) so a
+reviewer can check the change against what was asked, and every review
+verdict is also posted as a PR comment. PR titles are conventional commits:
+the documentation pipeline classifies a merge from that prefix (`!` marks a
+breaking change) and reads task codes from the title, branch and body, so
+name every task code in full (`AUTH-3.1`, `AUTH-3.2`, never `AUTH-3.1–3.6`).
+Use `/aidd-triage` for review-comment triage.
+
 Parallel sessions follow [parallel work](docs/development/parallel-work.md):
-short-lived vertical branches, one open vertical per agent, worktree agents
-never write the board (the orchestrator owns task and memory writes), and a
-deviation from the plan means updating the plan before declaring done.
+short-lived vertical branches, one open vertical per agent, and a deviation
+from the plan means updating the plan before declaring done. Every agent,
+worktree or not, keeps the board current through the `pagespace` CLI: create
+tasks, update status, record evidence. The one exception is your own
+delegated spec: never edit the acceptance criteria or scope of a task
+delegated to you; take a change back to whoever delegated it. The
+orchestrator owns Agent Memory writes.
 Reviews use the [review record](docs/development/review-record.md) format.
 
 While work is open, post the daily Yesterday / Today / Blockers standup and
