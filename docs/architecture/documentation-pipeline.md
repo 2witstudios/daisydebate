@@ -34,9 +34,10 @@ creation workflow.
    in-process.
    Dispatch waits for the run to answer, but the socket is not the receipt:
    the route persists the question before the run and the answer after it,
-   and the answer can be lost on its way back. On a dropped connection
-   (including one dropped while the response body is read) or a gateway 5xx,
-   dispatch reads that conversation instead. An answer there is success;
+   and the answer can be lost on its way back. On a dropped connection or a
+   gateway 5xx (including a 5xx whose body is lost mid-read), dispatch reads
+   that conversation instead; a status below 500 is final even when its body
+   is lost, so a 409 still reads as already dispatched. An answer there is success;
    a conversation that never appears means the request never landed; one still
    unanswered at the deadline is reported as a failure, though the run may
    finish late and still rewrite its reserved row. A 5xx carrying the consult

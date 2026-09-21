@@ -179,9 +179,12 @@ PageSpace refuses a taken id with 409 rather than running the agent again.
    A dispatch failure names its receipt row and the replay to use. A consult
    that PageSpace reported as failed, or that did not answer in time, gives
    the next attempt: replay it only if that row is still failed, since a run
-   can record its receipt before its answer is lost. A consult left unsent
-   because the budget ran out after its row was reserved gives the same
-   attempt, since its id was never used.
+   can record its receipt before its answer is lost. A consult that never
+   reached PageSpace (no conversation appeared), or was left unsent because
+   the budget ran out after its row was reserved, gives the same attempt,
+   since its id was never used; if that request did land late, the replay is
+   refused as `already-dispatched` rather than run twice. A 4xx refusal is
+   final and gives no replay.
 3. If a merged fork PR skipped the event (fork runs carry no secrets), run the
    same dispatch from a trusted checkout and delete the skip notice in
    incidents after it succeeds.

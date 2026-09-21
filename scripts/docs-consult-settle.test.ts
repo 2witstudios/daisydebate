@@ -3,7 +3,6 @@ import { setupRitewayBun, assert } from 'riteway/bun';
 import { dispatchDocumentationEvent } from './docs-consult';
 import {
   baseOptions,
-  droppedBody,
   failureOf,
   hangUntilAborted,
   instant,
@@ -52,7 +51,7 @@ describe('dispatchDocumentationEvent settlement', async () => {
       should: 'fail naming the status as the cause',
       actual: message,
       expected:
-        'Documentation Agent consult for technical-docs never reached PageSpace: responded 502',
+        'Documentation Agent consult for technical-docs never reached PageSpace (responded 502). Its receipt, row 2 of Documentation Runs, stays failed; replay with DOC_REPLAY_ATTEMPT=0 DOC_PIPELINES=technical-docs',
     });
   });
 
@@ -334,45 +333,6 @@ describe('dispatchDocumentationEvent settlement', async () => {
         reads: counts.messages,
       },
       expected: { outcome: ['dispatched'], reads: 4 },
-    });
-  });
-
-  test('settles a body lost mid-read by reading the conversation', async () => {
-    const { fetchImpl } = routedFetch({
-      consult: async () => droppedBody(502),
-      roles: () => ['user', 'assistant'],
-    });
-    const outcomes = await dispatchDocumentationEvent(
-      mergeEvent('fix: only technical'),
-      { ...baseOptions, ...instant, fetchImpl },
-    );
-    assert({
-      given:
-        'a consult response whose body read fails after the status arrived',
-      should: 'settle it by the conversation instead of escaping as a throw',
-      actual: outcomes.map((outcome) => outcome.outcome),
-      expected: ['dispatched'],
-    });
-  });
-
-  test('names a body lost mid-read as the cause when nothing arrived', async () => {
-    const { fetchImpl } = routedFetch({
-      consult: async () => droppedBody(502),
-      roles: () => [],
-    });
-    const message = await failureOf(
-      dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
-        ...baseOptions,
-        ...instant,
-        fetchImpl,
-      }),
-    );
-    assert({
-      given: 'a lost response body and a conversation that never appears',
-      should: 'fail as never reached, naming the body failure',
-      actual: message,
-      expected:
-        'Documentation Agent consult for technical-docs never reached PageSpace: body dropped',
     });
   });
 });

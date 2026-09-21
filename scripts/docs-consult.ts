@@ -283,18 +283,25 @@ export async function dispatchDocumentationEvent(
     return (firstRowIndex as number) + 1;
   };
 
-  // Sends the consult and reads its whole answer. The body is part of the
-  // transport: a connection dropped after the status arrived is settled by
-  // the conversation like one dropped before it, so it yields a cause instead
-  // of escaping.
+  // Sends the consult and reads its whole answer. A connection dropped
+  // before the status arrived is settled by the conversation. Once a status
+  // below 500 has arrived it is definitive on its own, so a body lost after it
+  // is ignored; a 5xx whose body is lost is settled like a dropped connection.
   const send = async (
     question: string,
     conversationId: string,
     deadline: number,
     waitSeconds: number,
   ): Promise<{ response: Response; body: string } | { cause: string }> => {
+    const causeOf = (error: unknown) =>
+      isAbort(error)
+        ? `no answer within ${waitSeconds}s`
+        : error instanceof Error
+          ? error.message
+          : String(error);
+    let response: Response;
     try {
-      const response = await fetchImpl(endpoint, {
+      response = await fetchImpl(endpoint, {
         method: 'POST',
         redirect: 'error',
         signal: until(deadline),
@@ -305,15 +312,15 @@ export async function dispatchDocumentationEvent(
           newConversationId: conversationId,
         }),
       });
+    } catch (error) {
+      return { cause: causeOf(error) };
+    }
+    try {
       return { response, body: await response.text() };
     } catch (error) {
-      return {
-        cause: isAbort(error)
-          ? `no answer within ${waitSeconds}s`
-          : error instanceof Error
-            ? error.message
-            : String(error),
-      };
+      return response.status < 500
+        ? { response, body: '' }
+        : { cause: causeOf(error) };
     }
   };
 
@@ -359,9 +366,11 @@ export async function dispatchDocumentationEvent(
     const settle = async (cause: string): Promise<ConsultOutcome> => {
       const state = await awaitAnswer(conversationId, deadline);
       if (state === 'answered') return answered;
+      // An absent conversation means the id was never used, so the same
+      // attempt replays it; a request that did land late is refused with 409.
       if (state === 'absent')
         throw new Error(
-          `Documentation Agent consult for ${pipeline} never reached PageSpace: ${cause}`,
+          `Documentation Agent consult for ${pipeline} never reached PageSpace (${cause}). Its receipt, ${receipt}, stays failed; replay with DOC_REPLAY_ATTEMPT=${attempt} DOC_PIPELINES=${pipeline}`,
         );
       throw new Error(
         `Documentation Agent consult for ${pipeline} did not answer within ${waitSeconds}s (${cause}). The run may still finish: its receipt is ${receipt}. If that row turns complete, nothing is lost; if it stays failed, replay with ${replay}`,
