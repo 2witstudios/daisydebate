@@ -93,6 +93,22 @@ export function requireSameOrigin(request: Request, origin: string) {
     throw createAppError('AUTHORIZATION');
 }
 
+/**
+ * Same-origin gate for safe methods. Browsers omit Origin on same-origin GETs,
+ * so absence must pass; refuse only positive evidence of another site: fetch
+ * metadata other than same-origin/none (direct navigation), or a differing
+ * Origin. Non-browser clients send neither and are not a cross-site vector.
+ */
+export function requireSameOriginRead(request: Request, origin: string) {
+  const site = request.headers.get('sec-fetch-site');
+  const claimed = request.headers.get('origin');
+  if (
+    (site !== null && site !== 'same-origin' && site !== 'none') ||
+    (claimed !== null && claimed !== new URL(origin).origin)
+  )
+    throw createAppError('AUTHORIZATION');
+}
+
 async function readChunks(
   request: Request,
   reader: ReadableStreamDefaultReader<Uint8Array>,
