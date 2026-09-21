@@ -135,8 +135,7 @@ describe('dispatchDocumentationEvent receipt', async () => {
     };
     const refused = {
       consults: 0,
-      message:
-        'Reserving the technical-docs run record returned no usable row index',
+      message: 'Documentation Agent consult for technical-docs was not sent',
     };
     const missing = await outcomesFor({ appended: 1 });
     const asText = await outcomesFor({ firstRowIndex: '6' });
@@ -254,6 +253,35 @@ describe('dispatchDocumentationEvent receipt', async () => {
         ),
       },
       expected: { consults: 0, unsent: true, row: true, replay: true },
+    });
+  });
+
+  test('names the pipeline and a replay when the reservation fails', async () => {
+    const { counts, fetchImpl } = routedFetch({
+      consult: async () => ok(),
+      hang: ['append'],
+    });
+    const message = await failureOf(
+      dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
+        ...baseOptions,
+        fetchImpl,
+        requestTimeoutMs: 50,
+      }),
+    );
+    assert({
+      given: 'a Runs-sheet append that times out at its request cap',
+      should:
+        'send nothing, and name the pipeline and a same-attempt replay rather than a bare timeout',
+      actual: {
+        consults: counts.consult,
+        pipeline: message.startsWith(
+          'Documentation Agent consult for technical-docs was not sent: reserving its receipt failed',
+        ),
+        replay: message.endsWith(
+          'replay with DOC_REPLAY_ATTEMPT=0 DOC_PIPELINES=technical-docs',
+        ),
+      },
+      expected: { consults: 0, pipeline: true, replay: true },
     });
   });
 });

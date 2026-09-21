@@ -346,7 +346,17 @@ export async function dispatchDocumentationEvent(
     const existing = await readConversation(conversationId, budgetEnd);
     if (existing === 'answered' || existing === 'pending')
       return { pipeline, conversationId, outcome: 'already-dispatched' };
-    const runRow = await reserveRunRow(pipeline, conversationId);
+    // A failed reservation sent nothing, so the same attempt replays it; an
+    // append that landed before its answer was lost leaves a failed row the
+    // reconciler never counts.
+    const runRow = await reserveRunRow(pipeline, conversationId).catch(
+      (error: unknown) => {
+        throw new Error(
+          `Documentation Agent consult for ${pipeline} was not sent: reserving its receipt failed (${error instanceof Error ? error.message : String(error)}). Any row it did reserve stays failed; replay with DOC_REPLAY_ATTEMPT=${attempt} DOC_PIPELINES=${pipeline}`,
+          { cause: error },
+        );
+      },
+    );
     const receipt = `row ${runRow} of Documentation Runs`;
     // The consult stops one request-timeout before the budget, reserving a
     // window to read the conversation afterwards: a read given only what was
