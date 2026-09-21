@@ -1,5 +1,3 @@
-# Daisy Debate
-
-Claude Code loads this file; every agent's instructions live in AGENTS.md.
+<!-- Import stub only: Claude Code does not load AGENTS.md. Never add instructions here. -->
 
 @AGENTS.md

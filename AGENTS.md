@@ -105,7 +105,9 @@ and detailed procedures in the linked documents, not here.
   ADR-linked, time-bounded exception registry.
 - This file is the only agent-facing operating map. Never fork it into a
   second top-level agent document (CLAUDE.md and friends); docs drift
-  becomes contradictory instructions.
+  becomes contradictory instructions. The one sibling is a content-free
+  `CLAUDE.md` that only imports this file, because Claude Code does not load
+  `AGENTS.md` by itself; it must never gain instructions of its own.
 
 ## Verification commands
 
