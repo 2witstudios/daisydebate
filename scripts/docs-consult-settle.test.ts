@@ -144,4 +144,31 @@ describe('dispatchDocumentationEvent settlement', async () => {
       expected: { names: true, replay: true },
     });
   });
+
+  test('reads a runtime timeout the same as an expired wait', async () => {
+    const { fetchImpl } = routedFetch({
+      consult: () =>
+        Promise.reject(
+          new DOMException('The operation timed out.', 'TimeoutError'),
+        ),
+      roles: () => ['user'],
+    });
+    let message = 'no throw';
+    try {
+      await dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
+        ...baseOptions,
+        ...instant,
+        fetchImpl,
+        timeoutMs: 5,
+      });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    assert({
+      given: 'the runtime raising TimeoutError instead of AbortError',
+      should: 'name the expired wait as the cause',
+      actual: message.includes('(no answer within'),
+      expected: true,
+    });
+  });
 });

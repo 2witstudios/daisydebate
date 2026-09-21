@@ -234,6 +234,48 @@ describe('dispatchDocumentationEvent', async () => {
     });
   });
 
+  test('replays only the pipelines named for the replay', async () => {
+    const event = mergeEvent();
+    const { calls, fetchImpl } = recordingFetch(ok);
+    const outcomes = await dispatchDocumentationEvent(event, {
+      ...baseOptions,
+      fetchImpl,
+      attempt: 1,
+      pipelines: ['technical-docs'],
+    });
+    assert({
+      given: 'a replay of the one dead pipeline of a two-pipeline merge',
+      should: 'consult only that pipeline, leaving the healthy one alone',
+      actual: {
+        pipelines: outcomes.map((outcome) => outcome.pipeline),
+        ids: calls.map((call) => call.body.newConversationId),
+      },
+      expected: {
+        pipelines: ['technical-docs'],
+        ids: [conversationIdFor(event.idempotencyKey, 'technical-docs', 1)],
+      },
+    });
+  });
+
+  test('rejects a replay naming a pipeline the event does not route to', async () => {
+    let message = 'no throw';
+    try {
+      await dispatchDocumentationEvent(mergeEvent(), {
+        ...baseOptions,
+        pipelines: ['blog'],
+      });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    assert({
+      given: 'DOC_PIPELINES naming blog for a technical and user docs merge',
+      should: 'throw rather than consult nothing',
+      actual: message,
+      expected:
+        'DOC_PIPELINES names blog, which this event does not route to (technical-docs, user-docs)',
+    });
+  });
+
   test('rejects a malformed replay attempt', async () => {
     let message = 'no throw';
     try {

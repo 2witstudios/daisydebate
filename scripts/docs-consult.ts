@@ -37,6 +37,7 @@ export type ConsultOptions = {
   readonly nonce?: () => string;
   readonly timeoutMs?: number;
   readonly budgetMs?: number;
+  readonly pipelines?: readonly string[];
   readonly attempt?: number;
   readonly pollIntervalMs?: number;
   readonly delay?: (ms: number) => Promise<void>;
@@ -118,8 +119,33 @@ export function classifyConsultResponse(
   );
 }
 
-const isAbort = (error: unknown): boolean =>
-  (error as { name?: unknown } | null)?.name === 'AbortError';
+// Runtimes differ on how an expired signal surfaces: AbortError or TimeoutError.
+const isAbort = (error: unknown): boolean => {
+  const name = (error as { name?: unknown } | null)?.name;
+  return name === 'AbortError' || name === 'TimeoutError';
+};
+
+// A replay targets only the pipelines that need it, so recovering one dead run
+// never re-runs a healthy one under a fresh id. A name the event does not
+// route to is a mistake, not an empty replay.
+function replayPipelines(
+  value: readonly string[] | undefined,
+  routed: readonly DocumentPipeline[],
+): readonly DocumentPipeline[] {
+  const named =
+    value ??
+    (process.env.DOC_PIPELINES ?? '')
+      .split(',')
+      .map((name) => name.trim())
+      .filter(Boolean);
+  if (named.length === 0) return routed;
+  for (const name of named)
+    if (!routed.includes(name as DocumentPipeline))
+      throw new Error(
+        `DOC_PIPELINES names ${name}, which this event does not route to (${routed.join(', ')})`,
+      );
+  return routed.filter((pipeline) => named.includes(pipeline));
+}
 
 function replayAttempt(value: number | undefined): number {
   const attempt = value ?? Number(process.env.DOC_REPLAY_ATTEMPT ?? 0);
@@ -133,7 +159,8 @@ function replayAttempt(value: number | undefined): number {
 // matching the (sourceSnapshot, workflow) key docs-reconcile checks. A consult
 // is non-idempotent and is never retried here: a retry would run the agent
 // twice. Re-running the workflow is the retry, and the derived id makes it
-// safe; DOC_REPLAY_ATTEMPT reaches a run that was cut off.
+// safe; DOC_REPLAY_ATTEMPT reaches a run that was cut off, and DOC_PIPELINES
+// limits a replay to the pipelines that need it.
 export async function dispatchDocumentationEvent(
   event: DocumentationEvent,
   options: ConsultOptions = {},
@@ -146,6 +173,10 @@ export async function dispatchDocumentationEvent(
   const timeoutMs = options.timeoutMs ?? DEFAULT_WAIT_MS;
   const budgetEnd = Date.now() + (options.budgetMs ?? DEFAULT_BUDGET_MS);
   const attempt = replayAttempt(options.attempt);
+  const pipelines = replayPipelines(
+    options.pipelines,
+    event.classification.pipelines,
+  );
   const pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
   const delay =
     options.delay ??
@@ -265,7 +296,7 @@ export async function dispatchDocumentationEvent(
 
   const outcomes: ConsultOutcome[] = [];
   const failures: string[] = [];
-  for (const pipeline of event.classification.pipelines) {
+  for (const pipeline of pipelines) {
     if (Date.now() >= budgetEnd) {
       failures.push(
         `Documentation Agent consult for ${pipeline} was not sent: the dispatch budget ran out; re-run the dispatch to reach it`,

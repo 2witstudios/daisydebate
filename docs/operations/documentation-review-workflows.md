@@ -168,7 +168,9 @@ PageSpace refuses a taken id with 409 rather than running the agent again.
 2. If a pipeline reports `already-dispatched` but `bun docs:reconcile` still
    lists it as uncovered, its earlier run was cut off before writing a run
    record and still holds its id. Replay it with `DOC_REPLAY_ATTEMPT=1` (then
-   `2`, …), which addresses a fresh conversation.
+   `2`, …), which addresses a fresh conversation, and set `DOC_PIPELINES` to
+   just the uncovered pipelines (comma-separated) so the healthy ones are not
+   run again. A name the event does not route to is rejected.
 3. If a merged fork PR skipped the event (fork runs carry no secrets), run the
    same dispatch from a trusted checkout and delete the skip notice in
    incidents after it succeeds.
