@@ -45,7 +45,8 @@ Agents: read `AGENTS.md` first — it is the binding engineering contract.
 ## Verification
 
 ```sh
-bun check              # pre-push gate: static, policy, unit, and build gates (catalog: AGENTS.md)
+bun check              # pre-push gate: static, policy, duplication, unit, and build gates (catalog: AGENTS.md)
+bun run duplication    # copy-paste tripwire: fails on any clone not in .jscpd-baseline.json (ADR 0025)
 bun invariants         # execute every registered domain invariant fixture
 bun verify             # bun check plus migration, integration, and browser gates
 bun test:integration   # real PostgreSQL/Redis + web vertical proof

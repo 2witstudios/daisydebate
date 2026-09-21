@@ -131,12 +131,15 @@ const readScripts = async (path: string): Promise<ScriptMap> => {
   return (manifest.scripts ?? {}) as ScriptMap;
 };
 
-const rootClaimProblems = (scripts: ScriptMap): readonly EvidenceProblem[] => {
+export const rootClaimProblems = (
+  scripts: ScriptMap,
+): readonly EvidenceProblem[] => {
   const problems: EvidenceProblem[] = [];
   const claims: readonly [string, string][] = [
     ['test', 'bun test scripts'],
     ['lint', 'eslint.config.test.ts'],
     ['check', 'policy'],
+    ['check', 'duplication'],
     ['check', 'invariants'],
     ['check', 'evidence'],
   ];
@@ -201,11 +204,10 @@ const e2eClaimProblems = async (
   return problems;
 };
 
-const ciWiringProblems = async (): Promise<readonly EvidenceProblem[]> => {
+export const ciGateProblems = (
+  ciWorkflow: string | undefined,
+): readonly EvidenceProblem[] => {
   const problems: EvidenceProblem[] = [];
-  const ciWorkflow = await readTextIfExists(
-    join(root, '.github/workflows/ci.yml'),
-  );
   if (ciWorkflow?.includes('test:e2e'))
     problems.push({
       code: 'E2E_DUPLICATED',
@@ -214,6 +216,7 @@ const ciWiringProblems = async (): Promise<readonly EvidenceProblem[]> => {
   for (const gate of [
     'knip',
     'policy',
+    'duplication',
     'invariants',
     'evidence',
     'migrations:check',
@@ -268,7 +271,9 @@ export async function collectEvidence(): Promise<EvidenceReport> {
     ...rootClaimProblems(await readScripts(join(root, 'package.json'))),
     ...(await workspaceClaimProblems(byWorkspace)),
     ...(await e2eClaimProblems(tiers.e2e)),
-    ...(await ciWiringProblems()),
+    ...ciGateProblems(
+      await readTextIfExists(join(root, '.github/workflows/ci.yml')),
+    ),
   ];
   return {
     ok: problems.length === 0,

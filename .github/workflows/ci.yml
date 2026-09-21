@@ -25,6 +25,7 @@ jobs:
             lint,
             policy,
             knip,
+            duplication,
             invariants,
             evidence,
             metrics:check,

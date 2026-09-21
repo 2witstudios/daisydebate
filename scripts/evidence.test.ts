@@ -1,8 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  ciGateProblems,
   classifyTestFile,
   integrationGuardProblems,
   isTestFilePath,
+  rootClaimProblems,
 } from './evidence';
 
 setupRitewayBun();
@@ -167,6 +169,100 @@ describe('integrationGuardProblems', () => {
         integrationGuardProblems("test('x', () => {});", 'loose.integration.ts')
           .length > 0,
       expected: true,
+    });
+  });
+});
+
+const wiredScripts = {
+  test: 'bun test scripts && turbo run test',
+  lint: 'eslint . && bun test eslint.config.test.ts',
+  check:
+    'bun run policy && bun run knip && bun run duplication && bun run invariants && bun run evidence',
+};
+
+describe('rootClaimProblems', () => {
+  test('accepts a check chain that runs every root gate', () => {
+    assert({
+      given: 'root scripts that invoke every claimed gate',
+      should: 'report nothing',
+      actual: rootClaimProblems(wiredScripts),
+      expected: [],
+    });
+  });
+
+  test('flags a check chain that drops the duplication gate', () => {
+    assert({
+      given: 'a check script without the duplication gate',
+      should: 'fail with UNRUN_SUITE naming the missing gate',
+      actual: rootClaimProblems({
+        ...wiredScripts,
+        check: 'bun run policy && bun run invariants && bun run evidence',
+      }),
+      expected: [
+        {
+          code: 'UNRUN_SUITE',
+          detail:
+            'root "check" script does not invoke duplication; the corresponding suites would not run in bun check',
+        },
+      ],
+    });
+  });
+});
+
+const wiredWorkflow =
+  'task: [policy, knip, duplication, invariants, evidence]\n- run: bun migrations:check';
+
+describe('ciGateProblems', () => {
+  test('accepts a workflow that runs every gate', () => {
+    assert({
+      given: 'a ci.yml naming every required gate',
+      should: 'report nothing',
+      actual: ciGateProblems(wiredWorkflow),
+      expected: [],
+    });
+  });
+
+  test('flags a workflow that drops the duplication gate', () => {
+    assert({
+      given: 'a ci.yml whose matrix no longer lists duplication',
+      should: 'fail with UNRUN_SUITE naming the gate',
+      actual: ciGateProblems(wiredWorkflow.replace('duplication, ', '')),
+      expected: [
+        {
+          code: 'UNRUN_SUITE',
+          detail:
+            'ci.yml does not run duplication; the gate would silently stop running in CI',
+        },
+      ],
+    });
+  });
+
+  test('flags every gate when the workflow is missing', () => {
+    assert({
+      given: 'no ci.yml at all',
+      should: 'report each required gate as unrun',
+      actual: ciGateProblems(undefined).map(({ detail }) =>
+        detail.replace(/^ci\.yml does not run (\S+);.*$/, '$1'),
+      ),
+      expected: [
+        'knip',
+        'policy',
+        'duplication',
+        'invariants',
+        'evidence',
+        'migrations:check',
+      ],
+    });
+  });
+
+  test('keeps e2e.yml the single browser-suite owner', () => {
+    assert({
+      given: 'a ci.yml that also runs test:e2e',
+      should: 'fail with E2E_DUPLICATED',
+      actual: ciGateProblems(`${wiredWorkflow}\n- run: bun test:e2e`).map(
+        ({ code }) => code,
+      ),
+      expected: ['E2E_DUPLICATED'],
     });
   });
 });
