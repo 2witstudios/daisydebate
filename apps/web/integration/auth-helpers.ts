@@ -1,11 +1,12 @@
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
-import { fixedClock, sequentialId } from '@daisy/clock';
+import { fixedClock, systemId } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import {
   createAuthServer,
   type AuthEmailMessage,
 } from '../src/features/auth/server';
+import type { RecordedLogs } from '../src/features/auth/log-leaks';
 
 /** Shared fixtures for the isolated Better Auth persistence suites. */
 
@@ -17,10 +18,13 @@ const integrationEnv = {
   AUTH_EMAIL_FROM: 'Daisy <no-reply@daisy.example.com>',
 };
 
-const silentLogger: Logger = {
-  log: () => {},
-  child: () => silentLogger,
-};
+// Child loggers record into the same sink, so nothing logged is hidden.
+const recordingLogger = (recordedLogs: RecordedLogs | undefined): Logger => ({
+  log: (...entry) => {
+    recordedLogs?.push(entry);
+  },
+  child: () => recordingLogger(recordedLogs),
+});
 
 export const fixtureEmail = () => `auth-${createId()}@example.test`;
 
@@ -44,7 +48,6 @@ export const verifyUrl = (token: string) =>
   `${integrationEnv.PUBLIC_APP_URL}/api/auth/magic-link/verify?token=${encodeURIComponent(token)}`;
 
 export type SentMessages = AuthEmailMessage[];
-export type RecordedLogs = unknown[];
 
 export const createTestAuthServer = (
   database: Parameters<typeof createAuthServer>[0]['database'],
@@ -66,12 +69,11 @@ export const createTestAuthServer = (
     limiter: {
       consume: async () => ({ allowed: true, retryAfterSeconds: 0 }),
     },
-    logger: {
-      log: (...entry: readonly unknown[]) => options.recordedLogs?.push(entry),
-      child: () => silentLogger,
-    },
+    logger: recordingLogger(options.recordedLogs),
     clock: fixedClock('2026-09-20T00:00:00.000Z'),
-    ids: sequentialId('auth-integration'),
+    // The composition mints entity ids from this injection; the durable
+    // suites share one database, so they need the real cuid2 edge generator.
+    ids: systemId,
   });
 
 /** Removes exactly this fixture's records; never touches unrelated rows. */
@@ -147,12 +149,4 @@ export const emptyCounts: FixtureCounts = {
   users: 0,
   sessions: 0,
   passkeys: 0,
-};
-
-export const logsLeakSecrets = (
-  logs: RecordedLogs,
-  secrets: readonly string[],
-) => {
-  const serialized = JSON.stringify(logs);
-  return secrets.some((secret) => serialized.includes(secret));
 };
