@@ -78,15 +78,15 @@ describe('dispatchDocumentationEvent', async () => {
   });
 
   test('does not retry a non-idempotent consult', async () => {
-    let attempts = 0;
-    const fetchImpl = (async () => {
-      attempts += 1;
-      return new Response('busy', { status: 503 });
-    }) as unknown as typeof fetch;
+    const { counts, fetchImpl } = routedFetch({
+      consult: async () => new Response('busy', { status: 503 }),
+      roles: () => [],
+    });
     let threw = false;
     try {
       await dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
         ...baseOptions,
+        ...instant,
         fetchImpl,
       });
     } catch {
@@ -94,102 +94,177 @@ describe('dispatchDocumentationEvent', async () => {
     }
     assert({
       given: 'a 503 on a merge routed to one pipeline',
-      should:
-        'fail after exactly one attempt rather than double-running the agent',
-      actual: { attempts, threw },
-      expected: { attempts: 1, threw: true },
+      should: 'send exactly one consult rather than double-running the agent',
+      actual: { consults: counts.consult, threw },
+      expected: { consults: 1, threw: true },
     });
   });
 
-  test('settles a dropped connection by reading the conversation', async () => {
+  test('consults pipelines one at a time', async () => {
+    let inFlight = 0;
+    let peak = 0;
     const { fetchImpl } = routedFetch({
-      consult: () => Promise.reject(new TypeError('socket closed')),
-      roles: () => ['user', 'assistant'],
-    });
-    const outcomes = await dispatchDocumentationEvent(
-      mergeEvent('fix: only technical'),
-      { ...baseOptions, ...instant, fetchImpl },
-    );
-    assert({
-      given: 'a connection dropped mid-run whose conversation holds the answer',
-      should: 'report dispatched rather than raise a false incident',
-      actual: outcomes.map((outcome) => outcome.outcome),
-      expected: ['dispatched'],
-    });
-  });
-
-  test('waits through an unfinished conversation until the answer lands', async () => {
-    let reads = 0;
-    const { counts, fetchImpl } = routedFetch({
-      consult: () => Promise.reject(new TypeError('socket closed')),
-      roles: () => (++reads < 3 ? ['user'] : ['user', 'assistant']),
-    });
-    const outcomes = await dispatchDocumentationEvent(
-      mergeEvent('fix: only technical'),
-      { ...baseOptions, ...instant, fetchImpl },
-    );
-    assert({
-      given: 'a conversation that holds only the question for two reads',
-      should: 'keep polling and report dispatched once the answer appears',
-      actual: {
-        outcome: outcomes.map((outcome) => outcome.outcome),
-        reads: counts.messages,
+      consult: async () => {
+        inFlight += 1;
+        peak = Math.max(peak, inFlight);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        inFlight -= 1;
+        return new Response('{}', { status: 200 });
       },
-      expected: { outcome: ['dispatched'], reads: 3 },
-    });
-  });
-
-  test('fails fast when the request never reached PageSpace', async () => {
-    const { counts, fetchImpl } = routedFetch({
-      consult: () => Promise.reject(new TypeError('getaddrinfo ENOTFOUND')),
       roles: () => [],
     });
+    const outcomes = await dispatchDocumentationEvent(mergeEvent(), {
+      ...baseOptions,
+      fetchImpl,
+    });
+    assert({
+      given: 'a merge routed to two pipelines',
+      should:
+        'never run two consults at once, since concurrent consults were cut off',
+      actual: {
+        peak,
+        outcomes: outcomes.map(
+          ({ pipeline, outcome }) => `${pipeline}:${outcome}`,
+        ),
+      },
+      expected: {
+        peak: 1,
+        outcomes: ['technical-docs:dispatched', 'user-docs:dispatched'],
+      },
+    });
+  });
+
+  test('ends the budget no later than the job-anchored deadline', async () => {
+    const { counts, fetchImpl } = routedFetch({ consult: async () => ok() });
     let message = 'no throw';
     try {
       await dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
         ...baseOptions,
-        ...instant,
+        fetchImpl,
+        budgetEndsAt: Date.now() - 1,
+      });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    assert({
+      given: 'a CI job whose share of time is already spent before dispatch',
+      should: 'send nothing, leaving the job time to report the incident',
+      actual: {
+        consults: counts.consult,
+        unsent: message.includes(
+          'technical-docs was not sent: the dispatch budget ran out',
+        ),
+      },
+      expected: { consults: 0, unsent: true },
+    });
+  });
+
+  test('refuses a malformed job deadline instead of ignoring it', async () => {
+    const previous = process.env.DOC_BUDGET_ENDS_AT;
+    process.env.DOC_BUDGET_ENDS_AT = 'soon';
+    let message = 'no throw';
+    try {
+      await dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
+        ...baseOptions,
+        fetchImpl: routedFetch({ consult: async () => ok() }).fetchImpl,
+      });
+    } catch (error) {
+      message = (error as Error).message;
+    } finally {
+      if (previous === undefined) delete process.env.DOC_BUDGET_ENDS_AT;
+      else process.env.DOC_BUDGET_ENDS_AT = previous;
+    }
+    assert({
+      given: 'DOC_BUDGET_ENDS_AT that is not epoch seconds',
+      should:
+        'throw, since an unusable deadline would silently drop the safety margin',
+      actual: message,
+      expected: 'DOC_BUDGET_ENDS_AT must be a positive integer (epoch seconds)',
+    });
+  });
+
+  test('still consults the remaining pipelines after one fails', async () => {
+    let calls = 0;
+    const { counts, fetchImpl } = routedFetch({
+      consult: async () =>
+        ++calls === 1
+          ? new Response('{"error":"forbidden"}', { status: 403 })
+          : new Response('{}', { status: 200 }),
+      roles: () => [],
+    });
+    let message = 'no throw';
+    try {
+      await dispatchDocumentationEvent(mergeEvent(), {
+        ...baseOptions,
         fetchImpl,
       });
     } catch (error) {
       message = (error as Error).message;
     }
     assert({
-      given: 'a transport failure and a conversation that never appears',
-      should: 'fail after one grace read, naming the original error',
+      given: 'a refusal for the first of two pipelines',
+      should: 'send the second anyway, then fail naming the refused one',
       actual: {
-        reads: counts.messages,
-        neverReached: message.includes('never reached PageSpace'),
-        cause: message.includes('getaddrinfo ENOTFOUND'),
+        consults: counts.consult,
+        namesRefused: message.includes('technical-docs responded 403'),
+        blamesSecond: message.includes('user-docs'),
       },
-      expected: { reads: 2, neverReached: true, cause: true },
+      expected: { consults: 2, namesRefused: true, blamesSecond: false },
     });
   });
 
-  test('fails loudly when the run has not answered by the deadline', async () => {
-    const { fetchImpl } = routedFetch({
+  test('does not start a pipeline once the budget is spent', async () => {
+    const { counts, fetchImpl } = routedFetch({
       consult: hangUntilAborted,
       roles: () => ['user'],
     });
     let message = 'no throw';
     try {
-      await dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
+      await dispatchDocumentationEvent(mergeEvent(), {
         ...baseOptions,
         ...instant,
         fetchImpl,
-        timeoutMs: 5,
+        timeoutMs: 200,
+        budgetMs: 100,
+        requestTimeoutMs: 30,
       });
     } catch (error) {
       message = (error as Error).message;
     }
     assert({
-      given: 'a run whose conversation still lacks an answer at the deadline',
-      should: 'throw and point at the next replay attempt',
+      given: 'a first run that consumes the whole budget',
+      should: 'leave the next pipeline unsent, so a plain re-run can reach it',
       actual: {
-        names: message.includes('technical-docs did not answer'),
-        replay: message.includes('DOC_REPLAY_ATTEMPT=1'),
+        consults: counts.consult,
+        unsent: message.includes(
+          'user-docs was not sent: the dispatch budget ran out',
+        ),
       },
-      expected: { names: true, replay: true },
+      expected: { consults: 1, unsent: true },
+    });
+  });
+
+  test('fails at once on a 4xx refusal without reading the conversation', async () => {
+    const { counts, fetchImpl } = routedFetch({
+      consult: async () =>
+        new Response('{"error":"forbidden"}', { status: 403 }),
+      roles: () => ['user', 'assistant'],
+    });
+    let message = 'no throw';
+    try {
+      await dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
+        ...baseOptions,
+        ...instant,
+        fetchImpl,
+      });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    assert({
+      given: 'a definitive 403 from the consult route',
+      should: 'throw the refusal without polling',
+      actual: { reads: counts.messages, refused: message.includes('403') },
+      expected: { reads: 0, refused: true },
     });
   });
 
@@ -206,6 +281,48 @@ describe('dispatchDocumentationEvent', async () => {
       should: 'send the attempt-2 id so it cannot collide with the burned one',
       actual: calls.map((call) => call.body.newConversationId),
       expected: [conversationIdFor(event.idempotencyKey, 'technical-docs', 2)],
+    });
+  });
+
+  test('replays only the pipelines named for the replay', async () => {
+    const event = mergeEvent();
+    const { calls, fetchImpl } = recordingFetch(ok);
+    const outcomes = await dispatchDocumentationEvent(event, {
+      ...baseOptions,
+      fetchImpl,
+      attempt: 1,
+      pipelines: ['technical-docs'],
+    });
+    assert({
+      given: 'a replay of the one dead pipeline of a two-pipeline merge',
+      should: 'consult only that pipeline, leaving the healthy one alone',
+      actual: {
+        pipelines: outcomes.map((outcome) => outcome.pipeline),
+        ids: calls.map((call) => call.body.newConversationId),
+      },
+      expected: {
+        pipelines: ['technical-docs'],
+        ids: [conversationIdFor(event.idempotencyKey, 'technical-docs', 1)],
+      },
+    });
+  });
+
+  test('rejects a replay naming a pipeline the event does not route to', async () => {
+    let message = 'no throw';
+    try {
+      await dispatchDocumentationEvent(mergeEvent(), {
+        ...baseOptions,
+        pipelines: ['blog'],
+      });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    assert({
+      given: 'DOC_PIPELINES naming blog for a technical and user docs merge',
+      should: 'throw rather than consult nothing',
+      actual: message,
+      expected:
+        'DOC_PIPELINES names blog, which this event does not route to (technical-docs, user-docs)',
     });
   });
 

@@ -4,6 +4,7 @@ import {
   composeReconcileMessage,
   expectedEvents,
   findMissingRuns,
+  pullRequestsFromSlurp,
   selectReconcilableMerges,
   type MergedPullRequest,
 } from './docs-reconcile';
@@ -239,6 +240,19 @@ describe('composeReconcileMessage', async () => {
         namesPipeline: true,
         namesSnapshot: true,
       },
+    });
+  });
+});
+
+describe('pullRequestsFromSlurp', async () => {
+  test('flattens every page gh --paginate --slurp returns', async () => {
+    assert({
+      given: 'two pages of pull requests wrapped in one outer array',
+      should: 'return the pull requests of every page, in order',
+      actual: pullRequestsFromSlurp(
+        JSON.stringify([[{ number: 3 }, { number: 2 }], [{ number: 1 }]]),
+      ).map((pullRequest) => pullRequest.number),
+      expected: [3, 2, 1],
     });
   });
 });

@@ -116,6 +116,18 @@ function checkOptionalString(
     problems.push({ path, problem: 'must be a string or null' });
 }
 
+// For fields typed `?: string`: absent is fine, null is not, so the parsed
+// value always matches its declared type.
+function checkAbsentOrString(
+  problems: Problems[],
+  container: Record<string, unknown>,
+  path: string,
+): void {
+  const value = readPath(container, path);
+  if (value !== undefined && !isString(value))
+    problems.push({ path, problem: 'must be a string or absent' });
+}
+
 function checkStringArray(
   problems: Problems[],
   container: Record<string, unknown>,
@@ -215,7 +227,7 @@ export function parseDocumentationEvent(raw: unknown): DocumentationEvent {
   checkStringArray(problems, raw, 'taskIds');
   checkStringArray(problems, raw, 'changedFiles');
   checkStringArray(problems, raw, 'sourceRefs');
-  checkOptionalString(problems, raw, 'promptVersion');
+  checkAbsentOrString(problems, raw, 'promptVersion');
   if (
     raw.textRisk !== null &&
     raw.textRisk !== undefined &&
@@ -280,6 +292,8 @@ export type DocumentationRunRecord = {
   readonly status: RunRecordStatus;
   readonly baseRevision?: string;
   readonly resultingRevision?: string;
+  readonly idempotencyKey?: string;
+  readonly notes?: string;
 };
 
 const findingProblems = (
@@ -324,8 +338,13 @@ export function parseRunRecord(raw: unknown): DocumentationRunRecord {
     'sourceSnapshot',
   ] as const)
     checkString(problems, raw, field);
-  checkOptionalString(problems, raw, 'baseRevision');
-  checkOptionalString(problems, raw, 'resultingRevision');
+  for (const field of [
+    'baseRevision',
+    'resultingRevision',
+    'idempotencyKey',
+    'notes',
+  ] as const)
+    checkAbsentOrString(problems, raw, field);
   if (!isRecord(raw.scope))
     problems.push({ path: 'scope', problem: 'must be an object' });
   else {

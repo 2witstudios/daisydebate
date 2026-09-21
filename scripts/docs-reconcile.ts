@@ -1,12 +1,7 @@
 #!/usr/bin/env bun
 import { execFileSync } from 'node:child_process';
-import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import {
-  assessEventText,
-  parseRunRecord,
-  type DocumentationRunRecord,
-} from './docs-contracts';
+import { assessEventText, type DocumentationRunRecord } from './docs-contracts';
 import {
   createDocumentationEvent,
   parseChangedFiles,
@@ -14,7 +9,13 @@ import {
   type DocumentPipeline,
 } from './docs-pipeline';
 import { DOCUMENTATION_PROMPT_VERSION } from './docs-prompts';
+import { runRecordsFromSheet, type SheetRow } from './docs-runs-sheet';
 import { extractTaskIds } from './notify-drive';
+import {
+  DOCUMENTATION_RUNS_SHEET_ID,
+  pagespaceApi,
+  type PagespaceApiOptions,
+} from './pagespace-docs';
 
 const root = resolve(import.meta.dir, '..');
 
@@ -85,12 +86,14 @@ export function expectedEvents(
     .filter((event): event is DocumentationEvent => event !== undefined);
 }
 
-export function selectReconcilableMerges(input: {
-  readonly pullRequests: readonly MergedPullRequest[];
+export function selectReconcilableMerges<
+  T extends { readonly mergedAt: string },
+>(input: {
+  readonly pullRequests: readonly T[];
   readonly now: number;
   readonly sinceMs: number;
   readonly graceMs: number;
-}): readonly MergedPullRequest[] {
+}): readonly T[] {
   const oldest = input.now - input.sinceMs;
   const youngest = input.now - input.graceMs;
   return input.pullRequests.filter((pullRequest) => {
@@ -152,8 +155,13 @@ export function parseDuration(value: string): number {
   return count * (match[2] === 'h' ? 3_600_000 : 86_400_000);
 }
 
+// A stalled GitHub request must not hold the sweep open indefinitely.
 const gh = (args: readonly string[]): string =>
-  execFileSync('gh', [...args], { cwd: root, encoding: 'utf8' });
+  execFileSync('gh', [...args], {
+    cwd: root,
+    encoding: 'utf8',
+    timeout: 120_000,
+  });
 
 const changedFilesBetween = (
   base: string,
@@ -180,45 +188,139 @@ type GhPullRequest = {
   head: { repo: { fork: boolean } | null };
 };
 
-export function fetchMergedPullRequests(
-  repository: string,
-): readonly MergedPullRequest[] {
-  const raw = gh([
-    'api',
-    '--paginate',
-    `repos/${repository}/pulls?state=closed&sort=updated&direction=desc&per_page=100`,
-  ]);
-  const pullRequests = JSON.parse(raw) as GhPullRequest[];
-  return pullRequests
-    .filter(
-      (pullRequest) => pullRequest.merged_at && pullRequest.merge_commit_sha,
-    )
-    .map((pullRequest) => ({
-      id: pullRequest.id,
-      number: pullRequest.number,
-      title: pullRequest.title,
-      body: pullRequest.body,
-      url: pullRequest.html_url,
-      author: pullRequest.user?.login ?? null,
-      mergedBy: pullRequest.merged_by?.login ?? null,
-      repository,
-      baseRef: pullRequest.base.ref,
-      baseSha: pullRequest.base.sha,
-      mergeCommitSha: pullRequest.merge_commit_sha as string,
-      mergedAt: pullRequest.merged_at as string,
-      fork: pullRequest.head.repo?.fork ?? true,
-      changedFiles: changedFilesBetween(
-        pullRequest.base.sha,
-        pullRequest.merge_commit_sha as string,
-      ),
-    }));
+// `gh api --paginate` prints one JSON array per page; `--slurp` wraps them in
+// an outer array, which is flattened here.
+export function pullRequestsFromSlurp(raw: string): readonly GhPullRequest[] {
+  return (JSON.parse(raw) as GhPullRequest[][]).flat();
 }
 
-async function readRunRecords(path: string): Promise<DocumentationRunRecord[]> {
-  const raw = JSON.parse(await readFile(resolve(root, path), 'utf8'));
-  if (!Array.isArray(raw))
-    throw new Error(`${path} must hold a JSON array of run records`);
-  return raw.map(parseRunRecord);
+type PullRequestMetadata = Omit<MergedPullRequest, 'changedFiles'>;
+
+function listMergedPullRequests(
+  repository: string,
+): readonly PullRequestMetadata[] {
+  return pullRequestsFromSlurp(
+    gh([
+      'api',
+      '--paginate',
+      '--slurp',
+      `repos/${repository}/pulls?state=closed&sort=updated&direction=desc&per_page=100`,
+    ]),
+  ).flatMap((pullRequest) =>
+    pullRequest.merged_at && pullRequest.merge_commit_sha
+      ? [
+          {
+            id: pullRequest.id,
+            number: pullRequest.number,
+            title: pullRequest.title,
+            body: pullRequest.body,
+            url: pullRequest.html_url,
+            author: pullRequest.user?.login ?? null,
+            mergedBy: pullRequest.merged_by?.login ?? null,
+            repository,
+            baseRef: pullRequest.base.ref,
+            baseSha: pullRequest.base.sha,
+            mergeCommitSha: pullRequest.merge_commit_sha,
+            mergedAt: pullRequest.merged_at,
+            fork: pullRequest.head.repo?.fork ?? true,
+          },
+        ]
+      : [],
+  );
+}
+
+// Diffed exactly as notify-merge.yml does (base.sha..merge_commit_sha), and
+// only for merges inside the window, so an old base outside a shallow
+// checkout never has to exist locally.
+const withChangedFiles = (
+  pullRequest: PullRequestMetadata,
+): MergedPullRequest => ({
+  ...pullRequest,
+  changedFiles: changedFilesBetween(
+    pullRequest.baseSha,
+    pullRequest.mergeCommitSha,
+  ),
+});
+
+type RowsPage = {
+  readonly rows: readonly SheetRow[];
+  readonly hasMore: boolean;
+  readonly nextFromRow: number | null;
+};
+
+// PageSpace's answer is untrusted: a page with no hasMore flag would end the
+// read after one page, and a cursor that does not advance would request the
+// same page forever. Either reports coverage wrongly, so both throw.
+function validPage(value: unknown, fromRow: number): RowsPage {
+  const page = value as Partial<RowsPage> | null;
+  const valid =
+    typeof page === 'object' &&
+    page !== null &&
+    Array.isArray(page.rows) &&
+    typeof page.hasMore === 'boolean' &&
+    (!page.hasMore ||
+      (Number.isInteger(page.nextFromRow) &&
+        (page.nextFromRow as number) > fromRow));
+  if (!valid)
+    throw new Error(
+      `Reading Documentation Runs returned an invalid page at row ${fromRow}: ${JSON.stringify(value).slice(0, 200)}`,
+    );
+  return page as RowsPage;
+}
+
+// Reads the Documentation Runs sheet page by page and validates every row
+// against the run-record contract. A refused read throws: reconciling against
+// no records would report every merge uncovered and prove nothing.
+export async function readRunRecords(
+  options: PagespaceApiOptions & {
+    readonly fetchImpl?: typeof fetch;
+    readonly timeoutMs?: number;
+  } = {},
+): Promise<readonly DocumentationRunRecord[]> {
+  const { apiUrl, headers } = pagespaceApi(options);
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const timeoutMs = options.timeoutMs ?? 60_000;
+  // One deadline for the whole read, not one per page, so a slow multi-page
+  // sheet cannot take pages × timeout.
+  const end = Date.now() + timeoutMs;
+  const timedOut = (fromRow: number) =>
+    new Error(
+      `Reading Documentation Runs did not answer within ${Math.round(timeoutMs / 1000)}s at row ${fromRow}`,
+    );
+  const endpoint = new URL('/api/mcp/sheets', apiUrl).toString();
+  const rows: SheetRow[] = [];
+  for (let fromRow: number | null = 0; fromRow !== null;) {
+    if (Date.now() >= end) throw timedOut(fromRow);
+    let response: Response;
+    try {
+      response = await fetchImpl(endpoint, {
+        method: 'POST',
+        redirect: 'error',
+        headers,
+        signal: AbortSignal.timeout(Math.max(1, end - Date.now())),
+        body: JSON.stringify({
+          operation: 'get-rows',
+          pageId: DOCUMENTATION_RUNS_SHEET_ID,
+          fromRow,
+          limit: 5000,
+        }),
+      });
+    } catch (error) {
+      const name = (error as { name?: unknown } | null)?.name;
+      if (name === 'TimeoutError' || name === 'AbortError')
+        throw timedOut(fromRow);
+      throw error;
+    }
+    const body = await response.text();
+    if (!response.ok)
+      throw new Error(
+        `Reading Documentation Runs responded ${response.status}: ${body}`,
+      );
+    const page = validPage(JSON.parse(body) as unknown, fromRow);
+    rows.push(...page.rows);
+    fromRow = page.hasMore ? page.nextFromRow : null;
+  }
+  return runRecordsFromSheet(rows);
 }
 
 const flagValue = (name: string): string | undefined => {
@@ -227,28 +329,20 @@ const flagValue = (name: string): string | undefined => {
 };
 
 async function main(): Promise<void> {
-  // The PageSpace read surface for the Documentation Runs page is not yet
-  // proven from CI, so records arrive by file. Missing input is a hard error:
-  // an empty sweep must never be mistaken for a clean one.
-  const recordsPath = flagValue('run-records');
-  if (!recordsPath)
-    throw new Error(
-      '--run-records <path> is required; a sweep without records cannot prove freshness',
-    );
   const repository = flagValue('repository') ?? '2witstudios/daisydebate';
   const sinceMs = parseDuration(flagValue('since') ?? '24h');
   const graceMs = parseDuration(flagValue('grace') ?? '1h');
 
   const merges = selectReconcilableMerges({
-    pullRequests: fetchMergedPullRequests(repository),
+    pullRequests: listMergedPullRequests(repository),
     now: Date.now(),
     sinceMs,
     graceMs,
-  });
+  }).map(withChangedFiles);
   const expected = expectedEvents(merges);
   const uncovered = findMissingRuns({
     expected,
-    runRecords: await readRunRecords(recordsPath),
+    runRecords: await readRunRecords(),
   });
 
   if (process.argv.includes('--json')) {

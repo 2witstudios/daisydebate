@@ -4,8 +4,8 @@ import {
   assessEventText,
   flagPromptInjection,
   parseDocumentationEvent,
-  parseRunRecord,
   sanitizeUntrustedText,
+  type FindingSeverity,
 } from './docs-contracts';
 import { canApplyRevision, publicationDecision } from './docs-policy';
 import { createDocumentationEvent } from './docs-pipeline';
@@ -188,89 +188,11 @@ describe('parseDocumentationEvent', async () => {
   });
 });
 
-describe('parseRunRecord', async () => {
-  const validRunRecord = {
-    runId: 'run-1',
-    workflow: 'accuracy-review',
-    startedAt: '2026-09-20T00:00:00.000Z',
-    completedAt: '2026-09-20T00:05:00.000Z',
-    scope: { pageIds: ['page-1'], changedSince: '2026-09-19T00:00:00.000Z' },
-    pagesReviewed: 3,
-    findings: [
-      {
-        pageId: 'page-1',
-        sectionId: 'setup',
-        claim: 'bun infra:up starts PostgreSQL 16',
-        sourceChecked: 'infra/compose.yaml',
-        currentEvidence: 'image is postgres:17',
-        severity: 'major',
-        recommendedAction: 'mark stale and create a review task',
-      },
-    ],
-    autoFixed: 0,
-    tasksCreated: 1,
-    pagesInvalidated: 0,
-    promptVersion: 'docs-prompt-v1',
-    sourceSnapshot: 'daisydebate/daisy@abc123',
-    status: 'complete',
-  };
-
-  test('accepts a well-formed run record', async () => {
-    const actual = parseRunRecord(JSON.parse(JSON.stringify(validRunRecord)));
-    assert({
-      given: 'a well-formed run record',
-      should: 'parse to a typed run record',
-      actual: actual.runId,
-      expected: 'run-1',
-    });
-  });
-
-  test('rejects unknown status and unknown severity', async () => {
-    const mutated = {
-      ...JSON.parse(JSON.stringify(validRunRecord)),
-      status: 'ok',
-      findings: [{ ...validRunRecord.findings[0], severity: 'catastrophic' }],
-    };
-    let message = '';
-    try {
-      parseRunRecord(mutated);
-    } catch (error) {
-      message = (error as Error).message;
-    }
-    assert({
-      given: 'a run record with an unknown status and severity',
-      should: 'fail closed naming both problems',
-      actual: message.includes('status') && message.includes('severity'),
-      expected: true,
-    });
-  });
-
-  test('rejects negative counters and missing claim fields', async () => {
-    const mutated = {
-      ...JSON.parse(JSON.stringify(validRunRecord)),
-      pagesReviewed: -1,
-      findings: [{ severity: 'minor' }],
-    };
-    let message = '';
-    try {
-      parseRunRecord(mutated);
-    } catch (error) {
-      message = (error as Error).message;
-    }
-    assert({
-      given: 'a run record with a negative counter and a claim-less finding',
-      should: 'fail closed naming both problems',
-      actual: message.includes('pagesReviewed') && message.includes('claim'),
-      expected: true,
-    });
-  });
-});
-
 describe('publicationDecision', async () => {
   const base = {
     changeKind: 'feature' as const,
     pipelines: ['user-docs'] as const,
-    findings: [] as readonly string[],
+    findings: [] as readonly FindingSeverity[],
     runStatus: 'complete' as const,
     textRisk: 'clean' as const,
     approvals: {},

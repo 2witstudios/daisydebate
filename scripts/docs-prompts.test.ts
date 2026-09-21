@@ -31,6 +31,30 @@ describe('DOCUMENTATION_PROMPTS', async () => {
       expected: true,
     });
   });
+
+  test('lets the agent keep its tasks current but never grant Done or rescope', async () => {
+    const all = (pattern: RegExp) =>
+      DOCUMENT_PIPELINES.every((pipeline) =>
+        pattern.test(DOCUMENTATION_PROMPTS[pipeline]),
+      );
+    assert({
+      given: 'any registered prompt',
+      should:
+        'allow keeping worked tasks current, and forbid marking Done or editing criteria or scope',
+      actual: {
+        keepsCurrent: all(/keep tasks you are working on current/i),
+        noDone: all(/never mark a task Done/i),
+        noRescope: all(/never change any task's criteria or scope/i),
+        noBlanketBan: all(/never change the status/i),
+      },
+      expected: {
+        keepsCurrent: true,
+        noDone: true,
+        noRescope: true,
+        noBlanketBan: false,
+      },
+    });
+  });
 });
 
 describe('promptFor', async () => {

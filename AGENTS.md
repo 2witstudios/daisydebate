@@ -190,10 +190,12 @@ rules are the drive's "Task artifacts and linking" page
 Your agent's built-in todo lists, plan mode files, memory stores, local
 `plan.md`/`TODO.md` files and `/tmp` are scratch only, whichever agent you
 are (Claude Code, Codex, OpenCode): anything another session or a reviewer
-needs must be a PageSpace page. Every agent publishes its own artifact
-pages and keeps its tasks current; no agent edits the criteria or scope of a
-task delegated to it, and Done is granted from an independent review record,
-never by the agent that did the work.
+needs must be a PageSpace page. Every agent, worktree or not, publishes its
+own artifact pages and keeps its tasks current through the `pagespace` CLI
+(create tasks, update status, record evidence). No agent edits the criteria
+or scope of a task delegated to it: a change goes back to whoever delegated
+it. Done is granted from an independent review record, never by the agent
+that did the work.
 
 Open and update pull requests with the `/pr` skill: the description links
 the task, plan and prompt pages (and handoff and reviews as they land) so a
@@ -206,11 +208,7 @@ Use `/aidd-triage` for review-comment triage.
 
 Parallel sessions follow [parallel work](docs/development/parallel-work.md):
 short-lived vertical branches, one open vertical per agent, and a deviation
-from the plan means updating the plan before declaring done. Every agent,
-worktree or not, keeps the board current through the `pagespace` CLI: create
-tasks, update status, record evidence. The one exception is your own
-delegated spec: never edit the acceptance criteria or scope of a task
-delegated to you; take a change back to whoever delegated it. The
+from the plan means updating the plan before declaring done. The
 orchestrator owns Agent Memory writes.
 Reviews use the [review record](docs/development/review-record.md) format.
 

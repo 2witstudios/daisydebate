@@ -10,8 +10,10 @@ jobs:
   documentation-event:
     name: Send the release documentation event
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 45
     steps:
+      - name: Start the dispatch budget with the job
+        run: echo "DOC_BUDGET_ENDS_AT=$(( $(date +%s) + 42 * 60 ))" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0

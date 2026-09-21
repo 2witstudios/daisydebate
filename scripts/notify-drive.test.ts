@@ -54,6 +54,17 @@ describe('extractTaskIds', async () => {
       expected: ['ENG-1.1'],
     });
   });
+
+  test('ignores ADR citations and model names that look like task codes', async () => {
+    assert({
+      given: 'a PR body citing an ADR and a model alongside real task codes',
+      should: 'return only the task codes',
+      actual: extractTaskIds(
+        'Implements AUTH-3.1 and AUTH-3.2 per ADR-0023, tested on GLM-5.3',
+      ),
+      expected: ['AUTH-3.1', 'AUTH-3.2'],
+    });
+  });
 });
 
 describe('signPayload', async () => {

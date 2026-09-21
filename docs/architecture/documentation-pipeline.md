@@ -25,17 +25,28 @@ creation workflow.
    existing drive using the drive-scoped PageSpace credential
    (`PAGESPACE_TOKEN`), through the agent consult route
    (`scripts/docs-consult.ts`). Each routed pipeline is its own consult, its
-   own conversation, and its own run record. The question leads with that
-   pipeline's versioned prompt, pre-fills every run-record key from trusted CI
-   context, and carries the event last in a nonce-fenced block marked
-   untrusted. A consult runs an agent, so it is never retried in-process.
+   own conversation, and its own run record, and pipelines are consulted one
+   at a time: two consults in flight at once were both cut off. Before each
+   consult, dispatch reserves that run's row in the Documentation Runs sheet. The question
+   leads with that pipeline's versioned prompt, pre-fills every run-record key
+   from trusted CI context, and carries the event last in a nonce-fenced block
+   marked untrusted. A consult runs an agent, so it is never retried
+   in-process.
    Dispatch waits for the run to answer, but the socket is not the receipt:
    the route persists the question before the run and the answer after it,
-   and a connection can drop while the run still completes. On a transport
-   failure dispatch reads that conversation instead. An answer there is
-   success; a conversation that never appears means the request never landed;
-   one still unanswered at the deadline is a failure. Any refusal or failure
-   posts to the incidents channel so a lost event is loud, not silent.
+   and the answer can be lost on its way back. On a dropped connection or a
+   5xx, dispatch reads that conversation instead. An answer there is success;
+   a conversation that never appears means the request never landed; one still
+   unanswered at the deadline is reported as a failure, though the run may
+   finish late and still rewrite its reserved row. Each consult waits up to
+   20 minutes and all of them share a 42-minute budget counted from the start
+   of the 45-minute CI job (the job's first step records when it ends), so
+   the step fails and the incident posts before the job is cancelled. Each
+   consult stops 30 seconds before the budget does, reserving time to read its
+   conversation, and a pipeline starts only while it would get time of its
+   own.
+   Any refusal or failure posts to the incidents channel so a lost event is
+   loud, not silent.
    Fork PR merges cannot carry secrets, so they post a skip notice instead and
    are replayed manually.
 4. The agent lists the Documentation folder, finds the registered page, and
