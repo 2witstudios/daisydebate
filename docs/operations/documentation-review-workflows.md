@@ -114,7 +114,10 @@ Each workflow writes one run record per run to the Documentation Runs sheet.
 The schema is enforced by the repository (`scripts/docs-contracts.ts`), and
 `scripts/docs-runs-sheet.ts` is the only statement of the sheet's layout: one
 field per column (header row = field names), counts as integers, objects and
-arrays as JSON. The consult prompt is generated from that layout, and
+arrays as JSON. Dispatch reserves each run's row before the consult by
+appending it with every trusted key and `status: failed`, so concurrent runs
+never share a row and a run that never finishes stays visible; the agent
+rewrites that row only. The consult prompt is generated from that layout, and
 `bun docs:reconcile` reads the sheet back through it, failing on a drifted
 header or an invalid row rather than skipping it:
 

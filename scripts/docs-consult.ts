@@ -2,7 +2,11 @@ import { createHash, randomBytes } from 'node:crypto';
 import { FINDING_SEVERITIES, RUN_RECORD_STATUSES } from './docs-contracts';
 import type { DocumentationEvent, DocumentPipeline } from './docs-pipeline';
 import { DOCUMENTATION_PROMPT_VERSION, promptFor } from './docs-prompts';
-import { RUN_RECORD_COLUMNS, type RunRecordField } from './docs-runs-sheet';
+import {
+  encodeRunRecord,
+  RUN_RECORD_COLUMNS,
+  type RunRecordField,
+} from './docs-runs-sheet';
 import {
   DOCUMENTATION_RUNS_SHEET_ID,
   DOCUMENTATION_TARGET_PAGES,
@@ -59,6 +63,22 @@ export function conversationIdFor(
   return `d${digest.slice(0, 31)}`;
 }
 
+// The run-record keys trusted CI context knows. The reserved receipt row and
+// the prompt's pre-filled values both come from here, so they cannot disagree.
+function trustedKeys(
+  event: DocumentationEvent,
+  pipeline: DocumentPipeline,
+  conversationId: string,
+) {
+  return {
+    runId: conversationId,
+    workflow: pipeline,
+    sourceSnapshot: `${event.repository}@${event.commit}`,
+    promptVersion: DOCUMENTATION_PROMPT_VERSION,
+    idempotencyKey: event.idempotencyKey,
+  } as const;
+}
+
 // Instructions first, untrusted data last and nonce-fenced. Every receipt key
 // trusted CI context knows is interpolated here so the row stays reconcilable
 // even when the model misreads the payload; the model supplies only what it
@@ -67,19 +87,16 @@ export function composeConsultQuestion(input: {
   readonly event: DocumentationEvent;
   readonly pipeline: DocumentPipeline;
   readonly conversationId: string;
+  readonly runRow: number;
   readonly nonce: string;
 }): string {
-  const { event, pipeline, conversationId, nonce } = input;
+  const { event, pipeline, conversationId, runRow, nonce } = input;
   const target = DOCUMENTATION_TARGET_PAGES[pipeline];
   const value: Readonly<Record<RunRecordField, string>> = {
-    runId: conversationId,
-    workflow: pipeline,
+    ...trustedKeys(event, pipeline, conversationId),
     startedAt: 'the ISO-8601 UTC time you began',
     completedAt: 'the ISO-8601 UTC time you finished',
     status: `one of ${RUN_RECORD_STATUSES.join(', ')}`,
-    sourceSnapshot: `${event.repository}@${event.commit}`,
-    promptVersion: DOCUMENTATION_PROMPT_VERSION,
-    idempotencyKey: event.idempotencyKey,
     scope: `a JSON object {"pageIds":[the id of every page you reviewed],"changedSince":"${event.occurredAt}"}`,
     pagesReviewed: 'the number of pages you reviewed',
     findings: `a JSON array of findings, each {"pageId","sectionId","claim","sourceChecked","currentEvidence","severity","recommendedAction"} with severity one of ${FINDING_SEVERITIES.join(', ')}; [] when there are none`,
@@ -97,7 +114,7 @@ export function composeConsultQuestion(input: {
       ? `Target Canvas: page ${target} and its child pages.`
       : 'Target Canvas: the page this review was pointed at.',
     [
-      `Record the run as ONE new row in the Documentation Runs sheet (${DOCUMENTATION_RUNS_SHEET_ID}), in its first empty row, even when the run fails: a run with no row is indistinguishable from an event that never arrived. Each column holds one field: counts as plain integers, objects and arrays as JSON. Use these values exactly where given:`,
+      `Your run record is row ${runRow} of the Documentation Runs sheet (${DOCUMENTATION_RUNS_SHEET_ID}). It already holds the keys below and is marked failed, so a run that never finishes stays visible. When you finish, even if the run failed, rewrite every column of row ${runRow} and nothing else: never add a row and never touch another row. Each column holds one field: counts as plain integers, objects and arrays as JSON. Use these values exactly where given:`,
       ...RUN_RECORD_COLUMNS.map(
         ({ column, field }) => `${column} ${field} = ${value[field]}`,
       ),
@@ -225,6 +242,51 @@ export async function dispatchDocumentationEvent(
     }
   };
 
+  // Appends this run's receipt before the consult, holding every trusted key
+  // and marked failed until the agent rewrites it. PageSpace locks the tab for
+  // an append, so concurrent runs never claim the same row, which a run left to
+  // find an empty row for itself would race other runs for.
+  const reserveRunRow = async (
+    pipeline: DocumentPipeline,
+    conversationId: string,
+  ): Promise<number> => {
+    const startedAt = new Date().toISOString();
+    const response = await fetchImpl(
+      new URL('/api/mcp/sheets', apiUrl).toString(),
+      {
+        method: 'POST',
+        redirect: 'error',
+        headers,
+        body: JSON.stringify({
+          operation: 'append-rows',
+          pageId: DOCUMENTATION_RUNS_SHEET_ID,
+          rows: [
+            encodeRunRecord({
+              ...trustedKeys(event, pipeline, conversationId),
+              startedAt,
+              completedAt: startedAt,
+              status: 'failed',
+              scope: { pageIds: [], changedSince: event.occurredAt },
+              pagesReviewed: 0,
+              findings: [],
+              autoFixed: 0,
+              tasksCreated: 0,
+              pagesInvalidated: 0,
+              notes:
+                'Dispatched; the Documentation Agent has not recorded its result yet.',
+            }),
+          ],
+        }),
+      },
+    );
+    const body = await response.text();
+    if (!response.ok)
+      throw new Error(
+        `Reserving the ${pipeline} run record responded ${response.status}: ${body}`,
+      );
+    return (JSON.parse(body) as { firstRowIndex: number }).firstRowIndex + 1;
+  };
+
   const consult = async (
     pipeline: DocumentPipeline,
   ): Promise<ConsultOutcome> => {
@@ -233,6 +295,13 @@ export async function dispatchDocumentationEvent(
       pipeline,
       attempt,
     );
+    // A conversation that already exists was dispatched before (a re-run of
+    // the workflow): report it without reserving a row or running the agent.
+    // Only a race between two identical dispatches gets past this to a 409,
+    // leaving its reserved row honestly marked failed.
+    if ((await readConversation(conversationId)) !== 'absent')
+      return { pipeline, conversationId, outcome: 'already-dispatched' };
+    const runRow = await reserveRunRow(pipeline, conversationId);
     const deadline = Math.min(Date.now() + timeoutMs, budgetEnd);
     const waitSeconds = Math.round((deadline - Date.now()) / 1000);
     const settle = async (cause: string): Promise<ConsultOutcome> => {
@@ -265,6 +334,7 @@ export async function dispatchDocumentationEvent(
             event,
             pipeline,
             conversationId,
+            runRow,
             nonce: nonce(),
           }),
           newConversationId: conversationId,

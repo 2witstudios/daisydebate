@@ -1,6 +1,7 @@
 import { describe, test } from 'riteway/bun';
 import { setupRitewayBun, assert } from 'riteway/bun';
 import {
+  encodeRunRecord,
   RUN_RECORD_COLUMNS,
   runRecordsFromSheet,
   type SheetRow,
@@ -167,6 +168,47 @@ describe('runRecordsFromSheet', async () => {
         runRecordsFromSheet([headerRow, recordRow(1, { E: 'done' })]),
       ).startsWith('Documentation Runs row 2: '),
       expected: true,
+    });
+  });
+
+  test('reads back exactly what encodeRunRecord writes', async () => {
+    const record = {
+      runId: 'dabc',
+      workflow: 'technical-docs',
+      startedAt: '2026-09-21T03:50:00Z',
+      completedAt: '2026-09-21T03:50:00Z',
+      status: 'failed' as const,
+      sourceSnapshot: '2witstudios/daisydebate@fd6340b',
+      promptVersion: 'docs-prompt-v1',
+      idempotencyKey: '2witstudios/daisydebate:fd6340b:pull_request.merged',
+      scope: { pageIds: [], changedSince: '2026-09-21T03:40:00Z' },
+      pagesReviewed: 0,
+      findings: [],
+      autoFixed: 0,
+      tasksCreated: 0,
+      pagesInvalidated: 0,
+      notes: 'Awaiting the agent.',
+    };
+    const encoded = encodeRunRecord(record);
+    assert({
+      given: 'a run record encoded into sheet cells, optional revisions absent',
+      should: 'decode to the same record and leave the absent columns empty',
+      actual: {
+        roundTrip: runRecordsFromSheet([
+          headerRow,
+          {
+            rowIndex: 1,
+            cells: Object.fromEntries(
+              Object.entries(encoded).map(([column, raw]) => [
+                column,
+                cell(raw),
+              ]),
+            ),
+          },
+        ])[0],
+        revisionColumns: ['O', 'P'].filter((column) => column in encoded),
+      },
+      expected: { roundTrip: record, revisionColumns: [] },
     });
   });
 });

@@ -79,6 +79,20 @@ function recordFromRow(row: SheetRow): DocumentationRunRecord {
   }
 }
 
+// The inverse of runRecordsFromSheet: a record as the cell text of one row.
+// An absent optional field writes no cell.
+export function encodeRunRecord(
+  record: DocumentationRunRecord,
+): Readonly<Record<string, string>> {
+  const cells: Record<string, string> = {};
+  for (const { column, field, encoding } of RUN_RECORD_COLUMNS) {
+    const value = record[field];
+    if (value === undefined) continue;
+    cells[column] = encoding === 'json' ? JSON.stringify(value) : String(value);
+  }
+  return cells;
+}
+
 export function runRecordsFromSheet(
   rows: readonly SheetRow[],
 ): readonly DocumentationRunRecord[] {
