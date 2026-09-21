@@ -172,31 +172,34 @@ PageSpace refuses a taken id with 409 rather than running the agent again.
    Pipelines that already ran report `already-dispatched`.
 2. If a pipeline reports `already-dispatched` but `bun docs:reconcile` still
    lists it as uncovered, its earlier run holds its id without having
-   written a run record: it was cut off, or it is still going. Wait until
-   that run's conversation has an answer or an hour after the failure that
-   dispatch reported for it (90 minutes after its dispatch if none was
-   reported, which covers the 20-minute consult window), then replay it with
-   `DOC_REPLAY_ATTEMPT=1` (then `2`, …), which addresses a fresh
-   conversation, and set `DOC_PIPELINES` to just the uncovered pipelines
-   (comma-separated) so the healthy ones are not run again. A name the event
-   does not route to is rejected.
+   written a run record: it was cut off, or it is still going. If the
+   failure dispatch reported for it says the consult failed in PageSpace,
+   that run has ended: replay at once. Otherwise wait until that run's
+   conversation has an answer or an hour after the failure dispatch reported
+   for it (90 minutes after its dispatch if none was reported, which covers
+   the 20-minute consult window). Replay with `DOC_REPLAY_ATTEMPT=1` (then
+   `2`, …), which addresses a fresh conversation, and set `DOC_PIPELINES` to
+   just the uncovered pipelines (comma-separated) so the healthy ones are
+   not run again. A name the event does not route to is rejected.
    A dispatch failure names the replay to use, and its receipt row when one
-   was reserved. A consult that PageSpace itself reported as failed has
-   ended: replay it with the next attempt if its row is still failed, since
-   a run can record its receipt before its answer is lost. A consult that
-   did not answer in time, or whose conversation could not be read, may
-   still be running: PageSpace sets no time limit on a run, and its row
-   stays failed until it ends. If the row turns complete, nothing is lost;
-   otherwise replay with the next attempt once the named conversation has an
-   answer or an hour after the failure, whichever comes first (PageSpace
-   caps a consult run at 20 tool steps, and the longest seen took about 25
-   minutes). Replaying sooner can start a second run beside a live one;
-   never replaying can strand a dead one. A consult that never reached
-   PageSpace (successful reads found no conversation), or was left unsent
-   because the budget ran out (before or after its row was reserved) or
-   reserving its row failed, gives the same attempt, since its id was almost
-   certainly never used. PageSpace claims an id before it saves the
-   question, so if that replay reports `already-dispatched` while
+   was reserved. A consult that failed in PageSpace (the route itself
+   answered with its own error) has ended, whether or not its conversation
+   could then be read: replay it with the next attempt at once if its row is
+   still failed, since a run can record its receipt before its answer is
+   lost. Any other consult that did not answer in time, or whose
+   conversation could not be read after a gateway error or dropped
+   connection, may still be running: PageSpace sets no time limit on a run,
+   and its row stays failed until it ends. If the row turns complete,
+   nothing is lost; otherwise replay with the next attempt once the named
+   conversation has an answer or an hour after the failure, whichever comes
+   first (PageSpace caps a consult run at 20 tool steps, and the longest
+   seen took about 25 minutes). Replaying sooner can start a second run
+   beside a live one; never replaying can strand a dead one. A consult that
+   never reached PageSpace (successful reads found no conversation), or was
+   left unsent because the budget ran out (before or after its row was
+   reserved) or reserving its row failed, gives the same attempt, since its
+   id was almost certainly never used. PageSpace claims an id before it
+   saves the question, so if that replay reports `already-dispatched` while
    `bun docs:reconcile` still lists the pipeline, the request landed late:
    treat it like a consult that did not answer in time. A 4xx refusal is
    final and gives no replay.
