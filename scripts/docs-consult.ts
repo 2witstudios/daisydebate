@@ -402,7 +402,7 @@ export async function dispatchDocumentationEvent(
           `${consultFor(pipeline)} never reached PageSpace (${cause}). Its receipt, ${receipt}, stays failed unless the request lands late; replay with ${replayWith(pipeline, attempt)}. If that replay reports already-dispatched while bun docs:reconcile still lists it, the request landed late: ${lateReplay}`,
         );
       throw new Error(
-        `${consultFor(pipeline)} did not answer within ${waitSeconds}s (${cause}). The run may still be going: its receipt is ${receipt}. If the row turns complete, nothing is lost. Otherwise ${lateReplay}`,
+        `${consultFor(pipeline)} did not answer within ${waitSeconds}s (${cause}). The run may still be going: its receipt is ${receipt}. If the row is no longer failed (complete or partial), nothing is lost. Otherwise ${lateReplay}`,
       );
     };
     const sent = await send(
@@ -434,20 +434,28 @@ export async function dispatchDocumentationEvent(
       }
       if (state === 'answered') return answered;
       throw new Error(
-        `${consultFor(pipeline)} failed in PageSpace (responded ${response.status}: ${reported}) and ${state === 'unreadable' ? 'its conversation could not be read' : 'its conversation holds no answer'}. The run may have recorded its receipt before failing: if ${receipt} shows complete, nothing is lost; otherwise replay with ${replay}`,
+        `${consultFor(pipeline)} failed in PageSpace (responded ${response.status}: ${reported}) and ${state === 'unreadable' ? 'its conversation could not be read' : 'its conversation holds no answer'}. The run may have recorded its receipt before failing: if ${receipt} is no longer failed (complete or partial), nothing is lost; otherwise replay with ${replay}`,
       );
     }
     // Any other 5xx can come from a gateway in front of a run that is still
     // going: a live 502 arrived after 36s with the question already
     // persisted. So it is settled like a dropped connection; a 4xx refusal is
-    // definitive.
+    // definitive, and it comes before any run starts, so once its cause is
+    // fixed the same attempt replays it.
     if (response.status >= 500)
       return settle(`responded ${response.status}${body ? `: ${body}` : ''}`);
-    return {
-      pipeline,
-      conversationId,
-      outcome: classifyConsultResponse(pipeline, response.status, body),
-    };
+    try {
+      return {
+        pipeline,
+        conversationId,
+        outcome: classifyConsultResponse(pipeline, response.status, body),
+      };
+    } catch (error) {
+      throw new Error(
+        `${messageOf(error)}. PageSpace refused it before any run started, and its receipt, ${receipt}, stays failed: fix the cause (token, rate limit, input), then replay with ${replayWith(pipeline, attempt)}`,
+        { cause: error },
+      );
+    }
   };
 
   const outcomes: ConsultOutcome[] = [];

@@ -262,7 +262,9 @@ describe('dispatchDocumentationEvent settlement', async () => {
         failed: message.includes(
           'technical-docs failed in PageSpace (responded 500: Failed to generate response from agent: provider unavailable)',
         ),
-        hedged: message.includes('shows complete, nothing is lost'),
+        hedged: message.includes(
+          'is no longer failed (complete or partial), nothing is lost',
+        ),
         row: message.includes('row 2 of Documentation Runs'),
         replay: message.includes(
           'DOC_REPLAY_ATTEMPT=1 DOC_PIPELINES=technical-docs',

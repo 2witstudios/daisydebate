@@ -91,7 +91,7 @@ describe('dispatchDocumentationEvent with a lost response body', async () => {
       should: 'fail naming the status and the lost body, not as never reached',
       actual: message,
       expected:
-        'Documentation Agent consult for technical-docs responded 403: (body lost: body dropped)',
+        'Documentation Agent consult for technical-docs responded 403: (body lost: body dropped). PageSpace refused it before any run started, and its receipt, row 2 of Documentation Runs, stays failed: fix the cause (token, rate limit, input), then replay with DOC_REPLAY_ATTEMPT=0 DOC_PIPELINES=technical-docs',
     });
   });
 
@@ -171,7 +171,7 @@ describe('dispatchDocumentationEvent with a lost response body', async () => {
       actual: {
         conversation: message.includes(`conversation ${conversation}`),
         holdOff: message.endsWith(
-          `the row turns complete, nothing is lost. Otherwise ${lateReplay}`,
+          `the row is no longer failed (complete or partial), nothing is lost. Otherwise ${lateReplay}`,
         ),
       },
       expected: { conversation: true, holdOff: true },
