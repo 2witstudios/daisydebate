@@ -25,6 +25,16 @@ export type ConsultOutcome = {
   readonly outcome: 'dispatched' | 'already-dispatched';
 };
 
+// One line per settled pipeline, naming its conversation, so an operator can
+// check an already-dispatched run's answer before replaying it.
+export const describeOutcomes = (outcomes: readonly ConsultOutcome[]) =>
+  outcomes
+    .map(
+      ({ pipeline, conversationId, outcome }) =>
+        `${pipeline} → ${conversationId} (${outcome})`,
+    )
+    .join(', ');
+
 // PageSpace refuses a caller-minted newConversationId that already exists
 // with 409, so deriving it from the event turns a replay into a refusal
 // instead of a second billed run. The route accepts ^[a-z][a-z0-9]{1,31}$.
@@ -475,6 +485,16 @@ export async function dispatchDocumentationEvent(
       failures.push(messageOf(error));
     }
   }
-  if (failures.length > 0) throw new Error(failures.join('\n'));
+  // The pipelines that did settle are reported too: without them an
+  // already-dispatched pipeline beside a failure would go unmentioned.
+  if (failures.length > 0)
+    throw new Error(
+      [
+        ...failures,
+        ...(outcomes.length > 0
+          ? [`Other pipelines: ${describeOutcomes(outcomes)}`]
+          : []),
+      ].join('\n'),
+    );
   return outcomes;
 }

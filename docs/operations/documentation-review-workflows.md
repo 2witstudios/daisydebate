@@ -185,7 +185,9 @@ PageSpace refuses a taken id with 409 rather than running the agent again.
    just the uncovered pipelines (comma-separated) so the healthy ones are
    not run again. A name the event does not route to is rejected.
    A dispatch failure names the replay to use, and its receipt row when one
-   was reserved. A row that is no longer failed (complete or partial) is a
+   was reserved; it also lists the pipelines that did settle, with their
+   conversations, so an `already-dispatched` one beside it falls under the
+   step above. A row that is no longer failed (complete or partial) is a
    receipt, so its pipeline needs no replay. A consult that failed in
    PageSpace (the route itself answered with its own error) has ended,
    whether or not its conversation could then be read: replay it with the
@@ -199,16 +201,18 @@ PageSpace refuses a taken id with 409 rather than running the agent again.
    whichever comes first (PageSpace caps a consult run at 20 tool steps, and
    the longest seen took about 25 minutes). Replaying sooner can start a
    second run beside a live one; never replaying can strand a dead one. A
-   consult that never reached PageSpace (successful reads found no
-   conversation), or was left unsent because the budget ran out (before or
-   after its row was reserved) or reserving its row failed, gives the same
-   attempt, since its id was almost certainly never used. PageSpace claims
-   an id before it saves the question, so if that replay reports
+   consult left unsent, because the budget ran out (before or after its row
+   was reserved) or reserving its row failed, was never sent, so its id is
+   unused: replay it with the same attempt. A consult that never reached
+   PageSpace (successful reads found no conversation) also gives the same
+   attempt, since its id was almost certainly never used; but PageSpace
+   claims an id before it saves the question, so if that replay reports
    `already-dispatched` while `bun docs:reconcile` still lists the pipeline,
-   the request landed late: treat it like a consult that did not answer in
-   time. A 4xx refusal other than 409 came before any run started: fix its
-   cause (an expired token, a rate limit, a malformed input), then replay
-   with the same attempt.
+   the request landed late: replay with the next attempt once the
+   conversation named in the failure has an answer or an hour after the
+   failure, whichever comes first. A 4xx refusal other than 409 came before
+   any run started: fix its cause (an expired token, a rate limit, a
+   malformed input), then replay with the same attempt.
 3. If a merged fork PR skipped the event (fork runs carry no secrets), run the
    same dispatch from a trusted checkout and delete the skip notice in
    incidents after it succeeds.

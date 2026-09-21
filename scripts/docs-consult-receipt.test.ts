@@ -153,24 +153,32 @@ describe('dispatchDocumentationEvent receipt', async () => {
     });
   });
 
-  test('bounds the reservation by the dispatch budget', async () => {
+  test('bounds a hung reservation by its request cap', async () => {
     const stub = routedFetch({ consult: async () => ok(), hang: ['append'] });
-    let threw = false;
-    try {
-      await dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
+    const started = Date.now();
+    const message = await failureOf(
+      dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
         ...baseOptions,
         fetchImpl: stub.fetchImpl,
-        timeoutMs: 20,
-        budgetMs: 20,
-      });
-    } catch {
-      threw = true;
-    }
+        requestTimeoutMs: 50,
+      }),
+    );
     assert({
       given: 'a Runs-sheet append that is accepted and never answered',
-      should: 'give up at the budget instead of outliving the CI job',
-      actual: { threw, consults: stub.counts.consult },
-      expected: { threw: true, consults: 0 },
+      should:
+        'attempt the append, give up at its cap, and send no consult, instead of outliving the CI job',
+      actual: {
+        appends: stub.counts.appends,
+        consults: stub.counts.consult,
+        reservationFailed: message.includes('reserving its receipt failed'),
+        bounded: Date.now() - started < 2_000,
+      },
+      expected: {
+        appends: 1,
+        consults: 0,
+        reservationFailed: true,
+        bounded: true,
+      },
     });
   });
 

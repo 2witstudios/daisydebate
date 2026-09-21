@@ -192,24 +192,33 @@ describe('dispatchDocumentationEvent', async () => {
           : new Response('{}', { status: 200 }),
       roles: () => [],
     });
+    const event = mergeEvent();
     let message = 'no throw';
     try {
-      await dispatchDocumentationEvent(mergeEvent(), {
+      await dispatchDocumentationEvent(event, {
         ...baseOptions,
         fetchImpl,
       });
     } catch (error) {
       message = (error as Error).message;
     }
+    const [failed = '', others = ''] = message.split('\nOther pipelines: ');
     assert({
       given: 'a refusal for the first of two pipelines',
-      should: 'send the second anyway, then fail naming the refused one',
+      should:
+        'send the second anyway, then fail naming the refused one and still report the second',
       actual: {
         consults: counts.consult,
-        namesRefused: message.includes('technical-docs responded 403'),
-        blamesSecond: message.includes('user-docs'),
+        namesRefused: failed.includes('technical-docs responded 403'),
+        blamesSecond: failed.includes('user-docs'),
+        reportsSecond: others,
       },
-      expected: { consults: 2, namesRefused: true, blamesSecond: false },
+      expected: {
+        consults: 2,
+        namesRefused: true,
+        blamesSecond: false,
+        reportsSecond: `user-docs → ${conversationIdFor(event.idempotencyKey, 'user-docs', 0)} (dispatched)`,
+      },
     });
   });
 
