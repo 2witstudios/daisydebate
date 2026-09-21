@@ -35,13 +35,30 @@ const composeBetterAuth = (dependencies: {
   readonly config: AuthConfig;
   readonly database: BetterAuthOptions['database'];
   readonly emailSender: AuthEmailSender;
+  readonly logger: Logger;
 }) => {
   const origin = new URL(dependencies.config.PUBLIC_APP_URL).origin;
-  return betterAuth({
+  const instance = betterAuth({
     baseURL: dependencies.config.PUBLIC_APP_URL,
     trustedOrigins: [origin],
     secret: dependencies.config.BETTER_AUTH_SECRET,
     database: dependencies.database,
+    // Better Auth's default logger prints driver errors verbatim, including
+    // SQL text and bound parameters (magic-link tokens, emails). Report only
+    // the severity through the application logger.
+    logger: {
+      log: (level) => {
+        if (level === 'error' || level === 'warn')
+          dependencies.logger.log(
+            'request.unhandled',
+            { source: 'better-auth', level },
+            'Authentication library reported a failure',
+          );
+      },
+    },
+    // better-call prints unhandled errors with console.error, exposing SQL and
+    // parameters; rethrow so the guarded handler below reports them safely.
+    onAPIError: { throw: true },
     advanced: {
       database: {
         // Entity identifiers are unguessable cuid2, not UUIDs.
@@ -67,6 +84,21 @@ const composeBetterAuth = (dependencies: {
       }),
     ],
   });
+  return {
+    ...instance,
+    handler: async (request: Request): Promise<Response> => {
+      try {
+        return await instance.handler(request);
+      } catch {
+        dependencies.logger.log(
+          'request.unhandled',
+          { source: 'better-auth' },
+          'Authentication request failed',
+        );
+        return new Response(null, { status: 500 });
+      }
+    },
+  };
 };
 
 /**
@@ -119,6 +151,7 @@ export function createAuthServer<
       config,
       database: dependencies.database,
       emailSender: { send: sendMail },
+      logger: dependencies.logger,
     }),
     database: dependencies.database,
     mail: { send: sendMail },
