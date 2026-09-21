@@ -38,6 +38,12 @@ const config: NextConfig = {
             : []),
         ],
       },
+      // Later entries win: a URL that carries a sign-in token must never be
+      // sent as a Referer (ADR 0025).
+      {
+        source: '/auth/confirm',
+        headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }],
+      },
     ];
   },
 };
