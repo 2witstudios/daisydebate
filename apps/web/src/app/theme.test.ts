@@ -29,7 +29,7 @@ describe('Tailwind theme (ADR 0028)', () => {
       given: 'default Tailwind utilities that Daisy tokens do not define',
       should: 'emit no rule for any of them',
       actual: [
-        'red-500',
+        'bg-red-500',
         'p-7',
         'text-4xl',
         'rounded-2xl',

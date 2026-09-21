@@ -4,6 +4,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { OnlineUsers } from './online-users';
 import { createInitialState } from '../../store/state';
 import { setUiState } from '../../store/store';
+import { iconButtonClass } from '../../components/icon-button/icon-button-class';
 
 setupRitewayBun();
 
@@ -45,6 +46,22 @@ describe('OnlineUsers', () => {
         (user) => !html.includes(`aria-label="Challenge ${user.name}"`),
       ),
       expected: [],
+    });
+  });
+
+  test('reveals each challenge button with its row', () => {
+    setUiState(seed);
+    const html = renderToString(h(OnlineUsers));
+    assert({
+      given: 'the seeded roster',
+      should:
+        'style every challenge button with the reveal tone and nothing that overrides it',
+      actual: [
+        ...html.matchAll(
+          /<button[^>]* class="([^"]*)"[^>]*aria-label="Challenge /g,
+        ),
+      ].filter((match) => match[1] !== iconButtonClass('reveal')).length,
+      expected: 0,
     });
   });
 });

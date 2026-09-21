@@ -2,6 +2,7 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import nextVitals from 'eslint-config-next/core-web-vitals';
 import betterTailwind from 'eslint-plugin-better-tailwindcss';
+import { getDefaultSelectors } from 'eslint-plugin-better-tailwindcss/defaults';
 
 export default [
   {
@@ -75,7 +76,7 @@ export default [
   // conflicting and duplicate classes fail here; exceptions go through
   // policy/exceptions.json.
   {
-    files: ['apps/web/**/*.tsx'],
+    files: ['apps/web/**/*.tsx', 'apps/web/**/*-class.ts'],
     plugins: { 'better-tailwindcss': betterTailwind },
     settings: {
       'better-tailwindcss': {
@@ -108,6 +109,25 @@ export default [
           ],
         },
       ],
+    },
+  },
+  // Variant class modules hold nothing but class strings, under whatever
+  // variable names read best (`base`, `tones`, `sizes`), so every string and
+  // object value in them is checked, not only the default `className` names.
+  {
+    files: ['apps/web/**/*-class.ts'],
+    settings: {
+      'better-tailwindcss': {
+        entryPoint: 'apps/web/src/app/globals.css',
+        selectors: [
+          ...getDefaultSelectors(),
+          {
+            kind: 'variable',
+            name: '.*',
+            match: [{ type: 'strings' }, { type: 'objectValues' }],
+          },
+        ],
+      },
     },
   },
   {

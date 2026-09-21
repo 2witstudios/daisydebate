@@ -41,7 +41,7 @@ export function OnlineUsers() {
             <IconButton
               name="swords"
               label={`Challenge ${user.name}`}
-              className="opacity-75 transition duration-120 ease-standard group-hover:text-accent group-hover:opacity-100"
+              tone="reveal"
             />
           </li>
         ))}

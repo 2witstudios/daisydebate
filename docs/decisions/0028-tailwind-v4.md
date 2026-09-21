@@ -49,7 +49,9 @@ costs:
    - `eslint-plugin-better-tailwindcss` (`no-unknown-classes`,
      `no-conflicting-classes`, `no-duplicate-classes`,
      `no-restricted-classes` for arbitrary values/properties and `dark:`),
-     pointed at `globals.css` as its entry point.
+     pointed at `globals.css` as its entry point. It checks markup and the
+     variant class modules (`*-class.ts`), where every string and object
+     value is a class list whatever its variable name.
    - `prettier-plugin-tailwindcss` sorts classes; `format:check` fails on an
      unsorted list.
    - `scripts/check-styling.ts` fails on any `*.module.css` or

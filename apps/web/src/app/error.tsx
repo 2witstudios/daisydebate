@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from '../ui/components/button/button';
 import { prose } from './ui/prose-class';
 
 export default function ErrorBoundary({
@@ -16,9 +17,7 @@ export default function ErrorBoundary({
         This failure was recorded with correlation identifier{' '}
         {error.digest ?? 'unknown'}.
       </p>
-      <button type="button" onClick={reset}>
-        Try again
-      </button>
+      <Button onClick={reset}>Try again</Button>
     </section>
   );
 }

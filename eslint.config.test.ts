@@ -109,4 +109,31 @@ describe('token-locked Tailwind lint rules (ADR 0028)', () => {
       ],
     });
   });
+
+  test('checks the class strings in variant class modules', async () => {
+    const eslint = new ESLint({
+      cwd: process.cwd(),
+      overrideConfigFile: './eslint.config.mjs',
+    });
+    const [result] = await eslint.lintText(
+      [
+        "const base = 'w-[10px] flex';",
+        "const tones = { quiet: 'bg-surfce', loud: 'dark:bg-surface' } as const;",
+        'export const probeClass = (tone: keyof typeof tones): string =>',
+        '  `${base} ${tones[tone]}`;',
+      ].join('\n'),
+      { filePath: 'apps/web/src/ui/components/probe/probe-class.ts' },
+    );
+    assert({
+      given:
+        'an arbitrary value, a misspelled token and a dark: variant held in a class module',
+      should: 'report each one, whatever the variable is named',
+      actual: result.messages.map(({ ruleId }) => ruleId),
+      expected: [
+        'better-tailwindcss/no-restricted-classes',
+        'better-tailwindcss/no-unknown-classes',
+        'better-tailwindcss/no-restricted-classes',
+      ],
+    });
+  });
 });
