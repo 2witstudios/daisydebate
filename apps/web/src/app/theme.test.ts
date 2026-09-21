@@ -28,8 +28,8 @@ describe('Tailwind theme (ADR 0028)', () => {
       actual: [
         'red-500',
         'p-7',
-        'text-lg',
-        'rounded-md',
+        'text-4xl',
+        'rounded-2xl',
         'shadow-md',
         'sm\\:p-4',
         'font-sans',
