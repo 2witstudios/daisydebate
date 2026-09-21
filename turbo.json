@@ -20,6 +20,7 @@
     "PORT",
     "E2E_PORT",
     "E2E_REDIS_PORT",
+    "PW_WS_ENDPOINT",
     "DAISY_STACK_NAME",
     "DAISY_PG_PORT",
     "DAISY_REDIS_PORT"
