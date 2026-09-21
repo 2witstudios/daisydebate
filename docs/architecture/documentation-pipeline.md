@@ -39,9 +39,9 @@ creation workflow.
    a conversation that never appears means the request never landed; one still
    unanswered at the deadline is reported as a failure, though the run may
    finish late and still rewrite its reserved row. Each consult waits up to
-   20 minutes and all of them share a 42-minute budget, inside the 45-minute
-   CI job, so the step fails and the incident posts before the job is
-   cancelled.
+   20 minutes and all of them share a 42-minute budget counted from the start
+   of the 45-minute CI job (the job's first step records when it ends), so
+   the step fails and the incident posts before the job is cancelled.
    Any refusal or failure posts to the incidents channel so a lost event is
    loud, not silent.
    Fork PR merges cannot carry secrets, so they post a skip notice instead and

@@ -45,6 +45,7 @@ export type ConsultOptions = {
   readonly nonce?: () => string;
   readonly timeoutMs?: number;
   readonly budgetMs?: number;
+  readonly budgetEndsAt?: number;
   readonly requestTimeoutMs?: number;
   readonly pipelines?: readonly string[];
   readonly attempt?: number;
@@ -169,11 +170,44 @@ function replayPipelines(
   return routed.filter((pipeline) => named.includes(pipeline));
 }
 
+// CI records when the job's share of time runs out (DOC_BUDGET_ENDS_AT, epoch
+// seconds) in the job's first step, because the job timeout starts before
+// checkout and setup do. Anchoring to it keeps the incidents step reachable
+// however long preparation took.
+function jobBudgetEnd(): number {
+  const raw = process.env.DOC_BUDGET_ENDS_AT;
+  if (raw === undefined || raw === '') return Number.POSITIVE_INFINITY;
+  const seconds = Number(raw);
+  if (!Number.isInteger(seconds) || seconds <= 0)
+    throw new Error(
+      'DOC_BUDGET_ENDS_AT must be a positive integer (epoch seconds)',
+    );
+  return seconds * 1000;
+}
+
 function replayAttempt(value: number | undefined): number {
   const attempt = value ?? Number(process.env.DOC_REPLAY_ATTEMPT ?? 0);
   if (!Number.isInteger(attempt) || attempt < 0)
     throw new Error('DOC_REPLAY_ATTEMPT must be a non-negative integer');
   return attempt;
+}
+
+function resolveOptions(options: ConsultOptions) {
+  return {
+    agentId: options.agentId ?? documentationLocation().agentPageId,
+    fetchImpl: options.fetchImpl ?? fetch,
+    nonce: options.nonce ?? (() => randomBytes(16).toString('hex')),
+    timeoutMs: options.timeoutMs ?? DEFAULT_WAIT_MS,
+    budgetEnd: Math.min(
+      Date.now() + (options.budgetMs ?? DEFAULT_BUDGET_MS),
+      options.budgetEndsAt ?? jobBudgetEnd(),
+    ),
+    pollIntervalMs: options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS,
+    requestTimeoutMs: options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS,
+    delay:
+      options.delay ??
+      ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))),
+  };
 }
 
 // One consult per routed pipeline, one at a time, each its own conversation
@@ -189,26 +223,25 @@ export async function dispatchDocumentationEvent(
 ): Promise<readonly ConsultOutcome[]> {
   const { apiUrl, headers } = pagespaceApi(options);
   const endpoint = new URL('/api/ai/page-agents/consult', apiUrl).toString();
-  const agentId = options.agentId ?? documentationLocation().agentPageId;
-  const fetchImpl = options.fetchImpl ?? fetch;
-  const nonce = options.nonce ?? (() => randomBytes(16).toString('hex'));
-  const timeoutMs = options.timeoutMs ?? DEFAULT_WAIT_MS;
-  const budgetEnd = Date.now() + (options.budgetMs ?? DEFAULT_BUDGET_MS);
+  const {
+    agentId,
+    fetchImpl,
+    nonce,
+    timeoutMs,
+    budgetEnd,
+    pollIntervalMs,
+    requestTimeoutMs,
+    delay,
+  } = resolveOptions(options);
   const attempt = replayAttempt(options.attempt);
   const pipelines = replayPipelines(
     options.pipelines,
     event.classification.pipelines,
   );
-  const pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
-  const delay =
-    options.delay ??
-    ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
 
   // Every PageSpace request is bounded, not only the consult: a call PageSpace
   // accepts and never answers must not outlive the budget, or the CI job is
   // cancelled before its incidents step runs.
-  const requestTimeoutMs =
-    options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
   const until = (end: number, cap = Number.POSITIVE_INFINITY): AbortSignal =>
     AbortSignal.timeout(Math.max(1, Math.min(cap, end - Date.now())));
 

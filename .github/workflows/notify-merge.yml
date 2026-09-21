@@ -46,6 +46,8 @@ jobs:
       github.event.pull_request.merged == true &&
       github.event.pull_request.head.repo.fork == false
     steps:
+      - name: Start the dispatch budget with the job
+        run: echo "DOC_BUDGET_ENDS_AT=$(( $(date +%s) + 42 * 60 ))" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0

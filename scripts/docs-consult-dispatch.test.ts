@@ -134,6 +134,55 @@ describe('dispatchDocumentationEvent', async () => {
     });
   });
 
+  test('ends the budget no later than the job-anchored deadline', async () => {
+    const { counts, fetchImpl } = routedFetch({ consult: async () => ok() });
+    let message = 'no throw';
+    try {
+      await dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
+        ...baseOptions,
+        fetchImpl,
+        budgetEndsAt: Date.now() - 1,
+      });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    assert({
+      given: 'a CI job whose share of time is already spent before dispatch',
+      should: 'send nothing, leaving the job time to report the incident',
+      actual: {
+        consults: counts.consult,
+        unsent: message.includes(
+          'technical-docs was not sent: the dispatch budget ran out',
+        ),
+      },
+      expected: { consults: 0, unsent: true },
+    });
+  });
+
+  test('refuses a malformed job deadline instead of ignoring it', async () => {
+    const previous = process.env.DOC_BUDGET_ENDS_AT;
+    process.env.DOC_BUDGET_ENDS_AT = 'soon';
+    let message = 'no throw';
+    try {
+      await dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
+        ...baseOptions,
+        fetchImpl: routedFetch({ consult: async () => ok() }).fetchImpl,
+      });
+    } catch (error) {
+      message = (error as Error).message;
+    } finally {
+      if (previous === undefined) delete process.env.DOC_BUDGET_ENDS_AT;
+      else process.env.DOC_BUDGET_ENDS_AT = previous;
+    }
+    assert({
+      given: 'DOC_BUDGET_ENDS_AT that is not epoch seconds',
+      should:
+        'throw, since an unusable deadline would silently drop the safety margin',
+      actual: message,
+      expected: 'DOC_BUDGET_ENDS_AT must be a positive integer (epoch seconds)',
+    });
+  });
+
   test('still consults the remaining pipelines after one fails', async () => {
     let calls = 0;
     const { counts, fetchImpl } = routedFetch({

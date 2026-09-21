@@ -32,17 +32,27 @@ describe('DOCUMENTATION_PROMPTS', async () => {
     });
   });
 
-  test('forbids the agent closing or rescoping existing tasks', async () => {
+  test('lets the agent keep its tasks current but never grant Done or rescope', async () => {
+    const all = (pattern: RegExp) =>
+      DOCUMENT_PIPELINES.every((pipeline) =>
+        pattern.test(DOCUMENTATION_PROMPTS[pipeline]),
+      );
     assert({
       given: 'any registered prompt',
       should:
-        'let the agent create review tasks but never change an existing task, since Done comes from an independent review',
-      actual: DOCUMENT_PIPELINES.every((pipeline) =>
-        /never change the status, criteria or scope of an existing task/i.test(
-          DOCUMENTATION_PROMPTS[pipeline],
-        ),
-      ),
-      expected: true,
+        'allow keeping worked tasks current, and forbid marking Done or editing criteria or scope',
+      actual: {
+        keepsCurrent: all(/keep tasks you are working on current/i),
+        noDone: all(/never mark a task Done/i),
+        noRescope: all(/never change any task's criteria or scope/i),
+        noBlanketBan: all(/never change the status/i),
+      },
+      expected: {
+        keepsCurrent: true,
+        noDone: true,
+        noRescope: true,
+        noBlanketBan: false,
+      },
     });
   });
 });
