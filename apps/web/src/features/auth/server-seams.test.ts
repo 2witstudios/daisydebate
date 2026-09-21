@@ -144,6 +144,44 @@ describe('auth server injected seams', () => {
     });
   });
 
+  test('a synchronously throwing limiter fails closed', async () => {
+    const { requestLink, sent, tables, logged } = compose({
+      limiter: {
+        consume: () => {
+          throw new Error(`invalid limiter key for ${email}`);
+        },
+      },
+    });
+    const outcome = await requestLink();
+    assert({
+      given: 'a limiter that throws before returning a promise',
+      should: 'converge on the same safe 503 denial as a rejected promise',
+      actual: {
+        outcome,
+        sent: sent.length,
+        verifications: tables.verification.length,
+        events: logged.map(([event, fields]) => [event, fields]),
+        leaks: logsLeakSecrets(logged, [email, 'invalid limiter key']),
+      },
+      expected: {
+        outcome: 'SERVICE_UNAVAILABLE',
+        sent: 0,
+        verifications: 0,
+        events: [
+          [
+            'http.request.failed',
+            {
+              operation: 'auth.rate_limit',
+              path: '/sign-in/magic-link',
+              errorCode: 'INFRASTRUCTURE',
+            },
+          ],
+        ],
+        leaks: false,
+      },
+    });
+  });
+
   test('throttles the HTTP handler through the same limiter', async () => {
     const { server } = compose({
       limiter: {

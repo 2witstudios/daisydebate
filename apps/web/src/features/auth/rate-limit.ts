@@ -71,10 +71,17 @@ export const createRateLimitGate = (dependencies: {
       `auth:client:${client ?? 'unknown'}:${path}`,
       ...recipientKeys(path, context.body),
     ];
-    for (const key of keys) {
-      const decision = await dependencies.limiter.consume(key).catch(() => {
+    // Invoked inside try/await so a limiter that throws synchronously and one
+    // that rejects converge on the same fail-closed 503.
+    const consume = async (key: string) => {
+      try {
+        return await dependencies.limiter.consume(key);
+      } catch {
         throw denial(dependencies.logger, path, 'INFRASTRUCTURE');
-      });
+      }
+    };
+    for (const key of keys) {
+      const decision = await consume(key);
       if (!decision.allowed)
         throw denial(
           dependencies.logger,
