@@ -74,8 +74,8 @@ export const debateRow = (record: {
   record.resolution,
   record.format,
   record.snapshot,
-  record.createdAt,
-  record.updatedAt,
+  new Date(record.createdAt),
+  new Date(record.updatedAt),
   record.version,
 ];
 
