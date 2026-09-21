@@ -26,8 +26,8 @@
   z-index: -1;
   background: linear-gradient(
     to top,
-    rgba(6, 10, 8, 0.88) 30%,
-    rgba(6, 10, 8, 0.25) 75%
+    color-mix(in srgb, var(--scrim) 88%, transparent) 30%,
+    color-mix(in srgb, var(--scrim) 25%, transparent) 75%
   );
 }
 

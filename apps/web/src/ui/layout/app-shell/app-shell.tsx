@@ -2,7 +2,6 @@ import type { ReactNode } from 'react';
 import { Sidebar } from './components/sidebar/sidebar';
 import { Topbar } from './components/topbar/topbar';
 import { RightRail } from './components/right-rail/right-rail';
-import { ThemeEffect } from '../../theme-effect';
 import styles from './app-shell.module.css';
 
 export type AppShellProps = {
@@ -21,7 +20,6 @@ export type AppShellProps = {
 export function AppShell({ children, rail }: AppShellProps) {
   return (
     <div className={styles.shell}>
-      <ThemeEffect />
       <div className={styles.sidebar}>
         <Sidebar />
       </div>

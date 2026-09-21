@@ -5,8 +5,9 @@ Status: accepted. Originally filed as a second "ADR 0017", colliding with
 to 0024 with no change to the decision. `bun policy` now rejects duplicate ADR
 numbers.
 
-The home dashboard shell needs client-side UI state (theme, search, active
-navigation, mock content). We attempted to organize it on the Adobe ECS
+The home dashboard shell needs client-side UI state (search, active
+navigation, mock content). The theme was here at first and moved to a
+request-scoped provider in [ADR 0027](0027-theme-preference.md). We attempted to organize it on the Adobe ECS
 runtime in the browser (`@adobe/data@0.10.19` + `@adobe/data-react@0.10.19`
 in `apps/web`), extending ADR 0006's boundary. That attempt is **rejected on
 evidence**: `@adobe/data/ecs` compiles archetype insert factories with
@@ -26,7 +27,7 @@ Decision:
 2. The web shell state lives in an in-house, eval-free store
    (`apps/web/src/ui/store/`): immutable `UiState` snapshots, pure
    transaction functions grouped into plugin-style modules
-   (`theme-plugin.ts`, `shell-plugin.ts`), deterministic seeding from
+   (`shell-plugin.ts`), deterministic seeding from
    `src/ui/mock/`, and a `useSyncExternalStore` hook with server snapshots —
    server HTML renders the full state (no hydration gaps).
 3. The organizational model is retained: `types → plugins → components`

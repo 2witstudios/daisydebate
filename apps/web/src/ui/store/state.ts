@@ -32,7 +32,6 @@ type ActivityRow = {
 };
 
 type UiResources = {
-  readonly themeColor: 'dark' | 'light';
   readonly searchQuery: string;
   readonly notificationsCount: number;
   readonly viewer: Viewer;
@@ -55,7 +54,6 @@ export type UiState = {
 /** Deterministic seed from the mock fixtures (the future wiring swap point). */
 export const createInitialState = (): UiState => ({
   resources: {
-    themeColor: 'dark',
     searchQuery: '',
     notificationsCount: 1,
     viewer,

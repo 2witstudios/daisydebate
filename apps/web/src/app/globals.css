@@ -1,54 +1,77 @@
-/* Design tokens — Daisy green. Dark is the default (data-theme='dark');
-   light is an explicit override via data-theme='light'. The store owns the
-   active theme (see theme-effect.tsx); <html> ships data-theme='dark'. */
+/* Design tokens — Daisy green. Each color token is written once as
+   light-dark(<light>, <dark>) and resolves through color-scheme, which
+   <html data-theme> selects (ADR 0027):
+     dark   → dark only (the default when no preference is saved)
+     light  → light only
+     system → light dark, following prefers-color-scheme live, no JS.
+   The server renders data-theme from the viewer's cookie; the theme
+   provider rewrites it on a switch. Every color token must use
+   light-dark() (globals-css.test.ts), so no mode is ever left unset. */
 :root,
 :root[data-theme='dark'] {
   color-scheme: dark;
+}
 
-  /* Surfaces — near-black green with warm undertones. */
-  --background: #0a0e0c;
-  --surface: #111814;
-  --surface-raised: #18211b;
-  --surface-overlay: #1f2a23;
-  --surface-sunken: #060907;
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+:root[data-theme='system'] {
+  color-scheme: light dark;
+}
+
+:root {
+  /* Surfaces — near-black green with warm undertones in dark. */
+  --background: light-dark(#f2f5f2, #0a0e0c);
+  --surface: light-dark(#fbfdfb, #111814);
+  --surface-raised: light-dark(#ffffff, #18211b);
+  --surface-overlay: light-dark(#e9efe9, #1f2a23);
+  --surface-sunken: light-dark(#e3eae4, #060907);
   /* Deep tournament-green for the product's stage moments. */
-  --surface-emerald: #16281f;
+  --surface-emerald: light-dark(#e2f1e7, #16281f);
 
   /* Borders */
-  --border: #26332b;
-  --border-strong: #3a4c40;
+  --border: light-dark(#d8e2d9, #26332b);
+  --border-strong: light-dark(#bccfc2, #3a4c40);
 
   /* Text — slightly warm, three quiet steps. */
-  --text: #f4f8f3;
-  --text-muted: #a3b3a6;
-  --text-faint: #6f7f73;
+  --text: light-dark(#17211b, #f4f8f3);
+  --text-muted: light-dark(#5b6d61, #a3b3a6);
+  --text-faint: light-dark(#86968c, #6f7f73);
+  /* Neutral line-art glyphs (action tiles). */
+  --glyph: light-dark(#33453a, #dde7de);
 
   /* Accent — Daisy green */
-  --accent: #3ecf7a;
-  --accent-strong: #2fb968;
-  --accent-soft: rgba(62, 207, 122, 0.12);
-  --accent-text: #052b16;
+  --accent: light-dark(#178a45, #3ecf7a);
+  --accent-strong: light-dark(#116b36, #2fb968);
+  --accent-soft: light-dark(rgba(23, 138, 69, 0.1), rgba(62, 207, 122, 0.12));
+  --accent-text: light-dark(#ffffff, #052b16);
 
   /* Semantic status */
-  --online: #3ecf7a;
-  --live: #e5484d;
-  --live-soft: rgba(229, 72, 77, 0.14);
+  --online: light-dark(#178a45, #3ecf7a);
+  --live: light-dark(#d33d42, #e5484d);
+  --live-soft: light-dark(rgba(211, 61, 66, 0.1), rgba(229, 72, 77, 0.14));
+  /* Ink on a solid --live fill (notification counts). */
+  --text-on-live: light-dark(#ffffff, #ffffff);
   /* Trophy gold — muted brass, reserved for events and honors. */
-  --gold: #c9a35c;
-  --gold-soft: rgba(201, 163, 92, 0.12);
-  --gold-border: rgba(201, 163, 92, 0.35);
-  --tier-diamond: #7fc0ef;
+  --gold: light-dark(#9a7a35, #c9a35c);
+  --gold-soft: light-dark(rgba(154, 122, 53, 0.12), rgba(201, 163, 92, 0.12));
+  --gold-border: light-dark(rgba(154, 122, 53, 0.4), rgba(201, 163, 92, 0.35));
+  --tier-diamond: light-dark(#2f7fd1, #7fc0ef);
 
   /* Ink over dark-graded photography (scrims guarantee contrast). */
-  --text-on-media: #f6faf5;
+  /* Photo scrim ink: the same in both schemes on purpose, because the
+     photography is always dark-graded. Fade it with color-mix(). */
+  --scrim: light-dark(#060a08, #060a08);
+  --text-on-media: light-dark(#ffffff, #f6faf5);
 
   /* Feedback */
   --focus-ring: 0 0 0 2px var(--background), 0 0 0 4px var(--accent);
 
-  /* Elevation — nearly flat; surfaces separate through tone. */
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --shadow-2: 0 2px 12px rgba(0, 0, 0, 0.35);
-  --shadow-3: 0 12px 40px rgba(0, 0, 0, 0.5);
+  /* Elevation — nearly flat in dark; surfaces separate through tone. */
+  --shadow-1: 0 1px 2px light-dark(rgba(20, 32, 26, 0.08), rgba(0, 0, 0, 0.35));
+  --shadow-2: 0 2px 12px light-dark(rgba(20, 32, 26, 0.1), rgba(0, 0, 0, 0.35));
+  --shadow-3: 0 12px 40px light-dark(rgba(20, 32, 26, 0.14), rgba(0, 0, 0, 0.5));
 
   /* Spacing scale (4px base) */
   --space-1: 4px;
@@ -91,44 +114,6 @@
   --sidebar-width: 232px;
   --rail-width: 316px;
   --topbar-height: 60px;
-}
-
-:root[data-theme='light'] {
-  color-scheme: light;
-
-  --background: #f2f5f2;
-  --surface: #fbfdfb;
-  --surface-raised: #ffffff;
-  --surface-overlay: #e9efe9;
-  --surface-sunken: #e3eae4;
-
-  --border: #d8e2d9;
-  --border-strong: #bccfc2;
-
-  --text: #17211b;
-  --text-muted: #5b6d61;
-  --text-faint: #86968c;
-
-  --accent: #178a45;
-  --accent-strong: #116b36;
-  --accent-soft: rgba(23, 138, 69, 0.1);
-  --accent-text: #ffffff;
-
-  --online: #178a45;
-  --live: #d33d42;
-  --live-soft: rgba(211, 61, 66, 0.1);
-  --gold: #9a7a35;
-  --gold-soft: rgba(154, 122, 53, 0.12);
-  --gold-border: rgba(154, 122, 53, 0.4);
-  --tier-diamond: #2f7fd1;
-
-  --text-on-media: #ffffff;
-
-  --focus-ring: 0 0 0 2px var(--background), 0 0 0 4px var(--accent);
-
-  --shadow-1: 0 1px 2px rgba(20, 32, 26, 0.08);
-  --shadow-2: 0 4px 16px rgba(20, 32, 26, 0.1);
-  --shadow-3: 0 12px 40px rgba(20, 32, 26, 0.14);
 }
 
 * {
