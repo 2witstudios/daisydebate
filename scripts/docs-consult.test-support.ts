@@ -51,6 +51,8 @@ type Stub = {
   readonly appendBody?: unknown;
   /** Endpoints that accept the request and never answer until aborted. */
   readonly hang?: readonly ('reads' | 'append')[];
+  /** Conversation reads answer after this long (still abortable). */
+  readonly readDelayMs?: number;
 };
 
 const json = (value: unknown) =>
@@ -87,7 +89,14 @@ export const routedFetch = (stub: Stub) => {
     const sent = consulted.has(path.split('/').at(-2) ?? '');
     if (sent) counts.messages += 1;
     const roles = sent ? (stub.roles?.() ?? []) : (stub.existing ?? []);
-    return json({ messages: roles.map((role) => ({ role })) });
+    const answer = json({ messages: roles.map((role) => ({ role })) });
+    if (!stub.readDelayMs) return answer;
+    return new Promise<Response>((resolve, reject) => {
+      init?.signal?.addEventListener('abort', () =>
+        reject(new DOMException('aborted', 'AbortError')),
+      );
+      setTimeout(() => resolve(answer), stub.readDelayMs);
+    });
   };
   const fetchImpl = (async (url: unknown, init?: RequestInit) => {
     const path = new URL(String(url)).pathname;

@@ -278,14 +278,16 @@ export async function dispatchDocumentationEvent(
   };
 
   // Once the question has been seen, an unreadable conversation is a blip, not
-  // proof the request vanished; before that, one grace read decides.
+  // proof the request vanished; before that, one grace read decides. Polling
+  // stops at the consult's deadline, but each read is bounded by the budget,
+  // so the read after a consult times out still has time to answer.
   const awaitAnswer = async (
     conversationId: string,
     deadline: number,
   ): Promise<'answered' | 'pending' | 'absent'> => {
     let seenQuestion = false;
     for (let reads = 0; ; reads += 1) {
-      const state = await readConversation(conversationId, deadline);
+      const state = await readConversation(conversationId, budgetEnd);
       if (state === 'answered') return 'answered';
       if (state === 'pending') seenQuestion = true;
       if (!seenQuestion && reads >= 1) return 'absent';
@@ -370,7 +372,13 @@ export async function dispatchDocumentationEvent(
     if ((await readConversation(conversationId, budgetEnd)) !== 'absent')
       return { pipeline, conversationId, outcome: 'already-dispatched' };
     const runRow = await reserveRunRow(pipeline, conversationId);
-    const deadline = Math.min(Date.now() + timeoutMs, budgetEnd);
+    // The consult stops one request-timeout before the budget, reserving a
+    // window to read the conversation afterwards: a read given only what was
+    // left of the deadline would report a slow run as never having arrived.
+    const deadline = Math.min(
+      Date.now() + timeoutMs,
+      budgetEnd - requestTimeoutMs,
+    );
     const waitSeconds = Math.round((deadline - Date.now()) / 1000);
     const settle = async (cause: string): Promise<ConsultOutcome> => {
       const state = await awaitAnswer(conversationId, deadline);
@@ -428,7 +436,9 @@ export async function dispatchDocumentationEvent(
   const outcomes: ConsultOutcome[] = [];
   const failures: string[] = [];
   for (const pipeline of pipelines) {
-    if (Date.now() >= budgetEnd) {
+    // Start a consult only while it would get time of its own beyond the
+    // settlement window; otherwise the question would be sent and abandoned.
+    if (Date.now() >= budgetEnd - requestTimeoutMs) {
       failures.push(
         `Documentation Agent consult for ${pipeline} was not sent: the dispatch budget ran out; re-run the dispatch to reach it`,
       );

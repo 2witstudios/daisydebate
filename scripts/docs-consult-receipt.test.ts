@@ -172,22 +172,30 @@ describe('dispatchDocumentationEvent receipt', async () => {
     });
   });
 
-  test('bounds the pre-check read by the dispatch budget', async () => {
+  test('starts nothing when the budget is shorter than the settlement window', async () => {
     const stub = routedFetch({ consult: async () => ok(), hang: ['reads'] });
-    const outcomes = await dispatchDocumentationEvent(
-      mergeEvent('fix: only technical'),
-      {
+    let message = 'no throw';
+    try {
+      await dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
         ...baseOptions,
         fetchImpl: stub.fetchImpl,
         timeoutMs: 20,
         budgetMs: 20,
-      },
-    );
+      });
+    } catch (error) {
+      message = (error as Error).message;
+    }
     assert({
-      given: 'a conversation lookup that is accepted and never answered',
-      should: 'stop waiting at the budget and carry on to the consult',
-      actual: outcomes.map((outcome) => outcome.outcome),
-      expected: ['dispatched'],
+      given: 'a budget too short for a consult plus the read that settles it',
+      should: 'send no question and reserve no row, and say the budget ran out',
+      actual: {
+        consults: stub.counts.consult,
+        appends: stub.counts.appends,
+        unsent: message.includes(
+          'technical-docs was not sent: the dispatch budget ran out',
+        ),
+      },
+      expected: { consults: 0, appends: 0, unsent: true },
     });
   });
 

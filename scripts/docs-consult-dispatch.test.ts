@@ -224,8 +224,9 @@ describe('dispatchDocumentationEvent', async () => {
         ...baseOptions,
         ...instant,
         fetchImpl,
-        timeoutMs: 5,
-        budgetMs: 5,
+        timeoutMs: 200,
+        budgetMs: 100,
+        requestTimeoutMs: 30,
       });
     } catch (error) {
       message = (error as Error).message;

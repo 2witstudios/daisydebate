@@ -176,4 +176,23 @@ describe('dispatchDocumentationEvent settlement', async () => {
       expected: true,
     });
   });
+
+  test('leaves time to read the conversation after a consult times out', async () => {
+    const { fetchImpl } = routedFetch({
+      consult: hangUntilAborted,
+      roles: () => ['user', 'assistant'],
+      readDelayMs: 20,
+    });
+    const outcomes = await dispatchDocumentationEvent(
+      mergeEvent('fix: only technical'),
+      { ...baseOptions, ...instant, fetchImpl, timeoutMs: 5 },
+    );
+    assert({
+      given: 'a consult aborted at its deadline whose run has in fact answered',
+      should:
+        'still read the conversation and report dispatched, not "never reached"',
+      actual: outcomes.map((outcome) => outcome.outcome),
+      expected: ['dispatched'],
+    });
+  });
 });

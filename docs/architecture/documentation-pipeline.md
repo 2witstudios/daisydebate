@@ -41,7 +41,10 @@ creation workflow.
    finish late and still rewrite its reserved row. Each consult waits up to
    20 minutes and all of them share a 42-minute budget counted from the start
    of the 45-minute CI job (the job's first step records when it ends), so
-   the step fails and the incident posts before the job is cancelled.
+   the step fails and the incident posts before the job is cancelled. Each
+   consult stops 30 seconds before the budget does, reserving time to read its
+   conversation, and a pipeline starts only while it would get time of its
+   own.
    Any refusal or failure posts to the incidents channel so a lost event is
    loud, not silent.
    Fork PR merges cannot carry secrets, so they post a skip notice instead and
