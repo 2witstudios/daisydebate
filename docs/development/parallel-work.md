@@ -36,6 +36,9 @@ PageSpace's lesson: branch debris accumulates faster than agents clean it
 - Worktree agents never write the task board directly. The session that
   owns the checkout (the orchestrator) claims leaves, advances statuses,
   and posts updates; subagents report back through their prompt channel.
+  Artifact pages are different: every agent publishes its own handoff or
+  review record in the drive's `Plans`/`Reviews` folders, because those are
+  the record a reviewer reads. `/tmp` and agent-local notes are scratch.
 - Deviating from a task's acceptance criteria is allowed exactly one way:
   update the task body (or the plan) to describe the new approach
   **before** declaring the work done. Silent scope substitution is the
