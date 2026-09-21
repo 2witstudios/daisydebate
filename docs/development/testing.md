@@ -121,6 +121,11 @@ and orphan-checks them like any `*.test.ts` suite.
   (`<name>.render.test.tsx`), including callbacks, which can be invoked
   straight off the returned element's props. `nav-item` and `search-input`
   are the examples. Do not split components that render fine as-is.
+- **Effect extraction.** `useEffect` never runs under `react-dom/server`, so
+  a component whose only work is an effect keeps a thin shell and moves the
+  write into a pure function that takes its DOM target as a parameter; the
+  test passes a plain recording object. `theme-effect.tsx` and
+  `apply-theme.ts` are the example.
 
 ## Test file naming
 
