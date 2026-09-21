@@ -167,15 +167,52 @@ each pipeline's consult is addressed by an id derived from that key, and
 PageSpace refuses a taken id with 409 rather than running the agent again.
 
 1. Re-run the failed workflow from the Actions tab, or run
-   `bun docs:dispatch` locally with the same environment the workflow sets
-   (`DOC_*` variables from the merge or release, plus `PAGESPACE_TOKEN`).
-   Pipelines that already ran report `already-dispatched`.
+   `bun docs:dispatch` locally with the same `DOC_*` variables from the
+   merge or release, plus `PAGESPACE_TOKEN`, but without
+   `DOC_BUDGET_ENDS_AT`: that is the job's absolute deadline, already past
+   once the job has ended, and without it the budget counts from when the
+   local dispatch starts. Pipelines that already ran report
+   `already-dispatched`.
 2. If a pipeline reports `already-dispatched` but `bun docs:reconcile` still
-   lists it as uncovered, its earlier run was cut off before writing a run
-   record and still holds its id. Replay it with `DOC_REPLAY_ATTEMPT=1` (then
+   lists it as uncovered, its earlier run holds its id without having
+   written a run record: it was cut off, or it is still going. If the
+   failure dispatch reported for it says the consult failed in PageSpace,
+   that run has ended: replay at once. Otherwise wait until that run's
+   conversation has an answer or an hour after the failure dispatch reported
+   for it (90 minutes after its dispatch if none was reported, which covers
+   the 20-minute consult window). Replay with `DOC_REPLAY_ATTEMPT=1` (then
    `2`, …), which addresses a fresh conversation, and set `DOC_PIPELINES` to
-   just the uncovered pipelines (comma-separated) so the healthy ones are not
-   run again. A name the event does not route to is rejected.
+   just the uncovered pipelines (comma-separated) so the healthy ones are
+   not run again. A name the event does not route to is rejected.
+   A dispatch failure names the replay to use, and its receipt row when one
+   was reserved; it also lists the pipelines that did settle, with their
+   conversations, so an `already-dispatched` one beside it falls under the
+   step above. A row that is no longer failed (complete or partial) is a
+   receipt, so its pipeline needs no replay. A consult that failed in
+   PageSpace (the route itself answered with its own error) has ended,
+   whether or not its conversation could then be read: replay it with the
+   next attempt at once if its row is still failed, since a run can record
+   its receipt before its answer is lost. Any other consult that did not
+   answer in time, or whose conversation could not be read after a gateway
+   error or dropped connection, may still be running: PageSpace sets no time
+   limit on a run, and its row stays failed until it ends. If the row is no
+   longer failed, nothing is lost; otherwise replay with the next attempt
+   once the named conversation has an answer or an hour after the failure,
+   whichever comes first (PageSpace caps a consult run at 20 tool steps, and
+   the longest seen took about 25 minutes). Replaying sooner can start a
+   second run beside a live one; never replaying can strand a dead one. A
+   consult left unsent, because the budget ran out (before or after its row
+   was reserved) or reserving its row failed, was never sent, so its id is
+   unused: replay it with the same attempt. A consult that never reached
+   PageSpace (successful reads found no conversation) also gives the same
+   attempt, since its id was almost certainly never used; but PageSpace
+   claims an id before it saves the question, so if that replay reports
+   `already-dispatched` while `bun docs:reconcile` still lists the pipeline,
+   the request landed late: replay with the next attempt once the
+   conversation named in the failure has an answer or an hour after the
+   failure, whichever comes first. A 4xx refusal other than 409 came before
+   any run started: fix its cause (an expired token, a rate limit, a
+   malformed input), then replay with the same attempt.
 3. If a merged fork PR skipped the event (fork runs carry no secrets), run the
    same dispatch from a trusted checkout and delete the skip notice in
    incidents after it succeeds.

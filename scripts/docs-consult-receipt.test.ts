@@ -3,6 +3,7 @@ import { setupRitewayBun, assert } from 'riteway/bun';
 import { conversationIdFor, dispatchDocumentationEvent } from './docs-consult';
 import {
   baseOptions,
+  failureOf,
   mergeEvent,
   ok,
   routedFetch,
@@ -130,45 +131,54 @@ describe('dispatchDocumentationEvent receipt', async () => {
       } catch (error) {
         message = (error as Error).message;
       }
-      return { consults: stub.counts.consult, message };
+      return {
+        consults: stub.counts.consult,
+        unsent: message.startsWith(
+          'Documentation Agent consult for technical-docs was not sent',
+        ),
+        rowIndex: message.includes(
+          'Reserving the technical-docs run record returned no usable row index',
+        ),
+      };
     };
-    const refused = {
-      consults: 0,
-      message:
-        'Reserving the technical-docs run record returned no usable row index',
-    };
+    const refused = { consults: 0, unsent: true, rowIndex: true };
     const missing = await outcomesFor({ appended: 1 });
     const asText = await outcomesFor({ firstRowIndex: '6' });
     assert({
       given: 'an append answer with the row index missing, or as text',
       should:
         'throw before consulting, rather than point the agent at the wrong row',
-      actual: {
-        missing: { ...missing, message: missing.message.split(':')[0] },
-        asText: { ...asText, message: asText.message.split(':')[0] },
-      },
+      actual: { missing, asText },
       expected: { missing: refused, asText: refused },
     });
   });
 
-  test('bounds the reservation by the dispatch budget', async () => {
+  test('bounds a hung reservation by its request cap', async () => {
     const stub = routedFetch({ consult: async () => ok(), hang: ['append'] });
-    let threw = false;
-    try {
-      await dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
+    const started = Date.now();
+    const message = await failureOf(
+      dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
         ...baseOptions,
         fetchImpl: stub.fetchImpl,
-        timeoutMs: 20,
-        budgetMs: 20,
-      });
-    } catch {
-      threw = true;
-    }
+        requestTimeoutMs: 50,
+      }),
+    );
     assert({
       given: 'a Runs-sheet append that is accepted and never answered',
-      should: 'give up at the budget instead of outliving the CI job',
-      actual: { threw, consults: stub.counts.consult },
-      expected: { threw: true, consults: 0 },
+      should:
+        'attempt the append, give up at its cap, and send no consult, instead of outliving the CI job',
+      actual: {
+        appends: stub.counts.appends,
+        consults: stub.counts.consult,
+        reservationFailed: message.includes('reserving its receipt failed'),
+        bounded: Date.now() - started < 2_000,
+      },
+      expected: {
+        appends: 1,
+        consults: 0,
+        reservationFailed: true,
+        bounded: true,
+      },
     });
   });
 
@@ -194,8 +204,11 @@ describe('dispatchDocumentationEvent receipt', async () => {
         unsent: message.includes(
           'technical-docs was not sent: the dispatch budget ran out',
         ),
+        replay: message.includes(
+          'no row was reserved; replay with DOC_REPLAY_ATTEMPT=0 DOC_PIPELINES=technical-docs',
+        ),
       },
-      expected: { consults: 0, appends: 0, unsent: true },
+      expected: { consults: 0, appends: 0, unsent: true, replay: true },
     });
   });
 
@@ -215,6 +228,70 @@ describe('dispatchDocumentationEvent receipt', async () => {
       should: 'give up on the lookup at its own cap, then still consult',
       actual: outcomes.map((outcome) => outcome.outcome),
       expected: ['dispatched'],
+    });
+  });
+
+  test('does not send a consult the reservation left no time for', async () => {
+    const { counts, fetchImpl } = routedFetch({
+      consult: async () => ok(),
+      appendDelayMs: 1_000,
+    });
+    // Real timers with wide margins: the loop's start guard has 500ms to
+    // pass, and the append then outlasts the consult window by 500ms.
+    const message = await failureOf(
+      dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
+        ...baseOptions,
+        fetchImpl,
+        budgetMs: 2_000,
+        requestTimeoutMs: 1_500,
+        attempt: 2,
+      }),
+    );
+    assert({
+      given:
+        'a budget whose consult window closes while the receipt row is reserved',
+      should:
+        'leave the consult unsent and name its row and a targeted replay under the same id',
+      actual: {
+        consults: counts.consult,
+        unsent: message.includes(
+          'technical-docs was not sent: the dispatch budget ran out',
+        ),
+        row: message.includes('row 2 of Documentation Runs'),
+        replay: message.includes(
+          'DOC_REPLAY_ATTEMPT=2 DOC_PIPELINES=technical-docs',
+        ),
+      },
+      expected: { consults: 0, unsent: true, row: true, replay: true },
+    });
+  });
+
+  test('names the pipeline and a replay when the reservation fails', async () => {
+    const { counts, fetchImpl } = routedFetch({
+      consult: async () => ok(),
+      hang: ['append'],
+    });
+    const message = await failureOf(
+      dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
+        ...baseOptions,
+        fetchImpl,
+        requestTimeoutMs: 50,
+      }),
+    );
+    assert({
+      given: 'a Runs-sheet append that times out at its request cap',
+      should:
+        'send nothing, and name the pipeline and a same-attempt replay rather than a bare timeout',
+      actual: {
+        consults: counts.consult,
+        pipeline: message.startsWith(
+          'Documentation Agent consult for technical-docs was not sent: reserving its receipt failed',
+        ),
+        replay: message.endsWith(
+          'replay with DOC_REPLAY_ATTEMPT=0 DOC_PIPELINES=technical-docs',
+        ),
+      },
+      expected: { consults: 0, pipeline: true, replay: true },
     });
   });
 });

@@ -7,7 +7,7 @@ import {
 } from './docs-pipeline';
 import { assessEventText } from './docs-contracts';
 import { DOCUMENTATION_PROMPT_VERSION } from './docs-prompts';
-import { dispatchDocumentationEvent } from './docs-consult';
+import { describeOutcomes, dispatchDocumentationEvent } from './docs-consult';
 import { extractTaskIds } from './notify-drive';
 
 const required = (name: string): string => {
@@ -62,11 +62,6 @@ if (event.classification.pipelines.length === 0) {
 } else {
   const outcomes = await dispatchDocumentationEvent(event);
   process.stdout.write(
-    `Documentation Agent consulted (text risk: ${assessed.textRisk}): ${outcomes
-      .map(
-        ({ pipeline, conversationId, outcome }) =>
-          `${pipeline} → ${conversationId} (${outcome})`,
-      )
-      .join(', ')}\n`,
+    `Documentation Agent consulted (text risk: ${assessed.textRisk}): ${describeOutcomes(outcomes)}\n`,
   );
 }

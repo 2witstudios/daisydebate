@@ -1,4 +1,10 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash } from 'node:crypto';
+import {
+  type ConsultOptions,
+  replayAttempt,
+  replayPipelines,
+  resolveOptions,
+} from './docs-consult-options';
 import { FINDING_SEVERITIES, RUN_RECORD_STATUSES } from './docs-contracts';
 import type { DocumentationEvent, DocumentPipeline } from './docs-pipeline';
 import { DOCUMENTATION_PROMPT_VERSION, promptFor } from './docs-prompts';
@@ -10,26 +16,8 @@ import {
 import {
   DOCUMENTATION_RUNS_SHEET_ID,
   DOCUMENTATION_TARGET_PAGES,
-  documentationLocation,
   pagespaceApi,
 } from './pagespace-docs';
-
-// The consult route answers only when the run finishes, and a run takes
-// minutes. The answer can still be lost on its way back (a dropped connection,
-// a gateway 5xx), so the socket is not the receipt, the conversation is: the
-// route persists the question before the run and the answer after it. Under
-// load, two consults in flight at once were both cut off and a run took 16
-// minutes, so pipelines are consulted one at a time: each waits up to
-// DEFAULT_WAIT_MS, all share DEFAULT_BUDGET_MS, and the budget ends inside the
-// 45-minute CI job so an expired budget fails the step, and posts the
-// incident, before the job is cancelled. No answer by then means unknown, not
-// dead: a late run still rewrites its reserved row.
-const DEFAULT_WAIT_MS = 20 * 60_000;
-const DEFAULT_BUDGET_MS = 42 * 60_000;
-const DEFAULT_POLL_INTERVAL_MS = 15_000;
-// Lookups and reservations answer in milliseconds; only the consult runs for
-// minutes. Capping each one keeps a hung call from spending the whole budget.
-const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 
 export type ConsultOutcome = {
   readonly pipeline: DocumentPipeline;
@@ -37,21 +25,15 @@ export type ConsultOutcome = {
   readonly outcome: 'dispatched' | 'already-dispatched';
 };
 
-export type ConsultOptions = {
-  readonly token?: string;
-  readonly apiUrl?: string;
-  readonly agentId?: string;
-  readonly fetchImpl?: typeof fetch;
-  readonly nonce?: () => string;
-  readonly timeoutMs?: number;
-  readonly budgetMs?: number;
-  readonly budgetEndsAt?: number;
-  readonly requestTimeoutMs?: number;
-  readonly pipelines?: readonly string[];
-  readonly attempt?: number;
-  readonly pollIntervalMs?: number;
-  readonly delay?: (ms: number) => Promise<void>;
-};
+// One entry per settled pipeline, naming its conversation, so an operator can
+// check an already-dispatched run's answer before replaying it.
+export const describeOutcomes = (outcomes: readonly ConsultOutcome[]) =>
+  outcomes
+    .map(
+      ({ pipeline, conversationId, outcome }) =>
+        `${pipeline} → ${conversationId} (${outcome})`,
+    )
+    .join(', ');
 
 // PageSpace refuses a caller-minted newConversationId that already exists
 // with 409, so deriving it from the event turns a replay into a refusal
@@ -137,9 +119,23 @@ export function classifyConsultResponse(
 ): ConsultOutcome['outcome'] {
   if (status >= 200 && status < 300) return 'dispatched';
   if (status === 409) return 'already-dispatched';
-  throw new Error(
-    `Documentation Agent consult for ${pipeline} responded ${status}: ${rawBody}`,
-  );
+  throw new Error(`${consultFor(pipeline)} responded ${status}: ${rawBody}`);
+}
+
+// The consult route reports its own failure as a JSON { error } body, and it
+// answers only once its run has ended, so that failure is final. A gateway's
+// 5xx (Caddy's empty 502, an HTML error page) is not: it can front a run that
+// is still going. Returns the route's message, or undefined for anything else.
+function routeFailure(response: Response, body: string): string | undefined {
+  if (response.status < 500) return undefined;
+  const type = response.headers.get('content-type') ?? '';
+  if (!type.includes('application/json')) return undefined;
+  try {
+    const { error } = JSON.parse(body) as { error?: unknown };
+    return typeof error === 'string' ? error : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 // Runtimes differ on how an expired signal surfaces: AbortError or TimeoutError.
@@ -148,67 +144,16 @@ const isAbort = (error: unknown): boolean => {
   return name === 'AbortError' || name === 'TimeoutError';
 };
 
-// A replay targets only the pipelines that need it, so recovering one dead run
-// never re-runs a healthy one under a fresh id. A name the event does not
-// route to is a mistake, not an empty replay.
-function replayPipelines(
-  value: readonly string[] | undefined,
-  routed: readonly DocumentPipeline[],
-): readonly DocumentPipeline[] {
-  const named =
-    value ??
-    (process.env.DOC_PIPELINES ?? '')
-      .split(',')
-      .map((name) => name.trim())
-      .filter(Boolean);
-  if (named.length === 0) return routed;
-  for (const name of named)
-    if (!routed.includes(name as DocumentPipeline))
-      throw new Error(
-        `DOC_PIPELINES names ${name}, which this event does not route to (${routed.join(', ')})`,
-      );
-  return routed.filter((pipeline) => named.includes(pipeline));
-}
+const messageOf = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
 
-// CI records when the job's share of time runs out (DOC_BUDGET_ENDS_AT, epoch
-// seconds) in the job's first step, because the job timeout starts before
-// checkout and setup do. Anchoring to it keeps the incidents step reachable
-// however long preparation took.
-function jobBudgetEnd(): number {
-  const raw = process.env.DOC_BUDGET_ENDS_AT;
-  if (raw === undefined || raw === '') return Number.POSITIVE_INFINITY;
-  const seconds = Number(raw);
-  if (!Number.isInteger(seconds) || seconds <= 0)
-    throw new Error(
-      'DOC_BUDGET_ENDS_AT must be a positive integer (epoch seconds)',
-    );
-  return seconds * 1000;
-}
+// Every dispatch failure opens with its pipeline and ends with its replay.
+const consultFor = (pipeline: DocumentPipeline): string =>
+  `Documentation Agent consult for ${pipeline}`;
+const replayWith = (pipeline: DocumentPipeline, attempt: number): string =>
+  `DOC_REPLAY_ATTEMPT=${attempt} DOC_PIPELINES=${pipeline}`;
 
-function replayAttempt(value: number | undefined): number {
-  const attempt = value ?? Number(process.env.DOC_REPLAY_ATTEMPT ?? 0);
-  if (!Number.isInteger(attempt) || attempt < 0)
-    throw new Error('DOC_REPLAY_ATTEMPT must be a non-negative integer');
-  return attempt;
-}
-
-function resolveOptions(options: ConsultOptions) {
-  return {
-    agentId: options.agentId ?? documentationLocation().agentPageId,
-    fetchImpl: options.fetchImpl ?? fetch,
-    nonce: options.nonce ?? (() => randomBytes(16).toString('hex')),
-    timeoutMs: options.timeoutMs ?? DEFAULT_WAIT_MS,
-    budgetEnd: Math.min(
-      Date.now() + (options.budgetMs ?? DEFAULT_BUDGET_MS),
-      options.budgetEndsAt ?? jobBudgetEnd(),
-    ),
-    pollIntervalMs: options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS,
-    requestTimeoutMs: options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS,
-    delay:
-      options.delay ??
-      ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))),
-  };
-}
+type ConversationState = 'answered' | 'pending' | 'absent' | 'unreadable';
 
 // One consult per routed pipeline, one at a time, each its own conversation
 // and receipt,
@@ -245,12 +190,12 @@ export async function dispatchDocumentationEvent(
   const until = (end: number, cap = Number.POSITIVE_INFINITY): AbortSignal =>
     AbortSignal.timeout(Math.max(1, Math.min(cap, end - Date.now())));
 
-  // 'absent' covers both "no such conversation" and an unreadable one: before
-  // the question has been seen, neither proves the request landed.
+  // 'absent' is a successful read that found no conversation; 'unreadable' is
+  // a read that failed, which proves nothing either way.
   const readConversation = async (
     conversationId: string,
     end: number,
-  ): Promise<'answered' | 'pending' | 'absent'> => {
+  ): Promise<ConversationState> => {
     try {
       const response = await fetchImpl(
         new URL(
@@ -264,7 +209,7 @@ export async function dispatchDocumentationEvent(
           signal: until(end, requestTimeoutMs),
         },
       );
-      if (!response.ok) return 'absent';
+      if (!response.ok) return 'unreadable';
       const { messages } = (await response.json()) as {
         messages?: readonly { role?: string }[];
       };
@@ -273,25 +218,29 @@ export async function dispatchDocumentationEvent(
         ? 'answered'
         : 'pending';
     } catch {
-      return 'absent';
+      return 'unreadable';
     }
   };
 
-  // Once the question has been seen, an unreadable conversation is a blip, not
-  // proof the request vanished; before that, one grace read decides. Polling
-  // stops at the consult's deadline, but each read is bounded by the budget,
-  // so the read after a consult times out still has time to answer.
+  // Two successful reads that find no conversation end the wait as 'absent'
+  // (the first is a grace read), as does one at the deadline. A failed
+  // read proves nothing either way, so polling goes on to the deadline and
+  // reports 'unreadable' only then, when the full wait has really passed.
+  // Polling stops at the consult's deadline, but each read is bounded by the
+  // budget, so the read after a consult times out still has time to answer.
   const awaitAnswer = async (
     conversationId: string,
     deadline: number,
-  ): Promise<'answered' | 'pending' | 'absent'> => {
+  ): Promise<ConversationState> => {
     let seenQuestion = false;
-    for (let reads = 0; ; reads += 1) {
+    let emptyReads = 0;
+    for (;;) {
       const state = await readConversation(conversationId, budgetEnd);
       if (state === 'answered') return 'answered';
       if (state === 'pending') seenQuestion = true;
-      if (!seenQuestion && reads >= 1) return 'absent';
-      if (Date.now() >= deadline) return seenQuestion ? 'pending' : 'absent';
+      if (state === 'absent') emptyReads += 1;
+      if (!seenQuestion && emptyReads >= 2) return 'absent';
+      if (Date.now() >= deadline) return seenQuestion ? 'pending' : state;
       // Never sleep past the deadline: the next read, bounded by the budget,
       // then still ends inside it.
       await delay(Math.min(pollIntervalMs, deadline - Date.now()));
@@ -357,6 +306,45 @@ export async function dispatchDocumentationEvent(
     return (firstRowIndex as number) + 1;
   };
 
+  // Sends the consult and reads its whole answer. A connection dropped
+  // before the status arrived is settled by the conversation. Once a status
+  // below 500 has arrived it is definitive on its own, so a body lost after it
+  // is ignored; a 5xx whose body is lost is settled like a dropped connection.
+  const send = async (
+    question: string,
+    conversationId: string,
+    deadline: number,
+    waitSeconds: number,
+  ): Promise<{ response: Response; body: string } | { cause: string }> => {
+    const causeOf = (error: unknown) =>
+      isAbort(error) ? `no answer within ${waitSeconds}s` : messageOf(error);
+    let response: Response;
+    try {
+      response = await fetchImpl(endpoint, {
+        method: 'POST',
+        redirect: 'error',
+        signal: until(deadline),
+        headers,
+        body: JSON.stringify({
+          agentId,
+          question,
+          newConversationId: conversationId,
+        }),
+      });
+    } catch (error) {
+      return { cause: causeOf(error) };
+    }
+    try {
+      return { response, body: await response.text() };
+    } catch (error) {
+      return response.status < 500
+        ? { response, body: `(body lost: ${causeOf(error)})` }
+        : {
+            cause: `responded ${response.status}; body lost: ${causeOf(error)}`,
+          };
+    }
+  };
+
   const consult = async (
     pipeline: DocumentPipeline,
   ): Promise<ConsultOutcome> => {
@@ -367,13 +355,26 @@ export async function dispatchDocumentationEvent(
     );
     // A conversation that already exists was dispatched before (a re-run of
     // the workflow): report it without reserving a row or running the agent.
-    // A lookup that fails reads as absent, so a transient failure (or a race
-    // between identical dispatches) can still reach the consult; PageSpace
-    // then refuses the id with 409 and the extra reserved row stays failed,
-    // which the reconciler never counts as a receipt.
-    if ((await readConversation(conversationId, budgetEnd)) !== 'absent')
+    // A lookup that fails (unreadable) or finds nothing falls through to the
+    // consult, so a transient failure (or a race between identical
+    // dispatches) can still reach it; PageSpace then refuses the id with 409
+    // and the extra reserved row stays failed, which the reconciler never
+    // counts as a receipt.
+    const existing = await readConversation(conversationId, budgetEnd);
+    if (existing === 'answered' || existing === 'pending')
       return { pipeline, conversationId, outcome: 'already-dispatched' };
-    const runRow = await reserveRunRow(pipeline, conversationId);
+    // A failed reservation sent nothing, so the same attempt replays it; an
+    // append that landed before its answer was lost leaves a failed row the
+    // reconciler never counts.
+    const runRow = await reserveRunRow(pipeline, conversationId).catch(
+      (error: unknown) => {
+        throw new Error(
+          `${consultFor(pipeline)} was not sent: reserving its receipt failed (${messageOf(error)}). Any row it did reserve stays failed; replay with ${replayWith(pipeline, attempt)}`,
+          { cause: error },
+        );
+      },
+    );
+    const receipt = `row ${runRow} of Documentation Runs`;
     // The consult stops one request-timeout before the budget, reserving a
     // window to read the conversation afterwards: a read given only what was
     // left of the deadline would report a slow run as never having arrived.
@@ -381,58 +382,92 @@ export async function dispatchDocumentationEvent(
       Date.now() + timeoutMs,
       budgetEnd - requestTimeoutMs,
     );
-    const waitSeconds = Math.round((deadline - Date.now()) / 1000);
-    const settle = async (cause: string): Promise<ConsultOutcome> => {
-      const state = await awaitAnswer(conversationId, deadline);
-      if (state === 'answered')
-        return { pipeline, conversationId, outcome: 'dispatched' };
-      if (state === 'absent')
-        throw new Error(
-          `Documentation Agent consult for ${pipeline} never reached PageSpace: ${cause}`,
-        );
+    // The pre-check and the reservation spend time of their own, so the
+    // window is checked again here: a question sent with none left would be
+    // abandoned at once. Nothing was sent, so the same id replays it.
+    if (deadline <= Date.now())
       throw new Error(
-        `Documentation Agent consult for ${pipeline} did not answer within ${waitSeconds}s (${cause}). The run may still finish: its receipt is row ${runRow} of Documentation Runs. If that row turns complete, nothing is lost; if it stays failed, replay with DOC_REPLAY_ATTEMPT=${attempt + 1} DOC_PIPELINES=${pipeline}`,
+        `${consultFor(pipeline)} was not sent: the dispatch budget ran out after reserving its receipt, ${receipt}, which stays failed; replay with ${replayWith(pipeline, attempt)}`,
       );
-    };
-    let response: Response;
-    try {
-      response = await fetchImpl(endpoint, {
-        method: 'POST',
-        redirect: 'error',
-        signal: until(deadline),
-        headers,
-        body: JSON.stringify({
-          agentId,
-          question: composeConsultQuestion({
-            event,
-            pipeline,
-            conversationId,
-            runRow,
-            nonce: nonce(),
-          }),
-          newConversationId: conversationId,
-        }),
-      });
-    } catch (error) {
-      return settle(
-        isAbort(error)
-          ? `no answer within ${waitSeconds}s`
-          : error instanceof Error
-            ? error.message
-            : String(error),
-      );
-    }
-    const body = await response.text();
-    // A 5xx can come from a gateway in front of a run that is still going: a
-    // live 502 arrived after 36s with the question already persisted. So it is
-    // settled like a dropped connection; a 4xx refusal is definitive.
-    if (response.status >= 500)
-      return settle(`responded ${response.status}${body ? `: ${body}` : ''}`);
-    return {
+    const waitSeconds = Math.round((deadline - Date.now()) / 1000);
+    const replay = replayWith(pipeline, attempt + 1);
+    // Nothing tells a live run from a dead one, and a live run's row stays
+    // failed until it ends. PageSpace caps a consult run at 20 tool steps and
+    // the longest seen took about 25 minutes, so an hour bounds the wait: a
+    // replay held until the conversation answers or that hour passes can
+    // neither run beside a live run nor strand a dead one.
+    const lateReplay = `replay with ${replay} once conversation ${conversationId} has an answer or an hour after this failure, whichever comes first; replaying sooner can start a second run beside a live one`;
+    const answered = {
       pipeline,
       conversationId,
-      outcome: classifyConsultResponse(pipeline, response.status, body),
+      outcome: 'dispatched',
+    } as const;
+    const settle = async (cause: string): Promise<ConsultOutcome> => {
+      const state = await awaitAnswer(conversationId, deadline);
+      if (state === 'answered') return answered;
+      // Two successful empty reads mean the id was almost certainly never
+      // used, so the same attempt replays it. PageSpace claims the id before
+      // it saves the question, though, so a 409 on that replay proves only
+      // that the conversation exists; the message says what to do then.
+      if (state === 'absent')
+        throw new Error(
+          `${consultFor(pipeline)} never reached PageSpace (${cause}). Its receipt, ${receipt}, stays failed unless the request lands late; replay with ${replayWith(pipeline, attempt)}. If that replay reports already-dispatched while bun docs:reconcile still lists it, the request landed late: ${lateReplay}`,
+        );
+      throw new Error(
+        `${consultFor(pipeline)} did not answer within ${waitSeconds}s (${cause}). The run may still be going: its receipt is ${receipt}. If the row is no longer failed (complete or partial), nothing is lost. Otherwise ${lateReplay}`,
+      );
     };
+    const sent = await send(
+      composeConsultQuestion({
+        event,
+        pipeline,
+        conversationId,
+        runRow,
+        nonce: nonce(),
+      }),
+      conversationId,
+      deadline,
+      waitSeconds,
+    );
+    if ('cause' in sent) return settle(sent.cause);
+    const { response, body } = sent;
+    // The route answers only once it has stopped, so its own failure is
+    // final: a read finds an answer saved before the failure, and polling for
+    // more would only spend the deadline other pipelines need. An empty or
+    // unreadable conversation may be a blip, so it earns one more read.
+    const reported = routeFailure(response, body);
+    if (reported !== undefined) {
+      let state = await readConversation(conversationId, budgetEnd);
+      if (state === 'absent' || state === 'unreadable') {
+        await delay(
+          Math.min(pollIntervalMs, Math.max(0, deadline - Date.now())),
+        );
+        state = await readConversation(conversationId, budgetEnd);
+      }
+      if (state === 'answered') return answered;
+      throw new Error(
+        `${consultFor(pipeline)} failed in PageSpace (responded ${response.status}: ${reported}) and ${state === 'unreadable' ? 'its conversation could not be read' : 'its conversation holds no answer'}. The run may have recorded its receipt before failing: if ${receipt} is no longer failed (complete or partial), nothing is lost; otherwise replay with ${replay}`,
+      );
+    }
+    // Any other 5xx can come from a gateway in front of a run that is still
+    // going: a live 502 arrived after 36s with the question already
+    // persisted. So it is settled like a dropped connection; a 4xx refusal is
+    // definitive, and it comes before any run starts, so once its cause is
+    // fixed the same attempt replays it.
+    if (response.status >= 500)
+      return settle(`responded ${response.status}${body ? `: ${body}` : ''}`);
+    try {
+      return {
+        pipeline,
+        conversationId,
+        outcome: classifyConsultResponse(pipeline, response.status, body),
+      };
+    } catch (error) {
+      throw new Error(
+        `${messageOf(error)}. PageSpace refused it before any run started, and its receipt, ${receipt}, stays failed: fix the cause (token, rate limit, input), then replay with ${replayWith(pipeline, attempt)}`,
+        { cause: error },
+      );
+    }
   };
 
   const outcomes: ConsultOutcome[] = [];
@@ -442,16 +477,26 @@ export async function dispatchDocumentationEvent(
     // settlement window; otherwise the question would be sent and abandoned.
     if (Date.now() >= budgetEnd - requestTimeoutMs) {
       failures.push(
-        `Documentation Agent consult for ${pipeline} was not sent: the dispatch budget ran out; re-run the dispatch to reach it`,
+        `${consultFor(pipeline)} was not sent: the dispatch budget ran out and no row was reserved; replay with ${replayWith(pipeline, attempt)}`,
       );
       continue;
     }
     try {
       outcomes.push(await consult(pipeline));
     } catch (error) {
-      failures.push(error instanceof Error ? error.message : String(error));
+      failures.push(messageOf(error));
     }
   }
-  if (failures.length > 0) throw new Error(failures.join('\n'));
+  // The pipelines that did settle are reported too: without them an
+  // already-dispatched pipeline beside a failure would go unmentioned.
+  if (failures.length > 0)
+    throw new Error(
+      [
+        ...failures,
+        ...(outcomes.length > 0
+          ? [`Other pipelines: ${describeOutcomes(outcomes)}`]
+          : []),
+      ].join('\n'),
+    );
   return outcomes;
 }
