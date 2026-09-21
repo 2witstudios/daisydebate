@@ -4,7 +4,7 @@ import { useSyncExternalStore } from 'react';
 import { createInitialState, type UiState } from './state';
 
 /**
- * Eval-free UI shell store (ADR 0017): immutable snapshots, pure
+ * Eval-free UI shell store (ADR 0024): immutable snapshots, pure
  * transactions, and the platform external-store contract. SSR renders the
  * full snapshot through getServerSnapshot.
  */
