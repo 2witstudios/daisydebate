@@ -15,6 +15,7 @@ type RecordedCommand = { command: string; args: string[] };
 function fakeRedis(values: Map<string, string> = new Map()) {
   const commands: RecordedCommand[] = [];
   let closed = false;
+  let scriptedEval: unknown = [1, 60000];
   const client = {
     async connect() {
       if (closed) throw new Error('client closed');
@@ -26,6 +27,7 @@ function fakeRedis(values: Map<string, string> = new Map()) {
     async send(command: string, args: string[]) {
       commands.push({ command, args });
       if (command === 'SET') values.set(args[0] ?? '', args[1] ?? '');
+      if (command === 'EVAL') return scriptedEval;
       return 'OK';
     },
     async get(key: string) {
@@ -42,6 +44,9 @@ function fakeRedis(values: Map<string, string> = new Map()) {
   };
   return {
     client: client as never,
+    scriptEval: (value: unknown) => {
+      scriptedEval = value;
+    },
     commands,
     values: () => values,
     isClosed: () => closed,
@@ -194,6 +199,99 @@ describe('redis adapter failures', () => {
           event: 'redis.command.failed',
           fields: { operation: 'get' },
           message: 'Redis command failed',
+        },
+      ],
+    });
+  });
+});
+
+describe('redis atomic rate limit', () => {
+  test('issues one namespaced EVAL with hashed-safe key, window and max', async () => {
+    const { redis, commands } = createTestRedis();
+    const decision = await redis.consumeRateLimit('a1b2c3', {
+      windowSeconds: 60,
+      max: 3,
+    });
+    const evals = commands.filter(({ command }) => command === 'EVAL');
+    assert({
+      given: 'one rate-limit consume',
+      should: 'run exactly one Lua EVAL against one namespaced expiring key',
+      actual: {
+        count: evals.length,
+        keyCount: evals[0]?.args[1],
+        key: evals[0]?.args[2],
+        windowMs: evals[0]?.args[3],
+        max: evals[0]?.args[4],
+        allowed: decision.allowed,
+      },
+      expected: {
+        count: 1,
+        keyCount: '1',
+        key: 'test:v1:rl:a1b2c3',
+        windowMs: '60000',
+        max: '3',
+        allowed: true,
+      },
+    });
+  });
+
+  test('maps a rejected script result to retry seconds rounded up', async () => {
+    const { redis, scriptEval } = createTestRedis();
+    scriptEval([0, 1200]);
+    assert({
+      given: 'a script result that rejects with 1200ms of window left',
+      should: 'report a denied decision and a 2 second retry',
+      actual: await redis.consumeRateLimit('k1', {
+        windowSeconds: 60,
+        max: 3,
+      }),
+      expected: { allowed: false, retryAfterSeconds: 2 },
+    });
+  });
+
+  test('rejects invalid keys and rules before touching Redis', async () => {
+    const { redis, commands } = createTestRedis();
+    await expect(
+      redis.consumeRateLimit('bad key!', { windowSeconds: 60, max: 3 }),
+    ).rejects.toThrow();
+    await expect(
+      redis.consumeRateLimit('ok', { windowSeconds: 0, max: 3 }),
+    ).rejects.toThrow();
+    await expect(
+      redis.consumeRateLimit('ok', { windowSeconds: 60, max: 0 }),
+    ).rejects.toThrow();
+    assert({
+      given: 'invalid limiter input',
+      should: 'issue no Redis command',
+      actual: commands.length,
+      expected: 0,
+    });
+  });
+
+  test('propagates outage and reports it without swallowing', async () => {
+    const events: Array<{ event: string; fields: Record<string, unknown> }> =
+      [];
+    const redis = createRedis({
+      url: 'redis://127.0.0.1:1',
+      namespace: 'test',
+      eventSink: (event, fields) => events.push({ event, fields }),
+      client: {
+        async connect() {
+          throw new Error('offline');
+        },
+      } as never,
+    });
+    await expect(
+      redis.consumeRateLimit('ok', { windowSeconds: 60, max: 3 }),
+    ).rejects.toThrow('offline');
+    assert({
+      given: 'an unreachable Redis',
+      should: 'emit a failure event naming the operation',
+      actual: events,
+      expected: [
+        {
+          event: 'redis.command.failed',
+          fields: { operation: 'consumeRateLimit' },
         },
       ],
     });

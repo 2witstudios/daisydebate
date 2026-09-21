@@ -12,6 +12,14 @@ const redisUrl = z
     (value) => ['redis:', 'rediss:'].includes(new URL(value).protocol),
     'Expected Redis URL',
   );
+const requireHttpsOrigin = (url: string, ctx: z.RefinementCtx) => {
+  if (!url.startsWith('https:'))
+    ctx.addIssue({
+      code: 'custom',
+      path: ['PUBLIC_APP_URL'],
+      message: 'Production requires HTTPS',
+    });
+};
 export const serverConfigSchema = z
   .object({
     NODE_ENV: z
@@ -36,12 +44,7 @@ export const serverConfigSchema = z
   })
   .superRefine((config, ctx) => {
     if (config.NODE_ENV !== 'production') return;
-    if (!config.PUBLIC_APP_URL.startsWith('https:'))
-      ctx.addIssue({
-        code: 'custom',
-        path: ['PUBLIC_APP_URL'],
-        message: 'Production requires HTTPS',
-      });
+    requireHttpsOrigin(config.PUBLIC_APP_URL, ctx);
     if (config.APP_VERSION === 'development' || config.GIT_COMMIT === 'unknown')
       ctx.addIssue({
         code: 'custom',
@@ -125,6 +128,11 @@ export const authConfigSchema = z
           ),
         'Expected an email address or display name with an email address',
       ),
+    /** Resend (Svix) signing secret for delivery webhooks; required in production. */
+    RESEND_WEBHOOK_SECRET: z
+      .string()
+      .regex(/^whsec_[A-Za-z0-9+/=]{16,}$/)
+      .optional(),
     /**
      * Request headers believed to name the client address for rate-limit
      * keying. Set only to the header the deployment's own reverse proxy
@@ -139,11 +147,12 @@ export const authConfigSchema = z
   })
   .superRefine((config, ctx) => {
     if (config.NODE_ENV !== 'production') return;
-    if (!config.PUBLIC_APP_URL.startsWith('https:'))
+    requireHttpsOrigin(config.PUBLIC_APP_URL, ctx);
+    if (config.RESEND_WEBHOOK_SECRET === undefined)
       ctx.addIssue({
         code: 'custom',
-        path: ['PUBLIC_APP_URL'],
-        message: 'Production requires HTTPS',
+        path: ['RESEND_WEBHOOK_SECRET'],
+        message: 'Production requires the webhook signing secret',
       });
   })
   .transform(({ NODE_ENV: _nodeEnv, ...auth }) => auth);

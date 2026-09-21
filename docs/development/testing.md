@@ -90,6 +90,15 @@ not exist — PageSpace lost entire tiers this way. `bun evidence` (in
 - New domain behavior lands with engine tests first; new durable behavior
   lands with an integration test through the application operation, not by
   mocking the database.
+- Mounted-route auth suites (`apps/web/integration/auth-*.integration.ts`) drive
+  the real `/api/auth/[...all]`, `/auth/confirm` and `/api/webhooks/resend`
+  route modules against real PostgreSQL and Redis. Only the outbound mail
+  transport is replaced (a process-wide private mailbox that captures the
+  production Resend sender's HTTP call); tokens, users, sessions, limits and
+  cookies are all real. They share one `bun test` process, so each suite
+  rebuilds the process resources in `beforeAll`. Concurrency claims use real
+  simultaneous requests, and every safeguard has a sabotage control recorded in
+  the PR (remove it → the named test fails).
 - Auth work follows route gate → Principal resolution → authorization → atomic
   rate limit. A limiter outage must use the operation's documented safe failure
   behavior; tests must cover the outage path before route activation.

@@ -2,9 +2,22 @@ import { createHash } from 'node:crypto';
 import { APIError, createAuthMiddleware, getIP } from 'better-auth/api';
 import type { Logger } from '@daisy/logger';
 
+/** Fixed-window allowance the gate asks the limiter to enforce for one key. */
+type RateRule = {
+  readonly windowSeconds: number;
+  readonly max: number;
+};
+/** 100 requests per 60 seconds for every auth route ... */
+const DEFAULT_RULE: RateRule = { windowSeconds: 60, max: 100 };
+/** ... and 3 per 60 seconds for magic-link requests, per client and recipient. */
+const MAGIC_LINK_RULE: RateRule = { windowSeconds: 60, max: 3 };
+
 /** Atomic multi-instance limiter contract backed by @daisy/redis. */
 export type AuthRateLimiter = {
-  readonly consume: (key: string) => Promise<{
+  readonly consume: (
+    key: string,
+    rule: RateRule,
+  ) => Promise<{
     readonly allowed: boolean;
     readonly retryAfterSeconds: number;
   }>;
@@ -71,12 +84,19 @@ const magicLinkPath = '/sign-in/magic-link';
 const digest = (value: string) =>
   createHash('sha3-256').update(value).digest('hex');
 
-const recipientKeys = (path: string, body: unknown) => {
+type Bucket = { readonly key: string; readonly rule: RateRule };
+
+const recipientBuckets = (path: string, body: unknown): Bucket[] => {
   if (path !== magicLinkPath || typeof body !== 'object' || body === null)
     return [];
   const email: unknown = Reflect.get(body, 'email');
   return typeof email === 'string'
-    ? [`auth:magic-link:recipient:${digest(email.trim().toLowerCase())}`]
+    ? [
+        {
+          key: `auth:magic-link:recipient:${digest(email.trim().toLowerCase())}`,
+          rule: MAGIC_LINK_RULE,
+        },
+      ]
     : [];
 };
 
@@ -157,20 +177,23 @@ export const createRateLimitGate = (dependencies: {
         throw denial(dependencies.logger, path, 'INFRASTRUCTURE');
       }
     };
-    const keys = await failClosed(() => {
+    const buckets = await failClosed((): Bucket[] => {
       // Direct `auth.api.*` calls carry no Request, only forwarded Headers.
       const source = context.request ?? context.headers;
       const client = source
         ? resolveClient(source, context.context.options)
         : null;
       return [
-        `auth:client:${client ?? 'unknown'}:${path}`,
-        ...recipientKeys(path, context.body),
+        {
+          key: `auth:client:${client ?? 'unknown'}:${path}`,
+          rule: path === magicLinkPath ? MAGIC_LINK_RULE : DEFAULT_RULE,
+        },
+        ...recipientBuckets(path, context.body),
       ];
     });
-    for (const key of keys) {
+    for (const { key, rule } of buckets) {
       const decision = await failClosed(async () =>
-        readDecision(await dependencies.limiter.consume(key)),
+        readDecision(await dependencies.limiter.consume(key, rule)),
       );
       if (!decision.allowed)
         throw denial(
