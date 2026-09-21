@@ -39,15 +39,19 @@ A suite that nothing invokes is indistinguishable from a suite that does
 not exist — PageSpace lost entire tiers this way. `bun evidence` (in
 `bun check` and CI) is the live audit:
 
-- Every `*.test.ts` must sit in a claimed location: a package's `src/`
-  (`bun test src`), root `scripts/` (`bun test scripts`), or the root
-  eslint config test (`bun lint`). Anything else is an ORPHAN_SUITE.
+- Every `*.test.ts` and `*.test.tsx` must sit in a claimed location: a
+  workspace's `src/` (`bun test src`, the unit tier), root `scripts/`
+  (`bun test scripts`, the root-script tier), or the root eslint config
+  test (`bun lint`). Anything else is an ORPHAN_SUITE.
 - Every `integration/` suite must be named by its workspace's
   `test:integration` script and must **throw** when
   `TEST_DATABASE_URL`/`TEST_REDIS_URL` is missing — a guard that skips
   instead of failing is GUARD_MISSING.
 - Every `*.e2e.ts` is claimed by the Playwright config, and exactly one
   workflow runs `test:e2e`.
+- `*.integration.tsx` and `*.e2e.tsx` are recognized as suites but no
+  runner executes them (Playwright matches only `*.e2e.ts`; `bun test src`
+  does not glob `*.integration.tsx`), so they fail as ORPHAN_SUITE.
 - The `knip`, `policy`, `invariants`, `evidence`, and `migrations:check` gates must
   appear in `ci.yml`, so deleting a job breaks CI instead of silently
   retiring a gate.
