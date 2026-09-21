@@ -1,6 +1,6 @@
 {
   "path": ["."],
-  "pattern": "{apps/*/src,packages/*/src,scripts,scenarios}/**/*",
+  "pattern": "{apps/*/src,apps/*/integration,packages/*/src,packages/*/scripts,scripts,scenarios}/**/*",
   "format": ["typescript", "tsx", "javascript", "jsx", "css"],
   "minTokens": 50,
   "minLines": 5,

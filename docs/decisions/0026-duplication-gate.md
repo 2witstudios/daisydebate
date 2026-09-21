@@ -25,8 +25,17 @@ against the whole tree, and the scan is cheap enough to run on every push.
   Bun 1.4.2. It is a root devDependency and repository tooling only. The
   "no Rust" foundation rule governs first-party code, not vendored tool
   binaries.
-- **Scope** (`.jscpd.json`). First-party TypeScript, TSX, JavaScript and CSS
-  under `apps/*/src`, `packages/*/src`, `scripts` and `scenarios`. Ignored:
+- **Scope** (`.jscpd.json`). First-party TypeScript, TSX, JavaScript, JSX and
+  CSS under `apps/*/src`, `apps/*/integration`, `packages/*/src`,
+  `packages/*/scripts`, `scripts` and `scenarios`. The integration root is
+  scanned for its non-test helpers (`auth-helpers.ts`); the
+  `*.integration.ts` suites in it stay ignored like every other test. Root
+  and package config files (`eslint.config.mjs`, `next.config.ts`,
+  `playwright.config.ts`, `drizzle.config.ts`) are deliberately out of scope:
+  they are declarative, one per tool, and have nothing to consolidate into.
+  `scripts/duplication-config.test.ts` fails when any scan root stops matching
+  tracked, scannable, non-ignored source, because `failOnEmpty` only fires
+  when the whole scan is empty. Ignored:
   test suites and test support (`*.test.ts(x)`, `*.integration.ts`,
   `*.e2e.ts`, `*.test-support.ts`, `test-support/`), generated output
   (`.next`, `.turbo`, `node_modules`, migrations `meta/`), and the throwaway
@@ -53,7 +62,7 @@ are **not** in the baseline: they already delegate to one `RouteShell`
 component and differ only in literals, so the detector reports nothing for
 them. When real routes replace them they are scanned like any other source.
 
-### Baseline on adoption (12 clones, 115 lines, 1.13% of 10,168 lines)
+### Baseline on adoption (12 clones, 115 lines, 1.11% of 10,323 lines, 141 files)
 
 | Clone                                                              | Size                         | Follow-up                                                |
 | ------------------------------------------------------------------ | ---------------------------- | -------------------------------------------------------- |
@@ -73,6 +82,17 @@ them. When real routes replace them they are scanned like any other source.
   component, or data table into the owning module (a shared abstraction now
   has its two real consumers). Deleting a grandfathered clone should be
   followed by `bunx --bun jscpd --update-baseline` so the baseline shrinks.
+- Supply chain, stated plainly. jscpd 5.3.0 was published on 2026-09-18, two
+  days before adoption, and the 5.x line is a fresh Rust rewrite of a tool
+  whose 4.x line was JavaScript. It ships prebuilt per-platform binaries
+  through unscoped `optionalDependencies` (`jscpd-linux-x64-gnu` and
+  siblings) and has a single npm maintainer. Mitigations present: npm
+  provenance attestations on the release, no install scripts in the launcher
+  package, an exact version pin, and `bun.lock` integrity hashes for every
+  platform package. It is a devDependency that reads source and writes
+  nothing, and it never ships. Rollback if the owner prefers the older line:
+  pin the last 4.x JavaScript release (`4.3.0`) and re-verify the config keys
+  and baseline support against it before relying on the ratchet.
 - Known blind spot: jscpd does not match clones inside a file that fails to
   parse. `bun typecheck` and `bun lint` reject such files, so the gap cannot
   reach `main`.
