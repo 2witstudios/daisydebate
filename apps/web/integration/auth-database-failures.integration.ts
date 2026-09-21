@@ -1,7 +1,6 @@
 import { spyOn } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { isAppError } from '@daisy/errors';
 import { createDatabase } from '@daisy/db';
 import type { RecordedLogs } from '../src/features/auth/log-leaks';
 import {
@@ -45,14 +44,15 @@ test('delivery failure surfaces a safe retryable error and cleanup still leaves 
     assert({
       given: 'an email delivery failure during a magic-link request',
       should:
-        'surface a safe retryable infrastructure error without leaking the cause',
+        'surface a safe retryable 503 (EMAIL_DELIVERY_FAILED) without leaking the cause',
       actual: {
-        appError: isAppError(caught),
-        code: isAppError(caught) ? caught.code : undefined,
+        status: (caught as { statusCode?: number } | undefined)?.statusCode,
+        code: (caught as { body?: { code?: string } } | undefined)?.body?.code,
         leaks:
-          caught !== undefined && String(caught).includes('resend unavailable'),
+          caught !== undefined &&
+          JSON.stringify(caught).includes('resend unavailable'),
       },
-      expected: { appError: true, code: 'INFRASTRUCTURE', leaks: false },
+      expected: { status: 503, code: 'EMAIL_DELIVERY_FAILED', leaks: false },
     });
   } finally {
     await database.close();

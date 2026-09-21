@@ -41,7 +41,7 @@ jobs:
   documentation-event:
     name: Send structured documentation event
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 15
     if: >-
       github.event.pull_request.merged == true &&
       github.event.pull_request.head.repo.fork == false
@@ -67,8 +67,7 @@ jobs:
           DOC_MERGED_BY: ${{ github.event.sender.login }}
           DOC_BRANCH: ${{ github.event.pull_request.head.ref }}
           DOC_BODY: ${{ github.event.pull_request.body }}
-          PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL: ${{ secrets.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL }}
-          PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET: ${{ secrets.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET }}
+          PAGESPACE_TOKEN: ${{ secrets.PAGESPACE_TOKEN }}
         run: |
           DOC_CHANGED_FILES="$(git diff --name-only \
             "${{ github.event.pull_request.base.sha }}" \

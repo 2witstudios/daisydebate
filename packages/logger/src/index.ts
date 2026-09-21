@@ -11,6 +11,7 @@ const eventRegistry = {
   'auth.rate_limit.unavailable': 'error',
   'auth.mail.sent': 'info',
   'auth.mail.failed': 'error',
+  'auth.mail.receipt_failed': 'error',
   'db.query.failed': 'error',
   'redis.command.failed': 'error',
   'server.start': 'info',

@@ -22,11 +22,22 @@ creation workflow.
    a `!` bang or breaking/security keywords raise the change kind. A bug fix
    with no changed contract must not create documentation work.
 3. The local Bun CLI or CI invokes the PageSpace Documentation Agent in the
-   existing drive using the drive-scoped PageSpace CLI/SDK credential.
-   Delivery retries transient webhook failures (429/5xx, network errors) with
-   backoff; exhausted retries post to the incidents channel so a lost event
-   is loud, not silent. Fork PR merges cannot carry secrets, so they post a
-   skip notice instead and are replayed manually.
+   existing drive using the drive-scoped PageSpace credential
+   (`PAGESPACE_TOKEN`), through the agent consult route
+   (`scripts/docs-consult.ts`). Each routed pipeline is its own consult, its
+   own conversation, and its own run record. The question leads with that
+   pipeline's versioned prompt, pre-fills every run-record key from trusted CI
+   context, and carries the event last in a nonce-fenced block marked
+   untrusted. A consult runs an agent, so it is never retried in-process.
+   Dispatch waits for the run to answer, but the socket is not the receipt:
+   the route persists the question before the run and the answer after it,
+   and a connection can drop while the run still completes. On a transport
+   failure dispatch reads that conversation instead. An answer there is
+   success; a conversation that never appears means the request never landed;
+   one still unanswered at the deadline is a failure. Any refusal or failure
+   posts to the incidents channel so a lost event is loud, not silent.
+   Fork PR merges cannot carry secrets, so they post a skip notice instead and
+   are replayed manually.
 4. The agent lists the Documentation folder, finds the registered page, and
    creates a child page when no suitable page exists.
 5. The agent edits a review Canvas or review revision, not an unrelated page.
@@ -35,9 +46,14 @@ creation workflow.
    breaking and security changes additionally require recorded human
    sign-off.
 
-Replay is always safe: dispatch is idempotent by the event's
-`idempotencyKey` (`repository:commit:eventType`), so a failed workflow can be
-re-run or `bun docs:dispatch` invoked again locally without duplicating work.
+Replay is always safe. Each consult is addressed by a conversation id derived
+from the event's `idempotencyKey` (`repository:commit:eventType`) and the
+pipeline, and PageSpace refuses an already-taken id with 409, which dispatch
+reports as `already-dispatched`. A failed workflow can be re-run, or
+`bun docs:dispatch` invoked again locally, without running the agent twice.
+A run that was cut off still holds its id, so it is replayed under the next
+attempt's id with `DOC_REPLAY_ATTEMPT=1` (then `2`, …); the reconciler is what reveals
+such a run, as a pipeline with no run record.
 
 ## Data boundary
 
@@ -97,7 +113,8 @@ a page beyond what was already validated, and never publish.
 - PageSpace writes are idempotent by repository, commit, event type, and stable
   documentation key, and are guarded by the revision contract above.
 - The PageSpace token is server-only and never included in logs or Canvas
-  content. Webhooks are HTTPS-only and signed per payload.
+  content; it is only ever sent over HTTPS. Channel webhooks are HTTPS-only
+  and signed per payload.
 - AI agents must cite source paths and commits for technical claims;
   `bun docs:verify` rejects citations that do not resolve.
 - Published pages are not rewritten when source evidence conflicts; they are

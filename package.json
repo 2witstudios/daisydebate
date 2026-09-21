@@ -34,6 +34,7 @@
     "docs:prompt": "bun scripts/docs-prompt.ts",
     "docs:verify": "bun scripts/docs-verify.ts",
     "docs:location": "bun scripts/pagespace-docs.ts",
+    "docs:reconcile": "bun scripts/docs-reconcile.ts",
     "doctor": "bun --env-file=.env scripts/doctor.ts",
     "auth:provision": "bun scripts/provision-auth-env.ts",
     "verify": "bun --env-file=.env scripts/verify.ts",

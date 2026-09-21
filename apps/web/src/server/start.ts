@@ -1,6 +1,8 @@
 import { createServer } from 'node:http';
 import next from 'next';
 import { z } from 'zod';
+import { readAuthConfig } from '@daisy/config';
+import { createIngressListener } from './ingress';
 import { getResources, closeResources } from './resources';
 
 // Next 16 types NODE_ENV as read-only; the process supervisor sets it before launch.
@@ -11,6 +13,10 @@ if (process.env.NODE_ENV !== 'production')
     })`,
   );
 const resources = getResources();
+// Production must not boot without validated auth configuration (secret,
+// Resend sender/key, webhook secret, HTTPS origin); errors name fields only.
+const authConfig = readAuthConfig(process.env);
+const trustedProxies = authConfig.AUTH_TRUSTED_PROXIES ?? [];
 const port = z.coerce
   .number()
   .int()
@@ -20,21 +26,19 @@ const port = z.coerce
 const app = next({ dev: false, port });
 await app.prepare();
 const handle = app.getRequestHandler();
-const server = createServer((request, response) => {
-  if (resources.draining) {
-    response.writeHead(503);
-    response.end();
-    return;
-  }
-  void handle(request, response).catch(() => {
+const listen = createIngressListener({
+  isDraining: () => resources.draining,
+  trustedProxies,
+  handle,
+  onError: () =>
     resources.logger.log(
       'http.request.failed',
       { operation: 'http.request', errorCode: 'INTERNAL' },
       'Request failed',
-    );
-    if (!response.headersSent) response.writeHead(500);
-    response.end();
-  });
+    ),
+});
+const server = createServer((request, response) => {
+  void listen(request, response);
 });
 server.requestTimeout = 30_000;
 server.headersTimeout = 15_000;

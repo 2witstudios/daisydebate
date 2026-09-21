@@ -185,6 +185,7 @@ describe('structured logging', () => {
       'auth.rate_limit.unavailable',
       'auth.mail.sent',
       'auth.mail.failed',
+      'auth.mail.receipt_failed',
     ];
     for (const event of events) logger.log(event, {}, 'auth');
     const entries = output
@@ -202,6 +203,7 @@ describe('structured logging', () => {
         ['auth.rate_limit.unavailable', 50],
         ['auth.mail.sent', 30],
         ['auth.mail.failed', 50],
+        ['auth.mail.receipt_failed', 50],
       ],
     });
   });

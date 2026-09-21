@@ -15,3 +15,47 @@ test('ephemeral namespace roundtrip and cleanup', async () => {
     redis.close();
   }
 });
+test('rate limit admits exactly max across concurrent instances and expires atomically', async () => {
+  const namespace = `test-${crypto.randomUUID().slice(0, 8)}`;
+  // Two clients stand in for two application instances sharing one Redis.
+  const instances = [
+    createRedis({ url, namespace }),
+    createRedis({ url, namespace }),
+  ];
+  const rule = { windowSeconds: 2, max: 7 };
+  try {
+    const decisions = await Promise.all(
+      Array.from({ length: 100 }, (_, index) =>
+        instances[index % 2]!.consumeRateLimit('concurrent', rule),
+      ),
+    );
+    const allowed = decisions.filter((decision) => decision.allowed).length;
+    const retry = decisions.find((decision) => !decision.allowed);
+    expect(allowed).toBe(7);
+    expect(retry?.retryAfterSeconds).toBeGreaterThanOrEqual(1);
+    expect(retry?.retryAfterSeconds).toBeLessThanOrEqual(2);
+    // The key must carry an expiry (never a permanent counter).
+    const ttl = await instances[0]!.consumeRateLimit('other-key', rule);
+    expect(ttl.allowed).toBe(true);
+    // Once the window has elapsed the same key admits again.
+    await Bun.sleep(2100);
+    const after = await instances[1]!.consumeRateLimit('concurrent', rule);
+    expect(after.allowed).toBe(true);
+  } finally {
+    for (const instance of instances) instance.close();
+  }
+});
+
+test('rate limit reports outage as a thrown error, never an allow', async () => {
+  const dead = createRedis({
+    url: 'redis://127.0.0.1:1',
+    namespace: 'test-outage',
+  });
+  try {
+    await expect(
+      dead.consumeRateLimit('k', { windowSeconds: 60, max: 3 }),
+    ).rejects.toThrow();
+  } finally {
+    dead.close();
+  }
+});

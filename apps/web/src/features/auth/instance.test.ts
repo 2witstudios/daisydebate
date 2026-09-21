@@ -44,6 +44,7 @@ const create = (overrides?: {
     }),
     emailSender: overrides?.emailSender ?? capturingSender(),
     limiter: { consume: async () => ({ allowed: true, retryAfterSeconds: 0 }) },
+    ledger: { isSuppressed: async () => false, record: async () => {} },
     logger: silentLogger,
     clock: fixedClock('2026-09-20T00:00:00.000Z'),
     ids: sequentialId('auth'),
@@ -148,7 +149,7 @@ describe('auth instance composition', () => {
       should: 'refuse every password route without issuing a session',
       actual: { statuses, setCookies },
       expected: {
-        statuses: [400, 400, 404],
+        statuses: [404, 404, 404],
         setCookies: [false, false, false],
       },
     });

@@ -56,6 +56,13 @@ export default defineConfig({
       REDIS_NAMESPACE: 'e2e',
       FOUNDATION_PROOF_ENABLED: 'false',
       LOG_LEVEL: 'info',
+      // Production refuses to start without auth configuration. These are
+      // inert placeholders: e2e never sends mail or receives webhooks.
+      BETTER_AUTH_SECRET:
+        'e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0',
+      RESEND_API_KEY: 're_e2e_placeholder_not_a_credential',
+      AUTH_EMAIL_FROM: 'Daisy <no-reply@e2e.daisy.invalid>',
+      RESEND_WEBHOOK_SECRET: 'whsec_ZTJlLXBsYWNlaG9sZGVyLW5vdC1hLXNlY3JldA==',
     },
   },
 });

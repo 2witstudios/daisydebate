@@ -1,0 +1,65 @@
+import { APIError } from 'better-auth/api';
+import { recipientHash } from './mail';
+import { safeLocalDestination } from './redirect';
+import { unavailable } from './public-errors';
+import type { AuthDeliveryLedger } from './server';
+
+type MagicLinkBody = {
+  readonly email?: unknown;
+  readonly callbackURL?: unknown;
+  readonly newUserCallbackURL?: unknown;
+  readonly errorCallbackURL?: unknown;
+};
+
+/** Local paths only: external, protocol-relative and encoded forms fail. */
+function assertLocalDestinations(body: MagicLinkBody) {
+  for (const destination of [
+    body.callbackURL,
+    body.newUserCallbackURL,
+    body.errorCallbackURL,
+  ])
+    if (
+      destination !== undefined &&
+      (typeof destination !== 'string' ||
+        safeLocalDestination(destination, '') === '')
+    )
+      throw new APIError('FORBIDDEN', {
+        code: 'INVALID_CALLBACK_URL',
+        message: 'Invalid callback URL',
+      });
+}
+
+/**
+ * Pre-send gate for `/sign-in/magic-link` (runs after the rate-limit gate):
+ * destination validation and the suppression check. A ledger failure is a
+ * safe 503 — never an allow.
+ */
+export function createMagicLinkGate(dependencies: {
+  readonly secret: string;
+  readonly ledger: AuthDeliveryLedger;
+}) {
+  return async (body: MagicLinkBody | undefined) => {
+    assertLocalDestinations(body ?? {});
+    const email =
+      typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
+    if (!email) return;
+    let suppressed: boolean;
+    try {
+      suppressed = await dependencies.ledger.isSuppressed(
+        recipientHash(dependencies.secret, email),
+      );
+    } catch {
+      throw unavailable(
+        'AUTH_TEMPORARILY_UNAVAILABLE',
+        'Sign-in is temporarily unavailable. Please try again shortly.',
+      );
+    }
+    if (suppressed)
+      // A prior hard bounce or complaint: never loop automatic resends.
+      throw new APIError('UNPROCESSABLE_ENTITY', {
+        code: 'EMAIL_UNDELIVERABLE',
+        message:
+          'We cannot send sign-in emails to this address. Sign in with a passkey or use a different address.',
+      });
+  };
+}

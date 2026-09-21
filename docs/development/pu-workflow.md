@@ -28,9 +28,11 @@ active agent's worktree. `pu play` or `pu bench` are optional and useful only
 when the task specifically needs a playbook run or a benchmark; they are not
 required for ordinary development.
 
-The orchestrator owns the PageSpace task board: claiming work, updating status,
-recording plans, and marking acceptance. Delegated agents may report progress
-and evidence to the orchestrator, but do not write the board. After completion,
+The orchestrator coordinates the PageSpace task board: claiming work,
+recording plans, and marking acceptance. Delegated agents write the board too,
+through the `pagespace` CLI (follow-up tasks, status, evidence), but never edit
+the acceptance criteria or scope of a task delegated to them; a change to their
+own spec goes back to the orchestrator. After completion,
 the orchestrator uses `pu kill` and any repository-approved cleanup flow to
 remove stopped agent sessions and stale worktrees.
 
