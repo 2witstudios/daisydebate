@@ -26,27 +26,28 @@ DATABASE_URL="$TEST_DATABASE_URL" bun db:migrate
 
 ## Commands
 
-| Command                           | What it does                                                                                                 |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `bun dev`                         | All dev processes (currently the web app) via turbo                                                          |
-| `bun dev:agent`                   | Start local dependencies, migrate, seed, launch web, and wait ready                                          |
-| `bun build`                       | Production builds through the turbo graph                                                                    |
-| `bun test`                        | Fast deterministic unit/domain tests; no services or Next boot                                               |
-| `bun test:integration`            | Database, Redis, and web vertical tests against real services                                                |
-| `bun test:e2e`                    | Playwright against the production server build                                                               |
-| `bun verify`                      | `bun check` plus migration-idempotency, integration, and E2E gates                                           |
-| `bun lint`                        | ESLint plus `scripts/check-boundaries.ts` architecture verification                                          |
-| `bun format` / `bun format:check` | Prettier write / verify                                                                                      |
-| `bun typecheck`                   | `tsc --noEmit` per workspace (web runs `next typegen` first)                                                 |
-| `bun check`                       | format:check + lint + knip + invariants + evidence + typecheck + test + metrics + build — run before pushing |
-| `bun check:affected`              | Fast per-vertical inner loop: lint/prettier on changed files, boundaries, affected turbo graph               |
-| `bun migrations:check`            | Fail a branch that rewrites/edits/reorders shared migrations vs `origin/main`                                |
-| `bun evidence`                    | Orphan-suite and CI-wiring audit: every test tier is claimed by a real runner                                |
-| `bun db:generate`                 | Generate migration SQL from schema changes (review the SQL!)                                                 |
-| `bun db:migrate`                  | Apply pending migrations                                                                                     |
-| `bun db:seed`                     | Idempotently upsert the deterministic agent seed and version marker                                          |
-| `bun db:studio`                   | Drizzle Studio (local only, never expose)                                                                    |
-| `bun infra:up/down/logs`          | Compose lifecycle for PostgreSQL and Redis                                                                   |
+| Command                           | What it does                                                                                                          |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `bun dev`                         | All dev processes (currently the web app) via turbo                                                                   |
+| `bun dev:agent`                   | Start local dependencies, migrate, seed, launch web, and wait ready                                                   |
+| `bun build`                       | Production builds through the turbo graph                                                                             |
+| `bun test`                        | Fast deterministic unit/domain tests; no services or Next boot                                                        |
+| `bun test:integration`            | Database, Redis, and web vertical tests against real services                                                         |
+| `bun test:e2e`                    | Playwright against the production server build                                                                        |
+| `bun verify`                      | `bun check` plus migration-idempotency, integration, and E2E gates                                                    |
+| `bun lint`                        | ESLint plus `scripts/check-boundaries.ts` architecture verification                                                   |
+| `bun format` / `bun format:check` | Prettier write / verify                                                                                               |
+| `bun typecheck`                   | `tsc --noEmit` per workspace (web runs `next typegen` first)                                                          |
+| `bun check`                       | format:check + lint + policy + knip + invariants + evidence + typecheck + test + metrics + build — run before pushing |
+| `bun check:affected`              | Fast per-vertical inner loop: lint/prettier on changed files, boundaries, affected turbo graph                        |
+| `bun hooks:install`               | One-time opt-in: point `core.hooksPath` at `.githooks` so `git push` runs `bun check:affected`                        |
+| `bun migrations:check`            | Fail a branch that rewrites/edits/reorders shared migrations vs `origin/main`                                         |
+| `bun evidence`                    | Orphan-suite and CI-wiring audit: every test tier is claimed by a real runner                                         |
+| `bun db:generate`                 | Generate migration SQL from schema changes (review the SQL!)                                                          |
+| `bun db:migrate`                  | Apply pending migrations                                                                                              |
+| `bun db:seed`                     | Idempotently upsert the deterministic agent seed and version marker                                                   |
+| `bun db:studio`                   | Drizzle Studio (local only, never expose)                                                                             |
+| `bun infra:up/down/logs`          | Compose lifecycle for PostgreSQL and Redis                                                                            |
 
 ## Environment
 
@@ -103,6 +104,24 @@ Rules that keep sessions safe:
   per stack.
 - Generating migrations is still single-writer at a time; see
   `docs/operations/database.md` and `bun migrations:check`.
+
+## Pre-push hook
+
+`.githooks/pre-push` is committed but inert until you opt in, once per clone:
+
+```sh
+bun hooks:install   # git config core.hooksPath .githooks
+```
+
+After that every `git push` that sends commits first runs
+`bun check:affected` against `origin/main` (run `git fetch origin` if the base
+is missing) and aborts the push on failure. It deliberately runs the fast
+affected gate, not the full chain: run `bun check` yourself before opening a
+PR, and CI remains the enforcement of record. `core.hooksPath` lives in the
+repository's shared git config, so it also applies to every worktree of that
+clone; each worktree resolves `.githooks` against its own checkout. Undo with
+`git config --unset core.hooksPath`; bypass a single push deliberately with
+`git push --no-verify`. No hook manager (husky, lefthook) is used or wanted.
 
 ## Conventions that save review time
 

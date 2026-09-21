@@ -26,6 +26,7 @@
     "evidence": "bun scripts/evidence.ts",
     "migrations:check": "bun scripts/check-migration-journal.ts",
     "check:affected": "bun scripts/check-affected.ts",
+    "hooks:install": "git config core.hooksPath .githooks",
     "docs:classify": "bun scripts/docs-pipeline.ts",
     "docs:dispatch": "bun scripts/dispatch-docs.ts",
     "docs:policy": "bun scripts/docs-policy.ts",
