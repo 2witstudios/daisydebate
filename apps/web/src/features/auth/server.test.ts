@@ -46,7 +46,6 @@ const create = (overrides?: {
       }),
     emailSender: overrides?.emailSender ?? capturingSender(),
     limiter: { consume: async () => ({ allowed: true, retryAfterSeconds: 0 }) },
-    ledger: { isSuppressed: async () => false, record: async () => {} },
     logger: silentLogger,
     clock: fixedClock('2026-09-20T00:00:00.000Z'),
     ids: sequentialId('auth'),
@@ -87,7 +86,6 @@ describe('auth server composition', () => {
         limiter: {
           consume: async () => ({ allowed: true, retryAfterSeconds: 0 }),
         },
-        ledger: { isSuppressed: async () => false, record: async () => {} },
         logger: silentLogger,
         clock: fixedClock('2026-09-20T00:00:00.000Z'),
         ids: sequentialId('auth'),
@@ -135,7 +133,6 @@ describe('auth server composition', () => {
       limiter: {
         consume: async () => ({ allowed: true, retryAfterSeconds: 0 }),
       },
-      ledger: { isSuppressed: async () => false, record: async () => {} },
       logger: silentLogger,
       clock: fixedClock('2026-09-20T00:00:00.000Z'),
       ids: sequentialId('auth'),
@@ -188,7 +185,6 @@ describe('auth server composition', () => {
       limiter: {
         consume: async () => ({ allowed: true, retryAfterSeconds: 0 }),
       },
-      ledger: { isSuppressed: async () => false, record: async () => {} },
       logger: silentLogger,
       clock: fixedClock('2026-09-20T00:00:00.000Z'),
       ids: sequentialId('auth'),
@@ -213,29 +209,6 @@ describe('auth server composition', () => {
         safeMessage: !text.includes('resend') && !text.includes('AB12CD'),
       },
       expected: { appError: true, code: 'INFRASTRUCTURE', safeMessage: true },
-    });
-  });
-
-  test('exposes the deterministic application dependencies verbatim', async () => {
-    const server = create();
-    assert({
-      given: 'a fixed clock, sequential ids and a scripted limiter',
-      should: 'read time, identity and limits only from the injections',
-      actual: {
-        instant: server.clock.now(),
-        firstId: server.ids.next(),
-        secondId: server.ids.next(),
-        limit: await server.limiter.consume('key', {
-          windowSeconds: 60,
-          max: 1,
-        }),
-      },
-      expected: {
-        instant: '2026-09-20T00:00:00.000Z',
-        firstId: 'auth-1',
-        secondId: 'auth-2',
-        limit: { allowed: true, retryAfterSeconds: 0 },
-      },
     });
   });
 });

@@ -1,10 +1,22 @@
 import { createHash } from 'node:crypto';
-import type { AuthRateLimiter } from './server';
+import { APIError, createAuthMiddleware, getIP } from 'better-auth/api';
+import type { Logger } from '@daisy/logger';
 
-type ConsumingRedis = {
-  readonly consumeRateLimit: (
+/** Fixed-window allowance the gate asks the limiter to enforce for one key. */
+type RateRule = {
+  readonly windowSeconds: number;
+  readonly max: number;
+};
+/** 100 requests per 60 seconds for every auth route ... */
+const DEFAULT_RULE: RateRule = { windowSeconds: 60, max: 100 };
+/** ... and 3 per 60 seconds for magic-link requests, per client and recipient. */
+const MAGIC_LINK_RULE: RateRule = { windowSeconds: 60, max: 3 };
+
+/** Atomic multi-instance limiter contract backed by @daisy/redis. */
+export type AuthRateLimiter = {
+  readonly consume: (
     key: string,
-    rule: { readonly windowSeconds: number; readonly max: number },
+    rule: RateRule,
   ) => Promise<{
     readonly allowed: boolean;
     readonly retryAfterSeconds: number;
@@ -12,16 +24,165 @@ type ConsumingRedis = {
 };
 
 /**
- * Shared limiter over the existing @daisy/redis client. Untrusted identifiers
- * (IPs, paths, recipients) are hashed into a valid key segment; a Redis outage
- * rejects so callers fail closed. There is deliberately no local fallback.
+ * Which request headers may name the client address. Forwarding headers are
+ * client-writable unless a proxy the deployment controls overwrites them, so
+ * trust is explicit and the default believes none: every client then shares
+ * one bucket per path. That is deliberate until route activation (ADR 0020)
+ * configures the deployment's proxy header.
+ *
+ * A trusted header holding several hops resolves as Better Auth 1.7.5 does:
+ * with `trustedProxies` (IPs or CIDR ranges) the chain is walked right to
+ * left and the first hop that is not a trusted proxy is the client, so
+ * client-forged leftmost entries are never believed; without
+ * `trustedProxies` a multi-hop value is not believed at all.
  */
-export function createAuthRateLimiter(redis: ConsumingRedis): AuthRateLimiter {
+export type ClientIpTrust = {
+  readonly trustedHeaders: readonly string[];
+  readonly trustedProxies?: readonly string[];
+};
+
+// RFC 9110 field-name token. Anything else makes `Headers.get` throw on
+// every request, so it is rejected once, at composition.
+const headerName = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
+
+/**
+ * Maps the trust declaration onto Better Auth's `advanced.ipAddress`.
+ * Fails fast like `readAuthConfig`: names the option, never echoes values.
+ */
+export const clientIpOptions = (trust: ClientIpTrust | undefined) => {
+  if (trust?.trustedHeaders.some((name) => !headerName.test(name)))
+    throw new Error('Invalid auth configuration: clientIp.trustedHeaders');
   return {
-    consume: (key, rule) =>
-      redis.consumeRateLimit(
-        createHash('sha3-256').update(key).digest('hex'),
-        rule,
-      ),
+    // An empty list (not undefined) is what stops Better Auth falling back
+    // to its default of believing `x-forwarded-for`.
+    ipAddressHeaders: [...(trust?.trustedHeaders ?? [])],
+    ...(trust?.trustedProxies
+      ? { trustedProxies: [...trust.trustedProxies] }
+      : {}),
   };
-}
+};
+
+const magicLinkPath = '/sign-in/magic-link';
+
+// A recipient is personal data: the per-recipient bucket is keyed by its
+// SHA3-256 digest so the address never reaches Redis keys or logs.
+const digest = (value: string) =>
+  createHash('sha3-256').update(value).digest('hex');
+
+type Bucket = { readonly key: string; readonly rule: RateRule };
+
+const recipientBuckets = (path: string, body: unknown): Bucket[] => {
+  if (path !== magicLinkPath || typeof body !== 'object' || body === null)
+    return [];
+  const email: unknown = Reflect.get(body, 'email');
+  return typeof email === 'string'
+    ? [
+        {
+          key: `auth:magic-link:recipient:${digest(email.trim().toLowerCase())}`,
+          rule: MAGIC_LINK_RULE,
+        },
+      ]
+    : [];
+};
+
+// A valid hint is rounded up to whole seconds; an invalid one (NaN, negative,
+// non-finite) omits the header rather than advertising a made-up wait.
+const retryAfterHeaders = (retryAfterSeconds: unknown): HeadersInit =>
+  typeof retryAfterSeconds === 'number' &&
+  Number.isFinite(retryAfterSeconds) &&
+  retryAfterSeconds >= 0
+    ? { 'Retry-After': String(Math.ceil(retryAfterSeconds)) }
+    : {};
+
+// The limiter is an injected boundary: a decision without a boolean verdict
+// is an outage, never an implicit allow and never a TypeError.
+const readDecision = (decision: unknown) => {
+  if (typeof decision !== 'object' || decision === null)
+    throw new TypeError('Malformed limiter decision');
+  const allowed: unknown = Reflect.get(decision, 'allowed');
+  if (typeof allowed !== 'boolean')
+    throw new TypeError('Malformed limiter decision');
+  const retryAfterSeconds: unknown = Reflect.get(decision, 'retryAfterSeconds');
+  return { allowed, retryAfterSeconds };
+};
+
+const denial = (
+  logger: Logger,
+  path: string,
+  errorCode: 'RATE_LIMIT' | 'INFRASTRUCTURE',
+  retryAfterSeconds?: unknown,
+) => {
+  // Only the stable route path and code are logged: never the key, client
+  // address, request body, or the limiter's raw exception.
+  logger.log(
+    'http.request.failed',
+    { operation: 'auth.rate_limit', path, errorCode },
+    errorCode === 'RATE_LIMIT'
+      ? 'Auth request rate limited'
+      : 'Auth rate limiter unavailable; request denied',
+  );
+  return errorCode === 'RATE_LIMIT'
+    ? new APIError(
+        'TOO_MANY_REQUESTS',
+        { message: 'Too many requests' },
+        retryAfterHeaders(retryAfterSeconds),
+      )
+    : new APIError('SERVICE_UNAVAILABLE', {
+        message: 'Service temporarily unavailable',
+      });
+};
+
+/**
+ * ADR 0020 rate-limit gate as a Better Auth `hooks.before` middleware. It
+ * runs before every endpoint handler, for HTTP requests and direct
+ * `auth.api.*` calls alike, so a denied request performs no durable work.
+ * A limiter outage fails closed with a public 503.
+ *
+ * `resolveClient` defaults to Better Auth's `getIP`, which believes only the
+ * headers configured through `clientIpOptions`.
+ */
+export const createRateLimitGate = (dependencies: {
+  readonly limiter: AuthRateLimiter;
+  readonly logger: Logger;
+  readonly resolveClient?: typeof getIP;
+}) =>
+  createAuthMiddleware(async (context) => {
+    const { path } = context;
+    const resolveClient = dependencies.resolveClient ?? getIP;
+    // Everything the gate depends on runs inside try/await, so client
+    // resolution that throws and a limiter that throws synchronously,
+    // rejects, or answers nonsense all converge on the same fail-closed 503.
+    const failClosed = async <Result>(work: () => Result | Promise<Result>) => {
+      try {
+        return await work();
+      } catch {
+        throw denial(dependencies.logger, path, 'INFRASTRUCTURE');
+      }
+    };
+    const buckets = await failClosed((): Bucket[] => {
+      // Direct `auth.api.*` calls carry no Request, only forwarded Headers.
+      const source = context.request ?? context.headers;
+      const client = source
+        ? resolveClient(source, context.context.options)
+        : null;
+      return [
+        {
+          key: `auth:client:${client ?? 'unknown'}:${path}`,
+          rule: path === magicLinkPath ? MAGIC_LINK_RULE : DEFAULT_RULE,
+        },
+        ...recipientBuckets(path, context.body),
+      ];
+    });
+    for (const { key, rule } of buckets) {
+      const decision = await failClosed(async () =>
+        readDecision(await dependencies.limiter.consume(key, rule)),
+      );
+      if (!decision.allowed)
+        throw denial(
+          dependencies.logger,
+          path,
+          'RATE_LIMIT',
+          decision.retryAfterSeconds,
+        );
+    }
+  });

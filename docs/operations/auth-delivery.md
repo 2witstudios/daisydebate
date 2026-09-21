@@ -48,13 +48,12 @@ edge's egress ranges; verify with the spoofing integration test
 
 ## Limits and outage behaviour
 
-| Scope                               | Limit      | On exceed                   |
-| ----------------------------------- | ---------- | --------------------------- |
-| Any auth route, per client and path | 100 / 60 s | `429` + `Retry-After`       |
-| Magic-link request, per client      | 3 / 60 s   | `429` + `Retry-After`       |
-| Magic-link request, per recipient   | 3 / 60 s   | `429` + `Retry-After`       |
-| Magic-link redemption, per client   | 3 / 60 s   | `429` (form is re-rendered) |
-| Redis unavailable                   | —          | `503` + `Retry-After: 5`    |
+| Scope                               | Limit      | On exceed                |
+| ----------------------------------- | ---------- | ------------------------ |
+| Any auth route, per client and path | 100 / 60 s | `429` + `Retry-After`    |
+| Magic-link request, per client      | 3 / 60 s   | `429` + `Retry-After`    |
+| Magic-link request, per recipient   | 3 / 60 s   | `429` + `Retry-After`    |
+| Redis unavailable                   | —          | `503` + `Retry-After: 5` |
 
 There is no in-process fallback: while Redis is down every auth request that
 needs a decision answers `503`. Restore Redis; no state needs replay. Keys

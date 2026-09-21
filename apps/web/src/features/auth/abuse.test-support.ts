@@ -1,6 +1,7 @@
 import { memoryAdapter } from '@better-auth/memory-adapter';
 import { fixedClock, sequentialId } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
+import { CLIENT_IP_HEADER } from './client-ip';
 import { createAuthServer, type AuthEmailMessage } from './server';
 
 const env = {
@@ -19,6 +20,7 @@ export type Consumed = {
 export const create = (
   options: {
     suppressed?: boolean;
+    ledgerFailure?: boolean;
     limiter?: (consumed: Consumed[]) => (
       key: string,
       rule: Consumed['rule'],
@@ -36,6 +38,7 @@ export const create = (
     passkey: [],
   };
   const consumed: Consumed[] = [];
+  const lookups = { count: 0 };
   const sent: AuthEmailMessage[] = [];
   const recorded: Array<{ providerMessageId: string; recipientHash: string }> =
     [];
@@ -57,16 +60,21 @@ export const create = (
           },
     },
     ledger: {
-      isSuppressed: async () => options.suppressed ?? false,
+      isSuppressed: async () => {
+        lookups.count += 1;
+        if (options.ledgerFailure) throw new Error('ledger down');
+        return options.suppressed ?? false;
+      },
       record: async (input) => {
         recorded.push(input);
       },
     },
+    clientIp: { trustedHeaders: [CLIENT_IP_HEADER] },
     logger: silentLogger,
     clock: fixedClock('2026-09-20T00:00:00.000Z'),
     ids: sequentialId('auth'),
   });
-  return { server, db, consumed, sent, recorded };
+  return { server, db, consumed, sent, recorded, lookups };
 };
 export const tokenIn = (message: AuthEmailMessage | undefined) =>
   new URL(

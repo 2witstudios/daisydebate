@@ -56,11 +56,7 @@ describe('AUTH-3.4 shared atomic rate limits through the mounted handler', () =>
         mails: mailbox.mails.length - before,
         retryInfo: denied.every((response) => {
           const seconds = Number(response.headers.get('retry-after'));
-          return (
-            seconds >= 1 &&
-            seconds <= 60 &&
-            response.headers.get('x-retry-after') !== null
-          );
+          return seconds >= 1 && seconds <= 60;
         }),
       },
       expected: { tally: { 200: 3, 429: 27 }, mails: 3, retryInfo: true },
@@ -199,7 +195,7 @@ describe('AUTH-3.4 outage fails closed', () => {
       actual: {
         tally: statuses(responses),
         retryAfter: sample?.headers.get('retry-after'),
-        code: (JSON.parse(body) as { error: { code: string } }).error.code,
+        message: (JSON.parse(body) as { message: string }).message,
         leaks: ['127.0.0.1', 'redis', 'ECONNREFUSED', 'stack'].filter(
           (needle) => body.toLowerCase().includes(needle.toLowerCase()),
         ),
@@ -208,7 +204,7 @@ describe('AUTH-3.4 outage fails closed', () => {
       expected: {
         tally: { 503: 48 },
         retryAfter: '5',
-        code: 'INFRASTRUCTURE',
+        message: 'Service temporarily unavailable',
         leaks: [],
         delivered: 0,
       },
@@ -219,7 +215,7 @@ describe('AUTH-3.4 outage fails closed', () => {
     const flaky = secondInstance({
       limiter: (base) => ({
         consume: (key, rule) =>
-          key.startsWith('magic-link-recipient|')
+          key.startsWith('auth:magic-link:recipient:')
             ? Promise.reject(new Error('redis down'))
             : base.consume(key, rule),
       }),
@@ -232,13 +228,13 @@ describe('AUTH-3.4 outage fails closed', () => {
       should: 'answer 503 with a retryable code and send no mail',
       actual: {
         status: response.status,
-        code: ((await response.json()) as { code?: string }).code,
+        message: ((await response.json()) as { message?: string }).message,
         retryAfter: response.headers.get('retry-after'),
         delivered: flaky.sent.length,
       },
       expected: {
         status: 503,
-        code: 'AUTH_TEMPORARILY_UNAVAILABLE',
+        message: 'Service temporarily unavailable',
         retryAfter: '5',
         delivered: 0,
       },

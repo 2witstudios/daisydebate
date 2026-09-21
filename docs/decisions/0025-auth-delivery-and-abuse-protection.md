@@ -16,14 +16,17 @@ adds the delivery and abuse controls ADR 0020 requires before activation.
   nothing is ever sent automatically. Tokens are stored hashed
   (`storeToken: 'hashed'`) with a five-minute expiry; Better Auth's atomic
   consume keeps redemption single-use.
-- **Rate limiting.** Better Auth `rateLimit.customStorage.consume` delegates to
-  one Lua `EVAL` in `@daisy/redis` (fixed window: INCR, arm expiry, decide).
-  Keys are `<namespace>:v1:rl:<sha3-256 hex>`: identifiers are hashed and every
-  key expires. Defaults are 100/60 s; magic-link requests are 3/60 s per client
-  (plugin rule) and 3/60 s per recipient (hook). A limiter failure throws and
-  surfaces as a safe `503` with `Retry-After`; there is no process-local
-  fallback and no allow-on-error. `429` carries `Retry-After`.
-- **Trusted client identity.** Better Auth reads only the internal
+- **Rate limiting.** The ADR 0020 gate (`createRateLimitGate`, a Better Auth
+  `hooks.before`; Better Auth's built-in limiter stays disabled) hands each
+  bucket and its rule to the injected limiter. The Redis limiter runs one Lua
+  `EVAL` in `@daisy/redis` (fixed window: INCR, arm expiry, decide). Keys are
+  `<namespace>:v1:rl:<sha3-256 hex>`: identifiers are hashed and every key
+  expires. Defaults are 100/60 s; magic-link requests are 3/60 s per client and
+  3/60 s per recipient. A limiter failure fails closed as a safe `503` (the
+  route boundary adds `Retry-After: 5`); there is no process-local fallback and
+  no allow-on-error. `429` carries `Retry-After`.
+- **Trusted client identity.** The composition trusts exactly one header
+  (`clientIp: { trustedHeaders: ['x-daisy-client-ip'] }`), the internal
   `x-daisy-client-ip` header. The production ingress (`start.ts`) replaces any
   caller-supplied value with the socket peer, or — only when the peer is in
   `AUTH_TRUSTED_PROXIES` — the first untrusted hop from the right of

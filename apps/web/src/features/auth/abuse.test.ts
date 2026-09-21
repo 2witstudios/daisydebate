@@ -11,21 +11,16 @@ describe('AUTH-3.1 composed Better Auth options', () => {
     assert({
       given: 'the composed auth instance',
       should:
-        'enable Redis-backed limiting, seven-day sessions, no cookie cache and no passwords',
+        'replace the built-in limiter with the injected gate, seven-day sessions, no cookie cache and no passwords',
       actual: {
-        rate: {
-          enabled: options.rateLimit?.enabled,
-          window: options.rateLimit?.window,
-          max: options.rateLimit?.max,
-          custom: typeof options.rateLimit?.customStorage?.consume,
-        },
+        rate: options.rateLimit,
         session: options.session,
         password: options.emailAndPassword?.enabled,
         ipHeaders: options.advanced?.ipAddress?.ipAddressHeaders,
         plugins: (options.plugins ?? []).map((plugin) => plugin.id).sort(),
       },
       expected: {
-        rate: { enabled: true, window: 60, max: 100, custom: 'function' },
+        rate: { enabled: false },
         session: {
           expiresIn: 604800,
           updateAge: 86400,
@@ -34,7 +29,7 @@ describe('AUTH-3.1 composed Better Auth options', () => {
         },
         password: false,
         ipHeaders: [CLIENT_IP_HEADER],
-        plugins: ['magic-link', 'passkey'],
+        plugins: ['daisy-magic-link-gate', 'magic-link', 'passkey'],
       },
     });
   });
@@ -95,6 +90,31 @@ describe('AUTH-3.3 magic-link issuance', () => {
         receipt: ['msg_1'],
         hashedRecipient: true,
         noExternalAssets: true,
+      },
+    });
+  });
+
+  test('a ledger outage fails closed with a retryable 503 and sends nothing', async () => {
+    const { server, sent, db } = create({ ledgerFailure: true });
+    const response = await server.instance.handler(magicLinkRequest());
+    const body = (await response.json()) as { code?: string };
+    assert({
+      given: 'the suppression lookup failing',
+      should:
+        'answer 503 AUTH_TEMPORARILY_UNAVAILABLE with Retry-After, no mail, no token',
+      actual: {
+        status: response.status,
+        code: body.code,
+        retryAfter: response.headers.get('retry-after'),
+        sent: sent.length,
+        tokens: db.verification.length,
+      },
+      expected: {
+        status: 503,
+        code: 'AUTH_TEMPORARILY_UNAVAILABLE',
+        retryAfter: '5',
+        sent: 0,
+        tokens: 0,
       },
     });
   });
