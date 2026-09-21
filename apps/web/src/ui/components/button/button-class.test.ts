@@ -4,7 +4,7 @@ import { buttonClass } from './button-class';
 setupRitewayBun();
 
 const base =
-  'inline-flex cursor-pointer items-center justify-center gap-2 rounded-sm border text-base leading-tight font-strong transition-colors duration-120 ease-standard';
+  'inline-flex cursor-pointer items-center justify-center gap-2 rounded-sm border text-base leading-tight font-strong transition-colors duration-120 ease-standard disabled:cursor-not-allowed disabled:opacity-60';
 
 describe('buttonClass', () => {
   test('primary fills with the accent', () => {

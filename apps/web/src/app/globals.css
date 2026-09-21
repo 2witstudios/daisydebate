@@ -3,6 +3,7 @@
 @import './theme/components.css';
 @import './theme/shell.css';
 @import './theme/dashboard.css';
+@import './theme/auth.css';
 
 /* Tailwind v4 is configured here and nowhere else (ADR 0028): no
    tailwind.config.*, no arbitrary values, no default palette. Class names

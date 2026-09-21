@@ -153,6 +153,34 @@ export const iconPaths: Record<string, ReactNode> = {
       <path d="M12 17v4" />
     </>
   ),
+  key: (
+    <>
+      <circle cx="8" cy="15" r="4" />
+      <path d="M10.85 12.15 19 4" />
+      <path d="m18 5 2 2" />
+      <path d="m15 8 2 2" />
+    </>
+  ),
+  arrowRight: (
+    <>
+      <path d="M5 12h14" />
+      <path d="m12 5 7 7-7 7" />
+    </>
+  ),
+  check: <path d="M20 6 9 17l-5-5" />,
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </>
+  ),
+  alert: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7.5V13" />
+      <path d="M12 16.5h.01" />
+    </>
+  ),
 };
 
 export type IconName = keyof typeof iconPaths;

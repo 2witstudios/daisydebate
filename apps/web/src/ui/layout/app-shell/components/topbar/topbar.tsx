@@ -7,30 +7,10 @@ import { Avatar } from '../../../../components/avatar/avatar';
 import { PresenceDot } from '../../../../components/presence-dot/presence-dot';
 import { Stat } from '../../../../components/stat/stat';
 import { Icon } from '../../../../components/icon/icon';
+import { DaisyLogo } from '../../../../components/daisy-mark/daisy-mark';
 import { Tier } from '../../../../types/tier/tier';
 import { useUiState } from '../../../../store/store';
 import { avatarSrc } from '../../../../assets';
-
-/** The Daisy mark: eight petals around a solid disc. Filled, not stroked. */
-function BrandMark() {
-  return (
-    <svg viewBox="0 0 24 24" width={18} height={18} aria-hidden="true">
-      <g fill="currentColor">
-        {[0, 45, 90, 135, 180, 225, 270, 315].map((angle) => (
-          <ellipse
-            key={angle}
-            cx="12"
-            cy="5.1"
-            rx="2.3"
-            ry="3.9"
-            transform={`rotate(${angle} 12 12)`}
-          />
-        ))}
-      </g>
-      <circle cx="12" cy="12" r="2.4" fill="var(--accent-text)" />
-    </svg>
-  );
-}
 
 export function Topbar() {
   // Selectors return primitives or stable references — never fresh literals.
@@ -44,12 +24,7 @@ export function Topbar() {
         href="/"
         className="flex items-center gap-3 text-ink no-underline hover:no-underline"
       >
-        <span
-          className="inline-flex size-shell-logo items-center justify-center rounded-sm bg-accent text-accent-ink"
-          aria-hidden="true"
-        >
-          <BrandMark />
-        </span>
+        <DaisyLogo />
         <span className="font-display text-xl leading-shell-brand font-semibold tracking-tight max-narrow:hidden">
           Daisy
         </span>
