@@ -11,12 +11,16 @@ import {
 } from './pagespace-docs';
 
 // The consult route answers only when the run finishes, and a run takes
-// minutes; the connection can also drop mid-run while the run still completes.
-// So the socket is not the receipt, the conversation is: the route persists the
-// question before it runs and the answer when it finishes. Dispatch waits this
-// long (inside a 15-minute CI job) and, when the transport fails, settles the
-// outcome by reading that conversation.
+// minutes. The answer can still be lost on its way back (a dropped connection,
+// a gateway 5xx), so the socket is not the receipt, the conversation is: the
+// route persists the question before the run and the answer after it. Runs
+// whose request ended early never answered, and two consults in flight at once
+// were both cut off, so pipelines are consulted one at a time. Each waits up to
+// DEFAULT_WAIT_MS; together they share DEFAULT_BUDGET_MS, which ends inside the
+// 30-minute CI job so an expired budget fails the step, and posts the incident,
+// before the job is cancelled.
 const DEFAULT_WAIT_MS = 13 * 60_000;
+const DEFAULT_BUDGET_MS = 28 * 60_000;
 const DEFAULT_POLL_INTERVAL_MS = 15_000;
 
 export type ConsultOutcome = {
@@ -32,6 +36,7 @@ export type ConsultOptions = {
   readonly fetchImpl?: typeof fetch;
   readonly nonce?: () => string;
   readonly timeoutMs?: number;
+  readonly budgetMs?: number;
   readonly attempt?: number;
   readonly pollIntervalMs?: number;
   readonly delay?: (ms: number) => Promise<void>;
@@ -123,7 +128,8 @@ function replayAttempt(value: number | undefined): number {
   return attempt;
 }
 
-// One consult per routed pipeline, each its own conversation and receipt,
+// One consult per routed pipeline, one at a time, each its own conversation
+// and receipt,
 // matching the (sourceSnapshot, workflow) key docs-reconcile checks. A consult
 // is non-idempotent and is never retried here: a retry would run the agent
 // twice. Re-running the workflow is the retry, and the derived id makes it
@@ -138,6 +144,7 @@ export async function dispatchDocumentationEvent(
   const fetchImpl = options.fetchImpl ?? fetch;
   const nonce = options.nonce ?? (() => randomBytes(16).toString('hex'));
   const timeoutMs = options.timeoutMs ?? DEFAULT_WAIT_MS;
+  const budgetEnd = Date.now() + (options.budgetMs ?? DEFAULT_BUDGET_MS);
   const attempt = replayAttempt(options.attempt);
   const pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
   const delay =
@@ -195,7 +202,8 @@ export async function dispatchDocumentationEvent(
       pipeline,
       attempt,
     );
-    const deadline = Date.now() + timeoutMs;
+    const deadline = Math.min(Date.now() + timeoutMs, budgetEnd);
+    const waitSeconds = Math.round((deadline - Date.now()) / 1000);
     const settle = async (cause: string): Promise<ConsultOutcome> => {
       const state = await awaitAnswer(conversationId, deadline);
       if (state === 'answered')
@@ -205,11 +213,14 @@ export async function dispatchDocumentationEvent(
           `Documentation Agent consult for ${pipeline} never reached PageSpace: ${cause}`,
         );
       throw new Error(
-        `Documentation Agent consult for ${pipeline} did not answer within ${Math.round(timeoutMs / 1000)}s (${cause}); its conversation ${conversationId} holds the question but no answer, and that id is now taken, so if the run died replay with DOC_REPLAY_ATTEMPT=${attempt + 1}`,
+        `Documentation Agent consult for ${pipeline} did not answer within ${waitSeconds}s (${cause}); its conversation ${conversationId} holds the question but no answer, and that id is now taken, so if the run died replay with DOC_REPLAY_ATTEMPT=${attempt + 1}`,
       );
     };
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const timer = setTimeout(
+      () => controller.abort(),
+      Math.max(0, deadline - Date.now()),
+    );
     let response: Response;
     try {
       response = await fetchImpl(endpoint, {
@@ -231,7 +242,7 @@ export async function dispatchDocumentationEvent(
     } catch (error) {
       return settle(
         isAbort(error)
-          ? `no answer within ${Math.round(timeoutMs / 1000)}s`
+          ? `no answer within ${waitSeconds}s`
           : error instanceof Error
             ? error.message
             : String(error),
@@ -252,20 +263,21 @@ export async function dispatchDocumentationEvent(
     };
   };
 
-  const settled = await Promise.allSettled(
-    event.classification.pipelines.map(consult),
-  );
-  const failures = settled.flatMap((result) =>
-    result.status === 'rejected'
-      ? [
-          result.reason instanceof Error
-            ? result.reason.message
-            : String(result.reason),
-        ]
-      : [],
-  );
+  const outcomes: ConsultOutcome[] = [];
+  const failures: string[] = [];
+  for (const pipeline of event.classification.pipelines) {
+    if (Date.now() >= budgetEnd) {
+      failures.push(
+        `Documentation Agent consult for ${pipeline} was not sent: the dispatch budget ran out; re-run the dispatch to reach it`,
+      );
+      continue;
+    }
+    try {
+      outcomes.push(await consult(pipeline));
+    } catch (error) {
+      failures.push(error instanceof Error ? error.message : String(error));
+    }
+  }
   if (failures.length > 0) throw new Error(failures.join('\n'));
-  return settled.flatMap((result) =>
-    result.status === 'fulfilled' ? [result.value] : [],
-  );
+  return outcomes;
 }
