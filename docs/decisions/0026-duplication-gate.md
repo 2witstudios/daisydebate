@@ -62,7 +62,7 @@ are **not** in the baseline: they already delegate to one `RouteShell`
 component and differ only in literals, so the detector reports nothing for
 them. When real routes replace them they are scanned like any other source.
 
-### Baseline on adoption (12 clones, 115 lines, 1.11% of 10,323 lines, 141 files)
+### Baseline on adoption (12 clones, 115 lines, 1.11% of 10,388 lines, 142 files)
 
 | Clone                                                              | Size                         | Follow-up                                                |
 | ------------------------------------------------------------------ | ---------------------------- | -------------------------------------------------------- |
