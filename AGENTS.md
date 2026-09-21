@@ -165,6 +165,24 @@ In Progress to In Review at handoff, and mark Done only when acceptance
 criteria are proven. Status belongs in the status field; task bodies are
 acceptance criteria (`Given X, should Y`).
 
+PageSpace is the workspace, not only the board. Plans, prompts, handoffs and
+review records are task artifacts: they live in the drive's `Plans`,
+`Prompts` and `Reviews` folders (one subfolder per epic), reusable prompts
+and skills live in `Library`, and tasks link them with page mentions. The
+rules are the drive's "Task artifacts and linking" page
+(`szsrb6lui57zjemvl25ywfox`); read it before producing any of these.
+Your agent's built-in todo lists, plan mode files, memory stores, local
+`plan.md`/`TODO.md` files and `/tmp` are scratch only, whichever agent you
+are (Claude Code, Codex, OpenCode): anything another session or a reviewer
+needs must be a PageSpace page. Worktree agents may create and update their
+own artifact pages; they still never write task status or criteria.
+
+Open and update pull requests with the `/pr` skill: the description links
+the task, plan and prompt pages (and handoff and reviews as they land) so a
+reviewer can check the change against what was asked, and every review
+verdict is also posted as a PR comment. Use `/aidd-triage` for review-comment
+triage.
+
 Parallel sessions follow [parallel work](docs/development/parallel-work.md):
 short-lived vertical branches, one open vertical per agent, worktree agents
 never write the board (the orchestrator owns task and memory writes), and a
