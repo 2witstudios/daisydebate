@@ -100,8 +100,8 @@ UI under `apps/web/src/ui/` is Tier 1: tests sit next to the component as
 `<name>.test.tsx`, render with `react-dom/server`'s `renderToString`, and
 assert behavior (landmarks, accessible names, link targets, store-driven
 content) rather than markup snapshots. No DOM library is installed or needed.
-`bun test src` runs them; note `bun evidence` currently matches `*.test.ts`
-only, so `.test.tsx` suites are run but not counted in its audit.
+`bun test src` runs them, and `bun evidence` counts them in the unit tier
+and orphan-checks them like any `*.test.ts` suite.
 
 - CSS modules resolve to `undefined` under `bun test`, so never assert on
   generated class names. To lock class correctness, read the `.module.css`
