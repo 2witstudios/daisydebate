@@ -205,10 +205,10 @@ export async function dispatchDocumentationEvent(
     }
   };
 
-  // Only a successful read that finds no conversation, twice, ends the wait
-  // early as 'absent'. A failed read proves nothing either way, so polling
-  // goes on to the deadline and reports 'unreadable' only then, when the full
-  // wait has really passed. Polling
+  // A successful read that finds no conversation ends the wait as 'absent'
+  // once the first read (a grace read) is spent, or at the deadline. A failed
+  // read proves nothing either way, so polling goes on to the deadline and
+  // reports 'unreadable' only then, when the full wait has really passed. Polling
   // stops at the consult's deadline, but each read is bounded by the budget,
   // so the read after a consult times out still has time to answer.
   const awaitAnswer = async (
@@ -371,8 +371,8 @@ export async function dispatchDocumentationEvent(
     const settle = async (cause: string): Promise<ConsultOutcome> => {
       const state = await awaitAnswer(conversationId, deadline);
       if (state === 'answered') return answered;
-      // A conversation twice read as missing almost certainly never used its
-      // id, so the same attempt replays it; if it did land, the replay is
+      // A conversation a successful read found missing almost certainly never
+      // used its id, so the same attempt replays it; if it did land, the replay is
       // refused with 409 and the runbook's already-dispatched step applies.
       if (state === 'absent')
         throw new Error(

@@ -38,7 +38,7 @@ creation workflow.
    gateway 5xx (including a 5xx whose body is lost mid-read), dispatch reads
    that conversation instead; a status below 500 is final even when its body
    is lost, so a 409 still reads as already dispatched. An answer there is
-   success; a conversation that successful reads find missing means the
+   success; a conversation that a successful read finds missing means the
    request almost certainly never landed. A conversation that cannot be read
    proves nothing, so it is polled to the deadline like one still unanswered;
    either is then reported as a failure, though the run may finish late and
