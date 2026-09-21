@@ -63,12 +63,6 @@ describe('handleOperation', () => {
     });
   });
 
-  test('rejects malformed JSON', async () => {
-    await expect(readJson(jsonRequest('{nope'))).rejects.toThrow(
-      createAppError('VALIDATION'),
-    );
-  });
-
   test('returns handler responses with correlation headers and logs completion', async () => {
     recorded.length = 0;
     const response = await handleOperation(

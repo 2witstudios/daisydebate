@@ -16,8 +16,10 @@ const allowed = (headers: Record<string, string>) => {
 describe('requireSameOriginRead', () => {
   test('allows reads a browser or tool sends from the same origin', () => {
     assert({
-      given: 'a same-origin GET, which browsers send without an Origin header',
-      should: 'be allowed',
+      given:
+        'a GET carrying neither Origin nor Sec-Fetch-Site, as browsers send same-origin',
+      should:
+        'be allowed, deliberately: only positive cross-site evidence is refused',
       actual: allowed({}),
       expected: true,
     });

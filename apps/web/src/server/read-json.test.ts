@@ -34,4 +34,10 @@ describe('readJson', () => {
       createAppError('PAYLOAD_TOO_LARGE'),
     );
   });
+
+  test('rejects malformed JSON', async () => {
+    await expect(readJson(jsonRequest('{nope'))).rejects.toThrow(
+      createAppError('VALIDATION'),
+    );
+  });
 });
