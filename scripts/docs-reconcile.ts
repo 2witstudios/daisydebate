@@ -243,6 +243,26 @@ type RowsPage = {
   readonly nextFromRow: number | null;
 };
 
+// PageSpace's answer is untrusted: a page with no hasMore flag would end the
+// read after one page, and a cursor that does not advance would request the
+// same page forever. Either reports coverage wrongly, so both throw.
+function validPage(value: unknown, fromRow: number): RowsPage {
+  const page = value as Partial<RowsPage> | null;
+  const valid =
+    typeof page === 'object' &&
+    page !== null &&
+    Array.isArray(page.rows) &&
+    typeof page.hasMore === 'boolean' &&
+    (!page.hasMore ||
+      (Number.isInteger(page.nextFromRow) &&
+        (page.nextFromRow as number) > fromRow));
+  if (!valid)
+    throw new Error(
+      `Reading Documentation Runs returned an invalid page at row ${fromRow}: ${JSON.stringify(value).slice(0, 200)}`,
+    );
+  return page as RowsPage;
+}
+
 // Reads the Documentation Runs sheet page by page and validates every row
 // against the run-record contract. A refused read throws: reconciling against
 // no records would report every merge uncovered and prove nothing.
@@ -270,7 +290,7 @@ export async function readRunRecords(
       throw new Error(
         `Reading Documentation Runs responded ${response.status}: ${body}`,
       );
-    const page = JSON.parse(body) as RowsPage;
+    const page = validPage(JSON.parse(body) as unknown, fromRow);
     rows.push(...page.rows);
     fromRow = page.hasMore ? page.nextFromRow : null;
   }

@@ -32,6 +32,13 @@ type Captured = {
   body: Record<string, unknown>;
 };
 
+export const hangUntilAborted = (init?: RequestInit): Promise<Response> =>
+  new Promise<Response>((_resolve, reject) => {
+    init?.signal?.addEventListener('abort', () =>
+      reject(new DOMException('aborted', 'AbortError')),
+    );
+  });
+
 type Stub = {
   readonly consult: (init?: RequestInit) => Promise<Response>;
   /** The conversation's roles once its consult has been sent. */
@@ -40,6 +47,10 @@ type Stub = {
   readonly existing?: readonly string[];
   /** Where the Runs sheet appends the reserved receipt row (0-based). */
   readonly firstRowIndex?: number;
+  /** Replaces the append response body, to model a malformed answer. */
+  readonly appendBody?: unknown;
+  /** Endpoints that accept the request and never answer until aborted. */
+  readonly hang?: readonly ('reads' | 'append')[];
 };
 
 const json = (value: unknown) =>
@@ -54,28 +65,36 @@ export const routedFetch = (stub: Stub) => {
   const consults: Captured[] = [];
   const appended: Record<string, string>[] = [];
   const consulted = new Set<string>();
-  const fetchImpl = (async (url: unknown, init?: RequestInit) => {
-    const path = new URL(String(url)).pathname;
-    if (path === '/api/ai/page-agents/consult') {
-      const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
-      counts.consult += 1;
-      consults.push({ url: String(url), init: init ?? {}, body });
-      consulted.add(String(body.newConversationId));
-      return stub.consult(init);
-    }
-    if (path === '/api/mcp/sheets') {
-      const { rows } = JSON.parse(String(init?.body)) as {
-        rows: Record<string, string>[];
-      };
-      counts.appends += 1;
-      appended.push(...rows);
-      return json({ firstRowIndex: stub.firstRowIndex ?? 1, appended: 1 });
-    }
-    const conversationId = path.split('/').at(-2) ?? '';
-    const sent = consulted.has(conversationId);
+  const consult = (url: string, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    counts.consult += 1;
+    consults.push({ url, init: init ?? {}, body });
+    consulted.add(String(body.newConversationId));
+    return stub.consult(init);
+  };
+  const append = (init?: RequestInit) => {
+    const { rows } = JSON.parse(String(init?.body)) as {
+      rows: Record<string, string>[];
+    };
+    counts.appends += 1;
+    appended.push(...rows);
+    if (stub.hang?.includes('append')) return hangUntilAborted(init);
+    const index = stub.firstRowIndex ?? 1;
+    return json(stub.appendBody ?? { firstRowIndex: index, appended: 1 });
+  };
+  const read = (path: string, init?: RequestInit) => {
+    if (stub.hang?.includes('reads')) return hangUntilAborted(init);
+    const sent = consulted.has(path.split('/').at(-2) ?? '');
     if (sent) counts.messages += 1;
     const roles = sent ? (stub.roles?.() ?? []) : (stub.existing ?? []);
     return json({ messages: roles.map((role) => ({ role })) });
+  };
+  const fetchImpl = (async (url: unknown, init?: RequestInit) => {
+    const path = new URL(String(url)).pathname;
+    if (path === '/api/ai/page-agents/consult')
+      return consult(String(url), init);
+    if (path === '/api/mcp/sheets') return append(init);
+    return read(path, init);
   }) as unknown as typeof fetch;
   return { counts, consults, appended, fetchImpl };
 };
@@ -99,12 +118,5 @@ export const baseOptions = {
   apiUrl: 'https://pagespace.test',
   agentId: 'agent1',
 } as const;
-
-export const hangUntilAborted = (init?: RequestInit): Promise<Response> =>
-  new Promise<Response>((_resolve, reject) => {
-    init?.signal?.addEventListener('abort', () =>
-      reject(new DOMException('aborted', 'AbortError')),
-    );
-  });
 
 export const instant = { delay: async () => {}, pollIntervalMs: 0 } as const;

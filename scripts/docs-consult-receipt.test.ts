@@ -117,4 +117,77 @@ describe('dispatchDocumentationEvent receipt', async () => {
       },
     });
   });
+
+  test('refuses a reservation answer without a usable row index', async () => {
+    const outcomesFor = async (appendBody: unknown) => {
+      const stub = routedFetch({ consult: async () => ok(), appendBody });
+      let message = 'no throw';
+      try {
+        await dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
+          ...baseOptions,
+          fetchImpl: stub.fetchImpl,
+        });
+      } catch (error) {
+        message = (error as Error).message;
+      }
+      return { consults: stub.counts.consult, message };
+    };
+    const refused = {
+      consults: 0,
+      message:
+        'Reserving the technical-docs run record returned no usable row index',
+    };
+    const missing = await outcomesFor({ appended: 1 });
+    const asText = await outcomesFor({ firstRowIndex: '6' });
+    assert({
+      given: 'an append answer with the row index missing, or as text',
+      should:
+        'throw before consulting, rather than point the agent at the wrong row',
+      actual: {
+        missing: { ...missing, message: missing.message.split(':')[0] },
+        asText: { ...asText, message: asText.message.split(':')[0] },
+      },
+      expected: { missing: refused, asText: refused },
+    });
+  });
+
+  test('bounds the reservation by the dispatch budget', async () => {
+    const stub = routedFetch({ consult: async () => ok(), hang: ['append'] });
+    let threw = false;
+    try {
+      await dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
+        ...baseOptions,
+        fetchImpl: stub.fetchImpl,
+        timeoutMs: 20,
+        budgetMs: 20,
+      });
+    } catch {
+      threw = true;
+    }
+    assert({
+      given: 'a Runs-sheet append that is accepted and never answered',
+      should: 'give up at the budget instead of outliving the CI job',
+      actual: { threw, consults: stub.counts.consult },
+      expected: { threw: true, consults: 0 },
+    });
+  });
+
+  test('bounds the pre-check read by the dispatch budget', async () => {
+    const stub = routedFetch({ consult: async () => ok(), hang: ['reads'] });
+    const outcomes = await dispatchDocumentationEvent(
+      mergeEvent('fix: only technical'),
+      {
+        ...baseOptions,
+        fetchImpl: stub.fetchImpl,
+        timeoutMs: 20,
+        budgetMs: 20,
+      },
+    );
+    assert({
+      given: 'a conversation lookup that is accepted and never answered',
+      should: 'stop waiting at the budget and carry on to the consult',
+      actual: outcomes.map((outcome) => outcome.outcome),
+      expected: ['dispatched'],
+    });
+  });
 });

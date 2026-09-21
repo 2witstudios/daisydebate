@@ -349,4 +349,44 @@ describe('readRunRecords', async () => {
         'Reading Documentation Runs responded 403: {"error":"forbidden"}',
     });
   });
+
+  const readWith = async (pages: readonly unknown[]) => {
+    let call = 0;
+    const fetchImpl = (async () =>
+      new Response(JSON.stringify(pages[call++] ?? pages.at(-1)), {
+        status: 200,
+      })) as unknown as typeof fetch;
+    try {
+      await readRunRecords({
+        token: 'tok',
+        apiUrl: 'https://pagespace.test',
+        fetchImpl,
+      });
+      return 'no throw';
+    } catch (error) {
+      return (error as Error).message;
+    }
+  };
+
+  test('refuses a page without a usable pagination envelope', async () => {
+    assert({
+      given: 'a 200 page with no hasMore flag',
+      should: 'throw rather than treat one page as the whole sheet',
+      actual: (await readWith([{ rows: [header] }])).startsWith(
+        'Reading Documentation Runs returned an invalid page',
+      ),
+      expected: true,
+    });
+  });
+
+  test('refuses a cursor that does not advance', async () => {
+    assert({
+      given: 'a page that promises more rows but points back at itself',
+      should: 'throw rather than request the same page forever',
+      actual: (
+        await readWith([{ rows: [header], hasMore: true, nextFromRow: 0 }])
+      ).startsWith('Reading Documentation Runs returned an invalid page'),
+      expected: true,
+    });
+  });
 });

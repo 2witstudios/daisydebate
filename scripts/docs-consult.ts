@@ -202,8 +202,15 @@ export async function dispatchDocumentationEvent(
 
   // 'absent' covers both "no such conversation" and an unreadable one: before
   // the question has been seen, neither proves the request landed.
+  // Every PageSpace request is bounded, not only the consult: a call PageSpace
+  // accepts and never answers must not outlive the budget, or the CI job is
+  // cancelled before its incidents step runs.
+  const until = (end: number): AbortSignal =>
+    AbortSignal.timeout(Math.max(1, end - Date.now()));
+
   const readConversation = async (
     conversationId: string,
+    end: number,
   ): Promise<'answered' | 'pending' | 'absent'> => {
     try {
       const response = await fetchImpl(
@@ -211,7 +218,7 @@ export async function dispatchDocumentationEvent(
           `/api/ai/page-agents/${encodeURIComponent(agentId)}/conversations/${encodeURIComponent(conversationId)}/messages?limit=50`,
           apiUrl,
         ).toString(),
-        { method: 'GET', redirect: 'error', headers },
+        { method: 'GET', redirect: 'error', headers, signal: until(end) },
       );
       if (!response.ok) return 'absent';
       const { messages } = (await response.json()) as {
@@ -234,7 +241,7 @@ export async function dispatchDocumentationEvent(
   ): Promise<'answered' | 'pending' | 'absent'> => {
     let seenQuestion = false;
     for (let reads = 0; ; reads += 1) {
-      const state = await readConversation(conversationId);
+      const state = await readConversation(conversationId, deadline);
       if (state === 'answered') return 'answered';
       if (state === 'pending') seenQuestion = true;
       if (!seenQuestion && reads >= 1) return 'absent';
@@ -258,6 +265,7 @@ export async function dispatchDocumentationEvent(
         method: 'POST',
         redirect: 'error',
         headers,
+        signal: until(budgetEnd),
         body: JSON.stringify({
           operation: 'append-rows',
           pageId: DOCUMENTATION_RUNS_SHEET_ID,
@@ -285,7 +293,20 @@ export async function dispatchDocumentationEvent(
       throw new Error(
         `Reserving the ${pipeline} run record responded ${response.status}: ${body}`,
       );
-    return (JSON.parse(body) as { firstRowIndex: number }).firstRowIndex + 1;
+    // The index names the row the agent will rewrite: anything but a
+    // non-negative integer would point it at another run's receipt.
+    let firstRowIndex: unknown;
+    try {
+      firstRowIndex = (JSON.parse(body) as { firstRowIndex?: unknown })
+        .firstRowIndex;
+    } catch {
+      firstRowIndex = undefined;
+    }
+    if (!Number.isInteger(firstRowIndex) || (firstRowIndex as number) < 0)
+      throw new Error(
+        `Reserving the ${pipeline} run record returned no usable row index: ${body}`,
+      );
+    return (firstRowIndex as number) + 1;
   };
 
   const consult = async (
@@ -300,7 +321,7 @@ export async function dispatchDocumentationEvent(
     // the workflow): report it without reserving a row or running the agent.
     // Only a race between two identical dispatches gets past this to a 409,
     // leaving its reserved row honestly marked failed.
-    if ((await readConversation(conversationId)) !== 'absent')
+    if ((await readConversation(conversationId, budgetEnd)) !== 'absent')
       return { pipeline, conversationId, outcome: 'already-dispatched' };
     const runRow = await reserveRunRow(pipeline, conversationId);
     const deadline = Math.min(Date.now() + timeoutMs, budgetEnd);
