@@ -45,7 +45,7 @@ creation workflow.
    still rewrite its reserved row. A 5xx carrying the consult
    route's own JSON error is different: the route answers only once its run
    has stopped, so dispatch reads the conversation (once more if it reads
-   empty) and, finding no answer, fails at once naming the receipt row and a
+   empty or cannot be read) and, finding no answer, fails at once naming the receipt row and a
    targeted replay instead of polling to the deadline.
    Each consult waits up to
    20 minutes and all of them share a 42-minute budget counted from the start
