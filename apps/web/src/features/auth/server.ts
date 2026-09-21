@@ -15,12 +15,19 @@ export type AuthEmailMessage = {
   readonly text: string;
   readonly html: string;
 };
+/** Provider receipt; correlates later delivery events, holds no recipient data. */
+export type AuthEmailReceipt = { readonly providerMessageId: string };
 export type AuthEmailSender = {
-  readonly send: (message: AuthEmailMessage) => Promise<void>;
+  readonly send: (
+    message: AuthEmailMessage,
+  ) => Promise<AuthEmailReceipt | void>;
 };
 /** Atomic multi-instance limiter contract backed by @daisy/redis. */
 export type AuthRateLimiter = {
-  readonly consume: (key: string) => Promise<{
+  readonly consume: (
+    key: string,
+    rule: { readonly windowSeconds: number; readonly max: number },
+  ) => Promise<{
     readonly allowed: boolean;
     readonly retryAfterSeconds: number;
   }>;
