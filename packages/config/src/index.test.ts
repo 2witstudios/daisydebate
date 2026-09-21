@@ -186,7 +186,7 @@ describe('authentication configuration', () => {
   test('non-production auth still accepts http application URLs', () => {
     assert({
       given: 'a development environment with a localhost http URL',
-      should: 'validate exactly the four auth fields',
+      should: 'validate exactly the four required auth fields',
       actual: Object.keys(
         readAuthConfig({
           ...authEnv,
@@ -208,6 +208,82 @@ describe('authentication configuration', () => {
       should: 'expose only the public app URL to the browser',
       actual: readBrowserConfig(authEnv),
       expected: { PUBLIC_APP_URL: authEnv.PUBLIC_APP_URL },
+    });
+  });
+
+  test('production requires the webhook signing secret; development does not', () => {
+    const production = {
+      ...authEnv,
+      NODE_ENV: 'production',
+    };
+    let message = '';
+    try {
+      readAuthConfig(production);
+    } catch (error) {
+      message = String(error);
+    }
+    assert({
+      given: 'a production environment without RESEND_WEBHOOK_SECRET',
+      should: 'refuse to start naming the field but never a value',
+      actual: {
+        named: message.includes('RESEND_WEBHOOK_SECRET'),
+        leaked: message.includes(authEnv.BETTER_AUTH_SECRET),
+      },
+      expected: { named: true, leaked: false },
+    });
+    assert({
+      given: 'a production environment with a valid whsec_ secret',
+      should: 'validate and expose the secret',
+      actual: readAuthConfig({
+        ...production,
+        RESEND_WEBHOOK_SECRET: 'whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw',
+      }).RESEND_WEBHOOK_SECRET,
+      expected: 'whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw',
+    });
+    assert({
+      given: 'a development environment without a webhook secret',
+      should: 'still validate',
+      actual: 'RESEND_WEBHOOK_SECRET' in readAuthConfig(authEnv),
+      expected: false,
+    });
+  });
+
+  test('rejects a malformed webhook secret', () => {
+    let message = '';
+    try {
+      readAuthConfig({ ...authEnv, RESEND_WEBHOOK_SECRET: 'not a secret' });
+    } catch (error) {
+      message = String(error);
+    }
+    assert({
+      given: 'a webhook secret without the whsec_ shape',
+      should: 'reject naming the field',
+      actual: message.includes('RESEND_WEBHOOK_SECRET'),
+      expected: true,
+    });
+  });
+
+  test('trusted ingress proxies are validated CIDR entries', () => {
+    assert({
+      given: 'a comma-separated list of IPv4, IPv6 and CIDR proxies',
+      should: 'parse into a trimmed list',
+      actual: readAuthConfig({
+        ...authEnv,
+        AUTH_TRUSTED_PROXIES: '10.0.0.0/8, 192.168.1.5,fd00::/8',
+      }).AUTH_TRUSTED_PROXIES,
+      expected: ['10.0.0.0/8', '192.168.1.5', 'fd00::/8'],
+    });
+    let message = '';
+    try {
+      readAuthConfig({ ...authEnv, AUTH_TRUSTED_PROXIES: '10.0.0.0/99,nope' });
+    } catch (error) {
+      message = String(error);
+    }
+    assert({
+      given: 'an invalid proxy entry',
+      should: 'reject the configuration naming the field',
+      actual: message.includes('AUTH_TRUSTED_PROXIES'),
+      expected: true,
     });
   });
 });

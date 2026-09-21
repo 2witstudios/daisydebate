@@ -1,10 +1,15 @@
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, lt, sql } from 'drizzle-orm';
 import { drizzleAdapter } from '@better-auth/drizzle-adapter';
 import { users } from './schema/users';
 import { debates } from './schema/debates';
 import { accounts, passkeys, sessions, verifications } from './schema/auth';
+import {
+  emailDeliveries,
+  emailDeliveryEvents,
+  emailSuppressions,
+} from './schema/email-delivery';
 export type DebateRecord = {
   readonly id: string;
   readonly createdBy: string | null;
@@ -83,6 +88,110 @@ export function createDatabase({
     },
     async close() {
       await client.close({ timeout: 5 });
+    },
+    /** Idempotent: a retried send with the same provider message ID is a no-op. */
+    async recordEmailDelivery(input: {
+      providerMessageId: string;
+      recipientHash: string;
+      at: string;
+    }) {
+      try {
+        await database
+          .insert(emailDeliveries)
+          .values({
+            providerMessageId: input.providerMessageId,
+            recipientHash: input.recipientHash,
+            status: 'sent',
+            statusRank: 1,
+            createdAt: input.at,
+            updatedAt: input.at,
+          })
+          .onConflictDoNothing();
+      } catch (error) {
+        reportFailure('recordEmailDelivery');
+        throw error;
+      }
+    },
+    async isRecipientSuppressed(recipientHash: string) {
+      try {
+        const [row] = await database
+          .select({ recipientHash: emailSuppressions.recipientHash })
+          .from(emailSuppressions)
+          .where(eq(emailSuppressions.recipientHash, recipientHash))
+          .limit(1);
+        return row !== undefined;
+      } catch (error) {
+        reportFailure('isRecipientSuppressed');
+        throw error;
+      }
+    },
+    /**
+     * One transaction: dedupe by provider event ID, raise (never lower) the
+     * delivery rank, and record a suppression for hard failures. An event for
+     * an unrecorded message rolls back its dedupe row so the provider's retry
+     * is applied once the send is recorded.
+     */
+    async applyEmailDeliveryEvent(input: {
+      eventId: string;
+      providerMessageId: string;
+      status: string;
+      rank: number;
+      suppress: 'bounce' | 'complaint' | null;
+      at: string;
+    }): Promise<'applied' | 'duplicate' | 'unknown-message'> {
+      const unknown = Symbol('unknown-message');
+      try {
+        return await database.transaction(async (tx) => {
+          const inserted = await tx
+            .insert(emailDeliveryEvents)
+            .values({
+              providerEventId: input.eventId,
+              providerMessageId: input.providerMessageId,
+              receivedAt: input.at,
+            })
+            .onConflictDoNothing()
+            .returning({ id: emailDeliveryEvents.providerEventId });
+          if (inserted.length === 0) return 'duplicate' as const;
+          const [delivery] = await tx
+            .select({
+              recipientHash: emailDeliveries.recipientHash,
+            })
+            .from(emailDeliveries)
+            .where(
+              eq(emailDeliveries.providerMessageId, input.providerMessageId),
+            )
+            .limit(1);
+          if (!delivery) throw unknown;
+          await tx
+            .update(emailDeliveries)
+            .set({
+              status: input.status,
+              statusRank: input.rank,
+              updatedAt: input.at,
+            })
+            .where(
+              and(
+                eq(emailDeliveries.providerMessageId, input.providerMessageId),
+                lt(emailDeliveries.statusRank, input.rank),
+              ),
+            );
+          if (input.suppress)
+            await tx
+              .insert(emailSuppressions)
+              .values({
+                recipientHash: delivery.recipientHash,
+                reason: input.suppress,
+                providerMessageId: input.providerMessageId,
+                createdAt: input.at,
+              })
+              .onConflictDoNothing();
+          return 'applied' as const;
+        });
+      } catch (error) {
+        if (error === unknown) return 'unknown-message';
+        reportFailure('applyEmailDeliveryEvent');
+        throw error;
+      }
     },
     async createUser(input: { id: string; username: string }) {
       try {

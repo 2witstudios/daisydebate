@@ -73,6 +73,21 @@ export function readServerConfig(
     );
   return result.data;
 }
+const ipv4 = z.ipv4();
+const ipv6 = z.ipv6();
+/** IPv4/IPv6 address or CIDR range; a malformed entry must never behave like a non-match. */
+const isIpOrCidr = (value: string) => {
+  const [address = '', prefix, ...rest] = value.split('/');
+  if (rest.length > 0) return false;
+  const version = ipv4.safeParse(address).success
+    ? 32
+    : ipv6.safeParse(address).success
+      ? 128
+      : 0;
+  if (version === 0) return false;
+  if (prefix === undefined) return true;
+  return /^\d{1,3}$/.test(prefix) && Number(prefix) <= version;
+};
 /**
  * Narrow server authentication configuration, validated only when the auth
  * composition is activated: baseline startup never requires auth variables.
@@ -99,6 +114,29 @@ export const authConfigSchema = z
           ),
         'Expected an email address or display name with an email address',
       ),
+    /** Resend (Svix) signing secret for delivery webhooks; required in production. */
+    RESEND_WEBHOOK_SECRET: z
+      .string()
+      .regex(/^whsec_[A-Za-z0-9+/=]{16,}$/)
+      .optional(),
+    /**
+     * Deployment ingress hops (comma-separated IP/CIDR) whose forwarding
+     * headers are honored. Empty/absent: only the socket peer identifies a
+     * client and every forwarding header is ignored.
+     */
+    AUTH_TRUSTED_PROXIES: z
+      .string()
+      .transform((value) =>
+        value
+          .split(',')
+          .map((entry) => entry.trim())
+          .filter(Boolean),
+      )
+      .refine(
+        (entries) => entries.every(isIpOrCidr),
+        'Expected IP or CIDR list',
+      )
+      .optional(),
     NODE_ENV: z
       .enum(['development', 'test', 'production'])
       .default('development'),
@@ -110,6 +148,12 @@ export const authConfigSchema = z
         code: 'custom',
         path: ['PUBLIC_APP_URL'],
         message: 'Production requires HTTPS',
+      });
+    if (config.RESEND_WEBHOOK_SECRET === undefined)
+      ctx.addIssue({
+        code: 'custom',
+        path: ['RESEND_WEBHOOK_SECRET'],
+        message: 'Production requires the webhook signing secret',
       });
   })
   .transform(({ NODE_ENV: _nodeEnv, ...auth }) => auth);
