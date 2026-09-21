@@ -54,7 +54,7 @@ export function createVerificationCleanup({
           { operation: OPERATION, errorCode: 'INFRASTRUCTURE' },
           'Verification cleanup failed',
         );
-        return { ok: false, deleted: 0, batches: 0 };
+        return { ok: false, deleted, batches };
       }
       logger.log(
         'auth.cleanup.completed',

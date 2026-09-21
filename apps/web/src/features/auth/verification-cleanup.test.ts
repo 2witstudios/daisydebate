@@ -122,6 +122,26 @@ describe('verification cleanup run', () => {
       },
     });
   });
+  test('a failure after some batches still reports the rows already deleted', async () => {
+    const answers: Array<number | Error> = [3, new Error('driver down')];
+    const { logger } = recorder();
+    const cleanup = createVerificationCleanup({
+      purge: async () => {
+        const next = answers.shift() ?? 0;
+        if (next instanceof Error) throw next;
+        return next;
+      },
+      clock: fixedClock(now),
+      logger,
+      batchSize: 3,
+    });
+    assert({
+      given: 'a purge that deletes one full batch and then fails',
+      should: 'report ok:false with the one batch and three rows that did go',
+      actual: await cleanup.run(),
+      expected: { ok: false, deleted: 3, batches: 1 },
+    });
+  });
 });
 
 describe('verification cleanup schedule', () => {

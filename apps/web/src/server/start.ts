@@ -51,7 +51,7 @@ server.listen(port, '0.0.0.0', () =>
     'Server listening',
   ),
 );
-// Hourly bounded retention runs in this process; `unref` never holds it open.
+// Bounded retention runs at start and then hourly in this process; `unref` never holds it open.
 const maintenance = startMaintenance({
   database: resources.database,
   clock: resources.clock,
