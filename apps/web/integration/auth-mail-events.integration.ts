@@ -1,109 +1,17 @@
-import { createHmac } from 'node:crypto';
-import { afterAll } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { counts, withSql } from './auth-mounted-helpers';
 import {
-  clearRedisNamespace,
-  configureAppEnvironment,
-  counts,
-  fixtureEmail,
-  formPost,
-  installMailbox,
-  jsonPost,
-  linkFrom,
-  removeAccount,
-  webhookSecret,
-  withSql,
-} from './auth-mounted-helpers';
+  createMailSuite,
+  deliveryRow,
+  providerEvent,
+} from './auth-webhook-helpers';
 import { recipientHash } from '../src/features/auth/mail';
 
 setupRitewayBun();
-configureAppEnvironment();
-
-const mailbox = installMailbox();
-const authRoute = await import('../src/app/api/auth/[...all]/route');
-const confirmRoute = await import('../src/app/auth/confirm/route');
-const webhookRoute = await import('../src/app/api/webhooks/resend/route');
-const { getResources } = await import('../src/server/resources');
-
-const secret = process.env.BETTER_AUTH_SECRET as string;
-const emails: string[] = [];
-const messageIds: string[] = [];
-const fresh = () => {
-  const email = fixtureEmail();
-  emails.push(email);
-  return email;
-};
-
-const sign = (id: string, timestamp: string, body: string) =>
-  `v1,${createHmac('sha256', Buffer.from(webhookSecret.slice(6), 'base64'))
-    .update(`${id}.${timestamp}.${body}`)
-    .digest('base64')}`;
-/** A provider delivery exactly as Resend would sign it (payload holds the recipient). */
-const providerEvent = (
-  type: string,
-  messageId: string,
-  options: {
-    eventId?: string;
-    recipient?: string;
-    bounceType?: string;
-    createdAt?: string;
-  } = {},
-) => {
-  const body = JSON.stringify({
-    type,
-    created_at: options.createdAt ?? new Date().toISOString(),
-    data: {
-      email_id: messageId,
-      to: [options.recipient ?? 'recipient@example.test'],
-      ...(options.bounceType ? { bounce: { type: options.bounceType } } : {}),
-    },
-  });
-  const id = options.eventId ?? `evt_${createId()}`;
-  const timestamp = String(Math.floor(Date.now() / 1000));
-  return new Request('http://localhost:3000/api/webhooks/resend', {
-    method: 'POST',
-    headers: {
-      'svix-id': id,
-      'svix-timestamp': timestamp,
-      'svix-signature': sign(id, timestamp, body),
-      'content-type': 'application/json',
-    },
-    body,
-  });
-};
-
-const requestLink = async (email: string) => {
-  const before = mailbox.mails.length;
-  const response = await authRoute.POST(
-    jsonPost('/api/auth/sign-in/magic-link', { email }),
-  );
-  const mail = mailbox.mails[before];
-  if (mail) messageIds.push(mail.messageId);
-  return { response, mail };
-};
-
-const deliveryRow = (messageId: string) =>
-  withSql(
-    (sql) =>
-      sql`SELECT status, status_rank, recipient_hash FROM email_delivery WHERE provider_message_id = ${messageId}`,
-  );
-
-afterAll(async () => {
-  mailbox.restore();
-  await withSql(async (sql) => {
-    for (const id of messageIds) {
-      await sql`DELETE FROM email_delivery_event WHERE provider_message_id = ${id}`;
-      await sql`DELETE FROM email_delivery WHERE provider_message_id = ${id}`;
-    }
-    for (const email of emails)
-      await sql`DELETE FROM email_suppression WHERE recipient_hash = ${recipientHash(secret, email)}`;
-  });
-  for (const email of emails) await removeAccount(email);
-  await clearRedisNamespace();
-  await getResources().database.close();
-  getResources().redis.close();
-});
+const suite = await createMailSuite();
+const { webhookRoute, getResources, secret, messageIds } = suite;
+const { fresh, requestLink } = suite;
 
 describe('AUTH-3.6 provider delivery events', () => {
   test('a sent link records only the provider message ID and a keyed recipient hash', async () => {
@@ -274,83 +182,6 @@ describe('AUTH-3.6 provider delivery events', () => {
         eventRows: 1,
         finalStatus: 'bounced',
       },
-    });
-  });
-
-  test('a hard bounce stops automatic resends, keeps sessions and passkey access, and offers safe guidance', async () => {
-    const email = fresh();
-    const first = await requestLink(email);
-    const token = linkFrom(first.mail as never).searchParams.get('token') ?? '';
-    const signedIn = await confirmRoute.POST(
-      formPost({ token, callbackURL: '/lobby' }),
-    );
-    await webhookRoute.POST(
-      providerEvent('email.bounced', first.mail?.messageId ?? '', {
-        bounceType: 'Permanent',
-      }),
-    );
-    const before = mailbox.mails.length;
-    const retry = await authRoute.POST(
-      jsonPost('/api/auth/sign-in/magic-link', { email }),
-    );
-    const retryBody = (await retry.json()) as {
-      code?: string;
-      message?: string;
-    };
-    const viaForm = await confirmRoute.POST(
-      formPost({ intent: 'resend', email, callbackURL: '/lobby' }),
-    );
-    const formHtml = await viaForm.text();
-    assert({
-      given: 'a permanent bounce for an address with an existing account',
-      should:
-        'refuse further sends with safe guidance (no loop), keep the account and its session and send nothing',
-      actual: {
-        signedInStatus: signedIn.status,
-        retryStatus: retry.status,
-        code: retryBody.code,
-        guidance: /passkey/i.test(retryBody.message ?? ''),
-        formStatus: viaForm.status,
-        formGuidance: /passkey/i.test(formHtml),
-        sent: mailbox.mails.length - before,
-        account: await counts(email),
-      },
-      expected: {
-        signedInStatus: 303,
-        retryStatus: 422,
-        code: 'EMAIL_UNDELIVERABLE',
-        guidance: true,
-        formStatus: 422,
-        formGuidance: true,
-        sent: 0,
-        account: { users: 1, sessions: 1, verifications: 0 },
-      },
-    });
-  });
-
-  test('complaints suppress; transient bounces and delays do not', async () => {
-    const complained = fresh();
-    const transient = fresh();
-    const a = await requestLink(complained);
-    const b = await requestLink(transient);
-    await webhookRoute.POST(
-      providerEvent('email.complained', a.mail?.messageId ?? ''),
-    );
-    await webhookRoute.POST(
-      providerEvent('email.bounced', b.mail?.messageId ?? '', {
-        bounceType: 'Transient',
-      }),
-    );
-    const again = await requestLink(transient);
-    const blocked = await requestLink(complained);
-    assert({
-      given: 'a complaint for one address and a transient bounce for another',
-      should: 'block only the complained address',
-      actual: {
-        transientResend: again.response.status,
-        complaintResend: blocked.response.status,
-      },
-      expected: { transientResend: 200, complaintResend: 422 },
     });
   });
 

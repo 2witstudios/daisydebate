@@ -1,10 +1,5 @@
-import { createServer, type IncomingMessage } from 'node:http';
-import type { AddressInfo } from 'node:net';
 import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { systemClock, systemId } from '@daisy/clock';
-import { createDatabase } from '@daisy/db';
-import { createRedis } from '@daisy/redis';
 import {
   clearRedisNamespace,
   configureAppEnvironment,
@@ -15,88 +10,29 @@ import {
   origin,
   redisKeys,
   redisNamespace,
-  testDatabaseUrl,
-  testRedisUrl,
 } from './auth-mounted-helpers';
 import {
-  CLIENT_IP_HEADER,
-  stampClientIdentity,
-} from '../src/features/auth/client-ip';
-import { createAuthRouteHandlers } from '../src/features/auth/handlers';
-import { createAuthRateLimiter } from '../src/features/auth/rate-limit';
-import { createAuthServer } from '../src/features/auth/server';
+  closeExtraInstances,
+  secondInstance,
+  statuses,
+} from './auth-rate-limit-helpers';
+import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 
 setupRitewayBun();
 configureAppEnvironment();
 
 const mailbox = installMailbox();
 const authRoute = await import('../src/app/api/auth/[...all]/route');
-const { getResources } = await import('../src/server/resources');
 
-const silentLogger = { log: () => {}, child: () => silentLogger };
-const noLedger = { isSuppressed: async () => false, record: async () => {} };
-const authEnv = { ...process.env } as Record<string, string | undefined>;
 const magicLink = (
   headers: Record<string, string> = {},
   email = fixtureEmail(),
 ) =>
   authRoute.POST(jsonPost('/api/auth/sign-in/magic-link', { email }, headers));
-const statuses = (responses: Response[]) =>
-  responses.reduce<Record<number, number>>((tally, response) => {
-    tally[response.status] = (tally[response.status] ?? 0) + 1;
-    return tally;
-  }, {});
-
-const extraInstances: Array<() => Promise<void>> = [];
-/** A second application instance: its own SQL pool, Redis connection and auth. */
-function secondInstance(
-  overrides: {
-    redisUrl?: string;
-    limiter?: (
-      base: ReturnType<typeof createAuthRateLimiter>,
-    ) => Parameters<typeof createAuthServer>[0]['limiter'];
-  } = {},
-) {
-  const database = createDatabase({ url: testDatabaseUrl as string });
-  const redis = createRedis({
-    url: overrides.redisUrl ?? (testRedisUrl as string),
-    namespace: redisNamespace,
-  });
-  const base = createAuthRateLimiter(redis);
-  const sent: string[] = [];
-  const server = createAuthServer({
-    env: authEnv,
-    database: database.authAdapter,
-    emailSender: {
-      send: async (message) => {
-        sent.push(message.to);
-      },
-    },
-    limiter: overrides.limiter ? overrides.limiter(base) : base,
-    ledger: noLedger,
-    logger: silentLogger,
-    clock: systemClock,
-    ids: systemId,
-  });
-  extraInstances.push(async () => {
-    await database.close();
-    redis.close();
-  });
-  return {
-    sent,
-    handlers: createAuthRouteHandlers(() => ({
-      handler: server.instance.handler,
-      config: server.config,
-    })),
-  };
-}
 
 afterAll(async () => {
-  mailbox.restore();
-  for (const close of extraInstances) await close();
+  await closeExtraInstances();
   await clearRedisNamespace();
-  await getResources().database.close();
-  getResources().redis.close();
 });
 
 describe('AUTH-3.4 shared atomic rate limits through the mounted handler', () => {
@@ -305,100 +241,5 @@ describe('AUTH-3.4 outage fails closed', () => {
         delivered: 0,
       },
     });
-  });
-});
-
-/** Stand-in for the deployment ingress: the same stamping start.ts performs. */
-async function ingress(trustedProxies: string[]) {
-  const toRequest = async (incoming: IncomingMessage) => {
-    stampClientIdentity(incoming, trustedProxies);
-    const chunks: Buffer[] = [];
-    for await (const chunk of incoming) chunks.push(chunk as Buffer);
-    const headers = new Headers();
-    for (const [name, value] of Object.entries(incoming.headers))
-      if (typeof value === 'string') headers.set(name, value);
-    return new Request(`${origin}${incoming.url}`, {
-      method: incoming.method ?? 'POST',
-      headers,
-      ...(incoming.method === 'POST' ? { body: Buffer.concat(chunks) } : {}),
-    });
-  };
-  const server = createServer((incoming, outgoing) => {
-    void toRequest(incoming)
-      .then((request) => authRoute.POST(request))
-      .then(async (response) => {
-        outgoing.writeHead(response.status);
-        outgoing.end(await response.text());
-      });
-  });
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const { port } = server.address() as AddressInfo;
-  return {
-    post: (headers: Record<string, string>) =>
-      fetch(`http://127.0.0.1:${port}/api/auth/sign-in/magic-link`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', origin, ...headers },
-        body: JSON.stringify({ email: fixtureEmail() }),
-      }),
-    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
-  };
-}
-
-describe('AUTH-3.4 trusted ingress identity', () => {
-  test('forged forwarding and identity headers cannot evade the limit or reset the counter', async () => {
-    const edge = await ingress([]);
-    try {
-      const responses: Response[] = [];
-      for (let index = 0; index < 8; index += 1)
-        responses.push(
-          await edge.post({
-            'x-forwarded-for': `203.0.113.${index + 1}, 198.51.100.${index + 9}`,
-            'x-real-ip': `203.0.113.${index + 50}`,
-            [CLIENT_IP_HEADER]: `192.0.2.${index + 1}`,
-          }),
-        );
-      assert({
-        given:
-          'eight requests from one socket peer, each forging a different X-Forwarded-For and identity header',
-        should: 'still be limited as one client: 3 admitted, 5 rejected',
-        actual: responses.map((response) => response.status),
-        expected: [200, 200, 200, 429, 429, 429, 429, 429],
-      });
-    } finally {
-      await edge.close();
-    }
-  });
-
-  test('behind a configured trusted proxy the real client is read from the right of the chain', async () => {
-    const edge = await ingress(['127.0.0.1/32', '::1/128']);
-    try {
-      const realA = '198.51.100.201';
-      const realB = '198.51.100.202';
-      const viaA = [];
-      for (let index = 0; index < 5; index += 1)
-        viaA.push(
-          await edge.post({
-            // The left-most entry is caller-controlled; only the hop appended
-            // by the trusted proxy (right-most) identifies the client.
-            'x-forwarded-for': `203.0.113.${index + 1}, ${realA}`,
-          }),
-        );
-      const viaB = await edge.post({
-        'x-forwarded-for': `203.0.113.1, ${realB}`,
-      });
-      assert({
-        given:
-          'a trusted proxy forwarding two real clients while a caller prepends spoofed addresses',
-        should:
-          'limit each real client independently and ignore the spoofed entries',
-        actual: {
-          clientA: viaA.map((response) => response.status),
-          clientB: viaB.status,
-        },
-        expected: { clientA: [200, 200, 200, 429, 429], clientB: 200 },
-      });
-    } finally {
-      await edge.close();
-    }
   });
 });

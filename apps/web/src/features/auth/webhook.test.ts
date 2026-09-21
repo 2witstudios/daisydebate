@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { fixedClock } from '@daisy/clock';
+import { systemClock } from '@daisy/clock';
 import { classifyResendEvent, createResendWebhook } from './webhook';
 
 setupRitewayBun();
@@ -10,7 +10,9 @@ const sign = (id: string, timestamp: string, body: string, key = secret) =>
   `v1,${createHmac('sha256', Buffer.from(key.slice(6), 'base64'))
     .update(`${id}.${timestamp}.${body}`)
     .digest('base64')}`;
-const now = () => Math.floor(Date.now() / 1000);
+const nowMs = () => Date.parse(systemClock.now());
+const now = () => Math.floor(nowMs() / 1000);
+const isoAgo = (ms: number) => new Date(nowMs() - ms).toISOString();
 
 const applied: unknown[] = [];
 const build = (
@@ -20,7 +22,7 @@ const build = (
   return createResendWebhook({
     secret,
     apiKey: 're_unit',
-    clock: fixedClock(new Date().toISOString()),
+    clock: systemClock,
     apply: async (input) => {
       applied.push(input);
       return outcome;
@@ -42,7 +44,7 @@ const delivery = (
     overrides.body ??
     JSON.stringify({
       type: 'email.delivered',
-      created_at: new Date().toISOString(),
+      created_at: systemClock.now(),
       data: { email_id: 'em_1', to: ['someone@example.test'] },
     });
   const headers: Record<string, string> = {
@@ -182,7 +184,7 @@ describe('Resend webhook authenticity', () => {
     const altered = delivery({
       body: JSON.stringify({
         type: 'email.complained',
-        created_at: new Date().toISOString(),
+        created_at: systemClock.now(),
         data: { email_id: 'em_1' },
       }),
       signature,
@@ -214,7 +216,7 @@ describe('Resend webhook authenticity', () => {
     const recent = await build('unknown-message').handle(delivery());
     const oldBody = JSON.stringify({
       type: 'email.delivered',
-      created_at: new Date(Date.now() - 3_600_000).toISOString(),
+      created_at: isoAgo(3_600_000),
       data: { email_id: 'em_old' },
     });
     const old = await build('unknown-message').handle(

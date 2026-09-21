@@ -1,6 +1,6 @@
 import { betterAuth } from 'better-auth';
 import type { BetterAuthOptions } from 'better-auth';
-import { APIError, createAuthMiddleware } from 'better-auth/api';
+import { createAuthMiddleware } from 'better-auth/api';
 import { magicLink } from 'better-auth/plugins';
 import { passkey } from '@better-auth/passkey';
 import { createId } from '@paralleldrive/cuid2';
@@ -10,10 +10,10 @@ import type { Logger } from '@daisy/logger';
 import { readAuthConfig, type AuthConfig } from '@daisy/config';
 import { CLIENT_IP_HEADER } from './client-ip';
 import { recipientHash } from './mail';
-import { safeLocalDestination } from './redirect';
+import { buildConfirmLink } from './confirm-link';
+import { createMagicLinkGate, MAGIC_LINK_LIMIT } from './magic-link-gate';
+import { unavailable } from './public-errors';
 
-const MAGIC_LINK_WINDOW_SECONDS = 60;
-const MAGIC_LINK_MAX = 3;
 const DEFAULT_WINDOW_SECONDS = 60;
 const DEFAULT_MAX = 100;
 const MAGIC_LINK_EXPIRES_IN_SECONDS = 300;
@@ -57,14 +57,6 @@ export type AuthRateLimiter = {
  */
 type AuthInstance = ReturnType<typeof composeBetterAuth>;
 
-/** Safe, retryable public failures; details never reach the response. */
-const unavailable = (code: string, message: string) =>
-  new APIError(
-    'SERVICE_UNAVAILABLE',
-    { code, message },
-    { 'Retry-After': '5' },
-  );
-
 const composeBetterAuth = (dependencies: {
   readonly config: AuthConfig;
   readonly database: BetterAuthOptions['database'];
@@ -74,6 +66,11 @@ const composeBetterAuth = (dependencies: {
 }) => {
   const { config, limiter, ledger } = dependencies;
   const origin = new URL(config.PUBLIC_APP_URL).origin;
+  const magicLinkGate = createMagicLinkGate({
+    secret: config.BETTER_AUTH_SECRET,
+    limiter,
+    ledger,
+  });
   /** A limiter outage is never an allow and never a process-local count. */
   const consume = async (
     key: string,
@@ -138,88 +135,19 @@ const composeBetterAuth = (dependencies: {
     ],
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
-        if (ctx.path !== '/sign-in/magic-link') return;
-        for (const destination of [
-          ctx.body?.callbackURL,
-          ctx.body?.newUserCallbackURL,
-          ctx.body?.errorCallbackURL,
-        ])
-          // Local paths only: external, protocol-relative and encoded forms fail.
-          if (
-            destination !== undefined &&
-            safeLocalDestination(destination, '') === ''
-          )
-            throw new APIError('FORBIDDEN', {
-              code: 'INVALID_CALLBACK_URL',
-              message: 'Invalid callback URL',
-            });
-        const email =
-          typeof ctx.body?.email === 'string'
-            ? ctx.body.email.trim().toLowerCase()
-            : '';
-        if (!email) return;
-        const digest = recipientHash(config.BETTER_AUTH_SECRET, email);
-        let recipientDecision;
-        let suppressed: boolean;
-        try {
-          recipientDecision = await limiter.consume(
-            `magic-link-recipient|${digest}`,
-            { windowSeconds: MAGIC_LINK_WINDOW_SECONDS, max: MAGIC_LINK_MAX },
-          );
-          suppressed = recipientDecision.allowed
-            ? await ledger.isSuppressed(digest)
-            : false;
-        } catch {
-          throw unavailable(
-            'AUTH_TEMPORARILY_UNAVAILABLE',
-            'Sign-in is temporarily unavailable. Please try again shortly.',
-          );
-        }
-        if (!recipientDecision.allowed)
-          throw new APIError(
-            'TOO_MANY_REQUESTS',
-            {
-              code: 'RATE_LIMITED',
-              message: 'Too many requests. Please try again later.',
-            },
-            { 'Retry-After': String(recipientDecision.retryAfterSeconds) },
-          );
-        if (suppressed)
-          // A prior hard bounce or complaint: never loop automatic resends.
-          throw new APIError('UNPROCESSABLE_ENTITY', {
-            code: 'EMAIL_UNDELIVERABLE',
-            message:
-              'We cannot send sign-in emails to this address. Sign in with a passkey or use a different address.',
-          });
+        if (ctx.path === '/sign-in/magic-link') await magicLinkGate(ctx.body);
       }),
     },
     plugins: [
       magicLink({
         expiresIn: MAGIC_LINK_EXPIRES_IN_SECONDS,
         storeToken: 'hashed',
-        rateLimit: { window: MAGIC_LINK_WINDOW_SECONDS, max: MAGIC_LINK_MAX },
+        rateLimit: {
+          window: MAGIC_LINK_LIMIT.windowSeconds,
+          max: MAGIC_LINK_LIMIT.max,
+        },
         sendMagicLink: async ({ email, url }) => {
-          // The emailed link opens a no-store confirmation page; the token is
-          // only redeemed by an explicit same-origin POST (scanner safety).
-          const source = new URL(url);
-          const link = new URL('/auth/confirm', origin);
-          link.searchParams.set(
-            'token',
-            source.searchParams.get('token') ?? '',
-          );
-          // Better Auth defaults an absent destination to "/"; ours is /lobby.
-          const requested = source.searchParams.get('callbackURL');
-          link.searchParams.set(
-            'callbackURL',
-            safeLocalDestination(requested === '/' ? null : requested),
-          );
-          const newUser = source.searchParams.get('newUserCallbackURL');
-          if (newUser)
-            link.searchParams.set(
-              'newUserCallbackURL',
-              safeLocalDestination(newUser),
-            );
-          const href = link.toString();
+          const href = buildConfirmLink(origin, url).toString();
           try {
             await dependencies.deliver({
               to: email,

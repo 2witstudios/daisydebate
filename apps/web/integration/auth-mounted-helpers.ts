@@ -49,8 +49,16 @@ export type CapturedMail = {
   readonly messageId: string;
 };
 
+let sharedMailbox: ReturnType<typeof createMailbox> | undefined;
+/**
+ * `bun test` loads every suite before running any, so exactly one mailbox may
+ * wrap `fetch` for the whole process; suites share it and read only mail
+ * emitted after their own request (index arithmetic on `mails`).
+ */
+export const installMailbox = () => (sharedMailbox ??= createMailbox());
+
 /** Private mailbox: captures only what the production sender puts on the wire. */
-export function installMailbox() {
+function createMailbox() {
   const mails: CapturedMail[] = [];
   const failures: Array<'transient' | 'permanent'> = [];
   const real = globalThis.fetch;
@@ -90,9 +98,6 @@ export function installMailbox() {
     mails,
     failNext: (...kinds: Array<'transient' | 'permanent'>) =>
       failures.push(...kinds),
-    restore: () => {
-      globalThis.fetch = real;
-    },
   };
 }
 
