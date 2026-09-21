@@ -9,7 +9,7 @@
     "start": "NODE_ENV=production bun src/server/start.ts",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "bun test src",
-    "test:integration": "bun test ./integration/foundation.integration.ts ./integration/auth-database.integration.ts ./integration/auth-passkey.integration.ts ./integration/auth-database-failures.integration.ts && bun test ./integration/auth-magic-link.integration.ts ./integration/auth-link-safety.integration.ts ./integration/auth-rate-limit.integration.ts ./integration/auth-ingress.integration.ts ./integration/auth-mail-events.integration.ts ./integration/auth-mail-suppression.integration.ts",
+    "test:integration": "bun test ./integration/foundation.integration.ts ./integration/auth-database.integration.ts ./integration/auth-passkey.integration.ts ./integration/auth-database-failures.integration.ts ./integration/auth-magic-link.integration.ts ./integration/auth-link-safety.integration.ts ./integration/auth-rate-limit.integration.ts ./integration/auth-ingress.integration.ts ./integration/auth-mail-events.integration.ts ./integration/auth-mail-suppression.integration.ts",
     "test:e2e": "node node_modules/@playwright/test/cli.js test"
   },
   "dependencies": {

@@ -26,7 +26,7 @@ export type AuthEmailMessage = {
   readonly html: string;
 };
 /** Provider receipt; correlates later delivery events, holds no recipient data. */
-export type AuthEmailReceipt = { readonly providerMessageId: string };
+type AuthEmailReceipt = { readonly providerMessageId: string };
 export type AuthEmailSender = {
   readonly send: (
     message: AuthEmailMessage,

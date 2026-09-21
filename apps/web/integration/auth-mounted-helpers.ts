@@ -1,3 +1,4 @@
+import { beforeAll } from 'bun:test';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { createHash } from 'node:crypto';
@@ -24,7 +25,32 @@ export const origin = 'http://localhost:3000';
 export const webhookSecret = `whsec_${Buffer.from(createId() + createId()).toString('base64')}`;
 export const redisNamespace = `t3-${createId().slice(0, 10)}`;
 
+/**
+ * `bun test` loads every suite before running any, and other suites (the
+ * foundation vertical) close the process-wide resources when they finish. Each
+ * suite therefore starts from freshly built resources under this suite's
+ * environment: cached compositions are dropped and stale pools closed.
+ */
+async function resetAppState() {
+  const state = globalThis as Record<string, unknown>;
+  const resources = state.daisyResources as
+    | { database: { close: () => Promise<void> }; redis: { close: () => void } }
+    | undefined;
+  await Promise.allSettled([
+    resources?.database.close(),
+    Promise.resolve().then(() => resources?.redis.close()),
+  ]);
+  for (const key of ['daisyResources', 'daisyAuth', 'daisyMailWebhook'])
+    delete state[key];
+  applyEnvironment();
+}
+
 export const configureAppEnvironment = () => {
+  applyEnvironment();
+  beforeAll(resetAppState);
+};
+
+const applyEnvironment = () => {
   Object.assign(process.env, {
     NODE_ENV: 'test',
     DATABASE_URL: testDatabaseUrl,

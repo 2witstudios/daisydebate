@@ -2,6 +2,8 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { counts, formPost, jsonPost, linkFrom } from './auth-mounted-helpers';
 import { createMailSuite, providerEvent } from './auth-webhook-helpers';
 
+if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
+  throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
 setupRitewayBun();
 const suite = await createMailSuite();
 const { webhookRoute, authRoute, confirmRoute, mailbox } = suite;
