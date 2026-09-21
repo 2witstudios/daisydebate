@@ -12,6 +12,8 @@ const eventRegistry = {
   'auth.mail.sent': 'info',
   'auth.mail.failed': 'error',
   'auth.mail.receipt_failed': 'error',
+  'auth.cleanup.completed': 'info',
+  'auth.cleanup.failed': 'error',
   'db.query.failed': 'error',
   'redis.command.failed': 'error',
   'server.start': 'info',
