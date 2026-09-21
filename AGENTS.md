@@ -174,14 +174,19 @@ rules are the drive's "Task artifacts and linking" page
 Your agent's built-in todo lists, plan mode files, memory stores, local
 `plan.md`/`TODO.md` files and `/tmp` are scratch only, whichever agent you
 are (Claude Code, Codex, OpenCode): anything another session or a reviewer
-needs must be a PageSpace page. Worktree agents may create and update their
-own artifact pages; they still never write task status or criteria.
+needs must be a PageSpace page. Every agent publishes its own artifact
+pages and keeps its tasks current; no agent edits the criteria or scope of a
+task delegated to it, and Done is granted from an independent review record,
+never by the agent that did the work.
 
 Open and update pull requests with the `/pr` skill: the description links
 the task, plan and prompt pages (and handoff and reviews as they land) so a
 reviewer can check the change against what was asked, and every review
-verdict is also posted as a PR comment. Use `/aidd-triage` for review-comment
-triage.
+verdict is also posted as a PR comment. PR titles are conventional commits:
+the documentation pipeline classifies a merge from that prefix (`!` marks a
+breaking change) and reads task codes from the title, branch and body, so
+name every task code in full (`AUTH-3.1`, `AUTH-3.2`, never `AUTH-3.1–3.6`).
+Use `/aidd-triage` for review-comment triage.
 
 Parallel sessions follow [parallel work](docs/development/parallel-work.md):
 short-lived vertical branches, one open vertical per agent, worktree agents
