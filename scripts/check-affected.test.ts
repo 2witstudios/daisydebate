@@ -84,14 +84,15 @@ describe('partitionAffected', () => {
 });
 
 describe('planGates', () => {
-  test('always includes the boundaries gate', () => {
+  test('always includes the repo-wide boundaries and duplication gates', () => {
     assert({
       given: 'no changed files',
-      should: 'still verify architecture boundaries',
-      actual: planGates(partitionAffected([]), 'sha0').map(({ name }) =>
-        name.includes('boundaries'),
-      ),
-      expected: [true],
+      should: 'still verify architecture boundaries and the duplication gate',
+      actual: planGates(partitionAffected([]), 'sha0'),
+      expected: [
+        { name: 'boundaries', args: ['bun', 'scripts/check-boundaries.ts'] },
+        { name: 'duplication', args: ['bun', 'run', 'duplication'] },
+      ],
     });
   });
 
@@ -119,9 +120,13 @@ describe('planGates', () => {
     );
     assert({
       given: 'only a deleted workspace file',
-      should: 'run boundaries and turbo without file-based gates',
+      should: 'run the repo-wide gates and turbo without file-based gates',
       actual: gates.map(({ name }) => name),
-      expected: ['boundaries', 'turbo affected (typecheck, test)'],
+      expected: [
+        'boundaries',
+        'duplication',
+        'turbo affected (typecheck, test)',
+      ],
     });
   });
 });

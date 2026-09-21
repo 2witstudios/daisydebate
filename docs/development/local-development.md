@@ -39,7 +39,7 @@ DATABASE_URL="$TEST_DATABASE_URL" bun db:migrate
 | `bun format` / `bun format:check` | Prettier write / verify                                                                                                             |
 | `bun typecheck`                   | `tsc --noEmit` per workspace (web runs `next typegen` first)                                                                        |
 | `bun check`                       | format:check + lint + policy + knip + duplication + invariants + evidence + typecheck + test + metrics + build — run before pushing |
-| `bun check:affected`              | Fast per-vertical inner loop: lint/prettier on changed files, boundaries, affected turbo graph                                      |
+| `bun check:affected`              | Fast per-vertical inner loop: lint/prettier on changed files, boundaries, duplication, affected turbo graph                         |
 | `bun hooks:install`               | One-time opt-in: point `core.hooksPath` at `.githooks` so `git push` runs `bun check:affected`                                      |
 | `bun migrations:check`            | Fail a branch that rewrites/edits/reorders shared migrations vs `origin/main`                                                       |
 | `bun run duplication`             | Copy-paste tripwire (jscpd): fails on any clone absent from `.jscpd-baseline.json` (ADR 0025)                                       |
@@ -134,7 +134,8 @@ are present; commit or set them aside if you want the result to describe
 exactly the pushed commit.
 
 The hook deliberately runs the fast
-affected gate, not the full chain: run `bun check` yourself before opening a
+affected gate (changed-file lint/prettier, boundaries, the repo-wide
+duplication gate, affected typecheck/tests), not the full chain: run `bun check` yourself before opening a
 PR, and CI remains the enforcement of record. `core.hooksPath` lives in the
 repository's shared git config, so it also applies to every worktree of that
 clone; each worktree resolves `.githooks` against its own checkout. Undo with

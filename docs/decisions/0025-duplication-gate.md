@@ -15,7 +15,9 @@ late and inconsistently; a gate catches it on the push that introduces it.
 
 Adopt jscpd 5.3.0 as a repo-wide copy-paste tripwire. `bun run duplication`
 (`bunx --bun jscpd`) runs in `bun check` and the CI `checks` matrix, and
-`bun evidence` fails if either wiring disappears.
+`bun evidence` fails if either wiring disappears. It is also an always-on
+gate in `bun check:affected` (the pre-push hook): a clone is only visible
+against the whole tree, and the scan is cheap enough to run on every push.
 
 - **Tool.** jscpd 5 is a prebuilt Rust binary shipped through per-platform
   `optionalDependencies` — the same delivery as Turborepo, with no install

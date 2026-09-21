@@ -61,7 +61,7 @@ PageSpace's lesson: branch debris accumulates faster than agents clean it
 ## Inner loop
 
 - `bun check:affected` — fast per-vertical loop (eslint/prettier on
-  changed files, boundaries, affected turbo graph). It is a convenience,
+  changed files, boundaries, duplication, affected turbo graph). It is a convenience,
   not a gate.
 - `bun check` — the pre-push gate for every PR.
 - `bun migrations:check` — before pushing any change that touches
