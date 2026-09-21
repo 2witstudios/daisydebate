@@ -131,12 +131,15 @@ const readScripts = async (path: string): Promise<ScriptMap> => {
   return (manifest.scripts ?? {}) as ScriptMap;
 };
 
-const rootClaimProblems = (scripts: ScriptMap): readonly EvidenceProblem[] => {
+export const rootClaimProblems = (
+  scripts: ScriptMap,
+): readonly EvidenceProblem[] => {
   const problems: EvidenceProblem[] = [];
   const claims: readonly [string, string][] = [
     ['test', 'bun test scripts'],
     ['lint', 'eslint.config.test.ts'],
     ['check', 'policy'],
+    ['check', 'duplication'],
     ['check', 'invariants'],
     ['check', 'evidence'],
   ];
@@ -201,12 +204,43 @@ const e2eClaimProblems = async (
   return problems;
 };
 
-const ciWiringProblems = async (): Promise<readonly EvidenceProblem[]> => {
+// Structural, not textual: a gate named only in a YAML comment runs nothing.
+// The repo has no YAML dependency, so this reads the two shapes ci.yml uses —
+// the `task` matrix (flow or block sequence) and `run: bun [run] <task>`
+// steps — after dropping comments. Matrix entries count only when some step
+// executes `${{ matrix.task }}`.
+const flowMatrix = /^[ \t]*task:\s*\[([^\]]*)\]/m;
+const blockMatrix =
+  /^[ \t]*task:[ \t]*\n((?:[ \t]*-[ \t]+\S+[ \t]*(?:\n|$))+)/m;
+const runStep = /^[ \t]*(?:-[ \t]+)?run:[ \t]*bun[ \t]+(?:run[ \t]+)?(\S+)/;
+
+const matrixTasks = (workflow: string): readonly string[] => {
+  const flow = flowMatrix.exec(workflow)?.[1];
+  if (flow !== undefined) return flow.split(',').map((entry) => entry.trim());
+  const block = blockMatrix.exec(workflow)?.[1] ?? '';
+  return block.split('\n').map((entry) => entry.replace(/^\s*-\s+/, '').trim());
+};
+
+export const ciInvokedTasks = (ciWorkflow: string): readonly string[] => {
+  const lines = ciWorkflow
+    .split('\n')
+    .map((line) => line.replace(/(^|\s)#.*$/, ''));
+  const steps = lines
+    .map((line) => runStep.exec(line)?.[1])
+    .filter((task): task is string => task !== undefined);
+  const runsMatrix = steps.some((task) => task.startsWith('${{'));
+  return [
+    ...(runsMatrix ? matrixTasks(lines.join('\n')) : []),
+    ...steps.filter((task) => !task.startsWith('${{')),
+  ].filter((task) => task !== '');
+};
+
+export const ciGateProblems = (
+  ciWorkflow: string | undefined,
+): readonly EvidenceProblem[] => {
   const problems: EvidenceProblem[] = [];
-  const ciWorkflow = await readTextIfExists(
-    join(root, '.github/workflows/ci.yml'),
-  );
-  if (ciWorkflow?.includes('test:e2e'))
+  const invoked = new Set(ciInvokedTasks(ciWorkflow ?? ''));
+  if (invoked.has('test:e2e'))
     problems.push({
       code: 'E2E_DUPLICATED',
       detail: 'ci.yml runs the browser suite; e2e.yml is the single E2E owner',
@@ -214,11 +248,12 @@ const ciWiringProblems = async (): Promise<readonly EvidenceProblem[]> => {
   for (const gate of [
     'knip',
     'policy',
+    'duplication',
     'invariants',
     'evidence',
     'migrations:check',
   ])
-    if (!ciWorkflow?.includes(gate))
+    if (!invoked.has(gate))
       problems.push({
         code: 'UNRUN_SUITE',
         detail: `ci.yml does not run ${gate}; the gate would silently stop running in CI`,
@@ -268,7 +303,9 @@ export async function collectEvidence(): Promise<EvidenceReport> {
     ...rootClaimProblems(await readScripts(join(root, 'package.json'))),
     ...(await workspaceClaimProblems(byWorkspace)),
     ...(await e2eClaimProblems(tiers.e2e)),
-    ...(await ciWiringProblems()),
+    ...ciGateProblems(
+      await readTextIfExists(join(root, '.github/workflows/ci.yml')),
+    ),
   ];
   return {
     ok: problems.length === 0,

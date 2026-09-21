@@ -25,7 +25,7 @@ AIDD/Vitest guidance is overridden here by Bun and RITEway (ADR 0021).
    `infra/init-test-database.sql`); on volumes initialized before that role
    existed, create it manually (see `docs/operations/database.md`).
 4. **CI parity** — `bun check` approximates the CI checks job (format, lint,
-   policy, knip, invariants, evidence, typecheck, unit tests, metrics policy,
+   policy, knip, duplication, invariants, evidence, typecheck, unit tests, metrics policy,
    production build). CI additionally runs the
    integration tier with service containers and the browser tier in the
    dedicated `e2e.yml` workflow (one E2E owner per PR; `bun evidence`
@@ -53,7 +53,7 @@ not exist — PageSpace lost entire tiers this way. `bun evidence` (in
   `*.e2e.ts` under `apps/web/e2e/`. A `*.integration.ts(x)` or
   `*.e2e.ts(x)` under `src/`, and any `*.e2e.tsx`, is recognized as a
   suite but executed by no runner, so it fails as ORPHAN_SUITE.
-- The `knip`, `policy`, `invariants`, `evidence`, and `migrations:check` gates must
+- The `knip`, `policy`, `duplication`, `invariants`, `evidence`, and `migrations:check` gates must
   appear in `ci.yml`, so deleting a job breaks CI instead of silently
   retiring a gate.
 - `bun policy` scans repository-owned source for direct UUID generation and UUID
@@ -77,6 +77,8 @@ not exist — PageSpace lost entire tiers this way. `bun evidence` (in
   assertion fails, its message is the bug report.
 - **Dead code.** `bun run knip` fails on unused files, exports and
   dependencies; keep findings at zero (ADR 0013).
+- **Duplication.** `bun run duplication` fails on any copy-pasted block not
+  in `.jscpd-baseline.json`; consolidate instead of re-baselining (ADR 0026).
 - Tests are deterministic: inject clocks/IDs; never sleep-and-hope; no
   cross-test shared state; use deterministic unit IDs and CSPRNG isolation IDs
   only in real-service integration tests; clean only records you created.

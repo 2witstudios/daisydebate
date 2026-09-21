@@ -11,7 +11,7 @@ contract; keep sections in this order.
 
 ## Gates run
 
-bun check: PASS (format, lint, knip, invariants, evidence, typecheck,
+bun check: PASS (format, lint, policy, knip, duplication, invariants, evidence, typecheck,
 unit tests, metrics, build) · bun migrations:check: PASS · date
 
 ## Findings
