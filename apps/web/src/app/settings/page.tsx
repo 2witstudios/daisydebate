@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { RouteShell } from '../ui/route-shell';
 import { ThemeSwitcher } from '../../ui/components/theme-switcher/theme-switcher';
+import { prose } from '../ui/prose-class';
 
 export const metadata: Metadata = { title: 'Settings' };
 
@@ -17,8 +18,12 @@ export default function SettingsPage() {
         ]}
       />
       <section aria-labelledby="appearance-heading">
-        <h2 id="appearance-heading">Appearance</h2>
-        <p>Choose a theme, or follow your device setting.</p>
+        <h2 className={prose.h2} id="appearance-heading">
+          Appearance
+        </h2>
+        <p className={prose.p}>
+          Choose a theme, or follow your device setting.
+        </p>
         <ThemeSwitcher />
       </section>
     </>

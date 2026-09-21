@@ -1,5 +1,5 @@
 import type { Presence } from '../../types/presence/presence';
-import styles from './presence-dot.module.css';
+import { presenceDotClass } from './presence-dot-class';
 
 export type PresenceDotProps = {
   readonly presence: Presence;
@@ -8,7 +8,7 @@ export type PresenceDotProps = {
 export function PresenceDot({ presence }: PresenceDotProps) {
   return (
     <span
-      className={`${styles.dot} ${styles[presence]}`}
+      className={presenceDotClass(presence)}
       role="status"
       aria-label={presence}
     />

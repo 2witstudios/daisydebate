@@ -3,9 +3,8 @@ import type { ReactNode } from 'react';
 import type { IconName } from '../../components/icon/icon';
 import { Icon } from '../../components/icon/icon';
 import { StatusLine } from '../../components/status-line/status-line';
-import styles from './action-tile.module.css';
-
-type ActionTileTint = 'accent' | 'gold' | 'neutral';
+import type { ActionTileTint } from './action-tile-class';
+import { actionTileTintClass } from './action-tile-class';
 
 export type ActionTileProps = {
   readonly href: string;
@@ -29,31 +28,35 @@ export function ActionTile({
   tint = 'neutral',
   status,
 }: ActionTileProps) {
-  const tintClass =
-    tint === 'accent'
-      ? styles.accent
-      : tint === 'gold'
-        ? styles.gold
-        : styles.neutral;
   return (
-    <Link href={href} className={styles.tile}>
+    <Link
+      href={href}
+      className="group flex h-full flex-col gap-3 rounded-md border border-border bg-surface p-5 text-ink no-underline transition duration-140 ease-standard hover:border-border-strong hover:bg-surface-raised"
+    >
       <Icon
         name={glyph}
         size={40}
         strokeWidth={1.6}
-        className={`${styles.glyph} ${tintClass}`}
+        className={actionTileTintClass(tint)}
       />
-      <div className={styles.body}>
-        <h3 className={styles.title}>{title}</h3>
-        <p className={styles.description}>{description}</p>
+      <div className="flex flex-1 flex-col gap-1">
+        <h3 className="text-xl leading-tile-title font-heavy tracking-tight">
+          {title}
+        </h3>
+        <p className="line-clamp-2 text-base leading-tile-copy text-ink-muted">
+          {description}
+        </p>
       </div>
-      <div className={styles.footer}>
+      <div className="flex min-h-tile-footer-min items-center justify-between gap-3">
         {status ? (
           <StatusLine tone={status.tone}>{status.text}</StatusLine>
         ) : (
           <span />
         )}
-        <span className={styles.chevron} aria-hidden="true">
+        <span
+          className="text-xl leading-none text-ink-faint transition duration-140 ease-standard group-hover:translate-x-tile-nudge group-hover:text-ink"
+          aria-hidden="true"
+        >
           ›
         </span>
       </div>

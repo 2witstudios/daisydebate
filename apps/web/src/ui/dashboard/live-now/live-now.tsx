@@ -1,22 +1,23 @@
 'use client';
 
 import Link from 'next/link';
-import { Avatar } from '../../components/avatar/avatar';
 import { Badge } from '../../components/badge/badge';
 import { Button } from '../../components/button/button';
 import { Panel } from '../../components/panel/panel';
 import { Icon } from '../../components/icon/icon';
 import { useUiState } from '../../store/store';
-import { avatarSrc } from '../../assets';
-import styles from './live-now.module.css';
+import { Competitor } from './competitor';
 
 export function LiveNow() {
   const liveDebates = useUiState((state) => state.collections.liveDebates);
   return (
     <Panel
       title={
-        <span className={styles.titleRow}>
-          <span className={styles.liveDot} aria-hidden="true" />
+        <span className="inline-flex items-center gap-2">
+          <span
+            className="size-2 animate-live-pulse rounded-round bg-live motion-reduce:animate-none"
+            aria-hidden="true"
+          />
           Live Now
         </span>
       }
@@ -26,48 +27,40 @@ export function LiveNow() {
         </Button>
       }
     >
-      <ul className={styles.list}>
+      <ul>
         {liveDebates.map((debate) => (
-          <li key={debate.topic}>
-            <Link href="/watch" className={styles.match}>
-              <p className={styles.resolution}>
+          <li key={debate.topic} className="group">
+            <Link
+              href="/watch"
+              className="flex flex-col gap-3 rounded-sm border-t border-border py-4 no-underline transition-colors duration-140 ease-standard group-first:border-t-0 group-first:pt-1 hover:bg-surface-raised"
+            >
+              <p className="flex min-w-0 items-center gap-2 text-sm font-bold text-ink">
                 <Badge tone="live">Live</Badge>
-                <span className={styles.resolutionText}>{debate.topic}</span>
+                <span className="truncate">{debate.topic}</span>
               </p>
-              <div className={styles.matchup}>
-                <span className={styles.competitor}>
-                  <Avatar
-                    name={debate.challenger}
-                    src={avatarSrc(debate.challenger)}
-                    size="md"
-                  />
-                  <span className={styles.who}>
-                    <span className={styles.name}>{debate.challenger}</span>
-                    <span className={styles.rating}>
-                      ({debate.challengerRating})
-                    </span>
-                  </span>
-                </span>
-                <span className={styles.vs} aria-hidden="true">
+              <div className="grid grid-cols-live-matchup items-center gap-3">
+                <Competitor
+                  side="home"
+                  name={debate.challenger}
+                  rating={debate.challengerRating}
+                />
+                <span
+                  className="text-xs font-black tracking-wider text-ink-faint uppercase"
+                  aria-hidden="true"
+                >
                   vs
                 </span>
-                <span className={`${styles.competitor} ${styles.away}`}>
-                  <span className={styles.who}>
-                    <span className={styles.name}>{debate.defender}</span>
-                    <span className={styles.rating}>
-                      ({debate.defenderRating})
-                    </span>
-                  </span>
-                  <Avatar
-                    name={debate.defender}
-                    src={avatarSrc(debate.defender)}
-                    size="md"
-                  />
-                </span>
+                <Competitor
+                  side="away"
+                  name={debate.defender}
+                  rating={debate.defenderRating}
+                />
               </div>
-              <p className={styles.meta}>
+              <p className="flex items-center justify-center gap-2 text-xs text-ink-faint">
                 <Icon name="users" size={14} />
-                <span className={styles.metaValue}>{debate.viewers}</span>
+                <span className="font-strong text-ink-muted tabular-nums">
+                  {debate.viewers}
+                </span>
                 watching
               </p>
             </Link>

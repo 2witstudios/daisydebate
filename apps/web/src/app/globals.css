@@ -1,3 +1,16 @@
+@import 'tailwindcss';
+@import './theme/reset.css';
+@import './theme/components.css';
+@import './theme/shell.css';
+@import './theme/dashboard.css';
+
+/* Tailwind v4 is configured here and nowhere else (ADR 0028): no
+   tailwind.config.*, no arbitrary values, no default palette. Class names
+   come from the theme below; a class with no token behind it generates no CSS
+   and fails lint. Color utilities resolve through the `:root` custom
+   properties, so the theme switch restyles the page with no class changes and
+   `dark:` variants are banned. */
+
 /* Design tokens — Daisy green. Each color token is written once as
    light-dark(<light>, <dark>) and resolves through color-scheme, which
    <html data-theme> selects (ADR 0027):
@@ -69,95 +82,146 @@
   --focus-ring: 0 0 0 2px var(--background), 0 0 0 4px var(--accent);
 
   /* Elevation — nearly flat in dark; surfaces separate through tone. */
-  --shadow-1: 0 1px 2px light-dark(rgba(20, 32, 26, 0.08), rgba(0, 0, 0, 0.35));
-  --shadow-2: 0 2px 12px light-dark(rgba(20, 32, 26, 0.1), rgba(0, 0, 0, 0.35));
-  --shadow-3: 0 12px 40px light-dark(rgba(20, 32, 26, 0.14), rgba(0, 0, 0, 0.5));
+  --elevation-1: 0 1px 2px
+    light-dark(rgba(20, 32, 26, 0.08), rgba(0, 0, 0, 0.35));
+  --elevation-2: 0 2px 12px
+    light-dark(rgba(20, 32, 26, 0.1), rgba(0, 0, 0, 0.35));
+  --elevation-3: 0 12px 40px
+    light-dark(rgba(20, 32, 26, 0.14), rgba(0, 0, 0, 0.5));
+}
 
-  /* Spacing scale (4px base) */
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --space-8: 32px;
-  --space-10: 40px;
-  --space-12: 48px;
-  --space-16: 64px;
+/* Colors. Names mirror the `:root` tokens; text ink is `ink` so classes read
+   `text-ink-muted`, not `text-text-muted`. `inline` makes utilities emit
+   var(--token) directly instead of a second theme variable. */
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-overlay: var(--surface-overlay);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface-emerald: var(--surface-emerald);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-ink: var(--text);
+  --color-ink-muted: var(--text-muted);
+  --color-ink-faint: var(--text-faint);
+  --color-ink-on-live: var(--text-on-live);
+  --color-ink-on-media: var(--text-on-media);
+  --color-glyph: var(--glyph);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-ink: var(--accent-text);
+  --color-online: var(--online);
+  --color-live: var(--live);
+  --color-live-soft: var(--live-soft);
+  --color-gold: var(--gold);
+  --color-gold-soft: var(--gold-soft);
+  --color-gold-border: var(--gold-border);
+  --color-tier-diamond: var(--tier-diamond);
+  --color-scrim: var(--scrim);
 
-  /* Radius scale — restrained, substantial. */
+  --shadow-1: var(--elevation-1);
+  --shadow-2: var(--elevation-2);
+  --shadow-3: var(--elevation-3);
+}
+
+@theme {
+  /* Spacing scale (4px base). Sizes, gaps, padding and margins all read it. */
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 20px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+  --spacing-10: 40px;
+  --spacing-12: 48px;
+  --spacing-16: 64px;
+
+  /* Radius scale: restrained, substantial. `rounded-full` is built in. */
   --radius-sm: 8px;
   --radius-md: 10px;
   --radius-lg: 12px;
   --radius-xl: 14px;
   --radius-round: 999px;
 
-  /* Typography scale */
-  --font-size-2xs: 0.6875rem;
-  --font-size-xs: 0.75rem;
-  --font-size-sm: 0.8125rem;
-  --font-size-base: 0.9375rem;
-  --font-size-md: 1rem;
-  --font-size-lg: 1.1875rem;
-  --font-size-xl: 1.4375rem;
-  --font-size-2xl: 1.875rem;
-  --font-size-3xl: 2.5rem;
+  /* Typography scale. */
+  --text-2xs: 0.6875rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-md: 1rem;
+  --text-lg: 1.1875rem;
+  --text-xl: 1.4375rem;
+  --text-2xl: 1.875rem;
+  --text-3xl: 2.5rem;
   --leading-tight: 1.15;
   --leading-normal: 1.6;
-
-  /* Breakpoints used across the CSS modules (custom properties cannot
-     parametrize @media, so these are documented here, not tokenized):
-     1280 tile grid 4→3 · 1180 action-area reflow · 1100 rail reflow ·
-     960 tile grid 3→2 · 900 icon rail · 640/560 single-column steps. */
-
-  /* Layout metrics */
-  --sidebar-width: 232px;
-  --rail-width: 316px;
-  --topbar-height: 60px;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  font-family:
-    var(--font-sans),
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    'Segoe UI',
+  --font-body:
+    var(--font-face-sans), ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
     sans-serif;
-  font-size: var(--font-size-base);
-  line-height: var(--leading-normal);
-  color: var(--text);
-  background: var(--background);
-  -webkit-font-smoothing: antialiased;
+  --font-display: var(--font-face-display), Georgia, serif;
+  --font-weight-book: 480;
+  --font-weight-semibold: 600;
+  --font-weight-strong: 650;
+  --font-weight-bold: 700;
+  --font-weight-heavy: 750;
+  --font-weight-black: 800;
+  --ease-standard: ease;
+  --tracking-tighter: -0.02em;
+  --tracking-snug: -0.015em;
+  --tracking-tight: -0.01em;
+  --tracking-slight: 0.01em;
+  --tracking-wide: 0.02em;
+  --tracking-wider: 0.1em;
+  --tracking-widest: 0.16em;
+
+  /* Breakpoints are desktop-first. `max-<name>:` applies at or below the
+     width the name stands for; the token is the first width outside the
+     range (1281px → max-wide: is <= 1280px), which keeps the ranges the
+     stylesheets used before the transition. */
+  --breakpoint-wide: 1281px;
+  --breakpoint-reflow: 1181px;
+  --breakpoint-rail: 1101px;
+  --breakpoint-tiles: 961px;
+  --breakpoint-compact: 901px;
+  --breakpoint-narrow: 641px;
+  --breakpoint-tiny: 561px;
+
+  /* Layout metrics. */
+  --spacing-sidebar: 232px;
+  --spacing-rail: 316px;
+  --spacing-topbar: 60px;
 }
 
-a {
-  color: var(--accent);
-  text-decoration: none;
-}
+@custom-variant short (@media (max-height: 660px));
 
-a:hover {
-  text-decoration: underline;
-}
+@layer base {
+  body {
+    margin: 0;
+    background: var(--background);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    line-height: var(--leading-normal);
+    -webkit-font-smoothing: antialiased;
+  }
 
-:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-  border-radius: var(--radius-sm);
-}
+  a {
+    color: var(--accent);
+    text-decoration: none;
+  }
 
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
+  a:hover {
+    text-decoration: underline;
+  }
+
+  :focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+    border-radius: var(--radius-sm);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -7,7 +7,6 @@ import { Button } from '../../components/button/button';
 import { Tier } from '../../types/tier/tier';
 import { useUiState } from '../../store/store';
 import { avatarSrc } from '../../assets';
-import styles from './online-users.module.css';
 
 export function OnlineUsers() {
   const onlineCount = useUiState((state) => state.resources.onlineCount);
@@ -22,23 +21,27 @@ export function OnlineUsers() {
         </Button>
       }
     >
-      <ul className={styles.list}>
+      <ul className="flex flex-col gap-3">
         {onlineUsers.map((user) => (
-          <li key={user.name} className={styles.user}>
+          <li key={user.name} className="group flex items-center gap-3">
             <Avatar
               name={user.name}
               src={avatarSrc(user.name)}
               presence={user.presence}
               size="md"
             />
-            <span className={styles.meta}>
-              <span className={styles.name}>{user.name}</span>
-              <span className={styles.tier}>{Tier.label[user.tier]}</span>
+            <span className="flex min-w-0 flex-1 flex-col gap-roster-inset">
+              <span className="truncate text-sm leading-tight font-bold">
+                {user.name}
+              </span>
+              <span className="text-xs tracking-wide text-ink-muted">
+                {Tier.label[user.tier]}
+              </span>
             </span>
             <IconButton
               name="swords"
               label={`Challenge ${user.name}`}
-              className={styles.challenge}
+              tone="reveal"
             />
           </li>
         ))}

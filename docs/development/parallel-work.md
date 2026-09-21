@@ -58,6 +58,12 @@ PageSpace's lesson: branch debris accumulates faster than agents clean it
   a dedicated change, not a vertical PR. Vertical route groups
   (`src/app/(<vertical>)/`) keep the rest merge-free; see
   [extending](extending.md#adding-a-product-vertical).
+- **Theme tokens.** `globals.css` and `src/app/theme/*.css` are the only
+  Tailwind configuration. A vertical that needs a token adds it to the
+  partial its area owns; a new color or scale step in `globals.css` is a
+  dedicated change. Screenshot baselines in `apps/web/e2e/visual-baselines/`
+  change only with an intended visual change (see
+  [testing](testing.md#visual-parity)).
 - **Shared config gates.** `eslint.config.mjs`,
   `packages/typescript-config/`, `.prettierrc.json` invalidate every
   turbo cache and affect all verticals; change them in isolated,

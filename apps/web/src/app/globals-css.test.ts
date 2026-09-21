@@ -32,7 +32,7 @@ describe('globals.css theme tokens', () => {
     assert({
       given: 'the root token rules',
       should: 'see the core surface, text, and accent tokens',
-      actual: ['--background', '--text', '--accent', '--shadow-1'].filter(
+      actual: ['--background', '--text', '--accent', '--elevation-1'].filter(
         (name) => !tokens.has(name),
       ),
       expected: [],

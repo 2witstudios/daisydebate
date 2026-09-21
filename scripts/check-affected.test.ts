@@ -91,6 +91,7 @@ describe('planGates', () => {
       actual: planGates(partitionAffected([]), 'sha0'),
       expected: [
         { name: 'boundaries', args: ['bun', 'scripts/check-boundaries.ts'] },
+        { name: 'styling', args: ['bun', 'scripts/check-styling.ts'] },
         { name: 'duplication', args: ['bun', 'run', 'duplication'] },
       ],
     });
@@ -124,6 +125,7 @@ describe('planGates', () => {
       actual: gates.map(({ name }) => name),
       expected: [
         'boundaries',
+        'styling',
         'duplication',
         'turbo affected (typecheck, test)',
       ],

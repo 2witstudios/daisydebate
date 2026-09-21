@@ -1,0 +1,82 @@
+/* Component-owned size and motion tokens (ADR 0028). Theme variables only; classes stay in the markup. */
+@theme {
+  --spacing-dash-column: 1240px;
+  --spacing-hero-min: 280px;
+  --spacing-hero-min-compact: 240px;
+  --spacing-hero-min-tiny: 216px;
+  --spacing-hero-content: 660px;
+  --spacing-quote-card-min: 148px;
+  --spacing-tournament-min: 252px;
+  --spacing-tournament-body: 58%;
+  --spacing-tournament-art: 42%;
+  --spacing-tournament-cta-y: 10px;
+  --spacing-tile-footer-min: 22px;
+  --spacing-tile-nudge: 2px;
+  --spacing-activity-icon: 28px;
+  --spacing-activity-inset: 2px;
+  --spacing-roster-inset: 1px;
+
+  --text-quote-mark: 2.25rem;
+
+  --leading-hero-headline: 1.05;
+  --leading-hero-quote: 1.5;
+  --leading-topic-question: 1.5;
+  --leading-quote-mark: 0.7;
+  --leading-quote-body: 1.55;
+  --leading-tile-title: 1.2;
+  --leading-tile-copy: 1.45;
+
+  --text-shadow-hero-headline: 0 2px 20px
+    color-mix(in srgb, var(--scrim) 45%, transparent);
+  --text-shadow-hero-sub: 0 1px 12px
+    color-mix(in srgb, var(--scrim) 40%, transparent);
+  --text-shadow-hero-quote: 0 1px 12px
+    color-mix(in srgb, var(--scrim) 45%, transparent);
+
+  --animate-live-pulse: livePulse 2s ease-in-out infinite;
+}
+
+@keyframes livePulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@utility grid-cols-dash-lower {
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+}
+
+@utility grid-cols-live-matchup {
+  grid-template-columns: 1fr auto 1fr;
+}
+
+@utility object-hero-photo {
+  object-position: 50% 62%;
+}
+
+@utility object-quote-photo {
+  object-position: 50% 70%;
+}
+
+@utility object-tournament-art {
+  object-position: 50% 40%;
+}
+
+@utility scrim-hero {
+  background:
+    linear-gradient(
+      76deg,
+      color-mix(in srgb, var(--scrim) 85%, transparent) 10%,
+      color-mix(in srgb, var(--scrim) 35%, transparent) 48%,
+      color-mix(in srgb, var(--scrim) 5%, transparent) 78%
+    ),
+    linear-gradient(
+      to top,
+      color-mix(in srgb, var(--scrim) 78%, transparent),
+      transparent 48%
+    );
+}

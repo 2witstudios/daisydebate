@@ -105,6 +105,47 @@ not exist — PageSpace lost entire tiers this way. `bun evidence` (in
 - Playwright config env demonstrates the full production-refined
   configuration; keep it that way so e2e failures catch config regressions.
 
+## Styling safeguards and visual parity
+
+Styling is token-locked Tailwind v4 (ADR 0028). Every rule fails
+`bun check`, and each has a negative fixture proving it fires:
+
+- **Lint** (`eslint-plugin-better-tailwindcss`, fixtures in
+  `eslint.config.test.ts`): arbitrary values and properties (`[` in a
+  class), unknown or default-theme classes, conflicting classes, duplicate
+  classes, `dark:` and `scheme-*` variants.
+- **Format**: `prettier-plugin-tailwindcss` sorts classes, so
+  `bun format:check` fails on an unsorted class list.
+- **Repository gate** (`scripts/check-styling.ts`): no `*.module.css` and no
+  `tailwind.config.*` file anywhere.
+- **Policy** (`bun policy`): no inline `style` attribute or `<style>`
+  element in TSX and no silenced Tailwind lint rule, unless a registry
+  exception links an ADR.
+- **Theme** (`apps/web/src/app/theme.test.ts`): compiles the real
+  `globals.css` and proves default utilities generate no CSS while token
+  utilities resolve through the custom properties.
+
+### Visual parity
+
+`apps/web/e2e/visual.e2e.ts` takes full-page screenshots of the dashboard
+and settings in dark and light at 1440, 1024 and 390 px wide and compares
+them with `apps/web/e2e/visual-baselines/`. Baselines are Linux-only: fonts
+render differently elsewhere. CI runs on Linux natively. On any other host
+the `visual` Playwright project is excluded until a Linux browser is
+provided:
+
+```sh
+bun visual:server                     # Linux Playwright image, port 43400
+PW_WS_ENDPOINT=ws://127.0.0.1:43400/ bun test:e2e
+```
+
+To regenerate after an intended visual change, run the same command with
+`--update-snapshots` appended to the Playwright invocation
+(`node node_modules/@playwright/test/cli.js test --project=visual
+--update-snapshots` from `apps/web`, with `PW_WS_ENDPOINT` set), review the
+image diff, and record the before/after on the plan. The image tag in
+`package.json` must match the installed `@playwright/test` version.
+
 ## UI component tests
 
 UI under `apps/web/src/ui/` is Tier 1: tests sit next to the component as
@@ -114,9 +155,12 @@ content) rather than markup snapshots. No DOM library is installed or needed.
 `bun test src` runs them, and `bun evidence` counts them in the unit tier
 and orphan-checks them like any `*.test.ts` suite.
 
-- CSS modules resolve to `undefined` under `bun test`, so never assert on
-  generated class names. To lock class correctness, read the `.module.css`
-  file and assert the key is defined (see `presence-dot.test.tsx`).
+- Styling is Tailwind utilities written in the markup (ADR 0028), so
+  `renderToString` output contains the literal classes. Variant props (button
+  variant, badge tone, avatar size, tile tint, presence) are pure functions
+  from props to a class string in `<name>-class.ts`; test them with RITEway
+  by asserting the literal classes for every variant. Do not assert on
+  stylesheet text.
 - Store-driven components read the module-level store: call
   `setUiState({ ...createInitialState(), … })` at the start of each test so
   no test depends on another's state.

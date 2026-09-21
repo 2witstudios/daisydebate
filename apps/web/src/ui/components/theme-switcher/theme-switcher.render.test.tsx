@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { renderToString } from 'react-dom/server';
 import {
   Children,
@@ -12,7 +10,6 @@ import { preferenceForKey, renderThemeSwitcher } from './theme-switcher.render';
 import { ThemeSwitcher } from './theme-switcher';
 import { ThemeProvider } from '../../theme/theme-provider';
 import type { ThemePreference } from '../../theme/theme-preference';
-import { definesClass } from '../../test-support/css-classes';
 
 setupRitewayBun();
 
@@ -120,19 +117,6 @@ describe('renderThemeSwitcher', () => {
         focused: ['[data-preference="light"]'],
         prevented: 1,
       },
-    });
-  });
-
-  test('styles every class it renders', () => {
-    const css = readFileSync(
-      join(import.meta.dir, 'theme-switcher.module.css'),
-      'utf8',
-    );
-    assert({
-      given: 'the switcher stylesheet',
-      should: 'define the group and option classes',
-      actual: ['switcher', 'option'].map((name) => definesClass(css, name)),
-      expected: [true, true],
     });
   });
 });

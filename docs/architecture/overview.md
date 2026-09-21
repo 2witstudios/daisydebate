@@ -91,6 +91,12 @@ an owner, tests, and a row in this table (`docs/development/extending.md`).
    void transactions flow up. Adobe vendor imports stay confined to the
    engine adapter; client-side ECS is rejected — its codegen requires
    `unsafe-eval`, conflicting with the strict CSP.
+6. Styling (`apps/web/src/ui/`, `apps/web/src/app/`) is token-locked Tailwind
+   v4 (ADR 0028): utilities in the markup, a CSS-only theme that resets the
+   default namespaces and maps only Daisy tokens, a build-time stylesheet
+   only (no inline styles under the nonce CSP), and lint, format and
+   repository gates that fail on arbitrary values, unknown classes and
+   `dark:` variants.
 
 Detailed documents: persistence and Redis semantics
 (`docs/architecture/persistence.md`), engine boundary

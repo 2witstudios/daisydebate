@@ -33,9 +33,10 @@ DATABASE_URL="$TEST_DATABASE_URL" bun db:migrate
 | `bun build`                       | Production builds through the turbo graph                                                                                           |
 | `bun test`                        | Fast deterministic unit/domain tests; no services or Next boot                                                                      |
 | `bun test:integration`            | Database, Redis, and web vertical tests against real services                                                                       |
+| `bun visual:server`               | Linux Playwright browser server for screenshot parity on non-Linux hosts (see testing)                                              |
 | `bun test:e2e`                    | Playwright against the production server build                                                                                      |
 | `bun verify`                      | `bun check` plus migration-idempotency, integration, and E2E gates                                                                  |
-| `bun lint`                        | ESLint plus `scripts/check-boundaries.ts` architecture verification                                                                 |
+| `bun lint`                        | ESLint (incl. Tailwind token rules), `scripts/check-boundaries.ts`, and `scripts/check-styling.ts`                                  |
 | `bun format` / `bun format:check` | Prettier write / verify                                                                                                             |
 | `bun typecheck`                   | `tsc --noEmit` per workspace (web runs `next typegen` first)                                                                        |
 | `bun check`                       | format:check + lint + policy + knip + duplication + invariants + evidence + typecheck + test + metrics + build — run before pushing |

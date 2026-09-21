@@ -8,6 +8,54 @@ import {
 
 setupRitewayBun();
 
+describe('policy scanner: token-locked styling', () => {
+  test('flags inline style attributes and style elements in shipped TSX', () => {
+    assert({
+      given: 'TSX using a style attribute, a string style, and a style element',
+      should: 'report each as an inline-style finding',
+      actual: scanPolicyText(
+        'apps/web/src/ui/a.tsx',
+        [
+          'const a = <div style={{ width: 3 }} />;',
+          "const b = <div style='width:3px' />;",
+          'const c = <style>{css}</style>;',
+        ].join('\n'),
+      ).map(({ rule, line }) => `${rule}:${line}`),
+      expected: ['inline-style:1', 'inline-style:2', 'inline-style:3'],
+    });
+  });
+
+  test('leaves test TSX and plain TypeScript alone', () => {
+    assert({
+      given: 'a style attribute inside a test file and a TypeScript string',
+      should: 'report nothing',
+      actual: [
+        ...scanPolicyText('apps/web/src/a.test.tsx', '<div style={{}} />'),
+        ...scanPolicyText(
+          'apps/web/src/a.ts',
+          "const s = '<div style={{}} />';",
+        ),
+      ],
+      expected: [],
+    });
+  });
+
+  test('flags a silenced Tailwind lint rule', () => {
+    assert({
+      given: 'a comment disabling a better-tailwindcss rule',
+      should: 'report tailwind-lint-disable',
+      actual: scanPolicyText(
+        'apps/web/src/ui/a.tsx',
+        [
+          '// eslint-',
+          'disable-next-line better-tailwindcss/no-unknown-classes',
+        ].join(''),
+      ).map(({ rule }) => rule),
+      expected: ['tailwind-lint-disable'],
+    });
+  });
+});
+
 describe('policy scanner', () => {
   test('detects direct random UUID generation and repository UUID contracts', () => {
     assert({

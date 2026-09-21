@@ -84,6 +84,24 @@ rules.
 6. Update the "Where work belongs" table in `README.md` and this file in
    the same PR.
 
+## Styling UI
+
+Write Tailwind utilities on the element (ADR 0028). There is no
+`tailwind.config.*`: the theme lives in `apps/web/src/app/globals.css` and
+`apps/web/src/app/theme/*.css`.
+
+1. Use existing tokens (`bg-surface`, `text-ink-muted`, `p-4`, `rounded-lg`,
+   `max-rail:…`). A value the theme lacks becomes a named token in the
+   owning `theme/*.css` partial, never an arbitrary value.
+2. Variant props become a pure `<name>-class.ts` function with a RITEway test
+   asserting the literal classes; join fragments with `cn` from
+   `apps/web/src/ui/cn.ts`. Variants own disjoint classes and never override
+   the base.
+3. Use `@utility` only for a pattern with no token-locked utility (named grid
+   areas), never to hide a long class list.
+4. Colors come from the `light-dark()` tokens; do not add `dark:` variants.
+5. `bun check` fails on drift; run `bun format` to sort classes.
+
 ## Adding a protocol message
 
 1. Add the message to the discriminated union (command or event) or snapshot

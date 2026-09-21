@@ -1,3 +1,8 @@
+import {
+  stylingRuleApplies,
+  stylingRules,
+  type StylingRule,
+} from './policy-styling';
 import { readFile, readdir } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 import * as ts from 'typescript';
@@ -31,7 +36,8 @@ const categories = new Set<PolicyCategory>([
   'tooling',
 ]);
 
-export type PolicyRule = 'direct-random-uuid' | 'repository-owned-uuid';
+export type PolicyRule =
+  'direct-random-uuid' | 'repository-owned-uuid' | StylingRule;
 export type PolicyCategory =
   'framework' | 'integration-isolation' | 'migration' | 'tooling';
 export type PolicyException = {
@@ -59,6 +65,7 @@ const rules: Readonly<Record<PolicyRule, RegExp>> = {
   'direct-random-uuid': /\b(?:crypto\.)?randomUUID\s*\(/,
   'repository-owned-uuid':
     /\b(?:z\.uuid\s*\(|uuid\s*\(|uuidv[134]\s*\(|from\s+['"]uuid['"]|::uuid\b)/i,
+  ...stylingRules,
 };
 
 function aliasedRandomUuidFindings(
@@ -138,7 +145,7 @@ export function scanPolicyText(
       PolicyRule,
       RegExp,
     ][]) {
-      if (pattern.test(line))
+      if (stylingRuleApplies(rule, path) && pattern.test(line))
         findings.push({
           path,
           line: lineIndex + 1,
@@ -380,8 +387,7 @@ export async function collectPolicy(): Promise<PolicyReport> {
   const findings: PolicyFinding[] = [];
   for (const file of repositoryFiles) {
     const path = relative(root, file);
-    if (path === 'scripts/policy.ts' || path === 'scripts/policy.test.ts')
-      continue;
+    if (/^scripts\/policy(-styling|\.test)?\.ts$/.test(path)) continue;
     for (const finding of scanPolicyText(path, await readFile(file, 'utf8')))
       if (!exceptions.has(`${finding.path}|${finding.rule}`))
         findings.push(finding);

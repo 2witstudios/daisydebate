@@ -14,7 +14,19 @@ export const resolveE2ERedisPort = (env: Env): string =>
 export const resolveReuseExistingServer = (env: Env): boolean =>
   env.CI ? false : env.E2E_PORT === undefined;
 
+// Screenshot parity is pixel-exact only in the Linux Playwright image that
+// matches @playwright/test. `bun visual:server` runs that image's browser
+// server; pointing PW_WS_ENDPOINT at it keeps the app on the host and the
+// browser in Linux (docs/development/testing.md, "Visual parity").
+export const resolveBrowserEndpoint = (env: Env): string | undefined =>
+  env.PW_WS_ENDPOINT || undefined;
+// Non-Linux hosts render fonts differently; without the Linux browser
+// server they must not compare against Linux baselines.
+export const runsVisualProject = (env: Env, platform: string): boolean =>
+  platform === 'linux' || resolveBrowserEndpoint(env) !== undefined;
+
 const port = resolveE2EPort(process.env);
+const browserEndpoint = resolveBrowserEndpoint(process.env);
 const baseURL = `http://127.0.0.1:${port}`;
 // Local Compose exposes PostgreSQL on 15432; CI service containers use 5432.
 const postgresPort = process.env.E2E_POSTGRES_PORT ?? '15432';
@@ -24,6 +36,7 @@ export default defineConfig({
   testDir: './e2e',
   // `*.e2e.ts` keeps these files out of Bun's `*.spec.ts` test discovery.
   testMatch: '**/*.e2e.ts',
+  snapshotPathTemplate: '{testDir}/visual-baselines/{arg}{ext}',
   timeout: 30_000,
   fullyParallel: false,
   workers: 1,
@@ -35,6 +48,25 @@ export default defineConfig({
     trace: 'retain-on-failure',
     video: 'retain-on-failure',
   },
+  projects: [
+    { name: 'functional', testIgnore: '**/visual.e2e.ts' },
+    ...(runsVisualProject(process.env, process.platform)
+      ? [
+          {
+            name: 'visual',
+            testMatch: '**/visual.e2e.ts',
+            use: browserEndpoint
+              ? {
+                  connectOptions: {
+                    wsEndpoint: browserEndpoint,
+                    exposeNetwork: '<loopback>',
+                  },
+                }
+              : {},
+          },
+        ]
+      : []),
+  ],
   webServer: {
     // Keep structured server output beside Playwright's failure artifacts.
     command:

@@ -1,21 +1,19 @@
 import type { ReactNode } from 'react';
-import styles from './status-line.module.css';
+import {
+  statusDotClass,
+  statusLineClass,
+  type StatusTone,
+} from './status-line-class';
 
 export type StatusLineProps = {
-  readonly tone?: 'online' | 'live' | 'neutral';
+  readonly tone?: StatusTone;
   readonly children: ReactNode;
 };
 
-const toneClass = {
-  online: styles.online,
-  live: styles.live,
-  neutral: styles.neutral,
-} as const;
-
 export function StatusLine({ tone = 'neutral', children }: StatusLineProps) {
   return (
-    <span className={`${styles.status} ${toneClass[tone]}`}>
-      <span className={styles.dot} aria-hidden="true" />
+    <span className={statusLineClass}>
+      <span className={statusDotClass(tone)} aria-hidden="true" />
       {children}
     </span>
   );

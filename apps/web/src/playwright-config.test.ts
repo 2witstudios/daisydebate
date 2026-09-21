@@ -1,8 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import playwrightConfig, {
+  resolveBrowserEndpoint,
   resolveE2EPort,
   resolveE2ERedisPort,
   resolveReuseExistingServer,
+  runsVisualProject,
 } from '../playwright.config';
 
 setupRitewayBun();
@@ -83,6 +85,38 @@ describe('Playwright server reuse policy', () => {
       should: 'fail loud instead of reusing another session server',
       actual: resolveReuseExistingServer({ E2E_PORT: '13100' }),
       expected: false,
+    });
+  });
+});
+
+describe('Playwright visual project', () => {
+  test('runs natively on Linux', () => {
+    assert({
+      given: 'a Linux host with no browser endpoint',
+      should: 'include the visual project',
+      actual: runsVisualProject({}, 'linux'),
+      expected: true,
+    });
+  });
+
+  test('needs the Linux browser server elsewhere', () => {
+    assert({
+      given: 'a macOS host without and with a browser endpoint',
+      should: 'exclude the project until the Linux browser server is set',
+      actual: [
+        runsVisualProject({}, 'darwin'),
+        runsVisualProject({ PW_WS_ENDPOINT: 'ws://127.0.0.1:3000/' }, 'darwin'),
+      ],
+      expected: [false, true],
+    });
+  });
+
+  test('treats an empty endpoint as unset', () => {
+    assert({
+      given: 'PW_WS_ENDPOINT set to an empty string',
+      should: 'resolve no endpoint',
+      actual: resolveBrowserEndpoint({ PW_WS_ENDPOINT: '' }),
+      expected: undefined,
     });
   });
 });
