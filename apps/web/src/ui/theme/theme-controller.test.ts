@@ -71,6 +71,48 @@ describe('createThemeController.select', () => {
   });
 });
 
+describe('createThemeController with cookies blocked', () => {
+  /** A browser that silently drops cookie writes. */
+  const createBlocked = () => {
+    const calls: string[] = [];
+    const controller = createThemeController({
+      initial: 'dark',
+      apply: (preference) => calls.push(`apply ${preference}`),
+      writeCookie: () => {},
+      readCookies: () => '',
+      announce: () => calls.push('announce'),
+      transition: (update) => update(),
+      secure: false,
+    });
+    return { calls, controller };
+  };
+
+  test('keeps a switch for this tab without announcing it', () => {
+    const { calls, controller } = createBlocked();
+    controller.select('light');
+
+    assert({
+      given: 'a switch whose cookie write did not stick',
+      should: 'apply it here but not tell tabs that cannot read it',
+      actual: calls,
+      expected: ['apply light'],
+    });
+  });
+
+  test('does not revert the switch when the tab is shown again', () => {
+    const { calls, controller } = createBlocked();
+    controller.select('light');
+    const synced = controller.sync();
+
+    assert({
+      given: 'a re-sync after an unsaved switch',
+      should: 'keep the chosen theme instead of the cookie default',
+      actual: { synced, calls },
+      expected: { synced: 'light', calls: ['apply light'] },
+    });
+  });
+});
+
 describe('createThemeController.sync', () => {
   test('applies the preference another tab saved', () => {
     const jar = { cookies: 'session=abc; daisy-theme=system' };
@@ -89,8 +131,8 @@ describe('createThemeController.sync', () => {
     const jar = { cookies: '' };
     const first = createRecorder({ jar });
     const second = createRecorder({ jar });
-    first.controller.select('light');
-    second.controller.select('dark');
+    first.controller.select('system');
+    second.controller.select('light');
     // The first tab's announcement arrives late, after the second's switch.
     const synced = [second.controller.sync(), first.controller.sync()];
 
@@ -98,7 +140,7 @@ describe('createThemeController.sync', () => {
       given: 'two tabs switching close together, announcements out of order',
       should: 'converge every tab on the last write',
       actual: synced,
-      expected: ['dark', 'dark'],
+      expected: ['light', 'light'],
     });
   });
 

@@ -50,7 +50,9 @@ onto it. That design had three problems:
    announcement can never apply a stale choice. A tab that missed an
    announcement, because it was frozen or restored from the back/forward
    cache, re-syncs from the cookie on `visibilitychange` and `pageshow`. A
-   re-sync that finds nothing changed does nothing.
+   re-sync that finds nothing changed does nothing. If the browser blocks
+   cookies, the switch applies to the current tab only, until reload. It is
+   not announced, and a re-sync does not revert it.
 6. **The provider renders the browser-chrome metas.** `ThemeProvider`
    renders `<meta name="color-scheme">` and one `theme-color` meta per OS
    scheme from its state; an explicit choice paints both with its own color.

@@ -153,6 +153,36 @@ test.describe('theme preference', () => {
     await verifyClean();
   });
 
+  test('a tab shown again catches up with the saved preference', async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    const verifyClean = await watchForProblems(page);
+    const { group } = await openSettings(page);
+    const saveTheme = (value: string) =>
+      context.addCookies([
+        { name: 'daisy-theme', value, url: baseURL ?? page.url() },
+      ]);
+
+    // Another tab saved light while this one was hidden and missed the
+    // announcement; becoming visible again re-reads the cookie.
+    await saveTheme('light');
+    await page.evaluate(() =>
+      document.dispatchEvent(new Event('visibilitychange')),
+    );
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    await expect(group.getByRole('radio', { name: 'Light' })).toBeChecked();
+    await expect.poll(() => themeColors(page)).toEqual(LIGHT_CHROME);
+
+    // Restored from the back/forward cache: pageshow re-reads it too.
+    await saveTheme('system');
+    await page.evaluate(() => dispatchEvent(new Event('pageshow')));
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'system');
+    await expect(group.getByRole('radio', { name: 'System' })).toBeChecked();
+    await verifyClean();
+  });
+
   test('a switch in one tab reaches the viewer’s other tabs', async ({
     context,
   }) => {
