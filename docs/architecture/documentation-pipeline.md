@@ -37,9 +37,10 @@ creation workflow.
    and the answer can be lost on its way back. On a dropped connection or a
    gateway 5xx (including a 5xx whose body is lost mid-read), dispatch reads
    that conversation instead; a status below 500 is final even when its body
-   is lost, so a 409 still reads as already dispatched. An answer there is success;
-   a conversation that never appears means the request never landed; one still
-   unanswered at the deadline is reported as a failure, though the run may
+   is lost, so a 409 still reads as already dispatched. An answer there is
+   success; a conversation that a successful read finds missing means the
+   request never landed, while one that cannot be read is unknown, not
+   absent; one still unanswered at the deadline is reported as a failure, though the run may
    finish late and still rewrite its reserved row. A 5xx carrying the consult
    route's own JSON error is different: the route answers only once its run
    has stopped, so dispatch reads the conversation (once more if it reads

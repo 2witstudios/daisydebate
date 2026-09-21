@@ -86,6 +86,8 @@ type Stub = {
   readonly readDelayMs?: number;
   /** The receipt-row append answers after this long (still abortable). */
   readonly appendDelayMs?: number;
+  /** Conversation reads after the consult fail with this status. */
+  readonly readStatus?: number;
 };
 
 const json = (value: unknown) =>
@@ -124,6 +126,8 @@ export const routedFetch = (stub: Stub) => {
     if (stub.hang?.includes('reads')) return hangUntilAborted(init);
     const sent = consulted.has(path.split('/').at(-2) ?? '');
     if (sent) counts.messages += 1;
+    if (sent && stub.readStatus)
+      return new Response('', { status: stub.readStatus });
     const roles = sent ? (stub.roles?.() ?? []) : (stub.existing ?? []);
     const answer = json({ messages: roles.map((role) => ({ role })) });
     return answerAfter(answer, stub.readDelayMs, init);

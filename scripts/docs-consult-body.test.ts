@@ -46,7 +46,7 @@ describe('dispatchDocumentationEvent with a lost response body', async () => {
       should: 'fail as never reached, naming the body failure and the replay',
       actual: message,
       expected:
-        'Documentation Agent consult for technical-docs never reached PageSpace (body dropped). Its receipt, row 2 of Documentation Runs, stays failed; replay with DOC_REPLAY_ATTEMPT=0 DOC_PIPELINES=technical-docs',
+        'Documentation Agent consult for technical-docs never reached PageSpace (body dropped). Its receipt, row 2 of Documentation Runs, stays failed unless the request lands late; replay with DOC_REPLAY_ATTEMPT=0 DOC_PIPELINES=technical-docs',
     });
   });
 
@@ -82,10 +82,34 @@ describe('dispatchDocumentationEvent with a lost response body', async () => {
     const message = await failureOf(dispatchDropped(403, []).run);
     assert({
       given: 'a 403 refusal whose body read fails',
-      should: 'fail naming the status, not as never reached',
+      should: 'fail naming the status and the lost body, not as never reached',
       actual: message,
       expected:
-        'Documentation Agent consult for technical-docs responded 403: ',
+        'Documentation Agent consult for technical-docs responded 403: (body lost: body dropped)',
+    });
+  });
+
+  test('does not call an unreadable conversation never reached', async () => {
+    const { fetchImpl } = routedFetch({
+      consult: async () => new Response('', { status: 502 }),
+      readStatus: 503,
+    });
+    const message = await failureOf(
+      dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
+        ...baseOptions,
+        ...instant,
+        fetchImpl,
+      }),
+    );
+    assert({
+      given: 'a gateway 502 and conversation reads that keep failing',
+      should:
+        'report an unknown outcome with the next attempt, not a same-attempt replay',
+      actual: {
+        neverReached: message.includes('never reached PageSpace'),
+        nextAttempt: message.includes('DOC_REPLAY_ATTEMPT=1 '),
+      },
+      expected: { neverReached: false, nextAttempt: true },
     });
   });
 });

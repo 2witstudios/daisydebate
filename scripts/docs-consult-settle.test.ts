@@ -51,7 +51,7 @@ describe('dispatchDocumentationEvent settlement', async () => {
       should: 'fail naming the status as the cause',
       actual: message,
       expected:
-        'Documentation Agent consult for technical-docs never reached PageSpace (responded 502). Its receipt, row 2 of Documentation Runs, stays failed; replay with DOC_REPLAY_ATTEMPT=0 DOC_PIPELINES=technical-docs',
+        'Documentation Agent consult for technical-docs never reached PageSpace (responded 502). Its receipt, row 2 of Documentation Runs, stays failed unless the request lands late; replay with DOC_REPLAY_ATTEMPT=0 DOC_PIPELINES=technical-docs',
     });
   });
 

@@ -61,6 +61,8 @@ function trustedKeys(
 // trusted CI context knows is interpolated here so the row stays reconcilable
 // even when the model misreads the payload; the model supplies only what it
 // alone knows (timing, outcome, what it reviewed and found).
+type ConversationState = 'answered' | 'pending' | 'absent' | 'unreadable';
+
 export function composeConsultQuestion(input: {
   readonly event: DocumentationEvent;
   readonly pipeline: DocumentPipeline;
@@ -171,12 +173,12 @@ export async function dispatchDocumentationEvent(
   const until = (end: number, cap = Number.POSITIVE_INFINITY): AbortSignal =>
     AbortSignal.timeout(Math.max(1, Math.min(cap, end - Date.now())));
 
-  // 'absent' covers both "no such conversation" and an unreadable one: before
-  // the question has been seen, neither proves the request landed.
+  // 'absent' is a successful read that found no conversation; 'unreadable' is
+  // a read that failed, which proves nothing either way.
   const readConversation = async (
     conversationId: string,
     end: number,
-  ): Promise<'answered' | 'pending' | 'absent'> => {
+  ): Promise<ConversationState> => {
     try {
       const response = await fetchImpl(
         new URL(
@@ -190,7 +192,7 @@ export async function dispatchDocumentationEvent(
           signal: until(end, requestTimeoutMs),
         },
       );
-      if (!response.ok) return 'absent';
+      if (!response.ok) return 'unreadable';
       const { messages } = (await response.json()) as {
         messages?: readonly { role?: string }[];
       };
@@ -199,25 +201,26 @@ export async function dispatchDocumentationEvent(
         ? 'answered'
         : 'pending';
     } catch {
-      return 'absent';
+      return 'unreadable';
     }
   };
 
   // Once the question has been seen, an unreadable conversation is a blip, not
-  // proof the request vanished; before that, one grace read decides. Polling
+  // proof the request vanished; before that, one grace read decides, and a
+  // failed read reports 'unreadable' rather than claiming the id was unused. Polling
   // stops at the consult's deadline, but each read is bounded by the budget,
   // so the read after a consult times out still has time to answer.
   const awaitAnswer = async (
     conversationId: string,
     deadline: number,
-  ): Promise<'answered' | 'pending' | 'absent'> => {
+  ): Promise<ConversationState> => {
     let seenQuestion = false;
     for (let reads = 0; ; reads += 1) {
       const state = await readConversation(conversationId, budgetEnd);
       if (state === 'answered') return 'answered';
       if (state === 'pending') seenQuestion = true;
-      if (!seenQuestion && reads >= 1) return 'absent';
-      if (Date.now() >= deadline) return seenQuestion ? 'pending' : 'absent';
+      if (!seenQuestion && reads >= 1) return state;
+      if (Date.now() >= deadline) return seenQuestion ? 'pending' : state;
       // Never sleep past the deadline: the next read, bounded by the budget,
       // then still ends inside it.
       await delay(Math.min(pollIntervalMs, deadline - Date.now()));
@@ -319,7 +322,7 @@ export async function dispatchDocumentationEvent(
       return { response, body: await response.text() };
     } catch (error) {
       return response.status < 500
-        ? { response, body: '' }
+        ? { response, body: `(body lost: ${causeOf(error)})` }
         : { cause: causeOf(error) };
     }
   };
@@ -338,7 +341,8 @@ export async function dispatchDocumentationEvent(
     // between identical dispatches) can still reach the consult; PageSpace
     // then refuses the id with 409 and the extra reserved row stays failed,
     // which the reconciler never counts as a receipt.
-    if ((await readConversation(conversationId, budgetEnd)) !== 'absent')
+    const existing = await readConversation(conversationId, budgetEnd);
+    if (existing === 'answered' || existing === 'pending')
       return { pipeline, conversationId, outcome: 'already-dispatched' };
     const runRow = await reserveRunRow(pipeline, conversationId);
     const receipt = `row ${runRow} of Documentation Runs`;
@@ -370,7 +374,7 @@ export async function dispatchDocumentationEvent(
       // attempt replays it; a request that did land late is refused with 409.
       if (state === 'absent')
         throw new Error(
-          `Documentation Agent consult for ${pipeline} never reached PageSpace (${cause}). Its receipt, ${receipt}, stays failed; replay with DOC_REPLAY_ATTEMPT=${attempt} DOC_PIPELINES=${pipeline}`,
+          `Documentation Agent consult for ${pipeline} never reached PageSpace (${cause}). Its receipt, ${receipt}, stays failed unless the request lands late; replay with DOC_REPLAY_ATTEMPT=${attempt} DOC_PIPELINES=${pipeline}`,
         );
       throw new Error(
         `Documentation Agent consult for ${pipeline} did not answer within ${waitSeconds}s (${cause}). The run may still finish: its receipt is ${receipt}. If that row turns complete, nothing is lost; if it stays failed, replay with ${replay}`,
@@ -397,7 +401,7 @@ export async function dispatchDocumentationEvent(
     const reported = routeFailure(response, body);
     if (reported !== undefined) {
       let state = await readConversation(conversationId, budgetEnd);
-      if (state === 'absent') {
+      if (state === 'absent' || state === 'unreadable') {
         await delay(
           Math.min(pollIntervalMs, Math.max(0, deadline - Date.now())),
         );
