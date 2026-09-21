@@ -108,7 +108,7 @@ async function readChunks(
       length += value.length;
       if (length > maxBytes) {
         await reader.cancel();
-        throw createAppError('VALIDATION');
+        throw createAppError('PAYLOAD_TOO_LARGE');
       }
       chunks.push(value);
     }
