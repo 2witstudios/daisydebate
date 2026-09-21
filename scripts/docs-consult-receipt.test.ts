@@ -190,4 +190,23 @@ describe('dispatchDocumentationEvent receipt', async () => {
       expected: ['dispatched'],
     });
   });
+
+  test('caps the pre-check so a hung lookup cannot starve the consult', async () => {
+    const stub = routedFetch({ consult: async () => ok(), hang: ['reads'] });
+    const outcomes = await dispatchDocumentationEvent(
+      mergeEvent('fix: only technical'),
+      {
+        ...baseOptions,
+        fetchImpl: stub.fetchImpl,
+        budgetMs: 60_000,
+        requestTimeoutMs: 20,
+      },
+    );
+    assert({
+      given: 'a hung conversation lookup with plenty of budget left',
+      should: 'give up on the lookup at its own cap, then still consult',
+      actual: outcomes.map((outcome) => outcome.outcome),
+      expected: ['dispatched'],
+    });
+  });
 });

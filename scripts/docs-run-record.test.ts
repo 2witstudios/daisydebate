@@ -108,4 +108,30 @@ describe('parseRunRecord', async () => {
       expected: true,
     });
   });
+
+  test('rejects null for optional fields typed string-or-absent', async () => {
+    const problemsFor = (field: string) => {
+      try {
+        parseRunRecord({
+          ...JSON.parse(JSON.stringify(validRunRecord)),
+          [field]: null,
+        });
+        return 'accepted';
+      } catch (error) {
+        return (error as Error).message.includes(field) ? 'rejected' : 'other';
+      }
+    };
+    assert({
+      given: 'null in each optional run-record field',
+      should:
+        'reject it, since the parsed type allows only a string or nothing',
+      actual: [
+        'baseRevision',
+        'resultingRevision',
+        'idempotencyKey',
+        'notes',
+      ].map(problemsFor),
+      expected: ['rejected', 'rejected', 'rejected', 'rejected'],
+    });
+  });
 });

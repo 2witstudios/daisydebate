@@ -27,6 +27,9 @@ import {
 const DEFAULT_WAIT_MS = 20 * 60_000;
 const DEFAULT_BUDGET_MS = 42 * 60_000;
 const DEFAULT_POLL_INTERVAL_MS = 15_000;
+// Lookups and reservations answer in milliseconds; only the consult runs for
+// minutes. Capping each one keeps a hung call from spending the whole budget.
+const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 
 export type ConsultOutcome = {
   readonly pipeline: DocumentPipeline;
@@ -42,6 +45,7 @@ export type ConsultOptions = {
   readonly nonce?: () => string;
   readonly timeoutMs?: number;
   readonly budgetMs?: number;
+  readonly requestTimeoutMs?: number;
   readonly pipelines?: readonly string[];
   readonly attempt?: number;
   readonly pollIntervalMs?: number;
@@ -203,8 +207,10 @@ export async function dispatchDocumentationEvent(
   // Every PageSpace request is bounded, not only the consult: a call PageSpace
   // accepts and never answers must not outlive the budget, or the CI job is
   // cancelled before its incidents step runs.
-  const until = (end: number): AbortSignal =>
-    AbortSignal.timeout(Math.max(1, end - Date.now()));
+  const requestTimeoutMs =
+    options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
+  const until = (end: number, cap = Number.POSITIVE_INFINITY): AbortSignal =>
+    AbortSignal.timeout(Math.max(1, Math.min(cap, end - Date.now())));
 
   // 'absent' covers both "no such conversation" and an unreadable one: before
   // the question has been seen, neither proves the request landed.
@@ -218,7 +224,12 @@ export async function dispatchDocumentationEvent(
           `/api/ai/page-agents/${encodeURIComponent(agentId)}/conversations/${encodeURIComponent(conversationId)}/messages?limit=50`,
           apiUrl,
         ).toString(),
-        { method: 'GET', redirect: 'error', headers, signal: until(end) },
+        {
+          method: 'GET',
+          redirect: 'error',
+          headers,
+          signal: until(end, requestTimeoutMs),
+        },
       );
       if (!response.ok) return 'absent';
       const { messages } = (await response.json()) as {
@@ -265,7 +276,7 @@ export async function dispatchDocumentationEvent(
         method: 'POST',
         redirect: 'error',
         headers,
-        signal: until(budgetEnd),
+        signal: until(budgetEnd, requestTimeoutMs),
         body: JSON.stringify({
           operation: 'append-rows',
           pageId: DOCUMENTATION_RUNS_SHEET_ID,

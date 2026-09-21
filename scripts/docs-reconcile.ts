@@ -155,8 +155,13 @@ export function parseDuration(value: string): number {
   return count * (match[2] === 'h' ? 3_600_000 : 86_400_000);
 }
 
+// A stalled GitHub request must not hold the sweep open indefinitely.
 const gh = (args: readonly string[]): string =>
-  execFileSync('gh', [...args], { cwd: root, encoding: 'utf8' });
+  execFileSync('gh', [...args], {
+    cwd: root,
+    encoding: 'utf8',
+    timeout: 120_000,
+  });
 
 const changedFilesBetween = (
   base: string,
@@ -275,16 +280,24 @@ export async function readRunRecords(
   const { apiUrl, headers } = pagespaceApi(options);
   const fetchImpl = options.fetchImpl ?? fetch;
   const timeoutMs = options.timeoutMs ?? 60_000;
+  // One deadline for the whole read, not one per page, so a slow multi-page
+  // sheet cannot take pages × timeout.
+  const end = Date.now() + timeoutMs;
+  const timedOut = (fromRow: number) =>
+    new Error(
+      `Reading Documentation Runs did not answer within ${Math.round(timeoutMs / 1000)}s at row ${fromRow}`,
+    );
   const endpoint = new URL('/api/mcp/sheets', apiUrl).toString();
   const rows: SheetRow[] = [];
   for (let fromRow: number | null = 0; fromRow !== null;) {
+    if (Date.now() >= end) throw timedOut(fromRow);
     let response: Response;
     try {
       response = await fetchImpl(endpoint, {
         method: 'POST',
         redirect: 'error',
         headers,
-        signal: AbortSignal.timeout(timeoutMs),
+        signal: AbortSignal.timeout(Math.max(1, end - Date.now())),
         body: JSON.stringify({
           operation: 'get-rows',
           pageId: DOCUMENTATION_RUNS_SHEET_ID,
@@ -295,9 +308,7 @@ export async function readRunRecords(
     } catch (error) {
       const name = (error as { name?: unknown } | null)?.name;
       if (name === 'TimeoutError' || name === 'AbortError')
-        throw new Error(
-          `Reading Documentation Runs did not answer within ${Math.round(timeoutMs / 1000)}s at row ${fromRow}`,
-        );
+        throw timedOut(fromRow);
       throw error;
     }
     const body = await response.text();
