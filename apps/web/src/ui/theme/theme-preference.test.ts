@@ -3,6 +3,7 @@ import {
   colorSchemeFor,
   isThemePreference,
   parseThemePreference,
+  preferenceFromCookies,
   serializeThemeCookie,
   THEME_COOKIE,
   THEME_PREFERENCES,
@@ -40,6 +41,28 @@ describe('isThemePreference', () => {
       should: 'accept only the known value',
       actual: ['system', 'System', {}].map(isThemePreference),
       expected: [true, false, false],
+    });
+  });
+});
+
+describe('preferenceFromCookies', () => {
+  test('finds the theme among other cookies', () => {
+    assert({
+      given: 'a cookie string holding several cookies',
+      should: 'return the theme preference',
+      actual: preferenceFromCookies('a=1; daisy-theme=light; b=2'),
+      expected: 'light',
+    });
+  });
+
+  test('validates what it finds', () => {
+    assert({
+      given: 'no theme cookie, a tampered value, and a look-alike name',
+      should: 'fall back to dark each time',
+      actual: ['', 'daisy-theme=sepia', 'not-daisy-theme=light'].map(
+        preferenceFromCookies,
+      ),
+      expected: ['dark', 'dark', 'dark'],
     });
   });
 });

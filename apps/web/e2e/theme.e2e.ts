@@ -43,8 +43,7 @@ const watchForProblems = async (page: Page) => {
  * inert server-rendered radio would do nothing. React tags hydrated DOM
  * nodes with a `__reactProps$…` key.
  */
-const openSettings = async (page: Page) => {
-  const response = await page.goto('/settings');
+const hydratedSwitcher = async (page: Page) => {
   const group = page.getByRole('radiogroup', { name: 'Theme' });
   await page.waitForFunction(
     (radio) =>
@@ -52,8 +51,35 @@ const openSettings = async (page: Page) => {
       Object.keys(radio).some((key) => key.startsWith('__reactProps$')),
     await group.getByRole('radio').first().elementHandle(),
   );
+  return group;
+};
+
+const openSettings = async (page: Page) => {
+  const response = await page.goto('/settings');
+  const group = await hydratedSwitcher(page);
   return { html: (await response?.text()) ?? '', group };
 };
+
+/** Every theme-color meta in the document, as `media → content`. */
+const themeColors = (page: Page) =>
+  page
+    .locator('meta[name="theme-color"]')
+    .evaluateAll((metas) =>
+      metas.map(
+        (meta) =>
+          `${meta.getAttribute('media')} → ${meta.getAttribute('content')}`,
+      ),
+    );
+
+const moreLink = (page: Page) =>
+  page
+    .getByRole('navigation', { name: 'Primary' })
+    .getByRole('link', { name: 'More' });
+
+const LIGHT_CHROME = [
+  '(prefers-color-scheme: light) → #f2f5f2',
+  '(prefers-color-scheme: dark) → #f2f5f2',
+];
 
 const servedTheme = (html: string) =>
   /<html\b[^>]*\sdata-theme="([^"]*)"/.exec(html)?.[1];
@@ -79,14 +105,37 @@ test.describe('theme preference', () => {
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
     await expect(group.getByRole('radio', { name: 'Light' })).toBeChecked();
     await expect.poll(() => backgroundOf(page)).toBe(LIGHT_BACKGROUND);
-    await expect(
-      page.locator('meta[name="theme-color"]').first(),
-    ).toHaveAttribute('content', '#f2f5f2');
+    await expect.poll(() => themeColors(page)).toEqual(LIGHT_CHROME);
 
     // No flash: the served HTML already carries the choice, before any JS.
     const reloaded = await page.reload();
     expect(servedTheme((await reloaded?.text()) ?? '')).toBe('light');
     await expect.poll(() => backgroundOf(page)).toBe(LIGHT_BACKGROUND);
+    await expect.poll(() => themeColors(page)).toEqual(LIGHT_CHROME);
+    await verifyClean();
+  });
+
+  test('browser chrome keeps the choice across client navigations', async ({
+    page,
+  }) => {
+    const verifyClean = await watchForProblems(page);
+    await page.goto('/');
+    await moreLink(page).click();
+    await expect(page).toHaveURL(/\/settings$/);
+    const group = await hydratedSwitcher(page);
+
+    await group.getByRole('radio', { name: 'Light' }).click();
+    await expect.poll(() => themeColors(page)).toEqual(LIGHT_CHROME);
+
+    // Back re-renders the cached dashboard; forward is a fresh client
+    // navigation. Neither may bring back the pre-switch chrome color.
+    await page.goBack();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    await expect.poll(() => themeColors(page)).toEqual(LIGHT_CHROME);
+    await moreLink(page).click();
+    await expect(page).toHaveURL(/\/settings$/);
+    await expect.poll(() => themeColors(page)).toEqual(LIGHT_CHROME);
     await verifyClean();
   });
 
@@ -109,6 +158,8 @@ test.describe('theme preference', () => {
   }) => {
     const first = await context.newPage();
     const second = await context.newPage();
+    const verifyFirst = await watchForProblems(first);
+    const verifySecond = await watchForProblems(second);
     const { group } = await openSettings(first);
     await openSettings(second);
 
@@ -119,5 +170,8 @@ test.describe('theme preference', () => {
         .getByRole('radiogroup', { name: 'Theme' })
         .getByRole('radio', { name: 'Light' }),
     ).toBeChecked();
+    await expect.poll(() => themeColors(second)).toEqual(LIGHT_CHROME);
+    await verifyFirst();
+    await verifySecond();
   });
 });

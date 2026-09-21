@@ -17,7 +17,12 @@ import {
   createTransition,
   type ThemeController,
 } from './theme-controller';
-import type { ThemePreference } from './theme-preference';
+import {
+  colorSchemeFor,
+  parseThemePreference,
+  themeColorFor,
+  type ThemePreference,
+} from './theme-preference';
 
 type ThemeContextValue = {
   readonly preference: ThemePreference;
@@ -51,8 +56,10 @@ export function ThemeProvider({
     const channel = new BroadcastChannel(CHANNEL_NAME);
     const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
     const next = createThemeController({
+      // What the page shows now: the server rendered it from the cookie.
+      initial: parseThemePreference(document.documentElement.dataset.theme),
       apply: (chosen) => {
-        applyTheme(document, chosen);
+        applyTheme(document.documentElement, chosen);
         // Commit synchronously so the view transition snapshots the
         // switcher's new state too.
         flushSync(() => setPreference(chosen));
@@ -61,7 +68,8 @@ export function ThemeProvider({
         // A plain, non-secret preference cookie; the server re-validates it.
         document.cookie = cookie;
       },
-      broadcast: (chosen) => channel.postMessage(chosen),
+      readCookies: () => document.cookie,
+      announce: () => channel.postMessage(null),
       transition: createTransition({
         startViewTransition:
           'startViewTransition' in document
@@ -71,13 +79,21 @@ export function ThemeProvider({
       }),
       secure: location.protocol === 'https:',
     });
-    channel.addEventListener('message', (event: MessageEvent<unknown>) => {
-      next.receive(event.data);
-    });
+    const sync = () => next.sync();
+    // A frozen or back/forward-cached tab misses announcements; it catches
+    // up from the cookie when it is shown again.
+    const syncWhenVisible = () => {
+      if (document.visibilityState === 'visible') sync();
+    };
+    channel.addEventListener('message', sync);
+    document.addEventListener('visibilitychange', syncWhenVisible);
+    addEventListener('pageshow', sync);
     controller.current = next;
     return () => {
       controller.current = null;
       channel.close();
+      document.removeEventListener('visibilitychange', syncWhenVisible);
+      removeEventListener('pageshow', sync);
     };
   }, []);
 
@@ -90,7 +106,17 @@ export function ThemeProvider({
     [preference, selectPreference],
   );
 
-  return <ThemeContext value={value}>{children}</ThemeContext>;
+  // React 19 hoists these into <head> and owns them, so browser chrome
+  // follows the preference across soft and back/forward navigations.
+  return (
+    <ThemeContext value={value}>
+      <meta name="color-scheme" content={colorSchemeFor(preference)} />
+      {themeColorFor(preference).map(({ media, color }) => (
+        <meta key={media} name="theme-color" media={media} content={color} />
+      ))}
+      {children}
+    </ThemeContext>
+  );
 }
 
 export const useThemePreference = (): ThemeContextValue => {

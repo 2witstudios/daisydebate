@@ -27,28 +27,38 @@ onto it. That design had three problems:
    over https. It is not httpOnly and it is not a secret. The root layout
    (already dynamic for the CSP nonce) reads the cookie through
    `parseThemePreference`, which is the trust boundary: unknown values fall
-   back to `dark`. The layout renders `<html data-theme>`,
-   `<meta name="color-scheme">` and the `theme-color` metas from the parsed
-   value. The served HTML is therefore already correct, which removes the
-   flash, the inline script, the nonce plumbing and the hydration mismatch.
+   back to `dark`. The layout renders `<html data-theme>` from the parsed
+   value, so the served HTML is already correct. That removes the flash, the
+   inline script, the nonce plumbing and the hydration mismatch.
 3. **Tokens are written once with `light-dark()`.** Every color token in
    `globals.css` is `light-dark(<light>, <dark>)`, and `data-theme` only
    selects `color-scheme`: `dark`, `light`, or `light dark` for `system`.
    `system` therefore follows OS changes live with no JavaScript. The
    `globals-css.test.ts` guard fails if a color token covers only one scheme.
+   `light-dark()` varies only colors, so the shadow offsets are shared by
+   both themes. Light's `--shadow-2` moved from `0 4px 16px` to dark's
+   `0 2px 12px`, and that is intentional.
 4. **Request-scoped provider.** `ThemeProvider` (`src/ui/theme/`) is a React
    context seeded with the request's preference, so each request is kept
    apart by construction. A switch runs through `createThemeController`,
    whose side effects are injected: write the cookie, apply the theme inside
-   a view transition, then post on a `BroadcastChannel` so the viewer's
-   other tabs follow. The view transition is skipped under
-   `prefers-reduced-motion`. Messages from the channel are treated as
-   untrusted and re-validated.
-5. **The theme-color metas never change shape.** There is always one meta
-   per OS scheme; an explicit choice paints both with its own color. A
-   client switch rewrites their `content` in place and never removes the
-   nodes, which belong to React.
-6. The only control today is the Dark/Light/System radio group on
+   a view transition (skipped under `prefers-reduced-motion`), then announce
+   the change on a `BroadcastChannel`.
+5. **Tabs converge on the cookie.** An announcement carries no value. A tab
+   that receives one re-reads the shared cookie through the same trust
+   boundary and applies it, so the last write wins and a delayed
+   announcement can never apply a stale choice. A tab that missed an
+   announcement, because it was frozen or restored from the back/forward
+   cache, re-syncs from the cookie on `visibilitychange` and `pageshow`. A
+   re-sync that finds nothing changed does nothing.
+6. **The provider renders the browser-chrome metas.** `ThemeProvider`
+   renders `<meta name="color-scheme">` and one `theme-color` meta per OS
+   scheme from its state; an explicit choice paints both with its own color.
+   React 19 hoists them into `<head>` and keeps them in sync across soft and
+   back/forward navigations. They are deliberately not Next viewport
+   metadata: Next caches that per route and re-applies the pre-switch value
+   on a Back navigation.
+7. The only control today is the Dark/Light/System radio group on
    `/settings`.
 
 ## Consequences

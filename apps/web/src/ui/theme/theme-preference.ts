@@ -22,6 +22,18 @@ export const isThemePreference = (raw: unknown): raw is ThemePreference =>
 export const parseThemePreference = (raw: unknown): ThemePreference =>
   isThemePreference(raw) ? raw : DEFAULT_THEME;
 
+/**
+ * Reads the preference out of a cookie string such as `document.cookie`,
+ * through the same trust boundary as the server.
+ */
+export const preferenceFromCookies = (cookies: string): ThemePreference =>
+  parseThemePreference(
+    cookies
+      .split(';')
+      .map((pair) => pair.trim().split('='))
+      .find(([name]) => name === THEME_COOKIE)?.[1],
+  );
+
 export const serializeThemeCookie = (
   preference: ThemePreference,
   { secure }: { readonly secure: boolean },
@@ -43,9 +55,8 @@ export type ThemeColorEntry = {
 const chromeColor = { light: '#f2f5f2', dark: '#0a0e0c' } as const;
 
 /**
- * Always one entry per OS scheme, so the set of theme-color metas never
- * changes shape and a client switch only rewrites their content. An explicit
- * choice paints both entries with its own color.
+ * One theme-color entry per OS scheme, so the rendered metas keep stable
+ * keys across switches; an explicit choice paints both with its own color.
  */
 export const themeColorFor = (
   preference: ThemePreference,

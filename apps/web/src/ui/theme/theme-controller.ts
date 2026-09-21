@@ -1,5 +1,5 @@
 import {
-  isThemePreference,
+  preferenceFromCookies,
   serializeThemeCookie,
   type ThemePreference,
 } from './theme-preference';
@@ -7,19 +7,23 @@ import {
 type Update = () => void;
 
 export type ThemeControllerDeps = {
+  /** The preference the page was served with. */
+  readonly initial: ThemePreference;
   /** Writes the preference onto the page (DOM and React state). */
   readonly apply: (preference: ThemePreference) => void;
   readonly writeCookie: (cookie: string) => void;
-  /** Tells the viewer's other tabs about the new preference. */
-  readonly broadcast: (preference: ThemePreference) => void;
+  /** Reads the cookies shared by every tab (`document.cookie`). */
+  readonly readCookies: () => string;
+  /** Tells the viewer's other tabs that the preference changed. */
+  readonly announce: () => void;
   readonly transition: (update: Update) => void;
   readonly secure: boolean;
 };
 
 export type ThemeController = {
   readonly select: (preference: ThemePreference) => void;
-  /** Applies an untrusted cross-tab message; returns what it applied. */
-  readonly receive: (message: unknown) => ThemePreference | undefined;
+  /** Catches up with the shared cookie; returns the preference it holds. */
+  readonly sync: () => ThemePreference;
 };
 
 /**
@@ -27,23 +31,35 @@ export type ThemeController = {
  * (effect extraction, docs/development/testing.md).
  */
 export const createThemeController = ({
+  initial,
   apply,
   writeCookie,
-  broadcast,
+  readCookies,
+  announce,
   transition,
   secure,
-}: ThemeControllerDeps): ThemeController => ({
-  select: (preference) => {
-    writeCookie(serializeThemeCookie(preference, { secure }));
+}: ThemeControllerDeps): ThemeController => {
+  let shown = initial;
+  const show = (preference: ThemePreference) => {
+    shown = preference;
     transition(() => apply(preference));
-    broadcast(preference);
-  },
-  receive: (message) => {
-    if (!isThemePreference(message)) return undefined;
-    transition(() => apply(message));
-    return message;
-  },
-});
+  };
+  return {
+    select: (preference) => {
+      writeCookie(serializeThemeCookie(preference, { secure }));
+      show(preference);
+      announce();
+    },
+    // Announcements carry no value: the shared cookie holds the last write,
+    // so a delayed announcement can never apply a stale choice, and a tab
+    // that missed one catches up when it is shown again.
+    sync: () => {
+      const preference = preferenceFromCookies(readCookies());
+      if (preference !== shown) show(preference);
+      return preference;
+    },
+  };
+};
 
 /** Crossfades a switch with a view transition unless motion is reduced. */
 export const createTransition =

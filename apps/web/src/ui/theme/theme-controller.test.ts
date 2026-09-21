@@ -4,13 +4,25 @@ import type { ThemePreference } from './theme-preference';
 
 setupRitewayBun();
 
-/** Records every side effect in call order; the transition runs inline. */
-const createRecorder = ({ secure = false } = {}) => {
+/**
+ * Records every side effect in call order; the transition runs inline and
+ * the cookie jar is shared, like the tabs of one browser.
+ */
+const createRecorder = ({
+  secure = false,
+  jar = { cookies: '' },
+  initial = 'dark' as ThemePreference,
+} = {}) => {
   const calls: string[] = [];
   const controller = createThemeController({
+    initial,
     apply: (preference: ThemePreference) => calls.push(`apply ${preference}`),
-    writeCookie: (cookie) => calls.push(`cookie ${cookie.split(';')[0]}`),
-    broadcast: (preference) => calls.push(`broadcast ${preference}`),
+    writeCookie: (cookie) => {
+      jar.cookies = cookie.split(';')[0] ?? '';
+      calls.push(`cookie ${jar.cookies}`);
+    },
+    readCookies: () => jar.cookies,
+    announce: () => calls.push('announce'),
     transition: (update) => {
       calls.push('transition');
       update();
@@ -27,13 +39,13 @@ describe('createThemeController.select', () => {
 
     assert({
       given: 'the viewer choosing light',
-      should: 'write the cookie, apply in a transition, and broadcast',
+      should: 'write the cookie, apply in a transition, and announce',
       actual: calls,
       expected: [
         'cookie daisy-theme=light',
         'transition',
         'apply light',
-        'broadcast light',
+        'announce',
       ],
     });
   });
@@ -41,9 +53,11 @@ describe('createThemeController.select', () => {
   test('writes a Secure cookie over https', () => {
     const cookies: string[] = [];
     createThemeController({
+      initial: 'dark',
       apply: () => {},
       writeCookie: (cookie) => cookies.push(cookie),
-      broadcast: () => {},
+      readCookies: () => '',
+      announce: () => {},
       transition: (update) => update(),
       secure: true,
     }).select('system');
@@ -57,28 +71,63 @@ describe('createThemeController.select', () => {
   });
 });
 
-describe('createThemeController.receive', () => {
-  test('applies a preference broadcast by another tab', () => {
-    const { calls, controller } = createRecorder();
-    const received = controller.receive('system');
+describe('createThemeController.sync', () => {
+  test('applies the preference another tab saved', () => {
+    const jar = { cookies: 'session=abc; daisy-theme=system' };
+    const { calls, controller } = createRecorder({ jar });
+    const synced = controller.sync();
 
     assert({
-      given: 'a valid preference from another tab',
-      should: 'apply it without re-persisting or re-broadcasting',
-      actual: { received, calls },
-      expected: { received: 'system', calls: ['transition', 'apply system'] },
+      given: 'another tab announcing a switch to system',
+      should: 'apply the cookie value without re-persisting or announcing',
+      actual: { synced, calls },
+      expected: { synced: 'system', calls: ['transition', 'apply system'] },
     });
   });
 
-  test('ignores a message that is not a preference', () => {
-    const { calls, controller } = createRecorder();
-    const received = [controller.receive('sepia'), controller.receive({})];
+  test('never applies a stale choice from a delayed announcement', () => {
+    const jar = { cookies: '' };
+    const first = createRecorder({ jar });
+    const second = createRecorder({ jar });
+    first.controller.select('light');
+    second.controller.select('dark');
+    // The first tab's announcement arrives late, after the second's switch.
+    const synced = [second.controller.sync(), first.controller.sync()];
 
     assert({
-      given: 'untrusted channel messages carrying junk',
-      should: 'ignore them and touch nothing',
-      actual: { received, calls },
-      expected: { received: [undefined, undefined], calls: [] },
+      given: 'two tabs switching close together, announcements out of order',
+      should: 'converge every tab on the last write',
+      actual: synced,
+      expected: ['dark', 'dark'],
+    });
+  });
+
+  test('falls back to the default when the cookie was cleared', () => {
+    const { calls, controller } = createRecorder({
+      jar: { cookies: 'other=1' },
+      initial: 'light',
+    });
+
+    assert({
+      given: 'a light tab syncing after the theme cookie was cleared',
+      should: 'apply the dark default',
+      actual: { synced: controller.sync(), calls },
+      expected: { synced: 'dark', calls: ['transition', 'apply dark'] },
+    });
+  });
+
+  test('leaves the page alone when nothing changed', () => {
+    const { calls, controller } = createRecorder({
+      jar: { cookies: 'daisy-theme=light' },
+      initial: 'light',
+    });
+    controller.sync();
+
+    assert({
+      given: 'a tab shown again whose theme already matches the cookie',
+      should: 'skip the transition and the apply',
+      actual: calls,
+      expected: [],
     });
   });
 });
