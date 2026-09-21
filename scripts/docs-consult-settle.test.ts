@@ -51,7 +51,7 @@ describe('dispatchDocumentationEvent settlement', async () => {
       should: 'fail naming the status as the cause',
       actual: message,
       expected:
-        'Documentation Agent consult for technical-docs never reached PageSpace (responded 502). Its receipt, row 2 of Documentation Runs, stays failed unless the request lands late; replay with DOC_REPLAY_ATTEMPT=0 DOC_PIPELINES=technical-docs',
+        'Documentation Agent consult for technical-docs never reached PageSpace (responded 502). Its receipt, row 2 of Documentation Runs, stays failed unless the request lands late; replay with DOC_REPLAY_ATTEMPT=0 DOC_PIPELINES=technical-docs. A 409 proves only that the conversation exists, so if that replay reports already-dispatched while bun docs:reconcile still lists it, replay with DOC_REPLAY_ATTEMPT=1 DOC_PIPELINES=technical-docs',
     });
   });
 
@@ -142,7 +142,7 @@ describe('dispatchDocumentationEvent settlement', async () => {
         'say the run may still finish, name its receipt row, and give a targeted replay',
       actual: {
         names: message.includes('technical-docs did not answer'),
-        mayFinish: message.includes('The run may still finish'),
+        mayFinish: message.includes('The run may still be going'),
         row: message.includes('row 2 of Documentation Runs'),
         replay: message.includes(
           'DOC_REPLAY_ATTEMPT=1 DOC_PIPELINES=technical-docs',

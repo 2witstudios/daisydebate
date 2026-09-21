@@ -1,6 +1,6 @@
 import { describe, test } from 'riteway/bun';
 import { setupRitewayBun, assert } from 'riteway/bun';
-import { dispatchDocumentationEvent } from './docs-consult';
+import { conversationIdFor, dispatchDocumentationEvent } from './docs-consult';
 import {
   baseOptions,
   droppedBody,
@@ -46,7 +46,7 @@ describe('dispatchDocumentationEvent with a lost response body', async () => {
       should: 'fail as never reached, naming the body failure and the replay',
       actual: message,
       expected:
-        'Documentation Agent consult for technical-docs never reached PageSpace (body dropped). Its receipt, row 2 of Documentation Runs, stays failed unless the request lands late; replay with DOC_REPLAY_ATTEMPT=0 DOC_PIPELINES=technical-docs',
+        'Documentation Agent consult for technical-docs never reached PageSpace (body dropped). Its receipt, row 2 of Documentation Runs, stays failed unless the request lands late; replay with DOC_REPLAY_ATTEMPT=0 DOC_PIPELINES=technical-docs. A 409 proves only that the conversation exists, so if that replay reports already-dispatched while bun docs:reconcile still lists it, replay with DOC_REPLAY_ATTEMPT=1 DOC_PIPELINES=technical-docs',
     });
   });
 
@@ -136,6 +136,39 @@ describe('dispatchDocumentationEvent with a lost response body', async () => {
         neverReached: message.includes('never reached PageSpace'),
       },
       expected: { reads: 3, neverReached: true },
+    });
+  });
+
+  test('names the conversation that shows whether a late run ended', async () => {
+    const event = mergeEvent('fix: only technical');
+    const { fetchImpl } = routedFetch({
+      consult: async () => new Response('', { status: 502 }),
+      roles: () => ['user'],
+    });
+    const message = await failureOf(
+      dispatchDocumentationEvent(event, {
+        ...baseOptions,
+        ...instant,
+        timeoutMs: 50,
+        fetchImpl,
+      }),
+    );
+    const conversation = conversationIdFor(
+      event.idempotencyKey,
+      'technical-docs',
+      0,
+    );
+    assert({
+      given: 'a run still unanswered at the deadline',
+      should:
+        'name its conversation and forbid a replay while that run may still be going',
+      actual: {
+        conversation: message.includes(`conversation ${conversation}`),
+        holdOff: message.includes(
+          'Do not replay while that conversation has no answer and the row is failed',
+        ),
+      },
+      expected: { conversation: true, holdOff: true },
     });
   });
 });

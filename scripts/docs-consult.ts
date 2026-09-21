@@ -387,15 +387,16 @@ export async function dispatchDocumentationEvent(
     const settle = async (cause: string): Promise<ConsultOutcome> => {
       const state = await awaitAnswer(conversationId, deadline);
       if (state === 'answered') return answered;
-      // A conversation a successful read found missing almost certainly never
-      // used its id, so the same attempt replays it; if it did land, the replay is
-      // refused with 409 and the runbook's already-dispatched step applies.
+      // Two successful empty reads mean the id was almost certainly never
+      // used, so the same attempt replays it. PageSpace claims the id before
+      // it saves the question, though, so a 409 on that replay proves only
+      // that the conversation exists; the message says what to do then.
       if (state === 'absent')
         throw new Error(
-          `${consultFor(pipeline)} never reached PageSpace (${cause}). Its receipt, ${receipt}, stays failed unless the request lands late; replay with ${replayWith(pipeline, attempt)}`,
+          `${consultFor(pipeline)} never reached PageSpace (${cause}). Its receipt, ${receipt}, stays failed unless the request lands late; replay with ${replayWith(pipeline, attempt)}. A 409 proves only that the conversation exists, so if that replay reports already-dispatched while bun docs:reconcile still lists it, replay with ${replay}`,
         );
       throw new Error(
-        `${consultFor(pipeline)} did not answer within ${waitSeconds}s (${cause}). The run may still finish: its receipt is ${receipt}. If that row turns complete, nothing is lost; if it stays failed, replay with ${replay}`,
+        `${consultFor(pipeline)} did not answer within ${waitSeconds}s (${cause}). The run may still be going: its receipt is ${receipt} and its answer lands in conversation ${conversationId}. Do not replay while that conversation has no answer and the row is failed, or two runs edit the same pages. If the row turns complete, nothing is lost; if the conversation answers and the row stays failed, replay with ${replay}`,
       );
     };
     const sent = await send(
