@@ -2,6 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createFlows } from './auth-mounted-flows';
 import {
   cookieHeader,
+  newClient,
   counts,
   formPost,
   jsonPost,
@@ -87,6 +88,46 @@ describe('AUTH-3.2 / AUTH-3.5 origin and destination safety', () => {
         statuses: [403, 403, 403, 403, 400],
         cookies: [0, 0, 0],
         counts: { users: 0, sessions: 0, verifications: 1 },
+      },
+    });
+  });
+
+  test('malformed requests are refused as client errors without cookies, tokens or server faults', async () => {
+    const origin = 'http://localhost:3000';
+    const post = (body: string, contentType: string) =>
+      authRoute.POST(
+        new Request(`${origin}/api/auth/sign-in/magic-link`, {
+          method: 'POST',
+          headers: {
+            origin,
+            'content-type': contentType,
+            'x-daisy-client-ip': newClient(),
+          },
+          body,
+        }),
+      );
+    const responses = await Promise.all([
+      post('{"email":', 'application/json'),
+      post('{"email":123}', 'application/json'),
+      post('{"email":"not-an-email"}', 'application/json'),
+      post('email=a%40b.co', 'application/x-www-form-urlencoded'),
+      post('{}', 'application/json'),
+    ]);
+    assert({
+      given:
+        'truncated JSON, a wrong type, a bad address, a form body and an empty object',
+      should: 'answer 4xx for each, set no cookie and send no mail',
+      actual: {
+        statuses: responses.map((response) => response.status),
+        cookies: responses.map(
+          (response) => response.headers.getSetCookie().length,
+        ),
+        sent: mailbox.mails.filter((mail) => mail.to === 'a@b.co').length,
+      },
+      expected: {
+        statuses: [400, 400, 400, 415, 400],
+        cookies: [0, 0, 0, 0, 0],
+        sent: 0,
       },
     });
   });

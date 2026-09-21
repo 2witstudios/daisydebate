@@ -1,3 +1,4 @@
+import { toNextJsHandler } from 'better-auth/next-js';
 import { createAppError, isAppError } from '@daisy/errors';
 import { handleOperation } from '../../server/http';
 
@@ -53,7 +54,9 @@ export function createAuthRouteHandlers(
         )
           throw createAppError('AUTHORIZATION');
         try {
-          return preserve(await server.handler(request));
+          const delegate = toNextJsHandler({ handler: server.handler });
+          const method = request.method as keyof typeof delegate;
+          return preserve(await (delegate[method] ?? delegate.GET)(request));
         } catch (error) {
           // Anything unexpected from the framework (a database failure while
           // persisting a token or session) is a retryable outage, never a
