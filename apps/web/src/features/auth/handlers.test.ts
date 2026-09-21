@@ -1,0 +1,180 @@
+import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { createAppError } from '@daisy/errors';
+import { readServerConfig } from '@daisy/config';
+import type { Logger } from '@daisy/logger';
+
+setupRitewayBun();
+
+// Seed process resources so the shared HTTP boundary builds no real clients.
+const recorded: unknown[] = [];
+const recorder: Logger = {
+  log: (...entry) => recorded.push(entry),
+  child: () => recorder,
+};
+Reflect.set(globalThis, 'daisyResources', {
+  config: readServerConfig({
+    NODE_ENV: 'test',
+    DATABASE_URL: 'postgres://unit:unit@localhost:5432/unit',
+    REDIS_URL: 'redis://localhost:6379',
+    REDIS_NAMESPACE: 'test',
+    PUBLIC_APP_URL: 'http://localhost:3000',
+    APP_VERSION: 'test',
+    GIT_COMMIT: 'test',
+  }),
+  logger: recorder,
+  draining: false,
+});
+const { createAuthRouteHandlers, preserve } = await import('./handlers');
+
+const config = { PUBLIC_APP_URL: 'http://localhost:3000' };
+const post = (headers: Record<string, string> = {}) =>
+  new Request(
+    'http://localhost:3000/api/auth/sign-in/magic-link?token=SECRET',
+    {
+      method: 'POST',
+      headers: { origin: 'http://localhost:3000', ...headers },
+      body: '{}',
+    },
+  );
+
+describe('preserve', () => {
+  test('keeps status, redirect target, body bytes and every Set-Cookie header', async () => {
+    const headers = new Headers({ location: '/lobby' });
+    headers.append('set-cookie', 'a=1; Path=/; HttpOnly');
+    headers.append('set-cookie', 'b=2; Path=/; Secure');
+    const copy = preserve(
+      new Response('{"ok":true}', { status: 302, headers }),
+    );
+    assert({
+      given: 'a redirect carrying two cookies and a body',
+      should: 'return them untouched in a mutable response',
+      actual: {
+        status: copy.status,
+        location: copy.headers.get('location'),
+        cookies: copy.headers.getSetCookie(),
+        body: await copy.text(),
+      },
+      expected: {
+        status: 302,
+        location: '/lobby',
+        cookies: ['a=1; Path=/; HttpOnly', 'b=2; Path=/; Secure'],
+        body: '{"ok":true}',
+      },
+    });
+  });
+
+  test('advertises the standard Retry-After beside X-Retry-After', () => {
+    const copy = preserve(
+      new Response('{}', { status: 429, headers: { 'x-retry-after': '17' } }),
+    );
+    assert({
+      given: 'a Better Auth 429',
+      should: 'add Retry-After with the same seconds',
+      actual: [
+        copy.headers.get('retry-after'),
+        copy.headers.get('x-retry-after'),
+      ],
+      expected: ['17', '17'],
+    });
+  });
+});
+
+describe('createAuthRouteHandlers', () => {
+  test('delegates GET and POST, adds correlation and no-store, keeps cookies and never logs the URL', async () => {
+    recorded.length = 0;
+    const handlers = createAuthRouteHandlers(() => ({
+      config,
+      handler: async () => {
+        const headers = new Headers({ 'content-type': 'application/json' });
+        headers.append('set-cookie', 'session=abc; HttpOnly');
+        headers.append('set-cookie', 'other=def');
+        return new Response('{"status":true}', { headers });
+      },
+    }));
+    const response = await handlers.POST(post());
+    assert({
+      given: 'a delegated auth response with two cookies',
+      should:
+        'add x-request-id and no-store yet preserve body and cookies without logging the query',
+      actual: {
+        status: response.status,
+        body: await response.text(),
+        cookies: response.headers.getSetCookie().length,
+        noStore: response.headers.get('cache-control'),
+        requestId: Boolean(response.headers.get('x-request-id')),
+        logLeaksToken: JSON.stringify(recorded).includes('SECRET'),
+      },
+      expected: {
+        status: 200,
+        body: '{"status":true}',
+        cookies: 2,
+        noStore: 'no-store',
+        requestId: true,
+        logLeaksToken: false,
+      },
+    });
+  });
+
+  test('rejects state-changing calls from foreign or absent origins before delegating', async () => {
+    let delegated = 0;
+    const handlers = createAuthRouteHandlers(() => ({
+      config,
+      handler: async () => {
+        delegated += 1;
+        return new Response('{}');
+      },
+    }));
+    const foreign = await handlers.POST(
+      post({ origin: 'https://evil.example' }),
+    );
+    const absent = await handlers.POST(
+      new Request('http://localhost:3000/api/auth/sign-out', {
+        method: 'POST',
+      }),
+    );
+    assert({
+      given: 'POSTs from https://evil.example and with no Origin',
+      should: 'answer 403 without reaching Better Auth',
+      actual: [foreign.status, absent.status, delegated],
+      expected: [403, 403, 0],
+    });
+  });
+
+  test('maps thrown infrastructure failures to a safe 503 and unknown ones to a safe 500', async () => {
+    const outage = createAuthRouteHandlers(() => ({
+      config,
+      handler: async () => {
+        throw createAppError(
+          'INFRASTRUCTURE',
+          undefined,
+          new Error('redis://secret-host'),
+        );
+      },
+    }));
+    const crash = createAuthRouteHandlers(() => ({
+      config,
+      handler: async () => {
+        throw new Error('SELECT * FROM users WHERE token=abc');
+      },
+    }));
+    const a = await outage.POST(post());
+    const b = await crash.POST(post());
+    const texts = JSON.stringify([
+      await a.clone().json(),
+      await b.clone().json(),
+    ]);
+    assert({
+      given: 'a limiter outage and an unexpected exception',
+      should:
+        'return 503 with Retry-After and 500 respectively, exposing no internals',
+      actual: {
+        statuses: [a.status, b.status],
+        retryAfter: a.headers.get('retry-after'),
+        leaks: ['redis://', 'SELECT', 'token=abc'].filter((needle) =>
+          texts.includes(needle),
+        ),
+      },
+      expected: { statuses: [503, 500], retryAfter: '5', leaks: [] },
+    });
+  });
+});

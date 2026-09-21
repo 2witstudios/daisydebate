@@ -1,6 +1,8 @@
 import { readAuthConfig } from '@daisy/config';
+import { createAppError } from '@daisy/errors';
 import { createAuthServer, type AuthServer } from '../features/auth/server';
 import { createResendSender } from '../features/auth/mail';
+import { createResendWebhook } from '../features/auth/webhook';
 import { createAuthRateLimiter } from '../features/auth/rate-limit';
 import { getResources } from '../server/resources';
 
@@ -36,4 +38,24 @@ export function getAuth(): Auth {
     ids: resources.ids,
   });
   return processState.daisyAuth;
+}
+
+type MailWebhook = ReturnType<typeof createResendWebhook>;
+const webhookState = globalThis as typeof globalThis & {
+  daisyMailWebhook?: MailWebhook;
+};
+
+/** Lazy Resend webhook composition; refuses when the signing secret is unset. */
+export function getMailWebhook(): MailWebhook {
+  if (webhookState.daisyMailWebhook) return webhookState.daisyMailWebhook;
+  const resources = getResources();
+  const config = readAuthConfig(process.env);
+  if (!config.RESEND_WEBHOOK_SECRET) throw createAppError('INFRASTRUCTURE');
+  webhookState.daisyMailWebhook = createResendWebhook({
+    secret: config.RESEND_WEBHOOK_SECRET,
+    apiKey: config.RESEND_API_KEY,
+    clock: resources.clock,
+    apply: (input) => resources.database.applyEmailDeliveryEvent(input),
+  });
+  return webhookState.daisyMailWebhook;
 }

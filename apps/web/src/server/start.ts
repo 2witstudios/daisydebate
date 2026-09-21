@@ -1,6 +1,8 @@
 import { createServer } from 'node:http';
 import next from 'next';
 import { z } from 'zod';
+import { readAuthConfig } from '@daisy/config';
+import { stampClientIdentity } from '../features/auth/client-ip';
 import { getResources, closeResources } from './resources';
 
 // Next 16 types NODE_ENV as read-only; the process supervisor sets it before launch.
@@ -11,6 +13,10 @@ if (process.env.NODE_ENV !== 'production')
     })`,
   );
 const resources = getResources();
+// Production must not boot without validated auth configuration (secret,
+// Resend sender/key, webhook secret, HTTPS origin); errors name fields only.
+const authConfig = readAuthConfig(process.env);
+const trustedProxies = authConfig.AUTH_TRUSTED_PROXIES ?? [];
 const port = z.coerce
   .number()
   .int()
@@ -26,6 +32,9 @@ const server = createServer((request, response) => {
     response.end();
     return;
   }
+  // Ingress boundary: the socket peer (or a configured trusted proxy chain)
+  // establishes client identity; any caller-supplied identity header is replaced.
+  stampClientIdentity(request, trustedProxies);
   void handle(request, response).catch(() => {
     resources.logger.log(
       'http.request.failed',
