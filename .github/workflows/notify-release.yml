@@ -10,7 +10,7 @@ jobs:
   documentation-event:
     name: Send the release documentation event
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
         with:
@@ -33,8 +33,7 @@ jobs:
           DOC_AUTHOR: ${{ github.event.release.sender.login }}
           DOC_BRANCH: ${{ github.event.release.target_commitish }}
           DOC_BODY: ${{ github.event.release.body }}
-          PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL: ${{ secrets.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_URL }}
-          PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET: ${{ secrets.PAGESPACE_DOCUMENTATION_AGENT_WEBHOOK_SECRET }}
+          PAGESPACE_TOKEN: ${{ secrets.PAGESPACE_TOKEN }}
         run: |
           TAG="${{ github.event.release.tag_name }}"
           PREV="$(git tag --sort=-creatordate | grep -A1 -Fx "$TAG" | tail -1)"

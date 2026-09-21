@@ -17,10 +17,11 @@ repository records the drive and folder IDs in
 `PAGESPACE_DOCUMENTATION_DRIVE_ID` and
 `PAGESPACE_DOCUMENTATION_ROOT_PAGE_ID`.
 
-New documentation Canvases are created as children of the appropriate hub page;
-they do not need their own webhook. Merge events enter through the PageSpace
-CLI/SDK or a single stable Documentation Agent entry point. Scheduled PageSpace
-workflows run the periodic reviews directly against the Documentation tree.
+New documentation Canvases are created as children of the appropriate hub page.
+Merge and release events reach the Documentation Agent through
+`bun docs:dispatch`, which consults it directly with the drive-scoped
+`PAGESPACE_TOKEN`. Scheduled PageSpace workflows run the periodic reviews
+directly against the Documentation tree.
 
 | Agent page           | Pipeline             | Cadence                                            | Default action                                      |
 | -------------------- | -------------------- | -------------------------------------------------- | --------------------------------------------------- |
@@ -136,17 +137,24 @@ schema is enforced by the repository (`scripts/docs-contracts.ts`):
 `resultingRevision` records what the write produced. Both together make
 interleaved writes detectable and replayable.
 
-The repository event sender provides the merge-time envelope and PageSpace
-workflow context supplies the Canvas pages and prior run history. No webhook
-secret or raw credential may be written into a PageSpace page or log.
+The repository supplies the event and every run-record key; the agent reads
+the Canvas pages and prior run history itself. No token, webhook secret, or
+other raw credential may be written into a PageSpace page or log.
 
 ## Replaying a lost event
 
 Dispatch is idempotent by `repository:commit:eventType`, so replays are safe:
+each pipeline's consult is addressed by an id derived from that key, and
+PageSpace refuses a taken id with 409 rather than running the agent again.
 
 1. Re-run the failed workflow from the Actions tab, or run
    `bun docs:dispatch` locally with the same environment the workflow sets
-   (`DOC_*` variables from the merge or release).
-2. If a merged fork PR skipped the event (fork runs carry no secrets), run the
+   (`DOC_*` variables from the merge or release, plus `PAGESPACE_TOKEN`).
+   Pipelines that already ran report `already-dispatched`.
+2. If a pipeline reports `already-dispatched` but `bun docs:reconcile` still
+   lists it as uncovered, its earlier run was cut off before writing a run
+   record and still holds its id. Replay it with `DOC_REPLAY_ATTEMPT=1` (then
+   `2`, …), which addresses a fresh conversation.
+3. If a merged fork PR skipped the event (fork runs carry no secrets), run the
    same dispatch from a trusted checkout and delete the skip notice in
    incidents after it succeeds.

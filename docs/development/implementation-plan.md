@@ -58,8 +58,9 @@ all gates pass.
 
 Keep policy exceptions reviewed, dependencies and ADR references current, and
 parallel work isolated. Use `pu` for parallel or isolated agents; direct
-single-agent work remains valid without it. The orchestrator owns task-board
-updates and delegated agents own only their assigned worktree. See
+single-agent work remains valid without it. Delegated agents own their
+assigned worktree and keep their tasks current on the board; only the
+orchestrator changes a delegated task's spec. See
 `docs/development/pu-workflow.md`.
 
 - Given an exception whose review date or ADR becomes invalid, should fail the
