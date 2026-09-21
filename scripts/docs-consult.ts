@@ -25,7 +25,7 @@ export type ConsultOutcome = {
   readonly outcome: 'dispatched' | 'already-dispatched';
 };
 
-// One line per settled pipeline, naming its conversation, so an operator can
+// One entry per settled pipeline, naming its conversation, so an operator can
 // check an already-dispatched run's answer before replaying it.
 export const describeOutcomes = (outcomes: readonly ConsultOutcome[]) =>
   outcomes
