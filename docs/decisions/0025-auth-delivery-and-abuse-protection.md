@@ -47,6 +47,19 @@ adds the delivery and abuse controls ADR 0020 requires before activation.
   Recipients appear solely as a keyed SHA3-256 hash. Permanent bounces and
   complaints add a suppression that stops automatic resends with safe guidance
   (passkey or another address); events never create, verify or alter accounts.
+- **Signature verification.** Webhook signatures are verified by the vendor
+  (`resend.webhooks.verify`, standardwebhooks: HMAC-SHA256 with
+  `timingSafeEqual`). This is a deliberate exception to the repo's SHA3-256
+  comparison preference: Resend/Svix dictate the scheme, and a hand-rolled
+  verifier would be worse.
+- **Disclosure tradeoff.** A suppressed (hard-bounced or complained) address
+  answers a distinct `422 EMAIL_UNDELIVERABLE`, revealing to any caller that
+  the address bounced (not that an account exists); accepted for safe user
+  guidance.
+- **Retention follow-up.** Better Auth's `verification.value` holds the
+  plaintext email JSON and Better Auth does not purge expired rows. A
+  retention/cleanup job must cover `verification` (owner: AUTH-7.5, alongside
+  `email_delivery_event`); not implemented here.
 
 Why: each control closes a distinct failure the spec names (link prefetch,
 counter races and process-local limits, spoofed forwarding headers, provider

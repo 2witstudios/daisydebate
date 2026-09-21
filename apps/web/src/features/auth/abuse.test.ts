@@ -144,3 +144,35 @@ describe('AUTH-3.3 magic-link issuance', () => {
     });
   });
 });
+
+describe('auth mail receipt recording', () => {
+  test('receipt failure after provider acceptance', async () => {
+    const { server, logs } = create({ recordFailure: true });
+    const message = {
+      to: 'player@daisy.example.com',
+      subject: 's',
+      text: 'https://x.invalid/?token=secret-link',
+    } as never;
+    const result = await server.mail.send(message).then(
+      () => 'sent',
+      () => 'threw',
+    );
+    const serialized = JSON.stringify(logs);
+    assert({
+      given: 'the provider accepted a message but recording its receipt fails',
+      should: 'report success and log a safe receipt_failed event',
+      actual: {
+        result,
+        events: logs.map((entry) => entry[0]),
+        leaks: ['player@daisy', 'secret-link', 'record down'].some((s) =>
+          serialized.includes(s),
+        ),
+      },
+      expected: {
+        result: 'sent',
+        events: ['auth.mail.receipt_failed', 'auth.mail.sent'],
+        leaks: false,
+      },
+    });
+  });
+});

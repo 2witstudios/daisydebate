@@ -238,14 +238,9 @@ export function createAuthServer<
   const config = readAuthConfig(dependencies.env);
   const ledger = dependencies.ledger ?? noLedger;
   const sendMail = async (message: AuthEmailMessage): Promise<void> => {
+    let receipt: Awaited<ReturnType<AuthEmailSender['send']>>;
     try {
-      const receipt = await dependencies.emailSender.send(message);
-      if (receipt)
-        await ledger.record({
-          providerMessageId: receipt.providerMessageId,
-          recipientHash: recipientHash(config.BETTER_AUTH_SECRET, message.to),
-          at: dependencies.clock.now(),
-        });
+      receipt = await dependencies.emailSender.send(message);
     } catch (error) {
       // Delivery failure is a generic retryable outcome: never surface
       // or log the provider exception, recipient or message body here.
@@ -255,6 +250,23 @@ export function createAuthServer<
         'Auth mail delivery failed',
       );
       throw createAppError('INFRASTRUCTURE', undefined, error);
+    }
+    if (receipt) {
+      try {
+        await ledger.record({
+          providerMessageId: receipt.providerMessageId,
+          recipientHash: recipientHash(config.BETTER_AUTH_SECRET, message.to),
+          at: dependencies.clock.now(),
+        });
+      } catch {
+        // The provider accepted the message, so the user has their email:
+        // report success. Only bounce correlation is lost; log it safely.
+        dependencies.logger.log(
+          'auth.mail.receipt_failed',
+          { operation: 'auth.mail.send', errorCode: 'INFRASTRUCTURE' },
+          'Auth mail receipt was not recorded',
+        );
+      }
     }
     dependencies.logger.log(
       'auth.mail.sent',

@@ -11,7 +11,6 @@ const env = {
   RESEND_API_KEY: 're_test_000000000000000000000000',
   AUTH_EMAIL_FROM: 'Daisy <no-reply@daisy.example.com>',
 };
-const silentLogger: Logger = { log: () => {}, child: () => silentLogger };
 
 export type Consumed = {
   key: string;
@@ -21,6 +20,7 @@ export const create = (
   options: {
     suppressed?: boolean;
     ledgerFailure?: boolean;
+    recordFailure?: boolean;
     limiter?: (consumed: Consumed[]) => (
       key: string,
       rule: Consumed['rule'],
@@ -40,6 +40,11 @@ export const create = (
   const consumed: Consumed[] = [];
   const lookups = { count: 0 };
   const sent: AuthEmailMessage[] = [];
+  const logs: unknown[][] = [];
+  const logger: Logger = {
+    log: (...entry) => void logs.push(entry),
+    child: () => logger,
+  };
   const recorded: Array<{ providerMessageId: string; recipientHash: string }> =
     [];
   const server = createAuthServer({
@@ -66,15 +71,16 @@ export const create = (
         return options.suppressed ?? false;
       },
       record: async (input) => {
+        if (options.recordFailure) throw new Error('record down');
         recorded.push(input);
       },
     },
     clientIp: { trustedHeaders: [CLIENT_IP_HEADER] },
-    logger: silentLogger,
+    logger,
     clock: fixedClock('2026-09-20T00:00:00.000Z'),
     ids: sequentialId('auth'),
   });
-  return { server, db, consumed, sent, recorded, lookups };
+  return { server, db, consumed, sent, recorded, lookups, logs };
 };
 export const tokenIn = (message: AuthEmailMessage | undefined) =>
   new URL(

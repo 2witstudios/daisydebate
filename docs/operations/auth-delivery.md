@@ -35,8 +35,14 @@ Rate limits bucket by client. The composition believes, in order:
    of `X-Forwarded-For` that is not itself a trusted hop, so an
    attacker-prepended left-most value never selects the bucket.
 2. Any header named in `AUTH_TRUSTED_IP_HEADERS` (default none), resolved by
-   Better Auth with `AUTH_TRUSTED_PROXIES`. Set only headers your own proxy
-   overwrites.
+   Better Auth. Consulted only when no stamped identity exists (runtimes that
+   do not stamp, such as `next dev`); in production the stamp is always
+   present, so this setting has no effect there. Set only headers your own
+   proxy overwrites.
+
+In production, `AUTH_TRUSTED_PROXIES` (with `X-Forwarded-For`) is the mechanism
+for reading the real client behind a proxy. A proxy not listed there makes all
+its users share one rate-limit bucket.
 
 Configure exactly the hops you operate; an over-broad range re-opens spoofing.
 Under `next dev` there is no ingress stamp and requests share the loopback
