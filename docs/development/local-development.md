@@ -42,7 +42,7 @@ DATABASE_URL="$TEST_DATABASE_URL" bun db:migrate
 | `bun check:affected`              | Fast per-vertical inner loop: lint/prettier on changed files, boundaries, duplication, affected turbo graph                         |
 | `bun hooks:install`               | One-time opt-in: point `core.hooksPath` at `.githooks` so `git push` runs `bun check:affected`                                      |
 | `bun migrations:check`            | Fail a branch that rewrites/edits/reorders shared migrations vs `origin/main`                                                       |
-| `bun run duplication`             | Copy-paste tripwire (jscpd): fails on any clone absent from `.jscpd-baseline.json` (ADR 0025)                                       |
+| `bun run duplication`             | Copy-paste tripwire (jscpd): fails on any clone absent from `.jscpd-baseline.json` (ADR 0026)                                       |
 | `bun evidence`                    | Orphan-suite and CI-wiring audit: every test tier is claimed by a real runner                                                       |
 | `bun db:generate`                 | Generate migration SQL from schema changes (review the SQL!)                                                                        |
 | `bun db:migrate`                  | Apply pending migrations                                                                                                            |

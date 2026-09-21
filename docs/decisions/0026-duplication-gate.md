@@ -1,4 +1,4 @@
-# 0025: Duplication gate
+# 0026: Duplication gate
 
 Status: accepted.
 

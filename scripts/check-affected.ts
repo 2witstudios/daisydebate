@@ -120,7 +120,7 @@ export function planGates(
     args: ['bun', 'scripts/check-boundaries.ts'],
   });
   // Repo-wide by nature and ~0.05s: a clone is only visible against the whole
-  // tree, so the tripwire runs on every push (ADR 0025).
+  // tree, so the tripwire runs on every push (ADR 0026).
   gates.push({ name: 'duplication', args: ['bun', 'run', 'duplication'] });
   if (plan.runRootScriptsTests)
     gates.push({ name: 'root script tests', args: ['bun', 'test', 'scripts'] });

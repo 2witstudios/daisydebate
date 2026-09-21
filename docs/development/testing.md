@@ -78,7 +78,7 @@ not exist — PageSpace lost entire tiers this way. `bun evidence` (in
 - **Dead code.** `bun run knip` fails on unused files, exports and
   dependencies; keep findings at zero (ADR 0013).
 - **Duplication.** `bun run duplication` fails on any copy-pasted block not
-  in `.jscpd-baseline.json`; consolidate instead of re-baselining (ADR 0025).
+  in `.jscpd-baseline.json`; consolidate instead of re-baselining (ADR 0026).
 - Tests are deterministic: inject clocks/IDs; never sleep-and-hope; no
   cross-test shared state; use deterministic unit IDs and CSPRNG isolation IDs
   only in real-service integration tests; clean only records you created.

@@ -94,12 +94,12 @@ and detailed procedures in the linked documents, not here.
   `_test`; integration also requires `TEST_REDIS_URL`.
 - `bun run knip` is a required dead-code gate for unused files, exports, and
   dependencies. Keep `knip.jsonc` ignores limited to genuine implicit uses.
-- `bun run duplication` is a required copy-paste gate (jscpd, ADR 0025): any
+- `bun run duplication` is a required copy-paste gate (jscpd, ADR 0026): any
   clone of 50+ tokens that is not in `.jscpd-baseline.json` fails. When it
   fires, consolidate — extract the shared function, component, or data table
   into the owning module — rather than raising `minTokens`, adding an ignore,
   or re-baselining. Loosening the gate in any of those ways requires a dated
-  note in ADR 0025; the baseline otherwise only shrinks.
+  note in ADR 0026; the baseline otherwise only shrinks.
 - `bun evidence` fails on suites no runner claims, integration guards that
   skip instead of throwing on missing services, and gates that silently
   stop running in CI. `bun run duplication`, `bun invariants`, and
