@@ -63,6 +63,7 @@ const composeBetterAuth = (dependencies: {
   readonly deliver: (message: AuthEmailMessage) => Promise<void>;
   readonly limiter: AuthRateLimiter;
   readonly ledger: AuthDeliveryLedger;
+  readonly logger: Logger;
 }) => {
   const { config, limiter, ledger } = dependencies;
   const origin = new URL(config.PUBLIC_APP_URL).origin;
@@ -85,6 +86,16 @@ const composeBetterAuth = (dependencies: {
   return betterAuth({
     baseURL: config.PUBLIC_APP_URL,
     trustedOrigins: [origin],
+    // The framework's own logger prints raw driver errors (SQL text with bound
+    // parameters: addresses, token hashes). Only a fixed, safe event leaves.
+    logger: {
+      log: (level) =>
+        dependencies.logger.log(
+          'request.unhandled',
+          { operation: 'auth.framework', level },
+          'Authentication framework reported a problem',
+        ),
+    },
     secret: config.BETTER_AUTH_SECRET,
     database: dependencies.database,
     advanced: {
@@ -120,6 +131,9 @@ const composeBetterAuth = (dependencies: {
         },
       },
     },
+    // Unexpected (non-API) errors are rethrown to our route boundary instead of
+    // being printed raw — with SQL text and bound parameters — by the router.
+    onAPIError: { throw: true },
     emailAndPassword: { enabled: false },
     // Belt and braces: password/reset/delete surfaces answer 404 outright.
     disabledPaths: [
@@ -232,6 +246,7 @@ export function createAuthServer<
       deliver: sendMail,
       limiter: dependencies.limiter,
       ledger: dependencies.ledger,
+      logger: dependencies.logger,
     }),
     database: dependencies.database,
     mail: { send: sendMail },

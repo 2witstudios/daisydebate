@@ -129,12 +129,15 @@ export function createConfirmHandlers({ auth }: ConfirmDependencies) {
     headers.set('origin', new URL(server.config.PUBLIC_APP_URL).origin);
     const client = request.headers.get(CLIENT_IP_HEADER);
     if (client) headers.set(CLIENT_IP_HEADER, client);
-    return server.handler(
-      new Request(new URL(path, server.config.PUBLIC_APP_URL), {
-        ...init,
-        headers,
-      }),
-    );
+    // An unexpected framework failure becomes a plain 503 the views retry.
+    return server
+      .handler(
+        new Request(new URL(path, server.config.PUBLIC_APP_URL), {
+          ...init,
+          headers,
+        }),
+      )
+      .catch(() => new Response(null, { status: 503 }));
   };
 
   /** GET and HEAD only render: a scanner or prefetch can never redeem. */

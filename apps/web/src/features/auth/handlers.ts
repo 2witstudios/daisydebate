@@ -1,4 +1,4 @@
-import { createAppError } from '@daisy/errors';
+import { createAppError, isAppError } from '@daisy/errors';
 import { handleOperation } from '../../server/http';
 
 type Handler = (request: Request) => Promise<Response>;
@@ -52,7 +52,16 @@ export function createAuthRouteHandlers(
             new URL(server.config.PUBLIC_APP_URL).origin
         )
           throw createAppError('AUTHORIZATION');
-        return preserve(await server.handler(request));
+        try {
+          return preserve(await server.handler(request));
+        } catch (error) {
+          // Anything unexpected from the framework (a database failure while
+          // persisting a token or session) is a retryable outage, never a
+          // raw error: details stay in the cause.
+          throw isAppError(error)
+            ? error
+            : createAppError('INFRASTRUCTURE', undefined, error);
+        }
       }),
     );
   return {
