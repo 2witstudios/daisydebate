@@ -57,8 +57,6 @@ function trustedKeys(
   } as const;
 }
 
-type ConversationState = 'answered' | 'pending' | 'absent' | 'unreadable';
-
 // Instructions first, untrusted data last and nonce-fenced. Every receipt key
 // trusted CI context knows is interpolated here so the row stays reconcilable
 // even when the model misreads the payload; the model supplies only what it
@@ -111,9 +109,7 @@ export function classifyConsultResponse(
 ): ConsultOutcome['outcome'] {
   if (status >= 200 && status < 300) return 'dispatched';
   if (status === 409) return 'already-dispatched';
-  throw new Error(
-    `Documentation Agent consult for ${pipeline} responded ${status}: ${rawBody}`,
-  );
+  throw new Error(`${consultFor(pipeline)} responded ${status}: ${rawBody}`);
 }
 
 // The consult route reports its own failure as a JSON { error } body, and it
@@ -137,6 +133,17 @@ const isAbort = (error: unknown): boolean => {
   const name = (error as { name?: unknown } | null)?.name;
   return name === 'AbortError' || name === 'TimeoutError';
 };
+
+const messageOf = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
+// Every dispatch failure opens with its pipeline and ends with its replay.
+const consultFor = (pipeline: DocumentPipeline): string =>
+  `Documentation Agent consult for ${pipeline}`;
+const replayWith = (pipeline: DocumentPipeline, attempt: number): string =>
+  `DOC_REPLAY_ATTEMPT=${attempt} DOC_PIPELINES=${pipeline}`;
+
+type ConversationState = 'answered' | 'pending' | 'absent' | 'unreadable';
 
 // One consult per routed pipeline, one at a time, each its own conversation
 // and receipt,
@@ -208,9 +215,9 @@ export async function dispatchDocumentationEvent(
   // A successful read that finds no conversation ends the wait as 'absent'
   // once the first read (a grace read) is spent, or at the deadline. A failed
   // read proves nothing either way, so polling goes on to the deadline and
-  // reports 'unreadable' only then, when the full wait has really passed. Polling
-  // stops at the consult's deadline, but each read is bounded by the budget,
-  // so the read after a consult times out still has time to answer.
+  // reports 'unreadable' only then, when the full wait has really passed.
+  // Polling stops at the consult's deadline, but each read is bounded by the
+  // budget, so the read after a consult times out still has time to answer.
   const awaitAnswer = async (
     conversationId: string,
     deadline: number,
@@ -298,11 +305,7 @@ export async function dispatchDocumentationEvent(
     waitSeconds: number,
   ): Promise<{ response: Response; body: string } | { cause: string }> => {
     const causeOf = (error: unknown) =>
-      isAbort(error)
-        ? `no answer within ${waitSeconds}s`
-        : error instanceof Error
-          ? error.message
-          : String(error);
+      isAbort(error) ? `no answer within ${waitSeconds}s` : messageOf(error);
     let response: Response;
     try {
       response = await fetchImpl(endpoint, {
@@ -340,9 +343,9 @@ export async function dispatchDocumentationEvent(
     // the workflow): report it without reserving a row or running the agent.
     // A lookup that fails (unreadable) or finds nothing falls through to the
     // consult, so a transient failure (or a race between identical
-    // dispatches) can still reach it; PageSpace
-    // then refuses the id with 409 and the extra reserved row stays failed,
-    // which the reconciler never counts as a receipt.
+    // dispatches) can still reach it; PageSpace then refuses the id with 409
+    // and the extra reserved row stays failed, which the reconciler never
+    // counts as a receipt.
     const existing = await readConversation(conversationId, budgetEnd);
     if (existing === 'answered' || existing === 'pending')
       return { pipeline, conversationId, outcome: 'already-dispatched' };
@@ -352,7 +355,7 @@ export async function dispatchDocumentationEvent(
     const runRow = await reserveRunRow(pipeline, conversationId).catch(
       (error: unknown) => {
         throw new Error(
-          `Documentation Agent consult for ${pipeline} was not sent: reserving its receipt failed (${error instanceof Error ? error.message : String(error)}). Any row it did reserve stays failed; replay with DOC_REPLAY_ATTEMPT=${attempt} DOC_PIPELINES=${pipeline}`,
+          `${consultFor(pipeline)} was not sent: reserving its receipt failed (${messageOf(error)}). Any row it did reserve stays failed; replay with ${replayWith(pipeline, attempt)}`,
           { cause: error },
         );
       },
@@ -370,10 +373,10 @@ export async function dispatchDocumentationEvent(
     // abandoned at once. Nothing was sent, so the same id replays it.
     if (deadline <= Date.now())
       throw new Error(
-        `Documentation Agent consult for ${pipeline} was not sent: the dispatch budget ran out after reserving its receipt, ${receipt}, which stays failed; replay with DOC_REPLAY_ATTEMPT=${attempt} DOC_PIPELINES=${pipeline}`,
+        `${consultFor(pipeline)} was not sent: the dispatch budget ran out after reserving its receipt, ${receipt}, which stays failed; replay with ${replayWith(pipeline, attempt)}`,
       );
     const waitSeconds = Math.round((deadline - Date.now()) / 1000);
-    const replay = `DOC_REPLAY_ATTEMPT=${attempt + 1} DOC_PIPELINES=${pipeline}`;
+    const replay = replayWith(pipeline, attempt + 1);
     const answered = {
       pipeline,
       conversationId,
@@ -387,10 +390,10 @@ export async function dispatchDocumentationEvent(
       // refused with 409 and the runbook's already-dispatched step applies.
       if (state === 'absent')
         throw new Error(
-          `Documentation Agent consult for ${pipeline} never reached PageSpace (${cause}). Its receipt, ${receipt}, stays failed unless the request lands late; replay with DOC_REPLAY_ATTEMPT=${attempt} DOC_PIPELINES=${pipeline}`,
+          `${consultFor(pipeline)} never reached PageSpace (${cause}). Its receipt, ${receipt}, stays failed unless the request lands late; replay with ${replayWith(pipeline, attempt)}`,
         );
       throw new Error(
-        `Documentation Agent consult for ${pipeline} did not answer within ${waitSeconds}s (${cause}). The run may still finish: its receipt is ${receipt}. If that row turns complete, nothing is lost; if it stays failed, replay with ${replay}`,
+        `${consultFor(pipeline)} did not answer within ${waitSeconds}s (${cause}). The run may still finish: its receipt is ${receipt}. If that row turns complete, nothing is lost; if it stays failed, replay with ${replay}`,
       );
     };
     const sent = await send(
@@ -422,7 +425,7 @@ export async function dispatchDocumentationEvent(
       }
       if (state === 'answered') return answered;
       throw new Error(
-        `Documentation Agent consult for ${pipeline} failed in PageSpace (responded ${response.status}: ${reported}) and ${state === 'unreadable' ? 'its conversation could not be read' : 'its conversation holds no answer'}. The run may have recorded its receipt before failing: if ${receipt} shows complete, nothing is lost; otherwise replay with ${replay}`,
+        `${consultFor(pipeline)} failed in PageSpace (responded ${response.status}: ${reported}) and ${state === 'unreadable' ? 'its conversation could not be read' : 'its conversation holds no answer'}. The run may have recorded its receipt before failing: if ${receipt} shows complete, nothing is lost; otherwise replay with ${replay}`,
       );
     }
     // Any other 5xx can come from a gateway in front of a run that is still
@@ -445,14 +448,14 @@ export async function dispatchDocumentationEvent(
     // settlement window; otherwise the question would be sent and abandoned.
     if (Date.now() >= budgetEnd - requestTimeoutMs) {
       failures.push(
-        `Documentation Agent consult for ${pipeline} was not sent: the dispatch budget ran out and no row was reserved; replay with DOC_REPLAY_ATTEMPT=${attempt} DOC_PIPELINES=${pipeline}`,
+        `${consultFor(pipeline)} was not sent: the dispatch budget ran out and no row was reserved; replay with ${replayWith(pipeline, attempt)}`,
       );
       continue;
     }
     try {
       outcomes.push(await consult(pipeline));
     } catch (error) {
-      failures.push(error instanceof Error ? error.message : String(error));
+      failures.push(messageOf(error));
     }
   }
   if (failures.length > 0) throw new Error(failures.join('\n'));

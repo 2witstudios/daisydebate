@@ -183,11 +183,11 @@ PageSpace refuses a taken id with 409 rather than running the agent again.
    record its receipt before its answer is lost. A consult that never
    reached PageSpace (a successful read found no conversation), or was left
    unsent because the budget ran out (before or after its row was reserved)
-   or reserving its row failed, gives the same attempt, since its id was almost certainly never used; if
-   that request did land, the replay is refused as `already-dispatched`
-   rather than run twice, and the step above recovers it once
-   `bun docs:reconcile` still lists it. A 4xx refusal is final and gives no
-   replay.
+   or reserving its row failed, gives the same attempt, since its id was
+   almost certainly never used; if that request did land, the replay is
+   refused as `already-dispatched` rather than run twice, and the step above
+   recovers it once `bun docs:reconcile` still lists it. A 4xx refusal is
+   final and gives no replay.
 3. If a merged fork PR skipped the event (fork runs carry no secrets), run the
    same dispatch from a trusted checkout and delete the skip notice in
    incidents after it succeeds.
