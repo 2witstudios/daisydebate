@@ -1,4 +1,4 @@
-import { beforeAll } from 'bun:test';
+import { beforeAll, setDefaultTimeout } from 'bun:test';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
@@ -46,6 +46,9 @@ async function resetAppState() {
 
 export const configureAppEnvironment = () => {
   applyEnvironment();
+  // Real Postgres/Redis and hundreds of concurrent requests: allow shared CI
+  // machines headroom instead of a 5s default that fails on contention alone.
+  setDefaultTimeout(30_000);
   beforeAll(resetAppState);
 };
 
