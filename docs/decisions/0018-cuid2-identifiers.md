@@ -36,10 +36,23 @@ columns and routes, so the baseline now matches the policy:
   from the first migration onward.
 
 cuid2 IDs are identifiers, never bearer secrets: session tokens remain
-Better Auth-owned random values. Any future security-adjacent random value
-(invite codes, recovery codes) must seed cuid2 with OS CSPRNG entropy via
-`init({ random })` because cuid2's default entropy source is a PRNG, and
-must be stored SHA3-256 hashed.
+Better Auth-owned random values.
+
+Entropy source (corrected; an earlier revision of this record wrongly said
+cuid2's default entropy source is a PRNG). In the pinned
+`@paralleldrive/cuid2@3.3.0`, `createRandom()` in `src/index.js` draws from
+`globalThis.crypto.getRandomValues` and falls back to `Math.random` only when
+`globalThis.crypto` is absent. Bun, Node 24, and browsers all provide it, so
+`@daisy/clock`'s `systemId` — which calls the default `createId()` with no
+`init` options — is CSPRNG-backed on every runtime Daisy targets. That is
+what makes `systemId.next()` acceptable for the per-request CSP nonce in
+`apps/web/src/proxy.ts`. The fallback is silent, though: a runtime without
+Web Crypto would degrade to `Math.random` with no error. Therefore any future
+security-adjacent random value (invite codes, recovery codes) must construct
+its generator with an explicit OS CSPRNG via `init({ random })`, as defence
+against that silent fallback rather than because the default is weak, and must
+be stored SHA3-256 hashed. Re-verify this paragraph against the source on
+every cuid2 upgrade.
 
 Acceptance criteria:
 

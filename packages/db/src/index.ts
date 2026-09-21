@@ -15,6 +15,16 @@ export type DebateRecord = {
   readonly createdAt: string;
   readonly updatedAt: string;
 };
+/**
+ * Rows carry timestamptz as Date; records expose UTC ISO strings. Drizzle's
+ * string mode is not used because it relabels the driver's Date with the
+ * host's local offset instead of converting it.
+ */
+const toDebateRecord = (row: typeof debates.$inferSelect): DebateRecord => ({
+  ...row,
+  createdAt: row.createdAt.toISOString(),
+  updatedAt: row.updatedAt.toISOString(),
+});
 export type NewDebate = {
   readonly id: string;
   readonly createdBy?: string | null;
@@ -92,7 +102,7 @@ export function createDatabase({
             .values({ ...input, createdBy: input.createdBy ?? null })
             .returning();
           if (!row) throw new Error('Debate insert returned no row');
-          return row;
+          return toDebateRecord(row);
         });
       } catch (error) {
         reportFailure('createDebate');
@@ -106,7 +116,7 @@ export function createDatabase({
           .from(debates)
           .where(eq(debates.id, id))
           .limit(1);
-        return row ?? null;
+        return row ? toDebateRecord(row) : null;
       } catch (error) {
         reportFailure('getDebate');
         throw error;
@@ -125,7 +135,7 @@ export function createDatabase({
           .set({
             snapshot: input.snapshot,
             version: sql`${debates.version}+1`,
-            updatedAt: input.updatedAt,
+            updatedAt: new Date(input.updatedAt),
           })
           .where(
             and(
@@ -134,7 +144,7 @@ export function createDatabase({
             ),
           )
           .returning();
-        return row ?? null;
+        return row ? toDebateRecord(row) : null;
       } catch (error) {
         reportFailure('saveSnapshot');
         throw error;

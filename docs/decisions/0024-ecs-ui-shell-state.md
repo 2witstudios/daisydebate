@@ -1,6 +1,9 @@
-# ADR 0017: In-house observable store for the web UI shell (client-side ECS rejected)
+# ADR 0024: In-house observable store for the web UI shell (client-side ECS rejected)
 
-Status: accepted.
+Status: accepted. Originally filed as a second "ADR 0017", colliding with
+[0017: Better Auth passwordless](0017-better-auth-passwordless.md); renumbered
+to 0024 with no change to the decision. `bun policy` now rejects duplicate ADR
+numbers.
 
 The home dashboard shell needs client-side UI state (theme, search, active
 navigation, mock content). We attempted to organize it on the Adobe ECS

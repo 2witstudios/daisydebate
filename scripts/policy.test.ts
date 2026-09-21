@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  duplicateAdrNumberProblems,
   scanPolicyText,
   validateMigrationBaselines,
   validatePolicyRegistry,
@@ -211,6 +212,40 @@ describe('migration baseline registry', () => {
         'baselines[1]: ADR does not exist: docs/decisions/9999-missing.md',
         'baselines[1]: reviewBy has expired: 2026-01-01',
       ],
+    });
+  });
+});
+
+describe('decision record numbering', () => {
+  test('rejects two decision records sharing a numeric prefix', () => {
+    assert({
+      given: 'repository paths where two ADR files are both numbered 0017',
+      should: 'report the shared number with every colliding file',
+      actual: duplicateAdrNumberProblems([
+        'docs/decisions/0016-injected-clock-and-identity.md',
+        'docs/decisions/0017-ecs-ui-shell-state.md',
+        'docs/decisions/0017-better-auth-passwordless.md',
+        'docs/decisions/0018-cuid2-identifiers.md',
+      ]),
+      expected: [
+        'decisions: ADR number 0017 is shared by docs/decisions/0017-better-auth-passwordless.md, docs/decisions/0017-ecs-ui-shell-state.md',
+      ],
+    });
+  });
+
+  test('accepts uniquely numbered records and ignores other paths', () => {
+    assert({
+      given:
+        'uniquely numbered ADR files beside same-prefixed files outside docs/decisions',
+      should: 'report no numbering problems',
+      actual: duplicateAdrNumberProblems([
+        'docs/decisions/0017-better-auth-passwordless.md',
+        'docs/decisions/0024-ecs-ui-shell-state.md',
+        'docs/decisions/README.md',
+        'docs/decisions/archive/0017-nested.md',
+        'packages/db/migrations/0017-example.md',
+      ]),
+      expected: [],
     });
   });
 });

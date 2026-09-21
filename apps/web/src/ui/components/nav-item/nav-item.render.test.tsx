@@ -15,7 +15,6 @@ describe('nav-item presentation', () => {
           icon: 'swords',
           label: 'Ranked',
           active: true,
-          commitActiveRoute: () => {},
         }),
       ),
     );
@@ -35,7 +34,6 @@ describe('nav-item presentation', () => {
           icon: 'eye',
           label: 'Watch',
           active: false,
-          commitActiveRoute: () => {},
         }),
       ),
     );
