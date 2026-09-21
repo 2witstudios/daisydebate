@@ -3,6 +3,7 @@ import { setupRitewayBun, assert } from 'riteway/bun';
 import { conversationIdFor, dispatchDocumentationEvent } from './docs-consult';
 import {
   baseOptions,
+  failureOf,
   mergeEvent,
   ok,
   routedFetch,
@@ -215,6 +216,39 @@ describe('dispatchDocumentationEvent receipt', async () => {
       should: 'give up on the lookup at its own cap, then still consult',
       actual: outcomes.map((outcome) => outcome.outcome),
       expected: ['dispatched'],
+    });
+  });
+
+  test('does not send a consult the reservation left no time for', async () => {
+    const { counts, fetchImpl } = routedFetch({
+      consult: async () => ok(),
+      appendDelayMs: 100,
+    });
+    const message = await failureOf(
+      dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
+        ...baseOptions,
+        fetchImpl,
+        budgetMs: 200,
+        requestTimeoutMs: 150,
+        attempt: 2,
+      }),
+    );
+    assert({
+      given:
+        'a budget whose consult window closes while the receipt row is reserved',
+      should:
+        'leave the consult unsent and name its row and a targeted replay under the same id',
+      actual: {
+        consults: counts.consult,
+        unsent: message.includes(
+          'technical-docs was not sent: the dispatch budget ran out',
+        ),
+        row: message.includes('row 2 of Documentation Runs'),
+        replay: message.includes(
+          'DOC_REPLAY_ATTEMPT=2 DOC_PIPELINES=technical-docs',
+        ),
+      },
+      expected: { consults: 0, unsent: true, row: true, replay: true },
     });
   });
 });

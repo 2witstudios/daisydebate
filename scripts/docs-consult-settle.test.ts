@@ -3,10 +3,13 @@ import { setupRitewayBun, assert } from 'riteway/bun';
 import { dispatchDocumentationEvent } from './docs-consult';
 import {
   baseOptions,
+  droppedBody,
+  failureOf,
   hangUntilAborted,
   instant,
   mergeEvent,
   routedFetch,
+  routeFailure,
 } from './docs-consult.test-support';
 
 setupRitewayBun();
@@ -223,6 +226,124 @@ describe('dispatchDocumentationEvent settlement', async () => {
         finishedWell: Date.now() - started < 2_000,
       },
       expected: { reportedPending: true, finishedWell: true },
+    });
+  });
+
+  test('stops at once on a failure the consult route itself reports', async () => {
+    let waits = 0;
+    const { counts, fetchImpl } = routedFetch({
+      consult: async () => routeFailure(),
+      roles: () => ['user'],
+    });
+    const message = await failureOf(
+      dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
+        ...baseOptions,
+        fetchImpl,
+        timeoutMs: 50,
+        pollIntervalMs: 0,
+        delay: async () => {
+          waits += 1;
+        },
+      }),
+    );
+    assert({
+      given:
+        'a JSON 500 from the consult route, which answers only once its run has ended',
+      should:
+        'read the conversation once, not poll to the deadline, and give a targeted replay',
+      actual: {
+        reads: counts.messages,
+        waits,
+        failed: message.includes(
+          'technical-docs failed in PageSpace (responded 500: Failed to generate response from agent: provider unavailable)',
+        ),
+        row: message.includes('row 2 of Documentation Runs'),
+        replay: message.includes(
+          'DOC_REPLAY_ATTEMPT=1 DOC_PIPELINES=technical-docs',
+        ),
+      },
+      expected: { reads: 1, waits: 0, failed: true, row: true, replay: true },
+    });
+  });
+
+  test('reports a route failure after the answer was saved as dispatched', async () => {
+    const { fetchImpl } = routedFetch({
+      consult: async () => routeFailure(),
+      roles: () => ['user', 'assistant'],
+    });
+    const outcomes = await dispatchDocumentationEvent(
+      mergeEvent('fix: only technical'),
+      { ...baseOptions, ...instant, fetchImpl },
+    );
+    assert({
+      given: 'a route 500 raised after the run persisted its answer',
+      should: 'trust the conversation and report dispatched',
+      actual: outcomes.map((outcome) => outcome.outcome),
+      expected: ['dispatched'],
+    });
+  });
+
+  test('keeps polling a gateway 5xx in front of a slow run', async () => {
+    let reads = 0;
+    const { counts, fetchImpl } = routedFetch({
+      consult: async () =>
+        new Response('<html>502 Bad Gateway</html>', {
+          status: 502,
+          headers: { 'content-type': 'text/html' },
+        }),
+      roles: () => (++reads < 4 ? ['user'] : ['user', 'assistant']),
+    });
+    const outcomes = await dispatchDocumentationEvent(
+      mergeEvent('fix: only technical'),
+      { ...baseOptions, ...instant, fetchImpl },
+    );
+    assert({
+      given: 'a gateway 502 whose run is still going and answers on read 4',
+      should: 'keep polling rather than declare the run dead',
+      actual: {
+        outcome: outcomes.map((outcome) => outcome.outcome),
+        reads: counts.messages,
+      },
+      expected: { outcome: ['dispatched'], reads: 4 },
+    });
+  });
+
+  test('settles a body lost mid-read by reading the conversation', async () => {
+    const { fetchImpl } = routedFetch({
+      consult: async () => droppedBody(502),
+      roles: () => ['user', 'assistant'],
+    });
+    const outcomes = await dispatchDocumentationEvent(
+      mergeEvent('fix: only technical'),
+      { ...baseOptions, ...instant, fetchImpl },
+    );
+    assert({
+      given:
+        'a consult response whose body read fails after the status arrived',
+      should: 'settle it by the conversation instead of escaping as a throw',
+      actual: outcomes.map((outcome) => outcome.outcome),
+      expected: ['dispatched'],
+    });
+  });
+
+  test('names a body lost mid-read as the cause when nothing arrived', async () => {
+    const { fetchImpl } = routedFetch({
+      consult: async () => droppedBody(502),
+      roles: () => [],
+    });
+    const message = await failureOf(
+      dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
+        ...baseOptions,
+        ...instant,
+        fetchImpl,
+      }),
+    );
+    assert({
+      given: 'a lost response body and a conversation that never appears',
+      should: 'fail as never reached, naming the body failure',
+      actual: message,
+      expected:
+        'Documentation Agent consult for technical-docs never reached PageSpace: body dropped',
     });
   });
 });

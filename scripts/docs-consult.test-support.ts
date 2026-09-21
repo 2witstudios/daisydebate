@@ -39,6 +39,37 @@ export const hangUntilAborted = (init?: RequestInit): Promise<Response> =>
     );
   });
 
+// Answers after `ms`, unless the request's signal aborts it first.
+const answerAfter = (
+  answer: Response,
+  ms: number | undefined,
+  init?: RequestInit,
+): Promise<Response> =>
+  !ms
+    ? Promise.resolve(answer)
+    : new Promise<Response>((resolve, reject) => {
+        init?.signal?.addEventListener('abort', () =>
+          reject(new DOMException('aborted', 'AbortError')),
+        );
+        setTimeout(() => resolve(answer), ms);
+      });
+
+// The consult route's own failure: it answers only after its run has ended.
+export const routeFailure = (status = 500) =>
+  Response.json(
+    { error: 'Failed to generate response from agent: provider unavailable' },
+    { status },
+  );
+
+// A response whose status arrived but whose body is lost on the way back.
+export const droppedBody = (status: number) =>
+  new Response(
+    new ReadableStream({
+      start: (controller) => controller.error(new TypeError('body dropped')),
+    }),
+    { status },
+  );
+
 type Stub = {
   readonly consult: (init?: RequestInit) => Promise<Response>;
   /** The conversation's roles once its consult has been sent. */
@@ -53,6 +84,8 @@ type Stub = {
   readonly hang?: readonly ('reads' | 'append')[];
   /** Conversation reads answer after this long (still abortable). */
   readonly readDelayMs?: number;
+  /** The receipt-row append answers after this long (still abortable). */
+  readonly appendDelayMs?: number;
 };
 
 const json = (value: unknown) =>
@@ -82,7 +115,10 @@ export const routedFetch = (stub: Stub) => {
     appended.push(...rows);
     if (stub.hang?.includes('append')) return hangUntilAborted(init);
     const index = stub.firstRowIndex ?? 1;
-    return json(stub.appendBody ?? { firstRowIndex: index, appended: 1 });
+    const answer = json(
+      stub.appendBody ?? { firstRowIndex: index, appended: 1 },
+    );
+    return answerAfter(answer, stub.appendDelayMs, init);
   };
   const read = (path: string, init?: RequestInit) => {
     if (stub.hang?.includes('reads')) return hangUntilAborted(init);
@@ -90,13 +126,7 @@ export const routedFetch = (stub: Stub) => {
     if (sent) counts.messages += 1;
     const roles = sent ? (stub.roles?.() ?? []) : (stub.existing ?? []);
     const answer = json({ messages: roles.map((role) => ({ role })) });
-    if (!stub.readDelayMs) return answer;
-    return new Promise<Response>((resolve, reject) => {
-      init?.signal?.addEventListener('abort', () =>
-        reject(new DOMException('aborted', 'AbortError')),
-      );
-      setTimeout(() => resolve(answer), stub.readDelayMs);
-    });
+    return answerAfter(answer, stub.readDelayMs, init);
   };
   const fetchImpl = (async (url: unknown, init?: RequestInit) => {
     const path = new URL(String(url)).pathname;
@@ -129,3 +159,13 @@ export const baseOptions = {
 } as const;
 
 export const instant = { delay: async () => {}, pollIntervalMs: 0 } as const;
+
+// The message a dispatch fails with, or 'no throw' when it succeeds.
+export const failureOf = async (dispatch: Promise<unknown>) => {
+  try {
+    await dispatch;
+    return 'no throw';
+  } catch (error) {
+    return (error as Error).message;
+  }
+};
