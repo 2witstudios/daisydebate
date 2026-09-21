@@ -66,6 +66,7 @@ export const createTestAuthServer = (
     limiter: {
       consume: async () => ({ allowed: true, retryAfterSeconds: 0 }),
     },
+    ledger: { isSuppressed: async () => false, record: async () => {} },
     logger: {
       log: (...entry: readonly unknown[]) => options.recordedLogs?.push(entry),
       child: () => silentLogger,

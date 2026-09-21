@@ -46,6 +46,7 @@ const create = (overrides?: {
       }),
     emailSender: overrides?.emailSender ?? capturingSender(),
     limiter: { consume: async () => ({ allowed: true, retryAfterSeconds: 0 }) },
+    ledger: { isSuppressed: async () => false, record: async () => {} },
     logger: silentLogger,
     clock: fixedClock('2026-09-20T00:00:00.000Z'),
     ids: sequentialId('auth'),
@@ -86,6 +87,7 @@ describe('auth server composition', () => {
         limiter: {
           consume: async () => ({ allowed: true, retryAfterSeconds: 0 }),
         },
+        ledger: { isSuppressed: async () => false, record: async () => {} },
         logger: silentLogger,
         clock: fixedClock('2026-09-20T00:00:00.000Z'),
         ids: sequentialId('auth'),
@@ -133,6 +135,7 @@ describe('auth server composition', () => {
       limiter: {
         consume: async () => ({ allowed: true, retryAfterSeconds: 0 }),
       },
+      ledger: { isSuppressed: async () => false, record: async () => {} },
       logger: silentLogger,
       clock: fixedClock('2026-09-20T00:00:00.000Z'),
       ids: sequentialId('auth'),
@@ -185,6 +188,7 @@ describe('auth server composition', () => {
       limiter: {
         consume: async () => ({ allowed: true, retryAfterSeconds: 0 }),
       },
+      ledger: { isSuppressed: async () => false, record: async () => {} },
       logger: silentLogger,
       clock: fixedClock('2026-09-20T00:00:00.000Z'),
       ids: sequentialId('auth'),
@@ -221,7 +225,10 @@ describe('auth server composition', () => {
         instant: server.clock.now(),
         firstId: server.ids.next(),
         secondId: server.ids.next(),
-        limit: await server.limiter.consume('key'),
+        limit: await server.limiter.consume('key', {
+          windowSeconds: 60,
+          max: 1,
+        }),
       },
       expected: {
         instant: '2026-09-20T00:00:00.000Z',
