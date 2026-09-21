@@ -15,6 +15,17 @@ test.describe('dashboard shell chrome', () => {
     await expect(page).toHaveURL(/\/play$/);
   });
 
+  test('<html> carries the store theme after hydration', async ({ page }) => {
+    await page.goto('/');
+    // Filling the controlled search box proves the client shell hydrated, so
+    // ThemeEffect has run by the time the attribute is read. No theme toggle
+    // exists in the UI yet; only the initial theme is observable here.
+    const search = page.getByRole('searchbox', { name: 'Search' });
+    await search.fill('theme');
+    await expect(search).toHaveValue('theme');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  });
+
   test('the search input round-trips through the shell state', async ({
     page,
   }) => {
