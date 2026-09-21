@@ -10,6 +10,34 @@ export type AuthRateLimiter = {
   }>;
 };
 
+/**
+ * Which request headers may name the client address. Forwarding headers are
+ * client-writable unless a proxy the deployment controls overwrites them, so
+ * trust is explicit and the default believes none: every client then shares
+ * one bucket per path. That is deliberate until route activation (ADR 0020)
+ * configures the deployment's proxy header.
+ *
+ * A trusted header holding several hops resolves as Better Auth 1.7.5 does:
+ * with `trustedProxies` (IPs or CIDR ranges) the chain is walked right to
+ * left and the first hop that is not a trusted proxy is the client, so
+ * client-forged leftmost entries are never believed; without
+ * `trustedProxies` a multi-hop value is not believed at all.
+ */
+export type ClientIpTrust = {
+  readonly trustedHeaders: readonly string[];
+  readonly trustedProxies?: readonly string[];
+};
+
+/** Maps the trust declaration onto Better Auth's `advanced.ipAddress`. */
+export const clientIpOptions = (trust: ClientIpTrust | undefined) => ({
+  // An empty list (not undefined) is what stops Better Auth falling back to
+  // its default of believing `x-forwarded-for`.
+  ipAddressHeaders: [...(trust?.trustedHeaders ?? [])],
+  ...(trust?.trustedProxies
+    ? { trustedProxies: [...trust.trustedProxies] }
+    : {}),
+});
+
 const magicLinkPath = '/sign-in/magic-link';
 
 // A recipient is personal data: the per-recipient bucket is keyed by its
@@ -26,11 +54,32 @@ const recipientKeys = (path: string, body: unknown) => {
     : [];
 };
 
+// A valid hint is rounded up to whole seconds; an invalid one (NaN, negative,
+// non-finite) omits the header rather than advertising a made-up wait.
+const retryAfterHeaders = (retryAfterSeconds: unknown): HeadersInit =>
+  typeof retryAfterSeconds === 'number' &&
+  Number.isFinite(retryAfterSeconds) &&
+  retryAfterSeconds >= 0
+    ? { 'Retry-After': String(Math.ceil(retryAfterSeconds)) }
+    : {};
+
+// The limiter is an injected boundary: a decision without a boolean verdict
+// is an outage, never an implicit allow and never a TypeError.
+const readDecision = (decision: unknown) => {
+  if (typeof decision !== 'object' || decision === null)
+    throw new TypeError('Malformed limiter decision');
+  const allowed: unknown = Reflect.get(decision, 'allowed');
+  if (typeof allowed !== 'boolean')
+    throw new TypeError('Malformed limiter decision');
+  const retryAfterSeconds: unknown = Reflect.get(decision, 'retryAfterSeconds');
+  return { allowed, retryAfterSeconds };
+};
+
 const denial = (
   logger: Logger,
   path: string,
   errorCode: 'RATE_LIMIT' | 'INFRASTRUCTURE',
-  retryAfterSeconds = 0,
+  retryAfterSeconds?: unknown,
 ) => {
   // Only the stable route path and code are logged: never the key, client
   // address, request body, or the limiter's raw exception.
@@ -45,7 +94,7 @@ const denial = (
     ? new APIError(
         'TOO_MANY_REQUESTS',
         { message: 'Too many requests' },
-        { 'Retry-After': String(retryAfterSeconds) },
+        retryAfterHeaders(retryAfterSeconds),
       )
     : new APIError('SERVICE_UNAVAILABLE', {
         message: 'Service temporarily unavailable',
@@ -64,18 +113,19 @@ export const createRateLimitGate = (dependencies: {
 }) =>
   createAuthMiddleware(async (context) => {
     const { path } = context;
-    const client = context.request
-      ? getIP(context.request, context.context.options)
-      : null;
+    // Direct `auth.api.*` calls carry no Request, only forwarded Headers.
+    const source = context.request ?? context.headers;
+    const client = source ? getIP(source, context.context.options) : null;
     const keys = [
       `auth:client:${client ?? 'unknown'}:${path}`,
       ...recipientKeys(path, context.body),
     ];
-    // Invoked inside try/await so a limiter that throws synchronously and one
-    // that rejects converge on the same fail-closed 503.
+    // Invoked and validated inside try/await so a limiter that throws
+    // synchronously, rejects, or answers nonsense converges on the same
+    // fail-closed 503.
     const consume = async (key: string) => {
       try {
-        return await dependencies.limiter.consume(key);
+        return readDecision(await dependencies.limiter.consume(key));
       } catch {
         throw denial(dependencies.logger, path, 'INFRASTRUCTURE');
       }

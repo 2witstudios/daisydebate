@@ -6,7 +6,12 @@ import { createAppError } from '@daisy/errors';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import { readAuthConfig, type AuthConfig } from '@daisy/config';
-import { createRateLimitGate, type AuthRateLimiter } from './rate-limit';
+import {
+  clientIpOptions,
+  createRateLimitGate,
+  type AuthRateLimiter,
+  type ClientIpTrust,
+} from './rate-limit';
 
 /** Application-level email contract; the Resend transport plugs in here. */
 export type AuthEmailMessage = {
@@ -31,6 +36,7 @@ const composeBetterAuth = (dependencies: {
   readonly limiter: AuthRateLimiter;
   readonly logger: Logger;
   readonly ids: IdGenerator;
+  readonly clientIp: ClientIpTrust | undefined;
 }) => {
   const origin = new URL(dependencies.config.PUBLIC_APP_URL).origin;
   return betterAuth({
@@ -44,6 +50,8 @@ const composeBetterAuth = (dependencies: {
         // the production edge, ADR 0018), never an ambient one.
         generateId: () => dependencies.ids.next(),
       },
+      // No request header names the client unless explicitly trusted.
+      ipAddress: clientIpOptions(dependencies.clientIp),
     },
     // The injected atomic limiter is the only rate limit. Better Auth's
     // built-in limiter never sees direct `auth.api` calls and cannot fail
@@ -109,6 +117,12 @@ export function createAuthServer<
   readonly logger: Logger;
   readonly clock: Clock;
   readonly ids: IdGenerator;
+  /**
+   * Trusted client-IP header(s) for rate-limit keying. Omitted means no
+   * request header is believed; the deployment's proxy header is supplied
+   * here when routes activate (ADR 0020).
+   */
+  readonly clientIp?: ClientIpTrust | undefined;
 }): AuthServer<Database> {
   const config = readAuthConfig(dependencies.env);
   const sendMail: AuthEmailSender['send'] = async (message) => {
@@ -139,6 +153,7 @@ export function createAuthServer<
       limiter: dependencies.limiter,
       logger: dependencies.logger,
       ids: dependencies.ids,
+      clientIp: dependencies.clientIp,
     }),
     database: dependencies.database,
     mail: { send: sendMail },
