@@ -1,5 +1,7 @@
 import { resolve } from 'node:path';
 
+import { isIsoDate, reviewDateStatus, utcToday } from './review-date';
+
 const migrationsDir = 'packages/db/migrations';
 const journalPath = `${migrationsDir}/meta/_journal.json`;
 const root = resolve(import.meta.dir, '..');
@@ -160,12 +162,6 @@ export const journalFingerprint = (
   return `sha256:${hasher.digest('hex')}`;
 };
 
-const isIsoDate = (value: unknown): value is string =>
-  typeof value === 'string' &&
-  /^\d{4}-\d{2}-\d{2}$/.test(value) &&
-  !Number.isNaN(Date.parse(`${value}T00:00:00Z`)) &&
-  new Date(`${value}T00:00:00Z`).toISOString().startsWith(value);
-
 /** Same rule as `bun policy`: a sanction is live through its reviewBy day. */
 const sanctionProblem = (
   { adr, reviewBy }: SanctionedBaseline,
@@ -176,7 +172,7 @@ const sanctionProblem = (
       code: 'INVALID_SANCTION',
       detail: `${baselinesPath} sanction for this base journal needs an ISO reviewBy date (YYYY-MM-DD); an undated sanction never excuses a rewrite`,
     };
-  if (reviewBy < today)
+  if (reviewDateStatus(reviewBy, today) === 'expired')
     return {
       code: 'EXPIRED_SANCTION',
       detail: `${baselinesPath} sanction for this base journal expired on ${reviewBy} (today is ${today}); renew it through ${adr} or drop the rewrite`,
@@ -332,7 +328,7 @@ async function readSharedMigrationFiles(
 
 export async function runMigrationCheck(
   baseRef = parseBaseRef(process.argv),
-  today = new Date().toISOString().slice(0, 10),
+  today = utcToday(),
 ): Promise<MigrationCheckReport> {
   const mergeBase = await gitOutput(['merge-base', 'HEAD', baseRef]);
   const base = parseJournal(await readCommittedJournal(mergeBase));

@@ -57,11 +57,17 @@ PageSpace's lesson: branch debris accumulates faster than agents clean it
   `packages/typescript-config/`, `.prettierrc.json` invalidate every
   turbo cache and affect all verticals; change them in isolated,
   dedicated PRs.
+- **ADR numbers.** `bun policy` rejects duplicate ADR numbers, but it can
+  only see merged files: two open PRs can both claim the next number with
+  different filenames, merge without a git conflict, and turn `main` red.
+  Before numbering an ADR, check every open PR
+  (`gh pr list`, then `gh pr diff <n> --name-only`) for files under
+  `docs/decisions/`; the earlier-opened PR keeps the number.
 
 ## Inner loop
 
 - `bun check:affected` — fast per-vertical loop (eslint/prettier on
-  changed files, boundaries, affected turbo graph). It is a convenience,
+  changed files, boundaries, duplication, affected turbo graph). It is a convenience,
   not a gate.
 - `bun check` — the pre-push gate for every PR.
 - `bun migrations:check` — before pushing any change that touches

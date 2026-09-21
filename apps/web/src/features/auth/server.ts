@@ -12,6 +12,7 @@ import { createMagicLinkGate } from './magic-link-gate';
 import { recipientHash } from './mail';
 import { unavailable } from './public-errors';
 import {
+  clientIpFromConfig,
   clientIpOptions,
   createRateLimitGate,
   type AuthRateLimiter,
@@ -85,21 +86,27 @@ const composeBetterAuth = (dependencies: {
       ],
     },
   };
-  return betterAuth({
+  const instance = betterAuth({
     baseURL: config.PUBLIC_APP_URL,
     trustedOrigins: [origin],
     secret: config.BETTER_AUTH_SECRET,
     database: dependencies.database,
-    // The framework's own logger prints raw driver errors (SQL text with bound
-    // parameters: addresses, token hashes). Only a fixed, safe event leaves.
+    // Better Auth's default logger prints driver errors verbatim, including
+    // SQL text and bound parameters (magic-link tokens, emails). Report only
+    // the severity through the application logger.
     logger: {
-      log: (level) =>
-        dependencies.logger.log(
-          'request.unhandled',
-          { operation: 'auth.framework', level },
-          'Authentication framework reported a problem',
-        ),
+      log: (level) => {
+        if (level === 'error' || level === 'warn')
+          dependencies.logger.log(
+            'request.unhandled',
+            { source: 'better-auth', level },
+            'Authentication library reported a failure',
+          );
+      },
     },
+    // better-call prints unhandled errors with console.error, exposing SQL and
+    // parameters; rethrow so the guarded handler below reports them safely.
+    onAPIError: { throw: true },
     advanced: {
       database: {
         // Entity identifiers come from the injected generator (cuid2 at
@@ -120,9 +127,6 @@ const composeBetterAuth = (dependencies: {
     // built-in limiter never sees direct `auth.api` calls and cannot fail
     // closed with a 503, so the gate below replaces it.
     rateLimit: { enabled: false },
-    // Unexpected (non-API) errors are rethrown to our route boundary instead of
-    // being printed raw — with SQL text and bound parameters — by the router.
-    onAPIError: { throw: true },
     hooks: {
       before: createRateLimitGate({
         limiter: dependencies.limiter,
@@ -171,6 +175,21 @@ const composeBetterAuth = (dependencies: {
       magicLinkGatePlugin,
     ],
   });
+  return {
+    ...instance,
+    handler: async (request: Request): Promise<Response> => {
+      try {
+        return await instance.handler(request);
+      } catch {
+        dependencies.logger.log(
+          'request.unhandled',
+          { source: 'better-auth' },
+          'Authentication request failed',
+        );
+        return new Response(null, { status: 500 });
+      }
+    },
+  };
 };
 
 /**
@@ -208,9 +227,9 @@ export function createAuthServer<
   readonly clock: Clock;
   readonly ids: IdGenerator;
   /**
-   * Trusted client-IP header(s) for rate-limit keying. Omitted means no
-   * request header is believed; the deployment's proxy header is supplied
-   * here when routes activate (ADR 0020).
+   * Trusted client-IP header(s) for rate-limit keying. Omitted means the
+   * validated `AUTH_TRUSTED_IP_HEADERS` / `AUTH_TRUSTED_PROXIES` apply,
+   * which believe no request header unless the deployment sets them.
    */
   readonly clientIp?: ClientIpTrust | undefined;
   /** Mail receipts and suppressions (production supplies the @daisy/db one). */
@@ -231,14 +250,14 @@ export function createAuthServer<
       // Delivery failure is a generic retryable outcome: never surface
       // or log the provider exception, recipient or message body here.
       dependencies.logger.log(
-        'http.request.failed',
+        'auth.mail.failed',
         { operation: 'auth.mail.send', errorCode: 'INFRASTRUCTURE' },
         'Auth mail delivery failed',
       );
       throw createAppError('INFRASTRUCTURE', undefined, error);
     }
     dependencies.logger.log(
-      'http.request.completed',
+      'auth.mail.sent',
       { operation: 'auth.mail.send' },
       'Auth mail delivered',
     );
@@ -253,7 +272,8 @@ export function createAuthServer<
       ledger,
       logger: dependencies.logger,
       ids: dependencies.ids,
-      clientIp: dependencies.clientIp,
+      // Explicit injection wins; otherwise the validated environment decides.
+      clientIp: dependencies.clientIp ?? clientIpFromConfig(config),
     }),
     database: dependencies.database,
     mail: { send: sendMail },

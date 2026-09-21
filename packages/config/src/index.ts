@@ -12,6 +12,14 @@ const redisUrl = z
     (value) => ['redis:', 'rediss:'].includes(new URL(value).protocol),
     'Expected Redis URL',
   );
+const requireHttpsOrigin = (url: string, ctx: z.RefinementCtx) => {
+  if (!url.startsWith('https:'))
+    ctx.addIssue({
+      code: 'custom',
+      path: ['PUBLIC_APP_URL'],
+      message: 'Production requires HTTPS',
+    });
+};
 export const serverConfigSchema = z
   .object({
     NODE_ENV: z
@@ -36,12 +44,7 @@ export const serverConfigSchema = z
   })
   .superRefine((config, ctx) => {
     if (config.NODE_ENV !== 'production') return;
-    if (!config.PUBLIC_APP_URL.startsWith('https:'))
-      ctx.addIssue({
-        code: 'custom',
-        path: ['PUBLIC_APP_URL'],
-        message: 'Production requires HTTPS',
-      });
+    requireHttpsOrigin(config.PUBLIC_APP_URL, ctx);
     if (config.APP_VERSION === 'development' || config.GIT_COMMIT === 'unknown')
       ctx.addIssue({
         code: 'custom',
@@ -73,21 +76,32 @@ export function readServerConfig(
     );
   return result.data;
 }
-const ipv4 = z.ipv4();
-const ipv6 = z.ipv6();
-/** IPv4/IPv6 address or CIDR range; a malformed entry must never behave like a non-match. */
-const isIpOrCidr = (value: string) => {
-  const [address = '', prefix, ...rest] = value.split('/');
-  if (rest.length > 0) return false;
-  const version = ipv4.safeParse(address).success
-    ? 32
-    : ipv6.safeParse(address).success
-      ? 128
-      : 0;
-  if (version === 0) return false;
-  if (prefix === undefined) return true;
-  return /^\d{1,3}$/.test(prefix) && Number(prefix) <= version;
-};
+// RFC 9110 field-name token: anything else makes `Headers.get` throw.
+const headerName = z.string().regex(/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/);
+// IPv6 that embeds IPv4: dotted notation, or the IPv4-mapped block ::ffff:0:0/96
+// written in hex (only zero groups, then ffff, then exactly two groups).
+const embedsIpv4 = (value: string) =>
+  value.includes('.') ||
+  /^[0:]*:ffff:[0-9a-f]{1,4}:[0-9a-f]{1,4}$/i.test(value.split('/')[0] ?? '');
+// The accepted set must stay a subset of what Better Auth acts on: it drops
+// an entry it cannot parse with only a warning, quietly untrusting a real
+// proxy. It reduces IPv4-mapped IPv6 to four bytes and caps that prefix at
+// 32, so mapped ranges are refused outright; operators write the IPv4 form.
+// Stricter than Better Auth on purpose (no leading-zero prefixes either).
+const proxyAddress = z.union([
+  z.ipv4(),
+  z.cidrv4(),
+  z.union([z.ipv6(), z.cidrv6()]).refine((value) => !embedsIpv4(value)),
+]);
+/** Optional comma-separated list: absent or blank means an empty list. */
+const commaList = (entry: z.ZodType<string, string>) =>
+  z
+    .string()
+    .default('')
+    .transform((value) =>
+      value.trim() === '' ? [] : value.split(',').map((item) => item.trim()),
+    )
+    .pipe(z.array(entry));
 /**
  * Narrow server authentication configuration, validated only when the auth
  * composition is activated: baseline startup never requires auth variables.
@@ -120,35 +134,20 @@ export const authConfigSchema = z
       .regex(/^whsec_[A-Za-z0-9+/=]{16,}$/)
       .optional(),
     /**
-     * Deployment ingress hops (comma-separated IP/CIDR) whose forwarding
-     * headers are honored. Empty/absent: only the socket peer identifies a
-     * client and every forwarding header is ignored.
+     * Request headers believed to name the client address for rate-limit
+     * keying. Set only to the header the deployment's own reverse proxy
+     * overwrites; the default believes none.
      */
-    AUTH_TRUSTED_PROXIES: z
-      .string()
-      .transform((value) =>
-        value
-          .split(',')
-          .map((entry) => entry.trim())
-          .filter(Boolean),
-      )
-      .refine(
-        (entries) => entries.every(isIpOrCidr),
-        'Expected IP or CIDR list',
-      )
-      .optional(),
+    AUTH_TRUSTED_IP_HEADERS: commaList(headerName),
+    /** Proxy IPs or CIDR ranges skipped when a trusted header holds a chain. */
+    AUTH_TRUSTED_PROXIES: commaList(proxyAddress),
     NODE_ENV: z
       .enum(['development', 'test', 'production'])
       .default('development'),
   })
   .superRefine((config, ctx) => {
     if (config.NODE_ENV !== 'production') return;
-    if (!config.PUBLIC_APP_URL.startsWith('https:'))
-      ctx.addIssue({
-        code: 'custom',
-        path: ['PUBLIC_APP_URL'],
-        message: 'Production requires HTTPS',
-      });
+    requireHttpsOrigin(config.PUBLIC_APP_URL, ctx);
     if (config.RESEND_WEBHOOK_SECRET === undefined)
       ctx.addIssue({
         code: 'custom',

@@ -1,5 +1,5 @@
 import { beforeAll, setDefaultTimeout } from 'bun:test';
-import { SQL } from 'bun';
+import { RedisClient, SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 
@@ -209,35 +209,33 @@ export const removeAccount = (email: string) =>
     await sql`DELETE FROM verification WHERE value LIKE ${`%${email}%`}`;
   });
 
-/** Removes exactly the rate-limit keys this run created in its own namespace. */
-export async function clearRedisNamespace() {
-  const { RedisClient } = await import('bun');
+/** Runs `work` on a short-lived client with this run's namespaced key list. */
+async function withNamespaceKeys<T>(
+  work: (client: RedisClient, keys: string[]) => Promise<T>,
+) {
   const client = new RedisClient(testRedisUrl as string);
   try {
     const keys = (await client.send('KEYS', [
       `${redisNamespace}:*`,
     ])) as string[];
-    for (const key of keys) await client.del(key);
+    return await work(client, keys);
   } finally {
     client.close();
   }
 }
 
-export async function redisKeys() {
-  const { RedisClient } = await import('bun');
-  const client = new RedisClient(testRedisUrl as string);
-  try {
-    const keys = (await client.send('KEYS', [
-      `${redisNamespace}:*`,
-    ])) as string[];
-    const withTtl = await Promise.all(
+/** Removes exactly the rate-limit keys this run created in its own namespace. */
+export const clearRedisNamespace = () =>
+  withNamespaceKeys(async (client, keys) => {
+    for (const key of keys) await client.del(key);
+  });
+
+export const redisKeys = () =>
+  withNamespaceKeys((client, keys) =>
+    Promise.all(
       keys.map(async (key) => ({
         key,
         ttlMs: Number(await client.send('PTTL', [key])),
       })),
-    );
-    return withTtl;
-  } finally {
-    client.close();
-  }
-}
+    ),
+  );

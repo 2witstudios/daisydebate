@@ -56,7 +56,12 @@ export function createAuthRouteHandlers(
         try {
           const delegate = toNextJsHandler({ handler: server.handler });
           const method = request.method as keyof typeof delegate;
-          return preserve(await (delegate[method] ?? delegate.GET)(request));
+          const response = await (delegate[method] ?? delegate.GET)(request);
+          // The composition reports unexpected framework failures as a bare
+          // 500: to callers that is a retryable outage (503), not a fault.
+          if (response.status === 500 && response.body === null)
+            throw createAppError('INFRASTRUCTURE');
+          return preserve(response);
         } catch (error) {
           // Anything unexpected from the framework (a database failure while
           // persisting a token or session) is a retryable outage, never a

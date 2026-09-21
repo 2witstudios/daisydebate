@@ -1,5 +1,6 @@
 import { Resend } from 'resend';
 import type { Clock } from '@daisy/clock';
+import { readBoundedBody } from './bounded-body';
 
 const MAX_BODY_BYTES = 64 * 1024;
 /** A just-sent message can be reported before its send is recorded. */
@@ -64,14 +65,6 @@ const respond = (status: number, body: unknown, headers?: HeadersInit) =>
 const rejected = () =>
   respond(400, { error: { code: 'VALIDATION', message: 'Invalid input' } });
 
-/** Signatures cover the exact bytes: read the raw text once, bounded. */
-async function readBoundedText(request: Request): Promise<string | null> {
-  if (Number(request.headers.get('content-length') ?? 0) > MAX_BODY_BYTES)
-    return null;
-  const payload = await request.text();
-  return Buffer.byteLength(payload) > MAX_BODY_BYTES ? null : payload;
-}
-
 /**
  * Authenticates provider webhooks over the raw body with the official Resend
  * verifier (five-minute timestamp tolerance), deduplicates by event ID in
@@ -98,8 +91,10 @@ export function createResendWebhook({
     const timestamp = request.headers.get('svix-timestamp');
     const signature = request.headers.get('svix-signature');
     if (!id || !timestamp || !signature) return null;
-    const payload = await readBoundedText(request);
-    if (payload === null) return null;
+    const body = await readBoundedBody(request, MAX_BODY_BYTES);
+    if (body === null) return null;
+    // Signatures cover the exact bytes: verify the raw text, never re-serialized.
+    const payload = body.toString('utf8');
     try {
       const event = resend.webhooks.verify({
         payload,

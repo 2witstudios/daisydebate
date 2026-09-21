@@ -1,6 +1,8 @@
+import { spyOn } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createDatabase } from '@daisy/db';
+import type { RecordedLogs } from '../src/features/auth/log-leaks';
 import {
   countFixtureRows,
   createTestAuthServer,
@@ -125,6 +127,72 @@ test('pool lifecycle closes and the app failure boundary reports without SQL mat
           message: 'Database query failed',
         },
       ],
+    },
+  });
+});
+
+test('a persistence failure inside Better Auth leaks no SQL, parameters, token or email', async () => {
+  const email = fixtureEmail();
+  const recorded: RecordedLogs = [];
+  const database = createDatabase({ url });
+  const auth = createTestAuthServer(database.authAdapter, {
+    sent: [],
+    recordedLogs: recorded,
+  });
+  await database.close();
+
+  const spies = (['error', 'warn', 'log', 'info'] as const).map((method) =>
+    spyOn(console, method).mockImplementation(() => {}),
+  );
+  let status: number;
+  let body: string;
+  // mockRestore() clears call history, so snapshot before restoring. Errors
+  // serialize to {} under JSON.stringify, so expand message and cause too.
+  const expand = (value: unknown): unknown =>
+    value instanceof Error
+      ? {
+          name: value.name,
+          message: value.message,
+          cause: expand(value.cause),
+        }
+      : value;
+  let consoleCalls: unknown[] = [];
+  try {
+    const response = await auth.instance.handler(
+      new Request(`${auth.config.PUBLIC_APP_URL}/api/auth/sign-in/magic-link`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          origin: auth.config.PUBLIC_APP_URL,
+        },
+        body: JSON.stringify({ email }),
+      }),
+    );
+    status = response.status;
+    body = await response.text();
+  } finally {
+    consoleCalls = spies.flatMap((spy) =>
+      spy.mock.calls.map((c) => c.map(expand)),
+    );
+    for (const spy of spies) spy.mockRestore();
+  }
+
+  const emitted = JSON.stringify([consoleCalls, recorded, body]);
+  assert({
+    given: 'the shared pool failing during a real magic-link request',
+    should:
+      'fail closed and emit no SQL text, bound parameters, token or email anywhere',
+    actual: {
+      status,
+      leaksSql: /insert into|params:|\$1/i.test(emitted),
+      leaksEmail: emitted.includes(email),
+      reported: recorded.length > 0 || consoleCalls.length > 0,
+    },
+    expected: {
+      status: 500,
+      leaksSql: false,
+      leaksEmail: false,
+      reported: true,
     },
   });
 });

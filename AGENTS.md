@@ -94,10 +94,16 @@ and detailed procedures in the linked documents, not here.
   `_test`; integration also requires `TEST_REDIS_URL`.
 - `bun run knip` is a required dead-code gate for unused files, exports, and
   dependencies. Keep `knip.jsonc` ignores limited to genuine implicit uses.
+- `bun run duplication` is a required copy-paste gate (jscpd, ADR 0026): any
+  clone of 50+ tokens that is not in `.jscpd-baseline.json` fails. When it
+  fires, consolidate — extract the shared function, component, or data table
+  into the owning module — rather than raising `minTokens`, adding an ignore,
+  or re-baselining. Loosening the gate in any of those ways requires a dated
+  note in ADR 0026; the baseline otherwise only shrinks.
 - `bun evidence` fails on suites no runner claims, integration guards that
   skip instead of throwing on missing services, and gates that silently
-  stop running in CI. `bun invariants` and `bun evidence` are part of
-  `bun check`.
+  stop running in CI. `bun run duplication`, `bun invariants`, and
+  `bun evidence` are part of `bun check`.
 - Repository overrides are explicit: Bun/RITEway replace generic Vitest guidance,
   `@daisy/errors` plus native `Error.cause` replaces `error-causes`, durable
   behavior uses real integration tests, and unit IDs are deterministic while
@@ -118,7 +124,7 @@ values in `.env`; initialize with `bun install --frozen-lockfile` and
   `--json` for a machine-readable report. It should pass before service-based
   work.
 - `bun check`: the pre-push gate: `format:check`, lint and boundaries, policy,
-  Knip, invariants, evidence, typecheck, unit tests, metrics policy, and
+  Knip, duplication, invariants, evidence, typecheck, unit tests, metrics policy, and
   production build. It does not boot Next or require integration services.
 - `bun check:affected`: fast per-vertical inner loop over changed files and
   the affected turbo graph. A convenience, never a substitute for `bun check`.

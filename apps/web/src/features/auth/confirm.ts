@@ -1,5 +1,6 @@
 import { createAppError } from '@daisy/errors';
 import { handleOperation, requireSameOrigin } from '../../server/http';
+import { readBoundedBody } from './bounded-body';
 import { CLIENT_IP_HEADER } from './client-ip';
 import { CONFIRM_PATH, renderConfirmPage, type Hidden } from './confirm-page';
 import { safeLocalDestination } from './redirect';
@@ -45,27 +46,13 @@ const hiddenFrom = (params: URLSearchParams): Hidden => {
 };
 
 async function readForm(request: Request): Promise<URLSearchParams> {
-  const reader = request.body?.getReader();
-  if (
-    !request.headers
-      .get('content-type')
-      ?.startsWith('application/x-www-form-urlencoded') ||
-    !reader
-  )
-    throw createAppError('VALIDATION');
-  const chunks: Uint8Array[] = [];
-  let length = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    length += value.length;
-    if (length > MAX_FORM_BYTES) {
-      await reader.cancel();
-      throw createAppError('VALIDATION');
-    }
-    chunks.push(value);
-  }
-  return new URLSearchParams(Buffer.concat(chunks).toString('utf8'));
+  const body = request.headers
+    .get('content-type')
+    ?.startsWith('application/x-www-form-urlencoded')
+    ? await readBoundedBody(request, MAX_FORM_BYTES)
+    : null;
+  if (body === null) throw createAppError('VALIDATION');
+  return new URLSearchParams(body.toString('utf8'));
 }
 
 /** Success redirect: re-validate the target and keep only its path and query. */

@@ -1,5 +1,6 @@
 import { readAuthConfig } from '@daisy/config';
 import { createAppError } from '@daisy/errors';
+import { clientIpFromConfig } from '../features/auth/rate-limit';
 import { createAuthServer, type AuthServer } from '../features/auth/server';
 import { CLIENT_IP_HEADER } from '../features/auth/client-ip';
 import { createResendSender } from '../features/auth/mail';
@@ -21,6 +22,7 @@ export function getAuth(): Auth {
   if (processState.daisyAuth) return processState.daisyAuth;
   const resources = getResources();
   const config = readAuthConfig(process.env);
+  const trust = clientIpFromConfig(config);
   processState.daisyAuth = createAuthServer({
     env: process.env,
     database: resources.database.authAdapter,
@@ -31,7 +33,10 @@ export function getAuth(): Auth {
     }),
     limiter: createAuthRateLimiter(resources.redis),
     // Only the identity our own ingress stamps names the client (ADR 0025).
-    clientIp: { trustedHeaders: [CLIENT_IP_HEADER] },
+    clientIp: {
+      ...trust,
+      trustedHeaders: [CLIENT_IP_HEADER, ...trust.trustedHeaders],
+    },
     ledger: {
       isSuppressed: (hash) => resources.database.isRecipientSuppressed(hash),
       record: (input) => resources.database.recordEmailDelivery(input),

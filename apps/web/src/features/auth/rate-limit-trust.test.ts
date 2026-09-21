@@ -135,7 +135,7 @@ describe('auth rate-limit gate: client-IP trust configuration', () => {
         consumed: [],
         logged: [
           [
-            'http.request.failed',
+            'auth.rate_limit.unavailable',
             {
               operation: 'auth.rate_limit',
               path: '/get-session',

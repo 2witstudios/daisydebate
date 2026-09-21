@@ -27,24 +27,21 @@ setting the message API cannot override — and a webhook pointing at
 
 ## Client identity and ingress assumptions
 
-Rate limits bucket by client. The identity is stamped by our own ingress code
-and nothing else:
+Rate limits bucket by client. The composition believes, in order:
 
-- `AUTH_TRUSTED_PROXIES` unset: the TCP peer address is the client;
-  `X-Forwarded-For` and every other caller header are ignored. Correct when
-  the app is reached directly.
-- `AUTH_TRUSTED_PROXIES=<CIDRs of your load balancers>`: when the peer is one
-  of them, the client is the first address from the **right** of
-  `X-Forwarded-For` that is not itself a trusted hop, so an attacker-prepended
-  left-most value never selects the bucket. Configure exactly the hops you
-  operate; an over-broad range re-opens spoofing.
-- The internal `x-daisy-client-ip` header is deleted/replaced on every request.
-  Under `next dev` there is no ingress stamp and requests share the loopback
-  bucket.
+1. `x-daisy-client-ip`, stamped by our own ingress (`start.ts`) on every
+   request, replacing any caller value. It is the socket peer, or — only when
+   the peer is in `AUTH_TRUSTED_PROXIES` — the first address from the **right**
+   of `X-Forwarded-For` that is not itself a trusted hop, so an
+   attacker-prepended left-most value never selects the bucket.
+2. Any header named in `AUTH_TRUSTED_IP_HEADERS` (default none), resolved by
+   Better Auth with `AUTH_TRUSTED_PROXIES`. Set only headers your own proxy
+   overwrites.
 
-Behind a managed platform whose edge overwrites `X-Forwarded-For`, list that
-edge's egress ranges; verify with the spoofing integration test
-(`auth-rate-limit.integration.ts`) adapted to your topology before release.
+Configure exactly the hops you operate; an over-broad range re-opens spoofing.
+Under `next dev` there is no ingress stamp and requests share the loopback
+bucket. Verify with the spoofing suite (`auth-ingress.integration.ts`) adapted
+to your topology before release.
 
 ## Limits and outage behaviour
 

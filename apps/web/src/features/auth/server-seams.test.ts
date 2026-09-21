@@ -169,7 +169,7 @@ describe('auth server injected seams', () => {
         verifications: 0,
         events: [
           [
-            'http.request.failed',
+            'auth.rate_limit.unavailable',
             {
               operation: 'auth.rate_limit',
               path: '/sign-in/magic-link',
@@ -183,7 +183,7 @@ describe('auth server injected seams', () => {
   });
 
   test('throttles the HTTP handler through the same limiter', async () => {
-    const { server } = compose({
+    const { server, logged } = compose({
       limiter: {
         consume: async () => ({ allowed: false, retryAfterSeconds: 30 }),
       },
@@ -193,12 +193,26 @@ describe('auth server injected seams', () => {
     );
     assert({
       given: 'a denied non-mail auth request through the HTTP handler',
-      should: 'answer 429 with the limiter retry hint',
+      should: 'answer 429 with the retry hint and log a named denial event',
       actual: {
         status: response.status,
         retryAfter: response.headers.get('retry-after'),
+        events: logged.map(([event, fields]) => [event, fields]),
       },
-      expected: { status: 429, retryAfter: '30' },
+      expected: {
+        status: 429,
+        retryAfter: '30',
+        events: [
+          [
+            'auth.rate_limit.denied',
+            {
+              operation: 'auth.rate_limit',
+              path: '/get-session',
+              errorCode: 'RATE_LIMIT',
+            },
+          ],
+        ],
+      },
     });
   });
 
@@ -218,7 +232,24 @@ describe('auth server injected seams', () => {
         events: logged.map(([event]) => event),
         leaks: logsLeakSecrets(logged, [email, token, 'AB12CD', 'resend']),
       },
-      expected: { events: ['http.request.failed'], leaks: false },
+      expected: { events: ['auth.mail.failed'], leaks: false },
+    });
+  });
+
+  test('logs a delivered mail as a named event without secrets', async () => {
+    const { requestLink, logged } = compose({});
+    await requestLink();
+    assert({
+      given: 'a delivered magic-link email',
+      should: 'log one delivery event carrying only the operation name',
+      actual: {
+        events: logged.map(([event, fields]) => [event, fields]),
+        leaks: logsLeakSecrets(logged, [email]),
+      },
+      expected: {
+        events: [['auth.mail.sent', { operation: 'auth.mail.send' }]],
+        leaks: false,
+      },
     });
   });
 

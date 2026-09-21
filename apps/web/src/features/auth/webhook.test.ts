@@ -235,4 +235,37 @@ describe('Resend webhook authenticity', () => {
       expected: [200, 503, '5', 200],
     });
   });
+
+  test('stops reading an endless chunked body at the cap instead of buffering it', async () => {
+    const webhook = build();
+    let pulled = 0;
+    const endless = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulled += 1;
+        controller.enqueue(new Uint8Array(1024));
+      },
+    });
+    const request = new Request('http://localhost:3000/api/webhooks/resend', {
+      method: 'POST',
+      headers: {
+        'svix-id': 'msg_evt_1',
+        'svix-timestamp': String(now()),
+        'svix-signature': 'v1,AAAA',
+      },
+      body: endless,
+      // @ts-expect-error Bun/Node streaming request bodies need duplex.
+      duplex: 'half',
+    });
+    const response = await webhook.handle(request);
+    assert({
+      given: 'a chunked body with no Content-Length that never ends',
+      should: 'refuse with 400 after reading only about the 64 KiB cap',
+      actual: {
+        status: response.status,
+        boundedRead: pulled < 200,
+        applied: applied.length,
+      },
+      expected: { status: 400, boundedRead: true, applied: 0 },
+    });
+  });
 });

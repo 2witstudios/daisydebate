@@ -2,6 +2,8 @@ import { readFile, readdir } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 import * as ts from 'typescript';
 
+import { reviewDateStatus, utcToday } from './review-date';
+
 const root = resolve(import.meta.dir, '..');
 const registryPath = join(root, 'policy/exceptions.json');
 const skipped = new Set([
@@ -215,12 +217,9 @@ function reviewDateProblems(
   today: string,
 ): readonly string[] {
   if (typeof reviewBy !== 'string') return [];
-  const validDate =
-    /^\d{4}-\d{2}-\d{2}$/.test(reviewBy) &&
-    !Number.isNaN(Date.parse(`${reviewBy}T00:00:00Z`)) &&
-    new Date(`${reviewBy}T00:00:00Z`).toISOString().startsWith(reviewBy);
-  if (!validDate) return [`${prefix}: reviewBy must be an ISO date`];
-  return reviewBy < today
+  const status = reviewDateStatus(reviewBy, today);
+  if (status === 'invalid') return [`${prefix}: reviewBy must be an ISO date`];
+  return status === 'expired'
     ? [`${prefix}: reviewBy has expired: ${reviewBy}`]
     : [];
 }
@@ -243,7 +242,7 @@ export function validatePolicyRegistry(
   options: PolicyRegistryValidationOptions = {},
 ): readonly string[] {
   const problems: string[] = [];
-  const today = options.today ?? new Date().toISOString().slice(0, 10);
+  const today = options.today ?? utcToday();
   if (registry.version !== 1) problems.push('registry: version must be 1');
   if (!Array.isArray(registry.exceptions)) {
     return [...problems, 'registry: exceptions must be an array'];
@@ -273,7 +272,7 @@ export function validateMigrationBaselines(
   options: PolicyRegistryValidationOptions = {},
 ): readonly string[] {
   const problems: string[] = [];
-  const today = options.today ?? new Date().toISOString().slice(0, 10);
+  const today = options.today ?? utcToday();
   if (registry.version !== 1) problems.push('registry: version must be 1');
   if (!Array.isArray(registry.baselines)) {
     return [...problems, 'registry: baselines must be an array'];

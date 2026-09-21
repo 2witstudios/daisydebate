@@ -75,16 +75,18 @@ describe('authentication configuration', () => {
     AUTH_EMAIL_FROM: 'Daisy <no-reply@daisy.example.com>',
   };
 
-  test('validates and returns exactly the four auth fields', () => {
+  test('validates the auth fields and trusts no client-IP header', () => {
     assert({
       given: 'a complete server authentication environment',
-      should: 'expose exactly the four validated auth fields',
+      should: 'expose the validated auth fields with empty client-IP trust',
       actual: readAuthConfig(authEnv),
       expected: {
         BETTER_AUTH_SECRET: authEnv.BETTER_AUTH_SECRET,
         PUBLIC_APP_URL: authEnv.PUBLIC_APP_URL,
         RESEND_API_KEY: authEnv.RESEND_API_KEY,
         AUTH_EMAIL_FROM: authEnv.AUTH_EMAIL_FROM,
+        AUTH_TRUSTED_IP_HEADERS: [],
+        AUTH_TRUSTED_PROXIES: [],
       },
     });
   });
@@ -186,7 +188,7 @@ describe('authentication configuration', () => {
   test('non-production auth still accepts http application URLs', () => {
     assert({
       given: 'a development environment with a localhost http URL',
-      should: 'validate exactly the four required auth fields',
+      should: 'validate exactly the auth fields',
       actual: Object.keys(
         readAuthConfig({
           ...authEnv,
@@ -195,6 +197,8 @@ describe('authentication configuration', () => {
       ).sort(),
       expected: [
         'AUTH_EMAIL_FROM',
+        'AUTH_TRUSTED_IP_HEADERS',
+        'AUTH_TRUSTED_PROXIES',
         'BETTER_AUTH_SECRET',
         'PUBLIC_APP_URL',
         'RESEND_API_KEY',
@@ -259,30 +263,6 @@ describe('authentication configuration', () => {
       given: 'a webhook secret without the whsec_ shape',
       should: 'reject naming the field',
       actual: message.includes('RESEND_WEBHOOK_SECRET'),
-      expected: true,
-    });
-  });
-
-  test('trusted ingress proxies are validated CIDR entries', () => {
-    assert({
-      given: 'a comma-separated list of IPv4, IPv6 and CIDR proxies',
-      should: 'parse into a trimmed list',
-      actual: readAuthConfig({
-        ...authEnv,
-        AUTH_TRUSTED_PROXIES: '10.0.0.0/8, 192.168.1.5,fd00::/8',
-      }).AUTH_TRUSTED_PROXIES,
-      expected: ['10.0.0.0/8', '192.168.1.5', 'fd00::/8'],
-    });
-    let message = '';
-    try {
-      readAuthConfig({ ...authEnv, AUTH_TRUSTED_PROXIES: '10.0.0.0/99,nope' });
-    } catch (error) {
-      message = String(error);
-    }
-    assert({
-      given: 'an invalid proxy entry',
-      should: 'reject the configuration naming the field',
-      actual: message.includes('AUTH_TRUSTED_PROXIES'),
       expected: true,
     });
   });
