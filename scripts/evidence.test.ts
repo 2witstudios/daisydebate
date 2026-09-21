@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   ciGateProblems,
+  ciInvokedTasks,
   classifyTestFile,
   integrationGuardProblems,
   isTestFilePath,
@@ -209,8 +210,75 @@ describe('rootClaimProblems', () => {
   });
 });
 
-const wiredWorkflow =
-  'task: [policy, knip, duplication, invariants, evidence]\n- run: bun migrations:check';
+// Shaped like the real ci.yml: a multi-line flow-sequence matrix driven by
+// `bun run ${{ matrix.task }}`, plus a job that invokes one gate directly.
+const wiredWorkflow = [
+  'jobs:',
+  '  checks:',
+  '    strategy:',
+  '      matrix:',
+  '        task:',
+  '          [',
+  '            policy,',
+  '            knip, # dead code',
+  '            duplication, ',
+  '            invariants,',
+  '            evidence,',
+  '          ]',
+  '    steps:',
+  '      - run: bun install --frozen-lockfile',
+  '      - run: bun run ${{ matrix.task }}',
+  '  migrations:',
+  '    steps:',
+  '      - run: bun migrations:check',
+].join('\n');
+
+describe('ciInvokedTasks', () => {
+  test('reads matrix entries and direct bun invocations', () => {
+    assert({
+      given: 'a workflow with a multi-line matrix and a direct gate step',
+      should: 'return every task CI actually invokes, without comments',
+      actual: ciInvokedTasks(wiredWorkflow),
+      expected: [
+        'policy',
+        'knip',
+        'duplication',
+        'invariants',
+        'evidence',
+        'install',
+        'migrations:check',
+      ],
+    });
+  });
+
+  test('reads inline and block-sequence matrices', () => {
+    assert({
+      given: 'an inline flow matrix and a block-sequence matrix',
+      should: 'extract the same entries from both shapes',
+      actual: [
+        ciInvokedTasks(
+          'task: [knip, policy]\n- run: bun run ${{ matrix.task }}',
+        ),
+        ciInvokedTasks(
+          'task:\n  - knip\n  - policy\nsteps:\n  - run: bun run ${{ matrix.task }}',
+        ),
+      ],
+      expected: [
+        ['knip', 'policy'],
+        ['knip', 'policy'],
+      ],
+    });
+  });
+
+  test('ignores a matrix that no step executes', () => {
+    assert({
+      given: 'a task matrix without a step running matrix.task',
+      should: 'count none of its entries as invoked',
+      actual: ciInvokedTasks('task: [knip, policy]\nsteps:\n  - run: bun lint'),
+      expected: ['lint'],
+    });
+  });
+});
 
 describe('ciGateProblems', () => {
   test('accepts a workflow that runs every gate', () => {
@@ -226,7 +294,9 @@ describe('ciGateProblems', () => {
     assert({
       given: 'a ci.yml whose matrix no longer lists duplication',
       should: 'fail with UNRUN_SUITE naming the gate',
-      actual: ciGateProblems(wiredWorkflow.replace('duplication, ', '')),
+      actual: ciGateProblems(
+        wiredWorkflow.replace('            duplication, \n', ''),
+      ),
       expected: [
         {
           code: 'UNRUN_SUITE',
@@ -255,11 +325,38 @@ describe('ciGateProblems', () => {
     });
   });
 
+  test('rejects a gate that is only mentioned in a comment', () => {
+    assert({
+      given: 'a matrix without duplication and a comment naming it',
+      should: 'fail, because a comment runs nothing',
+      actual: ciGateProblems(
+        wiredWorkflow.replace(
+          '            duplication, \n',
+          '            # duplication, (temporarily disabled)\n',
+        ),
+      ).map(({ detail }) => detail),
+      expected: [
+        'ci.yml does not run duplication; the gate would silently stop running in CI',
+      ],
+    });
+  });
+
+  test('does not mistake a comment for a duplicated browser suite', () => {
+    assert({
+      given: 'a comment explaining that e2e.yml owns test:e2e',
+      should: 'report nothing',
+      actual: ciGateProblems(
+        `${wiredWorkflow}\n      # bun test:e2e lives in e2e.yml`,
+      ),
+      expected: [],
+    });
+  });
+
   test('keeps e2e.yml the single browser-suite owner', () => {
     assert({
       given: 'a ci.yml that also runs test:e2e',
       should: 'fail with E2E_DUPLICATED',
-      actual: ciGateProblems(`${wiredWorkflow}\n- run: bun test:e2e`).map(
+      actual: ciGateProblems(`${wiredWorkflow}\n      - run: bun test:e2e`).map(
         ({ code }) => code,
       ),
       expected: ['E2E_DUPLICATED'],
