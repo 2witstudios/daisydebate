@@ -56,12 +56,12 @@ costs:
      `tailwind.config.*`, or an inline `style` attribute or `<style>` element
      in app markup.
    - Every rule has a negative fixture proving it fires.
-6. **Class composition is a local pure join, not a library.** `cx` in
-   `apps/web/src/ui/cx.ts` joins truthy strings. Variant props are pure
+6. **Class composition is a local pure join, not a library.** `cn` in
+   `apps/web/src/ui/cn.ts` joins truthy strings. Variant props are pure
    functions from props to a literal class string. `tailwind-merge` and
    `cva` are not adopted: conflicting and duplicate classes are lint errors
    rather than runtime merges, so a merger would only hide them, and the
-   variant functions are already plain maps. `cx` is the single approach;
+   variant functions are already plain maps. `cn` is the single approach;
    ad-hoc `filter(Boolean).join` and template-literal joins are removed.
 7. **Build-time stylesheet only.** Tailwind emits a static stylesheet through
    the PostCSS build. No inline `style` attributes and no runtime style

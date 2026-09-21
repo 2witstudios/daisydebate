@@ -176,7 +176,7 @@ describe('integrationGuardProblems', () => {
 
 const wiredScripts = {
   test: 'bun test scripts && turbo run test',
-  lint: 'eslint . && bun test eslint.config.test.ts',
+  lint: 'eslint . && bun scripts/check-styling.ts && bun test eslint.config.test.ts',
   check:
     'bun run policy && bun run knip && bun run duplication && bun run invariants && bun run evidence',
 };

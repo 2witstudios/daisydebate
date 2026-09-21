@@ -12,13 +12,13 @@ import './globals.css';
 // Self-hosted via next/font: same-origin at runtime, CSP-safe, no dependency.
 // Fraunces carries display/editorial voice; Instrument Sans carries UI.
 const sans = Instrument_Sans({
-  variable: '--font-sans',
+  variable: '--font-face-sans',
   subsets: ['latin'],
   display: 'swap',
 });
 
 const display = Fraunces({
-  variable: '--font-display',
+  variable: '--font-face-display',
   subsets: ['latin'],
   display: 'swap',
   style: ['normal', 'italic'],

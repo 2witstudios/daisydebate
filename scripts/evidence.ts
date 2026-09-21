@@ -138,6 +138,7 @@ export const rootClaimProblems = (
   const claims: readonly [string, string][] = [
     ['test', 'bun test scripts'],
     ['lint', 'eslint.config.test.ts'],
+    ['lint', 'scripts/check-styling.ts'],
     ['check', 'policy'],
     ['check', 'duplication'],
     ['check', 'invariants'],

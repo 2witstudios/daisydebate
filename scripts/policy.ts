@@ -31,7 +31,11 @@ const categories = new Set<PolicyCategory>([
   'tooling',
 ]);
 
-export type PolicyRule = 'direct-random-uuid' | 'repository-owned-uuid';
+export type PolicyRule =
+  | 'direct-random-uuid'
+  | 'repository-owned-uuid'
+  | 'inline-style'
+  | 'tailwind-lint-disable';
 export type PolicyCategory =
   'framework' | 'integration-isolation' | 'migration' | 'tooling';
 export type PolicyException = {
@@ -59,7 +63,18 @@ const rules: Readonly<Record<PolicyRule, RegExp>> = {
   'direct-random-uuid': /\b(?:crypto\.)?randomUUID\s*\(/,
   'repository-owned-uuid':
     /\b(?:z\.uuid\s*\(|uuid\s*\(|uuidv[134]\s*\(|from\s+['"]uuid['"]|::uuid\b)/i,
+  // Tailwind ships as a build-time stylesheet only (ADR 0028): the nonce CSP
+  // forbids inline style attributes and runtime style elements.
+  'inline-style': /\bstyle=[{"']|<style[\s>]/,
+  // A silenced Tailwind rule is a token-lock exception and needs a registry
+  // entry with an ADR, like every other exception.
+  'tailwind-lint-disable': /eslint-disable[^\n]*better-tailwindcss/,
 };
+
+// Inline styles are a markup concern: only shipped TSX is scanned for them.
+const ruleApplies = (rule: PolicyRule, path: string): boolean =>
+  rule !== 'inline-style' ||
+  (path.endsWith('.tsx') && !path.endsWith('.test.tsx'));
 
 function aliasedRandomUuidFindings(
   path: string,
@@ -138,7 +153,7 @@ export function scanPolicyText(
       PolicyRule,
       RegExp,
     ][]) {
-      if (pattern.test(line))
+      if (ruleApplies(rule, path) && pattern.test(line))
         findings.push({
           path,
           line: lineIndex + 1,
