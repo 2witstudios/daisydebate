@@ -200,14 +200,14 @@ export async function dispatchDocumentationEvent(
     options.delay ??
     ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
 
-  // 'absent' covers both "no such conversation" and an unreadable one: before
-  // the question has been seen, neither proves the request landed.
   // Every PageSpace request is bounded, not only the consult: a call PageSpace
   // accepts and never answers must not outlive the budget, or the CI job is
   // cancelled before its incidents step runs.
   const until = (end: number): AbortSignal =>
     AbortSignal.timeout(Math.max(1, end - Date.now()));
 
+  // 'absent' covers both "no such conversation" and an unreadable one: before
+  // the question has been seen, neither proves the request landed.
   const readConversation = async (
     conversationId: string,
     end: number,
@@ -340,17 +340,12 @@ export async function dispatchDocumentationEvent(
         `Documentation Agent consult for ${pipeline} did not answer within ${waitSeconds}s (${cause}). The run may still finish: its receipt is row ${runRow} of Documentation Runs. If that row turns complete, nothing is lost; if it stays failed, replay with DOC_REPLAY_ATTEMPT=${attempt + 1} DOC_PIPELINES=${pipeline}`,
       );
     };
-    const controller = new AbortController();
-    const timer = setTimeout(
-      () => controller.abort(),
-      Math.max(0, deadline - Date.now()),
-    );
     let response: Response;
     try {
       response = await fetchImpl(endpoint, {
         method: 'POST',
         redirect: 'error',
-        signal: controller.signal,
+        signal: until(deadline),
         headers,
         body: JSON.stringify({
           agentId,
@@ -372,8 +367,6 @@ export async function dispatchDocumentationEvent(
             ? error.message
             : String(error),
       );
-    } finally {
-      clearTimeout(timer);
     }
     const body = await response.text();
     // A 5xx can come from a gateway in front of a run that is still going: a
