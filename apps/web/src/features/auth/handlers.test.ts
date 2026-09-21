@@ -140,7 +140,7 @@ describe('createAuthRouteHandlers', () => {
     });
   });
 
-  test('maps thrown infrastructure failures to a safe 503 and unknown ones to a safe 500', async () => {
+  test('maps every thrown failure to a safe, retryable 503', async () => {
     const outage = createAuthRouteHandlers(() => ({
       config,
       handler: async () => {
@@ -165,8 +165,7 @@ describe('createAuthRouteHandlers', () => {
     ]);
     assert({
       given: 'a limiter outage and an unexpected exception',
-      should:
-        'return 503 with Retry-After and 500 respectively, exposing no internals',
+      should: 'return 503 with Retry-After for both, exposing no internals',
       actual: {
         statuses: [a.status, b.status],
         retryAfter: a.headers.get('retry-after'),
@@ -174,7 +173,7 @@ describe('createAuthRouteHandlers', () => {
           texts.includes(needle),
         ),
       },
-      expected: { statuses: [503, 500], retryAfter: '5', leaks: [] },
+      expected: { statuses: [503, 503], retryAfter: '5', leaks: [] },
     });
   });
 });

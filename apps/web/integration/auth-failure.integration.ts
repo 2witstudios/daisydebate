@@ -46,7 +46,8 @@ const unreachableDatabase = () => {
   return { sent, auth };
 };
 
-/** Everything the process prints while `work` runs (console and logger sinks). */
+/* eslint-disable no-console -- this test proves what the framework prints */
+/** Everything the console prints while `work` runs. */
 async function captureConsole(work: () => Promise<void>) {
   const lines: string[] = [];
   const originals = {
@@ -67,6 +68,8 @@ async function captureConsole(work: () => Promise<void>) {
   }
   return lines.join('\n');
 }
+
+/* eslint-enable no-console */
 
 describe('AUTH-3.3 token persistence failure', () => {
   test('a database outage while issuing a link is a safe retryable 503 that prints no SQL, parameters or address', async () => {
