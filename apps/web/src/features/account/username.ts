@@ -95,6 +95,9 @@ export function createUsernameHandler(dependencies: UsernameDependencies) {
     handleOperation(request, 'account.username.claim', async (id) => {
       requireSameOrigin(request, dependencies.origin());
       const identity = await dependencies.identify(request);
+      // A session-store outage is retryable, not "your sign-in ended".
+      if (identity.state === 'unavailable')
+        throw createAppError('INFRASTRUCTURE');
       if (identity.principal.kind !== 'user')
         throw createAppError('AUTHENTICATION');
       const { userId } = identity.principal;

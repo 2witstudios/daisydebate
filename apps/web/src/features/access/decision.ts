@@ -9,7 +9,15 @@ export type Requirement = 'participant' | 'account';
 
 export type AccessDecision =
   | { readonly kind: 'allow' }
+  /** The session store is down: refuse with a retryable error, not sign-in. */
+  | { readonly kind: 'unavailable' }
   | { readonly kind: 'redirect'; readonly to: string };
+
+/** Better Auth's session cookie, plain on HTTP and `__Secure-` on HTTPS. */
+export const SESSION_COOKIE_NAMES = [
+  'better-auth.session_token',
+  '__Secure-better-auth.session_token',
+] as const;
 
 /** Areas that need an account; spectator routes stay public. */
 const GUARDED_ROOTS = [
@@ -39,6 +47,20 @@ export const returnDestination = (value: string | null | undefined): string => {
   return NEVER_A_DESTINATION.test(destination) ? '/lobby' : destination;
 };
 
+export type SearchParams = Readonly<
+  Record<string, string | readonly string[] | undefined>
+>;
+
+/** The requested page as a local path with its query, for the return trip. */
+export const requestedPath = (path: string, search: SearchParams): string => {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(search))
+    for (const item of typeof value === 'string' ? [value] : (value ?? []))
+      query.append(key, item);
+  const encoded = query.toString();
+  return encoded === '' ? path : `${path}?${encoded}`;
+};
+
 /** `/sign-in` or onboarding, carrying only a validated local destination. */
 const via = (route: string, path: string): AccessDecision => ({
   kind: 'redirect',
@@ -59,6 +81,7 @@ export function decideAccess({
   readonly path: string;
   readonly requirement: Requirement;
 }): AccessDecision {
+  if (identity.state === 'unavailable') return { kind: 'unavailable' };
   if (identity.state === 'anonymous') return via('/sign-in', path);
   if (identity.state === 'provisional' && requirement === 'participant')
     return via('/onboarding/username', path);

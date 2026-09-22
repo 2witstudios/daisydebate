@@ -12,7 +12,7 @@ if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
   throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
 setupRitewayBun();
 const { flows, identify, signUp, claim } = await createAccountFlows();
-const { requestLink, redeem } = flows;
+const { requestLink, redeem, session } = flows;
 const tokenOf = (link: URL) => link.searchParams.get('token') ?? '';
 
 describe('AUTH-4.4 / 4.2 sign-in loop through the real handlers', () => {
@@ -125,6 +125,49 @@ describe('AUTH-4.4 / 4.2 sign-in loop through the real handlers', () => {
       should: 'resolve anonymous immediately (no cookie cache)',
       actual: [before, (await identify(cookie)).state],
       expected: ['member', 'anonymous'],
+    });
+  });
+
+  test('server reads never slide a session; the browser refresh slides row and cookie together', async () => {
+    const { email, cookie, response } = await signUp();
+    // Age the session past updateAge (1 day) without expiring it (7 days).
+    await withSql(
+      (sql) =>
+        sql`UPDATE session SET expires_at = now() + interval '5 days' WHERE user_id = (SELECT id FROM users WHERE email = ${email})`,
+    );
+    const expiry = async () =>
+      (
+        (await withSql(
+          (sql) =>
+            sql`SELECT extract(epoch FROM expires_at - now())::int AS s FROM session s JOIN users u ON u.id = s.user_id WHERE u.email = ${email}`,
+        )) as { s: number }[]
+      )[0]?.s ?? 0;
+    const day = 24 * 60 * 60;
+    const aged = await expiry();
+    const read = await identify(cookie);
+    const afterRead = await expiry();
+    const refreshed = await session(response);
+    const afterRefresh = await expiry();
+    assert({
+      given: 'a member session aged past updateAge',
+      should:
+        'leave the row alone on a server read, and extend it with a new cookie through get-session',
+      actual: {
+        read: read.state,
+        readLeftRow: Math.abs(afterRead - aged) < 5,
+        refreshStatus: refreshed.status,
+        refreshSetsCookie: refreshed.headers
+          .getSetCookie()
+          .some((line) => line.includes('session_token=')),
+        extendedToSevenDays: afterRefresh > 7 * day - 60,
+      },
+      expected: {
+        read: 'provisional',
+        readLeftRow: true,
+        refreshStatus: 200,
+        refreshSetsCookie: true,
+        extendedToSevenDays: true,
+      },
     });
   });
 

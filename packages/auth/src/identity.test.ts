@@ -94,7 +94,7 @@ describe('resolveIdentity', () => {
     });
   });
 
-  test('a failing lookup resolves anonymous, never a guess', async () => {
+  test('a failing lookup resolves unavailable with no permissions, never a guess', async () => {
     const result = await resolveIdentity({
       cookie: 'c=1',
       readSession: async () => {
@@ -104,9 +104,9 @@ describe('resolveIdentity', () => {
     });
     assert({
       given: 'a session store that throws',
-      should: 'fail closed as anonymous',
-      actual: result.state,
-      expected: 'anonymous',
+      should: 'fail closed as unavailable, holding no principal permissions',
+      actual: result,
+      expected: { state: 'unavailable', principal: { kind: 'anonymous' } },
     });
   });
 

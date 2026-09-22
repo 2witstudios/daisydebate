@@ -7,6 +7,8 @@ import {
   parseThemePreference,
   THEME_COOKIE,
 } from '../ui/theme/theme-preference';
+import { SESSION_COOKIE_NAMES } from '../features/access/decision';
+import { SessionRefresh } from '../ui/auth/session-refresh/session-refresh';
 import './globals.css';
 
 // Self-hosted via next/font: same-origin at runtime, CSP-safe, no dependency.
@@ -40,9 +42,9 @@ export default async function RootLayout({
   // The cookie is read per request (and validated: it is untrusted), so the
   // served <html> already carries the viewer's theme: no inline script, no
   // flash, no hydration mismatch.
-  const theme = parseThemePreference(
-    (await cookies()).get(THEME_COOKIE)?.value,
-  );
+  const jar = await cookies();
+  const theme = parseThemePreference(jar.get(THEME_COOKIE)?.value);
+  const signedIn = SESSION_COOKIE_NAMES.some((name) => jar.has(name));
   return (
     <html
       lang="en"
@@ -52,6 +54,7 @@ export default async function RootLayout({
       <body>
         <ThemeProvider initialPreference={theme}>
           <main>{children}</main>
+          {signedIn ? <SessionRefresh /> : null}
         </ThemeProvider>
       </body>
     </html>

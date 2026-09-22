@@ -7,15 +7,21 @@ import { getAuth } from './auth';
  * the next call); @daisy/auth decides what that session may do. This module
  * is shared by route handlers and server components, which pass the raw
  * Cookie header and nothing else.
+ *
+ * The read never refreshes: server components cannot set cookies, so a
+ * refresh here would slide the database row while the browser kept the old
+ * cookie. The sliding refresh runs in the browser through the real
+ * `/api/auth/get-session` handler (ui/auth/session-refresh), which can.
  */
-export function identify(cookie: string | null): Promise<Identity> {
-  const { instance, clock } = getAuth();
-  return resolveIdentity({
+export async function identify(cookie: string | null): Promise<Identity> {
+  const { instance, clock, logger } = getAuth();
+  const identity = await resolveIdentity({
     cookie,
     now: () => clock.now(),
     readSession: async (header) => {
       const found = await instance.api.getSession({
         headers: new Headers({ cookie: header }),
+        query: { disableRefresh: true },
       });
       if (!found) return null;
       const { user, session } = found;
@@ -27,4 +33,11 @@ export function identify(cookie: string | null): Promise<Identity> {
       };
     },
   });
+  if (identity.state === 'unavailable')
+    logger.log(
+      'auth.session.unavailable',
+      { operation: 'auth.session.resolve', errorCode: 'INFRASTRUCTURE' },
+      'Session store unavailable; request refused',
+    );
+  return identity;
 }

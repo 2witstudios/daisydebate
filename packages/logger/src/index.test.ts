@@ -183,6 +183,7 @@ describe('structured logging', () => {
     const events: EventName[] = [
       'auth.rate_limit.denied',
       'auth.rate_limit.unavailable',
+      'auth.session.unavailable',
       'auth.mail.sent',
       'auth.mail.failed',
       'auth.mail.receipt_failed',
@@ -197,12 +198,13 @@ describe('structured logging', () => {
       .map(({ event, level }) => [event, level]);
 
     assert({
-      given: 'rate-limit and mail delivery events',
+      given: 'rate-limit, session-store and mail delivery events',
       should: 'log an expected denial as a warning and outages as errors',
       actual: entries,
       expected: [
         ['auth.rate_limit.denied', 40],
         ['auth.rate_limit.unavailable', 50],
+        ['auth.session.unavailable', 50],
         ['auth.mail.sent', 30],
         ['auth.mail.failed', 50],
         ['auth.mail.receipt_failed', 50],

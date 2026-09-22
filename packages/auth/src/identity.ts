@@ -25,6 +25,8 @@ const anonymous = { kind: 'anonymous' } as const;
  */
 export type Identity =
   | { readonly state: 'anonymous'; readonly principal: Principal }
+  /** The session store could not be read: fail closed, but not as signed out. */
+  | { readonly state: 'unavailable'; readonly principal: Principal }
   | { readonly state: 'provisional'; readonly principal: Principal }
   | {
       readonly state: 'member';
@@ -33,12 +35,15 @@ export type Identity =
     };
 
 const ANONYMOUS: Identity = { state: 'anonymous', principal: anonymous };
+const UNAVAILABLE: Identity = { state: 'unavailable', principal: anonymous };
 
 /**
  * Principal resolution from request cookies (ADR 0020, gate 2). Only the
  * cookie header enters; permissions derive from verified facts alone, so
  * request-supplied roles, permissions or identity fields cannot matter. An
- * unreadable store resolves anonymous: the gate fails closed.
+ * unreadable store resolves `unavailable`: no permissions (the gate fails
+ * closed) and distinguishable from a signed-out visitor, so callers can
+ * answer 503 and report the outage instead of sending members to sign-in.
  */
 export async function resolveIdentity({
   cookie,
@@ -54,7 +59,7 @@ export async function resolveIdentity({
   try {
     found = await readSession(cookie);
   } catch {
-    return ANONYMOUS;
+    return UNAVAILABLE;
   }
   if (!found || found.emailVerified !== true) return ANONYMOUS;
   const expires = Date.parse(found.expiresAt);

@@ -1,24 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { readServerConfig } from '@daisy/config';
-import type { Logger } from '@daisy/logger';
+import { seedSilentResources } from '../../server/seeded-resources.test-support';
 
 setupRitewayBun();
 
 // Seed process-local resources so handleOperation never builds real clients.
-const silent: Logger = { log: () => {}, child: () => silent };
-Reflect.set(globalThis, 'daisyResources', {
-  config: readServerConfig({
-    NODE_ENV: 'test',
-    DATABASE_URL: 'postgres://unit:unit@localhost:5432/unit',
-    REDIS_URL: 'redis://localhost:6379',
-    REDIS_NAMESPACE: 'test',
-    PUBLIC_APP_URL: 'https://daisy.invalid',
-    APP_VERSION: 'test',
-    GIT_COMMIT: 'test',
-  }),
-  logger: silent,
-  draining: false,
-});
+seedSilentResources();
 const { createConfirmHandlers } = await import('./confirm');
 
 const token = 'a'.repeat(32);

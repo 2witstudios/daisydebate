@@ -1,6 +1,11 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { Identity } from '@daisy/auth';
-import { decideAccess, isGuardedPath, returnDestination } from './decision';
+import {
+  decideAccess,
+  isGuardedPath,
+  requestedPath,
+  returnDestination,
+} from './decision';
 
 setupRitewayBun();
 
@@ -90,6 +95,32 @@ describe('decideAccess', () => {
   });
 });
 
+describe('decideAccess during a session-store outage', () => {
+  test('refuses as unavailable instead of sending a member to sign-in', () => {
+    const unavailable: Identity = {
+      state: 'unavailable',
+      principal: { kind: 'anonymous' },
+    };
+    assert({
+      given: 'an unreadable session store for participant and account pages',
+      should: 'answer unavailable for both, never a sign-in redirect',
+      actual: [
+        decideAccess({
+          identity: unavailable,
+          path: '/lobby',
+          requirement: 'participant',
+        }),
+        decideAccess({
+          identity: unavailable,
+          path: '/settings',
+          requirement: 'account',
+        }),
+      ],
+      expected: [{ kind: 'unavailable' }, { kind: 'unavailable' }],
+    });
+  });
+});
+
 describe('isGuardedPath', () => {
   test('the six participant areas and their descendants are guarded', () => {
     assert({
@@ -154,6 +185,34 @@ describe('returnDestination', () => {
         '/lobby',
         '/lobby',
       ],
+    });
+  });
+});
+
+describe('requestedPath', () => {
+  test('keeps the page query, repeated keys included', () => {
+    assert({
+      given: 'no query, one value, repeated values and an empty entry',
+      should: 'rebuild the local path with its query',
+      actual: [
+        requestedPath('/lobby', {}),
+        requestedPath('/lobby', { tab: 'open' }),
+        requestedPath('/ranked', { f: ['a', 'b'], skip: undefined }),
+      ],
+      expected: ['/lobby', '/lobby?tab=open', '/ranked?f=a&f=b'],
+    });
+  });
+
+  test('the rebuilt path survives the sign-in redirect', () => {
+    assert({
+      given: 'an anonymous request for /lobby?tab=open',
+      should: 'carry the query in next',
+      actual: decideAccess({
+        identity: { state: 'anonymous', principal: { kind: 'anonymous' } },
+        path: requestedPath('/lobby', { tab: 'open' }),
+        requirement: 'participant',
+      }),
+      expected: { kind: 'redirect', to: '/sign-in?next=%2Flobby%3Ftab%3Dopen' },
     });
   });
 });

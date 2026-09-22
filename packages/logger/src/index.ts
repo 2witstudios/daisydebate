@@ -9,6 +9,7 @@ const eventRegistry = {
   'invariant.violated': 'error',
   'auth.rate_limit.denied': 'warn',
   'auth.rate_limit.unavailable': 'error',
+  'auth.session.unavailable': 'error',
   'auth.mail.sent': 'info',
   'auth.mail.failed': 'error',
   'auth.mail.receipt_failed': 'error',
