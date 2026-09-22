@@ -19,3 +19,14 @@ ad-hoc payloads; that is the point — contracts outlive the code that produced
 them and enable non-TypeScript consumers. Message evolution rules: additive
 optional fields within a version; new version literals for breaking change;
 never repurpose a field.
+
+## Amendment (2026-09-22): socket and outbox schemas
+
+With [ADR 0032](0032-transactional-outbox-delivery.md), `@daisy/protocol`
+owns the WebSocket message schemas (client and server discriminated unions,
+close codes, protocol version, topic grammar) and the outbox payload
+schemas. They are Zod schemas like every other contract here, and every
+receiver `safeParse`s them. The package still imports no WebSocket or
+database code: the realtime service adapts to these contracts. Outbox
+payloads on public topics are doorbells (ids, `kind`, `version`) only; see
+ADR 0032's payload policy.

@@ -18,3 +18,12 @@ namespace plus credentials.
 Constraints documented up front: no Sentinel/Cluster support in the native
 client, pub/sub is upstream-experimental. If we need distributed pub/sub or a
 cluster, that is a new ADR with a possibly different driver.
+
+## Amendment (2026-09-22): no Redis pub/sub for delivery
+
+[ADR 0032](0032-transactional-outbox-delivery.md) delivers live events
+through a transactional outbox in PostgreSQL that every realtime instance
+drains, so multi-instance fan-out needs no Redis pub/sub, no pub/sub adapter
+and no second Redis client. Redis keeps its role here: presence leases,
+single-use connect tickets and rate limits, all expendable and expiring.
+Adopting Redis pub/sub still requires a new ADR.

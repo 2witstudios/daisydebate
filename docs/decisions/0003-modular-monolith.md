@@ -17,3 +17,13 @@ deployment of existing contracts, not a rewrite.
 
 What we deliberately do not do: event sourcing, Kafka, Kubernetes, or a
 message bus. Revisit each only with an ADR and an operational reason.
+
+## Amendment (2026-09-22): outbox delivery
+
+[ADR 0032](0032-transactional-outbox-delivery.md) adds a transactional
+outbox so `apps/realtime` can deliver committed writes. It is a delivery log
+inside PostgreSQL, not event sourcing and not a message bus: state still
+lives in its tables and is never rebuilt from outbox rows, rows are pruned
+after 24 h, and there is no broker, consumer group or second system. The
+ban on event sourcing and a message bus stands. `apps/realtime` is the
+"new deployment of existing contracts" this ADR anticipated.
