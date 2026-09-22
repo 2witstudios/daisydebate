@@ -34,7 +34,8 @@ const seededResources = {
 };
 Reflect.set(globalThis, 'daisyResources', seededResources);
 
-const { handleOperation, readJson, requireSameOrigin } = await import('./http');
+const { handleOperation, readJson, requireSameOrigin, requireSameOriginForm } =
+  await import('./http');
 
 const jsonRequest = (body: string, contentType = 'application/json') =>
   new Request('http://localhost/api/foundation/proof', {
@@ -299,5 +300,43 @@ describe('handleOperation', () => {
         'http://localhost:3000',
       ),
     ).toThrow(createAppError('AUTHORIZATION'));
+  });
+});
+
+describe('requireSameOriginForm', () => {
+  const at = (headers: Record<string, string>) => () =>
+    requireSameOriginForm(
+      new Request('http://localhost/auth/confirm', { headers }),
+      'http://localhost:3000',
+    );
+
+  test('accepts the origin a no-referrer page sends only from the same origin', () => {
+    assert({
+      given:
+        'Origin null with Sec-Fetch-Site same-origin, and the plain origin',
+      should: 'admit both',
+      actual: [
+        (() => {
+          at({ origin: 'null', 'sec-fetch-site': 'same-origin' })();
+          return true;
+        })(),
+        (() => {
+          at({ origin: 'http://localhost:3000' })();
+          return true;
+        })(),
+      ],
+      expected: [true, true],
+    });
+  });
+
+  test('refuses an opaque origin that is not provably same-origin', () => {
+    for (const headers of [
+      { origin: 'null' },
+      { origin: 'null', 'sec-fetch-site': 'cross-site' },
+      { origin: 'null', 'sec-fetch-site': 'same-site' },
+      { origin: 'https://evil.example', 'sec-fetch-site': 'same-origin' },
+      {},
+    ])
+      expect(at(headers)).toThrow(createAppError('AUTHORIZATION'));
   });
 });

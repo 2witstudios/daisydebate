@@ -94,6 +94,22 @@ export function requireSameOrigin(request: Request, origin: string) {
 }
 
 /**
+ * Origin gate for form posts from pages served with `Referrer-Policy:
+ * no-referrer` (the emailed-link confirmation page). Browsers then send
+ * `Origin: null` even to the same origin, so that value is accepted only
+ * with `Sec-Fetch-Site: same-origin`, a header page script cannot set. A
+ * sandboxed or cross-site sender reports `cross-site` and is still refused.
+ */
+export function requireSameOriginForm(request: Request, origin: string) {
+  if (
+    request.headers.get('origin') === 'null' &&
+    request.headers.get('sec-fetch-site') === 'same-origin'
+  )
+    return;
+  requireSameOrigin(request, origin);
+}
+
+/**
  * Same-origin gate for safe, side-effect-free reads. It refuses only POSITIVE
  * cross-site evidence: fetch metadata other than same-origin/none (direct
  * navigation), or an Origin that differs. A missing Origin must pass because
