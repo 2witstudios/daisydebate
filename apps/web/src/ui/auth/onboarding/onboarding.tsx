@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useReducer, useState } from 'react';
+import { signInAgainHref } from '../better-auth-sign-in-port';
 import { SavePasskey } from '../save-passkey/save-passkey';
 import { createClaimUsername, type ClaimUsername } from './claim-username';
 import {
@@ -55,6 +56,7 @@ export function Onboarding({
         pending={state.pending}
         notice={state.notice}
         typeUsername={(username) => dispatch({ type: 'typed', username })}
+        signInHref={signInAgainHref(destination)}
         submit={() => {
           if (!canSubmit(state)) return;
           dispatch({ type: 'submitted' });
@@ -73,7 +75,7 @@ export function Onboarding({
   const finish = () => dispatch({ type: 'passkey-step-finished' });
   return (
     <SavePasskey
-      email={state.username}
+      username={state.username}
       pending={saving}
       notice={offerNotice}
       savePasskey={() => {

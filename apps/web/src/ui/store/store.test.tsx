@@ -19,10 +19,9 @@ describe('UI store state', () => {
         state.collections.liveDebates.length,
         state.collections.activities.length,
         state.resources.onlineCount,
-        state.resources.viewer.name,
         state.resources.tournament.name,
       ],
-      expected: [6, 2, 4, 1248, 'Alex Chen', 'Global Debate Championship'],
+      expected: [6, 2, 4, 1248, 'Global Debate Championship'],
     });
   });
 

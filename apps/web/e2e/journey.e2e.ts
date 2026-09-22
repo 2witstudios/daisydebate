@@ -3,6 +3,7 @@ import {
   emailedLink,
   freshEmail,
   resetRateLimits,
+  signUpMember,
   uniqueName,
 } from './support/accounts';
 
@@ -251,4 +252,29 @@ test('the topbar offers sign-in to a visitor', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('link', { name: 'Sign in' }).click();
   await expect(page).toHaveURL(/\/sign-in$/);
+});
+
+test('a signed-in page load slides the session through the real handler; a visitor makes no such call', async ({
+  page,
+}) => {
+  const calls: string[] = [];
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname === '/api/auth/get-session')
+      calls.push(request.method());
+  });
+  await page.goto('/');
+  await page.waitForLoadState('networkidle');
+  const anonymousCalls = calls.length;
+  await signUpMember(page.request);
+  const refresh = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === '/api/auth/get-session' &&
+      response.status() === 200,
+  );
+  await page.goto('/');
+  await refresh;
+  expect({ anonymousCalls, signedIn: calls.slice(anonymousCalls) }).toEqual({
+    anonymousCalls: 0,
+    signedIn: ['GET'],
+  });
 });

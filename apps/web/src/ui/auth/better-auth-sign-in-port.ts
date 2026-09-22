@@ -28,6 +28,10 @@ export type SignInClient = {
 export const onboardingDestination = (destination: string): string =>
   `/onboarding/username?next=${encodeURIComponent(destination)}`;
 
+/** Sign in again, then resume onboarding with the same destination. */
+export const signInAgainHref = (destination: string): string =>
+  `/sign-in?next=${encodeURIComponent(onboardingDestination(destination))}`;
+
 const linkOutcome = (error: ClientError): LinkRequestOutcome => {
   if (error === null) return { kind: 'sent' };
   if (error.code === 'EMAIL_UNDELIVERABLE') return { kind: 'undeliverable' };

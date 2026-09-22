@@ -11,6 +11,8 @@ export type UsernameFormProps = {
   readonly notice?: UsernameNotice | undefined;
   readonly typeUsername: (username: string) => void;
   readonly submit: () => void;
+  /** Where to sign in again and come back here, when the session ended. */
+  readonly signInHref: string;
 };
 
 const NOTICE_ID = 'username-notice';
@@ -27,6 +29,7 @@ export function UsernameForm({
   notice,
   typeUsername,
   submit,
+  signInHref,
 }: UsernameFormProps) {
   const copy = notice === undefined ? undefined : usernameNotices[notice];
   const refusesName = notice === 'invalid' || notice === 'taken';
@@ -76,6 +79,11 @@ export function UsernameForm({
           </p>
         </div>
         <CopyNotice id={NOTICE_ID} copy={copy} />
+        {notice === 'signed-out' ? (
+          <a href={signInHref} className="self-start text-sm font-semibold">
+            Sign in again
+          </a>
+        ) : null}
       </form>
       <p role="status" className="sr-only">
         {pending ? 'Saving your username…' : ''}

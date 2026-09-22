@@ -2,6 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   createBetterAuthSignInPort,
   onboardingDestination,
+  signInAgainHref,
   type SignInClient,
 } from './better-auth-sign-in-port';
 
@@ -123,6 +124,17 @@ describe('onboardingDestination', () => {
       should: 'encode it so it stays a single next value',
       actual: onboardingDestination('/lobby?tab=a&b=1'),
       expected: '/onboarding/username?next=%2Flobby%3Ftab%3Da%26b%3D1',
+    });
+  });
+});
+
+describe('signInAgainHref', () => {
+  test('returns to onboarding with the same destination after sign-in', () => {
+    assert({
+      given: 'the destination /ranked',
+      should: 'nest the onboarding route, carrying next, as one encoded value',
+      actual: signInAgainHref('/ranked'),
+      expected: '/sign-in?next=%2Fonboarding%2Fusername%3Fnext%3D%252Franked',
     });
   });
 });

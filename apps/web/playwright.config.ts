@@ -84,7 +84,11 @@ export default defineConfig({
     // Keep structured server output beside Playwright's failure artifacts.
     command:
       'mkdir -p test-results && bun e2e/support/server.ts > test-results/server.log 2>&1',
-    url: `http://127.0.0.1:${ports.app}/api/health/live`,
+    // Probe through the TLS edge, not the app port: the edge and the mail
+    // capture live in the same wrapper process, so a reused server is only
+    // accepted when all three listeners are up.
+    url: `${origin}/api/health/live`,
+    ignoreHTTPSErrors: true,
     name: 'production web',
     timeout: 60_000,
     reuseExistingServer: resolveReuseExistingServer(process.env),

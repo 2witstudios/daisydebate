@@ -120,3 +120,21 @@ describe('Playwright visual project', () => {
     });
   });
 });
+
+describe('Playwright web server readiness', () => {
+  test('probes the TLS edge the suite uses, so reuse needs the whole wrapper', () => {
+    const server = Array.isArray(playwrightConfig.webServer)
+      ? playwrightConfig.webServer[0]
+      : playwrightConfig.webServer;
+    assert({
+      given: 'the configured e2e web server',
+      should: 'wait for the HTTPS edge origin and accept its test certificate',
+      actual: {
+        edge: server?.url?.startsWith(`${playwrightConfig.use?.baseURL}/`),
+        https: server?.url?.startsWith('https://localhost:'),
+        ignoreHTTPSErrors: server?.ignoreHTTPSErrors,
+      },
+      expected: { edge: true, https: true, ignoreHTTPSErrors: true },
+    });
+  });
+});
