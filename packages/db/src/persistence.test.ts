@@ -68,6 +68,8 @@ describe('database debate persistence', () => {
       resolution: record.resolution,
       format: record.format,
       snapshot: record.snapshot,
+      mode: record.mode,
+      visibility: record.visibility,
     });
 
     assert({
@@ -91,6 +93,8 @@ describe('database debate persistence', () => {
         resolution: record.resolution,
         format: record.format,
         snapshot: record.snapshot,
+        mode: record.mode,
+        visibility: record.visibility,
       }),
       expected: record,
     });
@@ -107,6 +111,8 @@ describe('database debate persistence', () => {
         resolution: record.resolution,
         format: record.format,
         snapshot: record.snapshot,
+        mode: record.mode,
+        visibility: record.visibility,
       }),
     ).rejects.toThrow('Debate insert returned no row');
 
@@ -159,7 +165,7 @@ describe('database optimistic snapshot saves', () => {
       actual: await database.saveSnapshot({
         id: record.id,
         expectedVersion: record.version,
-        snapshot: { resolution: 'revised' },
+        snapshot: { phase: 'waiting', resolution: 'revised' },
         updatedAt: record.updatedAt,
       }),
       expected: null,
@@ -186,7 +192,7 @@ describe('database optimistic snapshot saves', () => {
     const advanced = {
       ...record,
       version: record.version + 1,
-      snapshot: { resolution: 'revised' },
+      snapshot: { phase: 'waiting', resolution: 'revised' },
     };
     const { database } = createTestDatabase([[debateRow(advanced)]]);
 

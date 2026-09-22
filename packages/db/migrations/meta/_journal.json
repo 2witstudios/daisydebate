@@ -15,6 +15,13 @@
       "when": 1789954788713,
       "tag": "0001_left_mockingbird",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790041561294,
+      "tag": "0002_sad_wendell_vaughn",
+      "breakpoints": true
     }
   ]
 }
