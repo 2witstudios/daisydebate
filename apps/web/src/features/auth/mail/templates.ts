@@ -8,7 +8,6 @@ import { renderAuthEmailLayout } from './layout';
  */
 export type AuthEmailInput =
   | { readonly kind: 'sign-in'; readonly url: string }
-  | { readonly kind: 'recovery-sign-in'; readonly url: string }
   | { readonly kind: 'passkey-added'; readonly url: string }
   | { readonly kind: 'passkey-removed'; readonly url: string }
   | { readonly kind: 'email-change-notice'; readonly url: string }
@@ -37,23 +36,6 @@ function signIn(url: string): RenderedAuthEmail {
     headline: 'One link, and you are in.',
     paragraphs: [
       'Open the link below to finish signing in to Daisy.',
-      'It expires in 5 minutes and works once. If you did not request it, you can ignore this email.',
-    ],
-    linkLabel: 'Sign in to Daisy',
-    url,
-    footerNote: FOOTER_NOTE,
-  });
-}
-
-function recoverySignIn(url: string): RenderedAuthEmail {
-  return renderAuthEmailLayout({
-    subject: 'Recover access to Daisy',
-    preheader:
-      'Open this link to get back into Daisy. It expires in 5 minutes.',
-    eyebrow: 'Account recovery',
-    headline: 'Get back into Daisy.',
-    paragraphs: [
-      'You asked for another way in. Open the link below to sign in without your passkey.',
       'It expires in 5 minutes and works once. If you did not request it, you can ignore this email.',
     ],
     linkLabel: 'Sign in to Daisy',
@@ -132,8 +114,6 @@ export function renderAuthEmail(input: AuthEmailInput): RenderedAuthEmail {
   switch (input.kind) {
     case 'sign-in':
       return signIn(input.url);
-    case 'recovery-sign-in':
-      return recoverySignIn(input.url);
     case 'passkey-added':
       return passkeyAdded(input.url);
     case 'passkey-removed':

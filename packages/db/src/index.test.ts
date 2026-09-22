@@ -86,6 +86,66 @@ describe('database health', () => {
   });
 });
 
+describe('session revocation', () => {
+  test('revokes every other session for the user in one atomic statement', async () => {
+    const { database, queries } = createTestDatabase([[['session-row-id']]]);
+
+    const removed = await database.revokeOtherSessions('user-1', 'keep-me');
+
+    assert({
+      given: "a user's other sessions and the token to keep",
+      should:
+        'issue exactly one DELETE statement scoped to that user and excluding the kept token, with no prior listing query',
+      actual: {
+        removed,
+        queryCount: queries.length,
+        deletesSession: queries[0]?.query.toLowerCase().includes('delete'),
+        mentionsUserId: queries[0]?.query.includes('user_id'),
+        mentionsToken: queries[0]?.query.includes('token'),
+        params: queries[0]?.params,
+      },
+      expected: {
+        removed: 1,
+        queryCount: 1,
+        deletesSession: true,
+        mentionsUserId: true,
+        mentionsToken: true,
+        params: ['user-1', 'keep-me'],
+      },
+    });
+  });
+
+  test('reports a failed revocation through the injected event sink', async () => {
+    const events: Array<{
+      event: string;
+      fields: Record<string, unknown>;
+      message: string;
+    }> = [];
+    const database = createDatabase({
+      url: 'postgresql://user:password@127.0.0.1:1/daisy',
+      eventSink: (event, fields, message) =>
+        events.push({ event, fields, message }),
+    });
+
+    await expect(
+      database.revokeOtherSessions('user-1', 'keep-me'),
+    ).rejects.toThrow();
+
+    assert({
+      given: 'a session revocation that fails',
+      should: 'emit the database query failure event with the operation name',
+      actual: events,
+      expected: [
+        {
+          event: 'db.query.failed',
+          fields: { operation: 'revokeOtherSessions' },
+          message: 'Database query failed',
+        },
+      ],
+    });
+  });
+});
+
 describe('database adapter failures', () => {
   test('reports a failed query through the injected event sink', async () => {
     const events: Array<{
