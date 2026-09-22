@@ -92,6 +92,11 @@ COPY --chown=daisy:daisy packages/auth/src packages/auth/src
 COPY --chown=daisy:daisy packages/clock/src packages/clock/src
 COPY --chown=daisy:daisy packages/config/src packages/config/src
 COPY --chown=daisy:daisy packages/db/src packages/db/src
+# fly.toml's release_command runs the migration runner directly out of this
+# image (see packages/db/scripts/migrate.ts); it and the migrations it
+# applies are not otherwise reachable from the runtime stage.
+COPY --chown=daisy:daisy packages/db/scripts packages/db/scripts
+COPY --chown=daisy:daisy packages/db/migrations packages/db/migrations
 COPY --chown=daisy:daisy packages/debate-engine/src packages/debate-engine/src
 COPY --chown=daisy:daisy packages/errors/src packages/errors/src
 COPY --chown=daisy:daisy packages/logger/src packages/logger/src

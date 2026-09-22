@@ -22,9 +22,16 @@ primary_region = "ord"
 [deploy]
   # Migrations run once per release, never at app boot (start.ts refuses to
   # run them itself) — see AGENTS.md "Releases" and docs/operations/production.md.
-  # `bun --env-file=.env` is not used here: Fly injects DATABASE_URL etc. as
-  # real process env via `fly secrets`, so no .env file exists in the image.
-  release_command = "bun db:migrate"
+  # `bun db:migrate` (the root package.json script) is not used here: it
+  # runs `bun --env-file=.env packages/db/scripts/migrate.ts`, and no .env
+  # file exists in this image (Fly injects DATABASE_URL etc. as real process
+  # env via `fly secrets`) — `--env-file=.env` would fail before ever
+  # reading DATABASE_URL. The runtime image's WORKDIR is /app/apps/web
+  # (apps/web/Dockerfile), which has no db:migrate script of its own, so
+  # this invokes the migration runner (copied into the image alongside
+  # packages/db/migrations) by absolute path instead; it reads DATABASE_URL
+  # straight from process.env.
+  release_command = "bun /app/packages/db/scripts/migrate.ts"
 
 [env]
   # Non-secret configuration. Secrets (BETTER_AUTH_SECRET, RESEND_API_KEY,
