@@ -24,7 +24,7 @@ describe('debate commands (DATA-2.3)', () => {
         service_id: null,
         type: 'debate.join',
         payload_digest: digest,
-        result: '{}',
+        result: {},
         resulting_version: 2,
         applied_at: at,
         ...overrides,

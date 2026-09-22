@@ -135,15 +135,23 @@ describe('formats and the debate format key (DATA-1.3)', () => {
       const formatDeleteBlocked = await rejected(() =>
         fixture.sql.unsafe('delete from formats where id = $1', [formatId]),
       );
+      const shapelessRules = await fixture.rejectedBy('formats', {
+        id: `fmt-${createId()}`,
+        name: 'Shapeless',
+        rules: {},
+        ranked_eligible: false,
+      });
       assert({
-        given: 'a debate whose format is unknown, then one whose format exists',
+        given:
+          'a debate whose format is unknown, one whose format exists, and a format with empty rules',
         should:
-          'reject the unknown format, accept the known one and protect it',
-        actual: { unknownFormat, known, formatDeleteBlocked },
+          'reject the unknown format, accept and protect the known one, and refuse rules without the version-1 shape',
+        actual: { unknownFormat, known, formatDeleteBlocked, shapelessRules },
         expected: {
           unknownFormat: true,
           known: true,
           formatDeleteBlocked: true,
+          shapelessRules: 'formats_rules_shape',
         },
       });
     });

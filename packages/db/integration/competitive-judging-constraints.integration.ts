@@ -23,7 +23,7 @@ describe('ballots (DATA-3.1)', () => {
         debate_id: debateId,
         participant_id: judgeId,
         decision: 'affirmative',
-        scores: '{}',
+        scores: {},
         reason: 'Stronger evidence',
         status: 'submitted',
         submitted_at: at,
@@ -93,6 +93,36 @@ describe('ballots (DATA-3.1)', () => {
     });
   });
 
+  test('a ballot cannot borrow a seat from another debate', async () => {
+    await withFixture(url, async (fixture) => {
+      const debateA = await fixture.debate();
+      const debateB = await fixture.debate();
+      const seatInA = await fixture.participant(debateA, 'judge');
+      const ballot = (debateId: string) => ({
+        id: createId(),
+        debate_id: debateId,
+        participant_id: seatInA,
+        decision: 'draw',
+        scores: {},
+        reason: 'Even',
+        status: 'submitted',
+        submitted_at: at,
+      });
+      const crossDebate = await fixture.rejectedBy('ballots', ballot(debateB));
+      const ownDebate = await fixture.rejectedBy('ballots', ballot(debateA));
+      assert({
+        given: 'a judge seat in debate A used by a ballot naming debate B',
+        should:
+          'reject through the composite seat key and accept the same seat for debate A',
+        actual: { crossDebate, ownDebate },
+        expected: {
+          crossDebate: 'ballots_participant_in_debate_fk',
+          ownDebate: null,
+        },
+      });
+    });
+  });
+
   test('a debate deletes through its cascade graph', async () => {
     await withFixture(url, async (fixture) => {
       const debateId = await fixture.debate();
@@ -103,7 +133,7 @@ describe('ballots (DATA-3.1)', () => {
         debate_id: debateId,
         participant_id: judgeId,
         decision: 'draw',
-        scores: '{}',
+        scores: {},
         reason: 'Even',
         status: 'submitted',
         submitted_at: at,
@@ -117,7 +147,7 @@ describe('ballots (DATA-3.1)', () => {
           service_id: 'foundation-proof',
           type: 'debate.transition',
           payload_digest: digest,
-          result: '{}',
+          result: {},
           resulting_version: 3,
           applied_at: at,
         },

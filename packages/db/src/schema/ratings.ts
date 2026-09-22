@@ -1,7 +1,9 @@
 import { sql } from 'drizzle-orm';
+import type { PgColumn } from 'drizzle-orm/pg-core';
 import {
   check,
   doublePrecision,
+  foreignKey,
   index,
   pgTable,
   primaryKey,
@@ -17,10 +19,19 @@ import {
   versionColumn,
   versionPositive,
 } from './columns';
+import { debateParticipants } from './debate-participants';
 import { debates } from './debates';
 import { formats } from './formats';
 
 export const seasonStatuses = ['scheduled', 'active', 'closed'] as const;
+
+/**
+ * Strictly positive and finite. PostgreSQL orders NaN and +infinity above
+ * every number, so `> 0` alone would let an unstable calculation poison the
+ * ledger for good.
+ */
+const positiveFinite = (column: PgColumn) =>
+  sql`${column} > 0 and ${column} < 'infinity'::double precision`;
 
 export const seasons = pgTable(
   'seasons',
@@ -80,8 +91,8 @@ export const ratings = pgTable(
       table.rating.desc(),
     ),
     check('ratings_rating_range', sql`${table.rating} between 0 and 4000`),
-    check('ratings_deviation_positive', sql`${table.deviation} > 0`),
-    check('ratings_volatility_positive', sql`${table.volatility} > 0`),
+    check('ratings_deviation_positive', positiveFinite(table.deviation)),
+    check('ratings_volatility_positive', positiveFinite(table.volatility)),
     versionPositive('ratings', table.version),
   ],
 );
@@ -89,7 +100,8 @@ export const ratings = pgTable(
 /**
  * Append-only ledger. One rated debate is one Glicko-2 rating period per
  * actor (ADR 0029); `calculation_version` names the formula that produced
- * the row so a later change never rewrites history.
+ * the row so a later change never rewrites history. Composite keys tie each
+ * row to a participant of the debate and to the debate's format.
  */
 export const ratingChanges = pgTable(
   'rating_changes',
@@ -109,6 +121,18 @@ export const ratingChanges = pgTable(
     occurredAt: timestampColumn('occurred_at').notNull(),
   },
   (table) => [
+    /** Only a seat holder in that debate can be rated for it. */
+    foreignKey({
+      name: 'rating_changes_participant_fk',
+      columns: [table.debateId, table.actorId],
+      foreignColumns: [debateParticipants.debateId, debateParticipants.actorId],
+    }).onDelete('restrict'),
+    /** The change is posted to the debate's own format, never another. */
+    foreignKey({
+      name: 'rating_changes_debate_format_fk',
+      columns: [table.debateId, table.formatId],
+      foreignColumns: [debates.id, debates.format],
+    }).onDelete('restrict'),
     uniqueIndex('rating_changes_debate_actor_unique').on(
       table.debateId,
       table.actorId,
@@ -124,11 +148,11 @@ export const ratingChanges = pgTable(
     ),
     check(
       'rating_changes_deviation_positive',
-      sql`${table.deviationBefore} > 0 and ${table.deviationAfter} > 0`,
+      sql`${positiveFinite(table.deviationBefore)} and ${positiveFinite(table.deviationAfter)}`,
     ),
     check(
       'rating_changes_volatility_positive',
-      sql`${table.volatilityBefore} > 0 and ${table.volatilityAfter} > 0`,
+      sql`${positiveFinite(table.volatilityBefore)} and ${positiveFinite(table.volatilityAfter)}`,
     ),
   ],
 );

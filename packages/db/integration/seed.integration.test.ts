@@ -75,6 +75,34 @@ describe('agent seed', () => {
         actual: second,
         expected: first,
       });
+
+      // A developer advanced the seed debate: reseeding must return every
+      // lifecycle projection to waiting, or the CHECK rolls the seed back.
+      await database`
+        update debates
+        set phase = 'active', started_at = now(), snapshot = snapshot || '{"phase":"active"}'::jsonb
+        where id = ${seedIds[2]}
+      `;
+      await runSeed();
+      const [reset] = await database`
+        select phase, started_at, completed_at, outcome, snapshot->>'phase' as snapshot_phase, jsonb_typeof(snapshot) as snapshot_type
+        from debates where id = ${seedIds[2]}
+      `;
+      assert({
+        given: 'a seed debate that progressed to active before a reseed',
+        should:
+          'reset phase, snapshot and every lifecycle projection to waiting',
+        actual: reset,
+        expected: {
+          phase: 'waiting',
+          started_at: null,
+          completed_at: null,
+          outcome: null,
+          snapshot_phase: 'waiting',
+          // Not a double-encoded JSON string: the engine must restore it.
+          snapshot_type: 'object',
+        },
+      });
     } finally {
       try {
         await database`delete from debates where id = ${seedIds[2]}`;

@@ -1,5 +1,12 @@
 import { sql } from 'drizzle-orm';
-import { check, jsonb, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
+import {
+  check,
+  foreignKey,
+  jsonb,
+  pgTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
 import { actors } from './actors';
 import {
   oneOf,
@@ -25,9 +32,8 @@ export const ballots = pgTable(
     debateId: text('debate_id')
       .notNull()
       .references(() => debates.id, { onDelete: 'cascade' }),
-    participantId: text('participant_id')
-      .notNull()
-      .references(() => debateParticipants.id, { onDelete: 'cascade' }),
+    /** Bound to `debate_id` by the composite key below, never on its own. */
+    participantId: text('participant_id').notNull(),
     decision: text('decision').notNull(),
     scores: jsonb('scores').notNull(),
     reason: text('reason').notNull(),
@@ -40,6 +46,16 @@ export const ballots = pgTable(
     version: versionColumn(),
   },
   (table) => [
+    /**
+     * The seat must belong to this ballot's debate: two independent keys
+     * would accept debate A with a seat from debate B, and either cascade
+     * could then remove the ballot.
+     */
+    foreignKey({
+      name: 'ballots_participant_in_debate_fk',
+      columns: [table.debateId, table.participantId],
+      foreignColumns: [debateParticipants.debateId, debateParticipants.id],
+    }).onDelete('cascade'),
     uniqueIndex('ballots_participant_unique').on(table.participantId),
     check('ballots_decision_check', oneOf(table.decision, ballotDecisions)),
     check('ballots_status_check', oneOf(table.status, ballotStatuses)),

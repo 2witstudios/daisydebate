@@ -52,6 +52,8 @@ CREATE TABLE "debate_participants" (
 	"joined_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"version" integer DEFAULT 1 NOT NULL,
+	CONSTRAINT "debate_participants_debate_id_id_unique" UNIQUE("debate_id","id"),
+	CONSTRAINT "debate_participants_actor_unique" UNIQUE("debate_id","actor_id"),
 	CONSTRAINT "debate_participants_role_check" CHECK ("debate_participants"."role" in ('affirmative', 'negative', 'judge')),
 	CONSTRAINT "debate_participants_slot_check" CHECK ("debate_participants"."slot" >= 0),
 	CONSTRAINT "debate_participants_status_check" CHECK ("debate_participants"."status" in ('joined', 'ready', 'declined', 'removed')),
@@ -66,6 +68,7 @@ CREATE TABLE "formats" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"version" integer DEFAULT 1 NOT NULL,
+	CONSTRAINT "formats_rules_shape" CHECK (coalesce("formats"."rules"->>'version', '') = '1' and coalesce(jsonb_typeof("formats"."rules"->'seats'), '') = 'object' and coalesce(jsonb_typeof("formats"."rules"->'clock'), '') = 'object'),
 	CONSTRAINT "formats_version_positive" CHECK ("formats"."version" > 0)
 );
 --> statement-breakpoint
@@ -84,8 +87,8 @@ CREATE TABLE "rating_changes" (
 	"calculation_version" text NOT NULL,
 	"occurred_at" timestamp with time zone NOT NULL,
 	CONSTRAINT "rating_changes_rating_range" CHECK ("rating_changes"."rating_before" between 0 and 4000 and "rating_changes"."rating_after" between 0 and 4000),
-	CONSTRAINT "rating_changes_deviation_positive" CHECK ("rating_changes"."deviation_before" > 0 and "rating_changes"."deviation_after" > 0),
-	CONSTRAINT "rating_changes_volatility_positive" CHECK ("rating_changes"."volatility_before" > 0 and "rating_changes"."volatility_after" > 0)
+	CONSTRAINT "rating_changes_deviation_positive" CHECK ("rating_changes"."deviation_before" > 0 and "rating_changes"."deviation_before" < 'infinity'::double precision and "rating_changes"."deviation_after" > 0 and "rating_changes"."deviation_after" < 'infinity'::double precision),
+	CONSTRAINT "rating_changes_volatility_positive" CHECK ("rating_changes"."volatility_before" > 0 and "rating_changes"."volatility_before" < 'infinity'::double precision and "rating_changes"."volatility_after" > 0 and "rating_changes"."volatility_after" < 'infinity'::double precision)
 );
 --> statement-breakpoint
 CREATE TABLE "ratings" (
@@ -99,8 +102,8 @@ CREATE TABLE "ratings" (
 	"version" integer DEFAULT 1 NOT NULL,
 	CONSTRAINT "ratings_actor_id_format_id_season_id_pk" PRIMARY KEY("actor_id","format_id","season_id"),
 	CONSTRAINT "ratings_rating_range" CHECK ("ratings"."rating" between 0 and 4000),
-	CONSTRAINT "ratings_deviation_positive" CHECK ("ratings"."deviation" > 0),
-	CONSTRAINT "ratings_volatility_positive" CHECK ("ratings"."volatility" > 0),
+	CONSTRAINT "ratings_deviation_positive" CHECK ("ratings"."deviation" > 0 and "ratings"."deviation" < 'infinity'::double precision),
+	CONSTRAINT "ratings_volatility_positive" CHECK ("ratings"."volatility" > 0 and "ratings"."volatility" < 'infinity'::double precision),
 	CONSTRAINT "ratings_version_positive" CHECK ("ratings"."version" > 0)
 );
 --> statement-breakpoint
@@ -145,10 +148,12 @@ ALTER TABLE "debates" ADD COLUMN "started_at" timestamp with time zone;--> state
 ALTER TABLE "debates" ADD COLUMN "completed_at" timestamp with time zone;--> statement-breakpoint
 ALTER TABLE "debates" ADD COLUMN "outcome" text;--> statement-breakpoint
 ALTER TABLE "users" ADD COLUMN "deleted_at" timestamp with time zone;--> statement-breakpoint
+-- Hoisted ahead of rating_changes_debate_format_fk, which references it.
+ALTER TABLE "debates" ADD CONSTRAINT "debates_id_format_unique" UNIQUE("id","format");--> statement-breakpoint
 ALTER TABLE "actors" ADD CONSTRAINT "actors_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "ballots" ADD CONSTRAINT "ballots_debate_id_debates_id_fk" FOREIGN KEY ("debate_id") REFERENCES "public"."debates"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "ballots" ADD CONSTRAINT "ballots_participant_id_debate_participants_id_fk" FOREIGN KEY ("participant_id") REFERENCES "public"."debate_participants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "ballots" ADD CONSTRAINT "ballots_voided_by_actor_id_actors_id_fk" FOREIGN KEY ("voided_by_actor_id") REFERENCES "public"."actors"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "ballots" ADD CONSTRAINT "ballots_participant_in_debate_fk" FOREIGN KEY ("debate_id","participant_id") REFERENCES "public"."debate_participants"("debate_id","id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "debate_commands" ADD CONSTRAINT "debate_commands_debate_id_debates_id_fk" FOREIGN KEY ("debate_id") REFERENCES "public"."debates"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "debate_commands" ADD CONSTRAINT "debate_commands_actor_id_actors_id_fk" FOREIGN KEY ("actor_id") REFERENCES "public"."actors"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "debate_participants" ADD CONSTRAINT "debate_participants_debate_id_debates_id_fk" FOREIGN KEY ("debate_id") REFERENCES "public"."debates"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -157,6 +162,8 @@ ALTER TABLE "rating_changes" ADD CONSTRAINT "rating_changes_debate_id_debates_id
 ALTER TABLE "rating_changes" ADD CONSTRAINT "rating_changes_actor_id_actors_id_fk" FOREIGN KEY ("actor_id") REFERENCES "public"."actors"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "rating_changes" ADD CONSTRAINT "rating_changes_format_id_formats_id_fk" FOREIGN KEY ("format_id") REFERENCES "public"."formats"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "rating_changes" ADD CONSTRAINT "rating_changes_season_id_seasons_id_fk" FOREIGN KEY ("season_id") REFERENCES "public"."seasons"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "rating_changes" ADD CONSTRAINT "rating_changes_participant_fk" FOREIGN KEY ("debate_id","actor_id") REFERENCES "public"."debate_participants"("debate_id","actor_id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "rating_changes" ADD CONSTRAINT "rating_changes_debate_format_fk" FOREIGN KEY ("debate_id","format_id") REFERENCES "public"."debates"("id","format") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "ratings" ADD CONSTRAINT "ratings_actor_id_actors_id_fk" FOREIGN KEY ("actor_id") REFERENCES "public"."actors"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "ratings" ADD CONSTRAINT "ratings_format_id_formats_id_fk" FOREIGN KEY ("format_id") REFERENCES "public"."formats"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "ratings" ADD CONSTRAINT "ratings_season_id_seasons_id_fk" FOREIGN KEY ("season_id") REFERENCES "public"."seasons"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
@@ -166,7 +173,6 @@ CREATE UNIQUE INDEX "actors_user_id_unique" ON "actors" USING btree ("user_id");
 CREATE UNIQUE INDEX "ballots_participant_unique" ON "ballots" USING btree ("participant_id");--> statement-breakpoint
 CREATE INDEX "debate_commands_debate_version_idx" ON "debate_commands" USING btree ("debate_id","resulting_version");--> statement-breakpoint
 CREATE UNIQUE INDEX "debate_participants_seat_unique" ON "debate_participants" USING btree ("debate_id","role","slot");--> statement-breakpoint
-CREATE UNIQUE INDEX "debate_participants_actor_unique" ON "debate_participants" USING btree ("debate_id","actor_id");--> statement-breakpoint
 CREATE INDEX "debate_participants_actor_joined_idx" ON "debate_participants" USING btree ("actor_id","joined_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE UNIQUE INDEX "rating_changes_debate_actor_unique" ON "rating_changes" USING btree ("debate_id","actor_id");--> statement-breakpoint
 CREATE INDEX "rating_changes_actor_format_occurred_idx" ON "rating_changes" USING btree ("actor_id","format_id","occurred_at");--> statement-breakpoint
@@ -182,4 +188,10 @@ ALTER TABLE "debates" ADD CONSTRAINT "debates_phase_check" CHECK ("debates"."pha
 ALTER TABLE "debates" ADD CONSTRAINT "debates_visibility_check" CHECK ("debates"."visibility" in ('public', 'unlisted', 'private'));--> statement-breakpoint
 ALTER TABLE "debates" ADD CONSTRAINT "debates_outcome_check" CHECK ("debates"."outcome" is null or "debates"."outcome" in ('affirmative', 'negative', 'draw', 'abandoned'));--> statement-breakpoint
 ALTER TABLE "debates" ADD CONSTRAINT "debates_lifecycle_check" CHECK (("debates"."phase" = 'waiting' and "debates"."started_at" is null and "debates"."completed_at" is null and "debates"."outcome" is null) or ("debates"."phase" = 'active' and "debates"."started_at" is not null and "debates"."completed_at" is null and "debates"."outcome" is null) or ("debates"."phase" = 'completed' and "debates"."completed_at" is not null and "debates"."outcome" is not null and ("debates"."started_at" is not null or "debates"."outcome" = 'abandoned')));--> statement-breakpoint
-ALTER TABLE "users" ADD CONSTRAINT "users_tombstone_scrubbed" CHECK ("users"."deleted_at" is null or ("users"."email" is null and "users"."username" is null and "users"."image" is null and "users"."name" = ''));
+ALTER TABLE "users" ADD CONSTRAINT "users_tombstone_scrubbed" CHECK ("users"."deleted_at" is null or ("users"."email" is null and "users"."username" is null and "users"."image" is null and "users"."name" = ''));--> statement-breakpoint
+-- Reference data (ADR 0029): debates.format is a foreign key, so the
+-- foundation format ships with the schema rather than with the dev fixture
+-- seed. The slug id is deterministic; scripts/seed.ts keeps the row current.
+INSERT INTO "formats" ("id", "name", "rules", "ranked_eligible")
+VALUES ('foundation', 'Foundation (architectural proof)', '{"version":1,"seats":{"affirmative":1,"negative":1,"judge":0},"clock":{"speechMs":240000,"prepMs":120000}}'::jsonb, false)
+ON CONFLICT ("id") DO NOTHING;

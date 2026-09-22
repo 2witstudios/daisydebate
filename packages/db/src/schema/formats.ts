@@ -1,5 +1,6 @@
 import type { FormatRules } from '@daisy/protocol';
-import { boolean, jsonb, pgTable, text } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { boolean, check, jsonb, pgTable, text } from 'drizzle-orm/pg-core';
 import {
   createdAtColumn,
   updatedAtColumn,
@@ -8,9 +9,10 @@ import {
 } from './columns';
 
 /**
- * Debate formats. `id` is the slug (`'foundation'`); `rules` is validated by
- * the protocol `formatRulesSchema` before every write, and its `seats` map is
- * exhaustive over `debateRoles`.
+ * Debate formats. `id` is the slug (`'foundation'`). Writers (the seed today,
+ * adapters later) validate `rules` with the protocol `formatRulesSchema`,
+ * whose `seats` map is exhaustive over `debateRoles`; the database keeps the
+ * version-1 shape (`version`, `seats`, `clock`) as a floor.
  */
 export const formats = pgTable(
   'formats',
@@ -23,5 +25,12 @@ export const formats = pgTable(
     updatedAt: updatedAtColumn(),
     version: versionColumn(),
   },
-  (table) => [versionPositive('formats', table.version)],
+  (table) => [
+    check(
+      'formats_rules_shape',
+      // coalesce: a missing key yields NULL, and a NULL CHECK passes.
+      sql`coalesce(${table.rules}->>'version', '') = '1' and coalesce(jsonb_typeof(${table.rules}->'seats'), '') = 'object' and coalesce(jsonb_typeof(${table.rules}->'clock'), '') = 'object'`,
+    ),
+    versionPositive('formats', table.version),
+  ],
 );

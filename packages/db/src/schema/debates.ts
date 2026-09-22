@@ -1,6 +1,13 @@
 import { phaseSchema } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import { check, index, jsonb, pgTable, text } from 'drizzle-orm/pg-core';
+import {
+  check,
+  index,
+  jsonb,
+  pgTable,
+  text,
+  unique,
+} from 'drizzle-orm/pg-core';
 import { actors } from './actors';
 import {
   createdAtColumn,
@@ -55,6 +62,8 @@ export const debates = pgTable(
     outcome: text('outcome').$type<DebateOutcome>(),
   },
   (table) => [
+    /** Lets `rating_changes` pin a change to the debate's own format. */
+    unique('debates_id_format_unique').on(table.id, table.format),
     index('debates_created_by_idx').on(table.createdBy),
     index('debates_phase_mode_created_idx').on(
       table.phase,

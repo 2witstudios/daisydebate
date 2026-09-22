@@ -1,5 +1,5 @@
 {
-  "id": "d9500c7e-d9d3-46e1-b536-ae354716aaae",
+  "id": "7532dec6-866c-42b8-9adb-1958dc7f1b1d",
   "prevId": "0a37fe68-a5fd-4cc0-9246-9423769c107a",
   "version": "7",
   "dialect": "postgresql",
@@ -676,19 +676,6 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "ballots_participant_id_debate_participants_id_fk": {
-          "name": "ballots_participant_id_debate_participants_id_fk",
-          "tableFrom": "ballots",
-          "tableTo": "debate_participants",
-          "columnsFrom": [
-            "participant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "ballots_voided_by_actor_id_actors_id_fk": {
           "name": "ballots_voided_by_actor_id_actors_id_fk",
           "tableFrom": "ballots",
@@ -700,6 +687,21 @@
             "id"
           ],
           "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "ballots_participant_in_debate_fk": {
+          "name": "ballots_participant_in_debate_fk",
+          "tableFrom": "ballots",
+          "tableTo": "debate_participants",
+          "columnsFrom": [
+            "debate_id",
+            "participant_id"
+          ],
+          "columnsTo": [
+            "debate_id",
+            "id"
+          ],
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -941,27 +943,6 @@
           "method": "btree",
           "with": {}
         },
-        "debate_participants_actor_unique": {
-          "name": "debate_participants_actor_unique",
-          "columns": [
-            {
-              "expression": "debate_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "actor_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "debate_participants_actor_joined_idx": {
           "name": "debate_participants_actor_joined_idx",
           "columns": [
@@ -1013,7 +994,24 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "debate_participants_debate_id_id_unique": {
+          "name": "debate_participants_debate_id_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "debate_id",
+            "id"
+          ]
+        },
+        "debate_participants_actor_unique": {
+          "name": "debate_participants_actor_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "debate_id",
+            "actor_id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {
         "debate_participants_role_check": {
@@ -1221,7 +1219,16 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "debates_id_format_unique": {
+          "name": "debates_id_format_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "format"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {
         "debates_version_positive": {
@@ -1481,6 +1488,10 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
+        "formats_rules_shape": {
+          "name": "formats_rules_shape",
+          "value": "coalesce(\"formats\".\"rules\"->>'version', '') = '1' and coalesce(jsonb_typeof(\"formats\".\"rules\"->'seats'), '') = 'object' and coalesce(jsonb_typeof(\"formats\".\"rules\"->'clock'), '') = 'object'"
+        },
         "formats_version_positive": {
           "name": "formats_version_positive",
           "value": "\"formats\".\"version\" > 0"
@@ -1673,6 +1684,36 @@
           ],
           "onDelete": "restrict",
           "onUpdate": "no action"
+        },
+        "rating_changes_participant_fk": {
+          "name": "rating_changes_participant_fk",
+          "tableFrom": "rating_changes",
+          "tableTo": "debate_participants",
+          "columnsFrom": [
+            "debate_id",
+            "actor_id"
+          ],
+          "columnsTo": [
+            "debate_id",
+            "actor_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "rating_changes_debate_format_fk": {
+          "name": "rating_changes_debate_format_fk",
+          "tableFrom": "rating_changes",
+          "tableTo": "debates",
+          "columnsFrom": [
+            "debate_id",
+            "format_id"
+          ],
+          "columnsTo": [
+            "id",
+            "format"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -1685,11 +1726,11 @@
         },
         "rating_changes_deviation_positive": {
           "name": "rating_changes_deviation_positive",
-          "value": "\"rating_changes\".\"deviation_before\" > 0 and \"rating_changes\".\"deviation_after\" > 0"
+          "value": "\"rating_changes\".\"deviation_before\" > 0 and \"rating_changes\".\"deviation_before\" < 'infinity'::double precision and \"rating_changes\".\"deviation_after\" > 0 and \"rating_changes\".\"deviation_after\" < 'infinity'::double precision"
         },
         "rating_changes_volatility_positive": {
           "name": "rating_changes_volatility_positive",
-          "value": "\"rating_changes\".\"volatility_before\" > 0 and \"rating_changes\".\"volatility_after\" > 0"
+          "value": "\"rating_changes\".\"volatility_before\" > 0 and \"rating_changes\".\"volatility_before\" < 'infinity'::double precision and \"rating_changes\".\"volatility_after\" > 0 and \"rating_changes\".\"volatility_after\" < 'infinity'::double precision"
         }
       },
       "isRLSEnabled": false
@@ -1838,11 +1879,11 @@
         },
         "ratings_deviation_positive": {
           "name": "ratings_deviation_positive",
-          "value": "\"ratings\".\"deviation\" > 0"
+          "value": "\"ratings\".\"deviation\" > 0 and \"ratings\".\"deviation\" < 'infinity'::double precision"
         },
         "ratings_volatility_positive": {
           "name": "ratings_volatility_positive",
-          "value": "\"ratings\".\"volatility\" > 0"
+          "value": "\"ratings\".\"volatility\" > 0 and \"ratings\".\"volatility\" < 'infinity'::double precision"
         },
         "ratings_version_positive": {
           "name": "ratings_version_positive",

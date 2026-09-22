@@ -93,6 +93,16 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
         rating({ volatility: 0 }),
         'actor_id',
       );
+      const nanDeviation = await fixture.rejectedBy(
+        'ratings',
+        rating({ deviation: 'NaN' }),
+        'actor_id',
+      );
+      const infiniteVolatility = await fixture.rejectedBy(
+        'ratings',
+        rating({ volatility: 'Infinity' }),
+        'actor_id',
+      );
       const accepted = !(await fixture.rejects(
         'ratings',
         rating({}),
@@ -113,6 +123,8 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
           negative,
           zeroDeviation,
           zeroVolatility,
+          nanDeviation,
+          infiniteVolatility,
           accepted,
           duplicateKey,
           derived: columns.filter((column) =>
@@ -127,6 +139,8 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
           negative: true,
           zeroDeviation: true,
           zeroVolatility: true,
+          nanDeviation: 'ratings_deviation_positive',
+          infiniteVolatility: 'ratings_volatility_positive',
           accepted: true,
           duplicateKey: true,
           derived: [],
@@ -143,6 +157,7 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
       const seasonId = createId();
       await fixture.insert('seasons', season({ id: seasonId }));
       const debateId = await fixture.debate({ format: formatId });
+      await fixture.participant(debateId, 'affirmative', 0, actorId);
       const change = (overrides: Record<string, unknown>) => ({
         id: createId(),
         debate_id: debateId,
@@ -165,6 +180,19 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
         change({}),
       );
       const otherDebate = await fixture.debate({ format: formatId });
+      await fixture.participant(otherDebate, 'affirmative', 0, actorId);
+      const nonParticipant = await fixture.rejectedBy(
+        'rating_changes',
+        change({ debate_id: otherDebate, actor_id: await fixture.actor() }),
+      );
+      const foreignFormat = await fixture.rejectedBy(
+        'rating_changes',
+        change({ debate_id: otherDebate, format_id: await fixture.format() }),
+      );
+      const nanDeviation = await fixture.rejectedBy(
+        'rating_changes',
+        change({ debate_id: otherDebate, deviation_after: 'NaN' }),
+      );
       const zeroDeviation = await fixture.rejects(
         'rating_changes',
         change({ debate_id: otherDebate, deviation_after: 0 }),
@@ -183,10 +211,13 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
       assert({
         given: 'a rated debate with one ledger row',
         should:
-          'reject a second row for the same debate and actor, a zero deviation and a negative rating; keep the debate undeletable; index the actor history',
+          'reject a second row for the same debate and actor, a non-participant, a foreign format, non-finite or zero deviation and a negative rating; keep the debate undeletable; index the actor history',
         actual: {
           accepted,
           secondForDebate,
+          nonParticipant,
+          foreignFormat,
+          nanDeviation,
           zeroDeviation,
           negativeRating,
           debateDeleteBlocked,
@@ -195,6 +226,9 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
         expected: {
           accepted: true,
           secondForDebate: true,
+          nonParticipant: 'rating_changes_participant_fk',
+          foreignFormat: 'rating_changes_debate_format_fk',
+          nanDeviation: 'rating_changes_deviation_positive',
           zeroDeviation: true,
           negativeRating: true,
           debateDeleteBlocked: true,

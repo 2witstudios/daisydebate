@@ -1,15 +1,30 @@
 import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 
-/** True when the statement is refused by PostgreSQL; the error is the proof. */
-export const rejected = async (attempt: () => Promise<unknown>) => {
+type PostgresFailure = { errno?: unknown; constraint?: unknown };
+
+/**
+ * The constraint PostgreSQL named when refusing the statement (SQLSTATE class
+ * 23, integrity constraint violation), or null when it was accepted. Any
+ * other error is a broken test, not a rejection, and is rethrown.
+ */
+const rejectedBy = async (
+  attempt: () => Promise<unknown>,
+): Promise<string | null> => {
   try {
     await attempt();
-    return false;
-  } catch {
-    return true;
+    return null;
+  } catch (error) {
+    const { errno, constraint } = error as PostgresFailure;
+    if (typeof errno === 'string' && errno.startsWith('23'))
+      return typeof constraint === 'string' ? constraint : errno;
+    throw error;
   }
 };
+
+/** True when an integrity constraint refused the statement. */
+export const rejected = async (attempt: () => Promise<unknown>) =>
+  (await rejectedBy(attempt)) !== null;
 
 type Row = Readonly<Record<string, unknown>>;
 
@@ -28,8 +43,12 @@ const purgeOrder: ReadonlyArray<readonly [table: string, key: string]> = [
   ['formats', 'id'],
 ];
 
-const validRules =
-  '{"version":1,"seats":{"affirmative":1,"negative":1,"judge":0},"clock":{"speechMs":1000,"prepMs":0}}';
+// jsonb parameters are objects: Bun SQL JSON-encodes a string a second time.
+const validRules = {
+  version: 1,
+  seats: { affirmative: 1, negative: 1, judge: 0 },
+  clock: { speechMs: 1000, prepMs: 0 },
+};
 
 /**
  * Per-test fixture over one connection. Every inserted key is tracked and
@@ -57,9 +76,14 @@ export class Fixture {
     );
   }
 
-  /** Same statement as `insert`; resolves to whether PostgreSQL refused it. */
+  /** Same statement as `insert`; resolves to whether a constraint refused it. */
   rejects(table: string, row: Row, key = 'id') {
     return rejected(() => this.insert(table, row, key));
+  }
+
+  /** Same statement as `insert`; resolves to the refusing constraint or null. */
+  rejectedBy(table: string, row: Row, key = 'id') {
+    return rejectedBy(() => this.insert(table, row, key));
   }
 
   async count(table: string, column: string, value: string): Promise<number> {
@@ -105,7 +129,7 @@ export class Fixture {
       created_by: null,
       resolution: 'r',
       format: await this.format(),
-      snapshot: '{}',
+      snapshot: {},
       mode: 'casual',
       phase: 'waiting',
       visibility: 'public',

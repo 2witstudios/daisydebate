@@ -6,6 +6,7 @@ import {
   integer,
   pgTable,
   text,
+  unique,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { actors } from './actors';
@@ -51,12 +52,18 @@ export const debateParticipants = pgTable(
     version: versionColumn(),
   },
   (table) => [
+    /** Lets children reference a seat together with its debate. */
+    unique('debate_participants_debate_id_id_unique').on(
+      table.debateId,
+      table.id,
+    ),
     uniqueIndex('debate_participants_seat_unique').on(
       table.debateId,
       table.role,
       table.slot,
     ),
-    uniqueIndex('debate_participants_actor_unique').on(
+    /** A constraint, not an index, so `rating_changes` can reference it. */
+    unique('debate_participants_actor_unique').on(
       table.debateId,
       table.actorId,
     ),
