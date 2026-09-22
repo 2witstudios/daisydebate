@@ -83,14 +83,11 @@ test('anonymous visits are sent to sign-in and the whole loop ends on the protec
   const mine = uniqueName('ada');
   await claimUsername(page, mine.toUpperCase());
 
-  // The passkey offer never claims a save it did not make.
+  // Declining the passkey offer (real enrollment is covered separately in
+  // passkey-lifecycle.e2e.ts, with a virtual authenticator configured).
   await expect(
     page.getByRole('heading', { name: /next time, one tap/i }),
   ).toBeVisible();
-  await page
-    .getByRole('button', { name: 'Save a passkey on this device' })
-    .click();
-  await expect(page.getByRole('status')).toContainText('nothing was saved');
   await page.getByRole('button', { name: 'Not now' }).click();
 
   // The safe return destination survived, and the username is the identity.
