@@ -108,12 +108,12 @@ export function renderAuthEmailLayout(content: AuthEmailContent): {
 <div class="auth-mail-ink">
 ${htmlParagraphs(content.paragraphs)}
 </div>
-<p style="margin:0 0 8px;font-family:${FONT_BODY};font-size:13px;font-weight:600;color:${LIGHT.inkMuted};" class="auth-mail-muted">${safeLinkLabel}</p>
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 32px;"><tr>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 12px;"><tr>
 <td style="border-radius:8px;background:${LIGHT.accent};" class="auth-mail-button">
-<a href="${safeUrl}" style="display:inline-block;padding:14px 24px;font-family:${FONT_BODY};font-size:14px;font-weight:600;color:${LIGHT.accentInk};text-decoration:none;word-break:break-all;">${safeUrl}</a>
+<a href="${safeUrl}" style="display:inline-block;padding:14px 24px;font-family:${FONT_BODY};font-size:16px;font-weight:600;color:${LIGHT.accentInk};text-decoration:none;">${safeLinkLabel}</a>
 </td>
 </tr></table>
+<p style="margin:0 0 32px;font-family:${FONT_BODY};font-size:13px;line-height:1.6;color:${LIGHT.inkMuted};word-break:break-all;" class="auth-mail-muted">${safeUrl}</p>
 </td></tr>
 <tr><td style="padding:20px 40px 32px;border-top:1px solid ${LIGHT.border};" class="auth-mail-surface">
 <p style="margin:0;font-family:${FONT_BODY};font-size:13px;line-height:1.6;color:${LIGHT.inkMuted};" class="auth-mail-muted">${escapeHtml(content.footerNote)}</p>

@@ -87,6 +87,20 @@ describe('AUTH-3.9 auth email templates', () => {
       });
     });
 
+    test(`${input.kind}: the anchor's accessible name is the descriptive label, not the raw URL`, () => {
+      const anchor = rendered.html.match(/<a href="[^"]*"[^>]*>([^<]*)<\/a>/);
+      assert({
+        given: `the ${input.kind} HTML part's one anchor`,
+        should:
+          "announce its descriptive label, so assistive technology never reads out the token-bearing URL as the link's name",
+        actual: {
+          found: anchor !== null,
+          textIsUrl: anchor?.[1] === DANGEROUS_URL,
+        },
+        expected: { found: true, textIsUrl: false },
+      });
+    });
+
     test(`${input.kind}: HTML and text parts share the same content model`, () => {
       assert({
         given: `the ${input.kind} message`,
