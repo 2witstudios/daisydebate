@@ -15,8 +15,8 @@ not, and this ADR decides them now.
 
 ## Decision
 
-1. **Effective rules live in the debate snapshot; `formats` is canonical
-   identity only.** `debateSnapshotSchema` carries `rules: formatRulesSchema`,
+1. **Effective rules live in the debate snapshot; `formats` holds the
+   canonical identity and the canonical rules.** `debateSnapshotSchema` carries `rules: formatRulesSchema`,
    the exact rules the debate runs under, and `format` is any canonical slug
    (`^[a-z0-9][a-z0-9-]{0,63}$`), no longer the `'foundation'` literal. A
    lobby copies the canonical rules from `formats.rules` and applies its
@@ -32,16 +32,21 @@ not, and this ADR decides them now.
    Results of overridden debates never reach `rating_changes`.
 3. **Seat capacity comes from the rules.** The engine rejects a join onto a
    side for which the rules offer no seat (`debate.seats.within-format`,
-   registered in `spec/invariants.json`). Uniqueness of identities and seats
-   is checked first, so a duplicate seat is reported as such. The engine is
-   1v1 today; team formats need slot modelling in the engine and are a later
+   registered in `spec/invariants.json`), and a debate starts only when
+   every offered seat is filled and ready — so a one-seat practice format
+   starts with one participant. Uniqueness of identities and seats is
+   checked first, so a duplicate seat is reported as such. The engine seats
+   at most one participant per side and says so
+   (`debate.seats.capacity-supported`) rather than seating one and refusing
+   the rest; team formats need slot modelling in the engine and are a later
    epic, not a schema change.
 4. **Callers load rules from the format row.** `createDebateRuntime` takes
    `format` and `rules`; `@daisy/db` exposes `getFormat(id)` (validated with
    `formatRulesSchema`, refusing a stored value that no longer parses). The
-   proof route, the seeds, the scenario runner and the invariant fixtures all
-   read the foundation rules from one definition (`scripts/format-seed.ts`
-   for scripts, the `formats` row at runtime).
+   Scripts (the seeds, the scenario runner, the invariant fixtures) share
+   the one definition in `scripts/format-seed.ts`; runtime code (the proof
+   route, later the lobby) reads the seeded `formats` row that definition
+   produced, so both sides agree on the same rules.
 
 ## Recorded paths (additive; decided, not built)
 
@@ -81,6 +86,11 @@ not, and this ADR decides them now.
   them.
 
 ## Consequences
+
+- `formats.id` is a canonical slug (`foundation`, `ipda`), the one documented
+  exception to cuid2 application identifiers (ADR 0018, ADR 0023): a format
+  is a human-chosen name that must read the same in URLs, seeds and rating
+  ladders, and it is never a bearer of anything.
 
 - Protocol snapshot version stays 1 (pre-ship, ADR 0023): the `rules` field
   is required and the agent seed advances to `agent-seed-v4`.
