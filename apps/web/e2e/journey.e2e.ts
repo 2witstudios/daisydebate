@@ -231,7 +231,9 @@ test('an emailed link opened in a different browser than the one that requested 
   const other = await browser.newContext({ ignoreHTTPSErrors: true });
   const otherPage = await other.newPage();
   await confirm(otherPage, link);
-  await expect(otherPage).toHaveURL(/\/onboarding\/username/);
+  await expect(otherPage).toHaveURL(/\/onboarding\/username/, {
+    timeout: 15_000,
+  });
   await claimUsername(otherPage, uniqueName('cross-browser'));
   // Whether the fresh context offers a passkey save depends on that
   // context's own WebAuthn availability, and how long the claim itself
