@@ -126,11 +126,11 @@ test('an enrolled passkey can be renamed and removed from settings', async ({
   await expect(page.getByRole('button', { name: 'Remove' })).toHaveCount(0);
 });
 
-test('removing the last passkey still leaves magic-link recovery working', async ({
+test('removing the last passkey, recovering by magic link and enrolling a replacement chains into one working journey', async ({
   page,
   request,
 }) => {
-  await addVirtualAuthenticator(page);
+  const lost = await addVirtualAuthenticator(page);
   const { email } = await signUpMember(page.request);
   await page.goto('/settings/security');
   await page.getByRole('button', { name: 'Add a passkey' }).click();
@@ -138,6 +138,12 @@ test('removing the last passkey still leaves magic-link recovery working', async
 
   await page.getByRole('button', { name: 'Remove' }).click();
   await expect(page.getByRole('button', { name: 'Remove' })).toHaveCount(0);
+  // The device itself is gone, not just the server-side record: without
+  // this, the removed credential would still sit in the browser's
+  // credential store and could shadow the replacement below.
+  await lost.session.send('WebAuthn.removeVirtualAuthenticator', {
+    authenticatorId: lost.authenticatorId,
+  });
 
   // The button's own click handler navigates to /sign-in once sign-out
   // resolves; racing it with an explicit page.goto risks aborting whichever
@@ -152,6 +158,24 @@ test('removing the last passkey still leaves magic-link recovery working', async
   const link = await emailedLink(request, email);
   await page.goto(link);
   await page.getByRole('button', { name: 'Sign in to Daisy' }).click();
+  await expect(page).toHaveURL(/\/lobby$/);
+
+  // The compound claim (recover, then be able to enroll a replacement) is
+  // only proven by chaining the replacement enrollment onto this same
+  // recovered session, not by exercising enrollment in isolation elsewhere.
+  // A new device for the replacement, distinct from the one just lost.
+  await addVirtualAuthenticator(page);
+  await page.goto('/settings/security');
+  await expect(page.getByRole('heading', { name: 'Passkeys' })).toBeVisible();
+  await page.getByRole('button', { name: 'Add a passkey' }).click();
+  await expect(page.getByRole('button', { name: 'Remove' })).toHaveCount(1);
+
+  // A merely listed replacement could still be unusable; prove it actually
+  // authenticates by signing out and back in with it.
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  await page.waitForURL(/\/sign-in$/);
+  await page.goto('/sign-in?next=%2Flobby');
+  await page.getByRole('button', { name: 'Sign in with a passkey' }).click();
   await expect(page).toHaveURL(/\/lobby$/);
 });
 

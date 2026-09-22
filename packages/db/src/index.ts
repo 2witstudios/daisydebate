@@ -1,6 +1,6 @@
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, ne, sql } from 'drizzle-orm';
 import { drizzleAdapter } from '@better-auth/drizzle-adapter';
 import { formatRulesSchema, type FormatRules } from '@daisy/protocol';
 import { users } from './schema/users';
@@ -93,6 +93,29 @@ export function createDatabase({
     /** Server-owned onboarding claim; see `claimUsername`. */
     claimUsername: (input: { userId: string; username: string }) =>
       claimUsername(database, input, reportFailure),
+    /**
+     * Revokes every session for `userId` except `keepToken` in one atomic
+     * DELETE — no snapshot-then-delete round trips, so a session created
+     * concurrently with this call cannot slip through a listing window.
+     * Returns the number of sessions removed.
+     */
+    async revokeOtherSessions(
+      userId: string,
+      keepToken: string,
+    ): Promise<number> {
+      try {
+        const rows = await database
+          .delete(sessions)
+          .where(
+            and(eq(sessions.userId, userId), ne(sessions.token, keepToken)),
+          )
+          .returning({ id: sessions.id });
+        return rows.length;
+      } catch (error) {
+        reportFailure('revokeOtherSessions');
+        throw error;
+      }
+    },
     async createDebate(input: NewDebate): Promise<DebateRecord> {
       const phase = snapshotPhase(input.snapshot);
       try {

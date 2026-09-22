@@ -1,4 +1,11 @@
 import { RedisClient } from 'bun';
+import { createPresenceOperations } from './presence';
+export type {
+  PresenceActivity,
+  PresenceConnection,
+  PresenceLease,
+  PresenceOnlineActor,
+} from './presence';
 export type RedisConfig = { readonly url: string; readonly namespace: string };
 export type RedisEventSink = (
   event: 'redis.command.failed',
@@ -126,6 +133,7 @@ export function createRedis({
         throw error;
       }
     },
+    ...createPresenceOperations({ client, namespace, redisKey, reportFailure }),
     close() {
       client.close();
     },

@@ -10,15 +10,16 @@ const { createConfirmEmailHandlers } = await import('./confirm-email');
 const token = 'a'.repeat(32);
 const PUBLIC_APP_URL = 'https://daisy.invalid';
 
-type SessionRow = { readonly token: string; readonly userId: string };
 type Behavior = {
-  readonly listSessions?: () => Promise<readonly SessionRow[]>;
-  readonly deleteSession?: (token: string) => Promise<unknown>;
+  readonly revokeOtherSessions?: (
+    userId: string,
+    keepToken: string,
+  ) => Promise<number>;
 };
 
 /**
  * A fake Better Auth handler answering the two sub-requests confirm-email
- * makes (verify-email, get-session), plus an injectable internal adapter
+ * makes (verify-email, get-session), plus an injectable atomic revocation
  * standing in for the post-verification session cleanup.
  */
 const handlersWith = (behavior: Behavior = {}) =>
@@ -41,15 +42,7 @@ const handlersWith = (behavior: Behavior = {}) =>
           );
         return new Response(null, { status: 404 });
       },
-      internalAdapter: async () => ({
-        listSessions:
-          behavior.listSessions ??
-          (async () => [
-            { token: 'new', userId: 'u1' },
-            { token: 'old', userId: 'u1' },
-          ]),
-        deleteSession: behavior.deleteSession ?? (async () => undefined),
-      }),
+      revokeOtherSessions: behavior.revokeOtherSessions ?? (async () => 1),
     }),
   });
 
@@ -80,15 +73,15 @@ describe('confirm-email: post-verification session revocation', () => {
     });
   });
 
-  test('does not redirect as success when a session deletion fails', async () => {
+  test('does not redirect as success when the atomic revocation fails', async () => {
     const response = await handlersWith({
-      deleteSession: async () => {
+      revokeOtherSessions: async () => {
         throw new Error('boom');
       },
     }).POST(post());
     const body = await response.text();
     assert({
-      given: 'a successful verification but a failing session-deletion call',
+      given: 'a successful verification but a failing revocation call',
       should:
         'answer an error status carrying the new cookie, not the success redirect',
       actual: {
@@ -97,20 +90,6 @@ describe('confirm-email: post-verification session revocation', () => {
         mentionsIncomplete: body.includes('cleanup step failed'),
       },
       expected: { status: 502, cookieCarried: true, mentionsIncomplete: true },
-    });
-  });
-
-  test('does not redirect as success when listing sessions fails', async () => {
-    const response = await handlersWith({
-      listSessions: async () => {
-        throw new Error('boom');
-      },
-    }).POST(post());
-    assert({
-      given: 'a successful verification but a failing session-listing call',
-      should: 'answer an error status, not the success redirect',
-      actual: response.status,
-      expected: 502,
     });
   });
 });

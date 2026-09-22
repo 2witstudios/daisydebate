@@ -13,7 +13,6 @@ const DANGEROUS_URL =
 
 const INPUTS: readonly AuthEmailInput[] = [
   { kind: 'sign-in', url: DANGEROUS_URL },
-  { kind: 'recovery-sign-in', url: DANGEROUS_URL },
   { kind: 'passkey-added', url: DANGEROUS_URL },
   { kind: 'passkey-removed', url: DANGEROUS_URL },
   { kind: 'email-change-notice', url: DANGEROUS_URL },

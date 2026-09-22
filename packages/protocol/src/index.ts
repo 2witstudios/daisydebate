@@ -1,21 +1,7 @@
 import { z } from 'zod';
-/**
- * Entity identifiers are cuid2 (`@paralleldrive/cuid2`): 24 lowercase
- * alphanumeric characters. The shape is validated at the trust boundary;
- * id minting stays app-side and is never derived from input. Exactly one
- * shape is accepted (ADR 0023): parsing never normalizes or repairs input.
- */
-export const cuid2IdPattern = /^[a-z0-9]{24}$/;
-export const idSchema = z.string().regex(cuid2IdPattern);
+import { idSchema, debateRoleSchema } from './primitives';
+export * from './primitives';
 export const phaseSchema = z.enum(['waiting', 'active', 'completed']);
-/**
- * The one debate role vocabulary (ADR 0029). Every seat map, CHECK constraint
- * and role rule derives from this array; spectators are Redis presence, not a
- * durable role. Widening it is a forward migration.
- */
-export const debateRoles = ['affirmative', 'negative', 'judge'] as const;
-export type DebateRole = (typeof debateRoles)[number];
-export const debateRoleSchema = z.enum(debateRoles);
 const seatCountSchema = z.int().min(0);
 /**
  * Format rules stored in `formats.rules`. `seats` is exhaustive over the role
@@ -89,25 +75,6 @@ export const eventSchema = z.strictObject({
   occurredAt: z.iso.datetime(),
   phase: phaseSchema,
 });
-export const errorSchema = z.strictObject({
-  version: z.literal(1),
-  type: z.literal('error'),
-  code: z.enum([
-    'VALIDATION',
-    'AUTHENTICATION',
-    'AUTHORIZATION',
-    'NOT_FOUND',
-    'CONFLICT',
-    'PAYLOAD_TOO_LARGE',
-    'INVARIANT',
-    'RATE_LIMIT',
-    'INFRASTRUCTURE',
-    'INTERNAL',
-  ]),
-  message: z.string(),
-  requestId: z.string().max(128),
-  invariantId: z.string().trim().min(1).max(128).optional(),
-});
 export type Command = z.infer<typeof commandSchema>;
 export type DebateEvent = z.infer<typeof eventSchema>;
-export type ProtocolError = z.infer<typeof errorSchema>;
+export * from './realtime';

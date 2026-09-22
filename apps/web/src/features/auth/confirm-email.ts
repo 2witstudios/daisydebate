@@ -16,15 +16,18 @@ const MAX_FORM_BYTES = 4096;
 const tokenShape = /^[A-Za-z0-9_.-]{16,4096}$/;
 const DEFAULT_DESTINATION = '/settings/security';
 
-type SessionRow = { readonly token: string; readonly userId: string };
-type InternalAdapter = {
-  readonly listSessions: (userId: string) => Promise<readonly SessionRow[]>;
-  readonly deleteSession: (token: string) => Promise<unknown>;
-};
-
 type ConfirmEmailDependencies = {
   readonly auth: () => ReturnType<ConfirmAuth> & {
-    readonly internalAdapter: () => Promise<InternalAdapter>;
+    /**
+     * One atomic revocation of every session for `userId` except
+     * `keepToken` (`@daisy/db`'s single-statement DELETE) — no
+     * snapshot-then-delete round trips for a concurrently created session
+     * to slip through.
+     */
+    readonly revokeOtherSessions: (
+      userId: string,
+      keepToken: string,
+    ) => Promise<number>;
   };
 };
 
@@ -47,9 +50,9 @@ export function createConfirmEmailHandlers({ auth }: ConfirmEmailDependencies) {
    * When the redeemed hop set a session cookie (the final, new-address
    * verification step; the old-address approval step does not), the account
    * just proved live access to the new mailbox on this session. Every other
-   * session for the account is revoked directly through the internal
-   * adapter, bypassing the HTTP fresh-session gate that a genuinely stale
-   * concurrent session could otherwise fail (AUTH-5.6).
+   * session for the account is revoked in one atomic statement, bypassing
+   * the HTTP fresh-session gate that a genuinely stale concurrent session
+   * could otherwise fail (AUTH-5.6).
    */
   /** True only once every other session for this account is confirmed gone. */
   const revokeOtherSessionsFor = async (
@@ -72,14 +75,8 @@ export function createConfirmEmailHandlers({ auth }: ConfirmEmailDependencies) {
     const userId = body?.session?.userId;
     if (typeof token !== 'string' || typeof userId !== 'string') return false;
     try {
-      const internalAdapter = await auth().internalAdapter();
-      const sessions = await internalAdapter.listSessions(userId);
-      const results = await Promise.allSettled(
-        sessions
-          .filter((session) => session.token !== token)
-          .map((session) => internalAdapter.deleteSession(session.token)),
-      );
-      return results.every((result) => result.status === 'fulfilled');
+      await auth().revokeOtherSessions(userId, token);
+      return true;
     } catch {
       return false;
     }
