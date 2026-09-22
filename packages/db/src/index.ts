@@ -21,6 +21,18 @@ export type {
 export type { DebateRecord, NewDebate } from './debate-record';
 import { accounts, passkeys, sessions, verifications } from './schema/auth';
 import { emailDeliveryOperations } from './email-delivery-operations';
+import { appendOutboxEvent, purgeExpiredOutboxEvents } from './outbox';
+export {
+  appendOutboxEvent,
+  drainOutbox,
+  encodeOutboxCursor,
+  decodeOutboxCursor,
+  OUTBOX_ORIGIN,
+  type OutboxAppendInput,
+  type OutboxPosition,
+  type OutboxRow,
+} from './outbox';
+export { outbox } from './schema/outbox';
 export type { UsernameClaim } from './username-claim';
 export type FormatRecord = {
   readonly id: string;
@@ -67,6 +79,33 @@ export function createDatabase({
     eventSink?.('db.query.failed', { operation }, 'Database query failed');
   return {
     authAdapter,
+    /**
+     * Exposes the driver transaction so a caller can compose its own write
+     * with `appendOutboxEvent` atomically (RT-2.2: the outbox row commits
+     * only alongside the write it announces).
+     */
+    transaction: database.transaction.bind(database),
+    /**
+     * RT-2.2 (plan revision 4.1): appends one `session.revoked` outbox row
+     * in its own short transaction, for a caller that has already confirmed
+     * a session delete outside Daisy's control (Better Auth's own revoke
+     * endpoints or internal adapter). Never wraps the delete itself.
+     */
+    async appendSessionRevoked(userId: string) {
+      try {
+        await database.transaction((tx) =>
+          appendOutboxEvent(tx, {
+            topic: `user:${userId}:inbox`,
+            kind: 'session.revoked',
+            version: 1,
+            payload: {},
+          }),
+        );
+      } catch (error) {
+        reportFailure('appendSessionRevoked');
+        throw error;
+      }
+    },
     async health() {
       try {
         await database.execute(sql`select 1`);
@@ -80,6 +119,14 @@ export function createDatabase({
       await client.close({ timeout: 5 });
     },
     ...emailDeliveryOperations({ database, reportFailure }),
+    async purgeExpiredOutboxEvents(input: { before: string; limit: number }) {
+      try {
+        return await purgeExpiredOutboxEvents(database, input);
+      } catch (error) {
+        reportFailure('purgeExpiredOutboxEvents');
+        throw error;
+      }
+    },
     async createUser(input: { id: string; username: string }) {
       try {
         const [row] = await database.insert(users).values(input).returning();
