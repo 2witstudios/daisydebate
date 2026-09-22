@@ -182,6 +182,30 @@ describe('proxy early sign-in hint', () => {
     });
   });
 
+  test('without a valid configured origin it gives no hint, never a Host-derived one', () => {
+    const previous = process.env.PUBLIC_APP_URL;
+    const statuses: number[] = [];
+    try {
+      for (const value of [undefined, 'not a url']) {
+        if (value === undefined) delete process.env.PUBLIC_APP_URL;
+        else process.env.PUBLIC_APP_URL = value;
+        const response = proxy(
+          new NextRequest('https://attacker.invalid/lobby'),
+        );
+        statuses.push(response.status);
+      }
+    } finally {
+      if (previous === undefined) delete process.env.PUBLIC_APP_URL;
+      else process.env.PUBLIC_APP_URL = previous;
+    }
+    assert({
+      given: 'a missing and an invalid PUBLIC_APP_URL',
+      should: 'continue to the page guard instead of redirecting to the Host',
+      actual: statuses,
+      expected: [200, 200],
+    });
+  });
+
   test('leaves spectator and public routes open', () => {
     assert({
       given: 'cookie-less requests for public routes and lookalikes',

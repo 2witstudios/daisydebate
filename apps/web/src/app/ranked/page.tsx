@@ -1,11 +1,16 @@
 import type { Metadata } from 'next';
+import type { SearchParams } from '../../features/access/decision';
 import { requireAccess } from '../../lib/access';
 import { RouteShell } from '../ui/route-shell';
 
 export const metadata: Metadata = { title: 'Ranked' };
 
-export default async function RankedPage() {
-  await requireAccess('/ranked', 'participant');
+export default async function RankedPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  await requireAccess('/ranked', 'participant', searchParams);
   return (
     <RouteShell
       title="Ranked"

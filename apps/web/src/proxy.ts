@@ -1,8 +1,13 @@
 import { createHash } from 'node:crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import { systemId } from '@daisy/clock';
+import { readBrowserConfig } from '@daisy/config';
 import { isValidTraceparent } from '@daisy/observability';
-import { isGuardedPath, returnDestination } from './features/access/decision';
+import {
+  isGuardedPath,
+  returnDestination,
+  SESSION_COOKIE_NAMES,
+} from './features/access/decision';
 // A nonce never authorizes a `style="…"` attribute, and `next/image` always
 // server-renders one. Hash the exact strings it emits (`fill`, and the default)
 // so every other inline style attribute stays refused. The CSP e2e fails if a
@@ -16,11 +21,6 @@ const styleAttributeSources = [
       `'sha256-${createHash('sha256').update(style).digest('base64')}'`,
   )
   .join(' ');
-/** Better Auth's session cookie, plain on HTTP and `__Secure-` on HTTPS. */
-const SESSION_COOKIES = [
-  'better-auth.session_token',
-  '__Secure-better-auth.session_token',
-];
 
 /**
  * Development-only architectural proof: refuse at the edge with a real 404
@@ -39,6 +39,19 @@ function closedFoundation(pathname: string, requestId: string) {
 }
 
 /**
+ * Proxy redirects must be absolute. Behind TLS termination the request's own
+ * origin is plain HTTP, and the Host header is caller-controlled, so the
+ * target is the validated configured public origin and nothing else.
+ */
+function publicOrigin(): string | null {
+  try {
+    return new URL(readBrowserConfig(process.env).PUBLIC_APP_URL).origin;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Early hint only: a guarded request with no session cookie at all can never
  * pass, so skip the render. Whether a cookie is a live session is decided
  * per entrypoint (lib/access.ts), which rechecks the durable session.
@@ -51,14 +64,14 @@ function signInHint(
   const { pathname, search } = request.nextUrl;
   if (
     !isGuardedPath(pathname) ||
-    SESSION_COOKIES.some((name) => request.cookies.has(name))
+    SESSION_COOKIE_NAMES.some((name) => request.cookies.has(name))
   )
     return null;
+  const origin = publicOrigin();
+  // Without a valid configured origin there is no safe absolute target:
+  // give no hint and let the page guard (a relative redirect) decide.
+  if (origin === null) return null;
   const next = returnDestination(`${pathname}${search}`);
-  // Proxy redirects must be absolute. Behind TLS termination the request's
-  // own origin is plain HTTP, so the deployment's configured public origin
-  // (the one auth cookies and links already use) names the target.
-  const origin = process.env.PUBLIC_APP_URL ?? request.nextUrl.origin;
   const response = NextResponse.redirect(
     new URL(`/sign-in?next=${encodeURIComponent(next)}`, origin),
   );
