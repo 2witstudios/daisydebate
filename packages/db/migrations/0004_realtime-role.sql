@@ -27,4 +27,10 @@ $$;
 --> statement-breakpoint
 GRANT USAGE ON SCHEMA public TO daisy_realtime;
 --> statement-breakpoint
-GRANT SELECT ON outbox, debates, debate_participants, actors, users TO daisy_realtime;
+GRANT SELECT ON outbox, debates, debate_participants, actors TO daisy_realtime;
+--> statement-breakpoint
+-- Column-scoped, not the whole table: resolving a ticket's userId only needs
+-- the row's existence and id, never email, name, image or the tombstone
+-- fields. A full-table grant would hand a compromised realtime credential
+-- account PII (AGENTS.md: zero trust at every boundary).
+GRANT SELECT (id) ON users TO daisy_realtime;

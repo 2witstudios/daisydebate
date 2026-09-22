@@ -54,6 +54,11 @@ test('the realtime role can only select the outbox and authorization read models
     const selectUsers = await rejected(() =>
       realtime!.unsafe('select id from users limit 1'),
     );
+    // Column-scoped grant: id resolves a ticket's userId, but email/name/
+    // image are PII a compromised realtime credential must never reach.
+    const selectUsersEmail = await rejected(() =>
+      realtime!.unsafe('select email from users limit 1'),
+    );
 
     const insertOutbox = await rejected(() =>
       realtime!.unsafe(
@@ -86,12 +91,14 @@ test('the realtime role can only select the outbox and authorization read models
       selectDebateParticipants,
       selectActors,
       selectUsers,
+      selectUsersEmail,
     }).toEqual({
       selectOutbox: false,
       selectDebates: false,
       selectDebateParticipants: false,
       selectActors: false,
       selectUsers: false,
+      selectUsersEmail: true,
     });
     expect({
       insertOutbox,

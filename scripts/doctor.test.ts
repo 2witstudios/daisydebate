@@ -87,7 +87,7 @@ describe('migration currency', () => {
         '5d92da2588999e499b2e80cd748e547ea5b669f07bc1aa4d14584bd49b35a7a3',
         '92dea778e7b6329f8f438e81b0df14572e4fb7f3cdf1fc3c5f85bcd40984da0e',
         'b6a7ded62f66942b72c8cf20c31b87a8e09c7f5c919813d972df61ba7fed931c',
-        '759b1240204bfcc946db51a3687c8ed01c0e06c497bc8a5094595e8819c6a3a7',
+        'abd646293587b529fc53bca8b979436bfcfcd32d3d9503d1e8070d5ec9d8a413',
       ],
     });
   });
