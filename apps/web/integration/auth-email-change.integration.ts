@@ -190,7 +190,7 @@ describe('AUTH-5.6 change the recovery email', () => {
     });
   });
 
-  test('an expired or replayed verification link changes nothing', async () => {
+  test('a replayed verification link changes nothing', async () => {
     const { email, cookie } = await signUp();
     const before = flows.account.flows.mailbox.mails.length;
     const newEmail = `${createId()}@example.test`;

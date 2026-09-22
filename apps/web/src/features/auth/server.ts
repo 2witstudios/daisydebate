@@ -31,6 +31,9 @@ import {
 } from './rate-limit';
 
 const MAGIC_LINK_EXPIRES_IN_SECONDS = 300;
+// Matches the emailed-link token-delivery model's 5-minute figure; Better
+// Auth's own default (1 hour) is otherwise silently applied to this token.
+const EMAIL_VERIFICATION_EXPIRES_IN_SECONDS = 300;
 
 /** Application-level email contract; the Resend transport plugs in here. */
 export type AuthEmailMessage = {
@@ -178,6 +181,7 @@ const composeBetterAuth = (dependencies: {
         origin,
         dependencies.deliver,
       ),
+      expiresIn: EMAIL_VERIFICATION_EXPIRES_IN_SECONDS,
     },
     plugins: [
       magicLink({
