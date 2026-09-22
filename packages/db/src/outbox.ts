@@ -27,9 +27,12 @@ export type OutboxRow = OutboxPosition & {
 };
 
 /** A transaction handle: what `database.transaction(async (tx) => ...)` hands the caller. */
-type Tx = Pick<BunSQLDatabase, 'insert' | 'execute'>;
+type Tx = Pick<BunSQLDatabase, 'execute'>;
 
 const positionShape = /^([0-9]{1,20})\.([0-9]{1,20})$/;
+/** xid8 and bigserial are both 64-bit; xid8 is unsigned, bigserial is signed. */
+const XID8_MAX = 2n ** 64n - 1n;
+const BIGSERIAL_MAX = 2n ** 63n - 1n;
 
 /**
  * The cursor is an ordering token, not a secret (plan: "Cursor
@@ -42,18 +45,50 @@ export function encodeOutboxCursor(position: OutboxPosition): string {
   );
 }
 
+const invalidCursor = (cause?: unknown) =>
+  new Error(
+    'Invalid outbox cursor',
+    cause === undefined ? undefined : { cause },
+  );
+
+/**
+ * Canonical base64url decode: re-encodes the decoded bytes and compares
+ * them to the input, so a non-canonical string (Node's `Buffer` silently
+ * ignores characters outside the alphabet instead of rejecting them) is
+ * refused rather than silently accepted.
+ */
+function decodeCanonicalBase64Url(value: string): string {
+  try {
+    const bytes = Buffer.from(value, 'base64url');
+    if (bytes.toString('base64url') !== value) throw invalidCursor();
+    return bytes.toString('utf8');
+  } catch (error) {
+    throw invalidCursor(error);
+  }
+}
+
+/** Both parts against their real 64-bit column types (xid8 unsigned, bigserial signed). */
+function assertInPositionRange(txid: bigint, seq: bigint): void {
+  if (txid < 0n || txid > XID8_MAX || seq < 0n || seq > BIGSERIAL_MAX)
+    throw invalidCursor();
+}
+
+/**
+ * Canonical decode: `decodeCanonicalBase64Url` rejects non-canonical
+ * encodings, then both parts are range-checked against their real 64-bit
+ * column types, so an out-of-range cursor is a validation error here, not
+ * a Postgres cast error at the query.
+ */
 export function decodeOutboxCursor(cursor: unknown): OutboxPosition {
   if (typeof cursor !== 'string' || cursor.length === 0 || cursor.length > 64)
-    throw new Error('Invalid outbox cursor');
-  let decoded: string;
-  try {
-    decoded = Buffer.from(cursor, 'base64url').toString('utf8');
-  } catch (error) {
-    throw new Error('Invalid outbox cursor', { cause: error });
-  }
+    throw invalidCursor();
+  const decoded = decodeCanonicalBase64Url(cursor);
   const match = positionShape.exec(decoded);
-  if (!match?.[1] || !match[2]) throw new Error('Invalid outbox cursor');
-  return { txid: match[1], seq: BigInt(match[2]) };
+  if (!match?.[1] || !match[2]) throw invalidCursor();
+  const txid = BigInt(match[1]);
+  const seq = BigInt(match[2]);
+  assertInPositionRange(txid, seq);
+  return { txid: match[1], seq };
 }
 
 /** The start of the log: every row is strictly after this position. */
@@ -64,23 +99,32 @@ export const OUTBOX_ORIGIN: OutboxPosition = { txid: '0', seq: 0n };
  * `pg_notify('outbox', position)` in the same transaction, so the
  * notification is only delivered to listeners once the transaction commits
  * (Postgres queues NOTIFY until commit) and never fires for a rollback.
+ *
+ * The insert goes through a raw statement, not `.insert(outbox).values()`:
+ * drizzle-orm's `PgJsonb.mapToDriverValue` (0.45.2) unconditionally
+ * `JSON.stringify`s the value before handing it to the driver, and the Bun
+ * SQL client serializes a jsonb-bound *string* parameter again, storing a
+ * double-encoded JSON string (`jsonb_typeof` reports `'string'`) instead of
+ * the object every receiver's `safeParse` expects. Binding the plain JS
+ * object directly, with no `JSON.stringify` and no explicit `::jsonb`
+ * cast, is the one path that round-trips correctly through Bun's driver.
  */
 export async function appendOutboxEvent(
   tx: Tx,
   input: OutboxAppendInput,
 ): Promise<OutboxPosition> {
   const parsed = outboxAppendInputSchema.parse(input);
-  const [row] = await tx
-    .insert(outbox)
-    .values({
-      topic: parsed.topic,
-      kind: parsed.kind,
-      version: parsed.version,
-      payload: parsed.payload,
-    })
-    .returning({ seq: outbox.seq, txid: outbox.txid });
+  const result = await tx.execute(sql`
+    insert into ${outbox} (topic, kind, version, payload)
+    values (${parsed.topic}, ${parsed.kind}, ${parsed.version}, ${parsed.payload})
+    returning seq, txid
+  `);
+  const [row] = result as unknown as { seq: unknown; txid: unknown }[];
   if (!row) throw new Error('Outbox insert returned no row');
-  const position: OutboxPosition = { txid: row.txid, seq: row.seq };
+  const position: OutboxPosition = {
+    txid: String(row.txid),
+    seq: BigInt(row.seq as string | number | bigint),
+  };
   await tx.execute(
     sql`select pg_notify('outbox', ${encodeOutboxCursor(position)})`,
   );

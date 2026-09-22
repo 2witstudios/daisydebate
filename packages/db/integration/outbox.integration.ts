@@ -1,7 +1,7 @@
-import { expect, test } from 'bun:test';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { createId } from '@paralleldrive/cuid2';
+import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createDatabase } from '../src';
 import {
   OUTBOX_ORIGIN,
@@ -9,6 +9,8 @@ import {
   decodeOutboxCursor,
   drainOutbox,
 } from '../src/outbox';
+
+setupRitewayBun();
 
 const url = process.env.TEST_DATABASE_URL;
 if (!url)
@@ -30,16 +32,17 @@ const waitFor = async (
   }
 };
 
-test('a committed transaction delivers its outbox row with a txid and a NOTIFY; a rolled-back one delivers nothing', async () => {
+test('a committed transaction delivers its outbox row with a txid, a NOTIFY and an object payload; a rolled-back one delivers nothing', async () => {
   const database = createDatabase({ url });
   const listener = new SQL(url);
   const reader = new SQL(url);
   const readerDb = drizzle({ client: reader });
   const topic = `debate:${createId()}`;
+  const payload = { debateId: createId(), n: 1, nested: { ok: true } };
   const notifications: string[] = [];
   try {
-    const subscription = await listener.listen('outbox', (payload) => {
-      notifications.push(payload);
+    const subscription = await listener.listen('outbox', (received) => {
+      notifications.push(received);
     });
     try {
       const committed = await database.transaction((tx) =>
@@ -47,7 +50,7 @@ test('a committed transaction delivers its outbox row with a txid and a NOTIFY; 
           topic,
           kind: 'test.committed',
           version: 1,
-          payload: { ok: true },
+          payload,
         }),
       );
 
@@ -67,9 +70,9 @@ test('a committed transaction delivers its outbox row with a txid and a NOTIFY; 
       }
 
       await waitFor(() =>
-        notifications.some((payload) => {
+        notifications.some((received) => {
           try {
-            return decodeOutboxCursor(payload).seq === committed.seq;
+            return decodeOutboxCursor(received).seq === committed.seq;
           } catch {
             return false;
           }
@@ -79,11 +82,30 @@ test('a committed transaction delivers its outbox row with a txid and a NOTIFY; 
       const rows = await drainOutbox(readerDb, OUTBOX_ORIGIN, 500);
       const delivered = rows.filter((row) => row.topic === topic);
 
-      expect(rolledBack).toBe(true);
-      expect(committed.txid).not.toBe('0');
-      expect(delivered).toHaveLength(1);
-      expect(delivered[0]?.kind).toBe('test.committed');
-      expect(delivered[0]?.seq).toBe(committed.seq);
+      assert({
+        given:
+          'a committed transaction with an object payload and a rolled-back one',
+        should:
+          'notify, deliver exactly the committed row with a real txid and the payload round-tripped as an object (not a double-encoded string)',
+        actual: {
+          rolledBack,
+          hasTxid: committed.txid !== '0',
+          deliveredCount: delivered.length,
+          kind: delivered[0]?.kind,
+          seqMatches: delivered[0]?.seq === committed.seq,
+          payload: delivered[0]?.payload,
+          payloadIsObject: typeof delivered[0]?.payload === 'object',
+        },
+        expected: {
+          rolledBack: true,
+          hasTxid: true,
+          deliveredCount: 1,
+          kind: 'test.committed',
+          seqMatches: true,
+          payload,
+          payloadIsObject: true,
+        },
+      });
     } finally {
       await subscription.unlisten();
     }
@@ -118,18 +140,29 @@ test('two transactions that commit out of seq order never let the drain skip a r
     // A is still open, so its txid still holds back the snapshot xmin: the
     // drain must show neither row yet, not even B's, which already committed.
     const midDrain = await drainOutbox(drizzleC, OUTBOX_ORIGIN, 500);
-    expect(midDrain.filter((row) => row.topic === topic)).toHaveLength(0);
+    const midForTopic = midDrain.filter((row) => row.topic === topic);
 
     await connA.unsafe('COMMIT');
 
     const finalDrain = await drainOutbox(drizzleC, OUTBOX_ORIGIN, 500);
     const forTopic = finalDrain.filter((row) => row.topic === topic);
-    // Ordered by (txid, seq): A's lower seq stays first even though B
-    // committed earlier in wall-clock time. Neither row is skipped.
-    expect(forTopic.map((row) => row.seq)).toEqual([
-      BigInt(rowA.seq),
-      BigInt(rowB.seq),
-    ]);
+
+    assert({
+      given:
+        'A opens and inserts, B opens, inserts and commits while A is still open, then A commits',
+      should:
+        'show neither row while A is open (even B, already committed), then both, A-lower-seq first, in (txid,seq) order',
+      actual: {
+        midCount: midForTopic.length,
+        // Ordered by (txid, seq): A's lower seq stays first even though B
+        // committed earlier in wall-clock time. Neither row is skipped.
+        finalSeqs: forTopic.map((row) => row.seq),
+      },
+      expected: {
+        midCount: 0,
+        finalSeqs: [BigInt(rowA.seq), BigInt(rowB.seq)],
+      },
+    });
   } finally {
     await connC.unsafe('delete from outbox where topic = $1', [topic]);
     await connA.close();
