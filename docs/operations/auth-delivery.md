@@ -74,14 +74,18 @@ live under `<REDIS_NAMESPACE>:v1:rl:<sha3-256>` and expire within 60 seconds.
 - Diagnostics: `email_delivery` (message ID, status rank, recipient hash) and
   `email_delivery_event` (event ID dedupe). Neither holds an address or a
   payload. Event rows are retained 30 days (AUTH-7.5 owns the cleanup job).
-- Webhooks that fail signature or tolerance answer `400`; events for a message
-  recorded moments earlier answer `503` so the provider retries; events for
-  unknown old messages are acknowledged and dropped.
+- Webhooks that fail signature or tolerance answer `400`. An event for a
+  message with no `email_delivery` row is handled by the event's provider
+  timestamp (`created_at`): less than two minutes old, it answers `503` with
+  `Retry-After: 5` so the provider retries (the receipt may still be
+  committing); older, or with no usable timestamp, it answers `200` and is
+  discarded.
 - Receipt write failure after the provider accepted a message: the request
   still succeeds (the user has the email) and `auth.mail.receipt_failed` logs
-  the opaque `providerMessageId`, nothing else about the message. Until its
-  `email_delivery` row exists, that message's bounce or complaint is dropped
-  as unknown; reconcile by finding the message ID in the log.
+  the opaque `providerMessageId`, nothing else about the message. With no
+  `email_delivery` row, that message's bounce or complaint is retried while it
+  is under two minutes old, then answered `200` and discarded, so no
+  suppression is written. Reconcile by finding the message ID in the log.
 
 ## Retention of verification records
 
