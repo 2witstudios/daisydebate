@@ -138,8 +138,13 @@ leaf that adds them (RT-4.4) adds a lint rule that fails if they do.
 4. **Retries keep their first stamp.** `debate_commands` stays keyed by the
    protocol's cuid2 `commandId` (ADR 0029). Idempotency of check-ins and
    adjudications comes from an added nullable `turn_index` column and a
-   unique operation key `(debate_id, type, turn_index, actor_id)`, declared
-   `NULLS NOT DISTINCT` so the evaluator's rows (no actor) are unique too.
+   unique operation key `(debate_id, type, turn_index, actor_id)`. The key
+   applies only to `check-in` and `adjudicate` commands. It is a partial
+   unique index `WHERE turn_index IS NOT NULL`, declared
+   `NULLS NOT DISTINCT` so that the evaluator's rows, which have no actor,
+   are unique too. A CHECK keeps `turn_index` set for exactly those two
+   types. Every other command type (join, ready, transition) has a NULL
+   `turn_index`, so the index never sees it and never collides it.
    A retried check-in with a new `commandId` hits the operation key, and
    the handler returns the recorded result and receipt time.
 5. **The check-in is recorded in the debate snapshot** as an attendance
