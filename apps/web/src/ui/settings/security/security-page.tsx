@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { authClient } from '../../../lib/auth-client';
 import {
   createPasskeyEnrollment,
+  enrollmentNotices,
   enrollSafely,
 } from '../../auth/onboarding/passkey-enrollment';
 import {
@@ -113,7 +114,9 @@ export function SecurityPage() {
                     ? 'Saving a passkey is not available on this device.'
                     : outcome.kind === 'cancelled'
                       ? 'Nothing was saved.'
-                      : 'We could not save a passkey. Please try again.',
+                      : outcome.kind === 'stale-session'
+                        ? enrollmentNotices['stale-session']
+                        : 'We could not save a passkey. Please try again.',
                 );
             });
           }}

@@ -98,4 +98,28 @@ describe('createPasskeyEnrollment', () => {
       expected: { kind: 'failed' },
     });
   });
+
+  test('a stale session is distinguished from other failures', async () => {
+    const byCode = createPasskeyEnrollment({
+      client: clientWith({ code: 'SESSION_NOT_FRESH' }),
+      supportsPasskeys: () => true,
+    });
+    const byStatus = createPasskeyEnrollment({
+      client: clientWith({ status: 401 }),
+      supportsPasskeys: () => true,
+    });
+    assert({
+      given:
+        'a fresh-session-gated registration rejected as SESSION_NOT_FRESH or 401',
+      should: 'report stale-session, not the generic failed outcome',
+      actual: {
+        byCode: await byCode.enroll(),
+        byStatus: await byStatus.enroll(),
+      },
+      expected: {
+        byCode: { kind: 'stale-session' },
+        byStatus: { kind: 'stale-session' },
+      },
+    });
+  });
 });

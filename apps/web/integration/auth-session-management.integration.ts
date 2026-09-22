@@ -160,6 +160,38 @@ describe('AUTH-5.5 session management', () => {
     });
   });
 
+  test('a stale session is refused for revoking a single other session', async () => {
+    const { cookie } = await signUp();
+    const sessionBody = (await (await protectedRead(cookie)).json()) as {
+      session?: { token: string };
+    };
+    const token = sessionBody.session?.token ?? '';
+    await backdateSession(token, 2);
+    const stale = await flows.revokeSession(cookie, 'irrelevant-token');
+    assert({
+      given: 'a live, valid session created outside the fresh window',
+      should: 'refuse revoke-session and require fresh authentication',
+      actual: { ok: stale.ok, status: stale.status },
+      expected: { ok: false, status: 403 },
+    });
+  });
+
+  test('a stale session is refused for revoking every other session', async () => {
+    const { cookie } = await signUp();
+    const sessionBody = (await (await protectedRead(cookie)).json()) as {
+      session?: { token: string };
+    };
+    const token = sessionBody.session?.token ?? '';
+    await backdateSession(token, 2);
+    const stale = await flows.revokeOtherSessions(cookie);
+    assert({
+      given: 'a live, valid session created outside the fresh window',
+      should: 'refuse revoke-other-sessions and require fresh authentication',
+      actual: { ok: stale.ok, status: stale.status },
+      expected: { ok: false, status: 403 },
+    });
+  });
+
   test('a stale session is refused for removing a passkey', async () => {
     const { cookie } = await signUp();
     const { verifyResponse, credential } = await flows.enrollPasskey(cookie, {
