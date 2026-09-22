@@ -1,6 +1,10 @@
 import { restoreDebateRuntime } from '@daisy/debate-engine';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { agentSeedDebate, agentSeedVersion } from './agent-seed';
+import {
+  agentSeedDebate,
+  agentSeedUsers,
+  agentSeedVersion,
+} from './agent-seed';
 
 setupRitewayBun();
 
@@ -36,12 +40,30 @@ describe('agentSeedDebate', () => {
     });
   });
 
-  test('marks the corrected seed content with a new version', () => {
+  test('marks the actor-referencing seed content with a new version', () => {
     assert({
-      given: 'seed content that changed since agent-seed-v1',
+      given: 'seed content that changed since agent-seed-v2 (ADR 0029 actors)',
       should: 'advance the durable seed version marker',
       actual: agentSeedVersion,
-      expected: 'agent-seed-v2',
+      expected: 'agent-seed-v3',
+    });
+  });
+
+  test('points the seeded debate at an agent actor, never a user', () => {
+    assert({
+      given: 'the seeded debate author and the agent users',
+      should: 'reference one of the seeded actor ids and no user id',
+      actual: {
+        isActor: agentSeedUsers.some(
+          (user) => user.actorId === agentSeedDebate.createdBy,
+        ),
+        isUser: agentSeedUsers.some(
+          (user) => user.userId === agentSeedDebate.createdBy,
+        ),
+        distinctActors: new Set(agentSeedUsers.map((user) => user.actorId))
+          .size,
+      },
+      expected: { isActor: true, isUser: false, distinctActors: 2 },
     });
   });
 });

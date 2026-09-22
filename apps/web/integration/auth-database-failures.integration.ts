@@ -85,7 +85,9 @@ test('pool lifecycle closes and the app failure boundary reports without SQL mat
       createdBy: createId(),
       resolution: 'Orphan debate',
       format: 'foundation',
-      snapshot: {},
+      snapshot: { phase: 'waiting' },
+      mode: 'casual',
+      visibility: 'unlisted',
     });
   } catch {
     foreignKeyRejected = true;

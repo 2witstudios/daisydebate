@@ -129,6 +129,12 @@ describe('foundation debate retrieval', () => {
         version: 1,
         createdAt: stored.createdAt,
         updatedAt: stored.createdAt,
+        mode: 'casual',
+        phase: 'waiting',
+        visibility: 'unlisted',
+        startedAt: null,
+        completedAt: null,
+        outcome: null,
       });
     const restored = await getProofDebate(stored.id);
 

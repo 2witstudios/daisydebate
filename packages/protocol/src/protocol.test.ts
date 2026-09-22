@@ -1,9 +1,12 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   commandSchema,
+  debateRoleSchema,
+  debateRoles,
   errorSchema,
   eventSchema,
   debateSnapshotSchema,
+  formatRulesSchema,
 } from './index';
 
 setupRitewayBun();
@@ -139,6 +142,87 @@ describe('error schema', () => {
         requestId: 'request-1',
       }).success,
       expected: true,
+    });
+  });
+});
+
+describe('debate roles and format rules', () => {
+  test('own the role vocabulary once', () => {
+    assert({
+      given: 'the canonical role array',
+      should: 'list affirmative, negative and judge in that order',
+      actual: debateRoles,
+      expected: ['affirmative', 'negative', 'judge'],
+    });
+    assert({
+      given: 'the derived zod enum',
+      should: 'accept every role and reject a spectator',
+      actual: [
+        ...debateRoles.map((role) => debateRoleSchema.safeParse(role).success),
+        debateRoleSchema.safeParse('spectator').success,
+      ],
+      expected: [true, true, true, false],
+    });
+  });
+
+  test('require an exhaustive seat map with non-negative integer counts', () => {
+    const rules = {
+      version: 1,
+      seats: { affirmative: 1, negative: 1, judge: 0 },
+      clock: { speechMs: 240_000, prepMs: 120_000 },
+    };
+    assert({
+      given: 'rules with one seat per side, no judge and a millisecond clock',
+      should: 'parse to an equal value',
+      actual: formatRulesSchema.parse(rules),
+      expected: rules,
+    });
+    const missingJudge = { affirmative: 1, negative: 1 };
+    assert({
+      given: 'a seat map missing the judge key',
+      should: 'reject it',
+      actual: formatRulesSchema.safeParse({ ...rules, seats: missingJudge })
+        .success,
+      expected: false,
+    });
+    assert({
+      given: 'a seat map with a role outside the vocabulary',
+      should: 'reject it',
+      actual: formatRulesSchema.safeParse({
+        ...rules,
+        seats: { ...rules.seats, spectator: 1 },
+      }).success,
+      expected: false,
+    });
+    assert({
+      given: 'a negative or fractional seat count',
+      should: 'reject both',
+      actual: [
+        formatRulesSchema.safeParse({
+          ...rules,
+          seats: { ...rules.seats, judge: -1 },
+        }).success,
+        formatRulesSchema.safeParse({
+          ...rules,
+          seats: { ...rules.seats, negative: 1.5 },
+        }).success,
+      ],
+      expected: [false, false],
+    });
+    assert({
+      given: 'a clock with a fractional or zero speech duration',
+      should: 'reject both',
+      actual: [
+        formatRulesSchema.safeParse({
+          ...rules,
+          clock: { speechMs: 1000.5, prepMs: 0 },
+        }).success,
+        formatRulesSchema.safeParse({
+          ...rules,
+          clock: { speechMs: 0, prepMs: 0 },
+        }).success,
+      ],
+      expected: [false, false],
     });
   });
 });
