@@ -8,6 +8,13 @@ import {
 } from './auth-mounted-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 
+/** RT-2.2: outbox rows the session-revocation hooks append for this user. */
+const sessionRevokedEvents = (userId: string) =>
+  withSql(
+    (sql) =>
+      sql`SELECT topic FROM outbox WHERE kind = 'session.revoked' AND topic = ${`user:${userId}:inbox`}`,
+  ).then((rows) => rows.length);
+
 /** Backdates a session row's createdAt so the fresh-session gate refuses it. */
 const backdateSession = (token: string, hoursAgo: number) =>
   withSql(
@@ -56,6 +63,10 @@ const sessionTokenOf = async (response: Response): Promise<string> =>
   ((await response.clone().json()) as { session?: { token: string } } | null)
     ?.session?.token ?? '';
 
+const sessionUserIdOf = async (response: Response): Promise<string> =>
+  ((await response.clone().json()) as { session?: { userId: string } } | null)
+    ?.session?.userId ?? '';
+
 describe('AUTH-5.5 session management', () => {
   test('a second sign-in creates a second session, both listed for the account', async () => {
     const { email, cookie: first } = await signUp();
@@ -87,17 +98,25 @@ describe('AUTH-5.5 session management', () => {
     const second = cookieHeader(await redeem(token));
     const before = await protectedRead(second);
     const secondToken = await sessionTokenOf(before);
+    const userId = await sessionUserIdOf(before);
+    const eventsBefore = await sessionRevokedEvents(userId);
     await flows.revokeSession(first, secondToken);
     const after = await protectedRead(second);
     assert({
       given: 'a named other session revoked from the current one',
       should:
-        'let the first request through and deny the next with a fresh (non-cached) read',
+        'let the first request through, deny the next with a fresh (non-cached) read, and append session.revoked to the outbox (RT-2.2)',
       actual: {
         beforeAuthenticated: await isAuthenticated(before),
         afterAuthenticated: await isAuthenticated(after),
+        outboxEventsAppended:
+          (await sessionRevokedEvents(userId)) - eventsBefore,
       },
-      expected: { beforeAuthenticated: true, afterAuthenticated: false },
+      expected: {
+        beforeAuthenticated: true,
+        afterAuthenticated: false,
+        outboxEventsAppended: 1,
+      },
     });
   });
 
@@ -135,6 +154,8 @@ describe('AUTH-5.5 session management', () => {
     const thirdCookie = cookieHeader(
       await redeem(new URL(link2 as URL).searchParams.get('token') ?? ''),
     );
+    const userId = await sessionUserIdOf(await protectedRead(first));
+    const eventsBefore = await sessionRevokedEvents(userId);
     const revoke = await flows.revokeOtherSessions(first);
     const [currentAfter, secondAfter, thirdAfter] = await Promise.all([
       protectedRead(first),
@@ -143,14 +164,23 @@ describe('AUTH-5.5 session management', () => {
     ]);
     assert({
       given: 'revoke-other-sessions called from the first session',
-      should: 'keep the calling session live and deny every other one',
+      should:
+        'keep the calling session live, deny every other one, and append one session.revoked doorbell for the call (RT-2.2)',
       actual: {
         revoked: revoke.ok,
         current: await isAuthenticated(currentAfter),
         second: await isAuthenticated(secondAfter),
         third: await isAuthenticated(thirdAfter),
+        outboxEventsAppended:
+          (await sessionRevokedEvents(userId)) - eventsBefore,
       },
-      expected: { revoked: true, current: true, second: false, third: false },
+      expected: {
+        revoked: true,
+        current: true,
+        second: false,
+        third: false,
+        outboxEventsAppended: 1,
+      },
     });
   });
 

@@ -74,6 +74,7 @@ export const createTestAuthServer = (
     // The composition mints entity ids from this injection; the durable
     // suites share one database, so they need the real cuid2 edge generator.
     ids: systemId,
+    appendSessionRevoked: async () => {},
   });
 
 /** Removes exactly this fixture's records; never touches unrelated rows. */

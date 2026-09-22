@@ -16,6 +16,8 @@ const handlers = createConfirmEmailHandlers({
         database.revokeOtherSessions(userId, keepToken),
     };
   },
+  appendSessionRevoked: (userId) =>
+    getResources().database.appendSessionRevoked(userId),
 });
 export const GET = handlers.GET;
 export const HEAD = handlers.HEAD;
