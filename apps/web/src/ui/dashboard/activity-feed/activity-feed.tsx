@@ -9,7 +9,7 @@ import { avatarSrc } from '../../assets';
 export function ActivityFeed() {
   const activities = useUiState((state) => state.collections.activities);
   return (
-    <Panel icon="bolt" title="Recent Activity">
+    <Panel title="Recent Activity">
       <ul className="flex flex-col gap-4">
         {activities.map((activity) => (
           <li key={activity.headline} className="flex items-start gap-3">

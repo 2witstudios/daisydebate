@@ -1,27 +1,22 @@
 import type { ReactNode } from 'react';
-import { Icon, type IconName } from '../icon/icon';
 
 export type PanelProps = {
+  /** Short label, set as a quiet uppercase eyebrow above the content. */
   readonly title: ReactNode;
-  readonly icon?: IconName;
   /** Trailing header action, e.g. a "See all" ghost button. */
   readonly action?: ReactNode;
   readonly children: ReactNode;
 };
 
-export function Panel({ title, icon, action, children }: PanelProps) {
+/** A card separated from the page by tone, not a border. */
+export function Panel({ title, action, children }: PanelProps) {
   return (
-    <section className={'rounded-md border border-border bg-surface p-5'}>
-      <header className={'mb-4 flex items-center gap-2 text-ink'}>
-        {icon ? (
-          <span className={'inline-flex text-accent'}>
-            <Icon name={icon} size={17} />
-          </span>
-        ) : null}
-        <h2 className={'text-md leading-tight font-heavy tracking-tight'}>
+    <section className="rounded-xl bg-surface p-6 shadow-1">
+      <header className="mb-5 flex min-h-10 items-center gap-2">
+        <h2 className="text-xs font-bold tracking-widest text-ink-muted uppercase">
           {title}
         </h2>
-        {action ? <div className={'ml-auto'}>{action}</div> : null}
+        {action ? <div className="-mr-3 ml-auto">{action}</div> : null}
       </header>
       {children}
     </section>

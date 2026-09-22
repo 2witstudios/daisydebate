@@ -80,7 +80,7 @@ export function AuthHeading({
       >
         {eyebrow}
       </p>
-      <h1 className="font-display text-auth-display leading-auth-display font-semibold tracking-auth-display text-balance max-narrow:text-3xl">
+      <h1 className="font-display text-display leading-display font-semibold tracking-display text-balance max-narrow:text-3xl">
         {title}
       </h1>
       <p className="text-lg text-ink-muted">{children}</p>

@@ -157,8 +157,13 @@
   --text-xl: 1.4375rem;
   --text-2xl: 1.875rem;
   --text-3xl: 2.5rem;
+  /* Editorial display headline (sign-in steps, dashboard hero). */
+  --text-display: 4.5rem;
+  /* The display voice at a size that shares its row (dashboard hero). */
+  --text-display-sm: 3.5rem;
   --leading-tight: 1.15;
   --leading-normal: 1.6;
+  --leading-display: 1.02;
   --font-body:
     var(--font-face-sans), ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
     sans-serif;
@@ -170,6 +175,7 @@
   --font-weight-heavy: 750;
   --font-weight-black: 800;
   --ease-standard: ease;
+  --tracking-display: -0.03em;
   --tracking-tighter: -0.02em;
   --tracking-snug: -0.015em;
   --tracking-tight: -0.01em;

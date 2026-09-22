@@ -270,10 +270,15 @@ export function createAuthServer<
         });
       } catch {
         // The provider accepted the message, so the user has their email:
-        // report success. Only bounce correlation is lost; log it safely.
+        // report success. The opaque provider id (no recipient data) keeps
+        // the send reconcilable for bounce and complaint correlation.
         dependencies.logger.log(
           'auth.mail.receipt_failed',
-          { operation: 'auth.mail.send', errorCode: 'INFRASTRUCTURE' },
+          {
+            operation: 'auth.mail.send',
+            errorCode: 'INFRASTRUCTURE',
+            providerMessageId: receipt.providerMessageId,
+          },
           'Auth mail receipt was not recorded',
         );
       }

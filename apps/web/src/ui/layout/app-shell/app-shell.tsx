@@ -29,7 +29,7 @@ export function AppShell({ children, rail, account }: AppShellProps) {
       </div>
       <div className="min-w-0 area-main">{children}</div>
       <aside
-        className="sticky top-topbar h-rail-viewport min-w-0 border-l border-border bg-surface area-rail max-rail:static max-rail:h-auto max-rail:border-t max-rail:border-l-0"
+        className="sticky top-topbar h-rail-viewport min-w-0 border-l border-border bg-background area-rail max-rail:static max-rail:h-auto max-rail:border-t max-rail:border-l-0"
         aria-label="Sidebar"
       >
         <RightRail>{rail}</RightRail>

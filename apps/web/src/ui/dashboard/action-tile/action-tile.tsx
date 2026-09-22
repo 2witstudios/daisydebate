@@ -31,16 +31,16 @@ export function ActionTile({
   return (
     <Link
       href={href}
-      className="group flex h-full flex-col gap-3 rounded-md border border-border bg-surface p-5 text-ink no-underline transition duration-140 ease-standard hover:border-border-strong hover:bg-surface-raised"
+      className="group flex h-full flex-col gap-4 rounded-xl bg-surface p-6 text-ink no-underline shadow-1 transition duration-140 ease-standard hover:bg-surface-raised hover:no-underline"
     >
       <Icon
         name={glyph}
-        size={40}
+        size={28}
         strokeWidth={1.6}
         className={actionTileTintClass(tint)}
       />
       <div className="flex flex-1 flex-col gap-1">
-        <h3 className="text-xl leading-tile-title font-heavy tracking-tight">
+        <h3 className="font-display text-xl leading-tile-title font-semibold tracking-tight">
           {title}
         </h3>
         <p className="line-clamp-2 text-base leading-tile-copy text-ink-muted">

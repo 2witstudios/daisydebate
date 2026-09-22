@@ -7,8 +7,8 @@ import { useUiState } from '../../store/store';
 export function TopicCard() {
   const todaysTopic = useUiState((state) => state.resources.todaysTopic);
   return (
-    <Panel icon="message" title="Today's Topic">
-      <p className="mb-4 text-base leading-topic-question font-semibold">
+    <Panel title="Today's Topic">
+      <p className="mb-5 font-display text-xl leading-tight font-semibold text-balance">
         {todaysTopic}
       </p>
       <Button variant="secondary" className="w-full">

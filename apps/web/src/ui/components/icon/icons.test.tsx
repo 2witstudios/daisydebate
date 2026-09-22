@@ -42,13 +42,12 @@ describe('icon set', () => {
     const names = referencedIcons();
     assert({
       given: 'a scan of non-test source for literal icon references',
-      should:
-        'see JSX literals, panel/stat icon props, and nav/tile data alike',
+      should: 'see JSX literals, stat icon props, and nav/tile data alike',
       actual: [
         'calendar',
         'chevronRight',
         'bell',
-        'message',
+        'key',
         'home',
         ...tiles.map((tile) => tile.glyph),
       ].filter((name) => !names.includes(name)),

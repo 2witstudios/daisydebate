@@ -47,7 +47,7 @@ export function Sidebar() {
           </li>
         ))}
       </ul>
-      <p className="mx-5 mt-6 mb-2 flex flex-col gap-2 rounded-md border border-border bg-surface px-4 py-5 text-sm text-ink-muted italic max-compact:hidden short:hidden">
+      <p className="mx-5 mt-6 mb-2 flex flex-col gap-2 rounded-xl bg-surface-raised px-4 py-5 text-sm text-ink-muted italic max-compact:hidden short:hidden">
         <Icon name="quote" size={18} className="text-accent" />
         <span>
           Better arguments.
