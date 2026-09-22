@@ -56,7 +56,7 @@ export function Topbar({ account }: { readonly account: ShellAccount }) {
         className="flex items-center gap-3 text-ink no-underline hover:no-underline"
       >
         <DaisyLogo />
-        <span className="font-display text-xl leading-shell-brand font-semibold tracking-tight max-narrow:hidden">
+        <span className="font-display text-xl leading-shell-brand font-semibold tracking-tight text-ink max-narrow:hidden">
           Daisy
         </span>
         <span className="flex flex-col border-l border-border pl-2 text-shell-tagline leading-shell-tagline font-strong tracking-widest text-ink-faint uppercase max-rail:hidden">
