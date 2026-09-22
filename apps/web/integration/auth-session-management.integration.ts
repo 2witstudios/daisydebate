@@ -32,6 +32,20 @@ const protectedRead = (cookie: string) =>
   );
 
 /**
+ * An ordinary `/get-session` call with no per-request cache bypass — what
+ * every caller other than this suite's own explicit checks actually sends.
+ * Its freshness depends entirely on the server's own
+ * `session.cookieCache: { enabled: false }` (`server.ts`), not on any
+ * request-side opt-out.
+ */
+const plainRead = (cookie: string) =>
+  authRoute.GET(
+    new Request(`${origin}/api/auth/get-session`, {
+      headers: { cookie, [CLIENT_IP_HEADER]: newClient() },
+    }),
+  );
+
+/**
  * `/get-session` always answers 200; a revoked, expired or absent session is
  * a `null` body, not an error status, so the live signal is the body itself.
  */
@@ -79,6 +93,29 @@ describe('AUTH-5.5 session management', () => {
       given: 'a named other session revoked from the current one',
       should:
         'let the first request through and deny the next with a fresh (non-cached) read',
+      actual: {
+        beforeAuthenticated: await isAuthenticated(before),
+        afterAuthenticated: await isAuthenticated(after),
+      },
+      expected: { beforeAuthenticated: true, afterAuthenticated: false },
+    });
+  });
+
+  test('a revoked session is denied even by an ordinary read that never asked to bypass the cache', async () => {
+    const { email, cookie: first } = await signUp();
+    const { requestLink, redeem } = flows.account.flows;
+    const { link } = await requestLink(email);
+    const token = new URL(link as URL).searchParams.get('token') ?? '';
+    const second = cookieHeader(await redeem(token));
+    const before = await plainRead(second);
+    const secondToken = await sessionTokenOf(before);
+    await flows.revokeSession(first, secondToken);
+    const after = await plainRead(second);
+    assert({
+      given:
+        'a named other session revoked, then read back with no `disableCookieCache` opt-out',
+      should:
+        "deny it anyway — the server's own cookieCache:{enabled:false} setting, not the caller, is what keeps this fresh",
       actual: {
         beforeAuthenticated: await isAuthenticated(before),
         afterAuthenticated: await isAuthenticated(after),
