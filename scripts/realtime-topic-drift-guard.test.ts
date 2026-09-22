@@ -17,20 +17,32 @@ setupRitewayBun();
  */
 const repoRoot = path.resolve(import.meta.dir, '..');
 const scanTargets = ['apps/web', 'apps/realtime'];
+const FAMILY = '(?:debate|user|standings)';
 /**
  * Matches a topic prefix immediately followed by string interpolation or
- * concatenation, e.g. `` `debate:${debateId}` `` or `'user:' + userId`.
- * Deliberately narrower than "any `debate:` substring": permission strings
- * such as `'debate:create'` are a single literal token with no
- * interpolation or `+` after the prefix, so they never match.
+ * concatenation, in every form seen in review: template-literal
+ * interpolation, quote/backtick concatenation with `+`, `.concat(...)`, an
+ * array literal starting with the bare family name fed to `.join(...)`, and
+ * a template literal with a placeholder fed to `.replace(...)`. Deliberately
+ * narrower than "any `debate:` substring": permission strings such as
+ * `'debate:create'` are a single literal token with no interpolation,
+ * concatenation, `.concat`, `.join` or `.replace` nearby, so they never
+ * match.
  */
-const handBuiltTopicPattern =
-  /(`(?:debate|user|standings):\$\{)|(['"](?:debate|user|standings):['"]\s*\+)/;
+const handBuiltTopicPattern = new RegExp(
+  [
+    `\`${FAMILY}:\\$\\{`, // `debate:${...}`
+    `['"\`]${FAMILY}:['"\`]\\s*\\+`, // 'debate:' + ... / `debate:` + ...
+    `['"\`]${FAMILY}:['"\`]\\s*\\.concat\\(`, // 'debate:'.concat(...)
+    `\\[\\s*['"\`]${FAMILY}['"\`]\\s*,[^\\]]*\\]\\s*\\.join\\(`, // ['debate', id].join(...)
+    `\`${FAMILY}:[^\`]*\`\\s*\\.replace\\(`, // `debate:%s`.replace(...)
+  ].join('|'),
+);
 
 async function findHandBuiltTopics(appPath: string): Promise<string[]> {
   const dir = path.join(repoRoot, appPath);
   if (!existsSync(dir)) return [];
-  const glob = new Bun.Glob('**/*.{ts,tsx}');
+  const glob = new Bun.Glob('**/*.{ts,tsx,js,mjs}');
   const hits: string[] = [];
   for await (const relativePath of glob.scan({ cwd: dir, dot: false })) {
     if (relativePath.split(path.sep).includes('node_modules')) continue;
@@ -54,23 +66,34 @@ describe('realtime topic drift guard', () => {
     });
   });
 
-  test('the detector itself is a real scan, not a silent pass: it flags a hand-built topic and clears a builder call', () => {
+  test('the detector itself is a real scan, not a silent pass: it flags every known hand-built form and clears a builder call', () => {
+    const handBuilt = [
+      'const topic = `debate:${debateId}:presence`;', // template-literal interpolation
+      "const topic = 'user:' + id + ':inbox';", // quote concatenation
+      'const topic = `debate:` + id;', // backtick concatenation
+      "const topic = ['debate', id].join(':');", // array + .join
+      "const topic = 'standings:'.concat(season);", // .concat
+      'const topic = `debate:%s`.replace("%s", id);', // template + .replace
+    ];
     assert({
-      given:
-        'source that builds a debate topic with a template literal instead of the shared builder',
+      given: 'every hand-built topic form seen in review',
       should: 'match the drift-guard pattern',
-      actual: handBuiltTopicPattern.test(
-        'const topic = `debate:${debateId}:presence`;',
-      ),
-      expected: true,
+      actual: handBuilt.map((source) => handBuiltTopicPattern.test(source)),
+      expected: handBuilt.map(() => true),
     });
     assert({
-      given: 'source using the shared builder from @daisy/protocol',
+      given:
+        'source using the shared builder from @daisy/protocol, and an unrelated permission string',
       should: 'not match the drift-guard pattern',
-      actual: handBuiltTopicPattern.test(
-        'const topic = buildDebatePresenceTopic(debateId);',
-      ),
-      expected: false,
+      actual: [
+        handBuiltTopicPattern.test(
+          'const topic = buildDebatePresenceTopic(debateId);',
+        ),
+        handBuiltTopicPattern.test(
+          "requirePermission(principal, 'debate:create');",
+        ),
+      ],
+      expected: [false, false],
     });
   });
 });

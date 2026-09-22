@@ -1,15 +1,7 @@
 import { z } from 'zod';
-import { idSchema } from './primitives';
+import { idSchema, debateRoleSchema } from './primitives';
 export * from './primitives';
 export const phaseSchema = z.enum(['waiting', 'active', 'completed']);
-/**
- * The one debate role vocabulary (ADR 0029). Every seat map, CHECK constraint
- * and role rule derives from this array; spectators are Redis presence, not a
- * durable role. Widening it is a forward migration.
- */
-export const debateRoles = ['affirmative', 'negative', 'judge'] as const;
-export type DebateRole = (typeof debateRoles)[number];
-export const debateRoleSchema = z.enum(debateRoles);
 const seatCountSchema = z.int().min(0);
 /**
  * Format rules stored in `formats.rules`. `seats` is exhaustive over the role

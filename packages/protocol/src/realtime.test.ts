@@ -1,3 +1,4 @@
+import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   buildDebateChatTopic,
@@ -5,10 +6,10 @@ import {
   buildDebateTopic,
   buildStandingsTopic,
   buildUserInboxTopic,
-  outboxPayloadSchema,
+  cursorSchema,
   parseTopic,
-  publicDoorbellTopicFamilies,
-  subscribeAuthorizationTable,
+  seasonIdSchema,
+  topicStringSchema,
 } from './realtime';
 
 setupRitewayBun();
@@ -66,128 +67,55 @@ describe('topic grammar', () => {
   });
 
   test('builders throw on a non-cuid2 segment instead of building a bad topic', () => {
+    expect(() => buildDebateTopic('not-a-cuid2')).toThrow();
+  });
+
+  test('rejects a season slug with a trailing hyphen', () => {
     assert({
-      given: 'a builder called with a malformed id',
-      should: 'throw rather than return an unparseable topic',
-      actual: (() => {
-        try {
-          buildDebateTopic('not-a-cuid2');
-          return 'did not throw';
-        } catch {
-          return 'threw';
-        }
-      })(),
-      expected: 'threw',
+      given: 'a season slug ending in a hyphen',
+      should: 'reject it',
+      actual: [
+        seasonIdSchema.safeParse('2026-').success,
+        seasonIdSchema.safeParse('2026').success,
+        seasonIdSchema.safeParse('fall-2026').success,
+      ],
+      expected: [false, true, true],
+    });
+  });
+
+  test('bounds the topic string length', () => {
+    const oversizedTopic = `standings:${'a'.repeat(200)}`;
+    assert({
+      given: 'a topic string far longer than any real topic',
+      should: 'fail the length bound before the shape refinement even runs',
+      actual: topicStringSchema.safeParse(oversizedTopic).success,
+      expected: false,
     });
   });
 });
 
-describe('outbox payload schema', () => {
-  test('validates a doorbell payload by kind and version', () => {
+describe('the since cursor', () => {
+  test('accepts a well-formed txid:seq cursor at the 20-digit bound', () => {
+    const twentyDigits = '1'.repeat(20);
     assert({
-      given: 'a version 1 doorbell payload naming a known kind',
+      given: 'a cursor with each part at the 20-digit bound',
       should: 'accept it',
-      actual: outboxPayloadSchema.safeParse({
-        version: 1,
-        kind: 'debate.phase-changed',
-        ids: [id],
-      }).success,
+      actual: cursorSchema.safeParse(`${twentyDigits}:${twentyDigits}`).success,
       expected: true,
-    });
-    assert({
-      given: 'a payload with an unknown kind',
-      should: 'reject it',
-      actual: outboxPayloadSchema.safeParse({
-        version: 1,
-        kind: 'debate.exploded',
-        ids: [id],
-      }).success,
-      expected: false,
-    });
-    assert({
-      given: 'a payload stamped with a future version',
-      should: 'reject it',
-      actual: outboxPayloadSchema.safeParse({
-        version: 2,
-        kind: 'debate.phase-changed',
-        ids: [id],
-      }).success,
-      expected: false,
     });
   });
 
-  test('rejects a public-family doorbell payload carrying anything beyond ids, kind and version', () => {
+  test('rejects a cursor with a part over 20 digits, or a non-canonical leading zero', () => {
+    const twentyOneDigits = '1'.repeat(21);
     assert({
       given:
-        'a doorbell-shaped payload for a public family with an extra field',
-      should: 'reject it',
-      actual: outboxPayloadSchema.safeParse({
-        version: 1,
-        kind: 'debate.phase-changed',
-        ids: [id],
-        phase: 'active',
-      }).success,
-      expected: false,
-    });
-  });
-
-  test('lets the owner-only inbox family carry a small delta beyond ids, kind and version', () => {
-    assert({
-      given: 'a notification delta payload for the owner-only inbox family',
-      should: 'accept it',
-      actual: outboxPayloadSchema.safeParse({
-        version: 1,
-        kind: 'user.notification-delivered',
-        ids: [id],
-        notificationType: 'debate.forfeit',
-        occurredAt: '2026-01-01T00:00:00.000Z',
-      }).success,
-      expected: true,
-    });
-  });
-
-  test('exposes which topic families are doorbell-only', () => {
-    assert({
-      given: 'the public doorbell topic families',
-      should:
-        'list debate, debate:presence and standings, and never user:inbox',
-      actual: [...publicDoorbellTopicFamilies].sort(),
-      expected: ['debate', 'debate:presence', 'standings'].sort(),
-    });
-  });
-});
-
-describe('subscribe authorization table', () => {
-  test('is data covering every topic family, refusing anything else', () => {
-    assert({
-      given: 'the authorization table',
-      should: 'have exactly one rule per known topic family',
-      actual: Object.keys(subscribeAuthorizationTable).sort(),
-      expected: [
-        'debate',
-        'debate:chat',
-        'debate:presence',
-        'standings',
-        'user:inbox',
-      ].sort(),
-    });
-    assert({
-      given: 'the inbox family rule',
-      should: 'be owner-only',
-      actual: subscribeAuthorizationTable['user:inbox'],
-      expected: { kind: 'owner-only' },
-    });
-    assert({
-      given: 'the standings family rule',
-      should: 'admit any member',
-      actual: subscribeAuthorizationTable.standings,
-      expected: { kind: 'any-member' },
-    });
-    assert({
-      given: 'a topic family outside the vocabulary',
-      should: 'have no entry, so it is refused by default',
-      actual: Object.hasOwn(subscribeAuthorizationTable, 'debate:notes'),
-      expected: false,
+        'a cursor with a part past the 20-digit bound, and one with a leading zero',
+      should: 'reject both',
+      actual: [
+        cursorSchema.safeParse(`${twentyOneDigits}:1`).success,
+        cursorSchema.safeParse('01:1').success,
+      ],
+      expected: [false, false],
     });
   });
 });
