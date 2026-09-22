@@ -1,33 +1,60 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+import { signUpMember } from './support/accounts';
 
-const routeTitles: Record<string, string> = {
+const publicTitles: Record<string, string> = {
   '/': 'Daisy',
+  '/debates': 'Debates',
+  '/watch': 'Watch',
+  '/leaderboard': 'Leaderboard',
+  '/tournaments': 'Tournaments',
+  '/train': 'Train',
+  '/prep': 'Prep',
+};
+// Participant areas (and Settings) need an account (AUTH-4.5).
+const guardedTitles: Record<string, string> = {
   '/play': 'Play',
   '/ranked': 'Ranked',
   '/lobby': 'Lobby',
-  '/debates': 'Debates',
-  '/watch': 'Watch',
   '/judge': 'Judge',
-  '/leaderboard': 'Leaderboard',
-  '/tournaments': 'Tournaments',
   '/recordings': 'Recordings',
-  '/train': 'Train',
-  '/prep': 'Prep',
   '/settings': 'Settings',
 };
 
-test('route shells render with their metadata titles', async ({ page }) => {
-  for (const [route, title] of Object.entries(routeTitles)) {
-    await page.goto(route);
-    await expect(page).toHaveTitle(
-      route === '/'
-        ? new RegExp(`^${title}$`)
-        : new RegExp(`^${title} · Daisy$`),
+const expectShell = async (page: Page, route: string, title: string) => {
+  await page.goto(route);
+  await expect(page).toHaveURL(new RegExp(`${route}$`));
+  await expect(page).toHaveTitle(
+    route === '/' ? new RegExp(`^${title}$`) : new RegExp(`^${title} · Daisy$`),
+  );
+  await expect(page.locator('main h1')).toHaveText(
+    route === '/' ? 'Join the marketplace of ideas' : title,
+  );
+};
+
+test('public route shells render with their metadata titles', async ({
+  page,
+}) => {
+  for (const [route, title] of Object.entries(publicTitles))
+    await expectShell(page, route, title);
+});
+
+test('guarded areas send visitors to sign-in and render for a member', async ({
+  page,
+  request,
+}) => {
+  for (const route of Object.keys(guardedTitles)) {
+    const response = await request.get(route, { maxRedirects: 0 });
+    expect(response.status()).toBe(307);
+    expect(new URL(response.headers()['location'] ?? '').pathname).toBe(
+      '/sign-in',
     );
-    await expect(page.locator('main h1')).toHaveText(
-      route === '/' ? 'Join the marketplace of ideas' : title,
-    );
+    expect(
+      new URL(response.headers()['location'] ?? '').searchParams.get('next'),
+    ).toBe(route);
   }
+  await signUpMember(page.request);
+  for (const [route, title] of Object.entries(guardedTitles))
+    await expectShell(page, route, title);
 });
 
 test('dynamic profile route renders the requested username', async ({
