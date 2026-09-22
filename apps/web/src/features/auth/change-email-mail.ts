@@ -48,6 +48,9 @@ export const sendChangeEmailVerification =
   (origin: string, deliver: Deliver) =>
   async ({ user, url }: { user: { email: string }; url: string }) => {
     const href = buildConfirmEmailLink(origin, url).toString();
-    const message = renderAuthEmail({ kind: 'email-change-confirm', url: href });
+    const message = renderAuthEmail({
+      kind: 'email-change-confirm',
+      url: href,
+    });
     await sendOrUnavailable(deliver, { to: user.email, ...message });
   };

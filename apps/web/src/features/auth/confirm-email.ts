@@ -69,8 +69,7 @@ export function createConfirmEmailHandlers({ auth }: ConfirmEmailDependencies) {
     } | null;
     const token = body?.session?.token;
     const userId = body?.session?.userId;
-    if (typeof token !== 'string' || typeof userId !== 'string')
-      return false;
+    if (typeof token !== 'string' || typeof userId !== 'string') return false;
     try {
       const internalAdapter = await auth().internalAdapter();
       const sessions = await internalAdapter.listSessions(userId);
@@ -102,7 +101,11 @@ export function createConfirmEmailHandlers({ auth }: ConfirmEmailDependencies) {
     const cookies = response.headers.getSetCookie();
     const revoked = await revokeOtherSessionsFor(request, cookies);
     if (!revoked)
-      return renderEmailConfirmPage({ kind: 'incomplete', callbackURL }, 502, cookies);
+      return renderEmailConfirmPage(
+        { kind: 'incomplete', callbackURL },
+        502,
+        cookies,
+      );
     const headers = new Headers();
     for (const cookie of cookies) headers.append('set-cookie', cookie);
     return redirect(callbackURL, headers);
