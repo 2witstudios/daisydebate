@@ -15,6 +15,22 @@ if (!new URL(testDatabaseUrl).pathname.endsWith('_test'))
 // validated test database before the first getResources() call.
 process.env.DATABASE_URL = testDatabaseUrl;
 
+// `debates.format` is a foreign key (ADR 0029) and CI only migrates, so the
+// proof format is reference data this vertical provides for itself; the seed
+// owns the canonical row and the insert yields to it.
+{
+  const reference = new SQL(testDatabaseUrl);
+  try {
+    await reference`
+      insert into formats (id, name, rules, ranked_eligible)
+      values ('foundation', 'Foundation (architectural proof)', '{"version":1,"seats":{"affirmative":1,"negative":1,"judge":0},"clock":{"speechMs":240000,"prepMs":120000}}'::jsonb, false)
+      on conflict (id) do nothing
+    `;
+  } finally {
+    await reference.close();
+  }
+}
+
 const { POST, GET } = await import('../src/app/api/foundation/proof/route');
 const { getResources, closeResources } =
   await import('../src/server/resources');
