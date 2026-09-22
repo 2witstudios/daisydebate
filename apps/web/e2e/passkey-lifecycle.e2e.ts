@@ -131,8 +131,11 @@ test('removing the last passkey still leaves magic-link recovery working', async
   await page.getByRole('button', { name: 'Remove' }).click();
   await expect(page.getByRole('button', { name: 'Remove' })).toHaveCount(0);
 
+  // The button's own click handler navigates to /sign-in once sign-out
+  // resolves; racing it with an explicit page.goto risks aborting whichever
+  // navigation loses, so wait for it to land instead of re-navigating.
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
-  await page.goto('/sign-in');
+  await page.waitForURL(/\/sign-in$/);
   await page.getByLabel('Email').fill(email);
   await page.getByRole('button', { name: 'Continue' }).click();
   await expect(
