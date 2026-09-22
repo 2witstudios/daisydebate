@@ -160,10 +160,12 @@ describe('auth mail receipt recording', () => {
     const serialized = JSON.stringify(logs);
     assert({
       given: 'the provider accepted a message but recording its receipt fails',
-      should: 'report success and log a safe receipt_failed event',
+      should:
+        'report success and log a receipt_failed event whose only addition is the provider message id',
       actual: {
         result,
         events: logs.map((entry) => entry[0]),
+        receiptFields: logs[0]?.[1],
         leaks: ['player@daisy', 'secret-link', 'record down'].some((s) =>
           serialized.includes(s),
         ),
@@ -171,6 +173,11 @@ describe('auth mail receipt recording', () => {
       expected: {
         result: 'sent',
         events: ['auth.mail.receipt_failed', 'auth.mail.sent'],
+        receiptFields: {
+          operation: 'auth.mail.send',
+          errorCode: 'INFRASTRUCTURE',
+          providerMessageId: 'msg_1',
+        },
         leaks: false,
       },
     });

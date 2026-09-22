@@ -77,6 +77,11 @@ live under `<REDIS_NAMESPACE>:v1:rl:<sha3-256>` and expire within 60 seconds.
 - Webhooks that fail signature or tolerance answer `400`; events for a message
   recorded moments earlier answer `503` so the provider retries; events for
   unknown old messages are acknowledged and dropped.
+- Receipt write failure after the provider accepted a message: the request
+  still succeeds (the user has the email) and `auth.mail.receipt_failed` logs
+  the opaque `providerMessageId`, nothing else about the message. Until its
+  `email_delivery` row exists, that message's bounce or complaint is dropped
+  as unknown; reconcile by finding the message ID in the log.
 
 ## Retention of verification records
 
