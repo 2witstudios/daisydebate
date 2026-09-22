@@ -209,7 +209,10 @@ const composeBetterAuth = (dependencies: {
       }),
       magicLinkGatePlugin,
       freshSessionGatePlugin,
-      sessionRevokedOutboxPlugin(dependencies.appendSessionRevoked),
+      sessionRevokedOutboxPlugin(
+        dependencies.appendSessionRevoked,
+        dependencies.logger,
+      ),
     ],
   });
   return {

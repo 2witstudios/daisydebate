@@ -17,6 +17,7 @@ const eventRegistry = {
   'auth.cleanup.failed': 'error',
   'realtime.cleanup.completed': 'info',
   'realtime.cleanup.failed': 'error',
+  'realtime.outbox.append_failed': 'error',
   'db.query.failed': 'error',
   'redis.command.failed': 'error',
   'server.start': 'info',
