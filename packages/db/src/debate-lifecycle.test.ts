@@ -88,8 +88,8 @@ describe('database debate lifecycle projections', () => {
       actual: {
         statements: queries.length,
         setsPhaseAndStart:
-          queries[0]?.query.includes('"phase"') === true &&
-          queries[0]?.query.includes('"started_at"') === true,
+          queries[0]?.query.includes('"phase" = ') === true &&
+          queries[0]?.query.includes('"started_at" = ') === true,
         phaseBound: queries[0]?.params.includes('active'),
         record: [saved?.phase, saved?.startedAt],
       },
@@ -130,11 +130,60 @@ describe('database debate lifecycle projections', () => {
       actual: {
         statements: queries.length,
         setsCompletion:
-          queries[0]?.query.includes('"completed_at"') === true &&
-          queries[0]?.query.includes('"outcome"') === true,
+          queries[0]?.query.includes('"completed_at" = ') === true &&
+          queries[0]?.query.includes('"outcome" = ') === true,
         outcomeBound: queries[0]?.params.includes('affirmative'),
       },
       expected: { statements: 1, setsCompletion: true, outcomeBound: true },
+    });
+  });
+
+  test('leaves started_at untouched when a debate completes', async () => {
+    const record = sampleDebate();
+    const { database, queries } = createTestDatabase([[]]);
+
+    await database.saveSnapshot({
+      id: record.id,
+      expectedVersion: record.version,
+      snapshot: { phase: 'completed' },
+      updatedAt: record.updatedAt,
+      outcome: 'abandoned',
+    });
+
+    assert({
+      given: 'a debate abandoned straight from waiting',
+      should:
+        'complete without fabricating a start time, so the CHECK decides whether a never-started completion is legal',
+      actual: {
+        // The RETURNING clause lists every column; only the SET clause matters.
+        setsStartedAt: queries[0]?.query.includes('"started_at" = '),
+        setsCompletion:
+          queries[0]?.query.includes('"completed_at" = ') === true &&
+          queries[0]?.params.includes('abandoned'),
+      },
+      expected: { setsStartedAt: false, setsCompletion: true },
+    });
+  });
+
+  test('refuses an outcome on a snapshot that is not completed', async () => {
+    const record = sampleDebate();
+    const { database, queries } = createTestDatabase([[]]);
+
+    await expect(
+      database.saveSnapshot({
+        id: record.id,
+        expectedVersion: record.version,
+        snapshot: { phase: 'active' },
+        updatedAt: record.updatedAt,
+        outcome: 'draw',
+      }),
+    ).rejects.toThrow('outcome');
+
+    assert({
+      given: 'an active snapshot saved with an outcome',
+      should: 'reject before any statement instead of silently dropping it',
+      actual: queries.length,
+      expected: 0,
     });
   });
 });

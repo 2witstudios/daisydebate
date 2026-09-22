@@ -252,8 +252,9 @@ export function createDatabase({
      * Null means optimistic conflict or absent record; retry only after
      * re-reading and re-running the domain operation. Lifecycle projections
      * travel in the same UPDATE (ADR 0029): `phase` from the snapshot,
-     * `started_at` on the first save leaving `waiting`, `completed_at` plus
-     * the caller's `outcome` on completion (refused up front if absent).
+     * `started_at` on the first save that becomes `active`, `completed_at`
+     * plus the caller's `outcome` on completion. An outcome is required when
+     * completing and refused otherwise, before any statement runs.
      */
     async saveSnapshot(input: {
       id: string;
@@ -263,8 +264,8 @@ export function createDatabase({
       outcome?: DebateOutcome;
     }): Promise<DebateRecord | null> {
       const phase = snapshotPhase(input.snapshot);
-      if (phase === 'completed' && input.outcome === undefined)
-        throw new Error('A completed snapshot requires an outcome');
+      if ((phase === 'completed') !== (input.outcome !== undefined))
+        throw new Error('An outcome is required exactly when completing');
       const updatedAt = new Date(input.updatedAt);
       try {
         const [row] = await database
@@ -274,15 +275,17 @@ export function createDatabase({
             version: sql`${debates.version}+1`,
             updatedAt,
             phase,
-            startedAt:
-              phase === 'waiting'
-                ? null
-                : sql`coalesce(${debates.startedAt}, ${updatedAt})`,
+            // Completion leaves started_at as it is: a debate abandoned from
+            // waiting never started, and the CHECK decides what is legal.
+            ...(phase === 'waiting' && { startedAt: null }),
+            ...(phase === 'active' && {
+              startedAt: sql`coalesce(${debates.startedAt}, ${updatedAt})`,
+            }),
             completedAt:
               phase === 'completed'
                 ? sql`coalesce(${debates.completedAt}, ${updatedAt})`
                 : null,
-            outcome: phase === 'completed' ? input.outcome : null,
+            outcome: input.outcome ?? null,
           })
           .where(
             and(
