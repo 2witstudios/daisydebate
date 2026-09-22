@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { readFileSync } from 'node:fs';
 import {
+  EXPECTED_RELEASE_COMMAND,
   findDockerfileBunVersionProblem,
   findFlyReleaseCommandProblem,
   verifyDeployConfig,
@@ -78,6 +79,48 @@ describe('findFlyReleaseCommandProblem', () => {
         '[deploy]\n  release_command = ""\n',
       ),
       expected: 'fly.toml release_command is empty',
+    });
+  });
+
+  test('fly.toml with a wrong non-empty release_command', () => {
+    assert({
+      given: 'release_command = "true", which skips the migration entirely',
+      should: 'report the mismatch, not pass silently',
+      actual: findFlyReleaseCommandProblem(
+        '[deploy]\n  release_command = "true"\n',
+      ),
+      expected: `fly.toml release_command is "true", expected "${EXPECTED_RELEASE_COMMAND}"`,
+    });
+  });
+
+  test('fly.toml with the release_command commented out', () => {
+    assert({
+      given: `[deploy] with only a commented-out release_command`,
+      should: 'report it missing rather than read the comment as the value',
+      actual: findFlyReleaseCommandProblem(
+        `[deploy]\n  # release_command = "${EXPECTED_RELEASE_COMMAND}"\n`,
+      ),
+      expected: 'fly.toml has no `release_command` under [deploy]',
+    });
+  });
+
+  test('release_command present, but under a different table than [deploy]', () => {
+    assert({
+      given: `a correct-looking release_command under [other] instead of [deploy]`,
+      should: 'report it missing under [deploy], ignoring the other table',
+      actual: findFlyReleaseCommandProblem(
+        `[deploy]\n[other]\n  release_command = "${EXPECTED_RELEASE_COMMAND}"\n`,
+      ),
+      expected: 'fly.toml has no `release_command` under [deploy]',
+    });
+  });
+
+  test('fly.toml missing the [deploy] table entirely', () => {
+    assert({
+      given: 'a fly.toml with no [deploy] table at all',
+      should: 'report the table missing',
+      actual: findFlyReleaseCommandProblem('[env]\n  PORT = "8080"\n'),
+      expected: 'fly.toml has no `[deploy]` table',
     });
   });
 });

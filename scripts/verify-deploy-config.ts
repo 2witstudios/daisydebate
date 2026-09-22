@@ -14,11 +14,36 @@ export function findDockerfileBunVersionProblem(input: {
   return null;
 }
 
-/** Pure check: does fly.toml keep a non-empty `[deploy] release_command`? */
+// The migration runner path baked into the runtime image by
+// apps/web/Dockerfile (packages/db/scripts/migrate.ts, copied alongside
+// packages/db/migrations). Changing where the Dockerfile puts the runner
+// requires updating this constant too — that coupling is the point: it is
+// the one place release_command drift (a no-op command, or a command that
+// can't run from the image) gets caught before a release ships unmigrated.
+export const EXPECTED_RELEASE_COMMAND =
+  'bun /app/packages/db/scripts/migrate.ts';
+
+/**
+ * Pure check: does fly.toml's `[deploy]` table keep exactly the required
+ * migration release command? Scoped to the `[deploy]` table body so a
+ * same-named key under another table, or a commented-out line, cannot
+ * satisfy it.
+ */
 export function findFlyReleaseCommandProblem(flyToml: string): string | null {
-  const match = flyToml.match(/release_command\s*=\s*"([^"]*)"/);
+  const lines = flyToml.split('\n');
+  const deployStart = lines.findIndex((line) => line.trim() === '[deploy]');
+  if (deployStart === -1) return 'fly.toml has no `[deploy]` table';
+  const bodyLines: string[] = [];
+  for (const line of lines.slice(deployStart + 1)) {
+    if (/^\[/.test(line.trim())) break;
+    if (!line.trim().startsWith('#')) bodyLines.push(line);
+  }
+  const match = bodyLines.join('\n').match(/release_command\s*=\s*"([^"]*)"/);
   if (!match) return 'fly.toml has no `release_command` under [deploy]';
-  if (match[1].trim() === '') return 'fly.toml release_command is empty';
+  const value = match[1].trim();
+  if (value === '') return 'fly.toml release_command is empty';
+  if (value !== EXPECTED_RELEASE_COMMAND)
+    return `fly.toml release_command is "${value}", expected "${EXPECTED_RELEASE_COMMAND}"`;
   return null;
 }
 
