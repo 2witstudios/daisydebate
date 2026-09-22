@@ -17,6 +17,17 @@ const RETENTION_MS = 24 * HOUR_MS;
  * Smaller batches keep each one brief regardless of table size.
  */
 const BATCH_SIZE = 200;
+/**
+ * Throughput bound: at steady state (retention already caught up once),
+ * one hourly run must delete at least as many rows as become eligible
+ * since the last run — the sustained append rate times the interval.
+ * Sized for an expected write rate of 10 rows/s: 10 * 3600s = 36,000
+ * rows/hour, so `maxBatches * BATCH_SIZE` (200 * 200 = 40,000) clears that
+ * with headroom (~11.1 rows/s). A sustained rate above that bound never
+ * drains and the outbox grows without limit; raise `maxBatches`, the
+ * batch size or the run frequency together if the real rate exceeds it.
+ */
+const MAX_BATCHES = 200;
 
 /** RT-2.2, plan "Maintenance prunes the outbox after a retention window". */
 export function createOutboxCleanup({
@@ -25,7 +36,7 @@ export function createOutboxCleanup({
   logger,
   retentionMs = RETENTION_MS,
   batchSize = BATCH_SIZE,
-  maxBatches,
+  maxBatches = MAX_BATCHES,
 }: {
   readonly purge: (input: {
     readonly before: string;
@@ -43,7 +54,7 @@ export function createOutboxCleanup({
     logger,
     retentionMs,
     batchSize,
-    ...(maxBatches === undefined ? {} : { maxBatches }),
+    maxBatches,
     completedEvent: 'realtime.cleanup.completed',
     failedEvent: 'realtime.cleanup.failed',
     operation: 'realtime.cleanup.outbox',
