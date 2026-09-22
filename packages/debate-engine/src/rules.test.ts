@@ -100,4 +100,23 @@ describe('format rules', () => {
       expected: [true, false],
     });
   });
+
+  test('hands out a copy of the rules, never its own', () => {
+    const world = create();
+    const leaked = world.snapshot().rules;
+    leaked.seats.negative = 0;
+    leaked.clock.speechMs = 1;
+    world.join({ participantId: second, side: 'negative' });
+    assert({
+      given: 'a caller that mutates the rules of a snapshot it was handed',
+      should:
+        'keep the runtime on its original rules: the negative seat is still offered and the clock is unchanged',
+      actual: {
+        rules: world.snapshot().rules,
+        seated: world.snapshot().participants.map((p) => p.side),
+      },
+      expected: { rules: foundationRules, seated: ['negative'] },
+    });
+    world.dispose();
+  });
 });
