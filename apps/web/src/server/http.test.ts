@@ -104,6 +104,38 @@ describe('handleOperation', () => {
     });
   });
 
+  test('logs the ingress-resolved client identity for Fly proxy verification', async () => {
+    recorded.length = 0;
+    await handleOperation(
+      new Request('http://localhost/api/foundation/proof', {
+        headers: { 'x-daisy-client-ip': '203.0.113.9' },
+      }),
+      'test.operation',
+      () => Promise.resolve(Response.json({ ok: true })),
+    );
+    assert({
+      given: 'a request carrying the ingress-stamped client identity header',
+      should: 'attach the resolved client identity to the completion log',
+      actual: (recorded.at(-1)?.fields as Record<string, unknown>).clientId,
+      expected: '203.0.113.9',
+    });
+  });
+
+  test('omits clientId when the ingress resolved no client identity', async () => {
+    recorded.length = 0;
+    await handleOperation(
+      new Request('http://localhost/api/foundation/proof'),
+      'test.operation',
+      () => Promise.resolve(Response.json({ ok: true })),
+    );
+    assert({
+      given: 'a request with no ingress-stamped client identity header',
+      should: 'log no clientId field',
+      actual: (recorded.at(-1)?.fields as Record<string, unknown>).clientId,
+      expected: undefined,
+    });
+  });
+
   test('honors caller request IDs that pass the format constraint', async () => {
     const response = await handleOperation(
       new Request('http://localhost/api/foundation/proof', {
