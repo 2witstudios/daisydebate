@@ -79,6 +79,32 @@ describe('client message schema', () => {
       expected: false,
     });
   });
+
+  test('accepts a subscribe carrying a well-formed since cursor and rejects a malformed one', () => {
+    const subscribeWith = (since: unknown) => ({
+      ...base,
+      type: 'subscribe',
+      id,
+      topic: buildDebateTopic(otherId),
+      since,
+    });
+    assert({
+      given:
+        'subscribe with no since, a well-formed since, and a malformed since',
+      should: 'accept the first two and reject the third',
+      actual: [
+        clientMessageSchema.safeParse({
+          ...base,
+          type: 'subscribe',
+          id,
+          topic: buildDebateTopic(otherId),
+        }).success,
+        clientMessageSchema.safeParse(subscribeWith('12:34')).success,
+        clientMessageSchema.safeParse(subscribeWith('not-a-cursor')).success,
+      ],
+      expected: [true, true, false],
+    });
+  });
 });
 
 describe('the connect ticket', () => {
@@ -161,6 +187,29 @@ describe('server message schema and close codes', () => {
         (message) => serverMessageSchema.safeParse(message).success,
       ),
       expected: messages.map(() => true),
+    });
+  });
+
+  test('rejects an event whose payload kind the topic family does not allow', () => {
+    assert({
+      given:
+        'an event on a debate topic carrying the owner-only inbox delta kind',
+      should:
+        'fail safeParse: the event refinement is not just an internal helper, it runs on the wire',
+      actual: serverMessageSchema.safeParse({
+        ...base,
+        type: 'event',
+        topic: buildDebateTopic(otherId),
+        position: '5:14',
+        payload: {
+          version: 1,
+          kind: 'user.notification-delivered',
+          ids: [otherId],
+          notificationType: 'debate.forfeit',
+          occurredAt: '2026-01-01T00:00:00.000Z',
+        },
+      }).success,
+      expected: false,
     });
   });
 

@@ -21,19 +21,33 @@ const FAMILY = '(?:debate|user|standings)';
 /**
  * Matches a topic prefix immediately followed by string interpolation or
  * concatenation, in every form seen in review: template-literal
- * interpolation, quote/backtick concatenation with `+`, `.concat(...)`, an
+ * interpolation, quote/backtick concatenation with `+` (both a prefix
+ * carrying its own `:` and a bare family literal concatenated with a
+ * separate `':'` literal, e.g. `'debate' + ':' + id`), `.concat(...)`, an
  * array literal starting with the bare family name fed to `.join(...)`, and
  * a template literal with a placeholder fed to `.replace(...)`. Deliberately
  * narrower than "any `debate:` substring": permission strings such as
  * `'debate:create'` are a single literal token with no interpolation,
  * concatenation, `.concat`, `.join` or `.replace` nearby, so they never
  * match.
+ *
+ * Known limits, left as heuristics rather than a parser: it is regex over
+ * source text, so it cannot follow a value through a variable
+ * (`const p = 'debate'; p + ':' + id`), an indirect/computed builder call,
+ * or construction spread across multiple statements or files; and it only
+ * catches whitespace matched by `\s`, not exotic separators. It scans
+ * `apps/web`/`apps/realtime` text, so it also cannot see a topic built at
+ * runtime from data (e.g. read from a database column). These bypasses are
+ * real, but each one is more expensive to write than calling the builder,
+ * which is the property this guard is defending, not proving there is no
+ * bypass at all.
  */
 const handBuiltTopicPattern = new RegExp(
   [
     `\`${FAMILY}:\\$\\{`, // `debate:${...}`
     `['"\`]${FAMILY}:['"\`]\\s*\\+`, // 'debate:' + ... / `debate:` + ...
     `['"\`]${FAMILY}:['"\`]\\s*\\.concat\\(`, // 'debate:'.concat(...)
+    `['"\`]${FAMILY}['"\`]\\s*\\+\\s*['"\`]:['"\`]`, // 'debate' + ':' + id
     `\\[\\s*['"\`]${FAMILY}['"\`]\\s*,[^\\]]*\\]\\s*\\.join\\(`, // ['debate', id].join(...)
     `\`${FAMILY}:[^\`]*\`\\s*\\.replace\\(`, // `debate:%s`.replace(...)
   ].join('|'),
@@ -71,6 +85,7 @@ describe('realtime topic drift guard', () => {
       'const topic = `debate:${debateId}:presence`;', // template-literal interpolation
       "const topic = 'user:' + id + ':inbox';", // quote concatenation
       'const topic = `debate:` + id;', // backtick concatenation
+      "const topic = 'debate' + ':' + id;", // bare literal + colon literal
       "const topic = ['debate', id].join(':');", // array + .join
       "const topic = 'standings:'.concat(season);", // .concat
       'const topic = `debate:%s`.replace("%s", id);', // template + .replace

@@ -93,6 +93,19 @@ describe('outbox payload schema', () => {
       expected: [true, true],
     });
   });
+
+  test('access.revoked requires exactly [actorId, debateId], never a single id', () => {
+    assert({
+      given: 'an access.revoked payload with only one id',
+      should: 'reject it: the actor and the debate topic are both required',
+      actual: outboxPayloadSchema.safeParse({
+        version: 1,
+        kind: 'access.revoked',
+        ids: [id],
+      }).success,
+      expected: false,
+    });
+  });
 });
 
 describe('payload-to-topic-family binding (AC4)', () => {

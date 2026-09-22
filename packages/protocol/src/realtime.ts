@@ -6,8 +6,44 @@ import {
   isPayloadAllowedOnTopic,
 } from './realtime-payloads';
 
-export * from './topics';
-export * from './realtime-payloads';
+/**
+ * Explicit re-exports, not `export *` (AGENTS.md: explicit exports, no
+ * barrels). `@daisy/protocol` still has one public entry, `./src/index.ts`,
+ * which re-exports this module; these three named blocks are what make
+ * every symbol from `topics.ts`, `close-codes.ts` and `realtime-payloads.ts`
+ * reachable from it, listed by name rather than by wildcard.
+ */
+export {
+  seasonIdSchema,
+  parseTopic,
+  topicStringSchema,
+  buildDebateTopic,
+  buildDebatePresenceTopic,
+  buildDebateChatTopic,
+  buildUserInboxTopic,
+  buildStandingsTopic,
+} from './topics';
+export type { TopicFamily, ParsedTopic } from './topics';
+
+export { closeCodeTable } from './close-codes';
+export type { CloseCodeReason } from './close-codes';
+
+export {
+  doorbellKinds,
+  doorbellKindSchema,
+  doorbellPayloadSchema,
+  inboxDeltaPayloadSchema,
+  sessionRevokedPayloadSchema,
+  accessRevokedPayloadSchema,
+  outboxPayloadSchema,
+  topicFamilyPayloadKinds,
+  isPayloadAllowedOnTopic,
+} from './realtime-payloads';
+export type {
+  DoorbellKind,
+  OutboxPayload,
+  OutboxPayloadKind,
+} from './realtime-payloads';
 
 /**
  * The wire protocol version. It is both the message-envelope `v` (every
@@ -22,8 +58,10 @@ export const PROTOCOL_VERSION = 1;
  * An opaque `(txid, seq)` outbox position, serialized as `txid:seq`
  * (see the plan's cursor-correctness section). It is an ordering token, not
  * a secret, but its shape is still validated on every use. Each part is
- * bounded to 1-20 digits: `txid` is `xid8` (32-bit) and `seq` is `bigserial`
- * (64-bit, max 20 digits); no leading zero except the value `0` itself.
+ * bounded to 1-20 digits: `txid` is `xid8` (PostgreSQL's 64-bit transaction
+ * id) and `seq` is `bigserial` (a signed 64-bit sequence); 20 digits covers
+ * `xid8`'s full unsigned range, with no leading zero except the value `0`
+ * itself.
  */
 export const cursorSchema = z
   .string()
