@@ -16,6 +16,6 @@ export async function readAuthEntry(
   const next = (await searchParams).next;
   return {
     destination: returnDestination(Array.isArray(next) ? next[0] : next),
-    identity: await identify((await headers()).get('cookie')),
+    identity: await identify(await headers()),
   };
 }

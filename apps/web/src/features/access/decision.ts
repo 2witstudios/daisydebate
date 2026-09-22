@@ -19,6 +19,14 @@ export const SESSION_COOKIE_NAMES = [
   '__Secure-better-auth.session_token',
 ] as const;
 
+/** Whether a raw Cookie header carries a Better Auth session cookie at all. */
+export const hasSessionCookie = (cookieHeader: string | null): boolean =>
+  cookieHeader !== null &&
+  cookieHeader
+    .split(';')
+    .map((pair) => pair.split('=')[0]?.trim() ?? '')
+    .some((name) => (SESSION_COOKIE_NAMES as readonly string[]).includes(name));
+
 /** Areas that need an account; spectator routes stay public. */
 const GUARDED_ROOTS = [
   '/play',

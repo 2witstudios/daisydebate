@@ -1,6 +1,12 @@
 import { createId } from '@paralleldrive/cuid2';
 import { createFlows } from './auth-mounted-flows';
-import { cookieHeader, jsonPost, withSql } from './auth-mounted-helpers';
+import {
+  cookieHeader,
+  jsonPost,
+  newClient,
+  withSql,
+} from './auth-mounted-helpers';
+import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 
 /**
  * Account harness for the stage-4 suites: real sign-up through the mounted
@@ -9,6 +15,9 @@ import { cookieHeader, jsonPost, withSql } from './auth-mounted-helpers';
 export async function createAccountFlows() {
   const flows = await createFlows();
   const { identify } = await import('../src/lib/identity');
+  /** A server-side session read as a page render makes it for one client. */
+  const identifyAs = (cookie: string, client = newClient()) =>
+    identify(new Headers({ cookie, [CLIENT_IP_HEADER]: client }));
   const usernameRoute = await import('../src/app/api/account/username/route');
 
   /** A brand-new account signed in through the real request → confirm path. */
@@ -32,7 +41,7 @@ export async function createAccountFlows() {
       }),
     );
 
-  return { flows, identify, signUp, claim };
+  return { flows, identifyAs, signUp, claim };
 }
 
 export const uniqueName = () => `u${createId().slice(0, 14)}`;

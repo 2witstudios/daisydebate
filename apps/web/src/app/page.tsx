@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  const identity = await identify((await headers()).get('cookie'));
+  const identity = await identify(await headers());
   return (
     <AppShell
       account={shellAccount(identity)}

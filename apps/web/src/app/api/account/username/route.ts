@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 export const POST = createUsernameHandler({
   origin: () => getAuth().config.PUBLIC_APP_URL,
-  identify: (request) => identify(request.headers.get('cookie')),
+  identify: (request) => identify(request.headers),
   limiter: () => getAuth().limiter,
   claim: (input) => getResources().database.claimUsername(input),
 });

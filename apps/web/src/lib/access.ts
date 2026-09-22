@@ -21,7 +21,7 @@ export async function requireAccess(
   requirement: Requirement,
   searchParams: Promise<SearchParams>,
 ): Promise<Identity> {
-  const identity = await identify((await headers()).get('cookie'));
+  const identity = await identify(await headers());
   const decision = decideAccess({
     identity,
     path: requestedPath(path, await searchParams),

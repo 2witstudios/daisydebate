@@ -5,13 +5,13 @@ import {
   uniqueName,
   usernameOf,
 } from './auth-account-helpers';
-import { withSql } from './auth-mounted-helpers';
+import { redisKeys, withSql } from './auth-mounted-helpers';
 import { decideAccess } from '../src/features/access/decision';
 
 if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
   throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
 setupRitewayBun();
-const { flows, identify, signUp, claim } = await createAccountFlows();
+const { flows, identifyAs, signUp, claim } = await createAccountFlows();
 const { requestLink, redeem, session } = flows;
 const tokenOf = (link: URL) => link.searchParams.get('token') ?? '';
 
@@ -19,7 +19,7 @@ describe('AUTH-4.4 / 4.2 sign-in loop through the real handlers', () => {
   test('request → emailed link → confirm → durable session → username → participant access', async () => {
     const { email, response, cookie } = await signUp();
     const sessionRows = await sessionCount(email);
-    const provisional = await identify(cookie);
+    const provisional = await identifyAs(cookie);
     const beforeAccess = decideAccess({
       identity: provisional,
       path: '/lobby',
@@ -27,7 +27,7 @@ describe('AUTH-4.4 / 4.2 sign-in loop through the real handlers', () => {
     });
     const name = uniqueName();
     const claimed = await claim(cookie, { username: name.toUpperCase() });
-    const member = await identify(cookie);
+    const member = await identifyAs(cookie);
     assert({
       given:
         'a new address that requests a link and redeems it at /auth/confirm',
@@ -93,7 +93,7 @@ describe('AUTH-4.4 / 4.2 sign-in loop through the real handlers', () => {
   });
 
   test('an unknown or forged cookie resolves anonymous', async () => {
-    const forged = await identify('better-auth.session_token=forged.value');
+    const forged = await identifyAs('better-auth.session_token=forged.value');
     assert({
       given: 'a cookie that names no durable session',
       should: 'resolve anonymous and be sent to sign-in',
@@ -115,7 +115,7 @@ describe('AUTH-4.4 / 4.2 sign-in loop through the real handlers', () => {
   test('a revoked session is anonymous on the very next check', async () => {
     const { email, cookie } = await signUp();
     await claim(cookie, { username: uniqueName() });
-    const before = (await identify(cookie)).state;
+    const before = (await identifyAs(cookie)).state;
     await withSql(
       (sql) =>
         sql`DELETE FROM session WHERE user_id = (SELECT id FROM users WHERE email = ${email})`,
@@ -123,7 +123,7 @@ describe('AUTH-4.4 / 4.2 sign-in loop through the real handlers', () => {
     assert({
       given: 'a member whose session row is deleted',
       should: 'resolve anonymous immediately (no cookie cache)',
-      actual: [before, (await identify(cookie)).state],
+      actual: [before, (await identifyAs(cookie)).state],
       expected: ['member', 'anonymous'],
     });
   });
@@ -144,7 +144,7 @@ describe('AUTH-4.4 / 4.2 sign-in loop through the real handlers', () => {
       )[0]?.s ?? 0;
     const day = 24 * 60 * 60;
     const aged = await expiry();
-    const read = await identify(cookie);
+    const read = await identifyAs(cookie);
     const afterRead = await expiry();
     const refreshed = await session(response);
     const afterRefresh = await expiry();
@@ -171,6 +171,38 @@ describe('AUTH-4.4 / 4.2 sign-in loop through the real handlers', () => {
     });
   });
 
+  test('server session reads are budgeted per client, never one bucket for the whole site', async () => {
+    const { cookie } = await signUp();
+    await claim(cookie, { username: uniqueName() });
+    // 110 reads from 110 clients: a shared 100/min bucket would refuse the
+    // last ten as unavailable.
+    const states = await Promise.all(
+      Array.from({ length: 110 }, () => identifyAs(cookie)),
+    );
+    assert({
+      given: '110 page renders for one member from 110 different clients',
+      should: 'resolve every one as the member',
+      actual: [...new Set(states.map((identity) => identity.state))],
+      expected: ['member'],
+    });
+  });
+
+  test('a request with no session cookie reads nothing and spends no budget', async () => {
+    const before = (await redisKeys()).length;
+    const results = await Promise.all(
+      Array.from({ length: 20 }, () => identifyAs('x=1; daisy-theme=dark')),
+    );
+    assert({
+      given: 'twenty requests carrying only unrelated cookies',
+      should: 'resolve anonymous without creating any rate-limit key',
+      actual: {
+        states: [...new Set(results.map((identity) => identity.state))],
+        newKeys: (await redisKeys()).length - before,
+      },
+      expected: { states: ['anonymous'], newKeys: 0 },
+    });
+  });
+
   test('an expired session is anonymous', async () => {
     const { email, cookie } = await signUp();
     await withSql(
@@ -180,7 +212,7 @@ describe('AUTH-4.4 / 4.2 sign-in loop through the real handlers', () => {
     assert({
       given: 'a session past its expiry',
       should: 'resolve anonymous',
-      actual: (await identify(cookie)).state,
+      actual: (await identifyAs(cookie)).state,
       expected: 'anonymous',
     });
   });

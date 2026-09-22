@@ -2,6 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { Identity } from '@daisy/auth';
 import {
   decideAccess,
+  hasSessionCookie,
   isGuardedPath,
   requestedPath,
   returnDestination,
@@ -213,6 +214,24 @@ describe('requestedPath', () => {
         requirement: 'participant',
       }),
       expected: { kind: 'redirect', to: '/sign-in?next=%2Flobby%3Ftab%3Dopen' },
+    });
+  });
+});
+
+describe('hasSessionCookie', () => {
+  test('recognizes only a Better Auth session cookie by exact name', () => {
+    assert({
+      given:
+        'no header, unrelated cookies, lookalike names and both real names',
+      should: 'answer true only when a session cookie is present',
+      actual: [
+        hasSessionCookie(null),
+        hasSessionCookie('x=1; daisy-theme=dark'),
+        hasSessionCookie('better-auth.session_token_fake=1'),
+        hasSessionCookie('x=1; better-auth.session_token=abc.def'),
+        hasSessionCookie('__Secure-better-auth.session_token=abc'),
+      ],
+      expected: [false, false, false, true, true],
     });
   });
 });
