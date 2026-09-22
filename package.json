@@ -13,7 +13,8 @@
   "scripts": {
     "dev": "bun --env-file=.env run turbo run dev",
     "dev:agent": "bun --env-file=.env scripts/dev-agent.ts",
-    "build": "NODE_ENV=production turbo run build",
+    "build": "NODE_ENV=production turbo run build && bun run check:build-isolation",
+    "check:build-isolation": "bun scripts/check-build-artifact-isolation.ts",
     "start": "bun run --cwd apps/web start",
     "typecheck": "turbo run typecheck",
     "lint": "eslint . && bun scripts/check-boundaries.ts && bun scripts/check-styling.ts && bun test eslint.config.test.ts",

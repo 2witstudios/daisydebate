@@ -1,0 +1,116 @@
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { redactText, sanitizeArtifactTree } from './e2e-artifact-sanitizer';
+
+setupRitewayBun();
+
+describe('e2e artifact sanitizer', () => {
+  test('redacts a token query parameter', () => {
+    assert({
+      given: 'a captured URL with a live magic-link token',
+      should: 'replace the token value',
+      actual: redactText(
+        'GET https://localhost:3101/auth/confirm?token=abc123.def',
+      ),
+      expected: 'GET https://localhost:3101/auth/confirm?token=[REDACTED]',
+    });
+  });
+
+  test('redacts a Set-Cookie header line', () => {
+    assert({
+      given: 'a trace line carrying a session cookie',
+      should: 'redact the whole header value',
+      actual: redactText(
+        'set-cookie: __Secure-daisy.session_token=abcdef; Path=/; HttpOnly',
+      ),
+      expected: 'set-cookie: [REDACTED]',
+    });
+  });
+
+  test('redacts the e2e placeholder secret', () => {
+    assert({
+      given:
+        'the inert BETTER_AUTH_SECRET placeholder from playwright.config.ts',
+      should: 'redact it like any other secret shape',
+      actual: redactText(
+        'BETTER_AUTH_SECRET=e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0',
+      ),
+      expected: 'BETTER_AUTH_SECRET=[REDACTED]',
+    });
+  });
+
+  test('leaves ordinary text untouched', () => {
+    assert({
+      given: 'a line with none of the sensitive shapes',
+      should: 'return it unchanged',
+      actual: redactText('GET /lobby 200 in 12ms'),
+      expected: 'GET /lobby 200 in 12ms',
+    });
+  });
+
+  test('sanitizes a text artifact and a trace zip in place', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daisy-e2e-sanitize-tree-'));
+    try {
+      writeFileSync(
+        join(root, 'server.log'),
+        'request completed token=live-secret-token-value',
+      );
+      const zipSource = mkdtempSync(join(tmpdir(), 'daisy-e2e-sanitize-src-'));
+      writeFileSync(
+        join(zipSource, '0-trace.network'),
+        'authorization: Bearer live-secret-token-value',
+      );
+      Bun.spawnSync(['zip', '-qr', join(root, 'trace.zip'), '.'], {
+        cwd: zipSource,
+      });
+      rmSync(zipSource, { recursive: true, force: true });
+
+      const { scanned, redacted } = sanitizeArtifactTree(root);
+
+      const serverLog = await Bun.file(join(root, 'server.log')).text();
+      const extractDir = mkdtempSync(
+        join(tmpdir(), 'daisy-e2e-sanitize-check-'),
+      );
+      Bun.spawnSync([
+        'unzip',
+        '-qq',
+        '-o',
+        join(root, 'trace.zip'),
+        '-d',
+        extractDir,
+      ]);
+      const traceText = await Bun.file(
+        join(extractDir, '0-trace.network'),
+      ).text();
+
+      assert({
+        given:
+          'a tree with a plain log file and a trace zip, both carrying secrets',
+        should: 'scan both entries and redact both',
+        actual: { scanned, redacted, serverLog, traceText },
+        expected: {
+          scanned: 2,
+          redacted: 2,
+          serverLog: 'request completed token=[REDACTED]',
+          traceText: 'authorization: [REDACTED]',
+        },
+      });
+      rmSync(extractDir, { recursive: true, force: true });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('reports zero scanned for a directory that does not exist', () => {
+    const missing = join(tmpdir(), 'daisy-e2e-sanitize-missing-does-not-exist');
+    rmSync(missing, { recursive: true, force: true });
+    assert({
+      given: 'no test-results directory (a run that produced no artifacts)',
+      should: 'report zero scanned instead of throwing',
+      actual: sanitizeArtifactTree(missing),
+      expected: { scanned: 0, redacted: 0 },
+    });
+  });
+});

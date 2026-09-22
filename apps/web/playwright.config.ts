@@ -51,8 +51,19 @@ export default defineConfig({
   timeout: 30_000,
   fullyParallel: false,
   workers: 1,
-  retries: process.env.CI ? 1 : 0,
-  reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
+  // Release qualification requires retries disabled: a retry-pass is a
+  // flaky result, not proof (spec "Prevent tests from proving their own
+  // fixtures"). CI always writes the json reporter so
+  // scripts/e2e-report-counts.ts can report discovered/executed/pass/fail
+  // counts and reject an empty selection.
+  retries: 0,
+  reporter: process.env.CI
+    ? [
+        ['list'],
+        ['html', { open: 'never' }],
+        ['json', { outputFile: 'test-results/results.json' }],
+      ]
+    : 'list',
   use: {
     baseURL: origin,
     // The edge presents a per-run self-signed certificate for localhost.

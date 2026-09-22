@@ -79,6 +79,15 @@ jobs:
           CI: true
           E2E_POSTGRES_PORT: 5432
 
+      - name: Report discovered/executed/pass/fail/skip counts
+        if: ${{ !cancelled() }}
+        run: bun scripts/e2e-report-counts.ts apps/web/test-results/results.json
+
+      - name: Sanitize retained artifacts before upload
+        if: ${{ !cancelled() }}
+        run: |
+          bun scripts/e2e-artifact-sanitizer.ts apps/web/test-results apps/web/playwright-report
+
       - name: Upload browser artifacts
         if: ${{ failure() }}
         uses: actions/upload-artifact@v5
