@@ -119,4 +119,56 @@ describe('format rules', () => {
     });
     world.dispose();
   });
+
+  test('refuses more than one seat per side until slots are modelled', () => {
+    const world = create();
+    let error: unknown;
+    try {
+      restoreDebateRuntime({
+        ...world.snapshot(),
+        rules: {
+          ...foundationRules,
+          seats: { affirmative: 2, negative: 1, judge: 0 },
+        },
+      });
+    } catch (caught) {
+      error = caught;
+    }
+    assert({
+      given: 'rules offering two affirmative seats',
+      should:
+        'reject with the capacity-supported invariant rather than seat one and silently refuse the other',
+      actual: (error as { invariantId?: string } | undefined)?.invariantId,
+      expected: 'debate.seats.capacity-supported',
+    });
+    world.dispose();
+  });
+
+  test('starts when every offered seat is filled and ready', () => {
+    const solo = createDebateRuntime({
+      id,
+      resolution: 'A representative resolution',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      format: 'solo-practice',
+      rules: {
+        ...foundationRules,
+        seats: { affirmative: 1, negative: 0, judge: 0 },
+      },
+    });
+    solo.join({ participantId: id, side: 'affirmative' });
+    solo.markReady(id);
+    solo.transition('active');
+    assert({
+      given:
+        'a format with one affirmative seat and no negative seat, its seat filled and ready',
+      should:
+        'become active with one participant, because readiness derives from the rules',
+      actual: {
+        phase: solo.snapshot().phase,
+        seated: solo.snapshot().participants.length,
+      },
+      expected: { phase: 'active', seated: 1 },
+    });
+    solo.dispose();
+  });
 });

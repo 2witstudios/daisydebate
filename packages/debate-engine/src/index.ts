@@ -31,7 +31,9 @@ export const debateInvariantIds = {
   legalPhaseTransition: 'debate.phase.transition.legal',
   completedIsTerminal: 'debate.phase.completed.terminal',
   seatsWithinFormat: 'debate.seats.within-format',
+  seatsCapacitySupported: 'debate.seats.capacity-supported',
 } as const;
+const sides = ['affirmative', 'negative'] as const;
 /**
  * True when `rules` are exactly the canonical rules of the format (key order
  * ignored). A ranked debate must run under canonical rules (ADR 0030); a
@@ -65,19 +67,31 @@ function validateSnapshot(input: unknown): DebateSnapshot {
       'Participant seats must be unique',
     );
   // After uniqueness: a duplicate seat is reported as such, not as capacity.
-  for (const side of ['affirmative', 'negative'] as const)
+  for (const side of sides) {
+    // Team formats need slot modelling; until then the engine is honest
+    // about its limit instead of seating one and refusing the rest.
+    if (rules.seats[side] > 1)
+      throw createInvariantError(
+        debateInvariantIds.seatsCapacitySupported,
+        'This engine seats at most one participant per side',
+      );
     if (participants.filter((p) => p.side === side).length > rules.seats[side])
       throw createInvariantError(
         debateInvariantIds.seatsWithinFormat,
         `The format offers ${rules.seats[side]} ${side} seat(s)`,
       );
+  }
+  const everySeatFilled = sides.every(
+    (side) =>
+      participants.filter((p) => p.side === side).length === rules.seats[side],
+  );
   if (
     phase !== 'waiting' &&
-    (participants.length !== 2 || participants.some((p) => !p.ready))
+    (!everySeatFilled || participants.some((p) => !p.ready))
   )
     throw createInvariantError(
       debateInvariantIds.startedRequiresReadyParticipants,
-      'Started debates require two ready participants',
+      'Started debates require every offered seat filled and ready',
     );
   return snapshot;
 }

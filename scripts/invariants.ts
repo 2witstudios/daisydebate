@@ -92,6 +92,20 @@ const fixtures: Readonly<Record<string, Fixture>> = {
   },
   'active-requires-ready-participants': () =>
     createRuntime().transition('active'),
+  'seats-capacity-supported': () => {
+    const runtime = createRuntime();
+    try {
+      restoreDebateRuntime({
+        ...runtime.snapshot(),
+        rules: {
+          ...foundation.rules,
+          seats: { affirmative: 2, negative: 1, judge: 0 },
+        },
+      });
+    } finally {
+      runtime.dispose();
+    }
+  },
   'seats-within-format': () => {
     const runtime = createDebateRuntime({
       id: firstId,
