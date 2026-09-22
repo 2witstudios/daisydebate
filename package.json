@@ -76,6 +76,7 @@
   "dependencies": {
     "@daisy/clock": "workspace:*",
     "@daisy/config": "workspace:*",
-    "@daisy/debate-engine": "workspace:*"
+    "@daisy/debate-engine": "workspace:*",
+    "@daisy/protocol": "workspace:*"
   }
 }
