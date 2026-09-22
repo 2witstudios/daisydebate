@@ -5,12 +5,24 @@ import { readServerConfig } from '@daisy/config';
 
 setupRitewayBun();
 
+const foundationFormat = {
+  id: 'foundation',
+  rules: {
+    version: 1 as const,
+    seats: { affirmative: 1, negative: 1, judge: 0 },
+    clock: { speechMs: 240_000, prepMs: 120_000 },
+  },
+  rankedEligible: false,
+};
+
 const database: {
   createDebate: (record: { id: string }) => Promise<void>;
   getDebate: (id: string) => Promise<Record<string, unknown> | undefined>;
+  getFormat: (id: string) => Promise<typeof foundationFormat | null>;
 } = {
   createDebate: () => Promise.resolve(),
   getDebate: () => Promise.resolve(undefined),
+  getFormat: () => Promise.resolve(foundationFormat),
 };
 
 const primitives = {

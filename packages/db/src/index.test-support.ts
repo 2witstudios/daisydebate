@@ -150,3 +150,21 @@ export const sampleUser = () => ({
   version: 1,
   deletedAt: null,
 });
+
+// The columns `getFormat` selects, in selection order.
+export const formatRow = (record: {
+  id: string;
+  rules: unknown;
+  rankedEligible: boolean;
+}): unknown[] => [record.id, record.rules, record.rankedEligible];
+
+export const sampleFormat = () => ({
+  id: 'foundation',
+  name: 'Foundation (architectural proof)',
+  rules: {
+    version: 1 as const,
+    seats: { affirmative: 1, negative: 1, judge: 0 },
+    clock: { speechMs: 240_000, prepMs: 120_000 },
+  },
+  rankedEligible: false,
+});

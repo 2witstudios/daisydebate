@@ -56,9 +56,24 @@ test('proof vertical: validated create, durable store, restored read', async () 
 
   const loaded = await fetchById(snapshot.id);
   expect(loaded.status).toBe(200);
-  const restored = (await loaded.json()) as { id: string; phase: string };
+  const restored = (await loaded.json()) as {
+    id: string;
+    phase: string;
+    format: string;
+    rules: unknown;
+  };
   expect(restored.id).toBe(snapshot.id);
   expect(restored.phase).toBe('waiting');
+  // The snapshot carries the canonical foundation rules from the formats row.
+  const reference = new SQL(testDatabaseUrl);
+  try {
+    const [format] =
+      await reference`select rules from formats where id = 'foundation'`;
+    expect(restored.format).toBe('foundation');
+    expect(restored.rules).toEqual(format?.rules);
+  } finally {
+    await reference.close();
+  }
 });
 
 test('proof vertical rejects invalid, cross-origin, and unknown requests', async () => {

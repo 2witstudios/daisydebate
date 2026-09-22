@@ -40,12 +40,12 @@ describe('agentSeedDebate', () => {
     });
   });
 
-  test('marks the actor-referencing seed content with a new version', () => {
+  test('marks the rules-carrying seed content with a new version', () => {
     assert({
-      given: 'seed content that changed since agent-seed-v2 (ADR 0029 actors)',
+      given: 'seed content that changed since agent-seed-v3 (ADR 0030 rules)',
       should: 'advance the durable seed version marker',
       actual: agentSeedVersion,
-      expected: 'agent-seed-v3',
+      expected: 'agent-seed-v4',
     });
   });
 

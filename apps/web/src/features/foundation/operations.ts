@@ -21,6 +21,8 @@ export const proofPrincipal: Principal = Object.freeze({
   permissions: Object.freeze(['debate:create', 'debate:read'] as const),
 });
 
+const proofFormat = 'foundation';
+
 function requireProofEnabled() {
   if (!getResources().config.FOUNDATION_PROOF_ENABLED)
     throw createAppError('NOT_FOUND');
@@ -43,10 +45,17 @@ export async function createProofDebate(
   requireProofEnabled();
   requirePermission(principal, 'debate:create');
   const { resolution } = parseValidated(proofDebateInputSchema, input);
+  // The proof runs under the canonical foundation rules, unmodified (ADR 0030).
+  const format = await withDurableContext(() =>
+    getResources().database.getFormat(proofFormat),
+  );
+  if (!format) throw createAppError('INFRASTRUCTURE');
   const runtime = createDebateRuntime({
     id: primitives.ids.next(),
     resolution,
     createdAt: primitives.clock.now(),
+    format: format.id,
+    rules: format.rules,
   });
   try {
     const snapshot = runtime.snapshot();
