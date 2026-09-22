@@ -256,24 +256,25 @@ connection and actor ids, and close codes (ADR 0019).
 
 `apps/realtime` may depend on exactly:
 
-| Workspace              | For                                                                            |
-| ---------------------- | ------------------------------------------------------------------------------ |
-| `@daisy/protocol`      | envelope, message and outbox schemas, close codes, topic grammar               |
-| `@daisy/auth`          | principals and session-to-identity resolution                                  |
-| `@daisy/db`            | SELECT on the outbox and authorization read models; `service_instances` writes |
-| `@daisy/redis`         | ticket GETDEL, presence leases, rate limits                                    |
-| `@daisy/clock`         | injected time (ambient `Date` is banned)                                       |
-| `@daisy/config`        | validated environment                                                          |
-| `@daisy/errors`        | error codes and public mapping                                                 |
-| `@daisy/logger`        | structured, redacted logs                                                      |
-| `@daisy/observability` | spans, correlation, bounded health checks                                      |
+| Workspace              | For                                                                                                             |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `@daisy/protocol`      | envelope, message and outbox schemas, close codes, topic grammar                                                |
+| `@daisy/auth`          | principals and session-to-identity resolution                                                                   |
+| `@daisy/db`            | SELECT on the outbox and authorization read models; `service_instances` writes                                  |
+| `@daisy/redis`         | ticket GETDEL, presence leases, rate limits                                                                     |
+| `@daisy/clock`         | injected time (ambient `Date` is banned)                                                                        |
+| `@daisy/config`        | validated environment                                                                                           |
+| `@daisy/errors`        | error codes and public mapping                                                                                  |
+| `@daisy/logger`        | structured, redacted logs                                                                                       |
+| `@daisy/observability` | spans, correlation, bounded health checks                                                                       |
+| `@daisy/presence`      | pure presence derivation and projection shared with `apps/web` (ADR 0033); it depends only on `@daisy/protocol` |
 
 It never depends on `@daisy/debate-engine`, `apps/web` or a third-party
 socket library. The package-map row in `docs/architecture/overview.md`
 states the same list. `scripts/check-boundaries.ts` restricts workspaces
 listed in `allowedWorkspaceDependencies` (`scripts/boundaries-rules.ts`);
 the change that creates `apps/realtime` adds a `realtime` entry with exactly
-these nine names, so the row is mechanically enforced rather than advisory.
+these ten names, so the row is mechanically enforced rather than advisory.
 The `@daisy/db` restriction to SELECT plus `service_instances` is enforced by
 the realtime PostgreSQL role, not by the import graph.
 
