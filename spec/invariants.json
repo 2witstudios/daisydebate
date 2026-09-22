@@ -56,6 +56,14 @@
         "path": "packages/debate-engine/src/engine.test.ts",
         "name": "rejects transitions after completion"
       }
+    },
+    {
+      "id": "debate.seats.within-format",
+      "check": "seats-within-format",
+      "testReference": {
+        "path": "packages/debate-engine/src/rules.test.ts",
+        "name": "rejects a seat the format does not offer"
+      }
     }
   ]
 }

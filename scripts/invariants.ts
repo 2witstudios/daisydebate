@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { formatSeeds } from './format-seed';
 import {
   createDebateRuntime,
   debateInvariantIds,
@@ -40,11 +41,16 @@ export type InvariantReport = {
 type Fixture = () => void;
 type TestSources = Readonly<Record<string, string>>;
 
+const foundation = formatSeeds.find((format) => format.id === 'foundation');
+if (!foundation) throw new Error('foundation format seed missing');
+
 const createRuntime = () =>
   createDebateRuntime({
     id: firstId,
     resolution: 'A representative resolution',
     createdAt: '2026-01-01T00:00:00.000Z',
+    format: foundation.id,
+    rules: foundation.rules,
   });
 
 const createActiveRuntime = () => {
@@ -86,6 +92,23 @@ const fixtures: Readonly<Record<string, Fixture>> = {
   },
   'active-requires-ready-participants': () =>
     createRuntime().transition('active'),
+  'seats-within-format': () => {
+    const runtime = createDebateRuntime({
+      id: firstId,
+      resolution: 'A representative resolution',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      format: 'solo-practice',
+      rules: {
+        ...foundation.rules,
+        seats: { affirmative: 1, negative: 0, judge: 0 },
+      },
+    });
+    try {
+      runtime.join({ participantId: firstId, side: 'negative' });
+    } finally {
+      runtime.dispose();
+    }
+  },
   'joining-requires-waiting-phase': () => {
     const runtime = createActiveRuntime();
     try {
