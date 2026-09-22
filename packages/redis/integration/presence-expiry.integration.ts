@@ -60,7 +60,7 @@ test('readActorConnections trims members scored in the past, one at a time, dete
 
     // Now midLease also lapses; a fresh read reflects only this member
     // dropping, one at a time, never all together.
-    await raw.send('ZADD', [actorKey, String(now - 1), 'midLease']);
+    await raw.send('ZADD', [actorKey, String(now - 10_000), 'midLease']);
     const second = await redis.readActorConnections(actorId);
     expect(second.map((c) => c.connId)).toEqual(['longLease']);
   } finally {
@@ -203,6 +203,66 @@ test('readActorConnections drops a record whose hash names a different actor tha
   } finally {
     await redis.deletePresenceLease({ connId: 'shared', actorId: 'p2' });
     await raw.del(redisKey(namespace, 'presence', 'actor', 'p1'));
+    redis.close();
+    raw.close();
+  }
+});
+
+test('a delete never recreates the online zset from a stale leftover member with no expiry', async () => {
+  // Reproduces the sequence a reviewer found: one connection (staleConn)
+  // lapses without ever being read, so its stale, past-scored member is
+  // still sitting in the actor zset; the online zset happens to have
+  // already been dropped (e.g. a prior read's trim emptied it). Deleting
+  // the OTHER, still-live connection must not read staleConn's leftover
+  // score as the new "top" and ZADD it straight back into the online
+  // zset — that would recreate the key with no expiry and a stale member.
+  const namespace = `test-${crypto.randomUUID().slice(0, 8)}`;
+  const redis = createRedis({ url, namespace });
+  const raw = await rawClient(url);
+  const actorId = 'duplicateDeleteActor';
+  const actorKey = redisKey(namespace, 'presence', 'actor', actorId);
+  const onlineKey = redisKey(namespace, 'presence', 'online');
+  try {
+    await redis.upsertPresenceLease(
+      {
+        connId: 'longConn',
+        actorId,
+        instanceId: 'inst1',
+        activity: 'active',
+      },
+      100,
+    );
+    await redis.upsertPresenceLease(
+      {
+        connId: 'staleConn',
+        actorId,
+        instanceId: 'inst2',
+        activity: 'active',
+      },
+      100,
+    );
+    // staleConn lapsed without ever being read: its hash is gone (as a
+    // physical TTL eventually would do) but its zset member is still there
+    // with a now-past score.
+    await raw.send('ZADD', [
+      actorKey,
+      String(Date.now() - 10_000),
+      'staleConn',
+    ]);
+    await raw.del(redisKey(namespace, 'presence', 'conn', 'staleConn'));
+    // The online zset already doesn't exist (dropped by an earlier trim).
+    await raw.del(onlineKey);
+
+    await redis.deletePresenceLease({ connId: 'longConn', actorId });
+
+    // The actor's only remaining zset entry was already stale, so it must
+    // not appear online at all — and the online key must not have been
+    // recreated (with or without an expiry).
+    expect(await raw.exists(onlineKey)).toBe(false);
+    expect(await redis.readOnlinePresence()).toEqual([]);
+  } finally {
+    await redis.deletePresenceLease({ connId: 'longConn', actorId });
+    await redis.deletePresenceLease({ connId: 'staleConn', actorId });
     redis.close();
     raw.close();
   }

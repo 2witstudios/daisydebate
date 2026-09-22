@@ -108,6 +108,71 @@ test('the actor and online zsets carry a mandatory expiry covering the longest l
   }
 });
 
+test('refreshing with a longer TTL extends an existing zset expiry (PEXPIRE ... GT), not just arms it once', async () => {
+  // The mandatory-expiry test above only proves a TTL gets set at all
+  // (which PEXPIRE ... NX alone would also do). This proves GT actually
+  // extends it: without GT, a second PEXPIRE against an already-TTL'd key
+  // is a no-op, so the actor zset's expiry would still reflect the first
+  // (shorter) write and this would fail.
+  const namespace = `test-${crypto.randomUUID().slice(0, 8)}`;
+  const redis = createRedis({ url, namespace });
+  const raw = await rawClient(url);
+  const actorId = 'gtExtendedActor';
+  try {
+    await redis.upsertPresenceLease(
+      { connId: 'connG', actorId, instanceId: 'inst1', activity: 'active' },
+      5,
+    );
+    await redis.refreshPresenceLease({ connId: 'connG', actorId }, 100);
+    const actorPttl = await raw.pttl(
+      redisKey(namespace, 'presence', 'actor', actorId),
+    );
+    expect(actorPttl).toBeGreaterThan(5_000);
+  } finally {
+    await redis.deletePresenceLease({ connId: 'connG', actorId });
+    redis.close();
+    raw.close();
+  }
+});
+
+test('a delete arms a fresh expiry when it recreates a dropped online zset from a genuinely live remaining connection', async () => {
+  // Distinct from the "never recreates from a stale leftover" test: here
+  // the remaining connection is still perfectly live. The online zset key
+  // is dropped directly (simulating an earlier read's trim), and deleting
+  // the OTHER connection must still leave the recreated online key with a
+  // bounded expiry, not PTTL -1.
+  const namespace = `test-${crypto.randomUUID().slice(0, 8)}`;
+  const redis = createRedis({ url, namespace });
+  const raw = await rawClient(url);
+  const actorId = 'recreatedOnlineActor';
+  const onlineKey = redisKey(namespace, 'presence', 'online');
+  try {
+    await redis.upsertPresenceLease(
+      { connId: 'staying', actorId, instanceId: 'inst1', activity: 'active' },
+      100,
+    );
+    await redis.upsertPresenceLease(
+      { connId: 'leaving', actorId, instanceId: 'inst2', activity: 'active' },
+      100,
+    );
+    // Simulate the online zset having already been dropped.
+    await raw.del(onlineKey);
+
+    await redis.deletePresenceLease({ connId: 'leaving', actorId });
+
+    // "staying" is still live, so the actor must be back online — with a
+    // real expiry on the recreated key, never PTTL -1.
+    const online = await redis.readOnlinePresence();
+    expect(online.map((a) => a.actorId)).toEqual([actorId]);
+    expect(await raw.pttl(onlineKey)).toBeGreaterThan(0);
+  } finally {
+    await redis.deletePresenceLease({ connId: 'staying', actorId });
+    await redis.deletePresenceLease({ connId: 'leaving', actorId });
+    redis.close();
+    raw.close();
+  }
+});
+
 test('the online score always reflects the actor’s longest live lease, not the most recently upserted one', async () => {
   // Negative control for a real mutation a reviewer found: scoring the
   // online set by the just-upserted lease instead of the actor zset's top
