@@ -1,7 +1,7 @@
 import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { Topbar } from './topbar';
+import { Topbar, type ShellAccount } from './topbar';
 import { createInitialState } from '../../../../store/state';
 import { setUiState } from '../../../../store/store';
 
@@ -9,16 +9,18 @@ setupRitewayBun();
 
 const seed = createInitialState();
 
-const renderWith = (notificationsCount: number): string => {
+const renderWith = (
+  notificationsCount: number,
+  account: ShellAccount = { state: 'anonymous' },
+): string => {
   setUiState({
     ...seed,
     resources: {
       ...seed.resources,
       notificationsCount,
-      viewer: { name: 'Ada Byron', tier: 'master', rating: 2100 },
     },
   });
-  return renderToString(h(Topbar));
+  return renderToString(h(Topbar, { account }));
 };
 
 describe('Topbar', () => {
@@ -38,18 +40,40 @@ describe('Topbar', () => {
     });
   });
 
-  test('shows the viewer identity from the store', () => {
-    const html = renderWith(3);
+  test('offers sign-in to an anonymous visitor', () => {
+    const html = renderWith(0);
     assert({
-      given: 'a master-tier viewer rated 2100',
-      should: 'render the name, rating, tier label, and online presence',
+      given: 'an anonymous visitor',
+      should: 'show a Sign in link to /sign-in and no username',
+      actual: [/<a [^>]*href="\/sign-in"[^>]*>Sign in</.test(html)],
+      expected: [true],
+    });
+  });
+
+  test('sends a provisional account back to finish sign-up', () => {
+    const html = renderWith(0, { state: 'provisional' });
+    assert({
+      given: 'an account that has not chosen a username',
+      should: 'show a Finish sign-up link to onboarding',
+      actual: /<a [^>]*href="\/onboarding\/username"[^>]*>Finish sign-up</.test(
+        html,
+      ),
+      expected: true,
+    });
+  });
+
+  test('shows the chosen username as the display identity', () => {
+    const html = renderWith(0, { state: 'member', username: 'ada_byron' });
+    assert({
+      given: 'a member',
+      should: 'link their username to settings with an accessible name',
       actual: [
-        html.includes('Ada Byron'),
-        html.includes('2100'),
-        html.includes('Master'),
-        html.includes('aria-label="online"'),
+        html.includes('ada_byron'),
+        html.includes('aria-label="Account settings for ada_byron"'),
+        /href="\/settings"/.test(html),
+        html.includes('Sign in<'),
       ],
-      expected: [true, true, true, true],
+      expected: [true, true, true, false],
     });
   });
 

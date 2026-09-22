@@ -30,6 +30,7 @@ The current registry is:
 | `invariant.violated`          | error    | Request operation violates a registered invariant |
 | `auth.rate_limit.denied`      | warn     | Auth rate-limit gate denies a request             |
 | `auth.rate_limit.unavailable` | error    | Auth limiter or client resolution fails closed    |
+| `auth.session.unavailable`    | error    | Session store unreadable; request refused (503)   |
 | `auth.mail.sent`              | info     | Auth mail seam hands a message to the transport   |
 | `auth.mail.failed`            | error    | Auth mail seam delivery failure                   |
 | `request.unhandled`           | error    | Next reports an unhandled request failure         |

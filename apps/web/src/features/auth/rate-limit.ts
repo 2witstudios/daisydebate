@@ -111,7 +111,7 @@ const retryAfterHeaders = (retryAfterSeconds: unknown): HeadersInit =>
 
 // The limiter is an injected boundary: a decision without a boolean verdict
 // is an outage, never an implicit allow and never a TypeError.
-const readDecision = (decision: unknown) => {
+export const readDecision = (decision: unknown) => {
   if (typeof decision !== 'object' || decision === null)
     throw new TypeError('Malformed limiter decision');
   const allowed: unknown = Reflect.get(decision, 'allowed');
@@ -151,9 +151,21 @@ const denial = (
 };
 
 /**
+ * A server-side session read (`auth.api.getSession` from lib/identity.ts,
+ * which has no Request) is Principal resolution: ADR 0020 orders it before
+ * the rate-limit gate, which limits the operation the Principal then
+ * performs. It must not spend the per-client auth budget, or busy or
+ * NAT-shared clients would see guarded pages fail. Browser HTTP calls to
+ * `/api/auth/get-session` always carry a Request and stay limited.
+ */
+const isServerPrincipalRead = (path: string, request: Request | undefined) =>
+  path === '/get-session' && request === undefined;
+
+/**
  * ADR 0020 rate-limit gate as a Better Auth `hooks.before` middleware. It
  * runs before every endpoint handler, for HTTP requests and direct
- * `auth.api.*` calls alike, so a denied request performs no durable work.
+ * `auth.api.*` calls alike (except server Principal reads, above), so a
+ * denied request performs no durable work.
  * A limiter outage fails closed with a public 503.
  *
  * `resolveClient` defaults to Better Auth's `getIP`, which believes only the
@@ -166,6 +178,7 @@ export const createRateLimitGate = (dependencies: {
 }) =>
   createAuthMiddleware(async (context) => {
     const { path } = context;
+    if (isServerPrincipalRead(path, context.request)) return;
     const resolveClient = dependencies.resolveClient ?? getIP;
     // Everything the gate depends on runs inside try/await, so client
     // resolution that throws and a limiter that throws synchronously,

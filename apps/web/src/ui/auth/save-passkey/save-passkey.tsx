@@ -1,14 +1,18 @@
 import { Button } from '../../components/button/button';
 import { Icon } from '../../components/icon/icon';
 import { AuthFrame, AuthHeading } from '../auth-frame/auth-frame';
+import { Notice } from '../notice/notice';
 
 export type SavePasskeyProps = {
-  readonly email: string;
+  /** The public username the account just claimed. */
+  readonly username: string;
   readonly pending: boolean;
   readonly savePasskey: () => void;
   /** Never offer a passkey on this device again: it is shared. */
   readonly markShared: () => void;
   readonly dismiss: () => void;
+  /** Why the last attempt saved nothing; never a success. */
+  readonly notice?: string | undefined;
 };
 
 const savedFacts = [
@@ -22,11 +26,12 @@ const savedFacts = [
  * benefit people just felt. Shared computers opt out instead of saving.
  */
 export function SavePasskey({
-  email,
+  username,
   pending,
   savePasskey,
   markShared,
   dismiss,
+  notice,
 }: SavePasskeyProps) {
   return (
     <AuthFrame
@@ -48,7 +53,7 @@ export function SavePasskey({
     >
       <p className="flex items-center gap-2 self-start rounded-round bg-accent-soft px-3 py-1 text-sm font-semibold text-accent-strong">
         <Icon name="check" size={16} />
-        Signed in as {email}
+        Signed in as {username}
       </p>
       <AuthHeading eyebrow="Faster next time" title="Next time, one tap.">
         Save a passkey and sign in with your face, fingerprint, or screen lock.
@@ -76,6 +81,9 @@ export function SavePasskey({
             This is a shared computer
           </Button>
         </div>
+        {notice === undefined ? null : (
+          <Notice id="save-passkey-notice" tone="info" title={notice} />
+        )}
         <Button
           variant="ghost"
           disabled={pending}

@@ -88,9 +88,23 @@ export async function handleOperation(
     extractTraceContext(request.headers),
   );
 }
+/**
+ * Fail-closed origin gate for state changes. The Origin must be this app's,
+ * with one browser case: a form posted from a page served with
+ * `Referrer-Policy: no-referrer` (the emailed-link confirmation) carries
+ * `Origin: null` even to its own origin. That is accepted only with
+ * `Sec-Fetch-Site: same-origin`, which page script cannot set and which a
+ * sandboxed or cross-site sender never reports.
+ */
 export function requireSameOrigin(request: Request, origin: string) {
-  if (request.headers.get('origin') !== new URL(origin).origin)
-    throw createAppError('AUTHORIZATION');
+  const claimed = request.headers.get('origin');
+  if (claimed === new URL(origin).origin) return;
+  if (
+    claimed === 'null' &&
+    request.headers.get('sec-fetch-site') === 'same-origin'
+  )
+    return;
+  throw createAppError('AUTHORIZATION');
 }
 
 /**

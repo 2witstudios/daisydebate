@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { fieldClass } from './field-class';
 
 export type EmailFieldProps = {
   readonly id: string;
@@ -28,10 +29,10 @@ export function EmailField({
 }: EmailFieldProps) {
   return (
     <div className="flex flex-col gap-2">
-      <label htmlFor={id} className="text-sm font-semibold">
+      <label htmlFor={id} className={fieldClass.label}>
         {label}
       </label>
-      <div className="flex gap-3 max-narrow:flex-col">
+      <div className={fieldClass.row}>
         <input
           id={id}
           name="email"
@@ -46,7 +47,7 @@ export function EmailField({
           disabled={disabled}
           aria-invalid={errorId === undefined ? undefined : true}
           aria-describedby={errorId}
-          className="h-auth-control min-w-0 grow rounded-md border border-border-strong bg-surface-raised px-4 text-md text-ink placeholder:text-ink-faint disabled:opacity-60 aria-invalid:border-live"
+          className={fieldClass.input}
         />
         {action}
       </div>

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { signUpMember } from './support/accounts';
 
 const viewports = [
   { name: 'desktop', width: 1440, height: 900 },
@@ -32,6 +33,8 @@ for (const viewport of viewports) {
         await context.addCookies([
           { name: 'daisy-theme', value: theme, url: baseURL ?? '' },
         ]);
+        // Settings needs an account; its page shows no account details.
+        if (route.path === '/settings') await signUpMember(context.request);
         const page = await context.newPage();
         await page.goto(route.path);
         await page.evaluate(() => document.fonts.ready);

@@ -100,6 +100,9 @@ Rules that keep sessions safe:
 - A distinct stack name is the isolation boundary: its containers and
   volumes are separate, so `bun infra:down` in one session cannot kill
   another session's services and databases never collide.
+- The browser suite uses three consecutive ports from `E2E_PORT`: the
+  production app, its loopback TLS edge (`https://localhost:<E2E_PORT+1>`,
+  the configured public origin) and the mail capture. Leave all three free.
 - An explicit `E2E_PORT` also disables Playwright's `reuseExistingServer`;
   without it a session could silently boot its suite against another
   session's already-running server.

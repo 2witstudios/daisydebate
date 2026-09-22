@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test';
+import { origin } from './support/accounts';
 
 // The production server (NODE_ENV=production, HTTPS public origin, real
 // ingress stamping) with the auth routes mounted. Header behavior is asserted
 // on the served responses, not on route-module return values.
-const origin = 'https://e2e.daisy.invalid';
 const token = 'e2eTokenNotARealCredential0123456789';
 
 test('the confirmation page is scanner-safe under the production server', async ({

@@ -3,6 +3,7 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { eq, and, lt, sql } from 'drizzle-orm';
 import { drizzleAdapter } from '@better-auth/drizzle-adapter';
 import { users } from './schema/users';
+import { claimUsername } from './username-claim';
 import { debates, type DebateOutcome } from './schema/debates';
 import {
   snapshotPhase,
@@ -22,6 +23,7 @@ import {
   emailDeliveryEvents,
   emailSuppressions,
 } from './schema/email-delivery';
+export type { UsernameClaim } from './username-claim';
 export type DatabaseEventSink = (
   event: 'db.query.failed',
   fields: Readonly<Record<string, unknown>>,
@@ -219,6 +221,9 @@ export function createDatabase({
         throw error;
       }
     },
+    /** Server-owned onboarding claim; see `claimUsername`. */
+    claimUsername: (input: { userId: string; username: string }) =>
+      claimUsername(database, input, reportFailure),
     async createDebate(input: NewDebate): Promise<DebateRecord> {
       const phase = snapshotPhase(input.snapshot);
       try {

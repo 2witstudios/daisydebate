@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Sidebar } from './components/sidebar/sidebar';
-import { Topbar } from './components/topbar/topbar';
+import { Topbar, type ShellAccount } from './components/topbar/topbar';
 import { RightRail } from './components/right-rail/right-rail';
 
 export type AppShellProps = {
@@ -8,6 +8,8 @@ export type AppShellProps = {
   readonly children: ReactNode;
   /** Right rail content; hidden on narrow viewports. */
   readonly rail: ReactNode;
+  /** The visitor's account control in the topbar. */
+  readonly account: ShellAccount;
 };
 
 /**
@@ -16,14 +18,14 @@ export type AppShellProps = {
  * The root layout owns the page's single <main> landmark; this column is a
  * plain region of it.
  */
-export function AppShell({ children, rail }: AppShellProps) {
+export function AppShell({ children, rail, account }: AppShellProps) {
   return (
     <div className="grid min-h-screen grid-shell items-start max-rail:grid-shell-reflow max-compact:grid-shell-icons">
       <div className="sticky top-0 z-20 h-screen border-r border-border bg-surface area-sidebar">
         <Sidebar />
       </div>
       <div className="sticky top-0 z-10 border-b border-border bg-surface area-topbar">
-        <Topbar />
+        <Topbar account={account} />
       </div>
       <div className="min-w-0 area-main">{children}</div>
       <aside

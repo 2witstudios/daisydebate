@@ -11,8 +11,9 @@ test.describe('dashboard shell chrome', () => {
       page.getByRole('link', { name: 'Play / Lobby' }),
     ).not.toHaveAttribute('aria-current', 'page');
 
+    // Play is a participant area: a visitor is sent to sign-in on the way.
     await page.getByRole('link', { name: 'Play / Lobby' }).click();
-    await expect(page).toHaveURL(/\/play$/);
+    await expect(page).toHaveURL(/\/sign-in\?next=%2Fplay$/);
   });
 
   test('the search input round-trips through the shell state', async ({
@@ -76,7 +77,7 @@ test.describe('dashboard shell chrome', () => {
     expect(covered).toBe(false);
 
     await recordings.click();
-    await expect(page).toHaveURL(/\/recordings$/);
+    await expect(page).toHaveURL(/\/sign-in\?next=%2Frecordings$/);
 
     // Keyboard: focusing the parent link opens the flyout via :focus-within.
     await page.goto('/');
@@ -92,7 +93,7 @@ test.describe('dashboard shell chrome', () => {
       page.getByRole('button', { name: 'Notifications' }),
     ).toBeVisible();
     await expect(
-      page.locator('header').getByRole('button', { name: /Alex Chen/ }),
+      page.locator('header').getByRole('link', { name: 'Sign in' }),
     ).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'Challenge Maya Singh' }),

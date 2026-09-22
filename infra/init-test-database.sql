@@ -5,3 +5,9 @@
 CREATE DATABASE daisy_test;
 CREATE ROLE daisy_e2e LOGIN PASSWORD 'e2e-loopback-only';
 GRANT CONNECT ON DATABASE daisy_test TO daisy_e2e;
+-- The browser suite drives real sign-in through the production server as
+-- daisy_e2e, so it needs the tables the migrations (run as daisy) create.
+\connect daisy_test
+GRANT USAGE ON SCHEMA public TO daisy_e2e;
+ALTER DEFAULT PRIVILEGES FOR ROLE daisy IN SCHEMA public
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO daisy_e2e;

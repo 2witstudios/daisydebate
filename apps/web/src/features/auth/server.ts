@@ -12,6 +12,11 @@ import { createMagicLinkGate } from './magic-link-gate';
 import { recipientHash } from './mail';
 import { unavailable } from './public-errors';
 import {
+  SESSION_EXPIRES_IN_SECONDS,
+  SESSION_FRESH_AGE_SECONDS,
+  SESSION_UPDATE_AGE_SECONDS,
+} from './session-policy';
+import {
   clientIpFromConfig,
   clientIpOptions,
   createRateLimitGate,
@@ -117,9 +122,9 @@ const composeBetterAuth = (dependencies: {
       ipAddress: clientIpOptions(dependencies.clientIp),
     },
     session: {
-      expiresIn: 60 * 60 * 24 * 7,
-      updateAge: 60 * 60 * 24,
-      freshAge: 60 * 60,
+      expiresIn: SESSION_EXPIRES_IN_SECONDS,
+      updateAge: SESSION_UPDATE_AGE_SECONDS,
+      freshAge: SESSION_FRESH_AGE_SECONDS,
       // Revocation must be visible on the next server check.
       cookieCache: { enabled: false },
     },
@@ -145,7 +150,17 @@ const composeBetterAuth = (dependencies: {
       '/set-password',
       '/delete-user',
       '/delete-user/callback',
+      // Onboarding is server-owned: the profile has no general update
+      // surface, so the username is set only by POST /api/account/username.
+      '/update-user',
+      '/change-email',
     ],
+    user: {
+      additionalFields: {
+        // Readable on the session; `input: false` refuses any client value.
+        username: { type: 'string', required: false, input: false },
+      },
+    },
     plugins: [
       magicLink({
         expiresIn: MAGIC_LINK_EXPIRES_IN_SECONDS,

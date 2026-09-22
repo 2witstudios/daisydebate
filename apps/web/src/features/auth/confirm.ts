@@ -55,13 +55,17 @@ async function readForm(request: Request): Promise<URLSearchParams> {
   return new URLSearchParams(body.toString('utf8'));
 }
 
-/** Success redirect: re-validate the target and keep only its path and query. */
-function signedInRedirect(response: Response, requestUrl: string) {
+/**
+ * Success redirect: re-validate the target and keep only its path and query.
+ * The target is compared with the deployment's public origin, never the
+ * request's own: behind TLS termination the request arrives as plain HTTP.
+ */
+function signedInRedirect(response: Response, publicUrl: string) {
   const location = response.headers.get('location');
   const cookies = response.headers.getSetCookie();
   if (!location || cookies.length === 0) return null;
-  const target = new URL(location, requestUrl);
-  const sameOrigin = target.origin === new URL(requestUrl).origin;
+  const target = new URL(location, publicUrl);
+  const sameOrigin = target.origin === new URL(publicUrl).origin;
   const headers = new Headers();
   for (const cookie of cookies) headers.append('set-cookie', cookie);
   return redirect(
@@ -152,7 +156,7 @@ export function createConfirmHandlers({ auth }: ConfirmDependencies) {
       `/api/auth/magic-link/verify?${query}`,
       { method: 'GET' },
     );
-    const signedIn = signedInRedirect(response, request.url);
+    const signedIn = signedInRedirect(response, auth().config.PUBLIC_APP_URL);
     if (signedIn) return signedIn;
     if (response.status >= 300 && response.status < 400)
       return redirect(EXPIRED);

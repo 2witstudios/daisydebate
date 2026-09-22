@@ -10,7 +10,7 @@ setupRitewayBun();
 const props = (
   overrides: Partial<SavePasskeyProps> = {},
 ): SavePasskeyProps => ({
-  email: 'jordan@lincoln.edu',
+  username: 'jordan_l',
   pending: false,
   savePasskey: () => {},
   markShared: () => {},
@@ -22,10 +22,10 @@ describe('SavePasskey', () => {
   test('offers save, shared, and not now', () => {
     const page = renderToString(h(SavePasskey, props()));
     assert({
-      given: 'a fresh email sign-in',
+      given: 'a freshly claimed username',
       should: 'confirm who is signed in and offer all three choices',
       actual: [
-        page.includes('jordan@lincoln.edu'),
+        page.includes('Signed in as <!-- -->jordan_l'),
         page.includes('Save a passkey on this device'),
         page.includes('This is a shared computer'),
         page.includes('Not now'),

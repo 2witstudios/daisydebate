@@ -2,7 +2,7 @@ import { Button } from '../../components/button/button';
 import { Icon } from '../../components/icon/icon';
 import { AuthFrame, AuthHeading, taglinePanel } from '../auth-frame/auth-frame';
 import { EmailField } from '../email-field/email-field';
-import { Notice } from '../notice/notice';
+import { CopyNotice } from '../notice/notice';
 import { signInNotices } from '../sign-in-notices';
 import type { SignInNotice, SignInState } from '../sign-in-state';
 
@@ -71,11 +71,7 @@ export function SignInForm({
             </Button>
           }
         />
-        {copy === undefined ? null : (
-          <Notice id={NOTICE_ID} tone={copy.tone} title={copy.title}>
-            {copy.body}
-          </Notice>
-        )}
+        <CopyNotice id={NOTICE_ID} copy={copy} />
       </form>
       <div className="flex flex-col items-start gap-2">
         <Button

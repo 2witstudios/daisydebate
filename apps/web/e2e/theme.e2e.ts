@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { signUpMember } from './support/accounts';
 
 const DARK_BACKGROUND = 'rgb(10, 14, 12)';
 const LIGHT_BACKGROUND = 'rgb(242, 245, 242)';
@@ -85,6 +86,11 @@ const servedTheme = (html: string) =>
   /<html\b[^>]*\sdata-theme="([^"]*)"/.exec(html)?.[1];
 
 test.describe('theme preference', () => {
+  // The switcher lives in Settings, which needs an account (AUTH-4.5).
+  test.beforeEach(async ({ context }) => {
+    await signUpMember(context.request);
+  });
+
   test('serves dark to a first-time visitor', async ({ page }) => {
     const verifyClean = await watchForProblems(page);
     const { html, group } = await openSettings(page);

@@ -4,20 +4,51 @@ import Link from 'next/link';
 import { SearchInput } from '../../../../components/search-input/search-input';
 import { IconButton } from '../../../../components/icon-button/icon-button';
 import { Avatar } from '../../../../components/avatar/avatar';
-import { PresenceDot } from '../../../../components/presence-dot/presence-dot';
-import { Stat } from '../../../../components/stat/stat';
-import { Icon } from '../../../../components/icon/icon';
 import { DaisyLogo } from '../../../../components/daisy-mark/daisy-mark';
-import { Tier } from '../../../../types/tier/tier';
 import { useUiState } from '../../../../store/store';
-import { avatarSrc } from '../../../../assets';
 
-export function Topbar() {
+/** Who the shell is showing: derived on the server from the durable session. */
+export type ShellAccount =
+  | { readonly state: 'anonymous' }
+  | { readonly state: 'provisional' }
+  | { readonly state: 'member'; readonly username: string };
+
+const accountLink =
+  'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-bold text-ink no-underline hover:bg-surface-overlay hover:no-underline';
+
+function AccountControl({ account }: { readonly account: ShellAccount }) {
+  switch (account.state) {
+    case 'anonymous':
+      return (
+        <Link href="/sign-in" className={accountLink}>
+          Sign in
+        </Link>
+      );
+    case 'provisional':
+      return (
+        <Link href="/onboarding/username" className={accountLink}>
+          Finish sign-up
+        </Link>
+      );
+    case 'member':
+      return (
+        <Link
+          href="/settings"
+          className={accountLink}
+          aria-label={`Account settings for ${account.username}`}
+        >
+          <Avatar name={account.username} size="md" />
+          <span className="max-compact:hidden">{account.username}</span>
+        </Link>
+      );
+  }
+}
+
+export function Topbar({ account }: { readonly account: ShellAccount }) {
   // Selectors return primitives or stable references — never fresh literals.
   const notificationsCount = useUiState(
     (state) => state.resources.notificationsCount,
   );
-  const viewer = useUiState((state) => state.resources.viewer);
   return (
     <header className="flex h-topbar items-center gap-6 px-6 max-compact:gap-4 max-compact:px-4">
       <Link
@@ -48,28 +79,7 @@ export function Topbar() {
             </span>
           ) : null}
         </span>
-        <button
-          type="button"
-          className="flex cursor-pointer items-center gap-3 rounded-md bg-transparent px-3 py-2 text-ink hover:bg-surface-overlay"
-        >
-          <Avatar name={viewer.name} src={avatarSrc(viewer.name)} size="md" />
-          <span className="flex flex-col items-start gap-shell-hair max-compact:hidden">
-            <span className="inline-flex items-center gap-2">
-              <span className="text-sm leading-tight font-bold">
-                {viewer.name}
-              </span>
-              <PresenceDot presence="online" />
-            </span>
-            <span className="inline-flex items-center gap-3">
-              <Stat icon="chart" value={viewer.rating} />
-              <span className="inline-flex items-center gap-1 text-xs font-black tracking-wide text-tier-diamond">
-                <Icon name="gem" size={13} />
-                {Tier.label[viewer.tier]}
-              </span>
-            </span>
-          </span>
-          <Icon name="chevronDown" size={16} className="text-ink-faint" />
-        </button>
+        <AccountControl account={account} />
       </div>
     </header>
   );

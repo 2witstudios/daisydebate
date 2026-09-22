@@ -25,9 +25,20 @@ export const resolveBrowserEndpoint = (env: Env): string | undefined =>
 export const runsVisualProject = (env: Env, platform: string): boolean =>
   platform === 'linux' || resolveBrowserEndpoint(env) !== undefined;
 
-const port = resolveE2EPort(process.env);
+// One production server per run: the app on the pinned port, a loopback TLS
+// edge on the next (production requires an HTTPS origin, and Secure session
+// cookies need one in a real browser), and the mail capture after that.
+export const resolveE2EPorts = (env: Env) => {
+  const app = resolveE2EPort(env);
+  return { app, edge: app + 1, mail: app + 2 };
+};
+/** The public origin the server is configured with and the browser uses. */
+export const resolveE2EOrigin = (env: Env): string =>
+  `https://localhost:${resolveE2EPorts(env).edge}`;
+
+const ports = resolveE2EPorts(process.env);
+const origin = resolveE2EOrigin(process.env);
 const browserEndpoint = resolveBrowserEndpoint(process.env);
-const baseURL = `http://127.0.0.1:${port}`;
 // Local Compose exposes PostgreSQL on 15432; CI service containers use 5432.
 const postgresPort = process.env.E2E_POSTGRES_PORT ?? '15432';
 const redisPort = resolveE2ERedisPort(process.env);
@@ -43,7 +54,9 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {
-    baseURL,
+    baseURL: origin,
+    // The edge presents a per-run self-signed certificate for localhost.
+    ignoreHTTPSErrors: true,
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
     video: 'retain-on-failure',
@@ -70,17 +83,24 @@ export default defineConfig({
   webServer: {
     // Keep structured server output beside Playwright's failure artifacts.
     command:
-      'mkdir -p test-results && bun run start > test-results/server.log 2>&1',
-    url: `${baseURL}/api/health/live`,
+      'mkdir -p test-results && bun e2e/support/server.ts > test-results/server.log 2>&1',
+    // Probe through the TLS edge, not the app port: the edge and the mail
+    // capture live in the same wrapper process, so a reused server is only
+    // accepted when all three listeners are up.
+    url: `${origin}/api/health/live`,
+    ignoreHTTPSErrors: true,
     name: 'production web',
     timeout: 60_000,
     reuseExistingServer: resolveReuseExistingServer(process.env),
     gracefulShutdown: { signal: 'SIGTERM', timeout: 30_000 },
     env: {
-      PORT: String(port),
+      PORT: String(ports.app),
+      E2E_EDGE_PORT: String(ports.edge),
+      E2E_MAIL_PORT: String(ports.mail),
+      NODE_ENV: 'production',
       // The production configuration refinements must hold: HTTPS public URL,
       // deployment identity, no development credentials, proof route closed.
-      PUBLIC_APP_URL: 'https://e2e.daisy.invalid',
+      PUBLIC_APP_URL: origin,
       APP_VERSION: 'e2e',
       GIT_COMMIT: 'local-e2e',
       DATABASE_URL: `postgres://daisy_e2e:e2e-loopback-only@localhost:${postgresPort}/daisy_test`,
@@ -89,7 +109,8 @@ export default defineConfig({
       FOUNDATION_PROOF_ENABLED: 'false',
       LOG_LEVEL: 'info',
       // Production refuses to start without auth configuration. These are
-      // inert placeholders: e2e never sends mail or receives webhooks.
+      // inert placeholders: outbound mail is captured by the e2e server and
+      // never reaches Resend, and no webhook is ever delivered.
       BETTER_AUTH_SECRET:
         'e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0',
       RESEND_API_KEY: 're_e2e_placeholder_not_a_credential',
