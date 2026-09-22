@@ -19,7 +19,7 @@ export function parseValidated<T>(schema: ZodType<T>, input: unknown): T {
 export async function handleOperation(
   request: Request,
   operation: string,
-  handler: (id: string) => Promise<Response>,
+  handler: (id: string, logger: Logger) => Promise<Response>,
 ): Promise<Response> {
   const id = requestId(request.headers.get('x-request-id'));
   const start = performance.now();
@@ -36,7 +36,7 @@ export async function handleOperation(
           operation,
         });
         request.signal.throwIfAborted();
-        const response = await handler(id);
+        const response = await handler(id, logger);
         response.headers.set('x-request-id', id);
         response.headers.set('Cache-Control', 'no-store');
         logger.log(

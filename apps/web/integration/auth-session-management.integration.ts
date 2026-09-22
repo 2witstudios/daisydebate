@@ -42,6 +42,27 @@ const sessionTokenOf = async (response: Response): Promise<string> =>
   ((await response.clone().json()) as { session?: { token: string } } | null)
     ?.session?.token ?? '';
 
+/** Swaps the shared logger for a recorder for the duration of `work` (AUTH-6.4). */
+async function recordedEvents(work: () => Promise<void>): Promise<string[]> {
+  const resources = flows.account.flows.getResources();
+  const events: string[] = [];
+  const original = resources.logger;
+  resources.logger = {
+    log: (event: string) => {
+      events.push(event);
+    },
+    child() {
+      return this;
+    },
+  };
+  try {
+    await work();
+  } finally {
+    resources.logger = original;
+  }
+  return events;
+}
+
 describe('AUTH-5.5 session management', () => {
   test('a second sign-in creates a second session, both listed for the account', async () => {
     const { email, cookie: first } = await signUp();
@@ -84,6 +105,37 @@ describe('AUTH-5.5 session management', () => {
         afterAuthenticated: await isAuthenticated(after),
       },
       expected: { beforeAuthenticated: true, afterAuthenticated: false },
+    });
+  });
+
+  test('revoking a specific session and revoking every other session each emit their own lifecycle event (AUTH-6.4)', async () => {
+    const { email, cookie: first } = await signUp();
+    const { requestLink, redeem } = flows.account.flows;
+    const { link: linkA } = await requestLink(email);
+    const second = cookieHeader(
+      await redeem(new URL(linkA as URL).searchParams.get('token') ?? ''),
+    );
+    const secondToken = await sessionTokenOf(await protectedRead(second));
+    const singleEvents = await recordedEvents(async () => {
+      await flows.revokeSession(first, secondToken);
+    });
+
+    const { link: linkB } = await requestLink(email);
+    await redeem(new URL(linkB as URL).searchParams.get('token') ?? '');
+    const allEvents = await recordedEvents(async () => {
+      await flows.revokeOtherSessions(first);
+    });
+
+    assert({
+      given:
+        'revoking one named other session, then revoking every other session',
+      should:
+        'emit auth.session.revoked and auth.session.revoked_all respectively',
+      actual: {
+        single: singleEvents.includes('auth.session.revoked'),
+        all: allEvents.includes('auth.session.revoked_all'),
+      },
+      expected: { single: true, all: true },
     });
   });
 

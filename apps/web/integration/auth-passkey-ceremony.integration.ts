@@ -20,6 +20,27 @@ setupRitewayBun();
 const flows = await createPasskeyFlows();
 const { signUp } = flows.account;
 
+/** Swaps the shared logger for a recorder for the duration of `work` (AUTH-6.4). */
+async function recordedEvents(work: () => Promise<void>): Promise<string[]> {
+  const resources = flows.account.flows.getResources();
+  const events: string[] = [];
+  const original = resources.logger;
+  resources.logger = {
+    log: (event: string) => {
+      events.push(event);
+    },
+    child() {
+      return this;
+    },
+  };
+  try {
+    await work();
+  } finally {
+    resources.logger = original;
+  }
+  return events;
+}
+
 const passkeyCount = (email: string) =>
   withSql(async (sql) => {
     const [row] = await sql`
@@ -97,6 +118,19 @@ describe('AUTH-5.1 passkey enrollment', () => {
       should: 'be rejected and leave no credential behind',
       actual: { ok: verifyResponse.ok, stored: await passkeyCount(email) },
       expected: { ok: false, stored: 0 },
+    });
+  });
+
+  test('a completed registration emits the enrolled lifecycle event (AUTH-6.4)', async () => {
+    const { cookie } = await signUp();
+    const events = await recordedEvents(async () => {
+      await flows.enrollPasskey(cookie, { name: 'Laptop' });
+    });
+    assert({
+      given: 'a real passkey registration ceremony that succeeds',
+      should: 'emit auth.passkey.enrolled',
+      actual: events.includes('auth.passkey.enrolled'),
+      expected: true,
     });
   });
 
@@ -235,6 +269,20 @@ describe('AUTH-5.2 passkey sign-in', () => {
       should: 'still be rejected because the challenge itself was consumed',
       actual: { replayWithFreshCounter: replayWithFreshCounter.ok },
       expected: { replayWithFreshCounter: false },
+    });
+  });
+
+  test('a completed assertion emits the authenticated lifecycle event (AUTH-6.4)', async () => {
+    const { cookie } = await signUp();
+    const { credential } = await flows.enrollPasskey(cookie);
+    const events = await recordedEvents(async () => {
+      await flows.signInWithPasskey(credential);
+    });
+    assert({
+      given: 'a real passkey assertion that succeeds',
+      should: 'emit auth.passkey.authenticated',
+      actual: events.includes('auth.passkey.authenticated'),
+      expected: true,
     });
   });
 

@@ -67,7 +67,56 @@ const userIdOf = (email: string) =>
     return row?.id as string | undefined;
   });
 
+/** Swaps the shared logger for a recorder for the duration of `work` (AUTH-6.4). */
+async function recordedEvents(work: () => Promise<void>): Promise<string[]> {
+  const resources = flows.account.flows.getResources();
+  const events: string[] = [];
+  const original = resources.logger;
+  resources.logger = {
+    log: (event: string) => {
+      events.push(event);
+    },
+    child() {
+      return this;
+    },
+  };
+  try {
+    await work();
+  } finally {
+    resources.logger = original;
+  }
+  return events;
+}
+
 describe('AUTH-5.6 change the recovery email', () => {
+  test('requesting a change and verifying the new address each emit their own lifecycle event (AUTH-6.4)', async () => {
+    const { email, cookie } = await signUp();
+    const uid = (await userIdOf(email)) ?? '';
+    const before = flows.account.flows.mailbox.mails.length;
+    const newEmail = `${createId()}@example.test`;
+    const requestEvents = await recordedEvents(async () => {
+      await flows.changeEmail(cookie, newEmail);
+    });
+    const confirmLink = linkFrom(flows.account.flows.mailbox.mails[before]!);
+    await confirmPost(tokenOf(confirmLink));
+    const verifyLink = linkFrom(flows.account.flows.mailbox.mails[before + 1]!);
+    const verifyEvents = await recordedEvents(async () => {
+      await confirmPost(tokenOf(verifyLink));
+    });
+    assert({
+      given:
+        'a fresh session requesting a change, then verifying the new address',
+      should:
+        'emit auth.email_change.requested and auth.email_change.verified respectively',
+      actual: {
+        requested: requestEvents.includes('auth.email_change.requested'),
+        verified: verifyEvents.includes('auth.email_change.verified'),
+      },
+      expected: { requested: true, verified: true },
+    });
+    void uid;
+  });
+
   test('a fresh session completes the two-hop change, keeping the old address until the new one verifies', async () => {
     const { email, cookie, userId } = { ...(await signUp()), userId: '' };
     const uid = (await userIdOf(email)) ?? '';

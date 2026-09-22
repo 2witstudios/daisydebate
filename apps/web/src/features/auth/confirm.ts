@@ -1,3 +1,4 @@
+import type { Logger } from '@daisy/logger';
 import { handleOperation, requireSameOrigin } from '../../server/http';
 import { CONFIRM_PATH, renderConfirmPage, type Hidden } from './confirm-page';
 import {
@@ -109,7 +110,11 @@ export function createConfirmHandlers({ auth }: ConfirmDependencies) {
       : renderConfirmPage({ kind: 'expired', hidden });
   };
 
-  const redeem = async (request: Request, form: URLSearchParams) => {
+  const redeem = async (
+    request: Request,
+    form: URLSearchParams,
+    logger: Logger,
+  ) => {
     const token = form.get('token') ?? '';
     const hidden = hiddenFrom(form);
     if (!tokenShape.test(token)) return redirect(EXPIRED);
@@ -125,7 +130,17 @@ export function createConfirmHandlers({ auth }: ConfirmDependencies) {
       { method: 'GET' },
     );
     const signedIn = signedInRedirect(response, auth().config.PUBLIC_APP_URL);
-    if (signedIn) return signedIn;
+    if (signedIn) {
+      // The redemption itself bypasses the mounted-route wrapper (it forwards
+      // straight into the Better Auth handler), so this is the one place a
+      // successful redemption is observable: no token, cookie or address.
+      logger.log(
+        'auth.magic_link.verified',
+        { operation: 'auth.confirm.submit' },
+        'Magic link verified',
+      );
+      return signedIn;
+    }
     if (response.status >= 300 && response.status < 400)
       return redirect(EXPIRED);
     return retryView(token, hidden, response);
@@ -160,12 +175,12 @@ export function createConfirmHandlers({ auth }: ConfirmDependencies) {
   return {
     ...createViewHeadHandlers('auth.confirm.view', view),
     POST: (request: Request) =>
-      handleOperation(request, 'auth.confirm.submit', async () => {
+      handleOperation(request, 'auth.confirm.submit', async (_id, logger) => {
         requireSameOrigin(request, auth().config.PUBLIC_APP_URL);
         const form = await readForm(request, MAX_FORM_BYTES);
         return form.get('intent') === 'resend'
           ? resend(request, form)
-          : redeem(request, form);
+          : redeem(request, form, logger);
       }),
   };
 }
