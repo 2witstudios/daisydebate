@@ -94,20 +94,20 @@ return 1
 /**
  * Deletes the connection hash immediately (a clean disconnect), drops it
  * from the actor's zset, then rescores or removes the actor from the
- * online zset depending on whether any connection remains.
- * KEYS[1] conn hash; KEYS[2] actor zset; KEYS[3] online zset.
- * ARGV[1] connId; ARGV[2] actorId.
+ * online zset depending on whether any connection remains. Deleting a
+ * member can only ever lower or hold the actor/online zsets' top score,
+ * never raise it, so it never needs to (re)arm their expiry: whichever
+ * prior upsert/refresh established the current top already armed a TTL
+ * that keeps ticking down in step with the same score, so a GT rearm here
+ * could never fire. KEYS[1] conn hash; KEYS[2] actor zset; KEYS[3] online
+ * zset. ARGV[1] connId; ARGV[2] actorId.
  */
 const deletePresenceLeaseScript = `
-${armZsetExpiry}
 local existed = redis.call('DEL', KEYS[1])
 redis.call('ZREM', KEYS[2], ARGV[1])
 local top = redis.call('ZREVRANGE', KEYS[2], 0, 0, 'WITHSCORES')
 if top[2] then
-  ${nowFromTime}
   redis.call('ZADD', KEYS[3], top[2], ARGV[2])
-  arm(KEYS[2], top, now)
-  arm(KEYS[3], top, now)
 else
   redis.call('ZREM', KEYS[3], ARGV[2])
 end
