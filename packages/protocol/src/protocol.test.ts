@@ -73,6 +73,11 @@ describe('event and snapshot schemas', () => {
         id,
         resolution: 'Test',
         format: 'foundation',
+        rules: {
+          version: 1,
+          seats: { affirmative: 1, negative: 1, judge: 0 },
+          clock: { speechMs: 240_000, prepMs: 120_000 },
+        },
         phase: 'waiting',
         createdAt: '2026-01-01T00:00:00.000Z',
         participants: [],
@@ -223,6 +228,53 @@ describe('debate roles and format rules', () => {
         }).success,
       ],
       expected: [false, false],
+    });
+  });
+});
+
+describe('snapshot rules', () => {
+  const snapshot = {
+    version: 1,
+    id,
+    resolution: 'Test',
+    format: 'foundation',
+    rules: {
+      version: 1,
+      seats: { affirmative: 1, negative: 1, judge: 0 },
+      clock: { speechMs: 240_000, prepMs: 120_000 },
+    },
+    phase: 'waiting',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    participants: [],
+  };
+  test('carry the effective rules the debate runs under', () => {
+    assert({
+      given: 'a snapshot with a format slug and effective rules',
+      should: 'accept it and keep the rules verbatim',
+      actual: debateSnapshotSchema.parse(snapshot).rules,
+      expected: snapshot.rules,
+    });
+    assert({
+      given: 'a snapshot without rules, or with rules missing a seat key',
+      should: 'reject both',
+      actual: [
+        debateSnapshotSchema.safeParse({ ...snapshot, rules: undefined })
+          .success,
+        debateSnapshotSchema.safeParse({
+          ...snapshot,
+          rules: { ...snapshot.rules, seats: { affirmative: 1, negative: 1 } },
+        }).success,
+      ],
+      expected: [false, false],
+    });
+    assert({
+      given: 'format slugs',
+      should: 'accept lowercase slugs and reject other shapes',
+      actual: ['ipda', 'lincoln-douglas-2', 'Foundation', 'a b', ''].map(
+        (format) =>
+          debateSnapshotSchema.safeParse({ ...snapshot, format }).success,
+      ),
+      expected: [true, true, false, false, false],
     });
   });
 });

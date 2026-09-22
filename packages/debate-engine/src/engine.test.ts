@@ -11,7 +11,14 @@ const create = () =>
     id,
     resolution: 'A representative resolution',
     createdAt: '2026-01-01T00:00:00.000Z',
+    format: 'foundation',
+    rules: foundationRules,
   });
+const foundationRules = {
+  version: 1 as const,
+  seats: { affirmative: 1, negative: 1, judge: 0 },
+  clock: { speechMs: 240_000, prepMs: 120_000 },
+};
 
 describe('ECS adapter contract', () => {
   test('legal lifecycle survives JSON snapshot restoration', () => {

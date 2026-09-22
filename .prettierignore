@@ -9,3 +9,6 @@ coverage
 playwright-report
 test-results
 packages/db/migrations/meta
+# Generated in-test previews (AUTH-3.9): rendered for a reviewer to open in a
+# browser, not authored source.
+apps/web/src/features/auth/mail/__fixtures__

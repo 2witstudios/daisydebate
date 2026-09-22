@@ -36,11 +36,21 @@ export const participantSchema = z.strictObject({
   side: z.enum(['affirmative', 'negative']),
   ready: z.boolean(),
 });
+/** A format's slug identity (`formats.id`): lowercase, digits and hyphens. */
+export const formatIdSchema = z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/);
+/**
+ * `format` names the canonical format the debate belongs to (rating ladders
+ * key on it); `rules` are the effective rules this debate actually runs
+ * under. A lobby may override the canonical rules; a ranked debate may not
+ * (ADR 0030). Copying the rules into the snapshot keeps a debate replayable
+ * even after the canonical format changes.
+ */
 export const debateSnapshotSchema = z.strictObject({
   version: z.literal(1),
   id: idSchema,
   resolution: z.string().trim().min(1).max(500),
-  format: z.literal('foundation'),
+  format: formatIdSchema,
+  rules: formatRulesSchema,
   phase: phaseSchema,
   createdAt: z.iso.datetime(),
   participants: z.array(participantSchema).max(2),

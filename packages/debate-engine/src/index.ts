@@ -1,12 +1,19 @@
 import { createAppError, createInvariantError } from '@daisy/errors';
 import {
+  debateRoles,
   debateSnapshotSchema,
   type DebateSnapshot,
+  type FormatRules,
   type Participant,
   type DebatePhase,
 } from '@daisy/protocol';
 import { createAdapter } from './ecs-adapter';
-export type { DebateSnapshot, Participant, DebatePhase } from '@daisy/protocol';
+export type {
+  DebateSnapshot,
+  FormatRules,
+  Participant,
+  DebatePhase,
+} from '@daisy/protocol';
 export type DebateRuntime = {
   snapshot(): DebateSnapshot;
   join(participant: { participantId: string; side: Participant['side'] }): void;
@@ -23,13 +30,32 @@ export const debateInvariantIds = {
   readinessRequiresWaitingPhase: 'debate.participant.ready.waiting-phase',
   legalPhaseTransition: 'debate.phase.transition.legal',
   completedIsTerminal: 'debate.phase.completed.terminal',
+  seatsWithinFormat: 'debate.seats.within-format',
+  seatsCapacitySupported: 'debate.seats.capacity-supported',
 } as const;
+const sides = ['affirmative', 'negative'] as const;
+/**
+ * True when `rules` are exactly the canonical rules of the format (key order
+ * ignored). A ranked debate must run under canonical rules (ADR 0030); a
+ * lobby may override them, and then its result never reaches the ladder.
+ */
+export function rulesMatchFormat(
+  rules: FormatRules,
+  canonical: FormatRules,
+): boolean {
+  return (
+    rules.version === canonical.version &&
+    debateRoles.every((role) => rules.seats[role] === canonical.seats[role]) &&
+    rules.clock.speechMs === canonical.clock.speechMs &&
+    rules.clock.prepMs === canonical.clock.prepMs
+  );
+}
 function validateSnapshot(input: unknown): DebateSnapshot {
   const result = debateSnapshotSchema.safeParse(input);
   if (!result.success)
     throw createAppError('VALIDATION', 'Invalid debate snapshot', result.error);
   const snapshot = result.data;
-  const { participants, phase } = snapshot;
+  const { participants, phase, rules } = snapshot;
   if (new Set(participants.map((p) => p.id)).size !== participants.length)
     throw createInvariantError(
       debateInvariantIds.participantIdentitiesUnique,
@@ -40,13 +66,32 @@ function validateSnapshot(input: unknown): DebateSnapshot {
       debateInvariantIds.participantSeatsUnique,
       'Participant seats must be unique',
     );
+  // After uniqueness: a duplicate seat is reported as such, not as capacity.
+  for (const side of sides) {
+    // Team formats need slot modelling; until then the engine is honest
+    // about its limit instead of seating one and refusing the rest.
+    if (rules.seats[side] > 1)
+      throw createInvariantError(
+        debateInvariantIds.seatsCapacitySupported,
+        'This engine seats at most one participant per side',
+      );
+    if (participants.filter((p) => p.side === side).length > rules.seats[side])
+      throw createInvariantError(
+        debateInvariantIds.seatsWithinFormat,
+        `The format offers ${rules.seats[side]} ${side} seat(s)`,
+      );
+  }
+  const everySeatFilled = sides.every(
+    (side) =>
+      participants.filter((p) => p.side === side).length === rules.seats[side],
+  );
   if (
     phase !== 'waiting' &&
-    (participants.length !== 2 || participants.some((p) => !p.ready))
+    (!everySeatFilled || participants.some((p) => !p.ready))
   )
     throw createInvariantError(
       debateInvariantIds.startedRequiresReadyParticipants,
-      'Started debates require two ready participants',
+      'Started debates require every offered seat filled and ready',
     );
   return snapshot;
 }
@@ -98,16 +143,22 @@ export function restoreDebateRuntime(input: unknown): DebateRuntime {
     dispose: adapter.dispose,
   };
 }
-/** IDs and time are injected by the application; the engine has no ambient clock. */
+/**
+ * IDs and time are injected by the application; the engine has no ambient
+ * clock. `format` is the canonical slug and `rules` the effective rules this
+ * debate runs under (ADR 0030); the caller loads them from the format row and
+ * applies any lobby overrides before construction.
+ */
 export function createDebateRuntime(input: {
   id: string;
   resolution: string;
   createdAt: string;
+  format: string;
+  rules: FormatRules;
 }): DebateRuntime {
   return restoreDebateRuntime({
     ...input,
     version: 1,
-    format: 'foundation',
     phase: 'waiting',
     participants: [],
   });
