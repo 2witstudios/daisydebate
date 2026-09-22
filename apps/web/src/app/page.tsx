@@ -1,18 +1,23 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { AppShell } from '../ui/layout/app-shell/app-shell';
 import { Dashboard } from '../ui/dashboard/dashboard';
 import { OnlineUsers } from '../ui/dashboard/online-users/online-users';
 import { TopicCard } from '../ui/dashboard/topic-card/topic-card';
 import { ActivityFeed } from '../ui/dashboard/activity-feed/activity-feed';
 import { QuoteCard } from '../ui/dashboard/quote-card/quote-card';
+import { shellAccount } from '../lib/shell-account';
+import { identify } from '../lib/identity';
 
 export const metadata: Metadata = {
   alternates: { canonical: '/' },
 };
 
-export default function HomePage() {
+export default async function HomePage() {
+  const identity = await identify((await headers()).get('cookie'));
   return (
     <AppShell
+      account={shellAccount(identity)}
       rail={
         <>
           <OnlineUsers />

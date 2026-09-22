@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import { systemId } from '@daisy/clock';
 import { isValidTraceparent } from '@daisy/observability';
+import { isGuardedPath, returnDestination } from './features/access/decision';
 // A nonce never authorizes a `style="…"` attribute, and `next/image` always
 // server-renders one. Hash the exact strings it emits (`fill`, and the default)
 // so every other inline style attribute stays refused. The CSP e2e fails if a
@@ -15,6 +16,12 @@ const styleAttributeSources = [
       `'sha256-${createHash('sha256').update(style).digest('base64')}'`,
   )
   .join(' ');
+/** Better Auth's session cookie, plain on HTTP and `__Secure-` on HTTPS. */
+const SESSION_COOKIES = [
+  'better-auth.session_token',
+  '__Secure-better-auth.session_token',
+];
+
 export function proxy(request: NextRequest) {
   const requestId = systemId.next();
   const { pathname } = request.nextUrl;
@@ -47,6 +54,24 @@ export function proxy(request: NextRequest) {
     `connect-src 'self'${development ? ' ws:' : ''}`,
     ...(development ? [] : ['upgrade-insecure-requests']),
   ].join('; ');
+  // Early hint only: no session cookie at all can never pass, so skip the
+  // render. Whether a cookie is a live session is decided per entrypoint
+  // (lib/access.ts), which rechecks the durable session every time.
+  if (
+    isGuardedPath(pathname) &&
+    !SESSION_COOKIES.some((name) => request.cookies.has(name))
+  ) {
+    const next = returnDestination(`${pathname}${request.nextUrl.search}`);
+    return new NextResponse(null, {
+      status: 307,
+      headers: {
+        Location: `/sign-in?next=${encodeURIComponent(next)}`,
+        'Content-Security-Policy': policy,
+        'Cache-Control': 'no-store',
+        'x-request-id': requestId,
+      },
+    });
+  }
   const headers = new Headers(request.headers);
   // Never trust caller-supplied identifiers; proxy ingress establishes correlation.
   headers.set('x-request-id', requestId);

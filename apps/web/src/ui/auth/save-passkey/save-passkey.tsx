@@ -1,6 +1,7 @@
 import { Button } from '../../components/button/button';
 import { Icon } from '../../components/icon/icon';
 import { AuthFrame, AuthHeading } from '../auth-frame/auth-frame';
+import { Notice } from '../notice/notice';
 
 export type SavePasskeyProps = {
   readonly email: string;
@@ -9,6 +10,8 @@ export type SavePasskeyProps = {
   /** Never offer a passkey on this device again: it is shared. */
   readonly markShared: () => void;
   readonly dismiss: () => void;
+  /** Why the last attempt saved nothing; never a success. */
+  readonly notice?: string | undefined;
 };
 
 const savedFacts = [
@@ -27,6 +30,7 @@ export function SavePasskey({
   savePasskey,
   markShared,
   dismiss,
+  notice,
 }: SavePasskeyProps) {
   return (
     <AuthFrame
@@ -76,6 +80,9 @@ export function SavePasskey({
             This is a shared computer
           </Button>
         </div>
+        {notice === undefined ? null : (
+          <Notice id="save-passkey-notice" tone="info" title={notice} />
+        )}
         <Button
           variant="ghost"
           disabled={pending}

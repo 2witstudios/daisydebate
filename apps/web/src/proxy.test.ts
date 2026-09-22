@@ -123,3 +123,61 @@ describe('proxy content security policy', () => {
     });
   });
 });
+
+describe('proxy early sign-in hint', () => {
+  const at = (path: string, cookie?: string) =>
+    proxy(
+      new NextRequest(`https://daisy.invalid${path}`, {
+        headers: cookie ? { cookie } : {},
+      }),
+    );
+
+  test('sends a cookie-less request for a guarded area to sign-in with its path', () => {
+    const response = at('/lobby/tables?tab=open');
+    assert({
+      given: 'a request for a guarded descendant with no session cookie',
+      should: 'redirect to sign-in carrying the local path and query',
+      actual: [response.status, response.headers.get('location')],
+      expected: [307, '/sign-in?next=%2Flobby%2Ftables%3Ftab%3Dopen'],
+    });
+  });
+
+  test('the redirect keeps the CSP and correlation contracts', () => {
+    const response = at('/settings');
+    assert({
+      given: 'a redirected guarded request',
+      should: 'carry a CSP, a request id and no-store',
+      actual: [
+        response.headers
+          .get('content-security-policy')
+          ?.startsWith("default-src 'self'"),
+        Boolean(response.headers.get('x-request-id')),
+        response.headers.get('cache-control'),
+      ],
+      expected: [true, true, 'no-store'],
+    });
+  });
+
+  test('lets a request with a session cookie through to the per-page check', () => {
+    assert({
+      given: 'guarded requests carrying either session cookie name',
+      should: 'continue to the page, which rechecks the durable session',
+      actual: [
+        at('/play', 'better-auth.session_token=x').status,
+        at('/play', '__Secure-better-auth.session_token=x').status,
+      ],
+      expected: [200, 200],
+    });
+  });
+
+  test('leaves spectator and public routes open', () => {
+    assert({
+      given: 'cookie-less requests for public routes and lookalikes',
+      should: 'not redirect',
+      actual: ['/', '/watch', '/watch/abc', '/sign-in', '/playground'].map(
+        (path) => at(path).status,
+      ),
+      expected: [200, 200, 200, 200, 200],
+    });
+  });
+});

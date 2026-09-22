@@ -1,13 +1,10 @@
 import type { Metadata } from 'next';
-import { systemClock } from '@daisy/clock';
-import { ConfirmSignIn } from '../../ui/auth/confirm-sign-in/confirm-sign-in';
-import { LinkExpired } from '../../ui/auth/link-expired/link-expired';
-import {
-  MOCK_EMAIL,
-  mockFlowState,
-  parseMockPreview,
-} from '../../ui/auth/mock/mock-sign-in-port';
-import { MockSavePasskey, MockSignIn } from '../../ui/auth/mock/mock-sign-in';
+import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { returnDestination } from '../../features/access/decision';
+import { identify } from '../../lib/identity';
+import { onboardingDestination } from '../../ui/auth/better-auth-sign-in-port';
+import { SignIn } from '../../ui/auth/sign-in/sign-in';
 
 export const metadata: Metadata = {
   title: 'Sign in',
@@ -15,42 +12,20 @@ export const metadata: Metadata = {
 };
 
 /**
- * Sign-in, running on the mock port until AUTH-4.1 wires Better Auth.
- * `?preview=` opens any step directly for review; the confirm and expired
- * steps belong to the emailed-link route and are shown here for design only.
+ * Sign-in over Better Auth. `?next=` is untrusted: only a validated local
+ * path survives. Someone already signed in is sent straight on, through
+ * username onboarding if they never finished it.
  */
 export default async function SignInPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const preview = parseMockPreview((await searchParams).preview);
-  switch (preview) {
-    case 'confirm':
-      return (
-        <ConfirmSignIn
-          target={{
-            action: '/sign-in',
-            method: 'get',
-            fields: { preview: 'save-passkey' },
-          }}
-        />
-      );
-    case 'expired':
-      return (
-        <LinkExpired
-          target={{
-            action: '/sign-in',
-            method: 'get',
-            fields: { preview: 'check-inbox' },
-          }}
-        />
-      );
-    case 'save-passkey':
-      return <MockSavePasskey email={MOCK_EMAIL} />;
-    default:
-      return (
-        <MockSignIn initialState={mockFlowState(preview, systemClock.now())} />
-      );
-  }
+  const next = (await searchParams).next;
+  const destination = returnDestination(Array.isArray(next) ? next[0] : next);
+  const identity = await identify((await headers()).get('cookie'));
+  if (identity.state === 'member') redirect(destination);
+  if (identity.state === 'provisional')
+    redirect(onboardingDestination(destination));
+  return <SignIn destination={destination} />;
 }

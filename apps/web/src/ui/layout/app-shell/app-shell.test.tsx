@@ -14,6 +14,7 @@ const render = (): string => {
   setUiState(createInitialState());
   return renderToString(
     h(AppShell, {
+      account: { state: 'anonymous' },
       rail: h('p', null, 'rail-content'),
       children: h('p', null, 'page'),
     }),

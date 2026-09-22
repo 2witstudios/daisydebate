@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
+import { requireAccess } from '../../lib/access';
 import { RouteShell } from '../ui/route-shell';
 
 export const metadata: Metadata = { title: 'Play' };
 
-export default function PlayPage() {
+export default async function PlayPage() {
+  await requireAccess('/play', 'participant');
   return (
     <RouteShell
       title="Play"
