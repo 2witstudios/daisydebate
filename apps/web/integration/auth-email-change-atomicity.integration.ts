@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
-import { signJWT } from 'better-auth/crypto';
+import { signJWT, verifyJWT } from 'better-auth/crypto';
 import { createPasskeyFlows } from './auth-passkey-flows';
 import {
   cookieHeader,
@@ -10,6 +10,7 @@ import {
   type CapturedMail,
 } from './auth-mounted-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+import { EMAIL_VERIFICATION_EXPIRES_IN_SECONDS } from '../src/features/auth/server';
 
 /**
  * Stage 5 review follow-ups for AUTH-5.6: expired verification tokens and
@@ -100,6 +101,31 @@ describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () 
         emailAfterValid: newEmail,
       },
     });
+  });
+
+  test('the real second-hop verification token is minted with the configured lifetime', async () => {
+    const { email, cookie } = await signUp();
+    const before = flows.account.flows.mailbox.mails.length;
+    const newEmail = `${createId()}@example.test`;
+    await flows.changeEmail(cookie, newEmail);
+    const confirmMail = flows.account.flows.mailbox.mails[before];
+    await confirmPost(tokenOf(linkFrom(confirmMail!)));
+    const verifyMail = flows.account.flows.mailbox.mails[before + 1];
+    const verifyToken = tokenOf(linkFrom(verifyMail!));
+    const secret = process.env.BETTER_AUTH_SECRET ?? '';
+    const payload = await verifyJWT<{ iat: number; exp: number }>(
+      verifyToken,
+      secret,
+    );
+    assert({
+      given:
+        'a second-hop email-change verification token minted by the production `sendChangeEmailVerification` path (not self-forged)',
+      should:
+        "carry an exp - iat interval equal to the server's configured EMAIL_VERIFICATION_EXPIRES_IN_SECONDS",
+      actual: (payload?.exp ?? 0) - (payload?.iat ?? 0),
+      expected: EMAIL_VERIFICATION_EXPIRES_IN_SECONDS,
+    });
+    void email;
   });
 
   test('a session committed while the completion is still in flight does not survive the atomic revocation', async () => {
