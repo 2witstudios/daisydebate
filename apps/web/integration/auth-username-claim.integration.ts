@@ -158,6 +158,8 @@ describe('AUTH-4.2 username claim', () => {
     });
   });
 
+  // /change-email is a real AUTH-5.6 surface (covered in its own suite), not
+  // a disabled path: only the general profile-update bypass stays closed.
   test('the general profile update surface is closed', async () => {
     const { email, cookie } = await signUp();
     const update = await authRoute.POST(
@@ -172,26 +174,11 @@ describe('AUTH-4.2 username claim', () => {
         body: JSON.stringify({ username: uniqueName(), name: 'Mallory' }),
       }),
     );
-    const changeEmail = await authRoute.POST(
-      new Request(`${origin}/api/auth/change-email`, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          origin,
-          cookie,
-          [CLIENT_IP_HEADER]: newClient(),
-        },
-        body: JSON.stringify({ newEmail: 'x@example.test' }),
-      }),
-    );
     assert({
-      given: 'a signed-in account calling Better Auth profile endpoints',
+      given: 'a signed-in account calling the general profile update endpoint',
       should: 'answer 404 and leave username and name untouched',
-      actual: {
-        statuses: [update.status, changeEmail.status],
-        stored: await usernameOf(email),
-      },
-      expected: { statuses: [404, 404], stored: null },
+      actual: { status: update.status, stored: await usernameOf(email) },
+      expected: { status: 404, stored: null },
     });
   });
 

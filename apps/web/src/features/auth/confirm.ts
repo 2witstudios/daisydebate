@@ -1,8 +1,12 @@
-import { createAppError } from '@daisy/errors';
 import { handleOperation, requireSameOrigin } from '../../server/http';
-import { readBoundedBody } from './bounded-body';
-import { CLIENT_IP_HEADER } from './client-ip';
 import { CONFIRM_PATH, renderConfirmPage, type Hidden } from './confirm-page';
+import {
+  createForward,
+  createViewHeadHandlers,
+  readForm,
+  redirect,
+  type ConfirmAuth,
+} from './confirm-http-shared';
 import { safeLocalDestination } from './redirect';
 
 const NEW_USER_DESTINATION = '/onboarding/username';
@@ -18,17 +22,7 @@ const SHOWN_CODES = new Set([
   'AUTH_TEMPORARILY_UNAVAILABLE',
 ]);
 
-type ConfirmDependencies = {
-  readonly auth: () => {
-    readonly handler: (request: Request) => Promise<Response>;
-    readonly config: { readonly PUBLIC_APP_URL: string };
-  };
-};
-
-const redirect = (location: string, headers = new Headers()) => {
-  headers.set('Location', location);
-  return new Response(null, { status: 303, headers });
-};
+type ConfirmDependencies = { readonly auth: ConfirmAuth };
 
 const hiddenFrom = (params: URLSearchParams): Hidden => {
   const newUser = params.get('newUserCallbackURL');
@@ -44,16 +38,6 @@ const hiddenFrom = (params: URLSearchParams): Hidden => {
       : {}),
   };
 };
-
-async function readForm(request: Request): Promise<URLSearchParams> {
-  const body = request.headers
-    .get('content-type')
-    ?.startsWith('application/x-www-form-urlencoded')
-    ? await readBoundedBody(request, MAX_FORM_BYTES)
-    : null;
-  if (body === null) throw createAppError('VALIDATION');
-  return new URLSearchParams(body.toString('utf8'));
-}
 
 /**
  * Success redirect: re-validate the target and keep only its path and query.
@@ -113,23 +97,7 @@ function retryView(token: string, hidden: Hidden, response: Response) {
 }
 
 export function createConfirmHandlers({ auth }: ConfirmDependencies) {
-  /** Same-origin, identity-stamped sub-request into the mounted Better Auth router. */
-  const forward = (request: Request, path: string, init: RequestInit) => {
-    const server = auth();
-    const headers = new Headers(init.headers);
-    headers.set('origin', new URL(server.config.PUBLIC_APP_URL).origin);
-    const client = request.headers.get(CLIENT_IP_HEADER);
-    if (client) headers.set(CLIENT_IP_HEADER, client);
-    // An unexpected framework failure becomes a plain 503 the views retry.
-    return server
-      .handler(
-        new Request(new URL(path, server.config.PUBLIC_APP_URL), {
-          ...init,
-          headers,
-        }),
-      )
-      .catch(() => new Response(null, { status: 503 }));
-  };
+  const forward = createForward(auth);
 
   /** GET and HEAD only render: a scanner or prefetch can never redeem. */
   const view = (request: Request): Response => {
@@ -190,20 +158,11 @@ export function createConfirmHandlers({ auth }: ConfirmDependencies) {
   };
 
   return {
-    GET: (request: Request) =>
-      handleOperation(request, 'auth.confirm.view', async () => view(request)),
-    HEAD: (request: Request) =>
-      handleOperation(request, 'auth.confirm.view', async () => {
-        const rendered = view(request);
-        return new Response(null, {
-          status: rendered.status,
-          headers: rendered.headers,
-        });
-      }),
+    ...createViewHeadHandlers('auth.confirm.view', view),
     POST: (request: Request) =>
       handleOperation(request, 'auth.confirm.submit', async () => {
         requireSameOrigin(request, auth().config.PUBLIC_APP_URL);
-        const form = await readForm(request);
+        const form = await readForm(request, MAX_FORM_BYTES);
         return form.get('intent') === 'resend'
           ? resend(request, form)
           : redeem(request, form);

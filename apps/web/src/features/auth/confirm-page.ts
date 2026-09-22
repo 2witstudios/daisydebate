@@ -1,3 +1,10 @@
+import {
+  confirmDocument,
+  escapeHtml,
+  hiddenInput,
+  pageHeaders,
+} from './confirm-page-shared';
+
 export const CONFIRM_PATH = '/auth/confirm';
 
 export type Hidden = {
@@ -17,28 +24,6 @@ export type View =
       readonly notice?: string;
     }
   | { readonly kind: 'sent' };
-
-const escapeHtml = (value: string) =>
-  value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
-
-/** Headers for every page that can carry or follow a credential. */
-const pageHeaders = (extra: Record<string, string>) => ({
-  'Content-Type': 'text/html; charset=utf-8',
-  'Cache-Control': 'no-store',
-  'Referrer-Policy': 'no-referrer',
-  'X-Robots-Tag': 'noindex, nofollow',
-  ...extra,
-});
-
-const hiddenInput = (name: string, value: string | undefined) =>
-  value === undefined
-    ? ''
-    : `<input type="hidden" name="${name}" value="${escapeHtml(value)}">`;
 
 const hiddenInputs = (hidden: Hidden) =>
   hiddenInput('callbackURL', hidden.callbackURL) +
@@ -67,6 +52,6 @@ export function renderConfirmPage(
   status = 200,
   extra: Record<string, string> = {},
 ): Response {
-  const document = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="referrer" content="no-referrer"><meta name="robots" content="noindex"><title>Sign in — Daisy</title></head><body><main>${bodyFor(view)}</main></body></html>`;
+  const document = confirmDocument('Sign in — Daisy', bodyFor(view));
   return new Response(document, { status, headers: pageHeaders(extra) });
 }
