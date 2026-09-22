@@ -1,5 +1,5 @@
 {
-  "id": "d609fd55-51b2-4265-8b10-3071cedd61c9",
+  "id": "02d5ee40-74a2-461d-a767-89aac8afe3ab",
   "prevId": "7532dec6-866c-42b8-9adb-1958dc7f1b1d",
   "version": "7",
   "dialect": "postgresql",
@@ -1605,7 +1605,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "outbox_payload_is_object": {
+          "name": "outbox_payload_is_object",
+          "value": "jsonb_typeof(\"outbox\".\"payload\") = 'object'"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.rating_changes": {

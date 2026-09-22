@@ -5,7 +5,8 @@ CREATE TABLE "outbox" (
 	"kind" text NOT NULL,
 	"version" integer NOT NULL,
 	"payload" jsonb NOT NULL,
-	"created_at" timestamp with time zone DEFAULT statement_timestamp() NOT NULL
+	"created_at" timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
+	CONSTRAINT "outbox_payload_is_object" CHECK (jsonb_typeof("outbox"."payload") = 'object')
 );
 --> statement-breakpoint
 CREATE INDEX "outbox_txid_seq_idx" ON "outbox" USING btree ("txid","seq");--> statement-breakpoint

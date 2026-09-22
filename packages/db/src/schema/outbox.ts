@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   bigserial,
+  check,
   customType,
   index,
   integer,
@@ -50,5 +51,11 @@ export const outbox = pgTable(
     index('outbox_txid_seq_idx').on(table.txid, table.seq),
     index('outbox_topic_idx').on(table.topic),
     index('outbox_created_at_idx').on(table.createdAt),
+    // Every receiver `safeParse`s an object schema (plan "Payload policy");
+    // a JSON scalar or array would silently fail every one of them.
+    check(
+      'outbox_payload_is_object',
+      sql`jsonb_typeof(${table.payload}) = 'object'`,
+    ),
   ],
 );

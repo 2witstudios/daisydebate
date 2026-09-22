@@ -1,6 +1,8 @@
-import { expect, test } from 'bun:test';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
+import { assert, setupRitewayBun, test } from 'riteway/bun';
+
+setupRitewayBun();
 
 const url = process.env.TEST_DATABASE_URL;
 if (!url)
@@ -27,7 +29,7 @@ const rejected = async (attempt: () => Promise<unknown>) => {
   }
 };
 
-test('the realtime role can only select the outbox and authorization read models; any other write is refused', async () => {
+test('the realtime role can only select the outbox and authorization read models, column-scoped on users and session; any other write is refused', async () => {
   const admin = new SQL(url, { max: 1 });
   let realtime: SQL | undefined;
   try {
@@ -51,13 +53,17 @@ test('the realtime role can only select the outbox and authorization read models
     const selectActors = await rejected(() =>
       realtime!.unsafe('select id from actors limit 1'),
     );
-    const selectUsers = await rejected(() =>
+    // No grant on users at all today (ADR 0032 §7): identity resolves
+    // through actors.user_id. RT-3.2b adds the presence-preference column.
+    const selectUsersAnyColumn = await rejected(() =>
       realtime!.unsafe('select id from users limit 1'),
     );
-    // Column-scoped grant: id resolves a ticket's userId, but email/name/
-    // image are PII a compromised realtime credential must never reach.
-    const selectUsersEmail = await rejected(() =>
-      realtime!.unsafe('select email from users limit 1'),
+    const selectSessionIdentity = await rejected(() =>
+      realtime!.unsafe('select id, user_id, expires_at from session limit 1'),
+    );
+    // The bearer credential; column-scoped grant must never include it.
+    const selectSessionToken = await rejected(() =>
+      realtime!.unsafe('select token from session limit 1'),
     );
 
     const insertOutbox = await rejected(() =>
@@ -71,8 +77,8 @@ test('the realtime role can only select the outbox and authorization read models
     const deleteOutbox = await rejected(() =>
       realtime!.unsafe('delete from outbox where seq = -1'),
     );
-    const updateUsers = await rejected(() =>
-      realtime!.unsafe("update users set username = 'x' where id = 'none'"),
+    const updateSession = await rejected(() =>
+      realtime!.unsafe("update session set user_id = 'x' where id = 'none'"),
     );
     const insertActors = await rejected(() =>
       realtime!.unsafe(
@@ -85,35 +91,49 @@ test('the realtime role can only select the outbox and authorization read models
       ),
     );
 
-    expect({
-      selectOutbox,
-      selectDebates,
-      selectDebateParticipants,
-      selectActors,
-      selectUsers,
-      selectUsersEmail,
-    }).toEqual({
-      selectOutbox: false,
-      selectDebates: false,
-      selectDebateParticipants: false,
-      selectActors: false,
-      selectUsers: false,
-      selectUsersEmail: true,
+    assert({
+      given: 'reads the role is granted',
+      should:
+        'succeed for outbox, debates, debate_participants, actors and the three session columns, and refuse users entirely and session.token',
+      actual: {
+        selectOutbox,
+        selectDebates,
+        selectDebateParticipants,
+        selectActors,
+        selectSessionIdentity,
+        selectUsersAnyColumn,
+        selectSessionToken,
+      },
+      expected: {
+        selectOutbox: false,
+        selectDebates: false,
+        selectDebateParticipants: false,
+        selectActors: false,
+        selectSessionIdentity: false,
+        selectUsersAnyColumn: true,
+        selectSessionToken: true,
+      },
     });
-    expect({
-      insertOutbox,
-      updateOutbox,
-      deleteOutbox,
-      updateUsers,
-      insertActors,
-      insertDebates,
-    }).toEqual({
-      insertOutbox: true,
-      updateOutbox: true,
-      deleteOutbox: true,
-      updateUsers: true,
-      insertActors: true,
-      insertDebates: true,
+    assert({
+      given:
+        'writes anywhere the role is not explicitly granted service_instances on',
+      should: 'refuse every one',
+      actual: {
+        insertOutbox,
+        updateOutbox,
+        deleteOutbox,
+        updateSession,
+        insertActors,
+        insertDebates,
+      },
+      expected: {
+        insertOutbox: true,
+        updateOutbox: true,
+        deleteOutbox: true,
+        updateSession: true,
+        insertActors: true,
+        insertDebates: true,
+      },
     });
   } finally {
     await realtime?.close();

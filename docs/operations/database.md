@@ -10,24 +10,32 @@ Run `bun db:migrate` with DATABASE_URL. The runtime migrator uses the native Bun
 
 Integration tests require explicit TEST_DATABASE_URL ending in `_test`, and TEST_REDIS_URL. Migrate the test database first: `DATABASE_URL="$TEST_DATABASE_URL" bun db:migrate`. Tests use unique identifiers/namespaces and clean up only owned records. Never point them at production. Use health checks in Compose and readiness before traffic. Database pool sizing is per instance: sum of instance pool limits plus migrations/admin capacity must remain below PostgreSQL max_connections.
 
-**Realtime service role (RT-2.2).** Migration `0004_realtime-role.sql` creates
-`daisy_realtime` (idempotent `CREATE ROLE ... LOGIN`, no password) and grants
-it `SELECT` on `outbox` and the authorization read models it needs to
-authorize socket subscriptions (`debates`, `debate_participants`, `actors`,
-and `users`, column-scoped to `id` only — never email, name, image or the
-other account-PII columns, since resolving a ticket's `userId` only needs
-the row's existence). It is the only Postgres credential the realtime service holds
-(plan: "No web→realtime secret exists at all"); production sets its runtime
-password out of band, the same way migration credentials are kept separate
-from runtime credentials above, never committed. Two grants are deferred
-because their targets do not exist yet, documented in the migration rather
-than pre-created: `service_instances` (RT-4.3a) needs
-`GRANT INSERT, UPDATE ON service_instances TO daisy_realtime;` once that
-table lands, and the invisible presence preference (RT-3.2b) needs a
-`SELECT` grant on its column once that migration lands. The role stays
-`SELECT`-only everywhere else. Local/test sessions that need to connect as
-this role (for example its own integration test) set a throwaway password
-with `ALTER ROLE daisy_realtime LOGIN PASSWORD '...'` and clear it
-afterwards; never commit a real one.
+**Realtime service role (RT-2.2, ADR 0032 §7).** Migration
+`0004_realtime-role.sql` creates `daisy_realtime` (idempotent
+`CREATE ROLE ... LOGIN`, no password) and grants it `SELECT` on `outbox`,
+`debates`, `debate_participants` and `actors` in full, plus a column-scoped
+`SELECT (id, user_id, expires_at)` on `session` for the 60s continuous
+re-authorization check — never `token`, the bearer credential. It gets
+**no grant on `users` at all today**: identity resolves through
+`actors.user_id`, which carries no PII, so there is nothing on `users` to
+grant until RT-3.2b's invisible presence preference exists (that migration
+must add `SELECT` on that one column and nothing else on `users`). This
+migration's `CREATE ROLE` needs the migration credential to hold
+`CREATEROLE`; production's migration credential (already separate from its
+runtime credential, see below) must have it. It is the only Postgres
+credential the realtime service holds (ADR 0032: "No web→realtime secret
+exists at all"); production sets its runtime password out of band, never
+committed. The `service_instances` grant is deferred the same way,
+documented in the migration rather than pre-created, since the table
+doesn't exist yet: RT-4.3a's migration must add
+`GRANT INSERT, UPDATE ON service_instances TO daisy_realtime;` and nothing
+else — the role stays `SELECT`-only everywhere but that table. Local/test
+sessions that need to connect as this role (for example its own integration
+test) set a throwaway password with
+`ALTER ROLE daisy_realtime LOGIN PASSWORD '...'` and clear it afterwards;
+never commit a real one. Migration `0005_outbox-sequence-grants.sql` grants
+`daisy_e2e` `USAGE`/`SELECT` on `outbox`'s backing sequence (see the
+serial/sequence note above) and documents the same pattern for any future
+non-owner role that appends to a table with a `serial`/`bigserial` column.
 
 Database availability is necessary but not sufficient readiness. Deployers must ensure migrations are applied, monitor storage/replication/backup lag, enforce TLS for remote database and Redis connections, and set network access policy. Local plaintext credentials are intentionally confined to loopback. Redis persistence is off locally to expose accidental reliance on durable cache state.
