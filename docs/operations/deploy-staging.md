@@ -54,12 +54,17 @@ Fly's docs do not state the literal TCP peer address an app process sees.
 Confirm the real chain after first deploy:
 
 ```
-fly ssh console -a <app>
-# inside the machine: replay a real inbound request path, e.g.
-curl -s https://<app>.fly.dev/api/health/live -H "X-Forwarded-For: 203.0.113.9"
-# then check structured logs for the stamped identity used on that request
-fly logs -a <app> --no-tail | grep 'x-daisy-client-ip\|client'
+# /api/health/ready (not /live, which logs nothing) routes through
+# handleOperation, whose http.request.completed log carries the
+# ingress-resolved clientId field (apps/web/src/server/http.ts).
+curl -s https://<app>.fly.dev/api/health/ready -H "X-Forwarded-For: 203.0.113.9"
+fly logs -a <app> --no-tail | grep '"event":"http.request.completed"'
 ```
+
+The matched line's `clientId` field is the identity the ingress resolved for
+that request — compare it against the real caller (or, for the command
+above, the `X-Forwarded-For` value it sent) to confirm the proxy chain
+resolved correctly.
 
 If the resolved client address is not the real caller, widen or correct
 `AUTH_TRUSTED_PROXIES` in `fly.toml` and redeploy — do not leave it unset,
@@ -144,6 +149,19 @@ Verify: `redis-cli -u "$UPSTASH_REDIS_URL" ping` returns `PONG`.
 
 ## 4. Create the Resend webhook (before first deploy)
 
+Before setting `AUTH_EMAIL_FROM` (step 5), choose a sending path:
+
+- **Normal staging delivery**: add and verify a sending domain in the Resend
+  dashboard, then use a sender address from that domain (for example
+  `Daisy <no-reply@yourdomain.example>`). Once verified, that domain can send
+  to any recipient.
+- **Account-only smoke test**: use the built-in `onboarding@resend.dev`
+  sender with no domain setup. Resend restricts this sender to delivering
+  only to the email address registered on the Resend account
+  (https://resend.com/docs/knowledge-base/403-error-resend-dev-domain) — any
+  other recipient gets a 403. Step 7's sign-in check must target that same
+  account email when this path is chosen.
+
 The signing secret only exists once the webhook is created, and production
 refuses to boot without `RESEND_WEBHOOK_SECRET` — create the webhook first,
 even though the app is not live yet; Resend will queue/retry failed
@@ -191,9 +209,9 @@ fly deploy -a daisy-debate-staging \
   --build-arg GIT_COMMIT="$(git rev-parse HEAD)"
 ```
 
-`fly.toml`'s `[deploy] release_command = "bun db:migrate"` runs once against
-`DATABASE_URL` before the new release receives traffic — do not add a
-migration step anywhere else.
+`fly.toml`'s `[deploy] release_command = "bun /app/packages/db/scripts/migrate.ts"`
+runs once against `DATABASE_URL` before the new release receives traffic —
+do not add a migration step anywhere else.
 
 Verify: `fly status -a daisy-debate-staging` shows one deployed release and
 `fly releases -a daisy-debate-staging` shows it as successful.
@@ -206,10 +224,14 @@ curl -sS https://daisy-debate-staging.fly.dev/api/health/live
 curl -sS https://daisy-debate-staging.fly.dev/api/health/ready
 
 # Sign-in email delivered: start a magic-link sign-in against the running
-# app (replace with a real inbox you control), then confirm Resend's
-# dashboard shows the message as sent/delivered for that recipient.
+# app, then confirm Resend's dashboard shows the message as sent/delivered
+# for that recipient. If AUTH_EMAIL_FROM uses onboarding@resend.dev (step 4
+# account-only path), this MUST be the Resend account's own email address —
+# any other recipient gets a 403 and the email never sends. Otherwise use
+# any real inbox you control under the verified sending domain.
 curl -sS -X POST https://daisy-debate-staging.fly.dev/api/auth/sign-in/magic-link \
   -H 'Content-Type: application/json' \
+  -H 'Origin: https://daisy-debate-staging.fly.dev' \
   -d '{"email":"you@yourdomain.example"}'
 
 # Webhook event received: after the email above is delivered, check
