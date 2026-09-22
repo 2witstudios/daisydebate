@@ -7,10 +7,7 @@ type RecordedCommand = { command: string; args: string[] };
  * returns scripted values, so the adapter's namespacing, TTL and failure
  * semantics are exercised without a live server.
  */
-function fakeRedis(
-  values: Map<string, string> = new Map(),
-  hashes: Map<string, Record<string, string>> = new Map(),
-) {
+function fakeRedis(values: Map<string, string> = new Map()) {
   const commands: RecordedCommand[] = [];
   let closed = false;
   let scriptedEval: unknown = [1, 60000];
@@ -36,10 +33,6 @@ function fakeRedis(
       commands.push({ command: 'DEL', args: [key] });
       return values.delete(key) ? 1 : 0;
     },
-    async hgetall(key: string) {
-      commands.push({ command: 'HGETALL', args: [key] });
-      return hashes.get(key) ?? {};
-    },
     close() {
       closed = true;
     },
@@ -51,7 +44,6 @@ function fakeRedis(
     },
     commands,
     values: () => values,
-    hashes,
     isClosed: () => closed,
   };
 }
@@ -63,9 +55,8 @@ export const createTestRedis = (
     message: string;
   }> = [],
   values?: Map<string, string>,
-  hashes?: Map<string, Record<string, string>>,
 ) => {
-  const fake = fakeRedis(values, hashes);
+  const fake = fakeRedis(values);
   const redis = createRedis({
     url: 'redis://127.0.0.1:1',
     namespace: 'test',
