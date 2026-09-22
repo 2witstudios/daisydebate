@@ -30,13 +30,17 @@ secret, no message bus and no Redis pub/sub.
 ### 1. The outbox row and commit-ordered cursors
 
 ```sql
-seq     bigserial PRIMARY KEY,
-txid    xid8      NOT NULL DEFAULT pg_current_xact_id(),
-topic   text      NOT NULL,
-kind    text      NOT NULL,
-version integer   NOT NULL,
-payload jsonb     NOT NULL
+seq        bigserial   PRIMARY KEY,
+txid       xid8        NOT NULL DEFAULT pg_current_xact_id(),
+topic      text        NOT NULL,
+kind       text        NOT NULL,
+version    integer     NOT NULL,
+payload    jsonb       NOT NULL,
+created_at timestamptz NOT NULL DEFAULT statement_timestamp()
 ```
+
+`created_at` is database time and drives the delivery-lag check and the
+24 h prune (section 8). It never orders delivery; only `(txid, seq)` does.
 
 A position is the pair `(txid, seq)`. A drain reads:
 
@@ -268,7 +272,7 @@ grants:
 
 - `SELECT` on `outbox` and on the authorization read models it needs to
   authorize subscriptions and revalidate sessions (debates, seats,
-  visibility, sessions);
+  visibility, sessions), plus the presence visibility preference on `users`;
 - `INSERT` and `UPDATE` on `service_instances`, for its lease and
   `deliveredThrough`.
 
@@ -279,7 +283,8 @@ to the outbox.
 
 ### 8. Retention
 
-The maintenance sweep prunes outbox rows older than 24 h, in short batches
+The maintenance sweep prunes outbox rows whose `created_at` is older than
+24 h, in short batches
 (section 1). A client whose
 `since` falls before the retained range gets `resync_required` and reloads
 over HTTP; nothing correct depends on an outbox row older than that.
@@ -311,5 +316,6 @@ ADR 0003 rules out event sourcing and a message bus. This design is neither.
 - Any long-running xid-holding transaction in the cluster delays delivery
   of every later row until it finishes, and the outbox-lag health check
   reports it. Prunes and backfills therefore run in short batches.
-- The outbox, `service_instances` and the realtime role are built by RT-2.2;
+- RT-2.2 creates the outbox and the realtime role only; `service_instances`
+  is built by RT-4.3a;
   the drain loop, ring and startup order by the `apps/realtime` leaves.
