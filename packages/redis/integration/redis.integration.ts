@@ -79,7 +79,10 @@ test('presence lease upsert, refresh and delete are visible through the reads', 
     );
     const afterUpsert = await redis.readActorConnections(actorId, now);
     expect(afterUpsert.length).toBe(2);
-    expect(afterUpsert.map((c) => c.connId).sort()).toEqual(['connA1', 'connA2']);
+    expect(afterUpsert.map((c) => c.connId).sort()).toEqual([
+      'connA1',
+      'connA2',
+    ]);
     const conn1 = afterUpsert.find((c) => c.connId === 'connA1');
     expect(conn1?.activity).toBe('active');
     expect(conn1?.instanceId).toBe('instX');
@@ -106,9 +109,7 @@ test('presence lease upsert, refresh and delete are visible through the reads', 
     expect(afterDelete.map((c) => c.connId)).toEqual(['connA1']);
     // Online score falls back to the one remaining connection's expiry.
     const onlineAfterDelete = await redis.readOnlinePresence(now + 1_000);
-    expect(onlineAfterDelete).toEqual([
-      { actorId, expiresAtMs: now + 61_000 },
-    ]);
+    expect(onlineAfterDelete).toEqual([{ actorId, expiresAtMs: now + 61_000 }]);
 
     await redis.deletePresenceLease({ connId: 'connA1', actorId });
     expect(await redis.readActorConnections(actorId, now + 1_000)).toEqual([]);
@@ -131,32 +132,52 @@ test('an instance crash lets each of its connection leases expire on its own, by
   const actorId = 'crashedActor';
   try {
     await redis.upsertPresenceLease(
-      { connId: 'shortLease', actorId, instanceId: 'deadInstance', activity: 'active' },
+      {
+        connId: 'shortLease',
+        actorId,
+        instanceId: 'deadInstance',
+        activity: 'active',
+      },
       5,
       now,
     );
     await redis.upsertPresenceLease(
-      { connId: 'midLease', actorId, instanceId: 'deadInstance', activity: 'active' },
+      {
+        connId: 'midLease',
+        actorId,
+        instanceId: 'deadInstance',
+        activity: 'active',
+      },
       10,
       now,
     );
     await redis.upsertPresenceLease(
-      { connId: 'longLease', actorId, instanceId: 'deadInstance', activity: 'idle' },
+      {
+        connId: 'longLease',
+        actorId,
+        instanceId: 'deadInstance',
+        activity: 'idle',
+      },
       1_000,
       now,
     );
 
     // All three are alive right after the crash.
     expect(
-      (await redis.readActorConnections(actorId, now)).map((c) => c.connId).sort(),
+      (await redis.readActorConnections(actorId, now))
+        .map((c) => c.connId)
+        .sort(),
     ).toEqual(['longLease', 'midLease', 'shortLease']);
-    expect((await redis.readOnlinePresence(now)).map((a) => a.actorId)).toEqual([
-      actorId,
-    ]);
+    expect((await redis.readOnlinePresence(now)).map((a) => a.actorId)).toEqual(
+      [actorId],
+    );
 
     // 6s later: only the 5s lease has expired.
     const afterSix = await redis.readActorConnections(actorId, now + 6_000);
-    expect(afterSix.map((c) => c.connId).sort()).toEqual(['longLease', 'midLease']);
+    expect(afterSix.map((c) => c.connId).sort()).toEqual([
+      'longLease',
+      'midLease',
+    ]);
     // The online score still reflects the longest-lived remaining lease.
     expect(await redis.readOnlinePresence(now + 6_000)).toEqual([
       { actorId, expiresAtMs: now + 1_000_000 },
@@ -169,7 +190,9 @@ test('an instance crash lets each of its connection leases expire on its own, by
     // Reading with the earlier now again still shows the leases as expired:
     // trimming is driven by the score, not by call order.
     expect(
-      (await redis.readActorConnections(actorId, now + 6_000)).map((c) => c.connId),
+      (await redis.readActorConnections(actorId, now + 6_000)).map(
+        (c) => c.connId,
+      ),
     ).toEqual(['longLease']);
   } finally {
     await redis.deletePresenceLease({ connId: 'shortLease', actorId });
@@ -239,9 +262,9 @@ test('presence reads reject invalid ids before touching Redis', async () => {
   const namespace = `test-${crypto.randomUUID().slice(0, 8)}`;
   const redis = createRedis({ url, namespace });
   try {
-    await expect(redis.readActorConnections('not a valid id!', Date.now())).rejects.toThrow(
-      'Invalid actorId',
-    );
+    await expect(
+      redis.readActorConnections('not a valid id!', Date.now()),
+    ).rejects.toThrow('Invalid actorId');
     await expect(
       redis.upsertPresenceLease(
         { connId: 'ok', actorId: 'ok', instanceId: 'ok', activity: 'active' },
