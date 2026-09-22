@@ -48,6 +48,8 @@ if (import.meta.main) {
     );
     process.exitCode = 1;
   } else {
-    process.stdout.write('Deploy config matches .bun-version and keeps the release command.\n');
+    process.stdout.write(
+      'Deploy config matches .bun-version and keeps the release command.\n',
+    );
   }
 }
