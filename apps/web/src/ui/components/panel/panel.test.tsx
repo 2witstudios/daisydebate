@@ -38,21 +38,17 @@ describe('Panel', () => {
     });
   });
 
-  test('renders an optional header icon', () => {
-    const withIcon = renderToString(
-      h(Panel, {
-        title: 'Online',
-        icon: 'person',
-        children: h('p', null, 'b'),
-      }),
-    );
-    const withoutIcon = renderToString(
+  test('sets the title as a quiet eyebrow heading', () => {
+    const html = renderToString(
       h(Panel, { title: 'Online', children: h('p', null, 'b') }),
     );
     assert({
-      given: 'panels with and without an icon',
-      should: 'render the icon only when provided',
-      actual: [withIcon.includes('svg'), withoutIcon.includes('<svg')],
+      given: 'a panel title',
+      should: 'render it as an uppercase h2 with no border on the card',
+      actual: [
+        /<h2[^>]*uppercase[^>]*>Online<\/h2>/.test(html),
+        html.includes('border'),
+      ],
       expected: [true, false],
     });
   });

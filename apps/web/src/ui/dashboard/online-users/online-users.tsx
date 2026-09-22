@@ -13,7 +13,6 @@ export function OnlineUsers() {
   const onlineUsers = useUiState((state) => state.collections.onlineUsers);
   return (
     <Panel
-      icon="person"
       title={`Online (${onlineCount.toLocaleString('en-US')})`}
       action={
         <Button variant="ghost" aria-label="See all online users">

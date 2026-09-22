@@ -30,13 +30,12 @@ function Fact({
 export function FeaturedTournament() {
   const tournament = useUiState((state) => state.resources.tournament);
   return (
-    <section className="relative flex min-h-tournament-min items-stretch overflow-hidden rounded-lg border border-border-strong bg-surface-emerald">
-      <div className="relative z-1 flex shrink grow basis-tournament-body flex-col items-start gap-3 p-6 max-narrow:basis-full">
-        <header className="flex items-center gap-2 text-gold">
-          <Icon name="trophy" size={18} />
-          <h2 className="text-md font-heavy text-ink">Featured Tournament</h2>
-        </header>
-        <p className="mt-1 text-2xl leading-tight font-black tracking-snug text-ink-on-media">
+    <section className="relative flex min-h-tournament-min items-stretch overflow-hidden rounded-xl bg-surface-emerald shadow-1">
+      <div className="relative z-1 flex shrink grow basis-tournament-body flex-col items-start gap-3 p-8 max-narrow:basis-full max-narrow:p-6">
+        <h2 className="text-xs font-bold tracking-widest text-ink-muted uppercase">
+          Featured tournament
+        </h2>
+        <p className="font-display text-3xl leading-tight font-semibold tracking-tighter text-balance text-ink max-narrow:text-2xl">
           {tournament.name}
         </p>
         <p className="text-base text-ink-muted">{tournament.tagline}</p>

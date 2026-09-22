@@ -8,7 +8,7 @@ export const navItemClass = (active: boolean): string =>
   cn(
     navItemBase,
     active
-      ? 'bg-accent text-accent-ink hover:bg-accent hover:text-accent-ink'
+      ? 'bg-accent-soft text-accent-strong hover:bg-accent-soft hover:text-accent-strong'
       : 'text-ink-muted hover:bg-surface hover:text-ink',
   );
 
@@ -16,5 +16,5 @@ export const navItemClass = (active: boolean): string =>
 export const navCaretClass = (active: boolean): string =>
   cn(
     'inline-flex opacity-0 transition-opacity duration-120 ease-standard group-focus-within:opacity-100 group-hover:opacity-100 max-compact:hidden',
-    active ? 'text-accent-ink' : 'text-ink-faint',
+    active ? 'text-accent-strong' : 'text-ink-faint',
   );

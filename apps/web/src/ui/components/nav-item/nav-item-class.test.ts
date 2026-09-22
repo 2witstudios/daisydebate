@@ -23,7 +23,7 @@ describe('navItemClass', () => {
       given: 'the active item',
       should: 'fill with the accent and keep it on hover',
       actual: navItemClass(true),
-      expected: `${base} bg-accent text-accent-ink hover:bg-accent hover:text-accent-ink`,
+      expected: `${base} bg-accent-soft text-accent-strong hover:bg-accent-soft hover:text-accent-strong`,
     });
   });
 });
@@ -34,7 +34,10 @@ describe('navCaretClass', () => {
       given: 'inactive and active items',
       should: 'use faint ink, or accent ink on the filled item',
       actual: [navCaretClass(false), navCaretClass(true)],
-      expected: [`${caretBase} text-ink-faint`, `${caretBase} text-accent-ink`],
+      expected: [
+        `${caretBase} text-ink-faint`,
+        `${caretBase} text-accent-strong`,
+      ],
     });
   });
 });

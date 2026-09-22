@@ -3,7 +3,7 @@ import { art } from '../../assets';
 
 export function QuoteCard() {
   return (
-    <figure className="relative isolate flex min-h-quote-card-min flex-col justify-end gap-1 overflow-hidden rounded-md border border-border p-5">
+    <figure className="relative isolate flex min-h-quote-card-min flex-col justify-end gap-1 overflow-hidden rounded-xl p-6">
       <Image
         src={art.quoteRidge.src}
         alt=""
