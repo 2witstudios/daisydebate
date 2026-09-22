@@ -69,7 +69,12 @@ const compose = (options: {
         headers: new Headers(extra),
       }),
     );
-  return { keys, sent, tables, requestLink, getSession };
+  const serverSessionRead = (extra?: HeadersInit) =>
+    server.instance.api.getSession({
+      headers: new Headers(extra),
+      query: { disableRefresh: true },
+    });
+  return { keys, sent, tables, requestLink, getSession, serverSessionRead };
 };
 
 const isRecipientKey = (key: string | undefined) =>
@@ -260,6 +265,38 @@ describe('auth rate-limit gate: limiter decisions', () => {
         statuses: [429, 429, 429, 429],
         hints: ['13', null, null, null],
       },
+    });
+  });
+});
+
+describe('auth rate-limit gate: server Principal reads', () => {
+  test('a server-side session read spends no budget; the HTTP endpoint still does', async () => {
+    const server = compose({ clientIp: { trustedHeaders: ['x-real-ip'] } });
+    await server.serverSessionRead({ 'x-real-ip': '203.0.113.7' });
+    const afterServerRead = [...server.keys];
+    await server.getSession({ 'x-real-ip': '203.0.113.7' });
+    assert({
+      given:
+        'a direct getSession call, then a browser GET /api/auth/get-session',
+      should:
+        'consume nothing for the first and the client bucket for the second',
+      actual: { afterServerRead, afterHttp: server.keys },
+      expected: {
+        afterServerRead: [],
+        afterHttp: ['auth:client:203.0.113.7:/get-session'],
+      },
+    });
+  });
+
+  test('other direct calls stay limited', async () => {
+    const denied = compose({
+      decide: () => ({ allowed: false, retryAfterSeconds: 5 }),
+    });
+    assert({
+      given: 'a limiter that denies everything and a direct magic-link call',
+      should: 'still refuse as too many requests',
+      actual: await denied.requestLink(email),
+      expected: 'TOO_MANY_REQUESTS',
     });
   });
 });

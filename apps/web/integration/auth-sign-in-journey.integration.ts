@@ -5,7 +5,7 @@ import {
   uniqueName,
   usernameOf,
 } from './auth-account-helpers';
-import { redisKeys, withSql } from './auth-mounted-helpers';
+import { newClient, redisKeys, withSql } from './auth-mounted-helpers';
 import { decideAccess } from '../src/features/access/decision';
 
 if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
@@ -171,19 +171,24 @@ describe('AUTH-4.4 / 4.2 sign-in loop through the real handlers', () => {
     });
   });
 
-  test('server session reads are budgeted per client, never one bucket for the whole site', async () => {
+  test('server session reads spend no auth budget, even from one busy client', async () => {
     const { cookie } = await signUp();
     await claim(cookie, { username: uniqueName() });
-    // 110 reads from 110 clients: a shared 100/min bucket would refuse the
-    // last ten as unavailable.
+    const client = newClient();
+    const before = (await redisKeys()).length;
+    // 150 page renders from one address (a classroom behind one NAT): a
+    // budgeted read would refuse everything past the hundredth.
     const states = await Promise.all(
-      Array.from({ length: 110 }, () => identifyAs(cookie)),
+      Array.from({ length: 150 }, () => identifyAs(cookie, client)),
     );
     assert({
-      given: '110 page renders for one member from 110 different clients',
-      should: 'resolve every one as the member',
-      actual: [...new Set(states.map((identity) => identity.state))],
-      expected: ['member'],
+      given: '150 server-side session reads for one member from one client',
+      should: 'resolve every one as the member and create no rate-limit key',
+      actual: {
+        states: [...new Set(states.map((identity) => identity.state))],
+        newKeys: (await redisKeys()).length - before,
+      },
+      expected: { states: ['member'], newKeys: 0 },
     });
   });
 
