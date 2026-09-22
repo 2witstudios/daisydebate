@@ -42,6 +42,11 @@ created_at timestamptz NOT NULL DEFAULT statement_timestamp()
 `created_at` is database time and drives the delivery-lag check and the
 24 h prune (section 8). It never orders delivery; only `(txid, seq)` does.
 
+`payload` is always a JSON object, enforced by
+`CHECK (jsonb_typeof(payload) = 'object')`. Every runtime role that appends
+to the outbox needs `INSERT` on `outbox` and `USAGE` on its `seq` sequence,
+both granted in the migration that creates the table or the role.
+
 A position is the pair `(txid, seq)`. A drain reads:
 
 ```sql
@@ -224,20 +229,22 @@ are not best-effort HTTP.
 - **`session.revoked`** is appended **after** the session delete is
   confirmed, in its own short transaction, never in the same transaction as
   the delete. No Daisy-owned server operation wraps session revocation: the
-  browser calls Better Auth's `/revoke-session` and `/revoke-other-sessions`
-  directly (AUTH-5.5), and email-change completion (AUTH-5.6) deletes
-  through Better Auth's internal adapter, which commits on its own. So the
+  browser calls Better Auth's `/revoke-session`, `/revoke-other-sessions`
+  and `/revoke-sessions` directly (AUTH-5.5), and email-change completion
+  (AUTH-5.6) deletes through Better Auth's internal adapter, which commits on its own. So the
   writers are:
-  - a Better Auth `hooks.after` on `/revoke-session` and
-    `/revoke-other-sessions`, next to the existing hooks in
-    `apps/web/src/features/auth/server.ts`;
+  - a Better Auth `hooks.after` on `/revoke-session`,
+    `/revoke-other-sessions` and `/revoke-sessions`, next to the existing
+    hooks in `apps/web/src/features/auth/server.ts`;
   - the email-change completion in
     `apps/web/src/features/auth/confirm-email.ts`, once every other session
     is confirmed gone.
 
-  The append is not atomic with the delete. If it is lost, the realtime
-  service's 60 s session revalidation is the safety net, so the kick is late
-  by at most 60 s, never missed.
+  The append is best-effort and not atomic with the delete. A failed append
+  is logged as a registered structured event and never fails the
+  revocation, whose session delete has already committed. The
+  realtime service's 60 s session revalidation is the safety net, so the
+  kick is late by at most 60 s, never missed.
 
 - **`access.revoked`** is appended by the seat and visibility mutations:
   leaving a seat, removal from a debate, and a debate becoming private. The
@@ -271,12 +278,17 @@ topic.
 grants:
 
 - `SELECT` on `outbox` and on the authorization read models it needs to
-  authorize subscriptions and revalidate sessions (debates, seats,
-  visibility, sessions), plus the presence visibility preference on `users`;
+  authorize subscriptions (debates, seats, debate visibility);
+- column-scoped `SELECT` on `users` (`id` and the presence visibility
+  preference column added by RT-3.2b) and on Better Auth's `session` table
+  (`id`, `user_id`, `expires_at`). Revalidation reads `session` directly.
+  The role can never read `token`, `email`, `name`, `image` or any other
+  column of those tables;
 - `INSERT` and `UPDATE` on `service_instances`, for its lease and
   `deliveredThrough`.
 
-Nothing else: no `INSERT` on `outbox`, no `DELETE` or `TRUNCATE` anywhere,
+Nothing else: no `INSERT` on `outbox` and no `USAGE` on its sequence, no
+`DELETE` or `TRUNCATE` anywhere,
 no writes to any other table. Realtime cannot fabricate or erase a delivery.
 `apps/web` stays the only writer of competitive state and the only appender
 to the outbox.
