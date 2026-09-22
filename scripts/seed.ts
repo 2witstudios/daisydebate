@@ -11,6 +11,8 @@ const url = process.env.DATABASE_URL;
 if (!url) throw new Error('DATABASE_URL required');
 
 // Validate before opening a connection: a bad rules value never reaches SQL.
+// jsonb values are passed as objects: Bun SQL JSON-encodes a pre-serialized
+// string a second time, storing a jsonb string instead of an object.
 const formats = formatSeeds.map((format) => ({
   ...format,
   rules: formatRulesSchema.parse(format.rules),
@@ -25,7 +27,7 @@ try {
         values (
           ${format.id},
           ${format.name},
-          ${JSON.stringify(format.rules)}::jsonb,
+          ${format.rules},
           ${format.rankedEligible}
         )
         on conflict (id) do update
@@ -57,7 +59,7 @@ try {
         ${agentSeedDebate.createdBy},
         ${agentSeedDebate.resolution},
         ${agentSeedDebate.format},
-        ${JSON.stringify(agentSeedDebate.snapshot)}::jsonb,
+        ${agentSeedDebate.snapshot},
         ${agentSeedDebate.mode},
         ${agentSeedDebate.snapshot.phase},
         ${agentSeedDebate.visibility}
@@ -69,7 +71,12 @@ try {
           snapshot = excluded.snapshot,
           mode = excluded.mode,
           phase = excluded.phase,
-          visibility = excluded.visibility
+          visibility = excluded.visibility,
+          -- A progressed seed debate returns to waiting; the lifecycle CHECK
+          -- requires its projections to return with it.
+          started_at = null,
+          completed_at = null,
+          outcome = null
       `;
 
     for (const [seedName, version] of [

@@ -29,7 +29,10 @@ Next build, serves requests over a custom HTTP server, and owns lifecycle:
 1. Migrations run once per release as a pipeline step (`bun db:migrate`
    against production with migration credentials), never from every app
    instance, and before enabling dependent code (expand/contract for
-   rolling deploys).
+   rolling deploys). Reference data that the schema depends on (the
+   `foundation` row in `formats`, ADR 0029) ships inside the migration;
+   `bun db:seed` is a development fixture (agent users, actors, a seed
+   debate) and never runs against production.
 2. Provide `APP_VERSION`, `GIT_COMMIT`, `PUBLIC_APP_URL` (HTTPS),
    `DATABASE_URL` (non-development credentials), `REDIS_URL`,
    `REDIS_NAMESPACE`, `LOG_LEVEL`. Configuration refinement fails startup on
