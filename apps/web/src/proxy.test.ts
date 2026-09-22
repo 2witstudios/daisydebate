@@ -125,20 +125,32 @@ describe('proxy content security policy', () => {
 });
 
 describe('proxy early sign-in hint', () => {
-  const at = (path: string, cookie?: string) =>
-    proxy(
-      new NextRequest(`https://daisy.invalid${path}`, {
-        headers: cookie ? { cookie } : {},
-      }),
-    );
+  const at = (path: string, cookie?: string) => {
+    const previous = process.env.PUBLIC_APP_URL;
+    process.env.PUBLIC_APP_URL = 'https://daisy.invalid';
+    try {
+      return proxy(
+        new NextRequest(`https://internal.invalid${path}`, {
+          headers: cookie ? { cookie } : {},
+        }),
+      );
+    } finally {
+      if (previous === undefined) delete process.env.PUBLIC_APP_URL;
+      else process.env.PUBLIC_APP_URL = previous;
+    }
+  };
 
   test('sends a cookie-less request for a guarded area to sign-in with its path', () => {
     const response = at('/lobby/tables?tab=open');
     assert({
       given: 'a request for a guarded descendant with no session cookie',
-      should: 'redirect to sign-in carrying the local path and query',
+      should:
+        'redirect to sign-in on the public origin carrying the local path and query',
       actual: [response.status, response.headers.get('location')],
-      expected: [307, '/sign-in?next=%2Flobby%2Ftables%3Ftab%3Dopen'],
+      expected: [
+        307,
+        'https://daisy.invalid/sign-in?next=%2Flobby%2Ftables%3Ftab%3Dopen',
+      ],
     });
   });
 

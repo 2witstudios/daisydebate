@@ -62,15 +62,17 @@ export function proxy(request: NextRequest) {
     !SESSION_COOKIES.some((name) => request.cookies.has(name))
   ) {
     const next = returnDestination(`${pathname}${request.nextUrl.search}`);
-    return new NextResponse(null, {
-      status: 307,
-      headers: {
-        Location: `/sign-in?next=${encodeURIComponent(next)}`,
-        'Content-Security-Policy': policy,
-        'Cache-Control': 'no-store',
-        'x-request-id': requestId,
-      },
-    });
+    // Proxy redirects must be absolute. Behind TLS termination the request's
+    // own origin is plain HTTP, so the deployment's configured public origin
+    // (the one auth cookies and links already use) names the target.
+    const origin = process.env.PUBLIC_APP_URL ?? request.nextUrl.origin;
+    const response = NextResponse.redirect(
+      new URL(`/sign-in?next=${encodeURIComponent(next)}`, origin),
+    );
+    response.headers.set('Content-Security-Policy', policy);
+    response.headers.set('Cache-Control', 'no-store');
+    response.headers.set('x-request-id', requestId);
+    return response;
   }
   const headers = new Headers(request.headers);
   // Never trust caller-supplied identifiers; proxy ingress establishes correlation.
