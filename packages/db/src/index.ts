@@ -1,9 +1,11 @@
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
-import { eq, and, lt, sql } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { drizzleAdapter } from '@better-auth/drizzle-adapter';
+import { formatRulesSchema, type FormatRules } from '@daisy/protocol';
 import { users } from './schema/users';
 import { claimUsername } from './username-claim';
+import { formats } from './schema/formats';
 import { debates, type DebateOutcome } from './schema/debates';
 import {
   snapshotPhase,
@@ -18,12 +20,13 @@ export type {
 } from './schema/debates';
 export type { DebateRecord, NewDebate } from './debate-record';
 import { accounts, passkeys, sessions, verifications } from './schema/auth';
-import {
-  emailDeliveries,
-  emailDeliveryEvents,
-  emailSuppressions,
-} from './schema/email-delivery';
+import { emailDeliveryOperations } from './email-delivery-operations';
 export type { UsernameClaim } from './username-claim';
+export type FormatRecord = {
+  readonly id: string;
+  readonly rules: FormatRules;
+  readonly rankedEligible: boolean;
+};
 export type DatabaseEventSink = (
   event: 'db.query.failed',
   fields: Readonly<Record<string, unknown>>,
@@ -76,141 +79,7 @@ export function createDatabase({
     async close() {
       await client.close({ timeout: 5 });
     },
-    /**
-     * Retention (AUTH-7.5a): deletes at most `limit` verification rows whose
-     * expiry is before `before`. The batch is chosen by an expiry predicate
-     * live rows can never satisfy, and `SKIP LOCKED` lets concurrent workers
-     * split a backlog without waiting on or double-deleting each other.
-     * Returns the number deleted; a missing, fractional or non-positive
-     * limit, or an unparsable cutoff, is refused.
-     */
-    async purgeExpiredVerifications(input: { before: string; limit: number }) {
-      if (
-        !Number.isSafeInteger(input.limit) ||
-        input.limit < 1 ||
-        Number.isNaN(Date.parse(input.before))
-      )
-        throw new Error('Invalid verification purge bounds');
-      try {
-        const deleted = await database.execute(
-          sql`delete from ${verifications} where ${verifications.id} in (
-            select ${verifications.id} from ${verifications}
-            where ${verifications.expiresAt} < ${input.before}::timestamptz
-            order by ${verifications.expiresAt}
-            limit ${input.limit}
-            for update skip locked
-          ) returning ${verifications.id}`,
-        );
-        return deleted.length;
-      } catch (error) {
-        reportFailure('purgeExpiredVerifications');
-        throw error;
-      }
-    },
-    /** Idempotent: a retried send with the same provider message ID is a no-op. */
-    async recordEmailDelivery(input: {
-      providerMessageId: string;
-      recipientHash: string;
-      at: string;
-    }) {
-      try {
-        await database
-          .insert(emailDeliveries)
-          .values({
-            providerMessageId: input.providerMessageId,
-            recipientHash: input.recipientHash,
-            status: 'sent',
-            statusRank: 1,
-            createdAt: input.at,
-            updatedAt: input.at,
-          })
-          .onConflictDoNothing();
-      } catch (error) {
-        reportFailure('recordEmailDelivery');
-        throw error;
-      }
-    },
-    async isRecipientSuppressed(recipientHash: string) {
-      try {
-        const [row] = await database
-          .select({ recipientHash: emailSuppressions.recipientHash })
-          .from(emailSuppressions)
-          .where(eq(emailSuppressions.recipientHash, recipientHash))
-          .limit(1);
-        return row !== undefined;
-      } catch (error) {
-        reportFailure('isRecipientSuppressed');
-        throw error;
-      }
-    },
-    /**
-     * One transaction: dedupe by provider event ID, raise (never lower) the
-     * delivery rank, and record a suppression for hard failures. An event for
-     * an unrecorded message rolls back its dedupe row so the provider's retry
-     * is applied once the send is recorded.
-     */
-    async applyEmailDeliveryEvent(input: {
-      eventId: string;
-      providerMessageId: string;
-      status: string;
-      rank: number;
-      suppress: 'bounce' | 'complaint' | null;
-      at: string;
-    }): Promise<'applied' | 'duplicate' | 'unknown-message'> {
-      const unknown = Symbol('unknown-message');
-      try {
-        return await database.transaction(async (tx) => {
-          const inserted = await tx
-            .insert(emailDeliveryEvents)
-            .values({
-              providerEventId: input.eventId,
-              providerMessageId: input.providerMessageId,
-              receivedAt: input.at,
-            })
-            .onConflictDoNothing()
-            .returning({ id: emailDeliveryEvents.providerEventId });
-          if (inserted.length === 0) return 'duplicate' as const;
-          const [delivery] = await tx
-            .select({
-              recipientHash: emailDeliveries.recipientHash,
-            })
-            .from(emailDeliveries)
-            .where(
-              eq(emailDeliveries.providerMessageId, input.providerMessageId),
-            )
-            .limit(1);
-          if (!delivery) throw unknown;
-          await tx
-            .update(emailDeliveries)
-            .set({
-              status: input.status,
-              statusRank: input.rank,
-              updatedAt: input.at,
-            })
-            .where(
-              and(
-                eq(emailDeliveries.providerMessageId, input.providerMessageId),
-                lt(emailDeliveries.statusRank, input.rank),
-              ),
-            );
-          if (input.suppress)
-            await tx
-              .insert(emailSuppressions)
-              .values({
-                recipientHash: delivery.recipientHash,
-                reason: input.suppress,
-                providerMessageId: input.providerMessageId,
-                createdAt: input.at,
-              })
-              .onConflictDoNothing();
-          return 'applied' as const;
-        });
-      } catch (error) {
-        if (error === unknown) return 'unknown-message';
-        reportFailure('applyEmailDeliveryEvent');
-        throw error;
-      }
-    },
+    ...emailDeliveryOperations({ database, reportFailure }),
     async createUser(input: { id: string; username: string }) {
       try {
         const [row] = await database.insert(users).values(input).returning();
@@ -237,6 +106,34 @@ export function createDatabase({
         });
       } catch (error) {
         reportFailure('createDebate');
+        throw error;
+      }
+    },
+    /**
+     * The canonical rules of a format (ADR 0030). Callers copy them into a
+     * new debate's snapshot; a lobby may then override, ranked may not.
+     */
+    async getFormat(id: string): Promise<FormatRecord | null> {
+      try {
+        const [row] = await database
+          .select({
+            id: formats.id,
+            rules: formats.rules,
+            rankedEligible: formats.rankedEligible,
+          })
+          .from(formats)
+          .where(eq(formats.id, id))
+          .limit(1);
+        if (!row) return null;
+        const rules = formatRulesSchema.safeParse(row.rules);
+        if (!rules.success) throw new Error('Stored format rules are invalid');
+        return {
+          id: row.id,
+          rules: rules.data,
+          rankedEligible: row.rankedEligible,
+        };
+      } catch (error) {
+        reportFailure('getFormat');
         throw error;
       }
     },

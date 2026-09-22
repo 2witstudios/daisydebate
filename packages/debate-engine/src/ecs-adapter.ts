@@ -47,6 +47,9 @@ export function createAdapter(snapshot: DebateSnapshot) {
       assertOpen();
       return {
         ...snapshot,
+        // A copy: callers preparing lobby overrides edit the returned rules,
+        // and the runtime must keep the rules it validated.
+        rules: structuredClone(snapshot.rules),
         phase: db.resources.phase,
         participants: db
           .select(['participantId', 'side', 'ready'])

@@ -1,4 +1,6 @@
-export const agentSeedVersion = 'agent-seed-v3';
+import { formatSeeds } from './format-seed';
+
+export const agentSeedVersion = 'agent-seed-v4';
 
 /**
  * One actor per agent user (ADR 0029): competitive rows reference the actor,
@@ -19,6 +21,8 @@ export const agentSeedUsers = [
 ] as const;
 
 const agentSeedDebateId = 'c8d4e2f6a1b3k5m7n9p2r4t6';
+const foundationRules = formatSeeds.find((f) => f.id === 'foundation')?.rules;
+if (!foundationRules) throw new Error('foundation format seed missing');
 const agentSeedResolution =
   'Resolved: a deterministic local seed makes agent development repeatable.';
 // Fixed so reseeding is byte-identical; the seed never reads a clock.
@@ -42,6 +46,8 @@ export const agentSeedDebate = {
     id: agentSeedDebateId,
     resolution: agentSeedResolution,
     format: 'foundation',
+    // The effective rules: the canonical foundation rules, unmodified.
+    rules: foundationRules,
     phase: 'waiting',
     createdAt: agentSeedCreatedAt,
     participants: [],
