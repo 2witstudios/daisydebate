@@ -47,7 +47,7 @@ DATABASE_URL="$TEST_DATABASE_URL" bun db:migrate
 | `bun evidence`                    | Orphan-suite and CI-wiring audit: every test tier is claimed by a real runner                                                       |
 | `bun db:generate`                 | Generate migration SQL from schema changes (review the SQL!)                                                                        |
 | `bun db:migrate`                  | Apply pending migrations                                                                                                            |
-| `bun db:seed`                     | Idempotently upsert the deterministic agent seed and version marker                                                                 |
+| `bun db:seed`                     | Development fixture: idempotently upsert the agent users, actors and seed debate, refresh the `foundation` format, mark versions    |
 | `bun db:studio`                   | Drizzle Studio (local only, never expose)                                                                                           |
 | `bun infra:up/down/logs`          | Compose lifecycle for PostgreSQL and Redis                                                                                          |
 

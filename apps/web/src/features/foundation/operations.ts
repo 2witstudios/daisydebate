@@ -51,12 +51,15 @@ export async function createProofDebate(
   try {
     const snapshot = runtime.snapshot();
     return await withDurableContext(async () => {
+      // A service-created proof: no author, not ranked, reachable by id only.
       await getResources().database.createDebate({
         id: snapshot.id,
         createdBy: null,
         resolution: snapshot.resolution,
         format: snapshot.format,
         snapshot,
+        mode: 'casual',
+        visibility: 'unlisted',
       });
       return snapshot;
     });

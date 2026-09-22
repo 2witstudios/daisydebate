@@ -8,6 +8,29 @@ import { z } from 'zod';
 export const cuid2IdPattern = /^[a-z0-9]{24}$/;
 export const idSchema = z.string().regex(cuid2IdPattern);
 export const phaseSchema = z.enum(['waiting', 'active', 'completed']);
+/**
+ * The one debate role vocabulary (ADR 0029). Every seat map, CHECK constraint
+ * and role rule derives from this array; spectators are Redis presence, not a
+ * durable role. Widening it is a forward migration.
+ */
+export const debateRoles = ['affirmative', 'negative', 'judge'] as const;
+export type DebateRole = (typeof debateRoles)[number];
+export const debateRoleSchema = z.enum(debateRoles);
+const seatCountSchema = z.int().min(0);
+/**
+ * Format rules stored in `formats.rules`. `seats` is exhaustive over the role
+ * vocabulary: a zod 4 `record` over an enum key requires every key. `clock`
+ * holds integer millisecond durations: one speech and one side's total prep.
+ */
+export const formatRulesSchema = z.strictObject({
+  version: z.literal(1),
+  seats: z.record(debateRoleSchema, seatCountSchema),
+  clock: z.strictObject({
+    speechMs: z.int().positive(),
+    prepMs: z.int().min(0),
+  }),
+});
+export type FormatRules = z.infer<typeof formatRulesSchema>;
 export const participantSchema = z.strictObject({
   id: idSchema,
   side: z.enum(['affirmative', 'negative']),

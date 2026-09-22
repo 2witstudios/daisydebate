@@ -3,40 +3,25 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { eq, and, lt, sql } from 'drizzle-orm';
 import { drizzleAdapter } from '@better-auth/drizzle-adapter';
 import { users } from './schema/users';
-import { debates } from './schema/debates';
+import { debates, type DebateOutcome } from './schema/debates';
+import {
+  snapshotPhase,
+  toDebateRecord,
+  type DebateRecord,
+  type NewDebate,
+} from './debate-record';
+export type {
+  DebateMode,
+  DebateOutcome,
+  DebateVisibility,
+} from './schema/debates';
+export type { DebateRecord, NewDebate } from './debate-record';
 import { accounts, passkeys, sessions, verifications } from './schema/auth';
 import {
   emailDeliveries,
   emailDeliveryEvents,
   emailSuppressions,
 } from './schema/email-delivery';
-export type DebateRecord = {
-  readonly id: string;
-  readonly createdBy: string | null;
-  readonly resolution: string;
-  readonly format: string;
-  readonly snapshot: unknown;
-  readonly version: number;
-  readonly createdAt: string;
-  readonly updatedAt: string;
-};
-/**
- * Rows carry timestamptz as Date; records expose UTC ISO strings. Drizzle's
- * string mode is not used because it relabels the driver's Date with the
- * host's local offset instead of converting it.
- */
-const toDebateRecord = (row: typeof debates.$inferSelect): DebateRecord => ({
-  ...row,
-  createdAt: row.createdAt.toISOString(),
-  updatedAt: row.updatedAt.toISOString(),
-});
-export type NewDebate = {
-  readonly id: string;
-  readonly createdBy?: string | null;
-  readonly resolution: string;
-  readonly format: string;
-  readonly snapshot: unknown;
-};
 export type DatabaseEventSink = (
   event: 'db.query.failed',
   fields: Readonly<Record<string, unknown>>,
@@ -235,11 +220,12 @@ export function createDatabase({
       }
     },
     async createDebate(input: NewDebate): Promise<DebateRecord> {
+      const phase = snapshotPhase(input.snapshot);
       try {
         return await database.transaction(async (tx) => {
           const [row] = await tx
             .insert(debates)
-            .values({ ...input, createdBy: input.createdBy ?? null })
+            .values({ ...input, phase, createdBy: input.createdBy ?? null })
             .returning();
           if (!row) throw new Error('Debate insert returned no row');
           return toDebateRecord(row);
@@ -262,20 +248,45 @@ export function createDatabase({
         throw error;
       }
     },
-    /** Null means optimistic conflict or absent record. Retry only after re-reading and re-running the domain operation. */
+    /**
+     * Null means optimistic conflict or absent record; retry only after
+     * re-reading and re-running the domain operation. Lifecycle projections
+     * travel in the same UPDATE (ADR 0029): `phase` from the snapshot,
+     * `started_at` on the first save that becomes `active`, `completed_at`
+     * plus the caller's `outcome` on completion. An outcome is required when
+     * completing and refused otherwise, before any statement runs.
+     */
     async saveSnapshot(input: {
       id: string;
       expectedVersion: number;
       snapshot: unknown;
       updatedAt: string;
+      outcome?: DebateOutcome;
     }): Promise<DebateRecord | null> {
+      const phase = snapshotPhase(input.snapshot);
+      const completing = phase === 'completed';
+      const hasOutcome = input.outcome !== undefined;
+      if (completing !== hasOutcome)
+        throw new Error('An outcome is required exactly when completing');
+      const updatedAt = new Date(input.updatedAt);
       try {
         const [row] = await database
           .update(debates)
           .set({
             snapshot: input.snapshot,
             version: sql`${debates.version}+1`,
-            updatedAt: new Date(input.updatedAt),
+            updatedAt,
+            phase,
+            // Completion leaves started_at as it is: a debate abandoned from
+            // waiting never started, and the CHECK decides what is legal.
+            ...(phase === 'waiting' && { startedAt: null }),
+            ...(phase === 'active' && {
+              startedAt: sql`coalesce(${debates.startedAt}, ${updatedAt})`,
+            }),
+            completedAt: completing
+              ? sql`coalesce(${debates.completedAt}, ${updatedAt})`
+              : null,
+            outcome: input.outcome ?? null,
           })
           .where(
             and(

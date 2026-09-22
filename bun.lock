@@ -8,6 +8,7 @@
         "@daisy/clock": "workspace:*",
         "@daisy/config": "workspace:*",
         "@daisy/debate-engine": "workspace:*",
+        "@daisy/protocol": "workspace:*",
       },
       "devDependencies": {
         "@eslint/js": "9.39.5",
@@ -96,6 +97,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@better-auth/drizzle-adapter": "1.7.5",
+        "@daisy/protocol": "workspace:*",
         "@paralleldrive/cuid2": "3.3.0",
         "drizzle-orm": "0.45.2",
       },

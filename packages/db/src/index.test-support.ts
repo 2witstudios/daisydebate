@@ -1,5 +1,11 @@
 import type { SQL } from 'bun';
-import { createDatabase } from './index';
+import type { DebatePhase } from '@daisy/protocol';
+import {
+  createDatabase,
+  type DebateMode,
+  type DebateOutcome,
+  type DebateVisibility,
+} from './index';
 
 type RecordedQuery = { query: string; params: unknown[] };
 type ScriptedResult = readonly unknown[][] | Error;
@@ -68,6 +74,12 @@ export const debateRow = (record: {
   createdAt: string;
   updatedAt: string;
   version: number;
+  mode: DebateMode;
+  phase: DebatePhase;
+  visibility: DebateVisibility;
+  startedAt: string | null;
+  completedAt: string | null;
+  outcome: DebateOutcome | null;
 }): unknown[] => [
   record.id,
   record.createdBy,
@@ -77,6 +89,12 @@ export const debateRow = (record: {
   new Date(record.createdAt),
   new Date(record.updatedAt),
   record.version,
+  record.mode,
+  record.phase,
+  record.visibility,
+  record.startedAt === null ? null : new Date(record.startedAt),
+  record.completedAt === null ? null : new Date(record.completedAt),
+  record.outcome,
 ];
 
 export const userRow = (record: {
@@ -89,6 +107,7 @@ export const userRow = (record: {
   createdAt: Date;
   updatedAt: Date;
   version: number;
+  deletedAt: Date | null;
 }): unknown[] => [
   record.id,
   record.username,
@@ -99,6 +118,7 @@ export const userRow = (record: {
   record.createdAt,
   record.updatedAt,
   record.version,
+  record.deletedAt,
 ];
 
 export const sampleDebate = () => ({
@@ -106,10 +126,16 @@ export const sampleDebate = () => ({
   createdBy: null,
   resolution: 'A representative resolution',
   format: 'public-forum',
-  snapshot: { resolution: 'A representative resolution' },
+  snapshot: { phase: 'waiting', resolution: 'A representative resolution' },
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
   version: 1,
+  mode: 'casual' as const,
+  phase: 'waiting' as const,
+  visibility: 'unlisted' as const,
+  startedAt: null,
+  completedAt: null,
+  outcome: null,
 });
 
 export const sampleUser = () => ({
@@ -122,4 +148,5 @@ export const sampleUser = () => ({
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
   updatedAt: new Date('2026-01-01T00:00:00.000Z'),
   version: 1,
+  deletedAt: null,
 });

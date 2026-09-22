@@ -12,46 +12,65 @@ if (!new URL(url).pathname.endsWith('_test'))
 test('durable records survive reconnect; optimistic writes reject stale updates', async () => {
   const id = createId();
   const userId = createId();
+  const actorId = createId();
+  const formatId = `fmt-${createId()}`;
   const database = createDatabase({ url });
+  const fixture = new SQL(url);
   try {
     expect(await database.health()).toBe(true);
     await database.createUser({ id: userId, username: `test-${userId}` });
+    // Competitive rows reference actors, and formats are a reference table;
+    // neither has an adapter writer yet (ADR 0029), so the fixture inserts them.
+    await fixture`insert into actors (id, kind, user_id) values (${actorId}, 'human', ${userId})`;
+    await fixture`insert into formats (id, name, rules, ranked_eligible) values (${formatId}, 'Fixture', '{"version":1,"seats":{"affirmative":1,"negative":1,"judge":0},"clock":{"speechMs":1000,"prepMs":0}}'::jsonb, false)`;
     await database.createDebate({
       id,
-      createdBy: userId,
+      createdBy: actorId,
       resolution: 'Architecture proof',
-      format: 'foundation',
-      snapshot: { version: 1, id },
+      format: formatId,
+      snapshot: { version: 1, id, phase: 'waiting' },
+      mode: 'casual',
+      visibility: 'unlisted',
     });
     await database.close();
     const reopened = createDatabase({ url });
     try {
-      expect((await reopened.getDebate(id))?.snapshot).toEqual({
-        version: 1,
-        id,
-      });
+      const stored = await reopened.getDebate(id);
+      expect(stored?.snapshot).toEqual({ version: 1, id, phase: 'waiting' });
+      expect([stored?.mode, stored?.phase, stored?.visibility]).toEqual([
+        'casual',
+        'waiting',
+        'unlisted',
+      ]);
       const outcomes = await Promise.all(
         [1, 2].map((value) =>
           reopened.saveSnapshot({
             id,
             expectedVersion: 1,
-            snapshot: { value },
+            snapshot: { value, phase: 'active' },
             updatedAt: '2026-01-01T00:00:00.000Z',
           }),
         ),
       );
-      expect(outcomes.filter(Boolean)).toHaveLength(1);
+      const won = outcomes.filter(Boolean);
+      expect(won).toHaveLength(1);
+      // The phase projection travels with the snapshot in the same UPDATE.
+      expect([won[0]?.phase, won[0]?.startedAt]).toEqual([
+        'active',
+        '2026-01-01T00:00:00.000Z',
+      ]);
     } finally {
       await reopened.close();
     }
   } finally {
     await database.close();
-    const cleanup = new SQL(url);
     try {
-      await cleanup`DELETE FROM debates WHERE id=${id}`;
-      await cleanup`DELETE FROM users WHERE id=${userId}`;
+      await fixture`DELETE FROM debates WHERE id=${id}`;
+      await fixture`DELETE FROM actors WHERE id=${actorId}`;
+      await fixture`DELETE FROM users WHERE id=${userId}`;
+      await fixture`DELETE FROM formats WHERE id=${formatId}`;
     } finally {
-      await cleanup.close();
+      await fixture.close();
     }
   }
 });
