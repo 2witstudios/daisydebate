@@ -1,7 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { createId } from '@paralleldrive/cuid2';
 import type { Identity } from '@daisy/auth';
+import { createDatabase } from '@daisy/db';
 import { createPasskeyFlows } from './auth-passkey-flows';
-import { cookieHeader, withSql } from './auth-mounted-helpers';
+import { cookieHeader, testDatabaseUrl, withSql } from './auth-mounted-helpers';
+import { uniqueName } from './auth-account-helpers';
 import { tokenOf } from './auth-mounted-flows';
 
 const userIdOf = (identity: Identity): string | null =>
@@ -142,6 +145,104 @@ describe('AUTH-5.3 list, rename and remove owned passkeys', () => {
         stored: 0,
         recoveredUserId: originalUserId,
         matchesOriginal: true,
+      },
+    });
+  });
+});
+
+describe('AUTH-5.4 recover from a lost passkey through verified email', () => {
+  test('losing every passkey, recovering by email, dropping the lost credential, revoking other sessions and enrolling a replacement preserves identity and debate history', async () => {
+    const { email, cookie: originalCookie } = await signUp();
+    const username = uniqueName();
+    await flows.account.claim(originalCookie, { username });
+    const enrolledLost = await flows.enrollPasskey(originalCookie, {
+      name: 'Lost device',
+    });
+    const lostRows = await flows.listPasskeys(originalCookie);
+    const [lostPasskey] = (await lostRows.json()) as { id: string }[];
+
+    const originalIdentity = await flows.account.sessionAs(originalCookie);
+    const userId = userIdOf(originalIdentity.identity)!;
+    // Debate history hangs off the competitive `actors` table (ADR 0029),
+    // separate from the Better Auth account; production has no actor-
+    // provisioning wired up yet, so the fixture provisions this account's
+    // actor row directly to give it debate history to prove unchanged.
+    const actorId = createId();
+    await withSql(
+      (sql) =>
+        sql`INSERT INTO actors (id, kind, user_id) VALUES (${actorId}, 'human', ${userId})`,
+    );
+    const database = createDatabase({ url: testDatabaseUrl as string });
+    const debateId = createId();
+    await database.createDebate({
+      id: debateId,
+      createdBy: actorId,
+      resolution: 'A representative resolution',
+      format: 'foundation',
+      snapshot: { phase: 'waiting' },
+      mode: 'casual',
+      visibility: 'unlisted',
+    });
+    const debateBefore = await database.getDebate(debateId);
+
+    // Lose every authenticator: recover through the emailed magic link, not
+    // the still-valid original session.
+    const { requestLink, redeem } = flows.account.flows;
+    const { link } = await requestLink(email);
+    const recovered = await redeem(tokenOf(link as URL));
+    const recoveredCookie = cookieHeader(recovered);
+
+    // Clean up as the recovered account: drop the lost credential, revoke
+    // every other session (the pre-recovery one included), then enroll a
+    // replacement — the full chained journey, not each step in isolation.
+    const droppedLost = await flows.deletePasskey(
+      recoveredCookie,
+      lostPasskey!.id,
+    );
+    await flows.revokeOtherSessions(recoveredCookie);
+    const enrolledReplacement = await flows.enrollPasskey(recoveredCookie, {
+      name: 'Replacement device',
+    });
+    const finalRows = await flows.listPasskeys(recoveredCookie);
+    const finalPasskeys = (await finalRows.json()) as { name: string }[];
+
+    const recoveredIdentity = await flows.account.sessionAs(recoveredCookie);
+    const originalAfterRevoke = await flows.account.sessionAs(originalCookie);
+    const debateAfter = await database.getDebate(debateId);
+    await database.close();
+    // The account itself is torn down by this file's shared afterAll; the
+    // fixture rows this test provisioned directly must go first, or that
+    // cleanup's user delete fails the actor's RESTRICT foreign key.
+    await withSql((sql) => sql`DELETE FROM debates WHERE id = ${debateId}`);
+    await withSql((sql) => sql`DELETE FROM actors WHERE id = ${actorId}`);
+
+    assert({
+      given:
+        'an account that loses every passkey, recovers by email, removes the lost credential, revokes its other sessions and enrolls a replacement',
+      should:
+        'keep the same user id, username and debate history, end the pre-recovery session and finish with only the replacement passkey stored',
+      actual: {
+        enrolledLostOk: enrolledLost.verifyResponse.ok,
+        recoveredUserId: userIdOf(recoveredIdentity.identity),
+        recoveredUsername:
+          recoveredIdentity.identity.state === 'member'
+            ? recoveredIdentity.identity.username
+            : null,
+        debateAfter,
+        droppedLostOk: droppedLost.ok,
+        enrolledReplacementOk: enrolledReplacement.verifyResponse.ok,
+        finalPasskeyNames: finalPasskeys.map((row) => row.name),
+        originalSessionState: originalAfterRevoke.identity.state,
+      },
+      expected: {
+        enrolledLostOk: true,
+        recoveredUserId: userId,
+        recoveredUsername: username,
+        debateAfter: debateBefore,
+        droppedLostOk: true,
+        enrolledReplacementOk: true,
+        finalPasskeyNames: ['Replacement device'],
+        originalSessionState: 'anonymous',
       },
     });
   });
