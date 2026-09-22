@@ -234,14 +234,19 @@ test('an emailed link opened in a different browser than the one that requested 
   await expect(otherPage).toHaveURL(/\/onboarding\/username/);
   await claimUsername(otherPage, uniqueName('cross-browser'));
   // Whether the fresh context offers a passkey save depends on that
-  // context's own WebAuthn availability; either way it ends on /lobby.
-  const offered = await otherPage
-    .getByRole('heading', { name: /next time, one tap/i })
-    .waitFor({ state: 'visible', timeout: 5_000 })
-    .then(() => true)
-    .catch(() => false);
+  // context's own WebAuthn availability, and how long the claim itself
+  // takes under load; race the two possible outcomes instead of assuming
+  // either happens within a short fixed window, so neither is checked
+  // before the app has actually settled on one.
+  const offered = await Promise.race([
+    otherPage
+      .getByRole('heading', { name: /next time, one tap/i })
+      .waitFor({ state: 'visible', timeout: 15_000 })
+      .then(() => true),
+    otherPage.waitForURL(/\/lobby$/, { timeout: 15_000 }).then(() => false),
+  ]).catch(() => false);
   if (offered) await otherPage.getByRole('button', { name: 'Not now' }).click();
-  await expect(otherPage).toHaveURL(/\/lobby$/);
+  await expect(otherPage).toHaveURL(/\/lobby$/, { timeout: 15_000 });
 
   // The requesting page never redeemed the link itself and stays anonymous.
   await page.goto('/lobby');

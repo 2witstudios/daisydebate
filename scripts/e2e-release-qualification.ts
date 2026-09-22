@@ -50,20 +50,50 @@ async function runOnce(run: number): Promise<RunOutcome> {
   return { run, ok, summary };
 }
 
+/** True once nothing accepts a connection on `port` (the OS has released it). */
+async function isPortFree(port: number): Promise<boolean> {
+  try {
+    const socket = await Bun.connect({
+      hostname: '127.0.0.1',
+      port,
+      socket: { data() {}, open(s) { s.end(); }, error() {} },
+    });
+    socket.end();
+    return false;
+  } catch {
+    return true;
+  }
+}
+
 /**
  * Each run's webServer is spawned fresh (not reused): its own graceful
- * shutdown can outlast the wrapping CLI process on this platform, so a
- * lingering listener from run N would otherwise fail run N+1's bind with
- * EADDRINUSE. Kill anything still bound under this worktree's e2e wrapper
- * and give the OS a moment to release the ports before the next run.
+ * shutdown (up to playwright.config.ts's 30s `gracefulShutdown.timeout`) can
+ * outlast the wrapping CLI process on this platform, and a closed listener's
+ * port can also sit in TIME_WAIT briefly, so a lingering bind from run N
+ * would otherwise fail run N+1's bind with EADDRINUSE. Kill anything still
+ * bound under this worktree's e2e wrapper, then poll (never a flat sleep)
+ * until every one of its three ports is actually free.
  */
 async function settleBetweenRuns(): Promise<void> {
   Bun.spawnSync(['pkill', '-f', `${process.cwd()}.*e2e/support/server.ts`]);
-  await new Promise((resolve) => setTimeout(resolve, 2_000));
+  const { resolveE2EPorts } = await import(
+    '../apps/web/playwright.config'
+  );
+  const ports = Object.values(resolveE2EPorts(process.env));
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    const free = await Promise.all(ports.map(isPortFree));
+    if (free.every(Boolean)) return;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error(
+    `ports ${ports.join(', ')} were still bound 30s after the previous run`,
+  );
 }
 
 if (import.meta.main) {
   const outcomes: RunOutcome[] = [];
+  await settleBetweenRuns();
   for (let run = 1; run <= 3; run += 1) {
     console.log(`\n=== Release qualification run ${run}/3 ===`);
     outcomes.push(await runOnce(run));
