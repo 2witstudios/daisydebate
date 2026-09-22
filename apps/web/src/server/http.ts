@@ -7,6 +7,7 @@ import {
 } from '@daisy/observability';
 import type { Logger } from '@daisy/logger';
 import { type ZodType } from 'zod';
+import { CLIENT_IP_HEADER } from '../features/auth/client-ip';
 import { getResources } from './resources';
 
 /** Single trust-boundary entry for untrusted payloads; failures map to VALIDATION. */
@@ -44,6 +45,10 @@ export async function handleOperation(
           {
             durationMs: Math.round(performance.now() - start),
             status: response.status,
+            // The ingress-resolved client identity (apps/web/src/server/ingress.ts);
+            // present only when a socket peer or trusted proxy chain resolved one.
+            // Not a secret: it is the same value already used for rate-limit keying.
+            clientId: request.headers.get(CLIENT_IP_HEADER) ?? undefined,
           },
           'Request completed',
         );

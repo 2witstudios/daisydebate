@@ -1,38 +1,13 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError, createInvariantError } from '@daisy/errors';
-import { readServerConfig } from '@daisy/config';
-import type { Logger } from '@daisy/logger';
+import { seedRecordingResources } from './recording-resources.test-support';
 
 setupRitewayBun();
 
 // Seed process-local resources before touching the HTTP boundary so this test
 // never constructs real database or Redis clients.
-const recorded: { event: string; message: string; fields: unknown }[] = [];
-const createRecorder = (boundFields: Record<string, unknown> = {}): Logger => ({
-  log: (event, fields, message) =>
-    recorded.push({
-      event,
-      fields: { ...boundFields, ...fields },
-      message,
-    }),
-  child: (fields) => createRecorder({ ...boundFields, ...fields }),
-});
-const recorder = createRecorder();
-const seededResources = {
-  config: readServerConfig({
-    NODE_ENV: 'test',
-    DATABASE_URL: 'postgres://unit:unit@localhost:5432/unit',
-    REDIS_URL: 'redis://localhost:6379',
-    REDIS_NAMESPACE: 'test',
-    PUBLIC_APP_URL: 'http://localhost:3000',
-    APP_VERSION: 'test',
-    GIT_COMMIT: 'test',
-  }),
-  logger: recorder,
-  draining: false,
-};
-Reflect.set(globalThis, 'daisyResources', seededResources);
+const { recorded, resources: seededResources } = seedRecordingResources();
 
 const { handleOperation, readJson, requireSameOrigin } = await import('./http');
 
@@ -72,15 +47,12 @@ describe('handleOperation', () => {
     );
     assert({
       given: 'a successful operation',
-      should: 'respond 200',
-      actual: response.status,
-      expected: 200,
-    });
-    assert({
-      given: 'a completed operation',
-      should: 'attach a correlation header',
-      actual: Boolean(response.headers.get('x-request-id')),
-      expected: true,
+      should: 'respond 200 with a correlation header',
+      actual: {
+        status: response.status,
+        hasRequestId: Boolean(response.headers.get('x-request-id')),
+      },
+      expected: { status: 200, hasRequestId: true },
     });
     assert({
       given: 'a completed operation',
@@ -101,6 +73,36 @@ describe('handleOperation', () => {
         requestId: response.headers.get('x-request-id'),
         traceId: undefined,
       },
+    });
+  });
+
+  test('logs the ingress-resolved client identity for Fly proxy verification', async () => {
+    recorded.length = 0;
+    await handleOperation(
+      new Request('http://localhost/api/foundation/proof', {
+        headers: { 'x-daisy-client-ip': '203.0.113.9' },
+      }),
+      'test.operation',
+      () => Promise.resolve(Response.json({ ok: true })),
+    );
+    assert({
+      given: 'a request carrying the ingress-stamped client identity header',
+      should: 'attach the resolved client identity to the completion log',
+      actual: (recorded.at(-1)?.fields as Record<string, unknown>).clientId,
+      expected: '203.0.113.9',
+    });
+
+    recorded.length = 0;
+    await handleOperation(
+      new Request('http://localhost/api/foundation/proof'),
+      'test.operation',
+      () => Promise.resolve(Response.json({ ok: true })),
+    );
+    assert({
+      given: 'a request with no ingress-stamped client identity header',
+      should: 'log no clientId field',
+      actual: (recorded.at(-1)?.fields as Record<string, unknown>).clientId,
+      expected: undefined,
     });
   });
 
@@ -197,15 +199,9 @@ describe('handleOperation', () => {
     const body = (await response.json()) as { error: { code: string } };
     assert({
       given: 'an unexpected infrastructure failure',
-      should: 'respond 500',
-      actual: response.status,
-      expected: 500,
-    });
-    assert({
-      given: 'an unexpected infrastructure failure',
-      should: 'emit the INTERNAL code',
-      actual: body.error.code,
-      expected: 'INTERNAL',
+      should: 'respond 500 with the INTERNAL code',
+      actual: { status: response.status, code: body.error.code },
+      expected: { status: 500, code: 'INTERNAL' },
     });
     assert({
       given: 'an unexpected infrastructure failure',
