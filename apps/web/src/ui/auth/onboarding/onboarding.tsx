@@ -1,24 +1,24 @@
 'use client';
 
-import { useCallback, useEffect, useReducer, useState } from 'react';
-import { signInAgainHref } from '../better-auth-sign-in-port';
+import { useCallback, useEffect, useReducer } from 'react';
+import { onboardingHref, signInHref } from '../../../features/access/decision';
 import { SavePasskey } from '../save-passkey/save-passkey';
 import { createClaimUsername, type ClaimUsername } from './claim-username';
 import {
-  enrollmentNotices,
   enrollSafely,
   passkeyEnrollmentNotYetAvailable,
   type PasskeyEnrollmentSeam,
 } from './passkey-enrollment';
 import { UsernameForm } from './username-form';
 import {
-  canSubmit,
+  awaitsClaim,
   initialOnboardingState,
   onboardingReducer,
 } from './username-state';
 
-const claimOverFetch: ClaimUsername = (username) =>
-  createClaimUsername((input, init) => fetch(input, init))(username);
+const claimOverFetch: ClaimUsername = createClaimUsername((url, init) =>
+  fetch(url, init),
+);
 
 /**
  * Username onboarding, then the passkey offer. `destination` was validated by
@@ -39,8 +39,6 @@ export function Onboarding({
     onboardingReducer,
     initialOnboardingState,
   );
-  const [saving, setSaving] = useState(false);
-  const [offerNotice, setOfferNotice] = useState<string | undefined>();
   const leave = useCallback(
     () => window.location.assign(destination),
     [destination],
@@ -56,10 +54,13 @@ export function Onboarding({
         pending={state.pending}
         notice={state.notice}
         typeUsername={(username) => dispatch({ type: 'typed', username })}
-        signInHref={signInAgainHref(destination)}
+        signInHref={signInHref(onboardingHref(destination))}
         submit={() => {
-          if (!canSubmit(state)) return;
+          // The reducer alone decides: a name it refuses, or a repeat while
+          // one claim is in flight, never reaches the server.
+          const next = onboardingReducer(state, { type: 'submitted' });
           dispatch({ type: 'submitted' });
+          if (awaitsClaim(state) || !awaitsClaim(next)) return;
           void claim(state.username).then(
             (outcome) => dispatch({ type: 'claim-settled', outcome }),
             () =>
@@ -76,15 +77,14 @@ export function Onboarding({
   return (
     <SavePasskey
       username={state.username}
-      pending={saving}
-      notice={offerNotice}
+      pending={state.saving}
+      notice={state.notice}
       savePasskey={() => {
-        setSaving(true);
-        void enrollSafely(passkeys).then((outcome) => {
-          setSaving(false);
-          if (outcome.kind === 'saved') finish();
-          else setOfferNotice(enrollmentNotices[outcome.kind]);
-        });
+        if (state.saving) return;
+        dispatch({ type: 'enroll-started' });
+        void enrollSafely(passkeys).then((outcome) =>
+          dispatch({ type: 'enroll-settled', outcome }),
+        );
       }}
       markShared={finish}
       dismiss={finish}

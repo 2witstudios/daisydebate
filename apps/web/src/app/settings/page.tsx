@@ -12,7 +12,7 @@ export default async function SettingsPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  await requireAccess('/settings', 'account', searchParams);
+  await requireAccess('/settings', searchParams);
   return (
     <>
       <RouteShell

@@ -2,7 +2,10 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { Identity } from '@daisy/auth';
 import {
   decideAccess,
-  hasSessionCookie,
+  nextDestination,
+  onboardingHref,
+  requirementFor,
+  signInHref,
   isGuardedPath,
   requestedPath,
   returnDestination,
@@ -218,20 +221,45 @@ describe('requestedPath', () => {
   });
 });
 
-describe('hasSessionCookie', () => {
-  test('recognizes only a Better Auth session cookie by exact name', () => {
+describe('requirementFor', () => {
+  test('each guarded area has one requirement, inherited by descendants', () => {
     assert({
-      given:
-        'no header, unrelated cookies, lookalike names and both real names',
-      should: 'answer true only when a session cookie is present',
+      given: 'guarded roots, descendants, lookalikes and public routes',
+      should: 'answer participant, account or null',
       actual: [
-        hasSessionCookie(null),
-        hasSessionCookie('x=1; daisy-theme=dark'),
-        hasSessionCookie('better-auth.session_token_fake=1'),
-        hasSessionCookie('x=1; better-auth.session_token=abc.def'),
-        hasSessionCookie('__Secure-better-auth.session_token=abc'),
+        '/play',
+        '/lobby/abc',
+        '/settings/security',
+        '/lobbyist',
+        '/watch',
+        '/',
+      ].map(requirementFor),
+      expected: ['participant', 'participant', 'account', null, null, null],
+    });
+  });
+});
+
+describe('return links', () => {
+  test('read next from the query and build sign-in and onboarding links', () => {
+    assert({
+      given: 'a query next, a repeated next, a hostile next and a destination',
+      should: 'validate next and encode the destination as one value',
+      actual: [
+        nextDestination({ next: '/ranked?tab=a' }),
+        nextDestination({ next: ['/judge', '/play'] }),
+        nextDestination({ next: '//evil.example' }),
+        signInHref('/lobby?tab=a&b=1'),
+        onboardingHref('/ranked'),
+        signInHref(onboardingHref('/ranked')),
       ],
-      expected: [false, false, false, true, true],
+      expected: [
+        '/ranked?tab=a',
+        '/judge',
+        '/lobby',
+        '/sign-in?next=%2Flobby%3Ftab%3Da%26b%3D1',
+        '/onboarding/username?next=%2Franked',
+        '/sign-in?next=%2Fonboarding%2Fusername%3Fnext%3D%252Franked',
+      ],
     });
   });
 });

@@ -2,7 +2,11 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { createAppError } from '@daisy/errors';
 import { readAuthEntry } from '../../../lib/auth-entry';
-import { signInAgainHref } from '../../../ui/auth/better-auth-sign-in-port';
+import {
+  onboardingHref,
+  signInHref,
+  type SearchParams,
+} from '../../../features/access/decision';
 import { Onboarding } from '../../../ui/auth/onboarding/onboarding';
 
 export const metadata: Metadata = {
@@ -19,11 +23,12 @@ export const metadata: Metadata = {
 export default async function OnboardingUsernamePage({
   searchParams,
 }: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
+  searchParams: Promise<SearchParams>;
 }) {
   const { destination, identity } = await readAuthEntry(searchParams);
   if (identity.state === 'unavailable') throw createAppError('INFRASTRUCTURE');
-  if (identity.state === 'anonymous') redirect(signInAgainHref(destination));
+  if (identity.state === 'anonymous')
+    redirect(signInHref(onboardingHref(destination)));
   if (identity.state === 'member') redirect(destination);
   return <Onboarding destination={destination} />;
 }

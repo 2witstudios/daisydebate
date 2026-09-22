@@ -10,7 +10,7 @@ export default async function RecordingsPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  await requireAccess('/recordings', 'participant', searchParams);
+  await requireAccess('/recordings', searchParams);
   return (
     <RouteShell
       title="Recordings"

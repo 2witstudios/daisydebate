@@ -111,7 +111,7 @@ const retryAfterHeaders = (retryAfterSeconds: unknown): HeadersInit =>
 
 // The limiter is an injected boundary: a decision without a boolean verdict
 // is an outage, never an implicit allow and never a TypeError.
-const readDecision = (decision: unknown) => {
+export const readDecision = (decision: unknown) => {
   if (typeof decision !== 'object' || decision === null)
     throw new TypeError('Malformed limiter decision');
   const allowed: unknown = Reflect.get(decision, 'allowed');

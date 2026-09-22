@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  awaitsClaim,
   canSubmit,
   initialOnboardingState,
   onboardingReducer,
@@ -95,7 +96,10 @@ describe('onboardingReducer', () => {
           { type: 'passkey-step-finished' },
         ]),
       ],
-      expected: [{ step: 'passkey', username: 'ada' }, { step: 'done' }],
+      expected: [
+        { step: 'passkey', username: 'ada', saving: false },
+        { step: 'done' },
+      ],
     });
   });
 
@@ -120,6 +124,70 @@ describe('onboardingReducer', () => {
         { type: 'claim-settled', outcome: { kind: 'claimed', username: 'x' } },
       ]),
       expected: { step: 'choose', username: 'ada', pending: false },
+    });
+  });
+});
+
+describe('awaitsClaim', () => {
+  test('only a submission that passed the local check calls the server', () => {
+    assert({
+      given: 'a valid submission, an invalid one and an unsubmitted name',
+      should: 'await a claim for the valid one only',
+      actual: [
+        awaitsClaim(run([typed('ada'), { type: 'submitted' }])),
+        awaitsClaim(run([typed('a b'), { type: 'submitted' }])),
+        awaitsClaim(run([typed('ada')])),
+      ],
+      expected: [true, false, false],
+    });
+  });
+});
+
+describe('passkey offer', () => {
+  const offered = run([
+    typed('Ada'),
+    { type: 'submitted' },
+    { type: 'claim-settled', outcome: { kind: 'claimed', username: 'ada' } },
+  ]);
+  const settle = (kind: 'saved' | 'cancelled' | 'failed' | 'unavailable') =>
+    [
+      { type: 'enroll-started' } as const,
+      { type: 'enroll-settled', outcome: { kind } } as const,
+    ].reduce(onboardingReducer, offered);
+
+  test('locks while enrolling and never claims a save it did not make', () => {
+    assert({
+      given: 'enrollment started, then each seam outcome',
+      should:
+        'lock the choices, finish only on saved, and explain every other outcome',
+      actual: [
+        onboardingReducer(offered, { type: 'enroll-started' }),
+        settle('saved'),
+        settle('unavailable'),
+      ],
+      expected: [
+        { step: 'passkey', username: 'ada', saving: true },
+        { step: 'done' },
+        {
+          step: 'passkey',
+          username: 'ada',
+          saving: false,
+          notice:
+            'Saving a passkey is not available yet, so nothing was saved. Email links keep working.',
+        },
+      ],
+    });
+  });
+
+  test('a settle nobody started changes nothing', () => {
+    assert({
+      given: 'an enrollment result while not saving',
+      should: 'ignore it',
+      actual: onboardingReducer(offered, {
+        type: 'enroll-settled',
+        outcome: { kind: 'saved' },
+      }),
+      expected: offered,
     });
   });
 });

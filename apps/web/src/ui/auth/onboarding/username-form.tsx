@@ -4,6 +4,7 @@ import { AuthFrame, AuthHeading, taglinePanel } from '../auth-frame/auth-frame';
 import { CopyNotice } from '../notice/notice';
 import { usernameNotices } from './username-notices';
 import type { UsernameNotice } from './username-state';
+import { fieldClass } from '../email-field/field-class';
 
 export type UsernameFormProps = {
   readonly username: string;
@@ -48,10 +49,10 @@ export function UsernameForm({
         }}
       >
         <div className="flex flex-col gap-2">
-          <label htmlFor="username" className="text-sm font-semibold">
+          <label htmlFor="username" className={fieldClass.label}>
             Username
           </label>
-          <div className="flex gap-3 max-narrow:flex-col">
+          <div className={fieldClass.row}>
             <input
               id="username"
               name="username"
@@ -67,7 +68,7 @@ export function UsernameForm({
               aria-describedby={
                 refusesName ? `${HINT_ID} ${NOTICE_ID}` : HINT_ID
               }
-              className="h-auth-control min-w-0 grow rounded-md border border-border-strong bg-surface-raised px-4 text-md text-ink placeholder:text-ink-faint disabled:opacity-60 aria-invalid:border-live"
+              className={fieldClass.input}
             />
             <Button type="submit" disabled={pending} className="h-auth-control">
               {pending ? 'Saving…' : 'Continue'}

@@ -88,25 +88,23 @@ export async function handleOperation(
     extractTraceContext(request.headers),
   );
 }
-export function requireSameOrigin(request: Request, origin: string) {
-  if (request.headers.get('origin') !== new URL(origin).origin)
-    throw createAppError('AUTHORIZATION');
-}
-
 /**
- * Origin gate for form posts from pages served with `Referrer-Policy:
- * no-referrer` (the emailed-link confirmation page). Browsers then send
- * `Origin: null` even to the same origin, so that value is accepted only
- * with `Sec-Fetch-Site: same-origin`, a header page script cannot set. A
- * sandboxed or cross-site sender reports `cross-site` and is still refused.
+ * Fail-closed origin gate for state changes. The Origin must be this app's,
+ * with one browser case: a form posted from a page served with
+ * `Referrer-Policy: no-referrer` (the emailed-link confirmation) carries
+ * `Origin: null` even to its own origin. That is accepted only with
+ * `Sec-Fetch-Site: same-origin`, which page script cannot set and which a
+ * sandboxed or cross-site sender never reports.
  */
-export function requireSameOriginForm(request: Request, origin: string) {
+export function requireSameOrigin(request: Request, origin: string) {
+  const claimed = request.headers.get('origin');
+  if (claimed === new URL(origin).origin) return;
   if (
-    request.headers.get('origin') === 'null' &&
+    claimed === 'null' &&
     request.headers.get('sec-fetch-site') === 'same-origin'
   )
     return;
-  requireSameOrigin(request, origin);
+  throw createAppError('AUTHORIZATION');
 }
 
 /**

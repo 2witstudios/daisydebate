@@ -13,35 +13,28 @@ export type AccessDecision =
   | { readonly kind: 'unavailable' }
   | { readonly kind: 'redirect'; readonly to: string };
 
-/** Better Auth's session cookie, plain on HTTP and `__Secure-` on HTTPS. */
-export const SESSION_COOKIE_NAMES = [
-  'better-auth.session_token',
-  '__Secure-better-auth.session_token',
-] as const;
+/**
+ * Areas that need an account, and what each needs. Spectator routes are
+ * absent, so they stay public. Descendants inherit their root's entry.
+ */
+const GUARDED_AREAS: Readonly<Record<string, Requirement>> = {
+  '/play': 'participant',
+  '/ranked': 'participant',
+  '/lobby': 'participant',
+  '/judge': 'participant',
+  '/recordings': 'participant',
+  '/settings': 'account',
+};
 
-/** Whether a raw Cookie header carries a Better Auth session cookie at all. */
-export const hasSessionCookie = (cookieHeader: string | null): boolean =>
-  cookieHeader !== null &&
-  cookieHeader
-    .split(';')
-    .map((pair) => pair.split('=')[0]?.trim() ?? '')
-    .some((name) => (SESSION_COOKIE_NAMES as readonly string[]).includes(name));
-
-/** Areas that need an account; spectator routes stay public. */
-const GUARDED_ROOTS = [
-  '/play',
-  '/ranked',
-  '/lobby',
-  '/judge',
-  '/recordings',
-  '/settings',
-] as const;
+/** The requirement for a guarded root or descendant, or null when public. */
+export const requirementFor = (pathname: string): Requirement | null => {
+  const root = `/${pathname.split('/')[1] ?? ''}`;
+  return GUARDED_AREAS[root] ?? null;
+};
 
 /** True for a guarded root or any descendant of one. */
 export const isGuardedPath = (pathname: string): boolean =>
-  GUARDED_ROOTS.some(
-    (root) => pathname === root || pathname.startsWith(`${root}/`),
-  );
+  requirementFor(pathname) !== null;
 
 /** Routes that are never a place to return to: they would loop or misuse it. */
 const NEVER_A_DESTINATION = /^\/(?:sign-in|auth|api)(?:[/?#]|$)/;
@@ -59,6 +52,20 @@ export type SearchParams = Readonly<
   Record<string, string | readonly string[] | undefined>
 >;
 
+/** The validated `?next=` destination of a page's (untrusted) query. */
+export const nextDestination = (search: SearchParams): string => {
+  const next = search.next;
+  return returnDestination(typeof next === 'string' ? next : next?.[0]);
+};
+
+/** Sign in, then continue to an already validated destination. */
+export const signInHref = (destination: string): string =>
+  `/sign-in?next=${encodeURIComponent(destination)}`;
+
+/** Choose a username, then continue to an already validated destination. */
+export const onboardingHref = (destination: string): string =>
+  `/onboarding/username?next=${encodeURIComponent(destination)}`;
+
 /** The requested page as a local path with its query, for the return trip. */
 export const requestedPath = (path: string, search: SearchParams): string => {
   const query = new URLSearchParams();
@@ -69,11 +76,7 @@ export const requestedPath = (path: string, search: SearchParams): string => {
   return encoded === '' ? path : `${path}?${encoded}`;
 };
 
-/** `/sign-in` or onboarding, carrying only a validated local destination. */
-const via = (route: string, path: string): AccessDecision => ({
-  kind: 'redirect',
-  to: `${route}?next=${encodeURIComponent(returnDestination(path))}`,
-});
+const redirectTo = (to: string): AccessDecision => ({ kind: 'redirect', to });
 
 /**
  * Pure access decision for one server entrypoint. Every guarded page and
@@ -90,8 +93,9 @@ export function decideAccess({
   readonly requirement: Requirement;
 }): AccessDecision {
   if (identity.state === 'unavailable') return { kind: 'unavailable' };
-  if (identity.state === 'anonymous') return via('/sign-in', path);
+  if (identity.state === 'anonymous')
+    return redirectTo(signInHref(returnDestination(path)));
   if (identity.state === 'provisional' && requirement === 'participant')
-    return via('/onboarding/username', path);
+    return redirectTo(onboardingHref(returnDestination(path)));
   return { kind: 'allow' };
 }

@@ -10,7 +10,7 @@ export default async function JudgePage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  await requireAccess('/judge', 'participant', searchParams);
+  await requireAccess('/judge', searchParams);
   return (
     <RouteShell
       title="Judge"

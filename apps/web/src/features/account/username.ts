@@ -1,9 +1,11 @@
 import { createAppError } from '@daisy/errors';
 import { parseUsername, type Identity } from '@daisy/auth';
 import type { UsernameClaim } from '@daisy/db';
-import type { AuthRateLimiter } from '../auth/rate-limit';
+import { z } from 'zod';
+import { readDecision, type AuthRateLimiter } from '../auth/rate-limit';
 import {
   handleOperation,
+  parseValidated,
   readJson,
   requireSameOrigin,
 } from '../../server/http';
@@ -22,29 +24,29 @@ type UsernameDependencies = {
   }) => Promise<UsernameClaim>;
 };
 
-const conflict = (
-  code: 'USERNAME_TAKEN' | 'USERNAME_ALREADY_SET',
-  id: string,
-) =>
-  Response.json(
-    {
-      error: {
-        code,
-        message:
-          code === 'USERNAME_TAKEN'
-            ? 'That username is already taken'
-            : 'This account already has a username',
-        requestId: id,
-      },
-    },
-    { status: 409 },
-  );
+/** The two stable 409 answers the onboarding screen tells apart. */
+const CONFLICTS = {
+  taken: {
+    code: 'USERNAME_TAKEN',
+    message: 'That username is already taken',
+  },
+  'already-set': {
+    code: 'USERNAME_ALREADY_SET',
+    message: 'This account already has a username',
+  },
+} as const;
+
+const conflict = (kind: keyof typeof CONFLICTS, requestId: string) =>
+  Response.json({ error: { ...CONFLICTS[kind], requestId } }, { status: 409 });
 
 /** Gate 4: one atomic decision per account; an outage fails closed. */
 async function consumeClaimLimit(limiter: AuthRateLimiter, userId: string) {
   let decision: { readonly allowed: boolean };
   try {
-    decision = await limiter.consume(`account:username:${userId}`, CLAIM_RULE);
+    // A malformed answer is an outage too, exactly as at the auth gate.
+    decision = readDecision(
+      await limiter.consume(`account:username:${userId}`, CLAIM_RULE),
+    );
   } catch (error) {
     throw createAppError('INFRASTRUCTURE', undefined, error);
   }
@@ -52,15 +54,11 @@ async function consumeClaimLimit(limiter: AuthRateLimiter, userId: string) {
 }
 
 /** The body is exactly `{ username }`: any other field is a refusal. */
+const claimBody = z.strictObject({ username: z.unknown() });
+
 async function readClaimedName(request: Request): Promise<string> {
-  const body = await readJson(request);
-  const keys =
-    typeof body === 'object' && body !== null && !Array.isArray(body)
-      ? Object.keys(body)
-      : [];
-  if (keys.length !== 1 || keys[0] !== 'username')
-    throw createAppError('VALIDATION');
-  const parsed = parseUsername((body as { username: unknown }).username);
+  const { username } = parseValidated(claimBody, await readJson(request));
+  const parsed = parseUsername(username);
   if (!parsed.ok) throw createAppError('VALIDATION');
   return parsed.username;
 }
@@ -76,9 +74,8 @@ const respond = (
     case 'unchanged':
       return Response.json({ username });
     case 'taken':
-      return conflict('USERNAME_TAKEN', id);
     case 'already-set':
-      return conflict('USERNAME_ALREADY_SET', id);
+      return conflict(outcome.kind, id);
     case 'unknown-user':
       throw createAppError('AUTHENTICATION');
   }
@@ -98,7 +95,7 @@ export function createUsernameHandler(dependencies: UsernameDependencies) {
       // A session-store outage is retryable, not "your sign-in ended".
       if (identity.state === 'unavailable')
         throw createAppError('INFRASTRUCTURE');
-      if (identity.principal.kind !== 'user')
+      if (identity.state === 'anonymous')
         throw createAppError('AUTHENTICATION');
       const { userId } = identity.principal;
       await consumeClaimLimit(dependencies.limiter(), userId);

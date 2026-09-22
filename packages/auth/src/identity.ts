@@ -23,15 +23,18 @@ const anonymous = { kind: 'anonymous' } as const;
  * accounts still choosing a username (`provisional`, no permission), and
  * accounts with a public identity (`member`).
  */
+type AnonymousPrincipal = Extract<Principal, { kind: 'anonymous' }>;
+type UserPrincipal = Extract<Principal, { kind: 'user' }>;
+
 export type Identity =
-  | { readonly state: 'anonymous'; readonly principal: Principal }
+  | { readonly state: 'anonymous'; readonly principal: AnonymousPrincipal }
   /** The session store could not be read: fail closed, but not as signed out. */
-  | { readonly state: 'unavailable'; readonly principal: Principal }
-  | { readonly state: 'provisional'; readonly principal: Principal }
+  | { readonly state: 'unavailable'; readonly principal: AnonymousPrincipal }
+  | { readonly state: 'provisional'; readonly principal: UserPrincipal }
   | {
       readonly state: 'member';
       readonly username: string;
-      readonly principal: Principal;
+      readonly principal: UserPrincipal;
     };
 
 const ANONYMOUS: Identity = { state: 'anonymous', principal: anonymous };
@@ -64,8 +67,9 @@ export async function resolveIdentity({
   if (!found || found.emailVerified !== true) return ANONYMOUS;
   const expires = Date.parse(found.expiresAt);
   if (Number.isNaN(expires) || expires <= Date.parse(now())) return ANONYMOUS;
-  const userId = found.userId;
-  const username = found.username;
+  // The reader is an adapter boundary: only a non-empty string username
+  // makes a member, whatever else the lookup returned.
+  const { userId, username } = found;
   return typeof username === 'string' && username !== ''
     ? {
         state: 'member',

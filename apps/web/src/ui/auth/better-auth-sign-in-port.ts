@@ -1,3 +1,4 @@
+import { onboardingHref } from '../../features/access/decision';
 import type {
   LinkRequestOutcome,
   PasskeyOutcome,
@@ -23,14 +24,6 @@ export type SignInClient = {
     readonly passkey: () => Promise<{ readonly error: ClientError }>;
   };
 };
-
-/** Where a first-time account chooses a username, then continues on. */
-export const onboardingDestination = (destination: string): string =>
-  `/onboarding/username?next=${encodeURIComponent(destination)}`;
-
-/** Sign in again, then resume onboarding with the same destination. */
-export const signInAgainHref = (destination: string): string =>
-  `/sign-in?next=${encodeURIComponent(onboardingDestination(destination))}`;
 
 const linkOutcome = (error: ClientError): LinkRequestOutcome => {
   if (error === null) return { kind: 'sent' };
@@ -77,7 +70,7 @@ export function createBetterAuthSignInPort({
           await client.signIn.magicLink({
             email,
             callbackURL: destination,
-            newUserCallbackURL: onboardingDestination(destination),
+            newUserCallbackURL: onboardingHref(destination),
           })
         ).error,
       ),

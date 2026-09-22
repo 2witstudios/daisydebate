@@ -6,8 +6,9 @@ import { isValidTraceparent } from '@daisy/observability';
 import {
   isGuardedPath,
   returnDestination,
-  SESSION_COOKIE_NAMES,
+  signInHref,
 } from './features/access/decision';
+import { hasSessionCookie } from './features/auth/session-cookie';
 // A nonce never authorizes a `style="…"` attribute, and `next/image` always
 // server-renders one. Hash the exact strings it emits (`fill`, and the default)
 // so every other inline style attribute stays refused. The CSP e2e fails if a
@@ -62,19 +63,14 @@ function signInHint(
   requestId: string,
 ): NextResponse | null {
   const { pathname, search } = request.nextUrl;
-  if (
-    !isGuardedPath(pathname) ||
-    SESSION_COOKIE_NAMES.some((name) => request.cookies.has(name))
-  )
+  if (!isGuardedPath(pathname) || hasSessionCookie(request.headers))
     return null;
   const origin = publicOrigin();
   // Without a valid configured origin there is no safe absolute target:
   // give no hint and let the page guard (a relative redirect) decide.
   if (origin === null) return null;
   const next = returnDestination(`${pathname}${search}`);
-  const response = NextResponse.redirect(
-    new URL(`/sign-in?next=${encodeURIComponent(next)}`, origin),
-  );
+  const response = NextResponse.redirect(new URL(signInHref(next), origin));
   response.headers.set('Content-Security-Policy', policy);
   response.headers.set('Cache-Control', 'no-store');
   response.headers.set('x-request-id', requestId);

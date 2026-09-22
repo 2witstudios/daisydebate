@@ -1,5 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import { handleOperation, requireSameOriginForm } from '../../server/http';
+import { handleOperation, requireSameOrigin } from '../../server/http';
 import { readBoundedBody } from './bounded-body';
 import { CLIENT_IP_HEADER } from './client-ip';
 import { CONFIRM_PATH, renderConfirmPage, type Hidden } from './confirm-page';
@@ -202,7 +202,7 @@ export function createConfirmHandlers({ auth }: ConfirmDependencies) {
       }),
     POST: (request: Request) =>
       handleOperation(request, 'auth.confirm.submit', async () => {
-        requireSameOriginForm(request, auth().config.PUBLIC_APP_URL);
+        requireSameOrigin(request, auth().config.PUBLIC_APP_URL);
         const form = await readForm(request);
         return form.get('intent') === 'resend'
           ? resend(request, form)

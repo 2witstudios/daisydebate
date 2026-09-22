@@ -10,7 +10,7 @@ export default async function RankedPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  await requireAccess('/ranked', 'participant', searchParams);
+  await requireAccess('/ranked', searchParams);
   return (
     <RouteShell
       title="Ranked"

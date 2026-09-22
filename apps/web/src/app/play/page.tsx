@@ -10,7 +10,7 @@ export default async function PlayPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  await requireAccess('/play', 'participant', searchParams);
+  await requireAccess('/play', searchParams);
   return (
     <RouteShell
       title="Play"

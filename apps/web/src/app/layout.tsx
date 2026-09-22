@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { connection } from 'next/server';
 import { Fraunces, Instrument_Sans } from 'next/font/google';
 import { ThemeProvider } from '../ui/theme/theme-provider';
@@ -7,7 +7,7 @@ import {
   parseThemePreference,
   THEME_COOKIE,
 } from '../ui/theme/theme-preference';
-import { SESSION_COOKIE_NAMES } from '../features/access/decision';
+import { hasSessionCookie } from '../features/auth/session-cookie';
 import { SessionRefresh } from '../ui/auth/session-refresh/session-refresh';
 import './globals.css';
 
@@ -44,7 +44,7 @@ export default async function RootLayout({
   // flash, no hydration mismatch.
   const jar = await cookies();
   const theme = parseThemePreference(jar.get(THEME_COOKIE)?.value);
-  const signedIn = SESSION_COOKIE_NAMES.some((name) => jar.has(name));
+  const signedIn = hasSessionCookie(await headers());
   return (
     <html
       lang="en"

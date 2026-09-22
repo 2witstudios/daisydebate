@@ -28,16 +28,15 @@ describe('guarded pages', () => {
     const unguarded = guarded
       .filter(({ route, source }) => {
         const root = route.split('/')[1];
-        const requirement = root === 'settings' ? 'account' : 'participant';
         return !new RegExp(
-          `requireAccess\\(\\s*['\`]/${root}[^'\`]*['\`],\\s*'${requirement}',\\s*searchParams`,
+          `requireAccess\\(\\s*['\`]/${root}[^'\`]*['\`],\\s*searchParams`,
         ).test(source);
       })
       .map(({ file }) => file);
     assert({
       given: `the ${guarded.length} page files under the six guarded roots`,
       should:
-        'each call requireAccess with its own root, its requirement and its search params',
+        'each call requireAccess with its own root and its search params (the requirement comes from the guarded-area table)',
       actual: { atLeastTheRoots: guarded.length >= 6, unguarded },
       expected: { atLeastTheRoots: true, unguarded: [] },
     });

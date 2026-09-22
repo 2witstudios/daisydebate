@@ -1,9 +1,10 @@
 import { headers } from 'next/headers';
 import type { Identity } from '@daisy/auth';
-import { returnDestination } from '../features/access/decision';
+import {
+  nextDestination,
+  type SearchParams,
+} from '../features/access/decision';
 import { identify } from './identity';
-
-type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 /**
  * What the sign-in and onboarding pages start from: the validated `?next=`
@@ -11,11 +12,10 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
  * asking, resolved from this request's durable session.
  */
 export async function readAuthEntry(
-  searchParams: SearchParams,
+  searchParams: Promise<SearchParams>,
 ): Promise<{ readonly destination: string; readonly identity: Identity }> {
-  const next = (await searchParams).next;
   return {
-    destination: returnDestination(Array.isArray(next) ? next[0] : next),
+    destination: nextDestination(await searchParams),
     identity: await identify(await headers()),
   };
 }

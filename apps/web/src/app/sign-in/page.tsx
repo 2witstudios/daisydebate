@@ -1,7 +1,10 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { readAuthEntry } from '../../lib/auth-entry';
-import { onboardingDestination } from '../../ui/auth/better-auth-sign-in-port';
+import {
+  onboardingHref,
+  type SearchParams,
+} from '../../features/access/decision';
 import { SignIn } from '../../ui/auth/sign-in/sign-in';
 
 export const metadata: Metadata = {
@@ -17,11 +20,10 @@ export const metadata: Metadata = {
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
+  searchParams: Promise<SearchParams>;
 }) {
   const { destination, identity } = await readAuthEntry(searchParams);
   if (identity.state === 'member') redirect(destination);
-  if (identity.state === 'provisional')
-    redirect(onboardingDestination(destination));
+  if (identity.state === 'provisional') redirect(onboardingHref(destination));
   return <SignIn destination={destination} />;
 }

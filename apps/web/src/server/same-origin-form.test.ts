@@ -1,12 +1,12 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
-import { requireSameOriginForm } from './http';
+import { requireSameOrigin } from './http';
 
 setupRitewayBun();
 
 const at = (headers: Record<string, string>) => () =>
-  requireSameOriginForm(
+  requireSameOrigin(
     new Request('http://localhost/auth/confirm', { headers }),
     'http://localhost:3000',
   );
@@ -15,7 +15,7 @@ const admitted = (headers: Record<string, string>) => {
   return true;
 };
 
-describe('requireSameOriginForm', () => {
+describe('requireSameOrigin: opaque form origins', () => {
   test('accepts the origin a no-referrer page sends only from the same origin', () => {
     assert({
       given:

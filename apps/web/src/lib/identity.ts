@@ -1,5 +1,5 @@
 import { resolveIdentity, type Identity } from '@daisy/auth';
-import { hasSessionCookie } from '../features/access/decision';
+import { hasSessionCookie } from '../features/auth/session-cookie';
 import { getAuth } from './auth';
 
 /**
@@ -19,7 +19,7 @@ export async function identify(requestHeaders: Headers): Promise<Identity> {
   const cookie = requestHeaders.get('cookie');
   const identity = await resolveIdentity({
     // No session cookie at all: nothing to look up, and no budget spent.
-    cookie: hasSessionCookie(cookie) ? cookie : null,
+    cookie: hasSessionCookie(requestHeaders) ? cookie : null,
     now: () => clock.now(),
     readSession: async (header) => {
       const found = await instance.api.getSession({

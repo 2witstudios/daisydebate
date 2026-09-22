@@ -10,7 +10,7 @@ export default async function LobbyPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  await requireAccess('/lobby', 'participant', searchParams);
+  await requireAccess('/lobby', searchParams);
   return (
     <RouteShell
       title="Lobby"

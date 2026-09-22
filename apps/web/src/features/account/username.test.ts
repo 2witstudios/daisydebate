@@ -73,6 +73,19 @@ describe('POST /api/account/username gates', () => {
     });
   });
 
+  test('a malformed limiter answer is an outage, not a rate limit', async () => {
+    const { handler, claims } = handlerWith({
+      consume: async () =>
+        ({}) as { allowed: boolean; retryAfterSeconds: number },
+    });
+    assert({
+      given: 'a limiter that answers without a boolean verdict',
+      should: 'fail closed with 503 and claim nothing',
+      actual: [(await handler(post())).status, claims],
+      expected: [503, []],
+    });
+  });
+
   test('an anonymous caller is 401 and a limited one is 429', async () => {
     const anonymous = handlerWith({
       identity: { state: 'anonymous', principal: { kind: 'anonymous' } },
