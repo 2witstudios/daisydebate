@@ -1,8 +1,6 @@
-import { createServer } from 'node:http';
 import next from 'next';
 import { z } from 'zod';
-import { readAuthConfig } from '@daisy/config';
-import { createIngressListener } from './ingress';
+import { createHttpServer } from './http-server';
 import { startMaintenance } from './maintenance';
 import { getResources, closeResources } from './resources';
 
@@ -14,10 +12,6 @@ if (process.env.NODE_ENV !== 'production')
     })`,
   );
 const resources = getResources();
-// Production must not boot without validated auth configuration (secret,
-// Resend sender/key, webhook secret, HTTPS origin); errors name fields only.
-const authConfig = readAuthConfig(process.env);
-const trustedProxies = authConfig.AUTH_TRUSTED_PROXIES ?? [];
 const port = z.coerce
   .number()
   .int()
@@ -25,25 +19,14 @@ const port = z.coerce
   .max(65535)
   .parse(process.env.PORT ?? 3000);
 const app = next({ dev: false, port });
+// Validates auth configuration before Next prepares; the handler it wraps
+// only resolves Next's request handler per request, after prepare().
+const server = createHttpServer({
+  env: process.env,
+  resources,
+  handle: app.getRequestHandler(),
+});
 await app.prepare();
-const handle = app.getRequestHandler();
-const listen = createIngressListener({
-  isDraining: () => resources.draining,
-  trustedProxies,
-  handle,
-  onError: () =>
-    resources.logger.log(
-      'http.request.failed',
-      { operation: 'http.request', errorCode: 'INTERNAL' },
-      'Request failed',
-    ),
-});
-const server = createServer((request, response) => {
-  void listen(request, response);
-});
-server.requestTimeout = 30_000;
-server.headersTimeout = 15_000;
-server.keepAliveTimeout = 5_000;
 server.listen(port, '0.0.0.0', () =>
   resources.logger.log(
     'server.start',
