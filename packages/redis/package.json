@@ -9,7 +9,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "bun test src",
-    "test:integration": "bun test ./integration/redis.integration.ts"
+    "test:integration": "bun test ./integration/redis.integration.ts ./integration/presence.integration.ts"
   },
   "dependencies": {},
   "devDependencies": {
