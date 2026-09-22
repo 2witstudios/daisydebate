@@ -1,10 +1,18 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  createPasskeyEnrollment,
   enrollSafely,
   passkeyEnrollmentNotYetAvailable,
+  type PasskeyEnrollmentClient,
 } from './passkey-enrollment';
 
 setupRitewayBun();
+
+const clientWith = (
+  error: { status?: number; code?: string } | null,
+): PasskeyEnrollmentClient => ({
+  passkey: { addPasskey: async () => ({ error }) },
+});
 
 describe('passkey enrollment seam', () => {
   test('the stage-4 seam never reports a save', async () => {
@@ -25,6 +33,68 @@ describe('passkey enrollment seam', () => {
           throw new Error('boom');
         },
       }),
+      expected: { kind: 'failed' },
+    });
+  });
+});
+
+describe('createPasskeyEnrollment', () => {
+  test('an unsupported browser never starts a ceremony', async () => {
+    let called = false;
+    const seam = createPasskeyEnrollment({
+      client: {
+        passkey: {
+          addPasskey: async () => {
+            called = true;
+            return { error: null };
+          },
+        },
+      },
+      supportsPasskeys: () => false,
+    });
+    assert({
+      given: 'a browser without WebAuthn support',
+      should: 'report unavailable without calling the client',
+      actual: { outcome: await seam.enroll(), called },
+      expected: { outcome: { kind: 'unavailable' }, called: false },
+    });
+  });
+
+  test('a successful ceremony reports saved', async () => {
+    const seam = createPasskeyEnrollment({
+      client: clientWith(null),
+      supportsPasskeys: () => true,
+    });
+    assert({
+      given: 'a client that resolves without an error',
+      should: 'report saved',
+      actual: await seam.enroll(),
+      expected: { kind: 'saved' },
+    });
+  });
+
+  test('a cancelled ceremony is distinguished from other failures', async () => {
+    const seam = createPasskeyEnrollment({
+      client: clientWith({ code: 'REGISTRATION_CANCELLED' }),
+      supportsPasskeys: () => true,
+    });
+    assert({
+      given: 'a client error naming a cancellation code',
+      should: 'report cancelled, not failed',
+      actual: await seam.enroll(),
+      expected: { kind: 'cancelled' },
+    });
+  });
+
+  test('any other client error reports failed', async () => {
+    const seam = createPasskeyEnrollment({
+      client: clientWith({ status: 500 }),
+      supportsPasskeys: () => true,
+    });
+    assert({
+      given: 'a client error with no cancellation code',
+      should: 'report failed',
+      actual: await seam.enroll(),
       expected: { kind: 'failed' },
     });
   });
