@@ -75,6 +75,14 @@ test('a passkey saved during onboarding is usable to sign back in later', async 
   // account now owns exactly one passkey.
   await page.goto('/settings/security');
   await expect(page.getByRole('button', { name: 'Remove' })).toHaveCount(1);
+
+  // A merely listed credential could still be unusable; prove it actually
+  // authenticates by signing out and back in with it.
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  await page.waitForURL(/\/sign-in/);
+  await page.goto('/sign-in?next=%2Flobby');
+  await page.getByRole('button', { name: 'Sign in with a passkey' }).click();
+  await expect(page).toHaveURL(/\/lobby$/);
 });
 
 test('a passkey enrolled from settings can sign back in after signing out, and lands on the validated destination', async ({
@@ -217,6 +225,20 @@ test('an email change is approved from the old inbox and verified at the new one
   await page.goto(verifyLink);
   await page.getByRole('button', { name: 'Continue' }).click();
   await expect(page).toHaveURL(/\/settings\/security$/);
+
+  // The redirect alone doesn't prove the account now owns newEmail; prove
+  // it by signing back in with a magic link sent to the new address.
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  await page.waitForURL(/\/sign-in/);
+  await page.goto('/sign-in');
+  await page.getByLabel('Email').fill(newEmail);
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await expect(
+    page.getByRole('heading', { name: /check your inbox/i }),
+  ).toBeVisible();
+  await page.goto(await emailedLink(request, newEmail));
+  await page.getByRole('button', { name: 'Sign in to Daisy' }).click();
+  await expect(page).toHaveURL(/\/lobby$/);
 });
 
 test('a conflicting email answers the same success shape, never disclosing the other account', async ({

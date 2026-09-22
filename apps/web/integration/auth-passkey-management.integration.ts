@@ -1,6 +1,13 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import type { Identity } from '@daisy/auth';
 import { createPasskeyFlows } from './auth-passkey-flows';
-import { withSql } from './auth-mounted-helpers';
+import { cookieHeader, withSql } from './auth-mounted-helpers';
+import { tokenOf } from './auth-mounted-flows';
+
+const userIdOf = (identity: Identity): string | null =>
+  identity.state === 'member' || identity.state === 'provisional'
+    ? identity.principal.userId
+    : null;
 
 if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
   throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
@@ -47,16 +54,25 @@ describe('AUTH-5.3 list, rename and remove owned passkeys', () => {
     const listed = await flows.listPasskeys(cookie);
     const [row] = (await listed.json()) as { id: string }[];
     const renamed = await flows.renamePasskey(cookie, row!.id, 'New name');
+    const afterRename = await flows.listPasskeys(cookie);
+    const [renamedRow] = (await afterRename.json()) as { name: string }[];
     const removed = await flows.deletePasskey(cookie, row!.id);
     assert({
       given: 'a passkey owned by the caller',
-      should: 'allow rename then removal, leaving none stored',
+      should:
+        'allow rename then removal, persisting the new name before removal and leaving none stored',
       actual: {
         renamed: renamed.ok,
+        persistedName: renamedRow?.name,
         removed: removed.ok,
         stored: await passkeyCount(email),
       },
-      expected: { renamed: true, removed: true, stored: 0 },
+      expected: {
+        renamed: true,
+        persistedName: 'New name',
+        removed: true,
+        stored: 0,
+      },
     });
     void credential;
   });
@@ -73,15 +89,24 @@ describe('AUTH-5.3 list, rename and remove owned passkeys', () => {
       'Stolen',
     );
     const removedByBob = await flows.deletePasskey(bob.cookie, row!.id);
+    const afterAttempts = await flows.listPasskeys(alice.cookie);
+    const [aliceRow] = (await afterAttempts.json()) as { name: string }[];
     assert({
       given: "bob naming alice's credential id",
-      should: 'refuse both modifications and leave the credential untouched',
+      should:
+        "refuse both modifications and leave alice's credential name untouched",
       actual: {
         renameOk: renamedByBob.ok,
         removeOk: removedByBob.ok,
+        aliceName: aliceRow?.name,
         stillStored: await passkeyCount(alice.email),
       },
-      expected: { renameOk: false, removeOk: false, stillStored: 1 },
+      expected: {
+        renameOk: false,
+        removeOk: false,
+        aliceName: 'Alice laptop',
+        stillStored: 1,
+      },
     });
   });
 
@@ -91,17 +116,33 @@ describe('AUTH-5.3 list, rename and remove owned passkeys', () => {
     const rows = await flows.listPasskeys(cookie);
     const [row] = (await rows.json()) as { id: string }[];
     await flows.deletePasskey(cookie, row!.id);
-    const { requestLink } = flows.account.flows;
-    const { response } = await requestLink(email);
+    const { requestLink, redeem } = flows.account.flows;
+    const { response, link } = await requestLink(email);
+    const originalIdentity = await flows.account.sessionAs(cookie);
+    const originalUserId = userIdOf(originalIdentity.identity);
+    const recovered = await redeem(tokenOf(link as URL));
+    const recoveredIdentity = await flows.account.sessionAs(
+      cookieHeader(recovered),
+    );
     assert({
       given: 'an account whose last passkey was just removed',
-      should: 'still be able to request a magic-link sign-in',
+      should:
+        'let the requested magic link actually authenticate the same account',
       actual: {
         removedFirst: listed.verifyResponse.ok,
         linkRequested: response.ok,
         stored: await passkeyCount(email),
+        recoveredUserId: userIdOf(recoveredIdentity.identity),
+        matchesOriginal:
+          userIdOf(recoveredIdentity.identity) === originalUserId,
       },
-      expected: { removedFirst: true, linkRequested: true, stored: 0 },
+      expected: {
+        removedFirst: true,
+        linkRequested: true,
+        stored: 0,
+        recoveredUserId: originalUserId,
+        matchesOriginal: true,
+      },
     });
   });
 });
