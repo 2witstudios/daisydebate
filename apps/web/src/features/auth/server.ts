@@ -10,6 +10,7 @@ import { readAuthConfig, type AuthConfig } from '@daisy/config';
 import { buildConfirmLink } from './confirm-link';
 import { createMagicLinkGate } from './magic-link-gate';
 import { recipientHash } from './mail';
+import { renderAuthEmail } from './mail/templates';
 import { unavailable } from './public-errors';
 import {
   SESSION_EXPIRES_IN_SECONDS,
@@ -167,13 +168,9 @@ const composeBetterAuth = (dependencies: {
         storeToken: 'hashed',
         sendMagicLink: async ({ email, url }) => {
           const href = buildConfirmLink(origin, url).toString();
+          const message = renderAuthEmail({ kind: 'sign-in', url: href });
           try {
-            await dependencies.deliver({
-              to: email,
-              subject: 'Sign in to Daisy',
-              text: `Open the link to continue. It expires in 5 minutes and works once: ${href}`,
-              html: `<p>Open the link to continue. It expires in 5 minutes and works once.</p><p><a href="${href.replaceAll('&', '&amp;')}">Sign in to Daisy</a></p>`,
-            });
+            await dependencies.deliver({ to: email, ...message });
           } catch {
             throw unavailable(
               'EMAIL_DELIVERY_FAILED',
