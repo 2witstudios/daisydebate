@@ -31,39 +31,47 @@ One schema file per ownership area under `packages/db/src/schema/`. Every status
 
 Forward-migration intent recorded ahead of the leaves that build it. Nothing
 below exists yet. Migration generation is single-writer, so these land one at
-a time in this order: `outbox` (RT-2.2), `users.presence_visibility`
-(RT-3.2b), the rules shape (RT-4.1), `service_instances` and
-`availability_samples` (RT-4.3a, RT-4.3b), `debates.outcome_reason`
+a time in this order: `outbox` (RT-2.2, which also creates the realtime
+role), `users.presence_visibility` (RT-3.2b), the rules shape (RT-4.1),
+`service_instances` and `availability_samples` (RT-4.3a, RT-4.3b), the
+`debate_commands` operation key (RT-4.4), `debates.outcome_reason`
 (RT-4.5b).
 
-| Change                      | Owner         | Holds                                                                                                                                                                                                                                                                                                     | Retention                                                       |
-| --------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `outbox`                    | platform/data | Delivery log written in the same transaction as the change others must see: position `(txid xid8, seq)`, `topic`, `version`, `kind`, `payload` (doorbells on public topics). A delivery log, not event sourcing; shape, cursor and drain rules are the outbox ADR's (RT-1.2)                              | Pruned by the maintenance sweep after 24 h                      |
-| `service_instances`         | platform/data | One lease row per running instance: cuid2 `instance_id`, `role` (`web`, `realtime`; text + CHECK), `renewed_at` stamped with database time every 1 s (stale after 3 s), and for realtime rows `delivered_through`, the instance's outbox cursor                                                           | Rows with `renewed_at` older than 24 h deleted by the sweep     |
-| `availability_samples`      | platform/data | One row per second from the advisory-locked sampler: `at` (database time, primary key, strictly increasing), `healthy`, `cause` (text + CHECK, null iff healthy). The only input to outage intervals and the settled horizon                                                                              | Pruned by the sweep after 24 h; pruned history counts as outage |
-| `users.presence_visibility` | identity      | `visible` or `invisible` (text + CHECK, NOT NULL, default `visible`): the account's privacy preference, read by presence projection. Never copied into Redis                                                                                                                                              | Lives with the user row                                         |
-| `debates.outcome_reason`    | domain        | How a completed debate was decided: `judged` or `forfeit` (text + CHECK), set iff `outcome` is a side or `draw`, and `forfeit` only with a side as `outcome`; existing completed rows are backfilled `judged`. The lifecycle CHECK grows accordingly. A forfeit reaches `rating_changes` only when ranked | Lives with the debate                                           |
+| Change                          | Owner         | Holds                                                                                                                                                                                                                                                                                                                                                                           | Retention                                                       |
+| ------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `outbox`                        | platform/data | Delivery log written in the same transaction as the change others must see: position `(txid xid8, seq)`, `topic`, `version`, `kind`, `payload` (doorbells on public topics), and `created_at timestamptz NOT NULL DEFAULT statement_timestamp()` for the availability lag check and retention. A delivery log, not event sourcing; shape, cursor and drain rules are ADR 0032's | Pruned by the maintenance sweep after 24 h of `created_at`      |
+| `service_instances`             | platform/data | Built by RT-4.3a. One lease row per running instance: cuid2 `instance_id`, `role` (`web`, `realtime`; text + CHECK), `renewed_at` stamped with database time every 1 s (stale after 3 s), and for realtime rows `delivered_through`, the instance's outbox cursor                                                                                                               | Rows with `renewed_at` older than 24 h deleted by the web sweep |
+| `availability_samples`          | platform/data | One row per second from the sampler, inserted on the session that holds the advisory lock: `at` (database time, primary key, strictly increasing), `healthy`, `cause` (text + CHECK, null iff healthy). The only input to outage intervals and the settled horizon                                                                                                              | Pruned by the sweep after 24 h; pruned history counts as outage |
+| `users.presence_visibility`     | identity      | `visible` or `invisible` (text + CHECK, NOT NULL, default `visible`): the account's privacy preference, read by presence projection in `apps/web` and `apps/realtime`. Never copied into Redis                                                                                                                                                                                  | Lives with the user row                                         |
+| `debate_commands` operation key | domain        | Nullable `turn_index` plus a unique index `(debate_id, type, turn_index, actor_id) NULLS NOT DISTINCT`, so each check-in and each adjudication happens once. `command_id` stays the protocol's cuid2 (ADR 0029)                                                                                                                                                                 | Pruned with the command row                                     |
+| `debates.outcome_reason`        | domain        | How a completed debate was decided: `judged` or `forfeit` (text + CHECK), set iff `outcome` is a side or `draw`, and `forfeit` only with a side as `outcome`; existing completed rows are backfilled `judged`. The lifecycle CHECK grows accordingly. A forfeit reaches `rating_changes` only when ranked                                                                       | Lives with the debate                                           |
 
-No check-in table exists: a check-in is an attendance entry
+No check-in table exists. A check-in is an attendance entry
 `{turnIndex, participantId, receivedAt}` in the debate snapshot, recorded
-under the debate row lock with idempotency key
-`check-in:<debateId>:<turnIndex>:<actorId>` in `debate_commands`; the
-evaluator records `adjudicate:<debateId>:<turnIndex>` under its service
-principal. Turn boundaries are computed from `debates.started_at` and the
+under the debate row lock. The evaluator records each adjudicated speech
+turn as `{turnIndex, decision}` in the snapshot and a `debate_commands` row
+under its service principal. Both writes are made unique by the operation
+key. Turn boundaries are computed from `debates.started_at` and the
 effective rules, never persisted per turn. Every competitive time
 (`started_at`, check-in receipts, lease renewals, samples) is PostgreSQL
-time: check-ins use `statement_timestamp()` of the transaction's first
-statement, taken before the row lock.
+time. A check-in uses the `statement_timestamp()` of its transaction's
+first statement, taken before the row lock.
 
-A new login role, `daisy_realtime`, serves `apps/realtime`: `SELECT` on the
-outbox and the authorization read models it needs (the exact list is the realtime ADR's: debates, participants,
-sessions for revalidation), plus `INSERT`, `UPDATE` and `DELETE` on
-`service_instances` only. It writes nothing else; the web role keeps its
-current grants and adds the new tables.
+A new login role, `daisy_realtime`, serves `apps/realtime`. It gets
+`SELECT` on the outbox and on the read models it needs: the list for
+authorization and revalidation is ADR 0032's, plus the seats and
+`users.presence_visibility` for presence doorbells. On `service_instances`
+it gets `INSERT` and `UPDATE` only, with no `DELETE` or `TRUNCATE`
+anywhere. It writes nothing else. The web role keeps its current grants,
+adds the new tables, and runs the stale-row prune.
 
-Presence is Redis-only and advisory: per-connection leases
-`<namespace>:v1:presence:conn:<connId>` (hash, own TTL of 60 s, refreshed
-every 20 s) indexed by `presence:actor:<actorId>`, `presence:online` and
-`presence:debate:<debateId>:spectators` sorted sets scored by lease expiry
-from Redis `TIME`, all maintained by atomic Lua ops. Competitive outcomes
-never read it.
+Presence is Redis-only and advisory. Each connection has a lease,
+`<namespace>:v1:presence:conn:<connId>`: a hash with its own 60 s TTL,
+refreshed every 20 s. The leases are indexed by three sorted sets:
+`<namespace>:v1:presence:actor:<actorId>` and
+`<namespace>:v1:presence:online` (RT-3.1), and
+`<namespace>:v1:presence:debate:<debateId>:spectators` (RT-3.3). Each set
+is scored by lease expiry from Redis `TIME` and carries its own expiry,
+set in the same Lua script. Every write is one atomic Lua op, and every
+read is one Lua op that trims, ranges and hydrates. Competitive outcomes
+never read presence.
