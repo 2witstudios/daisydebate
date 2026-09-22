@@ -1,4 +1,4 @@
-import { phaseSchema } from '@daisy/protocol';
+import { phaseSchema, type DebatePhase } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -55,36 +55,42 @@ export const debates = pgTable(
     updatedAt: updatedAtColumn(),
     version: versionColumn(),
     mode: text('mode').$type<DebateMode>().notNull(),
-    phase: text('phase').$type<(typeof debatePhases)[number]>().notNull(),
+    phase: text('phase').$type<DebatePhase>().notNull(),
     visibility: text('visibility').$type<DebateVisibility>().notNull(),
     startedAt: timestampColumn('started_at'),
     completedAt: timestampColumn('completed_at'),
     outcome: text('outcome').$type<DebateOutcome>(),
   },
-  (table) => [
-    /** Lets `rating_changes` pin a change to the debate's own format. */
-    unique('debates_id_format_unique').on(table.id, table.format),
-    index('debates_created_by_idx').on(table.createdBy),
-    index('debates_phase_mode_created_idx').on(
-      table.phase,
-      table.mode,
-      table.createdAt,
-    ),
-    index('debates_format_completed_idx').on(table.format, table.completedAt),
-    versionPositive('debates', table.version),
-    check('debates_mode_check', oneOf(table.mode, debateModes)),
-    check('debates_phase_check', oneOf(table.phase, debatePhases)),
-    check(
-      'debates_visibility_check',
-      oneOf(table.visibility, debateVisibilities),
-    ),
-    check(
-      'debates_outcome_check',
-      sql`${table.outcome} is null or ${oneOf(table.outcome, debateOutcomes)}`,
-    ),
-    check(
-      'debates_lifecycle_check',
-      sql`(${table.phase} = 'waiting' and ${table.startedAt} is null and ${table.completedAt} is null and ${table.outcome} is null) or (${table.phase} = 'active' and ${table.startedAt} is not null and ${table.completedAt} is null and ${table.outcome} is null) or (${table.phase} = 'completed' and ${table.completedAt} is not null and ${table.outcome} is not null and (${table.startedAt} is not null or ${table.outcome} = 'abandoned'))`,
-    ),
-  ],
+  (table) => {
+    /** One branch per phase: which lifecycle columns that phase allows. */
+    const waiting = sql`${table.phase} = 'waiting' and ${table.startedAt} is null and ${table.completedAt} is null and ${table.outcome} is null`;
+    const active = sql`${table.phase} = 'active' and ${table.startedAt} is not null and ${table.completedAt} is null and ${table.outcome} is null`;
+    const completed = sql`${table.phase} = 'completed' and ${table.completedAt} is not null and ${table.outcome} is not null and (${table.startedAt} is not null or ${table.outcome} = 'abandoned')`;
+    return [
+      /** Lets `rating_changes` pin a change to the debate's own format. */
+      unique('debates_id_format_unique').on(table.id, table.format),
+      index('debates_created_by_idx').on(table.createdBy),
+      index('debates_phase_mode_created_idx').on(
+        table.phase,
+        table.mode,
+        table.createdAt,
+      ),
+      index('debates_format_completed_idx').on(table.format, table.completedAt),
+      versionPositive('debates', table.version),
+      check('debates_mode_check', oneOf(table.mode, debateModes)),
+      check('debates_phase_check', oneOf(table.phase, debatePhases)),
+      check(
+        'debates_visibility_check',
+        oneOf(table.visibility, debateVisibilities),
+      ),
+      check(
+        'debates_outcome_check',
+        sql`${table.outcome} is null or ${oneOf(table.outcome, debateOutcomes)}`,
+      ),
+      check(
+        'debates_lifecycle_check',
+        sql`(${waiting}) or (${active}) or (${completed})`,
+      ),
+    ];
+  },
 );

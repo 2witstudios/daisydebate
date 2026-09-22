@@ -264,7 +264,9 @@ export function createDatabase({
       outcome?: DebateOutcome;
     }): Promise<DebateRecord | null> {
       const phase = snapshotPhase(input.snapshot);
-      if ((phase === 'completed') !== (input.outcome !== undefined))
+      const completing = phase === 'completed';
+      const hasOutcome = input.outcome !== undefined;
+      if (completing !== hasOutcome)
         throw new Error('An outcome is required exactly when completing');
       const updatedAt = new Date(input.updatedAt);
       try {
@@ -281,10 +283,9 @@ export function createDatabase({
             ...(phase === 'active' && {
               startedAt: sql`coalesce(${debates.startedAt}, ${updatedAt})`,
             }),
-            completedAt:
-              phase === 'completed'
-                ? sql`coalesce(${debates.completedAt}, ${updatedAt})`
-                : null,
+            completedAt: completing
+              ? sql`coalesce(${debates.completedAt}, ${updatedAt})`
+              : null,
             outcome: input.outcome ?? null,
           })
           .where(

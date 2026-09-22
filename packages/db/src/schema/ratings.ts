@@ -33,6 +33,9 @@ export const seasonStatuses = ['scheduled', 'active', 'closed'] as const;
 const positiveFinite = (column: PgColumn) =>
   sql`${column} > 0 and ${column} < 'infinity'::double precision`;
 
+/** The rating band both the projection and its ledger rows must stay inside. */
+const ratingBand = (column: PgColumn) => sql`${column} between 0 and 4000`;
+
 export const seasons = pgTable(
   'seasons',
   {
@@ -90,7 +93,7 @@ export const ratings = pgTable(
       table.seasonId,
       table.rating.desc(),
     ),
-    check('ratings_rating_range', sql`${table.rating} between 0 and 4000`),
+    check('ratings_rating_range', ratingBand(table.rating)),
     check('ratings_deviation_positive', positiveFinite(table.deviation)),
     check('ratings_volatility_positive', positiveFinite(table.volatility)),
     versionPositive('ratings', table.version),
@@ -144,7 +147,7 @@ export const ratingChanges = pgTable(
     ),
     check(
       'rating_changes_rating_range',
-      sql`${table.ratingBefore} between 0 and 4000 and ${table.ratingAfter} between 0 and 4000`,
+      sql`${ratingBand(table.ratingBefore)} and ${ratingBand(table.ratingAfter)}`,
     ),
     check(
       'rating_changes_deviation_positive',
