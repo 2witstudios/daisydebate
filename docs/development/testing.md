@@ -40,6 +40,19 @@ AIDD/Vitest guidance is overridden here by Bun and RITEway (ADR 0021).
    the committed migrations twice to `TEST_DATABASE_URL` to prove reruns are
    idempotent.
 
+### Release qualification (`bun test:e2e:qualify`)
+
+The single-run `test:e2e` in the PR/push workflow proves the suite passes
+once; it is not release proof by itself. Before opening a release PR (or as a
+manual/scheduled job, never as an additional required PR check — that would
+triple E2E wall-clock time on every push), run `bun test:e2e:qualify`. It
+runs the complete Playwright suite three consecutive times with retries
+disabled (the standing config), saves each run's JSON report under
+`apps/web/test-results/qualification/run-{1,2,3}.json` plus a `summary.json`,
+and fails if any of the three runs has a failure or an empty test selection.
+A retry-pass or a single green run is not this gate; all three outcomes are
+retained as artifacts.
+
 ## Suite wiring (`bun evidence`)
 
 A suite that nothing invokes is indistinguishable from a suite that does

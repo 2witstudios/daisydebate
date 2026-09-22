@@ -251,6 +251,73 @@ test('the topbar offers sign-in to a visitor', async ({ page }) => {
   await expect(page).toHaveURL(/\/sign-in$/);
 });
 
+test('an emailed link opened in a different browser than the one that requested it still signs in', async ({
+  page,
+  request,
+  browser,
+}) => {
+  const email = freshEmail();
+  await page.goto('/sign-in');
+  await requestLink(page, email);
+  const link = await emailedLink(request, email);
+
+  // A genuinely separate browser context: no cookies, storage or history
+  // shared with the requesting page (the "opened it on another device"
+  // case a bearer magic link must support).
+  const other = await browser.newContext({ ignoreHTTPSErrors: true });
+  const otherPage = await other.newPage();
+  await confirm(otherPage, link);
+  await expect(otherPage).toHaveURL(/\/onboarding\/username/);
+  await claimUsername(otherPage, uniqueName('cross-browser'));
+  // Whether the fresh context offers a passkey save depends on that
+  // context's own WebAuthn availability; either way it ends on /lobby.
+  const offered = await otherPage
+    .getByRole('heading', { name: /next time, one tap/i })
+    .waitFor({ state: 'visible', timeout: 5_000 })
+    .then(() => true)
+    .catch(() => false);
+  if (offered) await otherPage.getByRole('button', { name: 'Not now' }).click();
+  await expect(otherPage).toHaveURL(/\/lobby$/);
+
+  // The requesting page never redeemed the link itself and stays anonymous.
+  await page.goto('/lobby');
+  await expect(page).toHaveURL(/\/sign-in\?next=%2Flobby$/);
+  await other.close();
+});
+
+test('refreshing or navigating back mid-onboarding does not lose the session or double-claim the username', async ({
+  page,
+  request,
+}) => {
+  const email = freshEmail();
+  await page.goto('/sign-in');
+  await requestLink(page, email);
+  await confirm(page, await emailedLink(request, email));
+  await expect(page).toHaveURL(/\/onboarding\/username/);
+
+  // A reload mid-flow must not sign the person out or drop the destination.
+  await page.reload();
+  await expect(page).toHaveURL(/\/onboarding\/username/);
+
+  const name = uniqueName('resumed');
+  await claimUsername(page, name);
+  await expect(
+    page.getByRole('heading', { name: /next time, one tap/i }),
+  ).toBeVisible();
+
+  // Going back to the (now-completed) onboarding step and forward again must
+  // not re-open a claim for an account that already has a username: the
+  // server-rendered onboarding page recognizes completion and sends the
+  // account straight past the passkey offer to its destination.
+  await page.goBack();
+  await page.goForward();
+  await expect(page).toHaveURL(/\/lobby$/);
+
+  const session = await page.request.get('/api/auth/get-session');
+  const body = (await session.json()) as { user: { username: string } };
+  expect(body.user.username).toBe(name);
+});
+
 test('a fresh session makes no refresh call, and neither does a visitor', async ({
   page,
 }) => {
