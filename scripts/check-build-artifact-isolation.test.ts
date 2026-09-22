@@ -1,10 +1,11 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   artifactTextIssues,
   checkBuildArtifactIsolation,
+  clientBundleSecretIssues,
   routeManifestIssues,
 } from './check-build-artifact-isolation';
 
@@ -118,5 +119,99 @@ describe('build artifact isolation gate', () => {
     } finally {
       rmSync(fixture, { recursive: true, force: true });
     }
+  });
+
+  describe('AUTH-6.3 client-bundle secret scan', () => {
+    test('flags a secret value compiled into a client-shipped static file', () => {
+      assert({
+        given: 'a static/ chunk that embeds a server-only secret value',
+        should: 'report the leak',
+        actual: clientBundleSecretIssues(
+          'static/chunks/app/layout.js',
+          'const x = "sk_live_super_secret_value";',
+          ['sk_live_super_secret_value'],
+        ).length,
+        expected: 1,
+      });
+    });
+
+    test('ignores the same value outside static/ (server chunks legitimately read config)', () => {
+      assert({
+        given: 'a server chunk that references the secret value',
+        should: 'report nothing, since it is never shipped to the browser',
+        actual: clientBundleSecretIssues(
+          'server/chunks/config.js',
+          'const x = "sk_live_super_secret_value";',
+          ['sk_live_super_secret_value'],
+        ),
+        expected: [],
+      });
+    });
+
+    test('reports nothing for a clean static file or an unset secret', () => {
+      assert({
+        given: 'a static file with no secret text, and an empty secret value',
+        should: 'report nothing',
+        actual: [
+          ...clientBundleSecretIssues(
+            'static/chunks/app/layout.js',
+            'const x = "totally ordinary";',
+            ['sk_live_super_secret_value'],
+          ),
+          ...clientBundleSecretIssues('static/chunks/app/layout.js', 'secret', [
+            '',
+          ]),
+        ],
+        expected: [],
+      });
+    });
+
+    test('positive control: checkBuildArtifactIsolation catches a secret leaked into static/', async () => {
+      const fixture = mkdtempSync(
+        join(tmpdir(), 'daisy-e2e-isolation-secret-leak-'),
+      );
+      try {
+        mkdirSync(join(fixture, 'static'), { recursive: true });
+        writeFileSync(
+          join(fixture, 'static', 'bundle.js'),
+          'const secret = "whsec_test_leaked_value";',
+        );
+        const issues = await checkBuildArtifactIsolation(fixture, [
+          'whsec_test_leaked_value',
+        ]);
+        assert({
+          given: 'a fixture build whose static/ bundle embeds a secret value',
+          should: 'report the client-bundle secret leak',
+          actual: issues.length,
+          expected: 1,
+        });
+      } finally {
+        rmSync(fixture, { recursive: true, force: true });
+      }
+    });
+
+    test('negative control: the same fixture passes once the secret is absent', async () => {
+      const fixture = mkdtempSync(
+        join(tmpdir(), 'daisy-e2e-isolation-secret-clean-'),
+      );
+      try {
+        mkdirSync(join(fixture, 'static'), { recursive: true });
+        writeFileSync(
+          join(fixture, 'static', 'bundle.js'),
+          'const secret = "ordinary-public-value";',
+        );
+        const issues = await checkBuildArtifactIsolation(fixture, [
+          'whsec_test_leaked_value',
+        ]);
+        assert({
+          given: 'a fixture build whose static/ bundle never embeds the secret',
+          should: 'report nothing',
+          actual: issues,
+          expected: [],
+        });
+      } finally {
+        rmSync(fixture, { recursive: true, force: true });
+      }
+    });
   });
 });

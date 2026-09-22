@@ -20,7 +20,7 @@ export type Control = {
   readonly testFile: string;
 };
 
-export const controls: readonly Control[] = [
+const controls: readonly Control[] = [
   {
     name: 'protected-route session guard',
     file: 'apps/web/src/features/access/decision.ts',
@@ -83,7 +83,7 @@ export const controls: readonly Control[] = [
  * apps/web/integration/auth-magic-link.integration.ts ("a replay of a
  * consumed token fails with no cookie, extra session or duplicate user").
  */
-export const blockedControls = [
+const blockedControls = [
   {
     name: 'bypassing passkey ownership validation',
     reason:
@@ -96,12 +96,12 @@ export const blockedControls = [
   },
 ] as const;
 
-export type RunResult = {
+type RunResult = {
   readonly exitCode: number;
   readonly output: string;
 };
 
-export type ControlResult = {
+type ControlResult = {
   readonly name: string;
   readonly file: string;
   readonly testFile: string;
@@ -111,7 +111,7 @@ export type ControlResult = {
   readonly ok: boolean;
 };
 
-export type NegativeControlsReport = {
+type NegativeControlsReport = {
   readonly ok: boolean;
   readonly controls: readonly ControlResult[];
   readonly blocked: readonly { name: string; reason: string }[];
@@ -220,7 +220,7 @@ async function runControl(control: Control): Promise<ControlResult> {
   };
 }
 
-export async function runAllControls(): Promise<NegativeControlsReport> {
+async function runAllControls(): Promise<NegativeControlsReport> {
   assertCleanTree();
   const results: ControlResult[] = [];
   for (const control of controls) results.push(await runControl(control));

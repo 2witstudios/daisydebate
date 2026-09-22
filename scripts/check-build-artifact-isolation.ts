@@ -20,6 +20,34 @@ export const FORBIDDEN_ARTIFACT_MARKERS = [
 
 const FORBIDDEN_ROUTE_PATHS = ['/mails', '/reset'] as const;
 
+/**
+ * AUTH-6.3: server-only secret configuration must never reach the
+ * browser-shipped bundle. `static/` is the one subtree Next actually serves
+ * to the client (server chunks and route manifests live elsewhere in the
+ * same build directory and are expected to reference server-only config);
+ * scoping the check to it keeps this a real client-leak proof rather than a
+ * duplicate of the server-chunk scan above.
+ */
+export const CLIENT_BUNDLE_SECRET_ENV_VARS = [
+  'BETTER_AUTH_SECRET',
+  'RESEND_API_KEY',
+  'RESEND_WEBHOOK_SECRET',
+] as const;
+
+export function clientBundleSecretIssues(
+  relativePath: string,
+  content: string,
+  secrets: readonly string[],
+): string[] {
+  if (!relativePath.startsWith('static/')) return [];
+  return secrets
+    .filter((secret) => secret.length > 0 && content.includes(secret))
+    .map(
+      () =>
+        `${relativePath}: contains a value from a server-only secret environment variable`,
+    );
+}
+
 // Only the files Next actually serves or ships in the artifact are in scope;
 // `cache/` holds the incremental tsbuildinfo/webpack cache, which is neither
 // served nor shipped with the deployed artifact.
@@ -63,6 +91,7 @@ const manifestNames = ['app-path-routes-manifest.json', 'routes-manifest.json'];
 
 export async function checkBuildArtifactIsolation(
   buildDir: string,
+  clientBundleSecrets: readonly string[] = [],
 ): Promise<readonly string[]> {
   if (!existsSync(buildDir))
     throw new Error(
@@ -77,13 +106,22 @@ export async function checkBuildArtifactIsolation(
   for (const relativePath of listScannableFiles(buildDir)) {
     const content = readFileSync(join(buildDir, relativePath), 'utf8');
     issues.push(...artifactTextIssues(relativePath, content));
+    issues.push(
+      ...clientBundleSecretIssues(relativePath, content, clientBundleSecrets),
+    );
   }
   return issues;
 }
 
 if (import.meta.main) {
   const buildDir = resolve(import.meta.dir, '../apps/web/.next');
-  const issues = await checkBuildArtifactIsolation(buildDir);
+  const clientBundleSecrets = CLIENT_BUNDLE_SECRET_ENV_VARS.map(
+    (name) => process.env[name] ?? '',
+  );
+  const issues = await checkBuildArtifactIsolation(
+    buildDir,
+    clientBundleSecrets,
+  );
   for (const issue of issues) console.error(issue);
   if (issues.length === 0)
     console.log(
