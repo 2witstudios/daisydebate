@@ -254,27 +254,22 @@ test('the topbar offers sign-in to a visitor', async ({ page }) => {
   await expect(page).toHaveURL(/\/sign-in$/);
 });
 
-test('a signed-in page load slides the session through the real handler; a visitor makes no such call', async ({
+test('a fresh session makes no refresh call, and neither does a visitor', async ({
   page,
 }) => {
   const calls: string[] = [];
   page.on('request', (request) => {
     if (new URL(request.url()).pathname === '/api/auth/get-session')
-      calls.push(request.method());
+      calls.push(request.url());
   });
   await page.goto('/');
   await page.waitForLoadState('networkidle');
-  const anonymousCalls = calls.length;
   await signUpMember(page.request);
-  const refresh = page.waitForResponse(
-    (response) =>
-      new URL(response.url()).pathname === '/api/auth/get-session' &&
-      response.status() === 200,
-  );
   await page.goto('/');
-  await refresh;
-  expect({ anonymousCalls, signedIn: calls.slice(anonymousCalls) }).toEqual({
-    anonymousCalls: 0,
-    signedIn: ['GET'],
-  });
+  await page.waitForLoadState('networkidle');
+  await page.goto('/lobby');
+  await page.waitForLoadState('networkidle');
+  // A refresh is due only a day after the last extension, so a browser
+  // spends the rate-limited endpoint about once a day, not per page load.
+  expect(calls).toEqual([]);
 });

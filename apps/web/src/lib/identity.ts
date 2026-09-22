@@ -11,12 +11,24 @@ import { getAuth } from './auth';
  *
  * The read never refreshes: server components cannot set cookies, so a
  * refresh here would slide the database row while the browser kept the old
- * cookie. The sliding refresh runs in the browser through the real
- * `/api/auth/get-session` handler (ui/auth/session-refresh), which can.
+ * cookie. When a refresh is due, the root layout has the browser call the
+ * real `/api/auth/get-session` handler (ui/auth/session-refresh), which can.
  */
 export async function identify(requestHeaders: Headers): Promise<Identity> {
+  return (await resolveSession(requestHeaders)).identity;
+}
+
+/**
+ * The identity plus, for a live signed-in session, when it expires: the
+ * server's input to deciding whether the browser should slide it now.
+ */
+export async function resolveSession(requestHeaders: Headers): Promise<{
+  readonly identity: Identity;
+  readonly sessionExpiresAt: string | null;
+}> {
   const { instance, clock, logger } = getAuth();
   const cookie = requestHeaders.get('cookie');
+  let expiresAt: string | null = null;
   const identity = await resolveIdentity({
     // No session cookie at all: nothing to look up, and no budget spent.
     cookie: hasSessionCookie(requestHeaders) ? cookie : null,
@@ -30,11 +42,12 @@ export async function identify(requestHeaders: Headers): Promise<Identity> {
       });
       if (!found) return null;
       const { user, session } = found;
+      expiresAt = new Date(session.expiresAt).toISOString();
       return {
         userId: user.id,
         emailVerified: user.emailVerified,
         username: typeof user.username === 'string' ? user.username : null,
-        expiresAt: new Date(session.expiresAt).toISOString(),
+        expiresAt,
       };
     },
   });
@@ -44,5 +57,7 @@ export async function identify(requestHeaders: Headers): Promise<Identity> {
       { operation: 'auth.session.resolve', errorCode: 'INFRASTRUCTURE' },
       'Session store unavailable; request refused',
     );
-  return identity;
+  const signedIn =
+    identity.state === 'provisional' || identity.state === 'member';
+  return { identity, sessionExpiresAt: signedIn ? expiresAt : null };
 }

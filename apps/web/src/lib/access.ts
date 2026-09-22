@@ -1,4 +1,3 @@
-import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import type { Identity } from '@daisy/auth';
 import { createAppError } from '@daisy/errors';
@@ -8,7 +7,7 @@ import {
   requirementFor,
   type SearchParams,
 } from '../features/access/decision';
-import { identify } from './identity';
+import { requestIdentity } from './request-session';
 
 /**
  * Server-component guard: resolves the durable session from this request's
@@ -25,7 +24,7 @@ export async function requireAccess(
   const requirement = requirementFor(path);
   // A page outside every guarded area calling the guard is a wiring error.
   if (requirement === null) throw createAppError('INTERNAL');
-  const identity = await identify(await headers());
+  const identity = await requestIdentity();
   const decision = decideAccess({
     identity,
     path: requestedPath(path, await searchParams),

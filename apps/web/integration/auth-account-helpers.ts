@@ -14,7 +14,7 @@ import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
  */
 export async function createAccountFlows() {
   const flows = await createFlows();
-  const { identify } = await import('../src/lib/identity');
+  const { identify, resolveSession } = await import('../src/lib/identity');
   /** A server-side session read as a page render makes it for one client. */
   const identifyAs = (cookie: string, client = newClient()) =>
     identify(new Headers({ cookie, [CLIENT_IP_HEADER]: client }));
@@ -41,7 +41,10 @@ export async function createAccountFlows() {
       }),
     );
 
-  return { flows, identifyAs, signUp, claim };
+  const sessionAs = (cookie: string) =>
+    resolveSession(new Headers({ cookie, [CLIENT_IP_HEADER]: newClient() }));
+
+  return { flows, identifyAs, sessionAs, signUp, claim };
 }
 
 export const uniqueName = () => `u${createId().slice(0, 14)}`;

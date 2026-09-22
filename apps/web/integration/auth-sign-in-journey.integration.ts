@@ -7,11 +7,13 @@ import {
 } from './auth-account-helpers';
 import { newClient, redisKeys, withSql } from './auth-mounted-helpers';
 import { decideAccess } from '../src/features/access/decision';
+import { sessionRefreshDue } from '../src/features/auth/session-policy';
 
 if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
   throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
 setupRitewayBun();
-const { flows, identifyAs, signUp, claim } = await createAccountFlows();
+const { flows, identifyAs, sessionAs, signUp, claim } =
+  await createAccountFlows();
 const { requestLink, redeem, session } = flows;
 const tokenOf = (link: URL) => link.searchParams.get('token') ?? '';
 
@@ -205,6 +207,31 @@ describe('AUTH-4.4 / 4.2 sign-in loop through the real handlers', () => {
         newKeys: (await redisKeys()).length - before,
       },
       expected: { states: ['anonymous'], newKeys: 0 },
+    });
+  });
+
+  test('the server asks the browser to refresh only once updateAge has passed', async () => {
+    const { email, cookie } = await signUp();
+    const now = () => new Date().toISOString();
+    const fresh = await sessionAs(cookie);
+    await withSql(
+      (sql) =>
+        sql`UPDATE session SET expires_at = now() + interval '5 days' WHERE user_id = (SELECT id FROM users WHERE email = ${email})`,
+    );
+    const aged = await sessionAs(cookie);
+    const anonymous = await sessionAs('x=1');
+    const due = (expiresAt: string | null) =>
+      expiresAt !== null && sessionRefreshDue(expiresAt, now());
+    assert({
+      given:
+        'a new session, the same session aged past updateAge, and a visitor',
+      should: 'mark only the aged session as due for a browser refresh',
+      actual: [
+        due(fresh.sessionExpiresAt),
+        due(aged.sessionExpiresAt),
+        anonymous.sessionExpiresAt,
+      ],
+      expected: [false, true, null],
     });
   });
 
