@@ -125,6 +125,28 @@ not exist — PageSpace lost entire tiers this way. `bun evidence` (in
 - Playwright config env demonstrates the full production-refined
   configuration; keep it that way so e2e failures catch config regressions.
 
+### Cross-browser and accessibility coverage (AUTH-6.6)
+
+`chromium` runs the whole functional suite (dashboard chrome, theme, CSP,
+foundation proof, auth) and stays the primary CI project. Cross-browser and
+mobile-layout parity is scoped to the auth journeys the spec requires
+("the supported magic-link/account journeys"), not the whole app:
+`chromium-mobile`, `firefox`, `webkit` and `webkit-mobile` testMatch only
+`AUTH_JOURNEY_SPECS` (journey, passkey-lifecycle, accessibility, auth-routes)
+in `apps/web/playwright.config.ts`. CDP WebAuthn (the virtual authenticator
+behind every passkey ceremony) is Chromium-only, so
+`passkey-lifecycle.e2e.ts` is additionally excluded from every non-Chromium
+project; a spec that needs a Chromium-only WebAuthn capability belongs in
+that file, not in `journey.e2e.ts`. `apps/web/e2e/accessibility.e2e.ts` runs
+`@axe-core/playwright` against every auth screen (sign-in idle/pending,
+onboarding, settings/security, an expired link), asserting zero
+serious/critical findings, plus keyboard-only navigation, a live-region
+assertion and a 200%-effective-zoom reflow check (halving the viewport, the
+standard technique since Playwright has no native browser-zoom control).
+Real-device rows (Safari/iOS, Chrome/Android, a roaming security key) are
+owner-recorded pre-release evidence, never emulated; see the review record
+for the exact NOT RUN rows and what to capture.
+
 ## Styling safeguards and visual parity
 
 Styling is token-locked Tailwind v4 (ADR 0028). Every rule fails

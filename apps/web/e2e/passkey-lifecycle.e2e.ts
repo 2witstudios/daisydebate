@@ -304,3 +304,28 @@ test('a conflicting email answers the same success shape, never disclosing the o
     /approve this change/i,
   );
 });
+
+test('a cancelled passkey ceremony shows no success and email sign-in still works', async ({
+  page,
+  request,
+}) => {
+  // A virtual authenticator with no credential: the browser has nothing to
+  // offer, which is how a dismissed prompt or an unenrolled account looks.
+  // Moved here from journey.e2e.ts (AUTH-6.6): CDP WebAuthn is
+  // Chromium-only, and this file is the Chromium-only passkey project.
+  await addVirtualAuthenticator(page);
+  await page.goto('/sign-in');
+  await page.getByRole('button', { name: 'Sign in with a passkey' }).click();
+  await expect(
+    page.getByRole('status').filter({ hasText: /cancelled/i }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/\/sign-in$/);
+
+  const email = freshEmail();
+  await page.getByLabel('Email').fill(email);
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await expect(
+    page.getByRole('heading', { name: /check your inbox/i }),
+  ).toBeVisible();
+  await expect(emailedLink(request, email)).resolves.toContain('/auth/confirm');
+});

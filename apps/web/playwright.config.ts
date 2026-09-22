@@ -1,6 +1,17 @@
-import { defineConfig } from '@playwright/test';
+import { defineConfig, devices } from '@playwright/test';
 
 type Env = Readonly<Record<string, string | undefined>>;
+
+// The signup/login/passkey/recovery journey specs (AUTH-6.6's "supported
+// magic-link/account journeys"), run across every engine and mobile layout.
+// Non-auth suites (dashboard shell, theme, CSP, foundation proof) stay
+// Chromium-only: cross-browser parity for them is outside this epic's scope.
+export const AUTH_JOURNEY_SPECS = [
+  '**/journey.e2e.ts',
+  '**/passkey-lifecycle.e2e.ts',
+  '**/accessibility.e2e.ts',
+  '**/auth-routes.e2e.ts',
+];
 
 // Ports derive from the environment so parallel local sessions can pin their
 // own stack; see docs/development/local-development.md ("Parallel sessions").
@@ -73,7 +84,42 @@ export default defineConfig({
     video: 'retain-on-failure',
   },
   projects: [
-    { name: 'functional', testIgnore: '**/visual.e2e.ts' },
+    // Chromium carries the whole functional suite (app/dashboard chrome,
+    // theme, CSP, auth) as the primary CI project, unchanged from before
+    // AUTH-6.6. The spec's cross-browser/mobile requirement is scoped to
+    // "the supported magic-link/account journeys", not the whole app, so
+    // the added engines/layouts below testMatch only the auth-journey
+    // specs. CDP WebAuthn (navigator.credentials via a virtual
+    // authenticator) is Chromium-only, so passkey-lifecycle.e2e.ts is
+    // additionally excluded from every non-Chromium project.
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+      testIgnore: '**/visual.e2e.ts',
+    },
+    {
+      name: 'chromium-mobile',
+      use: { ...devices['Pixel 8'] },
+      testMatch: AUTH_JOURNEY_SPECS,
+    },
+    {
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'] },
+      testMatch: AUTH_JOURNEY_SPECS,
+      testIgnore: '**/passkey-lifecycle.e2e.ts',
+    },
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'] },
+      testMatch: AUTH_JOURNEY_SPECS,
+      testIgnore: '**/passkey-lifecycle.e2e.ts',
+    },
+    {
+      name: 'webkit-mobile',
+      use: { ...devices['iPhone 15'] },
+      testMatch: AUTH_JOURNEY_SPECS,
+      testIgnore: '**/passkey-lifecycle.e2e.ts',
+    },
     ...(runsVisualProject(process.env, process.platform)
       ? [
           {

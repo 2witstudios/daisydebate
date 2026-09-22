@@ -33,6 +33,7 @@
     "zod": "4.6.5"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@better-auth/memory-adapter": "1.7.5",
     "@playwright/test": "1.63.0",
     "@simplewebauthn/server": "13.3.1",

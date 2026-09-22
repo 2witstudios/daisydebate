@@ -70,8 +70,8 @@ jobs:
       - name: Build production server
         run: bun run build
 
-      - name: Install Playwright browser
-        run: bunx --bun playwright install --with-deps chromium
+      - name: Install Playwright browsers
+        run: bunx --bun playwright install --with-deps chromium firefox webkit
 
       - name: Run browser tests
         run: bun run --cwd apps/web test:e2e

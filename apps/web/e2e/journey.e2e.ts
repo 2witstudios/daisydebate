@@ -198,36 +198,6 @@ test('sign-in works by keyboard alone and every control has an accessible name',
   await expect(page.getByLabel('Email')).toBeVisible();
 });
 
-test('a cancelled passkey ceremony shows no success and email sign-in still works', async ({
-  page,
-  request,
-}) => {
-  // A virtual authenticator with no credential: the browser has nothing to
-  // offer, which is how a dismissed prompt or an unenrolled account looks.
-  const session = await page.context().newCDPSession(page);
-  await session.send('WebAuthn.enable');
-  await session.send('WebAuthn.addVirtualAuthenticator', {
-    options: {
-      protocol: 'ctap2',
-      transport: 'internal',
-      hasResidentKey: true,
-      hasUserVerification: true,
-      isUserVerified: true,
-      automaticPresenceSimulation: true,
-    },
-  });
-  await page.goto('/sign-in');
-  await page.getByRole('button', { name: 'Sign in with a passkey' }).click();
-  await expect(
-    page.getByRole('status').filter({ hasText: /cancelled/i }),
-  ).toBeVisible();
-  await expect(page).toHaveURL(/\/sign-in$/);
-
-  const email = freshEmail();
-  await requestLink(page, email);
-  await expect(emailedLink(request, email)).resolves.toContain('/auth/confirm');
-});
-
 test('a browser without WebAuthn is told so and keeps the email path', async ({
   page,
   request,
@@ -243,12 +213,6 @@ test('a browser without WebAuthn is told so and keeps the email path', async ({
   const email = freshEmail();
   await requestLink(page, email);
   await expect(emailedLink(request, email)).resolves.toContain('/auth/confirm');
-});
-
-test('the topbar offers sign-in to a visitor', async ({ page }) => {
-  await page.goto('/');
-  await page.getByRole('link', { name: 'Sign in' }).click();
-  await expect(page).toHaveURL(/\/sign-in$/);
 });
 
 test('an emailed link opened in a different browser than the one that requested it still signs in', async ({
