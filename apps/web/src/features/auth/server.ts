@@ -145,7 +145,17 @@ const composeBetterAuth = (dependencies: {
       '/set-password',
       '/delete-user',
       '/delete-user/callback',
+      // Onboarding is server-owned: the profile has no general update
+      // surface, so the username is set only by POST /api/account/username.
+      '/update-user',
+      '/change-email',
     ],
+    user: {
+      additionalFields: {
+        // Readable on the session; `input: false` refuses any client value.
+        username: { type: 'string', required: false, input: false },
+      },
+    },
     plugins: [
       magicLink({
         expiresIn: MAGIC_LINK_EXPIRES_IN_SECONDS,
