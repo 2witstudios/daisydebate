@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../features/access/decision';
 import { requireAccess } from '../../lib/access';
@@ -32,6 +33,15 @@ export default async function SettingsPage({
           Choose a theme, or follow your device setting.
         </p>
         <ThemeSwitcher />
+      </section>
+      <section aria-labelledby="security-heading">
+        <h2 className={prose.h2} id="security-heading">
+          Security
+        </h2>
+        <p className={prose.p}>
+          Manage your passkeys, sessions and recovery email.
+        </p>
+        <Link href="/settings/security">Account security</Link>
       </section>
     </>
   );
