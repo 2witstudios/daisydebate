@@ -74,10 +74,15 @@ both finished, and then both are read.
 A rolled-back transaction's rows never exist for any reader, so a
 rolled-back write is never delivered.
 
-The cost is latency, not correctness: a long-running writing transaction
-holds `xmin` back and delays every later row until it finishes. Writes that
-append to the outbox are short command transactions; the availability
-sampler's outbox-lag check (plan section H) makes a stall visible.
+The cost is latency, not correctness. `pg_snapshot_xmin` is held back by
+**any** transaction that holds an xid anywhere in the PostgreSQL cluster,
+whether or not it touches the outbox and whatever database it runs in, so a
+shared cluster counts too. A committed row stays unreadable until every
+older xid-holding transaction in the cluster has finished. A long migration
+backfill or a large prune `DELETE` therefore stalls all delivery, and the
+availability sampler's outbox-lag check (plan section H) would then mark the
+service unhealthy and extend deadlines. So the maintenance sweep's prunes
+and any backfill run in short batches, each its own short transaction.
 
 Clients receive a position as an opaque cursor string. It is an ordering
 token, not a secret; the server validates its shape on every use and never
@@ -102,11 +107,14 @@ process memory.
 
 - A single drain loop per instance, never concurrent with itself, reads
   ordered ranges of up to 500 rows until a range comes back short, then fans
-  each row out to the local sockets subscribed to its topic. That is one
+  each row out to the local sockets subscribed to its topic. For each range,
+  advancing the instance cursor, appending the rows to the ring and
+  publishing them happen in one synchronous tick, with no `await` in
+  between (section 4 depends on it). That is one
   range query per wakeup per instance, never one query per event.
 - **The drain runs every 1 s, whatever else happens.** That poll is what
-  makes delivery correct: every committed row is read within one period plus
-  the time its transaction takes to leave the snapshot.
+  makes delivery correct: every committed row is read within one period
+  after every older xid-holding transaction in the cluster has finished.
 - **NOTIFY only lowers latency.** The append operation calls
   `pg_notify('outbox', position)` in the writing transaction. PostgreSQL
   delivers notifications only when that transaction commits and discards
@@ -116,6 +124,11 @@ process memory.
   instance only sets a `dirty` flag, with the payload as a hint that data
   exists up to at least that position, and the drain loop runs at once
   instead of at the next tick.
+- **When `dirty` is cleared and re-armed.** The drain loop clears `dirty`
+  before each pass, not after it. A NOTIFY that arrives during a pass sets
+  it again, and the loop runs another pass as soon as the current one ends.
+  A NOTIFY for a row that is not final yet (an older xid is still active)
+  is picked up by the next 1 s tick at the latest.
 - NOTIFY is lossy by design here: PostgreSQL delivers only to connected
   listeners, and a notification sent while the listen connection is down is
   gone. Nothing depends on it, because the drain reads from the cursor, not
@@ -184,6 +197,13 @@ its subscribe. Rows at or before `C` come from PostgreSQL, rows after `C`
 come from the ring or, after the subscribe, from live fan-out. There is no
 gap and no duplicate; clients also de-duplicate by position.
 
+This relies on one invariant of the drain loop: **advancing the instance
+cursor, appending to the ring and publishing happen in one synchronous
+tick.** If the cursor moved before the publish with an `await` in between, a
+subscribe could record a `C` that covers rows that were neither sent nor in
+the ring yet. The drain loop never awaits between these three steps, and its
+tests must prove that a subscribe racing the drain misses nothing.
+
 The server replies `resync_required` instead when:
 
 - `since` is older than retention, or more than N rows behind;
@@ -197,18 +217,29 @@ from the current position.
 Revocations are outbox rows, so every instance applies them durably. They
 are not best-effort HTTP.
 
-- **`session.revoked`** is appended by Daisy's own session-revocation
-  operation (the AUTH-5.5 account security revocation) and by email-change
-  completion (the AUTH-5.6 step that revokes every other session once the
-  new address is verified). When the operation performs the session delete
-  itself, the row is appended in the same transaction. When it delegates the
-  delete to Better Auth, whose adapter commits on its own, the row is
-  appended once the delete is confirmed.
+- **`session.revoked`** is appended **after** the session delete is
+  confirmed, in its own short transaction, never in the same transaction as
+  the delete. No Daisy-owned server operation wraps session revocation: the
+  browser calls Better Auth's `/revoke-session` and `/revoke-other-sessions`
+  directly (AUTH-5.5), and email-change completion (AUTH-5.6) deletes
+  through Better Auth's internal adapter, which commits on its own. So the
+  writers are:
+  - a Better Auth `hooks.after` on `/revoke-session` and
+    `/revoke-other-sessions`, next to the existing hooks in
+    `apps/web/src/features/auth/server.ts`;
+  - the email-change completion in
+    `apps/web/src/features/auth/confirm-email.ts`, once every other session
+    is confirmed gone.
+
+  The append is not atomic with the delete. If it is lost, the realtime
+  service's 60 s session revalidation is the safety net, so the kick is late
+  by at most 60 s, never missed.
+
 - **`access.revoked`** is appended by the seat and visibility mutations:
   leaving a seat, removal from a debate, and a debate becoming private. The
   row is written in the mutation's own transaction.
-- **Better Auth's internal session deletes** (expiry, sign-out and any path
-  that does not pass through Daisy's operation) append nothing. They are
+- **Better Auth's other internal session deletes** (expiry, sign-out and
+  any path that does not pass through these writers) append nothing. They are
   bounded by the realtime service's 60 s session revalidation: a socket on a
   deleted session is closed at the next revalidation at the latest.
 
@@ -218,10 +249,11 @@ topic.
 
 ### 6. Payload policy
 
-- **Public topics** (`debate:`, `debate::presence`, `standings:`) carry
+- **Public topics** (`debate:<id>`, `debate:<id>:presence`,
+  `standings:<season>`) carry
   doorbells only: ids, `kind` and `version`. Never user content, names or
   text.
-- **Owner-only topics** (`user::inbox`) may carry small typed deltas, since
+- **Owner-only topics** (`user:<id>:inbox`) may carry small typed deltas, since
   only the owner can subscribe.
 - Clients refetch over HTTP, where permissions are enforced on every read.
   So a subscriber who lost access and is still inside the 60 s
@@ -247,7 +279,8 @@ to the outbox.
 
 ### 8. Retention
 
-The maintenance sweep prunes outbox rows older than 24 h. A client whose
+The maintenance sweep prunes outbox rows older than 24 h, in short batches
+(section 1). A client whose
 `since` falls before the retained range gets `resync_required` and reloads
 over HTTP; nothing correct depends on an outbox row older than that.
 
@@ -275,7 +308,8 @@ ADR 0003 rules out event sourcing and a message bus. This design is neither.
   replay or lose.
 - Each instance issues at least one range query per second; that cost is
   bounded and independent of traffic.
-- A long-running writing transaction delays delivery of every later row
-  until it finishes, and the outbox-lag health check reports it.
+- Any long-running xid-holding transaction in the cluster delays delivery
+  of every later row until it finishes, and the outbox-lag health check
+  reports it. Prunes and backfills therefore run in short batches.
 - The outbox, `service_instances` and the realtime role are built by RT-2.2;
   the drain loop, ring and startup order by the `apps/realtime` leaves.
