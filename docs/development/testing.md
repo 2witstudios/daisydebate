@@ -16,8 +16,15 @@ AIDD/Vitest guidance is overridden here by Bun and RITEway (ADR 0021).
    actual route handlers (validation, principal, engine, persistence, error
    mapping). Requires `bun infra:up` and a migrated test database.
 3. **Browser E2E (`bun test:e2e`)** — Playwright boots the **production**
-   server (`bun run start`, `NODE_ENV=production`) with production-refined
-   configuration and asserts route shells, metadata titles, security
+   server (`e2e/support/server.ts` wrapping `src/server/start.ts`,
+   `NODE_ENV=production`) with production-refined configuration. The
+   wrapper adds only a loopback TLS edge (a per-run self-signed certificate,
+   so the public origin is HTTPS and Secure session cookies work) and a
+   capture of the outbound Resend call; tokens, users and sessions are made
+   by the real handlers, and nothing under `src/` imports the wrapper. Specs
+   for account-only pages sign up through those handlers
+   (`e2e/support/accounts.ts`); the sign-in journey itself is driven through
+   the real `/sign-in` UI (`e2e/journey.e2e.ts`). The suite asserts route shells, metadata titles, security
    headers, correlation IDs, health/readiness, and 404 behavior including
    the closed foundation-proof gate. The driver runs under Node 24; config
    and specs live in `apps/web`. The production-refined configuration uses
