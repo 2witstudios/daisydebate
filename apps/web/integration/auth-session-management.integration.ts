@@ -1,3 +1,4 @@
+import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createPasskeyFlows } from './auth-passkey-flows';
 import {
@@ -15,6 +16,13 @@ const sessionRevokedEvents = (userId: string) =>
       sql`SELECT topic FROM outbox WHERE kind = 'session.revoked' AND topic = ${`user:${userId}:inbox`}`,
   ).then((rows) => rows.length);
 
+/** Fixture teardown: never leave session.revoked rows behind for this user. */
+const cleanupOutboxFor = (userId: string) =>
+  withSql(
+    (sql) =>
+      sql`DELETE FROM outbox WHERE kind = 'session.revoked' AND topic = ${`user:${userId}:inbox`}`,
+  );
+
 /** Backdates a session row's createdAt so the fresh-session gate refuses it. */
 const backdateSession = (token: string, hoursAgo: number) =>
   withSql(
@@ -25,6 +33,17 @@ const backdateSession = (token: string, hoursAgo: number) =>
 if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
   throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
 setupRitewayBun();
+
+const suiteStartedAt = new Date().toISOString();
+// Backstop for the per-test cleanups above: whatever this file's tests
+// appended and did not individually clean up (never a real, wider sweep;
+// scoped to rows this suite could plausibly have created).
+afterAll(() =>
+  withSql(
+    (sql) =>
+      sql`DELETE FROM outbox WHERE kind = 'session.revoked' AND created_at >= ${suiteStartedAt}::timestamptz`,
+  ),
+);
 
 const flows = await createPasskeyFlows();
 const { signUp } = flows.account;
@@ -100,24 +119,28 @@ describe('AUTH-5.5 session management', () => {
     const secondToken = await sessionTokenOf(before);
     const userId = await sessionUserIdOf(before);
     const eventsBefore = await sessionRevokedEvents(userId);
-    await flows.revokeSession(first, secondToken);
-    const after = await protectedRead(second);
-    assert({
-      given: 'a named other session revoked from the current one',
-      should:
-        'let the first request through, deny the next with a fresh (non-cached) read, and append session.revoked to the outbox (RT-2.2)',
-      actual: {
-        beforeAuthenticated: await isAuthenticated(before),
-        afterAuthenticated: await isAuthenticated(after),
-        outboxEventsAppended:
-          (await sessionRevokedEvents(userId)) - eventsBefore,
-      },
-      expected: {
-        beforeAuthenticated: true,
-        afterAuthenticated: false,
-        outboxEventsAppended: 1,
-      },
-    });
+    try {
+      await flows.revokeSession(first, secondToken);
+      const after = await protectedRead(second);
+      assert({
+        given: 'a named other session revoked from the current one',
+        should:
+          'let the first request through, deny the next with a fresh (non-cached) read, and append session.revoked to the outbox (RT-2.2)',
+        actual: {
+          beforeAuthenticated: await isAuthenticated(before),
+          afterAuthenticated: await isAuthenticated(after),
+          outboxEventsAppended:
+            (await sessionRevokedEvents(userId)) - eventsBefore,
+        },
+        expected: {
+          beforeAuthenticated: true,
+          afterAuthenticated: false,
+          outboxEventsAppended: 1,
+        },
+      });
+    } finally {
+      await cleanupOutboxFor(userId);
+    }
   });
 
   test('a revoked session is denied even by an ordinary read that never asked to bypass the cache', async () => {
@@ -156,32 +179,36 @@ describe('AUTH-5.5 session management', () => {
     );
     const userId = await sessionUserIdOf(await protectedRead(first));
     const eventsBefore = await sessionRevokedEvents(userId);
-    const revoke = await flows.revokeOtherSessions(first);
-    const [currentAfter, secondAfter, thirdAfter] = await Promise.all([
-      protectedRead(first),
-      protectedRead(secondCookie),
-      protectedRead(thirdCookie),
-    ]);
-    assert({
-      given: 'revoke-other-sessions called from the first session',
-      should:
-        'keep the calling session live, deny every other one, and append one session.revoked doorbell for the call (RT-2.2)',
-      actual: {
-        revoked: revoke.ok,
-        current: await isAuthenticated(currentAfter),
-        second: await isAuthenticated(secondAfter),
-        third: await isAuthenticated(thirdAfter),
-        outboxEventsAppended:
-          (await sessionRevokedEvents(userId)) - eventsBefore,
-      },
-      expected: {
-        revoked: true,
-        current: true,
-        second: false,
-        third: false,
-        outboxEventsAppended: 1,
-      },
-    });
+    try {
+      const revoke = await flows.revokeOtherSessions(first);
+      const [currentAfter, secondAfter, thirdAfter] = await Promise.all([
+        protectedRead(first),
+        protectedRead(secondCookie),
+        protectedRead(thirdCookie),
+      ]);
+      assert({
+        given: 'revoke-other-sessions called from the first session',
+        should:
+          'keep the calling session live, deny every other one, and append one session.revoked doorbell for the call (RT-2.2)',
+        actual: {
+          revoked: revoke.ok,
+          current: await isAuthenticated(currentAfter),
+          second: await isAuthenticated(secondAfter),
+          third: await isAuthenticated(thirdAfter),
+          outboxEventsAppended:
+            (await sessionRevokedEvents(userId)) - eventsBefore,
+        },
+        expected: {
+          revoked: true,
+          current: true,
+          second: false,
+          third: false,
+          outboxEventsAppended: 1,
+        },
+      });
+    } finally {
+      await cleanupOutboxFor(userId);
+    }
   });
 
   test("revoking every session (including the caller's own) denies it too, and appends one session.revoked doorbell for the call (RT-2.2)", async () => {
@@ -193,29 +220,33 @@ describe('AUTH-5.5 session management', () => {
     );
     const userId = await sessionUserIdOf(await protectedRead(first));
     const eventsBefore = await sessionRevokedEvents(userId);
-    const revoke = await flows.revokeSessions(first);
-    const [firstAfter, secondAfter] = await Promise.all([
-      protectedRead(first),
-      protectedRead(secondCookie),
-    ]);
-    assert({
-      given: 'revoke-sessions (revoke-all) called from the first session',
-      should:
-        'deny the calling session too, deny every other one, and append one session.revoked doorbell for the call (RT-2.2)',
-      actual: {
-        revoked: revoke.ok,
-        first: await isAuthenticated(firstAfter),
-        second: await isAuthenticated(secondAfter),
-        outboxEventsAppended:
-          (await sessionRevokedEvents(userId)) - eventsBefore,
-      },
-      expected: {
-        revoked: true,
-        first: false,
-        second: false,
-        outboxEventsAppended: 1,
-      },
-    });
+    try {
+      const revoke = await flows.revokeSessions(first);
+      const [firstAfter, secondAfter] = await Promise.all([
+        protectedRead(first),
+        protectedRead(secondCookie),
+      ]);
+      assert({
+        given: 'revoke-sessions (revoke-all) called from the first session',
+        should:
+          'deny the calling session too, deny every other one, and append one session.revoked doorbell for the call (RT-2.2)',
+        actual: {
+          revoked: revoke.ok,
+          first: await isAuthenticated(firstAfter),
+          second: await isAuthenticated(secondAfter),
+          outboxEventsAppended:
+            (await sessionRevokedEvents(userId)) - eventsBefore,
+        },
+        expected: {
+          revoked: true,
+          first: false,
+          second: false,
+          outboxEventsAppended: 1,
+        },
+      });
+    } finally {
+      await cleanupOutboxFor(userId);
+    }
   });
 
   // Better Auth answers 200/{status:true} for a foreign token too, so an

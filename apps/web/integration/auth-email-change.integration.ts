@@ -1,3 +1,4 @@
+import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { createPasskeyFlows } from './auth-passkey-flows';
@@ -13,6 +14,15 @@ import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
   throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
 setupRitewayBun();
+
+const suiteStartedAt = new Date().toISOString();
+// Backstop for the per-test cleanup below.
+afterAll(() =>
+  withSql(
+    (sql) =>
+      sql`DELETE FROM outbox WHERE kind = 'session.revoked' AND created_at >= ${suiteStartedAt}::timestamptz`,
+  ),
+);
 
 const flows = await createPasskeyFlows();
 const { signUp } = flows.account;
@@ -66,6 +76,19 @@ const userIdOf = (email: string) =>
     const [row] = await sql`SELECT id FROM users WHERE email = ${email}`;
     return row?.id as string | undefined;
   });
+
+/** RT-2.2: outbox rows the email-change completion's revocation appends. */
+const sessionRevokedEvents = (userId: string) =>
+  withSql(
+    (sql) =>
+      sql`SELECT topic FROM outbox WHERE kind = 'session.revoked' AND topic = ${`user:${userId}:inbox`}`,
+  ).then((rows) => rows.length);
+
+const cleanupOutboxFor = (userId: string) =>
+  withSql(
+    (sql) =>
+      sql`DELETE FROM outbox WHERE kind = 'session.revoked' AND topic = ${`user:${userId}:inbox`}`,
+  );
 
 describe('AUTH-5.6 change the recovery email', () => {
   test('a fresh session completes the two-hop change, keeping the old address until the new one verifies', async () => {
@@ -122,29 +145,38 @@ describe('AUTH-5.6 change the recovery email', () => {
     );
     const before = flows.account.flows.mailbox.mails.length;
     const newEmail = `${createId()}@example.test`;
-    await flows.changeEmail(cookie, newEmail);
-    const confirmMail = flows.account.flows.mailbox.mails[before];
-    await confirmPost(tokenOf(linkFrom(confirmMail!)));
-    const verifyMail = flows.account.flows.mailbox.mails[before + 1];
-    const finalResponse = await confirmPost(tokenOf(linkFrom(verifyMail!)));
-    const newCookie = cookieHeader(finalResponse);
+    const userId = (await userIdOf(email)) ?? '';
+    const eventsBefore = await sessionRevokedEvents(userId);
+    try {
+      await flows.changeEmail(cookie, newEmail);
+      const confirmMail = flows.account.flows.mailbox.mails[before];
+      await confirmPost(tokenOf(linkFrom(confirmMail!)));
+      const verifyMail = flows.account.flows.mailbox.mails[before + 1];
+      const finalResponse = await confirmPost(tokenOf(linkFrom(verifyMail!)));
+      const newCookie = cookieHeader(finalResponse);
 
-    assert({
-      given:
-        'a completed email change with a second, independent prior session',
-      should:
-        'notify the old address, keep the completing session live and revoke the other one',
-      actual: {
-        notifiedOldAddress: confirmMail!.to === email,
-        completingSessionLive: await isAuthenticated(newCookie),
-        otherSessionRevoked: !(await isAuthenticated(otherCookie)),
-      },
-      expected: {
-        notifiedOldAddress: true,
-        completingSessionLive: true,
-        otherSessionRevoked: true,
-      },
-    });
+      assert({
+        given:
+          'a completed email change with a second, independent prior session',
+        should:
+          'notify the old address, keep the completing session live, revoke the other one and append a real session.revoked row (RT-2.2)',
+        actual: {
+          notifiedOldAddress: confirmMail!.to === email,
+          completingSessionLive: await isAuthenticated(newCookie),
+          otherSessionRevoked: !(await isAuthenticated(otherCookie)),
+          outboxEventsAppended:
+            (await sessionRevokedEvents(userId)) - eventsBefore,
+        },
+        expected: {
+          notifiedOldAddress: true,
+          completingSessionLive: true,
+          otherSessionRevoked: true,
+          outboxEventsAppended: 1,
+        },
+      });
+    } finally {
+      await cleanupOutboxFor(userId);
+    }
   });
 
   test('a stale session cannot start an email change', async () => {
