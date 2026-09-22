@@ -60,7 +60,7 @@ export type SecurityOutcome =
   | { readonly kind: 'invalid' }
   | { readonly kind: 'unavailable' };
 
-const outcomeFor = (error: ClientError): SecurityOutcome => {
+export const outcomeFor = (error: ClientError): SecurityOutcome => {
   if (error === null) return { kind: 'ok' };
   if (error.code === 'SESSION_NOT_FRESH') return { kind: 'stale-session' };
   if (error.status === 401) return { kind: 'stale-session' };
@@ -71,6 +71,19 @@ const outcomeFor = (error: ClientError): SecurityOutcome => {
   return { kind: 'unavailable' };
 };
 
+const UNAVAILABLE = { data: null, error: { status: 503 } } as const;
+
+/** Catches both a rejected promise and a synchronous throw from `call`. */
+async function safely<T>(
+  call: () => Result<T>,
+): Promise<{ readonly data: T | null; readonly error: ClientError }> {
+  try {
+    return await call();
+  } catch {
+    return UNAVAILABLE;
+  }
+}
+
 /** Loads both lists in parallel; a failed side reports an empty list. */
 export async function loadSecurityOverview(client: SecurityClient): Promise<{
   readonly passkeys: readonly PasskeyRow[];
@@ -79,8 +92,8 @@ export async function loadSecurityOverview(client: SecurityClient): Promise<{
   readonly sessionsOutcome: SecurityOutcome;
 }> {
   const [passkeys, sessions] = await Promise.all([
-    client.passkey.listUserPasskeys(),
-    client.listSessions(),
+    safely(() => client.passkey.listUserPasskeys()),
+    safely(() => client.listSessions()),
   ]);
   return {
     passkeys: passkeys.data ?? [],

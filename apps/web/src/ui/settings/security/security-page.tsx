@@ -8,6 +8,7 @@ import {
 } from '../../auth/onboarding/passkey-enrollment';
 import {
   loadSecurityOverview,
+  outcomeFor,
   revokeOtherSessions,
   type PasskeyRow,
   type SessionRow,
@@ -37,7 +38,8 @@ export function SecurityPage() {
   const [passkeys, setPasskeys] = useState<readonly PasskeyRow[]>([]);
   const [sessions, setSessions] = useState<readonly SessionRow[]>([]);
   const [currentToken, setCurrentToken] = useState<string | undefined>();
-  const [loadNotice, setLoadNotice] = useState<string | undefined>();
+  const [passkeysNotice, setPasskeysNotice] = useState<string | undefined>();
+  const [sessionsNotice, setSessionsNotice] = useState<string | undefined>();
   const [enrolling, setEnrolling] = useState(false);
   const [enrollNotice, setEnrollNotice] = useState<string | undefined>();
   const [reloadToken, setReloadToken] = useState(0);
@@ -54,7 +56,12 @@ export function SecurityPage() {
       setPasskeys(overview.passkeys);
       setSessions(overview.sessions);
       setCurrentToken(session.data?.session.token);
-      setLoadNotice(
+      setPasskeysNotice(
+        overview.passkeysOutcome.kind === 'ok'
+          ? undefined
+          : OUTCOME_NOTICES[overview.passkeysOutcome.kind],
+      );
+      setSessionsNotice(
         overview.sessionsOutcome.kind === 'ok'
           ? undefined
           : OUTCOME_NOTICES[overview.sessionsOutcome.kind],
@@ -69,8 +76,12 @@ export function SecurityPage() {
     <>
       <section aria-labelledby="passkeys-heading">
         <h2 id="passkeys-heading">Passkeys</h2>
-        {loadNotice ? (
-          <Notice id="security-load-notice" tone="error" title={loadNotice} />
+        {passkeysNotice ? (
+          <Notice
+            id="passkeys-load-notice"
+            tone="error"
+            title={passkeysNotice}
+          />
         ) : null}
         <ul>
           {passkeys.map((passkey) => (
@@ -116,6 +127,13 @@ export function SecurityPage() {
 
       <section aria-labelledby="sessions-heading">
         <h2 id="sessions-heading">Sessions</h2>
+        {sessionsNotice ? (
+          <Notice
+            id="sessions-load-notice"
+            tone="error"
+            title={sessionsNotice}
+          />
+        ) : null}
         <ul>
           {sessions.map((session) => (
             <SessionRowView
@@ -134,7 +152,7 @@ export function SecurityPage() {
             onClick={() =>
               void revokeOtherSessions(authClient).then((outcome) => {
                 if (outcome.kind === 'ok') reload();
-                else setLoadNotice(OUTCOME_NOTICES[outcome.kind]);
+                else setSessionsNotice(OUTCOME_NOTICES[outcome.kind]);
               })
             }
           >
@@ -143,9 +161,10 @@ export function SecurityPage() {
           <Button
             variant="ghost"
             onClick={() =>
-              void authClient
-                .signOut()
-                .then(() => window.location.assign('/sign-in'))
+              void authClient.signOut().then(({ error }) => {
+                if (!error) window.location.assign('/sign-in');
+                else setSessionsNotice(OUTCOME_NOTICES[outcomeFor(error).kind]);
+              })
             }
           >
             Sign out

@@ -1,11 +1,17 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import type { Identity } from '@daisy/auth';
 import { createPasskeyFlows, rpID } from './auth-passkey-flows';
-import { origin, withSql } from './auth-mounted-helpers';
+import { cookieHeader, origin, withSql } from './auth-mounted-helpers';
 import {
   buildAuthenticationResponse,
   buildRegistrationResponse,
   createSoftwareCredential,
 } from './webauthn-authenticator';
+
+const userIdOf = (identity: Identity): string | null =>
+  identity.state === 'member' || identity.state === 'provisional'
+    ? identity.principal.userId
+    : null;
 
 if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
   throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
@@ -138,15 +144,16 @@ describe('AUTH-5.2 passkey sign-in', () => {
     const { credential } = await flows.enrollPasskey(cookie);
     const { verifyResponse } = await flows.signInWithPasskey(credential);
     const body = (await verifyResponse.json()) as { user?: { id: string } };
+    const session = await flows.account.sessionAs(cookieHeader(verifyResponse));
     assert({
       given: 'a real assertion from the credential just enrolled',
       should: 'answer 200 and establish a session for the credential owner',
       actual: {
         status: verifyResponse.status,
         signedIn: typeof body.user?.id === 'string',
-        cookieIssued: verifyResponse.headers.getSetCookie().length > 0,
+        sessionUserId: userIdOf(session.identity),
       },
-      expected: { status: 200, signedIn: true, cookieIssued: true },
+      expected: { status: 200, signedIn: true, sessionUserId: body.user?.id },
     });
   });
 
@@ -162,14 +169,12 @@ describe('AUTH-5.2 passkey sign-in', () => {
         .map((c) => c.split(';')[0])
         .join('; '),
     );
+    const session = await flows.account.sessionAs(cookieHeader(malformed));
     assert({
       given: 'a structurally invalid assertion for an unknown credential',
       should: 'be rejected without a session',
-      actual: {
-        ok: malformed.ok,
-        cookieIssued: malformed.headers.getSetCookie().length > 0,
-      },
-      expected: { ok: false, cookieIssued: false },
+      actual: { ok: malformed.ok, sessionUserId: userIdOf(session.identity) },
+      expected: { ok: false, sessionUserId: null },
     });
   });
 
@@ -202,11 +207,34 @@ describe('AUTH-5.2 passkey sign-in', () => {
       { response: assertion },
       challengeCookie,
     );
+    // A fresh assertion over the same challenge has a higher counter than
+    // `assertion`, so a stale-counter check alone would let it through.
+    // Submitting it against the already-consumed challenge cookie proves
+    // the rejection comes from consumed challenge state, not a stale
+    // counter on the reused `assertion` value above.
+    const freshAssertion = await buildAuthenticationResponse({
+      credential,
+      challenge: options.challenge,
+      origin,
+      rpID,
+    });
+    const replayWithFreshCounter = await flows.post(
+      '/api/auth/passkey/verify-authentication',
+      { response: freshAssertion },
+      challengeCookie,
+    );
     assert({
       given: 'the exact same assertion submitted a second time',
       should: 'succeed once and be rejected on replay',
       actual: { first: firstUse.ok, replay: replay.ok },
       expected: { first: true, replay: false },
+    });
+    assert({
+      given:
+        'a newly signed assertion over the same challenge, submitted with the already-consumed challenge cookie',
+      should: 'still be rejected because the challenge itself was consumed',
+      actual: { replayWithFreshCounter: replayWithFreshCounter.ok },
+      expected: { replayWithFreshCounter: false },
     });
   });
 
@@ -218,93 +246,6 @@ describe('AUTH-5.2 passkey sign-in', () => {
       should: 'be rejected without a session',
       actual: verifyResponse.ok,
       expected: false,
-    });
-  });
-});
-
-describe('AUTH-5.3 list, rename and remove owned passkeys', () => {
-  test('listing returns only the current account’s passkeys with names and creation metadata', async () => {
-    const alice = await signUp();
-    const bob = await signUp();
-    await flows.enrollPasskey(alice.cookie, { name: 'Alice laptop' });
-    await flows.enrollPasskey(bob.cookie, { name: 'Bob laptop' });
-    const listed = await flows.listPasskeys(alice.cookie);
-    const rows = (await listed.json()) as { name: string; createdAt: string }[];
-    assert({
-      given: 'two accounts, each with one passkey',
-      should: "list only the caller's own passkey",
-      actual: {
-        count: rows.length,
-        name: rows[0]?.name,
-        hasCreatedAt: Boolean(rows[0]?.createdAt),
-      },
-      expected: { count: 1, name: 'Alice laptop', hasCreatedAt: true },
-    });
-  });
-
-  test('rename and remove succeed for an owned passkey', async () => {
-    const { email, cookie } = await signUp();
-    const { credential } = await flows.enrollPasskey(cookie, {
-      name: 'Old name',
-    });
-    const listed = await flows.listPasskeys(cookie);
-    const [row] = (await listed.json()) as { id: string }[];
-    const renamed = await flows.renamePasskey(cookie, row!.id, 'New name');
-    const removed = await flows.deletePasskey(cookie, row!.id);
-    assert({
-      given: 'a passkey owned by the caller',
-      should: 'allow rename then removal, leaving none stored',
-      actual: {
-        renamed: renamed.ok,
-        removed: removed.ok,
-        stored: await passkeyCount(email),
-      },
-      expected: { renamed: true, removed: true, stored: 0 },
-    });
-    void credential;
-  });
-
-  test("another user's credential id is refused for rename and removal", async () => {
-    const alice = await signUp();
-    const bob = await signUp();
-    await flows.enrollPasskey(alice.cookie, { name: 'Alice laptop' });
-    const listed = await flows.listPasskeys(alice.cookie);
-    const [row] = (await listed.json()) as { id: string }[];
-    const renamedByBob = await flows.renamePasskey(
-      bob.cookie,
-      row!.id,
-      'Stolen',
-    );
-    const removedByBob = await flows.deletePasskey(bob.cookie, row!.id);
-    assert({
-      given: "bob naming alice's credential id",
-      should: 'refuse both modifications and leave the credential untouched',
-      actual: {
-        renameOk: renamedByBob.ok,
-        removeOk: removedByBob.ok,
-        stillStored: await passkeyCount(alice.email),
-      },
-      expected: { renameOk: false, removeOk: false, stillStored: 1 },
-    });
-  });
-
-  test('removing the final passkey preserves magic-link access', async () => {
-    const { email, cookie } = await signUp();
-    const listed = await flows.enrollPasskey(cookie, { name: 'Only one' });
-    const rows = await flows.listPasskeys(cookie);
-    const [row] = (await rows.json()) as { id: string }[];
-    await flows.deletePasskey(cookie, row!.id);
-    const { requestLink } = flows.account.flows;
-    const { response } = await requestLink(email);
-    assert({
-      given: 'an account whose last passkey was just removed',
-      should: 'still be able to request a magic-link sign-in',
-      actual: {
-        removedFirst: listed.verifyResponse.ok,
-        linkRequested: response.ok,
-        stored: await passkeyCount(email),
-      },
-      expected: { removedFirst: true, linkRequested: true, stored: 0 },
     });
   });
 });

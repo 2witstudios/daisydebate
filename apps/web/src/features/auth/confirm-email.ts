@@ -50,11 +50,12 @@ export function createConfirmEmailHandlers({ auth }: ConfirmEmailDependencies) {
    * adapter, bypassing the HTTP fresh-session gate that a genuinely stale
    * concurrent session could otherwise fail (AUTH-5.6).
    */
+  /** True only once every other session for this account is confirmed gone. */
   const revokeOtherSessionsFor = async (
     request: Request,
     cookies: readonly string[],
-  ): Promise<void> => {
-    if (cookies.length === 0) return;
+  ): Promise<boolean> => {
+    if (cookies.length === 0) return true;
     const cookieHeader = cookies
       .map((cookie) => cookie.split(';')[0])
       .join('; ');
@@ -62,20 +63,26 @@ export function createConfirmEmailHandlers({ auth }: ConfirmEmailDependencies) {
       method: 'GET',
       headers: { cookie: cookieHeader },
     });
-    if (!sessionResponse.ok) return;
+    if (!sessionResponse.ok) return false;
     const body = (await sessionResponse.json().catch(() => null)) as {
       session?: { token?: unknown; userId?: unknown };
     } | null;
     const token = body?.session?.token;
     const userId = body?.session?.userId;
-    if (typeof token !== 'string' || typeof userId !== 'string') return;
-    const internalAdapter = await auth().internalAdapter();
-    const sessions = await internalAdapter.listSessions(userId);
-    await Promise.all(
-      sessions
-        .filter((session) => session.token !== token)
-        .map((session) => internalAdapter.deleteSession(session.token)),
-    );
+    if (typeof token !== 'string' || typeof userId !== 'string')
+      return false;
+    try {
+      const internalAdapter = await auth().internalAdapter();
+      const sessions = await internalAdapter.listSessions(userId);
+      const results = await Promise.allSettled(
+        sessions
+          .filter((session) => session.token !== token)
+          .map((session) => internalAdapter.deleteSession(session.token)),
+      );
+      return results.every((result) => result.status === 'fulfilled');
+    } catch {
+      return false;
+    }
   };
 
   const redeem = async (request: Request, form: URLSearchParams) => {
@@ -93,7 +100,9 @@ export function createConfirmEmailHandlers({ auth }: ConfirmEmailDependencies) {
     );
     if (!response.ok) return renderEmailConfirmPage({ kind: 'expired' }, 400);
     const cookies = response.headers.getSetCookie();
-    await revokeOtherSessionsFor(request, cookies).catch(() => {});
+    const revoked = await revokeOtherSessionsFor(request, cookies);
+    if (!revoked)
+      return renderEmailConfirmPage({ kind: 'incomplete', callbackURL }, 502, cookies);
     const headers = new Headers();
     for (const cookie of cookies) headers.append('set-cookie', cookie);
     return redirect(callbackURL, headers);

@@ -67,6 +67,47 @@ describe('loadSecurityOverview', () => {
     });
   });
 
+  test('a throwing passkey list does not fail the session list, or the whole call', async () => {
+    const sessions = [
+      {
+        id: 's1',
+        token: 't1',
+        createdAt: '2026-01-01',
+        updatedAt: '2026-01-01',
+        expiresAt: '2026-01-08',
+      },
+    ];
+    const overview = await loadSecurityOverview(
+      clientWith({
+        passkey: {
+          listUserPasskeys: () => {
+            throw new Error('network down');
+          },
+          updatePasskey: noop,
+          deletePasskey: noop,
+        },
+        listSessions: async () => ({ data: sessions, error: null }),
+      }),
+    );
+    assert({
+      given: 'a passkey list call that throws while the session list succeeds',
+      should:
+        'report the sessions normally and an unavailable passkey outcome, never reject',
+      actual: {
+        sessions: overview.sessions,
+        passkeys: overview.passkeys,
+        passkeysOutcome: overview.passkeysOutcome,
+        sessionsOutcome: overview.sessionsOutcome,
+      },
+      expected: {
+        sessions,
+        passkeys: [],
+        passkeysOutcome: { kind: 'unavailable' },
+        sessionsOutcome: { kind: 'ok' },
+      },
+    });
+  });
+
   test('a stale session on list-sessions reports an empty list, not a crash', async () => {
     const overview = await loadSecurityOverview(
       clientWith({
