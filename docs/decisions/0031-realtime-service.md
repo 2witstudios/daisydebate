@@ -64,25 +64,27 @@ installed `@socket.io/bun-engine@0.1.2` README and source with
 application codes (4401, 4408) and a shortened 300 ms `hello` timer; the
 normative values are in sections 7 and 10.
 
-| Question                                   | Native `Bun.serve` (measured)                                                                                                                                                  | socket.io + `@socket.io/bun-engine` 0.1.2 (measured)                                                                                                                        |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Topics                                     | `ws.subscribe`, `server.publish`, `subscriberCount`: 2 of 3 sockets subscribed, only those 2 received the row                                                                  | Rooms work, fanned out in JavaScript by the adapter                                                                                                                         |
-| Fan-out, 200 subscribers × 2,000 doorbells | 400,000 delivered in 190 ms                                                                                                                                                    | 400,000 delivered in 3,356 ms (about 17× slower)                                                                                                                            |
-| Slow consumer (reader paused)              | Without `closeOnBackpressureLimit`, `server.publish` returned 0 (dropped) for 361 of 400 publishes while the socket stayed subscribed. With it, the socket closed (1006)       | 944 of 2,000 room emits silently lost; the socket stayed connected and kept receiving afterwards. The engine ignores `send()`'s status, and exposes no backpressure setting |
-| App-coded close under backpressure         | `ws.close(4408, …)` when `getBufferedAmount()` exceeded 256 KiB: the client received 4408 and the reason after resuming                                                        | Server disconnect reaches the client only as the string `"io server disconnect"`; no application close codes                                                                |
-| Transports                                 | WebSocket only                                                                                                                                                                 | `GET /socket.io/?EIO=4&transport=polling` answered 200 with a session id: long-polling is hardcoded (`TRANSPORTS = ["polling", "websocket"]`) with no option to disable it  |
-| `maxPayloadLength`                         | Oversize inbound message closes the socket; the client saw 1006, not the 1009 the `close()` docs list                                                                          | `maxHttpBufferSize`, same underlying limit                                                                                                                                  |
-| `idleTimeout`                              | With `sendPings: false`, a silent socket closed at 7,998 ms (`idleTimeout: 8`) and 32,004 ms (`32`). Values round up to 4 s (`10` closed at 12,000 ms; `1` never fired in 6 s) | Sets the HTTP `idleTimeout`, not the WebSocket one                                                                                                                          |
-| `sendPings`                                | With `sendPings: true` a reader-paused peer (zero pongs) stayed open for 25 s at `idleTimeout: 8`: server pings do not reap a peer that stops reading                          | Engine.IO's own 25 s ping / 20 s timeout                                                                                                                                    |
-| Per-message compression                    | `perMessageDeflate: true` negotiated `permessage-deflate; server_no_context_takeover; client_no_context_takeover`                                                              | Not configurable through the engine                                                                                                                                         |
-| Client cost                                | 0 bytes (native `WebSocket`)                                                                                                                                                   | `socket.io-client` minified 49,812 B, 15,759 B gzipped                                                                                                                      |
-| Maturity                                   | Part of the pinned runtime (ADR 0001)                                                                                                                                          | Pre-1.0 engine (0.1.2)                                                                                                                                                      |
+| Question                                   | Native `Bun.serve` (measured)                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | socket.io + `@socket.io/bun-engine` 0.1.2 (measured)                                                                                                                                                                                                                                                          |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Topics                                     | `ws.subscribe`, `server.publish`, `subscriberCount`: 2 of 3 sockets subscribed, only those 2 received the row                                                                                                                                                                                                                                                                                                                                                                                     | Rooms work, fanned out in JavaScript by the adapter                                                                                                                                                                                                                                                           |
+| Fan-out, 200 subscribers × 2,000 doorbells | 400,000 delivered in 190 ms                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | 400,000 delivered in 3,356 ms (about 17× slower)                                                                                                                                                                                                                                                              |
+| Slow consumer (reader paused)              | Without `closeOnBackpressureLimit`, `server.publish` returned 0 (dropped) for 361 of 400 publishes while the socket stayed subscribed. With it, the socket closed (1006)                                                                                                                                                                                                                                                                                                                          | By default, 944 of 2,000 room emits silently lost; the socket stayed connected and kept receiving afterwards. The engine ignores `send()`'s status and `engine.handler()` sets no backpressure bound; the documented manual wiring can set `closeOnBackpressureLimit`, which turns the loss into a 1006 close |
+| App-coded close under backpressure         | `ws.close(4408, …)` when `getBufferedAmount()` exceeded 256 KiB: the client received 4408 and the reason after resuming                                                                                                                                                                                                                                                                                                                                                                           | Server disconnect reaches the client only as the string `"io server disconnect"`; no application close codes                                                                                                                                                                                                  |
+| Transports                                 | WebSocket only                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | `GET /socket.io/?EIO=4&transport=polling` answered 200 with a session id: long-polling is on by default (`TRANSPORTS = ["polling", "websocket"]`); the documented `allowRequest` hook can refuse it (403)                                                                                                     |
+| `maxPayloadLength`                         | Oversize inbound message closes the socket; the client saw 1006, not the 1009 the `close()` docs list                                                                                                                                                                                                                                                                                                                                                                                             | `maxHttpBufferSize`, same underlying limit                                                                                                                                                                                                                                                                    |
+| `idleTimeout`                              | A silent socket closed at 7,998 ms (`idleTimeout: 8`) and 32,004 ms (`32`). Values round up to 4 s (`10` closed at 12,000 ms; `1` never fired in 6 s), and a close can land up to 2 s early (30,011 ms at `32` under load, in review)                                                                                                                                                                                                                                                             | Sets the HTTP `idleTimeout`, not the WebSocket one                                                                                                                                                                                                                                                            |
+| `sendPings`                                | Timed on the server: with `sendPings: true`, a reader-paused peer (zero pongs) was closed at 8,004 ms (`idleTimeout: 8`) and 36,028 ms (`36`); a live peer sending no application messages stayed open past 45 s on protocol pongs alone. A peer that stops reading but keeps sending is not idle and is reaped only by the backpressure bounds (section 8). (A first, client-side-only measurement reported "stayed open"; a paused client cannot observe the close, and the review refuted it.) | Engine.IO's own 25 s ping / 20 s timeout                                                                                                                                                                                                                                                                      |
+| Per-message compression                    | `perMessageDeflate: true` negotiated `permessage-deflate; server_no_context_takeover; client_no_context_takeover`                                                                                                                                                                                                                                                                                                                                                                                 | Not configurable through the engine                                                                                                                                                                                                                                                                           |
+| Client cost                                | 0 bytes (native `WebSocket`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | `socket.io-client` minified 49,812 B, 15,759 B gzipped                                                                                                                                                                                                                                                        |
+| Maturity                                   | Part of the pinned runtime (ADR 0001)                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Pre-1.0 engine (0.1.2)                                                                                                                                                                                                                                                                                        |
 
 socket.io showed no capability Daisy requires that the native path lacks:
 its reconnection, acks, adapters and fallback transports are either owned by
 this design (cursors, request ids, the outbox) or forbidden by it (polling).
 It showed a concrete defect for Daisy: silent loss to a slow consumer that
-stays connected. **Native is selected.**
+stays connected by default. Its polling and backpressure defaults can be
+worked around (`allowRequest`, manual wiring), but a workaround does not add a
+capability native lacks. **Native is selected.**
 
 ### 3. WebSocket only, never long-polling
 
@@ -129,24 +131,41 @@ Every message in both directions is a JSON text frame
 - The receiving side always runs `safeParse`, server and client. An inbound
   message that fails to parse, or any message before a successful `hello`,
   is rejected loudly by closing the socket; nothing is silently dropped.
+  An unparseable first message closes with `4003 protocol_unsupported`,
+  not `4001`: parsing runs before authentication, so a client that cannot
+  speak the protocol is told not to reconnect rather than to fetch a new
+  ticket.
 - Frames are text, not binary. Inbound frames are capped by
   `maxPayloadLength: 4096` bytes (a `hello` with its ticket is under 300);
   Bun closes an oversize frame abruptly (measured: 1006).
 
 ### 6. Heartbeat: application `ping` every 15 s
 
-Browsers cannot send WebSocket ping frames, so liveness is an application
-message:
+Browsers cannot send WebSocket ping frames, so client-side liveness is an
+application message; server-side reaping uses the protocol's own pings:
 
 - The client sends `ping` every 15 s and expects `pong` with the same `id`.
-  After two missed pongs (30 s) it treats the socket as dead, closes it and
-  reconnects with its cursors.
-- The server sets `sendPings: false` and `idleTimeout: 32` seconds. Any
-  inbound message resets the idle timer, so a live client's `ping` keeps it
-  open and a half-open or non-reading peer is reaped after 32 s. The spike
-  showed why server pings are not the mechanism: with `sendPings: true`, a
-  peer that stopped reading stayed open indefinitely. 32 is the smallest
-  multiple of 4 s (the measured rounding) that exceeds two heartbeats.
+  It judges misses by elapsed time since the last `pong` (dead after 30 s
+  without one), not by counting timer ticks, and it also pings at once on
+  `visibilitychange` to visible. Chromium throttles chained timers in tabs
+  hidden for more than 5 minutes to about once a minute; judging by elapsed
+  time plus the visibility ping keeps a throttled tab from declaring a
+  healthy socket dead or from missing a dead one for long after it becomes
+  visible. The realtime client-store leaf (RT-2.6a) carries this as a
+  criterion. A socket judged dead is closed and reconnected with its
+  cursors.
+- The server keeps Bun's default `sendPings: true` with `idleTimeout: 36`
+  seconds, as the plan specifies. Timed on the server, a peer that neither
+  sends nor answers pings is closed at `idleTimeout` (8,004 ms at `8`,
+  36,028 ms at `36`), and a live browser answers protocol pings without
+  running JavaScript, so a throttled hidden tab is not reaped. A peer that
+  stops reading but keeps sending is not idle; the backpressure bounds
+  (section 8) reap it once traffic flows to it, and until then it holds at
+  most its bounded buffer.
+- `idleTimeout` fires on a 4 s tick and was measured up to 2 s early
+  (30,011 ms at `32` under load). `32` would leave only 0–2 s over two
+  heartbeats (30 s); `36` is chosen so a client whose only traffic is its
+  15 s `ping` keeps at least 4 s of margin even if a pong round is lost.
 - The heartbeat period feeds the attendance invariant
   `checkInGraceMs >= heartbeatMs * 2 + reconnectBudgetMs` (ADR 0033); a
   change to 15 s is a change to that invariant.
@@ -160,7 +179,7 @@ range. The client reacts per code:
 | ---- | ---------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | 4001 | `auth_failed`          | no `hello` within 5 s; bad, expired, replayed or origin-mismatched ticket; any message before `hello` | fetch a fresh ticket and reconnect with backoff; after 3 consecutive failures, stop and show signed-out state |
 | 4002 | `revoked`              | `session.revoked`, or the 60 s revalidation finds the session gone                                    | do not reconnect; refetch the session over HTTP                                                               |
-| 4003 | `protocol_unsupported` | `hello.protocolVersion` unsupported, or an inbound message fails to parse                             | do not reconnect; ask the user to reload                                                                      |
+| 4003 | `protocol_unsupported` | `hello.protocolVersion` unsupported, or an inbound message (including the first) fails to parse       | do not reconnect; ask the user to reload                                                                      |
 | 4004 | `rate_limited`         | connection or inbound-message rate limit exceeded                                                     | reconnect with jittered backoff from a 30 s floor                                                             |
 | 4005 | `slow_consumer`        | the socket's send buffer passed the soft bound (section 8)                                            | reconnect with jitter and resubscribe from cursors                                                            |
 | 4006 | `server_restarting`    | SIGTERM drain                                                                                         | reconnect with 0–5 s jitter (another instance takes it)                                                       |
@@ -212,7 +231,13 @@ string lands in proxy and access logs):
    The plaintext exists only in the HTTP response and the `hello` frame.
 4. The upgrade checks `Origin` against a fail-closed allowlist and the
    per-IP rate limit, caps unauthenticated sockets per IP, and accepts the
-   socket **unauthenticated**.
+   socket **unauthenticated**. The client IP comes from ADR 0025's
+   trusted-proxy rule (the ingress-overwritten `x-daisy-client-ip`, with
+   `AUTH_TRUSTED_PROXIES` for the first untrusted `X-Forwarded-For` hop;
+   absent an identity, one shared fail-safe bucket). That rule moves from
+   `apps/web/src/features/auth/client-ip.ts` into `@daisy/auth`, already an
+   allowed edge, so both apps share one implementation and no
+   client-writable header is ever trusted (a criterion on RT-2.4b).
 5. The first message must be `hello {protocolVersion, ticket}` within 5 s.
    The server hashes the ticket and consumes it atomically with a new
    `@daisy/redis` GETDEL operation, so a replay finds nothing. The binding's
@@ -287,8 +312,6 @@ the realtime PostgreSQL role, not by the import graph.
   at the high-water mark), so no coordination state is process-only, but
   those documents' wording is not amended here: this change owns only the
   package-map row, and the wording change is reported to the orchestrator.
-- **Plan, section A.** The plan lists four socket messages and says server
-  `idleTimeout` and `sendPings` reap half-open sockets. The accepted
-  criteria list five messages (with `ping`), and the spike showed server
-  pings do not reap a non-reading peer; this ADR follows the criteria and
-  the measurement (`sendPings: false`, `idleTimeout: 32`).
+- **Plan, section A.** The plan lists four socket messages; the accepted
+  criteria list five (adding `ping`), and this ADR follows the criteria.
+  The server keeps the plan's `sendPings` and `idleTimeout` reaping.
