@@ -108,7 +108,7 @@ describe('agent seed', () => {
         await database`delete from debates where id = ${seedIds[2]}`;
         await database`delete from actors where id in (${seedActorIds[0]}, ${seedActorIds[1]})`;
         await database`delete from users where id in (${seedIds[0]}, ${seedIds[1]})`;
-        await database`delete from seed_versions where seed_name = 'agent'`;
+        await database`delete from seed_versions where seed_name in ('agent', 'formats')`;
       } finally {
         await database.close();
       }
