@@ -26,3 +26,44 @@ One schema file per ownership area under `packages/db/src/schema/`. Every status
 | `ratings`             | ratings       | Current Glicko-2 `rating`/`deviation`/`volatility` per `(actor, format, season)`, projection of the ledger; leaderboard index `(format, season, rating DESC)`; nothing derivable stored                                                                                                                                                        | `RESTRICT` everywhere                                             |
 | `rating_changes`      | ratings       | Append-only ledger: finite before/after triples, `calculation_version`, `occurred_at`; one row per `(debate, actor)`, keyed to a participant of the debate and the debate's format                                                                                                                                                             | `RESTRICT` everywhere                                             |
 | `role_grants`         | identity      | `admin`/`moderator`/`judge` grants to `users` with `scope_type` (`global`), `granted_by`, `granted_at`, `revoked_at`; one active grant per scope (partial unique index)                                                                                                                                                                        | `RESTRICT` from `users`                                           |
+
+## Realtime, presence and adjudication (ADR 0033)
+
+Forward-migration intent recorded ahead of the leaves that build it. Nothing
+below exists yet. Migration generation is single-writer, so these land one at
+a time in this order: `outbox` (RT-2.2), `users.presence_visibility`
+(RT-3.2b), the rules shape (RT-4.1), `service_instances` and
+`availability_samples` (RT-4.3a, RT-4.3b), `debates.outcome_reason`
+(RT-4.5b).
+
+| Change                      | Owner         | Holds                                                                                                                                                                                                                                                                                                     | Retention                                                       |
+| --------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `outbox`                    | platform/data | Delivery log written in the same transaction as the change others must see: position `(txid xid8, seq)`, `topic`, `version`, `kind`, `payload` (doorbells on public topics). A delivery log, not event sourcing; shape, cursor and drain rules are the outbox ADR's (RT-1.2)                              | Pruned by the maintenance sweep after 24 h                      |
+| `service_instances`         | platform/data | One lease row per running instance: cuid2 `instance_id`, `role` (`web`, `realtime`; text + CHECK), `renewed_at` stamped with database time every 1 s (stale after 3 s), and for realtime rows `delivered_through`, the instance's outbox cursor                                                           | Rows with `renewed_at` older than 24 h deleted by the sweep     |
+| `availability_samples`      | platform/data | One row per second from the advisory-locked sampler: `at` (database time, primary key, strictly increasing), `healthy`, `cause` (text + CHECK, null iff healthy). The only input to outage intervals and the settled horizon                                                                              | Pruned by the sweep after 24 h; pruned history counts as outage |
+| `users.presence_visibility` | identity      | `visible` or `invisible` (text + CHECK, NOT NULL, default `visible`): the account's privacy preference, read by presence projection. Never copied into Redis                                                                                                                                              | Lives with the user row                                         |
+| `debates.outcome_reason`    | domain        | How a completed debate was decided: `judged` or `forfeit` (text + CHECK), set iff `outcome` is a side or `draw`, and `forfeit` only with a side as `outcome`; existing completed rows are backfilled `judged`. The lifecycle CHECK grows accordingly. A forfeit reaches `rating_changes` only when ranked | Lives with the debate                                           |
+
+No check-in table exists: a check-in is an attendance entry
+`{turnIndex, participantId, receivedAt}` in the debate snapshot, recorded
+under the debate row lock with idempotency key
+`check-in:<debateId>:<turnIndex>:<actorId>` in `debate_commands`; the
+evaluator records `adjudicate:<debateId>:<turnIndex>` under its service
+principal. Turn boundaries are computed from `debates.started_at` and the
+effective rules, never persisted per turn. Every competitive time
+(`started_at`, check-in receipts, lease renewals, samples) is PostgreSQL
+time: check-ins use `statement_timestamp()` of the transaction's first
+statement, taken before the row lock.
+
+A new login role, `daisy_realtime`, serves `apps/realtime`: `SELECT` on the
+outbox and the authorization read models it needs (the exact list is the realtime ADR's: debates, participants,
+sessions for revalidation), plus `INSERT`, `UPDATE` and `DELETE` on
+`service_instances` only. It writes nothing else; the web role keeps its
+current grants and adds the new tables.
+
+Presence is Redis-only and advisory: per-connection leases
+`<namespace>:v1:presence:conn:<connId>` (hash, own TTL of 60 s, refreshed
+every 20 s) indexed by `presence:actor:<actorId>`, `presence:online` and
+`presence:debate:<debateId>:spectators` sorted sets scored by lease expiry
+from Redis `TIME`, all maintained by atomic Lua ops. Competitive outcomes
+never read it.
