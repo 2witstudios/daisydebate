@@ -56,7 +56,13 @@ async function isPortFree(port: number): Promise<boolean> {
     const socket = await Bun.connect({
       hostname: '127.0.0.1',
       port,
-      socket: { data() {}, open(s) { s.end(); }, error() {} },
+      socket: {
+        data() {},
+        open(s) {
+          s.end();
+        },
+        error() {},
+      },
     });
     socket.end();
     return false;
@@ -76,9 +82,7 @@ async function isPortFree(port: number): Promise<boolean> {
  */
 async function settleBetweenRuns(): Promise<void> {
   Bun.spawnSync(['pkill', '-f', `${process.cwd()}.*e2e/support/server.ts`]);
-  const { resolveE2EPorts } = await import(
-    '../apps/web/playwright.config'
-  );
+  const { resolveE2EPorts } = await import('../apps/web/playwright.config');
   const ports = Object.values(resolveE2EPorts(process.env));
   const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
