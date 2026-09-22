@@ -184,6 +184,40 @@ describe('AUTH-5.5 session management', () => {
     });
   });
 
+  test("revoking every session (including the caller's own) denies it too, and appends one session.revoked doorbell for the call (RT-2.2)", async () => {
+    const { email, cookie: first } = await signUp();
+    const { requestLink, redeem } = flows.account.flows;
+    const { link } = await requestLink(email);
+    const secondCookie = cookieHeader(
+      await redeem(new URL(link as URL).searchParams.get('token') ?? ''),
+    );
+    const userId = await sessionUserIdOf(await protectedRead(first));
+    const eventsBefore = await sessionRevokedEvents(userId);
+    const revoke = await flows.revokeSessions(first);
+    const [firstAfter, secondAfter] = await Promise.all([
+      protectedRead(first),
+      protectedRead(secondCookie),
+    ]);
+    assert({
+      given: 'revoke-sessions (revoke-all) called from the first session',
+      should:
+        'deny the calling session too, deny every other one, and append one session.revoked doorbell for the call (RT-2.2)',
+      actual: {
+        revoked: revoke.ok,
+        first: await isAuthenticated(firstAfter),
+        second: await isAuthenticated(secondAfter),
+        outboxEventsAppended:
+          (await sessionRevokedEvents(userId)) - eventsBefore,
+      },
+      expected: {
+        revoked: true,
+        first: false,
+        second: false,
+        outboxEventsAppended: 1,
+      },
+    });
+  });
+
   // Better Auth answers 200/{status:true} for a foreign token too, so an
   // attacker cannot use the response to learn whether a token exists; the
   // only observable, security-relevant fact is that nothing was revoked.
