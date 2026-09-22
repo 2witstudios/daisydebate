@@ -1,8 +1,6 @@
 import type { Metadata } from 'next';
-import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { returnDestination } from '../../features/access/decision';
-import { identify } from '../../lib/identity';
+import { readAuthEntry } from '../../lib/auth-entry';
 import { onboardingDestination } from '../../ui/auth/better-auth-sign-in-port';
 import { SignIn } from '../../ui/auth/sign-in/sign-in';
 
@@ -21,9 +19,7 @@ export default async function SignInPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const next = (await searchParams).next;
-  const destination = returnDestination(Array.isArray(next) ? next[0] : next);
-  const identity = await identify((await headers()).get('cookie'));
+  const { destination, identity } = await readAuthEntry(searchParams);
   if (identity.state === 'member') redirect(destination);
   if (identity.state === 'provisional')
     redirect(onboardingDestination(destination));

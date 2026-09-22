@@ -4,7 +4,9 @@ import { resolveIdentity, type VerifiedSession } from './identity';
 setupRitewayBun();
 
 const now = () => '2026-01-01T12:00:00.000Z';
-const session = (overrides: Partial<VerifiedSession> = {}): VerifiedSession => ({
+const session = (
+  overrides: Partial<VerifiedSession> = {},
+): VerifiedSession => ({
   userId: 'user1',
   emailVerified: true,
   username: 'ada',

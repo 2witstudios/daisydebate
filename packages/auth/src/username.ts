@@ -2,8 +2,7 @@
 const USERNAME_SHAPE = /^[A-Za-z0-9_-]{3,32}$/;
 
 export type UsernameParse =
-  | { readonly ok: true; readonly username: string }
-  | { readonly ok: false };
+  { readonly ok: true; readonly username: string } | { readonly ok: false };
 
 /**
  * The single username rule shared by the sign-up form and the claim endpoint.

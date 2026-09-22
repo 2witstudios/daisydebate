@@ -21,6 +21,25 @@ const errorCode = async (response: Response): Promise<string | undefined> => {
   }
 };
 
+/** Refusals that need no body to explain. */
+const REFUSALS: Readonly<Record<number, ClaimOutcome>> = {
+  400: { kind: 'invalid' },
+  401: { kind: 'signed-out' },
+  429: { kind: 'rate-limited' },
+};
+
+/** A success names the stored (normalized) username; anything else is odd. */
+const claimedName = async (response: Response): Promise<ClaimOutcome> => {
+  try {
+    const body = (await response.json()) as { username?: unknown };
+    return typeof body.username === 'string'
+      ? { kind: 'claimed', username: body.username }
+      : { kind: 'unavailable' };
+  } catch {
+    return { kind: 'unavailable' };
+  }
+};
+
 /**
  * The claim over POST /api/account/username. The body is exactly
  * `{ username }`: the server decides who is asking from the session cookie.
@@ -39,22 +58,11 @@ export const createClaimUsername =
     } catch {
       return { kind: 'unavailable' };
     }
-    if (response.status === 200 || response.status === 201) {
-      try {
-        const body = (await response.json()) as { username?: unknown };
-        return typeof body.username === 'string'
-          ? { kind: 'claimed', username: body.username }
-          : { kind: 'unavailable' };
-      } catch {
-        return { kind: 'unavailable' };
-      }
-    }
-    if (response.status === 400) return { kind: 'invalid' };
-    if (response.status === 401) return { kind: 'signed-out' };
-    if (response.status === 429) return { kind: 'rate-limited' };
+    if (response.status === 200 || response.status === 201)
+      return claimedName(response);
     if (response.status === 409)
       return (await errorCode(response)) === 'USERNAME_TAKEN'
         ? { kind: 'taken' }
         : { kind: 'already-set' };
-    return { kind: 'unavailable' };
+    return REFUSALS[response.status] ?? { kind: 'unavailable' };
   };

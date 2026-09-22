@@ -35,6 +35,25 @@ const choose = (username: string, notice?: UsernameNotice): OnboardingState =>
     ? { step: 'choose', username, pending: false }
     : { step: 'choose', username, pending: false, notice };
 
+type Choosing = Extract<OnboardingState, { step: 'choose' }>;
+
+/** Submitting: an invalid shape never leaves the browser. */
+const submit = (state: Choosing): OnboardingState => {
+  if (!canSubmit(state)) return state;
+  return parseUsername(state.username).ok
+    ? { step: 'choose', username: state.username, pending: true }
+    : choose(state.username, 'invalid');
+};
+
+const settle = (state: Choosing, outcome: ClaimOutcome): OnboardingState => {
+  if (!state.pending) return state;
+  if (outcome.kind === 'claimed')
+    return { step: 'passkey', username: outcome.username };
+  // The server page moves a finished account on; nothing to fix here.
+  if (outcome.kind === 'already-set') return { step: 'done' };
+  return choose(state.username, outcome.kind);
+};
+
 export function onboardingReducer(
   state: OnboardingState,
   event: OnboardingEvent,
@@ -42,23 +61,9 @@ export function onboardingReducer(
   if (event.type === 'passkey-step-finished')
     return state.step === 'passkey' ? { step: 'done' } : state;
   if (state.step !== 'choose') return state;
-  switch (event.type) {
-    case 'typed':
-      return state.pending ? state : choose(event.username);
-    case 'submitted':
-      if (!canSubmit(state)) return state;
-      // An invalid shape never leaves the browser: the rule is the server's own.
-      return parseUsername(state.username).ok
-        ? { step: 'choose', username: state.username, pending: true }
-        : choose(state.username, 'invalid');
-    case 'claim-settled': {
-      if (!state.pending) return state;
-      const { outcome } = event;
-      if (outcome.kind === 'claimed')
-        return { step: 'passkey', username: outcome.username };
-      // The server page moves a finished account on; nothing to fix here.
-      if (outcome.kind === 'already-set') return { step: 'done' };
-      return choose(state.username, outcome.kind);
-    }
-  }
+  if (event.type === 'typed')
+    return state.pending ? state : choose(event.username);
+  return event.type === 'submitted'
+    ? submit(state)
+    : settle(state, event.outcome);
 }

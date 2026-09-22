@@ -4,4 +4,8 @@
   "$schema": "./node_modules/knip/schema.json",
   // Scenario documents are loaded by the `bun scenario <name>` CLI.
   "ignore": ["scenarios/*.ts"],
+  "workspaces": {
+    // The e2e production server is started by Playwright's webServer command.
+    "apps/web": { "entry": ["e2e/support/server.ts"] },
+  },
 }

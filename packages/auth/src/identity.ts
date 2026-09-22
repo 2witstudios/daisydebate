@@ -14,9 +14,7 @@ export type VerifiedSession = {
  * cookie signature checks and the database lookup; null means no live
  * session. It receives only the raw Cookie header.
  */
-export type SessionReader = (
-  cookie: string,
-) => Promise<VerifiedSession | null>;
+export type SessionReader = (cookie: string) => Promise<VerifiedSession | null>;
 
 const anonymous = { kind: 'anonymous' } as const;
 

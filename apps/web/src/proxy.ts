@@ -22,20 +22,57 @@ const SESSION_COOKIES = [
   '__Secure-better-auth.session_token',
 ];
 
-export function proxy(request: NextRequest) {
-  const requestId = systemId.next();
-  const { pathname } = request.nextUrl;
-  // Development-only architectural proof: refuse at the edge with a real 404
-  // before routing when the deployment did not enable it.
+/**
+ * Development-only architectural proof: refuse at the edge with a real 404
+ * before routing when the deployment did not enable it.
+ */
+function closedFoundation(pathname: string, requestId: string) {
   if (
     (pathname === '/foundation' || pathname.startsWith('/foundation/')) &&
     process.env.FOUNDATION_PROOF_ENABLED !== 'true'
-  ) {
+  )
     return new NextResponse(null, {
       status: 404,
       headers: { 'x-request-id': requestId },
     });
-  }
+  return null;
+}
+
+/**
+ * Early hint only: a guarded request with no session cookie at all can never
+ * pass, so skip the render. Whether a cookie is a live session is decided
+ * per entrypoint (lib/access.ts), which rechecks the durable session.
+ */
+function signInHint(
+  request: NextRequest,
+  policy: string,
+  requestId: string,
+): NextResponse | null {
+  const { pathname, search } = request.nextUrl;
+  if (
+    !isGuardedPath(pathname) ||
+    SESSION_COOKIES.some((name) => request.cookies.has(name))
+  )
+    return null;
+  const next = returnDestination(`${pathname}${search}`);
+  // Proxy redirects must be absolute. Behind TLS termination the request's
+  // own origin is plain HTTP, so the deployment's configured public origin
+  // (the one auth cookies and links already use) names the target.
+  const origin = process.env.PUBLIC_APP_URL ?? request.nextUrl.origin;
+  const response = NextResponse.redirect(
+    new URL(`/sign-in?next=${encodeURIComponent(next)}`, origin),
+  );
+  response.headers.set('Content-Security-Policy', policy);
+  response.headers.set('Cache-Control', 'no-store');
+  response.headers.set('x-request-id', requestId);
+  return response;
+}
+
+export function proxy(request: NextRequest) {
+  const requestId = systemId.next();
+  const { pathname } = request.nextUrl;
+  const closed = closedFoundation(pathname, requestId);
+  if (closed) return closed;
   const nonce = Buffer.from(systemId.next()).toString('base64');
   const development = process.env.NODE_ENV === 'development';
   const policy = [
@@ -54,26 +91,8 @@ export function proxy(request: NextRequest) {
     `connect-src 'self'${development ? ' ws:' : ''}`,
     ...(development ? [] : ['upgrade-insecure-requests']),
   ].join('; ');
-  // Early hint only: no session cookie at all can never pass, so skip the
-  // render. Whether a cookie is a live session is decided per entrypoint
-  // (lib/access.ts), which rechecks the durable session every time.
-  if (
-    isGuardedPath(pathname) &&
-    !SESSION_COOKIES.some((name) => request.cookies.has(name))
-  ) {
-    const next = returnDestination(`${pathname}${request.nextUrl.search}`);
-    // Proxy redirects must be absolute. Behind TLS termination the request's
-    // own origin is plain HTTP, so the deployment's configured public origin
-    // (the one auth cookies and links already use) names the target.
-    const origin = process.env.PUBLIC_APP_URL ?? request.nextUrl.origin;
-    const response = NextResponse.redirect(
-      new URL(`/sign-in?next=${encodeURIComponent(next)}`, origin),
-    );
-    response.headers.set('Content-Security-Policy', policy);
-    response.headers.set('Cache-Control', 'no-store');
-    response.headers.set('x-request-id', requestId);
-    return response;
-  }
+  const hint = signInHint(request, policy, requestId);
+  if (hint) return hint;
   const headers = new Headers(request.headers);
   // Never trust caller-supplied identifiers; proxy ingress establishes correlation.
   headers.set('x-request-id', requestId);

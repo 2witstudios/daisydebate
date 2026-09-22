@@ -1,7 +1,7 @@
 import { Button } from '../../components/button/button';
 import { Icon } from '../../components/icon/icon';
 import { AuthFrame, AuthHeading, taglinePanel } from '../auth-frame/auth-frame';
-import { Notice } from '../notice/notice';
+import { CopyNotice } from '../notice/notice';
 import { usernameNotices } from './username-notices';
 import type { UsernameNotice } from './username-state';
 
@@ -75,11 +75,7 @@ export function UsernameForm({
             3 to 32 letters, numbers, underscores or hyphens.
           </p>
         </div>
-        {copy === undefined ? null : (
-          <Notice id={NOTICE_ID} tone={copy.tone} title={copy.title}>
-            {copy.body}
-          </Notice>
-        )}
+        <CopyNotice id={NOTICE_ID} copy={copy} />
       </form>
       <p role="status" className="sr-only">
         {pending ? 'Saving your username…' : ''}

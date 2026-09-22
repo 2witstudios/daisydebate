@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Icon, type IconName } from '../../components/icon/icon';
 import { noticeClass, noticeIconClass, type NoticeTone } from './notice-class';
+import type { NoticeCopy } from '../sign-in-notices';
 
 /** The icon that leads a notice: a warning for errors, a clock otherwise. */
 export const noticeIcon: Readonly<Record<NoticeTone, IconName>> = {
@@ -36,5 +37,20 @@ export function Notice({ id, tone, title, children }: NoticeProps) {
         {children === undefined ? null : <> {children}</>}
       </p>
     </div>
+  );
+}
+
+/** A written notice from a copy table, or nothing when there is none. */
+export function CopyNotice({
+  id,
+  copy,
+}: {
+  readonly id: string;
+  readonly copy: NoticeCopy | undefined;
+}) {
+  return copy === undefined ? null : (
+    <Notice id={id} tone={copy.tone} title={copy.title}>
+      {copy.body}
+    </Notice>
   );
 }

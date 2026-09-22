@@ -1,5 +1,6 @@
 import { createAppError } from '@daisy/errors';
 import { parseUsername, type Identity } from '@daisy/auth';
+import type { UsernameClaim } from '@daisy/db';
 import type { AuthRateLimiter } from '../auth/rate-limit';
 import {
   handleOperation,
@@ -9,11 +10,6 @@ import {
 
 /** Enough for a person retrying a typo; far below what enumerates names. */
 const CLAIM_RULE = { windowSeconds: 60, max: 10 } as const;
-
-type UsernameClaim = {
-  readonly kind:
-    'claimed' | 'unchanged' | 'taken' | 'already-set' | 'unknown-user';
-};
 
 type UsernameDependencies = {
   readonly origin: () => string;
@@ -44,6 +40,50 @@ const conflict = (
     { status: 409 },
   );
 
+/** Gate 4: one atomic decision per account; an outage fails closed. */
+async function consumeClaimLimit(limiter: AuthRateLimiter, userId: string) {
+  let decision: { readonly allowed: boolean };
+  try {
+    decision = await limiter.consume(`account:username:${userId}`, CLAIM_RULE);
+  } catch (error) {
+    throw createAppError('INFRASTRUCTURE', undefined, error);
+  }
+  if (!decision.allowed) throw createAppError('RATE_LIMIT');
+}
+
+/** The body is exactly `{ username }`: any other field is a refusal. */
+async function readClaimedName(request: Request): Promise<string> {
+  const body = await readJson(request);
+  const keys =
+    typeof body === 'object' && body !== null && !Array.isArray(body)
+      ? Object.keys(body)
+      : [];
+  if (keys.length !== 1 || keys[0] !== 'username')
+    throw createAppError('VALIDATION');
+  const parsed = parseUsername((body as { username: unknown }).username);
+  if (!parsed.ok) throw createAppError('VALIDATION');
+  return parsed.username;
+}
+
+const respond = (
+  outcome: UsernameClaim,
+  username: string,
+  id: string,
+): Response => {
+  switch (outcome.kind) {
+    case 'claimed':
+      return Response.json({ username }, { status: 201 });
+    case 'unchanged':
+      return Response.json({ username });
+    case 'taken':
+      return conflict('USERNAME_TAKEN', id);
+    case 'already-set':
+      return conflict('USERNAME_ALREADY_SET', id);
+    case 'unknown-user':
+      throw createAppError('AUTHENTICATION');
+  }
+};
+
 /**
  * POST /api/account/username: the only way an account acquires a username.
  * Gate order is ADR 0020: route (same origin), Principal (session cookie),
@@ -58,37 +98,12 @@ export function createUsernameHandler(dependencies: UsernameDependencies) {
       if (identity.principal.kind !== 'user')
         throw createAppError('AUTHENTICATION');
       const { userId } = identity.principal;
-      let decision: { readonly allowed: boolean };
-      try {
-        decision = await dependencies
-          .limiter()
-          .consume(`account:username:${userId}`, CLAIM_RULE);
-      } catch (error) {
-        throw createAppError('INFRASTRUCTURE', undefined, error);
-      }
-      if (!decision.allowed) throw createAppError('RATE_LIMIT');
-      const body = await readJson(request);
-      const keys =
-        typeof body === 'object' && body !== null ? Object.keys(body) : [];
-      if (keys.length !== 1 || keys[0] !== 'username')
-        throw createAppError('VALIDATION');
-      const parsed = parseUsername((body as { username: unknown }).username);
-      if (!parsed.ok) throw createAppError('VALIDATION');
-      const outcome = await dependencies.claim({
-        userId,
-        username: parsed.username,
-      });
-      switch (outcome.kind) {
-        case 'claimed':
-          return Response.json({ username: parsed.username }, { status: 201 });
-        case 'unchanged':
-          return Response.json({ username: parsed.username });
-        case 'taken':
-          return conflict('USERNAME_TAKEN', id);
-        case 'already-set':
-          return conflict('USERNAME_ALREADY_SET', id);
-        case 'unknown-user':
-          throw createAppError('AUTHENTICATION');
-      }
+      await consumeClaimLimit(dependencies.limiter(), userId);
+      const username = await readClaimedName(request);
+      return respond(
+        await dependencies.claim({ userId, username }),
+        username,
+        id,
+      );
     });
 }

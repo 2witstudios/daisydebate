@@ -1,4 +1,5 @@
 import { expect, type APIRequestContext } from '@playwright/test';
+import { createId } from '@paralleldrive/cuid2';
 import { resolveE2EOrigin, resolveE2EPorts } from '../../playwright.config';
 
 /**
@@ -10,9 +11,9 @@ import { resolveE2EOrigin, resolveE2EPorts } from '../../playwright.config';
 const mailBase = `http://127.0.0.1:${resolveE2EPorts(process.env).mail}`;
 export const origin = resolveE2EOrigin(process.env);
 
-let counter = 0;
+/** Collision-free test names: cuid2 is lowercase alphanumeric. */
 export const uniqueName = (prefix: string) =>
-  `${prefix}${Date.now().toString(36)}${(counter += 1)}`.slice(0, 30);
+  `${prefix}${createId().slice(0, 16)}`.slice(0, 30);
 export const freshEmail = () => `${uniqueName('e2e')}@example.test`;
 
 /** Rate limits are per client and the browser is one client. */

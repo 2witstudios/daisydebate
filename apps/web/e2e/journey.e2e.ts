@@ -99,6 +99,22 @@ test('anonymous visits are sent to sign-in and the whole loop ends on the protec
   await expect(
     page.getByRole('link', { name: `Account settings for ${mine}` }),
   ).toBeVisible();
+
+  // The durable session and the persisted identity survive a reload and a
+  // fresh request: the same account, with the username it claimed.
+  await page.reload();
+  await expect(
+    page.getByRole('link', { name: `Account settings for ${mine}` }),
+  ).toBeVisible();
+  const session = await page.request.get('/api/auth/get-session');
+  const body = (await session.json()) as {
+    user: { email: string; username: string; emailVerified: boolean };
+  };
+  expect({
+    email: body.user.email,
+    username: body.user.username,
+    verified: body.user.emailVerified,
+  }).toEqual({ email, username: mine, verified: true });
 });
 
 test('a redeemed link cannot be replayed', async ({ page, request }) => {

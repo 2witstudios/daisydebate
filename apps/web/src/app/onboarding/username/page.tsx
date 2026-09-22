@@ -1,8 +1,6 @@
 import type { Metadata } from 'next';
-import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { returnDestination } from '../../../features/access/decision';
-import { identify } from '../../../lib/identity';
+import { readAuthEntry } from '../../../lib/auth-entry';
 import { Onboarding } from '../../../ui/auth/onboarding/onboarding';
 
 export const metadata: Metadata = {
@@ -21,9 +19,7 @@ export default async function OnboardingUsernamePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const next = (await searchParams).next;
-  const destination = returnDestination(Array.isArray(next) ? next[0] : next);
-  const identity = await identify((await headers()).get('cookie'));
+  const { destination, identity } = await readAuthEntry(searchParams);
   if (identity.state === 'anonymous')
     redirect(
       `/sign-in?next=${encodeURIComponent(`/onboarding/username?next=${encodeURIComponent(destination)}`)}`,
