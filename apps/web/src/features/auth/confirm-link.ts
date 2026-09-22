@@ -1,4 +1,5 @@
 import { safeLocalDestination } from './redirect';
+import { buildWrappedConfirmLink } from './wrapped-confirm-link';
 
 /**
  * The emailed link opens a no-store confirmation page; the token is only
@@ -7,15 +8,8 @@ import { safeLocalDestination } from './redirect';
  * becomes our /lobby.
  */
 export function buildConfirmLink(origin: string, betterAuthUrl: string): URL {
-  const source = new URL(betterAuthUrl);
-  const link = new URL('/auth/confirm', origin);
-  link.searchParams.set('token', source.searchParams.get('token') ?? '');
-  const requested = source.searchParams.get('callbackURL');
-  link.searchParams.set(
-    'callbackURL',
-    safeLocalDestination(requested === '/' ? null : requested),
-  );
-  const newUser = source.searchParams.get('newUserCallbackURL');
+  const link = buildWrappedConfirmLink('/auth/confirm', origin, betterAuthUrl);
+  const newUser = new URL(betterAuthUrl).searchParams.get('newUserCallbackURL');
   if (newUser)
     link.searchParams.set('newUserCallbackURL', safeLocalDestination(newUser));
   return link;

@@ -96,15 +96,15 @@ function passkeyRemoved(url: string): RenderedAuthEmail {
 
 function emailChangeNotice(url: string): RenderedAuthEmail {
   return renderAuthEmailLayout({
-    subject: 'Your Daisy email is changing',
-    preheader: 'Someone asked to change the email on your Daisy account.',
+    subject: 'Approve email change on Daisy',
+    preheader: 'Open this link only if you asked to change your Daisy email.',
     eyebrow: 'Security update',
-    headline: 'Your account email is changing.',
+    headline: 'Approve this email change?',
     paragraphs: [
-      'Someone asked to change the email address on your Daisy account away from this address.',
-      'If this was you, no action is needed. If it was not, secure your account now.',
+      'Someone asked to change the email address on your Daisy account away from this one.',
+      'If that was you, open the link below to approve it and continue to the new address. If it was not you, do not open it: ignoring this message keeps your account exactly as it is.',
     ],
-    linkLabel: 'Secure your account',
+    linkLabel: 'Approve the change',
     url,
     footerNote: FOOTER_NOTE,
   });

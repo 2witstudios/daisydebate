@@ -8,7 +8,12 @@ import type { Clock, IdGenerator } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import { readAuthConfig, type AuthConfig } from '@daisy/config';
 import { buildConfirmLink } from './confirm-link';
+import {
+  sendChangeEmailConfirmation,
+  sendChangeEmailVerification,
+} from './change-email-mail';
 import { createMagicLinkGate } from './magic-link-gate';
+import { freshSessionGatePlugin } from './fresh-session-gate';
 import { recipientHash } from './mail';
 import { renderAuthEmail } from './mail/templates';
 import { unavailable } from './public-errors';
@@ -154,13 +159,25 @@ const composeBetterAuth = (dependencies: {
       // Onboarding is server-owned: the profile has no general update
       // surface, so the username is set only by POST /api/account/username.
       '/update-user',
-      '/change-email',
     ],
     user: {
       additionalFields: {
         // Readable on the session; `input: false` refuses any client value.
         username: { type: 'string', required: false, input: false },
       },
+      changeEmail: {
+        enabled: true,
+        sendChangeEmailConfirmation: sendChangeEmailConfirmation(
+          origin,
+          dependencies.deliver,
+        ),
+      },
+    },
+    emailVerification: {
+      sendVerificationEmail: sendChangeEmailVerification(
+        origin,
+        dependencies.deliver,
+      ),
     },
     plugins: [
       magicLink({
@@ -185,6 +202,7 @@ const composeBetterAuth = (dependencies: {
         origin,
       }),
       magicLinkGatePlugin,
+      freshSessionGatePlugin,
     ],
   });
   return {

@@ -1,12 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useReducer } from 'react';
+import { authClient } from '../../../lib/auth-client';
 import { onboardingHref, signInHref } from '../../../features/access/decision';
 import { SavePasskey } from '../save-passkey/save-passkey';
 import { createClaimUsername, type ClaimUsername } from './claim-username';
 import {
+  createPasskeyEnrollment,
   enrollSafely,
-  passkeyEnrollmentNotYetAvailable,
   type PasskeyEnrollmentSeam,
 } from './passkey-enrollment';
 import { UsernameForm } from './username-form';
@@ -19,6 +20,13 @@ import {
 const claimOverFetch: ClaimUsername = createClaimUsername((url, init) =>
   fetch(url, init),
 );
+const supportsPasskeys = () =>
+  typeof window !== 'undefined' &&
+  typeof window.PublicKeyCredential === 'function';
+const enrollOverAuthClient: PasskeyEnrollmentSeam = createPasskeyEnrollment({
+  client: authClient,
+  supportsPasskeys,
+});
 
 /**
  * Username onboarding, then the passkey offer. `destination` was validated by
@@ -29,7 +37,7 @@ const claimOverFetch: ClaimUsername = createClaimUsername((url, init) =>
 export function Onboarding({
   destination,
   claim = claimOverFetch,
-  passkeys = passkeyEnrollmentNotYetAvailable,
+  passkeys = enrollOverAuthClient,
 }: {
   readonly destination: string;
   readonly claim?: ClaimUsername;

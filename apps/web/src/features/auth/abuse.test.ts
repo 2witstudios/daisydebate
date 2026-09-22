@@ -29,7 +29,12 @@ describe('AUTH-3.1 composed Better Auth options', () => {
         },
         password: false,
         ipHeaders: [CLIENT_IP_HEADER],
-        plugins: ['daisy-magic-link-gate', 'magic-link', 'passkey'],
+        plugins: [
+          'daisy-fresh-session-gate',
+          'daisy-magic-link-gate',
+          'magic-link',
+          'passkey',
+        ],
       },
     });
   });
