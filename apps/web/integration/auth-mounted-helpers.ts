@@ -205,6 +205,10 @@ export const counts = (email: string) =>
 
 export const removeAccount = (email: string) =>
   withSql(async (sql) => {
+    // A completed username claim provisions this account's human actor
+    // (ACTOR-1, ADR 0029); actors.user_id is RESTRICT, so it must go before
+    // the user row or teardown fails on whichever fixture claimed a name.
+    await sql`DELETE FROM actors WHERE user_id IN (SELECT id FROM users WHERE email = ${email})`;
     await sql`DELETE FROM users WHERE email = ${email}`;
     await sql`DELETE FROM verification WHERE value LIKE ${`%${email}%`}`;
   });

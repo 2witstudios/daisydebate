@@ -8,8 +8,8 @@ import {
   type FormatRules,
 } from '@daisy/protocol';
 import { users } from './schema/users';
-import { actors } from './schema/actors';
 import { claimUsername } from './username-claim';
+import { actorOperations, queryActorByUserId } from './actor-operations';
 import { formats } from './schema/formats';
 import { debates, type DebateOutcome } from './schema/debates';
 import {
@@ -39,6 +39,7 @@ export {
 } from './outbox';
 export { outbox } from './schema/outbox';
 export type { UsernameClaim } from './username-claim';
+export type { ActorRecord } from './actor-operations';
 export type FormatRecord = {
   readonly id: string;
   readonly rules: FormatRules;
@@ -54,12 +55,22 @@ export function createDatabase({
   maxConnections = 10,
   eventSink,
   client: injectedClient,
+  nextActorId,
 }: {
   url: string;
   maxConnections?: number;
   eventSink?: DatabaseEventSink;
   /** Overrides dialing `url`; tests inject a scripted client at this seam. */
   client?: SQL;
+  /**
+   * The cuid2 source for actor rows created at onboarding (ACTOR-1). Required,
+   * not defaulted: every caller states its id strategy explicitly rather than
+   * silently falling back to an ambient one. The application edge injects its
+   * clock/id source (`@daisy/clock`'s `systemId.next`); a caller with no
+   * production writes of its own (a read-only script, a fixture) still names
+   * one, such as `@paralleldrive/cuid2`'s `createId` directly.
+   */
+  nextActorId: () => string;
 }) {
   const client =
     injectedClient ??
@@ -83,25 +94,26 @@ export function createDatabase({
   const reportFailure = (operation: string) =>
     eventSink?.('db.query.failed', { operation }, 'Database query failed');
   /**
-   * Plan revision 4.10 (ACTOR-1 pending): revocation rows are keyed by
-   * `actors.id`, never `users.id`, but nothing creates an actor row for a
-   * signed-up user yet (only test fixtures). Resolves the seam ACTOR-1 will
-   * populate; a missing actor is a known, logged gap, not a thrown error.
+   * Plan revision 4.10: revocation rows are keyed by `actors.id`, never
+   * `users.id`. `claimUsername` inserts the actor when a username claim
+   * succeeds (ACTOR-1), so a user who never claimed a username is the only
+   * one with no actor row; that is a known, permanent case, not a thrown
+   * error. Shares its query with `getActorByUserId`
+   * (`actor-operations.ts`'s `queryActorByUserId`) — one lookup, not a
+   * second hand-rolled one — passing this call's own `tx` so the read joins
+   * whatever write follows in the same transaction.
    */
   const findActorId = async (
     tx: Pick<typeof database, 'select'>,
     userId: string,
     operation: string,
   ): Promise<string | null> => {
-    const [actor] = await tx
-      .select({ id: actors.id })
-      .from(actors)
-      .where(eq(actors.userId, userId));
+    const actor = await queryActorByUserId(tx, userId);
     if (!actor)
       eventSink?.(
         'realtime.outbox.actor_missing',
         { operation },
-        'No actor row for this user; revocation outbox row not appended (ACTOR-1 pending)',
+        'No actor row for this user (never claimed a username); revocation outbox row not appended',
       );
     return actor?.id ?? null;
   };
@@ -120,8 +132,8 @@ export function createDatabase({
      * revoke endpoints). Never wraps the delete itself.
      *
      * Plan revision 4.10: resolves the actor through `actors.user_id` (never
-     * keys anything by `userId`); until ACTOR-1 backfills, a user with no
-     * actor row appends nothing and logs `realtime.outbox.actor_missing`.
+     * keys anything by `userId`); a user with no actor row (never claimed a
+     * username) appends nothing and logs `realtime.outbox.actor_missing`.
      */
     async appendSessionRevoked(userId: string) {
       try {
@@ -153,6 +165,7 @@ export function createDatabase({
       await client.close({ timeout: 5 });
     },
     ...emailDeliveryOperations({ database, reportFailure }),
+    ...actorOperations({ database, reportFailure }),
     async purgeExpiredOutboxEvents(input: { before: string; limit: number }) {
       try {
         return await purgeExpiredOutboxEvents(database, input);
@@ -173,7 +186,7 @@ export function createDatabase({
     },
     /** Server-owned onboarding claim; see `claimUsername`. */
     claimUsername: (input: { userId: string; username: string }) =>
-      claimUsername(database, input, reportFailure),
+      claimUsername(database, input, nextActorId, reportFailure),
     /**
      * Revokes every session for `userId` except `keepToken` in one atomic
      * DELETE — no snapshot-then-delete round trips, so a session created
@@ -185,9 +198,9 @@ export function createDatabase({
      * here rolls the DELETE back too, rather than being swallowed
      * best-effort. Returns the number of sessions removed.
      *
-     * Plan revision 4.10: resolves the actor through `actors.user_id`; until
-     * ACTOR-1 backfills, a user with no actor row still has its sessions
-     * revoked, but appends nothing and logs
+     * Plan revision 4.10: resolves the actor through `actors.user_id`; a
+     * user with no actor row (never claimed a username) still has its
+     * sessions revoked, but appends nothing and logs
      * `realtime.outbox.actor_missing` instead.
      */
     async revokeOtherSessions(

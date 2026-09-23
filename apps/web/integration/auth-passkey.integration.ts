@@ -78,7 +78,7 @@ const rowCount = async (query: string, params: unknown[]) => {
 };
 
 test('passkey records round-trip through the Better Auth adapter on the shared pool', async () => {
-  const database = createDatabase({ url });
+  const database = createDatabase({ url, nextActorId: createId });
   const adapter = await runtimeAdapter(database);
   const fixture = new SQL(url);
   let userId: string | undefined;

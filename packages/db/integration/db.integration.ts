@@ -14,7 +14,7 @@ test('durable records survive reconnect; optimistic writes reject stale updates'
   const userId = createId();
   const actorId = createId();
   const formatId = `fmt-${createId()}`;
-  const database = createDatabase({ url });
+  const database = createDatabase({ url, nextActorId: createId });
   const fixture = new SQL(url);
   try {
     expect(await database.health()).toBe(true);
@@ -33,7 +33,7 @@ test('durable records survive reconnect; optimistic writes reject stale updates'
       visibility: 'unlisted',
     });
     await database.close();
-    const reopened = createDatabase({ url });
+    const reopened = createDatabase({ url, nextActorId: createId });
     try {
       const stored = await reopened.getDebate(id);
       expect(stored?.snapshot).toEqual({ version: 1, id, phase: 'waiting' });

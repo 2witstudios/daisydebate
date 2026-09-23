@@ -28,7 +28,7 @@ const cleanup = async (messageIds: string[], hashes: string[]) => {
 test('delivery events dedupe, never lower status, and suppress only after hard failure', async () => {
   const messageId = `msg-${createId()}`;
   const hash = `hash-${createId()}`;
-  const database = createDatabase({ url });
+  const database = createDatabase({ url, nextActorId: createId });
   try {
     await database.recordEmailDelivery({
       providerMessageId: messageId,
@@ -88,7 +88,7 @@ test('delivery events dedupe, never lower status, and suppress only after hard f
 });
 
 test('an event for an unrecorded message is retryable and leaves no dedupe row', async () => {
-  const database = createDatabase({ url });
+  const database = createDatabase({ url, nextActorId: createId });
   const eventId = `evt-${createId()}`;
   const messageId = `msg-${createId()}`;
   try {

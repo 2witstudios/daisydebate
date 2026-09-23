@@ -163,16 +163,16 @@ describe('AUTH-5.4 recover from a lost passkey through verified email', () => {
 
     const originalIdentity = await flows.account.sessionAs(originalCookie);
     const userId = userIdOf(originalIdentity.identity)!;
-    // Debate history hangs off the competitive `actors` table (ADR 0029),
-    // separate from the Better Auth account; production has no actor-
-    // provisioning wired up yet, so the fixture provisions this account's
-    // actor row directly to give it debate history to prove unchanged.
-    const actorId = createId();
-    await withSql(
-      (sql) =>
-        sql`INSERT INTO actors (id, kind, user_id) VALUES (${actorId}, 'human', ${userId})`,
-    );
-    const database = createDatabase({ url: testDatabaseUrl as string });
+    // Debate history hangs off the competitive `actors` table (ADR 0029);
+    // the username claim above already provisioned this account's human
+    // actor in the same transaction (ACTOR-1), so the fixture only reads it
+    // to give the account debate history to prove unchanged.
+    const database = createDatabase({
+      url: testDatabaseUrl as string,
+      nextActorId: createId,
+    });
+    const actor = await database.getActorByUserId(userId);
+    const actorId = actor!.id;
     const debateId = createId();
     await database.createDebate({
       id: debateId,

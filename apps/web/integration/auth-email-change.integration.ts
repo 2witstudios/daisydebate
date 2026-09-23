@@ -92,11 +92,12 @@ const cleanupOutboxFor = (actorId: string) =>
   );
 
 /**
- * Plan revision 4.10 (ACTOR-1 pending): the outbox append only runs once
- * the actor resolves through `actors.user_id`, and nothing in the signup
- * path creates one yet, so this fixture stands in for ACTOR-1's onboarding
- * insert until that leaf lands. Revocation rows are keyed by `actors.id`,
- * never `userId`, so this returns the actor id the append will use.
+ * Plan revision 4.10: the outbox append only runs once the actor resolves
+ * through `actors.user_id`, and this suite's accounts sign up without ever
+ * claiming a username (an unrelated surface to email-change revocation), so
+ * it inserts the actor directly rather than going through the onboarding
+ * route. Revocation rows are keyed by `actors.id`, never `userId`, so this
+ * returns the actor id the append will use.
  */
 const createActorFor = async (userId: string): Promise<string> => {
   const actorId = createId();
