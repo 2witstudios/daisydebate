@@ -144,7 +144,8 @@ schema)` cannot be declared without a zod schema; every write is parsed
    reference that key.
 10. **Reference data ships in migrations only.** The baseline inserts the
     `foundation` format; later reference rows arrive in forward migrations.
-    `bun db:seed` writes only the dev fixture. `scripts/reference-formats.ts`
+    `bun db:seed` writes only the dev fixture, through `@daisy/db/dev-seed`'s
+    `applyDevSeed` adapter operation (ISSUE-8 AC4). `scripts/reference-formats.ts`
     mirrors the rows for tooling that runs without a database, and a test
     fails when the mirror and the migrations disagree.
 11. **The browser suite has its own database (ISSUE-17).** Each slot has a

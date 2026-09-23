@@ -121,7 +121,7 @@ const writeTime = sql`statement_timestamp()`;
  * snapshot that names an actor already seated in one is refused before
  * anything is written.
  */
-async function projectParticipants(
+export async function projectParticipants(
   tx: Tx,
   snapshot: DebateSnapshot,
 ): Promise<void> {
