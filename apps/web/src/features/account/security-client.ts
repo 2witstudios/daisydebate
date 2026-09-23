@@ -1,3 +1,5 @@
+import type { ClientError } from '../auth/client-error';
+
 /** Better Auth's stored passkey row, as `listUserPasskeys` returns it. */
 export type PasskeyRow = {
   readonly id: string;
@@ -17,10 +19,6 @@ export type SessionRow = {
   readonly ipAddress?: string | null | undefined;
 };
 
-type ClientError = {
-  readonly status?: number | undefined;
-  readonly code?: string | undefined;
-} | null;
 type Result<T> = Promise<{
   readonly data: T | null;
   readonly error: ClientError;
@@ -107,60 +105,37 @@ export const renamePasskey = async (
   client: SecurityClient,
   id: string,
   name: string,
-): Promise<SecurityOutcome> => {
-  try {
-    return outcomeFor((await client.passkey.updatePasskey({ id, name })).error);
-  } catch {
-    return { kind: 'unavailable' };
-  }
-};
+): Promise<SecurityOutcome> =>
+  outcomeFor((await safely(() => client.passkey.updatePasskey({ id, name }))).error);
 
 export const removePasskey = async (
   client: SecurityClient,
   id: string,
-): Promise<SecurityOutcome> => {
-  try {
-    return outcomeFor((await client.passkey.deletePasskey({ id })).error);
-  } catch {
-    return { kind: 'unavailable' };
-  }
-};
+): Promise<SecurityOutcome> =>
+  outcomeFor((await safely(() => client.passkey.deletePasskey({ id }))).error);
 
 export const revokeSession = async (
   client: SecurityClient,
   token: string,
-): Promise<SecurityOutcome> => {
-  try {
-    return outcomeFor((await client.revokeSession({ token })).error);
-  } catch {
-    return { kind: 'unavailable' };
-  }
-};
+): Promise<SecurityOutcome> =>
+  outcomeFor((await safely(() => client.revokeSession({ token }))).error);
 
 export const revokeOtherSessions = async (
   client: SecurityClient,
-): Promise<SecurityOutcome> => {
-  try {
-    return outcomeFor((await client.revokeOtherSessions()).error);
-  } catch {
-    return { kind: 'unavailable' };
-  }
-};
+): Promise<SecurityOutcome> =>
+  outcomeFor((await safely(() => client.revokeOtherSessions())).error);
 
 export const requestEmailChange = async (
   client: SecurityClient,
   newEmail: string,
-): Promise<SecurityOutcome> => {
-  try {
-    return outcomeFor(
-      (
-        await client.changeEmail({
+): Promise<SecurityOutcome> =>
+  outcomeFor(
+    (
+      await safely(() =>
+        client.changeEmail({
           newEmail,
           callbackURL: '/settings/security',
-        })
-      ).error,
-    );
-  } catch {
-    return { kind: 'unavailable' };
-  }
-};
+        }),
+      )
+    ).error,
+  );
