@@ -4,12 +4,14 @@
  * raw lines, never stripped of markup, so placeholders such as
  * `debate:&lt;id&gt;:presence` survive.
  */
+import { createHash } from 'node:crypto';
 
 type RelatedRef = { readonly label: string; readonly id: string };
 export type RelatedEntry = RelatedRef & { readonly title: string };
 
 export type BoardCommand =
   | { readonly command: 'read'; readonly pageId: string }
+  | { readonly command: 'hash'; readonly pageId: string }
   | {
       readonly command: 'status';
       readonly pageId: string;
@@ -38,17 +40,27 @@ export type BoardCommand =
       readonly expectLines: number;
       readonly file: string;
       readonly oldFile: string | undefined;
+      readonly expectHash: string | undefined;
     };
 
 const BOARD_USAGE = [
   'bun board:read <pageId>',
+  'bun board:hash <pageId>',
   'bun board:status <taskPageId> <status-slug>',
   'bun board:relate <pageId> <Label> <targetPageId>',
   'bun board:create <taskListPageId> [--issue | --prefix <CODE>] --title "<Given X, should Y>" [--criterion "<Given A, should B>"]... [--related Label=<pageId>]...',
-  'bun board:replace <pageId> --start N --end M --expect-lines L --file <new.html> [--old-file <old.html>]',
+  'bun board:replace <pageId> --start N --end M --expect-lines L --file <new.html> [--old-file <old.html>] [--expect-hash <board:hash>]',
 ].join('\n');
 
 const PAGE_ID = /^[a-z0-9]{20,32}$/;
+const HASH = /^[0-9a-f]{64}$/;
+
+/**
+ * SHA3-256 of a page's content: the concurrency guard, since the server
+ * checks only the line count and an edit can keep it.
+ */
+export const contentHash = (text: string): string =>
+  createHash('sha3-256').update(text).digest('hex');
 const SLUG = /^[a-z][a-z0-9_-]*$/;
 
 type Parsed = BoardCommand | { readonly error: string };
@@ -111,8 +123,10 @@ function parseReplace(args: readonly string[]): Parsed {
     number('--expect-lines'),
   ];
   const file = values.get('--file')?.[0];
+  const expectHash = values.get('--expect-hash')?.[0];
   const valid =
     PAGE_ID.test(pageId ?? '') &&
+    (expectHash === undefined || HASH.test(expectHash)) &&
     [start, end, expectLines].every(Number.isInteger) &&
     start >= 1 &&
     end >= start &&
@@ -126,6 +140,7 @@ function parseReplace(args: readonly string[]): Parsed {
         expectLines,
         file,
         oldFile: values.get('--old-file')?.[0],
+        expectHash,
       }
     : fail(
         'replace needs a page id, --start, --end, --expect-lines and --file',
@@ -140,6 +155,8 @@ const pageCommands: Readonly<
 > = {
   read: (pageId, rest) =>
     rest.length === 0 ? { command: 'read', pageId } : undefined,
+  hash: (pageId, rest) =>
+    rest.length === 0 ? { command: 'hash', pageId } : undefined,
   status: (pageId, [status = '', ...extra]) =>
     SLUG.test(status) && extra.length === 0
       ? { command: 'status', pageId, status }
@@ -258,8 +275,14 @@ export function checkReplace(
     readonly end: number;
     readonly expectLines: number;
     readonly oldText?: string;
+    readonly expectHash?: string;
   },
 ): string | undefined {
+  if (
+    input.expectHash !== undefined &&
+    contentHash(current) !== input.expectHash
+  )
+    return 'The page changed since you read it (content hash differs). Read it again.';
   const lines = current.split('\n');
   if (lines.length !== input.expectLines)
     return `The page has ${lines.length} lines, not ${input.expectLines}: someone edited it. Read it again.`;
