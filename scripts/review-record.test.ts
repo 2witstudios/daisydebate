@@ -1,7 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   declaredBuilder,
+  commentBodies,
+  DAISY_DRIVE,
   linkedPageIds,
+  recordFromPage,
   verifyReviewRecord,
   type RecordPage,
 } from './review-record';
@@ -366,6 +369,37 @@ describe('verifyReviewRecord', () => {
         `${url}/rec1111111111111111111111 https://pagespace.ai/dashboard/otherdrive0000000000000/rec3333333333333333333333`,
       ]),
       expected: ['rec1111111111111111111111'],
+    });
+  });
+
+  test('refuses a fetched page that lives in another drive', () => {
+    assert({
+      given:
+        'a page fetched through a Daisy link, from the Daisy drive and from another drive',
+      should: 'keep the Daisy page and treat the other as unreadable',
+      actual: [
+        recordFromPage('rec1111111111111111111111', {
+          title: 't',
+          content: 'c',
+          driveId: DAISY_DRIVE,
+        })?.id,
+        recordFromPage('rec1111111111111111111111', {
+          title: 't',
+          content: 'c',
+          driveId: 'otherdrive0000000000000',
+        }),
+      ],
+      expected: ['rec1111111111111111111111', undefined],
+    });
+  });
+
+  test('reads comment bodies from every page of a paginated response', () => {
+    assert({
+      given:
+        'two pages of issue comments, as gh api --paginate --slurp returns them',
+      should: 'return every body in order',
+      actual: commentBodies([[{ body: 'a' }, { body: 'b' }], [{ body: 'c' }]]),
+      expected: ['a', 'b', 'c'],
     });
   });
 });

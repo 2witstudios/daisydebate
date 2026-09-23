@@ -202,6 +202,29 @@ function ghJson<T>(args: readonly string[]): T {
   return JSON.parse(result.stdout) as T;
 }
 
+type FetchedPage = {
+  readonly title?: string;
+  readonly content?: string;
+  readonly driveId?: string;
+};
+
+/**
+ * A fetched page as a record, or undefined when it lives outside the Daisy
+ * drive: a Daisy-drive link naming another drive's page is not trusted.
+ */
+export const recordFromPage = (
+  id: string,
+  page: FetchedPage,
+): RecordPage | undefined =>
+  page.driveId === DAISY_DRIVE
+    ? { id, title: page.title ?? '', content: page.content ?? '' }
+    : undefined;
+
+/** Every comment body across the pages gh api --paginate --slurp returns. */
+export const commentBodies = (
+  pages: readonly (readonly { readonly body: string }[])[],
+): string[] => pages.flat().map((comment) => comment.body);
+
 /** A linked page, or undefined when it cannot be read or is not Daisy's. */
 async function readRecord(id: string): Promise<RecordPage | undefined> {
   const { apiUrl, headers } = pagespaceApi();
@@ -211,14 +234,7 @@ async function readRecord(id: string): Promise<RecordPage | undefined> {
       redirect: 'error',
     });
     if (!response.ok) return undefined;
-    const page = (await response.json()) as {
-      title?: string;
-      content?: string;
-      driveId?: string;
-    };
-    return page.driveId === DAISY_DRIVE
-      ? { id, title: page.title ?? '', content: page.content ?? '' }
-      : undefined;
+    return recordFromPage(id, (await response.json()) as FetchedPage);
   } catch {
     return undefined;
   }
@@ -229,17 +245,22 @@ export async function main(repository: string, prNumber: number) {
     'api',
     `repos/${repository}/pulls/${prNumber}`,
   ]);
-  const comments = ghJson<{ body: string }[]>([
-    'api',
-    '--paginate',
-    `repos/${repository}/issues/${prNumber}/comments`,
-  ]);
+  // --slurp wraps every page in one array; without it, more than one page
+  // of comments prints several arrays and cannot be parsed.
+  const comments = commentBodies(
+    ghJson<{ body: string }[][]>([
+      'api',
+      '--paginate',
+      '--slurp',
+      `repos/${repository}/issues/${prNumber}/comments`,
+    ]),
+  );
   const pr = {
     number: prNumber,
     headSha: pull.head.sha,
     body: pull.body ?? '',
   };
-  const ids = linkedPageIds([pr.body, ...comments.map((c) => c.body)]);
+  const ids = linkedPageIds([pr.body, ...comments]);
   const read = await Promise.all(ids.map(readRecord));
   const records = read.filter(
     (record): record is RecordPage => record !== undefined,
