@@ -33,16 +33,17 @@ test('deletes exactly one namespace by SCAN and UNLINK, never FLUSH*', async () 
     main: [`${prefix}:v1:x`],
   };
   try {
-    for (const key of [...keys.target, ...keys.sibling, ...keys.main])
-      await redis.client.send('SET', [key, '1', 'EX', '60']);
-    // More keys than one SCAN page, so the cursor loop is exercised.
-    for (let index = 0; index < 1200; index += 1)
-      await redis.client.send('SET', [
-        `${prefix}-wt-a:v1:bulk${index}`,
-        '1',
-        'EX',
-        '60',
-      ]);
+    // More keys than one SCAN page, so the cursor loop is exercised. Issued
+    // together so Bun pipelines them instead of paying one round trip each.
+    const bulk = Array.from(
+      { length: 1200 },
+      (_, index) => `${prefix}-wt-a:v1:bulk${index}`,
+    );
+    await Promise.all(
+      [...keys.target, ...keys.sibling, ...keys.main, ...bulk].map((key) =>
+        redis.client.send('SET', [key, '1', 'EX', '60']),
+      ),
+    );
 
     expect(await listNamespaces(redis, `${prefix}-wt-`)).toEqual([
       `${prefix}-wt-a`,
