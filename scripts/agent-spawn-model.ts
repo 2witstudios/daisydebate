@@ -18,7 +18,7 @@ export type SpawnPlan = {
   readonly rest: readonly string[];
 };
 
-export const SPAWN_USAGE =
+const SPAWN_USAGE =
   'usage: bun agent:spawn [--task <leafPageId>] [--role builder|reviewer] [--cap N] [--override] -- -n <name> [-b <base>] [-a <agent>] [pu spawn options] "<prompt>"';
 
 const DEFAULT_CAP = 3;
@@ -172,21 +172,59 @@ export function supersededTerms(
   );
 }
 
-/** Where Claude Code writes the transcript of a session started in cwd. */
-export const transcriptPath = (
-  home: string,
-  cwd: string,
-  sessionId: string,
-): string =>
-  `${home}/.claude/projects/${cwd.replace(/[^A-Za-z0-9]/g, '-')}/${sessionId}.jsonl`;
+/** Where Claude Code keeps the transcripts of sessions started in cwd. */
+export const projectDir = (home: string, cwd: string): string =>
+  `${home}/.claude/projects/${cwd.replace(/[^A-Za-z0-9]/g, '-')}`;
 
-/** User turns in a transcript; zero means the prompt was never submitted. */
-export function userTurns(transcript: string): number {
+const userText = (entry: {
+  readonly message?: { readonly content?: unknown };
+}): string => {
+  const content = entry.message?.content;
+  if (typeof content === 'string') return content;
+  return Array.isArray(content)
+    ? content
+        .map((part) => (part as { text?: unknown }).text)
+        .filter((text): text is string => typeof text === 'string')
+        .join('\n')
+    : '';
+};
+
+/**
+ * User turns in a transcript that carry the text. A session can continue
+ * under a new id, so submission is confirmed by content across the agent's
+ * transcripts rather than by one session file.
+ */
+export function userTurnsWith(transcript: string, text: string): number {
+  const needle = text.trim().slice(0, 80);
   return transcript.split('\n').filter((line) => {
     try {
-      return (JSON.parse(line) as { type?: string }).type === 'user';
+      const entry = JSON.parse(line) as { type?: string };
+      return entry.type === 'user' && userText(entry).includes(needle);
     } catch {
       return false;
     }
   }).length;
+}
+
+type StatusAgents = {
+  readonly worktrees?: readonly {
+    readonly path: string;
+    readonly agents?: Readonly<Record<string, unknown>>;
+  }[];
+  readonly agents?: readonly { readonly id: string }[];
+};
+
+/** The working directory of an agent: its worktree, or the main checkout. */
+export function agentCwd(
+  status: StatusAgents,
+  agentId: string,
+  mainCheckout: string,
+): string | undefined {
+  const worktree = status.worktrees?.find((w) =>
+    Object.hasOwn(w.agents ?? {}, agentId),
+  );
+  if (worktree) return worktree.path;
+  return status.agents?.some((agent) => agent.id === agentId)
+    ? mainCheckout
+    : undefined;
 }

@@ -13,17 +13,24 @@
  * resolves the child id from `pu status --json`, and confirms the prompt
  * reached the transcript, nudging with an empty `pu send` when it did not.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
 import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import {
   activeBuilders,
   findPrerequisites,
   parseSpawnArgs,
   prerequisiteBlockers,
   supersededTerms,
-  transcriptPath,
-  userTurns,
+  agentCwd,
+  projectDir,
+  userTurnsWith,
   type Role,
   type SpawnPlan,
   type SupersededTerm,
@@ -36,7 +43,10 @@ export type SpawnDeps = {
   readonly read: (path: string) => string | undefined;
   readonly write: (path: string, text: string) => void;
   readonly sleep: (ms: number) => Promise<void>;
+  /** Transcript files (.jsonl) in a Claude Code projects directory. */
+  readonly list: (dir: string) => readonly string[];
   readonly home: string;
+  readonly mainCheckout: string;
   readonly repoRoot: string;
   readonly parentId: string | undefined;
   readonly autonomous: boolean;
@@ -47,7 +57,6 @@ type Agent = {
   readonly id: string;
   readonly agentType?: string;
   readonly status?: string;
-  readonly sessionId?: string;
 };
 type Worktree = {
   readonly id: string;
@@ -55,7 +64,10 @@ type Worktree = {
   readonly branch: string;
   readonly agents?: Readonly<Record<string, Agent>>;
 };
-type Status = { readonly worktrees?: readonly Worktree[] };
+type Status = {
+  readonly worktrees?: readonly Worktree[];
+  readonly agents?: readonly { readonly id: string }[];
+};
 
 class SpawnRefused extends Error {}
 
@@ -164,32 +176,62 @@ function newAgent(before: Status, after: Status, worktreeId: string) {
   );
 }
 
+function turnsWith(deps: SpawnDeps, cwd: string, text: string): number {
+  return deps
+    .list(projectDir(deps.home, cwd))
+    .reduce((sum, file) => sum + userTurnsWith(deps.read(file) ?? '', text), 0);
+}
+
 async function turnsWhen(
   deps: SpawnDeps,
-  path: string,
+  count: () => number,
   done: (turns: number) => boolean,
 ): Promise<number> {
   let turns = 0;
   for (let poll = 0; poll < POLLS; poll += 1) {
-    turns = userTurns(deps.read(path) ?? '');
+    turns = count();
     if (done(turns)) return turns;
     await deps.sleep(POLL_MS);
   }
   return turns;
 }
 
-/** Waits for the transcript to gain a user turn, nudging once if needed. */
-export async function confirmSubmitted(
+/**
+ * Waits for the text to appear as a new user turn in the agent's
+ * transcripts, nudging once with an empty pu send when it does not.
+ */
+async function confirmSubmitted(
   deps: SpawnDeps,
   agentId: string,
-  transcript: string,
+  cwd: string,
+  text: string,
   before: number,
 ): Promise<boolean> {
+  const count = () => turnsWith(deps, cwd, text);
   const grew = (turns: number) => turns > before;
-  if (grew(await turnsWhen(deps, transcript, grew))) return true;
+  if (grew(await turnsWhen(deps, count, grew))) return true;
   deps.out(`${agentId}: text not submitted; nudging with an empty pu send\n`);
   deps.run(['pu', 'send', agentId, '']);
-  return grew(await turnsWhen(deps, transcript, grew));
+  return grew(await turnsWhen(deps, count, grew));
+}
+
+const PU_VALUE_FLAGS = new Set([
+  '--file',
+  '--template',
+  '--var',
+  '--command',
+  '--trigger',
+]);
+
+/** The prompt text a pu spawn sends, when it can be known. */
+function promptText(deps: SpawnDeps, rest: readonly string[]) {
+  let text: string | undefined;
+  for (let index = 0; index < rest.length; index += 1) {
+    if (rest[index] === '--file') text = deps.read(rest[index + 1] ?? '');
+    if (PU_VALUE_FLAGS.has(rest[index])) index += 1;
+    else if (!rest[index].startsWith('-')) text = rest[index];
+  }
+  return text?.trim() || undefined;
 }
 
 function setUp(deps: SpawnDeps, worktree: Worktree, role: Role) {
@@ -234,9 +276,15 @@ async function spawnChecked(deps: SpawnDeps, plan: SpawnPlan): Promise<number> {
   deps.out(
     `spawned ${agent.id} in ${worktree.path} (parent ${deps.parentId ?? 'owner'})\n`,
   );
-  if (plan.agent !== 'claude' || !agent.sessionId) return 0;
-  const transcript = transcriptPath(deps.home, worktree.path, agent.sessionId);
-  const submitted = await confirmSubmitted(deps, agent.id, transcript, 0);
+  const prompt = promptText(deps, plan.rest);
+  if (plan.agent !== 'claude' || !prompt) return 0;
+  const submitted = await confirmSubmitted(
+    deps,
+    agent.id,
+    worktree.path,
+    prompt,
+    0,
+  );
   deps.out(
     `${agent.id}: prompt ${submitted ? 'submitted' : 'NOT confirmed; check pu logs'}\n`,
   );
@@ -267,22 +315,18 @@ export async function sendConfirmed(
   agentId: string,
   text: string,
 ): Promise<number> {
-  const worktree = puStatus(deps).worktrees?.find((w) =>
-    Object.hasOwn(w.agents ?? {}, agentId),
-  );
-  const agent = worktree?.agents?.[agentId];
-  const transcript =
-    worktree && agent?.sessionId
-      ? transcriptPath(deps.home, worktree.path, agent.sessionId)
-      : undefined;
-  const before = transcript ? userTurns(deps.read(transcript) ?? '') : 0;
-  if (deps.run(['pu', 'send', agentId, text]).code !== 0) return 1;
-  if (!transcript) {
-    deps.run(['pu', 'send', agentId, '']);
-    deps.out(`${agentId}: no transcript to confirm against; nudged once\n`);
-    return 0;
+  const cwd = agentCwd(puStatus(deps), agentId, deps.mainCheckout);
+  if (!cwd || text.trim() === '') {
+    deps.out(
+      cwd
+        ? 'usage: bun agent:send <agent> "<text>"\n'
+        : `pu status does not list ${agentId}\n`,
+    );
+    return cwd ? 2 : 1;
   }
-  const submitted = await confirmSubmitted(deps, agentId, transcript, before);
+  const before = turnsWith(deps, cwd, text);
+  if (deps.run(['pu', 'send', agentId, text]).code !== 0) return 1;
+  const submitted = await confirmSubmitted(deps, agentId, cwd, text, before);
   deps.out(
     `${agentId}: ${submitted ? 'submitted' : 'NOT confirmed; check pu logs'}\n`,
   );
@@ -306,7 +350,21 @@ if (import.meta.main) {
       writeFileSync(path, text);
     },
     sleep: (ms) => Bun.sleep(ms),
+    list: (dir) =>
+      existsSync(dir)
+        ? readdirSync(dir)
+            .filter((name) => name.endsWith('.jsonl'))
+            .map((name) => join(dir, name))
+        : [],
     home: homedir(),
+    mainCheckout: dirname(
+      Bun.spawnSync(
+        ['git', 'rev-parse', '--path-format=absolute', '--git-common-dir'],
+        { cwd: repoRoot, stdout: 'pipe' },
+      )
+        .stdout.toString()
+        .trim(),
+    ),
     repoRoot,
     parentId: process.env.PU_AGENT_ID || undefined,
     autonomous: process.env.DAISY_AUTONOMOUS === '1',

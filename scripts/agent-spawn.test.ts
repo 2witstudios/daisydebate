@@ -5,9 +5,10 @@ setupRitewayBun();
 
 const repo = '/repo';
 const newPath = '/repo/.pu/worktrees/wt-new';
-const transcript =
-  '/home/.claude/projects/-repo--pu-worktrees-wt-new/sess-new.jsonl';
-const userLine = '{"type":"user","message":{"role":"user"}}';
+const projects = '/home/.claude/projects/-repo--pu-worktrees-wt-new';
+const transcript = `${projects}/sess-new.jsonl`;
+const userLine = (text: string) =>
+  JSON.stringify({ type: 'user', message: { role: 'user', content: text } });
 const leafId = 'tmzz7plnnrlz21d6qyyjp8sq';
 const terms = JSON.stringify([
   { pattern: '\\bUUIDs?\\b', term: 'UUID', adr: '0018', use: 'cuid2' },
@@ -77,12 +78,19 @@ function fakeMachine(
         };
       files.set(
         transcript,
-        options.submitsOnSpawn ? userLine : '{"type":"mode"}',
+        options.submitsOnSpawn
+          ? userLine(String(args.at(-1)))
+          : '{"type":"mode"}',
       );
       return { code: 0, stdout: '' };
     }
     if (key === 'pu send') {
-      files.set(transcript, `${files.get(transcript) ?? ''}\n${userLine}`);
+      // An empty send presses Enter on the prompt that sat unsubmitted.
+      const text = args[3] === '' ? 'Run the task' : String(args[3]);
+      files.set(
+        transcript,
+        `${files.get(transcript) ?? ''}\n${userLine(text)}`,
+      );
       return { code: 0, stdout: '' };
     }
     if (args[0] === 'bun')
@@ -97,6 +105,9 @@ function fakeMachine(
   const deps: SpawnDeps = {
     run,
     read: (path) => files.get(path),
+    list: (dir) =>
+      dir === projects && files.has(transcript) ? [transcript] : [],
+    mainCheckout: repo,
     write: (path, text) => void files.set(path, text),
     sleep: async () => undefined,
     home: '/home',

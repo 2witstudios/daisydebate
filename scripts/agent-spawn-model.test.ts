@@ -5,8 +5,9 @@ import {
   parseSpawnArgs,
   prerequisiteBlockers,
   supersededTerms,
-  transcriptPath,
-  userTurns,
+  agentCwd,
+  projectDir,
+  userTurnsWith,
 } from './agent-spawn-model';
 
 setupRitewayBun();
@@ -192,34 +193,51 @@ describe('supersededTerms', () => {
 });
 
 describe('transcripts', () => {
-  test('locates a Claude Code session transcript from its working directory', () => {
+  test('locates the Claude Code projects directory of a working directory', () => {
     assert({
-      given: 'a worktree path and a session id',
-      should: 'use the projects directory naming Claude Code writes',
-      actual: transcriptPath(
-        '/Users/me',
-        '/Users/me/repo/.pu/worktrees/wt-1',
-        's-1',
-      ),
-      expected:
-        '/Users/me/.claude/projects/-Users-me-repo--pu-worktrees-wt-1/s-1.jsonl',
+      given: 'a worktree path',
+      should: 'use the directory naming Claude Code writes',
+      actual: projectDir('/Users/me', '/Users/me/repo/.pu/worktrees/wt-1'),
+      expected: '/Users/me/.claude/projects/-Users-me-repo--pu-worktrees-wt-1',
     });
   });
 
-  test('counts submitted user turns', () => {
+  test('counts user turns that carry the sent text', () => {
     const lines = [
       '{"type":"mode","mode":"x"}',
-      '{"type":"permission-mode"}',
-      '{"type":"user","message":{"role":"user"}}',
+      '{"type":"user","message":{"role":"user","content":"Run: pagespace pages read p1 \\"quoted\\""}}',
       'not json',
-      '{"type":"assistant"}',
-      '{"type":"user","message":{"role":"user"}}',
+      '{"type":"assistant","message":{"content":"Run: pagespace pages read p1"}}',
+      '{"type":"user","message":{"role":"user","content":[{"type":"text","text":"other"}]}}',
     ].join('\n');
     assert({
-      given: 'a transcript with two user turns, and one never submitted',
-      should: 'count the user turns only',
-      actual: [userTurns(lines), userTurns('{"type":"mode"}\n')],
-      expected: [2, 0],
+      given: 'a transcript with the text once as a user turn and once from the assistant',
+      should: 'count only the user turn, and nothing for text never sent',
+      actual: [
+        userTurnsWith(lines, 'Run: pagespace pages read p1 "quoted"'),
+        userTurnsWith(lines, 'never sent'),
+      ],
+      expected: [1, 0],
+    });
+  });
+});
+
+describe('agentCwd', () => {
+  const status = {
+    worktrees: [{ path: '/repo/.pu/worktrees/wt-1', agents: { 'ag-w': {} } }],
+    agents: [{ id: 'ag-root', worktree_id: null }],
+  };
+
+  test('finds worktree agents and root agents', () => {
+    assert({
+      given: 'pu status with a worktree agent and a root agent',
+      should: 'return the worktree path, the main checkout, or undefined',
+      actual: [
+        agentCwd(status, 'ag-w', '/repo'),
+        agentCwd(status, 'ag-root', '/repo'),
+        agentCwd(status, 'ag-none', '/repo'),
+      ],
+      expected: ['/repo/.pu/worktrees/wt-1', '/repo', undefined],
     });
   });
 });

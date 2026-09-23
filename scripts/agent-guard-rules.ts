@@ -6,7 +6,7 @@
 import { resolve } from 'node:path';
 import type { ShellCommand } from './shell-command';
 
-export type Decision = 'allow' | 'deny' | 'ask';
+type Decision = 'allow' | 'deny' | 'ask';
 export type Verdict = { readonly decision: Decision; readonly reason?: string };
 
 export type GuardFacts = {
@@ -37,7 +37,7 @@ export type Rule = (
 export const allow: Verdict = { decision: 'allow' };
 export const deny = (reason: string): Verdict => ({ decision: 'deny', reason });
 
-export const MERGE_PATH =
+const MERGE_PATH =
   'push your branch and request the merge with `gh pr merge --auto --squash`; GitHub merges once every required check, including review-record, passes';
 const MERGE_REASON = `Autonomous agents never merge directly: ${MERGE_PATH}.`;
 export const RULE_REASON =
@@ -48,7 +48,7 @@ export const LOOP_REASON =
   'A loop ends only through its truthful completion promise. To pause it, run `bun loop:escalate <needs-owner|blocked|stalled|out-of-scope> "<detail>"`; only the parent or the owner can close or resume it.';
 
 /** Autonomous sessions are refused; owner sessions are asked. */
-export const refuseOrAsk = (facts: GuardFacts, reason: string): Verdict =>
+const refuseOrAsk = (facts: GuardFacts, reason: string): Verdict =>
   facts.autonomous ? deny(reason) : { decision: 'ask', reason };
 
 export const autonomousOnly = (facts: GuardFacts, reason: string): Verdict =>

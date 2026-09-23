@@ -5,7 +5,7 @@
  * `debate:&lt;id&gt;:presence` survive.
  */
 
-export type RelatedRef = { readonly label: string; readonly id: string };
+type RelatedRef = { readonly label: string; readonly id: string };
 export type RelatedEntry = RelatedRef & { readonly title: string };
 
 export type BoardCommand =
@@ -40,7 +40,7 @@ export type BoardCommand =
       readonly oldFile: string | undefined;
     };
 
-export const BOARD_USAGE = [
+const BOARD_USAGE = [
   'bun board:read <pageId>',
   'bun board:status <taskPageId> <status-slug>',
   'bun board:relate <pageId> <Label> <targetPageId>',
