@@ -95,6 +95,66 @@ describe('parseBoardArgs', () => {
   });
 });
 
+describe('parseBoardArgs flag handling', () => {
+  const list = 'cy7vznqfbs8ikfwj1qu8xxnm';
+  const target = 'pm17nmf831vkr3o84wbo2ofh';
+  const firstLine = (argv: string[]) => {
+    const parsed = parseBoardArgs(argv);
+    return 'error' in parsed ? parsed.error.split('\n')[0] : parsed;
+  };
+
+  test('refuses unknown flags, missing values and stray arguments', () => {
+    assert({
+      given:
+        'a typo flag, --related in = form with a malformed value, --file with no value, and a second list id',
+      should: 'return an error naming each problem, never drop it',
+      actual: [
+        firstLine(['create', list, '--title', 'x', '--criteria', 'Given A']),
+        firstLine(['create', list, '--title', 'x', '--related=Origin']),
+        firstLine([
+          'replace',
+          id,
+          '--start',
+          '1',
+          '--end',
+          '1',
+          '--expect-lines',
+          '1',
+          '--file',
+        ]),
+        firstLine(['create', list, list, '--title', 'x']),
+      ],
+      expected: [
+        'Unknown flag --criteria',
+        '--related takes Label=<pageId>',
+        '--file needs a value',
+        `Unexpected argument ${list}`,
+      ],
+    });
+  });
+
+  test('reads a flag and its value joined by =', () => {
+    assert({
+      given: '--related=Origin=<pageId> and --title=<text>',
+      should: 'read them as the separate forms',
+      actual: firstLine([
+        'create',
+        list,
+        '--title=Given X, should Y',
+        `--related=Origin=${target}`,
+      ]),
+      expected: {
+        command: 'create',
+        listId: list,
+        prefix: undefined,
+        title: 'Given X, should Y',
+        criteria: [],
+        related: [{ label: 'Origin', id: target }],
+      },
+    });
+  });
+});
+
 describe('findTask', () => {
   test('finds the task row that owns a task page', () => {
     const list = {
