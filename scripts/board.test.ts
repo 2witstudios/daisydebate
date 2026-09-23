@@ -11,7 +11,7 @@ const list = 'j03yzhn6d98wd25hlqdpxntj';
 const plan = 'pm17nmf831vkr3o84wbo2ofh';
 const page = '<ul>\n<li>\nGiven A, should B\n</li>\n</ul>';
 
-function fakeBoard(content = page) {
+function fakeBoard(content = page, autonomous = false) {
   const calls: string[][] = [];
   const written: string[] = [];
   const output: string[] = [];
@@ -46,6 +46,7 @@ function fakeBoard(content = page) {
       return { code: 0, stdout: '{}' };
     },
     readFile: () => 'b',
+    autonomous,
     scratch: (name) => join(tmpdir(), `board-test-${process.pid}-${name}`),
     out: (text) => void output.push(text),
   };
@@ -88,6 +89,24 @@ describe('bun board:*', () => {
         board.calls.some((call) => call[1] === 'update'),
       ],
       expected: [1, false],
+    });
+  });
+
+  test('refuses Done from an autonomous agent and allows it for the owner', () => {
+    const agent = fakeBoard(page, true);
+    const owner = fakeBoard();
+    assert({
+      given: 'board:status completed from an agent and from the owner',
+      should:
+        'refuse the agent before any call, naming the review record, and let the owner through to the list check',
+      actual: [
+        runBoard(agent.deps, ['status', task, 'completed']),
+        agent.calls.length,
+        agent.output.join('').includes('independent review record'),
+        runBoard(owner.deps, ['status', task, 'completed']) !== 2 &&
+          owner.calls.length > 0,
+      ],
+      expected: [2, 0, true, true],
     });
   });
 

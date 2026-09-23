@@ -150,8 +150,18 @@ const pageCommands: Readonly<
       : undefined,
 };
 
-export function parseBoardArgs(argv: readonly string[]): Parsed {
+/** Done is granted from an independent review record, never by the agent. */
+const DONE = 'completed';
+
+export function parseBoardArgs(
+  argv: readonly string[],
+  autonomous = false,
+): Parsed {
   const [command = '', first = '', ...rest] = argv;
+  if (autonomous && command === 'status' && rest[0] === DONE)
+    return fail(
+      'An autonomous agent never marks a task Done: Done is granted from an independent review record, by the owner or the reviewing orchestrator.',
+    );
   if (command === 'create') return parseCreate(argv.slice(1));
   if (command === 'replace') return parseReplace(argv.slice(1));
   const parsed = PAGE_ID.test(first)

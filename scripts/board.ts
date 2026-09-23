@@ -23,6 +23,8 @@ type Result = { readonly code: number; readonly stdout: string };
 export type BoardDeps = {
   readonly pagespace: (args: readonly string[]) => Result;
   readonly readFile: (path: string) => string;
+  /** DAISY_AUTONOMOUS=1: this session is an agent, not the owner. */
+  readonly autonomous: boolean;
   /** A scratch path unique to this process and branch. */
   readonly scratch: (name: string) => string;
   readonly out: (text: string) => void;
@@ -175,7 +177,7 @@ function replace(
 }
 
 export function runBoard(deps: BoardDeps, argv: readonly string[]): number {
-  const parsed = parseBoardArgs(argv);
+  const parsed = parseBoardArgs(argv, deps.autonomous);
   if ('error' in parsed) {
     deps.out(`${parsed.error}\n`);
     return 2;
@@ -213,6 +215,7 @@ if (import.meta.main) {
         return { code: result.exitCode, stdout: result.stdout.toString() };
       },
       readFile: (path) => readFileSync(path, 'utf8'),
+      autonomous: process.env.DAISY_AUTONOMOUS === '1',
       scratch: (name) =>
         join(tmpdir(), `board-${branch}-${process.pid}-${name}`),
       out: (text) => process.stdout.write(text),
