@@ -56,6 +56,29 @@ const processMutationRestrictions = [
   },
 ];
 
+/** Every app module's import boundary (the process-edge entries below add to it). */
+const appImportRestrictions = [{ group: ['@adobe/*', '@daisy/*/src/*'] }];
+
+/**
+ * ISSUE-7: the web process edge (`server/process-app.ts`) holds the
+ * process's app, so importing it is reaching a process-wide locator. Route
+ * modules may bind `processRoute` only; the process entries (proxy,
+ * instrumentation, production start, and the server-component session
+ * read) may use `processApp`; everything else receives the app, or part of
+ * it, as an argument.
+ */
+const processEdgeImport = {
+  group: ['**/process-app'],
+  message:
+    'Receive the app as an argument; only route bindings and the process entries import the process edge.',
+};
+const processEntries = [
+  'apps/web/src/proxy.ts',
+  'apps/web/src/instrumentation.ts',
+  'apps/web/src/server/start.ts',
+  'apps/web/src/lib/request-session.ts',
+];
+
 export default [
   {
     ignores: [
@@ -262,10 +285,7 @@ export default [
   {
     files: ['apps/**/*.ts', 'apps/**/*.tsx'],
     rules: {
-      'no-restricted-imports': [
-        'error',
-        { patterns: ['@adobe/*', '@daisy/*/src/*'] },
-      ],
+      'no-restricted-imports': ['error', { patterns: appImportRestrictions }],
     },
   },
   {
@@ -308,6 +328,30 @@ export default [
         'error',
         exportStarRestriction,
         ...processMutationRestrictions,
+      ],
+    },
+  },
+  {
+    files: ['apps/web/src/**/*.{ts,tsx}'],
+    ignores: ['apps/web/src/server/process-app.ts', ...processEntries],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        { patterns: [...appImportRestrictions, processEdgeImport] },
+      ],
+    },
+  },
+  {
+    files: ['apps/web/src/app/**/route.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            ...appImportRestrictions,
+            { ...processEdgeImport, allowImportNames: ['processRoute'] },
+          ],
+        },
       ],
     },
   },

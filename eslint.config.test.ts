@@ -170,6 +170,63 @@ describe('process edge: one module reads process.env and globalThis (ISSUE-7)', 
     });
   });
 
+  test('rejects importing the process edge outside its documented entries', async () => {
+    const importApp =
+      "import { processApp } from '../../server/process-app';\nexport const flag = () => processApp().config.FOUNDATION_PROOF_ENABLED;";
+    assert({
+      given:
+        'a feature, a lib module and a route module reaching the process app through the edge',
+      should: 'report each import as no-restricted-imports',
+      actual: [
+        await problems(importApp, 'apps/web/src/features/foundation/leak.ts'),
+        await problems(
+          importApp.replace('../../server/', '../server/'),
+          'apps/web/src/lib/identity.ts',
+        ),
+        await problems(
+          importApp.replace('../../server/', '../../../../server/'),
+          'apps/web/src/app/api/health/ready/route.ts',
+        ),
+        await problems(
+          "import { processApp } from './process-app';\nexport const app = processApp;",
+          'apps/web/src/server/routes.ts',
+        ),
+      ].map((found) => found.map(({ ruleId }) => ruleId)),
+      expected: Array.from({ length: 4 }, () => ['no-restricted-imports']),
+    });
+  });
+
+  test('admits the route bindings and the documented process entries', async () => {
+    assert({
+      given:
+        'a route module binding processRoute, and the proxy, instrumentation, production start and server-component session entries using processApp',
+      should: 'report nothing',
+      actual: [
+        await problems(
+          "import { processRoute } from '../../../../server/process-app';\nexport const GET = processRoute((routes) => routes.ready.GET);",
+          'apps/web/src/app/api/health/ready/route.ts',
+        ),
+        await problems(
+          "import { processApp } from './server/process-app';\nexport const app = processApp;",
+          'apps/web/src/proxy.ts',
+        ),
+        await problems(
+          "import { processApp } from './server/process-app';\nexport const app = processApp;",
+          'apps/web/src/instrumentation.ts',
+        ),
+        await problems(
+          "import { processApp } from './process-app';\nexport const app = processApp;",
+          'apps/web/src/server/start.ts',
+        ),
+        await problems(
+          "import { processApp } from '../server/process-app';\nexport const app = processApp;",
+          'apps/web/src/lib/request-session.ts',
+        ),
+      ],
+      expected: [[], [], [], [], []],
+    });
+  });
+
   test('rejects mutating process.env or globalThis in tests, while reading test services stays allowed', async () => {
     const mutations = [
       "process.env.FOUNDATION_PROOF_ENABLED = 'true';",
