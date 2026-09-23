@@ -66,6 +66,15 @@ describe('extractTaskIds', async () => {
     });
   });
 
+  test('never reads a shorter prefix of a code run into other text', async () => {
+    assert({
+      given: 'only codes run into letters or a revision suffix',
+      should: 'return nothing: no parent code is read from them',
+      actual: [extractTaskIds('AUTH-2.2.1xy'), extractTaskIds('RT-2.2f-r1a')],
+      expected: [[], []],
+    });
+  });
+
   test('returns empty for text without task IDs', async () => {
     assert({
       given: 'text without task IDs',

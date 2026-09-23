@@ -44,6 +44,8 @@ describe('parseBoardArgs', () => {
           '40',
           '--file',
           'new.html',
+          '--old-file',
+          'old.html',
         ]),
       ],
       expected: [
@@ -70,7 +72,7 @@ describe('parseBoardArgs', () => {
           end: 4,
           expectLines: 40,
           file: 'new.html',
-          oldFile: undefined,
+          oldFile: 'old.html',
         },
       ],
     });
@@ -151,6 +153,54 @@ describe('parseBoardArgs flag handling', () => {
         criteria: [],
         related: [{ label: 'Origin', id: target }],
       },
+    });
+  });
+});
+
+describe('parseBoardArgs guards', () => {
+  const replace = [
+    'replace',
+    id,
+    '--start',
+    '1',
+    '--end',
+    '1',
+    '--expect-lines',
+    '1',
+    '--file',
+    'f',
+  ];
+  const firstLine = (argv: string[]) => {
+    const parsed = parseBoardArgs(argv);
+    return 'error' in parsed ? parsed.error.split('\n')[0] : 'ok';
+  };
+
+  test('requires a replace to prove what it read, and refuses repeated flags and hex numbers', () => {
+    assert({
+      given:
+        'a replace with neither --expect-hash nor --old-file, a repeated --title, and --start 0x1',
+      should: 'refuse each with its reason',
+      actual: [
+        firstLine(replace),
+        firstLine([
+          'create',
+          'cy7vznqfbs8ikfwj1qu8xxnm',
+          '--title',
+          'a',
+          '--title',
+          'b',
+        ]),
+        firstLine([
+          ...replace.map((arg) => (arg === '1' ? '0x1' : arg)),
+          '--old-file',
+          'o',
+        ]),
+      ],
+      expected: [
+        'replace needs --expect-hash (from bun board:hash) or --old-file (the lines as you read them)',
+        '--title given twice',
+        'replace needs a page id, --start, --end, --expect-lines and --file',
+      ],
     });
   });
 });

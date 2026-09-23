@@ -49,7 +49,7 @@ const BOARD_USAGE = [
   'bun board:status <taskPageId> <status-slug>',
   'bun board:relate <pageId> <Label> <targetPageId>',
   'bun board:create <taskListPageId> [--issue | --prefix <CODE>] --title "<Given X, should Y>" [--criterion "<Given A, should B>"]... [--related Label=<pageId>]...',
-  'bun board:replace <pageId> --start N --end M --expect-lines L --file <new.html> [--old-file <old.html>] [--expect-hash <board:hash>]',
+  'bun board:replace <pageId> --start N --end M --expect-lines L --file <new.html> (--expect-hash <board:hash> | --old-file <old.html>)',
 ].join('\n');
 
 const PAGE_ID = /^[a-z0-9]{20,32}$/;
@@ -83,6 +83,8 @@ function flagValues(
   known: {
     readonly values: readonly string[];
     readonly switches: readonly string[];
+    /** Value flags that may be given more than once. */
+    readonly repeatable?: readonly string[];
   },
 ): Flags | { readonly error: string } {
   const values = new Map<string, string[]>();
@@ -97,6 +99,8 @@ function flagValues(
       const value = flag === arg ? args[++index] : arg.slice(at + 1);
       if (value === undefined || value.startsWith('--'))
         return { error: `${flag} needs a value` };
+      if (values.has(flag) && !known.repeatable?.includes(flag))
+        return { error: `${flag} given twice` };
       values.set(flag, [...(values.get(flag) ?? []), value]);
     } else if (arg.startsWith('--')) return { error: `Unknown flag ${flag}` };
     else if (positional.length > 0)
@@ -109,6 +113,7 @@ function flagValues(
 const CREATE_FLAGS = {
   values: ['--title', '--criterion', '--related', '--prefix'],
   switches: ['--issue'],
+  repeatable: ['--criterion', '--related'],
 };
 const REPLACE_FLAGS = {
   values: [
@@ -159,7 +164,11 @@ function parseReplace(args: readonly string[]): Parsed {
   const flags = flagValues(args, REPLACE_FLAGS);
   if ('error' in flags) return fail(flags.error);
   const { values, positional } = flags;
-  const number = (flag: string) => Number(values.get(flag)?.[0] ?? Number.NaN);
+  // Decimal only: Number('0x1') would read hex as 1.
+  const number = (flag: string) => {
+    const value = values.get(flag)?.[0] ?? '';
+    return /^\d+$/.test(value) ? Number(value) : Number.NaN;
+  };
   const [pageId] = positional;
   const [start, end, expectLines] = [
     number('--start'),
@@ -168,6 +177,12 @@ function parseReplace(args: readonly string[]): Parsed {
   ];
   const file = values.get('--file')?.[0];
   const expectHash = values.get('--expect-hash')?.[0];
+  const oldFile = values.get('--old-file')?.[0];
+  // The line count alone cannot tell a same-length edit from the caller's read.
+  if (expectHash === undefined && oldFile === undefined)
+    return fail(
+      'replace needs --expect-hash (from bun board:hash) or --old-file (the lines as you read them)',
+    );
   const valid =
     PAGE_ID.test(pageId ?? '') &&
     (expectHash === undefined || HASH.test(expectHash)) &&
@@ -183,7 +198,7 @@ function parseReplace(args: readonly string[]): Parsed {
         end,
         expectLines,
         file,
-        oldFile: values.get('--old-file')?.[0],
+        oldFile,
         expectHash,
       }
     : fail(

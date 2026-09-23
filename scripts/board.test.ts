@@ -149,6 +149,8 @@ describe('bun board:*', () => {
       '9',
       '--file',
       'new.html',
+      '--old-file',
+      'old.html',
     ]);
     assert({
       given: 'an expected line count that no longer matches',
@@ -173,6 +175,8 @@ describe('bun board:*', () => {
       '5',
       '--file',
       'new.html',
+      '--expect-hash',
+      contentHash(page),
     ];
     assert({
       given:
