@@ -2,12 +2,17 @@ import { sql } from 'drizzle-orm';
 import {
   boolean,
   check,
-  integer,
   pgTable,
   text,
-  timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
+import {
+  createdAtColumn,
+  timestampColumn,
+  updatedAtColumn,
+  versionColumn,
+  versionPositive,
+} from './columns';
 
 export const users = pgTable(
   'users',
@@ -18,19 +23,15 @@ export const users = pgTable(
     emailVerified: boolean('email_verified').notNull().default(false),
     name: text('name').notNull().default(''),
     image: text('image'),
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
-      .notNull()
-      .defaultNow(),
-    version: integer('version').notNull().default(1),
+    createdAt: createdAtColumn(),
+    updatedAt: updatedAtColumn(),
+    version: versionColumn(),
     /**
      * Tombstone (ADR 0029): account deletion scrubs PII and sets this instead
      * of deleting the row, so competitive history keeps its actor. The CHECK
      * makes a tombstone with PII unrepresentable.
      */
-    deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
+    deletedAt: timestampColumn('deleted_at'),
   },
   (table) => [
     uniqueIndex('users_email_unique').on(table.email),
@@ -41,5 +42,6 @@ export const users = pgTable(
       'users_tombstone_scrubbed',
       sql`${table.deletedAt} is null or (${table.email} is null and ${table.username} is null and ${table.image} is null and ${table.name} = '')`,
     ),
+    versionPositive('users', table.version),
   ],
 );

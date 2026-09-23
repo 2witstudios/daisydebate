@@ -156,7 +156,7 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
       const formatId = await fixture.format();
       const seasonId = createId();
       await fixture.insert('seasons', season({ id: seasonId }));
-      const debateId = await fixture.debate({ format: formatId });
+      const debateId = await fixture.debate({ format_id: formatId });
       await fixture.participant(debateId, 'affirmative', 0, actorId);
       const change = (overrides: Record<string, unknown>) => ({
         id: createId(),
@@ -179,7 +179,7 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
         'rating_changes',
         change({}),
       );
-      const otherDebate = await fixture.debate({ format: formatId });
+      const otherDebate = await fixture.debate({ format_id: formatId });
       await fixture.participant(otherDebate, 'affirmative', 0, actorId);
       const nonParticipant = await fixture.rejectedBy(
         'rating_changes',

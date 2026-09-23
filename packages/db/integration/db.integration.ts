@@ -3,6 +3,7 @@ import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { createDatabase } from '../src';
 import { createTestOnlyOperations } from '../src/test-only-operations';
+import { snapshotFor } from './constraint-helpers';
 const url = process.env.TEST_DATABASE_URL;
 if (!url)
   throw new Error(
@@ -30,7 +31,7 @@ test('durable records survive reconnect; optimistic writes reject stale updates'
       createdBy: actorId,
       resolution: 'Architecture proof',
       format: formatId,
-      snapshot: { version: 1, id, phase: 'waiting' },
+      snapshot: snapshotFor(id, { format: formatId }),
       mode: 'casual',
       visibility: 'unlisted',
     });
@@ -38,7 +39,7 @@ test('durable records survive reconnect; optimistic writes reject stale updates'
     const reopened = createDatabase({ url, nextActorId: createId });
     try {
       const stored = await reopened.getDebate(id);
-      expect(stored?.snapshot).toEqual({ version: 1, id, phase: 'waiting' });
+      expect(stored?.snapshot).toEqual(snapshotFor(id, { format: formatId }));
       expect([stored?.mode, stored?.phase, stored?.visibility]).toEqual([
         'casual',
         'waiting',
@@ -49,7 +50,11 @@ test('durable records survive reconnect; optimistic writes reject stale updates'
           testOnly.saveSnapshot({
             id,
             expectedVersion: 1,
-            snapshot: { value, phase: 'active' },
+            snapshot: snapshotFor(id, {
+              format: formatId,
+              phase: 'active',
+              resolution: `attempt ${value}`,
+            }),
             updatedAt: '2026-01-01T00:00:00.000Z',
           }),
         ),

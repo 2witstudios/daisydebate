@@ -2,11 +2,11 @@
   "version": 1,
   "baselines": [
     {
-      "baseJournalHash": "sha256:cc8a87a3e35dbc0382d4f9a90358055245e516ade4735069a54083a04db6122f",
-      "adr": "docs/decisions/0023-greenfield-baseline.md",
+      "baseMigrationsHash": "sha256:b285028ef90065fa5b300569c1b8ec2fa827e0db9572041d7f4c59850694d9a4",
+      "adr": "docs/decisions/0038-drizzle-1-baseline.md",
       "owner": "platform",
-      "reason": "One-time squash of the UUID-era migrations 0000-0002 into a single cuid2-native baseline before first ship; inert once the squashed baseline lands on the default branch.",
-      "reviewBy": "2027-03-20"
+      "reason": "One-time squash of the five drizzle-kit 0.x migrations (0000-0004) into one drizzle-kit 1.0 baseline carrying the runtime roles, constraints, indexes and reference data before first ship (ISSUE-6); inert once the baseline lands on the default branch.",
+      "reviewBy": "2026-10-31"
     }
   ]
 }

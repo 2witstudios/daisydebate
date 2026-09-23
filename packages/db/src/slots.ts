@@ -1,6 +1,6 @@
 /**
- * Local slot administration (ADR 0034): one shared cluster, one database per
- * checkout slot, copied from a template that carries the e2e role grants.
+ * Local slot administration (ADR 0034): one shared cluster, three databases
+ * per checkout slot (dev, integration test, browser e2e).
  * Development tooling only; nothing on the request path imports it.
  *
  * Identifiers and literals in CREATE/DROP/COMMENT/ROLE statements cannot be
@@ -26,101 +26,58 @@ function quoteLiteral(value: string, pattern: RegExp, label: string): string {
 
 export type SlotRole = { readonly user: string; readonly password: string };
 
-/** The loopback-only login the production-mode browser suite uses. */
-export async function ensureE2ERole(admin: SQL, role: SlotRole): Promise<void> {
+/**
+ * The one place the local and CI test logins are provisioned (ISSUE-6):
+ * `bun slot:up`, `bun db:reset` and CI's `bun db:roles` all call it after
+ * migrating. The browser suite's loopback-only login is a member of the
+ * baseline's `daisy_web` runtime role and holds no grant of its own, so it
+ * runs the production server with exactly production's privileges, and
+ * nothing is lost when a reset drops the schema: membership is cluster-wide
+ * and the baseline re-grants `daisy_web`. Idempotent and safe to run
+ * concurrently with another checkout's call.
+ */
+export async function provisionTestRoles(
+  admin: SQL,
+  role: SlotRole,
+): Promise<void> {
   const user = quoteIdentifier(role.user);
   const password = quoteLiteral(role.password, passwordPattern, 'password');
   const [existing] =
     await admin`select 1 from pg_roles where rolname = ${role.user}`;
-  if (existing) return;
-  try {
-    await admin.unsafe(`create role ${user} login password ${password}`);
-  } catch (error) {
-    // A concurrent slot:up created it first.
-    if ((error as { errno?: string }).errno !== '42710') throw error;
-  }
+  if (!existing)
+    try {
+      await admin.unsafe(`create role ${user} login password ${password}`);
+    } catch (error) {
+      // A concurrent slot:up created it first.
+      if ((error as { errno?: string }).errno !== '42710') throw error;
+    }
+  await admin.unsafe(`grant daisy_web to ${user}`);
 }
 
-/**
- * Grants the e2e role what the browser suite needs on objects the current
- * (migration) role creates: schema usage, table DML and sequence use, both
- * for existing objects and by default privileges for future ones.
- */
-export async function grantE2EAccess(
-  database: SQL,
-  e2eUser: string,
-): Promise<void> {
-  const user = quoteIdentifier(e2eUser);
-  await database.unsafe(`
-    grant usage on schema public to ${user};
-    grant select, insert, update, delete on all tables in schema public to ${user};
-    grant usage, select on all sequences in schema public to ${user};
-    alter default privileges in schema public
-      grant select, insert, update, delete on tables to ${user};
-    alter default privileges in schema public
-      grant usage, select on sequences to ${user};
-  `);
-}
-
-/** Drops every table (reset), then restores the e2e grants on the new schema. */
-export async function resetPublicSchema(
-  database: SQL,
-  e2eUser: string,
-): Promise<void> {
+/** Drops every table and the migration log, leaving an empty `public`. */
+export async function resetPublicSchema(database: SQL): Promise<void> {
   await database.unsafe(`
     drop schema if exists public cascade;
     drop schema if exists drizzle cascade;
     create schema public;
   `);
-  await grantE2EAccess(database, e2eUser);
 }
 
 /**
- * Creates the template if missing: grants applied, then marked as a template
- * that accepts no connections, so copying from it never fails with "source
- * database is being accessed by other users".
+ * Creates an empty database from `template0`, which accepts no connections,
+ * so the copy never fails with "source database is being accessed by other
+ * users". Returns false when the database already exists (idempotent).
  */
-export async function ensureTemplate({
-  admin,
-  connect,
-  template,
-  e2eUser,
-}: {
-  readonly admin: SQL;
-  readonly connect: (database: string) => SQL;
-  readonly template: string;
-  readonly e2eUser: string;
-}): Promise<void> {
-  const name = quoteIdentifier(template);
-  const [existing] = await admin`
-    select datistemplate from pg_database where datname = ${template}
-  `;
-  if (existing?.datistemplate) return;
-  if (!existing) await createSlotDatabase(admin, template, 'template1');
-  const database = connect(template);
-  try {
-    await grantE2EAccess(database, e2eUser);
-  } finally {
-    await database.close();
-  }
-  await admin.unsafe(
-    `alter database ${name} with is_template true allow_connections false`,
-  );
-}
-
-/** Returns false when the database already exists (idempotent). */
 export async function createSlotDatabase(
   admin: SQL,
   database: string,
-  template: string,
 ): Promise<boolean> {
   const name = quoteIdentifier(database);
-  const source = quoteIdentifier(template);
   const [existing] =
     await admin`select 1 from pg_database where datname = ${database}`;
   if (existing) return false;
   try {
-    await admin.unsafe(`create database ${name} template ${source}`);
+    await admin.unsafe(`create database ${name} template template0`);
     return true;
   } catch (error) {
     if ((error as { errno?: string }).errno === '42P04') return false;

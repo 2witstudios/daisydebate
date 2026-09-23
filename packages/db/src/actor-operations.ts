@@ -1,4 +1,4 @@
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql';
+import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { eq } from 'drizzle-orm';
 import { actors } from './schema/actors';
 import { instrumented, type DatabaseEventSink } from './instrumented';

@@ -1,7 +1,12 @@
 import { sql } from 'drizzle-orm';
 import { check, index, integer, pgTable, text } from 'drizzle-orm/pg-core';
 import { actors } from './actors';
-import { jsonbColumn, timestampColumn } from './columns';
+import {
+  jsonbColumn,
+  jsonbIsObject,
+  jsonObjectSchema,
+  timestampColumn,
+} from './columns';
 import { debates } from './debates';
 
 /**
@@ -24,7 +29,7 @@ export const debateCommands = pgTable(
     type: text('type').notNull(),
     /** SHA3-256 of the canonical payload, lowercase hex. */
     payloadDigest: text('payload_digest').notNull(),
-    result: jsonbColumn('result').notNull(),
+    result: jsonbColumn('result', jsonObjectSchema).notNull(),
     resultingVersion: integer('resulting_version').notNull(),
     appliedAt: timestampColumn('applied_at').notNull(),
   },
@@ -33,6 +38,8 @@ export const debateCommands = pgTable(
       table.debateId,
       table.resultingVersion,
     ),
+    index('debate_commands_actor_idx').on(table.actorId),
+    jsonbIsObject('debate_commands', table.result),
     check(
       'debate_commands_one_principal',
       sql`(${table.actorId} is null) <> (${table.serviceId} is null)`,

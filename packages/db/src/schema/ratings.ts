@@ -53,6 +53,11 @@ export const seasons = pgTable(
     uniqueIndex('seasons_single_active')
       .on(table.status)
       .where(sql`${table.status} = 'active'`),
+    /** An open season has no end; a set end comes strictly after the start. */
+    check(
+      'seasons_ends_after_starts',
+      sql`${table.endsAt} is null or ${table.endsAt} > ${table.startsAt}`,
+    ),
     check('seasons_status_check', oneOf(table.status, seasonStatuses)),
     versionPositive('seasons', table.version),
   ],
@@ -93,6 +98,7 @@ export const ratings = pgTable(
       table.seasonId,
       table.rating.desc(),
     ),
+    index('ratings_season_idx').on(table.seasonId),
     check('ratings_rating_range', ratingBand(table.rating)),
     check('ratings_deviation_positive', positiveFinite(table.deviation)),
     check('ratings_volatility_positive', positiveFinite(table.volatility)),
@@ -134,7 +140,7 @@ export const ratingChanges = pgTable(
     foreignKey({
       name: 'rating_changes_debate_format_fk',
       columns: [table.debateId, table.formatId],
-      foreignColumns: [debates.id, debates.format],
+      foreignColumns: [debates.id, debates.formatId],
     }).onDelete('restrict'),
     uniqueIndex('rating_changes_debate_actor_unique').on(
       table.debateId,
@@ -145,6 +151,12 @@ export const ratingChanges = pgTable(
       table.formatId,
       table.occurredAt,
     ),
+    index('rating_changes_debate_format_idx').on(
+      table.debateId,
+      table.formatId,
+    ),
+    index('rating_changes_format_idx').on(table.formatId),
+    index('rating_changes_season_idx').on(table.seasonId),
     check(
       'rating_changes_rating_range',
       sql`${ratingBand(table.ratingBefore)} and ${ratingBand(table.ratingAfter)}`,

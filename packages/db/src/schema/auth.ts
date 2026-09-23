@@ -5,26 +5,19 @@ import {
   index,
   pgTable,
   text,
-  timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
+import { createdAtColumn, timestampColumn, updatedAtColumn } from './columns';
 import { users } from './users';
 
 export const sessions = pgTable(
   'session',
   {
     id: text('id').primaryKey().$defaultFn(createId),
-    expiresAt: timestamp('expires_at', {
-      withTimezone: true,
-      mode: 'date',
-    }).notNull(),
+    expiresAt: timestampColumn('expires_at').notNull(),
     token: text('token').notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
-      .notNull()
-      .defaultNow(),
+    createdAt: createdAtColumn(),
+    updatedAt: updatedAtColumn(),
     ipAddress: text('ip_address'),
     userAgent: text('user_agent'),
     userId: text('user_id')
@@ -49,22 +42,12 @@ export const accounts = pgTable(
     accessToken: text('access_token'),
     refreshToken: text('refresh_token'),
     idToken: text('id_token'),
-    accessTokenExpiresAt: timestamp('access_token_expires_at', {
-      withTimezone: true,
-      mode: 'date',
-    }),
-    refreshTokenExpiresAt: timestamp('refresh_token_expires_at', {
-      withTimezone: true,
-      mode: 'date',
-    }),
+    accessTokenExpiresAt: timestampColumn('access_token_expires_at'),
+    refreshTokenExpiresAt: timestampColumn('refresh_token_expires_at'),
     scope: text('scope'),
     password: text('password'),
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
-      .notNull()
-      .defaultNow(),
+    createdAt: createdAtColumn(),
+    updatedAt: updatedAtColumn(),
   },
   (table) => [
     uniqueIndex('account_provider_account_unique').on(
@@ -81,16 +64,9 @@ export const verifications = pgTable(
     id: text('id').primaryKey().$defaultFn(createId),
     identifier: text('identifier').notNull(),
     value: text('value').notNull(),
-    expiresAt: timestamp('expires_at', {
-      withTimezone: true,
-      mode: 'date',
-    }).notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
-      .notNull()
-      .defaultNow(),
+    expiresAt: timestampColumn('expires_at').notNull(),
+    createdAt: createdAtColumn(),
+    updatedAt: updatedAtColumn(),
   },
   (table) => [
     index('verification_identifier_idx').on(table.identifier),
@@ -113,9 +89,7 @@ export const passkeys = pgTable(
     backedUp: boolean('backed_up').notNull(),
     transports: text('transports'),
     aaguid: text('aaguid'),
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
-      .notNull()
-      .defaultNow(),
+    createdAt: createdAtColumn(),
   },
   (table) => [
     uniqueIndex('passkey_credential_id_unique').on(table.credentialID),

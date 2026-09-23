@@ -1,10 +1,16 @@
-import { phaseSchema, type DebatePhase } from '@daisy/protocol';
+import {
+  debateSnapshotSchema,
+  phaseSchema,
+  type DebatePhase,
+} from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import { check, index, pgTable, text, unique } from 'drizzle-orm/pg-core';
 import { actors } from './actors';
 import {
   createdAtColumn,
   jsonbColumn,
+  jsonbIsObject,
+  notBefore,
   oneOf,
   timestampColumn,
   updatedAtColumn,
@@ -37,14 +43,14 @@ export const debates = pgTable(
   {
     id: text('id').primaryKey(),
     /** Nullable for service-created proof debates. */
-    createdBy: text('created_by').references(() => actors.id, {
+    createdByActorId: text('created_by_actor_id').references(() => actors.id, {
       onDelete: 'restrict',
     }),
     resolution: text('resolution').notNull(),
-    format: text('format')
+    formatId: text('format_id')
       .notNull()
       .references(() => formats.id, { onDelete: 'restrict' }),
-    snapshot: jsonbColumn('snapshot').notNull(),
+    snapshot: jsonbColumn('snapshot', debateSnapshotSchema).notNull(),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
     version: versionColumn(),
@@ -62,15 +68,23 @@ export const debates = pgTable(
     const completed = sql`${table.phase} = 'completed' and ${table.completedAt} is not null and ${table.outcome} is not null and (${table.startedAt} is not null or ${table.outcome} = 'abandoned')`;
     return [
       /** Lets `rating_changes` pin a change to the debate's own format. */
-      unique('debates_id_format_unique').on(table.id, table.format),
-      index('debates_created_by_idx').on(table.createdBy),
+      unique('debates_id_format_unique').on(table.id, table.formatId),
+      index('debates_created_by_actor_idx').on(table.createdByActorId),
       index('debates_phase_mode_created_idx').on(
         table.phase,
         table.mode,
         table.createdAt,
       ),
-      index('debates_format_completed_idx').on(table.format, table.completedAt),
+      index('debates_format_completed_idx').on(
+        table.formatId,
+        table.completedAt,
+      ),
       versionPositive('debates', table.version),
+      jsonbIsObject('debates', table.snapshot),
+      check(
+        'debates_completed_after_started',
+        notBefore(table.completedAt, table.startedAt),
+      ),
       check('debates_mode_check', oneOf(table.mode, debateModes)),
       check('debates_phase_check', oneOf(table.phase, debatePhases)),
       check(

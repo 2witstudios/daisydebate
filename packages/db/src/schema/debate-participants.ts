@@ -5,8 +5,8 @@ import {
   index,
   integer,
   pgTable,
+  primaryKey,
   text,
-  unique,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { actors } from './actors';
@@ -19,25 +19,23 @@ import {
 } from './columns';
 import { debates } from './debates';
 
-export const participantStatuses = [
-  'joined',
-  'ready',
-  'declined',
-  'removed',
-] as const;
+/** What a snapshot participant can say about its seat: joined or ready. */
+export const participantStatuses = ['joined', 'ready'] as const;
 
 /**
- * One row per seat: every role, including judges, is a `(role, slot)` pair,
- * so team formats and judge panels are extra slots, not extra tables. Which
- * seats a format allows comes from `formats.rules.seats` (the domain checks
- * it); the database enforces seat and actor uniqueness. No per-participant
- * result column exists: a result derives from `debates.outcome` and `role`.
- * A projection of the snapshot, written in its transaction.
+ * One row per seat, keyed by the debate and the seated actor: a projection
+ * of the snapshot's `participants` (whose ids are actor ids, ADR 0029),
+ * rewritten in the same transaction as every snapshot write, so it always
+ * equals the snapshot's seats (ADR 0038). Every role, including judges, is a
+ * `(role, slot)` pair, so team formats and judge panels are extra slots, not
+ * extra tables. Which seats a format allows comes from `formats.rules.seats`
+ * (the domain checks it); the database enforces seat and actor uniqueness.
+ * No per-participant result column exists: a result derives from
+ * `debates.outcome` and `role`.
  */
 export const debateParticipants = pgTable(
   'debate_participants',
   {
-    id: text('id').primaryKey(),
     debateId: text('debate_id')
       .notNull()
       .references(() => debates.id, { onDelete: 'cascade' }),
@@ -52,20 +50,12 @@ export const debateParticipants = pgTable(
     version: versionColumn(),
   },
   (table) => [
-    /** Lets children reference a seat together with its debate. */
-    unique('debate_participants_debate_id_id_unique').on(
-      table.debateId,
-      table.id,
-    ),
+    /** The seat's identity; `ballots` and `rating_changes` reference it. */
+    primaryKey({ columns: [table.debateId, table.actorId] }),
     uniqueIndex('debate_participants_seat_unique').on(
       table.debateId,
       table.role,
       table.slot,
-    ),
-    /** A constraint, not an index, so `rating_changes` can reference it. */
-    unique('debate_participants_actor_unique').on(
-      table.debateId,
-      table.actorId,
     ),
     index('debate_participants_actor_joined_idx').on(
       table.actorId,

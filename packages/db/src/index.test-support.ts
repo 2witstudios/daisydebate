@@ -23,7 +23,8 @@ type ScriptedResult =
 /**
  * Stands in for the Bun SQL wire protocol only: real drizzle query building
  * runs against scripted positional results, exactly as the driver maps them
- * (drizzle-orm/bun-sql uses unsafe().values() plus begin() for transactions).
+ * (drizzle-orm 1.0's bun-sql session uses unsafe().values() plus begin() for
+ * transactions).
  */
 function fakeSql(script: ScriptedResult[]): {
   client: SQL;
@@ -31,6 +32,8 @@ function fakeSql(script: ScriptedResult[]): {
 } {
   const queries: RecordedQuery[] = [];
   const client = {
+    // drizzle-orm 1.0's bun-sql driver sets `options.bigint` on its client.
+    options: {},
     unsafe(query: string, params: unknown[] = []) {
       queries.push({ query, params });
       const next = script.shift();
@@ -157,12 +160,31 @@ export const userRow = (record: {
   record.deletedAt,
 ];
 
+/** A snapshot that satisfies the protocol schema every jsonb write parses. */
+export const sampleSnapshot = (
+  overrides: Partial<{ phase: DebatePhase; resolution: string }> = {},
+) => ({
+  version: 1 as const,
+  id: 'k2v9x0f4m8q3w1z7c5n6b4d2',
+  resolution: 'A representative resolution',
+  format: 'public-forum',
+  rules: {
+    version: 1 as const,
+    seats: { affirmative: 1, negative: 1, judge: 0 },
+    clock: { speechMs: 240_000, prepMs: 120_000 },
+  },
+  phase: 'waiting' as DebatePhase,
+  createdAt: '2026-01-01T00:00:00.000Z',
+  participants: [],
+  ...overrides,
+});
+
 export const sampleDebate = () => ({
   id: 'k2v9x0f4m8q3w1z7c5n6b4d2',
   createdBy: null,
   resolution: 'A representative resolution',
   format: 'public-forum',
-  snapshot: { phase: 'waiting', resolution: 'A representative resolution' },
+  snapshot: sampleSnapshot(),
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
   version: 1,

@@ -44,6 +44,40 @@ async function runSeed(): Promise<void> {
     throw new Error(`seed failed (${exitCode}): ${stderr || stdout}`);
 }
 
+describe('reference data', () => {
+  test('db:seed never writes reference data: the baseline owns it', async () => {
+    const database = new SQL(url, { max: 1 });
+    const [original] =
+      await database`select name from formats where id = 'foundation'`;
+    try {
+      // A marker only a second writer would overwrite.
+      await database`update formats set name = 'marker-not-a-seed-value' where id = 'foundation'`;
+      await runSeed();
+      const [after] = await database`
+        select
+          (select name from formats where id = 'foundation') as name,
+          (select count(*)::int from seed_versions where seed_name = 'formats') as format_markers
+      `;
+      assert({
+        given: 'the foundation format changed after migration, then db:seed',
+        should: 'leave the formats row alone and record no formats seed marker',
+        actual: after,
+        expected: { name: 'marker-not-a-seed-value', format_markers: 0 },
+      });
+    } finally {
+      try {
+        await database`update formats set name = ${original?.name} where id = 'foundation'`;
+        await database`delete from debates where id = ${seedIds[2]}`;
+        await database`delete from actors where id in (${seedActorIds[0]}, ${seedActorIds[1]})`;
+        await database`delete from users where id in (${seedIds[0]}, ${seedIds[1]})`;
+        await database`delete from seed_versions where seed_name in ('agent', 'formats')`;
+      } finally {
+        await database.close();
+      }
+    }
+  });
+});
+
 describe('agent seed', () => {
   test('rerunning the seed preserves identifiers, data, and its durable version marker', async () => {
     const database = new SQL(url, { max: 1 });

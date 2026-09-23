@@ -59,7 +59,7 @@ test('delivery events dedupe, never lower status, and suppress only after hard f
       });
     const bounced = `evt-${createId()}`;
     // Out of order: the terminal bounce arrives before "delivered".
-    expect(await event(bounced, 'bounced', 4, 'bounce')).toBe('applied');
+    expect(await event(bounced, 'bounced', 5, 'bounce')).toBe('applied');
     expect(await event(`evt-${createId()}`, 'delivered', 3)).toBe('applied');
     // Concurrent redelivery of one event ID applies exactly once.
     const duplicate = `evt-${createId()}`;
@@ -70,13 +70,13 @@ test('delivery events dedupe, never lower status, and suppress only after hard f
     expect(outcomes.filter((outcome) => outcome === 'duplicate')).toHaveLength(
       7,
     );
-    expect(await event(bounced, 'bounced', 4, 'bounce')).toBe('duplicate');
+    expect(await event(bounced, 'bounced', 5, 'bounce')).toBe('duplicate');
 
     const probe = new SQL(url);
     try {
       const [row] =
         await probe`SELECT status, status_rank FROM email_delivery WHERE provider_message_id=${messageId}`;
-      expect(row).toEqual({ status: 'bounced', status_rank: 4 });
+      expect(row).toEqual({ status: 'bounced', status_rank: 5 });
     } finally {
       await probe.close();
     }

@@ -2,15 +2,21 @@ import { sql } from 'drizzle-orm';
 import {
   check,
   foreignKey,
+  index,
   pgTable,
   text,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { actors } from './actors';
 import {
+  createdAtColumn,
   jsonbColumn,
+  jsonbIsObject,
+  jsonObjectSchema,
+  notBefore,
   oneOf,
   timestampColumn,
+  updatedAtColumn,
   versionColumn,
   versionPositive,
 } from './columns';
@@ -21,9 +27,10 @@ export const ballotDecisions = ['affirmative', 'negative', 'draw'] as const;
 export const ballotStatuses = ['submitted', 'voided'] as const;
 
 /**
- * One ballot per judge seat: `participant_id` is unique. That the seat is a
- * judge is a domain invariant. Voiding keeps the row and records who and
- * when; the CHECK ties both to the status.
+ * One ballot per judge seat: `(debate_id, judge_actor_id)` is unique and
+ * references the seat. That the seat is a judge is a domain invariant.
+ * Voiding keeps the row and records who and when; the CHECK ties both to
+ * the status.
  */
 export const ballots = pgTable(
   'ballots',
@@ -33,9 +40,9 @@ export const ballots = pgTable(
       .notNull()
       .references(() => debates.id, { onDelete: 'cascade' }),
     /** Bound to `debate_id` by the composite key below, never on its own. */
-    participantId: text('participant_id').notNull(),
+    judgeActorId: text('judge_actor_id').notNull(),
     decision: text('decision').notNull(),
-    scores: jsonbColumn('scores').notNull(),
+    scores: jsonbColumn('scores', jsonObjectSchema).notNull(),
     reason: text('reason').notNull(),
     status: text('status').notNull(),
     submittedAt: timestampColumn('submitted_at').notNull(),
@@ -43,6 +50,8 @@ export const ballots = pgTable(
     voidedByActorId: text('voided_by_actor_id').references(() => actors.id, {
       onDelete: 'restrict',
     }),
+    createdAt: createdAtColumn(),
+    updatedAt: updatedAtColumn(),
     version: versionColumn(),
   },
   (table) => [
@@ -52,17 +61,26 @@ export const ballots = pgTable(
      * could then remove the ballot.
      */
     foreignKey({
-      name: 'ballots_participant_in_debate_fk',
-      columns: [table.debateId, table.participantId],
-      foreignColumns: [debateParticipants.debateId, debateParticipants.id],
+      name: 'ballots_judge_seat_fk',
+      columns: [table.debateId, table.judgeActorId],
+      foreignColumns: [debateParticipants.debateId, debateParticipants.actorId],
     }).onDelete('cascade'),
-    uniqueIndex('ballots_participant_unique').on(table.participantId),
+    uniqueIndex('ballots_judge_seat_unique').on(
+      table.debateId,
+      table.judgeActorId,
+    ),
+    index('ballots_voided_by_actor_idx').on(table.voidedByActorId),
     check('ballots_decision_check', oneOf(table.decision, ballotDecisions)),
     check('ballots_status_check', oneOf(table.status, ballotStatuses)),
     check(
       'ballots_voided_fields_check',
       sql`(${table.status} = 'voided' and ${table.voidedAt} is not null and ${table.voidedByActorId} is not null) or (${table.status} <> 'voided' and ${table.voidedAt} is null and ${table.voidedByActorId} is null)`,
     ),
+    check(
+      'ballots_voided_after_submitted',
+      notBefore(table.voidedAt, table.submittedAt),
+    ),
+    jsonbIsObject('ballots', table.scores),
     versionPositive('ballots', table.version),
   ],
 );

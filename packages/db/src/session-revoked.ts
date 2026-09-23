@@ -1,4 +1,4 @@
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql';
+import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { buildUserInboxTopic } from '@daisy/protocol';
 import { appendOutboxEvent } from './outbox';
 import { queryActorByUserId } from './actor-operations';
