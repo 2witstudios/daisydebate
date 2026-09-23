@@ -29,6 +29,7 @@ const checkNames = [
   'slot-orphans',
   'github-identity',
   'identity-regime',
+  'pu-config',
   'checkout',
 ] as const;
 
@@ -333,6 +334,39 @@ async function checkIdentityRegime(): Promise<DoctorCheck> {
   };
 }
 
+/**
+ * pu init writes its default config whenever .pu/manifest.json is missing (a
+ * fresh clone), which would start agents without the identity launcher.
+ */
+export function puConfigCheck(porcelain: string): DoctorCheck {
+  return porcelain.trim() === ''
+    ? pass('pu-config', 'agents start through scripts/agent-launch.sh')
+    : fail(
+        'pu-config',
+        '.pu/config.yaml differs from the committed launcher configuration (pu init rewrites it on a fresh clone): run git checkout -- .pu/config.yaml in the main checkout',
+      );
+}
+
+async function checkPuConfig(): Promise<DoctorCheck> {
+  const commonDir = await output([
+    'git',
+    'rev-parse',
+    '--path-format=absolute',
+    '--git-common-dir',
+  ]);
+  const main = commonDir ? dirname(commonDir) : root;
+  const status = await output([
+    'git',
+    '-C',
+    main,
+    'status',
+    '--porcelain',
+    '--',
+    '.pu/config.yaml',
+  ]);
+  return puConfigCheck(status ?? '');
+}
+
 /** The main checkout off main is a warning (the session-start hook warns too). */
 export function checkoutCheck(checkout: {
   readonly mainCheckout: boolean;
@@ -369,6 +403,7 @@ export async function runDoctor(): Promise<DoctorReport> {
     ...slots,
     identity,
     await checkIdentityRegime(),
+    await checkPuConfig(),
     checkoutCheck(readCheckout(root)),
   ]);
 }

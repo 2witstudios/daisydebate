@@ -5,6 +5,7 @@ import {
   formatDoctorReport,
   isMigrationCurrent,
   orphanCheck,
+  puConfigCheck,
   readCommittedMigrationHashes,
   slotCheck,
   type DoctorCheck,
@@ -38,6 +39,7 @@ describe('doctor report', () => {
           { name: 'slot-orphans', status: 'fail', detail: 'not checked' },
           { name: 'github-identity', status: 'fail', detail: 'not checked' },
           { name: 'identity-regime', status: 'fail', detail: 'not checked' },
+          { name: 'pu-config', status: 'fail', detail: 'not checked' },
           { name: 'checkout', status: 'fail', detail: 'not checked' },
         ],
       },
@@ -64,6 +66,11 @@ describe('doctor report', () => {
         status: 'pass',
         detail: 'identity regime active (agent)',
       },
+      {
+        name: 'pu-config',
+        status: 'pass',
+        detail: 'agents start through scripts/agent-launch.sh',
+      },
       { name: 'checkout', status: 'pass', detail: 'worktree on pu/x' },
     ]);
 
@@ -78,7 +85,7 @@ describe('doctor report', () => {
       should: 'render a passing text summary',
       actual: formatDoctorReport(report, false),
       expected:
-        'Daisy doctor: PASS\nPASS bun-version: 1.4.2\nPASS env: valid\nPASS postgres: reachable\nPASS migration-currency: 1 migration\nPASS redis: PONG\nPASS boundaries: verified\nPASS slot: daisy\nWARN slot-orphans: orphaned slots: gone\nPASS github-identity: autonomous as daisy-agent (GH_TOKEN, HTTPS push)\nPASS identity-regime: identity regime active (agent)\nPASS checkout: worktree on pu/x\n',
+        'Daisy doctor: PASS\nPASS bun-version: 1.4.2\nPASS env: valid\nPASS postgres: reachable\nPASS migration-currency: 1 migration\nPASS redis: PONG\nPASS boundaries: verified\nPASS slot: daisy\nWARN slot-orphans: orphaned slots: gone\nPASS github-identity: autonomous as daisy-agent (GH_TOKEN, HTTPS push)\nPASS identity-regime: identity regime active (agent)\nPASS pu-config: agents start through scripts/agent-launch.sh\nPASS checkout: worktree on pu/x\n',
     });
   });
 });
@@ -152,6 +159,7 @@ describe('slot checks', () => {
             'slot',
             'github-identity',
             'identity-regime',
+            'pu-config',
             'checkout',
           ] as const
         ).map((name): DoctorCheck => ({ name, status: 'pass', detail: '' })),
@@ -207,6 +215,29 @@ describe('checkout check', () => {
       expected: [
         'warn',
         { name: 'checkout', status: 'pass', detail: 'worktree on pu/x' },
+      ],
+    });
+  });
+});
+
+describe('pu config check', () => {
+  test('fails when pu has replaced the committed launcher configuration', () => {
+    assert({
+      given: 'a modified, a deleted and an untouched .pu/config.yaml',
+      should: 'fail the first two and pass the last',
+      actual: [
+        puConfigCheck(' M .pu/config.yaml\n').status,
+        puConfigCheck(' D .pu/config.yaml\n').status,
+        puConfigCheck(''),
+      ],
+      expected: [
+        'fail',
+        'fail',
+        {
+          name: 'pu-config',
+          status: 'pass',
+          detail: 'agents start through scripts/agent-launch.sh',
+        },
       ],
     });
   });
