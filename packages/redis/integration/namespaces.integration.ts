@@ -1,6 +1,10 @@
-import { expect, test } from 'bun:test';
+import { expect } from 'bun:test';
 import { RedisClient } from 'bun';
+import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { deleteNamespace, listNamespaces } from '../src/namespaces';
+
+setupRitewayBun();
+
 const url = process.env.TEST_REDIS_URL;
 if (!url) throw new Error('TEST_REDIS_URL required');
 
@@ -45,12 +49,18 @@ test('deletes exactly one namespace by SCAN and UNLINK, never FLUSH*', async () 
       ),
     );
 
-    expect(await listNamespaces(redis, `${prefix}-wt-`)).toEqual([
-      `${prefix}-wt-a`,
-      `${prefix}-wt-a-e2e`,
-      `${prefix}-wt-ab`,
-    ]);
-    expect(await deleteNamespace(redis, `${prefix}-wt-a`)).toBe(1202);
+    assert({
+      given: 'keys in a namespace, a textual-prefix sibling and its e2e twin',
+      should: 'list each distinct namespace under the prefix',
+      actual: await listNamespaces(redis, `${prefix}-wt-`),
+      expected: [`${prefix}-wt-a`, `${prefix}-wt-a-e2e`, `${prefix}-wt-ab`],
+    });
+    assert({
+      given: 'a namespace with more keys than one SCAN page',
+      should: 'delete every one of its keys',
+      actual: await deleteNamespace(redis, `${prefix}-wt-a`),
+      expected: 1202,
+    });
 
     const remaining = await Promise.all(
       [...keys.target, ...keys.sibling, ...keys.main].map(async (key) => [
@@ -58,17 +68,27 @@ test('deletes exactly one namespace by SCAN and UNLINK, never FLUSH*', async () 
         await redis.client.exists(key),
       ]),
     );
-    expect(Object.fromEntries(remaining)).toEqual({
-      [keys.target[0]!]: false,
-      [keys.target[1]!]: false,
-      [keys.sibling[0]!]: true,
-      [keys.sibling[1]!]: true,
-      [keys.main[0]!]: true,
+    assert({
+      given: 'the namespace deleted',
+      should: 'keep sibling, e2e and main namespace keys',
+      actual: Object.fromEntries(remaining),
+      expected: {
+        [keys.target[0]!]: false,
+        [keys.target[1]!]: false,
+        [keys.sibling[0]!]: true,
+        [keys.sibling[1]!]: true,
+        [keys.main[0]!]: true,
+      },
     });
-    expect(
-      redis.commands.filter((command) => command.startsWith('FLUSH')),
-    ).toEqual([]);
-    expect(redis.commands.includes('UNLINK')).toBe(true);
+    assert({
+      given: 'every command the deletion issued',
+      should: 'use UNLINK and never FLUSHDB or FLUSHALL',
+      actual: {
+        flush: redis.commands.filter((command) => command.startsWith('FLUSH')),
+        unlink: redis.commands.includes('UNLINK'),
+      },
+      expected: { flush: [], unlink: true },
+    });
   } finally {
     for (const namespace of [
       `${prefix}-wt-a`,
@@ -99,7 +119,12 @@ test('refuses namespaces and prefixes that could widen the match', async () => {
       );
       await expect(listNamespaces(redis, hostile)).rejects.toThrow(/namespace/);
     }
-    expect(redis.commands).toEqual([]);
+    assert({
+      given: 'hostile namespaces and prefixes',
+      should: 'reject them before sending any command',
+      actual: redis.commands,
+      expected: [],
+    });
   } finally {
     redis.client.close();
   }

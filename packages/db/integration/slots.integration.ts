@@ -1,5 +1,6 @@
-import { afterAll, expect, test } from 'bun:test';
+import { afterAll, expect } from 'bun:test';
 import { SQL } from 'bun';
+import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import {
   createSlotDatabase,
@@ -11,6 +12,8 @@ import {
   setSlotDatabaseComment,
   withSlotLock,
 } from '../src/slots';
+
+setupRitewayBun();
 const url = process.env.TEST_DATABASE_URL;
 if (!url)
   throw new Error(
@@ -71,6 +74,8 @@ afterAll(async () => {
   await admin.close();
 });
 
+const allGranted = { schema: true, tables: true, sequences: true };
+
 test(
   'a slot database copied from the template carries the e2e grants',
   async () => {
@@ -79,17 +84,30 @@ test(
     await ensureTemplate({ admin, connect, template, e2eUser: e2e.user });
     await ensureTemplate({ admin, connect, template, e2eUser: e2e.user });
     const [templateRow] = await admin`
-    select datistemplate, datallowconn from pg_database where datname = ${template}
-  `;
-    expect(templateRow).toEqual({ datistemplate: true, datallowconn: false });
+      select datistemplate, datallowconn from pg_database where datname = ${template}
+    `;
+    assert({
+      given: 'the template ensured twice',
+      should: 'be a template that accepts no connections',
+      actual: templateRow,
+      expected: { datistemplate: true, datallowconn: false },
+    });
 
     const database = `${prefix}_a`;
-    expect(await createSlotDatabase(admin, database, template)).toBe(true);
-    expect(await createSlotDatabase(admin, database, template)).toBe(false);
-    expect(await withDatabase(database, e2eAccessToNewObjects)).toEqual({
-      schema: true,
-      tables: true,
-      sequences: true,
+    assert({
+      given: 'the same slot database created twice',
+      should: 'create it once and report the second call as a no-op',
+      actual: [
+        await createSlotDatabase(admin, database, template),
+        await createSlotDatabase(admin, database, template),
+      ],
+      expected: [true, false],
+    });
+    assert({
+      given: 'a table and a sequence the migration role creates in the copy',
+      should: 'grant daisy_e2e schema usage, table DML and sequence use',
+      actual: await withDatabase(database, e2eAccessToNewObjects),
+      expected: allGranted,
     });
   },
   ddlTimeoutMs,
@@ -104,15 +122,21 @@ test(
     await createSlotDatabase(admin, dropped, template);
     await setSlotDatabaseComment(admin, kept, 'daisy-slot port-block=7');
     const listed = await listSlotDatabases(admin, `${prefix}_`);
-    expect(
-      listed.filter(({ name }) => name === kept || name === dropped),
-    ).toEqual([
-      { name: dropped, comment: null },
-      { name: kept, comment: 'daisy-slot port-block=7' },
-    ]);
-    expect(listed.every(({ name }) => name.startsWith(`${prefix}_`))).toBe(
-      true,
-    );
+    assert({
+      given: 'two databases under a prefix, one with a claim comment',
+      should: 'list both with their comments and nothing outside the prefix',
+      actual: {
+        mine: listed.filter(({ name }) => name === kept || name === dropped),
+        allInPrefix: listed.every(({ name }) => name.startsWith(`${prefix}_`)),
+      },
+      expected: {
+        mine: [
+          { name: dropped, comment: null },
+          { name: kept, comment: 'daisy-slot port-block=7' },
+        ],
+        allInPrefix: true,
+      },
+    });
 
     // An open session must not block the drop (WITH (FORCE)).
     const holder = connect(dropped);
@@ -122,8 +146,12 @@ test(
     const names = (await listSlotDatabases(admin, `${prefix}_`)).map(
       ({ name }) => name,
     );
-    expect(names.includes(dropped)).toBe(false);
-    expect(names.includes(kept)).toBe(true);
+    assert({
+      given: 'a database dropped twice while a session holds it open',
+      should: 'drop exactly that database and keep its sibling',
+      actual: { dropped: names.includes(dropped), kept: names.includes(kept) },
+      expected: { dropped: false, kept: true },
+    });
     await holder.close().catch(() => undefined);
   },
   ddlTimeoutMs,
@@ -139,11 +167,14 @@ test(
       await resetPublicSchema(client, e2e.user);
       const [row] =
         await client`select to_regclass('public.leftover') as table`;
-      expect(row).toEqual({ table: null });
-      expect(await e2eAccessToNewObjects(client)).toEqual({
-        schema: true,
-        tables: true,
-        sequences: true,
+      assert({
+        given: 'a slot database with a table, reset',
+        should: 'drop the table and keep the e2e grants for new objects',
+        actual: {
+          leftover: row?.table ?? null,
+          grants: await e2eAccessToNewObjects(client),
+        },
+        expected: { leftover: null, grants: allGranted },
       });
     });
   },
@@ -163,12 +194,19 @@ test('slot administration is serialized across concurrent checkouts', async () =
       withSlotLock(sessions[0]!, critical('a')),
       withSlotLock(sessions[1]!, critical('b')),
     ]);
-    // Whichever took the lock first finishes before the other starts.
-    expect([events[0]?.split(':')[0], events[1]]).toEqual([
-      events[0]?.split(':')[0],
-      `${events[0]?.split(':')[0]}:end`,
-    ]);
-    expect(events.length).toBe(4);
+    const first = events[0]?.split(':')[0];
+    const second = first === 'a' ? 'b' : 'a';
+    assert({
+      given: 'two checkouts entering slot administration at once',
+      should: 'let whichever holds the lock finish before the other starts',
+      actual: events,
+      expected: [
+        `${first}:start`,
+        `${first}:end`,
+        `${second}:start`,
+        `${second}:end`,
+      ],
+    });
   } finally {
     await Promise.all(sessions.map((session) => session.close()));
   }
