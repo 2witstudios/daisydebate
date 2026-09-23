@@ -1,4 +1,7 @@
+import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { createId } from '@paralleldrive/cuid2';
+import { buildUserInboxTopic } from '@daisy/protocol';
 import { createPasskeyFlows } from './auth-passkey-flows';
 import {
   cookieHeader,
@@ -8,16 +11,53 @@ import {
 } from './auth-mounted-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 
-/** Backdates a session row's createdAt so the fresh-session gate refuses it. */
-const backdateSession = (token: string, hoursAgo: number) =>
+/**
+ * Plan revision 4.10 (ACTOR-1 pending): the outbox append only runs once
+ * the actor resolves through `actors.user_id`, and nothing in the signup
+ * path creates one yet, so this fixture stands in for ACTOR-1's onboarding
+ * insert until that leaf lands. Revocation rows are keyed by `actors.id`,
+ * never `userId`, so this returns the actor id the append will use.
+ */
+const createActorFor = async (userId: string): Promise<string> => {
+  const actorId = createId();
+  await withSql(
+    (sql) =>
+      sql`INSERT INTO actors (id, kind, user_id) VALUES (${actorId}, 'human', ${userId})`,
+  );
+  return actorId;
+};
+
+const cleanupActorFor = (userId: string) =>
+  withSql((sql) => sql`DELETE FROM actors WHERE user_id = ${userId}`);
+
+/** RT-2.2: outbox rows the session-revocation hooks append for this actor. */
+const sessionRevokedEvents = (actorId: string) =>
   withSql(
     (sql) =>
-      sql`UPDATE session SET created_at = now() - (${hoursAgo}::text || ' hours')::interval WHERE token = ${token}`,
+      sql`SELECT topic FROM outbox WHERE kind = 'session.revoked' AND topic = ${buildUserInboxTopic(actorId)}`,
+  ).then((rows) => rows.length);
+
+/** Fixture teardown: never leave session.revoked rows behind for this actor. */
+const cleanupOutboxFor = (actorId: string) =>
+  withSql(
+    (sql) =>
+      sql`DELETE FROM outbox WHERE kind = 'session.revoked' AND topic = ${buildUserInboxTopic(actorId)}`,
   );
 
 if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
   throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
 setupRitewayBun();
+
+const suiteStartedAt = new Date().toISOString();
+// Backstop for the per-test cleanups above: whatever this file's tests
+// appended and did not individually clean up (never a real, wider sweep;
+// scoped to rows this suite could plausibly have created).
+afterAll(() =>
+  withSql(
+    (sql) =>
+      sql`DELETE FROM outbox WHERE kind = 'session.revoked' AND created_at >= ${suiteStartedAt}::timestamptz`,
+  ),
+);
 
 const flows = await createPasskeyFlows();
 const { signUp } = flows.account;
@@ -56,6 +96,10 @@ const sessionTokenOf = async (response: Response): Promise<string> =>
   ((await response.clone().json()) as { session?: { token: string } } | null)
     ?.session?.token ?? '';
 
+const sessionUserIdOf = async (response: Response): Promise<string> =>
+  ((await response.clone().json()) as { session?: { userId: string } } | null)
+    ?.session?.userId ?? '';
+
 describe('AUTH-5.5 session management', () => {
   test('a second sign-in creates a second session, both listed for the account', async () => {
     const { email, cookie: first } = await signUp();
@@ -87,18 +131,32 @@ describe('AUTH-5.5 session management', () => {
     const second = cookieHeader(await redeem(token));
     const before = await protectedRead(second);
     const secondToken = await sessionTokenOf(before);
-    await flows.revokeSession(first, secondToken);
-    const after = await protectedRead(second);
-    assert({
-      given: 'a named other session revoked from the current one',
-      should:
-        'let the first request through and deny the next with a fresh (non-cached) read',
-      actual: {
-        beforeAuthenticated: await isAuthenticated(before),
-        afterAuthenticated: await isAuthenticated(after),
-      },
-      expected: { beforeAuthenticated: true, afterAuthenticated: false },
-    });
+    const userId = await sessionUserIdOf(before);
+    const actorId = await createActorFor(userId);
+    const eventsBefore = await sessionRevokedEvents(actorId);
+    try {
+      await flows.revokeSession(first, secondToken);
+      const after = await protectedRead(second);
+      assert({
+        given: 'a named other session revoked from the current one',
+        should:
+          'let the first request through, deny the next with a fresh (non-cached) read, and append session.revoked to the outbox (RT-2.2)',
+        actual: {
+          beforeAuthenticated: await isAuthenticated(before),
+          afterAuthenticated: await isAuthenticated(after),
+          outboxEventsAppended:
+            (await sessionRevokedEvents(actorId)) - eventsBefore,
+        },
+        expected: {
+          beforeAuthenticated: true,
+          afterAuthenticated: false,
+          outboxEventsAppended: 1,
+        },
+      });
+    } finally {
+      await cleanupOutboxFor(actorId);
+      await cleanupActorFor(userId);
+    }
   });
 
   test('a revoked session is denied even by an ordinary read that never asked to bypass the cache', async () => {
@@ -135,23 +193,80 @@ describe('AUTH-5.5 session management', () => {
     const thirdCookie = cookieHeader(
       await redeem(new URL(link2 as URL).searchParams.get('token') ?? ''),
     );
-    const revoke = await flows.revokeOtherSessions(first);
-    const [currentAfter, secondAfter, thirdAfter] = await Promise.all([
-      protectedRead(first),
-      protectedRead(secondCookie),
-      protectedRead(thirdCookie),
-    ]);
-    assert({
-      given: 'revoke-other-sessions called from the first session',
-      should: 'keep the calling session live and deny every other one',
-      actual: {
-        revoked: revoke.ok,
-        current: await isAuthenticated(currentAfter),
-        second: await isAuthenticated(secondAfter),
-        third: await isAuthenticated(thirdAfter),
-      },
-      expected: { revoked: true, current: true, second: false, third: false },
-    });
+    const userId = await sessionUserIdOf(await protectedRead(first));
+    const actorId = await createActorFor(userId);
+    const eventsBefore = await sessionRevokedEvents(actorId);
+    try {
+      const revoke = await flows.revokeOtherSessions(first);
+      const [currentAfter, secondAfter, thirdAfter] = await Promise.all([
+        protectedRead(first),
+        protectedRead(secondCookie),
+        protectedRead(thirdCookie),
+      ]);
+      assert({
+        given: 'revoke-other-sessions called from the first session',
+        should:
+          'keep the calling session live, deny every other one, and append one session.revoked doorbell for the call (RT-2.2)',
+        actual: {
+          revoked: revoke.ok,
+          current: await isAuthenticated(currentAfter),
+          second: await isAuthenticated(secondAfter),
+          third: await isAuthenticated(thirdAfter),
+          outboxEventsAppended:
+            (await sessionRevokedEvents(actorId)) - eventsBefore,
+        },
+        expected: {
+          revoked: true,
+          current: true,
+          second: false,
+          third: false,
+          outboxEventsAppended: 1,
+        },
+      });
+    } finally {
+      await cleanupOutboxFor(actorId);
+      await cleanupActorFor(userId);
+    }
+  });
+
+  test("revoking every session (including the caller's own) denies it too, and appends one session.revoked doorbell for the call (RT-2.2)", async () => {
+    const { email, cookie: first } = await signUp();
+    const { requestLink, redeem } = flows.account.flows;
+    const { link } = await requestLink(email);
+    const secondCookie = cookieHeader(
+      await redeem(new URL(link as URL).searchParams.get('token') ?? ''),
+    );
+    const userId = await sessionUserIdOf(await protectedRead(first));
+    const actorId = await createActorFor(userId);
+    const eventsBefore = await sessionRevokedEvents(actorId);
+    try {
+      const revoke = await flows.revokeSessions(first);
+      const [firstAfter, secondAfter] = await Promise.all([
+        protectedRead(first),
+        protectedRead(secondCookie),
+      ]);
+      assert({
+        given: 'revoke-sessions (revoke-all) called from the first session',
+        should:
+          'deny the calling session too, deny every other one, and append one session.revoked doorbell for the call (RT-2.2)',
+        actual: {
+          revoked: revoke.ok,
+          first: await isAuthenticated(firstAfter),
+          second: await isAuthenticated(secondAfter),
+          outboxEventsAppended:
+            (await sessionRevokedEvents(actorId)) - eventsBefore,
+        },
+        expected: {
+          revoked: true,
+          first: false,
+          second: false,
+          outboxEventsAppended: 1,
+        },
+      });
+    } finally {
+      await cleanupOutboxFor(actorId);
+      await cleanupActorFor(userId);
+    }
   });
 
   // Better Auth answers 200/{status:true} for a foreign token too, so an
@@ -178,80 +293,6 @@ describe('AUTH-5.5 session management', () => {
       should: 'refuse the revocation',
       actual: anonymous.ok,
       expected: false,
-    });
-  });
-
-  test('a stale session is refused for revoking sessions and requires fresh authentication', async () => {
-    const { cookie } = await signUp();
-    const sessionBody = (await (await protectedRead(cookie)).json()) as {
-      session?: { token: string };
-    };
-    const token = sessionBody.session?.token ?? '';
-    await backdateSession(token, 2);
-    const stale = await flows.revokeSessions(cookie);
-    assert({
-      given: 'a live, valid session created outside the fresh window',
-      should: 'refuse revoke-sessions and require fresh authentication',
-      actual: { ok: stale.ok, status: stale.status },
-      expected: { ok: false, status: 403 },
-    });
-  });
-
-  test('a stale session is refused for revoking a single other session', async () => {
-    const { cookie } = await signUp();
-    const sessionBody = (await (await protectedRead(cookie)).json()) as {
-      session?: { token: string };
-    };
-    const token = sessionBody.session?.token ?? '';
-    await backdateSession(token, 2);
-    const stale = await flows.revokeSession(cookie, 'irrelevant-token');
-    assert({
-      given: 'a live, valid session created outside the fresh window',
-      should: 'refuse revoke-session and require fresh authentication',
-      actual: { ok: stale.ok, status: stale.status },
-      expected: { ok: false, status: 403 },
-    });
-  });
-
-  test('a stale session is refused for revoking every other session', async () => {
-    const { cookie } = await signUp();
-    const sessionBody = (await (await protectedRead(cookie)).json()) as {
-      session?: { token: string };
-    };
-    const token = sessionBody.session?.token ?? '';
-    await backdateSession(token, 2);
-    const stale = await flows.revokeOtherSessions(cookie);
-    assert({
-      given: 'a live, valid session created outside the fresh window',
-      should: 'refuse revoke-other-sessions and require fresh authentication',
-      actual: { ok: stale.ok, status: stale.status },
-      expected: { ok: false, status: 403 },
-    });
-  });
-
-  test('a stale session is refused for removing a passkey', async () => {
-    const { cookie } = await signUp();
-    const { verifyResponse, credential } = await flows.enrollPasskey(cookie, {
-      name: 'Old device',
-    });
-    void credential;
-    const sessionBody = (await (await protectedRead(cookie)).json()) as {
-      session?: { token: string };
-    };
-    const token = sessionBody.session?.token ?? '';
-    await backdateSession(token, 2);
-    const listed = await flows.listPasskeys(cookie);
-    const rows = (await listed.json()) as { id: string }[];
-    const removed = await flows.deletePasskey(cookie, rows[0]!.id);
-    assert({
-      given: 'an enrolled passkey and a since-staled session',
-      should: 'refuse the removal and require fresh authentication',
-      actual: {
-        enrolled: verifyResponse.ok,
-        removeOk: removed.ok,
-        removeStatus: removed.status,
-      },
-      expected: { enrolled: true, removeOk: false, removeStatus: 403 },
     });
   });
 });

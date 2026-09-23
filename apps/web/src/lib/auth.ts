@@ -41,6 +41,8 @@ export function getAuth(): Auth {
       isSuppressed: (hash) => resources.database.isRecipientSuppressed(hash),
       record: (input) => resources.database.recordEmailDelivery(input),
     },
+    appendSessionRevoked: (userId) =>
+      resources.database.appendSessionRevoked(userId),
     logger: resources.logger,
     clock: resources.clock,
     ids: resources.ids,

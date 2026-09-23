@@ -8,7 +8,14 @@ import {
 } from './index';
 
 type RecordedQuery = { query: string; params: unknown[] };
-type ScriptedResult = readonly unknown[][] | Error;
+/**
+ * A drizzle typed query (`.insert().returning()` etc.) maps positional
+ * arrays; a raw `tx.execute(sql...)` (`appendOutboxEvent`'s insert/notify)
+ * gets named-object rows straight from the driver, so a script entry may be
+ * either shape.
+ */
+type ScriptedResult =
+  readonly (readonly unknown[] | Record<string, unknown>)[] | Error;
 
 /**
  * Stands in for the Bun SQL wire protocol only: real drizzle query building

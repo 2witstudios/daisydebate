@@ -50,6 +50,7 @@ const compose = (options: {
     logger: silentLogger,
     clock: fixedClock('2026-09-20T00:00:00.000Z'),
     ids: sequentialId('auth'),
+    appendSessionRevoked: async () => {},
     clientIp: options.clientIp,
   });
   const requestLink = async (address: string, extra?: HeadersInit) => {

@@ -226,25 +226,29 @@ from the current position.
 Revocations are outbox rows, so every instance applies them durably. They
 are not best-effort HTTP.
 
-- **`session.revoked`** is appended **after** the session delete is
-  confirmed, in its own short transaction, never in the same transaction as
-  the delete. No Daisy-owned server operation wraps session revocation: the
-  browser calls Better Auth's `/revoke-session`, `/revoke-other-sessions`
-  and `/revoke-sessions` directly (AUTH-5.5), and email-change completion
-  (AUTH-5.6) deletes through Better Auth's internal adapter, which commits on its own. So the
-  writers are:
-  - a Better Auth `hooks.after` on `/revoke-session`,
-    `/revoke-other-sessions` and `/revoke-sessions`, next to the existing
-    hooks in `apps/web/src/features/auth/server.ts`;
-  - the email-change completion in
-    `apps/web/src/features/auth/confirm-email.ts`, once every other session
-    is confirmed gone.
-
-  The append is best-effort and not atomic with the delete. A failed append
-  is logged as a registered structured event and never fails the
-  revocation, whose session delete has already committed. The
-  realtime service's 60 s session revalidation is the safety net, so the
-  kick is late by at most 60 s, never missed.
+- **`session.revoked`** has two kinds of writer, split by whether a
+  Daisy-owned transaction wraps the delete (revision 4.7, from RT-2.2's
+  second review pass: main's AUTH-5.6 made the email-change session delete
+  Daisy-owned):
+  - The browser calls Better Auth's `/revoke-session`,
+    `/revoke-other-sessions` and `/revoke-sessions` directly (AUTH-5.5); no
+    Daisy-owned transaction wraps those internal deletes. The writer is a
+    Better Auth plugin registering `hooks.after` on all three, next to the
+    existing hooks in `apps/web/src/features/auth/server.ts`. The append is
+    **best-effort**, appended **after** the delete is confirmed, in its own
+    short transaction, never in the same transaction as the delete. A
+    failed append is logged as a registered structured event and never
+    fails the revocation, whose session delete has already committed. The
+    realtime service's 60 s session revalidation is the safety net, so the
+    kick is late by at most 60 s, never missed.
+  - Email-change completion (AUTH-5.6) deletes through `@daisy/db`'s
+    `revokeOtherSessions`, a Daisy-owned single-statement DELETE, not
+    Better Auth's internal adapter. Because Daisy owns the transaction
+    here, the append happens in the **same transaction** as that DELETE: a
+    failed append rolls the DELETE back too, and the endpoint reports the
+    cleanup step failed rather than silently completing without the
+    doorbell. This is the one `session.revoked` writer that is atomic with
+    its delete.
 
 - **`access.revoked`** is appended by the seat and visibility mutations:
   leaving a seat, removal from a debate, and a debate becoming private. The
@@ -277,21 +281,38 @@ topic.
 `apps/realtime` connects as its own PostgreSQL role with exactly these
 grants:
 
-- `SELECT` on `outbox` and on the authorization read models it needs to
-  authorize subscriptions (debates, seats, debate visibility);
-- column-scoped `SELECT` on `users` (`id` and the presence visibility
-  preference column added by RT-3.2b) and on Better Auth's `session` table
-  (`id`, `user_id`, `expires_at`). Revalidation reads `session` directly.
-  The role can never read `token`, `email`, `name`, `image` or any other
-  column of those tables;
+- `SELECT` on `outbox`, `debates` and `debate_participants` in full;
+- column-scoped `SELECT` on `actors` (`id`, `user_id`) — identity resolves
+  through `actors.user_id`, which carries no PII, so `kind` and the audit
+  timestamps grant nothing realtime needs (revision 4.8; supersedes the
+  originally planned column-scoped grant on `users`, which stays ungranted
+  until RT-3.2b adds the invisible presence preference column, the only
+  `users` column this role will ever read);
+- column-scoped `SELECT` on Better Auth's `session` table (`id`, `user_id`,
+  `expires_at`). Revalidation reads `session` directly. The role can never
+  read `token`, `email`, `name`, `image` or any other column of `users` or
+  `session`;
 - `INSERT` and `UPDATE` on `service_instances`, for its lease and
-  `deliveredThrough`.
+  `deliveredThrough` (RT-4.3a, once that table exists).
 
 Nothing else: no `INSERT` on `outbox` and no `USAGE` on its sequence, no
 `DELETE` or `TRUNCATE` anywhere,
 no writes to any other table. Realtime cannot fabricate or erase a delivery.
 `apps/web` stays the only writer of competitive state and the only appender
 to the outbox.
+
+**Sequence USAGE (revision 4.8).** A `serial`/`bigserial` column's `nextval()`
+default needs sequence `USAGE`, which the repository's table-only grant
+pattern never covered before `outbox.seq` (the schema's first such column).
+The grant is folded into the same migration that creates the outbox's role
+and table grants (`0004_realtime-role.sql`), never a separate migration, for
+every runtime role that appends to the outbox: the migration owner (`daisy`)
+has it implicitly through table ownership, `daisy_e2e` gets it conditionally
+since it does not exist in production, and production's web runtime role —
+once provisioned as a credential distinct from the migration owner, per
+`docs/operations/database.md`'s least-privilege guidance — needs the same
+grant as an explicit, documented operations step, since no migration in
+this repository creates that role.
 
 ### 8. Retention
 

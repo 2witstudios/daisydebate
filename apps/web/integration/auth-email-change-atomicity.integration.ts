@@ -196,4 +196,59 @@ describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () 
       database.revokeOtherSessions = realRevoke;
     }
   });
+
+  test('a forced outbox failure inside the atomic revocation rolls back the session delete too', async () => {
+    const { email, cookie } = await signUp();
+    const { requestLink, redeem } = flows.account.flows;
+    const { link } = await requestLink(email);
+    const otherToken = new URL(link as URL).searchParams.get('token') ?? '';
+    const otherCookie = cookieHeader(await redeem(otherToken));
+    const before = flows.account.flows.mailbox.mails.length;
+    const newEmail = `${createId()}@example.test`;
+    await flows.changeEmail(cookie, newEmail);
+    const confirmMail = flows.account.flows.mailbox.mails[before];
+    await confirmPost(tokenOf(linkFrom(confirmMail!)));
+    const verifyMail = flows.account.flows.mailbox.mails[before + 1];
+    const verifyToken = tokenOf(linkFrom(verifyMail!));
+
+    // Plan revision 4.10 (ACTOR-1 pending): the append only runs once the
+    // actor resolves, so this fixture stands in for ACTOR-1's onboarding
+    // insert until that leaf lands.
+    const uid = await userIdOf(email);
+    await withSql(
+      (sql) =>
+        sql`INSERT INTO actors (id, kind, user_id) VALUES (${createId()}, 'human', ${uid})`,
+    );
+
+    // Same real-fault technique as `auth-session-revoked-outbox.integration.ts`:
+    // renaming the table away is a genuine Postgres-level failure of the
+    // exact statement `appendOutboxEvent` issues, not a stub of the function
+    // under test. Revision 4.7's contract is that this path is atomic, unlike
+    // the best-effort after-hooks: the DELETE must roll back with it.
+    await withSql(
+      (sql) =>
+        sql`ALTER TABLE outbox RENAME TO outbox_forced_failure_atomicity`,
+    );
+    let completion: Response;
+    try {
+      completion = await confirmPost(verifyToken);
+    } finally {
+      await withSql(
+        (sql) =>
+          sql`ALTER TABLE outbox_forced_failure_atomicity RENAME TO outbox`,
+      );
+    }
+
+    assert({
+      given:
+        "the atomic revocation's outbox append failing at the database level",
+      should:
+        'report the cleanup step failed and leave the other session still authenticated, proving the DELETE rolled back with it',
+      actual: {
+        status: completion.status,
+        otherSessionStillAuthenticated: await isAuthenticated(otherCookie),
+      },
+      expected: { status: 502, otherSessionStillAuthenticated: true },
+    });
+  });
 });

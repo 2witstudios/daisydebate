@@ -5,7 +5,7 @@ import { getTableConfig } from 'drizzle-orm/pg-core';
 import { debates } from './schema/debates';
 import { users } from './schema/users';
 import { createDatabase } from './index';
-import { createTestDatabase } from './index.test-support';
+import { createTestDatabase, type SinkEvent } from './index.test-support';
 
 setupRitewayBun();
 
@@ -87,31 +87,97 @@ describe('database health', () => {
 });
 
 describe('session revocation', () => {
-  test('revokes every other session for the user in one atomic statement', async () => {
-    const { database, queries } = createTestDatabase([[['session-row-id']]]);
+  const actorId = 'z9y8x7w6v5u4t3s2r1q0p9o8';
 
-    const removed = await database.revokeOtherSessions('user-1', 'keep-me');
+  test('revokes every other session for the user in one atomic statement, resolving the actor and appending session.revoked in the same transaction', async () => {
+    const userId = 'a7b3c9d1e5f2k4m6n8p1r3t5';
+    const { database, queries } = createTestDatabase([
+      [['session-row-id']],
+      [[actorId]],
+      [{ seq: '5', txid: '10' }],
+      [],
+    ]);
+
+    const removed = await database.revokeOtherSessions(userId, 'keep-me');
+
+    const lower = (index: number) => queries[index]?.query.toLowerCase() ?? '';
+    const selectsActor =
+      lower(1).includes('select') && lower(1).includes('actors');
+    const insertsOutbox =
+      lower(2).includes('insert into') && lower(2).includes('outbox');
 
     assert({
       given: "a user's other sessions and the token to keep",
       should:
-        'issue exactly one DELETE statement scoped to that user and excluding the kept token, with no prior listing query',
+        'issue the DELETE first with no prior listing query, resolve the actor, then append the outbox row and NOTIFY in the same transaction',
       actual: {
         removed,
         queryCount: queries.length,
-        deletesSession: queries[0]?.query.toLowerCase().includes('delete'),
+        deletesSession: lower(0).includes('delete'),
         mentionsUserId: queries[0]?.query.includes('user_id'),
         mentionsToken: queries[0]?.query.includes('token'),
         params: queries[0]?.params,
+        selectsActor,
+        insertsOutbox,
+        notifies: lower(3).includes('pg_notify'),
       },
       expected: {
         removed: 1,
-        queryCount: 1,
+        queryCount: 4,
         deletesSession: true,
         mentionsUserId: true,
         mentionsToken: true,
-        params: ['user-1', 'keep-me'],
+        params: [userId, 'keep-me'],
+        selectsActor: true,
+        insertsOutbox: true,
+        notifies: true,
       },
+    });
+  });
+
+  test('revokes sessions but appends nothing and reports a registered event when the user has no actor row (ACTOR-1 pending)', async () => {
+    const userId = 'a7b3c9d1e5f2k4m6n8p1r3t5';
+    const events: SinkEvent[] = [];
+    const { database, queries } = createTestDatabase(
+      [[['session-row-id']], []],
+      events,
+    );
+
+    const removed = await database.revokeOtherSessions(userId, 'keep-me');
+
+    assert({
+      given: 'a user with other sessions to revoke but no actor row',
+      should:
+        'still revoke the sessions, append no outbox row, and log realtime.outbox.actor_missing',
+      actual: {
+        removed,
+        queryCount: queries.length,
+        events: events.map(({ event, fields }) => ({ event, fields })),
+      },
+      expected: {
+        removed: 1,
+        queryCount: 2,
+        events: [
+          {
+            event: 'realtime.outbox.actor_missing',
+            fields: { operation: 'revokeOtherSessions' },
+          },
+        ],
+      },
+    });
+  });
+
+  test('appends no outbox row when there is nothing to revoke', async () => {
+    const userId = 'a7b3c9d1e5f2k4m6n8p1r3t5';
+    const { database, queries } = createTestDatabase([[]]);
+
+    const removed = await database.revokeOtherSessions(userId, 'keep-me');
+
+    assert({
+      given: 'a user with no other sessions to revoke',
+      should: 'issue only the DELETE, appending nothing to the outbox',
+      actual: { removed, queryCount: queries.length },
+      expected: { removed: 0, queryCount: 1 },
     });
   });
 

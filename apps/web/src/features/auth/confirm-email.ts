@@ -19,9 +19,11 @@ type ConfirmEmailDependencies = {
   readonly auth: () => ReturnType<ConfirmAuth> & {
     /**
      * One atomic revocation of every session for `userId` except
-     * `keepToken` (`@daisy/db`'s single-statement DELETE) — no
-     * snapshot-then-delete round trips for a concurrently created session
-     * to slip through.
+     * `keepToken` (`@daisy/db`'s single-statement DELETE), which also
+     * appends `session.revoked` to the outbox in that same transaction
+     * (ADR 0032 §5, plan revision 4.7): this is Daisy's own operation, not
+     * one of Better Auth's internal deletes, so the append is atomic with
+     * the delete rather than best-effort-ordered after it.
      */
     readonly revokeOtherSessions: (
       userId: string,

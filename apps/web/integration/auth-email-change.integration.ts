@@ -1,5 +1,7 @@
+import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
+import { buildUserInboxTopic } from '@daisy/protocol';
 import { createPasskeyFlows } from './auth-passkey-flows';
 import {
   cookieHeader,
@@ -13,6 +15,15 @@ import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
   throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
 setupRitewayBun();
+
+const suiteStartedAt = new Date().toISOString();
+// Backstop for the per-test cleanup below.
+afterAll(() =>
+  withSql(
+    (sql) =>
+      sql`DELETE FROM outbox WHERE kind = 'session.revoked' AND created_at >= ${suiteStartedAt}::timestamptz`,
+  ),
+);
 
 const flows = await createPasskeyFlows();
 const { signUp } = flows.account;
@@ -66,6 +77,38 @@ const userIdOf = (email: string) =>
     const [row] = await sql`SELECT id FROM users WHERE email = ${email}`;
     return row?.id as string | undefined;
   });
+
+/** RT-2.2: outbox rows the email-change completion's revocation appends. */
+const sessionRevokedEvents = (actorId: string) =>
+  withSql(
+    (sql) =>
+      sql`SELECT topic FROM outbox WHERE kind = 'session.revoked' AND topic = ${buildUserInboxTopic(actorId)}`,
+  ).then((rows) => rows.length);
+
+const cleanupOutboxFor = (actorId: string) =>
+  withSql(
+    (sql) =>
+      sql`DELETE FROM outbox WHERE kind = 'session.revoked' AND topic = ${buildUserInboxTopic(actorId)}`,
+  );
+
+/**
+ * Plan revision 4.10 (ACTOR-1 pending): the outbox append only runs once
+ * the actor resolves through `actors.user_id`, and nothing in the signup
+ * path creates one yet, so this fixture stands in for ACTOR-1's onboarding
+ * insert until that leaf lands. Revocation rows are keyed by `actors.id`,
+ * never `userId`, so this returns the actor id the append will use.
+ */
+const createActorFor = async (userId: string): Promise<string> => {
+  const actorId = createId();
+  await withSql(
+    (sql) =>
+      sql`INSERT INTO actors (id, kind, user_id) VALUES (${actorId}, 'human', ${userId})`,
+  );
+  return actorId;
+};
+
+const cleanupActorFor = (userId: string) =>
+  withSql((sql) => sql`DELETE FROM actors WHERE user_id = ${userId}`);
 
 describe('AUTH-5.6 change the recovery email', () => {
   test('a fresh session completes the two-hop change, keeping the old address until the new one verifies', async () => {
@@ -122,29 +165,40 @@ describe('AUTH-5.6 change the recovery email', () => {
     );
     const before = flows.account.flows.mailbox.mails.length;
     const newEmail = `${createId()}@example.test`;
-    await flows.changeEmail(cookie, newEmail);
-    const confirmMail = flows.account.flows.mailbox.mails[before];
-    await confirmPost(tokenOf(linkFrom(confirmMail!)));
-    const verifyMail = flows.account.flows.mailbox.mails[before + 1];
-    const finalResponse = await confirmPost(tokenOf(linkFrom(verifyMail!)));
-    const newCookie = cookieHeader(finalResponse);
+    const userId = (await userIdOf(email)) ?? '';
+    const actorId = await createActorFor(userId);
+    const eventsBefore = await sessionRevokedEvents(actorId);
+    try {
+      await flows.changeEmail(cookie, newEmail);
+      const confirmMail = flows.account.flows.mailbox.mails[before];
+      await confirmPost(tokenOf(linkFrom(confirmMail!)));
+      const verifyMail = flows.account.flows.mailbox.mails[before + 1];
+      const finalResponse = await confirmPost(tokenOf(linkFrom(verifyMail!)));
+      const newCookie = cookieHeader(finalResponse);
 
-    assert({
-      given:
-        'a completed email change with a second, independent prior session',
-      should:
-        'notify the old address, keep the completing session live and revoke the other one',
-      actual: {
-        notifiedOldAddress: confirmMail!.to === email,
-        completingSessionLive: await isAuthenticated(newCookie),
-        otherSessionRevoked: !(await isAuthenticated(otherCookie)),
-      },
-      expected: {
-        notifiedOldAddress: true,
-        completingSessionLive: true,
-        otherSessionRevoked: true,
-      },
-    });
+      assert({
+        given:
+          'a completed email change with a second, independent prior session',
+        should:
+          'notify the old address, keep the completing session live, revoke the other one and append a real session.revoked row (RT-2.2)',
+        actual: {
+          notifiedOldAddress: confirmMail!.to === email,
+          completingSessionLive: await isAuthenticated(newCookie),
+          otherSessionRevoked: !(await isAuthenticated(otherCookie)),
+          outboxEventsAppended:
+            (await sessionRevokedEvents(actorId)) - eventsBefore,
+        },
+        expected: {
+          notifiedOldAddress: true,
+          completingSessionLive: true,
+          otherSessionRevoked: true,
+          outboxEventsAppended: 1,
+        },
+      });
+    } finally {
+      await cleanupOutboxFor(actorId);
+      await cleanupActorFor(userId);
+    }
   });
 
   test('a stale session cannot start an email change', async () => {

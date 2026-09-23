@@ -14,6 +14,7 @@ import {
 } from './change-email-mail';
 import { createMagicLinkGate } from './magic-link-gate';
 import { freshSessionGatePlugin } from './fresh-session-gate';
+import { sessionRevokedOutboxPlugin } from './session-revoked-outbox';
 import { recipientHash } from './mail';
 import { renderAuthEmail } from './mail/templates';
 import { unavailable } from './public-errors';
@@ -79,6 +80,7 @@ const composeBetterAuth = (dependencies: {
   readonly logger: Logger;
   readonly ids: IdGenerator;
   readonly clientIp: ClientIpTrust | undefined;
+  readonly appendSessionRevoked: (userId: string) => Promise<void>;
 }) => {
   const { config, ledger } = dependencies;
   const origin = new URL(config.PUBLIC_APP_URL).origin;
@@ -207,6 +209,10 @@ const composeBetterAuth = (dependencies: {
       }),
       magicLinkGatePlugin,
       freshSessionGatePlugin,
+      sessionRevokedOutboxPlugin(
+        dependencies.appendSessionRevoked,
+        dependencies.logger,
+      ),
     ],
   });
   return {
@@ -268,6 +274,8 @@ export function createAuthServer<
   readonly clientIp?: ClientIpTrust | undefined;
   /** Mail receipts and suppressions (production supplies the @daisy/db one). */
   readonly ledger?: AuthDeliveryLedger | undefined;
+  /** RT-2.2: appends `session.revoked` after a confirmed self-service revoke. */
+  readonly appendSessionRevoked: (userId: string) => Promise<void>;
 }): AuthServer<Database> {
   const config = readAuthConfig(dependencies.env);
   const ledger = dependencies.ledger ?? noLedger;
@@ -325,6 +333,7 @@ export function createAuthServer<
       ids: dependencies.ids,
       // Explicit injection wins; otherwise the validated environment decides.
       clientIp: dependencies.clientIp ?? clientIpFromConfig(config),
+      appendSessionRevoked: dependencies.appendSessionRevoked,
     }),
     database: dependencies.database,
     mail: { send: sendMail },

@@ -52,6 +52,7 @@ export function secondInstance(
     limiter: overrides.limiter ? overrides.limiter(base) : base,
     clientIp: { trustedHeaders: [CLIENT_IP_HEADER] },
     ledger: noLedger,
+    appendSessionRevoked: async () => {},
     logger: silentLogger,
     clock: systemClock,
     ids: systemId,
