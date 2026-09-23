@@ -172,32 +172,55 @@ test(
 );
 
 test('slot administration is serialized across concurrent checkouts', async () => {
-  const sessions = [connect('postgres'), connect('postgres')];
+  const sessions = [connect('postgres'), connect('postgres')] as const;
   const events: string[] = [];
-  const critical = (name: string) => async () => {
-    events.push(`${name}:start`);
-    await Bun.sleep(150);
-    events.push(`${name}:end`);
-  };
+  let release = () => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let entered = () => {};
+  const holding = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
   try {
-    await Promise.all([
-      withSlotLock(sessions[0]!, critical('a')),
-      withSlotLock(sessions[1]!, critical('b')),
-    ]);
-    const first = events[0]?.split(':')[0];
-    const second = first === 'a' ? 'b' : 'a';
+    const [{ pid }] = await sessions[1]`select pg_backend_pid() as pid`;
+    // Checkout a takes the lock and holds it until released.
+    const first = withSlotLock(sessions[0], async () => {
+      events.push('a:start');
+      entered();
+      await held;
+      events.push('a:end');
+    });
+    await holding;
+    const second = withSlotLock(sessions[1], async () => {
+      events.push('b:start');
+      events.push('b:end');
+    });
+    // Release a only once PostgreSQL shows b's session waiting on the
+    // advisory lock: the state under test, not a timing window.
+    const waiting = async () => {
+      const [{ count }] = await admin`
+        select count(*)::int as count from pg_locks
+        where pid = ${pid} and locktype = 'advisory' and not granted`;
+      return count === 1;
+    };
+    // A lock that failed to serialize lets b run instead; stop and report it.
+    while (!events.includes('b:start') && !(await waiting()));
+    const whileHeld = [...events];
+    release();
+    await Promise.all([first, second]);
     assert({
       given: 'two checkouts entering slot administration at once',
-      should: 'let whichever holds the lock finish before the other starts',
-      actual: events,
-      expected: [
-        `${first}:start`,
-        `${first}:end`,
-        `${second}:start`,
-        `${second}:end`,
-      ],
+      should:
+        'hold the second at the lock until the first finishes, then run it',
+      actual: { whileHeld, events },
+      expected: {
+        whileHeld: ['a:start'],
+        events: ['a:start', 'a:end', 'b:start', 'b:end'],
+      },
     });
   } finally {
+    release();
     await Promise.all(sessions.map((session) => session.close()));
   }
 });

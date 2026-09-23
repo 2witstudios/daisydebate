@@ -11,12 +11,12 @@
     "apps/web": {
       "entry": [
         "e2e/support/server.ts",
-        "integration/**/*.integration{,.test}.ts",
+        "integration/**/*.integration.ts",
       ],
     },
-    "packages/db": { "entry": ["integration/**/*.integration{,.test}.ts"] },
+    "packages/db": { "entry": ["integration/**/*.integration.ts"] },
     "packages/redis": {
-      "entry": ["integration/**/*.integration{,.test}.ts"],
+      "entry": ["integration/**/*.integration.ts"],
     },
   },
 }

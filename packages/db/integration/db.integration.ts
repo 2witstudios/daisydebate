@@ -1,11 +1,15 @@
-import { expect, test } from 'bun:test';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
+import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { requireTestServices } from '@daisy/config';
 import { createDatabase } from '../src';
 import { createTestOnlyOperations } from '../src/test-only-operations';
 import { snapshotFor } from './constraint-helpers';
-import { requireTestServices } from '@daisy/config';
+
+setupRitewayBun();
+
 const { databaseUrl: url } = requireTestServices(process.env);
+
 test('durable records survive reconnect; optimistic writes reject stale updates', async () => {
   const id = createId();
   const userId = createId();
@@ -15,7 +19,7 @@ test('durable records survive reconnect; optimistic writes reject stale updates'
   const fixture = new SQL(url);
   const testOnly = createTestOnlyOperations({ client: fixture });
   try {
-    expect(await database.health()).toBe(true);
+    const healthy = await database.health();
     await testOnly.createUser({ id: userId, username: `test-${userId}` });
     // Competitive rows reference actors, and formats are a reference table;
     // neither has an adapter writer yet (ADR 0029), so the fixture inserts them.
@@ -34,12 +38,6 @@ test('durable records survive reconnect; optimistic writes reject stale updates'
     const reopened = createDatabase({ url, nextActorId: createId });
     try {
       const stored = await reopened.getDebate(id);
-      expect(stored?.snapshot).toEqual(snapshotFor(id, { format: formatId }));
-      expect([stored?.mode, stored?.phase, stored?.visibility]).toEqual([
-        'casual',
-        'waiting',
-        'unlisted',
-      ]);
       const outcomes = await Promise.all(
         [1, 2].map((value) =>
           testOnly.saveSnapshot({
@@ -55,12 +53,26 @@ test('durable records survive reconnect; optimistic writes reject stale updates'
         ),
       );
       const won = outcomes.filter(Boolean);
-      expect(won).toHaveLength(1);
-      // The phase projection travels with the snapshot in the same UPDATE.
-      expect([won[0]?.phase, won[0]?.startedAt]).toEqual([
-        'active',
-        '2026-01-01T00:00:00.000Z',
-      ]);
+      assert({
+        given:
+          'a debate written, the connection reopened, and two concurrent writes against version 1',
+        should:
+          'read back the stored snapshot and projections, and let exactly one write win, moving the phase projection with it',
+        actual: {
+          healthy,
+          snapshot: stored?.snapshot,
+          projections: [stored?.mode, stored?.phase, stored?.visibility],
+          winners: won.length,
+          winner: [won[0]?.phase, won[0]?.startedAt],
+        },
+        expected: {
+          healthy: true,
+          snapshot: snapshotFor(id, { format: formatId }),
+          projections: ['casual', 'waiting', 'unlisted'],
+          winners: 1,
+          winner: ['active', '2026-01-01T00:00:00.000Z'],
+        },
+      });
     } finally {
       await reopened.close();
     }

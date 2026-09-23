@@ -17,7 +17,7 @@ AIDD/Vitest guidance is overridden here by Bun and RITEway (ADR 0021).
    mapping). Requires `bun slot:up`, which migrates this checkout's test
    database. Suites are discovered, not listed: each workspace's
    `test:integration` runs `scripts/test-integration.ts`, which runs every
-   `integration/**/*.integration.ts` and `*.integration.test.ts`.
+   `integration/**/*.integration.ts`.
 3. **Browser E2E (`bun test:e2e`)** — Playwright boots the **production**
    server (`e2e/support/server.ts` wrapping `src/server/start.ts`,
    `NODE_ENV=production`) with production-refined configuration. The

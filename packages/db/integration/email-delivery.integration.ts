@@ -1,8 +1,11 @@
-import { expect, test } from 'bun:test';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
-import { createDatabase } from '../src';
+import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
+import { createDatabase } from '../src';
+
+setupRitewayBun();
+
 const { databaseUrl: url } = requireTestServices(process.env);
 
 const at = '2026-09-20T00:00:00.000Z';
@@ -36,7 +39,7 @@ test('delivery events dedupe, never lower status, and suppress only after hard f
       recipientHash: hash,
       at,
     });
-    expect(await database.isRecipientSuppressed(hash)).toBe(false);
+    const suppressedBefore = await database.isRecipientSuppressed(hash);
 
     const event = (
       eventId: string,
@@ -54,28 +57,43 @@ test('delivery events dedupe, never lower status, and suppress only after hard f
       });
     const bounced = `evt-${createId()}`;
     // Out of order: the terminal bounce arrives before "delivered".
-    expect(await event(bounced, 'bounced', 5, 'bounce')).toBe('applied');
-    expect(await event(`evt-${createId()}`, 'delivered', 3)).toBe('applied');
+    const outOfOrder = [
+      await event(bounced, 'bounced', 5, 'bounce'),
+      await event(`evt-${createId()}`, 'delivered', 3),
+    ];
     // Concurrent redelivery of one event ID applies exactly once.
     const duplicate = `evt-${createId()}`;
-    const outcomes = await Promise.all(
+    const concurrent = await Promise.all(
       Array.from({ length: 8 }, () => event(duplicate, 'delayed', 2)),
     );
-    expect(outcomes.filter((outcome) => outcome === 'applied')).toHaveLength(1);
-    expect(outcomes.filter((outcome) => outcome === 'duplicate')).toHaveLength(
-      7,
-    );
-    expect(await event(bounced, 'bounced', 5, 'bounce')).toBe('duplicate');
-
+    const redelivered = await event(bounced, 'bounced', 5, 'bounce');
     const probe = new SQL(url);
-    try {
-      const [row] =
-        await probe`SELECT status, status_rank FROM email_delivery WHERE provider_message_id=${messageId}`;
-      expect(row).toEqual({ status: 'bounced', status_rank: 5 });
-    } finally {
-      await probe.close();
-    }
-    expect(await database.isRecipientSuppressed(hash)).toBe(true);
+    const [stored] =
+      await probe`SELECT status, status_rank FROM email_delivery WHERE provider_message_id=${messageId}`.finally(
+        () => probe.close(),
+      );
+    assert({
+      given:
+        'a recorded send, an early bounce, a late delivered, eight concurrent copies of one event and a redelivered bounce',
+      should:
+        'apply each event ID once, keep the highest status, and suppress only after the bounce',
+      actual: {
+        suppressedBefore,
+        outOfOrder,
+        concurrent: [...concurrent].sort(),
+        redelivered,
+        stored,
+        suppressedAfter: await database.isRecipientSuppressed(hash),
+      },
+      expected: {
+        suppressedBefore: false,
+        outOfOrder: ['applied', 'applied'],
+        concurrent: ['applied', ...Array(7).fill('duplicate')],
+        redelivered: 'duplicate',
+        stored: { status: 'bounced', status_rank: 5 },
+        suppressedAfter: true,
+      },
+    });
   } finally {
     await database.close();
     await cleanup([messageId], [hash]);
@@ -86,33 +104,29 @@ test('an event for an unrecorded message is retryable and leaves no dedupe row',
   const database = createDatabase({ url, nextActorId: createId });
   const eventId = `evt-${createId()}`;
   const messageId = `msg-${createId()}`;
+  const apply = () =>
+    database.applyEmailDeliveryEvent({
+      eventId,
+      providerMessageId: messageId,
+      status: 'delivered',
+      rank: 3,
+      suppress: null,
+      at,
+    });
   try {
-    expect(
-      await database.applyEmailDeliveryEvent({
-        eventId,
-        providerMessageId: messageId,
-        status: 'delivered',
-        rank: 3,
-        suppress: null,
-        at,
-      }),
-    ).toBe('unknown-message');
+    const beforeSend = await apply();
     await database.recordEmailDelivery({
       providerMessageId: messageId,
       recipientHash: `hash-${createId()}`,
       at,
     });
     // The provider retries the same event ID after the send is recorded.
-    expect(
-      await database.applyEmailDeliveryEvent({
-        eventId,
-        providerMessageId: messageId,
-        status: 'delivered',
-        rank: 3,
-        suppress: null,
-        at,
-      }),
-    ).toBe('applied');
+    assert({
+      given: 'an event before its send is recorded, retried after',
+      should: 'answer unknown-message first, leaving no dedupe row, then apply',
+      actual: [beforeSend, await apply()],
+      expected: ['unknown-message', 'applied'],
+    });
   } finally {
     await database.close();
     await cleanup([messageId], []);

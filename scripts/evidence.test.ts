@@ -115,7 +115,7 @@ describe('classifyTestFile', () => {
       should: 'stay claimed by their own runners',
       actual: [
         'packages/db/integration/db.integration.ts',
-        'packages/db/integration/seed.integration.test.ts',
+        'packages/db/integration/seed.integration.ts',
         'apps/web/e2e/app.e2e.ts',
       ].map(classifyTestFile),
       expected: ['integration', 'integration', 'e2e'],
@@ -148,7 +148,8 @@ describe('integrationGuardProblems', () => {
 
   test('accepts a suite that imports and calls the shared guard at load', () => {
     assert({
-      given: "a suite calling @daisy/config's requireTestServices at module scope",
+      given:
+        "a suite calling @daisy/config's requireTestServices at module scope",
       should: 'report no problems',
       actual: codes(guarded),
       expected: [],
@@ -200,7 +201,8 @@ describe('integrationGuardProblems', () => {
   test('flags an imported guard that is never called at load', () => {
     assert({
       given: 'the import alone, and a call deferred into a test body',
-      should: 'fail both with GUARD_MISSING: nothing throws when the file loads',
+      should:
+        'fail both with GUARD_MISSING: nothing throws when the file loads',
       actual: [
         codes("import { requireTestServices } from '@daisy/config';"),
         codes(
