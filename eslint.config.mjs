@@ -67,16 +67,57 @@ const appImportRestrictions = [{ group: ['@adobe/*', '@daisy/*/src/*'] }];
  * read) may use `processApp`; everything else receives the app, or part of
  * it, as an argument.
  */
+const processEdgeMessage =
+  'Receive the app as an argument; only route bindings and the process entries import the process edge.';
+/** Any specifier naming the edge module, relative or absolute, any extension. */
+const processEdgePath = '(^|/)process-app(\\.[cm]?[jt]sx?)?$';
 const processEdgeImport = {
-  group: ['**/process-app'],
-  message:
-    'Receive the app as an argument; only route bindings and the process entries import the process edge.',
+  regex: processEdgePath,
+  message: processEdgeMessage,
 };
+/** The same edge reached through `import()`; a computed specifier hides it. */
+const processEdgeLoads = [
+  {
+    selector: `ImportExpression[source.value=/${processEdgePath.replaceAll('/', '\\/')}/]`,
+    message: processEdgeMessage,
+  },
+  {
+    selector: "ImportExpression[source.type!='Literal']",
+    message:
+      'Use a literal import() specifier so the import boundaries can check it.',
+  },
+];
 const processEntries = [
   'apps/web/src/proxy.ts',
   'apps/web/src/instrumentation.ts',
   'apps/web/src/server/start.ts',
   'apps/web/src/lib/request-session.ts',
+];
+
+/** The repo-wide `no-restricted-syntax` list; overrides extend or replace it. */
+const repoSyntaxRestrictions = [
+  {
+    selector:
+      "CallExpression[callee.object.name='Date'][callee.property.name='now']",
+    message: 'Inject a clock instead of reading the current time directly.',
+  },
+  {
+    selector: "NewExpression[callee.name='Date'][arguments.length=0]",
+    message:
+      'Inject a clock instead of constructing the current time directly.',
+  },
+  {
+    selector:
+      "CallExpression[callee.object.name='Math'][callee.property.name='random']",
+    message: 'Inject a deterministic identity or randomness source.',
+  },
+  {
+    selector:
+      "CallExpression[callee.object.name='crypto'][callee.property.name='randomUUID']",
+    message: 'Inject an identity generator instead of creating an ID directly.',
+  },
+  exportStarRestriction,
+  ...processMutationRestrictions,
 ];
 
 export default [
@@ -97,33 +138,7 @@ export default [
   {
     files: ['**/*.{js,mjs,ts,tsx}'],
     rules: {
-      'no-restricted-syntax': [
-        'error',
-        {
-          selector:
-            "CallExpression[callee.object.name='Date'][callee.property.name='now']",
-          message:
-            'Inject a clock instead of reading the current time directly.',
-        },
-        {
-          selector: "NewExpression[callee.name='Date'][arguments.length=0]",
-          message:
-            'Inject a clock instead of constructing the current time directly.',
-        },
-        {
-          selector:
-            "CallExpression[callee.object.name='Math'][callee.property.name='random']",
-          message: 'Inject a deterministic identity or randomness source.',
-        },
-        {
-          selector:
-            "CallExpression[callee.object.name='crypto'][callee.property.name='randomUUID']",
-          message:
-            'Inject an identity generator instead of creating an ID directly.',
-        },
-        exportStarRestriction,
-        ...processMutationRestrictions,
-      ],
+      'no-restricted-syntax': ['error', ...repoSyntaxRestrictions],
     },
   },
   // App Router only: the pages-dir heuristic cannot resolve from the repo root.
@@ -338,6 +353,45 @@ export default [
       'no-restricted-imports': [
         'error',
         { patterns: [...appImportRestrictions, processEdgeImport] },
+      ],
+      'no-restricted-syntax': [
+        'error',
+        ...repoSyntaxRestrictions,
+        ...processEdgeLoads,
+      ],
+    },
+  },
+  // Tests build their own app with createApp; only the browser suite's
+  // server, itself a process entry, hands the edge its app.
+  {
+    files: ['apps/web/integration/**/*.ts', 'apps/web/e2e/**/*.ts'],
+    ignores: ['apps/web/e2e/support/server.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        { patterns: [...appImportRestrictions, processEdgeImport] },
+      ],
+    },
+  },
+  {
+    files: ['apps/web/integration/**/*.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        exportStarRestriction,
+        ...processMutationRestrictions,
+        ...processEdgeLoads,
+      ],
+    },
+  },
+  {
+    files: ['apps/web/e2e/**/*.ts'],
+    ignores: ['apps/web/e2e/support/server.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...repoSyntaxRestrictions,
+        ...processEdgeLoads,
       ],
     },
   },

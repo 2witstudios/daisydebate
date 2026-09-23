@@ -113,8 +113,8 @@ const web = (path: string) => `apps/web/src/${path}`;
 const [props, globals, imports] = ['properties', 'globals', 'imports'].map(
   (kind) => [`no-restricted-${kind}`],
 );
-const edgeImport = (from: string, name = 'processApp') =>
-  `import { ${name} } from '${from}process-app';\nexport const x = ${name};`;
+const edgeImport = (from: string, name = 'processApp', ext = '') =>
+  `import { ${name} } from '${from}process-app${ext}';\nexport const x = ${name};`;
 const reads =
   'export const env = process.env;\nexport const g = globalThis as unknown;';
 const mutations = [
@@ -127,6 +127,23 @@ const mutations = [
 ].join('\n');
 const sixMutations = Array.from({ length: 6 }, () => 'no-restricted-syntax');
 const route = web('app/api/health/ready/route.ts');
+const lazyEdge = (path: string) => `export const l = () => import('${path}');`;
+const suite = 'apps/web/integration/leak.integration.ts';
+const e2eServer = 'apps/web/e2e/support/server.ts';
+/** Every spelling that reaches the edge outside its entries (review 2). */
+const computed = "export const l = import(`./${'process-app'}`);";
+const escapes: ReadonlyArray<readonly [string, string]> = [
+  [edgeImport('../../server/', 'processApp', '.js'), web('features/x.ts')],
+  [edgeImport('/repo/apps/web/src/server/', 'processApp', '.ts'), web('x.ts')],
+  [lazyEdge('../../server/process-app'), web('features/x.ts')],
+  [lazyEdge('../../server/process-app.js'), route],
+  [computed, web('server/x.ts')],
+  [edgeImport('../src/server/'), suite],
+  [lazyEdge('../src/server/process-app'), suite],
+  [edgeImport('../../src/server/'), 'apps/web/e2e/journey.e2e.ts'],
+];
+const escapeRule = (code: string) =>
+  code.startsWith('import {') ? imports : ['no-restricted-syntax'];
 
 describe('process edge: one module reads process.env and globalThis (ISSUE-7)', () => {
   test('rejects ambient reads and edge imports outside the edge', async () => {
@@ -152,6 +169,7 @@ describe('process edge: one module reads process.env and globalThis (ISSUE-7)', 
       [edgeImport('../server/'), web('lib/identity.ts'), imports],
       [edgeImport('../../../../server/'), route, imports],
       [edgeImport('./'), web('server/routes.ts'), imports],
+      ...escapes.map(([code, file]): Case => [code, file, escapeRule(code)]),
     ];
     assert({
       given:
@@ -171,6 +189,8 @@ describe('process edge: one module reads process.env and globalThis (ISSUE-7)', 
       [edgeImport('./server/'), web('instrumentation.ts'), []],
       [edgeImport('./'), web('server/start.ts'), []],
       [edgeImport('../server/'), web('lib/request-session.ts'), []],
+      [lazyEdge('./server/process-app'), web('instrumentation.ts'), []],
+      [edgeImport('../../src/server/', 'adoptProcessApp'), e2eServer, []],
       [
         'export const u = process.env.TEST_DATABASE_URL;',
         'apps/web/integration/r.integration.ts',
