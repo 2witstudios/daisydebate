@@ -30,16 +30,34 @@ const trackedCreateActorFor = async (userId: string): Promise<string> => {
   return actorId;
 };
 
-// Backstop for the per-test cleanup below, scoped to the actors this suite
-// itself created (RT-2.2v nit): never a time-window sweep that could delete
-// another suite's rows running concurrently against the same
-// `TEST_DATABASE_URL`.
-afterAll(() =>
-  Promise.all(suiteActorIds.map((actorId) => cleanupOutboxFor(actorId))),
-);
+/**
+ * Every user id this suite's `signUp()` calls have created (RT-2.2f-r2:
+ * these tests change the account's email mid-run, so cleanup keys on the
+ * user id resolved at sign-up, never the original or final address).
+ */
+const suiteUserIds: string[] = [];
+
+// Backstop for the per-test cleanup below, scoped to the actors and users
+// this suite itself created (RT-2.2v nit, RT-2.2f-r2): never a time-window
+// sweep that could delete another suite's rows running concurrently
+// against the same `TEST_DATABASE_URL`. `actors.user_id` is
+// `onDelete: 'restrict'`, so actors are cleared before their users.
+afterAll(async () => {
+  await Promise.all(suiteActorIds.map((actorId) => cleanupOutboxFor(actorId)));
+  await Promise.all(
+    suiteUserIds.map((userId) =>
+      withSql((sql) => sql`DELETE FROM actors WHERE user_id = ${userId}`),
+    ),
+  );
+  await Promise.all(
+    suiteUserIds.map((userId) =>
+      withSql((sql) => sql`DELETE FROM users WHERE id = ${userId}`),
+    ),
+  );
+});
 
 const flows = await createPasskeyFlows();
-const { signUp } = flows.account;
+const { signUp: accountSignUp } = flows.account;
 const confirmEmailRoute = await import('../src/app/auth/confirm-email/route');
 
 const backdateSession = (token: string, hoursAgo: number) =>
@@ -90,6 +108,14 @@ const userIdOf = (email: string) =>
     const [row] = await sql`SELECT id FROM users WHERE email = ${email}`;
     return row?.id as string | undefined;
   });
+
+/** Signs up and tracks the new user id for the `afterAll` cleanup above, before any test changes its email. */
+const signUp = async () => {
+  const result = await accountSignUp();
+  const userId = await userIdOf(result.email);
+  if (userId) suiteUserIds.push(userId);
+  return result;
+};
 
 /** Swaps the shared logger for a recorder for the duration of `work` (AUTH-6.4). */
 async function recordedEvents(work: () => Promise<void>): Promise<string[]> {

@@ -1,3 +1,4 @@
+import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { signJWT, verifyJWT } from 'better-auth/crypto';
@@ -26,8 +27,31 @@ if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
 setupRitewayBun();
 
 const flows = await createPasskeyFlows();
-const { signUp } = flows.account;
+const { signUp: accountSignUp } = flows.account;
 const confirmEmailRoute = await import('../src/app/auth/confirm-email/route');
+
+/**
+ * Every user id this suite's `signUp()` calls have created (RT-2.2f-r2:
+ * these tests change the account's email mid-run, so cleanup keys on the
+ * user id resolved at sign-up, never the original or final address).
+ * `actors.user_id` is `onDelete: 'restrict'`, so actors are cleared before
+ * their users; individual tests that create their own actor row clean it
+ * up themselves, so this backstop is a no-op there.
+ */
+const suiteUserIds: string[] = [];
+
+afterAll(async () => {
+  await Promise.all(
+    suiteUserIds.map((userId) =>
+      withSql((sql) => sql`DELETE FROM actors WHERE user_id = ${userId}`),
+    ),
+  );
+  await Promise.all(
+    suiteUserIds.map((userId) =>
+      withSql((sql) => sql`DELETE FROM users WHERE id = ${userId}`),
+    ),
+  );
+});
 
 const linkFrom = (mail: CapturedMail): URL => {
   const found = mail.text.match(/https?:\/\/\S+/)?.[0];
@@ -66,6 +90,14 @@ const userIdOf = (email: string) =>
     const [row] = await sql`SELECT id FROM users WHERE email = ${email}`;
     return row?.id as string | undefined;
   });
+
+/** Signs up and tracks the new user id for the `afterAll` cleanup above, before any test changes its email. */
+const signUp = async () => {
+  const result = await accountSignUp();
+  const userId = await userIdOf(result.email);
+  if (userId) suiteUserIds.push(userId);
+  return result;
+};
 
 describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () => {
   test('an expired verification token is rejected server-side and changes nothing', async () => {
