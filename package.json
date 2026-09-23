@@ -25,6 +25,7 @@
     "metrics:check": "bun scripts/metrics.ts --check",
     "policy": "bun scripts/policy.ts",
     "adr:next": "bun scripts/number-claims.ts",
+    "github:rules": "bun scripts/github-rules.ts",
     "invariants": "bun scripts/invariants.ts",
     "evidence": "bun scripts/evidence.ts",
     "migrations:check": "bun scripts/check-migration-journal.ts",
