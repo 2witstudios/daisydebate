@@ -121,25 +121,51 @@ function gitPush(args: readonly string[], facts: GuardFacts, dir: string) {
   ]);
 }
 
+const HOOKS_PATH = /core\.hookspath/i;
+const HOOKS_REASON = 'Overriding core.hooksPath disables the pre-push guard.';
+
+// git's global options that take a value as the next word.
+const GIT_VALUE_OPTIONS = new Set([
+  '-C',
+  '-c',
+  '--config-env',
+  '--git-dir',
+  '--work-tree',
+  '--namespace',
+  '--exec-path',
+]);
+
+/** Whether the environment an invocation runs with points hooks elsewhere. */
+const hooksPathInEnvironment = (
+  assignments: Readonly<Record<string, string>>,
+): boolean =>
+  Object.entries(assignments).some(
+    ([key, value]) =>
+      (/^GIT_CONFIG_(?:KEY_\d+|PARAMETERS)$/.test(key) &&
+        HOOKS_PATH.test(value)) ||
+      (key === 'GIT_CONFIG_GLOBAL' && value !== ''),
+  );
+
 export const git: Rule = (invocation, facts, cwd) => {
   const [, ...rest] = invocation.words;
   let dir = cwd;
-  let hooksOverride = false;
+  let hooksOverride = hooksPathInEnvironment(invocation.assignments);
   let index = 0;
   while (index < rest.length && rest[index].startsWith('-')) {
-    const option = rest[index];
-    if (option === '-C') dir = resolveFrom(dir, rest[index + 1] ?? '');
-    if (option === '-c')
-      hooksOverride ||= /^core\.hookspath=/i.test(rest[index + 1] ?? '');
-    index += option === '-C' || option === '-c' ? 2 : 1;
+    const [flag, inline] = splitFlag(rest[index]);
+    const value = inline ?? rest[index + 1] ?? '';
+    if (flag === '-C') dir = resolveFrom(dir, value);
+    if (flag === '-c' || flag === '--config-env')
+      hooksOverride ||= HOOKS_PATH.test(value);
+    index += GIT_VALUE_OPTIONS.has(flag) && inline === undefined ? 2 : 1;
   }
+  const subcommand = rest[index];
+  // git config core.hooksPath <path> persists the override.
+  const setsHooks =
+    subcommand === 'config' &&
+    rest.slice(index + 1).some((arg) => HOOKS_PATH.test(arg));
   return combine([
-    hooksOverride
-      ? autonomousOnly(
-          facts,
-          'Overriding core.hooksPath disables the pre-push guard.',
-        )
-      : allow,
-    rest[index] === 'push' ? gitPush(rest.slice(index + 1), facts, dir) : allow,
+    hooksOverride || setsHooks ? autonomousOnly(facts, HOOKS_REASON) : allow,
+    subcommand === 'push' ? gitPush(rest.slice(index + 1), facts, dir) : allow,
   ]);
 };

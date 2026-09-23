@@ -179,6 +179,26 @@ export function guardVariables(
 ): Verdict {
   const [name, ...args] = invocation.words;
   const declares = name === 'unset' || name === 'export' || name === 'declare';
+  const exported = declares
+    ? Object.fromEntries(
+        args.map((arg) => {
+          const at = arg.indexOf('=');
+          return at === -1 ? [arg, ''] : [arg.slice(0, at), arg.slice(at + 1)];
+        }),
+      )
+    : {};
+  const hooks = [invocation.assignments, exported].some((values) =>
+    Object.entries(values).some(
+      ([key, value]) =>
+        /^GIT_CONFIG_(?:KEY_\d+|PARAMETERS)$/.test(key) &&
+        /core\.hookspath/i.test(value),
+    ),
+  );
+  if (hooks)
+    return autonomousOnly(
+      facts,
+      'Overriding core.hooksPath disables the pre-push guard.',
+    );
   const touched =
     Object.keys(invocation.assignments).some((key) =>
       GUARD_VARIABLES.has(key),

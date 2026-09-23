@@ -69,6 +69,24 @@ describe('agent guard: pushes to main', () => {
     });
   });
 
+  test('refuses every way of pointing core.hooksPath away from the guard', () => {
+    assert({
+      given:
+        'GIT_CONFIG_* and GIT_CONFIG_PARAMETERS in the environment, --config-env, an export and git config',
+      should: 'deny each one',
+      actual: [
+        'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/dev/null git push origin x',
+        "GIT_CONFIG_PARAMETERS=\"'core.hooksPath'='/dev/null'\" git push",
+        'git --config-env=core.hooksPath=EMPTY push origin x',
+        'git --config-env core.hooksPath=EMPTY push origin x',
+        'export GIT_CONFIG_KEY_0=core.hookspath',
+        'git config core.hooksPath /dev/null',
+        'git config --local core.hooksPath .nothing',
+      ].map((command) => decide(command)),
+      expected: Array(7).fill('deny'),
+    });
+  });
+
   test('asks the owner before a push to main', () => {
     assert({
       given: 'an owner session pushing main and pushing a branch',
