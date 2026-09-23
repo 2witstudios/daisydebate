@@ -24,6 +24,17 @@ unit tests, metrics, build) · bun migrations:check: PASS · date
 Only check a finding once its fix is verified in the code, not when the
 fix is claimed.
 
+Where an unfixed finding goes is decided by one question: is the leaf it
+belongs to still open? Open leaf: a follow-up leaf under that phase, always,
+whether or not the PR merged. Leaf already Done, or no leaf owns it: an
+`ISSUE-n` task in the drive-root `Issues` list (never a GitHub Issue) that
+names this record as its origin. Say which in the finding's fix column.
+
+Filing is the reviewer's job, not a suggestion: a record is not finished
+while any unfixed finding lacks the page id of the leaf or issue that now
+carries it. "Out of scope for this PR" is a reason to file, never a reason
+to leave the finding in prose.
+
 ## What is good
 
 <two or three specific things worth keeping>

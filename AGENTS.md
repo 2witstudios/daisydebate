@@ -197,6 +197,24 @@ or scope of a task delegated to it: a change goes back to whoever delegated
 it. Done is granted from an independent review record, never by the agent
 that did the work.
 
+Work that is not an epic leaf goes in the drive-root `Issues` task list,
+never in GitHub Issues: defects found after the owning leaf is Done, review
+findings and minors with no open leaf to carry them, and small non-epic
+improvements. The test is whether an open leaf owns it: if one does, the
+finding is a follow-up leaf under that phase regardless of merge state. Title `ISSUE-n — Given X, should
+Y`; the body records origin (PR, review record, reporter), why, and the
+acceptance criteria; the Related pages block links the origin. An issue
+closes through a PR that names it, or is promoted to an epic leaf when it
+grows into feature work. `Backlog` stays for feature candidates awaiting a
+spec. Filing is an obligation: whoever observes a defect or a deferrable
+improvement — reviewer, builder, or orchestrator — creates the leaf or issue
+in the same session rather than mentioning it in prose, because an
+observation that lives only in a record or a handoff is lost once the PR
+merges. Before a stage starts, the orchestrator reads `Issues` for anything
+touching the files or phase about to be built and carries it into the
+prompt; an epic cannot close while any issue it produced is untriaged
+(promoted, scheduled, or deferred by the owner with a reason).
+
 Open and update pull requests with the `/pr` skill: the description links
 the task, plan and prompt pages (and handoff and reviews as they land) so a
 reviewer can check the change against what was asked, and every review
