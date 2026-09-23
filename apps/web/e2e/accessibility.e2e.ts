@@ -122,6 +122,9 @@ test('username onboarding is fully usable by keyboard alone, with visible focus'
 }) => {
   await reachOnboarding(page, request);
 
+  // The shell streams in behind the root loading boundary and is revealed
+  // a moment later; focus the field only once it is the visible one.
+  await expect(page.getByLabel('Username')).toBeVisible();
   await page.getByLabel('Username').focus();
   await expect(page.getByLabel('Username')).toBeFocused();
   await page.keyboard.type(uniqueName('kbd'));
@@ -151,6 +154,10 @@ test('account security settings is operable by keyboard alone', async ({
   await page.goto('/settings/security');
 
   const newEmail = freshEmail();
+  // ISSUE-45: the settings page streams in behind the root loading boundary
+  // and React reveals it a moment later; a focus sent before that lands on
+  // the still-hidden copy and is lost. Focus the field once it is visible.
+  await expect(page.getByLabel('New email address')).toBeVisible();
   await page.getByLabel('New email address').focus();
   await expect(page.getByLabel('New email address')).toBeFocused();
   await page.keyboard.type(newEmail);
