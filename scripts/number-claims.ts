@@ -116,9 +116,11 @@ export function listOpenPrs(run: Run = spawnRun): readonly OpenPr[] {
 
 const lines = (text: string) => text.split('\n').filter(Boolean);
 
+type Env = Readonly<Record<string, string | undefined>>;
+
 /** This branch's PR number, or its added files when it has no PR yet. */
-function ownBranch(run: Run, openPrs: readonly OpenPr[]) {
-  const ciPr = /^refs\/pull\/(\d+)\//.exec(process.env.GITHUB_REF ?? '')?.[1];
+function ownBranch(run: Run, openPrs: readonly OpenPr[], env: Env) {
+  const ciPr = /^refs\/pull\/(\d+)\//.exec(env.GITHUB_REF ?? '')?.[1];
   if (ciPr) return { pr: Number(ciPr), files: undefined };
   const branch = run([
     'git',
@@ -134,15 +136,21 @@ function ownBranch(run: Run, openPrs: readonly OpenPr[]) {
     '--diff-filter=A',
     'origin/main...HEAD',
   ]);
-  return { pr, files: added.code === 0 ? lines(added.stdout) : [] };
+  // Without the diff this branch's claims are unknown: fail, never pass.
+  if (added.code !== 0)
+    throw new Error(
+      'numbers: cannot diff this branch against origin/main (git fetch origin, then retry)',
+    );
+  return { pr, files: lines(added.stdout) };
 }
 
 export function numberCollisionProblems(
   run: Run = spawnRun,
+  env: Env = process.env,
 ): readonly string[] {
   try {
     const openPrs = listOpenPrs(run);
-    const own = ownBranch(run, openPrs);
+    const own = ownBranch(run, openPrs, env);
     return collisionProblems(openPrs, own.pr, own.files);
   } catch (error) {
     return [(error as Error).message];

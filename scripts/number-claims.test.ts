@@ -2,7 +2,9 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   claimsOf,
   collisionProblems,
+  listOpenPrs,
   nextFree,
+  numberCollisionProblems,
   type OpenPr,
 } from './number-claims';
 
@@ -103,6 +105,79 @@ describe('collisionProblems', () => {
       should: 'report nothing for PR #50',
       actual: collisionProblems(openPrs, 50),
       expected: [],
+    });
+  });
+
+  test('does not count a stacked PR that carries the same file', () => {
+    const stacked: readonly OpenPr[] = [
+      {
+        number: 61,
+        branch: 'pu/grd-6-1-3-loops-spawn',
+        files: ['docs/decisions/0035-autonomy-guardrails.md'],
+      },
+      {
+        number: 63,
+        branch: 'pu/grd-6-1-5-rules-review',
+        files: ['docs/decisions/0035-autonomy-guardrails.md'],
+      },
+    ];
+    assert({
+      given: 'a later PR stacked on an earlier one, both showing ADR 0035',
+      should: 'report no clash: it is the same record, not a second claim',
+      actual: collisionProblems(stacked, 63),
+      expected: [],
+    });
+  });
+});
+
+describe('numberCollisionProblems', () => {
+  const prList = JSON.stringify([
+    {
+      number: 50,
+      headRefName: 'pu/par-2-slots',
+      files: [{ path: 'docs/decisions/0034-shared-stack-slots.md' }],
+    },
+  ]);
+  const fake = (failing: string) => (args: readonly string[]) => {
+    const line = args.join(' ');
+    if (line.startsWith(failing)) return { code: 1, stdout: '' };
+    if (line.startsWith('gh pr list')) return { code: 0, stdout: prList };
+    if (line.startsWith('git rev-parse'))
+      return { code: 0, stdout: 'pu/new\n' };
+    return {
+      code: 0,
+      stdout: 'docs/decisions/0034-new-thing.md\n',
+    };
+  };
+
+  test('fails closed when gh or git cannot be read', () => {
+    assert({
+      given: 'gh pr list failing, then git diff against origin/main failing',
+      should: 'report each as a problem instead of passing',
+      actual: [
+        numberCollisionProblems(fake('gh pr list'), {}),
+        numberCollisionProblems(fake('git diff'), {}),
+      ],
+      expected: [
+        [
+          'numbers: cannot list open PRs with gh (authenticate gh, or set GH_TOKEN in CI)',
+        ],
+        [
+          'numbers: cannot diff this branch against origin/main (git fetch origin, then retry)',
+        ],
+      ],
+    });
+  });
+
+  test('reads open PRs and checks an unpublished branch against them', () => {
+    assert({
+      given: 'an open PR holding ADR 0034 and a new branch adding 0034',
+      should: 'list the PR and report the clash',
+      actual: [
+        listOpenPrs(fake('none')).map((pr) => pr.number),
+        numberCollisionProblems(fake('none'), {}).length,
+      ],
+      expected: [[50], 1],
     });
   });
 });
