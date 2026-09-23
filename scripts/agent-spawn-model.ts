@@ -40,6 +40,33 @@ function wrapperOptions(args: readonly string[]) {
   return options;
 }
 
+/**
+ * What an autonomous agent may not choose for itself: the cap, the role
+ * (a reviewer is not counted) and a builder with no leaf to check.
+ */
+function autonomyError(
+  args: readonly string[],
+  options: ReturnType<typeof wrapperOptions>,
+) {
+  const owned = ['--cap', '--role'].find((flag) => args.includes(flag));
+  if (owned) return `Only the owner can pass ${owned}.`;
+  return options.task
+    ? undefined
+    : 'An autonomous agent spawns a builder only for a leaf: pass --task <leafPageId>.';
+}
+
+function optionsError(
+  options: ReturnType<typeof wrapperOptions>,
+  name: string | undefined,
+) {
+  if (!name) return '--name is required';
+  if (options.role !== 'builder' && options.role !== 'reviewer')
+    return '--role must be builder or reviewer';
+  if (!Number.isInteger(options.cap) || options.cap < 1)
+    return '--cap must be a positive integer';
+  return undefined;
+}
+
 const puValueFlags: Readonly<Record<string, 'name' | 'base' | 'agent'>> = {
   '-n': 'name',
   '--name': 'name',
@@ -51,9 +78,13 @@ const puValueFlags: Readonly<Record<string, 'name' | 'base' | 'agent'>> = {
 
 export function parseSpawnArgs(
   argv: readonly string[],
+  autonomous = false,
 ): SpawnPlan | { readonly error: string } {
   const split = argv.indexOf('--');
-  const options = wrapperOptions(split === -1 ? [] : argv.slice(0, split));
+  const wrapper = split === -1 ? [] : argv.slice(0, split);
+  const options = wrapperOptions(wrapper);
+  const refused = autonomous ? autonomyError(wrapper, options) : undefined;
+  if (refused) return { error: `${refused}\n${SPAWN_USAGE}` };
   const spawn = split === -1 ? argv : argv.slice(split + 1);
   const picked: Record<'name' | 'base' | 'agent', string | undefined> = {
     name: undefined,
@@ -69,15 +100,12 @@ export function parseSpawnArgs(
       rest.push(`--agent-args=${spawn[++index] ?? ''}`);
     else rest.push(spawn[index]);
   }
-  if (!picked.name) return { error: `--name is required\n${SPAWN_USAGE}` };
-  if (options.role !== 'builder' && options.role !== 'reviewer')
-    return { error: `--role must be builder or reviewer\n${SPAWN_USAGE}` };
-  if (!Number.isInteger(options.cap) || options.cap < 1)
-    return { error: `--cap must be a positive integer\n${SPAWN_USAGE}` };
+  const invalid = optionsError(options, picked.name);
+  if (invalid) return { error: `${invalid}\n${SPAWN_USAGE}` };
   return {
     ...options,
-    role: options.role,
-    name: picked.name,
+    role: options.role as Role,
+    name: picked.name ?? '',
     base: picked.base ?? 'main',
     agent: picked.agent ?? 'claude',
     rest,
@@ -93,7 +121,10 @@ type PuStatus = {
   }[];
 };
 
-/** Running coding agents registered as builders. */
+/**
+ * Running coding agents that count toward the builder cap: every one not
+ * registered as a reviewer, so an agent from a raw pu spawn counts too.
+ */
 export function activeBuilders(
   status: PuStatus,
   roleOf: (agentId: string) => Role | undefined,
@@ -102,7 +133,7 @@ export function activeBuilders(
     .flatMap((worktree) => Object.entries(worktree.agents ?? {}))
     .filter(
       ([id, agent]) =>
-        roleOf(id) === 'builder' &&
+        roleOf(id) !== 'reviewer' &&
         agent.status === 'running' &&
         agent.agentType !== 'terminal',
     ).length;
