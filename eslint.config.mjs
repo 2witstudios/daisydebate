@@ -232,6 +232,13 @@ export default [
       'no-console': 'off',
     },
   },
+  // Ambient-time/identity primitives are legitimately used here (clocks,
+  // observability instrumentation, CLI scripts, integration test setup), but
+  // the export-star ban applies to every workspace source file with no
+  // exception: a flat-config rule array replaces the whole options list for
+  // a rule id, so re-declaring `no-restricted-syntax` here with only the
+  // `ExportAllDeclaration` selector turns the ambient-time restriction off
+  // for these paths while keeping the export-star gate on.
   {
     files: [
       'packages/clock/**/*.ts',
@@ -239,7 +246,16 @@ export default [
       'scripts/**/*.ts',
       '**/integration/**/*.ts',
     ],
-    rules: { 'no-restricted-syntax': 'off' },
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'ExportAllDeclaration',
+          message:
+            'Use named re-exports, not `export *` (AGENTS.md: explicit exports, no barrels).',
+        },
+      ],
+    },
   },
   {
     files: ['**/*.config.*'],
