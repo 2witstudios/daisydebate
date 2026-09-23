@@ -4,6 +4,7 @@
  * namespace. So an autonomous agent never removes, stops or prunes
  * containers, volumes or the stack, and resets or drops only its own slot.
  */
+import { otherKillers } from './agent-guard-process';
 import {
   allow,
   autonomousOnly,
@@ -133,6 +134,13 @@ function ownsSlot(
 
 export const bun: Rule = (invocation, facts, cwd): Verdict => {
   const { dir, script, args } = bunScript(invocation.words, cwd);
+  // bun x <package> is bunx.
+  if (script === 'x')
+    return otherKillers(
+      { ...invocation, words: ['bunx', ...args] },
+      facts,
+      cwd,
+    );
   if (script === 'github:rules' && args.includes('--apply'))
     return autonomousOnly(facts, RULE_REASON);
   if (!facts.autonomous || !SLOT_SCRIPTS.has(script)) return allow;

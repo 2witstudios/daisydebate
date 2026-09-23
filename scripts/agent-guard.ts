@@ -26,7 +26,7 @@ import {
 import { isLoopState, loopState } from './agent-guard-files';
 import { gh } from './agent-guard-gh';
 import { git } from './agent-guard-git';
-import { kill } from './agent-guard-process';
+import { kill, otherKillers } from './agent-guard-process';
 import { bun, docker } from './agent-guard-stacks';
 import { deriveSlot } from './slot-model';
 import { parseShell } from './shell-command';
@@ -38,6 +38,10 @@ const rules: Readonly<Record<string, Rule>> = {
   kill,
   pkill: kill,
   killall: kill,
+  fuser: otherKillers,
+  launchctl: otherKillers,
+  bunx: otherKillers,
+  npx: otherKillers,
   docker,
   'docker-compose': docker,
   bun,

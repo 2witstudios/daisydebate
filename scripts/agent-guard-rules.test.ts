@@ -30,6 +30,35 @@ describe('agent guard: kill commands', () => {
     });
   });
 
+  test('refuses kill forms that slip past a simple reading', () => {
+    assert({
+      given:
+        'a pid hidden before -l, a pkill pattern with alternation, and fuser, kill-port and launchctl',
+      should: 'deny each one',
+      actual: [
+        'kill -9 202 -l',
+        'kill -l 202 -9',
+        `pkill -f '${worktree}|node'`,
+        `pkill -f "(${worktree}|next)"`,
+        'fuser -k 3000/tcp',
+        'bunx kill-port 3000',
+        'npx kill-port 3000',
+        'bun x kill-port 3000',
+        'launchctl kill SIGTERM gui/501/com.x',
+      ].map((command) => decide(command)),
+      expected: Array(9).fill('deny'),
+    });
+  });
+
+  test('still allows listing signals', () => {
+    assert({
+      given: 'kill -l with and without a signal number',
+      should: 'allow both',
+      actual: [decide('kill -l'), decide('kill -l 9')],
+      expected: ['allow', 'allow'],
+    });
+  });
+
   test('allows kill commands scoped to the worktree', () => {
     assert({
       given: 'a pkill pattern naming the worktree and a pid it owns',
