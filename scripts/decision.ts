@@ -6,6 +6,7 @@
  * was made, and the owner is notified in Epic Updates. It stays open (To Do)
  * until the owner moves it to Confirmed or Overruled.
  */
+import { isAgentSession } from './agent-guard-rules';
 import { runBoard } from './board';
 
 export const PENDING_DECISIONS_ID = 'jdesqcu11mczngtmahbcybc3';
@@ -88,6 +89,8 @@ if (import.meta.main) {
           {
             pagespace: run,
             readFile: () => '',
+            // Any pu agent is an agent, as in the guard (ADR 0035 section 6).
+            autonomous: isAgentSession(process.env),
             scratch: (name) =>
               `${process.env.TMPDIR ?? '/tmp'}/decision-${process.pid}-${name}`,
             out: (text) => void lines.push(text),
