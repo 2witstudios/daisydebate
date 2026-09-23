@@ -106,12 +106,12 @@ describe('SignInForm', () => {
       should:
         'point a new person to email in a status, not an alert, and leave the input valid',
       actual: [
-        page.includes('No passkey used.') &&
-          page.includes('New here? Continue with your email.'),
+        page.includes('No passkey used.'),
+        page.includes('New here? Continue with your email.'),
         page.includes('role="alert"'),
         page.includes('aria-invalid="true"'),
       ],
-      expected: [true, false, false],
+      expected: [true, true, false, false],
     });
   });
 
