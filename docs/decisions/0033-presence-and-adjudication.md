@@ -52,7 +52,13 @@ guessing.
    another. The actor and online sorted sets carry their own mandatory
    expiry, set in the same script to at least the longest live lease. Every
    read is one Lua op that trims members whose score is in the past, ranges
-   and hydrates, and returns the Redis `now` it used. When an instance
+   and hydrates, and returns the Redis `now` it used, so a caller computing
+   `derivePresence`'s `nowMs` never substitutes an instance clock for it.
+   **Known gap**: the merged RT-3.1 reads (`readActorConnections` and
+   `readOnlinePresence` in `@daisy/redis`) return only the trimmed, hydrated
+   rows and do not return `now`; RT-3.1f owns adding the missing return
+   value, and it lands before any caller is built against these reads.
+   When an instance
    crashes, each of its leases expires on its own; a stale lease can never
    outlive its TTL and poison a result.
 
@@ -141,10 +147,11 @@ leaf that adds them (RT-4.4) adds a lint rule that fails if they do.
    unique operation key `(debate_id, type, turn_index, actor_id)`. The key
    applies only to `check-in` and `adjudicate` commands. It is a partial
    unique index `WHERE turn_index IS NOT NULL`, declared
-   `NULLS NOT DISTINCT` so that the evaluator's rows, which have no actor,
-   are unique too. A CHECK keeps `turn_index` set for exactly those two
-   types. Every other command type (join, ready, transition) has a NULL
-   `turn_index`, so the index never sees it and never collides it.
+   `NULLS NOT DISTINCT` so that the evaluator's `adjudicate` rows, each
+   written under the sweep's service principal rather than an actor
+   (section 8), are unique too. A CHECK keeps `turn_index` set for exactly
+   those two types. Every other command type (join, ready, transition) has
+   a NULL `turn_index`, so the index never sees it and never collides it.
    A retried check-in with a new `commandId` hits the operation key, and
    the handler returns the recorded result and receipt time.
 5. **The check-in is recorded in the debate snapshot** as an attendance
@@ -274,9 +281,10 @@ with the invariant id. Zod (`formatRulesSchema`) checks only the shape.
      affects time strictly after the horizon, so appending samples never
      changes an interval or availability at or before it
      (**`debate.availability.settled-prefix-stable`**, section 8).
-   - **Retention**: the maintenance sweep deletes samples and
-     `service_instances` rows whose `renewedAt` is older than 24 h. A window
-     whose history was pruned counts as outage, never as healthy.
+   - **Retention**: the maintenance sweep deletes `availability_samples`
+     rows whose `at` is older than 24 h and `service_instances` rows whose
+     `renewedAt` is older than 24 h. A window whose history was pruned
+     counts as outage, never as healthy.
 
 ### 8. Deadlines are adjudicated exactly once
 
