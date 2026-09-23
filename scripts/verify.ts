@@ -1,5 +1,11 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { join, relative, resolve } from 'node:path';
+import {
+  closeSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
+import { dirname, join, relative, resolve } from 'node:path';
 
 const root = resolve(import.meta.dir, '..');
 const gateNames = [
@@ -33,7 +39,11 @@ type StageResult = { readonly code: number; readonly output: string };
 
 type VerifyOptions = {
   readonly environment?: Readonly<Record<string, string | undefined>>;
-  readonly run?: (command: VerifyCommand) => Promise<StageResult>;
+  /** Runs a stage; the default streams it into verify-logs/<logName>.log. */
+  readonly run?: (
+    command: VerifyCommand,
+    logName: string,
+  ) => Promise<StageResult>;
   /** Files this branch changes, for scoping browser e2e. */
   readonly changedFiles?: () => Promise<readonly string[]>;
   /** Stores one stage's full output; returns where it was kept. */
@@ -132,27 +142,52 @@ function isTestDatabaseUrl(value: string | undefined): value is string {
   }
 }
 
-async function runProcess(
+/**
+ * Runs a stage with stdout and stderr both written straight to its log
+ * file, so the log interleaves them as written and survives a killed run.
+ */
+export async function runLogged(
+  argv: readonly string[],
+  options: {
+    readonly cwd: string;
+    readonly env: Readonly<Record<string, string | undefined>>;
+    readonly logPath: string;
+  },
+): Promise<StageResult> {
+  mkdirSync(dirname(options.logPath), { recursive: true });
+  const fd = openSync(options.logPath, 'w');
+  try {
+    const child = Bun.spawn([...argv], {
+      cwd: options.cwd,
+      env: options.env,
+      stdout: fd,
+      stderr: fd,
+    });
+    const code = await child.exited;
+    return { code, output: readFileSync(options.logPath, 'utf8') };
+  } finally {
+    closeSync(fd);
+  }
+}
+
+const logPathOf = (stage: string): string =>
+  join(root, LOG_DIR, `${stage}.log`);
+
+function runProcess(
   command: VerifyCommand,
   environment: Readonly<Record<string, string | undefined>>,
+  logName: string,
 ): Promise<StageResult> {
-  const child = Bun.spawn(['bun', ...command.args], {
+  return runLogged(['bun', ...command.args], {
     cwd: root,
     env: createEnvironment(environment, command.env?.DATABASE_URL),
-    stdout: 'pipe',
-    stderr: 'pipe',
+    logPath: logPathOf(logName),
   });
-  const [stdout, stderr, code] = await Promise.all([
-    new Response(child.stdout).text(),
-    new Response(child.stderr).text(),
-    child.exited,
-  ]);
-  return { code, output: `${stdout}${stderr}` };
 }
 
 function writeStageLog(stage: string, output: string): string {
-  mkdirSync(join(root, LOG_DIR), { recursive: true });
-  const path = join(root, LOG_DIR, `${stage}.log`);
+  const path = logPathOf(stage);
+  mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, output);
   return relative(root, path);
 }
@@ -177,7 +212,10 @@ async function gitChangedFiles(): Promise<readonly string[]> {
 }
 
 type Stage = {
-  readonly run: (command: VerifyCommand) => Promise<StageResult>;
+  readonly run: (
+    command: VerifyCommand,
+    logName: string,
+  ) => Promise<StageResult>;
   readonly writeLog: (stage: string, output: string) => string;
   readonly print: (text: string) => void;
 };
@@ -189,7 +227,7 @@ async function runCommand(
 ): Promise<string> {
   let result: StageResult;
   try {
-    result = await stage.run(command);
+    result = await stage.run(command, logName);
   } catch (error) {
     result = { code: -1, output: String(error) };
   }
@@ -227,7 +265,7 @@ const gate = (name: VerifyGateName, detail: string): VerifyGate =>
 
 export async function runVerify({
   environment = process.env,
-  run = (command) => runProcess(command, environment),
+  run = (command, logName) => runProcess(command, environment, logName),
   changedFiles = gitChangedFiles,
   writeLog = writeStageLog,
   print = (text) => void process.stderr.write(text),

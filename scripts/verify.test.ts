@@ -1,9 +1,13 @@
+import { mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   createVerifyReport,
   formatVerifyReport,
   combineChanges,
   isDocsOnly,
+  runLogged,
   runVerify,
   type VerifyCommand,
 } from './verify';
@@ -298,6 +302,24 @@ describe('verify e2e scope', () => {
         },
         true,
       ],
+    });
+  });
+});
+
+describe('stage logs', () => {
+  test('streams stdout and stderr into the log as they are written, interleaved', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'grd-6-verify-log-'));
+    const logPath = join(dir, 'stage.log');
+    const result = await runLogged(
+      ['sh', '-c', 'echo out1; echo err >&2; echo out2; exit 3'],
+      { cwd: dir, env: {}, logPath },
+    );
+    assert({
+      given: 'a stage writing to stdout, then stderr, then stdout, and failing',
+      should:
+        'keep the exit code and write both streams to the log in the order written',
+      actual: [result, readFileSync(logPath, 'utf8')],
+      expected: [{ code: 3, output: 'out1\nerr\nout2\n' }, 'out1\nerr\nout2\n'],
     });
   });
 });
