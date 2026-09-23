@@ -8,6 +8,7 @@ import {
   type SearchParams,
 } from '../../../../features/access/decision';
 import { Onboarding } from '../../../../ui/auth/onboarding/onboarding';
+import { claimUsernameAction } from './actions';
 
 export const metadata: Metadata = {
   title: 'Choose a username',
@@ -30,5 +31,10 @@ export default async function OnboardingUsernamePage({
   if (identity.state === 'anonymous')
     redirect(signInHref(onboardingHref(destination)));
   if (identity.state === 'member') redirect(destination);
-  return <Onboarding destination={destination} />;
+  return (
+    <Onboarding
+      claim={claimUsernameAction.bind(null, destination)}
+      signInHref={signInHref(onboardingHref(destination))}
+    />
+  );
 }

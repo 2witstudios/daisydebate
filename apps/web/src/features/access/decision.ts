@@ -94,6 +94,10 @@ export const signInHref = (destination: string): string =>
 export const onboardingHref = (destination: string): string =>
   `/onboarding/username?next=${encodeURIComponent(destination)}`;
 
+/** The passkey offer after a claimed username, then the destination. */
+export const passkeyOfferHref = (destination: string): string =>
+  `/onboarding/passkey?next=${encodeURIComponent(destination)}`;
+
 /** The requested page as a local path with its query, for the return trip. */
 export const requestedPath = (path: string, search: SearchParams): string => {
   const query = new URLSearchParams();

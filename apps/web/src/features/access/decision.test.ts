@@ -4,6 +4,7 @@ import {
   decideAccess,
   nextDestination,
   onboardingHref,
+  passkeyOfferHref,
   requirementFor,
   signInHref,
   isGuardedPath,
@@ -284,6 +285,7 @@ describe('return links', () => {
         signInHref('/lobby?tab=a&b=1'),
         onboardingHref('/ranked'),
         signInHref(onboardingHref('/ranked')),
+        passkeyOfferHref('/lobby?tab=a'),
       ],
       expected: [
         '/ranked?tab=a',
@@ -292,6 +294,7 @@ describe('return links', () => {
         '/sign-in?next=%2Flobby%3Ftab%3Da%26b%3D1',
         '/onboarding/username?next=%2Franked',
         '/sign-in?next=%2Fonboarding%2Fusername%3Fnext%3D%252Franked',
+        '/onboarding/passkey?next=%2Flobby%3Ftab%3Da',
       ],
     });
   });

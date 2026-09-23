@@ -13,8 +13,7 @@ const props = (
   username: 'jordan_l',
   pending: false,
   savePasskey: () => {},
-  markShared: () => {},
-  dismiss: () => {},
+  continueHref: '/lobby?tab=a',
   ...overrides,
 });
 
@@ -30,8 +29,19 @@ describe('SavePasskey', () => {
         page.includes('This is a shared computer'),
         page.includes('Not now'),
         page.includes('disabled=""'),
+        page.includes('aria-disabled="'),
       ],
-      expected: [true, true, true, true, false],
+      expected: [true, true, true, true, false, false],
+    });
+  });
+
+  test('continuing without a passkey is a plain link to the destination', () => {
+    const page = renderToString(h(SavePasskey, props()));
+    assert({
+      given: 'the shared-computer and not-now choices',
+      should: 'link both to the destination, so they work without JavaScript',
+      actual: page.match(/<a [^>]*href="\/lobby\?tab=a"/g)?.length,
+      expected: 2,
     });
   });
 
@@ -39,31 +49,25 @@ describe('SavePasskey', () => {
     const page = renderToString(h(SavePasskey, props({ pending: true })));
     assert({
       given: 'a pending save',
-      should: 'say so and disable all three buttons',
+      should: 'say so, disable the save and mark both links unavailable',
       actual: [
         page.includes('Waiting for your device…'),
         page.match(/disabled=""/g)?.length,
+        page.match(/aria-disabled="true"/g)?.length,
       ],
-      expected: [true, 3],
+      expected: [true, 1, 2],
     });
   });
 
-  test('wires the actions', () => {
+  test('wires the save', () => {
     const calls: string[] = [];
-    const tree = SavePasskey(
-      props({
-        savePasskey: () => calls.push('save'),
-        markShared: () => calls.push('shared'),
-        dismiss: () => calls.push('dismiss'),
-      }),
-    );
-    for (const label of ['Save a passkey', 'shared computer', 'Not now'])
-      (byText(tree, Button, label)?.props['onClick'] as () => void)();
+    const tree = SavePasskey(props({ savePasskey: () => calls.push('save') }));
+    (byText(tree, Button, 'Save a passkey')?.props['onClick'] as () => void)();
     assert({
-      given: 'each choice in turn',
+      given: 'the save choice',
       should: 'call its action',
       actual: calls,
-      expected: ['save', 'shared', 'dismiss'],
+      expected: ['save'],
     });
   });
 });
