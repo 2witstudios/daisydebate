@@ -140,7 +140,11 @@ in `apps/web/playwright.config.ts`. CDP WebAuthn (the virtual authenticator
 behind every passkey ceremony) is Chromium-only, so
 `passkey-lifecycle.e2e.ts` is additionally excluded from every non-Chromium
 project; a spec that needs a Chromium-only WebAuthn capability belongs in
-that file, not in `journey.e2e.ts`. `apps/web/e2e/accessibility.e2e.ts` runs
+that file, not in `journey.e2e.ts`. The sign-in page arms passkey autofill
+(conditional mediation), and under `chromium-mobile` the virtual
+authenticator completes that request with no pick, so specs that prove the
+explicit passkey button call `withoutPasskeyAutofill` first.
+`apps/web/e2e/accessibility.e2e.ts` runs
 `@axe-core/playwright` against every auth screen (sign-in idle/pending,
 onboarding, settings/security, an expired link), asserting zero
 serious/critical findings, plus keyboard-only navigation, a live-region

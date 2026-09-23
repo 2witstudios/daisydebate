@@ -104,7 +104,7 @@ describe('auth instance composition', () => {
     });
   });
 
-  test('prefers the device authenticator for passkey registration', async () => {
+  test('asks for discoverable passkeys from any authenticator', async () => {
     const server = create();
     const { options } = await server.instance.$context;
     const passkeyOptions = (options.plugins ?? []).find(
@@ -113,13 +113,52 @@ describe('auth instance composition', () => {
     assert({
       given: 'the passkey plugin configuration',
       should:
-        'request a discoverable platform credential so the browser offers the device store, not the QR sheet',
+        'require a discoverable credential without restricting it to the platform, so roaming keys still enroll',
       actual: passkeyOptions?.['authenticatorSelection'],
-      expected: {
-        authenticatorAttachment: 'platform',
-        residentKey: 'required',
-        userVerification: 'preferred',
+      expected: { residentKey: 'required', userVerification: 'preferred' },
+    });
+  });
+
+  test('hints the device authenticator first on passkey sign-in options', async () => {
+    const server = create();
+    const response = await server.instance.handler(
+      new Request(
+        'http://localhost:3000/api/auth/passkey/generate-authenticate-options',
+      ),
+    );
+    const body = (await response.json()) as Record<string, unknown>;
+    assert({
+      given: 'a request for passkey sign-in options',
+      should:
+        'carry an advisory client-device hint alongside a fresh challenge and the challenge cookie',
+      actual: {
+        status: response.status,
+        hints: body['hints'],
+        challenge: typeof body['challenge'],
+        challengeCookie: response.headers.has('set-cookie'),
       },
+      expected: {
+        status: 200,
+        hints: ['client-device'],
+        challenge: 'string',
+        challengeCookie: true,
+      },
+    });
+  });
+
+  test('leaves a refused passkey options request untouched', async () => {
+    const server = create();
+    const response = await server.instance.handler(
+      new Request(
+        'http://localhost:3000/api/auth/passkey/generate-register-options',
+      ),
+    );
+    const body = (await response.json()) as Record<string, unknown>;
+    assert({
+      given: 'registration options requested without a session',
+      should: 'keep the refusal and add no hint to the error body',
+      actual: { status: response.status, hints: body['hints'] },
+      expected: { status: 401, hints: undefined },
     });
   });
 
