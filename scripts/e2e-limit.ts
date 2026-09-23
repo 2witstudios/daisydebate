@@ -1,10 +1,12 @@
 #!/usr/bin/env bun
 /**
  * Machine-wide limit on concurrent browser e2e runs (ADR 0035). Every
- * checkout on the machine shares one slot directory; a run claims a slot
- * file atomically (O_EXCL) before starting Playwright and waits, queued,
- * while DAISY_E2E_CONCURRENCY runs (default 2) already hold one. Slots of
- * runs whose process is gone are cleared.
+ * checkout on the machine shares one slot directory, fixed at
+ * /tmp/daisy-e2e-slots so that TMPDIR (per user on macOS, and stripped by
+ * turbo) never splits the pool; turbo.json passes E2E_ENV through. A run
+ * claims a slot file atomically (O_EXCL) before starting Playwright and
+ * waits, queued, while DAISY_E2E_CONCURRENCY runs (default 2) already hold
+ * one. Slots of runs whose process is gone are cleared.
  *
  *   bun scripts/e2e-limit.ts <command…>
  */
@@ -15,12 +17,23 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 type Held = { readonly slot: number; readonly pid: number };
 
 const DEFAULT_LIMIT = 2;
+const DEFAULT_LOCK_DIR = '/tmp/daisy-e2e-slots';
+
+/** The settings a run reads; turbo must pass each one through. */
+export const E2E_ENV = [
+  'DAISY_E2E_CONCURRENCY',
+  'DAISY_E2E_LOCK_DIR',
+  'DAISY_E2E_POLL_MS',
+] as const;
+
+export const lockDir = (
+  env: Readonly<Record<string, string | undefined>>,
+): string => env.DAISY_E2E_LOCK_DIR || DEFAULT_LOCK_DIR;
 
 export function readLimit(env: Readonly<Record<string, string | undefined>>) {
   const value = Number(env.DAISY_E2E_CONCURRENCY);
@@ -85,7 +98,7 @@ function tryClaim(dir: string, limit: number): string | undefined {
 async function main(command: readonly string[]): Promise<number> {
   const env = process.env;
   const limit = readLimit(env);
-  const dir = env.DAISY_E2E_LOCK_DIR ?? join(tmpdir(), 'daisy-e2e-slots');
+  const dir = lockDir(env);
   const pollMs = Number(env.DAISY_E2E_POLL_MS ?? 5000);
   mkdirSync(dir, { recursive: true });
   let claimed = tryClaim(dir, limit);

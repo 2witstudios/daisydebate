@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { claimPlan, readLimit } from './e2e-limit';
+import { claimPlan, E2E_ENV, lockDir, readLimit } from './e2e-limit';
 
 setupRitewayBun();
 
@@ -51,6 +51,38 @@ describe('readLimit', () => {
         readLimit({ DAISY_E2E_CONCURRENCY: '0' }),
       ],
       expected: [3, 2, 2],
+    });
+  });
+});
+
+describe('one machine-wide pool', () => {
+  test('uses one fixed lock directory whatever TMPDIR says', () => {
+    assert({
+      given: 'two TMPDIRs, and an explicit DAISY_E2E_LOCK_DIR',
+      should:
+        'use /tmp/daisy-e2e-slots for both, and the explicit one when set',
+      actual: [
+        lockDir({ TMPDIR: '/var/folders/xy/T/' }),
+        lockDir({ TMPDIR: '/tmp' }),
+        lockDir({ DAISY_E2E_LOCK_DIR: '/srv/e2e', TMPDIR: '/tmp' }),
+      ],
+      expected: ['/tmp/daisy-e2e-slots', '/tmp/daisy-e2e-slots', '/srv/e2e'],
+    });
+  });
+
+  test('passes the limit settings through turbo to test:e2e', async () => {
+    const turbo = (await Bun.file(
+      new URL('../turbo.json', import.meta.url),
+    ).json()) as {
+      tasks: Record<string, { passThroughEnv?: string[] }>;
+    };
+    assert({
+      given: "turbo's strict env mode and the test:e2e task",
+      should: 'pass every DAISY_E2E_* setting through',
+      actual: E2E_ENV.every((name) =>
+        turbo.tasks['test:e2e']?.passThroughEnv?.includes(name),
+      ),
+      expected: true,
     });
   });
 });
