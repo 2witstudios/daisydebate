@@ -46,13 +46,12 @@ describe('AUTH-3.3 magic link request through the mounted handler', () => {
     const { email, token } = await startSignup();
     const stored = await withSql(
       (sql) =>
-        sql`SELECT identifier, expires_at FROM verification WHERE value LIKE ${`%${email}%`}`,
+        // Better Auth stamps both timestamps from one clock in one call.
+        sql`SELECT identifier, round(extract(epoch from (expires_at - created_at)))::int AS lifetime FROM verification WHERE strpos(value, ${email}) > 0`,
     );
     const plaintext = await withSql(
       (sql) => sql`SELECT 1 FROM verification WHERE identifier = ${token}`,
     );
-    const seconds =
-      (new Date(stored[0]?.expires_at).getTime() - Date.now()) / 1000;
     assert({
       given: 'the persisted verification record for a fresh link',
       should:
@@ -61,14 +60,14 @@ describe('AUTH-3.3 magic link request through the mounted handler', () => {
         rows: stored.length,
         identifierIsToken: stored[0]?.identifier === token,
         plaintextLookup: plaintext.length,
-        fiveMinutes: seconds > 240 && seconds <= 300,
+        lifetimeSeconds: stored[0]?.lifetime,
         counts: await counts(email),
       },
       expected: {
         rows: 1,
         identifierIsToken: false,
         plaintextLookup: 0,
-        fiveMinutes: true,
+        lifetimeSeconds: 300,
         counts: { users: 0, sessions: 0, verifications: 1, passkeys: 0 },
       },
     });
