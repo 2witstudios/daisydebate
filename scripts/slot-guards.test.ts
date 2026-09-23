@@ -1,5 +1,11 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { resetRefusal, serviceRefusal, worktreeSlot } from './slot-model';
+import {
+  resetRefusal,
+  serviceRefusal,
+  slotEnvValues,
+  slotMismatches,
+  worktreeSlot,
+} from './slot-model';
 
 setupRitewayBun();
 
@@ -76,6 +82,52 @@ describe('slot service scope', () => {
         'E2E_REDIS_URL must name the local stack (localhost, 127.0.0.1 or ::1), not 10.0.0.5',
         'DATABASE_URL is required in .env',
         'DATABASE_URL is not a valid URL',
+      ],
+    });
+  });
+});
+
+describe('one server per slot', () => {
+  const slot = worktreeSlot('abc');
+  const shared = 'postgres://daisy:pw@localhost:15432/daisy';
+
+  test('derives every slot database URL from the DATABASE_URL server', () => {
+    const values = slotEnvValues({
+      slot,
+      env: {
+        DATABASE_URL: shared,
+        TEST_DATABASE_URL: 'postgres://daisy:pw@localhost:25432/daisy_test',
+        REDIS_URL: 'redis://localhost:6379',
+      },
+      portBlock: 1,
+    });
+    assert({
+      given: 'a TEST_DATABASE_URL left on an old per-session server',
+      should: 'move the test and e2e URLs onto the DATABASE_URL server',
+      actual: [values.TEST_DATABASE_URL, values.E2E_DATABASE_URL],
+      expected: [
+        'postgres://daisy:pw@localhost:15432/daisy_wt_abc_test',
+        'postgres://daisy_e2e:e2e-loopback-only@localhost:15432/daisy_wt_abc_test',
+      ],
+    });
+  });
+
+  test('flags test or e2e URLs that name another server', () => {
+    const own = slotEnvValues({
+      slot,
+      env: { DATABASE_URL: shared, REDIS_URL: 'redis://localhost:6379' },
+      portBlock: 1,
+    });
+    assert({
+      given: 'slot URLs whose names match but whose server differs',
+      should: 'name each URL on the wrong server',
+      actual: slotMismatches(slot, {
+        ...own,
+        TEST_DATABASE_URL:
+          'postgres://daisy:pw@localhost:25432/daisy_wt_abc_test',
+      }),
+      expected: [
+        'TEST_DATABASE_URL is on localhost:25432, expected the DATABASE_URL server localhost:15432',
       ],
     });
   });

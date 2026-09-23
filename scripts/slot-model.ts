@@ -191,7 +191,16 @@ const databaseName = (url: string | undefined): string | undefined => {
   }
 };
 
-/** Every .env value that names a slot other than this checkout's. */
+const serverOf = (url: string | undefined): string | undefined => {
+  if (!url) return undefined;
+  try {
+    return new URL(url).host;
+  } catch {
+    return undefined;
+  }
+};
+
+/** Every .env value that names a slot or server other than this checkout's. */
 export function slotMismatches(slot: Slot, env: Env): readonly string[] {
   const checks: readonly (readonly [string, string | undefined, string])[] = [
     ['DATABASE_URL', databaseName(env.DATABASE_URL), slot.database],
@@ -204,13 +213,25 @@ export function slotMismatches(slot: Slot, env: Env): readonly string[] {
     ['REDIS_NAMESPACE', env.REDIS_NAMESPACE, slot.namespace],
     ['E2E_REDIS_NAMESPACE', env.E2E_REDIS_NAMESPACE, slot.e2eNamespace],
   ];
-  return checks
+  const names = checks
     .filter(([, actual, expected]) => actual !== expected)
     .map(([key, actual, expected]) =>
       actual === undefined
         ? `${key} is unset, expected "${expected}"`
         : `${key} names "${actual}", expected "${expected}"`,
     );
+  const server = serverOf(env.DATABASE_URL);
+  const servers = (['TEST_DATABASE_URL', 'E2E_DATABASE_URL'] as const)
+    .map((key) => [key, serverOf(env[key])] as const)
+    .filter(
+      ([, actual]) =>
+        server !== undefined && actual !== undefined && actual !== server,
+    )
+    .map(
+      ([key, actual]) =>
+        `${key} is on ${actual}, expected the DATABASE_URL server ${server}`,
+    );
+  return [...names, ...servers];
 }
 
 const withPath = (
@@ -259,10 +280,9 @@ export function slotEnvValues({
         })();
   return {
     DATABASE_URL: withPath(databaseUrl, slot.database),
-    TEST_DATABASE_URL: withPath(
-      env.TEST_DATABASE_URL ?? databaseUrl,
-      slot.testDatabase,
-    ),
+    // Every slot URL shares DATABASE_URL's server, so a stale test URL left
+    // on an old per-session server cannot split the slot across two stacks.
+    TEST_DATABASE_URL: withPath(databaseUrl, slot.testDatabase),
     REDIS_NAMESPACE: slot.namespace,
     E2E_DATABASE_URL: withPath(databaseUrl, slot.testDatabase, e2eRole),
     E2E_REDIS_URL: e2eRedisUrl(redisUrl),
