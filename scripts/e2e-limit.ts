@@ -97,6 +97,21 @@ function isAlive(pid: number): boolean {
   }
 }
 
+/**
+ * Creates a claim file exclusively: false when anything, a file or a symlink
+ * planted at the predicted name, is already there, so nothing is written
+ * through it. Other errors are raised.
+ */
+export function claimFile(file: string): boolean {
+  try {
+    writeFileSync(file, '', { flag: 'wx' });
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') return false;
+    throw error;
+  }
+}
+
 function tryClaim(dir: string, limit: number): string | undefined {
   const plan = claimPlan(parseHeld(readdirSync(dir)), limit, isAlive);
   for (const held of plan.stale)
@@ -104,13 +119,7 @@ function tryClaim(dir: string, limit: number): string | undefined {
   if (plan.claim === undefined) return undefined;
   const mine = { slot: plan.claim, pid: process.pid };
   const file = join(dir, slotFile(mine));
-  try {
-    // wx refuses an existing file or a symlink planted at the predicted name.
-    writeFileSync(file, '', { flag: 'wx' });
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'EEXIST') return undefined;
-    throw error;
-  }
+  if (!claimFile(file)) return undefined;
   if (keepsClaim(parseHeld(readdirSync(dir)), mine, isAlive, limit))
     return file;
   rmSync(file, { force: true }); // another run took this slot too; look again
