@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { RouteShell } from '../ui/route-shell';
+import { RouteShell } from '../../ui/route-shell';
 
 export const metadata: Metadata = { title: 'Train' };
 

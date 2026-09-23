@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { readAuthEntry } from '../../lib/auth-entry';
+import { readAuthEntry } from '../../../lib/auth-entry';
 import {
   onboardingHref,
   type SearchParams,
-} from '../../features/access/decision';
-import { SignIn } from '../../ui/auth/sign-in/sign-in';
+} from '../../../features/access/decision';
+import { SignIn } from '../../../ui/auth/sign-in/sign-in';
 
 export const metadata: Metadata = {
   title: 'Sign in',

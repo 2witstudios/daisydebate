@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { prose } from '../ui/prose-class';
+import { prose } from '../../ui/prose-class';
 
 export const metadata: Metadata = { title: 'Foundation proof' };
 // Reachable only when the deployment enables the proof: the proxy refuses

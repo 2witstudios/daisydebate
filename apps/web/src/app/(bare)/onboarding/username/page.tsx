@@ -1,13 +1,13 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { createAppError } from '@daisy/errors';
-import { readAuthEntry } from '../../../lib/auth-entry';
+import { readAuthEntry } from '../../../../lib/auth-entry';
 import {
   onboardingHref,
   signInHref,
   type SearchParams,
-} from '../../../features/access/decision';
-import { Onboarding } from '../../../ui/auth/onboarding/onboarding';
+} from '../../../../features/access/decision';
+import { Onboarding } from '../../../../ui/auth/onboarding/onboarding';
 
 export const metadata: Metadata = {
   title: 'Choose a username',

@@ -1,10 +1,10 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import type { SearchParams } from '../../features/access/decision';
-import { requireAccess } from '../../lib/access';
-import { RouteShell } from '../ui/route-shell';
-import { ThemeSwitcher } from '../../ui/components/theme-switcher/theme-switcher';
-import { prose } from '../ui/prose-class';
+import type { SearchParams } from '../../../features/access/decision';
+import { requireAccess } from '../../../lib/access';
+import { RouteShell } from '../../ui/route-shell';
+import { ThemeSwitcher } from '../../../ui/components/theme-switcher/theme-switcher';
+import { prose } from '../../ui/prose-class';
 
 export const metadata: Metadata = { title: 'Settings' };
 
