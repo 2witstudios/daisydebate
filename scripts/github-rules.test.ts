@@ -62,10 +62,16 @@ describe('the committed main ruleset', () => {
     assert({
       given: 'the committed settings',
       should:
-        'bypass only for the repository admin role, turn both settings on, and pin merge commits as the only merge method',
+        'let the repository admin role bypass only through pull requests (no direct push to main, the owner included), turn both settings on, and pin merge commits as the only merge method',
       actual: [ruleset.bypass_actors, config.settings],
       expected: [
-        [{ actor_id: 5, actor_type: 'RepositoryRole', bypass_mode: 'always' }],
+        [
+          {
+            actor_id: 5,
+            actor_type: 'RepositoryRole',
+            bypass_mode: 'pull_request',
+          },
+        ],
         {
           allow_auto_merge: true,
           delete_branch_on_merge: true,
