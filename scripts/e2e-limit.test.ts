@@ -47,6 +47,34 @@ describe('claimPlan', () => {
   });
 });
 
+describe('claimPlan counts every live run', () => {
+  test('queues when the live claims reach the limit, whichever slots they hold', () => {
+    assert({
+      given: 'live claims on slots 1 and 2 and a limit of 1, then of 3',
+      should: 'claim nothing at 1, and slot 0 at 3',
+      actual: [
+        claimPlan(
+          [
+            { slot: 1, pid: 10 },
+            { slot: 2, pid: 11 },
+          ],
+          1,
+          () => true,
+        ).claim,
+        claimPlan(
+          [
+            { slot: 1, pid: 10 },
+            { slot: 2, pid: 11 },
+          ],
+          3,
+          () => true,
+        ).claim,
+      ],
+      expected: [undefined, 0],
+    });
+  });
+});
+
 describe('claims named by pid', () => {
   test('reads slot and pid from the file name, never from its content', () => {
     assert({
@@ -70,14 +98,17 @@ describe('claims named by pid', () => {
     assert({
       given:
         'my claim alone, beside a live rival on slot 0, beside a dead rival, and beside a live run on slot 1',
-      should: 'keep it, withdraw it, keep it, keep it',
+      should:
+        'keep it, withdraw it, keep it, keep it, and withdraw when the live claims exceed the limit',
       actual: [
-        keepsClaim([mine], mine, () => true),
-        keepsClaim([{ slot: 0, pid: 10 }, mine], mine, () => true),
-        keepsClaim([{ slot: 0, pid: 10 }, mine], mine, (pid) => pid === 20),
-        keepsClaim([{ slot: 1, pid: 10 }, mine], mine, () => true),
+        keepsClaim([mine], mine, () => true, 2),
+        keepsClaim([{ slot: 0, pid: 10 }, mine], mine, () => true, 2),
+        keepsClaim([{ slot: 0, pid: 10 }, mine], mine, (pid) => pid === 20, 2),
+        keepsClaim([{ slot: 1, pid: 10 }, mine], mine, () => true, 2),
+        // Two racers on different slots at a limit of 1 both withdraw.
+        keepsClaim([{ slot: 1, pid: 10 }, mine], mine, () => true, 1),
       ],
-      expected: [true, false, true, true],
+      expected: [true, false, true, true, false],
     });
   });
 });

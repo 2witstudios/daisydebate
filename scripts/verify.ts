@@ -192,10 +192,14 @@ function writeStageLog(stage: string, output: string): string {
   return relative(root, path);
 }
 
-async function gitChangedFiles(): Promise<readonly string[]> {
+/** Every file the branch in cwd changes against base (see combineChanges). */
+export async function gitChangedFiles(
+  cwd: string = root,
+  base = 'origin/main',
+): Promise<readonly string[]> {
   const lines = async (args: readonly string[]) => {
     const child = Bun.spawn(['git', ...args], {
-      cwd: root,
+      cwd,
       stdout: 'pipe',
       stderr: 'ignore',
     });
@@ -205,8 +209,10 @@ async function gitChangedFiles(): Promise<readonly string[]> {
       : undefined;
   };
   return combineChanges(
-    await lines(['diff', '--name-only', 'origin/main...HEAD']),
-    await lines(['diff', '--name-only', 'HEAD']),
+    // --no-renames lists a rename's old path too: moving code under docs/
+    // is still a code change.
+    await lines(['diff', '--name-only', '--no-renames', `${base}...HEAD`]),
+    await lines(['diff', '--name-only', '--no-renames', 'HEAD']),
     await lines(['ls-files', '--others', '--exclude-standard']),
   );
 }
@@ -266,7 +272,7 @@ const gate = (name: VerifyGateName, detail: string): VerifyGate =>
 export async function runVerify({
   environment = process.env,
   run = (command, logName) => runProcess(command, environment, logName),
-  changedFiles = gitChangedFiles,
+  changedFiles = () => gitChangedFiles(),
   writeLog = writeStageLog,
   print = (text) => void process.stderr.write(text),
 }: VerifyOptions = {}): Promise<VerifyReport> {

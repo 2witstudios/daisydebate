@@ -56,22 +56,35 @@ export function claimPlan(
 ): { readonly claim: number | undefined; readonly stale: readonly Held[] } {
   const stale = held.filter((h) => !alive(h.pid));
   const busy = new Set(held.filter((h) => alive(h.pid)).map((h) => h.slot));
-  const claim = Array.from({ length: limit }, (_, slot) => slot).find(
-    (slot) => !busy.has(slot),
-  );
+  // The limit is a total of live runs, not a range of slot numbers: runs
+  // started under a higher limit still count.
+  const claim =
+    busy.size >= limit
+      ? undefined
+      : Array.from({ length: busy.size + 1 }, (_, slot) => slot).find(
+          (slot) => !busy.has(slot),
+        );
   return { claim, stale };
 }
 
-/** Whether a fresh claim stands: no other live run holds its slot. */
-export const keepsClaim = (
+/**
+ * Whether a fresh claim stands: no other live run holds its slot, and the
+ * live claims, this one included, stay within the limit.
+ */
+export function keepsClaim(
   held: readonly Held[],
   mine: Held,
   alive: (pid: number) => boolean,
-): boolean =>
-  !held.some(
-    (other) =>
-      other.slot === mine.slot && other.pid !== mine.pid && alive(other.pid),
+  limit: number,
+): boolean {
+  const live = held.filter(
+    (other) => alive(other.pid) || other.pid === mine.pid,
   );
+  return (
+    live.length <= limit &&
+    !live.some((other) => other.slot === mine.slot && other.pid !== mine.pid)
+  );
+}
 
 // ------------------------------------------------------------------- edges
 
@@ -92,7 +105,8 @@ function tryClaim(dir: string, limit: number): string | undefined {
   const mine = { slot: plan.claim, pid: process.pid };
   const file = join(dir, slotFile(mine));
   writeFileSync(file, '');
-  if (keepsClaim(parseHeld(readdirSync(dir)), mine, isAlive)) return file;
+  if (keepsClaim(parseHeld(readdirSync(dir)), mine, isAlive, limit))
+    return file;
   rmSync(file, { force: true }); // another run took this slot too; look again
   return undefined;
 }
