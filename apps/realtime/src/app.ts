@@ -2,6 +2,7 @@ import type { Clock, IdGenerator } from '@daisy/clock';
 import { readRealtimeConfig } from '@daisy/config';
 import { createDatabase } from '@daisy/db';
 import { createLogger } from '@daisy/logger';
+import { createDrainState } from '@daisy/observability';
 import { createRedis } from '@daisy/redis';
 
 /**
@@ -38,23 +39,13 @@ export function createRealtimeApp({
     namespace: config.REDIS_NAMESPACE,
     eventSink: logger.log,
   });
-  const state = { draining: false };
   return {
     config,
     clock,
     database,
     redis,
     logger,
-    /** Readiness reports unavailable once shutdown begins. */
-    isDraining: () => state.draining,
-    /** Starts shutdown: readiness fails from now on. */
-    drain: () => {
-      state.draining = true;
-    },
-    /** Drains, then closes the pools; never rejects. */
-    close: async () => {
-      state.draining = true;
-      await Promise.allSettled([database.close(), redis.close()]);
-    },
+    /** isDraining, drain, and close (drains, then closes both pools). */
+    ...createDrainState([database, redis]),
   };
 }

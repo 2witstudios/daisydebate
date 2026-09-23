@@ -2,6 +2,7 @@ import { expect } from 'bun:test';
 import { propagation, ROOT_CONTEXT, trace } from '@opentelemetry/api';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  createDrainState,
   currentTraceId,
   drainWithDeadline,
   extractTraceContext,
@@ -212,6 +213,41 @@ describe('installShutdownSignals', () => {
       should: 'run the shutdown callback',
       actual: ran,
       expected: true,
+    });
+  });
+});
+
+describe('createDrainState', () => {
+  test('drain flips readiness without closing anything', async () => {
+    let closed = 0;
+    const state = createDrainState([{ close: async () => void (closed += 1) }]);
+    const before = state.isDraining();
+    state.drain();
+    assert({
+      given: 'a running process told to drain',
+      should: 'report draining from then on and close nothing',
+      actual: { before, after: state.isDraining(), closed },
+      expected: { before: false, after: true, closed: 0 },
+    });
+  });
+
+  test('close drains and closes every closer once, even when one fails', async () => {
+    const calls: string[] = [];
+    const state = createDrainState([
+      {
+        close: async () => {
+          calls.push('database');
+          throw new Error('pool already closed');
+        },
+      },
+      { close: () => void calls.push('redis') },
+    ]);
+    await state.close();
+    assert({
+      given: 'two closers, the first rejecting and the second synchronous',
+      should: 'drain, call both exactly once and never reject',
+      actual: { draining: state.isDraining(), calls },
+      expected: { draining: true, calls: ['database', 'redis'] },
     });
   });
 });

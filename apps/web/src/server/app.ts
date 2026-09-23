@@ -3,6 +3,7 @@ import { readAuthConfig, readServerConfig } from '@daisy/config';
 import { createDatabase } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
 import { createLogger } from '@daisy/logger';
+import { createDrainState } from '@daisy/observability';
 import { createRedis } from '@daisy/redis';
 import { createResendSender, type Fetch } from '../features/auth/mail';
 import { createAuthRateLimiter } from '../features/auth/redis-limiter';
@@ -95,7 +96,6 @@ export function createApp({
       apply: (input) => database.applyEmailDeliveryEvent(input),
     });
   };
-  const state = { draining: false };
   return {
     config,
     clock,
@@ -107,17 +107,8 @@ export function createApp({
     auth: (): AuthServer => (auth ??= composeAuth()),
     /** The Resend delivery webhook; refuses when the signing secret is unset. */
     mailWebhook: () => (mailWebhook ??= composeMailWebhook()),
-    /** Readiness reports unavailable once shutdown begins. */
-    isDraining: () => state.draining,
-    /** Starts shutdown: readiness fails from now on. */
-    drain: () => {
-      state.draining = true;
-    },
-    /** Drains, then closes the pools; never rejects. */
-    close: async () => {
-      state.draining = true;
-      await Promise.allSettled([database.close(), redis.close()]);
-    },
+    /** isDraining, drain, and close (drains, then closes both pools). */
+    ...createDrainState([database, redis]),
   };
 }
 
