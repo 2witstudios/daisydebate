@@ -1,7 +1,6 @@
 import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
-import { buildUserInboxTopic } from '@daisy/protocol';
 import { createPasskeyFlows } from './auth-passkey-flows';
 import {
   cookieHeader,
@@ -10,6 +9,12 @@ import {
   withSql,
   type CapturedMail,
 } from './auth-mounted-helpers';
+import {
+  cleanupActorFor,
+  cleanupOutboxFor,
+  createActorFor,
+  sessionRevokedEvents,
+} from './auth-outbox-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 
 if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
@@ -98,38 +103,6 @@ async function recordedEvents(work: () => Promise<void>): Promise<string[]> {
   }
   return events;
 }
-
-/** RT-2.2: outbox rows the email-change completion's revocation appends. */
-const sessionRevokedEvents = (actorId: string) =>
-  withSql(
-    (sql) =>
-      sql`SELECT topic FROM outbox WHERE kind = 'session.revoked' AND topic = ${buildUserInboxTopic(actorId)}`,
-  ).then((rows) => rows.length);
-
-const cleanupOutboxFor = (actorId: string) =>
-  withSql(
-    (sql) =>
-      sql`DELETE FROM outbox WHERE kind = 'session.revoked' AND topic = ${buildUserInboxTopic(actorId)}`,
-  );
-
-/**
- * Plan revision 4.10 (ACTOR-1 pending): the outbox append only runs once
- * the actor resolves through `actors.user_id`, and nothing in the signup
- * path creates one yet, so this fixture stands in for ACTOR-1's onboarding
- * insert until that leaf lands. Revocation rows are keyed by `actors.id`,
- * never `userId`, so this returns the actor id the append will use.
- */
-const createActorFor = async (userId: string): Promise<string> => {
-  const actorId = createId();
-  await withSql(
-    (sql) =>
-      sql`INSERT INTO actors (id, kind, user_id) VALUES (${actorId}, 'human', ${userId})`,
-  );
-  return actorId;
-};
-
-const cleanupActorFor = (userId: string) =>
-  withSql((sql) => sql`DELETE FROM actors WHERE user_id = ${userId}`);
 
 describe('AUTH-5.6 change the recovery email', () => {
   test('requesting a change and verifying the new address each emit their own lifecycle event (AUTH-6.4)', async () => {
