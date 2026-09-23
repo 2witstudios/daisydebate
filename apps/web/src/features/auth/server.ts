@@ -14,6 +14,7 @@ import {
 } from './change-email-mail';
 import { createMagicLinkGate } from './magic-link-gate';
 import { freshSessionGatePlugin } from './fresh-session-gate';
+import { passkeyDeviceHintPlugin } from './passkey-device-hint';
 import { sessionRevokedOutboxPlugin } from './session-revoked-outbox';
 import { recipientHash } from './mail';
 import { renderAuthEmail } from './mail/templates';
@@ -206,7 +207,15 @@ const composeBetterAuth = (dependencies: {
         rpID: new URL(config.PUBLIC_APP_URL).hostname,
         rpName: 'Daisy',
         origin,
+        // Discoverable, so username-less and autofill sign-in can find it;
+        // no attachment, so platform and roaming authenticators both enroll.
+        // The device-first preference is `passkeyDeviceHintPlugin`'s hint.
+        authenticatorSelection: {
+          residentKey: 'required',
+          userVerification: 'preferred',
+        },
       }),
+      passkeyDeviceHintPlugin,
       magicLinkGatePlugin,
       freshSessionGatePlugin,
       sessionRevokedOutboxPlugin(

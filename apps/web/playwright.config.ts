@@ -12,6 +12,10 @@ export const AUTH_JOURNEY_SPECS = [
   '**/accessibility.e2e.ts',
   '**/auth-routes.e2e.ts',
 ];
+// Passkey autofill is proven through Chromium's CDP virtual authenticator,
+// which answers a conditional request without browser UI, so it runs in both
+// Chromium projects and no other engine.
+const PASSKEY_AUTOFILL_SPEC = '**/passkey-autofill.e2e.ts';
 
 // Ports derive from the environment; `bun slot:up` writes each checkout's
 // own (docs/development/local-development.md, "Parallel sessions").
@@ -100,9 +104,10 @@ export default defineConfig({
     // AUTH-6.6. The spec's cross-browser/mobile requirement is scoped to
     // "the supported magic-link/account journeys", not the whole app, so
     // the added engines/layouts below testMatch only the auth-journey
-    // specs. CDP WebAuthn (navigator.credentials via a virtual
-    // authenticator) is Chromium-only, so passkey-lifecycle.e2e.ts is
-    // additionally excluded from every non-Chromium project.
+    // specs, plus the passkey autofill proof for chromium-mobile. CDP
+    // WebAuthn (navigator.credentials via a virtual authenticator) is
+    // Chromium-only, so passkey-lifecycle.e2e.ts is additionally excluded
+    // from every non-Chromium project.
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
@@ -111,7 +116,7 @@ export default defineConfig({
     {
       name: 'chromium-mobile',
       use: { ...devices['Pixel 8'] },
-      testMatch: AUTH_JOURNEY_SPECS,
+      testMatch: [...AUTH_JOURNEY_SPECS, PASSKEY_AUTOFILL_SPEC],
     },
     {
       name: 'firefox',

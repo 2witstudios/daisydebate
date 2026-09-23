@@ -1,13 +1,15 @@
 'use client';
 
-import { useEffect, useReducer, useState } from 'react';
+import { useEffect, useReducer, useState, useSyncExternalStore } from 'react';
 import type { Clock } from '@daisy/clock';
 import {
+  offerPasskeyAutofillSafely,
   requestLinkSafely,
   signInWithPasskeySafely,
   type SignInPort,
 } from '../sign-in-port';
 import {
+  canOfferPasskeyAutofill,
   canRequestLink,
   canResend,
   initialSignInState,
@@ -15,9 +17,32 @@ import {
   type SignInState,
 } from '../sign-in-state';
 import { renderSignInFlow } from './sign-in-flow.render';
+import { startPasskeyAutofill, type AutofillTimers } from './passkey-autofill';
+
+const subscribeToVisibility = (onChange: () => void) => {
+  document.addEventListener('visibilitychange', onChange);
+  return () => document.removeEventListener('visibilitychange', onChange);
+};
+
+/**
+ * Whether this tab is on screen. The server render and hydration report
+ * hidden, so a tab opened in the background never arms autofill; a visible
+ * one re-renders as visible right after hydration.
+ */
+const usePageVisible = (): boolean =>
+  useSyncExternalStore(
+    subscribeToVisibility,
+    () => document.visibilityState === 'visible',
+    () => false,
+  );
+
+const browserTimers: AutofillTimers = {
+  set: (run, ms) => setTimeout(run, ms),
+  clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
+};
 
 export type SignInFlowProps = {
-  /** Who authenticates: the mock today, the Better Auth adapter later. */
+  /** Who authenticates: the Better Auth adapter in the live page. */
   readonly port: SignInPort;
   /** Injected so the cooldown is testable and never reads ambient time. */
   readonly clock: Clock;
@@ -54,6 +79,20 @@ export function SignInFlow({
   useEffect(() => {
     if (state.step === 'signed-in') onSignedIn();
   }, [state.step, onSignedIn]);
+
+  // Armed whenever the email step goes idle on screen: the explicit passkey
+  // button aborts the pending autofill request, so it is offered again after,
+  // and a hidden tab pauses until it is shown.
+  const autofillArmed = canOfferPasskeyAutofill(state, usePageVisible());
+  useEffect(() => {
+    if (!autofillArmed) return;
+    return startPasskeyAutofill({
+      offer: () => offerPasskeyAutofillSafely(port),
+      onSettled: (outcome) => dispatch({ type: 'passkey-autofilled', outcome }),
+      timers: browserTimers,
+      now: () => Date.parse(clock.now()),
+    });
+  }, [autofillArmed, port, clock]);
 
   const sendLink = async (email: string) =>
     dispatch({
