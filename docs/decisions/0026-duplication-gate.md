@@ -80,6 +80,30 @@ them. When real routes replace them they are scanned like any other source.
 | ---------- | --------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 2026-09-23 | `apps/realtime/src/app.ts` ↔ `apps/web/src/server/app.ts` | 12 lines, 63 tokens | ISSUE-7: each app's composition root builds its database and Redis from its own validated config. Apps cannot import each other, and a package depending on both `@daisy/db` and `@daisy/redis` only for this would be the speculative shared package AGENTS.md forbids. |
 
+### Tests under their own gate (2026-09-23, ISSUE-11)
+
+The owner decided that the copy-paste gate covers tests strictly: it fails
+CI, with a baseline that only shrinks. Test code is scanned by a second
+config, `.jscpd-tests.json`, against its own `.jscpd-tests-baseline.json`;
+`bun run duplication` runs both scans, so `bun check`, CI and the pre-push
+hook enforce both. Its scan roots name test files explicitly: unit suites
+and `*.test-support.ts` under `apps/*/src`, `packages/*/src` and `scripts`,
+`test-support/` folders, the `*.integration.ts` suites, all of
+`packages/*/integration` and `apps/web/e2e` (specs and support), and
+`eslint.config.test.ts`. The same sensitivity, ratchet and exception rules
+apply, and `scripts/duplication-config.test.ts` guards both configs' scan
+roots. The source config's test ignores stay, so no file is counted twice.
+This extends the gate's scope; it loosens nothing.
+
+A one-off scan at `235b129` found 71 test clones; ISSUE-11 consolidated them
+into shared fixtures (the web integration `fixtures.ts`, the redis
+`withRedis`, the engine `runtime.test-support.ts`, the protocol
+`parseOutcome`) before baselining what remains.
+
+| Date       | Clone                                                                                                                   | Reason                                                                                                                                                              |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-23 | `apps/web/src/features/auth/verification-cleanup.test.ts` ↔ `apps/web/src/features/realtime/outbox-cleanup.test.ts` (9) | Both repeat the retention-sweep cases. ISSUE-8 part 2 moves them into one `retention-sweep.test.ts`, and removes these fingerprints from the baseline when it does. |
+
 ## Consequences
 
 - The gate costs about 0.05 s locally (13 ms of detection), so it is free in
@@ -87,7 +111,8 @@ them. When real routes replace them they are scanned like any other source.
 - When it fires, the fix is consolidation: extract the shared function,
   component, or data table into the owning module (a shared abstraction now
   has its two real consumers). Deleting a grandfathered clone should be
-  followed by `bunx --bun jscpd --update-baseline` so the baseline shrinks.
+  followed by `bunx --bun jscpd --update-baseline` (add
+  `--config .jscpd-tests.json` for a test clone) so the baseline shrinks.
 - Supply chain, stated plainly. jscpd 5.3.0 was published on 2026-09-18, two
   days before adoption, and the 5.x line is a fresh Rust rewrite of a tool
   whose 4.x line was JavaScript. It ships prebuilt per-platform binaries

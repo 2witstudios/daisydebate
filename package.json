@@ -19,7 +19,7 @@
     "typecheck": "turbo run typecheck",
     "lint": "eslint . && bun scripts/check-boundaries.ts && bun scripts/check-styling.ts && bun test --timeout 180000 eslint.config.test.ts",
     "knip": "bunx --bun knip",
-    "duplication": "bunx --bun jscpd",
+    "duplication": "bunx --bun jscpd && bunx --bun jscpd --config .jscpd-tests.json",
     "metrics": "bun scripts/metrics.ts",
     "metrics:snapshot": "bun scripts/metrics.ts --append",
     "metrics:check": "bun scripts/metrics.ts --check",

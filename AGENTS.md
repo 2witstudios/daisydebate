@@ -121,7 +121,8 @@ privacy` (planned, PRIV-3) will gate undeclared or stale entries once
 - `bun run knip` is a required dead-code gate for unused files, exports, and
   dependencies. Keep `knip.jsonc` ignores limited to genuine implicit uses.
 - `bun run duplication` is a required copy-paste gate (jscpd, ADR 0026): any
-  clone of 50+ tokens that is not in `.jscpd-baseline.json` fails. When it
+  clone of 50+ tokens that is not in `.jscpd-baseline.json` fails, and tests
+  are scanned the same way against `.jscpd-tests-baseline.json`. When it
   fires, consolidate — extract the shared function, component, or data table
   into the owning module — rather than raising `minTokens`, adding an ignore,
   or re-baselining. Loosening the gate in any of those ways requires a dated
