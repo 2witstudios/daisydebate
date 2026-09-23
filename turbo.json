@@ -46,7 +46,15 @@
     "format:check": { "outputs": [] },
     "test": { "dependsOn": ["^typecheck"], "outputs": [] },
     "test:integration": { "cache": false },
-    "test:e2e": { "dependsOn": ["build"], "cache": false },
+    "test:e2e": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "passThroughEnv": [
+        "DAISY_E2E_CONCURRENCY",
+        "DAISY_E2E_LOCK_DIR",
+        "DAISY_E2E_POLL_MS"
+      ]
+    },
     "check": { "dependsOn": ["typecheck", "lint", "test", "build"] }
   }
 }
