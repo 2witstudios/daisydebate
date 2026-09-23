@@ -104,8 +104,12 @@ guessing.
    Every instance reads the same Redis and PostgreSQL, so no cross-instance
    message exists, and the realtime role's only write stays
    `service_instances`. The one presence change `apps/web` writes is a
-   preference change: it appends an outbox doorbell in the settings
-   transaction (RT-3.2b).
+   preference change: it appends the control kind
+   `actor.presence-preference-changed` on the actor's own
+   `user:<actorId>:inbox` in the settings transaction (RT-3.2b, plan
+   revision 4.11); realtime consumes it from the drain to re-project that
+   actor's presence locally and ring `presence.changed`, never as an outbox
+   doorbell delivered on a subscribed topic (ADR 0032 §6).
 
 ### 2. Competitive outcomes read durable commands only
 
