@@ -8,7 +8,7 @@ import {
   type FindingSeverity,
 } from './docs-contracts';
 import { canApplyRevision, publicationDecision } from './docs-policy';
-import { createDocumentationEvent } from './docs-pipeline';
+import { mergedPullRequestEvent } from './docs-event.test-support';
 
 setupRitewayBun();
 
@@ -131,23 +131,8 @@ describe('assessEventText', async () => {
 });
 
 describe('parseDocumentationEvent', async () => {
-  const validEvent = createDocumentationEvent({
-    eventId: 'evt-1',
-    eventType: 'pull_request.merged',
-    occurredAt: '2026-09-20T00:00:00.000Z',
+  const validEvent = mergedPullRequestEvent({
     repository: 'daisydebate/daisy',
-    baseRef: 'main',
-    commit: 'abc123',
-    pullRequest: {
-      number: 12,
-      title: 'feat: add tournaments',
-      body: null,
-      url: 'https://github.test/pr/12',
-      author: 'alice',
-      mergedBy: 'bob',
-    },
-    taskIds: ['ENG-1.1'],
-    changedFiles: ['packages/protocol/src/events.ts'],
   });
 
   test('accepts an event produced by this repository', async () => {

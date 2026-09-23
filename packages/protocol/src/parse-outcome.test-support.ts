@@ -15,3 +15,11 @@ export const parseOutcome = (schema: z.ZodType, input: unknown) => {
         ),
       };
 };
+
+/** What the schema made of each input, in order. */
+export const parseEach = (schema: z.ZodType, inputs: readonly unknown[]) =>
+  inputs.map((input) => parseOutcome(schema, input));
+
+/** The outcome of inputs every one of which parses to itself. */
+export const parsedUnchanged = (inputs: readonly unknown[]) =>
+  inputs.map((input) => ({ data: input }));

@@ -9,6 +9,7 @@ import {
   mergeEvent,
   routedFetch,
   routeFailure,
+  technicalDispatchFailure,
 } from './docs-consult.test-support';
 
 setupRitewayBun();
@@ -43,16 +44,7 @@ describe('dispatchDocumentationEvent settlement', async () => {
       consult: async () => new Response('', { status: 502 }),
       roles: () => [],
     });
-    let message = 'no throw';
-    try {
-      await dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
-        ...baseOptions,
-        ...instant,
-        fetchImpl,
-      });
-    } catch (error) {
-      message = (error as Error).message;
-    }
+    const message = await technicalDispatchFailure(fetchImpl);
     assert({
       given: 'a 502 and a conversation that never appears',
       should: 'fail naming the status as the cause',
@@ -104,16 +96,7 @@ describe('dispatchDocumentationEvent settlement', async () => {
       consult: () => Promise.reject(new TypeError('getaddrinfo ENOTFOUND')),
       roles: () => [],
     });
-    let message = 'no throw';
-    try {
-      await dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
-        ...baseOptions,
-        ...instant,
-        fetchImpl,
-      });
-    } catch (error) {
-      message = (error as Error).message;
-    }
+    const message = await technicalDispatchFailure(fetchImpl);
     assert({
       given: 'a transport failure and a conversation that never appears',
       should: 'fail after one grace read, naming the original error',
@@ -131,17 +114,9 @@ describe('dispatchDocumentationEvent settlement', async () => {
       consult: hangUntilAborted,
       roles: () => ['user'],
     });
-    let message = 'no throw';
-    try {
-      await dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
-        ...baseOptions,
-        ...instant,
-        fetchImpl,
-        timeoutMs: 5,
-      });
-    } catch (error) {
-      message = (error as Error).message;
-    }
+    const message = await technicalDispatchFailure(fetchImpl, {
+      timeoutMs: 5,
+    });
     assert({
       given: 'a run whose conversation still lacks an answer at the deadline',
       should:
@@ -166,17 +141,9 @@ describe('dispatchDocumentationEvent settlement', async () => {
         ),
       roles: () => ['user'],
     });
-    let message = 'no throw';
-    try {
-      await dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
-        ...baseOptions,
-        ...instant,
-        fetchImpl,
-        timeoutMs: 5,
-      });
-    } catch (error) {
-      message = (error as Error).message;
-    }
+    const message = await technicalDispatchFailure(fetchImpl, {
+      timeoutMs: 5,
+    });
     assert({
       given: 'the runtime raising TimeoutError instead of AbortError',
       should: 'name the expired wait as the cause',

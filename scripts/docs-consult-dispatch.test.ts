@@ -9,6 +9,7 @@ import {
   ok,
   recordingFetch,
   routedFetch,
+  technicalDispatchFailure,
 } from './docs-consult.test-support';
 
 setupRitewayBun();
@@ -261,16 +262,7 @@ describe('dispatchDocumentationEvent', async () => {
         new Response('{"error":"forbidden"}', { status: 403 }),
       roles: () => ['user', 'assistant'],
     });
-    let message = 'no throw';
-    try {
-      await dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
-        ...baseOptions,
-        ...instant,
-        fetchImpl,
-      });
-    } catch (error) {
-      message = (error as Error).message;
-    }
+    const message = await technicalDispatchFailure(fetchImpl);
     assert({
       given: 'a definitive 403 from the consult route',
       should: 'throw the refusal without polling',

@@ -243,20 +243,7 @@ describe('debate roles and format rules', () => {
 });
 
 describe('snapshot rules', () => {
-  const snapshot = {
-    version: 1,
-    id,
-    resolution: 'Test',
-    format: 'foundation',
-    rules: {
-      version: 1,
-      seats: { affirmative: 1, negative: 1, judge: 0 },
-      clock: { speechMs: 240_000, prepMs: 120_000 },
-    },
-    phase: 'waiting',
-    createdAt: '2026-01-01T00:00:00.000Z',
-    participants: [],
-  };
+  const snapshot = validSnapshot;
   test('carry the effective rules the debate runs under', () => {
     assert({
       given: 'a snapshot with a format slug and effective rules',

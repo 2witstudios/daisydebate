@@ -10,6 +10,14 @@ async function rawClient(url: string) {
   return client;
 }
 
+/** A presence lease's identity fields, active on inst1 unless told otherwise. */
+export const lease = (
+  connId: string,
+  actorId: string,
+  activity: 'active' | 'idle' = 'active',
+  instanceId = 'inst1',
+) => ({ connId, actorId, instanceId, activity });
+
 /** Any past instant: PEXPIREAT to it makes Redis expire the key now. */
 const PAST_MS = '1';
 

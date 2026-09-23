@@ -2,17 +2,11 @@ import { expect } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { withRedis } from './test-support';
+import { lease, withRedis } from './test-support';
 
 setupRitewayBun();
 
 const { redisUrl: url } = requireTestServices(process.env);
-
-const lease = (
-  connId: string,
-  actorId: string,
-  activity: 'active' | 'idle' = 'active',
-) => ({ connId, actorId, instanceId: 'inst1', activity });
 
 test('readActorConnections trims members scored in the past, one at a time, deterministically', () =>
   // Simulates a crashed instance whose leases were never refreshed: each

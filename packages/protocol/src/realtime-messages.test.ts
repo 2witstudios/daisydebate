@@ -10,7 +10,11 @@ import {
   type EnvelopeVersion,
   type ProtocolVersion,
 } from './realtime';
-import { parseOutcome } from './parse-outcome.test-support';
+import {
+  parseEach,
+  parseOutcome,
+  parsedUnchanged,
+} from './parse-outcome.test-support';
 
 setupRitewayBun();
 
@@ -32,10 +36,8 @@ describe('client message schema', () => {
     assert({
       given: 'one valid message of each client type',
       should: 'parse every one',
-      actual: messages.map((message) =>
-        parseOutcome(clientMessageSchema, message),
-      ),
-      expected: messages.map((message) => ({ data: message })),
+      actual: parseEach(clientMessageSchema, messages),
+      expected: parsedUnchanged(messages),
     });
   });
 

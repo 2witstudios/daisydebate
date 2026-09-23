@@ -1,18 +1,11 @@
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { withRedis } from './test-support';
+import { lease, withRedis } from './test-support';
 
 setupRitewayBun();
 
 const { redisUrl: url } = requireTestServices(process.env);
-
-const lease = (
-  connId: string,
-  actorId: string,
-  activity: 'active' | 'idle' = 'active',
-  instanceId = 'inst1',
-) => ({ connId, actorId, instanceId, activity });
 
 /**
  * A lease's remaining life in whole tens of seconds, read against the Redis

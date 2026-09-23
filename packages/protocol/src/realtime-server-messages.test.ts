@@ -9,7 +9,11 @@ import {
   serverMessageSchema,
   type EnvelopeVersion,
 } from './realtime';
-import { parseOutcome } from './parse-outcome.test-support';
+import {
+  parseEach,
+  parseOutcome,
+  parsedUnchanged,
+} from './parse-outcome.test-support';
 
 setupRitewayBun();
 
@@ -58,10 +62,8 @@ describe('server message schema and close codes', () => {
     assert({
       given: 'one valid message of each subscription/heartbeat/delivery type',
       should: 'parse every one',
-      actual: messages.map((message) =>
-        parseOutcome(serverMessageSchema, message),
-      ),
-      expected: messages.map((message) => ({ data: message })),
+      actual: parseEach(serverMessageSchema, messages),
+      expected: parsedUnchanged(messages),
     });
   });
 
@@ -112,10 +114,8 @@ describe('server message schema and close codes', () => {
     assert({
       given: 'each server-initiated message, carrying no id',
       should: 'parse every one',
-      actual: messages.map((message) =>
-        parseOutcome(serverMessageSchema, message),
-      ),
-      expected: messages.map((message) => ({ data: message })),
+      actual: parseEach(serverMessageSchema, messages),
+      expected: parsedUnchanged(messages),
     });
   });
 
