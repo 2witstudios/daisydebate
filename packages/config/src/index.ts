@@ -44,9 +44,9 @@ const requireDeploymentIdentity = (
     });
 };
 const deploymentIdentityFields = {
-  NODE_ENV: z
-    .enum(['development', 'test', 'production'])
-    .default('development'),
+  // Required, no default: an unset NODE_ENV must refuse to start rather than
+  // silently become 'development' and skip every production check below.
+  NODE_ENV: z.enum(['development', 'test', 'production']),
   DATABASE_URL: databaseUrl,
   REDIS_URL: redisUrl,
   REDIS_NAMESPACE: z
@@ -179,9 +179,8 @@ export const authConfigSchema = z
     AUTH_TRUSTED_IP_HEADERS: commaList(headerName),
     /** Proxy IPs or CIDR ranges skipped when a trusted header holds a chain. */
     AUTH_TRUSTED_PROXIES: commaList(proxyAddress),
-    NODE_ENV: z
-      .enum(['development', 'test', 'production'])
-      .default('development'),
+    // Required, no default: see deploymentIdentityFields.NODE_ENV.
+    NODE_ENV: z.enum(['development', 'test', 'production']),
   })
   .superRefine((config, ctx) => {
     if (config.NODE_ENV !== 'production') return;

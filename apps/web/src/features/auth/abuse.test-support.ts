@@ -5,6 +5,7 @@ import { CLIENT_IP_HEADER } from './client-ip';
 import { createAuthServer, type AuthEmailMessage } from './server';
 
 const env = {
+  NODE_ENV: 'test',
   BETTER_AUTH_SECRET:
     '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
   PUBLIC_APP_URL: 'http://localhost:3000',

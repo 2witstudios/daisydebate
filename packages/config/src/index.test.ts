@@ -5,6 +5,7 @@ import { readAuthConfig, readBrowserConfig, readServerConfig } from './index';
 setupRitewayBun();
 
 const env = {
+  NODE_ENV: 'development',
   DATABASE_URL: 'postgres://user:secret@localhost:5432/daisy',
   REDIS_URL: 'redis://localhost:6379',
   PUBLIC_APP_URL: 'http://localhost:3000',
@@ -49,6 +50,13 @@ describe('configuration', () => {
     });
   });
 
+  test('a missing NODE_ENV refuses to start rather than skip production checks', () => {
+    const { NODE_ENV: _omitted, ...withoutNodeEnv } = env;
+    expect(() => readServerConfig(withoutNodeEnv)).toThrow(
+      'Invalid server configuration',
+    );
+  });
+
   test('production succeeds without authentication variables before auth activates', () => {
     assert({
       given: 'a valid production environment without auth variables',
@@ -68,12 +76,20 @@ describe('configuration', () => {
 
 describe('authentication configuration', () => {
   const authEnv = {
+    NODE_ENV: 'development',
     BETTER_AUTH_SECRET:
       '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
     PUBLIC_APP_URL: 'https://daisy.example.com',
     RESEND_API_KEY: 're_test_000000000000000000000000',
     AUTH_EMAIL_FROM: 'Daisy <no-reply@daisy.example.com>',
   };
+
+  test('a missing NODE_ENV refuses to start rather than skip production checks', () => {
+    const { NODE_ENV: _omitted, ...withoutNodeEnv } = authEnv;
+    expect(() => readAuthConfig(withoutNodeEnv)).toThrow(
+      'Invalid auth configuration',
+    );
+  });
 
   test('validates the auth fields and trusts no client-IP header', () => {
     assert({
