@@ -32,6 +32,7 @@ describe('AUTH-3.1 composed Better Auth options', () => {
         plugins: [
           'daisy-fresh-session-gate',
           'daisy-magic-link-gate',
+          'daisy-session-revoked-outbox',
           'magic-link',
           'passkey',
         ],

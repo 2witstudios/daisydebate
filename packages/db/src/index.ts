@@ -2,8 +2,13 @@ import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { eq, and, ne, sql } from 'drizzle-orm';
 import { drizzleAdapter } from '@better-auth/drizzle-adapter';
-import { formatRulesSchema, type FormatRules } from '@daisy/protocol';
+import {
+  formatRulesSchema,
+  buildUserInboxTopic,
+  type FormatRules,
+} from '@daisy/protocol';
 import { users } from './schema/users';
+import { actors } from './schema/actors';
 import { claimUsername } from './username-claim';
 import { formats } from './schema/formats';
 import { debates, type DebateOutcome } from './schema/debates';
@@ -21,6 +26,18 @@ export type {
 export type { DebateRecord, NewDebate } from './debate-record';
 import { accounts, passkeys, sessions, verifications } from './schema/auth';
 import { emailDeliveryOperations } from './email-delivery-operations';
+import { appendOutboxEvent, purgeExpiredOutboxEvents } from './outbox';
+export {
+  appendOutboxEvent,
+  drainOutbox,
+  encodeOutboxCursor,
+  decodeOutboxCursor,
+  OUTBOX_ORIGIN,
+  type OutboxAppendInput,
+  type OutboxPosition,
+  type OutboxRow,
+} from './outbox';
+export { outbox } from './schema/outbox';
 export type { UsernameClaim } from './username-claim';
 export type FormatRecord = {
   readonly id: string;
@@ -28,7 +45,7 @@ export type FormatRecord = {
   readonly rankedEligible: boolean;
 };
 export type DatabaseEventSink = (
-  event: 'db.query.failed',
+  event: 'db.query.failed' | 'realtime.outbox.actor_missing',
   fields: Readonly<Record<string, unknown>>,
   message: string,
 ) => void;
@@ -65,8 +82,64 @@ export function createDatabase({
   });
   const reportFailure = (operation: string) =>
     eventSink?.('db.query.failed', { operation }, 'Database query failed');
+  /**
+   * Plan revision 4.10 (ACTOR-1 pending): revocation rows are keyed by
+   * `actors.id`, never `users.id`, but nothing creates an actor row for a
+   * signed-up user yet (only test fixtures). Resolves the seam ACTOR-1 will
+   * populate; a missing actor is a known, logged gap, not a thrown error.
+   */
+  const findActorId = async (
+    tx: Pick<typeof database, 'select'>,
+    userId: string,
+    operation: string,
+  ): Promise<string | null> => {
+    const [actor] = await tx
+      .select({ id: actors.id })
+      .from(actors)
+      .where(eq(actors.userId, userId));
+    if (!actor)
+      eventSink?.(
+        'realtime.outbox.actor_missing',
+        { operation },
+        'No actor row for this user; revocation outbox row not appended (ACTOR-1 pending)',
+      );
+    return actor?.id ?? null;
+  };
   return {
     authAdapter,
+    /**
+     * Exposes the driver transaction so a caller can compose its own write
+     * with `appendOutboxEvent` atomically (RT-2.2: the outbox row commits
+     * only alongside the write it announces).
+     */
+    transaction: database.transaction.bind(database),
+    /**
+     * RT-2.2 (plan revision 4.1, ADR 0032 §5): appends one `session.revoked`
+     * outbox row in its own short transaction, for a caller that has already
+     * confirmed a session delete outside Daisy's control (Better Auth's own
+     * revoke endpoints). Never wraps the delete itself.
+     *
+     * Plan revision 4.10: resolves the actor through `actors.user_id` (never
+     * keys anything by `userId`); until ACTOR-1 backfills, a user with no
+     * actor row appends nothing and logs `realtime.outbox.actor_missing`.
+     */
+    async appendSessionRevoked(userId: string) {
+      try {
+        await database.transaction(async (tx) => {
+          const actorId = await findActorId(tx, userId, 'appendSessionRevoked');
+          if (!actorId) return;
+          await appendOutboxEvent(tx, {
+            topic: buildUserInboxTopic(actorId),
+            kind: 'session.revoked',
+            version: 1,
+            payload: { version: 1, kind: 'session.revoked', ids: [actorId] },
+          });
+        });
+      } catch (error) {
+        reportFailure('appendSessionRevoked');
+        throw error;
+      }
+    },
     async health() {
       try {
         await database.execute(sql`select 1`);
@@ -80,6 +153,14 @@ export function createDatabase({
       await client.close({ timeout: 5 });
     },
     ...emailDeliveryOperations({ database, reportFailure }),
+    async purgeExpiredOutboxEvents(input: { before: string; limit: number }) {
+      try {
+        return await purgeExpiredOutboxEvents(database, input);
+      } catch (error) {
+        reportFailure('purgeExpiredOutboxEvents');
+        throw error;
+      }
+    },
     async createUser(input: { id: string; username: string }) {
       try {
         const [row] = await database.insert(users).values(input).returning();
@@ -97,20 +178,50 @@ export function createDatabase({
      * Revokes every session for `userId` except `keepToken` in one atomic
      * DELETE — no snapshot-then-delete round trips, so a session created
      * concurrently with this call cannot slip through a listing window.
-     * Returns the number of sessions removed.
+     * This is Daisy's own operation (AUTH-5.6's email-change completion),
+     * not one of Better Auth's internal deletes, so the `session.revoked`
+     * append happens in the *same* transaction as the DELETE (ADR 0032 §5,
+     * plan revision 4.7): unlike the after-hook writers, a failed append
+     * here rolls the DELETE back too, rather than being swallowed
+     * best-effort. Returns the number of sessions removed.
+     *
+     * Plan revision 4.10: resolves the actor through `actors.user_id`; until
+     * ACTOR-1 backfills, a user with no actor row still has its sessions
+     * revoked, but appends nothing and logs
+     * `realtime.outbox.actor_missing` instead.
      */
     async revokeOtherSessions(
       userId: string,
       keepToken: string,
     ): Promise<number> {
       try {
-        const rows = await database
-          .delete(sessions)
-          .where(
-            and(eq(sessions.userId, userId), ne(sessions.token, keepToken)),
-          )
-          .returning({ id: sessions.id });
-        return rows.length;
+        return await database.transaction(async (tx) => {
+          const rows = await tx
+            .delete(sessions)
+            .where(
+              and(eq(sessions.userId, userId), ne(sessions.token, keepToken)),
+            )
+            .returning({ id: sessions.id });
+          if (rows.length > 0) {
+            const actorId = await findActorId(
+              tx,
+              userId,
+              'revokeOtherSessions',
+            );
+            if (actorId)
+              await appendOutboxEvent(tx, {
+                topic: buildUserInboxTopic(actorId),
+                kind: 'session.revoked',
+                version: 1,
+                payload: {
+                  version: 1,
+                  kind: 'session.revoked',
+                  ids: [actorId],
+                },
+              });
+          }
+          return rows.length;
+        });
       } catch (error) {
         reportFailure('revokeOtherSessions');
         throw error;
