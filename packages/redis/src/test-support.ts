@@ -11,6 +11,8 @@ function fakeRedis(values: Map<string, string> = new Map()) {
   const commands: RecordedCommand[] = [];
   let closed = false;
   let scriptedEval: unknown = [1, 60000];
+  let shaCounter = 0;
+  let noScriptOnce = false;
   const client = {
     async connect() {
       if (closed) throw new Error('client closed');
@@ -23,6 +25,17 @@ function fakeRedis(values: Map<string, string> = new Map()) {
       commands.push({ command, args });
       if (command === 'SET') values.set(args[0] ?? '', args[1] ?? '');
       if (command === 'EVAL') return scriptedEval;
+      if (command === 'SCRIPT' && args[0] === 'LOAD') {
+        shaCounter += 1;
+        return `fakesha${shaCounter}`;
+      }
+      if (command === 'EVALSHA') {
+        if (noScriptOnce) {
+          noScriptOnce = false;
+          throw new Error('NOSCRIPT No matching script. Please use EVAL.');
+        }
+        return scriptedEval;
+      }
       return 'OK';
     },
     async get(key: string) {
@@ -41,6 +54,10 @@ function fakeRedis(values: Map<string, string> = new Map()) {
     client: client as never,
     scriptEval: (value: unknown) => {
       scriptedEval = value;
+    },
+    /** The next EVALSHA throws NOSCRIPT once, so a caller can prove it reloads and retries. */
+    simulateNoScriptOnce: () => {
+      noScriptOnce = true;
     },
     commands,
     values: () => values,

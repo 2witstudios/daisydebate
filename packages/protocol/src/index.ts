@@ -123,6 +123,7 @@ export {
   ticketSchema,
   subscribeAuthorizationTable,
   presenceStatusSchema,
+  presenceActivitySchema,
   clientMessageSchema,
   serverMessageSchema,
 } from './realtime';
@@ -136,4 +137,5 @@ export type {
   SubscribeAuthorizationRule,
   ClientMessage,
   ServerMessage,
+  PresenceActivity,
 } from './realtime';

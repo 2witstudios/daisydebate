@@ -12,8 +12,11 @@
     "test": "bun test src",
     "test:integration": "bun test ./integration/redis.integration.ts ./integration/presence.integration.ts ./integration/presence-expiry.integration.ts ./integration/namespaces.integration.ts"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@daisy/protocol": "workspace:*"
+  },
   "devDependencies": {
+    "@paralleldrive/cuid2": "3.3.0",
     "riteway": "9.3.0"
   }
 }
