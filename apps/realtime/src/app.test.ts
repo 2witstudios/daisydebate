@@ -1,0 +1,74 @@
+import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { fixedClock, sequentialId } from '@daisy/clock';
+import { createRealtimeApp } from './app';
+
+setupRitewayBun();
+
+const env = {
+  NODE_ENV: 'test',
+  DATABASE_URL: 'postgres://unit:unit@localhost:5432/unit',
+  REDIS_URL: 'redis://localhost:6379',
+  REDIS_NAMESPACE: 'unit-a',
+  LOG_LEVEL: 'silent',
+};
+
+const build = (overrides: Record<string, string> = {}) =>
+  createRealtimeApp({
+    env: { ...env, ...overrides },
+    clock: fixedClock('2026-09-23T00:00:00.000Z'),
+    ids: sequentialId('realtime'),
+  });
+
+describe('createRealtimeApp', () => {
+  test('builds independent instances from their own environments', async () => {
+    const first = build();
+    const second = build({ REDIS_NAMESPACE: 'unit-b' });
+    await first.close();
+    const observed = {
+      first: [first.config.REDIS_NAMESPACE, first.draining],
+      second: [second.config.REDIS_NAMESPACE, second.draining],
+    };
+    await second.close();
+    assert({
+      given: 'two realtime apps in one process, one closed',
+      should: 'keep config and drain state to each instance',
+      actual: observed,
+      expected: { first: ['unit-a', true], second: ['unit-b', false] },
+    });
+  });
+
+  test('refuses an invalid environment naming fields, never values', () => {
+    let message = '';
+    try {
+      build({ REDIS_URL: 'http://unit:SECRET@localhost:6379' });
+    } catch (error) {
+      message = String(error);
+    }
+    assert({
+      given: 'an environment whose Redis URL fails validation',
+      should: 'throw naming the field without echoing its value',
+      actual: {
+        names: message.includes('REDIS_URL'),
+        leaks: message.includes('SECRET'),
+      },
+      expected: { names: true, leaks: false },
+    });
+  });
+
+  test('closing drains and closes both pools exactly once', async () => {
+    const app = build();
+    let closed = 0;
+    const count = async () => {
+      closed += 1;
+    };
+    Object.assign(app.database, { close: count });
+    Object.assign(app.redis, { close: count });
+    await app.close();
+    assert({
+      given: 'an app holding a database pool and a Redis client',
+      should: 'flag draining and close every pool',
+      actual: { draining: app.draining, closed },
+      expected: { draining: true, closed: 2 },
+    });
+  });
+});

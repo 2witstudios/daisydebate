@@ -1,9 +1,10 @@
+import { systemClock, systemId } from '@daisy/clock';
 import {
   drainWithDeadline,
   installShutdownSignals,
 } from '@daisy/observability';
 import { createRealtimeServer } from './server';
-import { getResources, closeResources } from './resources';
+import { createRealtimeApp } from './app';
 import { DEFAULT_REALTIME_PORT, parsePort } from './port';
 
 // Unlike apps/web (whose "dev" task runs `next dev`, a different process
@@ -11,7 +12,14 @@ import { DEFAULT_REALTIME_PORT, parsePort } from './port';
 // has: "dev" and "start" both run it, differing only in NODE_ENV, which
 // `readRealtimeConfig` uses to decide how strictly to validate. There is no
 // production-only guard here for that reason.
-const resources = getResources();
+//
+// This is realtime's process edge: the only module that reads process.env.
+// It builds the one app this process runs; everything else receives it.
+const resources = createRealtimeApp({
+  env: process.env,
+  clock: systemClock,
+  ids: systemId,
+});
 const port = parsePort(process.env.REALTIME_PORT, DEFAULT_REALTIME_PORT);
 const { fetch, websocket } = createRealtimeServer({ resources });
 const server = Bun.serve({ hostname: '0.0.0.0', port, fetch, websocket });
@@ -40,7 +48,7 @@ async function shutdown() {
     onDeadlineExceeded: () => process.exit(1),
     close: async () => {
       await server.stop();
-      await closeResources();
+      await resources.close();
     },
   });
 }

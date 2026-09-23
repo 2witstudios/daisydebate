@@ -1,9 +1,7 @@
 import { assert, test, setupRitewayBun } from 'riteway/bun';
-import { systemId } from '@daisy/clock';
-import { createDatabase } from '@daisy/db';
-import { createRedis } from '@daisy/redis';
-import { createLogger } from '@daisy/logger';
+import { systemClock, systemId } from '@daisy/clock';
 import { ENVELOPE_VERSION, PROTOCOL_VERSION } from '@daisy/protocol';
+import { createRealtimeApp } from '../src/app';
 import { createRealtimeServer, SOCKET_PATH } from '../src/server';
 
 setupRitewayBun();
@@ -19,21 +17,23 @@ function requiredEnv(name: 'TEST_DATABASE_URL' | 'TEST_REDIS_URL'): string {
 const databaseUrl = requiredEnv('TEST_DATABASE_URL');
 const redisUrl = requiredEnv('TEST_REDIS_URL');
 
-/** A real Bun.serve server against real PostgreSQL and Redis, bound to an ephemeral port. */
+/**
+ * A real Bun.serve server on this test's own realtime app (its own env and
+ * Redis namespace) against real PostgreSQL and Redis, bound to an ephemeral
+ * port.
+ */
 function bootServer() {
-  const logger = createLogger({
-    service: 'realtime-integration-test',
-    level: 'silent',
+  const resources = createRealtimeApp({
+    env: {
+      NODE_ENV: 'test',
+      DATABASE_URL: databaseUrl,
+      REDIS_URL: redisUrl,
+      REDIS_NAMESPACE: `test-${systemId.next().slice(0, 10)}`,
+      LOG_LEVEL: 'silent',
+    },
+    clock: systemClock,
+    ids: systemId,
   });
-  const database = createDatabase({
-    url: databaseUrl,
-    nextActorId: () => systemId.next(),
-  });
-  const redis = createRedis({
-    url: redisUrl,
-    namespace: `test-${crypto.randomUUID().slice(0, 8)}`,
-  });
-  const resources = { draining: false, database, redis, logger };
   const { fetch, websocket } = createRealtimeServer({ resources });
   const server = Bun.serve({
     port: 0,
@@ -46,10 +46,7 @@ function bootServer() {
     origin: `http://127.0.0.1:${server.port}`,
     async close() {
       server.stop(true);
-      await Promise.allSettled([
-        database.close(),
-        Promise.resolve(redis.close()),
-      ]);
+      await resources.close();
     },
   };
 }
