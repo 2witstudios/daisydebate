@@ -181,8 +181,35 @@ describe('prerequisites', () => {
     });
   });
 
+  test('reads only the list under the Related pages heading', () => {
+    const outside = [
+      '<p>Prerequisite: PR #7 was discussed in the body</p>',
+      leaf,
+      '<p>Notes after the list. Prerequisite: ADR 0001</p>',
+    ].join('\n');
+    assert({
+      given: 'Prerequisite text in the body and after the Related pages list',
+      should: 'return only the prerequisites inside the list',
+      actual: findPrerequisites(outside),
+      expected: { leaves: ['leaf2'], prs: [50], adrs: ['0034'] },
+    });
+  });
+
+  test('fails closed when the leaf has no Related pages heading', () => {
+    assert({
+      given: 'a leaf with criteria but no Related pages section',
+      should: 'return undefined so the spawn is refused',
+      actual: findPrerequisites('<ul><li>Given X, should Y</li></ul>'),
+      expected: undefined,
+    });
+  });
+
   test('blocks the builder until every prerequisite is merged', () => {
-    const prerequisites = findPrerequisites(leaf);
+    const prerequisites = findPrerequisites(leaf) ?? {
+      leaves: [],
+      prs: [],
+      adrs: [],
+    };
     assert({
       given:
         'an open PR, a missing ADR and an unfinished leaf, then all merged',

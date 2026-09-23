@@ -109,7 +109,9 @@ function fakeMachine(
     if (key === 'pagespace pages')
       return {
         code: 0,
-        stdout: JSON.stringify({ content: options.leaf ?? '<p>ok</p>' }),
+        stdout: JSON.stringify({
+          content: options.leaf ?? '<h3>Related pages</h3>\n<ul>\n</ul>',
+        }),
       };
     return { code: 0, stdout: '' };
   };
@@ -239,6 +241,29 @@ describe('bun agent:spawn', () => {
         await spawnAgent(owner.deps, ['--override', ...spawnArgs]),
       ],
       expected: [1, 0, 1, 0],
+    });
+  });
+
+  test('refuses a leaf with no Related pages and a prompt with a superseded term', async () => {
+    const bare = fakeMachine({ leaf: '<p>Given X, should Y</p>' });
+    const stalePrompt = fakeMachine();
+    const results = [
+      await spawnAgent(bare.deps, spawnArgs),
+      await spawnAgent(stalePrompt.deps, [
+        ...spawnArgs.slice(0, -1),
+        'Seed the users with stable UUIDs',
+      ]),
+    ];
+    assert({
+      given:
+        'a leaf without a Related pages section, and a clean leaf whose prompt says UUIDs',
+      should: 'refuse both and name the reason',
+      actual: [
+        results,
+        bare.output.join('').includes('no Related pages section'),
+        stalePrompt.output.join('').includes('superseded by ADR 0018'),
+      ],
+      expected: [[1, 1], true, true],
     });
   });
 
