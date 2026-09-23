@@ -30,21 +30,33 @@ exportability, per ADR 0036 §3. Redis key namespaces and vendor-held
 records (the PostHog person, Sentry user context) are classified in the
 same inventory, not a separate one.
 
-`bun privacy` (PRIV-3) fails the build on an unclassified column, a stale
-entry, or a personal column with no retention, erasure or visibility rule,
-and names the owning area in every failure. It runs as part of `bun check`
-and the CI matrix. Adding a column that holds personal data has its own
-recipe in `docs/development/extending.md` once PRIV-3 lands.
+**Planned (PRIV-3, not yet built):** `bun privacy` will fail the build on
+an unclassified column, a stale entry, or a personal column missing
+`visibility`, `storage`, `owner`, `retention` or `erasure`, and will name
+the owning area in every failure. It is planned to run as part of
+`bun check` and the CI matrix once PRIV-3 lands; neither the command nor
+its `check`/CI wiring exists yet. Adding a column that holds personal data
+will get its own recipe in `docs/development/extending.md` at the same
+time.
 
 **`outbox.payload` and every realtime topic are telemetry-visible surfaces
 under these same rules, not an exception.** `outbox.payload`
 (`packages/db/src/schema/outbox.ts`) is an untyped JSON column that fans
-out to every subscribed browser; each of the five topic families
-(`debate`, `debate:presence`, `debate:chat`, `user:inbox`, `standings`,
-`packages/protocol/src/topics.ts`) carries only the ids and projected
-state the engine already treats as competitive, non-personal data, and any
-payload kind added to `topicFamilyPayloadKinds` must classify its fields
-the same way a database column would before it can ride a topic.
+out to every subscribed browser. Of the five topic families (`debate`,
+`debate:presence`, `debate:chat`, `user:inbox`, `standings`,
+`packages/protocol/src/topics.ts`), four carry only ids and projected
+competitive state (`identifier`/`none`): `debate.phase-changed`,
+`standings.updated`, and the three `user:inbox` control kinds
+(`session.revoked`, `access.revoked`,
+`actor.presence-preference-changed`), each an array of ids only. The one
+exception is `user.notification-delivered` on `user:inbox`
+(`packages/protocol/src/realtime-payloads.ts`), which also carries
+`notificationType` (a controlled vocabulary string, category `none` —
+never free text) and `occurredAt` (a timestamp, category `none`); neither
+is personal, but both still need their own inventory entry, not a blanket
+exemption. Any payload kind added to `topicFamilyPayloadKinds` must
+classify every one of its fields the same way a database column would
+before it can ride a topic.
 
 ## Retention
 
@@ -84,6 +96,11 @@ until the vendor acknowledges (ADR 0036 §4); a vendor outage never blocks
 or reverts the local erasure that already committed. A job that keeps
 failing past a threshold emits a registered log event, so an unfulfilled
 vendor deletion is never silently lost.
+
+`actors.user_id` keeps pointing at the tombstoned `users` row after
+erasure (ADR 0029, unchanged by this epic): see ADR 0036 §4 for why that
+retained, internal-only link between two rows that both hold no personal
+fields is not itself a privacy gap.
 
 ## Consent
 

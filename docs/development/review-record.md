@@ -66,12 +66,14 @@ to leave the finding in prose.
 
 Check the diff against [ADR 0036](../decisions/0036-privacy-by-design.md)
 and [ADR 0037](../decisions/0037-error-tracking-and-product-analytics.md):
-every new log field, database/Redis column and analytics event is
-classified and registered, no `personal`/`sensitive`/`secret` value reaches
-a log line, error report or analytics event, every new personal-data
-column has a retention and erasure rule, and new client-side tracking
-declares a consent category. Findings here follow the same CONFIRMED/
-SUSPECTED and severity rules as `## Findings`, and file the same way when
+every new log field, database/Redis column, `outbox.payload` kind, realtime
+topic-family payload field and analytics event is classified and
+registered, no `personal`/`sensitive`/`secret` value reaches a log line,
+error report, analytics event, `outbox.payload` or realtime topic message,
+every new personal-data column has a retention and erasure rule, and new
+client-side tracking declares a consent category. Findings here follow the
+same CONFIRMED/SUSPECTED and severity rules as `## Findings`, and file the
+same way when
 unfixed.
 
 ## Verdict

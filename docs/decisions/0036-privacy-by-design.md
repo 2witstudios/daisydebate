@@ -110,6 +110,23 @@ the ADR 0029 tombstone transaction: scrub private personal data, anonymize
 public personal data, delete the auth rows, revoke grants, set
 `deleted_at`, leave `actors` and competitive history alone.
 
+**The `actors.user_id` link to a tombstoned account is retained, by ADR
+0029's design, not this ADR's.** `actors.user_id` is `NOT NULL` for a human
+actor (`actors_human_has_user`) and `ON DELETE RESTRICT`; ADR 0029's
+tombstone transaction never nulls or breaks it, because a rated competitive
+identity that could stop pointing at any account is a bigger integrity
+problem than the FK it would need to relax. This is not a PII exposure:
+`actors` holds no personal fields (`id`, `kind`, `user_id`,
+`created_at`/`updated_at`/`version` only), the link is read only inside
+`@daisy/db` (username-claim resolution, session revocation) and never
+surfaced by a public route — every public and engine-facing identifier is
+the actor id, never `user_id` — and the `users` row it points at is itself
+already scrubbed to no personal fields by the same transaction. Reopening
+that linkage model is ADR 0029's decision to revisit, not PRIV-1's; this
+ADR only states that the retained link, being between two PII-free rows
+and never exposed, does not itself need a privacy inventory entry beyond
+what ADR 0029 already covers.
+
 **Vendor erasure is durable and asynchronous, never inline with local
 erasure.** In the same local-erasure transaction, one `privacy_jobs` row is
 inserted per configured vendor (`id`, `subject_ref` — the tombstoned user's

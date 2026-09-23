@@ -91,8 +91,8 @@ and detailed procedures in the linked documents, not here.
   [privacy](docs/operations/privacy.md), [ADR 0036](docs/decisions/0036-privacy-by-design.md).
 - A personal-data column ships with its inventory entry (purpose, lawful
   basis, storage, owner, retention, erasure) in the same change; `bun
-privacy` gates undeclared or stale entries. See
-  [privacy](docs/operations/privacy.md).
+privacy` (planned, PRIV-3) will gate undeclared or stale entries once
+  built. See [privacy](docs/operations/privacy.md).
 - Error tracking and product analytics go only through the `ErrorReporter`
   and `track` adapters (Sentry, PostHog); both stay inert without their
   deploy-time keys, and a raw exception goes only to the scrubbed error

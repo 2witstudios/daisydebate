@@ -23,18 +23,32 @@ to today.
 
 ### Error tracking (Sentry)
 
-- An `ErrorReporter` port, `capture(error, { requestId, route, userId?,
-errorCode })`, lives in `apps/web/src/features/telemetry/`, with a no-op
-  default and a `@sentry/nextjs` adapter. The context type accepts only
-  those four fields — `actorId` is not a valid field and fails typecheck,
-  matching ADR 0036's "never `actorId`" rule for the error surface.
-- Call sites: `instrumentation.ts` `onRequestError`, the failure path of
-  `handleOperation`, and the client `global-error` boundary.
-- `scrubEvent`, a pure function, runs as `beforeSend`: `sendDefaultPii:
+- The `ErrorReporter` port, `capture(error, { requestId, route, userId?,
+errorCode })`, and the pure `scrubEvent` function live in
+  `@daisy/observability`, not `apps/web`: `apps/realtime` may depend on
+  `@daisy/observability` but never on `apps/web` (ADR 0031 §12's allowed
+  edges, mechanically enforced by `scripts/check-boundaries.ts`), and both
+  apps must report errors through the one port. The context type accepts
+  only those four fields — `actorId` is not a valid field and fails
+  typecheck, matching ADR 0036's "never `actorId`" rule for the error
+  surface. `@daisy/observability` gains a no-op default `ErrorReporter`;
+  each app supplies its own vendor adapter and wires it at composition.
+- **`apps/web`'s adapter** is `@sentry/nextjs`, at
+  `apps/web/src/features/telemetry/`. Call sites: `instrumentation.ts`
+  `onRequestError`, the failure path of `handleOperation`, and the client
+  `global-error` boundary.
+- **`apps/realtime`'s adapter** is a separate, non-Next.js Sentry package
+  (its own choice at PRIV-5 implementation time — `@sentry/node` or
+  `@sentry/bun`, whichever the installed docs support for a Bun server
+  process) at `apps/realtime/src/telemetry/`, implementing the same port
+  with the same `scrubEvent`. It is not a lesser-monitored surface because
+  it runs outside `apps/web`.
+- `scrubEvent` runs as `beforeSend` in both adapters: `sendDefaultPii:
 false`, drops the request body, cookies, headers, query string, IP and
   console breadcrumbs, sets `user = { id }` with the cuid2 id only, and
   turns off session replay on the Sentry side (product-analytics replay is
-  PostHog's, gated separately below).
+  PostHog's, gated separately below, and applies to `apps/web` only —
+  `apps/realtime` has no browser surface).
 - **Raw exceptions go only to the scrubbed error tracker, after
   `scrubEvent`, and never to logs.** Logs keep safe structured metadata:
   `errorCode`, `errorClass`, `operation`, `invariantId` and `requestId`.
@@ -46,12 +60,11 @@ false`, drops the request body, cookies, headers, query string, IP and
   carrying raw content, and it lets a log line be joined to its Sentry
   event through the shared `requestId` without the log itself needing the
   exception.
-- `apps/realtime` reports errors through the same `ErrorReporter` port and
-  the same scrubbing; it is not a lesser-monitored surface because it runs
-  outside `apps/web`.
-- With no `SENTRY_DSN`, the SDK is not initialized and makes no network
-  request. `@sentry/*` imports outside the adapter module are rejected by
-  the policy gate (PRIV-5).
+- With no DSN configured for a given adapter, that adapter's SDK is not
+  initialized and makes no network request (§ Configuration and region
+  below states which variable gates which adapter). `@sentry/*` imports
+  outside the two adapter modules are rejected by the policy gate
+  (PRIV-5).
 
 ### Product analytics and consent (PostHog)
 
@@ -80,9 +93,28 @@ false`, drops the request body, cookies, headers, query string, IP and
 ### Configuration and region
 
 All vendor variables are optional in `packages/config`, and an adapter
-initializes only when its variables are present:
+initializes only when its own variables are present. The two Sentry
+variables are separate, independently optional guards, not one shared
+switch, matching `@sentry/nextjs`'s own per-runtime config convention
+(`sentry.server.config.ts`, `sentry.client.config.ts`,
+`sentry.edge.config.ts`):
 
-- `SENTRY_DSN`, `SENTRY_ENVIRONMENT`, `NEXT_PUBLIC_SENTRY_DSN`
+- `SENTRY_DSN`, `SENTRY_ENVIRONMENT`: gate every server-side capture path —
+  `apps/web`'s server and edge runtimes (`instrumentation.ts`
+  `onRequestError`, `handleOperation`'s failure path) and `apps/realtime`'s
+  own adapter, which reads the same variable names from its own process
+  environment as a separate deployment. With `SENTRY_DSN` unset, no server
+  makes any Sentry network call.
+- `NEXT_PUBLIC_SENTRY_DSN`: gates `apps/web`'s client (browser) capture
+  only — the `global-error` boundary — and is inlined into the browser
+  bundle at build time like any other `NEXT_PUBLIC_*` variable (PRIV-6's
+  own hazard note makes the same point for PostHog's public key). With it
+  unset, the browser makes no Sentry network call even if `SENTRY_DSN` is
+  set for the server. A deployment may run server-side capture without
+  client-side capture by setting only `SENTRY_DSN`; the reverse (client
+  without server) is legal but not a configuration this epic expects to
+  use. Full inertness — no Sentry call from any runtime — requires both
+  variables unset.
 - `NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST` (region)
 - `POSTHOG_API_KEY` (server-side events and person deletion)
 
@@ -98,8 +130,11 @@ an unconfigured deployment's CSP names no vendor host at all.
   specifically: this ADR is that ADR, and both adapters ship in-repo,
   inert without keys. The line stands unchanged for any other vendor.
 - PRIV-2 adds `errorClass` to the closed log-field vocabulary and its enum.
-- PRIV-5 implements the `ErrorReporter` port, the `@sentry/nextjs` adapter,
-  `scrubEvent`, configuration and the import/capture policy ban.
+- PRIV-5 implements the `ErrorReporter` port and `scrubEvent` in
+  `@daisy/observability`, the `@sentry/nextjs` adapter in `apps/web`, the
+  separate `apps/realtime` adapter, configuration and the import/capture
+  policy ban for both. `docs/architecture/overview.md`'s package-map row
+  for `@daisy/observability` gains the `ErrorReporter` responsibility.
 - PRIV-6 implements the product event registry, the consent banner and
   model (mechanism only — the model itself is ADR 0036 §5), the
   `consent_record` table, the PostHog adapter and its policy ban.
