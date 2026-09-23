@@ -29,7 +29,7 @@ type MergedPr = {
 
 export type StaleDeps = {
   readonly pagespace: (args: readonly string[]) => Result;
-  readonly mergedPrs: () => readonly MergedPr[];
+  readonly gh: (args: readonly string[]) => Result;
   /** reviewEnforcementCutoff from policy/github/repository.json. */
   readonly cutoff: string | null;
   readonly out: (text: string) => void;
@@ -111,9 +111,25 @@ function readBoard(deps: StaleDeps) {
   return { lists, tasks };
 }
 
+const MERGED_PRS = [
+  'pr',
+  'list',
+  '--state',
+  'merged',
+  '--limit',
+  '1000',
+  '--json',
+  'number,title,headRefName,body,mergedAt',
+];
+
 export function runStaleCheck(deps: StaleDeps, apply: boolean): number {
+  const listed = deps.gh(MERGED_PRS);
+  if (listed.code !== 0) {
+    deps.out(`gh pr list failed (exit ${listed.code}); nothing was checked.\n`);
+    return 1;
+  }
   const merged = new Map<string, string>();
-  for (const pr of deps.mergedPrs())
+  for (const pr of JSON.parse(listed.stdout) as MergedPr[])
     for (const code of deliveredCodes(pr))
       if (!merged.has(code) || pr.mergedAt < (merged.get(code) ?? ''))
         merged.set(code, pr.mergedAt);
@@ -171,19 +187,7 @@ if (import.meta.main) {
         }
         return result;
       },
-      mergedPrs: () =>
-        JSON.parse(
-          spawn('gh', [
-            'pr',
-            'list',
-            '--state',
-            'merged',
-            '--limit',
-            '1000',
-            '--json',
-            'number,title,headRefName,body,mergedAt',
-          ]).stdout,
-        ) as MergedPr[],
+      gh: (args) => spawn('gh', args),
       cutoff: (
         (await Bun.file(
           new URL('../policy/github/repository.json', import.meta.url),
