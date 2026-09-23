@@ -3,7 +3,9 @@ import { propagation, ROOT_CONTEXT, trace } from '@opentelemetry/api';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   currentTraceId,
+  drainWithDeadline,
   extractTraceContext,
+  installShutdownSignals,
   isValidTraceparent,
   requestId,
   withSpan,
@@ -130,5 +132,86 @@ describe('withTimeout', () => {
     await expect(withTimeout(new Promise(() => {}), 5)).rejects.toThrow(
       'timed out',
     );
+  });
+});
+
+describe('drainWithDeadline', () => {
+  test('resolves once close finishes, never firing the deadline', async () => {
+    let deadlineFired = false;
+    await drainWithDeadline({
+      deadlineMs: 50,
+      onDeadlineExceeded: () => {
+        deadlineFired = true;
+      },
+      close: async () => {},
+    });
+
+    assert({
+      given: 'a close that finishes well within the deadline',
+      should: 'resolve without firing onDeadlineExceeded',
+      actual: deadlineFired,
+      expected: false,
+    });
+  });
+
+  test('fires onDeadlineExceeded when close outlasts the deadline', async () => {
+    let deadlineFired = false;
+    await drainWithDeadline({
+      deadlineMs: 5,
+      onDeadlineExceeded: () => {
+        deadlineFired = true;
+      },
+      close: () => new Promise((resolve) => setTimeout(resolve, 40)),
+    });
+
+    assert({
+      given: 'a close slower than the deadline',
+      should: 'fire onDeadlineExceeded before close resolves',
+      actual: deadlineFired,
+      expected: true,
+    });
+  });
+});
+
+describe('installShutdownSignals', () => {
+  test('registers shutdown once for SIGTERM and SIGINT', () => {
+    const registered: string[] = [];
+    const target = {
+      once: (signal: string) => {
+        registered.push(signal);
+      },
+    };
+
+    installShutdownSignals(async () => {}, target as never);
+
+    assert({
+      given: 'a shutdown callback and an injected process-like target',
+      should: 'register it once for SIGTERM and SIGINT',
+      actual: registered,
+      expected: ['SIGTERM', 'SIGINT'],
+    });
+  });
+
+  test('invoking a registered signal runs the shutdown callback', async () => {
+    let ran = false;
+    const handlers: Record<string, () => void> = {};
+    const target = {
+      once: (signal: string, handler: () => void) => {
+        handlers[signal] = handler;
+      },
+    };
+
+    installShutdownSignals(async () => {
+      ran = true;
+    }, target as never);
+    handlers.SIGTERM?.();
+    await Promise.resolve();
+
+    assert({
+      given: 'the registered SIGTERM handler firing',
+      should: 'run the shutdown callback',
+      actual: ran,
+      expected: true,
+    });
   });
 });

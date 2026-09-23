@@ -32,4 +32,20 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
   config: [],
   logger: [],
   observability: ['logger'],
+  // ADR 0031 §12: the realtime deployment's exact ten allowed edges. It
+  // never depends on `debate-engine`, `apps/web` or a third-party socket
+  // library. `@daisy/presence` is not yet a package (owned by a later RT
+  // leaf); the edge is declared now so nothing else moves when it lands.
+  realtime: [
+    'protocol',
+    'auth',
+    'db',
+    'redis',
+    'clock',
+    'config',
+    'errors',
+    'logger',
+    'observability',
+    'presence',
+  ],
 };
