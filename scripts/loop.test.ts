@@ -6,94 +6,17 @@ import {
   escalate,
   findAgentWorktree,
   OWNER_CHANNEL,
-  type LoopDeps,
 } from './loop';
-import { recordPath, serializeRecord } from './agent-registry';
+import {
+  child,
+  registered,
+  state,
+  status,
+  fakes,
+  escalatedFixture,
+} from './loop.test-support';
 
 setupRitewayBun();
-
-const project = '/w';
-const child = '/w/.pu/worktrees/wt-child';
-// The registry entry the parent's agent:spawn wrote, outside the worktree.
-const registered = (parent: string | null) => ({
-  [recordPath(project, 'ag-child')]: serializeRecord({
-    parent,
-    role: 'builder',
-    worktree: child,
-  }),
-});
-const state = [
-  '---',
-  'active: true',
-  'iteration: 12',
-  'session_id: s-9',
-  'max_iterations: 40',
-  'completion_promise: "CONVERGED"',
-  '---',
-  '',
-  'Converge the PR.',
-  '',
-].join('\n');
-
-const status = JSON.stringify({
-  worktrees: [
-    {
-      path: child,
-      branch: 'pu/child',
-      agents: {
-        'ag-child': { id: 'ag-child' },
-        'ag-term': { id: 'ag-term', agentType: 'terminal' },
-      },
-    },
-  ],
-});
-
-function fakes(
-  files: Record<string, string>,
-  overrides: Partial<LoopDeps> = {},
-  // Command lines (by prefix) that fail.
-  failing: readonly string[] = [],
-) {
-  const calls: string[][] = [];
-  const notices: string[] = [];
-  const fs = new Map(Object.entries(files));
-  const deps: LoopDeps = {
-    cwd: child,
-    projectRoot: project,
-    agentId: 'ag-child',
-    now: () => '2026-09-22T12:00:00.000Z',
-    read: (path) => fs.get(path),
-    write: (path, text) => {
-      calls.push(['write', path]);
-      fs.set(path, text);
-    },
-    remove: (path) => void fs.delete(path),
-    run: (args) => {
-      calls.push([...args]);
-      if (failing.some((prefix) => args.join(' ').startsWith(prefix)))
-        return { code: 1, stdout: '' };
-      const command = args.slice(0, 3).join(' ');
-      if (command === 'git rev-parse HEAD')
-        return { code: 0, stdout: `${'b'.repeat(40)}\n` };
-      if (command === 'gh pr view' || command === 'gh pr list')
-        return { code: 0, stdout: '57\n' };
-      if (command === 'pu status --json') return { code: 0, stdout: status };
-      return { code: 0, stdout: '' };
-    },
-    notice: (text) => void notices.push(text),
-    ...overrides,
-  };
-  return { deps, calls, notices, fs };
-}
-
-const escalatedFixture = () => {
-  const run = fakes({
-    [`${child}/${ACTIVE}`]: state,
-    ...registered('ag-parent'),
-  });
-  escalate(run.deps, 'stalled', 'Two identical scans');
-  return Object.fromEntries(run.fs);
-};
 
 describe('loop:escalate', () => {
   test('pauses the loop, keeps its state and notifies the recorded parent', () => {
@@ -205,6 +128,7 @@ describe('loop:escalate', () => {
       fakes({ [`${child}/${ACTIVE}`]: state, ...registered('ag-parent') }, {}, [
         'pu send ag-parent',
         'gh pr comment',
+        'pagespace channels send',
       ]),
       fakes({ [`${child}/${ACTIVE}`]: state }, {}, [
         'pagespace channels send',
@@ -213,7 +137,7 @@ describe('loop:escalate', () => {
     ];
     assert({
       given:
-        'a failed parent send and PR comment, and a failed owner post with no PR',
+        'a failed parent send, owner post and PR comment, and a failed owner post with no PR',
       should: 'exit non-zero and leave the loop state as it was',
       actual: cases.map(({ deps, fs }) => [
         escalate(deps, 'blocked', 'CI secret missing'),

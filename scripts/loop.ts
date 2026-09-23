@@ -9,8 +9,17 @@
  *     record the outcome on the PR.
  * All I/O goes through LoopDeps so the flows are tested against fakes.
  */
-import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import {
+  closeSync,
+  existsSync,
+  openSync,
+  readFileSync,
+  readSync,
+  rmSync,
+  writeFileSync,
+  writeSync,
+} from 'node:fs';
+import { dirname, join } from 'node:path';
 import {
   authorizeControl,
   escalateState,
@@ -41,7 +50,28 @@ export type LoopDeps = {
     cwd: string,
   ) => { readonly code: number; readonly stdout: string };
   readonly notice: (text: string) => void;
+  /**
+   * Asks the person at the terminal (/dev/tty) to confirm acting as the
+   * owner; false when there is no terminal, as in every agent shell.
+   */
+  readonly confirmOwner: (question: string) => boolean;
 };
+
+/**
+ * The main checkout, which holds the agent registry: the parent of the git
+ * common dir. Never PU_PROJECT_ROOT, which any process can set.
+ */
+export function registryRoot(
+  run: LoopDeps['run'],
+  cwd: string,
+): string | undefined {
+  const result = run(
+    ['git', 'rev-parse', '--path-format=absolute', '--git-common-dir'],
+    cwd,
+  );
+  const commonDir = result.stdout.trim();
+  return result.code === 0 && commonDir !== '' ? dirname(commonDir) : undefined;
+}
 
 type Worktree = { readonly path: string; readonly branch: string };
 
@@ -95,9 +125,10 @@ function commentOnPr(
   return ok;
 }
 
-/** Tells the parent, or the owner on the Epic Updates channel. */
+/** Tells the parent, or else the owner on the Epic Updates channel. */
 function notify(deps: LoopDeps, parent: string | undefined, message: string) {
-  if (parent) return sendTo(deps, parent, message);
+  if (parent && sendTo(deps, parent, message)) return true;
+  // No parent, or a parent pu could not reach: the owner hears of it.
   deps.notice(`OWNER NOTICE ${message}`);
   return (
     deps.run(
@@ -266,6 +297,17 @@ export function control(
     deps.notice(refusal ?? '');
     return 1;
   }
+  // No agent id means the owner only when a person confirms at a terminal:
+  // env -i in an agent shell clears the id but has no terminal to answer.
+  if (
+    deps.agentId === undefined &&
+    !deps.confirmOwner(`${action} the loop of ${child} as the owner? [y/N] `)
+  ) {
+    deps.notice(
+      'No PU_AGENT_ID and no confirmation at a terminal: without an agent id, only the owner at a terminal closes or resumes a loop.',
+    );
+    return 1;
+  }
   if (action === 'resume')
     deps.write(join(paused.worktree.path, ACTIVE), resumeState(paused.state));
   deps.remove(join(paused.worktree.path, ESCALATED));
@@ -281,24 +323,46 @@ export function control(
   return 0;
 }
 
+const run: LoopDeps['run'] = (args, cwd) => {
+  const result = Bun.spawnSync([...args], {
+    cwd,
+    stdout: 'pipe',
+    stderr: 'inherit',
+  });
+  return { code: result.exitCode, stdout: result.stdout.toString() };
+};
+
+function askTerminal(question: string): boolean {
+  let fd: number;
+  try {
+    fd = openSync('/dev/tty', 'r+');
+  } catch {
+    return false;
+  }
+  try {
+    writeSync(fd, question);
+    const answer = Buffer.alloc(16);
+    const read = readSync(fd, answer, 0, answer.length, null);
+    return /^y(?:es)?$/i.test(answer.toString('utf8', 0, read).trim());
+  } catch {
+    return false;
+  } finally {
+    closeSync(fd);
+  }
+}
+
 function liveDeps(): LoopDeps {
   return {
     cwd: process.cwd(),
-    projectRoot: process.env.PU_PROJECT_ROOT || process.cwd(),
+    projectRoot: registryRoot(run, process.cwd()) ?? process.cwd(),
     agentId: process.env.PU_AGENT_ID || undefined,
     now: () => new Date().toISOString(),
     read: (path) => (existsSync(path) ? readFileSync(path, 'utf8') : undefined),
     write: (path, text) => writeFileSync(path, text),
     remove: (path) => rmSync(path, { force: true }),
-    run: (args, cwd) => {
-      const result = Bun.spawnSync([...args], {
-        cwd,
-        stdout: 'pipe',
-        stderr: 'inherit',
-      });
-      return { code: result.exitCode, stdout: result.stdout.toString() };
-    },
+    run,
     notice: (text) => process.stderr.write(`${text}\n`),
+    confirmOwner: askTerminal,
   };
 }
 
