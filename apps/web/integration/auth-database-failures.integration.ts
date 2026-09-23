@@ -26,7 +26,7 @@ type ReportedFailure = { event: string; fields: unknown; message: string };
 test('delivery failure surfaces a safe retryable error and cleanup still leaves no fixture rows', async () => {
   const email = fixtureEmail();
   const sent: import('./auth-helpers').SentMessages = [];
-  const database = createDatabase({ url });
+  const database = createDatabase({ url, nextActorId: createId });
   const auth = createTestAuthServer(database.authAdapter, {
     sent,
     deliveryFailure: new Error('resend unavailable'),
@@ -75,6 +75,7 @@ test('pool lifecycle closes and the app failure boundary reports without SQL mat
     maxConnections: 1,
     eventSink: (event, fields, message) =>
       failures.push({ event, fields, message }),
+    nextActorId: createId,
   });
   // The raw driver error embeds SQL and bound parameters; the app-owned
   // boundary must report only safe operation names.
@@ -136,7 +137,7 @@ test('pool lifecycle closes and the app failure boundary reports without SQL mat
 test('a persistence failure inside Better Auth leaks no SQL, parameters, token or email', async () => {
   const email = fixtureEmail();
   const recorded: RecordedLogs = [];
-  const database = createDatabase({ url });
+  const database = createDatabase({ url, nextActorId: createId });
   const auth = createTestAuthServer(database.authAdapter, {
     sent: [],
     recordedLogs: recorded,

@@ -34,7 +34,10 @@ export function secondInstance(
     ) => Parameters<typeof createAuthServer>[0]['limiter'];
   } = {},
 ) {
-  const database = createDatabase({ url: testDatabaseUrl as string });
+  const database = createDatabase({
+    url: testDatabaseUrl as string,
+    nextActorId: () => systemId.next(),
+  });
   const redis = createRedis({
     url: overrides.redisUrl ?? (testRedisUrl as string),
     namespace: redisNamespace,

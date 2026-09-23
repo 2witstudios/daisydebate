@@ -211,9 +211,10 @@ describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () 
     const verifyMail = flows.account.flows.mailbox.mails[before + 1];
     const verifyToken = tokenOf(linkFrom(verifyMail!));
 
-    // Plan revision 4.10 (ACTOR-1 pending): the append only runs once the
-    // actor resolves, so this fixture stands in for ACTOR-1's onboarding
-    // insert until that leaf lands.
+    // Plan revision 4.10: the append only runs once the actor resolves.
+    // This account never claims a username (an unrelated surface to the
+    // atomic revocation under test), so it inserts the actor directly
+    // rather than going through the onboarding route.
     const uid = await userIdOf(email);
     await withSql(
       (sql) =>

@@ -9,7 +9,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "bun test src",
-    "test:integration": "bun test ./integration/db.integration.ts ./integration/seed.integration.test.ts ./integration/auth-constraints.integration.ts ./integration/competitive-constraints.integration.ts ./integration/competitive-debate-constraints.integration.ts ./integration/competitive-judging-constraints.integration.ts ./integration/competitive-command-constraints.integration.ts ./integration/competitive-rating-constraints.integration.ts ./integration/email-delivery.integration.ts ./integration/verification-purge.integration.ts ./integration/outbox.integration.ts ./integration/outbox-role.integration.ts ./integration/outbox-retention.integration.ts",
+    "test:integration": "bun test ./integration/db.integration.ts ./integration/seed.integration.test.ts ./integration/auth-constraints.integration.ts ./integration/competitive-constraints.integration.ts ./integration/competitive-debate-constraints.integration.ts ./integration/competitive-judging-constraints.integration.ts ./integration/competitive-command-constraints.integration.ts ./integration/competitive-rating-constraints.integration.ts ./integration/email-delivery.integration.ts ./integration/verification-purge.integration.ts ./integration/outbox.integration.ts ./integration/outbox-role.integration.ts ./integration/outbox-retention.integration.ts ./integration/username-claim.integration.ts ./integration/actor-lookup.integration.ts",
     "db:generate": "bun --bun x drizzle-kit generate",
     "db:migrate": "bun scripts/migrate.ts",
     "db:studio": "bun --bun x drizzle-kit studio",

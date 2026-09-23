@@ -19,6 +19,7 @@ function createResources() {
     database: createDatabase({
       url: config.DATABASE_URL,
       eventSink: (event, fields, message) => logger.log(event, fields, message),
+      nextActorId: () => systemId.next(),
     }),
     redis: createRedis({
       url: config.REDIS_URL,

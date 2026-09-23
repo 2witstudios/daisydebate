@@ -6,11 +6,12 @@ import { withSql } from './auth-mounted-helpers';
  * RT-2.2: shared fixtures for suites that assert an auth operation appends a
  * `session.revoked` outbox row for the acting user's actor.
  *
- * Plan revision 4.10 (ACTOR-1 pending): the outbox append only runs once the
- * actor resolves through `actors.user_id`, and nothing in the signup path
- * creates one yet, so `createActorFor` stands in for ACTOR-1's onboarding
- * insert until that leaf lands. Revocation rows are keyed by `actors.id`,
- * never `userId`.
+ * Plan revision 4.10: the outbox append only runs once the actor resolves
+ * through `actors.user_id`. ACTOR-1 creates that row during real username
+ * onboarding, but these suites sign up without ever claiming a username (an
+ * unrelated surface to session revocation/email-change), so `createActorFor`
+ * inserts the actor directly rather than going through the onboarding route.
+ * Revocation rows are keyed by `actors.id`, never `userId`.
  */
 export const createActorFor = async (userId: string): Promise<string> => {
   const actorId = createId();

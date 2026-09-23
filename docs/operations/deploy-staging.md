@@ -10,22 +10,23 @@ https://fly.io/docs/flyctl/ as of 2026-09-22 — re-check flag names if the
 installed flyctl has since changed.
 
 No custom domain: the app is reachable at `https://<app>.fly.dev` only
-(owner decision). Postgres and Redis are external free tiers (Neon,
-Upstash), reached through the existing `DATABASE_URL` / `REDIS_URL`
-contract — no Fly Postgres, no new client libraries.
+(owner decision). Postgres is an always-on Fly machine in the same org and
+Redis is Fly-native Upstash (owner decision, September 22), both reached
+through the existing `DATABASE_URL` / `REDIS_URL` contract — no new client
+libraries.
 
 ## Idle cost (per the owner's spend constraint)
 
-| Piece                                                                    | Idle cost                                                                                                                                                                          | Source                             |
-| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| Fly machine (shared-cpu-1x, 512mb), stopped (`min_machines_running = 0`) | $0 compute. Only rootfs storage is billed while stopped: $0.15 per 1GB for 30 days (this image is ~1.2GB, so a fraction of $0.15/mo when stopped)                                  | https://fly.io/docs/about/pricing/ |
-| Fly machine, running                                                     | ~$0.00000156/s ≈ **$4.04/month if left running continuously** (region-dependent; staging should spend almost none of this since `auto_stop_machines` suspends it between requests) | https://fly.io/docs/about/pricing/ |
-| Neon Postgres (Free plan)                                                | $0/month. 0.5GB storage, 100 CU-hours/month compute, autoscale up to 2 CU, 5GB egress included, compute auto-suspends after 5 minutes idle (no CU-hours accrue while suspended)    | https://neon.com/pricing           |
-| Upstash Redis (Free plan)                                                | $0/month. 256MB storage, 500K commands/month, 10GB bandwidth/month, up to 10 free databases                                                                                        | https://upstash.com/pricing        |
-| Resend                                                                   | Free tier covers low-volume staging email + webhooks; no idle cost beyond the account itself                                                                                       | https://resend.com/pricing         |
+| Piece                                                                                       | Idle cost                                                                                                                                                                          | Source                             |
+| ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| Fly machine (shared-cpu-1x, 512mb), stopped (`min_machines_running = 0`)                    | $0 compute. Only rootfs storage is billed while stopped: $0.15 per 1GB for 30 days (this image is ~1.2GB, so a fraction of $0.15/mo when stopped)                                  | https://fly.io/docs/about/pricing/ |
+| Fly machine, running                                                                        | ~$0.00000156/s ≈ **$4.04/month if left running continuously** (region-dependent; staging should spend almost none of this since `auto_stop_machines` suspends it between requests) | https://fly.io/docs/about/pricing/ |
+| Fly Postgres machine `daisy-debate-staging-db` (shared-cpu-1x 256MB, 1GB volume), always on | ≈ $1.94/month compute + $0.15/month volume. Owner decision: left running; `fly machine stop` between sessions drops it to the volume charge.                                       |
+| Fly Redis `daisy-debate-staging-redis` (Upstash, Pay-as-you-go)                             | $0 at rest; $0.20 per 100K commands.                                                                                                                                               |
+| Resend                                                                                      | Free tier covers low-volume staging email + webhooks; no idle cost beyond the account itself                                                                                       | https://resend.com/pricing         |
 
-Net: this deployment costs $0/month at rest, and only the fractional-cent
-rootfs storage charge plus any actual staging traffic while awake.
+Net: about $2/month at rest (the Postgres machine), plus fractional-cent
+rootfs storage and any actual staging traffic while the web machine is awake.
 
 ## Client identity on Fly (verify on first deploy)
 
@@ -128,24 +129,35 @@ fly apps create daisy-debate-staging --org daisy-debate
 Verify: `fly status -a daisy-debate-staging` shows the app with no machines
 yet (this only reserves the name; `fly.toml`'s `app` field must match).
 
-## 2. Provision Neon (Postgres)
+## 2. Provision Postgres
 
-1. Create a Neon project (free tier) in the Neon console; create a database
-   for staging.
-2. Copy the pooled connection string Neon gives you (`postgres://...`).
-   Production forbids the local-development password sentinel
-   (`packages/config/src/index.ts` rejects `local-development-only`), so any
-   real Neon credential is fine as-is.
+Owner decision (September 22): staging Postgres is an ordinary Fly machine
+in the same org, left running (about $2/month for shared-cpu-1x 256MB plus
+$0.15/GB volume), not an external provider. It is a single unmanaged
+machine: no automatic backups or failover — fine for staging only.
 
-Verify: `psql "$NEON_DATABASE_URL" -c 'select 1'` returns `1`.
+```
+fly postgres create --name daisy-debate-staging-db --org daisy-debate --region ord \
+  --vm-size shared-cpu-1x --volume-size 1 --initial-cluster-size 1
+fly postgres attach daisy-debate-staging-db -a daisy-debate-staging   # sets DATABASE_URL
+```
 
-## 3. Provision Upstash (Redis)
+Verify: `fly secrets list -a daisy-debate-staging` shows `DATABASE_URL`.
 
-1. Create an Upstash Redis database (free tier, TLS enabled).
-2. Copy the `rediss://` connection string (TLS) Upstash gives you —
-   `packages/config/src/index.ts` requires `redis:` or `rediss:`.
+## 3. Provision Redis
 
-Verify: `redis-cli -u "$UPSTASH_REDIS_URL" ping` returns `PONG`.
+Upstash is native on Fly; the pay-as-you-go plan is free at staging volumes
+($0.20 per 100K commands). The ProdPack prompt must be declined explicitly
+when flyctl runs without a TTY:
+
+```
+fly redis create --org daisy-debate --region ord --name daisy-debate-staging-redis \
+  --no-replicas --disable-eviction --plan "Pay-as-you-go" --enable-prodpack=false
+fly redis status daisy-debate-staging-redis      # shows the private redis:// URL
+fly secrets set -a daisy-debate-staging --stage REDIS_URL="<that url>"
+```
+
+Verify: `fly secrets list -a daisy-debate-staging` shows `REDIS_URL` (staged).
 
 ## 4. Create the Resend webhook (before first deploy)
 
@@ -180,9 +192,9 @@ expected, nothing is listening yet).
 ## 5. Set secrets
 
 ```
-fly secrets set -a daisy-debate-staging \
-  DATABASE_URL="$NEON_DATABASE_URL" \
-  REDIS_URL="$UPSTASH_REDIS_URL" \
+# DATABASE_URL was set by `fly postgres attach` (step 2) and REDIS_URL staged
+# in step 3; do not set them again here.
+fly secrets set -a daisy-debate-staging --stage \
   BETTER_AUTH_SECRET="$(bun -e 'console.log(crypto.getRandomValues(new Uint8Array(32)).reduce((s,b)=>s+b.toString(16).padStart(2,"0"),""))')" \
   RESEND_API_KEY="re_..." \
   AUTH_EMAIL_FROM="Daisy <no-reply@yourdomain.example>" \
@@ -204,7 +216,7 @@ Run from the repository root (so `apps/web/Dockerfile`'s build context is
 the monorepo):
 
 ```
-fly deploy -a daisy-debate-staging \
+fly deploy -a daisy-debate-staging --ha=false \
   --build-arg APP_VERSION="$(git rev-parse --short HEAD)" \
   --build-arg GIT_COMMIT="$(git rev-parse HEAD)"
 ```
@@ -215,6 +227,10 @@ do not add a migration step anywhere else.
 
 Verify: `fly status -a daisy-debate-staging` shows one deployed release and
 `fly releases -a daisy-debate-staging` shows it as successful.
+
+`--ha=false` keeps one machine: without it `fly deploy` creates two for
+high availability, which doubles the (idle-free) footprint and is
+pointless for staging. If two exist, `fly scale count 1 -a daisy-debate-staging`.
 
 ## 7. Verify
 
@@ -258,12 +274,32 @@ newest release, and step 7's health checks pass again.
 ## 9. Destroy
 
 ```
-fly apps destroy daisy-debate-staging
+fly apps destroy daisy-debate-staging --yes
+fly apps destroy daisy-debate-staging-db --yes      # the Postgres machine and its volume (the recurring charge)
+fly redis destroy daisy-debate-staging-redis --yes
 ```
 
-This deletes the app and its machines; it does **not** touch Neon or
-Upstash (separate accounts/resources) — delete those in their own consoles
-if the environment is being fully torn down, and revoke the Resend webhook
-and its signing secret.
+Then delete the Resend webhook (`resend webhooks delete <id>`) and rotate
+`FLY_API_TOKEN` out of the GitHub repository secrets
+(`fly tokens revoke`, `gh secret delete FLY_API_TOKEN`).
 
-Verify: `fly status -a daisy-debate-staging` returns "app not found".
+Verify: `fly status -a daisy-debate-staging` and
+`fly status -a daisy-debate-staging-db` both return "app not found", and
+`fly redis list` no longer lists the database.
+
+## 10. Continuous deployment (GitHub Actions)
+
+`.github/workflows/deploy-staging.yml` deploys every `main` push that passes
+the CI workflow (`workflow_run` on CI success, checked out at the verified
+`head_sha`), or on manual `workflow_dispatch`. It needs one repository
+secret, `FLY_API_TOKEN`, a deploy token scoped to the staging app:
+
+```
+fly tokens create deploy -a daisy-debate-staging --name github-actions-staging --expiry 8760h \
+  | gh secret set FLY_API_TOKEN
+```
+
+The token can only deploy this one app; rotate it by re-running the two
+commands. Production is never deployed by this workflow (AUTH-7.2/7.3 are
+human-gated). Verify: the "Deploy staging" run is green after a main merge
+and `/api/health/ready` answers at the staging hostname.

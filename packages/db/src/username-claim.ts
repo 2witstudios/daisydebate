@@ -1,5 +1,6 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql';
+import { actors } from './schema/actors';
 import { users } from './schema/users';
 
 export type UsernameClaim = {
@@ -27,36 +28,53 @@ const isUniqueViolation = (error: unknown): boolean => {
 };
 
 /**
- * Server-owned onboarding: sets the username of a user that has none, in one
- * statement. Uniqueness is the case-insensitive unique index, so concurrent
- * claims of one name produce exactly one winner and every loser changes
- * nothing. A retry by the owner reports `unchanged`.
+ * Server-owned onboarding: sets the username of a user that has none, and
+ * inserts that user's `actors` row (`kind = 'human'`) in the same
+ * transaction (ADR 0029, ACTOR-1) — the human actor and its username exist
+ * together or not at all. Uniqueness is the case-insensitive unique index,
+ * so concurrent claims of one name produce exactly one winner and every
+ * loser changes nothing; a losing call sees `claimed.length === 0` and
+ * never reaches the actor insert. `onConflictDoNothing` on
+ * `actors_user_id_unique` instead guards a user who already has an actor
+ * with no username — every session-revocation fixture in this repository
+ * inserts exactly that shape (a signed-up user who never claims one) — so a
+ * later claim keeps the existing actor rather than racing a unique
+ * violation. A retry by the owner reports `unchanged` and inserts no actor.
  */
 export async function claimUsername(
   database: BunSQLDatabase,
   input: { readonly userId: string; readonly username: string },
+  nextActorId: () => string,
   reportFailure: (operation: string) => void,
 ): Promise<UsernameClaim> {
   try {
-    const claimed = await database
-      .update(users)
-      .set({
-        username: input.username,
-        updatedAt: sql`now()`,
-        version: sql`${users.version} + 1`,
-      })
-      .where(and(eq(users.id, input.userId), isNull(users.username)))
-      .returning({ id: users.id });
-    if (claimed.length > 0) return { kind: 'claimed' };
-    const [current] = await database
-      .select({ username: users.username })
-      .from(users)
-      .where(eq(users.id, input.userId))
-      .limit(1);
-    if (!current) return { kind: 'unknown-user' };
-    return current.username?.toLowerCase() === input.username.toLowerCase()
-      ? { kind: 'unchanged' }
-      : { kind: 'already-set' };
+    return await database.transaction(async (tx) => {
+      const claimed = await tx
+        .update(users)
+        .set({
+          username: input.username,
+          updatedAt: sql`now()`,
+          version: sql`${users.version} + 1`,
+        })
+        .where(and(eq(users.id, input.userId), isNull(users.username)))
+        .returning({ id: users.id });
+      if (claimed.length > 0) {
+        await tx
+          .insert(actors)
+          .values({ id: nextActorId(), kind: 'human', userId: input.userId })
+          .onConflictDoNothing({ target: actors.userId });
+        return { kind: 'claimed' };
+      }
+      const [current] = await tx
+        .select({ username: users.username })
+        .from(users)
+        .where(eq(users.id, input.userId))
+        .limit(1);
+      if (!current) return { kind: 'unknown-user' };
+      return current.username?.toLowerCase() === input.username.toLowerCase()
+        ? { kind: 'unchanged' }
+        : { kind: 'already-set' };
+    });
   } catch (error) {
     if (isUniqueViolation(error)) return { kind: 'taken' };
     reportFailure('claimUsername');
