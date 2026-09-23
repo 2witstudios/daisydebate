@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  buildClientMessageSchema,
   buildDebateTopic,
   buildHelloMessageSchema,
   clientMessageSchema,
@@ -104,6 +105,27 @@ describe('client message schema', () => {
         helloSchema.safeParse(validMessage).success,
         helloSchema.safeParse({ ...validMessage, v: 22 }).success,
         helloSchema.safeParse({ ...validMessage, protocolVersion: 11 }).success,
+      ],
+      expected: [true, false, false],
+    });
+  });
+
+  test('builds every non-hello client message from an independently injected envelope version (RT-2.1c AC1, continued: envelope)', () => {
+    const injectedEnvelopeVersion = 33 as EnvelopeVersion;
+    const schema = buildClientMessageSchema(
+      injectedEnvelopeVersion,
+      PROTOCOL_VERSION,
+    );
+    const pingMessage = { v: 33, type: 'ping', id };
+    assert({
+      given:
+        'a client message schema built with envelope version 33, and a ping stamped v:33',
+      should:
+        "accept only v:33 and reject PROTOCOL_VERSION's and ENVELOPE_VERSION's value (both 1), proving the envelope is not hard-coded to either constant",
+      actual: [
+        schema.safeParse(pingMessage).success,
+        schema.safeParse({ ...pingMessage, v: PROTOCOL_VERSION }).success,
+        schema.safeParse({ ...pingMessage, v: ENVELOPE_VERSION }).success,
       ],
       expected: [true, false, false],
     });

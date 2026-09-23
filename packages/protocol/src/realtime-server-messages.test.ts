@@ -2,9 +2,12 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   buildDebatePresenceTopic,
   buildDebateTopic,
+  buildServerMessageSchema,
   closeCodeTable,
   ENVELOPE_VERSION,
+  PROTOCOL_VERSION,
   serverMessageSchema,
+  type EnvelopeVersion,
 } from './realtime';
 
 setupRitewayBun();
@@ -165,6 +168,24 @@ describe('server message schema and close codes', () => {
         serverMessageSchema.safeParse({ v: 2, type: 'ready' }).success,
       ],
       expected: [false, false],
+    });
+  });
+
+  test('builds every server message from an independently injected envelope version (RT-2.1c AC1, continued: envelope)', () => {
+    const injectedEnvelopeVersion = 44 as EnvelopeVersion;
+    const schema = buildServerMessageSchema(injectedEnvelopeVersion);
+    const pongMessage = { v: 44, type: 'pong', id };
+    assert({
+      given:
+        'a server message schema built with envelope version 44, and a pong stamped v:44',
+      should:
+        "accept only v:44 and reject PROTOCOL_VERSION's and ENVELOPE_VERSION's value (both 1), proving event, presence.changed and every other server message share one un-hard-coded envelope",
+      actual: [
+        schema.safeParse(pongMessage).success,
+        schema.safeParse({ ...pongMessage, v: PROTOCOL_VERSION }).success,
+        schema.safeParse({ ...pongMessage, v: ENVELOPE_VERSION }).success,
+      ],
+      expected: [true, false, false],
     });
   });
 
