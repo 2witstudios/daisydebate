@@ -31,6 +31,18 @@ function processWeb(): ProcessState {
   return processState.daisyWebApp;
 }
 
+/**
+ * For a process entry that composes its own app before the server starts
+ * (the browser suite's server, which captures outbound mail): makes it this
+ * process's app. Refuses once one exists, so it can never swap an app out
+ * from under requests.
+ */
+export function adoptProcessApp(app: App) {
+  if (processState.daisyWebApp)
+    throw new Error('This process already runs an app');
+  processState.daisyWebApp = { app, routes: createRoutes(app) };
+}
+
 /** This process's app, built on first use. */
 export const processApp = (): App => processWeb().app;
 

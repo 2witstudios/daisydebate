@@ -1,5 +1,8 @@
 import { RedisClient } from 'bun';
 import { mkdirSync, readFileSync } from 'node:fs';
+import { systemClock, systemId } from '@daisy/clock';
+import { createApp } from '../../src/server/app';
+import { adoptProcessApp } from '../../src/server/process-app';
 
 /**
  * The browser suite's production server, with exactly two additions around it
@@ -23,14 +26,13 @@ const namespace = env('REDIS_NAMESPACE');
 
 type Captured = { to: string; subject: string; text: string };
 const mails: Captured[] = [];
-const realFetch = globalThis.fetch;
-// Installed before the app boots so the server's own fetch wraps this one.
-globalThis.fetch = (async (
+/** The app's outbound HTTP: Resend calls are captured, the rest pass through. */
+const captureFetch = async (
   input: string | URL | Request,
   init?: RequestInit,
 ) => {
   const url = input instanceof Request ? input.url : String(input);
-  if (url !== 'https://api.resend.com/emails') return realFetch(input, init);
+  if (url !== 'https://api.resend.com/emails') return fetch(input, init);
   const body = JSON.parse(String(init?.body)) as {
     to: string[];
     subject: string;
@@ -42,7 +44,17 @@ globalThis.fetch = (async (
     text: body.text,
   });
   return Response.json({ id: `msg_e2e_${mails.length}` });
-}) as typeof fetch;
+};
+// The production server below runs this app: the real environment, with
+// only its mail transport captured. Nothing process-wide is replaced.
+adoptProcessApp(
+  createApp({
+    env: process.env,
+    fetch: captureFetch,
+    clock: systemClock,
+    ids: systemId,
+  }),
+);
 
 /** Rate-limit buckets are keyed by client, and the browser is one client. */
 const resetRateLimits = async () => {
@@ -107,7 +119,7 @@ Bun.serve({
     const url = new URL(request.url);
     const headers = new Headers(request.headers);
     headers.set('x-forwarded-proto', 'https');
-    const upstream = await realFetch(
+    const upstream = await fetch(
       `http://127.0.0.1:${appPort}${url.pathname}${url.search}`,
       {
         method: request.method,

@@ -1,4 +1,4 @@
-import type { SecurityClient } from './security-client';
+import type { SecurityClient, Send } from './security-client';
 
 export const noop = async () => ({ data: null, error: null });
 
@@ -16,20 +16,11 @@ export const clientWith = (
   ...overrides,
 });
 
-/** Stubs global fetch for one call and restores it after `run` resolves. */
-export async function withFetch<T>(
+/** Runs `run` with a stub `fetch` answering every call with `respond`. */
+export const withFetch = <T>(
   respond: (input: string, init?: RequestInit) => Response,
-  run: () => Promise<T>,
-): Promise<T> {
-  const original = globalThis.fetch;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) =>
-    respond(String(input), init)) as typeof fetch;
-  try {
-    return await run();
-  } finally {
-    globalThis.fetch = original;
-  }
-}
+  run: (send: Send) => Promise<T>,
+): Promise<T> => run(async (input, init) => respond(input, init));
 
 export const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
