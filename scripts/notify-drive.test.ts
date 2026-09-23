@@ -47,6 +47,25 @@ describe('extractTaskIds', async () => {
     });
   });
 
+  test('reads sub-leaf and revision codes whole, on exact boundaries', async () => {
+    assert({
+      given:
+        'sub-leaves AUTH-2.2.1 and RT-2.2f-r1 beside their parents, a branch, and codes run into other text',
+      should:
+        'return each code whole and never a shorter prefix of a longer code',
+      actual: extractTaskIds(
+        'pu/AUTH-6.3.1-fix AUTH-2.2.1 RT-2.2f-r1 AUTH-2.2 RT-2.2f. AUTH-2.2.1xy RT-2.2f-r1a',
+      ),
+      expected: [
+        'AUTH-6.3.1',
+        'AUTH-2.2.1',
+        'RT-2.2f-r1',
+        'AUTH-2.2',
+        'RT-2.2f',
+      ],
+    });
+  });
+
   test('returns empty for text without task IDs', async () => {
     assert({
       given: 'text without task IDs',
