@@ -30,7 +30,7 @@ const lists: Record<string, object> = {
   },
 };
 
-function fakes() {
+function fakes(gh?: StaleDeps['gh']) {
   const calls: string[][] = [];
   const output: string[] = [];
   const deps: StaleDeps = {
@@ -76,15 +76,20 @@ function fakes() {
       return { code: 0, stdout: '{}' };
     },
     cutoff: '2026-09-24T00:00:00Z',
-    mergedPrs: () => [
-      {
-        number: 40,
-        title: 'feat: RT-1.1',
-        headRefName: 'pu/rt-1-1',
-        body: '',
-        mergedAt: '2026-09-20T00:00:00Z',
-      },
-    ],
+    gh:
+      gh ??
+      (() => ({
+        code: 0,
+        stdout: JSON.stringify([
+          {
+            number: 40,
+            title: 'feat: RT-1.1',
+            headRefName: 'pu/rt-1-1',
+            body: '',
+            mergedAt: '2026-09-20T00:00:00Z',
+          },
+        ]),
+      })),
     out: (text) => void output.push(text),
   };
   return { deps, calls, output };
@@ -133,6 +138,16 @@ describe('bun board:stale', () => {
       should: 'never set completed',
       actual: writes.some((call) => call.includes('completed')),
       expected: false,
+    });
+  });
+
+  test('fails with a message when gh cannot list the merged PRs', () => {
+    const { deps, calls, output } = fakes(() => ({ code: 1, stdout: '' }));
+    assert({
+      given: 'gh exiting non-zero, as outside a repository',
+      should: 'exit 1 naming gh, before reading the board',
+      actual: [runStaleCheck(deps, false), output.join(''), calls.length],
+      expected: [1, 'gh pr list failed (exit 1); nothing was checked.\n', 0],
     });
   });
 });
