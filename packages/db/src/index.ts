@@ -2,14 +2,15 @@ import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { eq, and, ne, sql } from 'drizzle-orm';
 import { drizzleAdapter } from '@better-auth/drizzle-adapter';
+import { createId } from '@paralleldrive/cuid2';
 import {
   formatRulesSchema,
   buildUserInboxTopic,
   type FormatRules,
 } from '@daisy/protocol';
 import { users } from './schema/users';
-import { actors } from './schema/actors';
 import { claimUsername } from './username-claim';
+import { actorOperations, queryActorByUserId } from './actor-operations';
 import { formats } from './schema/formats';
 import { debates, type DebateOutcome } from './schema/debates';
 import {
@@ -39,6 +40,7 @@ export {
 } from './outbox';
 export { outbox } from './schema/outbox';
 export type { UsernameClaim } from './username-claim';
+export type { ActorRecord } from './actor-operations';
 export type FormatRecord = {
   readonly id: string;
   readonly rules: FormatRules;
@@ -54,12 +56,21 @@ export function createDatabase({
   maxConnections = 10,
   eventSink,
   client: injectedClient,
+  nextActorId = createId,
 }: {
   url: string;
   maxConnections?: number;
   eventSink?: DatabaseEventSink;
   /** Overrides dialing `url`; tests inject a scripted client at this seam. */
   client?: SQL;
+  /**
+   * The cuid2 source for actor rows created at onboarding (ACTOR-1). Callers
+   * at the application edge inject their clock/id source (`@daisy/clock`'s
+   * `systemId.next`); this defaults to the same `createId` the auth schema's
+   * `$defaultFn` backstop uses, so a caller that has no id strategy of its
+   * own still mints a real cuid2, never a database-generated identifier.
+   */
+  nextActorId?: () => string;
 }) {
   const client =
     injectedClient ??
@@ -83,20 +94,20 @@ export function createDatabase({
   const reportFailure = (operation: string) =>
     eventSink?.('db.query.failed', { operation }, 'Database query failed');
   /**
-   * Plan revision 4.10 (ACTOR-1 pending): revocation rows are keyed by
-   * `actors.id`, never `users.id`, but nothing creates an actor row for a
-   * signed-up user yet (only test fixtures). Resolves the seam ACTOR-1 will
-   * populate; a missing actor is a known, logged gap, not a thrown error.
+   * Plan revision 4.10: revocation rows are keyed by `actors.id`, never
+   * `users.id`. ACTOR-1 backfilled every onboarded user's actor, but a user
+   * who never claimed a username still has none, so a missing actor is a
+   * known, logged gap, not a thrown error. Shares its query with
+   * `getActorByUserId` (`actor-operations.ts`'s `queryActorByUserId`) — one
+   * lookup, not a second hand-rolled one — passing this call's own `tx` so
+   * the read joins whatever write follows in the same transaction.
    */
   const findActorId = async (
     tx: Pick<typeof database, 'select'>,
     userId: string,
     operation: string,
   ): Promise<string | null> => {
-    const [actor] = await tx
-      .select({ id: actors.id })
-      .from(actors)
-      .where(eq(actors.userId, userId));
+    const actor = await queryActorByUserId(tx, userId);
     if (!actor)
       eventSink?.(
         'realtime.outbox.actor_missing',
@@ -153,6 +164,7 @@ export function createDatabase({
       await client.close({ timeout: 5 });
     },
     ...emailDeliveryOperations({ database, reportFailure }),
+    ...actorOperations({ database, reportFailure }),
     async purgeExpiredOutboxEvents(input: { before: string; limit: number }) {
       try {
         return await purgeExpiredOutboxEvents(database, input);
@@ -173,7 +185,7 @@ export function createDatabase({
     },
     /** Server-owned onboarding claim; see `claimUsername`. */
     claimUsername: (input: { userId: string; username: string }) =>
-      claimUsername(database, input, reportFailure),
+      claimUsername(database, input, nextActorId, reportFailure),
     /**
      * Revokes every session for `userId` except `keepToken` in one atomic
      * DELETE — no snapshot-then-delete round trips, so a session created
