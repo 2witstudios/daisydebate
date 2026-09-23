@@ -1,0 +1,51 @@
+name: Deploy staging
+# Continuous deployment of main to the scale-to-zero Fly.io staging app
+# (AUTH-7.0). Runs only after the CI workflow succeeds on a main push, so a
+# red main never reaches staging; `fly deploy` builds the image remotely
+# with Fly's builder from apps/web/Dockerfile (see fly.toml) and runs the
+# migration release command before traffic switches. Production rollout is
+# a separate, human-gated step (AUTH-7.2/7.3) and is never automated here.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+jobs:
+  deploy:
+    name: Deploy main to daisy-debate-staging
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main')
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Deploy exactly the commit CI verified, not whatever main is now.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+      - uses: superfly/flyctl-actions/setup-flyctl@v1
+      - name: Deploy
+        run: >-
+          flyctl deploy -a daisy-debate-staging --remote-only
+          --build-arg APP_VERSION="${GITHUB_SHA::7}"
+          --build-arg GIT_COMMIT="$GITHUB_SHA"
+      - name: Verify readiness
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            if curl -fsS --max-time 20 https://daisy-debate-staging.fly.dev/api/health/ready; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "staging did not become ready" >&2
+          exit 1

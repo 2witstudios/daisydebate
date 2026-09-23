@@ -128,7 +128,22 @@ fly apps create daisy-debate-staging --org daisy-debate
 Verify: `fly status -a daisy-debate-staging` shows the app with no machines
 yet (this only reserves the name; `fly.toml`'s `app` field must match).
 
-## 2. Provision Neon (Postgres)
+## 2. Provision Postgres
+
+Owner decision (September 22): staging Postgres is an ordinary Fly machine
+in the same org, left running (about $2/month for shared-cpu-1x 256MB plus
+$0.15/GB volume), not an external provider. It is a single unmanaged
+machine: no automatic backups or failover — fine for staging only.
+
+```
+fly postgres create --name daisy-debate-staging-db --org daisy-debate --region ord \
+  --vm-size shared-cpu-1x --volume-size 1 --initial-cluster-size 1
+fly postgres attach daisy-debate-staging-db -a daisy-debate-staging   # sets DATABASE_URL
+```
+
+Verify: `fly secrets list -a daisy-debate-staging` shows `DATABASE_URL`.
+
+### 2a. (Alternative) Neon
 
 1. Create a Neon project (free tier) in the Neon console; create a database
    for staging.
@@ -139,7 +154,20 @@ yet (this only reserves the name; `fly.toml`'s `app` field must match).
 
 Verify: `psql "$NEON_DATABASE_URL" -c 'select 1'` returns `1`.
 
-## 3. Provision Upstash (Redis)
+## 3. Provision Redis
+
+Upstash is native on Fly; the pay-as-you-go plan is free at staging volumes
+($0.20 per 100K commands). The ProdPack prompt must be declined explicitly
+when flyctl runs without a TTY:
+
+```
+fly redis create --org daisy-debate --region ord --name daisy-debate-staging-redis \
+  --no-replicas --disable-eviction --plan "Pay-as-you-go" --enable-prodpack=false
+fly redis status daisy-debate-staging-redis      # shows the private redis:// URL
+fly secrets set -a daisy-debate-staging --stage REDIS_URL="<that url>"
+```
+
+### 3a. (Alternative) Upstash console
 
 1. Create an Upstash Redis database (free tier, TLS enabled).
 2. Copy the `rediss://` connection string (TLS) Upstash gives you —
@@ -267,3 +295,20 @@ if the environment is being fully torn down, and revoke the Resend webhook
 and its signing secret.
 
 Verify: `fly status -a daisy-debate-staging` returns "app not found".
+
+## 10. Continuous deployment (GitHub Actions)
+
+`.github/workflows/deploy-staging.yml` deploys every `main` push that passes
+the CI workflow (`workflow_run` on CI success, checked out at the verified
+`head_sha`), or on manual `workflow_dispatch`. It needs one repository
+secret, `FLY_API_TOKEN`, a deploy token scoped to the staging app:
+
+```
+fly tokens create deploy -a daisy-debate-staging --name github-actions-staging --expiry 8760h \
+  | gh secret set FLY_API_TOKEN
+```
+
+The token can only deploy this one app; rotate it by re-running the two
+commands. Production is never deployed by this workflow (AUTH-7.2/7.3 are
+human-gated). Verify: the "Deploy staging" run is green after a main merge
+and `/api/health/ready` answers at the staging hostname.
