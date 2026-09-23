@@ -22,12 +22,11 @@ cp .env.example .env
 bun dev:agent
 ```
 
-`bun dev:agent` starts the Compose services, applies migrations, loads the
-deterministic development seed, starts the web app, waits for readiness, and
-prints the local URL, seeded development identities, and seed version. Use
-`bun dev` when the infrastructure and database are already running. Then
-`DATABASE_URL="$TEST_DATABASE_URL" bun db:migrate` (with `.env` sourced) to
-enable integration tests.
+`bun dev:agent` runs `bun slot:up` (the shared Compose services plus this
+checkout's migrated dev and test databases), loads the deterministic
+development seed, starts the web app, waits for readiness, and prints the
+local URL, seeded development identities, and seed version. Use `bun dev`
+when `bun slot:up` has already run; integration tests need nothing more.
 
 ## Where work belongs
 

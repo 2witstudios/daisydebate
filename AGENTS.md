@@ -152,21 +152,23 @@ values in `.env`; initialize with `bun install --frozen-lockfile` and
   referenced test source names, and registered negative fixtures. Add `--json`
   for a report.
 - `bun test`: fast deterministic tests. `bun test:integration` requires
-  `bun infra:up` and migrated test services. `bun test:e2e` runs Playwright
+  `bun slot:up` (shared services, this checkout's migrated databases). `bun test:e2e` runs Playwright
   against the production build and uses Node 24 only as its driver runtime.
 
 ## Local workflow
 
 1. `bun install --frozen-lockfile`
 2. `cp .env.example .env`
-3. `bun infra:up`
-4. `bun db:migrate`
-5. `bun dev` or the clean-environment `bun dev:agent`
-6. `bun doctor`, then the relevant tests and verification gates
+3. `bun slot:up`
+4. `bun dev` or the clean-environment `bun dev:agent`
+5. `bun doctor`, then the relevant tests and verification gates
 
-Multiple local sessions (git worktrees, `pu` slots) each pin their own
-Compose stack via `DAISY_STACK_NAME` and port knobs; see
-[local development](docs/development/local-development.md#parallel-sessions-on-one-machine).
+Every checkout (the main checkout and each git worktree or `pu` slot) shares
+one local Postgres and Redis and owns the databases, Redis namespaces and
+ports `bun slot:up` derives from its folder; never hand-edit them. Run
+`bun slot:down` at handoff when no reviewer needs the data. See
+[local development](docs/development/local-development.md#parallel-sessions-on-one-machine)
+and [ADR 0034](docs/decisions/0034-shared-stack-slots.md).
 
 Use `bun db:generate` for schema changes, review generated SQL, and use
 `bun db:studio` only for local inspection. See [database operations](docs/operations/database.md)

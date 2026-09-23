@@ -14,7 +14,8 @@ AIDD/Vitest guidance is overridden here by Bun and RITEway (ADR 0021).
 2. **Integration (`bun test:integration`)** — real PostgreSQL and Redis via
    Compose, plus the web vertical: the foundation proof API exercised through
    actual route handlers (validation, principal, engine, persistence, error
-   mapping). Requires `bun infra:up` and a migrated test database.
+   mapping). Requires `bun slot:up`, which migrates this checkout's test
+   database.
 3. **Browser E2E (`bun test:e2e`)** — Playwright boots the **production**
    server (`e2e/support/server.ts` wrapping `src/server/start.ts`,
    `NODE_ENV=production`) with production-refined configuration. The
@@ -28,9 +29,11 @@ AIDD/Vitest guidance is overridden here by Bun and RITEway (ADR 0021).
    headers, correlation IDs, health/readiness, and 404 behavior including
    the closed foundation-proof gate. The driver runs under Node 24; config
    and specs live in `apps/web`. The production-refined configuration uses
-   the `daisy_e2e` role against `daisy_test` (created by
-   `infra/init-test-database.sql`); on volumes initialized before that role
-   existed, create it manually (see `docs/operations/database.md`).
+   the `daisy_e2e` role against this checkout's test database, in its own
+   Redis database and namespace: `E2E_DATABASE_URL`, `E2E_REDIS_URL` and
+   `E2E_REDIS_NAMESPACE`, which `bun slot:up` writes (CI sets them in
+   `e2e.yml`). A missing value makes the server refuse to start rather than
+   fall back to another checkout's data.
 4. **CI parity** — `bun check` approximates the CI checks job (format, lint,
    policy, knip, duplication, invariants, evidence, typecheck, unit tests, metrics policy,
    production build). CI additionally runs the
@@ -239,5 +242,5 @@ named after the file they specify.
 The Browser E2E workflow uploads `apps/web/test-results` and
 `apps/web/playwright-report` after each non-cancelled run. On failures these
 contain screenshots, videos, traces, the HTML report, and the production
-server's structured `server.log`; server logs run at `info` level so request
+server's structured `server-<port>.log` (one per app port); server logs run at `info` level so request
 IDs can be correlated with browser failures without rerunning CI.

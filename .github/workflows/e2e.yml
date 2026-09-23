@@ -96,7 +96,10 @@ jobs:
         run: bun run --cwd apps/web test:e2e
         env:
           CI: true
-          E2E_POSTGRES_PORT: 5432
+          # Explicit slot values: the config never defaults to a database.
+          E2E_DATABASE_URL: postgres://daisy_e2e:e2e-loopback-only@localhost:5432/daisy_test
+          E2E_REDIS_URL: redis://localhost:6379/2
+          E2E_REDIS_NAMESPACE: ci-e2e
 
       - name: Report discovered/executed/pass/fail/skip counts
         if: ${{ !cancelled() }}

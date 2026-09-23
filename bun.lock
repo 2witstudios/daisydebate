@@ -7,8 +7,10 @@
       "dependencies": {
         "@daisy/clock": "workspace:*",
         "@daisy/config": "workspace:*",
+        "@daisy/db": "workspace:*",
         "@daisy/debate-engine": "workspace:*",
         "@daisy/protocol": "workspace:*",
+        "@daisy/redis": "workspace:*",
       },
       "devDependencies": {
         "@eslint/js": "9.39.5",

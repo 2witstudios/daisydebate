@@ -1,5 +1,7 @@
 import { agentSeedUsers, agentSeedVersion } from './agent-seed';
+import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { readEnvValue, withSlotEnv } from './slot-model';
 
 const root = resolve(import.meta.dir, '..');
 
@@ -59,11 +61,15 @@ export async function waitForReadiness(
   }
 }
 
-type Command = 'infra:up' | 'db:migrate' | 'db:seed';
+type Command = 'slot:up' | 'db:seed';
 
-async function runCommand(command: Command, quiet = false): Promise<void> {
+async function runCommand(
+  command: Command,
+  { quiet = false, env = process.env } = {},
+): Promise<void> {
   const child = Bun.spawn(['bun', 'run', command], {
     cwd: root,
+    env,
     stdin: 'inherit',
     stdout: quiet ? 'ignore' : 'inherit',
     stderr: 'inherit',
@@ -74,13 +80,19 @@ async function runCommand(command: Command, quiet = false): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  await runCommand('infra:up');
-  await runCommand('db:migrate');
-  await runCommand('db:seed', true);
+  // slot:up brings the shared stack up, migrates this checkout's databases
+  // and may rewrite .env. Bun loaded the old .env into this process, and
+  // children inherit it over --env-file, so they get the fresh slot values.
+  await runCommand('slot:up');
+  const content = await readFile(resolve(root, '.env'), 'utf8');
+  const env = withSlotEnv(process.env, content);
+  await runCommand('db:seed', { quiet: true, env });
 
-  const appUrl = process.env.PUBLIC_APP_URL ?? 'http://localhost:3000';
+  const appUrl =
+    readEnvValue(content, 'PUBLIC_APP_URL') ?? 'http://localhost:3000';
   const web = Bun.spawn(['bun', 'run', 'dev'], {
     cwd: root,
+    env,
     stdin: 'inherit',
     stdout: 'inherit',
     stderr: 'inherit',
