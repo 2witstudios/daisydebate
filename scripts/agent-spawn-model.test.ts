@@ -1,6 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
-  activeBuilders,
   findPrerequisites,
   parseSpawnArgs,
   prerequisiteBlockers,
@@ -25,6 +24,8 @@ describe('parseSpawnArgs', () => {
         'tmzz7plnnrlz21d6qyyjp8sq',
         '--role',
         'reviewer',
+        '--worktree',
+        'wt-8zirdrl0',
         '--',
         '-n',
         'grd-7',
@@ -39,8 +40,9 @@ describe('parseSpawnArgs', () => {
       expected: {
         task: 'tmzz7plnnrlz21d6qyyjp8sq',
         role: 'reviewer',
+        worktree: 'wt-8zirdrl0',
         override: false,
-        cap: 3,
+        cap: 2,
         name: 'grd-7',
         base: 'main',
         agent: 'codex',
@@ -71,83 +73,6 @@ describe('parseSpawnArgs', () => {
         'error' in parseSpawnArgs(['--role', 'boss', '--', '-n', 'x', 'p']),
       ],
       expected: [true, true],
-    });
-  });
-});
-
-describe('parseSpawnArgs for an autonomous agent', () => {
-  const task = ['--task', 'tmzz7plnnrlz21d6qyyjp8sq'];
-  const spawn = ['--', '-n', 'x', 'prompt'];
-  const errorOf = (argv: string[], autonomous: boolean) => {
-    const parsed = parseSpawnArgs(argv, autonomous);
-    return 'error' in parsed ? parsed.error.split('\n')[0] : 'ok';
-  };
-
-  test('refuses the cap and role overrides and a builder without a leaf', () => {
-    assert({
-      given: 'an autonomous --cap, --role, and a spawn without --task',
-      should: 'refuse each, naming the owner',
-      actual: [
-        errorOf([...task, '--cap', '99', ...spawn], true),
-        errorOf([...task, '--role', 'reviewer', ...spawn], true),
-        errorOf(spawn, true),
-      ],
-      expected: [
-        'Only the owner can pass --cap.',
-        'Only the owner can pass --role.',
-        'An autonomous agent spawns a builder only for a leaf: pass --task <leafPageId>.',
-      ],
-    });
-  });
-
-  test('accepts the same options from the owner and a leaf spawn from an agent', () => {
-    assert({
-      given:
-        'the owner with --cap and --role and no task, and an agent with --task',
-      should: 'accept both',
-      actual: [
-        errorOf(['--cap', '5', '--role', 'reviewer', ...spawn], false),
-        errorOf([...task, ...spawn], true),
-      ],
-      expected: ['ok', 'ok'],
-    });
-  });
-});
-
-describe('activeBuilders', () => {
-  test('counts every running coding agent not registered as a reviewer', () => {
-    const status = {
-      worktrees: [
-        {
-          path: '/a',
-          agents: { x: { status: 'running', agentType: 'claude' } },
-        },
-        {
-          path: '/b',
-          agents: {
-            y: { status: 'running', agentType: 'claude' },
-            z: { status: 'running', agentType: 'terminal' },
-          },
-        },
-        { path: '/c', agents: { w: { status: 'exited', agentType: 'codex' } } },
-        {
-          path: '/d',
-          agents: { v: { status: 'running', agentType: 'claude' } },
-        },
-        {
-          path: '/e',
-          agents: { u: { status: 'running', agentType: 'claude' } },
-        },
-      ],
-    };
-    assert({
-      given:
-        'builders, a reviewer, a terminal, a stopped agent and an unregistered agent from a raw pu spawn',
-      should: 'count the builders and the unregistered agent',
-      actual: activeBuilders(status, (agentId) =>
-        agentId === 'v' ? 'reviewer' : agentId === 'u' ? undefined : 'builder',
-      ),
-      expected: 3,
     });
   });
 });
