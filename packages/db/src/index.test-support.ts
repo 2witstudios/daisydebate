@@ -47,9 +47,26 @@ function fakeSql(script: ScriptedResult[]): {
     begin(operation: (inner: unknown) => Promise<unknown>) {
       return operation(client);
     },
+    async listen() {
+      return { unlisten: async () => {} };
+    },
     async close() {},
   };
   return { client: client as unknown as SQL, queries };
+}
+
+/** A `client.listen()` that rejects, for proving `checkListen` fails closed. */
+export function fakeSqlWithBrokenListen(script: ScriptedResult[]): {
+  client: SQL;
+  queries: RecordedQuery[];
+} {
+  const { client, queries } = fakeSql(script);
+  return {
+    client: Object.assign(client, {
+      listen: () => Promise.reject(new Error('listen unavailable')),
+    }),
+    queries,
+  };
 }
 
 export type SinkEvent = {

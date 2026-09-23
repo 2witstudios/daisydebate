@@ -6,7 +6,11 @@ import { getTableConfig } from 'drizzle-orm/pg-core';
 import { debates } from './schema/debates';
 import { users } from './schema/users';
 import { createDatabase } from './index';
-import { createTestDatabase, type SinkEvent } from './index.test-support';
+import {
+  createTestDatabase,
+  fakeSqlWithBrokenListen,
+  type SinkEvent,
+} from './index.test-support';
 
 setupRitewayBun();
 
@@ -83,6 +87,36 @@ describe('database health', () => {
       should: 'report health',
       actual: await database.health(),
       expected: true,
+    });
+  });
+
+  test('checkListen reports true after subscribing and unsubscribing', async () => {
+    const { database } = createTestDatabase([]);
+
+    assert({
+      given: 'a LISTEN that PostgreSQL acknowledges',
+      should: 'resolve true and leave no open subscription',
+      actual: await database.checkListen(),
+      expected: true,
+    });
+  });
+
+  test('checkListen fails closed when LISTEN is unavailable', async () => {
+    const { client } = fakeSqlWithBrokenListen([]);
+    const events: SinkEvent[] = [];
+    const database = createDatabase({
+      url: 'postgresql://unit:unit@127.0.0.1:1/unit',
+      eventSink: (event, fields, message) =>
+        events.push({ event, fields, message }),
+      client,
+    });
+
+    await expect(database.checkListen()).rejects.toThrow();
+    assert({
+      given: 'a broken LISTEN connection',
+      should: 'report the failure through the event sink',
+      actual: events.map((event) => event.fields.operation),
+      expected: ['checkListen'],
     });
   });
 });
