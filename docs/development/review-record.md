@@ -1,13 +1,31 @@
 # Review records
 
 A review record is the durable artifact of reviewing one change. It lives in
-the Daisy Debate PageSpace drive (attach it to the task or post it to the
-designated channel), not in the repository — point-in-time documents rot
-into misinformation when committed at the root. The template below is the
-contract; keep sections in this order.
+the Daisy Debate PageSpace drive, under `Reviews/<Epic>`, not in the
+repository — point-in-time documents rot into misinformation when committed
+at the root. The template below is the contract; keep sections in this order.
+
+The record is also what gates autonomous merges
+([ADR 0035](../decisions/0035-autonomy-guardrails.md)). Its page title ends
+with the full 40-character head SHA, and its `Candidate:` line names that
+SHA, the PR, the builder the PR body declares and the reviewer. When the
+record's link lands on the PR, the review-record workflow reads it and sets
+the `review-record` check through the review-record GitHub App. The check
+passes only when all of these hold:
+
+- the SHA is exactly the PR's head
+- the builder matches the PR's `Builder:` line
+- the reviewer is someone else
+- the verdict approves
+
+Nobody sets that status by hand. The owner may merge before the record
+exists. The merged tasks then wait in **Merged** until the record grants
+Done.
 
 ```markdown
 # Review: <task or PR title> (<branch>)
+
+Candidate: <full head sha> · PR #<n> · Builder: <PR body's Builder id> · Reviewer: <your agent id, or owner>
 
 ## Gates run
 
@@ -17,6 +35,9 @@ bun test:integration: PASS (<n> pass, 0 fail)
 Negative control run: yes (below)
 
 ## Findings
+
+Each finding is CONFIRMED (reproduced, with the triggering scenario) or
+SUSPECTED (what would confirm it). Report only what you verified.
 
 - [ ] blocker · <file>:<line> · <why it must not merge> · <fix commit or PR note>
 - [ ] major · <file>:<line> · <why> · <fix>
@@ -51,10 +72,14 @@ Rules:
 - The verdict line is the first line under the last `Verdict` heading,
   and the `review-record` check (ADR 0035) takes the verdict from nowhere
   else: it accepts exactly `APPROVE` or `APPROVE WITH MINORS`, and refuses
-  an approval that counts an open blocker or major. A record with zero
-  findings also needs its own `bun test:integration: PASS` and
-  `Negative control run: yes` lines in the Gates run section; a PASS that
-  says it did not run does not count.
+  an approval that counts an open blocker or major.
+- A verdict with no findings is refused unless the reviewer ran the
+  integration tests and at least one negative control, and the Gates run
+  section says so on its own lines: `bun test:integration: PASS` and
+  `Negative control run: yes`. The review-record check enforces it too; a
+  PASS that says it did not run does not count.
+- A third review pass on the same leaf does not start: the reviewer stops
+  and takes the open disagreement to the orchestrator or owner.
 - A second-pass review re-verifies the first pass finding by finding
   before approving.
 - Record environment gotchas discovered during review (stale builds,
