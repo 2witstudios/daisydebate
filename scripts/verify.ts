@@ -44,12 +44,29 @@ type VerifyOptions = {
 const TAIL_LINES = 40;
 const LOG_DIR = 'verify-logs';
 
-/** A diff that touches only documentation: Markdown, ADRs included. */
+/**
+ * A diff that touches only documentation: Markdown under docs/, ADRs
+ * included. AGENTS.md, skills and other Markdown instruct agents or ship
+ * with the app, and data files under docs/ feed gates, so they count as code.
+ */
 export function isDocsOnly(files: readonly string[]): boolean {
   return (
     files.length > 0 &&
-    files.every((file) => file.startsWith('docs/') || file.endsWith('.md'))
+    files.every((file) => file.startsWith('docs/') && file.endsWith('.md'))
   );
+}
+
+/**
+ * Every file a branch changes: committed, in the working tree, and
+ * untracked. Undefined means a git command failed; with no base to compare
+ * against, the diff is assumed to touch code.
+ */
+export function combineChanges(
+  ...lists: readonly (readonly string[] | undefined)[]
+): readonly string[] {
+  return lists.every((list) => list !== undefined)
+    ? [...new Set(lists.flat() as string[])]
+    : [];
 }
 
 const pass = (name: VerifyGateName, detail: string): VerifyGate => ({
@@ -152,10 +169,11 @@ async function gitChangedFiles(): Promise<readonly string[]> {
       ? text.split('\n').filter(Boolean)
       : undefined;
   };
-  const committed = await lines(['diff', '--name-only', 'origin/main...HEAD']);
-  const working = await lines(['diff', '--name-only', 'HEAD']);
-  // Without a base to compare against, assume the diff touches code.
-  return committed && working ? [...new Set([...committed, ...working])] : [];
+  return combineChanges(
+    await lines(['diff', '--name-only', 'origin/main...HEAD']),
+    await lines(['diff', '--name-only', 'HEAD']),
+    await lines(['ls-files', '--others', '--exclude-standard']),
+  );
 }
 
 type Stage = {

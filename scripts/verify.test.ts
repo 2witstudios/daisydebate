@@ -2,6 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   createVerifyReport,
   formatVerifyReport,
+  combineChanges,
   isDocsOnly,
   runVerify,
   type VerifyCommand,
@@ -244,14 +245,32 @@ describe('verify stage logs', () => {
 describe('verify e2e scope', () => {
   test('recognises a documentation-only diff', () => {
     assert({
-      given: 'docs and ADR changes, a mixed diff, and an empty diff',
-      should: 'treat only the documentation diff as docs-only',
+      given:
+        'docs and ADR changes; AGENTS.md; a skill; data under docs/; a mixed diff; an empty diff',
+      should:
+        'treat only Markdown under docs/ as docs-only: agent instructions, skills and data change behaviour',
       actual: [
+        isDocsOnly(['docs/decisions/0035-x.md', 'docs/development/testing.md']),
         isDocsOnly(['docs/decisions/0035-x.md', 'AGENTS.md']),
+        isDocsOnly(['.claude/skills/epic-pipeline/SKILL.md']),
+        isDocsOnly(['docs/metrics/policy.json']),
         isDocsOnly(['docs/development/testing.md', 'scripts/verify.ts']),
         isDocsOnly([]),
       ],
-      expected: [true, false, false],
+      expected: [true, false, false, false, false, false],
+    });
+  });
+
+  test('counts untracked files as changed, and fails closed without git', () => {
+    assert({
+      given:
+        'committed, working and untracked changes, then a git command that failed',
+      should: 'return every changed file once, then nothing so e2e runs',
+      actual: [
+        combineChanges(['docs/a.md'], ['docs/a.md'], ['scripts/new.ts']),
+        combineChanges(['docs/a.md'], undefined, []),
+      ],
+      expected: [['docs/a.md', 'scripts/new.ts'], []],
     });
   });
 
