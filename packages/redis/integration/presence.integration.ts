@@ -2,8 +2,8 @@ import { expect, test } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
 import { createRedis, redisKey } from '../src';
 import { rawClient } from './test-support';
-const url = process.env.TEST_REDIS_URL;
-if (!url) throw new Error('TEST_REDIS_URL required');
+import { requireTestServices } from '@daisy/config';
+const { redisUrl: url } = requireTestServices(process.env);
 
 /** Every score is server time, so a client-side check tolerates script/network latency, never exact equality. */
 function expectExpiryNear(

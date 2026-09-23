@@ -13,16 +13,11 @@ import {
   type SentMessages,
 } from './auth-helpers';
 import type { RecordedLogs } from '../src/features/auth/log-leaks';
+import { requireTestServices } from '@daisy/config';
 
 setupRitewayBun();
 
-const url = process.env.TEST_DATABASE_URL;
-if (!url)
-  throw new Error(
-    'TEST_DATABASE_URL required; never use application database for tests',
-  );
-if (!new URL(url).pathname.endsWith('_test'))
-  throw new Error('Test database name must end in _test');
+const { databaseUrl: url } = requireTestServices(process.env);
 
 const signInOnce = async (
   auth: ReturnType<typeof createTestAuthServer>,

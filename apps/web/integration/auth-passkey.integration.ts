@@ -3,16 +3,11 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createDatabase } from '@daisy/db';
 import { createTestAuthServer, isCuid2 } from './auth-helpers';
+import { requireTestServices } from '@daisy/config';
 
 setupRitewayBun();
 
-const url = process.env.TEST_DATABASE_URL;
-if (!url)
-  throw new Error(
-    'TEST_DATABASE_URL required; never use application database for tests',
-  );
-if (!new URL(url).pathname.endsWith('_test'))
-  throw new Error('Test database name must end in _test');
+const { databaseUrl: url } = requireTestServices(process.env);
 
 /** The subset of the Better Auth runtime adapter these records exercise. */
 type AuthAdapter = {

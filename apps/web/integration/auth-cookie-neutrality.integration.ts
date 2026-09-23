@@ -7,9 +7,9 @@ import {
   removeAccount,
 } from './auth-mounted-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+import { requireTestServices } from '@daisy/config';
 
-if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
-  throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
+requireTestServices(process.env);
 setupRitewayBun();
 
 // This suite's own app, served under an https public origin.

@@ -4,13 +4,8 @@ import { createId } from '@paralleldrive/cuid2';
 import { createDatabase } from '../src';
 import { createTestOnlyOperations } from '../src/test-only-operations';
 import { snapshotFor } from './constraint-helpers';
-const url = process.env.TEST_DATABASE_URL;
-if (!url)
-  throw new Error(
-    'TEST_DATABASE_URL required; never use application database for tests',
-  );
-if (!new URL(url).pathname.endsWith('_test'))
-  throw new Error('Test database name must end in _test');
+import { requireTestServices } from '@daisy/config';
+const { databaseUrl: url } = requireTestServices(process.env);
 test('durable records survive reconnect; optimistic writes reject stale updates', async () => {
   const id = createId();
   const userId = createId();

@@ -3,9 +3,9 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createTestApp, fixtureEmail } from './auth-mounted-helpers';
 import { createSecondInstances, statuses } from './auth-rate-limit-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+import { requireTestServices } from '@daisy/config';
 
-if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
-  throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
+requireTestServices(process.env);
 setupRitewayBun();
 
 // Each ceiling gets its own app, so each starts from empty buckets: the

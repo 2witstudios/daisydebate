@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
 import { createRedis } from '../src';
-const url = process.env.TEST_REDIS_URL;
-if (!url) throw new Error('TEST_REDIS_URL required');
+import { requireTestServices } from '@daisy/config';
+const { redisUrl: url } = requireTestServices(process.env);
 
 test('ephemeral namespace roundtrip and cleanup', async () => {
   const redis = createRedis({ url, namespace: `test-${createId()}` });

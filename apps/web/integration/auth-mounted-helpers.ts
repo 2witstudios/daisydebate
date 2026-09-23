@@ -1,6 +1,7 @@
 import { afterAll, setDefaultTimeout } from 'bun:test';
 import { RedisClient, SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
+import { requireTestServices } from '@daisy/config';
 import { systemClock, systemId } from '@daisy/clock';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import { createApp } from '../src/server/app';
@@ -16,15 +17,8 @@ import { createRoutes } from '../src/server/routes';
  * unchanged and its HTTP call lands on the suite's mailbox `fetch`.
  */
 
-export const testDatabaseUrl = process.env.TEST_DATABASE_URL;
-export const testRedisUrl = process.env.TEST_REDIS_URL;
-if (!testDatabaseUrl)
-  throw new Error(
-    'TEST_DATABASE_URL required; never use application database for tests',
-  );
-if (!new URL(testDatabaseUrl).pathname.endsWith('_test'))
-  throw new Error('Test database name must end in _test');
-if (!testRedisUrl) throw new Error('TEST_REDIS_URL required');
+export const { databaseUrl: testDatabaseUrl, redisUrl: testRedisUrl } =
+  requireTestServices(process.env);
 
 export const origin = 'http://localhost:3000';
 export const webhookSecret = `whsec_${Buffer.from(createId() + createId()).toString('base64')}`;

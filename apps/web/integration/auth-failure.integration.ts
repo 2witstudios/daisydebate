@@ -5,9 +5,9 @@ import { createTestApp, fixtureEmail } from './auth-mounted-helpers';
 import { createAuthRouteHandlers } from '../src/features/auth/handlers';
 import { createConfirmHandlers } from '../src/features/auth/confirm';
 import { createAuthServer } from '../src/features/auth/server';
+import { requireTestServices } from '@daisy/config';
 
-if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
-  throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
+requireTestServices(process.env);
 setupRitewayBun();
 const testApp = createTestApp();
 const { jsonPost, formPost } = testApp;

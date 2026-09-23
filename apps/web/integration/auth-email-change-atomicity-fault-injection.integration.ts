@@ -11,6 +11,7 @@ import {
   type CapturedMail,
 } from './auth-mounted-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+import { requireTestServices } from '@daisy/config';
 
 /**
  * ISSUE-23: the after-hook revoke-other-sessions failure path on
@@ -25,8 +26,7 @@ import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
  * test, and never blocks the `@daisy/db` integration suite's own outbox
  * inserts running concurrently against the same `TEST_DATABASE_URL`.
  */
-if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
-  throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
+requireTestServices(process.env);
 setupRitewayBun();
 
 const flows = await createPasskeyFlows();

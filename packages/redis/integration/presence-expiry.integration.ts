@@ -2,8 +2,8 @@ import { expect, test } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
 import { createRedis, redisKey } from '../src';
 import { rawClient } from './test-support';
-const url = process.env.TEST_REDIS_URL;
-if (!url) throw new Error('TEST_REDIS_URL required');
+import { requireTestServices } from '@daisy/config';
+const { redisUrl: url } = requireTestServices(process.env);
 
 test('readActorConnections trims members scored in the past, one at a time, deterministically', async () => {
   // Simulates a crashed instance whose leases were never refreshed. Rather

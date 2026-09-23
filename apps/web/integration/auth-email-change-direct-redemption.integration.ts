@@ -3,6 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { createPasskeyFlows } from './auth-passkey-flows';
 import { origin, withSql, type CapturedMail } from './auth-mounted-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+import { requireTestServices } from '@daisy/config';
 
 /**
  * ISSUE-3: split from `auth-email-change.integration.ts` to keep each file
@@ -10,8 +11,7 @@ import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
  * to redeem `/verify-email` directly, so a linked-to change never completes
  * outside the same-origin confirm page.
  */
-if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
-  throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
+requireTestServices(process.env);
 setupRitewayBun();
 
 const flows = await createPasskeyFlows();

@@ -1,8 +1,8 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createAccountFlows } from './auth-account-helpers';
+import { requireTestServices } from '@daisy/config';
 
-if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
-  throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
+requireTestServices(process.env);
 setupRitewayBun();
 
 const { signUp, flows } = createAccountFlows();

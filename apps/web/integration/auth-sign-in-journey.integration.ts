@@ -8,9 +8,9 @@ import {
 import { withSql } from './auth-mounted-helpers';
 import { decideAccess } from '../src/features/access/decision';
 import { sessionRefreshDue } from '../src/features/auth/session-policy';
+import { requireTestServices } from '@daisy/config';
 
-if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
-  throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
+requireTestServices(process.env);
 setupRitewayBun();
 const { flows, identifyAs, sessionAs, signUp, claim } = createAccountFlows();
 const { requestLink, redeem, session, newClient } = flows;

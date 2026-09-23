@@ -1,9 +1,9 @@
 import { afterAll, expect, test } from 'bun:test';
 import { SQL } from 'bun';
 import { createTestApp, testDatabaseUrl } from './auth-mounted-helpers';
+import { requireTestServices } from '@daisy/config';
 
-if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
-  throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
+requireTestServices(process.env);
 
 // This suite's own app, with the development-only proof gate open; the
 // production configuration still refuses this combination. Nothing global

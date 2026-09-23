@@ -3,19 +3,11 @@ import { systemClock, systemId } from '@daisy/clock';
 import { ENVELOPE_VERSION, PROTOCOL_VERSION } from '@daisy/protocol';
 import { createRealtimeApp } from '../src/app';
 import { createRealtimeServer, SOCKET_PATH } from '../src/server';
+import { requireTestServices } from '@daisy/config';
 
 setupRitewayBun();
 
-function requiredEnv(name: 'TEST_DATABASE_URL' | 'TEST_REDIS_URL'): string {
-  const value = process.env[name];
-  if (!value)
-    throw new Error(
-      `apps/realtime integration tests require TEST_DATABASE_URL and TEST_REDIS_URL (missing ${name})`,
-    );
-  return value;
-}
-const databaseUrl = requiredEnv('TEST_DATABASE_URL');
-const redisUrl = requiredEnv('TEST_REDIS_URL');
+const { databaseUrl, redisUrl } = requireTestServices(process.env);
 
 /**
  * A real Bun.serve server on this test's own realtime app (its own env and

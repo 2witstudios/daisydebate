@@ -13,15 +13,10 @@ import {
   setSlotDatabaseComment,
   withSlotLock,
 } from '../src/slots';
+import { requireTestServices } from '@daisy/config';
 
 setupRitewayBun();
-const url = process.env.TEST_DATABASE_URL;
-if (!url)
-  throw new Error(
-    'TEST_DATABASE_URL required; never use application database for tests',
-  );
-if (!new URL(url).pathname.endsWith('_test'))
-  throw new Error('Test database name must end in _test');
+const { databaseUrl: url } = requireTestServices(process.env);
 
 // A unique prefix outside `daisy_wt_*`: slot pruning can never select these,
 // and these tests never touch another slot's databases.

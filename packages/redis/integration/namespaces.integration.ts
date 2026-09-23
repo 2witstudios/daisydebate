@@ -2,11 +2,11 @@ import { expect } from 'bun:test';
 import { RedisClient } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { deleteNamespace, listNamespaces } from '../src/namespaces';
+import { requireTestServices } from '@daisy/config';
 
 setupRitewayBun();
 
-const url = process.env.TEST_REDIS_URL;
-if (!url) throw new Error('TEST_REDIS_URL required');
+const { redisUrl: url } = requireTestServices(process.env);
 
 const suffix = Array.from(crypto.getRandomValues(new Uint8Array(4)), (byte) =>
   byte.toString(16).padStart(2, '0'),

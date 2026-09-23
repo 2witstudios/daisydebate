@@ -2,9 +2,9 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createFlows, tokenOf } from './auth-mounted-flows';
 import { counts, origin, withSql } from './auth-mounted-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+import { requireTestServices } from '@daisy/config';
 
-if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
-  throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
+requireTestServices(process.env);
 setupRitewayBun();
 const flows = createFlows();
 const { requestLink, redeem, confirmGet, confirmRoute, startSignup } = flows;

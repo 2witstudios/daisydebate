@@ -6,9 +6,9 @@ import {
   CLIENT_IP_HEADER,
   stampClientIdentity,
 } from '../src/features/auth/client-ip';
+import { requireTestServices } from '@daisy/config';
 
-if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
-  throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
+requireTestServices(process.env);
 setupRitewayBun();
 // The ingress requests reach the production sender: its mail lands on this
 // suite's private mailbox rather than the network.

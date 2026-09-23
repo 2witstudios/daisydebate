@@ -7,6 +7,7 @@ import { testDatabaseUrl, withSql } from './auth-mounted-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import { identify } from '../src/lib/identity';
 import { createApp } from '../src/server/app';
+import { requireTestServices } from '@daisy/config';
 
 /**
  * AUTH-6.2: proves a running app survives a migration re-application and a
@@ -15,8 +16,7 @@ import { createApp } from '../src/server/app';
  * against an empty database; this proves an *upgrade over live data* keeps
  * that data intact and the still-running app keeps serving it correctly.
  */
-if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
-  throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
+requireTestServices(process.env);
 
 const flows = await createPasskeyFlows();
 const { signUp, identifyAs } = flows.account;

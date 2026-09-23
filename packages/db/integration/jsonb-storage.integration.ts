@@ -10,16 +10,11 @@ import { isAppError } from '@daisy/errors';
 import { ballots } from '../src/schema/ballots';
 import { debateCommands } from '../src/schema/debate-commands';
 import { at, digest, snapshotFor, withFixture } from './constraint-helpers';
+import { requireTestServices } from '@daisy/config';
 
 setupRitewayBun();
 
-const url = process.env.TEST_DATABASE_URL;
-if (!url)
-  throw new Error(
-    'TEST_DATABASE_URL required; never use application database for tests',
-  );
-if (!new URL(url).pathname.endsWith('_test'))
-  throw new Error('Test database name must end in _test');
+const { databaseUrl: url } = requireTestServices(process.env);
 
 /**
  * ISSUE-4: drizzle-orm 0.45.2's built-in `jsonb()` double-encodes every

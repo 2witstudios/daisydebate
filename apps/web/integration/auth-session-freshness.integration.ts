@@ -2,14 +2,14 @@ import { setupRitewayBun, assert, describe, test } from 'riteway/bun';
 import { createPasskeyFlows } from './auth-passkey-flows';
 import { origin, withSql } from './auth-mounted-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+import { requireTestServices } from '@daisy/config';
 
 /**
  * ADR 0020's fresh-session gate on sensitive session/passkey operations,
  * split from `auth-session-management.integration.ts` to keep each file
  * under the lint's line limit.
  */
-if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
-  throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
+requireTestServices(process.env);
 setupRitewayBun();
 
 const flows = await createPasskeyFlows();

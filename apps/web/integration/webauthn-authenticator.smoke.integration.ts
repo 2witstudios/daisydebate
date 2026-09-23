@@ -10,12 +10,12 @@ import {
   buildRegistrationResponse,
   createSoftwareCredential,
 } from './webauthn-authenticator';
+import { requireTestServices } from '@daisy/config';
 
 // This suite exercises only in-process cryptography (no database or Redis),
 // but every integration-tier file declares the same guard so the evidence
 // gate never mistakes a missing service for a silently skipped suite.
-if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
-  throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
+requireTestServices(process.env);
 setupRitewayBun();
 
 const rpID = 'localhost';

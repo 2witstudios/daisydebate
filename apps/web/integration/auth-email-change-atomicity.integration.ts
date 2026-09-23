@@ -13,6 +13,7 @@ import {
 } from './auth-mounted-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import { EMAIL_VERIFICATION_EXPIRES_IN_SECONDS } from '../src/features/auth/server';
+import { requireTestServices } from '@daisy/config';
 
 /**
  * Stage 5 review follow-ups for AUTH-5.6: expired verification tokens and
@@ -20,8 +21,7 @@ import { EMAIL_VERIFICATION_EXPIRES_IN_SECONDS } from '../src/features/auth/serv
  * `auth-email-change.integration.ts` to keep each file under the lint's
  * line limit.
  */
-if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
-  throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
+requireTestServices(process.env);
 setupRitewayBun();
 
 const flows = await createPasskeyFlows();

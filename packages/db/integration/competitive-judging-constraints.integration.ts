@@ -1,16 +1,11 @@
 import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { at, digest, rejected, withFixture } from './constraint-helpers';
+import { requireTestServices } from '@daisy/config';
 
 setupRitewayBun();
 
-const url = process.env.TEST_DATABASE_URL;
-if (!url)
-  throw new Error(
-    'TEST_DATABASE_URL required; never use application database for tests',
-  );
-if (!new URL(url).pathname.endsWith('_test'))
-  throw new Error('Test database name must end in _test');
+const { databaseUrl: url } = requireTestServices(process.env);
 
 describe('ballots (DATA-3.1)', () => {
   test('one ballot per judge seat and voiding fields tied to status', async () => {

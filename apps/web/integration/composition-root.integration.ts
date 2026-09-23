@@ -7,10 +7,10 @@ import {
   withSql,
 } from './auth-mounted-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+import { requireTestServices } from '@daisy/config';
 
 setupRitewayBun();
-if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
-  throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
+requireTestServices(process.env);
 
 /**
  * ISSUE-7: two apps built by `createApp` side by side in one process, over
