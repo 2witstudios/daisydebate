@@ -119,12 +119,8 @@ describe('appendOutboxEvent input validation', () => {
     // named per case is invalid.
     const actorId = createId();
     const topic = buildUserInboxTopic(actorId);
-    const kind = 'session.revoked';
-    const payload = {
-      version: 1,
-      kind: 'session.revoked' as const,
-      ids: [actorId],
-    };
+    const kind = 'session.revoked' as const;
+    const payload = { version: 1, kind, ids: [actorId] };
     const attempts = await Promise.all(
       [
         { topic: '', kind, version: 1, payload },
@@ -196,6 +192,14 @@ describe('appendOutboxEvent storage-side family rule (RT-2.1c, plan revision 4.1
     const calls: unknown[] = [];
     return {
       tx: {
+        insert: (_table: unknown) => ({
+          values: (_values: unknown) => ({
+            returning: async (_columns: unknown) => {
+              calls.push('insert');
+              return [{ seq: 1n, txid: '1' }];
+            },
+          }),
+        }),
         execute: async (query: unknown) => {
           calls.push(query);
           return [{ seq: 1n, txid: '1' }];
