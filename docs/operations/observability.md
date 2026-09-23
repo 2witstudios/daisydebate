@@ -41,8 +41,11 @@ not a history of emitted events. See [ADR 0015](../decisions/0015-event-stream-a
 
 ## Event registry
 
-The logger currently accepts these events. The registry, rather than caller
-selected log levels, controls severity:
+The logger accepts these events. The registry, rather than caller
+selected log levels, controls severity. This table is checked against
+`@daisy/logger`'s `eventRegistry` by
+`scripts/observability-docs-drift-guard.test.ts`, which fails if they
+diverge:
 
 | Event                              | Severity | Meaning                                                                                                |
 | ---------------------------------- | -------- | ------------------------------------------------------------------------------------------------------ |
@@ -70,6 +73,12 @@ selected log levels, controls severity:
 | `auth.session.revoked_all`         | info     | Every other session for the account was revoked                                                        |
 | `auth.email_change.requested`      | info     | A fresh session started a recovery-email change                                                        |
 | `auth.email_change.verified`       | info     | Ownership of the new address was verified and the change completed                                     |
+| `auth.email_change.cleanup_failed` | error    | A scheduled email-change-token cleanup batch failed                                                    |
+| `realtime.cleanup.completed`       | info     | A scheduled realtime cleanup batch ran                                                                 |
+| `realtime.cleanup.failed`          | error    | A scheduled realtime cleanup batch failed                                                              |
+| `realtime.outbox.append_failed`    | error    | Appending to the transactional outbox failed                                                           |
+| `realtime.outbox.actor_missing`    | warn     | An outbox row referenced an actor that could not be resolved                                           |
+| `realtime.connection.rejected`     | info     | A realtime socket connection was rejected                                                              |
 | `request.unhandled`                | error    | Next reported an unhandled request failure                                                             |
 | `db.query.failed`                  | error    | A database query or transaction failed                                                                 |
 | `redis.command.failed`             | error    | A Redis command failed                                                                                 |

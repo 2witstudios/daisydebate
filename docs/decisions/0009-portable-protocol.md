@@ -9,8 +9,8 @@ Errors. Structures are versioned (`version` literals), JSON-compatible at
 external boundaries, and validated with Zod at trust boundaries.
 
 The protocol package imports nothing but Zod and error codes — no WebSockets,
-no React, no database. Transports (HTTP today, WebSockets later) adapt to the
-protocol, never the reverse. Snapshots are the persistence format for domain
+no React, no database. Transports (HTTP and native WebSocket today) adapt to
+the protocol, never the reverse. Snapshots are the persistence format for domain
 state, so engine upgrades can restore old debates through explicit version
 migrations instead of depending on vendor storage formats.
 

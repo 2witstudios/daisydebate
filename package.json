@@ -97,6 +97,7 @@
     "@daisy/config": "workspace:*",
     "@daisy/db": "workspace:*",
     "@daisy/debate-engine": "workspace:*",
+    "@daisy/logger": "workspace:*",
     "@daisy/protocol": "workspace:*",
     "@daisy/redis": "workspace:*"
   }

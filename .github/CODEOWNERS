@@ -1,15 +1,4 @@
-# Activate with real organization teams once this repository has a remote.
-# Do not invent nonexistent users: inactive examples make that limitation explicit.
-# *                              @your-org/platform
-# /apps/web/                     @your-org/web
-# /packages/debate-engine/       @your-org/debate-domain
-# /packages/protocol/            @your-org/debate-domain @your-org/platform
-# /packages/auth/                @your-org/security
-# /packages/db/                  @your-org/platform
-# /packages/redis/               @your-org/platform
-# /packages/config/              @your-org/platform
-# /packages/errors/              @your-org/platform
-# /packages/logger/              @your-org/platform
-# /packages/observability/       @your-org/platform
-# /infra/                        @your-org/platform
-# /.github/                      @your-org/platform
+# One real owner today: @2witstudios reviews everything. Split this file
+# by path once a second reviewer owns a package (docs/architecture/overview.md
+# "Owner" column, CONTRIBUTING.md).
+*                               @2witstudios

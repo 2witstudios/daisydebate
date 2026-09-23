@@ -227,15 +227,11 @@ review records are task artifacts: they live in the drive's `Plans`,
 and skills live in `Library`, and tasks link them with page mentions. The
 rules are the drive's "Task artifacts and linking" page
 (`szsrb6lui57zjemvl25ywfox`); read it before producing any of these.
-Your agent's built-in todo lists, plan mode files, memory stores, local
-`plan.md`/`TODO.md` files and `/tmp` are scratch only, whichever agent you
-are (Claude Code, Codex, OpenCode): anything another session or a reviewer
-needs must be a PageSpace page. Every agent, worktree or not, publishes its
-own artifact pages and keeps its tasks current through the `pagespace` CLI
-(create tasks, update status, record evidence). No agent edits the criteria
-or scope of a task delegated to it: a change goes back to whoever delegated
-it. Done is granted from an independent review record, never by the agent
-that did the work.
+Board and scratch-versus-durable-artifact rules (what counts as scratch, who
+keeps the board current, the no-edit-criteria rule, and Done coming only
+from an independent review record) are in [parallel
+work](docs/development/parallel-work.md#branch-and-worktree-hygiene); they
+apply to every agent, worktree or not.
 
 Work that is not an epic leaf goes in the drive-root `Issues` task list,
 never in GitHub Issues: defects found after the owning leaf is Done, review
