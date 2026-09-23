@@ -20,6 +20,33 @@ const compile = async (classes: string): Promise<string> => {
   return result.css;
 };
 
+/**
+ * The compiled rules, parsed: each selector's declarations and the media
+ * query around it, so assertions read values, never substrings.
+ */
+const rulesOf = (css: string) => {
+  const rules = new Map<
+    string,
+    { media: string | undefined; declarations: Record<string, string> }
+  >();
+  postcss.parse(css).walkRules((rule) => {
+    let media: string | undefined;
+    for (
+      let node: postcss.Node | undefined = rule.parent;
+      node;
+      node = node.parent
+    )
+      if (node.type === 'atrule' && (node as postcss.AtRule).name === 'media')
+        media = (node as postcss.AtRule).params;
+    const declarations: Record<string, string> = {};
+    rule.walkDecls((declaration) => {
+      declarations[declaration.prop] = declaration.value;
+    });
+    rules.set(rule.selector, { media, declarations });
+  });
+  return rules;
+};
+
 describe('Tailwind theme (ADR 0028)', () => {
   test('generates nothing for default-theme utilities', async () => {
     const css = await compile(
@@ -29,14 +56,14 @@ describe('Tailwind theme (ADR 0028)', () => {
       given: 'default Tailwind utilities that Daisy tokens do not define',
       should: 'emit no rule for any of them',
       actual: [
-        'bg-red-500',
-        'p-7',
-        'text-4xl',
-        'rounded-2xl',
-        'shadow-md',
-        'sm\\:p-4',
-        'font-sans',
-      ].filter((name) => css.includes(`.${name}`)),
+        '.bg-red-500',
+        '.p-7',
+        '.text-4xl',
+        '.rounded-2xl',
+        '.shadow-md',
+        '.sm\\:p-4',
+        '.font-sans',
+      ].filter((selector) => rulesOf(css).has(selector)),
       expected: [],
     });
   });
@@ -47,13 +74,21 @@ describe('Tailwind theme (ADR 0028)', () => {
       given: 'utilities named after Daisy tokens',
       should:
         'emit var() references, so the theme switch needs no class change',
-      actual: [
-        css.includes('background-color: var(--surface)'),
-        css.includes('padding: var(--spacing-4)'),
-        css.includes('color: var(--text-muted)'),
-        css.includes('--tw-shadow: var(--elevation-2)'),
-      ],
-      expected: [true, true, true, true],
+      actual: (() => {
+        const rules = rulesOf(css);
+        return {
+          surface: rules.get('.bg-surface')?.declarations['background-color'],
+          padding: rules.get('.p-4')?.declarations.padding,
+          muted: rules.get('.text-ink-muted')?.declarations.color,
+          shadow: rules.get('.shadow-2')?.declarations['--tw-shadow'],
+        };
+      })(),
+      expected: {
+        surface: 'var(--surface)',
+        padding: 'var(--spacing-4)',
+        muted: 'var(--text-muted)',
+        shadow: 'var(--elevation-2)',
+      },
     });
   });
 
@@ -64,10 +99,19 @@ describe('Tailwind theme (ADR 0028)', () => {
       should:
         'emit a max-width range inclusive of 1100px and a max-height query',
       actual: [
-        css.includes('(width < 1101px)'),
-        css.includes('(max-height: 660px)'),
+        rulesOf(css).get('.max-rail\\:p-2'),
+        rulesOf(css).get('.short\\:p-2'),
       ],
-      expected: [true, true],
+      expected: [
+        {
+          media: '(width < 1101px)',
+          declarations: { padding: 'var(--spacing-2)' },
+        },
+        {
+          media: '(max-height: 660px)',
+          declarations: { padding: 'var(--spacing-2)' },
+        },
+      ],
     });
   });
 });

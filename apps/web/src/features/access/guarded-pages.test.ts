@@ -1,5 +1,5 @@
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { mock } from 'bun:test';
 import { Glob } from 'bun';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { isGuardedPath } from './decision';
@@ -16,42 +16,84 @@ const routeOf = (file: string): string =>
     .filter((segment) => segment !== '' && !/^\(.*\)$/.test(segment))
     .join('/')}`;
 
-const pages = [...new Glob('**/page.tsx').scanSync(appDir)].map((file) => ({
-  file,
-  route: routeOf(file),
-  source: readFileSync(join(appDir, file), 'utf8'),
+// Every page renders with a recording guard in place of the real one (which
+// reads the request's cookies through the process app): the test invokes
+// the page itself and observes what it asks the guard for.
+const guardCalls: Array<{ path: string; searchParams: unknown }> = [];
+mock.module(join(import.meta.dir, '../../lib/access.ts'), () => ({
+  requireAccess: async (path: string, searchParams: unknown) => {
+    guardCalls.push({ path, searchParams });
+    return { state: 'anonymous' };
+  },
 }));
 
+/** What a page asked the guard when rendered with its own search params. */
+const guardRequestsOf = async (file: string) => {
+  const page = (await import(join(appDir, file))) as {
+    default: (props: {
+      params: Promise<Record<string, string>>;
+      searchParams: Promise<Record<string, string>>;
+    }) => unknown;
+  };
+  const searchParams = Promise.resolve({ from: 'test' });
+  guardCalls.length = 0;
+  await page.default({
+    params: Promise.resolve({ username: 'someone', id: 'x' }),
+    searchParams,
+  });
+  return guardCalls.map((call) => ({
+    root: call.path.split('/')[1],
+    ownSearchParams: call.searchParams === searchParams,
+  }));
+};
+
+/** Renders pages one at a time: they share the recording guard. */
+const requestsOf = async (files: readonly { file: string }[]) => {
+  const results: Array<{
+    file: string;
+    requests: Awaited<ReturnType<typeof guardRequestsOf>>;
+  }> = [];
+  for (const { file } of files)
+    results.push({ file, requests: await guardRequestsOf(file) });
+  return results;
+};
+
+const pages = [...new Glob('**/page.tsx').scanSync(appDir)]
+  .map((file) => ({ file, route: routeOf(file) }))
+  .sort((a, b) => a.file.localeCompare(b.file));
+
 describe('guarded pages', () => {
-  test('every page in a guarded area rechecks the session for its own root', () => {
+  test('every page in a guarded area rechecks the session for its own root', async () => {
     const guarded = pages.filter(({ route }) => isGuardedPath(route));
-    const unguarded = guarded
-      .filter(({ route, source }) => {
-        const root = route.split('/')[1];
-        return !new RegExp(
-          `requireAccess\\(\\s*['\`]/${root}[^'\`]*['\`],\\s*searchParams`,
-        ).test(source);
-      })
-      .map(({ file }) => file);
     assert({
-      given: `the ${guarded.length} page files under the six guarded roots`,
+      given: 'the page files the glob found under guarded roots',
+      should: 'cover every guarded root, so an empty scan cannot pass',
+      actual: [
+        ...new Set(guarded.map(({ route }) => route.split('/')[1])),
+      ].sort(),
+      expected: ['judge', 'lobby', 'play', 'ranked', 'recordings', 'settings'],
+    });
+    const requests = await requestsOf(guarded);
+    assert({
+      given: `the ${guarded.length} page files under the guarded roots, each rendered`,
       should:
-        'each call requireAccess with its own root and its search params (the requirement comes from the guarded-area table)',
-      actual: { atLeastTheRoots: guarded.length >= 6, unguarded },
-      expected: { atLeastTheRoots: true, unguarded: [] },
+        'call requireAccess once with its own root and its own search params (the requirement comes from the guarded-area table)',
+      actual: requests,
+      expected: guarded.map(({ file, route }) => ({
+        file,
+        requests: [{ root: route.split('/')[1], ownSearchParams: true }],
+      })),
     });
   });
 
-  test('public spectator pages do not demand an account', () => {
+  test('public spectator pages do not demand an account', async () => {
     const publicRoutes = ['/', '/watch', '/leaderboard', '/tournaments'];
+    const spectator = pages.filter(({ route }) => publicRoutes.includes(route));
     assert({
-      given: 'the public spectator pages',
+      given: 'the public spectator pages, each rendered',
       should: 'not call requireAccess',
-      actual: pages
-        .filter(({ route }) => publicRoutes.includes(route))
-        .filter(({ source }) => source.includes('requireAccess('))
-        .map(({ file }) => file),
-      expected: [],
+      actual: await requestsOf(spectator),
+      expected: spectator.map(({ file }) => ({ file, requests: [] })),
     });
   });
 });

@@ -1,22 +1,31 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import postcss from 'postcss';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 
 setupRitewayBun();
 
-const css = readFileSync(join(import.meta.dir, 'globals.css'), 'utf8').replace(
-  /\/\*[\s\S]*?\*\//g,
-  '',
+const stylesheet = postcss.parse(
+  readFileSync(join(import.meta.dir, 'globals.css'), 'utf8'),
 );
+
+/** Each rule's declarations by selector, parsed rather than pattern-matched. */
+const declarationsOf = (matches: (selector: string) => boolean) => {
+  const found = new Map<string, string>();
+  stylesheet.walkRules((rule) => {
+    if (rule.selectors.some(matches))
+      rule.each((node) => {
+        if (node.type === 'decl') found.set(node.prop, node.value);
+      });
+  });
+  return found;
+};
 
 /** Every custom property declared in any `:root…` rule, name → value. */
 const rootTokens = (): ReadonlyMap<string, string> =>
   new Map(
-    [...css.matchAll(/(^|\n):root[^{]*\{([^}]*)\}/g)].flatMap((rule) =>
-      [...(rule[2] ?? '').matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map(
-        (declaration) =>
-          [declaration[1] ?? '', (declaration[2] ?? '').trim()] as const,
-      ),
+    [...declarationsOf((selector) => selector.startsWith(':root'))].filter(
+      ([name]) => name.startsWith('--'),
     ),
   );
 
@@ -67,11 +76,10 @@ describe('globals.css theme tokens', () => {
     assert({
       given: 'the data-theme rules',
       should: 'map dark, light, and system to their color-scheme',
-      actual: ['dark', 'light', 'system'].map(
-        (theme) =>
-          new RegExp(
-            `:root\\[data-theme='${theme}'\\]\\s*\\{\\s*color-scheme:\\s*([^;]+);`,
-          ).exec(css)?.[1],
+      actual: ['dark', 'light', 'system'].map((theme) =>
+        declarationsOf(
+          (selector) => selector === `:root[data-theme='${theme}']`,
+        ).get('color-scheme'),
       ),
       expected: ['dark', 'light', 'light dark'],
     });
