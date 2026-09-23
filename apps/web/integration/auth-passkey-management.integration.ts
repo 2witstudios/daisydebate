@@ -2,6 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import type { Identity } from '@daisy/auth';
 import { createDatabase } from '@daisy/db';
+import { buildUserInboxTopic } from '@daisy/protocol';
 import { createPasskeyFlows } from './auth-passkey-flows';
 import { cookieHeader, testDatabaseUrl, withSql } from './auth-mounted-helpers';
 import { uniqueName } from './auth-account-helpers';
@@ -212,8 +213,15 @@ describe('AUTH-5.4 recover from a lost passkey through verified email', () => {
     await database.close();
     // The account itself is torn down by this file's shared afterAll; the
     // fixture rows this test provisioned directly must go first, or that
-    // cleanup's user delete fails the actor's RESTRICT foreign key.
+    // cleanup's user delete fails the actor's RESTRICT foreign key. The
+    // `revokeOtherSessions` call above appends a `session.revoked` row on
+    // this actor's inbox (RT-2.2v minor 2): delete it too, or it survives
+    // as an orphan once the actor row below is gone.
     await withSql((sql) => sql`DELETE FROM debates WHERE id = ${debateId}`);
+    await withSql(
+      (sql) =>
+        sql`DELETE FROM outbox WHERE kind = 'session.revoked' AND topic = ${buildUserInboxTopic(actorId)}`,
+    );
     await withSql((sql) => sql`DELETE FROM actors WHERE id = ${actorId}`);
 
     assert({
