@@ -52,6 +52,7 @@ describe('the committed main ruleset', () => {
       actual: checks,
       expected: [
         { context: 'CI gate', integration_id: 15368 },
+        { context: 'Playwright E2E', integration_id: 15368 },
         { context: 'review-record', integration_id: 424242 },
       ],
     });
