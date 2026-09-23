@@ -1,7 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { Identity } from '@daisy/auth';
+import { identityUserId } from './auth-account-helpers';
 import { createPasskeyFlows, rpID } from './auth-passkey-flows';
-import { cookieHeader, origin, withSql } from './fixtures';
+import { cookieHeader, counts, origin } from './fixtures';
 import {
   buildAuthenticationResponse,
   buildRegistrationResponse,
@@ -9,32 +9,12 @@ import {
 } from './webauthn-authenticator';
 import { requireTestServices } from '@daisy/config';
 
-const userIdOf = (identity: Identity): string | null =>
-  identity.state === 'member' || identity.state === 'provisional'
-    ? identity.principal.userId
-    : null;
-
 requireTestServices(process.env);
 setupRitewayBun();
 
 const flows = await createPasskeyFlows();
+const { recordedEvents } = flows;
 const { signUp } = flows.account;
-
-/** The event names this suite's app logged while `work` ran (AUTH-6.4). */
-async function recordedEvents(work: () => Promise<void>): Promise<string[]> {
-  const { events } = await flows.account.flows.testApp.withLoggedEvents(work);
-  return [...events];
-}
-
-const passkeyCount = (email: string) =>
-  withSql(async (sql) => {
-    const [row] = await sql`
-      SELECT count(*)::int AS c FROM passkey p
-      JOIN users u ON u.id = p.user_id
-      WHERE u.email = ${email}
-    `;
-    return (row?.c as number) ?? 0;
-  });
 
 describe('AUTH-5.1 passkey enrollment', () => {
   test('a fresh verified session completes a real registration and persists only public credential data', async () => {
@@ -56,7 +36,7 @@ describe('AUTH-5.1 passkey enrollment', () => {
         name: body.name,
         hasPublicKey:
           typeof body.publicKey === 'string' && body.publicKey.length > 0,
-        stored: await passkeyCount(email),
+        stored: (await counts(email)).passkeys,
       },
       expected: { status: 200, name: 'Laptop', hasPublicKey: true, stored: 1 },
     });
@@ -71,7 +51,7 @@ describe('AUTH-5.1 passkey enrollment', () => {
       should: 'succeed and leave both credentials stored',
       actual: {
         status: second.verifyResponse.status,
-        stored: await passkeyCount(email),
+        stored: (await counts(email)).passkeys,
       },
       expected: { status: 200, stored: 2 },
     });
@@ -114,7 +94,7 @@ describe('AUTH-5.1 passkey enrollment', () => {
       should: 'reject before a challenge is ever issued, and store nothing',
       actual: {
         status: optionsResponse.status,
-        stored: await passkeyCount(email),
+        stored: (await counts(email)).passkeys,
       },
       expected: { status: 401, stored: 0 },
     });
@@ -128,7 +108,7 @@ describe('AUTH-5.1 passkey enrollment', () => {
     assert({
       given: 'a registration response whose clientData names a foreign origin',
       should: 'be rejected and leave no credential behind',
-      actual: { ok: verifyResponse.ok, stored: await passkeyCount(email) },
+      actual: { ok: verifyResponse.ok, stored: (await counts(email)).passkeys },
       expected: { ok: false, stored: 0 },
     });
   });
@@ -178,7 +158,7 @@ describe('AUTH-5.1 passkey enrollment', () => {
     assert({
       given: "a second registration replaying the first credential's id",
       should: 'be rejected and leave exactly the original credential stored',
-      actual: { ok: duplicate.ok, stored: await passkeyCount(email) },
+      actual: { ok: duplicate.ok, stored: (await counts(email)).passkeys },
       expected: { ok: false, stored: 1 },
     });
   });
@@ -197,7 +177,7 @@ describe('AUTH-5.2 passkey sign-in', () => {
       actual: {
         status: verifyResponse.status,
         signedIn: typeof body.user?.id === 'string',
-        sessionUserId: userIdOf(session.identity),
+        sessionUserId: identityUserId(session.identity),
       },
       expected: { status: 200, signedIn: true, sessionUserId: body.user?.id },
     });
@@ -219,7 +199,10 @@ describe('AUTH-5.2 passkey sign-in', () => {
     assert({
       given: 'a structurally invalid assertion for an unknown credential',
       should: 'be rejected without a session',
-      actual: { ok: malformed.ok, sessionUserId: userIdOf(session.identity) },
+      actual: {
+        ok: malformed.ok,
+        sessionUserId: identityUserId(session.identity),
+      },
       expected: { ok: false, sessionUserId: null },
     });
   });

@@ -6,6 +6,10 @@ import {
   resetRateLimits,
   signUpMember,
   uniqueName,
+  addPasskeyFromSettings,
+  confirmSignIn,
+  passkeySignInAfterSignOut,
+  requestSignInLink,
 } from './support/accounts';
 import { addVirtualAuthenticator } from './support/webauthn';
 
@@ -45,13 +49,8 @@ test('a passkey saved during onboarding is usable to sign back in later', async 
   await addVirtualAuthenticator(page);
   await page.goto('/sign-in');
   const email = freshEmail();
-  await page.getByLabel('Email').fill(email);
-  await page.getByRole('button', { name: 'Continue' }).click();
-  await expect(
-    page.getByRole('heading', { name: /check your inbox/i }),
-  ).toBeVisible();
-  await page.goto(await emailedLink(request, email));
-  await page.getByRole('button', { name: 'Sign in to Daisy' }).click();
+  await requestSignInLink(page, email);
+  await confirmSignIn(page, await emailedLink(request, email));
 
   await page.getByLabel('Username').fill(uniqueName('ada'));
   await page.getByRole('button', { name: 'Continue' }).click();
@@ -76,11 +75,7 @@ test('a passkey saved during onboarding is usable to sign back in later', async 
 
   // A merely listed credential could still be unusable; prove it actually
   // authenticates by signing out and back in with it.
-  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
-  await page.waitForURL(/\/sign-in/);
-  await page.goto('/sign-in?next=%2Flobby');
-  await page.getByRole('button', { name: 'Sign in with a passkey' }).click();
-  await expect(page).toHaveURL(/\/lobby$/);
+  await passkeySignInAfterSignOut(page);
 });
 
 test('a passkey enrolled from settings can sign back in after signing out, and lands on the validated destination', async ({
@@ -150,14 +145,8 @@ test('removing the last passkey, recovering by magic link and enrolling a replac
   // navigation loses, so wait for it to land instead of re-navigating.
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
   await page.waitForURL(/\/sign-in$/);
-  await page.getByLabel('Email').fill(email);
-  await page.getByRole('button', { name: 'Continue' }).click();
-  await expect(
-    page.getByRole('heading', { name: /check your inbox/i }),
-  ).toBeVisible();
-  const link = await emailedLink(request, email);
-  await page.goto(link);
-  await page.getByRole('button', { name: 'Sign in to Daisy' }).click();
+  await requestSignInLink(page, email);
+  await confirmSignIn(page, await emailedLink(request, email));
   await expect(page).toHaveURL(/\/lobby$/);
 
   // The compound claim (recover, then be able to enroll a replacement) is
@@ -165,18 +154,11 @@ test('removing the last passkey, recovering by magic link and enrolling a replac
   // recovered session, not by exercising enrollment in isolation elsewhere.
   // A new device for the replacement, distinct from the one just lost.
   await addVirtualAuthenticator(page);
-  await page.goto('/settings/security');
-  await expect(page.getByRole('heading', { name: 'Passkeys' })).toBeVisible();
-  await page.getByRole('button', { name: 'Add a passkey' }).click();
-  await expect(page.getByRole('button', { name: 'Remove' })).toHaveCount(1);
+  await addPasskeyFromSettings(page);
 
   // A merely listed replacement could still be unusable; prove it actually
   // authenticates by signing out and back in with it.
-  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
-  await page.waitForURL(/\/sign-in$/);
-  await page.goto('/sign-in?next=%2Flobby');
-  await page.getByRole('button', { name: 'Sign in with a passkey' }).click();
-  await expect(page).toHaveURL(/\/lobby$/);
+  await passkeySignInAfterSignOut(page);
 });
 
 test('a lost passkey recovers through magic link, and the recovered session can remove the stale credential and revoke the old device', async ({
@@ -188,9 +170,7 @@ test('a lost passkey recovers through magic link, and the recovered session can 
   // removes it — the credential is simply lost, not revoked).
   await addVirtualAuthenticator(page);
   const { email } = await signUpMember(page.request);
-  await page.goto('/settings/security');
-  await page.getByRole('button', { name: 'Add a passkey' }).click();
-  await expect(page.getByRole('button', { name: 'Remove' })).toHaveCount(1);
+  await addPasskeyFromSettings(page);
 
   // A brand-new browser context with no authenticator at all stands in for
   // the replacement device the person now owns: the lost credential simply
@@ -204,13 +184,8 @@ test('a lost passkey recovers through magic link, and the recovered session can 
   await lostPage.goto('/sign-in?next=%2Flobby');
 
   // Recovery: the verified email still reaches the account.
-  await lostPage.getByLabel('Email').fill(email);
-  await lostPage.getByRole('button', { name: 'Continue' }).click();
-  await expect(
-    lostPage.getByRole('heading', { name: /check your inbox/i }),
-  ).toBeVisible();
-  await lostPage.goto(await emailedLink(request, email));
-  await lostPage.getByRole('button', { name: 'Sign in to Daisy' }).click();
+  await requestSignInLink(lostPage, email);
+  await confirmSignIn(lostPage, await emailedLink(request, email));
   await expect(lostPage).toHaveURL(/\/lobby$/);
 
   // From the recovered session: remove the now-unreachable credential and
@@ -308,13 +283,8 @@ test('an email change is approved from the old inbox and verified at the new one
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
   await page.waitForURL(/\/sign-in/);
   await page.goto('/sign-in');
-  await page.getByLabel('Email').fill(newEmail);
-  await page.getByRole('button', { name: 'Continue' }).click();
-  await expect(
-    page.getByRole('heading', { name: /check your inbox/i }),
-  ).toBeVisible();
-  await page.goto(await emailedLink(request, newEmail));
-  await page.getByRole('button', { name: 'Sign in to Daisy' }).click();
+  await requestSignInLink(page, newEmail);
+  await confirmSignIn(page, await emailedLink(request, newEmail));
   await expect(page).toHaveURL(/\/lobby$/);
 });
 
@@ -351,10 +321,6 @@ test('a cancelled passkey ceremony shows no success and email sign-in still work
   await expect(page).toHaveURL(/\/sign-in$/);
 
   const email = freshEmail();
-  await page.getByLabel('Email').fill(email);
-  await page.getByRole('button', { name: 'Continue' }).click();
-  await expect(
-    page.getByRole('heading', { name: /check your inbox/i }),
-  ).toBeVisible();
+  await requestSignInLink(page, email);
   await expect(emailedLink(request, email)).resolves.toContain('/auth/confirm');
 });

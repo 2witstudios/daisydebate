@@ -95,14 +95,17 @@ apply, and `scripts/duplication-config.test.ts` guards both configs' scan
 roots. The source config's test ignores stay, so no file is counted twice.
 This extends the gate's scope; it loosens nothing.
 
-A one-off scan at `235b129` found 71 test clones; ISSUE-11 consolidated them
-into shared fixtures (the web integration `fixtures.ts`, the redis
-`withRedis`, the engine `runtime.test-support.ts`, the protocol
-`parseOutcome`) before baselining what remains.
+A one-off scan at `235b129` found 71 test clones, and 68 remained when the
+gate was switched on. ISSUE-11 consolidated them into shared fixtures (the
+web integration `fixtures.ts` and flows, the auth unit
+`auth-server.test-support.ts`, the redis `withRedis`, the engine
+`runtime.test-support.ts`, the protocol `parseOutcome`, the e2e sign-in
+helpers) and left 11 in the baseline, each with a row below.
 
-| Date       | Clone                                                                                                                   | Reason                                                                                                                                                              |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-09-23 | `apps/web/src/features/auth/verification-cleanup.test.ts` ↔ `apps/web/src/features/realtime/outbox-cleanup.test.ts` (9) | Both repeat the retention-sweep cases. ISSUE-8 part 2 moves them into one `retention-sweep.test.ts`, and removes these fingerprints from the baseline when it does. |
+| Date       | Clone                                                                                                                                                                                                             | Reason                                                                                                                                                                                                                                                                                                                                                                                     |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2026-09-23 | `apps/web/src/features/auth/verification-cleanup.test.ts` ↔ `apps/web/src/features/realtime/outbox-cleanup.test.ts` (9)                                                                                           | Both repeat the retention-sweep cases. ISSUE-8 part 2 moves them into one `retention-sweep.test.ts`, and removes these fingerprints from the baseline when it does.                                                                                                                                                                                                                        |
+| 2026-09-23 | `apps/web/integration/auth-email-change.integration.ts` ↔ `auth-session-management.integration.ts` (preamble); `packages/redis/integration/presence-expiry.integration.ts` ↔ `presence.integration.ts` (preamble) | Each suite imports and calls `requireTestServices` at load, which `bun evidence` requires, then builds its own flows or Redis fixture: two suites on one subject share that preamble token for token. Both are what remains of larger clones between the same files on adoption, shrunk by this consolidation; the redis pair was split for the line limit and cannot merge back under it. |
 
 ## Consequences
 

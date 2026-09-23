@@ -1,4 +1,3 @@
-import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { createPasskeyFlows } from './auth-passkey-flows';
@@ -11,28 +10,15 @@ import {
   userIdOf,
   withSql,
 } from './fixtures';
-import {
-  cleanupActorFor,
-  cleanupOutboxFor,
-  createActorFor,
-  sessionRevokedEvents,
-} from './auth-outbox-helpers';
+import { trackRevocations } from './auth-outbox-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import { requireTestServices } from '@daisy/config';
 
 requireTestServices(process.env);
 setupRitewayBun();
 
-/** Every actor id this suite has created, for the `afterAll` backstop below. */
-const suiteActorIds: string[] = [];
-
-const trackedCreateActorFor = async (userId: string): Promise<string> => {
-  const actorId = await createActorFor(userId);
-  suiteActorIds.push(actorId);
-  return actorId;
-};
-
 const flows = await createPasskeyFlows();
+const { recordedEvents } = flows;
 const { newClient } = flows.account.flows;
 const { signUp } = flows.account;
 
@@ -41,20 +27,6 @@ const backdateSession = (token: string, hoursAgo: number) =>
     (sql) =>
       sql`UPDATE session SET created_at = now() - (${hoursAgo}::text || ' hours')::interval WHERE token = ${token}`,
   );
-
-// Backstop for the per-test cleanup below, scoped to what this suite itself
-// created (RT-2.2v nit): never a time-window sweep that could delete
-// another suite's rows running concurrently against the same
-// `TEST_DATABASE_URL`.
-afterAll(async () => {
-  await Promise.all(suiteActorIds.map(cleanupOutboxFor));
-});
-
-/** The event names this suite's app logged while `work` ran (AUTH-6.4). */
-async function recordedEvents(work: () => Promise<void>): Promise<string[]> {
-  const { events } = await flows.account.flows.testApp.withLoggedEvents(work);
-  return [...events];
-}
 
 describe('AUTH-5.6 change the recovery email', () => {
   test('requesting a change and verifying the new address each emit their own lifecycle event (AUTH-6.4)', async () => {
@@ -132,16 +104,11 @@ describe('AUTH-5.6 change the recovery email', () => {
   test('completing the change notifies the old address and revokes other sessions', async () => {
     const { email, cookie } = await signUp();
     // A second, independent session for the same account before the change.
-    const { requestLink, redeem } = flows.account.flows;
-    const { link } = await requestLink(email);
-    const otherCookie = cookieHeader(
-      await redeem(new URL(link as URL).searchParams.get('token') ?? ''),
-    );
+    const otherCookie = await flows.account.flows.signInAgain(email);
     const before = flows.account.flows.mailbox.mails.length;
     const newEmail = `${createId()}@example.test`;
     const userId = (await userIdOf(email)) ?? '';
-    const actorId = await trackedCreateActorFor(userId);
-    const eventsBefore = await sessionRevokedEvents(actorId);
+    const revocations = await trackRevocations(userId);
     try {
       await flows.changeEmail(cookie, newEmail);
       const confirmMail = flows.account.flows.mailbox.mails[before];
@@ -161,8 +128,7 @@ describe('AUTH-5.6 change the recovery email', () => {
           notifiedOldAddress: confirmMail!.to === email,
           completingSessionLive: await flows.isAuthenticated(newCookie),
           otherSessionRevoked: !(await flows.isAuthenticated(otherCookie)),
-          outboxEventsAppended:
-            (await sessionRevokedEvents(actorId)) - eventsBefore,
+          outboxEventsAppended: await revocations.appended(),
         },
         expected: {
           notifiedOldAddress: true,
@@ -172,8 +138,7 @@ describe('AUTH-5.6 change the recovery email', () => {
         },
       });
     } finally {
-      await cleanupOutboxFor(actorId);
-      await cleanupActorFor(userId);
+      await revocations.cleanup();
     }
   });
 

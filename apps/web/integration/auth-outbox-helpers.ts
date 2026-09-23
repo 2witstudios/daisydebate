@@ -14,7 +14,7 @@ import { testDatabaseUrl, withSql } from './fixtures';
  * inserts the actor directly rather than going through the onboarding route.
  * Revocation rows are keyed by `actors.id`, never `userId`.
  */
-export const createActorFor = async (userId: string): Promise<string> => {
+const createActorFor = async (userId: string): Promise<string> => {
   const actorId = createId();
   await withSql(
     (sql) =>
@@ -23,17 +23,17 @@ export const createActorFor = async (userId: string): Promise<string> => {
   return actorId;
 };
 
-export const cleanupActorFor = (userId: string) =>
+const cleanupActorFor = (userId: string) =>
   withSql((sql) => sql`DELETE FROM actors WHERE user_id = ${userId}`);
 
 /** Outbox rows a `session.revoked`-emitting operation appended for this actor. */
-export const sessionRevokedEvents = (actorId: string) =>
+const sessionRevokedEvents = (actorId: string) =>
   withSql(
     (sql) =>
       sql`SELECT topic FROM outbox WHERE kind = 'session.revoked' AND topic = ${buildUserInboxTopic(actorId)}`,
   ).then((rows) => rows.length);
 
-export const cleanupOutboxFor = (actorId: string) =>
+const cleanupOutboxFor = (actorId: string) =>
   withSql(
     (sql) =>
       sql`DELETE FROM outbox WHERE kind = 'session.revoked' AND topic = ${buildUserInboxTopic(actorId)}`,
@@ -81,4 +81,21 @@ export const withOutboxInsertBlockedForTopic = async (
     await admin.unsafe(`drop function if exists "${name}"()`);
     await admin.close();
   }
+};
+
+/**
+ * Gives a user a human actor and counts the `session.revoked` rows appended
+ * for it from now on; `cleanup` removes those rows and the actor again.
+ */
+export const trackRevocations = async (userId: string) => {
+  const actorId = await createActorFor(userId);
+  const before = await sessionRevokedEvents(actorId);
+  return {
+    actorId,
+    appended: async () => (await sessionRevokedEvents(actorId)) - before,
+    cleanup: async () => {
+      await cleanupOutboxFor(actorId);
+      await cleanupActorFor(userId);
+    },
+  };
 };

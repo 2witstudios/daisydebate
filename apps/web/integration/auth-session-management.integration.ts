@@ -1,38 +1,15 @@
-import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createPasskeyFlows } from './auth-passkey-flows';
-import { cookieHeader, origin } from './fixtures';
-import {
-  cleanupActorFor,
-  cleanupOutboxFor,
-  createActorFor,
-  sessionRevokedEvents,
-} from './auth-outbox-helpers';
+import { origin } from './fixtures';
+import { trackRevocations } from './auth-outbox-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import { requireTestServices } from '@daisy/config';
 
 requireTestServices(process.env);
 setupRitewayBun();
 
-/** Every actor id this suite has created, for the `afterAll` backstop below. */
-const suiteActorIds: string[] = [];
-
-const trackedCreateActorFor = async (userId: string): Promise<string> => {
-  const actorId = await createActorFor(userId);
-  suiteActorIds.push(actorId);
-  return actorId;
-};
-
-// Backstop for the per-test cleanups above: whatever this file's tests
-// appended and did not individually clean up. Scoped to the actors this
-// suite itself created (RT-2.2v nit), never a time-window sweep that could
-// delete another suite's rows running concurrently against the same
-// `TEST_DATABASE_URL`.
-afterAll(() =>
-  Promise.all(suiteActorIds.map((actorId) => cleanupOutboxFor(actorId))),
-);
-
 const flows = await createPasskeyFlows();
+const { recordedEvents } = flows;
 const { newClient } = flows.account.flows;
 const { signUp } = flows.account;
 const { authRoute } = flows;
@@ -70,12 +47,6 @@ const sessionTokenOf = async (response: Response): Promise<string> =>
   ((await response.clone().json()) as { session?: { token: string } } | null)
     ?.session?.token ?? '';
 
-/** The event names this suite's app logged while `work` ran (AUTH-6.4). */
-async function recordedEvents(work: () => Promise<void>): Promise<string[]> {
-  const { events } = await flows.account.flows.testApp.withLoggedEvents(work);
-  return [...events];
-}
-
 const sessionUserIdOf = async (response: Response): Promise<string> =>
   ((await response.clone().json()) as { session?: { userId: string } } | null)
     ?.session?.userId ?? '';
@@ -83,13 +54,10 @@ const sessionUserIdOf = async (response: Response): Promise<string> =>
 describe('AUTH-5.5 session management', () => {
   test('a second sign-in creates a second session, both listed for the account', async () => {
     const { email, cookie: first } = await signUp();
-    const { requestLink, redeem } = flows.account.flows;
-    await requestLink(email);
+    await flows.account.flows.requestLink(email);
     // A second real magic-link sign-in for the same account: a genuinely
     // independent session, not a fixture.
-    const { link } = await requestLink(email);
-    const token = new URL(link as URL).searchParams.get('token') ?? '';
-    await redeem(token);
+    await flows.account.flows.signInAgain(email);
     const listed = await flows.listSessions(first);
     const rows = (await listed.json()) as { token: string }[];
     assert({
@@ -105,15 +73,11 @@ describe('AUTH-5.5 session management', () => {
 
   test('revoking a specific other session denies its next protected request, with cookie caching disabled', async () => {
     const { email, cookie: first } = await signUp();
-    const { requestLink, redeem } = flows.account.flows;
-    const { link } = await requestLink(email);
-    const token = new URL(link as URL).searchParams.get('token') ?? '';
-    const second = cookieHeader(await redeem(token));
+    const second = await flows.account.flows.signInAgain(email);
     const before = await protectedRead(second);
     const secondToken = await sessionTokenOf(before);
     const userId = await sessionUserIdOf(before);
-    const actorId = await trackedCreateActorFor(userId);
-    const eventsBefore = await sessionRevokedEvents(actorId);
+    const revocations = await trackRevocations(userId);
     try {
       await flows.revokeSession(first, secondToken);
       const after = await protectedRead(second);
@@ -124,8 +88,7 @@ describe('AUTH-5.5 session management', () => {
         actual: {
           beforeAuthenticated: await isAuthenticated(before),
           afterAuthenticated: await isAuthenticated(after),
-          outboxEventsAppended:
-            (await sessionRevokedEvents(actorId)) - eventsBefore,
+          outboxEventsAppended: await revocations.appended(),
         },
         expected: {
           beforeAuthenticated: true,
@@ -134,18 +97,14 @@ describe('AUTH-5.5 session management', () => {
         },
       });
     } finally {
-      await cleanupOutboxFor(actorId);
-      await cleanupActorFor(userId);
+      await revocations.cleanup();
     }
   });
 
   test('revoking a specific session and revoking every other session each emit their own lifecycle event (AUTH-6.4)', async () => {
     const { email, cookie: first } = await signUp();
     const { requestLink, redeem } = flows.account.flows;
-    const { link: linkA } = await requestLink(email);
-    const second = cookieHeader(
-      await redeem(new URL(linkA as URL).searchParams.get('token') ?? ''),
-    );
+    const second = await flows.account.flows.signInAgain(email);
     const secondToken = await sessionTokenOf(await protectedRead(second));
     const singleEvents = await recordedEvents(async () => {
       await flows.revokeSession(first, secondToken);
@@ -172,10 +131,7 @@ describe('AUTH-5.5 session management', () => {
 
   test('a revoked session is denied even by an ordinary read that never asked to bypass the cache', async () => {
     const { email, cookie: first } = await signUp();
-    const { requestLink, redeem } = flows.account.flows;
-    const { link } = await requestLink(email);
-    const token = new URL(link as URL).searchParams.get('token') ?? '';
-    const second = cookieHeader(await redeem(token));
+    const second = await flows.account.flows.signInAgain(email);
     const before = await plainRead(second);
     const secondToken = await sessionTokenOf(before);
     await flows.revokeSession(first, secondToken);
@@ -195,18 +151,10 @@ describe('AUTH-5.5 session management', () => {
 
   test('revoking other sessions leaves the current session usable and every other one denied', async () => {
     const { email, cookie: first } = await signUp();
-    const { requestLink, redeem } = flows.account.flows;
-    const { link: link1 } = await requestLink(email);
-    const secondCookie = cookieHeader(
-      await redeem(new URL(link1 as URL).searchParams.get('token') ?? ''),
-    );
-    const { link: link2 } = await requestLink(email);
-    const thirdCookie = cookieHeader(
-      await redeem(new URL(link2 as URL).searchParams.get('token') ?? ''),
-    );
+    const secondCookie = await flows.account.flows.signInAgain(email);
+    const thirdCookie = await flows.account.flows.signInAgain(email);
     const userId = await sessionUserIdOf(await protectedRead(first));
-    const actorId = await trackedCreateActorFor(userId);
-    const eventsBefore = await sessionRevokedEvents(actorId);
+    const revocations = await trackRevocations(userId);
     try {
       const revoke = await flows.revokeOtherSessions(first);
       const [currentAfter, secondAfter, thirdAfter] = await Promise.all([
@@ -223,8 +171,7 @@ describe('AUTH-5.5 session management', () => {
           current: await isAuthenticated(currentAfter),
           second: await isAuthenticated(secondAfter),
           third: await isAuthenticated(thirdAfter),
-          outboxEventsAppended:
-            (await sessionRevokedEvents(actorId)) - eventsBefore,
+          outboxEventsAppended: await revocations.appended(),
         },
         expected: {
           revoked: true,
@@ -235,21 +182,15 @@ describe('AUTH-5.5 session management', () => {
         },
       });
     } finally {
-      await cleanupOutboxFor(actorId);
-      await cleanupActorFor(userId);
+      await revocations.cleanup();
     }
   });
 
   test("revoking every session (including the caller's own) denies it too, and appends one session.revoked doorbell for the call (RT-2.2)", async () => {
     const { email, cookie: first } = await signUp();
-    const { requestLink, redeem } = flows.account.flows;
-    const { link } = await requestLink(email);
-    const secondCookie = cookieHeader(
-      await redeem(new URL(link as URL).searchParams.get('token') ?? ''),
-    );
+    const secondCookie = await flows.account.flows.signInAgain(email);
     const userId = await sessionUserIdOf(await protectedRead(first));
-    const actorId = await trackedCreateActorFor(userId);
-    const eventsBefore = await sessionRevokedEvents(actorId);
+    const revocations = await trackRevocations(userId);
     try {
       const revoke = await flows.revokeSessions(first);
       const [firstAfter, secondAfter] = await Promise.all([
@@ -264,8 +205,7 @@ describe('AUTH-5.5 session management', () => {
           revoked: revoke.ok,
           first: await isAuthenticated(firstAfter),
           second: await isAuthenticated(secondAfter),
-          outboxEventsAppended:
-            (await sessionRevokedEvents(actorId)) - eventsBefore,
+          outboxEventsAppended: await revocations.appended(),
         },
         expected: {
           revoked: true,
@@ -275,8 +215,7 @@ describe('AUTH-5.5 session management', () => {
         },
       });
     } finally {
-      await cleanupOutboxFor(actorId);
-      await cleanupActorFor(userId);
+      await revocations.cleanup();
     }
   });
 

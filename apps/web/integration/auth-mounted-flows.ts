@@ -48,6 +48,12 @@ export function createFlows() {
     const mail = mailbox.mails[before];
     return { response, mail, link: mail ? linkFrom(mail) : undefined };
   };
+  /** A fresh magic-link token for an address, as its mail carries it. */
+  const linkTokenFor = async (email: string) =>
+    tokenOf((await requestLink(email)).link as URL);
+  /** A second real session for an address: a new link, redeemed. */
+  const signInAgain = async (email: string) =>
+    cookieHeader(await redeem(await linkTokenFor(email)));
   const confirmGet = (link: URL, method: 'GET' | 'HEAD' = 'GET') =>
     confirmRoute[method](
       new Request(link, {
@@ -85,6 +91,8 @@ export function createFlows() {
     fresh,
     track,
     requestLink,
+    linkTokenFor,
+    signInAgain,
     confirmGet,
     redeem,
     startSignup,

@@ -1,7 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createId } from '@paralleldrive/cuid2';
 import { createPasskeyFlows } from './auth-passkey-flows';
-import { emailOf, linkFrom, tokenOf, userIdOf } from './fixtures';
+import { emailOf, userIdOf } from './fixtures';
 import { requireTestServices } from '@daisy/config';
 
 /**
@@ -20,13 +19,7 @@ describe('ISSUE-3: direct GET redemption of /verify-email is refused', () => {
   test('a direct GET never verifies the change, leaving the token to verify through the confirm page', async () => {
     const { email, cookie } = await signUp();
     const uid = (await userIdOf(email)) ?? '';
-    const before = flows.account.flows.mailbox.mails.length;
-    const newEmail = `${createId()}@example.test`;
-    await flows.changeEmail(cookie, newEmail);
-    const confirmMail = flows.account.flows.mailbox.mails[before];
-    await flows.confirmEmailPost(tokenOf(linkFrom(confirmMail!)));
-    const verifyMail = flows.account.flows.mailbox.mails[before + 1];
-    const verifyToken = tokenOf(linkFrom(verifyMail!));
+    const { newEmail, verifyToken } = await flows.confirmedEmailChange(cookie);
 
     const direct = await flows.get(
       `/api/auth/verify-email?token=${encodeURIComponent(verifyToken)}`,

@@ -1,4 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
+import type { Identity } from '@daisy/auth';
 import { createFlows } from './auth-mounted-flows';
 import { cookieHeader, userIdOf, withSql } from './fixtures';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
@@ -47,6 +48,12 @@ export function createAccountFlows() {
 
   return { flows, identifyAs, sessionAs, signUp, claim };
 }
+
+/** The user id behind a signed-in identity, or null for anyone else. */
+export const identityUserId = (identity: Identity): string | null =>
+  identity.state === 'member' || identity.state === 'provisional'
+    ? identity.principal.userId
+    : null;
 
 export const uniqueName = () => `u${createId().slice(0, 14)}`;
 

@@ -1,4 +1,6 @@
+import { createId } from '@paralleldrive/cuid2';
 import { readAuthConfig } from '@daisy/config';
+import { createDatabase } from '@daisy/db';
 import { fixedClock, systemId } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import { createConfirmHandlers } from '../src/features/auth/confirm';
@@ -91,3 +93,25 @@ export const redeemMagicLink = (
       body: new URLSearchParams({ token, callbackURL: '/' }).toString(),
     }),
   );
+
+/**
+ * A database pool over the test services and a direct auth server on its
+ * adapter, recording the mail it sends and the logs it writes. `wire`
+ * connects seams that need the database (the outbox append, say).
+ */
+export const createDatabaseAuthServer = (
+  url: string,
+  wire: (
+    database: ReturnType<typeof createDatabase>,
+  ) => Partial<Parameters<typeof createTestAuthServer>[1]> = () => ({}),
+) => {
+  const sent: SentMessages = [];
+  const logged: RecordedLogs = [];
+  const database = createDatabase({ url, nextActorId: createId });
+  const auth = createTestAuthServer(database.authAdapter, {
+    sent,
+    recordedLogs: logged,
+    ...wire(database),
+  });
+  return { sent, logged, database, auth };
+};

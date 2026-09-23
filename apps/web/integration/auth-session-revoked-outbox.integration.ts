@@ -1,16 +1,15 @@
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createDatabase } from '@daisy/db';
 import { buildUserInboxTopic } from '@daisy/protocol';
 import { withOutboxInsertBlockedForTopic } from './auth-outbox-helpers';
 import { fixtureEmail, linkFrom, removeAccount, tokenOf } from './fixtures';
 import {
+  createDatabaseAuthServer,
   createTestAuthServer,
   redeemMagicLink,
   type SentMessages,
 } from './auth-server-harness';
-import type { RecordedLogs } from '../src/features/auth/log-leaks';
 import { requireTestServices } from '@daisy/config';
 
 setupRitewayBun();
@@ -75,14 +74,12 @@ const routes: readonly {
 for (const route of routes) {
   test(`a forced outbox failure never fails a real ${route.path} call, and logs the registered event`, async () => {
     const email = fixtureEmail();
-    const sent: SentMessages = [];
-    const logged: RecordedLogs = [];
-    const database = createDatabase({ url, nextActorId: createId });
-    const auth = createTestAuthServer(database.authAdapter, {
-      sent,
-      recordedLogs: logged,
-      appendSessionRevoked: (userId) => database.appendSessionRevoked(userId),
-    });
+    const { sent, logged, database, auth } = createDatabaseAuthServer(
+      url,
+      (pool) => ({
+        appendSessionRevoked: (userId) => pool.appendSessionRevoked(userId),
+      }),
+    );
     const admin = new SQL(url);
     let userId: string | undefined;
     try {

@@ -1,5 +1,6 @@
 import { createAccountFlows } from './auth-account-helpers';
-import { cookieHeader, origin } from './fixtures';
+import { createId } from '@paralleldrive/cuid2';
+import { cookieHeader, linkFrom, origin, tokenOf } from './fixtures';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import {
   buildAuthenticationResponse,
@@ -147,6 +148,23 @@ export async function createPasskeyFlows() {
         body: new URLSearchParams({ token, callbackURL }).toString(),
       }),
     );
+  /**
+   * Requests a change of the cookie's account to a fresh address and
+   * confirms the first hop through the confirm page, returning the new
+   * address and the second-hop verification token it mailed.
+   */
+  const confirmedEmailChange = async (cookie: string) => {
+    const { mails } = account.flows.mailbox;
+    const before = mails.length;
+    const newEmail = `${createId()}@example.test`;
+    await changeEmail(cookie, newEmail);
+    await confirmEmailPost(tokenOf(linkFrom(mails[before]!)));
+    return { newEmail, verifyToken: tokenOf(linkFrom(mails[before + 1]!)) };
+  };
+  /** The event names this suite's app logged while `work` ran (AUTH-6.4). */
+  const recordedEvents = async (work: () => Promise<void>) => [
+    ...(await account.flows.testApp.withLoggedEvents(work)).events,
+  ];
   const isAuthenticated = async (cookie: string): Promise<boolean> =>
     (await (
       await get('/api/auth/get-session?disableCookieCache=true', cookie)
@@ -169,6 +187,8 @@ export async function createPasskeyFlows() {
     changeEmail,
     confirmEmailGet,
     confirmEmailPost,
+    confirmedEmailChange,
     isAuthenticated,
+    recordedEvents,
   };
 }

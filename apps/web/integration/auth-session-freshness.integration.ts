@@ -32,14 +32,18 @@ const backdateSession = (token: string, hoursAgo: number) =>
       sql`UPDATE session SET created_at = now() - (${hoursAgo}::text || ' hours')::interval WHERE token = ${token}`,
   );
 
+/** Moves the cookie's session outside the fresh window (created 2 h ago). */
+const staleSession = async (cookie: string) => {
+  const sessionBody = (await (await protectedRead(cookie)).json()) as {
+    session?: { token: string };
+  };
+  await backdateSession(sessionBody.session?.token ?? '', 2);
+};
+
 describe('AUTH-5.5 fresh-session gate', () => {
   test('a stale session is refused for revoking sessions and requires fresh authentication', async () => {
     const { cookie } = await signUp();
-    const sessionBody = (await (await protectedRead(cookie)).json()) as {
-      session?: { token: string };
-    };
-    const token = sessionBody.session?.token ?? '';
-    await backdateSession(token, 2);
+    await staleSession(cookie);
     const stale = await flows.revokeSessions(cookie);
     assert({
       given: 'a live, valid session created outside the fresh window',
@@ -51,11 +55,7 @@ describe('AUTH-5.5 fresh-session gate', () => {
 
   test('a stale session is refused for revoking a single other session', async () => {
     const { cookie } = await signUp();
-    const sessionBody = (await (await protectedRead(cookie)).json()) as {
-      session?: { token: string };
-    };
-    const token = sessionBody.session?.token ?? '';
-    await backdateSession(token, 2);
+    await staleSession(cookie);
     const stale = await flows.revokeSession(cookie, 'irrelevant-token');
     assert({
       given: 'a live, valid session created outside the fresh window',
@@ -67,11 +67,7 @@ describe('AUTH-5.5 fresh-session gate', () => {
 
   test('a stale session is refused for revoking every other session', async () => {
     const { cookie } = await signUp();
-    const sessionBody = (await (await protectedRead(cookie)).json()) as {
-      session?: { token: string };
-    };
-    const token = sessionBody.session?.token ?? '';
-    await backdateSession(token, 2);
+    await staleSession(cookie);
     const stale = await flows.revokeOtherSessions(cookie);
     assert({
       given: 'a live, valid session created outside the fresh window',
@@ -87,11 +83,7 @@ describe('AUTH-5.5 fresh-session gate', () => {
       name: 'Old device',
     });
     void credential;
-    const sessionBody = (await (await protectedRead(cookie)).json()) as {
-      session?: { token: string };
-    };
-    const token = sessionBody.session?.token ?? '';
-    await backdateSession(token, 2);
+    await staleSession(cookie);
     const listed = await flows.listPasskeys(cookie);
     const rows = (await listed.json()) as { id: string }[];
     const removed = await flows.deletePasskey(cookie, rows[0]!.id);

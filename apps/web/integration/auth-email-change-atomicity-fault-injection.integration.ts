@@ -3,7 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { buildUserInboxTopic } from '@daisy/protocol';
 import { createPasskeyFlows } from './auth-passkey-flows';
 import { withOutboxInsertBlockedForTopic } from './auth-outbox-helpers';
-import { cookieHeader, linkFrom, tokenOf, userIdOf, withSql } from './fixtures';
+import { cookieHeader, userIdOf, withSql } from './fixtures';
 import { requireTestServices } from '@daisy/config';
 
 /**
@@ -28,17 +28,10 @@ const { withLoggedEvents } = flows.account.flows.testApp;
 describe('ISSUE-23 a real fault injected into revokeOtherSessions during /verify-email', () => {
   test('a forced outbox failure inside the atomic revocation rolls back the session delete too', async () => {
     const { email, cookie } = await flows.account.signUp();
-    const { requestLink, redeem } = flows.account.flows;
-    const { link } = await requestLink(email);
-    const otherToken = new URL(link as URL).searchParams.get('token') ?? '';
+    const { redeem } = flows.account.flows;
+    const otherToken = await flows.account.flows.linkTokenFor(email);
     const otherCookie = cookieHeader(await redeem(otherToken));
-    const before = flows.account.flows.mailbox.mails.length;
-    const newEmail = `${createId()}@example.test`;
-    await flows.changeEmail(cookie, newEmail);
-    const confirmMail = flows.account.flows.mailbox.mails[before];
-    await flows.confirmEmailPost(tokenOf(linkFrom(confirmMail!)));
-    const verifyMail = flows.account.flows.mailbox.mails[before + 1];
-    const verifyToken = tokenOf(linkFrom(verifyMail!));
+    const { newEmail, verifyToken } = await flows.confirmedEmailChange(cookie);
 
     // Plan revision 4.10: the append only runs once the actor resolves.
     // This account never claims a username (an unrelated surface to the

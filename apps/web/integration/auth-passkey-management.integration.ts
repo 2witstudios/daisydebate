@@ -1,34 +1,24 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
-import type { Identity } from '@daisy/auth';
 import { createDatabase } from '@daisy/db';
 import { buildUserInboxTopic } from '@daisy/protocol';
 import { createPasskeyFlows } from './auth-passkey-flows';
-import { cookieHeader, testDatabaseUrl, tokenOf, withSql } from './fixtures';
-import { uniqueName } from './auth-account-helpers';
+import {
+  cookieHeader,
+  testDatabaseUrl,
+  tokenOf,
+  withSql,
+  counts,
+} from './fixtures';
+import { uniqueName, identityUserId } from './auth-account-helpers';
 
 import { requireTestServices } from '@daisy/config';
-
-const userIdOf = (identity: Identity): string | null =>
-  identity.state === 'member' || identity.state === 'provisional'
-    ? identity.principal.userId
-    : null;
 
 requireTestServices(process.env);
 setupRitewayBun();
 
 const flows = await createPasskeyFlows();
 const { signUp } = flows.account;
-
-const passkeyCount = (email: string) =>
-  withSql(async (sql) => {
-    const [row] = await sql`
-      SELECT count(*)::int AS c FROM passkey p
-      JOIN users u ON u.id = p.user_id
-      WHERE u.email = ${email}
-    `;
-    return (row?.c as number) ?? 0;
-  });
 
 describe('AUTH-5.3 list, rename and remove owned passkeys', () => {
   test('listing returns only the current account’s passkeys with names and creation metadata', async () => {
@@ -69,7 +59,7 @@ describe('AUTH-5.3 list, rename and remove owned passkeys', () => {
         renamed: renamed.ok,
         persistedName: renamedRow?.name,
         removed: removed.ok,
-        stored: await passkeyCount(email),
+        stored: (await counts(email)).passkeys,
       },
       expected: {
         renamed: true,
@@ -103,7 +93,7 @@ describe('AUTH-5.3 list, rename and remove owned passkeys', () => {
         renameOk: renamedByBob.ok,
         removeOk: removedByBob.ok,
         aliceName: aliceRow?.name,
-        stillStored: await passkeyCount(alice.email),
+        stillStored: (await counts(alice.email)).passkeys,
       },
       expected: {
         renameOk: false,
@@ -123,7 +113,7 @@ describe('AUTH-5.3 list, rename and remove owned passkeys', () => {
     const { requestLink, redeem } = flows.account.flows;
     const { response, link } = await requestLink(email);
     const originalIdentity = await flows.account.sessionAs(cookie);
-    const originalUserId = userIdOf(originalIdentity.identity);
+    const originalUserId = identityUserId(originalIdentity.identity);
     const recovered = await redeem(tokenOf(link as URL));
     const recoveredIdentity = await flows.account.sessionAs(
       cookieHeader(recovered),
@@ -135,10 +125,10 @@ describe('AUTH-5.3 list, rename and remove owned passkeys', () => {
       actual: {
         removedFirst: listed.verifyResponse.ok,
         linkRequested: response.ok,
-        stored: await passkeyCount(email),
-        recoveredUserId: userIdOf(recoveredIdentity.identity),
+        stored: (await counts(email)).passkeys,
+        recoveredUserId: identityUserId(recoveredIdentity.identity),
         matchesOriginal:
-          userIdOf(recoveredIdentity.identity) === originalUserId,
+          identityUserId(recoveredIdentity.identity) === originalUserId,
       },
       expected: {
         removedFirst: true,
@@ -163,7 +153,7 @@ describe('AUTH-5.4 recover from a lost passkey through verified email', () => {
     const [lostPasskey] = (await lostRows.json()) as { id: string }[];
 
     const originalIdentity = await flows.account.sessionAs(originalCookie);
-    const userId = userIdOf(originalIdentity.identity)!;
+    const userId = identityUserId(originalIdentity.identity)!;
     // Debate history hangs off the competitive `actors` table (ADR 0029);
     // the username claim above already provisioned this account's human
     // actor in the same transaction (ACTOR-1), so the fixture only reads it
@@ -241,7 +231,7 @@ describe('AUTH-5.4 recover from a lost passkey through verified email', () => {
         'keep the same user id, username and debate history, end the pre-recovery session and finish with only the replacement passkey stored',
       actual: {
         enrolledLostOk: enrolledLost.verifyResponse.ok,
-        recoveredUserId: userIdOf(recoveredIdentity.identity),
+        recoveredUserId: identityUserId(recoveredIdentity.identity),
         recoveredUsername:
           recoveredIdentity.identity.state === 'member'
             ? recoveredIdentity.identity.username

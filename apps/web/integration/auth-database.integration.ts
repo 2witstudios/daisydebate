@@ -1,7 +1,5 @@
 import { SQL } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createId } from '@paralleldrive/cuid2';
-import { createDatabase } from '@daisy/db';
 import {
   counts,
   emptyCounts,
@@ -12,6 +10,7 @@ import {
   tokenOf,
 } from './fixtures';
 import {
+  createDatabaseAuthServer,
   createTestAuthServer,
   redeemMagicLink,
   type SentMessages,
@@ -40,13 +39,7 @@ type RunContext = {
 /** Runs one auth server over the shared pool and cleans only its fixtures. */
 const runAuth = async (body: (context: RunContext) => Promise<void>) => {
   const email = fixtureEmail();
-  const sent: SentMessages = [];
-  const logged: RecordedLogs = [];
-  const database = createDatabase({ url, nextActorId: createId });
-  const auth = createTestAuthServer(database.authAdapter, {
-    sent,
-    recordedLogs: logged,
-  });
+  const { sent, logged, database, auth } = createDatabaseAuthServer(url);
   let userId: string | undefined;
   try {
     await body({
