@@ -50,6 +50,25 @@ describe('agent guard: pushes to main', () => {
     });
   });
 
+  test('reads git option abbreviations and every destination form', () => {
+    assert({
+      given:
+        'abbreviated --no-verify, --all and --mirror, and heads/, refs/heads/ and forced destinations',
+      should: 'deny each one, as git would accept them',
+      actual: [
+        'git push --no-verif origin feature:heads/main',
+        'git push --no-v origin feature',
+        'git push --al origin',
+        'git push --mir',
+        'git push origin x:heads/main',
+        'git push origin x:refs/heads/main',
+        'git push origin +x:main',
+        'git push --repo=origin x:main',
+      ].map((command) => decide(command)),
+      expected: Array(8).fill('deny'),
+    });
+  });
+
   test('asks the owner before a push to main', () => {
     assert({
       given: 'an owner session pushing main and pushing a branch',

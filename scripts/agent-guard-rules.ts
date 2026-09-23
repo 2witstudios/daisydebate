@@ -68,8 +68,9 @@ export const isWithin = (path: string, root: string): boolean =>
 export const resolveFrom = (cwd: string, path: string): string =>
   path.startsWith('~') ? `/~${path.slice(1)}` : resolve(cwd, path);
 
+/** The branch a push destination names: main, heads/main, refs/heads/main. */
 export const branchName = (ref: string): string =>
-  ref.replace(/^refs\/heads\//, '');
+  ref.replace(/^refs\//, '').replace(/^heads\//, '');
 
 export const pushTargetVerdict = (
   facts: GuardFacts,

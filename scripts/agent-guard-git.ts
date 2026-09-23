@@ -16,6 +16,46 @@ import {
   type Rule,
 } from './agent-guard-rules';
 
+// git push's long options. git accepts any unique prefix of a long option
+// (--no-verif is --no-verify), so flags are expanded before they are judged.
+const PUSH_LONG = [
+  '--all',
+  '--branches',
+  '--mirror',
+  '--tags',
+  '--follow-tags',
+  '--no-follow-tags',
+  '--delete',
+  '--prune',
+  '--dry-run',
+  '--porcelain',
+  '--force',
+  '--force-with-lease',
+  '--no-force-with-lease',
+  '--force-if-includes',
+  '--no-force-if-includes',
+  '--verify',
+  '--no-verify',
+  '--set-upstream',
+  '--thin',
+  '--no-thin',
+  '--quiet',
+  '--verbose',
+  '--progress',
+  '--no-progress',
+  '--signed',
+  '--no-signed',
+  '--atomic',
+  '--no-atomic',
+  '--recurse-submodules',
+  '--no-recurse-submodules',
+  '--ipv4',
+  '--ipv6',
+  '--repo',
+  '--push-option',
+  '--receive-pack',
+  '--exec',
+];
 const pushValueOptions = new Set([
   '--repo',
   '-o',
@@ -23,6 +63,13 @@ const pushValueOptions = new Set([
   '--receive-pack',
   '--exec',
 ]);
+
+/** The long option git would read for an abbreviation, when unambiguous. */
+export function expandLong(flag: string, options: readonly string[]): string {
+  if (options.includes(flag)) return flag;
+  const matches = options.filter((option) => option.startsWith(flag));
+  return matches.length === 1 ? matches[0] : flag;
+}
 
 function pushTarget(refspec: string, current: string | undefined) {
   const spec = refspec.replace(/^\+/, '');
@@ -37,12 +84,15 @@ function gitPush(args: readonly string[], facts: GuardFacts, dir: string) {
   const positional: string[] = [];
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
-    if (pushValueOptions.has(arg)) index += 1;
-    else if (arg.startsWith('-')) flags.add(splitFlag(arg)[0]);
-    else positional.push(arg);
+    const [raw, inline] = splitFlag(arg);
+    const flag = arg.startsWith('--') ? expandLong(raw, PUSH_LONG) : raw;
+    if (!arg.startsWith('-')) positional.push(arg);
+    else flags.add(flag === '-d' ? '--delete' : flag);
+    if (pushValueOptions.has(flag) && inline === undefined) index += 1;
   }
   const current = facts.branchOf(dir);
-  const refspecs = positional.slice(1);
+  // With --repo the remote is named by the option, so every positional is a refspec.
+  const refspecs = flags.has('--repo') ? positional : positional.slice(1);
   const targets =
     refspecs.length === 0
       ? [current]
