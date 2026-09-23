@@ -111,9 +111,10 @@ Which request failed / what else happened to it: correlate `requestId`
 (proxy-generated at the edge, echoed on responses and error bodies; the
 operation layer also honors well-formed caller IDs when the proxy is bypassed)
 with `traceId` once a provider is installed. Which deployment:
-`appVersion`/`gitCommit` log fields. Which user/debate: pass
-`userId`/`debateId` as structured fields at feature-operation level — add
-them where the operation knows them, not by re-parsing payloads.
+`appVersion`/`gitCommit` log fields. Which user: pass `userId` or
+`actorId` as structured fields at feature-operation level — add them where
+the operation knows them, not by re-parsing payloads. A log line carries
+only the fields ADR 0019's loggable-field table admits.
 
 For an incident, start with the event stream and filter by `event`, then
 correlate `requestId`, `traceId`, `operation`, and deployment fields. The
@@ -124,8 +125,9 @@ it; those facts exist only in the emitted entries.
 
 - Instrument meaningful boundaries (HTTP operations, adapter calls,
   scheduled work), not every function.
-- Never log credentials, cookies, raw request bodies, or raw exceptions;
-  pino redaction is defense in depth, not permission.
+- Never log credentials, cookies, raw request bodies, or raw exceptions.
+  The logger admits only ADR 0019's allowlisted fields of their declared
+  kind and fixed-prose messages; that is defense in depth, not permission.
 - Tracing exporters/SDK: install at deployment edge (collector sidecar or
   platform integration). Adding an SDK to application packages requires an
   ADR; Sentry and PostHog are the standing exception under ADR 0037.

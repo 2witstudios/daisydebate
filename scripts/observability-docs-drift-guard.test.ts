@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { eventRegistry } from '@daisy/logger';
+import { eventRegistry, loggableFields } from '@daisy/logger';
 
 setupRitewayBun();
 
@@ -81,5 +81,28 @@ describe('observability docs drift guard', () => {
     expect(() => parseEventTable(fixture)).toThrow(
       'observability.md: duplicate event row "example.one"',
     );
+  });
+});
+
+describe('ADR 0019 loggable fields drift guard', () => {
+  test('the ADR table matches @daisy/logger loggableFields exactly', async () => {
+    const markdown = await readFile(
+      path.join(repoRoot, 'docs/decisions/0019-token-secret-ownership.md'),
+      'utf8',
+    );
+    const section = markdown.split('## Loggable fields')[1] ?? '';
+    const documented = Object.fromEntries(
+      section
+        .split('\n')
+        .map((line) => line.match(/^\|\s*`([^`]+)`\s*\|\s*(\w+)\s*\|/))
+        .filter((match): match is RegExpMatchArray => match !== null)
+        .map(([, field, kind]) => [field, kind]),
+    );
+    assert({
+      given: 'the loggable-field table in ADR 0019',
+      should: 'list exactly the fields and kinds the logger admits',
+      actual: documented,
+      expected: loggableFields,
+    });
   });
 });

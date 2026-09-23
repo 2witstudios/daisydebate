@@ -1,154 +1,275 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createLogger } from './index';
+import { secretConfigKeys } from '@daisy/config';
+import { createLogger, loggableFields, type LogFields } from './index';
 
 setupRitewayBun();
 
-// Kept in sync with packages/config's secret-shaped fields
-// (BETTER_AUTH_SECRET, RESEND_API_KEY, RESEND_WEBHOOK_SECRET, DATABASE_URL,
-// REDIS_URL) — logger cannot import @daisy/config (declared dependency:
-// pino only), so the list is duplicated here rather than derived at
-// runtime. Also covers the protocol's `ticket` bearer and `set-cookie`.
-const SECRET_SHAPED_FIELD_NAMES = [
-  'password',
-  'token',
-  'ticket',
-  'secret',
-  'cookie',
-  'set-cookie',
-  'authorization',
-  'apiKey',
-  'BETTER_AUTH_SECRET',
-  'RESEND_API_KEY',
-  'RESEND_WEBHOOK_SECRET',
-  'DATABASE_URL',
-  'REDIS_URL',
+/** Emits one log call and returns the raw line and its parsed record. */
+const emit = (fields: unknown, message = 'Request failed', child?: unknown) => {
+  let output = '';
+  const logger = createLogger({
+    service: 'test',
+    destination: { write: (text) => (output += text) },
+  });
+  const target = child === undefined ? logger : logger.child(child as never);
+  target.log('request.unhandled', fields as LogFields, message);
+  return {
+    output,
+    entry: JSON.parse(output) as Record<string, unknown>,
+  };
+};
+
+const BASE_KEYS = [
+  'appVersion',
+  'event',
+  'gitCommit',
+  'level',
+  'msg',
+  'service',
+  'time',
 ];
 
-describe('structured logging: recursive redaction', () => {
-  test('redacts every secret-shaped field name at one, two and three levels deep', () => {
-    for (const fieldName of SECRET_SHAPED_FIELD_NAMES) {
-      const secretValue = `unredacted-${fieldName}-value`;
-      let output = '';
-      const logger = createLogger({
-        service: 'test',
-        destination: { write: (text) => (output += text) },
-      });
-      logger.log(
-        'server.start',
+describe('structured logging: field allowlist (ADR 0019)', () => {
+  test('a secret config key never reaches the log, wherever it is placed', () => {
+    for (const key of secretConfigKeys) {
+      const value = `sk-${key}-unlogged-value`;
+      const { output } = emit(
         {
-          [fieldName]: secretValue,
-          nested: { [fieldName]: secretValue },
-          deeplyNested: { wrapper: { [fieldName]: secretValue } },
+          [key]: value,
+          nested: { [key]: value },
+          err: { message: 'failed', cause: { [key]: value } },
+          pairs: [[key, value]],
         },
-        'completed',
+        `Failed with ${key} ${value}`,
+        { [key]: value },
       );
       assert({
-        given: `a field named "${fieldName}" at the top level, one level and two levels deep`,
+        given: `${key} (derived from @daisy/config's secret fields) at the top level, nested, in an error cause, in pairs, in a child and in the message`,
         should: 'never appear in the emitted log line',
-        actual: output.includes(secretValue),
+        actual: output.includes(value),
         expected: false,
       });
     }
   });
 
-  test('redacts a secret nested inside err/cause and never a plain field', () => {
-    let output = '';
-    const logger = createLogger({
-      service: 'test',
-      destination: { write: (text) => (output += text) },
-    });
-    logger.log(
-      'request.unhandled',
-      {
-        err: { message: 'failed', cause: { token: 'unredacted-cause-token' } },
-        userId: 'user-1',
-        durationMs: 12,
-      },
-      'failed',
-    );
-    const entry = JSON.parse(output) as {
-      userId: string;
-      durationMs: number;
+  test('every shape the post-merge probe leaked is refused', () => {
+    const secret = 'S3CRET-probe-value';
+    const probes: ReadonlyArray<readonly [string, unknown, string?]> = [
+      ['privateKey', { privateKey: secret }],
+      ['credential', { credential: secret }],
+      ['session', { session: { token: secret } }],
+      ['code', { code: secret }],
+      ['connectionString', { connectionString: `postgres://u:${secret}@h/db` }],
+      ['svix-signature', { 'svix-signature': `v1,${secret}` }],
+      ['a Bearer header value', { header: `Bearer ${secret}` }],
+      ['a postgres URL password', { url: `postgres://u:${secret}@h/db` }],
+      [
+        'a URL inside a sentence',
+        { detail: `open https://x.example/?token=${secret} now` },
+      ],
+      ['header pairs in arrays', { headers: [['set-cookie', secret]] }],
+      [
+        'an Error whose message holds a credential URL',
+        { err: new Error(`dial redis://:${secret}@h:6379 failed`) },
+      ],
+      ['the message argument', {}, `Token is ${secret}`],
+      [
+        'a Bearer value under an allowlisted code field',
+        { operation: `Bearer ${secret}` },
+      ],
+      [
+        'a credential URL under an allowlisted path field',
+        { path: `postgres://u:${secret}@h/db` },
+      ],
+      [
+        'a query token under an allowlisted route field',
+        { route: `/auth/confirm?token=${secret}` },
+      ],
+      [
+        'a credential URL under an allowlisted id field',
+        { requestId: `redis://:${secret}@h` },
+      ],
+    ];
+    for (const [shape, fields, message] of probes) {
+      const { output } = emit(fields, message);
+      assert({
+        given: shape,
+        should: 'leave the secret out of the emitted line',
+        actual: output.includes(secret),
+        expected: false,
+      });
+    }
+  });
+
+  test('admits every allowlisted field of its declared kind verbatim', () => {
+    const fields = {
+      operation: 'auth.confirm_email.submit',
+      errorCode: 'RATE_LIMIT',
+      source: 'better-auth',
+      sourceLevel: 'warn',
+      closeReason: 'auth_failed',
+      cause: 'hello_timeout',
+      invariantId: 'INV-7',
+      requestId: 'req_abcdefgh-1234',
+      traceId: '4bf92f3577b34da6a3ce929d0e0e4736',
+      userId: 'tz4a98xxat96iws9zmbrgj3a',
+      actorId: 'actrtz4a98xxat96iws9zmbr',
+      providerMessageId: '49a3999c-0ce1-4ea6-ab68-afcd6dc2e794',
+      route: '/api/auth/[...all]',
+      path: '/sign-in/magic-link',
+      clientIdHash: 'a'.repeat(64),
+      durationMs: 12,
+      status: 429,
+      port: 3000,
+      deleted: 0,
+      batches: 3,
+      closeCode: 4001,
     };
+    const { entry } = emit(
+      fields,
+      'Session store unavailable; request refused',
+    );
+    const rest = Object.fromEntries(
+      Object.entries(entry).filter(
+        ([key]) => key !== 'time' && key !== 'level',
+      ),
+    );
     assert({
-      given: 'a secret nested inside err.cause, beside plain fields',
-      should: 'redact the nested secret and keep the plain fields intact',
-      actual: {
-        leaked: output.includes('unredacted-cause-token'),
-        userId: entry.userId,
-        durationMs: entry.durationMs,
+      given: 'one value of the right kind for every allowlisted field',
+      should: 'emit each unchanged, beside the base fields and message',
+      actual: rest,
+      expected: {
+        service: 'test',
+        appVersion: 'development',
+        gitCommit: 'unknown',
+        ...fields,
+        event: 'request.unhandled',
+        msg: 'Session store unavailable; request refused',
       },
-      expected: { leaked: false, userId: 'user-1', durationMs: 12 },
+    });
+    assert({
+      given: 'the allowlist',
+      should: 'be exactly the fields exercised above',
+      actual: Object.keys(loggableFields).sort(),
+      expected: Object.keys(fields).sort(),
     });
   });
 
-  test('serializes a real Error field to name/message/cause, redacting a secret in either', () => {
-    let output = '';
-    const logger = createLogger({
-      service: 'test',
-      destination: { write: (text) => (output += text) },
+  test('drops fields off the allowlist or of the wrong kind', () => {
+    const { entry } = emit({
+      operation: 'auth.request',
+      userEmail: 'player@daisy.example.com',
+      durationMs: -1,
+      status: '200',
+      requestId: { id: 'nested' },
+      traceId: undefined,
     });
-    const cause = new Error('unredacted-cause-secret-value');
-    const err = new Error('outer failure', { cause });
-    logger.log('request.unhandled', { err }, 'failed');
-    const entry = JSON.parse(output) as {
-      err: { name: string; message: string; cause?: { message?: string } };
-    };
     assert({
-      given: 'a real Error field whose cause is itself a real Error',
+      given: 'an unlisted field, and listed fields with values of another kind',
+      should: 'emit only the admitted field',
+      actual: Object.keys(entry).sort(),
+      expected: [...BASE_KEYS, 'operation'].sort(),
+    });
+  });
+
+  test('a message that is not fixed prose is replaced', () => {
+    const { entry } = emit({}, 'Dial https://h.example/x failed');
+    assert({
+      given: 'a message carrying a URL',
+      should: 'emit a placeholder instead of the message',
+      actual: entry.msg,
+      expected: '[REDACTED]',
+    });
+  });
+});
+
+describe('structured logging: hostile field values never break a log call', () => {
+  test('a very deep structure', () => {
+    let deep: Record<string, unknown> = { operation: 'leaf' };
+    for (let index = 0; index < 50_000; index += 1)
+      deep = { nested: deep, operation: deep };
+    const { entry } = emit({ ...deep, errorCode: 'INTERNAL' });
+    assert({
+      given: 'fields 50,000 levels deep, under listed and unlisted names',
+      should: 'log without throwing, keeping the admitted field',
+      actual: entry.errorCode,
+      expected: 'INTERNAL',
+    });
+  });
+
+  test('getters and proxies that throw', () => {
+    const getters = Object.defineProperties(
+      {},
+      {
+        operation: {
+          enumerable: true,
+          get: () => {
+            throw new Error('getter');
+          },
+        },
+        other: {
+          enumerable: true,
+          get: () => {
+            throw new Error('getter');
+          },
+        },
+        errorCode: { enumerable: true, value: 'INTERNAL' },
+      },
+    );
+    const trap = () => {
+      throw new Error('trap');
+    };
+    const proxy = new Proxy(
+      {},
+      { ownKeys: trap, get: trap, getOwnPropertyDescriptor: trap, has: trap },
+    );
+    const withGetters = emit(getters, 'Request failed', proxy);
+    const withProxy = emit(proxy);
+    assert({
+      given:
+        'fields whose getters throw, and a child and fields that are throwing proxies',
       should:
-        'serialize name/message/cause instead of the opaque {} JSON.stringify would give, and never leak either message verbatim',
+        'log without throwing, keeping the plain field and leaving the accessors out',
       actual: {
-        name: entry.err.name,
-        message: entry.err.message,
-        causeMessage: entry.err.cause?.message,
+        errorCode: withGetters.entry.errorCode,
+        operation: 'operation' in withGetters.entry,
+        proxyEvent: withProxy.entry.event,
       },
       expected: {
-        name: 'Error',
-        message: 'outer failure',
-        causeMessage: 'unredacted-cause-secret-value',
+        errorCode: 'INTERNAL',
+        operation: false,
+        proxyEvent: 'request.unhandled',
       },
     });
   });
 
-  test('a circular cause chain is redacted rather than looping forever', () => {
-    let output = '';
-    const logger = createLogger({
-      service: 'test',
-      destination: { write: (text) => (output += text) },
+  test('a shared, non-circular reference', () => {
+    const shared = { id: 'shared' };
+    const { output, entry } = emit({
+      first: shared,
+      second: shared,
+      operation: 'auth.request',
     });
-    const circular: { message: string; cause?: unknown } = {
-      message: 'circular',
-    };
-    circular.cause = circular;
-    logger.log('request.unhandled', { err: circular }, 'failed');
     assert({
-      given: 'a field whose cause chain circles back to itself',
-      should: 'complete without hanging or throwing',
-      actual: typeof output === 'string' && output.length > 0,
-      expected: true,
+      given: 'one object referenced by two fields',
+      should: 'treat both the same, never logging the second as [REDACTED]',
+      actual: {
+        redacted: output.includes('[REDACTED]'),
+        operation: entry.operation,
+      },
+      expected: { redacted: false, operation: 'auth.request' },
     });
   });
 
-  test('redacts a magic-link token embedded in a URL field value', () => {
-    let output = '';
-    const logger = createLogger({
-      service: 'test',
-      destination: { write: (text) => (output += text) },
-    });
-    const secretToken = 'unredacted-magic-link-token';
-    logger.log(
-      'auth.magic_link.verified',
-      {
-        confirmLink: `https://daisy.example.com/auth/confirm?token=${secretToken}`,
-      },
-      'verified',
-    );
+  test('a circular structure', () => {
+    const circular: Record<string, unknown> = { operation: 'auth.request' };
+    circular.self = circular;
+    const { entry } = emit(circular);
     assert({
-      given: 'a URL field carrying a token query parameter',
-      should: 'redact the token value from the emitted log line',
-      actual: output.includes(secretToken),
-      expected: false,
+      given: 'fields that refer to themselves',
+      should: 'log without looping, keeping the admitted field',
+      actual: entry.operation,
+      expected: 'auth.request',
     });
   });
 });

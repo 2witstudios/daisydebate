@@ -2,7 +2,6 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { memoryAdapter } from '@better-auth/memory-adapter';
 import type { BetterAuthOptions } from 'better-auth';
 import { readAuthConfig } from '@daisy/config';
-import { isAppError } from '@daisy/errors';
 import { fixedClock, sequentialId } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import { createAuthServer, type AuthEmailMessage } from './server';

@@ -97,7 +97,7 @@ const composeBetterAuth = (dependencies: {
         if (level === 'error' || level === 'warn')
           dependencies.logger.log(
             'request.unhandled',
-            { source: 'better-auth', level },
+            { source: 'better-auth', sourceLevel: level },
             'Authentication library reported a failure',
           );
       },
