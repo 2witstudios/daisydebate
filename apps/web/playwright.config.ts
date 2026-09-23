@@ -1,6 +1,17 @@
-import { defineConfig } from '@playwright/test';
+import { defineConfig, devices } from '@playwright/test';
 
 type Env = Readonly<Record<string, string | undefined>>;
+
+// The signup/login/passkey/recovery journey specs (AUTH-6.6's "supported
+// magic-link/account journeys"), run across every engine and mobile layout.
+// Non-auth suites (dashboard shell, theme, CSP, foundation proof) stay
+// Chromium-only: cross-browser parity for them is outside this epic's scope.
+export const AUTH_JOURNEY_SPECS = [
+  '**/journey.e2e.ts',
+  '**/passkey-lifecycle.e2e.ts',
+  '**/accessibility.e2e.ts',
+  '**/auth-routes.e2e.ts',
+];
 
 // Ports derive from the environment; `bun slot:up` writes each checkout's
 // own (docs/development/local-development.md, "Parallel sessions").
@@ -55,8 +66,19 @@ export default defineConfig({
   timeout: 30_000,
   fullyParallel: false,
   workers: 1,
-  retries: process.env.CI ? 1 : 0,
-  reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
+  // Release qualification requires retries disabled: a retry-pass is a
+  // flaky result, not proof (spec "Prevent tests from proving their own
+  // fixtures"). CI always writes the json reporter so
+  // scripts/e2e-report-counts.ts can report discovered/executed/pass/fail
+  // counts and reject an empty selection.
+  retries: 0,
+  reporter: process.env.CI
+    ? [
+        ['list'],
+        ['html', { open: 'never' }],
+        ['json', { outputFile: 'test-results/results.json' }],
+      ]
+    : 'list',
   use: {
     baseURL: origin,
     // The edge presents a per-run self-signed certificate for localhost.
@@ -66,7 +88,42 @@ export default defineConfig({
     video: 'retain-on-failure',
   },
   projects: [
-    { name: 'functional', testIgnore: '**/visual.e2e.ts' },
+    // Chromium carries the whole functional suite (app/dashboard chrome,
+    // theme, CSP, auth) as the primary CI project, unchanged from before
+    // AUTH-6.6. The spec's cross-browser/mobile requirement is scoped to
+    // "the supported magic-link/account journeys", not the whole app, so
+    // the added engines/layouts below testMatch only the auth-journey
+    // specs. CDP WebAuthn (navigator.credentials via a virtual
+    // authenticator) is Chromium-only, so passkey-lifecycle.e2e.ts is
+    // additionally excluded from every non-Chromium project.
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+      testIgnore: '**/visual.e2e.ts',
+    },
+    {
+      name: 'chromium-mobile',
+      use: { ...devices['Pixel 8'] },
+      testMatch: AUTH_JOURNEY_SPECS,
+    },
+    {
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'] },
+      testMatch: AUTH_JOURNEY_SPECS,
+      testIgnore: '**/passkey-lifecycle.e2e.ts',
+    },
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'] },
+      testMatch: AUTH_JOURNEY_SPECS,
+      testIgnore: '**/passkey-lifecycle.e2e.ts',
+    },
+    {
+      name: 'webkit-mobile',
+      use: { ...devices['iPhone 15'] },
+      testMatch: AUTH_JOURNEY_SPECS,
+      testIgnore: '**/passkey-lifecycle.e2e.ts',
+    },
     ...(runsVisualProject(process.env, process.platform)
       ? [
           {

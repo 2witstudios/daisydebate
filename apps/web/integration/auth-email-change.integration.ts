@@ -1,7 +1,6 @@
 import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
-import { buildUserInboxTopic } from '@daisy/protocol';
 import { createPasskeyFlows } from './auth-passkey-flows';
 import {
   cookieHeader,
@@ -10,6 +9,12 @@ import {
   withSql,
   type CapturedMail,
 } from './auth-mounted-helpers';
+import {
+  cleanupActorFor,
+  cleanupOutboxFor,
+  createActorFor,
+  sessionRevokedEvents,
+} from './auth-outbox-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 
 if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
@@ -78,40 +83,56 @@ const userIdOf = (email: string) =>
     return row?.id as string | undefined;
   });
 
-/** RT-2.2: outbox rows the email-change completion's revocation appends. */
-const sessionRevokedEvents = (actorId: string) =>
-  withSql(
-    (sql) =>
-      sql`SELECT topic FROM outbox WHERE kind = 'session.revoked' AND topic = ${buildUserInboxTopic(actorId)}`,
-  ).then((rows) => rows.length);
-
-const cleanupOutboxFor = (actorId: string) =>
-  withSql(
-    (sql) =>
-      sql`DELETE FROM outbox WHERE kind = 'session.revoked' AND topic = ${buildUserInboxTopic(actorId)}`,
-  );
-
-/**
- * Plan revision 4.10: the outbox append only runs once the actor resolves
- * through `actors.user_id`, and this suite's accounts sign up without ever
- * claiming a username (an unrelated surface to email-change revocation), so
- * it inserts the actor directly rather than going through the onboarding
- * route. Revocation rows are keyed by `actors.id`, never `userId`, so this
- * returns the actor id the append will use.
- */
-const createActorFor = async (userId: string): Promise<string> => {
-  const actorId = createId();
-  await withSql(
-    (sql) =>
-      sql`INSERT INTO actors (id, kind, user_id) VALUES (${actorId}, 'human', ${userId})`,
-  );
-  return actorId;
-};
-
-const cleanupActorFor = (userId: string) =>
-  withSql((sql) => sql`DELETE FROM actors WHERE user_id = ${userId}`);
+/** Swaps the shared logger for a recorder for the duration of `work` (AUTH-6.4). */
+async function recordedEvents(work: () => Promise<void>): Promise<string[]> {
+  const resources = flows.account.flows.getResources();
+  const events: string[] = [];
+  const original = resources.logger;
+  resources.logger = {
+    log: (event: string) => {
+      events.push(event);
+    },
+    child() {
+      return this;
+    },
+  };
+  try {
+    await work();
+  } finally {
+    resources.logger = original;
+  }
+  return events;
+}
 
 describe('AUTH-5.6 change the recovery email', () => {
+  test('requesting a change and verifying the new address each emit their own lifecycle event (AUTH-6.4)', async () => {
+    const { email, cookie } = await signUp();
+    const uid = (await userIdOf(email)) ?? '';
+    const before = flows.account.flows.mailbox.mails.length;
+    const newEmail = `${createId()}@example.test`;
+    const requestEvents = await recordedEvents(async () => {
+      await flows.changeEmail(cookie, newEmail);
+    });
+    const confirmLink = linkFrom(flows.account.flows.mailbox.mails[before]!);
+    await confirmPost(tokenOf(confirmLink));
+    const verifyLink = linkFrom(flows.account.flows.mailbox.mails[before + 1]!);
+    const verifyEvents = await recordedEvents(async () => {
+      await confirmPost(tokenOf(verifyLink));
+    });
+    assert({
+      given:
+        'a fresh session requesting a change, then verifying the new address',
+      should:
+        'emit auth.email_change.requested and auth.email_change.verified respectively',
+      actual: {
+        requested: requestEvents.includes('auth.email_change.requested'),
+        verified: verifyEvents.includes('auth.email_change.verified'),
+      },
+      expected: { requested: true, verified: true },
+    });
+    void uid;
+  });
+
   test('a fresh session completes the two-hop change, keeping the old address until the new one verifies', async () => {
     const { email, cookie, userId } = { ...(await signUp()), userId: '' };
     const uid = (await userIdOf(email)) ?? '';

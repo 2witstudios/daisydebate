@@ -1,8 +1,44 @@
 import { toNextJsHandler } from 'better-auth/next-js';
 import { createAppError, isAppError } from '@daisy/errors';
+import type { EventName, Logger } from '@daisy/logger';
 import { handleOperation } from '../../server/http';
 
 type Handler = (request: Request) => Promise<Response>;
+
+/**
+ * Better Auth mounted paths whose successful outcome is a distinct auth
+ * lifecycle milestone worth its own event, beyond the generic
+ * `http.request.completed` (which shares one `auth.request` operation name
+ * across every mounted route and cannot distinguish them). Only the stable
+ * path and event name are logged: never the request body, query or cookies.
+ */
+const LIFECYCLE_EVENTS: Readonly<Record<string, EventName>> = {
+  '/magic-link/verify': 'auth.magic_link.verified',
+  '/passkey/verify-registration': 'auth.passkey.enrolled',
+  '/passkey/verify-authentication': 'auth.passkey.authenticated',
+  '/passkey/delete-passkey': 'auth.passkey.removed',
+  '/revoke-session': 'auth.session.revoked',
+  '/revoke-sessions': 'auth.session.revoked_all',
+  '/revoke-other-sessions': 'auth.session.revoked_all',
+  '/change-email': 'auth.email_change.requested',
+  '/verify-email': 'auth.email_change.verified',
+};
+
+/** Strips the mount prefix so only the stable Better Auth path is compared. */
+const mountedPath = (url: string): string =>
+  new URL(url).pathname.replace(/^\/api\/auth/, '');
+
+/** A successful lifecycle milestone, logged once, with no request data. */
+function logLifecycleEvent(
+  logger: Logger,
+  request: Request,
+  response: Response,
+) {
+  if (response.status >= 400) return;
+  const event = LIFECYCLE_EVENTS[mountedPath(request.url)];
+  if (!event) return;
+  logger.log(event, { operation: 'auth.request' }, event.replace(/\./g, ' '));
+}
 
 /**
  * Copies a Better Auth response into a fresh mutable one without consuming
@@ -42,7 +78,7 @@ export function createAuthRouteHandlers(
 ) {
   const handle = async (request: Request) =>
     withRetryAfter(
-      await handleOperation(request, 'auth.request', async () => {
+      await handleOperation(request, 'auth.request', async (_id, logger) => {
         const server = auth();
         // Better Auth only enforces origin on cookie-bearing requests; every
         // state-changing auth call must additionally come from our own origin.
@@ -61,6 +97,7 @@ export function createAuthRouteHandlers(
           // 500: to callers that is a retryable outage (503), not a fault.
           if (response.status === 500 && response.body === null)
             throw createAppError('INFRASTRUCTURE');
+          logLifecycleEvent(logger, request, response);
           return preserve(response);
         } catch (error) {
           // Anything unexpected from the framework (a database failure while

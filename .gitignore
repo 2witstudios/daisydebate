@@ -9,6 +9,7 @@ next-env.d.ts
 coverage/
 playwright-report/
 test-results/
+qualification-results/
 .pu/
 .DS_Store
 .opencode/

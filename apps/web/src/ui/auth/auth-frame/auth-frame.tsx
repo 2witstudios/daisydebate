@@ -26,7 +26,7 @@ export function AuthFrame({ panel, footer, children }: AuthFrameProps) {
           className="flex items-center gap-3 self-start text-ink no-underline hover:no-underline"
         >
           <DaisyLogo />
-          <span className="font-display text-xl leading-shell-brand font-semibold tracking-tight">
+          <span className="font-display text-xl leading-shell-brand font-semibold tracking-tight text-ink">
             Daisy
           </span>
         </Link>
