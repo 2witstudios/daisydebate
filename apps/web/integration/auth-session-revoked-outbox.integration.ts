@@ -3,15 +3,13 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createDatabase } from '@daisy/db';
 import { buildUserInboxTopic } from '@daisy/protocol';
+import { withOutboxInsertBlockedForTopic } from './auth-outbox-helpers';
+import { fixtureEmail, linkFrom, removeAccount, tokenOf } from './fixtures';
 import {
-  capturedToken,
   createTestAuthServer,
-  fixtureEmail,
   redeemMagicLink,
-  removeFixture,
-  withOutboxInsertBlockedForTopic,
   type SentMessages,
-} from './auth-helpers';
+} from './auth-server-harness';
 import type { RecordedLogs } from '../src/features/auth/log-leaks';
 import { requireTestServices } from '@daisy/config';
 
@@ -28,7 +26,7 @@ const signInOnce = async (
     body: { email },
     headers: new Headers({ origin: auth.config.PUBLIC_APP_URL }),
   });
-  const token = capturedToken(sent.at(-1)!);
+  const token = tokenOf(linkFrom(sent.at(-1)!));
   const response = await redeemMagicLink(auth, token);
   const cookie = response.headers.get('set-cookie')?.split(';')[0] ?? '';
   const sessionResponse = await auth.instance.handler(
@@ -103,7 +101,6 @@ for (const route of routes) {
 
       let response: Response | undefined;
       await withOutboxInsertBlockedForTopic(
-        url,
         buildUserInboxTopic(actorId),
         async () => {
           response = await auth.instance.handler(
@@ -149,10 +146,8 @@ for (const route of routes) {
       });
     } finally {
       await database.close();
-      if (userId)
-        await admin.unsafe('delete from actors where user_id = $1', [userId]);
       await admin.close();
-      await removeFixture(url, email, userId, []);
+      await removeAccount({ email, userId });
     }
   });
 }
@@ -180,7 +175,7 @@ test('withOutboxInsertBlockedForTopic blocks only its own topic, never an unrela
   try {
     let blockedAttempt = '';
     let otherAttempt = '';
-    await withOutboxInsertBlockedForTopic(url, blockedTopic, async () => {
+    await withOutboxInsertBlockedForTopic(blockedTopic, async () => {
       blockedAttempt = await insertOutboxRow(admin, blockedTopic);
       otherAttempt = await insertOutboxRow(admin, otherTopic);
     });

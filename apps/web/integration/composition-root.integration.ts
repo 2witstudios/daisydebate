@@ -5,7 +5,7 @@ import {
   fixtureEmail,
   removeAccount,
   withSql,
-} from './auth-mounted-helpers';
+} from './fixtures';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import { requireTestServices } from '@daisy/config';
 

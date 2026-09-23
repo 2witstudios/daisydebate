@@ -5,8 +5,9 @@ import {
   fixtureEmail,
   linkFrom,
   removeAccount,
+  tokenOf,
   withSql,
-} from './auth-mounted-helpers';
+} from './fixtures';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 
 /**
@@ -20,14 +21,21 @@ export function createFlows() {
   const { routes, mailbox, jsonPost, formPost, newClient } = testApp;
   const authRoute = routes.auth;
   const confirmRoute = routes.confirm;
-  const emails: string[] = [];
+  // Every account this suite created, by its first email and, once known,
+  // its user id: an email change mid-test leaves the id as the only key.
+  const accounts: Array<{ email: string; userId?: string }> = [];
   const fresh = () => {
     const email = fixtureEmail();
-    emails.push(email);
+    accounts.push({ email });
     return email;
   };
+  /** Records the user id behind an address this suite created. */
+  const track = (email: string, userId: string | undefined) => {
+    const account = accounts.find((entry) => entry.email === email);
+    if (account && userId) account.userId = userId;
+  };
   afterAll(async () => {
-    for (const email of emails) await removeAccount(email);
+    for (const account of accounts) await removeAccount(account);
   });
   const requestLink = async (
     email: string,
@@ -75,6 +83,7 @@ export function createFlows() {
     jsonPost,
     formPost,
     fresh,
+    track,
     requestLink,
     confirmGet,
     redeem,
@@ -87,5 +96,3 @@ export function createFlows() {
       ),
   };
 }
-
-export const tokenOf = (link: URL) => link.searchParams.get('token') ?? '';

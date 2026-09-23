@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createFlows } from './auth-mounted-flows';
-import { cookieHeader, counts } from './auth-mounted-helpers';
+import { cookieHeader, counts } from './fixtures';
 import { requireTestServices } from '@daisy/config';
 
 requireTestServices(process.env);
@@ -70,7 +70,7 @@ describe('AUTH-3.2 / AUTH-3.5 origin and destination safety', () => {
       expected: {
         statuses: [403, 403, 403, 403, 400],
         cookies: [0, 0, 0],
-        counts: { users: 0, sessions: 0, verifications: 1 },
+        counts: { users: 0, sessions: 0, verifications: 1, passkeys: 0 },
       },
     });
   });
@@ -246,7 +246,7 @@ describe('AUTH-3.1 no password authentication', () => {
       expected: {
         statuses: Array(attempts.length).fill(404),
         cookies: Array(attempts.length).fill(0),
-        counts: { users: 0, sessions: 0, verifications: 0 },
+        counts: { users: 0, sessions: 0, verifications: 0, passkeys: 0 },
       },
     });
   });

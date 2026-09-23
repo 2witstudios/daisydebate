@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createTestApp, fixtureEmail, origin } from './auth-mounted-helpers';
+import { createTestApp, fixtureEmail, origin } from './fixtures';
 import {
   CLIENT_IP_HEADER,
   stampClientIdentity,

@@ -1,7 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { Identity } from '@daisy/auth';
 import { createPasskeyFlows, rpID } from './auth-passkey-flows';
-import { cookieHeader, origin, withSql } from './auth-mounted-helpers';
+import { cookieHeader, origin, withSql } from './fixtures';
 import {
   buildAuthenticationResponse,
   buildRegistrationResponse,

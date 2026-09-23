@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createFlows } from './auth-mounted-flows';
-import { counts, origin } from './auth-mounted-helpers';
+import { counts, origin } from './fixtures';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import { requireTestServices } from '@daisy/config';
 
@@ -40,7 +40,12 @@ describe('ISSUE-3: direct GET redemption of /magic-link/verify is refused', () =
       expected: {
         directStatus: 404,
         directCookies: 0,
-        countsAfterDirectAttempt: { users: 0, sessions: 0, verifications: 1 },
+        countsAfterDirectAttempt: {
+          users: 0,
+          sessions: 0,
+          verifications: 1,
+          passkeys: 0,
+        },
         legitimateRedemptionStatus: 303,
         legitimateCookieIssued: true,
       },

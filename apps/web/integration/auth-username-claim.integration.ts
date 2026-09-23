@@ -4,7 +4,7 @@ import {
   uniqueName,
   usernameOf,
 } from './auth-account-helpers';
-import { origin, withSql } from './auth-mounted-helpers';
+import { origin, withSql } from './fixtures';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import { requireTestServices } from '@daisy/config';
 

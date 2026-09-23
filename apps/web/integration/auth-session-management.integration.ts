@@ -1,7 +1,7 @@
 import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createPasskeyFlows } from './auth-passkey-flows';
-import { cookieHeader, origin } from './auth-mounted-helpers';
+import { cookieHeader, origin } from './fixtures';
 import {
   cleanupActorFor,
   cleanupOutboxFor,

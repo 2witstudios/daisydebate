@@ -1,8 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { createPasskeyFlows } from './auth-passkey-flows';
-import { origin, withSql, type CapturedMail } from './auth-mounted-helpers';
-import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+import { emailOf, linkFrom, tokenOf, userIdOf } from './fixtures';
 import { requireTestServices } from '@daisy/config';
 
 /**
@@ -15,42 +14,7 @@ requireTestServices(process.env);
 setupRitewayBun();
 
 const flows = await createPasskeyFlows();
-const { newClient } = flows.account.flows;
 const { signUp } = flows.account;
-const confirmEmailRoute = flows.account.flows.testApp.routes.confirmEmail;
-
-const linkFrom = (mail: CapturedMail): URL => {
-  const found = mail.text.match(/https?:\/\/\S+/)?.[0];
-  if (!found) throw new Error('No link in captured mail');
-  return new URL(found);
-};
-
-const confirmPost = (token: string, callbackURL = '/settings/security') =>
-  confirmEmailRoute.POST(
-    new Request(`${origin}/auth/confirm-email`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/x-www-form-urlencoded',
-        origin,
-        [CLIENT_IP_HEADER]: newClient(),
-      },
-      body: new URLSearchParams({ token, callbackURL }).toString(),
-    }),
-  );
-
-const tokenOf = (link: URL) => link.searchParams.get('token') ?? '';
-
-const emailOf = (userId: string) =>
-  withSql(async (sql) => {
-    const [row] = await sql`SELECT email FROM users WHERE id = ${userId}`;
-    return row?.email as string | undefined;
-  });
-
-const userIdOf = (email: string) =>
-  withSql(async (sql) => {
-    const [row] = await sql`SELECT id FROM users WHERE email = ${email}`;
-    return row?.id as string | undefined;
-  });
 
 describe('ISSUE-3: direct GET redemption of /verify-email is refused', () => {
   test('a direct GET never verifies the change, leaving the token to verify through the confirm page', async () => {
@@ -60,7 +24,7 @@ describe('ISSUE-3: direct GET redemption of /verify-email is refused', () => {
     const newEmail = `${createId()}@example.test`;
     await flows.changeEmail(cookie, newEmail);
     const confirmMail = flows.account.flows.mailbox.mails[before];
-    await confirmPost(tokenOf(linkFrom(confirmMail!)));
+    await flows.confirmEmailPost(tokenOf(linkFrom(confirmMail!)));
     const verifyMail = flows.account.flows.mailbox.mails[before + 1];
     const verifyToken = tokenOf(linkFrom(verifyMail!));
 
@@ -68,7 +32,7 @@ describe('ISSUE-3: direct GET redemption of /verify-email is refused', () => {
       `/api/auth/verify-email?token=${encodeURIComponent(verifyToken)}`,
     );
     const emailAfterDirectAttempt = await emailOf(uid);
-    const legitimate = await confirmPost(verifyToken);
+    const legitimate = await flows.confirmEmailPost(verifyToken);
     const finalEmail = await emailOf(uid);
 
     assert({

@@ -1,6 +1,6 @@
 import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createTestApp, fixtureEmail } from './auth-mounted-helpers';
+import { createTestApp, fixtureEmail } from './fixtures';
 import { createSecondInstances, statuses } from './auth-rate-limit-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import { requireTestServices } from '@daisy/config';

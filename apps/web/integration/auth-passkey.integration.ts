@@ -1,9 +1,15 @@
-import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createDatabase } from '@daisy/db';
-import { createTestAuthServer, isCuid2 } from './auth-helpers';
 import { requireTestServices } from '@daisy/config';
+import { createDatabase } from '@daisy/db';
+import {
+  counts,
+  emptyCounts,
+  isCuid2,
+  removeAccount,
+  withSql,
+} from './fixtures';
+import { createTestAuthServer } from './auth-server-harness';
 
 setupRitewayBun();
 
@@ -42,14 +48,22 @@ const runtimeAdapter = async (database: ReturnType<typeof createDatabase>) => {
 
 // The subject here is durable passkey-record persistence, not a login
 // journey: the owning user is a labeled test fixture row, not a session.
-const createFixtureUser = async (probe: SQL) => {
+const createFixtureUser = async () => {
   const userId = createId();
-  await probe.unsafe(
-    "insert into users (id, username, email, email_verified, name) values ($1, $2, null, false, '')",
-    [userId, `passkey-${userId}`],
+  await withSql(
+    (sql) =>
+      sql`insert into users (id, username, email, email_verified, name) values (${userId}, ${`passkey-${userId}`}, null, false, '')`,
   );
   return userId;
 };
+
+/** The SQLSTATE a rejected write carries (the driver error is the cause). */
+const sqlStateOf = (write: Promise<unknown>) =>
+  write.then(
+    () => 'accepted',
+    (error: { errno?: string; cause?: { errno?: string } }) =>
+      error.cause?.errno ?? error.errno ?? 'unknown',
+  );
 
 const passkeyData = (userId: string, credentialID: string) => ({
   name: 'Laptop',
@@ -62,23 +76,11 @@ const passkeyData = (userId: string, credentialID: string) => ({
   transports: 'internal',
 });
 
-const rowCount = async (query: string, params: unknown[]) => {
-  const probe = new SQL(url);
-  try {
-    const rows = await probe.unsafe(query, params);
-    return rows[0]?.c ?? 0;
-  } finally {
-    await probe.close();
-  }
-};
-
 test('passkey records round-trip through the Better Auth adapter on the shared pool', async () => {
   const database = createDatabase({ url, nextActorId: createId });
   const adapter = await runtimeAdapter(database);
-  const fixture = new SQL(url);
-  let userId: string | undefined;
+  const userId = await createFixtureUser();
   try {
-    userId = await createFixtureUser(fixture);
     const credentialId = `cred-${createId()}${createId()}`;
     const passkey = (await adapter.create({
       model: 'passkey',
@@ -98,41 +100,36 @@ test('passkey records round-trip through the Better Auth adapter on the shared p
       should: 'be retrievable by credential and renamable in place',
       actual: {
         cuid2Id: isCuid2(passkey.id),
-        ownedByFixtureUser: passkey.userId === userId,
-        foundByCredential: found?.id === passkey.id,
+        owner: passkey.userId,
+        foundByCredential: found?.id,
         renamed: renamed?.name,
       },
       expected: {
         cuid2Id: true,
-        ownedByFixtureUser: true,
-        foundByCredential: true,
+        owner: userId,
+        foundByCredential: passkey.id,
         renamed: 'Roaming key',
       },
     });
 
-    let duplicateRejected = false;
-    try {
-      await adapter.create({
-        model: 'passkey',
-        data: passkeyData(userId, credentialId),
-      });
-    } catch {
-      duplicateRejected = true;
-    }
-    let foreignKeyRejected = false;
-    try {
-      await adapter.create({
-        model: 'passkey',
-        data: passkeyData(createId(), `cred-${createId()}${createId()}`),
-      });
-    } catch {
-      foreignKeyRejected = true;
-    }
     assert({
-      given: 'duplicate credentials or unknown owners',
-      should: 'reject on credential uniqueness and the user foreign key',
-      actual: { duplicateRejected, foreignKeyRejected },
-      expected: { duplicateRejected: true, foreignKeyRejected: true },
+      given: 'a duplicate credential and a credential for an unknown owner',
+      should: 'reject with the unique violation and the foreign-key violation',
+      actual: {
+        duplicate: await sqlStateOf(
+          adapter.create({
+            model: 'passkey',
+            data: passkeyData(userId, credentialId),
+          }),
+        ),
+        unknownOwner: await sqlStateOf(
+          adapter.create({
+            model: 'passkey',
+            data: passkeyData(createId(), `cred-${createId()}${createId()}`),
+          }),
+        ),
+      },
+      expected: { duplicate: '23505', unknownOwner: '23503' },
     });
 
     await adapter.delete({
@@ -148,33 +145,19 @@ test('passkey records round-trip through the Better Auth adapter on the shared p
       should: 'delete durably so neither the adapter nor storage finds it',
       actual: {
         goneAfterDelete: gone,
-        rowsRemaining: await rowCount(
-          'select count(*)::int as c from passkey where user_id = $1',
-          [userId],
-        ),
+        passkeys: (await counts({ userId })).passkeys,
       },
-      expected: { goneAfterDelete: null, rowsRemaining: 0 },
+      expected: { goneAfterDelete: null, passkeys: 0 },
     });
   } finally {
-    if (userId)
-      await fixture.unsafe('delete from users where id = $1', [userId]);
-    await fixture.close();
+    await removeAccount({ userId });
     await database.close();
   }
 
   assert({
     given: 'the bounded fixture cleanup after the passkey round trip',
     should: 'leave no fixture records behind',
-    actual: {
-      usersRemaining: await rowCount(
-        'select count(*)::int as c from users where id = $1',
-        [userId],
-      ),
-      passkeysRemaining: await rowCount(
-        'select count(*)::int as c from passkey where user_id = $1',
-        [userId],
-      ),
-    },
-    expected: { usersRemaining: 0, passkeysRemaining: 0 },
+    actual: await counts({ userId }),
+    expected: emptyCounts,
   });
 });

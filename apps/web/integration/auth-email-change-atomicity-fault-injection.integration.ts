@@ -2,15 +2,8 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { buildUserInboxTopic } from '@daisy/protocol';
 import { createPasskeyFlows } from './auth-passkey-flows';
-import { withOutboxInsertBlockedForTopic } from './auth-helpers';
-import {
-  cookieHeader,
-  origin,
-  testDatabaseUrl,
-  withSql,
-  type CapturedMail,
-} from './auth-mounted-helpers';
-import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+import { withOutboxInsertBlockedForTopic } from './auth-outbox-helpers';
+import { cookieHeader, linkFrom, tokenOf, userIdOf, withSql } from './fixtures';
 import { requireTestServices } from '@daisy/config';
 
 /**
@@ -30,40 +23,7 @@ requireTestServices(process.env);
 setupRitewayBun();
 
 const flows = await createPasskeyFlows();
-const { newClient } = flows.account.flows;
 const { withLoggedEvents } = flows.account.flows.testApp;
-const confirmEmailRoute = flows.account.flows.testApp.routes.confirmEmail;
-
-const linkFrom = (mail: CapturedMail): URL => {
-  const found = mail.text.match(/https?:\/\/\S+/)?.[0];
-  if (!found) throw new Error('No link in captured mail');
-  return new URL(found);
-};
-
-const confirmPost = (token: string, callbackURL = '/settings/security') =>
-  confirmEmailRoute.POST(
-    new Request(`${origin}/auth/confirm-email`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/x-www-form-urlencoded',
-        origin,
-        [CLIENT_IP_HEADER]: newClient(),
-      },
-      body: new URLSearchParams({ token, callbackURL }).toString(),
-    }),
-  );
-
-const tokenOf = (link: URL) => link.searchParams.get('token') ?? '';
-
-const isAuthenticated = async (cookie: string): Promise<boolean> =>
-  (await (
-    await flows.get('/api/auth/get-session?disableCookieCache=true', cookie)
-  ).json()) !== null;
-
-const userIdOf = (email: string) =>
-  withSql((sql) => sql`SELECT id FROM users WHERE email = ${email}`).then(
-    (rows) => rows[0]?.id as string | undefined,
-  );
 
 describe('ISSUE-23 a real fault injected into revokeOtherSessions during /verify-email', () => {
   test('a forced outbox failure inside the atomic revocation rolls back the session delete too', async () => {
@@ -76,7 +36,7 @@ describe('ISSUE-23 a real fault injected into revokeOtherSessions during /verify
     const newEmail = `${createId()}@example.test`;
     await flows.changeEmail(cookie, newEmail);
     const confirmMail = flows.account.flows.mailbox.mails[before];
-    await confirmPost(tokenOf(linkFrom(confirmMail!)));
+    await flows.confirmEmailPost(tokenOf(linkFrom(confirmMail!)));
     const verifyMail = flows.account.flows.mailbox.mails[before + 1];
     const verifyToken = tokenOf(linkFrom(verifyMail!));
 
@@ -96,10 +56,9 @@ describe('ISSUE-23 a real fault injected into revokeOtherSessions during /verify
     try {
       ({ events: loggedEvents } = await withLoggedEvents(() =>
         withOutboxInsertBlockedForTopic(
-          testDatabaseUrl as string,
           buildUserInboxTopic(actorId),
           async () => {
-            completion = await confirmPost(verifyToken);
+            completion = await flows.confirmEmailPost(verifyToken);
           },
         ),
       ));
@@ -112,7 +71,8 @@ describe('ISSUE-23 a real fault injected into revokeOtherSessions during /verify
         actual: {
           status: completion.status,
           carriesNewSessionCookie: completion.headers.getSetCookie().length > 0,
-          otherSessionStillAuthenticated: await isAuthenticated(otherCookie),
+          otherSessionStillAuthenticated:
+            await flows.isAuthenticated(otherCookie),
           loggedCleanupFailed: loggedEvents.includes(
             'auth.email_change.cleanup_failed',
           ),

@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { counts, linkFrom } from './auth-mounted-helpers';
+import { counts, linkFrom } from './fixtures';
 import { createMailSuite, providerEvent } from './auth-webhook-helpers';
 import { requireTestServices } from '@daisy/config';
 
@@ -56,7 +56,7 @@ describe('AUTH-3.6 suppression after hard delivery failures', () => {
         formStatus: 422,
         formGuidance: true,
         sent: 0,
-        account: { users: 1, sessions: 1, verifications: 0 },
+        account: { users: 1, sessions: 1, verifications: 0, passkeys: 0 },
       },
     });
   });

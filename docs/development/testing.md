@@ -142,8 +142,11 @@ not exist — PageSpace lost entire tiers this way. `bun evidence` (in
 - New domain behavior lands with engine tests first; new durable behavior
   lands with an integration test through the application operation, not by
   mocking the database.
-- Every `apps/web` integration suite builds its own app with `createTestApp`
-  (`apps/web/integration/auth-mounted-helpers.ts`): `createApp` over the test
+- The web integration suites share one fixture module,
+  `apps/web/integration/fixtures.ts`: the test environment, the app, the
+  accounts a suite creates (`fixtureEmail`), their cleanup (`removeAccount`,
+  keyed by email and user id) and their row counts (`counts`). Every suite
+  builds its own app with its `createTestApp`: `createApp` over the test
   services with its own validated environment, Redis namespace, mailbox
   `fetch`, log output and client addresses, and the route handlers
   `createRoutes` builds from it. Suites share one `bun test` process, so a

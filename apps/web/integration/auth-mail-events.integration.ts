@@ -1,6 +1,6 @@
 import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { counts, withSql } from './auth-mounted-helpers';
+import { counts, withSql } from './fixtures';
 import {
   createMailSuite,
   deliveryRow,
@@ -84,8 +84,18 @@ describe('AUTH-3.6 provider delivery events', () => {
           'received_at',
         ],
         payloadLeak: 0,
-        strangerAccount: { users: 0, sessions: 0, verifications: 0 },
-        requesterAccount: { users: 0, sessions: 0, verifications: 1 },
+        strangerAccount: {
+          users: 0,
+          sessions: 0,
+          verifications: 0,
+          passkeys: 0,
+        },
+        requesterAccount: {
+          users: 0,
+          sessions: 0,
+          verifications: 1,
+          passkeys: 0,
+        },
       },
     });
   });

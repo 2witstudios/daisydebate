@@ -1,17 +1,16 @@
-import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { signJWT, verifyJWT } from 'better-auth/crypto';
 import { buildUserInboxTopic } from '@daisy/protocol';
 import { createPasskeyFlows } from './auth-passkey-flows';
-import { trackedSignUp } from './auth-outbox-helpers';
 import {
   cookieHeader,
-  origin,
+  emailOf,
+  linkFrom,
+  tokenOf,
+  userIdOf,
   withSql,
-  type CapturedMail,
-} from './auth-mounted-helpers';
-import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+} from './fixtures';
 import { EMAIL_VERIFICATION_EXPIRES_IN_SECONDS } from '../src/features/auth/server';
 import { requireTestServices } from '@daisy/config';
 
@@ -25,47 +24,7 @@ requireTestServices(process.env);
 setupRitewayBun();
 
 const flows = await createPasskeyFlows();
-const { newClient } = flows.account.flows;
-const confirmEmailRoute = flows.account.flows.testApp.routes.confirmEmail;
-
-const linkFrom = (mail: CapturedMail): URL => {
-  const found = mail.text.match(/https?:\/\/\S+/)?.[0];
-  if (!found) throw new Error('No link in captured mail');
-  return new URL(found);
-};
-
-const confirmPost = (token: string, callbackURL = '/settings/security') =>
-  confirmEmailRoute.POST(
-    new Request(`${origin}/auth/confirm-email`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/x-www-form-urlencoded',
-        origin,
-        [CLIENT_IP_HEADER]: newClient(),
-      },
-      body: new URLSearchParams({ token, callbackURL }).toString(),
-    }),
-  );
-
-const tokenOf = (link: URL) => link.searchParams.get('token') ?? '';
-
-const isAuthenticated = async (cookie: string): Promise<boolean> =>
-  (await (
-    await flows.get('/api/auth/get-session?disableCookieCache=true', cookie)
-  ).json()) !== null;
-
-const emailOf = (userId: string) =>
-  withSql((sql) => sql`SELECT email FROM users WHERE id = ${userId}`).then(
-    (rows) => rows[0]?.email as string | undefined,
-  );
-
-const userIdOf = (email: string) =>
-  withSql((sql) => sql`SELECT id FROM users WHERE email = ${email}`).then(
-    (rows) => rows[0]?.id as string | undefined,
-  );
-
-const { signUp, cleanup } = trackedSignUp(flows.account.signUp, userIdOf);
-afterAll(cleanup);
+const { signUp } = flows.account;
 
 describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () => {
   test('an expired verification token is rejected server-side and changes nothing', async () => {
@@ -83,9 +42,9 @@ describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () 
     // isolating the expiry check from every other rejection reason.
     const expiredToken = await signJWT(payload, secret, -60);
     const validToken = await signJWT(payload, secret, 60);
-    const expiredAttempt = await confirmPost(expiredToken);
+    const expiredAttempt = await flows.confirmEmailPost(expiredToken);
     const emailAfterExpired = await emailOf(uid);
-    const validAttempt = await confirmPost(validToken);
+    const validAttempt = await flows.confirmEmailPost(validToken);
     assert({
       given:
         'a correctly signed but already-expired email-change verification token, next to an equivalent unexpired one',
@@ -112,7 +71,7 @@ describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () 
     const newEmail = `${createId()}@example.test`;
     await flows.changeEmail(cookie, newEmail);
     const confirmMail = flows.account.flows.mailbox.mails[before];
-    await confirmPost(tokenOf(linkFrom(confirmMail!)));
+    await flows.confirmEmailPost(tokenOf(linkFrom(confirmMail!)));
     const verifyMail = flows.account.flows.mailbox.mails[before + 1];
     const verifyToken = tokenOf(linkFrom(verifyMail!));
     const secret = flows.account.flows.app.auth().config.BETTER_AUTH_SECRET;
@@ -154,7 +113,7 @@ describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () 
     const newEmail = `${createId()}@example.test`;
     await flows.changeEmail(cookie, newEmail);
     const confirmMail = flows.account.flows.mailbox.mails[before];
-    await confirmPost(tokenOf(linkFrom(confirmMail!)));
+    await flows.confirmEmailPost(tokenOf(linkFrom(confirmMail!)));
     const verifyMail = flows.account.flows.mailbox.mails[before + 1];
     const verifyToken = tokenOf(linkFrom(verifyMail!));
 
@@ -189,7 +148,7 @@ describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () 
 
     let completion: Response;
     try {
-      completion = await confirmPost(verifyToken);
+      completion = await flows.confirmEmailPost(verifyToken);
     } finally {
       await withSql((sql) =>
         sql.unsafe(`drop trigger if exists "${fnName}_trigger" on session`),
@@ -246,7 +205,7 @@ describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () 
     const newEmail = `${createId()}@example.test`;
     await flows.changeEmail(cookie, newEmail);
     const confirmMail = flows.account.flows.mailbox.mails[before];
-    await confirmPost(tokenOf(linkFrom(confirmMail!)));
+    await flows.confirmEmailPost(tokenOf(linkFrom(confirmMail!)));
     const verifyMail = flows.account.flows.mailbox.mails[before + 1];
     const verifyToken = tokenOf(linkFrom(verifyMail!));
 
@@ -280,7 +239,7 @@ describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () 
           releaseRevoke();
           return response;
         }),
-        confirmPost(verifyToken),
+        flows.confirmEmailPost(verifyToken),
       ]);
       const concurrentCookie = cookieHeader(concurrentSignIn);
 
@@ -292,7 +251,7 @@ describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () 
           completionRedirected: completion.status,
           concurrentSessionIssued: concurrentCookie.length > 0,
           concurrentSessionAuthenticated:
-            await isAuthenticated(concurrentCookie),
+            await flows.isAuthenticated(concurrentCookie),
         },
         expected: {
           completionRedirected: 303,

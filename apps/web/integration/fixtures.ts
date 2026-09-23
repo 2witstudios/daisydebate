@@ -8,13 +8,17 @@ import { createApp } from '../src/server/app';
 import { createRoutes } from '../src/server/routes';
 
 /**
- * Shared harness for suites that drive the REAL route handlers
- * (`/api/auth/[...all]`, `/auth/confirm`, the Resend webhook) against real
- * PostgreSQL and Redis. Each suite builds its own app with `createTestApp`:
- * its own validated environment, Redis namespace, mailbox, log output and
- * client addresses, so no suite depends on which others ran first. Only the
- * outbound mail transport is substituted: the production Resend sender runs
- * unchanged and its HTTP call lands on the suite's mailbox `fetch`.
+ * The one fixture module for the web integration suites (ISSUE-11): the
+ * test environment, the app a suite builds for itself, the accounts it
+ * creates, their cleanup and their row counts. Suites that drive the REAL
+ * route handlers (`/api/auth/[...all]`, `/auth/confirm`, the Resend webhook)
+ * build their own app with `createTestApp`: its own validated environment,
+ * Redis namespace, mailbox, log output and client addresses, so no suite
+ * depends on which others ran first. Only the outbound mail transport is
+ * substituted: the production Resend sender runs unchanged and its HTTP call
+ * lands on the suite's mailbox `fetch`. Suites that exercise the Better Auth
+ * persistence seams directly build `auth-server-harness.ts`'s server over
+ * the same `authEnv`.
  */
 
 export const { databaseUrl: testDatabaseUrl, redisUrl: testRedisUrl } =
@@ -23,7 +27,17 @@ export const { databaseUrl: testDatabaseUrl, redisUrl: testRedisUrl } =
 export const origin = 'http://localhost:3000';
 export const webhookSecret = `whsec_${Buffer.from(createId() + createId()).toString('base64')}`;
 
-export type CapturedMail = {
+/** The auth environment every suite's app and auth server is built from. */
+export const authEnv = {
+  NODE_ENV: 'test',
+  PUBLIC_APP_URL: origin,
+  BETTER_AUTH_SECRET:
+    '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
+  RESEND_API_KEY: 're_integration_000000000000',
+  AUTH_EMAIL_FROM: 'Daisy <no-reply@daisy.example.com>',
+};
+
+type CapturedMail = {
   readonly to: string;
   readonly subject: string;
   readonly text: string;
@@ -127,16 +141,11 @@ export function createTestApp(
   setDefaultTimeout(30_000);
   const redisNamespace = `t3-${createId().slice(0, 10)}`;
   const env = {
-    NODE_ENV: 'test',
+    ...authEnv,
     DATABASE_URL: testDatabaseUrl,
     REDIS_URL: testRedisUrl,
     REDIS_NAMESPACE: redisNamespace,
-    PUBLIC_APP_URL: origin,
     LOG_LEVEL: 'info',
-    BETTER_AUTH_SECRET:
-      '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
-    RESEND_API_KEY: 're_integration_000000000000',
-    AUTH_EMAIL_FROM: 'Daisy <no-reply@daisy.example.com>',
     RESEND_WEBHOOK_SECRET: webhookSecret,
     ...overrides,
   };
@@ -244,11 +253,14 @@ export function createTestApp(
 
 export type TestApp = ReturnType<typeof createTestApp>;
 
-export const linkFrom = (mail: CapturedMail) => {
+/** The link a captured message carries (both mail shapes have `text`). */
+export const linkFrom = (mail: { readonly text: string }) => {
   const found = mail.text.match(/https?:\/\/\S+/)?.[0];
   if (!found) throw new Error('No link in captured mail');
   return new URL(found);
 };
+
+export const tokenOf = (link: URL) => link.searchParams.get('token') ?? '';
 
 export const cookieHeader = (response: Response) =>
   response.headers
@@ -258,8 +270,10 @@ export const cookieHeader = (response: Response) =>
 
 export const fixtureEmail = () => `auth-${createId()}@example.test`;
 
+export const isCuid2 = (value: string) => /^[a-z0-9]{24}$/.test(value);
+
 export async function withSql<T>(work: (sql: SQL) => Promise<T>): Promise<T> {
-  const sql = new SQL(testDatabaseUrl as string);
+  const sql = new SQL(testDatabaseUrl);
   try {
     return await work(sql);
   } finally {
@@ -267,27 +281,77 @@ export async function withSql<T>(work: (sql: SQL) => Promise<T>): Promise<T> {
   }
 }
 
-export const counts = (email: string) =>
-  withSql(async (sql) => {
-    const [users] =
-      await sql`SELECT count(*)::int AS c FROM users WHERE email = ${email}`;
-    const [sessions] =
-      await sql`SELECT count(*)::int AS c FROM session s JOIN users u ON u.id = s.user_id WHERE u.email = ${email}`;
-    const [verifications] =
-      await sql`SELECT count(*)::int AS c FROM verification WHERE value LIKE ${`%${email}%`}`;
-    return {
-      users: users?.c as number,
-      sessions: sessions?.c as number,
-      verifications: verifications?.c as number,
+export const userIdOf = (email: string) =>
+  withSql((sql) => sql`SELECT id FROM users WHERE email = ${email}`).then(
+    (rows) => rows[0]?.id as string | undefined,
+  );
+
+export const emailOf = (userId: string) =>
+  withSql((sql) => sql`SELECT email FROM users WHERE id = ${userId}`).then(
+    (rows) => rows[0]?.email as string | undefined,
+  );
+
+/**
+ * An account a suite created: its unique email, its user id, or both (an
+ * email change mid-test leaves the id as the only key; a fixture user may
+ * have no email). An empty key matches nothing.
+ */
+type Account =
+  | string
+  | {
+      readonly email?: string | null | undefined;
+      readonly userId?: string | null | undefined;
     };
+const keysOf = (account: Account) => {
+  const { email, userId } =
+    typeof account === 'string' ? { email: account, userId: null } : account;
+  return { email: email || null, userId: userId || null };
+};
+
+export type AccountCounts = {
+  readonly users: number;
+  readonly sessions: number;
+  readonly verifications: number;
+  readonly passkeys: number;
+};
+
+export const emptyCounts: AccountCounts = {
+  users: 0,
+  sessions: 0,
+  verifications: 0,
+  passkeys: 0,
+};
+
+/**
+ * The rows an account holds, counted over one connection. Verification rows
+ * are matched by containment of the unique fixture email (strpos, so `_` and
+ * `%` in an address are literal), so a payload shape Better Auth later
+ * extends still counts as a leftover.
+ */
+export const counts = (account: Account): Promise<AccountCounts> =>
+  withSql(async (sql) => {
+    const { email, userId } = keysOf(account);
+    const [row] = await sql`
+      WITH owned AS (
+        SELECT id FROM users WHERE email = ${email} OR id = ${userId}
+      )
+      SELECT
+        (SELECT count(*) FROM owned)::int AS users,
+        (SELECT count(*) FROM session WHERE user_id IN (SELECT id FROM owned))::int AS sessions,
+        (SELECT count(*) FROM verification WHERE strpos(value, ${email}) > 0)::int AS verifications,
+        (SELECT count(*) FROM passkey WHERE user_id IN (SELECT id FROM owned))::int AS passkeys`;
+    return row as AccountCounts;
   });
 
-export const removeAccount = (email: string) =>
+/**
+ * Removes exactly this account's records: its actors (actors.user_id is
+ * RESTRICT, so they go first), the user (sessions, accounts and passkeys
+ * cascade) and its verification rows. Never touches unrelated rows.
+ */
+export const removeAccount = (account: Account) =>
   withSql(async (sql) => {
-    // A completed username claim provisions this account's human actor
-    // (ACTOR-1, ADR 0029); actors.user_id is RESTRICT, so it must go before
-    // the user row or teardown fails on whichever fixture claimed a name.
-    await sql`DELETE FROM actors WHERE user_id IN (SELECT id FROM users WHERE email = ${email})`;
-    await sql`DELETE FROM users WHERE email = ${email}`;
-    await sql`DELETE FROM verification WHERE value LIKE ${`%${email}%`}`;
+    const { email, userId } = keysOf(account);
+    await sql`DELETE FROM actors WHERE user_id IN (SELECT id FROM users WHERE email = ${email} OR id = ${userId})`;
+    await sql`DELETE FROM users WHERE email = ${email} OR id = ${userId}`;
+    await sql`DELETE FROM verification WHERE strpos(value, ${email}) > 0`;
   });

@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createTestApp } from './auth-mounted-helpers';
+import { createTestApp } from './fixtures';
 import { requireTestServices } from '@daisy/config';
 
 setupRitewayBun();

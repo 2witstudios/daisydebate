@@ -2,11 +2,7 @@ import { systemClock, systemId } from '@daisy/clock';
 import { readAuthConfig } from '@daisy/config';
 import { createDatabase } from '@daisy/db';
 import { createRedis } from '@daisy/redis';
-import {
-  testDatabaseUrl,
-  testRedisUrl,
-  type TestApp,
-} from './auth-mounted-helpers';
+import { testDatabaseUrl, testRedisUrl, type TestApp } from './fixtures';
 import { createAuthRouteHandlers } from '../src/features/auth/handlers';
 import { createAuthRateLimiter } from '../src/features/auth/redis-limiter';
 import { createAuthServer } from '../src/features/auth/server';

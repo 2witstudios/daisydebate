@@ -4,9 +4,9 @@ import type { Identity } from '@daisy/auth';
 import { createDatabase } from '@daisy/db';
 import { buildUserInboxTopic } from '@daisy/protocol';
 import { createPasskeyFlows } from './auth-passkey-flows';
-import { cookieHeader, testDatabaseUrl, withSql } from './auth-mounted-helpers';
+import { cookieHeader, testDatabaseUrl, tokenOf, withSql } from './fixtures';
 import { uniqueName } from './auth-account-helpers';
-import { tokenOf } from './auth-mounted-flows';
+
 import { requireTestServices } from '@daisy/config';
 
 const userIdOf = (identity: Identity): string | null =>

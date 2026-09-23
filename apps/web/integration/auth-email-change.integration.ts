@@ -4,16 +4,18 @@ import { createId } from '@paralleldrive/cuid2';
 import { createPasskeyFlows } from './auth-passkey-flows';
 import {
   cookieHeader,
+  emailOf,
+  linkFrom,
   origin,
+  tokenOf,
+  userIdOf,
   withSql,
-  type CapturedMail,
-} from './auth-mounted-helpers';
+} from './fixtures';
 import {
   cleanupActorFor,
   cleanupOutboxFor,
   createActorFor,
   sessionRevokedEvents,
-  trackedSignUp,
 } from './auth-outbox-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import { requireTestServices } from '@daisy/config';
@@ -32,7 +34,7 @@ const trackedCreateActorFor = async (userId: string): Promise<string> => {
 
 const flows = await createPasskeyFlows();
 const { newClient } = flows.account.flows;
-const confirmEmailRoute = flows.account.flows.testApp.routes.confirmEmail;
+const { signUp } = flows.account;
 
 const backdateSession = (token: string, hoursAgo: number) =>
   withSql(
@@ -40,61 +42,12 @@ const backdateSession = (token: string, hoursAgo: number) =>
       sql`UPDATE session SET created_at = now() - (${hoursAgo}::text || ' hours')::interval WHERE token = ${token}`,
   );
 
-const linkFrom = (mail: CapturedMail): URL => {
-  const found = mail.text.match(/https?:\/\/\S+/)?.[0];
-  if (!found) throw new Error('No link in captured mail');
-  return new URL(found);
-};
-
-const confirmGet = (link: URL) =>
-  confirmEmailRoute.GET(
-    new Request(link, { headers: { [CLIENT_IP_HEADER]: newClient() } }),
-  );
-
-const confirmPost = (token: string, callbackURL = '/settings/security') =>
-  confirmEmailRoute.POST(
-    new Request(`${origin}/auth/confirm-email`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/x-www-form-urlencoded',
-        origin,
-        [CLIENT_IP_HEADER]: newClient(),
-      },
-      body: new URLSearchParams({ token, callbackURL }).toString(),
-    }),
-  );
-
-const tokenOf = (link: URL) => link.searchParams.get('token') ?? '';
-
-const isAuthenticated = async (cookie: string): Promise<boolean> =>
-  (await (
-    await flows.get('/api/auth/get-session?disableCookieCache=true', cookie)
-  ).json()) !== null;
-
-const emailOf = (userId: string) =>
-  withSql(async (sql) => {
-    const [row] = await sql`SELECT email FROM users WHERE id = ${userId}`;
-    return row?.email as string | undefined;
-  });
-
-const userIdOf = (email: string) =>
-  withSql(async (sql) => {
-    const [row] = await sql`SELECT id FROM users WHERE email = ${email}`;
-    return row?.id as string | undefined;
-  });
-
-const { signUp, cleanup: cleanupSuiteUsers } = trackedSignUp(
-  flows.account.signUp,
-  userIdOf,
-);
-
 // Backstop for the per-test cleanup below, scoped to what this suite itself
 // created (RT-2.2v nit): never a time-window sweep that could delete
 // another suite's rows running concurrently against the same
 // `TEST_DATABASE_URL`.
 afterAll(async () => {
   await Promise.all(suiteActorIds.map(cleanupOutboxFor));
-  await cleanupSuiteUsers();
 });
 
 /** The event names this suite's app logged while `work` ran (AUTH-6.4). */
@@ -113,10 +66,10 @@ describe('AUTH-5.6 change the recovery email', () => {
       await flows.changeEmail(cookie, newEmail);
     });
     const confirmLink = linkFrom(flows.account.flows.mailbox.mails[before]!);
-    await confirmPost(tokenOf(confirmLink));
+    await flows.confirmEmailPost(tokenOf(confirmLink));
     const verifyLink = linkFrom(flows.account.flows.mailbox.mails[before + 1]!);
     const verifyEvents = await recordedEvents(async () => {
-      await confirmPost(tokenOf(verifyLink));
+      await flows.confirmEmailPost(tokenOf(verifyLink));
     });
     assert({
       given:
@@ -142,13 +95,13 @@ describe('AUTH-5.6 change the recovery email', () => {
     const confirmMail = flows.account.flows.mailbox.mails[before];
     const confirmLink = linkFrom(confirmMail!);
     // GET only renders; it must not itself approve the change.
-    const scanned = await confirmGet(confirmLink);
+    const scanned = await flows.confirmEmailGet(confirmLink);
     const emailAfterScan = await emailOf(uid);
-    const approved = await confirmPost(tokenOf(confirmLink));
+    const approved = await flows.confirmEmailPost(tokenOf(confirmLink));
 
     const verifyMail = flows.account.flows.mailbox.mails[before + 1];
     const verifyLink = linkFrom(verifyMail!);
-    const verified = await confirmPost(tokenOf(verifyLink));
+    const verified = await flows.confirmEmailPost(tokenOf(verifyLink));
     const finalEmail = await emailOf(uid);
 
     assert({
@@ -192,9 +145,11 @@ describe('AUTH-5.6 change the recovery email', () => {
     try {
       await flows.changeEmail(cookie, newEmail);
       const confirmMail = flows.account.flows.mailbox.mails[before];
-      await confirmPost(tokenOf(linkFrom(confirmMail!)));
+      await flows.confirmEmailPost(tokenOf(linkFrom(confirmMail!)));
       const verifyMail = flows.account.flows.mailbox.mails[before + 1];
-      const finalResponse = await confirmPost(tokenOf(linkFrom(verifyMail!)));
+      const finalResponse = await flows.confirmEmailPost(
+        tokenOf(linkFrom(verifyMail!)),
+      );
       const newCookie = cookieHeader(finalResponse);
 
       assert({
@@ -204,8 +159,8 @@ describe('AUTH-5.6 change the recovery email', () => {
           'notify the old address, keep the completing session live, revoke the other one and append a real session.revoked row (RT-2.2)',
         actual: {
           notifiedOldAddress: confirmMail!.to === email,
-          completingSessionLive: await isAuthenticated(newCookie),
-          otherSessionRevoked: !(await isAuthenticated(otherCookie)),
+          completingSessionLive: await flows.isAuthenticated(newCookie),
+          otherSessionRevoked: !(await flows.isAuthenticated(otherCookie)),
           outboxEventsAppended:
             (await sessionRevokedEvents(actorId)) - eventsBefore,
         },
@@ -271,10 +226,10 @@ describe('AUTH-5.6 change the recovery email', () => {
     const newEmail = `${createId()}@example.test`;
     await flows.changeEmail(cookie, newEmail);
     const confirmLink = linkFrom(flows.account.flows.mailbox.mails[before]!);
-    await confirmPost(tokenOf(confirmLink));
+    await flows.confirmEmailPost(tokenOf(confirmLink));
     const verifyLink = linkFrom(flows.account.flows.mailbox.mails[before + 1]!);
-    const first = await confirmPost(tokenOf(verifyLink));
-    const replay = await confirmPost(tokenOf(verifyLink));
+    const first = await flows.confirmEmailPost(tokenOf(verifyLink));
+    const replay = await flows.confirmEmailPost(tokenOf(verifyLink));
     const uid = await userIdOf(newEmail);
     assert({
       given: 'the same verification link redeemed twice',
@@ -294,17 +249,18 @@ describe('AUTH-5.6 change the recovery email', () => {
   });
 
   test('an invalid token is refused without a same-origin bypass', async () => {
-    const crossOrigin = await confirmEmailRoute.POST(
-      new Request(`${origin}/auth/confirm-email`, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/x-www-form-urlencoded',
-          origin: 'https://attacker.example',
-          [CLIENT_IP_HEADER]: newClient(),
-        },
-        body: new URLSearchParams({ token: 'not-a-real-token' }).toString(),
-      }),
-    );
+    const crossOrigin =
+      await flows.account.flows.testApp.routes.confirmEmail.POST(
+        new Request(`${origin}/auth/confirm-email`, {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/x-www-form-urlencoded',
+            origin: 'https://attacker.example',
+            [CLIENT_IP_HEADER]: newClient(),
+          },
+          body: new URLSearchParams({ token: 'not-a-real-token' }).toString(),
+        }),
+      );
     assert({
       given: 'a forged token from a foreign origin',
       should: 'be refused',

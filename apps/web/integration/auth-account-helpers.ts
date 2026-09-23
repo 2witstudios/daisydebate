@@ -1,6 +1,6 @@
 import { createId } from '@paralleldrive/cuid2';
 import { createFlows } from './auth-mounted-flows';
-import { cookieHeader, withSql } from './auth-mounted-helpers';
+import { cookieHeader, userIdOf, withSql } from './fixtures';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import { identify, resolveSession } from '../src/lib/identity';
 
@@ -23,6 +23,7 @@ export function createAccountFlows() {
     const response = await flows.redeem(token, {
       newUserCallbackURL: '/onboarding/username?next=%2Flobby',
     });
+    flows.track(email, await userIdOf(email));
     return { email, token, response, cookie: cookieHeader(response) };
   };
 
@@ -57,11 +58,3 @@ export const usernameOf = (email: string) =>
           { username: string | null } | undefined
       )?.username ?? null,
   );
-
-export const sessionCount = async (email: string) =>
-  (
-    await withSql(
-      (sql) =>
-        sql`SELECT count(*)::int AS c FROM session s JOIN users u ON u.id = s.user_id WHERE u.email = ${email}`,
-    )
-  )[0]?.c as number;

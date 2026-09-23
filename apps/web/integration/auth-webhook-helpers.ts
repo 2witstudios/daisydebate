@@ -7,7 +7,7 @@ import {
   removeAccount,
   webhookSecret,
   withSql,
-} from './auth-mounted-helpers';
+} from './fixtures';
 import {
   deriveRecipientSubkey,
   recipientKey,

@@ -1,6 +1,6 @@
 import { setupRitewayBun, assert, describe, test } from 'riteway/bun';
 import { createPasskeyFlows } from './auth-passkey-flows';
-import { origin, withSql } from './auth-mounted-helpers';
+import { origin, withSql } from './fixtures';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import { requireTestServices } from '@daisy/config';
 
