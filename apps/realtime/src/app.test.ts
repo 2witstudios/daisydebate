@@ -25,8 +25,8 @@ describe('createRealtimeApp', () => {
     const second = build({ REDIS_NAMESPACE: 'unit-b' });
     await first.close();
     const observed = {
-      first: [first.config.REDIS_NAMESPACE, first.draining],
-      second: [second.config.REDIS_NAMESPACE, second.draining],
+      first: [first.config.REDIS_NAMESPACE, first.isDraining()],
+      second: [second.config.REDIS_NAMESPACE, second.isDraining()],
     };
     await second.close();
     assert({
@@ -55,6 +55,25 @@ describe('createRealtimeApp', () => {
     });
   });
 
+  test('drain starts shutdown without closing the pools', async () => {
+    const app = build();
+    let closed = 0;
+    const count = async () => {
+      closed += 1;
+    };
+    Object.assign(app.database, { close: count });
+    Object.assign(app.redis, { close: count });
+    const before = app.isDraining();
+    app.drain();
+    assert({
+      given: 'a running app told to drain',
+      should: 'report draining from then on and leave both pools open',
+      actual: { before, after: app.isDraining(), closed },
+      expected: { before: false, after: true, closed: 0 },
+    });
+    await app.close();
+  });
+
   test('closing drains and closes both pools exactly once', async () => {
     const app = build();
     let closed = 0;
@@ -67,7 +86,7 @@ describe('createRealtimeApp', () => {
     assert({
       given: 'an app holding a database pool and a Redis client',
       should: 'flag draining and close every pool',
-      actual: { draining: app.draining, closed },
+      actual: { draining: app.isDraining(), closed },
       expected: { draining: true, closed: 2 },
     });
   });

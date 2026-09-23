@@ -9,8 +9,8 @@ export type SessionReader = Pick<AuthServer, 'instance' | 'clock' | 'logger'>;
  * Principal resolution glue: Better Auth verifies the signed cookie and reads
  * the durable session row (its cookie cache is off, so revocation shows on
  * the next call); @daisy/auth decides what that session may do. This module
- * is shared by route handlers and server components, which pass the app's auth and their
- * request headers; only the Cookie header is read.
+ * is shared by route handlers and server components, which pass the app's
+ * auth and their request headers; only the Cookie header is read.
  *
  * The read never refreshes: server components cannot set cookies, so a
  * refresh here would slide the database row while the browser kept the old

@@ -233,8 +233,9 @@ const composeBetterAuth = (dependencies: {
 
 /**
  * Only what production callers actually read off the result: the app's
- * routes and pages (`server/app.ts` composes it) use `config`, `instance`, `limiter`, `clock` and
- * `logger`; `mail` is read by tests exercising delivery directly.
+ * routes and pages (`server/app.ts` composes it) use `config`,
+ * `instance`, `limiter`, `clock` and `logger`; `mail` is read by tests
+ * exercising delivery directly.
  * `database`, `ledger` and `ids` stay internal to composition
  * (composeBetterAuth still receives them) — nothing outside this module
  * ever reads them back off the returned server, so widening the type to

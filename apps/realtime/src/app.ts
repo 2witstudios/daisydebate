@@ -38,19 +38,23 @@ export function createRealtimeApp({
     namespace: config.REDIS_NAMESPACE,
     eventSink: logger.log,
   });
-  const app = {
+  const state = { draining: false };
+  return {
     config,
     clock,
     database,
     redis,
     logger,
     /** Readiness reports unavailable once shutdown begins. */
-    draining: false,
+    isDraining: () => state.draining,
+    /** Starts shutdown: readiness fails from now on. */
+    drain: () => {
+      state.draining = true;
+    },
     /** Drains, then closes the pools; never rejects. */
     close: async () => {
-      app.draining = true;
+      state.draining = true;
       await Promise.allSettled([database.close(), redis.close()]);
     },
   };
-  return app;
 }

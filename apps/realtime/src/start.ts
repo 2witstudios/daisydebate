@@ -36,8 +36,8 @@ resources.logger.log(
  * registry (RT-2.3b) exists for it to iterate.
  */
 async function shutdown() {
-  if (resources.draining) return;
-  resources.draining = true;
+  if (resources.isDraining()) return;
+  resources.drain();
   resources.logger.log(
     'server.shutdown',
     { operation: 'server.shutdown' },

@@ -4,7 +4,7 @@ import { checkReadiness, type ReadinessResources } from './health';
 setupRitewayBun();
 
 const healthyResources: ReadinessResources = {
-  draining: false,
+  isDraining: () => false,
   database: {
     health: async () => true,
     checkListen: async () => true,
@@ -29,8 +29,9 @@ describe('checkReadiness', () => {
     assert({
       given: 'a draining process',
       should: 'report not ready despite healthy dependencies',
-      actual: (await checkReadiness({ ...healthyResources, draining: true }))
-        .ready,
+      actual: (
+        await checkReadiness({ ...healthyResources, isDraining: () => true })
+      ).ready,
       expected: false,
     });
   });

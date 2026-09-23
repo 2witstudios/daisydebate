@@ -67,14 +67,20 @@ package; this map lists only packages that exist today.
 - **Composition root.** `createApp({ env, fetch, clock, ids })`
   (`apps/web/src/server/app.ts`) validates configuration and builds the
   logger, database, Redis, auth, rate limiter, mail and webhook for one app;
-  `createRoutes(app)` builds every route handler from it. Route handlers,
-  feature operations and pages receive what they need as arguments. Exactly
-  one module per app reads `process.env` or `globalThis`, its process edge:
+  `createRoutes(app)` builds every route handler from it. Route handlers and
+  feature operations receive what they need as arguments. Exactly one module
+  per app reads `process.env` or `globalThis`, its process edge:
   `apps/web/src/server/process-app.ts` keeps the process's app on
   `globalThis` (Next loads route modules, the proxy and instrumentation as
   bundles that share only that) and binds each `app/**/route.ts` export to
-  it; `apps/realtime/src/start.ts` builds `createRealtimeApp`. ESLint
-  enforces the edge (ISSUE-7), and tests build their own apps.
+  it; `apps/realtime/src/start.ts` builds `createRealtimeApp`. Next renders
+  pages and layouts itself, so server components cannot take arguments:
+  they read this request's session through `lib/request-session.ts`, the one
+  non-route module that takes the process app (`processApp().auth()`) and
+  passes it on to `lib/identity.ts`. Only route bindings (`processRoute`),
+  that module, `proxy.ts`, `instrumentation.ts` and `server/start.ts` may
+  import the edge. ESLint enforces all of this (ISSUE-7), and tests build
+  their own apps.
 - **UI shell store** (`apps/web/src/ui/store/store.ts`) keeps its snapshot in
   a module-level `let state`. The module is `'use client'`, but client
   modules also execute during server rendering, so on the server that

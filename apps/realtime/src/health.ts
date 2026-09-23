@@ -1,7 +1,7 @@
 import { withTimeout } from '@daisy/observability';
 
 export type ReadinessResources = {
-  readonly draining: boolean;
+  readonly isDraining: () => boolean;
   readonly database: {
     readonly health: () => Promise<boolean>;
     readonly checkListen: () => Promise<boolean>;
@@ -35,7 +35,7 @@ export async function checkReadiness(
     redis: settledOk(redis),
   };
   return {
-    ready: !resources.draining && Object.values(checks).every(Boolean),
+    ready: !resources.isDraining() && Object.values(checks).every(Boolean),
     checks,
   };
 }

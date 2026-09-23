@@ -15,7 +15,7 @@ const noopLogger: Logger = { log: () => {}, child: () => noopLogger };
 const resources = (
   overrides: Partial<RealtimeServerResources> = {},
 ): RealtimeServerResources => ({
-  draining: false,
+  isDraining: () => false,
   database: { health: async () => true, checkListen: async () => true },
   redis: { health: async () => true },
   logger: noopLogger,
@@ -58,7 +58,7 @@ describe('createRealtimeServer fetch', () => {
 
   test('answers /health/ready 503 when draining', async () => {
     const server = createRealtimeServer({
-      resources: resources({ draining: true }),
+      resources: resources({ isDraining: () => true }),
     });
     const response = await server.fetch(
       new Request('http://localhost/health/ready'),
