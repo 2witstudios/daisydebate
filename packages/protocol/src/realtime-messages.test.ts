@@ -116,18 +116,34 @@ describe('client message schema', () => {
       injectedEnvelopeVersion,
       PROTOCOL_VERSION,
     );
-    const pingMessage = { v: 33, type: 'ping', id };
+    const topic = buildDebateTopic(otherId);
+    const messagesAtV33 = [
+      { v: 33, type: 'subscribe', id, topic },
+      { v: 33, type: 'unsubscribe', id, topic },
+      { v: 33, type: 'presence.activity', activity: 'active' },
+      { v: 33, type: 'ping', id },
+    ];
     assert({
       given:
-        'a client message schema built with envelope version 33, and a ping stamped v:33',
+        'a client message schema built with envelope version 33, and one message of every non-hello type stamped v:33',
       should:
-        "accept only v:33 and reject PROTOCOL_VERSION's and ENVELOPE_VERSION's value (both 1), proving the envelope is not hard-coded to either constant",
+        "accept v:33 on every one of them, and reject each when restamped with PROTOCOL_VERSION's or ENVELOPE_VERSION's value (both 1), proving no member's envelope is hard-coded to either constant",
       actual: [
-        schema.safeParse(pingMessage).success,
-        schema.safeParse({ ...pingMessage, v: PROTOCOL_VERSION }).success,
-        schema.safeParse({ ...pingMessage, v: ENVELOPE_VERSION }).success,
+        ...messagesAtV33.map((message) => schema.safeParse(message).success),
+        ...messagesAtV33.map(
+          (message) =>
+            schema.safeParse({ ...message, v: PROTOCOL_VERSION }).success,
+        ),
+        ...messagesAtV33.map(
+          (message) =>
+            schema.safeParse({ ...message, v: ENVELOPE_VERSION }).success,
+        ),
       ],
-      expected: [true, false, false],
+      expected: [
+        ...messagesAtV33.map(() => true),
+        ...messagesAtV33.map(() => false),
+        ...messagesAtV33.map(() => false),
+      ],
     });
   });
 

@@ -4,6 +4,18 @@ import nextVitals from 'eslint-config-next/core-web-vitals';
 import betterTailwind from 'eslint-plugin-better-tailwindcss';
 import { getDefaultSelectors } from 'eslint-plugin-better-tailwindcss/defaults';
 
+/**
+ * Shared between the repo-wide `no-restricted-syntax` entry and the
+ * ambient-time exemption below, so the two copies can't drift: AGENTS.md's
+ * explicit-exports rule applies to every workspace source file, with no
+ * exception.
+ */
+const exportStarRestriction = {
+  selector: 'ExportAllDeclaration',
+  message:
+    'Use named re-exports, not `export *` (AGENTS.md: explicit exports, no barrels).',
+};
+
 export default [
   {
     ignores: [
@@ -46,11 +58,7 @@ export default [
           message:
             'Inject an identity generator instead of creating an ID directly.',
         },
-        {
-          selector: 'ExportAllDeclaration',
-          message:
-            'Use named re-exports, not `export *` (AGENTS.md: explicit exports, no barrels).',
-        },
+        exportStarRestriction,
       ],
     },
   },
@@ -247,14 +255,7 @@ export default [
       '**/integration/**/*.ts',
     ],
     rules: {
-      'no-restricted-syntax': [
-        'error',
-        {
-          selector: 'ExportAllDeclaration',
-          message:
-            'Use named re-exports, not `export *` (AGENTS.md: explicit exports, no barrels).',
-        },
-      ],
+      'no-restricted-syntax': ['error', exportStarRestriction],
     },
   },
   {
