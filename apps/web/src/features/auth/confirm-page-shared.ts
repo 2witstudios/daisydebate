@@ -1,10 +1,6 @@
-export const escapeHtml = (value: string) =>
-  value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
+import { escapeHtml } from './mail/escape';
+
+export { escapeHtml };
 
 /** Headers for every page that can carry or follow a credential. */
 export const pageHeaders = (extra: Record<string, string> = {}) => ({

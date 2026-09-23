@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { authClient } from '../../../lib/auth-client';
 import {
   revokeSession,
   type SessionRow,
@@ -12,11 +11,9 @@ import { OUTCOME_NOTICES, formatDate } from './security-notices';
 
 export function SessionRowView({
   session,
-  current,
   onRevoked,
 }: {
   readonly session: SessionRow;
-  readonly current: boolean;
   readonly onRevoked: (id: string) => void;
 }) {
   const [pending, setPending] = useState(false);
@@ -25,7 +22,7 @@ export function SessionRowView({
   const revoke = async () => {
     setPending(true);
     setNotice(undefined);
-    const outcome = await revokeSession(authClient, session.token);
+    const outcome = await revokeSession(session.id);
     setPending(false);
     if (outcome.kind === 'ok') onRevoked(session.id);
     else setNotice(OUTCOME_NOTICES[outcome.kind]);
@@ -38,7 +35,7 @@ export function SessionRowView({
         <span className="text-sm text-ink-muted">
           Active since {formatDate(session.createdAt)}
         </span>
-        {current ? (
+        {session.current ? (
           <span className="text-sm font-semibold text-accent">This device</span>
         ) : (
           <Button

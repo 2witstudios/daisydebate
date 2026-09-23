@@ -8,34 +8,79 @@ const getSession = (headers: Record<string, string> = {}) =>
   new Request('http://localhost:3000/api/auth/get-session', { headers });
 
 describe('AUTH-3.4 rules the gate hands the atomic limiter', () => {
-  test('magic-link requests carry 3 per 60 seconds per client and per recipient', async () => {
+  test('magic-link requests carry one client bucket, three recipient windows and two global ceilings', async () => {
     const { server, consumed } = create();
     await server.instance.handler(magicLinkRequest());
+    const kindOf = (key: string) =>
+      key.startsWith('auth:magic-link:recipient:')
+        ? 'recipient'
+        : key.startsWith('auth:magic-link:global:')
+          ? 'global'
+          : key.startsWith('auth:client:')
+            ? 'client'
+            : 'other';
     assert({
       given: 'one magic-link request',
       should:
-        'consume the client bucket and the hashed recipient bucket, each 3/60 and never carrying the address',
-      actual: consumed.map(({ key, rule }) => ({
-        kind: key.startsWith('auth:magic-link:recipient:')
-          ? 'recipient'
-          : key.startsWith('auth:client:')
-            ? 'client'
-            : 'other',
-        rule,
-        leaksAddress: key.includes('player@'),
-      })),
-      expected: [
-        {
-          kind: 'client',
-          rule: { windowSeconds: 60, max: 3 },
-          leaksAddress: false,
-        },
-        {
-          kind: 'recipient',
-          rule: { windowSeconds: 60, max: 3 },
-          leaksAddress: false,
-        },
-      ],
+        'consume the client bucket, all three recipient windows and both global ceilings, never carrying the address',
+      actual: {
+        rulesByKind: consumed.map(({ key, rule }) => ({
+          kind: kindOf(key),
+          rule,
+        })),
+        leaksAddress: consumed.some(({ key }) => key.includes('player@')),
+      },
+      expected: {
+        rulesByKind: [
+          { kind: 'client', rule: { windowSeconds: 60, max: 3 } },
+          { kind: 'recipient', rule: { windowSeconds: 60, max: 3 } },
+          { kind: 'recipient', rule: { windowSeconds: 3_600, max: 10 } },
+          { kind: 'recipient', rule: { windowSeconds: 86_400, max: 20 } },
+          { kind: 'global', rule: { windowSeconds: 60, max: 120 } },
+          { kind: 'global', rule: { windowSeconds: 86_400, max: 3_000 } },
+        ],
+        leaksAddress: false,
+      },
+    });
+  });
+
+  test('a recipient exhausting the hour ceiling is denied even though the minute window just reset', async () => {
+    const hourExhausted = new Set<string>();
+    const { server } = create({
+      limiter: () => async (key, rule) => {
+        if (rule.windowSeconds === 3_600) {
+          if (hourExhausted.has(key))
+            return { allowed: false, retryAfterSeconds: 3_600 };
+          hourExhausted.add(key);
+        }
+        return { allowed: true, retryAfterSeconds: 0 };
+      },
+    });
+    const first = await server.instance.handler(magicLinkRequest());
+    const second = await server.instance.handler(magicLinkRequest());
+    assert({
+      given:
+        'a limiter whose recipient-hour bucket is already exhausted for a second send',
+      should:
+        'admit the first send and deny the second even though the minute window is fresh',
+      actual: { first: first.status, second: second.status },
+      expected: { first: 200, second: 429 },
+    });
+  });
+
+  test('the global per-minute ceiling denies a request even when its own client and recipient buckets allow', async () => {
+    const { server } = create({
+      limiter: () => async (key) =>
+        key === 'auth:magic-link:global:60'
+          ? { allowed: false, retryAfterSeconds: 30 }
+          : { allowed: true, retryAfterSeconds: 0 },
+    });
+    const response = await server.instance.handler(magicLinkRequest());
+    assert({
+      given: 'a limiter denying only the global per-minute magic-link bucket',
+      should: 'deny the request even though every other bucket allows it',
+      actual: response.status,
+      expected: 429,
     });
   });
 

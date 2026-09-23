@@ -108,10 +108,6 @@ export function createAuthRouteHandlers(
           const delegate = toNextJsHandler({ handler: server.handler });
           const method = request.method as keyof typeof delegate;
           const response = await (delegate[method] ?? delegate.GET)(request);
-          // The composition reports unexpected framework failures as a bare
-          // 500: to callers that is a retryable outage (503), not a fault.
-          if (response.status === 500 && response.body === null)
-            throw createAppError('INFRASTRUCTURE');
           logLifecycleEvent(logger, request, response);
           return preserve(response);
         } catch (error) {

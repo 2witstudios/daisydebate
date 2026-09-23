@@ -1,15 +1,11 @@
 import { onboardingHref } from '../../features/access/decision';
+import type { ClientError } from '../../features/auth/client-error';
 import type {
   LinkRequestOutcome,
   PasskeyAutofillOutcome,
   PasskeyOutcome,
   SignInPort,
 } from './sign-in-port';
-
-type ClientError = {
-  readonly status?: number | undefined;
-  readonly code?: string | undefined;
-} | null;
 
 /**
  * The slice of the Better Auth client this adapter uses. Structural, so the

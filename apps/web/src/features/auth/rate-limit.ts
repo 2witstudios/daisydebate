@@ -1,6 +1,6 @@
-import { createHash } from 'node:crypto';
 import { APIError, createAuthMiddleware, getIP } from 'better-auth/api';
 import type { Logger } from '@daisy/logger';
+import { recipientKey } from './recipient-key';
 
 /** Fixed-window allowance the gate asks the limiter to enforce for one key. */
 type RateRule = {
@@ -9,8 +9,28 @@ type RateRule = {
 };
 /** 100 requests per 60 seconds for every auth route ... */
 const DEFAULT_RULE: RateRule = { windowSeconds: 60, max: 100 };
-/** ... and 3 per 60 seconds for magic-link requests, per client and recipient. */
-const MAGIC_LINK_RULE: RateRule = { windowSeconds: 60, max: 3 };
+/** ... and 3 per 60 seconds for magic-link requests, per client. */
+const MAGIC_LINK_CLIENT_RULE: RateRule = { windowSeconds: 60, max: 3 };
+/**
+ * One recipient's mail volume, multi-window: the 60 s rule alone admits
+ * about 4,300 emails a day to one victim from rotating client addresses, so
+ * an hour and a day ceiling each cap the total regardless of how the minute
+ * window resets.
+ */
+const MAGIC_LINK_RECIPIENT_RULES: readonly RateRule[] = [
+  { windowSeconds: 60, max: 3 },
+  { windowSeconds: 3_600, max: 10 },
+  { windowSeconds: 86_400, max: 20 },
+];
+/**
+ * The whole application's mail volume, independent of any single recipient
+ * or client: protects Resend quota, cost and sending-domain reputation from
+ * many recipients each staying under their own ceiling.
+ */
+const MAGIC_LINK_GLOBAL_RULES: readonly RateRule[] = [
+  { windowSeconds: 60, max: 120 },
+  { windowSeconds: 86_400, max: 3_000 },
+];
 
 /** Atomic multi-instance limiter contract backed by @daisy/redis. */
 export type AuthRateLimiter = {
@@ -24,81 +44,51 @@ export type AuthRateLimiter = {
 };
 
 /**
- * Which request headers may name the client address. Forwarding headers are
- * client-writable unless a proxy the deployment controls overwrites them, so
- * trust is explicit and the default believes none: every client then shares
- * one bucket per path. A deployment names its proxy header through
- * `AUTH_TRUSTED_IP_HEADERS` / `AUTH_TRUSTED_PROXIES` (`readAuthConfig`).
- *
- * A trusted header holding several hops resolves as Better Auth 1.7.5 does:
- * with `trustedProxies` (IPs or CIDR ranges) the chain is walked right to
- * left and the first hop that is not a trusted proxy is the client, so
- * client-forged leftmost entries are never believed; without
- * `trustedProxies` a multi-hop value is not believed at all.
+ * Better Auth's client-identity trust, fixed to the one header the ingress
+ * itself stamps (`client-ip.ts`'s `CLIENT_IP_HEADER`, via
+ * `stampClientIdentity`). That is the single resolver: the ingress walks the
+ * real `X-Forwarded-For` chain past `AUTH_TRUSTED_PROXIES` once and replaces
+ * any caller-supplied value, so Better Auth never re-parses forwarded
+ * headers itself and has no second, redundant trust configuration.
  */
-export type ClientIpTrust = {
-  readonly trustedHeaders: readonly string[];
-  readonly trustedProxies?: readonly string[];
-};
-
-/**
- * The deployment's trust declaration as parsed by `readAuthConfig`. Empty
- * lists (the default when the variables are absent) believe no header, and
- * an empty proxy list is omitted so a multi-hop value stays unbelieved.
- */
-export const clientIpFromConfig = (config: {
-  readonly AUTH_TRUSTED_IP_HEADERS: readonly string[];
-  readonly AUTH_TRUSTED_PROXIES: readonly string[];
-}): ClientIpTrust => ({
-  trustedHeaders: config.AUTH_TRUSTED_IP_HEADERS,
-  ...(config.AUTH_TRUSTED_PROXIES.length > 0
-    ? { trustedProxies: config.AUTH_TRUSTED_PROXIES }
-    : {}),
+export const clientIpOptions = (headerName: string) => ({
+  // An exact single-entry list (not undefined) is what stops Better Auth
+  // falling back to its own default of believing `x-forwarded-for`.
+  ipAddressHeaders: [headerName],
 });
-
-// RFC 9110 field-name token. Anything else makes `Headers.get` throw on
-// every request, so it is rejected once, at composition.
-const headerName = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
-
-/**
- * Maps the trust declaration onto Better Auth's `advanced.ipAddress`.
- * Fails fast like `readAuthConfig`: names the option, never echoes values.
- */
-export const clientIpOptions = (trust: ClientIpTrust | undefined) => {
-  if (trust?.trustedHeaders.some((name) => !headerName.test(name)))
-    throw new Error('Invalid auth configuration: clientIp.trustedHeaders');
-  return {
-    // An empty list (not undefined) is what stops Better Auth falling back
-    // to its default of believing `x-forwarded-for`.
-    ipAddressHeaders: [...(trust?.trustedHeaders ?? [])],
-    ...(trust?.trustedProxies
-      ? { trustedProxies: [...trust.trustedProxies] }
-      : {}),
-  };
-};
 
 const magicLinkPath = '/sign-in/magic-link';
 
-// A recipient is personal data: the per-recipient bucket is keyed by its
-// SHA3-256 digest so the address never reaches Redis keys or logs.
-const digest = (value: string) =>
-  createHash('sha3-256').update(value).digest('hex');
-
 type Bucket = { readonly key: string; readonly rule: RateRule };
 
-const recipientBuckets = (path: string, body: unknown): Bucket[] => {
+// The per-recipient bucket is keyed by `recipientKey` (recipient-key.ts): a
+// subkey-derived digest, so the address never reaches Redis keys or logs.
+const recipientBuckets = (
+  recipientSubkey: string,
+  path: string,
+  body: unknown,
+): Bucket[] => {
   if (path !== magicLinkPath || typeof body !== 'object' || body === null)
     return [];
   const email: unknown = Reflect.get(body, 'email');
-  return typeof email === 'string'
-    ? [
-        {
-          key: `auth:magic-link:recipient:${digest(email.trim().toLowerCase())}`,
-          rule: MAGIC_LINK_RULE,
-        },
-      ]
-    : [];
+  if (typeof email !== 'string') return [];
+  const key = recipientKey(recipientSubkey, email);
+  return MAGIC_LINK_RECIPIENT_RULES.map((rule) => ({
+    key: `auth:magic-link:recipient:${key}:${rule.windowSeconds}`,
+    rule,
+  }));
 };
+
+// One fixed key per window: shared by every recipient and client, so it caps
+// the whole application's magic-link volume independent of any single
+// recipient or client bucket.
+const globalBuckets = (path: string): Bucket[] =>
+  path === magicLinkPath
+    ? MAGIC_LINK_GLOBAL_RULES.map((rule) => ({
+        key: `auth:magic-link:global:${rule.windowSeconds}`,
+        rule,
+      }))
+    : [];
 
 // A valid hint is rounded up to whole seconds; an invalid one (NaN, negative,
 // non-finite) omits the header rather than advertising a made-up wait.
@@ -174,6 +164,7 @@ const isServerPrincipalRead = (path: string, request: Request | undefined) =>
 export const createRateLimitGate = (dependencies: {
   readonly limiter: AuthRateLimiter;
   readonly logger: Logger;
+  readonly recipientSubkey: string;
   readonly resolveClient?: typeof getIP;
 }) =>
   createAuthMiddleware(async (context) => {
@@ -199,9 +190,10 @@ export const createRateLimitGate = (dependencies: {
       return [
         {
           key: `auth:client:${client ?? 'unknown'}:${path}`,
-          rule: path === magicLinkPath ? MAGIC_LINK_RULE : DEFAULT_RULE,
+          rule: path === magicLinkPath ? MAGIC_LINK_CLIENT_RULE : DEFAULT_RULE,
         },
-        ...recipientBuckets(path, context.body),
+        ...recipientBuckets(dependencies.recipientSubkey, path, context.body),
+        ...globalBuckets(path),
       ];
     });
     for (const { key, rule } of buckets) {

@@ -37,15 +37,14 @@ Next build, serves requests over a custom HTTP server, and owns lifecycle:
    `DATABASE_URL` (non-development credentials), `REDIS_URL`,
    `REDIS_NAMESPACE`, `LOG_LEVEL`. Configuration refinement fails startup on
    missing identity or insecure defaults — do not work around it.
-3. Behind a reverse proxy, set `AUTH_TRUSTED_IP_HEADERS` to the one header
-   that proxy overwrites on every request (for example `x-real-ip`), and
-   `AUTH_TRUSTED_PROXIES` (IPs or CIDR ranges) only when that header carries
-   a hop chain such as `x-forwarded-for`. Never name a header the proxy
-   merely forwards: it is client-writable, so clients could forge their auth
-   rate-limit identity. Unset, no header is believed and all clients share
-   one rate-limit bucket per auth path — safe, but coarse. Invalid header
-   names or proxy entries fail auth configuration by field name. Proxy
-   validation is intentionally stricter than Better Auth's own, so that
+3. Behind a reverse proxy, set `AUTH_TRUSTED_PROXIES` (IPs or CIDR ranges) to
+   your own proxy's addresses: the ingress (`start.ts`) walks the
+   `X-Forwarded-For` chain past those hops and stamps the resolved address
+   onto `x-daisy-client-ip`, the one header Better Auth trusts. Unset, no
+   hop is trusted and every client behind the proxy shares one rate-limit
+   bucket per auth path — safe, but coarse. Invalid proxy entries fail auth
+   configuration by field name. Proxy validation is intentionally stricter
+   than Better Auth's own, so that
    nothing accepted here is dropped at runtime: write IPv4 proxies in IPv4
    form (`10.0.0.0/8`), never as IPv4-mapped IPv6 (`::ffff:10.0.0.0/104`,
    which Better Auth would ignore), and without leading-zero prefixes.

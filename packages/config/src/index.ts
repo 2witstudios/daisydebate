@@ -44,9 +44,9 @@ const requireDeploymentIdentity = (
     });
 };
 const deploymentIdentityFields = {
-  NODE_ENV: z
-    .enum(['development', 'test', 'production'])
-    .default('development'),
+  // Required, no default: an unset NODE_ENV must refuse to start rather than
+  // silently become 'development' and skip every production check below.
+  NODE_ENV: z.enum(['development', 'test', 'production']),
   DATABASE_URL: databaseUrl,
   REDIS_URL: redisUrl,
   REDIS_NAMESPACE: z
@@ -114,8 +114,6 @@ export function readRealtimeConfig(
     );
   return result.data;
 }
-// RFC 9110 field-name token: anything else makes `Headers.get` throw.
-const headerName = z.string().regex(/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/);
 // IPv6 that embeds IPv4: dotted notation, or the IPv4-mapped block ::ffff:0:0/96
 // written in hex (only zero groups, then ffff, then exactly two groups).
 const embedsIpv4 = (value: string) =>
@@ -171,17 +169,10 @@ export const authConfigSchema = z
       .string()
       .regex(/^whsec_[A-Za-z0-9+/=]{16,}$/)
       .optional(),
-    /**
-     * Request headers believed to name the client address for rate-limit
-     * keying. Set only to the header the deployment's own reverse proxy
-     * overwrites; the default believes none.
-     */
-    AUTH_TRUSTED_IP_HEADERS: commaList(headerName),
     /** Proxy IPs or CIDR ranges skipped when a trusted header holds a chain. */
     AUTH_TRUSTED_PROXIES: commaList(proxyAddress),
-    NODE_ENV: z
-      .enum(['development', 'test', 'production'])
-      .default('development'),
+    // Required, no default: see deploymentIdentityFields.NODE_ENV.
+    NODE_ENV: z.enum(['development', 'test', 'production']),
   })
   .superRefine((config, ctx) => {
     if (config.NODE_ENV !== 'production') return;

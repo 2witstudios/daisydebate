@@ -137,14 +137,16 @@ describe('AUTH-3.4 shared atomic rate limits through the mounted handler', () =>
     assert({
       given: 'every rate-limit key written by the runs above',
       should:
-        'match the namespaced digest shape, carry no identifier and have a TTL of at most 60 seconds',
+        // The recipient and global tables above include 60 s, 1 h and 1 day
+        // windows; a day is the longest TTL any bucket can carry.
+        'match the namespaced digest shape, carry no identifier and have a TTL of at most one day',
       actual: {
         any: keys.length > 0,
         allMatch: keys.every(({ key }) => pattern.test(key)),
         leaksIdentifier: keys.some(({ key }) =>
           /198\.51|example\.test|sign-in|magic-link|session/.test(key),
         ),
-        allExpire: keys.every(({ ttlMs }) => ttlMs > 0 && ttlMs <= 60_000),
+        allExpire: keys.every(({ ttlMs }) => ttlMs > 0 && ttlMs <= 86_400_000),
       },
       expected: {
         any: true,
@@ -155,6 +157,10 @@ describe('AUTH-3.4 shared atomic rate limits through the mounted handler', () =>
     });
   });
 });
+
+// ISSUE-5 AC4's recipient-hour-ceiling and global-per-minute-ceiling tests
+// live in auth-rate-limit-mail-ceilings.integration.ts (split to stay under
+// this file's line limit).
 
 describe('AUTH-3.4 outage fails closed', () => {
   test('a Redis outage answers a safe 503 for every request and never counts locally', async () => {
