@@ -10,6 +10,8 @@ import {
   openServices,
   resolveCheckout,
 } from './slot';
+import { assessGithubIdentity } from './agent-identity';
+import { checkoutWarning, readCheckout } from './session-start';
 
 const checkNames = [
   'bun-version',
@@ -20,6 +22,8 @@ const checkNames = [
   'boundaries',
   'slot',
   'slot-orphans',
+  'github-identity',
+  'checkout',
 ] as const;
 
 type CheckName = (typeof checkNames)[number];
@@ -265,9 +269,60 @@ async function checkBoundaries(): Promise<DoctorCheck> {
     : fail('boundaries', 'failed');
 }
 
+async function output(args: readonly string[]): Promise<string | undefined> {
+  try {
+    const child = Bun.spawn([...args], {
+      cwd: root,
+      stdout: 'pipe',
+      stderr: 'ignore',
+    });
+    const text = (await new Response(child.stdout).text()).trim();
+    return (await child.exited) === 0 && text !== '' ? text : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function checkGithubIdentity(): Promise<DoctorCheck> {
+  const { owner } = (await Bun.file(
+    resolve(root, 'policy/github/repository.json'),
+  ).json()) as { owner: string };
+  const [login, pushUrl, credentialHelper] = await Promise.all([
+    output(['gh', 'api', 'user', '--jq', '.login']),
+    output(['git', 'remote', 'get-url', '--push', 'origin']),
+    output([
+      'git',
+      'config',
+      '--get-urlmatch',
+      'credential.helper',
+      'https://github.com',
+    ]),
+  ]);
+  const { status, detail } = assessGithubIdentity({
+    autonomous: process.env.DAISY_AUTONOMOUS === '1',
+    login,
+    tokenFromEnv: Boolean(process.env.GH_TOKEN),
+    pushUrl,
+    credentialHelper,
+    owner,
+  });
+  return { name: 'github-identity', status, detail };
+}
+
+function checkCheckout(): DoctorCheck {
+  const checkout = readCheckout(root);
+  const warning = checkoutWarning(checkout);
+  return warning
+    ? fail('checkout', warning)
+    : pass(
+        'checkout',
+        `${checkout.mainCheckout ? 'main checkout' : 'worktree'} on ${checkout.branch ?? 'detached HEAD'}`,
+      );
+}
+
 export async function runDoctor(): Promise<DoctorReport> {
   const env = checkEnvironment();
-  const [bunVersion, postgres, migrations, redis, boundaries, slots] =
+  const [bunVersion, postgres, migrations, redis, boundaries, slots, identity] =
     await Promise.all([
       checkBunVersion(),
       checkPostgres(process.env.DATABASE_URL),
@@ -275,6 +330,7 @@ export async function runDoctor(): Promise<DoctorReport> {
       checkRedis(process.env.REDIS_URL),
       checkBoundaries(),
       checkSlots(),
+      checkGithubIdentity(),
     ]);
   return createDoctorReport([
     bunVersion,
@@ -284,6 +340,8 @@ export async function runDoctor(): Promise<DoctorReport> {
     redis,
     boundaries,
     ...slots,
+    identity,
+    checkCheckout(),
   ]);
 }
 
