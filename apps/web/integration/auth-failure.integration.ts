@@ -23,6 +23,7 @@ const silent = { log: () => {}, child: () => silent };
 const unreachableDatabase = () => {
   const database = createDatabase({
     url: 'postgres://daisy:unused-password@127.0.0.1:1/daisy_test',
+    nextActorId: () => systemId.next(),
   });
   const sent: string[] = [];
   const server = createAuthServer({

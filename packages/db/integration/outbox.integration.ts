@@ -33,7 +33,7 @@ const waitFor = async (
 };
 
 test('a committed transaction delivers its outbox row with a txid, a NOTIFY and an object payload; a rolled-back one delivers nothing', async () => {
-  const database = createDatabase({ url });
+  const database = createDatabase({ url, nextActorId: createId });
   const listener = new SQL(url);
   const reader = new SQL(url);
   const readerDb = drizzle({ client: reader });
