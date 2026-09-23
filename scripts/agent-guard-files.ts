@@ -1,6 +1,6 @@
 /**
- * The agent guard's file rules (ADR 0035): loop state and the agent records
- * in .daisy are changed only by the loop and spawn commands, never by hand.
+ * The agent guard's file rules (ADR 0035): loop state, the agent records in
+ * .daisy and the guard's hook wiring are never changed by an agent by hand.
  * A path argument counts when it names a protected file, one of its parent
  * directories, or a glob that could expand to either.
  */
@@ -22,6 +22,9 @@ const PROTECTED = [
   '.claude/ralph-loop.escalated.md',
   '.daisy/parent',
   '.daisy/role',
+  // The guard's own wiring: an agent does not switch its checks off.
+  '.claude/settings.json',
+  '.githooks/pre-push',
 ];
 
 // Every file and directory whose removal or rewrite reaches a protected file.

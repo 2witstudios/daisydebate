@@ -221,8 +221,10 @@ describe('agent guard: loop state and guard bypasses', () => {
         "sed -i '' s/a/b/ .daisy/role",
         'mv .claude/ralph-loop.escalated.md /tmp/x',
         `rm ${worktree}/.claude/ralph-loop.local.md`,
+        `echo '{}' > .claude/settings.json`,
+        'rm .githooks/pre-push',
       ].map((command) => decide(command)),
-      expected: Array(12).fill('deny'),
+      expected: Array(14).fill('deny'),
     });
   });
 
@@ -323,10 +325,11 @@ describe('agent guard: loop state and guard bypasses', () => {
           .decision,
         classifyFileEdit(`${worktree}/scripts/loop.ts`, facts()).decision,
         classifyFileEdit(`${worktree}/.daisy/parent`, facts()).decision,
+        classifyFileEdit(`${worktree}/.claude/settings.json`, facts()).decision,
         classifyFileEdit(`${worktree}/.claude/ralph-loop.local.md`, owner())
           .decision,
       ],
-      expected: ['deny', 'allow', 'deny', 'allow'],
+      expected: ['deny', 'allow', 'deny', 'deny', 'allow'],
     });
   });
 

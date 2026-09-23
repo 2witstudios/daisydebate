@@ -143,6 +143,8 @@ function run(args: readonly string[], cwd: string): string | undefined {
     cwd: existsSync(cwd) ? cwd : undefined,
     stdout: 'pipe',
     stderr: 'ignore',
+    // Stay well inside the hook's 30 s budget; a timeout reads as unknown.
+    timeout: 5_000,
   });
   return result.exitCode === 0 ? result.stdout.toString().trim() : undefined;
 }

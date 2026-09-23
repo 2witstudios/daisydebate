@@ -371,6 +371,28 @@ describe('agent guard: wiring', () => {
     });
   });
 
+  test('blocks agents when the guard itself cannot run', async () => {
+    const settings = (await Bun.file(
+      `${root}/.claude/settings.json`,
+    ).json()) as {
+      hooks: { PreToolUse: { hooks: { command: string }[] }[] };
+    };
+    const command = settings.hooks.PreToolUse[0].hooks[0].command;
+    // A project dir without the guard script makes bun fail to start it.
+    const run = (autonomous: boolean) =>
+      Bun.spawnSync(['sh', '-c', command], {
+        env: { ...env(autonomous), CLAUDE_PROJECT_DIR: '/nonexistent' },
+        stdin: Buffer.from('{}'),
+        stderr: 'pipe',
+      }).exitCode;
+    assert({
+      given: 'the committed hook command with a guard that fails to run',
+      should: 'exit 2 (blocking) for an agent and 0 for the owner',
+      actual: [run(true), run(false)],
+      expected: [2, 0],
+    });
+  });
+
   test('refuses an autonomous push to main from the committed pre-push hook', () => {
     const push = Bun.spawnSync(
       ['sh', '.githooks/pre-push', 'origin', 'https://github.com/o/r.git'],
