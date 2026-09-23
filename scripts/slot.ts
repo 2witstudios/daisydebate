@@ -22,6 +22,7 @@ import {
   dropSlotDatabase,
   ensureE2ERole,
   ensureTemplate,
+  grantE2EAccess,
   listSlotDatabases,
   setSlotDatabaseComment,
   withSlotLock,
@@ -313,6 +314,14 @@ async function up(checkout: Checkout, envPath: string) {
         for (const database of [slot.database, slot.testDatabase])
           if (await createSlotDatabase(services.admin, database, template))
             created.push(database);
+        // A test database that predates the template (the main checkout's
+        // legacy daisy_test) lacks the e2e grants; granting is idempotent.
+        const testDatabase = services.connect(slot.testDatabase);
+        try {
+          await grantE2EAccess(testDatabase, e2eRole.user);
+        } finally {
+          await testDatabase.close();
+        }
         const portBlock =
           slot.kind === 'worktree'
             ? await claimPortBlock(services.admin, slot)
