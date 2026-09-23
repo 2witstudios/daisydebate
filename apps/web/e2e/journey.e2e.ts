@@ -128,9 +128,6 @@ test('a redeemed link cannot be replayed', async ({ page, request }) => {
   await expect(
     page.getByRole('heading', { name: /can no longer be used/i }),
   ).toBeVisible();
-  // THROWAWAY (ISSUE-32 CI proof): fails on purpose so the sanitize and
-  // upload steps run on a real failure with a token-bearing trace.
-  await expect(page).toHaveURL(/\/deliberately-wrong$/);
   await page.goto('/lobby');
   await expect(page).toHaveURL(/\/sign-in\?next=%2Flobby$/);
 });
