@@ -53,7 +53,9 @@ const TASKS_LINE = /^\s*[-*]?\s*Tasks?\s*:/;
 /**
  * The task codes a PR delivers: those in its title, its branch and its
  * body's `Tasks:` line. A code the body only mentions (a later leaf, an ADR
- * citation, a related issue) is not delivered by the PR.
+ * citation, a related issue) is not delivered by the PR, and an ISSUE-n
+ * closes only through a PR whose title or branch names it: a Tasks line
+ * that links an issue (the one a PR filed, say) does not close it.
  */
 export function deliveredCodes(
   pr: {
@@ -63,10 +65,14 @@ export function deliveredCodes(
   },
   extract: (text: string) => readonly string[] = extractTaskIds,
 ): readonly string[] {
-  const tasksLines = (pr.body ?? '')
-    .split('\n')
-    .filter((line) => TASKS_LINE.test(line));
-  return extract([pr.title, pr.headRefName, ...tasksLines].join('\n'));
+  const named = extract([pr.title, pr.headRefName].join('\n'));
+  const listed = extract(
+    (pr.body ?? '')
+      .split('\n')
+      .filter((line) => TASKS_LINE.test(line))
+      .join('\n'),
+  ).filter((code) => !code.startsWith('ISSUE-'));
+  return [...new Set([...named, ...listed])];
 }
 
 /** Where a merge moves a task; undefined when it stays. */
