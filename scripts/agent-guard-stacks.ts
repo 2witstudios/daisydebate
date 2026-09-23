@@ -36,6 +36,7 @@ const composeValueOptions = new Set([
   '--project-directory',
   '--ansi',
   '--progress',
+  '--parallel',
 ]);
 
 /** The subcommand after compose's global options. */

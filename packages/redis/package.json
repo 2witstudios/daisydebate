@@ -10,7 +10,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "bun test src",
-    "test:integration": "bun test ./integration/redis.integration.ts ./integration/presence.integration.ts ./integration/presence-expiry.integration.ts ./integration/namespaces.integration.ts"
+    "test:integration": "bun ../../scripts/test-integration.ts"
   },
   "dependencies": {},
   "devDependencies": {

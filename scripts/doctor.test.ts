@@ -1,9 +1,11 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  checkoutCheck,
   createDoctorReport,
   formatDoctorReport,
   isMigrationCurrent,
   orphanCheck,
+  puConfigCheck,
   readCommittedMigrationHashes,
   slotCheck,
   type DoctorCheck,
@@ -35,6 +37,10 @@ describe('doctor report', () => {
           { name: 'boundaries', status: 'fail', detail: 'not checked' },
           { name: 'slot', status: 'fail', detail: 'not checked' },
           { name: 'slot-orphans', status: 'fail', detail: 'not checked' },
+          { name: 'github-identity', status: 'fail', detail: 'not checked' },
+          { name: 'identity-regime', status: 'fail', detail: 'not checked' },
+          { name: 'pu-config', status: 'fail', detail: 'not checked' },
+          { name: 'checkout', status: 'fail', detail: 'not checked' },
         ],
       },
     });
@@ -50,6 +56,22 @@ describe('doctor report', () => {
       { name: 'boundaries', status: 'pass', detail: 'verified' },
       { name: 'slot', status: 'pass', detail: 'daisy' },
       { name: 'slot-orphans', status: 'warn', detail: 'orphaned slots: gone' },
+      {
+        name: 'github-identity',
+        status: 'pass',
+        detail: 'autonomous as daisy-agent (GH_TOKEN, HTTPS push)',
+      },
+      {
+        name: 'identity-regime',
+        status: 'pass',
+        detail: 'identity regime active (agent)',
+      },
+      {
+        name: 'pu-config',
+        status: 'pass',
+        detail: 'agents start through scripts/agent-launch.sh',
+      },
+      { name: 'checkout', status: 'pass', detail: 'worktree on pu/x' },
     ]);
 
     assert({
@@ -63,7 +85,7 @@ describe('doctor report', () => {
       should: 'render a passing text summary',
       actual: formatDoctorReport(report, false),
       expected:
-        'Daisy doctor: PASS\nPASS bun-version: 1.4.2\nPASS env: valid\nPASS postgres: reachable\nPASS migration-currency: 1 migration\nPASS redis: PONG\nPASS boundaries: verified\nPASS slot: daisy\nWARN slot-orphans: orphaned slots: gone\n',
+        'Daisy doctor: PASS\nPASS bun-version: 1.4.2\nPASS env: valid\nPASS postgres: reachable\nPASS migration-currency: 1 migration\nPASS redis: PONG\nPASS boundaries: verified\nPASS slot: daisy\nWARN slot-orphans: orphaned slots: gone\nPASS github-identity: autonomous as daisy-agent (GH_TOKEN, HTTPS push)\nPASS identity-regime: identity regime active (agent)\nPASS pu-config: agents start through scripts/agent-launch.sh\nPASS checkout: worktree on pu/x\n',
     });
   });
 });
@@ -108,7 +130,9 @@ describe('slot checks', () => {
       actual: [
         warned,
         orphanCheck([]),
-        createDoctorReport([warned]).checks.at(-1)?.status,
+        createDoctorReport([warned]).checks.find(
+          (check) => check.name === 'slot-orphans',
+        )?.status,
       ],
       expected: [
         {
@@ -133,6 +157,10 @@ describe('slot checks', () => {
             'redis',
             'boundaries',
             'slot',
+            'github-identity',
+            'identity-regime',
+            'pu-config',
+            'checkout',
           ] as const
         ).map((name): DoctorCheck => ({ name, status: 'pass', detail: '' })),
         warned,
@@ -170,6 +198,46 @@ describe('migration currency', () => {
         '92dea778e7b6329f8f438e81b0df14572e4fb7f3cdf1fc3c5f85bcd40984da0e',
         '5a537451d5b0ef25c5b3446f7be06ed8d9154a58a78293c8fe8efd11f5054e35',
         'a6d26437b57c69304a79427e323fad55b40fdb7c0d4bab13b645450888003a5d',
+      ],
+    });
+  });
+});
+
+describe('checkout check', () => {
+  test('warns, not fails, when the main checkout is off main', () => {
+    assert({
+      given: 'the main checkout on a feature branch, and a worktree',
+      should: 'warn for the first and pass the second',
+      actual: [
+        checkoutCheck({ mainCheckout: true, branch: 'docs/x' }).status,
+        checkoutCheck({ mainCheckout: false, branch: 'pu/x' }),
+      ],
+      expected: [
+        'warn',
+        { name: 'checkout', status: 'pass', detail: 'worktree on pu/x' },
+      ],
+    });
+  });
+});
+
+describe('pu config check', () => {
+  test('fails when pu has replaced the committed launcher configuration', () => {
+    assert({
+      given: 'a modified, a deleted and an untouched .pu/config.yaml',
+      should: 'fail the first two and pass the last',
+      actual: [
+        puConfigCheck(' M .pu/config.yaml\n').status,
+        puConfigCheck(' D .pu/config.yaml\n').status,
+        puConfigCheck(''),
+      ],
+      expected: [
+        'fail',
+        'fail',
+        {
+          name: 'pu-config',
+          status: 'pass',
+          detail: 'agents start through scripts/agent-launch.sh',
+        },
       ],
     });
   });
