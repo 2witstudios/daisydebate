@@ -19,6 +19,7 @@ const eventRegistry = {
   'auth.passkey.enrolled': 'info',
   'auth.passkey.authenticated': 'info',
   'auth.passkey.removed': 'info',
+  'auth.passkey.notification_failed': 'error',
   'auth.session.revoked': 'info',
   'auth.session.revoked_all': 'info',
   'auth.email_change.requested': 'info',

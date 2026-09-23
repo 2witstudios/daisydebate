@@ -14,6 +14,7 @@ import {
 import { createMagicLinkGatePlugin } from './magic-link-gate';
 import { freshSessionGatePlugin } from './fresh-session-gate';
 import { passkeyDeviceHintPlugin } from './passkey-device-hint';
+import { passkeyNotificationsPlugin } from './passkey-notifications';
 import { sessionRevokedOutboxPlugin } from './session-revoked-outbox';
 import { revokeOthersOnVerifyEmailPlugin } from './revoke-others-on-verify-email';
 import { deriveRecipientSubkey, recipientKey } from './recipient-key';
@@ -205,6 +206,7 @@ const composeBetterAuth = (dependencies: {
         },
       }),
       passkeyDeviceHintPlugin,
+      passkeyNotificationsPlugin(origin, dependencies.deliver, dependencies.logger),
       magicLinkGatePlugin,
       freshSessionGatePlugin,
       sessionRevokedOutboxPlugin(

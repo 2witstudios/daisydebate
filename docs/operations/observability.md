@@ -65,6 +65,7 @@ selected log levels, controls severity:
 | `auth.passkey.enrolled`       | info     | A passkey registration ceremony completed                                                              |
 | `auth.passkey.authenticated`  | info     | A passkey authentication ceremony completed                                                            |
 | `auth.passkey.removed`        | info     | An owned passkey was deleted                                                                           |
+| `auth.passkey.notification_failed` | error | The added/removed security notification email could not be sent                                    |
 | `auth.session.revoked`        | info     | A single named other session was revoked                                                               |
 | `auth.session.revoked_all`    | info     | Every other session for the account was revoked                                                        |
 | `auth.email_change.requested` | info     | A fresh session started a recovery-email change                                                        |
