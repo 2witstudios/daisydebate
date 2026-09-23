@@ -15,19 +15,18 @@ import {
   combine,
   deny,
   guardVariables,
-  isLoopState,
   LOOP_REASON,
-  loopState,
   pushTargetVerdict,
   resolveFrom,
   unwrap,
-  git,
-  gh,
-  kill,
-  type Rule,
   type GuardFacts,
+  type Rule,
   type Verdict,
 } from './agent-guard-rules';
+import { isLoopState, loopState } from './agent-guard-files';
+import { gh } from './agent-guard-gh';
+import { git } from './agent-guard-git';
+import { kill } from './agent-guard-process';
 import { bun, docker } from './agent-guard-stacks';
 import { deriveSlot } from './slot-model';
 import { parseShell } from './shell-command';
