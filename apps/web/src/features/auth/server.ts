@@ -222,9 +222,9 @@ const composeBetterAuth = (dependencies: {
           { source: 'better-auth' },
           'Authentication request failed',
         );
-        // A retryable outage, typed at the source: callers (the mounted
-        // route wrapper, the confirm-page internal forward) no longer need
-        // to sniff a bodiless 500 for this signal.
+        // A retryable outage, typed at the source, so callers (the mounted
+        // route wrapper, the confirm-page internal forward) read the error
+        // code rather than the response.
         throw createAppError('INFRASTRUCTURE', undefined, error);
       }
     },

@@ -41,11 +41,7 @@ adds the delivery and abuse controls ADR 0020 requires before activation.
   `X-Forwarded-For`. `next dev` runs without that ingress, so a dev-mode
   request carries no such header and shares one "unknown" bucket per path,
   same as any other missing identity: a fail-safe bucket, never an escaped
-  limit. (Superseded 2026-09-23, ISSUE-5: the previous revision also let
-  Better Auth trust a deployment-configured `AUTH_TRUSTED_IP_HEADERS` list of
-  its own, a second, redundant resolver that had no effect in production but
-  left two trust configurations to keep in sync. `AUTH_TRUSTED_IP_HEADERS`
-  and its `clientIpFromConfig`/`ClientIpTrust` plumbing are deleted.)
+  limit.
 - **Origin rule.** State-changing `/api/auth/*` calls must carry the exact
   application `Origin`, in addition to Better Auth's own checks (which only
   engage for cookie-bearing requests). Callback destinations are local paths;
