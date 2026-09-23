@@ -1,7 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { Panel } from '../../components/panel/panel';
-import { Button } from '../../components/button/button';
+import { buttonClass } from '../../components/button/button-class';
 import { useUiState } from '../../store/store';
 
 export function TopicCard() {
@@ -11,9 +12,9 @@ export function TopicCard() {
       <p className="mb-5 font-display text-xl leading-tight font-semibold text-balance">
         {todaysTopic}
       </p>
-      <Button variant="secondary" className="w-full">
+      <Link href="/play" className={`${buttonClass('secondary')} w-full`}>
         Join the Discussion
-      </Button>
+      </Link>
     </Panel>
   );
 }

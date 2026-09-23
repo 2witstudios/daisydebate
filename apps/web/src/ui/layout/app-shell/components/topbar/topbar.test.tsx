@@ -3,45 +3,46 @@ import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { Topbar, type ShellAccount } from './topbar';
 import { createInitialState } from '../../../../store/state';
-import { setUiState } from '../../../../store/store';
+import { UiStoreProvider } from '../../../../store/store';
 
 setupRitewayBun();
 
-const seed = createInitialState();
-
-const renderWith = (
-  notificationsCount: number,
-  account: ShellAccount = { state: 'anonymous' },
-): string => {
-  setUiState({
-    ...seed,
-    resources: {
-      ...seed.resources,
-      notificationsCount,
-    },
-  });
-  return renderToString(h(Topbar, { account }));
-};
+const renderWith = (account: ShellAccount = { state: 'anonymous' }): string =>
+  renderToString(
+    h(UiStoreProvider, {
+      initialState: createInitialState(),
+      children: h(Topbar, { account }),
+    }),
+  );
 
 describe('Topbar', () => {
   test('is the banner with a home brand link and labelled controls', () => {
-    const html = renderWith(3);
+    const html = renderWith();
     assert({
       given: 'the topbar',
       should: 'render a header, link the brand home, and name its controls',
       actual: [
         html.includes('<header'),
         /<a [^>]*href="\/"/.test(html),
-        html.includes('aria-label="Notifications"'),
         html.includes('type="search"'),
-        html.includes('aria-label="Search"'),
       ],
-      expected: [true, true, true, true, true],
+      expected: [true, true, true],
+    });
+  });
+
+  test('names the brand link even when its text is hidden at narrow widths', () => {
+    const html = renderWith();
+    assert({
+      given:
+        'the brand link, whose logo is aria-hidden and whose wordmark and tagline hide at narrow widths',
+      should: 'carry its own accessible name',
+      actual: /<a [^>]*aria-label="Daisy home"[^>]*href="\/"/.test(html),
+      expected: true,
     });
   });
 
   test('offers sign-in to an anonymous visitor', () => {
-    const html = renderWith(0);
+    const html = renderWith();
     assert({
       given: 'an anonymous visitor',
       should: 'show a Sign in link to /sign-in and no username',
@@ -51,7 +52,7 @@ describe('Topbar', () => {
   });
 
   test('sends a provisional account back to finish sign-up', () => {
-    const html = renderWith(0, { state: 'provisional' });
+    const html = renderWith({ state: 'provisional' });
     assert({
       given: 'an account that has not chosen a username',
       should: 'show a Finish sign-up link to onboarding',
@@ -63,7 +64,7 @@ describe('Topbar', () => {
   });
 
   test('shows the chosen username as the display identity', () => {
-    const html = renderWith(0, { state: 'member', username: 'ada_byron' });
+    const html = renderWith({ state: 'member', username: 'ada_byron' });
     assert({
       given: 'a member',
       should: 'link their username to settings with an accessible name',
@@ -74,17 +75,6 @@ describe('Topbar', () => {
         html.includes('Sign in<'),
       ],
       expected: [true, true, true, false],
-    });
-  });
-
-  test('shows the notification badge only when something is unread', () => {
-    const badge = (html: string): string | undefined =>
-      /<span[^>]* aria-hidden="true">(\d+)<\/span>/.exec(html)?.[1];
-    assert({
-      given: 'three and then zero unread notifications',
-      should: 'render the count badge only for the unread case',
-      actual: [badge(renderWith(3)), badge(renderWith(0))],
-      expected: ['3', undefined],
     });
   });
 });

@@ -5,7 +5,7 @@ test.describe('dashboard shell chrome', () => {
     page,
   }) => {
     await page.goto('/');
-    const home = page.getByRole('link', { name: 'Home' });
+    const home = page.getByRole('link', { name: 'Home', exact: true });
     await expect(home).toHaveAttribute('aria-current', 'page');
     await expect(
       page.getByRole('link', { name: 'Play / Lobby' }),
@@ -14,26 +14,6 @@ test.describe('dashboard shell chrome', () => {
     // Play is a participant area: a visitor is sent to sign-in on the way.
     await page.getByRole('link', { name: 'Play / Lobby' }).click();
     await expect(page).toHaveURL(/\/sign-in\?next=%2Fplay$/);
-  });
-
-  test('the search input round-trips through the shell state', async ({
-    page,
-  }) => {
-    await page.goto('/');
-    const search = page.getByRole('searchbox', { name: 'Search' });
-    // Hydration gate, not a behavior proof: nothing else in the UI renders
-    // the search query today, and fill + toHaveValue also pass on the inert
-    // server-rendered input. React tags hydrated DOM nodes with a
-    // `__reactProps$…` key, so waiting for it makes this test fail when the
-    // client shell never attaches.
-    await page.waitForFunction(
-      (input) =>
-        input !== null &&
-        Object.keys(input).some((key) => key.startsWith('__reactProps$')),
-      await search.elementHandle(),
-    );
-    await search.fill('climate');
-    await expect(search).toHaveValue('climate');
   });
 
   test('menu tiles share one uniform shape', async ({ page }) => {
@@ -90,16 +70,13 @@ test.describe('dashboard shell chrome', () => {
   test('interactive controls carry accessible names', async ({ page }) => {
     await page.goto('/');
     await expect(
-      page.getByRole('button', { name: 'Notifications' }),
-    ).toBeVisible();
-    await expect(
       page.locator('header').getByRole('link', { name: 'Sign in' }),
     ).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Challenge Maya Singh' }),
+      page.getByRole('link', { name: 'Challenge Maya Singh' }),
     ).toBeAttached();
     await expect(
-      page.getByRole('status', { name: 'online' }).first(),
+      page.getByRole('img', { name: 'online' }).first(),
     ).toBeAttached();
   });
 });

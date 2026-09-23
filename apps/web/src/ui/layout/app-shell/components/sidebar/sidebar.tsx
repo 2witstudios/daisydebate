@@ -1,7 +1,8 @@
 import { NavItem } from '../../../../components/nav-item/nav-item';
 import { Icon } from '../../../../components/icon/icon';
+import type { ShellAccount } from '../topbar/topbar';
 
-const navigation = [
+const baseNavigation = [
   { href: '/', icon: 'home', label: 'Home' },
   {
     href: '/play',
@@ -25,11 +26,31 @@ const navigation = [
   },
   { href: '/train', icon: 'bolt', label: 'Train' },
   { href: '/prep', icon: 'book', label: 'Prep' },
-  { href: '/profile/alex-chen', icon: 'person', label: 'Profile' },
+] as const;
+
+const trailingNavigation = [
   { href: '/settings', icon: 'dots', label: 'More' },
 ] as const;
 
-export function Sidebar() {
+export type SidebarProps = {
+  /** Signed-in members get a Profile link to their own page. */
+  readonly account: ShellAccount;
+};
+
+export function Sidebar({ account }: SidebarProps) {
+  const navigation = [
+    ...baseNavigation,
+    ...(account.state === 'member'
+      ? [
+          {
+            href: `/profile/${account.username}`,
+            icon: 'person',
+            label: 'Profile',
+          } as const,
+        ]
+      : []),
+    ...trailingNavigation,
+  ];
   return (
     <nav
       aria-label="Primary"
