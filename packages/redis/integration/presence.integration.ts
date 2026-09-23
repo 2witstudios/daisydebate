@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
 import { createRedis, redisKey } from '../src';
+import { PRESENCE_LIMIT_MAX } from '../src/presence-scripts';
 import { rawClient } from './test-support';
 const url = process.env.TEST_REDIS_URL;
 if (!url) throw new Error('TEST_REDIS_URL required');
@@ -267,7 +268,45 @@ test('readOnlinePresence bounds its result to the given limit', async () => {
   }
 });
 
-test('sweepOnlinePresence removes expired members without touching a read', async () => {
+test('readOnlinePresence never writes: an expired online member is still stored after a read', async () => {
+  // The negative control for ISSUE-46: putting ZREMRANGEBYSCORE back into
+  // readOnlinePresenceScript deletes the ghost below and fails this test.
+  const namespace = `test-${createId()}`;
+  const redis = createRedis({ url, namespace });
+  const raw = await rawClient(url);
+  const liveActorId = createId();
+  const ghostActorId = createId();
+  const onlineKey = redisKey(namespace, 'presence', 'online');
+  const ghostScore = String(Date.now() - 5_000);
+  try {
+    await redis.upsertPresenceLease(
+      {
+        connId: 'liveConn',
+        actorId: liveActorId,
+        instanceId: 'inst1',
+        activity: 'active',
+      },
+      100,
+    );
+    await raw.send('ZADD', [onlineKey, ghostScore, ghostActorId]);
+
+    const { actors } = await redis.readOnlinePresence(10);
+    expect(actors.map((actor) => actor.actorId)).toEqual([liveActorId]);
+    expect(await raw.send('ZSCORE', [onlineKey, ghostActorId])).toBe(
+      Number(ghostScore),
+    );
+  } finally {
+    await redis.deletePresenceLease({
+      connId: 'liveConn',
+      actorId: liveActorId,
+    });
+    await raw.send('ZREM', [onlineKey, ghostActorId]);
+    redis.close();
+    raw.close();
+  }
+});
+
+test('sweepOnlinePresence removes expired members and keeps live ones', async () => {
   const namespace = `test-${createId()}`;
   const redis = createRedis({ url, namespace });
   const raw = await rawClient(url);
@@ -300,6 +339,34 @@ test('sweepOnlinePresence removes expired members without touching a read', asyn
       actorId: liveActorId,
     });
     await raw.send('ZREM', [onlineKey, ghostActorId]);
+    redis.close();
+    raw.close();
+  }
+});
+
+test('a sweep at the limit cap removes exactly the cap from a larger backlog, and the next sweep drains the rest', async () => {
+  // ISSUE-46: the sweep passes every expired member to one ZREM through
+  // Lua's unpack, which fails past about 8,000 values ("too many results to
+  // unpack", nothing removed). The cap keeps every accepted limit far below
+  // that; this proves the cap itself against real Redis.
+  const namespace = `test-${createId()}`;
+  const redis = createRedis({ url, namespace });
+  const raw = await rawClient(url);
+  const onlineKey = redisKey(namespace, 'presence', 'online');
+  const backlog = PRESENCE_LIMIT_MAX + 10;
+  const past = String(Date.now() - 5_000);
+  try {
+    await raw.send('ZADD', [
+      onlineKey,
+      ...Array.from({ length: backlog }, () => [past, createId()]).flat(),
+    ]);
+    const first = await redis.sweepOnlinePresence(PRESENCE_LIMIT_MAX);
+    const second = await redis.sweepOnlinePresence(PRESENCE_LIMIT_MAX);
+    expect({ first, second, left: await raw.send('ZCARD', [onlineKey]) }).toEqual(
+      { first: PRESENCE_LIMIT_MAX, second: 10, left: 0 },
+    );
+  } finally {
+    await raw.del(onlineKey);
     redis.close();
     raw.close();
   }
