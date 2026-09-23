@@ -1,6 +1,11 @@
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   claimsIntegrationSuite,
+  discoverSuites,
+  exitCodeOf,
   INTEGRATION_RUNNER,
   integrationSuites,
 } from './test-integration';
@@ -48,6 +53,41 @@ describe('integration suite discovery', () => {
         ),
       ],
       expected: [true, false, false],
+    });
+  });
+});
+
+describe('running the suites', () => {
+  test('discovers .tsx suites as well as .ts', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'grd-6-integration-'));
+    mkdirSync(join(dir, 'integration'));
+    for (const name of ['ui.integration.tsx', 'db.integration.ts', 'x.ts'])
+      writeFileSync(join(dir, 'integration', name), '');
+    assert({
+      given:
+        'an integration folder with a .tsx suite, a .ts suite and a helper',
+      should:
+        'run both suites, so bun evidence never counts one that is skipped',
+      actual: discoverSuites(dir),
+      expected: [
+        'integration/db.integration.ts',
+        'integration/ui.integration.tsx',
+      ],
+    });
+  });
+
+  test('fails when bun test dies from a signal', () => {
+    const killed = Bun.spawnSync(['sh', '-c', 'kill -9 $$']);
+    assert({
+      given:
+        'a run killed by SIGKILL (exit code null), a failing run and a passing one',
+      should: 'exit non-zero for the first two and zero for the last',
+      actual: [
+        exitCodeOf(killed),
+        exitCodeOf({ exitCode: 3, signalCode: null }),
+        exitCodeOf({ exitCode: 0, signalCode: null }),
+      ],
+      expected: [137, 3, 0],
     });
   });
 });
