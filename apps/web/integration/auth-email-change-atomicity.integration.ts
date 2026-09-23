@@ -1,9 +1,11 @@
+import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { signJWT, verifyJWT } from 'better-auth/crypto';
 import { buildUserInboxTopic } from '@daisy/protocol';
 import { createPasskeyFlows } from './auth-passkey-flows';
 import { withOutboxInsertBlockedForTopic } from './auth-helpers';
+import { trackedSignUp } from './auth-outbox-helpers';
 import {
   cookieHeader,
   newClient,
@@ -26,7 +28,6 @@ if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
 setupRitewayBun();
 
 const flows = await createPasskeyFlows();
-const { signUp } = flows.account;
 const confirmEmailRoute = await import('../src/app/auth/confirm-email/route');
 
 const linkFrom = (mail: CapturedMail): URL => {
@@ -56,16 +57,17 @@ const isAuthenticated = async (cookie: string): Promise<boolean> =>
   ).json()) !== null;
 
 const emailOf = (userId: string) =>
-  withSql(async (sql) => {
-    const [row] = await sql`SELECT email FROM users WHERE id = ${userId}`;
-    return row?.email as string | undefined;
-  });
+  withSql((sql) => sql`SELECT email FROM users WHERE id = ${userId}`).then(
+    (rows) => rows[0]?.email as string | undefined,
+  );
 
 const userIdOf = (email: string) =>
-  withSql(async (sql) => {
-    const [row] = await sql`SELECT id FROM users WHERE email = ${email}`;
-    return row?.id as string | undefined;
-  });
+  withSql((sql) => sql`SELECT id FROM users WHERE email = ${email}`).then(
+    (rows) => rows[0]?.id as string | undefined,
+  );
+
+const { signUp, cleanup } = trackedSignUp(flows.account.signUp, userIdOf);
+afterAll(cleanup);
 
 describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () => {
   test('an expired verification token is rejected server-side and changes nothing', async () => {
@@ -360,16 +362,10 @@ describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () 
         expected: { status: 502, otherSessionStillAuthenticated: true },
       });
     } finally {
-      // RT-2.2f-r1 minor: this fixture inserts the actor directly (above),
-      // so it must clean it — and the account's `users` row, RESTRICTed
-      // behind it — itself; no shared afterAll in this file does either.
-      // Better Auth's own second-hop verification already commits the
-      // email to `newEmail` before Daisy's atomic revocation ever runs (the
-      // 502 this test proves is only the "cleanup step", not the change
-      // itself), so cleanup must key off `uid`/`actorId`, never the
-      // pre-change `email` `removeAccount` matches on.
+      // This fixture's actor row is cleared here (its id is never tracked
+      // for the suite backstop); the `users` row `uid` names is the one
+      // `signUp()` above already tracked, so the shared `afterAll` clears it.
       await withSql((sql) => sql`DELETE FROM actors WHERE id = ${actorId}`);
-      await withSql((sql) => sql`DELETE FROM users WHERE id = ${uid}`);
     }
   });
 });

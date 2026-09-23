@@ -56,6 +56,7 @@ export function secondInstance(
     clientIp: { trustedHeaders: [CLIENT_IP_HEADER] },
     ledger: noLedger,
     appendSessionRevoked: async () => {},
+    revokeOtherSessions: async () => 0,
     logger: silentLogger,
     clock: systemClock,
     ids: systemId,

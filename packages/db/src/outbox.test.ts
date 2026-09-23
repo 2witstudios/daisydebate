@@ -1,4 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { createId } from '@paralleldrive/cuid2';
+import { buildUserInboxTopic } from '@daisy/protocol';
 import {
   OUTBOX_ORIGIN,
   appendOutboxEvent,
@@ -109,13 +111,23 @@ describe('appendOutboxEvent input validation', () => {
         throw new Error('should not be called');
       },
     };
+    // Every case below otherwise carries a real, storable topic/kind/payload
+    // pair (RT-2.2f-r2 review minor): a `payload: {}` shared across every
+    // case would already fail `outboxPayloadSchema` on its own, so the test
+    // would keep passing even if the topic/kind/version/strictObject rules
+    // on `outboxAppendInputSchema` were loosened away. Only the one field
+    // named per case is invalid.
+    const actorId = createId();
+    const topic = buildUserInboxTopic(actorId);
+    const kind = 'session.revoked' as const;
+    const payload = { version: 1, kind, ids: [actorId] };
     const attempts = await Promise.all(
       [
-        { topic: '', kind: 'k', version: 1, payload: {} },
-        { topic: 't', kind: '', version: 1, payload: {} },
-        { topic: 't', kind: 'k', version: 0, payload: {} },
-        { topic: 't', kind: 'k', version: 1.5, payload: {} },
-        { topic: 't', kind: 'k', version: 1, payload: {}, extra: 'nope' },
+        { topic: '', kind, version: 1, payload },
+        { topic, kind: '', version: 1, payload },
+        { topic, kind, version: 0, payload },
+        { topic, kind, version: 1.5, payload },
+        { topic, kind, version: 1, payload, extra: 'nope' },
       ].map((input) =>
         // biome-ignore-next: exercising the runtime boundary with bad shapes
         appendOutboxEvent(tx as never, input as never)
@@ -125,7 +137,7 @@ describe('appendOutboxEvent input validation', () => {
     );
     assert({
       given:
-        'an empty topic/kind, a non-positive or fractional version, and an unknown field',
+        'an empty topic/kind, a non-positive or fractional version, and an unknown field, each next to an otherwise valid and storable topic/kind/payload',
       should: 'refuse every one without inserting or notifying',
       actual: { attempts, touched },
       expected: {
@@ -171,6 +183,95 @@ describe('appendOutboxEvent input validation', () => {
         attempts: attempts.map(() => 'refused'),
         touched: false,
       },
+    });
+  });
+});
+
+describe('appendOutboxEvent storage-side family rule (RT-2.1c, plan revision 4.11)', () => {
+  const fakeTx = () => {
+    const calls: unknown[] = [];
+    return {
+      tx: {
+        insert: (_table: unknown) => ({
+          values: (_values: unknown) => ({
+            returning: async (_columns: unknown) => {
+              calls.push('insert');
+              return [{ seq: 1n, txid: '1' }];
+            },
+          }),
+        }),
+        execute: async (query: unknown) => {
+          calls.push(query);
+          return [{ seq: 1n, txid: '1' }];
+        },
+      },
+      calls,
+    };
+  };
+
+  test('accepts a session.revoked control row on the actor inbox family, and refuses a doorbell kind that family disallows', async () => {
+    const actorId = createId();
+    const topic = buildUserInboxTopic(actorId);
+
+    const allowed = fakeTx();
+    const allowedResult = await appendOutboxEvent(allowed.tx as never, {
+      topic,
+      kind: 'session.revoked',
+      version: 1,
+      payload: { version: 1, kind: 'session.revoked', ids: [actorId] },
+    })
+      .then(() => 'accepted')
+      .catch(() => 'refused');
+
+    const disallowed = fakeTx();
+    const disallowedResult = await appendOutboxEvent(disallowed.tx as never, {
+      topic,
+      kind: 'standings.updated',
+      version: 1,
+      payload: { version: 1, kind: 'standings.updated', ids: [actorId] },
+    })
+      .then(() => 'accepted')
+      .catch(() => 'refused');
+
+    assert({
+      given:
+        "a session.revoked control row on an actor's inbox topic, and a standings.updated row on that same topic",
+      should:
+        'accept the control kind the storage-side family rule allows on the inbox, and refuse the one it does not before touching the database',
+      actual: {
+        allowedResult,
+        allowedTouchedDatabase: allowed.calls.length > 0,
+        disallowedResult,
+        disallowedTouchedDatabase: disallowed.calls.length > 0,
+      },
+      expected: {
+        allowedResult: 'accepted',
+        allowedTouchedDatabase: true,
+        disallowedResult: 'refused',
+        disallowedTouchedDatabase: false,
+      },
+    });
+  });
+
+  test('refuses a row whose kind column disagrees with its payload kind, before touching the database', async () => {
+    const actorId = createId();
+    const topic = buildUserInboxTopic(actorId);
+    const mismatched = fakeTx();
+    const result = await appendOutboxEvent(mismatched.tx as never, {
+      topic,
+      kind: 'bogus.kind',
+      version: 1,
+      payload: { version: 1, kind: 'session.revoked', ids: [actorId] },
+    })
+      .then(() => 'accepted')
+      .catch(() => 'refused');
+    assert({
+      given:
+        'an append whose kind column ("bogus.kind") differs from its payload.kind ("session.revoked")',
+      should:
+        'refuse it before touching the database, since consumers and cleanups filter on the kind column',
+      actual: { result, touchedDatabase: mismatched.calls.length > 0 },
+      expected: { result: 'refused', touchedDatabase: false },
     });
   });
 });

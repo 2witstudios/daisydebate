@@ -40,6 +40,7 @@ const composeServer = (clientIp: ClientIpTrust | undefined, keys: string[]) =>
     clock: fixedClock('2026-09-20T00:00:00.000Z'),
     ids: sequentialId('auth'),
     appendSessionRevoked: async () => {},
+    revokeOtherSessions: async () => 0,
     clientIp,
   });
 

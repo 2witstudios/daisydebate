@@ -1,4 +1,5 @@
-import { APIError } from 'better-auth/api';
+import type { BetterAuthPlugin } from 'better-auth';
+import { APIError, createAuthMiddleware } from 'better-auth/api';
 import { recipientHash } from './mail';
 import { safeLocalDestination } from './redirect';
 import { unavailable } from './public-errors';
@@ -34,7 +35,7 @@ function assertLocalDestinations(body: MagicLinkBody) {
  * destination validation and the suppression check. A ledger failure is a
  * safe 503 — never an allow.
  */
-export function createMagicLinkGate(dependencies: {
+function createMagicLinkGate(dependencies: {
   readonly secret: string;
   readonly ledger: AuthDeliveryLedger;
 }) {
@@ -61,5 +62,26 @@ export function createMagicLinkGate(dependencies: {
         message:
           'We cannot send sign-in emails to this address. Sign in with a passkey or use a different address.',
       });
+  };
+}
+
+/** Runs after the rate-limit gate: a throttled request does no lookups. */
+export function createMagicLinkGatePlugin(dependencies: {
+  readonly secret: string;
+  readonly ledger: AuthDeliveryLedger;
+}): BetterAuthPlugin {
+  const gate = createMagicLinkGate(dependencies);
+  return {
+    id: 'daisy-magic-link-gate',
+    hooks: {
+      before: [
+        {
+          matcher: (context) => context.path === '/sign-in/magic-link',
+          handler: createAuthMiddleware(async (context) => {
+            await gate(context.body);
+          }),
+        },
+      ],
+    },
   };
 }

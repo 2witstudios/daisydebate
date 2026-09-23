@@ -1,6 +1,7 @@
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { createId } from '@paralleldrive/cuid2';
+import { buildUserInboxTopic } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createDatabase } from '../src';
 import {
@@ -37,8 +38,13 @@ test('a committed transaction delivers its outbox row with a txid, a NOTIFY and 
   const listener = new SQL(url);
   const reader = new SQL(url);
   const readerDb = drizzle({ client: reader });
-  const topic = `debate:${createId()}`;
-  const payload = { debateId: createId(), n: 1, nested: { ok: true } };
+  const debateId = createId();
+  const topic = `debate:${debateId}`;
+  const payload = {
+    version: 1,
+    kind: 'debate.phase-changed' as const,
+    ids: [debateId],
+  };
   const notifications: string[] = [];
   try {
     const subscription = await listener.listen('outbox', (received) => {
@@ -48,7 +54,7 @@ test('a committed transaction delivers its outbox row with a txid, a NOTIFY and 
       const committed = await database.transaction((tx) =>
         appendOutboxEvent(tx, {
           topic,
-          kind: 'test.committed',
+          kind: 'debate.phase-changed',
           version: 1,
           payload,
         }),
@@ -59,9 +65,13 @@ test('a committed transaction delivers its outbox row with a txid, a NOTIFY and 
         await database.transaction(async (tx) => {
           await appendOutboxEvent(tx, {
             topic,
-            kind: 'test.rolled-back',
+            kind: 'debate.phase-changed',
             version: 1,
-            payload: { ok: false },
+            payload: {
+              version: 1,
+              kind: 'debate.phase-changed',
+              ids: [debateId],
+            },
           });
           throw new Error('deliberate rollback');
         });
@@ -100,7 +110,7 @@ test('a committed transaction delivers its outbox row with a txid, a NOTIFY and 
           rolledBack: true,
           hasTxid: true,
           deliveredCount: 1,
-          kind: 'test.committed',
+          kind: 'debate.phase-changed',
           seqMatches: true,
           payload,
           payloadIsObject: true,
@@ -168,5 +178,138 @@ test('two transactions that commit out of seq order never let the drain skip a r
     await connA.close();
     await connB.close();
     await connC.close();
+  }
+});
+
+test('the storage-side family rule (RT-2.1c, plan revision 4.11) is enforced at appendOutboxEvent, with zero rows written for every refusal', async () => {
+  const database = createDatabase({ url, nextActorId: createId });
+  const reader = new SQL(url);
+  const actorId = createId();
+  const inboxTopic = buildUserInboxTopic(actorId);
+  const debateTopic = `debate:${createId()}`;
+
+  const countFor = async (topic: string): Promise<number> => {
+    const [row] = await reader.unsafe(
+      'select count(*)::int as c from outbox where topic = $1',
+      [topic],
+    );
+    return (row as { c: number }).c;
+  };
+
+  const attempt = (input: {
+    topic: string;
+    kind: string;
+    version: number;
+    payload: unknown;
+  }) =>
+    database
+      .transaction((tx) => appendOutboxEvent(tx, input as never))
+      .then(() => 'accepted')
+      .catch(() => 'refused');
+
+  try {
+    const accepted = await attempt({
+      topic: inboxTopic,
+      kind: 'session.revoked',
+      version: 1,
+      payload: { version: 1, kind: 'session.revoked', ids: [actorId] },
+    });
+
+    const wrongFamily = await attempt({
+      topic: debateTopic,
+      kind: 'session.revoked',
+      version: 1,
+      payload: { version: 1, kind: 'session.revoked', ids: [actorId] },
+    });
+    const unknownKind = await attempt({
+      topic: inboxTopic,
+      kind: 'nonsense.kind',
+      version: 1,
+      payload: { version: 1, kind: 'nonsense.kind', ids: [actorId] },
+    });
+    const extraField = await attempt({
+      topic: inboxTopic,
+      kind: 'session.revoked',
+      version: 1,
+      payload: {
+        version: 1,
+        kind: 'session.revoked',
+        ids: [actorId],
+        extra: 'nope',
+      },
+    });
+    const unparseableTopic = await attempt({
+      topic: 'not-a-real-topic',
+      kind: 'session.revoked',
+      version: 1,
+      payload: { version: 1, kind: 'session.revoked', ids: [actorId] },
+    });
+
+    assert({
+      given:
+        'a session.revoked payload on the actor inbox, and the same payload on a debate topic, an unknown kind, an extra field, and an unparseable topic',
+      should:
+        'accept only the inbox control row and refuse every other pair with no outbox row written',
+      actual: {
+        accepted,
+        wrongFamily,
+        unknownKind,
+        extraField,
+        unparseableTopic,
+        inboxRowCount: await countFor(inboxTopic),
+        debateRowCount: await countFor(debateTopic),
+      },
+      expected: {
+        accepted: 'accepted',
+        wrongFamily: 'refused',
+        unknownKind: 'refused',
+        extraField: 'refused',
+        unparseableTopic: 'refused',
+        inboxRowCount: 1,
+        debateRowCount: 0,
+      },
+    });
+  } finally {
+    await reader.unsafe('delete from outbox where topic = $1', [inboxTopic]);
+    await reader.unsafe('delete from outbox where topic = $1', [debateTopic]);
+    await reader.close();
+    await database.close();
+  }
+});
+
+test('refuses an append whose kind column disagrees with its payload kind, with no row written', async () => {
+  const database = createDatabase({ url, nextActorId: createId });
+  const reader = new SQL(url);
+  const actorId = createId();
+  const topic = buildUserInboxTopic(actorId);
+  try {
+    const result = await database
+      .transaction((tx) =>
+        appendOutboxEvent(tx, {
+          topic,
+          kind: 'bogus.kind',
+          version: 1,
+          payload: { version: 1, kind: 'session.revoked', ids: [actorId] },
+        }),
+      )
+      .then(() => 'accepted')
+      .catch(() => 'refused');
+    const [row] = await reader.unsafe(
+      'select count(*)::int as c from outbox where topic = $1',
+      [topic],
+    );
+
+    assert({
+      given:
+        'an append with kind column "bogus.kind" and payload.kind "session.revoked"',
+      should:
+        'refuse it with no row written, since consumers and cleanups filter on the kind column',
+      actual: { result, rows: (row as { c: number }).c },
+      expected: { result: 'refused', rows: 0 },
+    });
+  } finally {
+    await reader.unsafe('delete from outbox where topic = $1', [topic]);
+    await reader.close();
+    await database.close();
   }
 });

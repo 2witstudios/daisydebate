@@ -50,6 +50,7 @@ const create = (overrides?: {
     clock: fixedClock('2026-09-20T00:00:00.000Z'),
     ids: sequentialId('auth'),
     appendSessionRevoked: async () => {},
+    revokeOtherSessions: async () => 0,
   });
 
 function capturingSender() {
@@ -93,6 +94,7 @@ describe('auth server composition', () => {
         clock: fixedClock('2026-09-20T00:00:00.000Z'),
         ids: sequentialId('auth'),
         appendSessionRevoked: async () => {},
+        revokeOtherSessions: async () => 0,
       });
     } catch (error) {
       message = String(error);
@@ -141,6 +143,7 @@ describe('auth server composition', () => {
       clock: fixedClock('2026-09-20T00:00:00.000Z'),
       ids: sequentialId('auth'),
       appendSessionRevoked: async () => {},
+      revokeOtherSessions: async () => 0,
     });
     const composed = {
       configValidated:
@@ -194,6 +197,7 @@ describe('auth server composition', () => {
       clock: fixedClock('2026-09-20T00:00:00.000Z'),
       ids: sequentialId('auth'),
       appendSessionRevoked: async () => {},
+      revokeOtherSessions: async () => 0,
     });
     let appError = false;
     let code = '';

@@ -43,12 +43,20 @@ export function getAuth(): Auth {
     },
     appendSessionRevoked: (userId) =>
       resources.database.appendSessionRevoked(userId),
+    revokeOtherSessions: (userId, keepToken) =>
+      resources.database.revokeOtherSessions(userId, keepToken),
     logger: resources.logger,
     clock: resources.clock,
     ids: resources.ids,
   });
   return processState.daisyAuth;
 }
+
+/** Shared seam for the confirm pages' internal forward (`confirm.ts`, `confirm-email.ts`). */
+export const confirmAuth = () => {
+  const { instance, config } = getAuth();
+  return { handler: instance.handler, config };
+};
 
 type MailWebhook = ReturnType<typeof createResendWebhook>;
 const webhookState = globalThis as typeof globalThis & {

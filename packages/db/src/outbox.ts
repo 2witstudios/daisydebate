@@ -1,24 +1,29 @@
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
-import { cursorSchema } from '@daisy/protocol';
+import {
+  cursorSchema,
+  isPayloadStorableOnTopic,
+  outboxPayloadSchema,
+} from '@daisy/protocol';
 import { outbox } from './schema/outbox';
 
 /**
- * Shape-only validation of the append input (RT-2.2 hazard note, plan
- * revision 4.8 item 6): full validation against `@daisy/protocol`'s
- * `outboxPayloadSchema` and RT-2.1c's storage-side family rule is wired in
- * once RT-2.1c merges (plan revision 4.11). Until then, `payload` must at
- * least be a plain object, matching the table's `outbox_payload_is_object`
- * CHECK: a non-object payload is a clean application-level validation error
- * here, not a raw Postgres CHECK violation surfacing deep inside the
- * caller's transaction.
+ * Full validation of the append input (RT-2.2 hazard note, plan revision
+ * 4.8 item 6, wired in per plan revision 4.11): `payload` must parse
+ * against `@daisy/protocol`'s `outboxPayloadSchema` (also satisfying the
+ * table's `outbox_payload_is_object` CHECK, since every variant is a strict
+ * object), and `appendOutboxEvent` below also checks the payload's `kind`
+ * against RT-2.1c's storage-side family rule (`isPayloadStorableOnTopic`)
+ * before the insert — a mismatched pair is a clean application-level
+ * validation error here, not a raw Postgres CHECK violation surfacing deep
+ * inside the caller's transaction.
  */
 const outboxAppendInputSchema = z.strictObject({
   topic: z.string().min(1).max(200),
   kind: z.string().min(1).max(100),
   version: z.number().int().positive(),
-  payload: z.record(z.string(), z.unknown()),
+  payload: outboxPayloadSchema,
 });
 export type OutboxAppendInput = z.infer<typeof outboxAppendInputSchema>;
 
@@ -92,6 +97,14 @@ export async function appendOutboxEvent(
   input: OutboxAppendInput,
 ): Promise<OutboxPosition> {
   const parsed = outboxAppendInputSchema.parse(input);
+  if (parsed.kind !== parsed.payload.kind)
+    throw new Error(
+      `Outbox kind column "${parsed.kind}" does not match payload kind "${parsed.payload.kind}"`,
+    );
+  if (!isPayloadStorableOnTopic(parsed.topic, parsed.payload))
+    throw new Error(
+      `Outbox payload kind "${parsed.payload.kind}" is not storable on topic "${parsed.topic}"`,
+    );
   const [row] = await tx
     .insert(outbox)
     .values(parsed)
