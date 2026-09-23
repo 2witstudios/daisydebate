@@ -19,6 +19,7 @@ describe('formatAgentReady', () => {
       should: 'print the connection details without database secrets',
       actual: formatAgentReady({
         appUrl: 'http://localhost:3000',
+        realtimeUrl: 'http://localhost:3001',
         credentials,
         seedVersion: 'agent-seed-v1',
       }),
@@ -26,6 +27,8 @@ describe('formatAgentReady', () => {
         'Daisy agent development ready',
         'Web: http://localhost:3000',
         'Health: http://localhost:3000/api/health/ready',
+        'Realtime: http://localhost:3001',
+        'Realtime health: http://localhost:3001/health/ready',
         'Credentials:',
         '  agent-alice (alice-id)',
         '  agent-bob (bob-id)',

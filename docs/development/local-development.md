@@ -7,24 +7,28 @@ Prerequisites: Bun 1.4.2 (`.bun-version` pins it), Docker with Compose, Node
 git clone <repo> && cd daisydebate
 bun install --frozen-lockfile
 cp .env.example .env
-bun dev:agent       # slot:up, deterministic seed, web, readiness
+bun dev:agent       # slot:up, deterministic seed, web and realtime, readiness
 ```
 
 `bun dev:agent` is the clean-environment path. It runs `bun slot:up` (shared
 PostgreSQL and Redis, this checkout's dev and test databases, migrations),
-upserts the fixed local seed and its durable version marker,
-launches the existing web development task, waits for `/api/health/ready`, and
-prints the web URL, seeded development identities, and seed version. It does
-not print database URLs or passwords. Use `bun dev` when `bun slot:up` has
-already run; it also migrates the test database, so integration tests need
-nothing more.
+upserts the fixed local seed and its durable version marker, launches the
+web and realtime (ADR 0031) development tasks, waits for web's
+`/api/health/ready` and realtime's own `/health/ready`, and prints the web
+URL, the realtime URL, seeded development identities, and seed version. It
+does not print database URLs or passwords. Use `bun dev` when `bun slot:up`
+has already run; it also migrates the test database, so integration tests
+need nothing more. `apps/realtime` listens on `REALTIME_PORT` (default
+`3011` in the main checkout; `bun slot:up` derives a worktree's own value),
+distinct from the web app's `PORT` so both can run at once; it has no
+handler logic yet beyond rejecting every connection (RT-2.3a).
 
 ## Commands
 
 | Command                            | What it does                                                                                                                        |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `bun dev`                          | All dev processes (currently the web app) via turbo                                                                                 |
-| `bun dev:agent`                    | Start local dependencies, migrate, seed, launch web, and wait ready                                                                 |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `bun dev`                          | All dev processes (the web app and apps/realtime) via turbo                                                                         |
+| `bun dev:agent`                    | Run `slot:up`, seed, launch web and realtime, and wait ready                                                                        |
 | `bun build`                        | Production builds through the turbo graph                                                                                           |
 | `bun test`                         | Fast deterministic unit/domain tests; no services or Next boot                                                                      |
 | `bun test:integration`             | Database, Redis, and web vertical tests against real services                                                                       |
@@ -84,10 +88,10 @@ Every checkout on the machine (the main checkout and each git worktree or
 which `bun slot:up` derives from the checkout folder
 ([ADR 0034](../decisions/0034-shared-stack-slots.md)):
 
-| Checkout                      | Databases                                     | Redis namespaces                             | Ports (app, e2e)               |
-| ----------------------------- | --------------------------------------------- | -------------------------------------------- | ------------------------------ |
-| Main checkout                 | `daisy`, `daisy_test`                         | `daisy`, `daisy-e2e`                         | 3000, 3100                     |
-| Worktree folder `wt-3ctbm0tw` | `daisy_wt_3ctbm0tw`, `daisy_wt_3ctbm0tw_test` | `daisy-wt-3ctbm0tw`, `daisy-wt-3ctbm0tw-e2e` | 13000+10n, 13001+10n (block n) |
+| Checkout                      | Databases                                     | Redis namespaces                             | Ports (app, e2e)               | Realtime (dev, e2e) |
+| ------------------------------ | ---------------------------------------------- | ---------------------------------------------- | -------------------------------- | ---------------------- |
+| Main checkout                 | `daisy`, `daisy_test`                         | `daisy`, `daisy-e2e`                         | 3000, 3100                     | 3011, 3103           |
+| Worktree folder `wt-3ctbm0tw` | `daisy_wt_3ctbm0tw`, `daisy_wt_3ctbm0tw_test` | `daisy-wt-3ctbm0tw`, `daisy-wt-3ctbm0tw-e2e` | 13000+10n, 13001+10n (block n) | +5n, +4n (block n)  |
 
 In a new worktree, copy the main checkout's `.env` (or `.env.example`) and
 run `bun slot:up`. It is idempotent:
@@ -100,9 +104,9 @@ run `bun slot:up`. It is idempotent:
   missing, and migrates both with this branch's migrations;
 - writes the slot's `DATABASE_URL`, `TEST_DATABASE_URL`, `REDIS_NAMESPACE`,
   `E2E_DATABASE_URL`, `E2E_REDIS_URL`, `E2E_REDIS_NAMESPACE`, `PORT`,
-  `PUBLIC_APP_URL` and `E2E_PORT` into `.env`, keeping host, port and
-  credentials. A worktree's port block is claimed on its dev database, so
-  no two checkouts get the same ports.
+  `PUBLIC_APP_URL`, `E2E_PORT` and `REALTIME_PORT` into `.env`, keeping
+  host, port and credentials. A worktree's port block is claimed on its dev
+  database, so no two checkouts get the same ports.
 
 Rules that keep sessions safe:
 
@@ -115,10 +119,13 @@ Rules that keep sessions safe:
   either leaves its data only until the next `slot:up` anywhere.
 - Never stop, recreate or reconfigure the shared stack while other
   checkouts use it; there is deliberately no `infra:down`.
-- The browser suite uses three consecutive ports from `E2E_PORT` (the
-  production app, its loopback TLS edge `https://localhost:<E2E_PORT+1>`,
-  and the mail capture). A pinned `E2E_PORT` also disables Playwright's
-  `reuseExistingServer`, so a session never tests another session's server.
+- The browser suite uses four consecutive ports from `E2E_PORT`: the
+  production app, its loopback TLS edge (`https://localhost:<E2E_PORT+1>`,
+  the configured public origin), the mail capture, and apps/realtime
+  (`<E2E_PORT+3>`, ADR 0031). A pinned `E2E_PORT` (or any explicit
+  `E2E_DATABASE_URL`/`E2E_REDIS_URL`/`E2E_REDIS_NAMESPACE`) also disables
+  Playwright's `reuseExistingServer`, so a session never tests another
+  session's already-running server.
 - `bun db:reset` accepts only this checkout's own two databases.
 - Generating migrations is still single-writer at a time; see
   `docs/operations/database.md` and `bun migrations:check`.
