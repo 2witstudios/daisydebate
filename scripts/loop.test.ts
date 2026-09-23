@@ -204,6 +204,23 @@ describe('loop:close and loop:resume', () => {
     });
   });
 
+  test('credits the parent agent that ran the command, not the owner', () => {
+    const run = fakes(escalatedFixture(), {
+      autonomous: false,
+      agentId: 'ag-parent',
+    });
+    control(run.deps, 'close', 'ag-child', 'Proof accepted');
+    const comment = run.calls.find(
+      (call) => call.slice(0, 3).join(' ') === 'gh pr comment',
+    );
+    assert({
+      given: 'a parent agent session without DAISY_AUTONOMOUS closing the loop',
+      should: 'name the parent agent as the closer',
+      actual: comment?.[5],
+      expected: '**Loop closed** by ag-parent: Proof accepted',
+    });
+  });
+
   test('refuses the loop agent closing or resuming its own loop', () => {
     const files = escalatedFixture();
     const close = fakes(files);

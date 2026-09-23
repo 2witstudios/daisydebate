@@ -226,7 +226,7 @@ export function control(
   if (action === 'resume')
     deps.write(join(paused.worktree.path, ACTIVE), resumeState(paused.state));
   deps.remove(join(paused.worktree.path, ESCALATED));
-  const who = deps.autonomous ? (deps.agentId ?? 'agent') : 'the owner';
+  const who = deps.agentId ?? 'the owner';
   const verb = action === 'close' ? 'closed' : 'resumed';
   report(
     deps,
