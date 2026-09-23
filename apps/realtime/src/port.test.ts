@@ -1,8 +1,19 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { parsePort } from './port';
+import { DEFAULT_REALTIME_PORT, parsePort } from './port';
 
 setupRitewayBun();
+
+describe('DEFAULT_REALTIME_PORT', () => {
+  test('is distinct from the web PORT example in .env.example', () => {
+    assert({
+      given: 'the realtime default port',
+      should: 'differ from the web PORT default of 3001',
+      actual: DEFAULT_REALTIME_PORT,
+      expected: 3011,
+    });
+  });
+});
 
 describe('parsePort', () => {
   test('defaults when unset', () => {

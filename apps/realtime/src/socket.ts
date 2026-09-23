@@ -29,6 +29,18 @@ const clearHelloTimer = (
   ws.data.helloTimer = undefined;
 };
 
+const logRejection = (
+  logger: Logger,
+  cause: 'hello_timeout' | 'message_rejected',
+  code: number,
+  reason: string,
+) =>
+  logger.log(
+    'realtime.connection.rejected',
+    { closeCode: code, closeReason: reason, cause },
+    'Connection rejected',
+  );
+
 /**
  * Wires ADR 0031's socket lifecycle: arm the hello deadline on open, decide
  * every first frame (RT-2.4b onward will hand this a real success path),
@@ -46,6 +58,7 @@ export function createWebSocketHandlers({
     open(ws: ServerWebSocket<SocketData>) {
       ws.data.helloTimer = timers.setTimeout(() => {
         ws.data.helloTimer = undefined;
+        logRejection(logger, 'hello_timeout', 4001, 'auth_failed');
         ws.close(4001, 'auth_failed');
       }, HELLO_TIMEOUT_MS);
     },
@@ -54,11 +67,7 @@ export function createWebSocketHandlers({
       const raw =
         typeof message === 'string' ? message : message.toString('utf8');
       const outcome = evaluateFirstMessage(raw);
-      logger.log(
-        'realtime.connection.rejected',
-        { closeCode: outcome.code, closeReason: outcome.reason },
-        'Connection rejected',
-      );
+      logRejection(logger, 'message_rejected', outcome.code, outcome.reason);
       ws.close(outcome.code, outcome.reason);
     },
     close(ws: ServerWebSocket<SocketData>) {

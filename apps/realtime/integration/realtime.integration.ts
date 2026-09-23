@@ -1,9 +1,11 @@
-import { expect, test } from 'bun:test';
+import { assert, test, setupRitewayBun } from 'riteway/bun';
 import { createDatabase } from '@daisy/db';
 import { createRedis } from '@daisy/redis';
 import { createLogger } from '@daisy/logger';
 import { ENVELOPE_VERSION, PROTOCOL_VERSION } from '@daisy/protocol';
 import { createRealtimeServer, SOCKET_PATH } from '../src/server';
+
+setupRitewayBun();
 
 function requiredEnv(name: 'TEST_DATABASE_URL' | 'TEST_REDIS_URL'): string {
   const value = process.env[name];
@@ -59,14 +61,19 @@ test('answers liveness and readiness against real PostgreSQL and Redis', async (
   const { origin, close } = bootServer();
   try {
     const live = await fetch(`${origin}/health/live`);
-    expect(live.status).toBe(200);
-    expect(await live.json()).toEqual({ status: 'alive' });
-
     const ready = await fetch(`${origin}/health/ready`);
-    expect(ready.status).toBe(200);
-    expect(await ready.json()).toEqual({
-      status: 'ready',
-      checks: { database: true, listen: true, redis: true },
+
+    assert({
+      given: 'a real Bun.serve server with real Postgres, LISTEN and Redis',
+      should: 'answer liveness and readiness, never exposing per-check detail',
+      actual: {
+        live: { status: live.status, body: await live.json() },
+        ready: { status: ready.status, body: await ready.json() },
+      },
+      expected: {
+        live: { status: 200, body: { status: 'alive' } },
+        ready: { status: 200, body: { status: 'ready' } },
+      },
     });
   } finally {
     await close();
@@ -77,7 +84,13 @@ test('refuses a non-WebSocket request to the socket path with 400, never falling
   const { origin, close } = bootServer();
   try {
     const response = await fetch(`${origin}${SOCKET_PATH}`);
-    expect(response.status).toBe(400);
+
+    assert({
+      given: 'a plain GET on the socket path',
+      should: 'answer 400',
+      actual: response.status,
+      expected: 400,
+    });
   } finally {
     await close();
   }
@@ -99,7 +112,13 @@ test('a real WebSocket client sending hello first is closed 4001 auth_failed', a
       );
     });
 
-    expect(await closed).toEqual({ code: 4001, reason: 'auth_failed' });
+    assert({
+      given:
+        'a well-formed hello over a real socket (ticket consumption is RT-2.4b)',
+      should: 'close 4001 auth_failed',
+      actual: await closed,
+      expected: { code: 4001, reason: 'auth_failed' },
+    });
   } finally {
     await close();
   }
@@ -112,9 +131,11 @@ test('a real WebSocket client sending an unparseable first frame is closed 4003 
     const closed = awaitClose(ws);
     ws.addEventListener('open', () => ws.send('not json'));
 
-    expect(await closed).toEqual({
-      code: 4003,
-      reason: 'protocol_unsupported',
+    assert({
+      given: 'a first frame that is not JSON',
+      should: 'close 4003 protocol_unsupported',
+      actual: await closed,
+      expected: { code: 4003, reason: 'protocol_unsupported' },
     });
   } finally {
     await close();
@@ -136,7 +157,13 @@ test('a real WebSocket client sending a well-formed message before hello is clos
       );
     });
 
-    expect(await closed).toEqual({ code: 4001, reason: 'auth_failed' });
+    assert({
+      given: 'a well-formed ping sent as the first message over a real socket',
+      should:
+        'close 4001 auth_failed, since every message before hello is rejected',
+      actual: await closed,
+      expected: { code: 4001, reason: 'auth_failed' },
+    });
   } finally {
     await close();
   }

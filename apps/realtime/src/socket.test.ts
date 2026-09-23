@@ -73,9 +73,9 @@ describe('createWebSocketHandlers', () => {
     });
   });
 
-  test('closes 4001 auth_failed when the hello deadline fires', () => {
+  test('closes 4001 auth_failed and logs the rejection when the hello deadline fires', () => {
     const { timers, scheduled } = fakeTimers();
-    const { logger } = fakeLogger();
+    const { logger, calls } = fakeLogger();
     const { ws, closes } = fakeSocket();
     const handlers = createWebSocketHandlers({ logger, timers });
 
@@ -84,9 +84,21 @@ describe('createWebSocketHandlers', () => {
 
     assert({
       given: 'no message arriving before the hello deadline',
-      should: 'close the socket 4001 auth_failed',
-      actual: closes,
-      expected: [{ code: 4001, reason: 'auth_failed' }],
+      should: 'close 4001 auth_failed and log it with cause hello_timeout',
+      actual: {
+        closes,
+        loggedEvent: calls[0]?.[0],
+        loggedFields: calls[0]?.[1],
+      },
+      expected: {
+        closes: [{ code: 4001, reason: 'auth_failed' }],
+        loggedEvent: 'realtime.connection.rejected',
+        loggedFields: {
+          closeCode: 4001,
+          closeReason: 'auth_failed',
+          cause: 'hello_timeout',
+        },
+      },
     });
   });
 
@@ -101,16 +113,23 @@ describe('createWebSocketHandlers', () => {
 
     assert({
       given: 'a first message that fails to parse',
-      should: 'clear the hello timer, close 4003 and log the rejection',
+      should:
+        'clear the hello timer, close 4003 and log the rejection with cause message_rejected',
       actual: {
         timerCleared: cleared.length,
         closes,
         loggedEvent: calls[0]?.[0],
+        loggedFields: calls[0]?.[1],
       },
       expected: {
         timerCleared: 1,
         closes: [{ code: 4003, reason: 'protocol_unsupported' }],
         loggedEvent: 'realtime.connection.rejected',
+        loggedFields: {
+          closeCode: 4003,
+          closeReason: 'protocol_unsupported',
+          cause: 'message_rejected',
+        },
       },
     });
   });

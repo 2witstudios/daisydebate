@@ -69,13 +69,24 @@ describe('createRealtimeServer fetch', () => {
       given: 'a draining process',
       should: 'answer 503 unavailable',
       actual: { status: response?.status, body: await response?.json() },
-      expected: {
-        status: 503,
-        body: {
-          status: 'unavailable',
-          checks: { database: true, listen: true, redis: true },
-        },
-      },
+      expected: { status: 503, body: { status: 'unavailable' } },
+    });
+  });
+
+  test('never exposes which dependency is down in the public response', async () => {
+    const server = createRealtimeServer({
+      resources: resources({ redis: { health: async () => false } }),
+    });
+    const response = await server.fetch(
+      new Request('http://localhost/health/ready'),
+      fakeServer(false),
+    );
+
+    assert({
+      given: 'Redis unhealthy while Postgres and LISTEN are fine',
+      should: 'answer 503 with only {status}, never naming the failing check',
+      actual: { status: response?.status, body: await response?.json() },
+      expected: { status: 503, body: { status: 'unavailable' } },
     });
   });
 

@@ -18,10 +18,20 @@ export type RealtimeServerResources = ReadinessResources & {
 const noStore = { 'Cache-Control': 'no-store' } as const;
 const liveResponse = () =>
   Response.json({ status: 'alive' }, { headers: noStore });
+/**
+ * Never exposes which dependency is down: an internet-facing readiness
+ * route that named `redis: false` would hand an attacker a live outage map
+ * (AGENTS.md: "public errors must not expose internals"), unlike apps/web's
+ * `/api/health/ready`, which already returns `{status}` only. Which check
+ * failed is still traceable: `@daisy/db`'s `health`/`checkListen` and
+ * `@daisy/redis`'s `health` each log their own `db.query.failed` or
+ * `redis.command.failed` event (with `operation` naming the check) through
+ * the same `eventSink` wired into `resources.logger` at composition.
+ */
 const readyResponse = async (resources: ReadinessResources) => {
   const report = await checkReadiness(resources);
   return Response.json(
-    { status: report.ready ? 'ready' : 'unavailable', checks: report.checks },
+    { status: report.ready ? 'ready' : 'unavailable' },
     { status: report.ready ? 200 : 503, headers: noStore },
   );
 };

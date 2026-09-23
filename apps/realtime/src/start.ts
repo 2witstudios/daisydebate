@@ -4,7 +4,7 @@ import {
 } from '@daisy/observability';
 import { createRealtimeServer } from './server';
 import { getResources, closeResources } from './resources';
-import { parsePort } from './port';
+import { DEFAULT_REALTIME_PORT, parsePort } from './port';
 
 // Unlike apps/web (whose "dev" task runs `next dev`, a different process
 // that never touches this file), this is the only entrypoint apps/realtime
@@ -12,7 +12,7 @@ import { parsePort } from './port';
 // `readRealtimeConfig` uses to decide how strictly to validate. There is no
 // production-only guard here for that reason.
 const resources = getResources();
-const port = parsePort(process.env.REALTIME_PORT, 3001);
+const port = parsePort(process.env.REALTIME_PORT, DEFAULT_REALTIME_PORT);
 const { fetch, websocket } = createRealtimeServer({ resources });
 const server = Bun.serve({ hostname: '0.0.0.0', port, fetch, websocket });
 resources.logger.log(
@@ -24,8 +24,8 @@ resources.logger.log(
 /**
  * Stops accepting new HTTP and WebSocket connections and closes the
  * database and Redis pools. It does not close already-open sockets with
- * `4006 server_restarting`: that requires the connection registry
- * RT-2.3b/RT-2.5a build, not this scaffold.
+ * `4006 server_restarting`: that is owned by RT-2.3d, once the connection
+ * registry (RT-2.3b) exists for it to iterate.
  */
 async function shutdown() {
   if (resources.draining) return;

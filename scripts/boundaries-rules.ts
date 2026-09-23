@@ -49,3 +49,25 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
     'presence',
   ],
 };
+
+/**
+ * Mirrors `adobeIsolationIssue`'s shape: a pure predicate the scan and its
+ * unit tests both call, so "a workspace's edges are mechanically enforced"
+ * (ADR 0031 §12) is provable without re-deriving the rule in a test fixture.
+ * A workspace absent from `allowedWorkspaceDependencies` is unrestricted.
+ */
+export const forbiddenDependencyIssue = (
+  workspacePath: string,
+  workspaceName: string,
+  dependency: string,
+  allowed: Readonly<Record<string, readonly string[]>>,
+): string | null => {
+  const restrictions = allowed[workspaceName.replace('@daisy/', '')];
+  if (
+    dependency.startsWith('@daisy/') &&
+    restrictions &&
+    !restrictions.includes(dependency.replace('@daisy/', ''))
+  )
+    return `${workspacePath}: forbidden dependency ${dependency}`;
+  return null;
+};
