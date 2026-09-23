@@ -72,26 +72,40 @@ const realOrSame = (path: string) => realpath(path).catch(() => path);
 export type Checkout = {
   readonly path: string;
   readonly slot: Slot;
-  /** Slot ids of every live worktree of this repository, this one included. */
-  readonly liveIds: readonly string[];
+};
+
+const readWorktrees = async (path: string) => {
+  const list = parseWorktreeList(
+    await run(['git', 'worktree', 'list', '--porcelain'], path),
+  );
+  return {
+    main: await realOrSame(list.main),
+    worktrees: await Promise.all(list.worktrees.map(realOrSame)),
+  };
 };
 
 export async function resolveCheckout(start: string): Promise<Checkout> {
   const path = await realOrSame(
     (await run(['git', 'rev-parse', '--show-toplevel'], start)).trim(),
   );
-  const list = parseWorktreeList(
-    await run(['git', 'worktree', 'list', '--porcelain'], path),
+  const { main } = await readWorktrees(path);
+  return { path, slot: deriveSlot({ checkout: path, mainCheckout: main }) };
+}
+
+/**
+ * Slot ids of every live worktree of the checkout's repository, this one
+ * included. Read under the slot lock, right before pruning, so a worktree
+ * created (and slotted) while this run waited is never taken for an orphan.
+ */
+export async function liveSlotIds(
+  checkout: Checkout,
+): Promise<readonly string[]> {
+  const { ids } = liveWorktreeIds(
+    (await readWorktrees(checkout.path)).worktrees,
   );
-  const mainCheckout = await realOrSame(list.main);
-  const worktrees = await Promise.all(list.worktrees.map(realOrSame));
-  const slot = deriveSlot({ checkout: path, mainCheckout });
-  const { ids } = liveWorktreeIds(worktrees);
-  return {
-    path,
-    slot,
-    liveIds: slot.kind === 'worktree' ? [...new Set([...ids, slot.id])] : ids,
-  };
+  return checkout.slot.kind === 'worktree'
+    ? [...new Set([...ids, checkout.slot.id])]
+    : ids;
 }
 
 const withDatabase = (url: string, database: string) => {
@@ -157,14 +171,24 @@ export async function inspectOrphans(
   return findOrphans({ liveIds, databases, namespaces });
 }
 
-async function prune(services: SlotServices, liveIds: readonly string[]) {
-  const orphans = await inspectOrphans(services, liveIds);
+async function prune(services: SlotServices, checkout: Checkout) {
+  const orphans = await inspectOrphans(services, await liveSlotIds(checkout));
   for (const database of orphans.databases)
     await dropSlotDatabase(services.admin, database);
   for (const namespace of orphans.namespaces)
     for (const client of services.redis)
       await deleteNamespace(client, namespace);
   return orphans;
+}
+
+async function reachable(services: SlotServices): Promise<boolean> {
+  try {
+    await services.admin`select 1`;
+    for (const client of services.redis) await client.ping();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 const isPortFree = (port: number): boolean => {
@@ -244,17 +268,21 @@ async function up(checkout: Checkout, envPath: string) {
   const refusal = serviceRefusal(env);
   if (refusal) throw new Error(refusal);
   await migratorOf(checkout.path);
-  await run(['docker', 'compose', 'up', '-d', '--wait'], root, {
-    ...process.env,
-    COMPOSE_FILE: process.env.COMPOSE_FILE ?? 'infra/compose.yaml',
-  });
   const services = openServices(env);
   try {
+    // Start the stack only when it is down: `compose up` on a running stack
+    // recreates it whenever this branch's compose file differs, wiping every
+    // slot's Redis keys and restarting Postgres under every checkout.
+    if (!(await reachable(services)))
+      await run(['docker', 'compose', 'up', '-d', '--wait'], root, {
+        ...process.env,
+        COMPOSE_FILE: process.env.COMPOSE_FILE ?? 'infra/compose.yaml',
+      });
     const { slot } = checkout;
     const { pruned, created, portBlock } = await withSlotLock(
       services.admin,
       async () => {
-        const pruned = await prune(services, checkout.liveIds);
+        const pruned = await prune(services, checkout);
         await ensureE2ERole(services.admin, e2eRole);
         await ensureTemplate({
           admin: services.admin,
@@ -323,7 +351,7 @@ async function pruneCommand(checkout: Checkout, envPath: string) {
   const services = openServices(envOf(await readEnvFile(envPath)));
   try {
     const pruned = await withSlotLock(services.admin, () =>
-      prune(services, checkout.liveIds),
+      prune(services, checkout),
     );
     process.stdout.write(
       `Pruned orphan slots: ${describeOrphans(pruned.ids)}\n`,

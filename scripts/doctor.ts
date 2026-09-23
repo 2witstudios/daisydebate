@@ -4,7 +4,12 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { slotMismatches, type Slot } from './slot-model';
-import { inspectOrphans, openServices, resolveCheckout } from './slot';
+import {
+  inspectOrphans,
+  liveSlotIds,
+  openServices,
+  resolveCheckout,
+} from './slot';
 
 const checkNames = [
   'bun-version',
@@ -134,7 +139,7 @@ async function checkSlots(): Promise<readonly DoctorCheck[]> {
   let services;
   try {
     services = openServices(process.env);
-    const orphans = await inspectOrphans(services, checkout.liveIds);
+    const orphans = await inspectOrphans(services, await liveSlotIds(checkout));
     return [slotCheck(checkout.slot, process.env), orphanCheck(orphans.ids)];
   } catch {
     return [
