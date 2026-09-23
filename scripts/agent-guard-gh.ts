@@ -76,11 +76,39 @@ function ghApi(args: readonly string[], facts: GuardFacts): Verdict {
       RULE_MUTATIONS.test(text) ? autonomousOnly(facts, RULE_REASON) : allow,
     ]);
   if (method === 'GET' || method === 'HEAD') return allow;
-  if (/\/pulls\/\d+\/merge\/?$/.test(endpoint))
+  if (/\/pulls\/\d+\/merge\/?(?:\?.*)?$/.test(endpoint))
     return refuseOrAsk(facts, MERGE_REASON);
   return RULE_ENDPOINTS.some((pattern) => pattern.test(endpoint))
     ? autonomousOnly(facts, RULE_REASON)
     : allow;
+}
+
+// Flags of gh pr (and pr merge) that take a value; the value is never a flag.
+const PR_VALUE_FLAGS = new Set([
+  '-R',
+  '--repo',
+  '-b',
+  '--body',
+  '-F',
+  '--body-file',
+  '-t',
+  '--subject',
+  '--match-head-commit',
+  '-A',
+  '--author-email',
+]);
+
+/** The subcommand of gh pr and the boolean flags given, values skipped. */
+function prCommand(args: readonly string[]) {
+  const flags = new Map<string, string>();
+  let action: string | undefined;
+  for (let index = 0; index < args.length; index += 1) {
+    const [flag, inline] = splitFlag(args[index]);
+    if (!args[index].startsWith('-')) action ??= args[index];
+    else if (PR_VALUE_FLAGS.has(flag)) index += inline === undefined ? 1 : 0;
+    else flags.set(flag, inline ?? 'true');
+  }
+  return { action, flags };
 }
 
 export const gh: Rule = (invocation, facts) => {
@@ -88,11 +116,15 @@ export const gh: Rule = (invocation, facts) => {
   if (group === 'api') return ghApi([action ?? '', ...args], facts);
   if (group === 'repo' && action === 'edit')
     return autonomousOnly(facts, RULE_REASON);
-  if (group !== 'pr' || action !== 'merge') return allow;
-  if (args.includes('--admin'))
+  if (group !== 'pr') return allow;
+  const pr = prCommand([action ?? '', ...args]);
+  if (pr.action !== 'merge') return allow;
+  if (pr.flags.has('--admin'))
     return refuseOrAsk(
       facts,
       `--admin bypasses the main ruleset. ${MERGE_REASON}`,
     );
-  return args.includes('--auto') ? allow : refuseOrAsk(facts, MERGE_REASON);
+  return pr.flags.get('--auto') === 'true'
+    ? allow
+    : refuseOrAsk(facts, MERGE_REASON);
 };

@@ -129,6 +129,23 @@ describe('agent guard: merges', () => {
     });
   });
 
+  test('reads --auto only as a flag of its own', () => {
+    assert({
+      given:
+        '--auto as the value of --body, a repo flag before merge, --auto=false, and a merge URL with a query string',
+      should: 'deny each direct merge and allow a real auto-merge request',
+      actual: [
+        decide('gh pr merge 1 --merge --body --auto'),
+        decide('gh pr merge 1 -t --auto --merge'),
+        decide('gh pr --repo o/r merge 1 --merge'),
+        decide('gh pr merge 1 --auto=false --merge'),
+        decide('gh api -X PUT "repos/o/r/pulls/1/merge?merge_method=merge"'),
+        decide('gh pr -R o/r merge 1 --auto --merge'),
+      ],
+      expected: ['deny', 'deny', 'deny', 'deny', 'deny', 'allow'],
+    });
+  });
+
   test('asks the owner before a direct or admin merge', () => {
     assert({
       given: 'an owner session merging directly, with --admin, and via --auto',
