@@ -44,8 +44,11 @@ const tables: readonly Table[] = [
       insert into verification (id, identifier, value, expires_at)
       values (${`${tag}-${createId()}`}, ${`hash-${tag}`}, '{}', ${at})`,
     left: (sql, tag) =>
-      count(sql`select count(*)::int as n from verification where id like ${`${tag}-%`}`),
-    clear: (sql, tag) => sql`delete from verification where id like ${`${tag}-%`}`,
+      count(
+        sql`select count(*)::int as n from verification where id like ${`${tag}-%`}`,
+      ),
+    clear: (sql, tag) =>
+      sql`delete from verification where id like ${`${tag}-%`}`,
   },
   {
     operation: 'purgeExpiredOutboxEvents',
@@ -62,7 +65,9 @@ const tables: readonly Table[] = [
       insert into email_delivery_event (provider_event_id, provider_message_id, received_at)
       values (${`${tag}-${createId()}`}, ${tag}, ${at})`,
     left: (sql, tag) =>
-      count(sql`select count(*)::int as n from email_delivery_event where provider_message_id = ${tag}`),
+      count(
+        sql`select count(*)::int as n from email_delivery_event where provider_message_id = ${tag}`,
+      ),
     clear: (sql, tag) =>
       sql`delete from email_delivery_event where provider_message_id = ${tag}`,
   },
@@ -72,8 +77,11 @@ const tables: readonly Table[] = [
       insert into email_delivery (id, provider_message_id, recipient_hash, status, status_rank, created_at, updated_at)
       values (${createId()}, ${`${tag}-${createId()}`}, ${tag}, 'sent', 1, ${at}, ${at})`,
     left: (sql, tag) =>
-      count(sql`select count(*)::int as n from email_delivery where recipient_hash = ${tag}`),
-    clear: (sql, tag) => sql`delete from email_delivery where recipient_hash = ${tag}`,
+      count(
+        sql`select count(*)::int as n from email_delivery where recipient_hash = ${tag}`,
+      ),
+    clear: (sql, tag) =>
+      sql`delete from email_delivery where recipient_hash = ${tag}`,
   },
 ];
 
@@ -201,7 +209,8 @@ test('concurrent sweeps delete each expired row exactly once', async () => {
     };
     const totals = await Promise.all(workers.map(drain));
     assert({
-      given: 'forty expired rows and four sweeps draining in batches of five at once',
+      given:
+        'forty expired rows and four sweeps draining in batches of five at once',
       should: 'delete every row and count each deletion exactly once',
       actual: {
         left: await withSql((sql) => verification!.left(sql, tag)),

@@ -51,8 +51,10 @@ guessing.
    and sorted-set scores and no instance clock is ever compared with
    another. The actor and online sorted sets carry their own mandatory
    expiry, set in the same script to at least the longest live lease. Every
-   read is one Lua op that trims members whose score is in the past, ranges
-   and hydrates, and returns the Redis `now` it used, so a caller computing
+   read is one bounded, read-only Lua op that filters out members whose
+   score is in the past, ranges and hydrates, and returns the Redis `now` it
+   used (lapsed members are trimmed by writes and the retention sweep, never
+   by a read; see the amendments below), so a caller computing
    `derivePresence`'s `nowMs` never substitutes an instance clock for it.
    When an instance crashes, each of its leases expires on its own; a stale
    lease can never outlive its TTL and poison a result.
@@ -478,6 +480,29 @@ reader a side effect on shared state. The read is now a bounded, read-only
 deleting them. A new `sweepOnlinePresence(limit)` op does the bounded
 trimming instead, run on its own schedule (a periodic sweep), not implied
 by a read.
+
+**Amendment (2026-09-23, ISSUE-46): every presence read is bounded and
+read-only, and the online sweep has an owner.**
+
+- `readActorConnections` ranges at most `ACTOR_CONNECTIONS_MAX` (32) live
+  connections, latest expiry first (`ZREVRANGEBYSCORE ... LIMIT`), and no
+  longer trims. The upsert and refresh scripts trim the actor zset's lapsed
+  members on the write path, and the delete script already did, so a
+  reconnecting actor's zset stays small without a read ever writing.
+- Every presence `limit` is capped at `PRESENCE_LIMIT_MAX` (1000).
+  `sweepOnlinePresence` hands every expired member to one `ZREM` through
+  Lua's `unpack`, which fails past roughly 8,000 values ("too many results
+  to unpack", nothing removed); the cap keeps every accepted limit far
+  below that.
+- **Owner and schedule:** the web server's one retention sweep
+  (`apps/web/src/server/retention-sweep.ts`, target
+  `retention.presence_online`) runs `sweepOnlinePresence` at start-up and
+  then hourly, up to 50 batches of 1000 per run, in the same process and
+  schedule that prunes the PostgreSQL retention tables. Every instance runs
+  it; the sweep is one atomic Lua op, so concurrent runs cannot
+  double-remove. Redis stays expendable: a failed Redis batch logs
+  `retention.sweep.failed` and leaves lapsed members, which reads already
+  filter by score, for the next run; nothing competitive reads them.
 
 **Every presence script loads once and runs by `EVALSHA`.** Each of the
 five scripts is `SCRIPT LOAD`ed the first time `createPresenceOperations`

@@ -362,9 +362,11 @@ test('a sweep at the limit cap removes exactly the cap from a larger backlog, an
     ]);
     const first = await redis.sweepOnlinePresence(PRESENCE_LIMIT_MAX);
     const second = await redis.sweepOnlinePresence(PRESENCE_LIMIT_MAX);
-    expect({ first, second, left: await raw.send('ZCARD', [onlineKey]) }).toEqual(
-      { first: PRESENCE_LIMIT_MAX, second: 10, left: 0 },
-    );
+    expect({
+      first,
+      second,
+      left: await raw.send('ZCARD', [onlineKey]),
+    }).toEqual({ first: PRESENCE_LIMIT_MAX, second: 10, left: 0 });
   } finally {
     await raw.del(onlineKey);
     redis.close();

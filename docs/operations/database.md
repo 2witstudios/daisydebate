@@ -45,14 +45,23 @@ Integration tests connect as the migration owner, because their fixtures
 and role checks need it; a test that must act as a runtime role switches to
 it with `SET ROLE` on a dedicated session instead of setting a password.
 
-**Outbox retention throughput (RT-2.2).** The maintenance sweep prunes
-outbox rows older than the 24h retention window in batches of at most 200
-rows per call (`BATCH_SIZE` in
-`apps/web/src/features/realtime/outbox-cleanup.ts`, under the 500-row
-per-call cap `RETENTION_BATCH_LIMIT` in `packages/db/src/outbox.ts`),
-`FOR UPDATE SKIP LOCKED` so a concurrent drain is never blocked, run hourly
-with up to 200 batches per run (40,000 rows/run), sized against an expected
-write rate of 10 rows/s (36,000 rows/hour) so one run always clears a full
-hour's growth with headroom.
+**Retention (ISSUE-8 AC5).** One retention sweep in each web server
+process (`apps/web/src/server/retention-sweep.ts`, at start-up and then
+hourly) prunes every retained store in bounded batches: `verification` 24 h
+past expiry, `outbox` 24 h after `created_at`, `email_delivery_event` 30 days
+after receipt, `email_delivery` 30 days after its last status change, and
+the Redis online-presence set's lapsed members. `email_suppression` is never
+pruned. Every database batch is one call of `deleteExpiredBatch`
+(`packages/db/src/retention.ts`): one autocommitted, oldest-first,
+`FOR UPDATE SKIP LOCKED` delete of at most `RETENTION_BATCH_LIMIT` (500)
+rows, never inside a transaction, so it never holds back the
+`pg_snapshot_xmin` that `drainOutbox` waits on and never blocks a writer.
+Each target logs `retention.sweep.completed` or `retention.sweep.failed`
+with its `operation`; a failing target never stops the others.
+
+**Outbox retention throughput (RT-2.2).** The outbox target deletes batches
+of 200 rows, up to 200 batches per run (40,000 rows/run), sized against an
+expected write rate of 10 rows/s (36,000 rows/hour) so one run always clears
+a full hour's growth with headroom.
 
 Database availability is necessary but not sufficient readiness. Deployers must ensure migrations are applied, monitor storage/replication/backup lag, enforce TLS for remote database and Redis connections, and set network access policy. Local plaintext credentials are intentionally confined to loopback. Redis persistence is off locally to expose accidental reliance on durable cache state.

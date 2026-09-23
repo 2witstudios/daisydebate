@@ -15,7 +15,11 @@ describe('retention batch', () => {
     const operations = [
       ['purgeExpiredVerifications', 'verification', 'expires_at'],
       ['purgeExpiredOutboxEvents', 'outbox', 'created_at'],
-      ['purgeExpiredEmailDeliveryEvents', 'email_delivery_event', 'received_at'],
+      [
+        'purgeExpiredEmailDeliveryEvents',
+        'email_delivery_event',
+        'received_at',
+      ],
       ['purgeExpiredEmailDeliveries', 'email_delivery', 'updated_at'],
     ] as const;
     const shapes = await Promise.all(
@@ -28,7 +32,9 @@ describe('retention batch', () => {
           deleted,
           statements: queries.length,
           deletesTable: text.trimStart().startsWith(`delete from "${table}"`),
-          byTimeColumn: text.includes(`"${table}"."${column}" < $1::timestamptz`),
+          byTimeColumn: text.includes(
+            `"${table}"."${column}" < $1::timestamptz`,
+          ),
           oldestFirst: text.includes(`order by "${table}"."${column}"`),
           limited: /limit \$2/.test(text),
           skipLocked: text.includes('for update skip locked'),
