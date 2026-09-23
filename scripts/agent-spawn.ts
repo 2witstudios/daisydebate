@@ -2,17 +2,20 @@
 /**
  * The committed spawn wrapper (ADR 0035).
  *
- *   bun agent:spawn [--task <leaf>] [--role builder|reviewer] [--cap N]
- *     [--override] -- -n <name> [-b <base>] [-a <agent>] … "<prompt>"
+ *   bun agent:spawn [--task <leaf>] [--cap N] [--override] -- -n <name>
+ *     [-b <base>] [-a <agent>] … "<prompt>"
+ *   bun agent:spawn --role reviewer --worktree <worktreeId> -- [-a <agent>] …
  *   bun agent:send <agent> "<text>"
  *
- * Before a builder starts it refuses superseded terms in the leaf, undeclared
- * or unmerged prerequisites and a full builder cap (the owner may override).
- * It creates the worktree, installs dependencies and brings the PAR-2 slot
- * up before any prompt is sent, resolves the child id from `pu status
+ * Each role has its own cap (builder 3, reviewer 2); only the owner sets a
+ * cap or overrides a refusal. Before a builder starts it refuses superseded
+ * terms in the leaf or prompt, undeclared or unmerged prerequisites and a
+ * full cap. A builder gets a new worktree, with dependencies installed and
+ * its PAR-2 slot up before any prompt is sent; a reviewer joins the existing
+ * worktree it reviews. The wrapper resolves the child id from `pu status
  * --json`, registers its parent and role in the main checkout's agent
- * registry, outside the child's reach (agent-registry.ts), and confirms the prompt
- * reached the transcript, nudging with an empty `pu send` when it did not.
+ * registry, outside the child's reach (agent-registry.ts), and confirms the
+ * prompt was taken, nudging with an empty `pu send` when it was not.
  */
 import {
   existsSync,
@@ -25,7 +28,7 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import {
   activeAfterSend,
-  activeBuilders,
+  activeCount,
   QUIET_SECONDS,
   findPrerequisites,
   parseSpawnArgs,
@@ -164,13 +167,16 @@ function checkLeaf(deps: SpawnDeps, plan: SpawnPlan): readonly string[] {
 }
 
 function checkCap(deps: SpawnDeps, plan: SpawnPlan): readonly string[] {
-  if (plan.role !== 'builder') return [];
-  const active = activeBuilders(puStatus(deps), (agentId) => {
-    const text = deps.read(recordPath(deps.mainCheckout, agentId));
-    return text === undefined ? undefined : parseRecord(text)?.role;
-  });
+  const active = activeCount(
+    puStatus(deps),
+    (agentId) => {
+      const text = deps.read(recordPath(deps.mainCheckout, agentId));
+      return text === undefined ? undefined : parseRecord(text)?.role;
+    },
+    plan.role,
+  );
   return active >= plan.cap
-    ? [`${active} builders are active; the cap is ${plan.cap}`]
+    ? [`${active} ${plan.role}s are active; the cap is ${plan.cap}`]
     : [];
 }
 
@@ -272,12 +278,19 @@ function setUp(deps: SpawnDeps, worktree: Worktree) {
   }
 }
 
-async function spawnChecked(deps: SpawnDeps, plan: SpawnPlan): Promise<number> {
-  const blockers = [...checkLeaf(deps, plan), ...checkCap(deps, plan)];
-  if (blockers.length > 0 && (!plan.override || deps.autonomous))
-    throw new SpawnRefused(
-      `Refusing to spawn:\n- ${blockers.join('\n- ')}\n${deps.autonomous ? 'Only the owner can override.' : 'Pass --override to spawn anyway.'}`,
-    );
+/**
+ * A reviewer joins the worktree it reviews, already set up by its builder,
+ * so it can never be a builder with a fresh worktree in disguise.
+ */
+function reviewedWorktree(deps: SpawnDeps, id: string): Worktree {
+  const worktree = puStatus(deps).worktrees?.find((w) => w.id === id);
+  if (!worktree)
+    throw new SpawnRefused(`pu status lists no worktree ${id} to review`);
+  return worktree;
+}
+
+/** A new worktree for a builder, with dependencies and its slot up. */
+function builderWorktree(deps: SpawnDeps, plan: SpawnPlan): Worktree {
   const before = puStatus(deps);
   deps.run([
     'pu',
@@ -294,6 +307,18 @@ async function spawnChecked(deps: SpawnDeps, plan: SpawnPlan): Promise<number> {
   const worktree = newWorktree(before, puStatus(deps), `pu/${plan.name}`);
   if (!worktree) throw new SpawnRefused(`pu did not create pu/${plan.name}`);
   setUp(deps, worktree);
+  return worktree;
+}
+
+async function spawnChecked(deps: SpawnDeps, plan: SpawnPlan): Promise<number> {
+  const blockers = [...checkLeaf(deps, plan), ...checkCap(deps, plan)];
+  if (blockers.length > 0 && (!plan.override || deps.autonomous))
+    throw new SpawnRefused(
+      `Refusing to spawn:\n- ${blockers.join('\n- ')}\n${deps.autonomous ? 'Only the owner can override.' : 'Pass --override to spawn anyway.'}`,
+    );
+  const worktree = plan.worktree
+    ? reviewedWorktree(deps, plan.worktree)
+    : builderWorktree(deps, plan);
   const ready = puStatus(deps);
   deps.run(['pu', 'spawn', '-w', worktree.id, '-a', plan.agent, ...plan.rest]);
   const agent = newAgent(ready, puStatus(deps), worktree.id);
