@@ -265,12 +265,22 @@ export function agentCwd(
 /** Seconds since the send, and the agent's idle seconds from `pu pulse`. */
 type IdleSample = { readonly at: number; readonly idle: number | null };
 
+/** Silence before a send, in seconds, that makes later output news. */
+export const QUIET_SECONDS = 2;
+
 /**
  * pu reports how long an agent's terminal has been silent. Text left
  * unsubmitted produces only its echo, while a working session keeps
- * writing, so output 3 s or more after the send means the text was taken.
+ * writing, so output 3 s or more after the send means the text was taken,
+ * but only from an agent that was quiet before it: a busy agent's output
+ * may be its earlier work.
  */
-export const activeAfterSend = (samples: readonly IdleSample[]): boolean =>
+export const activeAfterSend = (
+  idleBefore: number | null,
+  samples: readonly IdleSample[],
+): boolean =>
+  idleBefore !== null &&
+  idleBefore >= QUIET_SECONDS &&
   samples.some(
     (sample) => sample.at >= 3 && sample.idle !== null && sample.idle <= 1,
   );

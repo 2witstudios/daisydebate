@@ -295,18 +295,32 @@ describe('activeAfterSend', () => {
         'a session still writing 4 s after the send, one that only echoed the text, and one pu cannot measure',
       should: 'confirm only the working session',
       actual: [
-        activeAfterSend([
+        activeAfterSend(5, [
           { at: 1, idle: 0 },
           { at: 4, idle: 0 },
         ]),
-        activeAfterSend([
+        activeAfterSend(5, [
           { at: 1, idle: 0 },
           { at: 4, idle: 3 },
           { at: 8, idle: 7 },
         ]),
-        activeAfterSend([{ at: 5, idle: null }]),
+        activeAfterSend(5, [{ at: 5, idle: null }]),
       ],
       expected: [true, false, false],
+    });
+  });
+
+  test('does not count an agent that was already busy before the send', () => {
+    const writing = [
+      { at: 1, idle: 0 },
+      { at: 4, idle: 0 },
+    ];
+    assert({
+      given:
+        'output after the send from an agent silent under 2 s before it, and from one pu could not measure before it',
+      should: 'confirm neither: the output may be its earlier work',
+      actual: [activeAfterSend(1, writing), activeAfterSend(null, writing)],
+      expected: [false, false],
     });
   });
 });

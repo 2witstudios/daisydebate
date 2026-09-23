@@ -300,17 +300,53 @@ describe('bun agent:send', () => {
       await spawnAgent(machine.deps, spawnArgs);
       machine.files.clear();
       machine.calls.length = 0;
-      const working = { ...machine.deps, idleOf: () => 0 };
+      // Quiet for 5 s before the send, then writing.
+      let polls = 0;
+      const working = {
+        ...machine.deps,
+        idleOf: () => (polls++ === 0 ? 5 : 0),
+      };
       const code = await sendConfirmed(working, 'ag-new', 'status?');
       assert({
         given:
-          'no transcript on disk but a terminal still writing after the send',
+          'no transcript on disk, a quiet terminal before the send and one still writing after it',
         should: 'count the text as submitted without a nudge',
         actual: [
           code,
           machine.calls.filter((call) => call[1] === 'send').length,
         ],
         expected: [0, 1],
+      });
+    })());
+
+  test('nudges a busy agent and fails when nothing confirms the text', () =>
+    (async () => {
+      const machine = fakeMachine({ submitsOnSpawn: true });
+      await spawnAgent(machine.deps, spawnArgs);
+      machine.files.clear();
+      machine.calls.length = 0;
+      // pu takes the sends, but no user turn ever appears.
+      const busy: SpawnDeps = {
+        ...machine.deps,
+        idleOf: () => 0,
+        run: (args, cwd) => {
+          if (args[1] !== 'send') return machine.deps.run(args, cwd);
+          machine.calls.push([...args]);
+          return { code: 0, stdout: '' };
+        },
+      };
+      const code = await sendConfirmed(busy, 'ag-new', 'status?');
+      assert({
+        given:
+          'an agent writing before and after the send, and no transcript growth even after the nudge',
+        should: 'send, nudge once, and report the text as not confirmed',
+        actual: [
+          code,
+          machine.calls
+            .filter((call) => call[1] === 'send')
+            .map((call) => call[3]),
+        ],
+        expected: [1, ['status?', '']],
       });
     })());
 });

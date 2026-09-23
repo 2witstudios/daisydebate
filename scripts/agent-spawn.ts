@@ -26,6 +26,7 @@ import { dirname, join, resolve } from 'node:path';
 import {
   activeAfterSend,
   activeBuilders,
+  QUIET_SECONDS,
   findPrerequisites,
   parseSpawnArgs,
   prerequisiteBlockers,
@@ -188,17 +189,18 @@ function turnsWith(deps: SpawnDeps, cwd: string, text: string): number {
 
 /**
  * Polls until the text shows as a new user turn in the agent's transcripts
- * or the agent is visibly working (activeAfterSend).
+ * or the agent, quiet before the send, is visibly working (activeAfterSend).
  */
 async function tookText(
   deps: SpawnDeps,
   agentId: string,
   grew: () => boolean,
+  idleBefore: number | null,
 ): Promise<boolean> {
   const samples: { at: number; idle: number | null }[] = [];
   for (let poll = 0; poll < POLLS; poll += 1) {
     samples.push({ at: (poll * POLL_MS) / 1000, idle: deps.idleOf(agentId) });
-    if (grew() || activeAfterSend(samples)) return true;
+    if (grew() || activeAfterSend(idleBefore, samples)) return true;
     await deps.sleep(POLL_MS);
   }
   return false;
@@ -206,20 +208,29 @@ async function tookText(
 
 /**
  * Confirms the text was submitted, nudging once with an empty pu send (pu
- * often leaves text typed but unsubmitted) when it was not.
+ * often leaves text typed but unsubmitted) when it was not. idleBefore is
+ * the agent's silence just before the send; null for a new agent, whose
+ * startup output says nothing about the prompt. A new agent still writing
+ * when the first round ends has been working on its prompt ever since.
  */
 async function confirmSubmitted(
   deps: SpawnDeps,
   agentId: string,
-  cwd: string,
-  text: string,
-  before: number,
+  sent: { cwd: string; text: string; before: number },
+  idleBefore: number | null,
 ): Promise<boolean> {
-  const grew = () => turnsWith(deps, cwd, text) > before;
-  if (await tookText(deps, agentId, grew)) return true;
+  const grew = () => turnsWith(deps, sent.cwd, sent.text) > sent.before;
+  if (await tookText(deps, agentId, grew, idleBefore)) return true;
+  const idle = deps.idleOf(agentId);
+  if (idleBefore === null && idle !== null && idle < QUIET_SECONDS) {
+    deps.out(
+      `${agentId}: working since it started; taking the prompt as submitted\n`,
+    );
+    return true;
+  }
   deps.out(`${agentId}: text not submitted; nudging with an empty pu send\n`);
   deps.run(['pu', 'send', agentId, '']);
-  return tookText(deps, agentId, grew);
+  return tookText(deps, agentId, grew, idle);
 }
 
 const PU_VALUE_FLAGS = new Set([
@@ -293,9 +304,8 @@ async function spawnChecked(deps: SpawnDeps, plan: SpawnPlan): Promise<number> {
   const submitted = await confirmSubmitted(
     deps,
     agent.id,
-    worktree.path,
-    prompt,
-    0,
+    { cwd: worktree.path, text: prompt, before: 0 },
+    null,
   );
   deps.out(
     `${agent.id}: prompt ${submitted ? 'submitted' : 'NOT confirmed; check pu logs'}\n`,
@@ -337,8 +347,14 @@ export async function sendConfirmed(
     return cwd ? 2 : 1;
   }
   const before = turnsWith(deps, cwd, text);
+  const idleBefore = deps.idleOf(agentId);
   if (deps.run(['pu', 'send', agentId, text]).code !== 0) return 1;
-  const submitted = await confirmSubmitted(deps, agentId, cwd, text, before);
+  const submitted = await confirmSubmitted(
+    deps,
+    agentId,
+    { cwd, text, before },
+    idleBefore,
+  );
   deps.out(
     `${agentId}: ${submitted ? 'submitted' : 'NOT confirmed; check pu logs'}\n`,
   );
