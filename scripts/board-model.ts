@@ -247,7 +247,8 @@ export function checkReplace(
   if (input.end > lines.length)
     return `Lines ${input.start}-${input.end} are outside the page (${lines.length} lines).`;
   const old = lines.slice(input.start - 1, input.end).join('\n');
-  return input.oldText !== undefined && old !== input.oldText.replace(/\n$/, '')
+  const trim = (text: string) => text.replace(/\n$/, '');
+  return input.oldText !== undefined && trim(old) !== trim(input.oldText)
     ? `Lines ${input.start}-${input.end} changed since you read them. Read the page again.`
     : undefined;
 }

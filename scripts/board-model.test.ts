@@ -221,6 +221,21 @@ describe('checkReplace', () => {
     });
   });
 
+  test('allows a whole-page replace of a page that ends with a newline', () => {
+    const trailing = 'a\nb\n';
+    assert({
+      given: 'an unchanged page ending in a newline and its saved copy',
+      should: 'allow it',
+      actual: checkReplace(trailing, {
+        start: 1,
+        end: 3,
+        expectLines: 3,
+        oldText: trailing,
+      }),
+      expected: undefined,
+    });
+  });
+
   test('refuses a replace after a concurrent edit', () => {
     assert({
       given: 'a changed line count, changed old text, and an out-of-range end',
