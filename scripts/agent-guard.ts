@@ -47,6 +47,33 @@ const rules: Readonly<Record<string, Rule>> = {
   bun,
 };
 
+/**
+ * What a shell invocation runs: the -c string (in any option cluster, such as
+ * -lc or -xc, after an optional --), a script file, or its standard input.
+ */
+function shellInput(args: readonly string[]) {
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === '-o' || arg === '+o') index += 1;
+    else if (/^-[a-zA-Z]*c[a-zA-Z]*$/.test(arg)) {
+      const next = args[index + 1] === '--' ? index + 2 : index + 1;
+      return { script: args[next] ?? '' };
+    } else if (arg !== '--' && !arg.startsWith('-') && !arg.startsWith('+'))
+      return { file: arg };
+  }
+  return { stdin: true };
+}
+
+function shellVerdict(args: readonly string[], facts: GuardFacts): Verdict {
+  const input = shellInput(args);
+  if ('script' in input) return classifyCommand(input.script ?? '', facts);
+  return 'stdin' in input && facts.autonomous
+    ? deny(
+        'Commands piped into a shell cannot be checked by the guard. Run them directly, or put them in a script file.',
+      )
+    : allow;
+}
+
 /** Judges one shell command line, with every nested command it runs. */
 export function classifyCommand(command: string, facts: GuardFacts): Verdict {
   const verdicts: Verdict[] = [];
@@ -58,10 +85,8 @@ export function classifyCommand(command: string, facts: GuardFacts): Verdict {
     verdicts.push(loopState(simple, invocation, facts));
     if (name === 'cd' || name === 'pushd')
       cwd = resolveFrom(cwd, args[0] ?? '~');
-    else if (shells.has(name) && args.includes('-c'))
-      verdicts.push(
-        classifyCommand(args[args.indexOf('-c') + 1] ?? '', { ...facts, cwd }),
-      );
+    else if (shells.has(name))
+      verdicts.push(shellVerdict(args, { ...facts, cwd }));
     else if (name === 'eval')
       verdicts.push(classifyCommand(args.join(' '), { ...facts, cwd }));
     else if (rules[name]) verdicts.push(rules[name](invocation, facts, cwd));

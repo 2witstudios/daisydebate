@@ -3,8 +3,8 @@
  * command against the facts of the session running it. agent-guard.ts
  * combines them across a command line and wires them to the hooks.
  */
-import { resolve } from 'node:path';
-import type { ShellCommand } from './shell-command';
+import { basename, resolve } from 'node:path';
+import { parseShell, type ShellCommand } from './shell-command';
 
 type Decision = 'allow' | 'deny' | 'ask';
 export type Verdict = { readonly decision: Decision; readonly reason?: string };
@@ -134,6 +134,21 @@ function wrapperArgsEnd(
   return head === 'timeout' ? index + 1 : index;
 }
 
+/**
+ * env -S "cmd args" (--split-string) runs its value as a command line: the
+ * words it would run, followed by env's remaining arguments.
+ */
+function envSplitString(args: readonly string[]): string[] | undefined {
+  for (let index = 0; index < args.length; index += 1) {
+    const [flag, inline] = splitFlag(args[index]);
+    if (flag !== '-S' && flag !== '--split-string') continue;
+    const value = inline ?? args[index + 1] ?? '';
+    const after = args.slice(index + (inline === undefined ? 2 : 1));
+    return [...(parseShell(value)[0]?.words ?? []), ...after];
+  }
+  return undefined;
+}
+
 /** Strips wrappers (env, sudo, xargs, nohup, …) down to the real command. */
 export function unwrap(command: ShellCommand): Invocation {
   const result: Unwrapped = {
@@ -142,11 +157,15 @@ export function unwrap(command: ShellCommand): Invocation {
     unset: [],
   };
   for (;;) {
-    const [head, ...rest] = result.words;
-    if (head !== undefined && passthrough.has(head)) result.words = rest;
+    const [path, ...rest] = result.words;
+    // /usr/bin/git is git.
+    const head = path === undefined ? undefined : basename(path);
+    const split = head === 'env' ? envSplitString(rest) : undefined;
+    if (split) result.words = split;
+    else if (head !== undefined && passthrough.has(head)) result.words = rest;
     else if (head !== undefined && head in wrapperValueOptions)
       result.words = rest.slice(wrapperArgsEnd(head, rest, result));
-    else return result;
+    else return { ...result, words: head ? [head, ...rest] : result.words };
   }
 }
 
