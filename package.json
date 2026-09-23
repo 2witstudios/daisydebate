@@ -24,6 +24,7 @@
     "metrics:snapshot": "bun scripts/metrics.ts --append",
     "metrics:check": "bun scripts/metrics.ts --check",
     "policy": "bun scripts/policy.ts",
+    "adr:next": "bun scripts/number-claims.ts",
     "invariants": "bun scripts/invariants.ts",
     "evidence": "bun scripts/evidence.ts",
     "migrations:check": "bun scripts/check-migration-journal.ts",
