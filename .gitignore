@@ -20,7 +20,11 @@ verify-logs/
 # Per-worktree agent records (the parent agent id) written by bun agent:spawn.
 .daisy/
 .DS_Store
-.opencode/
+# OpenCode state stays local; the scoped review command is committed.
+.opencode/*
+!.opencode/commands/
+.opencode/commands/*
+!.opencode/commands/review.md
 # Agent worktrees only; the rest of .claude/ stays visible to git.
 .claude/worktrees/
 # Ralph loop state (active and escalated); see bun loop:escalate.
