@@ -1,13 +1,15 @@
 name: Deploy staging
 # Continuous deployment of main to the scale-to-zero Fly.io staging app
-# (AUTH-7.0). Runs only after the CI workflow succeeds on a main push, so a
-# red main never reaches staging; `fly deploy` builds the image remotely
+# (AUTH-7.0). A main push deploys once the CI gate job and the Browser E2E
+# run are both green (scripts/staging-gate.ts, ISSUE-51). The dependency
+# audit job is outside the gate, so its failure never holds staging back
+# while ISSUE-31 is open. `fly deploy` builds the image remotely
 # with Fly's builder from apps/web/Dockerfile (see fly.toml) and runs the
 # migration release command before traffic switches. Production rollout is
 # a separate, human-gated step (AUTH-7.2/7.3) and is never automated here.
 on:
   workflow_run:
-    workflows: [CI]
+    workflows: [CI, Browser E2E]
     types: [completed]
     branches: [main]
   workflow_dispatch:
@@ -17,19 +19,45 @@ concurrency:
   group: deploy-staging
   cancel-in-progress: false
 jobs:
+  ready:
+    name: Require a green CI gate and green E2E
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    # Both workflows also run on pull_request, so a PR whose source branch
+    # is named "main" would satisfy the branches filter: require the run to
+    # come from a push to this repository's main, never from a PR head.
+    if: >-
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      deploy: ${{ steps.decide.outputs.deploy }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+      - id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          TRIGGER: ${{ github.event.workflow_run.name }}
+        run: bun scripts/staging-gate.ts --sha "$HEAD_SHA" --trigger "$TRIGGER"
+
   deploy:
     name: Deploy main to daisy-debate-staging
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    # CI also runs on pull_request, so a PR whose source branch is named
-    # "main" would satisfy the branches filter: require the run to come from
-    # a push to this repository's main, never from a PR head.
+    needs: ready
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.event == 'push' &&
-       github.event.workflow_run.head_branch == 'main' &&
-       github.event.workflow_run.head_repository.full_name == github.repository)
+      always() &&
+      (github.event_name == 'workflow_dispatch' ||
+       needs.ready.outputs.deploy == 'true')
     env:
       # The commit CI verified, used for checkout AND the image metadata so
       # the deployed source and its stamped version can never diverge
