@@ -1,12 +1,15 @@
 import { resolveIdentity, type Identity } from '@daisy/auth';
 import { hasSessionCookie } from '../features/auth/session-cookie';
-import { getAuth } from './auth';
+import type { AuthServer } from '../features/auth/server';
+
+/** The slice of the composed auth server a session read needs. */
+export type SessionReader = Pick<AuthServer, 'instance' | 'clock' | 'logger'>;
 
 /**
  * Principal resolution glue: Better Auth verifies the signed cookie and reads
  * the durable session row (its cookie cache is off, so revocation shows on
  * the next call); @daisy/auth decides what that session may do. This module
- * is shared by route handlers and server components, which pass their
+ * is shared by route handlers and server components, which pass the app's auth and their
  * request headers; only the Cookie header is read.
  *
  * The read never refreshes: server components cannot set cookies, so a
@@ -14,19 +17,25 @@ import { getAuth } from './auth';
  * cookie. When a refresh is due, the root layout has the browser call the
  * real `/api/auth/get-session` handler (ui/auth/session-refresh), which can.
  */
-export async function identify(requestHeaders: Headers): Promise<Identity> {
-  return (await resolveSession(requestHeaders)).identity;
+export async function identify(
+  auth: SessionReader,
+  requestHeaders: Headers,
+): Promise<Identity> {
+  return (await resolveSession(auth, requestHeaders)).identity;
 }
 
 /**
  * The identity plus, for a live signed-in session, when it expires: the
  * server's input to deciding whether the browser should slide it now.
  */
-export async function resolveSession(requestHeaders: Headers): Promise<{
+export async function resolveSession(
+  auth: SessionReader,
+  requestHeaders: Headers,
+): Promise<{
   readonly identity: Identity;
   readonly sessionExpiresAt: string | null;
 }> {
-  const { instance, clock, logger } = getAuth();
+  const { instance, clock, logger } = auth;
   const cookie = requestHeaders.get('cookie');
   let expiresAt: string | null = null;
   const identity = await resolveIdentity({

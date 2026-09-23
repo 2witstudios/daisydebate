@@ -1,12 +1,6 @@
-import { handleOperation } from '../../../../server/http';
-import { getMailWebhook } from '../../../../lib/auth';
+import { processRoute } from '../../../../server/process-app';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-/** Provider-signed, server-to-server: authenticity replaces the browser origin check. */
-export function POST(request: Request) {
-  return handleOperation(request, 'auth.mail.webhook', () =>
-    getMailWebhook().handle(request),
-  );
-}
+export const POST = processRoute((routes) => routes.mailWebhook.POST);

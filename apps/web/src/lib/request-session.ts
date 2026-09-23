@@ -2,7 +2,7 @@ import { cache } from 'react';
 import { headers } from 'next/headers';
 import type { Identity } from '@daisy/auth';
 import { sessionRefreshDue } from '../features/auth/session-policy';
-import { getAuth } from './auth';
+import { processApp } from '../server/process-app';
 import { resolveSession } from './identity';
 
 /**
@@ -10,7 +10,9 @@ import { resolveSession } from './identity';
  * wraps render in the same request, and React's per-request cache makes
  * them share one durable session read.
  */
-const requestSession = cache(async () => resolveSession(await headers()));
+const requestSession = cache(async () =>
+  resolveSession(processApp().auth(), await headers()),
+);
 
 /** Who is asking in this server-component render. */
 export const requestIdentity = async (): Promise<Identity> =>
@@ -25,6 +27,6 @@ export const sessionRefreshDueNow = async (): Promise<boolean> => {
   const { sessionExpiresAt } = await requestSession();
   return (
     sessionExpiresAt !== null &&
-    sessionRefreshDue(sessionExpiresAt, getAuth().clock.now())
+    sessionRefreshDue(sessionExpiresAt, processApp().clock.now())
   );
 };

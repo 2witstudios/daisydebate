@@ -1,11 +1,12 @@
 import { APIError } from 'better-auth/api';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { seedSilentResources } from '../../server/seeded-resources.test-support';
+import { silentLogger } from '../../server/test-loggers.test-support';
+import {
+  createListSessionsHandler,
+  createRevokeSessionHandler,
+} from './sessions';
 
 setupRitewayBun();
-seedSilentResources('http://localhost:3000');
-const { createListSessionsHandler, createRevokeSessionHandler } =
-  await import('./sessions');
 
 const origin = 'http://localhost:3000';
 const row = (overrides: Partial<Record<string, unknown>> = {}) => ({
@@ -31,6 +32,7 @@ describe('GET /api/account/sessions', () => {
   test('never serializes the session token, and marks the current row', async () => {
     const rows = [row({ id: 's1' }), row({ id: 's2', token: 'other-token' })];
     const handler = createListSessionsHandler({
+      logger: silentLogger,
       origin: () => origin,
       listSessions: async () => rows,
       currentSessionId: async () => 's2',
@@ -64,6 +66,7 @@ describe('GET /api/account/sessions', () => {
 
   test('a stale/unauthenticated session answers 401, never leaking Better Auth detail', async () => {
     const handler = createListSessionsHandler({
+      logger: silentLogger,
       origin: () => origin,
       listSessions: async () => {
         throw new APIError('UNAUTHORIZED', { message: 'no session' });
@@ -85,6 +88,7 @@ describe('GET /api/account/sessions', () => {
 
   test('an infrastructure failure answers a safe 503', async () => {
     const handler = createListSessionsHandler({
+      logger: silentLogger,
       origin: () => origin,
       listSessions: async () => {
         throw new Error('redis://secret-host down');
@@ -107,6 +111,7 @@ describe('POST /api/account/sessions/revoke', () => {
     const rows = [row({ id: 's1', token: 'token-1' })];
     let revokedWith: { headers: Headers; token: string } | undefined;
     const handler = createRevokeSessionHandler({
+      logger: silentLogger,
       origin: () => origin,
       listSessions: async () => rows,
       revokeToken: async (headers, token) => {
@@ -133,6 +138,7 @@ describe('POST /api/account/sessions/revoke', () => {
   test("an id not among the caller's own sessions reports not-found, never revoking anything", async () => {
     let revoked = false;
     const handler = createRevokeSessionHandler({
+      logger: silentLogger,
       origin: () => origin,
       listSessions: async () => [row({ id: 's1' })],
       revokeToken: async () => {
@@ -151,6 +157,7 @@ describe('POST /api/account/sessions/revoke', () => {
   test('refuses a cross-origin request before resolving anything', async () => {
     let listed = false;
     const handler = createRevokeSessionHandler({
+      logger: silentLogger,
       origin: () => origin,
       listSessions: async () => {
         listed = true;

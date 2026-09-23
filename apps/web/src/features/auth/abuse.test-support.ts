@@ -1,5 +1,6 @@
 import { memoryAdapter } from '@better-auth/memory-adapter';
 import { fixedClock, sequentialId } from '@daisy/clock';
+import { readAuthConfig } from '@daisy/config';
 import type { Logger } from '@daisy/logger';
 import { createAuthServer, type AuthEmailMessage } from './server';
 
@@ -48,7 +49,7 @@ export const create = (
   const recorded: Array<{ providerMessageId: string; recipientHash: string }> =
     [];
   const server = createAuthServer({
-    env,
+    config: readAuthConfig(env),
     database: memoryAdapter(db),
     emailSender: {
       send: async (message) => {

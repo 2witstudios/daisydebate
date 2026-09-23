@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { memoryAdapter } from '@better-auth/memory-adapter';
 import { fixedClock, sequentialId } from '@daisy/clock';
+import { readAuthConfig } from '@daisy/config';
 import type { Logger } from '@daisy/logger';
 import { createAuthServer, type AuthEmailMessage } from './server';
 
@@ -35,7 +36,7 @@ const create = (overrides?: {
   emailSender?: ReturnType<typeof capturingSender>;
 }) =>
   createAuthServer({
-    env: overrides?.env ?? env,
+    config: readAuthConfig(overrides?.env ?? env),
     database: memoryAdapter({
       user: [],
       session: [],

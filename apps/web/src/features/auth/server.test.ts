@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { memoryAdapter } from '@better-auth/memory-adapter';
 import type { BetterAuthOptions } from 'better-auth';
+import { readAuthConfig } from '@daisy/config';
 import { isAppError } from '@daisy/errors';
 import { fixedClock, sequentialId } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
@@ -35,7 +36,7 @@ const create = (overrides?: {
   database?: BetterAuthOptions['database'];
 }) =>
   createAuthServer({
-    env: overrides?.env ?? env,
+    config: readAuthConfig(overrides?.env ?? env),
     database:
       overrides?.database ??
       memoryAdapter({
@@ -65,10 +66,10 @@ function capturingSender() {
 }
 
 describe('auth server composition', () => {
-  test('composes the validated configuration from the injected environment', () => {
+  test('exposes the validated configuration it was given', () => {
     assert({
-      given: 'an environment holding the four required auth variables',
-      should: 'expose the validated configuration with an empty proxy list',
+      given: 'configuration validated from the four required auth variables',
+      should: 'expose it with an empty proxy list',
       actual: create().config,
       expected: {
         BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET,
@@ -77,36 +78,6 @@ describe('auth server composition', () => {
         AUTH_EMAIL_FROM: env.AUTH_EMAIL_FROM,
         AUTH_TRUSTED_PROXIES: [],
       },
-    });
-  });
-
-  test('rejects an invalid environment reporting field names only', () => {
-    let message = '';
-    try {
-      createAuthServer({
-        env: { ...env, BETTER_AUTH_SECRET: 'short' },
-        database: memoryAdapter({ user: [], session: [], account: [] }),
-        emailSender: capturingSender(),
-        limiter: {
-          consume: async () => ({ allowed: true, retryAfterSeconds: 0 }),
-        },
-        logger: silentLogger,
-        clock: fixedClock('2026-09-20T00:00:00.000Z'),
-        ids: sequentialId('auth'),
-        appendSessionRevoked: async () => {},
-        revokeOtherSessions: async () => 0,
-      });
-    } catch (error) {
-      message = String(error);
-    }
-    assert({
-      given: 'an environment with a short secret',
-      should: 'fail composition naming the field without echoing the value',
-      actual: {
-        namesField: message.includes('BETTER_AUTH_SECRET'),
-        echoesValue: message.includes('short'),
-      },
-      expected: { namesField: true, echoesValue: false },
     });
   });
 
@@ -133,7 +104,7 @@ describe('auth server composition', () => {
       });
     };
     const server = createAuthServer({
-      env,
+      config: readAuthConfig(env),
       database,
       emailSender: capturingSender(),
       limiter: {
@@ -183,7 +154,7 @@ describe('auth server composition', () => {
 
   test('maps sender failure to a retryable error without provider detail', async () => {
     const server = createAuthServer({
-      env,
+      config: readAuthConfig(env),
       database: memoryAdapter({ user: [], session: [], account: [] }),
       emailSender: {
         send: async () => {

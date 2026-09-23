@@ -1,10 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { Identity } from '@daisy/auth';
-import { seedSilentResources } from '../../server/seeded-resources.test-support';
+import { silentLogger } from '../../server/test-loggers.test-support';
+import { createUsernameHandler } from './username';
 
 setupRitewayBun();
-seedSilentResources('http://localhost:3000');
-const { createUsernameHandler } = await import('./username');
 
 const member: Identity = {
   state: 'provisional',
@@ -20,6 +19,7 @@ const handlerWith = ({
 } = {}) => {
   const claims: unknown[] = [];
   const handler = createUsernameHandler({
+    logger: silentLogger,
     origin: () => 'http://localhost:3000',
     identify: async () => identity,
     limiter: () => ({ consume }),

@@ -1,30 +1,15 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
-import { readServerConfig } from '@daisy/config';
 import type { Logger } from '@daisy/logger';
+import { createAuthRouteHandlers, preserve } from './handlers';
 
 setupRitewayBun();
 
-// Seed process resources so the shared HTTP boundary builds no real clients.
 const recorded: unknown[] = [];
 const recorder: Logger = {
   log: (...entry) => recorded.push(entry),
   child: () => recorder,
 };
-Reflect.set(globalThis, 'daisyResources', {
-  config: readServerConfig({
-    NODE_ENV: 'test',
-    DATABASE_URL: 'postgres://unit:unit@localhost:5432/unit',
-    REDIS_URL: 'redis://localhost:6379',
-    REDIS_NAMESPACE: 'test',
-    PUBLIC_APP_URL: 'http://localhost:3000',
-    APP_VERSION: 'test',
-    GIT_COMMIT: 'test',
-  }),
-  logger: recorder,
-  draining: false,
-});
-const { createAuthRouteHandlers, preserve } = await import('./handlers');
 
 const config = { PUBLIC_APP_URL: 'http://localhost:3000' };
 const post = (headers: Record<string, string> = {}) =>
@@ -82,15 +67,18 @@ describe('preserve', () => {
 describe('createAuthRouteHandlers', () => {
   test('delegates GET and POST, adds correlation and no-store, keeps cookies and never logs the URL', async () => {
     recorded.length = 0;
-    const handlers = createAuthRouteHandlers(() => ({
-      config,
-      handler: async () => {
-        const headers = new Headers({ 'content-type': 'application/json' });
-        headers.append('set-cookie', 'session=abc; HttpOnly');
-        headers.append('set-cookie', 'other=def');
-        return new Response('{"status":true}', { headers });
-      },
-    }));
+    const handlers = createAuthRouteHandlers(
+      () => ({
+        config,
+        handler: async () => {
+          const headers = new Headers({ 'content-type': 'application/json' });
+          headers.append('set-cookie', 'session=abc; HttpOnly');
+          headers.append('set-cookie', 'other=def');
+          return new Response('{"status":true}', { headers });
+        },
+      }),
+      recorder,
+    );
     const response = await handlers.POST(post());
     assert({
       given: 'a delegated auth response with two cookies',
@@ -117,13 +105,16 @@ describe('createAuthRouteHandlers', () => {
 
   test('rejects state-changing calls from foreign or absent origins before delegating', async () => {
     let delegated = 0;
-    const handlers = createAuthRouteHandlers(() => ({
-      config,
-      handler: async () => {
-        delegated += 1;
-        return new Response('{}');
-      },
-    }));
+    const handlers = createAuthRouteHandlers(
+      () => ({
+        config,
+        handler: async () => {
+          delegated += 1;
+          return new Response('{}');
+        },
+      }),
+      recorder,
+    );
     const foreign = await handlers.POST(
       post({ origin: 'https://evil.example' }),
     );
@@ -144,10 +135,13 @@ describe('createAuthRouteHandlers', () => {
     const events = () => recorded.map((entry) => (entry as unknown[])[0]);
     const call = async (path: string, status = 200) => {
       recorded.length = 0;
-      const handlers = createAuthRouteHandlers(() => ({
-        config,
-        handler: async () => new Response('{}', { status }),
-      }));
+      const handlers = createAuthRouteHandlers(
+        () => ({
+          config,
+          handler: async () => new Response('{}', { status }),
+        }),
+        recorder,
+      );
       await handlers.POST(
         new Request(`http://localhost:3000/api/auth${path}`, {
           method: 'POST',
@@ -184,17 +178,20 @@ describe('createAuthRouteHandlers', () => {
 
   test('refuses a direct GET or POST to /magic-link/verify or /verify-email with 404, never reaching Better Auth', async () => {
     let delegated = 0;
-    const handlers = createAuthRouteHandlers(() => ({
-      config,
-      // If the guard is ever removed, this fake handler answers 200 with a
-      // session cookie for every path, so the negative control below fails.
-      handler: async () => {
-        delegated += 1;
-        return new Response('{"status":true}', {
-          headers: { 'set-cookie': 'better-auth.session_token=x; Path=/' },
-        });
-      },
-    }));
+    const handlers = createAuthRouteHandlers(
+      () => ({
+        config,
+        // If the guard is ever removed, this fake handler answers 200 with a
+        // session cookie for every path, so the negative control below fails.
+        handler: async () => {
+          delegated += 1;
+          return new Response('{"status":true}', {
+            headers: { 'set-cookie': 'better-auth.session_token=x; Path=/' },
+          });
+        },
+      }),
+      recorder,
+    );
     const get = (path: string) =>
       new Request(`http://localhost:3000/api/auth${path}?token=T`);
     const results = await Promise.all([
@@ -222,22 +219,28 @@ describe('createAuthRouteHandlers', () => {
   });
 
   test('maps every thrown failure to a safe, retryable 503', async () => {
-    const outage = createAuthRouteHandlers(() => ({
-      config,
-      handler: async () => {
-        throw createAppError(
-          'INFRASTRUCTURE',
-          undefined,
-          new Error('redis://secret-host'),
-        );
-      },
-    }));
-    const crash = createAuthRouteHandlers(() => ({
-      config,
-      handler: async () => {
-        throw new Error('SELECT * FROM users WHERE token=abc');
-      },
-    }));
+    const outage = createAuthRouteHandlers(
+      () => ({
+        config,
+        handler: async () => {
+          throw createAppError(
+            'INFRASTRUCTURE',
+            undefined,
+            new Error('redis://secret-host'),
+          );
+        },
+      }),
+      recorder,
+    );
+    const crash = createAuthRouteHandlers(
+      () => ({
+        config,
+        handler: async () => {
+          throw new Error('SELECT * FROM users WHERE token=abc');
+        },
+      }),
+      recorder,
+    );
     const a = await outage.POST(post());
     const b = await crash.POST(post());
     const texts = JSON.stringify([

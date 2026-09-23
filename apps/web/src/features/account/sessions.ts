@@ -1,3 +1,4 @@
+import type { Logger } from '@daisy/logger';
 import { APIError } from 'better-auth/api';
 import { createAppError } from '@daisy/errors';
 import { z } from 'zod';
@@ -58,6 +59,7 @@ const mapBetterAuthError = (error: unknown) => {
 };
 
 type SessionsDependencies = {
+  readonly logger: Logger;
   readonly origin: () => string;
   readonly listSessions: (
     headers: Headers,
@@ -72,27 +74,33 @@ type SessionsDependencies = {
  */
 export function createListSessionsHandler(dependencies: SessionsDependencies) {
   return (request: Request) =>
-    handleOperation(request, 'account.sessions.list', async () => {
-      requireSameOriginRead(request, dependencies.origin());
-      let rows: readonly BetterAuthSessionRow[];
-      let currentSessionId: string | null;
-      try {
-        [rows, currentSessionId] = await Promise.all([
-          dependencies.listSessions(request.headers),
-          dependencies.currentSessionId(request.headers),
-        ]);
-      } catch (error) {
-        throw mapBetterAuthError(error);
-      }
-      return Response.json({
-        sessions: rows.map((row) => toDto(row, currentSessionId)),
-      });
-    });
+    handleOperation(
+      dependencies.logger,
+      request,
+      'account.sessions.list',
+      async () => {
+        requireSameOriginRead(request, dependencies.origin());
+        let rows: readonly BetterAuthSessionRow[];
+        let currentSessionId: string | null;
+        try {
+          [rows, currentSessionId] = await Promise.all([
+            dependencies.listSessions(request.headers),
+            dependencies.currentSessionId(request.headers),
+          ]);
+        } catch (error) {
+          throw mapBetterAuthError(error);
+        }
+        return Response.json({
+          sessions: rows.map((row) => toDto(row, currentSessionId)),
+        });
+      },
+    );
 }
 
 const revokeBody = z.strictObject({ id: z.string().min(1) });
 
 type RevokeSessionDependencies = {
+  readonly logger: Logger;
   readonly origin: () => string;
   readonly listSessions: (
     headers: Headers,
@@ -110,22 +118,27 @@ export function createRevokeSessionHandler(
   dependencies: RevokeSessionDependencies,
 ) {
   return (request: Request) =>
-    handleOperation(request, 'account.sessions.revoke', async () => {
-      requireSameOrigin(request, dependencies.origin());
-      const { id } = parseValidated(revokeBody, await readJson(request));
-      let rows: readonly BetterAuthSessionRow[];
-      try {
-        rows = await dependencies.listSessions(request.headers);
-      } catch (error) {
-        throw mapBetterAuthError(error);
-      }
-      const target = rows.find((row) => row.id === id);
-      if (!target) throw createAppError('NOT_FOUND');
-      try {
-        await dependencies.revokeToken(request.headers, target.token);
-      } catch (error) {
-        throw mapBetterAuthError(error);
-      }
-      return Response.json({ status: true });
-    });
+    handleOperation(
+      dependencies.logger,
+      request,
+      'account.sessions.revoke',
+      async () => {
+        requireSameOrigin(request, dependencies.origin());
+        const { id } = parseValidated(revokeBody, await readJson(request));
+        let rows: readonly BetterAuthSessionRow[];
+        try {
+          rows = await dependencies.listSessions(request.headers);
+        } catch (error) {
+          throw mapBetterAuthError(error);
+        }
+        const target = rows.find((row) => row.id === id);
+        if (!target) throw createAppError('NOT_FOUND');
+        try {
+          await dependencies.revokeToken(request.headers, target.token);
+        } catch (error) {
+          throw mapBetterAuthError(error);
+        }
+        return Response.json({ status: true });
+      },
+    );
 }

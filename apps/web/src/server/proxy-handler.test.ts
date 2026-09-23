@@ -1,9 +1,19 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createHash } from 'node:crypto';
 import { NextRequest } from 'next/server';
-import { proxy } from './proxy';
+import { sequentialId } from '@daisy/clock';
+import { handleProxy, type ProxySettings } from './proxy-handler';
 
 setupRitewayBun();
+
+const settings: ProxySettings = {
+  foundationProofEnabled: false,
+  publicAppUrl: 'https://daisy.invalid',
+  development: false,
+  ids: sequentialId('request'),
+};
+const proxy = (request: NextRequest, overrides: Partial<ProxySettings> = {}) =>
+  handleProxy(request, { ...settings, ...overrides });
 
 const traceparent = '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01';
 
@@ -39,46 +49,45 @@ describe('proxy trace context propagation', () => {
   });
 
   test('answers the disabled foundation proof with a real 404 at the edge', () => {
-    const previous = process.env.FOUNDATION_PROOF_ENABLED;
-    process.env.FOUNDATION_PROOF_ENABLED = 'false';
-    try {
-      const response = proxy(
-        new NextRequest('https://daisy.invalid/foundation'),
-      );
+    const response = proxy(new NextRequest('https://daisy.invalid/foundation'));
 
-      assert({
-        given: 'the architectural proof path while the proof is disabled',
-        should: 'refuse the request with a 404 carrying the correlation id',
-        actual: {
-          status: response.status,
-          hasRequestId: Boolean(response.headers.get('x-request-id')),
-        },
-        expected: { status: 404, hasRequestId: true },
-      });
-    } finally {
-      if (previous === undefined) delete process.env.FOUNDATION_PROOF_ENABLED;
-      else process.env.FOUNDATION_PROOF_ENABLED = previous;
-    }
+    assert({
+      given: 'the architectural proof path while the proof is disabled',
+      should: 'refuse the request with a 404 carrying the correlation id',
+      actual: {
+        status: response.status,
+        hasRequestId: Boolean(response.headers.get('x-request-id')),
+      },
+      expected: { status: 404, hasRequestId: true },
+    });
+  });
+
+  test('routes the foundation proof when validated config enables it', () => {
+    const response = proxy(
+      new NextRequest('https://daisy.invalid/foundation'),
+      { foundationProofEnabled: true },
+    );
+
+    assert({
+      given: 'the architectural proof path while the proof is enabled',
+      should: 'continue to the page',
+      actual: response.status,
+      expected: 200,
+    });
   });
 });
 
 const directives = (env: 'production' | 'development') => {
-  const previous = process.env.NODE_ENV;
-  Reflect.set(process.env, 'NODE_ENV', env);
-  try {
-    const policy =
-      proxy(new NextRequest('https://daisy.invalid/')).headers.get(
-        'Content-Security-Policy',
-      ) ?? '';
-    return new Map(
-      policy.split('; ').map((directive) => {
-        const [name = '', ...sources] = directive.split(' ');
-        return [name, sources] as const;
-      }),
-    );
-  } finally {
-    Reflect.set(process.env, 'NODE_ENV', previous);
-  }
+  const policy =
+    proxy(new NextRequest('https://daisy.invalid/'), {
+      development: env === 'development',
+    }).headers.get('Content-Security-Policy') ?? '';
+  return new Map(
+    policy.split('; ').map((directive) => {
+      const [name = '', ...sources] = directive.split(' ');
+      return [name, sources] as const;
+    }),
+  );
 };
 
 describe('proxy content security policy', () => {
@@ -147,20 +156,12 @@ describe('proxy content security policy', () => {
 });
 
 describe('proxy early sign-in hint', () => {
-  const at = (path: string, cookie?: string) => {
-    const previous = process.env.PUBLIC_APP_URL;
-    process.env.PUBLIC_APP_URL = 'https://daisy.invalid';
-    try {
-      return proxy(
-        new NextRequest(`https://internal.invalid${path}`, {
-          headers: cookie ? { cookie } : {},
-        }),
-      );
-    } finally {
-      if (previous === undefined) delete process.env.PUBLIC_APP_URL;
-      else process.env.PUBLIC_APP_URL = previous;
-    }
-  };
+  const at = (path: string, cookie?: string) =>
+    proxy(
+      new NextRequest(`https://internal.invalid${path}`, {
+        headers: cookie ? { cookie } : {},
+      }),
+    );
 
   test('sends a cookie-less request for a guarded area to sign-in with its path', () => {
     const response = at('/lobby/tables?tab=open');
@@ -200,30 +201,6 @@ describe('proxy early sign-in hint', () => {
         at('/play', 'better-auth.session_token=x').status,
         at('/play', '__Secure-better-auth.session_token=x').status,
       ],
-      expected: [200, 200],
-    });
-  });
-
-  test('without a valid configured origin it gives no hint, never a Host-derived one', () => {
-    const previous = process.env.PUBLIC_APP_URL;
-    const statuses: number[] = [];
-    try {
-      for (const value of [undefined, 'not a url']) {
-        if (value === undefined) delete process.env.PUBLIC_APP_URL;
-        else process.env.PUBLIC_APP_URL = value;
-        const response = proxy(
-          new NextRequest('https://attacker.invalid/lobby'),
-        );
-        statuses.push(response.status);
-      }
-    } finally {
-      if (previous === undefined) delete process.env.PUBLIC_APP_URL;
-      else process.env.PUBLIC_APP_URL = previous;
-    }
-    assert({
-      given: 'a missing and an invalid PUBLIC_APP_URL',
-      should: 'continue to the page guard instead of redirecting to the Host',
-      actual: statuses,
       expected: [200, 200],
     });
   });

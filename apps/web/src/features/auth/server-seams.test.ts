@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { memoryAdapter } from '@better-auth/memory-adapter';
 import { fixedClock, sequentialId } from '@daisy/clock';
+import { readAuthConfig } from '@daisy/config';
 import type { Logger } from '@daisy/logger';
 import { logsLeakSecrets } from './log-leaks';
 import type { AuthRateLimiter } from './rate-limit';
@@ -43,7 +44,7 @@ const compose = (overrides: {
     passkey: [],
   };
   const server = createAuthServer({
-    env,
+    config: readAuthConfig(env),
     database: memoryAdapter(tables),
     emailSender: {
       send: async (message) => {

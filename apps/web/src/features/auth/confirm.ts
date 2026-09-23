@@ -23,7 +23,10 @@ const SHOWN_CODES = new Set([
   'AUTH_TEMPORARILY_UNAVAILABLE',
 ]);
 
-type ConfirmDependencies = { readonly auth: ConfirmAuth };
+type ConfirmDependencies = {
+  readonly auth: ConfirmAuth;
+  readonly logger: Logger;
+};
 
 const hiddenFrom = (params: URLSearchParams): Hidden => {
   const newUser = params.get('newUserCallbackURL');
@@ -97,7 +100,10 @@ function retryView(token: string, hidden: Hidden, response: Response) {
   );
 }
 
-export function createConfirmHandlers({ auth }: ConfirmDependencies) {
+export function createConfirmHandlers({
+  auth,
+  logger: baseLogger,
+}: ConfirmDependencies) {
   const forward = createForward(auth);
 
   /** GET and HEAD only render: a scanner or prefetch can never redeem. */
@@ -173,14 +179,19 @@ export function createConfirmHandlers({ auth }: ConfirmDependencies) {
   };
 
   return {
-    ...createViewHeadHandlers('auth.confirm.view', view),
+    ...createViewHeadHandlers(baseLogger, 'auth.confirm.view', view),
     POST: (request: Request) =>
-      handleOperation(request, 'auth.confirm.submit', async (_id, logger) => {
-        requireSameOrigin(request, auth().config.PUBLIC_APP_URL);
-        const form = await readForm(request, MAX_FORM_BYTES);
-        return form.get('intent') === 'resend'
-          ? resend(request, form)
-          : redeem(request, form, logger);
-      }),
+      handleOperation(
+        baseLogger,
+        request,
+        'auth.confirm.submit',
+        async (_id, logger) => {
+          requireSameOrigin(request, auth().config.PUBLIC_APP_URL);
+          const form = await readForm(request, MAX_FORM_BYTES);
+          return form.get('intent') === 'resend'
+            ? resend(request, form)
+            : redeem(request, form, logger);
+        },
+      ),
   };
 }

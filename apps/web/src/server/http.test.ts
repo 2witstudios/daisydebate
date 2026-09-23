@@ -1,15 +1,12 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError, createInvariantError } from '@daisy/errors';
-import { seedRecordingResources } from './recording-resources.test-support';
+import { handleOperation, readJson, requireSameOrigin } from './http';
+import { createRecordingLogger } from './test-loggers.test-support';
 
 setupRitewayBun();
 
-// Seed process-local resources before touching the HTTP boundary so this test
-// never constructs real database or Redis clients.
-const { recorded, resources: seededResources } = seedRecordingResources();
-
-const { handleOperation, readJson, requireSameOrigin } = await import('./http');
+const { recorded, logger } = createRecordingLogger();
 
 const jsonRequest = (body: string, contentType = 'application/json') =>
   new Request('http://localhost/api/foundation/proof', {
@@ -22,6 +19,7 @@ describe('handleOperation', () => {
   test('answers an oversized body with HTTP 413', async () => {
     const large = JSON.stringify({ text: 'x'.repeat(128) });
     const response = await handleOperation(
+      logger,
       jsonRequest(large),
       'test.oversized',
       async () => Response.json(await readJson(jsonRequest(large), 64)),
@@ -41,6 +39,7 @@ describe('handleOperation', () => {
   test('returns handler responses with correlation headers and logs completion', async () => {
     recorded.length = 0;
     const response = await handleOperation(
+      logger,
       new Request('http://localhost/api/foundation/proof'),
       'test.operation',
       () => Promise.resolve(Response.json({ ok: true })),
@@ -79,6 +78,7 @@ describe('handleOperation', () => {
   test('logs a hash of the ingress-resolved client identity, never the raw address', async () => {
     recorded.length = 0;
     await handleOperation(
+      logger,
       new Request('http://localhost/api/foundation/proof', {
         headers: { 'x-daisy-client-ip': '203.0.113.9' },
       }),
@@ -100,6 +100,7 @@ describe('handleOperation', () => {
 
     recorded.length = 0;
     await handleOperation(
+      logger,
       new Request('http://localhost/api/foundation/proof'),
       'test.operation',
       () => Promise.resolve(Response.json({ ok: true })),
@@ -114,6 +115,7 @@ describe('handleOperation', () => {
 
   test('honors caller request IDs that pass the format constraint', async () => {
     const response = await handleOperation(
+      logger,
       new Request('http://localhost/api/foundation/proof', {
         headers: { 'x-request-id': 'caller-provided-id-123' },
       }),
@@ -131,6 +133,7 @@ describe('handleOperation', () => {
   test('maps domain invariants to stable public errors without leaking internals', async () => {
     const internalDetail = 'participant row 3481 violated archetype storage';
     const response = await handleOperation(
+      logger,
       new Request('http://localhost/api/foundation/proof'),
       'test.operation',
       () =>
@@ -177,6 +180,7 @@ describe('handleOperation', () => {
     recorded.length = 0;
     const invariantId = 'debate.phase.active.requires-ready-participants';
     await handleOperation(
+      logger,
       new Request('http://localhost/api/foundation/proof'),
       'test.operation',
       () => Promise.reject(createInvariantError(invariantId)),
@@ -195,6 +199,7 @@ describe('handleOperation', () => {
   test('maps unexpected failures to INTERNAL and never exposes causes', async () => {
     recorded.length = 0;
     const response = await handleOperation(
+      logger,
       new Request('http://localhost/api/foundation/proof'),
       'test.operation',
       () =>
@@ -228,6 +233,7 @@ describe('handleOperation', () => {
     const controller = new AbortController();
     controller.abort();
     const response = await handleOperation(
+      logger,
       new Request('http://localhost/api/foundation/proof', {
         signal: controller.signal,
       }),
@@ -259,37 +265,6 @@ describe('handleOperation', () => {
         errorCode: 'REQUEST_CANCELLED',
       },
     });
-  });
-
-  test('maps resource construction failures through the public error contract', async () => {
-    const previousDatabaseUrl = process.env.DATABASE_URL;
-    Reflect.deleteProperty(globalThis, 'daisyResources');
-    process.env.DATABASE_URL = 'not-a-postgres-url';
-    try {
-      const response = await handleOperation(
-        new Request('http://localhost/api/foundation/proof'),
-        'test.operation',
-        () => Promise.resolve(Response.json({ ok: true })),
-      );
-      const body = (await response.json()) as { error: { code: string } };
-      assert({
-        given: 'unconstructable process resources',
-        should: 'respond with the mapped public error',
-        actual: { status: response.status, code: body.error.code },
-        expected: { status: 500, code: 'INTERNAL' },
-      });
-      assert({
-        given: 'unconstructable process resources',
-        should: 'attach a correlation header',
-        actual: Boolean(response.headers.get('x-request-id')),
-        expected: true,
-      });
-    } finally {
-      if (previousDatabaseUrl === undefined)
-        Reflect.deleteProperty(process.env, 'DATABASE_URL');
-      else process.env.DATABASE_URL = previousDatabaseUrl;
-      Reflect.set(globalThis, 'daisyResources', seededResources);
-    }
   });
 
   test('rejects cross-origin state-changing requests', () => {

@@ -9,7 +9,6 @@ import {
 import type { Logger } from '@daisy/logger';
 import { type ZodType } from 'zod';
 import { CLIENT_IP_HEADER } from '../features/auth/client-ip';
-import { getResources } from './resources';
 
 // Correlates repeated requests from one client across log lines without
 // logging the raw address (ADR 0019's loggable allowlist), the same way
@@ -24,7 +23,13 @@ export function parseValidated<T>(schema: ZodType<T>, input: unknown): T {
     throw createAppError('VALIDATION', undefined, result.error);
   return result.data;
 }
+/**
+ * The one wrapper every route handler runs in: correlation and no-store
+ * headers, a request-scoped child of the injected logger, completion and
+ * failure logging, and the public error contract for anything thrown.
+ */
 export async function handleOperation(
+  baseLogger: Logger,
   request: Request,
   operation: string,
   handler: (id: string, logger: Logger) => Promise<Response>,
@@ -35,14 +40,12 @@ export async function handleOperation(
     operation,
     { 'request.id': id },
     async () => {
-      let logger: Logger | undefined;
+      const logger = baseLogger.child({
+        requestId: id,
+        traceId: currentTraceId(),
+        operation,
+      });
       try {
-        // Construction failures must map through the public error contract too.
-        logger = getResources().logger.child({
-          requestId: id,
-          traceId: currentTraceId(),
-          operation,
-        });
         request.signal.throwIfAborted();
         const response = await handler(id, logger);
         response.headers.set('x-request-id', id);
@@ -65,7 +68,7 @@ export async function handleOperation(
       } catch (error) {
         // Client cancellation is expected traffic, not a failure signal.
         if (request.signal.aborted) {
-          logger?.log(
+          logger.log(
             'http.request.cancelled',
             {
               durationMs: Math.round(performance.now() - start),
@@ -80,12 +83,12 @@ export async function handleOperation(
         }
         const mapped = toPublicError(error, id);
         if (mapped.body.error.invariantId !== undefined)
-          logger?.log(
+          logger.log(
             'invariant.violated',
             { invariantId: mapped.body.error.invariantId },
             'Invariant violated',
           );
-        logger?.log(
+        logger.log(
           'http.request.failed',
           {
             durationMs: Math.round(performance.now() - start),

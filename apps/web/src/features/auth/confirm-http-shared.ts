@@ -1,4 +1,5 @@
 import { createAppError } from '@daisy/errors';
+import type { Logger } from '@daisy/logger';
 import { handleOperation } from '../../server/http';
 import { readBoundedBody } from './bounded-body';
 import { CLIENT_IP_HEADER } from './client-ip';
@@ -53,14 +54,15 @@ export function createForward(auth: ConfirmAuth) {
 
 /** GET renders; HEAD renders the same status/headers with no body. Neither redeems. */
 export function createViewHeadHandlers(
+  logger: Logger,
   operation: string,
   view: (request: Request) => Response,
 ) {
   return {
     GET: (request: Request) =>
-      handleOperation(request, operation, async () => view(request)),
+      handleOperation(logger, request, operation, async () => view(request)),
     HEAD: (request: Request) =>
-      handleOperation(request, operation, async () => {
+      handleOperation(logger, request, operation, async () => {
         const rendered = view(request);
         return new Response(null, {
           status: rendered.status,

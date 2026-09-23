@@ -88,37 +88,43 @@ const withRetryAfter = (response: Response) =>
  */
 export function createAuthRouteHandlers(
   auth: () => { handler: Handler; config: { PUBLIC_APP_URL: string } },
+  baseLogger: Logger,
 ) {
   const handle = async (request: Request) =>
     withRetryAfter(
-      await handleOperation(request, 'auth.request', async (_id, logger) => {
-        const server = auth();
-        if (DIRECT_REDEMPTION_BLOCKED_PATHS.has(mountedPath(request.url)))
-          return new Response(null, { status: 404 });
-        // Better Auth only enforces origin on cookie-bearing requests; every
-        // state-changing auth call must additionally come from our own origin.
-        if (
-          request.method !== 'GET' &&
-          request.method !== 'HEAD' &&
-          request.headers.get('origin') !==
-            new URL(server.config.PUBLIC_APP_URL).origin
-        )
-          throw createAppError('AUTHORIZATION');
-        try {
-          const delegate = toNextJsHandler({ handler: server.handler });
-          const method = request.method as keyof typeof delegate;
-          const response = await (delegate[method] ?? delegate.GET)(request);
-          logLifecycleEvent(logger, request, response);
-          return preserve(response);
-        } catch (error) {
-          // Anything unexpected from the framework (a database failure while
-          // persisting a token or session) is a retryable outage, never a
-          // raw error: details stay in the cause.
-          throw isAppError(error)
-            ? error
-            : createAppError('INFRASTRUCTURE', undefined, error);
-        }
-      }),
+      await handleOperation(
+        baseLogger,
+        request,
+        'auth.request',
+        async (_id, logger) => {
+          const server = auth();
+          if (DIRECT_REDEMPTION_BLOCKED_PATHS.has(mountedPath(request.url)))
+            return new Response(null, { status: 404 });
+          // Better Auth only enforces origin on cookie-bearing requests; every
+          // state-changing auth call must additionally come from our own origin.
+          if (
+            request.method !== 'GET' &&
+            request.method !== 'HEAD' &&
+            request.headers.get('origin') !==
+              new URL(server.config.PUBLIC_APP_URL).origin
+          )
+            throw createAppError('AUTHORIZATION');
+          try {
+            const delegate = toNextJsHandler({ handler: server.handler });
+            const method = request.method as keyof typeof delegate;
+            const response = await (delegate[method] ?? delegate.GET)(request);
+            logLifecycleEvent(logger, request, response);
+            return preserve(response);
+          } catch (error) {
+            // Anything unexpected from the framework (a database failure while
+            // persisting a token or session) is a retryable outage, never a
+            // raw error: details stay in the cause.
+            throw isAppError(error)
+              ? error
+              : createAppError('INFRASTRUCTURE', undefined, error);
+          }
+        },
+      ),
     );
   return {
     GET: handle,
