@@ -196,10 +196,16 @@ function writeStageLog(stage: string, output: string): string {
 export async function gitChangedFiles(
   cwd: string = root,
   base = 'origin/main',
+  environment: Readonly<Record<string, string | undefined>> = process.env,
 ): Promise<readonly string[]> {
+  // Git hooks export GIT_DIR and friends; the repository is cwd's, not theirs.
+  const env = Object.fromEntries(
+    Object.entries(environment).filter(([key]) => !key.startsWith('GIT_')),
+  );
   const lines = async (args: readonly string[]) => {
     const child = Bun.spawn(['git', ...args], {
       cwd,
+      env,
       stdout: 'pipe',
       stderr: 'ignore',
     });

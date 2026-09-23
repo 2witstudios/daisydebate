@@ -6,8 +6,18 @@ import { gitChangedFiles, isDocsOnly } from './verify';
 
 setupRitewayBun();
 
+// Inside a git hook GIT_DIR points at the real repository: never inherit it,
+// or these commands would commit into the checkout running the tests.
+const cleanEnv = Object.fromEntries(
+  Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')),
+);
 const git = (cwd: string, ...args: string[]) =>
-  Bun.spawnSync(['git', ...args], { cwd, stdout: 'pipe', stderr: 'pipe' });
+  Bun.spawnSync(['git', ...args], {
+    cwd,
+    env: cleanEnv,
+    stdout: 'pipe',
+    stderr: 'pipe',
+  });
 
 describe('verify: the files a branch changes', () => {
   test('lists a renamed code file by its old path too, and untracked files', async () => {
@@ -24,7 +34,11 @@ describe('verify: the files a branch changes', () => {
     git(repo, 'mv', 'scripts/a.ts', 'docs/a.md');
     git(repo, 'commit', '-q', '-m', 'rename');
     writeFileSync(join(repo, 'docs/new.md'), '# new\n');
-    const files = await gitChangedFiles(repo, base);
+    // A hook's GIT_DIR must not redirect the lookup to another repository.
+    const files = await gitChangedFiles(repo, base, {
+      ...cleanEnv,
+      GIT_DIR: '/nonexistent/.git',
+    });
     assert({
       given: 'git mv scripts/a.ts docs/a.md and an untracked docs/new.md',
       should:
