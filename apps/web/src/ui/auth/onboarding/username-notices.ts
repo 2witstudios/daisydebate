@@ -1,5 +1,5 @@
 import type { NoticeCopy } from '../sign-in-notices';
-import type { UsernameNotice } from './username-state';
+import type { UsernameNotice } from './claim-form';
 
 /** What each refused claim says: the problem, and the way out. */
 export const usernameNotices: Readonly<Record<UsernameNotice, NoticeCopy>> = {

@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createClaimUsername } from './claim-username';
+import { createClaimUsername, inProcessFetch } from './claim-username';
 
 setupRitewayBun();
 
@@ -79,6 +79,49 @@ describe('createClaimUsername', () => {
         'unavailable',
         'unavailable',
       ],
+    });
+  });
+});
+
+describe('inProcessFetch', () => {
+  test('hands the handler the claim with the browser request credentials', async () => {
+    const seen: Request[] = [];
+    const incoming = new Headers({
+      origin: 'https://daisy.test',
+      cookie: '__Secure-daisy.session_token=abc',
+      'content-type': 'multipart/form-data; boundary=x',
+      'content-length': '120',
+    });
+    const claim = createClaimUsername(
+      inProcessFetch(async (request) => {
+        seen.push(request);
+        return Response.json({ username: 'ada' }, { status: 201 });
+      }, incoming),
+    );
+    const outcome = await claim('Ada');
+    const request = seen[0];
+    assert({
+      given: 'a claim made while serving a browser form post',
+      should:
+        'call the handler with its Origin and cookie and the JSON claim body',
+      actual: {
+        outcome,
+        method: request?.method,
+        path: request === undefined ? undefined : new URL(request.url).pathname,
+        origin: request?.headers.get('origin'),
+        cookie: request?.headers.get('cookie'),
+        type: request?.headers.get('content-type'),
+        body: await request?.text(),
+      },
+      expected: {
+        outcome: { kind: 'claimed', username: 'ada' },
+        method: 'POST',
+        path: '/api/account/username',
+        origin: 'https://daisy.test',
+        cookie: '__Secure-daisy.session_token=abc',
+        type: 'application/json',
+        body: '{"username":"Ada"}',
+      },
     });
   });
 });

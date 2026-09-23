@@ -128,6 +128,7 @@ test('an expired confirmation link has no serious or critical accessibility find
 test('username onboarding is fully usable by keyboard alone, with visible focus', async ({
   page,
   request,
+  browserName,
 }) => {
   const email = freshEmail();
   await page.goto('/sign-in');
@@ -144,16 +145,18 @@ test('username onboarding is fully usable by keyboard alone, with visible focus'
   await expect(
     page.getByRole('heading', { name: /next time, one tap/i }),
   ).toBeVisible();
-  // Focus resets to the document after the full-page navigation; reach
-  // "Not now" by tabbing forward through whatever comes before it, proving
-  // it is keyboard-reachable without hard-coding a specific tab index.
-  const notNow = page.getByRole('button', { name: 'Not now' });
+  // Reach "Not now" by tabbing forward through whatever comes before it,
+  // proving it is keyboard-reachable without hard-coding a specific tab
+  // index. It is a link, and WebKit (like Safari) moves focus to links with
+  // Option+Tab rather than Tab.
+  const tabKey = browserName === 'webkit' ? 'Alt+Tab' : 'Tab';
+  const notNow = page.getByRole('link', { name: 'Not now' });
   for (
     let tab = 0;
     tab < 10 && !(await notNow.evaluate((el) => el === document.activeElement));
     tab += 1
   )
-    await page.keyboard.press('Tab');
+    await page.keyboard.press(tabKey);
   await expect(notNow).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/\/lobby$/);

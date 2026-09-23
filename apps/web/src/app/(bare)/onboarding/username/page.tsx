@@ -1,13 +1,13 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { createAppError } from '@daisy/errors';
-import { readAuthEntry } from '../../../../lib/auth-entry';
+import { readOnboardingEntry } from '../../../../lib/auth-entry';
 import {
   onboardingHref,
   signInHref,
   type SearchParams,
 } from '../../../../features/access/decision';
 import { Onboarding } from '../../../../ui/auth/onboarding/onboarding';
+import { claimUsernameAction } from './actions';
 
 export const metadata: Metadata = {
   title: 'Choose a username',
@@ -25,10 +25,15 @@ export default async function OnboardingUsernamePage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const { destination, identity } = await readAuthEntry(searchParams);
-  if (identity.state === 'unavailable') throw createAppError('INFRASTRUCTURE');
-  if (identity.state === 'anonymous')
-    redirect(signInHref(onboardingHref(destination)));
+  const { destination, identity } = await readOnboardingEntry(
+    searchParams,
+    onboardingHref,
+  );
   if (identity.state === 'member') redirect(destination);
-  return <Onboarding destination={destination} />;
+  return (
+    <Onboarding
+      claim={claimUsernameAction.bind(null, destination)}
+      signInHref={signInHref(onboardingHref(destination))}
+    />
+  );
 }

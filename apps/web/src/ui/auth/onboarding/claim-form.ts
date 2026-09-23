@@ -1,0 +1,66 @@
+import { parseUsername } from '@daisy/auth';
+import type { ClaimUsername } from './claim-username';
+
+export type UsernameNotice =
+  'invalid' | 'taken' | 'signed-out' | 'rate-limited' | 'unavailable';
+
+/** What the username form shows: the name as typed, and why it was refused. */
+export type UsernameFormState = {
+  readonly username: string;
+  readonly notice?: UsernameNotice;
+};
+
+export const initialUsernameForm: UsernameFormState = { username: '' };
+
+/** How one posted claim ended. Only `claimed` and `already-set` move on. */
+export type ClaimSubmission =
+  | { readonly kind: 'claimed' }
+  | { readonly kind: 'already-set' }
+  | { readonly kind: 'refused'; readonly state: UsernameFormState };
+
+/** The local shape check, run in the browser and again on the server. */
+export const refusesShape = (username: string): boolean =>
+  !parseUsername(username).ok;
+
+const refused = (
+  username: string,
+  notice: UsernameNotice,
+): ClaimSubmission => ({ kind: 'refused', state: { username, notice } });
+
+/**
+ * One posted username form, claimed through `claim`. The form is untrusted:
+ * a missing or non-text field is an empty name, and a malformed name is
+ * refused before any claim. A claim that throws is unavailable, never a
+ * success.
+ */
+export async function submitClaim(
+  claim: ClaimUsername,
+  form: FormData,
+): Promise<ClaimSubmission> {
+  const field = form.get('username');
+  const username = typeof field === 'string' ? field : '';
+  if (refusesShape(username)) return refused(username, 'invalid');
+  let outcome: Awaited<ReturnType<ClaimUsername>>;
+  try {
+    outcome = await claim(username);
+  } catch {
+    return refused(username, 'unavailable');
+  }
+  if (outcome.kind === 'claimed' || outcome.kind === 'already-set')
+    return { kind: outcome.kind };
+  return refused(username, outcome.kind);
+}
+
+/**
+ * What the browser adds to the server's answer: its own refusal of a
+ * malformed name, or `edited` once the person typed since that answer.
+ */
+export type LocalNotice = 'invalid' | 'edited' | undefined;
+
+export const shownNotice = (
+  local: LocalNotice,
+  answered: UsernameNotice | undefined,
+): UsernameNotice | undefined => {
+  if (local === 'edited') return undefined;
+  return local ?? answered;
+};

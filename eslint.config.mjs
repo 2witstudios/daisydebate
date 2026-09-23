@@ -62,7 +62,8 @@ const appImportRestrictions = [{ group: ['@adobe/*', '@daisy/*/src/*'] }];
 /**
  * ISSUE-7: the web process edge (`server/process-app.ts`) holds the
  * process's app, so importing it is reaching a process-wide locator. Route
- * modules may bind `processRoute` only; the process entries (proxy,
+ * modules and server action modules (`actions.ts`) may bind `processRoute`
+ * only; the process entries (proxy,
  * instrumentation, production start, and the server-component session
  * read) may use `processApp`; everything else receives the app, or part of
  * it, as an argument.
@@ -396,7 +397,7 @@ export default [
     },
   },
   {
-    files: ['apps/web/src/app/**/route.ts'],
+    files: ['apps/web/src/app/**/route.ts', 'apps/web/src/app/**/actions.ts'],
     rules: {
       'no-restricted-imports': [
         'error',

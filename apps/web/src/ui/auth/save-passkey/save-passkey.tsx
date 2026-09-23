@@ -1,4 +1,10 @@
+import type { ReactNode } from 'react';
+import { cn } from '../../cn';
 import { Button } from '../../components/button/button';
+import {
+  buttonClass,
+  type ButtonVariant,
+} from '../../components/button/button-class';
 import { Icon } from '../../components/icon/icon';
 import { AuthFrame, AuthHeading } from '../auth-frame/auth-frame';
 import { Notice } from '../notice/notice';
@@ -8,9 +14,11 @@ export type SavePasskeyProps = {
   readonly username: string;
   readonly pending: boolean;
   readonly savePasskey: () => void;
-  /** Never offer a passkey on this device again: it is shared. */
-  readonly markShared: () => void;
-  readonly dismiss: () => void;
+  /**
+   * Where declining goes (not now, or a shared computer). Both are plain
+   * links, so they work before hydration and without JavaScript.
+   */
+  readonly continueHref: string;
   /** Why the last attempt saved nothing; never a success. */
   readonly notice?: string | undefined;
 };
@@ -21,6 +29,36 @@ const savedFacts = [
   'Email links keep working as a backup',
 ] as const;
 
+/** A choice that leaves without a passkey; unavailable while one is saving. */
+function ContinueLink({
+  href,
+  variant,
+  locked,
+  className,
+  children,
+}: {
+  readonly href: string;
+  readonly variant: ButtonVariant;
+  readonly locked: boolean;
+  readonly className?: string;
+  readonly children: ReactNode;
+}) {
+  return (
+    <a
+      href={href}
+      aria-disabled={locked ? true : undefined}
+      tabIndex={locked ? -1 : undefined}
+      className={cn(
+        buttonClass(variant),
+        'aria-disabled:pointer-events-none aria-disabled:opacity-60',
+        className,
+      )}
+    >
+      {children}
+    </a>
+  );
+}
+
 /**
  * Offered right after an emailed sign-in, when skipping the inbox is the
  * benefit people just felt. Shared computers opt out instead of saving.
@@ -29,8 +67,7 @@ export function SavePasskey({
   username,
   pending,
   savePasskey,
-  markShared,
-  dismiss,
+  continueHref,
   notice,
 }: SavePasskeyProps) {
   return (
@@ -71,27 +108,27 @@ export function SavePasskey({
               ? 'Waiting for your device…'
               : 'Save a passkey on this device'}
           </Button>
-          <Button
+          <ContinueLink
+            href={continueHref}
             variant="secondary"
-            disabled={pending}
-            onClick={markShared}
+            locked={pending}
             className="h-auth-control"
           >
             <Icon name="users" />
             This is a shared computer
-          </Button>
+          </ContinueLink>
         </div>
         {notice === undefined ? null : (
           <Notice id="save-passkey-notice" tone="info" title={notice} />
         )}
-        <Button
+        <ContinueLink
+          href={continueHref}
           variant="ghost"
-          disabled={pending}
-          onClick={dismiss}
+          locked={pending}
           className="-ml-3"
         >
           Not now
-        </Button>
+        </ContinueLink>
       </div>
     </AuthFrame>
   );
