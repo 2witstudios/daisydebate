@@ -74,6 +74,12 @@ them. When real routes replace them they are scanned like any other source.
 | `scenarios/foundation-lifecycle.ts` ↔ `phase-transition.ts`        | 27 lines, 129 tokens         | Judge whether scenario documents should share a preamble |
 | `scenarios/foundation-lifecycle.ts` ↔ `ready-up.ts`                | 15 lines, 76 tokens          | Same                                                     |
 
+### Baselined after adoption
+
+| Date       | Clone                                                     | Size                | Reason                                                                                                                                                                                                                                                                   |
+| ---------- | --------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2026-09-23 | `apps/realtime/src/app.ts` ↔ `apps/web/src/server/app.ts` | 12 lines, 63 tokens | ISSUE-7: each app's composition root builds its database and Redis from its own validated config. Apps cannot import each other, and a package depending on both `@daisy/db` and `@daisy/redis` only for this would be the speculative shared package AGENTS.md forbids. |
+
 ## Consequences
 
 - The gate costs about 0.05 s locally (13 ms of detection), so it is free in

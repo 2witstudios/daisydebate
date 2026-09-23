@@ -43,7 +43,7 @@ export type CapturedMail = {
  * what the production sender puts on the wire, and passes anything else to
  * the network. Nothing process-wide is replaced.
  */
-export function createMailbox() {
+function createMailbox() {
   const mails: CapturedMail[] = [];
   const failures: Array<'transient' | 'permanent'> = [];
   const runId = createId().slice(0, 8);
@@ -94,7 +94,7 @@ const CLIENT_SPACE = 2 ** 17 - 2;
  * benchmarking range. Each call is a new address; the sequence refuses to
  * repeat rather than wrap into an address a rate limit already counted.
  */
-export function createClients() {
+function createClients() {
   let issued = 0;
   return () => {
     issued += 1;

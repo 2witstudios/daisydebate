@@ -30,13 +30,13 @@ export function createRealtimeApp({
   });
   const database = createDatabase({
     url: config.DATABASE_URL,
-    eventSink: (event, fields, message) => logger.log(event, fields, message),
+    eventSink: logger.log,
     nextActorId: () => ids.next(),
   });
   const redis = createRedis({
     url: config.REDIS_URL,
     namespace: config.REDIS_NAMESPACE,
-    eventSink: (event, fields, message) => logger.log(event, fields, message),
+    eventSink: logger.log,
   });
   const app = {
     config,
@@ -54,5 +54,3 @@ export function createRealtimeApp({
   };
   return app;
 }
-
-export type RealtimeApp = ReturnType<typeof createRealtimeApp>;
