@@ -11,9 +11,9 @@ import {
 type RecordedQuery = { query: string; params: unknown[] };
 /**
  * A drizzle typed query (`.insert().returning()` etc.) maps positional
- * arrays; a raw `tx.execute(sql...)` (`appendOutboxEvent`'s insert/notify)
- * gets named-object rows straight from the driver, so a script entry may be
- * either shape.
+ * arrays; a raw `tx.execute(sql...)` (`appendOutboxEvent`'s `pg_notify`
+ * call) gets named-object rows straight from the driver, so a script entry
+ * may be either shape.
  */
 type ScriptedResult =
   readonly (readonly unknown[] | Record<string, unknown>)[] | Error;
@@ -47,9 +47,26 @@ function fakeSql(script: ScriptedResult[]): {
     begin(operation: (inner: unknown) => Promise<unknown>) {
       return operation(client);
     },
+    async listen() {
+      return { unlisten: async () => {} };
+    },
     async close() {},
   };
   return { client: client as unknown as SQL, queries };
+}
+
+/** A `client.listen()` that rejects, for proving `checkListen` fails closed. */
+export function fakeSqlWithBrokenListen(script: ScriptedResult[]): {
+  client: SQL;
+  queries: RecordedQuery[];
+} {
+  const { client, queries } = fakeSql(script);
+  return {
+    client: Object.assign(client, {
+      listen: () => Promise.reject(new Error('listen unavailable')),
+    }),
+    queries,
+  };
 }
 
 export type SinkEvent = {

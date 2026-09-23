@@ -23,7 +23,6 @@ export function renderSearchInput(props: SearchInputRenderProps): ReactNode {
         type="search"
         value={value}
         placeholder={placeholder}
-        aria-label={label}
         className={
           'flex-1 border-none bg-transparent px-search-x py-search-y text-base text-ink outline-none placeholder:text-ink-faint'
         }

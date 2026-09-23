@@ -8,6 +8,7 @@
     "@daisy/logger": { "lines": 100, "functions": 65 },
     "@daisy/observability": { "lines": 95, "functions": 85 },
     "@daisy/protocol": { "lines": 100, "functions": 100 },
+    "@daisy/realtime": { "lines": 84, "functions": 81 },
     "@daisy/redis": { "lines": 15, "functions": 65 },
     "@daisy/web": { "lines": 90, "functions": 85 }
   }

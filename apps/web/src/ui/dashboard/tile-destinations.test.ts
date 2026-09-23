@@ -1,9 +1,9 @@
-import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { tiles } from './tiles';
 import { statusDotClass } from '../components/status-line/status-line-class';
 import { actionTileTintClass } from './action-tile/action-tile-class';
+import { routeExists } from '../test-support/route-exists';
 
 setupRitewayBun();
 
@@ -16,7 +16,7 @@ describe('tile destinations', () => {
       should: 'have an app router page for every destination',
       actual: tiles
         .map((tile) => tile.href)
-        .filter((href) => !existsSync(join(appDirectory, href, 'page.tsx'))),
+        .filter((href) => !routeExists(appDirectory, href)),
       expected: [],
     });
   });

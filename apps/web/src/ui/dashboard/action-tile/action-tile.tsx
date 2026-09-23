@@ -40,9 +40,9 @@ export function ActionTile({
         className={actionTileTintClass(tint)}
       />
       <div className="flex flex-1 flex-col gap-1">
-        <h3 className="font-display text-xl leading-tile-title font-semibold tracking-tight">
+        <h2 className="font-display text-xl leading-tile-title font-semibold tracking-tight">
           {title}
-        </h3>
+        </h2>
         <p className="line-clamp-2 text-base leading-tile-copy text-ink-muted">
           {description}
         </p>

@@ -3,15 +3,20 @@ import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { ActivityFeed } from './activity-feed';
 import { createInitialState } from '../../store/state';
-import { setUiState } from '../../store/store';
+import { UiStoreProvider } from '../../store/store';
 
 setupRitewayBun();
 
 const seed = createInitialState();
 
 const renderWith = (activities: typeof seed.collections.activities): string => {
-  setUiState({ ...seed, collections: { ...seed.collections, activities } });
-  return renderToString(h(ActivityFeed));
+  const initialState = {
+    ...seed,
+    collections: { ...seed.collections, activities },
+  };
+  return renderToString(
+    h(UiStoreProvider, { initialState, children: h(ActivityFeed) }),
+  );
 };
 
 describe('ActivityFeed', () => {

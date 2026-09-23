@@ -94,3 +94,38 @@ export async function withTimeout<T>(
     if (timer) clearTimeout(timer);
   }
 }
+
+/**
+ * Runs `close`, force-exiting through `onDeadlineExceeded` if it does not
+ * finish within `deadlineMs`; shared by every deployment's SIGTERM drain
+ * (`apps/web/src/server/start.ts`, `apps/realtime/src/start.ts`) so a hung
+ * close cannot block a restart or deploy forever. Each caller supplies its
+ * own close sequence (its listener, app framework, background jobs,
+ * connection pools); this owns only the shared deadline race.
+ */
+export async function drainWithDeadline({
+  deadlineMs,
+  onDeadlineExceeded,
+  close,
+}: {
+  readonly deadlineMs: number;
+  readonly onDeadlineExceeded: () => void;
+  readonly close: () => Promise<void>;
+}): Promise<void> {
+  const deadline = setTimeout(onDeadlineExceeded, deadlineMs);
+  deadline.unref();
+  await close();
+  clearTimeout(deadline);
+}
+
+/** The subset of `process` this needs; a caller injects a fake to test wiring. */
+export type SignalTarget = { readonly once: typeof process.once };
+
+/** Registers `shutdown` once for SIGTERM and SIGINT, exiting on rejection. */
+export function installShutdownSignals(
+  shutdown: () => Promise<void>,
+  target: SignalTarget = process,
+): void {
+  for (const signal of ['SIGTERM', 'SIGINT'] as const)
+    target.once(signal, () => void shutdown().catch(() => process.exit(1)));
+}

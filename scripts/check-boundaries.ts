@@ -9,6 +9,7 @@ import {
 import {
   adobeIsolationIssue,
   allowedWorkspaceDependencies as allowed,
+  forbiddenDependencyIssue,
 } from './boundaries-rules';
 
 type Manifest = {
@@ -56,14 +57,13 @@ for (const workspace of workspaces) {
   if (workspace.path.startsWith('packages/') && !workspace.manifest.exports)
     issues.push(`${workspace.path}: missing explicit exports`);
   for (const dependency of Object.keys(workspace.manifest.dependencies ?? {})) {
-    const restrictions =
-      allowed[workspace.manifest.name.replace('@daisy/', '')];
-    if (
-      dependency.startsWith('@daisy/') &&
-      restrictions &&
-      !restrictions.includes(dependency.replace('@daisy/', ''))
-    )
-      issues.push(`${workspace.path}: forbidden dependency ${dependency}`);
+    const forbiddenIssue = forbiddenDependencyIssue(
+      workspace.path,
+      workspace.manifest.name,
+      dependency,
+      allowed,
+    );
+    if (forbiddenIssue) issues.push(forbiddenIssue);
     const dependencyIssue = adobeIsolationIssue(
       workspace.manifest.name,
       dependency,

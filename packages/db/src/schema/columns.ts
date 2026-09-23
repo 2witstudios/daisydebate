@@ -1,6 +1,7 @@
 import { sql, type SQL } from 'drizzle-orm';
 import {
   check,
+  customType,
   integer,
   timestamp,
   type PgColumn,
@@ -37,3 +38,16 @@ export const versionPositive = (table: string, column: PgColumn) =>
  */
 export const oneOf = (column: PgColumn, values: readonly string[]): SQL =>
   sql`${column} in (${sql.raw(values.map((value) => `'${value}'`).join(', '))})`;
+
+/**
+ * drizzle-orm 0.45.2's built-in `jsonb()` always `JSON.stringify`s its
+ * value in `mapToDriverValue`, and the Bun SQL driver then encodes that
+ * string a second time, so every write lands as a JSON string
+ * (`jsonb_typeof = 'string'`) instead of an object. This `customType` has
+ * no `toDriver`/`fromDriver`, so the value passes straight through to and
+ * from Bun's driver, which serializes a plain object as real `jsonb`. Use
+ * it for every jsonb column instead of drizzle-orm's `jsonb()`.
+ */
+export const jsonbColumn = customType<{ data: unknown; driverData: unknown }>({
+  dataType: () => 'jsonb',
+});

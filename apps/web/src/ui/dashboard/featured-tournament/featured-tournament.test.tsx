@@ -3,12 +3,19 @@ import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { FeaturedTournament } from './featured-tournament';
 import { tournament } from '../../mock/tournament';
+import { createInitialState } from '../../store/state';
+import { UiStoreProvider } from '../../store/store';
 
 setupRitewayBun();
 
 describe('FeaturedTournament', () => {
   test('renders the event identity and entry point', () => {
-    const html = renderToString(h(FeaturedTournament, {}));
+    const html = renderToString(
+      h(UiStoreProvider, {
+        initialState: createInitialState(),
+        children: h(FeaturedTournament, {}),
+      }),
+    );
     assert({
       given: 'the featured tournament card',
       should: 'carry the event name, a registration path, and the prize',

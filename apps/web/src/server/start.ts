@@ -1,5 +1,9 @@
 import next from 'next';
 import { z } from 'zod';
+import {
+  drainWithDeadline,
+  installShutdownSignals,
+} from '@daisy/observability';
 import { createHttpServer } from './http-server';
 import { startMaintenance } from './maintenance';
 import { getResources, closeResources } from './resources';
@@ -54,20 +58,22 @@ async function shutdown() {
     { operation: 'server.shutdown' },
     'Draining requests',
   );
-  const deadline = setTimeout(() => {
-    server.closeAllConnections();
-    process.exit(1);
-  }, 25_000);
-  deadline.unref();
-  // Keep-alive sockets would otherwise hold close() until their idle timeout.
-  server.closeIdleConnections();
-  await new Promise<void>((resolve, reject) =>
-    server.close((error) => (error ? reject(error) : resolve())),
-  );
-  await app.close();
-  await maintenanceStopped;
-  await closeResources();
-  clearTimeout(deadline);
+  await drainWithDeadline({
+    deadlineMs: 25_000,
+    onDeadlineExceeded: () => {
+      server.closeAllConnections();
+      process.exit(1);
+    },
+    close: async () => {
+      // Keep-alive sockets would otherwise hold close() until their idle timeout.
+      server.closeIdleConnections();
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      );
+      await app.close();
+      await maintenanceStopped;
+      await closeResources();
+    },
+  });
 }
-for (const signal of ['SIGTERM', 'SIGINT'] as const)
-  process.once(signal, () => void shutdown().catch(() => process.exit(1)));
+installShutdownSignals(shutdown);

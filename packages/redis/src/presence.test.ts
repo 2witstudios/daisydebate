@@ -170,18 +170,19 @@ describe('presence lease delete', () => {
 });
 
 describe('presence reads', () => {
-  test('issues one EVAL per read, with no injected now, and parses the flat hydrated record', async () => {
+  test('issues one EVAL per read, with no client-injected now, and parses the Redis now plus the flat hydrated record', async () => {
     const { redis, scriptEval, commands } = createTestRedis();
-    scriptEval(['conn1', 'actor1', 'active', 'inst1', '9000']);
-    const connections = await redis.readActorConnections('actor1');
+    scriptEval([5000, 'conn1', 'actor1', 'active', 'inst1', '9000']);
+    const { connections, nowMs } = await redis.readActorConnections('actor1');
     const evals = commands.filter(({ command }) => command === 'EVAL');
     assert({
       given: 'a live connection returned by the one-op read',
       should:
-        'issue exactly one EVAL naming the actor zset key, the actorId and the conn-hash key prefix, and parse the flat 5-tuple',
+        'issue exactly one EVAL naming the actor zset key, the actorId and the conn-hash key prefix, and parse the Redis now plus the flat 5-tuple',
       actual: {
         evalCount: evals.length,
         evalArgs: evals[0]?.args.slice(1),
+        nowMs,
         connections,
       },
       expected: {
@@ -192,6 +193,7 @@ describe('presence reads', () => {
           'actor1',
           'test:v1:presence:conn:',
         ],
+        nowMs: 5000,
         connections: [
           {
             connId: 'conn1',
@@ -205,23 +207,26 @@ describe('presence reads', () => {
     });
   });
 
-  test('reads the online set in one EVAL with no injected now', async () => {
+  test('reads the online set in one EVAL with no client-injected now, returning the Redis now alongside the pairs', async () => {
     const { redis, scriptEval, commands } = createTestRedis();
-    scriptEval(['actor1', '9000', 'actor2', '12000']);
-    const online = await redis.readOnlinePresence();
+    scriptEval([5000, 'actor1', '9000', 'actor2', '12000']);
+    const { actors, nowMs } = await redis.readOnlinePresence();
     const evals = commands.filter(({ command }) => command === 'EVAL');
     assert({
       given: 'the online set with two live actors',
-      should: 'issue one EVAL naming only the online key, and parse the pairs',
+      should:
+        'issue one EVAL naming only the online key, and parse the Redis now plus the pairs',
       actual: {
         evalCount: evals.length,
         evalArgs: evals[0]?.args.slice(1),
-        online,
+        nowMs,
+        actors,
       },
       expected: {
         evalCount: 1,
         evalArgs: ['1', 'test:v1:presence:online'],
-        online: [
+        nowMs: 5000,
+        actors: [
           { actorId: 'actor1', expiresAtMs: 9000 },
           { actorId: 'actor2', expiresAtMs: 12000 },
         ],

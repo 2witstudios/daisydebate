@@ -159,11 +159,20 @@ mobile-layout parity is scoped to the auth journeys the spec requires
 ("the supported magic-link/account journeys"), not the whole app:
 `chromium-mobile`, `firefox`, `webkit` and `webkit-mobile` testMatch only
 `AUTH_JOURNEY_SPECS` (journey, passkey-lifecycle, accessibility, auth-routes)
-in `apps/web/playwright.config.ts`. CDP WebAuthn (the virtual authenticator
+in `apps/web/playwright.config.ts`, plus `passkey-autofill.e2e.ts` for
+`chromium-mobile`. CDP WebAuthn (the virtual authenticator
 behind every passkey ceremony) is Chromium-only, so
 `passkey-lifecycle.e2e.ts` is additionally excluded from every non-Chromium
 project; a spec that needs a Chromium-only WebAuthn capability belongs in
-that file, not in `journey.e2e.ts`. `apps/web/e2e/accessibility.e2e.ts` runs
+that file or `passkey-autofill.e2e.ts`, not in `journey.e2e.ts`. The
+sign-in page arms passkey autofill (conditional mediation). Chromium's
+virtual authenticator answers that request with no pick, so button specs
+either call `withoutPasskeyAutofill` or hold user presence
+(`setPresence(false)` in `e2e/support/webauthn.ts`) while autofill arms,
+releasing it only for the button's own request. A request sent while
+presence is held never completes, even after presence returns. The same
+behaviour makes `passkey-autofill.e2e.ts` the autofill proof in both
+Chromium projects. `apps/web/e2e/accessibility.e2e.ts` runs
 `@axe-core/playwright` against every auth screen (sign-in idle/pending,
 onboarding, settings/security, an expired link), asserting zero
 serious/critical findings, plus keyboard-only navigation, a live-region

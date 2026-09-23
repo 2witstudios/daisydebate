@@ -20,43 +20,58 @@ const requireHttpsOrigin = (url: string, ctx: z.RefinementCtx) => {
       message: 'Production requires HTTPS',
     });
 };
+/**
+ * Shared across every deployment's config schema (`readServerConfig`,
+ * `readRealtimeConfig`): production refuses to boot without a real
+ * `APP_VERSION`/`GIT_COMMIT` and never against local-development
+ * PostgreSQL credentials.
+ */
+const requireDeploymentIdentity = (
+  config: { APP_VERSION: string; GIT_COMMIT: string; DATABASE_URL: string },
+  ctx: z.RefinementCtx,
+) => {
+  if (config.APP_VERSION === 'development' || config.GIT_COMMIT === 'unknown')
+    ctx.addIssue({
+      code: 'custom',
+      path: ['APP_VERSION'],
+      message: 'Production requires deployment identity',
+    });
+  if (new URL(config.DATABASE_URL).password === 'local-development-only')
+    ctx.addIssue({
+      code: 'custom',
+      path: ['DATABASE_URL'],
+      message: 'Production forbids local development credentials',
+    });
+};
+const deploymentIdentityFields = {
+  NODE_ENV: z
+    .enum(['development', 'test', 'production'])
+    .default('development'),
+  DATABASE_URL: databaseUrl,
+  REDIS_URL: redisUrl,
+  REDIS_NAMESPACE: z
+    .string()
+    .regex(/^[a-z][a-z0-9-]{0,40}$/)
+    .default('daisy'),
+  LOG_LEVEL: z
+    .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
+    .default('info'),
+  APP_VERSION: z.string().min(1).default('development'),
+  GIT_COMMIT: z.string().min(1).default('unknown'),
+};
 export const serverConfigSchema = z
   .object({
-    NODE_ENV: z
-      .enum(['development', 'test', 'production'])
-      .default('development'),
-    DATABASE_URL: databaseUrl,
+    ...deploymentIdentityFields,
     FOUNDATION_PROOF_ENABLED: z
       .enum(['true', 'false'])
       .default('false')
       .transform((value) => value === 'true'),
-    REDIS_URL: redisUrl,
-    REDIS_NAMESPACE: z
-      .string()
-      .regex(/^[a-z][a-z0-9-]{0,40}$/)
-      .default('daisy'),
     PUBLIC_APP_URL: z.url(),
-    LOG_LEVEL: z
-      .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
-      .default('info'),
-    APP_VERSION: z.string().min(1).default('development'),
-    GIT_COMMIT: z.string().min(1).default('unknown'),
   })
   .superRefine((config, ctx) => {
     if (config.NODE_ENV !== 'production') return;
     requireHttpsOrigin(config.PUBLIC_APP_URL, ctx);
-    if (config.APP_VERSION === 'development' || config.GIT_COMMIT === 'unknown')
-      ctx.addIssue({
-        code: 'custom',
-        path: ['APP_VERSION'],
-        message: 'Production requires deployment identity',
-      });
-    if (new URL(config.DATABASE_URL).password === 'local-development-only')
-      ctx.addIssue({
-        code: 'custom',
-        path: ['DATABASE_URL'],
-        message: 'Production forbids local development credentials',
-      });
+    requireDeploymentIdentity(config, ctx);
     if (config.FOUNDATION_PROOF_ENABLED)
       ctx.addIssue({
         code: 'custom',
@@ -73,6 +88,29 @@ export function readServerConfig(
   if (!result.success)
     throw new Error(
       `Invalid server configuration: ${result.error.issues.map((issue) => issue.path.join('.')).join(', ')}`,
+    );
+  return result.data;
+}
+/**
+ * `apps/realtime`'s baseline configuration (ADR 0031): no public origin and
+ * no foundation-proof flag, neither of which the realtime deployment has a
+ * use for yet.
+ */
+export const realtimeConfigSchema = z
+  .object(deploymentIdentityFields)
+  .superRefine((config, ctx) => {
+    if (config.NODE_ENV !== 'production') return;
+    requireDeploymentIdentity(config, ctx);
+  });
+export type RealtimeConfig = z.infer<typeof realtimeConfigSchema>;
+/** Validation reports field names only: never echo secret values. */
+export function readRealtimeConfig(
+  env: Record<string, string | undefined>,
+): RealtimeConfig {
+  const result = realtimeConfigSchema.safeParse(env);
+  if (!result.success)
+    throw new Error(
+      `Invalid realtime configuration: ${result.error.issues.map((issue) => issue.path.join('.')).join(', ')}`,
     );
   return result.data;
 }

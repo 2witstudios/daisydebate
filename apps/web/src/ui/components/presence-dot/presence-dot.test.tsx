@@ -18,14 +18,15 @@ const statuses: readonly Presence[] = [
 ];
 
 describe('PresenceDot', () => {
-  test('announces each presence as a named status', () => {
+  test('names each presence without claiming to be a live region', () => {
     assert({
       given: 'each presence value',
-      should: 'render a status role labelled with that presence',
+      should: 'render an img role labelled with that presence, not status',
       actual: statuses.map((presence) => {
         const html = renderToString(h(PresenceDot, { presence }));
         return (
-          html.includes('role="status"') &&
+          html.includes('role="img"') &&
+          !html.includes('role="status"') &&
           html.includes(`aria-label="${presence}"`)
         );
       }),

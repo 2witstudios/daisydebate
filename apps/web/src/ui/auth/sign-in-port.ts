@@ -16,38 +16,66 @@ export type PasskeyOutcome =
   | { readonly kind: 'failed' };
 
 /**
- * The seam between the sign-in screens and whatever authenticates. The mock
- * implements it today; a Better Auth adapter replaces it by mapping client
- * results onto these outcomes, so the screens never see transport errors.
+ * Outcome of one browser-autofill passkey request (conditional mediation).
+ * It settles only when a passkey is picked or the request is ended, so each
+ * kind says whether autofill should be offered again.
+ */
+export type PasskeyAutofillOutcome =
+  | { readonly kind: 'signed-in' }
+  /** A newer ceremony aborted it; that ceremony now owns the page. */
+  | { readonly kind: 'superseded' }
+  /** The server refused the passkey the person picked. */
+  | { readonly kind: 'refused' }
+  /** Ended before any pick reached the server: dismissed, or a fault. */
+  | { readonly kind: 'interrupted' }
+  /** This browser cannot offer passkeys in autofill. */
+  | { readonly kind: 'unavailable' };
+
+/**
+ * The seam between the sign-in screens and whatever authenticates. The
+ * Better Auth adapter implements it by mapping client results onto these
+ * outcomes, so the screens never see transport errors.
  */
 export type SignInPort = {
   readonly requestLink: (email: string) => Promise<LinkRequestOutcome>;
   readonly signInWithPasskey: () => Promise<PasskeyOutcome>;
+  /** Offers stored passkeys in the browser's autofill on the email field. */
+  readonly offerPasskeyAutofill: () => Promise<PasskeyAutofillOutcome>;
 };
 
-// Both helpers call the port inside `try`: an adapter can throw before it
+// The helpers call the port inside `try`: an adapter can throw before it
 // returns a promise (client init, argument validation), and a `.catch()` on
 // the result would never see that, leaving the screen pending forever.
+const settleSafely = async <Outcome>(
+  run: () => Promise<Outcome>,
+  fallback: Outcome,
+): Promise<Outcome> => {
+  try {
+    return await run();
+  } catch {
+    return fallback;
+  }
+};
 
 /** A port that throws is treated as unavailable: the screen never hangs. */
-export const requestLinkSafely = async (
+export const requestLinkSafely = (
   port: SignInPort,
   email: string,
-): Promise<LinkRequestOutcome> => {
-  try {
-    return await port.requestLink(email);
-  } catch {
-    return { kind: 'unavailable' };
-  }
-};
+): Promise<LinkRequestOutcome> =>
+  settleSafely(() => port.requestLink(email), { kind: 'unavailable' });
 
 /** A ceremony that throws is a failure, never a false success. */
-export const signInWithPasskeySafely = async (
+export const signInWithPasskeySafely = (
   port: SignInPort,
-): Promise<PasskeyOutcome> => {
-  try {
-    return await port.signInWithPasskey();
-  } catch {
-    return { kind: 'failed' };
-  }
-};
+): Promise<PasskeyOutcome> =>
+  settleSafely(() => port.signInWithPasskey(), { kind: 'failed' });
+
+/**
+ * An autofill request that throws (a network failure rejects the whole
+ * client call) is an interruption: it is retried with backoff, never left
+ * dead with an expiring request still in the browser.
+ */
+export const offerPasskeyAutofillSafely = (
+  port: SignInPort,
+): Promise<PasskeyAutofillOutcome> =>
+  settleSafely(() => port.offerPasskeyAutofill(), { kind: 'interrupted' });

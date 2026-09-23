@@ -1,8 +1,8 @@
 import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createInitialState } from './state';
-import { setUiState, subscribeUiState, useUiState } from './store';
+import { createInitialState, type UiState } from './state';
+import { createUiStore, useUiState, UiStoreProvider } from './store';
 import { transactions } from '../transactions';
 
 setupRitewayBun();
@@ -71,16 +71,16 @@ describe('UI store transactions', () => {
 describe('UI store snapshot subscription', () => {
   test('notifies subscribers only when the snapshot changes', () => {
     const state = createInitialState();
-    setUiState(state);
+    const store = createUiStore(state);
     let notifications = 0;
-    const unsubscribe = subscribeUiState(() => {
+    const unsubscribe = store.subscribeUiState(() => {
       notifications += 1;
     });
-    setUiState(state);
+    store.setUiState(state);
     const next = transactions.setSearchQuery(state, 'ranked');
-    setUiState(next);
+    store.setUiState(next);
     unsubscribe();
-    setUiState(transactions.setSearchQuery(next, 'elo'));
+    store.setUiState(transactions.setSearchQuery(next, 'elo'));
     assert({
       given:
         'a subscriber across identical, changed, and post-unsubscribe swaps',
@@ -103,13 +103,98 @@ function Probe() {
 
 describe('useUiState SSR snapshot', () => {
   test('renders the full state on the server (no hydration gaps)', () => {
-    setUiState(createInitialState());
-    const html = renderToString(h(Probe));
+    const html = renderToString(
+      h(UiStoreProvider, {
+        initialState: createInitialState(),
+        children: h(Probe),
+      }),
+    );
     assert({
       given: 'a component reading the store rendered to string',
       should: 'render the seeded content through the server snapshot',
       actual: html,
       expected: '<p>Alex Chen:empty</p>',
+    });
+  });
+});
+
+/**
+ * A concurrent server request: create a store the way UiStoreProvider does,
+ * yield to the event loop (standing in for another request's I/O
+ * interleaving on the same process), write to it, yield again, then read.
+ * `Promise.all` below runs two of these with overlapping awaits, so their
+ * bodies genuinely interleave rather than running one after the other.
+ */
+async function simulateRequest(
+  store: { getUiState: () => UiState; setUiState: (next: UiState) => void },
+  query: string,
+): Promise<string> {
+  await Promise.resolve();
+  store.setUiState(transactions.setSearchQuery(store.getUiState(), query));
+  await Promise.resolve();
+  return store.getUiState().resources.searchQuery;
+}
+
+describe('UI store request scoping (ADR 0024)', () => {
+  test('two concurrent renders never see each other state', async () => {
+    const requestA = createUiStore(createInitialState());
+    const requestB = createUiStore(createInitialState());
+    const [queryA, queryB] = await Promise.all([
+      simulateRequest(requestA, 'alpha'),
+      simulateRequest(requestB, 'beta'),
+    ]);
+    assert({
+      given: 'two concurrent requests, each with its own store instance',
+      should: 'each keep only the query it wrote itself',
+      actual: [queryA, queryB],
+      expected: ['alpha', 'beta'],
+    });
+  });
+
+  test('negative control: a module-global store leaks between concurrent requests', async () => {
+    // Reproduces the defect this ADR 0024 change fixes: apps/web's old
+    // store.ts kept `let state` at module scope, so every request read and
+    // wrote the same object. Modelled locally (the module itself is gone)
+    // to document, permanently, why a shared instance is unsafe.
+    let globalState = createInitialState();
+    const globalStore = {
+      getUiState: () => globalState,
+      setUiState: (next: UiState) => {
+        globalState = next;
+      },
+    };
+    const [queryA, queryB] = await Promise.all([
+      simulateRequest(globalStore, 'alpha'),
+      simulateRequest(globalStore, 'beta'),
+    ]);
+    assert({
+      given: 'two concurrent requests sharing one module-global store',
+      should: 'cross-contaminate: both observe whichever write ran last',
+      actual: [queryA === queryB, new Set([queryA, queryB]).size],
+      expected: [true, 1],
+    });
+  });
+
+  test('UiStoreProvider gives each render its own store instance', () => {
+    const stateA = { ...createInitialState() };
+    const stateB = {
+      ...createInitialState(),
+      resources: {
+        ...createInitialState().resources,
+        searchQuery: 'from-b',
+      },
+    };
+    const htmlA = renderToString(
+      h(UiStoreProvider, { initialState: stateA, children: h(Probe) }),
+    );
+    const htmlB = renderToString(
+      h(UiStoreProvider, { initialState: stateB, children: h(Probe) }),
+    );
+    assert({
+      given: 'two provider trees rendered with different seeded state',
+      should: 'render each tree from its own store, not a shared one',
+      actual: [htmlA, htmlB],
+      expected: ['<p>Alex Chen:empty</p>', '<p>Alex Chen:from-b</p>'],
     });
   });
 });

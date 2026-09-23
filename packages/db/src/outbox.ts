@@ -33,7 +33,7 @@ export type OutboxRow = OutboxPosition & {
 };
 
 /** A transaction handle: what `database.transaction(async (tx) => ...)` hands the caller. */
-type Tx = Pick<BunSQLDatabase, 'execute'>;
+type Tx = Pick<BunSQLDatabase, 'execute' | 'insert'>;
 
 const XID8_MAX = 2n ** 64n - 1n;
 const BIGSERIAL_MAX = 2n ** 63n - 1n;
@@ -86,31 +86,20 @@ export const OUTBOX_ORIGIN: OutboxPosition = { txid: '0', seq: 0n };
  * `pg_notify('outbox', position)` in the same transaction, so the
  * notification is only delivered to listeners once the transaction commits
  * (Postgres queues NOTIFY until commit) and never fires for a rollback.
- *
- * The insert goes through a raw statement, not `.insert(outbox).values()`:
- * drizzle-orm's `PgJsonb.mapToDriverValue` (0.45.2) unconditionally
- * `JSON.stringify`s the value before handing it to the driver, and the Bun
- * SQL client serializes a jsonb-bound *string* parameter again, storing a
- * double-encoded JSON string (`jsonb_typeof` reports `'string'`) instead of
- * the object every receiver's `safeParse` expects. Binding the plain JS
- * object directly, with no `JSON.stringify` and no explicit `::jsonb`
- * cast, is the one path that round-trips correctly through Bun's driver.
  */
 export async function appendOutboxEvent(
   tx: Tx,
   input: OutboxAppendInput,
 ): Promise<OutboxPosition> {
   const parsed = outboxAppendInputSchema.parse(input);
-  const result = await tx.execute(sql`
-    insert into ${outbox} (topic, kind, version, payload)
-    values (${parsed.topic}, ${parsed.kind}, ${parsed.version}, ${parsed.payload})
-    returning seq, txid
-  `);
-  const [row] = result as unknown as { seq: unknown; txid: unknown }[];
+  const [row] = await tx
+    .insert(outbox)
+    .values(parsed)
+    .returning({ seq: outbox.seq, txid: outbox.txid });
   if (!row) throw new Error('Outbox insert returned no row');
   const position: OutboxPosition = {
     txid: String(row.txid),
-    seq: BigInt(row.seq as string | number | bigint),
+    seq: BigInt(row.seq),
   };
   await tx.execute(
     sql`select pg_notify('outbox', ${encodeOutboxCursor(position)})`,
