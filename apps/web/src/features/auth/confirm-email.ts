@@ -1,3 +1,4 @@
+import type { Logger } from '@daisy/logger';
 import { handleOperation, requireSameOrigin } from '../../server/http';
 import { renderEmailConfirmPage } from './confirm-email-page';
 import {
@@ -83,7 +84,11 @@ export function createConfirmEmailHandlers({ auth }: ConfirmEmailDependencies) {
     }
   };
 
-  const redeem = async (request: Request, form: URLSearchParams) => {
+  const redeem = async (
+    request: Request,
+    form: URLSearchParams,
+    logger: Logger,
+  ) => {
     const token = form.get('token') ?? '';
     const callbackURL = safeLocalDestination(
       form.get('callbackURL'),
@@ -105,6 +110,17 @@ export function createConfirmEmailHandlers({ auth }: ConfirmEmailDependencies) {
         502,
         cookies,
       );
+    // Only the final hop (proving live access to the new mailbox) sets a
+    // session cookie; the old-address approval hop hits this same route
+    // without one. This redemption bypasses the mounted-route wrapper (it
+    // forwards straight into Better Auth), so this is the one place the
+    // milestone is observable: no token, cookie or address.
+    if (cookies.length > 0)
+      logger.log(
+        'auth.email_change.verified',
+        { operation: 'auth.confirm_email.submit' },
+        'Email change verified',
+      );
     const headers = new Headers();
     for (const cookie of cookies) headers.append('set-cookie', cookie);
     return redirect(callbackURL, headers);
@@ -113,10 +129,14 @@ export function createConfirmEmailHandlers({ auth }: ConfirmEmailDependencies) {
   return {
     ...createViewHeadHandlers('auth.confirm_email.view', view),
     POST: (request: Request) =>
-      handleOperation(request, 'auth.confirm_email.submit', async () => {
-        requireSameOrigin(request, auth().config.PUBLIC_APP_URL);
-        const form = await readForm(request, MAX_FORM_BYTES);
-        return redeem(request, form);
-      }),
+      handleOperation(
+        request,
+        'auth.confirm_email.submit',
+        async (_id, logger) => {
+          requireSameOrigin(request, auth().config.PUBLIC_APP_URL);
+          const form = await readForm(request, MAX_FORM_BYTES);
+          return redeem(request, form, logger);
+        },
+      ),
   };
 }

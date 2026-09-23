@@ -110,3 +110,133 @@ DELETE FROM verification WHERE id IN (
   WHERE expires_at < now() - interval '24 hours'
   ORDER BY expires_at LIMIT 500 FOR UPDATE SKIP LOCKED);
 ```
+
+## Incident runbooks (AUTH-6.4)
+
+Every instruction below is proved by an existing test: the event or status it
+names is asserted by the test file/case cited, so a change that breaks the
+diagnostic also breaks `bun test:integration` or `bun test src`.
+
+### Mail delivery is failing
+
+**Symptom:** sign-in/passkey-recovery requests answer `503
+EMAIL_DELIVERY_FAILED`, or a bounce guidance message (`422
+EMAIL_UNDELIVERABLE`) appears for addresses that should be deliverable.
+
+1. Filter the event stream for `event:"auth.mail.failed"` — every occurrence
+   is a Resend send that threw or timed out; the fields carry only
+   `operation`/`errorCode`, never the recipient or provider exception
+   (`apps/web/integration/auth-database-failures.integration.ts`, "delivery
+   failure surfaces a safe retryable error").
+2. Check the Resend status page/API directly; the application never persists
+   the provider exception, by design.
+3. If addresses are unexpectedly suppressed, the row is keyed by
+   `recipientHash(BETTER_AUTH_SECRET, email)` (SHA3-256 of the secret and the
+   normalized address; `apps/web/src/features/auth/mail.ts`), which cannot be
+   recomputed from SQL alone — run `bun repl` (or a one-off script) importing
+   `recipientHash` with the deployment's secret to look up
+   `SELECT reason, created_at FROM email_suppression WHERE recipient_hash =
+'<computed hash>'`, or correlate via `auth.mail.receipt_failed`'s
+   `providerMessageId` against Resend's dashboard. Suppression only follows a
+   hard bounce or complaint
+   (`apps/web/integration/auth-mail-suppression.integration.ts`, "a hard
+   bounce stops automatic resends"). Clearing a row is a deliberate operator
+   action taken only after confirming the mailbox is fixed; there is no
+   in-app override, by design.
+4. If `auth.mail.receipt_failed` is firing repeatedly, the message is still
+   sent (the user has their email) but bounce/complaint correlation for that
+   `providerMessageId` will be delayed — reconcile using the ID in the log,
+   never the address.
+
+### Invalid origin / RP configuration
+
+**Symptom:** every passkey ceremony or state-changing auth POST fails with a
+generic `403`/rejected ceremony after a deploy, config change, or new
+frontend origin.
+
+1. Confirm `PUBLIC_APP_URL` is the exact HTTPS origin browsers use. Passkey
+   `rpID`/`origin` and the same-origin gate both derive from it
+   (`apps/web/src/features/auth/server.ts`); a mismatch between the
+   configured origin and the browser's actual origin rejects every
+   ceremony and state-changing POST, never partially.
+2. State-changing calls to the mounted router (`/api/auth/*`) that lack a
+   matching `Origin` header answer `403` before reaching Better Auth
+   (`apps/web/src/features/auth/handlers.test.ts`, "rejects state-changing
+   calls from foreign or absent origins"); `/auth/confirm` and
+   `/auth/confirm-email` enforce the same boundary independently
+   (`confirm.test.ts`, `confirm-email.test.ts`). A wave of these at once
+   after a deploy is the signature of a `PUBLIC_APP_URL` drift, not an
+   attack.
+3. A wrong-origin WebAuthn ceremony response is rejected with no credential
+   stored (`apps/web/integration/auth-passkey-ceremony.integration.ts`, "a
+   wrong origin in the ceremony response is rejected") — if this fires for
+   every real user (not just adversarial tests), the deployed `rpID`
+   (derived from `PUBLIC_APP_URL`'s hostname) no longer matches the
+   hostname users are actually on. Changing production RP identity is a
+   separately reviewed compatibility decision (spec, "Runtime and package
+   boundaries"); never patch around it by relaxing the origin check.
+
+### Database or Redis storage failure
+
+**Symptom:** auth requests answer `503`/`500` in bursts, or rate limiting
+appears to stop working (every request allowed, or every request denied).
+
+1. Filter for `event:"db.query.failed"` (Postgres) or
+   `event:"redis.command.failed"` — both carry only the safe operation name,
+   never SQL text, bound parameters, or the raw driver exception
+   (`apps/web/integration/auth-database-failures.integration.ts`, "pool
+   lifecycle closes and the app failure boundary reports without SQL
+   material"; `apps/web/src/features/auth/rate-limit.ts`'s limiter outage
+   path, `apps/web/integration/auth-rate-limit.integration.ts`, "a Redis
+   outage answers a safe 503 for every request and never counts locally").
+2. A Redis outage fails every rate-gated auth request closed (`503` +
+   `Retry-After: 5`), logged as `auth.rate_limit.unavailable`; it never
+   silently allows unlimited traffic and never double-counts once Redis
+   returns — there is no local fallback counter to reconcile.
+3. A Postgres outage while issuing or redeeming a magic link answers a safe
+   retryable error with no SQL, parameters, or address in the response body
+   or logs (`apps/web/integration/auth-failure.integration.ts`, "a database
+   outage while issuing a link" / "...while redeeming").
+4. Recovery is passive: once the dependency is reachable again, the next
+   request succeeds normally — there is no cache to invalidate or counter to
+   reset by hand. If `auth.rate_limit.unavailable` or `db.query.failed`
+   continues after the dependency reports healthy, check connection pool
+   exhaustion (`packages/db`'s configured `maxConnections`) before assuming
+   the dependency itself is still down.
+
+### Session invalidation / revocation failure
+
+**Symptom:** a user reports a device or browser they signed out (or an
+account-security action that should revoke sessions) is still authenticated,
+or the reverse — a session they expect to still work is unexpectedly signed
+out.
+
+1. Confirm the specific milestone fired: `auth.session.revoked` (one named
+   other session), `auth.session.revoked_all` (every other session, from
+   "sign out of all other sessions" or an email-change completion), or
+   `auth.email_change.verified` (which revokes every other session as part
+   of completing the change) —
+   (`apps/web/integration/auth-session-management.integration.ts`,
+   "revoking a specific session and revoking every other session each emit
+   their own lifecycle event"; `apps/web/integration/auth-email-change.integration.ts`,
+   "completing the change notifies the old address and revokes other
+   sessions"). No event means the revocation request never reached the
+   server — check for a `403` from the same-origin/fresh-session gate first.
+2. Session reads never cache (`cookieCache: { enabled: false }`), so a
+   revoked session is denied on the **very next** server check, not after a
+   TTL (`apps/web/integration/auth-sign-in-journey.integration.ts`, "a
+   revoked session is anonymous on the very next check"). If a revoked
+   session still authenticates, the request is not reaching the mounted
+   session read at all (a stale CDN/edge cache in front of the app, not an
+   application bug) — this composition never caches session decisions
+   itself.
+3. A sensitive session/credential change (revoke, passkey removal, email
+   change) that fails with `401`/`403` on an otherwise-valid cookie is the
+   fresh-session gate: these require re-authentication within the last hour
+   (`apps/web/integration/auth-session-management.integration.ts`, "a stale
+   session is refused for revoking..."). Direct the user to sign in again
+   (magic link or passkey); this is expected behavior, not a fault.
+4. If the session store itself is unreachable, guarded pages and the
+   username claim answer `503` (never a silent sign-out), logged as
+   `auth.session.unavailable` — treat it as the database/Redis runbook
+   above, not as a revocation bug.

@@ -179,6 +179,59 @@ test('removing the last passkey, recovering by magic link and enrolling a replac
   await expect(page).toHaveURL(/\/lobby$/);
 });
 
+test('a lost passkey recovers through magic link, and the recovered session can remove the stale credential and revoke the old device', async ({
+  page,
+  request,
+  browser,
+}) => {
+  // The original device: enrolls a passkey and stays signed in (never
+  // removes it — the credential is simply lost, not revoked).
+  await addVirtualAuthenticator(page);
+  const { email } = await signUpMember(page.request);
+  await page.goto('/settings/security');
+  await page.getByRole('button', { name: 'Add a passkey' }).click();
+  await expect(page.getByRole('button', { name: 'Remove' })).toHaveCount(1);
+
+  // A brand-new browser context with no authenticator at all stands in for
+  // the replacement device the person now owns: the lost credential simply
+  // is not there to offer, so the person falls back to the emailed link
+  // without ever touching the passkey button.
+  const lost = await browser.newContext({
+    ignoreHTTPSErrors: true,
+    baseURL: origin,
+  });
+  const lostPage = await lost.newPage();
+  await lostPage.goto('/sign-in?next=%2Flobby');
+
+  // Recovery: the verified email still reaches the account.
+  await lostPage.getByLabel('Email').fill(email);
+  await lostPage.getByRole('button', { name: 'Continue' }).click();
+  await expect(
+    lostPage.getByRole('heading', { name: /check your inbox/i }),
+  ).toBeVisible();
+  await lostPage.goto(await emailedLink(request, email));
+  await lostPage.getByRole('button', { name: 'Sign in to Daisy' }).click();
+  await expect(lostPage).toHaveURL(/\/lobby$/);
+
+  // From the recovered session: remove the now-unreachable credential and
+  // revoke every other session, including the original device's.
+  await lostPage.goto('/settings/security');
+  await lostPage.getByRole('button', { name: 'Remove' }).click();
+  await expect(lostPage.getByRole('button', { name: 'Remove' })).toHaveCount(0);
+  await lostPage
+    .getByRole('button', { name: 'Sign out of all other sessions' })
+    .click();
+  await expect(
+    lostPage.getByRole('button', { name: 'Sign out', exact: true }),
+  ).toHaveCount(1);
+
+  // The original (lost) device's session is denied on its very next request,
+  // and magic-link access still works for it going forward.
+  await page.goto('/lobby');
+  await expect(page).toHaveURL(/\/sign-in/);
+  await lost.close();
+});
+
 test('sessions can be listed and another session revoked; the revoked cookie is refused next', async ({
   page,
   request,
@@ -277,4 +330,29 @@ test('a conflicting email answers the same success shape, never disclosing the o
   await expect(page.locator('#email-change-notice')).toContainText(
     /approve this change/i,
   );
+});
+
+test('a cancelled passkey ceremony shows no success and email sign-in still works', async ({
+  page,
+  request,
+}) => {
+  // A virtual authenticator with no credential: the browser has nothing to
+  // offer, which is how a dismissed prompt or an unenrolled account looks.
+  // Moved here from journey.e2e.ts (AUTH-6.6): CDP WebAuthn is
+  // Chromium-only, and this file is the Chromium-only passkey project.
+  await addVirtualAuthenticator(page);
+  await page.goto('/sign-in');
+  await page.getByRole('button', { name: 'Sign in with a passkey' }).click();
+  await expect(
+    page.getByRole('status').filter({ hasText: /cancelled/i }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/\/sign-in$/);
+
+  const email = freshEmail();
+  await page.getByLabel('Email').fill(email);
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await expect(
+    page.getByRole('heading', { name: /check your inbox/i }),
+  ).toBeVisible();
+  await expect(emailedLink(request, email)).resolves.toContain('/auth/confirm');
 });

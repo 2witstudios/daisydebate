@@ -140,6 +140,48 @@ describe('createAuthRouteHandlers', () => {
     });
   });
 
+  test('logs a lifecycle event for a known mounted path, never for an unknown one or a failure', async () => {
+    const events = () => recorded.map((entry) => (entry as unknown[])[0]);
+    const call = async (path: string, status = 200) => {
+      recorded.length = 0;
+      const handlers = createAuthRouteHandlers(() => ({
+        config,
+        handler: async () => new Response('{}', { status }),
+      }));
+      await handlers.POST(
+        new Request(`http://localhost:3000/api/auth${path}`, {
+          method: 'POST',
+          headers: { origin: 'http://localhost:3000' },
+          body: '{}',
+        }),
+      );
+    };
+    await call('/passkey/verify-registration');
+    const enrolled = events();
+    await call('/passkey/verify-registration', 400);
+    const failedEnroll = events();
+    await call('/passkey/generate-register-options');
+    const unmapped = events();
+    assert({
+      given: 'a successful call to a mapped lifecycle path',
+      should: 'log the specific auth lifecycle event',
+      actual: enrolled,
+      expected: ['auth.passkey.enrolled', 'http.request.completed'],
+    });
+    assert({
+      given: 'a failing call to a mapped lifecycle path',
+      should: 'log no lifecycle event',
+      actual: failedEnroll,
+      expected: ['http.request.completed'],
+    });
+    assert({
+      given: 'a successful call to an unmapped path',
+      should: 'log no lifecycle event',
+      actual: unmapped,
+      expected: ['http.request.completed'],
+    });
+  });
+
   test('maps every thrown failure to a safe, retryable 503', async () => {
     const outage = createAuthRouteHandlers(() => ({
       config,

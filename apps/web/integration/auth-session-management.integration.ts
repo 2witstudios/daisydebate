@@ -1,7 +1,5 @@
 import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createId } from '@paralleldrive/cuid2';
-import { buildUserInboxTopic } from '@daisy/protocol';
 import { createPasskeyFlows } from './auth-passkey-flows';
 import {
   cookieHeader,
@@ -9,41 +7,13 @@ import {
   origin,
   withSql,
 } from './auth-mounted-helpers';
+import {
+  cleanupActorFor,
+  cleanupOutboxFor,
+  createActorFor,
+  sessionRevokedEvents,
+} from './auth-outbox-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
-
-/**
- * Plan revision 4.10: the outbox append only runs once the actor resolves
- * through `actors.user_id`, and this suite's accounts sign up without ever
- * claiming a username (an unrelated surface to session revocation), so it
- * inserts the actor directly rather than going through the onboarding
- * route. Revocation rows are keyed by `actors.id`, never `userId`, so this
- * returns the actor id the append will use.
- */
-const createActorFor = async (userId: string): Promise<string> => {
-  const actorId = createId();
-  await withSql(
-    (sql) =>
-      sql`INSERT INTO actors (id, kind, user_id) VALUES (${actorId}, 'human', ${userId})`,
-  );
-  return actorId;
-};
-
-const cleanupActorFor = (userId: string) =>
-  withSql((sql) => sql`DELETE FROM actors WHERE user_id = ${userId}`);
-
-/** RT-2.2: outbox rows the session-revocation hooks append for this actor. */
-const sessionRevokedEvents = (actorId: string) =>
-  withSql(
-    (sql) =>
-      sql`SELECT topic FROM outbox WHERE kind = 'session.revoked' AND topic = ${buildUserInboxTopic(actorId)}`,
-  ).then((rows) => rows.length);
-
-/** Fixture teardown: never leave session.revoked rows behind for this actor. */
-const cleanupOutboxFor = (actorId: string) =>
-  withSql(
-    (sql) =>
-      sql`DELETE FROM outbox WHERE kind = 'session.revoked' AND topic = ${buildUserInboxTopic(actorId)}`,
-  );
 
 if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
   throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
@@ -96,6 +66,27 @@ const isAuthenticated = async (response: Response): Promise<boolean> =>
 const sessionTokenOf = async (response: Response): Promise<string> =>
   ((await response.clone().json()) as { session?: { token: string } } | null)
     ?.session?.token ?? '';
+
+/** Swaps the shared logger for a recorder for the duration of `work` (AUTH-6.4). */
+async function recordedEvents(work: () => Promise<void>): Promise<string[]> {
+  const resources = flows.account.flows.getResources();
+  const events: string[] = [];
+  const original = resources.logger;
+  resources.logger = {
+    log: (event: string) => {
+      events.push(event);
+    },
+    child() {
+      return this;
+    },
+  };
+  try {
+    await work();
+  } finally {
+    resources.logger = original;
+  }
+  return events;
+}
 
 const sessionUserIdOf = async (response: Response): Promise<string> =>
   ((await response.clone().json()) as { session?: { userId: string } } | null)
@@ -158,6 +149,37 @@ describe('AUTH-5.5 session management', () => {
       await cleanupOutboxFor(actorId);
       await cleanupActorFor(userId);
     }
+  });
+
+  test('revoking a specific session and revoking every other session each emit their own lifecycle event (AUTH-6.4)', async () => {
+    const { email, cookie: first } = await signUp();
+    const { requestLink, redeem } = flows.account.flows;
+    const { link: linkA } = await requestLink(email);
+    const second = cookieHeader(
+      await redeem(new URL(linkA as URL).searchParams.get('token') ?? ''),
+    );
+    const secondToken = await sessionTokenOf(await protectedRead(second));
+    const singleEvents = await recordedEvents(async () => {
+      await flows.revokeSession(first, secondToken);
+    });
+
+    const { link: linkB } = await requestLink(email);
+    await redeem(new URL(linkB as URL).searchParams.get('token') ?? '');
+    const allEvents = await recordedEvents(async () => {
+      await flows.revokeOtherSessions(first);
+    });
+
+    assert({
+      given:
+        'revoking one named other session, then revoking every other session',
+      should:
+        'emit auth.session.revoked and auth.session.revoked_all respectively',
+      actual: {
+        single: singleEvents.includes('auth.session.revoked'),
+        all: allEvents.includes('auth.session.revoked_all'),
+      },
+      expected: { single: true, all: true },
+    });
   });
 
   test('a revoked session is denied even by an ordinary read that never asked to bypass the cache', async () => {

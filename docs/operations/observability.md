@@ -58,6 +58,17 @@ selected log levels, controls severity:
 | `auth.session.unavailable`    | error    | The session store could not be read; guarded pages and the username claim answer 503, never a sign-out |
 | `auth.mail.sent`              | info     | An auth email was handed to the mail transport                                                         |
 | `auth.mail.failed`            | error    | Auth email delivery failed                                                                             |
+| `auth.mail.receipt_failed`    | error    | The provider accepted a message but recording its receipt failed                                       |
+| `auth.cleanup.completed`      | info     | A scheduled verification-record cleanup batch ran                                                      |
+| `auth.cleanup.failed`         | error    | A scheduled verification-record cleanup batch failed                                                   |
+| `auth.magic_link.verified`    | info     | A magic-link token was redeemed and a session established                                              |
+| `auth.passkey.enrolled`       | info     | A passkey registration ceremony completed                                                              |
+| `auth.passkey.authenticated`  | info     | A passkey authentication ceremony completed                                                            |
+| `auth.passkey.removed`        | info     | An owned passkey was deleted                                                                           |
+| `auth.session.revoked`        | info     | A single named other session was revoked                                                               |
+| `auth.session.revoked_all`    | info     | Every other session for the account was revoked                                                        |
+| `auth.email_change.requested` | info     | A fresh session started a recovery-email change                                                        |
+| `auth.email_change.verified`  | info     | Ownership of the new address was verified and the change completed                                     |
 | `request.unhandled`           | error    | Next reported an unhandled request failure                                                             |
 | `db.query.failed`             | error    | A database query or transaction failed                                                                 |
 | `redis.command.failed`        | error    | A Redis command failed                                                                                 |
@@ -69,9 +80,14 @@ describe invariant violations, unhandled requests, and adapter failures;
 warning-level rather than an error. Invariant events carry only the stable
 `invariantId`; adapter events preserve the original failure for the caller to
 handle and record only the safe operation context. Auth events carry only
-`operation`, the stable auth route `path`, and an `errorCode`: never the
-recipient, token, link URL, client address, limiter key, or provider
-exception. `auth.rate_limit.denied` is expected traffic and is warning-level;
+`operation`, the stable auth route `path` where applicable, and an
+`errorCode`: never the recipient, token, link URL, client address, limiter
+key, or provider exception. The `auth.magic_link.*`, `auth.passkey.*`,
+`auth.session.*`, and `auth.email_change.*` lifecycle milestones (AUTH-6.4)
+carry only `operation` and their own name; they mark that a milestone
+happened, not who it happened to — correlate the acting account through
+`requestId`/`traceId` and the application's own audit trail, not the log
+line. `auth.rate_limit.denied` is expected traffic and is warning-level;
 alert on `auth.rate_limit.unavailable`, `auth.session.unavailable` and
 `auth.mail.failed`.
 

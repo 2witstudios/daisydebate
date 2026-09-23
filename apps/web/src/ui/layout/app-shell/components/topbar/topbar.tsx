@@ -14,7 +14,7 @@ export type ShellAccount =
   | { readonly state: 'member'; readonly username: string };
 
 const accountLink =
-  'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-bold text-ink no-underline hover:bg-surface-overlay hover:no-underline';
+  'flex shrink-0 items-center gap-3 rounded-md px-3 py-2 text-sm font-bold whitespace-nowrap text-ink no-underline hover:bg-surface-overlay hover:no-underline';
 
 function AccountControl({ account }: { readonly account: ShellAccount }) {
   switch (account.state) {
@@ -56,7 +56,7 @@ export function Topbar({ account }: { readonly account: ShellAccount }) {
         className="flex items-center gap-3 text-ink no-underline hover:no-underline"
       >
         <DaisyLogo />
-        <span className="font-display text-xl leading-shell-brand font-semibold tracking-tight max-narrow:hidden">
+        <span className="font-display text-xl leading-shell-brand font-semibold tracking-tight text-ink max-narrow:hidden">
           Daisy
         </span>
         <span className="flex flex-col border-l border-border pl-2 text-shell-tagline leading-shell-tagline font-strong tracking-widest text-ink-faint uppercase max-rail:hidden">
@@ -64,11 +64,11 @@ export function Topbar({ account }: { readonly account: ShellAccount }) {
           <br />A brighter world.
         </span>
       </Link>
-      <div className="flex flex-1 justify-center">
+      <div className="flex min-w-0 flex-1 justify-center">
         <SearchInput />
       </div>
-      <div className="flex items-center gap-4">
-        <span className="relative inline-flex">
+      <div className="flex shrink-0 items-center gap-4">
+        <span className="relative inline-flex shrink-0">
           <IconButton name="bell" label="Notifications" />
           {notificationsCount > 0 ? (
             <span

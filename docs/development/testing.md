@@ -40,6 +40,22 @@ AIDD/Vitest guidance is overridden here by Bun and RITEway (ADR 0021).
    the committed migrations twice to `TEST_DATABASE_URL` to prove reruns are
    idempotent.
 
+### Release qualification (`bun test:e2e:qualify`)
+
+The single-run `test:e2e` in the PR/push workflow proves the suite passes
+once; it is not release proof by itself. Before opening a release PR (or as a
+manual/scheduled job, never as an additional required PR check — that would
+triple E2E wall-clock time on every push), run `bun test:e2e:qualify`. It
+runs the complete Playwright suite three consecutive times with retries
+disabled (the standing config), saves each run's JSON report under
+`apps/web/qualification-results/run-{1,2,3}.json` plus a `summary.json` —
+deliberately outside `apps/web/test-results`, which Playwright clears at
+the start of every invocation and would otherwise erase each prior run's
+report before the next one starts — and fails if any of the three runs has
+a failure or an empty test selection.
+A retry-pass or a single green run is not this gate; all three outcomes are
+retained as artifacts.
+
 ## Suite wiring (`bun evidence`)
 
 A suite that nothing invokes is indistinguishable from a suite that does
@@ -111,6 +127,28 @@ not exist — PageSpace lost entire tiers this way. `bun evidence` (in
   behavior; tests must cover the outage path before route activation.
 - Playwright config env demonstrates the full production-refined
   configuration; keep it that way so e2e failures catch config regressions.
+
+### Cross-browser and accessibility coverage (AUTH-6.6)
+
+`chromium` runs the whole functional suite (dashboard chrome, theme, CSP,
+foundation proof, auth) and stays the primary CI project. Cross-browser and
+mobile-layout parity is scoped to the auth journeys the spec requires
+("the supported magic-link/account journeys"), not the whole app:
+`chromium-mobile`, `firefox`, `webkit` and `webkit-mobile` testMatch only
+`AUTH_JOURNEY_SPECS` (journey, passkey-lifecycle, accessibility, auth-routes)
+in `apps/web/playwright.config.ts`. CDP WebAuthn (the virtual authenticator
+behind every passkey ceremony) is Chromium-only, so
+`passkey-lifecycle.e2e.ts` is additionally excluded from every non-Chromium
+project; a spec that needs a Chromium-only WebAuthn capability belongs in
+that file, not in `journey.e2e.ts`. `apps/web/e2e/accessibility.e2e.ts` runs
+`@axe-core/playwright` against every auth screen (sign-in idle/pending,
+onboarding, settings/security, an expired link), asserting zero
+serious/critical findings, plus keyboard-only navigation, a live-region
+assertion and a 200%-effective-zoom reflow check (halving the viewport, the
+standard technique since Playwright has no native browser-zoom control).
+Real-device rows (Safari/iOS, Chrome/Android, a roaming security key) are
+owner-recorded pre-release evidence, never emulated; see the review record
+for the exact NOT RUN rows and what to capture.
 
 ## Styling safeguards and visual parity
 

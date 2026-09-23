@@ -198,36 +198,6 @@ test('sign-in works by keyboard alone and every control has an accessible name',
   await expect(page.getByLabel('Email')).toBeVisible();
 });
 
-test('a cancelled passkey ceremony shows no success and email sign-in still works', async ({
-  page,
-  request,
-}) => {
-  // A virtual authenticator with no credential: the browser has nothing to
-  // offer, which is how a dismissed prompt or an unenrolled account looks.
-  const session = await page.context().newCDPSession(page);
-  await session.send('WebAuthn.enable');
-  await session.send('WebAuthn.addVirtualAuthenticator', {
-    options: {
-      protocol: 'ctap2',
-      transport: 'internal',
-      hasResidentKey: true,
-      hasUserVerification: true,
-      isUserVerified: true,
-      automaticPresenceSimulation: true,
-    },
-  });
-  await page.goto('/sign-in');
-  await page.getByRole('button', { name: 'Sign in with a passkey' }).click();
-  await expect(
-    page.getByRole('status').filter({ hasText: /cancelled/i }),
-  ).toBeVisible();
-  await expect(page).toHaveURL(/\/sign-in$/);
-
-  const email = freshEmail();
-  await requestLink(page, email);
-  await expect(emailedLink(request, email)).resolves.toContain('/auth/confirm');
-});
-
 test('a browser without WebAuthn is told so and keeps the email path', async ({
   page,
   request,
@@ -245,10 +215,78 @@ test('a browser without WebAuthn is told so and keeps the email path', async ({
   await expect(emailedLink(request, email)).resolves.toContain('/auth/confirm');
 });
 
-test('the topbar offers sign-in to a visitor', async ({ page }) => {
-  await page.goto('/');
-  await page.getByRole('link', { name: 'Sign in' }).click();
-  await expect(page).toHaveURL(/\/sign-in$/);
+test('an emailed link opened in a different browser than the one that requested it still signs in', async ({
+  page,
+  request,
+  browser,
+}) => {
+  const email = freshEmail();
+  await page.goto('/sign-in');
+  await requestLink(page, email);
+  const link = await emailedLink(request, email);
+
+  // A genuinely separate browser context: no cookies, storage or history
+  // shared with the requesting page (the "opened it on another device"
+  // case a bearer magic link must support).
+  const other = await browser.newContext({ ignoreHTTPSErrors: true });
+  const otherPage = await other.newPage();
+  await confirm(otherPage, link);
+  await expect(otherPage).toHaveURL(/\/onboarding\/username/, {
+    timeout: 15_000,
+  });
+  await claimUsername(otherPage, uniqueName('cross-browser'));
+  // Whether the fresh context offers a passkey save depends on that
+  // context's own WebAuthn availability, and how long the claim itself
+  // takes under load; race the two possible outcomes instead of assuming
+  // either happens within a short fixed window, so neither is checked
+  // before the app has actually settled on one.
+  const offered = await Promise.race([
+    otherPage
+      .getByRole('heading', { name: /next time, one tap/i })
+      .waitFor({ state: 'visible', timeout: 15_000 })
+      .then(() => true),
+    otherPage.waitForURL(/\/lobby$/, { timeout: 15_000 }).then(() => false),
+  ]).catch(() => false);
+  if (offered) await otherPage.getByRole('button', { name: 'Not now' }).click();
+  await expect(otherPage).toHaveURL(/\/lobby$/, { timeout: 15_000 });
+
+  // The requesting page never redeemed the link itself and stays anonymous.
+  await page.goto('/lobby');
+  await expect(page).toHaveURL(/\/sign-in\?next=%2Flobby$/);
+  await other.close();
+});
+
+test('refreshing or navigating back mid-onboarding does not lose the session or double-claim the username', async ({
+  page,
+  request,
+}) => {
+  const email = freshEmail();
+  await page.goto('/sign-in');
+  await requestLink(page, email);
+  await confirm(page, await emailedLink(request, email));
+  await expect(page).toHaveURL(/\/onboarding\/username/);
+
+  // A reload mid-flow must not sign the person out or drop the destination.
+  await page.reload();
+  await expect(page).toHaveURL(/\/onboarding\/username/);
+
+  const name = uniqueName('resumed');
+  await claimUsername(page, name);
+  await expect(
+    page.getByRole('heading', { name: /next time, one tap/i }),
+  ).toBeVisible();
+
+  // Going back to the (now-completed) onboarding step and forward again must
+  // not re-open a claim for an account that already has a username: the
+  // server-rendered onboarding page recognizes completion and sends the
+  // account straight past the passkey offer to its destination.
+  await page.goBack();
+  await page.goForward();
+  await expect(page).toHaveURL(/\/lobby$/);
+
+  const session = await page.request.get('/api/auth/get-session');
+  const body = (await session.json()) as { user: { username: string } };
+  expect(body.user.username).toBe(name);
 });
 
 test('a fresh session makes no refresh call, and neither does a visitor', async ({
@@ -269,4 +307,10 @@ test('a fresh session makes no refresh call, and neither does a visitor', async 
   // A refresh is due only a day after the last extension, so a browser
   // spends the rate-limited endpoint about once a day, not per page load.
   expect(calls).toEqual([]);
+});
+
+test('the topbar offers sign-in to a visitor', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('link', { name: 'Sign in' }).click();
+  await expect(page).toHaveURL(/\/sign-in$/);
 });

@@ -13,7 +13,8 @@
   "scripts": {
     "dev": "bun --env-file=.env run turbo run dev",
     "dev:agent": "bun --env-file=.env scripts/dev-agent.ts",
-    "build": "NODE_ENV=production turbo run build",
+    "build": "NODE_ENV=production turbo run build && bun run check:build-isolation",
+    "check:build-isolation": "bun scripts/check-build-artifact-isolation.ts",
     "start": "bun run --cwd apps/web start",
     "typecheck": "turbo run typecheck",
     "lint": "eslint . && bun scripts/check-boundaries.ts && bun scripts/check-styling.ts && bun test eslint.config.test.ts",
@@ -46,6 +47,7 @@
     "test:integration": "bun --env-file=.env run turbo run test:integration",
     "visual:server": "docker run --rm --init --ipc=host --name pw-visual-server -p 127.0.0.1:43400:3400 mcr.microsoft.com/playwright:v1.63.0-noble /bin/sh -c \"npx -y playwright@1.63.0 run-server --port 3400 --host 0.0.0.0\"",
     "test:e2e": "bun --env-file=.env run turbo run test:e2e",
+    "test:e2e:qualify": "bun --env-file=.env scripts/e2e-release-qualification.ts",
     "check": "bun format:check && bun lint && bun run policy && bun run knip && bun run duplication && bun run invariants && bun run evidence && bun typecheck && bun run test && bun run metrics:check && bun run build",
     "db:generate": "bun run --cwd packages/db db:generate",
     "db:migrate": "bun --env-file=.env packages/db/scripts/migrate.ts",
