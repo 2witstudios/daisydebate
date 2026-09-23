@@ -5,6 +5,13 @@ import { readEnvValue, withSlotEnv } from './slot-model';
 
 const root = resolve(import.meta.dir, '..');
 
+/**
+ * Matches `apps/realtime/src/port.ts`'s `DEFAULT_REALTIME_PORT`. A root
+ * script does not import across the app workspace boundary; instead
+ * `dev-agent.test.ts` asserts this literal stays equal to that export.
+ */
+export const DEFAULT_REALTIME_PORT = 3011;
+
 export type AgentCredential = {
   readonly username: string;
   readonly userId: string;
@@ -19,10 +26,12 @@ export type ReadinessOptions = {
 
 export function formatAgentReady({
   appUrl,
+  realtimeUrl,
   credentials,
   seedVersion,
 }: {
   readonly appUrl: string;
+  readonly realtimeUrl: string;
   readonly credentials: readonly AgentCredential[];
   readonly seedVersion: string;
 }): string {
@@ -30,6 +39,8 @@ export function formatAgentReady({
     'Daisy agent development ready',
     `Web: ${appUrl}`,
     `Health: ${appUrl}/api/health/ready`,
+    `Realtime: ${realtimeUrl}`,
+    `Realtime health: ${realtimeUrl}/health/ready`,
     'Credentials:',
     ...credentials.map(({ username, userId }) => `  ${username} (${userId})`),
     `Seed version: ${seedVersion}`,
@@ -90,6 +101,9 @@ async function main(): Promise<void> {
 
   const appUrl =
     readEnvValue(content, 'PUBLIC_APP_URL') ?? 'http://localhost:3000';
+  const realtimeUrl = `http://localhost:${readEnvValue(content, 'REALTIME_PORT') ?? DEFAULT_REALTIME_PORT}`;
+  // `bun run dev` (turbo) starts every workspace's dev task, web and
+  // realtime alike; nothing here spawns apps/realtime separately.
   const web = Bun.spawn(['bun', 'run', 'dev'], {
     cwd: root,
     env,
@@ -102,9 +116,11 @@ async function main(): Promise<void> {
   process.once('SIGTERM', stopWeb);
   try {
     await waitForReadiness(`${appUrl}/api/health/ready`);
+    await waitForReadiness(`${realtimeUrl}/health/ready`);
     process.stdout.write(
       formatAgentReady({
         appUrl,
+        realtimeUrl,
         credentials: agentSeedUsers,
         seedVersion: agentSeedVersion,
       }),

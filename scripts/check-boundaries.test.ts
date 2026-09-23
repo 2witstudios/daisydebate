@@ -1,4 +1,9 @@
-import { adobeIsolationIssue, adobeWorkspaces } from './boundaries-rules';
+import {
+  adobeIsolationIssue,
+  adobeWorkspaces,
+  allowedWorkspaceDependencies,
+  forbiddenDependencyIssue,
+} from './boundaries-rules';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 
 setupRitewayBun();
@@ -77,6 +82,91 @@ describe('Adobe isolation rule', () => {
       should: 'list exactly the engine adapter owner',
       actual: [...adobeWorkspaces],
       expected: ['@daisy/debate-engine'],
+    });
+  });
+});
+
+describe('realtime workspace edges (ADR 0031 §12)', () => {
+  test('the allowlist names exactly the ten ADR 0031 §12 edges', () => {
+    assert({
+      given: 'allowedWorkspaceDependencies.realtime',
+      should: 'list exactly the ten edges the ADR mechanically enforces',
+      actual: [...allowedWorkspaceDependencies.realtime!].sort(),
+      expected: [
+        'auth',
+        'clock',
+        'config',
+        'db',
+        'errors',
+        'logger',
+        'observability',
+        'presence',
+        'protocol',
+        'redis',
+      ].sort(),
+    });
+  });
+
+  test('a realtime manifest depending on debate-engine is forbidden', () => {
+    assert({
+      given: 'apps/realtime declaring @daisy/debate-engine',
+      should: 'report a forbidden dependency',
+      actual: forbiddenDependencyIssue(
+        'apps/realtime',
+        '@daisy/realtime',
+        '@daisy/debate-engine',
+        allowedWorkspaceDependencies,
+      ),
+      expected: 'apps/realtime: forbidden dependency @daisy/debate-engine',
+    });
+  });
+
+  test('a realtime manifest depending on apps/web is forbidden', () => {
+    assert({
+      given: 'apps/realtime declaring @daisy/web',
+      should: 'report a forbidden dependency',
+      actual: forbiddenDependencyIssue(
+        'apps/realtime',
+        '@daisy/realtime',
+        '@daisy/web',
+        allowedWorkspaceDependencies,
+      ),
+      expected: 'apps/realtime: forbidden dependency @daisy/web',
+    });
+  });
+
+  test('a realtime manifest depending on one of its ten allowed edges is not flagged', () => {
+    assert({
+      given: 'apps/realtime declaring @daisy/protocol',
+      should: 'report no issue',
+      actual: forbiddenDependencyIssue(
+        'apps/realtime',
+        '@daisy/realtime',
+        '@daisy/protocol',
+        allowedWorkspaceDependencies,
+      ),
+      expected: null,
+    });
+  });
+
+  test('deleting the realtime key removes the restriction entirely', () => {
+    const withoutRealtime = Object.fromEntries(
+      Object.entries(allowedWorkspaceDependencies).filter(
+        ([key]) => key !== 'realtime',
+      ),
+    );
+
+    assert({
+      given: 'the realtime key removed from allowedWorkspaceDependencies',
+      should:
+        'no longer forbid @daisy/debate-engine, proving the fixture is load-bearing',
+      actual: forbiddenDependencyIssue(
+        'apps/realtime',
+        '@daisy/realtime',
+        '@daisy/debate-engine',
+        withoutRealtime,
+      ),
+      expected: null,
     });
   });
 });
