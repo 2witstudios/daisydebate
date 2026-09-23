@@ -20,11 +20,13 @@ data is pruned by the next `slot:up` anywhere. Unit tests need nothing.
 PageSpace's lesson: branch debris accumulates faster than agents clean it
 (775 local branches, numeric leftovers, rescued worktree patches). Rules:
 
-- Branches are short-lived and named for the vertical:
-  `feat/<vertical-topic>`, `fix/<topic>`, `chore/<topic>`. No numeric or
-  `backup/` branches; git history is the backup.
-- Delete the branch when the PR merges. Do not stack more than one
-  open vertical per agent.
+- Branches are short-lived and named for the vertical: `pu/<task-or-topic>`
+  for work `pu` spawns (pu names every worktree branch `pu/<name>`), and
+  `feat/<topic>`, `fix/<topic>`, `chore/<topic>` or `docs/<topic>` for
+  direct work. No numeric or `backup/` branches; git history is the backup.
+- GitHub deletes the branch when the PR merges (`delete_branch_on_merge`,
+  applied by `bun github:rules`). Do not stack more than one open vertical
+  per agent.
 - Worktrees (`git worktree`, or `pu` slots) are the supported way to run
   multiple sessions on one machine; run `bun slot:up` in each so it gets
   its own databases and namespaces on the shared stack.
@@ -70,12 +72,12 @@ PageSpace's lesson: branch debris accumulates faster than agents clean it
   `packages/typescript-config/`, `.prettierrc.json` invalidate every
   turbo cache and affect all verticals; change them in isolated,
   dedicated PRs.
-- **ADR numbers.** `bun policy` rejects duplicate ADR numbers, but it can
-  only see merged files: two open PRs can both claim the next number with
-  different filenames, merge without a git conflict, and turn `main` red.
-  Before numbering an ADR, check every open PR
-  (`gh pr list`, then `gh pr diff <n> --name-only`) for files under
-  `docs/decisions/`; the earlier-opened PR keeps the number.
+- **ADR and migration numbers.** Two open PRs can claim the same next
+  number with different filenames and merge without a git conflict. Take
+  numbers from `bun adr:next`, which reads origin/main and every open PR;
+  `bun policy` (in `bun check` and CI) fails a branch whose ADR or migration
+  number an earlier-opened PR already holds. The earlier-opened PR keeps the
+  number.
 
 ## Inner loop
 
@@ -88,7 +90,18 @@ PageSpace's lesson: branch debris accumulates faster than agents clean it
 - CI is per-PR isolated (service containers, concurrency cancellation);
   E2E runs once per PR in the dedicated browser workflow.
 
-## Reviewing parallel work
+## Reviewing and merging parallel work
+
+The owner merges any PR whenever they choose. Autonomous agents never merge:
+they request it with `gh pr merge --auto --squash`, and GitHub merges once
+the `CI gate`, `Playwright E2E` and `review-record` checks pass
+([ADR 0035](../decisions/0035-autonomy-guardrails.md)). A merged task waits
+in **Merged** until an independent review record grants Done; after the
+enforcement cutoff a merge without one files review debt. `bun board:stale`
+lists tasks whose status disagrees with git.
+
+A review that would be the third pass on one leaf stops and goes to the
+orchestrator or owner with the open disagreement instead of another pass.
 
 Follow [review records](review-record.md): gates run up front, findings
 with severity and fix commits, an explicit verdict, and a second pass

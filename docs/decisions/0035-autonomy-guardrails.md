@@ -153,9 +153,12 @@ a direct or `--admin` merge by an agent, and asks the owner before one.
 The `board` job in `notify-merge.yml` runs `scripts/merge-followup.ts` on
 every merge:
 
-- **Merged status.** It moves each task the PR names to a new **Merged**
+- **Merged status.** It moves each task the PR delivers to a new **Merged**
   status (in-progress group), where the task waits for a review record to
-  grant Done. It never regresses Done.
+  grant Done. It never regresses Done. A PR delivers the codes in its
+  title, branch and body `Tasks:` line. A code the body only mentions (a
+  later leaf an ADR names, a related issue) is not delivered; counting those
+  moved undelivered leaves in the first reconcile dry run.
 - **Review debt.** After `reviewEnforcementCutoff` in
   `policy/github/repository.json` (null until the owner sets it in
   GRD-6.2), a merge whose head SHA lacks a successful `review-record` gets
@@ -163,9 +166,15 @@ every merge:
   never files twice.
 - **Before the cutoff.** Earlier merges are not debt.
 - **Reconcile.** `bun board:stale` lists tasks whose status disagrees with
-  git: merged but not yet In Review, or Done without a review record.
-  `--apply` moves each to its pre-Done status (Merged, or In Review when
-  unmerged). It never marks Done and never files debt.
+  git: merged but not yet In Review, or Done after the cutoff without a
+  review record. `--apply` moves each to its pre-Done status (Merged, or In
+  Review when unmerged). It never marks Done and never files debt.
+- **Done before the cutoff.** Owner decision, 2026-09-23: Done without a
+  review record is accepted when the task was completed or merged before
+  the cutoff, because reviews before the convention often happened without
+  being stored. While the cutoff is unset, everything so far counts as
+  before it. The one-time reconcile therefore moved only merged tasks that
+  never reached In Review, and left the pre-convention Done tasks alone.
 
 ### 6. The local guard (soft layer)
 
@@ -181,8 +190,12 @@ With `DAISY_AUTONOMOUS=1` it refuses:
 - merges without `--auto`, and `--admin`
 - ruleset, branch-protection and repository-settings mutations
 - kill commands not scoped to the worktree
-- Docker prunes and removals, `compose down`, `infra:down` or `db:reset`
-  outside the agent's own stack or database
+- Docker prunes, container, volume and network removals, and
+  `compose down/stop/kill/rm`: every checkout shares one Compose stack
+  (ADR 0034), so no agent owns a container
+- `db:reset` or `slot:down` from another checkout, or with a database
+  override that is not the agent's own slot (the slot is derived from the
+  worktree folder with PAR-2's `deriveSlot`)
 - hand edits of loop state
 - clearing `DAISY_AUTONOMOUS` or `PU_AGENT_ID`
 
@@ -191,8 +204,7 @@ allows the rest.
 
 A hook `deny` blocks even in bypass-permissions mode. This layer is still
 bypassable (`--no-verify` outside Claude Code, a different shell, unsetting
-a variable), so the hard layer is sections 1–4. Slot ownership under PAR-2
-(ADR 0034, PR #50) plugs into `stackOf`/`databaseOf` once that PR merges.
+a variable), so the hard layer is sections 1–4.
 
 ### 7. PR loops that can finish
 
