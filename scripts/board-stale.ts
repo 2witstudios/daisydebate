@@ -7,7 +7,9 @@
  * debt: merges before the enforcement cutoff are listed, not filed.
  */
 import {
+  isReviewPage,
   MERGED_STATUS,
+  reviewedCodes,
   staleLeaves,
   taskCode,
   type BoardTask,
@@ -45,10 +47,38 @@ function json<T>(deps: StaleDeps, args: readonly string[]): T {
   return JSON.parse(result.stdout) as T;
 }
 
+const REVIEWS_FOLDER_ID = 'p9tjx30m8h5lk99uvkbqtvb6';
+
+type TreePage = {
+  id: string;
+  type: string;
+  title: string;
+  hasChildren?: boolean;
+};
+
+const tree = (deps: StaleDeps, parentId?: string) =>
+  json<{ pages: TreePage[] }>(deps, [
+    'pages',
+    'tree',
+    '--drive',
+    DAISY_DEBATE_DRIVE_ID,
+    ...(parentId ? [parentId] : []),
+  ]).pages;
+
+const pageText = (deps: StaleDeps, pageId: string): string =>
+  json<{ content?: string }>(deps, ['pages', 'read', pageId]).content ?? '';
+
+/** Codes covered by any published review page in the Reviews folder. */
+function readReviewed(deps: StaleDeps): ReadonlySet<string> {
+  const reviews = tree(deps, REVIEWS_FOLDER_ID)
+    .filter((page) => isReviewPage(page.title))
+    .map((page) => ({ ...page, content: pageText(deps, page.id) }));
+  return reviewedCodes(reviews, extractTaskIds);
+}
+
 function readBoard(deps: StaleDeps) {
-  const { pages } = json<{
-    pages: { id: string; type: string; hasChildren?: boolean }[];
-  }>(deps, ['pages', 'tree', '--drive', DAISY_DEBATE_DRIVE_ID]);
+  const pages = tree(deps);
+  const reviewed = readReviewed(deps);
   const lists = new Map<string, TaskList>();
   const tasks: BoardTask[] = [];
   for (const page of pages) {
@@ -58,18 +88,17 @@ function readBoard(deps: StaleDeps) {
     for (const task of list.tasks) {
       const code = taskCode(task.title);
       if (!code) continue;
-      const content =
-        task.status === 'completed'
-          ? (json<{ content?: string }>(deps, ['pages', 'read', task.pageId])
-              .content ?? '')
-          : '';
+      const linked =
+        task.status === 'completed' &&
+        !reviewed.has(code) &&
+        /Review(?: record)? —/.test(pageText(deps, task.pageId));
       tasks.push({
         code,
         pageId: task.pageId,
         listId: page.id,
         taskId: task.id,
         status: task.status,
-        hasReviewRecord: /Review record/.test(content),
+        hasReviewRecord: reviewed.has(code) || linked,
       });
     }
   }

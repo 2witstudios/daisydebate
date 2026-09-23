@@ -17,9 +17,7 @@ export type GuardFacts = {
   readonly mainCheckout: string;
   readonly protectedBranches: readonly string[];
   readonly branchOf: (dir: string) => string | undefined;
-  /** Compose project of the checkout containing dir. */
-  readonly stackOf: (dir: string) => string;
-  /** Database named by DATABASE_URL in the checkout containing dir. */
+  /** The slot database (ADR 0034) of the checkout containing dir. */
   readonly databaseOf: (dir: string) => string | undefined;
   readonly processCwd: (pid: number) => string | undefined;
 };

@@ -11,14 +11,12 @@ export const facts = (overrides: Partial<GuardFacts> = {}): GuardFacts => ({
   cwd: worktree,
   protectedBranches: ['main'],
   branchOf: (dir) => (dir === worktree ? 'pu/mine' : 'main'),
-  stackOf: (dir) =>
-    dir.startsWith(worktree)
-      ? 'daisy-mine'
-      : dir.startsWith(other)
-        ? 'daisy-other'
-        : 'daisy',
   databaseOf: (dir) =>
-    dir.startsWith(worktree) ? 'daisy_wt_mine' : dir === main ? 'daisy' : 'x',
+    dir.startsWith(worktree)
+      ? 'daisy_wt_mine'
+      : dir.startsWith(other)
+        ? 'daisy_wt_other'
+        : 'daisy',
   mainCheckout: main,
   processCwd: (pid) =>
     pid === 101 ? `${worktree}/apps/web` : pid === 202 ? other : undefined,

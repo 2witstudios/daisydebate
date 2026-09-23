@@ -53,69 +53,72 @@ describe('agent guard: kill commands', () => {
   });
 });
 
-describe('agent guard: stacks the agent does not own', () => {
-  test('refuses Docker cleanup that reaches other stacks', () => {
+describe('agent guard: data and containers outside the agent slot', () => {
+  test('refuses Docker cleanup and compose down on the shared stack', () => {
     assert({
-      given: 'prunes, and removals of containers and volumes it does not own',
-      should: 'deny each one',
+      given: 'prunes, removals and compose down against the shared stack',
+      should: 'deny each one, since every checkout shares it (ADR 0034)',
       actual: [
         'docker system prune -af',
         'docker volume prune -f',
         'docker container prune',
-        'docker rm -f daisy-other-postgres-1',
+        'docker rm -f daisy-postgres-1',
         'docker volume rm daisy_postgres-data',
         'docker rm -f $(docker ps -aq)',
         'docker compose -p daisy down -v',
         'docker compose -f infra/compose.yaml down',
+        'docker-compose -f infra/compose.yaml stop',
       ].map((command) => decide(command)),
-      expected: Array(8).fill('deny'),
+      expected: Array(9).fill('deny'),
     });
   });
 
-  test('allows cleanup of its own stack', () => {
+  test('allows read-only Docker commands', () => {
     assert({
-      given: 'removals and compose down scoped to the owned stack',
+      given: 'ps, logs and compose ps',
       should: 'allow them',
       actual: [
-        decide('docker rm -f daisy-mine-postgres-1'),
-        decide('docker volume rm daisy-mine_postgres-data'),
-        decide('docker compose -p daisy-mine down'),
-        decide('docker compose --env-file .env -f infra/compose.yaml down'),
+        decide('docker ps'),
+        decide('docker compose -f infra/compose.yaml logs -f'),
+        decide('bun infra:logs'),
       ],
-      expected: ['allow', 'allow', 'allow', 'allow'],
+      expected: ['allow', 'allow', 'allow'],
     });
   });
 
-  test('refuses infra:down and db:reset against a stack it does not own', () => {
+  test('refuses db:reset and slot:down against another slot', () => {
     assert({
-      given: 'another checkout, an overridden stack, and a shared stack',
+      given:
+        'another checkout, the main checkout, an override naming another database, and an agent without a slot of its own',
       should: 'deny each one',
       actual: [
-        decide(`cd ${other} && bun infra:down`),
-        decide('DAISY_STACK_NAME=daisy bun infra:down'),
-        decide(`bun --cwd ${main} run infra:down`),
-        decide(
-          'bun db:reset',
-          facts({ stackOf: () => 'daisy', databaseOf: () => 'daisy' }),
-        ),
-        decide(`cd ${main} && bun db:reset`),
+        decide(`cd ${other} && bun db:reset`),
+        decide(`bun --cwd ${main} run db:reset`),
         decide('DATABASE_URL=postgres://h/daisy bun db:reset'),
-        decide('bun infra:down', facts({ stackOf: () => 'daisy' })),
+        decide(`cd ${other} && bun slot:down`),
+        decide('bun db:reset', facts({ databaseOf: () => 'daisy' })),
       ],
-      expected: Array(7).fill('deny'),
+      expected: Array(5).fill('deny'),
     });
   });
 
-  test('allows infra:down and db:reset on its own stack', () => {
+  test('allows db:reset and slot:down on its own slot', () => {
     assert({
-      given: 'the agent worktree with its own stack and database',
-      should: 'allow both',
-      actual: [decide('bun infra:down'), decide('bun run db:reset')],
-      expected: ['allow', 'allow'],
+      given:
+        'the agent worktree, including an override naming its own test database',
+      should: 'allow them',
+      actual: [
+        decide('bun run db:reset'),
+        decide('ALLOW_DATABASE_RESET=yes bun db:reset'),
+        decide('DATABASE_URL=postgres://h/daisy_wt_mine_test bun db:reset'),
+        decide('bun slot:down'),
+        decide('bun slot:prune'),
+      ],
+      expected: ['allow', 'allow', 'allow', 'allow', 'allow'],
     });
   });
 
-  test('leaves owner sessions free to manage stacks', () => {
+  test('leaves owner sessions free to manage the stack', () => {
     assert({
       given: 'an owner session pruning Docker',
       should: 'allow it',

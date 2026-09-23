@@ -7,7 +7,7 @@
  * merge or a push to main and allows the rest. It catches accidents: the
  * hard limits are the machine identity and the main ruleset.
  */
-import { existsSync, readFileSync, readlinkSync } from 'node:fs';
+import { existsSync, readlinkSync } from 'node:fs';
 import { dirname, isAbsolute, resolve } from 'node:path';
 import {
   allow,
@@ -29,7 +29,7 @@ import {
   type Verdict,
 } from './agent-guard-rules';
 import { bun, docker } from './agent-guard-stacks';
-import { parseDotenv } from './dotenv';
+import { deriveSlot } from './slot-model';
 import { parseShell } from './shell-command';
 
 const shells = new Set(['sh', 'bash', 'zsh', 'dash']);
@@ -123,17 +123,12 @@ function checkoutRoot(dir: string): string | undefined {
   return run(['git', 'rev-parse', '--show-toplevel'], current);
 }
 
-function checkoutEnv(dir: string): Readonly<Record<string, string>> {
-  const root = checkoutRoot(dir);
-  const file = root ? resolve(root, '.env') : undefined;
-  return file && existsSync(file)
-    ? parseDotenv(readFileSync(file, 'utf8'))
-    : {};
-}
-
-function databaseName(url: string | undefined): string | undefined {
+/** The slot database of the checkout containing dir (ADR 0034). */
+function slotDatabase(dir: string, mainCheckout: string): string | undefined {
+  const checkout = checkoutRoot(dir);
+  if (!checkout) return undefined;
   try {
-    return url ? new URL(url).pathname.replace(/^\//, '') : undefined;
+    return deriveSlot({ checkout, mainCheckout }).database;
   } catch {
     return undefined;
   }
@@ -159,16 +154,16 @@ function liveFacts(cwd: string, projectDir?: string): GuardFacts {
     ['git', 'rev-parse', '--path-format=absolute', '--git-common-dir'],
     worktree,
   );
+  const mainCheckout = commonDir ? dirname(commonDir) : worktree;
   return {
     autonomous: process.env.DAISY_AUTONOMOUS === '1',
     worktree,
     cwd: isAbsolute(cwd) ? cwd : resolve(worktree, cwd),
-    mainCheckout: commonDir ? dirname(commonDir) : worktree,
+    mainCheckout,
     protectedBranches: ['main'],
     branchOf: (dir) =>
       run(['git', 'symbolic-ref', '--short', '-q', 'HEAD'], dir),
-    stackOf: (dir) => checkoutEnv(dir).DAISY_STACK_NAME ?? 'daisy',
-    databaseOf: (dir) => databaseName(checkoutEnv(dir).DATABASE_URL),
+    databaseOf: (dir) => slotDatabase(dir, mainCheckout),
     processCwd,
   };
 }

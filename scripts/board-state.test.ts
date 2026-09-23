@@ -4,6 +4,7 @@ import {
   findTaskPages,
   mergedTarget,
   needsDebt,
+  reviewedCodes,
   staleLeaves,
   type BoardTask,
 } from './board-state';
@@ -177,6 +178,29 @@ describe('staleLeaves', () => {
           to: 'in_review',
         },
       ],
+    });
+  });
+});
+
+describe('reviewedCodes', () => {
+  test('counts every code a review page names in its title or body', () => {
+    assert({
+      given: 'a stage review naming three codes and a single-leaf review',
+      should: 'cover all four codes',
+      actual: [
+        ...reviewedCodes(
+          [
+            {
+              id: 'r1',
+              title: 'Review record — stage 1 (AUTH-1.1, AUTH-1.2)',
+              content: '<p>Also covers AUTH-1.4.</p>',
+            },
+            { id: 'r2', title: 'Review — DOCS-4 cleanup', content: '' },
+          ],
+          (text) => text.match(/\b[A-Z]{2,6}-\d+(?:\.\d+)?\b/g) ?? [],
+        ),
+      ],
+      expected: ['AUTH-1.1', 'AUTH-1.2', 'AUTH-1.4', 'DOCS-4'],
     });
   });
 });

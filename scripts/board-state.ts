@@ -84,6 +84,30 @@ export function debtIssue(input: {
   };
 }
 
+const REVIEW_TITLE = /^Review(?: record)? —/;
+
+export const isReviewPage = (title: string): boolean =>
+  REVIEW_TITLE.test(title);
+
+/**
+ * Task codes an existing review covers: named in a review page's title or
+ * body (stage reviews list several), or linked from the task page itself.
+ */
+export function reviewedCodes(
+  reviews: readonly {
+    readonly id: string;
+    readonly title: string;
+    readonly content: string;
+  }[],
+  extractCodes: (text: string) => readonly string[],
+): ReadonlySet<string> {
+  return new Set(
+    reviews.flatMap((review) =>
+      extractCodes(`${review.title}\n${review.content}`),
+    ),
+  );
+}
+
 export type BoardTask = TaskPage & {
   readonly taskId: string;
   readonly status: string;

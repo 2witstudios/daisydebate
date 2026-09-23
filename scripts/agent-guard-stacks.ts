@@ -1,9 +1,9 @@
 /**
- * The agent guard's stack rules (ADR 0035): an autonomous agent may stop,
- * remove or reset only the Compose stack and database its own checkout
- * owns, never the owner's shared stack or another session's.
+ * The agent guard's slot rules (ADR 0035 on ADR 0034). Every checkout shares
+ * one Compose stack; an agent owns only its slot's databases and Redis
+ * namespace. So an autonomous agent never removes, stops or prunes
+ * containers, volumes or the stack, and resets or drops only its own slot.
  */
-import { dirname } from 'node:path';
 import {
   allow,
   autonomousOnly,
@@ -18,19 +18,13 @@ import {
   type Verdict,
 } from './agent-guard-rules';
 
-const STACK_REASON =
-  'That reaches a Compose stack or database this session does not own. Manage only your own stack (the DAISY_STACK_NAME in your worktree .env); the shared stack belongs to the owner.';
-function ownedStack(facts: GuardFacts): string | undefined {
-  const mine = facts.stackOf(facts.worktree);
-  return mine === facts.stackOf(facts.mainCheckout) ? undefined : mine;
-}
+const SHARED_REASON =
+  'The Compose stack is shared by every checkout (ADR 0034): an agent never stops, removes or prunes its containers or volumes. Manage your own slot with bun slot:up, slot:down or db:reset.';
+const SLOT_REASON =
+  'That reaches a slot this session does not own. Run db:reset and slot:down only from your own worktree, against its own databases.';
 
-const ownsName = (name: string, stack: string | undefined): boolean =>
-  stack !== undefined &&
-  (name === stack ||
-    name.startsWith(`${stack}-`) ||
-    name.startsWith(`${stack}_`));
-
+const composeDestructive = new Set(['down', 'rm', 'kill', 'stop', 'pause']);
+const dockerDestructive = new Set(['rm', 'stop', 'kill', 'rmi', 'prune']);
 const composeValueOptions = new Set([
   '-f',
   '--file',
@@ -42,86 +36,49 @@ const composeValueOptions = new Set([
   '--ansi',
   '--progress',
 ]);
-const composeDestructive = new Set(['down', 'rm', 'kill', 'stop']);
 
-function compose(
-  args: readonly string[],
-  invocation: Invocation,
-  facts: GuardFacts,
-  cwd: string,
-): Verdict {
-  const options: Record<string, string | undefined> = {};
+/** The subcommand after compose's global options. */
+function composeAction(args: readonly string[]): string {
   let index = 0;
   while (index < args.length && args[index].startsWith('-')) {
     const [flag, inline] = splitFlag(args[index]);
-    options[flag] = inline ?? args[index + 1];
     index += inline === undefined && composeValueOptions.has(flag) ? 2 : 1;
   }
-  if (!composeDestructive.has(args[index] ?? '')) return allow;
-  const envFile = options['--env-file'];
-  const project =
-    options['-p'] ??
-    options['--project-name'] ??
-    invocation.assignments.COMPOSE_PROJECT_NAME ??
-    invocation.assignments.DAISY_STACK_NAME ??
-    facts.stackOf(
-      envFile ? dirname(resolveFrom(cwd, envFile)) : facts.mainCheckout,
-    );
-  return project === ownedStack(facts) ? allow : deny(STACK_REASON);
+  return args[index] ?? '';
 }
 
-const dockerPrune = new Set([
-  'system',
-  'container',
-  'volume',
-  'network',
-  'image',
-  'builder',
-]);
-const dockerRemove = new Set(['rm', 'stop', 'kill', 'rmi']);
-const dockerGroups = new Set(['volume', 'network', 'container']);
-
-function dockerRemovals(
-  rest: readonly string[],
-): readonly string[] | undefined {
-  const [group, action, ...args] = rest;
-  if (dockerRemove.has(group ?? '')) return rest.slice(1);
-  return dockerGroups.has(group ?? '') && dockerRemove.has(action ?? '')
-    ? args
-    : undefined;
-}
-
-export const docker: Rule = (invocation, facts, cwd) => {
+export const docker: Rule = (invocation, facts) => {
   if (!facts.autonomous) return allow;
-  const [name, ...rest] = invocation.words;
-  if (name === 'docker-compose') return compose(rest, invocation, facts, cwd);
-  const [group, action] = rest;
-  if (group === 'compose')
-    return compose(rest.slice(1), invocation, facts, cwd);
-  if (dockerPrune.has(group ?? '') && action === 'prune')
-    return deny(
-      `docker ${group} prune removes every session's resources. ${STACK_REASON}`,
-    );
-  const removals = dockerRemovals(rest);
-  if (!removals) return allow;
-  const names = removals.filter((arg) => !arg.startsWith('-'));
-  const stack = ownedStack(facts);
-  return names.length > 0 && names.every((item) => ownsName(item, stack))
-    ? allow
-    : deny(STACK_REASON);
+  const [name, group = '', action = '', ...rest] = invocation.words;
+  const composeArgs =
+    name === 'docker-compose'
+      ? [group, action, ...rest]
+      : group === 'compose'
+        ? [action, ...rest]
+        : undefined;
+  if (composeArgs)
+    return composeDestructive.has(composeAction(composeArgs))
+      ? deny(SHARED_REASON)
+      : allow;
+  return dockerDestructive.has(group) || dockerDestructive.has(action)
+    ? deny(SHARED_REASON)
+    : allow;
 };
 
-const RESET_SCRIPTS = new Set([
-  'db:reset',
-  'packages/db/scripts/reset.ts',
-  'scripts/db-reset.ts',
-]);
-const DATABASE_OVERRIDES = [
-  'DATABASE_URL',
-  'TEST_DATABASE_URL',
-  'DAISY_STACK_NAME',
-  'DAISY_PG_PORT',
-];
+const SLOT_SCRIPTS: Readonly<Record<string, 'reset' | 'down'>> = {
+  'db:reset': 'reset',
+  'scripts/db-reset.ts': 'reset',
+  'slot:down': 'down',
+};
+const DATABASE_KEYS = ['DATABASE_URL', 'TEST_DATABASE_URL', 'E2E_DATABASE_URL'];
+
+function databaseName(url: string): string | undefined {
+  try {
+    return new URL(url).pathname.replace(/^\//, '');
+  } catch {
+    return undefined;
+  }
+}
 
 /** The script bun runs and the directory it runs in. */
 function bunScript(words: readonly string[], cwd: string) {
@@ -137,26 +94,25 @@ function bunScript(words: readonly string[], cwd: string) {
   return { dir, script: words[index] ?? '', args: words.slice(index + 1) };
 }
 
-function resetOwned(invocation: Invocation, facts: GuardFacts, dir: string) {
-  const overridden = DATABASE_OVERRIDES.some(
-    (key) => invocation.assignments[key] !== undefined,
+function ownsSlot(invocation: Invocation, facts: GuardFacts, dir: string) {
+  const own = facts.databaseOf(facts.worktree);
+  const hasSlot =
+    own !== undefined && own !== facts.databaseOf(facts.mainCheckout);
+  const overrides = DATABASE_KEYS.flatMap((key) => {
+    const value = invocation.assignments[key];
+    return value === undefined ? [] : [databaseName(value)];
+  });
+  return (
+    hasSlot &&
+    isWithin(dir, facts.worktree) &&
+    overrides.every((name) => name === own || name === `${own}_test`)
   );
-  const ownsDatabase =
-    ownedStack(facts) !== undefined ||
-    facts.databaseOf(facts.worktree) !== facts.databaseOf(facts.mainCheckout);
-  return isWithin(dir, facts.worktree) && !overridden && ownsDatabase;
 }
 
-export const bun: Rule = (invocation, facts, cwd) => {
+export const bun: Rule = (invocation, facts, cwd): Verdict => {
   const { dir, script, args } = bunScript(invocation.words, cwd);
   if (script === 'github:rules' && args.includes('--apply'))
     return autonomousOnly(facts, RULE_REASON);
-  if (!facts.autonomous) return allow;
-  if (script === 'infra:down') {
-    const stack = invocation.assignments.DAISY_STACK_NAME ?? facts.stackOf(dir);
-    return stack === ownedStack(facts) ? allow : deny(STACK_REASON);
-  }
-  if (RESET_SCRIPTS.has(script))
-    return resetOwned(invocation, facts, dir) ? allow : deny(STACK_REASON);
-  return allow;
+  if (!facts.autonomous || !SLOT_SCRIPTS[script]) return allow;
+  return ownsSlot(invocation, facts, dir) ? allow : deny(SLOT_REASON);
 };
