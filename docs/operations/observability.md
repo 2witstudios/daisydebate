@@ -44,35 +44,36 @@ not a history of emitted events. See [ADR 0015](../decisions/0015-event-stream-a
 The logger currently accepts these events. The registry, rather than caller
 selected log levels, controls severity:
 
-| Event                         | Severity | Meaning                                                                                                |
-| ----------------------------- | -------- | ------------------------------------------------------------------------------------------------------ |
-| `runtime.initialize`          | info     | The application runtime initialized                                                                    |
-| `server.start`                | info     | The HTTP server began listening                                                                        |
-| `server.shutdown`             | info     | Shutdown began draining requests                                                                       |
-| `http.request.completed`      | info     | A request operation returned a response                                                                |
-| `http.request.cancelled`      | warn     | A client/request signal aborted before completion                                                      |
-| `http.request.failed`         | error    | A request operation or server handler failed                                                           |
-| `invariant.violated`          | error    | A request operation violated a registered invariant                                                    |
-| `auth.rate_limit.denied`      | warn     | The auth rate-limit gate denied a request (public 429)                                                 |
-| `auth.rate_limit.unavailable` | error    | The auth limiter or client resolution failed; denied with a public 503                                 |
-| `auth.session.unavailable`    | error    | The session store could not be read; guarded pages and the username claim answer 503, never a sign-out |
-| `auth.mail.sent`              | info     | An auth email was handed to the mail transport                                                         |
-| `auth.mail.failed`            | error    | Auth email delivery failed                                                                             |
-| `auth.mail.receipt_failed`    | error    | The provider accepted a message but recording its receipt failed                                       |
-| `auth.cleanup.completed`      | info     | A scheduled verification-record cleanup batch ran                                                      |
-| `auth.cleanup.failed`         | error    | A scheduled verification-record cleanup batch failed                                                   |
-| `auth.magic_link.verified`    | info     | A magic-link token was redeemed and a session established                                              |
-| `auth.passkey.enrolled`       | info     | A passkey registration ceremony completed                                                              |
-| `auth.passkey.authenticated`  | info     | A passkey authentication ceremony completed                                                            |
-| `auth.passkey.removed`        | info     | An owned passkey was deleted                                                                           |
-| `auth.session.revoked`        | info     | A single named other session was revoked                                                               |
-| `auth.session.revoked_all`    | info     | Every other session for the account was revoked                                                        |
-| `auth.email_change.requested` | info     | A fresh session started a recovery-email change                                                        |
-| `auth.email_change.verified`  | info     | Ownership of the new address was verified and the change completed                                     |
-| `request.unhandled`           | error    | Next reported an unhandled request failure                                                             |
-| `db.query.failed`             | error    | A database query or transaction failed                                                                 |
-| `redis.command.failed`        | error    | A Redis command failed                                                                                 |
-| `telemetry.unknown_event`     | warn     | An unregistered runtime event name was normalized                                                      |
+| Event                              | Severity | Meaning                                                                                                |
+| ---------------------------------- | -------- | ------------------------------------------------------------------------------------------------------ |
+| `runtime.initialize`               | info     | The application runtime initialized                                                                    |
+| `server.start`                     | info     | The HTTP server began listening                                                                        |
+| `server.shutdown`                  | info     | Shutdown began draining requests                                                                       |
+| `http.request.completed`           | info     | A request operation returned a response                                                                |
+| `http.request.cancelled`           | warn     | A client/request signal aborted before completion                                                      |
+| `http.request.failed`              | error    | A request operation or server handler failed                                                           |
+| `invariant.violated`               | error    | A request operation violated a registered invariant                                                    |
+| `auth.rate_limit.denied`           | warn     | The auth rate-limit gate denied a request (public 429)                                                 |
+| `auth.rate_limit.unavailable`      | error    | The auth limiter or client resolution failed; denied with a public 503                                 |
+| `auth.session.unavailable`         | error    | The session store could not be read; guarded pages and the username claim answer 503, never a sign-out |
+| `auth.mail.sent`                   | info     | An auth email was handed to the mail transport                                                         |
+| `auth.mail.failed`                 | error    | Auth email delivery failed                                                                             |
+| `auth.mail.receipt_failed`         | error    | The provider accepted a message but recording its receipt failed                                       |
+| `auth.cleanup.completed`           | info     | A scheduled verification-record cleanup batch ran                                                      |
+| `auth.cleanup.failed`              | error    | A scheduled verification-record cleanup batch failed                                                   |
+| `auth.magic_link.verified`         | info     | A magic-link token was redeemed and a session established                                              |
+| `auth.passkey.enrolled`            | info     | A passkey registration ceremony completed                                                              |
+| `auth.passkey.authenticated`       | info     | A passkey authentication ceremony completed                                                            |
+| `auth.passkey.removed`             | info     | An owned passkey was deleted                                                                           |
+| `auth.passkey.notification_failed` | error    | The added/removed security notification email could not be sent                                        |
+| `auth.session.revoked`             | info     | A single named other session was revoked                                                               |
+| `auth.session.revoked_all`         | info     | Every other session for the account was revoked                                                        |
+| `auth.email_change.requested`      | info     | A fresh session started a recovery-email change                                                        |
+| `auth.email_change.verified`       | info     | Ownership of the new address was verified and the change completed                                     |
+| `request.unhandled`                | error    | Next reported an unhandled request failure                                                             |
+| `db.query.failed`                  | error    | A database query or transaction failed                                                                 |
+| `redis.command.failed`             | error    | A Redis command failed                                                                                 |
+| `telemetry.unknown_event`          | warn     | An unregistered runtime event name was normalized                                                      |
 
 Lifecycle events describe runtime, server, and request progress. Failure events
 describe invariant violations, unhandled requests, and adapter failures;

@@ -6,13 +6,13 @@ import {
   deliveryRow,
   providerEvent,
 } from './auth-webhook-helpers';
-import { recipientHash } from '../src/features/auth/mail';
+import { recipientKey } from '../src/features/auth/recipient-key';
 
 if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
   throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
 setupRitewayBun();
 const suite = await createMailSuite();
-const { webhookRoute, getResources, secret, messageIds } = suite;
+const { webhookRoute, getResources, recipientSubkey, messageIds } = suite;
 const { fresh, requestLink } = suite;
 
 describe('AUTH-3.6 provider delivery events', () => {
@@ -32,7 +32,8 @@ describe('AUTH-3.6 provider delivery events', () => {
         status: response.status,
         row: rows[0]?.status,
         rank: rows[0]?.status_rank,
-        hashMatches: rows[0]?.recipient_hash === recipientHash(secret, email),
+        hashMatches:
+          rows[0]?.recipient_hash === recipientKey(recipientSubkey, email),
         containsAddress: dump[0]?.a,
       },
       expected: {
@@ -126,7 +127,7 @@ describe('AUTH-3.6 provider delivery events', () => {
         statuses: responses.map((response) => response.status),
         row: (await deliveryRow(messageId))[0]?.status,
         suppressed: await getResources().database.isRecipientSuppressed(
-          recipientHash(secret, email),
+          recipientKey(recipientSubkey, email),
         ),
         signedBodyHasType: forgedText.includes('email.complained'),
       },
@@ -196,7 +197,7 @@ describe('AUTH-3.6 provider delivery events', () => {
     const first = await webhookRoute.POST(event.clone());
     await getResources().database.recordEmailDelivery({
       providerMessageId: messageId,
-      recipientHash: recipientHash(secret, fresh()),
+      recipientHash: recipientKey(recipientSubkey, fresh()),
       at: new Date().toISOString(),
     });
     const second = await webhookRoute.POST(event.clone());

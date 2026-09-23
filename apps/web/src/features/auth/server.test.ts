@@ -9,6 +9,7 @@ import { createAuthServer, type AuthEmailMessage } from './server';
 setupRitewayBun();
 
 const env = {
+  NODE_ENV: 'test',
   BETTER_AUTH_SECRET:
     '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
   PUBLIC_APP_URL: 'http://localhost:3000',
@@ -50,6 +51,7 @@ const create = (overrides?: {
     clock: fixedClock('2026-09-20T00:00:00.000Z'),
     ids: sequentialId('auth'),
     appendSessionRevoked: async () => {},
+    revokeOtherSessions: async () => 0,
   });
 
 function capturingSender() {
@@ -66,14 +68,13 @@ describe('auth server composition', () => {
   test('composes the validated configuration from the injected environment', () => {
     assert({
       given: 'an environment holding the four required auth variables',
-      should: 'expose the validated configuration with empty client-IP trust',
+      should: 'expose the validated configuration with an empty proxy list',
       actual: create().config,
       expected: {
         BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET,
         PUBLIC_APP_URL: env.PUBLIC_APP_URL,
         RESEND_API_KEY: env.RESEND_API_KEY,
         AUTH_EMAIL_FROM: env.AUTH_EMAIL_FROM,
-        AUTH_TRUSTED_IP_HEADERS: [],
         AUTH_TRUSTED_PROXIES: [],
       },
     });
@@ -93,6 +94,7 @@ describe('auth server composition', () => {
         clock: fixedClock('2026-09-20T00:00:00.000Z'),
         ids: sequentialId('auth'),
         appendSessionRevoked: async () => {},
+        revokeOtherSessions: async () => 0,
       });
     } catch (error) {
       message = String(error);
@@ -141,6 +143,7 @@ describe('auth server composition', () => {
       clock: fixedClock('2026-09-20T00:00:00.000Z'),
       ids: sequentialId('auth'),
       appendSessionRevoked: async () => {},
+      revokeOtherSessions: async () => 0,
     });
     const composed = {
       configValidated:
@@ -194,6 +197,7 @@ describe('auth server composition', () => {
       clock: fixedClock('2026-09-20T00:00:00.000Z'),
       ids: sequentialId('auth'),
       appendSessionRevoked: async () => {},
+      revokeOtherSessions: async () => 0,
     });
     let appError = false;
     let code = '';

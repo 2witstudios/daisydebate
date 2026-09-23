@@ -1,15 +1,7 @@
-import { createHash } from 'node:crypto';
 import type { IdGenerator } from '@daisy/clock';
-import type { AuthEmailMessage, AuthEmailSender } from './server';
+import type { AuthEmailMessage, AuthEmailSender } from './mail-types';
 
 const ENDPOINT = 'https://api.resend.com/emails';
-
-/** Recipients are only ever stored or compared as a keyed SHA3-256 digest. */
-export function recipientHash(secret: string, email: string): string {
-  return createHash('sha3-256')
-    .update(`${secret}\0${email.trim().toLowerCase()}`)
-    .digest('hex');
-}
 
 /** Failure carries a status class only: never the body, recipient or link. */
 class DeliveryError extends Error {

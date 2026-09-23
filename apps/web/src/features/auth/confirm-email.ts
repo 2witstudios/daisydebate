@@ -1,6 +1,7 @@
 import type { Logger } from '@daisy/logger';
 import { handleOperation, requireSameOrigin } from '../../server/http';
 import { renderEmailConfirmPage } from './confirm-email-page';
+import { SESSION_CLEANUP_FAILED_HEADER } from './revoke-others-on-verify-email';
 import {
   createForward,
   createViewHeadHandlers,
@@ -16,22 +17,7 @@ const MAX_FORM_BYTES = 4096;
 const tokenShape = /^[A-Za-z0-9_.-]{16,4096}$/;
 const DEFAULT_DESTINATION = '/settings/security';
 
-type ConfirmEmailDependencies = {
-  readonly auth: () => ReturnType<ConfirmAuth> & {
-    /**
-     * One atomic revocation of every session for `userId` except
-     * `keepToken` (`@daisy/db`'s single-statement DELETE), which also
-     * appends `session.revoked` to the outbox in that same transaction
-     * (ADR 0032 §5, plan revision 4.7): this is Daisy's own operation, not
-     * one of Better Auth's internal deletes, so the append is atomic with
-     * the delete rather than best-effort-ordered after it.
-     */
-    readonly revokeOtherSessions: (
-      userId: string,
-      keepToken: string,
-    ) => Promise<number>;
-  };
-};
+type ConfirmEmailDependencies = { readonly auth: ConfirmAuth };
 
 export function createConfirmEmailHandlers({ auth }: ConfirmEmailDependencies) {
   const forward = createForward(auth);
@@ -46,42 +32,6 @@ export function createConfirmEmailHandlers({ auth }: ConfirmEmailDependencies) {
     return token && tokenShape.test(token)
       ? renderEmailConfirmPage({ kind: 'confirm', token, callbackURL })
       : renderEmailConfirmPage({ kind: 'expired' }, 400);
-  };
-
-  /**
-   * When the redeemed hop set a session cookie (the final, new-address
-   * verification step; the old-address approval step does not), the account
-   * just proved live access to the new mailbox on this session. Every other
-   * session for the account is revoked in one atomic statement, bypassing
-   * the HTTP fresh-session gate that a genuinely stale concurrent session
-   * could otherwise fail (AUTH-5.6).
-   */
-  /** True only once every other session for this account is confirmed gone. */
-  const revokeOtherSessionsFor = async (
-    request: Request,
-    cookies: readonly string[],
-  ): Promise<boolean> => {
-    if (cookies.length === 0) return true;
-    const cookieHeader = cookies
-      .map((cookie) => cookie.split(';')[0])
-      .join('; ');
-    const sessionResponse = await forward(request, '/api/auth/get-session', {
-      method: 'GET',
-      headers: { cookie: cookieHeader },
-    });
-    if (!sessionResponse.ok) return false;
-    const body = (await sessionResponse.json().catch(() => null)) as {
-      session?: { token?: unknown; userId?: unknown };
-    } | null;
-    const token = body?.session?.token;
-    const userId = body?.session?.userId;
-    if (typeof token !== 'string' || typeof userId !== 'string') return false;
-    try {
-      await auth().revokeOtherSessions(userId, token);
-      return true;
-    } catch {
-      return false;
-    }
   };
 
   const redeem = async (
@@ -103,24 +53,29 @@ export function createConfirmEmailHandlers({ auth }: ConfirmEmailDependencies) {
     );
     if (!response.ok) return renderEmailConfirmPage({ kind: 'expired' }, 400);
     const cookies = response.headers.getSetCookie();
-    const revoked = await revokeOtherSessionsFor(request, cookies);
-    if (!revoked)
-      return renderEmailConfirmPage(
-        { kind: 'incomplete', callbackURL },
-        502,
-        cookies,
-      );
     // Only the final hop (proving live access to the new mailbox) sets a
     // session cookie; the old-address approval hop hits this same route
     // without one. This redemption bypasses the mounted-route wrapper (it
     // forwards straight into Better Auth), so this is the one place the
-    // milestone is observable: no token, cookie or address.
-    if (cookies.length > 0)
+    // milestone is observable: no token, cookie or address. The atomic
+    // revoke of every other session (AUTH-5.6) now runs on the endpoint
+    // itself (`revokeOthersOnVerifyEmailPlugin`, ISSUE-3 AC3), so it can no
+    // longer be skipped by any caller of `/verify-email`; a failure there is
+    // best-effort and flagged on the response rather than kept as a second,
+    // skippable path here.
+    if (cookies.length > 0) {
       logger.log(
         'auth.email_change.verified',
         { operation: 'auth.confirm_email.submit' },
         'Email change verified',
       );
+      if (response.headers.get(SESSION_CLEANUP_FAILED_HEADER) === 'true')
+        return renderEmailConfirmPage(
+          { kind: 'incomplete', callbackURL },
+          502,
+          cookies,
+        );
+    }
     const headers = new Headers();
     for (const cookie of cookies) headers.append('set-cookie', cookie);
     return redirect(callbackURL, headers);

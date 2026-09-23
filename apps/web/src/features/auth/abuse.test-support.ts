@@ -1,10 +1,10 @@
 import { memoryAdapter } from '@better-auth/memory-adapter';
 import { fixedClock, sequentialId } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
-import { CLIENT_IP_HEADER } from './client-ip';
 import { createAuthServer, type AuthEmailMessage } from './server';
 
 const env = {
+  NODE_ENV: 'test',
   BETTER_AUTH_SECRET:
     '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
   PUBLIC_APP_URL: 'http://localhost:3000',
@@ -75,11 +75,11 @@ export const create = (
         recorded.push(input);
       },
     },
-    clientIp: { trustedHeaders: [CLIENT_IP_HEADER] },
     logger,
     clock: fixedClock('2026-09-20T00:00:00.000Z'),
     ids: sequentialId('auth'),
     appendSessionRevoked: async () => {},
+    revokeOtherSessions: async () => 0,
   });
   return { server, db, consumed, sent, recorded, lookups, logs };
 };

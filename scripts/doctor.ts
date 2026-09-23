@@ -1,8 +1,9 @@
 import { SQL, RedisClient } from 'bun';
 import { readServerConfig } from '@daisy/config';
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { serviceRefusal, slotMismatches, type Slot } from './slot-model';
 import {
   inspectOrphans,
@@ -10,6 +11,12 @@ import {
   openServices,
   resolveCheckout,
 } from './slot';
+import {
+  assessGithubIdentity,
+  identityRegime,
+  regimeCheck,
+} from './agent-identity';
+import { checkoutWarning, readCheckout } from './session-start';
 
 const checkNames = [
   'bun-version',
@@ -20,6 +27,10 @@ const checkNames = [
   'boundaries',
   'slot',
   'slot-orphans',
+  'github-identity',
+  'identity-regime',
+  'pu-config',
+  'checkout',
 ] as const;
 
 type CheckName = (typeof checkNames)[number];
@@ -265,9 +276,114 @@ async function checkBoundaries(): Promise<DoctorCheck> {
     : fail('boundaries', 'failed');
 }
 
+async function output(args: readonly string[]): Promise<string | undefined> {
+  try {
+    const child = Bun.spawn([...args], {
+      cwd: root,
+      stdout: 'pipe',
+      stderr: 'ignore',
+    });
+    const text = (await new Response(child.stdout).text()).trim();
+    return (await child.exited) === 0 && text !== '' ? text : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function checkGithubIdentity(): Promise<DoctorCheck> {
+  const { owner } = (await Bun.file(
+    resolve(root, 'policy/github/repository.json'),
+  ).json()) as { owner: string };
+  const [login, pushUrl, credentialHelper] = await Promise.all([
+    output(['gh', 'api', 'user', '--jq', '.login']),
+    output(['git', 'remote', 'get-url', '--push', 'origin']),
+    output([
+      'git',
+      'config',
+      '--get-urlmatch',
+      'credential.helper',
+      'https://github.com',
+    ]),
+  ]);
+  const { status, detail } = assessGithubIdentity({
+    autonomous: process.env.DAISY_AUTONOMOUS === '1',
+    login,
+    tokenFromEnv: Boolean(process.env.GH_TOKEN),
+    pushUrl,
+    credentialHelper,
+    owner,
+  });
+  return { name: 'github-identity', status, detail };
+}
+
+async function checkIdentityRegime(): Promise<DoctorCheck> {
+  const commonDir = await output([
+    'git',
+    'rev-parse',
+    '--path-format=absolute',
+    '--git-common-dir',
+  ]);
+  const regime = identityRegime(
+    process.env,
+    existsSync,
+    commonDir ? dirname(commonDir) : undefined,
+  );
+  return {
+    name: 'identity-regime',
+    ...regimeCheck(regime, process.env.PU_AGENT_ID),
+  };
+}
+
+/**
+ * pu init writes its default config whenever .pu/manifest.json is missing (a
+ * fresh clone), which would start agents without the identity launcher.
+ */
+export function puConfigCheck(porcelain: string): DoctorCheck {
+  return porcelain.trim() === ''
+    ? pass('pu-config', 'agents start through scripts/agent-launch.sh')
+    : fail(
+        'pu-config',
+        '.pu/config.yaml differs from the committed launcher configuration (pu init rewrites it on a fresh clone): run git checkout -- .pu/config.yaml in the main checkout',
+      );
+}
+
+async function checkPuConfig(): Promise<DoctorCheck> {
+  const commonDir = await output([
+    'git',
+    'rev-parse',
+    '--path-format=absolute',
+    '--git-common-dir',
+  ]);
+  const main = commonDir ? dirname(commonDir) : root;
+  const status = await output([
+    'git',
+    '-C',
+    main,
+    'status',
+    '--porcelain',
+    '--',
+    '.pu/config.yaml',
+  ]);
+  return puConfigCheck(status ?? '');
+}
+
+/** The main checkout off main is a warning (the session-start hook warns too). */
+export function checkoutCheck(checkout: {
+  readonly mainCheckout: boolean;
+  readonly branch: string | undefined;
+}): DoctorCheck {
+  const warning = checkoutWarning(checkout);
+  return warning
+    ? { name: 'checkout', status: 'warn', detail: warning }
+    : pass(
+        'checkout',
+        `${checkout.mainCheckout ? 'main checkout' : 'worktree'} on ${checkout.branch ?? 'detached HEAD'}`,
+      );
+}
+
 export async function runDoctor(): Promise<DoctorReport> {
   const env = checkEnvironment();
-  const [bunVersion, postgres, migrations, redis, boundaries, slots] =
+  const [bunVersion, postgres, migrations, redis, boundaries, slots, identity] =
     await Promise.all([
       checkBunVersion(),
       checkPostgres(process.env.DATABASE_URL),
@@ -275,6 +391,7 @@ export async function runDoctor(): Promise<DoctorReport> {
       checkRedis(process.env.REDIS_URL),
       checkBoundaries(),
       checkSlots(),
+      checkGithubIdentity(),
     ]);
   return createDoctorReport([
     bunVersion,
@@ -284,6 +401,10 @@ export async function runDoctor(): Promise<DoctorReport> {
     redis,
     boundaries,
     ...slots,
+    identity,
+    await checkIdentityRegime(),
+    await checkPuConfig(),
+    checkoutCheck(readCheckout(root)),
   ]);
 }
 

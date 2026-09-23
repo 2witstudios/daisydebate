@@ -36,6 +36,10 @@ export function createForward(auth: ConfirmAuth) {
     const client = request.headers.get(CLIENT_IP_HEADER);
     if (client) headers.set(CLIENT_IP_HEADER, client);
     // An unexpected framework failure becomes a plain 503 the views retry.
+    // `server.handler` now throws a typed INFRASTRUCTURE error on such a
+    // failure (server.ts) rather than swallowing it to a bare 500 Response,
+    // so this catch is the one place that failure is converted into the
+    // graceful fallback the confirm pages already render for it.
     return server
       .handler(
         new Request(new URL(path, server.config.PUBLIC_APP_URL), {

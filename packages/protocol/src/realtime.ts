@@ -218,7 +218,8 @@ export const subscribeAuthorizationTable: Readonly<
 
 // --- Client and server message envelopes -------------------------------
 
-const presenceActivitySchema = z.enum(['active', 'idle']);
+export const presenceActivitySchema = z.enum(['active', 'idle']);
+export type PresenceActivity = z.infer<typeof presenceActivitySchema>;
 /**
  * The projected presence status vocabulary. It lost its only in-package
  * consumer when `presence.update` was removed (RT-2.1b): RT-3.2a's HTTP

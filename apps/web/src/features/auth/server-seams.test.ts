@@ -9,6 +9,7 @@ import { createAuthServer, type AuthEmailMessage } from './server';
 setupRitewayBun();
 
 const env = {
+  NODE_ENV: 'test',
   BETTER_AUTH_SECRET:
     '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
   PUBLIC_APP_URL: 'http://localhost:3000',
@@ -55,6 +56,7 @@ const compose = (overrides: {
     clock: fixedClock('2026-09-20T00:00:00.000Z'),
     ids: sequentialId('auth'),
     appendSessionRevoked: async () => {},
+    revokeOtherSessions: async () => 0,
   });
   const requestLink = async () => {
     try {

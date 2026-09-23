@@ -82,6 +82,28 @@ const directives = (env: 'production' | 'development') => {
 };
 
 describe('proxy content security policy', () => {
+  test('draws the nonce from 16 CSPRNG bytes, never a repeatable value', () => {
+    const nonceOf = (sources: readonly string[]) =>
+      sources
+        .find((source) => source.startsWith("'nonce-"))
+        ?.slice("'nonce-".length, -1);
+    const nonces = Array.from({ length: 20 }, () => {
+      const sources = directives('production').get('script-src') ?? [];
+      return nonceOf(sources) ?? '';
+    });
+    assert({
+      given: '20 requests handled in a row',
+      should: 'decode every nonce to exactly 16 bytes, all distinct',
+      actual: {
+        allSixteenBytes: nonces.every(
+          (nonce) => Buffer.from(nonce, 'base64').length === 16,
+        ),
+        allDistinct: new Set(nonces).size === nonces.length,
+      },
+      expected: { allSixteenBytes: true, allDistinct: true },
+    });
+  });
+
   test('keeps production style elements nonce-only', () => {
     const sources = directives('production').get('style-src') ?? [];
     assert({

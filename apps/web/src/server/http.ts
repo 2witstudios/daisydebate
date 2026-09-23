@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { createAppError, toPublicError } from '@daisy/errors';
 import {
   currentTraceId,
@@ -9,6 +10,12 @@ import type { Logger } from '@daisy/logger';
 import { type ZodType } from 'zod';
 import { CLIENT_IP_HEADER } from '../features/auth/client-ip';
 import { getResources } from './resources';
+
+// Correlates repeated requests from one client across log lines without
+// logging the raw address (ADR 0019's loggable allowlist), the same way
+// rate-limit.ts's bucket keys are hashed before they ever reach Redis.
+const hashClientId = (value: string) =>
+  createHash('sha3-256').update(value).digest('hex');
 
 /** Single trust-boundary entry for untrusted payloads; failures map to VALIDATION. */
 export function parseValidated<T>(schema: ZodType<T>, input: unknown): T {
@@ -40,15 +47,17 @@ export async function handleOperation(
         const response = await handler(id, logger);
         response.headers.set('x-request-id', id);
         response.headers.set('Cache-Control', 'no-store');
+        const clientIp = request.headers.get(CLIENT_IP_HEADER);
         logger.log(
           'http.request.completed',
           {
             durationMs: Math.round(performance.now() - start),
             status: response.status,
-            // The ingress-resolved client identity (apps/web/src/server/ingress.ts);
-            // present only when a socket peer or trusted proxy chain resolved one.
-            // Not a secret: it is the same value already used for rate-limit keying.
-            clientId: request.headers.get(CLIENT_IP_HEADER) ?? undefined,
+            // A stable hash of the ingress-resolved client identity
+            // (apps/web/src/server/ingress.ts); present only when a socket
+            // peer or trusted proxy chain resolved one. Never the raw
+            // address itself, which falls outside ADR 0019's allowlist.
+            clientIdHash: clientIp ? hashClientId(clientIp) : undefined,
           },
           'Request completed',
         );

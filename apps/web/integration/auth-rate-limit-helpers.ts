@@ -8,7 +8,6 @@ import {
 } from './auth-mounted-helpers';
 import { createAuthRouteHandlers } from '../src/features/auth/handlers';
 import { createAuthRateLimiter } from '../src/features/auth/redis-limiter';
-import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import { createAuthServer } from '../src/features/auth/server';
 
 const silentLogger = { log: () => {}, child: () => silentLogger };
@@ -53,9 +52,9 @@ export function secondInstance(
       },
     },
     limiter: overrides.limiter ? overrides.limiter(base) : base,
-    clientIp: { trustedHeaders: [CLIENT_IP_HEADER] },
     ledger: noLedger,
     appendSessionRevoked: async () => {},
+    revokeOtherSessions: async () => 0,
     logger: silentLogger,
     clock: systemClock,
     ids: systemId,

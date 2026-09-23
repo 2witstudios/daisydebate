@@ -2,6 +2,7 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql';
 import { actors } from './schema/actors';
 import { users } from './schema/users';
+import { instrumented, type DatabaseEventSink } from './instrumented';
 
 export type UsernameClaim = {
   readonly kind:
@@ -45,39 +46,40 @@ export async function claimUsername(
   database: BunSQLDatabase,
   input: { readonly userId: string; readonly username: string },
   nextActorId: () => string,
-  reportFailure: (operation: string) => void,
+  eventSink: DatabaseEventSink | undefined,
 ): Promise<UsernameClaim> {
-  try {
-    return await database.transaction(async (tx) => {
-      const claimed = await tx
-        .update(users)
-        .set({
-          username: input.username,
-          updatedAt: sql`now()`,
-          version: sql`${users.version} + 1`,
-        })
-        .where(and(eq(users.id, input.userId), isNull(users.username)))
-        .returning({ id: users.id });
-      if (claimed.length > 0) {
-        await tx
-          .insert(actors)
-          .values({ id: nextActorId(), kind: 'human', userId: input.userId })
-          .onConflictDoNothing({ target: actors.userId });
-        return { kind: 'claimed' };
-      }
-      const [current] = await tx
-        .select({ username: users.username })
-        .from(users)
-        .where(eq(users.id, input.userId))
-        .limit(1);
-      if (!current) return { kind: 'unknown-user' };
-      return current.username?.toLowerCase() === input.username.toLowerCase()
-        ? { kind: 'unchanged' }
-        : { kind: 'already-set' };
-    });
-  } catch (error) {
-    if (isUniqueViolation(error)) return { kind: 'taken' };
-    reportFailure('claimUsername');
-    throw error;
-  }
+  return instrumented(eventSink, 'claimUsername', async () => {
+    try {
+      return await database.transaction(async (tx) => {
+        const claimed = await tx
+          .update(users)
+          .set({
+            username: input.username,
+            updatedAt: sql`now()`,
+            version: sql`${users.version} + 1`,
+          })
+          .where(and(eq(users.id, input.userId), isNull(users.username)))
+          .returning({ id: users.id });
+        if (claimed.length > 0) {
+          await tx
+            .insert(actors)
+            .values({ id: nextActorId(), kind: 'human', userId: input.userId })
+            .onConflictDoNothing({ target: actors.userId });
+          return { kind: 'claimed' } as const;
+        }
+        const [current] = await tx
+          .select({ username: users.username })
+          .from(users)
+          .where(eq(users.id, input.userId))
+          .limit(1);
+        if (!current) return { kind: 'unknown-user' } as const;
+        return current.username?.toLowerCase() === input.username.toLowerCase()
+          ? ({ kind: 'unchanged' } as const)
+          : ({ kind: 'already-set' } as const);
+      });
+    } catch (error) {
+      if (isUniqueViolation(error)) return { kind: 'taken' } as const;
+      throw error;
+    }
+  });
 }

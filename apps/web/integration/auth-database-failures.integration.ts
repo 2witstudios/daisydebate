@@ -3,6 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createDatabase } from '@daisy/db';
 import type { RecordedLogs } from '../src/features/auth/log-leaks';
+import { createAuthRouteHandlers } from '../src/features/auth/handlers';
 import {
   countFixtureRows,
   createTestAuthServer,
@@ -161,7 +162,14 @@ test('a persistence failure inside Better Auth leaks no SQL, parameters, token o
       : value;
   let consoleCalls: unknown[] = [];
   try {
-    const response = await auth.instance.handler(
+    // The mounted route (handlers.ts), not the raw composed instance: that
+    // is what a real client reaches, and it is the layer that converts the
+    // now-thrown INFRASTRUCTURE failure into a safe, bodiless public error.
+    const handlers = createAuthRouteHandlers(() => ({
+      handler: auth.instance.handler,
+      config: auth.config,
+    }));
+    const response = await handlers.POST(
       new Request(`${auth.config.PUBLIC_APP_URL}/api/auth/sign-in/magic-link`, {
         method: 'POST',
         headers: {
@@ -184,7 +192,7 @@ test('a persistence failure inside Better Auth leaks no SQL, parameters, token o
   assert({
     given: 'the shared pool failing during a real magic-link request',
     should:
-      'fail closed and emit no SQL text, bound parameters, token or email anywhere',
+      'fail closed with a safe retryable status and emit no SQL text, bound parameters, token or email anywhere',
     actual: {
       status,
       leaksSql: /insert into|params:|\$1/i.test(emitted),
@@ -192,7 +200,7 @@ test('a persistence failure inside Better Auth leaks no SQL, parameters, token o
       reported: recorded.length > 0 || consoleCalls.length > 0,
     },
     expected: {
-      status: 500,
+      status: 503,
       leaksSql: false,
       leaksEmail: false,
       reported: true,

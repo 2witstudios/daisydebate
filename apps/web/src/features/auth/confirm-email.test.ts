@@ -6,23 +6,20 @@ setupRitewayBun();
 // Seed process-local resources so handleOperation never builds real clients.
 seedSilentResources();
 const { createConfirmEmailHandlers } = await import('./confirm-email');
+const { SESSION_CLEANUP_FAILED_HEADER } =
+  await import('./revoke-others-on-verify-email');
 
 const token = 'a'.repeat(32);
 const PUBLIC_APP_URL = 'https://daisy.invalid';
 
-type Behavior = {
-  readonly revokeOtherSessions?: (
-    userId: string,
-    keepToken: string,
-  ) => Promise<number>;
-};
-
 /**
- * A fake Better Auth handler answering the two sub-requests confirm-email
- * makes (verify-email, get-session), plus an injectable atomic revocation
- * standing in for the post-verification session cleanup.
+ * A fake Better Auth handler answering the one sub-request confirm-email
+ * makes (verify-email). The atomic revoke of every other session now runs
+ * inside Better Auth's own after-hook on that endpoint
+ * (`revokeOthersOnVerifyEmailPlugin`), so this fake simulates its outcome
+ * the same way the real hook reports it: via a response header.
  */
-const handlersWith = (behavior: Behavior = {}) =>
+const handlersWith = (cleanupFailed = false) =>
   createConfirmEmailHandlers({
     auth: () => ({
       config: { PUBLIC_APP_URL },
@@ -33,16 +30,13 @@ const handlersWith = (behavior: Behavior = {}) =>
             status: 200,
             headers: {
               'set-cookie': 'better-auth.session_token=new; Path=/',
+              ...(cleanupFailed
+                ? { [SESSION_CLEANUP_FAILED_HEADER]: 'true' }
+                : {}),
             },
           });
-        if (url.pathname === '/api/auth/get-session')
-          return new Response(
-            JSON.stringify({ session: { token: 'new', userId: 'u1' } }),
-            { status: 200, headers: { 'content-type': 'application/json' } },
-          );
         return new Response(null, { status: 404 });
       },
-      revokeOtherSessions: behavior.revokeOtherSessions ?? (async () => 1),
     }),
   });
 
@@ -59,9 +53,34 @@ const post = () =>
     }).toString(),
   });
 
+describe('confirm-email: when the forwarded auth request fails', () => {
+  test('renders the expired page instead of propagating the failure', async () => {
+    const throwingHandlers = createConfirmEmailHandlers({
+      auth: () => ({
+        config: { PUBLIC_APP_URL },
+        handler: async () => {
+          throw new Error('redis://secret-host unreachable');
+        },
+      }),
+    });
+    const response = await throwingHandlers.POST(post());
+    const body = await response.text();
+    assert({
+      given:
+        'the composed auth handler throwing (a real outage, now that it no longer swallows to a bare 500)',
+      should: 'answer 400 with no internal detail, not an unhandled rejection',
+      actual: {
+        status: response.status,
+        leaks: body.includes('redis://secret-host'),
+      },
+      expected: { status: 400, leaks: false },
+    });
+  });
+});
+
 describe('confirm-email: post-verification session revocation', () => {
   test('redirects to the destination once every other session is confirmed revoked', async () => {
-    const response = await handlersWith().POST(post());
+    const response = await handlersWith(false).POST(post());
     assert({
       given: 'a successful verification and revocation',
       should: 'redirect with the new session cookie, not render a warning',
@@ -73,15 +92,11 @@ describe('confirm-email: post-verification session revocation', () => {
     });
   });
 
-  test('does not redirect as success when the atomic revocation fails', async () => {
-    const response = await handlersWith({
-      revokeOtherSessions: async () => {
-        throw new Error('boom');
-      },
-    }).POST(post());
+  test('does not redirect as success when the endpoint flags a failed cleanup', async () => {
+    const response = await handlersWith(true).POST(post());
     const body = await response.text();
     assert({
-      given: 'a successful verification but a failing revocation call',
+      given: 'a successful verification but a flagged cleanup failure',
       should:
         'answer an error status carrying the new cookie, not the success redirect',
       actual: {

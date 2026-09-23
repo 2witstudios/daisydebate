@@ -243,3 +243,34 @@ export const redisKeys = () =>
       })),
     ),
   );
+
+/**
+ * Patches the shared process logger's `.log` method in place (never
+ * reassigns the object: `getAuth()` composes once and every plugin holds
+ * that original logger reference, so only an in-place patch is visible to
+ * them) for the duration of `run`, recording every event name logged
+ * directly on it while still emitting through the real logger underneath.
+ * Scoped tightly around one request and always restored, since the logger
+ * is process-global state shared with whatever else runs in this
+ * `bun test` process. Does not capture events logged only through a
+ * `.child()` logger (a new object per call), which `handleOperation` uses
+ * for request-scoped fields but the plugins under test here do not.
+ */
+export async function withLoggedEvents<T>(
+  run: () => Promise<T>,
+): Promise<{ readonly result: T; readonly events: readonly string[] }> {
+  const { getResources } = await import('../src/server/resources');
+  const logger = getResources().logger;
+  const originalLog = logger.log;
+  const events: string[] = [];
+  logger.log = (event, fields, message) => {
+    events.push(event);
+    originalLog(event, fields, message);
+  };
+  try {
+    const result = await run();
+    return { result, events };
+  } finally {
+    logger.log = originalLog;
+  }
+}

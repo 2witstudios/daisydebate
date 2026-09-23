@@ -182,6 +182,45 @@ describe('createAuthRouteHandlers', () => {
     });
   });
 
+  test('refuses a direct GET or POST to /magic-link/verify or /verify-email with 404, never reaching Better Auth', async () => {
+    let delegated = 0;
+    const handlers = createAuthRouteHandlers(() => ({
+      config,
+      // If the guard is ever removed, this fake handler answers 200 with a
+      // session cookie for every path, so the negative control below fails.
+      handler: async () => {
+        delegated += 1;
+        return new Response('{"status":true}', {
+          headers: { 'set-cookie': 'better-auth.session_token=x; Path=/' },
+        });
+      },
+    }));
+    const get = (path: string) =>
+      new Request(`http://localhost:3000/api/auth${path}?token=T`);
+    const results = await Promise.all([
+      handlers.GET(get('/magic-link/verify')),
+      handlers.GET(get('/verify-email')),
+      handlers.POST(get('/magic-link/verify')),
+      handlers.POST(get('/verify-email')),
+    ]);
+    assert({
+      given: 'a direct request to either GET-redeemable auth link endpoint',
+      should: 'answer 404 with no cookie and never call Better Auth',
+      actual: {
+        statuses: results.map((response) => response.status),
+        cookies: results.map(
+          (response) => response.headers.getSetCookie().length,
+        ),
+        delegated,
+      },
+      expected: {
+        statuses: [404, 404, 404, 404],
+        cookies: [0, 0, 0, 0],
+        delegated: 0,
+      },
+    });
+  });
+
   test('maps every thrown failure to a safe, retryable 503', async () => {
     const outage = createAuthRouteHandlers(() => ({
       config,

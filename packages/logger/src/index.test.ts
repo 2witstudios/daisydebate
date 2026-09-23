@@ -107,6 +107,10 @@ describe('structured logging', () => {
     });
   });
 
+  // More redaction scenarios (secret-shaped field names at depth, err/cause,
+  // a real Error's cause chain, URL-embedded tokens) live in redact.test.ts,
+  // split out to keep this file under the line-count gate.
+
   test('rejects events outside the public vocabulary at compile time', () => {
     const logger = createLogger({ service: 'test' });
     // @ts-expect-error Event names are intentionally closed to known telemetry events.

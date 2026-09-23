@@ -1,10 +1,16 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { readAuthConfig, readBrowserConfig, readServerConfig } from './index';
+import {
+  readAuthConfig,
+  readBrowserConfig,
+  readServerConfig,
+  readTestConfig,
+} from './index';
 
 setupRitewayBun();
 
 const env = {
+  NODE_ENV: 'development',
   DATABASE_URL: 'postgres://user:secret@localhost:5432/daisy',
   REDIS_URL: 'redis://localhost:6379',
   PUBLIC_APP_URL: 'http://localhost:3000',
@@ -49,6 +55,14 @@ describe('configuration', () => {
     });
   });
 
+  test('a missing NODE_ENV refuses to start rather than skip production checks', () => {
+    const withoutNodeEnv = { ...env };
+    Reflect.deleteProperty(withoutNodeEnv, 'NODE_ENV');
+    expect(() => readServerConfig(withoutNodeEnv)).toThrow(
+      'Invalid server configuration',
+    );
+  });
+
   test('production succeeds without authentication variables before auth activates', () => {
     assert({
       given: 'a valid production environment without auth variables',
@@ -68,6 +82,7 @@ describe('configuration', () => {
 
 describe('authentication configuration', () => {
   const authEnv = {
+    NODE_ENV: 'development',
     BETTER_AUTH_SECRET:
       '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
     PUBLIC_APP_URL: 'https://daisy.example.com',
@@ -75,17 +90,24 @@ describe('authentication configuration', () => {
     AUTH_EMAIL_FROM: 'Daisy <no-reply@daisy.example.com>',
   };
 
-  test('validates the auth fields and trusts no client-IP header', () => {
+  test('a missing NODE_ENV refuses to start rather than skip production checks', () => {
+    const withoutNodeEnv = { ...authEnv };
+    Reflect.deleteProperty(withoutNodeEnv, 'NODE_ENV');
+    expect(() => readAuthConfig(withoutNodeEnv)).toThrow(
+      'Invalid auth configuration',
+    );
+  });
+
+  test('validates the auth fields and trusts no proxy by default', () => {
     assert({
       given: 'a complete server authentication environment',
-      should: 'expose the validated auth fields with empty client-IP trust',
+      should: 'expose the validated auth fields with an empty proxy list',
       actual: readAuthConfig(authEnv),
       expected: {
         BETTER_AUTH_SECRET: authEnv.BETTER_AUTH_SECRET,
         PUBLIC_APP_URL: authEnv.PUBLIC_APP_URL,
         RESEND_API_KEY: authEnv.RESEND_API_KEY,
         AUTH_EMAIL_FROM: authEnv.AUTH_EMAIL_FROM,
-        AUTH_TRUSTED_IP_HEADERS: [],
         AUTH_TRUSTED_PROXIES: [],
       },
     });
@@ -197,7 +219,6 @@ describe('authentication configuration', () => {
       ).sort(),
       expected: [
         'AUTH_EMAIL_FROM',
-        'AUTH_TRUSTED_IP_HEADERS',
         'AUTH_TRUSTED_PROXIES',
         'BETTER_AUTH_SECRET',
         'PUBLIC_APP_URL',
@@ -265,5 +286,30 @@ describe('authentication configuration', () => {
       actual: message.includes('RESEND_WEBHOOK_SECRET'),
       expected: true,
     });
+  });
+});
+
+describe('test configuration', () => {
+  const testEnv = {
+    TEST_DATABASE_URL: 'postgres://user:secret@localhost:5432/daisy_test',
+    TEST_REDIS_URL: 'redis://localhost:6379',
+  };
+
+  test('validates a database URL ending in _test', () => {
+    assert({
+      given: 'a test database URL ending in _test',
+      should: 'validate and expose both URLs',
+      actual: readTestConfig(testEnv),
+      expected: testEnv,
+    });
+  });
+
+  test('rejects a database URL not ending in _test', () => {
+    expect(() =>
+      readTestConfig({
+        ...testEnv,
+        TEST_DATABASE_URL: testEnv.TEST_DATABASE_URL.replace('_test', ''),
+      }),
+    ).toThrow('Test database must end in _test');
   });
 });

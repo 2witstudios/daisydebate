@@ -1,8 +1,9 @@
-import { APIError } from 'better-auth/api';
-import { recipientHash } from './mail';
+import type { BetterAuthPlugin } from 'better-auth';
+import { APIError, createAuthMiddleware } from 'better-auth/api';
+import { normalizeEmail, recipientKey } from './recipient-key';
 import { safeLocalDestination } from './redirect';
 import { unavailable } from './public-errors';
-import type { AuthDeliveryLedger } from './server';
+import type { AuthDeliveryLedger } from './mail-types';
 
 type MagicLinkBody = {
   readonly email?: unknown;
@@ -34,19 +35,19 @@ function assertLocalDestinations(body: MagicLinkBody) {
  * destination validation and the suppression check. A ledger failure is a
  * safe 503 — never an allow.
  */
-export function createMagicLinkGate(dependencies: {
-  readonly secret: string;
+function createMagicLinkGate(dependencies: {
+  readonly recipientSubkey: string;
   readonly ledger: AuthDeliveryLedger;
 }) {
   return async (body: MagicLinkBody | undefined) => {
     assertLocalDestinations(body ?? {});
     const email =
-      typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
+      typeof body?.email === 'string' ? normalizeEmail(body.email) : '';
     if (!email) return;
     let suppressed: boolean;
     try {
       suppressed = await dependencies.ledger.isSuppressed(
-        recipientHash(dependencies.secret, email),
+        recipientKey(dependencies.recipientSubkey, email),
       );
     } catch {
       throw unavailable(
@@ -61,5 +62,26 @@ export function createMagicLinkGate(dependencies: {
         message:
           'We cannot send sign-in emails to this address. Sign in with a passkey or use a different address.',
       });
+  };
+}
+
+/** Runs after the rate-limit gate: a throttled request does no lookups. */
+export function createMagicLinkGatePlugin(dependencies: {
+  readonly recipientSubkey: string;
+  readonly ledger: AuthDeliveryLedger;
+}): BetterAuthPlugin {
+  const gate = createMagicLinkGate(dependencies);
+  return {
+    id: 'daisy-magic-link-gate',
+    hooks: {
+      before: [
+        {
+          matcher: (context) => context.path === '/sign-in/magic-link',
+          handler: createAuthMiddleware(async (context) => {
+            await gate(context.body);
+          }),
+        },
+      ],
+    },
   };
 }
