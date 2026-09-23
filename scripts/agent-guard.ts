@@ -17,6 +17,7 @@ import {
   guardVariables,
   LOOP_REASON,
   pushTargetVerdict,
+  isAgentSession,
   resolveFrom,
   unwrap,
   type GuardFacts,
@@ -47,21 +48,36 @@ const rules: Readonly<Record<string, Rule>> = {
   bun,
 };
 
+// Shell options that take the next word as their value.
+const SHELL_VALUE_OPTIONS = new Set([
+  '-o',
+  '+o',
+  '-O',
+  '+O',
+  '--rcfile',
+  '--init-file',
+]);
+
 /**
- * What a shell invocation runs: the -c string (in any option cluster, such as
- * -lc or -xc, after an optional --), a script file, or its standard input.
+ * What a shell invocation runs. With -c anywhere in its options (alone or in
+ * a cluster such as -lc or -xc) the command is the first operand after all
+ * options, so bash -c -e "cmd" and bash -O x -c "cmd" run "cmd"; otherwise
+ * the first operand is a script file, and with none it reads stdin.
  */
 function shellInput(args: readonly string[]) {
+  let command = false;
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
-    if (arg === '-o' || arg === '+o') index += 1;
-    else if (/^-[a-zA-Z]*c[a-zA-Z]*$/.test(arg)) {
-      const next = args[index + 1] === '--' ? index + 2 : index + 1;
-      return { script: args[next] ?? '' };
-    } else if (arg !== '--' && !arg.startsWith('-') && !arg.startsWith('+'))
-      return { file: arg };
+    if (SHELL_VALUE_OPTIONS.has(arg)) index += 1;
+    else if (arg === '--') {
+      const operand = args[index + 1];
+      if (command) return { script: operand ?? '' };
+      return operand === undefined ? { stdin: true } : { file: operand };
+    } else if (/^-[a-zA-Z]*c[a-zA-Z]*$/.test(arg)) command = true;
+    else if (!arg.startsWith('-') && !arg.startsWith('+'))
+      return command ? { script: arg } : { file: arg };
   }
-  return { stdin: true };
+  return command ? { script: '' } : { stdin: true };
 }
 
 function shellVerdict(args: readonly string[], facts: GuardFacts): Verdict {
@@ -84,7 +100,7 @@ export function classifyCommand(command: string, facts: GuardFacts): Verdict {
     verdicts.push(guardVariables(invocation, facts));
     verdicts.push(loopState(simple, invocation, facts, cwd));
     if (name === 'cd' || name === 'pushd')
-      cwd = resolveFrom(cwd, args[0] ?? '~');
+      cwd = resolveFrom(cwd, args[0] ?? '~', facts.home);
     else if (shells.has(name))
       verdicts.push(shellVerdict(args, { ...facts, cwd }));
     else if (name === 'eval')
@@ -188,8 +204,9 @@ function liveFacts(cwd: string, projectDir?: string): GuardFacts {
   );
   const mainCheckout = commonDir ? dirname(commonDir) : worktree;
   return {
-    autonomous: process.env.DAISY_AUTONOMOUS === '1',
+    autonomous: isAgentSession(process.env),
     worktree,
+    home: process.env.HOME,
     cwd: isAbsolute(cwd) ? cwd : resolve(worktree, cwd),
     mainCheckout,
     protectedBranches: ['main'],

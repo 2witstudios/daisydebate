@@ -41,15 +41,40 @@ function ownsPid(target: string, facts: GuardFacts): boolean {
   return cwd !== undefined && isWithin(cwd, facts.worktree);
 }
 
+// pkill options that take a value; their values are not patterns.
+const PKILL_VALUE_OPTIONS = new Set([
+  '-F',
+  '-G',
+  '-g',
+  '-P',
+  '-s',
+  '-t',
+  '-U',
+  '-u',
+  '-J',
+]);
+
 /**
- * A pkill -f pattern is scoped only when it names the worktree and adds no
- * alternation or grouping that could match other processes too.
+ * A pkill -f is scoped only with a single pattern that names the worktree,
+ * no alternation or grouping that could match other processes too, and no
+ * -v, which inverts the match to every other process.
  */
 function scopedPattern(args: readonly string[], worktree: string): boolean {
-  const pattern = args.filter((arg) => !arg.startsWith('-')).at(-1) ?? '';
-  const rest = pattern.split(worktree).join('');
+  const patterns: string[] = [];
+  const flags: string[] = [];
+  for (let index = 0; index < args.length; index += 1) {
+    if (PKILL_VALUE_OPTIONS.has(args[index])) index += 1;
+    else if (args[index].startsWith('-')) flags.push(args[index]);
+    else patterns.push(args[index]);
+  }
+  const [pattern = ''] = patterns;
+  const inverted = flags.some((flag) => /^-[a-zA-Z]*v/.test(flag));
   return (
-    args.includes('-f') && pattern.includes(worktree) && !/[|()]/.test(rest)
+    flags.some((flag) => /^-[a-zA-Z]*f/.test(flag)) &&
+    !inverted &&
+    patterns.length === 1 &&
+    pattern.includes(worktree) &&
+    !/[|()]/.test(pattern.split(worktree).join(''))
   );
 }
 

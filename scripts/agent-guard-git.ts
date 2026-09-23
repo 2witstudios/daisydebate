@@ -123,6 +123,25 @@ function gitPush(args: readonly string[], facts: GuardFacts, dir: string) {
 
 const HOOKS_PATH = /core\.hookspath/i;
 const HOOKS_REASON = 'Overriding core.hooksPath disables the pre-push guard.';
+const CONFIG_REASON =
+  'A one-shot git -c alias or include hides the command the guard would judge. Run the command itself.';
+
+/** The verdict on one git -c key=value. */
+function configVerdict(setting: string, facts: GuardFacts): Verdict {
+  const at = setting.indexOf('=');
+  const key = at === -1 ? setting : setting.slice(0, at);
+  const value = at === -1 ? '' : setting.slice(at + 1);
+  if (HOOKS_PATH.test(key)) return autonomousOnly(facts, HOOKS_REASON);
+  if (/^(?:alias\.|include(?:if\..*)?\.path$)/i.test(key))
+    return autonomousOnly(facts, CONFIG_REASON);
+  // remote.<name>.push supplies the refspec a bare git push uses.
+  if (/^remote\..*\.push$/i.test(key))
+    return pushTargetVerdict(
+      facts,
+      branchName(value.replace(/^\+/, '').split(':').at(-1) ?? ''),
+    );
+  return allow;
+}
 
 // git's global options that take a value as the next word.
 const GIT_VALUE_OPTIONS = new Set([
@@ -149,14 +168,15 @@ const hooksPathInEnvironment = (
 export const git: Rule = (invocation, facts, cwd) => {
   const [, ...rest] = invocation.words;
   let dir = cwd;
-  let hooksOverride = hooksPathInEnvironment(invocation.assignments);
+  const hooksOverride = hooksPathInEnvironment(invocation.assignments);
+  const configs: Verdict[] = [];
   let index = 0;
   while (index < rest.length && rest[index].startsWith('-')) {
     const [flag, inline] = splitFlag(rest[index]);
     const value = inline ?? rest[index + 1] ?? '';
-    if (flag === '-C') dir = resolveFrom(dir, value);
+    if (flag === '-C') dir = resolveFrom(dir, value, facts.home);
     if (flag === '-c' || flag === '--config-env')
-      hooksOverride ||= HOOKS_PATH.test(value);
+      configs.push(configVerdict(value, facts));
     index += GIT_VALUE_OPTIONS.has(flag) && inline === undefined ? 2 : 1;
   }
   const subcommand = rest[index];
@@ -165,6 +185,7 @@ export const git: Rule = (invocation, facts, cwd) => {
     subcommand === 'config' &&
     rest.slice(index + 1).some((arg) => HOOKS_PATH.test(arg));
   return combine([
+    ...configs,
     hooksOverride || setsHooks ? autonomousOnly(facts, HOOKS_REASON) : allow,
     subcommand === 'push' ? gitPush(rest.slice(index + 1), facts, dir) : allow,
   ]);

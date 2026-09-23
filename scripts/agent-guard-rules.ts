@@ -15,6 +15,8 @@ export type GuardFacts = {
   readonly worktree: string;
   readonly cwd: string;
   readonly mainCheckout: string;
+  /** $HOME, for paths spelled with ~ or $HOME. */
+  readonly home?: string;
   readonly protectedBranches: readonly string[];
   readonly branchOf: (dir: string) => string | undefined;
   /** The slot database (ADR 0034) of the checkout containing dir. */
@@ -47,6 +49,14 @@ export const KILL_REASON =
 export const LOOP_REASON =
   'Loop state, the .daisy agent records and the guard hooks (.claude/settings.json, .githooks) are not changed by an agent by hand. A loop ends only through its truthful completion promise. To pause it, run `bun loop:escalate <needs-owner|blocked|stalled|out-of-scope> "<detail>"`; only the parent or the owner can close or resume it.';
 
+/**
+ * Agent mode: DAISY_AUTONOMOUS=1 or any PU_AGENT_ID, so clearing one of the
+ * two variables never turns an agent into the owner.
+ */
+export const isAgentSession = (
+  env: Readonly<Record<string, string | undefined>>,
+): boolean => env.DAISY_AUTONOMOUS === '1' || Boolean(env.PU_AGENT_ID);
+
 /** Autonomous sessions are refused; owner sessions are asked. */
 export const refuseOrAsk = (facts: GuardFacts, reason: string): Verdict =>
   facts.autonomous ? deny(reason) : { decision: 'ask', reason };
@@ -65,8 +75,16 @@ export function combine(verdicts: readonly Verdict[]): Verdict {
 export const isWithin = (path: string, root: string): boolean =>
   path === root || path.startsWith(`${root}/`);
 
-export const resolveFrom = (cwd: string, path: string): string =>
-  path.startsWith('~') ? `/~${path.slice(1)}` : resolve(cwd, path);
+/**
+ * A path argument as the shell would resolve it: ~, $HOME and $PWD are
+ * expanded (the parser leaves them literal), then it is resolved from cwd.
+ */
+export function resolveFrom(cwd: string, path: string, home?: string): string {
+  const expanded = path
+    .replace(/^\$\{?PWD\}?(?=\/|$)/, cwd)
+    .replace(/^(?:~|\$\{?HOME\}?)(?=\/|$)/, home ?? '/~');
+  return resolve(cwd, expanded);
+}
 
 /** The branch a push destination names: main, heads/main, refs/heads/main. */
 export const branchName = (ref: string): string =>
@@ -101,8 +119,11 @@ const wrapperValueOptions: Readonly<Record<string, ReadonlySet<string>>> = {
   xargs: new Set(['-n', '-I', '-P', '-L', '-d', '-E', '-s', '-a']),
   env: new Set(['-C', '-S', '--chdir', '--split-string']),
   time: new Set(),
+  // command -p and exec -a name run the command that follows.
+  command: new Set(),
+  exec: new Set(['-a']),
 };
-const passthrough = new Set(['nohup', 'command', 'exec', 'builtin']);
+const passthrough = new Set(['nohup', 'builtin']);
 
 type Unwrapped = {
   words: readonly string[];
@@ -128,6 +149,10 @@ function wrapperArgsEnd(
     else if (head === 'env' && (word === '-u' || word === '--unset')) {
       into.unset.push(rest[index + 1] ?? '');
       index += 2;
+    } else if (head === 'env' && /^(?:-u.|--unset=)/.test(word)) {
+      // -uVAR and --unset=VAR name the variable in the same word.
+      into.unset.push(word.replace(/^(?:-u|--unset=)/, ''));
+      index += 1;
     } else index += options.has(word) ? 2 : 1;
   }
   // timeout takes a duration before the command.
@@ -178,7 +203,9 @@ export function guardVariables(
   facts: GuardFacts,
 ): Verdict {
   const [name, ...args] = invocation.words;
-  const declares = name === 'unset' || name === 'export' || name === 'declare';
+  const declares = ['unset', 'export', 'declare', 'typeset'].includes(
+    name ?? '',
+  );
   const exported = declares
     ? Object.fromEntries(
         args.map((arg) => {
