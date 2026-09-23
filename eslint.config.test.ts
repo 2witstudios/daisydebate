@@ -98,6 +98,112 @@ describe('repository ESLint configuration', () => {
   });
 });
 
+/** Rule ids and severities, one per reported problem, in source order. */
+const problems = async (code: string, filePath: string) => {
+  const [result] = await repositoryEslint().lintText(code, { filePath });
+  return (result?.messages ?? []).map(({ ruleId, severity }) => ({
+    ruleId,
+    severity,
+  }));
+};
+
+describe('process edge: one module reads process.env and globalThis (ISSUE-7)', () => {
+  test('rejects process.env and Bun.env reads in app source outside the edge', async () => {
+    assert({
+      given:
+        'web and realtime source reading process.env directly, by destructuring, and through Bun.env',
+      should: 'report each read as no-restricted-properties',
+      actual: [
+        await problems(
+          'export const flag = process.env.FOUNDATION_PROOF_ENABLED;',
+          'apps/web/src/proxy.ts',
+        ),
+        await problems(
+          'const { env } = process;\nexport const url = env.PUBLIC_APP_URL;',
+          'apps/web/src/features/foundation/operations.ts',
+        ),
+        await problems(
+          'export const level = Bun.env.LOG_LEVEL;',
+          'apps/realtime/src/server.ts',
+        ),
+      ],
+      expected: [
+        [{ ruleId: 'no-restricted-properties', severity: 2 }],
+        [{ ruleId: 'no-restricted-properties', severity: 2 }],
+        [{ ruleId: 'no-restricted-properties', severity: 2 }],
+      ],
+    });
+  });
+
+  test('rejects globalThis reads in app source outside the edge', async () => {
+    assert({
+      given: 'a route and a lib module reading a globalThis resource',
+      should: 'report no-restricted-globals',
+      actual: [
+        await problems(
+          "export const app = Reflect.get(globalThis, 'daisyWebApp');",
+          'apps/web/src/app/api/health/ready/route.ts',
+        ),
+        await problems(
+          'export const auth = (globalThis as { daisyAuth?: unknown }).daisyAuth;',
+          'apps/web/src/lib/identity.ts',
+        ),
+      ],
+      expected: [
+        [{ ruleId: 'no-restricted-globals', severity: 2 }],
+        [{ ruleId: 'no-restricted-globals', severity: 2 }],
+      ],
+    });
+  });
+
+  test('admits exactly the two process edges', async () => {
+    const edgeCode =
+      'export const env = process.env; export const state = globalThis as unknown;';
+    assert({
+      given: "web's process-app.ts and realtime's start.ts reading both",
+      should: 'report nothing: they are the edges',
+      actual: [
+        await problems(edgeCode, 'apps/web/src/server/process-app.ts'),
+        await problems(edgeCode, 'apps/realtime/src/start.ts'),
+      ],
+      expected: [[], []],
+    });
+  });
+
+  test('rejects mutating process.env or globalThis in tests, while reading test services stays allowed', async () => {
+    const mutations = [
+      "process.env.FOUNDATION_PROOF_ENABLED = 'true';",
+      'delete process.env.DATABASE_URL;',
+      "Object.assign(process.env, { NODE_ENV: 'test' });",
+      'globalThis.fetch = (async () => new Response()) as typeof fetch;',
+      "Reflect.set(globalThis, 'daisyResources', {});",
+      "Reflect.deleteProperty(process.env, 'PUBLIC_APP_URL');",
+    ].join('\n');
+    assert({
+      given:
+        'an integration suite and a unit test each mutating process.env and globalThis six ways',
+      should: 'report every mutation as no-restricted-syntax',
+      actual: [
+        await problems(mutations, 'apps/web/integration/leaky.integration.ts'),
+        await problems(mutations, 'apps/web/src/server/leaky.test.ts'),
+        await problems(mutations, 'apps/realtime/src/leaky.test.ts'),
+      ].map((found) => found.map(({ ruleId }) => ruleId)),
+      expected: Array.from({ length: 3 }, () =>
+        Array.from({ length: 6 }, () => 'no-restricted-syntax'),
+      ),
+    });
+    assert({
+      given: 'an integration suite reading its test service URL',
+      should: 'report nothing',
+      actual: await problems(
+        'export const url = process.env.TEST_DATABASE_URL;',
+        'apps/web/integration/reader.integration.ts',
+      ),
+      expected: [],
+    });
+  });
+});
+
 describe('token-locked Tailwind lint rules (ADR 0028)', () => {
   const lintMarkup = async (classes: string) => {
     const eslint = repositoryEslint();

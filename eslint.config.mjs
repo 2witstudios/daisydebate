@@ -16,6 +16,46 @@ const exportStarRestriction = {
     'Use named re-exports, not `export *` (AGENTS.md: explicit exports, no barrels).',
 };
 
+/**
+ * ISSUE-7's process edge: app code receives configuration and resources as
+ * arguments from a composition root, so nothing in an app may mutate
+ * process.env or globalThis, tests included (each builds its own app).
+ * Shared by the repo-wide `no-restricted-syntax` entry and the apps'
+ * integration override below, which replaces that entry's options.
+ */
+const processMutationRestrictions = [
+  {
+    selector:
+      "AssignmentExpression > MemberExpression.left[object.object.name='process'][object.property.name='env']",
+    message: 'Never write process.env; build an app with its own env.',
+  },
+  {
+    selector:
+      "AssignmentExpression > MemberExpression.left[object.name='globalThis']",
+    message: 'Never write globalThis; inject the value instead.',
+  },
+  {
+    selector:
+      "UnaryExpression[operator='delete'] > MemberExpression[object.object.name='process'][object.property.name='env']",
+    message: 'Never delete from process.env; build an app with its own env.',
+  },
+  {
+    selector:
+      "UnaryExpression[operator='delete'] > MemberExpression[object.name='globalThis']",
+    message: 'Never delete from globalThis; inject the value instead.',
+  },
+  {
+    selector:
+      "CallExpression[callee.object.name=/^(Object|Reflect)$/][callee.property.name=/^(assign|set|deleteProperty|defineProperty)$/][arguments.0.object.name='process'][arguments.0.property.name='env']",
+    message: 'Never write process.env; build an app with its own env.',
+  },
+  {
+    selector:
+      "CallExpression[callee.object.name=/^(Object|Reflect)$/][callee.property.name=/^(assign|set|deleteProperty|defineProperty)$/][arguments.0.name='globalThis']",
+    message: 'Never write globalThis; inject the value instead.',
+  },
+];
+
 export default [
   {
     ignores: [
@@ -59,6 +99,7 @@ export default [
             'Inject an identity generator instead of creating an ID directly.',
         },
         exportStarRestriction,
+        ...processMutationRestrictions,
       ],
     },
   },
@@ -256,6 +297,56 @@ export default [
     ],
     rules: {
       'no-restricted-syntax': ['error', exportStarRestriction],
+    },
+  },
+  // Integration setup may read ambient time, but app suites still never
+  // mutate process-wide state (the exemption above replaced the list).
+  {
+    files: ['apps/**/integration/**/*.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        exportStarRestriction,
+        ...processMutationRestrictions,
+      ],
+    },
+  },
+  // ISSUE-7: exactly one module per app reads process.env or globalThis,
+  // the process edge that builds the app (web: server/process-app.ts;
+  // realtime: start.ts). Everything else receives what it needs as an
+  // argument. Tests may read their test-service URLs; they may not write.
+  {
+    files: ['apps/web/src/**/*.{ts,tsx}', 'apps/realtime/src/**/*.ts'],
+    ignores: [
+      'apps/web/src/server/process-app.ts',
+      'apps/realtime/src/start.ts',
+      '**/*.test.{ts,tsx}',
+      '**/*.test-support.{ts,tsx}',
+    ],
+    rules: {
+      'no-restricted-properties': [
+        'error',
+        {
+          object: 'process',
+          property: 'env',
+          message:
+            'Read validated config from the app; only the process edge reads process.env.',
+        },
+        {
+          object: 'Bun',
+          property: 'env',
+          message:
+            'Read validated config from the app; only the process edge reads the environment.',
+        },
+      ],
+      'no-restricted-globals': [
+        'error',
+        {
+          name: 'globalThis',
+          message:
+            'Receive resources as arguments; only the process edge reads globalThis.',
+        },
+      ],
     },
   },
   {
