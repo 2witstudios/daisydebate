@@ -6,6 +6,7 @@ import { parseDotenv } from './dotenv';
 import {
   assessAgentEnv,
   assessGithubIdentity,
+  exportScript,
   identityRegime,
   regimeCheck,
 } from './agent-identity';
@@ -329,6 +330,24 @@ describe('identityRegime', () => {
         'pass',
         'pass',
       ],
+    });
+  });
+});
+
+describe('exportScript', () => {
+  test('exports only identity keys, single-quoted so the shell expands nothing', () => {
+    assert({
+      given: 'values holding a quote and $(…), and a key that is not identity',
+      should: 'quote each value literally and drop the other key',
+      actual: exportScript({
+        GH_TOKEN: "to'ken$(id)",
+        DAISY_AUTONOMOUS: '1',
+        EDITOR: 'vim',
+      }),
+      expected: [
+        "export GH_TOKEN='to'\\''ken$(id)'",
+        "export DAISY_AUTONOMOUS='1'",
+      ].join('\n'),
     });
   });
 });
