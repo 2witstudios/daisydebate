@@ -21,3 +21,7 @@ agents:
     name: opencode
     command: scripts/agent-launch.sh opencode
     launchArgs: []
+  terminal:
+    name: terminal
+    command: scripts/agent-launch.sh shell
+    launchArgs: []

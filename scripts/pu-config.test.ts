@@ -26,10 +26,10 @@ describe('committed pu configuration', () => {
 
   test('starts every coding agent through the identity launcher', () => {
     assert({
-      given: 'the claude, codex and opencode agent definitions',
+      given: 'the claude, codex, opencode and terminal agent definitions',
       should:
         'run each through scripts/agent-launch.sh with no extra launch args',
-      actual: ['claude', 'codex', 'opencode'].map((name) => [
+      actual: ['claude', 'codex', 'opencode', 'terminal'].map((name) => [
         config.agents[name]?.command.split(' ').slice(0, 2),
         config.agents[name]?.launchArgs,
       ]),
@@ -37,6 +37,7 @@ describe('committed pu configuration', () => {
         [['scripts/agent-launch.sh', 'claude'], []],
         [['scripts/agent-launch.sh', 'codex'], []],
         [['scripts/agent-launch.sh', 'opencode'], []],
+        [['scripts/agent-launch.sh', 'shell'], []],
       ],
     });
   });

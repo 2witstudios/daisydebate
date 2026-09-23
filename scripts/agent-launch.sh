@@ -1,17 +1,30 @@
 #!/bin/sh
 # pu agent launcher (ADR 0035). .pu/config.yaml runs every agent through this
 # script: it exports the machine identity from .env.agent and then becomes
-# the agent, so gh and git never act as the owner. It refuses to start an
-# agent without a valid identity.
+# the agent, so gh and git never act as the owner.
+#
+# The identity regime is on once the owner's .env.agent exists in the project
+# root ($PU_PROJECT_ROOT, the main checkout). Then an invalid identity refuses
+# the start. Before that (GRD-6.2) agents start as they always have, with a
+# warning, and bun doctor warns too.
 set -eu
 
-env_file=./.env.agent
-if [ ! -f "$env_file" ] && [ -n "${PU_PROJECT_ROOT:-}" ]; then
+env_file=""
+if [ -n "${PU_PROJECT_ROOT:-}" ] && [ -f "$PU_PROJECT_ROOT/.env.agent" ]; then
   env_file="$PU_PROJECT_ROOT/.env.agent"
+elif [ -f ./.env.agent ]; then
+  env_file=./.env.agent
 fi
-if [ ! -f "$env_file" ]; then
-  echo "agent-launch: no .env.agent; copy .env.agent.example and add the machine user token (GRD-6.2)." >&2
-  exit 1
+
+# pu's terminal agent type passes "shell": a login shell under the identity.
+if [ "${1:-}" = shell ]; then
+  shift
+  set -- "${SHELL:-/bin/sh}" -l "$@"
+fi
+
+if [ -z "$env_file" ]; then
+  echo "agent-launch: identity regime not active: this agent acts as the owner (GRD-6.2)." >&2
+  exec "$@"
 fi
 # The validated values are exported literally; .env.agent is never sourced,
 # so nothing in it is expanded by the shell.
