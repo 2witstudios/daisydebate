@@ -10,6 +10,7 @@ import {
   type EnvelopeVersion,
   type ProtocolVersion,
 } from './realtime';
+import { parseOutcome } from './parse-outcome.test-support';
 
 setupRitewayBun();
 
@@ -31,31 +32,31 @@ describe('client message schema', () => {
     assert({
       given: 'one valid message of each client type',
       should: 'parse every one',
-      actual: messages.map(
-        (message) => clientMessageSchema.safeParse(message).success,
+      actual: messages.map((message) =>
+        parseOutcome(clientMessageSchema, message),
       ),
-      expected: messages.map(() => true),
+      expected: messages.map((message) => ({ data: message })),
     });
   });
 
   test('rejects unknown message types', () => {
     assert({
       given: 'a message with a type outside the client union',
-      should: 'fail safeParse',
-      actual: clientMessageSchema.safeParse({
+      should: 'reject it, naming the offending field',
+      actual: parseOutcome(clientMessageSchema, {
         ...base,
         type: 'debate.command',
-      }).success,
-      expected: false,
+      }),
+      expected: { issues: ['type'] },
     });
   });
 
   test('rejects an unsupported envelope version', () => {
     assert({
       given: 'a ping stamped with a future envelope version',
-      should: 'fail safeParse',
-      actual: clientMessageSchema.safeParse({ v: 2, type: 'ping', id }).success,
-      expected: false,
+      should: 'reject it, naming the offending field',
+      actual: parseOutcome(clientMessageSchema, { v: 2, type: 'ping', id }),
+      expected: { issues: ['v'] },
     });
   });
 
@@ -66,20 +67,20 @@ describe('client message schema', () => {
       should:
         'fail safeParse both times: neither field stands in for the other',
       actual: [
-        clientMessageSchema.safeParse({
+        parseOutcome(clientMessageSchema, {
           v: ENVELOPE_VERSION,
           type: 'hello',
           protocolVersion: 2,
           ticket,
-        }).success,
-        clientMessageSchema.safeParse({
+        }),
+        parseOutcome(clientMessageSchema, {
           v: 2,
           type: 'hello',
           protocolVersion: PROTOCOL_VERSION,
           ticket,
-        }).success,
+        }),
       ],
-      expected: [false, false],
+      expected: [{ issues: ['protocolVersion'] }, { issues: ['v'] }],
     });
   });
 
@@ -102,11 +103,15 @@ describe('client message schema', () => {
       should:
         "accept only its own pairing and reject each field taking the other field's value, proving neither the schema composition nor a hard-coded field can stand in for the other",
       actual: [
-        helloSchema.safeParse(validMessage).success,
-        helloSchema.safeParse({ ...validMessage, v: 22 }).success,
-        helloSchema.safeParse({ ...validMessage, protocolVersion: 11 }).success,
+        parseOutcome(helloSchema, validMessage),
+        parseOutcome(helloSchema, { ...validMessage, v: 22 }),
+        parseOutcome(helloSchema, { ...validMessage, protocolVersion: 11 }),
       ],
-      expected: [true, false, false],
+      expected: [
+        { data: validMessage },
+        { issues: ['v'] },
+        { issues: ['protocolVersion'] },
+      ],
     });
   });
 
@@ -129,20 +134,18 @@ describe('client message schema', () => {
       should:
         "accept v:33 on every one of them, and reject each when restamped with PROTOCOL_VERSION's or ENVELOPE_VERSION's value (both 1), proving no member's envelope is hard-coded to either constant",
       actual: [
-        ...messagesAtV33.map((message) => schema.safeParse(message).success),
-        ...messagesAtV33.map(
-          (message) =>
-            schema.safeParse({ ...message, v: PROTOCOL_VERSION }).success,
+        ...messagesAtV33.map((message) => parseOutcome(schema, message)),
+        ...messagesAtV33.map((message) =>
+          parseOutcome(schema, { ...message, v: PROTOCOL_VERSION }),
         ),
-        ...messagesAtV33.map(
-          (message) =>
-            schema.safeParse({ ...message, v: ENVELOPE_VERSION }).success,
+        ...messagesAtV33.map((message) =>
+          parseOutcome(schema, { ...message, v: ENVELOPE_VERSION }),
         ),
       ],
       expected: [
-        ...messagesAtV33.map(() => true),
-        ...messagesAtV33.map(() => false),
-        ...messagesAtV33.map(() => false),
+        ...messagesAtV33.map((message) => ({ data: message })),
+        ...messagesAtV33.map(() => ({ issues: ['v'] })),
+        ...messagesAtV33.map(() => ({ issues: ['v'] })),
       ],
     });
   });
@@ -150,23 +153,23 @@ describe('client message schema', () => {
   test('rejects a subscribe with a hand-built topic string', () => {
     assert({
       given: 'a subscribe naming an invalid topic string',
-      should: 'fail safeParse',
-      actual: clientMessageSchema.safeParse({
+      should: 'reject it, naming the offending field',
+      actual: parseOutcome(clientMessageSchema, {
         ...base,
         type: 'subscribe',
         id,
         topic: 'debate:not-a-cuid2',
-      }).success,
-      expected: false,
+      }),
+      expected: { issues: ['topic'] },
     });
   });
 
   test("rejects ping without id, per ADR 0031's ping{id}/pong{id} pairing", () => {
     assert({
       given: 'a ping with no id',
-      should: 'fail safeParse',
-      actual: clientMessageSchema.safeParse({ ...base, type: 'ping' }).success,
-      expected: false,
+      should: 'reject it, naming the offending field',
+      actual: parseOutcome(clientMessageSchema, { ...base, type: 'ping' }),
+      expected: { issues: ['id'] },
     });
   });
 
@@ -178,21 +181,26 @@ describe('client message schema', () => {
       topic: buildDebateTopic(otherId),
       since,
     });
+    const withoutSince = {
+      ...base,
+      type: 'subscribe',
+      id,
+      topic: buildDebateTopic(otherId),
+    };
     assert({
       given:
         'subscribe with no since, a well-formed since, and a malformed since',
       should: 'accept the first two and reject the third',
       actual: [
-        clientMessageSchema.safeParse({
-          ...base,
-          type: 'subscribe',
-          id,
-          topic: buildDebateTopic(otherId),
-        }).success,
-        clientMessageSchema.safeParse(subscribeWith('12:34')).success,
-        clientMessageSchema.safeParse(subscribeWith('not-a-cursor')).success,
+        parseOutcome(clientMessageSchema, withoutSince),
+        parseOutcome(clientMessageSchema, subscribeWith('12:34')),
+        parseOutcome(clientMessageSchema, subscribeWith('not-a-cursor')),
       ],
-      expected: [true, true, false],
+      expected: [
+        { data: withoutSince },
+        { data: subscribeWith('12:34') },
+        { issues: ['since'] },
+      ],
     });
   });
 });
@@ -204,11 +212,15 @@ describe('the connect ticket', () => {
         'a 43-character base64url ticket, one 42 characters, and one with an invalid character',
       should: 'accept only the 43-character one',
       actual: [
-        ticketSchema.safeParse(ticket).success,
-        ticketSchema.safeParse(ticket.slice(1)).success,
-        ticketSchema.safeParse(`${ticket.slice(1)}!`).success,
+        parseOutcome(ticketSchema, ticket),
+        parseOutcome(ticketSchema, ticket.slice(1)),
+        parseOutcome(ticketSchema, `${ticket.slice(1)}!`),
       ],
-      expected: [true, false, false],
+      expected: [
+        { data: ticket },
+        { issues: ['(root)'] },
+        { issues: ['(root)'] },
+      ],
     });
   });
 });

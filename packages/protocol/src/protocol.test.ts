@@ -8,10 +8,25 @@ import {
   debateSnapshotSchema,
   formatRulesSchema,
 } from './index';
+import { parseOutcome } from './parse-outcome.test-support';
 
 setupRitewayBun();
 
 const id = 'k2v9x0f4m8q3w1z7c5n6b4d2';
+const validSnapshot = {
+  version: 1,
+  id,
+  resolution: 'Test',
+  format: 'foundation',
+  rules: {
+    version: 1,
+    seats: { affirmative: 1, negative: 1, judge: 0 },
+    clock: { speechMs: 240_000, prepMs: 120_000 },
+  },
+  phase: 'waiting',
+  createdAt: '2026-01-01T00:00:00.000Z',
+  participants: [],
+};
 
 describe('command schema', () => {
   test('validates intent, rejects future versions and extraneous fields', () => {
@@ -31,58 +46,48 @@ describe('command schema', () => {
     assert({
       given: 'a command stamped with a future version',
       should: 'reject it',
-      actual: commandSchema.safeParse({ ...command, version: 2 }).success,
-      expected: false,
+      actual: parseOutcome(commandSchema, { ...command, version: 2 }),
+      expected: { issues: ['version'] },
     });
     assert({
       given: 'a command carrying extraneous permissions',
       should: 'reject it',
-      actual: commandSchema.safeParse({ ...command, permissions: ['admin'] })
-        .success,
-      expected: false,
+      actual: parseOutcome(commandSchema, {
+        ...command,
+        permissions: ['admin'],
+      }),
+      expected: { issues: ['(root)'] },
     });
     assert({
       given: 'a command with a non-string participant id',
       should: 'reject it',
-      actual: commandSchema.safeParse({ ...command, participantId: 1 }).success,
-      expected: false,
+      actual: parseOutcome(commandSchema, { ...command, participantId: 1 }),
+      expected: { issues: ['participantId'] },
     });
   });
 });
 
 describe('event and snapshot schemas', () => {
   test('have separate portable contracts', () => {
+    const event = {
+      version: 1,
+      type: 'debate.phase-changed',
+      eventId: id,
+      debateId: id,
+      occurredAt: '2026-01-01T00:00:00.000Z',
+      phase: 'active',
+    };
     assert({
       given: 'a valid phase-changed event',
       should: 'accept it',
-      actual: eventSchema.safeParse({
-        version: 1,
-        type: 'debate.phase-changed',
-        eventId: id,
-        debateId: id,
-        occurredAt: '2026-01-01T00:00:00.000Z',
-        phase: 'active',
-      }).success,
-      expected: true,
+      actual: parseOutcome(eventSchema, event),
+      expected: { data: event },
     });
     assert({
       given: 'a valid waiting-phase snapshot',
       should: 'accept it',
-      actual: debateSnapshotSchema.safeParse({
-        version: 1,
-        id,
-        resolution: 'Test',
-        format: 'foundation',
-        rules: {
-          version: 1,
-          seats: { affirmative: 1, negative: 1, judge: 0 },
-          clock: { speechMs: 240_000, prepMs: 120_000 },
-        },
-        phase: 'waiting',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        participants: [],
-      }).success,
-      expected: true,
+      actual: parseOutcome(debateSnapshotSchema, validSnapshot),
+      expected: { data: validSnapshot },
     });
   });
 });
@@ -104,49 +109,46 @@ describe('identifier shape', () => {
       assert({
         given: `a snapshot id that is ${given}`,
         should: 'reject it at the trust boundary',
-        actual: debateSnapshotSchema.safeParse({
-          version: 1,
+        actual: parseOutcome(debateSnapshotSchema, {
+          ...validSnapshot,
           id: identifier,
-          resolution: 'Test',
-          format: 'foundation',
-          phase: 'waiting',
-          createdAt: '2026-01-01T00:00:00.000Z',
-          participants: [],
-        }).success,
-        expected: false,
+        }),
+        expected: { issues: ['id'] },
       });
   });
 });
 
 describe('error schema', () => {
   test('accepts a stable invariant identity on invariant errors', () => {
+    const invariantError = {
+      version: 1,
+      type: 'error',
+      code: 'INVARIANT',
+      message: 'Domain operation is not allowed',
+      requestId: 'request-1',
+      invariantId: 'debate.phase.active.requires-ready-participants',
+    };
     assert({
       given: 'a version 1 invariant error with its registered identity',
       should: 'accept the portable error contract',
-      actual: errorSchema.safeParse({
-        version: 1,
-        type: 'error',
-        code: 'INVARIANT',
-        message: 'Domain operation is not allowed',
-        requestId: 'request-1',
-        invariantId: 'debate.phase.active.requires-ready-participants',
-      }).success,
-      expected: true,
+      actual: parseOutcome(errorSchema, invariantError),
+      expected: { data: invariantError },
     });
   });
 
   test('accepts the payload-too-large code', () => {
+    const tooLarge = {
+      version: 1,
+      type: 'error',
+      code: 'PAYLOAD_TOO_LARGE',
+      message: 'Request body too large',
+      requestId: 'request-1',
+    };
     assert({
       given: 'a version 1 error reporting an oversized request body',
       should: 'accept the portable error contract',
-      actual: errorSchema.safeParse({
-        version: 1,
-        type: 'error',
-        code: 'PAYLOAD_TOO_LARGE',
-        message: 'Request body too large',
-        requestId: 'request-1',
-      }).success,
-      expected: true,
+      actual: parseOutcome(errorSchema, tooLarge),
+      expected: { data: tooLarge },
     });
   });
 });
@@ -163,10 +165,13 @@ describe('debate roles and format rules', () => {
       given: 'the derived zod enum',
       should: 'accept every role and reject a spectator',
       actual: [
-        ...debateRoles.map((role) => debateRoleSchema.safeParse(role).success),
-        debateRoleSchema.safeParse('spectator').success,
+        ...debateRoles.map((role) => parseOutcome(debateRoleSchema, role)),
+        parseOutcome(debateRoleSchema, 'spectator'),
       ],
-      expected: [true, true, true, false],
+      expected: [
+        ...debateRoles.map((role) => ({ data: role })),
+        { issues: ['(root)'] },
+      ],
     });
   });
 
@@ -186,48 +191,53 @@ describe('debate roles and format rules', () => {
     assert({
       given: 'a seat map missing the judge key',
       should: 'reject it',
-      actual: formatRulesSchema.safeParse({ ...rules, seats: missingJudge })
-        .success,
-      expected: false,
+      actual: parseOutcome(formatRulesSchema, {
+        ...rules,
+        seats: missingJudge,
+      }),
+      expected: { issues: ['seats.judge'] },
     });
     assert({
       given: 'a seat map with a role outside the vocabulary',
       should: 'reject it',
-      actual: formatRulesSchema.safeParse({
+      actual: parseOutcome(formatRulesSchema, {
         ...rules,
         seats: { ...rules.seats, spectator: 1 },
-      }).success,
-      expected: false,
+      }),
+      expected: { issues: ['seats'] },
     });
     assert({
       given: 'a negative or fractional seat count',
       should: 'reject both',
       actual: [
-        formatRulesSchema.safeParse({
+        parseOutcome(formatRulesSchema, {
           ...rules,
           seats: { ...rules.seats, judge: -1 },
-        }).success,
-        formatRulesSchema.safeParse({
+        }),
+        parseOutcome(formatRulesSchema, {
           ...rules,
           seats: { ...rules.seats, negative: 1.5 },
-        }).success,
+        }),
       ],
-      expected: [false, false],
+      expected: [{ issues: ['seats.judge'] }, { issues: ['seats.negative'] }],
     });
     assert({
       given: 'a clock with a fractional or zero speech duration',
       should: 'reject both',
       actual: [
-        formatRulesSchema.safeParse({
+        parseOutcome(formatRulesSchema, {
           ...rules,
           clock: { speechMs: 1000.5, prepMs: 0 },
-        }).success,
-        formatRulesSchema.safeParse({
+        }),
+        parseOutcome(formatRulesSchema, {
           ...rules,
           clock: { speechMs: 0, prepMs: 0 },
-        }).success,
+        }),
       ],
-      expected: [false, false],
+      expected: [
+        { issues: ['clock.speechMs'] },
+        { issues: ['clock.speechMs'] },
+      ],
     });
   });
 });
@@ -258,23 +268,27 @@ describe('snapshot rules', () => {
       given: 'a snapshot without rules, or with rules missing a seat key',
       should: 'reject both',
       actual: [
-        debateSnapshotSchema.safeParse({ ...snapshot, rules: undefined })
-          .success,
-        debateSnapshotSchema.safeParse({
+        parseOutcome(debateSnapshotSchema, { ...snapshot, rules: undefined }),
+        parseOutcome(debateSnapshotSchema, {
           ...snapshot,
           rules: { ...snapshot.rules, seats: { affirmative: 1, negative: 1 } },
-        }).success,
+        }),
       ],
-      expected: [false, false],
+      expected: [{ issues: ['rules'] }, { issues: ['rules.seats.judge'] }],
     });
     assert({
       given: 'format slugs',
       should: 'accept lowercase slugs and reject other shapes',
       actual: ['ipda', 'lincoln-douglas-2', 'Foundation', 'a b', ''].map(
-        (format) =>
-          debateSnapshotSchema.safeParse({ ...snapshot, format }).success,
+        (format) => parseOutcome(debateSnapshotSchema, { ...snapshot, format }),
       ),
-      expected: [true, true, false, false, false],
+      expected: [
+        { data: { ...snapshot, format: 'ipda' } },
+        { data: { ...snapshot, format: 'lincoln-douglas-2' } },
+        { issues: ['format'] },
+        { issues: ['format'] },
+        { issues: ['format'] },
+      ],
     });
   });
 });

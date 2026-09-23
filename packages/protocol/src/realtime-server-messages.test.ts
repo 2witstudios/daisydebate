@@ -9,6 +9,7 @@ import {
   serverMessageSchema,
   type EnvelopeVersion,
 } from './realtime';
+import { parseOutcome } from './parse-outcome.test-support';
 
 setupRitewayBun();
 
@@ -57,10 +58,10 @@ describe('server message schema and close codes', () => {
     assert({
       given: 'one valid message of each subscription/heartbeat/delivery type',
       should: 'parse every one',
-      actual: messages.map(
-        (message) => serverMessageSchema.safeParse(message).success,
+      actual: messages.map((message) =>
+        parseOutcome(serverMessageSchema, message),
       ),
-      expected: messages.map(() => true),
+      expected: messages.map((message) => ({ data: message })),
     });
   });
 
@@ -71,34 +72,34 @@ describe('server message schema and close codes', () => {
       should:
         'fail safeParse both: presence.changed only rides :presence, and presence.update no longer exists',
       actual: [
-        serverMessageSchema.safeParse({
+        parseOutcome(serverMessageSchema, {
           ...base,
           type: 'presence.changed',
           topic: buildDebateTopic(otherId),
-        }).success,
-        serverMessageSchema.safeParse({
+        }),
+        parseOutcome(serverMessageSchema, {
           ...base,
           type: 'presence.update',
           topic: buildDebatePresenceTopic(otherId),
           actorId: id,
           status: 'online',
-        }).success,
+        }),
       ],
-      expected: [false, false],
+      expected: [{ issues: ['topic'] }, { issues: ['type'] }],
     });
   });
 
   test('presence.changed carries no outbox position, unlike event', () => {
     assert({
       given: 'a presence.changed message stamped with an outbox position',
-      should: 'fail safeParse: presence is never in the outbox (ADR 0033 §1)',
-      actual: serverMessageSchema.safeParse({
+      should: 'reject: presence is never in the outbox (ADR 0033 §1)',
+      actual: parseOutcome(serverMessageSchema, {
         ...base,
         type: 'presence.changed',
         topic: buildDebatePresenceTopic(otherId),
         position: '5:12',
-      }).success,
-      expected: false,
+      }),
+      expected: { issues: ['(root)'] },
     });
   });
 
@@ -111,10 +112,10 @@ describe('server message schema and close codes', () => {
     assert({
       given: 'each server-initiated message, carrying no id',
       should: 'parse every one',
-      actual: messages.map(
-        (message) => serverMessageSchema.safeParse(message).success,
+      actual: messages.map((message) =>
+        parseOutcome(serverMessageSchema, message),
       ),
-      expected: messages.map(() => true),
+      expected: messages.map((message) => ({ data: message })),
     });
   });
 
@@ -124,7 +125,7 @@ describe('server message schema and close codes', () => {
         'an event on a debate topic carrying the owner-only inbox delta kind',
       should:
         'fail safeParse: the event refinement is not just an internal helper, it runs on the wire',
-      actual: serverMessageSchema.safeParse({
+      actual: parseOutcome(serverMessageSchema, {
         ...base,
         type: 'event',
         topic: buildDebateTopic(otherId),
@@ -136,8 +137,8 @@ describe('server message schema and close codes', () => {
           notificationType: 'debate.forfeit',
           occurredAt: '2026-01-01T00:00:00.000Z',
         },
-      }).success,
-      expected: false,
+      }),
+      expected: { issues: ['payload.kind'] },
     });
   });
 
@@ -147,27 +148,26 @@ describe('server message schema and close codes', () => {
         "an error message shaped like the HTTP error schema, with the HTTP schema's requestId",
       should:
         'fail safeParse: the socket error correlates only by the envelope id',
-      actual: serverMessageSchema.safeParse({
+      actual: parseOutcome(serverMessageSchema, {
         ...base,
         type: 'error',
         code: 'AUTHORIZATION',
         message: 'refused',
         requestId: 'req-1',
-      }).success,
-      expected: false,
+      }),
+      expected: { issues: ['(root)'] },
     });
   });
 
   test('rejects unknown server message types and versions', () => {
     assert({
       given: 'an unrecognized type and a future version',
-      should: 'fail safeParse for both',
+      should: 'reject for both',
       actual: [
-        serverMessageSchema.safeParse({ ...base, type: 'debate.snapshot' })
-          .success,
-        serverMessageSchema.safeParse({ v: 2, type: 'ready' }).success,
+        parseOutcome(serverMessageSchema, { ...base, type: 'debate.snapshot' }),
+        parseOutcome(serverMessageSchema, { v: 2, type: 'ready' }),
       ],
-      expected: [false, false],
+      expected: [{ issues: ['type'] }, { issues: ['v'] }],
     });
   });
 
@@ -203,20 +203,18 @@ describe('server message schema and close codes', () => {
       should:
         "accept v:44 on every one of them, and reject each when restamped with PROTOCOL_VERSION's or ENVELOPE_VERSION's value (both 1), proving no member's envelope is hard-coded to either constant",
       actual: [
-        ...messagesAtV44.map((message) => schema.safeParse(message).success),
-        ...messagesAtV44.map(
-          (message) =>
-            schema.safeParse({ ...message, v: PROTOCOL_VERSION }).success,
+        ...messagesAtV44.map((message) => parseOutcome(schema, message)),
+        ...messagesAtV44.map((message) =>
+          parseOutcome(schema, { ...message, v: PROTOCOL_VERSION }),
         ),
-        ...messagesAtV44.map(
-          (message) =>
-            schema.safeParse({ ...message, v: ENVELOPE_VERSION }).success,
+        ...messagesAtV44.map((message) =>
+          parseOutcome(schema, { ...message, v: ENVELOPE_VERSION }),
         ),
       ],
       expected: [
-        ...messagesAtV44.map(() => true),
-        ...messagesAtV44.map(() => false),
-        ...messagesAtV44.map(() => false),
+        ...messagesAtV44.map((message) => ({ data: message })),
+        ...messagesAtV44.map(() => ({ issues: ['v'] })),
+        ...messagesAtV44.map(() => ({ issues: ['v'] })),
       ],
     });
   });

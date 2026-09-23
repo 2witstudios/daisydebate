@@ -6,6 +6,7 @@ import {
   isPayloadAllowedOnTopic,
   outboxPayloadSchema,
 } from './realtime';
+import { parseOutcome } from './parse-outcome.test-support';
 
 setupRitewayBun();
 
@@ -27,33 +28,45 @@ describe('outbox payload schema', () => {
     assert({
       given: 'a version 1 doorbell payload naming a known kind',
       should: 'accept it',
-      actual: outboxPayloadSchema.safeParse({
+      actual: parseOutcome(outboxPayloadSchema, {
         version: 1,
         kind: 'debate.phase-changed',
         ids: [id],
-      }).success,
-      expected: true,
+      }),
+      expected: {
+        data: {
+          version: 1,
+          kind: 'debate.phase-changed',
+          ids: [id],
+        },
+      },
     });
     assert({
       given: 'a payload with an unknown kind',
       should: 'reject it',
-      actual: outboxPayloadSchema.safeParse({
+      actual: parseOutcome(outboxPayloadSchema, {
         version: 2,
         kind: 'debate.exploded',
         ids: [id],
-      }).success,
-      expected: false,
+      }),
+      expected: { issues: ['(root)'] },
     });
     assert({
       given: 'a later entity version naming a known kind',
       should:
         'accept it: version is the entity version, not a fixed schema literal',
-      actual: outboxPayloadSchema.safeParse({
+      actual: parseOutcome(outboxPayloadSchema, {
         version: 7,
         kind: 'debate.phase-changed',
         ids: [id],
-      }).success,
-      expected: true,
+      }),
+      expected: {
+        data: {
+          version: 7,
+          kind: 'debate.phase-changed',
+          ids: [id],
+        },
+      },
     });
   });
 
@@ -62,23 +75,27 @@ describe('outbox payload schema', () => {
       given: 'zero, a negative integer, and a fractional version',
       should: 'reject all three: the entity version is a positive integer',
       actual: [
-        outboxPayloadSchema.safeParse({
+        parseOutcome(outboxPayloadSchema, {
           version: 0,
           kind: 'debate.phase-changed',
           ids: [id],
-        }).success,
-        outboxPayloadSchema.safeParse({
+        }),
+        parseOutcome(outboxPayloadSchema, {
           version: -1,
           kind: 'debate.phase-changed',
           ids: [id],
-        }).success,
-        outboxPayloadSchema.safeParse({
+        }),
+        parseOutcome(outboxPayloadSchema, {
           version: 1.5,
           kind: 'debate.phase-changed',
           ids: [id],
-        }).success,
+        }),
       ],
-      expected: [false, false, false],
+      expected: [
+        { issues: ['version'] },
+        { issues: ['version'] },
+        { issues: ['(root)'] },
+      ],
     });
   });
 
@@ -86,13 +103,13 @@ describe('outbox payload schema', () => {
     assert({
       given: 'a doorbell-shaped payload with an extra field',
       should: 'reject it',
-      actual: outboxPayloadSchema.safeParse({
+      actual: parseOutcome(outboxPayloadSchema, {
         version: 1,
         kind: 'debate.phase-changed',
         ids: [id],
         phase: 'active',
-      }).success,
-      expected: false,
+      }),
+      expected: { issues: ['(root)'] },
     });
   });
 
@@ -100,14 +117,22 @@ describe('outbox payload schema', () => {
     assert({
       given: 'a notification delta payload for the owner-only inbox family',
       should: 'accept it',
-      actual: outboxPayloadSchema.safeParse({
+      actual: parseOutcome(outboxPayloadSchema, {
         version: 1,
         kind: 'user.notification-delivered',
         ids: [id],
         notificationType: 'debate.forfeit',
         occurredAt: '2026-01-01T00:00:00.000Z',
-      }).success,
-      expected: true,
+      }),
+      expected: {
+        data: {
+          version: 1,
+          kind: 'user.notification-delivered',
+          ids: [id],
+          notificationType: 'debate.forfeit',
+          occurredAt: '2026-01-01T00:00:00.000Z',
+        },
+      },
     });
   });
 
@@ -116,18 +141,21 @@ describe('outbox payload schema', () => {
       given: 'session.revoked and access.revoked payloads',
       should: 'both accept',
       actual: [
-        outboxPayloadSchema.safeParse({
+        parseOutcome(outboxPayloadSchema, {
           version: 1,
           kind: 'session.revoked',
           ids: [id],
-        }).success,
-        outboxPayloadSchema.safeParse({
+        }),
+        parseOutcome(outboxPayloadSchema, {
           version: 1,
           kind: 'access.revoked',
           ids: [id, otherId],
-        }).success,
+        }),
       ],
-      expected: [true, true],
+      expected: [
+        { data: { version: 1, kind: 'session.revoked', ids: [id] } },
+        { data: { version: 1, kind: 'access.revoked', ids: [id, otherId] } },
+      ],
     });
   });
 
@@ -135,12 +163,12 @@ describe('outbox payload schema', () => {
     assert({
       given: 'an access.revoked payload with only one id',
       should: 'reject it: the actor and the debate topic are both required',
-      actual: outboxPayloadSchema.safeParse({
+      actual: parseOutcome(outboxPayloadSchema, {
         version: 1,
         kind: 'access.revoked',
         ids: [id],
-      }).success,
-      expected: false,
+      }),
+      expected: { issues: ['ids'] },
     });
   });
 });
