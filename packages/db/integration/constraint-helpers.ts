@@ -1,5 +1,7 @@
 import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
+import { createDatabase } from '../src';
+import { createTestOnlyOperations } from '../src/test-only-operations';
 
 type PostgresFailure = { errno?: unknown; constraint?: unknown };
 
@@ -18,6 +20,21 @@ const rejectedBy = async (
     const { errno, constraint } = error as PostgresFailure;
     if (typeof errno === 'string' && errno.startsWith('23'))
       return typeof constraint === 'string' ? constraint : errno;
+    throw error;
+  }
+};
+
+/**
+ * The SQLSTATE PostgreSQL refused the statement with, or 'accepted': for
+ * refusals that are not integrity violations (privileges, for one).
+ */
+export const sqlStateOf = async (attempt: () => Promise<unknown>) => {
+  try {
+    await attempt();
+    return 'accepted';
+  } catch (error) {
+    const { errno } = error as PostgresFailure;
+    if (typeof errno === 'string') return errno;
     throw error;
   }
 };
@@ -190,6 +207,24 @@ export const withFixture = async (
       await sql.close();
     }
   }
+};
+
+/**
+ * What a durable debate test writes through the adapter: a tracked debate
+ * id, an author actor and a format, a database over the fixture's server
+ * and the test-only operations on the fixture's connection. The caller
+ * closes `database`; the fixture purges the rows.
+ */
+export const debateAuthoring = async (fixture: Fixture, url: string) => {
+  const id = createId();
+  fixture.track('debates', id);
+  return {
+    id,
+    actorId: await fixture.actor(),
+    formatId: await fixture.format(),
+    database: createDatabase({ url, nextActorId: createId }),
+    testOnly: createTestOnlyOperations({ client: fixture.sql }),
+  };
 };
 
 export const at = new Date('2026-01-01T00:00:00.000Z');

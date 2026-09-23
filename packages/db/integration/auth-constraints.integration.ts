@@ -2,19 +2,11 @@ import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
+import { rejected } from './constraint-helpers';
 
 setupRitewayBun();
 
 const { databaseUrl: url } = requireTestServices(process.env);
-
-const rejected = async (attempt: () => Promise<unknown>) => {
-  try {
-    await attempt();
-    return false;
-  } catch {
-    return true;
-  }
-};
 
 test('usernames are unique regardless of case', async () => {
   const sql = new SQL(url);

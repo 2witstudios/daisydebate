@@ -1,6 +1,7 @@
 import { SQL } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
+import { sqlStateOf } from './constraint-helpers';
 
 setupRitewayBun();
 
@@ -15,15 +16,6 @@ const { databaseUrl: url } = requireTestServices(process.env);
  * superuser rights and checks every statement against the role's grants.
  */
 
-const rejected = async (attempt: () => Promise<unknown>) => {
-  try {
-    await attempt();
-    return false;
-  } catch {
-    return true;
-  }
-};
-
 test('the realtime role can only select the outbox and authorization read models, column-scoped on actors and session; any other write is refused', async () => {
   let realtime: SQL | undefined;
   try {
@@ -37,60 +29,60 @@ test('the realtime role can only select the outbox and authorization read models
       expected: 'daisy_realtime',
     });
 
-    const selectOutbox = await rejected(() =>
+    const selectOutbox = await sqlStateOf(() =>
       realtime!.unsafe('select seq from outbox limit 1'),
     );
-    const selectDebates = await rejected(() =>
+    const selectDebates = await sqlStateOf(() =>
       realtime!.unsafe('select id from debates limit 1'),
     );
-    const selectDebateParticipants = await rejected(() =>
+    const selectDebateParticipants = await sqlStateOf(() =>
       realtime!.unsafe(
         'select debate_id, actor_id from debate_participants limit 1',
       ),
     );
-    const selectActors = await rejected(() =>
+    const selectActors = await sqlStateOf(() =>
       realtime!.unsafe('select id, user_id from actors limit 1'),
     );
     // Column-scoped like session: kind and the audit timestamps carry
     // nothing realtime needs (plan revision 4.8, ADR 0032 §7).
-    const selectActorsKind = await rejected(() =>
+    const selectActorsKind = await sqlStateOf(() =>
       realtime!.unsafe('select kind from actors limit 1'),
     );
     // No grant on users at all today (ADR 0032 §7): identity resolves
     // through actors.user_id. RT-3.2b adds the presence-preference column.
-    const selectUsersAnyColumn = await rejected(() =>
+    const selectUsersAnyColumn = await sqlStateOf(() =>
       realtime!.unsafe('select id from users limit 1'),
     );
-    const selectSessionIdentity = await rejected(() =>
+    const selectSessionIdentity = await sqlStateOf(() =>
       realtime!.unsafe('select id, user_id, expires_at from session limit 1'),
     );
     // The bearer credential; column-scoped grant must never include it.
-    const selectSessionToken = await rejected(() =>
+    const selectSessionToken = await sqlStateOf(() =>
       realtime!.unsafe('select token from session limit 1'),
     );
 
-    const insertOutbox = await rejected(() =>
+    const insertOutbox = await sqlStateOf(() =>
       realtime!.unsafe(
         "insert into outbox (topic, kind, version, payload) values ('t', 'k', 1, '{}'::jsonb)",
       ),
     );
-    const updateOutbox = await rejected(() =>
+    const updateOutbox = await sqlStateOf(() =>
       realtime!.unsafe("update outbox set kind = 'x' where seq = -1"),
     );
-    const deleteOutbox = await rejected(() =>
+    const deleteOutbox = await sqlStateOf(() =>
       realtime!.unsafe('delete from outbox where seq = -1'),
     );
-    const updateSession = await rejected(() =>
+    const updateSession = await sqlStateOf(() =>
       realtime!.unsafe("update session set user_id = 'x' where id = 'none'"),
     );
-    const insertActors = await rejected(() =>
+    const insertActors = await sqlStateOf(() =>
       realtime!.unsafe(
         "insert into actors (id, kind, user_id) values ('x', 'human', null)",
       ),
     );
-    const insertDebates = await rejected(() =>
+    const insertDebates = await sqlStateOf(() =>
       realtime!.unsafe(
-        "insert into debates (id, resolution, format, snapshot, mode, phase, visibility) values ('x', 'r', 'f', '{}'::jsonb, 'casual', 'waiting', 'unlisted')",
+        "insert into debates (id, resolution, format_id, snapshot, mode, phase, visibility) values ('x', 'r', 'f', '{}'::jsonb, 'casual', 'waiting', 'unlisted')",
       ),
     );
 
@@ -109,14 +101,14 @@ test('the realtime role can only select the outbox and authorization read models
         selectSessionToken,
       },
       expected: {
-        selectOutbox: false,
-        selectDebates: false,
-        selectDebateParticipants: false,
-        selectActors: false,
-        selectActorsKind: true,
-        selectSessionIdentity: false,
-        selectUsersAnyColumn: true,
-        selectSessionToken: true,
+        selectOutbox: 'accepted',
+        selectDebates: 'accepted',
+        selectDebateParticipants: 'accepted',
+        selectActors: 'accepted',
+        selectActorsKind: '42501',
+        selectSessionIdentity: 'accepted',
+        selectUsersAnyColumn: '42501',
+        selectSessionToken: '42501',
       },
     });
     assert({
@@ -132,12 +124,12 @@ test('the realtime role can only select the outbox and authorization read models
         insertDebates,
       },
       expected: {
-        insertOutbox: true,
-        updateOutbox: true,
-        deleteOutbox: true,
-        updateSession: true,
-        insertActors: true,
-        insertDebates: true,
+        insertOutbox: '42501',
+        updateOutbox: '42501',
+        deleteOutbox: '42501',
+        updateSession: '42501',
+        insertActors: '42501',
+        insertDebates: '42501',
       },
     });
   } finally {

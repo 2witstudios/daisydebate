@@ -25,3 +25,13 @@ export function createRecordingLogger() {
   });
   return { recorded, logger: createRecorder() };
 }
+
+/** A logger that records each event name and its fields, children included. */
+export function createEventRecorder() {
+  const logged: Array<{ event: string; fields: Record<string, unknown> }> = [];
+  const logger: Logger = {
+    log: (event, fields) => void logged.push({ event, fields }),
+    child: () => logger,
+  };
+  return { logged, logger };
+}

@@ -1,21 +1,12 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { Logger } from '@daisy/logger';
+import { createEventRecorder as recorder } from '../../server/test-loggers.test-support';
 import {
   revokeOthersOnVerifyEmailPlugin,
   SESSION_CLEANUP_FAILED_HEADER,
 } from './revoke-others-on-verify-email';
 
 setupRitewayBun();
-
-type Logged = { event: string; fields: Record<string, unknown> };
-const recorder = () => {
-  const logged: Logged[] = [];
-  const logger: Logger = {
-    log: (event, fields) => void logged.push({ event, fields }),
-    child: () => logger,
-  };
-  return { logged, logger };
-};
 
 const context = (
   path: string,

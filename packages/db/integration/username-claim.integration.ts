@@ -1,12 +1,20 @@
 import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createDatabase } from '../src';
-import { withFixture } from './constraint-helpers';
+import { withFixture, type Fixture } from './constraint-helpers';
 import { requireTestServices } from '@daisy/config';
 
 setupRitewayBun();
 
 const { databaseUrl: url } = requireTestServices(process.env);
+
+/** Every actor id a user holds. */
+const actorIdsOf = async (fixture: Fixture, userId: string) =>
+  (
+    (await fixture.sql.unsafe('select id from actors where user_id = $1', [
+      userId,
+    ])) as Array<{ id: string }>
+  ).map(({ id }) => id);
 
 describe('claimUsername creates the human actor (ACTOR-1, ADR 0029)', () => {
   test('a claim inserts a human actor row using the injected id source', async () => {
@@ -59,17 +67,15 @@ describe('claimUsername creates the human actor (ACTOR-1, ADR 0029)', () => {
       } finally {
         await Promise.all([first.close(), second.close()]);
       }
-      const count = await fixture.count('actors', 'user_id', userId);
-      const [row] = (await fixture.sql.unsafe(
-        'select id from actors where user_id = $1',
-        [userId],
-      )) as Array<{ id: string }>;
       assert({
         given: 'the same owner retrying a claim that already succeeded',
         should:
           'answer unchanged the second time and leave exactly the first actor',
-        actual: [outcomes.map((o) => o.kind), count, row?.id],
-        expected: [['claimed', 'unchanged'], 1, firstActorId],
+        actual: [
+          outcomes.map((o) => o.kind),
+          await actorIdsOf(fixture, userId),
+        ],
+        expected: [['claimed', 'unchanged'], [firstActorId]],
       });
     });
   });
@@ -148,18 +154,13 @@ describe('claimUsername creates the human actor (ACTOR-1, ADR 0029)', () => {
       } finally {
         await database.close();
       }
-      const count = await fixture.count('actors', 'user_id', userId);
-      const [row] = (await fixture.sql.unsafe(
-        'select id from actors where user_id = $1',
-        [userId],
-      )) as Array<{ id: string }>;
       assert({
         given:
           'a user whose actor already exists from before they had a username',
         should:
           'claim the name and keep the pre-existing actor, inserting no second one',
-        actual: [outcome?.kind, count, row?.id],
-        expected: ['claimed', 1, preexistingActorId],
+        actual: [outcome?.kind, await actorIdsOf(fixture, userId)],
+        expected: ['claimed', [preexistingActorId]],
       });
     });
   });

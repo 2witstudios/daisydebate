@@ -16,6 +16,14 @@ const seedActorIds = ['h3j7m1p5r9t2v6x0z4b8d2f6', 'q5s9u3w7y1a4c8e2g6j0l4n8'];
 
 // A filesystem path, not URL.pathname: that stays percent-encoded, so a
 // checkout path containing a space would not exist as a spawn cwd.
+/** Removes the rows the seeds insert, children first. */
+const removeSeedRows = async (database: SQL) => {
+  await database`delete from debates where id = ${seedIds[2]}`;
+  await database`delete from actors where id in (${seedActorIds[0]}, ${seedActorIds[1]})`;
+  await database`delete from users where id in (${seedIds[0]}, ${seedIds[1]})`;
+  await database`delete from seed_versions where seed_name in ('agent', 'formats')`;
+};
+
 const repositoryRoot = resolve(import.meta.dir, '../../..');
 
 /**
@@ -62,10 +70,7 @@ describe('reference data', () => {
     } finally {
       try {
         await database`update formats set name = ${original?.name} where id = 'foundation'`;
-        await database`delete from debates where id = ${seedIds[2]}`;
-        await database`delete from actors where id in (${seedActorIds[0]}, ${seedActorIds[1]})`;
-        await database`delete from users where id in (${seedIds[0]}, ${seedIds[1]})`;
-        await database`delete from seed_versions where seed_name in ('agent', 'formats')`;
+        await removeSeedRows(database);
       } finally {
         await database.close();
       }
@@ -134,10 +139,7 @@ describe('agent seed', () => {
       });
     } finally {
       try {
-        await database`delete from debates where id = ${seedIds[2]}`;
-        await database`delete from actors where id in (${seedActorIds[0]}, ${seedActorIds[1]})`;
-        await database`delete from users where id in (${seedIds[0]}, ${seedIds[1]})`;
-        await database`delete from seed_versions where seed_name in ('agent', 'formats')`;
+        await removeSeedRows(database);
       } finally {
         await database.close();
       }

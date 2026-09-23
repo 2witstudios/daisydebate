@@ -98,19 +98,19 @@ describe('outbox cursor', () => {
   });
 });
 
+/** A transaction that records, and refuses, any insert or execute. */
+const untouchableTx = () => {
+  let touched = false;
+  const refuse = () => {
+    touched = true;
+    throw new Error('should not be called');
+  };
+  return { tx: { insert: refuse, execute: refuse }, touched: () => touched };
+};
+
 describe('appendOutboxEvent input validation', () => {
   test('refuses a payload missing required shape before touching the database', async () => {
-    let touched = false;
-    const tx = {
-      insert: () => {
-        touched = true;
-        throw new Error('should not be called');
-      },
-      execute: () => {
-        touched = true;
-        throw new Error('should not be called');
-      },
-    };
+    const { tx, touched } = untouchableTx();
     // Every case below otherwise carries a real, storable topic/kind/payload
     // pair (RT-2.2f-r2 review minor): a `payload: {}` shared across every
     // case would already fail `outboxPayloadSchema` on its own, so the test
@@ -139,7 +139,7 @@ describe('appendOutboxEvent input validation', () => {
       given:
         'an empty topic/kind, a non-positive or fractional version, and an unknown field, each next to an otherwise valid and storable topic/kind/payload',
       should: 'refuse every one without inserting or notifying',
-      actual: { attempts, touched },
+      actual: { attempts, touched: touched() },
       expected: {
         attempts: attempts.map(() => 'refused'),
         touched: false,
@@ -148,17 +148,7 @@ describe('appendOutboxEvent input validation', () => {
   });
 
   test('refuses a non-object payload before touching the database', async () => {
-    let touched = false;
-    const tx = {
-      insert: () => {
-        touched = true;
-        throw new Error('should not be called');
-      },
-      execute: () => {
-        touched = true;
-        throw new Error('should not be called');
-      },
-    };
+    const { tx, touched } = untouchableTx();
     const attempts = await Promise.all(
       [null, 'a string', 42, true, ['array', 'not', 'object']].map((payload) =>
         appendOutboxEvent(
@@ -178,7 +168,7 @@ describe('appendOutboxEvent input validation', () => {
       given: 'null, a string, a number, a boolean and an array as payload',
       should:
         'refuse every one as a clean validation error, never reaching the outbox_payload_is_object CHECK',
-      actual: { attempts, touched },
+      actual: { attempts, touched: touched() },
       expected: {
         attempts: attempts.map(() => 'refused'),
         touched: false,

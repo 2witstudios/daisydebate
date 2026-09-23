@@ -1,62 +1,16 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { memoryAdapter } from '@better-auth/memory-adapter';
-import { fixedClock, sequentialId } from '@daisy/clock';
 import { readAuthConfig } from '@daisy/config';
-import type { Logger } from '@daisy/logger';
-import { createAuthServer, type AuthEmailMessage } from './server';
+import {
+  authTestEnv,
+  capturingSender,
+  composeAuthServer,
+} from './auth-server.test-support';
 
 setupRitewayBun();
 
-const env = {
-  NODE_ENV: 'test',
-  BETTER_AUTH_SECRET:
-    '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
-  PUBLIC_APP_URL: 'http://localhost:3000',
-  RESEND_API_KEY: 're_test_000000000000000000000000',
-  AUTH_EMAIL_FROM: 'Daisy <no-reply@daisy.example.com>',
-};
-
-const silentLogger: Logger = {
-  log: () => {},
-  child: () => silentLogger,
-};
-
-function capturingSender() {
-  const sent: AuthEmailMessage[] = [];
-  return {
-    sent,
-    send: async (input: AuthEmailMessage) => {
-      sent.push(input);
-    },
-  };
-}
-
-const create = (overrides?: {
-  env?: Record<string, string | undefined>;
-  emailSender?: ReturnType<typeof capturingSender>;
-}) =>
-  createAuthServer({
-    config: readAuthConfig(overrides?.env ?? env),
-    database: memoryAdapter({
-      user: [],
-      session: [],
-      account: [],
-      verification: [],
-      passkey: [],
-    }),
-    emailSender: overrides?.emailSender ?? capturingSender(),
-    limiter: { consume: async () => ({ allowed: true, retryAfterSeconds: 0 }) },
-    ledger: { isSuppressed: async () => false, record: async () => {} },
-    logger: silentLogger,
-    clock: fixedClock('2026-09-20T00:00:00.000Z'),
-    ids: sequentialId('auth'),
-    appendSessionRevoked: async () => {},
-    revokeOtherSessions: async () => 0,
-  });
-
 describe('auth instance composition', () => {
   test('composes the Better Auth instance from the validated configuration', async () => {
-    const server = create();
+    const server = composeAuthServer();
     const { options } = await server.instance.$context;
     assert({
       given: 'the validated auth configuration',
@@ -78,8 +32,11 @@ describe('auth instance composition', () => {
   });
 
   test('configures magic-link and passkey with a relying party derived from the application URL', async () => {
-    const server = create({
-      env: { ...env, PUBLIC_APP_URL: 'https://daisy.example.com' },
+    const server = composeAuthServer({
+      config: readAuthConfig({
+        ...authTestEnv,
+        PUBLIC_APP_URL: 'https://daisy.example.com',
+      }),
     });
     const { options } = await server.instance.$context;
     const byId = new Map(
@@ -108,7 +65,7 @@ describe('auth instance composition', () => {
   });
 
   test('asks for discoverable passkeys from any authenticator', async () => {
-    const server = create();
+    const server = composeAuthServer();
     const { options } = await server.instance.$context;
     const passkeyOptions = (options.plugins ?? []).find(
       (plugin) => plugin.id === 'passkey',
@@ -123,7 +80,7 @@ describe('auth instance composition', () => {
   });
 
   test('hints the device authenticator first on passkey sign-in options', async () => {
-    const server = create();
+    const server = composeAuthServer();
     const response = await server.instance.handler(
       new Request(
         'http://localhost:3000/api/auth/passkey/generate-authenticate-options',
@@ -150,7 +107,7 @@ describe('auth instance composition', () => {
   });
 
   test('leaves a refused passkey options request untouched', async () => {
-    const server = create();
+    const server = composeAuthServer();
     const response = await server.instance.handler(
       new Request(
         'http://localhost:3000/api/auth/passkey/generate-register-options',
@@ -167,7 +124,7 @@ describe('auth instance composition', () => {
 
   test('delivers requested magic links through the injected sender', async () => {
     const sender = capturingSender();
-    const server = create({ emailSender: sender });
+    const server = composeAuthServer({ emailSender: sender });
     await server.instance.api.signInMagicLink({
       body: { email: 'player@daisy.example.com' },
       headers: new Headers({ origin: 'http://localhost:3000' }),
@@ -183,7 +140,7 @@ describe('auth instance composition', () => {
   });
 
   test('refuses direct calls to password signup, signin and reset endpoints', async () => {
-    const server = create();
+    const server = composeAuthServer();
     const passwords = ['Sup3rSecret!', 'Sup3rSecret!', 'Sup3rSecret!'];
     const paths = [
       '/api/auth/sign-up/email',

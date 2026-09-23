@@ -6,14 +6,18 @@ import GlobalError from './global-error';
 
 setupRitewayBun();
 
+/** The server render of a root-layout failure carrying digest d1. */
+const renderFailure = () =>
+  renderToString(
+    h(GlobalError, {
+      error: Object.assign(new Error('boom'), { digest: 'd1' }),
+      retry: () => undefined,
+    }),
+  );
+
 describe('GlobalError', () => {
   test('renders its own document, defaulting to dark with no cookie', () => {
-    const html = renderToString(
-      h(GlobalError, {
-        error: Object.assign(new Error('boom'), { digest: 'd1' }),
-        retry: () => undefined,
-      }),
-    );
+    const html = renderFailure();
     assert({
       given: 'a root-layout failure with no theme cookie (server render)',
       should: 'render its own <html data-theme="dark"> and <body>, once each',
@@ -27,12 +31,7 @@ describe('GlobalError', () => {
   });
 
   test('offers the retry as a styled button', () => {
-    const html = renderToString(
-      h(GlobalError, {
-        error: Object.assign(new Error('boom'), { digest: 'd1' }),
-        retry: () => undefined,
-      }),
-    );
+    const html = renderFailure();
     assert({
       given: 'a root-layout failure',
       should: 'render "Try again" with the primary button classes',

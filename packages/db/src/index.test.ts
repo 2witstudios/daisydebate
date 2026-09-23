@@ -15,6 +15,18 @@ import {
 
 setupRitewayBun();
 
+/** A database whose server refuses connections, recording sink events. */
+const unreachableDatabase = () => {
+  const events: SinkEvent[] = [];
+  const database = createDatabase({
+    url: 'postgresql://user:password@127.0.0.1:1/daisy',
+    eventSink: (event, fields, message) =>
+      events.push({ event, fields, message }),
+    nextActorId: createId,
+  });
+  return { database, events };
+};
+
 describe('package entry surface (ISSUE-8 AC1)', () => {
   test('never re-exports a function that takes a Drizzle transaction/table handle, only the createDatabase factory and value-typed outbox helpers', () => {
     assert({
@@ -236,17 +248,7 @@ describe('session revocation', () => {
   });
 
   test('reports a failed revocation through the injected event sink', async () => {
-    const events: Array<{
-      event: string;
-      fields: Record<string, unknown>;
-      message: string;
-    }> = [];
-    const database = createDatabase({
-      url: 'postgresql://user:password@127.0.0.1:1/daisy',
-      eventSink: (event, fields, message) =>
-        events.push({ event, fields, message }),
-      nextActorId: createId,
-    });
+    const { database, events } = unreachableDatabase();
 
     await expect(
       database.revokeOtherSessions('user-1', 'keep-me'),
@@ -269,17 +271,7 @@ describe('session revocation', () => {
 
 describe('database adapter failures', () => {
   test('reports a failed query through the injected event sink', async () => {
-    const events: Array<{
-      event: string;
-      fields: Record<string, unknown>;
-      message: string;
-    }> = [];
-    const database = createDatabase({
-      url: 'postgresql://user:password@127.0.0.1:1/daisy',
-      eventSink: (event, fields, message) =>
-        events.push({ event, fields, message }),
-      nextActorId: createId,
-    });
+    const { database, events } = unreachableDatabase();
 
     await expect(database.health()).rejects.toMatchObject({
       cause: { code: 'ERR_POSTGRES_CONNECTION_REFUSED' },

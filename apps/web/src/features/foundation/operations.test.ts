@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import { assertRejects, rejectionOf } from '@daisy/errors/testing';
+import type { Permission } from '@daisy/auth';
 import { fixedClock } from '@daisy/clock';
 import {
   createProofDebate,
@@ -156,55 +157,48 @@ describe('foundation debate retrieval', () => {
   });
 
   test('refuses a principal holding only debate:create', async () => {
-    let reads = 0;
-    database.getDebate = () => {
-      reads += 1;
-      return Promise.resolve(undefined);
-    };
-    const caught = await rejectionOf(() =>
-      getProofDebate('z9x7v5t3r1p8n6m4k2b5d7f1', dependencies, {
-        kind: 'service',
-        serviceId: 'create-only',
-        permissions: ['debate:create'],
-      }),
-    );
-
+    const outcome = await readOfUnknownDebateAs('create-only', 'debate:create');
     assert({
       given: 'a principal holding debate:create but not debate:read',
       should: 'refuse with AUTHORIZATION before touching the database',
-      actual: {
-        code: caught.code,
-        reads,
-      },
+      actual: outcome,
       expected: { code: 'AUTHORIZATION', reads: 0 },
     });
   });
 
   test('admits a principal holding only debate:read', async () => {
-    let reads = 0;
-    database.getDebate = () => {
-      reads += 1;
-      return Promise.resolve(undefined);
-    };
-    const caught = await rejectionOf(() =>
-      getProofDebate('z9x7v5t3r1p8n6m4k2b5d7f1', dependencies, {
-        kind: 'service',
-        serviceId: 'read-only',
-        permissions: ['debate:read'],
-      }),
-    );
-
+    const outcome = await readOfUnknownDebateAs('read-only', 'debate:read');
     assert({
       given: 'a principal holding debate:read and an unknown debate id',
       should: 'pass the gate, read the database, and report NOT_FOUND',
-      actual: {
-        code: caught.code,
-        reads,
-      },
+      actual: outcome,
       expected: { code: 'NOT_FOUND', reads: 1 },
     });
   });
 });
+
+/**
+ * A read of an unknown debate by a service principal holding one
+ * permission: the rejection code and how many database reads it made.
+ */
+async function readOfUnknownDebateAs(
+  serviceId: string,
+  permission: Permission,
+) {
+  let reads = 0;
+  database.getDebate = () => {
+    reads += 1;
+    return Promise.resolve(undefined);
+  };
+  const { code } = await rejectionOf(() =>
+    getProofDebate('z9x7v5t3r1p8n6m4k2b5d7f1', dependencies, {
+      kind: 'service',
+      serviceId,
+      permissions: [permission],
+    }),
+  );
+  return { code, reads };
+}
 
 describe('foundation debate creation gate', () => {
   test('refuses a principal holding only debate:read', async () => {

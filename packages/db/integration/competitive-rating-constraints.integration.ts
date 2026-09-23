@@ -6,6 +6,7 @@ import {
   indexDefinition,
   rejected,
   withFixture,
+  type Fixture,
 } from './constraint-helpers';
 import { requireTestServices } from '@daisy/config';
 
@@ -22,6 +23,14 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
     status: 'scheduled',
     ...overrides,
   });
+  /** An actor, a format and a season for rating rows to reference. */
+  const rated = async (fixture: Fixture) => {
+    const actorId = await fixture.actor();
+    const formatId = await fixture.format();
+    const seasonId = createId();
+    await fixture.insert('seasons', season({ id: seasonId }));
+    return { actorId, formatId, seasonId };
+  };
 
   test('at most one active season', async () => {
     await withFixture(url, async (fixture) => {
@@ -55,10 +64,7 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
 
   test('ratings hold bounded Glicko-2 state and nothing derivable', async () => {
     await withFixture(url, async (fixture) => {
-      const actorId = await fixture.actor();
-      const formatId = await fixture.format();
-      const seasonId = createId();
-      await fixture.insert('seasons', season({ id: seasonId }));
+      const { actorId, formatId, seasonId } = await rated(fixture);
       const rating = (overrides: Record<string, unknown>) => ({
         actor_id: actorId,
         format_id: formatId,
@@ -147,10 +153,7 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
 
   test('the ledger records one change per debate and actor', async () => {
     await withFixture(url, async (fixture) => {
-      const actorId = await fixture.actor();
-      const formatId = await fixture.format();
-      const seasonId = createId();
-      await fixture.insert('seasons', season({ id: seasonId }));
+      const { actorId, formatId, seasonId } = await rated(fixture);
       const debateId = await fixture.debate({ format_id: formatId });
       await fixture.participant(debateId, 'affirmative', 0, actorId);
       const change = (overrides: Record<string, unknown>) => ({

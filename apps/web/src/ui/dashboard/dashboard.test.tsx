@@ -1,23 +1,14 @@
-import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { Dashboard } from './dashboard';
 import { tiles } from './tiles';
-import { createInitialState } from '../store/state';
-import { UiStoreProvider } from '../store/store';
+import { occurrences, renderInStore } from '../test-support/render-in-store';
 
 setupRitewayBun();
 
-const count = (html: string, needle: string): number =>
-  html.split(needle).length - 1;
+const count = occurrences;
 
-const render = (): string =>
-  renderToString(
-    h(UiStoreProvider, {
-      initialState: createInitialState(),
-      children: h(Dashboard),
-    }),
-  );
+const render = (): string => renderInStore(h(Dashboard));
 
 describe('Dashboard', () => {
   test('links every configured destination from a named list', () => {

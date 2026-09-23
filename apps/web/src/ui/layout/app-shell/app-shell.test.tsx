@@ -1,24 +1,18 @@
-import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { AppShell } from './app-shell';
-import { createInitialState } from '../../store/state';
-import { UiStoreProvider } from '../../store/store';
+import { occurrences, renderInStore } from '../../test-support/render-in-store';
 
 setupRitewayBun();
 
-const count = (html: string, needle: string): number =>
-  html.split(needle).length - 1;
+const count = occurrences;
 
 const render = (): string =>
-  renderToString(
-    h(UiStoreProvider, {
-      initialState: createInitialState(),
-      children: h(AppShell, {
-        account: { state: 'anonymous' },
-        rail: h('p', null, 'rail-content'),
-        children: h('p', null, 'page'),
-      }),
+  renderInStore(
+    h(AppShell, {
+      account: { state: 'anonymous' },
+      rail: h('p', null, 'rail-content'),
+      children: h('p', null, 'page'),
     }),
   );
 
