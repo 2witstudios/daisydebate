@@ -17,4 +17,6 @@ fi
 # so nothing in it is expanded by the shell.
 exports=$(bun "$(dirname "$0")/agent-identity.ts" export-env "$env_file")
 eval "$exports"
+# The owner's login environment must not leak its credentials to the agent.
+unset GITHUB_TOKEN GH_ENTERPRISE_TOKEN GITHUB_ENTERPRISE_TOKEN SSH_AUTH_SOCK
 exec "$@"
