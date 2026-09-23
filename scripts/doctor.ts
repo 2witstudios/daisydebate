@@ -11,6 +11,7 @@ import {
   resolveCheckout,
 } from './slot';
 import { assessGithubIdentity } from './agent-identity';
+import { checkoutWarning, readCheckout } from './session-start';
 
 const checkNames = [
   'bun-version',
@@ -22,6 +23,7 @@ const checkNames = [
   'slot',
   'slot-orphans',
   'github-identity',
+  'checkout',
 ] as const;
 
 type CheckName = (typeof checkNames)[number];
@@ -307,6 +309,17 @@ async function checkGithubIdentity(): Promise<DoctorCheck> {
   return { name: 'github-identity', status, detail };
 }
 
+function checkCheckout(): DoctorCheck {
+  const checkout = readCheckout(root);
+  const warning = checkoutWarning(checkout);
+  return warning
+    ? fail('checkout', warning)
+    : pass(
+        'checkout',
+        `${checkout.mainCheckout ? 'main checkout' : 'worktree'} on ${checkout.branch ?? 'detached HEAD'}`,
+      );
+}
+
 export async function runDoctor(): Promise<DoctorReport> {
   const env = checkEnvironment();
   const [bunVersion, postgres, migrations, redis, boundaries, slots, identity] =
@@ -328,6 +341,7 @@ export async function runDoctor(): Promise<DoctorReport> {
     boundaries,
     ...slots,
     identity,
+    checkCheckout(),
   ]);
 }
 

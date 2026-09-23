@@ -36,6 +36,7 @@ describe('doctor report', () => {
           { name: 'slot', status: 'fail', detail: 'not checked' },
           { name: 'slot-orphans', status: 'fail', detail: 'not checked' },
           { name: 'github-identity', status: 'fail', detail: 'not checked' },
+          { name: 'checkout', status: 'fail', detail: 'not checked' },
         ],
       },
     });
@@ -56,6 +57,7 @@ describe('doctor report', () => {
         status: 'pass',
         detail: 'autonomous as daisy-agent (GH_TOKEN, HTTPS push)',
       },
+      { name: 'checkout', status: 'pass', detail: 'worktree on pu/x' },
     ]);
 
     assert({
@@ -69,7 +71,7 @@ describe('doctor report', () => {
       should: 'render a passing text summary',
       actual: formatDoctorReport(report, false),
       expected:
-        'Daisy doctor: PASS\nPASS bun-version: 1.4.2\nPASS env: valid\nPASS postgres: reachable\nPASS migration-currency: 1 migration\nPASS redis: PONG\nPASS boundaries: verified\nPASS slot: daisy\nWARN slot-orphans: orphaned slots: gone\nPASS github-identity: autonomous as daisy-agent (GH_TOKEN, HTTPS push)\n',
+        'Daisy doctor: PASS\nPASS bun-version: 1.4.2\nPASS env: valid\nPASS postgres: reachable\nPASS migration-currency: 1 migration\nPASS redis: PONG\nPASS boundaries: verified\nPASS slot: daisy\nWARN slot-orphans: orphaned slots: gone\nPASS github-identity: autonomous as daisy-agent (GH_TOKEN, HTTPS push)\nPASS checkout: worktree on pu/x\n',
     });
   });
 });
@@ -142,6 +144,7 @@ describe('slot checks', () => {
             'boundaries',
             'slot',
             'github-identity',
+            'checkout',
           ] as const
         ).map((name): DoctorCheck => ({ name, status: 'pass', detail: '' })),
         warned,
