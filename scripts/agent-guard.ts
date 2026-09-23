@@ -23,7 +23,7 @@ import {
   type Rule,
   type Verdict,
 } from './agent-guard-rules';
-import { isLoopState, loopState } from './agent-guard-files';
+import { isProtectedFile, loopState } from './agent-guard-files';
 import { gh } from './agent-guard-gh';
 import { git } from './agent-guard-git';
 import { kill, otherKillers } from './agent-guard-process';
@@ -82,7 +82,7 @@ export function classifyCommand(command: string, facts: GuardFacts): Verdict {
     const invocation = unwrap(simple);
     const [name = '', ...args] = invocation.words;
     verdicts.push(guardVariables(invocation, facts));
-    verdicts.push(loopState(simple, invocation, facts));
+    verdicts.push(loopState(simple, invocation, facts, cwd));
     if (name === 'cd' || name === 'pushd')
       cwd = resolveFrom(cwd, args[0] ?? '~');
     else if (shells.has(name))
@@ -96,7 +96,9 @@ export function classifyCommand(command: string, facts: GuardFacts): Verdict {
 
 /** Judges an Edit or Write tool call by its target path. */
 export function classifyFileEdit(path: string, facts: GuardFacts): Verdict {
-  return facts.autonomous && isLoopState(path) ? deny(LOOP_REASON) : allow;
+  return facts.autonomous && isProtectedFile(path, facts)
+    ? deny(LOOP_REASON)
+    : allow;
 }
 
 /** Judges the refs git hands the pre-push hook on stdin. */

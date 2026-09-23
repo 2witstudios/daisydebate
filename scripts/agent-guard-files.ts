@@ -1,45 +1,139 @@
 /**
- * The agent guard's file rules (ADR 0035): loop state is changed only by the
- * loop commands, never by hand.
+ * The agent guard's file rules (ADR 0035): loop state and the agent records
+ * in .daisy are changed only by the loop and spawn commands, never by hand.
+ * A path argument counts when it names a protected file, one of its parent
+ * directories, or a glob that could expand to either.
  */
+import { dirname, join } from 'node:path';
 import type { ShellCommand } from './shell-command';
 import {
   allow,
   deny,
+  isWithin,
   LOOP_REASON,
+  resolveFrom,
   type GuardFacts,
   type Invocation,
   type Verdict,
 } from './agent-guard-rules';
 
-const LOOP_STATE = /ralph-loop\.(?:local|escalated)\.md/;
-const fileMutators = new Set([
+const PROTECTED = [
+  '.claude/ralph-loop.local.md',
+  '.claude/ralph-loop.escalated.md',
+  '.daisy/parent',
+  '.daisy/role',
+];
+
+// Every file and directory whose removal or rewrite reaches a protected file.
+function protectedTargets(worktree: string): string[] {
+  const targets = new Set<string>();
+  for (const file of PROTECTED) {
+    let path = join(worktree, file);
+    while (path.length > worktree.length) {
+      targets.add(path);
+      path = dirname(path);
+    }
+  }
+  targets.add(worktree);
+  return [...targets];
+}
+
+const GLOB = /[*?[]/;
+
+function globToRegExp(glob: string): RegExp {
+  const source = glob
+    .replace(/[.+^${}()|\\]/g, '\\$&')
+    .replace(/\*\*/g, '\u0000')
+    .replace(/\*/g, '[^/]*')
+    .replace(/\?/g, '[^/]')
+    .replaceAll('\u0000', '.*');
+  return new RegExp(`^${source}$`);
+}
+
+/** Whether a path argument reaches a protected file. */
+function reaches(arg: string, cwd: string, facts: GuardFacts): boolean {
+  const path = resolveFrom(cwd, arg);
+  const files = PROTECTED.map((file) => join(facts.worktree, file));
+  if (!GLOB.test(path))
+    return files.some((file) => isWithin(file, path.replace(/\/$/, '')));
+  const pattern = globToRegExp(path);
+  return protectedTargets(facts.worktree).some((target) =>
+    pattern.test(target),
+  );
+}
+
+const removers = new Set([
   'rm',
+  'rmdir',
   'mv',
-  'cp',
   'unlink',
   'truncate',
   'tee',
   'shred',
-  'ln',
   'touch',
-  'dd',
-  'install',
 ]);
+// These write only to their last argument.
+const writers = new Set(['cp', 'ln', 'install']);
 
-export const isLoopState = (path: string): boolean => LOOP_STATE.test(path);
+const operands = (args: readonly string[]) =>
+  args.filter((arg) => !arg.startsWith('-'));
+
+function findDeletes(args: readonly string[]): readonly string[] {
+  const acts = args.some((arg) =>
+    ['-delete', '-exec', '-execdir', '-ok', '-okdir'].includes(arg),
+  );
+  const firstExpression = args.findIndex((arg) => /^[-(!]/.test(arg));
+  const starts = args.slice(
+    0,
+    firstExpression === -1 ? undefined : firstExpression,
+  );
+  return acts ? (starts.length > 0 ? starts : ['.']) : [];
+}
+
+function gitCleans(args: readonly string[]): readonly string[] {
+  // The subcommand is the first word after git's global options.
+  let at = 0;
+  while (at < args.length && args[at].startsWith('-'))
+    at += ['-C', '-c', '--git-dir', '--work-tree'].includes(args[at]) ? 2 : 1;
+  if (args[at] !== 'clean') return [];
+  const rest = args.slice(at + 1);
+  if (rest.some((arg) => arg === '-n' || arg === '--dry-run')) return [];
+  const paths = operands(rest.filter((arg) => arg !== '--'));
+  return paths.length > 0 ? paths : ['.'];
+}
+
+/** The paths a command would change, for the commands that change files. */
+function changedPaths(invocation: Invocation): readonly string[] {
+  const [name = '', ...args] = invocation.words;
+  if (removers.has(name)) return operands(args);
+  if (writers.has(name)) return operands(args).slice(-1);
+  if (name === 'dd')
+    return args
+      .filter((arg) => arg.startsWith('of='))
+      .map((arg) => arg.slice(3));
+  if (
+    (name === 'sed' || name === 'perl') &&
+    args.some((arg) => /^-[A-Za-z]*i/.test(arg))
+  )
+    return operands(args);
+  if (name === 'find') return findDeletes(args);
+  if (name === 'git') return gitCleans(args);
+  return [];
+}
 
 export function loopState(
   command: ShellCommand,
   invocation: Invocation,
   facts: GuardFacts,
+  cwd: string = facts.cwd,
 ): Verdict {
-  const [name = '', ...args] = invocation.words;
-  const inPlace =
-    (name === 'sed' || name === 'perl') &&
-    args.some((arg) => /^-[A-Za-z]*i/.test(arg));
-  const mutates =
-    command.redirects.some(isLoopState) ||
-    ((fileMutators.has(name) || inPlace) && args.some(isLoopState));
-  return facts.autonomous && mutates ? deny(LOOP_REASON) : allow;
+  if (!facts.autonomous) return allow;
+  const touched = [...command.redirects, ...changedPaths(invocation)].some(
+    (path) => reaches(path, cwd, facts),
+  );
+  return touched ? deny(LOOP_REASON) : allow;
 }
+
+/** Whether an edited file is loop state or an agent record. */
+export const isProtectedFile = (path: string, facts: GuardFacts): boolean =>
+  PROTECTED.some((file) => path === join(facts.worktree, file));

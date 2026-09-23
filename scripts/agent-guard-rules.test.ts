@@ -203,6 +203,44 @@ describe('agent guard: loop state and guard bypasses', () => {
     });
   });
 
+  test('refuses loop state and agent records reached by glob, recursion or cleanup', () => {
+    assert({
+      given:
+        'globs, recursive removal, find -delete, git clean and writes to .daisy',
+      should: 'deny each one',
+      actual: [
+        'rm .claude/ralph-loop.l*',
+        'rm -rf .claude',
+        'rm -rf .claude/*',
+        `find .claude -name 'ralph*' -delete`,
+        'find . -name "*.md" -exec rm {} +',
+        'git clean -fdX .claude',
+        'git clean -fdx',
+        'echo ag-me > .daisy/parent',
+        'rm -rf .daisy',
+        "sed -i '' s/a/b/ .daisy/role",
+        'mv .claude/ralph-loop.escalated.md /tmp/x',
+        `rm ${worktree}/.claude/ralph-loop.local.md`,
+      ].map((command) => decide(command)),
+      expected: Array(12).fill('deny'),
+    });
+  });
+
+  test('allows cleanup that cannot reach loop state or agent records', () => {
+    assert({
+      given: 'removals elsewhere, a find without deletion and a dry-run clean',
+      should: 'allow them',
+      actual: [
+        decide('rm -rf node_modules/.cache'),
+        decide('rm scripts/old.ts'),
+        decide(`find . -name '*.log'`),
+        decide('git clean -n -fdX'),
+        decide('git log --grep clean'),
+      ],
+      expected: ['allow', 'allow', 'allow', 'allow', 'allow'],
+    });
+  });
+
   test('allows reading loop state', () => {
     assert({
       given: 'reads of the loop state file',
@@ -284,10 +322,11 @@ describe('agent guard: loop state and guard bypasses', () => {
         classifyFileEdit(`${worktree}/.claude/ralph-loop.local.md`, facts())
           .decision,
         classifyFileEdit(`${worktree}/scripts/loop.ts`, facts()).decision,
+        classifyFileEdit(`${worktree}/.daisy/parent`, facts()).decision,
         classifyFileEdit(`${worktree}/.claude/ralph-loop.local.md`, owner())
           .decision,
       ],
-      expected: ['deny', 'allow', 'allow'],
+      expected: ['deny', 'allow', 'deny', 'allow'],
     });
   });
 
