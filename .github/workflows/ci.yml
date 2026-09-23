@@ -64,6 +64,20 @@ jobs:
         env:
           GH_TOKEN: ${{ matrix.task == 'policy' && github.token || '' }}
 
+  audit:
+    name: Dependency vulnerability audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+      - run: bun install --frozen-lockfile
+      - run: bun run audit
+
   migrations:
     name: Migration journal collision guard
     runs-on: ubuntu-24.04
@@ -158,7 +172,7 @@ jobs:
     name: Report failure to drive Incidents
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    needs: [checks, migrations, integration]
+    needs: [checks, audit, migrations, integration]
     if: failure()
     steps:
       - uses: actions/checkout@v7
