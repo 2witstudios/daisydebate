@@ -11,7 +11,13 @@
 #   - commit equals HEAD (tags are peeled): verified once by the check;
 #   - commit already on a remote-tracking branch: nothing new, allowed;
 #   - anything else: refused, because this hook cannot verify it.
+# Before any of that, the agent guard (scripts/agent-guard.ts, ADR 0035)
+# refuses an autonomous push to main and asks the owner before one.
 set -eu
+
+refs=$(cat)
+cd "$(git rev-parse --show-toplevel)"
+printf '%s\n' "$refs" | bun scripts/agent-guard.ts pre-push
 
 head_commit=$(git rev-parse --verify --quiet 'HEAD^{commit}' || true)
 needs_check=0
@@ -32,7 +38,9 @@ while read -r local_ref local_sha _remote_ref _remote_sha; do
     echo "pre-push: refusing $local_ref: it is not the checked-out commit, and bun check:affected can only verify HEAD." >&2
     refused=1
   fi
-done
+done <<REFS
+$refs
+REFS
 
 if [ "$refused" -eq 1 ]; then
   echo "pre-push: check that ref out and push it from there, or bypass deliberately with git push --no-verify." >&2
@@ -40,7 +48,6 @@ if [ "$refused" -eq 1 ]; then
 fi
 [ "$needs_check" -eq 1 ] || exit 0
 
-cd "$(git rev-parse --show-toplevel)"
 if [ -n "$(git status --porcelain)" ]; then
   echo "pre-push: the working tree has uncommitted changes; the check covers the working tree, not exactly the pushed commit." >&2
 fi
