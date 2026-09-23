@@ -20,7 +20,6 @@ export type { ActorRecord } from './actor-operations';
 export type { FormatRecord } from './debate-operations';
 export type { DatabaseEventSink } from './instrumented';
 export {
-  appendOutboxEvent,
   encodeOutboxCursor,
   decodeOutboxCursor,
   OUTBOX_ORIGIN,

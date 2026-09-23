@@ -5,6 +5,7 @@ import { getTableName } from 'drizzle-orm';
 import { getTableConfig } from 'drizzle-orm/pg-core';
 import { debates } from './schema/debates';
 import { users } from './schema/users';
+import * as packageEntry from './index';
 import { createDatabase } from './index';
 import {
   createTestDatabase,
@@ -13,6 +14,23 @@ import {
 } from './index.test-support';
 
 setupRitewayBun();
+
+describe('package entry surface (ISSUE-8 AC1)', () => {
+  test('never re-exports a function that takes a Drizzle transaction/table handle, only the createDatabase factory and value-typed outbox helpers', () => {
+    assert({
+      given: "the package entry's exported names",
+      should:
+        'exclude appendOutboxEvent, drainOutbox, purgeExpiredOutboxEvents and the raw outbox table — each takes or is a Drizzle handle, so a caller outside packages/db can only reach the opaque createDatabase() surface',
+      actual: Object.keys(packageEntry).sort(),
+      expected: [
+        'OUTBOX_ORIGIN',
+        'createDatabase',
+        'decodeOutboxCursor',
+        'encodeOutboxCursor',
+      ].sort(),
+    });
+  });
+});
 
 describe('persistence schema', () => {
   test('tables have independent ownership', () => {
