@@ -15,7 +15,11 @@ qualification-results/
 .pu/*
 !.pu/config.yaml
 !.pu/agent-context.md
+# Per-worktree agent records (the parent agent id) written by bun agent:spawn.
+.daisy/
 .DS_Store
 .opencode/
 # Agent worktrees only; the rest of .claude/ stays visible to git.
 .claude/worktrees/
+# Ralph loop state (active and escalated); see bun loop:escalate.
+.claude/ralph-loop.*.md
