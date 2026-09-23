@@ -20,6 +20,7 @@ import { extractTaskIds } from './notify-drive';
 type Result = { readonly code: number; readonly stdout: string };
 type MergedPr = {
   readonly number: number;
+  readonly mergedAt: string;
   readonly title: string;
   readonly headRefName: string;
   readonly body: string;
@@ -28,6 +29,8 @@ type MergedPr = {
 export type StaleDeps = {
   readonly pagespace: (args: readonly string[]) => Result;
   readonly mergedPrs: () => readonly MergedPr[];
+  /** reviewEnforcementCutoff from policy/github/repository.json. */
+  readonly cutoff: string | null;
   readonly out: (text: string) => void;
 };
 
@@ -37,6 +40,7 @@ type TaskList = {
     readonly pageId: string;
     readonly title: string;
     readonly status: string;
+    readonly completedAt?: string | null;
   }[];
   readonly availableStatuses: readonly { readonly slug: string }[];
 };
@@ -99,6 +103,7 @@ function readBoard(deps: StaleDeps) {
         taskId: task.id,
         status: task.status,
         hasReviewRecord: reviewed.has(code) || linked,
+        completedAt: task.completedAt ?? undefined,
       });
     }
   }
@@ -106,15 +111,15 @@ function readBoard(deps: StaleDeps) {
 }
 
 export function runStaleCheck(deps: StaleDeps, apply: boolean): number {
-  const merged = new Set(
-    deps
-      .mergedPrs()
-      .flatMap((pr) =>
-        extractTaskIds(`${pr.title} ${pr.headRefName} ${pr.body}`),
-      ),
-  );
+  const merged = new Map<string, string>();
+  for (const pr of deps.mergedPrs())
+    for (const code of extractTaskIds(
+      `${pr.title} ${pr.headRefName} ${pr.body}`,
+    ))
+      if (!merged.has(code) || pr.mergedAt < (merged.get(code) ?? ''))
+        merged.set(code, pr.mergedAt);
   const { lists, tasks } = readBoard(deps);
-  const stale = staleLeaves(tasks, merged);
+  const stale = staleLeaves(tasks, merged, deps.cutoff);
   for (const { task, reason, to } of stale)
     deps.out(`${task.code} ${reason} → ${to}  (${task.pageId})\n`);
   deps.out(`${stale.length} stale of ${tasks.length} tasks\n`);
@@ -168,9 +173,14 @@ if (import.meta.main) {
             '--limit',
             '1000',
             '--json',
-            'number,title,headRefName,body',
+            'number,title,headRefName,body,mergedAt',
           ]).stdout,
         ) as MergedPr[],
+      cutoff: (
+        (await Bun.file(
+          new URL('../policy/github/repository.json', import.meta.url),
+        ).json()) as { reviewEnforcementCutoff: string | null }
+      ).reviewEnforcementCutoff,
       out: (text) => process.stdout.write(text),
     },
     process.argv.includes('--apply'),

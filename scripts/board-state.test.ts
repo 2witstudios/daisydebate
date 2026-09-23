@@ -138,6 +138,9 @@ describe('debtIssue', () => {
 });
 
 describe('staleLeaves', () => {
+  const cutoff = '2026-09-24T00:00:00Z';
+  const before = '2026-09-20T00:00:00Z';
+  const after = '2026-09-25T00:00:00Z';
   const task = (overrides: Partial<BoardTask>): BoardTask => ({
     code: 'RT-1.1',
     pageId: 'p',
@@ -145,28 +148,83 @@ describe('staleLeaves', () => {
     taskId: 't',
     status: 'in_progress',
     hasReviewRecord: false,
+    completedAt: undefined,
     ...overrides,
   });
+  const summary = (list: ReturnType<typeof staleLeaves>) =>
+    list.map(({ task: { code }, reason, to }) => ({ code, reason, to }));
 
-  test('lists tasks whose status disagrees with git and their pre-Done fix', () => {
-    const merged = new Set(['RT-1.1', 'RT-1.2', 'RT-1.4']);
+  test('moves merged tasks that never reached In Review to Merged', () => {
+    const merged = new Map([
+      ['RT-1.1', before],
+      ['RT-1.2', before],
+    ]);
     assert({
-      given:
-        'a merged task still in progress, a merged task already in review (not stale), Done without a record merged and unmerged, Done with a record, an unmerged open task',
-      should: 'flag the drift and target the correct pre-Done status',
-      actual: staleLeaves(
-        [
-          task({ code: 'RT-1.1', status: 'in_progress' }),
-          task({ code: 'RT-1.2', status: 'in_review' }),
-          task({ code: 'RT-1.4', status: 'completed' }),
-          task({ code: 'RT-1.5', status: 'completed' }),
-          task({ code: 'RT-1.6', status: 'completed', hasReviewRecord: true }),
-          task({ code: 'RT-1.7', status: 'ready' }),
-        ],
-        merged,
-      ).map(({ task: { code }, reason, to }) => ({ code, reason, to })),
+      given: 'a merged task still in progress, and one already in review',
+      should: 'flag only the one before In Review',
+      actual: summary(
+        staleLeaves(
+          [
+            task({ code: 'RT-1.1', status: 'in_progress' }),
+            task({ code: 'RT-1.2', status: 'in_review' }),
+            task({ code: 'RT-1.7', status: 'ready' }),
+          ],
+          merged,
+          cutoff,
+        ),
+      ),
       expected: [
         { code: 'RT-1.1', reason: 'merged but in_progress', to: 'merged' },
+      ],
+    });
+  });
+
+  test('accepts Done without a record before the enforcement cutoff', () => {
+    assert({
+      given:
+        'Done tasks without records completed or merged before the cutoff, and no cutoff set yet',
+      should: 'flag none of them',
+      actual: [
+        staleLeaves(
+          [
+            task({ code: 'RT-1.4', status: 'completed', completedAt: before }),
+            task({ code: 'RT-1.5', status: 'completed' }),
+          ],
+          new Map([['RT-1.5', before]]),
+          cutoff,
+        ).length,
+        staleLeaves(
+          [task({ code: 'RT-1.4', status: 'completed', completedAt: after })],
+          new Map(),
+          null,
+        ).length,
+      ],
+      expected: [0, 0],
+    });
+  });
+
+  test('flags Done without a record after the enforcement cutoff', () => {
+    assert({
+      given:
+        'Done tasks without records after the cutoff, merged and unmerged, and one with a record',
+      should: 'flag the two without records with their pre-Done status',
+      actual: summary(
+        staleLeaves(
+          [
+            task({ code: 'RT-1.4', status: 'completed', completedAt: after }),
+            task({ code: 'RT-1.5', status: 'completed', completedAt: after }),
+            task({
+              code: 'RT-1.6',
+              status: 'completed',
+              completedAt: after,
+              hasReviewRecord: true,
+            }),
+          ],
+          new Map([['RT-1.4', after]]),
+          cutoff,
+        ),
+      ),
+      expected: [
         {
           code: 'RT-1.4',
           reason: 'Done without a review record',

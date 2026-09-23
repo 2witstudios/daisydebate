@@ -17,6 +17,7 @@ const lists: Record<string, object> = {
         pageId: 'p2',
         title: 'RT-1.2 — Given c, should d',
         status: 'completed',
+        completedAt: '2026-09-25T00:00:00Z',
       },
       {
         id: 't3',
@@ -74,8 +75,15 @@ function fakes() {
         };
       return { code: 0, stdout: '{}' };
     },
+    cutoff: '2026-09-24T00:00:00Z',
     mergedPrs: () => [
-      { number: 40, title: 'feat: RT-1.1', headRefName: 'pu/rt-1-1', body: '' },
+      {
+        number: 40,
+        title: 'feat: RT-1.1',
+        headRefName: 'pu/rt-1-1',
+        body: '',
+        mergedAt: '2026-09-20T00:00:00Z',
+      },
     ],
     out: (text) => void output.push(text),
   };

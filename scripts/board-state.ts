@@ -112,34 +112,52 @@ export type BoardTask = TaskPage & {
   readonly taskId: string;
   readonly status: string;
   readonly hasReviewRecord: boolean;
+  /** When the task was marked Done, if the board recorded it. */
+  readonly completedAt?: string;
 };
 
 // Statuses before In Review: a merged task in one of them has drifted.
 const BEFORE_REVIEW = new Set(['pending', 'ready', 'in_progress', 'blocked']);
 
+/**
+ * Done without a review record is drift only after the enforcement cutoff:
+ * reviews before it often happened without being stored (owner decision,
+ * 2026-09-22). With no cutoff set, everything so far is before it.
+ */
+function afterCutoff(at: string | undefined, cutoff: string | null) {
+  return (
+    cutoff !== null && at !== undefined && Date.parse(at) >= Date.parse(cutoff)
+  );
+}
+
 /** Tasks whose status disagrees with git, with the pre-Done status to fix to. */
 export function staleLeaves(
   tasks: readonly BoardTask[],
-  mergedCodes: ReadonlySet<string>,
+  mergedAt: ReadonlyMap<string, string>,
+  cutoff: string | null,
 ): readonly {
   readonly task: BoardTask;
   readonly reason: string;
   readonly to: string;
 }[] {
   return tasks.flatMap((task) => {
-    const merged = mergedCodes.has(task.code);
-    if (merged && BEFORE_REVIEW.has(task.status))
+    const merged = mergedAt.get(task.code);
+    if (merged !== undefined && BEFORE_REVIEW.has(task.status))
       return [
         { task, reason: `merged but ${task.status}`, to: MERGED_STATUS.slug },
       ];
-    if (task.status === 'completed' && !task.hasReviewRecord)
-      return [
-        {
-          task,
-          reason: 'Done without a review record',
-          to: merged ? MERGED_STATUS.slug : 'in_review',
-        },
-      ];
-    return [];
+    const unreviewedDone =
+      task.status === 'completed' &&
+      !task.hasReviewRecord &&
+      afterCutoff(task.completedAt ?? merged, cutoff);
+    return unreviewedDone
+      ? [
+          {
+            task,
+            reason: 'Done without a review record',
+            to: merged !== undefined ? MERGED_STATUS.slug : 'in_review',
+          },
+        ]
+      : [];
   });
 }
