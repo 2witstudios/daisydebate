@@ -129,32 +129,46 @@ describe('Better Auth sign-in port: passkey autofill', () => {
     });
   });
 
-  test('tells a newer ceremony, a dismissal and a refused pick apart', async () => {
-    const outcome = async (passkey: Error) =>
-      (await portWith({ passkey }).port.offerPasskeyAutofill()).kind;
+  test('refuses only after a pick reached verification', async () => {
+    const outcome = async (error: Error, picked: boolean) => {
+      const client: SignInClient = {
+        signIn: {
+          magicLink: async () => ({ error: null }),
+          passkey: async (opts) => {
+            // Better Auth hands `fetchOptions` only to the verify request.
+            if (picked) opts?.fetchOptions?.onRequest?.();
+            return { error };
+          },
+        },
+      };
+      const port = createBetterAuthSignInPort({
+        client,
+        destination: '/ranked',
+        supportsPasskeys: () => true,
+        supportsPasskeyAutofill: async () => true,
+      });
+      return (await port.offerPasskeyAutofill()).kind;
+    };
     assert({
       given:
-        'an abort, a dismissed prompt, a lost challenge, an unknown passkey, a throttle and a server fault',
-      should:
-        'answer superseded, interrupted, refused, refused, interrupted, interrupted',
+        'an abort, a failed options fetch, a dismissed prompt, a lost challenge after a pick, and a verify outage after a pick',
+      should: 'answer superseded, interrupted, interrupted, refused, refused',
       actual: [
-        await outcome({ status: 400, code: 'ERROR_CEREMONY_ABORTED' }),
-        await outcome({
-          status: 400,
-          code: 'ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY',
-        }),
-        await outcome({ status: 400, code: 'CHALLENGE_NOT_FOUND' }),
-        await outcome({ status: 401, code: 'PASSKEY_NOT_FOUND' }),
-        await outcome({ status: 429 }),
-        await outcome({ status: 503 }),
+        await outcome({ status: 400, code: 'ERROR_CEREMONY_ABORTED' }, false),
+        await outcome({ status: 403 }, false),
+        await outcome(
+          { status: 400, code: 'ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY' },
+          false,
+        ),
+        await outcome({ status: 400, code: 'CHALLENGE_NOT_FOUND' }, true),
+        await outcome({ status: 400, code: 'AUTH_CANCELLED' }, true),
       ],
       expected: [
         'superseded',
         'interrupted',
+        'interrupted',
         'refused',
         'refused',
-        'interrupted',
-        'interrupted',
       ],
     });
   });

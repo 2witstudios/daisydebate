@@ -57,12 +57,22 @@ const run = () => {
   const scheduler = fakeTimers();
   const offers = scriptedOffers();
   const settled: string[] = [];
+  let nowMs = 0;
   const stop = startPasskeyAutofill({
     offer: offers.offer,
     onSettled: (outcome) => settled.push(outcome.kind),
     timers: scheduler.timers,
+    now: () => nowMs,
   });
-  return { scheduler, offers, settled, stop };
+  return {
+    scheduler,
+    offers,
+    settled,
+    stop,
+    advance: (ms: number) => {
+      nowMs += ms;
+    },
+  };
 };
 
 describe('autofillRetryDelayMs', () => {
@@ -120,23 +130,44 @@ describe('startPasskeyAutofill', () => {
     });
   });
 
-  test('stops for good when superseded or unavailable', async () => {
-    const superseded = run();
-    await superseded.offers.settle(0, 'superseded');
-    const unavailable = run();
-    await unavailable.offers.settle(0, 'unavailable');
+  test('re-arms after its own stale request supersedes it', async () => {
+    const { scheduler, offers, settled } = run();
+    await offers.settle(0, 'superseded');
+    assert({
+      given: 'a live request aborted by a stale one the loop no longer owns',
+      should: 'report it and offer again after the first backoff step',
+      actual: [settled, scheduler.delays()],
+      expected: [['superseded'], [1_000]],
+    });
+  });
+
+  test('stops for good when the browser cannot autofill', async () => {
+    const { scheduler, offers, settled } = run();
+    await offers.settle(0, 'unavailable');
+    assert({
+      given: 'a browser without conditional mediation',
+      should: 'report it and schedule nothing further',
+      actual: [settled, scheduler.delays()],
+      expected: [['unavailable'], []],
+    });
+  });
+
+  test('restarts the backoff after an ending a person caused', async () => {
+    const { scheduler, offers, advance } = run();
+    await offers.settle(0, 'interrupted');
+    scheduler.fire(1_000);
+    await offers.settle(1, 'interrupted');
+    const quick = scheduler.delays();
+    scheduler.fire(2_000);
+    advance(30_000);
+    await offers.settle(2, 'interrupted');
     assert({
       given:
-        'a request a newer ceremony aborted, and a browser without autofill',
-      should: 'report each and schedule nothing further',
-      actual: [
-        [superseded.settled, superseded.scheduler.delays()],
-        [unavailable.settled, unavailable.scheduler.delays()],
-      ],
-      expected: [
-        [['superseded'], []],
-        [['unavailable'], []],
-      ],
+        'two endings in quick succession, then one after the request sat pending for 30 s',
+      should:
+        'back off to 2 s for the quick one, then return to 1 s once a person clearly acted',
+      actual: [quick, scheduler.delays()],
+      expected: [[2_000], [1_000]],
     });
   });
 

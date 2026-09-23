@@ -72,8 +72,9 @@ export function SignInFlow({
       offer: () => offerPasskeyAutofillSafely(port),
       onSettled: (outcome) => dispatch({ type: 'passkey-autofilled', outcome }),
       timers: browserTimers,
+      now: () => Date.parse(clock.now()),
     });
-  }, [autofillArmed, port]);
+  }, [autofillArmed, port, clock]);
 
   const sendLink = async (email: string) =>
     dispatch({

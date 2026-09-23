@@ -24,6 +24,8 @@ export type SignInClient = {
     }) => Promise<{ readonly error: ClientError }>;
     readonly passkey: (opts?: {
       autoFill?: boolean;
+      /** Better Auth applies these only to the verify request. */
+      fetchOptions?: { onRequest?: () => void };
     }) => Promise<{ readonly error: ClientError }>;
   };
 };
@@ -56,19 +58,19 @@ const passkeyOutcome = (error: ClientError): PasskeyOutcome => {
 const ABORTED = 'ERROR_CEREMONY_ABORTED';
 
 /**
- * An autofill request settles only after a pick or an abort, so a 4xx other
- * than throttling means the server refused the chosen passkey (an expired
- * challenge, a credential it no longer holds); anything else is transient.
+ * Whether the person picked a passkey is known for certain: the verify
+ * request only follows a pick. A failure after it is the server refusing
+ * that passkey (an expired challenge, a credential it no longer holds, an
+ * outage), which the person must hear about; a failure before it is a
+ * dismissal or an options fault, which is retried quietly.
  */
-const autofillOutcome = (error: ClientError): PasskeyAutofillOutcome => {
+const autofillOutcome = (
+  error: ClientError,
+  picked: boolean,
+): PasskeyAutofillOutcome => {
   if (error === null) return { kind: 'signed-in' };
   if (error.code === ABORTED) return { kind: 'superseded' };
-  if (error.code !== undefined && CANCELLED_CODES.has(error.code))
-    return { kind: 'interrupted' };
-  const status = error.status ?? 0;
-  return status >= 400 && status < 500 && status !== 429
-    ? { kind: 'refused' }
-    : { kind: 'interrupted' };
+  return picked ? { kind: 'refused' } : { kind: 'interrupted' };
 };
 
 /**
@@ -117,11 +119,17 @@ export function createBetterAuthSignInPort({
     offerPasskeyAutofill: async () => {
       autofillsInFlight += 1;
       try {
-        return (await supportsPasskeyAutofill())
-          ? autofillOutcome(
-              (await client.signIn.passkey({ autoFill: true })).error,
-            )
-          : { kind: 'unavailable' };
+        if (!(await supportsPasskeyAutofill())) return { kind: 'unavailable' };
+        let picked = false;
+        const { error } = await client.signIn.passkey({
+          autoFill: true,
+          fetchOptions: {
+            onRequest: () => {
+              picked = true;
+            },
+          },
+        });
+        return autofillOutcome(error, picked);
       } finally {
         autofillsInFlight -= 1;
       }

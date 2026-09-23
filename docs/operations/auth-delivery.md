@@ -62,9 +62,9 @@ The sign-in page offers passkeys in browser autofill, so every view spends
 one `/passkey/generate-authenticate-options` request (a challenge row and a
 slot in that path's bucket) without a click. The page renews it every
 4 minutes, before the 5-minute challenge lifetime ends, and re-offers after
-a dismissed or refused pick with backoff from 1 s up to 4 minutes, so a
-failing service is never polled. Clients behind one untrusted address share
-that bucket with the explicit passkey button.
+any other ending, backing off from 1 s up to 4 minutes while endings keep
+arriving quickly, so a failing service is never hammered. Clients behind
+one untrusted address share that bucket with the explicit passkey button.
 
 There is no in-process fallback: while Redis is down every auth request that
 needs a decision answers `503`. Restore Redis; no state needs replay. Keys

@@ -26,9 +26,9 @@ export type PasskeyAutofillOutcome =
   | { readonly kind: 'superseded' }
   /** The server refused the passkey the person picked. */
   | { readonly kind: 'refused' }
-  /** Dismissed after a pick, or a transient service failure. */
+  /** Ended before any pick reached the server: dismissed, or a fault. */
   | { readonly kind: 'interrupted' }
-  /** This browser, or this port, cannot offer passkeys in autofill. */
+  /** This browser cannot offer passkeys in autofill. */
   | { readonly kind: 'unavailable' };
 
 /**
@@ -70,8 +70,12 @@ export const signInWithPasskeySafely = (
 ): Promise<PasskeyOutcome> =>
   settleSafely(() => port.signInWithPasskey(), { kind: 'failed' });
 
-/** An autofill request that throws stops autofill rather than retrying it. */
+/**
+ * An autofill request that throws (a network failure rejects the whole
+ * client call) is an interruption: it is retried with backoff, never left
+ * dead with an expiring request still in the browser.
+ */
 export const offerPasskeyAutofillSafely = (
   port: SignInPort,
 ): Promise<PasskeyAutofillOutcome> =>
-  settleSafely(() => port.offerPasskeyAutofill(), { kind: 'unavailable' });
+  settleSafely(() => port.offerPasskeyAutofill(), { kind: 'interrupted' });
