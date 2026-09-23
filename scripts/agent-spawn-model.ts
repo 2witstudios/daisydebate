@@ -228,3 +228,16 @@ export function agentCwd(
     ? mainCheckout
     : undefined;
 }
+
+/** Seconds since the send, and the agent's idle seconds from `pu pulse`. */
+type IdleSample = { readonly at: number; readonly idle: number | null };
+
+/**
+ * pu reports how long an agent's terminal has been silent. Text left
+ * unsubmitted produces only its echo, while a working session keeps
+ * writing, so output 3 s or more after the send means the text was taken.
+ */
+export const activeAfterSend = (samples: readonly IdleSample[]): boolean =>
+  samples.some(
+    (sample) => sample.at >= 3 && sample.idle !== null && sample.idle <= 1,
+  );

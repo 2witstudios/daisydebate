@@ -5,6 +5,7 @@ import {
   parseSpawnArgs,
   prerequisiteBlockers,
   supersededTerms,
+  activeAfterSend,
   agentCwd,
   projectDir,
   userTurnsWith,
@@ -211,7 +212,8 @@ describe('transcripts', () => {
       '{"type":"user","message":{"role":"user","content":[{"type":"text","text":"other"}]}}',
     ].join('\n');
     assert({
-      given: 'a transcript with the text once as a user turn and once from the assistant',
+      given:
+        'a transcript with the text once as a user turn and once from the assistant',
       should: 'count only the user turn, and nothing for text never sent',
       actual: [
         userTurnsWith(lines, 'Run: pagespace pages read p1 "quoted"'),
@@ -238,6 +240,29 @@ describe('agentCwd', () => {
         agentCwd(status, 'ag-none', '/repo'),
       ],
       expected: ['/repo/.pu/worktrees/wt-1', '/repo', undefined],
+    });
+  });
+});
+
+describe('activeAfterSend', () => {
+  test('counts output seconds after the send as the agent working', () => {
+    assert({
+      given:
+        'a session still writing 4 s after the send, one that only echoed the text, and one pu cannot measure',
+      should: 'confirm only the working session',
+      actual: [
+        activeAfterSend([
+          { at: 1, idle: 0 },
+          { at: 4, idle: 0 },
+        ]),
+        activeAfterSend([
+          { at: 1, idle: 0 },
+          { at: 4, idle: 3 },
+          { at: 8, idle: 7 },
+        ]),
+        activeAfterSend([{ at: 5, idle: null }]),
+      ],
+      expected: [true, false, false],
     });
   });
 });

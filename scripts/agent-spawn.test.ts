@@ -110,6 +110,8 @@ function fakeMachine(
     mainCheckout: repo,
     write: (path, text) => void files.set(path, text),
     sleep: async () => undefined,
+    // pu cannot measure idleness in the fake; transcripts decide.
+    idleOf: () => null,
     home: '/home',
     repoRoot: repo,
     parentId: 'ag-parent',
@@ -253,4 +255,24 @@ describe('bun agent:send', () => {
       expected: [0, ['status?']],
     });
   });
+
+  test('confirms by activity when the session writes no transcript', () =>
+    (async () => {
+      const machine = fakeMachine({ submitsOnSpawn: true });
+      await spawnAgent(machine.deps, spawnArgs);
+      machine.files.clear();
+      machine.calls.length = 0;
+      const working = { ...machine.deps, idleOf: () => 0 };
+      const code = await sendConfirmed(working, 'ag-new', 'status?');
+      assert({
+        given:
+          'no transcript on disk but a terminal still writing after the send',
+        should: 'count the text as submitted without a nudge',
+        actual: [
+          code,
+          machine.calls.filter((call) => call[1] === 'send').length,
+        ],
+        expected: [0, 1],
+      });
+    })());
 });

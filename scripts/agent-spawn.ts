@@ -23,6 +23,7 @@ import {
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import {
+  activeAfterSend,
   activeBuilders,
   findPrerequisites,
   parseSpawnArgs,
@@ -43,6 +44,8 @@ export type SpawnDeps = {
   readonly read: (path: string) => string | undefined;
   readonly write: (path: string, text: string) => void;
   readonly sleep: (ms: number) => Promise<void>;
+  /** Seconds the agent's terminal has been silent (`pu pulse`), if known. */
+  readonly idleOf: (agentId: string) => number | null;
   /** Transcript files (.jsonl) in a Claude Code projects directory. */
   readonly list: (dir: string) => readonly string[];
   readonly home: string;
@@ -75,8 +78,8 @@ const SETUP: readonly (readonly string[])[] = [
   ['bun', 'install', '--frozen-lockfile'],
   ['bun', 'slot:up'],
 ];
-const POLL_MS = 3_000;
-const POLLS = 10;
+const POLL_MS = 1_000;
+const POLLS = 15;
 
 function puStatus(deps: SpawnDeps): Status {
   const result = deps.run(['pu', 'status', '--json']);
@@ -182,23 +185,27 @@ function turnsWith(deps: SpawnDeps, cwd: string, text: string): number {
     .reduce((sum, file) => sum + userTurnsWith(deps.read(file) ?? '', text), 0);
 }
 
-async function turnsWhen(
+/**
+ * Polls until the text shows as a new user turn in the agent's transcripts
+ * or the agent is visibly working (activeAfterSend).
+ */
+async function tookText(
   deps: SpawnDeps,
-  count: () => number,
-  done: (turns: number) => boolean,
-): Promise<number> {
-  let turns = 0;
+  agentId: string,
+  grew: () => boolean,
+): Promise<boolean> {
+  const samples: { at: number; idle: number | null }[] = [];
   for (let poll = 0; poll < POLLS; poll += 1) {
-    turns = count();
-    if (done(turns)) return turns;
+    samples.push({ at: (poll * POLL_MS) / 1000, idle: deps.idleOf(agentId) });
+    if (grew() || activeAfterSend(samples)) return true;
     await deps.sleep(POLL_MS);
   }
-  return turns;
+  return false;
 }
 
 /**
- * Waits for the text to appear as a new user turn in the agent's
- * transcripts, nudging once with an empty pu send when it does not.
+ * Confirms the text was submitted, nudging once with an empty pu send (pu
+ * often leaves text typed but unsubmitted) when it was not.
  */
 async function confirmSubmitted(
   deps: SpawnDeps,
@@ -207,12 +214,11 @@ async function confirmSubmitted(
   text: string,
   before: number,
 ): Promise<boolean> {
-  const count = () => turnsWith(deps, cwd, text);
-  const grew = (turns: number) => turns > before;
-  if (grew(await turnsWhen(deps, count, grew))) return true;
+  const grew = () => turnsWith(deps, cwd, text) > before;
+  if (await tookText(deps, agentId, grew)) return true;
   deps.out(`${agentId}: text not submitted; nudging with an empty pu send\n`);
   deps.run(['pu', 'send', agentId, '']);
-  return grew(await turnsWhen(deps, count, grew));
+  return tookText(deps, agentId, grew);
 }
 
 const PU_VALUE_FLAGS = new Set([
@@ -350,6 +356,21 @@ if (import.meta.main) {
       writeFileSync(path, text);
     },
     sleep: (ms) => Bun.sleep(ms),
+    idleOf: (agentId) => {
+      const pulse = JSON.parse(
+        Bun.spawnSync(['pu', 'pulse', '--json'], {
+          stdout: 'pipe',
+        }).stdout.toString() || '{}',
+      ) as {
+        worktrees?: { agents: { id: string; idle_seconds: number | null }[] }[];
+        root_agents?: { id: string; idle_seconds: number | null }[];
+      };
+      const agents = [
+        ...(pulse.worktrees ?? []).flatMap((w) => w.agents),
+        ...(pulse.root_agents ?? []),
+      ];
+      return agents.find((agent) => agent.id === agentId)?.idle_seconds ?? null;
+    },
     list: (dir) =>
       existsSync(dir)
         ? readdirSync(dir)
