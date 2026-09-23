@@ -102,16 +102,4 @@ test.describe('dashboard shell chrome', () => {
       page.getByRole('status', { name: 'online' }).first(),
     ).toBeAttached();
   });
-
-  // Desktop-only: at narrow widths the topbar's notification bell overlaps
-  // the wrapped "Sign in" link and intercepts the click (AUTH-6.6 found
-  // this running the auth-journey specs on mobile projects). That is a
-  // real app-shell layout defect outside this leaf's auth-screen scope;
-  // this test stays on the desktop-only Chromium project and the overlap
-  // is tracked as a follow-up for the app-shell/topbar owner.
-  test('the topbar offers sign-in to a visitor', async ({ page }) => {
-    await page.goto('/');
-    await page.getByRole('link', { name: 'Sign in' }).click();
-    await expect(page).toHaveURL(/\/sign-in$/);
-  });
 });

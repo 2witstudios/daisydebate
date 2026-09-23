@@ -81,7 +81,13 @@ function sanitizeZipInPlace(zipPath: string): boolean {
       '-d',
       extractDir,
     ]);
-    if (extracted.exitCode !== 0) return false;
+    // An archive this scan cannot open cannot be proven clean either: a
+    // corrupt or unreadable trace/network zip must block publication, not
+    // pass through unredacted under a "nothing changed" result.
+    if (extracted.exitCode !== 0)
+      throw new Error(
+        `could not extract ${zipPath} for sanitization (unzip exited ${extracted.exitCode}); refusing to publish an unscanned archive`,
+      );
     let changed = false;
     for (const file of walk(extractDir)) {
       if (binaryExtension.test(file)) continue;

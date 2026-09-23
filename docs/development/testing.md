@@ -48,8 +48,11 @@ manual/scheduled job, never as an additional required PR check — that would
 triple E2E wall-clock time on every push), run `bun test:e2e:qualify`. It
 runs the complete Playwright suite three consecutive times with retries
 disabled (the standing config), saves each run's JSON report under
-`apps/web/test-results/qualification/run-{1,2,3}.json` plus a `summary.json`,
-and fails if any of the three runs has a failure or an empty test selection.
+`apps/web/qualification-results/run-{1,2,3}.json` plus a `summary.json` —
+deliberately outside `apps/web/test-results`, which Playwright clears at
+the start of every invocation and would otherwise erase each prior run's
+report before the next one starts — and fails if any of the three runs has
+a failure or an empty test selection.
 A retry-pass or a single green run is not this gate; all three outcomes are
 retained as artifacts.
 

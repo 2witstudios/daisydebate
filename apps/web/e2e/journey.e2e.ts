@@ -308,3 +308,9 @@ test('a fresh session makes no refresh call, and neither does a visitor', async 
   // spends the rate-limited endpoint about once a day, not per page load.
   expect(calls).toEqual([]);
 });
+
+test('the topbar offers sign-in to a visitor', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('link', { name: 'Sign in' }).click();
+  await expect(page).toHaveURL(/\/sign-in$/);
+});

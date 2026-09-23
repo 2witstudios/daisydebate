@@ -42,6 +42,14 @@ jobs:
       PUBLIC_APP_URL: https://ci.example.invalid
       APP_VERSION: ci
       GIT_COMMIT: ${{ github.sha }}
+      # Nonempty sentinels: the `build` task's check:build-isolation step
+      # (AUTH-6.3) greps the compiled client bundle for these exact values
+      # to prove no server secret leaks into browser-shipped code. An empty
+      # value here would let that scan search for "" and never find a real
+      # leak. BETTER_AUTH_SECRET must satisfy config's 64-char shape.
+      BETTER_AUTH_SECRET: ci-isolation-sentinel-auth-0000000000000000000000000000000000000
+      RESEND_API_KEY: ci-isolation-sentinel-resend-key
+      RESEND_WEBHOOK_SECRET: ci-isolation-sentinel-webhook-secret
     steps:
       - uses: actions/checkout@v7
         with:

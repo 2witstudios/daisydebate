@@ -14,7 +14,11 @@ import {
  * a release-time check, not a per-PR CI gate — the fast single-run e2e
  * workflow stays the required PR check (docs/development/testing.md).
  */
-const runsDirectory = 'apps/web/test-results/qualification';
+// Deliberately NOT under apps/web/test-results: Playwright clears that
+// whole directory at the start of every invocation, so a subdirectory of
+// it would have run N's report deleted the moment run N+1 starts, leaving
+// only the final run's outcome instead of all three.
+const runsDirectory = 'apps/web/qualification-results';
 
 type RunOutcome = {
   readonly run: number;

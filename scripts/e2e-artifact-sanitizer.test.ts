@@ -103,6 +103,29 @@ describe('e2e artifact sanitizer', () => {
     }
   });
 
+  test('refuses to publish a zip it cannot extract and scan', () => {
+    const root = mkdtempSync(join(tmpdir(), 'daisy-e2e-sanitize-corrupt-'));
+    try {
+      // Not a real zip: unzip will refuse it, and that must block
+      // publication rather than pass through as "nothing to redact".
+      writeFileSync(join(root, 'trace.zip'), 'not actually a zip archive');
+      let threw = false;
+      try {
+        sanitizeArtifactTree(root);
+      } catch {
+        threw = true;
+      }
+      assert({
+        given: 'a retained archive that cannot be extracted for scanning',
+        should: 'throw instead of silently reporting it as already clean',
+        actual: threw,
+        expected: true,
+      });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   test('reports zero scanned for a directory that does not exist', () => {
     const missing = join(tmpdir(), 'daisy-e2e-sanitize-missing-does-not-exist');
     rmSync(missing, { recursive: true, force: true });

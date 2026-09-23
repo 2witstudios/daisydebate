@@ -69,6 +69,16 @@ jobs:
 
       - name: Build production server
         run: bun run build
+        env:
+          # Nonempty sentinels for check:build-isolation's client-bundle
+          # secret scan (AUTH-6.3) — see ci.yml's `build` job for why an
+          # empty value here would make that scan a no-op. The actual e2e
+          # server this build ships to runs afterward under its own
+          # inert placeholder secrets (playwright.config.ts webServer.env);
+          # these values are for the static build step only.
+          BETTER_AUTH_SECRET: ci-isolation-sentinel-auth-0000000000000000000000000000000000000
+          RESEND_API_KEY: ci-isolation-sentinel-resend-key
+          RESEND_WEBHOOK_SECRET: ci-isolation-sentinel-webhook-secret
 
       - name: Install Playwright browsers
         run: bunx --bun playwright install --with-deps chromium firefox webkit
@@ -84,12 +94,16 @@ jobs:
         run: bun scripts/e2e-report-counts.ts apps/web/test-results/results.json
 
       - name: Sanitize retained artifacts before upload
+        id: sanitize
         if: ${{ !cancelled() }}
         run: |
           bun scripts/e2e-artifact-sanitizer.ts apps/web/test-results apps/web/playwright-report
 
+      # Never upload when sanitization itself failed (e.g. a corrupt trace
+      # archive it could not extract and scan): an unscanned artifact cannot
+      # be proven clean, so it must not leave the runner.
       - name: Upload browser artifacts
-        if: ${{ failure() }}
+        if: ${{ failure() && steps.sanitize.outcome == 'success' }}
         uses: actions/upload-artifact@v5
         with:
           name: e2e-artifacts-${{ github.run_id }}
