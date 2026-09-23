@@ -51,22 +51,20 @@
   /* Text — slightly warm, three quiet steps. */
   --text: light-dark(#17211b, #f4f8f3);
   --text-muted: light-dark(#5b6d61, #a3b3a6);
-  --text-faint: light-dark(#86968c, #6f7f73);
+  --text-faint: light-dark(#67736c, #7a8c7f);
   /* Neutral line-art glyphs (action tiles). */
   --glyph: light-dark(#33453a, #dde7de);
 
   /* Accent — Daisy green */
-  --accent: light-dark(#178a45, #3ecf7a);
+  --accent: light-dark(#157c3e, #3ecf7a);
   --accent-strong: light-dark(#116b36, #2fb968);
   --accent-soft: light-dark(rgba(23, 138, 69, 0.1), rgba(62, 207, 122, 0.12));
   --accent-text: light-dark(#ffffff, #052b16);
 
   /* Semantic status */
   --online: light-dark(#178a45, #3ecf7a);
-  --live: light-dark(#d33d42, #e5484d);
+  --live: light-dark(#be373b, #f74e53);
   --live-soft: light-dark(rgba(211, 61, 66, 0.1), rgba(229, 72, 77, 0.14));
-  /* Ink on a solid --live fill (notification counts). */
-  --text-on-live: light-dark(#ffffff, #ffffff);
   /* Trophy gold — muted brass, reserved for events and honors. */
   --gold: light-dark(#9a7a35, #c9a35c);
   --gold-soft: light-dark(rgba(154, 122, 53, 0.12), rgba(201, 163, 92, 0.12));
@@ -106,7 +104,6 @@
   --color-ink: var(--text);
   --color-ink-muted: var(--text-muted);
   --color-ink-faint: var(--text-faint);
-  --color-ink-on-live: var(--text-on-live);
   --color-ink-on-media: var(--text-on-media);
   --color-glyph: var(--glyph);
   --color-accent: var(--accent);

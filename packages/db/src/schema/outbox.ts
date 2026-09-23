@@ -5,11 +5,11 @@ import {
   customType,
   index,
   integer,
-  jsonb,
   pgTable,
   text,
   timestamp,
 } from 'drizzle-orm/pg-core';
+import { jsonbColumn } from './columns';
 
 /**
  * Postgres 13+ 64-bit transaction id. Comparable (`<`, `>`) but not
@@ -38,7 +38,7 @@ export const outbox = pgTable(
     topic: text('topic').notNull(),
     kind: text('kind').notNull(),
     version: integer('version').notNull(),
-    payload: jsonb('payload').notNull(),
+    payload: jsonbColumn('payload').notNull(),
     // statement_timestamp(), not now()/defaultNow(): the delivery-lag check
     // (plan "aggregate service availability") and the 24h prune both need
     // the moment this row was actually written, not this transaction's

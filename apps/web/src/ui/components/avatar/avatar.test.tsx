@@ -37,4 +37,28 @@ describe('Avatar', () => {
       expected: true,
     });
   });
+
+  test('drops its own accessible name when the caller already shows it', () => {
+    const html = renderToString(
+      h(Avatar, { name: 'Daniel Kim', nameVisible: true }),
+    );
+    assert({
+      given: 'an avatar next to visible name text the caller renders itself',
+      should: 'not repeat the name in a sr-only span',
+      actual: html.includes('sr-only'),
+      expected: false,
+    });
+  });
+
+  test('sets explicit dimensions on an image avatar', () => {
+    const html = renderToString(
+      h(Avatar, { name: 'Daniel Kim', src: '/d.jpg', size: 'lg' }),
+    );
+    assert({
+      given: 'an avatar with a photo at the lg size',
+      should: 'set width and height to avoid a layout shift while it loads',
+      actual: [html.includes('width="44"'), html.includes('height="44"')],
+      expected: [true, true],
+    });
+  });
 });

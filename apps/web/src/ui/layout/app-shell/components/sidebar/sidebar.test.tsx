@@ -1,31 +1,20 @@
-import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { Sidebar } from './sidebar';
+import type { ShellAccount } from '../topbar/topbar';
+import { routeExists } from '../../../../test-support/route-exists';
 
 setupRitewayBun();
 
-const appDirectory = join(import.meta.dir, '../../../../../app');
+const member: ShellAccount = { state: 'member', username: 'ada-byron' };
 
-/** Resolves a URL path against the app router tree, allowing [param] dirs. */
-const routeExists = (href: string): boolean => {
-  const directory = href
-    .split('/')
-    .filter(Boolean)
-    .reduce<string | undefined>((current, segment) => {
-      if (current === undefined) return undefined;
-      if (existsSync(join(current, segment))) return join(current, segment);
-      const dynamic = readdirSync(current).find((name) => name.startsWith('['));
-      return dynamic ? join(current, dynamic) : undefined;
-    }, appDirectory);
-  return directory !== undefined && existsSync(join(directory, 'page.tsx'));
-};
+const appDirectory = join(import.meta.dir, '../../../../../app');
 
 describe('Sidebar', () => {
   test('is the primary navigation landmark', () => {
-    const html = renderToString(h(Sidebar));
+    const html = renderToString(h(Sidebar, { account: member }));
     assert({
       given: 'the sidebar',
       should: 'render exactly one nav, named "Primary"',
@@ -38,7 +27,7 @@ describe('Sidebar', () => {
   });
 
   test('links only to routes that exist', () => {
-    const html = renderToString(h(Sidebar));
+    const html = renderToString(h(Sidebar, { account: member }));
     const hrefs = [...html.matchAll(/<a [^>]*href="([^"]+)"/g)].map(
       (match) => match[1] ?? '',
     );
@@ -49,9 +38,26 @@ describe('Sidebar', () => {
         ['/', '/lobby', '/recordings', '/settings'].filter(
           (href) => !hrefs.includes(href),
         ),
-        hrefs.filter((href) => !routeExists(href)),
+        hrefs.filter((href) => !routeExists(appDirectory, href)),
       ],
       expected: [[], []],
+    });
+  });
+
+  test('derives the Profile link from the signed-in account', () => {
+    const anonymousHtml = renderToString(
+      h(Sidebar, { account: { state: 'anonymous' } }),
+    );
+    const memberHtml = renderToString(h(Sidebar, { account: member }));
+    assert({
+      given: 'an anonymous visitor and a signed-in member',
+      should:
+        'omit the Profile link for the visitor and derive it from the username for the member',
+      actual: [
+        anonymousHtml.includes('/profile/'),
+        memberHtml.includes('href="/profile/ada-byron"'),
+      ],
+      expected: [false, true],
     });
   });
 });

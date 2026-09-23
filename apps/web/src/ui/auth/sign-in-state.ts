@@ -1,4 +1,8 @@
-import type { LinkRequestOutcome, PasskeyOutcome } from './sign-in-port';
+import type {
+  LinkRequestOutcome,
+  PasskeyAutofillOutcome,
+  PasskeyOutcome,
+} from './sign-in-port';
 
 /** How long the inbox step waits before offering to resend. */
 export const RESEND_COOLDOWN_MS = 60_000;
@@ -34,6 +38,10 @@ export type SignInEvent =
     }
   | { readonly type: 'passkey-requested' }
   | { readonly type: 'passkey-settled'; readonly outcome: PasskeyOutcome }
+  | {
+      readonly type: 'passkey-autofilled';
+      readonly outcome: PasskeyAutofillOutcome;
+    }
   | { readonly type: 'change-email' }
   | { readonly type: 'resend-requested'; readonly at: string };
 
@@ -60,6 +68,16 @@ export const resendRemainingMs = (sentAt: string, now: string): number =>
 
 export const canRequestLink = (state: SignInState): boolean =>
   isIdle(state) && state.email.trim() !== '';
+
+/**
+ * Autofill is armed only on screen and while nothing else is in flight on the
+ * email step. A hidden tab cannot show autofill, and its refreshes would only
+ * overwrite the challenge cookie every tab shares.
+ */
+export const canOfferPasskeyAutofill = (
+  state: SignInState,
+  pageVisible: boolean,
+): boolean => pageVisible && isIdle(state);
 
 export const canResend = (state: SignInState, now: string): boolean =>
   state.step === 'check-inbox' &&
@@ -97,6 +115,22 @@ const settlePasskey = (
     : idle(state.email, `passkey-${outcome.kind}`);
 };
 
+/**
+ * Autofill is ambient. A verified pick signs in from any step, because the
+ * server has already created the session; a refused pick explains itself on
+ * an idle email step; every other ending is silent.
+ */
+const settleAutofill = (
+  state: SignInState,
+  outcome: PasskeyAutofillOutcome,
+): SignInState => {
+  if (state.step === 'signed-in') return state;
+  if (outcome.kind === 'signed-in') return { step: 'signed-in' };
+  return outcome.kind === 'refused' && isIdle(state)
+    ? idle(state.email, 'passkey-failed')
+    : state;
+};
+
 type Transitions = {
   readonly [Type in SignInEvent['type']]: (
     state: SignInState,
@@ -114,6 +148,7 @@ const transitions: Transitions = {
   'passkey-requested': (state) =>
     isIdle(state) ? { ...idle(state.email), pending: 'passkey' } : state,
   'passkey-settled': (state, { outcome }) => settlePasskey(state, outcome),
+  'passkey-autofilled': (state, { outcome }) => settleAutofill(state, outcome),
   'change-email': (state) =>
     state.step === 'check-inbox' && !state.resending
       ? idle(state.email)

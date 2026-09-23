@@ -53,7 +53,7 @@ export default async function RootLayout({
     >
       <body>
         <ThemeProvider initialPreference={theme}>
-          <main>{children}</main>
+          {children}
           {refreshSession ? <SessionRefresh /> : null}
         </ThemeProvider>
       </body>

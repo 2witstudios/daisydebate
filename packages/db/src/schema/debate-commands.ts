@@ -1,14 +1,7 @@
 import { sql } from 'drizzle-orm';
-import {
-  check,
-  index,
-  integer,
-  jsonb,
-  pgTable,
-  text,
-} from 'drizzle-orm/pg-core';
+import { check, index, integer, pgTable, text } from 'drizzle-orm/pg-core';
 import { actors } from './actors';
-import { timestampColumn } from './columns';
+import { jsonbColumn, timestampColumn } from './columns';
 import { debates } from './debates';
 
 /**
@@ -31,7 +24,7 @@ export const debateCommands = pgTable(
     type: text('type').notNull(),
     /** SHA3-256 of the canonical payload, lowercase hex. */
     payloadDigest: text('payload_digest').notNull(),
-    result: jsonb('result').notNull(),
+    result: jsonbColumn('result').notNull(),
     resultingVersion: integer('resulting_version').notNull(),
     appliedAt: timestampColumn('applied_at').notNull(),
   },

@@ -7,6 +7,7 @@ import {
   buildUserInboxTopic,
   type FormatRules,
 } from '@daisy/protocol';
+import { probeListen } from './listen';
 import { users } from './schema/users';
 import { claimUsername } from './username-claim';
 import { actorOperations, queryActorByUserId } from './actor-operations';
@@ -157,6 +158,15 @@ export function createDatabase({
         await database.execute(sql`select 1`);
       } catch (error) {
         reportFailure('health');
+        throw error;
+      }
+      return true;
+    },
+    async checkListen() {
+      try {
+        await probeListen(client);
+      } catch (error) {
+        reportFailure('checkListen');
         throw error;
       }
       return true;

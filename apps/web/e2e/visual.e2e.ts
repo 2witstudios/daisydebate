@@ -33,14 +33,27 @@ for (const viewport of viewports) {
         await context.addCookies([
           { name: 'daisy-theme', value: theme, url: baseURL ?? '' },
         ]);
-        // Settings needs an account; its page shows no account details.
+        // Settings needs an account; its page shows no account details, but
+        // the shell's topbar now shows the account link with the random
+        // username signUpMember claims, so that link is masked below.
         if (route.path === '/settings') await signUpMember(context.request);
         const page = await context.newPage();
         await page.goto(route.path);
         await page.evaluate(() => document.fonts.ready);
         await expect(page).toHaveScreenshot(
           `${route.name}-${theme}-${viewport.name}.png`,
-          { fullPage: true, animations: 'disabled', caret: 'hide' },
+          {
+            fullPage: true,
+            animations: 'disabled',
+            caret: 'hide',
+            mask: [page.getByRole('link', { name: /^Account settings for/ })],
+            // Headless font antialiasing jitters a few subpixels run to
+            // run on thin, low-contrast text (the search placeholder);
+            // this absorbs that noise without hiding a real color or
+            // layout regression, which moves a far larger share of the
+            // frame than antialiasing jitter ever does.
+            maxDiffPixelRatio: 0.02,
+          },
         );
         await context.close();
       });

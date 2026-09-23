@@ -1,8 +1,9 @@
 import type { FormatRules } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import { boolean, check, jsonb, pgTable, text } from 'drizzle-orm/pg-core';
+import { boolean, check, pgTable, text } from 'drizzle-orm/pg-core';
 import {
   createdAtColumn,
+  jsonbColumn,
   updatedAtColumn,
   versionColumn,
   versionPositive,
@@ -19,7 +20,7 @@ export const formats = pgTable(
   {
     id: text('id').primaryKey(),
     name: text('name').notNull(),
-    rules: jsonb('rules').$type<FormatRules>().notNull(),
+    rules: jsonbColumn('rules').$type<FormatRules>().notNull(),
     rankedEligible: boolean('ranked_eligible').notNull(),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),

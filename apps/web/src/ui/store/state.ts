@@ -31,7 +31,6 @@ type ActivityRow = {
 
 type UiResources = {
   readonly searchQuery: string;
-  readonly notificationsCount: number;
   readonly onlineCount: number;
   readonly todaysTopic: string;
   readonly tournament: TournamentSummary;
@@ -52,7 +51,6 @@ export type UiState = {
 export const createInitialState = (): UiState => ({
   resources: {
     searchQuery: '',
-    notificationsCount: 1,
     onlineCount: 1248,
     todaysTopic: topic,
     tournament,
