@@ -206,7 +206,14 @@ Y`; the body records origin (PR, review record, reporter), why, and the
 acceptance criteria; the Related pages block links the origin. An issue
 closes through a PR that names it, or is promoted to an epic leaf when it
 grows into feature work. `Backlog` stays for feature candidates awaiting a
-spec.
+spec. Filing is an obligation: whoever observes a defect or a deferrable
+improvement — reviewer, builder, or orchestrator — creates the leaf or issue
+in the same session rather than mentioning it in prose, because an
+observation that lives only in a record or a handoff is lost once the PR
+merges. Before a stage starts, the orchestrator reads `Issues` for anything
+touching the files or phase about to be built and carries it into the
+prompt; an epic cannot close while any issue it produced is untriaged
+(promoted, scheduled, or deferred by the owner with a reason).
 
 Open and update pull requests with the `/pr` skill: the description links
 the task, plan and prompt pages (and handoff and reviews as they land) so a
