@@ -8,6 +8,7 @@ import {
   parseWorktreeList,
   pickPortBlock,
   portBlockComment,
+  portBlockPorts,
   readEnvValue,
   rewriteEnv,
   slotEnvValues,
@@ -275,6 +276,7 @@ describe('slot .env values', () => {
         PORT: '3000',
         PUBLIC_APP_URL: 'http://localhost:3000',
         E2E_PORT: '3100',
+        REALTIME_PORT: '3011',
       },
     });
   });
@@ -303,6 +305,7 @@ describe('slot .env values', () => {
         PORT: '13020',
         PUBLIC_APP_URL: 'http://localhost:13020',
         E2E_PORT: '13021',
+        REALTIME_PORT: '13025',
       },
     });
   });
@@ -382,5 +385,14 @@ describe('port blocks', () => {
       expected: [12, undefined, undefined],
     });
     expect(() => portBlockComment(0)).toThrow(/port block/);
+  });
+
+  test("reserves the app, its three web e2e ports and realtime's e2e and dev ports", () => {
+    assert({
+      given: 'port block 2',
+      should: 'list all six ports slotEnvValues can hand out for that block',
+      actual: portBlockPorts(2),
+      expected: [13020, 13021, 13022, 13023, 13024, 13025],
+    });
   });
 });

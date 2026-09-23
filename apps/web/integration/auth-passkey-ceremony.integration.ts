@@ -92,6 +92,33 @@ describe('AUTH-5.1 passkey enrollment', () => {
     });
   });
 
+  test('registration options prefer the device without excluding roaming keys', async () => {
+    const { cookie } = await signUp();
+    const optionsResponse = await flows.get(
+      '/api/auth/passkey/generate-register-options',
+      cookie,
+    );
+    const options = (await optionsResponse.json()) as {
+      hints?: unknown;
+      authenticatorSelection?: Record<string, unknown>;
+    };
+    assert({
+      given: 'a signed-in registration-options request',
+      should:
+        'hint the device authenticator first, require a discoverable credential, and leave the attachment open',
+      actual: {
+        hints: options.hints,
+        attachment: options.authenticatorSelection?.['authenticatorAttachment'],
+        residentKey: options.authenticatorSelection?.['residentKey'],
+      },
+      expected: {
+        hints: ['client-device'],
+        attachment: undefined,
+        residentKey: 'required',
+      },
+    });
+  });
+
   test('registering without a session is rejected and stores no credential', async () => {
     const { email } = await signUp();
     const optionsResponse = await flows.get(

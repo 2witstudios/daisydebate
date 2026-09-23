@@ -1,16 +1,10 @@
 import { phaseSchema, type DebatePhase } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import {
-  check,
-  index,
-  jsonb,
-  pgTable,
-  text,
-  unique,
-} from 'drizzle-orm/pg-core';
+import { check, index, pgTable, text, unique } from 'drizzle-orm/pg-core';
 import { actors } from './actors';
 import {
   createdAtColumn,
+  jsonbColumn,
   oneOf,
   timestampColumn,
   updatedAtColumn,
@@ -50,7 +44,7 @@ export const debates = pgTable(
     format: text('format')
       .notNull()
       .references(() => formats.id, { onDelete: 'restrict' }),
-    snapshot: jsonb('snapshot').notNull(),
+    snapshot: jsonbColumn('snapshot').notNull(),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
     version: versionColumn(),

@@ -52,7 +52,7 @@ test('readActorConnections trims members scored in the past, one at a time, dete
     await raw.send('ZADD', [actorKey, String(now + 100_000), 'midLease']);
     await raw.send('ZADD', [actorKey, String(now + 100_000), 'longLease']);
 
-    const first = await redis.readActorConnections(actorId);
+    const { connections: first } = await redis.readActorConnections(actorId);
     expect(first.map((c) => c.connId).sort()).toEqual([
       'longLease',
       'midLease',
@@ -61,7 +61,7 @@ test('readActorConnections trims members scored in the past, one at a time, dete
     // Now midLease also lapses; a fresh read reflects only this member
     // dropping, one at a time, never all together.
     await raw.send('ZADD', [actorKey, String(now - 10_000), 'midLease']);
-    const second = await redis.readActorConnections(actorId);
+    const { connections: second } = await redis.readActorConnections(actorId);
     expect(second.map((c) => c.connId)).toEqual(['longLease']);
   } finally {
     await redis.deletePresenceLease({ connId: 'shortLease', actorId });
@@ -97,7 +97,7 @@ test('readOnlinePresence trims actors scored in the past', async () => {
       'ghostActor',
     ]);
 
-    const online = await redis.readOnlinePresence();
+    const { actors: online } = await redis.readOnlinePresence();
     expect(online.map((a) => a.actorId)).toEqual([liveActorId]);
   } finally {
     await redis.deletePresenceLease({
@@ -126,7 +126,9 @@ test('a lease is a real Redis TTL: the hash physically disappears without a dele
     );
     expect(await raw.exists(connKey)).toBe(true);
     expect(
-      (await redis.readActorConnections(actorId)).map((c) => c.connId),
+      (await redis.readActorConnections(actorId)).connections.map(
+        (c) => c.connId,
+      ),
     ).toEqual(['ttlConn']);
 
     // A full second of margin over the 3s TTL, so this never depends on a
@@ -135,7 +137,7 @@ test('a lease is a real Redis TTL: the hash physically disappears without a dele
 
     // Independent of our own read/trim logic: the hash is simply gone.
     expect(await raw.exists(connKey)).toBe(false);
-    expect(await redis.readActorConnections(actorId)).toEqual([]);
+    expect((await redis.readActorConnections(actorId)).connections).toEqual([]);
   } finally {
     await redis.deletePresenceLease({ connId: 'ttlConn', actorId });
     redis.close();
@@ -162,7 +164,7 @@ test('refresh on an already-expired lease reports refreshed: false rather than r
     );
     expect(result).toEqual({ refreshed: false });
     // Negative control: refresh must not have resurrected the hash or its TTL.
-    expect(await redis.readActorConnections(actorId)).toEqual([]);
+    expect((await redis.readActorConnections(actorId)).connections).toEqual([]);
   } finally {
     await redis.deletePresenceLease({ connId: 'staleConn', actorId });
     redis.close();
@@ -195,10 +197,12 @@ test('readActorConnections drops a record whose hash names a different actor tha
       'shared',
     ]);
 
-    const p1Connections = await redis.readActorConnections('p1');
+    const { connections: p1Connections } =
+      await redis.readActorConnections('p1');
     expect(p1Connections).toEqual([]);
     // p2's own read is unaffected.
-    const p2Connections = await redis.readActorConnections('p2');
+    const { connections: p2Connections } =
+      await redis.readActorConnections('p2');
     expect(p2Connections.map((c) => c.connId)).toEqual(['shared']);
   } finally {
     await redis.deletePresenceLease({ connId: 'shared', actorId: 'p2' });
@@ -283,7 +287,7 @@ test('a delete never propagates a stale leftover member into the online zset', a
     // does prove the actor's own connections stay absent from the public
     // read.
     expect(
-      (await redis.readOnlinePresence()).some(
+      (await redis.readOnlinePresence()).actors.some(
         (actor) => actor.actorId === actorId,
       ),
     ).toBe(false);
