@@ -25,6 +25,8 @@ import { parseRecord, recordPath } from './agent-registry';
 
 export const ACTIVE = '.claude/ralph-loop.local.md';
 export const ESCALATED = '.claude/ralph-loop.escalated.md';
+/** PageSpace Epic Updates: where a loop with no parent reaches the owner. */
+export const OWNER_CHANNEL = 'ywfbps4h7dgnfnv3phwjs1yn';
 export type LoopDeps = {
   readonly cwd: string;
   /** The main checkout, which holds the agent registry (PU_PROJECT_ROOT). */
@@ -80,11 +82,29 @@ function sendTo(deps: LoopDeps, agent: string, text: string): boolean {
   return sent;
 }
 
-function commentOnPr(deps: LoopDeps, pr: number, body: string, dir: string) {
+function commentOnPr(
+  deps: LoopDeps,
+  pr: number,
+  body: string,
+  dir: string,
+): boolean {
   const ok =
     deps.run(['gh', 'pr', 'comment', String(pr), '--body', body], dir).code ===
     0;
   if (!ok) deps.notice(`Could not comment on PR #${pr}.`);
+  return ok;
+}
+
+/** Tells the parent, or the owner on the Epic Updates channel. */
+function notify(deps: LoopDeps, parent: string | undefined, message: string) {
+  if (parent) return sendTo(deps, parent, message);
+  deps.notice(`OWNER NOTICE ${message}`);
+  return (
+    deps.run(
+      ['pagespace', 'channels', 'send', OWNER_CHANNEL, message],
+      deps.cwd,
+    ).code === 0
+  );
 }
 
 function prNumber(deps: LoopDeps, args: readonly string[], dir: string) {
@@ -126,23 +146,31 @@ export function escalate(
       deps.cwd,
     ),
   };
-  deps.write(join(deps.cwd, ESCALATED), escalateState(state, escalation));
-  deps.remove(join(deps.cwd, ACTIVE));
   const message = escalationMessage({
     ...escalation,
     iteration: readIteration(state),
   });
-  if (escalation.pr !== undefined)
+  const waitingFor = parent ?? 'the owner';
+  // Tell someone before pausing: a loop nobody knows is paused is lost.
+  const told = notify(deps, parent, message);
+  const commented =
+    escalation.pr !== undefined &&
     commentOnPr(
       deps,
       escalation.pr,
-      `**Loop escalated: ${reason}** (waiting for ${parent ?? 'the owner'})\n\n${message}`,
+      `**Loop escalated: ${reason}** (waiting for ${waitingFor})\n\n${message}`,
       deps.cwd,
     );
-  if (parent) sendTo(deps, parent, message);
-  else deps.notice(`OWNER NOTICE ${message}`);
+  if (!told && !commented) {
+    deps.notice(
+      `Could not reach ${waitingFor} or the PR; the loop is still active. Retry bun loop:escalate.`,
+    );
+    return 1;
+  }
+  deps.write(join(deps.cwd, ESCALATED), escalateState(state, escalation));
+  deps.remove(join(deps.cwd, ACTIVE));
   deps.notice(
-    `Loop paused (${reason}). Stop working on the loop now; ${parent ?? 'the owner'} will close or resume it.`,
+    `Loop paused (${reason}). Stop working on the loop now; ${waitingFor} will close or resume it.`,
   );
   return 0;
 }
