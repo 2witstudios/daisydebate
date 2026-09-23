@@ -180,7 +180,7 @@ describe('loop:close and loop:resume', () => {
       autonomous: false,
       agentId: undefined,
     });
-    const code = control(run.deps, 'close', 'ag-child', 'Merged by the owner');
+    const code = control(run.deps, 'close', 'ag-child', 'Merged by the owner.');
     const comment = run.calls.find(
       (call) => call.slice(0, 3).join(' ') === 'gh pr comment',
     );
@@ -192,12 +192,14 @@ describe('loop:close and loop:resume', () => {
         run.fs.has(`${child}/${ACTIVE}`),
         run.fs.has(`${child}/${ESCALATED}`),
         comment?.[5],
+        run.calls.find((call) => call[1] === 'send')?.[3]?.includes('owner..'),
       ],
       expected: [
         0,
         false,
         false,
         '**Loop closed** by the owner: Merged by the owner',
+        false,
       ],
     });
   });

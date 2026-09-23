@@ -228,7 +228,13 @@ export function control(
   deps.remove(join(paused.worktree.path, ESCALATED));
   const who = deps.autonomous ? (deps.agentId ?? 'agent') : 'the owner';
   const verb = action === 'close' ? 'closed' : 'resumed';
-  report(deps, action, child, paused, `${verb} by ${who}: ${text.trim()}`);
+  report(
+    deps,
+    action,
+    child,
+    paused,
+    `${verb} by ${who}: ${text.trim().replace(/[.\s]+$/, '')}`,
+  );
   return 0;
 }
 
