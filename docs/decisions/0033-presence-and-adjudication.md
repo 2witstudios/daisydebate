@@ -56,8 +56,9 @@ guessing.
    `derivePresence`'s `nowMs` never substitutes an instance clock for it.
    **Known gap**: the merged RT-3.1 reads (`readActorConnections` and
    `readOnlinePresence` in `@daisy/redis`) return only the trimmed, hydrated
-   rows and do not return `now`; RT-3.1v adds the missing return value
-   before any caller is built against these reads. When an instance
+   rows and do not return `now`; RT-3.1f owns adding the missing return
+   value, and it lands before any caller is built against these reads.
+   When an instance
    crashes, each of its leases expires on its own; a stale lease can never
    outlive its TTL and poison a result.
 
@@ -148,9 +149,9 @@ leaf that adds them (RT-4.4) adds a lint rule that fails if they do.
    unique index `WHERE turn_index IS NOT NULL`, declared
    `NULLS NOT DISTINCT` so that the evaluator's `adjudicate` rows, each
    written under the sweep's service principal rather than an actor
-   (section 8), are unique too. A CHECK keeps `turn_index` set for exactly those two
-   types. Every other command type (join, ready, transition) has a NULL
-   `turn_index`, so the index never sees it and never collides it.
+   (section 8), are unique too. A CHECK keeps `turn_index` set for exactly
+   those two types. Every other command type (join, ready, transition) has
+   a NULL `turn_index`, so the index never sees it and never collides it.
    A retried check-in with a new `commandId` hits the operation key, and
    the handler returns the recorded result and receipt time.
 5. **The check-in is recorded in the debate snapshot** as an attendance
