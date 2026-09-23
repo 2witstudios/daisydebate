@@ -422,7 +422,10 @@ GRD-6.2) is what holds against them:
   drive that the PR body or a comment links (anyone may comment on a
   public repository, and a builder can delete a comment), and PageSpace
   attributes every edit to the owner. A linked page that cannot be read
-  fails the check. So an honest
+  fails the check. That makes a comment an availability lever: anyone who
+  can comment on the public repository can hold `review-record` at
+  failure by linking a Daisy-drive page id that does not exist, until the
+  comment is removed. It never mints success. So an honest
   builder cannot mint the status by mistake, but a builder that fabricated
   a record under a false reviewer id could. That is a deliberate forgery,
   visible in the record and the PR history, and outside what this layer
