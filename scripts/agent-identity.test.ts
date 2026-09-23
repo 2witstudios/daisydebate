@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -242,6 +242,29 @@ describe('agent launcher', () => {
       should: "start with the owner file's identity",
       actual: [run.exitCode, parseDotenv(run.stdout.toString()).GH_TOKEN],
       expected: [0, 'agent-token-value'],
+    });
+  });
+
+  test('fails closed once the regime is active and the owner identity cannot be loaded', () => {
+    const invalid = mkdtempSync(join(tmpdir(), 'grd-6-project-'));
+    writeFileSync(join(invalid, '.env.agent'), example);
+    const unreadable = mkdtempSync(join(tmpdir(), 'grd-6-project-'));
+    writeFileSync(join(unreadable, '.env.agent'), filled);
+    chmodSync(join(unreadable, '.env.agent'), 0o000);
+    const runs = [
+      launch(filled, { PU_PROJECT_ROOT: invalid }),
+      launch(filled, { PU_PROJECT_ROOT: unreadable }),
+    ];
+    assert({
+      given:
+        'an owner .env.agent with an empty token, and one the launcher cannot read, each beside a valid worktree copy',
+      should:
+        'refuse to start the agent, never falling back to the worktree copy or to the owner',
+      actual: runs.map((run) => [run.exitCode !== 0, run.stdout.toString()]),
+      expected: [
+        [true, ''],
+        [true, ''],
+      ],
     });
   });
 
