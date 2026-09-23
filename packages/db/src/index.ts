@@ -2,7 +2,6 @@ import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { eq, and, ne, sql } from 'drizzle-orm';
 import { drizzleAdapter } from '@better-auth/drizzle-adapter';
-import { createId } from '@paralleldrive/cuid2';
 import {
   formatRulesSchema,
   buildUserInboxTopic,
@@ -56,7 +55,7 @@ export function createDatabase({
   maxConnections = 10,
   eventSink,
   client: injectedClient,
-  nextActorId = createId,
+  nextActorId,
 }: {
   url: string;
   maxConnections?: number;
@@ -64,13 +63,14 @@ export function createDatabase({
   /** Overrides dialing `url`; tests inject a scripted client at this seam. */
   client?: SQL;
   /**
-   * The cuid2 source for actor rows created at onboarding (ACTOR-1). Callers
-   * at the application edge inject their clock/id source (`@daisy/clock`'s
-   * `systemId.next`); this defaults to the same `createId` the auth schema's
-   * `$defaultFn` backstop uses, so a caller that has no id strategy of its
-   * own still mints a real cuid2, never a database-generated identifier.
+   * The cuid2 source for actor rows created at onboarding (ACTOR-1). Required,
+   * not defaulted: every caller states its id strategy explicitly rather than
+   * silently falling back to an ambient one. The application edge injects its
+   * clock/id source (`@daisy/clock`'s `systemId.next`); a caller with no
+   * production writes of its own (a read-only script, a fixture) still names
+   * one, such as `@paralleldrive/cuid2`'s `createId` directly.
    */
-  nextActorId?: () => string;
+  nextActorId: () => string;
 }) {
   const client =
     injectedClient ??
@@ -95,12 +95,13 @@ export function createDatabase({
     eventSink?.('db.query.failed', { operation }, 'Database query failed');
   /**
    * Plan revision 4.10: revocation rows are keyed by `actors.id`, never
-   * `users.id`. ACTOR-1 backfilled every onboarded user's actor, but a user
-   * who never claimed a username still has none, so a missing actor is a
-   * known, logged gap, not a thrown error. Shares its query with
-   * `getActorByUserId` (`actor-operations.ts`'s `queryActorByUserId`) — one
-   * lookup, not a second hand-rolled one — passing this call's own `tx` so
-   * the read joins whatever write follows in the same transaction.
+   * `users.id`. `claimUsername` inserts the actor when a username claim
+   * succeeds (ACTOR-1), so a user who never claimed a username is the only
+   * one with no actor row; that is a known, permanent case, not a thrown
+   * error. Shares its query with `getActorByUserId`
+   * (`actor-operations.ts`'s `queryActorByUserId`) — one lookup, not a
+   * second hand-rolled one — passing this call's own `tx` so the read joins
+   * whatever write follows in the same transaction.
    */
   const findActorId = async (
     tx: Pick<typeof database, 'select'>,
@@ -112,7 +113,7 @@ export function createDatabase({
       eventSink?.(
         'realtime.outbox.actor_missing',
         { operation },
-        'No actor row for this user; revocation outbox row not appended (ACTOR-1 pending)',
+        'No actor row for this user (never claimed a username); revocation outbox row not appended',
       );
     return actor?.id ?? null;
   };
@@ -131,8 +132,8 @@ export function createDatabase({
      * revoke endpoints). Never wraps the delete itself.
      *
      * Plan revision 4.10: resolves the actor through `actors.user_id` (never
-     * keys anything by `userId`); until ACTOR-1 backfills, a user with no
-     * actor row appends nothing and logs `realtime.outbox.actor_missing`.
+     * keys anything by `userId`); a user with no actor row (never claimed a
+     * username) appends nothing and logs `realtime.outbox.actor_missing`.
      */
     async appendSessionRevoked(userId: string) {
       try {
@@ -197,9 +198,9 @@ export function createDatabase({
      * here rolls the DELETE back too, rather than being swallowed
      * best-effort. Returns the number of sessions removed.
      *
-     * Plan revision 4.10: resolves the actor through `actors.user_id`; until
-     * ACTOR-1 backfills, a user with no actor row still has its sessions
-     * revoked, but appends nothing and logs
+     * Plan revision 4.10: resolves the actor through `actors.user_id`; a
+     * user with no actor row (never claimed a username) still has its
+     * sessions revoked, but appends nothing and logs
      * `realtime.outbox.actor_missing` instead.
      */
     async revokeOtherSessions(

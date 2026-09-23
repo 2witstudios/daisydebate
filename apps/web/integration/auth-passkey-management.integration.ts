@@ -167,7 +167,10 @@ describe('AUTH-5.4 recover from a lost passkey through verified email', () => {
     // the username claim above already provisioned this account's human
     // actor in the same transaction (ACTOR-1), so the fixture only reads it
     // to give the account debate history to prove unchanged.
-    const database = createDatabase({ url: testDatabaseUrl as string });
+    const database = createDatabase({
+      url: testDatabaseUrl as string,
+      nextActorId: createId,
+    });
     const actor = await database.getActorByUserId(userId);
     const actorId = actor!.id;
     const debateId = createId();

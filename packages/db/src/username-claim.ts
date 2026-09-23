@@ -33,10 +33,13 @@ const isUniqueViolation = (error: unknown): boolean => {
  * transaction (ADR 0029, ACTOR-1) — the human actor and its username exist
  * together or not at all. Uniqueness is the case-insensitive unique index,
  * so concurrent claims of one name produce exactly one winner and every
- * loser changes nothing; `onConflictDoNothing` on `actors_user_id_unique`
- * makes the actor insert idempotent for a retry that lands after a prior
- * attempt's commit raced this one. A retry by the owner reports `unchanged`
- * and inserts no actor.
+ * loser changes nothing; a losing call sees `claimed.length === 0` and
+ * never reaches the actor insert. `onConflictDoNothing` on
+ * `actors_user_id_unique` instead guards a user who already has an actor
+ * with no username — every session-revocation fixture in this repository
+ * inserts exactly that shape (a signed-up user who never claims one) — so a
+ * later claim keeps the existing actor rather than racing a unique
+ * violation. A retry by the owner reports `unchanged` and inserts no actor.
  */
 export async function claimUsername(
   database: BunSQLDatabase,

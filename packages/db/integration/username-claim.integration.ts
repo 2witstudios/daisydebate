@@ -79,6 +79,96 @@ describe('claimUsername creates the human actor (ACTOR-1, ADR 0029)', () => {
     });
   });
 
+  test('regression: a failed actor insert rolls the username claim back too', async () => {
+    await withFixture(url, async (fixture) => {
+      const userId = createId();
+      const actorId = createId();
+      const trigger = `actor1_reg_${createId().slice(0, 12)}`;
+      // A real Postgres-level fault inside the same statement claimUsername
+      // issues, not a stub of the function under test — the same technique
+      // RT-2.2's atomicity suites use (renaming a table away). Proves the
+      // transaction wrapper is load-bearing: with `database.transaction`
+      // removed, the UPDATE commits before this trigger ever fires and the
+      // assertion below goes red.
+      await fixture.sql.unsafe(`
+        create function "${trigger}"() returns trigger as $$
+        begin
+          if new.user_id = '${userId}' then
+            raise exception 'ACTOR-1 regression probe: forced actor insert failure';
+          end if;
+          return new;
+        end;
+        $$ language plpgsql;
+        create trigger "${trigger}" before insert on actors
+          for each row execute function "${trigger}"();
+      `);
+      await fixture.insert('users', { id: userId, username: null });
+      const database = createDatabase({ url, nextActorId: () => actorId });
+      let threw = false;
+      try {
+        await database.claimUsername({ userId, username: `claimed-${userId}` });
+      } catch {
+        threw = true;
+      } finally {
+        await database.close();
+        await fixture.sql.unsafe(
+          `drop trigger "${trigger}" on actors; drop function "${trigger}"();`,
+        );
+      }
+      const [row] = (await fixture.sql.unsafe(
+        'select username from users where id = $1',
+        [userId],
+      )) as Array<{ username: string | null }>;
+      assert({
+        given: 'a real fault raised while the transaction inserts the actor',
+        should:
+          'propagate the failure and leave the username claim uncommitted',
+        actual: {
+          threw,
+          username: row?.username,
+          actorCount: await fixture.count('actors', 'user_id', userId),
+        },
+        expected: { threw: true, username: null, actorCount: 0 },
+      });
+    });
+  });
+
+  test('a claim for a user who already has an actor with no username keeps that actor (onConflictDoNothing)', async () => {
+    await withFixture(url, async (fixture) => {
+      const userId = createId();
+      await fixture.insert('users', { id: userId, username: null });
+      // A stand-in actor with no username, the shape RT-2.2's own fixtures
+      // use for a user who has not claimed one yet: the only realistic way
+      // an actor and a NULL username coexist, since claimUsername is the
+      // only writer of both together.
+      const preexistingActorId = await fixture.actor(userId);
+      const newActorId = createId();
+      const database = createDatabase({ url, nextActorId: () => newActorId });
+      let outcome;
+      try {
+        outcome = await database.claimUsername({
+          userId,
+          username: `claimed-${userId}`,
+        });
+      } finally {
+        await database.close();
+      }
+      const count = await fixture.count('actors', 'user_id', userId);
+      const [row] = (await fixture.sql.unsafe(
+        'select id from actors where user_id = $1',
+        [userId],
+      )) as Array<{ id: string }>;
+      assert({
+        given:
+          'a user whose actor already exists from before they had a username',
+        should:
+          'claim the name and keep the pre-existing actor, inserting no second one',
+        actual: [outcome?.kind, count, row?.id],
+        expected: ['claimed', 1, preexistingActorId],
+      });
+    });
+  });
+
   test('negative control: a call that claims nothing inserts no actor', async () => {
     await withFixture(url, async (fixture) => {
       const userId = createId();

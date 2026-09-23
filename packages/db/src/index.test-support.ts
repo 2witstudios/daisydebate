@@ -1,4 +1,5 @@
 import type { SQL } from 'bun';
+import { createId } from '@paralleldrive/cuid2';
 import type { DebatePhase } from '@daisy/protocol';
 import {
   createDatabase,
@@ -67,6 +68,7 @@ export const createTestDatabase = (
     eventSink: (event, fields, message) =>
       events.push({ event, fields, message }),
     client,
+    nextActorId: createId,
   });
   return { database, queries };
 };

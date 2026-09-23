@@ -65,7 +65,7 @@ test('a forced outbox failure never fails a real /revoke-other-sessions call, an
   const email = fixtureEmail();
   const sent: SentMessages = [];
   const logged: RecordedLogs = [];
-  const database = createDatabase({ url });
+  const database = createDatabase({ url, nextActorId: createId });
   const auth = createTestAuthServer(database.authAdapter, {
     sent,
     recordedLogs: logged,
@@ -76,9 +76,10 @@ test('a forced outbox failure never fails a real /revoke-other-sessions call, an
     const first = await signInOnce(auth, email, sent);
     userId = first.userId;
     await signInOnce(auth, email, sent);
-    // Plan revision 4.10 (ACTOR-1 pending): the append only runs once the
-    // actor resolves, so this fixture stands in for ACTOR-1's onboarding
-    // insert until that leaf lands.
+    // Plan revision 4.10: the append only runs once the actor resolves.
+    // This test signs in without ever claiming a username, so it inserts
+    // the actor directly rather than going through the onboarding route —
+    // an unrelated surface to what this test proves.
     await new SQL(url).unsafe(
       "insert into actors (id, kind, user_id) values ($1, 'human', $2)",
       [createId(), userId],

@@ -1,5 +1,6 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { createId } from '@paralleldrive/cuid2';
 import { getTableName } from 'drizzle-orm';
 import { getTableConfig } from 'drizzle-orm/pg-core';
 import { debates } from './schema/debates';
@@ -135,7 +136,7 @@ describe('session revocation', () => {
     });
   });
 
-  test('revokes sessions but appends nothing and reports a registered event when the user has no actor row (ACTOR-1 pending)', async () => {
+  test('revokes sessions but appends nothing and reports a registered event when the user has no actor row (never claimed a username)', async () => {
     const userId = 'a7b3c9d1e5f2k4m6n8p1r3t5';
     const events: SinkEvent[] = [];
     const { database, queries } = createTestDatabase(
@@ -191,6 +192,7 @@ describe('session revocation', () => {
       url: 'postgresql://user:password@127.0.0.1:1/daisy',
       eventSink: (event, fields, message) =>
         events.push({ event, fields, message }),
+      nextActorId: createId,
     });
 
     await expect(
@@ -223,6 +225,7 @@ describe('database adapter failures', () => {
       url: 'postgresql://user:password@127.0.0.1:1/daisy',
       eventSink: (event, fields, message) =>
         events.push({ event, fields, message }),
+      nextActorId: createId,
     });
 
     await expect(database.health()).rejects.toThrow();

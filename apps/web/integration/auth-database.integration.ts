@@ -1,5 +1,6 @@
 import { SQL } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { createId } from '@paralleldrive/cuid2';
 import { createDatabase } from '@daisy/db';
 import {
   capturedToken,
@@ -43,7 +44,7 @@ const runAuth = async (body: (context: RunContext) => Promise<void>) => {
   const email = fixtureEmail();
   const sent: SentMessages = [];
   const logged: RecordedLogs = [];
-  const database = createDatabase({ url });
+  const database = createDatabase({ url, nextActorId: createId });
   const auth = createTestAuthServer(database.authAdapter, {
     sent,
     recordedLogs: logged,

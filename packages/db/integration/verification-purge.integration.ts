@@ -52,7 +52,7 @@ test('only rows expired more than 24 hours ago are deleted; grace and live rows 
   const tag = `vp-${createId().slice(0, 8)}`;
   // 30h and 25h expired -> purge; 23h expired (grace) and -1h (still live) -> keep.
   await seed(tag, [30, 25, 23, -1]);
-  const database = createDatabase({ url });
+  const database = createDatabase({ url, nextActorId: createId });
   try {
     const deleted = await database.purgeExpiredVerifications({
       before: cutoff,
@@ -91,7 +91,7 @@ test("a run deletes at most one batch and never touches this suite's user or its
       VALUES (${`${tag}-session`}, ${new Date(now - 40 * HOUR).toISOString()},
       ${`${tag}-token`}, ${userId})`;
   });
-  const database = createDatabase({ url });
+  const database = createDatabase({ url, nextActorId: createId });
   try {
     const deleted = await database.purgeExpiredVerifications({
       before: cutoff,
@@ -133,7 +133,7 @@ test('concurrent workers delete each expired row exactly once', async () => {
   const ids = await seed(tag, Array(40).fill(0) as number[], base);
   const isolated = new Date(base + HOUR).toISOString();
   const workers = Array.from({ length: 4 }, () =>
-    createDatabase({ url, maxConnections: 2 }),
+    createDatabase({ url, maxConnections: 2, nextActorId: createId }),
   );
   try {
     const drain = async (database: (typeof workers)[number]) => {
