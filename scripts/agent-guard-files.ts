@@ -1,10 +1,12 @@
 /**
- * The agent guard's file rules (ADR 0035): loop state, the agent records in
- * .daisy and the guard's hook wiring are never changed by an agent by hand.
- * A path argument counts when it names a protected file, one of its parent
- * directories, or a glob that could expand to either.
+ * The agent guard's file rules (ADR 0035): loop state, the agent registry
+ * in the main checkout and the guard's hook wiring are never changed by an
+ * agent by hand. A path argument counts when it names a protected path,
+ * anything inside the registry, one of their parent directories, or a glob
+ * that could expand to any of those.
  */
 import { dirname, join } from 'node:path';
+import { REGISTRY_DIR } from './agent-registry';
 import type { ShellCommand } from './shell-command';
 import {
   allow,
@@ -20,24 +22,37 @@ import {
 const PROTECTED = [
   '.claude/ralph-loop.local.md',
   '.claude/ralph-loop.escalated.md',
-  '.daisy/parent',
-  '.daisy/role',
   // The guard's own wiring: an agent does not switch its checks off.
   '.claude/settings.json',
   '.githooks/pre-push',
 ];
 
-// Every file and directory whose removal or rewrite reaches a protected file.
-function protectedTargets(worktree: string): string[] {
+/** Protected paths, each with the checkout it belongs to. */
+function protectedPaths(facts: GuardFacts) {
+  return [
+    ...PROTECTED.map((file) => ({
+      path: join(facts.worktree, file),
+      root: facts.worktree,
+    })),
+    // Registered parents and roles (agent-registry.ts), outside the worktree.
+    {
+      path: join(facts.mainCheckout, REGISTRY_DIR),
+      root: facts.mainCheckout,
+    },
+  ];
+}
+
+// Every file and directory whose removal or rewrite reaches a protected path.
+function protectedTargets(facts: GuardFacts): string[] {
   const targets = new Set<string>();
-  for (const file of PROTECTED) {
-    let path = join(worktree, file);
-    while (path.length > worktree.length) {
+  for (const { path: start, root } of protectedPaths(facts)) {
+    let path = start;
+    while (path.length > root.length) {
       targets.add(path);
       path = dirname(path);
     }
+    targets.add(root);
   }
-  targets.add(worktree);
   return [...targets];
 }
 
@@ -53,16 +68,18 @@ function globToRegExp(glob: string): RegExp {
   return new RegExp(`^${source}$`);
 }
 
-/** Whether a path argument reaches a protected file. */
+/** Whether a path argument reaches a protected path. */
 function reaches(arg: string, cwd: string, facts: GuardFacts): boolean {
   const path = resolveFrom(cwd, arg);
-  const files = PROTECTED.map((file) => join(facts.worktree, file));
+  const registry = join(facts.mainCheckout, REGISTRY_DIR);
+  const literal = GLOB.test(path) ? path.slice(0, path.search(GLOB)) : path;
+  if (isWithin(literal, registry)) return true;
   if (!GLOB.test(path))
-    return files.some((file) => isWithin(file, path.replace(/\/$/, '')));
+    return protectedPaths(facts).some(({ path: file }) =>
+      isWithin(file, path.replace(/\/$/, '')),
+    );
   const pattern = globToRegExp(path);
-  return protectedTargets(facts.worktree).some((target) =>
-    pattern.test(target),
-  );
+  return protectedTargets(facts).some((target) => pattern.test(target));
 }
 
 const removers = new Set([
@@ -137,6 +154,7 @@ export function loopState(
   return touched ? deny(LOOP_REASON) : allow;
 }
 
-/** Whether an edited file is loop state or an agent record. */
+/** Whether an edited file is loop state, guard wiring or in the registry. */
 export const isProtectedFile = (path: string, facts: GuardFacts): boolean =>
-  PROTECTED.some((file) => path === join(facts.worktree, file));
+  PROTECTED.some((file) => path === join(facts.worktree, file)) ||
+  isWithin(path, join(facts.mainCheckout, REGISTRY_DIR));

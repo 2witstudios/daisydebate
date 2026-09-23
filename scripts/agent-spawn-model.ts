@@ -1,0 +1,319 @@
+/**
+ * Pure decisions of the spawn wrapper (agent-spawn.ts, ADR 0035): argument
+ * handling, the per-role caps, declared prerequisites, terms a merged
+ * ADR superseded, and whether a prompt reached the agent's transcript.
+ */
+
+export type Role = 'builder' | 'reviewer';
+
+export type SpawnPlan = {
+  readonly task: string | undefined;
+  readonly role: Role;
+  /** A reviewer's existing pu worktree id; a builder gets a new worktree. */
+  readonly worktree: string | undefined;
+  readonly override: boolean;
+  readonly cap: number;
+  readonly name: string;
+  readonly base: string;
+  readonly agent: string;
+  /** pu spawn arguments for the agent itself (prompt, --file, …). */
+  readonly rest: readonly string[];
+};
+
+const SPAWN_USAGE =
+  'usage: bun agent:spawn [--task <leafPageId>] [--role builder | --role reviewer --worktree <worktreeId>] [--cap N] [--override] -- [-n <name>] [-b <base>] [-a <agent>] [pu spawn options] "<prompt>"';
+
+/** Running agents allowed per role; only the owner changes a cap. */
+const DEFAULT_CAPS: Readonly<Record<Role, number>> = {
+  builder: 3,
+  reviewer: 2,
+};
+const ROLES = new Set(Object.keys(DEFAULT_CAPS));
+
+function wrapperOptions(args: readonly string[]) {
+  const options = {
+    task: undefined as string | undefined,
+    role: 'builder',
+    worktree: undefined as string | undefined,
+    override: false,
+    cap: undefined as number | undefined,
+  };
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === '--override') options.override = true;
+    else if (arg === '--task') options.task = args[++index];
+    else if (arg === '--role') options.role = args[++index] ?? '';
+    else if (arg === '--worktree') options.worktree = args[++index];
+    else if (arg === '--cap') options.cap = Number(args[++index]);
+  }
+  return options;
+}
+
+/**
+ * What an autonomous agent may not choose for itself: a cap, and a builder
+ * with no leaf to check. It may spawn a reviewer, which joins an existing
+ * worktree and counts against the reviewer cap.
+ */
+function autonomyError(options: ReturnType<typeof wrapperOptions>) {
+  if (options.cap !== undefined) return 'Only the owner can pass --cap.';
+  return options.role !== 'builder' || options.task
+    ? undefined
+    : 'An autonomous agent spawns a builder only for a leaf: pass --task <leafPageId>.';
+}
+
+function roleError(options: ReturnType<typeof wrapperOptions>) {
+  if (!ROLES.has(options.role)) return '--role must be builder or reviewer';
+  if (options.role === 'reviewer' && !options.worktree)
+    return 'A reviewer joins the worktree it reviews: pass --worktree <existing worktree id>.';
+  if (options.role === 'builder' && options.worktree)
+    return '--worktree is only for reviewers: a builder gets a new worktree.';
+  return undefined;
+}
+
+function optionsError(
+  options: ReturnType<typeof wrapperOptions>,
+  name: string | undefined,
+) {
+  if (!name && options.role === 'builder') return '--name is required';
+  const cap = options.cap ?? 1;
+  return Number.isInteger(cap) && cap >= 1
+    ? undefined
+    : '--cap must be a positive integer';
+}
+
+const puValueFlags: Readonly<Record<string, 'name' | 'base' | 'agent'>> = {
+  '-n': 'name',
+  '--name': 'name',
+  '-b': 'base',
+  '--base': 'base',
+  '-a': 'agent',
+  '--agent': 'agent',
+};
+
+/** The name, base and agent a pu spawn names, and its other arguments. */
+function puArgs(spawn: readonly string[]) {
+  const picked: Record<'name' | 'base' | 'agent', string | undefined> = {
+    name: undefined,
+    base: 'main',
+    agent: 'claude',
+  };
+  const rest: string[] = [];
+  for (let index = 0; index < spawn.length; index += 1) {
+    const key = puValueFlags[spawn[index]];
+    if (key) picked[key] = spawn[++index];
+    // pu needs --agent-args in its = form; a separate word is lost.
+    else if (spawn[index] === '--agent-args')
+      rest.push(`--agent-args=${spawn[++index] ?? ''}`);
+    else rest.push(spawn[index]);
+  }
+  return { picked, rest };
+}
+
+export function parseSpawnArgs(
+  argv: readonly string[],
+  autonomous = false,
+): SpawnPlan | { readonly error: string } {
+  const split = argv.indexOf('--');
+  const wrapper = split === -1 ? [] : argv.slice(0, split);
+  const options = wrapperOptions(wrapper);
+  const refused =
+    roleError(options) ?? (autonomous ? autonomyError(options) : undefined);
+  if (refused) return { error: `${refused}\n${SPAWN_USAGE}` };
+  const { picked, rest } = puArgs(split === -1 ? argv : argv.slice(split + 1));
+  const invalid = optionsError(options, picked.name);
+  if (invalid) return { error: `${invalid}\n${SPAWN_USAGE}` };
+  const role = options.role as Role;
+  return {
+    ...options,
+    role,
+    cap: options.cap ?? DEFAULT_CAPS[role],
+    name: picked.name ?? '',
+    base: picked.base ?? 'main',
+    agent: picked.agent ?? 'claude',
+    rest,
+  };
+}
+
+type PuStatus = {
+  readonly worktrees?: readonly {
+    readonly path: string;
+    readonly agents?: Readonly<
+      Record<string, { readonly status?: string; readonly agentType?: string }>
+    >;
+  }[];
+};
+
+/**
+ * Running coding agents that count toward a role's cap. Reviewers are the
+ * agents registered as reviewers; every other one is a builder, so an agent
+ * from a raw pu spawn counts too.
+ */
+export function activeCount(
+  status: PuStatus,
+  roleOf: (agentId: string) => Role | undefined,
+  role: Role,
+): number {
+  return (status.worktrees ?? [])
+    .flatMap((worktree) => Object.entries(worktree.agents ?? {}))
+    .filter(
+      ([id, agent]) =>
+        (roleOf(id) === 'reviewer') === (role === 'reviewer') &&
+        agent.status === 'running' &&
+        agent.agentType !== 'terminal',
+    ).length;
+}
+
+export type Prerequisites = {
+  readonly leaves: readonly string[];
+  readonly prs: readonly number[];
+  readonly adrs: readonly string[];
+};
+
+const RELATED_HEADING = /<h[1-6][^>]*>\s*Related pages\s*<\/h[1-6]>/gi;
+
+/**
+ * Prerequisites declared on `Prerequisite:` lines of the list under the
+ * Related pages heading; undefined when the leaf has no such heading, so a
+ * spawn fails closed instead of reading prerequisites as none.
+ */
+export function findPrerequisites(html: string): Prerequisites | undefined {
+  const heading = [...html.matchAll(RELATED_HEADING)].at(-1);
+  if (heading === undefined) return undefined;
+  const after = html.slice(heading.index + heading[0].length);
+  const list = /^\s*<ul[^>]*>([\s\S]*?)<\/ul>/i.exec(after)?.[1] ?? '';
+  const lines = list
+    .split(/<\/li>/)
+    .filter((item) => /Prerequisite\s*:/i.test(item));
+  const all = (pattern: RegExp) =>
+    lines.flatMap((line) => [...line.matchAll(pattern)].map((m) => m[1]));
+  return {
+    leaves: all(/data-page-id="([a-z0-9]+)"/g),
+    prs: all(/PR #(\d+)/g).map(Number),
+    adrs: all(/ADR[ -](\d{4})/g),
+  };
+}
+
+const MERGED_STATUSES = new Set(['merged', 'completed']);
+
+export function prerequisiteBlockers(
+  prerequisites: Prerequisites,
+  facts: {
+    readonly prMerged: (pr: number) => boolean;
+    readonly adrMerged: (adr: string) => boolean;
+    readonly leafStatus: (pageId: string) => string | undefined;
+  },
+): readonly string[] {
+  return [
+    ...prerequisites.leaves.flatMap((leaf) => {
+      const status = facts.leafStatus(leaf);
+      return status !== undefined && MERGED_STATUSES.has(status)
+        ? []
+        : [`leaf ${leaf} is ${status ?? 'unknown'}, not merged`];
+    }),
+    ...prerequisites.prs
+      .filter((pr) => !facts.prMerged(pr))
+      .map((pr) => `PR #${pr} is not merged`),
+    ...prerequisites.adrs
+      .filter((adr) => !facts.adrMerged(adr))
+      .map((adr) => `ADR ${adr} is not on origin/main`),
+  ];
+}
+
+export type SupersededTerm = {
+  readonly pattern: string;
+  readonly term: string;
+  readonly adr: string;
+  readonly use: string;
+};
+
+export function supersededTerms(
+  text: string,
+  table: readonly SupersededTerm[],
+): readonly string[] {
+  return table.flatMap((entry) =>
+    [...new Set(text.match(new RegExp(entry.pattern, 'gi')) ?? [])].map(
+      (found) =>
+        `"${found}" was superseded by ADR ${entry.adr}: use ${entry.use}`,
+    ),
+  );
+}
+
+/** Where Claude Code keeps the transcripts of sessions started in cwd. */
+export const projectDir = (home: string, cwd: string): string =>
+  `${home}/.claude/projects/${cwd.replace(/[^A-Za-z0-9]/g, '-')}`;
+
+const userText = (entry: {
+  readonly message?: { readonly content?: unknown };
+}): string => {
+  const content = entry.message?.content;
+  if (typeof content === 'string') return content;
+  return Array.isArray(content)
+    ? content
+        .map((part) => (part as { text?: unknown }).text)
+        .filter((text): text is string => typeof text === 'string')
+        .join('\n')
+    : '';
+};
+
+/**
+ * User turns in a transcript that carry the text. A session can continue
+ * under a new id, so submission is confirmed by content across the agent's
+ * transcripts rather than by one session file.
+ */
+export function userTurnsWith(transcript: string, text: string): number {
+  const needle = text.trim().slice(0, 80);
+  return transcript.split('\n').filter((line) => {
+    try {
+      const entry = JSON.parse(line) as { type?: string };
+      return entry.type === 'user' && userText(entry).includes(needle);
+    } catch {
+      return false;
+    }
+  }).length;
+}
+
+type StatusAgents = {
+  readonly worktrees?: readonly {
+    readonly path: string;
+    readonly agents?: Readonly<Record<string, unknown>>;
+  }[];
+  readonly agents?: readonly { readonly id: string }[];
+};
+
+/** The working directory of an agent: its worktree, or the main checkout. */
+export function agentCwd(
+  status: StatusAgents,
+  agentId: string,
+  mainCheckout: string,
+): string | undefined {
+  const worktree = status.worktrees?.find((w) =>
+    Object.hasOwn(w.agents ?? {}, agentId),
+  );
+  if (worktree) return worktree.path;
+  return status.agents?.some((agent) => agent.id === agentId)
+    ? mainCheckout
+    : undefined;
+}
+
+/** Seconds since the send, and the agent's idle seconds from `pu pulse`. */
+type IdleSample = { readonly at: number; readonly idle: number | null };
+
+/** Silence before a send, in seconds, that makes later output news. */
+export const QUIET_SECONDS = 2;
+
+/**
+ * pu reports how long an agent's terminal has been silent. Text left
+ * unsubmitted produces only its echo, while a working session keeps
+ * writing, so output 3 s or more after the send means the text was taken,
+ * but only from an agent that was quiet before it: a busy agent's output
+ * may be its earlier work.
+ */
+export const activeAfterSend = (
+  idleBefore: number | null,
+  samples: readonly IdleSample[],
+): boolean =>
+  idleBefore !== null &&
+  idleBefore >= QUIET_SECONDS &&
+  samples.some(
+    (sample) => sample.at >= 3 && sample.idle !== null && sample.idle <= 1,
+  );
