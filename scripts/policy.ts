@@ -7,6 +7,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 import * as ts from 'typescript';
 
+import { numberCollisionProblems } from './number-claims';
 import { reviewDateStatus, utcToday } from './review-date';
 
 const root = resolve(import.meta.dir, '..');
@@ -380,6 +381,7 @@ export async function collectPolicy(): Promise<PolicyReport> {
     ...validatePolicyRegistry(registry, { knownPaths }),
     ...validateMigrationBaselines(baselinesRegistry, { knownPaths }),
     ...duplicateAdrNumberProblems(knownPaths),
+    ...numberCollisionProblems(),
   ];
   const exceptions = new Set(
     (registry.exceptions ?? []).map(({ path, rule }) => `${path}|${rule}`),
