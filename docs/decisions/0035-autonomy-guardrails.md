@@ -40,13 +40,20 @@ this ADR records the consequential choices.
   `core.hooksPath=.githooks` makes the pre-push guard run for every push.
 - **Launch path.** `.pu/config.yaml` (now committed) copies `.env.agent`
   into each new worktree through `envFiles`. pu copies env files but does
-  not export them, so every coding agent starts through
-  `scripts/agent-launch.sh`. The launcher refuses to start an agent while
-  the identity is missing or incomplete, then `exec`s the agent with it.
+  not export them, so every coding and terminal agent starts through
+  `scripts/agent-launch.sh`. The launcher reads the owner's
+  `$PU_PROJECT_ROOT/.env.agent` first and the worktree copy only without
+  it, validates the values, exports them literally (it never sources the
+  file, so `$VAR` and `$(…)` are not expanded), unsets `GITHUB_TOKEN`,
+  `GH_ENTERPRISE_TOKEN`, `GITHUB_ENTERPRISE_TOKEN` and `SSH_AUTH_SOCK`, and
+  `exec`s the agent. It refuses to start an agent while a present file is
+  incomplete. With no `.env.agent` anywhere it warns and starts the agent
+  as the owner (section 1a).
 - **Doctor.** `bun doctor` reports the active identity. With
   `DAISY_AUTONOMOUS=1` it fails (`github-identity`) when `gh` resolves to the
   owner, when `GH_TOKEN` is unset, when origin pushes over SSH, or when git
-  does not authenticate through `gh`.
+  does not authenticate through `gh`. Its `identity-regime` check follows
+  section 1a.
 - **One machine account.** GitHub's Terms of Service allow one free machine
   account per person, so there is exactly one agent identity. Builders and
   reviewers share it, which rules out a native approving review from a
@@ -55,6 +62,28 @@ this ADR records the consequential choices.
   repository as a collaborator, so the machine user holds a classic token
   with `repo` and `workflow` scopes (`workflow` lets it push workflow
   changes).
+
+### 1a. Before GRD-6.2: the identity regime
+
+Owner ruling B, 2026-09-23. The regime is active when
+`$PU_PROJECT_ROOT/.env.agent` exists (the main checkout's copy; a
+worktree copy does not count, and deleting it changes nothing).
+
+- **Active.** A pu agent (`PU_AGENT_ID` set) without `GH_TOKEN` or
+  `DAISY_AUTONOMOUS` is misconfigured: the guard refuses it network git
+  (push, fetch, pull, clone, ls-remote, remote, submodule) and all `gh`,
+  treats it as autonomous for every other rule, and `bun doctor` fails,
+  naming the resume path: pu's resume (`pu play`, a daemon restart) starts
+  the bare binary and skips the launcher, so the agent must be restarted
+  through the launcher.
+- **Not active.** `bun doctor` warns "identity regime not active: pu agents
+  act as the owner (GRD-6.2)" so the gap stays visible, and nothing is
+  refused. The launcher starts agents as the owner with a warning.
+
+Until the owner creates `.env.agent` and applies the ruleset, GitHub
+cannot tell an agent from the owner: an agent holds the owner's token,
+and `main` has no required checks. Section 4 keeps agents from requesting
+a merge in that window.
 
 ### 2. The main ruleset as code
 
@@ -68,7 +97,10 @@ this ADR records the consequential choices.
   - `review-record`, pinned to the review-record App
 - one bypass actor: the repository admin role (the owner)
 
-It also sets `allow_auto_merge` and `delete_branch_on_merge`.
+It also sets `allow_auto_merge` and `delete_branch_on_merge`, and pins
+merge commits as the only merge method (`allow_merge_commit` on,
+`allow_squash_merge` and `allow_rebase_merge` off), matching the ruleset's
+`allowed_merge_methods`.
 
 `bun github:rules` diffs the committed rules against live GitHub and changes
 nothing. `bun github:rules --apply` creates or updates the ruleset and patches
@@ -147,10 +179,22 @@ and only code running from `main` can use its key.
 
 ### 4. Requesting a merge
 
-An autonomous agent requests a merge with `gh pr merge --auto --merge`.
-GitHub merges once every required check passes, `review-record` included.
-The owner merges directly at any time through the bypass. The guard refuses
-a direct or `--admin` merge by an agent, and asks the owner before one.
+An autonomous agent requests a merge with `gh pr merge --auto --merge`,
+and only after it confirms that the live `main` ruleset requires
+`review-record`:
+
+```sh
+gh api repos/2witstudios/daisydebate/rules/branches/main \
+  --jq '[.[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context] | any(. == "review-record")'
+```
+
+Only `true` allows the request; GitHub then merges once every required
+check passes, `review-record` included. Anything else (`false` until
+GRD-6.2, or an error) means an `--auto` request would merge on CI alone,
+so the agent reports "ready for owner merge" to its parent and waits.
+The owner merges directly at any time through the bypass. The guard
+refuses a direct or `--admin` merge by an agent, and asks the owner
+before one.
 
 ### 5. Merges leave a trace
 
@@ -162,12 +206,15 @@ every merge:
   grant Done. It never regresses Done. A PR delivers the codes in its
   title, branch and body `Tasks:` line. A code the body only mentions (a
   later leaf an ADR names, a related issue) is not delivered; counting those
-  moved undelivered leaves in the first reconcile dry run.
+  moved undelivered leaves in the first reconcile dry run. An `ISSUE-n`
+  closes only through a title or branch that names it, since a `Tasks:` line
+  often links the issue a PR filed. Codes are read whole: `AUTH-2.2.1` and
+  `RT-2.2f-r1` never become `AUTH-2.2` or `RT-2.2f`.
 - **Review debt.** After `reviewEnforcementCutoff` in
   `policy/github/repository.json` (null until the owner sets it in
   GRD-6.2), a merge whose head SHA lacks a successful `review-record` gets
-  an `ISSUE-n` in the drive's Issues list and a Sprint Room notice. A re-run
-  never files twice.
+  an `ISSUE-n` in the drive's Issues list, related to the delivered task
+  pages, and a Sprint Room notice. A re-run never files twice.
 - **Before the cutoff.** Earlier merges are not debt.
 - **Reconcile.** `bun board:stale` lists tasks whose status disagrees with
   git: merged but not yet In Review, or Done after the cutoff without a
@@ -179,6 +226,11 @@ every merge:
   being stored. While the cutoff is unset, everything so far counts as
   before it. The one-time reconcile therefore moved only merged tasks that
   never reached In Review, and left the pre-convention Done tasks alone.
+- **Done is not self-granted.** `bun board:status <id> completed` is
+  refused when `DAISY_AUTONOMOUS=1`. Every `bun board:*` write re-reads the
+  page and compares its SHA3-256 content hash with what was read, and
+  `board:replace --expect-hash` ties that check to the caller's own
+  `bun board:hash`.
 
 ### 6. The local guard (soft layer)
 
@@ -200,15 +252,30 @@ With `DAISY_AUTONOMOUS=1` it refuses:
 - `db:reset` or `slot:down` from another checkout, or with a database
   override that is not the agent's own slot (the slot is derived from the
   worktree folder with PAR-2's `deriveSlot`)
-- hand edits of loop state
+- hand edits of loop state, of the agent registry (`.pu/daisy` in the main
+  checkout) and of the guard's own wiring (`.claude/settings.json`,
+  `.githooks/pre-push`)
 - clearing `DAISY_AUTONOMOUS` or `PU_AGENT_ID`
+- for a misconfigured pu agent (section 1a), network git and all `gh`
 
 In owner sessions the hook asks before a merge or a push to `main` and
-allows the rest.
+allows the rest. When an autonomous session's hook cannot run at all, the
+tool call is refused.
 
-A hook `deny` blocks even in bypass-permissions mode. This layer is still
-bypassable (`--no-verify` outside Claude Code, a different shell, unsetting
-a variable), so the hard layer is sections 1–4.
+A hook `deny` blocks even in bypass-permissions mode. The guard reads
+commands, not intent, so it stops mistakes, not a determined agent. These
+bypasses are known and accepted; the hard layer (sections 1–4, live after
+GRD-6.2) is what holds against them:
+
+- git and `gh` aliases (`git config alias.p push`, then `git p`) and shell
+  aliases or functions defined earlier in the session
+- command names built at run time (`$cmd push`, `eval` of a variable)
+- another interpreter running the command (`python -c`, `node -e`,
+  `bun -e`), or a script written to a file and then executed
+- another shell or terminal outside Claude Code, where `--no-verify`
+  skips the pre-push hook and no `PreToolUse` hook runs
+- editors and tools other than the hooked Edit and Write tools changing a
+  protected file
 
 ### 7. PR loops that can finish
 
@@ -217,12 +284,21 @@ a variable), so the hard layer is sections 1–4.
   It appends the reason, iteration, head SHA and UTC time, and changes
   nothing else. The vendored Ralph plugin's stop hook keys only on the
   active file, so the loop pauses unmodified.
-- **Notify.** It notifies the parent recorded in `.daisy/parent` through
-  `pu send` (text, then an empty send), or prints an owner notice when no
-  parent is recorded, and comments on the PR.
+- **The registry.** `bun agent:spawn` records each child's parent, role
+  and worktree in `.pu/daisy/agents/<agent-id>.json` in the main checkout,
+  outside every worktree. The guard refuses agent writes there, so a child
+  cannot name its own parent.
+- **Notify first.** Before it moves any state, escalate sends to the
+  registered parent through `pu send` (text, then an empty send) or, with
+  no parent, posts to the PageSpace Epic Updates channel for the owner, and
+  comments on the PR. When neither reaches anyone, or the head SHA cannot
+  be read, it exits 1 and the loop stays active.
 - **Close or resume.** `bun loop:close` and `bun loop:resume` resolve the
-  child through `pu status --json`. They accept only the recorded parent or
-  the owner, and record the outcome on the PR. Resume restores the state
+  child through `pu status --json`. The caller is its `PU_AGENT_ID`; no id
+  at all is the owner. They accept only the registered parent or the owner,
+  refuse the child itself, and require the named agent to be the one the
+  escalated state records, so a sibling in the same worktree cannot stand
+  in for it. They record the outcome on the PR. Resume restores the state
   byte for byte.
 - **No self-exit.** The guard refuses the loop agent any other way to end
   or restart its loop (removing, moving or editing the state), so a truthful
@@ -234,15 +310,24 @@ a variable), so the hard layer is sections 1–4.
 
 - **Spawn wrapper.** `bun agent:spawn` refuses a builder in any of these
   cases, unless the owner overrides:
-  - a leaf with an unmerged declared prerequisite
-  - a leaf with a term a merged ADR superseded (`policy/superseded-terms.json`)
-  - a full active-builder cap (default 3)
+  - a leaf with an unmerged declared prerequisite, or with no Related pages
+    section to declare them in
+  - a leaf or a prompt with a term a merged ADR superseded
+    (`policy/superseded-terms.json`)
+  - a full active-builder cap (default 3), which counts every running
+    coding agent not registered as a reviewer, raw `pu spawn` ones included
+
+  With `DAISY_AUTONOMOUS=1` it also refuses `--cap` and `--role`, and a
+  builder without `--task`, and `--override` does not apply: an agent
+  cannot raise the cap, spawn an uncounted reviewer or skip the leaf
+  checks. The owner spawns reviewers.
 
   It creates the worktree, installs dependencies and brings the slot up
-  before the prompt is sent. It records the parent, resolves the child from
-  `pu status --json`, and confirms the prompt reached the transcript,
-  nudging with an empty `pu send`. `bun agent:send` confirms any later send
-  the same way.
+  before the prompt is sent. It resolves the child from `pu status --json`,
+  registers it (section 7), and confirms the prompt was taken: a new user
+  turn in the transcript, or output from an agent that was quiet before the
+  send, nudging once with an empty `pu send`. `bun agent:send` confirms any
+  later send the same way.
 
 - **Numbers.** `bun adr:next` prints the ADR and migration numbers free
   across origin/main and every open PR. `bun policy` fails a branch whose
@@ -282,11 +367,27 @@ a variable), so the hard layer is sections 1–4.
 - **Same OS user.** Agents can read the owner's keyring and SSH key, so a
   deliberately hostile agent could act as the owner. The design stops
   mistakes and honest agents. Setup step 7 is the full fix.
+- **Before GRD-6.2.** Until the owner creates `.env.agent` and applies the
+  ruleset, agents act as the owner on GitHub and `main` requires nothing
+  (section 1a). What holds in that window is the soft layer, the doctor
+  warning, and section 4's rule that an agent requests no merge until the
+  live ruleset requires `review-record`.
 - **Self-declared ids.** Builder and reviewer are pu session ids declared
-  in the PR body and the record, and PageSpace attributes every edit to the
-  owner. A builder that fabricated a record under a false reviewer id could
-  mint the status. That is a deliberate forgery, visible in the record and
-  the PR history, and outside what this layer claims to stop.
+  in the PR body and the record, the verifier reads any PageSpace page the
+  PR links, and PageSpace attributes every edit to the owner. So an honest
+  builder cannot mint the status by mistake, but a builder that fabricated
+  a record under a false reviewer id could. That is a deliberate forgery,
+  visible in the record and the PR history, and outside what this layer
+  claims to stop. The owner is asked to confirm this wording against the
+  GRD-6.1 criterion "a builder should be unable to mint it".
+- **Board writes.** The PageSpace CLI's `replace-lines` checks only the
+  line count, so a write that races the final hash check can still revert
+  an edit made in between. Closing that needs the CLI to send the page
+  revision the server already accepts.
+- **Debt numbering.** Two merges finishing together can both pick the
+  next `ISSUE-n`. GitHub concurrency groups cancel pending runs, so the
+  board job is not serialised; the duplicate number is visible and
+  renamed by hand.
 - **Soft layer.** The guard is bypassable, as described in section 6.
 
 ## Sources
