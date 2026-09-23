@@ -33,6 +33,6 @@ export async function appendSessionRevokedFor(
     topic: buildUserInboxTopic(actor.id),
     kind: 'session.revoked',
     version: 1,
-    payload: { version: 1, kind: 'session.revoked', ids: [actor.id] },
+    payload: { entityVersion: 1, kind: 'session.revoked', ids: [actor.id] },
   });
 }

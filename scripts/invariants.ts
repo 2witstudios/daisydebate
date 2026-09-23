@@ -141,6 +141,14 @@ const fixtures: Readonly<Record<string, Fixture>> = {
       runtime.dispose();
     }
   },
+  'readiness-requires-join': () => {
+    const runtime = createRuntime();
+    try {
+      runtime.markReady(firstId);
+    } finally {
+      runtime.dispose();
+    }
+  },
   'legal-phase-transition': () => {
     const runtime = createRuntime();
     try {

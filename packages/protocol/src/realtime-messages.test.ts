@@ -1,12 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   buildClientMessageSchema,
-  buildDebateTopic,
   buildHelloMessageSchema,
   clientMessageSchema,
   ENVELOPE_VERSION,
   PROTOCOL_VERSION,
-  ticketSchema,
   type EnvelopeVersion,
   type ProtocolVersion,
 } from './realtime';
@@ -23,8 +21,8 @@ describe('client message schema', () => {
   test('accepts hello, subscribe, unsubscribe, presence.activity and ping{id}', () => {
     const messages = [
       { ...base, type: 'hello', protocolVersion: PROTOCOL_VERSION, ticket },
-      { ...base, type: 'subscribe', id, topic: buildDebateTopic(otherId) },
-      { ...base, type: 'unsubscribe', id, topic: buildDebateTopic(otherId) },
+      { ...base, type: 'subscribe', id, topic: `debate:${otherId}` },
+      { ...base, type: 'unsubscribe', id, topic: `debate:${otherId}` },
       { ...base, type: 'presence.activity', activity: 'active' },
       { ...base, type: 'ping', id },
     ];
@@ -116,7 +114,7 @@ describe('client message schema', () => {
       injectedEnvelopeVersion,
       PROTOCOL_VERSION,
     );
-    const topic = buildDebateTopic(otherId);
+    const topic = `debate:${otherId}`;
     const messagesAtV33 = [
       { v: 33, type: 'subscribe', id, topic },
       { v: 33, type: 'unsubscribe', id, topic },
@@ -175,7 +173,7 @@ describe('client message schema', () => {
       ...base,
       type: 'subscribe',
       id,
-      topic: buildDebateTopic(otherId),
+      topic: `debate:${otherId}`,
       since,
     });
     assert({
@@ -187,7 +185,7 @@ describe('client message schema', () => {
           ...base,
           type: 'subscribe',
           id,
-          topic: buildDebateTopic(otherId),
+          topic: `debate:${otherId}`,
         }).success,
         clientMessageSchema.safeParse(subscribeWith('12:34')).success,
         clientMessageSchema.safeParse(subscribeWith('not-a-cursor')).success,
@@ -203,11 +201,15 @@ describe('the connect ticket', () => {
       given:
         'a 43-character base64url ticket, one 42 characters, and one with an invalid character',
       should: 'accept only the 43-character one',
-      actual: [
-        ticketSchema.safeParse(ticket).success,
-        ticketSchema.safeParse(ticket.slice(1)).success,
-        ticketSchema.safeParse(`${ticket.slice(1)}!`).success,
-      ],
+      actual: [ticket, ticket.slice(1), `${ticket.slice(1)}!`].map(
+        (candidate) =>
+          clientMessageSchema.safeParse({
+            v: ENVELOPE_VERSION,
+            type: 'hello',
+            protocolVersion: PROTOCOL_VERSION,
+            ticket: candidate,
+          }).success,
+      ),
       expected: [true, false, false],
     });
   });

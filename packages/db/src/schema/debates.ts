@@ -1,4 +1,5 @@
 import {
+  debateSides,
   debateSnapshotSchema,
   phaseSchema,
   type DebatePhase,
@@ -23,12 +24,8 @@ export const debateModes = ['casual', 'ranked', 'practice'] as const;
 export type DebateMode = (typeof debateModes)[number];
 export const debateVisibilities = ['public', 'unlisted', 'private'] as const;
 export type DebateVisibility = (typeof debateVisibilities)[number];
-export const debateOutcomes = [
-  'affirmative',
-  'negative',
-  'draw',
-  'abandoned',
-] as const;
+/** A side wins (the protocol's side vocabulary), or nobody does. */
+export const debateOutcomes = [...debateSides, 'draw', 'abandoned'] as const;
 export type DebateOutcome = (typeof debateOutcomes)[number];
 /** The lifecycle vocabulary is the protocol's; the CHECK derives from it. */
 const debatePhases = phaseSchema.options;

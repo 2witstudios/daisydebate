@@ -1,13 +1,5 @@
 import { z } from 'zod';
-import { idSchema, debateRoleSchema } from './primitives';
-export {
-  cuid2IdPattern,
-  idSchema,
-  debateRoles,
-  debateRoleSchema,
-  errorSchema,
-} from './primitives';
-export type { DebateRole, ProtocolError } from './primitives';
+import { idSchema, debateRoleSchema, debateSideSchema } from './primitives';
 export const phaseSchema = z.enum(['waiting', 'active', 'completed']);
 const seatCountSchema = z.int().min(0);
 /**
@@ -24,13 +16,13 @@ export const formatRulesSchema = z.strictObject({
   }),
 });
 export type FormatRules = z.infer<typeof formatRulesSchema>;
-export const participantSchema = z.strictObject({
+const participantSchema = z.strictObject({
   id: idSchema,
-  side: z.enum(['affirmative', 'negative']),
+  side: debateSideSchema,
   ready: z.boolean(),
 });
 /** A format's slug identity (`formats.id`): lowercase, digits and hyphens. */
-export const formatIdSchema = z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/);
+const formatIdSchema = z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/);
 /**
  * `format` names the canonical format the debate belongs to (rating ladders
  * key on it); `rules` are the effective rules this debate actually runs
@@ -51,91 +43,37 @@ export const debateSnapshotSchema = z.strictObject({
 export type DebateSnapshot = z.infer<typeof debateSnapshotSchema>;
 export type Participant = z.infer<typeof participantSchema>;
 export type DebatePhase = z.infer<typeof phaseSchema>;
-const commandBase = {
-  version: z.literal(1),
-  commandId: idSchema,
-  debateId: idSchema,
-};
-export const commandSchema = z.discriminatedUnion('type', [
-  z.strictObject({
-    ...commandBase,
-    type: z.literal('debate.join'),
-    participantId: idSchema,
-    side: participantSchema.shape.side,
-  }),
-  z.strictObject({
-    ...commandBase,
-    type: z.literal('debate.ready'),
-    participantId: idSchema,
-  }),
-  z.strictObject({
-    ...commandBase,
-    type: z.literal('debate.transition'),
-    phase: phaseSchema,
-  }),
-]);
-export const eventSchema = z.strictObject({
-  version: z.literal(1),
-  type: z.literal('debate.phase-changed'),
-  eventId: idSchema,
-  debateId: idSchema,
-  occurredAt: z.iso.datetime(),
-  phase: phaseSchema,
-});
-export type Command = z.infer<typeof commandSchema>;
-export type DebateEvent = z.infer<typeof eventSchema>;
-
 /**
  * Named re-exports, not `export *` (AGENTS.md: explicit exports, no
- * barrels). This is `@daisy/protocol`'s only public entry point, so every
- * symbol `apps/web`, `apps/realtime` and the other packages may import is
- * listed here by name.
+ * barrels). This is `@daisy/protocol`'s only public entry point: every
+ * symbol here has a consumer outside the package, and a contract piece is
+ * added in the same change as its first consumer (knip's
+ * `includeEntryExports` fails an export nobody imports).
  */
+export { idSchema, debateSides, debateRoles, errorSchema } from './primitives';
+export type { ProtocolError } from './primitives';
 export {
-  seasonIdSchema,
-  parseTopic,
-  topicStringSchema,
-  buildDebateTopic,
-  buildDebatePresenceTopic,
-  buildDebateChatTopic,
-  buildUserInboxTopic,
-  buildStandingsTopic,
-  closeCodeTable,
-  doorbellKinds,
-  doorbellKindSchema,
-  doorbellPayloadSchema,
-  inboxDeltaPayloadSchema,
-  sessionRevokedPayloadSchema,
-  accessRevokedPayloadSchema,
-  actorPresencePreferenceChangedPayloadSchema,
+  emailDeliveryStatuses,
+  emailDeliveryStatusRank,
+  emailSuppressionReasons,
+} from './email-delivery';
+export type {
+  EmailDeliveryStatus,
+  EmailSuppressionReason,
+} from './email-delivery';
+export { buildUserInboxTopic } from './topics';
+export { closeCodeTable } from './close-codes';
+export type { CloseCodeReason } from './close-codes';
+export {
   outboxPayloadSchema,
-  topicFamilyPayloadKinds,
-  storageFamilyPayloadKinds,
-  isPayloadAllowedOnTopic,
   isPayloadStorableOnTopic,
+} from './realtime-payloads';
+export {
   ENVELOPE_VERSION,
   PROTOCOL_VERSION,
-  heartbeatMs,
-  reconnectBudgetMs,
-  idleTimeout,
-  backpressureBounds,
   cursorSchema,
-  ticketSchema,
-  subscribeAuthorizationTable,
-  presenceStatusSchema,
   presenceActivitySchema,
+  presenceStatuses,
   clientMessageSchema,
-  serverMessageSchema,
 } from './realtime';
-export type {
-  TopicFamily,
-  ParsedTopic,
-  CloseCodeReason,
-  DoorbellKind,
-  OutboxPayload,
-  OutboxPayloadKind,
-  SubscribeAuthorizationRule,
-  ClientMessage,
-  ServerMessage,
-  PresenceActivity,
-} from './realtime';
+export type { PresenceActivity, PresenceStatus } from './realtime';

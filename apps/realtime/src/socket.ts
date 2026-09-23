@@ -1,6 +1,6 @@
 import type { ServerWebSocket } from 'bun';
 import type { Logger } from '@daisy/logger';
-import { evaluateFirstMessage } from './handlers/hello';
+import { closeFor, evaluateFirstMessage } from './handlers/hello';
 
 /** ADR 0031 §11.5: the first message must arrive within 5s or the socket closes 4001. */
 export const HELLO_TIMEOUT_MS = 5_000;
@@ -58,8 +58,9 @@ export function createWebSocketHandlers({
     open(ws: ServerWebSocket<SocketData>) {
       ws.data.helloTimer = timers.setTimeout(() => {
         ws.data.helloTimer = undefined;
-        logRejection(logger, 'hello_timeout', 4001, 'auth_failed');
-        ws.close(4001, 'auth_failed');
+        const { code, reason } = closeFor('auth_failed');
+        logRejection(logger, 'hello_timeout', code, reason);
+        ws.close(code, reason);
       }, HELLO_TIMEOUT_MS);
     },
     message(ws: ServerWebSocket<SocketData>, message: string | Buffer) {

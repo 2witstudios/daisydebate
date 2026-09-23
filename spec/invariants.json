@@ -42,6 +42,14 @@
       }
     },
     {
+      "id": "debate.participant.ready.requires-join",
+      "check": "readiness-requires-join",
+      "testReference": {
+        "path": "packages/debate-engine/src/ecs-adapter.test.ts",
+        "name": "rejects readiness before joining"
+      }
+    },
+    {
       "id": "debate.phase.transition.legal",
       "check": "legal-phase-transition",
       "testReference": {

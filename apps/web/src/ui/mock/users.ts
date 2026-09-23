@@ -1,4 +1,4 @@
-import type { Presence } from '../types/presence/presence';
+import type { PresenceStatus as Presence } from '@daisy/protocol';
 import type { Tier } from '../types/tier/tier';
 
 export type MockUser = {

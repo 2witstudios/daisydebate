@@ -115,7 +115,7 @@ nothing else:
 ### 5. Subscribe authorization table
 
 Every `subscribe` is checked against one table-driven registry, owned as
-data by `@daisy/protocol` (`subscribeAuthorizationTable`); the registry
+data by `@daisy/protocol` (added with its first consumer, RT-2.5a); the registry
 itself (RT-2.5a) performs no authorization of its own, it only consumes
 this table. A topic family absent from the table is refused. `@daisy/db`'s
 read models settle which side of a rule a given debate falls on; this table
@@ -213,11 +213,12 @@ application message; server-side reaping uses the protocol's own pings:
 - The heartbeat period feeds the attendance invariant
   `checkInGraceMs >= heartbeatMs * 2 + reconnectBudgetMs` (ADR 0033); a
   change to the 15 s period is a change to that invariant.
-- `@daisy/protocol` exports `heartbeatMs` (15 000), `reconnectBudgetMs`
-  (10 000) and `idleTimeout` (36, Bun's seconds unit, not milliseconds) as
-  named constants, so `apps/realtime`'s socket wiring and the engine's
-  rules validation (ADR 0033 §6) read the same values this section fixes
-  rather than each hard-coding its own copy.
+- `heartbeatMs` (15 000) and `reconnectBudgetMs` (10 000) become named
+  `@daisy/protocol` constants in the change that adds their first consumer
+  (the client heartbeat or the engine's rules validation, ADR 0033 §6), so
+  both read one value. `idleTimeout` (36, Bun's seconds unit, not
+  milliseconds) is Bun server tuning, so it lives in `apps/realtime`'s
+  socket wiring, not the portable protocol.
 
 ### 8. Close codes
 
@@ -256,10 +257,9 @@ the server closes.
   A direct `send` returning `0` (dropped) also closes with 4005.
 - Doorbells are about 100 bytes, so 256 KiB is thousands of undelivered
   rows: a socket that far behind is cheaper to resync than to feed.
-- `@daisy/protocol` exports both bounds as `backpressureBounds.hardBytes`
-  (1 048 576, the 1 MiB backstop) and `backpressureBounds.softBytes`
-  (262 144, the 256 KiB coded-close bound), so `apps/realtime`'s socket
-  wiring reads the same values this section fixes.
+- Both bounds are server tuning owned by `apps/realtime`'s socket wiring:
+  the 1 048 576-byte hard backstop is set there, and the 262 144-byte
+  coded-close bound is added with the send path that enforces it.
 
 ### 10. Compression off
 

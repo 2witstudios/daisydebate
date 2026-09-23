@@ -25,6 +25,30 @@ const resources = (
 const fakeServer = (upgraded: boolean): Server<SocketData> =>
   ({ upgrade: () => upgraded }) as unknown as Server<SocketData>;
 
+describe('createRealtimeServer socket tuning', () => {
+  test('applies the ADR 0031 idle window, frame cap and hard backpressure backstop', () => {
+    const { websocket } = createRealtimeServer({ resources: resources() });
+    assert({
+      given: 'the Bun websocket options',
+      should: 'use the ADR-fixed bounds with compression off',
+      actual: {
+        maxPayloadLength: websocket.maxPayloadLength,
+        idleTimeout: websocket.idleTimeout,
+        backpressureLimit: websocket.backpressureLimit,
+        closeOnBackpressureLimit: websocket.closeOnBackpressureLimit,
+        perMessageDeflate: websocket.perMessageDeflate,
+      },
+      expected: {
+        maxPayloadLength: 4096,
+        idleTimeout: 36,
+        backpressureLimit: 1_048_576,
+        closeOnBackpressureLimit: true,
+        perMessageDeflate: false,
+      },
+    });
+  });
+});
+
 describe('createRealtimeServer fetch', () => {
   test('answers /health/live without touching resources', async () => {
     const server = createRealtimeServer({ resources: resources() });

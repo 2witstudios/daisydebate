@@ -42,7 +42,7 @@ test('a committed transaction delivers its outbox row with a txid, a NOTIFY and 
   const debateId = createId();
   const topic = `debate:${debateId}`;
   const payload = {
-    version: 1,
+    entityVersion: 1,
     kind: 'debate.phase-changed' as const,
     ids: [debateId],
   };
@@ -69,7 +69,7 @@ test('a committed transaction delivers its outbox row with a txid, a NOTIFY and 
             kind: 'debate.phase-changed',
             version: 1,
             payload: {
-              version: 1,
+              entityVersion: 1,
               kind: 'debate.phase-changed',
               ids: [debateId],
             },
@@ -214,27 +214,27 @@ test('the storage-side family rule (RT-2.1c, plan revision 4.11) is enforced at 
       topic: inboxTopic,
       kind: 'session.revoked',
       version: 1,
-      payload: { version: 1, kind: 'session.revoked', ids: [actorId] },
+      payload: { entityVersion: 1, kind: 'session.revoked', ids: [actorId] },
     });
 
     const wrongFamily = await attempt({
       topic: debateTopic,
       kind: 'session.revoked',
       version: 1,
-      payload: { version: 1, kind: 'session.revoked', ids: [actorId] },
+      payload: { entityVersion: 1, kind: 'session.revoked', ids: [actorId] },
     });
     const unknownKind = await attempt({
       topic: inboxTopic,
       kind: 'nonsense.kind',
       version: 1,
-      payload: { version: 1, kind: 'nonsense.kind', ids: [actorId] },
+      payload: { entityVersion: 1, kind: 'nonsense.kind', ids: [actorId] },
     });
     const extraField = await attempt({
       topic: inboxTopic,
       kind: 'session.revoked',
       version: 1,
       payload: {
-        version: 1,
+        entityVersion: 1,
         kind: 'session.revoked',
         ids: [actorId],
         extra: 'nope',
@@ -244,7 +244,7 @@ test('the storage-side family rule (RT-2.1c, plan revision 4.11) is enforced at 
       topic: 'not-a-real-topic',
       kind: 'session.revoked',
       version: 1,
-      payload: { version: 1, kind: 'session.revoked', ids: [actorId] },
+      payload: { entityVersion: 1, kind: 'session.revoked', ids: [actorId] },
     });
 
     assert({
@@ -292,7 +292,11 @@ test('refuses an append whose kind column disagrees with its payload kind, with 
           topic,
           kind: 'bogus.kind',
           version: 1,
-          payload: { version: 1, kind: 'session.revoked', ids: [actorId] },
+          payload: {
+            entityVersion: 1,
+            kind: 'session.revoked',
+            ids: [actorId],
+          },
         }),
       )
       .then(() => 'accepted')

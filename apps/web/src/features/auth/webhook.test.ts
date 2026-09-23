@@ -1,6 +1,10 @@
 import { createHmac } from 'node:crypto';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { systemClock } from '@daisy/clock';
+import {
+  emailDeliveryStatusRank,
+  emailDeliveryStatuses,
+} from '@daisy/protocol';
 import { classifyResendEvent, createResendWebhook } from './webhook';
 
 setupRitewayBun();
@@ -94,6 +98,35 @@ describe('classifyResendEvent', () => {
         },
         null,
       ],
+    });
+  });
+
+  test('classifies into exactly the protocol delivery statuses, at the protocol rank', () => {
+    const classified = [
+      { type: 'email.sent' },
+      { type: 'email.delivery_delayed' },
+      { type: 'email.delivered' },
+      { type: 'email.failed' },
+      { type: 'email.bounced', bounce: { type: 'Permanent' } },
+      { type: 'email.bounced', bounce: { type: 'Transient' } },
+      { type: 'email.complained' },
+    ].map(({ type, ...data }) =>
+      classifyResendEvent({ type, data: { email_id: 'em', ...data } }),
+    );
+    assert({
+      given: 'every provider event the classifier handles',
+      should:
+        'reach every protocol delivery status and no other, so a status added in one place fails here before the database CHECK',
+      actual: [...new Set(classified.map((event) => event?.status))].sort(),
+      expected: [...emailDeliveryStatuses].sort(),
+    });
+    assert({
+      given: 'each classified provider event',
+      should: 'carry the rank the protocol assigns its status',
+      actual: classified.map((event) => event?.rank),
+      expected: classified.map((event) =>
+        event ? emailDeliveryStatusRank(event.status) : undefined,
+      ),
     });
   });
 
