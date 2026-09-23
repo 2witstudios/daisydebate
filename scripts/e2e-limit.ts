@@ -104,7 +104,13 @@ function tryClaim(dir: string, limit: number): string | undefined {
   if (plan.claim === undefined) return undefined;
   const mine = { slot: plan.claim, pid: process.pid };
   const file = join(dir, slotFile(mine));
-  writeFileSync(file, '');
+  try {
+    // wx refuses an existing file or a symlink planted at the predicted name.
+    writeFileSync(file, '', { flag: 'wx' });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') return undefined;
+    throw error;
+  }
   if (keepsClaim(parseHeld(readdirSync(dir)), mine, isAlive, limit))
     return file;
   rmSync(file, { force: true }); // another run took this slot too; look again
