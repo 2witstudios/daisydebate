@@ -35,6 +35,7 @@ describe('doctor report', () => {
           { name: 'boundaries', status: 'fail', detail: 'not checked' },
           { name: 'slot', status: 'fail', detail: 'not checked' },
           { name: 'slot-orphans', status: 'fail', detail: 'not checked' },
+          { name: 'github-identity', status: 'fail', detail: 'not checked' },
         ],
       },
     });
@@ -50,6 +51,11 @@ describe('doctor report', () => {
       { name: 'boundaries', status: 'pass', detail: 'verified' },
       { name: 'slot', status: 'pass', detail: 'daisy' },
       { name: 'slot-orphans', status: 'warn', detail: 'orphaned slots: gone' },
+      {
+        name: 'github-identity',
+        status: 'pass',
+        detail: 'autonomous as daisy-agent (GH_TOKEN, HTTPS push)',
+      },
     ]);
 
     assert({
@@ -63,7 +69,7 @@ describe('doctor report', () => {
       should: 'render a passing text summary',
       actual: formatDoctorReport(report, false),
       expected:
-        'Daisy doctor: PASS\nPASS bun-version: 1.4.2\nPASS env: valid\nPASS postgres: reachable\nPASS migration-currency: 1 migration\nPASS redis: PONG\nPASS boundaries: verified\nPASS slot: daisy\nWARN slot-orphans: orphaned slots: gone\n',
+        'Daisy doctor: PASS\nPASS bun-version: 1.4.2\nPASS env: valid\nPASS postgres: reachable\nPASS migration-currency: 1 migration\nPASS redis: PONG\nPASS boundaries: verified\nPASS slot: daisy\nWARN slot-orphans: orphaned slots: gone\nPASS github-identity: autonomous as daisy-agent (GH_TOKEN, HTTPS push)\n',
     });
   });
 });
@@ -108,7 +114,9 @@ describe('slot checks', () => {
       actual: [
         warned,
         orphanCheck([]),
-        createDoctorReport([warned]).checks.at(-1)?.status,
+        createDoctorReport([warned]).checks.find(
+          (check) => check.name === 'slot-orphans',
+        )?.status,
       ],
       expected: [
         {
@@ -133,6 +141,7 @@ describe('slot checks', () => {
             'redis',
             'boundaries',
             'slot',
+            'github-identity',
           ] as const
         ).map((name): DoctorCheck => ({ name, status: 'pass', detail: '' })),
         warned,
