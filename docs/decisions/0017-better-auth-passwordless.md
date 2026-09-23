@@ -14,8 +14,9 @@ configuration and application orchestration: the server composition lives in
 `apps/web/src/features/auth/`, and `apps/web/src/lib/` is reserved for narrow
 composition entrypoints — they exist only when a real consumer imports them,
 and feature behavior lives under `features/auth`, never in `lib`. The React
-client entrypoint `apps/web/src/lib/auth-client.ts`, the server entrypoint
-`apps/web/src/lib/auth.ts`, and the `/api/auth` route handler at
+client entrypoint `apps/web/src/lib/auth-client.ts`, the server composition
+in the app's composition root (`apps/web/src/server/app.ts`), and the
+`/api/auth` route handler at
 `apps/web/src/app/api/auth/[...all]/route.ts` all exist and `authClient` is
 wired into the sign-in, onboarding, session-refresh, and security-settings
 UI. `packages/auth`
