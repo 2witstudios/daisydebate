@@ -183,7 +183,7 @@ independent review record may follow the merge. Agents started by `pu` run
 autonomously (`DAISY_AUTONOMOUS=1`) under the agent machine identity from
 `.env.agent`, never the owner's token or SSH key (`bun doctor` checks it).
 An autonomous agent never merges: when the owner directs it, it requests the
-merge with `gh pr merge --auto --squash`, and GitHub merges only once every
+merge with `gh pr merge --auto --merge`, and GitHub merges only once every
 required check passes, including `review-record`, which only an independent
 review record for the exact head SHA can mint. A guard in `.githooks/pre-push`
 and the committed Claude Code hook refuses pushes to `main`, direct merges,

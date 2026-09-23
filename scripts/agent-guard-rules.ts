@@ -38,7 +38,7 @@ export const allow: Verdict = { decision: 'allow' };
 export const deny = (reason: string): Verdict => ({ decision: 'deny', reason });
 
 const MERGE_PATH =
-  'push your branch and request the merge with `gh pr merge --auto --squash`; GitHub merges once every required check, including review-record, passes';
+  'push your branch and request the merge with `gh pr merge --auto --merge`; GitHub merges once every required check, including review-record, passes';
 const MERGE_REASON = `Autonomous agents never merge directly: ${MERGE_PATH}.`;
 export const RULE_REASON =
   'Rulesets, branch protection and repository settings are applied only by the owner (`bun github:rules --apply`, GRD-6.2).';

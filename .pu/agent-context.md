@@ -26,7 +26,7 @@ Check `pu status --json` to see where you fit in the current workspace.
 
 Agents started by `pu` run autonomously (`DAISY_AUTONOMOUS=1`) under the agent machine identity, never the owner's GitHub token or SSH key.
 
-- Never merge. Request a merge with `gh pr merge --auto --squash`; GitHub merges once every required check, including `review-record`, passes.
+- Never merge. Request a merge with `gh pr merge --auto --merge`; GitHub merges once every required check, including `review-record`, passes.
 - Never push to `main`, change rulesets or repository settings, kill processes outside your worktree, or clean up a Compose stack you do not own. The guard refuses these.
 - In a PR loop you cannot truthfully finish, pause it with `bun loop:escalate <needs-owner|blocked|stalled|out-of-scope> "<detail>"`. Only your parent or the owner closes or resumes it.
 

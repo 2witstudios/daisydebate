@@ -68,7 +68,7 @@ their shell commands, and concurrent forks broke shared trees.
   record's `Candidate:` line mints the `review-record` check through the
   review-record GitHub App; nobody sets that status by hand.
 - An autonomous agent never merges. When the owner directs a merge, the agent
-  runs `gh pr merge <n> --auto --squash`; GitHub merges once `CI gate`,
+  runs `gh pr merge <n> --auto --merge`; GitHub merges once `CI gate`,
   `Playwright E2E` and `review-record` all pass. The owner may merge directly
   at any time.
 - After a merge, the tasks the PR names move to **Merged** and wait there

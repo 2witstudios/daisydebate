@@ -69,10 +69,10 @@ describe('agent guard: merges', () => {
       given: 'gh pr merge with and without --auto, and with --admin',
       should: 'allow only --auto without --admin',
       actual: [
-        decide('gh pr merge 12 --squash'),
-        decide('gh pr merge 12 --auto --squash'),
+        decide('gh pr merge 12 --merge'),
+        decide('gh pr merge 12 --auto --merge'),
         decide('gh pr merge 12 --auto --admin'),
-        decide('gh pr merge 12 --admin --squash'),
+        decide('gh pr merge 12 --admin --merge'),
       ],
       expected: ['deny', 'allow', 'deny', 'deny'],
     });
@@ -97,10 +97,10 @@ describe('agent guard: merges', () => {
       given: 'an owner session merging directly, with --admin, and via --auto',
       should: 'ask for direct and admin merges and allow the request',
       actual: [
-        decide('gh pr merge 12 --squash', owner()),
+        decide('gh pr merge 12 --merge', owner()),
         decide('gh pr merge 12 --admin', owner()),
         decide('gh api -X PUT repos/o/r/pulls/12/merge', owner()),
-        decide('gh pr merge 12 --auto --squash', owner()),
+        decide('gh pr merge 12 --auto --merge', owner()),
       ],
       expected: ['ask', 'ask', 'ask', 'allow'],
     });
@@ -262,7 +262,7 @@ describe('agent guard: wiring', () => {
         'deny an agent push to main, ask the owner, and stay silent otherwise',
       actual: [
         decisionOf(runHook(true, 'git push origin main').stdout.toString()),
-        decisionOf(runHook(false, 'gh pr merge 1 --squash').stdout.toString()),
+        decisionOf(runHook(false, 'gh pr merge 1 --merge').stdout.toString()),
         decisionOf(runHook(true, 'git status').stdout.toString()),
       ],
       expected: ['deny', 'ask', 'silent'],

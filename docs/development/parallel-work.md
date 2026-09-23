@@ -93,7 +93,7 @@ PageSpace's lesson: branch debris accumulates faster than agents clean it
 ## Reviewing and merging parallel work
 
 The owner merges any PR whenever they choose. Autonomous agents never merge:
-they request it with `gh pr merge --auto --squash`, and GitHub merges once
+they request it with `gh pr merge --auto --merge`, and GitHub merges once
 the `CI gate`, `Playwright E2E` and `review-record` checks pass
 ([ADR 0035](../decisions/0035-autonomy-guardrails.md)). A merged task waits
 in **Merged** until an independent review record grants Done; after the

@@ -143,7 +143,7 @@ and only code running from `main` can use its key.
 
 ### 4. Requesting a merge
 
-An autonomous agent requests a merge with `gh pr merge --auto --squash`.
+An autonomous agent requests a merge with `gh pr merge --auto --merge`.
 GitHub merges once every required check passes, `review-record` included.
 The owner merges directly at any time through the bypass. The guard refuses
 a direct or `--admin` merge by an agent, and asks the owner before one.
