@@ -1,7 +1,6 @@
 import { setupRitewayBun, assert, describe, test } from 'riteway/bun';
 import { createPasskeyFlows } from './auth-passkey-flows';
-import { origin, withSql } from './auth-mounted-helpers';
-import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+import { withSql } from './auth-mounted-helpers';
 
 /**
  * ADR 0020's fresh-session gate on sensitive session/passkey operations,
@@ -14,17 +13,6 @@ setupRitewayBun();
 
 const flows = await createPasskeyFlows();
 const { signUp } = flows.account;
-const { authRoute } = flows;
-const { newClient } = flows.account.flows;
-
-/** Reads the current session with cookie caching disabled, as production does. */
-const protectedRead = (cookie: string) =>
-  authRoute.GET(
-    new Request(`${origin}/api/auth/get-session?disableCookieCache=true`, {
-      headers: { cookie, [CLIENT_IP_HEADER]: newClient() },
-    }),
-  );
-
 /** Backdates a session row's createdAt so the fresh-session gate refuses it. */
 const backdateSession = (token: string, hoursAgo: number) =>
   withSql(
@@ -35,10 +23,7 @@ const backdateSession = (token: string, hoursAgo: number) =>
 describe('AUTH-5.5 fresh-session gate', () => {
   test('a stale session is refused for revoking sessions and requires fresh authentication', async () => {
     const { cookie } = await signUp();
-    const sessionBody = (await (await protectedRead(cookie)).json()) as {
-      session?: { token: string };
-    };
-    const token = sessionBody.session?.token ?? '';
+    const token = (await flows.serverSession(cookie))?.session.token ?? '';
     await backdateSession(token, 2);
     const stale = await flows.revokeSessions(cookie);
     assert({
@@ -51,10 +36,7 @@ describe('AUTH-5.5 fresh-session gate', () => {
 
   test('a stale session is refused for revoking a single other session', async () => {
     const { cookie } = await signUp();
-    const sessionBody = (await (await protectedRead(cookie)).json()) as {
-      session?: { token: string };
-    };
-    const token = sessionBody.session?.token ?? '';
+    const token = (await flows.serverSession(cookie))?.session.token ?? '';
     await backdateSession(token, 2);
     const stale = await flows.revokeSession(cookie, 'irrelevant-token');
     assert({
@@ -67,10 +49,7 @@ describe('AUTH-5.5 fresh-session gate', () => {
 
   test('a stale session is refused for revoking every other session', async () => {
     const { cookie } = await signUp();
-    const sessionBody = (await (await protectedRead(cookie)).json()) as {
-      session?: { token: string };
-    };
-    const token = sessionBody.session?.token ?? '';
+    const token = (await flows.serverSession(cookie))?.session.token ?? '';
     await backdateSession(token, 2);
     const stale = await flows.revokeOtherSessions(cookie);
     assert({
@@ -87,10 +66,7 @@ describe('AUTH-5.5 fresh-session gate', () => {
       name: 'Old device',
     });
     void credential;
-    const sessionBody = (await (await protectedRead(cookie)).json()) as {
-      session?: { token: string };
-    };
-    const token = sessionBody.session?.token ?? '';
+    const token = (await flows.serverSession(cookie))?.session.token ?? '';
     await backdateSession(token, 2);
     const listed = await flows.listPasskeys(cookie);
     const rows = (await listed.json()) as { id: string }[];

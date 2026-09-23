@@ -36,16 +36,12 @@ const signInOnce = async (
   const token = capturedToken(sent.at(-1)!);
   const response = await redeemMagicLink(auth, token);
   const cookie = response.headers.get('set-cookie')?.split(';')[0] ?? '';
-  const sessionResponse = await auth.instance.handler(
-    new Request(
-      `${auth.config.PUBLIC_APP_URL}/api/auth/get-session?disableCookieCache=true`,
-      { headers: new Headers({ origin: auth.config.PUBLIC_APP_URL, cookie }) },
-    ),
-  );
-  const body = (await sessionResponse.json()) as {
-    session?: { token: string };
-    user?: { id: string };
-  } | null;
+  // Read on the server through auth.api: browser responses carry no session
+  // token (ISSUE-63).
+  const body = await auth.instance.api.getSession({
+    headers: new Headers({ cookie }),
+    query: { disableCookieCache: true },
+  });
   return {
     cookie,
     userId: body?.user?.id ?? '',

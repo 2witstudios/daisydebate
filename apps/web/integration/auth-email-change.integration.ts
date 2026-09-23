@@ -224,10 +224,10 @@ describe('AUTH-5.6 change the recovery email', () => {
 
   test('a stale session cannot start an email change', async () => {
     const { cookie } = await signUp();
-    const sessionBody = (await (
-      await flows.get('/api/auth/get-session?disableCookieCache=true', cookie)
-    ).json()) as { session?: { token: string } };
-    await backdateSession(sessionBody.session?.token ?? '', 2);
+    await backdateSession(
+      (await flows.serverSession(cookie))?.session.token ?? '',
+      2,
+    );
     const attempt = await flows.changeEmail(
       cookie,
       `${createId()}@example.test`,

@@ -16,6 +16,21 @@ Acceptance criteria:
 - Given an auth failure, should expose a stable public error while preserving
   the internal cause for diagnostics without logging the raw cause.
 
+## Browser responses
+
+Amended 2026-09-23 (ISSUE-63). No response the browser can reach carries a
+session token or a client IP address. The session token is the httpOnly
+cookie's own value, and the browser client reads neither field.
+
+- Better Auth's mounted `/list-sessions` is disabled. The account UI lists and
+  revokes through `/api/account/sessions`.
+- The `daisy-browser-session-shape` plugin
+  (`apps/web/src/features/auth/browser-session-shape.ts`) removes `token` and
+  `ipAddress` at any depth from every JSON response of the mounted
+  `/api/auth/*` handler.
+- Server code reads sessions through `auth.api.*`, with no Request, and so
+  keeps the token it needs, for example to revoke a session by id.
+
 ## Loggable fields
 
 Amended 2026-09-23 (ISSUE-47). `@daisy/logger` admits fields by allowlist.

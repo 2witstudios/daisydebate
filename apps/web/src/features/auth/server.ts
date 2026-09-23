@@ -18,6 +18,7 @@ import {
 } from './change-email-mail';
 import { createMagicLinkGatePlugin } from './magic-link-gate';
 import { freshSessionGatePlugin } from './fresh-session-gate';
+import { browserSessionShapePlugin } from './browser-session-shape';
 import { passkeyDeviceHintPlugin } from './passkey-device-hint';
 import { passkeyNotificationsPlugin } from './passkey-notifications';
 import { sessionRevokedOutboxPlugin } from './session-revoked-outbox';
@@ -147,6 +148,10 @@ const composeBetterAuth = (dependencies: {
       // Onboarding is server-owned: the profile has no general update
       // surface, so the username is set only by POST /api/account/username.
       '/update-user',
+      // Every row carries its bearer token and client IP; the account UI
+      // lists through GET /api/account/sessions, and the server still calls
+      // auth.api.listSessions (disabledPaths gates HTTP only).
+      '/list-sessions',
     ],
     user: {
       additionalFields: {
@@ -209,6 +214,9 @@ const composeBetterAuth = (dependencies: {
         dependencies.revokeOtherSessions,
         dependencies.logger,
       ),
+      // Last: strips the session token and ipAddress from every HTTP
+      // response after the plugins above have read the full result.
+      browserSessionShapePlugin,
     ],
   });
   return {
