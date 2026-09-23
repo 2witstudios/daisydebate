@@ -15,7 +15,9 @@ AIDD/Vitest guidance is overridden here by Bun and RITEway (ADR 0021).
    Compose, plus the web vertical: the foundation proof API exercised through
    actual route handlers (validation, principal, engine, persistence, error
    mapping). Requires `bun slot:up`, which migrates this checkout's test
-   database.
+   database. Suites are discovered, not listed: each workspace's
+   `test:integration` runs `scripts/test-integration.ts`, which runs every
+   `integration/**/*.integration.ts` and `*.integration.test.ts`.
 3. **Browser E2E (`bun test:e2e`)** — Playwright boots the **production**
    server (`e2e/support/server.ts` wrapping `src/server/start.ts`,
    `NODE_ENV=production`) with production-refined configuration. The
@@ -42,6 +44,19 @@ AIDD/Vitest guidance is overridden here by Bun and RITEway (ADR 0021).
    fails if a second workflow also runs `test:e2e`). `bun verify` runs those additional gates locally and also applies
    the committed migrations twice to `TEST_DATABASE_URL` to prove reruns are
    idempotent.
+   - **Stage logs.** `bun verify` keeps each stage's full output in
+     `verify-logs/<stage>.log` and prints the last 40 lines of any stage that
+     fails, so a failure is never reported without its cause.
+   - **Docs-only diffs.** For a diff against `origin/main` that touches only
+     documentation (Markdown, ADRs included), it skips the browser tier and
+     reports `SKIP e2e: skipped: documentation-only diff`.
+   - **Machine-wide e2e limit.** `apps/web`'s `test:e2e` runs Playwright
+     through `scripts/e2e-limit.ts`, a limit on concurrent browser runs across
+     every checkout on the machine (`DAISY_E2E_CONCURRENCY`, default 2). Runs
+     beyond it wait in a queue instead of saturating the CPU.
+   - **Lint timeout.** `eslint.config.test.ts` shares one ESLint instance and
+     runs with `--timeout 180000`. The first typed lint took 5.7 s at load 56,
+     and Bun's fixed 5 s default failed it.
 
 ### Release qualification (`bun test:e2e:qualify`)
 
@@ -69,8 +84,9 @@ not exist — PageSpace lost entire tiers this way. `bun evidence` (in
   workspace's `src/` (`bun test src`, the unit tier), root `scripts/`
   (`bun test scripts`, the root-script tier), or the root eslint config
   test (`bun lint`). Anything else is an ORPHAN_SUITE.
-- Every `integration/` suite must be named by its workspace's
-  `test:integration` script and must **throw** when
+- Every `integration/` suite must be run by its workspace's
+  `test:integration` script (the discovery runner claims the whole folder)
+  and must **throw** when
   `TEST_DATABASE_URL`/`TEST_REDIS_URL` is missing — a guard that skips
   instead of failing is GUARD_MISSING.
 - Every `*.e2e.ts` is claimed by the Playwright config, and exactly one

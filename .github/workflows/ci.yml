@@ -6,6 +6,8 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  # bun policy lists open PRs to catch ADR and migration number clashes.
+  pull-requests: read
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -59,6 +61,8 @@ jobs:
           bun-version: '1.4.2'
       - run: bun install --frozen-lockfile
       - run: bun run ${{ matrix.task }}
+        env:
+          GH_TOKEN: ${{ matrix.task == 'policy' && github.token || '' }}
 
   migrations:
     name: Migration journal collision guard

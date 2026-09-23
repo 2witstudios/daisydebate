@@ -23,6 +23,8 @@ and detailed procedures in the linked documents, not here.
 - Structural change recipes: [extending the repository](docs/development/extending.md).
 - Parallel sessions, branches, and vertical ownership: [parallel work](docs/development/parallel-work.md).
 - Preferred multi-agent orchestration: [pu workflow](docs/development/pu-workflow.md).
+- Merges, the two operating modes and agent guardrails: [ADR 0035](docs/decisions/0035-autonomy-guardrails.md).
+- New epics: the repository skill [epic-pipeline](.claude/skills/epic-pipeline/SKILL.md) (plan, automated plan review, owner approval, tasking, orchestration).
 
 ## Dependency rules
 
@@ -174,6 +176,35 @@ Use `bun db:generate` for schema changes, review generated SQL, and use
 `bun db:studio` only for local inspection. See [database operations](docs/operations/database.md)
 for test roles, reset restrictions, and migration safety.
 
+## Two modes: owner and autonomous
+
+The owner works in the loop and merges any PR whenever they choose; the
+independent review record may follow the merge. Agents started by `pu` run
+autonomously (`DAISY_AUTONOMOUS=1`) under the agent machine identity from
+`.env.agent`, never the owner's token or SSH key (`bun doctor` checks it).
+An autonomous agent never merges: when the owner directs it, it requests the
+merge with `gh pr merge --auto --merge`, and GitHub merges only once every
+required check passes, including `review-record`, which only an independent
+review record for the exact head SHA can mint. A guard in `.githooks/pre-push`
+and the committed Claude Code hook refuses pushes to `main`, direct merges,
+rule changes, unscoped kills and cleanup of the shared stack or another
+slot. In owner sessions it asks before a merge or a push to `main`.
+
+- Spawn agents with `bun agent:spawn` and message them with `bun agent:send`;
+  both confirm the text was submitted. Builders report to their parent
+  (`.daisy/parent`) directly; the owner is not the message bus.
+- Code-writing help is a `bun agent:spawn` child in its own worktree, never a
+  worktree-isolated subagent or fork; subagents and forks do read-only work.
+- A PR loop runs the Library "Converge loop" prompt. A loop that cannot
+  truthfully finish is paused with `bun loop:escalate`; only the parent or the
+  owner ends it (`bun loop:close`) or restarts it (`bun loop:resume`).
+- Take ADR and migration numbers from `bun adr:next`; `bun policy` fails a
+  number an earlier open PR holds.
+- A decision made on the owner's behalf is recorded with
+  `bun decision:record`; it stays open until confirmed or overruled.
+- Board plumbing is committed: `bun board:read|status|create|relate|replace`
+  and `bun board:stale`. Hand off with the `/handoff` skill.
+
 ## Work management
 
 All repository work is planned in the PageSpace "Daisy Debate" drive
@@ -224,6 +255,9 @@ verdict is also posted as a PR comment. PR titles are conventional commits:
 the documentation pipeline classifies a merge from that prefix (`!` marks a
 breaking change) and reads task codes from the title, branch and body, so
 name every task code in full (`AUTH-3.1`, `AUTH-3.2`, never `AUTH-3.1–3.6`).
+The body carries `Builder: <agent id>`, which the review-record check
+compares with the record's reviewer. A merged task moves to **Merged**
+automatically and reaches Done only from an independent review record.
 Use `/aidd-triage` for review-comment triage.
 
 Parallel sessions follow [parallel work](docs/development/parallel-work.md):
@@ -249,5 +283,6 @@ self-approve.
 - Dependency rationale and versions: `docs/dependencies.md`
 
 Update the relevant deeper document when behavior or architecture changes.
-Keep commits scoped and never commit `.env`, secrets, generated build output,
-or `.pu/` runtime files.
+Keep commits scoped and never commit `.env`, `.env.agent`, secrets, generated
+build output, or `.pu/` runtime state (only `.pu/config.yaml` and
+`.pu/agent-context.md` are committed).

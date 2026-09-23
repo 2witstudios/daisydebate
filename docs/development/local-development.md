@@ -21,33 +21,41 @@ nothing more.
 
 ## Commands
 
-| Command                            | What it does                                                                                                                        |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `bun dev`                          | All dev processes (currently the web app) via turbo                                                                                 |
-| `bun dev:agent`                    | Start local dependencies, migrate, seed, launch web, and wait ready                                                                 |
-| `bun build`                        | Production builds through the turbo graph                                                                                           |
-| `bun test`                         | Fast deterministic unit/domain tests; no services or Next boot                                                                      |
-| `bun test:integration`             | Database, Redis, and web vertical tests against real services                                                                       |
-| `bun visual:server`                | Linux Playwright browser server for screenshot parity on non-Linux hosts (see testing)                                              |
-| `bun test:e2e`                     | Playwright against the production server build                                                                                      |
-| `bun verify`                       | `bun check` plus migration-idempotency, integration, and E2E gates                                                                  |
-| `bun lint`                         | ESLint (incl. Tailwind token rules), `scripts/check-boundaries.ts`, and `scripts/check-styling.ts`                                  |
-| `bun format` / `bun format:check`  | Prettier write / verify                                                                                                             |
-| `bun typecheck`                    | `tsc --noEmit` per workspace (web runs `next typegen` first)                                                                        |
-| `bun check`                        | format:check + lint + policy + knip + duplication + invariants + evidence + typecheck + test + metrics + build — run before pushing |
-| `bun check:affected`               | Fast per-vertical inner loop: lint/prettier on changed files, boundaries, duplication, affected turbo graph                         |
-| `bun hooks:install`                | One-time opt-in: point `core.hooksPath` at `.githooks` so `git push` runs `bun check:affected`                                      |
-| `bun migrations:check`             | Fail a branch that rewrites/edits/reorders shared migrations vs `origin/main`                                                       |
-| `bun run duplication`              | Copy-paste tripwire (jscpd): fails on any clone absent from `.jscpd-baseline.json` (ADR 0026)                                       |
-| `bun evidence`                     | Orphan-suite and CI-wiring audit: every test tier is claimed by a real runner                                                       |
-| `bun db:generate`                  | Generate migration SQL from schema changes (review the SQL!)                                                                        |
-| `bun db:migrate`                   | Apply pending migrations                                                                                                            |
-| `bun db:seed`                      | Development fixture: idempotently upsert the agent users, actors and seed debate, refresh the `foundation` format, mark versions    |
-| `bun db:studio`                    | Drizzle Studio (local only, never expose)                                                                                           |
-| `bun slot:up`                      | Shared stack up, prune orphans, create and migrate this checkout's databases, write its `.env` slot values (idempotent)             |
-| `bun slot:down` / `bun slot:prune` | Drop this worktree's databases and Redis keys / those of worktrees git no longer lists                                              |
-| `bun db:reset`                     | Recreate and re-migrate one of this checkout's own databases (`ALLOW_DATABASE_RESET=yes`)                                           |
-| `bun infra:logs`                   | Follow the shared stack's Compose logs                                                                                              |
+| Command                                                       | What it does                                                                                                                                             |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bun dev`                                                     | All dev processes (currently the web app) via turbo                                                                                                      |
+| `bun dev:agent`                                               | Start local dependencies, migrate, seed, launch web, and wait ready                                                                                      |
+| `bun build`                                                   | Production builds through the turbo graph                                                                                                                |
+| `bun test`                                                    | Fast deterministic unit/domain tests; no services or Next boot                                                                                           |
+| `bun test:integration`                                        | Database, Redis, and web vertical tests against real services                                                                                            |
+| `bun visual:server`                                           | Linux Playwright browser server for screenshot parity on non-Linux hosts (see testing)                                                                   |
+| `bun test:e2e`                                                | Playwright against the production server build                                                                                                           |
+| `bun verify`                                                  | `bun check` plus migration-idempotency, integration, and E2E gates                                                                                       |
+| `bun lint`                                                    | ESLint (incl. Tailwind token rules), `scripts/check-boundaries.ts`, and `scripts/check-styling.ts`                                                       |
+| `bun format` / `bun format:check`                             | Prettier write / verify                                                                                                                                  |
+| `bun typecheck`                                               | `tsc --noEmit` per workspace (web runs `next typegen` first)                                                                                             |
+| `bun check`                                                   | format:check + lint + policy + knip + duplication + invariants + evidence + typecheck + test + metrics + build — run before pushing                      |
+| `bun check:affected`                                          | Fast per-vertical inner loop: lint/prettier on changed files, boundaries, duplication, affected turbo graph                                              |
+| `bun hooks:install`                                           | One-time opt-in: point `core.hooksPath` at `.githooks` so `git push` runs `bun check:affected`                                                           |
+| `bun migrations:check`                                        | Fail a branch that rewrites/edits/reorders shared migrations vs `origin/main`                                                                            |
+| `bun run duplication`                                         | Copy-paste tripwire (jscpd): fails on any clone absent from `.jscpd-baseline.json` (ADR 0026)                                                            |
+| `bun evidence`                                                | Orphan-suite and CI-wiring audit: every test tier is claimed by a real runner                                                                            |
+| `bun db:generate`                                             | Generate migration SQL from schema changes (review the SQL!)                                                                                             |
+| `bun db:migrate`                                              | Apply pending migrations                                                                                                                                 |
+| `bun db:seed`                                                 | Development fixture: idempotently upsert the agent users, actors and seed debate, refresh the `foundation` format, mark versions                         |
+| `bun db:studio`                                               | Drizzle Studio (local only, never expose)                                                                                                                |
+| `bun slot:up`                                                 | Shared stack up, prune orphans, create and migrate this checkout's databases, write its `.env` slot values (idempotent)                                  |
+| `bun slot:down` / `bun slot:prune`                            | Drop this worktree's databases and Redis keys / those of worktrees git no longer lists                                                                   |
+| `bun db:reset`                                                | Recreate and re-migrate one of this checkout's own databases (`ALLOW_DATABASE_RESET=yes`)                                                                |
+| `bun infra:logs`                                              | Follow the shared stack's Compose logs                                                                                                                   |
+| `bun adr:next`                                                | Next ADR and migration numbers free across origin/main and every open PR                                                                                 |
+| `bun github:rules [--apply]`                                  | Diff the committed main ruleset and repository settings against GitHub; `--apply` is owner-only (ADR 0035)                                               |
+| `bun agent:spawn -- …` / `bun agent:send`                     | Spawn a pu agent with prerequisite, cap and superseded-term checks, slot set-up, parent record and confirmed submission / send with confirmed submission |
+| `bun loop:escalate` / `loop:close` / `loop:resume`            | Pause a PR loop and notify the parent / end or restart it (parent or owner only)                                                                         |
+| `bun board:read` / `status` / `create` / `relate` / `replace` | PageSpace board operations: raw reads, task status, leaves and ISSUE-n, Related pages, guarded line replaces                                             |
+| `bun board:stale [--apply]`                                   | List tasks whose status disagrees with git; `--apply` moves them to their pre-Done status                                                                |
+| `bun decision:record`                                         | Record a decision made on the owner's behalf on Pending decisions and notify the owner                                                                   |
+| `bun plan:review <plan>`                                      | Automated Codex review of a plan against AGENTS.md and the ADRs, before tasking                                                                          |
 
 ## Environment
 
@@ -123,6 +131,25 @@ Rules that keep sessions safe:
 - Generating migrations is still single-writer at a time; see
   `docs/operations/database.md` and `bun migrations:check`.
 
+## Agent identity and guard
+
+Agents started by `pu` run through `scripts/agent-launch.sh`, which exports
+the machine identity from `.env.agent` (copy `.env.agent.example` in the main
+checkout; the owner fills in the token, GRD-6.2). `bun doctor` reports the
+identity in `github-identity` and fails an autonomous session that resolves
+to the owner; its `checkout` check fails when the main checkout is on a branch
+other than `main`, which the committed Claude Code session-start hook also
+warns about. The guard (`scripts/agent-guard.ts`) runs from the pre-push hook
+below and from the committed Claude Code hook in `.claude/settings.json`; see
+[pu workflow](pu-workflow.md#the-guard).
+
+## Editor
+
+Committed `.vscode/settings.json` (VS Code and Cursor) keeps `.pu/worktrees`,
+other checkouts' `node_modules` and build output out of file watching, search
+and TypeScript project discovery. Open the main checkout, not the parent of
+`.pu/worktrees`, or a window watches every worktree.
+
 ## Pre-push hook
 
 `.githooks/pre-push` is committed but inert until you opt in, once per clone:
@@ -131,9 +158,11 @@ Rules that keep sessions safe:
 bun hooks:install   # git config core.hooksPath .githooks
 ```
 
-After that every `git push` that sends commits first runs
-`bun check:affected` against `origin/main` (run `git fetch origin` if the base
-is missing) and aborts the push on failure.
+After that every `git push` first runs the agent guard, which refuses an
+autonomous push to `main` and asks the owner at a terminal before one, then
+runs `bun check:affected` against `origin/main` (run `git fetch origin` if the
+base is missing) and aborts the push on failure. Agent sessions get the hook
+without opting in: `.env.agent` sets `core.hooksPath` for them.
 
 `bun check:affected` inspects the checked-out working tree, so the hook can
 only vouch for `HEAD`. It classifies every ref git reports for the push:
