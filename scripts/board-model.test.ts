@@ -317,6 +317,21 @@ describe('checkReplace', () => {
     });
   });
 
+  test('accepts an old-text file saved with a trailing newline', () => {
+    assert({
+      given:
+        'lines 1-2 of a three-line page, saved to a file ending in a newline',
+      should: 'match them, since editors end files with a newline',
+      actual: checkReplace('a\nb\nc', {
+        start: 1,
+        end: 2,
+        expectLines: 3,
+        oldText: 'a\nb\n',
+      }),
+      expected: undefined,
+    });
+  });
+
   test('refuses a replace after a concurrent edit', () => {
     assert({
       given: 'a changed line count, changed old text, and an out-of-range end',
