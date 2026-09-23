@@ -2,6 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   appendRelated,
   checkReplace,
+  contentHash,
   findTask,
   leafBody,
   nextCodeNumber,
@@ -219,6 +220,25 @@ describe('checkReplace', () => {
         oldText: 'b\nc',
       }),
       expected: undefined,
+    });
+  });
+
+  test('refuses a replace whose expected hash is not the current content', () => {
+    const input = { start: 2, end: 3, expectLines: 4 };
+    assert({
+      given: 'an expected hash of other content, then of the current content',
+      should: 'refuse the first and allow the second',
+      actual: [
+        checkReplace(current, {
+          ...input,
+          expectHash: contentHash('a\nx\nc\nd'),
+        }),
+        checkReplace(current, { ...input, expectHash: contentHash(current) }),
+      ],
+      expected: [
+        'The page changed since you read it (content hash differs). Read it again.',
+        undefined,
+      ],
     });
   });
 

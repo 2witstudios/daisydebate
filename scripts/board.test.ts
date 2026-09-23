@@ -1,8 +1,9 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { runBoard, type BoardDeps } from './board';
+import { contentHash } from './board-model';
 
 setupRitewayBun();
 
@@ -11,7 +12,15 @@ const list = 'j03yzhn6d98wd25hlqdpxntj';
 const plan = 'pm17nmf831vkr3o84wbo2ofh';
 const page = '<ul>\n<li>\nGiven A, should B\n</li>\n</ul>';
 
-function fakeBoard(content = page, autonomous = false) {
+function fakeBoard(
+  content = page,
+  autonomous = false,
+  // What every read after the first returns: a concurrent edit.
+  edited?: string,
+) {
+  let reads = 0;
+  const current = () =>
+    reads++ === 0 || edited === undefined ? content : edited;
   const calls: string[][] = [];
   const written: string[] = [];
   const output: string[] = [];
@@ -22,7 +31,7 @@ function fakeBoard(content = page, autonomous = false) {
       if (key === 'pages read' && args.includes('--raw'))
         return { code: 0, stdout: content };
       if (key === 'pages read')
-        return { code: 0, stdout: JSON.stringify({ content }) };
+        return { code: 0, stdout: JSON.stringify({ content: current() }) };
       if (key === 'pages read-details')
         return {
           code: 0,
@@ -146,6 +155,80 @@ describe('bun board:*', () => {
       should: 'exit 1 without sending the replace',
       actual: [code, board.calls.some((call) => call[1] === 'replace-lines')],
       expected: [1, false],
+    });
+  });
+
+  test('refuses relate and replace when a concurrent edit kept the line count', () => {
+    const same = page.replace('Given A, should B', 'Given A, should C');
+    const relate = fakeBoard(page, false, same);
+    const replaced = fakeBoard(page, false, same);
+    const replaceArgs = [
+      'replace',
+      task,
+      '--start',
+      '3',
+      '--end',
+      '3',
+      '--expect-lines',
+      '5',
+      '--file',
+      'new.html',
+    ];
+    assert({
+      given:
+        'a page edited between the read and the write, with the same number of lines',
+      should: 'exit 1 and send no write',
+      actual: [
+        runBoard(relate.deps, ['relate', task, 'Plan', plan]),
+        relate.calls.some((call) => call[1] === 'replace-lines'),
+        runBoard(replaced.deps, replaceArgs),
+        replaced.calls.some((call) => call[1] === 'replace-lines'),
+      ],
+      expected: [1, false, 1, false],
+    });
+  });
+
+  test('replaces only a page whose content hash matches the one the caller read', () => {
+    const stale = fakeBoard();
+    const fresh = fakeBoard();
+    const file = join(tmpdir(), `board-test-${process.pid}-hash.html`);
+    writeFileSync(file, 'Given A, should C');
+    const args = (hash: string) => [
+      'replace',
+      task,
+      '--start',
+      '3',
+      '--end',
+      '3',
+      '--expect-lines',
+      '5',
+      '--expect-hash',
+      hash,
+      '--file',
+      file,
+    ];
+    assert({
+      given:
+        'an --expect-hash from an older read, and one from the current page',
+      should: 'refuse the stale one and send the current one',
+      actual: [
+        runBoard(stale.deps, args('0'.repeat(64))),
+        stale.calls.some((call) => call[1] === 'replace-lines'),
+        runBoard(fresh.deps, args(contentHash(page))),
+        fresh.calls.some((call) => call[1] === 'replace-lines'),
+      ],
+      expected: [1, false, 0, true],
+    });
+    rmSync(file, { force: true });
+  });
+
+  test('prints the content hash a later replace can expect', () => {
+    const board = fakeBoard();
+    assert({
+      given: 'bun board:hash <pageId>',
+      should: 'print the SHA3-256 of the page content',
+      actual: [runBoard(board.deps, ['hash', task]), board.output.join('')],
+      expected: [0, `${contentHash(page)}\n`],
     });
   });
 

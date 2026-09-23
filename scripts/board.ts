@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import {
   appendRelated,
   checkReplace,
+  contentHash,
   findTask,
   leafBody,
   nextCodeNumber,
@@ -52,6 +53,17 @@ const pageDetails = (deps: BoardDeps, pageId: string) =>
     pageId,
   ]);
 
+/**
+ * Refuses when the page no longer hashes to what was read: the last check
+ * before a write, since the server compares only the line count.
+ */
+function assertUnchanged(deps: BoardDeps, pageId: string, read: string) {
+  if (contentHash(pageContent(deps, pageId)) !== contentHash(read))
+    throw new BoardError(
+      `${pageId} changed since it was read; nothing was written. Run the command again.`,
+    );
+}
+
 /** Replaces the whole page, refusing if it changed since it was read. */
 function writePage(
   deps: BoardDeps,
@@ -59,6 +71,7 @@ function writePage(
   before: string,
   after: string,
 ) {
+  assertUnchanged(deps, pageId, before);
   const lines = before.split('\n').length;
   const file = deps.scratch(`${pageId}.html`);
   writeFileSync(file, after);
@@ -158,6 +171,7 @@ function replace(
     oldText: command.oldFile ? deps.readFile(command.oldFile) : undefined,
   });
   if (refusal) throw new BoardError(refusal);
+  assertUnchanged(deps, command.pageId, current);
   call(deps, [
     'pages',
     'replace-lines',
@@ -185,6 +199,8 @@ export function runBoard(deps: BoardDeps, argv: readonly string[]): number {
   try {
     if (parsed.command === 'read')
       deps.out(call(deps, ['pages', 'read', parsed.pageId, '--raw']));
+    if (parsed.command === 'hash')
+      deps.out(`${contentHash(pageContent(deps, parsed.pageId))}\n`);
     if (parsed.command === 'status')
       setStatus(deps, parsed.pageId, parsed.status);
     if (parsed.command === 'relate')

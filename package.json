@@ -35,6 +35,7 @@
     "loop:close": "bun scripts/loop.ts close",
     "loop:resume": "bun scripts/loop.ts resume",
     "board:read": "bun scripts/board.ts read",
+    "board:hash": "bun scripts/board.ts hash",
     "board:status": "bun scripts/board.ts status",
     "board:create": "bun scripts/board.ts create",
     "board:relate": "bun scripts/board.ts relate",
