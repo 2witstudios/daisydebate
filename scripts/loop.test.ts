@@ -5,6 +5,7 @@ import {
   ESCALATED,
   escalate,
   findAgentWorktree,
+  OWNER_CHANNEL,
   type LoopDeps,
 } from './loop';
 import { recordPath, serializeRecord } from './agent-registry';
@@ -50,6 +51,8 @@ const status = JSON.stringify({
 function fakes(
   files: Record<string, string>,
   overrides: Partial<LoopDeps> = {},
+  // Command lines (by prefix) that fail.
+  failing: readonly string[] = [],
 ) {
   const calls: string[][] = [];
   const notices: string[] = [];
@@ -60,10 +63,15 @@ function fakes(
     agentId: 'ag-child',
     now: () => '2026-09-22T12:00:00.000Z',
     read: (path) => fs.get(path),
-    write: (path, text) => void fs.set(path, text),
+    write: (path, text) => {
+      calls.push(['write', path]);
+      fs.set(path, text);
+    },
     remove: (path) => void fs.delete(path),
     run: (args) => {
       calls.push([...args]);
+      if (failing.some((prefix) => args.join(' ').startsWith(prefix)))
+        return { code: 1, stdout: '' };
       const command = args.slice(0, 3).join(' ');
       if (command === 'git rev-parse HEAD')
         return { code: 0, stdout: `${'b'.repeat(40)}\n` };
@@ -127,18 +135,95 @@ describe('loop:escalate', () => {
     });
   });
 
-  test('notifies the owner when no parent is recorded', () => {
-    const { deps, calls, notices } = fakes({ [`${child}/${ACTIVE}`]: state });
-    escalate(deps, 'needs-owner', 'Only the owner can grant the secret');
+  test('notifies the parent before it moves the loop state', () => {
+    const { deps, calls } = fakes({
+      [`${child}/${ACTIVE}`]: state,
+      ...registered('ag-parent'),
+    });
+    escalate(deps, 'stalled', 'Two identical scans');
+    const at = (word: string) => calls.findIndex((call) => call[0] === word);
+    assert({
+      given: 'an escalation with a registered parent',
+      should: 'send to the parent before writing the escalated state',
+      actual: at('pu') < at('write') && at('pu') !== -1,
+      expected: true,
+    });
+  });
+
+  test('notifies the owner on the Epic Updates channel when no parent is registered', () => {
+    const { deps, calls } = fakes({ [`${child}/${ACTIVE}`]: state });
+    const code = escalate(
+      deps,
+      'needs-owner',
+      'Only the owner can grant the secret',
+    );
+    const channel = calls.find(
+      (call) => call.slice(0, 3).join(' ') === 'pagespace channels send',
+    );
     assert({
       given: 'an active loop with no registered parent',
-      should: 'print an owner notice, comment on the PR and send nothing',
+      should:
+        'post to the owner channel, comment on the PR and send to no agent',
+      actual: {
+        code,
+        channel: channel?.[3],
+        mentionsCommands: channel?.[4]?.includes('bun loop:close ag-child'),
+        puSends: calls.some((call) => call[0] === 'pu'),
+        prComment: calls.some(
+          (call) => call.slice(0, 3).join(' ') === 'gh pr comment',
+        ),
+      },
+      expected: {
+        code: 0,
+        channel: OWNER_CHANNEL,
+        mentionsCommands: true,
+        puSends: false,
+        prComment: true,
+      },
+    });
+  });
+
+  test('pauses the loop when only the PR comment reached anyone', () => {
+    const { deps, fs } = fakes(
+      { [`${child}/${ACTIVE}`]: state, ...registered('ag-parent') },
+      {},
+      ['pu send ag-parent'],
+    );
+    assert({
+      given: 'a parent pu send that fails and a PR comment that posts',
+      should: 'still pause the loop, because the PR records the escalation',
       actual: [
-        notices.some((notice) => notice.startsWith('OWNER NOTICE')),
-        calls.some((call) => call[0] === 'pu'),
-        calls.some((call) => call.slice(0, 3).join(' ') === 'gh pr comment'),
+        escalate(deps, 'blocked', 'CI secret missing'),
+        fs.has(`${child}/${ESCALATED}`),
       ],
-      expected: [true, false, true],
+      expected: [0, true],
+    });
+  });
+
+  test('leaves the loop active and fails when nobody was told', () => {
+    const cases = [
+      fakes({ [`${child}/${ACTIVE}`]: state, ...registered('ag-parent') }, {}, [
+        'pu send ag-parent',
+        'gh pr comment',
+      ]),
+      fakes({ [`${child}/${ACTIVE}`]: state }, {}, [
+        'pagespace channels send',
+        'gh pr view',
+      ]),
+    ];
+    assert({
+      given:
+        'a failed parent send and PR comment, and a failed owner post with no PR',
+      should: 'exit non-zero and leave the loop state as it was',
+      actual: cases.map(({ deps, fs }) => [
+        escalate(deps, 'blocked', 'CI secret missing'),
+        fs.get(`${child}/${ACTIVE}`) === state,
+        fs.has(`${child}/${ESCALATED}`),
+      ]),
+      expected: [
+        [1, true, false],
+        [1, true, false],
+      ],
     });
   });
 
