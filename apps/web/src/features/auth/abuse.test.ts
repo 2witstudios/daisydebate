@@ -18,6 +18,8 @@ describe('AUTH-3.1 composed Better Auth options', () => {
         password: options.emailAndPassword?.enabled,
         ipHeaders: options.advanced?.ipAddress?.ipAddressHeaders,
         plugins: (options.plugins ?? []).map((plugin) => plugin.id).sort(),
+        lastPlugin: options.plugins?.at(-1)?.id,
+        listSessionsDisabled: options.disabledPaths?.includes('/list-sessions'),
       },
       expected: {
         rate: { enabled: false },
@@ -30,6 +32,7 @@ describe('AUTH-3.1 composed Better Auth options', () => {
         password: false,
         ipHeaders: [CLIENT_IP_HEADER],
         plugins: [
+          'daisy-browser-session-shape',
           'daisy-fresh-session-gate',
           'daisy-magic-link-gate',
           'daisy-passkey-device-hint',
@@ -39,6 +42,9 @@ describe('AUTH-3.1 composed Better Auth options', () => {
           'magic-link',
           'passkey',
         ],
+        // Last, so every other after hook sees the full result first.
+        lastPlugin: 'daisy-browser-session-shape',
+        listSessionsDisabled: true,
       },
     });
   });
