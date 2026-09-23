@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   followUpMerge,
+  readTaskList,
   type FollowupDeps,
   type MergedPr,
 } from './merge-followup';
@@ -179,6 +180,69 @@ describe('merge follow-up', () => {
         'PageSpace created ISSUE-15 without returning its page',
         'PR #61 has no valid merged-at time: ""',
       ],
+    });
+  });
+});
+
+describe('reading the live PageSpace tasks API', () => {
+  test('takes statuses from statusConfigs and tasks from every page', async () => {
+    // The shape GET /api/pages/:id/tasks returns: statusConfigs, not
+    // availableStatuses, and at most `limit` tasks with hasMore.
+    const pages = [
+      {
+        tasks: [{ id: 't1', pageId: 'p1', status: 'in_review', title: 'A' }],
+        statusConfigs: [
+          { slug: 'in_review', name: 'In Review', group: 'in_progress' },
+          { slug: 'completed', name: 'Done', group: 'done' },
+        ],
+        hasMore: true,
+      },
+      {
+        tasks: [{ id: 't2', pageId: 'p2', status: 'pending', title: 'B' }],
+        statusConfigs: [],
+        hasMore: false,
+      },
+    ];
+    const offsets: number[] = [];
+    const list = await readTaskList(async (offset) => {
+      offsets.push(offset);
+      return pages[offsets.length - 1];
+    });
+    assert({
+      given: 'two pages of one task each and the list statuses on the first',
+      should:
+        'return both tasks and the list statuses, fetching offsets 0 and 1',
+      actual: [
+        list.tasks.map((task) => task.id),
+        list.availableStatuses.map((status) => status.slug),
+        offsets,
+      ],
+      expected: [
+        ['t1', 't2'],
+        ['in_review', 'completed'],
+        [0, 1],
+      ],
+    });
+  });
+
+  test('advances by the rows received when the server caps below the request', async () => {
+    // The follow-up asks for 200 per page; a deployed server caps at 2.
+    const rows = ['t1', 't2', 't3', 't4', 't5'];
+    const offsets: number[] = [];
+    const list = await readTaskList(async (offset) => {
+      offsets.push(offset);
+      const slice = rows.slice(offset, offset + 2);
+      return {
+        tasks: slice.map((id) => ({ id, pageId: id, status: 'pending' })),
+        statusConfigs: [],
+        hasMore: offset + 2 < rows.length,
+      };
+    });
+    assert({
+      given: 'five tasks served two at a time although 200 were requested',
+      should: 'fetch offsets 0, 2 and 4 and skip no task',
+      actual: [offsets, list.tasks.map((task) => task.id)],
+      expected: [[0, 2, 4], rows],
     });
   });
 });

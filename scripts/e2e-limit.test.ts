@@ -1,8 +1,9 @@
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  claimFile,
   claimPlan,
   E2E_ENV,
   keepsClaim,
@@ -109,6 +110,30 @@ describe('claims named by pid', () => {
         keepsClaim([{ slot: 1, pid: 10 }, mine], mine, () => true, 1),
       ],
       expected: [true, false, true, true, false],
+    });
+  });
+});
+
+describe('claimFile', () => {
+  test('never writes through a file or symlink already at the claim name', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'grd-6-claim-'));
+    const target = join(dir, 'owner-file');
+    writeFileSync(target, 'keep');
+    symlinkSync(target, join(dir, 'slot-0-1.pid'));
+    writeFileSync(join(dir, 'slot-1-1.pid'), 'other run');
+    assert({
+      given:
+        'a symlink planted at one claim name, a file at another, and a free name',
+      should:
+        'refuse the first two, leave both targets intact, and claim the free one',
+      actual: [
+        claimFile(join(dir, 'slot-0-1.pid')),
+        claimFile(join(dir, 'slot-1-1.pid')),
+        readFileSync(target, 'utf8'),
+        readFileSync(join(dir, 'slot-1-1.pid'), 'utf8'),
+        claimFile(join(dir, 'slot-2-1.pid')),
+      ],
+      expected: [false, false, 'keep', 'other run', true],
     });
   });
 });
