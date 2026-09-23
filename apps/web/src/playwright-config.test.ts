@@ -56,13 +56,13 @@ describe('Playwright slot services', () => {
       should: 'pass them to the production server unchanged',
       actual: resolveE2EServices({
         E2E_DATABASE_URL:
-          'postgres://daisy_e2e:e2e-loopback-only@localhost:15432/daisy_wt_abc_test',
+          'postgres://daisy_e2e:e2e-loopback-only@localhost:15432/daisy_wt_abc_e2e',
         E2E_REDIS_URL: 'redis://localhost:6379/2',
         E2E_REDIS_NAMESPACE: 'daisy-wt-abc-e2e',
       }),
       expected: {
         DATABASE_URL:
-          'postgres://daisy_e2e:e2e-loopback-only@localhost:15432/daisy_wt_abc_test',
+          'postgres://daisy_e2e:e2e-loopback-only@localhost:15432/daisy_wt_abc_e2e',
         REDIS_URL: 'redis://localhost:6379/2',
         REDIS_NAMESPACE: 'daisy-wt-abc-e2e',
       },

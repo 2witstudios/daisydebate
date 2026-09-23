@@ -33,6 +33,7 @@ describe('slot derivation', () => {
         id: 'daisy',
         database: 'daisy',
         testDatabase: 'daisy_test',
+        e2eDatabase: 'daisy_e2e',
         namespace: 'daisy',
         e2eNamespace: 'daisy-e2e',
       },
@@ -52,6 +53,7 @@ describe('slot derivation', () => {
         id: '3ctbm0tw',
         database: 'daisy_wt_3ctbm0tw',
         testDatabase: 'daisy_wt_3ctbm0tw_test',
+        e2eDatabase: 'daisy_wt_3ctbm0tw_e2e',
         namespace: 'daisy-wt-3ctbm0tw',
         e2eNamespace: 'daisy-wt-3ctbm0tw-e2e',
       },
@@ -82,10 +84,11 @@ describe('slot derivation', () => {
       actual: [
         postgresIdentifierRule.test(slot.database),
         postgresIdentifierRule.test(slot.testDatabase),
+        postgresIdentifierRule.test(slot.e2eDatabase),
         redisNamespaceRule.test(slot.namespace),
         redisNamespaceRule.test(slot.e2eNamespace),
       ],
-      expected: [true, true, true, true],
+      expected: [true, true, true, true, true],
     });
   });
 
@@ -180,9 +183,11 @@ describe('orphan detection', () => {
           'daisy_template',
           'daisy_wt_live1',
           'daisy_wt_live1_test',
+          'daisy_wt_live1_e2e',
           'daisy_wt_live1_x',
           'daisy_wt_gone',
           'daisy_wt_gone_test',
+          'daisy_wt_gone_e2e',
           'daisy_wt_Bad',
           'postgres',
         ],
@@ -199,7 +204,7 @@ describe('orphan detection', () => {
       }),
       expected: {
         ids: ['gone'],
-        databases: ['daisy_wt_gone', 'daisy_wt_gone_test'],
+        databases: ['daisy_wt_gone', 'daisy_wt_gone_e2e', 'daisy_wt_gone_test'],
         namespaces: ['daisy-wt-gone', 'daisy-wt-gone-e2e'],
       },
     });
@@ -270,7 +275,7 @@ describe('slot .env values', () => {
           'postgres://daisy:local-development-only@localhost:15432/daisy_test',
         REDIS_NAMESPACE: 'daisy',
         E2E_DATABASE_URL:
-          'postgres://daisy_e2e:e2e-loopback-only@localhost:15432/daisy_test',
+          'postgres://daisy_e2e:e2e-loopback-only@localhost:15432/daisy_e2e',
         E2E_REDIS_URL: 'redis://localhost:6379/2',
         E2E_REDIS_NAMESPACE: 'daisy-e2e',
         PORT: '3000',
@@ -299,7 +304,7 @@ describe('slot .env values', () => {
           'postgres://daisy:pw@127.0.0.1:35432/daisy_wt_abc_test',
         REDIS_NAMESPACE: 'daisy-wt-abc',
         E2E_DATABASE_URL:
-          'postgres://daisy_e2e:e2e-loopback-only@127.0.0.1:35432/daisy_wt_abc_test',
+          'postgres://daisy_e2e:e2e-loopback-only@127.0.0.1:35432/daisy_wt_abc_e2e',
         E2E_REDIS_URL: 'redis://127.0.0.1:36379/2',
         E2E_REDIS_NAMESPACE: 'daisy-wt-abc-e2e',
         PORT: '13020',

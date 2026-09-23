@@ -22,7 +22,7 @@ import {
 const SHARED_REASON =
   'The Compose stack is shared by every checkout (ADR 0034): an agent never stops, removes or prunes its containers or volumes. Manage your own slot with bun slot:up, slot:down or db:reset.';
 const SLOT_REASON =
-  'That reaches a slot this session does not own. Run db:reset and slot:down only from your own worktree, against its own databases.';
+  'That reaches a slot this session does not own. Run db:reset, slot:reset-e2e and slot:down only from your own worktree, against its own databases.';
 
 const composeDestructive = new Set(['down', 'rm', 'kill', 'stop', 'pause']);
 const dockerDestructive = new Set(['rm', 'stop', 'kill', 'rmi', 'prune']);
@@ -99,6 +99,7 @@ const SLOT_SCRIPTS = new Set([
   'scripts/db-reset.ts',
   'slot:up',
   'slot:down',
+  'slot:reset-e2e',
   'scripts/slot.ts',
 ]);
 // scripts/slot.ts selects another checkout or .env file with these.
@@ -156,7 +157,9 @@ function ownsSlot(
     hasSlot &&
     isWithin(dir, facts.worktree) &&
     targetPaths(args, dir).every((path) => isWithin(path, facts.worktree)) &&
-    overrides.every((name) => name === own || name === `${own}_test`)
+    overrides.every(
+      (name) => name === own || name === `${own}_test` || name === `${own}_e2e`,
+    )
   );
 }
 

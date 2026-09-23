@@ -2,11 +2,15 @@
  * `bun slot:up | slot:down | slot:prune` (ADR 0034): per-checkout databases
  * and Redis namespaces on the one shared local stack.
  *
- *   up     bring the shared stack up, prune orphans, create and migrate this
- *          checkout's databases from the template, write its .env values.
- *          Idempotent: a second run changes nothing.
- *   down   drop this worktree's databases and Redis keys (refused on main).
- *   prune  drop the databases and Redis keys of worktrees git no longer lists.
+ *   up         bring the shared stack up, prune orphans, create and migrate
+ *              this checkout's dev, test and e2e databases, provision the test
+ *              logins, write its .env values. Idempotent: a second run
+ *              changes nothing.
+ *   reset-e2e  empty and re-migrate this checkout's e2e database and delete
+ *              its e2e Redis keys, so a browser run starts from the baseline.
+ *   down       drop this worktree's databases and Redis keys (refused on main).
+ *   prune      drop the databases and Redis keys of worktrees git no longer
+ *              lists.
  *
  * The server comes from the checkout's .env URLs (host, port, credentials),
  * which is how the admin connection is injected. `--checkout <path>` and
@@ -20,10 +24,9 @@ import { parseArgs } from 'node:util';
 import {
   createSlotDatabase,
   dropSlotDatabase,
-  ensureE2ERole,
-  ensureTemplate,
-  grantE2EAccess,
   listSlotDatabases,
+  provisionTestRoles,
+  resetPublicSchema,
   setSlotDatabaseComment,
   withSlotLock,
 } from '@daisy/db/slots';
@@ -47,7 +50,6 @@ import {
 } from './slot-model';
 
 const root = resolve(import.meta.dir, '..');
-const template = 'daisy_template';
 const worktreeDatabases = 'daisy_wt_';
 const worktreeNamespaces = 'daisy-wt-';
 
@@ -281,6 +283,9 @@ const envOf = (content: string) => ({
 const describeOrphans = (ids: readonly string[]) =>
   ids.length === 0 ? 'none' : ids.join(', ');
 
+const slotDatabases = (slot: Slot) =>
+  [slot.database, slot.testDatabase, slot.e2eDatabase] as const;
+
 async function up(checkout: Checkout, envPath: string) {
   const content = await readEnvFile(envPath);
   const env = envOf(content);
@@ -303,34 +308,23 @@ async function up(checkout: Checkout, envPath: string) {
       services.admin,
       async () => {
         const pruned = await prune(services, checkout);
-        await ensureE2ERole(services.admin, e2eRole);
-        await ensureTemplate({
-          admin: services.admin,
-          connect: services.connect,
-          template,
-          e2eUser: e2eRole.user,
-        });
         const created: string[] = [];
-        for (const database of [slot.database, slot.testDatabase])
-          if (await createSlotDatabase(services.admin, database, template))
+        for (const database of slotDatabases(slot))
+          if (await createSlotDatabase(services.admin, database))
             created.push(database);
-        // A test database that predates the template (the main checkout's
-        // legacy daisy_test) lacks the e2e grants; granting is idempotent.
-        const testDatabase = services.connect(slot.testDatabase);
-        try {
-          await grantE2EAccess(testDatabase, e2eRole.user);
-        } finally {
-          await testDatabase.close();
-        }
         const portBlock =
           slot.kind === 'worktree'
             ? await claimPortBlock(services.admin, slot)
             : undefined;
         const values = slotEnvValues({ slot, env, portBlock });
-        // Under the lock too: migrations create cluster-wide roles (0004),
+        // Under the lock too: the baseline creates cluster-wide roles,
         // which two first-time slot:up runs could otherwise race on.
-        await migrate(values.DATABASE_URL, checkout.path);
-        await migrate(values.TEST_DATABASE_URL, checkout.path);
+        for (const database of slotDatabases(slot))
+          await migrate(
+            withDatabase(env.DATABASE_URL ?? '', database),
+            checkout.path,
+          );
+        await provisionTestRoles(services.admin, e2eRole);
         return { pruned, created, values };
       },
     );
@@ -339,7 +333,7 @@ async function up(checkout: Checkout, envPath: string) {
     process.stdout.write(
       [
         `Slot ${slot.id} (${slot.kind})`,
-        `  databases: ${slot.database}, ${slot.testDatabase} (created: ${created.join(', ') || 'none'}; migrated)`,
+        `  databases: ${slotDatabases(slot).join(', ')} (created: ${created.join(', ') || 'none'}; migrated)`,
         `  redis namespaces: ${slot.namespace}, ${slot.e2eNamespace}`,
         `  ports: app ${values.PORT}, e2e ${values.E2E_PORT}`,
         `  .env: ${rewritten.changed ? 'updated' : 'unchanged'}`,
@@ -361,7 +355,7 @@ async function down(checkout: Checkout, envPath: string) {
   const services = openServices(envOf(await readEnvFile(envPath)));
   try {
     const removed = await withSlotLock(services.admin, async () => {
-      for (const database of [slot.database, slot.testDatabase])
+      for (const database of slotDatabases(slot))
         await dropSlotDatabase(services.admin, database);
       let removed = 0;
       for (const client of services.redis)
@@ -370,9 +364,42 @@ async function down(checkout: Checkout, envPath: string) {
       return removed;
     });
     process.stdout.write(
-      `Slot ${slot.id}: dropped ${slot.database}, ${slot.testDatabase}; deleted ${removed} Redis keys\n`,
+      `Slot ${slot.id}: dropped ${slotDatabases(slot).join(', ')}; deleted ${removed} Redis keys\n`,
     );
   } finally {
+    await services.close();
+  }
+}
+
+/**
+ * Empties the browser suite's database and Redis namespace back to the
+ * baseline (ISSUE-17): rows a browser run leaves never reach the test
+ * database whose row counts integration evidence reads, and this clears them
+ * between runs.
+ */
+async function resetE2E(checkout: Checkout, envPath: string) {
+  const env = envOf(await readEnvFile(envPath));
+  const { slot } = checkout;
+  const services = openServices(env);
+  const database = services.connect(slot.e2eDatabase);
+  try {
+    const removed = await withSlotLock(services.admin, async () => {
+      await resetPublicSchema(database);
+      await migrate(
+        withDatabase(env.DATABASE_URL ?? '', slot.e2eDatabase),
+        checkout.path,
+      );
+      await provisionTestRoles(services.admin, e2eRole);
+      let removed = 0;
+      for (const client of services.redis)
+        removed += await deleteNamespace(client, slot.e2eNamespace);
+      return removed;
+    });
+    process.stdout.write(
+      `Slot ${slot.id}: reset ${slot.e2eDatabase} to the baseline; deleted ${removed} ${slot.e2eNamespace} Redis keys\n`,
+    );
+  } finally {
+    await database.close();
     await services.close();
   }
 }
@@ -398,13 +425,18 @@ async function main(argv: readonly string[]) {
     options: { checkout: { type: 'string' }, env: { type: 'string' } },
   });
   const command = positionals[0];
-  const commands = { up, down, prune: pruneCommand } as const;
-  if (command !== 'up' && command !== 'down' && command !== 'prune')
+  const commands = {
+    up,
+    down,
+    prune: pruneCommand,
+    'reset-e2e': resetE2E,
+  } as const;
+  if (!command || !Object.hasOwn(commands, command))
     throw new Error(
-      'Usage: bun scripts/slot.ts up|down|prune [--checkout <path>] [--env <path>]',
+      'Usage: bun scripts/slot.ts up|reset-e2e|down|prune [--checkout <path>] [--env <path>]',
     );
   const checkout = await resolveCheckout(values.checkout ?? root);
-  await commands[command](
+  await commands[command as keyof typeof commands](
     checkout,
     values.env ? resolve(values.env) : join(checkout.path, '.env'),
   );

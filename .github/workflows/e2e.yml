@@ -23,13 +23,16 @@ jobs:
       postgres:
         image: postgres:18.3-alpine
         env:
-          POSTGRES_DB: daisy_test
-          POSTGRES_USER: daisy_e2e
-          POSTGRES_PASSWORD: e2e-loopback-only
+          # The migration owner, as in ci.yml and every local slot; the
+          # browser suite's server runs as daisy_e2e, a DML-only member of
+          # daisy_web provisioned below, in its own e2e database.
+          POSTGRES_DB: daisy_e2e
+          POSTGRES_USER: daisy
+          POSTGRES_PASSWORD: ci-only
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U daisy_e2e -d daisy_test"
+          --health-cmd "pg_isready -U daisy -d daisy_e2e"
           --health-interval 3s
           --health-timeout 3s
           --health-retries 20
@@ -71,10 +74,16 @@ jobs:
       - name: Ensure zip/unzip are available for artifact sanitization
         run: sudo apt-get update -qq && sudo apt-get install -y -qq zip unzip
 
-      - name: Apply test migrations
+      - name: Apply migrations to the e2e database
         run: bun run --cwd packages/db db:migrate
         env:
-          DATABASE_URL: postgres://daisy_e2e:e2e-loopback-only@localhost:5432/daisy_test
+          DATABASE_URL: postgres://daisy:ci-only@localhost:5432/daisy_e2e
+
+      # The one place test logins are provisioned (packages/db/src/slots.ts).
+      - name: Provision the e2e login
+        run: bun db:roles
+        env:
+          DATABASE_URL: postgres://daisy:ci-only@localhost:5432/daisy_e2e
 
       - name: Build production server
         run: bun run build
@@ -97,7 +106,7 @@ jobs:
         env:
           CI: true
           # Explicit slot values: the config never defaults to a database.
-          E2E_DATABASE_URL: postgres://daisy_e2e:e2e-loopback-only@localhost:5432/daisy_test
+          E2E_DATABASE_URL: postgres://daisy_e2e:e2e-loopback-only@localhost:5432/daisy_e2e
           E2E_REDIS_URL: redis://localhost:6379/2
           E2E_REDIS_NAMESPACE: ci-e2e
 

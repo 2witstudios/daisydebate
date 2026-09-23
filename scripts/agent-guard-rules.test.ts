@@ -140,9 +140,11 @@ describe('agent guard: data and containers outside the agent slot', () => {
         decide(`bun --cwd ${main} run db:reset`),
         decide('DATABASE_URL=postgres://h/daisy bun db:reset'),
         decide(`cd ${other} && bun slot:down`),
+        decide(`cd ${other} && bun slot:reset-e2e`),
+        decide('E2E_DATABASE_URL=postgres://h/daisy_e2e bun slot:reset-e2e'),
         decide('bun db:reset', facts({ databaseOf: () => 'daisy' })),
       ],
-      expected: Array(5).fill('deny'),
+      expected: Array(7).fill('deny'),
     });
   });
 
@@ -160,10 +162,10 @@ describe('agent guard: data and containers outside the agent slot', () => {
     });
   });
 
-  test('allows db:reset and slot:down on its own slot', () => {
+  test('allows db:reset, slot:reset-e2e and slot:down on its own slot', () => {
     assert({
       given:
-        'the agent worktree, an override naming its own test database, and --checkout naming itself',
+        'the agent worktree, overrides naming its own test and e2e databases, and --checkout naming itself',
       should: 'allow them',
       actual: [
         decide('bun run db:reset'),
@@ -171,8 +173,12 @@ describe('agent guard: data and containers outside the agent slot', () => {
         decide('DATABASE_URL=postgres://h/daisy_wt_mine_test bun db:reset'),
         decide('bun slot:down'),
         decide(`bun slot:down --checkout ${worktree}`),
+        decide('bun slot:reset-e2e'),
+        decide(
+          'E2E_DATABASE_URL=postgres://h/daisy_wt_mine_e2e bun slot:reset-e2e',
+        ),
       ],
-      expected: ['allow', 'allow', 'allow', 'allow', 'allow'],
+      expected: Array(7).fill('allow'),
     });
   });
 

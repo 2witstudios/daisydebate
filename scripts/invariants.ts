@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { formatSeeds } from './format-seed';
+import { referenceFormats } from './reference-formats';
 import {
   createDebateRuntime,
   debateInvariantIds,
@@ -41,7 +41,9 @@ export type InvariantReport = {
 type Fixture = () => void;
 type TestSources = Readonly<Record<string, string>>;
 
-const foundation = formatSeeds.find((format) => format.id === 'foundation');
+const foundation = referenceFormats.find(
+  (format) => format.id === 'foundation',
+);
 if (!foundation) throw new Error('foundation format seed missing');
 
 const createRuntime = () =>
