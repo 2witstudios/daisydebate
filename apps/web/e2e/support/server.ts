@@ -72,8 +72,9 @@ Bun.serve({
   },
 });
 
-// A throwaway self-signed certificate for localhost, created per run.
-const certDir = 'test-results/e2e-tls';
+// A throwaway self-signed certificate for localhost, created per run, in a
+// directory of its own port so concurrent suites never mix key and cert.
+const certDir = `test-results/e2e-tls-${edgePort}`;
 mkdirSync(certDir, { recursive: true });
 const made = Bun.spawnSync([
   'openssl',

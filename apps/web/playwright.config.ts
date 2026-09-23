@@ -85,9 +85,9 @@ export default defineConfig({
       : []),
   ],
   webServer: {
-    // Keep structured server output beside Playwright's failure artifacts.
-    command:
-      'mkdir -p test-results && bun e2e/support/server.ts > test-results/server.log 2>&1',
+    // Keep structured server output beside Playwright's failure artifacts,
+    // one log per app port so concurrent suites never share a file.
+    command: `mkdir -p test-results && bun e2e/support/server.ts > test-results/server-${ports.app}.log 2>&1`,
     // Probe through the TLS edge, not the app port: the edge and the mail
     // capture live in the same wrapper process, so a reused server is only
     // accepted when all three listeners are up.

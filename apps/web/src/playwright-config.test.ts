@@ -140,6 +140,22 @@ describe('Playwright visual project', () => {
   });
 });
 
+describe('Playwright web server output', () => {
+  test('writes one server log per app port', () => {
+    const server = Array.isArray(playwrightConfig.webServer)
+      ? playwrightConfig.webServer[0]
+      : playwrightConfig.webServer;
+    assert({
+      given: 'the configured e2e web server',
+      should: 'log to a file named after its app port, never a shared one',
+      actual: server?.command.endsWith(
+        `> test-results/server-${server.env?.PORT}.log 2>&1`,
+      ),
+      expected: true,
+    });
+  });
+});
+
 describe('Playwright web server readiness', () => {
   test('probes the TLS edge the suite uses, so reuse needs the whole wrapper', () => {
     const server = Array.isArray(playwrightConfig.webServer)
