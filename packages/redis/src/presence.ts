@@ -114,9 +114,8 @@ redis.call('ZREMRANGEBYSCORE', KEYS[2], '-inf', now - 1)
 local top = redis.call('ZREVRANGE', KEYS[2], 0, 0, 'WITHSCORES')
 if top[2] then
   redis.call('ZADD', KEYS[3], top[2], ARGV[2])
-  -- Always already armed by the write that scored this top (upsert/refresh
-  -- NX+GT), but kept as defence in depth: rearm before every ZADD, since a
-  -- future write path can't be assumed to preserve that invariant.
+  -- No-op today (upsert/refresh arm on write); kept as defence in depth for
+  -- future write paths.
   arm(KEYS[2], top, now)
   arm(KEYS[3], top, now)
 else
