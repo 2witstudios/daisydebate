@@ -307,7 +307,7 @@ export async function spawnAgent(
   deps: SpawnDeps,
   argv: readonly string[],
 ): Promise<number> {
-  const plan = parseSpawnArgs(argv);
+  const plan = parseSpawnArgs(argv, deps.autonomous);
   if ('error' in plan) {
     deps.out(`${plan.error}\n`);
     return 2;

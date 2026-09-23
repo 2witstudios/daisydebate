@@ -27,6 +27,8 @@ type World = {
 function fakeMachine(
   options: {
     builders?: number;
+    // Builders started by a raw pu spawn, with no registry record.
+    unregistered?: boolean;
     leaf?: string;
     submitsOnSpawn?: boolean;
     setupFails?: boolean;
@@ -49,7 +51,7 @@ function fakeMachine(
   };
   const files = new Map<string, string>([
     [`${repo}/policy/superseded-terms.json`, terms],
-    ...world.worktrees.map(
+    ...(options.unregistered ? [] : world.worktrees).map(
       (w, i) =>
         [
           recordPath(repo, `ag-b${i}`),
@@ -130,7 +132,16 @@ function fakeMachine(
   return { deps, calls, files, output };
 }
 
-const spawnArgs = ['--', '-n', 'grd-9', '-a', 'claude', 'Run the task'];
+const spawnArgs = [
+  '--task',
+  leafId,
+  '--',
+  '-n',
+  'grd-9',
+  '-a',
+  'claude',
+  'Run the task',
+];
 const spawned = (calls: string[][]) =>
   calls.filter((call) => call[0] === 'pu' && call[1] === 'spawn');
 
@@ -149,7 +160,7 @@ describe('bun agent:spawn', () => {
     assert({
       given: 'a builder spawn under the cap',
       should:
-        'create the worktree, install and bring the slot up, then send the prompt, and record the parent',
+        'check the leaf, create the worktree, install and bring the slot up, then send the prompt, and register the parent outside the worktree',
       actual: {
         code,
         order,
@@ -165,6 +176,7 @@ describe('bun agent:spawn', () => {
       expected: {
         code: 0,
         order: [
+          'pagespace pages read',
           'pu spawn -a',
           'bun install --frozen-lockfile',
           'bun slot:up',
@@ -230,14 +242,25 @@ describe('bun agent:spawn', () => {
     });
   });
 
+  test('counts builders that bypassed the wrapper toward the cap', async () => {
+    const machine = fakeMachine({ builders: 3, unregistered: true });
+    assert({
+      given:
+        'three running agents from a raw pu spawn, with no registry record',
+      should: 'refuse a fourth builder',
+      actual: await spawnAgent(machine.deps, spawnArgs),
+      expected: 1,
+    });
+  });
+
   test('refuses a builder for a leaf with unmerged prerequisites or superseded terms', async () => {
     const prerequisite = fakeMachine({
       leaf: '<h3>\nRelated pages\n</h3>\n<ul>\n<li>\nPrerequisite: PR #50\n</li>\n</ul>',
     });
     const stale = fakeMachine({ leaf: '<p>Seeds use stable UUIDs.</p>' });
     const results = [
-      await spawnAgent(prerequisite.deps, ['--task', leafId, ...spawnArgs]),
-      await spawnAgent(stale.deps, ['--task', leafId, ...spawnArgs]),
+      await spawnAgent(prerequisite.deps, spawnArgs),
+      await spawnAgent(stale.deps, spawnArgs),
     ];
     assert({
       given: 'an open prerequisite PR, and a leaf still saying UUIDs',
