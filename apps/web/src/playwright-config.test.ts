@@ -98,6 +98,20 @@ describe('Playwright server reuse policy', () => {
     });
   });
 
+  test('explicit slot services disable reuse even on the default port', () => {
+    assert({
+      given:
+        'e2e database, Redis URL or namespace settings without a pinned port',
+      should: 'boot its own server so those settings are actually applied',
+      actual: [
+        resolveReuseExistingServer({ E2E_DATABASE_URL: 'postgres://x/y_test' }),
+        resolveReuseExistingServer({ E2E_REDIS_URL: 'redis://x/2' }),
+        resolveReuseExistingServer({ E2E_REDIS_NAMESPACE: 'daisy-wt-abc-e2e' }),
+      ],
+      expected: [false, false, false],
+    });
+  });
+
   test('a pinned port disables reuse so sessions never test foreign code', () => {
     assert({
       given: 'a local run with an explicitly pinned port',

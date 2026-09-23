@@ -26,11 +26,18 @@ export const resolveE2EServices = (env: Env) => ({
   REDIS_URL: env.E2E_REDIS_URL ?? '',
   REDIS_NAMESPACE: env.E2E_REDIS_NAMESPACE ?? '',
 });
-// Reusing an already-running server on an explicitly pinned port would run
-// the suite against another session's code; only the un-pinned default may
-// reuse. CI never reuses.
+// A reused server keeps whatever database and namespace it was started with
+// and ignores webServer.env, so any explicit port or slot setting forces a
+// fresh server: only a fully unconfigured local run may reuse. CI never
+// reuses.
 export const resolveReuseExistingServer = (env: Env): boolean =>
-  env.CI ? false : env.E2E_PORT === undefined;
+  !env.CI &&
+  [
+    env.E2E_PORT,
+    env.E2E_DATABASE_URL,
+    env.E2E_REDIS_URL,
+    env.E2E_REDIS_NAMESPACE,
+  ].every((value) => value === undefined);
 
 // Screenshot parity is pixel-exact only in the Linux Playwright image that
 // matches @playwright/test. `bun visual:server` runs that image's browser
