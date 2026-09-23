@@ -337,9 +337,16 @@ describe('agent guard: loop state and guard bypasses', () => {
     const verdict = classifyCommand('git push origin main', facts());
     assert({
       given: 'a refused command',
-      should: 'explain the refusal and the permitted path',
-      actual: verdict.reason?.includes('gh pr merge --auto'),
-      expected: true,
+      should:
+        'explain the permitted path: --auto --merge only under the live ruleset, otherwise ready for owner merge',
+      actual: [
+        verdict.reason?.includes('gh pr merge --auto --merge'),
+        verdict.reason?.includes(
+          'once the live main ruleset requires review-record',
+        ),
+        verdict.reason?.includes('ready for owner merge'),
+      ],
+      expected: [true, true, true],
     });
   });
 });
