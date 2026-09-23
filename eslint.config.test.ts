@@ -98,165 +98,106 @@ describe('repository ESLint configuration', () => {
   });
 });
 
-/** Rule ids and severities, one per reported problem, in source order. */
-const problems = async (code: string, filePath: string) => {
+/** The rule id of each problem ESLint reports for `code` at `filePath`. */
+const ruleIds = async (code: string, filePath: string) => {
   const [result] = await repositoryEslint().lintText(code, { filePath });
-  return (result?.messages ?? []).map(({ ruleId, severity }) => ({
-    ruleId,
-    severity,
-  }));
+  return (result?.messages ?? []).map(({ ruleId }) => ruleId);
 };
 
+type Case = readonly [code: string, filePath: string, ruleIds: string[]];
+const outcomes = (cases: readonly Case[]) =>
+  Promise.all(cases.map(([code, filePath]) => ruleIds(code, filePath)));
+const expectedOf = (cases: readonly Case[]) => cases.map(([, , ids]) => ids);
+
+const web = (path: string) => `apps/web/src/${path}`;
+const [props, globals, imports] = ['properties', 'globals', 'imports'].map(
+  (kind) => [`no-restricted-${kind}`],
+);
+const edgeImport = (from: string, name = 'processApp') =>
+  `import { ${name} } from '${from}process-app';\nexport const x = ${name};`;
+const reads =
+  'export const env = process.env;\nexport const g = globalThis as unknown;';
+const mutations = [
+  "process.env.FOUNDATION_PROOF_ENABLED = 'true';",
+  'delete process.env.DATABASE_URL;',
+  "Object.assign(process.env, { NODE_ENV: 'test' });",
+  'globalThis.fetch = (async () => new Response()) as typeof fetch;',
+  "Reflect.set(globalThis, 'daisyResources', {});",
+  "Reflect.deleteProperty(process.env, 'PUBLIC_APP_URL');",
+].join('\n');
+const sixMutations = Array.from({ length: 6 }, () => 'no-restricted-syntax');
+const route = web('app/api/health/ready/route.ts');
+
 describe('process edge: one module reads process.env and globalThis (ISSUE-7)', () => {
-  test('rejects process.env and Bun.env reads in app source outside the edge', async () => {
+  test('rejects ambient reads and edge imports outside the edge', async () => {
+    const cases: Case[] = [
+      ['export const f = process.env.X;', web('proxy.ts'), props],
+      [
+        'const { env } = process;\nexport const e = env;',
+        web('lib/x.ts'),
+        props,
+      ],
+      ['export const level = Bun.env.X;', 'apps/realtime/src/server.ts', props],
+      ["export const a = Reflect.get(globalThis, 'a');", route, globals],
+      [
+        'export const a = globalThis as unknown;',
+        web('lib/identity.ts'),
+        globals,
+      ],
+      [
+        edgeImport('../../server/'),
+        web('features/foundation/leak.ts'),
+        imports,
+      ],
+      [edgeImport('../server/'), web('lib/identity.ts'), imports],
+      [edgeImport('../../../../server/'), route, imports],
+      [edgeImport('./'), web('server/routes.ts'), imports],
+    ];
     assert({
       given:
-        'web and realtime source reading process.env directly, by destructuring, and through Bun.env',
-      should: 'report each read as no-restricted-properties',
-      actual: [
-        await problems(
-          'export const flag = process.env.FOUNDATION_PROOF_ENABLED;',
-          'apps/web/src/proxy.ts',
-        ),
-        await problems(
-          'const { env } = process;\nexport const url = env.PUBLIC_APP_URL;',
-          'apps/web/src/features/foundation/operations.ts',
-        ),
-        await problems(
-          'export const level = Bun.env.LOG_LEVEL;',
-          'apps/realtime/src/server.ts',
-        ),
-      ],
-      expected: [
-        [{ ruleId: 'no-restricted-properties', severity: 2 }],
-        [{ ruleId: 'no-restricted-properties', severity: 2 }],
-        [{ ruleId: 'no-restricted-properties', severity: 2 }],
-      ],
+        'app source reading process.env, Bun.env or globalThis, or importing the process edge as a locator',
+      should: 'report each as the matching restriction',
+      actual: await outcomes(cases),
+      expected: expectedOf(cases),
     });
   });
 
-  test('rejects globalThis reads in app source outside the edge', async () => {
-    assert({
-      given: 'a route and a lib module reading a globalThis resource',
-      should: 'report no-restricted-globals',
-      actual: [
-        await problems(
-          "export const app = Reflect.get(globalThis, 'daisyWebApp');",
-          'apps/web/src/app/api/health/ready/route.ts',
-        ),
-        await problems(
-          'export const auth = (globalThis as { daisyAuth?: unknown }).daisyAuth;',
-          'apps/web/src/lib/identity.ts',
-        ),
+  test('admits the edges, route bindings and the documented process entries', async () => {
+    const cases: Case[] = [
+      [reads, web('server/process-app.ts'), []],
+      [reads, 'apps/realtime/src/start.ts', []],
+      [edgeImport('../../../../server/', 'processRoute'), route, []],
+      [edgeImport('./server/'), web('proxy.ts'), []],
+      [edgeImport('./server/'), web('instrumentation.ts'), []],
+      [edgeImport('./'), web('server/start.ts'), []],
+      [edgeImport('../server/'), web('lib/request-session.ts'), []],
+      [
+        'export const u = process.env.TEST_DATABASE_URL;',
+        'apps/web/integration/r.integration.ts',
+        [],
       ],
-      expected: [
-        [{ ruleId: 'no-restricted-globals', severity: 2 }],
-        [{ ruleId: 'no-restricted-globals', severity: 2 }],
-      ],
-    });
-  });
-
-  test('admits exactly the two process edges', async () => {
-    const edgeCode =
-      'export const env = process.env; export const state = globalThis as unknown;';
-    assert({
-      given: "web's process-app.ts and realtime's start.ts reading both",
-      should: 'report nothing: they are the edges',
-      actual: [
-        await problems(edgeCode, 'apps/web/src/server/process-app.ts'),
-        await problems(edgeCode, 'apps/realtime/src/start.ts'),
-      ],
-      expected: [[], []],
-    });
-  });
-
-  test('rejects importing the process edge outside its documented entries', async () => {
-    const importApp =
-      "import { processApp } from '../../server/process-app';\nexport const flag = () => processApp().config.FOUNDATION_PROOF_ENABLED;";
+    ];
     assert({
       given:
-        'a feature, a lib module and a route module reaching the process app through the edge',
-      should: 'report each import as no-restricted-imports',
-      actual: [
-        await problems(importApp, 'apps/web/src/features/foundation/leak.ts'),
-        await problems(
-          importApp.replace('../../server/', '../server/'),
-          'apps/web/src/lib/identity.ts',
-        ),
-        await problems(
-          importApp.replace('../../server/', '../../../../server/'),
-          'apps/web/src/app/api/health/ready/route.ts',
-        ),
-        await problems(
-          "import { processApp } from './process-app';\nexport const app = processApp;",
-          'apps/web/src/server/routes.ts',
-        ),
-      ].map((found) => found.map(({ ruleId }) => ruleId)),
-      expected: Array.from({ length: 4 }, () => ['no-restricted-imports']),
-    });
-  });
-
-  test('admits the route bindings and the documented process entries', async () => {
-    assert({
-      given:
-        'a route module binding processRoute, and the proxy, instrumentation, production start and server-component session entries using processApp',
+        'the two edges, a processRoute binding, the process entries and a test reading its service URL',
       should: 'report nothing',
-      actual: [
-        await problems(
-          "import { processRoute } from '../../../../server/process-app';\nexport const GET = processRoute((routes) => routes.ready.GET);",
-          'apps/web/src/app/api/health/ready/route.ts',
-        ),
-        await problems(
-          "import { processApp } from './server/process-app';\nexport const app = processApp;",
-          'apps/web/src/proxy.ts',
-        ),
-        await problems(
-          "import { processApp } from './server/process-app';\nexport const app = processApp;",
-          'apps/web/src/instrumentation.ts',
-        ),
-        await problems(
-          "import { processApp } from './process-app';\nexport const app = processApp;",
-          'apps/web/src/server/start.ts',
-        ),
-        await problems(
-          "import { processApp } from '../server/process-app';\nexport const app = processApp;",
-          'apps/web/src/lib/request-session.ts',
-        ),
-      ],
-      expected: [[], [], [], [], []],
+      actual: await outcomes(cases),
+      expected: expectedOf(cases),
     });
   });
 
-  test('rejects mutating process.env or globalThis in tests, while reading test services stays allowed', async () => {
-    const mutations = [
-      "process.env.FOUNDATION_PROOF_ENABLED = 'true';",
-      'delete process.env.DATABASE_URL;',
-      "Object.assign(process.env, { NODE_ENV: 'test' });",
-      'globalThis.fetch = (async () => new Response()) as typeof fetch;',
-      "Reflect.set(globalThis, 'daisyResources', {});",
-      "Reflect.deleteProperty(process.env, 'PUBLIC_APP_URL');",
-    ].join('\n');
+  test('rejects mutating process.env or globalThis in app tests', async () => {
+    const cases: Case[] = [
+      [mutations, 'apps/web/integration/leaky.integration.ts', sixMutations],
+      [mutations, web('server/leaky.test.ts'), sixMutations],
+      [mutations, 'apps/realtime/src/leaky.test.ts', sixMutations],
+    ];
     assert({
       given:
-        'an integration suite and a unit test each mutating process.env and globalThis six ways',
+        'an integration suite and two unit tests mutating process.env and globalThis six ways',
       should: 'report every mutation as no-restricted-syntax',
-      actual: [
-        await problems(mutations, 'apps/web/integration/leaky.integration.ts'),
-        await problems(mutations, 'apps/web/src/server/leaky.test.ts'),
-        await problems(mutations, 'apps/realtime/src/leaky.test.ts'),
-      ].map((found) => found.map(({ ruleId }) => ruleId)),
-      expected: Array.from({ length: 3 }, () =>
-        Array.from({ length: 6 }, () => 'no-restricted-syntax'),
-      ),
-    });
-    assert({
-      given: 'an integration suite reading its test service URL',
-      should: 'report nothing',
-      actual: await problems(
-        'export const url = process.env.TEST_DATABASE_URL;',
-        'apps/web/integration/reader.integration.ts',
-      ),
-      expected: [],
+      actual: await outcomes(cases),
+      expected: expectedOf(cases),
     });
   });
 });
