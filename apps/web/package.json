@@ -9,7 +9,7 @@
     "start": "NODE_ENV=production bun src/server/start.ts",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "bun test src",
-    "test:integration": "bun test ./integration/foundation.integration.ts ./integration/auth-database.integration.ts ./integration/auth-passkey.integration.ts ./integration/auth-database-failures.integration.ts ./integration/auth-magic-link.integration.ts ./integration/auth-account-creation-race.integration.ts ./integration/auth-link-safety.integration.ts ./integration/auth-failure.integration.ts ./integration/auth-rate-limit.integration.ts ./integration/auth-ingress.integration.ts ./integration/auth-mail-events.integration.ts ./integration/auth-mail-suppression.integration.ts ./integration/auth-cookie-neutrality.integration.ts ./integration/auth-sign-in-journey.integration.ts ./integration/auth-username-claim.integration.ts ./integration/webauthn-authenticator.smoke.integration.ts ./integration/auth-passkey-ceremony.integration.ts ./integration/auth-passkey-management.integration.ts ./integration/auth-session-management.integration.ts ./integration/auth-session-freshness.integration.ts ./integration/auth-session-revoked-outbox.integration.ts ./integration/auth-email-change.integration.ts ./integration/auth-email-change-atomicity.integration.ts ./integration/auth-migration-restart.integration.ts",
+    "test:integration": "bun ../../scripts/test-integration.ts",
     "test:e2e": "node node_modules/@playwright/test/cli.js test"
   },
   "dependencies": {
