@@ -55,7 +55,9 @@ not something `bun db:migrate` covers.
 
 **Outbox retention throughput (RT-2.2).** The maintenance sweep prunes
 outbox rows older than the 24h retention window in batches of at most 200
-rows per call (`RETENTION_BATCH_LIMIT` in `packages/db/src/outbox.ts`),
+rows per call (`BATCH_SIZE` in
+`apps/web/src/features/realtime/outbox-cleanup.ts`, under the 500-row
+per-call cap `RETENTION_BATCH_LIMIT` in `packages/db/src/outbox.ts`),
 `FOR UPDATE SKIP LOCKED` so a concurrent drain is never blocked, run hourly
 with up to 200 batches per run (40,000 rows/run), sized against an expected
 write rate of 10 rows/s (36,000 rows/hour) so one run always clears a full
