@@ -42,13 +42,18 @@ A `personal` entry also carries a **visibility**:
 
 - `public`: shown to other users as competitive or profile identity
   (username, display name, image, and later judge bios and club
-  memberships). Usually anonymized on erasure, so history stays readable.
+  memberships). Erasure is `delete` or `anonymize` per the column's own
+  entry — `anonymize` where a stable, non-identifying placeholder keeps
+  history readable, `delete` where the existing schema clears the value
+  outright.
 - `private`: seen only by the subject and the system (email, IP, user
   agent, consent choices). Usually deleted on erasure.
 
 Worked examples: `users.username` is personal/public, purpose "public
-profile identity", erasure `anonymize`. `users.email` is personal/private,
-purpose "authentication", erasure `delete`.
+profile identity", erasure `delete` — ADR 0029's `users_tombstone_scrubbed`
+CHECK requires `username IS NULL` on a tombstoned row, not a placeholder,
+so `anonymize` would misdescribe the already-merged schema. `users.email`
+is personal/private, purpose "authentication", erasure `delete`.
 
 `none` and `identifier` never require a visibility. `sensitive` and
 `secret` are never emitted to any telemetry surface at all, visibility
@@ -91,13 +96,15 @@ is declared once, with all of:
 An entry with no matching column is stale and fails the gate; a column
 missing from the inventory, or a `personal` entry missing `visibility`,
 `retention`, `erasure`, `storage` or `owner`, fails the gate. This closes
-gap 1 in the spec: `outbox.payload` (an untyped JSON column fanned out to
-every browser) and every realtime topic family (`debate`,
-`debate:presence`, `debate:chat`, `user:inbox`, `standings`,
-`packages/protocol/src/topics.ts`) are telemetry-visible surfaces under
-these same rules, not an exception — a payload kind added to
-`topicFamilyPayloadKinds` classifies its fields before it may ride a
-topic.
+gap 1 in the spec: `outbox.payload` (an untyped JSON column) and every
+realtime topic family (`debate`, `debate:presence`, `debate:chat`,
+`user:inbox`, `standings`, `packages/protocol/src/topics.ts`) are
+telemetry-visible surfaces under these same rules, not an exception —
+whether a given payload kind is delivered to a browser
+(`topicFamilyPayloadKinds`) or stored only for the realtime service's own
+internal use (`storageFamilyPayloadKinds`), it classifies every field
+before it may exist (see [privacy](../operations/privacy.md) for the
+current split).
 
 The registry and its gate (`bun privacy`) are PRIV-3's mechanism; this ADR
 fixes the shape the gate enforces.
@@ -106,8 +113,10 @@ fixes the shape the gate enforces.
 
 Export and erasure are pure planners driven by the inventory; an adapter
 executes each plan in one transaction. Local erasure is atomic and reuses
-the ADR 0029 tombstone transaction: scrub private personal data, anonymize
-public personal data, delete the auth rows, revoke grants, set
+the ADR 0029 tombstone transaction: scrub private personal data, scrub
+public personal data per its own entry's erasure rule (today `delete`,
+matching `users_tombstone_scrubbed`'s `IS NULL` requirement — see §1),
+delete the auth rows, revoke grants, set
 `deleted_at`, leave `actors` and competitive history alone.
 
 **The `actors.user_id` link to a tombstoned account is retained, by ADR

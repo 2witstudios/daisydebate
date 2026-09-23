@@ -41,20 +41,30 @@ time.
 
 **`outbox.payload` and every realtime topic are telemetry-visible surfaces
 under these same rules, not an exception.** `outbox.payload`
-(`packages/db/src/schema/outbox.ts`) is an untyped JSON column that fans
-out to every subscribed browser. Of the five topic families (`debate`,
-`debate:presence`, `debate:chat`, `user:inbox`, `standings`,
-`packages/protocol/src/topics.ts`), four carry only ids and projected
-competitive state (`identifier`/`none`): `debate.phase-changed`,
-`standings.updated`, and the three `user:inbox` control kinds
-(`session.revoked`, `access.revoked`,
-`actor.presence-preference-changed`), each an array of ids only. The one
-exception is `user.notification-delivered` on `user:inbox`
-(`packages/protocol/src/realtime-payloads.ts`), which also carries
-`notificationType` (a controlled vocabulary string, category `none` —
-never free text) and `occurredAt` (a timestamp, category `none`); neither
-is personal, but both still need their own inventory entry, not a blanket
-exemption. Any payload kind added to `topicFamilyPayloadKinds` must
+(`packages/db/src/schema/outbox.ts`) is an untyped JSON column, and two
+different exposure surfaces ride it (`packages/protocol/src/realtime-
+payloads.ts`):
+
+- **Delivered to a subscribed browser** (`topicFamilyPayloadKinds`, the
+  delivery-side rule): `debate.phase-changed` on `debate`,
+  `standings.updated` on `standings`, and `user.notification-delivered` on
+  `user:inbox`. The first two carry only ids and a projected competitive
+  state (`identifier`/`none`). `user.notification-delivered` also carries
+  `notificationType` (a controlled vocabulary string, category `none` —
+  never free text) and `occurredAt` (a timestamp, category `none`);
+  neither is personal, but both still need their own inventory entry.
+- **Storage-only, never delivered as an `event` to any client**
+  (`storageFamilyPayloadKinds` only): the three `user:inbox` control kinds
+  (`session.revoked`, `access.revoked`,
+  `actor.presence-preference-changed`), each an array of ids only. These
+  are durable rows the realtime service consumes internally to close
+  sockets or re-project presence; they never ride a subscribed topic as an
+  `event` message, so their exposure is narrower than the delivered kinds
+  above, not equivalent to them.
+
+Both surfaces still need inventory entries — the point of this section is
+that neither is an exemption, delivered or storage-only. Any payload kind
+added to `topicFamilyPayloadKinds` or `storageFamilyPayloadKinds` must
 classify every one of its fields the same way a database column would
 before it can ride a topic.
 
@@ -87,9 +97,12 @@ inventory; an adapter executes each plan in one transaction.
 principal, and nothing for any other principal.
 
 **Erasure** runs the ADR 0029 tombstone transaction: private personal data
-is deleted, public personal data is anonymized, the auth rows are deleted,
-grants are revoked, `deleted_at` is set, and `actors` plus all competitive
-history are left untouched. In the same transaction, one `privacy_jobs`
+is deleted, public personal data is scrubbed per its own inventory entry
+(today `delete` — `users.username` is set `NULL`, matching
+`users_tombstone_scrubbed`, not replaced with a placeholder), the auth
+rows are deleted, grants are revoked, `deleted_at` is set, and `actors`
+plus all competitive history are left untouched. In the same transaction,
+one `privacy_jobs`
 row is inserted per vendor currently configured (none, if no vendor key is
 set). After commit, a worker retries each vendor deletion with backoff
 until the vendor acknowledges (ADR 0036 §4); a vendor outage never blocks
