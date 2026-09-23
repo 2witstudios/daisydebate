@@ -11,6 +11,8 @@ coverage/
 playwright-report/
 test-results/
 qualification-results/
+# bun verify keeps each stage's full output here.
+verify-logs/
 # pu runtime state stays local; its config and agent context are committed.
 .pu/*
 !.pu/config.yaml

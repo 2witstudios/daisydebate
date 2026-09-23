@@ -1,4 +1,11 @@
-import { resolve } from 'node:path';
+import {
+  closeSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
+import { dirname, join, relative, resolve } from 'node:path';
 
 const root = resolve(import.meta.dir, '..');
 const gateNames = [
@@ -9,7 +16,7 @@ const gateNames = [
 ] as const;
 
 export type VerifyGateName = (typeof gateNames)[number];
-type VerifyStatus = 'pass' | 'fail';
+type VerifyStatus = 'pass' | 'fail' | 'skip';
 
 export type VerifyGate = {
   readonly name: VerifyGateName;
@@ -28,10 +35,49 @@ export type VerifyCommand = {
   readonly env?: Readonly<Record<string, string>>;
 };
 
+type StageResult = { readonly code: number; readonly output: string };
+
 type VerifyOptions = {
   readonly environment?: Readonly<Record<string, string | undefined>>;
-  readonly run?: (command: VerifyCommand) => Promise<number>;
+  /** Runs a stage; the default streams it into verify-logs/<logName>.log. */
+  readonly run?: (
+    command: VerifyCommand,
+    logName: string,
+  ) => Promise<StageResult>;
+  /** Files this branch changes, for scoping browser e2e. */
+  readonly changedFiles?: () => Promise<readonly string[]>;
+  /** Stores one stage's full output; returns where it was kept. */
+  readonly writeLog?: (stage: string, output: string) => string;
+  readonly print?: (text: string) => void;
 };
+
+const TAIL_LINES = 40;
+const LOG_DIR = 'verify-logs';
+
+/**
+ * A diff that touches only documentation: Markdown under docs/, ADRs
+ * included. AGENTS.md, skills and other Markdown instruct agents or ship
+ * with the app, and data files under docs/ feed gates, so they count as code.
+ */
+export function isDocsOnly(files: readonly string[]): boolean {
+  return (
+    files.length > 0 &&
+    files.every((file) => file.startsWith('docs/') && file.endsWith('.md'))
+  );
+}
+
+/**
+ * Every file a branch changes: committed, in the working tree, and
+ * untracked. Undefined means a git command failed; with no base to compare
+ * against, the diff is assumed to touch code.
+ */
+export function combineChanges(
+  ...lists: readonly (readonly string[] | undefined)[]
+): readonly string[] {
+  return lists.every((list) => list !== undefined)
+    ? [...new Set(lists.flat() as string[])]
+    : [];
+}
 
 const pass = (name: VerifyGateName, detail: string): VerifyGate => ({
   name,
@@ -52,7 +98,7 @@ export function createVerifyReport(gates: readonly VerifyGate[]): VerifyReport {
       byName.get(name) ?? { name, status: 'fail', detail: 'not checked' },
   );
   return {
-    ok: orderedGates.every((gate) => gate.status === 'pass'),
+    ok: orderedGates.every((gate) => gate.status !== 'fail'),
     gates: orderedGates,
   };
 }
@@ -65,8 +111,7 @@ export function formatVerifyReport(
   return [
     `Daisy verify: ${report.ok ? 'PASS' : 'FAIL'}`,
     ...report.gates.map(
-      (gate) =>
-        `${gate.status === 'pass' ? 'PASS' : 'FAIL'} ${gate.name}: ${gate.detail}`,
+      (gate) => `${gate.status.toUpperCase()} ${gate.name}: ${gate.detail}`,
     ),
     '',
   ].join('\n');
@@ -97,72 +142,171 @@ function isTestDatabaseUrl(value: string | undefined): value is string {
   }
 }
 
-async function runProcess(
-  command: VerifyCommand,
-  environment: Readonly<Record<string, string | undefined>>,
-): Promise<number> {
-  const process = Bun.spawn(['bun', ...command.args], {
-    cwd: root,
-    env: createEnvironment(environment, command.env?.DATABASE_URL),
-    stdout: 'ignore',
-    stderr: 'ignore',
-  });
-  return process.exited;
-}
-
-async function runCommand(
-  command: VerifyCommand,
-  run: (command: VerifyCommand) => Promise<number>,
-): Promise<string> {
+/**
+ * Runs a stage with stdout and stderr both written straight to its log
+ * file, so the log interleaves them as written and survives a killed run.
+ */
+export async function runLogged(
+  argv: readonly string[],
+  options: {
+    readonly cwd: string;
+    readonly env: Readonly<Record<string, string | undefined>>;
+    readonly logPath: string;
+  },
+): Promise<StageResult> {
+  mkdirSync(dirname(options.logPath), { recursive: true });
+  const fd = openSync(options.logPath, 'w');
   try {
-    const exitCode = await run(command);
-    return exitCode === 0 ? 'completed' : `exit ${exitCode}`;
-  } catch {
-    return 'could not start';
+    const child = Bun.spawn([...argv], {
+      cwd: options.cwd,
+      env: options.env,
+      stdout: fd,
+      stderr: fd,
+    });
+    const code = await child.exited;
+    return { code, output: readFileSync(options.logPath, 'utf8') };
+  } finally {
+    closeSync(fd);
   }
 }
 
+const logPathOf = (stage: string): string =>
+  join(root, LOG_DIR, `${stage}.log`);
+
+function runProcess(
+  command: VerifyCommand,
+  environment: Readonly<Record<string, string | undefined>>,
+  logName: string,
+): Promise<StageResult> {
+  return runLogged(['bun', ...command.args], {
+    cwd: root,
+    env: createEnvironment(environment, command.env?.DATABASE_URL),
+    logPath: logPathOf(logName),
+  });
+}
+
+function writeStageLog(stage: string, output: string): string {
+  const path = logPathOf(stage);
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, output);
+  return relative(root, path);
+}
+
+/** Every file the branch in cwd changes against base (see combineChanges). */
+export async function gitChangedFiles(
+  cwd: string = root,
+  base = 'origin/main',
+  environment: Readonly<Record<string, string | undefined>> = process.env,
+): Promise<readonly string[]> {
+  // Git hooks export GIT_DIR and friends; the repository is cwd's, not theirs.
+  const env = Object.fromEntries(
+    Object.entries(environment).filter(([key]) => !key.startsWith('GIT_')),
+  );
+  const lines = async (args: readonly string[]) => {
+    const child = Bun.spawn(['git', ...args], {
+      cwd,
+      env,
+      stdout: 'pipe',
+      stderr: 'ignore',
+    });
+    const text = await new Response(child.stdout).text();
+    return (await child.exited) === 0
+      ? text.split('\n').filter(Boolean)
+      : undefined;
+  };
+  return combineChanges(
+    // --no-renames lists a rename's old path too: moving code under docs/
+    // is still a code change.
+    await lines(['diff', '--name-only', '--no-renames', `${base}...HEAD`]),
+    await lines(['diff', '--name-only', '--no-renames', 'HEAD']),
+    await lines(['ls-files', '--others', '--exclude-standard']),
+  );
+}
+
+type Stage = {
+  readonly run: (
+    command: VerifyCommand,
+    logName: string,
+  ) => Promise<StageResult>;
+  readonly writeLog: (stage: string, output: string) => string;
+  readonly print: (text: string) => void;
+};
+
+async function runCommand(
+  command: VerifyCommand,
+  stage: Stage,
+  logName: string = command.name,
+): Promise<string> {
+  let result: StageResult;
+  try {
+    result = await stage.run(command, logName);
+  } catch (error) {
+    result = { code: -1, output: String(error) };
+  }
+  const log = stage.writeLog(logName, result.output);
+  if (result.code === 0) return 'completed';
+  const tail = result.output.split('\n').slice(-TAIL_LINES).join('\n');
+  stage.print(
+    `--- ${logName} failed (exit ${result.code}); last ${TAIL_LINES} lines, full log ${log}\n${tail}\n`,
+  );
+  return `exit ${result.code}; log ${log}`;
+}
+
+async function migrationGate(
+  testDatabaseUrl: string | undefined,
+  stage: Stage,
+): Promise<VerifyGate> {
+  if (!isTestDatabaseUrl(testDatabaseUrl))
+    return fail('migration-idempotency', 'TEST_DATABASE_URL unavailable');
+  const command = {
+    name: 'migration-idempotency' as const,
+    args: ['run', 'db:migrate'],
+    env: { DATABASE_URL: testDatabaseUrl },
+  };
+  const first = await runCommand(command, stage, `${command.name}-1`);
+  if (first !== 'completed')
+    return fail('migration-idempotency', `first migration: ${first}`);
+  const second = await runCommand(command, stage, `${command.name}-2`);
+  return second === 'completed'
+    ? pass('migration-idempotency', 'completed twice')
+    : fail('migration-idempotency', `second migration: ${second}`);
+}
+
+const gate = (name: VerifyGateName, detail: string): VerifyGate =>
+  detail === 'completed' ? pass(name, detail) : fail(name, detail);
+
 export async function runVerify({
   environment = process.env,
-  run = (command) => runProcess(command, environment),
+  run = (command, logName) => runProcess(command, environment, logName),
+  changedFiles = () => gitChangedFiles(),
+  writeLog = writeStageLog,
+  print = (text) => void process.stderr.write(text),
 }: VerifyOptions = {}): Promise<VerifyReport> {
+  const stage: Stage = { run, writeLog, print };
   const check = await runCommand(
     { name: 'check', args: ['run', 'check'] },
-    run,
+    stage,
   );
   const integration = await runCommand(
     { name: 'integration', args: ['run', 'test:integration'] },
-    run,
+    stage,
   );
-  const e2e = await runCommand({ name: 'e2e', args: ['run', 'test:e2e'] }, run);
-
-  const testDatabaseUrl = environment.TEST_DATABASE_URL;
-  const migration = !isTestDatabaseUrl(testDatabaseUrl)
-    ? [fail('migration-idempotency', 'TEST_DATABASE_URL unavailable')]
-    : await (async () => {
-        const command = {
-          name: 'migration-idempotency' as const,
-          args: ['run', 'db:migrate'],
-          env: { DATABASE_URL: testDatabaseUrl },
-        };
-        const first = await runCommand(command, run);
-        if (first !== 'completed')
-          return [fail('migration-idempotency', `first migration: ${first}`)];
-        const second = await runCommand(command, run);
-        return [
-          second === 'completed'
-            ? pass('migration-idempotency', 'completed twice')
-            : fail('migration-idempotency', `second migration: ${second}`),
-        ];
-      })();
-
+  const files = await changedFiles();
+  const e2e = isDocsOnly(files)
+    ? {
+        name: 'e2e' as const,
+        status: 'skip' as const,
+        detail: `skipped: documentation-only diff (${files.length} file${files.length === 1 ? '' : 's'})`,
+      }
+    : gate(
+        'e2e',
+        await runCommand({ name: 'e2e', args: ['run', 'test:e2e'] }, stage),
+      );
   return createVerifyReport([
-    check === 'completed' ? pass('check', check) : fail('check', check),
-    integration === 'completed'
-      ? pass('integration', integration)
-      : fail('integration', integration),
-    e2e === 'completed' ? pass('e2e', e2e) : fail('e2e', e2e),
-    ...migration,
+    gate('check', check),
+    gate('integration', integration),
+    e2e,
+    await migrationGate(environment.TEST_DATABASE_URL, stage),
   ]);
 }
 
