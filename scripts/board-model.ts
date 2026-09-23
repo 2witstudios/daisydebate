@@ -67,20 +67,60 @@ type Parsed = BoardCommand | { readonly error: string };
 
 const fail = (error: string): Parsed => ({ error: `${error}\n${BOARD_USAGE}` });
 
-function flagValues(args: readonly string[]) {
+type Flags = {
+  readonly values: ReadonlyMap<string, readonly string[]>;
+  readonly positional: readonly string[];
+  readonly switches: ReadonlySet<string>;
+};
+
+/**
+ * Reads `--flag value`, `--flag=value` and switches, refusing an unknown
+ * flag, a flag without its value and more positional arguments than the
+ * command takes, so nothing the caller typed is silently dropped.
+ */
+function flagValues(
+  args: readonly string[],
+  known: {
+    readonly values: readonly string[];
+    readonly switches: readonly string[];
+  },
+): Flags | { readonly error: string } {
   const values = new Map<string, string[]>();
   const positional: string[] = [];
   const switches = new Set<string>();
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
-    if (arg === '--issue') switches.add(arg);
-    else if (arg.startsWith('--')) {
-      values.set(arg, [...(values.get(arg) ?? []), args[index + 1] ?? '']);
-      index += 1;
-    } else positional.push(arg);
+    const at = arg.indexOf('=');
+    const flag = arg.startsWith('--') && at !== -1 ? arg.slice(0, at) : arg;
+    if (known.switches.includes(arg)) switches.add(arg);
+    else if (known.values.includes(flag)) {
+      const value = flag === arg ? args[++index] : arg.slice(at + 1);
+      if (value === undefined || value.startsWith('--'))
+        return { error: `${flag} needs a value` };
+      values.set(flag, [...(values.get(flag) ?? []), value]);
+    } else if (arg.startsWith('--')) return { error: `Unknown flag ${flag}` };
+    else if (positional.length > 0)
+      return { error: `Unexpected argument ${arg}` };
+    else positional.push(arg);
   }
   return { values, positional, switches };
 }
+
+const CREATE_FLAGS = {
+  values: ['--title', '--criterion', '--related', '--prefix'],
+  switches: ['--issue'],
+};
+const REPLACE_FLAGS = {
+  values: [
+    '--start',
+    '--end',
+    '--expect-lines',
+    '--file',
+    '--old-file',
+    '--expect-hash',
+  ],
+  switches: [],
+};
 
 function parseRelated(entries: readonly string[]): RelatedRef[] | undefined {
   const refs = entries.map((entry) => {
@@ -93,7 +133,9 @@ function parseRelated(entries: readonly string[]): RelatedRef[] | undefined {
 }
 
 function parseCreate(args: readonly string[]): Parsed {
-  const { values, positional, switches } = flagValues(args);
+  const flags = flagValues(args, CREATE_FLAGS);
+  if ('error' in flags) return fail(flags.error);
+  const { values, positional, switches } = flags;
   const [listId] = positional;
   const title = values.get('--title')?.[0] ?? '';
   const related = parseRelated(values.get('--related') ?? []);
@@ -114,7 +156,9 @@ function parseCreate(args: readonly string[]): Parsed {
 }
 
 function parseReplace(args: readonly string[]): Parsed {
-  const { values, positional } = flagValues(args);
+  const flags = flagValues(args, REPLACE_FLAGS);
+  if ('error' in flags) return fail(flags.error);
+  const { values, positional } = flags;
   const number = (flag: string) => Number(values.get(flag)?.[0] ?? Number.NaN);
   const [pageId] = positional;
   const [start, end, expectLines] = [
