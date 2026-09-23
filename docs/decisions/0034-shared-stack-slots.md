@@ -84,6 +84,15 @@ are tiny (`daisy` 9 MB, `daisy_test` 15 MB).
   `slot:up` anywhere, or `slot:prune`, or its own `slot:down` at handoff.
 - Every checkout depends on one stack; stopping it stops everyone. The
   scripts therefore offer no `infra:down`.
+- The stack is per machine but pruning only knows its own repository's
+  worktrees: two clones of this repository on one machine would each prune
+  the other's worktree slots and share the main slot. Use worktrees of one
+  clone, never a second clone.
+- `slot:up` starts Compose only when the stack is unreachable, so a branch
+  whose compose file differs never recreates the running shared stack;
+  changing the stack's configuration is a deliberate operator step.
+- Pruning reads `git worktree list` under the slot lock, so a worktree
+  created and slotted while another `slot:up` waited is never pruned.
 - Two worktree folders that derive the same id (`a-b` and `a_b`) are
   refused rather than allowed to share a slot.
 - Migration generation is still single-writer (`bun migrations:check`); each
