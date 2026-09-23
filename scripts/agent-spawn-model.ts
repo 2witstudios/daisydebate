@@ -145,10 +145,19 @@ export type Prerequisites = {
   readonly adrs: readonly string[];
 };
 
-/** Prerequisites declared on `Prerequisite:` lines of Related pages. */
-export function findPrerequisites(html: string): Prerequisites {
-  const related = html.slice(html.lastIndexOf('Related pages'));
-  const lines = related
+const RELATED_HEADING = /<h[1-6][^>]*>\s*Related pages\s*<\/h[1-6]>/gi;
+
+/**
+ * Prerequisites declared on `Prerequisite:` lines of the list under the
+ * Related pages heading; undefined when the leaf has no such heading, so a
+ * spawn fails closed instead of reading prerequisites as none.
+ */
+export function findPrerequisites(html: string): Prerequisites | undefined {
+  const heading = [...html.matchAll(RELATED_HEADING)].at(-1);
+  if (heading === undefined) return undefined;
+  const after = html.slice(heading.index + heading[0].length);
+  const list = /^\s*<ul[^>]*>([\s\S]*?)<\/ul>/i.exec(after)?.[1] ?? '';
+  const lines = list
     .split(/<\/li>/)
     .filter((item) => /Prerequisite\s*:/i.test(item));
   const all = (pattern: RegExp) =>

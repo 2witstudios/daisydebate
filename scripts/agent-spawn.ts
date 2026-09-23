@@ -110,47 +110,57 @@ function leafStatus(deps: SpawnDeps, pageId: string): string | undefined {
   ]).tasks.find((task) => task.pageId === pageId)?.status;
 }
 
-/** Every reason a builder for this leaf must not start yet. */
+function prerequisiteChecks(deps: SpawnDeps, content: string) {
+  const prerequisites = findPrerequisites(content);
+  if (prerequisites === undefined)
+    return [
+      'the leaf has no Related pages section to declare its prerequisites in',
+    ];
+  return prerequisiteBlockers(prerequisites, {
+    prMerged: (pr) =>
+      deps
+        .run([
+          'gh',
+          'pr',
+          'view',
+          String(pr),
+          '--json',
+          'state',
+          '--jq',
+          '.state',
+        ])
+        .stdout.trim() === 'MERGED',
+    adrMerged: (adr) =>
+      deps
+        .run([
+          'git',
+          'ls-tree',
+          '--name-only',
+          'origin/main',
+          'docs/decisions/',
+        ])
+        .stdout.split('\n')
+        .some((file) => file.startsWith(`docs/decisions/${adr}-`)),
+    leafStatus: (pageId) => leafStatus(deps, pageId),
+  });
+}
+
+/** Every reason this agent must not start yet: its prompt, then its leaf. */
 function checkLeaf(deps: SpawnDeps, plan: SpawnPlan): readonly string[] {
-  if (!plan.task) return [];
-  const content =
-    pageJson<{ content?: string }>(deps, ['pages', 'read', plan.task])
-      .content ?? '';
   const table = JSON.parse(
     deps.read(join(deps.repoRoot, 'policy/superseded-terms.json')) ?? '[]',
   ) as SupersededTerm[];
-  const terms = supersededTerms(content, table);
+  const promptTerms = supersededTerms(
+    promptText(deps, plan.rest) ?? '',
+    table,
+  ).map((term) => `prompt: ${term}`);
+  if (!plan.task) return promptTerms;
+  const content =
+    pageJson<{ content?: string }>(deps, ['pages', 'read', plan.task])
+      .content ?? '';
+  const terms = [...promptTerms, ...supersededTerms(content, table)];
   if (plan.role !== 'builder') return terms;
-  return [
-    ...terms,
-    ...prerequisiteBlockers(findPrerequisites(content), {
-      prMerged: (pr) =>
-        deps
-          .run([
-            'gh',
-            'pr',
-            'view',
-            String(pr),
-            '--json',
-            'state',
-            '--jq',
-            '.state',
-          ])
-          .stdout.trim() === 'MERGED',
-      adrMerged: (adr) =>
-        deps
-          .run([
-            'git',
-            'ls-tree',
-            '--name-only',
-            'origin/main',
-            'docs/decisions/',
-          ])
-          .stdout.split('\n')
-          .some((file) => file.startsWith(`docs/decisions/${adr}-`)),
-      leafStatus: (pageId) => leafStatus(deps, pageId),
-    }),
-  ];
+  return [...terms, ...prerequisiteChecks(deps, content)];
 }
 
 function checkCap(deps: SpawnDeps, plan: SpawnPlan): readonly string[] {
