@@ -285,4 +285,87 @@ describe('verifyReviewRecord', () => {
         'A no-findings verdict needs bun test:integration PASS and a negative control in Gates run',
     });
   });
+
+  test('fails closed when a linked page cannot be read', () => {
+    assert({
+      given: 'an approving record and a linked page that returned an error',
+      should: 'fail, naming the page, instead of judging the rest',
+      actual: verifyReviewRecord(pr, [record()], ['rec2222222222222222222222']),
+      expected: {
+        state: 'failure',
+        description:
+          'Linked page rec2222222222222222222222 could not be read; review-record fails closed',
+      },
+    });
+  });
+
+  test('reads only the last Verdict heading, and only a real heading line', () => {
+    const appended = record({
+      verdict: [
+        '1 blocker / 0 major / 0 minor / 0 nit — CHANGES REQUESTED',
+        '## Verdict',
+        '0 blocker / 0 major / 1 minor / 0 nit — APPROVE WITH MINORS',
+      ].join('\n'),
+    });
+    const prose = record({
+      verdict: [
+        '1 blocker / 0 major / 0 minor / 0 nit — CHANGES REQUESTED',
+        'Quoting the earlier verdict',
+        '0 blocker / 0 major / 1 minor / 0 nit — APPROVE WITH MINORS',
+      ].join('\n'),
+    });
+    assert({
+      given:
+        'a record whose last Verdict heading approves, and one whose prose line mentioning a verdict precedes an approval below the real heading',
+      should:
+        'take the last heading, and never a line that only contains the word',
+      actual: [
+        verifyReviewRecord(pr, [appended]).state,
+        verifyReviewRecord(pr, [prose]).state,
+      ],
+      expected: ['success', 'failure'],
+    });
+  });
+
+  test('reads no-findings evidence only from Gates run, and refuses a PASS that did not run', () => {
+    const clean = '0 blocker / 0 major / 0 minor / 0 nit — APPROVE';
+    const quoted = record({
+      verdict: clean,
+      gates: 'bun check: PASS',
+      findings: [
+        'bun test:integration: PASS (165 pass)',
+        'Negative control run: yes',
+      ].join('\n'),
+    });
+    const notRun = record({
+      verdict: clean,
+      gates: [
+        'bun test:integration: PASS (not run)',
+        'Negative control run: yes',
+      ].join('\n'),
+    });
+    const why =
+      'A no-findings verdict needs bun test:integration PASS and a negative control in Gates run';
+    assert({
+      given:
+        'evidence lines quoted under Findings, and "PASS (not run)" under Gates run',
+      should: 'refuse both',
+      actual: [
+        verifyReviewRecord(pr, [quoted]).description,
+        verifyReviewRecord(pr, [notRun]).description,
+      ],
+      expected: [why, why],
+    });
+  });
+
+  test('reads records only from the Daisy drive', () => {
+    assert({
+      given: 'links to a Daisy page and to a page in another drive',
+      should: 'return only the Daisy page',
+      actual: linkedPageIds([
+        `${url}/rec1111111111111111111111 https://pagespace.ai/dashboard/otherdrive0000000000000/rec3333333333333333333333`,
+      ]),
+      expected: ['rec1111111111111111111111'],
+    });
+  });
 });

@@ -27,7 +27,12 @@ export type Verdict = {
   readonly recordId?: string;
 };
 
-const PAGE_LINK = /pagespace\.ai\/dashboard\/[a-z0-9]+\/([a-z0-9]{20,32})/g;
+/** The Daisy Debate drive: records anywhere else are never read. */
+export const DAISY_DRIVE = 'lguvh1y1ejhadk96xcftohha';
+const PAGE_LINK = new RegExp(
+  String.raw`pagespace\.ai\/dashboard\/${DAISY_DRIVE}\/([a-z0-9]{20,32})`,
+  'g',
+);
 const CANDIDATE =
   /Candidate:\s*([0-9a-f]{40})\s*·\s*PR #(\d+)\s*·\s*Builder:\s*(\S+)\s*·\s*Reviewer:\s*(\S+)/;
 const VERDICT_HEADING = /^#*\s*Verdict$/;
@@ -70,9 +75,25 @@ function finalVerdict(text: string) {
   return { blockers, majors, minors, nits, verdict: match[5].trim() };
 }
 
-/** Gates run evidence, each on its own line: `<gate>: PASS …`, `… run: yes`. */
-const gateLine = (text: string, gate: RegExp): boolean =>
-  textLines(text).some((line) => gate.test(line));
+const GATES_HEADING = /^#*\s*Gates run$/;
+const NEXT_HEADING =
+  /^#*\s*(?:Findings|Criteria|Negative controls?|Checked and found sound|What is good|Verdict)$/;
+
+/**
+ * Gates run evidence: a line of the Gates run section itself that passed,
+ * never one quoted elsewhere, and never a PASS that says it did not run.
+ */
+function gateLine(text: string, gate: RegExp): boolean {
+  const lines = textLines(text);
+  const start = lines.findIndex((line) => GATES_HEADING.test(line));
+  if (start === -1) return false;
+  const end = lines.findIndex(
+    (line, index) => index > start && NEXT_HEADING.test(line),
+  );
+  return lines
+    .slice(start + 1, end === -1 ? undefined : end)
+    .some((line) => gate.test(line) && !/not run|\?/i.test(line));
+}
 
 /** Why this record does not approve the PR; undefined when it does. */
 function recordProblem(
@@ -115,7 +136,15 @@ function verdictProblem(text: string): string | undefined {
 export function verifyReviewRecord(
   pr: PullRequest,
   records: readonly RecordPage[],
+  /** Linked pages that could not be read: any one fails the check. */
+  unreadable: readonly string[] = [],
 ): Verdict {
+  const [missing] = unreadable;
+  if (missing !== undefined)
+    return {
+      state: 'failure',
+      description: `Linked page ${missing} could not be read; review-record fails closed`,
+    };
   const forSha = records.filter(
     (record) =>
       record.title.includes(pr.headSha) ||
@@ -173,15 +202,26 @@ function ghJson<T>(args: readonly string[]): T {
   return JSON.parse(result.stdout) as T;
 }
 
+/** A linked page, or undefined when it cannot be read or is not Daisy's. */
 async function readRecord(id: string): Promise<RecordPage | undefined> {
   const { apiUrl, headers } = pagespaceApi();
-  const response = await fetch(new URL(`/api/pages/${id}`, apiUrl), {
-    headers,
-    redirect: 'error',
-  });
-  if (!response.ok) return undefined;
-  const page = (await response.json()) as { title?: string; content?: string };
-  return { id, title: page.title ?? '', content: page.content ?? '' };
+  try {
+    const response = await fetch(new URL(`/api/pages/${id}`, apiUrl), {
+      headers,
+      redirect: 'error',
+    });
+    if (!response.ok) return undefined;
+    const page = (await response.json()) as {
+      title?: string;
+      content?: string;
+      driveId?: string;
+    };
+    return page.driveId === DAISY_DRIVE
+      ? { id, title: page.title ?? '', content: page.content ?? '' }
+      : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export async function main(repository: string, prNumber: number) {
@@ -200,11 +240,13 @@ export async function main(repository: string, prNumber: number) {
     body: pull.body ?? '',
   };
   const ids = linkedPageIds([pr.body, ...comments.map((c) => c.body)]);
-  const records = (await Promise.all(ids.map(readRecord))).filter(
+  const read = await Promise.all(ids.map(readRecord));
+  const records = read.filter(
     (record): record is RecordPage => record !== undefined,
   );
-  const verdict = verifyReviewRecord(pr, records);
-  const driveUrl = 'https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha';
+  const unreadable = ids.filter((_, index) => read[index] === undefined);
+  const verdict = verifyReviewRecord(pr, records, unreadable);
+  const driveUrl = `https://pagespace.ai/dashboard/${DAISY_DRIVE}`;
   ghJson([
     'api',
     '-X',
