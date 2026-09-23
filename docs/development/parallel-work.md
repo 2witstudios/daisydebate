@@ -42,7 +42,10 @@ PageSpace's lesson: branch debris accumulates faster than agents clean it
   independent review record, never from the agent that did the work. Every
   agent also publishes its own handoff or review record in the drive's
   `Plans`/`Reviews` folders, because those are the record a reviewer reads.
-  `/tmp` and agent-local notes are scratch.
+  An agent's built-in todo lists, plan mode files, memory stores, local
+  `plan.md`/`TODO.md` files and `/tmp` are scratch only, whichever agent it
+  is (Claude Code, Codex, OpenCode): anything another session or a
+  reviewer needs must be a PageSpace page.
 - Deviating from a task's acceptance criteria is allowed exactly one way:
   take it back to whoever delegated the task, who updates the task body (or
   the plan) to describe the new approach **before** the work is declared

@@ -1,14 +1,16 @@
 # Parallel worktree workflow
 
-`pu` is the preferred orchestration tool when multiple OpenCode agents or
+`pu` is the preferred orchestration tool when multiple Claude Code agents or
 isolated worktrees are involved. It is not mandatory for direct single-agent
 work. Parallel or isolated work should use `pu` so branches, worktrees, logs,
-and cleanup remain visible to the orchestrator.
+and cleanup remain visible to the orchestrator. `pu spawn` defaults to the
+`claude` agent type; pass `--agent-args` for extra CLI flags such as a model
+override.
 
 ## Common flow
 
 ```text
-pu spawn -a opencode -n NAME -b BASE
+pu spawn -n NAME -b BASE "prompt"
 pu status
 pu logs AGENT_ID
 pu attach AGENT_ID
@@ -29,23 +31,22 @@ when the task specifically needs a playbook run or a benchmark; they are not
 required for ordinary development.
 
 The orchestrator coordinates the PageSpace task board: claiming work,
-recording plans, and marking acceptance. Delegated agents write the board too,
-through the `pagespace` CLI (follow-up leaves, `Issues` entries for non-epic
-findings, status, evidence), but never edit
-the acceptance criteria or scope of a task delegated to them; a change to their
-own spec goes back to the orchestrator. After completion,
-the orchestrator uses `pu kill` and any repository-approved cleanup flow to
-remove stopped agent sessions and stale worktrees.
+recording plans, and marking acceptance. Delegated agents keep the board
+current too, following [parallel work](parallel-work.md#branch-and-worktree-hygiene):
+they never edit the acceptance criteria or scope of a task delegated to
+them, and a change to their own spec goes back to the orchestrator. After
+completion, the orchestrator uses `pu kill` and any repository-approved
+cleanup flow to remove stopped agent sessions and stale worktrees.
 
-## Acceptance criteria
+## Rules
 
-- Given parallel or isolated agent work, should use `pu spawn` and separate
-  worktrees, with status and logs discoverable through `pu status` and
-  `pu logs`.
-- Given a focused delegated task, should use `pu send` or `pu attach` without
-  editing another agent's worktree.
-- Given completed or abandoned work, should use `pu kill` followed by `pu clean`;
-  the orchestrator owns coordination and acceptance decisions on the PageSpace
-  board while delegated agents keep their own status, evidence, follow-up
-  leaves and Issues entries current.
-- Given direct single-agent work, should be allowed to proceed without `pu`.
+- Use `pu spawn` and separate worktrees for parallel or isolated agent work;
+  status and logs stay discoverable through `pu status` and `pu logs`.
+- Send a focused delegated task through `pu send` or `pu attach`; never edit
+  another agent's worktree directly.
+- Stop completed or abandoned work with `pu kill` followed by `pu clean`.
+  The orchestrator owns coordination and acceptance decisions on the
+  PageSpace board; delegated agents keep their own status, evidence,
+  follow-up leaves and Issues entries current (see
+  [parallel work](parallel-work.md#branch-and-worktree-hygiene)).
+- Direct single-agent work may proceed without `pu`.
