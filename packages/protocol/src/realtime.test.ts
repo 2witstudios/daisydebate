@@ -1,73 +1,29 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  backpressureBounds,
-  buildDebateChatTopic,
-  buildDebatePresenceTopic,
-  buildDebateTopic,
-  buildStandingsTopic,
-  buildUserInboxTopic,
-  cursorSchema,
-  heartbeatMs,
-  idleTimeout,
-  parseTopic,
-  reconnectBudgetMs,
-  seasonIdSchema,
-  topicStringSchema,
-} from './realtime';
+import { cursorSchema } from './realtime';
+import { buildUserInboxTopic, parseTopic, topicStringSchema } from './topics';
 
 setupRitewayBun();
-
-describe('protocol constants (ADR 0031 §7, §9; ADR 0033 §6)', () => {
-  test('names the heartbeat, reconnect budget, idle timeout and backpressure bounds the ADRs fix', () => {
-    assert({
-      given: 'the exported protocol constants',
-      should: 'equal the values ADR 0031 and ADR 0033 fix',
-      actual: {
-        heartbeatMs,
-        reconnectBudgetMs,
-        idleTimeout,
-        backpressureBounds,
-      },
-      expected: {
-        heartbeatMs: 15_000,
-        reconnectBudgetMs: 10_000,
-        idleTimeout: 36,
-        backpressureBounds: { hardBytes: 1_048_576, softBytes: 262_144 },
-      },
-    });
-  });
-
-  test('satisfies the check-in-grace-covers-reconnect invariant input ADR 0033 §6 fixes', () => {
-    assert({
-      given: 'heartbeatMs and reconnectBudgetMs',
-      should:
-        'size a 40 000 ms grace floor: heartbeatMs * 2 + reconnectBudgetMs',
-      actual: heartbeatMs * 2 + reconnectBudgetMs,
-      expected: 40_000,
-    });
-  });
-});
 
 const id = 'k2v9x0f4m8q3w1z7c5n6b4d2';
 
 describe('topic grammar', () => {
-  test('builds every topic shape and parses it back', () => {
+  test('parses every topic family, and the inbox builder round-trips', () => {
     assert({
-      given: 'a debate id',
-      should: 'build the bare debate topic',
-      actual: buildDebateTopic(id),
-      expected: `debate:${id}`,
+      given: 'an actor id',
+      should: 'build the inbox topic',
+      actual: buildUserInboxTopic(id),
+      expected: `user:${id}:inbox`,
     });
     assert({
-      given: 'the built topics for every family',
-      should: 'parse back to the matching family and ids',
+      given: 'a topic of every family',
+      should: 'parse to the matching family and ids',
       actual: [
-        parseTopic(buildDebateTopic(id)),
-        parseTopic(buildDebatePresenceTopic(id)),
-        parseTopic(buildDebateChatTopic(id)),
+        parseTopic(`debate:${id}`),
+        parseTopic(`debate:${id}:presence`),
+        parseTopic(`debate:${id}:chat`),
         parseTopic(buildUserInboxTopic(id)),
-        parseTopic(buildStandingsTopic('2026')),
+        parseTopic('standings:2026'),
       ],
       expected: [
         { family: 'debate', debateId: id },
@@ -101,8 +57,8 @@ describe('topic grammar', () => {
     });
   });
 
-  test('builders throw on a non-cuid2 segment instead of building a bad topic', () => {
-    expect(() => buildDebateTopic('not-a-cuid2')).toThrow();
+  test('the builder throws on a non-cuid2 segment instead of building a bad topic', () => {
+    expect(() => buildUserInboxTopic('not-a-cuid2')).toThrow();
   });
 
   test('rejects a season slug with a trailing hyphen', () => {
@@ -110,9 +66,9 @@ describe('topic grammar', () => {
       given: 'a season slug ending in a hyphen',
       should: 'reject it',
       actual: [
-        seasonIdSchema.safeParse('2026-').success,
-        seasonIdSchema.safeParse('2026').success,
-        seasonIdSchema.safeParse('fall-2026').success,
+        parseTopic('standings:2026-') !== undefined,
+        parseTopic('standings:2026') !== undefined,
+        parseTopic('standings:fall-2026') !== undefined,
       ],
       expected: [false, true, true],
     });

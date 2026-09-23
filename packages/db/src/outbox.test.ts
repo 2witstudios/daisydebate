@@ -120,7 +120,7 @@ describe('appendOutboxEvent input validation', () => {
     const actorId = createId();
     const topic = buildUserInboxTopic(actorId);
     const kind = 'session.revoked' as const;
-    const payload = { version: 1, kind, ids: [actorId] };
+    const payload = { entityVersion: 1, kind, ids: [actorId] };
     const attempts = await Promise.all(
       [
         { topic: '', kind, version: 1, payload },
@@ -218,7 +218,7 @@ describe('appendOutboxEvent storage-side family rule (RT-2.1c, plan revision 4.1
       topic,
       kind: 'session.revoked',
       version: 1,
-      payload: { version: 1, kind: 'session.revoked', ids: [actorId] },
+      payload: { entityVersion: 1, kind: 'session.revoked', ids: [actorId] },
     })
       .then(() => 'accepted')
       .catch(() => 'refused');
@@ -228,7 +228,7 @@ describe('appendOutboxEvent storage-side family rule (RT-2.1c, plan revision 4.1
       topic,
       kind: 'standings.updated',
       version: 1,
-      payload: { version: 1, kind: 'standings.updated', ids: [actorId] },
+      payload: { entityVersion: 1, kind: 'standings.updated', ids: [actorId] },
     })
       .then(() => 'accepted')
       .catch(() => 'refused');
@@ -261,7 +261,7 @@ describe('appendOutboxEvent storage-side family rule (RT-2.1c, plan revision 4.1
       topic,
       kind: 'bogus.kind',
       version: 1,
-      payload: { version: 1, kind: 'session.revoked', ids: [actorId] },
+      payload: { entityVersion: 1, kind: 'session.revoked', ids: [actorId] },
     })
       .then(() => 'accepted')
       .catch(() => 'refused');

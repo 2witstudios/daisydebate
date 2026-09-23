@@ -7,62 +7,38 @@ import { idSchema } from './primitives';
  * hyphens), but a trailing hyphen is never valid: the slug must start and
  * end on an alphanumeric.
  */
-export const seasonIdSchema = z
-  .string()
-  .regex(/^[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?$/);
+const seasonIdSchema = z.string().regex(/^[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?$/);
 
 /**
- * The five topic families this epic delivers on. Every other string is
- * refused: by `parseTopic` at the trust boundary, and by
- * `subscribeAuthorizationTable` for anything not listed there.
- *
- * Lives in its own module (not realtime.ts or realtime-payloads.ts) because
- * both of those need it and neither may import the other without a cycle:
- * realtime.ts's `event` message validates against `realtime-payloads.ts`'s
- * outbox schema, and that validation is keyed by topic family.
+ * The one topic-family vocabulary: the five families realtime delivers on.
+ * A family is a topic's first segment, plus its third when it has one
+ * (`debate:<id>:presence` is `debate:presence`). Every other string is
+ * refused by `parseTopic` at the trust boundary. The outbox storage rule
+ * (realtime-payloads.ts) is keyed by it.
  */
-export type TopicFamily =
-  'debate' | 'debate:presence' | 'debate:chat' | 'user:inbox' | 'standings';
+const topicFamilies = [
+  'debate',
+  'debate:presence',
+  'debate:chat',
+  'user:inbox',
+  'standings',
+] as const;
+const topicFamilySchema = z.enum(topicFamilies);
+export type TopicFamily = z.infer<typeof topicFamilySchema>;
 
-export type ParsedTopic =
-  | { readonly family: 'debate'; readonly debateId: string }
-  | { readonly family: 'debate:presence'; readonly debateId: string }
-  | { readonly family: 'debate:chat'; readonly debateId: string }
+type ParsedTopic =
+  | {
+      readonly family: Exclude<TopicFamily, 'user:inbox' | 'standings'>;
+      readonly debateId: string;
+    }
   | { readonly family: 'user:inbox'; readonly actorId: string }
   | { readonly family: 'standings'; readonly season: string };
 
-function parseDebateTopic(segments: string[]): ParsedTopic | undefined {
-  if (segments.length < 2 || segments.length > 3) return undefined;
-  const debateId = segments[1]!;
-  if (!idSchema.safeParse(debateId).success) return undefined;
-  if (segments.length === 2) return { family: 'debate', debateId };
-  const suffix = segments[2]!;
-  if (suffix === 'presence') return { family: 'debate:presence', debateId };
-  if (suffix === 'chat') return { family: 'debate:chat', debateId };
+/** `<head>:<key>` or `<head>:<key>:<suffix>` names the family `<head>[:<suffix>]`. */
+function familyOf(segments: readonly string[]): string | undefined {
+  if (segments.length === 2) return segments[0];
+  if (segments.length === 3) return `${segments[0]}:${segments[2]}`;
   return undefined;
-}
-
-/**
- * The owner segment is the ticket's `actorId`, not a `users.id` (actors and
- * users are distinct ids, ADR 0031 §5): `user:inbox` subscribe
- * authorization matches this segment against the connecting ticket's
- * actorId (`subscribeAuthorizationTable` in ./realtime), never the caller's
- * `users` row.
- */
-function parseUserTopic(segments: string[]): ParsedTopic | undefined {
-  if (segments.length !== 3 || segments[2] !== 'inbox') return undefined;
-  const actorId = segments[1]!;
-  return idSchema.safeParse(actorId).success
-    ? { family: 'user:inbox', actorId }
-    : undefined;
-}
-
-function parseStandingsTopic(segments: string[]): ParsedTopic | undefined {
-  if (segments.length !== 2) return undefined;
-  const season = segments[1]!;
-  return seasonIdSchema.safeParse(season).success
-    ? { family: 'standings', season }
-    : undefined;
 }
 
 /**
@@ -71,19 +47,24 @@ function parseStandingsTopic(segments: string[]): ParsedTopic | undefined {
  * for anything that is not one of the five known shapes exactly, including
  * extra segments or a missing/malformed id — parsing never normalizes or
  * repairs input (ADR 0023).
+ *
+ * The `user:inbox` key is the ticket's `actorId`, not a `users.id` (actors
+ * and users are distinct ids, ADR 0031 §5): subscribe authorization matches
+ * it against the connecting ticket's actorId, never the caller's `users` row.
  */
 export function parseTopic(topic: string): ParsedTopic | undefined {
   const segments = topic.split(':');
-  switch (segments[0]) {
-    case 'debate':
-      return parseDebateTopic(segments);
-    case 'user':
-      return parseUserTopic(segments);
-    case 'standings':
-      return parseStandingsTopic(segments);
-    default:
-      return undefined;
-  }
+  const family = topicFamilySchema.safeParse(familyOf(segments));
+  if (!family.success) return undefined;
+  const key = segments[1]!;
+  if (family.data === 'standings')
+    return seasonIdSchema.safeParse(key).success
+      ? { family: 'standings', season: key }
+      : undefined;
+  if (!idSchema.safeParse(key).success) return undefined;
+  return family.data === 'user:inbox'
+    ? { family: 'user:inbox', actorId: key }
+    : { family: family.data, debateId: key };
 }
 
 /**
@@ -101,18 +82,9 @@ export const topicStringSchema = z
   });
 
 /**
- * The only way topic strings are built. Every consumer in `apps/web` and
- * `apps/realtime` must call these instead of building the string by hand;
- * the drift-guard test enforces it. Each builder validates its id segment
- * and throws on a malformed one, so a bad topic is never constructed.
+ * The only way a topic string is built: the id segment is validated and a
+ * malformed one throws, so a bad topic is never constructed. Builders for
+ * the other families are added with their first consumer.
  */
-export const buildDebateTopic = (debateId: string): string =>
-  `debate:${idSchema.parse(debateId)}`;
-export const buildDebatePresenceTopic = (debateId: string): string =>
-  `debate:${idSchema.parse(debateId)}:presence`;
-export const buildDebateChatTopic = (debateId: string): string =>
-  `debate:${idSchema.parse(debateId)}:chat`;
 export const buildUserInboxTopic = (actorId: string): string =>
   `user:${idSchema.parse(actorId)}:inbox`;
-export const buildStandingsTopic = (season: string): string =>
-  `standings:${seasonIdSchema.parse(season)}`;

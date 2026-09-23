@@ -1,5 +1,9 @@
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { and, eq, lt, sql } from 'drizzle-orm';
+import type {
+  EmailDeliveryStatus,
+  EmailSuppressionReason,
+} from '@daisy/protocol';
 import { verifications } from './schema/auth';
 import {
   emailDeliveries,
@@ -86,9 +90,9 @@ export const emailDeliveryOperations = ({
   async applyEmailDeliveryEvent(input: {
     eventId: string;
     providerMessageId: string;
-    status: string;
+    status: EmailDeliveryStatus;
     rank: number;
-    suppress: 'bounce' | 'complaint' | null;
+    suppress: EmailSuppressionReason | null;
     at: string;
   }): Promise<'applied' | 'duplicate' | 'unknown-message'> {
     const unknown = Symbol('unknown-message');

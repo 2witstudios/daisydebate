@@ -1,3 +1,4 @@
+import { debateSides } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -23,7 +24,7 @@ import {
 import { debateParticipants } from './debate-participants';
 import { debates } from './debates';
 
-export const ballotDecisions = ['affirmative', 'negative', 'draw'] as const;
+export const ballotDecisions = [...debateSides, 'draw'] as const;
 export const ballotStatuses = ['submitted', 'voided'] as const;
 
 /**

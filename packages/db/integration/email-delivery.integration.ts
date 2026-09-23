@@ -1,6 +1,10 @@
 import { expect, test } from 'bun:test';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
+import type {
+  EmailDeliveryStatus,
+  EmailSuppressionReason,
+} from '@daisy/protocol';
 import { createDatabase } from '../src';
 const url = process.env.TEST_DATABASE_URL;
 if (!url)
@@ -45,9 +49,9 @@ test('delivery events dedupe, never lower status, and suppress only after hard f
 
     const event = (
       eventId: string,
-      status: string,
+      status: EmailDeliveryStatus,
       rank: number,
-      suppress: 'bounce' | 'complaint' | null = null,
+      suppress: EmailSuppressionReason | null = null,
     ) =>
       database.applyEmailDeliveryEvent({
         eventId,

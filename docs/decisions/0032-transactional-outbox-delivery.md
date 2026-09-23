@@ -50,12 +50,12 @@ created_at timestamptz NOT NULL DEFAULT statement_timestamp()
 to the outbox needs `INSERT` on `outbox` and `USAGE` on its `seq` sequence,
 both granted in the migration that creates the table or the role.
 
-`version` is the version of the entity the row announces (what a client
-compares to detect a gap), not a fixed payload-schema constant: it only
-ever increases, so `@daisy/protocol`'s payload schemas (section 6) validate
-it as a positive integer, never the literal `1`. The row's own `payload`
-carries this same value; there is no separate `version` on the `event`
-message.
+The row's `version` column is the version of the entity the row announces
+(what a client compares to detect a gap), not a fixed payload-schema
+constant: it only ever increases, so `@daisy/protocol`'s payload schemas
+(section 6) validate it as a positive integer, never the literal `1`. The
+row's own `payload` carries this same value as `entityVersion`, a name no
+schema version uses; there is no separate version on the `event` message.
 
 A position is the pair `(txid, seq)`. A drain reads:
 
@@ -275,15 +275,15 @@ topic.
 ### 6. Payload policy
 
 - **Public topics carried through the outbox** (`debate:<id>`,
-  `standings:<season>`) carry doorbells only: ids, `kind` and `version`.
+  `standings:<season>`) carry doorbells only: ids, `kind` and `entityVersion`.
   Never user content, names or text. `debate:<id>:presence` is a public
   topic too, but it carries no outbox payload at all: presence is never
   written to the outbox (ADR 0033 §1) and is delivered instead as the
   `presence.changed` server message (ADR 0031 §6), which names no `kind`
-  and carries no `version`.
+  and carries no `entityVersion`.
 - **Owner-only topics** (`user:<id>:inbox`) may carry small typed deltas, since
   only the owner can subscribe.
-- The doorbell kind names, exactly (`@daisy/protocol`'s `doorbellKinds`):
+- The doorbell kind names, exactly (`@daisy/protocol`'s outbox payload schema):
   `debate.phase-changed` (the `debate:<id>` family) and
   `standings.updated` (the `standings:<season>` family). The owner-only
   inbox delta kind is `user.notification-delivered` (the `user:<id>:inbox`
@@ -292,13 +292,11 @@ topic.
   `access.revoked` (section 5) and `actor.presence-preference-changed` (a
   visibility preference change, appended in the settings transaction,
   RT-3.2b) are outbox rows on `user:<actorId>:inbox`, never rows without a
-  topic. `@daisy/protocol` keeps two family rules for exactly this reason: a
-  **storage-side** rule (`storageFamilyPayloadKinds`,
-  `isPayloadStorableOnTopic`) that `@daisy/db`'s append validates against
-  before insert, which allows these three control kinds on `user:inbox`; and
-  the **delivery-side** rule above (`topicFamilyPayloadKinds`,
-  `isPayloadAllowedOnTopic`) that the `event` message's refinement enforces,
-  which never allows them anywhere. Realtime consumes the three control
+  topic. `@daisy/protocol`'s storage rule (`isPayloadStorableOnTopic`),
+  which `@daisy/db`'s append validates against before insert, allows these
+  three control kinds on `user:inbox`; the delivery rule the `event`
+  message enforces, added with the first `event` sender, never allows them
+  anywhere. Realtime consumes the three control
   kinds straight from its own drain of the inbox topic — closing revoked
   sockets, unsubscribing a revoked actor, and re-projecting that actor's
   presence locally and ringing `presence.changed` — and never forwards them

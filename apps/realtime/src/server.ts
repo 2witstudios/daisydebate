@@ -1,5 +1,4 @@
 import type { Server } from 'bun';
-import { backpressureBounds, idleTimeout } from '@daisy/protocol';
 import type { Logger } from '@daisy/logger';
 import { checkReadiness, type ReadinessResources } from './health';
 import {
@@ -7,6 +6,15 @@ import {
   type SocketData,
   type SocketTimers,
 } from './socket';
+
+/**
+ * Bun socket tuning, server-side and Bun-specific, so it lives here rather
+ * than in the portable protocol. `idleTimeout` is in seconds, not
+ * milliseconds: it reaps a silent peer (ADR 0031 §7). The backpressure
+ * limit is the hard backstop in bytes (ADR 0031 §9).
+ */
+const IDLE_TIMEOUT_SECONDS = 36;
+const BACKPRESSURE_LIMIT_BYTES = 1_048_576;
 
 /** ADR 0031 §3: sockets connect on exactly this path; everywhere else is HTTP. */
 export const SOCKET_PATH = '/ws';
@@ -73,8 +81,8 @@ export function createRealtimeServer({
       // ADR 0031 §6, §9, §10: 4 KiB inbound frames, the measured idle
       // reaping window, the hard backpressure backstop, and compression off.
       maxPayloadLength: 4096,
-      idleTimeout,
-      backpressureLimit: backpressureBounds.hardBytes,
+      idleTimeout: IDLE_TIMEOUT_SECONDS,
+      backpressureLimit: BACKPRESSURE_LIMIT_BYTES,
       closeOnBackpressureLimit: true,
       perMessageDeflate: false,
       sendPings: true,

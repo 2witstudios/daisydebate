@@ -1,14 +1,22 @@
-import { clientMessageSchema, type CloseCodeReason } from '@daisy/protocol';
+import {
+  clientMessageSchema,
+  closeCodeTable,
+  type CloseCodeReason,
+} from '@daisy/protocol';
 
 export type FirstMessageOutcome = {
   readonly code: number;
   readonly reason: CloseCodeReason;
 };
-const AUTH_FAILED: FirstMessageOutcome = { code: 4001, reason: 'auth_failed' };
-const PROTOCOL_UNSUPPORTED: FirstMessageOutcome = {
-  code: 4003,
-  reason: 'protocol_unsupported',
+
+/** The protocol's close code for a reason: the table is the one authority. */
+export const closeFor = (reason: CloseCodeReason): FirstMessageOutcome => {
+  const entry = closeCodeTable.find((row) => row.reason === reason);
+  if (!entry) throw new Error(`No close code for ${reason}`);
+  return { code: entry.code, reason: entry.reason };
 };
+const AUTH_FAILED = closeFor('auth_failed');
+const PROTOCOL_UNSUPPORTED = closeFor('protocol_unsupported');
 
 /**
  * ADR 0031 §6, §11: evaluates a socket's first inbound frame. An unparseable

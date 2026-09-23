@@ -1,52 +1,6 @@
 import { z } from 'zod';
-import { idSchema, errorSchema, debateRoles } from './primitives';
-import { topicStringSchema, parseTopic, type TopicFamily } from './topics';
-import {
-  outboxPayloadSchema,
-  isPayloadAllowedOnTopic,
-} from './realtime-payloads';
-
-/**
- * Explicit re-exports, not `export *` (AGENTS.md: explicit exports, no
- * barrels). `@daisy/protocol` still has one public entry, `./src/index.ts`,
- * which re-exports this module; these three named blocks are what make
- * every symbol from `topics.ts`, `close-codes.ts` and `realtime-payloads.ts`
- * reachable from it, listed by name rather than by wildcard.
- */
-export {
-  seasonIdSchema,
-  parseTopic,
-  topicStringSchema,
-  buildDebateTopic,
-  buildDebatePresenceTopic,
-  buildDebateChatTopic,
-  buildUserInboxTopic,
-  buildStandingsTopic,
-} from './topics';
-export type { TopicFamily, ParsedTopic } from './topics';
-
-export { closeCodeTable } from './close-codes';
-export type { CloseCodeReason } from './close-codes';
-
-export {
-  doorbellKinds,
-  doorbellKindSchema,
-  doorbellPayloadSchema,
-  inboxDeltaPayloadSchema,
-  sessionRevokedPayloadSchema,
-  accessRevokedPayloadSchema,
-  actorPresencePreferenceChangedPayloadSchema,
-  outboxPayloadSchema,
-  topicFamilyPayloadKinds,
-  storageFamilyPayloadKinds,
-  isPayloadAllowedOnTopic,
-  isPayloadStorableOnTopic,
-} from './realtime-payloads';
-export type {
-  DoorbellKind,
-  OutboxPayload,
-  OutboxPayloadKind,
-} from './realtime-payloads';
+import { idSchema } from './primitives';
+import { topicStringSchema } from './topics';
 
 /**
  * Nominal branding (a phantom marker, erased at runtime) so
@@ -88,9 +42,8 @@ export const PROTOCOL_VERSION: ProtocolVersion = 1 as ProtocolVersion;
  * schema's `protocolVersion` field, or `z.literal(PROTOCOL_VERSION)` into
  * `buildEnvelope`'s `v` field (M3a as worded, on either half): those
  * mutations bypass these builders entirely, so it is
- * `buildHelloMessageSchema`, `buildClientMessageSchema` and
- * `buildServerMessageSchema` below, each tested with distinct injected
- * versions, that catch them.
+ * `buildHelloMessageSchema` and `buildClientMessageSchema` below, each
+ * tested with distinct injected versions, that catch them.
  */
 function envelopeVersionLiteral(
   version: EnvelopeVersion,
@@ -131,24 +84,6 @@ export function buildHelloMessageSchema(
 }
 
 /**
- * Heartbeat, reconnect and backpressure constants `@daisy/protocol` owns
- * (ADR 0031 §7, §9; ADR 0033 §6). `heartbeatMs` and `reconnectBudgetMs` are
- * also consumed as engine rules-validation inputs
- * (`debate.rules.check-in-grace-covers-reconnect`, ADR 0033 §6); the socket
- * and backpressure bounds are consumed by `apps/realtime`.
- */
-export const heartbeatMs = 15_000;
-export const reconnectBudgetMs = 10_000;
-/** Bun `idleTimeout` seconds (not milliseconds): reaps a silent peer. */
-export const idleTimeout = 36;
-export const backpressureBounds = {
-  /** `backpressureLimit` + `closeOnBackpressureLimit`: the hard backstop. */
-  hardBytes: 1_048_576,
-  /** Above this, the server closes with `4005 slow_consumer`. */
-  softBytes: 262_144,
-} as const;
-
-/**
  * An opaque `(txid, seq)` outbox position, serialized as `txid:seq`
  * (see the plan's cursor-correctness section). It is an ordering token, not
  * a secret, but its shape is still validated on every use. Each part is
@@ -166,72 +101,24 @@ export const cursorSchema = z
  * base64url-encoded, so exactly 43 characters and never padded. It is a
  * bearer secret, so it is never a cuid2 and is never logged.
  */
-export const ticketSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
+const ticketSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 
-// --- Subscribe authorization table (data, no I/O) ---------------------
-
-/**
- * Who may subscribe to each topic family, as data (ADR 0031 §5, plan
- * section D's registry table). RT-2.5a's subscribe registry consumes this;
- * it performs no authorization itself. A family absent from this table is
- * refused. `privateRoles` is the ADR 0029 seat-role vocabulary itself
- * (`debateRoles`): every seated role is admitted when the debate is
- * private, so there is nothing to subset.
- */
-export type SubscribeAuthorizationRule =
-  | {
-      readonly kind: 'public-or-private-participant';
-      readonly privateRoles: typeof debateRoles;
-      readonly admitsInvitedSpectators: true;
-    }
-  | {
-      readonly kind: 'chat-participant-or-public-member';
-      readonly privateRoles: typeof debateRoles;
-    }
-  | { readonly kind: 'owner-only' }
-  | { readonly kind: 'any-member' };
-
-export const subscribeAuthorizationTable: Readonly<
-  Record<TopicFamily, SubscribeAuthorizationRule>
-> = {
-  /** Any signed-in member when public; every seated role and invited spectators when private. */
-  debate: {
-    kind: 'public-or-private-participant',
-    privateRoles: debateRoles,
-    admitsInvitedSpectators: true,
-  },
-  'debate:presence': {
-    kind: 'public-or-private-participant',
-    privateRoles: debateRoles,
-    admitsInvitedSpectators: true,
-  },
-  /** Every seated role always; signed-in members too, when public. */
-  'debate:chat': {
-    kind: 'chat-participant-or-public-member',
-    privateRoles: debateRoles,
-  },
-  /** The owner only, matched against the ticket's actorId. */
-  'user:inbox': { kind: 'owner-only' },
-  /** Any signed-in member. */
-  standings: { kind: 'any-member' },
-};
-
-// --- Client and server message envelopes -------------------------------
+// --- Client message envelopes -----------------------------------------
 
 export const presenceActivitySchema = z.enum(['active', 'idle']);
 export type PresenceActivity = z.infer<typeof presenceActivitySchema>;
 /**
- * The projected presence status vocabulary. It lost its only in-package
- * consumer when `presence.update` was removed (RT-2.1b): RT-3.2a's HTTP
- * refetch of a `debate:<id>:presence` topic's projected value, triggered by
- * the `presence.changed` doorbell, is this schema's owner.
+ * The one projected presence status vocabulary: what a
+ * `debate:<id>:presence` topic's projected value reports for each actor,
+ * and what the UI's presence dot renders.
  */
-export const presenceStatusSchema = z.enum([
+export const presenceStatuses = [
   'in-debate',
   'online',
   'away',
   'offline',
-]);
+] as const;
+export type PresenceStatus = (typeof presenceStatuses)[number];
 
 /**
  * The socket accepts exactly these five inbound types (ADR 0031 §4).
@@ -285,107 +172,3 @@ export const clientMessageSchema = buildClientMessageSchema(
   ENVELOPE_VERSION,
   PROTOCOL_VERSION,
 );
-export type ClientMessage = z.infer<typeof clientMessageSchema>;
-
-/**
- * Server-initiated messages (ADR 0031 §6): `ready` after a successful
- * `hello`, `revoked` on `session.revoked` or a failed revalidation, and
- * `server.restarting` on SIGTERM drain. None carries a request `id`.
- */
-const serverInitiatedTypes = ['ready', 'revoked', 'server.restarting'] as const;
-
-/**
- * Every server message, built from an independently injected envelope
- * version (RT-2.1c AC1, continued): the same rationale as
- * `buildClientMessageSchema` applies here, since `event` and
- * `presence.changed` carry the same `v` field as every other server
- * message.
- */
-export function buildServerMessageSchema(envelopeVersion: EnvelopeVersion) {
-  const envelope = buildEnvelope(envelopeVersion);
-
-  /**
-   * The presence doorbell (ADR 0033 §1): fired when a `debate:presence`
-   * topic's projected value changes. It carries no outbox `position` and no
-   * status, unlike `event`: presence is never written to the outbox, so
-   * there is no position to carry, and the client always refetches the
-   * projected value over HTTP rather than trusting a pushed status.
-   */
-  const presenceChangedMessageSchema = z
-    .strictObject({
-      ...envelope,
-      type: z.literal('presence.changed'),
-      topic: topicStringSchema,
-    })
-    .refine(
-      (message) => parseTopic(message.topic)?.family === 'debate:presence',
-      {
-        message: 'presence.changed must name a debate:presence topic',
-        path: ['topic'],
-      },
-    );
-
-  /**
-   * The event message pairs an outbox position with its payload. Its
-   * refinement is what enforces AC4: a payload whose `kind` the topic's
-   * family does not allow fails `safeParse` here, not somewhere downstream.
-   */
-  const eventMessageSchema = z
-    .strictObject({
-      ...envelope,
-      type: z.literal('event'),
-      topic: topicStringSchema,
-      position: cursorSchema,
-      payload: outboxPayloadSchema,
-    })
-    .refine(
-      (message) => isPayloadAllowedOnTopic(message.topic, message.payload),
-      {
-        message: 'Payload kind is not allowed on this topic family',
-        path: ['payload', 'kind'],
-      },
-    );
-
-  return z.discriminatedUnion('type', [
-    z.strictObject({
-      ...envelope,
-      type: z.literal('subscribed'),
-      id: idSchema,
-      topic: topicStringSchema,
-      position: cursorSchema,
-    }),
-    z.strictObject({
-      ...envelope,
-      type: z.literal('unsubscribed'),
-      id: idSchema,
-      topic: topicStringSchema,
-    }),
-    z.strictObject({
-      ...envelope,
-      type: z.literal('resync_required'),
-      id: idSchema,
-      topic: topicStringSchema,
-    }),
-    z.strictObject({
-      ...envelope,
-      type: z.literal('error'),
-      id: idSchema.optional(),
-      code: errorSchema.shape.code,
-      message: z.string(),
-    }),
-    z.strictObject({
-      ...envelope,
-      type: z.literal('pong'),
-      id: idSchema,
-    }),
-    eventMessageSchema,
-    presenceChangedMessageSchema,
-    z.strictObject({
-      ...envelope,
-      type: z.enum(serverInitiatedTypes),
-    }),
-  ]);
-}
-
-export const serverMessageSchema = buildServerMessageSchema(ENVELOPE_VERSION);
-export type ServerMessage = z.infer<typeof serverMessageSchema>;

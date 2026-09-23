@@ -1,4 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { errorSchema } from '@daisy/protocol';
 import {
   createAppError,
   createInvariantError,
@@ -45,6 +46,40 @@ describe('isAppError', () => {
 });
 
 describe('error mapping', () => {
+  test('every public error body parses with the protocol errorSchema', () => {
+    const codes = errorSchema.shape.code.options;
+    assert({
+      given: 'an error of every protocol code at a public boundary',
+      should: 'produce an error body the protocol errorSchema accepts',
+      actual: codes.map(
+        (code) =>
+          errorSchema.safeParse(
+            toPublicError(createAppError(code), 'request-1').body.error,
+          ).success,
+      ),
+      expected: codes.map(() => true),
+    });
+    assert({
+      given: 'a registered invariant failure at a public boundary',
+      should: 'produce an error body the protocol errorSchema accepts',
+      actual: errorSchema.safeParse(
+        toPublicError(
+          createInvariantError('debate.phase.completed.terminal'),
+          'r',
+        ).body.error,
+      ).success,
+      expected: true,
+    });
+    assert({
+      given: 'an unknown thrown value at a public boundary',
+      should: 'publish an INTERNAL body the protocol errorSchema accepts',
+      actual: errorSchema.parse(
+        toPublicError(new Error('boom'), 'r').body.error,
+      ).code,
+      expected: 'INTERNAL',
+    });
+  });
+
   test('maps an oversized payload to HTTP 413 with a fixed public message', () => {
     assert({
       given: 'a payload-too-large error at a public boundary',
@@ -54,6 +89,8 @@ describe('error mapping', () => {
         status: 413,
         body: {
           error: {
+            version: 1,
+            type: 'error',
             code: 'PAYLOAD_TOO_LARGE',
             message: 'Request body too large',
             requestId: 'request-1',
@@ -98,6 +135,8 @@ describe('error mapping', () => {
         status: 503,
         body: {
           error: {
+            version: 1,
+            type: 'error',
             code: 'INFRASTRUCTURE',
             message: 'Service temporarily unavailable',
             requestId: 'request-1',

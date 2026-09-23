@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test src"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@daisy/protocol": "workspace:*"
+  },
   "devDependencies": {
     "riteway": "9.3.0"
   }

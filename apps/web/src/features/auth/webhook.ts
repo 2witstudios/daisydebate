@@ -1,5 +1,10 @@
 import { Resend } from 'resend';
 import type { Clock } from '@daisy/clock';
+import {
+  emailDeliveryStatusRank,
+  type EmailDeliveryStatus,
+  type EmailSuppressionReason,
+} from '@daisy/protocol';
 import { readBoundedBody } from './bounded-body';
 
 const MAX_BODY_BYTES = 64 * 1024;
@@ -14,34 +19,30 @@ type ProviderEvent = {
     readonly bounce?: { readonly type?: unknown };
   };
 };
-export type DeliveryEvent = {
-  readonly status: string;
+type DeliveryEvent = {
+  readonly status: EmailDeliveryStatus;
   readonly rank: number;
-  readonly suppress: 'bounce' | 'complaint' | null;
+  readonly suppress: EmailSuppressionReason | null;
   readonly messageId: string;
 };
-type ApplyInput = {
+type ApplyInput = Omit<DeliveryEvent, 'messageId'> & {
   readonly eventId: string;
   readonly providerMessageId: string;
-  readonly status: string;
-  readonly rank: number;
-  readonly suppress: 'bounce' | 'complaint' | null;
   readonly at: string;
 };
 
-/** Monotonic status ranks: a late event can never lower a message's state. */
-const RANKED: Record<
-  string,
-  readonly [string, number, DeliveryEvent['suppress']]
-> = {
-  'email.sent': ['sent', 1, null],
-  'email.delivery_delayed': ['delayed', 2, null],
-  'email.delivered': ['delivered', 3, null],
-  'email.failed': ['failed', 4, null],
-  'email.complained': ['complained', 6, 'complaint'],
+/** The protocol status each provider event reports; ranks are the protocol's. */
+const STATUS_BY_EVENT: Readonly<Record<string, EmailDeliveryStatus>> = {
+  'email.sent': 'sent',
+  'email.delivery_delayed': 'delayed',
+  'email.delivered': 'delivered',
+  'email.failed': 'failed',
+  'email.complained': 'complained',
 };
-const HARD_BOUNCE = ['bounced', 5, 'bounce'] as const;
-const SOFT_BOUNCE = ['delayed', 2, null] as const;
+/** Only a permanent failure or a complaint stops automatic mail. */
+const SUPPRESSION: Partial<
+  Record<EmailDeliveryStatus, EmailSuppressionReason>
+> = { bounced: 'bounce', complained: 'complaint' };
 
 /**
  * Only safe status is derived: the recipient list and any other payload
@@ -52,12 +53,18 @@ export function classifyResendEvent(
 ): DeliveryEvent | null {
   const messageId = event.data?.email_id;
   if (typeof messageId !== 'string' || messageId.length === 0) return null;
+  // A transient bounce is a delay the provider retries, not a failure.
   const bounce =
-    event.data?.bounce?.type === 'Permanent' ? HARD_BOUNCE : SOFT_BOUNCE;
-  const ranked = event.type === 'email.bounced' ? bounce : RANKED[event.type];
-  if (!ranked) return null;
-  const [status, rank, suppress] = ranked;
-  return { status, rank, suppress, messageId };
+    event.data?.bounce?.type === 'Permanent' ? 'bounced' : 'delayed';
+  const status =
+    event.type === 'email.bounced' ? bounce : STATUS_BY_EVENT[event.type];
+  if (!status) return null;
+  return {
+    status,
+    rank: emailDeliveryStatusRank(status),
+    suppress: SUPPRESSION[status] ?? null,
+    messageId,
+  };
 }
 
 const respond = (status: number, body: unknown, headers?: HeadersInit) =>

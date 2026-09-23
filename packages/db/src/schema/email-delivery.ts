@@ -9,6 +9,11 @@ import {
 } from 'drizzle-orm/pg-core';
 import { createId } from '@paralleldrive/cuid2';
 import {
+  emailDeliveryStatuses,
+  emailDeliveryStatusRank,
+  emailSuppressionReasons,
+} from '@daisy/protocol';
+import {
   createdAtColumn,
   oneOf,
   timestampColumn,
@@ -16,23 +21,13 @@ import {
 } from './columns';
 
 /**
- * Delivery statuses and their monotonic rank (ADR 0025): a late provider
- * event can never lower a message's state. The CHECK pins each status to
- * its one rank, so the pair can never disagree.
+ * Each protocol delivery status paired with its monotonic rank (ADR 0025):
+ * the CHECK pins a status to its one rank, so the pair can never disagree
+ * and a late provider event can never lower a message's state.
  */
-export const emailDeliveryStatusRanks = {
-  sent: 1,
-  delayed: 2,
-  delivered: 3,
-  failed: 4,
-  bounced: 5,
-  complained: 6,
-} as const;
-export const emailSuppressionReasons = ['bounce', 'complaint'] as const;
-
 const statusRankPairs = sql.raw(
-  Object.entries(emailDeliveryStatusRanks)
-    .map(([status, rank]) => `('${status}', ${rank})`)
+  emailDeliveryStatuses
+    .map((status) => `('${status}', ${emailDeliveryStatusRank(status)})`)
     .join(', '),
 );
 
