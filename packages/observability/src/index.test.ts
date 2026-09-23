@@ -156,13 +156,20 @@ describe('drainWithDeadline', () => {
   });
 
   test('fires onDeadlineExceeded when close outlasts the deadline', async () => {
+    // The close settles only once the deadline has fired: a drain that
+    // never fires it leaves the close pending and the test fails.
     let deadlineFired = false;
+    let finishClose = () => {};
     await drainWithDeadline({
       deadlineMs: 5,
       onDeadlineExceeded: () => {
         deadlineFired = true;
+        finishClose();
       },
-      close: () => new Promise((resolve) => setTimeout(resolve, 40)),
+      close: () =>
+        new Promise<void>((resolve) => {
+          finishClose = resolve;
+        }),
     });
 
     assert({

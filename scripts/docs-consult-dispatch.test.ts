@@ -107,7 +107,9 @@ describe('dispatchDocumentationEvent', async () => {
       consult: async () => {
         inFlight += 1;
         peak = Math.max(peak, inFlight);
-        await new Promise((resolve) => setTimeout(resolve, 5));
+        // One full event-loop turn: long enough for a concurrent consult
+        // to start, with no wall-clock wait.
+        await new Promise((resolve) => setImmediate(resolve));
         inFlight -= 1;
         return new Response('{}', { status: 200 });
       },
