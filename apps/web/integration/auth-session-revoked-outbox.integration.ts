@@ -161,3 +161,43 @@ for (const route of routes) {
     }
   });
 }
+
+const insertOutboxRow = (admin: SQL, topic: string) =>
+  admin
+    .unsafe(
+      "insert into outbox (topic, kind, version, payload) values ($1, 'test.scope-check', 1, '{}'::jsonb)",
+      [topic],
+    )
+    .then(() => 'accepted')
+    .catch(() => 'refused');
+
+/**
+ * RT-2.2f-r1 minor: nothing enforced that `withOutboxInsertBlockedForTopic`'s
+ * `BEFORE INSERT` trigger only rejects its own topic — if the `if new.topic
+ * = …` guard were ever dropped, every other test using the helper would
+ * still pass (they only insert on their own already-blocked topic), and
+ * only a concurrent `@daisy/db` run would notice.
+ */
+test('withOutboxInsertBlockedForTopic blocks only its own topic, never an unrelated one', async () => {
+  const admin = new SQL(url);
+  const blockedTopic = `test:scope-check:${createId()}`;
+  const otherTopic = `test:scope-check:${createId()}`;
+  try {
+    let blockedAttempt = '';
+    let otherAttempt = '';
+    await withOutboxInsertBlockedForTopic(url, blockedTopic, async () => {
+      blockedAttempt = await insertOutboxRow(admin, blockedTopic);
+      otherAttempt = await insertOutboxRow(admin, otherTopic);
+    });
+    assert({
+      given: "a BEFORE INSERT trigger held for one fixture's own topic",
+      should:
+        'refuse an insert on that exact topic while an insert on an unrelated topic still succeeds',
+      actual: { blockedAttempt, otherAttempt },
+      expected: { blockedAttempt: 'refused', otherAttempt: 'accepted' },
+    });
+  } finally {
+    await admin.unsafe('delete from outbox where topic = $1', [otherTopic]);
+    await admin.close();
+  }
+});
