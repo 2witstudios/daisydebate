@@ -1,11 +1,24 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  DEFAULT_REALTIME_PORT,
   formatAgentReady,
   waitForReadiness,
   type AgentCredential,
 } from './dev-agent';
+import { DEFAULT_REALTIME_PORT as REALTIME_WORKSPACE_DEFAULT_PORT } from '../apps/realtime/src/port';
 
 setupRitewayBun();
+
+describe('DEFAULT_REALTIME_PORT', () => {
+  test('matches apps/realtime/src/port.ts, since dev-agent.ts keeps its own literal rather than importing across the workspace boundary', () => {
+    assert({
+      given: "dev-agent.ts's own REALTIME_PORT default",
+      should: "equal apps/realtime's DEFAULT_REALTIME_PORT",
+      actual: DEFAULT_REALTIME_PORT,
+      expected: REALTIME_WORKSPACE_DEFAULT_PORT,
+    });
+  });
+});
 
 describe('formatAgentReady', () => {
   test('prints local URLs, non-secret seeded credentials, and the seed version', () => {
