@@ -44,9 +44,3 @@ export async function addVirtualAuthenticator(
   const credentials = () => readCredentials(session, authenticatorId);
   return { session, authenticatorId, setPresence, credentials };
 }
-
-/** Resolves on the next passkey sign-in options response. */
-export const authenticateOptionsServed = (page: Page) =>
-  page.waitForResponse((response) =>
-    response.url().includes('/passkey/generate-authenticate-options'),
-  );

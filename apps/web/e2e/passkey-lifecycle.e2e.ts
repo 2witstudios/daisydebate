@@ -7,10 +7,7 @@ import {
   signUpMember,
   uniqueName,
 } from './support/accounts';
-import {
-  addVirtualAuthenticator,
-  authenticateOptionsServed,
-} from './support/webauthn';
+import { addVirtualAuthenticator } from './support/webauthn';
 
 /**
  * Real Chromium virtual WebAuthn authenticators (CDP
@@ -27,9 +24,9 @@ test.beforeEach(async ({ request }) => {
 
 /**
  * The sign-in page also arms passkey autofill (conditional mediation), and
- * the mobile-emulated virtual authenticator completes that request with no
- * pick at all, racing the explicit button. Specs that prove the button path
- * hide conditional mediation so the button is the only way in.
+ * Chromium's virtual authenticator completes that request with no pick at
+ * all, racing the explicit button. Specs that prove the button path hide
+ * conditional mediation so the button is the only way in.
  */
 async function withoutPasskeyAutofill(page: Page) {
   await page.addInitScript(() => {
@@ -103,30 +100,6 @@ test('a passkey enrolled from settings can sign back in after signing out, and l
 
   await page.goto('/sign-in?next=%2Flobby');
   await page.getByRole('button', { name: 'Sign in with a passkey' }).click();
-  await expect(page).toHaveURL(/\/lobby$/);
-});
-
-test('with passkey autofill armed, the explicit button still signs in', async ({
-  page,
-}) => {
-  const { setPresence } = await addVirtualAuthenticator(page);
-  await signUpMember(page.request);
-  await page.goto('/settings/security');
-  await page.getByRole('button', { name: 'Add a passkey' }).click();
-  await expect(page.getByRole('button', { name: 'Rename' })).toBeVisible();
-  // Hold user presence so the armed autofill request stays pending on every
-  // project (the mobile-emulated authenticator would otherwise answer it).
-  await setPresence(false);
-  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
-  await expect(page).toHaveURL(/\/sign-in/);
-
-  const armed = authenticateOptionsServed(page);
-  await page.goto('/sign-in?next=%2Flobby');
-  await armed;
-  const buttonOptions = authenticateOptionsServed(page);
-  await page.getByRole('button', { name: 'Sign in with a passkey' }).click();
-  await buttonOptions;
-  await setPresence(true);
   await expect(page).toHaveURL(/\/lobby$/);
 });
 

@@ -24,12 +24,16 @@ const subscribeToVisibility = (onChange: () => void) => {
   return () => document.removeEventListener('visibilitychange', onChange);
 };
 
-/** Whether this tab is on screen; the server render assumes it is. */
+/**
+ * Whether this tab is on screen. The server render and hydration report
+ * hidden, so a tab opened in the background never arms autofill; a visible
+ * one re-renders as visible right after hydration.
+ */
 const usePageVisible = (): boolean =>
   useSyncExternalStore(
     subscribeToVisibility,
     () => document.visibilityState === 'visible',
-    () => true,
+    () => false,
   );
 
 const browserTimers: AutofillTimers = {

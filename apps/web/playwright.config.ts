@@ -12,8 +12,9 @@ export const AUTH_JOURNEY_SPECS = [
   '**/accessibility.e2e.ts',
   '**/auth-routes.e2e.ts',
 ];
-// Passkey autofill completes only where the virtual authenticator answers a
-// conditional request without browser UI: the mobile-emulated Chromium.
+// Passkey autofill is proven through Chromium's CDP virtual authenticator,
+// which answers a conditional request without browser UI, so it runs in both
+// Chromium projects and no other engine.
 const PASSKEY_AUTOFILL_SPEC = '**/passkey-autofill.e2e.ts';
 
 // Ports derive from the environment; `bun slot:up` writes each checkout's
@@ -109,7 +110,7 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
-      testIgnore: ['**/visual.e2e.ts', PASSKEY_AUTOFILL_SPEC],
+      testIgnore: '**/visual.e2e.ts',
     },
     {
       name: 'chromium-mobile',
