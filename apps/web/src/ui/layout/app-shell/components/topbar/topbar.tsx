@@ -1,11 +1,7 @@
-'use client';
-
 import Link from 'next/link';
 import { SearchInput } from '../../../../components/search-input/search-input';
-import { IconButton } from '../../../../components/icon-button/icon-button';
 import { Avatar } from '../../../../components/avatar/avatar';
 import { DaisyLogo } from '../../../../components/daisy-mark/daisy-mark';
-import { useUiState } from '../../../../store/store';
 
 /** Who the shell is showing: derived on the server from the durable session. */
 export type ShellAccount =
@@ -45,14 +41,11 @@ function AccountControl({ account }: { readonly account: ShellAccount }) {
 }
 
 export function Topbar({ account }: { readonly account: ShellAccount }) {
-  // Selectors return primitives or stable references — never fresh literals.
-  const notificationsCount = useUiState(
-    (state) => state.resources.notificationsCount,
-  );
   return (
     <header className="flex h-topbar items-center gap-6 px-6 max-compact:gap-4 max-compact:px-4">
       <Link
         href="/"
+        aria-label="Daisy home"
         className="flex items-center gap-3 text-ink no-underline hover:no-underline"
       >
         <DaisyLogo />
@@ -68,17 +61,6 @@ export function Topbar({ account }: { readonly account: ShellAccount }) {
         <SearchInput />
       </div>
       <div className="flex shrink-0 items-center gap-4">
-        <span className="relative inline-flex shrink-0">
-          <IconButton name="bell" label="Notifications" />
-          {notificationsCount > 0 ? (
-            <span
-              className="absolute -top-shell-hair -right-shell-hair h-shell-count min-w-shell-count rounded-round bg-live px-1 text-center text-shell-count leading-shell-count font-black text-ink-on-live"
-              aria-hidden="true"
-            >
-              {notificationsCount}
-            </span>
-          ) : null}
-        </span>
         <AccountControl account={account} />
       </div>
     </header>

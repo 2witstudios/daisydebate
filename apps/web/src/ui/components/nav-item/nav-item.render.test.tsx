@@ -44,6 +44,27 @@ describe('nav-item presentation', () => {
       expected: false,
     });
   });
+
+  test('keeps its label in the accessibility tree at compact widths', () => {
+    const html = String(
+      renderToString(
+        h(renderNavItem, {
+          href: '/train',
+          icon: 'bolt',
+          label: 'Train',
+          active: false,
+        }),
+      ),
+    );
+    assert({
+      given:
+        'a link whose icon is aria-hidden and whose label is visually hidden at compact widths',
+      should:
+        'keep the label readable to assistive tech (sr-only), never display:none it',
+      actual: [html.includes('sr-only'), html.includes('max-compact:hidden')],
+      expected: [true, false],
+    });
+  });
 });
 
 describe('search-input presentation', () => {

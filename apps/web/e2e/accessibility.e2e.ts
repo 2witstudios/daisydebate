@@ -10,11 +10,13 @@ import {
 
 /**
  * Automated accessibility coverage for every authentication and security
- * screen (AUTH-6.6): zero serious/critical axe findings, keyboard-only use,
- * visible focus, live-region announcements and usability at 200% zoom.
- * Chromium/Firefox/WebKit desktop and mobile projects all run this file
- * (only passkey-lifecycle.e2e.ts is Chromium-only), so narrow-layout
- * usability is exercised by the mobile projects without a separate test.
+ * screen (AUTH-6.6), plus the signed-in product shell's home and settings
+ * routes in both themes (ISSUE-10): zero serious/critical axe findings,
+ * keyboard-only use, visible focus, live-region announcements and usability
+ * at 200% zoom. Chromium/Firefox/WebKit desktop and mobile projects all run
+ * this file (only passkey-lifecycle.e2e.ts is Chromium-only), so narrow
+ * (compact) layout usability is exercised by the mobile projects without a
+ * separate test; only the theme axis needs its own explicit cases here.
  */
 test.beforeEach(async ({ request }) => {
   await resetRateLimits(request);
@@ -32,6 +34,27 @@ async function assertNoSeriousFindings(page: Page) {
       violation.impact === 'serious' || violation.impact === 'critical',
   );
   expect(blocking, JSON.stringify(blocking, null, 2)).toEqual([]);
+}
+
+/**
+ * Navigates with the theme cookie already set, so the server renders the
+ * requested `data-theme` from the first response (no flash, no client
+ * switch to wait on).
+ */
+async function gotoWithTheme(
+  page: Page,
+  path: string,
+  theme: 'light' | 'dark',
+) {
+  await page.goto(path);
+  await page.context().addCookies([
+    {
+      name: 'daisy-theme',
+      value: theme,
+      url: new URL(page.url()).origin,
+    },
+  ]);
+  await page.goto(path);
 }
 
 test('sign-in (idle state) has no serious or critical accessibility findings', async ({
@@ -198,4 +221,26 @@ test('account security settings stays usable with no horizontal overflow at 200%
   );
   expect(overflowsHorizontally).toBe(false);
   await expect(page.getByRole('heading', { name: 'Passkeys' })).toBeVisible();
+});
+
+test('home has no serious or critical accessibility findings in dark or light', async ({
+  page,
+}) => {
+  await gotoWithTheme(page, '/', 'dark');
+  await assertNoSeriousFindings(page);
+
+  await gotoWithTheme(page, '/', 'light');
+  await assertNoSeriousFindings(page);
+});
+
+test('settings has no serious or critical accessibility findings in dark or light', async ({
+  page,
+}) => {
+  await signUpMember(page.request);
+
+  await gotoWithTheme(page, '/settings', 'dark');
+  await assertNoSeriousFindings(page);
+
+  await gotoWithTheme(page, '/settings', 'light');
+  await assertNoSeriousFindings(page);
 });

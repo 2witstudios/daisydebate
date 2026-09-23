@@ -46,7 +46,6 @@ describe('icon set', () => {
       actual: [
         'calendar',
         'chevronRight',
-        'bell',
         'key',
         'home',
         ...tiles.map((tile) => tile.glyph),

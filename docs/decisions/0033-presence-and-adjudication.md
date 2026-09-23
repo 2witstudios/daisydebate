@@ -54,13 +54,8 @@ guessing.
    read is one Lua op that trims members whose score is in the past, ranges
    and hydrates, and returns the Redis `now` it used, so a caller computing
    `derivePresence`'s `nowMs` never substitutes an instance clock for it.
-   **Known gap**: the merged RT-3.1 reads (`readActorConnections` and
-   `readOnlinePresence` in `@daisy/redis`) return only the trimmed, hydrated
-   rows and do not return `now`; RT-3.1f owns adding the missing return
-   value, and it lands before any caller is built against these reads.
-   When an instance
-   crashes, each of its leases expires on its own; a stale lease can never
-   outlive its TTL and poison a result.
+   When an instance crashes, each of its leases expires on its own; a stale
+   lease can never outlive its TTL and poison a result.
 
 2. **Activity and visibility are separate axes.**
    - `activity: active | idle` belongs to a connection. The client reports

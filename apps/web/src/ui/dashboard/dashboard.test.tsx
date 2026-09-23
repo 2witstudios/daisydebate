@@ -4,17 +4,20 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { Dashboard } from './dashboard';
 import { tiles } from './tiles';
 import { createInitialState } from '../store/state';
-import { setUiState } from '../store/store';
+import { UiStoreProvider } from '../store/store';
 
 setupRitewayBun();
 
 const count = (html: string, needle: string): number =>
   html.split(needle).length - 1;
 
-const render = (): string => {
-  setUiState(createInitialState());
-  return renderToString(h(Dashboard));
-};
+const render = (): string =>
+  renderToString(
+    h(UiStoreProvider, {
+      initialState: createInitialState(),
+      children: h(Dashboard),
+    }),
+  );
 
 describe('Dashboard', () => {
   test('links every configured destination from a named list', () => {
@@ -32,13 +35,14 @@ describe('Dashboard', () => {
     });
   });
 
-  test('keeps the page outline valid inside the root layout', () => {
+  test('keeps the page outline valid inside the shell-owned <main>', () => {
     const html = render();
     assert({
-      given: 'the dashboard rendered inside the layout-owned <main>',
-      should: 'carry exactly one h1 and no main landmark of its own',
-      actual: [count(html, '<h1'), count(html, '<main')],
-      expected: [1, 0],
+      given: "the dashboard rendered inside AppShell's <main>",
+      should:
+        'carry exactly one h1, no h3 before it has an h2, and no own main',
+      actual: [count(html, '<h1'), count(html, '<h3'), count(html, '<main')],
+      expected: [1, 0, 0],
     });
   });
 });

@@ -30,8 +30,11 @@ const reservedSuffix = /_(?:test|e2e)$/;
 
 export const e2eRole = { user: 'daisy_e2e', password: 'e2e-loopback-only' };
 const e2eRedisDatabase = 2;
-const mainPorts = { app: 3000, e2e: 3100 };
-// Worktree block n owns app port 13000+10n and e2e ports 13001+10n..+3.
+// realtime (ADR 0031): a dev port distinct from `app`, and an e2e port at
+// `e2e + 3` (the fourth of the browser suite's four consecutive ports).
+const mainPorts = { app: 3000, e2e: 3100, realtime: 3011 };
+// Worktree block n owns app port 13000+10n, e2e ports 13001+10n..+3, and
+// realtime ports 13000+10n+4 (e2e) and 13000+10n+5 (dev).
 const portBlockBase = 13_000;
 const portBlockSize = 10;
 const maxPortBlock = 499;
@@ -265,6 +268,7 @@ const slotEnvKeys = [
   'PORT',
   'PUBLIC_APP_URL',
   'E2E_PORT',
+  'REALTIME_PORT',
 ] as const;
 
 /**
@@ -289,7 +293,7 @@ export function slotEnvValues({
           if (portBlock === undefined)
             throw new Error('A worktree slot needs a port block');
           const app = portBlockBase + portBlockSize * portBlock;
-          return { app, e2e: app + 1 };
+          return { app, e2e: app + 1, realtime: app + 5 };
         })();
   return {
     DATABASE_URL: withPath(databaseUrl, slot.database),
@@ -303,6 +307,7 @@ export function slotEnvValues({
     PORT: String(ports.app),
     PUBLIC_APP_URL: `http://localhost:${ports.app}`,
     E2E_PORT: String(ports.e2e),
+    REALTIME_PORT: String(ports.realtime),
   };
 }
 
@@ -310,10 +315,13 @@ export function slotEnvValues({
 export const e2eRedisUrl = (redisUrl: string): string =>
   withPath(redisUrl, String(e2eRedisDatabase));
 
-/** Every port a worktree block reserves: the app and the three e2e ports. */
+/**
+ * Every port a worktree block reserves: the app, the three web e2e ports,
+ * realtime's e2e port (E2E_PORT + 3) and realtime's own dev port.
+ */
 export const portBlockPorts = (block: number): readonly number[] => {
   const app = portBlockBase + portBlockSize * block;
-  return [app, app + 1, app + 2, app + 3];
+  return [app, app + 1, app + 2, app + 3, app + 4, app + 5];
 };
 
 const assignment = (key: string) => new RegExp(`^${key}=(.*)$`, 'gm');

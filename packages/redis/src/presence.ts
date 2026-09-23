@@ -114,6 +114,8 @@ redis.call('ZREMRANGEBYSCORE', KEYS[2], '-inf', now - 1)
 local top = redis.call('ZREVRANGE', KEYS[2], 0, 0, 'WITHSCORES')
 if top[2] then
   redis.call('ZADD', KEYS[3], top[2], ARGV[2])
+  -- No-op today (upsert/refresh arm on write); kept as defence in depth for
+  -- future write paths.
   arm(KEYS[2], top, now)
   arm(KEYS[3], top, now)
 else
@@ -127,14 +129,17 @@ return existed
  * whose hash is already gone (a benign race between the two keys) or whose
  * hash names a different actor than the one requested (the zset is scoped
  * per actor, so this should never happen with server-minted ids, but the
- * read never trusts it). KEYS[1] actor zset. ARGV[1] actorId; ARGV[2] the
- * conn-hash key prefix (namespace-qualified, no trailing connId).
+ * read never trusts it). Returns the Redis `now` it used as the first
+ * element (ADR 0033 §1.1), so a caller never substitutes an instance clock
+ * for the server clock that scored these leases. KEYS[1] actor zset.
+ * ARGV[1] actorId; ARGV[2] the conn-hash key prefix (namespace-qualified,
+ * no trailing connId).
  */
 const readActorConnectionsScript = `
 ${nowFromTime}
 redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', now - 1)
 local members = redis.call('ZRANGE', KEYS[1], 0, -1, 'WITHSCORES')
-local result = {}
+local result = {now}
 for i = 1, #members, 2 do
   local connId = members[i]
   local expiresAt = members[i + 1]
@@ -155,12 +160,19 @@ return result
 `;
 /**
  * One atomic op: trim actorIds whose latest lease has expired, then range
- * the survivors with their scores. KEYS[1] online zset.
+ * the survivors with their scores. Returns the Redis `now` it used as the
+ * first element (ADR 0033 §1.1), so a caller never substitutes an instance
+ * clock for the server clock that scored these leases. KEYS[1] online zset.
  */
 const readOnlinePresenceScript = `
 ${nowFromTime}
 redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', now - 1)
-return redis.call('ZRANGE', KEYS[1], 0, -1, 'WITHSCORES')
+local members = redis.call('ZRANGE', KEYS[1], 0, -1, 'WITHSCORES')
+local result = {now}
+for i = 1, #members do
+  table.insert(result, members[i])
+end
+return result
 `;
 
 const idPattern = /^[a-zA-Z0-9_-]{1,100}$/;
@@ -270,11 +282,14 @@ export function createPresenceOperations({
     },
     /**
      * An actor's live connections, trimmed, hydrated and actorId-checked in
-     * one Lua op.
+     * one Lua op. `nowMs` is the Redis server clock the script used to trim
+     * and score these leases (ADR 0033 §1.1); a caller computing
+     * `derivePresence`'s `nowMs` must use this, never an instance clock.
      */
-    async readActorConnections(
-      actorId: string,
-    ): Promise<readonly PresenceConnection[]> {
+    async readActorConnections(actorId: string): Promise<{
+      readonly connections: readonly PresenceConnection[];
+      readonly nowMs: number;
+    }> {
       assertPresenceId('actorId', actorId);
       try {
         await client.connect();
@@ -284,40 +299,50 @@ export function createPresenceOperations({
           redisKey(namespace, 'presence', 'actor', actorId),
           actorId,
           `${redisKey(namespace, 'presence', 'conn')}:`,
-        ])) as string[];
+        ])) as (string | number)[];
+        const nowMs = Number(flat[0]);
         const connections: PresenceConnection[] = [];
-        for (let index = 0; index < flat.length; index += 5) {
+        for (let index = 1; index < flat.length; index += 5) {
           connections.push({
-            connId: flat[index]!,
-            actorId: flat[index + 1]!,
+            connId: flat[index] as string,
+            actorId: flat[index + 1] as string,
             activity: flat[index + 2] as PresenceActivity,
-            instanceId: flat[index + 3]!,
+            instanceId: flat[index + 3] as string,
             expiresAtMs: Number(flat[index + 4]),
           });
         }
-        return connections;
+        return { connections, nowMs };
       } catch (error) {
         reportFailure('readActorConnections');
         throw error;
       }
     },
-    /** The online set of actorIds, trimming any whose latest lease has expired. */
-    async readOnlinePresence(): Promise<readonly PresenceOnlineActor[]> {
+    /**
+     * The online set of actorIds, trimming any whose latest lease has
+     * expired. `nowMs` is the Redis server clock the script used to trim
+     * these actors (ADR 0033 §1.1); a caller computing `derivePresence`'s
+     * `nowMs` must use this, never an instance clock.
+     */
+    async readOnlinePresence(): Promise<{
+      readonly actors: readonly PresenceOnlineActor[];
+      readonly nowMs: number;
+    }> {
       try {
         await client.connect();
         const flat = (await client.send('EVAL', [
           readOnlinePresenceScript,
           '1',
           redisKey(namespace, 'presence', 'online'),
-        ])) as string[];
+        ])) as (string | number)[];
+        const nowMs = Number(flat[0]);
         const actors: PresenceOnlineActor[] = [];
-        for (let index = 0; index < flat.length; index += 2) {
+        for (let index = 1; index < flat.length; index += 2) {
           actors.push({
-            actorId: flat[index]!,
+            actorId: flat[index] as string,
             expiresAtMs: Number(flat[index + 1]),
           });
         }
-        return actors;
+        return { actors, nowMs };
       } catch (error) {
         reportFailure('readOnlinePresence');
         throw error;

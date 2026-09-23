@@ -32,4 +32,42 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
   config: [],
   logger: [],
   observability: ['logger'],
+  // ADR 0031 §12: the realtime deployment's exact ten allowed edges. It
+  // never depends on `debate-engine`, `apps/web` or a third-party socket
+  // library. `@daisy/presence` is not yet a package (owned by a later RT
+  // leaf); the edge is declared now so nothing else moves when it lands.
+  realtime: [
+    'protocol',
+    'auth',
+    'db',
+    'redis',
+    'clock',
+    'config',
+    'errors',
+    'logger',
+    'observability',
+    'presence',
+  ],
+};
+
+/**
+ * Mirrors `adobeIsolationIssue`'s shape: a pure predicate the scan and its
+ * unit tests both call, so "a workspace's edges are mechanically enforced"
+ * (ADR 0031 §12) is provable without re-deriving the rule in a test fixture.
+ * A workspace absent from `allowedWorkspaceDependencies` is unrestricted.
+ */
+export const forbiddenDependencyIssue = (
+  workspacePath: string,
+  workspaceName: string,
+  dependency: string,
+  allowed: Readonly<Record<string, readonly string[]>>,
+): string | null => {
+  const restrictions = allowed[workspaceName.replace('@daisy/', '')];
+  if (
+    dependency.startsWith('@daisy/') &&
+    restrictions &&
+    !restrictions.includes(dependency.replace('@daisy/', ''))
+  )
+    return `${workspacePath}: forbidden dependency ${dependency}`;
+  return null;
 };

@@ -3,38 +3,38 @@ import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { AppShell } from './app-shell';
 import { createInitialState } from '../../store/state';
-import { setUiState } from '../../store/store';
+import { UiStoreProvider } from '../../store/store';
 
 setupRitewayBun();
 
 const count = (html: string, needle: string): number =>
   html.split(needle).length - 1;
 
-const render = (): string => {
-  setUiState(createInitialState());
-  return renderToString(
-    h(AppShell, {
-      account: { state: 'anonymous' },
-      rail: h('p', null, 'rail-content'),
-      children: h('p', null, 'page'),
+const render = (): string =>
+  renderToString(
+    h(UiStoreProvider, {
+      initialState: createInitialState(),
+      children: h(AppShell, {
+        account: { state: 'anonymous' },
+        rail: h('p', null, 'rail-content'),
+        children: h('p', null, 'page'),
+      }),
     }),
   );
-};
 
 describe('AppShell', () => {
-  test('leaves the single main landmark to the root layout', () => {
+  test('owns the single main landmark, as a sibling of header, nav, and aside', () => {
     const html = render();
     assert({
-      given: 'the shell rendered inside the layout-owned <main>',
-      should: 'add no main of its own; one banner, one primary nav, one aside',
+      given: 'the shell, with the root layout rendering no landmark of its own',
+      should: 'render exactly one main, one banner, one primary nav, one aside',
       actual: [
         count(html, '<main'),
-        count(html, 'role="main"'),
         count(html, '<header'),
         count(html, '<nav'),
         count(html, '<aside'),
       ],
-      expected: [0, 0, 1, 1, 1],
+      expected: [1, 1, 1, 1],
     });
   });
 
@@ -42,10 +42,10 @@ describe('AppShell', () => {
     const html = render();
     assert({
       given: 'the shell landmarks',
-      should: 'label the navigation "Primary" and the rail "Sidebar"',
+      should: 'label the navigation "Primary" and the rail "Community"',
       actual: [
         /<nav[^>]* aria-label="Primary"/.test(html),
-        /<aside[^>]* aria-label="Sidebar"/.test(html),
+        /<aside[^>]* aria-label="Community"/.test(html),
       ],
       expected: [true, true],
     });

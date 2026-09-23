@@ -7,6 +7,18 @@ export type AvatarProps = {
   readonly src?: string | undefined;
   readonly presence?: Presence;
   readonly size?: AvatarSize;
+  /**
+   * Set when the caller already renders `name` as visible text next to the
+   * avatar (unconditionally, not just hidden at some viewport), so the
+   * avatar's own accessible name would announce it a second time.
+   */
+  readonly nameVisible?: boolean;
+};
+
+const pixelsBySize: Readonly<Record<AvatarSize, number>> = {
+  sm: 28,
+  md: 36,
+  lg: 44,
 };
 
 function initials(name: string): string {
@@ -17,11 +29,24 @@ function initials(name: string): string {
     .join('');
 }
 
-export function Avatar({ name, src, presence, size = 'md' }: AvatarProps) {
+export function Avatar({
+  name,
+  src,
+  presence,
+  size = 'md',
+  nameVisible = false,
+}: AvatarProps) {
+  const pixels = pixelsBySize[size];
   return (
     <span className={avatarClass(size)}>
       {src ? (
-        <img src={src} alt="" className="size-full rounded-full object-cover" />
+        <img
+          src={src}
+          alt=""
+          width={pixels}
+          height={pixels}
+          className="size-full rounded-full object-cover"
+        />
       ) : (
         <span className="tracking-wide" aria-hidden="true">
           {initials(name)}
@@ -32,7 +57,7 @@ export function Avatar({ name, src, presence, size = 'md' }: AvatarProps) {
           <PresenceDot presence={presence} />
         </span>
       ) : null}
-      <span className="sr-only">{name}</span>
+      {nameVisible ? null : <span className="sr-only">{name}</span>}
     </span>
   );
 }

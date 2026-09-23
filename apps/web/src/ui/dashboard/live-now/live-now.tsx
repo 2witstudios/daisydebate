@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Badge } from '../../components/badge/badge';
-import { Button } from '../../components/button/button';
+import { buttonClass } from '../../components/button/button-class';
 import { Panel } from '../../components/panel/panel';
 import { Icon } from '../../components/icon/icon';
 import { useUiState } from '../../store/store';
@@ -22,9 +22,13 @@ export function LiveNow() {
         </span>
       }
       action={
-        <Button variant="ghost" aria-label="See all live debates">
+        <Link
+          href="/watch"
+          className={buttonClass('ghost')}
+          aria-label="See all live debates"
+        >
           See All
-        </Button>
+        </Link>
       }
     >
       <ul>
