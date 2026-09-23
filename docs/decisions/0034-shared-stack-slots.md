@@ -7,7 +7,7 @@ Status: accepted (PAR-2). Supersedes the per-session Compose stacks that
 ## Context
 
 Parallel sessions each started their own Compose project, named by hand
-(`DAISY_STACK_NAME`, custom ports). Nothing tore a project down: removing a
+(a chosen stack name and custom ports). Nothing tore a project down: removing a
 worktree left its containers and volume behind, and nothing linked a
 hand-picked stack name back to its worktree. On 2026-09-22 two of five
 running stacks had no owner, 13 orphaned Postgres volumes held about 1.9 GB,
