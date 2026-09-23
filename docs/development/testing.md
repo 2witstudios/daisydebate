@@ -139,7 +139,8 @@ mobile-layout parity is scoped to the auth journeys the spec requires
 ("the supported magic-link/account journeys"), not the whole app:
 `chromium-mobile`, `firefox`, `webkit` and `webkit-mobile` testMatch only
 `AUTH_JOURNEY_SPECS` (journey, passkey-lifecycle, accessibility, auth-routes)
-in `apps/web/playwright.config.ts`. CDP WebAuthn (the virtual authenticator
+in `apps/web/playwright.config.ts`, plus `passkey-autofill.e2e.ts` for
+`chromium-mobile`. CDP WebAuthn (the virtual authenticator
 behind every passkey ceremony) is Chromium-only, so
 `passkey-lifecycle.e2e.ts` is additionally excluded from every non-Chromium
 project; a spec that needs a Chromium-only WebAuthn capability belongs in
