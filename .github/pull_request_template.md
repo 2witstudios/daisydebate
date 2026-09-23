@@ -33,3 +33,18 @@ Migration/deployment order, configuration changes, rollback constraints, or “n
 ## Architecture
 
 Affected ownership boundaries and ADR/dependency documentation updates, or “none”.
+
+## Privacy & telemetry
+
+See [ADR 0036](docs/decisions/0036-privacy-by-design.md),
+[ADR 0037](docs/decisions/0037-error-tracking-and-product-analytics.md) and
+[privacy](docs/operations/privacy.md). “none” only when this change adds no
+log field, database/Redis column, or analytics event.
+
+- Columns classified (inventory entry: category, visibility, purpose,
+  lawful basis, storage, owner, retention, erasure):
+- Events registered (log or analytics event registry entry):
+- No personal data in telemetry (no `personal`/`sensitive`/`secret` field
+  reaches a log, error report or analytics event):
+- Retention and erasure defined for any new personal-data column:
+- Consent category declared for any new client-side tracking:
