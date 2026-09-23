@@ -20,6 +20,9 @@ const NETWORK_GIT = new Set([
   'ls-remote',
   'remote',
   'submodule',
+  'send-pack',
+  'fetch-pack',
+  'http-push',
 ]);
 
 /** git's subcommand after its global options. */
@@ -38,8 +41,11 @@ export function identityVerdict(
   args: readonly string[],
   facts: GuardFacts,
 ): Verdict {
+  const subcommand = name === 'git' ? gitSubcommand(args) : undefined;
   const network =
     name === 'gh' ||
-    (name === 'git' && NETWORK_GIT.has(gitSubcommand(args) ?? ''));
+    NETWORK_GIT.has(subcommand ?? '') ||
+    (subcommand === 'archive' &&
+      args.some((arg) => arg.startsWith('--remote')));
   return facts.misconfigured && network ? deny(IDENTITY_REASON) : allow;
 }

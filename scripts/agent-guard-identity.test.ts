@@ -25,6 +25,21 @@ describe('agent guard: a pu agent without its identity', () => {
     });
   });
 
+  test('refuses the plumbing commands that reach a remote too', () => {
+    assert({
+      given:
+        'git send-pack, fetch-pack and archive --remote, and a local archive',
+      should: 'deny the remote ones and allow the local one',
+      actual: [
+        'git send-pack git@github.com:o/r main',
+        'git fetch-pack https://github.com/o/r',
+        'git archive --remote=git@github.com:o/r HEAD',
+        'git archive HEAD',
+      ].map((command) => decide(command, misconfigured)),
+      expected: ['deny', 'deny', 'deny', 'allow'],
+    });
+  });
+
   test('applies every agent rule, not the owner ones', () => {
     assert({
       given: 'a direct merge and an unscoped kill',

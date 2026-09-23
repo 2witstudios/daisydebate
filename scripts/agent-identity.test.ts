@@ -1,4 +1,4 @@
-import { chmodSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -149,10 +149,11 @@ describe('agent launcher', () => {
     delete base.GH_TOKEN;
     delete base.DAISY_AUTONOMOUS;
     delete base.PU_PROJECT_ROOT;
-    return Bun.spawnSync(
+    const run = Bun.spawnSync(
       ['sh', `${root}/scripts/agent-launch.sh`, 'sh', '-c', 'env'],
       { cwd: dir, env: { ...base, ...inherited }, stderr: 'pipe' },
     );
+    return Object.assign(run, { dir });
   };
 
   test('exports the machine identity into the agent process', () => {
@@ -204,6 +205,25 @@ describe('agent launcher', () => {
       should: 'exit non-zero without starting the agent',
       actual: expanding.map((run) => [run.exitCode, run.stdout.toString()]),
       expected: Array(4).fill([1, '']),
+    });
+  });
+
+  test('never runs the file as shell code', () => {
+    const run = launch(
+      filled.replace(
+        'GH_TOKEN=agent-token-value',
+        'GH_TOKEN=agent-token;touch pwned',
+      ),
+    );
+    assert({
+      given: 'a token with a command after a semicolon',
+      should: 'export the value literally and run nothing from it',
+      actual: [
+        run.exitCode,
+        parseDotenv(run.stdout.toString()).GH_TOKEN,
+        existsSync(join(run.dir, 'pwned')),
+      ],
+      expected: [0, 'agent-token;touch pwned', false],
     });
   });
 
