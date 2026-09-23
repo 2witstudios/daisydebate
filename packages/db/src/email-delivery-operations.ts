@@ -92,59 +92,58 @@ export const emailDeliveryOperations = ({
     at: string;
   }): Promise<'applied' | 'duplicate' | 'unknown-message'> {
     const unknown = Symbol('unknown-message');
-    try {
-      return await database.transaction(async (tx) => {
-        const inserted = await tx
-          .insert(emailDeliveryEvents)
-          .values({
-            providerEventId: input.eventId,
-            providerMessageId: input.providerMessageId,
-            receivedAt: input.at,
-          })
-          .onConflictDoNothing()
-          .returning({ id: emailDeliveryEvents.providerEventId });
-        if (inserted.length === 0) return 'duplicate' as const;
-        const [delivery] = await tx
-          .select({
-            recipientHash: emailDeliveries.recipientHash,
-          })
-          .from(emailDeliveries)
-          .where(eq(emailDeliveries.providerMessageId, input.providerMessageId))
-          .limit(1);
-        if (!delivery) throw unknown;
-        await tx
-          .update(emailDeliveries)
-          .set({
-            status: input.status,
-            statusRank: input.rank,
-            updatedAt: input.at,
-          })
-          .where(
-            and(
-              eq(emailDeliveries.providerMessageId, input.providerMessageId),
-              lt(emailDeliveries.statusRank, input.rank),
-            ),
-          );
-        if (input.suppress)
-          await tx
-            .insert(emailSuppressions)
+    return instrumented(eventSink, 'applyEmailDeliveryEvent', async () => {
+      try {
+        return await database.transaction(async (tx) => {
+          const inserted = await tx
+            .insert(emailDeliveryEvents)
             .values({
-              recipientHash: delivery.recipientHash,
-              reason: input.suppress,
+              providerEventId: input.eventId,
               providerMessageId: input.providerMessageId,
-              createdAt: input.at,
+              receivedAt: input.at,
             })
-            .onConflictDoNothing();
-        return 'applied' as const;
-      });
-    } catch (error) {
-      if (error === unknown) return 'unknown-message';
-      eventSink?.(
-        'db.query.failed',
-        { operation: 'applyEmailDeliveryEvent' },
-        'Database query failed',
-      );
-      throw error;
-    }
+            .onConflictDoNothing()
+            .returning({ id: emailDeliveryEvents.providerEventId });
+          if (inserted.length === 0) return 'duplicate' as const;
+          const [delivery] = await tx
+            .select({
+              recipientHash: emailDeliveries.recipientHash,
+            })
+            .from(emailDeliveries)
+            .where(
+              eq(emailDeliveries.providerMessageId, input.providerMessageId),
+            )
+            .limit(1);
+          if (!delivery) throw unknown;
+          await tx
+            .update(emailDeliveries)
+            .set({
+              status: input.status,
+              statusRank: input.rank,
+              updatedAt: input.at,
+            })
+            .where(
+              and(
+                eq(emailDeliveries.providerMessageId, input.providerMessageId),
+                lt(emailDeliveries.statusRank, input.rank),
+              ),
+            );
+          if (input.suppress)
+            await tx
+              .insert(emailSuppressions)
+              .values({
+                recipientHash: delivery.recipientHash,
+                reason: input.suppress,
+                providerMessageId: input.providerMessageId,
+                createdAt: input.at,
+              })
+              .onConflictDoNothing();
+          return 'applied' as const;
+        });
+      } catch (error) {
+        if (error === unknown) return 'unknown-message' as const;
+        throw error;
+      }
+    });
   },
 });
