@@ -102,17 +102,31 @@ describe('agent guard: data and containers outside the agent slot', () => {
     });
   });
 
+  test('refuses slot commands pointed at another checkout or env file', () => {
+    assert({
+      given: '--checkout and --env naming another checkout, in both spellings',
+      should: 'deny each one',
+      actual: [
+        decide(`bun slot:down --checkout ${other}`),
+        decide(`bun slot:down --checkout=${other}`),
+        decide(`bun slot:up --env ${other}/.env`),
+        decide(`bun db:reset --checkout ${main}`),
+      ],
+      expected: Array(4).fill('deny'),
+    });
+  });
+
   test('allows db:reset and slot:down on its own slot', () => {
     assert({
       given:
-        'the agent worktree, including an override naming its own test database',
+        'the agent worktree, an override naming its own test database, and --checkout naming itself',
       should: 'allow them',
       actual: [
         decide('bun run db:reset'),
         decide('ALLOW_DATABASE_RESET=yes bun db:reset'),
         decide('DATABASE_URL=postgres://h/daisy_wt_mine_test bun db:reset'),
         decide('bun slot:down'),
-        decide('bun slot:prune'),
+        decide(`bun slot:down --checkout ${worktree}`),
       ],
       expected: ['allow', 'allow', 'allow', 'allow', 'allow'],
     });

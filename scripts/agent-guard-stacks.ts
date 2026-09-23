@@ -65,11 +65,27 @@ export const docker: Rule = (invocation, facts) => {
     : allow;
 };
 
-const SLOT_SCRIPTS: Readonly<Record<string, 'reset' | 'down'>> = {
-  'db:reset': 'reset',
-  'scripts/db-reset.ts': 'reset',
-  'slot:down': 'down',
-};
+const SLOT_SCRIPTS = new Set([
+  'db:reset',
+  'scripts/db-reset.ts',
+  'slot:up',
+  'slot:down',
+  'scripts/slot.ts',
+]);
+// scripts/slot.ts selects another checkout or .env file with these.
+const TARGET_OPTIONS = new Set(['--checkout', '--env']);
+
+/** Paths named by --checkout or --env, resolved against cwd. */
+function targetPaths(args: readonly string[], cwd: string): string[] {
+  const paths: string[] = [];
+  for (let index = 0; index < args.length; index += 1) {
+    const [flag, inline] = splitFlag(args[index]);
+    if (!TARGET_OPTIONS.has(flag)) continue;
+    paths.push(resolveFrom(cwd, inline ?? args[index + 1] ?? ''));
+    if (inline === undefined) index += 1;
+  }
+  return paths;
+}
 const DATABASE_KEYS = ['DATABASE_URL', 'TEST_DATABASE_URL', 'E2E_DATABASE_URL'];
 
 function databaseName(url: string): string | undefined {
@@ -94,7 +110,12 @@ function bunScript(words: readonly string[], cwd: string) {
   return { dir, script: words[index] ?? '', args: words.slice(index + 1) };
 }
 
-function ownsSlot(invocation: Invocation, facts: GuardFacts, dir: string) {
+function ownsSlot(
+  invocation: Invocation,
+  facts: GuardFacts,
+  dir: string,
+  args: readonly string[],
+) {
   const own = facts.databaseOf(facts.worktree);
   const hasSlot =
     own !== undefined && own !== facts.databaseOf(facts.mainCheckout);
@@ -105,6 +126,7 @@ function ownsSlot(invocation: Invocation, facts: GuardFacts, dir: string) {
   return (
     hasSlot &&
     isWithin(dir, facts.worktree) &&
+    targetPaths(args, dir).every((path) => isWithin(path, facts.worktree)) &&
     overrides.every((name) => name === own || name === `${own}_test`)
   );
 }
@@ -113,6 +135,6 @@ export const bun: Rule = (invocation, facts, cwd): Verdict => {
   const { dir, script, args } = bunScript(invocation.words, cwd);
   if (script === 'github:rules' && args.includes('--apply'))
     return autonomousOnly(facts, RULE_REASON);
-  if (!facts.autonomous || !SLOT_SCRIPTS[script]) return allow;
-  return ownsSlot(invocation, facts, dir) ? allow : deny(SLOT_REASON);
+  if (!facts.autonomous || !SLOT_SCRIPTS.has(script)) return allow;
+  return ownsSlot(invocation, facts, dir, args) ? allow : deny(SLOT_REASON);
 };
