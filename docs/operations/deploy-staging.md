@@ -72,6 +72,20 @@ Two callers on different networks must produce two different
 If every request carries the same hash, whichever network it came from,
 the ingress is resolving fly-proxy's own address rather than the caller.
 
+Then prove a caller cannot choose its own identity. From one machine, send
+two requests with different forged `X-Forwarded-For` values:
+
+```
+curl -s https://<app>.fly.dev/api/health/ready -H "X-Forwarded-For: 203.0.113.9"
+curl -s https://<app>.fly.dev/api/health/ready -H "X-Forwarded-For: 198.51.100.7"
+fly logs -a <app> --no-tail | grep '"event":"http.request.completed"'
+```
+
+Both lines must carry the same `clientIdHash`, which is also the value this
+machine logs with no forged header. Different values mean the ingress
+trusted a caller-supplied hop, so a caller could pick its rate-limit
+identity.
+
 If the resolved client address is not the real caller, widen or correct
 `AUTH_TRUSTED_PROXIES` in `fly.toml` and redeploy — do not leave it unset,
 since that degrades every user to one shared rate-limit bucket per auth

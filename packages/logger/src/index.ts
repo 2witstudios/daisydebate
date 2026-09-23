@@ -39,9 +39,10 @@ export type EventName = keyof typeof eventRegistry;
 export type LogFields = Readonly<Record<string, unknown>> & {
   readonly event?: never;
 };
-// Mirrors packages/config's LOG_LEVEL enum. Logger cannot depend on
-// @daisy/config (declared dependencies: pino only), so the literal union is
-// kept in sync here rather than imported.
+// Mirrors packages/config's LOG_LEVEL enum. The logger's only runtime
+// dependency is pino (@daisy/config is a test-only devDependency, for the
+// redaction tests' secret keys), so the literal union is kept in sync here
+// rather than imported.
 export type LogLevel =
   'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'silent';
 export type Logger = {
