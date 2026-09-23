@@ -2,12 +2,19 @@ import { defineConfig } from '@playwright/test';
 
 type Env = Readonly<Record<string, string | undefined>>;
 
-// Ports derive from the environment so parallel local sessions can pin their
-// own stack; see docs/development/local-development.md ("Parallel sessions").
+// Ports derive from the environment; `bun slot:up` writes each checkout's
+// own (docs/development/local-development.md, "Parallel sessions").
 export const resolveE2EPort = (env: Env): number =>
   Number(env.E2E_PORT ?? 3100);
-export const resolveE2ERedisPort = (env: Env): string =>
-  env.E2E_REDIS_PORT ?? '6379';
+// The slot's database and Redis namespace come only from explicit settings
+// (written by `bun slot:up`, set by CI). A missing value is passed as empty,
+// which the server's configuration rejects at startup, so a suite can never
+// silently run against another checkout's data.
+export const resolveE2EServices = (env: Env) => ({
+  DATABASE_URL: env.E2E_DATABASE_URL ?? '',
+  REDIS_URL: env.E2E_REDIS_URL ?? '',
+  REDIS_NAMESPACE: env.E2E_REDIS_NAMESPACE ?? '',
+});
 // Reusing an already-running server on an explicitly pinned port would run
 // the suite against another session's code; only the un-pinned default may
 // reuse. CI never reuses.
@@ -39,9 +46,6 @@ export const resolveE2EOrigin = (env: Env): string =>
 const ports = resolveE2EPorts(process.env);
 const origin = resolveE2EOrigin(process.env);
 const browserEndpoint = resolveBrowserEndpoint(process.env);
-// Local Compose exposes PostgreSQL on 15432; CI service containers use 5432.
-const postgresPort = process.env.E2E_POSTGRES_PORT ?? '15432';
-const redisPort = resolveE2ERedisPort(process.env);
 
 export default defineConfig({
   testDir: './e2e',
@@ -103,9 +107,7 @@ export default defineConfig({
       PUBLIC_APP_URL: origin,
       APP_VERSION: 'e2e',
       GIT_COMMIT: 'local-e2e',
-      DATABASE_URL: `postgres://daisy_e2e:e2e-loopback-only@localhost:${postgresPort}/daisy_test`,
-      REDIS_URL: `redis://localhost:${redisPort}/2`,
-      REDIS_NAMESPACE: 'e2e',
+      ...resolveE2EServices(process.env),
       FOUNDATION_PROOF_ENABLED: 'false',
       LOG_LEVEL: 'info',
       // Production refuses to start without auth configuration. These are

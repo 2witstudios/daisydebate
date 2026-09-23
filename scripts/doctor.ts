@@ -3,6 +3,8 @@ import { readServerConfig } from '@daisy/config';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { slotMismatches, type Slot } from './slot-model';
+import { inspectOrphans, openServices, resolveCheckout } from './slot';
 
 const checkNames = [
   'bun-version',
@@ -11,10 +13,13 @@ const checkNames = [
   'migration-currency',
   'redis',
   'boundaries',
+  'slot',
+  'slot-orphans',
 ] as const;
 
 type CheckName = (typeof checkNames)[number];
-type CheckStatus = 'pass' | 'fail';
+/** A warning is reported but does not fail the doctor. */
+type CheckStatus = 'pass' | 'warn' | 'fail';
 export type DoctorCheck = {
   readonly name: CheckName;
   readonly status: CheckStatus;
@@ -67,7 +72,7 @@ export function createDoctorReport(
       byName.get(name) ?? { name, status: 'fail', detail: 'not checked' },
   );
   return {
-    ok: orderedChecks.every((check) => check.status === 'pass'),
+    ok: orderedChecks.every((check) => check.status !== 'fail'),
     checks: orderedChecks,
   };
 }
@@ -80,8 +85,7 @@ export function formatDoctorReport(
   return [
     `Daisy doctor: ${report.ok ? 'PASS' : 'FAIL'}`,
     ...report.checks.map(
-      (check) =>
-        `${check.status === 'pass' ? 'PASS' : 'FAIL'} ${check.name}: ${check.detail}`,
+      (check) => `${check.status.toUpperCase()} ${check.name}: ${check.detail}`,
     ),
     '',
   ].join('\n');
@@ -93,6 +97,53 @@ function pass(name: CheckName, detail: string): DoctorCheck {
 
 function fail(name: CheckName, detail: string): DoctorCheck {
   return { name, status: 'fail', detail };
+}
+
+/** Fails when this checkout's .env names another slot's data. */
+export function slotCheck(
+  slot: Slot,
+  env: Readonly<Record<string, string | undefined>>,
+): DoctorCheck {
+  const mismatches = slotMismatches(slot, env);
+  return mismatches.length === 0
+    ? pass('slot', slot.id)
+    : fail(
+        'slot',
+        `slot ${slot.id}: ${mismatches.join('; ')} (run bun slot:up)`,
+      );
+}
+
+export function orphanCheck(ids: readonly string[]): DoctorCheck {
+  return ids.length === 0
+    ? pass('slot-orphans', 'none')
+    : {
+        name: 'slot-orphans',
+        status: 'warn',
+        detail: `orphaned slots: ${ids.join(', ')} (run bun slot:prune)`,
+      };
+}
+
+async function checkSlots(): Promise<readonly DoctorCheck[]> {
+  let checkout;
+  try {
+    checkout = await resolveCheckout(root);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : 'unresolved';
+    return [fail('slot', detail), fail('slot-orphans', 'slot unresolved')];
+  }
+  let services;
+  try {
+    services = openServices(process.env);
+    const orphans = await inspectOrphans(services, checkout.liveIds);
+    return [slotCheck(checkout.slot, process.env), orphanCheck(orphans.ids)];
+  } catch {
+    return [
+      slotCheck(checkout.slot, process.env),
+      fail('slot-orphans', 'services unavailable'),
+    ];
+  } finally {
+    await services?.close().catch(() => undefined);
+  }
 }
 
 async function checkBunVersion(): Promise<DoctorCheck> {
@@ -203,13 +254,14 @@ async function checkBoundaries(): Promise<DoctorCheck> {
 
 export async function runDoctor(): Promise<DoctorReport> {
   const env = checkEnvironment();
-  const [bunVersion, postgres, migrations, redis, boundaries] =
+  const [bunVersion, postgres, migrations, redis, boundaries, slots] =
     await Promise.all([
       checkBunVersion(),
       checkPostgres(process.env.DATABASE_URL),
       checkMigrationCurrency(process.env.DATABASE_URL),
       checkRedis(process.env.REDIS_URL),
       checkBoundaries(),
+      checkSlots(),
     ]);
   return createDoctorReport([
     bunVersion,
@@ -218,6 +270,7 @@ export async function runDoctor(): Promise<DoctorReport> {
     migrations,
     redis,
     boundaries,
+    ...slots,
   ]);
 }
 

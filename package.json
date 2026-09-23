@@ -12,7 +12,7 @@
   ],
   "scripts": {
     "dev": "bun --env-file=.env run turbo run dev",
-    "dev:agent": "bun --env-file=.env scripts/dev-agent.ts",
+    "dev:agent": "bun scripts/dev-agent.ts",
     "build": "NODE_ENV=production turbo run build",
     "start": "bun run --cwd apps/web start",
     "typecheck": "turbo run typecheck",
@@ -51,10 +51,11 @@
     "db:migrate": "bun --env-file=.env packages/db/scripts/migrate.ts",
     "db:seed": "bun --env-file=.env scripts/seed.ts",
     "db:studio": "bun --env-file=.env run --cwd packages/db db:studio",
-    "db:reset": "bun --env-file=.env packages/db/scripts/reset.ts",
-    "infra:up": "docker compose --env-file .env -f infra/compose.yaml up -d --wait",
-    "infra:down": "docker compose --env-file .env -f infra/compose.yaml down",
-    "infra:logs": "docker compose --env-file .env -f infra/compose.yaml logs -f",
+    "db:reset": "bun --env-file=.env scripts/db-reset.ts",
+    "slot:up": "bun scripts/slot.ts up",
+    "slot:down": "bun scripts/slot.ts down",
+    "slot:prune": "bun scripts/slot.ts prune",
+    "infra:logs": "docker compose -f infra/compose.yaml logs -f",
     "audit": "bun audit"
   },
   "devDependencies": {
@@ -76,7 +77,9 @@
   "dependencies": {
     "@daisy/clock": "workspace:*",
     "@daisy/config": "workspace:*",
+    "@daisy/db": "workspace:*",
     "@daisy/debate-engine": "workspace:*",
-    "@daisy/protocol": "workspace:*"
+    "@daisy/protocol": "workspace:*",
+    "@daisy/redis": "workspace:*"
   }
 }

@@ -3,8 +3,12 @@ import {
   createDoctorReport,
   formatDoctorReport,
   isMigrationCurrent,
+  orphanCheck,
   readCommittedMigrationHashes,
+  slotCheck,
+  type DoctorCheck,
 } from './doctor';
+import { slotEnvValues, worktreeSlot } from './slot-model';
 
 setupRitewayBun();
 
@@ -29,6 +33,8 @@ describe('doctor report', () => {
           { name: 'migration-currency', status: 'fail', detail: 'not checked' },
           { name: 'redis', status: 'pass', detail: 'PONG' },
           { name: 'boundaries', status: 'fail', detail: 'not checked' },
+          { name: 'slot', status: 'fail', detail: 'not checked' },
+          { name: 'slot-orphans', status: 'fail', detail: 'not checked' },
         ],
       },
     });
@@ -42,6 +48,8 @@ describe('doctor report', () => {
       { name: 'migration-currency', status: 'pass', detail: '1 migration' },
       { name: 'redis', status: 'pass', detail: 'PONG' },
       { name: 'boundaries', status: 'pass', detail: 'verified' },
+      { name: 'slot', status: 'pass', detail: 'daisy' },
+      { name: 'slot-orphans', status: 'warn', detail: 'orphaned slots: gone' },
     ]);
 
     assert({
@@ -55,7 +63,81 @@ describe('doctor report', () => {
       should: 'render a passing text summary',
       actual: formatDoctorReport(report, false),
       expected:
-        'Daisy doctor: PASS\nPASS bun-version: 1.4.2\nPASS env: valid\nPASS postgres: reachable\nPASS migration-currency: 1 migration\nPASS redis: PONG\nPASS boundaries: verified\n',
+        'Daisy doctor: PASS\nPASS bun-version: 1.4.2\nPASS env: valid\nPASS postgres: reachable\nPASS migration-currency: 1 migration\nPASS redis: PONG\nPASS boundaries: verified\nPASS slot: daisy\nWARN slot-orphans: orphaned slots: gone\n',
+    });
+  });
+});
+
+describe('slot checks', () => {
+  const slot = worktreeSlot('abc');
+  const env = {
+    DATABASE_URL: 'postgres://daisy:pw@localhost:15432/daisy',
+    TEST_DATABASE_URL: 'postgres://daisy:pw@localhost:15432/daisy_test',
+    REDIS_URL: 'redis://localhost:6379',
+    REDIS_NAMESPACE: 'daisy',
+  };
+
+  test('fails a worktree whose .env names another slot', () => {
+    assert({
+      given: 'a worktree .env copied from the main checkout',
+      should: 'fail naming each mismatch and the fix',
+      actual: slotCheck(slot, env),
+      expected: {
+        name: 'slot',
+        status: 'fail',
+        detail:
+          'slot abc: DATABASE_URL names "daisy", expected "daisy_wt_abc"; TEST_DATABASE_URL names "daisy_test", expected "daisy_wt_abc_test"; E2E_DATABASE_URL is unset, expected "daisy_wt_abc_test"; REDIS_NAMESPACE names "daisy", expected "daisy-wt-abc"; E2E_REDIS_NAMESPACE is unset, expected "daisy-wt-abc-e2e" (run bun slot:up)',
+      },
+    });
+  });
+
+  test('passes a worktree whose .env slot:up wrote', () => {
+    assert({
+      given: 'the values slot:up writes',
+      should: 'pass naming the slot',
+      actual: slotCheck(slot, slotEnvValues({ slot, env, portBlock: 1 })),
+      expected: { name: 'slot', status: 'pass', detail: 'abc' },
+    });
+  });
+
+  test('reports orphaned slots without failing the report', () => {
+    const warned = orphanCheck(['gone', 'old']);
+    assert({
+      given: 'orphaned and no orphaned slots',
+      should: 'warn with the prune command, and pass when none',
+      actual: [
+        warned,
+        orphanCheck([]),
+        createDoctorReport([warned]).checks.at(-1)?.status,
+      ],
+      expected: [
+        {
+          name: 'slot-orphans',
+          status: 'warn',
+          detail: 'orphaned slots: gone, old (run bun slot:prune)',
+        },
+        { name: 'slot-orphans', status: 'pass', detail: 'none' },
+        'warn',
+      ],
+    });
+    assert({
+      given: 'a report whose only non-pass check is a warning',
+      should: 'stay healthy',
+      actual: createDoctorReport([
+        ...(
+          [
+            'bun-version',
+            'env',
+            'postgres',
+            'migration-currency',
+            'redis',
+            'boundaries',
+            'slot',
+          ] as const
+        ).map((name): DoctorCheck => ({ name, status: 'pass', detail: '' })),
+        warned,
+      ]).ok,
+      expected: true,
     });
   });
 });

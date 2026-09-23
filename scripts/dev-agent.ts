@@ -1,5 +1,7 @@
 import { agentSeedUsers, agentSeedVersion } from './agent-seed';
+import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { readEnvValue } from './slot-model';
 
 const root = resolve(import.meta.dir, '..');
 
@@ -59,7 +61,7 @@ export async function waitForReadiness(
   }
 }
 
-type Command = 'infra:up' | 'db:migrate' | 'db:seed';
+type Command = 'slot:up' | 'db:seed';
 
 async function runCommand(command: Command, quiet = false): Promise<void> {
   const child = Bun.spawn(['bun', 'run', command], {
@@ -74,11 +76,16 @@ async function runCommand(command: Command, quiet = false): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  await runCommand('infra:up');
-  await runCommand('db:migrate');
+  // slot:up brings the shared stack up, migrates this checkout's databases
+  // and may rewrite .env, so the app URL is read after it.
+  await runCommand('slot:up');
   await runCommand('db:seed', true);
 
-  const appUrl = process.env.PUBLIC_APP_URL ?? 'http://localhost:3000';
+  const appUrl =
+    readEnvValue(
+      await readFile(resolve(root, '.env'), 'utf8'),
+      'PUBLIC_APP_URL',
+    ) ?? 'http://localhost:3000';
   const web = Bun.spawn(['bun', 'run', 'dev'], {
     cwd: root,
     stdin: 'inherit',
