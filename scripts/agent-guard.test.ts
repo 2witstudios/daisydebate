@@ -146,6 +146,37 @@ describe('agent guard: merges', () => {
     });
   });
 
+  test('refuses API writes that reach main without a push', () => {
+    assert({
+      given:
+        'contents API writes on main or the default branch, the merges API, ref mutations in GraphQL, and a GraphQL query from a file',
+      should: 'deny each one for an agent',
+      actual: [
+        'gh api -X PUT repos/o/r/contents/a.txt -f message=m -f content=eA== -f branch=main',
+        'gh api -X DELETE repos/o/r/contents/a.txt -f message=m -f sha=1',
+        'gh api repos/o/r/merges -f base=main -f head=pu/x',
+        `gh api graphql -f query='mutation { updateRef(input: {refId: "x", oid: "y"}) { clientMutationId } }'`,
+        `gh api graphql -f query='mutation { createCommitOnBranch(input: {}) { commit { oid } } }'`,
+        'gh api graphql -F query=@mutation.graphql',
+      ].map((command) => decide(command)),
+      expected: Array(6).fill('deny'),
+    });
+  });
+
+  test('still allows contents writes to another branch and plain reads', () => {
+    assert({
+      given: 'a contents write on a feature branch and a GraphQL read',
+      should: 'allow both',
+      actual: [
+        decide(
+          'gh api -X PUT repos/o/r/contents/a.txt -f message=m -f content=eA== -f branch=pu/x',
+        ),
+        decide(`gh api graphql -f query='{ viewer { login } }'`),
+      ],
+      expected: ['allow', 'allow'],
+    });
+  });
+
   test('asks the owner before a direct or admin merge', () => {
     assert({
       given: 'an owner session merging directly, with --admin, and via --auto',
