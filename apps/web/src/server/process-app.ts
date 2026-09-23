@@ -1,57 +1,57 @@
 import { systemClock, systemId } from '@daisy/clock';
 import { createApp, type App } from './app';
+import { createProcessEdge, type ProcessHolder } from './process-edge';
 import { createRouteBinder } from './route-binding';
 import { createRoutes, type Routes } from './routes';
 import { readStartOptions } from './start-options';
 
 /**
- * The process edge, and the only module that reads `process.env` or
- * `globalThis` (the ESLint `daisy/process-edge` rule enforces it). Next
- * loads route modules, the proxy and instrumentation as separate bundles
- * that share only `globalThis`, so the one app this server process runs is
- * kept there, built on first use from the real environment, fetch, clock
- * and ids. Everything else receives the app, or a part of it, as an
- * argument; tests build their own with `createApp`.
+ * The web process edge, and the only module that reads `process.env` or
+ * `globalThis` (eslint.config.mjs, ISSUE-7 block: no-restricted-properties
+ * and no-restricted-globals). Next loads route modules, the proxy and
+ * instrumentation as separate bundles that share only `globalThis`, so the
+ * one app this server process runs is kept there, built on first use from
+ * the real environment, fetch, clock and ids. Only route bindings and the
+ * process entries import this module (no-restricted-imports); everything
+ * else receives the app, or a part of it, as an argument, and tests build
+ * their own with `createApp`.
  */
 type ProcessState = { readonly app: App; readonly routes: Routes };
 
-const processState = globalThis as typeof globalThis & {
-  daisyWebApp?: ProcessState;
-};
+const stateFor = (app: App): ProcessState => ({
+  app,
+  routes: createRoutes(app),
+});
 
-function processWeb(): ProcessState {
-  if (processState.daisyWebApp) return processState.daisyWebApp;
-  const app = createApp({
-    env: process.env,
-    fetch: globalThis.fetch,
-    clock: systemClock,
-    ids: systemId,
-  });
-  processState.daisyWebApp = { app, routes: createRoutes(app) };
-  return processState.daisyWebApp;
-}
+const edge = createProcessEdge(
+  globalThis as typeof globalThis & ProcessHolder<ProcessState>,
+  () =>
+    stateFor(
+      createApp({
+        env: process.env,
+        fetch: globalThis.fetch,
+        clock: systemClock,
+        ids: systemId,
+      }),
+    ),
+);
+
+/** This process's app, built on first use. */
+export const processApp = (): App => edge.get().app;
+
+/** Binds a Next route export to this process's route table. */
+export const processRoute = createRouteBinder(() => edge.get().routes);
 
 /**
  * For a process entry that composes its own app before the server starts
  * (the browser suite's server, which captures outbound mail): makes it this
- * process's app. Refuses once one exists, so it can never swap an app out
- * from under requests.
+ * process's app. Refuses once one exists.
  */
-export function adoptProcessApp(app: App) {
-  if (processState.daisyWebApp)
-    throw new Error('This process already runs an app');
-  processState.daisyWebApp = { app, routes: createRoutes(app) };
-}
-
-/** This process's app, built on first use. */
-export const processApp = (): App => processWeb().app;
-
-/** Binds a Next route export to this process's route table. */
-export const processRoute = createRouteBinder(() => processWeb().routes);
+export const adoptProcessApp = (app: App) => edge.adopt(stateFor(app));
 
 /** Closes this process's app if one was built. */
 export async function closeProcessApp() {
-  await processState.daisyWebApp?.app.close();
+  await edge.held()?.app.close();
 }
 
 /** The production server's validated launch settings. */
