@@ -2,8 +2,10 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   buildDebatePresenceTopic,
   buildDebateTopic,
+  buildUserInboxTopic,
   doorbellKinds,
   isPayloadAllowedOnTopic,
+  isPayloadStorableOnTopic,
   outboxPayloadSchema,
 } from './realtime';
 
@@ -211,6 +213,99 @@ describe('payload-to-topic-family binding (AC4)', () => {
         ids: [id],
       }),
       expected: false,
+    });
+  });
+});
+
+describe('storage-side family rule (plan revision 4.11)', () => {
+  const inbox = buildUserInboxTopic(id);
+
+  test('accepts the three control kinds as storable on the inbox family', () => {
+    assert({
+      given:
+        'session.revoked, access.revoked and actor.presence-preference-changed on user:inbox',
+      should: 'each be storable',
+      actual: [
+        isPayloadStorableOnTopic(inbox, {
+          version: 1,
+          kind: 'session.revoked',
+          ids: [id],
+        }),
+        isPayloadStorableOnTopic(inbox, {
+          version: 1,
+          kind: 'access.revoked',
+          ids: [id, otherId],
+        }),
+        isPayloadStorableOnTopic(inbox, {
+          version: 1,
+          kind: 'actor.presence-preference-changed',
+          ids: [id],
+        }),
+      ],
+      expected: [true, true, true],
+    });
+  });
+
+  test('still stores the ordinary inbox delta kind alongside the control kinds', () => {
+    assert({
+      given: 'a user.notification-delivered delta on user:inbox',
+      should: 'be storable, as it always was',
+      actual: isPayloadStorableOnTopic(inbox, {
+        version: 1,
+        kind: 'user.notification-delivered',
+        ids: [id],
+        notificationType: 'debate.forfeit',
+        occurredAt: '2026-01-01T00:00:00.000Z',
+      }),
+      expected: true,
+    });
+  });
+
+  test('never lets a control kind be delivered as an event on any topic, even though it is storable on the inbox', () => {
+    assert({
+      given:
+        'the same three control kinds tested against isPayloadAllowedOnTopic on their storable topic',
+      should:
+        'be refused by the delivery-side rule: control rows are never forwarded as event',
+      actual: [
+        isPayloadAllowedOnTopic(inbox, {
+          version: 1,
+          kind: 'session.revoked',
+          ids: [id],
+        }),
+        isPayloadAllowedOnTopic(inbox, {
+          version: 1,
+          kind: 'access.revoked',
+          ids: [id, otherId],
+        }),
+        isPayloadAllowedOnTopic(inbox, {
+          version: 1,
+          kind: 'actor.presence-preference-changed',
+          ids: [id],
+        }),
+      ],
+      expected: [false, false, false],
+    });
+  });
+
+  test('still refuses every other family the storage-side rule does not widen', () => {
+    assert({
+      given:
+        'a debate.phase-changed doorbell tested against both rules on its own topic',
+      should: 'agree: storage and delivery are identical outside user:inbox',
+      actual: [
+        isPayloadStorableOnTopic(buildDebateTopic(id), {
+          version: 1,
+          kind: 'debate.phase-changed',
+          ids: [id],
+        }),
+        isPayloadStorableOnTopic(buildDebatePresenceTopic(id), {
+          version: 1,
+          kind: 'debate.phase-changed',
+          ids: [id],
+        }),
+      ],
+      expected: [true, false],
     });
   });
 });

@@ -46,10 +46,11 @@ export const inboxDeltaPayloadSchema = z.strictObject({
 
 /**
  * Revocations are outbox rows too (ADR 0032 §5), so every instance applies
- * them durably. They never ride a subscribed topic: `session.revoked`
- * closes the matching sockets directly, and `access.revoked` unsubscribes
- * the actor from the topic named in `ids`. They still need a schema so the
- * drain's generic row parse never meets a kind it cannot `safeParse`.
+ * them durably. They ride the actor's own `user:<actorId>:inbox` topic as
+ * control rows (plan revision 4.11, ADR 0032 §6): storable there, but never
+ * delivered as an `event` message. `session.revoked` closes the matching
+ * sockets directly, and `access.revoked` unsubscribes the actor from the
+ * topic named in `ids`; realtime consumes both straight from the drain.
  */
 export const sessionRevokedPayloadSchema = z.strictObject({
   version: entityVersionSchema,
@@ -64,27 +65,45 @@ export const accessRevokedPayloadSchema = z.strictObject({
   ids: z.array(idSchema).length(2),
 });
 
+/**
+ * A visibility-preference change (RT-3.2b, plan revision 4.11): appended in
+ * the settings transaction on the actor's own inbox as a control row.
+ * Realtime consumes it to re-project that actor's presence locally and
+ * ring `presence.changed`; presence state itself is still never written to
+ * the outbox (ADR 0033 §1). It never rides a subscribed topic as an
+ * `event`, exactly like the two revocation kinds above.
+ */
+export const actorPresencePreferenceChangedPayloadSchema = z.strictObject({
+  version: entityVersionSchema,
+  kind: z.literal('actor.presence-preference-changed'),
+  /** `[actorId]`. */
+  ids: z.array(idSchema).length(1),
+});
+
 /** The outbox payload contract, validated by `kind`, always carrying `version`. */
 export const outboxPayloadSchema = z.union([
   doorbellPayloadSchema,
   inboxDeltaPayloadSchema,
   sessionRevokedPayloadSchema,
   accessRevokedPayloadSchema,
+  actorPresencePreferenceChangedPayloadSchema,
 ]);
 export type OutboxPayload = z.infer<typeof outboxPayloadSchema>;
 export type OutboxPayloadKind = OutboxPayload['kind'];
 
 /**
- * Public families (`debate`, `standings`) carry doorbells only, and each
- * carries only its own kind — a `standings.updated` doorbell on
- * `debate:<id>` is just as wrong as an inbox delta there. `user:inbox` may
- * carry its delta kind. `debate:presence` and `debate:chat` carry no outbox
- * kind at all: presence is delivered as the `presence.changed` server
- * message, never through the outbox (ADR 0033 §1), and chat delivery is
- * CHAT-1's later epic (plan section I), so nothing may ride that topic
- * today. `session.revoked`/`access.revoked` are absent from every list on
- * purpose (see their schemas above): they are never delivered as an
- * `event` on a topic.
+ * The **delivery-side** rule `isPayloadAllowedOnTopic` enforces for the
+ * `event` message. Public families (`debate`, `standings`) carry doorbells
+ * only, and each carries only its own kind — a `standings.updated` doorbell
+ * on `debate:<id>` is just as wrong as an inbox delta there. `user:inbox`
+ * may carry its delta kind. `debate:presence` and `debate:chat` carry no
+ * outbox kind at all: presence is delivered as the `presence.changed`
+ * server message, never through the outbox (ADR 0033 §1), and chat delivery
+ * is CHAT-1's later epic (plan section I), so nothing may ride that topic
+ * today. The three control kinds (`session.revoked`, `access.revoked`,
+ * `actor.presence-preference-changed`) are absent from every list on
+ * purpose: they are never delivered as an `event` on a topic, even though
+ * `storageFamilyPayloadKinds` below allows them on `user:inbox`.
  */
 export const topicFamilyPayloadKinds: Readonly<
   Record<TopicFamily, readonly OutboxPayloadKind[]>
@@ -97,14 +116,27 @@ export const topicFamilyPayloadKinds: Readonly<
 };
 
 /**
- * Validates an outbox payload against both its own shape and the topic it
- * would be delivered on: the payload must parse, and its `kind` must be
- * one this topic's family allows. This is what actually enforces the
- * doorbell-only and per-family constraints; the `event` message schema
- * calls it through a refinement so a mismatched pair fails `safeParse`
- * directly.
+ * The **storage-side** rule (plan revision 4.11): which kinds an outbox row
+ * may carry on each family, broader than the delivery-side rule above.
+ * `@daisy/db`'s append validates a row against this rule before insert, so
+ * the three control kinds are storable on `user:<actorId>:inbox` even
+ * though `topicFamilyPayloadKinds` never allows them there — they ride the
+ * inbox as durable rows realtime consumes and never forwards to any client.
  */
-export function isPayloadAllowedOnTopic(
+export const storageFamilyPayloadKinds: Readonly<
+  Record<TopicFamily, readonly OutboxPayloadKind[]>
+> = {
+  ...topicFamilyPayloadKinds,
+  'user:inbox': [
+    ...topicFamilyPayloadKinds['user:inbox'],
+    'session.revoked',
+    'access.revoked',
+    'actor.presence-preference-changed',
+  ],
+};
+
+function isPayloadAllowedByRule(
+  rule: Readonly<Record<TopicFamily, readonly OutboxPayloadKind[]>>,
   topic: string,
   payload: unknown,
 ): boolean {
@@ -112,7 +144,36 @@ export function isPayloadAllowedOnTopic(
   if (!parsedTopic) return false;
   const parsedPayload = outboxPayloadSchema.safeParse(payload);
   if (!parsedPayload.success) return false;
-  return (
-    topicFamilyPayloadKinds[parsedTopic.family] as readonly string[]
-  ).includes(parsedPayload.data.kind);
+  return (rule[parsedTopic.family] as readonly string[]).includes(
+    parsedPayload.data.kind,
+  );
+}
+
+/**
+ * Validates an outbox payload against both its own shape and the topic it
+ * would be **delivered** on: the payload must parse, and its `kind` must be
+ * one this topic's family allows for an `event`. This is what actually
+ * enforces the doorbell-only and per-family constraints; the `event`
+ * message schema calls it through a refinement so a mismatched pair fails
+ * `safeParse` directly.
+ */
+export function isPayloadAllowedOnTopic(
+  topic: string,
+  payload: unknown,
+): boolean {
+  return isPayloadAllowedByRule(topicFamilyPayloadKinds, topic, payload);
+}
+
+/**
+ * Validates an outbox payload against both its own shape and the topic it
+ * would be **stored** on (plan revision 4.11): the payload must parse, and
+ * its `kind` must be one this topic's family allows to be appended, which
+ * for `user:inbox` includes the three control kinds `event` never delivers.
+ * `@daisy/db`'s append calls this before insert.
+ */
+export function isPayloadStorableOnTopic(
+  topic: string,
+  payload: unknown,
+): boolean {
+  return isPayloadAllowedByRule(storageFamilyPayloadKinds, topic, payload);
 }
