@@ -2,7 +2,14 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { claimPlan, E2E_ENV, lockDir, readLimit } from './e2e-limit';
+import {
+  claimPlan,
+  E2E_ENV,
+  keepsClaim,
+  lockDir,
+  parseHeld,
+  readLimit,
+} from './e2e-limit';
 
 setupRitewayBun();
 
@@ -10,7 +17,7 @@ describe('claimPlan', () => {
   test('claims a free slot under the limit and clears slots of dead runs', () => {
     assert({
       given: 'slot 0 held by a live run, slot 1 by a dead one, limit 2',
-      should: 'clear slot 1 and claim it',
+      should: 'clear the dead run by its own pid and claim slot 1',
       actual: claimPlan(
         [
           { slot: 0, pid: 10 },
@@ -19,7 +26,7 @@ describe('claimPlan', () => {
         2,
         (pid) => pid === 10,
       ),
-      expected: { claim: 1, stale: [1] },
+      expected: { claim: 1, stale: [{ slot: 1, pid: 11 }] },
     });
   });
 
@@ -36,6 +43,41 @@ describe('claimPlan', () => {
         () => true,
       ),
       expected: { claim: undefined, stale: [] },
+    });
+  });
+});
+
+describe('claims named by pid', () => {
+  test('reads slot and pid from the file name, never from its content', () => {
+    assert({
+      given: 'two claims, a legacy empty-content name, and other files',
+      should: 'return the named claims only',
+      actual: parseHeld([
+        'slot-0-4242.pid',
+        'slot-1-77.pid',
+        'slot-0.pid',
+        '.DS_Store',
+      ]),
+      expected: [
+        { slot: 0, pid: 4242 },
+        { slot: 1, pid: 77 },
+      ],
+    });
+  });
+
+  test('keeps a claim only while no other live run holds the same slot', () => {
+    const mine = { slot: 0, pid: 20 };
+    assert({
+      given:
+        'my claim alone, beside a live rival on slot 0, beside a dead rival, and beside a live run on slot 1',
+      should: 'keep it, withdraw it, keep it, keep it',
+      actual: [
+        keepsClaim([mine], mine, () => true),
+        keepsClaim([{ slot: 0, pid: 10 }, mine], mine, () => true),
+        keepsClaim([{ slot: 0, pid: 10 }, mine], mine, (pid) => pid === 20),
+        keepsClaim([{ slot: 1, pid: 10 }, mine], mine, () => true),
+      ],
+      expected: [true, false, true, true],
     });
   });
 });
