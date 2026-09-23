@@ -1,13 +1,16 @@
 #!/usr/bin/env bun
 /**
- * ADR and migration numbers are claimed by open branches before they merge,
- * so two parallel PRs can take the same number and merge without a git
- * conflict (ADR 0035). `bun adr:next` prints the numbers free across
- * origin/main and every open PR; `bun policy` fails a branch whose number an
- * earlier-opened PR already holds.
+ * ADR numbers are claimed by open branches before they merge, so two
+ * parallel PRs can take the same number and merge without a git conflict
+ * (ADR 0035). `bun adr:next` prints the number free across origin/main and
+ * every open PR; `bun policy` fails a branch whose number an earlier-opened
+ * PR already holds. Migrations carry no number to claim: drizzle-kit 1.0
+ * names each folder by its generation timestamp (ADR 0038), and
+ * `bun migrations:check` fails a branch whose migrations do not append to
+ * main's.
  */
 
-export type Kind = 'ADR' | 'migration';
+export type Kind = 'ADR';
 export type Claim = {
   readonly kind: Kind;
   readonly number: string;
@@ -21,7 +24,6 @@ export type OpenPr = {
 
 const patterns: readonly (readonly [Kind, RegExp])[] = [
   ['ADR', /^docs\/decisions\/(\d{4})-[^/]+\.md$/],
-  ['migration', /^packages\/db\/migrations\/(\d{4})_[^/]+\.sql$/],
 ];
 
 export function claimsOf(files: readonly string[]): readonly Claim[] {
@@ -165,7 +167,5 @@ if (import.meta.main) {
     ...claimsOf(lines(local.stdout)),
     ...listOpenPrs().flatMap((pr) => claimsOf(pr.files)),
   ];
-  process.stdout.write(
-    `next ADR: ${nextFree(claims, 'ADR')}\nnext migration: ${nextFree(claims, 'migration')}\n`,
-  );
+  process.stdout.write(`next ADR: ${nextFree(claims, 'ADR')}\n`);
 }

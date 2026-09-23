@@ -14,7 +14,7 @@
     "**/.next/**",
     "**/.turbo/**",
     "**/node_modules/**",
-    "**/migrations/meta/**",
+    "**/migrations/*/snapshot.json",
     "apps/web/src/ui/mock/**"
   ],
   "reporters": ["console"],

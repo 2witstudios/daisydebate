@@ -9,7 +9,7 @@ coverage
 playwright-report
 test-results
 verify-logs
-packages/db/migrations/meta
+packages/db/migrations/*/snapshot.json
 # Generated in-test previews (AUTH-3.9): rendered for a reviewer to open in a
 # browser, not authored source.
 apps/web/src/features/auth/mail/__fixtures__

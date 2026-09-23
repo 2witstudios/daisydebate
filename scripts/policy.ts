@@ -268,7 +268,7 @@ export function validatePolicyRegistry(
 }
 
 export type MigrationBaseline = {
-  readonly baseJournalHash: string;
+  readonly baseMigrationsHash: string;
   readonly adr: string;
   readonly owner: string;
   readonly reason: string;
@@ -289,7 +289,7 @@ export function validateMigrationBaselines(
     const entry = value as Partial<MigrationBaseline>;
     const prefix = `baselines[${index}]`;
     for (const field of [
-      'baseJournalHash',
+      'baseMigrationsHash',
       'adr',
       'owner',
       'reason',
@@ -298,11 +298,11 @@ export function validateMigrationBaselines(
       if (typeof entry[field] !== 'string' || entry[field].trim() === '')
         problems.push(`${prefix}: ${field} is required`);
     if (
-      typeof entry.baseJournalHash === 'string' &&
-      !/^sha256:[0-9a-f]{64}$/.test(entry.baseJournalHash)
+      typeof entry.baseMigrationsHash === 'string' &&
+      !/^sha256:[0-9a-f]{64}$/.test(entry.baseMigrationsHash)
     )
       problems.push(
-        `${prefix}: baseJournalHash must be sha256:<64 lowercase hex>`,
+        `${prefix}: baseMigrationsHash must be sha256:<64 lowercase hex>`,
       );
     problems.push(
       ...referenceProblems(

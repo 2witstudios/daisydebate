@@ -108,7 +108,7 @@ describe('slot checks', () => {
         name: 'slot',
         status: 'fail',
         detail:
-          'slot abc: DATABASE_URL names "daisy", expected "daisy_wt_abc"; TEST_DATABASE_URL names "daisy_test", expected "daisy_wt_abc_test"; E2E_DATABASE_URL is unset, expected "daisy_wt_abc_test"; REDIS_NAMESPACE names "daisy", expected "daisy-wt-abc"; E2E_REDIS_NAMESPACE is unset, expected "daisy-wt-abc-e2e" (run bun slot:up)',
+          'slot abc: DATABASE_URL names "daisy", expected "daisy_wt_abc"; TEST_DATABASE_URL names "daisy_test", expected "daisy_wt_abc_test"; E2E_DATABASE_URL is unset, expected "daisy_wt_abc_e2e"; REDIS_NAMESPACE names "daisy", expected "daisy-wt-abc"; E2E_REDIS_NAMESPACE is unset, expected "daisy-wt-abc-e2e" (run bun slot:up)',
       },
     });
   });
@@ -171,7 +171,7 @@ describe('slot checks', () => {
 });
 
 describe('migration currency', () => {
-  test('requires the applied migrations to exactly match the committed journal', () => {
+  test('requires the applied migrations to exactly match the committed ones', () => {
     assert({
       given: 'committed and applied migration tags',
       should: 'accept an exact match and reject drift',
@@ -188,17 +188,18 @@ describe('migration currency', () => {
   });
 
   test('reads the hashes of committed migration SQL', async () => {
+    const baseline = new Bun.Glob('*_baseline/migration.sql').scanSync(
+      new URL('../packages/db/migrations/', import.meta.url).pathname,
+    );
+    const [path] = [...baseline];
+    const bytes = await Bun.file(
+      new URL(`../packages/db/migrations/${path}`, import.meta.url).pathname,
+    ).bytes();
     assert({
-      given: 'the committed migration journal and SQL files',
-      should: 'return the migration hashes in journal order',
+      given: 'the committed drizzle-kit 1.0 migration folders',
+      should: 'return the sha256 the migrator records, in folder order',
       actual: await readCommittedMigrationHashes(),
-      expected: [
-        'dd8e9ee51c1dff111cf2d975378c3cdc6bbfc77b1834a66d6905cc998d7301bb',
-        '5d92da2588999e499b2e80cd748e547ea5b669f07bc1aa4d14584bd49b35a7a3',
-        '92dea778e7b6329f8f438e81b0df14572e4fb7f3cdf1fc3c5f85bcd40984da0e',
-        '5a537451d5b0ef25c5b3446f7be06ed8d9154a58a78293c8fe8efd11f5054e35',
-        'a6d26437b57c69304a79427e323fad55b40fdb7c0d4bab13b645450888003a5d',
-      ],
+      expected: [new Bun.CryptoHasher('sha256').update(bytes).digest('hex')],
     });
   });
 });
