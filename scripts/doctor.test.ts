@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  checkoutCheck,
   createDoctorReport,
   formatDoctorReport,
   isMigrationCurrent,
@@ -189,6 +190,23 @@ describe('migration currency', () => {
         '92dea778e7b6329f8f438e81b0df14572e4fb7f3cdf1fc3c5f85bcd40984da0e',
         '5a537451d5b0ef25c5b3446f7be06ed8d9154a58a78293c8fe8efd11f5054e35',
         'a6d26437b57c69304a79427e323fad55b40fdb7c0d4bab13b645450888003a5d',
+      ],
+    });
+  });
+});
+
+describe('checkout check', () => {
+  test('warns, not fails, when the main checkout is off main', () => {
+    assert({
+      given: 'the main checkout on a feature branch, and a worktree',
+      should: 'warn for the first and pass the second',
+      actual: [
+        checkoutCheck({ mainCheckout: true, branch: 'docs/x' }).status,
+        checkoutCheck({ mainCheckout: false, branch: 'pu/x' }),
+      ],
+      expected: [
+        'warn',
+        { name: 'checkout', status: 'pass', detail: 'worktree on pu/x' },
       ],
     });
   });
