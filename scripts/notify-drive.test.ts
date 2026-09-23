@@ -36,6 +36,17 @@ describe('extractTaskIds', async () => {
     });
   });
 
+  test('keeps the letter suffix of follow-up leaf codes', async () => {
+    assert({
+      given: 'follow-up leaves such as RT-2.2f beside AUTH-3.1 and AUTH-3.10',
+      should: 'return each code whole instead of truncating it to RT-2',
+      actual: extractTaskIds(
+        'fix(db): RT-2.2f outbox; RT-3.1g; AUTH-3.1 AUTH-3.10',
+      ),
+      expected: ['RT-2.2f', 'RT-3.1g', 'AUTH-3.1', 'AUTH-3.10'],
+    });
+  });
+
   test('returns empty for text without task IDs', async () => {
     assert({
       given: 'text without task IDs',
