@@ -34,7 +34,7 @@ nothing more.
 | `bun lint`                                                    | ESLint (incl. Tailwind token rules), `scripts/check-boundaries.ts`, and `scripts/check-styling.ts`                                                       |
 | `bun format` / `bun format:check`                             | Prettier write / verify                                                                                                                                  |
 | `bun typecheck`                                               | `tsc --noEmit` per workspace (web runs `next typegen` first)                                                                                             |
-| `bun check`                                                   | format:check + lint + policy + knip + duplication + invariants + evidence + typecheck + test + metrics + build — run before pushing                      |
+| `bun check`                                                   | format:check + lint + policy + knip + duplication + invariants + evidence + typecheck + test + metrics + build — before pushing; needs network, `gh`     |
 | `bun check:affected`                                          | Fast per-vertical inner loop: lint/prettier on changed files, boundaries, duplication, affected turbo graph                                              |
 | `bun hooks:install`                                           | One-time opt-in: point `core.hooksPath` at `.githooks` so `git push` runs `bun check:affected`                                                           |
 | `bun migrations:check`                                        | Fail a branch that rewrites/edits/reorders shared migrations vs `origin/main`                                                                            |
@@ -50,9 +50,9 @@ nothing more.
 | `bun infra:logs`                                              | Follow the shared stack's Compose logs                                                                                                                   |
 | `bun adr:next`                                                | Next ADR and migration numbers free across origin/main and every open PR                                                                                 |
 | `bun github:rules [--apply]`                                  | Diff the committed main ruleset and repository settings against GitHub; `--apply` is owner-only (ADR 0035)                                               |
-| `bun agent:spawn -- …` / `bun agent:send`                     | Spawn a pu agent with prerequisite, cap and superseded-term checks, slot set-up, parent record and confirmed submission / send with confirmed submission |
+| `bun agent:spawn -- …` / `bun agent:send`                     | Spawn a pu agent with prerequisite, cap and superseded-term checks, slot set-up, parent registry and confirmed submission / send, confirmed the same way |
 | `bun loop:escalate` / `loop:close` / `loop:resume`            | Pause a PR loop and notify the parent / end or restart it (parent or owner only)                                                                         |
-| `bun board:read` / `status` / `create` / `relate` / `replace` | PageSpace board operations: raw reads, task status, leaves and ISSUE-n, Related pages, guarded line replaces                                             |
+| `bun board:read` / `status` / `create` / `relate` / `replace` | PageSpace board operations: raw reads, task status (never Done for agents), leaves and ISSUE-n, Related pages, hash-guarded replaces (`board:hash`)      |
 | `bun board:stale [--apply]`                                   | List tasks whose status disagrees with git; `--apply` moves them to their pre-Done status                                                                |
 | `bun decision:record`                                         | Record a decision made on the owner's behalf on Pending decisions and notify the owner                                                                   |
 | `bun plan:review <plan>`                                      | Automated Codex review of a plan against AGENTS.md and the ADRs, before tasking                                                                          |
@@ -134,12 +134,18 @@ Rules that keep sessions safe:
 ## Agent identity and guard
 
 Agents started by `pu` run through `scripts/agent-launch.sh`, which exports
-the machine identity from `.env.agent` (copy `.env.agent.example` in the main
-checkout; the owner fills in the token, GRD-6.2). `bun doctor` reports the
-identity in `github-identity` and fails an autonomous session that resolves
-to the owner; its `checkout` check fails when the main checkout is on a branch
-other than `main`, which the committed Claude Code session-start hook also
-warns about. The guard (`scripts/agent-guard.ts`) runs from the pre-push hook
+the machine identity from the main checkout's `.env.agent` (copy
+`.env.agent.example` there; the owner fills in the token, GRD-6.2). Without
+that file the launcher starts agents as the owner with a warning, and
+`bun doctor`'s `identity-regime` check warns until it exists. `bun doctor`
+reports the identity in `github-identity` and fails an autonomous session
+that resolves to the owner; its `checkout` check warns when the main
+checkout is on a branch other than `main`, which the committed Claude Code
+session-start hook also warns about.
+
+`bun check` and `bun policy` read open PRs through `gh` to catch ADR and
+migration numbers claimed twice, so they need the network and an
+authenticated `gh`; without either they fail rather than pass. The guard (`scripts/agent-guard.ts`) runs from the pre-push hook
 below and from the committed Claude Code hook in `.claude/settings.json`; see
 [pu workflow](pu-workflow.md#the-guard).
 

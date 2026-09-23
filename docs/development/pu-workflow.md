@@ -12,12 +12,13 @@ it. The guardrails that make autonomous agents safe are decided in
   or a push to `main`.
 - **Autonomous.** Every agent `pu` starts runs through
   `scripts/agent-launch.sh` (configured in the committed `.pu/config.yaml`).
-  The launcher exports the machine identity from `.env.agent` (copied into
-  each worktree by pu's `envFiles`) and sets `DAISY_AUTONOMOUS=1`, so `gh` and
-  `git push` act as the machine user over HTTPS, never with the owner's
-  keyring token or SSH key. It refuses to start an agent without a valid
-  identity, and `bun doctor` fails if an autonomous session resolves to the
-  owner.
+  The launcher exports the machine identity from the main checkout's
+  `.env.agent` and sets `DAISY_AUTONOMOUS=1`, so `gh` and `git push` act as
+  the machine user over HTTPS, never with the owner's keyring token or SSH
+  key. It refuses to start an agent with an incomplete identity, and
+  `bun doctor` fails if an autonomous session resolves to the owner. Until
+  the owner creates `.env.agent` (GRD-6.2), the launcher starts agents as
+  the owner with a warning and `bun doctor` warns (ADR 0035 section 1a).
 
 ## Spawning and messaging
 
@@ -29,26 +30,32 @@ pu status | pu logs <agent> | pu attach <agent>
 pu kill --agent <agent> && pu clean
 ```
 
-`bun agent:spawn` replaces a bare `pu spawn`. Before a builder starts, it
+Every agent is spawned with `bun agent:spawn`. Before a builder starts, it
 refuses:
 
-- a leaf whose `Prerequisite:` line names an unmerged leaf, PR or ADR
-- a leaf that uses a term a merged ADR superseded
+- a leaf whose `Prerequisite:` line names an unmerged leaf, PR or ADR, or a
+  leaf with no Related pages section to declare them in
+- a leaf or prompt that uses a term a merged ADR superseded
   (`policy/superseded-terms.json`)
-- a new builder when the active-builder cap (3) is reached
+- a new builder when the active-builder cap (3) is reached; every running
+  coding agent not registered as a reviewer counts
 
-The owner may override with `--override`; agents cannot. It then:
+The owner may override with `--override`. An autonomous agent cannot: it
+may not pass `--cap` or `--role`, and must pass `--task`, so the owner
+spawns reviewers. It then:
 
 1. creates the worktree
 2. runs `bun install --frozen-lockfile` and `bun slot:up` in it, so the
    agent never starts on another checkout's databases, Redis namespace or
    ports ([ADR 0034](../decisions/0034-shared-stack-slots.md))
-3. records the spawner's `PU_AGENT_ID` in `.daisy/parent` and the role in
-   `.daisy/role`
-4. starts the agent in that worktree
-5. resolves the child id from `pu status --json`
-6. confirms the prompt reached the child's transcript, nudging with an
-   empty `pu send` when it did not
+3. starts the agent in that worktree
+4. resolves the child id from `pu status --json`
+5. registers the child's parent (the spawner's `PU_AGENT_ID`), role and
+   worktree in `.pu/daisy/agents/<id>.json` in the main checkout, where the
+   child cannot write
+6. confirms the prompt was taken (a new user turn in the transcript, or
+   output from an agent that was quiet before the send), nudging with an
+   empty `pu send` when it was not
 
 `bun agent:send` confirms any later message the same way. Agents report to
 their parent directly with it, so the owner never relays status.
@@ -67,10 +74,12 @@ their shell commands, and concurrent forks broke shared trees.
 - Independent reviews use the Reviewer contract and `/review`. The review
   record's `Candidate:` line mints the `review-record` check through the
   review-record GitHub App; nobody sets that status by hand.
-- An autonomous agent never merges. When the owner directs a merge, the agent
-  runs `gh pr merge <n> --auto --merge`; GitHub merges once `CI gate`,
-  `Playwright E2E` and `review-record` all pass. The owner may merge directly
-  at any time.
+- An autonomous agent never merges. It runs `gh pr merge <n> --auto --merge`
+  only after the check in ADR 0035 section 4 confirms the live `main`
+  ruleset requires `review-record`; GitHub then merges once `CI gate`,
+  `Playwright E2E` and `review-record` all pass. Without that ruleset
+  (before GRD-6.2) it reports "ready for owner merge" to its parent and
+  waits. The owner may merge directly at any time.
 - After a merge, the tasks the PR names move to **Merged** and wait there
   for a review record to grant Done. After the enforcement cutoff, a merge
   without a `review-record` status files review debt (`ISSUE-n` plus a
@@ -91,8 +100,10 @@ A loop agent that cannot truthfully finish pauses its loop:
 bun loop:escalate <needs-owner|blocked|stalled|out-of-scope> "<detail>"
 ```
 
-That keeps the state and iteration, notifies the parent (or prints an owner
-notice) and comments on the PR. Only the parent or the owner answers it:
+That notifies the registered parent (or, with none, the owner on the Epic
+Updates channel) and comments on the PR, then pauses the loop with its state
+and iteration kept; when nobody could be told it fails and the loop stays
+active. Only the parent or the owner answers it:
 
 ```text
 bun loop:close <agent> "<why>"
@@ -115,7 +126,8 @@ With `DAISY_AUTONOMOUS=1` it refuses:
 - kill commands not scoped to the agent's worktree
 - Docker cleanup and `compose down` on the shared stack
 - `db:reset` or `slot:down` against another slot
-- hand edits of loop state
+- hand edits of loop state, the agent registry and the guard's own hooks
+- `bun board:status … completed`: Done comes from an independent review
 
 In owner sessions it asks before a merge or a push to `main`. It catches
 accidents and can be bypassed; the machine identity and the `main` ruleset
@@ -133,5 +145,6 @@ are the hard limits.
   the PageSpace board while delegated agents keep their own status,
   evidence, follow-up leaves and Issues entries current.
 - Given an autonomous agent, should request merges only with
-  `gh pr merge --auto`, while the owner may merge any PR at any time.
+  `gh pr merge --auto --merge`, and only once the live `main` ruleset
+  requires `review-record`, while the owner may merge any PR at any time.
 - Given direct single-agent work, should be allowed to proceed without `pu`.

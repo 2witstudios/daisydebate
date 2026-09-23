@@ -44,16 +44,20 @@ AIDD/Vitest guidance is overridden here by Bun and RITEway (ADR 0021).
    fails if a second workflow also runs `test:e2e`). `bun verify` runs those additional gates locally and also applies
    the committed migrations twice to `TEST_DATABASE_URL` to prove reruns are
    idempotent.
-   - **Stage logs.** `bun verify` keeps each stage's full output in
-     `verify-logs/<stage>.log` and prints the last 40 lines of any stage that
-     fails, so a failure is never reported without its cause.
-   - **Docs-only diffs.** For a diff against `origin/main` that touches only
-     documentation (Markdown, ADRs included), it skips the browser tier and
-     reports `SKIP e2e: skipped: documentation-only diff`.
+   - **Stage logs.** `bun verify` streams each stage's stdout and stderr,
+     interleaved, into `verify-logs/<stage>.log` as they are written, and
+     prints the last 40 lines of any stage that fails, so a failure is never
+     reported without its cause.
+   - **Docs-only diffs.** For a diff against `origin/main` (untracked files
+     included) that touches only Markdown under `docs/`, ADRs included, it
+     skips the browser tier and reports
+     `SKIP e2e: skipped: documentation-only diff (N files)`.
    - **Machine-wide e2e limit.** `apps/web`'s `test:e2e` runs Playwright
      through `scripts/e2e-limit.ts`, a limit on concurrent browser runs across
-     every checkout on the machine (`DAISY_E2E_CONCURRENCY`, default 2). Runs
-     beyond it wait in a queue instead of saturating the CPU.
+     every checkout on the machine (`DAISY_E2E_CONCURRENCY`, default 2), with
+     one slot directory for all of them (`/tmp/daisy-e2e-slots`, or
+     `DAISY_E2E_LOCK_DIR`). Runs beyond it wait in a queue instead of
+     saturating the CPU.
    - **Lint timeout.** `eslint.config.test.ts` shares one ESLint instance and
      runs with `--timeout 180000`. The first typed lint took 5.7 s at load 56,
      and Bun's fixed 5 s default failed it.

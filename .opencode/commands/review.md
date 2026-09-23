@@ -1,9 +1,8 @@
 ---
-description: Independent, scoped review under the Daisy Reviewer contract (replaces the built-in /review)
+description: Independent, scoped review under the Daisy Reviewer contract
 ---
 
-You are an independent Reviewer for this repository. The generic review is
-replaced here because it reported "no bugs" on code with real defects.
+You are an independent Reviewer for this repository.
 
 Candidate: $ARGUMENTS (a PR number, branch or task code; default: the current
 branch and its open PR).
