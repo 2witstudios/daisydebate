@@ -21,7 +21,7 @@ if (!new URL(url).pathname.endsWith('_test'))
  * migrations, not a hand-copied approximation of it.
  */
 const migrationPath = fileURLToPath(
-  new URL('../migrations/0003_actor_backfill.sql', import.meta.url),
+  new URL('../migrations/0005_actor_backfill.sql', import.meta.url),
 );
 const backfillStatement = readFileSync(migrationPath, 'utf8')
   .split('\n')
@@ -29,7 +29,7 @@ const backfillStatement = readFileSync(migrationPath, 'utf8')
   .join('\n')
   .trim();
 
-describe('0003_actor_backfill.sql (ACTOR-1, ADR 0029)', () => {
+describe('0005_actor_backfill.sql (ACTOR-1, ADR 0029)', () => {
   test('backfills one human actor per onboarded user, deterministic and idempotent twice', async () => {
     await withFixture(url, async (fixture) => {
       const onboardedId = createId();
