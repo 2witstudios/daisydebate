@@ -1,4 +1,3 @@
-import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createTestDatabase, type SinkEvent } from './index.test-support';
 
@@ -111,20 +110,35 @@ describe('email delivery ledger', () => {
 
   test('driver failures reject and report only the operation name', async () => {
     const events: SinkEvent[] = [];
-    const failing = () => createTestDatabase([new Error('sql text')], events);
-    await expect(
-      failing().database.recordEmailDelivery({
-        providerMessageId: 'm',
-        recipientHash: 'h',
-        at,
-      }),
-    ).rejects.toThrow();
-    await expect(
-      failing().database.isRecipientSuppressed('h'),
-    ).rejects.toThrow();
-    await expect(
-      failing().database.applyEmailDeliveryEvent({ ...event, suppress: null }),
-    ).rejects.toThrow();
+    const driverFailure = new Error('sql text');
+    const failing = () => createTestDatabase([driverFailure], events);
+    // Drizzle wraps the driver's rejection; its cause is the driver error.
+    const causeOf = (operation: Promise<unknown>) =>
+      operation.then(
+        () => 'resolved',
+        (error: Error) => error.cause ?? error,
+      );
+    assert({
+      given: 'a driver that rejects every query',
+      should: 'reject each ledger operation with that driver failure',
+      actual: [
+        await causeOf(
+          failing().database.recordEmailDelivery({
+            providerMessageId: 'm',
+            recipientHash: 'h',
+            at,
+          }),
+        ),
+        await causeOf(failing().database.isRecipientSuppressed('h')),
+        await causeOf(
+          failing().database.applyEmailDeliveryEvent({
+            ...event,
+            suppress: null,
+          }),
+        ),
+      ],
+      expected: [driverFailure, driverFailure, driverFailure],
+    });
     assert({
       given: 'failing drivers',
       should: 'report exactly the three safe operation names, never SQL',

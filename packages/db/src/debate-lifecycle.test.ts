@@ -1,4 +1,5 @@
 import { expect } from 'bun:test';
+import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   createTestDatabase,
@@ -45,16 +46,20 @@ describe('database debate lifecycle projections', () => {
     const record = sampleDebate();
     const { database, queries } = createTestDatabase([[debateRow(record)]]);
 
-    await expect(
-      database.createDebate({
-        id: record.id,
-        resolution: record.resolution,
-        format: record.format,
-        snapshot: { ...sampleSnapshot(), phase: 'paused' },
-        mode: record.mode,
-        visibility: record.visibility,
-      }),
-    ).rejects.toThrow('Invalid debate snapshot');
+    await assertRejects({
+      given: 'a snapshot whose phase is outside the protocol vocabulary',
+      should: 'refuse it as invalid input',
+      actual: () =>
+        database.createDebate({
+          id: record.id,
+          resolution: record.resolution,
+          format: record.format,
+          snapshot: { ...sampleSnapshot(), phase: 'paused' },
+          mode: record.mode,
+          visibility: record.visibility,
+        }),
+      code: 'VALIDATION',
+    });
 
     assert({
       given: 'a snapshot with a phase outside the protocol vocabulary',

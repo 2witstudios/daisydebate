@@ -2,9 +2,9 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { memoryAdapter } from '@better-auth/memory-adapter';
 import type { BetterAuthOptions } from 'better-auth';
 import { readAuthConfig } from '@daisy/config';
-import { isAppError } from '@daisy/errors';
 import { fixedClock, sequentialId } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
+import { assertRejects } from '@daisy/errors/testing';
 import { createAuthServer, type AuthEmailMessage } from './server';
 
 setupRitewayBun();
@@ -170,26 +170,24 @@ describe('auth server composition', () => {
       appendSessionRevoked: async () => {},
       revokeOtherSessions: async () => 0,
     });
-    let appError = false;
-    let code = '';
-    let text = '';
-    try {
-      await server.mail.send(message);
-    } catch (error) {
-      appError = isAppError(error);
-      code = String((error as { code?: string }).code);
-      text = String(error);
-    }
+    await assertRejects({
+      given: 'a failing email sender',
+      should: 'surface a factory-minted retryable INFRASTRUCTURE error',
+      actual: () => server.mail.send(message),
+      code: 'INFRASTRUCTURE',
+    });
+    const text = await server.mail.send(message).then(
+      () => 'delivered',
+      (error: unknown) => String(error),
+    );
     assert({
       given: 'a failing email sender',
-      should:
-        'surface a factory-minted retryable error that never leaks the cause',
+      should: 'never leak the provider cause in the surfaced error',
       actual: {
-        appError,
-        code,
-        safeMessage: !text.includes('resend') && !text.includes('AB12CD'),
+        provider: text.includes('resend'),
+        code: text.includes('AB12CD'),
       },
-      expected: { appError: true, code: 'INFRASTRUCTURE', safeMessage: true },
+      expected: { provider: false, code: false },
     });
   });
 });

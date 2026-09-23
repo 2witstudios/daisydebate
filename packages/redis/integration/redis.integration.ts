@@ -56,7 +56,7 @@ test('rate limit reports outage as a thrown error, never an allow', async () => 
   try {
     await expect(
       dead.consumeRateLimit('k', { windowSeconds: 60, max: 3 }),
-    ).rejects.toThrow();
+    ).rejects.toMatchObject({ code: 'ERR_REDIS_CONNECTION_CLOSED' });
   } finally {
     dead.close();
   }

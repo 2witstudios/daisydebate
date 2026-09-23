@@ -1,33 +1,13 @@
-import { expect } from 'bun:test';
+import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createDebateRuntime, restoreDebateRuntime } from './index';
+import { restoreDebateRuntime } from './index';
+import { create, id, second, startedWorld } from './runtime.test-support';
 
 setupRitewayBun();
 
-const id = 'k2v9x0f4m8q3w1z7c5n6b4d2';
-const second = 'a7b3c9d1e5f2k4m6n8p1r3t5';
-const create = () =>
-  createDebateRuntime({
-    id,
-    resolution: 'A representative resolution',
-    createdAt: '2026-01-01T00:00:00.000Z',
-    format: 'foundation',
-    rules: foundationRules,
-  });
-const foundationRules = {
-  version: 1 as const,
-  seats: { affirmative: 1, negative: 1, judge: 0 },
-  clock: { speechMs: 240_000, prepMs: 120_000 },
-};
-
 describe('ECS adapter contract', () => {
-  test('legal lifecycle survives JSON snapshot restoration', () => {
-    const world = create();
-    world.join({ participantId: id, side: 'affirmative' });
-    world.join({ participantId: second, side: 'negative' });
-    world.markReady(id);
-    world.markReady(second);
-    world.transition('active');
+  test('legal lifecycle survives JSON snapshot restoration', async () => {
+    const world = startedWorld();
     const snapshot = world.snapshot();
     const restored = restoreDebateRuntime(JSON.parse(JSON.stringify(snapshot)));
     assert({
@@ -37,7 +17,13 @@ describe('ECS adapter contract', () => {
       expected: snapshot,
     });
     restored.transition('completed');
-    expect(() => restored.transition('active')).toThrow();
+    await assertRejects({
+      given: 'a completed restored runtime asked to become active again',
+      should: 'refuse with the completed-is-terminal invariant',
+      actual: () => restored.transition('active'),
+      code: 'INVARIANT',
+      invariantId: 'debate.phase.completed.terminal',
+    });
     assert({
       given: 'an untouched source runtime',
       should: 'stay in the active phase after the restore round trip',
@@ -46,20 +32,52 @@ describe('ECS adapter contract', () => {
     });
     world.dispose();
     restored.dispose();
-    expect(() => world.snapshot()).toThrow();
+    await assertRejects({
+      given: 'a disposed runtime',
+      should: 'refuse to read its snapshot',
+      actual: () => world.snapshot(),
+      code: 'INVARIANT',
+    });
   });
 
-  test('invalid operations are atomic and enforce role/readiness invariants', () => {
+  test('invalid operations are atomic and enforce role/readiness invariants', async () => {
     const world = create();
-    expect(() => world.markReady(id)).toThrow();
-    expect(() => world.transition('active')).toThrow();
+    await assertRejects({
+      given: 'a participant who never joined marking ready',
+      should: 'refuse because the participant must join first',
+      actual: () => world.markReady(id),
+      code: 'INVARIANT',
+    });
+    await assertRejects({
+      given: 'an empty debate asked to start',
+      should: 'refuse with the ready-participants invariant',
+      actual: () => world.transition('active'),
+      code: 'INVARIANT',
+      invariantId: 'debate.phase.active.requires-ready-participants',
+    });
     world.join({ participantId: id, side: 'affirmative' });
     const before = world.snapshot();
-    expect(() => world.join({ participantId: id, side: 'negative' })).toThrow();
-    expect(() =>
-      world.join({ participantId: second, side: 'affirmative' }),
-    ).toThrow();
-    expect(() => world.transition('completed')).toThrow();
+    await assertRejects({
+      given: 'a seated participant joining a second side',
+      should: 'refuse with the identity uniqueness invariant',
+      actual: () => world.join({ participantId: id, side: 'negative' }),
+      code: 'INVARIANT',
+      invariantId: 'debate.participants.identities-unique',
+    });
+    await assertRejects({
+      given: 'a second participant taking a filled seat',
+      should: 'refuse with the seat uniqueness invariant',
+      actual: () => world.join({ participantId: second, side: 'affirmative' }),
+      code: 'INVARIANT',
+      invariantId: 'debate.participants.seats-unique',
+    });
+    await assertRejects({
+      given: 'a waiting debate asked to complete',
+      should: 'refuse with the legal transition invariant',
+      actual: () => world.transition('completed'),
+      code: 'INVARIANT',
+      invariantId: 'debate.phase.transition.legal',
+    });
     assert({
       given: 'rejected operations',
       should: 'leave the snapshot unchanged',
@@ -69,21 +87,16 @@ describe('ECS adapter contract', () => {
     world.dispose();
   });
 
-  test('rejects a transition that breaks a registered invariant atomically', () => {
+  test('rejects a transition that breaks a registered invariant atomically', async () => {
     const world = create();
     const before = world.snapshot();
-    let error: unknown;
-    try {
-      world.transition('active');
-    } catch (caught) {
-      error = caught;
-    }
-    assert({
+    await assertRejects({
       given:
         'a transition that would violate the active-phase readiness invariant',
       should: 'identify the registered invariant on the error',
-      actual: (error as { invariantId?: string }).invariantId,
-      expected: 'debate.phase.active.requires-ready-participants',
+      actual: () => world.transition('active'),
+      code: 'INVARIANT',
+      invariantId: 'debate.phase.active.requires-ready-participants',
     });
     assert({
       given: 'a transition rejected by a registered invariant',
@@ -94,165 +107,111 @@ describe('ECS adapter contract', () => {
     world.dispose();
   });
 
-  test('rejects duplicate participant identities', () => {
+  test('rejects duplicate participant identities', async () => {
     const world = create();
-    const snapshot = world.snapshot();
     const participant = { id, side: 'affirmative' as const, ready: false };
-
-    let error: unknown;
-    try {
-      restoreDebateRuntime({
-        ...snapshot,
-        participants: [participant, participant],
-      });
-    } catch (caught) {
-      error = caught;
-    }
-
-    assert({
+    await assertRejects({
       given: 'a restored snapshot with duplicate participant identities',
       should: 'identify the participant identity invariant',
-      actual: (error as { invariantId?: string }).invariantId,
-      expected: 'debate.participants.identities-unique',
+      actual: () =>
+        restoreDebateRuntime({
+          ...world.snapshot(),
+          participants: [participant, participant],
+        }),
+      code: 'INVARIANT',
+      invariantId: 'debate.participants.identities-unique',
     });
     world.dispose();
   });
 
-  test('rejects duplicate participant seats', () => {
+  test('rejects duplicate participant seats', async () => {
     const world = create();
-    const snapshot = world.snapshot();
-    const firstParticipant = {
-      id,
-      side: 'affirmative' as const,
-      ready: false,
-    };
-    const secondParticipant = {
-      id: second,
-      side: 'affirmative' as const,
-      ready: false,
-    };
-
-    let error: unknown;
-    try {
-      restoreDebateRuntime({
-        ...snapshot,
-        participants: [firstParticipant, secondParticipant],
-      });
-    } catch (caught) {
-      error = caught;
-    }
-
-    assert({
+    await assertRejects({
       given: 'a restored snapshot with participants assigned to one seat',
       should: 'identify the participant seat uniqueness invariant',
-      actual: (error as { invariantId?: string }).invariantId,
-      expected: 'debate.participants.seats-unique',
+      actual: () =>
+        restoreDebateRuntime({
+          ...world.snapshot(),
+          participants: [
+            { id, side: 'affirmative', ready: false },
+            { id: second, side: 'affirmative', ready: false },
+          ],
+        }),
+      code: 'INVARIANT',
+      invariantId: 'debate.participants.seats-unique',
     });
     world.dispose();
   });
 
-  test('rejects joining after a debate starts', () => {
-    const world = create();
-    world.join({ participantId: id, side: 'affirmative' });
-    world.join({ participantId: second, side: 'negative' });
-    world.markReady(id);
-    world.markReady(second);
-    world.transition('active');
-
-    let error: unknown;
-    try {
-      world.join({
-        participantId: 'c8d4e2f6a1b3k5m7n9p2r4t6',
-        side: 'affirmative',
-      });
-    } catch (caught) {
-      error = caught;
-    }
-
-    assert({
+  test('rejects joining after a debate starts', async () => {
+    const world = startedWorld();
+    await assertRejects({
       given: 'a join operation after the debate starts',
       should: 'identify the waiting-phase join invariant',
-      actual: (error as { invariantId?: string }).invariantId,
-      expected: 'debate.participant.join.waiting-phase',
+      actual: () =>
+        world.join({
+          participantId: 'c8d4e2f6a1b3k5m7n9p2r4t6',
+          side: 'affirmative',
+        }),
+      code: 'INVARIANT',
+      invariantId: 'debate.participant.join.waiting-phase',
     });
     world.dispose();
   });
 
-  test('rejects readiness changes after a debate starts', () => {
-    const world = create();
-    world.join({ participantId: id, side: 'affirmative' });
-    world.join({ participantId: second, side: 'negative' });
-    world.markReady(id);
-    world.markReady(second);
-    world.transition('active');
-
-    let error: unknown;
-    try {
-      world.markReady(id);
-    } catch (caught) {
-      error = caught;
-    }
-
-    assert({
+  test('rejects readiness changes after a debate starts', async () => {
+    const world = startedWorld();
+    await assertRejects({
       given: 'a readiness operation after the debate starts',
       should: 'identify the waiting-phase readiness invariant',
-      actual: (error as { invariantId?: string }).invariantId,
-      expected: 'debate.participant.ready.waiting-phase',
+      actual: () => world.markReady(id),
+      code: 'INVARIANT',
+      invariantId: 'debate.participant.ready.waiting-phase',
     });
     world.dispose();
   });
 
-  test('rejects illegal phase transitions', () => {
+  test('rejects illegal phase transitions', async () => {
     const world = create();
-    let error: unknown;
-    try {
-      world.transition('completed');
-    } catch (caught) {
-      error = caught;
-    }
-
-    assert({
+    await assertRejects({
       given: 'a transition that skips the active phase',
       should: 'identify the legal phase transition invariant',
-      actual: (error as { invariantId?: string }).invariantId,
-      expected: 'debate.phase.transition.legal',
+      actual: () => world.transition('completed'),
+      code: 'INVARIANT',
+      invariantId: 'debate.phase.transition.legal',
     });
     world.dispose();
   });
 
-  test('rejects transitions after completion', () => {
-    const world = create();
-    world.join({ participantId: id, side: 'affirmative' });
-    world.join({ participantId: second, side: 'negative' });
-    world.markReady(id);
-    world.markReady(second);
-    world.transition('active');
+  test('rejects transitions after completion', async () => {
+    const world = startedWorld();
     world.transition('completed');
-
-    let error: unknown;
-    try {
-      world.transition('active');
-    } catch (caught) {
-      error = caught;
-    }
-
-    assert({
+    await assertRejects({
       given: 'a completed debate and a requested phase transition',
       should: 'identify the completed-is-terminal invariant',
-      actual: (error as { invariantId?: string }).invariantId,
-      expected: 'debate.phase.completed.terminal',
+      actual: () => world.transition('active'),
+      code: 'INVARIANT',
+      invariantId: 'debate.phase.completed.terminal',
     });
     world.dispose();
   });
 
-  test('rejects invalid restored state and unknown snapshot versions', () => {
+  test('rejects invalid restored state and unknown snapshot versions', async () => {
     const world = create();
-    expect(() =>
-      restoreDebateRuntime({ ...world.snapshot(), version: 2 }),
-    ).toThrow();
-    expect(() =>
-      restoreDebateRuntime({ ...world.snapshot(), phase: 'active' }),
-    ).toThrow();
+    await assertRejects({
+      given: 'a snapshot of an unknown version',
+      should: 'refuse it as invalid input',
+      actual: () => restoreDebateRuntime({ ...world.snapshot(), version: 2 }),
+      code: 'VALIDATION',
+    });
+    await assertRejects({
+      given: 'an active snapshot with no participants',
+      should: 'refuse it with the ready-participants invariant',
+      actual: () =>
+        restoreDebateRuntime({ ...world.snapshot(), phase: 'active' }),
+      code: 'INVARIANT',
+      invariantId: 'debate.phase.active.requires-ready-participants',
+    });
     const snapshot = world.snapshot();
     snapshot.participants.push({ id, side: 'affirmative', ready: false });
     assert({

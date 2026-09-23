@@ -130,7 +130,7 @@ describe('database health', () => {
       nextActorId: createId,
     });
 
-    await expect(database.checkListen()).rejects.toThrow();
+    await expect(database.checkListen()).rejects.toThrow('listen unavailable');
     assert({
       given: 'a broken LISTEN connection',
       should: 'report the failure through the event sink',
@@ -250,7 +250,7 @@ describe('session revocation', () => {
 
     await expect(
       database.revokeOtherSessions('user-1', 'keep-me'),
-    ).rejects.toThrow();
+    ).rejects.toMatchObject({ code: 'ERR_POSTGRES_CONNECTION_REFUSED' });
 
     assert({
       given: 'a session revocation that fails',
@@ -281,7 +281,9 @@ describe('database adapter failures', () => {
       nextActorId: createId,
     });
 
-    await expect(database.health()).rejects.toThrow();
+    await expect(database.health()).rejects.toMatchObject({
+      cause: { code: 'ERR_POSTGRES_CONNECTION_REFUSED' },
+    });
 
     assert({
       given: 'a database query that fails',

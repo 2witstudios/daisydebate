@@ -102,7 +102,9 @@ describe('topic grammar', () => {
   });
 
   test('builders throw on a non-cuid2 segment instead of building a bad topic', () => {
-    expect(() => buildDebateTopic('not-a-cuid2')).toThrow();
+    expect(() => buildDebateTopic('not-a-cuid2')).toThrow(
+      'Invalid string: must match pattern',
+    );
   });
 
   test('rejects a season slug with a trailing hyphen', () => {

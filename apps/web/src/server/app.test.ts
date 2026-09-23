@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { fixedClock, sequentialId } from '@daisy/clock';
-import { isAppError } from '@daisy/errors';
+import { assertRejects } from '@daisy/errors/testing';
 import { createApp } from './app';
 
 setupRitewayBun();
@@ -163,18 +163,12 @@ describe('createApp', () => {
 
   test('refuses the delivery webhook without a signing secret', async () => {
     const app = build({ ...baseEnv, ...authEnv });
-    let code = '';
-    try {
-      app.mailWebhook();
-    } catch (error) {
-      code = isAppError(error) ? error.code : 'not-an-app-error';
-    }
-    await app.close();
-    assert({
+    await assertRejects({
       given: 'auth configuration without RESEND_WEBHOOK_SECRET',
       should: 'refuse to compose the webhook as an infrastructure error',
-      actual: code,
-      expected: 'INFRASTRUCTURE',
+      actual: () => app.mailWebhook(),
+      code: 'INFRASTRUCTURE',
     });
+    await app.close();
   });
 });

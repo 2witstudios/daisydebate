@@ -76,13 +76,14 @@ describe('createAuthRateLimiter', () => {
   });
 
   test('a Redis outage rejects instead of allowing or counting locally', async () => {
-    const { redis } = fakeRedis(new Error('redis down'));
+    const outage = new Error('redis down');
+    const { redis } = fakeRedis(outage);
     const limiter = createAuthRateLimiter(redis);
     await expect(
       limiter.consume('k', { windowSeconds: 60, max: 1 }),
-    ).rejects.toThrow();
+    ).rejects.toBe(outage);
     await expect(
       limiter.consume('k', { windowSeconds: 60, max: 1 }),
-    ).rejects.toThrow();
+    ).rejects.toBe(outage);
   });
 });
