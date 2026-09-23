@@ -2,7 +2,11 @@ import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { eq, and, ne, sql } from 'drizzle-orm';
 import { drizzleAdapter } from '@better-auth/drizzle-adapter';
-import { formatRulesSchema, type FormatRules } from '@daisy/protocol';
+import {
+  formatRulesSchema,
+  buildUserInboxTopic,
+  type FormatRules,
+} from '@daisy/protocol';
 import { users } from './schema/users';
 import { claimUsername } from './username-claim';
 import { formats } from './schema/formats';
@@ -86,19 +90,27 @@ export function createDatabase({
      */
     transaction: database.transaction.bind(database),
     /**
-     * RT-2.2 (plan revision 4.1): appends one `session.revoked` outbox row
-     * in its own short transaction, for a caller that has already confirmed
-     * a session delete outside Daisy's control (Better Auth's own revoke
-     * endpoints or internal adapter). Never wraps the delete itself.
+     * RT-2.2 (plan revision 4.1, ADR 0032 §5): appends one `session.revoked`
+     * outbox row in its own short transaction, for a caller that has already
+     * confirmed a session delete outside Daisy's control (Better Auth's own
+     * revoke endpoints). Never wraps the delete itself.
+     *
+     * Hazard (plan revision 4.8, recorded as a blocker): the protocol's
+     * `session.revoked` payload carries actor ids
+     * (`ids: [actorId(, sessionId)]`), but nothing in this repository creates
+     * an `actors` row for a signed-up user yet, so there is no `actors.id` to
+     * resolve `userId` to. `ids` therefore carries the Better Auth `userId`
+     * until an actor-creation leaf exists; the topic is `user:<userId>:inbox`
+     * for the same reason, not yet `user:<actorId>:inbox`.
      */
     async appendSessionRevoked(userId: string) {
       try {
         await database.transaction((tx) =>
           appendOutboxEvent(tx, {
-            topic: `user:${userId}:inbox`,
+            topic: buildUserInboxTopic(userId),
             kind: 'session.revoked',
             version: 1,
-            payload: {},
+            payload: { version: 1, kind: 'session.revoked', ids: [userId] },
           }),
         );
       } catch (error) {
@@ -144,20 +156,38 @@ export function createDatabase({
      * Revokes every session for `userId` except `keepToken` in one atomic
      * DELETE — no snapshot-then-delete round trips, so a session created
      * concurrently with this call cannot slip through a listing window.
-     * Returns the number of sessions removed.
+     * This is Daisy's own operation (AUTH-5.6's email-change completion),
+     * not one of Better Auth's internal deletes, so the `session.revoked`
+     * append happens in the *same* transaction as the DELETE (ADR 0032 §5,
+     * plan revision 4.7): unlike the after-hook writers, a failed append
+     * here rolls the DELETE back too, rather than being swallowed
+     * best-effort. Returns the number of sessions removed.
      */
     async revokeOtherSessions(
       userId: string,
       keepToken: string,
     ): Promise<number> {
       try {
-        const rows = await database
-          .delete(sessions)
-          .where(
-            and(eq(sessions.userId, userId), ne(sessions.token, keepToken)),
-          )
-          .returning({ id: sessions.id });
-        return rows.length;
+        return await database.transaction(async (tx) => {
+          const rows = await tx
+            .delete(sessions)
+            .where(
+              and(eq(sessions.userId, userId), ne(sessions.token, keepToken)),
+            )
+            .returning({ id: sessions.id });
+          if (rows.length > 0)
+            await appendOutboxEvent(tx, {
+              topic: buildUserInboxTopic(userId),
+              kind: 'session.revoked',
+              version: 1,
+              payload: {
+                version: 1,
+                kind: 'session.revoked',
+                ids: [userId],
+              },
+            });
+          return rows.length;
+        });
       } catch (error) {
         reportFailure('revokeOtherSessions');
         throw error;

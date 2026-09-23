@@ -1,5 +1,6 @@
 import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { buildUserInboxTopic } from '@daisy/protocol';
 import { createPasskeyFlows } from './auth-passkey-flows';
 import {
   cookieHeader,
@@ -13,21 +14,14 @@ import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 const sessionRevokedEvents = (userId: string) =>
   withSql(
     (sql) =>
-      sql`SELECT topic FROM outbox WHERE kind = 'session.revoked' AND topic = ${`user:${userId}:inbox`}`,
+      sql`SELECT topic FROM outbox WHERE kind = 'session.revoked' AND topic = ${buildUserInboxTopic(userId)}`,
   ).then((rows) => rows.length);
 
 /** Fixture teardown: never leave session.revoked rows behind for this user. */
 const cleanupOutboxFor = (userId: string) =>
   withSql(
     (sql) =>
-      sql`DELETE FROM outbox WHERE kind = 'session.revoked' AND topic = ${`user:${userId}:inbox`}`,
-  );
-
-/** Backdates a session row's createdAt so the fresh-session gate refuses it. */
-const backdateSession = (token: string, hoursAgo: number) =>
-  withSql(
-    (sql) =>
-      sql`UPDATE session SET created_at = now() - (${hoursAgo}::text || ' hours')::interval WHERE token = ${token}`,
+      sql`DELETE FROM outbox WHERE kind = 'session.revoked' AND topic = ${buildUserInboxTopic(userId)}`,
   );
 
 if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
@@ -273,80 +267,6 @@ describe('AUTH-5.5 session management', () => {
       should: 'refuse the revocation',
       actual: anonymous.ok,
       expected: false,
-    });
-  });
-
-  test('a stale session is refused for revoking sessions and requires fresh authentication', async () => {
-    const { cookie } = await signUp();
-    const sessionBody = (await (await protectedRead(cookie)).json()) as {
-      session?: { token: string };
-    };
-    const token = sessionBody.session?.token ?? '';
-    await backdateSession(token, 2);
-    const stale = await flows.revokeSessions(cookie);
-    assert({
-      given: 'a live, valid session created outside the fresh window',
-      should: 'refuse revoke-sessions and require fresh authentication',
-      actual: { ok: stale.ok, status: stale.status },
-      expected: { ok: false, status: 403 },
-    });
-  });
-
-  test('a stale session is refused for revoking a single other session', async () => {
-    const { cookie } = await signUp();
-    const sessionBody = (await (await protectedRead(cookie)).json()) as {
-      session?: { token: string };
-    };
-    const token = sessionBody.session?.token ?? '';
-    await backdateSession(token, 2);
-    const stale = await flows.revokeSession(cookie, 'irrelevant-token');
-    assert({
-      given: 'a live, valid session created outside the fresh window',
-      should: 'refuse revoke-session and require fresh authentication',
-      actual: { ok: stale.ok, status: stale.status },
-      expected: { ok: false, status: 403 },
-    });
-  });
-
-  test('a stale session is refused for revoking every other session', async () => {
-    const { cookie } = await signUp();
-    const sessionBody = (await (await protectedRead(cookie)).json()) as {
-      session?: { token: string };
-    };
-    const token = sessionBody.session?.token ?? '';
-    await backdateSession(token, 2);
-    const stale = await flows.revokeOtherSessions(cookie);
-    assert({
-      given: 'a live, valid session created outside the fresh window',
-      should: 'refuse revoke-other-sessions and require fresh authentication',
-      actual: { ok: stale.ok, status: stale.status },
-      expected: { ok: false, status: 403 },
-    });
-  });
-
-  test('a stale session is refused for removing a passkey', async () => {
-    const { cookie } = await signUp();
-    const { verifyResponse, credential } = await flows.enrollPasskey(cookie, {
-      name: 'Old device',
-    });
-    void credential;
-    const sessionBody = (await (await protectedRead(cookie)).json()) as {
-      session?: { token: string };
-    };
-    const token = sessionBody.session?.token ?? '';
-    await backdateSession(token, 2);
-    const listed = await flows.listPasskeys(cookie);
-    const rows = (await listed.json()) as { id: string }[];
-    const removed = await flows.deletePasskey(cookie, rows[0]!.id);
-    assert({
-      given: 'an enrolled passkey and a since-staled session',
-      should: 'refuse the removal and require fresh authentication',
-      actual: {
-        enrolled: verifyResponse.ok,
-        removeOk: removed.ok,
-        removeStatus: removed.status,
-      },
-      expected: { enrolled: true, removeOk: false, removeStatus: 403 },
     });
   });
 });

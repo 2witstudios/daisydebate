@@ -1,6 +1,7 @@
 import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
+import { buildUserInboxTopic } from '@daisy/protocol';
 import { createPasskeyFlows } from './auth-passkey-flows';
 import {
   cookieHeader,
@@ -81,13 +82,13 @@ const userIdOf = (email: string) =>
 const sessionRevokedEvents = (userId: string) =>
   withSql(
     (sql) =>
-      sql`SELECT topic FROM outbox WHERE kind = 'session.revoked' AND topic = ${`user:${userId}:inbox`}`,
+      sql`SELECT topic FROM outbox WHERE kind = 'session.revoked' AND topic = ${buildUserInboxTopic(userId)}`,
   ).then((rows) => rows.length);
 
 const cleanupOutboxFor = (userId: string) =>
   withSql(
     (sql) =>
-      sql`DELETE FROM outbox WHERE kind = 'session.revoked' AND topic = ${`user:${userId}:inbox`}`,
+      sql`DELETE FROM outbox WHERE kind = 'session.revoked' AND topic = ${buildUserInboxTopic(userId)}`,
   );
 
 describe('AUTH-5.6 change the recovery email', () => {

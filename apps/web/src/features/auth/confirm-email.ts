@@ -1,4 +1,3 @@
-import type { Logger } from '@daisy/logger';
 import { handleOperation, requireSameOrigin } from '../../server/http';
 import { renderEmailConfirmPage } from './confirm-email-page';
 import {
@@ -30,6 +29,7 @@ type ConfirmEmailDependencies = {
       userId: string,
       keepToken: string,
     ) => Promise<number>;
+  };
 };
 
 export function createConfirmEmailHandlers({ auth }: ConfirmEmailDependencies) {

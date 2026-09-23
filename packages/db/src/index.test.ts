@@ -87,15 +87,20 @@ describe('database health', () => {
 });
 
 describe('session revocation', () => {
-  test('revokes every other session for the user in one atomic statement', async () => {
-    const { database, queries } = createTestDatabase([[['session-row-id']]]);
+  test('revokes every other session for the user in one atomic statement, appending session.revoked in the same transaction', async () => {
+    const userId = 'a7b3c9d1e5f2k4m6n8p1r3t5';
+    const { database, queries } = createTestDatabase([
+      [['session-row-id']],
+      [{ seq: '5', txid: '10' }],
+      [],
+    ]);
 
-    const removed = await database.revokeOtherSessions('user-1', 'keep-me');
+    const removed = await database.revokeOtherSessions(userId, 'keep-me');
 
     assert({
       given: "a user's other sessions and the token to keep",
       should:
-        'issue exactly one DELETE statement scoped to that user and excluding the kept token, with no prior listing query',
+        'issue the DELETE first with no prior listing query, then append the outbox row and NOTIFY in the same transaction',
       actual: {
         removed,
         queryCount: queries.length,
@@ -103,15 +108,35 @@ describe('session revocation', () => {
         mentionsUserId: queries[0]?.query.includes('user_id'),
         mentionsToken: queries[0]?.query.includes('token'),
         params: queries[0]?.params,
+        insertsOutbox:
+          queries[1]?.query.toLowerCase().includes('insert into') &&
+          queries[1]?.query.toLowerCase().includes('outbox'),
+        notifies: queries[2]?.query.toLowerCase().includes('pg_notify'),
       },
       expected: {
         removed: 1,
-        queryCount: 1,
+        queryCount: 3,
         deletesSession: true,
         mentionsUserId: true,
         mentionsToken: true,
-        params: ['user-1', 'keep-me'],
+        params: [userId, 'keep-me'],
+        insertsOutbox: true,
+        notifies: true,
       },
+    });
+  });
+
+  test('appends no outbox row when there is nothing to revoke', async () => {
+    const userId = 'a7b3c9d1e5f2k4m6n8p1r3t5';
+    const { database, queries } = createTestDatabase([[]]);
+
+    const removed = await database.revokeOtherSessions(userId, 'keep-me');
+
+    assert({
+      given: 'a user with no other sessions to revoke',
+      should: 'issue only the DELETE, appending nothing to the outbox',
+      actual: { removed, queryCount: queries.length },
+      expected: { removed: 0, queryCount: 1 },
     });
   });
 
