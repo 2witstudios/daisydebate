@@ -6,7 +6,7 @@
  */
 import { SQL } from 'bun';
 import { resolve } from 'node:path';
-import { resetPublicSchema } from '@daisy/db/slots';
+import { resetPublicSchema, withSlotLock } from '@daisy/db/slots';
 import { e2eRole, resetRefusal } from './slot-model';
 import { migrate, resolveCheckout } from './slot';
 
@@ -15,10 +15,20 @@ const checkout = await resolveCheckout(root);
 const { slot } = checkout;
 const refusal = resetRefusal(slot, process.env);
 if (refusal) throw new Error(refusal);
-const client = new SQL(process.env.DATABASE_URL ?? '', { max: 1 });
+const url = process.env.DATABASE_URL ?? '';
+// Re-running every migration recreates cluster-wide roles (0004), so reset
+// takes the same slot lock as slot:up. Advisory locks are per database: every
+// holder takes it from the `postgres` database, never the slot's own.
+const adminUrl = new URL(url);
+adminUrl.pathname = '/postgres';
+const admin = new SQL(adminUrl.toString(), { max: 1 });
+const client = new SQL(url, { max: 1 });
 try {
-  await resetPublicSchema(client, e2eRole.user);
+  await withSlotLock(admin, async () => {
+    await resetPublicSchema(client, e2eRole.user);
+    await migrate(url, checkout.path);
+  });
 } finally {
   await client.close();
+  await admin.close();
 }
-await migrate(process.env.DATABASE_URL ?? '', checkout.path);
