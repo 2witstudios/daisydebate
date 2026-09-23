@@ -1,4 +1,5 @@
 import { SQL } from 'bun';
+import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createDatabase } from '@daisy/db';
 import {
@@ -75,6 +76,13 @@ test('a forced outbox failure never fails a real /revoke-other-sessions call, an
     const first = await signInOnce(auth, email, sent);
     userId = first.userId;
     await signInOnce(auth, email, sent);
+    // Plan revision 4.10 (ACTOR-1 pending): the append only runs once the
+    // actor resolves, so this fixture stands in for ACTOR-1's onboarding
+    // insert until that leaf lands.
+    await new SQL(url).unsafe(
+      "insert into actors (id, kind, user_id) values ($1, 'human', $2)",
+      [createId(), userId],
+    );
 
     let response: Response | undefined;
     await withOutboxHidden(async () => {
@@ -119,6 +127,10 @@ test('a forced outbox failure never fails a real /revoke-other-sessions call, an
     });
   } finally {
     await database.close();
+    if (userId)
+      await new SQL(url).unsafe('delete from actors where user_id = $1', [
+        userId,
+      ]);
     await removeFixture(url, email, userId, []);
   }
 });

@@ -79,17 +79,36 @@ const userIdOf = (email: string) =>
   });
 
 /** RT-2.2: outbox rows the email-change completion's revocation appends. */
-const sessionRevokedEvents = (userId: string) =>
+const sessionRevokedEvents = (actorId: string) =>
   withSql(
     (sql) =>
-      sql`SELECT topic FROM outbox WHERE kind = 'session.revoked' AND topic = ${buildUserInboxTopic(userId)}`,
+      sql`SELECT topic FROM outbox WHERE kind = 'session.revoked' AND topic = ${buildUserInboxTopic(actorId)}`,
   ).then((rows) => rows.length);
 
-const cleanupOutboxFor = (userId: string) =>
+const cleanupOutboxFor = (actorId: string) =>
   withSql(
     (sql) =>
-      sql`DELETE FROM outbox WHERE kind = 'session.revoked' AND topic = ${buildUserInboxTopic(userId)}`,
+      sql`DELETE FROM outbox WHERE kind = 'session.revoked' AND topic = ${buildUserInboxTopic(actorId)}`,
   );
+
+/**
+ * Plan revision 4.10 (ACTOR-1 pending): the outbox append only runs once
+ * the actor resolves through `actors.user_id`, and nothing in the signup
+ * path creates one yet, so this fixture stands in for ACTOR-1's onboarding
+ * insert until that leaf lands. Revocation rows are keyed by `actors.id`,
+ * never `userId`, so this returns the actor id the append will use.
+ */
+const createActorFor = async (userId: string): Promise<string> => {
+  const actorId = createId();
+  await withSql(
+    (sql) =>
+      sql`INSERT INTO actors (id, kind, user_id) VALUES (${actorId}, 'human', ${userId})`,
+  );
+  return actorId;
+};
+
+const cleanupActorFor = (userId: string) =>
+  withSql((sql) => sql`DELETE FROM actors WHERE user_id = ${userId}`);
 
 describe('AUTH-5.6 change the recovery email', () => {
   test('a fresh session completes the two-hop change, keeping the old address until the new one verifies', async () => {
@@ -147,7 +166,8 @@ describe('AUTH-5.6 change the recovery email', () => {
     const before = flows.account.flows.mailbox.mails.length;
     const newEmail = `${createId()}@example.test`;
     const userId = (await userIdOf(email)) ?? '';
-    const eventsBefore = await sessionRevokedEvents(userId);
+    const actorId = await createActorFor(userId);
+    const eventsBefore = await sessionRevokedEvents(actorId);
     try {
       await flows.changeEmail(cookie, newEmail);
       const confirmMail = flows.account.flows.mailbox.mails[before];
@@ -166,7 +186,7 @@ describe('AUTH-5.6 change the recovery email', () => {
           completingSessionLive: await isAuthenticated(newCookie),
           otherSessionRevoked: !(await isAuthenticated(otherCookie)),
           outboxEventsAppended:
-            (await sessionRevokedEvents(userId)) - eventsBefore,
+            (await sessionRevokedEvents(actorId)) - eventsBefore,
         },
         expected: {
           notifiedOldAddress: true,
@@ -176,7 +196,8 @@ describe('AUTH-5.6 change the recovery email', () => {
         },
       });
     } finally {
-      await cleanupOutboxFor(userId);
+      await cleanupOutboxFor(actorId);
+      await cleanupActorFor(userId);
     }
   });
 

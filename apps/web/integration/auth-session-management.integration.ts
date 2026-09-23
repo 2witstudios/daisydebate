@@ -1,5 +1,6 @@
 import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { createId } from '@paralleldrive/cuid2';
 import { buildUserInboxTopic } from '@daisy/protocol';
 import { createPasskeyFlows } from './auth-passkey-flows';
 import {
@@ -10,18 +11,37 @@ import {
 } from './auth-mounted-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 
-/** RT-2.2: outbox rows the session-revocation hooks append for this user. */
-const sessionRevokedEvents = (userId: string) =>
+/**
+ * Plan revision 4.10 (ACTOR-1 pending): the outbox append only runs once
+ * the actor resolves through `actors.user_id`, and nothing in the signup
+ * path creates one yet, so this fixture stands in for ACTOR-1's onboarding
+ * insert until that leaf lands. Revocation rows are keyed by `actors.id`,
+ * never `userId`, so this returns the actor id the append will use.
+ */
+const createActorFor = async (userId: string): Promise<string> => {
+  const actorId = createId();
+  await withSql(
+    (sql) =>
+      sql`INSERT INTO actors (id, kind, user_id) VALUES (${actorId}, 'human', ${userId})`,
+  );
+  return actorId;
+};
+
+const cleanupActorFor = (userId: string) =>
+  withSql((sql) => sql`DELETE FROM actors WHERE user_id = ${userId}`);
+
+/** RT-2.2: outbox rows the session-revocation hooks append for this actor. */
+const sessionRevokedEvents = (actorId: string) =>
   withSql(
     (sql) =>
-      sql`SELECT topic FROM outbox WHERE kind = 'session.revoked' AND topic = ${buildUserInboxTopic(userId)}`,
+      sql`SELECT topic FROM outbox WHERE kind = 'session.revoked' AND topic = ${buildUserInboxTopic(actorId)}`,
   ).then((rows) => rows.length);
 
-/** Fixture teardown: never leave session.revoked rows behind for this user. */
-const cleanupOutboxFor = (userId: string) =>
+/** Fixture teardown: never leave session.revoked rows behind for this actor. */
+const cleanupOutboxFor = (actorId: string) =>
   withSql(
     (sql) =>
-      sql`DELETE FROM outbox WHERE kind = 'session.revoked' AND topic = ${buildUserInboxTopic(userId)}`,
+      sql`DELETE FROM outbox WHERE kind = 'session.revoked' AND topic = ${buildUserInboxTopic(actorId)}`,
   );
 
 if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
@@ -112,7 +132,8 @@ describe('AUTH-5.5 session management', () => {
     const before = await protectedRead(second);
     const secondToken = await sessionTokenOf(before);
     const userId = await sessionUserIdOf(before);
-    const eventsBefore = await sessionRevokedEvents(userId);
+    const actorId = await createActorFor(userId);
+    const eventsBefore = await sessionRevokedEvents(actorId);
     try {
       await flows.revokeSession(first, secondToken);
       const after = await protectedRead(second);
@@ -124,7 +145,7 @@ describe('AUTH-5.5 session management', () => {
           beforeAuthenticated: await isAuthenticated(before),
           afterAuthenticated: await isAuthenticated(after),
           outboxEventsAppended:
-            (await sessionRevokedEvents(userId)) - eventsBefore,
+            (await sessionRevokedEvents(actorId)) - eventsBefore,
         },
         expected: {
           beforeAuthenticated: true,
@@ -133,7 +154,8 @@ describe('AUTH-5.5 session management', () => {
         },
       });
     } finally {
-      await cleanupOutboxFor(userId);
+      await cleanupOutboxFor(actorId);
+      await cleanupActorFor(userId);
     }
   });
 
@@ -172,7 +194,8 @@ describe('AUTH-5.5 session management', () => {
       await redeem(new URL(link2 as URL).searchParams.get('token') ?? ''),
     );
     const userId = await sessionUserIdOf(await protectedRead(first));
-    const eventsBefore = await sessionRevokedEvents(userId);
+    const actorId = await createActorFor(userId);
+    const eventsBefore = await sessionRevokedEvents(actorId);
     try {
       const revoke = await flows.revokeOtherSessions(first);
       const [currentAfter, secondAfter, thirdAfter] = await Promise.all([
@@ -190,7 +213,7 @@ describe('AUTH-5.5 session management', () => {
           second: await isAuthenticated(secondAfter),
           third: await isAuthenticated(thirdAfter),
           outboxEventsAppended:
-            (await sessionRevokedEvents(userId)) - eventsBefore,
+            (await sessionRevokedEvents(actorId)) - eventsBefore,
         },
         expected: {
           revoked: true,
@@ -201,7 +224,8 @@ describe('AUTH-5.5 session management', () => {
         },
       });
     } finally {
-      await cleanupOutboxFor(userId);
+      await cleanupOutboxFor(actorId);
+      await cleanupActorFor(userId);
     }
   });
 
@@ -213,7 +237,8 @@ describe('AUTH-5.5 session management', () => {
       await redeem(new URL(link as URL).searchParams.get('token') ?? ''),
     );
     const userId = await sessionUserIdOf(await protectedRead(first));
-    const eventsBefore = await sessionRevokedEvents(userId);
+    const actorId = await createActorFor(userId);
+    const eventsBefore = await sessionRevokedEvents(actorId);
     try {
       const revoke = await flows.revokeSessions(first);
       const [firstAfter, secondAfter] = await Promise.all([
@@ -229,7 +254,7 @@ describe('AUTH-5.5 session management', () => {
           first: await isAuthenticated(firstAfter),
           second: await isAuthenticated(secondAfter),
           outboxEventsAppended:
-            (await sessionRevokedEvents(userId)) - eventsBefore,
+            (await sessionRevokedEvents(actorId)) - eventsBefore,
         },
         expected: {
           revoked: true,
@@ -239,7 +264,8 @@ describe('AUTH-5.5 session management', () => {
         },
       });
     } finally {
-      await cleanupOutboxFor(userId);
+      await cleanupOutboxFor(actorId);
+      await cleanupActorFor(userId);
     }
   });
 

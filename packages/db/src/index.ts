@@ -8,6 +8,7 @@ import {
   type FormatRules,
 } from '@daisy/protocol';
 import { users } from './schema/users';
+import { actors } from './schema/actors';
 import { claimUsername } from './username-claim';
 import { formats } from './schema/formats';
 import { debates, type DebateOutcome } from './schema/debates';
@@ -44,7 +45,7 @@ export type FormatRecord = {
   readonly rankedEligible: boolean;
 };
 export type DatabaseEventSink = (
-  event: 'db.query.failed',
+  event: 'db.query.failed' | 'realtime.outbox.actor_missing',
   fields: Readonly<Record<string, unknown>>,
   message: string,
 ) => void;
@@ -81,6 +82,29 @@ export function createDatabase({
   });
   const reportFailure = (operation: string) =>
     eventSink?.('db.query.failed', { operation }, 'Database query failed');
+  /**
+   * Plan revision 4.10 (ACTOR-1 pending): revocation rows are keyed by
+   * `actors.id`, never `users.id`, but nothing creates an actor row for a
+   * signed-up user yet (only test fixtures). Resolves the seam ACTOR-1 will
+   * populate; a missing actor is a known, logged gap, not a thrown error.
+   */
+  const findActorId = async (
+    tx: Pick<typeof database, 'select'>,
+    userId: string,
+    operation: string,
+  ): Promise<string | null> => {
+    const [actor] = await tx
+      .select({ id: actors.id })
+      .from(actors)
+      .where(eq(actors.userId, userId));
+    if (!actor)
+      eventSink?.(
+        'realtime.outbox.actor_missing',
+        { operation },
+        'No actor row for this user; revocation outbox row not appended (ACTOR-1 pending)',
+      );
+    return actor?.id ?? null;
+  };
   return {
     authAdapter,
     /**
@@ -95,24 +119,22 @@ export function createDatabase({
      * confirmed a session delete outside Daisy's control (Better Auth's own
      * revoke endpoints). Never wraps the delete itself.
      *
-     * Hazard (plan revision 4.8, recorded as a blocker): the protocol's
-     * `session.revoked` payload carries actor ids
-     * (`ids: [actorId(, sessionId)]`), but nothing in this repository creates
-     * an `actors` row for a signed-up user yet, so there is no `actors.id` to
-     * resolve `userId` to. `ids` therefore carries the Better Auth `userId`
-     * until an actor-creation leaf exists; the topic is `user:<userId>:inbox`
-     * for the same reason, not yet `user:<actorId>:inbox`.
+     * Plan revision 4.10: resolves the actor through `actors.user_id` (never
+     * keys anything by `userId`); until ACTOR-1 backfills, a user with no
+     * actor row appends nothing and logs `realtime.outbox.actor_missing`.
      */
     async appendSessionRevoked(userId: string) {
       try {
-        await database.transaction((tx) =>
-          appendOutboxEvent(tx, {
-            topic: buildUserInboxTopic(userId),
+        await database.transaction(async (tx) => {
+          const actorId = await findActorId(tx, userId, 'appendSessionRevoked');
+          if (!actorId) return;
+          await appendOutboxEvent(tx, {
+            topic: buildUserInboxTopic(actorId),
             kind: 'session.revoked',
             version: 1,
-            payload: { version: 1, kind: 'session.revoked', ids: [userId] },
-          }),
-        );
+            payload: { version: 1, kind: 'session.revoked', ids: [actorId] },
+          });
+        });
       } catch (error) {
         reportFailure('appendSessionRevoked');
         throw error;
@@ -162,6 +184,11 @@ export function createDatabase({
      * plan revision 4.7): unlike the after-hook writers, a failed append
      * here rolls the DELETE back too, rather than being swallowed
      * best-effort. Returns the number of sessions removed.
+     *
+     * Plan revision 4.10: resolves the actor through `actors.user_id`; until
+     * ACTOR-1 backfills, a user with no actor row still has its sessions
+     * revoked, but appends nothing and logs
+     * `realtime.outbox.actor_missing` instead.
      */
     async revokeOtherSessions(
       userId: string,
@@ -175,17 +202,24 @@ export function createDatabase({
               and(eq(sessions.userId, userId), ne(sessions.token, keepToken)),
             )
             .returning({ id: sessions.id });
-          if (rows.length > 0)
-            await appendOutboxEvent(tx, {
-              topic: buildUserInboxTopic(userId),
-              kind: 'session.revoked',
-              version: 1,
-              payload: {
-                version: 1,
+          if (rows.length > 0) {
+            const actorId = await findActorId(
+              tx,
+              userId,
+              'revokeOtherSessions',
+            );
+            if (actorId)
+              await appendOutboxEvent(tx, {
+                topic: buildUserInboxTopic(actorId),
                 kind: 'session.revoked',
-                ids: [userId],
-              },
-            });
+                version: 1,
+                payload: {
+                  version: 1,
+                  kind: 'session.revoked',
+                  ids: [actorId],
+                },
+              });
+          }
           return rows.length;
         });
       } catch (error) {

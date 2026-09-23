@@ -211,6 +211,15 @@ describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () 
     const verifyMail = flows.account.flows.mailbox.mails[before + 1];
     const verifyToken = tokenOf(linkFrom(verifyMail!));
 
+    // Plan revision 4.10 (ACTOR-1 pending): the append only runs once the
+    // actor resolves, so this fixture stands in for ACTOR-1's onboarding
+    // insert until that leaf lands.
+    const uid = await userIdOf(email);
+    await withSql(
+      (sql) =>
+        sql`INSERT INTO actors (id, kind, user_id) VALUES (${createId()}, 'human', ${uid})`,
+    );
+
     // Same real-fault technique as `auth-session-revoked-outbox.integration.ts`:
     // renaming the table away is a genuine Postgres-level failure of the
     // exact statement `appendOutboxEvent` issues, not a stub of the function

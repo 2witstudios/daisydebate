@@ -18,6 +18,7 @@ const eventRegistry = {
   'realtime.cleanup.completed': 'info',
   'realtime.cleanup.failed': 'error',
   'realtime.outbox.append_failed': 'error',
+  'realtime.outbox.actor_missing': 'warn',
   'db.query.failed': 'error',
   'redis.command.failed': 'error',
   'server.start': 'info',
