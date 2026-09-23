@@ -6,7 +6,7 @@ import { sql, type Column, type Table } from 'drizzle-orm';
  * statement; the retention sweep (`apps/web/src/server/retention-sweep.ts`)
  * repeats it, so a backlog drains over batches, never in one long delete.
  */
-export const RETENTION_BATCH_LIMIT = 500;
+const RETENTION_BATCH_LIMIT = 500;
 
 export type RetentionBatch = {
   /** UTC ISO cutoff: rows whose `at` column is strictly earlier go. */
