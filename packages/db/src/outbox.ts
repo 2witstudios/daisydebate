@@ -1,19 +1,18 @@
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
+import { cursorSchema } from '@daisy/protocol';
 import { outbox } from './schema/outbox';
 
 /**
  * Shape-only validation of the append input (RT-2.2 hazard note, plan
  * revision 4.8 item 6): full validation against `@daisy/protocol`'s
- * `outboxPayloadSchema` and its topic-family rule is wired in once RT-2.1b
- * merges (it is currently changing the payload `version` field and the
- * actor-id naming, and its family rule would wrongly reject `session.revoked`
- * / `access.revoked`, which never ride a subscribed topic family). Until
- * then, `payload` must at least be a plain object, matching the table's
- * `outbox_payload_is_object` CHECK: a non-object payload is a clean
- * application-level validation error here, not a raw Postgres CHECK
- * violation surfacing deep inside the caller's transaction.
+ * `outboxPayloadSchema` and RT-2.1c's storage-side family rule is wired in
+ * once RT-2.1c merges (plan revision 4.11). Until then, `payload` must at
+ * least be a plain object, matching the table's `outbox_payload_is_object`
+ * CHECK: a non-object payload is a clean application-level validation error
+ * here, not a raw Postgres CHECK violation surfacing deep inside the
+ * caller's transaction.
  */
 const outboxAppendInputSchema = z.strictObject({
   topic: z.string().min(1).max(200),
@@ -36,13 +35,6 @@ export type OutboxRow = OutboxPosition & {
 /** A transaction handle: what `database.transaction(async (tx) => ...)` hands the caller. */
 type Tx = Pick<BunSQLDatabase, 'execute'>;
 
-/**
- * The protocol's own cursor shape (`@daisy/protocol`'s `cursorSchema`, plan
- * revision 4.8): `txid:seq`, each part 1-20 digits, no leading zero except
- * the value `0` itself. `xid8` and `bigserial` are both 64-bit; `xid8` is
- * unsigned, `bigserial` is signed.
- */
-const positionShape = /^(0|[1-9][0-9]{0,19}):(0|[1-9][0-9]{0,19})$/;
 const XID8_MAX = 2n ** 64n - 1n;
 const BIGSERIAL_MAX = 2n ** 63n - 1n;
 
@@ -70,19 +62,20 @@ function assertInPositionRange(txid: bigint, seq: bigint): void {
 }
 
 /**
- * Both parts are range-checked against their real 64-bit column types, so
- * an out-of-range cursor is a validation error here, not a Postgres cast
- * error at the query.
+ * Shape-validated against `@daisy/protocol`'s `cursorSchema` — the same
+ * `txid:seq` grammar every other cursor consumer uses — then range-checked
+ * against the real 64-bit column types, so an out-of-range cursor is a
+ * validation error here, not a Postgres cast error at the query.
  */
 export function decodeOutboxCursor(cursor: unknown): OutboxPosition {
-  if (typeof cursor !== 'string' || cursor.length === 0 || cursor.length > 41)
-    throw invalidCursor();
-  const match = positionShape.exec(cursor);
-  if (!match?.[1] || !match[2]) throw invalidCursor();
-  const txid = BigInt(match[1]);
-  const seq = BigInt(match[2]);
+  const parsed = cursorSchema.safeParse(cursor);
+  if (!parsed.success) throw invalidCursor();
+  const [txidPart, seqPart] = parsed.data.split(':');
+  if (!txidPart || !seqPart) throw invalidCursor();
+  const txid = BigInt(txidPart);
+  const seq = BigInt(seqPart);
   assertInPositionRange(txid, seq);
-  return { txid: match[1], seq };
+  return { txid: txidPart, seq };
 }
 
 /** The start of the log: every row is strictly after this position. */
