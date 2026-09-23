@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { adrIndex, parseVerdict, planReviewPrompt } from './plan-review';
 
@@ -52,12 +54,35 @@ describe('adrIndex', () => {
           firstLine: '# 0023: Greenfield baseline',
         },
         { file: '0018-cuid2.md', firstLine: '# 0018: cuid2 identifiers' },
+        {
+          file: '0001-bun-runtime.md',
+          firstLine: '# ADR 0001: Bun as the only runtime',
+        },
+        { file: '0040-no-heading.md', firstLine: 'Status: draft' },
         { file: 'README.md', firstLine: '# Decisions' },
       ]),
       expected: [
+        { number: '0001', title: 'Bun as the only runtime' },
         { number: '0018', title: 'cuid2 identifiers' },
         { number: '0023', title: 'Greenfield baseline' },
+        { number: '0040', title: 'no heading' },
       ],
+    });
+  });
+
+  test('indexes every decision record in the repository', () => {
+    const dir = new URL('../docs/decisions/', import.meta.url).pathname;
+    const files = readdirSync(dir).filter((file) => /^\d{4}-/.test(file));
+    assert({
+      given: 'docs/decisions, whose older records are headed "# ADR 0001: …"',
+      should: 'feed every one of them to the review',
+      actual: adrIndex(
+        files.map((file) => ({
+          file,
+          firstLine: readFileSync(join(dir, file), 'utf8').split('\n')[0],
+        })),
+      ).length,
+      expected: files.length,
     });
   });
 });
@@ -74,6 +99,23 @@ describe('parseVerdict', () => {
         parseVerdict('looks fine'),
       ],
       expected: ['APPROVE', 'CHANGES REQUESTED', undefined],
+    });
+  });
+
+  test('reads the last whole verdict line, not a verdict quoted earlier', () => {
+    assert({
+      given:
+        'an approval quoted mid-sentence before a final change request, and two verdict lines',
+      should: 'return the final verdict line each time',
+      actual: [
+        parseVerdict(
+          'I would give PLAN REVIEW: APPROVE once the backfill goes.\nPLAN REVIEW: CHANGES REQUESTED\n',
+        ),
+        parseVerdict(
+          'PLAN REVIEW: APPROVE\nmore findings\nPLAN REVIEW: CHANGES REQUESTED',
+        ),
+      ],
+      expected: ['CHANGES REQUESTED', 'CHANGES REQUESTED'],
     });
   });
 });

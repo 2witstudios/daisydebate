@@ -12,14 +12,21 @@ import { join, resolve } from 'node:path';
 
 type Adr = { readonly number: string; readonly title: string };
 
+/**
+ * Every decision record, numbered by its file name. The title comes from a
+ * "# 0023: …" or "# ADR 0001: …" heading, or else from the file name, so
+ * no record is left out of the review.
+ */
 export function adrIndex(
   files: readonly { readonly file: string; readonly firstLine: string }[],
 ): readonly Adr[] {
   return files
     .flatMap(({ file, firstLine }) => {
-      const number = /^(\d{4})-/.exec(file)?.[1];
-      const title = /^#\s*\d{4}:\s*(.+)$/.exec(firstLine.trim())?.[1];
-      return number && title ? [{ number, title }] : [];
+      const named = /^(\d{4})-(.+)\.md$/.exec(file);
+      if (!named) return [];
+      const heading = /^#\s*(?:ADR\s+)?\d{4}:\s*(.+)$/.exec(firstLine.trim());
+      const title = heading?.[1] ?? named[2].replaceAll('-', ' ');
+      return [{ number: named[1], title }];
     })
     .sort((a, b) => a.number.localeCompare(b.number));
 }
@@ -51,10 +58,17 @@ export function planReviewPrompt(input: {
   ].join('\n');
 }
 
+/** The last line that is exactly a verdict; a verdict quoted in prose never counts. */
 export function parseVerdict(
   output: string,
 ): 'APPROVE' | 'CHANGES REQUESTED' | undefined {
-  const verdict = /PLAN REVIEW: (APPROVE|CHANGES REQUESTED)/.exec(output)?.[1];
+  const verdict = output
+    .split('\n')
+    .map(
+      (line) =>
+        /^PLAN REVIEW: (APPROVE|CHANGES REQUESTED)$/.exec(line.trim())?.[1],
+    )
+    .findLast((match) => match !== undefined);
   return verdict as 'APPROVE' | 'CHANGES REQUESTED' | undefined;
 }
 
