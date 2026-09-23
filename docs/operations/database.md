@@ -13,7 +13,8 @@ Integration tests require explicit TEST_DATABASE_URL ending in `_test`, and TEST
 **Realtime service role (RT-2.2, ADR 0032 §7).** Migration
 `0004_realtime-role.sql` creates `daisy_realtime` (idempotent
 `CREATE ROLE ... LOGIN`, no password) and grants it `SELECT` on `outbox`,
-`debates`, `debate_participants` and `actors` in full, plus a column-scoped
+`debates` and `debate_participants` in full, a column-scoped
+`SELECT (id, user_id)` on `actors`, and a column-scoped
 `SELECT (id, user_id, expires_at)` on `session` for the 60s continuous
 re-authorization check — never `token`, the bearer credential. It gets
 **no grant on `users` at all today**: identity resolves through
@@ -33,9 +34,29 @@ else — the role stays `SELECT`-only everywhere but that table. Local/test
 sessions that need to connect as this role (for example its own integration
 test) set a throwaway password with
 `ALTER ROLE daisy_realtime LOGIN PASSWORD '...'` and clear it afterwards;
-never commit a real one. Migration `0005_outbox-sequence-grants.sql` grants
-`daisy_e2e` `USAGE`/`SELECT` on `outbox`'s backing sequence (see the
-serial/sequence note above) and documents the same pattern for any future
-non-owner role that appends to a table with a `serial`/`bigserial` column.
+never commit a real one.
+
+The same migration also grants `USAGE, SELECT` on `outbox`'s backing
+sequence (see the serial/sequence note above), folded into the migration
+that creates the outbox's role rather than a separate one (plan revision
+4.8), to every runtime role that appends to the outbox: `daisy` (the
+migration owner, also today's web app and integration-test runtime role)
+already has it implicitly through table ownership; `daisy_e2e` gets it
+conditionally, since that role does not exist in production. **Production
+operations step:** once production provisions a web runtime credential
+distinct from the migration owner `daisy` (this repository's "production
+runtime credentials should not have schema-alter privileges" guidance
+above), that role needs the same grant, run once as an admin role:
+`GRANT USAGE, SELECT ON SEQUENCE outbox_seq_seq TO <production web runtime role>;`
+— no migration creates that role, so this is a manual provisioning step,
+not something `bun db:migrate` covers.
+
+**Outbox retention throughput (RT-2.2).** The maintenance sweep prunes
+outbox rows older than the 24h retention window in batches of at most 200
+rows per call (`RETENTION_BATCH_LIMIT` in `packages/db/src/outbox.ts`),
+`FOR UPDATE SKIP LOCKED` so a concurrent drain is never blocked, run hourly
+with up to 200 batches per run (40,000 rows/run), sized against an expected
+write rate of 10 rows/s (36,000 rows/hour) so one run always clears a full
+hour's growth with headroom.
 
 Database availability is necessary but not sufficient readiness. Deployers must ensure migrations are applied, monitor storage/replication/backup lag, enforce TLS for remote database and Redis connections, and set network access policy. Local plaintext credentials are intentionally confined to loopback. Redis persistence is off locally to expose accidental reliance on durable cache state.
