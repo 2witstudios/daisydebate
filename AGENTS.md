@@ -197,6 +197,17 @@ or scope of a task delegated to it: a change goes back to whoever delegated
 it. Done is granted from an independent review record, never by the agent
 that did the work.
 
+Work that is not an epic leaf goes in the drive-root `Issues` task list,
+never in GitHub Issues: defects found in review after the owning leaf
+closed, deferred review findings, minors the owner chose not to block a
+merge on, and small non-epic improvements. Title `ISSUE-n — Given X, should
+Y`; the body records origin (PR, review record, reporter), why, and the
+acceptance criteria; the Related pages block links the origin. An issue
+closes through a PR that names it, or is promoted to an epic leaf when it
+grows into feature work. `Backlog` stays for feature candidates awaiting a
+spec. A finding on a leaf that is still open is a follow-up leaf under that
+phase, not an issue.
+
 Open and update pull requests with the `/pr` skill: the description links
 the task, plan and prompt pages (and handoff and reviews as they land) so a
 reviewer can check the change against what was asked, and every review

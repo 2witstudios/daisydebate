@@ -30,7 +30,8 @@ required for ordinary development.
 
 The orchestrator coordinates the PageSpace task board: claiming work,
 recording plans, and marking acceptance. Delegated agents write the board too,
-through the `pagespace` CLI (follow-up tasks, status, evidence), but never edit
+through the `pagespace` CLI (follow-up leaves, `Issues` entries for non-epic
+findings, status, evidence), but never edit
 the acceptance criteria or scope of a task delegated to them; a change to their
 own spec goes back to the orchestrator. After completion,
 the orchestrator uses `pu kill` and any repository-approved cleanup flow to
