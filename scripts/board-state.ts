@@ -15,6 +15,10 @@ export const MERGED_STATUS = {
 
 const TASK_TITLE = /^([A-Z]{2,6}-\d+(?:\.\d+)?[a-z]?)\s+—/;
 
+/** The task code a leaf title starts with, e.g. `RT-2.2f — Given …`. */
+export const taskCode = (title: string): string | undefined =>
+  TASK_TITLE.exec(title)?.[1];
+
 type PageNode = {
   readonly id: string;
   readonly type: string;
@@ -34,7 +38,7 @@ export function findTaskPages(
   parentId?: string,
 ): readonly TaskPage[] {
   return nodes.flatMap((node) => {
-    const code = TASK_TITLE.exec(node.title)?.[1];
+    const code = taskCode(node.title);
     const own =
       code && node.type === 'TASK_LIST' && parentId
         ? [{ code, pageId: node.id, listId: parentId }]
