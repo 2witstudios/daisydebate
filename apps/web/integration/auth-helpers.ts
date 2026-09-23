@@ -153,3 +153,48 @@ export const emptyCounts: FixtureCounts = {
   sessions: 0,
   passkeys: 0,
 };
+
+/**
+ * Forces one genuine Postgres-level `appendOutboxEvent` failure (RT-2.2v
+ * minor 3), scoped to exactly one topic: a `BEFORE INSERT` trigger that
+ * raises only for that topic's rows, dropped again once `work` settles.
+ * turbo runs `@daisy/db` and `@daisy/web` `test:integration` concurrently
+ * against one `TEST_DATABASE_URL` (`turbo.json`, no ordering); renaming the
+ * shared `outbox` table away for the duration of `work` would fail every
+ * unrelated insert and drain running at the same time and hold an ACCESS
+ * EXCLUSIVE lock for that whole window. A topic-scoped trigger holds that
+ * lock only for the brief `CREATE`/`DROP TRIGGER` DDL, and only rejects
+ * inserts naming this fixture's own topic. Two real consumers:
+ * `auth-session-revoked-outbox.integration.ts` and
+ * `auth-email-change-atomicity.integration.ts`.
+ */
+export const withOutboxInsertBlockedForTopic = async (
+  url: string,
+  topic: string,
+  work: () => Promise<void>,
+) => {
+  const admin = new SQL(url);
+  const name = `outbox_force_failure_${createId()}`;
+  const escapedTopic = topic.replace(/'/g, "''");
+  try {
+    await admin.unsafe(`
+      create function "${name}"() returns trigger as $body$
+      begin
+        if new.topic = '${escapedTopic}' then
+          raise exception 'forced outbox failure for topic % (fixture-scoped)', new.topic;
+        end if;
+        return new;
+      end;
+      $body$ language plpgsql
+    `);
+    await admin.unsafe(`
+      create trigger "${name}_trigger" before insert on outbox
+      for each row execute function "${name}"()
+    `);
+    await work();
+  } finally {
+    await admin.unsafe(`drop trigger if exists "${name}_trigger" on outbox`);
+    await admin.unsafe(`drop function if exists "${name}"()`);
+    await admin.close();
+  }
+};
