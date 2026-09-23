@@ -6,17 +6,18 @@ import {
   emailDeliveryEvents,
   emailSuppressions,
 } from './schema/email-delivery';
+import { instrumented, type DatabaseEventSink } from './instrumented';
 
 /**
- * Authentication mail operations (ADR 0025), composed into `createDatabase`.
- * `reportFailure` names the operation to the event sink without SQL detail.
+ * The email area (ISSUE-8 AC1, ADR 0025): delivery ledger, suppressions and
+ * verification retention, composed into `createDatabase`.
  */
 export const emailDeliveryOperations = ({
   database,
-  reportFailure,
+  eventSink,
 }: {
-  database: BunSQLDatabase;
-  reportFailure: (operation: string) => void;
+  readonly database: BunSQLDatabase;
+  readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /**
    * Retention (AUTH-7.5a): deletes at most `limit` verification rows whose
@@ -33,7 +34,7 @@ export const emailDeliveryOperations = ({
       Number.isNaN(Date.parse(input.before))
     )
       throw new Error('Invalid verification purge bounds');
-    try {
+    return instrumented(eventSink, 'purgeExpiredVerifications', async () => {
       const deleted = await database.execute(
         sql`delete from ${verifications} where ${verifications.id} in (
         select ${verifications.id} from ${verifications}
@@ -44,10 +45,7 @@ export const emailDeliveryOperations = ({
       ) returning ${verifications.id}`,
       );
       return deleted.length;
-    } catch (error) {
-      reportFailure('purgeExpiredVerifications');
-      throw error;
-    }
+    });
   },
   /** Idempotent: a retried send with the same provider message ID is a no-op. */
   async recordEmailDelivery(input: {
@@ -55,7 +53,7 @@ export const emailDeliveryOperations = ({
     recipientHash: string;
     at: string;
   }) {
-    try {
+    return instrumented(eventSink, 'recordEmailDelivery', async () => {
       await database
         .insert(emailDeliveries)
         .values({
@@ -67,23 +65,17 @@ export const emailDeliveryOperations = ({
           updatedAt: input.at,
         })
         .onConflictDoNothing();
-    } catch (error) {
-      reportFailure('recordEmailDelivery');
-      throw error;
-    }
+    });
   },
   async isRecipientSuppressed(recipientHash: string) {
-    try {
+    return instrumented(eventSink, 'isRecipientSuppressed', async () => {
       const [row] = await database
         .select({ recipientHash: emailSuppressions.recipientHash })
         .from(emailSuppressions)
         .where(eq(emailSuppressions.recipientHash, recipientHash))
         .limit(1);
       return row !== undefined;
-    } catch (error) {
-      reportFailure('isRecipientSuppressed');
-      throw error;
-    }
+    });
   },
   /**
    * One transaction: dedupe by provider event ID, raise (never lower) the
@@ -147,7 +139,11 @@ export const emailDeliveryOperations = ({
       });
     } catch (error) {
       if (error === unknown) return 'unknown-message';
-      reportFailure('applyEmailDeliveryEvent');
+      eventSink?.(
+        'db.query.failed',
+        { operation: 'applyEmailDeliveryEvent' },
+        'Database query failed',
+      );
       throw error;
     }
   },

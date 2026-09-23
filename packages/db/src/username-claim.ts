@@ -2,6 +2,7 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql';
 import { actors } from './schema/actors';
 import { users } from './schema/users';
+import type { DatabaseEventSink } from './instrumented';
 
 export type UsernameClaim = {
   readonly kind:
@@ -45,7 +46,7 @@ export async function claimUsername(
   database: BunSQLDatabase,
   input: { readonly userId: string; readonly username: string },
   nextActorId: () => string,
-  reportFailure: (operation: string) => void,
+  eventSink: DatabaseEventSink | undefined,
 ): Promise<UsernameClaim> {
   try {
     return await database.transaction(async (tx) => {
@@ -77,7 +78,11 @@ export async function claimUsername(
     });
   } catch (error) {
     if (isUniqueViolation(error)) return { kind: 'taken' };
-    reportFailure('claimUsername');
+    eventSink?.(
+      'db.query.failed',
+      { operation: 'claimUsername' },
+      'Database query failed',
+    );
     throw error;
   }
 }
