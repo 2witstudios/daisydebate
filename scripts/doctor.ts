@@ -3,7 +3,7 @@ import { readServerConfig } from '@daisy/config';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { slotMismatches, type Slot } from './slot-model';
+import { serviceRefusal, slotMismatches, type Slot } from './slot-model';
 import {
   inspectOrphans,
   liveSlotIds,
@@ -136,16 +136,24 @@ async function checkSlots(): Promise<readonly DoctorCheck[]> {
     const detail = error instanceof Error ? error.message : 'unresolved';
     return [fail('slot', detail), fail('slot-orphans', 'slot unresolved')];
   }
+  const slot = slotCheck(checkout.slot, process.env);
+  // The slot tooling's own refusals are shown as they are; connection
+  // failures stay generic so no driver error text reaches the report.
+  const refusal = serviceRefusal(process.env);
+  if (refusal) return [slot, fail('slot-orphans', refusal)];
+  let liveIds: readonly string[];
+  try {
+    liveIds = await liveSlotIds(checkout);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : 'worktrees unread';
+    return [slot, fail('slot-orphans', detail)];
+  }
   let services;
   try {
     services = openServices(process.env);
-    const orphans = await inspectOrphans(services, await liveSlotIds(checkout));
-    return [slotCheck(checkout.slot, process.env), orphanCheck(orphans.ids)];
+    return [slot, orphanCheck((await inspectOrphans(services, liveIds)).ids)];
   } catch {
-    return [
-      slotCheck(checkout.slot, process.env),
-      fail('slot-orphans', 'services unavailable'),
-    ];
+    return [slot, fail('slot-orphans', 'services unavailable')];
   } finally {
     await services?.close().catch(() => undefined);
   }
