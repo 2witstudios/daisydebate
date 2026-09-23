@@ -11,9 +11,9 @@ import {
 type RecordedQuery = { query: string; params: unknown[] };
 /**
  * A drizzle typed query (`.insert().returning()` etc.) maps positional
- * arrays; a raw `tx.execute(sql...)` (`appendOutboxEvent`'s insert/notify)
- * gets named-object rows straight from the driver, so a script entry may be
- * either shape.
+ * arrays; a raw `tx.execute(sql...)` (`appendOutboxEvent`'s `pg_notify`
+ * call) gets named-object rows straight from the driver, so a script entry
+ * may be either shape.
  */
 type ScriptedResult =
   readonly (readonly unknown[] | Record<string, unknown>)[] | Error;

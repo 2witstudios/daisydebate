@@ -2,13 +2,13 @@ import { sql } from 'drizzle-orm';
 import {
   check,
   foreignKey,
-  jsonb,
   pgTable,
   text,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { actors } from './actors';
 import {
+  jsonbColumn,
   oneOf,
   timestampColumn,
   versionColumn,
@@ -35,7 +35,7 @@ export const ballots = pgTable(
     /** Bound to `debate_id` by the composite key below, never on its own. */
     participantId: text('participant_id').notNull(),
     decision: text('decision').notNull(),
-    scores: jsonb('scores').notNull(),
+    scores: jsonbColumn('scores').notNull(),
     reason: text('reason').notNull(),
     status: text('status').notNull(),
     submittedAt: timestampColumn('submitted_at').notNull(),
