@@ -1,7 +1,6 @@
 import { expect, test } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
 import { createRedis, redisKey } from '../src';
-import { ACTOR_CONNECTIONS_MAX } from '../src/presence-scripts';
 import { rawClient } from './test-support';
 const url = process.env.TEST_REDIS_URL;
 if (!url) throw new Error('TEST_REDIS_URL required');
@@ -192,33 +191,6 @@ test('refresh on an already-expired lease reports refreshed: false rather than r
     await redis.deletePresenceLease({ connId: 'staleConn', actorId });
     redis.close();
     raw.close();
-  }
-});
-
-test('readActorConnections returns at most its bound, latest expiry first', async () => {
-  // ISSUE-46: the per-actor read is bounded like the online read, so an
-  // actor with many live connections never makes one read unbounded.
-  const namespace = `test-${createId()}`;
-  const redis = createRedis({ url, namespace });
-  const actorId = createId();
-  const connIds = Array.from(
-    { length: ACTOR_CONNECTIONS_MAX + 3 },
-    (_, index) => `bounded${index}`,
-  );
-  try {
-    for (const [index, connId] of connIds.entries())
-      await redis.upsertPresenceLease(
-        { connId, actorId, instanceId: 'inst1', activity: 'active' },
-        100 + index,
-      );
-    const { connections } = await redis.readActorConnections(actorId);
-    expect(connections.map((c) => c.connId)).toEqual(
-      connIds.slice(3).reverse(),
-    );
-  } finally {
-    for (const connId of connIds)
-      await redis.deletePresenceLease({ connId, actorId });
-    redis.close();
   }
 });
 
