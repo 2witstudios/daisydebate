@@ -130,6 +130,26 @@ jobs:
       # The browser E2E tier is owned by e2e.yml (a single E2E owner keeps
       # per-PR cost at one Chromium run; bun evidence enforces the split).
 
+  # The one required check for the main ruleset (policy/github/repository.json):
+  # it passes only when every CI job above passed.
+  gate:
+    name: CI gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    needs: [checks, migrations, integration]
+    if: always()
+    steps:
+      - name: Require every CI job to pass
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          for result in $RESULTS; do
+            if [ "$result" != success ]; then
+              echo "CI gate: a required job ended $result"
+              exit 1
+            fi
+          done
+
   notify-drive:
     name: Report failure to drive Incidents
     runs-on: ubuntu-24.04
