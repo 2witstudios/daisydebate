@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   debtIssue,
+  deliveredCodes,
   findTaskPages,
   mergedTarget,
   needsDebt,
@@ -259,6 +260,26 @@ describe('reviewedCodes', () => {
         ),
       ],
       expected: ['AUTH-1.1', 'AUTH-1.2', 'AUTH-1.4', 'DOCS-4'],
+    });
+  });
+});
+
+describe('deliveredCodes', () => {
+  test('reads delivered tasks from the title, branch and Tasks line only', () => {
+    assert({
+      given:
+        'a PR whose body also mentions future leaves outside its Tasks line',
+      should: 'return only the codes it declares it delivers',
+      actual: deliveredCodes({
+        title: 'feat(rt): presence leases (RT-3.1)',
+        headRefName: 'pu/rt-3-1',
+        body: [
+          'Implements the lease model; RT-4.1 and RT-4.2 build on it later.',
+          '- Tasks: [RT-3.1](url) · [RT-3.1b](url)',
+          'See ADR 0033 and ISSUE-4.',
+        ].join('\n'),
+      }),
+      expected: ['RT-3.1', 'RT-3.1b'],
     });
   });
 });

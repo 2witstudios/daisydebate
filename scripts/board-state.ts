@@ -4,6 +4,7 @@
  * enforcement cutoff leaves review debt, and which tasks drifted from git.
  * The merge workflow (merge-followup.ts) and `bun board:stale` share them.
  */
+import { extractTaskIds } from './notify-drive';
 
 /** The status a merged task waits in until an independent review grants Done. */
 export const MERGED_STATUS = {
@@ -45,6 +46,27 @@ export function findTaskPages(
         : [];
     return [...own, ...findTaskPages(node.children ?? [], node.id)];
   });
+}
+
+const TASKS_LINE = /^\s*[-*]?\s*Tasks?\s*:/;
+
+/**
+ * The task codes a PR delivers: those in its title, its branch and its
+ * body's `Tasks:` line. A code the body only mentions (a later leaf, an ADR
+ * citation, a related issue) is not delivered by the PR.
+ */
+export function deliveredCodes(
+  pr: {
+    readonly title: string;
+    readonly headRefName: string;
+    readonly body: string | null;
+  },
+  extract: (text: string) => readonly string[] = extractTaskIds,
+): readonly string[] {
+  const tasksLines = (pr.body ?? '')
+    .split('\n')
+    .filter((line) => TASKS_LINE.test(line));
+  return extract([pr.title, pr.headRefName, ...tasksLines].join('\n'));
 }
 
 /** Where a merge moves a task; undefined when it stays. */

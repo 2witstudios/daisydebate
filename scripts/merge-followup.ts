@@ -11,12 +11,13 @@
 import { leafBody, nextCodeNumber } from './board-model';
 import {
   debtIssue,
+  deliveredCodes,
   findTaskPages,
   MERGED_STATUS,
   mergedTarget,
   needsDebt,
 } from './board-state';
-import { extractTaskIds, postToDrive } from './notify-drive';
+import { postToDrive } from './notify-drive';
 import { DAISY_DEBATE_DRIVE_ID, pagespaceApi } from './pagespace-docs';
 
 export const ISSUES_LIST_ID = 'cy7vznqfbs8ikfwj1qu8xxnm';
@@ -109,7 +110,11 @@ export async function followUpMerge(
   deps: FollowupDeps,
   pr: MergedPr,
 ): Promise<{ readonly moved: readonly string[]; readonly debt?: string }> {
-  const codes = extractTaskIds(`${pr.title} ${pr.branch} ${pr.body}`);
+  const codes = deliveredCodes({
+    title: pr.title,
+    headRefName: pr.branch,
+    body: pr.body,
+  });
   const moved = await moveTasks(deps, codes);
   return { moved, debt: await recordDebt(deps, pr, codes) };
 }

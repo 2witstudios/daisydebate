@@ -7,6 +7,7 @@
  * debt: merges before the enforcement cutoff are listed, not filed.
  */
 import {
+  deliveredCodes,
   isReviewPage,
   MERGED_STATUS,
   reviewedCodes,
@@ -113,9 +114,7 @@ function readBoard(deps: StaleDeps) {
 export function runStaleCheck(deps: StaleDeps, apply: boolean): number {
   const merged = new Map<string, string>();
   for (const pr of deps.mergedPrs())
-    for (const code of extractTaskIds(
-      `${pr.title} ${pr.headRefName} ${pr.body}`,
-    ))
+    for (const code of deliveredCodes(pr))
       if (!merged.has(code) || pr.mergedAt < (merged.get(code) ?? ''))
         merged.set(code, pr.mergedAt);
   const { lists, tasks } = readBoard(deps);
