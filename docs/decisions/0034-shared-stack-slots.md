@@ -56,6 +56,13 @@ are tiny (`daisy` 9 MB, `daisy_test` 15 MB).
   gone, counts as removed). Names that do not parse as a worktree slot are
   never touched. Redis keys are removed with `SCAN` and `UNLINK` over the
   exact `<namespace>:*` pattern, never `FLUSHDB`/`FLUSHALL`.
+- **Local stack only.** Slot tooling force-drops databases and unlinks
+  namespaces, so it refuses a `.env` whose `DATABASE_URL`, `REDIS_URL` or
+  `E2E_REDIS_URL` names anything but loopback, before touching Docker or
+  any service.
+- **Each checkout migrates itself.** `slot:up` runs the selected checkout's
+  own `packages/db/scripts/migrate.ts`, so a branch behind or ahead of the
+  one running the tool gets exactly its own schema.
 - **Identifiers are allowlisted.** Database names and literals in
   `CREATE`/`DROP`/`COMMENT`/`CREATE ROLE` cannot be bound as parameters;
   `@daisy/db/slots` checks each against a strict pattern before quoting it,

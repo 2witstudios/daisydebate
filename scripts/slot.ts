@@ -40,6 +40,7 @@ import {
   portBlockPorts,
   readEnvValue,
   rewriteEnv,
+  serviceRefusal,
   slotEnvValues,
   type Slot,
 } from './slot-model';
@@ -110,8 +111,9 @@ export type SlotServices = {
 export function openServices(
   env: Readonly<Record<string, string | undefined>>,
 ): SlotServices {
-  if (!env.DATABASE_URL || !env.REDIS_URL)
-    throw new Error('DATABASE_URL and REDIS_URL are required in .env');
+  const refusal = serviceRefusal(env);
+  if (refusal || !env.DATABASE_URL || !env.REDIS_URL)
+    throw new Error(refusal ?? 'DATABASE_URL and REDIS_URL are required');
   const server = env.DATABASE_URL;
   const connect = (database: string) =>
     new SQL(withDatabase(server, database), { max: 1, connectionTimeout: 5 });
@@ -198,8 +200,20 @@ async function claimPortBlock(admin: SQL, slot: Slot): Promise<number> {
   return block;
 }
 
-export async function migrate(databaseUrl: string): Promise<void> {
-  await run(['bun', 'packages/db/scripts/migrate.ts'], root, {
+/** The checkout's own migrator: its branch may be behind or ahead of ours. */
+async function migratorOf(checkoutPath: string): Promise<string> {
+  const migrator = join(checkoutPath, 'packages/db/scripts/migrate.ts');
+  if (!(await Bun.file(migrator).exists()))
+    throw new Error(`${migrator} is missing; cannot migrate this slot`);
+  return migrator;
+}
+
+/** Applies the given checkout's own migrations with its own migrator. */
+export async function migrate(
+  databaseUrl: string,
+  checkoutPath: string,
+): Promise<void> {
+  await run(['bun', await migratorOf(checkoutPath)], checkoutPath, {
     ...process.env,
     DATABASE_URL: databaseUrl,
   });
@@ -226,6 +240,10 @@ const describeOrphans = (ids: readonly string[]) =>
 async function up(checkout: Checkout, envPath: string) {
   const content = await readEnvFile(envPath);
   const env = envOf(content);
+  // Refuse a stale or remote .env before touching Docker or any service.
+  const refusal = serviceRefusal(env);
+  if (refusal) throw new Error(refusal);
+  await migratorOf(checkout.path);
   await run(['docker', 'compose', 'up', '-d', '--wait'], root, {
     ...process.env,
     COMPOSE_FILE: process.env.COMPOSE_FILE ?? 'infra/compose.yaml',
@@ -258,8 +276,8 @@ async function up(checkout: Checkout, envPath: string) {
     const values = slotEnvValues({ slot, env, portBlock });
     const rewritten = rewriteEnv(content, values);
     if (rewritten.changed) await writeFile(envPath, rewritten.content);
-    await migrate(values.DATABASE_URL ?? '');
-    await migrate(values.TEST_DATABASE_URL ?? '');
+    await migrate(values.DATABASE_URL ?? '', checkout.path);
+    await migrate(values.TEST_DATABASE_URL ?? '', checkout.path);
     process.stdout.write(
       [
         `Slot ${slot.id} (${slot.kind})`,

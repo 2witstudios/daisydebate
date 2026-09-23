@@ -11,7 +11,8 @@ import { e2eRole, resetRefusal } from './slot-model';
 import { migrate, resolveCheckout } from './slot';
 
 const root = resolve(import.meta.dir, '..');
-const { slot } = await resolveCheckout(root);
+const checkout = await resolveCheckout(root);
+const { slot } = checkout;
 const refusal = resetRefusal(slot, process.env);
 if (refusal) throw new Error(refusal);
 const client = new SQL(process.env.DATABASE_URL ?? '', { max: 1 });
@@ -20,4 +21,4 @@ try {
 } finally {
   await client.close();
 }
-await migrate(process.env.DATABASE_URL ?? '');
+await migrate(process.env.DATABASE_URL ?? '', checkout.path);
