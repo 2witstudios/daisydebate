@@ -58,7 +58,12 @@ primary_region = "ord"
   # caller resolved to the proxy's address — one shared rate-limit bucket.
   # Only fly-proxy can reach a machine with no dedicated public IP, so the
   # private IPv4 range is trusted as well.
-  AUTH_TRUSTED_PROXIES = "fdaa::/8,172.16.0.0/12"
+  # Second finding: after trusting 172.16/12 the resolved caller became a
+  # Fly edge node (66.241.125.x), i.e. the X-Forwarded-For chain is
+  # "<caller>, <edge>" and the edge hop is public. Fly's anycast edge range
+  # 66.241.124.0/22 is trusted too. The durable fix is to read Fly's
+  # authoritative Fly-Client-IP header at ingress (tracked as a follow-up).
+  AUTH_TRUSTED_PROXIES = "fdaa::/8,172.16.0.0/12,66.241.124.0/22"
 
 [http_service]
   # Must match Dockerfile EXPOSE and the PORT env above.
