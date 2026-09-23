@@ -137,39 +137,94 @@ describe('classifyTestFile', () => {
 });
 
 describe('integrationGuardProblems', () => {
-  test('accepts a suite that throws on a missing test service', () => {
-    const content = [
-      'const url = process.env.TEST_DATABASE_URL;',
-      "if (!url) throw new Error('TEST_DATABASE_URL required');",
-    ].join('\n');
+  const guarded = [
+    "import { requireTestServices } from '@daisy/config';",
+    'const { databaseUrl } = requireTestServices(process.env);',
+  ].join('\n');
+  const codes = (content: string) =>
+    integrationGuardProblems(content, 'db.integration.ts').map(
+      ({ code }) => code,
+    );
+
+  test('accepts a suite that imports and calls the shared guard at load', () => {
     assert({
-      given: 'a hard-failing environment guard',
+      given: "a suite calling @daisy/config's requireTestServices at module scope",
       should: 'report no problems',
-      actual: integrationGuardProblems(content, 'db.integration.ts'),
+      actual: codes(guarded),
       expected: [],
     });
   });
 
-  test('flags a suite that can silently pass without services', () => {
-    const content = 'const url = process.env.TEST_DATABASE_URL;';
+  test('accepts the guard under a local alias', () => {
     assert({
-      given: 'a guard that never throws',
-      should: 'fail with GUARD_MISSING instead of trusting a silent skip',
-      actual: integrationGuardProblems(content, 'db.integration.ts').map(
-        ({ code }) => code,
+      given: 'an aliased import of requireTestServices, called at load',
+      should: 'report no problems',
+      actual: codes(
+        [
+          "import { requireTestServices as services } from '@daisy/config';",
+          'const urls = services(process.env);',
+        ].join('\n'),
+      ),
+      expected: [],
+    });
+  });
+
+  test('flags a hand-written guard that only mentions the variables', () => {
+    assert({
+      given: 'a copied text guard that reads TEST_DATABASE_URL and throws',
+      should: 'fail with GUARD_MISSING: the shared import is the contract',
+      actual: codes(
+        [
+          'const url = process.env.TEST_DATABASE_URL;',
+          "if (!url) throw new Error('TEST_DATABASE_URL required');",
+        ].join('\n'),
       ),
       expected: ['GUARD_MISSING'],
     });
   });
 
-  test('flags a suite that declares no test environment at all', () => {
+  test('flags a guard named only in a comment or a string', () => {
     assert({
-      given: 'an integration suite without any test service env var',
+      given: 'text that names requireTestServices without importing it',
       should: 'fail with GUARD_MISSING',
-      actual:
-        integrationGuardProblems("test('x', () => {});", 'loose.integration.ts')
-          .length > 0,
-      expected: true,
+      actual: codes(
+        [
+          "// import { requireTestServices } from '@daisy/config';",
+          "const note = 'requireTestServices(process.env)';",
+        ].join('\n'),
+      ),
+      expected: ['GUARD_MISSING'],
+    });
+  });
+
+  test('flags an imported guard that is never called at load', () => {
+    assert({
+      given: 'the import alone, and a call deferred into a test body',
+      should: 'fail both with GUARD_MISSING: nothing throws when the file loads',
+      actual: [
+        codes("import { requireTestServices } from '@daisy/config';"),
+        codes(
+          [
+            "import { requireTestServices } from '@daisy/config';",
+            "test('x', () => { requireTestServices(process.env); });",
+          ].join('\n'),
+        ),
+      ],
+      expected: [['GUARD_MISSING'], ['GUARD_MISSING']],
+    });
+  });
+
+  test('flags a same-named guard from another module', () => {
+    assert({
+      given: 'requireTestServices imported from a local helper',
+      should: 'fail with GUARD_MISSING: only the shared guard counts',
+      actual: codes(
+        [
+          "import { requireTestServices } from './helpers';",
+          'requireTestServices(process.env);',
+        ].join('\n'),
+      ),
+      expected: ['GUARD_MISSING'],
     });
   });
 });

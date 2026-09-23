@@ -1,5 +1,6 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
+import ts from 'typescript';
 import { claimsIntegrationSuite } from './test-integration';
 
 const root = resolve(import.meta.dir, '..');
@@ -56,21 +57,73 @@ export function classifyTestFile(relativePath: string): TestTier {
   return 'orphan';
 }
 
+export const TEST_SERVICES_GUARD = {
+  module: '@daisy/config',
+  name: 'requireTestServices',
+} as const;
+
+// The local names a suite binds to the shared guard's import.
+const guardBindings = (source: ts.SourceFile): ReadonlySet<string> => {
+  const names = new Set<string>();
+  for (const statement of source.statements) {
+    if (
+      !ts.isImportDeclaration(statement) ||
+      !ts.isStringLiteral(statement.moduleSpecifier) ||
+      statement.moduleSpecifier.text !== TEST_SERVICES_GUARD.module
+    )
+      continue;
+    const bindings = statement.importClause?.namedBindings;
+    if (!bindings || !ts.isNamedImports(bindings)) continue;
+    for (const element of bindings.elements)
+      if (
+        (element.propertyName ?? element.name).text === TEST_SERVICES_GUARD.name
+      )
+        names.add(element.name.text);
+  }
+  return names;
+};
+
+// Whether a call to one of `names` runs when the module loads: no function
+// body stands between it and the file, so a missing service fails the load.
+const callsAtLoad = (source: ts.SourceFile, names: ReadonlySet<string>) => {
+  let found = false;
+  const visit = (node: ts.Node) => {
+    if (found || ts.isFunctionLike(node)) return;
+    if (
+      ts.isCallExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      names.has(node.expression.text)
+    ) {
+      found = true;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return found;
+};
+
 // A suite that nothing invokes is indistinguishable from a suite that does
-// not exist (PageSpace lesson): every integration file must hard-fail on a
-// missing test service instead of silently passing an empty run.
+// not exist (PageSpace lesson): every integration suite imports the one
+// shared guard and calls it at load, so a missing test service fails the
+// file instead of silently passing an empty run. Checked on the parsed
+// import graph, never on text a comment or a copied guard could satisfy.
 export function integrationGuardProblems(
   content: string,
   relativePath: string,
 ): readonly EvidenceProblem[] {
-  const declaresTestEnvironment =
-    content.includes('TEST_DATABASE_URL') || content.includes('TEST_REDIS_URL');
-  const hardFails = content.includes('throw new Error');
-  if (declaresTestEnvironment && hardFails) return [];
+  const source = ts.createSourceFile(
+    relativePath,
+    content,
+    ts.ScriptTarget.Latest,
+    false,
+    ts.ScriptKind.TS,
+  );
+  if (callsAtLoad(source, guardBindings(source))) return [];
   return [
     {
       code: 'GUARD_MISSING',
-      detail: `${relativePath} must declare TEST_DATABASE_URL or TEST_REDIS_URL and throw when absent (never skip)`,
+      detail: `${relativePath} must import ${TEST_SERVICES_GUARD.name} from ${TEST_SERVICES_GUARD.module} and call it at load (it throws on a missing service; never skip)`,
     },
   ];
 }

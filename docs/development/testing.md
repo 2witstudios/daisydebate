@@ -93,9 +93,12 @@ not exist — PageSpace lost entire tiers this way. `bun evidence` (in
   test (`bun lint`). Anything else is an ORPHAN_SUITE.
 - Every `integration/` suite must be run by its workspace's
   `test:integration` script (the discovery runner claims the whole folder)
-  and must **throw** when
-  `TEST_DATABASE_URL`/`TEST_REDIS_URL` is missing — a guard that skips
-  instead of failing is GUARD_MISSING.
+  and must import `requireTestServices` from `@daisy/config` and call it at
+  module scope. It **throws** when `TEST_DATABASE_URL` (ending in `_test`) or
+  `TEST_REDIS_URL` is missing, so the file fails instead of skipping. The
+  gate reads the parsed import and call, not text: a hand-written guard, a
+  mention in a comment or a call deferred into a test body is
+  GUARD_MISSING.
 - Every `*.e2e.ts` is claimed by the Playwright config, and exactly one
   workflow runs `test:e2e`.
 - `bun test src` globs only `*.test.ts(x)`, and Playwright matches only
