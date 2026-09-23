@@ -25,13 +25,21 @@ adds the delivery and abuse controls ADR 0020 requires before activation.
   3/60 s per recipient. A limiter failure fails closed as a safe `503` (the
   route boundary adds `Retry-After: 5`); there is no process-local fallback and
   no allow-on-error. `429` carries `Retry-After`.
-- **Trusted client identity.** The composition trusts exactly one header
-  (`clientIp: { trustedHeaders: ['x-daisy-client-ip'] }`), the internal
-  `x-daisy-client-ip` header. The production ingress (`start.ts`) replaces any
+- **Trusted client identity — one resolver.** Better Auth's `advanced.ipAddress`
+  is fixed to `{ ipAddressHeaders: [CLIENT_IP_HEADER] }`, the internal
+  `x-daisy-client-ip` header, with no deployment-configurable header list and
+  no `trustedProxies` option of its own — there is exactly one place client
+  identity is resolved. The production ingress (`start.ts`) replaces any
   caller-supplied value with the socket peer, or — only when the peer is in
   `AUTH_TRUSTED_PROXIES` — the first untrusted hop from the right of
-  `X-Forwarded-For`. Absent an identity the request shares one fail-safe bucket
-  per path rather than escaping the limit.
+  `X-Forwarded-For`. `next dev` runs without that ingress, so a dev-mode
+  request carries no such header and shares one "unknown" bucket per path,
+  same as any other missing identity: a fail-safe bucket, never an escaped
+  limit. (Superseded 2026-09-23, ISSUE-5: the previous revision also let
+  Better Auth trust a deployment-configured `AUTH_TRUSTED_IP_HEADERS` list of
+  its own, a second, redundant resolver that had no effect in production but
+  left two trust configurations to keep in sync. `AUTH_TRUSTED_IP_HEADERS`
+  and its `clientIpFromConfig`/`ClientIpTrust` plumbing are deleted.)
 - **Origin rule.** State-changing `/api/auth/*` calls must carry the exact
   application `Origin`, in addition to Better Auth's own checks (which only
   engage for cookie-bearing requests). Callback destinations are local paths;

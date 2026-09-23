@@ -27,18 +27,15 @@ setting the message API cannot override — and a webhook pointing at
 
 ## Client identity and ingress assumptions
 
-Rate limits bucket by client. The composition believes, in order:
-
-1. `x-daisy-client-ip`, stamped by our own ingress (`start.ts`) on every
-   request, replacing any caller value. It is the socket peer, or — only when
-   the peer is in `AUTH_TRUSTED_PROXIES` — the first address from the **right**
-   of `X-Forwarded-For` that is not itself a trusted hop, so an
-   attacker-prepended left-most value never selects the bucket.
-2. Any header named in `AUTH_TRUSTED_IP_HEADERS` (default none), resolved by
-   Better Auth. Consulted only when no stamped identity exists (runtimes that
-   do not stamp, such as `next dev`); in production the stamp is always
-   present, so this setting has no effect there. Set only headers your own
-   proxy overwrites.
+Rate limits bucket by client. There is exactly one resolver: the composition
+trusts only `x-daisy-client-ip`, stamped by our own ingress (`start.ts`) on
+every request, replacing any caller value. It is the socket peer, or — only
+when the peer is in `AUTH_TRUSTED_PROXIES` — the first address from the
+**right** of `X-Forwarded-For` that is not itself a trusted hop, so an
+attacker-prepended left-most value never selects the bucket. Better Auth has
+no header list of its own to configure: `next dev` runs without the
+stamping ingress, so a dev-mode request simply carries no identity and
+shares one rate-limit bucket per path with every other unstamped request.
 
 In production, `AUTH_TRUSTED_PROXIES` (with `X-Forwarded-For`) is the mechanism
 for reading the real client behind a proxy. A proxy not listed there makes all

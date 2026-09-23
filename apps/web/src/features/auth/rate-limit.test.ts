@@ -3,6 +3,7 @@ import { memoryAdapter } from '@better-auth/memory-adapter';
 import { fixedClock, sequentialId } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import type { AuthRateLimiter } from './rate-limit';
+import { CLIENT_IP_HEADER } from './client-ip';
 import { createAuthServer } from './server';
 
 setupRitewayBun();
@@ -20,10 +21,7 @@ const silentLogger: Logger = { log: () => {}, child: () => silentLogger };
 type Decision = Awaited<ReturnType<AuthRateLimiter['consume']>>;
 const allow: Decision = { allowed: true, retryAfterSeconds: 0 };
 
-const compose = (options: {
-  decide?: (key: string) => Decision;
-  clientIp?: Parameters<typeof createAuthServer>[0]['clientIp'];
-}) => {
+const compose = (options: { decide?: (key: string) => Decision }) => {
   const keys: string[] = [];
   const sent: string[] = [];
   const tables = {
@@ -53,7 +51,6 @@ const compose = (options: {
     ids: sequentialId('auth'),
     appendSessionRevoked: async () => {},
     revokeOtherSessions: async () => 0,
-    clientIp: options.clientIp,
   });
   const requestLink = async (address: string, extra?: HeadersInit) => {
     try {
@@ -168,62 +165,29 @@ describe('auth rate-limit gate: client identity', () => {
     });
   });
 
-  test('honors a configured trusted header', async () => {
-    const { keys, getSession } = compose({
-      clientIp: { trustedHeaders: ['x-real-ip'] },
-    });
+  test('trusts only the ingress-stamped header, never a second configurable one', async () => {
+    const { keys, getSession } = compose({});
     await getSession({
-      'x-real-ip': '203.0.113.7',
+      [CLIENT_IP_HEADER]: '203.0.113.7',
+      'x-real-ip': '198.51.100.9',
       'x-forwarded-for': '198.51.100.9',
     });
     assert({
-      given: 'x-real-ip configured as the trusted client-IP header',
-      should: 'key the client bucket by that address only',
+      given: 'the ingress-stamped header alongside forged x-real-ip and x-forwarded-for',
+      should: 'key the client bucket by the stamped header only',
       actual: keys,
       expected: ['auth:client:203.0.113.7:/get-session'],
     });
   });
 
-  test('resolves the client for direct api calls from forwarded headers', async () => {
-    const { keys, requestLink } = compose({
-      clientIp: { trustedHeaders: ['x-real-ip'] },
-    });
-    await requestLink(email, { 'x-real-ip': '203.0.113.7' });
+  test('resolves the client for direct api calls from the stamped header', async () => {
+    const { keys, requestLink } = compose({});
+    await requestLink(email, { [CLIENT_IP_HEADER]: '203.0.113.7' });
     assert({
-      given: 'a direct auth.api call carrying the trusted header',
+      given: 'a direct auth.api call carrying the ingress-stamped header',
       should: 'consume the client bucket for that address',
       actual: keys[0],
       expected: 'auth:client:203.0.113.7:/sign-in/magic-link',
-    });
-  });
-
-  test('resolves a multi-hop chain deterministically', async () => {
-    const chain = { 'x-forwarded-for': '198.51.100.9, 203.0.113.7, 10.0.0.5' };
-    const withProxies = compose({
-      clientIp: {
-        trustedHeaders: ['x-forwarded-for'],
-        trustedProxies: ['10.0.0.0/24'],
-      },
-    });
-    const withoutProxies = compose({
-      clientIp: { trustedHeaders: ['x-forwarded-for'] },
-    });
-    const bare = compose({ clientIp: { trustedHeaders: ['x-forwarded-for'] } });
-    await withProxies.getSession(chain);
-    await withoutProxies.getSession(chain);
-    await bare.getSession();
-    assert({
-      given: 'a three-hop chain whose leftmost hop is client-forged',
-      should:
-        'pick the first untrusted hop from the right, or the shared bucket when no proxies are declared',
-      actual: {
-        withProxies: withProxies.keys,
-        withoutProxiesShared: withoutProxies.keys[0] === bare.keys[0],
-      },
-      expected: {
-        withProxies: ['auth:client:203.0.113.7:/get-session'],
-        withoutProxiesShared: true,
-      },
     });
   });
 });
@@ -274,10 +238,10 @@ describe('auth rate-limit gate: limiter decisions', () => {
 
 describe('auth rate-limit gate: server Principal reads', () => {
   test('a server-side session read spends no budget; the HTTP endpoint still does', async () => {
-    const server = compose({ clientIp: { trustedHeaders: ['x-real-ip'] } });
-    await server.serverSessionRead({ 'x-real-ip': '203.0.113.7' });
+    const server = compose({});
+    await server.serverSessionRead({ [CLIENT_IP_HEADER]: '203.0.113.7' });
     const afterServerRead = [...server.keys];
-    await server.getSession({ 'x-real-ip': '203.0.113.7' });
+    await server.getSession({ [CLIENT_IP_HEADER]: '203.0.113.7' });
     assert({
       given:
         'a direct getSession call, then a browser GET /api/auth/get-session',

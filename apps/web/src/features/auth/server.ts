@@ -24,13 +24,8 @@ import {
   SESSION_FRESH_AGE_SECONDS,
   SESSION_UPDATE_AGE_SECONDS,
 } from './session-policy';
-import {
-  clientIpFromConfig,
-  clientIpOptions,
-  createRateLimitGate,
-  type AuthRateLimiter,
-  type ClientIpTrust,
-} from './rate-limit';
+import { CLIENT_IP_HEADER } from './client-ip';
+import { clientIpOptions, createRateLimitGate, type AuthRateLimiter } from './rate-limit';
 
 const MAGIC_LINK_EXPIRES_IN_SECONDS = 300;
 // Matches the emailed-link token-delivery model's 5-minute figure; Better
@@ -86,7 +81,6 @@ const composeBetterAuth = (dependencies: {
   readonly ledger: AuthDeliveryLedger;
   readonly logger: Logger;
   readonly ids: IdGenerator;
-  readonly clientIp: ClientIpTrust | undefined;
   readonly appendSessionRevoked: (userId: string) => Promise<void>;
   readonly revokeOtherSessions: RevokeOtherSessions;
 }) => {
@@ -123,8 +117,8 @@ const composeBetterAuth = (dependencies: {
         // the production edge, ADR 0018), never an ambient one.
         generateId: () => dependencies.ids.next(),
       },
-      // No request header names the client unless explicitly trusted.
-      ipAddress: clientIpOptions(dependencies.clientIp),
+      // Trust exactly the one header the ingress stamps; see rate-limit.ts.
+      ipAddress: clientIpOptions(CLIENT_IP_HEADER),
     },
     session: {
       expiresIn: SESSION_EXPIRES_IN_SECONDS,
@@ -272,8 +266,6 @@ export function createAuthServer<
   readonly logger: Logger;
   readonly clock: Clock;
   readonly ids: IdGenerator;
-  /** Omitted means the validated `AUTH_TRUSTED_IP_HEADERS` / `AUTH_TRUSTED_PROXIES` apply. */
-  readonly clientIp?: ClientIpTrust | undefined;
   /** Mail receipts and suppressions (production supplies the @daisy/db one). */
   readonly ledger?: AuthDeliveryLedger | undefined;
   /** RT-2.2: appends `session.revoked` after a confirmed self-service revoke. */
@@ -334,8 +326,6 @@ export function createAuthServer<
       ledger,
       logger: dependencies.logger,
       ids: dependencies.ids,
-      // Explicit injection wins; otherwise the validated environment decides.
-      clientIp: dependencies.clientIp ?? clientIpFromConfig(config),
       appendSessionRevoked: dependencies.appendSessionRevoked,
       revokeOtherSessions: dependencies.revokeOtherSessions,
     }),

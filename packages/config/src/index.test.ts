@@ -91,17 +91,16 @@ describe('authentication configuration', () => {
     );
   });
 
-  test('validates the auth fields and trusts no client-IP header', () => {
+  test('validates the auth fields and trusts no proxy by default', () => {
     assert({
       given: 'a complete server authentication environment',
-      should: 'expose the validated auth fields with empty client-IP trust',
+      should: 'expose the validated auth fields with an empty proxy list',
       actual: readAuthConfig(authEnv),
       expected: {
         BETTER_AUTH_SECRET: authEnv.BETTER_AUTH_SECRET,
         PUBLIC_APP_URL: authEnv.PUBLIC_APP_URL,
         RESEND_API_KEY: authEnv.RESEND_API_KEY,
         AUTH_EMAIL_FROM: authEnv.AUTH_EMAIL_FROM,
-        AUTH_TRUSTED_IP_HEADERS: [],
         AUTH_TRUSTED_PROXIES: [],
       },
     });
@@ -213,7 +212,6 @@ describe('authentication configuration', () => {
       ).sort(),
       expected: [
         'AUTH_EMAIL_FROM',
-        'AUTH_TRUSTED_IP_HEADERS',
         'AUTH_TRUSTED_PROXIES',
         'BETTER_AUTH_SECRET',
         'PUBLIC_APP_URL',

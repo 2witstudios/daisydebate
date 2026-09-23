@@ -24,58 +24,18 @@ export type AuthRateLimiter = {
 };
 
 /**
- * Which request headers may name the client address. Forwarding headers are
- * client-writable unless a proxy the deployment controls overwrites them, so
- * trust is explicit and the default believes none: every client then shares
- * one bucket per path. A deployment names its proxy header through
- * `AUTH_TRUSTED_IP_HEADERS` / `AUTH_TRUSTED_PROXIES` (`readAuthConfig`).
- *
- * A trusted header holding several hops resolves as Better Auth 1.7.5 does:
- * with `trustedProxies` (IPs or CIDR ranges) the chain is walked right to
- * left and the first hop that is not a trusted proxy is the client, so
- * client-forged leftmost entries are never believed; without
- * `trustedProxies` a multi-hop value is not believed at all.
+ * Better Auth's client-identity trust, fixed to the one header the ingress
+ * itself stamps (`client-ip.ts`'s `CLIENT_IP_HEADER`, via
+ * `stampClientIdentity`). That is the single resolver: the ingress walks the
+ * real `X-Forwarded-For` chain past `AUTH_TRUSTED_PROXIES` once and replaces
+ * any caller-supplied value, so Better Auth never re-parses forwarded
+ * headers itself and has no second, redundant trust configuration.
  */
-export type ClientIpTrust = {
-  readonly trustedHeaders: readonly string[];
-  readonly trustedProxies?: readonly string[];
-};
-
-/**
- * The deployment's trust declaration as parsed by `readAuthConfig`. Empty
- * lists (the default when the variables are absent) believe no header, and
- * an empty proxy list is omitted so a multi-hop value stays unbelieved.
- */
-export const clientIpFromConfig = (config: {
-  readonly AUTH_TRUSTED_IP_HEADERS: readonly string[];
-  readonly AUTH_TRUSTED_PROXIES: readonly string[];
-}): ClientIpTrust => ({
-  trustedHeaders: config.AUTH_TRUSTED_IP_HEADERS,
-  ...(config.AUTH_TRUSTED_PROXIES.length > 0
-    ? { trustedProxies: config.AUTH_TRUSTED_PROXIES }
-    : {}),
+export const clientIpOptions = (headerName: string) => ({
+  // An exact single-entry list (not undefined) is what stops Better Auth
+  // falling back to its own default of believing `x-forwarded-for`.
+  ipAddressHeaders: [headerName],
 });
-
-// RFC 9110 field-name token. Anything else makes `Headers.get` throw on
-// every request, so it is rejected once, at composition.
-const headerName = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
-
-/**
- * Maps the trust declaration onto Better Auth's `advanced.ipAddress`.
- * Fails fast like `readAuthConfig`: names the option, never echoes values.
- */
-export const clientIpOptions = (trust: ClientIpTrust | undefined) => {
-  if (trust?.trustedHeaders.some((name) => !headerName.test(name)))
-    throw new Error('Invalid auth configuration: clientIp.trustedHeaders');
-  return {
-    // An empty list (not undefined) is what stops Better Auth falling back
-    // to its default of believing `x-forwarded-for`.
-    ipAddressHeaders: [...(trust?.trustedHeaders ?? [])],
-    ...(trust?.trustedProxies
-      ? { trustedProxies: [...trust.trustedProxies] }
-      : {}),
-  };
-};
 
 const magicLinkPath = '/sign-in/magic-link';
 

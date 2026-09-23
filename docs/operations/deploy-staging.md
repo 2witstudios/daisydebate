@@ -72,11 +72,9 @@ If the resolved client address is not the real caller, widen or correct
 since that degrades every user to one shared rate-limit bucket per auth
 path (safe, but defeats per-client rate limiting).
 
-`AUTH_TRUSTED_IP_HEADERS` is **not** set: `apps/web/src/lib/auth.ts` always
-puts `CLIENT_IP_HEADER` (`x-daisy-client-ip`, stamped by the ingress above)
-first in Better Auth's trusted header list; `AUTH_TRUSTED_IP_HEADERS` only
-matters for non-stamping runtimes such as `next dev`, which staging never
-runs.
+Better Auth trusts only `x-daisy-client-ip` (`CLIENT_IP_HEADER`), stamped by
+the ingress above — there is no deployment-configurable header list to set
+here.
 
 ## Scale-to-zero consequences
 

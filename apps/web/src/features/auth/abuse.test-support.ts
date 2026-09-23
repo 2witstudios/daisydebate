@@ -1,7 +1,6 @@
 import { memoryAdapter } from '@better-auth/memory-adapter';
 import { fixedClock, sequentialId } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
-import { CLIENT_IP_HEADER } from './client-ip';
 import { createAuthServer, type AuthEmailMessage } from './server';
 
 const env = {
@@ -76,7 +75,6 @@ export const create = (
         recorded.push(input);
       },
     },
-    clientIp: { trustedHeaders: [CLIENT_IP_HEADER] },
     logger,
     clock: fixedClock('2026-09-20T00:00:00.000Z'),
     ids: sequentialId('auth'),
