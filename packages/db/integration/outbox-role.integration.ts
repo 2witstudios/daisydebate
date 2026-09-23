@@ -29,7 +29,7 @@ const rejected = async (attempt: () => Promise<unknown>) => {
   }
 };
 
-test('the realtime role can only select the outbox and authorization read models, column-scoped on users and session; any other write is refused', async () => {
+test('the realtime role can only select the outbox and authorization read models, column-scoped on actors and session; any other write is refused', async () => {
   const admin = new SQL(url, { max: 1 });
   let realtime: SQL | undefined;
   try {
@@ -51,7 +51,12 @@ test('the realtime role can only select the outbox and authorization read models
       realtime!.unsafe('select id from debate_participants limit 1'),
     );
     const selectActors = await rejected(() =>
-      realtime!.unsafe('select id from actors limit 1'),
+      realtime!.unsafe('select id, user_id from actors limit 1'),
+    );
+    // Column-scoped like session: kind and the audit timestamps carry
+    // nothing realtime needs (plan revision 4.8, ADR 0032 §7).
+    const selectActorsKind = await rejected(() =>
+      realtime!.unsafe('select kind from actors limit 1'),
     );
     // No grant on users at all today (ADR 0032 §7): identity resolves
     // through actors.user_id. RT-3.2b adds the presence-preference column.
@@ -94,12 +99,13 @@ test('the realtime role can only select the outbox and authorization read models
     assert({
       given: 'reads the role is granted',
       should:
-        'succeed for outbox, debates, debate_participants, actors and the three session columns, and refuse users entirely and session.token',
+        'succeed for outbox, debates, debate_participants, the two actors columns and the three session columns, and refuse users entirely, actors.kind and session.token',
       actual: {
         selectOutbox,
         selectDebates,
         selectDebateParticipants,
         selectActors,
+        selectActorsKind,
         selectSessionIdentity,
         selectUsersAnyColumn,
         selectSessionToken,
@@ -109,6 +115,7 @@ test('the realtime role can only select the outbox and authorization read models
         selectDebates: false,
         selectDebateParticipants: false,
         selectActors: false,
+        selectActorsKind: true,
         selectSessionIdentity: false,
         selectUsersAnyColumn: true,
         selectSessionToken: true,

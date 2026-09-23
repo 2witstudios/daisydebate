@@ -4,15 +4,22 @@ import { z } from 'zod';
 import { outbox } from './schema/outbox';
 
 /**
- * Shape-only validation of the append input (RT-2.2 hazard note): the
- * portable event contract lives in `@daisy/protocol` and is wired in once
- * RT-2.1 merges. `payload` is opaque jsonb here.
+ * Shape-only validation of the append input (RT-2.2 hazard note, plan
+ * revision 4.8 item 6): full validation against `@daisy/protocol`'s
+ * `outboxPayloadSchema` and its topic-family rule is wired in once RT-2.1b
+ * merges (it is currently changing the payload `version` field and the
+ * actor-id naming, and its family rule would wrongly reject `session.revoked`
+ * / `access.revoked`, which never ride a subscribed topic family). Until
+ * then, `payload` must at least be a plain object, matching the table's
+ * `outbox_payload_is_object` CHECK: a non-object payload is a clean
+ * application-level validation error here, not a raw Postgres CHECK
+ * violation surfacing deep inside the caller's transaction.
  */
 const outboxAppendInputSchema = z.strictObject({
   topic: z.string().min(1).max(200),
   kind: z.string().min(1).max(100),
   version: z.number().int().positive(),
-  payload: z.unknown(),
+  payload: z.record(z.string(), z.unknown()),
 });
 export type OutboxAppendInput = z.infer<typeof outboxAppendInputSchema>;
 
@@ -29,20 +36,25 @@ export type OutboxRow = OutboxPosition & {
 /** A transaction handle: what `database.transaction(async (tx) => ...)` hands the caller. */
 type Tx = Pick<BunSQLDatabase, 'execute'>;
 
-const positionShape = /^([0-9]{1,20})\.([0-9]{1,20})$/;
-/** xid8 and bigserial are both 64-bit; xid8 is unsigned, bigserial is signed. */
+/**
+ * The protocol's own cursor shape (`@daisy/protocol`'s `cursorSchema`, plan
+ * revision 4.8): `txid:seq`, each part 1-20 digits, no leading zero except
+ * the value `0` itself. `xid8` and `bigserial` are both 64-bit; `xid8` is
+ * unsigned, `bigserial` is signed.
+ */
+const positionShape = /^(0|[1-9][0-9]{0,19}):(0|[1-9][0-9]{0,19})$/;
 const XID8_MAX = 2n ** 64n - 1n;
 const BIGSERIAL_MAX = 2n ** 63n - 1n;
 
 /**
  * The cursor is an ordering token, not a secret (plan: "Cursor
- * correctness"). It is still opaque to clients and validated on every use,
- * so it is base64url-encoded rather than handed over as raw SQL literals.
+ * correctness"), but its shape is still validated on every use so a
+ * client-supplied string is never trusted as SQL. It is the protocol's
+ * plain `txid:seq` string, not a further-encoded wrapper: a DB cursor must
+ * parse as a protocol cursor (plan revision 4.8).
  */
 export function encodeOutboxCursor(position: OutboxPosition): string {
-  return Buffer.from(`${position.txid}.${position.seq.toString()}`).toString(
-    'base64url',
-  );
+  return `${position.txid}:${position.seq.toString()}`;
 }
 
 const invalidCursor = (cause?: unknown) =>
@@ -51,22 +63,6 @@ const invalidCursor = (cause?: unknown) =>
     cause === undefined ? undefined : { cause },
   );
 
-/**
- * Canonical base64url decode: re-encodes the decoded bytes and compares
- * them to the input, so a non-canonical string (Node's `Buffer` silently
- * ignores characters outside the alphabet instead of rejecting them) is
- * refused rather than silently accepted.
- */
-function decodeCanonicalBase64Url(value: string): string {
-  try {
-    const bytes = Buffer.from(value, 'base64url');
-    if (bytes.toString('base64url') !== value) throw invalidCursor();
-    return bytes.toString('utf8');
-  } catch (error) {
-    throw invalidCursor(error);
-  }
-}
-
 /** Both parts against their real 64-bit column types (xid8 unsigned, bigserial signed). */
 function assertInPositionRange(txid: bigint, seq: bigint): void {
   if (txid < 0n || txid > XID8_MAX || seq < 0n || seq > BIGSERIAL_MAX)
@@ -74,16 +70,14 @@ function assertInPositionRange(txid: bigint, seq: bigint): void {
 }
 
 /**
- * Canonical decode: `decodeCanonicalBase64Url` rejects non-canonical
- * encodings, then both parts are range-checked against their real 64-bit
- * column types, so an out-of-range cursor is a validation error here, not
- * a Postgres cast error at the query.
+ * Both parts are range-checked against their real 64-bit column types, so
+ * an out-of-range cursor is a validation error here, not a Postgres cast
+ * error at the query.
  */
 export function decodeOutboxCursor(cursor: unknown): OutboxPosition {
-  if (typeof cursor !== 'string' || cursor.length === 0 || cursor.length > 64)
+  if (typeof cursor !== 'string' || cursor.length === 0 || cursor.length > 41)
     throw invalidCursor();
-  const decoded = decodeCanonicalBase64Url(cursor);
-  const match = positionShape.exec(decoded);
+  const match = positionShape.exec(cursor);
   if (!match?.[1] || !match[2]) throw invalidCursor();
   const txid = BigInt(match[1]);
   const seq = BigInt(match[2]);

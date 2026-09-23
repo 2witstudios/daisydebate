@@ -32,19 +32,26 @@ describe('outbox cursor', () => {
     });
   });
 
-  test('refuses a cursor that is not shaped like an encoded position', () => {
-    const attempts = ['', 'not-base64url-shaped!!', 'aGVsbG8', '1042.'].map(
-      (value) => {
-        try {
-          decodeOutboxCursor(value);
-          return 'accepted';
-        } catch {
-          return 'refused';
-        }
-      },
-    );
+  test('refuses a cursor that is not shaped like the protocol txid:seq position', () => {
+    const attempts = [
+      '',
+      'not-a-position',
+      '1042.7',
+      '1042:',
+      ':7',
+      '01:7',
+      '1042:07',
+      '1042:-7',
+    ].map((value) => {
+      try {
+        decodeOutboxCursor(value);
+        return 'accepted';
+      } catch {
+        return 'refused';
+      }
+    });
     assert({
-      given: 'empty text, garbage, and a malformed decoded body',
+      given: 'empty text, garbage, and malformed txid:seq shapes',
       should: 'refuse every one instead of returning a bogus position',
       actual: attempts,
       expected: attempts.map(() => 'refused'),
@@ -68,36 +75,10 @@ describe('outbox cursor', () => {
     });
   });
 
-  test('refuses non-canonical base64url that Buffer would otherwise silently accept', () => {
-    const canonical = encodeOutboxCursor({ txid: '1', seq: 1n });
-    // Buffer.from(..., 'base64url') ignores characters outside the alphabet
-    // (like '!') rather than rejecting them, so a string with one spliced in
-    // decodes to the same bytes as the canonical cursor unless re-encoding
-    // and comparing catches it.
-    const nonCanonical = `${canonical.slice(0, -1)}!${canonical.slice(-1)}`;
-    const outcome = (() => {
-      try {
-        decodeOutboxCursor(nonCanonical);
-        return 'accepted';
-      } catch {
-        return 'refused';
-      }
-    })();
-    assert({
-      given:
-        'a cursor with a character outside the base64url alphabet spliced in',
-      should: 'refuse it instead of silently decoding to the canonical bytes',
-      actual: outcome,
-      expected: 'refused',
-    });
-  });
-
   test('refuses a txid or seq outside their real 64-bit column ranges', () => {
-    const encode = (body: string) => Buffer.from(body).toString('base64url');
     const attempts = [
-      encode(`${2n ** 64n}.1`), // txid overflows unsigned 64-bit (xid8)
-      encode(`1.${2n ** 63n}`), // seq overflows signed 64-bit (bigserial)
-      encode('-1.1'),
+      `${2n ** 64n}:1`, // txid overflows unsigned 64-bit (xid8)
+      `1:${2n ** 63n}`, // seq overflows signed 64-bit (bigserial)
     ].map((value) => {
       try {
         decodeOutboxCursor(value);
@@ -107,8 +88,7 @@ describe('outbox cursor', () => {
       }
     });
     assert({
-      given:
-        'a txid past xid8 range, a seq past bigserial range, and a negative value',
+      given: 'a txid past xid8 range and a seq past bigserial range',
       should: 'refuse each as a validation error, never reach the database',
       actual: attempts,
       expected: attempts.map(() => 'refused'),
@@ -147,6 +127,45 @@ describe('appendOutboxEvent input validation', () => {
       given:
         'an empty topic/kind, a non-positive or fractional version, and an unknown field',
       should: 'refuse every one without inserting or notifying',
+      actual: { attempts, touched },
+      expected: {
+        attempts: attempts.map(() => 'refused'),
+        touched: false,
+      },
+    });
+  });
+
+  test('refuses a non-object payload before touching the database', async () => {
+    let touched = false;
+    const tx = {
+      insert: () => {
+        touched = true;
+        throw new Error('should not be called');
+      },
+      execute: () => {
+        touched = true;
+        throw new Error('should not be called');
+      },
+    };
+    const attempts = await Promise.all(
+      [null, 'a string', 42, true, ['array', 'not', 'object']].map((payload) =>
+        appendOutboxEvent(
+          tx as never,
+          {
+            topic: 't',
+            kind: 'k',
+            version: 1,
+            payload,
+          } as never,
+        )
+          .then(() => 'accepted')
+          .catch(() => 'refused'),
+      ),
+    );
+    assert({
+      given: 'null, a string, a number, a boolean and an array as payload',
+      should:
+        'refuse every one as a clean validation error, never reaching the outbox_payload_is_object CHECK',
       actual: { attempts, touched },
       expected: {
         attempts: attempts.map(() => 'refused'),
