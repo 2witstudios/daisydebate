@@ -9,8 +9,28 @@ type RateRule = {
 };
 /** 100 requests per 60 seconds for every auth route ... */
 const DEFAULT_RULE: RateRule = { windowSeconds: 60, max: 100 };
-/** ... and 3 per 60 seconds for magic-link requests, per client and recipient. */
-const MAGIC_LINK_RULE: RateRule = { windowSeconds: 60, max: 3 };
+/** ... and 3 per 60 seconds for magic-link requests, per client. */
+const MAGIC_LINK_CLIENT_RULE: RateRule = { windowSeconds: 60, max: 3 };
+/**
+ * One recipient's mail volume, multi-window: the 60 s rule alone admits
+ * about 4,300 emails a day to one victim from rotating client addresses, so
+ * an hour and a day ceiling each cap the total regardless of how the minute
+ * window resets.
+ */
+const MAGIC_LINK_RECIPIENT_RULES: readonly RateRule[] = [
+  { windowSeconds: 60, max: 3 },
+  { windowSeconds: 3_600, max: 10 },
+  { windowSeconds: 86_400, max: 20 },
+];
+/**
+ * The whole application's mail volume, independent of any single recipient
+ * or client: protects Resend quota, cost and sending-domain reputation from
+ * many recipients each staying under their own ceiling.
+ */
+const MAGIC_LINK_GLOBAL_RULES: readonly RateRule[] = [
+  { windowSeconds: 60, max: 120 },
+  { windowSeconds: 86_400, max: 3_000 },
+];
 
 /** Atomic multi-instance limiter contract backed by @daisy/redis. */
 export type AuthRateLimiter = {
@@ -50,15 +70,24 @@ const recipientBuckets = (path: string, body: unknown): Bucket[] => {
   if (path !== magicLinkPath || typeof body !== 'object' || body === null)
     return [];
   const email: unknown = Reflect.get(body, 'email');
-  return typeof email === 'string'
-    ? [
-        {
-          key: `auth:magic-link:recipient:${digest(email.trim().toLowerCase())}`,
-          rule: MAGIC_LINK_RULE,
-        },
-      ]
-    : [];
+  if (typeof email !== 'string') return [];
+  const recipientDigest = digest(email.trim().toLowerCase());
+  return MAGIC_LINK_RECIPIENT_RULES.map((rule) => ({
+    key: `auth:magic-link:recipient:${recipientDigest}:${rule.windowSeconds}`,
+    rule,
+  }));
 };
+
+// One fixed key per window: shared by every recipient and client, so it caps
+// the whole application's magic-link volume independent of any single
+// recipient or client bucket.
+const globalBuckets = (path: string): Bucket[] =>
+  path === magicLinkPath
+    ? MAGIC_LINK_GLOBAL_RULES.map((rule) => ({
+        key: `auth:magic-link:global:${rule.windowSeconds}`,
+        rule,
+      }))
+    : [];
 
 // A valid hint is rounded up to whole seconds; an invalid one (NaN, negative,
 // non-finite) omits the header rather than advertising a made-up wait.
@@ -159,9 +188,10 @@ export const createRateLimitGate = (dependencies: {
       return [
         {
           key: `auth:client:${client ?? 'unknown'}:${path}`,
-          rule: path === magicLinkPath ? MAGIC_LINK_RULE : DEFAULT_RULE,
+          rule: path === magicLinkPath ? MAGIC_LINK_CLIENT_RULE : DEFAULT_RULE,
         },
         ...recipientBuckets(path, context.body),
+        ...globalBuckets(path),
       ];
     });
     for (const { key, rule } of buckets) {

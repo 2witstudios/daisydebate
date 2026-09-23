@@ -21,10 +21,16 @@ adds the delivery and abuse controls ADR 0020 requires before activation.
   bucket and its rule to the injected limiter. The Redis limiter runs one Lua
   `EVAL` in `@daisy/redis` (fixed window: INCR, arm expiry, decide). Keys are
   `<namespace>:v1:rl:<sha3-256 hex>`: identifiers are hashed and every key
-  expires. Defaults are 100/60 s; magic-link requests are 3/60 s per client and
-  3/60 s per recipient. A limiter failure fails closed as a safe `503` (the
-  route boundary adds `Retry-After: 5`); there is no process-local fallback and
-  no allow-on-error. `429` carries `Retry-After`.
+  expires. Defaults are 100/60 s. Magic-link requests carry one client bucket
+  (3/60 s), three per-recipient windows (3/60 s, 10/hour, 20/day — a single
+  60 s window alone would still admit thousands of emails a day to one victim
+  from rotating clients), and two whole-application ceilings independent of
+  any client or recipient (120/60 s, 3,000/day — protects Resend quota, cost
+  and sending-domain reputation from many recipients each staying under their
+  own ceiling). A limiter failure fails closed as a safe `503` (the route
+  boundary adds `Retry-After: 5`); there is no process-local fallback and no
+  allow-on-error. `429` carries `Retry-After`. (Amended 2026-09-23, ISSUE-5:
+  the recipient and global rules were added; the client rule is unchanged.)
 - **Trusted client identity — one resolver.** Better Auth's `advanced.ipAddress`
   is fixed to `{ ipAddressHeaders: [CLIENT_IP_HEADER] }`, the internal
   `x-daisy-client-ip` header, with no deployment-configurable header list and

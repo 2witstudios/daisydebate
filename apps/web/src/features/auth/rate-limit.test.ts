@@ -78,28 +78,32 @@ const compose = (options: { decide?: (key: string) => Decision }) => {
 };
 
 const isRecipientKey = (key: string | undefined) =>
-  /^auth:magic-link:recipient:[0-9a-f]{64}$/.test(key ?? '');
+  /^auth:magic-link:recipient:[0-9a-f]{64}:\d+$/.test(key ?? '');
+const isGlobalKey = (key: string | undefined) =>
+  /^auth:magic-link:global:\d+$/.test(key ?? '');
 
 describe('auth rate-limit gate: recipient bucket', () => {
-  test('consumes a digest-keyed recipient bucket after the client bucket', async () => {
+  test('consumes the client bucket, three recipient windows and two global ceilings', async () => {
     const { keys, requestLink } = compose({});
     const outcome = await requestLink(email);
     assert({
       given: 'an allowed magic-link request with a recording limiter',
       should:
-        'consume a client key, then a hex recipient key, never the address',
+        'consume a client key, three hex recipient keys and two global keys, never the address',
       actual: {
         outcome,
         count: keys.length,
         clientFirst: keys[0]?.startsWith('auth:client:'),
-        recipientSecond: isRecipientKey(keys[1]),
+        recipientKeys: keys.slice(1, 4).every(isRecipientKey),
+        globalKeys: keys.slice(4, 6).every(isGlobalKey),
         leaksAddress: keys.some((key) => key.toLowerCase().includes('player')),
       },
       expected: {
         outcome: 'OK',
-        count: 2,
+        count: 6,
         clientFirst: true,
-        recipientSecond: true,
+        recipientKeys: true,
+        globalKeys: true,
         leaksAddress: false,
       },
     });
