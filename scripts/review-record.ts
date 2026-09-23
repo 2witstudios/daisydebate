@@ -9,6 +9,7 @@
  * verifier, run from main by .github/workflows/review-record.yml, is the
  * only code that can mint it.
  */
+import { appendFileSync } from 'node:fs';
 import { pagespaceApi } from './pagespace-docs';
 
 export type RecordPage = {
@@ -184,6 +185,25 @@ export function verifyReviewRecord(
   };
 }
 
+export const APP_NOT_CONFIGURED = 'review App not configured (GRD-6.2)';
+
+/**
+ * Whether the review-record App can be used yet. Until the owner creates it
+ * (GRD-6.2), the check is skipped with a notice instead of failing every
+ * PR; once its id and key exist, verification enforces. The gate itself
+ * never sets a status, so it can never report success.
+ */
+export function reviewAppGate(
+  env: Readonly<Record<string, string | undefined>>,
+): {
+  readonly state: 'enforce' | 'not-configured';
+  readonly notice: string | undefined;
+} {
+  return env.REVIEW_RECORD_APP_ID && env.REVIEW_RECORD_APP_KEY
+    ? { state: 'enforce', notice: undefined }
+    : { state: 'not-configured', notice: APP_NOT_CONFIGURED };
+}
+
 // ------------------------------------------------------------------- edges
 
 type Run = (args: readonly string[]) => { code: number; stdout: string };
@@ -288,7 +308,18 @@ export async function main(repository: string, prNumber: number) {
   );
 }
 
-if (import.meta.main) {
+/** The gate job: prints the notice and writes state for the verify job. */
+function runGate(): void {
+  const gate = reviewAppGate(process.env);
+  if (gate.notice)
+    process.stdout.write(`::notice title=review-record::${gate.notice}\n`);
+  const output = process.env.GITHUB_OUTPUT;
+  if (output) appendFileSync(output, `state=${gate.state}\n`);
+  process.stdout.write(`review-record gate: ${gate.state}\n`);
+}
+
+if (import.meta.main && process.argv[2] === 'gate') runGate();
+else if (import.meta.main) {
   const repository = process.env.GITHUB_REPOSITORY ?? '';
   const prNumber = Number(process.env.REVIEW_PR ?? '');
   if (
