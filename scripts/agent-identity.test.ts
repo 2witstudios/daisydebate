@@ -133,7 +133,10 @@ describe('assessGithubIdentity', () => {
 });
 
 describe('agent launcher', () => {
-  const launch = (envFile: string | undefined) => {
+  const launch = (
+    envFile: string | undefined,
+    inherited: Record<string, string> = {},
+  ) => {
     const dir = mkdtempSync(join(tmpdir(), 'grd-6-launch-'));
     if (envFile !== undefined) writeFileSync(join(dir, '.env.agent'), envFile);
     const base = { ...process.env };
@@ -142,7 +145,7 @@ describe('agent launcher', () => {
     delete base.PU_PROJECT_ROOT;
     return Bun.spawnSync(
       ['sh', `${root}/scripts/agent-launch.sh`, 'sh', '-c', 'env'],
-      { cwd: dir, env: base, stderr: 'pipe' },
+      { cwd: dir, env: { ...base, ...inherited }, stderr: 'pipe' },
     );
   };
 
@@ -159,6 +162,26 @@ describe('agent launcher', () => {
         env.GIT_CONFIG_VALUE_3,
       ],
       expected: [0, 'agent-token-value', '1', '!gh auth git-credential'],
+    });
+  });
+
+  test("drops the owner's inherited GitHub tokens and SSH agent", () => {
+    const run = launch(filled, {
+      GITHUB_TOKEN: 'owner-token',
+      GH_ENTERPRISE_TOKEN: 'owner-enterprise',
+      SSH_AUTH_SOCK: '/tmp/owner-agent.sock',
+    });
+    const env = parseDotenv(run.stdout.toString());
+    assert({
+      given: 'a login environment carrying the owner credentials',
+      should: 'start the agent without them',
+      actual: [
+        run.exitCode,
+        env.GITHUB_TOKEN,
+        env.GH_ENTERPRISE_TOKEN,
+        env.SSH_AUTH_SOCK,
+      ],
+      expected: [0, undefined, undefined, undefined],
     });
   });
 
