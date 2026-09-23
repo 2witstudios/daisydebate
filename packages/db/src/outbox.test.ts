@@ -111,13 +111,27 @@ describe('appendOutboxEvent input validation', () => {
         throw new Error('should not be called');
       },
     };
+    // Every case below otherwise carries a real, storable topic/kind/payload
+    // pair (RT-2.2f-r2 review minor): a `payload: {}` shared across every
+    // case would already fail `outboxPayloadSchema` on its own, so the test
+    // would keep passing even if the topic/kind/version/strictObject rules
+    // on `outboxAppendInputSchema` were loosened away. Only the one field
+    // named per case is invalid.
+    const actorId = createId();
+    const topic = buildUserInboxTopic(actorId);
+    const kind = 'session.revoked';
+    const payload = {
+      version: 1,
+      kind: 'session.revoked' as const,
+      ids: [actorId],
+    };
     const attempts = await Promise.all(
       [
-        { topic: '', kind: 'k', version: 1, payload: {} },
-        { topic: 't', kind: '', version: 1, payload: {} },
-        { topic: 't', kind: 'k', version: 0, payload: {} },
-        { topic: 't', kind: 'k', version: 1.5, payload: {} },
-        { topic: 't', kind: 'k', version: 1, payload: {}, extra: 'nope' },
+        { topic: '', kind, version: 1, payload },
+        { topic, kind: '', version: 1, payload },
+        { topic, kind, version: 0, payload },
+        { topic, kind, version: 1.5, payload },
+        { topic, kind, version: 1, payload, extra: 'nope' },
       ].map((input) =>
         // biome-ignore-next: exercising the runtime boundary with bad shapes
         appendOutboxEvent(tx as never, input as never)
@@ -127,7 +141,7 @@ describe('appendOutboxEvent input validation', () => {
     );
     assert({
       given:
-        'an empty topic/kind, a non-positive or fractional version, and an unknown field',
+        'an empty topic/kind, a non-positive or fractional version, and an unknown field, each next to an otherwise valid and storable topic/kind/payload',
       should: 'refuse every one without inserting or notifying',
       actual: { attempts, touched },
       expected: {
