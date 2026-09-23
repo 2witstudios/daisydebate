@@ -51,8 +51,13 @@ describe('integration suite discovery', () => {
           INTEGRATION_RUNNER,
           'packages/db/src/not-integration.ts',
         ),
+        // The runner scans only <workspace>/integration/, never a nested one.
+        claimsIntegrationSuite(
+          INTEGRATION_RUNNER,
+          'packages/db/src/outbox/integration/x.integration.ts',
+        ),
       ],
-      expected: [true, false, false],
+      expected: [true, false, false, false],
     });
   });
 });

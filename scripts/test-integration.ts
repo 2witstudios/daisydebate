@@ -40,10 +40,18 @@ export function exitCodeOf(result: {
   return signal === undefined ? 1 : 128 + signal;
 }
 
-/** Whether a workspace's test:integration script runs this suite. */
+// A repository path the runner reaches: <apps|packages>/<name>/integration/….
+const RUNNER_SUITE =
+  /^[^/]+\/[^/]+\/integration\/(?:.+\/)?[^/]+\.integration(?:\.test)?\.tsx?$/;
+
+/**
+ * Whether a workspace's test:integration script runs this suite, given its
+ * repository path. The runner scans only the workspace's own integration/
+ * folder, so a nested src/…/integration/ suite is not claimed.
+ */
 export function claimsIntegrationSuite(script: string, file: string): boolean {
   return script === INTEGRATION_RUNNER
-    ? SUITE.test(file)
+    ? RUNNER_SUITE.test(file)
     : script.includes(file.split('/').pop() ?? file);
 }
 
