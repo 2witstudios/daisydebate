@@ -29,7 +29,8 @@ describe('realtime configuration', () => {
   });
 
   test('a missing NODE_ENV refuses to start rather than skip production checks', () => {
-    const { NODE_ENV: _omitted, ...withoutNodeEnv } = env;
+    const withoutNodeEnv = { ...env };
+    Reflect.deleteProperty(withoutNodeEnv, 'NODE_ENV');
     expect(() => readRealtimeConfig(withoutNodeEnv)).toThrow(
       'Invalid realtime configuration',
     );

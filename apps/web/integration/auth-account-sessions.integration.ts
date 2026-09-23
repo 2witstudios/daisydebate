@@ -6,7 +6,7 @@ if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
   throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
 setupRitewayBun();
 
-const { flows, signUp } = await createAccountFlows();
+const { signUp } = await createAccountFlows();
 const sessionsRoute = await import('../src/app/api/account/sessions/route');
 const revokeRoute = await import(
   '../src/app/api/account/sessions/revoke/route'

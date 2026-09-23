@@ -6,45 +6,15 @@ import {
   requestEmailChange,
   revokeOtherSessions,
   revokeSession,
-  type SecurityClient,
 } from './security-client';
+import {
+  clientWith,
+  jsonResponse,
+  noop,
+  withFetch,
+} from './security-client.test-support';
 
 setupRitewayBun();
-
-const noop = async () => ({ data: null, error: null });
-
-const clientWith = (overrides: Partial<SecurityClient>): SecurityClient => ({
-  passkey: {
-    listUserPasskeys: async () => ({ data: [], error: null }),
-    updatePasskey: noop,
-    deletePasskey: noop,
-  },
-  revokeOtherSessions: noop,
-  signOut: noop,
-  changeEmail: noop,
-  ...overrides,
-});
-
-/** Stubs global fetch for one call and restores it after `use` resolves. */
-async function withFetch<T>(
-  respond: (input: string, init?: RequestInit) => Response,
-  use: () => Promise<T>,
-): Promise<T> {
-  const original = globalThis.fetch;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) =>
-    respond(String(input), init)) as typeof fetch;
-  try {
-    return await use();
-  } finally {
-    globalThis.fetch = original;
-  }
-}
-
-const jsonResponse = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json' },
-  });
 
 describe('loadSecurityOverview', () => {
   test('a healthy client and route return both lists as ok', async () => {

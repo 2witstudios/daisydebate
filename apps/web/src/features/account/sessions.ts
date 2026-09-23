@@ -10,7 +10,7 @@ import {
 } from '../../server/http';
 
 /** Better Auth's stored session row, as `listSessions`/`getSession` return it. */
-export type BetterAuthSessionRow = {
+type BetterAuthSessionRow = {
   readonly id: string;
   readonly token: string;
   readonly createdAt: string | Date;

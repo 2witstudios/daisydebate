@@ -2,7 +2,7 @@ import type { BetterAuthPlugin } from 'better-auth';
 import { createAuthMiddleware, isAPIError } from 'better-auth/api';
 import type { Logger } from '@daisy/logger';
 import { renderAuthEmail } from './mail/templates';
-import type { AuthEmailMessage } from './server';
+import type { AuthEmailMessage } from './mail-types';
 
 const NOTIFIED_PATHS: Readonly<
   Record<string, 'passkey-added' | 'passkey-removed'>

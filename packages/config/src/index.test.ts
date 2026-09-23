@@ -51,7 +51,8 @@ describe('configuration', () => {
   });
 
   test('a missing NODE_ENV refuses to start rather than skip production checks', () => {
-    const { NODE_ENV: _omitted, ...withoutNodeEnv } = env;
+    const withoutNodeEnv = { ...env };
+    Reflect.deleteProperty(withoutNodeEnv, 'NODE_ENV');
     expect(() => readServerConfig(withoutNodeEnv)).toThrow(
       'Invalid server configuration',
     );
@@ -85,7 +86,8 @@ describe('authentication configuration', () => {
   };
 
   test('a missing NODE_ENV refuses to start rather than skip production checks', () => {
-    const { NODE_ENV: _omitted, ...withoutNodeEnv } = authEnv;
+    const withoutNodeEnv = { ...authEnv };
+    Reflect.deleteProperty(withoutNodeEnv, 'NODE_ENV');
     expect(() => readAuthConfig(withoutNodeEnv)).toThrow(
       'Invalid auth configuration',
     );

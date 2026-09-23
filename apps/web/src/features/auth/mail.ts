@@ -1,5 +1,5 @@
 import type { IdGenerator } from '@daisy/clock';
-import type { AuthEmailMessage, AuthEmailSender } from './server';
+import type { AuthEmailMessage, AuthEmailSender } from './mail-types';
 
 const ENDPOINT = 'https://api.resend.com/emails';
 

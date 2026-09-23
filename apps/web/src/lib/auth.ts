@@ -6,17 +6,15 @@ import { createResendWebhook } from '../features/auth/webhook';
 import { createAuthRateLimiter } from '../features/auth/redis-limiter';
 import { getResources } from '../server/resources';
 
-type Auth = AuthServer<
-  ReturnType<typeof getResources>['database']['authAdapter']
->;
-
 // The composed instance holds no service connections of its own: it shares
 // the process resources (Bun SQL pool, Redis client) and is built on first use,
 // so importing route modules during `next build` dials nothing.
-const processState = globalThis as typeof globalThis & { daisyAuth?: Auth };
+const processState = globalThis as typeof globalThis & {
+  daisyAuth?: AuthServer;
+};
 
 /** Lazy composition entrypoint for auth route handlers. */
-export function getAuth(): Auth {
+export function getAuth(): AuthServer {
   if (processState.daisyAuth) return processState.daisyAuth;
   const resources = getResources();
   const config = readAuthConfig(process.env);

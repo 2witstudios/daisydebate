@@ -3,7 +3,7 @@ import { APIError, createAuthMiddleware } from 'better-auth/api';
 import { normalizeEmail, recipientKey } from './recipient-key';
 import { safeLocalDestination } from './redirect';
 import { unavailable } from './public-errors';
-import type { AuthDeliveryLedger } from './server';
+import type { AuthDeliveryLedger } from './mail-types';
 
 type MagicLinkBody = {
   readonly email?: unknown;
