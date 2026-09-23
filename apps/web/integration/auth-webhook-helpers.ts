@@ -11,7 +11,7 @@ import {
   webhookSecret,
   withSql,
 } from './auth-mounted-helpers';
-import { recipientHash } from '../src/features/auth/mail';
+import { deriveRecipientSubkey, recipientKey } from '../src/features/auth/recipient-key';
 
 const sign = (id: string, timestamp: string, body: string) =>
   `v1,${createHmac('sha256', Buffer.from(webhookSecret.slice(6), 'base64'))
@@ -69,7 +69,9 @@ export async function createMailSuite() {
   const confirmRoute = await import('../src/app/auth/confirm/route');
   const webhookRoute = await import('../src/app/api/webhooks/resend/route');
   const { getResources } = await import('../src/server/resources');
-  const secret = process.env.BETTER_AUTH_SECRET as string;
+  const recipientSubkey = deriveRecipientSubkey(
+    process.env.BETTER_AUTH_SECRET as string,
+  );
   const emails: string[] = [];
   const messageIds: string[] = [];
   const fresh = () => {
@@ -93,7 +95,7 @@ export async function createMailSuite() {
         await sql`DELETE FROM email_delivery WHERE provider_message_id = ${id}`;
       }
       for (const email of emails)
-        await sql`DELETE FROM email_suppression WHERE recipient_hash = ${recipientHash(secret, email)}`;
+        await sql`DELETE FROM email_suppression WHERE recipient_hash = ${recipientKey(recipientSubkey, email)}`;
     });
     for (const email of emails) await removeAccount(email);
     await clearRedisNamespace();
@@ -104,7 +106,7 @@ export async function createMailSuite() {
     confirmRoute,
     webhookRoute,
     getResources,
-    secret,
+    recipientSubkey,
     messageIds,
     fresh,
     requestLink,

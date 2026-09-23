@@ -1,7 +1,7 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { sequentialId } from '@daisy/clock';
-import { createResendSender, recipientHash } from './mail';
+import { createResendSender } from './mail';
 
 setupRitewayBun();
 
@@ -171,18 +171,6 @@ describe('Resend sender', () => {
   });
 });
 
-describe('recipientHash', () => {
-  test('is a keyed SHA3-256 of the case-normalized address', () => {
-    const a = recipientHash('secret-a', ' Player@Daisy.Example.com ');
-    assert({
-      given: 'case and whitespace variants of one address',
-      should: 'hash equally, differently per key, without exposing the address',
-      actual: {
-        same: a === recipientHash('secret-a', 'player@daisy.example.com'),
-        keyed: a === recipientHash('secret-b', 'player@daisy.example.com'),
-        shape: /^[0-9a-f]{64}$/.test(a),
-      },
-      expected: { same: true, keyed: false, shape: true },
-    });
-  });
-});
+// The recipient-hashing function moved to recipient-key.ts (recipientKey,
+// keyed by a subkey derived from BETTER_AUTH_SECRET rather than the raw
+// secret directly); see recipient-key.test.ts.

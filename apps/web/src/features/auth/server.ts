@@ -16,7 +16,7 @@ import { freshSessionGatePlugin } from './fresh-session-gate';
 import { passkeyDeviceHintPlugin } from './passkey-device-hint';
 import { sessionRevokedOutboxPlugin } from './session-revoked-outbox';
 import { revokeOthersOnVerifyEmailPlugin } from './revoke-others-on-verify-email';
-import { recipientHash } from './mail';
+import { deriveRecipientSubkey, recipientKey } from './recipient-key';
 import { renderAuthEmail } from './mail/templates';
 import { unavailable } from './public-errors';
 import {
@@ -75,6 +75,7 @@ type AuthInstance = ReturnType<typeof composeBetterAuth>;
 
 const composeBetterAuth = (dependencies: {
   readonly config: AuthConfig;
+  readonly recipientSubkey: string;
   readonly database: BetterAuthOptions['database'];
   readonly deliver: (message: AuthEmailMessage) => Promise<void>;
   readonly limiter: AuthRateLimiter;
@@ -84,10 +85,10 @@ const composeBetterAuth = (dependencies: {
   readonly appendSessionRevoked: (userId: string) => Promise<void>;
   readonly revokeOtherSessions: RevokeOtherSessions;
 }) => {
-  const { config, ledger } = dependencies;
+  const { config, ledger, recipientSubkey } = dependencies;
   const origin = new URL(config.PUBLIC_APP_URL).origin;
   const magicLinkGatePlugin = createMagicLinkGatePlugin({
-    secret: config.BETTER_AUTH_SECRET,
+    recipientSubkey,
     ledger,
   });
   const instance = betterAuth({
@@ -135,6 +136,7 @@ const composeBetterAuth = (dependencies: {
       before: createRateLimitGate({
         limiter: dependencies.limiter,
         logger: dependencies.logger,
+        recipientSubkey,
       }),
     },
     emailAndPassword: { enabled: false },
@@ -273,6 +275,7 @@ export function createAuthServer<
   readonly revokeOtherSessions: RevokeOtherSessions;
 }): AuthServer<Database> {
   const config = readAuthConfig(dependencies.env);
+  const recipientSubkey = deriveRecipientSubkey(config.BETTER_AUTH_SECRET);
   const ledger = dependencies.ledger ?? noLedger;
   const sendMail = async (message: AuthEmailMessage): Promise<void> => {
     let receipt: Awaited<ReturnType<AuthEmailSender['send']>>;
@@ -292,7 +295,7 @@ export function createAuthServer<
       try {
         await ledger.record({
           providerMessageId: receipt.providerMessageId,
-          recipientHash: recipientHash(config.BETTER_AUTH_SECRET, message.to),
+          recipientHash: recipientKey(recipientSubkey, message.to),
           at: dependencies.clock.now(),
         });
       } catch {
@@ -320,6 +323,7 @@ export function createAuthServer<
     config,
     instance: composeBetterAuth({
       config,
+      recipientSubkey,
       database: dependencies.database,
       deliver: sendMail,
       limiter: dependencies.limiter,

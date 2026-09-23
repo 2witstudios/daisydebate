@@ -1,6 +1,6 @@
-import { createHash } from 'node:crypto';
 import { APIError, createAuthMiddleware, getIP } from 'better-auth/api';
 import type { Logger } from '@daisy/logger';
+import { recipientKey } from './recipient-key';
 
 /** Fixed-window allowance the gate asks the limiter to enforce for one key. */
 type RateRule = {
@@ -59,21 +59,22 @@ export const clientIpOptions = (headerName: string) => ({
 
 const magicLinkPath = '/sign-in/magic-link';
 
-// A recipient is personal data: the per-recipient bucket is keyed by its
-// SHA3-256 digest so the address never reaches Redis keys or logs.
-const digest = (value: string) =>
-  createHash('sha3-256').update(value).digest('hex');
-
 type Bucket = { readonly key: string; readonly rule: RateRule };
 
-const recipientBuckets = (path: string, body: unknown): Bucket[] => {
+// The per-recipient bucket is keyed by `recipientKey` (recipient-key.ts): a
+// subkey-derived digest, so the address never reaches Redis keys or logs.
+const recipientBuckets = (
+  recipientSubkey: string,
+  path: string,
+  body: unknown,
+): Bucket[] => {
   if (path !== magicLinkPath || typeof body !== 'object' || body === null)
     return [];
   const email: unknown = Reflect.get(body, 'email');
   if (typeof email !== 'string') return [];
-  const recipientDigest = digest(email.trim().toLowerCase());
+  const key = recipientKey(recipientSubkey, email);
   return MAGIC_LINK_RECIPIENT_RULES.map((rule) => ({
-    key: `auth:magic-link:recipient:${recipientDigest}:${rule.windowSeconds}`,
+    key: `auth:magic-link:recipient:${key}:${rule.windowSeconds}`,
     rule,
   }));
 };
@@ -163,6 +164,7 @@ const isServerPrincipalRead = (path: string, request: Request | undefined) =>
 export const createRateLimitGate = (dependencies: {
   readonly limiter: AuthRateLimiter;
   readonly logger: Logger;
+  readonly recipientSubkey: string;
   readonly resolveClient?: typeof getIP;
 }) =>
   createAuthMiddleware(async (context) => {
@@ -190,7 +192,7 @@ export const createRateLimitGate = (dependencies: {
           key: `auth:client:${client ?? 'unknown'}:${path}`,
           rule: path === magicLinkPath ? MAGIC_LINK_CLIENT_RULE : DEFAULT_RULE,
         },
-        ...recipientBuckets(path, context.body),
+        ...recipientBuckets(dependencies.recipientSubkey, path, context.body),
         ...globalBuckets(path),
       ];
     });
