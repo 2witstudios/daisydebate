@@ -23,6 +23,7 @@ const eventRegistry = {
   'auth.session.revoked_all': 'info',
   'auth.email_change.requested': 'info',
   'auth.email_change.verified': 'info',
+  'auth.email_change.cleanup_failed': 'error',
   'realtime.cleanup.completed': 'info',
   'realtime.cleanup.failed': 'error',
   'realtime.outbox.append_failed': 'error',

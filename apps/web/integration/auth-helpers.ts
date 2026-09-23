@@ -6,6 +6,7 @@ import {
   createAuthServer,
   type AuthEmailMessage,
 } from '../src/features/auth/server';
+import { createConfirmHandlers } from '../src/features/auth/confirm';
 import type { RecordedLogs } from '../src/features/auth/log-leaks';
 
 /** Shared fixtures for the isolated Better Auth persistence suites. */
@@ -44,10 +45,42 @@ export const capturedToken = (message: AuthEmailMessage) => {
   return link.searchParams.get('token') ?? '';
 };
 
-export const verifyUrl = (token: string) =>
-  `${integrationEnv.PUBLIC_APP_URL}/api/auth/magic-link/verify?token=${encodeURIComponent(token)}`;
-
 export type SentMessages = AuthEmailMessage[];
+
+/**
+ * Redeems a magic-link token the way a person does: POST to the same-origin
+ * confirm page, which forwards into Better Auth internally
+ * (`confirm-http-shared.ts`'s `createForward` calls `server.handler`
+ * directly, never through the mounted `/api/auth` route). A direct GET to
+ * `/api/auth/magic-link/verify` is refused by the mounted route (ISSUE-3),
+ * so tests must never build that URL and hit it themselves.
+ */
+export const redeemMagicLink = (
+  auth: {
+    readonly instance: {
+      readonly handler: (request: Request) => Promise<Response>;
+    };
+    readonly config: { readonly PUBLIC_APP_URL: string };
+  },
+  token: string,
+  extra: Record<string, string> = {},
+) =>
+  createConfirmHandlers({
+    auth: () => ({ handler: auth.instance.handler, config: auth.config }),
+  }).POST(
+    new Request(`${auth.config.PUBLIC_APP_URL}/auth/confirm`, {
+      method: 'POST',
+      headers: {
+        origin: auth.config.PUBLIC_APP_URL,
+        'content-type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        token,
+        callbackURL: '/',
+        ...extra,
+      }).toString(),
+    }),
+  );
 
 export const createTestAuthServer = (
   database: Parameters<typeof createAuthServer>[0]['database'],
@@ -57,6 +90,11 @@ export const createTestAuthServer = (
     readonly recordedLogs?: RecordedLogs;
     /** Defaults to a no-op; a suite proving RT-2.2's outbox append wires the real one. */
     readonly appendSessionRevoked?: (userId: string) => Promise<void>;
+    /** Defaults to a no-op; a suite proving ISSUE-3 AC3 wires the real one. */
+    readonly revokeOtherSessions?: (
+      userId: string,
+      keepToken: string,
+    ) => Promise<number>;
   },
 ) =>
   createAuthServer({
@@ -77,6 +115,7 @@ export const createTestAuthServer = (
     // suites share one database, so they need the real cuid2 edge generator.
     ids: systemId,
     appendSessionRevoked: options.appendSessionRevoked ?? (async () => {}),
+    revokeOtherSessions: options.revokeOtherSessions ?? (async () => 0),
   });
 
 /** Removes exactly this fixture's records; never touches unrelated rows. */

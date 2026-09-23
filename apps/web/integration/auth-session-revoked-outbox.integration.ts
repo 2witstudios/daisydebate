@@ -7,8 +7,8 @@ import {
   capturedToken,
   createTestAuthServer,
   fixtureEmail,
+  redeemMagicLink,
   removeFixture,
-  verifyUrl,
   withOutboxInsertBlockedForTopic,
   type SentMessages,
 } from './auth-helpers';
@@ -34,12 +34,7 @@ const signInOnce = async (
     headers: new Headers({ origin: auth.config.PUBLIC_APP_URL }),
   });
   const token = capturedToken(sent.at(-1)!);
-  const response = await auth.instance.handler(
-    new Request(verifyUrl(token), {
-      headers: new Headers({ origin: auth.config.PUBLIC_APP_URL }),
-    }),
-  );
-  const body = (await response.json()) as { user: { id: string } };
+  const response = await redeemMagicLink(auth, token);
   const cookie = response.headers.get('set-cookie')?.split(';')[0] ?? '';
   const sessionResponse = await auth.instance.handler(
     new Request(
@@ -47,10 +42,15 @@ const signInOnce = async (
       { headers: new Headers({ origin: auth.config.PUBLIC_APP_URL, cookie }) },
     ),
   );
-  const sessionToken =
-    ((await sessionResponse.json()) as { session?: { token: string } } | null)
-      ?.session?.token ?? '';
-  return { cookie, userId: body.user.id, sessionToken };
+  const body = (await sessionResponse.json()) as {
+    session?: { token: string };
+    user?: { id: string };
+  } | null;
+  return {
+    cookie,
+    userId: body?.user?.id ?? '',
+    sessionToken: body?.session?.token ?? '',
+  };
 };
 
 const sessionExists = async (admin: SQL, token: string): Promise<boolean> => {
