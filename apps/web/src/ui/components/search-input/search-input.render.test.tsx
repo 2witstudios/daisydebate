@@ -9,7 +9,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { renderSearchInput } from './search-input.render';
 import { SearchInput } from './search-input';
 import { createInitialState } from '../../store/state';
-import { setUiState } from '../../store/store';
+import { UiStoreProvider } from '../../store/store';
 
 setupRitewayBun();
 
@@ -42,14 +42,16 @@ describe('renderSearchInput', () => {
     );
     assert({
       given: 'a value, placeholder, and label',
-      should: 'render a labelled, controlled search input',
+      should:
+        'render a controlled search input, named once by its wrapping label',
       actual: [
         html.includes('type="search"'),
         html.includes('value="ranked"'),
         html.includes('placeholder="Find a debate"'),
-        html.includes('aria-label="Search debates"'),
+        html.includes('<span class="sr-only">Search debates</span>'),
+        html.includes('aria-label='),
       ],
-      expected: [true, true, true, true],
+      expected: [true, true, true, true, false],
     });
   });
 
@@ -78,18 +80,20 @@ describe('renderSearchInput', () => {
 describe('SearchInput', () => {
   test('binds the store query with default copy', () => {
     const seed = createInitialState();
-    setUiState({
+    const initialState = {
       ...seed,
       resources: { ...seed.resources, searchQuery: 'climate' },
-    });
-    const html = renderToString(h(SearchInput, {}));
+    };
+    const html = renderToString(
+      h(UiStoreProvider, { initialState, children: h(SearchInput, {}) }),
+    );
     assert({
       given: 'a store search query and no props',
       should: 'render the query with the default placeholder and label',
       actual: [
         html.includes('value="climate"'),
         html.includes('placeholder="Search users, topics, or debates…"'),
-        html.includes('aria-label="Search"'),
+        html.includes('<span class="sr-only">Search</span>'),
       ],
       expected: [true, true, true],
     });
