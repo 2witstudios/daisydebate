@@ -49,7 +49,8 @@ describe('AUTH-3.4 rules the gate hands the atomic limiter', () => {
     const { server } = create({
       limiter: () => async (key, rule) => {
         if (rule.windowSeconds === 3_600) {
-          if (hourExhausted.has(key)) return { allowed: false, retryAfterSeconds: 3_600 };
+          if (hourExhausted.has(key))
+            return { allowed: false, retryAfterSeconds: 3_600 };
           hourExhausted.add(key);
         }
         return { allowed: true, retryAfterSeconds: 0 };
@@ -58,8 +59,10 @@ describe('AUTH-3.4 rules the gate hands the atomic limiter', () => {
     const first = await server.instance.handler(magicLinkRequest());
     const second = await server.instance.handler(magicLinkRequest());
     assert({
-      given: 'a limiter whose recipient-hour bucket is already exhausted for a second send',
-      should: 'admit the first send and deny the second even though the minute window is fresh',
+      given:
+        'a limiter whose recipient-hour bucket is already exhausted for a second send',
+      should:
+        'admit the first send and deny the second even though the minute window is fresh',
       actual: { first: first.status, second: second.status },
       expected: { first: 200, second: 429 },
     });

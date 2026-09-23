@@ -194,7 +194,9 @@ describe('structured logging', () => {
     const secretToken = 'unredacted-magic-link-token';
     logger.log(
       'auth.magic_link.verified',
-      { confirmLink: `https://daisy.example.com/auth/confirm?token=${secretToken}` },
+      {
+        confirmLink: `https://daisy.example.com/auth/confirm?token=${secretToken}`,
+      },
       'verified',
     );
     assert({

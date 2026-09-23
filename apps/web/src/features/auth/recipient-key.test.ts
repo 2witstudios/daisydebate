@@ -1,5 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { deriveRecipientSubkey, normalizeEmail, recipientKey } from './recipient-key';
+import {
+  deriveRecipientSubkey,
+  normalizeEmail,
+  recipientKey,
+} from './recipient-key';
 
 setupRitewayBun();
 
@@ -33,7 +37,9 @@ describe('deriveRecipientSubkey', () => {
     assert({
       given: 'two different secrets',
       should: 'derive two different subkeys',
-      actual: deriveRecipientSubkey('a'.repeat(64)) === deriveRecipientSubkey('b'.repeat(64)),
+      actual:
+        deriveRecipientSubkey('a'.repeat(64)) ===
+        deriveRecipientSubkey('b'.repeat(64)),
       expected: false,
     });
   });

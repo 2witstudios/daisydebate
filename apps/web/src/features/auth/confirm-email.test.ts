@@ -69,7 +69,10 @@ describe('confirm-email: when the forwarded auth request fails', () => {
       given:
         'the composed auth handler throwing (a real outage, now that it no longer swallows to a bare 500)',
       should: 'answer 400 with no internal detail, not an unhandled rejection',
-      actual: { status: response.status, leaks: body.includes('redis://secret-host') },
+      actual: {
+        status: response.status,
+        leaks: body.includes('redis://secret-host'),
+      },
       expected: { status: 400, leaks: false },
     });
   });

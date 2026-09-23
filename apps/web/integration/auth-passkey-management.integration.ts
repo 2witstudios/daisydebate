@@ -287,9 +287,7 @@ describe('ISSUE-5 AC6 passkey add/remove security notifications', () => {
       should: 'deliver a passkey-removed notice to the account address',
       actual: {
         to: mail?.to,
-        subjectMentionsRemoved: mail?.subject
-          .toLowerCase()
-          .includes('removed'),
+        subjectMentionsRemoved: mail?.subject.toLowerCase().includes('removed'),
       },
       expected: { to: dave.email, subjectMentionsRemoved: true },
     });

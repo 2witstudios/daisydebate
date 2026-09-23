@@ -49,7 +49,10 @@ const toDto = (
 
 /** Same mapping `security-client.ts`'s `outcomeFor` reads on the client. */
 const mapBetterAuthError = (error: unknown) => {
-  if (error instanceof APIError && (error.statusCode === 401 || error.statusCode === 403))
+  if (
+    error instanceof APIError &&
+    (error.statusCode === 401 || error.statusCode === 403)
+  )
     return createAppError('AUTHENTICATION', undefined, error);
   return createAppError('INFRASTRUCTURE', undefined, error);
 };

@@ -177,7 +177,8 @@ describe('auth rate-limit gate: client identity', () => {
       'x-forwarded-for': '198.51.100.9',
     });
     assert({
-      given: 'the ingress-stamped header alongside forged x-real-ip and x-forwarded-for',
+      given:
+        'the ingress-stamped header alongside forged x-real-ip and x-forwarded-for',
       should: 'key the client bucket by the stamped header only',
       actual: keys,
       expected: ['auth:client:203.0.113.7:/get-session'],

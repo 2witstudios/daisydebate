@@ -41,12 +41,14 @@ describe('GET /api/account/sessions', () => {
       sessions: Array<{ id: string; current: boolean }>;
     };
     assert({
-      given: 'two real session rows, one of them the caller\'s own',
+      given: "two real session rows, one of them the caller's own",
       should:
         'answer 200 with no token anywhere in the body and the right row flagged current',
       actual: {
         status: response.status,
-        leaksToken: body.includes('super-secret-bearer-token') || body.includes('other-token'),
+        leaksToken:
+          body.includes('super-secret-bearer-token') ||
+          body.includes('other-token'),
         currentFlags: parsed.sessions.map((s) => [s.id, s.current]),
       },
       expected: {
@@ -120,7 +122,11 @@ describe('POST /api/account/sessions/revoke', () => {
         body: await response.json(),
         revokedToken: revokedWith?.token,
       },
-      expected: { status: 200, body: { status: true }, revokedToken: 'token-1' },
+      expected: {
+        status: 200,
+        body: { status: true },
+        revokedToken: 'token-1',
+      },
     });
   });
 

@@ -99,7 +99,10 @@ async function fetchJson<T>(
   }
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as PublicErrorBody;
-    return { data: null, error: { status: response.status, code: body.error?.code } };
+    return {
+      data: null,
+      error: { status: response.status, code: body.error?.code },
+    };
   }
   return { data: (await response.json()) as T, error: null };
 }
@@ -133,7 +136,9 @@ export const renamePasskey = async (
   id: string,
   name: string,
 ): Promise<SecurityOutcome> =>
-  outcomeFor((await safely(() => client.passkey.updatePasskey({ id, name }))).error);
+  outcomeFor(
+    (await safely(() => client.passkey.updatePasskey({ id, name }))).error,
+  );
 
 export const removePasskey = async (
   client: SecurityClient,

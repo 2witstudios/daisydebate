@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
 
 /** The one place an email address is trimmed and lowercased before use. */
-export const normalizeEmail = (email: string): string => email.trim().toLowerCase();
+export const normalizeEmail = (email: string): string =>
+  email.trim().toLowerCase();
 
 /**
  * A subkey derived once from `BETTER_AUTH_SECRET`, domain-separated by a

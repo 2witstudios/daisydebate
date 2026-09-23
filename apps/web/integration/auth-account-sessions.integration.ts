@@ -8,9 +8,8 @@ setupRitewayBun();
 
 const { signUp } = await createAccountFlows();
 const sessionsRoute = await import('../src/app/api/account/sessions/route');
-const revokeRoute = await import(
-  '../src/app/api/account/sessions/revoke/route'
-);
+const revokeRoute =
+  await import('../src/app/api/account/sessions/revoke/route');
 
 const listSessions = (cookie: string) =>
   sessionsRoute.GET(

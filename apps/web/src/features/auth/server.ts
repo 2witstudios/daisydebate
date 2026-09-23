@@ -31,7 +31,11 @@ import {
   SESSION_UPDATE_AGE_SECONDS,
 } from './session-policy';
 import { CLIENT_IP_HEADER } from './client-ip';
-import { clientIpOptions, createRateLimitGate, type AuthRateLimiter } from './rate-limit';
+import {
+  clientIpOptions,
+  createRateLimitGate,
+  type AuthRateLimiter,
+} from './rate-limit';
 
 const MAGIC_LINK_EXPIRES_IN_SECONDS = 300;
 // Matches the emailed-link token-delivery model's 5-minute figure; Better
@@ -190,7 +194,11 @@ const composeBetterAuth = (dependencies: {
         },
       }),
       passkeyDeviceHintPlugin,
-      passkeyNotificationsPlugin(origin, dependencies.deliver, dependencies.logger),
+      passkeyNotificationsPlugin(
+        origin,
+        dependencies.deliver,
+        dependencies.logger,
+      ),
       magicLinkGatePlugin,
       freshSessionGatePlugin,
       sessionRevokedOutboxPlugin(

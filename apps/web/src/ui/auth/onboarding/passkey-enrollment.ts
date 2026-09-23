@@ -20,7 +20,6 @@ export const passkeyEnrollmentNotYetAvailable: PasskeyEnrollmentSeam = {
   enroll: () => Promise.resolve({ kind: 'unavailable' }),
 };
 
-
 /** The slice of the Better Auth client this seam uses. */
 export type PasskeyEnrollmentClient = {
   readonly passkey: {

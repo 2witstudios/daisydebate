@@ -32,7 +32,8 @@ describe('AUTH-3.6 provider delivery events', () => {
         status: response.status,
         row: rows[0]?.status,
         rank: rows[0]?.status_rank,
-        hashMatches: rows[0]?.recipient_hash === recipientKey(recipientSubkey, email),
+        hashMatches:
+          rows[0]?.recipient_hash === recipientKey(recipientSubkey, email),
         containsAddress: dump[0]?.a,
       },
       expected: {

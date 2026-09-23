@@ -111,8 +111,7 @@ describe('ISSUE-23 a real fault injected into revokeOtherSessions during /verify
           'report the cleanup step failed, still carry the new session cookie, leave the other session authenticated (the DELETE rolled back with it), and log the cleanup-failed event',
         actual: {
           status: completion.status,
-          carriesNewSessionCookie:
-            completion.headers.getSetCookie().length > 0,
+          carriesNewSessionCookie: completion.headers.getSetCookie().length > 0,
           otherSessionStillAuthenticated: await isAuthenticated(otherCookie),
           loggedCleanupFailed: loggedEvents.includes(
             'auth.email_change.cleanup_failed',
@@ -130,8 +129,7 @@ describe('ISSUE-23 a real fault injected into revokeOtherSessions during /verify
       // afterAll backstop in this single-test file.
       await withSql((sql) => sql`DELETE FROM actors WHERE id = ${actorId}`);
       await withSql(
-        (sql) =>
-          sql`DELETE FROM users WHERE email IN (${email}, ${newEmail})`,
+        (sql) => sql`DELETE FROM users WHERE email IN (${email}, ${newEmail})`,
       );
     }
   });

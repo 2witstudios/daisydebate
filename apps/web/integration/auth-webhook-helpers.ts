@@ -11,7 +11,10 @@ import {
   webhookSecret,
   withSql,
 } from './auth-mounted-helpers';
-import { deriveRecipientSubkey, recipientKey } from '../src/features/auth/recipient-key';
+import {
+  deriveRecipientSubkey,
+  recipientKey,
+} from '../src/features/auth/recipient-key';
 
 const sign = (id: string, timestamp: string, body: string) =>
   `v1,${createHmac('sha256', Buffer.from(webhookSecret.slice(6), 'base64'))

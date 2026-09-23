@@ -304,7 +304,6 @@ describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () 
       database.revokeOtherSessions = realRevoke;
     }
   });
-
 });
 
 // ISSUE-23's forced-outbox-failure test (real DB fault, session cookie,

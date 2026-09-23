@@ -146,9 +146,7 @@ describe('AUTH-3.4 shared atomic rate limits through the mounted handler', () =>
         leaksIdentifier: keys.some(({ key }) =>
           /198\.51|example\.test|sign-in|magic-link|session/.test(key),
         ),
-        allExpire: keys.every(
-          ({ ttlMs }) => ttlMs > 0 && ttlMs <= 86_400_000,
-        ),
+        allExpire: keys.every(({ ttlMs }) => ttlMs > 0 && ttlMs <= 86_400_000),
       },
       expected: {
         any: true,
@@ -158,7 +156,6 @@ describe('AUTH-3.4 shared atomic rate limits through the mounted handler', () =>
       },
     });
   });
-
 });
 
 // ISSUE-5 AC4's recipient-hour-ceiling and global-per-minute-ceiling tests

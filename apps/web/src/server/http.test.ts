@@ -85,9 +85,8 @@ describe('handleOperation', () => {
       'test.operation',
       () => Promise.resolve(Response.json({ ok: true })),
     );
-    const hash = (
-      recorded.at(-1)?.fields as Record<string, unknown>
-    ).clientIdHash;
+    const hash = (recorded.at(-1)?.fields as Record<string, unknown>)
+      .clientIdHash;
     assert({
       given: 'a request carrying the ingress-stamped client identity header',
       should:
@@ -108,8 +107,7 @@ describe('handleOperation', () => {
     assert({
       given: 'a request with no ingress-stamped client identity header',
       should: 'log no clientIdHash field',
-      actual: (recorded.at(-1)?.fields as Record<string, unknown>)
-        .clientIdHash,
+      actual: (recorded.at(-1)?.fields as Record<string, unknown>).clientIdHash,
       expected: undefined,
     });
   });

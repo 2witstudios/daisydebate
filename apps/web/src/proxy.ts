@@ -84,9 +84,9 @@ export function proxy(request: NextRequest) {
   if (closed) return closed;
   // 16 CSPRNG bytes: a cuid2 value (systemId) is never a secret (AGENTS.md),
   // and the nonce must be unguessable, unlike the request-id above.
-  const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString(
-    'base64',
-  );
+  const nonce = Buffer.from(
+    crypto.getRandomValues(new Uint8Array(16)),
+  ).toString('base64');
   const development = process.env.NODE_ENV === 'development';
   const policy = [
     "default-src 'self'",

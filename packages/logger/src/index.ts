@@ -45,13 +45,7 @@ export type LogFields = Readonly<Record<string, unknown>> & {
 // @daisy/config (declared dependencies: pino only), so the literal union is
 // kept in sync here rather than imported.
 export type LogLevel =
-  | 'fatal'
-  | 'error'
-  | 'warn'
-  | 'info'
-  | 'debug'
-  | 'trace'
-  | 'silent';
+  'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'silent';
 export type Logger = {
   log: (event: EventName, fields: LogFields, message: string) => void;
   child: (fields: LogFields) => Logger;
@@ -85,9 +79,7 @@ const REDACTED_KEY_SUBSTRINGS = [
 ] as const;
 const isRedactedKey = (key: string): boolean => {
   const normalized = key.toLowerCase().replace(/[^a-z]/g, '');
-  return REDACTED_KEY_SUBSTRINGS.some((needle) =>
-    normalized.includes(needle),
-  );
+  return REDACTED_KEY_SUBSTRINGS.some((needle) => normalized.includes(needle));
 };
 const CENSOR = '[REDACTED]';
 // Query parameters that carry a bearer credential when a field's string
