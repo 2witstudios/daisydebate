@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useReducer, useState } from 'react';
+import { useEffect, useReducer, useState, useSyncExternalStore } from 'react';
 import type { Clock } from '@daisy/clock';
 import {
   offerPasskeyAutofillSafely,
@@ -19,13 +19,26 @@ import {
 import { renderSignInFlow } from './sign-in-flow.render';
 import { startPasskeyAutofill, type AutofillTimers } from './passkey-autofill';
 
+const subscribeToVisibility = (onChange: () => void) => {
+  document.addEventListener('visibilitychange', onChange);
+  return () => document.removeEventListener('visibilitychange', onChange);
+};
+
+/** Whether this tab is on screen; the server render assumes it is. */
+const usePageVisible = (): boolean =>
+  useSyncExternalStore(
+    subscribeToVisibility,
+    () => document.visibilityState === 'visible',
+    () => true,
+  );
+
 const browserTimers: AutofillTimers = {
   set: (run, ms) => setTimeout(run, ms),
   clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
 };
 
 export type SignInFlowProps = {
-  /** Who authenticates: the mock today, the Better Auth adapter later. */
+  /** Who authenticates: the Better Auth adapter in the live page. */
   readonly port: SignInPort;
   /** Injected so the cooldown is testable and never reads ambient time. */
   readonly clock: Clock;
@@ -63,9 +76,10 @@ export function SignInFlow({
     if (state.step === 'signed-in') onSignedIn();
   }, [state.step, onSignedIn]);
 
-  // Armed whenever the email step goes idle: the explicit passkey button
-  // aborts the pending autofill request, so it must be offered again after.
-  const autofillArmed = canOfferPasskeyAutofill(state);
+  // Armed whenever the email step goes idle on screen: the explicit passkey
+  // button aborts the pending autofill request, so it is offered again after,
+  // and a hidden tab pauses until it is shown.
+  const autofillArmed = canOfferPasskeyAutofill(state, usePageVisible());
   useEffect(() => {
     if (!autofillArmed) return;
     return startPasskeyAutofill({

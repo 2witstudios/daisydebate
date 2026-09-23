@@ -12,6 +12,9 @@ export const AUTH_JOURNEY_SPECS = [
   '**/accessibility.e2e.ts',
   '**/auth-routes.e2e.ts',
 ];
+// Passkey autofill completes only where the virtual authenticator answers a
+// conditional request without browser UI: the mobile-emulated Chromium.
+const PASSKEY_AUTOFILL_SPEC = '**/passkey-autofill.e2e.ts';
 
 // Ports derive from the environment; `bun slot:up` writes each checkout's
 // own (docs/development/local-development.md, "Parallel sessions").
@@ -106,12 +109,12 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
-      testIgnore: '**/visual.e2e.ts',
+      testIgnore: ['**/visual.e2e.ts', PASSKEY_AUTOFILL_SPEC],
     },
     {
       name: 'chromium-mobile',
       use: { ...devices['Pixel 8'] },
-      testMatch: AUTH_JOURNEY_SPECS,
+      testMatch: [...AUTH_JOURNEY_SPECS, PASSKEY_AUTOFILL_SPEC],
     },
     {
       name: 'firefox',

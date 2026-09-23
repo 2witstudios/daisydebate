@@ -21,17 +21,20 @@ const inbox: SignInState = {
 };
 
 describe('canOfferPasskeyAutofill', () => {
-  test('offers autofill only while the email step is idle', () => {
+  test('offers autofill only while the email step is idle and on screen', () => {
     assert({
-      given: 'idle, a pending link, a pending ceremony, and the inbox step',
-      should: 'arm autofill only for the idle email step',
+      given:
+        'idle and visible, idle but hidden, a pending link, a pending ceremony, and the inbox step',
+      should:
+        'arm autofill only for the visible idle email step, since a hidden tab would only churn the shared challenge',
       actual: [
-        canOfferPasskeyAutofill(idle),
-        canOfferPasskeyAutofill({ ...idle, pending: 'link' }),
-        canOfferPasskeyAutofill({ ...idle, pending: 'passkey' }),
-        canOfferPasskeyAutofill(inbox),
+        canOfferPasskeyAutofill(idle, true),
+        canOfferPasskeyAutofill(idle, false),
+        canOfferPasskeyAutofill({ ...idle, pending: 'link' }, true),
+        canOfferPasskeyAutofill({ ...idle, pending: 'passkey' }, true),
+        canOfferPasskeyAutofill(inbox, true),
       ],
-      expected: [true, false, false, false],
+      expected: [true, false, false, false, false],
     });
   });
 });

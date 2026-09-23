@@ -171,25 +171,42 @@ describe('startPasskeyAutofill', () => {
     });
   });
 
-  test('after stopping, drops stale endings but keeps a late sign-in', async () => {
-    const first = run();
-    first.stop();
-    await first.offers.settle(0, 'refused');
-    const second = run();
-    second.stop();
-    await second.offers.settle(0, 'signed-in');
+  test('after stopping, drops stale endings but keeps what a pick produced', async () => {
+    const dismissed = run();
+    dismissed.stop();
+    await dismissed.offers.settle(0, 'interrupted');
+    const signedIn = run();
+    signedIn.stop();
+    await signedIn.offers.settle(0, 'signed-in');
+    const refused = run();
+    refused.stop();
+    await refused.offers.settle(0, 'refused');
     assert({
-      given: 'a stopped loop whose request later ends refused, or signed in',
+      given:
+        'stopped loops whose request later ends interrupted, signed in, or refused after a pick',
       should:
-        'clear its timers, ignore the refusal, and still report the sign-in the server made',
+        'clear their timers, drop the interruption, and still report the sign-in and the refusal',
       actual: [
-        [first.settled, first.scheduler.delays()],
-        [second.settled, second.scheduler.delays()],
+        [dismissed.settled, dismissed.scheduler.delays()],
+        [signedIn.settled, signedIn.scheduler.delays()],
+        [refused.settled, refused.scheduler.delays()],
       ],
       expected: [
         [[], []],
         [['signed-in'], []],
+        [['refused'], []],
       ],
+    });
+  });
+
+  test('stops once a live request signs in', async () => {
+    const { scheduler, offers, settled } = run();
+    await offers.settle(0, 'signed-in');
+    assert({
+      given: 'the live request signing the person in',
+      should: 'report it and leave no refresh or retry pending',
+      actual: [settled, scheduler.delays()],
+      expected: [['signed-in'], []],
     });
   });
 });

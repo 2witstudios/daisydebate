@@ -29,13 +29,20 @@ export type AutofillTimers = {
 };
 
 /**
+ * A replaced request can still be the one the browser shows until the newer
+ * offer's options arrive, so what a pick produced is reported even then.
+ */
+const fromPick = (outcome: PasskeyAutofillOutcome): boolean =>
+  outcome.kind === 'signed-in' || outcome.kind === 'refused';
+
+/**
  * Keeps one autofill request pending while the email step is idle: refreshed
  * before its challenge expires, and re-offered with backoff after any other
  * ending until the browser proves it cannot autofill. A newer request aborts
- * the pending one, so a replaced request's ending is stale and dropped,
- * except a sign-in, which the server has already made; a live request
- * superseded by a stale one is simply offered again, which aborts that one
- * in turn. Returns the function that stops the loop.
+ * the pending one, so a replaced request's ending is stale and dropped
+ * unless a pick produced it; a live request superseded by a stale one is
+ * offered again after the backoff step, which aborts that one in turn.
+ * Returns the function that stops the loop.
  */
 export function startPasskeyAutofill({
   offer,
@@ -58,7 +65,7 @@ export function startPasskeyAutofill({
     timers.clear(timer);
     timer = timers.set(() => arm(0), AUTOFILL_REFRESH_MS);
     void offer().then((outcome) => {
-      if (outcome.kind !== 'signed-in' && current !== generation) return;
+      if (!fromPick(outcome) && current !== generation) return;
       onSettled(outcome);
       if (current !== generation) return;
       timers.clear(timer);

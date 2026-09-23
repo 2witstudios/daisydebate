@@ -256,4 +256,40 @@ describe('Better Auth sign-in port: autofill and button race', () => {
       expected: [{ kind: 'cancelled' }, ['passkey']],
     });
   });
+
+  test('an autofill request that throws still stops counting as in flight', async () => {
+    const calls: string[] = [];
+    const client: SignInClient = {
+      signIn: {
+        magicLink: async () => ({ error: null }),
+        passkey: async (opts) => {
+          calls.push(opts?.autoFill ? 'passkey-autofill' : 'passkey');
+          if (opts?.autoFill) throw new Error('network down');
+          return { error: { status: 400, code: 'ERROR_CEREMONY_ABORTED' } };
+        },
+      },
+    };
+    const port = createBetterAuthSignInPort({
+      client,
+      destination: '/ranked',
+      supportsPasskeys: () => true,
+      supportsPasskeyAutofill: async () => true,
+    });
+    const thrown = await port.offerPasskeyAutofill().then(
+      () => 'settled',
+      () => 'threw',
+    );
+    assert({
+      given:
+        'an autofill request whose client call threw, then an aborted button',
+      should:
+        'let the throw through for the safe wrapper and not retry the button',
+      actual: [thrown, await port.signInWithPasskey(), calls],
+      expected: [
+        'threw',
+        { kind: 'cancelled' },
+        ['passkey-autofill', 'passkey'],
+      ],
+    });
+  });
 });

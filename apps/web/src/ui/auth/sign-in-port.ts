@@ -32,9 +32,9 @@ export type PasskeyAutofillOutcome =
   | { readonly kind: 'unavailable' };
 
 /**
- * The seam between the sign-in screens and whatever authenticates. The mock
- * implements it today; a Better Auth adapter replaces it by mapping client
- * results onto these outcomes, so the screens never see transport errors.
+ * The seam between the sign-in screens and whatever authenticates. The
+ * Better Auth adapter implements it by mapping client results onto these
+ * outcomes, so the screens never see transport errors.
  */
 export type SignInPort = {
   readonly requestLink: (email: string) => Promise<LinkRequestOutcome>;

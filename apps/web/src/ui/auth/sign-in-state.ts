@@ -69,9 +69,15 @@ export const resendRemainingMs = (sentAt: string, now: string): number =>
 export const canRequestLink = (state: SignInState): boolean =>
   isIdle(state) && state.email.trim() !== '';
 
-/** Autofill is armed only while nothing else is in flight on the email step. */
-export const canOfferPasskeyAutofill = (state: SignInState): boolean =>
-  isIdle(state);
+/**
+ * Autofill is armed only on screen and while nothing else is in flight on the
+ * email step. A hidden tab cannot show autofill, and its refreshes would only
+ * overwrite the challenge cookie every tab shares.
+ */
+export const canOfferPasskeyAutofill = (
+  state: SignInState,
+  pageVisible: boolean,
+): boolean => pageVisible && isIdle(state);
 
 export const canResend = (state: SignInState, now: string): boolean =>
   state.step === 'check-inbox' &&

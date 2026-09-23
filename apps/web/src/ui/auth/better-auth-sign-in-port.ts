@@ -90,10 +90,11 @@ export function createBetterAuthSignInPort({
   /** Whether the browser can list passkeys in autofill (conditional UI). */
   readonly supportsPasskeyAutofill: () => Promise<boolean>;
 }): SignInPort {
-  // An autofill request still fetching its options when the button starts
-  // reaches the browser later and aborts the button's prompt (SimpleWebAuthn
-  // keeps one ceremony at a time). Counting them lets the button tell that
-  // abort apart and retry once, which then aborts the autofill instead.
+  // Every unsettled autofill request, whether pending in the browser or still
+  // fetching its options. One still fetching when the button starts reaches
+  // the browser later and aborts the button's prompt (SimpleWebAuthn keeps
+  // one ceremony at a time), so a button aborted while any is in flight
+  // retries once, which then aborts the autofill instead.
   let autofillsInFlight = 0;
   return {
     requestLink: async (email) =>
