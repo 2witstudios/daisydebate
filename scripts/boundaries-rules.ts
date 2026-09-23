@@ -28,7 +28,7 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
   auth: ['errors'],
   errors: [],
   db: ['config', 'errors', 'protocol'],
-  redis: ['config', 'errors'],
+  redis: ['config', 'errors', 'protocol'],
   config: [],
   logger: [],
   observability: ['logger'],

@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import { createId } from '@paralleldrive/cuid2';
 import { createRedis, redisKey } from '../src';
 import { rawClient } from './test-support';
 const url = process.env.TEST_REDIS_URL;
@@ -12,10 +13,10 @@ test('readActorConnections trims members scored in the past, one at a time, dete
   // point relative to now, so the trim is proven by the scores alone. The
   // hashes carry a long TTL throughout, so a read that omits a member must
   // have done so via ZREMRANGEBYSCORE, not because the hash disappeared.
-  const namespace = `test-${crypto.randomUUID().slice(0, 8)}`;
+  const namespace = `test-${createId()}`;
   const redis = createRedis({ url, namespace });
   const raw = await rawClient(url);
-  const actorId = 'crashedActor';
+  const actorId = createId();
   const actorKey = redisKey(namespace, 'presence', 'actor', actorId);
   try {
     await redis.upsertPresenceLease(
@@ -72,15 +73,19 @@ test('readActorConnections trims members scored in the past, one at a time, dete
   }
 });
 
-test('readOnlinePresence trims actors scored in the past', async () => {
+test('readOnlinePresence never returns an actor scored in the past', async () => {
   // Same deterministic technique as the connections read above, applied to
   // the online zset: a ghost actor's lapsed lease is seeded directly, with
-  // no dependency on real time passing.
-  const namespace = `test-${crypto.randomUUID().slice(0, 8)}`;
+  // no dependency on real time passing. readOnlinePresence is now a pure
+  // read (bounded ZRANGEBYSCORE, no ZREM), so the ghost's stale member is
+  // filtered by score, not deleted — proven separately by the sweep test in
+  // presence.integration.ts.
+  const namespace = `test-${createId()}`;
   const redis = createRedis({ url, namespace });
   const raw = await rawClient(url);
   const onlineKey = redisKey(namespace, 'presence', 'online');
-  const liveActorId = 'liveActor';
+  const liveActorId = createId();
+  const ghostActorId = createId();
   try {
     await redis.upsertPresenceLease(
       {
@@ -94,17 +99,17 @@ test('readOnlinePresence trims actors scored in the past', async () => {
     await raw.send('ZADD', [
       onlineKey,
       String(Date.now() - 5_000),
-      'ghostActor',
+      ghostActorId,
     ]);
 
-    const { actors: online } = await redis.readOnlinePresence();
+    const { actors: online } = await redis.readOnlinePresence(100);
     expect(online.map((a) => a.actorId)).toEqual([liveActorId]);
   } finally {
     await redis.deletePresenceLease({
       connId: 'liveConn',
       actorId: liveActorId,
     });
-    await raw.send('ZREM', [onlineKey, 'ghostActor']);
+    await raw.send('ZREM', [onlineKey, ghostActorId]);
     redis.close();
     raw.close();
   }
@@ -113,11 +118,14 @@ test('readOnlinePresence trims actors scored in the past', async () => {
 test('a lease is a real Redis TTL: the hash physically disappears without a delete', async () => {
   // Proves the mandatory TTL is a genuine server-side expiry, not only our
   // own read trim. Checked directly against Redis with a raw client, so
-  // removing the PEXPIRE in the write script would fail this test.
-  const namespace = `test-${crypto.randomUUID().slice(0, 8)}`;
+  // removing the PEXPIRE in the write script would fail this test. Rather
+  // than waiting out the lease's real 3s TTL, a raw PEXPIRE shortens the
+  // hash's expiry to a few milliseconds right after the upsert, so the
+  // physical expiry this test proves happens in well under a second.
+  const namespace = `test-${createId()}`;
   const redis = createRedis({ url, namespace });
   const raw = await rawClient(url);
-  const actorId = 'ttlActor';
+  const actorId = createId();
   const connKey = redisKey(namespace, 'presence', 'conn', 'ttlConn');
   try {
     await redis.upsertPresenceLease(
@@ -131,9 +139,10 @@ test('a lease is a real Redis TTL: the hash physically disappears without a dele
       ),
     ).toEqual(['ttlConn']);
 
-    // A full second of margin over the 3s TTL, so this never depends on a
-    // tight race under host load.
-    await Bun.sleep(4_000);
+    await raw.pexpire(connKey, 50);
+    // A wide margin over the 50 ms PEXPIRE, so this never depends on a
+    // tight race under host load, while staying far below the original 3s.
+    await Bun.sleep(200);
 
     // Independent of our own read/trim logic: the hash is simply gone.
     expect(await raw.exists(connKey)).toBe(false);
@@ -143,20 +152,23 @@ test('a lease is a real Redis TTL: the hash physically disappears without a dele
     redis.close();
     raw.close();
   }
-}, 15_000);
+});
 
 test('refresh on an already-expired lease reports refreshed: false rather than reviving it', async () => {
-  const namespace = `test-${crypto.randomUUID().slice(0, 8)}`;
+  const namespace = `test-${createId()}`;
   const redis = createRedis({ url, namespace });
-  const actorId = 'staleActor';
+  const raw = await rawClient(url);
+  const actorId = createId();
+  const connKey = redisKey(namespace, 'presence', 'conn', 'staleConn');
   try {
     await redis.upsertPresenceLease(
       { connId: 'staleConn', actorId, instanceId: 'inst1', activity: 'active' },
       3,
     );
-    // A full second of margin over the 3s TTL, so this never depends on a
-    // tight race under host load.
-    await Bun.sleep(4_000);
+    await raw.pexpire(connKey, 50);
+    // A wide margin over the 50 ms PEXPIRE, so this never depends on a
+    // tight race under host load, while staying far below the original 3s.
+    await Bun.sleep(200);
 
     const result = await redis.refreshPresenceLease(
       { connId: 'staleConn', actorId },
@@ -168,22 +180,25 @@ test('refresh on an already-expired lease reports refreshed: false rather than r
   } finally {
     await redis.deletePresenceLease({ connId: 'staleConn', actorId });
     redis.close();
+    raw.close();
   }
-}, 10_000);
+});
 
 test('readActorConnections drops a record whose hash names a different actor than requested', async () => {
   // The zset is scoped per actor and server-minted cuid2 connIds make this
   // unlikely in practice, but the read must not trust the zset alone: it
   // checks the hydrated hash's own actorId field before returning a record.
-  const namespace = `test-${crypto.randomUUID().slice(0, 8)}`;
+  const namespace = `test-${createId()}`;
   const redis = createRedis({ url, namespace });
   const raw = await rawClient(url);
+  const p1 = createId();
+  const p2 = createId();
   try {
     // A real lease that legitimately belongs to actor p2.
     await redis.upsertPresenceLease(
       {
         connId: 'shared',
-        actorId: 'p2',
+        actorId: p2,
         instanceId: 'inst1',
         activity: 'active',
       },
@@ -192,21 +207,19 @@ test('readActorConnections drops a record whose hash names a different actor tha
     // Directly (bypassing our API) score that same connId into p1's actor
     // zset too, simulating a stale or corrupted cross-reference.
     await raw.send('ZADD', [
-      redisKey(namespace, 'presence', 'actor', 'p1'),
+      redisKey(namespace, 'presence', 'actor', p1),
       String(Date.now() + 60_000),
       'shared',
     ]);
 
-    const { connections: p1Connections } =
-      await redis.readActorConnections('p1');
+    const { connections: p1Connections } = await redis.readActorConnections(p1);
     expect(p1Connections).toEqual([]);
     // p2's own read is unaffected.
-    const { connections: p2Connections } =
-      await redis.readActorConnections('p2');
+    const { connections: p2Connections } = await redis.readActorConnections(p2);
     expect(p2Connections.map((c) => c.connId)).toEqual(['shared']);
   } finally {
-    await redis.deletePresenceLease({ connId: 'shared', actorId: 'p2' });
-    await raw.del(redisKey(namespace, 'presence', 'actor', 'p1'));
+    await redis.deletePresenceLease({ connId: 'shared', actorId: p2 });
+    await raw.del(redisKey(namespace, 'presence', 'actor', p1));
     redis.close();
     raw.close();
   }
@@ -229,11 +242,11 @@ test('a delete never propagates a stale leftover member into the online zset', a
   // own recreation would carry only a 1 ms clamped expiry (arm() clamps
   // any past score's ttl to 1 ms) — that races Redis's lazy expiry and
   // measured 4 of 8 failures under this exact mutation.
-  const namespace = `test-${crypto.randomUUID().slice(0, 8)}`;
+  const namespace = `test-${createId()}`;
   const redis = createRedis({ url, namespace });
   const raw = await rawClient(url);
-  const actorId = 'duplicateDeleteActor';
-  const neighborActorId = 'duplicateDeleteNeighbor';
+  const actorId = createId();
+  const neighborActorId = createId();
   const actorKey = redisKey(namespace, 'presence', 'actor', actorId);
   const onlineKey = redisKey(namespace, 'presence', 'online');
   try {
@@ -280,14 +293,13 @@ test('a delete never propagates a stale leftover member into the online zset', a
     // neighborActor, so this cannot race a physical expiry) must not carry
     // this actor's member at all, stale score or not.
     expect(await raw.send('ZSCORE', [onlineKey, actorId])).toBeNull();
-    // Contract coverage, not the oracle above: readOnlinePresence() runs
-    // its own score-based trim before returning, so a stale member is
-    // filtered out here regardless of whether the delete script's purge
-    // ran — this cannot fail under the mutation this test targets, but it
-    // does prove the actor's own connections stay absent from the public
-    // read.
+    // Contract coverage, not the oracle above: readOnlinePresence() filters
+    // by score before returning, so a stale member is filtered out here
+    // regardless of whether the delete script's purge ran — this cannot
+    // fail under the mutation this test targets, but it does prove the
+    // actor's own connections stay absent from the public read.
     expect(
-      (await redis.readOnlinePresence()).actors.some(
+      (await redis.readOnlinePresence(100)).actors.some(
         (actor) => actor.actorId === actorId,
       ),
     ).toBe(false);
@@ -310,15 +322,21 @@ test('a delete never propagates a stale leftover member into the online zset', a
 });
 
 test('presence reads and writes reject invalid ids, activity and TTLs before touching Redis', async () => {
-  const namespace = `test-${crypto.randomUUID().slice(0, 8)}`;
+  const namespace = `test-${createId()}`;
   const redis = createRedis({ url, namespace });
+  const validActorId = createId();
   try {
     await expect(redis.readActorConnections('not a valid id!')).rejects.toThrow(
       'Invalid actorId',
     );
     await expect(
       redis.upsertPresenceLease(
-        { connId: 'ok', actorId: 'ok', instanceId: 'ok', activity: 'active' },
+        {
+          connId: 'ok',
+          actorId: validActorId,
+          instanceId: 'ok',
+          activity: 'active',
+        },
         0,
       ),
     ).rejects.toThrow('TTL must be a positive integer');
@@ -326,7 +344,7 @@ test('presence reads and writes reject invalid ids, activity and TTLs before tou
       redis.upsertPresenceLease(
         {
           connId: 'ok',
-          actorId: 'ok',
+          actorId: validActorId,
           instanceId: 'ok',
           // @ts-expect-error deliberately invalid at the runtime boundary
           activity: 'sleeping',

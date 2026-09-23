@@ -444,3 +444,54 @@ also creates the realtime role), `presence_visibility` (RT-3.2b), rules
   subscription cap per socket bounds the work.
 - The PageSpace record is "Plan — realtime, presence and disconnect rules"
   (sections G and H) in Plans → Realtime and presence.
+
+## Amendment (2026-09-23): single-node Redis, bounded reads, EVALSHA
+
+ISSUE-8's repository audit (AC6) found the presence Lua scripts building
+connection-hash key names inside the script (`ARGV[2] .. connId`, in the
+per-actor connections read) rather than declaring every key through `KEYS`,
+and asked to either fix that or document why not.
+
+**Decision: keep the design, on ADR 0008's existing single-node assumption.**
+ADR 0008 already settles this — "no Sentinel/Cluster support in the native
+client" — and `@daisy/redis`'s README says the same. `KEYS` only has to
+enumerate every key up front for Redis Cluster's client-side slot routing;
+on one node, a script may address any key it can name, computed or not, and
+Lua's own `redis.call` never cares which array it came from. A per-actor
+connections read cannot size its `KEYS` array ahead of time anyway (it does
+not know how many live connections an actor has until it ranges the zset),
+so passing every hash key through `KEYS` here would mean a client round
+trip to range the zset before the read, which reintroduces exactly the
+non-atomicity (a lease could upsert or delete between the two calls) the
+one-op read design exists to avoid. If a Cluster deployment is ever adopted,
+that is its own ADR (per ADR 0008) and this script is redesigned around
+hash tags then, not defended in place.
+
+**`readOnlinePresence` takes a mandatory `limit` and no longer trims on
+read.** The `online` key is a single global sorted set every actor sits in,
+so an unbounded read scales with total actors ever online, not with what a
+caller actually needs; a read that also `ZREMRANGEBYSCORE`d gave every
+reader a side effect on shared state. The read is now a bounded, read-only
+`ZRANGEBYSCORE ... LIMIT`, filtering expired members by score without
+deleting them. A new `sweepOnlinePresence(limit)` op does the bounded
+trimming instead, run on its own schedule (a periodic sweep), not implied
+by a read.
+
+**Every presence script loads once and runs by `EVALSHA`.** Each of the
+five scripts is `SCRIPT LOAD`ed the first time `createPresenceOperations`
+uses it and cached by its source; every call after that sends only the
+SHA1 and arguments, reloading and retrying exactly once on `NOSCRIPT`
+(e.g. after a restart or `SCRIPT FLUSH`).
+
+**`activity` and `actorId` are parsed with `@daisy/protocol` schemas.**
+`presenceActivitySchema` (now exported) replaces the hand-rolled
+`activity === 'active' || activity === 'idle'` check, on both the write
+path and when hydrating a read. `actorId` is parsed with `idSchema`
+(cuid2) rather than the generic Redis-key-segment shape, since an actor id
+is a domain identifier, not an arbitrary safe string; `connId` and
+`instanceId` stay on the generic key-segment check, since they are
+server-minted labels rather than domain ids. `packages/redis` may now
+depend on `@daisy/protocol` (`scripts/boundaries-rules.ts`,
+`docs/architecture/overview.md`) for exactly this: it reuses the vocabulary
+the socket protocol already owns instead of maintaining a second, looser
+copy of it.

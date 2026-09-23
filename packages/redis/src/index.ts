@@ -1,5 +1,7 @@
 import { RedisClient } from 'bun';
 import { createPresenceOperations } from './presence';
+import { redisKey } from './redis-key';
+export { redisKey } from './redis-key';
 export type {
   PresenceActivity,
   PresenceConnection,
@@ -32,15 +34,6 @@ export type RateLimitRule = {
   readonly windowSeconds: number;
   readonly max: number;
 };
-export function redisKey(namespace: string, ...segments: string[]): string {
-  if (
-    ![namespace, ...segments].every((segment) =>
-      /^[a-zA-Z0-9_-]{1,100}$/.test(segment),
-    )
-  )
-    throw new Error('Invalid Redis key segment');
-  return [namespace, 'v1', ...segments].join(':');
-}
 export function createRedis({
   url,
   namespace,
@@ -133,7 +126,7 @@ export function createRedis({
         throw error;
       }
     },
-    ...createPresenceOperations({ client, namespace, redisKey, reportFailure }),
+    ...createPresenceOperations({ client, namespace, reportFailure }),
     close() {
       client.close();
     },
