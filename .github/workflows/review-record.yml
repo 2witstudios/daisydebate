@@ -30,6 +30,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     environment: review-record
+    # checkout reads main; statuses are written with the App token, not this one.
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
