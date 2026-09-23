@@ -122,10 +122,14 @@ problem than the FK it would need to relax. This is not a PII exposure:
 surfaced by a public route — every public and engine-facing identifier is
 the actor id, never `user_id` — and the `users` row it points at is itself
 already scrubbed to no personal fields by the same transaction. Reopening
-that linkage model is ADR 0029's decision to revisit, not PRIV-1's; this
-ADR only states that the retained link, being between two PII-free rows
-and never exposed, does not itself need a privacy inventory entry beyond
-what ADR 0029 already covers.
+that linkage model is ADR 0029's decision to revisit, not PRIV-1's. Per §3,
+`actors.user_id` still gets its own inventory entry like any other
+column — category `identifier` (never `personal`, so no `visibility`),
+purpose "human actor ↔ account linkage", storage `postgres`, owner
+`competitive`, retention `account-lifetime`, erasure `retain` (PRIV-3
+classifies it, it is not exempt from the gate) — the point above is only
+that the _link itself_, being between two PII-free rows and never exposed,
+is not a PII exposure requiring erasure `delete`/`anonymize`.
 
 **Vendor erasure is durable and asynchronous, never inline with local
 erasure.** In the same local-erasure transaction, one `privacy_jobs` row is
