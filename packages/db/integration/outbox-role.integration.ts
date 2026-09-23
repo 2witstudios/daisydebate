@@ -1,5 +1,4 @@
 import { SQL } from 'bun';
-import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 
 setupRitewayBun();
@@ -14,11 +13,12 @@ if (!new URL(url).pathname.endsWith('_test'))
 
 /**
  * `daisy_realtime` (RT-2.2 migration 0004) is created without a password:
- * production sets its runtime credential out of band. This test owns its
- * own throwaway credential lifecycle so it never depends on, or commits,
- * a real one.
+ * production sets its runtime credential out of band. Roles are
+ * cluster-wide and every checkout's slot shares one cluster (ADR 0034), so
+ * this test never sets a password on it: a dedicated single-connection
+ * session switches to the role with SET ROLE, which drops the admin's
+ * superuser rights and checks every statement against the role's grants.
  */
-const TEST_PASSWORD = `outbox-role-test-${createId()}`;
 
 const rejected = async (attempt: () => Promise<unknown>) => {
   try {
@@ -30,16 +30,17 @@ const rejected = async (attempt: () => Promise<unknown>) => {
 };
 
 test('the realtime role can only select the outbox and authorization read models, column-scoped on actors and session; any other write is refused', async () => {
-  const admin = new SQL(url, { max: 1 });
   let realtime: SQL | undefined;
   try {
-    await admin.unsafe(
-      `ALTER ROLE daisy_realtime LOGIN PASSWORD '${TEST_PASSWORD}'`,
-    );
-    const realtimeUrl = new URL(url);
-    realtimeUrl.username = 'daisy_realtime';
-    realtimeUrl.password = TEST_PASSWORD;
-    realtime = new SQL(realtimeUrl.toString(), { max: 1 });
+    realtime = new SQL(url, { max: 1 });
+    await realtime.unsafe('SET ROLE daisy_realtime');
+    const [session] = await realtime.unsafe('select current_user as role');
+    assert({
+      given: 'the dedicated session after SET ROLE',
+      should: 'run every statement as daisy_realtime',
+      actual: session?.role,
+      expected: 'daisy_realtime',
+    });
 
     const selectOutbox = await rejected(() =>
       realtime!.unsafe('select seq from outbox limit 1'),
@@ -144,7 +145,5 @@ test('the realtime role can only select the outbox and authorization read models
     });
   } finally {
     await realtime?.close();
-    await admin.unsafe('ALTER ROLE daisy_realtime PASSWORD NULL');
-    await admin.close();
   }
 });
