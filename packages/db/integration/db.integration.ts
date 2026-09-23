@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { createDatabase } from '../src';
+import { createTestOnlyOperations } from '../src/test-only-operations';
 const url = process.env.TEST_DATABASE_URL;
 if (!url)
   throw new Error(
@@ -16,9 +17,10 @@ test('durable records survive reconnect; optimistic writes reject stale updates'
   const formatId = `fmt-${createId()}`;
   const database = createDatabase({ url, nextActorId: createId });
   const fixture = new SQL(url);
+  const testOnly = createTestOnlyOperations({ client: fixture });
   try {
     expect(await database.health()).toBe(true);
-    await database.createUser({ id: userId, username: `test-${userId}` });
+    await testOnly.createUser({ id: userId, username: `test-${userId}` });
     // Competitive rows reference actors, and formats are a reference table;
     // neither has an adapter writer yet (ADR 0029), so the fixture inserts them.
     await fixture`insert into actors (id, kind, user_id) values (${actorId}, 'human', ${userId})`;
@@ -44,7 +46,7 @@ test('durable records survive reconnect; optimistic writes reject stale updates'
       ]);
       const outcomes = await Promise.all(
         [1, 2].map((value) =>
-          reopened.saveSnapshot({
+          testOnly.saveSnapshot({
             id,
             expectedVersion: 1,
             snapshot: { value, phase: 'active' },

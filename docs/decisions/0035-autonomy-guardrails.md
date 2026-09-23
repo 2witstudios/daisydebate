@@ -156,6 +156,13 @@ and only code running from `main` can use its key.
   runs PR code. It mints an App token with `create-github-app-token`
   (SHA-pinned) and runs `scripts/review-record.ts`.
 
+  A `gate` job runs first, in the same environment. Until the App id and
+  key exist (GRD-6.2), it prints the notice "review App not configured
+  (GRD-6.2)" and the verify job is skipped, instead of failing red on
+  every PR. Once both exist, verify runs and enforces as described below.
+  The gate never sets a status, so nothing reports success without a
+  verified record.
+
 - **The verification**, a pure function (`verifyReviewRecord`). The
   verifier reads the PageSpace pages linked from the PR body and comments,
   then:

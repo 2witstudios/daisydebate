@@ -1,6 +1,7 @@
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql';
 import { eq } from 'drizzle-orm';
 import { actors } from './schema/actors';
+import { instrumented, type DatabaseEventSink } from './instrumented';
 
 export type ActorRecord = {
   readonly id: string;
@@ -30,17 +31,14 @@ export const queryActorByUserId = async (
 
 export const actorOperations = ({
   database,
-  reportFailure,
+  eventSink,
 }: {
-  database: BunSQLDatabase;
-  reportFailure: (operation: string) => void;
+  readonly database: BunSQLDatabase;
+  readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   async getActorByUserId(userId: string): Promise<ActorRecord | null> {
-    try {
-      return await queryActorByUserId(database, userId);
-    } catch (error) {
-      reportFailure('getActorByUserId');
-      throw error;
-    }
+    return instrumented(eventSink, 'getActorByUserId', () =>
+      queryActorByUserId(database, userId),
+    );
   },
 });

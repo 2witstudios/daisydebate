@@ -3,6 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createDatabase } from '../src';
 import { appendOutboxEvent } from '../src/outbox';
+import { createTestOnlyOperations } from '../src/test-only-operations';
 
 setupRitewayBun();
 
@@ -31,8 +32,9 @@ test('createDebate and saveSnapshot store snapshot as a real jsonb object, not a
   const formatId = `fmt-${createId()}`;
   const database = createDatabase({ url, nextActorId: createId });
   const fixture = new SQL(url);
+  const testOnly = createTestOnlyOperations({ client: fixture });
   try {
-    await database.createUser({ id: userId, username: `test-${userId}` });
+    await testOnly.createUser({ id: userId, username: `test-${userId}` });
     await fixture`insert into actors (id, kind, user_id) values (${actorId}, 'human', ${userId})`;
     await fixture`insert into formats (id, name, rules, ranked_eligible) values (${formatId}, 'Fixture', '{"version":1,"seats":{"affirmative":1,"negative":1,"judge":0},"clock":{"speechMs":1000,"prepMs":0}}'::jsonb, false)`;
     await database.createDebate({
@@ -48,7 +50,7 @@ test('createDebate and saveSnapshot store snapshot as a real jsonb object, not a
       select jsonb_typeof(snapshot) as type, snapshot->>'phase' as phase
       from debates where id = ${id}
     `;
-    await database.saveSnapshot({
+    await testOnly.saveSnapshot({
       id,
       expectedVersion: 1,
       snapshot: { version: 1, id, phase: 'active' },
@@ -85,12 +87,12 @@ test('createDebate and saveSnapshot store snapshot as a real jsonb object, not a
 });
 
 test('appendOutboxEvent stores payload as a real jsonb object, not a double-encoded string', async () => {
-  const database = createDatabase({ url, nextActorId: createId });
   const fixture = new SQL(url);
+  const testOnly = createTestOnlyOperations({ client: fixture });
   const debateId = createId();
   const topic = `debate:${debateId}`;
   try {
-    await database.transaction((tx) =>
+    await testOnly.transaction((tx) =>
       appendOutboxEvent(tx, {
         topic,
         kind: 'debate.phase-changed',
@@ -109,7 +111,6 @@ test('appendOutboxEvent stores payload as a real jsonb object, not a double-enco
       expected: { type: 'object', kind: 'debate.phase-changed' },
     });
   } finally {
-    await database.close();
     await fixture`delete from outbox where topic = ${topic}`;
     await fixture.close();
   }

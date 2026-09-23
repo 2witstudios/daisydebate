@@ -1,10 +1,11 @@
 import { expect, test } from 'bun:test';
+import { createId } from '@paralleldrive/cuid2';
 import { createRedis } from '../src';
 const url = process.env.TEST_REDIS_URL;
 if (!url) throw new Error('TEST_REDIS_URL required');
 
 test('ephemeral namespace roundtrip and cleanup', async () => {
-  const redis = createRedis({ url, namespace: `test-${crypto.randomUUID()}` });
+  const redis = createRedis({ url, namespace: `test-${createId()}` });
   try {
     expect(await redis.health()).toBe(true);
     await redis.setEphemeral('proof', 'value', 60);
@@ -17,7 +18,7 @@ test('ephemeral namespace roundtrip and cleanup', async () => {
   }
 });
 test('rate limit admits exactly max across concurrent instances and expires atomically', async () => {
-  const namespace = `test-${crypto.randomUUID().slice(0, 8)}`;
+  const namespace = `test-${createId()}`;
   // Two clients stand in for two application instances sharing one Redis.
   const instances = [
     createRedis({ url, namespace }),

@@ -7,6 +7,8 @@ import {
   type DebateOutcome,
   type DebateVisibility,
 } from './index';
+import { createTestOnlyOperations } from './test-only-operations';
+import type { DatabaseEventSink } from './instrumented';
 
 type RecordedQuery = { query: string; params: unknown[] };
 /**
@@ -80,13 +82,21 @@ export const createTestDatabase = (
   events: SinkEvent[] = [],
 ) => {
   const { client, queries } = fakeSql(script);
-  const database = createDatabase({
-    url: 'postgresql://unit:unit@127.0.0.1:1/unit',
-    eventSink: (event, fields, message) =>
-      events.push({ event, fields, message }),
-    client,
-    nextActorId: createId,
-  });
+  const eventSink: DatabaseEventSink = (event, fields, message) =>
+    events.push({ event, fields, message });
+  const database = {
+    ...createDatabase({
+      url: 'postgresql://unit:unit@127.0.0.1:1/unit',
+      eventSink,
+      client,
+      nextActorId: createId,
+    }),
+    // Test-only surface (ISSUE-8 AC1): `transaction`, `createUser` and
+    // `saveSnapshot` have no production consumer, so `createDatabase()`
+    // never returns them; this composes them in for this package's own
+    // unit tests only.
+    ...createTestOnlyOperations({ client, eventSink }),
+  };
   return { database, queries };
 };
 

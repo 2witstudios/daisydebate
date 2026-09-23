@@ -42,6 +42,52 @@ type TaskList = {
   readonly availableStatuses: readonly { readonly slug: string }[];
 };
 
+/** One page of GET /api/pages/:id/tasks, as the PageSpace server returns it. */
+type TasksPage = {
+  readonly tasks: readonly {
+    readonly id: string;
+    readonly pageId: string;
+    readonly status: string;
+    readonly title?: string;
+  }[];
+  readonly statusConfigs?: readonly { readonly slug: string }[];
+  readonly hasMore?: boolean;
+};
+
+const TASKS_PAGE_SIZE = 200;
+
+/**
+ * A whole task list from the REST API: statuses come from statusConfigs
+ * (the CLI calls them availableStatuses), and tasks from every page, since
+ * the server returns at most `limit` per request and reports hasMore.
+ */
+export async function readTaskList(
+  fetchPage: (offset: number) => Promise<TasksPage>,
+): Promise<TaskList & { readonly titles: readonly string[] }> {
+  const tasks: TasksPage['tasks'][number][] = [];
+  let statuses: readonly { readonly slug: string }[] = [];
+  // Advance by the rows received: a server may cap a page below the limit.
+  for (let offset = 0; ;) {
+    const page = await fetchPage(offset);
+    if (offset === 0) statuses = page.statusConfigs ?? [];
+    tasks.push(...page.tasks);
+    if (!page.hasMore || page.tasks.length === 0) break;
+    offset += page.tasks.length;
+  }
+  return {
+    tasks,
+    availableStatuses: statuses.map(({ slug }) => ({ slug })),
+    titles: tasks.map((task) => task.title ?? ''),
+  };
+}
+
+const tasksOf = (listId: string) =>
+  readTaskList((offset) =>
+    pagespace<TasksPage>(
+      `/api/pages/${listId}/tasks?limit=${TASKS_PAGE_SIZE}&offset=${offset}`,
+    ),
+  );
+
 export type FollowupDeps = {
   readonly cutoff: string | null;
   readonly drivePages: () => Promise<readonly PageNode[]>;
@@ -168,7 +214,7 @@ function liveDeps(repository: string, cutoff: string | null): FollowupDeps {
       pagespace<readonly PageNode[]>(
         `/api/drives/${DAISY_DEBATE_DRIVE_ID}/pages`,
       ),
-    listTasks: (listId) => pagespace<TaskList>(`/api/pages/${listId}/tasks`),
+    listTasks: tasksOf,
     createStatus: async (listId) => {
       await pagespace(
         `/api/pages/${listId}/tasks/statuses`,
@@ -185,12 +231,7 @@ function liveDeps(repository: string, cutoff: string | null): FollowupDeps {
         json('PATCH', { status }),
       );
     },
-    issueTitles: async () =>
-      (
-        await pagespace<{ tasks: { title: string }[] }>(
-          `/api/pages/${ISSUES_LIST_ID}/tasks`,
-        )
-      ).tasks.map((task) => task.title),
+    issueTitles: async () => (await tasksOf(ISSUES_LIST_ID)).titles,
     createIssue: async (title, criteria, related) => {
       const task = await pagespace<{ pageId?: string; page?: { id: string } }>(
         `/api/pages/${ISSUES_LIST_ID}/tasks`,
