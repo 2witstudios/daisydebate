@@ -303,3 +303,52 @@ describe('ISSUE-5 AC6 passkey add/remove security notifications', () => {
     });
   });
 });
+
+describe('ISSUE-53 passkey notices are sent only for a completed change', () => {
+  const mailsTo = (...addresses: string[]) =>
+    flows.account.flows.mailbox.mails.filter((mail) =>
+      addresses.includes(mail.to),
+    ).length;
+
+  test('a failed registration sends no notice', async () => {
+    const erin = await signUp();
+    const before = mailsTo(erin.email);
+    const { verifyResponse } = await flows.enrollPasskey(erin.cookie, {
+      name: 'Forged origin key',
+      badOrigin: 'https://evil.example',
+    });
+    assert({
+      given:
+        'a real /passkey/verify-registration whose attestation names a foreign origin',
+      should: 'refuse the registration and send the account no notice',
+      actual: {
+        verified: verifyResponse.ok,
+        stored: await passkeyCount(erin.email),
+        notices: mailsTo(erin.email) - before,
+      },
+      expected: { verified: false, stored: 0, notices: 0 },
+    });
+  });
+
+  test("removing another account's credential sends no notice to either", async () => {
+    const frank = await signUp();
+    const grace = await signUp();
+    await flows.enrollPasskey(frank.cookie, { name: 'Frank laptop' });
+    const [row] = (await (await flows.listPasskeys(frank.cookie)).json()) as {
+      id: string;
+    }[];
+    const before = mailsTo(frank.email, grace.email);
+    const removed = await flows.deletePasskey(grace.cookie, row!.id);
+    assert({
+      given: "grace deleting frank's credential id through the real endpoint",
+      should:
+        "refuse it, keep frank's passkey and send no passkey-removed notice to anyone",
+      actual: {
+        removed: removed.ok,
+        stillStored: await passkeyCount(frank.email),
+        notices: mailsTo(frank.email, grace.email) - before,
+      },
+      expected: { removed: false, stillStored: 1, notices: 0 },
+    });
+  });
+});
