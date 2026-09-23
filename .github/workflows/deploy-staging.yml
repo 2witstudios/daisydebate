@@ -21,24 +21,35 @@ jobs:
     name: Deploy main to daisy-debate-staging
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    # CI also runs on pull_request, so a PR whose source branch is named
+    # "main" would satisfy the branches filter: require the run to come from
+    # a push to this repository's main, never from a PR head.
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.head_branch == 'main')
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     env:
-      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      # The commit CI verified, used for checkout AND the image metadata so
+      # the deployed source and its stamped version can never diverge
+      # (GITHUB_SHA is the default-branch tip at run time, not this commit).
+      DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
       - uses: actions/checkout@v7
         with:
-          # Deploy exactly the commit CI verified, not whatever main is now.
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ env.DEPLOY_SHA }}
           persist-credentials: false
       - uses: superfly/flyctl-actions/setup-flyctl@v1
       - name: Deploy
+        # The deploy token is scoped to this one step, not the job, so the
+        # checkout and setup actions never see it.
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: >-
           flyctl deploy -a daisy-debate-staging --remote-only --ha=false
-          --build-arg APP_VERSION="${GITHUB_SHA::7}"
-          --build-arg GIT_COMMIT="$GITHUB_SHA"
+          --build-arg APP_VERSION="${DEPLOY_SHA::7}"
+          --build-arg GIT_COMMIT="$DEPLOY_SHA"
       - name: Verify readiness
         run: |
           for attempt in 1 2 3 4 5 6; do
