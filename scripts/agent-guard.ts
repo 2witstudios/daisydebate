@@ -236,21 +236,35 @@ async function hook(): Promise<void> {
   if (response) process.stdout.write(`${JSON.stringify(response)}\n`);
 }
 
+/**
+ * What the owner's answer at the pre-push prompt means. Exit 3: there is no
+ * terminal (a tool push already passed the Claude hook's ask), so it goes
+ * through. Exit 4: input ended (Ctrl-D) without an answer, so it does not.
+ */
+export function terminalAnswer(
+  exitCode: number | null,
+  text: string,
+): 'push' | 'cancel' | 'no-terminal' {
+  if (exitCode === 3) return 'no-terminal';
+  if (exitCode !== 0) return 'cancel';
+  return /^y(?:es)?$/i.test(text.trim()) ? 'push' : 'cancel';
+}
+
 function askOnTerminal(question: string): boolean {
   const answer = Bun.spawnSync(
     [
       'sh',
       '-c',
-      'printf "%s [y/N] " "$1" > /dev/tty && read -r a < /dev/tty && printf "%s" "$a"',
+      'exec 3<>/dev/tty 2>/dev/null || exit 3; printf "%s [y/N] " "$1" >&3; IFS= read -r a <&3 || exit 4; printf "%s" "$a"',
       'ask',
       question,
     ],
     { stdout: 'pipe', stderr: 'ignore' },
   );
-  // No terminal to ask on: an owner push from a tool already passed the
-  // Claude hook's ask, so it goes through.
-  if (answer.exitCode !== 0) return true;
-  return /^y(?:es)?$/i.test(answer.stdout.toString().trim());
+  const meaning = terminalAnswer(answer.exitCode, answer.stdout.toString());
+  if (meaning === 'no-terminal')
+    process.stderr.write('pre-push: no terminal to ask on; pushing.\n');
+  return meaning !== 'cancel';
 }
 
 async function prePush(): Promise<void> {

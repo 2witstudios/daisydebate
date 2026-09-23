@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { classifyPush, hookResponse } from './agent-guard';
+import { classifyPush, hookResponse, terminalAnswer } from './agent-guard';
 import { decide, facts, main, owner } from './agent-guard.test-support';
 
 setupRitewayBun();
@@ -260,6 +260,23 @@ describe('agent guard: pre-push refs', () => {
         ).decision,
       ],
       expected: ['allow', 'ask'],
+    });
+  });
+});
+
+describe('agent guard: the owner prompt in pre-push', () => {
+  test('pushes only on yes, and passes through only when no terminal exists', () => {
+    assert({
+      given: 'yes, a bare Enter, Ctrl-D (end of input), and no terminal at all',
+      should:
+        'push on yes, cancel on Enter and Ctrl-D, allow without a terminal',
+      actual: [
+        terminalAnswer(0, 'y'),
+        terminalAnswer(0, ''),
+        terminalAnswer(4, ''),
+        terminalAnswer(3, ''),
+      ],
+      expected: ['push', 'cancel', 'cancel', 'no-terminal'],
     });
   });
 });
