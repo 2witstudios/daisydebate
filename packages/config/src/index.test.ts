@@ -1,6 +1,11 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { readAuthConfig, readBrowserConfig, readServerConfig } from './index';
+import {
+  readAuthConfig,
+  readBrowserConfig,
+  readServerConfig,
+  readTestConfig,
+} from './index';
 
 setupRitewayBun();
 
@@ -281,5 +286,30 @@ describe('authentication configuration', () => {
       actual: message.includes('RESEND_WEBHOOK_SECRET'),
       expected: true,
     });
+  });
+});
+
+describe('test configuration', () => {
+  const testEnv = {
+    TEST_DATABASE_URL: 'postgres://user:secret@localhost:5432/daisy_test',
+    TEST_REDIS_URL: 'redis://localhost:6379',
+  };
+
+  test('validates a database URL ending in _test', () => {
+    assert({
+      given: 'a test database URL ending in _test',
+      should: 'validate and expose both URLs',
+      actual: readTestConfig(testEnv),
+      expected: testEnv,
+    });
+  });
+
+  test('rejects a database URL not ending in _test', () => {
+    expect(() =>
+      readTestConfig({
+        ...testEnv,
+        TEST_DATABASE_URL: testEnv.TEST_DATABASE_URL.replace('_test', ''),
+      }),
+    ).toThrow('Test database must end in _test');
   });
 });

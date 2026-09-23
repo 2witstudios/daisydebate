@@ -145,6 +145,13 @@ export function createLogger({
   const options = {
     level,
     base: { service, appVersion, gitCommit },
+    // sanitize() already flattens and redacts any `err`-named field through
+    // deepRedact; pino's own default `err` serializer would otherwise
+    // re-process that already-flattened plain object as if it were still a
+    // live Error, folding its (already-redacted) `cause` back into a new
+    // `message` string outside deepRedact's control. A passthrough keeps
+    // sanitize() the single place that shape is decided.
+    serializers: { err: (value: unknown) => value },
   };
   const instance = destination ? pino(options, destination) : pino(options);
   const wrap = (logger: pino.Logger): Logger => ({
