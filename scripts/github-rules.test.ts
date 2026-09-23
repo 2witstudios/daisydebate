@@ -58,15 +58,21 @@ describe('the committed main ruleset', () => {
     });
   });
 
-  test('lists only the owner as bypass actor and enables auto-merge and branch deletion', () => {
+  test('lists only the owner as bypass actor, enables auto-merge and branch deletion, and allows merge commits only', () => {
     assert({
       given: 'the committed settings',
       should:
-        'bypass only for the repository admin role and turn both settings on',
+        'bypass only for the repository admin role, turn both settings on, and pin merge commits as the only merge method',
       actual: [ruleset.bypass_actors, config.settings],
       expected: [
         [{ actor_id: 5, actor_type: 'RepositoryRole', bypass_mode: 'always' }],
-        { allow_auto_merge: true, delete_branch_on_merge: true },
+        {
+          allow_auto_merge: true,
+          delete_branch_on_merge: true,
+          allow_merge_commit: true,
+          allow_squash_merge: false,
+          allow_rebase_merge: false,
+        },
       ],
     });
   });
@@ -87,9 +93,13 @@ describe('diffValues', () => {
 });
 
 describe('planRules', () => {
+  // Live today: every merge method on, auto-merge and branch deletion off.
   const liveSettings = {
     allow_auto_merge: false,
     delete_branch_on_merge: false,
+    allow_merge_commit: true,
+    allow_squash_merge: true,
+    allow_rebase_merge: true,
   };
 
   test('plans creating the ruleset and fixing settings on a bare repository', () => {
@@ -99,7 +109,7 @@ describe('planRules', () => {
       live: { ruleset: undefined, settings: liveSettings },
     });
     assert({
-      given: 'no ruleset and both settings off',
+      given: 'no ruleset, both settings off and squash and rebase allowed',
       should: 'plan a create and a settings patch, with the diff',
       actual: [
         plan.actions,
@@ -110,6 +120,8 @@ describe('planRules', () => {
         [
           '~ settings.allow_auto_merge: false → true',
           '~ settings.delete_branch_on_merge: false → true',
+          '~ settings.allow_squash_merge: true → false',
+          '~ settings.allow_rebase_merge: true → false',
         ],
       ],
     });
