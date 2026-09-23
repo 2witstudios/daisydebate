@@ -63,15 +63,16 @@ const TASKS_PAGE_SIZE = 200;
  */
 export async function readTaskList(
   fetchPage: (offset: number) => Promise<TasksPage>,
-  pageSize = TASKS_PAGE_SIZE,
 ): Promise<TaskList & { readonly titles: readonly string[] }> {
   const tasks: TasksPage['tasks'][number][] = [];
   let statuses: readonly { readonly slug: string }[] = [];
-  for (let offset = 0; ; offset += pageSize) {
+  // Advance by the rows received: a server may cap a page below the limit.
+  for (let offset = 0; ;) {
     const page = await fetchPage(offset);
     if (offset === 0) statuses = page.statusConfigs ?? [];
     tasks.push(...page.tasks);
     if (!page.hasMore || page.tasks.length === 0) break;
+    offset += page.tasks.length;
   }
   return {
     tasks,

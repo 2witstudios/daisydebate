@@ -207,7 +207,7 @@ describe('reading the live PageSpace tasks API', () => {
     const list = await readTaskList(async (offset) => {
       offsets.push(offset);
       return pages[offsets.length - 1];
-    }, 1);
+    });
     assert({
       given: 'two pages of one task each and the list statuses on the first',
       should:
@@ -222,6 +222,27 @@ describe('reading the live PageSpace tasks API', () => {
         ['in_review', 'completed'],
         [0, 1],
       ],
+    });
+  });
+
+  test('advances by the rows received when the server caps below the request', async () => {
+    // The follow-up asks for 200 per page; a deployed server caps at 2.
+    const rows = ['t1', 't2', 't3', 't4', 't5'];
+    const offsets: number[] = [];
+    const list = await readTaskList(async (offset) => {
+      offsets.push(offset);
+      const slice = rows.slice(offset, offset + 2);
+      return {
+        tasks: slice.map((id) => ({ id, pageId: id, status: 'pending' })),
+        statusConfigs: [],
+        hasMore: offset + 2 < rows.length,
+      };
+    });
+    assert({
+      given: 'five tasks served two at a time although 200 were requested',
+      should: 'fetch offsets 0, 2 and 4 and skip no task',
+      actual: [offsets, list.tasks.map((task) => task.id)],
+      expected: [[0, 2, 4], rows],
     });
   });
 });
