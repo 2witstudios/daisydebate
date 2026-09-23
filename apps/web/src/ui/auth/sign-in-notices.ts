@@ -30,8 +30,8 @@ export const signInNotices: Readonly<Record<SignInNotice, NoticeCopy>> = {
   },
   'passkey-cancelled': {
     tone: 'info',
-    title: 'Passkey sign-in was cancelled.',
-    body: 'Try again, or continue with your email.',
+    title: 'No passkey used.',
+    body: 'New here? Continue with your email.',
   },
   'passkey-unsupported': {
     tone: 'info',

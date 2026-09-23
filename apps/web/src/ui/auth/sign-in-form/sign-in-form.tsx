@@ -16,6 +16,7 @@ export type SignInFormProps = {
 };
 
 const NOTICE_ID = 'sign-in-notice';
+const PASSKEY_HINT_ID = 'sign-in-passkey-hint';
 
 const pendingStatus = {
   none: '',
@@ -26,7 +27,9 @@ const pendingStatus = {
 /**
  * One email field for new and returning people alike. A saved passkey is
  * offered by the browser's autofill (`username webauthn`) and by the quieter
- * passkey button for browsers without it.
+ * passkey button for browsers without it. The button can only use a passkey
+ * that already exists (a WebAuthn `get()`), so its hint sends new people to
+ * email; they save a passkey after their first sign-in.
  */
 export function SignInForm({
   email,
@@ -45,8 +48,8 @@ export function SignInForm({
         eyebrow="Sign in or create an account"
         title="Take the floor."
       >
-        Enter your email and we&apos;ll send you a sign-in link. Saved a passkey
-        on this device? Your browser will offer it.
+        Enter your email and we&apos;ll send you a link. Saved a passkey? Your
+        browser will offer it.
       </AuthHeading>
       <form
         className="flex flex-col gap-3"
@@ -78,6 +81,7 @@ export function SignInForm({
           variant="secondary"
           disabled={busy}
           onClick={signInWithPasskey}
+          aria-describedby={PASSKEY_HINT_ID}
           className="h-auth-control"
         >
           <Icon name="key" />
@@ -85,6 +89,9 @@ export function SignInForm({
             ? 'Waiting for your passkey…'
             : 'Sign in with a passkey'}
         </Button>
+        <p id={PASSKEY_HINT_ID} className="text-sm text-ink-muted">
+          For returning users. New here? Use your email.
+        </p>
       </div>
       <p role="status" className="sr-only">
         {pendingStatus[pending]}

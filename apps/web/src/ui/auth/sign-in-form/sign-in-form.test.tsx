@@ -39,6 +39,23 @@ describe('SignInForm', () => {
     });
   });
 
+  test('sends new people to email, not the saved-passkey prompt', () => {
+    const page = html();
+    assert({
+      given: 'an idle form',
+      should:
+        'make email the path for everyone and tie a saved-passkeys-only hint to the passkey button',
+      actual: [
+        page.includes('Enter your email and we&#x27;ll send you a link.'),
+        page.includes('aria-describedby="sign-in-passkey-hint"'),
+        page.includes('id="sign-in-passkey-hint"'),
+        page.includes('For returning users.'),
+        page.includes('New here? Use your email.'),
+      ],
+      expected: [true, true, true, true, true],
+    });
+  });
+
   test('disables both paths while a link is sending', () => {
     const page = html({ email: 'j@school.edu', pending: 'link' });
     assert({
@@ -85,14 +102,16 @@ describe('SignInForm', () => {
   test('reports a cancelled passkey quietly, without blaming the address', () => {
     const page = html({ notice: 'passkey-cancelled' });
     assert({
-      given: 'a cancelled passkey ceremony',
-      should: 'show a status, not an alert, and leave the input valid',
+      given: 'a cancelled passkey ceremony, which may mean no passkey is saved',
+      should:
+        'point a new person to email in a status, not an alert, and leave the input valid',
       actual: [
-        page.includes('Passkey sign-in was cancelled.'),
+        page.includes('No passkey used.'),
+        page.includes('New here? Continue with your email.'),
         page.includes('role="alert"'),
         page.includes('aria-invalid="true"'),
       ],
-      expected: [true, false, false],
+      expected: [true, true, false, false],
     });
   });
 

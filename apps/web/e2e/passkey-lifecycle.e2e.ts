@@ -343,9 +343,11 @@ test('a cancelled passkey ceremony shows no success and email sign-in still work
   await addVirtualAuthenticator(page);
   await page.goto('/sign-in');
   await page.getByRole('button', { name: 'Sign in with a passkey' }).click();
-  await expect(
-    page.getByRole('status').filter({ hasText: /cancelled/i }),
-  ).toBeVisible();
+  const notice = page.getByRole('status').filter({
+    hasText: /no passkey used/i,
+  });
+  await expect(notice).toBeVisible();
+  await expect(notice).toContainText(/continue with your email/i);
   await expect(page).toHaveURL(/\/sign-in$/);
 
   const email = freshEmail();
