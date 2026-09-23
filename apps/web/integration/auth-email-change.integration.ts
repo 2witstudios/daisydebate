@@ -21,13 +21,21 @@ if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
   throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
 setupRitewayBun();
 
-const suiteStartedAt = new Date().toISOString();
-// Backstop for the per-test cleanup below.
+/** Every actor id this suite has created, for the `afterAll` backstop below. */
+const suiteActorIds: string[] = [];
+
+const trackedCreateActorFor = async (userId: string): Promise<string> => {
+  const actorId = await createActorFor(userId);
+  suiteActorIds.push(actorId);
+  return actorId;
+};
+
+// Backstop for the per-test cleanup below, scoped to the actors this suite
+// itself created (RT-2.2v nit): never a time-window sweep that could delete
+// another suite's rows running concurrently against the same
+// `TEST_DATABASE_URL`.
 afterAll(() =>
-  withSql(
-    (sql) =>
-      sql`DELETE FROM outbox WHERE kind = 'session.revoked' AND created_at >= ${suiteStartedAt}::timestamptz`,
-  ),
+  Promise.all(suiteActorIds.map((actorId) => cleanupOutboxFor(actorId))),
 );
 
 const flows = await createPasskeyFlows();
@@ -188,7 +196,7 @@ describe('AUTH-5.6 change the recovery email', () => {
     const before = flows.account.flows.mailbox.mails.length;
     const newEmail = `${createId()}@example.test`;
     const userId = (await userIdOf(email)) ?? '';
-    const actorId = await createActorFor(userId);
+    const actorId = await trackedCreateActorFor(userId);
     const eventsBefore = await sessionRevokedEvents(actorId);
     try {
       await flows.changeEmail(cookie, newEmail);
