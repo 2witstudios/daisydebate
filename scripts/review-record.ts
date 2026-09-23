@@ -30,10 +30,10 @@ export type Verdict = {
 const PAGE_LINK = /pagespace\.ai\/dashboard\/[a-z0-9]+\/([a-z0-9]{20,32})/g;
 const CANDIDATE =
   /Candidate:\s*([0-9a-f]{40})\s*·\s*PR #(\d+)\s*·\s*Builder:\s*(\S+)\s*·\s*Reviewer:\s*(\S+)/;
-const VERDICT =
-  /Verdict[\s\S]*?(ALL RESOLVED|APPROVE WITH MINORS|APPROVE|CHANGES REQUESTED)/;
-const COUNTS = /(\d+) blocker \/ (\d+) major \/ (\d+) minor \/ (\d+) nit/;
-const APPROVALS = new Set(['ALL RESOLVED', 'APPROVE WITH MINORS', 'APPROVE']);
+const VERDICT_HEADING = /^#*\s*Verdict$/;
+const VERDICT_LINE =
+  /^(\d+) blockers? \/ (\d+) majors? \/ (\d+) minors? \/ (\d+) nits? — (.+)$/;
+const APPROVALS = new Set(['APPROVE', 'APPROVE WITH MINORS']);
 
 export function linkedPageIds(texts: readonly string[]): readonly string[] {
   return [
@@ -48,6 +48,31 @@ export const declaredBuilder = (body: string): string | undefined =>
 
 const plainText = (content: string): string =>
   content.replace(/<[^>]+>/g, '\n').replaceAll('&amp;', '&');
+
+const textLines = (text: string): readonly string[] =>
+  text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line !== '');
+
+/**
+ * The record's verdict: the line right after its last Verdict heading and
+ * nothing else, so findings that quote a verdict or the contract's list of
+ * verdicts never count.
+ */
+function finalVerdict(text: string) {
+  const lines = textLines(text);
+  const heading = lines.findLastIndex((line) => VERDICT_HEADING.test(line));
+  const match =
+    heading === -1 ? null : VERDICT_LINE.exec(lines[heading + 1] ?? '');
+  if (!match) return undefined;
+  const [blockers, majors, minors, nits] = match.slice(1, 5).map(Number);
+  return { blockers, majors, minors, nits, verdict: match[5].trim() };
+}
+
+/** Gates run evidence, each on its own line: `<gate>: PASS …`, `… run: yes`. */
+const gateLine = (text: string, gate: RegExp): boolean =>
+  textLines(text).some((line) => gate.test(line));
 
 /** Why this record does not approve the PR; undefined when it does. */
 function recordProblem(
@@ -71,13 +96,17 @@ function recordProblem(
 }
 
 function verdictProblem(text: string): string | undefined {
-  const verdict = VERDICT.exec(text)?.[1];
-  if (!verdict || !APPROVALS.has(verdict))
-    return `The verdict is not an approval: ${verdict ?? 'none found'}`;
-  const counts = COUNTS.exec(text)?.slice(1).map(Number) ?? [];
-  const clean = counts.length === 4 && counts.every((count) => count === 0);
+  const final = finalVerdict(text);
+  if (!final)
+    return 'The record has no "n blocker / n major / n minor / n nit — <verdict>" line under Verdict';
+  if (!APPROVALS.has(final.verdict))
+    return `The verdict is not an approval: ${final.verdict}`;
+  if (final.blockers > 0 || final.majors > 0)
+    return `The verdict approves with ${final.blockers} blocker and ${final.majors} major open`;
+  const clean = final.minors === 0 && final.nits === 0;
   const evidenced =
-    /test:integration:?\s*PASS/i.test(text) && /negative control/i.test(text);
+    gateLine(text, /^bun test:integration:\s*PASS\b(?!\?)/) &&
+    gateLine(text, /^Negative control run:\s*yes\b/i);
   return clean && !evidenced
     ? 'A no-findings verdict needs bun test:integration PASS and a negative control in Gates run'
     : undefined;
@@ -109,20 +138,20 @@ export function verifyReviewRecord(
     const text = plainText(record.content);
     return { record, text, problem: recordProblem(pr, builder, text) };
   });
-  const approved = judged.find((entry) => entry.problem === undefined);
-  if (approved) {
-    const reviewer = CANDIDATE.exec(approved.text)?.[4];
-    const verdict = VERDICT.exec(approved.text)?.[1];
+  // Every record for this SHA must approve: one reviewer's approval does
+  // not outvote another's request for changes.
+  const refused = judged.find((entry) => entry.problem !== undefined);
+  if (refused)
     return {
-      state: 'success',
-      description: `Independent review by ${reviewer}: ${verdict}`,
-      recordId: approved.record.id,
+      state: 'failure',
+      description: refused.problem ?? 'No approving record',
+      recordId: refused.record.id,
     };
-  }
+  const [approved] = judged;
   return {
-    state: 'failure',
-    description: judged[0].problem ?? 'No approving record',
-    recordId: judged[0].record.id,
+    state: 'success',
+    description: `Independent review by ${CANDIDATE.exec(approved.text)?.[4]}: ${finalVerdict(approved.text)?.verdict}`,
+    recordId: approved.record.id,
   };
 }
 
