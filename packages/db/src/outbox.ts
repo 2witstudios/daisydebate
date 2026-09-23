@@ -8,6 +8,7 @@ import {
 } from '@daisy/protocol';
 import { outbox } from './schema/outbox';
 import { instrumented, type DatabaseEventSink } from './instrumented';
+import { deleteExpiredBatch, type RetentionBatch } from './retention';
 
 /**
  * Full validation of the append input (RT-2.2 hazard note, plan revision
@@ -160,43 +161,8 @@ export async function drainOutbox(
   }));
 }
 
-const RETENTION_BATCH_LIMIT = 500;
-
 /**
- * Retention prune (plan: "Maintenance prunes the outbox after a retention
- * window"). Deletes at most `limit` rows older than `before`, skipping
- * locked rows so a concurrent drain is never blocked. Each call is one
- * autocommitted statement over `db.execute`, never wrapped in
- * `database.transaction(...)`: a long-running transaction anywhere in the
- * cluster holds back `pg_snapshot_xmin`, which `drainOutbox` depends on to
- * decide a row is final, so the maintenance sweep must never hold one open
- * across many rows or many batches.
- */
-export async function purgeExpiredOutboxEvents(
-  db: Pick<BunSQLDatabase, 'execute'>,
-  input: { before: string; limit: number },
-): Promise<number> {
-  if (
-    !Number.isSafeInteger(input.limit) ||
-    input.limit < 1 ||
-    input.limit > RETENTION_BATCH_LIMIT ||
-    Number.isNaN(Date.parse(input.before))
-  )
-    throw new Error('Invalid outbox purge bounds');
-  const deleted = await db.execute(sql`
-    delete from ${outbox} where ${outbox.seq} in (
-      select ${outbox.seq} from ${outbox}
-      where ${outbox.createdAt} < ${input.before}::timestamptz
-      order by ${outbox.createdAt}
-      limit ${input.limit}
-      for update skip locked
-    ) returning ${outbox.seq}
-  `);
-  return (deleted as unknown as unknown[]).length;
-}
-
-/**
- * The outbox area's production surface (ISSUE-8 AC1): `purgeExpiredOutboxEvents`
+ * The outbox area's production surface (ISSUE-8 AC1): its retention batch,
  * wrapped with the one failure wrapper. `appendOutboxEvent` runs inside a
  * caller's own transaction and is composed directly by the areas that need
  * it (auth's `session.revoked`, debates' future write paths), not through
@@ -211,12 +177,19 @@ export const outboxOperations = ({
   readonly database: Pick<BunSQLDatabase, 'execute'>;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
-  async purgeExpiredOutboxEvents(input: {
-    readonly before: string;
-    readonly limit: number;
-  }): Promise<number> {
+  /**
+   * Retention (plan: "Maintenance prunes the outbox after a retention
+   * window"): one bounded batch of rows created before the cutoff, in its
+   * own short autocommitted statement so it never holds back the
+   * `pg_snapshot_xmin` that `drainOutbox` waits on (see `deleteExpiredBatch`).
+   */
+  async purgeExpiredOutboxEvents(input: RetentionBatch): Promise<number> {
     return instrumented(eventSink, 'purgeExpiredOutboxEvents', () =>
-      purgeExpiredOutboxEvents(database, input),
+      deleteExpiredBatch(
+        database,
+        { table: outbox, key: outbox.seq, at: outbox.createdAt },
+        input,
+      ),
     );
   },
 });

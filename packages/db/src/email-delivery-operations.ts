@@ -1,5 +1,5 @@
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { and, eq, lt, sql } from 'drizzle-orm';
+import { and, eq, lt } from 'drizzle-orm';
 import type {
   EmailDeliveryStatus,
   EmailSuppressionReason,
@@ -11,6 +11,7 @@ import {
   emailSuppressions,
 } from './schema/email-delivery';
 import { instrumented, type DatabaseEventSink } from './instrumented';
+import { deleteExpiredBatch, type RetentionBatch } from './retention';
 
 /**
  * The email area (ISSUE-8 AC1, ADR 0025): delivery ledger, suppressions and
@@ -24,32 +25,58 @@ export const emailDeliveryOperations = ({
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /**
-   * Retention (AUTH-7.5a): deletes at most `limit` verification rows whose
-   * expiry is before `before`. The batch is chosen by an expiry predicate
-   * live rows can never satisfy, and `SKIP LOCKED` lets concurrent workers
-   * split a backlog without waiting on or double-deleting each other.
-   * Returns the number deleted; a missing, fractional or non-positive
-   * limit, or an unparsable cutoff, is refused.
+   * Retention (AUTH-7.5a): one bounded batch of verification rows whose
+   * expiry is before the cutoff, a predicate live rows can never satisfy.
    */
-  async purgeExpiredVerifications(input: { before: string; limit: number }) {
-    if (
-      !Number.isSafeInteger(input.limit) ||
-      input.limit < 1 ||
-      Number.isNaN(Date.parse(input.before))
-    )
-      throw new Error('Invalid verification purge bounds');
-    return instrumented(eventSink, 'purgeExpiredVerifications', async () => {
-      const deleted = await database.execute(
-        sql`delete from ${verifications} where ${verifications.id} in (
-        select ${verifications.id} from ${verifications}
-        where ${verifications.expiresAt} < ${input.before}::timestamptz
-        order by ${verifications.expiresAt}
-        limit ${input.limit}
-        for update skip locked
-      ) returning ${verifications.id}`,
-      );
-      return deleted.length;
-    });
+  async purgeExpiredVerifications(input: RetentionBatch) {
+    return instrumented(eventSink, 'purgeExpiredVerifications', () =>
+      deleteExpiredBatch(
+        database,
+        {
+          table: verifications,
+          key: verifications.id,
+          at: verifications.expiresAt,
+        },
+        input,
+      ),
+    );
+  },
+  /**
+   * Retention (ISSUE-8 AC5): one bounded batch of webhook dedupe rows
+   * received before the cutoff. A provider retries an event for hours, not
+   * weeks, so a pruned event ID is never replayed.
+   */
+  async purgeExpiredEmailDeliveryEvents(input: RetentionBatch) {
+    return instrumented(eventSink, 'purgeExpiredEmailDeliveryEvents', () =>
+      deleteExpiredBatch(
+        database,
+        {
+          table: emailDeliveryEvents,
+          key: emailDeliveryEvents.providerEventId,
+          at: emailDeliveryEvents.receivedAt,
+        },
+        input,
+      ),
+    );
+  },
+  /**
+   * Retention (ISSUE-8 AC5): one bounded batch of delivery diagnostics
+   * whose last status change is before the cutoff. Suppressions live in
+   * `email_suppression` and are never pruned here: a hard bounce or
+   * complaint must keep stopping mail after its delivery row is gone.
+   */
+  async purgeExpiredEmailDeliveries(input: RetentionBatch) {
+    return instrumented(eventSink, 'purgeExpiredEmailDeliveries', () =>
+      deleteExpiredBatch(
+        database,
+        {
+          table: emailDeliveries,
+          key: emailDeliveries.id,
+          at: emailDeliveries.updatedAt,
+        },
+        input,
+      ),
+    );
   },
   /** Idempotent: a retried send with the same provider message ID is a no-op. */
   async recordEmailDelivery(input: {

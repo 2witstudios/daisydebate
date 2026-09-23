@@ -34,6 +34,8 @@ const statusRankPairs = sql.raw(
 /**
  * Diagnostic mail state. Recipients appear only as a keyed hash and provider
  * webhook payloads are never stored: only message/event IDs and safe status.
+ * Retention: the retention sweep deletes a row 30 days after its last
+ * status change (`apps/web/src/server/retention-sweep.ts`).
  */
 export const emailDeliveries = pgTable(
   'email_delivery',
@@ -52,6 +54,8 @@ export const emailDeliveries = pgTable(
       table.providerMessageId,
     ),
     index('email_delivery_recipient_idx').on(table.recipientHash),
+    /** The retention sweep prunes by last status change, oldest first. */
+    index('email_delivery_updated_at_idx').on(table.updatedAt),
     check(
       'email_delivery_status_check',
       sql`(${table.status}, ${table.statusRank}) in (${statusRankPairs})`,
@@ -59,7 +63,10 @@ export const emailDeliveries = pgTable(
   ],
 );
 
-/** Webhook event dedupe, keyed by the provider's event ID. */
+/**
+ * Webhook event dedupe, keyed by the provider's event ID. Retention: the
+ * retention sweep deletes a row 30 days after it was received.
+ */
 export const emailDeliveryEvents = pgTable(
   'email_delivery_event',
   {
@@ -75,7 +82,11 @@ export const emailDeliveryEvents = pgTable(
   ],
 );
 
-/** Hard bounces and complaints stop automatic resend loops. */
+/**
+ * Hard bounces and complaints stop automatic resend loops. Never pruned by
+ * the retention sweep: a suppression must outlive its delivery row, and it
+ * holds only the keyed recipient hash.
+ */
 export const emailSuppressions = pgTable(
   'email_suppression',
   {
