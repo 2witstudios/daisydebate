@@ -41,13 +41,19 @@ to leave the finding in prose.
 
 ## Verdict
 
-<n blocker / n major / n minor / n nit> — <ALL RESOLVED | CHANGES REQUESTED>
+<n blocker / n major / n minor / n nit> — <APPROVE | APPROVE WITH MINORS | CHANGES REQUESTED>
 ```
 
 Rules:
 
+- The verdict line is the first line under the last `Verdict` heading,
+  and the `review-record` check (ADR 0035) reads nothing else: it accepts
+  exactly `APPROVE` or `APPROVE WITH MINORS`, and refuses an approval that
+  counts an open blocker or major. A record with zero findings also needs
+  its own `bun test:integration: PASS` and `Negative control run: yes`
+  lines under Gates run.
 - A second-pass review re-verifies the first pass finding by finding
-  before declaring ALL RESOLVED.
+  before approving.
 - Record environment gotchas discovered during review (stale builds,
   shared stacks, port collisions) — they are the next reviewer's
   parallel-work traps.

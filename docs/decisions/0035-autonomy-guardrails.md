@@ -125,13 +125,17 @@ and only code running from `main` can use its key.
   - requires the builder to equal the `Builder:` line the PR body declares
     (the PR template and `/pr` write it; a PR without it fails);
   - requires the reviewer to differ from that builder;
-  - requires a verdict of `APPROVE`, `APPROVE WITH MINORS` or
-    `ALL RESOLVED`;
-  - for a verdict with zero findings, requires `bun test:integration` PASS
-    and a negative control in the gates section.
+  - reads only the verdict line under the record's last `Verdict` heading,
+    so a finding that quotes a verdict never counts, and requires exactly
+    `APPROVE` or `APPROVE WITH MINORS` with no open blocker or major;
+  - for a verdict with zero findings, requires its own
+    `bun test:integration: PASS` and `Negative control run: yes` lines in
+    the gates section.
 
-  Any approving record sets `success` with the record as the target URL.
-  Otherwise it sets `failure` with the first reason.
+  Every record for the SHA must approve: one reviewer's approval does not
+  outvote another's request for changes. Then it sets `success` with the
+  record as the target URL; otherwise `failure` with the refusing record's
+  reason.
 
 - **Why not the other candidates.**
   - A second machine identity for reviewers is ruled out by the one free
