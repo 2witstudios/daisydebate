@@ -172,6 +172,7 @@ test('sign-in works by keyboard alone and every control has an accessible name',
   ).toBeVisible();
 
   const email = freshEmail();
+  await expect(page.getByLabel('Email')).toBeVisible();
   await page.getByLabel('Email').focus();
   await page.keyboard.type(email);
   await page.keyboard.press('Enter');
@@ -298,7 +299,51 @@ test('a fresh session makes no refresh call, and neither does a visitor', async 
 });
 
 test('the topbar offers sign-in to a visitor', async ({ page }) => {
+  // ISSUE-19: on every frame from the first paint until the layout settles,
+  // the topmost element at the centre of the topbar's Sign in link must be
+  // that link, never a sidebar or rail layer painted over the topbar.
+  await page.addInitScript(() => {
+    const covered: string[] = [];
+    Reflect.set(window, '__topbarCovered', covered);
+    const check = () => {
+      const links = Array.from(document.querySelectorAll('header a')).filter(
+        (link) => link.textContent?.trim() === 'Sign in',
+      );
+      for (const link of links) {
+        const box = link.getBoundingClientRect();
+        if (box.width === 0 || box.height === 0) continue;
+        const top = document.elementFromPoint(
+          box.x + box.width / 2,
+          box.y + box.height / 2,
+        );
+        if (top && !link.contains(top))
+          covered.push(
+            `${document.readyState}: under ${top.tagName.toLowerCase()} in ${top.closest('aside, nav, main, header')?.getAttribute('aria-label') ?? 'body'}`,
+          );
+      }
+      if (!Reflect.get(window, '__topbarSettled')) requestAnimationFrame(check);
+    };
+    requestAnimationFrame(check);
+  });
   await page.goto('/');
-  await page.getByRole('link', { name: 'Sign in' }).click();
+  const signIn = page
+    .getByRole('banner')
+    .getByRole('link', { name: 'Sign in' });
+  await expect(signIn).toBeVisible();
+  // The layout is final once every image the viewport shows has loaded;
+  // lazy images below the fold never start and cannot move the topbar.
+  await page.waitForFunction(() =>
+    Array.from(document.images)
+      .filter((image) => {
+        const box = image.getBoundingClientRect();
+        return box.bottom > 0 && box.top < innerHeight && box.width > 0;
+      })
+      .every((image) => image.complete),
+  );
+  await page.evaluate(() => Reflect.set(window, '__topbarSettled', true));
+  expect(
+    await page.evaluate(() => Reflect.get(window, '__topbarCovered')),
+  ).toEqual([]);
+  await signIn.click();
   await expect(page).toHaveURL(/\/sign-in$/);
 });
