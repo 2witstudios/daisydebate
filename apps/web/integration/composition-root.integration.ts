@@ -9,6 +9,8 @@ import {
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 
 setupRitewayBun();
+if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
+  throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
 
 /**
  * ISSUE-7: two apps built by `createApp` side by side in one process, over

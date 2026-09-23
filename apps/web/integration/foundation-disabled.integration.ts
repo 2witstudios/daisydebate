@@ -2,6 +2,8 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createTestApp } from './auth-mounted-helpers';
 
 setupRitewayBun();
+if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
+  throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
 
 // The same proof routes as foundation.integration.ts, on this suite's own app
 // built with the gate shut. Both suites run in one `bun test` process in any
