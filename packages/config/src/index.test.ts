@@ -4,6 +4,16 @@ import { readAuthConfig, readBrowserConfig, readServerConfig } from './index';
 
 setupRitewayBun();
 
+/** The message a rejected configuration throws, or `accepted`. */
+const failureOf = (read: () => unknown) => {
+  try {
+    read();
+    return 'accepted';
+  } catch (error) {
+    return String(error);
+  }
+};
+
 const env = {
   NODE_ENV: 'development',
   DATABASE_URL: 'postgres://user:secret@localhost:5432/daisy',
@@ -154,51 +164,43 @@ describe('authentication configuration', () => {
   });
 
   test('rejects invalid sender mailbox syntax', () => {
-    let message = '';
-    try {
-      readAuthConfig({ ...authEnv, AUTH_EMAIL_FROM: 'Daisy @' });
-    } catch (error) {
-      message = String(error);
-    }
     assert({
       given: 'an authentication sender without a valid mailbox',
       should: 'reject the sender configuration by field name',
-      actual: message.includes('AUTH_EMAIL_FROM'),
-      expected: true,
+      actual: failureOf(() =>
+        readAuthConfig({ ...authEnv, AUTH_EMAIL_FROM: 'Daisy @' }),
+      ),
+      expected: 'Error: Invalid auth configuration: AUTH_EMAIL_FROM',
     });
   });
 
   test('rejects non-HTTP application URLs', () => {
-    let message = '';
-    try {
-      readAuthConfig({ ...authEnv, PUBLIC_APP_URL: 'ftp://daisy.example.com' });
-    } catch (error) {
-      message = String(error);
-    }
     assert({
       given: 'an application URL with an unsupported scheme',
       should: 'reject the URL configuration by field name',
-      actual: message.includes('PUBLIC_APP_URL'),
-      expected: true,
+      actual: failureOf(() =>
+        readAuthConfig({
+          ...authEnv,
+          PUBLIC_APP_URL: 'ftp://daisy.example.com',
+        }),
+      ),
+      expected: 'Error: Invalid auth configuration: PUBLIC_APP_URL',
     });
   });
 
   test('production auth rejects a non-HTTPS application URL', () => {
-    let message = '';
-    try {
-      readAuthConfig({
-        ...authEnv,
-        NODE_ENV: 'production',
-        PUBLIC_APP_URL: 'http://daisy.example.com',
-      });
-    } catch (error) {
-      message = String(error);
-    }
     assert({
       given: 'a production environment with an http application URL',
       should: 'reject the configuration naming PUBLIC_APP_URL',
-      actual: message.includes('PUBLIC_APP_URL'),
-      expected: true,
+      actual: failureOf(() =>
+        readAuthConfig({
+          ...authEnv,
+          NODE_ENV: 'production',
+          PUBLIC_APP_URL: 'http://daisy.example.com',
+          RESEND_WEBHOOK_SECRET: 'whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw',
+        }),
+      ),
+      expected: 'Error: Invalid auth configuration: PUBLIC_APP_URL',
     });
   });
 
@@ -269,17 +271,13 @@ describe('authentication configuration', () => {
   });
 
   test('rejects a malformed webhook secret', () => {
-    let message = '';
-    try {
-      readAuthConfig({ ...authEnv, RESEND_WEBHOOK_SECRET: 'not a secret' });
-    } catch (error) {
-      message = String(error);
-    }
     assert({
       given: 'a webhook secret without the whsec_ shape',
       should: 'reject naming the field',
-      actual: message.includes('RESEND_WEBHOOK_SECRET'),
-      expected: true,
+      actual: failureOf(() =>
+        readAuthConfig({ ...authEnv, RESEND_WEBHOOK_SECRET: 'not a secret' }),
+      ),
+      expected: 'Error: Invalid auth configuration: RESEND_WEBHOOK_SECRET',
     });
   });
 });
