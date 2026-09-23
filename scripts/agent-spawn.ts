@@ -9,8 +9,9 @@
  * Before a builder starts it refuses superseded terms in the leaf, undeclared
  * or unmerged prerequisites and a full builder cap (the owner may override).
  * It creates the worktree, installs dependencies and brings the PAR-2 slot
- * up before any prompt is sent, records the parent agent in `.daisy/parent`,
- * resolves the child id from `pu status --json`, and confirms the prompt
+ * up before any prompt is sent, resolves the child id from `pu status
+ * --json`, registers its parent and role in the main checkout's agent
+ * registry, outside the child's reach (agent-registry.ts), and confirms the prompt
  * reached the transcript, nudging with an empty `pu send` when it did not.
  */
 import {
@@ -32,10 +33,10 @@ import {
   agentCwd,
   projectDir,
   userTurnsWith,
-  type Role,
   type SpawnPlan,
   type SupersededTerm,
 } from './agent-spawn-model';
+import { parseRecord, recordPath, serializeRecord } from './agent-registry';
 
 type Result = { readonly code: number; readonly stdout: string };
 
@@ -153,10 +154,10 @@ function checkLeaf(deps: SpawnDeps, plan: SpawnPlan): readonly string[] {
 
 function checkCap(deps: SpawnDeps, plan: SpawnPlan): readonly string[] {
   if (plan.role !== 'builder') return [];
-  const active = activeBuilders(
-    puStatus(deps),
-    (path) => deps.read(join(path, '.daisy/role'))?.trim() as Role | undefined,
-  );
+  const active = activeBuilders(puStatus(deps), (agentId) => {
+    const text = deps.read(recordPath(deps.mainCheckout, agentId));
+    return text === undefined ? undefined : parseRecord(text)?.role;
+  });
   return active >= plan.cap
     ? [`${active} builders are active; the cap is ${plan.cap}`]
     : [];
@@ -240,7 +241,7 @@ function promptText(deps: SpawnDeps, rest: readonly string[]) {
   return text?.trim() || undefined;
 }
 
-function setUp(deps: SpawnDeps, worktree: Worktree, role: Role) {
+function setUp(deps: SpawnDeps, worktree: Worktree) {
   for (const step of SETUP) {
     deps.out(`${worktree.path}: ${step.join(' ')}\n`);
     if (deps.run(step, worktree.path).code !== 0)
@@ -248,9 +249,6 @@ function setUp(deps: SpawnDeps, worktree: Worktree, role: Role) {
         `${step.join(' ')} failed in ${worktree.path}; no prompt was sent`,
       );
   }
-  deps.write(join(worktree.path, '.daisy/role'), `${role}\n`);
-  if (deps.parentId)
-    deps.write(join(worktree.path, '.daisy/parent'), `${deps.parentId}\n`);
 }
 
 async function spawnChecked(deps: SpawnDeps, plan: SpawnPlan): Promise<number> {
@@ -274,11 +272,19 @@ async function spawnChecked(deps: SpawnDeps, plan: SpawnPlan): Promise<number> {
   ]);
   const worktree = newWorktree(before, puStatus(deps), `pu/${plan.name}`);
   if (!worktree) throw new SpawnRefused(`pu did not create pu/${plan.name}`);
-  setUp(deps, worktree, plan.role);
+  setUp(deps, worktree);
   const ready = puStatus(deps);
   deps.run(['pu', 'spawn', '-w', worktree.id, '-a', plan.agent, ...plan.rest]);
   const agent = newAgent(ready, puStatus(deps), worktree.id);
   if (!agent) throw new SpawnRefused('pu status shows no new agent');
+  deps.write(
+    recordPath(deps.mainCheckout, agent.id),
+    serializeRecord({
+      parent: deps.parentId ?? null,
+      role: plan.role,
+      worktree: worktree.path,
+    }),
+  );
   deps.out(
     `spawned ${agent.id} in ${worktree.path} (parent ${deps.parentId ?? 'owner'})\n`,
   );

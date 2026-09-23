@@ -124,13 +124,11 @@ describe('authorizeControl', () => {
       should: 'authorize both',
       actual: [
         authorizeControl({
-          autonomous: true,
           caller: 'ag-parent',
           parent: 'ag-parent',
           child: 'ag-child',
         }),
         authorizeControl({
-          autonomous: false,
           caller: undefined,
           parent: 'ag-parent',
           child: 'ag-child',
@@ -143,29 +141,25 @@ describe('authorizeControl', () => {
   test('refuses the loop agent itself and any other agent', () => {
     assert({
       given:
-        'the child, an unrelated agent, and an agent when no parent is recorded',
-      should: 'refuse each with a reason',
+        'the child, an unrelated agent, an agent when no parent is recorded, and the owner',
+      should: 'refuse each agent with a reason and allow the owner',
       actual: [
         authorizeControl({
-          autonomous: true,
           caller: 'ag-child',
           parent: 'ag-parent',
           child: 'ag-child',
         }),
         authorizeControl({
-          autonomous: true,
           caller: 'ag-other',
           parent: 'ag-parent',
           child: 'ag-child',
         }),
         authorizeControl({
-          autonomous: true,
           caller: 'ag-other',
           parent: undefined,
           child: 'ag-child',
         }),
         authorizeControl({
-          autonomous: true,
           caller: undefined,
           parent: 'ag-parent',
           child: 'ag-child',
@@ -175,7 +169,8 @@ describe('authorizeControl', () => {
         'A loop agent cannot close or resume its own loop; only its parent (ag-parent) or the owner can.',
         'Only the parent (ag-parent) or the owner can close or resume this loop.',
         'No parent is recorded for this loop, so only the owner can close or resume it.',
-        'Only the parent (ag-parent) or the owner can close or resume this loop.',
+        // No PU_AGENT_ID at all is the owner.
+        undefined,
       ],
     });
   });

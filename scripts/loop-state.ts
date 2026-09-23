@@ -93,14 +93,19 @@ export function escalationField(
   return line?.slice(prefix.length).trim();
 }
 
-/** Undefined when allowed; otherwise why the caller may not act. */
+/**
+ * Who may close or resume a paused loop: undefined when allowed, otherwise
+ * why not. The caller is PU_AGENT_ID, which
+ * the guard stops an agent clearing; no agent id at all is the owner. The
+ * parent comes from the registry agent:spawn wrote outside the child's
+ * worktree, so the child cannot name itself or a sibling as its parent.
+ */
 export function authorizeControl(input: {
-  readonly autonomous: boolean;
   readonly caller: string | undefined;
   readonly parent: string | undefined;
   readonly child: string;
 }): string | undefined {
-  if (!input.autonomous) return undefined;
+  if (input.caller === undefined) return undefined;
   if (input.parent === undefined)
     return 'No parent is recorded for this loop, so only the owner can close or resume it.';
   if (input.caller === input.child)

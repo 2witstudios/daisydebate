@@ -5,13 +5,22 @@ import {
   ESCALATED,
   escalate,
   findAgentWorktree,
-  PARENT,
   type LoopDeps,
 } from './loop';
+import { recordPath, serializeRecord } from './agent-registry';
 
 setupRitewayBun();
 
+const project = '/w';
 const child = '/w/.pu/worktrees/wt-child';
+// The registry entry the parent's agent:spawn wrote, outside the worktree.
+const registered = (parent: string | null) => ({
+  [recordPath(project, 'ag-child')]: serializeRecord({
+    parent,
+    role: 'builder',
+    worktree: child,
+  }),
+});
 const state = [
   '---',
   'active: true',
@@ -30,7 +39,10 @@ const status = JSON.stringify({
     {
       path: child,
       branch: 'pu/child',
-      agents: { 'ag-child': { id: 'ag-child' } },
+      agents: {
+        'ag-child': { id: 'ag-child' },
+        'ag-term': { id: 'ag-term', agentType: 'terminal' },
+      },
     },
   ],
 });
@@ -44,7 +56,7 @@ function fakes(
   const fs = new Map(Object.entries(files));
   const deps: LoopDeps = {
     cwd: child,
-    autonomous: true,
+    projectRoot: project,
     agentId: 'ag-child',
     now: () => '2026-09-22T12:00:00.000Z',
     read: (path) => fs.get(path),
@@ -69,7 +81,7 @@ function fakes(
 const escalatedFixture = () => {
   const run = fakes({
     [`${child}/${ACTIVE}`]: state,
-    [`${child}/${PARENT}`]: 'ag-parent\n',
+    ...registered('ag-parent'),
   });
   escalate(run.deps, 'stalled', 'Two identical scans');
   return Object.fromEntries(run.fs);
@@ -79,7 +91,7 @@ describe('loop:escalate', () => {
   test('pauses the loop, keeps its state and notifies the recorded parent', () => {
     const { deps, calls, fs } = fakes({
       [`${child}/${ACTIVE}`]: state,
-      [`${child}/${PARENT}`]: 'ag-parent\n',
+      ...registered('ag-parent'),
     });
     const code = escalate(deps, 'stalled', 'Two identical scans');
     const escalated = fs.get(`${child}/${ESCALATED}`) ?? '';
@@ -119,7 +131,7 @@ describe('loop:escalate', () => {
     const { deps, calls, notices } = fakes({ [`${child}/${ACTIVE}`]: state });
     escalate(deps, 'needs-owner', 'Only the owner can grant the secret');
     assert({
-      given: 'an active loop without .daisy/parent',
+      given: 'an active loop with no registered parent',
       should: 'print an owner notice, comment on the PR and send nothing',
       actual: [
         notices.some((notice) => notice.startsWith('OWNER NOTICE')),
@@ -176,10 +188,7 @@ describe('loop:close and loop:resume', () => {
   });
 
   test('lets the owner close the loop and records it on the PR', () => {
-    const run = fakes(escalatedFixture(), {
-      autonomous: false,
-      agentId: undefined,
-    });
+    const run = fakes(escalatedFixture(), { agentId: undefined });
     const code = control(run.deps, 'close', 'ag-child', 'Merged by the owner.');
     const comment = run.calls.find(
       (call) => call.slice(0, 3).join(' ') === 'gh pr comment',
@@ -205,10 +214,7 @@ describe('loop:close and loop:resume', () => {
   });
 
   test('credits the parent agent that ran the command, not the owner', () => {
-    const run = fakes(escalatedFixture(), {
-      autonomous: false,
-      agentId: 'ag-parent',
-    });
+    const run = fakes(escalatedFixture(), { agentId: 'ag-parent' });
     control(run.deps, 'close', 'ag-child', 'Proof accepted');
     const comment = run.calls.find(
       (call) => call.slice(0, 3).join(' ') === 'gh pr comment',
@@ -235,6 +241,29 @@ describe('loop:close and loop:resume', () => {
         resume.fs.has(`${child}/${ACTIVE}`),
       ],
       expected: [1, true, 1, false],
+    });
+  });
+
+  test('refuses a child closing its own loop through a sibling id', () => {
+    const run = fakes(escalatedFixture(), { agentId: 'ag-child' });
+    assert({
+      given: 'the child naming the terminal agent in its own worktree',
+      should: 'refuse, because the escalated loop is ag-child\u2019s',
+      actual: [
+        control(run.deps, 'close', 'ag-term', 'done'),
+        run.fs.has(`${child}/${ESCALATED}`),
+      ],
+      expected: [1, true],
+    });
+  });
+
+  test('refuses a pu agent that is not autonomous but is not the parent either', () => {
+    const run = fakes(escalatedFixture(), { agentId: 'ag-resumed' });
+    assert({
+      given: 'a caller with a PU_AGENT_ID other than the registered parent',
+      should: 'refuse: only no agent id at all means the owner',
+      actual: control(run.deps, 'resume', 'ag-child', 'go on'),
+      expected: 1,
     });
   });
 
