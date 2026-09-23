@@ -29,6 +29,8 @@
     "migrations:check": "bun scripts/check-migration-journal.ts",
     "check:affected": "bun scripts/check-affected.ts",
     "hooks:install": "git config core.hooksPath .githooks",
+    "agent:spawn": "bun scripts/agent-spawn.ts spawn",
+    "agent:send": "bun scripts/agent-spawn.ts send",
     "loop:escalate": "bun scripts/loop.ts escalate",
     "loop:close": "bun scripts/loop.ts close",
     "loop:resume": "bun scripts/loop.ts resume",
