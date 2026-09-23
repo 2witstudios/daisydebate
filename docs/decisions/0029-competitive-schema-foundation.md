@@ -2,7 +2,13 @@
 
 Status: accepted. Amends [ADR 0007](0007-postgresql-source-of-truth.md)
 (what PostgreSQL holds) and [ADR 0018](0018-cuid2-identifiers.md) (no
-database-minted identifiers on the new tables).
+database-minted identifiers on the new tables). Amended by
+[ADR 0038](0038-drizzle-1-baseline.md): the migrations below are squashed
+into one baseline, `debates.format`/`created_by` are `format_id` and
+`created_by_actor_id`, `debate_participants` is keyed by
+`(debate_id, actor_id)` and written in every snapshot transaction, ballots
+reference their seat by `judge_actor_id`, and `db:seed` no longer writes
+formats.
 
 ## Context
 

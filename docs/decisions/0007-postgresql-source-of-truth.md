@@ -2,7 +2,8 @@
 
 Status: accepted. Amended by [ADR 0018](0018-cuid2-identifiers.md) and
 [ADR 0023](0023-greenfield-baseline.md): identifiers are cuid2 `text`, not
-UUIDs; the conventions below state the current rule.
+UUIDs; the conventions below state the current rule. Amended by
+[ADR 0038](0038-drizzle-1-baseline.md): Drizzle is 1.0.0-rc.4.
 
 Competitive records — users, debates, ballots, ratings, tournaments,
 recording metadata — are authoritative only in PostgreSQL. Application

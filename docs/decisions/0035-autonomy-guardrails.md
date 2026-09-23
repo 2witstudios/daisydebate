@@ -381,9 +381,10 @@ GRD-6.2) is what holds against them:
   was quiet before the send, nudging once with an empty `pu send`.
   `bun agent:send` confirms any later send the same way.
 
-- **Numbers.** `bun adr:next` prints the ADR and migration numbers free
-  across origin/main and every open PR. `bun policy` fails a branch whose
-  number an earlier-opened PR holds.
+- **Numbers.** `bun adr:next` prints the ADR number free across
+  origin/main and every open PR. `bun policy` fails a branch whose number
+  an earlier-opened PR holds. Migrations carry generation timestamps, not
+  numbers (ADR 0038).
 - **Agent context.** `.pu/agent-context.md` is committed, so pu, which
   writes it only when missing, never replaces it with its generic text.
   Tests fail if it names `CLAUDE.md` or forbids filing follow-ups.

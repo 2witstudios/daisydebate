@@ -2,7 +2,10 @@
 
 Status: accepted (2026-09-22). Amends [ADR 0003](0003-modular-monolith.md),
 [ADR 0008](0008-redis-ephemeral.md) and
-[ADR 0009](0009-portable-protocol.md).
+[ADR 0009](0009-portable-protocol.md). Amended by
+[ADR 0038](0038-drizzle-1-baseline.md): the realtime role and its grants
+live in the single baseline, and web runtime access is the `daisy_web` role
+it creates.
 
 ## Context
 

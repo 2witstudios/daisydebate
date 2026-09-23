@@ -41,18 +41,20 @@ handler logic yet beyond rejecting every connection (RT-2.3a).
 | `bun check`                                                   | format:check + lint + policy + knip + duplication + invariants + evidence + typecheck + test + metrics + build — before pushing; needs network, `gh`     |
 | `bun check:affected`                                          | Fast per-vertical inner loop: lint/prettier on changed files, boundaries, duplication, affected turbo graph                                              |
 | `bun hooks:install`                                           | One-time opt-in: point `core.hooksPath` at `.githooks` so `git push` runs `bun check:affected`                                                           |
-| `bun migrations:check`                                        | Fail a branch that rewrites/edits/reorders shared migrations vs `origin/main`                                                                            |
+| `bun migrations:check`                                        | Fail stray or orphaned migration files, a broken snapshot chain, or a branch that rewrites/edits/reorders shared migrations vs `origin/main` (ADR 0038)  |
 | `bun run duplication`                                         | Copy-paste tripwire (jscpd): fails on any clone absent from `.jscpd-baseline.json` (ADR 0026)                                                            |
 | `bun evidence`                                                | Orphan-suite and CI-wiring audit: every test tier is claimed by a real runner                                                                            |
 | `bun db:generate`                                             | Generate migration SQL from schema changes (review the SQL!)                                                                                             |
 | `bun db:migrate`                                              | Apply pending migrations                                                                                                                                 |
-| `bun db:seed`                                                 | Development fixture: idempotently upsert the agent users, actors and seed debate, refresh the `foundation` format, mark versions                         |
+| `bun db:seed`                                                 | Development fixture: idempotently upsert the agent users, actors and seed debate, mark its version (reference data comes from migrations)                |
 | `bun db:studio`                                               | Drizzle Studio (local only, never expose)                                                                                                                |
-| `bun slot:up`                                                 | Shared stack up, prune orphans, create and migrate this checkout's databases, write its `.env` slot values (idempotent)                                  |
+| `bun slot:up`                                                 | Shared stack up, prune orphans, create and migrate this checkout's three databases, provision the e2e login, write `.env` slot values (idempotent)       |
+| `bun slot:reset-e2e`                                          | Empty this checkout's e2e database back to the baseline and delete its e2e Redis keys                                                                    |
 | `bun slot:down` / `bun slot:prune`                            | Drop this worktree's databases and Redis keys / those of worktrees git no longer lists                                                                   |
-| `bun db:reset`                                                | Recreate and re-migrate one of this checkout's own databases (`ALLOW_DATABASE_RESET=yes`)                                                                |
+| `bun db:reset`                                                | Recreate and re-migrate this checkout's dev or test database and re-provision the e2e login (`ALLOW_DATABASE_RESET=yes`)                                 |
+| `bun db:roles`                                                | Provision the test logins on a loopback `DATABASE_URL` (CI; `slot:up` and `db:reset` already do it)                                                      |
 | `bun infra:logs`                                              | Follow the shared stack's Compose logs                                                                                                                   |
-| `bun adr:next`                                                | Next ADR and migration numbers free across origin/main and every open PR                                                                                 |
+| `bun adr:next`                                                | Next ADR number free across origin/main and every open PR                                                                                                |
 | `bun github:rules [--apply]`                                  | Diff the committed main ruleset and repository settings against GitHub; `--apply` is owner-only (ADR 0035)                                               |
 | `bun agent:spawn -- …` / `bun agent:send`                     | Spawn a pu agent with prerequisite, cap and superseded-term checks, slot set-up, parent registry and confirmed submission / send, confirmed the same way |
 | `bun loop:escalate` / `loop:close` / `loop:resume`            | Pause a PR loop and notify the parent / end or restart it (parent or owner only)                                                                         |
@@ -97,10 +99,10 @@ Every checkout on the machine (the main checkout and each git worktree or
 which `bun slot:up` derives from the checkout folder
 ([ADR 0034](../decisions/0034-shared-stack-slots.md)):
 
-| Checkout                      | Databases                                     | Redis namespaces                             | Ports (app, e2e)               | Realtime (dev, e2e)            |
-| ----------------------------- | --------------------------------------------- | -------------------------------------------- | ------------------------------ | ------------------------------ |
-| Main checkout                 | `daisy`, `daisy_test`                         | `daisy`, `daisy-e2e`                         | 3000, 3100                     | 3011, 3103                     |
-| Worktree folder `wt-3ctbm0tw` | `daisy_wt_3ctbm0tw`, `daisy_wt_3ctbm0tw_test` | `daisy-wt-3ctbm0tw`, `daisy-wt-3ctbm0tw-e2e` | 13000+10n, 13001+10n (block n) | 13005+10n, 13004+10n (block n) |
+| Checkout                      | Databases                                                              | Redis namespaces                             | Ports (app, e2e)               | Realtime (dev, e2e)            |
+| ----------------------------- | ---------------------------------------------------------------------- | -------------------------------------------- | ------------------------------ | ------------------------------ |
+| Main checkout                 | `daisy`, `daisy_test`, `daisy_e2e`                                     | `daisy`, `daisy-e2e`                         | 3000, 3100                     | 3011, 3103                     |
+| Worktree folder `wt-3ctbm0tw` | `daisy_wt_3ctbm0tw`, `daisy_wt_3ctbm0tw_test`, `daisy_wt_3ctbm0tw_e2e` | `daisy-wt-3ctbm0tw`, `daisy-wt-3ctbm0tw-e2e` | 13000+10n, 13001+10n (block n) | 13005+10n, 13004+10n (block n) |
 
 In a new worktree, copy the main checkout's `.env` (or `.env.example`) and
 run `bun slot:up`. It is idempotent:
@@ -109,8 +111,10 @@ run `bun slot:up`. It is idempotent:
   unreachable, so it never recreates a running stack;
 - prunes orphans: the databases and Redis keys of worktrees that
   `git worktree list` no longer shows;
-- creates this checkout's dev and test databases from `daisy_template` if
-  missing, and migrates both with this branch's migrations;
+- creates this checkout's dev, test and e2e databases if missing, migrates
+  all three with this branch's migrations, and provisions the loopback-only
+  `daisy_e2e` login as a member of the baseline's `daisy_web` runtime role
+  (ADR 0038);
 - writes the slot's `DATABASE_URL`, `TEST_DATABASE_URL`, `REDIS_NAMESPACE`,
   `E2E_DATABASE_URL`, `E2E_REDIS_URL`, `E2E_REDIS_NAMESPACE`, `PORT`,
   `PUBLIC_APP_URL`, `E2E_PORT` and `REALTIME_PORT` into `.env`, keeping
@@ -135,7 +139,9 @@ Rules that keep sessions safe:
   `E2E_DATABASE_URL`/`E2E_REDIS_URL`/`E2E_REDIS_NAMESPACE`) also disables
   Playwright's `reuseExistingServer`, so a session never tests another
   session's already-running server.
-- `bun db:reset` accepts only this checkout's own two databases.
+- `bun db:reset` accepts only this checkout's own dev and test databases;
+  `bun slot:reset-e2e` owns the e2e database, which only the browser suite
+  writes, so integration row counts never see e2e rows (ISSUE-17).
 - Generating migrations is still single-writer at a time; see
   `docs/operations/database.md` and `bun migrations:check`.
 
@@ -151,8 +157,8 @@ that resolves to the owner; its `checkout` check warns when the main
 checkout is on a branch other than `main`, which the committed Claude Code
 session-start hook also warns about.
 
-`bun check` and `bun policy` read open PRs through `gh` to catch ADR and
-migration numbers claimed twice, so they need the network and an
+`bun check` and `bun policy` read open PRs through `gh` to catch ADR
+numbers claimed twice, so they need the network and an
 authenticated `gh`; without either they fail rather than pass. The guard (`scripts/agent-guard.ts`) runs from the pre-push hook
 below and from the committed Claude Code hook in `.claude/settings.json`; see
 [pu workflow](pu-workflow.md#the-guard).

@@ -30,11 +30,14 @@ AIDD/Vitest guidance is overridden here by Bun and RITEway (ADR 0021).
    the real `/sign-in` UI (`e2e/journey.e2e.ts`). The suite asserts route shells, metadata titles, security
    headers, correlation IDs, health/readiness, and 404 behavior including
    the closed foundation-proof gate. The driver runs under Node 24; config
-   and specs live in `apps/web`. The production-refined configuration uses
-   the `daisy_e2e` role against this checkout's test database, in its own
-   Redis database and namespace: `E2E_DATABASE_URL`, `E2E_REDIS_URL` and
-   `E2E_REDIS_NAMESPACE`, which `bun slot:up` writes (CI sets them in
-   `e2e.yml`). A missing value makes the server refuse to start rather than
+   and specs live in `apps/web`. The production-refined configuration runs
+   as the `daisy_e2e` login, a member of the `daisy_web` runtime role with
+   no grant of its own (ADR 0038), against this checkout's own e2e
+   database, never the test database whose row counts integration evidence
+   reads (ISSUE-17), and in its own Redis database and namespace:
+   `E2E_DATABASE_URL`, `E2E_REDIS_URL` and `E2E_REDIS_NAMESPACE`, which
+   `bun slot:up` writes (CI sets them in `e2e.yml`). `bun slot:reset-e2e`
+   empties that database back to the baseline. A missing value makes the server refuse to start rather than
    fall back to another checkout's data.
 4. **CI parity** — `bun check` approximates the CI checks job (format, lint,
    policy, knip, duplication, invariants, evidence, typecheck, unit tests, metrics policy,
