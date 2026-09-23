@@ -1,10 +1,22 @@
 import { Database } from '@adobe/data/ecs';
-import { createAppError } from '@daisy/errors';
-import type { DebateSnapshot, Participant, DebatePhase } from '@daisy/protocol';
+import { createAppError, createInvariantError } from '@daisy/errors';
+import {
+  debateSides,
+  type DebateSnapshot,
+  type Participant,
+  type DebatePhase,
+} from '@daisy/protocol';
+import { debateInvariantIds } from './invariant-ids';
+
+/**
+ * UTF-16 code-unit order: the same on every host, unlike `localeCompare`,
+ * whose collation depends on the runtime's ICU data and locale.
+ */
+const byCodeUnit = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 const debatePlugin = Database.Plugin.create({
   components: {
     participantId: { type: 'string' },
-    side: { enum: ['affirmative', 'negative'] },
+    side: { enum: debateSides },
     ready: { type: 'boolean', default: false },
   },
   resources: {
@@ -24,7 +36,10 @@ const debatePlugin = Database.Plugin.create({
         .select(['participantId'])
         .find((id) => store.get(id, 'participantId') === participantId);
       if (entity === undefined)
-        throw createAppError('INVARIANT', 'Participant must join first');
+        throw createInvariantError(
+          debateInvariantIds.readinessRequiresJoin,
+          'Participant must join first',
+        );
       store.update(entity, { ready: true });
     },
     transition: (store, phase: DebatePhase) => {
@@ -40,7 +55,8 @@ export function createAdapter(snapshot: DebateSnapshot) {
     db.transactions.join(participant);
   let disposed = false;
   const assertOpen = () => {
-    if (disposed) throw createAppError('INVARIANT', 'Runtime is disposed');
+    // Use after dispose is a caller bug, not a domain rule a user can break.
+    if (disposed) throw createAppError('INTERNAL', 'Runtime is disposed');
   };
   return {
     snapshot(): DebateSnapshot {
@@ -64,7 +80,7 @@ export function createAdapter(snapshot: DebateSnapshot) {
               );
             return { id, side, ready };
           })
-          .sort((a, b) => a.id.localeCompare(b.id)),
+          .sort((a, b) => byCodeUnit(a.id, b.id)),
       };
     },
     join(participant: Participant) {
