@@ -12,3 +12,6 @@ packages/db/migrations/meta
 # Generated in-test previews (AUTH-3.9): rendered for a reviewer to open in a
 # browser, not authored source.
 apps/web/src/features/auth/mail/__fixtures__
+
+# Ralph loop state files (bun loop:escalate) are local, not authored source.
+.claude/ralph-loop.*.md
