@@ -1,6 +1,5 @@
 import { betterAuth } from 'better-auth';
-import type { BetterAuthOptions, BetterAuthPlugin } from 'better-auth';
-import { createAuthMiddleware } from 'better-auth/api';
+import type { BetterAuthOptions } from 'better-auth';
 import { magicLink } from 'better-auth/plugins';
 import { passkey } from '@better-auth/passkey';
 import { createAppError } from '@daisy/errors';
@@ -12,10 +11,11 @@ import {
   sendChangeEmailConfirmation,
   sendChangeEmailVerification,
 } from './change-email-mail';
-import { createMagicLinkGate } from './magic-link-gate';
+import { createMagicLinkGatePlugin } from './magic-link-gate';
 import { freshSessionGatePlugin } from './fresh-session-gate';
 import { passkeyDeviceHintPlugin } from './passkey-device-hint';
 import { sessionRevokedOutboxPlugin } from './session-revoked-outbox';
+import { revokeOthersOnVerifyEmailPlugin } from './revoke-others-on-verify-email';
 import { recipientHash } from './mail';
 import { renderAuthEmail } from './mail/templates';
 import { unavailable } from './public-errors';
@@ -36,6 +36,12 @@ const MAGIC_LINK_EXPIRES_IN_SECONDS = 300;
 // Matches the emailed-link token-delivery model's 5-minute figure; Better
 // Auth's own default (1 hour) is otherwise silently applied to this token.
 export const EMAIL_VERIFICATION_EXPIRES_IN_SECONDS = 300;
+
+/** ISSUE-3 AC3: the atomic revoke `revokeOthersOnVerifyEmailPlugin` runs. */
+type RevokeOtherSessions = (
+  userId: string,
+  keepToken: string,
+) => Promise<number>;
 
 /** Application-level email contract; the Resend transport plugs in here. */
 export type AuthEmailMessage = {
@@ -82,27 +88,14 @@ const composeBetterAuth = (dependencies: {
   readonly ids: IdGenerator;
   readonly clientIp: ClientIpTrust | undefined;
   readonly appendSessionRevoked: (userId: string) => Promise<void>;
+  readonly revokeOtherSessions: RevokeOtherSessions;
 }) => {
   const { config, ledger } = dependencies;
   const origin = new URL(config.PUBLIC_APP_URL).origin;
-  const magicLinkGate = createMagicLinkGate({
+  const magicLinkGatePlugin = createMagicLinkGatePlugin({
     secret: config.BETTER_AUTH_SECRET,
     ledger,
   });
-  /** Runs after the rate-limit gate: a throttled request does no lookups. */
-  const magicLinkGatePlugin: BetterAuthPlugin = {
-    id: 'daisy-magic-link-gate',
-    hooks: {
-      before: [
-        {
-          matcher: (context) => context.path === '/sign-in/magic-link',
-          handler: createAuthMiddleware(async (context) => {
-            await magicLinkGate(context.body);
-          }),
-        },
-      ],
-    },
-  };
   const instance = betterAuth({
     baseURL: config.PUBLIC_APP_URL,
     trustedOrigins: [origin],
@@ -222,6 +215,10 @@ const composeBetterAuth = (dependencies: {
         dependencies.appendSessionRevoked,
         dependencies.logger,
       ),
+      revokeOthersOnVerifyEmailPlugin(
+        dependencies.revokeOtherSessions,
+        dependencies.logger,
+      ),
     ],
   });
   return {
@@ -275,16 +272,13 @@ export function createAuthServer<
   readonly logger: Logger;
   readonly clock: Clock;
   readonly ids: IdGenerator;
-  /**
-   * Trusted client-IP header(s) for rate-limit keying. Omitted means the
-   * validated `AUTH_TRUSTED_IP_HEADERS` / `AUTH_TRUSTED_PROXIES` apply,
-   * which believe no request header unless the deployment sets them.
-   */
+  /** Omitted means the validated `AUTH_TRUSTED_IP_HEADERS` / `AUTH_TRUSTED_PROXIES` apply. */
   readonly clientIp?: ClientIpTrust | undefined;
   /** Mail receipts and suppressions (production supplies the @daisy/db one). */
   readonly ledger?: AuthDeliveryLedger | undefined;
   /** RT-2.2: appends `session.revoked` after a confirmed self-service revoke. */
   readonly appendSessionRevoked: (userId: string) => Promise<void>;
+  readonly revokeOtherSessions: RevokeOtherSessions;
 }): AuthServer<Database> {
   const config = readAuthConfig(dependencies.env);
   const ledger = dependencies.ledger ?? noLedger;
@@ -343,6 +337,7 @@ export function createAuthServer<
       // Explicit injection wins; otherwise the validated environment decides.
       clientIp: dependencies.clientIp ?? clientIpFromConfig(config),
       appendSessionRevoked: dependencies.appendSessionRevoked,
+      revokeOtherSessions: dependencies.revokeOtherSessions,
     }),
     database: dependencies.database,
     mail: { send: sendMail },

@@ -13,7 +13,6 @@ type Handler = (request: Request) => Promise<Response>;
  * path and event name are logged: never the request body, query or cookies.
  */
 const LIFECYCLE_EVENTS: Readonly<Record<string, EventName>> = {
-  '/magic-link/verify': 'auth.magic_link.verified',
   '/passkey/verify-registration': 'auth.passkey.enrolled',
   '/passkey/verify-authentication': 'auth.passkey.authenticated',
   '/passkey/delete-passkey': 'auth.passkey.removed',
@@ -21,8 +20,22 @@ const LIFECYCLE_EVENTS: Readonly<Record<string, EventName>> = {
   '/revoke-sessions': 'auth.session.revoked_all',
   '/revoke-other-sessions': 'auth.session.revoked_all',
   '/change-email': 'auth.email_change.requested',
-  '/verify-email': 'auth.email_change.verified',
 };
+
+/**
+ * Better Auth 1.7.5 registers these as GET endpoints
+ * (`better-auth/dist/plugins/magic-link/index.mjs:116-117`), so a direct
+ * link reaches and redeems them without ever crossing the same-origin POST
+ * confirm page (`confirm.ts`, `confirm-email.ts`) — a login-CSRF and a
+ * `revokeOtherSessionsFor` bypass (ISSUE-3). Only the confirm pages' internal
+ * forward may redeem: `confirm-http-shared.ts`'s `createForward` calls
+ * `server.handler` directly, never through this mounted route, so refusing
+ * every request here at the boundary cannot break that forward.
+ */
+const DIRECT_REDEMPTION_BLOCKED_PATHS = new Set([
+  '/magic-link/verify',
+  '/verify-email',
+]);
 
 /** Strips the mount prefix so only the stable Better Auth path is compared. */
 const mountedPath = (url: string): string =>
@@ -80,6 +93,8 @@ export function createAuthRouteHandlers(
     withRetryAfter(
       await handleOperation(request, 'auth.request', async (_id, logger) => {
         const server = auth();
+        if (DIRECT_REDEMPTION_BLOCKED_PATHS.has(mountedPath(request.url)))
+          return new Response(null, { status: 404 });
         // Better Auth only enforces origin on cookie-bearing requests; every
         // state-changing auth call must additionally come from our own origin.
         if (

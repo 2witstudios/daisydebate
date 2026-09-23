@@ -11,11 +11,12 @@ import {
   fixtureEmail,
   isCuid2,
   isDate,
+  redeemMagicLink,
   removeFixture,
   verificationValue,
-  verifyUrl,
   type SentMessages,
 } from './auth-helpers';
+import { CONFIRM_PATH } from '../src/features/auth/confirm-page';
 import {
   logsLeakSecrets,
   type RecordedLogs,
@@ -129,31 +130,144 @@ test('magic-link request persists a token-bearing verification record', async ()
   });
 });
 
-type VerifiedPayload = {
-  token: string;
+type SessionView = {
   user: { id: string; email: string; emailVerified: boolean };
-  session: { id: string; expiresAt: unknown };
-};
+  session: { id: string; token: string; expiresAt: unknown };
+} | null;
 
 const sessionBoundary = (
   row: { id: string; expires_at: Date; token: string } | undefined,
-  verified: VerifiedPayload,
+  view: SessionView,
 ) => ({
   exists: row !== undefined,
-  sameSession: row?.id === verified.session.id,
+  sameSession: row?.id === view?.session.id,
   rowExpiresAtIsDate: isDate(row?.expires_at),
   isoRoundTrip: isDate(row?.expires_at)
-    ? new Date(verified.session.expiresAt as string).toISOString() ===
+    ? new Date(view?.session.expiresAt as string).toISOString() ===
       row.expires_at.toISOString()
     : false,
-  cookieTokenMatchesRow: row?.token === verified.token,
+  cookieTokenMatchesRow: row?.token === view?.session.token,
 });
 
-// Better Auth rejects a consumed token with its INVALID_TOKEN redirect
-// (302); an unexpected 5xx would be an infrastructure failure, not a
-// rejection, and the body must never carry a fresh session token.
-const replayRejected = (status: number, body: { token?: string }) =>
-  status === 302 && body.token === undefined;
+// The confirm page's redeem() maps a replayed/invalid token to a 303 back to
+// itself with `?error=INVALID_TOKEN` and no cookie, never the success
+// redirect (`confirm.ts`).
+const replayRejected = (response: Response) => {
+  const location = response.headers.get('location') ?? '';
+  return (
+    response.status === 303 &&
+    location.startsWith(CONFIRM_PATH) &&
+    location.includes('error=INVALID_TOKEN') &&
+    response.headers.getSetCookie().length === 0
+  );
+};
+
+const probeSessionRow = async (userId: string) => {
+  const probe = new SQL(url);
+  try {
+    const rows = await probe.unsafe(
+      'select id, expires_at, token from session where user_id = $1',
+      [userId],
+    );
+    return rows[0] as
+      { id: string; expires_at: Date; token: string } | undefined;
+  } finally {
+    await probe.close();
+  }
+};
+
+const probeSessionIds = async (userId: string) => {
+  const probe = new SQL(url);
+  try {
+    return (await probe.unsafe('select id from session where user_id = $1', [
+      userId,
+    ])) as { id: string }[];
+  } finally {
+    await probe.close();
+  }
+};
+
+/** Redeems the captured link and asserts it answered with a fresh session. */
+const redeemAndAssertSession = async (
+  auth: RunContext['auth'],
+  token: string,
+  email: string,
+  setUserId: RunContext['setUserId'],
+) => {
+  // Redeem the way a person does: POST to the same-origin confirm page,
+  // which forwards into Better Auth internally (ISSUE-3: a direct GET to
+  // /api/auth/magic-link/verify is refused by the mounted route).
+  const redemption = await redeemMagicLink(auth, token);
+  const sessionCookie = redemption.headers.get('set-cookie')?.split(';')[0];
+  const sessionView = (await auth.instance.api.getSession({
+    headers: new Headers({ cookie: sessionCookie ?? '' }),
+  })) as SessionView;
+  setUserId(sessionView?.user.id ?? '');
+  assert({
+    given: 'redemption of the captured magic link through the confirm page',
+    should: 'create a verified cuid2 user whose cookie resolves durably',
+    actual: {
+      status: redemption.status,
+      location: redemption.headers.get('location'),
+      email: sessionView?.user.email,
+      emailVerified: sessionView?.user.emailVerified,
+      cuid2Id: isCuid2(sessionView?.user.id ?? ''),
+      cookieIssued: typeof sessionCookie === 'string',
+    },
+    expected: {
+      status: 303,
+      // A brand-new account redirects to onboarding, not the plain
+      // callbackURL (Better Auth's magic-link plugin picks
+      // newUserCallbackURL for a first-time sign-in).
+      location: '/onboarding/username',
+      email,
+      emailVerified: true,
+      cuid2Id: true,
+      cookieIssued: true,
+    },
+  });
+  return sessionView;
+};
+
+/** Asserts the durable session row agrees with the get-session response. */
+const assertDurableSessionRow = async (sessionView: SessionView) => {
+  const row = await probeSessionRow(sessionView?.user.id ?? '');
+  assert({
+    given: 'the durable session row and the get-session response',
+    should: 'agree on identity and the Date/ISO timestamp boundary',
+    actual: sessionBoundary(row, sessionView),
+    expected: {
+      exists: true,
+      sameSession: true,
+      rowExpiresAtIsDate: true,
+      isoRoundTrip: true,
+      cookieTokenMatchesRow: true,
+    },
+  });
+};
+
+/** Replays the consumed token and asserts it authenticates no second time. */
+const assertReplayRejected = async (
+  auth: RunContext['auth'],
+  token: string,
+  sessionView: SessionView,
+) => {
+  const replay = await redeemMagicLink(auth, token);
+  assert({
+    given: 'a replayed verification token through the confirm page',
+    should: 'authenticate no second time',
+    actual: { rejected: replayRejected(replay) },
+    expected: { rejected: true },
+  });
+
+  const persistedSessions = await probeSessionIds(sessionView?.user.id ?? '');
+  assert({
+    given: 'the persisted sessions after the replayed token',
+    should: 'keep the original session as the only authentication state',
+    actual: persistedSessions.map(({ id }) => id),
+    expected: [sessionView?.session.id],
+  });
+};
 
 test('redeeming the captured link durably creates a verified user and session', async () => {
   const { email, userId } = await runAuth(
@@ -171,99 +285,14 @@ test('redeeming the captured link durably creates a verified user and session', 
       });
       const token = capturedToken(sent[0]!);
 
-      // Redeem through the real HTTP handler so the session cookie is the
-      // app's own signed cookie.
-      const redemption = await auth.instance.handler(
-        new Request(verifyUrl(token), {
-          headers: new Headers({ origin: auth.config.PUBLIC_APP_URL }),
-        }),
+      const sessionView = await redeemAndAssertSession(
+        auth,
+        token,
+        email,
+        setUserId,
       );
-      const verified = (await redemption.json()) as {
-        token: string;
-        user: { id: string; email: string; emailVerified: boolean };
-        session: { id: string; expiresAt: unknown };
-      };
-      setUserId(verified.user.id);
-      const sessionCookie = redemption.headers.get('set-cookie')?.split(';')[0];
-      const sessionView = (await auth.instance.api.getSession({
-        headers: new Headers({ cookie: sessionCookie ?? '' }),
-      })) as { user: { id: string } } | null;
-      assert({
-        given: 'redemption of the captured magic link',
-        should: 'create a verified cuid2 user whose cookie resolves durably',
-        actual: {
-          status: redemption.status,
-          email: verified.user.email,
-          emailVerified: verified.user.emailVerified,
-          cuid2Id: isCuid2(verified.user.id),
-          cookieIssued: typeof sessionCookie === 'string',
-          resolvedUser: sessionView?.user.id,
-        },
-        expected: {
-          status: 200,
-          email,
-          emailVerified: true,
-          cuid2Id: true,
-          cookieIssued: true,
-          resolvedUser: verified.user.id,
-        },
-      });
-
-      const probe = new SQL(url);
-      try {
-        const sessionRows = await probe.unsafe(
-          'select id, expires_at, token from session where user_id = $1',
-          [verified.user.id],
-        );
-        const row = sessionRows[0] as
-          { id: string; expires_at: Date; token: string } | undefined;
-        assert({
-          given: 'the durable session row and the verification response',
-          should: 'agree on identity and the Date/ISO timestamp boundary',
-          actual: sessionBoundary(row, verified),
-          expected: {
-            exists: true,
-            sameSession: true,
-            rowExpiresAtIsDate: true,
-            isoRoundTrip: true,
-            cookieTokenMatchesRow: true,
-          },
-        });
-      } finally {
-        await probe.close();
-      }
-
-      // Replay: the consumed token must never authenticate twice.
-      const replay = await auth.instance.handler(
-        new Request(verifyUrl(token), {
-          headers: new Headers({ origin: auth.config.PUBLIC_APP_URL }),
-        }),
-      );
-      const replayBody = (await replay.json().catch(() => ({}))) as {
-        token?: string;
-      };
-      assert({
-        given: 'a replayed verification token',
-        should: 'authenticate no second time',
-        actual: { rejected: replayRejected(replay.status, replayBody) },
-        expected: { rejected: true },
-      });
-
-      const replayProbe = new SQL(url);
-      try {
-        const persistedSessions = (await replayProbe.unsafe(
-          'select id from session where user_id = $1',
-          [verified.user.id],
-        )) as { id: string }[];
-        assert({
-          given: 'the persisted sessions after the replayed token',
-          should: 'keep the original session as the only authentication state',
-          actual: persistedSessions.map(({ id }) => id),
-          expected: [verified.session.id],
-        });
-      } finally {
-        await replayProbe.close();
-      }
+      await assertDurableSessionRow(sessionView);
+      await assertReplayRejected(auth, token, sessionView);
 
       assert({
         given: 'the integration run with its captured logger',

@@ -37,6 +37,7 @@ const unreachableDatabase = () => {
     limiter: { consume: async () => ({ allowed: true, retryAfterSeconds: 0 }) },
     ledger: { isSuppressed: async () => false, record: async () => {} },
     appendSessionRevoked: async () => {},
+    revokeOtherSessions: async () => 0,
     logger: silent,
     clock: systemClock,
     ids: systemId,
