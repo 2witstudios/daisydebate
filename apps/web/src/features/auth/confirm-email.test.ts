@@ -53,6 +53,28 @@ const post = () =>
     }).toString(),
   });
 
+describe('confirm-email: when the forwarded auth request fails', () => {
+  test('renders the expired page instead of propagating the failure', async () => {
+    const throwingHandlers = createConfirmEmailHandlers({
+      auth: () => ({
+        config: { PUBLIC_APP_URL },
+        handler: async () => {
+          throw new Error('redis://secret-host unreachable');
+        },
+      }),
+    });
+    const response = await throwingHandlers.POST(post());
+    const body = await response.text();
+    assert({
+      given:
+        'the composed auth handler throwing (a real outage, now that it no longer swallows to a bare 500)',
+      should: 'answer 400 with no internal detail, not an unhandled rejection',
+      actual: { status: response.status, leaks: body.includes('redis://secret-host') },
+      expected: { status: 400, leaks: false },
+    });
+  });
+});
+
 describe('confirm-email: post-verification session revocation', () => {
   test('redirects to the destination once every other session is confirmed revoked', async () => {
     const response = await handlersWith(false).POST(post());

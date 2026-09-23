@@ -222,13 +222,16 @@ const composeBetterAuth = (dependencies: {
     handler: async (request: Request): Promise<Response> => {
       try {
         return await instance.handler(request);
-      } catch {
+      } catch (error) {
         dependencies.logger.log(
           'request.unhandled',
           { source: 'better-auth' },
           'Authentication request failed',
         );
-        return new Response(null, { status: 500 });
+        // A retryable outage, typed at the source: callers (the mounted
+        // route wrapper, the confirm-page internal forward) no longer need
+        // to sniff a bodiless 500 for this signal.
+        throw createAppError('INFRASTRUCTURE', undefined, error);
       }
     },
   };

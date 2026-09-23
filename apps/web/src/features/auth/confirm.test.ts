@@ -33,6 +33,36 @@ const post = (headers: Record<string, string>) =>
     body: new URLSearchParams({ token, callbackURL: '/ranked' }).toString(),
   });
 
+describe('confirm submit when the forwarded auth request fails', () => {
+  const throwingHandlers = createConfirmHandlers({
+    auth: () => ({
+      config: { PUBLIC_APP_URL: 'https://daisy.invalid' },
+      handler: async () => {
+        throw new Error('redis://secret-host unreachable');
+      },
+    }),
+  });
+
+  test('renders a retryable page instead of propagating the failure', async () => {
+    const response = await throwingHandlers.POST(
+      post({ origin: 'https://daisy.invalid' }),
+    );
+    const body = await response.text();
+    assert({
+      given:
+        "the composed auth handler throwing (a real outage, now that it no longer swallows to a bare 500)",
+      should:
+        'answer a safe 503 confirm page, retryable, with no internal detail',
+      actual: {
+        status: response.status,
+        retryAfter: response.headers.get('retry-after'),
+        leaks: body.includes('redis://secret-host'),
+      },
+      expected: { status: 503, retryAfter: '5', leaks: false },
+    });
+  });
+});
+
 describe('confirm submit behind TLS termination', () => {
   test('keeps the destination when the target is on the public origin', async () => {
     const response = await handlers(
