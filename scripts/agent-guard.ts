@@ -29,6 +29,8 @@ import { gh } from './agent-guard-gh';
 import { git } from './agent-guard-git';
 import { kill, otherKillers } from './agent-guard-process';
 import { bun, docker } from './agent-guard-stacks';
+import { identityRegime } from './agent-identity';
+import { IDENTITY_REASON, identityVerdict } from './agent-guard-identity';
 import { deriveSlot } from './slot-model';
 import { parseShell } from './shell-command';
 
@@ -91,12 +93,15 @@ function shellVerdict(args: readonly string[], facts: GuardFacts): Verdict {
 }
 
 /** Judges one shell command line, with every nested command it runs. */
-export function classifyCommand(command: string, facts: GuardFacts): Verdict {
+export function classifyCommand(command: string, given: GuardFacts): Verdict {
+  // A misconfigured agent is still an agent: every agent rule applies.
+  const facts = given.misconfigured ? { ...given, autonomous: true } : given;
   const verdicts: Verdict[] = [];
   let cwd = facts.cwd;
   for (const simple of parseShell(command)) {
     const invocation = unwrap(simple);
     const [name = '', ...args] = invocation.words;
+    verdicts.push(identityVerdict(name, args, facts));
     verdicts.push(guardVariables(invocation, facts));
     verdicts.push(loopState(simple, invocation, facts, cwd));
     if (name === 'cd' || name === 'pushd')
@@ -122,6 +127,7 @@ export function classifyPush(
   lines: readonly string[],
   facts: GuardFacts,
 ): Verdict {
+  if (facts.misconfigured) return deny(IDENTITY_REASON);
   return combine(
     lines
       .map((line) => line.trim().split(/\s+/))
@@ -205,6 +211,8 @@ function liveFacts(cwd: string, projectDir?: string): GuardFacts {
   const mainCheckout = commonDir ? dirname(commonDir) : worktree;
   return {
     autonomous: isAgentSession(process.env),
+    misconfigured:
+      identityRegime(process.env, existsSync, mainCheckout) === 'misconfigured',
     worktree,
     home: process.env.HOME,
     cwd: isAbsolute(cwd) ? cwd : resolve(worktree, cwd),

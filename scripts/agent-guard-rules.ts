@@ -22,6 +22,8 @@ export type GuardFacts = {
   /** The slot database (ADR 0034) of the checkout containing dir. */
   readonly databaseOf: (dir: string) => string | undefined;
   readonly processCwd: (pid: number) => string | undefined;
+  /** A pu agent running without its machine identity (ADR 0035). */
+  readonly misconfigured?: boolean;
 };
 
 export type Invocation = {

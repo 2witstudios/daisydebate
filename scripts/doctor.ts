@@ -1,8 +1,9 @@
 import { SQL, RedisClient } from 'bun';
 import { readServerConfig } from '@daisy/config';
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { serviceRefusal, slotMismatches, type Slot } from './slot-model';
 import {
   inspectOrphans,
@@ -10,7 +11,11 @@ import {
   openServices,
   resolveCheckout,
 } from './slot';
-import { assessGithubIdentity } from './agent-identity';
+import {
+  assessGithubIdentity,
+  identityRegime,
+  regimeCheck,
+} from './agent-identity';
 import { checkoutWarning, readCheckout } from './session-start';
 
 const checkNames = [
@@ -23,6 +28,7 @@ const checkNames = [
   'slot',
   'slot-orphans',
   'github-identity',
+  'identity-regime',
   'checkout',
 ] as const;
 
@@ -309,6 +315,24 @@ async function checkGithubIdentity(): Promise<DoctorCheck> {
   return { name: 'github-identity', status, detail };
 }
 
+async function checkIdentityRegime(): Promise<DoctorCheck> {
+  const commonDir = await output([
+    'git',
+    'rev-parse',
+    '--path-format=absolute',
+    '--git-common-dir',
+  ]);
+  const regime = identityRegime(
+    process.env,
+    existsSync,
+    commonDir ? dirname(commonDir) : undefined,
+  );
+  return {
+    name: 'identity-regime',
+    ...regimeCheck(regime, process.env.PU_AGENT_ID),
+  };
+}
+
 function checkCheckout(): DoctorCheck {
   const checkout = readCheckout(root);
   const warning = checkoutWarning(checkout);
@@ -341,6 +365,7 @@ export async function runDoctor(): Promise<DoctorReport> {
     boundaries,
     ...slots,
     identity,
+    await checkIdentityRegime(),
     checkCheckout(),
   ]);
 }

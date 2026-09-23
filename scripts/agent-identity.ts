@@ -6,6 +6,7 @@
  * and `assessGithubIdentity` is the `github-identity` check of bun doctor.
  */
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { parseDotenv } from './dotenv';
 
 type Env = Readonly<Record<string, string | undefined>>;
@@ -107,6 +108,46 @@ export function assessGithubIdentity(facts: IdentityFacts): {
         status: 'pass',
         detail: `autonomous as ${facts.login} (GH_TOKEN, HTTPS push)`,
       };
+}
+
+export type Regime = 'inactive' | 'owner' | 'agent' | 'misconfigured';
+
+/**
+ * Whether the identity regime is on, and what this session is under it. The
+ * regime is on once the owner's .env.agent exists in the project root (pu's
+ * PU_PROJECT_ROOT, the main checkout): an agent cannot switch it off by
+ * deleting its worktree copy. A pu agent (PU_AGENT_ID) without GH_TOKEN or
+ * DAISY_AUTONOMOUS=1 was resumed or started outside scripts/agent-launch.sh.
+ */
+export function identityRegime(
+  env: Env,
+  exists: (path: string) => boolean,
+  mainCheckout?: string,
+): Regime {
+  const root = env.PU_PROJECT_ROOT ?? mainCheckout;
+  if (!root || !exists(join(root, '.env.agent'))) return 'inactive';
+  if (!env.PU_AGENT_ID) return 'owner';
+  return env.GH_TOKEN && env.DAISY_AUTONOMOUS === '1'
+    ? 'agent'
+    : 'misconfigured';
+}
+
+export function regimeCheck(
+  regime: Regime,
+  agentId: string | undefined,
+): { readonly status: 'pass' | 'warn' | 'fail'; readonly detail: string } {
+  if (regime === 'misconfigured')
+    return {
+      status: 'fail',
+      detail: `pu agent ${agentId ?? '?'} runs without its machine identity: it was resumed (pu play, a daemon restart) or started outside scripts/agent-launch.sh; network git and gh are refused until it is restarted through the launcher`,
+    };
+  if (regime === 'inactive')
+    return {
+      status: 'warn',
+      detail:
+        'identity regime not active: pu agents act as the owner (GRD-6.2)',
+    };
+  return { status: 'pass', detail: `identity regime active (${regime})` };
 }
 
 if (import.meta.main) {
