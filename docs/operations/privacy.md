@@ -36,6 +36,16 @@ and names the owning area in every failure. It runs as part of `bun check`
 and the CI matrix. Adding a column that holds personal data has its own
 recipe in `docs/development/extending.md` once PRIV-3 lands.
 
+**`outbox.payload` and every realtime topic are telemetry-visible surfaces
+under these same rules, not an exception.** `outbox.payload`
+(`packages/db/src/schema/outbox.ts`) is an untyped JSON column that fans
+out to every subscribed browser; each of the five topic families
+(`debate`, `debate:presence`, `debate:chat`, `user:inbox`, `standings`,
+`packages/protocol/src/topics.ts`) carries only the ids and projected
+state the engine already treats as competitive, non-personal data, and any
+payload kind added to `topicFamilyPayloadKinds` must classify its fields
+the same way a database column would before it can ride a topic.
+
 ## Retention
 
 Retention today is scattered across a few ADRs and one doc, until PRIV-3's

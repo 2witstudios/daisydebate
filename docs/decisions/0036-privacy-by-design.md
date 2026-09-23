@@ -92,8 +92,12 @@ An entry with no matching column is stale and fails the gate; a column
 missing from the inventory, or a `personal` entry missing `visibility`,
 `retention`, `erasure`, `storage` or `owner`, fails the gate. This closes
 gap 1 in the spec: `outbox.payload` (an untyped JSON column fanned out to
-every browser) is a telemetry-visible surface under these same rules, not
-an exception.
+every browser) and every realtime topic family (`debate`,
+`debate:presence`, `debate:chat`, `user:inbox`, `standings`,
+`packages/protocol/src/topics.ts`) are telemetry-visible surfaces under
+these same rules, not an exception — a payload kind added to
+`topicFamilyPayloadKinds` classifies its fields before it may ride a
+topic.
 
 The registry and its gate (`bun privacy`) are PRIV-3's mechanism; this ADR
 fixes the shape the gate enforces.
