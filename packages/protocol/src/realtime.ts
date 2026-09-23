@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { idSchema, errorSchema, debateRoles } from './primitives';
-import { topicStringSchema, type TopicFamily } from './topics';
+import { topicStringSchema, parseTopic, type TopicFamily } from './topics';
 import {
   outboxPayloadSchema,
   isPayloadAllowedOnTopic,
@@ -46,13 +46,40 @@ export type {
 } from './realtime-payloads';
 
 /**
- * The wire protocol version. It is both the message-envelope `v` (every
- * client and server message is stamped with it) and the value `hello`
- * negotiates: an unsupported version closes the socket with
- * `protocol_unsupported` (ADR 0031 §5) rather than being silently dropped,
+ * The message-envelope version, stamped on `v` in every client and server
+ * message. It versions the wire framing (the envelope shape itself), not
+ * the message set `hello` negotiates (ADR 0031 §6): the two are distinct
+ * values that happen to both start at `1`, tracked by separate constants so
+ * one can change without forcing the other. An unsupported `v` closes the
+ * socket with `protocol_unsupported` rather than being silently dropped,
  * unlike PageSpace's socket.io events.
  */
+export const ENVELOPE_VERSION = 1;
+
+/**
+ * The application protocol version `hello.protocolVersion` negotiates: the
+ * client and server message set and semantics. See `ENVELOPE_VERSION` for
+ * why this is a separate constant rather than the same literal reused.
+ */
 export const PROTOCOL_VERSION = 1;
+
+/**
+ * Heartbeat, reconnect and backpressure constants `@daisy/protocol` owns
+ * (ADR 0031 §7, §9; ADR 0033 §6). `heartbeatMs` and `reconnectBudgetMs` are
+ * also consumed as engine rules-validation inputs
+ * (`debate.rules.check-in-grace-covers-reconnect`, ADR 0033 §6); the socket
+ * and backpressure bounds are consumed by `apps/realtime`.
+ */
+export const heartbeatMs = 15_000;
+export const reconnectBudgetMs = 10_000;
+/** Bun `idleTimeout` seconds (not milliseconds): reaps a silent peer. */
+export const idleTimeout = 36;
+export const backpressureBounds = {
+  /** `backpressureLimit` + `closeOnBackpressureLimit`: the hard backstop. */
+  hardBytes: 1_048_576,
+  /** Above this, the server closes with `4005 slow_consumer`. */
+  softBytes: 262_144,
+} as const;
 
 /**
  * An opaque `(txid, seq)` outbox position, serialized as `txid:seq`
@@ -68,7 +95,7 @@ export const cursorSchema = z
   .regex(/^(0|[1-9]\d{0,19}):(0|[1-9]\d{0,19})$/);
 
 /**
- * A single-use realtime connect ticket (ADR 0031 §10): 32 CSPRNG bytes,
+ * A single-use realtime connect ticket (ADR 0031 §11): 32 CSPRNG bytes,
  * base64url-encoded, so exactly 43 characters and never padded. It is a
  * bearer secret, so it is never a cuid2 and is never logged.
  */
@@ -77,7 +104,7 @@ export const ticketSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 // --- Subscribe authorization table (data, no I/O) ---------------------
 
 /**
- * Who may subscribe to each topic family, as data (ADR 0031 §10, plan
+ * Who may subscribe to each topic family, as data (ADR 0031 §5, plan
  * section D's registry table). RT-2.5a's subscribe registry consumes this;
  * it performs no authorization itself. A family absent from this table is
  * refused. `privateRoles` is the ADR 0029 seat-role vocabulary itself
@@ -124,7 +151,7 @@ export const subscribeAuthorizationTable: Readonly<
 
 // --- Client and server message envelopes -------------------------------
 
-const envelope = { v: z.literal(PROTOCOL_VERSION) };
+const envelope = { v: z.literal(ENVELOPE_VERSION) };
 const presenceActivitySchema = z.enum(['active', 'idle']);
 export const presenceStatusSchema = z.enum([
   'in-debate',
@@ -174,11 +201,32 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
 export type ClientMessage = z.infer<typeof clientMessageSchema>;
 
 /**
- * Server-initiated messages (ADR 0031 §5): `ready` after a successful
+ * Server-initiated messages (ADR 0031 §6): `ready` after a successful
  * `hello`, `revoked` on `session.revoked` or a failed revalidation, and
  * `server.restarting` on SIGTERM drain. None carries a request `id`.
  */
 const serverInitiatedTypes = ['ready', 'revoked', 'server.restarting'] as const;
+
+/**
+ * The presence doorbell (ADR 0033 §1): fired when a `debate:presence`
+ * topic's projected value changes. It carries no outbox `position` and no
+ * status, unlike `event`: presence is never written to the outbox, so
+ * there is no position to carry, and the client always refetches the
+ * projected value over HTTP rather than trusting a pushed status.
+ */
+const presenceChangedMessageSchema = z
+  .strictObject({
+    ...envelope,
+    type: z.literal('presence.changed'),
+    topic: topicStringSchema,
+  })
+  .refine(
+    (message) => parseTopic(message.topic)?.family === 'debate:presence',
+    {
+      message: 'presence.changed must name a debate:presence topic',
+      path: ['topic'],
+    },
+  );
 
 /**
  * The event message pairs an outbox position with its payload. Its
@@ -234,13 +282,7 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
     id: idSchema,
   }),
   eventMessageSchema,
-  z.strictObject({
-    ...envelope,
-    type: z.literal('presence.update'),
-    topic: topicStringSchema,
-    actorId: idSchema,
-    status: presenceStatusSchema,
-  }),
+  presenceChangedMessageSchema,
   z.strictObject({
     ...envelope,
     type: z.enum(serverInitiatedTypes),

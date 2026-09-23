@@ -47,6 +47,13 @@ created_at timestamptz NOT NULL DEFAULT statement_timestamp()
 to the outbox needs `INSERT` on `outbox` and `USAGE` on its `seq` sequence,
 both granted in the migration that creates the table or the role.
 
+`version` is the version of the entity the row announces (what a client
+compares to detect a gap), not a fixed payload-schema constant: it only
+ever increases, so `@daisy/protocol`'s payload schemas (section 6) validate
+it as a positive integer, never the literal `1`. The row's own `payload`
+carries this same value; there is no separate `version` on the `event`
+message.
+
 A position is the pair `(txid, seq)`. A drain reads:
 
 ```sql
@@ -260,12 +267,23 @@ topic.
 
 ### 6. Payload policy
 
-- **Public topics** (`debate:<id>`, `debate:<id>:presence`,
-  `standings:<season>`) carry
-  doorbells only: ids, `kind` and `version`. Never user content, names or
-  text.
+- **Public topics carried through the outbox** (`debate:<id>`,
+  `standings:<season>`) carry doorbells only: ids, `kind` and `version`.
+  Never user content, names or text. `debate:<id>:presence` is a public
+  topic too, but it carries no outbox payload at all: presence is never
+  written to the outbox (ADR 0033 §1) and is delivered instead as the
+  `presence.changed` server message (ADR 0031 §6), which names no `kind`
+  and carries no `version`.
 - **Owner-only topics** (`user:<id>:inbox`) may carry small typed deltas, since
   only the owner can subscribe.
+- The doorbell kind names, exactly (`@daisy/protocol`'s `doorbellKinds`):
+  `debate.phase-changed` (the `debate:<id>` family) and
+  `standings.updated` (the `standings:<season>` family). The owner-only
+  inbox delta kind is `user.notification-delivered` (the `user:<id>:inbox`
+  family; its content is NOTIF-1's later epic). `session.revoked` and
+  `access.revoked` (section 5) are outbox rows with their own payload
+  schemas but ride no topic, so they are absent from every family's kind
+  list.
 - Clients refetch over HTTP, where permissions are enforced on every read.
   So a subscriber who lost access and is still inside the 60 s
   re-authorization window learns at most that something changed.

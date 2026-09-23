@@ -2,6 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   buildDebatePresenceTopic,
   buildDebateTopic,
+  doorbellKinds,
   isPayloadAllowedOnTopic,
   outboxPayloadSchema,
 } from './realtime';
@@ -12,6 +13,16 @@ const id = 'k2v9x0f4m8q3w1z7c5n6b4d2';
 const otherId = 'm8q3w1z7c5n6b4d2k2v9x0f4';
 
 describe('outbox payload schema', () => {
+  test('never lists debate.presence-changed as a doorbell kind: presence is never written to the outbox (ADR 0033 §1)', () => {
+    assert({
+      given: 'the outbox doorbell kind vocabulary',
+      should:
+        'contain exactly the two kinds still delivered through the outbox',
+      actual: doorbellKinds,
+      expected: ['debate.phase-changed', 'standings.updated'],
+    });
+  });
+
   test('validates a doorbell payload by kind and version', () => {
     assert({
       given: 'a version 1 doorbell payload naming a known kind',
@@ -27,21 +38,47 @@ describe('outbox payload schema', () => {
       given: 'a payload with an unknown kind',
       should: 'reject it',
       actual: outboxPayloadSchema.safeParse({
-        version: 1,
+        version: 2,
         kind: 'debate.exploded',
         ids: [id],
       }).success,
       expected: false,
     });
     assert({
-      given: 'a payload stamped with a future version',
-      should: 'reject it',
+      given: 'a later entity version naming a known kind',
+      should:
+        'accept it: version is the entity version, not a fixed schema literal',
       actual: outboxPayloadSchema.safeParse({
-        version: 2,
+        version: 7,
         kind: 'debate.phase-changed',
         ids: [id],
       }).success,
-      expected: false,
+      expected: true,
+    });
+  });
+
+  test('rejects a version that is not a positive integer', () => {
+    assert({
+      given: 'zero, a negative integer, and a fractional version',
+      should: 'reject all three: the entity version is a positive integer',
+      actual: [
+        outboxPayloadSchema.safeParse({
+          version: 0,
+          kind: 'debate.phase-changed',
+          ids: [id],
+        }).success,
+        outboxPayloadSchema.safeParse({
+          version: -1,
+          kind: 'debate.phase-changed',
+          ids: [id],
+        }).success,
+        outboxPayloadSchema.safeParse({
+          version: 1.5,
+          kind: 'debate.phase-changed',
+          ids: [id],
+        }).success,
+      ],
+      expected: [false, false, false],
     });
   });
 
@@ -139,13 +176,26 @@ describe('payload-to-topic-family binding (AC4)', () => {
 
   test('rejects a foreign doorbell kind on the wrong public family', () => {
     assert({
-      given: 'a standings.updated doorbell on a debate presence topic',
-      should:
-        'be refused: the presence topic only allows debate.presence-changed',
-      actual: isPayloadAllowedOnTopic(buildDebatePresenceTopic(id), {
+      given: 'a standings.updated doorbell on a debate topic',
+      should: 'be refused: the debate family only allows debate.phase-changed',
+      actual: isPayloadAllowedOnTopic(buildDebateTopic(id), {
         version: 1,
         kind: 'standings.updated',
         ids: [otherId],
+      }),
+      expected: false,
+    });
+  });
+
+  test('rejects any payload on a debate:presence topic, since presence is delivered as a direct doorbell, not the outbox', () => {
+    assert({
+      given:
+        'a debate.phase-changed doorbell on a debate:presence topic (ADR 0033 §1: presence is never in the outbox)',
+      should: 'be refused: debate:presence allows no outbox kind',
+      actual: isPayloadAllowedOnTopic(buildDebatePresenceTopic(id), {
+        version: 1,
+        kind: 'debate.phase-changed',
+        ids: [id],
       }),
       expected: false,
     });
