@@ -1,5 +1,6 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
+import { claimsIntegrationSuite } from './test-integration';
 
 const root = resolve(import.meta.dir, '..');
 const skipDirectories = new Set([
@@ -165,11 +166,7 @@ const workspaceClaimProblems = async (
         detail: `${workspace} has src suites but its "test" script is not "bun test src"`,
       });
     for (const file of bucket.integration) {
-      if (
-        !(scripts['test:integration'] ?? '').includes(
-          file.split('/').pop() ?? file,
-        )
-      )
+      if (!claimsIntegrationSuite(scripts['test:integration'] ?? '', file))
         problems.push({
           code: 'UNRUN_SUITE',
           detail: `${workspace} "test:integration" does not invoke ${file}`,

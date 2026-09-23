@@ -36,6 +36,45 @@ describe('extractTaskIds', async () => {
     });
   });
 
+  test('keeps the letter suffix of follow-up leaf codes', async () => {
+    assert({
+      given: 'follow-up leaves such as RT-2.2f beside AUTH-3.1 and AUTH-3.10',
+      should: 'return each code whole instead of truncating it to RT-2',
+      actual: extractTaskIds(
+        'fix(db): RT-2.2f outbox; RT-3.1g; AUTH-3.1 AUTH-3.10',
+      ),
+      expected: ['RT-2.2f', 'RT-3.1g', 'AUTH-3.1', 'AUTH-3.10'],
+    });
+  });
+
+  test('reads sub-leaf and revision codes whole, on exact boundaries', async () => {
+    assert({
+      given:
+        'sub-leaves AUTH-2.2.1 and RT-2.2f-r1 beside their parents, a branch, and codes run into other text',
+      should:
+        'return each code whole and never a shorter prefix of a longer code',
+      actual: extractTaskIds(
+        'pu/AUTH-6.3.1-fix AUTH-2.2.1 RT-2.2f-r1 AUTH-2.2 RT-2.2f. AUTH-2.2.1xy RT-2.2f-r1a',
+      ),
+      expected: [
+        'AUTH-6.3.1',
+        'AUTH-2.2.1',
+        'RT-2.2f-r1',
+        'AUTH-2.2',
+        'RT-2.2f',
+      ],
+    });
+  });
+
+  test('never reads a shorter prefix of a code run into other text', async () => {
+    assert({
+      given: 'only codes run into letters or a revision suffix',
+      should: 'return nothing: no parent code is read from them',
+      actual: [extractTaskIds('AUTH-2.2.1xy'), extractTaskIds('RT-2.2f-r1a')],
+      expected: [[], []],
+    });
+  });
+
   test('returns empty for text without task IDs', async () => {
     assert({
       given: 'text without task IDs',

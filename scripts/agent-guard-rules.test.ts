@@ -206,7 +206,7 @@ describe('agent guard: loop state and guard bypasses', () => {
   test('refuses loop state and agent records reached by glob, recursion or cleanup', () => {
     assert({
       given:
-        'globs, recursive removal, find -delete, git clean and writes to .daisy',
+        'globs, recursive removal, find -delete, git clean and writes to the agent registry',
       should: 'deny each one',
       actual: [
         'rm .claude/ralph-loop.l*',
@@ -216,15 +216,17 @@ describe('agent guard: loop state and guard bypasses', () => {
         'find . -name "*.md" -exec rm {} +',
         'git clean -fdX .claude',
         'git clean -fdx',
-        'echo ag-me > .daisy/parent',
-        'rm -rf .daisy',
-        "sed -i '' s/a/b/ .daisy/role",
+        `echo '{}' > ${main}/.pu/daisy/agents/ag-me.json`,
+        'rm -rf ../../daisy',
+        `sed -i '' s/a/b/ ${main}/.pu/daisy/agents/ag-me.json`,
+        `rm ${main}/.pu/daisy/agents/*.json`,
+        `rm -rf ${main}/.pu/*`,
         'mv .claude/ralph-loop.escalated.md /tmp/x',
         `rm ${worktree}/.claude/ralph-loop.local.md`,
         `echo '{}' > .claude/settings.json`,
         'rm .githooks/pre-push',
       ].map((command) => decide(command)),
-      expected: Array(14).fill('deny'),
+      expected: Array(16).fill('deny'),
     });
   });
 
@@ -238,8 +240,9 @@ describe('agent guard: loop state and guard bypasses', () => {
         decide(`find . -name '*.log'`),
         decide('git clean -n -fdX'),
         decide('git log --grep clean'),
+        decide(`rm -rf ${main}/.pu/worktrees/wt-mine/tmp`),
       ],
-      expected: ['allow', 'allow', 'allow', 'allow', 'allow'],
+      expected: Array(6).fill('allow'),
     });
   });
 
@@ -324,7 +327,8 @@ describe('agent guard: loop state and guard bypasses', () => {
         classifyFileEdit(`${worktree}/.claude/ralph-loop.local.md`, facts())
           .decision,
         classifyFileEdit(`${worktree}/scripts/loop.ts`, facts()).decision,
-        classifyFileEdit(`${worktree}/.daisy/parent`, facts()).decision,
+        classifyFileEdit(`${main}/.pu/daisy/agents/ag-me.json`, facts())
+          .decision,
         classifyFileEdit(`${worktree}/.claude/settings.json`, facts()).decision,
         classifyFileEdit(`${worktree}/.claude/ralph-loop.local.md`, owner())
           .decision,

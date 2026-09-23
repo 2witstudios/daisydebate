@@ -17,6 +17,7 @@ import {
   guardVariables,
   LOOP_REASON,
   pushTargetVerdict,
+  isAgentSession,
   resolveFrom,
   unwrap,
   type GuardFacts,
@@ -28,6 +29,8 @@ import { gh } from './agent-guard-gh';
 import { git } from './agent-guard-git';
 import { kill, otherKillers } from './agent-guard-process';
 import { bun, docker } from './agent-guard-stacks';
+import { identityRegime } from './agent-identity';
+import { IDENTITY_REASON, identityVerdict } from './agent-guard-identity';
 import { deriveSlot } from './slot-model';
 import { parseShell } from './shell-command';
 
@@ -47,21 +50,36 @@ const rules: Readonly<Record<string, Rule>> = {
   bun,
 };
 
+// Shell options that take the next word as their value.
+const SHELL_VALUE_OPTIONS = new Set([
+  '-o',
+  '+o',
+  '-O',
+  '+O',
+  '--rcfile',
+  '--init-file',
+]);
+
 /**
- * What a shell invocation runs: the -c string (in any option cluster, such as
- * -lc or -xc, after an optional --), a script file, or its standard input.
+ * What a shell invocation runs. With -c anywhere in its options (alone or in
+ * a cluster such as -lc or -xc) the command is the first operand after all
+ * options, so bash -c -e "cmd" and bash -O x -c "cmd" run "cmd"; otherwise
+ * the first operand is a script file, and with none it reads stdin.
  */
 function shellInput(args: readonly string[]) {
+  let command = false;
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
-    if (arg === '-o' || arg === '+o') index += 1;
-    else if (/^-[a-zA-Z]*c[a-zA-Z]*$/.test(arg)) {
-      const next = args[index + 1] === '--' ? index + 2 : index + 1;
-      return { script: args[next] ?? '' };
-    } else if (arg !== '--' && !arg.startsWith('-') && !arg.startsWith('+'))
-      return { file: arg };
+    if (SHELL_VALUE_OPTIONS.has(arg)) index += 1;
+    else if (arg === '--') {
+      const operand = args[index + 1];
+      if (command) return { script: operand ?? '' };
+      return operand === undefined ? { stdin: true } : { file: operand };
+    } else if (/^-[a-zA-Z]*c[a-zA-Z]*$/.test(arg)) command = true;
+    else if (!arg.startsWith('-') && !arg.startsWith('+'))
+      return command ? { script: arg } : { file: arg };
   }
-  return { stdin: true };
+  return command ? { script: '' } : { stdin: true };
 }
 
 function shellVerdict(args: readonly string[], facts: GuardFacts): Verdict {
@@ -75,16 +93,19 @@ function shellVerdict(args: readonly string[], facts: GuardFacts): Verdict {
 }
 
 /** Judges one shell command line, with every nested command it runs. */
-export function classifyCommand(command: string, facts: GuardFacts): Verdict {
+export function classifyCommand(command: string, given: GuardFacts): Verdict {
+  // A misconfigured agent is still an agent: every agent rule applies.
+  const facts = given.misconfigured ? { ...given, autonomous: true } : given;
   const verdicts: Verdict[] = [];
   let cwd = facts.cwd;
   for (const simple of parseShell(command)) {
     const invocation = unwrap(simple);
     const [name = '', ...args] = invocation.words;
+    verdicts.push(identityVerdict(name, args, facts));
     verdicts.push(guardVariables(invocation, facts));
     verdicts.push(loopState(simple, invocation, facts, cwd));
     if (name === 'cd' || name === 'pushd')
-      cwd = resolveFrom(cwd, args[0] ?? '~');
+      cwd = resolveFrom(cwd, args[0] ?? '~', facts.home);
     else if (shells.has(name))
       verdicts.push(shellVerdict(args, { ...facts, cwd }));
     else if (name === 'eval')
@@ -106,6 +127,7 @@ export function classifyPush(
   lines: readonly string[],
   facts: GuardFacts,
 ): Verdict {
+  if (facts.misconfigured) return deny(IDENTITY_REASON);
   return combine(
     lines
       .map((line) => line.trim().split(/\s+/))
@@ -188,8 +210,11 @@ function liveFacts(cwd: string, projectDir?: string): GuardFacts {
   );
   const mainCheckout = commonDir ? dirname(commonDir) : worktree;
   return {
-    autonomous: process.env.DAISY_AUTONOMOUS === '1',
+    autonomous: isAgentSession(process.env),
+    misconfigured:
+      identityRegime(process.env, existsSync, mainCheckout) === 'misconfigured',
     worktree,
+    home: process.env.HOME,
     cwd: isAbsolute(cwd) ? cwd : resolve(worktree, cwd),
     mainCheckout,
     protectedBranches: ['main'],

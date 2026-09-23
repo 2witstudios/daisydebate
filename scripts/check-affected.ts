@@ -128,7 +128,8 @@ export function planGates(
   if (plan.runEslintConfigTest)
     gates.push({
       name: 'eslint config tests',
-      args: ['bun', 'test', 'eslint.config.test.ts'],
+      // As in the lint script: the 5 s default times out on a loaded machine.
+      args: ['bun', 'test', '--timeout', '180000', 'eslint.config.test.ts'],
     });
   if (plan.runTurbo)
     gates.push({

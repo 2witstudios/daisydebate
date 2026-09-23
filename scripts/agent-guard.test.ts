@@ -310,8 +310,10 @@ describe('agent guard: Claude Code hook output', () => {
 describe('agent guard: wiring', () => {
   const root = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
   const env = (autonomous: boolean) => {
+    // The owner has neither variable: a PU_AGENT_ID alone makes an agent.
     const base = { ...process.env };
     delete base.DAISY_AUTONOMOUS;
+    delete base.PU_AGENT_ID;
     return autonomous ? { ...base, DAISY_AUTONOMOUS: '1' } : base;
   };
   const runHook = (autonomous: boolean, command: string) =>

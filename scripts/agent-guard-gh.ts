@@ -6,6 +6,7 @@ import {
   allow,
   autonomousOnly,
   combine,
+  MERGE_PATH,
   MERGE_REASON,
   refuseOrAsk,
   RULE_REASON,
@@ -100,8 +101,7 @@ function parseApiCall(args: readonly string[]): ApiCall {
 
 const REF_MUTATIONS =
   /\b(?:updateRefs?|createRef|deleteRef|createCommitOnBranch)\b/;
-const REF_REASON =
-  'Writing a branch through the API bypasses the pre-push guard; push your branch with git and request the merge with `gh pr merge --auto --merge`.';
+const REF_REASON = `Writing a branch through the API bypasses the pre-push guard: ${MERGE_PATH}.`;
 
 function graphql(call: ApiCall, text: string, facts: GuardFacts): Verdict {
   // A query read from a file or stdin cannot be inspected.
@@ -152,17 +152,34 @@ const PR_VALUE_FLAGS = new Set([
   '--author-email',
 ]);
 
-/** The subcommand of gh pr and the boolean flags given, values skipped. */
+/**
+ * The subcommand of gh pr and the boolean flags given, values skipped. A
+ * short-flag cluster is read as gh reads it: -mb --auto is -m, then -b with
+ * "--auto" as its value.
+ */
 function prCommand(args: readonly string[]) {
   const flags = new Map<string, string>();
   let action: string | undefined;
   for (let index = 0; index < args.length; index += 1) {
-    const [flag, inline] = splitFlag(args[index]);
-    if (!args[index].startsWith('-')) action ??= args[index];
-    else if (PR_VALUE_FLAGS.has(flag)) index += inline === undefined ? 1 : 0;
-    else flags.set(flag, inline ?? 'true');
+    const arg = args[index];
+    if (!arg.startsWith('-')) action ??= arg;
+    else if (arg.startsWith('--')) {
+      const [flag, inline] = splitFlag(arg);
+      if (PR_VALUE_FLAGS.has(flag)) index += inline === undefined ? 1 : 0;
+      else flags.set(flag, inline ?? 'true');
+    } else index += shortCluster(arg, flags);
   }
   return { action, flags };
+}
+
+/** Records a -xyz cluster's flags; returns 1 when it takes the next word. */
+function shortCluster(arg: string, flags: Map<string, string>): number {
+  for (let at = 1; at < arg.length; at += 1) {
+    const flag = `-${arg[at]}`;
+    if (PR_VALUE_FLAGS.has(flag)) return at === arg.length - 1 ? 1 : 0;
+    flags.set(flag, 'true');
+  }
+  return 0;
 }
 
 export const gh: Rule = (invocation, facts) => {
