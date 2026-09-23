@@ -196,7 +196,10 @@ test('a lost passkey recovers through magic link, and the recovered session can 
   // the replacement device the person now owns: the lost credential simply
   // is not there to offer, so the person falls back to the emailed link
   // without ever touching the passkey button.
-  const lost = await browser.newContext({ ignoreHTTPSErrors: true });
+  const lost = await browser.newContext({
+    ignoreHTTPSErrors: true,
+    baseURL: origin,
+  });
   const lostPage = await lost.newPage();
   await lostPage.goto('/sign-in?next=%2Flobby');
 
