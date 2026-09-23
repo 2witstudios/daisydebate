@@ -298,7 +298,7 @@ async function up(checkout: Checkout, envPath: string) {
   const services = openServices(env);
   try {
     const { slot } = checkout;
-    const { pruned, created, portBlock } = await withSlotLock(
+    const { pruned, created, values } = await withSlotLock(
       services.admin,
       async () => {
         const pruned = await prune(services, checkout);
@@ -317,14 +317,16 @@ async function up(checkout: Checkout, envPath: string) {
           slot.kind === 'worktree'
             ? await claimPortBlock(services.admin, slot)
             : undefined;
-        return { pruned, created, portBlock };
+        const values = slotEnvValues({ slot, env, portBlock });
+        // Under the lock too: migrations create cluster-wide roles (0004),
+        // which two first-time slot:up runs could otherwise race on.
+        await migrate(values.DATABASE_URL, checkout.path);
+        await migrate(values.TEST_DATABASE_URL, checkout.path);
+        return { pruned, created, values };
       },
     );
-    const values = slotEnvValues({ slot, env, portBlock });
     const rewritten = rewriteEnv(content, values);
     if (rewritten.changed) await writeFile(envPath, rewritten.content);
-    await migrate(values.DATABASE_URL ?? '', checkout.path);
-    await migrate(values.TEST_DATABASE_URL ?? '', checkout.path);
     process.stdout.write(
       [
         `Slot ${slot.id} (${slot.kind})`,

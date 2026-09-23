@@ -92,7 +92,8 @@ which `bun slot:up` derives from the checkout folder
 In a new worktree, copy the main checkout's `.env` (or `.env.example`) and
 run `bun slot:up`. It is idempotent:
 
-- brings the shared stack up (`docker compose up -d --wait`);
+- starts the shared stack (`docker compose up -d --wait`) only when it is
+  unreachable, so it never recreates a running stack;
 - prunes orphans: the databases and Redis keys of worktrees that
   `git worktree list` no longer shows;
 - creates this checkout's dev and test databases from `daisy_template` if
