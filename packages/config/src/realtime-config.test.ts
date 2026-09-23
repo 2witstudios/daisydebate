@@ -5,6 +5,7 @@ import { readRealtimeConfig } from './index';
 setupRitewayBun();
 
 const env = {
+  NODE_ENV: 'development',
   DATABASE_URL: 'postgres://user:secret@localhost:5432/daisy',
   REDIS_URL: 'redis://localhost:6379',
 };
@@ -25,6 +26,14 @@ describe('realtime configuration', () => {
         GIT_COMMIT: 'unknown',
       },
     });
+  });
+
+  test('a missing NODE_ENV refuses to start rather than skip production checks', () => {
+    const withoutNodeEnv = { ...env };
+    Reflect.deleteProperty(withoutNodeEnv, 'NODE_ENV');
+    expect(() => readRealtimeConfig(withoutNodeEnv)).toThrow(
+      'Invalid realtime configuration',
+    );
   });
 
   test('production requires deployment identity and forbids local credentials', () => {

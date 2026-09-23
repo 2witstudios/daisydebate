@@ -255,3 +255,41 @@ describe('AUTH-5.4 recover from a lost passkey through verified email', () => {
     });
   });
 });
+
+describe('ISSUE-5 AC6 passkey add/remove security notifications', () => {
+  test('registering a passkey sends a passkey-added notice to the account email', async () => {
+    const carol = await signUp();
+    const before = flows.account.flows.mailbox.mails.length;
+    await flows.enrollPasskey(carol.cookie, { name: 'Carol phone' });
+    const mail = flows.account.flows.mailbox.mails[before];
+    assert({
+      given: 'a real /passkey/verify-registration round-trip',
+      should: 'deliver a passkey-added notice to the account address',
+      actual: {
+        to: mail?.to,
+        subjectMentionsAdded: mail?.subject.toLowerCase().includes('added'),
+      },
+      expected: { to: carol.email, subjectMentionsAdded: true },
+    });
+  });
+
+  test('deleting a passkey sends a passkey-removed notice to the account email', async () => {
+    const dave = await signUp();
+    const { verifyResponse } = await flows.enrollPasskey(dave.cookie, {
+      name: 'Dave key',
+    });
+    const created = (await verifyResponse.clone().json()) as { id: string };
+    const before = flows.account.flows.mailbox.mails.length;
+    await flows.deletePasskey(dave.cookie, created.id);
+    const mail = flows.account.flows.mailbox.mails[before];
+    assert({
+      given: 'a real /passkey/delete-passkey round-trip',
+      should: 'deliver a passkey-removed notice to the account address',
+      actual: {
+        to: mail?.to,
+        subjectMentionsRemoved: mail?.subject.toLowerCase().includes('removed'),
+      },
+      expected: { to: dave.email, subjectMentionsRemoved: true },
+    });
+  });
+});

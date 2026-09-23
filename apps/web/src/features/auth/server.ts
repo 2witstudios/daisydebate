@@ -6,6 +6,11 @@ import { createAppError } from '@daisy/errors';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import { readAuthConfig, type AuthConfig } from '@daisy/config';
+import type {
+  AuthEmailMessage,
+  AuthEmailSender,
+  AuthDeliveryLedger,
+} from './mail-types';
 import { buildConfirmLink } from './confirm-link';
 import {
   sendChangeEmailConfirmation,
@@ -14,22 +19,22 @@ import {
 import { createMagicLinkGatePlugin } from './magic-link-gate';
 import { freshSessionGatePlugin } from './fresh-session-gate';
 import { passkeyDeviceHintPlugin } from './passkey-device-hint';
+import { passkeyNotificationsPlugin } from './passkey-notifications';
 import { sessionRevokedOutboxPlugin } from './session-revoked-outbox';
 import { revokeOthersOnVerifyEmailPlugin } from './revoke-others-on-verify-email';
-import { recipientHash } from './mail';
+import { deriveRecipientSubkey, recipientKey } from './recipient-key';
 import { renderAuthEmail } from './mail/templates';
-import { unavailable } from './public-errors';
+import { sendOrUnavailable } from './deliver-or-unavailable';
 import {
   SESSION_EXPIRES_IN_SECONDS,
   SESSION_FRESH_AGE_SECONDS,
   SESSION_UPDATE_AGE_SECONDS,
 } from './session-policy';
+import { CLIENT_IP_HEADER } from './client-ip';
 import {
-  clientIpFromConfig,
   clientIpOptions,
   createRateLimitGate,
   type AuthRateLimiter,
-  type ClientIpTrust,
 } from './rate-limit';
 
 const MAGIC_LINK_EXPIRES_IN_SECONDS = 300;
@@ -44,28 +49,11 @@ type RevokeOtherSessions = (
 ) => Promise<number>;
 
 /** Application-level email contract; the Resend transport plugs in here. */
-export type AuthEmailMessage = {
-  readonly to: string;
-  readonly subject: string;
-  readonly text: string;
-  readonly html: string;
-};
-/** Provider receipt; correlates later delivery events, holds no recipient data. */
-type AuthEmailReceipt = { readonly providerMessageId: string };
-export type AuthEmailSender = {
-  readonly send: (
-    message: AuthEmailMessage,
-  ) => Promise<AuthEmailReceipt | void>;
-};
-/** Durable mail diagnostics + suppression owned by @daisy/db. */
-export type AuthDeliveryLedger = {
-  readonly isSuppressed: (recipientHash: string) => Promise<boolean>;
-  readonly record: (input: {
-    readonly providerMessageId: string;
-    readonly recipientHash: string;
-    readonly at: string;
-  }) => Promise<void>;
-};
+export type {
+  AuthEmailMessage,
+  AuthEmailSender,
+  AuthDeliveryLedger,
+} from './mail-types';
 /** Composition without a ledger neither suppresses nor records receipts. */
 const noLedger: AuthDeliveryLedger = {
   isSuppressed: async () => false,
@@ -80,20 +68,20 @@ type AuthInstance = ReturnType<typeof composeBetterAuth>;
 
 const composeBetterAuth = (dependencies: {
   readonly config: AuthConfig;
+  readonly recipientSubkey: string;
   readonly database: BetterAuthOptions['database'];
   readonly deliver: (message: AuthEmailMessage) => Promise<void>;
   readonly limiter: AuthRateLimiter;
   readonly ledger: AuthDeliveryLedger;
   readonly logger: Logger;
   readonly ids: IdGenerator;
-  readonly clientIp: ClientIpTrust | undefined;
   readonly appendSessionRevoked: (userId: string) => Promise<void>;
   readonly revokeOtherSessions: RevokeOtherSessions;
 }) => {
-  const { config, ledger } = dependencies;
+  const { config, ledger, recipientSubkey } = dependencies;
   const origin = new URL(config.PUBLIC_APP_URL).origin;
   const magicLinkGatePlugin = createMagicLinkGatePlugin({
-    secret: config.BETTER_AUTH_SECRET,
+    recipientSubkey,
     ledger,
   });
   const instance = betterAuth({
@@ -123,8 +111,8 @@ const composeBetterAuth = (dependencies: {
         // the production edge, ADR 0018), never an ambient one.
         generateId: () => dependencies.ids.next(),
       },
-      // No request header names the client unless explicitly trusted.
-      ipAddress: clientIpOptions(dependencies.clientIp),
+      // Trust exactly the one header the ingress stamps; see rate-limit.ts.
+      ipAddress: clientIpOptions(CLIENT_IP_HEADER),
     },
     session: {
       expiresIn: SESSION_EXPIRES_IN_SECONDS,
@@ -141,6 +129,7 @@ const composeBetterAuth = (dependencies: {
       before: createRateLimitGate({
         limiter: dependencies.limiter,
         logger: dependencies.logger,
+        recipientSubkey,
       }),
     },
     emailAndPassword: { enabled: false },
@@ -186,14 +175,10 @@ const composeBetterAuth = (dependencies: {
         sendMagicLink: async ({ email, url }) => {
           const href = buildConfirmLink(origin, url).toString();
           const message = renderAuthEmail({ kind: 'sign-in', url: href });
-          try {
-            await dependencies.deliver({ to: email, ...message });
-          } catch {
-            throw unavailable(
-              'EMAIL_DELIVERY_FAILED',
-              'We could not send the email. Please try again.',
-            );
-          }
+          await sendOrUnavailable(dependencies.deliver, {
+            to: email,
+            ...message,
+          });
         },
       }),
       passkey({
@@ -209,6 +194,11 @@ const composeBetterAuth = (dependencies: {
         },
       }),
       passkeyDeviceHintPlugin,
+      passkeyNotificationsPlugin(
+        origin,
+        dependencies.deliver,
+        dependencies.logger,
+      ),
       magicLinkGatePlugin,
       freshSessionGatePlugin,
       sessionRevokedOutboxPlugin(
@@ -226,13 +216,16 @@ const composeBetterAuth = (dependencies: {
     handler: async (request: Request): Promise<Response> => {
       try {
         return await instance.handler(request);
-      } catch {
+      } catch (error) {
         dependencies.logger.log(
           'request.unhandled',
           { source: 'better-auth' },
           'Authentication request failed',
         );
-        return new Response(null, { status: 500 });
+        // A retryable outage, typed at the source: callers (the mounted
+        // route wrapper, the confirm-page internal forward) no longer need
+        // to sniff a bodiless 500 for this signal.
+        throw createAppError('INFRASTRUCTURE', undefined, error);
       }
     },
   };
@@ -243,18 +236,24 @@ const composeBetterAuth = (dependencies: {
  * The database adapter is an opaque capability from @daisy/db — this seam
  * never opens a second SQL or Redis pool and never imports transport code.
  */
-export type AuthServer<Database extends BetterAuthOptions['database']> = {
+/**
+ * Only what production callers actually read off the result: `getAuth()`'s
+ * routes and pages use `config`, `instance`, `limiter`, `clock` and
+ * `logger`; `mail` is read by tests exercising delivery directly.
+ * `database`, `ledger` and `ids` stay internal to composition
+ * (composeBetterAuth still receives them) — nothing outside this module
+ * ever reads them back off the returned server, so widening the type to
+ * carry them was dead surface.
+ */
+export type AuthServer = {
   readonly config: AuthConfig;
   readonly instance: AuthInstance;
-  readonly database: Database;
   readonly mail: {
     readonly send: (message: AuthEmailMessage) => Promise<void>;
   };
   readonly limiter: AuthRateLimiter;
-  readonly ledger: AuthDeliveryLedger;
   readonly logger: Logger;
   readonly clock: Clock;
-  readonly ids: IdGenerator;
 };
 
 /**
@@ -272,15 +271,14 @@ export function createAuthServer<
   readonly logger: Logger;
   readonly clock: Clock;
   readonly ids: IdGenerator;
-  /** Omitted means the validated `AUTH_TRUSTED_IP_HEADERS` / `AUTH_TRUSTED_PROXIES` apply. */
-  readonly clientIp?: ClientIpTrust | undefined;
   /** Mail receipts and suppressions (production supplies the @daisy/db one). */
   readonly ledger?: AuthDeliveryLedger | undefined;
   /** RT-2.2: appends `session.revoked` after a confirmed self-service revoke. */
   readonly appendSessionRevoked: (userId: string) => Promise<void>;
   readonly revokeOtherSessions: RevokeOtherSessions;
-}): AuthServer<Database> {
+}): AuthServer {
   const config = readAuthConfig(dependencies.env);
+  const recipientSubkey = deriveRecipientSubkey(config.BETTER_AUTH_SECRET);
   const ledger = dependencies.ledger ?? noLedger;
   const sendMail = async (message: AuthEmailMessage): Promise<void> => {
     let receipt: Awaited<ReturnType<AuthEmailSender['send']>>;
@@ -300,7 +298,7 @@ export function createAuthServer<
       try {
         await ledger.record({
           providerMessageId: receipt.providerMessageId,
-          recipientHash: recipientHash(config.BETTER_AUTH_SECRET, message.to),
+          recipientHash: recipientKey(recipientSubkey, message.to),
           at: dependencies.clock.now(),
         });
       } catch {
@@ -328,23 +326,19 @@ export function createAuthServer<
     config,
     instance: composeBetterAuth({
       config,
+      recipientSubkey,
       database: dependencies.database,
       deliver: sendMail,
       limiter: dependencies.limiter,
       ledger,
       logger: dependencies.logger,
       ids: dependencies.ids,
-      // Explicit injection wins; otherwise the validated environment decides.
-      clientIp: dependencies.clientIp ?? clientIpFromConfig(config),
       appendSessionRevoked: dependencies.appendSessionRevoked,
       revokeOtherSessions: dependencies.revokeOtherSessions,
     }),
-    database: dependencies.database,
     mail: { send: sendMail },
     limiter: dependencies.limiter,
-    ledger,
     logger: dependencies.logger,
     clock: dependencies.clock,
-    ids: dependencies.ids,
   };
 }

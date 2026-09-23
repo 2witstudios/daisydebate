@@ -1,3 +1,5 @@
+import type { ClientError } from '../../../features/auth/client-error';
+
 /** How offering to save a passkey ended. Only `saved` is a success. */
 export type PasskeyEnrollment =
   | { readonly kind: 'saved' }
@@ -17,11 +19,6 @@ export type PasskeyEnrollmentSeam = {
 export const passkeyEnrollmentNotYetAvailable: PasskeyEnrollmentSeam = {
   enroll: () => Promise.resolve({ kind: 'unavailable' }),
 };
-
-type ClientError = {
-  readonly status?: number | undefined;
-  readonly code?: string | undefined;
-} | null;
 
 /** The slice of the Better Auth client this seam uses. */
 export type PasskeyEnrollmentClient = {

@@ -1,23 +1,6 @@
 import { buildConfirmEmailLink } from './confirm-email-link';
+import { sendOrUnavailable, type Deliver } from './deliver-or-unavailable';
 import { renderAuthEmail } from './mail/templates';
-import { unavailable } from './public-errors';
-import type { AuthEmailMessage } from './server';
-
-type Deliver = (message: AuthEmailMessage) => Promise<void>;
-
-const sendOrUnavailable = async (
-  deliver: Deliver,
-  message: AuthEmailMessage,
-) => {
-  try {
-    await deliver(message);
-  } catch {
-    throw unavailable(
-      'EMAIL_DELIVERY_FAILED',
-      'We could not send the email. Please try again.',
-    );
-  }
-};
 
 /**
  * Sent to the address still on file: approving from the old inbox is what

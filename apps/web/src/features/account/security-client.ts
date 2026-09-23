@@ -1,3 +1,5 @@
+import type { ClientError } from '../auth/client-error';
+
 /** Better Auth's stored passkey row, as `listUserPasskeys` returns it. */
 export type PasskeyRow = {
   readonly id: string;
@@ -6,21 +8,22 @@ export type PasskeyRow = {
   readonly aaguid?: string | null | undefined;
 };
 
-/** Better Auth's stored session row, as `listSessions` returns it. */
+/**
+ * The Daisy-owned `/api/account/sessions` DTO: every field a device row
+ * needs except the bearer-capable session token, which never reaches the
+ * browser (AC7 — Better Auth's own `listSessions`/`revokeSession` client
+ * calls carry the raw token; this app never calls them directly).
+ */
 export type SessionRow = {
   readonly id: string;
-  readonly token: string;
-  readonly createdAt: string | Date;
-  readonly updatedAt: string | Date;
-  readonly expiresAt: string | Date;
-  readonly userAgent?: string | null | undefined;
-  readonly ipAddress?: string | null | undefined;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly expiresAt: string;
+  readonly userAgent: string | null;
+  readonly ipAddress: string | null;
+  readonly current: boolean;
 };
 
-type ClientError = {
-  readonly status?: number | undefined;
-  readonly code?: string | undefined;
-} | null;
 type Result<T> = Promise<{
   readonly data: T | null;
   readonly error: ClientError;
@@ -38,10 +41,6 @@ export type SecurityClient = {
       id: string;
     }) => Result<{ status: boolean }>;
   };
-  readonly listSessions: () => Result<readonly SessionRow[]>;
-  readonly revokeSession: (input: {
-    token: string;
-  }) => Result<{ status: boolean }>;
   readonly revokeOtherSessions: () => Result<{ status: boolean }>;
   readonly signOut: () => Result<unknown>;
   readonly changeEmail: (input: {
@@ -84,6 +83,35 @@ async function safely<T>(
   }
 }
 
+/** The `/api/account/sessions*` error body's shape (server/http.ts's toPublicError). */
+type PublicErrorBody = { readonly error?: { readonly code?: string } };
+
+/** Fetches a Daisy JSON route, mapping any non-2xx or network failure to a `ClientError`. */
+async function fetchJson<T>(
+  input: string,
+  init?: RequestInit,
+): Promise<{ readonly data: T | null; readonly error: ClientError }> {
+  let response: Response;
+  try {
+    response = await fetch(input, init);
+  } catch {
+    return UNAVAILABLE;
+  }
+  if (!response.ok) {
+    const body = (await response.json().catch(() => ({}))) as PublicErrorBody;
+    return {
+      data: null,
+      error: { status: response.status, code: body.error?.code },
+    };
+  }
+  return { data: (await response.json()) as T, error: null };
+}
+
+const listSessions = () =>
+  fetchJson<{ readonly sessions: readonly SessionRow[] }>(
+    '/api/account/sessions',
+  );
+
 /** Loads both lists in parallel; a failed side reports an empty list. */
 export async function loadSecurityOverview(client: SecurityClient): Promise<{
   readonly passkeys: readonly PasskeyRow[];
@@ -93,11 +121,11 @@ export async function loadSecurityOverview(client: SecurityClient): Promise<{
 }> {
   const [passkeys, sessions] = await Promise.all([
     safely(() => client.passkey.listUserPasskeys()),
-    safely(() => client.listSessions()),
+    listSessions(),
   ]);
   return {
     passkeys: passkeys.data ?? [],
-    sessions: sessions.data ?? [],
+    sessions: sessions.data?.sessions ?? [],
     passkeysOutcome: outcomeFor(passkeys.error),
     sessionsOutcome: outcomeFor(sessions.error),
   };
@@ -107,60 +135,44 @@ export const renamePasskey = async (
   client: SecurityClient,
   id: string,
   name: string,
-): Promise<SecurityOutcome> => {
-  try {
-    return outcomeFor((await client.passkey.updatePasskey({ id, name })).error);
-  } catch {
-    return { kind: 'unavailable' };
-  }
-};
+): Promise<SecurityOutcome> =>
+  outcomeFor(
+    (await safely(() => client.passkey.updatePasskey({ id, name }))).error,
+  );
 
 export const removePasskey = async (
   client: SecurityClient,
   id: string,
-): Promise<SecurityOutcome> => {
-  try {
-    return outcomeFor((await client.passkey.deletePasskey({ id })).error);
-  } catch {
-    return { kind: 'unavailable' };
-  }
-};
+): Promise<SecurityOutcome> =>
+  outcomeFor((await safely(() => client.passkey.deletePasskey({ id }))).error);
 
-export const revokeSession = async (
-  client: SecurityClient,
-  token: string,
-): Promise<SecurityOutcome> => {
-  try {
-    return outcomeFor((await client.revokeSession({ token })).error);
-  } catch {
-    return { kind: 'unavailable' };
-  }
-};
+export const revokeSession = async (id: string): Promise<SecurityOutcome> =>
+  outcomeFor(
+    (
+      await fetchJson('/api/account/sessions/revoke', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+    ).error,
+  );
 
 export const revokeOtherSessions = async (
   client: SecurityClient,
-): Promise<SecurityOutcome> => {
-  try {
-    return outcomeFor((await client.revokeOtherSessions()).error);
-  } catch {
-    return { kind: 'unavailable' };
-  }
-};
+): Promise<SecurityOutcome> =>
+  outcomeFor((await safely(() => client.revokeOtherSessions())).error);
 
 export const requestEmailChange = async (
   client: SecurityClient,
   newEmail: string,
-): Promise<SecurityOutcome> => {
-  try {
-    return outcomeFor(
-      (
-        await client.changeEmail({
+): Promise<SecurityOutcome> =>
+  outcomeFor(
+    (
+      await safely(() =>
+        client.changeEmail({
           newEmail,
           callbackURL: '/settings/security',
-        })
-      ).error,
-    );
-  } catch {
-    return { kind: 'unavailable' };
-  }
-};
+        }),
+      )
+    ).error,
+  );

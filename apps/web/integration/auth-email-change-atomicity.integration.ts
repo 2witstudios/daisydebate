@@ -4,13 +4,11 @@ import { createId } from '@paralleldrive/cuid2';
 import { signJWT, verifyJWT } from 'better-auth/crypto';
 import { buildUserInboxTopic } from '@daisy/protocol';
 import { createPasskeyFlows } from './auth-passkey-flows';
-import { withOutboxInsertBlockedForTopic } from './auth-helpers';
 import { trackedSignUp } from './auth-outbox-helpers';
 import {
   cookieHeader,
   newClient,
   origin,
-  testDatabaseUrl,
   withSql,
   type CapturedMail,
 } from './auth-mounted-helpers';
@@ -306,66 +304,9 @@ describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () 
       database.revokeOtherSessions = realRevoke;
     }
   });
-
-  test('a forced outbox failure inside the atomic revocation rolls back the session delete too', async () => {
-    const { email, cookie } = await signUp();
-    const { requestLink, redeem } = flows.account.flows;
-    const { link } = await requestLink(email);
-    const otherToken = new URL(link as URL).searchParams.get('token') ?? '';
-    const otherCookie = cookieHeader(await redeem(otherToken));
-    const before = flows.account.flows.mailbox.mails.length;
-    const newEmail = `${createId()}@example.test`;
-    await flows.changeEmail(cookie, newEmail);
-    const confirmMail = flows.account.flows.mailbox.mails[before];
-    await confirmPost(tokenOf(linkFrom(confirmMail!)));
-    const verifyMail = flows.account.flows.mailbox.mails[before + 1];
-    const verifyToken = tokenOf(linkFrom(verifyMail!));
-
-    // Plan revision 4.10: the append only runs once the actor resolves.
-    // This account never claims a username (an unrelated surface to the
-    // atomic revocation under test), so it inserts the actor directly
-    // rather than going through the onboarding route.
-    const uid = await userIdOf(email);
-    const actorId = createId();
-    await withSql(
-      (sql) =>
-        sql`INSERT INTO actors (id, kind, user_id) VALUES (${actorId}, 'human', ${uid})`,
-    );
-
-    // Same real-fault technique as `auth-session-revoked-outbox.integration.ts`:
-    // a topic-scoped `BEFORE INSERT` trigger is a genuine Postgres-level
-    // failure of the exact statement `appendOutboxEvent` issues, never a
-    // stub of the function under test, and (RT-2.2v minor 3) never blocks
-    // the `@daisy/db` integration suite's own outbox inserts running
-    // concurrently against the same `TEST_DATABASE_URL`. Revision 4.7's
-    // contract is that this path is atomic, unlike the best-effort
-    // after-hooks: the DELETE must roll back with it.
-    let completion!: Response;
-    try {
-      await withOutboxInsertBlockedForTopic(
-        testDatabaseUrl as string,
-        buildUserInboxTopic(actorId),
-        async () => {
-          completion = await confirmPost(verifyToken);
-        },
-      );
-
-      assert({
-        given:
-          "the atomic revocation's outbox append failing at the database level",
-        should:
-          'report the cleanup step failed and leave the other session still authenticated, proving the DELETE rolled back with it',
-        actual: {
-          status: completion.status,
-          otherSessionStillAuthenticated: await isAuthenticated(otherCookie),
-        },
-        expected: { status: 502, otherSessionStillAuthenticated: true },
-      });
-    } finally {
-      // This fixture's actor row is cleared here (its id is never tracked
-      // for the suite backstop); the `users` row `uid` names is the one
-      // `signUp()` above already tracked, so the shared `afterAll` clears it.
-      await withSql((sql) => sql`DELETE FROM actors WHERE id = ${actorId}`);
-    }
-  });
 });
+
+// ISSUE-23's forced-outbox-failure test (real DB fault, session cookie,
+// header surface and logging all proven together) lives in
+// auth-email-change-atomicity-fault-injection.integration.ts, split out to
+// stay under this file's line limit.

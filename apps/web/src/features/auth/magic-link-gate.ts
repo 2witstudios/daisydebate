@@ -1,9 +1,9 @@
 import type { BetterAuthPlugin } from 'better-auth';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
-import { recipientHash } from './mail';
+import { normalizeEmail, recipientKey } from './recipient-key';
 import { safeLocalDestination } from './redirect';
 import { unavailable } from './public-errors';
-import type { AuthDeliveryLedger } from './server';
+import type { AuthDeliveryLedger } from './mail-types';
 
 type MagicLinkBody = {
   readonly email?: unknown;
@@ -36,18 +36,18 @@ function assertLocalDestinations(body: MagicLinkBody) {
  * safe 503 — never an allow.
  */
 function createMagicLinkGate(dependencies: {
-  readonly secret: string;
+  readonly recipientSubkey: string;
   readonly ledger: AuthDeliveryLedger;
 }) {
   return async (body: MagicLinkBody | undefined) => {
     assertLocalDestinations(body ?? {});
     const email =
-      typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
+      typeof body?.email === 'string' ? normalizeEmail(body.email) : '';
     if (!email) return;
     let suppressed: boolean;
     try {
       suppressed = await dependencies.ledger.isSuppressed(
-        recipientHash(dependencies.secret, email),
+        recipientKey(dependencies.recipientSubkey, email),
       );
     } catch {
       throw unavailable(
@@ -67,7 +67,7 @@ function createMagicLinkGate(dependencies: {
 
 /** Runs after the rate-limit gate: a throttled request does no lookups. */
 export function createMagicLinkGatePlugin(dependencies: {
-  readonly secret: string;
+  readonly recipientSubkey: string;
   readonly ledger: AuthDeliveryLedger;
 }): BetterAuthPlugin {
   const gate = createMagicLinkGate(dependencies);
