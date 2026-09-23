@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  offerPasskeyAutofillSafely,
   requestLinkSafely,
   signInWithPasskeySafely,
   type SignInPort,
@@ -10,6 +11,7 @@ setupRitewayBun();
 const throwingPort: SignInPort = {
   requestLink: () => Promise.reject(new Error('network down')),
   signInWithPasskey: () => Promise.reject(new Error('ceremony blew up')),
+  offerPasskeyAutofill: () => Promise.reject(new Error('autofill blew up')),
 };
 
 // Throws before any promise exists: client init or argument validation.
@@ -20,6 +22,9 @@ const synchronouslyThrowingPort: SignInPort = {
   signInWithPasskey: () => {
     throw new Error('WebAuthn options invalid');
   },
+  offerPasskeyAutofill: () => {
+    throw new Error('WebAuthn options invalid');
+  },
 };
 
 const passingPort: SignInPort = {
@@ -28,6 +33,7 @@ const passingPort: SignInPort = {
       email === 'j@school.edu' ? { kind: 'sent' } : { kind: 'rate-limited' },
     ),
   signInWithPasskey: () => Promise.resolve({ kind: 'signed-in' }),
+  offerPasskeyAutofill: () => Promise.resolve({ kind: 'signed-in' }),
 };
 
 describe('requestLinkSafely', () => {
@@ -87,6 +93,30 @@ describe('signInWithPasskeySafely', () => {
       should: 'still settle as a failure instead of escaping',
       actual: await signInWithPasskeySafely(synchronouslyThrowingPort),
       expected: { kind: 'failed' },
+    });
+  });
+});
+
+describe('offerPasskeyAutofillSafely', () => {
+  test('passes the outcome through', async () => {
+    assert({
+      given: 'an autofilled passkey the server verified',
+      should: 'return signed-in',
+      actual: await offerPasskeyAutofillSafely(passingPort),
+      expected: { kind: 'signed-in' },
+    });
+  });
+
+  test('turns an asynchronous or synchronous throw into a failure', async () => {
+    assert({
+      given:
+        'autofill requests that throw after and before returning a promise',
+      should: 'settle both as failures, never a success',
+      actual: [
+        await offerPasskeyAutofillSafely(throwingPort),
+        await offerPasskeyAutofillSafely(synchronouslyThrowingPort),
+      ],
+      expected: [{ kind: 'failed' }, { kind: 'failed' }],
     });
   });
 });

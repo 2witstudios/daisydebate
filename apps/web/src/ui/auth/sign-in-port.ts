@@ -23,6 +23,12 @@ export type PasskeyOutcome =
 export type SignInPort = {
   readonly requestLink: (email: string) => Promise<LinkRequestOutcome>;
   readonly signInWithPasskey: () => Promise<PasskeyOutcome>;
+  /**
+   * Offers stored passkeys in the browser's own autofill on the email field
+   * (conditional mediation). It settles only when one is picked, or when a
+   * later ceremony aborts it.
+   */
+  readonly offerPasskeyAutofill: () => Promise<PasskeyOutcome>;
 };
 
 // Both helpers call the port inside `try`: an adapter can throw before it
@@ -42,12 +48,20 @@ export const requestLinkSafely = async (
 };
 
 /** A ceremony that throws is a failure, never a false success. */
-export const signInWithPasskeySafely = async (
-  port: SignInPort,
+const passkeySafely = async (
+  ceremony: () => Promise<PasskeyOutcome>,
 ): Promise<PasskeyOutcome> => {
   try {
-    return await port.signInWithPasskey();
+    return await ceremony();
   } catch {
     return { kind: 'failed' };
   }
 };
+
+export const signInWithPasskeySafely = (
+  port: SignInPort,
+): Promise<PasskeyOutcome> => passkeySafely(() => port.signInWithPasskey());
+
+export const offerPasskeyAutofillSafely = (
+  port: SignInPort,
+): Promise<PasskeyOutcome> => passkeySafely(() => port.offerPasskeyAutofill());

@@ -10,6 +10,12 @@ const supportsPasskeys = () =>
   typeof window !== 'undefined' &&
   typeof window.PublicKeyCredential === 'function';
 
+const supportsPasskeyAutofill = async () =>
+  supportsPasskeys() &&
+  typeof window.PublicKeyCredential.isConditionalMediationAvailable ===
+    'function' &&
+  (await window.PublicKeyCredential.isConditionalMediationAvailable());
+
 /**
  * The live sign-in: Better Auth over the real /api/auth handler. The
  * destination arrives already validated by the server page; a full
@@ -22,6 +28,7 @@ export function SignIn({ destination }: { readonly destination: string }) {
         client: authClient,
         destination,
         supportsPasskeys,
+        supportsPasskeyAutofill,
       }),
     [destination],
   );

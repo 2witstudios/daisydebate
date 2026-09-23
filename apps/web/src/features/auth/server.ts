@@ -206,6 +206,14 @@ const composeBetterAuth = (dependencies: {
         rpID: new URL(config.PUBLIC_APP_URL).hostname,
         rpName: 'Daisy',
         origin,
+        // Without an attachment Chrome ranks a phone (hybrid QR) alongside
+        // the device and falls back to QR; `platform` keeps registration on
+        // the device's own store, discoverable so autofill sign-in finds it.
+        authenticatorSelection: {
+          authenticatorAttachment: 'platform',
+          residentKey: 'required',
+          userVerification: 'preferred',
+        },
       }),
       magicLinkGatePlugin,
       freshSessionGatePlugin,

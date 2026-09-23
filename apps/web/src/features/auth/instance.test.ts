@@ -104,6 +104,25 @@ describe('auth instance composition', () => {
     });
   });
 
+  test('prefers the device authenticator for passkey registration', async () => {
+    const server = create();
+    const { options } = await server.instance.$context;
+    const passkeyOptions = (options.plugins ?? []).find(
+      (plugin) => plugin.id === 'passkey',
+    )?.options as Record<string, unknown> | undefined;
+    assert({
+      given: 'the passkey plugin configuration',
+      should:
+        'request a discoverable platform credential so the browser offers the device store, not the QR sheet',
+      actual: passkeyOptions?.['authenticatorSelection'],
+      expected: {
+        authenticatorAttachment: 'platform',
+        residentKey: 'required',
+        userVerification: 'preferred',
+      },
+    });
+  });
+
   test('delivers requested magic links through the injected sender', async () => {
     const sender = capturingSender();
     const server = create({ emailSender: sender });

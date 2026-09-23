@@ -12,10 +12,12 @@ const portWith = ({
   link = null,
   passkey = null,
   supported = true,
+  autofill = true,
 }: {
   link?: Error;
   passkey?: Error;
   supported?: boolean;
+  autofill?: boolean;
 }) => {
   const calls: unknown[] = [];
   const client: SignInClient = {
@@ -24,8 +26,8 @@ const portWith = ({
         calls.push(input);
         return { error: link };
       },
-      passkey: async () => {
-        calls.push('passkey');
+      passkey: async (opts) => {
+        calls.push(opts?.autoFill ? 'passkey-autofill' : 'passkey');
         return { error: passkey };
       },
     },
@@ -36,6 +38,7 @@ const portWith = ({
       client,
       destination: '/ranked',
       supportsPasskeys: () => supported,
+      supportsPasskeyAutofill: async () => autofill,
     }),
   };
 };
@@ -110,6 +113,39 @@ describe('Better Auth sign-in port: passkey', () => {
       given: 'a browser that cannot do WebAuthn',
       should: 'report unsupported without calling the client',
       actual: [await port.signInWithPasskey(), calls],
+      expected: [{ kind: 'unsupported' }, []],
+    });
+  });
+});
+
+describe('Better Auth sign-in port: passkey autofill', () => {
+  test('arms browser autofill and signs in when a passkey is picked', async () => {
+    const { port, calls } = portWith({});
+    assert({
+      given: 'a browser with conditional mediation and a verified pick',
+      should: 'start an autofill ceremony and report signed-in',
+      actual: [await port.offerPasskeyAutofill(), calls],
+      expected: [{ kind: 'signed-in' }, ['passkey-autofill']],
+    });
+  });
+
+  test('an aborted autofill request is cancelled', async () => {
+    assert({
+      given: 'an autofill request the explicit button or navigation aborted',
+      should: 'report cancelled',
+      actual: await portWith({
+        passkey: { status: 400, code: 'ERROR_CEREMONY_ABORTED' },
+      }).port.offerPasskeyAutofill(),
+      expected: { kind: 'cancelled' },
+    });
+  });
+
+  test('a browser without conditional mediation starts no ceremony', async () => {
+    const { port, calls } = portWith({ autofill: false });
+    assert({
+      given: 'a browser that cannot offer passkeys in autofill',
+      should: 'report unsupported without calling the client',
+      actual: [await port.offerPasskeyAutofill(), calls],
       expected: [{ kind: 'unsupported' }, []],
     });
   });

@@ -34,6 +34,7 @@ export type SignInEvent =
     }
   | { readonly type: 'passkey-requested' }
   | { readonly type: 'passkey-settled'; readonly outcome: PasskeyOutcome }
+  | { readonly type: 'passkey-autofilled'; readonly outcome: PasskeyOutcome }
   | { readonly type: 'change-email' }
   | { readonly type: 'resend-requested'; readonly at: string };
 
@@ -60,6 +61,10 @@ export const resendRemainingMs = (sentAt: string, now: string): number =>
 
 export const canRequestLink = (state: SignInState): boolean =>
   isIdle(state) && state.email.trim() !== '';
+
+/** Autofill is armed only while nothing else is in flight on the email step. */
+export const canOfferPasskeyAutofill = (state: SignInState): boolean =>
+  isIdle(state);
 
 export const canResend = (state: SignInState, now: string): boolean =>
   state.step === 'check-inbox' &&
@@ -114,6 +119,11 @@ const transitions: Transitions = {
   'passkey-requested': (state) =>
     isIdle(state) ? { ...idle(state.email), pending: 'passkey' } : state,
   'passkey-settled': (state, { outcome }) => settlePasskey(state, outcome),
+  // Autofill is ambient: only a sign-in counts; an abort or refusal is silent.
+  'passkey-autofilled': (state, { outcome }) =>
+    state.step === 'enter-email' && outcome.kind === 'signed-in'
+      ? { step: 'signed-in' }
+      : state,
   'change-email': (state) =>
     state.step === 'check-inbox' && !state.resending
       ? idle(state.email)

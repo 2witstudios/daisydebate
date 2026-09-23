@@ -21,7 +21,9 @@ export type SignInClient = {
       callbackURL: string;
       newUserCallbackURL: string;
     }) => Promise<{ readonly error: ClientError }>;
-    readonly passkey: () => Promise<{ readonly error: ClientError }>;
+    readonly passkey: (opts?: {
+      autoFill?: boolean;
+    }) => Promise<{ readonly error: ClientError }>;
   };
 };
 
@@ -58,10 +60,13 @@ export function createBetterAuthSignInPort({
   client,
   destination,
   supportsPasskeys,
+  supportsPasskeyAutofill,
 }: {
   readonly client: SignInClient;
   readonly destination: string;
   readonly supportsPasskeys: () => boolean;
+  /** Whether the browser can list passkeys in autofill (conditional UI). */
+  readonly supportsPasskeyAutofill: () => Promise<boolean>;
 }): SignInPort {
   return {
     requestLink: async (email) =>
@@ -77,6 +82,12 @@ export function createBetterAuthSignInPort({
     signInWithPasskey: async () =>
       supportsPasskeys()
         ? passkeyOutcome((await client.signIn.passkey()).error)
+        : { kind: 'unsupported' },
+    offerPasskeyAutofill: async () =>
+      (await supportsPasskeyAutofill())
+        ? passkeyOutcome(
+            (await client.signIn.passkey({ autoFill: true })).error,
+          )
         : { kind: 'unsupported' },
   };
 }

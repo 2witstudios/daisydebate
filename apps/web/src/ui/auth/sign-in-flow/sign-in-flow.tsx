@@ -3,11 +3,13 @@
 import { useEffect, useReducer, useState } from 'react';
 import type { Clock } from '@daisy/clock';
 import {
+  offerPasskeyAutofillSafely,
   requestLinkSafely,
   signInWithPasskeySafely,
   type SignInPort,
 } from '../sign-in-port';
 import {
+  canOfferPasskeyAutofill,
   canRequestLink,
   canResend,
   initialSignInState,
@@ -54,6 +56,16 @@ export function SignInFlow({
   useEffect(() => {
     if (state.step === 'signed-in') onSignedIn();
   }, [state.step, onSignedIn]);
+
+  // Re-armed each time the email step goes idle: the explicit passkey button
+  // aborts the pending autofill request, so it must be offered again after.
+  const autofillArmed = canOfferPasskeyAutofill(state);
+  useEffect(() => {
+    if (!autofillArmed) return;
+    void offerPasskeyAutofillSafely(port).then((outcome) =>
+      dispatch({ type: 'passkey-autofilled', outcome }),
+    );
+  }, [autofillArmed, port]);
 
   const sendLink = async (email: string) =>
     dispatch({

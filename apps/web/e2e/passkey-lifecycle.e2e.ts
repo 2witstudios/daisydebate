@@ -40,10 +40,26 @@ async function addVirtualAuthenticator(page: Page) {
   return { session, authenticatorId };
 }
 
+/**
+ * The sign-in page also arms passkey autofill (conditional mediation), and
+ * the mobile-emulated virtual authenticator completes that request with no
+ * pick at all, racing the explicit button. Specs that prove the button path
+ * hide conditional mediation so the button is the only way in.
+ */
+async function withoutPasskeyAutofill(page: Page) {
+  await page.addInitScript(() => {
+    Reflect.deleteProperty(
+      PublicKeyCredential,
+      'isConditionalMediationAvailable',
+    );
+  });
+}
+
 test('a passkey saved during onboarding is usable to sign back in later', async ({
   page,
   request,
 }) => {
+  await withoutPasskeyAutofill(page);
   await addVirtualAuthenticator(page);
   await page.goto('/sign-in');
   const email = freshEmail();
@@ -88,6 +104,7 @@ test('a passkey saved during onboarding is usable to sign back in later', async 
 test('a passkey enrolled from settings can sign back in after signing out, and lands on the validated destination', async ({
   page,
 }) => {
+  await withoutPasskeyAutofill(page);
   await addVirtualAuthenticator(page);
   await signUpMember(page.request);
 
@@ -130,6 +147,7 @@ test('removing the last passkey, recovering by magic link and enrolling a replac
   page,
   request,
 }) => {
+  await withoutPasskeyAutofill(page);
   const lost = await addVirtualAuthenticator(page);
   const { email } = await signUpMember(page.request);
   await page.goto('/settings/security');

@@ -92,6 +92,27 @@ describe('AUTH-5.1 passkey enrollment', () => {
     });
   });
 
+  test('registration options ask for a discoverable device credential', async () => {
+    const { cookie } = await signUp();
+    const optionsResponse = await flows.get(
+      '/api/auth/passkey/generate-register-options',
+      cookie,
+    );
+    const options = (await optionsResponse.json()) as {
+      authenticatorSelection?: Record<string, unknown>;
+    };
+    assert({
+      given: 'a signed-in registration-options request',
+      should:
+        'select the platform authenticator with a required resident key so the browser skips the QR sheet',
+      actual: {
+        attachment: options.authenticatorSelection?.['authenticatorAttachment'],
+        residentKey: options.authenticatorSelection?.['residentKey'],
+      },
+      expected: { attachment: 'platform', residentKey: 'required' },
+    });
+  });
+
   test('registering without a session is rejected and stores no credential', async () => {
     const { email } = await signUp();
     const optionsResponse = await flows.get(
