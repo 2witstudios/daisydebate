@@ -40,6 +40,7 @@ import {
   type SpawnPlan,
   type SupersededTerm,
 } from './agent-spawn-model';
+import { isAgentSession } from './agent-guard-rules';
 import { parseRecord, recordPath, serializeRecord } from './agent-registry';
 
 type Result = { readonly code: number; readonly stdout: string };
@@ -319,6 +320,9 @@ async function spawnChecked(deps: SpawnDeps, plan: SpawnPlan): Promise<number> {
   const worktree = plan.worktree
     ? reviewedWorktree(deps, plan.worktree)
     : builderWorktree(deps, plan);
+  const prompt = promptText(deps, plan.rest);
+  // A reviewer's worktree may already hold this prompt in a transcript.
+  const turnsBefore = prompt ? turnsWith(deps, worktree.path, prompt) : 0;
   const ready = puStatus(deps);
   deps.run(['pu', 'spawn', '-w', worktree.id, '-a', plan.agent, ...plan.rest]);
   const agent = newAgent(ready, puStatus(deps), worktree.id);
@@ -334,12 +338,11 @@ async function spawnChecked(deps: SpawnDeps, plan: SpawnPlan): Promise<number> {
   deps.out(
     `spawned ${agent.id} in ${worktree.path} (parent ${deps.parentId ?? 'owner'})\n`,
   );
-  const prompt = promptText(deps, plan.rest);
   if (plan.agent !== 'claude' || !prompt) return 0;
   const submitted = await confirmSubmitted(
     deps,
     agent.id,
-    { cwd: worktree.path, text: prompt, before: 0 },
+    { cwd: worktree.path, text: prompt, before: turnsBefore },
     null,
   );
   deps.out(
@@ -445,7 +448,8 @@ if (import.meta.main) {
     ),
     repoRoot,
     parentId: process.env.PU_AGENT_ID || undefined,
-    autonomous: process.env.DAISY_AUTONOMOUS === '1',
+    // Any pu agent is an agent, as in the guard (ADR 0035 section 6).
+    autonomous: isAgentSession(process.env),
     out: (text) => process.stdout.write(text),
   };
   const [mode, ...args] = process.argv.slice(2);

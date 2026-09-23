@@ -98,6 +98,7 @@ function puArgs(spawn: readonly string[]) {
     agent: 'claude',
   };
   const rest: string[] = [];
+  const chosen = spawn.some((arg) => WRAPPER_CHOSEN.has(arg.split('=')[0]));
   for (let index = 0; index < spawn.length; index += 1) {
     const key = puValueFlags[spawn[index]];
     if (key) picked[key] = spawn[++index];
@@ -106,8 +107,12 @@ function puArgs(spawn: readonly string[]) {
       rest.push(`--agent-args=${spawn[++index] ?? ''}`);
     else rest.push(spawn[index]);
   }
-  return { picked, rest };
+  return { picked, rest, chosen };
 }
+
+// pu spawn flags the wrapper decides: an agent placed by hand, or started
+// at the project root, would escape the worktree checks and the caps.
+const WRAPPER_CHOSEN = new Set(['-w', '--worktree', '--root']);
 
 export function parseSpawnArgs(
   argv: readonly string[],
@@ -119,7 +124,13 @@ export function parseSpawnArgs(
   const refused =
     roleError(options) ?? (autonomous ? autonomyError(options) : undefined);
   if (refused) return { error: `${refused}\n${SPAWN_USAGE}` };
-  const { picked, rest } = puArgs(split === -1 ? argv : argv.slice(split + 1));
+  const { picked, rest, chosen } = puArgs(
+    split === -1 ? argv : argv.slice(split + 1),
+  );
+  if (chosen)
+    return {
+      error: `pu spawn -w, --worktree and --root are chosen by agent:spawn: a reviewer uses --worktree before --\n${SPAWN_USAGE}`,
+    };
   const invalid = optionsError(options, picked.name);
   if (invalid) return { error: `${invalid}\n${SPAWN_USAGE}` };
   const role = options.role as Role;

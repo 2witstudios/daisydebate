@@ -6,7 +6,7 @@ export const repo = '/repo';
 export const newPath = '/repo/.pu/worktrees/wt-new';
 const projects = '/home/.claude/projects/-repo--pu-worktrees-wt-new';
 export const transcript = `${projects}/sess-new.jsonl`;
-const userLine = (text: string) =>
+export const userLine = (text: string) =>
   JSON.stringify({ type: 'user', message: { role: 'user', content: text } });
 const leafId = 'tmzz7plnnrlz21d6qyyjp8sq';
 const terms = JSON.stringify([
