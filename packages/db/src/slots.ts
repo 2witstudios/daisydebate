@@ -164,3 +164,21 @@ export async function dropSlotDatabase(
   const name = quoteIdentifier(database);
   await admin.unsafe(`drop database if exists ${name} with (force)`);
 }
+
+/**
+ * Serializes slot administration across checkouts (prune, create, port
+ * claims) with a cluster-wide session advisory lock. `admin` must be a
+ * single-connection client (`max: 1`) so the lock and the work share one
+ * session; a dropped connection releases the lock.
+ */
+export async function withSlotLock<T>(
+  admin: SQL,
+  work: () => Promise<T>,
+): Promise<T> {
+  await admin`select pg_advisory_lock(hashtext('daisy-slot-admin'))`;
+  try {
+    return await work();
+  } finally {
+    await admin`select pg_advisory_unlock(hashtext('daisy-slot-admin'))`;
+  }
+}

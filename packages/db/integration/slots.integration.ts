@@ -9,6 +9,7 @@ import {
   listSlotDatabases,
   resetPublicSchema,
   setSlotDatabaseComment,
+  withSlotLock,
 } from '../src/slots';
 const url = process.env.TEST_DATABASE_URL;
 if (!url)
@@ -129,6 +130,30 @@ test('resetting the public schema keeps the e2e grants', async () => {
       sequences: true,
     });
   });
+});
+
+test('slot administration is serialized across concurrent checkouts', async () => {
+  const sessions = [connect('postgres'), connect('postgres')];
+  const events: string[] = [];
+  const critical = (name: string) => async () => {
+    events.push(`${name}:start`);
+    await Bun.sleep(150);
+    events.push(`${name}:end`);
+  };
+  try {
+    await Promise.all([
+      withSlotLock(sessions[0]!, critical('a')),
+      withSlotLock(sessions[1]!, critical('b')),
+    ]);
+    // Whichever took the lock first finishes before the other starts.
+    expect([events[0]?.split(':')[0], events[1]]).toEqual([
+      events[0]?.split(':')[0],
+      `${events[0]?.split(':')[0]}:end`,
+    ]);
+    expect(events.length).toBe(4);
+  } finally {
+    await Promise.all(sessions.map((session) => session.close()));
+  }
 });
 
 test('refuses identifiers and literals that are not on the allowlist', async () => {

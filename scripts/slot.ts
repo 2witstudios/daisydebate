@@ -24,6 +24,7 @@ import {
   ensureTemplate,
   listSlotDatabases,
   setSlotDatabaseComment,
+  withSlotLock,
 } from '@daisy/db/slots';
 import { deleteNamespace, listNamespaces } from '@daisy/redis/namespaces';
 import {
@@ -232,22 +233,28 @@ async function up(checkout: Checkout, envPath: string) {
   const services = openServices(env);
   try {
     const { slot } = checkout;
-    const pruned = await prune(services, checkout.liveIds);
-    await ensureE2ERole(services.admin, e2eRole);
-    await ensureTemplate({
-      admin: services.admin,
-      connect: services.connect,
-      template,
-      e2eUser: e2eRole.user,
-    });
-    const created = [];
-    for (const database of [slot.database, slot.testDatabase])
-      if (await createSlotDatabase(services.admin, database, template))
-        created.push(database);
-    const portBlock =
-      slot.kind === 'worktree'
-        ? await claimPortBlock(services.admin, slot)
-        : undefined;
+    const { pruned, created, portBlock } = await withSlotLock(
+      services.admin,
+      async () => {
+        const pruned = await prune(services, checkout.liveIds);
+        await ensureE2ERole(services.admin, e2eRole);
+        await ensureTemplate({
+          admin: services.admin,
+          connect: services.connect,
+          template,
+          e2eUser: e2eRole.user,
+        });
+        const created: string[] = [];
+        for (const database of [slot.database, slot.testDatabase])
+          if (await createSlotDatabase(services.admin, database, template))
+            created.push(database);
+        const portBlock =
+          slot.kind === 'worktree'
+            ? await claimPortBlock(services.admin, slot)
+            : undefined;
+        return { pruned, created, portBlock };
+      },
+    );
     const values = slotEnvValues({ slot, env, portBlock });
     const rewritten = rewriteEnv(content, values);
     if (rewritten.changed) await writeFile(envPath, rewritten.content);
@@ -277,12 +284,15 @@ async function down(checkout: Checkout, envPath: string) {
     );
   const services = openServices(envOf(await readEnvFile(envPath)));
   try {
-    for (const database of [slot.database, slot.testDatabase])
-      await dropSlotDatabase(services.admin, database);
-    let removed = 0;
-    for (const client of services.redis)
-      for (const namespace of [slot.namespace, slot.e2eNamespace])
-        removed += await deleteNamespace(client, namespace);
+    const removed = await withSlotLock(services.admin, async () => {
+      for (const database of [slot.database, slot.testDatabase])
+        await dropSlotDatabase(services.admin, database);
+      let removed = 0;
+      for (const client of services.redis)
+        for (const namespace of [slot.namespace, slot.e2eNamespace])
+          removed += await deleteNamespace(client, namespace);
+      return removed;
+    });
     process.stdout.write(
       `Slot ${slot.id}: dropped ${slot.database}, ${slot.testDatabase}; deleted ${removed} Redis keys\n`,
     );
@@ -294,7 +304,9 @@ async function down(checkout: Checkout, envPath: string) {
 async function pruneCommand(checkout: Checkout, envPath: string) {
   const services = openServices(envOf(await readEnvFile(envPath)));
   try {
-    const pruned = await prune(services, checkout.liveIds);
+    const pruned = await withSlotLock(services.admin, () =>
+      prune(services, checkout.liveIds),
+    );
     process.stdout.write(
       `Pruned orphan slots: ${describeOrphans(pruned.ids)}\n`,
     );
