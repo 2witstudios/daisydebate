@@ -87,25 +87,26 @@ test('createDebate and saveSnapshot store snapshot as a real jsonb object, not a
 test('appendOutboxEvent stores payload as a real jsonb object, not a double-encoded string', async () => {
   const database = createDatabase({ url, nextActorId: createId });
   const fixture = new SQL(url);
-  const topic = `debate:${createId()}`;
+  const debateId = createId();
+  const topic = `debate:${debateId}`;
   try {
     await database.transaction((tx) =>
       appendOutboxEvent(tx, {
         topic,
-        kind: 'test.jsonb-storage',
+        kind: 'debate.phase-changed',
         version: 1,
-        payload: { ok: true, nested: { n: 1 } },
+        payload: { version: 1, kind: 'debate.phase-changed', ids: [debateId] },
       }),
     );
     const [row] = await fixture`
-      select jsonb_typeof(payload) as type, payload->>'ok' as ok
+      select jsonb_typeof(payload) as type, payload->>'kind' as kind
       from outbox where topic = ${topic}
     `;
     assert({
       given: 'appendOutboxEvent',
       should: 'store payload as a jsonb object, not a double-encoded string',
-      actual: { type: row?.type, ok: row?.ok },
-      expected: { type: 'object', ok: 'true' },
+      actual: { type: row?.type, kind: row?.kind },
+      expected: { type: 'object', kind: 'debate.phase-changed' },
     });
   } finally {
     await database.close();

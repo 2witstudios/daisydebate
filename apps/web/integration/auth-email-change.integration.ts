@@ -14,6 +14,7 @@ import {
   cleanupOutboxFor,
   createActorFor,
   sessionRevokedEvents,
+  trackedSignUp,
 } from './auth-outbox-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 
@@ -30,16 +31,7 @@ const trackedCreateActorFor = async (userId: string): Promise<string> => {
   return actorId;
 };
 
-// Backstop for the per-test cleanup below, scoped to the actors this suite
-// itself created (RT-2.2v nit): never a time-window sweep that could delete
-// another suite's rows running concurrently against the same
-// `TEST_DATABASE_URL`.
-afterAll(() =>
-  Promise.all(suiteActorIds.map((actorId) => cleanupOutboxFor(actorId))),
-);
-
 const flows = await createPasskeyFlows();
-const { signUp } = flows.account;
 const confirmEmailRoute = await import('../src/app/auth/confirm-email/route');
 
 const backdateSession = (token: string, hoursAgo: number) =>
@@ -90,6 +82,20 @@ const userIdOf = (email: string) =>
     const [row] = await sql`SELECT id FROM users WHERE email = ${email}`;
     return row?.id as string | undefined;
   });
+
+const { signUp, cleanup: cleanupSuiteUsers } = trackedSignUp(
+  flows.account.signUp,
+  userIdOf,
+);
+
+// Backstop for the per-test cleanup below, scoped to what this suite itself
+// created (RT-2.2v nit): never a time-window sweep that could delete
+// another suite's rows running concurrently against the same
+// `TEST_DATABASE_URL`.
+afterAll(async () => {
+  await Promise.all(suiteActorIds.map(cleanupOutboxFor));
+  await cleanupSuiteUsers();
+});
 
 /** Swaps the shared logger for a recorder for the duration of `work` (AUTH-6.4). */
 async function recordedEvents(work: () => Promise<void>): Promise<string[]> {
