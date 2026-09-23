@@ -181,13 +181,32 @@ async function prune(services: SlotServices, checkout: Checkout) {
   return orphans;
 }
 
-async function reachable(services: SlotServices): Promise<boolean> {
+/**
+ * Probes the stack with throwaway clients: a Bun RedisClient that failed
+ * once never reconnects, so the clients slot:up works with are opened only
+ * after the stack is known to be up.
+ */
+async function stackReachable(
+  env: Readonly<Record<string, string | undefined>>,
+) {
+  const probe = new SQL(withDatabase(env.DATABASE_URL ?? '', 'postgres'), {
+    max: 1,
+    connectionTimeout: 3,
+  });
+  const redis = new RedisClient(env.REDIS_URL ?? '', {
+    connectionTimeout: 2000,
+    maxRetries: 0,
+    enableOfflineQueue: false,
+  });
   try {
-    await services.admin`select 1`;
-    for (const client of services.redis) await client.ping();
-    return true;
+    await probe`select 1`;
+    await redis.connect();
+    return (await redis.ping()) === 'PONG';
   } catch {
     return false;
+  } finally {
+    redis.close();
+    await probe.close({ timeout: 1 });
   }
 }
 
@@ -268,16 +287,16 @@ async function up(checkout: Checkout, envPath: string) {
   const refusal = serviceRefusal(env);
   if (refusal) throw new Error(refusal);
   await migratorOf(checkout.path);
+  // Start the stack only when it is down: `compose up` on a running stack
+  // recreates it whenever this branch's compose file differs, wiping every
+  // slot's Redis keys and restarting Postgres under every checkout.
+  if (!(await stackReachable(env)))
+    await run(['docker', 'compose', 'up', '-d', '--wait'], root, {
+      ...process.env,
+      COMPOSE_FILE: process.env.COMPOSE_FILE ?? 'infra/compose.yaml',
+    });
   const services = openServices(env);
   try {
-    // Start the stack only when it is down: `compose up` on a running stack
-    // recreates it whenever this branch's compose file differs, wiping every
-    // slot's Redis keys and restarting Postgres under every checkout.
-    if (!(await reachable(services)))
-      await run(['docker', 'compose', 'up', '-d', '--wait'], root, {
-        ...process.env,
-        COMPOSE_FILE: process.env.COMPOSE_FILE ?? 'infra/compose.yaml',
-      });
     const { slot } = checkout;
     const { pruned, created, portBlock } = await withSlotLock(
       services.admin,
