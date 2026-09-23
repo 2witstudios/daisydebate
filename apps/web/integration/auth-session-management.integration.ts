@@ -1,12 +1,7 @@
 import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createPasskeyFlows } from './auth-passkey-flows';
-import {
-  cookieHeader,
-  newClient,
-  origin,
-  withSql,
-} from './auth-mounted-helpers';
+import { cookieHeader, newClient, origin } from './auth-mounted-helpers';
 import {
   cleanupActorFor,
   cleanupOutboxFor,
@@ -19,15 +14,22 @@ if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
   throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
 setupRitewayBun();
 
-const suiteStartedAt = new Date().toISOString();
+/** Every actor id this suite has created, for the `afterAll` backstop below. */
+const suiteActorIds: string[] = [];
+
+const trackedCreateActorFor = async (userId: string): Promise<string> => {
+  const actorId = await createActorFor(userId);
+  suiteActorIds.push(actorId);
+  return actorId;
+};
+
 // Backstop for the per-test cleanups above: whatever this file's tests
-// appended and did not individually clean up (never a real, wider sweep;
-// scoped to rows this suite could plausibly have created).
+// appended and did not individually clean up. Scoped to the actors this
+// suite itself created (RT-2.2v nit), never a time-window sweep that could
+// delete another suite's rows running concurrently against the same
+// `TEST_DATABASE_URL`.
 afterAll(() =>
-  withSql(
-    (sql) =>
-      sql`DELETE FROM outbox WHERE kind = 'session.revoked' AND created_at >= ${suiteStartedAt}::timestamptz`,
-  ),
+  Promise.all(suiteActorIds.map((actorId) => cleanupOutboxFor(actorId))),
 );
 
 const flows = await createPasskeyFlows();
@@ -124,7 +126,7 @@ describe('AUTH-5.5 session management', () => {
     const before = await protectedRead(second);
     const secondToken = await sessionTokenOf(before);
     const userId = await sessionUserIdOf(before);
-    const actorId = await createActorFor(userId);
+    const actorId = await trackedCreateActorFor(userId);
     const eventsBefore = await sessionRevokedEvents(actorId);
     try {
       await flows.revokeSession(first, secondToken);
@@ -217,7 +219,7 @@ describe('AUTH-5.5 session management', () => {
       await redeem(new URL(link2 as URL).searchParams.get('token') ?? ''),
     );
     const userId = await sessionUserIdOf(await protectedRead(first));
-    const actorId = await createActorFor(userId);
+    const actorId = await trackedCreateActorFor(userId);
     const eventsBefore = await sessionRevokedEvents(actorId);
     try {
       const revoke = await flows.revokeOtherSessions(first);
@@ -260,7 +262,7 @@ describe('AUTH-5.5 session management', () => {
       await redeem(new URL(link as URL).searchParams.get('token') ?? ''),
     );
     const userId = await sessionUserIdOf(await protectedRead(first));
-    const actorId = await createActorFor(userId);
+    const actorId = await trackedCreateActorFor(userId);
     const eventsBefore = await sessionRevokedEvents(actorId);
     try {
       const revoke = await flows.revokeSessions(first);
