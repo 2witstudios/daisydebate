@@ -333,11 +333,14 @@ async function checkIdentityRegime(): Promise<DoctorCheck> {
   };
 }
 
-function checkCheckout(): DoctorCheck {
-  const checkout = readCheckout(root);
+/** The main checkout off main is a warning (the session-start hook warns too). */
+export function checkoutCheck(checkout: {
+  readonly mainCheckout: boolean;
+  readonly branch: string | undefined;
+}): DoctorCheck {
   const warning = checkoutWarning(checkout);
   return warning
-    ? fail('checkout', warning)
+    ? { name: 'checkout', status: 'warn', detail: warning }
     : pass(
         'checkout',
         `${checkout.mainCheckout ? 'main checkout' : 'worktree'} on ${checkout.branch ?? 'detached HEAD'}`,
@@ -366,7 +369,7 @@ export async function runDoctor(): Promise<DoctorReport> {
     ...slots,
     identity,
     await checkIdentityRegime(),
-    checkCheckout(),
+    checkoutCheck(readCheckout(root)),
   ]);
 }
 
