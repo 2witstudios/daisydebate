@@ -128,17 +128,20 @@ schema)` cannot be declared without a zod schema; every write is parsed
    recipes (timestamptz, Date mode); no schema file builds `timestamp()`
    itself. Time sources: row audit columns default to the database clock
    (`now()`, or `statement_timestamp()` where the outbox needs the write
-   moment), and competitive times are PostgreSQL time (ADR 0033). The
-   test-only `saveSnapshot` still stamps `started_at`, `completed_at` and
-   new seats' `joined_at` with the caller's `updatedAt`; its first
-   production writer moves those to database time (tracked as an issue).
-9. **`debate_participants` is the snapshot's projection.** Its key is
-   `(debate_id, actor_id)` (snapshot participant ids are actor ids, ADR
-   0029). `createDebate` and `saveSnapshot` rewrite it in the same
-   transaction as the snapshot: role from side, slot by order within a
-   side, status `joined` or `ready`, departed seats deleted, `joined_at`
-   the write time that first seated the actor. `ballots` and
-   `rating_changes` reference that key.
+   moment), and competitive times are PostgreSQL time (ADR 0033): the
+   snapshot write path stamps `started_at`, `completed_at` and new seats'
+   `joined_at` with the `statement_timestamp()` of the write (ISSUE-37).
+9. **`debate_participants`' debater seats are the snapshot's
+   projection.** Its key is `(debate_id, actor_id)` (snapshot participant
+   ids are actor ids, ADR 0029). `createDebate` and `saveSnapshot` rewrite
+   the `affirmative` and `negative` seats in the same transaction as the
+   snapshot: role from side, slot by order within a side, status `joined`
+   or `ready`, departed debater seats deleted, `joined_at` the database
+   time of the write that first seated the actor. The snapshot does not
+   carry judges, so a snapshot write never deletes or rewrites a judge seat
+   (its `ballots` cascade from it) and refuses a snapshot that seats an
+   actor already holding one (ISSUE-43). `ballots` and `rating_changes`
+   reference that key.
 10. **Reference data ships in migrations only.** The baseline inserts the
     `foundation` format; later reference rows arrive in forward migrations.
     `bun db:seed` writes only the dev fixture. `scripts/reference-formats.ts`

@@ -1,10 +1,12 @@
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { and, eq, notInArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, notInArray, sql } from 'drizzle-orm';
 import {
   formatRulesSchema,
+  participantSchema,
   type DebateSnapshot,
   type FormatRules,
 } from '@daisy/protocol';
+import { createAppError } from '@daisy/errors';
 import { formats } from './schema/formats';
 import { debates, type DebateOutcome } from './schema/debates';
 import { debateParticipants } from './schema/debate-participants';
@@ -53,7 +55,7 @@ export const debateOperations = ({
           })
           .returning();
         if (!row) throw new Error('Debate insert returned no row');
-        await projectParticipants(tx, snapshot, row.createdAt);
+        await projectParticipants(tx, snapshot);
         return toDebateRecord(row);
       });
     });
@@ -95,21 +97,35 @@ export const debateOperations = ({
   },
 });
 
-type Tx = Pick<BunSQLDatabase, 'delete' | 'insert'>;
+type Tx = Pick<BunSQLDatabase, 'delete' | 'insert' | 'select'>;
 
 /**
- * Rewrites `debate_participants` to equal the snapshot's seats, inside the
- * caller's snapshot transaction (ADR 0029, ADR 0038): a snapshot
- * participant's id is its actor id and its side is its role; `slot` counts
- * earlier participants on the same side. Seats that left the snapshot are
- * deleted; a changed seat bumps its version; `joined_at` is the write time
- * of the snapshot that first seated the actor and is never rewritten.
+ * The seats a snapshot owns: its `participants` carry only these sides.
+ * Every other role (today `judge`) is written by its own path, and
+ * `ballots` cascade from a judge seat, so a snapshot write never deletes,
+ * updates or claims one.
+ */
+const snapshotRoles = participantSchema.shape.side.options;
+
+/** The database clock of the write (ADR 0033 §3.2), never a caller's time. */
+const writeTime = sql`statement_timestamp()`;
+
+/**
+ * Rewrites the snapshot's own seats in `debate_participants` to equal its
+ * `participants`, inside the caller's snapshot transaction (ADR 0029,
+ * ADR 0038): a snapshot participant's id is its actor id and its side is its
+ * role; `slot` counts earlier participants on the same side. Debater seats
+ * that left the snapshot are deleted; a changed seat bumps its version;
+ * `joined_at` is the database time of the write that first seated the actor
+ * and is never rewritten. Seats of any other role are left alone, and a
+ * snapshot that names an actor already seated in one is refused before
+ * anything is written.
  */
 async function projectParticipants(
   tx: Tx,
   snapshot: DebateSnapshot,
-  at: Date,
 ): Promise<void> {
+  const t = debateParticipants;
   const seats = snapshot.participants.map((participant, index, all) => ({
     debateId: snapshot.id,
     actorId: participant.id,
@@ -118,22 +134,38 @@ async function projectParticipants(
       .slice(0, index)
       .filter((earlier) => earlier.side === participant.side).length,
     status: participant.ready ? 'ready' : 'joined',
-    joinedAt: at,
-    updatedAt: at,
+    joinedAt: writeTime,
+    updatedAt: writeTime,
   }));
-  await tx.delete(debateParticipants).where(
-    and(
-      eq(debateParticipants.debateId, snapshot.id),
-      seats.length > 0
-        ? notInArray(
-            debateParticipants.actorId,
-            seats.map((seat) => seat.actorId),
-          )
-        : undefined,
-    ),
-  );
+  const actorIds = seats.map((seat) => seat.actorId);
+  if (actorIds.length > 0) {
+    const [foreign] = await tx
+      .select({ actorId: t.actorId })
+      .from(t)
+      .where(
+        and(
+          eq(t.debateId, snapshot.id),
+          inArray(t.actorId, actorIds),
+          notInArray(t.role, snapshotRoles),
+        ),
+      )
+      .limit(1);
+    if (foreign)
+      throw createAppError(
+        'CONFLICT',
+        'A snapshot participant already holds another seat',
+      );
+  }
+  await tx
+    .delete(t)
+    .where(
+      and(
+        eq(t.debateId, snapshot.id),
+        inArray(t.role, snapshotRoles),
+        actorIds.length > 0 ? notInArray(t.actorId, actorIds) : undefined,
+      ),
+    );
   if (seats.length === 0) return;
-  const t = debateParticipants;
   await tx
     .insert(t)
     .values(seats)
@@ -155,7 +187,9 @@ async function projectParticipants(
  * re-reading and re-running the domain operation. Lifecycle projections
  * travel in the same UPDATE (ADR 0029): `phase` from the snapshot,
  * `started_at` on the first save that becomes `active`, `completed_at`
- * plus the caller's `outcome` on completion. An outcome is required when
+ * plus the caller's `outcome` on completion. Both times are the database
+ * clock of this write (ADR 0033 §3.2); the caller's `updatedAt` stamps only
+ * the row's `updated_at`. An outcome is required when
  * completing and refused otherwise, before any statement runs.
  *
  * No production consumer calls this yet (T5): it exists for
@@ -191,10 +225,10 @@ export async function saveDebateSnapshot(
         // waiting never started, and the CHECK decides what is legal.
         ...(phase === 'waiting' && { startedAt: null }),
         ...(phase === 'active' && {
-          startedAt: sql`coalesce(${debates.startedAt}, ${updatedAt})`,
+          startedAt: sql`coalesce(${debates.startedAt}, ${writeTime})`,
         }),
         completedAt: completing
-          ? sql`coalesce(${debates.completedAt}, ${updatedAt})`
+          ? sql`coalesce(${debates.completedAt}, ${writeTime})`
           : null,
         outcome: input.outcome ?? null,
       })
@@ -206,7 +240,7 @@ export async function saveDebateSnapshot(
       )
       .returning();
     if (!row) return null;
-    await projectParticipants(tx, snapshot, updatedAt);
+    await projectParticipants(tx, snapshot);
     return toDebateRecord(row);
   });
 }

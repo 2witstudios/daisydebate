@@ -126,11 +126,12 @@ leaf that adds them (RT-4.4) adds a lint rule that fails if they do.
    the web instance's clock, and not the time the engine processed it.
 2. **Every competitive time uses the same clock**: debate start
    (`debates.started_at`), check-in receipts, `service_instances` renewals
-   and availability samples are all PostgreSQL time. Today `saveSnapshot`
-   stamps `started_at` from the caller's `updatedAt`, an application clock;
-   the save that activates a debate must stamp it with
-   `statement_timestamp()` instead (RT-4.2), and the timetable reads that
-   column, never a snapshot or client value. The engine receives these
+   and availability samples are all PostgreSQL time. The snapshot write
+   path stamps `started_at` (the save that activates a debate),
+   `completed_at` and a newly seated participant's `joined_at` with the
+   `statement_timestamp()` of that write, never the caller's `updatedAt`
+   (ISSUE-37), and the timetable reads that column, never a snapshot or
+   client value. The engine receives these
    values as explicit inputs (UTC ISO strings, integer millisecond
    durations) and stays pure.
 3. **A check-in commits or aborts within a bound.** The check-in
