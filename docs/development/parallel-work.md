@@ -7,11 +7,13 @@ application operations (`apps/web/src/features/<name>/`), and its tests.
 
 ## Session isolation (one machine)
 
-Every local session pins its own Compose stack; the recipe and the four
-`.env` knobs live in
-[local development](local-development.md#parallel-sessions-on-one-machine).
-Summary: distinct `DAISY_STACK_NAME` + ports per slot, `E2E_PORT` to keep
-Playwright off another session's server, unit tests need nothing.
+All sessions share one local Postgres and Redis; each checkout owns the
+databases, Redis namespaces and ports `bun slot:up` derives from its folder
+([ADR 0034](../decisions/0034-shared-stack-slots.md), recipe in
+[local development](local-development.md#parallel-sessions-on-one-machine)).
+Summary: run `bun slot:up` in a new worktree, `bun doctor` catches a `.env`
+naming another slot, `bun slot:down` at handoff, and a removed worktree's
+data is pruned by the next `slot:up` anywhere. Unit tests need nothing.
 
 ## Branch and worktree hygiene
 
@@ -24,8 +26,8 @@ PageSpace's lesson: branch debris accumulates faster than agents clean it
 - Delete the branch when the PR merges. Do not stack more than one
   open vertical per agent.
 - Worktrees (`git worktree`, or `pu` slots) are the supported way to run
-  multiple sessions on one machine; give each worktree its own `.env`
-  slot per the isolation recipe.
+  multiple sessions on one machine; run `bun slot:up` in each so it gets
+  its own databases and namespaces on the shared stack.
 - The parent checkout stays on `main` and stays clear of committed work.
   Agents never run git in the parent checkout — no commits, checkouts,
   merges, or pulls there. All branch work happens inside the agent's own
