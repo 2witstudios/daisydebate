@@ -3,12 +3,19 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 
 setupRitewayBun();
 
+// One instance for the whole file: building the typed-lint program is the
+// expensive step, and under machine load it dominated every test. The lint
+// scripts pass a load-tolerant --timeout instead of Bun's fixed 5 s.
+let shared: ESLint | undefined;
+const repositoryEslint = (): ESLint =>
+  (shared ??= new ESLint({
+    cwd: process.cwd(),
+    overrideConfigFile: './eslint.config.mjs',
+  }));
+
 describe('repository ESLint configuration', () => {
   test('rejects ambient time and identity reads outside the allowlist', async () => {
-    const eslint = new ESLint({
-      cwd: process.cwd(),
-      overrideConfigFile: './eslint.config.mjs',
-    });
+    const eslint = repositoryEslint();
     const [result] = await eslint.lintText(
       'Date.now(); new Date(); Math.random(); crypto.randomUUID();',
       { filePath: 'packages/protocol/src/ambient.ts' },
@@ -93,10 +100,7 @@ describe('repository ESLint configuration', () => {
 
 describe('token-locked Tailwind lint rules (ADR 0028)', () => {
   const lintMarkup = async (classes: string) => {
-    const eslint = new ESLint({
-      cwd: process.cwd(),
-      overrideConfigFile: './eslint.config.mjs',
-    });
+    const eslint = repositoryEslint();
     const [result] = await eslint.lintText(
       `export const Probe = () => <div className="${classes}" />;`,
       { filePath: 'apps/web/src/ui/probe.tsx' },
@@ -171,10 +175,7 @@ describe('token-locked Tailwind lint rules (ADR 0028)', () => {
   });
 
   test('checks the class strings in variant class modules', async () => {
-    const eslint = new ESLint({
-      cwd: process.cwd(),
-      overrideConfigFile: './eslint.config.mjs',
-    });
+    const eslint = repositoryEslint();
     const [result] = await eslint.lintText(
       [
         "const base = 'w-[10px] flex';",
