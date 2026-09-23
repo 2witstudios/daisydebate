@@ -33,3 +33,21 @@ Migration/deployment order, configuration changes, rollback constraints, or “n
 ## Architecture
 
 Affected ownership boundaries and ADR/dependency documentation updates, or “none”.
+
+## Privacy & telemetry
+
+See [ADR 0036](docs/decisions/0036-privacy-by-design.md),
+[ADR 0037](docs/decisions/0037-error-tracking-and-product-analytics.md) and
+[privacy](docs/operations/privacy.md). “none” only when this change adds no
+log field, database/Redis column, `outbox.payload` kind, realtime topic
+payload field, or analytics event.
+
+- Columns classified (inventory entry: category, visibility, purpose,
+  lawful basis, storage, owner, retention, erasure):
+- Events registered (log or analytics event registry entry), including any
+  new `outbox.payload` kind or realtime topic-family payload field:
+- No personal data in telemetry (no `personal`/`sensitive`/`secret` field
+  reaches a log, error report, analytics event, `outbox.payload` or
+  realtime topic message):
+- Retention and erasure defined for any new personal-data column:
+- Consent category declared for any new client-side tracking:

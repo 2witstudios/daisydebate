@@ -1,7 +1,13 @@
 # Observability
 
-Provider-neutral OpenTelemetry instrumentation exists from day one; vendors
-and exporters belong to deployment, not the repository.
+Provider-neutral OpenTelemetry instrumentation exists from day one; tracing
+exporters belong to deployment, not the repository. Error tracking and
+product analytics are the deliberate exception:
+[ADR 0037](../decisions/0037-error-tracking-and-product-analytics.md) ships
+in-repo Sentry and PostHog adapters that stay inert without their
+deploy-time keys — see [privacy](privacy.md) for the classification and
+consent rules those adapters must follow. Any other vendor SDK still
+requires its own ADR before it may be added.
 
 ## Source of truth
 
@@ -122,7 +128,8 @@ it; those facts exist only in the emitted entries.
   scheduled work), not every function.
 - Never log credentials, cookies, raw request bodies, or raw exceptions;
   pino redaction is defense in depth, not permission.
-- Exporters/SDK: install at deployment edge (collector sidecar or platform
-  integration). Adding an SDK to application packages requires an ADR.
+- Tracing exporters/SDK: install at deployment edge (collector sidecar or
+  platform integration). Adding an SDK to application packages requires an
+  ADR; Sentry and PostHog are the standing exception under ADR 0037.
 - Next.js instrumentation hooks are the supported framework surface; do not
   invent framework-specific telemetry.
