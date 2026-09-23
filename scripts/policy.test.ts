@@ -217,7 +217,7 @@ describe('policy scanner', () => {
 describe('migration baseline registry', () => {
   const knownPaths = new Set(['docs/decisions/0023-greenfield-baseline.md']);
   const validBaseline = {
-    baseJournalHash: `sha256:${'a'.repeat(64)}`,
+    baseMigrationsHash: `sha256:${'a'.repeat(64)}`,
     adr: 'docs/decisions/0023-greenfield-baseline.md',
     owner: 'platform',
     reason: 'one-time cuid2-native baseline squash',
@@ -245,7 +245,7 @@ describe('migration baseline registry', () => {
         {
           version: 1,
           baselines: [
-            { ...validBaseline, baseJournalHash: 'abc123' },
+            { ...validBaseline, baseMigrationsHash: 'abc123' },
             {
               ...validBaseline,
               adr: 'docs/decisions/9999-missing.md',
@@ -256,7 +256,7 @@ describe('migration baseline registry', () => {
         { knownPaths, today: '2026-09-20' },
       ),
       expected: [
-        'baselines[0]: baseJournalHash must be sha256:<64 lowercase hex>',
+        'baselines[0]: baseMigrationsHash must be sha256:<64 lowercase hex>',
         'baselines[1]: ADR does not exist: docs/decisions/9999-missing.md',
         'baselines[1]: reviewBy has expired: 2026-01-01',
       ],

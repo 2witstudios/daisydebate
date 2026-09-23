@@ -88,7 +88,7 @@ and detailed procedures in the linked documents, not here.
   migrations, and expand/contract for rolling deployments. Never rewrite an
   applied migration or reset production; the only sanctioned history rewrite
   is a greenfield baseline squash recorded in
-  `policy/migration-baselines.json` (ADR 0023), which requires resetting
+  `policy/migration-baselines.json` (ADR 0023, ADR 0038), which requires resetting
   every local and test database once.
 
 ## Test contract
@@ -205,7 +205,7 @@ slot. In owner sessions it asks before a merge or a push to `main`.
 - A PR loop runs the Library "Converge loop" prompt. A loop that cannot
   truthfully finish is paused with `bun loop:escalate`; only the parent or the
   owner ends it (`bun loop:close`) or restarts it (`bun loop:resume`).
-- Take ADR and migration numbers from `bun adr:next`; `bun policy` fails a
+- Take ADR numbers from `bun adr:next`; `bun policy` fails a
   number an earlier open PR holds.
 - A decision made on the owner's behalf is recorded with
   `bun decision:record`; it stays open until confirmed or overruled.

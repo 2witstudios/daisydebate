@@ -81,13 +81,25 @@ test('pool lifecycle closes and the app failure boundary reports without SQL mat
   // The raw driver error embeds SQL and bound parameters; the app-owned
   // boundary must report only safe operation names.
   let foreignKeyRejected = false;
+  const orphanId = createId();
+  const foundation = await database.getFormat('foundation');
   try {
     await database.createDebate({
-      id: createId(),
+      id: orphanId,
       createdBy: createId(),
       resolution: 'Orphan debate',
       format: 'foundation',
-      snapshot: { phase: 'waiting' },
+      // A valid snapshot, so the failure is the author foreign key.
+      snapshot: {
+        version: 1,
+        id: orphanId,
+        resolution: 'Orphan debate',
+        format: 'foundation',
+        rules: foundation?.rules,
+        phase: 'waiting',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        participants: [],
+      },
       mode: 'casual',
       visibility: 'unlisted',
     });

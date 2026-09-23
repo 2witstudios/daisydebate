@@ -1,10 +1,15 @@
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql';
-import { and, eq, sql } from 'drizzle-orm';
-import { formatRulesSchema, type FormatRules } from '@daisy/protocol';
+import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import { and, eq, notInArray, sql } from 'drizzle-orm';
+import {
+  formatRulesSchema,
+  type DebateSnapshot,
+  type FormatRules,
+} from '@daisy/protocol';
 import { formats } from './schema/formats';
 import { debates, type DebateOutcome } from './schema/debates';
+import { debateParticipants } from './schema/debate-participants';
 import {
-  snapshotPhase,
+  parseSnapshot,
   toDebateRecord,
   type DebateRecord,
   type NewDebate,
@@ -31,14 +36,24 @@ export const debateOperations = ({
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   async createDebate(input: NewDebate): Promise<DebateRecord> {
-    const phase = snapshotPhase(input.snapshot);
+    const snapshot = parseSnapshot(input.id, input.snapshot);
     return instrumented(eventSink, 'createDebate', async () => {
       return await database.transaction(async (tx) => {
         const [row] = await tx
           .insert(debates)
-          .values({ ...input, phase, createdBy: input.createdBy ?? null })
+          .values({
+            id: input.id,
+            createdByActorId: input.createdBy ?? null,
+            resolution: input.resolution,
+            formatId: input.format,
+            snapshot,
+            mode: input.mode,
+            visibility: input.visibility,
+            phase: snapshot.phase,
+          })
           .returning();
         if (!row) throw new Error('Debate insert returned no row');
+        await projectParticipants(tx, snapshot, row.createdAt);
         return toDebateRecord(row);
       });
     });
@@ -80,6 +95,61 @@ export const debateOperations = ({
   },
 });
 
+type Tx = Pick<BunSQLDatabase, 'delete' | 'insert'>;
+
+/**
+ * Rewrites `debate_participants` to equal the snapshot's seats, inside the
+ * caller's snapshot transaction (ADR 0029, ADR 0038): a snapshot
+ * participant's id is its actor id and its side is its role; `slot` counts
+ * earlier participants on the same side. Seats that left the snapshot are
+ * deleted; a changed seat bumps its version; `joined_at` is the write time
+ * of the snapshot that first seated the actor and is never rewritten.
+ */
+async function projectParticipants(
+  tx: Tx,
+  snapshot: DebateSnapshot,
+  at: Date,
+): Promise<void> {
+  const seats = snapshot.participants.map((participant, index, all) => ({
+    debateId: snapshot.id,
+    actorId: participant.id,
+    role: participant.side,
+    slot: all
+      .slice(0, index)
+      .filter((earlier) => earlier.side === participant.side).length,
+    status: participant.ready ? 'ready' : 'joined',
+    joinedAt: at,
+    updatedAt: at,
+  }));
+  await tx.delete(debateParticipants).where(
+    and(
+      eq(debateParticipants.debateId, snapshot.id),
+      seats.length > 0
+        ? notInArray(
+            debateParticipants.actorId,
+            seats.map((seat) => seat.actorId),
+          )
+        : undefined,
+    ),
+  );
+  if (seats.length === 0) return;
+  const t = debateParticipants;
+  await tx
+    .insert(t)
+    .values(seats)
+    .onConflictDoUpdate({
+      target: [t.debateId, t.actorId],
+      set: {
+        role: sql`excluded.role`,
+        slot: sql`excluded.slot`,
+        status: sql`excluded.status`,
+        updatedAt: sql`excluded.updated_at`,
+        version: sql`${t.version} + 1`,
+      },
+      setWhere: sql`(${t.role}, ${t.slot}, ${t.status}) is distinct from (excluded.role, excluded.slot, excluded.status)`,
+    });
+}
+
 /**
  * Null means optimistic conflict or absent record; retry only after
  * re-reading and re-running the domain operation. Lifecycle projections
@@ -102,33 +172,41 @@ export async function saveDebateSnapshot(
     readonly outcome?: DebateOutcome;
   },
 ): Promise<DebateRecord | null> {
-  const phase = snapshotPhase(input.snapshot);
+  const snapshot = parseSnapshot(input.id, input.snapshot);
+  const { phase } = snapshot;
   const completing = phase === 'completed';
   const hasOutcome = input.outcome !== undefined;
   if (completing !== hasOutcome)
     throw new Error('An outcome is required exactly when completing');
   const updatedAt = new Date(input.updatedAt);
-  const [row] = await database
-    .update(debates)
-    .set({
-      snapshot: input.snapshot,
-      version: sql`${debates.version}+1`,
-      updatedAt,
-      phase,
-      // Completion leaves started_at as it is: a debate abandoned from
-      // waiting never started, and the CHECK decides what is legal.
-      ...(phase === 'waiting' && { startedAt: null }),
-      ...(phase === 'active' && {
-        startedAt: sql`coalesce(${debates.startedAt}, ${updatedAt})`,
-      }),
-      completedAt: completing
-        ? sql`coalesce(${debates.completedAt}, ${updatedAt})`
-        : null,
-      outcome: input.outcome ?? null,
-    })
-    .where(
-      and(eq(debates.id, input.id), eq(debates.version, input.expectedVersion)),
-    )
-    .returning();
-  return row ? toDebateRecord(row) : null;
+  return database.transaction(async (tx) => {
+    const [row] = await tx
+      .update(debates)
+      .set({
+        snapshot,
+        version: sql`${debates.version}+1`,
+        updatedAt,
+        phase,
+        // Completion leaves started_at as it is: a debate abandoned from
+        // waiting never started, and the CHECK decides what is legal.
+        ...(phase === 'waiting' && { startedAt: null }),
+        ...(phase === 'active' && {
+          startedAt: sql`coalesce(${debates.startedAt}, ${updatedAt})`,
+        }),
+        completedAt: completing
+          ? sql`coalesce(${debates.completedAt}, ${updatedAt})`
+          : null,
+        outcome: input.outcome ?? null,
+      })
+      .where(
+        and(
+          eq(debates.id, input.id),
+          eq(debates.version, input.expectedVersion),
+        ),
+      )
+      .returning();
+    if (!row) return null;
+    await projectParticipants(tx, snapshot, updatedAt);
+    return toDebateRecord(row);
+  });
 }

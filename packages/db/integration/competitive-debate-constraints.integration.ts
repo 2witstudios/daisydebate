@@ -24,13 +24,13 @@ describe('debates (DATA-2.1)', () => {
       const userId = await fixture.user();
       const actorId = await fixture.actor(userId);
       const byUser = await rejected(() =>
-        fixture.debate({ created_by: userId }),
+        fixture.debate({ created_by_actor_id: userId }),
       );
       const byUnknownActor = await rejected(() =>
-        fixture.debate({ created_by: createId() }),
+        fixture.debate({ created_by_actor_id: createId() }),
       );
       const byActor = !(await rejected(() =>
-        fixture.debate({ created_by: actorId }),
+        fixture.debate({ created_by_actor_id: actorId }),
       ));
       const actorDeleteBlocked = await rejected(() =>
         fixture.sql.unsafe('delete from actors where id = $1', [actorId]),
@@ -152,12 +152,12 @@ describe('debates (DATA-2.1)', () => {
     await withFixture(url, async (fixture) => {
       assert({
         given: 'the debates table',
-        should: 'index (phase, mode, created_at) and (format, completed_at)',
+        should: 'index (phase, mode, created_at) and (format_id, completed_at)',
         actual: [
           await indexDefinition(fixture, 'debates_phase_mode_created_idx'),
           await indexDefinition(fixture, 'debates_format_completed_idx'),
         ].map((definition) => definition?.replace(/.* USING btree /, '')),
-        expected: ['(phase, mode, created_at)', '(format, completed_at)'],
+        expected: ['(phase, mode, created_at)', '(format_id, completed_at)'],
       });
     });
   });
@@ -188,7 +188,6 @@ describe('debate participants (DATA-2.2)', () => {
         fixture.participant(debateId, 'negative', -1),
       );
       const badStatus = await fixture.rejects('debate_participants', {
-        id: createId(),
         debate_id: debateId,
         actor_id: await fixture.actor(),
         role: 'negative',
@@ -197,7 +196,6 @@ describe('debate participants (DATA-2.2)', () => {
         joined_at: at,
       });
       const unknownActor = await fixture.rejects('debate_participants', {
-        id: createId(),
         debate_id: debateId,
         actor_id: createId(),
         role: 'negative',

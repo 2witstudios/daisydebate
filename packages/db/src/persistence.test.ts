@@ -4,6 +4,7 @@ import {
   createTestDatabase,
   debateRow,
   sampleDebate,
+  sampleSnapshot,
   sampleUser,
   userRow,
   type SinkEvent,
@@ -165,7 +166,7 @@ describe('database optimistic snapshot saves', () => {
       actual: await database.saveSnapshot({
         id: record.id,
         expectedVersion: record.version,
-        snapshot: { phase: 'waiting', resolution: 'revised' },
+        snapshot: sampleSnapshot({ resolution: 'revised' }),
         updatedAt: record.updatedAt,
       }),
       expected: null,
@@ -192,7 +193,7 @@ describe('database optimistic snapshot saves', () => {
     const advanced = {
       ...record,
       version: record.version + 1,
-      snapshot: { phase: 'waiting', resolution: 'revised' },
+      snapshot: sampleSnapshot({ resolution: 'revised' }),
     };
     const { database } = createTestDatabase([[debateRow(advanced)]]);
 

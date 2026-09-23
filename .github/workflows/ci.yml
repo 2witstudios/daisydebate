@@ -136,14 +136,12 @@ jobs:
         with:
           bun-version: '1.4.2'
       - run: bun install --frozen-lockfile
-      - name: Create the loopback e2e role (production-refined credentials)
-        run: |
-          psql postgresql://daisy:ci-only@127.0.0.1:5432/postgres \
-            -c "CREATE ROLE daisy_e2e LOGIN PASSWORD 'e2e-loopback-only';" \
-            -c "GRANT CONNECT ON DATABASE daisy_test TO daisy_e2e;"
       - run: bun db:migrate
       - name: Verify migration reruns are idempotent
         run: bun db:migrate
+      # The one place test logins are provisioned (packages/db/src/slots.ts),
+      # after the baseline has created daisy_web.
+      - run: bun db:roles
       - run: bun test:integration
       # The browser E2E tier is owned by e2e.yml (a single E2E owner keeps
       # per-PR cost at one Chromium run; bun evidence enforces the split).

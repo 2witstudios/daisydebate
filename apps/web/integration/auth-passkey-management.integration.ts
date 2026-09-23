@@ -175,12 +175,22 @@ describe('AUTH-5.4 recover from a lost passkey through verified email', () => {
     const actor = await database.getActorByUserId(userId);
     const actorId = actor!.id;
     const debateId = createId();
+    const resolution = 'A representative resolution';
     await database.createDebate({
       id: debateId,
       createdBy: actorId,
-      resolution: 'A representative resolution',
+      resolution,
       format: 'foundation',
-      snapshot: { phase: 'waiting' },
+      snapshot: {
+        version: 1,
+        id: debateId,
+        resolution,
+        format: 'foundation',
+        rules: (await database.getFormat('foundation'))?.rules,
+        phase: 'waiting',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        participants: [],
+      },
       mode: 'casual',
       visibility: 'unlisted',
     });

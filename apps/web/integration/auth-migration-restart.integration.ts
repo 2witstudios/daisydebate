@@ -35,7 +35,7 @@ const debateOwner = (debateId: string) =>
   withSql(async (sql) => {
     const [row] = await sql`
       SELECT a.user_id AS "userId", d.phase AS phase
-      FROM debates d JOIN actors a ON a.id = d.created_by
+      FROM debates d JOIN actors a ON a.id = d.created_by_actor_id
       WHERE d.id = ${debateId}
     `;
     return row as { userId: string; phase: string } | undefined;
@@ -53,7 +53,7 @@ test('a migration re-application and a resource restart preserve a live session,
   await withSql(async (sql) => {
     await sql`INSERT INTO actors (id, kind, user_id) VALUES (${actorId}, 'human', ${userId})`;
     await sql`
-      INSERT INTO debates (id, created_by, resolution, format, snapshot, mode, phase, visibility)
+      INSERT INTO debates (id, created_by_actor_id, resolution, format_id, snapshot, mode, phase, visibility)
       VALUES (${debateId}, ${actorId}, 'Restart-survival proof', 'foundation', '{}'::jsonb, 'casual', 'waiting', 'public')
     `;
   });
@@ -68,7 +68,7 @@ test('a migration re-application and a resource restart preserve a live session,
   const beforePasskeys = await passkeyCount(userId);
   const beforeOwner = await debateOwner(debateId);
 
-  // "Migration upgrade": re-apply the already-applied migration journal to
+  // "Migration upgrade": re-apply the already-applied migrations to
   // the live, populated test database via the real migration script — the
   // same script production runs before a deploy restarts the app.
   const migrated = Bun.spawnSync(['bun', 'packages/db/scripts/migrate.ts'], {

@@ -75,12 +75,13 @@ PageSpace's lesson: branch debris accumulates faster than agents clean it
   `packages/typescript-config/`, `.prettierrc.json` invalidate every
   turbo cache and affect all verticals; change them in isolated,
   dedicated PRs.
-- **ADR and migration numbers.** Two open PRs can claim the same next
-  number with different filenames and merge without a git conflict. Take
-  numbers from `bun adr:next`, which reads origin/main and every open PR;
-  `bun policy` (in `bun check` and CI) fails a branch whose ADR or migration
-  number an earlier-opened PR already holds. The earlier-opened PR keeps the
-  number.
+- **ADR numbers.** Two open PRs can claim the same next number with
+  different filenames and merge without a git conflict. Take numbers from
+  `bun adr:next`, which reads origin/main and every open PR; `bun policy`
+  (in `bun check` and CI) fails a branch whose ADR number an earlier-opened
+  PR already holds. The earlier-opened PR keeps the number. Migrations are
+  named by generation timestamp (ADR 0038), and `bun migrations:check`
+  fails one that does not append to main's.
 
 ## Inner loop
 

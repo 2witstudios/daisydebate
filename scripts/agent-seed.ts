@@ -1,4 +1,4 @@
-import { formatSeeds } from './format-seed';
+import { referenceFormats } from './reference-formats';
 
 export const agentSeedVersion = 'agent-seed-v4';
 
@@ -21,8 +21,10 @@ export const agentSeedUsers = [
 ] as const;
 
 const agentSeedDebateId = 'c8d4e2f6a1b3k5m7n9p2r4t6';
-const foundationRules = formatSeeds.find((f) => f.id === 'foundation')?.rules;
-if (!foundationRules) throw new Error('foundation format seed missing');
+const foundationRules = referenceFormats.find(
+  (f) => f.id === 'foundation',
+)?.rules;
+if (!foundationRules) throw new Error('foundation reference format missing');
 const agentSeedResolution =
   'Resolved: a deterministic local seed makes agent development repeatable.';
 // Fixed so reseeding is byte-identical; the seed never reads a clock.

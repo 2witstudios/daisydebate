@@ -2,12 +2,13 @@ import { afterAll, expect } from 'bun:test';
 import { SQL } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
+import { drizzle } from 'drizzle-orm/bun-sql';
+import { migrate } from 'drizzle-orm/bun-sql/migrator';
 import {
   createSlotDatabase,
   dropSlotDatabase,
-  ensureE2ERole,
-  ensureTemplate,
   listSlotDatabases,
+  provisionTestRoles,
   resetPublicSchema,
   setSlotDatabaseComment,
   withSlotLock,
@@ -32,10 +33,10 @@ const connect = (database: string) => {
   return new SQL(next.toString(), { max: 1 });
 };
 const admin = connect('postgres');
-const template = `${prefix}_template`;
 // CREATE/DROP DATABASE copy and remove files; under a machine full of
 // parallel suites a handful of them can exceed bun's 5 s per-test default.
 const ddlTimeoutMs = 30_000;
+const migrationsFolder = new URL('../migrations', import.meta.url).pathname;
 
 const withDatabase = async <T>(
   database: string,
@@ -49,65 +50,55 @@ const withDatabase = async <T>(
   }
 };
 
-/** Creates a table and a sequence as the migration role, then reads grants. */
-const e2eAccessToNewObjects = (client: SQL) =>
-  client.begin(async (transaction) => {
-    await transaction`create table public.slot_probe (id integer)`;
-    await transaction`create sequence public.slot_probe_seq`;
-    const [row] = await transaction`
-      select
-        has_schema_privilege('daisy_e2e', 'public', 'USAGE') as schema,
-        has_table_privilege('daisy_e2e', 'public.slot_probe',
-          'SELECT,INSERT,UPDATE,DELETE') as tables,
-        has_sequence_privilege('daisy_e2e', 'public.slot_probe_seq',
-          'USAGE,SELECT') as sequences
-    `;
-    await transaction`drop table public.slot_probe`;
-    await transaction`drop sequence public.slot_probe_seq`;
-    return row as { schema: boolean; tables: boolean; sequences: boolean };
+/** What `bun slot:up` and `bun db:reset` do: migrate, then provision. */
+const migrateAndProvision = async (database: string) => {
+  await withDatabase(database, (client) =>
+    migrate(drizzle({ client }), { migrationsFolder }),
+  );
+  await provisionTestRoles(admin, e2e);
+};
+
+/** Whether the e2e login can append to the outbox (a bigserial default). */
+const e2eCanWrite = (database: string) =>
+  withDatabase(database, async (client) => {
+    await client.unsafe(`set role ${e2e.user}`);
+    try {
+      await client`
+        insert into outbox (topic, kind, version, payload)
+        values ('user:slotit:inbox', 'session.revoked', 1, ${{ version: 1, kind: 'session.revoked', ids: [] }})
+      `;
+      return 'written';
+    } catch (error) {
+      return (error as { errno?: string }).errno ?? 'failed';
+    }
   });
 
 afterAll(async () => {
-  await admin`update pg_database set datistemplate = false where datname = ${template}`;
   for (const { name } of await listSlotDatabases(admin, prefix))
     await dropSlotDatabase(admin, name);
   await admin.close();
 });
 
-const allGranted = { schema: true, tables: true, sequences: true };
-
 test(
-  'a slot database copied from the template carries the e2e grants',
+  'a new slot database, migrated and provisioned, lets the e2e login write through daisy_web',
   async () => {
-    await ensureE2ERole(admin, e2e);
-    await ensureE2ERole(admin, e2e);
-    await ensureTemplate({ admin, connect, template, e2eUser: e2e.user });
-    await ensureTemplate({ admin, connect, template, e2eUser: e2e.user });
-    const [templateRow] = await admin`
-      select datistemplate, datallowconn from pg_database where datname = ${template}
-    `;
-    assert({
-      given: 'the template ensured twice',
-      should: 'be a template that accepts no connections',
-      actual: templateRow,
-      expected: { datistemplate: true, datallowconn: false },
-    });
-
     const database = `${prefix}_a`;
     assert({
       given: 'the same slot database created twice',
       should: 'create it once and report the second call as a no-op',
       actual: [
-        await createSlotDatabase(admin, database, template),
-        await createSlotDatabase(admin, database, template),
+        await createSlotDatabase(admin, database),
+        await createSlotDatabase(admin, database),
       ],
       expected: [true, false],
     });
+    await migrateAndProvision(database);
+    await provisionTestRoles(admin, e2e);
     assert({
-      given: 'a table and a sequence the migration role creates in the copy',
-      should: 'grant daisy_e2e schema usage, table DML and sequence use',
-      actual: await withDatabase(database, e2eAccessToNewObjects),
-      expected: allGranted,
+      given: 'the baseline applied and the test logins provisioned twice',
+      should: 'let the e2e login insert into a bigserial table',
+      actual: await e2eCanWrite(database),
+      expected: 'written',
     });
   },
   ddlTimeoutMs,
@@ -118,8 +109,8 @@ test(
   async () => {
     const kept = `${prefix}_kept`;
     const dropped = `${prefix}_dropped`;
-    await createSlotDatabase(admin, kept, template);
-    await createSlotDatabase(admin, dropped, template);
+    await createSlotDatabase(admin, kept);
+    await createSlotDatabase(admin, dropped);
     await setSlotDatabaseComment(admin, kept, 'daisy-slot port-block=7');
     const listed = await listSlotDatabases(admin, `${prefix}_`);
     assert({
@@ -158,24 +149,28 @@ test(
 );
 
 test(
-  'resetting the public schema keeps the e2e grants',
+  'db:reset re-applies the baseline and the test logins, so e2e keeps working (ISSUE-6)',
   async () => {
     const database = `${prefix}_reset`;
-    await createSlotDatabase(admin, database, template);
-    await withDatabase(database, async (client) => {
-      await client`create table public.leftover (id integer)`;
-      await resetPublicSchema(client, e2e.user);
-      const [row] =
-        await client`select to_regclass('public.leftover') as table`;
-      assert({
-        given: 'a slot database with a table, reset',
-        should: 'drop the table and keep the e2e grants for new objects',
-        actual: {
-          leftover: row?.table ?? null,
-          grants: await e2eAccessToNewObjects(client),
-        },
-        expected: { leftover: null, grants: allGranted },
-      });
+    await createSlotDatabase(admin, database);
+    await migrateAndProvision(database);
+    const before = await e2eCanWrite(database);
+    await withDatabase(database, resetPublicSchema);
+    const [emptied] = await withDatabase(
+      database,
+      (client) => client`select to_regclass('public.outbox') as table`,
+    );
+    await migrateAndProvision(database);
+    assert({
+      given: 'a slot database reset the way bun db:reset resets it',
+      should:
+        'drop every table, then let the e2e login write again after the re-migration',
+      actual: {
+        before,
+        emptied: emptied?.table ?? null,
+        after: await e2eCanWrite(database),
+      },
+      expected: { before: 'written', emptied: null, after: 'written' },
     });
   },
   ddlTimeoutMs,
@@ -220,7 +215,7 @@ test('refuses identifiers and literals that are not on the allowlist', async () 
     'a'.repeat(64),
     '',
   ]) {
-    await expect(createSlotDatabase(admin, hostile, template)).rejects.toThrow(
+    await expect(createSlotDatabase(admin, hostile)).rejects.toThrow(
       /identifier/,
     );
     await expect(dropSlotDatabase(admin, hostile)).rejects.toThrow(
@@ -231,6 +226,6 @@ test('refuses identifiers and literals that are not on the allowlist', async () 
     setSlotDatabaseComment(admin, `${prefix}_a`, "x'; drop database daisy; --"),
   ).rejects.toThrow(/comment/);
   await expect(
-    ensureE2ERole(admin, { user: 'daisy_e2e', password: "p'w" }),
+    provisionTestRoles(admin, { user: 'daisy_e2e', password: "p'w" }),
   ).rejects.toThrow(/password/);
 });

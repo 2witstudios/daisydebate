@@ -2,7 +2,10 @@
 
 Status: accepted (PAR-2). Supersedes the per-session Compose stacks that
 `docs/development/local-development.md` and `parallel-work.md` described
-(PAR-1).
+(PAR-1). Amended by [ADR 0038](0038-drizzle-1-baseline.md): each slot
+has a third database for the browser suite, the template database is
+gone (slot databases copy `template0`), and the e2e login's access is its
+membership in `daisy_web`.
 
 ## Context
 

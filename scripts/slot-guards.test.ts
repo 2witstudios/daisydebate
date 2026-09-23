@@ -17,7 +17,8 @@ describe('reset scope', () => {
   test('accepts only the current slot databases on loopback', () => {
     assert({
       given: 'reset targets inside and outside this slot',
-      should: 'accept the slot dev and test databases and refuse the rest',
+      should:
+        'accept the slot dev and test databases and refuse the rest, including the e2e database slot:reset-e2e owns',
       actual: [
         resetRefusal(slot, {
           ...allowed,
@@ -26,6 +27,10 @@ describe('reset scope', () => {
         resetRefusal(slot, {
           ...allowed,
           DATABASE_URL: 'postgres://d:p@127.0.0.1:15432/daisy_wt_abc_test',
+        }),
+        resetRefusal(slot, {
+          ...allowed,
+          DATABASE_URL: 'postgres://d:p@localhost:15432/daisy_wt_abc_e2e',
         }),
         resetRefusal(slot, {
           ...allowed,
@@ -45,7 +50,7 @@ describe('reset scope', () => {
           DATABASE_URL: 'postgres://d:p@localhost:15432/daisy_wt_abc',
         }),
       ].map((refusal) => refusal === undefined),
-      expected: [true, true, false, false, false, false],
+      expected: [true, true, false, false, false, false, false],
     });
   });
 });
@@ -108,7 +113,7 @@ describe('one server per slot', () => {
       actual: [values.TEST_DATABASE_URL, values.E2E_DATABASE_URL],
       expected: [
         'postgres://daisy:pw@localhost:15432/daisy_wt_abc_test',
-        'postgres://daisy_e2e:e2e-loopback-only@localhost:15432/daisy_wt_abc_test',
+        'postgres://daisy_e2e:e2e-loopback-only@localhost:15432/daisy_wt_abc_e2e',
       ],
     });
   });

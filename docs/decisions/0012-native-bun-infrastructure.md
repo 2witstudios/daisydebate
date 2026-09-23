@@ -1,6 +1,6 @@
 # 0012: Native Bun infrastructure adapters
 
-Status: accepted.
+Status: accepted. Amended by [ADR 0038](0038-drizzle-1-baseline.md): Drizzle is pinned to the 1.0.0-rc.4 release candidate, on the owner's decision, to drop drizzle-kit 0.31's esbuild advisory; the no-RC rule below no longer applies to Drizzle.
 
 We deploy Next's server with Bun, on a host/container that supports Bun rather than Node-only/Edge hosting. Drizzle 0.45.2 supports Bun SQL directly (confirmed against its tagged driver and migrator source). Use native pooled SQL with transaction, connection timeout, statement timeout and close semantics. This avoids a second PostgreSQL driver and makes Bun a real runtime decision. Native SQL cannot run under Node. If hosting changes, replace only this adapter, and rerun integration/concurrency/migration contracts. Never switch to an RC because the current docs installation snippet does so.
 

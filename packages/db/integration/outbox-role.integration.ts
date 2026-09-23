@@ -49,7 +49,9 @@ test('the realtime role can only select the outbox and authorization read models
       realtime!.unsafe('select id from debates limit 1'),
     );
     const selectDebateParticipants = await rejected(() =>
-      realtime!.unsafe('select id from debate_participants limit 1'),
+      realtime!.unsafe(
+        'select debate_id, actor_id from debate_participants limit 1',
+      ),
     );
     const selectActors = await rejected(() =>
       realtime!.unsafe('select id, user_id from actors limit 1'),

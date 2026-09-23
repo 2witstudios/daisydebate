@@ -1,5 +1,5 @@
 import { fixedClock, fixedIds } from '@daisy/clock';
-import { formatSeeds } from './format-seed';
+import { referenceFormats } from './reference-formats';
 import {
   createDebateRuntime,
   type DebatePhase,
@@ -7,7 +7,9 @@ import {
   type DebateSnapshot,
 } from '@daisy/debate-engine';
 
-const foundation = formatSeeds.find((format) => format.id === 'foundation');
+const foundation = referenceFormats.find(
+  (format) => format.id === 'foundation',
+);
 if (!foundation) throw new Error('foundation format seed missing');
 
 export type ScenarioAction =

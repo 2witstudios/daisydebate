@@ -13,8 +13,7 @@ setupRitewayBun();
 const mainFiles = [
   'docs/decisions/0033-presence-and-adjudication.md',
   'docs/decisions/README.md',
-  'packages/db/migrations/0004_realtime-role.sql',
-  'packages/db/migrations/meta/_journal.json',
+  'packages/db/migrations/20260923195259_baseline/migration.sql',
 ];
 
 const openPrs: readonly OpenPr[] = [
@@ -28,32 +27,27 @@ const openPrs: readonly OpenPr[] = [
     branch: 'pu/grd-6-autonomy',
     files: [
       'docs/decisions/0034-autonomy-guardrails.md',
-      'packages/db/migrations/0005_x.sql',
+      'packages/db/migrations/20260924000000_x/migration.sql',
     ],
   },
   {
     number: 58,
     branch: 'pu/other',
-    files: ['packages/db/migrations/0005_y.sql'],
+    files: ['docs/decisions/0036-other.md'],
   },
 ];
 
 describe('claimsOf', () => {
-  test('reads ADR and migration numbers from paths', () => {
+  test('reads ADR numbers from paths and nothing from timestamped migrations', () => {
     assert({
-      given: 'decision records, migrations and unrelated files',
-      should: 'return one claim per numbered record',
+      given: 'decision records, a migration folder and unrelated files',
+      should: 'return one claim per numbered decision record',
       actual: claimsOf(mainFiles),
       expected: [
         {
           kind: 'ADR',
           number: '0033',
           file: 'docs/decisions/0033-presence-and-adjudication.md',
-        },
-        {
-          kind: 'migration',
-          number: '0004',
-          file: 'packages/db/migrations/0004_realtime-role.sql',
         },
       ],
     });
@@ -67,10 +61,10 @@ describe('nextFree', () => {
       ...openPrs.flatMap((pr) => claimsOf(pr.files)),
     ];
     assert({
-      given: 'ADR 0034 and migration 0005 claimed by open PRs',
-      should: 'return ADR 0035 and migration 0006',
-      actual: [nextFree(claims, 'ADR'), nextFree(claims, 'migration')],
-      expected: ['0035', '0006'],
+      given: 'ADRs 0034 and 0036 claimed by open PRs',
+      should: 'return ADR 0037',
+      actual: nextFree(claims, 'ADR'),
+      expected: '0037',
     });
   });
 });
@@ -78,8 +72,7 @@ describe('nextFree', () => {
 describe('collisionProblems', () => {
   test('fails the later PR that reuses a number an earlier open PR holds', () => {
     assert({
-      given:
-        'PR #57 claiming ADR 0034 held by #50 and migration 0005 also in #58',
+      given: 'PR #57 claiming ADR 0034, which #50 already holds',
       should: 'report the ADR clash with the earlier PR only',
       actual: collisionProblems(openPrs, 57),
       expected: [
@@ -90,10 +83,10 @@ describe('collisionProblems', () => {
 
   test('reports clashes for an unpublished branch against every open PR', () => {
     assert({
-      given: 'a local branch with no PR adding migration 0005',
-      should: 'report both open PRs that hold 0005',
+      given: 'a local branch with no PR adding ADR 0034',
+      should: 'report both open PRs that hold 0034',
       actual: collisionProblems(openPrs, undefined, [
-        'packages/db/migrations/0005_z.sql',
+        'docs/decisions/0034-local.md',
       ]).length,
       expected: 2,
     });

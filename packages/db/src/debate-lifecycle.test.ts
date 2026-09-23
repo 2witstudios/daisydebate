@@ -4,6 +4,7 @@ import {
   createTestDatabase,
   debateRow,
   sampleDebate,
+  sampleSnapshot,
 } from './index.test-support';
 
 setupRitewayBun();
@@ -49,11 +50,11 @@ describe('database debate lifecycle projections', () => {
         id: record.id,
         resolution: record.resolution,
         format: record.format,
-        snapshot: { phase: 'paused' },
+        snapshot: { ...sampleSnapshot(), phase: 'paused' },
         mode: record.mode,
         visibility: record.visibility,
       }),
-    ).rejects.toThrow('Snapshot phase');
+    ).rejects.toThrow('Invalid debate snapshot');
 
     assert({
       given: 'a snapshot with a phase outside the protocol vocabulary',
@@ -68,7 +69,7 @@ describe('database debate lifecycle projections', () => {
     const active = {
       ...record,
       version: 2,
-      snapshot: { phase: 'active' },
+      snapshot: sampleSnapshot({ phase: 'active' }),
       phase: 'active' as const,
       startedAt: record.updatedAt,
     };
@@ -84,9 +85,9 @@ describe('database debate lifecycle projections', () => {
     assert({
       given: 'a snapshot save that moves the debate to active',
       should:
-        'issue one UPDATE that sets snapshot, phase and started_at together',
+        'issue one UPDATE that sets snapshot, phase and started_at together, then project the seats',
       actual: {
-        statements: queries.length,
+        statements: queries.map(({ query }) => query.split(' ')[0]),
         setsPhaseAndStart:
           queries[0]?.query.includes('"phase" = ') === true &&
           queries[0]?.query.includes('"started_at" = ') === true,
@@ -94,7 +95,7 @@ describe('database debate lifecycle projections', () => {
         record: [saved?.phase, saved?.startedAt],
       },
       expected: {
-        statements: 1,
+        statements: ['update', 'delete'],
         setsPhaseAndStart: true,
         phaseBound: true,
         record: ['active', record.updatedAt],
@@ -110,7 +111,7 @@ describe('database debate lifecycle projections', () => {
       database.saveSnapshot({
         id: record.id,
         expectedVersion: record.version,
-        snapshot: { phase: 'completed' },
+        snapshot: sampleSnapshot({ phase: 'completed' }),
         updatedAt: record.updatedAt,
       }),
     ).rejects.toThrow('outcome');
@@ -118,7 +119,7 @@ describe('database debate lifecycle projections', () => {
     await database.saveSnapshot({
       id: record.id,
       expectedVersion: record.version,
-      snapshot: { phase: 'completed' },
+      snapshot: sampleSnapshot({ phase: 'completed' }),
       updatedAt: record.updatedAt,
       outcome: 'affirmative',
     });
@@ -145,7 +146,7 @@ describe('database debate lifecycle projections', () => {
     await database.saveSnapshot({
       id: record.id,
       expectedVersion: record.version,
-      snapshot: { phase: 'completed' },
+      snapshot: sampleSnapshot({ phase: 'completed' }),
       updatedAt: record.updatedAt,
       outcome: 'abandoned',
     });
@@ -173,7 +174,7 @@ describe('database debate lifecycle projections', () => {
       database.saveSnapshot({
         id: record.id,
         expectedVersion: record.version,
-        snapshot: { phase: 'active' },
+        snapshot: sampleSnapshot({ phase: 'active' }),
         updatedAt: record.updatedAt,
         outcome: 'draw',
       }),

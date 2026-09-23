@@ -1,15 +1,14 @@
 import { sql } from 'drizzle-orm';
 import {
   bigserial,
-  check,
   customType,
   index,
   integer,
   pgTable,
   text,
-  timestamp,
 } from 'drizzle-orm/pg-core';
-import { jsonbColumn } from './columns';
+import { outboxPayloadSchema } from '@daisy/protocol';
+import { jsonbColumn, jsonbIsObject, timestampColumn } from './columns';
 
 /**
  * Postgres 13+ 64-bit transaction id. Comparable (`<`, `>`) but not
@@ -38,12 +37,12 @@ export const outbox = pgTable(
     topic: text('topic').notNull(),
     kind: text('kind').notNull(),
     version: integer('version').notNull(),
-    payload: jsonbColumn('payload').notNull(),
+    payload: jsonbColumn('payload', outboxPayloadSchema).notNull(),
     // statement_timestamp(), not now()/defaultNow(): the delivery-lag check
     // (plan "aggregate service availability") and the 24h prune both need
     // the moment this row was actually written, not this transaction's
     // start time, which now() would give for every row in a longer write.
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' })
+    createdAt: timestampColumn('created_at')
       .notNull()
       .default(sql`statement_timestamp()`),
   },
@@ -53,9 +52,6 @@ export const outbox = pgTable(
     index('outbox_created_at_idx').on(table.createdAt),
     // Every receiver `safeParse`s an object schema (plan "Payload policy");
     // a JSON scalar or array would silently fail every one of them.
-    check(
-      'outbox_payload_is_object',
-      sql`jsonb_typeof(${table.payload}) = 'object'`,
-    ),
+    jsonbIsObject('outbox', table.payload),
   ],
 );

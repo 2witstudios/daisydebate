@@ -1,22 +1,21 @@
 import { sql, type SQL } from 'drizzle-orm';
-import {
-  check,
-  customType,
-  integer,
-  timestamp,
-  type PgColumn,
-  type PgTimestampBuilderInitial,
-} from 'drizzle-orm/pg-core';
+import { check, customType, integer, timestamp } from 'drizzle-orm/pg-core';
+import type { PgColumn } from 'drizzle-orm/pg-core';
+import { createAppError } from '@daisy/errors';
+import { z } from 'zod';
 
 /**
- * Column recipes shared by the competitive tables (ADR 0029). Builders are
- * single-use, so each call returns a fresh one. Timestamps are timestamptz
- * mapped to Date (see the mode warning in `../index.ts`); the application
- * converts to UTC ISO strings at its edge.
+ * Column recipes every table uses (ADR 0029, ADR 0038). Builders are
+ * single-use, so each call returns a fresh one.
  */
-export const timestampColumn = (
-  name: string,
-): PgTimestampBuilderInitial<string> =>
+
+/**
+ * The one timestamp column: timestamptz mapped to Date. Drizzle's string
+ * mode relabels the driver's Date with the host's local offset instead of
+ * converting it, so it is never used; the application converts to UTC ISO
+ * strings at its edge.
+ */
+export const timestampColumn = (name: string) =>
   timestamp(name, { withTimezone: true, mode: 'date' });
 
 export const createdAtColumn = () =>
@@ -39,15 +38,47 @@ export const versionPositive = (table: string, column: PgColumn) =>
 export const oneOf = (column: PgColumn, values: readonly string[]): SQL =>
   sql`${column} in (${sql.raw(values.map((value) => `'${value}'`).join(', '))})`;
 
+/** `later` is unset or not before `earlier`: a time-ordering CHECK body. */
+export const notBefore = (later: PgColumn, earlier: PgColumn): SQL =>
+  sql`${later} is null or ${later} >= ${earlier}`;
+
 /**
- * drizzle-orm 0.45.2's built-in `jsonb()` always `JSON.stringify`s its
- * value in `mapToDriverValue`, and the Bun SQL driver then encodes that
- * string a second time, so every write lands as a JSON string
- * (`jsonb_typeof = 'string'`) instead of an object. This `customType` has
- * no `toDriver`/`fromDriver`, so the value passes straight through to and
- * from Bun's driver, which serializes a plain object as real `jsonb`. Use
- * it for every jsonb column instead of drizzle-orm's `jsonb()`.
+ * The shape of a jsonb column that has no protocol contract yet because
+ * nothing writes it (ISSUE-24): any JSON object. Its first writer replaces
+ * it with the protocol schema it writes.
  */
-export const jsonbColumn = customType<{ data: unknown; driverData: unknown }>({
-  dataType: () => 'jsonb',
-});
+export const jsonObjectSchema = z.record(z.string(), z.json());
+
+/**
+ * The only jsonb column (ISSUE-24). It cannot be declared without the
+ * schema of the value it stores: every write is parsed first, and a value
+ * that does not match fails with a typed `VALIDATION` AppError before it
+ * reaches the driver, never as an opaque Postgres type error or a silently
+ * stored scalar. The parsed object goes to Bun SQL unencoded, which
+ * serializes it as real jsonb. Pair it with `jsonbIsObject`, the database
+ * half of the same rule.
+ */
+export const jsonbColumn = <T extends Record<string, unknown>>(
+  name: string,
+  schema: z.ZodType<T>,
+) =>
+  customType<{ data: T; driverData: T }>({
+    dataType: () => 'jsonb',
+    toDriver: (value) => {
+      const parsed = schema.safeParse(value);
+      if (!parsed.success)
+        throw createAppError(
+          'VALIDATION',
+          `Invalid value for jsonb column ${name}`,
+          parsed.error,
+        );
+      return parsed.data;
+    },
+  })(name);
+
+/** `<table>_<column>_is_object`: the database refuses a jsonb scalar or array. */
+export const jsonbIsObject = (table: string, column: PgColumn) =>
+  check(
+    `${table}_${column.name}_is_object`,
+    sql`jsonb_typeof(${column}) = 'object'`,
+  );

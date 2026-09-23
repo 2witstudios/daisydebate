@@ -126,11 +126,11 @@ describe('formats and the debate format key (DATA-1.3)', () => {
   test('debates reference a known format that cannot be removed underneath them', async () => {
     await withFixture(url, async (fixture) => {
       const unknownFormat = await rejected(() =>
-        fixture.debate({ format: `fmt-${createId()}` }),
+        fixture.debate({ format_id: `fmt-${createId()}` }),
       );
       const formatId = await fixture.format();
       const known = !(await rejected(() =>
-        fixture.debate({ format: formatId }),
+        fixture.debate({ format_id: formatId }),
       ));
       const formatDeleteBlocked = await rejected(() =>
         fixture.sql.unsafe('delete from formats where id = $1', [formatId]),

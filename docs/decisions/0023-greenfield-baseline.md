@@ -1,6 +1,9 @@
 # 0023: Greenfield baseline over backward compatibility
 
-Status: accepted.
+Status: accepted. Amended by [ADR 0038](0038-drizzle-1-baseline.md): the
+second baseline squash is drizzle-kit 1.0's `20260923195259_baseline`, and a
+sanction now records `baseMigrationsHash`, the fingerprint of the replaced
+migrations tree, instead of the drizzle-kit 0.x journal.
 
 Daisy is pre-ship and greenfield. No deployed environment has ever persisted
 data against this repository's schema or contracts, so there is no durable

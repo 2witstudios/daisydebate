@@ -21,7 +21,7 @@ describe('ballots (DATA-3.1)', () => {
       const ballot = (overrides: Record<string, unknown>) => ({
         id: createId(),
         debate_id: debateId,
-        participant_id: judgeId,
+        judge_actor_id: judgeId,
         decision: 'affirmative',
         scores: {},
         reason: 'Stronger evidence',
@@ -36,12 +36,12 @@ describe('ballots (DATA-3.1)', () => {
       const otherJudge = await fixture.participant(debateId, 'judge', 1);
       const voidedWithoutVoider = await fixture.rejects(
         'ballots',
-        ballot({ participant_id: otherJudge, status: 'voided', voided_at: at }),
+        ballot({ judge_actor_id: otherJudge, status: 'voided', voided_at: at }),
       );
       const voidedWithoutTime = await fixture.rejects(
         'ballots',
         ballot({
-          participant_id: otherJudge,
+          judge_actor_id: otherJudge,
           status: 'voided',
           voided_by_actor_id: voider,
         }),
@@ -49,19 +49,19 @@ describe('ballots (DATA-3.1)', () => {
       const submittedWithVoidFields = await fixture.rejects(
         'ballots',
         ballot({
-          participant_id: otherJudge,
+          judge_actor_id: otherJudge,
           voided_at: at,
           voided_by_actor_id: voider,
         }),
       );
       const badDecision = await fixture.rejects(
         'ballots',
-        ballot({ participant_id: otherJudge, decision: 'abstain' }),
+        ballot({ judge_actor_id: otherJudge, decision: 'abstain' }),
       );
       const voided = !(await fixture.rejects(
         'ballots',
         ballot({
-          participant_id: otherJudge,
+          judge_actor_id: otherJudge,
           status: 'voided',
           voided_at: at,
           voided_by_actor_id: voider,
@@ -101,7 +101,7 @@ describe('ballots (DATA-3.1)', () => {
       const ballot = (debateId: string) => ({
         id: createId(),
         debate_id: debateId,
-        participant_id: seatInA,
+        judge_actor_id: seatInA,
         decision: 'draw',
         scores: {},
         reason: 'Even',
@@ -116,7 +116,7 @@ describe('ballots (DATA-3.1)', () => {
           'reject through the composite seat key and accept the same seat for debate A',
         actual: { crossDebate, ownDebate },
         expected: {
-          crossDebate: 'ballots_participant_in_debate_fk',
+          crossDebate: 'ballots_judge_seat_fk',
           ownDebate: null,
         },
       });
@@ -131,7 +131,7 @@ describe('ballots (DATA-3.1)', () => {
       await fixture.insert('ballots', {
         id: createId(),
         debate_id: debateId,
-        participant_id: judgeId,
+        judge_actor_id: judgeId,
         decision: 'draw',
         scores: {},
         reason: 'Even',

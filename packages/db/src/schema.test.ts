@@ -28,7 +28,14 @@ const rules = (table: PgTable) => {
       )
       .sort(),
     uniques: config.uniqueConstraints.map((unique) => unique.name).sort(),
-    foreignKeys: config.foreignKeys.map((key) => key.getName()).sort(),
+    // Only explicitly named keys: drizzle-orm 1.0's `getName()` default
+    // (`…_fk`) differs from the `…_fkey` name drizzle-kit 1.0 generates, so
+    // default names are checked against PostgreSQL in
+    // integration/baseline.integration.ts instead.
+    namedKeys: config.foreignKeys
+      .map((key) => key.reference().name)
+      .filter((name): name is string => name !== undefined)
+      .sort(),
   };
 };
 
@@ -37,13 +44,10 @@ describe('competitive schema rules', () => {
     assert({
       given: 'the users and actors tables',
       should:
-        'declare the tombstone CHECK, one actor per user and a human user requirement',
-      actual: {
-        users: rules(users).checks,
-        actors: rules(actors),
-      },
+        'declare the tombstone and version CHECKs, one actor per user and a human user requirement',
+      actual: { users: rules(users).checks, actors: rules(actors) },
       expected: {
-        users: ['users_tombstone_scrubbed'],
+        users: ['users_tombstone_scrubbed', 'users_version_positive'],
         actors: {
           checks: [
             'actors_human_has_user',
@@ -52,7 +56,7 @@ describe('competitive schema rules', () => {
           ],
           indexes: ['unique actors_user_id_unique'],
           uniques: [],
-          foreignKeys: ['actors_user_id_users_id_fk'],
+          namedKeys: [],
         },
       },
     });
@@ -62,34 +66,37 @@ describe('competitive schema rules', () => {
     assert({
       given: 'the formats and debates tables',
       should:
-        'declare the rules shape CHECK, every debates vocabulary CHECK, the lifecycle CHECK, both indexes and the (id, format) key',
+        'declare the object and rules shape CHECKs, every debates vocabulary CHECK, the lifecycle and ordering CHECKs, the indexes and the (id, format_id) key',
       actual: { formats: rules(formats), debates: rules(debates) },
       expected: {
         formats: {
-          checks: ['formats_rules_shape', 'formats_version_positive'],
+          checks: [
+            'formats_rules_is_object',
+            'formats_rules_shape',
+            'formats_version_positive',
+          ],
           indexes: [],
           uniques: [],
-          foreignKeys: [],
+          namedKeys: [],
         },
         debates: {
           checks: [
+            'debates_completed_after_started',
             'debates_lifecycle_check',
             'debates_mode_check',
             'debates_outcome_check',
             'debates_phase_check',
+            'debates_snapshot_is_object',
             'debates_version_positive',
             'debates_visibility_check',
           ],
           indexes: [
-            'debates_created_by_idx',
+            'debates_created_by_actor_idx',
             'debates_format_completed_idx',
             'debates_phase_mode_created_idx',
           ],
           uniques: ['debates_id_format_unique'],
-          foreignKeys: [
-            'debates_created_by_actors_id_fk',
-            'debates_format_formats_id_fk',
-          ],
+          namedKeys: [],
         },
       },
     });
@@ -99,7 +106,7 @@ describe('competitive schema rules', () => {
     assert({
       given: 'the debate children',
       should:
-        'declare seat and actor uniqueness, one principal, the digest CHECK and the composite seat key on ballots',
+        'declare seat uniqueness, one principal, the digest and object CHECKs and the composite judge-seat key on ballots',
       actual: {
         participants: rules(debateParticipants),
         commands: rules(debateCommands),
@@ -117,41 +124,37 @@ describe('competitive schema rules', () => {
             'debate_participants_actor_joined_idx',
             'unique debate_participants_seat_unique',
           ],
-          uniques: [
-            'debate_participants_actor_unique',
-            'debate_participants_debate_id_id_unique',
-          ],
-          foreignKeys: [
-            'debate_participants_actor_id_actors_id_fk',
-            'debate_participants_debate_id_debates_id_fk',
-          ],
+          uniques: [],
+          namedKeys: [],
         },
         commands: {
           checks: [
             'debate_commands_digest_check',
             'debate_commands_one_principal',
+            'debate_commands_result_is_object',
           ],
-          indexes: ['debate_commands_debate_version_idx'],
+          indexes: [
+            'debate_commands_actor_idx',
+            'debate_commands_debate_version_idx',
+          ],
           uniques: [],
-          foreignKeys: [
-            'debate_commands_actor_id_actors_id_fk',
-            'debate_commands_debate_id_debates_id_fk',
-          ],
+          namedKeys: [],
         },
         ballots: {
           checks: [
             'ballots_decision_check',
+            'ballots_scores_is_object',
             'ballots_status_check',
             'ballots_version_positive',
+            'ballots_voided_after_submitted',
             'ballots_voided_fields_check',
           ],
-          indexes: ['unique ballots_participant_unique'],
-          uniques: [],
-          foreignKeys: [
-            'ballots_debate_id_debates_id_fk',
-            'ballots_participant_in_debate_fk',
-            'ballots_voided_by_actor_id_actors_id_fk',
+          indexes: [
+            'ballots_voided_by_actor_idx',
+            'unique ballots_judge_seat_unique',
           ],
+          uniques: [],
+          namedKeys: ['ballots_judge_seat_fk'],
         },
       },
     });
@@ -161,7 +164,7 @@ describe('competitive schema rules', () => {
     assert({
       given: 'the rating tables',
       should:
-        'declare one active season, finite bounded values, the leaderboard index and the ledger composite keys',
+        'declare one active season ending after it starts, finite bounded values, the leaderboard and key indexes and the ledger composite keys',
       actual: {
         seasons: rules(seasons),
         ratings: rules(ratings),
@@ -169,10 +172,14 @@ describe('competitive schema rules', () => {
       },
       expected: {
         seasons: {
-          checks: ['seasons_status_check', 'seasons_version_positive'],
+          checks: [
+            'seasons_ends_after_starts',
+            'seasons_status_check',
+            'seasons_version_positive',
+          ],
           indexes: ['unique seasons_single_active'],
           uniques: [],
-          foreignKeys: [],
+          namedKeys: [],
         },
         ratings: {
           checks: [
@@ -181,13 +188,9 @@ describe('competitive schema rules', () => {
             'ratings_version_positive',
             'ratings_volatility_positive',
           ],
-          indexes: ['ratings_leaderboard_idx'],
+          indexes: ['ratings_leaderboard_idx', 'ratings_season_idx'],
           uniques: [],
-          foreignKeys: [
-            'ratings_actor_id_actors_id_fk',
-            'ratings_format_id_formats_id_fk',
-            'ratings_season_id_seasons_id_fk',
-          ],
+          namedKeys: [],
         },
         changes: {
           checks: [
@@ -197,16 +200,15 @@ describe('competitive schema rules', () => {
           ],
           indexes: [
             'rating_changes_actor_format_occurred_idx',
+            'rating_changes_debate_format_idx',
+            'rating_changes_format_idx',
+            'rating_changes_season_idx',
             'unique rating_changes_debate_actor_unique',
           ],
           uniques: [],
-          foreignKeys: [
-            'rating_changes_actor_id_actors_id_fk',
+          namedKeys: [
             'rating_changes_debate_format_fk',
-            'rating_changes_debate_id_debates_id_fk',
-            'rating_changes_format_id_formats_id_fk',
             'rating_changes_participant_fk',
-            'rating_changes_season_id_seasons_id_fk',
           ],
         },
       },
@@ -217,20 +219,22 @@ describe('competitive schema rules', () => {
     assert({
       given: 'the role_grants table',
       should:
-        'declare the vocabulary CHECKs, the global scope rule and the partial active-grant index',
+        'declare the vocabulary CHECKs, the global scope and ordering rules, the key indexes and the partial active-grant index',
       actual: rules(roleGrants),
       expected: {
         checks: [
           'role_grants_global_scope_check',
+          'role_grants_revoked_after_granted',
           'role_grants_role_check',
           'role_grants_scope_type_check',
         ],
-        indexes: ['unique role_grants_active_unique'],
-        uniques: [],
-        foreignKeys: [
-          'role_grants_granted_by_user_id_users_id_fk',
-          'role_grants_user_id_users_id_fk',
+        indexes: [
+          'role_grants_granted_by_user_idx',
+          'role_grants_user_idx',
+          'unique role_grants_active_unique',
         ],
+        uniques: [],
+        namedKeys: [],
       },
     });
   });

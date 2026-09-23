@@ -2,7 +2,7 @@ import { SQL, RedisClient } from 'bun';
 import { readServerConfig } from '@daisy/config';
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { serviceRefusal, slotMismatches, type Slot } from './slot-model';
 import {
@@ -58,24 +58,25 @@ export function isMigrationCurrent(
   );
 }
 
+/**
+ * The hash drizzle-orm's migrator records for each committed migration, in
+ * apply order: the sha256 of `<tag>/migration.sql`, folders in name order
+ * (the drizzle-kit 1.0 layout, ADR 0038).
+ */
 export async function readCommittedMigrationHashes(): Promise<
   readonly string[]
 > {
-  const journal = JSON.parse(
-    await readFile(
-      resolve(root, 'packages/db/migrations/meta/_journal.json'),
-      'utf8',
-    ),
-  ) as { entries?: readonly { tag: string }[] };
-
+  const migrations = resolve(root, 'packages/db/migrations');
+  const tags = (await readdir(migrations, { withFileTypes: true }))
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort();
   return Promise.all(
-    (journal.entries ?? []).map(async ({ tag }) => {
-      const sql = await readFile(
-        resolve(root, 'packages/db/migrations', `${tag}.sql`),
-        'utf8',
-      );
-      return createHash('sha256').update(sql).digest('hex');
-    }),
+    tags.map(async (tag) =>
+      createHash('sha256')
+        .update(await readFile(resolve(migrations, tag, 'migration.sql')))
+        .digest('hex'),
+    ),
   );
 }
 

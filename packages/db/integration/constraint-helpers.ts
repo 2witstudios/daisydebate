@@ -33,7 +33,7 @@ const purgeOrder: ReadonlyArray<readonly [table: string, key: string]> = [
   ['ballots', 'id'],
   ['rating_changes', 'id'],
   ['ratings', 'actor_id'],
-  ['debate_participants', 'id'],
+  ['debate_participants', 'debate_id'],
   ['debate_commands', 'command_id'],
   ['debates', 'id'],
   ['seasons', 'id'],
@@ -126,9 +126,9 @@ export class Fixture {
     const id = createId();
     await this.insert('debates', {
       id,
-      created_by: null,
+      created_by_actor_id: null,
       resolution: 'r',
-      format: await this.format(),
+      format_id: await this.format(),
       snapshot: {},
       mode: 'casual',
       phase: 'waiting',
@@ -138,23 +138,27 @@ export class Fixture {
     return id;
   }
 
+  /** Seats an actor (a new one by default); returns the seated actor id. */
   async participant(
     debateId: string,
     role: string,
     slot = 0,
     actorId?: string,
   ) {
-    const id = createId();
-    await this.insert('debate_participants', {
-      id,
-      debate_id: debateId,
-      actor_id: actorId ?? (await this.actor()),
-      role,
-      slot,
-      status: 'joined',
-      joined_at: new Date('2026-01-01T00:00:00.000Z'),
-    });
-    return id;
+    const seated = actorId ?? (await this.actor());
+    await this.insert(
+      'debate_participants',
+      {
+        debate_id: debateId,
+        actor_id: seated,
+        role,
+        slot,
+        status: 'joined',
+        joined_at: new Date('2026-01-01T00:00:00.000Z'),
+      },
+      'debate_id',
+    );
+    return seated;
   }
 
   async purge() {
@@ -207,3 +211,34 @@ export const columnNames = async (fixture: Fixture, table: string) =>
       [table],
     )) as Array<{ column_name: string }>
   ).map((row) => row.column_name);
+
+/**
+ * A debate snapshot that satisfies the protocol schema every snapshot write
+ * parses (ISSUE-24); `participants` are actor ids and sides.
+ */
+export const snapshotFor = (
+  id: string,
+  overrides: Readonly<{
+    phase?: 'waiting' | 'active' | 'completed';
+    resolution?: string;
+    format?: string;
+    participants?: ReadonlyArray<{
+      id: string;
+      side: 'affirmative' | 'negative';
+      ready: boolean;
+    }>;
+  }> = {},
+) => ({
+  version: 1 as const,
+  id,
+  resolution: overrides.resolution ?? 'integration proof',
+  format: overrides.format ?? 'foundation',
+  rules: {
+    version: 1 as const,
+    seats: { affirmative: 1, negative: 1, judge: 0 },
+    clock: { speechMs: 240_000, prepMs: 120_000 },
+  },
+  phase: overrides.phase ?? 'waiting',
+  createdAt: '2026-01-01T00:00:00.000Z',
+  participants: [...(overrides.participants ?? [])],
+});

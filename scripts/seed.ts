@@ -1,41 +1,23 @@
+/**
+ * `bun db:seed`: the dev fixture (the agent users, their actors and one
+ * waiting debate). Reference data every environment needs (the formats) is
+ * not seed content: the migrations insert it (ADR 0038).
+ */
 import { SQL } from 'bun';
-import { formatRulesSchema } from '@daisy/protocol';
 import {
   agentSeedDebate,
   agentSeedUsers,
   agentSeedVersion,
 } from './agent-seed';
-import { formatSeedVersion, formatSeeds } from './format-seed';
 
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error('DATABASE_URL required');
 
-// Validate before opening a connection: a bad rules value never reaches SQL.
 // jsonb values are passed as objects: Bun SQL JSON-encodes a pre-serialized
 // string a second time, storing a jsonb string instead of an object.
-const formats = formatSeeds.map((format) => ({
-  ...format,
-  rules: formatRulesSchema.parse(format.rules),
-}));
-
 const client = new SQL(url, { max: 1 });
 try {
   await client.begin(async (transaction) => {
-    for (const format of formats)
-      await transaction`
-        insert into formats (id, name, rules, ranked_eligible)
-        values (
-          ${format.id},
-          ${format.name},
-          ${format.rules},
-          ${format.rankedEligible}
-        )
-        on conflict (id) do update
-        set name = excluded.name,
-            rules = excluded.rules,
-            ranked_eligible = excluded.ranked_eligible
-      `;
-
     for (const user of agentSeedUsers) {
       await transaction`
         insert into users (id, username)
@@ -53,7 +35,7 @@ try {
     }
 
     await transaction`
-      insert into debates (id, created_by, resolution, format, snapshot, mode, phase, visibility)
+      insert into debates (id, created_by_actor_id, resolution, format_id, snapshot, mode, phase, visibility)
       values (
         ${agentSeedDebate.debateId},
         ${agentSeedDebate.createdBy},
@@ -65,9 +47,9 @@ try {
         ${agentSeedDebate.visibility}
       )
       on conflict (id) do update
-      set created_by = excluded.created_by,
+      set created_by_actor_id = excluded.created_by_actor_id,
           resolution = excluded.resolution,
-          format = excluded.format,
+          format_id = excluded.format_id,
           snapshot = excluded.snapshot,
           mode = excluded.mode,
           phase = excluded.phase,
@@ -79,13 +61,9 @@ try {
           outcome = null
       `;
 
-    for (const [seedName, version] of [
-      ['formats', formatSeedVersion],
-      ['agent', agentSeedVersion],
-    ] as const)
-      await transaction`
+    await transaction`
         insert into seed_versions (seed_name, version)
-        values (${seedName}, ${version})
+        values ('agent', ${agentSeedVersion})
         on conflict (seed_name) do update
         set version = excluded.version,
             updated_at = case
@@ -98,6 +76,4 @@ try {
   await client.close();
 }
 
-process.stdout.write(
-  `Seed versions: ${formatSeedVersion}, ${agentSeedVersion}\n`,
-);
+process.stdout.write(`Seed version: ${agentSeedVersion}\n`);

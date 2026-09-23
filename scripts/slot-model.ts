@@ -11,6 +11,8 @@ export type Slot = {
   readonly id: string;
   readonly database: string;
   readonly testDatabase: string;
+  /** The browser suite's own database, so integration never sees its rows. */
+  readonly e2eDatabase: string;
   readonly namespace: string;
   readonly e2eNamespace: string;
 };
@@ -52,6 +54,7 @@ export function worktreeSlot(id: string): Slot {
     id,
     database: `${worktreeDatabasePrefix}${id}`,
     testDatabase: `${worktreeDatabasePrefix}${id}_test`,
+    e2eDatabase: `${worktreeDatabasePrefix}${id}_e2e`,
     namespace: `${worktreeNamespacePrefix}${hyphenated}`,
     e2eNamespace: `${worktreeNamespacePrefix}${hyphenated}-e2e`,
   };
@@ -62,6 +65,7 @@ const mainSlot: Slot = {
   id: prefix,
   database: prefix,
   testDatabase: `${prefix}_test`,
+  e2eDatabase: `${prefix}_e2e`,
   namespace: prefix,
   e2eNamespace: `${prefix}-e2e`,
 };
@@ -139,7 +143,9 @@ export function liveWorktreeIds(paths: readonly string[]): {
 
 const idOfDatabase = (name: string): string | undefined => {
   if (!name.startsWith(worktreeDatabasePrefix)) return undefined;
-  const id = name.slice(worktreeDatabasePrefix.length).replace(/_test$/, '');
+  const id = name
+    .slice(worktreeDatabasePrefix.length)
+    .replace(/_(?:test|e2e)$/, '');
   return isSlotId(id) ? id : undefined;
 };
 
@@ -212,7 +218,7 @@ export function slotMismatches(slot: Slot, env: Env): readonly string[] {
       databaseName(env.TEST_DATABASE_URL),
       slot.testDatabase,
     ],
-    ['E2E_DATABASE_URL', databaseName(env.E2E_DATABASE_URL), slot.testDatabase],
+    ['E2E_DATABASE_URL', databaseName(env.E2E_DATABASE_URL), slot.e2eDatabase],
     ['REDIS_NAMESPACE', env.REDIS_NAMESPACE, slot.namespace],
     ['E2E_REDIS_NAMESPACE', env.E2E_REDIS_NAMESPACE, slot.e2eNamespace],
   ];
@@ -301,7 +307,7 @@ export function slotEnvValues({
     // on an old per-session server cannot split the slot across two stacks.
     TEST_DATABASE_URL: withPath(databaseUrl, slot.testDatabase),
     REDIS_NAMESPACE: slot.namespace,
-    E2E_DATABASE_URL: withPath(databaseUrl, slot.testDatabase, e2eRole),
+    E2E_DATABASE_URL: withPath(databaseUrl, slot.e2eDatabase, e2eRole),
     E2E_REDIS_URL: e2eRedisUrl(redisUrl),
     E2E_REDIS_NAMESPACE: slot.e2eNamespace,
     PORT: String(ports.app),
@@ -393,6 +399,15 @@ export function pickPortBlock({
 
 const loopbackHosts = new Set(['localhost', '127.0.0.1', '[::1]']);
 
+/** Whether a service URL names this machine (the only target tooling admits). */
+export function isLoopbackUrl(value: string | undefined): boolean {
+  try {
+    return loopbackHosts.has(new URL(value ?? '').hostname);
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Why slot administration must refuse these service URLs, or undefined.
  * Slot tooling force-drops databases and unlinks namespaces, so it only
@@ -432,6 +447,6 @@ export function resetRefusal(slot: Slot, env: Env): string | undefined {
     return 'Reset requires a loopback DATABASE_URL';
   const name = databaseName(url.toString());
   if (name !== slot.database && name !== slot.testDatabase)
-    return `Reset accepts only this checkout's databases (${slot.database}, ${slot.testDatabase})`;
+    return `Reset accepts only this checkout's databases (${slot.database}, ${slot.testDatabase}); bun slot:reset-e2e resets ${slot.e2eDatabase}`;
   return undefined;
 }

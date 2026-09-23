@@ -4,6 +4,12 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createDatabase } from '../src';
 import { appendOutboxEvent } from '../src/outbox';
 import { createTestOnlyOperations } from '../src/test-only-operations';
+import { drizzle } from 'drizzle-orm/bun-sql';
+import { eq } from 'drizzle-orm';
+import { isAppError } from '@daisy/errors';
+import { ballots } from '../src/schema/ballots';
+import { debateCommands } from '../src/schema/debate-commands';
+import { at, digest, snapshotFor, withFixture } from './constraint-helpers';
 
 setupRitewayBun();
 
@@ -42,7 +48,7 @@ test('createDebate and saveSnapshot store snapshot as a real jsonb object, not a
       createdBy: actorId,
       resolution: 'jsonb storage proof',
       format: formatId,
-      snapshot: { version: 1, id, phase: 'waiting' },
+      snapshot: snapshotFor(id, { format: formatId }),
       mode: 'casual',
       visibility: 'unlisted',
     });
@@ -53,7 +59,7 @@ test('createDebate and saveSnapshot store snapshot as a real jsonb object, not a
     await testOnly.saveSnapshot({
       id,
       expectedVersion: 1,
-      snapshot: { version: 1, id, phase: 'active' },
+      snapshot: snapshotFor(id, { format: formatId, phase: 'active' }),
       updatedAt: '2026-01-01T00:00:00.000Z',
     });
     const [afterSave] = await fixture`
@@ -114,4 +120,159 @@ test('appendOutboxEvent stores payload as a real jsonb object, not a double-enco
     await fixture`delete from outbox where topic = ${topic}`;
     await fixture.close();
   }
+});
+
+test('a non-object jsonb write fails with a typed VALIDATION error before any row is written (ISSUE-24)', async () => {
+  const database = createDatabase({ url, nextActorId: createId });
+  const fixture = new SQL(url);
+  const id = createId();
+  try {
+    const outcomes = await Promise.all(
+      ['a bare string', 7, [], { phase: 'waiting' }].map((snapshot) =>
+        database
+          .createDebate({
+            id,
+            resolution: 'jsonb shape proof',
+            format: 'foundation',
+            snapshot,
+            mode: 'casual',
+            visibility: 'unlisted',
+          })
+          .then(
+            () => 'written',
+            (error: unknown) => (isAppError(error) ? error.code : 'untyped'),
+          ),
+      ),
+    );
+    const [row] =
+      await fixture`select count(*)::int as n from debates where id = ${id}`;
+    assert({
+      given:
+        'a string, a number, an array and an off-shape object as a snapshot',
+      should: 'refuse each with AppError VALIDATION and write nothing',
+      actual: { outcomes, rows: row?.n },
+      expected: {
+        outcomes: ['VALIDATION', 'VALIDATION', 'VALIDATION', 'VALIDATION'],
+        rows: 0,
+      },
+    });
+  } finally {
+    await database.close();
+    await fixture.close();
+  }
+});
+
+test('every jsonb column refuses a scalar written around the application (ISSUE-24)', async () => {
+  await withFixture(url, async (fixture) => {
+    const scalar = 'a bare string';
+    const debateId = await fixture.debate();
+    const judge = await fixture.participant(debateId, 'judge');
+    const refusals = {
+      snapshot: await fixture.rejectedBy('debates', {
+        id: createId(),
+        resolution: 'r',
+        format_id: 'foundation',
+        snapshot: scalar,
+        mode: 'casual',
+        phase: 'waiting',
+        visibility: 'public',
+      }),
+      rules: await fixture.rejectedBy('formats', {
+        id: `fmt-${createId()}`,
+        name: 'scalar rules',
+        rules: scalar,
+        ranked_eligible: false,
+      }),
+      scores: await fixture.rejectedBy('ballots', {
+        id: createId(),
+        debate_id: debateId,
+        judge_actor_id: judge,
+        decision: 'draw',
+        scores: scalar,
+        reason: 'r',
+        status: 'submitted',
+        submitted_at: at,
+      }),
+      result: await fixture.rejectedBy(
+        'debate_commands',
+        {
+          command_id: createId(),
+          debate_id: debateId,
+          service_id: 'svc',
+          type: 'debate.transition',
+          payload_digest: digest,
+          result: scalar,
+          resulting_version: 1,
+          applied_at: at,
+        },
+        'command_id',
+      ),
+      payload: await fixture.rejectedBy(
+        'outbox',
+        { topic: `debate:${debateId}`, kind: 'k', version: 1, payload: scalar },
+        'topic',
+      ),
+    };
+    assert({
+      given: 'a jsonb string bound to each jsonb column in raw SQL',
+      should: "be refused by that column's _is_object CHECK",
+      actual: refusals,
+      expected: {
+        snapshot: 'debates_snapshot_is_object',
+        rules: 'formats_rules_is_object',
+        scores: 'ballots_scores_is_object',
+        result: 'debate_commands_result_is_object',
+        payload: 'outbox_payload_is_object',
+      },
+    });
+  });
+});
+
+test('ballots.scores and debate_commands.result round-trip as jsonb objects through jsonbColumn (ISSUE-24)', async () => {
+  await withFixture(url, async (fixture) => {
+    const database = drizzle({ client: fixture.sql });
+    const debateId = await fixture.debate();
+    const judge = await fixture.participant(debateId, 'judge');
+    const ballotId = createId();
+    const commandId = createId();
+    fixture.track('ballots', ballotId);
+    fixture.track('debate_commands', commandId);
+    const scores = { affirmative: 28, negative: 27 };
+    const result = { accepted: true, version: 2 };
+    await database.insert(ballots).values({
+      id: ballotId,
+      debateId,
+      judgeActorId: judge,
+      decision: 'affirmative',
+      scores,
+      reason: 'clearer case',
+      status: 'submitted',
+      submittedAt: at,
+    });
+    await database.insert(debateCommands).values({
+      commandId,
+      debateId,
+      serviceId: 'svc',
+      type: 'debate.transition',
+      payloadDigest: digest,
+      result,
+      resultingVersion: 2,
+      appliedAt: at,
+    });
+    const [stored] = await fixture.sql`
+      select
+        (select jsonb_typeof(scores) from ballots where id = ${ballotId}) as scores_type,
+        (select jsonb_typeof(result) from debate_commands where command_id = ${commandId}) as result_type
+    `;
+    const [readBack] = await database
+      .select({ scores: ballots.scores })
+      .from(ballots)
+      .where(eq(ballots.id, ballotId));
+    assert({
+      given: 'a Drizzle write of each column that has no adapter writer yet',
+      should: 'store a jsonb object and read the same object back',
+      actual: { ...stored, scores: readBack?.scores },
+      expected: { scores_type: 'object', result_type: 'object', scores },
+    });
+  });
 });

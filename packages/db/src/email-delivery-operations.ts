@@ -1,4 +1,4 @@
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql';
+import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { and, eq, lt, sql } from 'drizzle-orm';
 import { verifications } from './schema/auth';
 import {
@@ -61,8 +61,8 @@ export const emailDeliveryOperations = ({
           recipientHash: input.recipientHash,
           status: 'sent',
           statusRank: 1,
-          createdAt: input.at,
-          updatedAt: input.at,
+          createdAt: new Date(input.at),
+          updatedAt: new Date(input.at),
         })
         .onConflictDoNothing();
     });
@@ -100,7 +100,7 @@ export const emailDeliveryOperations = ({
             .values({
               providerEventId: input.eventId,
               providerMessageId: input.providerMessageId,
-              receivedAt: input.at,
+              receivedAt: new Date(input.at),
             })
             .onConflictDoNothing()
             .returning({ id: emailDeliveryEvents.providerEventId });
@@ -120,7 +120,7 @@ export const emailDeliveryOperations = ({
             .set({
               status: input.status,
               statusRank: input.rank,
-              updatedAt: input.at,
+              updatedAt: new Date(input.at),
             })
             .where(
               and(
@@ -135,7 +135,7 @@ export const emailDeliveryOperations = ({
                 recipientHash: delivery.recipientHash,
                 reason: input.suppress,
                 providerMessageId: input.providerMessageId,
-                createdAt: input.at,
+                createdAt: new Date(input.at),
               })
               .onConflictDoNothing();
           return 'applied' as const;

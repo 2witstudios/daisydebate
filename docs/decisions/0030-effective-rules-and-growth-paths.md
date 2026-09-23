@@ -44,9 +44,10 @@ not, and this ADR decides them now.
    `format` and `rules`; `@daisy/db` exposes `getFormat(id)` (validated with
    `formatRulesSchema`, refusing a stored value that no longer parses). The
    Scripts (the seeds, the scenario runner, the invariant fixtures) share
-   the one definition in `scripts/format-seed.ts`; runtime code (the proof
-   route, later the lobby) reads the seeded `formats` row that definition
-   produced, so both sides agree on the same rules.
+   the one definition in `scripts/reference-formats.ts`, which a test holds
+   equal to the rows the migrations insert (ADR 0038); runtime code (the
+   proof route, later the lobby) reads the migrated `formats` row, so both
+   sides agree on the same rules.
 
 ## Recorded paths (additive; decided, not built)
 

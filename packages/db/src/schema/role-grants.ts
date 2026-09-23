@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
-import { check, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
-import { oneOf, timestampColumn } from './columns';
+import { check, index, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
+import { notBefore, oneOf, timestampColumn } from './columns';
 import { users } from './users';
 
 export const grantRoles = ['admin', 'moderator', 'judge'] as const;
@@ -38,6 +38,8 @@ export const roleGrants = pgTable(
         sql`coalesce(${table.scopeId}, '')`,
       )
       .where(sql`${table.revokedAt} is null`),
+    index('role_grants_user_idx').on(table.userId),
+    index('role_grants_granted_by_user_idx').on(table.grantedByUserId),
     check('role_grants_role_check', oneOf(table.role, grantRoles)),
     check(
       'role_grants_scope_type_check',
@@ -46,6 +48,10 @@ export const roleGrants = pgTable(
     check(
       'role_grants_global_scope_check',
       sql`${table.scopeType} <> 'global' or ${table.scopeId} is null`,
+    ),
+    check(
+      'role_grants_revoked_after_granted',
+      notBefore(table.revokedAt, table.grantedAt),
     ),
   ],
 );
