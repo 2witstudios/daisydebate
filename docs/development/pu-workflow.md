@@ -44,6 +44,8 @@ remove stopped agent sessions and stale worktrees.
   `pu logs`.
 - Given a focused delegated task, should use `pu send` or `pu attach` without
   editing another agent's worktree.
-- Given completed or abandoned work, should use `pu kill` followed by `pu clean`,
-  while the orchestrator alone updates the PageSpace task board.
+- Given completed or abandoned work, should use `pu kill` followed by `pu clean`;
+  the orchestrator owns coordination and acceptance decisions on the PageSpace
+  board while delegated agents keep their own status, evidence, follow-up
+  leaves and Issues entries current.
 - Given direct single-agent work, should be allowed to proceed without `pu`.

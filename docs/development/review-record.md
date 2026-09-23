@@ -24,11 +24,11 @@ unit tests, metrics, build) · bun migrations:check: PASS · date
 Only check a finding once its fix is verified in the code, not when the
 fix is claimed.
 
-Where an unfixed finding goes: if the leaf it belongs to is still open, a
-follow-up leaf under that phase; if the leaf is Done, the PR is merged, or
-the owner chose not to block on it, an `ISSUE-n` task in the drive-root
-`Issues` list (never a GitHub Issue) that names this record as its origin.
-Say which in the finding's fix column.
+Where an unfixed finding goes is decided by one question: is the leaf it
+belongs to still open? Open leaf: a follow-up leaf under that phase, always,
+whether or not the PR merged. Leaf already Done, or no leaf owns it: an
+`ISSUE-n` task in the drive-root `Issues` list (never a GitHub Issue) that
+names this record as its origin. Say which in the finding's fix column.
 
 ## What is good
 
