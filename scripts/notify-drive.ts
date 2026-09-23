@@ -2,7 +2,7 @@
 import { createHmac } from 'node:crypto';
 import { assessEventText } from './docs-contracts';
 
-const TASK_ID_PATTERN = /\b[A-Z]{2,6}-\d+(?:\.\d+)?\b/g;
+const TASK_ID_PATTERN = /\b[A-Z]{2,6}-\d+(?:\.\d+)?[a-z]?\b/g;
 
 // Prefixes that match the task-code shape but are never tasks: protocol and
 // format names, ADR citations (ADR-0023), and model names (GLM-5.3), which PR
