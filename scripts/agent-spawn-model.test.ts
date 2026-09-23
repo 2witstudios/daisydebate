@@ -100,8 +100,8 @@ describe('activeBuilders', () => {
     assert({
       given: 'builders, a reviewer, a terminal and a stopped agent',
       should: 'count running non-terminal agents in builder worktrees',
-      actual: activeBuilders(status, (path) =>
-        path === '/d' ? 'reviewer' : 'builder',
+      actual: activeBuilders(status, (agentId) =>
+        agentId === 'v' ? 'reviewer' : 'builder',
       ),
       expected: 2,
     });

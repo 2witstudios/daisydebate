@@ -1,4 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { recordPath, serializeRecord } from './agent-registry';
 import { sendConfirmed, spawnAgent, type SpawnDeps } from './agent-spawn';
 
 setupRitewayBun();
@@ -49,7 +50,15 @@ function fakeMachine(
   const files = new Map<string, string>([
     [`${repo}/policy/superseded-terms.json`, terms],
     ...world.worktrees.map(
-      (w) => [`${w.path}/.daisy/role`, 'builder\n'] as [string, string],
+      (w, i) =>
+        [
+          recordPath(repo, `ag-b${i}`),
+          serializeRecord({
+            parent: 'ag-parent',
+            role: 'builder',
+            worktree: w.path,
+          }),
+        ] as [string, string],
     ),
   ]);
   const calls: string[][] = [];
@@ -147,8 +156,10 @@ describe('bun agent:spawn', () => {
         setupInWorktree: machine.calls
           .filter((call) => call[0] === 'bun')
           .every((call) => call.at(-1) === `@${newPath}`),
-        parent: machine.files.get(`${newPath}/.daisy/parent`),
-        role: machine.files.get(`${newPath}/.daisy/role`),
+        record: machine.files.get(recordPath(repo, 'ag-new')),
+        inWorktree: [...machine.files.keys()].filter(
+          (path) => path.startsWith(`${newPath}/`) && path !== transcript,
+        ),
         promptSpawn: spawned(machine.calls)[1]?.slice(0, 6),
       },
       expected: {
@@ -160,8 +171,12 @@ describe('bun agent:spawn', () => {
           'pu spawn -w',
         ],
         setupInWorktree: true,
-        parent: 'ag-parent\n',
-        role: 'builder\n',
+        record: serializeRecord({
+          parent: 'ag-parent',
+          role: 'builder',
+          worktree: newPath,
+        }),
+        inWorktree: [],
         promptSpawn: ['pu', 'spawn', '-w', 'wt-new', '-a', 'claude'],
       },
     });

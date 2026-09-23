@@ -49,7 +49,7 @@ export const RULE_REASON =
 export const KILL_REASON =
   'Kill only processes in your own worktree: `pkill -f "<your worktree path>/…"` or `kill <pid>` of a process whose working directory is inside it. Other sessions share this machine.';
 export const LOOP_REASON =
-  'Loop state, the .daisy agent records and the guard hooks (.claude/settings.json, .githooks) are not changed by an agent by hand. A loop ends only through its truthful completion promise. To pause it, run `bun loop:escalate <needs-owner|blocked|stalled|out-of-scope> "<detail>"`; only the parent or the owner can close or resume it.';
+  'Loop state, the agent registry (.pu/daisy in the main checkout) and the guard hooks (.claude/settings.json, .githooks) are not changed by an agent by hand. A loop ends only through its truthful completion promise. To pause it, run `bun loop:escalate <needs-owner|blocked|stalled|out-of-scope> "<detail>"`; only the parent or the owner can close or resume it.';
 
 /**
  * Agent mode: DAISY_AUTONOMOUS=1 or any PU_AGENT_ID, so clearing one of the

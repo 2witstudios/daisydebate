@@ -93,16 +93,18 @@ type PuStatus = {
   }[];
 };
 
-/** Running coding agents in worktrees recorded as builder worktrees. */
+/** Running coding agents registered as builders. */
 export function activeBuilders(
   status: PuStatus,
-  roleOf: (worktreePath: string) => Role | undefined,
+  roleOf: (agentId: string) => Role | undefined,
 ): number {
   return (status.worktrees ?? [])
-    .filter((worktree) => roleOf(worktree.path) === 'builder')
-    .flatMap((worktree) => Object.values(worktree.agents ?? {}))
+    .flatMap((worktree) => Object.entries(worktree.agents ?? {}))
     .filter(
-      (agent) => agent.status === 'running' && agent.agentType !== 'terminal',
+      ([id, agent]) =>
+        roleOf(id) === 'builder' &&
+        agent.status === 'running' &&
+        agent.agentType !== 'terminal',
     ).length;
 }
 

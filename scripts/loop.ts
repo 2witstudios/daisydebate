@@ -21,14 +21,14 @@ import {
   resumeState,
   REASONS,
 } from './loop-state';
+import { parseRecord, recordPath } from './agent-registry';
 
 export const ACTIVE = '.claude/ralph-loop.local.md';
 export const ESCALATED = '.claude/ralph-loop.escalated.md';
-export const PARENT = '.daisy/parent';
-
 export type LoopDeps = {
   readonly cwd: string;
-  readonly autonomous: boolean;
+  /** The main checkout, which holds the agent registry (PU_PROJECT_ROOT). */
+  readonly projectRoot: string;
   readonly agentId: string | undefined;
   readonly now: () => string;
   readonly read: (path: string) => string | undefined;
@@ -59,6 +59,18 @@ export function findAgentWorktree(
     Object.hasOwn(worktree.agents ?? {}, agentId),
   );
   return match && { path: match.path, branch: match.branch };
+}
+
+/** The parent agent:spawn registered for an agent, if any. */
+function registeredParent(
+  deps: LoopDeps,
+  agentId: string | undefined,
+): string | undefined {
+  if (agentId === undefined) return undefined;
+  const text = deps.read(recordPath(deps.projectRoot, agentId));
+  return (
+    (text === undefined ? undefined : parseRecord(text)?.parent) ?? undefined
+  );
 }
 
 function sendTo(deps: LoopDeps, agent: string, text: string): boolean {
@@ -100,7 +112,7 @@ export function escalate(
     deps.notice(`No active loop: ${ACTIVE} does not exist.`);
     return 1;
   }
-  const parent = deps.read(join(deps.cwd, PARENT))?.trim() || undefined;
+  const parent = registeredParent(deps, deps.agentId);
   const escalation = {
     reason,
     detail: detail.trim(),
@@ -151,11 +163,10 @@ function findPaused(deps: LoopDeps, child: string): Paused | string {
   const state = deps.read(join(worktree.path, ESCALATED));
   if (state === undefined)
     return `${child} has no escalated loop (${ESCALATED}).`;
-  const recorded = escalationField(state, 'parent');
-  const parent =
-    deps.read(join(worktree.path, PARENT))?.trim() ||
-    (recorded === 'owner' ? undefined : recorded);
-  return { worktree, state, parent };
+  // A sibling in the same worktree does not stand in for the loop's agent.
+  if (escalationField(state, 'child') !== child)
+    return `The escalated loop in ${worktree.path} belongs to ${escalationField(state, 'child') ?? 'another session'}, not ${child}.`;
+  return { worktree, state, parent: registeredParent(deps, child) };
 }
 
 function report(
@@ -214,7 +225,6 @@ export function control(
     typeof paused === 'string'
       ? paused
       : authorizeControl({
-          autonomous: deps.autonomous,
           caller: deps.agentId,
           parent: paused.parent,
           child,
@@ -241,7 +251,7 @@ export function control(
 function liveDeps(): LoopDeps {
   return {
     cwd: process.cwd(),
-    autonomous: process.env.DAISY_AUTONOMOUS === '1',
+    projectRoot: process.env.PU_PROJECT_ROOT || process.cwd(),
     agentId: process.env.PU_AGENT_ID || undefined,
     now: () => new Date().toISOString(),
     read: (path) => (existsSync(path) ? readFileSync(path, 'utf8') : undefined),

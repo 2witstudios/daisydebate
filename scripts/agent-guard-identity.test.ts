@@ -46,7 +46,7 @@ describe('agent guard: a pu agent without its identity', () => {
       should: 'deny, as for any agent',
       actual: [
         decide('pkill node', misconfigured),
-        decide('rm .daisy/role', misconfigured),
+        decide('rm .claude/ralph-loop.local.md', misconfigured),
       ],
       expected: ['deny', 'deny'],
     });

@@ -1,10 +1,12 @@
 /**
- * The agent guard's file rules (ADR 0035): loop state, the agent records in
- * .daisy and the guard's hook wiring are never changed by an agent by hand.
- * A path argument counts when it names a protected file, one of its parent
- * directories, or a glob that could expand to either.
+ * The agent guard's file rules (ADR 0035): loop state, the agent registry
+ * in the main checkout and the guard's hook wiring are never changed by an
+ * agent by hand. A path argument counts when it names a protected path,
+ * anything inside the registry, one of their parent directories, or a glob
+ * that could expand to any of those.
  */
 import { basename, dirname, join } from 'node:path';
+import { REGISTRY_DIR } from './agent-registry';
 import type { ShellCommand } from './shell-command';
 import {
   allow,
@@ -20,24 +22,37 @@ import {
 const PROTECTED = [
   '.claude/ralph-loop.local.md',
   '.claude/ralph-loop.escalated.md',
-  '.daisy/parent',
-  '.daisy/role',
   // The guard's own wiring: an agent does not switch its checks off.
   '.claude/settings.json',
   '.githooks/pre-push',
 ];
 
-// Every file and directory whose removal or rewrite reaches a protected file.
-function protectedTargets(worktree: string): string[] {
+/** Protected paths, each with the checkout it belongs to. */
+function protectedPaths(facts: GuardFacts) {
+  return [
+    ...PROTECTED.map((file) => ({
+      path: join(facts.worktree, file),
+      root: facts.worktree,
+    })),
+    // Registered parents and roles (agent-registry.ts), outside the worktree.
+    {
+      path: join(facts.mainCheckout, REGISTRY_DIR),
+      root: facts.mainCheckout,
+    },
+  ];
+}
+
+// Every file and directory whose removal or rewrite reaches a protected path.
+function protectedTargets(facts: GuardFacts): string[] {
   const targets = new Set<string>();
-  for (const file of PROTECTED) {
-    let path = join(worktree, file);
-    while (path.length > worktree.length) {
+  for (const { path: start, root } of protectedPaths(facts)) {
+    let path = start;
+    while (path.length > root.length) {
       targets.add(path);
       path = dirname(path);
     }
+    targets.add(root);
   }
-  targets.add(worktree);
   return [...targets];
 }
 
@@ -66,18 +81,18 @@ function globToRegExp(glob: string): RegExp {
 
 const lower = (path: string) => path.toLowerCase();
 
-/** Whether a path argument reaches a protected file, in any letter case. */
+/** Whether a path argument reaches a protected path, in any letter case. */
 function reaches(arg: string, cwd: string, facts: GuardFacts): boolean {
   const path = resolveFrom(cwd, arg, facts.home);
-  const files = PROTECTED.map((file) => join(facts.worktree, file));
+  const registry = join(facts.mainCheckout, REGISTRY_DIR);
+  const literal = GLOB.test(path) ? path.slice(0, path.search(GLOB)) : path;
+  if (isWithin(lower(literal), lower(registry))) return true;
   if (!GLOB.test(path))
-    return files.some((file) =>
+    return protectedPaths(facts).some(({ path: file }) =>
       isWithin(lower(file), lower(path.replace(/\/$/, ''))),
     );
   const pattern = globToRegExp(path);
-  return protectedTargets(facts.worktree).some((target) =>
-    pattern.test(target),
-  );
+  return protectedTargets(facts).some((target) => pattern.test(target));
 }
 
 const removers = new Set([
@@ -125,7 +140,7 @@ function findNames(args: readonly string[]): string[] | undefined {
 }
 
 /** Whether a find changes files: -delete, or an -exec of a writing command. */
-function findActs(args: readonly string[], worktree: string): boolean {
+function findActs(args: readonly string[], facts: GuardFacts): boolean {
   const writingExec = args.some(
     (arg, index) =>
       EXECS.includes(arg) && !READ_ONLY.has(args[index + 1] ?? ''),
@@ -134,9 +149,7 @@ function findActs(args: readonly string[], worktree: string): boolean {
   if (!args.includes('-delete')) return false;
   // A -delete limited to names no protected path has cannot reach one.
   const names = findNames(args);
-  const protectedNames = protectedTargets(worktree).map((path) =>
-    basename(path),
-  );
+  const protectedNames = protectedTargets(facts).map((path) => basename(path));
   return (
     names === undefined ||
     names.some((name) =>
@@ -147,9 +160,9 @@ function findActs(args: readonly string[], worktree: string): boolean {
 
 function findDeletes(
   args: readonly string[],
-  worktree: string,
+  facts: GuardFacts,
 ): readonly string[] {
-  const acts = findActs(args, worktree);
+  const acts = findActs(args, facts);
   const firstExpression = args.findIndex((arg) => /^[-(!]/.test(arg));
   const starts = args.slice(
     0,
@@ -173,7 +186,7 @@ function gitCleans(args: readonly string[]): readonly string[] {
 /** The paths a command would change, for the commands that change files. */
 function changedPaths(
   invocation: Invocation,
-  worktree: string,
+  facts: GuardFacts,
 ): readonly string[] {
   const [name = '', ...args] = invocation.words;
   if (removers.has(name)) return operands(args);
@@ -187,7 +200,7 @@ function changedPaths(
     args.some((arg) => /^-[A-Za-z]*i/.test(arg))
   )
     return operands(args);
-  if (name === 'find') return findDeletes(args, worktree);
+  if (name === 'find') return findDeletes(args, facts);
   if (name === 'git') return gitCleans(args);
   return [];
 }
@@ -201,11 +214,12 @@ export function loopState(
   if (!facts.autonomous) return allow;
   const touched = [
     ...command.redirects,
-    ...changedPaths(invocation, facts.worktree),
+    ...changedPaths(invocation, facts),
   ].some((path) => reaches(path, cwd, facts));
   return touched ? deny(LOOP_REASON) : allow;
 }
 
-/** Whether an edited file is loop state or an agent record. */
+/** Whether an edited file is loop state, guard wiring or in the registry. */
 export const isProtectedFile = (path: string, facts: GuardFacts): boolean =>
-  PROTECTED.some((file) => lower(path) === lower(join(facts.worktree, file)));
+  PROTECTED.some((file) => lower(path) === lower(join(facts.worktree, file))) ||
+  isWithin(lower(path), lower(join(facts.mainCheckout, REGISTRY_DIR)));
