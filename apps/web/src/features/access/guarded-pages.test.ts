@@ -3,17 +3,6 @@ import { mock } from 'bun:test';
 import { Glob } from 'bun';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { isGuardedPath } from './decision';
-import judge from '../../app/(shell)/judge/page';
-import lobby from '../../app/(shell)/lobby/page';
-import play from '../../app/(shell)/play/page';
-import ranked from '../../app/(shell)/ranked/page';
-import recordings from '../../app/(shell)/recordings/page';
-import settings from '../../app/(shell)/settings/page';
-import settingsSecurity from '../../app/(shell)/settings/security/page';
-import home from '../../app/(shell)/page';
-import watch from '../../app/(shell)/watch/page';
-import leaderboard from '../../app/(shell)/leaderboard/page';
-import tournaments from '../../app/(shell)/tournaments/page';
 
 setupRitewayBun();
 
@@ -37,6 +26,12 @@ mock.module(join(import.meta.dir, '../../lib/access.ts'), () => ({
     return { state: 'anonymous' };
   },
 }));
+// The settings screen's client component is not under test here; loading it
+// would only add code this suite never runs.
+mock.module(
+  join(import.meta.dir, '../../ui/settings/security/security-page.tsx'),
+  () => ({ SecurityPage: () => null }),
+);
 
 type Page = (props: {
   params: Promise<Record<string, string>>;
@@ -45,24 +40,32 @@ type Page = (props: {
 
 // The pages this suite renders, by file: every guarded page and every public
 // spectator page. The tests fail on a page the glob finds but this misses.
-const rendered: Readonly<Record<string, Page>> = {
-  '(shell)/judge/page.tsx': judge as Page,
-  '(shell)/lobby/page.tsx': lobby as Page,
-  '(shell)/play/page.tsx': play as Page,
-  '(shell)/ranked/page.tsx': ranked as Page,
-  '(shell)/recordings/page.tsx': recordings as Page,
-  '(shell)/settings/page.tsx': settings as Page,
-  '(shell)/settings/security/page.tsx': settingsSecurity as Page,
-  '(shell)/page.tsx': home as Page,
-  '(shell)/watch/page.tsx': watch as Page,
-  '(shell)/leaderboard/page.tsx': leaderboard as Page,
-  '(shell)/tournaments/page.tsx': tournaments as Page,
-};
+// Loaded lazily, after the mocks above, so no page pulls in the real guard.
+const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
+  {
+    '(shell)/judge/page.tsx': () => import('../../app/(shell)/judge/page'),
+    '(shell)/lobby/page.tsx': () => import('../../app/(shell)/lobby/page'),
+    '(shell)/play/page.tsx': () => import('../../app/(shell)/play/page'),
+    '(shell)/ranked/page.tsx': () => import('../../app/(shell)/ranked/page'),
+    '(shell)/recordings/page.tsx': () =>
+      import('../../app/(shell)/recordings/page'),
+    '(shell)/settings/page.tsx': () =>
+      import('../../app/(shell)/settings/page'),
+    '(shell)/settings/security/page.tsx': () =>
+      import('../../app/(shell)/settings/security/page'),
+    '(shell)/page.tsx': () => import('../../app/(shell)/page'),
+    '(shell)/watch/page.tsx': () => import('../../app/(shell)/watch/page'),
+    '(shell)/leaderboard/page.tsx': () =>
+      import('../../app/(shell)/leaderboard/page'),
+    '(shell)/tournaments/page.tsx': () =>
+      import('../../app/(shell)/tournaments/page'),
+  };
 
 /** What a page asked the guard when rendered with its own search params. */
 const guardRequestsOf = async (file: string) => {
-  const page = rendered[file];
-  if (!page) return [{ root: 'not rendered by this suite', file }];
+  const load = rendered[file];
+  if (!load) return [{ root: 'not rendered by this suite', file }];
+  const page = (await load()).default as Page;
   const searchParams = Promise.resolve({ from: 'test' });
   guardCalls.length = 0;
   await page({
