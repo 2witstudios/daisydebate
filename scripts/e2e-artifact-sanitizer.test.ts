@@ -1,4 +1,10 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -48,6 +54,88 @@ describe('e2e artifact sanitizer', () => {
       actual: redactText('GET /lobby 200 in 12ms'),
       expected: 'GET /lobby 200 in 12ms',
     });
+  });
+
+  /** A zip at `zipPath` holding one trace entry with `content`. */
+  const writeTraceZip = (zipPath: string, content: string) => {
+    const source = mkdtempSync(join(tmpdir(), 'daisy-e2e-sanitize-src-'));
+    try {
+      writeFileSync(join(source, '0-trace.network'), content);
+      Bun.spawnSync(['zip', '-qr', zipPath, '.'], { cwd: source });
+    } finally {
+      rmSync(source, { recursive: true, force: true });
+    }
+  };
+
+  const readTraceEntry = async (zipPath: string) => {
+    const extractDir = mkdtempSync(join(tmpdir(), 'daisy-e2e-sanitize-check-'));
+    try {
+      Bun.spawnSync(['unzip', '-qq', '-o', zipPath, '-d', extractDir]);
+      return await Bun.file(join(extractDir, '0-trace.network')).text();
+    } finally {
+      rmSync(extractDir, { recursive: true, force: true });
+    }
+  };
+
+  test('rewrites a trace zip found under a relative artifact path', async () => {
+    const checkout = mkdtempSync(
+      join(tmpdir(), 'daisy-e2e-sanitize-relative-'),
+    );
+    const previous = process.cwd();
+    try {
+      mkdirSync(join(checkout, 'test-results'));
+      writeTraceZip(
+        join(checkout, 'test-results', 'trace.zip'),
+        'authorization: Bearer live-secret-token-value',
+      );
+
+      // CI runs from the checkout and passes `apps/web/test-results`.
+      process.chdir(checkout);
+      const result = sanitizeArtifactTree('test-results');
+      process.chdir(previous);
+
+      assert({
+        given: 'a trace zip that needs redaction, reached by a relative path',
+        should: 'rewrite it in place with the redacted contents',
+        actual: {
+          result,
+          traceText: await readTraceEntry(
+            join(checkout, 'test-results', 'trace.zip'),
+          ),
+        },
+        expected: {
+          result: { scanned: 1, redacted: 1 },
+          traceText: 'authorization: [REDACTED]',
+        },
+      });
+    } finally {
+      process.chdir(previous);
+      rmSync(checkout, { recursive: true, force: true });
+    }
+  });
+
+  test('refuses to publish a zip it cannot write back', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daisy-e2e-sanitize-readonly-'));
+    const zipPath = join(root, 'trace.zip');
+    try {
+      writeTraceZip(zipPath, 'authorization: Bearer live-secret-token-value');
+      chmodSync(root, 0o555);
+      let threw = false;
+      try {
+        sanitizeArtifactTree(root);
+      } catch {
+        threw = true;
+      }
+      assert({
+        given: 'a trace zip needing redaction whose directory is read-only',
+        should: 'throw rather than report the archive as sanitized',
+        actual: threw,
+        expected: true,
+      });
+    } finally {
+      chmodSync(root, 0o755);
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   test('sanitizes a text artifact and a trace zip in place', async () => {

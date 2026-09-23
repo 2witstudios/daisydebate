@@ -8,13 +8,14 @@
 import {
   readFileSync,
   readdirSync,
+  renameSync,
   rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 const redactions: readonly (readonly [RegExp, string])[] = [
   [/token=[^&\s"'<>]+/gi, 'token=[REDACTED]'],
@@ -94,14 +95,19 @@ function sanitizeZipInPlace(zipPath: string): boolean {
       if (sanitizeTextFileInPlace(file)) changed = true;
     }
     if (!changed) return false;
-    rmSync(zipPath);
-    const rezipped = Bun.spawnSync(['zip', '-qr', zipPath, '.'], {
+    // zip runs inside extractDir, so its output path must be absolute; the
+    // original is replaced only once a complete redacted archive exists.
+    const rezippedPath = `${resolve(zipPath)}.sanitized`;
+    const rezipped = Bun.spawnSync(['zip', '-qr', rezippedPath, '.'], {
       cwd: extractDir,
     });
-    if (rezipped.exitCode !== 0)
+    if (rezipped.exitCode !== 0) {
+      rmSync(rezippedPath, { force: true });
       throw new Error(
         `could not rezip sanitized archive ${zipPath} (zip exited ${rezipped.exitCode}: ${rezipped.stderr?.toString().trim()})`,
       );
+    }
+    renameSync(rezippedPath, zipPath);
     return true;
   } finally {
     rmSync(extractDir, { recursive: true, force: true });
