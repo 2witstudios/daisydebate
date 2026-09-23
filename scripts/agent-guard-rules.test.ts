@@ -102,6 +102,21 @@ describe('agent guard: data and containers outside the agent slot', () => {
     });
   });
 
+  test('sees through Docker global options', () => {
+    assert({
+      given: 'cleanup behind --context, -H, --log-level and --config',
+      should: 'deny each one',
+      actual: [
+        'docker --context default system prune -af',
+        'docker -H tcp://127.0.0.1:2375 rm -f daisy-postgres-1',
+        'docker --context default compose down',
+        'docker --log-level debug volume prune -f',
+        'docker --config /tmp/cfg --tls container prune',
+      ].map((command) => decide(command)),
+      expected: Array(5).fill('deny'),
+    });
+  });
+
   test('allows read-only Docker commands', () => {
     assert({
       given: 'ps, logs and compose ps',

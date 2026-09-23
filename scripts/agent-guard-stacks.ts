@@ -48,9 +48,36 @@ function composeAction(args: readonly string[]): string {
   return args[index] ?? '';
 }
 
+// Docker's global options come before the subcommand and would hide it.
+const DOCKER_VALUE_OPTIONS = new Set([
+  '--context',
+  '-c',
+  '-H',
+  '--host',
+  '--config',
+  '-l',
+  '--log-level',
+  '--tlscacert',
+  '--tlscert',
+  '--tlskey',
+]);
+
+function withoutGlobalOptions(words: readonly string[]): string[] {
+  const [name = '', ...rest] = words;
+  let index = 0;
+  while (index < rest.length && rest[index].startsWith('-')) {
+    const [flag, inline] = splitFlag(rest[index]);
+    index += DOCKER_VALUE_OPTIONS.has(flag) && inline === undefined ? 2 : 1;
+  }
+  return [name, ...rest.slice(index)];
+}
+
 export const docker: Rule = (invocation, facts) => {
   if (!facts.autonomous) return allow;
-  const [name, group = '', action = '', ...rest] = invocation.words;
+  const [name, group = '', action = '', ...rest] =
+    invocation.words[0] === 'docker'
+      ? withoutGlobalOptions(invocation.words)
+      : invocation.words;
   const composeArgs =
     name === 'docker-compose'
       ? [group, action, ...rest]
