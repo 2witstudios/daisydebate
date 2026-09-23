@@ -25,6 +25,40 @@ export const createActorFor = async (userId: string): Promise<string> => {
 export const cleanupActorFor = (userId: string) =>
   withSql((sql) => sql`DELETE FROM actors WHERE user_id = ${userId}`);
 
+/**
+ * RT-2.2f-r2: deletes the `users` row `signUp()` created (and any actor
+ * still referencing it, since `actors.user_id` is `onDelete: 'restrict'`),
+ * keyed by the user id resolved at sign-up rather than the account's
+ * possibly-changed email.
+ */
+export const cleanupUserFor = (userId: string) =>
+  withSql(async (sql) => {
+    await sql`DELETE FROM actors WHERE user_id = ${userId}`;
+    await sql`DELETE FROM users WHERE id = ${userId}`;
+  });
+
+/**
+ * RT-2.2f-r2: wraps a suite's `signUp()` to track every created user id (an
+ * account's email changes mid-test in these suites, so cleanup can't key on
+ * the original or final address) and returns the matching `afterAll`
+ * cleanup, so each suite adds two lines instead of repeating this tracking.
+ */
+export function trackedSignUp<T extends { email: string }>(
+  rawSignUp: () => Promise<T>,
+  resolveUserId: (email: string) => Promise<string | undefined>,
+): { signUp: () => Promise<T>; cleanup: () => Promise<unknown> } {
+  const userIds: string[] = [];
+  return {
+    signUp: async () => {
+      const result = await rawSignUp();
+      const userId = await resolveUserId(result.email);
+      if (userId) userIds.push(userId);
+      return result;
+    },
+    cleanup: () => Promise.all(userIds.map(cleanupUserFor)),
+  };
+}
+
 /** Outbox rows a `session.revoked`-emitting operation appended for this actor. */
 export const sessionRevokedEvents = (actorId: string) =>
   withSql(
