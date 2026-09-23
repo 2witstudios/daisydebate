@@ -206,19 +206,64 @@ describe('agent launcher', () => {
     });
   });
 
-  test('refuses to start an agent without the machine identity', () => {
-    const missing = launch(undefined);
+  test('refuses to start an agent whose identity file is invalid', () => {
     const empty = launch(example);
     assert({
-      given: 'no .env.agent, and one with an empty token',
+      given: 'an .env.agent with an empty token',
       should: 'exit non-zero without starting the agent',
+      actual: [empty.exitCode, empty.stdout.toString()],
+      expected: [1, ''],
+    });
+  });
+
+  test('starts the agent as before, with a warning, while the regime is off', () => {
+    const run = launch(undefined);
+    const env = parseDotenv(run.stdout.toString());
+    assert({
+      given:
+        'no .env.agent in the project root or the worktree (before GRD-6.2)',
+      should: 'start the agent without an identity and say so',
       actual: [
-        missing.exitCode,
-        missing.stdout.toString(),
-        empty.exitCode,
-        empty.stdout.toString(),
+        run.exitCode,
+        env.DAISY_AUTONOMOUS,
+        run.stderr.toString().includes('identity regime not active'),
       ],
-      expected: [1, '', 1, ''],
+      expected: [0, undefined, true],
+    });
+  });
+
+  test('prefers the owner file in the project root to the worktree copy', () => {
+    const project = mkdtempSync(join(tmpdir(), 'grd-6-project-'));
+    writeFileSync(join(project, '.env.agent'), filled);
+    const run = launch(example, { PU_PROJECT_ROOT: project });
+    assert({
+      given: 'a valid owner file and an emptied worktree copy',
+      should: "start with the owner file's identity",
+      actual: [run.exitCode, parseDotenv(run.stdout.toString()).GH_TOKEN],
+      expected: [0, 'agent-token-value'],
+    });
+  });
+
+  test('starts a terminal agent as a login shell under the identity', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'grd-6-launch-'));
+    writeFileSync(join(dir, '.env.agent'), filled);
+    const base = { ...process.env };
+    delete base.GH_TOKEN;
+    delete base.PU_PROJECT_ROOT;
+    const run = Bun.spawnSync(
+      ['sh', `${root}/scripts/agent-launch.sh`, 'shell'],
+      {
+        cwd: dir,
+        env: { ...base, SHELL: '/bin/sh' },
+        stdin: Buffer.from('echo "token=$GH_TOKEN"\n'),
+        stderr: 'pipe',
+      },
+    );
+    assert({
+      given: 'the terminal agent type (pu passes shell)',
+      should: 'run $SHELL -l with the identity exported',
+      actual: run.stdout.toString().includes('token=agent-token-value'),
+      expected: true,
     });
   });
 });
