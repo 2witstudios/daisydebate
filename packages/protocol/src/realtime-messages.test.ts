@@ -1,11 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   buildDebateTopic,
+  buildHelloMessageSchema,
   clientMessageSchema,
   ENVELOPE_VERSION,
-  envelopeVersionLiteral,
   PROTOCOL_VERSION,
-  protocolVersionLiteral,
   ticketSchema,
   type EnvelopeVersion,
   type ProtocolVersion,
@@ -83,25 +82,30 @@ describe('client message schema', () => {
     });
   });
 
-  test('builds the envelope v literal and the hello protocolVersion literal from independently injected branded versions (AC3)', () => {
+  test('builds the composed hello message schema from independently injected envelope and protocol versions (RT-2.1c AC1)', () => {
     const injectedEnvelopeVersion = 11 as EnvelopeVersion;
     const injectedProtocolVersion = 22 as ProtocolVersion;
-    const vLiteral = envelopeVersionLiteral(injectedEnvelopeVersion);
-    const protocolVersionField = protocolVersionLiteral(
+    const helloSchema = buildHelloMessageSchema(
+      injectedEnvelopeVersion,
       injectedProtocolVersion,
     );
+    const validMessage = {
+      v: 11,
+      type: 'hello',
+      protocolVersion: 22,
+      ticket,
+    };
     assert({
       given:
-        'builders called with distinct injected envelope and protocol versions',
+        'the hello schema built from distinct injected envelope (11) and protocol (22) versions',
       should:
-        "accept only their own injected version and reject the other field's value, proving neither can stand in for the other",
+        "accept only its own pairing and reject each field taking the other field's value, proving neither the schema composition nor a hard-coded field can stand in for the other",
       actual: [
-        vLiteral.safeParse(11).success,
-        vLiteral.safeParse(22).success,
-        protocolVersionField.safeParse(22).success,
-        protocolVersionField.safeParse(11).success,
+        helloSchema.safeParse(validMessage).success,
+        helloSchema.safeParse({ ...validMessage, v: 22 }).success,
+        helloSchema.safeParse({ ...validMessage, protocolVersion: 11 }).success,
       ],
-      expected: [true, false, true, false],
+      expected: [true, false, false],
     });
   });
 

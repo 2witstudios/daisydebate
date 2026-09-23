@@ -81,19 +81,50 @@ export const PROTOCOL_VERSION: ProtocolVersion = 1 as ProtocolVersion;
 
 /**
  * Typed literal builders: each accepts only its own branded version type, so
- * `envelopeVersionLiteral(PROTOCOL_VERSION)` (AC3's mutation M3a) or
- * `PROTOCOL_VERSION` declared as `= ENVELOPE_VERSION` (mutation M3b) are
- * both type errors, not merely a coincidence that both constants are `1`.
+ * `PROTOCOL_VERSION` declared as `= ENVELOPE_VERSION` (RT-2.1c AC1's mutation
+ * M3b) is a type error caught by `bun typecheck`, not merely a coincidence
+ * that both constants are `1`. They do not by themselves stop a mutation
+ * that hard-codes a literal `z.literal(ENVELOPE_VERSION)` into the `hello`
+ * schema's `protocolVersion` field (M3a as worded): that mutation bypasses
+ * these builders entirely, so it is `buildHelloMessageSchema` below, tested
+ * with distinct injected versions, that catches it.
  */
-export function envelopeVersionLiteral(
+function envelopeVersionLiteral(
   version: EnvelopeVersion,
 ): z.ZodLiteral<EnvelopeVersion> {
   return z.literal(version);
 }
-export function protocolVersionLiteral(
+function protocolVersionLiteral(
   version: ProtocolVersion,
 ): z.ZodLiteral<ProtocolVersion> {
   return z.literal(version);
+}
+
+/** The envelope shape `{v}`, built from an injected envelope version. */
+function buildEnvelope(envelopeVersion: EnvelopeVersion): {
+  readonly v: z.ZodLiteral<EnvelopeVersion>;
+} {
+  return { v: envelopeVersionLiteral(envelopeVersion) } as const;
+}
+
+/**
+ * The `hello` message schema, built from independently injected envelope and
+ * protocol versions (RT-2.1c AC1). Production wires it with the two real
+ * constants below; `realtime-messages.test.ts` wires it with two distinct
+ * values so a mutation that hard-codes either field to the other's version,
+ * or to a module-level constant instead of its own parameter, turns the
+ * composed schema — not just the isolated literal builders — red.
+ */
+export function buildHelloMessageSchema(
+  envelopeVersion: EnvelopeVersion,
+  protocolVersion: ProtocolVersion,
+) {
+  return z.strictObject({
+    ...buildEnvelope(envelopeVersion),
+    type: z.literal('hello'),
+    protocolVersion: protocolVersionLiteral(protocolVersion),
+    ticket: ticketSchema,
+  });
 }
 
 /**
@@ -184,7 +215,7 @@ export const subscribeAuthorizationTable: Readonly<
 
 // --- Client and server message envelopes -------------------------------
 
-const envelope = { v: envelopeVersionLiteral(ENVELOPE_VERSION) };
+const envelope = buildEnvelope(ENVELOPE_VERSION);
 const presenceActivitySchema = z.enum(['active', 'idle']);
 /**
  * The projected presence status vocabulary. It lost its only in-package
@@ -207,12 +238,7 @@ export const presenceStatusSchema = z.enum([
  * `unsubscribe` and `ping`.
  */
 export const clientMessageSchema = z.discriminatedUnion('type', [
-  z.strictObject({
-    ...envelope,
-    type: z.literal('hello'),
-    protocolVersion: protocolVersionLiteral(PROTOCOL_VERSION),
-    ticket: ticketSchema,
-  }),
+  buildHelloMessageSchema(ENVELOPE_VERSION, PROTOCOL_VERSION),
   z.strictObject({
     ...envelope,
     type: z.literal('subscribe'),
