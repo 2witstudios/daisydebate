@@ -18,17 +18,18 @@ type BetterAuthSessionRow = {
   readonly updatedAt: string | Date;
   readonly expiresAt: string | Date;
   readonly userAgent?: string | null | undefined;
-  readonly ipAddress?: string | null | undefined;
 };
 
-/** The browser-safe shape: every field except the bearer-capable token. */
+/**
+ * The browser-safe shape: never the bearer-capable token or the client IP
+ * address, which stays on the server (ISSUE-5 AC7).
+ */
 export type SessionDto = {
   readonly id: string;
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly expiresAt: string;
   readonly userAgent: string | null;
-  readonly ipAddress: string | null;
   readonly current: boolean;
 };
 
@@ -44,7 +45,6 @@ const toDto = (
   updatedAt: iso(row.updatedAt),
   expiresAt: iso(row.expiresAt),
   userAgent: row.userAgent ?? null,
-  ipAddress: row.ipAddress ?? null,
   current: row.id === currentSessionId,
 });
 

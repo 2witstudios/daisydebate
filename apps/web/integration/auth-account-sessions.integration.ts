@@ -28,8 +28,8 @@ const revokeSession = (cookie: string, id: string) =>
     }),
   );
 
-describe('AC7 GET /api/account/sessions never exposes a session token', () => {
-  test('a real session listing carries no token key at any depth', async () => {
+describe('AC7 GET /api/account/sessions never exposes a session token or client IP', () => {
+  test('a real session listing carries no token or IP address key', async () => {
     const { cookie } = await signUp();
     const response = await listSessions(cookie);
     const body = await response.text();
@@ -39,11 +39,12 @@ describe('AC7 GET /api/account/sessions never exposes a session token', () => {
     assert({
       given: "a real signed-in account's own session listing",
       should:
-        'answer 200 with exactly one current session and no token field anywhere in the body',
+        'answer 200 with exactly one current session and no token or ipAddress field anywhere in the body',
       actual: {
         status: response.status,
         hasTokenKey: parsed.sessions.some((row) => 'token' in row),
         rawBodyMentionsToken: /"token"\s*:/.test(body),
+        hasIpAddressKey: /"ipAddress"\s*:/.test(body),
         currentCount: parsed.sessions.filter((row) => row.current === true)
           .length,
       },
@@ -51,6 +52,7 @@ describe('AC7 GET /api/account/sessions never exposes a session token', () => {
         status: 200,
         hasTokenKey: false,
         rawBodyMentionsToken: false,
+        hasIpAddressKey: false,
         currentCount: 1,
       },
     });

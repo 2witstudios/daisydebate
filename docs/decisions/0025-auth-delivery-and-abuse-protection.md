@@ -38,8 +38,12 @@ adds the delivery and abuse controls ADR 0020 requires before activation.
   identity is resolved. The production ingress (`start.ts`) replaces any
   caller-supplied value with the socket peer, or — only when the peer is in
   `AUTH_TRUSTED_PROXIES` — the first untrusted hop from the right of
-  `X-Forwarded-For`. `next dev` runs without that ingress, so a dev-mode
-  request carries no such header and shares one "unknown" bucket per path,
+  `X-Forwarded-For`. Beside it the ingress stamps `x-daisy-client-id-hash`, a
+  SHA3-256 of the identity keyed by a subkey of `BETTER_AUTH_SECRET` (label
+  `client-id-hash`). Request logs carry only that keyed hash: an unkeyed
+  hash of an IPv4 address is reversed by hashing all 2^32 of them.
+  `next dev` runs without that ingress, so a dev-mode request carries no
+  such header and shares one "unknown" bucket per path,
   same as any other missing identity: a fail-safe bucket, never an escaped
   limit.
 - **Origin rule.** State-changing `/api/auth/*` calls must carry the exact

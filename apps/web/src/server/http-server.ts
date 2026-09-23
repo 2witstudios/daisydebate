@@ -9,12 +9,15 @@ import { createIngressListener } from './ingress';
  */
 export function createHttpServer({
   trustedProxies,
+  clientIdSubkey,
   isDraining,
   logger,
   handle,
 }: {
   /** `AUTH_TRUSTED_PROXIES` from validated auth configuration. */
   readonly trustedProxies: readonly string[];
+  /** Derived from the validated `BETTER_AUTH_SECRET` (`deriveClientIdSubkey`). */
+  readonly clientIdSubkey: string;
   readonly isDraining: () => boolean;
   readonly logger: Logger;
   readonly handle: Parameters<typeof createIngressListener>[0]['handle'];
@@ -22,6 +25,7 @@ export function createHttpServer({
   const listen = createIngressListener({
     isDraining,
     trustedProxies,
+    clientIdSubkey,
     handle,
     onError: () =>
       logger.log(

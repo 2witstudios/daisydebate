@@ -52,23 +52,25 @@ interface directly).
 
 **This is inferred from Fly's documented header contract, not measured**:
 Fly's docs do not state the literal TCP peer address an app process sees.
-Confirm the real chain after first deploy:
+Confirm the real chain after first deploy by comparing, never by
+recomputing: the log line's `clientIdHash` is keyed by a subkey of
+`BETTER_AUTH_SECRET` (`apps/web/src/features/auth/client-ip.ts`), so it
+cannot be reproduced from an address, and the raw address is never
+logged (ADR 0019's loggable fields).
 
 ```
 # /api/health/ready (not /live, which logs nothing) routes through
-# handleOperation, whose http.request.completed log carries a hashed
-# clientIdHash field (apps/web/src/server/http.ts) — never the raw
-# address, which falls outside ADR 0019's loggable allowlist.
-curl -s https://<app>.fly.dev/api/health/ready -H "X-Forwarded-For: 203.0.113.9"
+# handleOperation, whose http.request.completed log carries clientIdHash.
+# Send one request from this machine and one from a different network
+# (a phone hotspot, a cloud shell):
+curl -s https://<app>.fly.dev/api/health/ready
 fly logs -a <app> --no-tail | grep '"event":"http.request.completed"'
-node -e "console.log(require('crypto').createHash('sha3-256').update('203.0.113.9').digest('hex'))"
 ```
 
-The matched line's `clientIdHash` field is a SHA3-256 hash of the identity
-the ingress resolved for that request. Compute the same hash of the real
-caller's address (or, for the command above, the `X-Forwarded-For` value it
-sent) and compare hex digests to confirm the proxy chain resolved
-correctly.
+Two callers on different networks must produce two different
+`clientIdHash` values, and repeat requests from one caller the same value.
+If every request carries the same hash, whichever network it came from,
+the ingress is resolving fly-proxy's own address rather than the caller.
 
 If the resolved client address is not the real caller, widen or correct
 `AUTH_TRUSTED_PROXIES` in `fly.toml` and redeploy — do not leave it unset,

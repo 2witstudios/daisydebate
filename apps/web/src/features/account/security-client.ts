@@ -20,7 +20,6 @@ export type SessionRow = {
   readonly updatedAt: string;
   readonly expiresAt: string;
   readonly userAgent: string | null;
-  readonly ipAddress: string | null;
   readonly current: boolean;
 };
 

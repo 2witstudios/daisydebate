@@ -4,6 +4,8 @@ import { stampClientIdentity } from '../features/auth/client-ip';
 type IngressDeps = {
   readonly isDraining: () => boolean;
   readonly trustedProxies: readonly string[];
+  /** Keys the client id hash request logs carry (`deriveClientIdSubkey`). */
+  readonly clientIdSubkey: string;
   readonly handle: (
     request: IncomingMessage,
     response: ServerResponse,
@@ -21,7 +23,7 @@ export function createIngressListener(deps: IngressDeps) {
     }
     // Ingress boundary: the socket peer (or a configured trusted proxy chain)
     // establishes client identity; any caller-supplied identity header is replaced.
-    stampClientIdentity(request, deps.trustedProxies);
+    stampClientIdentity(request, deps.trustedProxies, deps.clientIdSubkey);
     return deps.handle(request, response).catch(() => {
       deps.onError();
       if (!response.headersSent) response.writeHead(500);
