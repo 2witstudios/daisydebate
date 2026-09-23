@@ -4,7 +4,7 @@
  * enforcement cutoff leaves review debt, and which tasks drifted from git.
  * The merge workflow (merge-followup.ts) and `bun board:stale` share them.
  */
-import { extractTaskIds } from './notify-drive';
+import { extractTaskIds, TASK_CODE } from './notify-drive';
 
 /** The status a merged task waits in until an independent review grants Done. */
 export const MERGED_STATUS = {
@@ -14,7 +14,7 @@ export const MERGED_STATUS = {
   group: 'in_progress',
 } as const;
 
-const TASK_TITLE = /^([A-Z]{2,6}-\d+(?:\.\d+)?[a-z]?)\s+—/;
+const TASK_TITLE = new RegExp(String.raw`^(${TASK_CODE})\s+—`);
 
 /** The task code a leaf title starts with, e.g. `RT-2.2f — Given …`. */
 export const taskCode = (title: string): string | undefined =>

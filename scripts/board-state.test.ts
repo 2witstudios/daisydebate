@@ -26,6 +26,16 @@ const tree = [
           { id: 'p1', type: 'TASK_LIST', title: 'RT-2.2 — Given x, should y' },
           { id: 'p2', type: 'TASK_LIST', title: 'RT-2.2f — Given a, should b' },
           { id: 'p3', type: 'DOCUMENT', title: 'RT-2.2 — notes' },
+          {
+            id: 'p4',
+            type: 'TASK_LIST',
+            title: 'RT-2.2f-r1 — Given c, should d',
+          },
+          {
+            id: 'p5',
+            type: 'TASK_LIST',
+            title: 'AUTH-2.2.1 — Given e, should f',
+          },
         ],
       },
     ],
@@ -35,12 +45,16 @@ const tree = [
 describe('findTaskPages', () => {
   test('maps task codes to task pages and their lists', () => {
     assert({
-      given: 'a drive tree with a leaf, its suffixed follow-up and a document',
-      should: 'return task-list pages whose title starts with the code',
+      given:
+        'a drive tree with a leaf, its suffixed follow-up, a revision, a sub-leaf and a document',
+      should:
+        'return task-list pages keyed by the whole code their title starts with',
       actual: findTaskPages(tree),
       expected: [
         { code: 'RT-2.2', pageId: 'p1', listId: 'phase' },
         { code: 'RT-2.2f', pageId: 'p2', listId: 'phase' },
+        { code: 'RT-2.2f-r1', pageId: 'p4', listId: 'phase' },
+        { code: 'AUTH-2.2.1', pageId: 'p5', listId: 'phase' },
       ],
     });
   });

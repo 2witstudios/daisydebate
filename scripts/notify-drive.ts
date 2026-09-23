@@ -2,7 +2,16 @@
 import { createHmac } from 'node:crypto';
 import { assessEventText } from './docs-contracts';
 
-const TASK_ID_PATTERN = /\b[A-Z]{2,6}-\d+(?:\.\d+)?[a-z]?\b/g;
+/**
+ * A task code: prefix, number, sub-leaf levels (AUTH-2.2.1), a follow-up
+ * letter (RT-2.2f) and a revision (RT-2.2f-r1).
+ */
+export const TASK_CODE = String.raw`[A-Z]{2,6}-\d+(?:\.\d+)*[a-z]?(?:-r\d+)?`;
+// Whole codes only: never a shorter prefix of a longer code.
+const TASK_ID_PATTERN = new RegExp(
+  String.raw`\b${TASK_CODE}(?![\w]|\.\d|-r\d)`,
+  'g',
+);
 
 // Prefixes that match the task-code shape but are never tasks: protocol and
 // format names, ADR citations (ADR-0023), and model names (GLM-5.3), which PR
