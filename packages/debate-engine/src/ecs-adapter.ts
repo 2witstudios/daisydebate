@@ -2,6 +2,7 @@ import { Database } from '@adobe/data/ecs';
 import { createAppError, createInvariantError } from '@daisy/errors';
 import {
   debateSides,
+  formatRulesSchema,
   type DebateSnapshot,
   type Participant,
   type DebatePhase,
@@ -64,8 +65,9 @@ export function createAdapter(snapshot: DebateSnapshot) {
       return {
         ...snapshot,
         // A copy: callers preparing lobby overrides edit the returned rules,
-        // and the runtime must keep the rules it validated.
-        rules: structuredClone(snapshot.rules),
+        // and the runtime must keep the rules it validated. Parsing builds a
+        // fresh object at every level, with no host clone API.
+        rules: formatRulesSchema.parse(snapshot.rules),
         phase: db.resources.phase,
         participants: db
           .select(['participantId', 'side', 'ready'])
