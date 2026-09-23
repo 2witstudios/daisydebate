@@ -8,7 +8,7 @@
  * drive's Issues list and a Sprint Room notice. Merges before the cutoff
  * file nothing.
  */
-import { leafBody, nextCodeNumber } from './board-model';
+import { leafBody, nextCodeNumber, type RelatedEntry } from './board-model';
 import {
   debtIssue,
   deliveredCodes,
@@ -56,15 +56,16 @@ export type FollowupDeps = {
   readonly createIssue: (
     title: string,
     criteria: readonly string[],
+    related: readonly RelatedEntry[],
   ) => Promise<string>;
   readonly reviewState: (sha: string) => Promise<string | undefined>;
   readonly notify: (message: string) => Promise<void>;
 };
 
-async function moveTasks(deps: FollowupDeps, codes: readonly string[]) {
-  const pages = findTaskPages(await deps.drivePages()).filter((page) =>
-    codes.includes(page.code),
-  );
+async function moveTasks(
+  deps: FollowupDeps,
+  pages: ReturnType<typeof findTaskPages>,
+) {
   const moved: string[] = [];
   for (const listId of new Set(pages.map((page) => page.listId))) {
     const list = await deps.listTasks(listId);
@@ -88,6 +89,7 @@ async function recordDebt(
   deps: FollowupDeps,
   pr: MergedPr,
   codes: readonly string[],
+  tasks: readonly RelatedEntry[],
 ): Promise<string | undefined> {
   const reviewState = await deps.reviewState(pr.headSha);
   if (!needsDebt({ mergedAt: pr.mergedAt, cutoff: deps.cutoff, reviewState }))
@@ -97,12 +99,17 @@ async function recordDebt(
   const existing = titles.find((title) => title.endsWith(issue.title));
   const code =
     existing?.split(' ')[0] ?? `ISSUE-${nextCodeNumber(titles, 'ISSUE')}`;
-  if (!existing)
-    await deps.createIssue(`${code} — ${issue.title}`, issue.criteria);
-  if (!existing)
-    await deps.notify(
-      `⚠️ Post-merge review debt: #${pr.number} merged without a review-record status for ${pr.headSha.slice(0, 12)} → ${code}\n${pr.url}`,
-    );
+  if (existing) return code;
+  const pageId = await deps.createIssue(
+    `${code} — ${issue.title}`,
+    issue.criteria,
+    tasks,
+  );
+  if (!pageId)
+    throw new Error(`PageSpace created ${code} without returning its page`);
+  await deps.notify(
+    `⚠️ Post-merge review debt: #${pr.number} merged without a review-record status for ${pr.headSha.slice(0, 12)} → ${code}\n${pr.url}`,
+  );
   return code;
 }
 
@@ -110,13 +117,27 @@ export async function followUpMerge(
   deps: FollowupDeps,
   pr: MergedPr,
 ): Promise<{ readonly moved: readonly string[]; readonly debt?: string }> {
+  // An unparseable time would compare as NaN and silently file no debt.
+  if (Number.isNaN(Date.parse(pr.mergedAt)))
+    throw new Error(
+      `PR #${pr.number} has no valid merged-at time: ${JSON.stringify(pr.mergedAt)}`,
+    );
   const codes = deliveredCodes({
     title: pr.title,
     headRefName: pr.branch,
     body: pr.body,
   });
-  const moved = await moveTasks(deps, codes);
-  return { moved, debt: await recordDebt(deps, pr, codes) };
+  const pages = findTaskPages(await deps.drivePages()).filter((page) =>
+    codes.includes(page.code),
+  );
+  const moved = await moveTasks(deps, pages);
+  // The issue's Related pages link the tasks the unreviewed merge delivered.
+  const tasks = pages.map((page) => ({
+    label: 'Task',
+    id: page.pageId,
+    title: page.code,
+  }));
+  return { moved, debt: await recordDebt(deps, pr, codes, tasks) };
 }
 
 // ------------------------------------------------------------------- edges
@@ -170,19 +191,20 @@ function liveDeps(repository: string, cutoff: string | null): FollowupDeps {
           `/api/pages/${ISSUES_LIST_ID}/tasks`,
         )
       ).tasks.map((task) => task.title),
-    createIssue: async (title, criteria) => {
+    createIssue: async (title, criteria, related) => {
       const task = await pagespace<{ pageId?: string; page?: { id: string } }>(
         `/api/pages/${ISSUES_LIST_ID}/tasks`,
         json('POST', { title }),
       );
       const pageId = task.pageId ?? task.page?.id ?? '';
+      if (!pageId) return '';
       await pagespace(
         '/api/mcp/documents',
         json('POST', {
           operation: 'replace',
           pageId,
           startLine: 1,
-          content: leafBody({ criteria, related: [] }),
+          content: leafBody({ criteria, related }),
         }),
       );
       return pageId;

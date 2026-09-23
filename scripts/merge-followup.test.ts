@@ -35,6 +35,7 @@ function fakes(
     reviewState?: string;
     cutoff?: string | null;
     issues?: string[];
+    issuePage?: string;
   } = {},
 ) {
   const log: string[] = [];
@@ -57,9 +58,12 @@ function fakes(
     updateStatus: async (listId, taskId, status) =>
       void log.push(`status ${listId} ${taskId} ${status}`),
     issueTitles: async () => options.issues ?? ['ISSUE-14 — x'],
-    createIssue: async (title) => {
+    createIssue: async (title, _criteria, related) => {
       log.push(`issue ${title}`);
-      return 'issuepage';
+      log.push(
+        `related ${related.map((ref) => `${ref.label}=${ref.id}`).join(' ')}`,
+      );
+      return options.issuePage ?? 'issuepage';
     },
     reviewState: async () => options.reviewState,
     notify: async (message) => void log.push(`sprint-room ${message}`),
@@ -125,6 +129,56 @@ describe('merge follow-up', () => {
         log.some((line) => line.startsWith('issue')),
       ),
       expected: [false, false, false],
+    });
+  });
+
+  test('creates the Merged status once for several tasks in one list', async () => {
+    const { deps, log } = fakes({ reviewState: 'success' });
+    await followUpMerge(deps, { ...pr, body: 'Tasks: GRD-6.1 · GRD-6.2' });
+    assert({
+      given: 'a merge naming two tasks of a list without a Merged status',
+      should: 'create the status once and move both tasks',
+      actual: log,
+      expected: [
+        'create-status phase',
+        'status phase t1 merged',
+        'status phase t2 merged',
+      ],
+    });
+  });
+
+  test('links the debt issue to the tasks the PR delivered', async () => {
+    const { deps, log } = fakes({ statuses: ['merged'] });
+    await followUpMerge(deps, pr);
+    assert({
+      given: 'review debt for a merge delivering GRD-6.1',
+      should: 'relate the new issue to the GRD-6.1 task page',
+      actual: log.find((line) => line.startsWith('related')),
+      expected: 'related Task=leaf1',
+    });
+  });
+
+  test('fails loudly on an issue without a page or a merge without a time', async () => {
+    const noPage = fakes({ statuses: ['merged'], issuePage: '' });
+    const noTime = fakes({ statuses: ['merged'] });
+    assert({
+      given:
+        'PageSpace returning no page for the issue, and an empty merged-at',
+      should: 'reject each instead of carrying on without debt',
+      actual: [
+        await followUpMerge(noPage.deps, pr).then(
+          () => 'resolved',
+          (error: Error) => error.message,
+        ),
+        await followUpMerge(noTime.deps, { ...pr, mergedAt: '' }).then(
+          () => 'resolved',
+          (error: Error) => error.message,
+        ),
+      ],
+      expected: [
+        'PageSpace created ISSUE-15 without returning its page',
+        'PR #61 has no valid merged-at time: ""',
+      ],
     });
   });
 });
