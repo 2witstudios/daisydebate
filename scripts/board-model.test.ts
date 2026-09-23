@@ -4,7 +4,7 @@ import {
   checkReplace,
   findTask,
   leafBody,
-  nextIssueNumber,
+  nextCodeNumber,
   parseBoardArgs,
 } from './board-model';
 
@@ -57,7 +57,7 @@ describe('parseBoardArgs', () => {
         {
           command: 'create',
           listId: 'cy7vznqfbs8ikfwj1qu8xxnm',
-          issue: true,
+          prefix: 'ISSUE',
           title: 'Given X, should Y',
           criteria: ['Given A, should B'],
           related: [{ label: 'Origin', id: 'pm17nmf831vkr3o84wbo2ofh' }],
@@ -112,18 +112,19 @@ describe('findTask', () => {
   });
 });
 
-describe('nextIssueNumber', () => {
+describe('nextCodeNumber', () => {
   test('continues after the highest ISSUE-n', () => {
     assert({
       given: 'issue titles out of order plus a non-issue',
       should: 'return one more than the highest number',
-      actual: nextIssueNumber([
-        'ISSUE-2 — a',
-        'ISSUE-14 — b',
-        'Other',
-        'ISSUE-9 — c',
-      ]),
-      expected: 15,
+      actual: [
+        nextCodeNumber(
+          ['ISSUE-2 — a', 'ISSUE-14 — b', 'Other', 'ISSUE-9 — c', 'DEC-40 — d'],
+          'ISSUE',
+        ),
+        nextCodeNumber(['ISSUE-2 — a'], 'DEC'),
+      ],
+      expected: [15, 1],
     });
   });
 });

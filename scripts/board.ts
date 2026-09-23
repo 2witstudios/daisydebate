@@ -13,7 +13,7 @@ import {
   checkReplace,
   findTask,
   leafBody,
-  nextIssueNumber,
+  nextCodeNumber,
   parseBoardArgs,
   type BoardCommand,
 } from './board-model';
@@ -113,15 +113,15 @@ function create(
   deps: BoardDeps,
   command: Extract<BoardCommand, { command: 'create' }>,
 ) {
-  const titles = command.issue
+  const titles = command.prefix
     ? json<{ tasks: { title: string }[] }>(deps, [
         'tasks',
         'list',
         command.listId,
       ]).tasks.map((task) => task.title)
     : [];
-  const title = command.issue
-    ? `ISSUE-${nextIssueNumber(titles)} — ${command.title}`
+  const title = command.prefix
+    ? `${command.prefix}-${nextCodeNumber(titles, command.prefix)} — ${command.title}`
     : command.title;
   const created = json<{ pageId?: string; page?: { id: string } }>(deps, [
     'tasks',

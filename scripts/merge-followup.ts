@@ -8,7 +8,7 @@
  * drive's Issues list and a Sprint Room notice. Merges before the cutoff
  * file nothing.
  */
-import { leafBody, nextIssueNumber } from './board-model';
+import { leafBody, nextCodeNumber } from './board-model';
 import {
   debtIssue,
   findTaskPages,
@@ -94,7 +94,8 @@ async function recordDebt(
   const issue = debtIssue({ ...pr, pr: pr.number, codes });
   const titles = await deps.issueTitles();
   const existing = titles.find((title) => title.endsWith(issue.title));
-  const code = existing?.split(' ')[0] ?? `ISSUE-${nextIssueNumber(titles)}`;
+  const code =
+    existing?.split(' ')[0] ?? `ISSUE-${nextCodeNumber(titles, 'ISSUE')}`;
   if (!existing)
     await deps.createIssue(`${code} — ${issue.title}`, issue.criteria);
   if (!existing)

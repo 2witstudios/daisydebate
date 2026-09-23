@@ -42,6 +42,7 @@
     "board:relate": "bun scripts/board.ts relate",
     "board:replace": "bun scripts/board.ts replace",
     "board:stale": "bun scripts/board-stale.ts",
+    "decision:record": "bun scripts/decision.ts",
     "docs:classify": "bun scripts/docs-pipeline.ts",
     "docs:dispatch": "bun scripts/dispatch-docs.ts",
     "docs:policy": "bun scripts/docs-policy.ts",

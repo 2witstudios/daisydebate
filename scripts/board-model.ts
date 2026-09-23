@@ -24,7 +24,8 @@ export type BoardCommand =
   | {
       readonly command: 'create';
       readonly listId: string;
-      readonly issue: boolean;
+      /** Auto-number the title with this code prefix, e.g. ISSUE or DEC. */
+      readonly prefix: string | undefined;
       readonly title: string;
       readonly criteria: readonly string[];
       readonly related: readonly RelatedRef[];
@@ -43,7 +44,7 @@ export const BOARD_USAGE = [
   'bun board:read <pageId>',
   'bun board:status <taskPageId> <status-slug>',
   'bun board:relate <pageId> <Label> <targetPageId>',
-  'bun board:create <taskListPageId> [--issue] --title "<Given X, should Y>" [--criterion "<Given A, should B>"]... [--related Label=<pageId>]...',
+  'bun board:create <taskListPageId> [--issue | --prefix <CODE>] --title "<Given X, should Y>" [--criterion "<Given A, should B>"]... [--related Label=<pageId>]...',
   'bun board:replace <pageId> --start N --end M --expect-lines L --file <new.html> [--old-file <old.html>]',
 ].join('\n');
 
@@ -87,10 +88,13 @@ function parseCreate(args: readonly string[]): Parsed {
   if (!PAGE_ID.test(listId ?? '')) return fail('create needs a task list id');
   if (title.trim() === '') return fail('create needs --title');
   if (!related) return fail('--related takes Label=<pageId>');
+  const prefix = values.get('--prefix')?.[0];
+  if (prefix !== undefined && !/^[A-Z]{2,6}$/.test(prefix))
+    return fail('--prefix takes 2-6 capital letters');
   return {
     command: 'create',
     listId,
-    issue: switches.has('--issue'),
+    prefix: switches.has('--issue') ? 'ISSUE' : values.get('--prefix')?.[0],
     title: title.trim(),
     criteria: values.get('--criterion') ?? [],
     related,
@@ -176,9 +180,14 @@ export function findTask(
   );
 }
 
-export function nextIssueNumber(titles: readonly string[]): number {
+/** One more than the highest `<PREFIX>-n` title; 1 for an empty list. */
+export function nextCodeNumber(
+  titles: readonly string[],
+  prefix: string,
+): number {
+  const pattern = new RegExp(`^${prefix}-(\\d+)\\b`);
   const numbers = titles
-    .map((title) => /^ISSUE-(\d+)\b/.exec(title)?.[1])
+    .map((title) => pattern.exec(title)?.[1])
     .filter((value): value is string => value !== undefined)
     .map(Number);
   return Math.max(0, ...numbers) + 1;

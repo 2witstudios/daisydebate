@@ -162,7 +162,16 @@ if (import.meta.main) {
   };
   process.exitCode = runStaleCheck(
     {
-      pagespace: (args) => spawn('pagespace', args),
+      // A walk of the whole drive makes hundreds of calls; retry a transient
+      // network failure twice rather than abandon the run.
+      pagespace: (args) => {
+        let result = spawn('pagespace', args);
+        for (let retry = 0; retry < 2 && result.code !== 0; retry += 1) {
+          Bun.sleepSync(1000);
+          result = spawn('pagespace', args);
+        }
+        return result;
+      },
       mergedPrs: () =>
         JSON.parse(
           spawn('gh', [
