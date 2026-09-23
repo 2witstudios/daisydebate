@@ -10,9 +10,10 @@ https://fly.io/docs/flyctl/ as of 2026-09-22 — re-check flag names if the
 installed flyctl has since changed.
 
 No custom domain: the app is reachable at `https://<app>.fly.dev` only
-(owner decision). Postgres and Redis are external free tiers (Neon,
-Upstash), reached through the existing `DATABASE_URL` / `REDIS_URL`
-contract — no Fly Postgres, no new client libraries.
+(owner decision). Postgres is an always-on Fly machine in the same org and
+Redis is Fly-native Upstash (owner decision, September 22), both reached
+through the existing `DATABASE_URL` / `REDIS_URL` contract — no new client
+libraries.
 
 ## Idle cost (per the owner's spend constraint)
 
