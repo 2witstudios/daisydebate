@@ -1,25 +1,15 @@
 import { afterAll, expect, test } from 'bun:test';
 import { SQL } from 'bun';
+import { createTestApp, testDatabaseUrl } from './auth-mounted-helpers';
 
-// The proof gate must be open before the first getResources() call builds the
-// process resources; production configuration still refuses this combination.
-process.env.FOUNDATION_PROOF_ENABLED = 'true';
-const testDatabaseUrl = process.env.TEST_DATABASE_URL;
-if (!testDatabaseUrl)
-  throw new Error(
-    'TEST_DATABASE_URL required; never use application database for tests',
-  );
-if (!new URL(testDatabaseUrl).pathname.endsWith('_test'))
-  throw new Error('Test database name must end in _test');
-// The vertical exercises the app's own resource graph, so point it at the
-// validated test database before the first getResources() call.
-process.env.DATABASE_URL = testDatabaseUrl;
+// This suite's own app, with the development-only proof gate open; the
+// production configuration still refuses this combination. Nothing global
+// is set, so other suites in this process keep their own configuration
+// (foundation-disabled.integration.ts proves the gate stays shut there).
+const { app, routes } = createTestApp({ FOUNDATION_PROOF_ENABLED: 'true' });
+const { POST, GET } = routes.foundationProof;
 
-const { POST, GET } = await import('../src/app/api/foundation/proof/route');
-const { getResources, closeResources } =
-  await import('../src/server/resources');
-
-const origin = getResources().config.PUBLIC_APP_URL;
+const origin = app.config.PUBLIC_APP_URL;
 const post = (body: unknown, headers: Record<string, string> = {}) =>
   POST(
     new Request(`${origin}/api/foundation/proof`, {
@@ -65,7 +55,7 @@ test('proof vertical: validated create, durable store, restored read', async () 
   expect(restored.id).toBe(snapshot.id);
   expect(restored.phase).toBe('waiting');
   // The snapshot carries the canonical foundation rules from the formats row.
-  const reference = new SQL(testDatabaseUrl);
+  const reference = new SQL(testDatabaseUrl as string);
   try {
     const [format] =
       await reference`select rules from formats where id = 'foundation'`;
@@ -77,6 +67,11 @@ test('proof vertical: validated create, durable store, restored read', async () 
 });
 
 test('proof vertical rejects invalid, cross-origin, and unknown requests', async () => {
+  // Its own record to read back, whichever test ran first.
+  const stored = (await (
+    await post({ resolution: 'Read-gate fixture' })
+  ).json()) as { id: string };
+  createdIds.push(stored.id);
   const tooLong = await post({ resolution: 'x'.repeat(501) });
   expect(tooLong.status).toBe(400);
   expect(
@@ -100,14 +95,14 @@ test('proof vertical rejects invalid, cross-origin, and unknown requests', async
     { 'sec-fetch-site': 'cross-site' },
   ]) {
     const crossOriginRead = await GET(
-      new Request(`${origin}/api/foundation/proof?id=${createdIds[0]}`, {
+      new Request(`${origin}/api/foundation/proof?id=${stored.id}`, {
         headers,
       }),
     );
     expect(crossOriginRead.status).toBe(403);
   }
   const sameOriginRead = await GET(
-    new Request(`${origin}/api/foundation/proof?id=${createdIds[0]}`, {
+    new Request(`${origin}/api/foundation/proof?id=${stored.id}`, {
       headers: { 'sec-fetch-site': 'same-origin' },
     }),
   );
@@ -130,13 +125,12 @@ test('proof vertical rejects invalid, cross-origin, and unknown requests', async
 });
 
 afterAll(async () => {
-  const cleanup = new SQL(testDatabaseUrl);
+  const cleanup = new SQL(testDatabaseUrl as string);
   try {
     for (const id of createdIds) {
       await cleanup`DELETE FROM debates WHERE id = ${id}`;
     }
   } finally {
     await cleanup.close();
-    await closeResources();
   }
 });

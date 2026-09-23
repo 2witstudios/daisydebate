@@ -1,6 +1,7 @@
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { fixedClock, systemId } from '@daisy/clock';
+import { readAuthConfig } from '@daisy/config';
 import type { Logger } from '@daisy/logger';
 import {
   createAuthServer,
@@ -8,6 +9,7 @@ import {
 } from '../src/features/auth/server';
 import { createConfirmHandlers } from '../src/features/auth/confirm';
 import type { RecordedLogs } from '../src/features/auth/log-leaks';
+import { silentLogger } from '../src/server/test-loggers.test-support';
 
 /** Shared fixtures for the isolated Better Auth persistence suites. */
 
@@ -68,6 +70,7 @@ export const redeemMagicLink = (
 ) =>
   createConfirmHandlers({
     auth: () => ({ handler: auth.instance.handler, config: auth.config }),
+    logger: silentLogger,
   }).POST(
     new Request(`${auth.config.PUBLIC_APP_URL}/auth/confirm`, {
       method: 'POST',
@@ -99,7 +102,7 @@ export const createTestAuthServer = (
   },
 ) =>
   createAuthServer({
-    env: integrationEnv,
+    config: readAuthConfig(integrationEnv),
     database,
     emailSender: {
       send: async (message) => {

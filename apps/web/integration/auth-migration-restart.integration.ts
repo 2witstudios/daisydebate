@@ -1,8 +1,12 @@
 import { afterAll, expect, test } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
 import type { Identity } from '@daisy/auth';
+import { systemClock, systemId } from '@daisy/clock';
 import { createPasskeyFlows } from './auth-passkey-flows';
 import { testDatabaseUrl, withSql } from './auth-mounted-helpers';
+import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+import { identify } from '../src/lib/identity';
+import { createApp } from '../src/server/app';
 
 /**
  * AUTH-6.2: proves a running app survives a migration re-application and a
@@ -77,18 +81,23 @@ test('a migration re-application and a resource restart preserve a live session,
   });
   expect(migrated.exitCode).toBe(0);
 
-  // "Application restart": drop the process-wide connection pools and the
-  // cached Better Auth instance built on top of them, so the next call
-  // rebuilds everything from scratch, exactly as a fresh process would.
-  const { closeResources, getResources } =
-    await import('../src/server/resources');
-  await closeResources();
-  const state = globalThis as Record<string, unknown>;
-  for (const key of ['daisyResources', 'daisyAuth', 'daisyMailWebhook'])
-    Reflect.deleteProperty(state, key);
-  getResources();
+  // "Application restart": close the running app's pools, then build a new
+  // app from the same environment and read the session through it, exactly
+  // as a fresh process would.
+  const { testApp } = flows.account.flows;
+  await testApp.app.close();
+  const restarted = createApp({
+    env: testApp.env,
+    fetch: testApp.mailbox.fetch,
+    clock: systemClock,
+    ids: systemId,
+  });
+  afterAll(() => restarted.close());
 
-  const after = await identifyAs(cookie);
+  const after = await identify(
+    restarted.auth(),
+    new Headers({ cookie, [CLIENT_IP_HEADER]: testApp.newClient() }),
+  );
   const afterPasskeys = await passkeyCount(userId);
   const afterOwner = await debateOwner(debateId);
 

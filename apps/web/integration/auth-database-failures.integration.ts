@@ -165,10 +165,10 @@ test('a persistence failure inside Better Auth leaks no SQL, parameters, token o
     // The mounted route (handlers.ts), not the raw composed instance: that
     // is what a real client reaches, and it is the layer that converts the
     // now-thrown INFRASTRUCTURE failure into a safe, bodiless public error.
-    const handlers = createAuthRouteHandlers(() => ({
-      handler: auth.instance.handler,
-      config: auth.config,
-    }));
+    const handlers = createAuthRouteHandlers(
+      () => ({ handler: auth.instance.handler, config: auth.config }),
+      auth.logger,
+    );
     const response = await handlers.POST(
       new Request(`${auth.config.PUBLIC_APP_URL}/api/auth/sign-in/magic-link`, {
         method: 'POST',

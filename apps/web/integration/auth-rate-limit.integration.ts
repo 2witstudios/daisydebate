@@ -1,30 +1,16 @@
 import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  clearRedisNamespace,
-  configureAppEnvironment,
-  fixtureEmail,
-  installMailbox,
-  jsonPost,
-  newClient,
-  origin,
-  redisKeys,
-  redisNamespace,
-} from './auth-mounted-helpers';
-import {
-  closeExtraInstances,
-  secondInstance,
-  statuses,
-} from './auth-rate-limit-helpers';
+import { createTestApp, fixtureEmail, origin } from './auth-mounted-helpers';
+import { createSecondInstances, statuses } from './auth-rate-limit-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 
 if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
   throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
 setupRitewayBun();
-configureAppEnvironment();
-
-const mailbox = installMailbox();
-const authRoute = await import('../src/app/api/auth/[...all]/route');
+const testApp = createTestApp();
+const { mailbox, jsonPost, newClient, redisKeys, redisNamespace } = testApp;
+const authRoute = testApp.routes.auth;
+const { secondInstance, closeExtraInstances } = createSecondInstances(testApp);
 
 const magicLink = (
   headers: Record<string, string> = {},
@@ -34,7 +20,6 @@ const magicLink = (
 
 afterAll(async () => {
   await closeExtraInstances();
-  await clearRedisNamespace();
 });
 
 describe('AUTH-3.4 shared atomic rate limits through the mounted handler', () => {
@@ -132,10 +117,32 @@ describe('AUTH-3.4 shared atomic rate limits through the mounted handler', () =>
   });
 
   test('keys are hashed, namespaced and always expiring', async () => {
+    // Its own writes: a magic-link request fills the client, recipient and
+    // global buckets; a session read fills the default bucket.
+    const client = newClient();
+    const email = fixtureEmail();
+    await magicLink({ [CLIENT_IP_HEADER]: client }, email);
+    await authRoute.GET(
+      new Request(`${origin}/api/auth/get-session`, {
+        headers: { [CLIENT_IP_HEADER]: client },
+      }),
+    );
     const keys = await redisKeys();
     const pattern = new RegExp(`^${redisNamespace}:v1:rl:[0-9a-f]{64}$`);
+    const [first = '', second = ''] = client.split('.');
+    const identifiers = new RegExp(
+      [
+        `${first}\\.${second}`,
+        email.replace(/[.]/g, '\\.'),
+        'example\\.test',
+        'sign-in',
+        'magic-link',
+        'session',
+      ].join('|'),
+    );
     assert({
-      given: 'every rate-limit key written by the runs above',
+      given:
+        'every rate-limit key this suite wrote, including its own requests',
       should:
         // The recipient and global tables above include 60 s, 1 h and 1 day
         // windows; a day is the longest TTL any bucket can carry.
@@ -143,9 +150,7 @@ describe('AUTH-3.4 shared atomic rate limits through the mounted handler', () =>
       actual: {
         any: keys.length > 0,
         allMatch: keys.every(({ key }) => pattern.test(key)),
-        leaksIdentifier: keys.some(({ key }) =>
-          /198\.51|example\.test|sign-in|magic-link|session/.test(key),
-        ),
+        leaksIdentifier: keys.some(({ key }) => identifiers.test(key)),
         allExpire: keys.every(({ ttlMs }) => ttlMs > 0 && ttlMs <= 86_400_000),
       },
       expected: {

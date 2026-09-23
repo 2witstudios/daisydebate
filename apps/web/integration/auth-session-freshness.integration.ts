@@ -1,6 +1,6 @@
 import { setupRitewayBun, assert, describe, test } from 'riteway/bun';
 import { createPasskeyFlows } from './auth-passkey-flows';
-import { newClient, origin, withSql } from './auth-mounted-helpers';
+import { origin, withSql } from './auth-mounted-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 
 /**
@@ -15,6 +15,7 @@ setupRitewayBun();
 const flows = await createPasskeyFlows();
 const { signUp } = flows.account;
 const { authRoute } = flows;
+const { newClient } = flows.account.flows;
 
 /** Reads the current session with cookie caching disabled, as production does. */
 const protectedRead = (cookie: string) =>

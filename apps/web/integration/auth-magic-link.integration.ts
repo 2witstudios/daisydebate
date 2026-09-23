@@ -1,20 +1,14 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createFlows, tokenOf } from './auth-mounted-flows';
-import {
-  counts,
-  formPost,
-  newClient,
-  origin,
-  withSql,
-} from './auth-mounted-helpers';
+import { counts, origin, withSql } from './auth-mounted-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 
 if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
   throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
 setupRitewayBun();
-const flows = await createFlows();
+const flows = createFlows();
 const { requestLink, redeem, confirmGet, confirmRoute, startSignup } = flows;
-const { mailbox } = flows;
+const { mailbox, newClient, formPost } = flows;
 
 describe('AUTH-3.3 magic link request through the mounted handler', () => {
   test('a new email gets an account-neutral answer and exactly one /auth/confirm link', async () => {

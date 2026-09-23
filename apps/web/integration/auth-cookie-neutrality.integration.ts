@@ -1,12 +1,9 @@
-import { afterAll, beforeAll } from 'bun:test';
+import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
-  clearRedisNamespace,
-  configureAppEnvironment,
+  createTestApp,
   fixtureEmail,
-  installMailbox,
   linkFrom,
-  newClient,
   removeAccount,
 } from './auth-mounted-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
@@ -14,42 +11,18 @@ import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
   throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
 setupRitewayBun();
-// Registers the shared reset hook first; the https override below runs after it.
-configureAppEnvironment();
 
+// This suite's own app, served under an https public origin.
 const httpsOrigin = 'https://daisy.example.com';
-const mailbox = installMailbox();
-const emails: string[] = [];
-const cachedKeys = ['daisyResources', 'daisyAuth', 'daisyMailWebhook'];
-
-/** Drops the process-wide compositions so the next request rebuilds them. */
-async function resetCaches() {
-  const state = globalThis as Record<string, unknown>;
-  const resources = state.daisyResources as
-    | { database: { close: () => Promise<void> }; redis: { close: () => void } }
-    | undefined;
-  await Promise.allSettled([
-    resources?.database.close(),
-    Promise.resolve().then(() => resources?.redis.close()),
-  ]);
-  for (const key of cachedKeys) delete state[key];
-}
-
-let authRoute: typeof import('../src/app/api/auth/[...all]/route');
-let confirmRoute: typeof import('../src/app/auth/confirm/route');
-
-beforeAll(async () => {
-  await resetCaches();
-  process.env.PUBLIC_APP_URL = httpsOrigin;
-  authRoute = await import('../src/app/api/auth/[...all]/route');
-  confirmRoute = await import('../src/app/auth/confirm/route');
+const { routes, mailbox, newClient } = createTestApp({
+  PUBLIC_APP_URL: httpsOrigin,
 });
+const authRoute = routes.auth;
+const confirmRoute = routes.confirm;
+const emails: string[] = [];
 
 afterAll(async () => {
   for (const email of emails) await removeAccount(email);
-  await clearRedisNamespace();
-  await resetCaches();
-  process.env.PUBLIC_APP_URL = 'http://localhost:3000';
 });
 
 const fresh = () => {

@@ -1,5 +1,5 @@
 import { createAccountFlows } from './auth-account-helpers';
-import { cookieHeader, newClient, origin } from './auth-mounted-helpers';
+import { cookieHeader, origin } from './auth-mounted-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import {
   buildAuthenticationResponse,
@@ -22,8 +22,8 @@ const mergeCookies = (...parts: readonly string[]): string =>
  * `@simplewebauthn/server` calls the passkey plugin makes.
  */
 export async function createPasskeyFlows() {
-  const account = await createAccountFlows();
-  const { authRoute } = account.flows;
+  const account = createAccountFlows();
+  const { authRoute, newClient } = account.flows;
 
   const get = (path: string, cookie?: string) =>
     authRoute.GET(

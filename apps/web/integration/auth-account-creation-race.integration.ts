@@ -5,7 +5,7 @@ import { counts } from './auth-mounted-helpers';
 if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
   throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
 setupRitewayBun();
-const { requestLink, redeem, fresh } = await createFlows();
+const { requestLink, redeem, fresh } = createFlows();
 
 describe('AUTH-6.3 concurrent account creation', () => {
   test('two brand-new tokens for the same never-before-seen email create exactly one user account', async () => {

@@ -5,10 +5,8 @@ import { createPasskeyFlows } from './auth-passkey-flows';
 import { withOutboxInsertBlockedForTopic } from './auth-helpers';
 import {
   cookieHeader,
-  newClient,
   origin,
   testDatabaseUrl,
-  withLoggedEvents,
   withSql,
   type CapturedMail,
 } from './auth-mounted-helpers';
@@ -32,7 +30,9 @@ if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
 setupRitewayBun();
 
 const flows = await createPasskeyFlows();
-const confirmEmailRoute = await import('../src/app/auth/confirm-email/route');
+const { newClient } = flows.account.flows;
+const { withLoggedEvents } = flows.account.flows.testApp;
+const confirmEmailRoute = flows.account.flows.testApp.routes.confirmEmail;
 
 const linkFrom = (mail: CapturedMail): URL => {
   const found = mail.text.match(/https?:\/\/\S+/)?.[0];

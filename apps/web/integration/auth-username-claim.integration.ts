@@ -4,14 +4,14 @@ import {
   uniqueName,
   usernameOf,
 } from './auth-account-helpers';
-import { newClient, origin, withSql } from './auth-mounted-helpers';
+import { origin, withSql } from './auth-mounted-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 
 if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
   throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
 setupRitewayBun();
-const { flows, signUp, claim } = await createAccountFlows();
-const { authRoute } = flows;
+const { flows, signUp, claim } = createAccountFlows();
+const { authRoute, newClient } = flows;
 
 describe('AUTH-4.2 username claim', () => {
   test('concurrent claims of one name: exactly one 201, all others 409, losers unchanged', async () => {
