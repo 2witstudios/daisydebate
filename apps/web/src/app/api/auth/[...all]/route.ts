@@ -1,15 +1,10 @@
-import { createAuthRouteHandlers } from '../../../../features/auth/handlers';
-import { getAuth } from '../../../../lib/auth';
+import { processRoute } from '../../../../server/process-app';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const handlers = createAuthRouteHandlers(() => {
-  const { instance, config } = getAuth();
-  return { handler: instance.handler, config };
-});
-export const GET = handlers.GET;
-export const POST = handlers.POST;
-export const PATCH = handlers.PATCH;
-export const PUT = handlers.PUT;
-export const DELETE = handlers.DELETE;
+export const GET = processRoute((routes) => routes.auth.GET);
+export const POST = processRoute((routes) => routes.auth.POST);
+export const PATCH = processRoute((routes) => routes.auth.PATCH);
+export const PUT = processRoute((routes) => routes.auth.PUT);
+export const DELETE = processRoute((routes) => routes.auth.DELETE);

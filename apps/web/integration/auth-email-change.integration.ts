@@ -4,7 +4,6 @@ import { createId } from '@paralleldrive/cuid2';
 import { createPasskeyFlows } from './auth-passkey-flows';
 import {
   cookieHeader,
-  newClient,
   origin,
   withSql,
   type CapturedMail,
@@ -32,7 +31,8 @@ const trackedCreateActorFor = async (userId: string): Promise<string> => {
 };
 
 const flows = await createPasskeyFlows();
-const confirmEmailRoute = await import('../src/app/auth/confirm-email/route');
+const { newClient } = flows.account.flows;
+const confirmEmailRoute = flows.account.flows.testApp.routes.confirmEmail;
 
 const backdateSession = (token: string, hoursAgo: number) =>
   withSql(
@@ -97,25 +97,10 @@ afterAll(async () => {
   await cleanupSuiteUsers();
 });
 
-/** Swaps the shared logger for a recorder for the duration of `work` (AUTH-6.4). */
+/** The event names this suite's app logged while `work` ran (AUTH-6.4). */
 async function recordedEvents(work: () => Promise<void>): Promise<string[]> {
-  const resources = flows.account.flows.getResources();
-  const events: string[] = [];
-  const original = resources.logger;
-  resources.logger = {
-    log: (event: string) => {
-      events.push(event);
-    },
-    child() {
-      return this;
-    },
-  };
-  try {
-    await work();
-  } finally {
-    resources.logger = original;
-  }
-  return events;
+  const { events } = await flows.account.flows.testApp.withLoggedEvents(work);
+  return [...events];
 }
 
 describe('AUTH-5.6 change the recovery email', () => {

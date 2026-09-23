@@ -1,64 +1,31 @@
 import { afterAll } from 'bun:test';
-import { createHash } from 'node:crypto';
-import { RedisClient } from 'bun';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  clearRedisNamespace,
-  configureAppEnvironment,
-  fixtureEmail,
-  installMailbox,
-  jsonPost,
-  newClient,
-  redisNamespace,
-  testRedisUrl,
-} from './auth-mounted-helpers';
-import {
-  closeExtraInstances,
-  secondInstance,
-  statuses,
-} from './auth-rate-limit-helpers';
+import { createTestApp, fixtureEmail } from './auth-mounted-helpers';
+import { createSecondInstances, statuses } from './auth-rate-limit-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 
 if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
   throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
 setupRitewayBun();
-configureAppEnvironment();
 
-const mailbox = installMailbox();
-const authRoute = await import('../src/app/api/auth/[...all]/route');
+// Each ceiling gets its own app, so each starts from empty buckets: the
+// global ceiling is application-wide, and ten admitted hour-ceiling requests
+// would otherwise count against it in whichever order the tests run.
+const hourApp = createTestApp();
+const { secondInstance, closeExtraInstances } = createSecondInstances(hourApp);
+const globalApp = createTestApp();
 
 const magicLink = (
   headers: Record<string, string> = {},
   email = fixtureEmail(),
 ) =>
-  authRoute.POST(jsonPost('/api/auth/sign-in/magic-link', { email }, headers));
+  globalApp.routes.auth.POST(
+    globalApp.jsonPost('/api/auth/sign-in/magic-link', { email }, headers),
+  );
 
 afterAll(async () => {
   await closeExtraInstances();
-  await clearRedisNamespace();
 });
-
-// auth-rate-limit.integration.ts's earlier tests each pass a few requests
-// through the real, shared global magic-link buckets before their own
-// client or recipient bucket denies the rest — realistic, since the
-// counter genuinely is shared application-wide. Clearing exactly these two
-// keys (the same sha3-256 digest `createAuthRateLimiter` sends to Redis)
-// before the global-ceiling test below isolates it from that leftover,
-// without touching any other test's already-asserted key.
-async function clearGlobalMagicLinkBuckets() {
-  const client = new RedisClient(testRedisUrl as string);
-  try {
-    for (const logicalKey of [
-      'auth:magic-link:global:60',
-      'auth:magic-link:global:86400',
-    ])
-      await client.del(
-        `${redisNamespace}:v1:rl:${createHash('sha3-256').update(logicalKey).digest('hex')}`,
-      );
-  } finally {
-    client.close();
-  }
-}
 
 describe('ISSUE-5 AC4 per-recipient and global mail-volume ceilings', () => {
   test('one recipient across many clients exceeds the hour ceiling once the minute window is out of the way', async () => {
@@ -99,10 +66,10 @@ describe('ISSUE-5 AC4 per-recipient and global mail-volume ceilings', () => {
     for (let index = 0; index < 11; index += 1)
       responses.push(
         await server.handlers.POST(
-          jsonPost(
+          hourApp.jsonPost(
             '/api/auth/sign-in/magic-link',
             { email },
-            { [CLIENT_IP_HEADER]: newClient() },
+            { [CLIENT_IP_HEADER]: hourApp.newClient() },
           ),
         ),
       );
@@ -117,11 +84,13 @@ describe('ISSUE-5 AC4 per-recipient and global mail-volume ceilings', () => {
   });
 
   test('the global per-minute ceiling denies once 120 distinct recipients have sent this minute', async () => {
-    await clearGlobalMagicLinkBuckets();
-    const before = mailbox.mails.length;
+    const before = globalApp.mailbox.mails.length;
     const responses = await Promise.all(
       Array.from({ length: 121 }, () =>
-        magicLink({ [CLIENT_IP_HEADER]: newClient() }, fixtureEmail()),
+        magicLink(
+          { [CLIENT_IP_HEADER]: globalApp.newClient() },
+          fixtureEmail(),
+        ),
       ),
     );
     assert({
@@ -131,7 +100,7 @@ describe('ISSUE-5 AC4 per-recipient and global mail-volume ceilings', () => {
         'admit exactly 120 (the global per-minute ceiling) and deny the rest, independent of any single client or recipient bucket',
       actual: {
         tally: statuses(responses),
-        mails: mailbox.mails.length - before,
+        mails: globalApp.mailbox.mails.length - before,
       },
       expected: { tally: { 200: 120, 429: 1 }, mails: 120 },
     });

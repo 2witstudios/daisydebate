@@ -1,7 +1,12 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError, isAppError } from '@daisy/errors';
 import { fixedClock } from '@daisy/clock';
-import { readServerConfig } from '@daisy/config';
+import {
+  createProofDebate,
+  getProofDebate,
+  proofPrincipal,
+  type ProofDependencies,
+} from './operations';
 
 setupRitewayBun();
 
@@ -30,24 +35,14 @@ const primitives = {
   ids: { next: () => 'd5e8f2a4c6b1k3m7n9p2r4t6' },
 };
 
-// Seed process-local resources before touching operations so this test never
-// constructs real database or Redis clients.
-Reflect.set(globalThis, 'daisyResources', {
-  config: readServerConfig({
-    NODE_ENV: 'test',
-    FOUNDATION_PROOF_ENABLED: 'true',
-    DATABASE_URL: 'postgres://unit:unit@localhost:5432/unit',
-    REDIS_URL: 'redis://localhost:6379',
-    REDIS_NAMESPACE: 'test',
-    PUBLIC_APP_URL: 'http://localhost:3000',
-    APP_VERSION: 'test',
-    GIT_COMMIT: 'test',
-  }),
-  database,
-});
-
-const { createProofDebate, getProofDebate, proofPrincipal } =
-  await import('./operations');
+// The fake answers loosely shaped rows; the operations read only what they use.
+const asDatabase = (fake: object) =>
+  fake as unknown as ProofDependencies['database'];
+const dependencies: ProofDependencies = {
+  enabled: true,
+  database: asDatabase(database),
+  ...primitives,
+};
 
 const capture = async (operation: Promise<unknown>): Promise<unknown> => {
   try {
@@ -69,7 +64,7 @@ describe('foundation operation error mapping', () => {
     const caught = await capture(
       createProofDebate(
         { resolution: 'A representative resolution' },
-        primitives,
+        dependencies,
       ),
     );
     assert({
@@ -85,7 +80,7 @@ describe('foundation operation error mapping', () => {
     const caught = await capture(
       createProofDebate(
         { resolution: 'A representative resolution' },
-        primitives,
+        dependencies,
       ),
     );
     assert({
@@ -106,7 +101,7 @@ describe('foundation operation identity', () => {
     };
     const snapshot = await createProofDebate(
       { resolution: 'A representative resolution' },
-      primitives,
+      dependencies,
     );
     assert({
       given: 'injected identity and timestamp',
@@ -129,7 +124,7 @@ describe('foundation debate retrieval', () => {
   test('restores the stored snapshot for a stored debate', async () => {
     const stored = await createProofDebate(
       { resolution: 'A representative resolution' },
-      primitives,
+      dependencies,
     );
     database.getDebate = () =>
       Promise.resolve({
@@ -148,7 +143,7 @@ describe('foundation debate retrieval', () => {
         completedAt: null,
         outcome: null,
       });
-    const restored = await getProofDebate(stored.id);
+    const restored = await getProofDebate(stored.id, dependencies);
 
     assert({
       given: 'a stored debate snapshot',
@@ -160,7 +155,9 @@ describe('foundation debate retrieval', () => {
 
   test('answers a missing debate with NOT_FOUND', async () => {
     database.getDebate = () => Promise.resolve(undefined);
-    const caught = await capture(getProofDebate('z9x7v5t3r1p8n6m4k2b5d7f1'));
+    const caught = await capture(
+      getProofDebate('z9x7v5t3r1p8n6m4k2b5d7f1', dependencies),
+    );
 
     assert({
       given: 'a debate id matching no stored record',
@@ -177,7 +174,7 @@ describe('foundation debate retrieval', () => {
       return Promise.resolve(undefined);
     };
     const caught = await capture(
-      getProofDebate('z9x7v5t3r1p8n6m4k2b5d7f1', {
+      getProofDebate('z9x7v5t3r1p8n6m4k2b5d7f1', dependencies, {
         kind: 'service',
         serviceId: 'create-only',
         permissions: ['debate:create'],
@@ -202,7 +199,7 @@ describe('foundation debate retrieval', () => {
       return Promise.resolve(undefined);
     };
     const caught = await capture(
-      getProofDebate('z9x7v5t3r1p8n6m4k2b5d7f1', {
+      getProofDebate('z9x7v5t3r1p8n6m4k2b5d7f1', dependencies, {
         kind: 'service',
         serviceId: 'read-only',
         permissions: ['debate:read'],
@@ -231,7 +228,7 @@ describe('foundation debate creation gate', () => {
     const caught = await capture(
       createProofDebate(
         { resolution: 'A representative resolution' },
-        primitives,
+        dependencies,
         {
           kind: 'service',
           serviceId: 'read-only',
@@ -248,6 +245,47 @@ describe('foundation debate creation gate', () => {
         writes,
       },
       expected: { code: 'AUTHORIZATION', writes: 0 },
+    });
+  });
+});
+
+describe('foundation proof gate', () => {
+  test('answers NOT_FOUND for both operations when the injected flag is off', async () => {
+    let touched = 0;
+    const count = () => {
+      touched += 1;
+      return Promise.resolve(undefined);
+    };
+    const disabled = {
+      ...dependencies,
+      enabled: false,
+      database: asDatabase({
+        getFormat: () => count().then(() => foundationFormat),
+        createDebate: () => count(),
+        getDebate: () => count(),
+      }),
+    };
+    const created = await capture(
+      createProofDebate(
+        { resolution: 'A representative resolution' },
+        disabled,
+      ),
+    );
+    const read = await capture(
+      getProofDebate('z9x7v5t3r1p8n6m4k2b5d7f1', disabled),
+    );
+
+    assert({
+      given: 'dependencies whose validated proof flag is off',
+      should:
+        'refuse create and read with NOT_FOUND before any database access',
+      actual: {
+        codes: [created, read].map((caught) =>
+          isAppError(caught) ? caught.code : 'not-an-app-error',
+        ),
+        touched,
+      },
+      expected: { codes: ['NOT_FOUND', 'NOT_FOUND'], touched: 0 },
     });
   });
 });

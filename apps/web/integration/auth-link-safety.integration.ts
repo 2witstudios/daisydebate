@@ -1,35 +1,18 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createFlows } from './auth-mounted-flows';
-import {
-  cookieHeader,
-  newClient,
-  counts,
-  formPost,
-  jsonPost,
-} from './auth-mounted-helpers';
+import { cookieHeader, counts } from './auth-mounted-helpers';
 
 if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
   throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
 setupRitewayBun();
-const flows = await createFlows();
+const flows = createFlows();
 const { authRoute, confirmRoute, fresh, mailbox, redeem, startSignup } = flows;
+const { newClient, jsonPost, formPost } = flows;
 
-/** Swaps the shared logger for a recorder for the duration of `work`. */
+/** Everything this suite's app logged while `work` ran, serialized. */
 async function recordingLogs(work: () => Promise<void>) {
-  const resources = flows.getResources();
-  const logged: unknown[] = [];
-  const original = resources.logger;
-  const capture = {
-    log: (...entry: unknown[]) => logged.push(entry),
-    child: () => capture,
-  };
-  resources.logger = capture;
-  try {
-    await work();
-  } finally {
-    resources.logger = original;
-  }
-  return JSON.stringify(logged);
+  const { records } = await flows.testApp.recordLogs(work);
+  return JSON.stringify(records);
 }
 
 describe('AUTH-3.2 / AUTH-3.5 origin and destination safety', () => {

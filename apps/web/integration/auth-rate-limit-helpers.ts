@@ -1,10 +1,11 @@
 import { systemClock, systemId } from '@daisy/clock';
+import { readAuthConfig } from '@daisy/config';
 import { createDatabase } from '@daisy/db';
 import { createRedis } from '@daisy/redis';
 import {
-  redisNamespace,
   testDatabaseUrl,
   testRedisUrl,
+  type TestApp,
 } from './auth-mounted-helpers';
 import { createAuthRouteHandlers } from '../src/features/auth/handlers';
 import { createAuthRateLimiter } from '../src/features/auth/redis-limiter';
@@ -19,55 +20,61 @@ export const statuses = (responses: Response[]) =>
     return tally;
   }, {});
 
-const extraInstances: Array<() => Promise<void>> = [];
-export const closeExtraInstances = async () => {
-  for (const close of extraInstances.splice(0)) await close();
-};
-
-/** A second application instance: its own SQL pool, Redis connection and auth. */
-export function secondInstance(
-  overrides: {
-    redisUrl?: string;
-    limiter?: (
-      base: ReturnType<typeof createAuthRateLimiter>,
-    ) => Parameters<typeof createAuthServer>[0]['limiter'];
-  } = {},
-) {
-  const database = createDatabase({
-    url: testDatabaseUrl as string,
-    nextActorId: () => systemId.next(),
-  });
-  const redis = createRedis({
-    url: overrides.redisUrl ?? (testRedisUrl as string),
-    namespace: redisNamespace,
-  });
-  const base = createAuthRateLimiter(redis);
-  const sent: string[] = [];
-  const server = createAuthServer({
-    env: process.env as Record<string, string | undefined>,
-    database: database.authAdapter,
-    emailSender: {
-      send: async (message) => {
-        sent.push(message.to);
+/**
+ * Second application instances beside a suite's own app: each has its own
+ * SQL pool, Redis connection and auth, sharing the suite's configuration
+ * and Redis namespace (the shared limiter state under test).
+ */
+export function createSecondInstances(testApp: TestApp) {
+  const extraInstances: Array<() => Promise<void>> = [];
+  const secondInstance = (
+    overrides: {
+      redisUrl?: string;
+      limiter?: (
+        base: ReturnType<typeof createAuthRateLimiter>,
+      ) => Parameters<typeof createAuthServer>[0]['limiter'];
+    } = {},
+  ) => {
+    const database = createDatabase({
+      url: testDatabaseUrl as string,
+      nextActorId: () => systemId.next(),
+    });
+    const redis = createRedis({
+      url: overrides.redisUrl ?? (testRedisUrl as string),
+      namespace: testApp.redisNamespace,
+    });
+    const base = createAuthRateLimiter(redis);
+    const sent: string[] = [];
+    const server = createAuthServer({
+      config: readAuthConfig(testApp.env),
+      database: database.authAdapter,
+      emailSender: {
+        send: async (message) => {
+          sent.push(message.to);
+        },
       },
-    },
-    limiter: overrides.limiter ? overrides.limiter(base) : base,
-    ledger: noLedger,
-    appendSessionRevoked: async () => {},
-    revokeOtherSessions: async () => 0,
-    logger: silentLogger,
-    clock: systemClock,
-    ids: systemId,
-  });
-  extraInstances.push(async () => {
-    await database.close();
-    redis.close();
-  });
-  return {
-    sent,
-    handlers: createAuthRouteHandlers(() => ({
-      handler: server.instance.handler,
-      config: server.config,
-    })),
+      limiter: overrides.limiter ? overrides.limiter(base) : base,
+      ledger: noLedger,
+      appendSessionRevoked: async () => {},
+      revokeOtherSessions: async () => 0,
+      logger: silentLogger,
+      clock: systemClock,
+      ids: systemId,
+    });
+    extraInstances.push(async () => {
+      await database.close();
+      redis.close();
+    });
+    return {
+      sent,
+      handlers: createAuthRouteHandlers(
+        () => ({ handler: server.instance.handler, config: server.config }),
+        silentLogger,
+      ),
+    };
   };
+  const closeExtraInstances = async () => {
+    for (const close of extraInstances.splice(0)) await close();
+  };
+  return { secondInstance, closeExtraInstances };
 }

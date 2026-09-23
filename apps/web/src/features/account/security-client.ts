@@ -86,14 +86,18 @@ async function safely<T>(
 /** The `/api/account/sessions*` error body's shape (server/http.ts's toPublicError). */
 type PublicErrorBody = { readonly error?: { readonly code?: string } };
 
+/** How the client reaches Daisy's own routes: the browser's `fetch` by default. */
+export type Send = (input: string, init?: RequestInit) => Promise<Response>;
+
 /** Fetches a Daisy JSON route, mapping any non-2xx or network failure to a `ClientError`. */
 async function fetchJson<T>(
+  send: Send,
   input: string,
   init?: RequestInit,
 ): Promise<{ readonly data: T | null; readonly error: ClientError }> {
   let response: Response;
   try {
-    response = await fetch(input, init);
+    response = await send(input, init);
   } catch {
     return UNAVAILABLE;
   }
@@ -107,13 +111,17 @@ async function fetchJson<T>(
   return { data: (await response.json()) as T, error: null };
 }
 
-const listSessions = () =>
+const listSessions = (send: Send) =>
   fetchJson<{ readonly sessions: readonly SessionRow[] }>(
+    send,
     '/api/account/sessions',
   );
 
 /** Loads both lists in parallel; a failed side reports an empty list. */
-export async function loadSecurityOverview(client: SecurityClient): Promise<{
+export async function loadSecurityOverview(
+  client: SecurityClient,
+  send: Send = fetch,
+): Promise<{
   readonly passkeys: readonly PasskeyRow[];
   readonly sessions: readonly SessionRow[];
   readonly passkeysOutcome: SecurityOutcome;
@@ -121,7 +129,7 @@ export async function loadSecurityOverview(client: SecurityClient): Promise<{
 }> {
   const [passkeys, sessions] = await Promise.all([
     safely(() => client.passkey.listUserPasskeys()),
-    listSessions(),
+    listSessions(send),
   ]);
   return {
     passkeys: passkeys.data ?? [],
@@ -146,10 +154,13 @@ export const removePasskey = async (
 ): Promise<SecurityOutcome> =>
   outcomeFor((await safely(() => client.passkey.deletePasskey({ id }))).error);
 
-export const revokeSession = async (id: string): Promise<SecurityOutcome> =>
+export const revokeSession = async (
+  id: string,
+  send: Send = fetch,
+): Promise<SecurityOutcome> =>
   outcomeFor(
     (
-      await fetchJson('/api/account/sessions/revoke', {
+      await fetchJson(send, '/api/account/sessions/revoke', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ id }),

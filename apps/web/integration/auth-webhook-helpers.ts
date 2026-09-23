@@ -2,11 +2,8 @@ import { createHmac } from 'node:crypto';
 import { afterAll } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
 import {
-  clearRedisNamespace,
-  configureAppEnvironment,
+  createTestApp,
   fixtureEmail,
-  installMailbox,
-  jsonPost,
   removeAccount,
   webhookSecret,
   withSql,
@@ -62,18 +59,15 @@ export const deliveryRow = (messageId: string) =>
   );
 
 /**
- * One mounted-route suite over real PostgreSQL/Redis with a private mailbox.
+ * One mounted-route suite (its own app) over real PostgreSQL/Redis with a
+ * private mailbox.
  * Registers its own cleanup: only records this suite created are removed.
  */
-export async function createMailSuite() {
-  configureAppEnvironment();
-  const mailbox = installMailbox();
-  const authRoute = await import('../src/app/api/auth/[...all]/route');
-  const confirmRoute = await import('../src/app/auth/confirm/route');
-  const webhookRoute = await import('../src/app/api/webhooks/resend/route');
-  const { getResources } = await import('../src/server/resources');
+export function createMailSuite() {
+  const testApp = createTestApp();
+  const { app, routes, mailbox, jsonPost, formPost } = testApp;
   const recipientSubkey = deriveRecipientSubkey(
-    process.env.BETTER_AUTH_SECRET as string,
+    app.auth().config.BETTER_AUTH_SECRET,
   );
   const emails: string[] = [];
   const messageIds: string[] = [];
@@ -84,7 +78,7 @@ export async function createMailSuite() {
   };
   const requestLink = async (email: string) => {
     const before = mailbox.mails.length;
-    const response = await authRoute.POST(
+    const response = await routes.auth.POST(
       jsonPost('/api/auth/sign-in/magic-link', { email }),
     );
     const mail = mailbox.mails[before];
@@ -101,14 +95,15 @@ export async function createMailSuite() {
         await sql`DELETE FROM email_suppression WHERE recipient_hash = ${recipientKey(recipientSubkey, email)}`;
     });
     for (const email of emails) await removeAccount(email);
-    await clearRedisNamespace();
   });
   return {
+    app,
     mailbox,
-    authRoute,
-    confirmRoute,
-    webhookRoute,
-    getResources,
+    jsonPost,
+    formPost,
+    authRoute: routes.auth,
+    confirmRoute: routes.confirm,
+    webhookRoute: routes.mailWebhook,
     recipientSubkey,
     messageIds,
     fresh,

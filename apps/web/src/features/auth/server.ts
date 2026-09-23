@@ -5,7 +5,7 @@ import { passkey } from '@better-auth/passkey';
 import { createAppError } from '@daisy/errors';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
-import { readAuthConfig, type AuthConfig } from '@daisy/config';
+import type { AuthConfig } from '@daisy/config';
 import type {
   AuthEmailMessage,
   AuthEmailSender,
@@ -232,14 +232,10 @@ const composeBetterAuth = (dependencies: {
 };
 
 /**
- * Composition of one auth instance over the existing process resources.
- * The database adapter is an opaque capability from @daisy/db — this seam
- * never opens a second SQL or Redis pool and never imports transport code.
- */
-/**
- * Only what production callers actually read off the result: `getAuth()`'s
- * routes and pages use `config`, `instance`, `limiter`, `clock` and
- * `logger`; `mail` is read by tests exercising delivery directly.
+ * Only what production callers actually read off the result: the app's
+ * routes and pages (`server/app.ts` composes it) use `config`,
+ * `instance`, `limiter`, `clock` and `logger`; `mail` is read by tests
+ * exercising delivery directly.
  * `database`, `ledger` and `ids` stay internal to composition
  * (composeBetterAuth still receives them) — nothing outside this module
  * ever reads them back off the returned server, so widening the type to
@@ -257,14 +253,15 @@ export type AuthServer = {
 };
 
 /**
- * Lazy auth factory: calling it validates configuration and composes the
- * injected dependencies; it performs no I/O and dials no service. Importing
+ * Auth factory: composes the injected, already-validated configuration and
+ * dependencies; it performs no I/O and dials no service. Importing
  * this module requires no credentials and contacts nothing.
  */
 export function createAuthServer<
   Database extends BetterAuthOptions['database'],
 >(dependencies: {
-  readonly env: Record<string, string | undefined>;
+  /** Validated by the composition root (`readAuthConfig`). */
+  readonly config: AuthConfig;
   readonly database: Database;
   readonly emailSender: AuthEmailSender;
   readonly limiter: AuthRateLimiter;
@@ -277,7 +274,7 @@ export function createAuthServer<
   readonly appendSessionRevoked: (userId: string) => Promise<void>;
   readonly revokeOtherSessions: RevokeOtherSessions;
 }): AuthServer {
-  const config = readAuthConfig(dependencies.env);
+  const { config } = dependencies;
   const recipientSubkey = deriveRecipientSubkey(config.BETTER_AUTH_SECRET);
   const ledger = dependencies.ledger ?? noLedger;
   const sendMail = async (message: AuthEmailMessage): Promise<void> => {

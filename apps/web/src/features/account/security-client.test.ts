@@ -32,7 +32,7 @@ describe('loadSecurityOverview', () => {
     ];
     const overview = await withFetch(
       () => jsonResponse({ sessions }),
-      () =>
+      (send) =>
         loadSecurityOverview(
           clientWith({
             passkey: {
@@ -41,6 +41,7 @@ describe('loadSecurityOverview', () => {
               deletePasskey: noop,
             },
           }),
+          send,
         ),
     );
     assert({
@@ -75,7 +76,7 @@ describe('loadSecurityOverview', () => {
     ];
     const overview = await withFetch(
       () => jsonResponse({ sessions }),
-      () =>
+      (send) =>
         loadSecurityOverview(
           clientWith({
             passkey: {
@@ -86,6 +87,7 @@ describe('loadSecurityOverview', () => {
               deletePasskey: noop,
             },
           }),
+          send,
         ),
     );
     assert({
@@ -114,7 +116,7 @@ describe('loadSecurityOverview', () => {
           { error: { code: 'AUTHENTICATION', message: 'x', requestId: 'r' } },
           401,
         ),
-      () => loadSecurityOverview(clientWith({})),
+      (send) => loadSecurityOverview(clientWith({}), send),
     );
     assert({
       given: 'a session route that requires fresh authentication',
@@ -209,7 +211,7 @@ describe('revokeSession and revokeOtherSessions', () => {
   test('revoking another session succeeds', async () => {
     const actual = await withFetch(
       () => jsonResponse({ status: true }),
-      () => revokeSession('other-session-id'),
+      (send) => revokeSession('other-session-id', send),
     );
     assert({
       given: 'a route that accepts the revocation',
@@ -226,7 +228,7 @@ describe('revokeSession and revokeOtherSessions', () => {
           { error: { code: 'NOT_FOUND', message: 'x', requestId: 'r' } },
           404,
         ),
-      () => revokeSession('foreign-session-id'),
+      (send) => revokeSession('foreign-session-id', send),
     );
     assert({
       given: "a route refusing another user's session id",

@@ -1,15 +1,9 @@
 import { afterAll } from 'bun:test';
 import {
-  clearRedisNamespace,
-  configureAppEnvironment,
   cookieHeader,
+  createTestApp,
   fixtureEmail,
-  formPost,
-  installMailbox,
-  jsonPost,
   linkFrom,
-  newClient,
-  origin,
   removeAccount,
   withSql,
 } from './auth-mounted-helpers';
@@ -17,15 +11,15 @@ import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 
 /**
  * Mounted-route flow harness: the REAL `/api/auth` and `/auth/confirm` route
- * modules over real PostgreSQL/Redis with only the mail transport captured.
- * Registers its own cleanup for the accounts it created.
+ * handlers of this suite's own app over real PostgreSQL/Redis with only the
+ * mail transport captured. Registers its own cleanup for the accounts it
+ * created.
  */
-export async function createFlows() {
-  configureAppEnvironment();
-  const mailbox = installMailbox();
-  const authRoute = await import('../src/app/api/auth/[...all]/route');
-  const confirmRoute = await import('../src/app/auth/confirm/route');
-  const { getResources } = await import('../src/server/resources');
+export function createFlows() {
+  const testApp = createTestApp();
+  const { routes, mailbox, jsonPost, formPost, newClient } = testApp;
+  const authRoute = routes.auth;
+  const confirmRoute = routes.confirm;
   const emails: string[] = [];
   const fresh = () => {
     const email = fixtureEmail();
@@ -34,7 +28,6 @@ export async function createFlows() {
   };
   afterAll(async () => {
     for (const email of emails) await removeAccount(email);
-    await clearRedisNamespace();
   });
   const requestLink = async (
     email: string,
@@ -65,7 +58,7 @@ export async function createFlows() {
   };
   const session = (response: Response) =>
     authRoute.GET(
-      new Request(`${origin}/api/auth/get-session`, {
+      new Request(`${testApp.origin}/api/auth/get-session`, {
         headers: {
           cookie: cookieHeader(response),
           [CLIENT_IP_HEADER]: newClient(),
@@ -73,10 +66,14 @@ export async function createFlows() {
       }),
     );
   return {
+    testApp,
+    app: testApp.app,
     mailbox,
     authRoute,
     confirmRoute,
-    getResources,
+    newClient,
+    jsonPost,
+    formPost,
     fresh,
     requestLink,
     confirmGet,

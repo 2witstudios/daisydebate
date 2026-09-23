@@ -1,13 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { seedSilentResources } from '../../server/seeded-resources.test-support';
+import { silentLogger } from '../../server/test-loggers.test-support';
+import { createConfirmEmailHandlers } from './confirm-email';
+import { SESSION_CLEANUP_FAILED_HEADER } from './revoke-others-on-verify-email';
 
 setupRitewayBun();
-
-// Seed process-local resources so handleOperation never builds real clients.
-seedSilentResources();
-const { createConfirmEmailHandlers } = await import('./confirm-email');
-const { SESSION_CLEANUP_FAILED_HEADER } =
-  await import('./revoke-others-on-verify-email');
 
 const token = 'a'.repeat(32);
 const PUBLIC_APP_URL = 'https://daisy.invalid';
@@ -21,6 +17,7 @@ const PUBLIC_APP_URL = 'https://daisy.invalid';
  */
 const handlersWith = (cleanupFailed = false) =>
   createConfirmEmailHandlers({
+    logger: silentLogger,
     auth: () => ({
       config: { PUBLIC_APP_URL },
       handler: async (request: Request) => {
@@ -56,6 +53,7 @@ const post = () =>
 describe('confirm-email: when the forwarded auth request fails', () => {
   test('renders the expired page instead of propagating the failure', async () => {
     const throwingHandlers = createConfirmEmailHandlers({
+      logger: silentLogger,
       auth: () => ({
         config: { PUBLIC_APP_URL },
         handler: async () => {

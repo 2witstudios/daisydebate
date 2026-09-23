@@ -139,13 +139,18 @@ not exist — PageSpace lost entire tiers this way. `bun evidence` (in
 - New domain behavior lands with engine tests first; new durable behavior
   lands with an integration test through the application operation, not by
   mocking the database.
-- Mounted-route auth suites (`apps/web/integration/auth-*.integration.ts`) drive
-  the real `/api/auth/[...all]`, `/auth/confirm` and `/api/webhooks/resend`
-  route modules against real PostgreSQL and Redis. Only the outbound mail
-  transport is replaced (a process-wide private mailbox that captures the
-  production Resend sender's HTTP call); tokens, users, sessions, limits and
-  cookies are all real. They share one `bun test` process, so each suite
-  rebuilds the process resources in `beforeAll`. Concurrency claims use real
+- Every `apps/web` integration suite builds its own app with `createTestApp`
+  (`apps/web/integration/auth-mounted-helpers.ts`): `createApp` over the test
+  services with its own validated environment, Redis namespace, mailbox
+  `fetch`, log output and client addresses, and the route handlers
+  `createRoutes` builds from it. Suites share one `bun test` process, so a
+  test never writes `process.env` or `globalThis` (ESLint refuses it) and
+  passes regardless of which suites ran first. Mounted-route auth suites
+  (`auth-*.integration.ts`) drive the real `/api/auth/[...all]`,
+  `/auth/confirm` and `/api/webhooks/resend` handlers against real PostgreSQL
+  and Redis. Only the outbound mail transport is replaced (the suite's
+  mailbox captures the production Resend sender's HTTP call); tokens, users,
+  sessions, limits and cookies are all real. Concurrency claims use real
   simultaneous requests, and every safeguard has a sabotage control recorded in
   the PR (remove it → the named test fails).
 - Auth work follows route gate → Principal resolution → authorization → atomic

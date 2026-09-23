@@ -1,13 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { systemClock, systemId } from '@daisy/clock';
 import { createDatabase } from '@daisy/db';
-import {
-  configureAppEnvironment,
-  fixtureEmail,
-  formPost,
-  installMailbox,
-  jsonPost,
-} from './auth-mounted-helpers';
+import { createTestApp, fixtureEmail } from './auth-mounted-helpers';
 import { createAuthRouteHandlers } from '../src/features/auth/handlers';
 import { createConfirmHandlers } from '../src/features/auth/confirm';
 import { createAuthServer } from '../src/features/auth/server';
@@ -15,8 +9,8 @@ import { createAuthServer } from '../src/features/auth/server';
 if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
   throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
 setupRitewayBun();
-configureAppEnvironment();
-installMailbox();
+const testApp = createTestApp();
+const { jsonPost, formPost } = testApp;
 
 const silent = { log: () => {}, child: () => silent };
 /** An auth server whose PostgreSQL is unreachable: persistence must fail. */
@@ -27,7 +21,7 @@ const unreachableDatabase = () => {
   });
   const sent: string[] = [];
   const server = createAuthServer({
-    env: process.env as Record<string, string | undefined>,
+    config: testApp.app.auth().config,
     database: database.authAdapter,
     emailSender: {
       send: async (message) => {
@@ -80,7 +74,7 @@ describe('AUTH-3.3 token persistence failure', () => {
     const email = fixtureEmail();
     let response: Response | undefined;
     const printed = await captureConsole(async () => {
-      response = await createAuthRouteHandlers(auth).POST(
+      response = await createAuthRouteHandlers(auth, silent).POST(
         jsonPost('/api/auth/sign-in/magic-link', { email }),
       );
     });
@@ -119,7 +113,7 @@ describe('AUTH-3.3 token persistence failure', () => {
   test('a database outage while redeeming keeps the person on a retryable confirmation page without exposing the token in a URL', async () => {
     const { auth } = unreachableDatabase();
     const token = 'abcdefghijklmnopqrstuvwxyzABCDEF';
-    const response = await createConfirmHandlers({ auth }).POST(
+    const response = await createConfirmHandlers({ auth, logger: silent }).POST(
       formPost({ token, callbackURL: '/lobby' }),
     );
     const html = await response.text();

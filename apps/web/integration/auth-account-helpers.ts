@@ -1,24 +1,21 @@
 import { createId } from '@paralleldrive/cuid2';
 import { createFlows } from './auth-mounted-flows';
-import {
-  cookieHeader,
-  jsonPost,
-  newClient,
-  withSql,
-} from './auth-mounted-helpers';
+import { cookieHeader, withSql } from './auth-mounted-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+import { identify, resolveSession } from '../src/lib/identity';
 
 /**
  * Account harness for the stage-4 suites: real sign-up through the mounted
- * request and /auth/confirm routes, and the real username claim route.
+ * request and /auth/confirm routes, and the real username claim route, all
+ * on the suite's own app.
  */
-export async function createAccountFlows() {
-  const flows = await createFlows();
-  const { identify, resolveSession } = await import('../src/lib/identity');
+export function createAccountFlows() {
+  const flows = createFlows();
+  const { app, jsonPost, newClient } = flows;
   /** A server-side session read as a page render makes it for one client. */
   const identifyAs = (cookie: string, client = newClient()) =>
-    identify(new Headers({ cookie, [CLIENT_IP_HEADER]: client }));
-  const usernameRoute = await import('../src/app/api/account/username/route');
+    identify(app.auth(), new Headers({ cookie, [CLIENT_IP_HEADER]: client }));
+  const usernameRoute = flows.testApp.routes.username;
 
   /** A brand-new account signed in through the real request → confirm path. */
   const signUp = async () => {
@@ -42,7 +39,10 @@ export async function createAccountFlows() {
     );
 
   const sessionAs = (cookie: string) =>
-    resolveSession(new Headers({ cookie, [CLIENT_IP_HEADER]: newClient() }));
+    resolveSession(
+      app.auth(),
+      new Headers({ cookie, [CLIENT_IP_HEADER]: newClient() }),
+    );
 
   return { flows, identifyAs, sessionAs, signUp, claim };
 }

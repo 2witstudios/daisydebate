@@ -5,16 +5,16 @@ import {
   uniqueName,
   usernameOf,
 } from './auth-account-helpers';
-import { newClient, redisKeys, withSql } from './auth-mounted-helpers';
+import { withSql } from './auth-mounted-helpers';
 import { decideAccess } from '../src/features/access/decision';
 import { sessionRefreshDue } from '../src/features/auth/session-policy';
 
 if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
   throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
 setupRitewayBun();
-const { flows, identifyAs, sessionAs, signUp, claim } =
-  await createAccountFlows();
-const { requestLink, redeem, session } = flows;
+const { flows, identifyAs, sessionAs, signUp, claim } = createAccountFlows();
+const { requestLink, redeem, session, newClient } = flows;
+const { redisKeys } = flows.testApp;
 const tokenOf = (link: URL) => link.searchParams.get('token') ?? '';
 
 describe('AUTH-4.4 / 4.2 sign-in loop through the real handlers', () => {

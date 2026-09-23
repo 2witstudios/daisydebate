@@ -118,6 +118,30 @@ export async function drainWithDeadline({
   clearTimeout(deadline);
 }
 
+/**
+ * A process's shutdown state over the resources it must close (a database
+ * pool, a Redis client): readiness reports draining from `drain()` on, and
+ * `close()` drains, then closes every resource once without rejecting, so
+ * one failed close never leaves another open.
+ */
+export function createDrainState(
+  closers: ReadonlyArray<{ readonly close: () => unknown }>,
+) {
+  let draining = false;
+  return {
+    isDraining: () => draining,
+    drain: () => {
+      draining = true;
+    },
+    close: async () => {
+      draining = true;
+      await Promise.allSettled(
+        closers.map((closer) => Promise.resolve().then(() => closer.close())),
+      );
+    },
+  };
+}
+
 /** The subset of `process` this needs; a caller injects a fake to test wiring. */
 export type SignalTarget = { readonly once: typeof process.once };
 

@@ -1,14 +1,7 @@
 import { createServer, type IncomingMessage } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  clearRedisNamespace,
-  configureAppEnvironment,
-  fixtureEmail,
-  installMailbox,
-  origin,
-} from './auth-mounted-helpers';
+import { createTestApp, fixtureEmail, origin } from './auth-mounted-helpers';
 import {
   CLIENT_IP_HEADER,
   stampClientIdentity,
@@ -17,16 +10,9 @@ import {
 if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
   throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
 setupRitewayBun();
-configureAppEnvironment();
-
-// The ingress requests reach the production sender: keep its mail on the
-// process-wide private mailbox rather than the network.
-installMailbox();
-const authRoute = await import('../src/app/api/auth/[...all]/route');
-
-afterAll(async () => {
-  await clearRedisNamespace();
-});
+// The ingress requests reach the production sender: its mail lands on this
+// suite's private mailbox rather than the network.
+const authRoute = createTestApp().routes.auth;
 
 /** Stand-in for the deployment ingress: the same stamping start.ts performs. */
 async function ingress(trustedProxies: string[]) {

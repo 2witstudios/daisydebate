@@ -1,15 +1,14 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createAccountFlows } from './auth-account-helpers';
-import { origin } from './auth-mounted-helpers';
 
 if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
   throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
 setupRitewayBun();
 
-const { signUp } = await createAccountFlows();
-const sessionsRoute = await import('../src/app/api/account/sessions/route');
-const revokeRoute =
-  await import('../src/app/api/account/sessions/revoke/route');
+const { signUp, flows } = createAccountFlows();
+const { origin, routes } = flows.testApp;
+const sessionsRoute = routes.sessions;
+const revokeRoute = routes.revokeSession;
 
 const listSessions = (cookie: string) =>
   sessionsRoute.GET(

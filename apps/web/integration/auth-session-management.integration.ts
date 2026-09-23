@@ -1,7 +1,7 @@
 import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createPasskeyFlows } from './auth-passkey-flows';
-import { cookieHeader, newClient, origin } from './auth-mounted-helpers';
+import { cookieHeader, origin } from './auth-mounted-helpers';
 import {
   cleanupActorFor,
   cleanupOutboxFor,
@@ -33,6 +33,7 @@ afterAll(() =>
 );
 
 const flows = await createPasskeyFlows();
+const { newClient } = flows.account.flows;
 const { signUp } = flows.account;
 const { authRoute } = flows;
 
@@ -69,25 +70,10 @@ const sessionTokenOf = async (response: Response): Promise<string> =>
   ((await response.clone().json()) as { session?: { token: string } } | null)
     ?.session?.token ?? '';
 
-/** Swaps the shared logger for a recorder for the duration of `work` (AUTH-6.4). */
+/** The event names this suite's app logged while `work` ran (AUTH-6.4). */
 async function recordedEvents(work: () => Promise<void>): Promise<string[]> {
-  const resources = flows.account.flows.getResources();
-  const events: string[] = [];
-  const original = resources.logger;
-  resources.logger = {
-    log: (event: string) => {
-      events.push(event);
-    },
-    child() {
-      return this;
-    },
-  };
-  try {
-    await work();
-  } finally {
-    resources.logger = original;
-  }
-  return events;
+  const { events } = await flows.account.flows.testApp.withLoggedEvents(work);
+  return [...events];
 }
 
 const sessionUserIdOf = async (response: Response): Promise<string> =>

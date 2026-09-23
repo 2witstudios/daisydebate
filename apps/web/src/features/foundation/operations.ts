@@ -1,4 +1,5 @@
 import type { Clock, IdGenerator } from '@daisy/clock';
+import type { Database } from '@daisy/db';
 import { createAppError, isAppError } from '@daisy/errors';
 import { requirePermission, type Principal } from '@daisy/auth';
 import {
@@ -6,7 +7,6 @@ import {
   restoreDebateRuntime,
   type DebateSnapshot,
 } from '@daisy/debate-engine';
-import { getResources } from '../../server/resources';
 import { parseValidated } from '../../server/http';
 import { proofDebateIdSchema, proofDebateInputSchema } from './schemas';
 
@@ -23,9 +23,17 @@ export const proofPrincipal: Principal = Object.freeze({
 
 const proofFormat = 'foundation';
 
-function requireProofEnabled() {
-  if (!getResources().config.FOUNDATION_PROOF_ENABLED)
-    throw createAppError('NOT_FOUND');
+/** Everything the proof operations touch, injected by the composition root. */
+export type ProofDependencies = {
+  /** `FOUNDATION_PROOF_ENABLED` from validated server config. */
+  readonly enabled: boolean;
+  readonly database: Pick<Database, 'getFormat' | 'createDebate' | 'getDebate'>;
+  readonly clock: Clock;
+  readonly ids: IdGenerator;
+};
+
+function requireProofEnabled(dependencies: ProofDependencies) {
+  if (!dependencies.enabled) throw createAppError('NOT_FOUND');
 }
 
 async function withDurableContext<T>(operation: () => Promise<T>): Promise<T> {
@@ -39,21 +47,21 @@ async function withDurableContext<T>(operation: () => Promise<T>): Promise<T> {
 
 export async function createProofDebate(
   input: unknown,
-  primitives: { clock: Clock; ids: IdGenerator },
+  dependencies: ProofDependencies,
   principal: Principal = proofPrincipal,
 ): Promise<DebateSnapshot> {
-  requireProofEnabled();
+  requireProofEnabled(dependencies);
   requirePermission(principal, 'debate:create');
   const { resolution } = parseValidated(proofDebateInputSchema, input);
   // The proof runs under the canonical foundation rules, unmodified (ADR 0030).
   const format = await withDurableContext(() =>
-    getResources().database.getFormat(proofFormat),
+    dependencies.database.getFormat(proofFormat),
   );
   if (!format) throw createAppError('INFRASTRUCTURE');
   const runtime = createDebateRuntime({
-    id: primitives.ids.next(),
+    id: dependencies.ids.next(),
     resolution,
-    createdAt: primitives.clock.now(),
+    createdAt: dependencies.clock.now(),
     format: format.id,
     rules: format.rules,
   });
@@ -61,7 +69,7 @@ export async function createProofDebate(
     const snapshot = runtime.snapshot();
     return await withDurableContext(async () => {
       // A service-created proof: no author, not ranked, reachable by id only.
-      await getResources().database.createDebate({
+      await dependencies.database.createDebate({
         id: snapshot.id,
         createdBy: null,
         resolution: snapshot.resolution,
@@ -84,13 +92,14 @@ export async function createProofDebate(
  */
 export async function getProofDebate(
   id: string,
+  dependencies: ProofDependencies,
   principal: Principal = proofPrincipal,
 ): Promise<DebateSnapshot> {
-  requireProofEnabled();
+  requireProofEnabled(dependencies);
   requirePermission(principal, 'debate:read');
   const debateId = parseValidated(proofDebateIdSchema, id);
   return withDurableContext(async () => {
-    const record = await getResources().database.getDebate(debateId);
+    const record = await dependencies.database.getDebate(debateId);
     if (!record) throw createAppError('NOT_FOUND');
     const runtime = restoreDebateRuntime(record.snapshot);
     try {

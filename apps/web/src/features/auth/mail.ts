@@ -3,6 +3,12 @@ import type { AuthEmailMessage, AuthEmailSender } from './mail-types';
 
 const ENDPOINT = 'https://api.resend.com/emails';
 
+/** Outbound HTTP as the transport uses it: a request in, a response out. */
+export type Fetch = (
+  input: string | URL | Request,
+  init?: RequestInit,
+) => Promise<Response>;
+
 /** Failure carries a status class only: never the body, recipient or link. */
 class DeliveryError extends Error {
   constructor(
@@ -31,7 +37,7 @@ export function createResendSender({
   readonly apiKey: string;
   readonly from: string;
   readonly ids: IdGenerator;
-  readonly fetch?: typeof fetch;
+  readonly fetch?: Fetch;
   readonly timeoutMs?: number;
   readonly elapsed?: () => number;
 }): AuthEmailSender {

@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createFlows } from './auth-mounted-flows';
-import { counts, newClient, origin } from './auth-mounted-helpers';
+import { counts, origin } from './auth-mounted-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 
 /**
@@ -12,8 +12,8 @@ import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
   throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
 setupRitewayBun();
-const flows = await createFlows();
-const { redeem, startSignup } = flows;
+const flows = createFlows();
+const { redeem, startSignup, newClient } = flows;
 
 describe('ISSUE-3: direct GET redemption of /magic-link/verify is refused', () => {
   test('a direct GET never creates a session and leaves the token redeemable through the confirm page', async () => {

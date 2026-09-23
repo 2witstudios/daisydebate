@@ -7,7 +7,6 @@ import { createPasskeyFlows } from './auth-passkey-flows';
 import { trackedSignUp } from './auth-outbox-helpers';
 import {
   cookieHeader,
-  newClient,
   origin,
   withSql,
   type CapturedMail,
@@ -26,7 +25,8 @@ if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
 setupRitewayBun();
 
 const flows = await createPasskeyFlows();
-const confirmEmailRoute = await import('../src/app/auth/confirm-email/route');
+const { newClient } = flows.account.flows;
+const confirmEmailRoute = flows.account.flows.testApp.routes.confirmEmail;
 
 const linkFrom = (mail: CapturedMail): URL => {
   const found = mail.text.match(/https?:\/\/\S+/)?.[0];
@@ -72,7 +72,7 @@ describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () 
     const { email } = await signUp();
     const uid = (await userIdOf(email)) ?? '';
     const newEmail = `${createId()}@example.test`;
-    const secret = process.env.BETTER_AUTH_SECRET ?? '';
+    const secret = flows.account.flows.app.auth().config.BETTER_AUTH_SECRET;
     const payload = {
       email,
       updateTo: newEmail,
@@ -115,7 +115,7 @@ describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () 
     await confirmPost(tokenOf(linkFrom(confirmMail!)));
     const verifyMail = flows.account.flows.mailbox.mails[before + 1];
     const verifyToken = tokenOf(linkFrom(verifyMail!));
-    const secret = process.env.BETTER_AUTH_SECRET ?? '';
+    const secret = flows.account.flows.app.auth().config.BETTER_AUTH_SECRET;
     const payload = await verifyJWT<{ iat: number; exp: number }>(
       verifyToken,
       secret,
@@ -238,7 +238,7 @@ describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () 
 
   test('a session committed while the completion is still in flight does not survive the atomic revocation', async () => {
     const { email, cookie } = await signUp();
-    const { requestLink, redeem, getResources } = flows.account.flows;
+    const { requestLink, redeem, app } = flows.account.flows;
     const { link } = await requestLink(email);
     const concurrentToken =
       new URL(link as URL).searchParams.get('token') ?? '';
@@ -261,7 +261,7 @@ describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () 
     // `packages/db/src/index.test.ts`'s "one atomic statement" unit test,
     // which fails the moment a listing query reappears; this test proves
     // the operational behavior that atomicity buys, against real services.
-    const { database } = getResources();
+    const { database } = app;
     const realRevoke = database.revokeOtherSessions.bind(database);
     let releaseRevoke = () => {};
     const revokeMayProceed = new Promise<void>((resolve) => {

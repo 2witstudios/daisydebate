@@ -1,3 +1,4 @@
+import type { Logger } from '@daisy/logger';
 import { createAppError } from '@daisy/errors';
 import { parseUsername, type Identity } from '@daisy/auth';
 import type { UsernameClaim } from '@daisy/db';
@@ -14,6 +15,7 @@ import {
 const CLAIM_RULE = { windowSeconds: 60, max: 10 } as const;
 
 type UsernameDependencies = {
+  readonly logger: Logger;
   readonly origin: () => string;
   /** Principal resolution from the request's cookies only. */
   readonly identify: (request: Request) => Promise<Identity>;
@@ -89,21 +91,26 @@ const respond = (
  */
 export function createUsernameHandler(dependencies: UsernameDependencies) {
   return (request: Request) =>
-    handleOperation(request, 'account.username.claim', async (id) => {
-      requireSameOrigin(request, dependencies.origin());
-      const identity = await dependencies.identify(request);
-      // A session-store outage is retryable, not "your sign-in ended".
-      if (identity.state === 'unavailable')
-        throw createAppError('INFRASTRUCTURE');
-      if (identity.state === 'anonymous')
-        throw createAppError('AUTHENTICATION');
-      const { userId } = identity.principal;
-      await consumeClaimLimit(dependencies.limiter(), userId);
-      const username = await readClaimedName(request);
-      return respond(
-        await dependencies.claim({ userId, username }),
-        username,
-        id,
-      );
-    });
+    handleOperation(
+      dependencies.logger,
+      request,
+      'account.username.claim',
+      async (id) => {
+        requireSameOrigin(request, dependencies.origin());
+        const identity = await dependencies.identify(request);
+        // A session-store outage is retryable, not "your sign-in ended".
+        if (identity.state === 'unavailable')
+          throw createAppError('INFRASTRUCTURE');
+        if (identity.state === 'anonymous')
+          throw createAppError('AUTHENTICATION');
+        const { userId } = identity.principal;
+        await consumeClaimLimit(dependencies.limiter(), userId);
+        const username = await readClaimedName(request);
+        return respond(
+          await dependencies.claim({ userId, username }),
+          username,
+          id,
+        );
+      },
+    );
 }

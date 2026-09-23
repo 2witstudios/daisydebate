@@ -1,17 +1,15 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { seedSilentResources } from '../../server/seeded-resources.test-support';
+import { silentLogger } from '../../server/test-loggers.test-support';
+import { createConfirmHandlers } from './confirm';
 
 setupRitewayBun();
-
-// Seed process-local resources so handleOperation never builds real clients.
-seedSilentResources();
-const { createConfirmHandlers } = await import('./confirm');
 
 const token = 'a'.repeat(32);
 
 /** Better Auth answering a verify: an absolute redirect on the public origin. */
 const handlers = (location: string) =>
   createConfirmHandlers({
+    logger: silentLogger,
     auth: () => ({
       config: { PUBLIC_APP_URL: 'https://daisy.invalid' },
       handler: async () =>
@@ -35,6 +33,7 @@ const post = (headers: Record<string, string>) =>
 
 describe('confirm submit when the forwarded auth request fails', () => {
   const throwingHandlers = createConfirmHandlers({
+    logger: silentLogger,
     auth: () => ({
       config: { PUBLIC_APP_URL: 'https://daisy.invalid' },
       handler: async () => {

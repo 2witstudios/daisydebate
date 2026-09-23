@@ -1,10 +1,8 @@
-import { createConfirmEmailHandlers } from '../../../features/auth/confirm-email';
-import { confirmAuth } from '../../../lib/auth';
+import { processRoute } from '../../../server/process-app';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const handlers = createConfirmEmailHandlers({ auth: confirmAuth });
-export const GET = handlers.GET;
-export const HEAD = handlers.HEAD;
-export const POST = handlers.POST;
+export const GET = processRoute((routes) => routes.confirmEmail.GET);
+export const HEAD = processRoute((routes) => routes.confirmEmail.HEAD);
+export const POST = processRoute((routes) => routes.confirmEmail.POST);

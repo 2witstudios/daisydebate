@@ -57,7 +57,8 @@ const resolveSyncOrRaw = (specifier: string, from: string): string => {
 const FORBIDDEN_GRAPH_FRAGMENTS = [
   'packages/config',
   'features/auth',
-  'lib/auth.ts',
+  'server/app.ts',
+  'server/process-app.ts',
   'node_modules/better-auth/dist/index',
   'node_modules/@better-auth/passkey/dist/index',
 ];

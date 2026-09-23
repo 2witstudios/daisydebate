@@ -17,9 +17,15 @@ const MAX_FORM_BYTES = 4096;
 const tokenShape = /^[A-Za-z0-9_.-]{16,4096}$/;
 const DEFAULT_DESTINATION = '/settings/security';
 
-type ConfirmEmailDependencies = { readonly auth: ConfirmAuth };
+type ConfirmEmailDependencies = {
+  readonly auth: ConfirmAuth;
+  readonly logger: Logger;
+};
 
-export function createConfirmEmailHandlers({ auth }: ConfirmEmailDependencies) {
+export function createConfirmEmailHandlers({
+  auth,
+  logger: baseLogger,
+}: ConfirmEmailDependencies) {
   const forward = createForward(auth);
 
   const view = (request: Request): Response => {
@@ -82,9 +88,10 @@ export function createConfirmEmailHandlers({ auth }: ConfirmEmailDependencies) {
   };
 
   return {
-    ...createViewHeadHandlers('auth.confirm_email.view', view),
+    ...createViewHeadHandlers(baseLogger, 'auth.confirm_email.view', view),
     POST: (request: Request) =>
       handleOperation(
+        baseLogger,
         request,
         'auth.confirm_email.submit',
         async (_id, logger) => {

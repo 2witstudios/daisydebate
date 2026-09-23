@@ -1,12 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { createPasskeyFlows } from './auth-passkey-flows';
-import {
-  newClient,
-  origin,
-  withSql,
-  type CapturedMail,
-} from './auth-mounted-helpers';
+import { origin, withSql, type CapturedMail } from './auth-mounted-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 
 /**
@@ -20,8 +15,9 @@ if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
 setupRitewayBun();
 
 const flows = await createPasskeyFlows();
+const { newClient } = flows.account.flows;
 const { signUp } = flows.account;
-const confirmEmailRoute = await import('../src/app/auth/confirm-email/route');
+const confirmEmailRoute = flows.account.flows.testApp.routes.confirmEmail;
 
 const linkFrom = (mail: CapturedMail): URL => {
   const found = mail.text.match(/https?:\/\/\S+/)?.[0];

@@ -98,6 +98,130 @@ describe('repository ESLint configuration', () => {
   });
 });
 
+/** The rule id of each problem ESLint reports for `code` at `filePath`. */
+const ruleIds = async (code: string, filePath: string) => {
+  const [result] = await repositoryEslint().lintText(code, { filePath });
+  return (result?.messages ?? []).map(({ ruleId }) => ruleId);
+};
+
+type Case = readonly [code: string, filePath: string, ruleIds: string[]];
+const outcomes = (cases: readonly Case[]) =>
+  Promise.all(cases.map(([code, filePath]) => ruleIds(code, filePath)));
+const expectedOf = (cases: readonly Case[]) => cases.map(([, , ids]) => ids);
+
+const web = (path: string) => `apps/web/src/${path}`;
+const [props, globals, imports] = ['properties', 'globals', 'imports'].map(
+  (kind) => [`no-restricted-${kind}`],
+);
+const edgeImport = (from: string, name = 'processApp', ext = '') =>
+  `import { ${name} } from '${from}process-app${ext}';\nexport const x = ${name};`;
+const reads =
+  'export const env = process.env;\nexport const g = globalThis as unknown;';
+const mutations = [
+  "process.env.FOUNDATION_PROOF_ENABLED = 'true';",
+  'delete process.env.DATABASE_URL;',
+  "Object.assign(process.env, { NODE_ENV: 'test' });",
+  'globalThis.fetch = (async () => new Response()) as typeof fetch;',
+  "Reflect.set(globalThis, 'daisyResources', {});",
+  "Reflect.deleteProperty(process.env, 'PUBLIC_APP_URL');",
+].join('\n');
+const sixMutations = Array.from({ length: 6 }, () => 'no-restricted-syntax');
+const route = web('app/api/health/ready/route.ts');
+const lazyEdge = (path: string) => `export const l = () => import('${path}');`;
+const suite = 'apps/web/integration/leak.integration.ts';
+const e2eServer = 'apps/web/e2e/support/server.ts';
+/** Every spelling that reaches the edge outside its entries (review 2). */
+const computed = "export const l = import(`./${'process-app'}`);";
+const escapes: ReadonlyArray<readonly [string, string]> = [
+  [edgeImport('../../server/', 'processApp', '.js'), web('features/x.ts')],
+  [edgeImport('/repo/apps/web/src/server/', 'processApp', '.ts'), web('x.ts')],
+  [lazyEdge('../../server/process-app'), web('features/x.ts')],
+  [lazyEdge('../../server/process-app.js'), route],
+  [computed, web('server/x.ts')],
+  [edgeImport('../src/server/'), suite],
+  [lazyEdge('../src/server/process-app'), suite],
+  [edgeImport('../../src/server/'), 'apps/web/e2e/journey.e2e.ts'],
+];
+const escapeRule = (code: string) =>
+  code.startsWith('import {') ? imports : ['no-restricted-syntax'];
+
+describe('process edge: one module reads process.env and globalThis (ISSUE-7)', () => {
+  test('rejects ambient reads and edge imports outside the edge', async () => {
+    const cases: Case[] = [
+      ['export const f = process.env.X;', web('proxy.ts'), props],
+      [
+        'const { env } = process;\nexport const e = env;',
+        web('lib/x.ts'),
+        props,
+      ],
+      ['export const level = Bun.env.X;', 'apps/realtime/src/server.ts', props],
+      ["export const a = Reflect.get(globalThis, 'a');", route, globals],
+      [
+        'export const a = globalThis as unknown;',
+        web('lib/identity.ts'),
+        globals,
+      ],
+      [
+        edgeImport('../../server/'),
+        web('features/foundation/leak.ts'),
+        imports,
+      ],
+      [edgeImport('../server/'), web('lib/identity.ts'), imports],
+      [edgeImport('../../../../server/'), route, imports],
+      [edgeImport('./'), web('server/routes.ts'), imports],
+      ...escapes.map(([code, file]): Case => [code, file, escapeRule(code)]),
+    ];
+    assert({
+      given:
+        'app source reading process.env, Bun.env or globalThis, or importing the process edge as a locator',
+      should: 'report each as the matching restriction',
+      actual: await outcomes(cases),
+      expected: expectedOf(cases),
+    });
+  });
+
+  test('admits the edges, route bindings and the documented process entries', async () => {
+    const cases: Case[] = [
+      [reads, web('server/process-app.ts'), []],
+      [reads, 'apps/realtime/src/start.ts', []],
+      [edgeImport('../../../../server/', 'processRoute'), route, []],
+      [edgeImport('./server/'), web('proxy.ts'), []],
+      [edgeImport('./server/'), web('instrumentation.ts'), []],
+      [edgeImport('./'), web('server/start.ts'), []],
+      [edgeImport('../server/'), web('lib/request-session.ts'), []],
+      [lazyEdge('./server/process-app'), web('instrumentation.ts'), []],
+      [edgeImport('../../src/server/', 'adoptProcessApp'), e2eServer, []],
+      [
+        'export const u = process.env.TEST_DATABASE_URL;',
+        'apps/web/integration/r.integration.ts',
+        [],
+      ],
+    ];
+    assert({
+      given:
+        'the two edges, a processRoute binding, the process entries and a test reading its service URL',
+      should: 'report nothing',
+      actual: await outcomes(cases),
+      expected: expectedOf(cases),
+    });
+  });
+
+  test('rejects mutating process.env or globalThis in app tests', async () => {
+    const cases: Case[] = [
+      [mutations, 'apps/web/integration/leaky.integration.ts', sixMutations],
+      [mutations, web('server/leaky.test.ts'), sixMutations],
+      [mutations, 'apps/realtime/src/leaky.test.ts', sixMutations],
+    ];
+    assert({
+      given:
+        'an integration suite and two unit tests mutating process.env and globalThis six ways',
+      should: 'report every mutation as no-restricted-syntax',
+      actual: await outcomes(cases),
+      expected: expectedOf(cases),
+    });
+  });
+});
+
 describe('token-locked Tailwind lint rules (ADR 0028)', () => {
   const lintMarkup = async (classes: string) => {
     const eslint = repositoryEslint();
