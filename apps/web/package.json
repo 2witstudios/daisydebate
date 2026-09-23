@@ -10,7 +10,7 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "bun test src",
     "test:integration": "bun ../../scripts/test-integration.ts",
-    "test:e2e": "node node_modules/@playwright/test/cli.js test"
+    "test:e2e": "bun ../../scripts/e2e-limit.ts node node_modules/@playwright/test/cli.js test"
   },
   "dependencies": {
     "@better-auth/passkey": "1.7.5",
