@@ -258,8 +258,19 @@ test('a delete never recreates the online zset from a stale leftover member with
     // The actor's only remaining zset entry was already stale, so it must
     // not appear online at all — and the online key must not have been
     // recreated (with or without an expiry).
-    expect(await raw.exists(onlineKey)).toBe(false);
     expect(await redis.readOnlinePresence()).toEqual([]);
+    // The online key's own recreation is a poor oracle here: without the
+    // delete script's purge, arm() always clamps a past score's ttl to 1 ms
+    // (score - now < 1), so onlineKey gets a real, physical ~1 ms expiry.
+    // Whether raw.exists(onlineKey) still observes it before Redis lazily
+    // expires it is a race, not a proof (measured 4/8 failures under this
+    // exact mutation). The actor zset is not: its own expiry is armed to
+    // cover the longest live lease (100 s here), so it cannot physically
+    // expire mid-test, and whether it still holds staleConn depends only on
+    // whether the purge ran. With the purge, ZREM leaves the actor zset
+    // empty and Redis drops the now-empty key; without it, staleConn's
+    // past-scored member survives and the key still exists.
+    expect(await raw.exists(actorKey)).toBe(false);
   } finally {
     await redis.deletePresenceLease({ connId: 'longConn', actorId });
     await redis.deletePresenceLease({ connId: 'staleConn', actorId });
