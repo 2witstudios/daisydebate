@@ -29,6 +29,44 @@ describe('repository ESLint configuration', () => {
       ],
     });
   });
+
+  test('rejects `export *`, the barrel AGENTS.md forbids (AC5, RT-2.1c)', async () => {
+    const eslint = new ESLint({
+      cwd: process.cwd(),
+      overrideConfigFile: './eslint.config.mjs',
+    });
+    const [result] = await eslint.lintText("export * from './realtime';", {
+      filePath: 'packages/protocol/src/index.ts',
+    });
+
+    assert({
+      given: 'an `export * from` reintroduced into a workspace source file',
+      should: 'report one no-restricted-syntax error for the wildcard export',
+      actual: result.messages.map(({ ruleId, severity }) => ({
+        ruleId,
+        severity,
+      })),
+      expected: [{ ruleId: 'no-restricted-syntax', severity: 2 }],
+    });
+  });
+
+  test('accepts named re-exports, the pattern `export *` would replace', async () => {
+    const eslint = new ESLint({
+      cwd: process.cwd(),
+      overrideConfigFile: './eslint.config.mjs',
+    });
+    const [result] = await eslint.lintText(
+      "export { parseTopic } from './realtime';",
+      { filePath: 'packages/protocol/src/index.ts' },
+    );
+
+    assert({
+      given: 'the named re-export form the codebase actually uses',
+      should: 'report nothing',
+      actual: result.messages.map(({ ruleId }) => ruleId),
+      expected: [],
+    });
+  });
 });
 
 describe('token-locked Tailwind lint rules (ADR 0028)', () => {

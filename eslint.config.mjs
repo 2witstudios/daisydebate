@@ -46,6 +46,11 @@ export default [
           message:
             'Inject an identity generator instead of creating an ID directly.',
         },
+        {
+          selector: 'ExportAllDeclaration',
+          message:
+            'Use named re-exports, not `export *` (AGENTS.md: explicit exports, no barrels).',
+        },
       ],
     },
   },
