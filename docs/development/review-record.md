@@ -11,8 +11,10 @@ contract; keep sections in this order.
 
 ## Gates run
 
-bun check: PASS (format, lint, policy, knip, duplication, invariants, evidence, typecheck,
-unit tests, metrics, build) · bun migrations:check: PASS · date
+bun check at <sha>: PASS (format, lint, policy, knip, duplication, invariants, evidence,
+typecheck, unit tests, metrics, build) · date
+bun test:integration: PASS (<n> pass, 0 fail)
+Negative control run: yes (below)
 
 ## Findings
 
@@ -47,11 +49,12 @@ to leave the finding in prose.
 Rules:
 
 - The verdict line is the first line under the last `Verdict` heading,
-  and the `review-record` check (ADR 0035) reads nothing else: it accepts
-  exactly `APPROVE` or `APPROVE WITH MINORS`, and refuses an approval that
-  counts an open blocker or major. A record with zero findings also needs
-  its own `bun test:integration: PASS` and `Negative control run: yes`
-  lines under Gates run.
+  and the `review-record` check (ADR 0035) takes the verdict from nowhere
+  else: it accepts exactly `APPROVE` or `APPROVE WITH MINORS`, and refuses
+  an approval that counts an open blocker or major. A record with zero
+  findings also needs its own `bun test:integration: PASS` and
+  `Negative control run: yes` lines in the Gates run section; a PASS that
+  says it did not run does not count.
 - A second-pass review re-verifies the first pass finding by finding
   before approving.
 - Record environment gotchas discovered during review (stale builds,

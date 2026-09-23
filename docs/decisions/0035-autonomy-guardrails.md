@@ -71,11 +71,16 @@ worktree copy does not count, and deleting it changes nothing).
 
 - **Active.** A pu agent (`PU_AGENT_ID` set) without `GH_TOKEN` or
   `DAISY_AUTONOMOUS` is misconfigured: the guard refuses it network git
-  (push, fetch, pull, clone, ls-remote, remote, submodule) and all `gh`,
-  treats it as autonomous for every other rule, and `bun doctor` fails,
+  (push, fetch, pull, clone, ls-remote, remote, submodule and the
+  send-pack, fetch-pack, http-push and archive --remote plumbing) and all
+  `gh`, treats it as an agent for every other rule, and `bun doctor` fails,
   naming the resume path: pu's resume (`pu play`, a daemon restart) starts
   the bare binary and skips the launcher, so the agent must be restarted
   through the launcher.
+  Only Claude Code agents run the `PreToolUse` hook. A resumed Codex or
+  OpenCode agent has none, so its `gh` still runs as the owner; only its
+  `git push` is stopped, by the pre-push hook. That is a residual risk
+  until GRD-6.2 gives agents no owner credential to fall back on.
 - **Not active.** `bun doctor` warns "identity regime not active: pu agents
   act as the owner (GRD-6.2)" so the gap stays visible, and nothing is
   refused. The launcher starts agents as the owner with a warning.
@@ -95,7 +100,11 @@ a merge in that window.
   - `CI gate`, the aggregate job in `ci.yml`, pinned to GitHub Actions (App 15368)
   - `Playwright E2E`, pinned to GitHub Actions (App 15368)
   - `review-record`, pinned to the review-record App
-- one bypass actor: the repository admin role (the owner)
+- one bypass actor: the repository admin role (the owner), with
+  `bypass_mode: pull_request`. GitHub's rulesets API documents that
+  "pull_request means that an actor can only bypass rules on pull
+  requests", so the owner can merge any PR without waiting on a check, but
+  nobody, the owner included, pushes to `main` directly
 
 It also sets `allow_auto_merge` and `delete_branch_on_merge`, and pins
 merge commits as the only merge method (`allow_merge_commit` on,
@@ -192,9 +201,15 @@ Only `true` allows the request; GitHub then merges once every required
 check passes, `review-record` included. Anything else (`false` until
 GRD-6.2, or an error) means an `--auto` request would merge on CI alone,
 so the agent reports "ready for owner merge" to its parent and waits.
-The owner merges directly at any time through the bypass. The guard
+The owner merges any PR at any time through the bypass. The guard
 refuses a direct or `--admin` merge by an agent, and asks the owner
 before one.
+
+Nothing runs this check for the agent: the guard only prints it as
+guidance when it refuses a merge, and the rule lives in the prompts,
+contracts and this ADR. Before GRD-6.2 an agent that ignores it and runs
+`--auto` would merge on CI alone; after GRD-6.2 the ruleset's required
+`review-record` holds whether or not the agent checked.
 
 ### 5. Merges leave a trace
 
@@ -204,7 +219,9 @@ every merge:
 - **Merged status.** It moves each task the PR delivers to a new **Merged**
   status (in-progress group), where the task waits for a review record to
   grant Done. It never regresses Done. A PR delivers the codes in its
-  title, branch and body `Tasks:` line. A code the body only mentions (a
+  title, branch and body `Tasks:` line. Codes are upper case, so in
+  practice a lower-case branch (`pu/auth-2-2-1`) names none: write the
+  codes in the title. A code the body only mentions (a
   later leaf an ADR names, a related issue) is not delivered; counting those
   moved undelivered leaves in the first reconcile dry run. An `ISSUE-n`
   closes only through a title or branch that names it, since a `Tasks:` line
@@ -240,7 +257,9 @@ Claude Code `PreToolUse` hook in `.claude/settings.json`. It reads the shell
 command, including `&&` chains, pipes, `sh -c`, `eval`, `$(…)`, `cd` and
 prefix assignments.
 
-With `DAISY_AUTONOMOUS=1` it refuses:
+An agent is any session with `DAISY_AUTONOMOUS=1` or any `PU_AGENT_ID`,
+so clearing one variable does not make an agent the owner. For agents it
+refuses:
 
 - pushes to `main`, `--no-verify` pushes, and `core.hooksPath` overrides
 - merges without `--auto`, and `--admin`
@@ -255,8 +274,15 @@ With `DAISY_AUTONOMOUS=1` it refuses:
 - hand edits of loop state, of the agent registry (`.pu/daisy` in the main
   checkout) and of the guard's own wiring (`.claude/settings.json`,
   `.githooks/pre-push`)
-- clearing `DAISY_AUTONOMOUS` or `PU_AGENT_ID`
+- clearing `DAISY_AUTONOMOUS` or `PU_AGENT_ID` (`env -u`, `-uVAR`,
+  `--unset=`, `unset`, `export -n`, `typeset +x`)
 - for a misconfigured pu agent (section 1a), network git and all `gh`
+
+It reads the spellings an honest agent is likely to use by accident: short
+flag clusters (`gh pr merge 1 -mb --auto` is a direct merge), shell
+options around `-c`, `command -p` and `exec -a`, `git -c` settings
+(`remote.<name>.push` to `main`, `alias.*`, `include.path`), and paths in
+any letter case or spelled with `~`, `$HOME`, `$PWD` or a glob.
 
 In owner sessions the hook asks before a merge or a push to `main` and
 allows the rest. When an autonomous session's hook cannot run at all, the
@@ -275,7 +301,18 @@ GRD-6.2) is what holds against them:
 - another shell or terminal outside Claude Code, where `--no-verify`
   skips the pre-push hook and no `PreToolUse` hook runs
 - editors and tools other than the hooked Edit and Write tools changing a
-  protected file
+  protected file, symlinks to one, and `rsync` onto one
+- stripping the whole environment (`env -i`, `env -`) for commands other
+  than loop control, which asks for the owner at `/dev/tty` (section 7)
+- editing the guard's own source (`scripts/agent-guard*.ts`,
+  `scripts/shell-command.ts`): the change is visible in its PR and
+  reviewed like any other
+- direct writes to the agent registry by the same OS user, outside the
+  guarded tools: every close or resume posts the actor and the reason on
+  the PR
+- removing the owner's `.env.agent` in the main checkout, which turns the
+  regime off for later spawns (and `bun doctor` then warns)
+- `git credential fill`, which hands out the credential git would use
 
 ### 7. PR loops that can finish
 
@@ -294,8 +331,12 @@ GRD-6.2) is what holds against them:
   comments on the PR. When neither reaches anyone, or the head SHA cannot
   be read, it exits 1 and the loop stays active.
 - **Close or resume.** `bun loop:close` and `bun loop:resume` resolve the
-  child through `pu status --json`. The caller is its `PU_AGENT_ID`; no id
-  at all is the owner. They accept only the registered parent or the owner,
+  child through `pu status --json` and read the registry of the main
+  checkout found from `git rev-parse --git-common-dir`, never from
+  `PU_PROJECT_ROOT`. The caller is its `PU_AGENT_ID`. A caller with no id
+  counts as the owner only after a yes typed at `/dev/tty`; agent shells
+  have no terminal, so `env -i bun loop:close <self>` is refused. They
+  accept only the registered parent or the owner,
   refuse the child itself, and require the named agent to be the one the
   escalated state records, so a sibling in the same worktree cannot stand
   in for it. They record the outcome on the PR. Resume restores the state
@@ -377,8 +418,11 @@ GRD-6.2) is what holds against them:
   warning, and section 4's rule that an agent requests no merge until the
   live ruleset requires `review-record`.
 - **Self-declared ids.** Builder and reviewer are pu session ids declared
-  in the PR body and the record, the verifier reads any PageSpace page the
-  PR links, and PageSpace attributes every edit to the owner. So an honest
+  in the PR body and the record, the verifier reads any page of the Daisy
+  drive that the PR body or a comment links (anyone may comment on a
+  public repository, and a builder can delete a comment), and PageSpace
+  attributes every edit to the owner. A linked page that cannot be read
+  fails the check. So an honest
   builder cannot mint the status by mistake, but a builder that fabricated
   a record under a false reviewer id could. That is a deliberate forgery,
   visible in the record and the PR history, and outside what this layer
