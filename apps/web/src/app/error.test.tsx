@@ -11,7 +11,7 @@ describe('ErrorBoundary', () => {
     const html = renderToString(
       h(ErrorBoundary, {
         error: Object.assign(new Error('boom'), { digest: 'd1' }),
-        reset: () => undefined,
+        retry: () => undefined,
       }),
     );
     assert({
