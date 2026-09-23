@@ -28,8 +28,7 @@ describe('dashboard photographs (ISSUE-19)', () => {
 
   test('size from intrinsic dimensions, never an inline full-bleed overlay', () => {
     assert({
-      given:
-        'each dashboard surface that lays a photograph under its content',
+      given: 'each dashboard surface that lays a photograph under its content',
       should:
         'carry the photo as an in-flow image with its intrinsic size, so without the stylesheet it cannot span the viewport over the topbar',
       actual: surfaces.map(([name, surface]) => ({
