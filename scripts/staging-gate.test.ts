@@ -7,8 +7,13 @@ import {
 
 setupRitewayBun();
 
+const TIP = 'f5e5b89c8f6ab18fde56c07c0e4c5fea9fa7ae8c';
+const OLDER = '87bdb47000000000000000000000000000000000';
+
 const green: StagingEvidence = {
   trigger: 'Browser E2E',
+  sha: TIP,
+  mainTip: TIP,
   ci: {
     status: 'completed',
     gate: 'success',
@@ -131,6 +136,39 @@ describe('stagingDecision', () => {
   });
 });
 
+describe('stagingDecision: re-runs', () => {
+  test('a re-run on a commit that is no longer main tip', () => {
+    assert({
+      given:
+        'a green CI gate and E2E for a commit main has moved past (an audit or E2E re-run on it completing later)',
+      should: 'not deploy, so staging never rolls back to older code',
+      actual: stagingDecision({ ...green, sha: OLDER, trigger: 'CI' }),
+      expected: {
+        deploy: false,
+        reason: `${OLDER} is no longer main's tip (${TIP})`,
+      },
+    });
+  });
+
+  test('a re-run on main tip', () => {
+    const rerun = {
+      ...green,
+      trigger: 'CI' as const,
+      ci: { ...green.ci, completedAt: '2026-09-23T19:30:00Z' },
+    };
+    assert({
+      given:
+        'the tip already deployed from its E2E completion, then its CI re-run completes later',
+      should:
+        'deploy the same tip commit again, which leaves staging where it was',
+      actual: [stagingDecision(green), stagingDecision(rerun)].map(
+        (decision) => decision.deploy,
+      ),
+      expected: [true, true],
+    });
+  });
+});
+
 describe('readStagingEvidence', () => {
   const sha = 'f5e5b89c8f6ab18fde56c07c0e4c5fea9fa7ae8c';
   const runs = {
@@ -173,6 +211,7 @@ describe('readStagingEvidence', () => {
     const evidence = readStagingEvidence(
       (path) => {
         calls.push(path);
+        if (path.endsWith('/commits/main')) return { sha };
         return path.includes('/jobs') ? jobs : runs;
       },
       { repository: '2witstudios/daisydebate', sha, trigger: 'Browser E2E' },
@@ -185,6 +224,8 @@ describe('readStagingEvidence', () => {
       expected: {
         evidence: {
           trigger: 'Browser E2E',
+          sha,
+          mainTip: sha,
           ci: {
             status: 'completed',
             gate: 'success',
@@ -201,9 +242,11 @@ describe('readStagingEvidence', () => {
     });
     assert({
       given: 'the lookups',
-      should: 'list main push runs for the commit, then the newest CI jobs',
+      should:
+        "read main's tip, list main push runs for the commit, then the newest CI jobs",
       actual: calls,
       expected: [
+        'repos/2witstudios/daisydebate/commits/main',
         `repos/2witstudios/daisydebate/actions/runs?head_sha=${sha}&event=push&branch=main&per_page=100`,
         'repos/2witstudios/daisydebate/actions/runs/2/jobs?filter=latest&per_page=100',
       ],

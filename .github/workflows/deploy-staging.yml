@@ -55,7 +55,7 @@ jobs:
     timeout-minutes: 20
     needs: ready
     if: >-
-      always() &&
+      !cancelled() &&
       (github.event_name == 'workflow_dispatch' ||
        needs.ready.outputs.deploy == 'true')
     env:

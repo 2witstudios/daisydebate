@@ -9,7 +9,9 @@
  *   bun scripts/staging-gate.ts --sha <commit> --trigger <CI|Browser E2E>
  *
  * Both workflows trigger deploy-staging on completion. The one that
- * completes last decides (a tie goes to CI), so a commit ships once. Writes
+ * completes last decides (a tie goes to CI), so a commit ships once, and
+ * only while it is still main's tip: a later re-run of an older commit's
+ * CI or E2E never rolls staging back (ISSUE-59). Writes
  * `deploy=true|false` to $GITHUB_OUTPUT when set, and the reason to stdout.
  */
 import { appendFileSync } from 'node:fs';
@@ -20,6 +22,10 @@ type Conclusion = string | null;
 
 export type StagingEvidence = {
   readonly trigger: Trigger;
+  /** The commit the triggering run verified. */
+  readonly sha: string;
+  /** main's head when the decision is made. */
+  readonly mainTip: string;
   readonly ci?: {
     readonly status: Status;
     readonly gate: Conclusion;
@@ -42,7 +48,12 @@ const CI_PATH = '.github/workflows/ci.yml';
 const E2E_PATH = '.github/workflows/e2e.yml';
 
 export function stagingDecision(evidence: StagingEvidence): StagingDecision {
-  const { ci, e2e, trigger } = evidence;
+  const { ci, e2e, trigger, sha, mainTip } = evidence;
+  if (sha !== mainTip)
+    return {
+      deploy: false,
+      reason: `${sha} is no longer main's tip (${mainTip})`,
+    };
   if (!ci) return { deploy: false, reason: 'no CI run for this commit' };
   if (!e2e)
     return { deploy: false, reason: 'no Browser E2E run for this commit' };
@@ -90,6 +101,9 @@ export function readStagingEvidence(
     readonly trigger: Trigger;
   },
 ): StagingEvidence {
+  const { sha: mainTip } = api(`repos/${input.repository}/commits/main`) as {
+    readonly sha: string;
+  };
   const base = `repos/${input.repository}/actions/runs`;
   const { workflow_runs: runs } = api(
     `${base}?head_sha=${input.sha}&event=push&branch=main&per_page=100`,
@@ -118,6 +132,8 @@ export function readStagingEvidence(
   };
   return {
     trigger: input.trigger,
+    sha: input.sha,
+    mainTip,
     ...(ciRun && {
       ci: {
         status: ciRun.status,
