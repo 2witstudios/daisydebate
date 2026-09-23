@@ -59,7 +59,7 @@ const deploymentIdentityFields = {
   APP_VERSION: z.string().min(1).default('development'),
   GIT_COMMIT: z.string().min(1).default('unknown'),
 };
-export const serverConfigSchema = z
+const serverConfigSchema = z
   .object({
     ...deploymentIdentityFields,
     FOUNDATION_PROOF_ENABLED: z
@@ -96,7 +96,7 @@ export function readServerConfig(
  * no foundation-proof flag, neither of which the realtime deployment has a
  * use for yet.
  */
-export const realtimeConfigSchema = z
+const realtimeConfigSchema = z
   .object(deploymentIdentityFields)
   .superRefine((config, ctx) => {
     if (config.NODE_ENV !== 'production') return;
@@ -142,7 +142,7 @@ const commaList = (entry: z.ZodType<string, string>) =>
  * Narrow server authentication configuration, validated only when the auth
  * composition is activated: baseline startup never requires auth variables.
  */
-export const authConfigSchema = z
+const authConfigSchema = z
   .object({
     /** 64 characters from 32 random bytes (hex); see `bun auth:provision`. */
     BETTER_AUTH_SECRET: z.string().regex(/^\S{64}$/),
