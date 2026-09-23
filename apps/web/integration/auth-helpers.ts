@@ -55,6 +55,8 @@ export const createTestAuthServer = (
     readonly sent: SentMessages;
     readonly deliveryFailure?: Error;
     readonly recordedLogs?: RecordedLogs;
+    /** Defaults to a no-op; a suite proving RT-2.2's outbox append wires the real one. */
+    readonly appendSessionRevoked?: (userId: string) => Promise<void>;
   },
 ) =>
   createAuthServer({
@@ -74,7 +76,7 @@ export const createTestAuthServer = (
     // The composition mints entity ids from this injection; the durable
     // suites share one database, so they need the real cuid2 edge generator.
     ids: systemId,
-    appendSessionRevoked: async () => {},
+    appendSessionRevoked: options.appendSessionRevoked ?? (async () => {}),
   });
 
 /** Removes exactly this fixture's records; never touches unrelated rows. */
