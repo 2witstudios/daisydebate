@@ -3,7 +3,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { parseDotenv } from './dotenv';
-import { assessAgentEnv, assessGithubIdentity } from './agent-identity';
+import {
+  assessAgentEnv,
+  assessGithubIdentity,
+  identityRegime,
+  regimeCheck,
+} from './agent-identity';
 
 setupRitewayBun();
 
@@ -214,6 +219,71 @@ describe('agent launcher', () => {
         empty.stdout.toString(),
       ],
       expected: [1, '', 1, ''],
+    });
+  });
+});
+
+describe('identityRegime', () => {
+  const project = '/repo';
+  const exists = (files: string[]) => (path: string) => files.includes(path);
+  const agentEnv = {
+    PU_PROJECT_ROOT: project,
+    PU_AGENT_ID: 'ag-1',
+    GH_TOKEN: 't',
+    DAISY_AUTONOMOUS: '1',
+  };
+
+  test("is active only when the owner's .env.agent exists in the project root", () => {
+    assert({
+      given:
+        'no owner file (the worktree copy alone), and the owner file with a proper agent',
+      should: 'be inactive, then agent',
+      actual: [
+        identityRegime(
+          agentEnv,
+          exists(['/repo/.pu/worktrees/wt-1/.env.agent']),
+        ),
+        identityRegime(agentEnv, exists(['/repo/.env.agent'])),
+      ],
+      expected: ['inactive', 'agent'],
+    });
+  });
+
+  test('flags a pu agent that runs without its identity, whatever its worktree holds', () => {
+    const owner = exists(['/repo/.env.agent']);
+    assert({
+      given:
+        'a resumed agent missing GH_TOKEN, one missing DAISY_AUTONOMOUS, and an owner session',
+      should: 'be misconfigured twice, and owner',
+      actual: [
+        identityRegime({ ...agentEnv, GH_TOKEN: undefined }, owner),
+        identityRegime({ ...agentEnv, DAISY_AUTONOMOUS: undefined }, owner),
+        identityRegime({ PU_PROJECT_ROOT: undefined }, owner, project),
+      ],
+      expected: ['misconfigured', 'misconfigured', 'owner'],
+    });
+  });
+
+  test('turns the regime into a doctor check that fails or warns', () => {
+    assert({
+      given: 'each regime',
+      should: 'fail when misconfigured, warn when inactive, pass otherwise',
+      actual: [
+        regimeCheck('misconfigured', 'ag-1').status,
+        regimeCheck('inactive', undefined),
+        regimeCheck('agent', 'ag-1').status,
+        regimeCheck('owner', undefined).status,
+      ],
+      expected: [
+        'fail',
+        {
+          status: 'warn',
+          detail:
+            'identity regime not active: pu agents act as the owner (GRD-6.2)',
+        },
+        'pass',
+        'pass',
+      ],
     });
   });
 });
