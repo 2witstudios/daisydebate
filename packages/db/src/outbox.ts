@@ -7,6 +7,7 @@ import {
   outboxPayloadSchema,
 } from '@daisy/protocol';
 import { outbox } from './schema/outbox';
+import { instrumented, type DatabaseEventSink } from './instrumented';
 
 /**
  * Full validation of the append input (RT-2.2 hazard note, plan revision
@@ -193,3 +194,29 @@ export async function purgeExpiredOutboxEvents(
   `);
   return (deleted as unknown as unknown[]).length;
 }
+
+/**
+ * The outbox area's production surface (ISSUE-8 AC1): `purgeExpiredOutboxEvents`
+ * wrapped with the one failure wrapper. `appendOutboxEvent` runs inside a
+ * caller's own transaction and is composed directly by the areas that need
+ * it (auth's `session.revoked`, debates' future write paths), not through
+ * this factory. `drainOutbox` has no production consumer yet (T5) and stays
+ * out of `createDatabase()`'s return; `packages/db`'s own integration suite
+ * imports it directly from this module.
+ */
+export const outboxOperations = ({
+  database,
+  eventSink,
+}: {
+  readonly database: Pick<BunSQLDatabase, 'execute'>;
+  readonly eventSink?: DatabaseEventSink | undefined;
+}) => ({
+  async purgeExpiredOutboxEvents(input: {
+    readonly before: string;
+    readonly limit: number;
+  }): Promise<number> {
+    return instrumented(eventSink, 'purgeExpiredOutboxEvents', () =>
+      purgeExpiredOutboxEvents(database, input),
+    );
+  },
+});

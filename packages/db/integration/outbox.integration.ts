@@ -3,7 +3,7 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { createId } from '@paralleldrive/cuid2';
 import { buildUserInboxTopic } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createDatabase } from '../src';
+import { createTestOnlyOperations } from '../src/test-only-operations';
 import {
   OUTBOX_ORIGIN,
   appendOutboxEvent,
@@ -34,7 +34,8 @@ const waitFor = async (
 };
 
 test('a committed transaction delivers its outbox row with a txid, a NOTIFY and an object payload; a rolled-back one delivers nothing', async () => {
-  const database = createDatabase({ url, nextActorId: createId });
+  const client = new SQL(url);
+  const testOnly = createTestOnlyOperations({ client });
   const listener = new SQL(url);
   const reader = new SQL(url);
   const readerDb = drizzle({ client: reader });
@@ -51,7 +52,7 @@ test('a committed transaction delivers its outbox row with a txid, a NOTIFY and 
       notifications.push(received);
     });
     try {
-      const committed = await database.transaction((tx) =>
+      const committed = await testOnly.transaction((tx) =>
         appendOutboxEvent(tx, {
           topic,
           kind: 'debate.phase-changed',
@@ -62,7 +63,7 @@ test('a committed transaction delivers its outbox row with a txid, a NOTIFY and 
 
       let rolledBack = false;
       try {
-        await database.transaction(async (tx) => {
+        await testOnly.transaction(async (tx) => {
           await appendOutboxEvent(tx, {
             topic,
             kind: 'debate.phase-changed',
@@ -123,7 +124,7 @@ test('a committed transaction delivers its outbox row with a txid, a NOTIFY and 
     await reader.unsafe('delete from outbox where topic = $1', [topic]);
     await listener.close();
     await reader.close();
-    await database.close();
+    await client.close();
   }
 });
 
@@ -182,7 +183,8 @@ test('two transactions that commit out of seq order never let the drain skip a r
 });
 
 test('the storage-side family rule (RT-2.1c, plan revision 4.11) is enforced at appendOutboxEvent, with zero rows written for every refusal', async () => {
-  const database = createDatabase({ url, nextActorId: createId });
+  const client = new SQL(url);
+  const testOnly = createTestOnlyOperations({ client });
   const reader = new SQL(url);
   const actorId = createId();
   const inboxTopic = buildUserInboxTopic(actorId);
@@ -202,7 +204,7 @@ test('the storage-side family rule (RT-2.1c, plan revision 4.11) is enforced at 
     version: number;
     payload: unknown;
   }) =>
-    database
+    testOnly
       .transaction((tx) => appendOutboxEvent(tx, input as never))
       .then(() => 'accepted')
       .catch(() => 'refused');
@@ -273,17 +275,18 @@ test('the storage-side family rule (RT-2.1c, plan revision 4.11) is enforced at 
     await reader.unsafe('delete from outbox where topic = $1', [inboxTopic]);
     await reader.unsafe('delete from outbox where topic = $1', [debateTopic]);
     await reader.close();
-    await database.close();
+    await client.close();
   }
 });
 
 test('refuses an append whose kind column disagrees with its payload kind, with no row written', async () => {
-  const database = createDatabase({ url, nextActorId: createId });
+  const client = new SQL(url);
+  const testOnly = createTestOnlyOperations({ client });
   const reader = new SQL(url);
   const actorId = createId();
   const topic = buildUserInboxTopic(actorId);
   try {
-    const result = await database
+    const result = await testOnly
       .transaction((tx) =>
         appendOutboxEvent(tx, {
           topic,
@@ -310,6 +313,6 @@ test('refuses an append whose kind column disagrees with its payload kind, with 
   } finally {
     await reader.unsafe('delete from outbox where topic = $1', [topic]);
     await reader.close();
-    await database.close();
+    await client.close();
   }
 });
