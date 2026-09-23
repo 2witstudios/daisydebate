@@ -81,12 +81,29 @@ function globToRegExp(glob: string): RegExp {
 
 const lower = (path: string) => path.toLowerCase();
 
+/**
+ * Whether a glob could name something inside dir: each of its leading
+ * segments matches the dir's segment there (** matches the rest).
+ */
+function globInside(glob: string, dir: string): boolean {
+  if (!GLOB.test(glob)) return false;
+  const parts = glob.split('/');
+  const dirParts = dir.split('/');
+  if (parts.length <= dirParts.length && !parts.includes('**')) return false;
+  for (const [index, part] of dirParts.entries()) {
+    if (parts[index] === '**') return true;
+    if (!globToRegExp(parts[index] ?? '').test(part)) return false;
+  }
+  return true;
+}
+
 /** Whether a path argument reaches a protected path, in any letter case. */
 function reaches(arg: string, cwd: string, facts: GuardFacts): boolean {
   const path = resolveFrom(cwd, arg, facts.home);
   const registry = join(facts.mainCheckout, REGISTRY_DIR);
   const literal = GLOB.test(path) ? path.slice(0, path.search(GLOB)) : path;
-  if (isWithin(lower(literal), lower(registry))) return true;
+  if (isWithin(lower(literal), lower(registry)) || globInside(path, registry))
+    return true;
   if (!GLOB.test(path))
     return protectedPaths(facts).some(({ path: file }) =>
       isWithin(lower(file), lower(path.replace(/\/$/, ''))),

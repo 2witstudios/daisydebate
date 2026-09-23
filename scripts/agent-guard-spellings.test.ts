@@ -155,4 +155,22 @@ describe('agent guard: accident-class spellings', () => {
       expected: [true, true],
     });
   });
+
+  test('protects the agent registry under ~ and glob spellings', () => {
+    const rootHome = facts({ home: '/' });
+    assert({
+      given:
+        'a ~ path to the registry, globs over its directories, and a glob that stays in the worktree',
+      should: 'deny the registry writes and allow the worktree one',
+      actual: [
+        classifyCommand('echo x > ~/repo/.pu/daisy/agents/x.json', rootHome)
+          .decision,
+        decide('cp f /repo/.pu/daisy/agent*/x.json'),
+        decide('rm /repo/.pu/dai?y/agents/x.json'),
+        decide('rm -rf /repo/.pu/*/agents'),
+        decide('rm -rf /repo/.pu/worktrees/wt-mine/tmp*'),
+      ],
+      expected: ['deny', 'deny', 'deny', 'deny', 'allow'],
+    });
+  });
 });
