@@ -1,6 +1,6 @@
 import pino from 'pino';
 
-const eventRegistry = {
+export const eventRegistry = {
   'runtime.initialize': 'info',
   'request.unhandled': 'error',
   'http.request.completed': 'info',
