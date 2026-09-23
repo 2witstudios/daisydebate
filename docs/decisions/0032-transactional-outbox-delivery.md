@@ -284,10 +284,22 @@ topic.
   `debate.phase-changed` (the `debate:<id>` family) and
   `standings.updated` (the `standings:<season>` family). The owner-only
   inbox delta kind is `user.notification-delivered` (the `user:<id>:inbox`
-  family; its content is NOTIF-1's later epic). `session.revoked` and
-  `access.revoked` (section 5) are outbox rows with their own payload
-  schemas but ride no topic, so they are absent from every family's kind
-  list.
+  family; its content is NOTIF-1's later epic).
+- **Control rows ride the actor's own inbox.** `session.revoked` (section 5),
+  `access.revoked` (section 5) and `actor.presence-preference-changed` (a
+  visibility preference change, appended in the settings transaction,
+  RT-3.2b) are outbox rows on `user:<actorId>:inbox`, never rows without a
+  topic. `@daisy/protocol` keeps two family rules for exactly this reason: a
+  **storage-side** rule (`storageFamilyPayloadKinds`,
+  `isPayloadStorableOnTopic`) that `@daisy/db`'s append validates against
+  before insert, which allows these three control kinds on `user:inbox`; and
+  the **delivery-side** rule above (`topicFamilyPayloadKinds`,
+  `isPayloadAllowedOnTopic`) that the `event` message's refinement enforces,
+  which never allows them anywhere. Realtime consumes the three control
+  kinds straight from its own drain of the inbox topic — closing revoked
+  sockets, unsubscribing a revoked actor, and re-projecting that actor's
+  presence locally and ringing `presence.changed` — and never forwards them
+  to any client as an `event`.
 - Clients refetch over HTTP, where permissions are enforced on every read.
   So a subscriber who lost access and is still inside the 60 s
   re-authorization window learns at most that something changed.

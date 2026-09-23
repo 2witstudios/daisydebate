@@ -35,9 +35,12 @@ export {
   inboxDeltaPayloadSchema,
   sessionRevokedPayloadSchema,
   accessRevokedPayloadSchema,
+  actorPresencePreferenceChangedPayloadSchema,
   outboxPayloadSchema,
   topicFamilyPayloadKinds,
+  storageFamilyPayloadKinds,
   isPayloadAllowedOnTopic,
+  isPayloadStorableOnTopic,
 } from './realtime-payloads';
 export type {
   DoorbellKind,
@@ -46,22 +49,86 @@ export type {
 } from './realtime-payloads';
 
 /**
+ * Nominal branding (a phantom marker, erased at runtime) so
+ * `ENVELOPE_VERSION` and `PROTOCOL_VERSION` cannot be validated against each
+ * other by a future edit: assigning one where the other is expected, or
+ * defining one in terms of the other, is a type error caught by
+ * `bun typecheck`, even though both equal `1` today. A plain shared `number`
+ * literal cannot make that distinction, since the values coincide.
+ */
+type Brand<T, TBrand extends string> = T & { readonly __brand: TBrand };
+export type EnvelopeVersion = Brand<number, 'EnvelopeVersion'>;
+export type ProtocolVersion = Brand<number, 'ProtocolVersion'>;
+
+/**
  * The message-envelope version, stamped on `v` in every client and server
  * message. It versions the wire framing (the envelope shape itself), not
  * the message set `hello` negotiates (ADR 0031 §6): the two are distinct
- * values that happen to both start at `1`, tracked by separate constants so
- * one can change without forcing the other. An unsupported `v` closes the
- * socket with `protocol_unsupported` rather than being silently dropped,
- * unlike PageSpace's socket.io events.
+ * values that happen to both start at `1`, tracked by separate branded
+ * constants so one can change without forcing the other. An unsupported `v`
+ * closes the socket with `protocol_unsupported` rather than being silently
+ * dropped, unlike PageSpace's socket.io events.
  */
-export const ENVELOPE_VERSION = 1;
+export const ENVELOPE_VERSION: EnvelopeVersion = 1 as EnvelopeVersion;
 
 /**
  * The application protocol version `hello.protocolVersion` negotiates: the
  * client and server message set and semantics. See `ENVELOPE_VERSION` for
- * why this is a separate constant rather than the same literal reused.
+ * why this is a separate branded constant rather than the same literal
+ * reused.
  */
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION: ProtocolVersion = 1 as ProtocolVersion;
+
+/**
+ * Typed literal builders: each accepts only its own branded version type, so
+ * `PROTOCOL_VERSION` declared as `= ENVELOPE_VERSION` (RT-2.1c AC1's mutation
+ * M3b) is a type error caught by `bun typecheck`, not merely a coincidence
+ * that both constants are `1`. They do not by themselves stop a mutation
+ * that hard-codes a literal `z.literal(ENVELOPE_VERSION)` into the `hello`
+ * schema's `protocolVersion` field, or `z.literal(PROTOCOL_VERSION)` into
+ * `buildEnvelope`'s `v` field (M3a as worded, on either half): those
+ * mutations bypass these builders entirely, so it is
+ * `buildHelloMessageSchema`, `buildClientMessageSchema` and
+ * `buildServerMessageSchema` below, each tested with distinct injected
+ * versions, that catch them.
+ */
+function envelopeVersionLiteral(
+  version: EnvelopeVersion,
+): z.ZodLiteral<EnvelopeVersion> {
+  return z.literal(version);
+}
+function protocolVersionLiteral(
+  version: ProtocolVersion,
+): z.ZodLiteral<ProtocolVersion> {
+  return z.literal(version);
+}
+
+/** The envelope shape `{v}`, built from an injected envelope version. */
+function buildEnvelope(envelopeVersion: EnvelopeVersion): {
+  readonly v: z.ZodLiteral<EnvelopeVersion>;
+} {
+  return { v: envelopeVersionLiteral(envelopeVersion) } as const;
+}
+
+/**
+ * The `hello` message schema, built from independently injected envelope and
+ * protocol versions (RT-2.1c AC1). Production wires it with the two real
+ * constants below; `realtime-messages.test.ts` wires it with two distinct
+ * values so a mutation that hard-codes either field to the other's version,
+ * or to a module-level constant instead of its own parameter, turns the
+ * composed schema — not just the isolated literal builders — red.
+ */
+export function buildHelloMessageSchema(
+  envelopeVersion: EnvelopeVersion,
+  protocolVersion: ProtocolVersion,
+) {
+  return z.strictObject({
+    ...buildEnvelope(envelopeVersion),
+    type: z.literal('hello'),
+    protocolVersion: protocolVersionLiteral(protocolVersion),
+    ticket: ticketSchema,
+  });
+}
 
 /**
  * Heartbeat, reconnect and backpressure constants `@daisy/protocol` owns
@@ -151,8 +218,13 @@ export const subscribeAuthorizationTable: Readonly<
 
 // --- Client and server message envelopes -------------------------------
 
-const envelope = { v: z.literal(ENVELOPE_VERSION) };
 const presenceActivitySchema = z.enum(['active', 'idle']);
+/**
+ * The projected presence status vocabulary. It lost its only in-package
+ * consumer when `presence.update` was removed (RT-2.1b): RT-3.2a's HTTP
+ * refetch of a `debate:<id>:presence` topic's projected value, triggered by
+ * the `presence.changed` doorbell, is this schema's owner.
+ */
 export const presenceStatusSchema = z.enum([
   'in-debate',
   'online',
@@ -166,38 +238,52 @@ export const presenceStatusSchema = z.enum([
  * reopen the attack surface the plan deliberately closed. `id` is present
  * only on messages that expect a reply keyed by that same `id`: `subscribe`,
  * `unsubscribe` and `ping`.
+ *
+ * Built from an independently injected envelope version (RT-2.1c AC1,
+ * continued): every non-`hello` member spreads the same `buildEnvelope`
+ * result `hello` is built from, so a mutation that hard-codes any of these
+ * `v` fields to `PROTOCOL_VERSION` instead of the injected
+ * `envelopeVersion` turns the composed schema red under a distinct injected
+ * value, exactly like `buildHelloMessageSchema` catches the mirror mutation
+ * on `hello` itself.
  */
-export const clientMessageSchema = z.discriminatedUnion('type', [
-  z.strictObject({
-    ...envelope,
-    type: z.literal('hello'),
-    protocolVersion: z.literal(PROTOCOL_VERSION),
-    ticket: ticketSchema,
-  }),
-  z.strictObject({
-    ...envelope,
-    type: z.literal('subscribe'),
-    id: idSchema,
-    topic: topicStringSchema,
-    since: cursorSchema.optional(),
-  }),
-  z.strictObject({
-    ...envelope,
-    type: z.literal('unsubscribe'),
-    id: idSchema,
-    topic: topicStringSchema,
-  }),
-  z.strictObject({
-    ...envelope,
-    type: z.literal('presence.activity'),
-    activity: presenceActivitySchema,
-  }),
-  z.strictObject({
-    ...envelope,
-    type: z.literal('ping'),
-    id: idSchema,
-  }),
-]);
+export function buildClientMessageSchema(
+  envelopeVersion: EnvelopeVersion,
+  protocolVersion: ProtocolVersion,
+) {
+  const envelope = buildEnvelope(envelopeVersion);
+  return z.discriminatedUnion('type', [
+    buildHelloMessageSchema(envelopeVersion, protocolVersion),
+    z.strictObject({
+      ...envelope,
+      type: z.literal('subscribe'),
+      id: idSchema,
+      topic: topicStringSchema,
+      since: cursorSchema.optional(),
+    }),
+    z.strictObject({
+      ...envelope,
+      type: z.literal('unsubscribe'),
+      id: idSchema,
+      topic: topicStringSchema,
+    }),
+    z.strictObject({
+      ...envelope,
+      type: z.literal('presence.activity'),
+      activity: presenceActivitySchema,
+    }),
+    z.strictObject({
+      ...envelope,
+      type: z.literal('ping'),
+      id: idSchema,
+    }),
+  ]);
+}
+
+export const clientMessageSchema = buildClientMessageSchema(
+  ENVELOPE_VERSION,
+  PROTOCOL_VERSION,
+);
 export type ClientMessage = z.infer<typeof clientMessageSchema>;
 
 /**
@@ -208,84 +294,97 @@ export type ClientMessage = z.infer<typeof clientMessageSchema>;
 const serverInitiatedTypes = ['ready', 'revoked', 'server.restarting'] as const;
 
 /**
- * The presence doorbell (ADR 0033 §1): fired when a `debate:presence`
- * topic's projected value changes. It carries no outbox `position` and no
- * status, unlike `event`: presence is never written to the outbox, so
- * there is no position to carry, and the client always refetches the
- * projected value over HTTP rather than trusting a pushed status.
+ * Every server message, built from an independently injected envelope
+ * version (RT-2.1c AC1, continued): the same rationale as
+ * `buildClientMessageSchema` applies here, since `event` and
+ * `presence.changed` carry the same `v` field as every other server
+ * message.
  */
-const presenceChangedMessageSchema = z
-  .strictObject({
-    ...envelope,
-    type: z.literal('presence.changed'),
-    topic: topicStringSchema,
-  })
-  .refine(
-    (message) => parseTopic(message.topic)?.family === 'debate:presence',
-    {
-      message: 'presence.changed must name a debate:presence topic',
-      path: ['topic'],
-    },
-  );
+export function buildServerMessageSchema(envelopeVersion: EnvelopeVersion) {
+  const envelope = buildEnvelope(envelopeVersion);
 
-/**
- * The event message pairs an outbox position with its payload. Its
- * refinement is what enforces AC4: a payload whose `kind` the topic's
- * family does not allow fails `safeParse` here, not somewhere downstream.
- */
-const eventMessageSchema = z
-  .strictObject({
-    ...envelope,
-    type: z.literal('event'),
-    topic: topicStringSchema,
-    position: cursorSchema,
-    payload: outboxPayloadSchema,
-  })
-  .refine(
-    (message) => isPayloadAllowedOnTopic(message.topic, message.payload),
-    {
-      message: 'Payload kind is not allowed on this topic family',
-      path: ['payload', 'kind'],
-    },
-  );
+  /**
+   * The presence doorbell (ADR 0033 §1): fired when a `debate:presence`
+   * topic's projected value changes. It carries no outbox `position` and no
+   * status, unlike `event`: presence is never written to the outbox, so
+   * there is no position to carry, and the client always refetches the
+   * projected value over HTTP rather than trusting a pushed status.
+   */
+  const presenceChangedMessageSchema = z
+    .strictObject({
+      ...envelope,
+      type: z.literal('presence.changed'),
+      topic: topicStringSchema,
+    })
+    .refine(
+      (message) => parseTopic(message.topic)?.family === 'debate:presence',
+      {
+        message: 'presence.changed must name a debate:presence topic',
+        path: ['topic'],
+      },
+    );
 
-export const serverMessageSchema = z.discriminatedUnion('type', [
-  z.strictObject({
-    ...envelope,
-    type: z.literal('subscribed'),
-    id: idSchema,
-    topic: topicStringSchema,
-    position: cursorSchema,
-  }),
-  z.strictObject({
-    ...envelope,
-    type: z.literal('unsubscribed'),
-    id: idSchema,
-    topic: topicStringSchema,
-  }),
-  z.strictObject({
-    ...envelope,
-    type: z.literal('resync_required'),
-    id: idSchema,
-    topic: topicStringSchema,
-  }),
-  z.strictObject({
-    ...envelope,
-    type: z.literal('error'),
-    id: idSchema.optional(),
-    code: errorSchema.shape.code,
-    message: z.string(),
-  }),
-  z.strictObject({
-    ...envelope,
-    type: z.literal('pong'),
-    id: idSchema,
-  }),
-  eventMessageSchema,
-  presenceChangedMessageSchema,
-  z.strictObject({
-    ...envelope,
-    type: z.enum(serverInitiatedTypes),
-  }),
-]);
+  /**
+   * The event message pairs an outbox position with its payload. Its
+   * refinement is what enforces AC4: a payload whose `kind` the topic's
+   * family does not allow fails `safeParse` here, not somewhere downstream.
+   */
+  const eventMessageSchema = z
+    .strictObject({
+      ...envelope,
+      type: z.literal('event'),
+      topic: topicStringSchema,
+      position: cursorSchema,
+      payload: outboxPayloadSchema,
+    })
+    .refine(
+      (message) => isPayloadAllowedOnTopic(message.topic, message.payload),
+      {
+        message: 'Payload kind is not allowed on this topic family',
+        path: ['payload', 'kind'],
+      },
+    );
+
+  return z.discriminatedUnion('type', [
+    z.strictObject({
+      ...envelope,
+      type: z.literal('subscribed'),
+      id: idSchema,
+      topic: topicStringSchema,
+      position: cursorSchema,
+    }),
+    z.strictObject({
+      ...envelope,
+      type: z.literal('unsubscribed'),
+      id: idSchema,
+      topic: topicStringSchema,
+    }),
+    z.strictObject({
+      ...envelope,
+      type: z.literal('resync_required'),
+      id: idSchema,
+      topic: topicStringSchema,
+    }),
+    z.strictObject({
+      ...envelope,
+      type: z.literal('error'),
+      id: idSchema.optional(),
+      code: errorSchema.shape.code,
+      message: z.string(),
+    }),
+    z.strictObject({
+      ...envelope,
+      type: z.literal('pong'),
+      id: idSchema,
+    }),
+    eventMessageSchema,
+    presenceChangedMessageSchema,
+    z.strictObject({
+      ...envelope,
+      type: z.enum(serverInitiatedTypes),
+    }),
+  ]);
+}
+
+export const serverMessageSchema = buildServerMessageSchema(ENVELOPE_VERSION);
 export type ServerMessage = z.infer<typeof serverMessageSchema>;

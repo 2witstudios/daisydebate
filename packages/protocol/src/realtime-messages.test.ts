@@ -1,10 +1,14 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  buildClientMessageSchema,
   buildDebateTopic,
+  buildHelloMessageSchema,
   clientMessageSchema,
   ENVELOPE_VERSION,
   PROTOCOL_VERSION,
   ticketSchema,
+  type EnvelopeVersion,
+  type ProtocolVersion,
 } from './realtime';
 
 setupRitewayBun();
@@ -76,6 +80,70 @@ describe('client message schema', () => {
         }).success,
       ],
       expected: [false, false],
+    });
+  });
+
+  test('builds the composed hello message schema from independently injected envelope and protocol versions (RT-2.1c AC1)', () => {
+    const injectedEnvelopeVersion = 11 as EnvelopeVersion;
+    const injectedProtocolVersion = 22 as ProtocolVersion;
+    const helloSchema = buildHelloMessageSchema(
+      injectedEnvelopeVersion,
+      injectedProtocolVersion,
+    );
+    const validMessage = {
+      v: 11,
+      type: 'hello',
+      protocolVersion: 22,
+      ticket,
+    };
+    assert({
+      given:
+        'the hello schema built from distinct injected envelope (11) and protocol (22) versions',
+      should:
+        "accept only its own pairing and reject each field taking the other field's value, proving neither the schema composition nor a hard-coded field can stand in for the other",
+      actual: [
+        helloSchema.safeParse(validMessage).success,
+        helloSchema.safeParse({ ...validMessage, v: 22 }).success,
+        helloSchema.safeParse({ ...validMessage, protocolVersion: 11 }).success,
+      ],
+      expected: [true, false, false],
+    });
+  });
+
+  test('builds every non-hello client message from an independently injected envelope version (RT-2.1c AC1, continued: envelope)', () => {
+    const injectedEnvelopeVersion = 33 as EnvelopeVersion;
+    const schema = buildClientMessageSchema(
+      injectedEnvelopeVersion,
+      PROTOCOL_VERSION,
+    );
+    const topic = buildDebateTopic(otherId);
+    const messagesAtV33 = [
+      { v: 33, type: 'subscribe', id, topic },
+      { v: 33, type: 'unsubscribe', id, topic },
+      { v: 33, type: 'presence.activity', activity: 'active' },
+      { v: 33, type: 'ping', id },
+    ];
+    assert({
+      given:
+        'a client message schema built with envelope version 33, and one message of every non-hello type stamped v:33',
+      should:
+        "accept v:33 on every one of them, and reject each when restamped with PROTOCOL_VERSION's or ENVELOPE_VERSION's value (both 1), proving no member's envelope is hard-coded to either constant",
+      actual: [
+        ...messagesAtV33.map((message) => schema.safeParse(message).success),
+        ...messagesAtV33.map(
+          (message) =>
+            schema.safeParse({ ...message, v: PROTOCOL_VERSION }).success,
+        ),
+        ...messagesAtV33.map(
+          (message) =>
+            schema.safeParse({ ...message, v: ENVELOPE_VERSION }).success,
+        ),
+      ],
+      expected: [
+        ...messagesAtV33.map(() => true),
+        ...messagesAtV33.map(() => false),
+        ...messagesAtV33.map(() => false),
+      ],
     });
   });
 

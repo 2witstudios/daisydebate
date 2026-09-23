@@ -16,14 +16,12 @@
     "LOG_LEVEL",
     "FOUNDATION_PROOF_ENABLED",
     "NEXT_MANUAL_SIG_HANDLE",
-    "E2E_POSTGRES_PORT",
     "PORT",
     "E2E_PORT",
-    "E2E_REDIS_PORT",
-    "PW_WS_ENDPOINT",
-    "DAISY_STACK_NAME",
-    "DAISY_PG_PORT",
-    "DAISY_REDIS_PORT"
+    "E2E_DATABASE_URL",
+    "E2E_REDIS_URL",
+    "E2E_REDIS_NAMESPACE",
+    "PW_WS_ENDPOINT"
   ],
   "tasks": {
     "dev": {

@@ -4,7 +4,7 @@ import { Avatar } from '../../components/avatar/avatar';
 import { IconButton } from '../../components/icon-button/icon-button';
 import { Panel } from '../../components/panel/panel';
 import { Button } from '../../components/button/button';
-import { Tier } from '../../types/tier/tier';
+import { label } from '../../types/tier/tier';
 import { useUiState } from '../../store/store';
 import { avatarSrc } from '../../assets';
 
@@ -34,7 +34,7 @@ export function OnlineUsers() {
                 {user.name}
               </span>
               <span className="text-xs tracking-wide text-ink-muted">
-                {Tier.label[user.tier]}
+                {label[user.tier]}
               </span>
             </span>
             <IconButton

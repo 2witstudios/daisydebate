@@ -208,21 +208,40 @@ test('readActorConnections drops a record whose hash names a different actor tha
   }
 });
 
-test('a delete never recreates the online zset from a stale leftover member with no expiry', async () => {
+test('a delete never propagates a stale leftover member into the online zset', async () => {
   // Reproduces the sequence a reviewer found: one connection (staleConn)
   // lapses without ever being read, so its stale, past-scored member is
-  // still sitting in the actor zset; the online zset happens to have
-  // already been dropped (e.g. a prior read's trim emptied it). Deleting
-  // the OTHER, still-live connection must not read staleConn's leftover
-  // score as the new "top" and ZADD it straight back into the online
-  // zset — that would recreate the key with no expiry and a stale member.
+  // still sitting in the actor zset. Deleting the OTHER, still-live
+  // connection must not read staleConn's leftover score as the new "top"
+  // and ZADD it straight back into the online zset — that would leave a
+  // stale member there with a past score.
+  //
+  // A second, unrelated actor (neighborActor) stays live throughout with a
+  // long TTL, so the online zset itself is never at risk of physically
+  // expiring during this test (per-member scores carry no TTL of their
+  // own; only the whole key does, and neighborActor's lease keeps that key
+  // real and long-lived). That makes the assertion on onlineKey's member
+  // and score below deterministic, unlike checking EXISTS on a key whose
+  // own recreation would carry only a 1 ms clamped expiry (arm() clamps
+  // any past score's ttl to 1 ms) — that races Redis's lazy expiry and
+  // measured 4 of 8 failures under this exact mutation.
   const namespace = `test-${crypto.randomUUID().slice(0, 8)}`;
   const redis = createRedis({ url, namespace });
   const raw = await rawClient(url);
   const actorId = 'duplicateDeleteActor';
+  const neighborActorId = 'duplicateDeleteNeighbor';
   const actorKey = redisKey(namespace, 'presence', 'actor', actorId);
   const onlineKey = redisKey(namespace, 'presence', 'online');
   try {
+    await redis.upsertPresenceLease(
+      {
+        connId: 'neighborConn',
+        actorId: neighborActorId,
+        instanceId: 'inst0',
+        activity: 'active',
+      },
+      100,
+    );
     await redis.upsertPresenceLease(
       {
         connId: 'longConn',
@@ -250,19 +269,37 @@ test('a delete never recreates the online zset from a stale leftover member with
       'staleConn',
     ]);
     await raw.del(redisKey(namespace, 'presence', 'conn', 'staleConn'));
-    // The online zset already doesn't exist (dropped by an earlier trim).
-    await raw.del(onlineKey);
 
     await redis.deletePresenceLease({ connId: 'longConn', actorId });
 
-    // The actor's only remaining zset entry was already stale, so it must
-    // not appear online at all — and the online key must not have been
-    // recreated (with or without an expiry).
-    expect(await raw.exists(onlineKey)).toBe(false);
-    expect(await redis.readOnlinePresence()).toEqual([]);
+    // The deterministic oracle: the online zset itself (kept alive by
+    // neighborActor, so this cannot race a physical expiry) must not carry
+    // this actor's member at all, stale score or not.
+    expect(await raw.send('ZSCORE', [onlineKey, actorId])).toBeNull();
+    // Contract coverage, not the oracle above: readOnlinePresence() runs
+    // its own score-based trim before returning, so a stale member is
+    // filtered out here regardless of whether the delete script's purge
+    // ran — this cannot fail under the mutation this test targets, but it
+    // does prove the actor's own connections stay absent from the public
+    // read.
+    expect(
+      (await redis.readOnlinePresence()).some(
+        (actor) => actor.actorId === actorId,
+      ),
+    ).toBe(false);
+    // Extra, also deterministic: the actor zset's own expiry is armed to
+    // cover the longest live lease (100 s here), so it cannot physically
+    // expire mid-test either. With the purge, ZREM leaves it empty and
+    // Redis drops the now-empty key; without it, staleConn's past-scored
+    // member survives and the key still exists.
+    expect(await raw.exists(actorKey)).toBe(false);
   } finally {
     await redis.deletePresenceLease({ connId: 'longConn', actorId });
     await redis.deletePresenceLease({ connId: 'staleConn', actorId });
+    await redis.deletePresenceLease({
+      connId: 'neighborConn',
+      actorId: neighborActorId,
+    });
     redis.close();
     raw.close();
   }

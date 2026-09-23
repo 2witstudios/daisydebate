@@ -8,4 +8,4 @@ export type Tier =
   | 'master'
   | 'grandmaster';
 
-export * as Tier from './public';
+export { label } from './public';

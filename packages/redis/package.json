@@ -4,12 +4,13 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./namespaces": "./src/namespaces.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "bun test src",
-    "test:integration": "bun test ./integration/redis.integration.ts ./integration/presence.integration.ts ./integration/presence-expiry.integration.ts"
+    "test:integration": "bun test ./integration/redis.integration.ts ./integration/presence.integration.ts ./integration/presence-expiry.integration.ts ./integration/namespaces.integration.ts"
   },
   "dependencies": {},
   "devDependencies": {

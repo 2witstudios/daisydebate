@@ -29,6 +29,66 @@ describe('repository ESLint configuration', () => {
       ],
     });
   });
+
+  test('rejects `export *`, the barrel AGENTS.md forbids (RT-2.1c AC2)', async () => {
+    const eslint = new ESLint({
+      cwd: process.cwd(),
+      overrideConfigFile: './eslint.config.mjs',
+    });
+    const [result] = await eslint.lintText("export * from './realtime';", {
+      filePath: 'packages/protocol/src/index.ts',
+    });
+
+    assert({
+      given: 'an `export * from` reintroduced into a workspace source file',
+      should: 'report one no-restricted-syntax error for the wildcard export',
+      actual: result.messages.map(({ ruleId, severity }) => ({
+        ruleId,
+        severity,
+      })),
+      expected: [{ ruleId: 'no-restricted-syntax', severity: 2 }],
+    });
+  });
+
+  test('accepts named re-exports, the pattern `export *` would replace', async () => {
+    const eslint = new ESLint({
+      cwd: process.cwd(),
+      overrideConfigFile: './eslint.config.mjs',
+    });
+    const [result] = await eslint.lintText(
+      "export { parseTopic } from './realtime';",
+      { filePath: 'packages/protocol/src/index.ts' },
+    );
+
+    assert({
+      given: 'the named re-export form the codebase actually uses',
+      should: 'report nothing',
+      actual: result.messages.map(({ ruleId }) => ruleId),
+      expected: [],
+    });
+  });
+
+  test('still rejects `export *` inside the ambient-time exemption paths (RT-2.1c AC6, revision 4.13)', async () => {
+    const eslint = new ESLint({
+      cwd: process.cwd(),
+      overrideConfigFile: './eslint.config.mjs',
+    });
+    const [result] = await eslint.lintText("export * from './index';", {
+      filePath: 'packages/clock/src/index.ts',
+    });
+
+    assert({
+      given:
+        'an `export * from` inside packages/clock, whose ambient-time exemption turns off the rest of no-restricted-syntax',
+      should:
+        'still report the wildcard export: the exemption never covers ExportAllDeclaration',
+      actual: result.messages.map(({ ruleId, severity }) => ({
+        ruleId,
+        severity,
+      })),
+      expected: [{ ruleId: 'no-restricted-syntax', severity: 2 }],
+    });
+  });
 });
 
 describe('token-locked Tailwind lint rules (ADR 0028)', () => {

@@ -2,9 +2,12 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   buildDebatePresenceTopic,
   buildDebateTopic,
+  buildServerMessageSchema,
   closeCodeTable,
   ENVELOPE_VERSION,
+  PROTOCOL_VERSION,
   serverMessageSchema,
+  type EnvelopeVersion,
 } from './realtime';
 
 setupRitewayBun();
@@ -165,6 +168,56 @@ describe('server message schema and close codes', () => {
         serverMessageSchema.safeParse({ v: 2, type: 'ready' }).success,
       ],
       expected: [false, false],
+    });
+  });
+
+  test('builds every server message from an independently injected envelope version (RT-2.1c AC1, continued: envelope)', () => {
+    const injectedEnvelopeVersion = 44 as EnvelopeVersion;
+    const schema = buildServerMessageSchema(injectedEnvelopeVersion);
+    const topic = buildDebateTopic(otherId);
+    const messagesAtV44 = [
+      { v: 44, type: 'subscribed', id, topic, position: '5:12' },
+      { v: 44, type: 'unsubscribed', id, topic },
+      { v: 44, type: 'resync_required', id, topic },
+      { v: 44, type: 'error', code: 'AUTHORIZATION', message: 'refused' },
+      { v: 44, type: 'pong', id },
+      {
+        v: 44,
+        type: 'event',
+        topic,
+        position: '5:13',
+        payload: { version: 1, kind: 'debate.phase-changed', ids: [otherId] },
+      },
+      {
+        v: 44,
+        type: 'presence.changed',
+        topic: buildDebatePresenceTopic(otherId),
+      },
+      { v: 44, type: 'ready' },
+      { v: 44, type: 'revoked' },
+      { v: 44, type: 'server.restarting' },
+    ];
+    assert({
+      given:
+        'a server message schema built with envelope version 44, and one message of every server type stamped v:44',
+      should:
+        "accept v:44 on every one of them, and reject each when restamped with PROTOCOL_VERSION's or ENVELOPE_VERSION's value (both 1), proving no member's envelope is hard-coded to either constant",
+      actual: [
+        ...messagesAtV44.map((message) => schema.safeParse(message).success),
+        ...messagesAtV44.map(
+          (message) =>
+            schema.safeParse({ ...message, v: PROTOCOL_VERSION }).success,
+        ),
+        ...messagesAtV44.map(
+          (message) =>
+            schema.safeParse({ ...message, v: ENVELOPE_VERSION }).success,
+        ),
+      ],
+      expected: [
+        ...messagesAtV44.map(() => true),
+        ...messagesAtV44.map(() => false),
+        ...messagesAtV44.map(() => false),
+      ],
     });
   });
 

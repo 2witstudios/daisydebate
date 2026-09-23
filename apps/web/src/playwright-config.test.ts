@@ -2,7 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import playwrightConfig, {
   resolveBrowserEndpoint,
   resolveE2EPort,
-  resolveE2ERedisPort,
+  resolveE2EServices,
   resolveReuseExistingServer,
   runsVisualProject,
 } from '../playwright.config';
@@ -29,15 +29,12 @@ describe('Playwright failure artifacts', () => {
 });
 
 describe('Playwright port resolution', () => {
-  test('defaults to the canonical port and loopback service ports', () => {
+  test('defaults to the canonical port', () => {
     assert({
-      given: 'an environment without slot overrides',
-      should: 'use the canonical e2e port and local service ports',
-      actual: {
-        port: resolveE2EPort({}),
-        redisPort: resolveE2ERedisPort({}),
-      },
-      expected: { port: 3100, redisPort: '6379' },
+      given: 'an environment without a pinned port',
+      should: 'use the canonical e2e port',
+      actual: resolveE2EPort({}),
+      expected: 3100,
     });
   });
 
@@ -49,13 +46,35 @@ describe('Playwright port resolution', () => {
       expected: 13100,
     });
   });
+});
 
-  test('pinned E2E_REDIS_PORT moves the e2e Redis endpoint', () => {
+describe('Playwright slot services', () => {
+  test('uses exactly the slot database and Redis namespace it is given', () => {
     assert({
-      given: 'E2E_REDIS_PORT from a parallel session slot',
-      should: 'derive the Redis port from it',
-      actual: resolveE2ERedisPort({ E2E_REDIS_PORT: '26379' }),
-      expected: '26379',
+      given: 'the e2e values bun slot:up writes for a worktree',
+      should: 'pass them to the production server unchanged',
+      actual: resolveE2EServices({
+        E2E_DATABASE_URL:
+          'postgres://daisy_e2e:e2e-loopback-only@localhost:15432/daisy_wt_abc_test',
+        E2E_REDIS_URL: 'redis://localhost:6379/2',
+        E2E_REDIS_NAMESPACE: 'daisy-wt-abc-e2e',
+      }),
+      expected: {
+        DATABASE_URL:
+          'postgres://daisy_e2e:e2e-loopback-only@localhost:15432/daisy_wt_abc_test',
+        REDIS_URL: 'redis://localhost:6379/2',
+        REDIS_NAMESPACE: 'daisy-wt-abc-e2e',
+      },
+    });
+  });
+
+  test('never falls back to another slot when a value is missing', () => {
+    assert({
+      given: 'an environment without the e2e slot values',
+      should:
+        'pass empty values the server configuration rejects, never a default database',
+      actual: resolveE2EServices({}),
+      expected: { DATABASE_URL: '', REDIS_URL: '', REDIS_NAMESPACE: '' },
     });
   });
 });
@@ -76,6 +95,20 @@ describe('Playwright server reuse policy', () => {
       should: 'reuse an existing server',
       actual: resolveReuseExistingServer({}),
       expected: true,
+    });
+  });
+
+  test('explicit slot services disable reuse even on the default port', () => {
+    assert({
+      given:
+        'e2e database, Redis URL or namespace settings without a pinned port',
+      should: 'boot its own server so those settings are actually applied',
+      actual: [
+        resolveReuseExistingServer({ E2E_DATABASE_URL: 'postgres://x/y_test' }),
+        resolveReuseExistingServer({ E2E_REDIS_URL: 'redis://x/2' }),
+        resolveReuseExistingServer({ E2E_REDIS_NAMESPACE: 'daisy-wt-abc-e2e' }),
+      ],
+      expected: [false, false, false],
     });
   });
 
@@ -117,6 +150,22 @@ describe('Playwright visual project', () => {
       should: 'resolve no endpoint',
       actual: resolveBrowserEndpoint({ PW_WS_ENDPOINT: '' }),
       expected: undefined,
+    });
+  });
+});
+
+describe('Playwright web server output', () => {
+  test('writes one server log per app port', () => {
+    const server = Array.isArray(playwrightConfig.webServer)
+      ? playwrightConfig.webServer[0]
+      : playwrightConfig.webServer;
+    assert({
+      given: 'the configured e2e web server',
+      should: 'log to a file named after its app port, never a shared one',
+      actual: server?.command.endsWith(
+        `> test-results/server-${server.env?.PORT}.log 2>&1`,
+      ),
+      expected: true,
     });
   });
 });

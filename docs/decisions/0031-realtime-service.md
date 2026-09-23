@@ -130,10 +130,11 @@ only names the rule.
 
 Subscriptions are re-authorized in a batch every 60 s, the same period as
 session revalidation (section 11). Every socket may also hold at most a
-bounded number of active subscriptions; `@daisy/config`'s validated
-environment owns the exact bound (`apps/realtime`'s concern, not this
-package's), so a client cannot force unbounded per-socket authorization
-work by subscribing without limit.
+bounded number of active subscriptions, **64 per socket by default**;
+`@daisy/config`'s validated environment owns the exact bound, configurable
+from that default (`apps/realtime`'s concern, not this package's), so a
+client cannot force unbounded per-socket authorization work by subscribing
+without limit.
 
 ### 6. The envelope
 
