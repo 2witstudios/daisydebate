@@ -3,6 +3,7 @@ import playwrightConfig, {
   resolveBrowserEndpoint,
   resolveE2EPort,
   resolveE2EServices,
+  resolveRealtimeNamespace,
   resolveReuseExistingServer,
   runsVisualProject,
 } from '../playwright.config';
@@ -75,6 +76,42 @@ describe('Playwright slot services', () => {
         'pass empty values the server configuration rejects, never a default database',
       actual: resolveE2EServices({}),
       expected: { DATABASE_URL: '', REDIS_URL: '', REDIS_NAMESPACE: '' },
+    });
+  });
+});
+
+describe('Playwright realtime namespace', () => {
+  test('adds a -realtime suffix when it still fits REDIS_NAMESPACE', () => {
+    assert({
+      given: 'a short e2e slot namespace',
+      should: 'append -realtime',
+      actual: resolveRealtimeNamespace({
+        E2E_REDIS_NAMESPACE: 'daisy-wt-abc-e2e',
+      }),
+      expected: 'daisy-wt-abc-e2e-realtime',
+    });
+  });
+
+  test('shares the namespace when a -realtime suffix would exceed the 41-character limit', () => {
+    // Matches scripts/slot-model.ts's maxIdLength reasoning: the longest
+    // worktree slot's E2E_REDIS_NAMESPACE is already 41 characters.
+    const atLimit = `daisy-wt-${'a'.repeat(28)}-e2e`;
+    assert({
+      given: "a namespace already at REDIS_NAMESPACE's 41-character limit",
+      should:
+        'fall back to sharing it rather than producing an invalid namespace',
+      actual: resolveRealtimeNamespace({ E2E_REDIS_NAMESPACE: atLimit }),
+      expected: atLimit,
+    });
+  });
+
+  test('an empty namespace fails closed rather than producing "-realtime"', () => {
+    assert({
+      given: 'no e2e slot namespace configured',
+      should:
+        'resolve to the same empty string resolveE2EServices already produces, never a bare "-realtime"',
+      actual: resolveRealtimeNamespace({}),
+      expected: '',
     });
   });
 });
@@ -166,6 +203,50 @@ describe('Playwright web server output', () => {
         `> test-results/server-${server.env?.PORT}.log 2>&1`,
       ),
       expected: true,
+    });
+  });
+});
+
+describe('Playwright realtime web server', () => {
+  const realtime = Array.isArray(playwrightConfig.webServer)
+    ? playwrightConfig.webServer[1]
+    : undefined;
+
+  test('takes its database and Redis from the same slot services as the web server', () => {
+    assert({
+      given: 'the configured realtime web server',
+      should:
+        'source DATABASE_URL and REDIS_URL from resolveE2EServices and REDIS_NAMESPACE from resolveRealtimeNamespace',
+      actual: {
+        databaseUrl: realtime?.env?.DATABASE_URL,
+        redisUrl: realtime?.env?.REDIS_URL,
+        namespace: realtime?.env?.REDIS_NAMESPACE,
+      },
+      expected: {
+        databaseUrl: resolveE2EServices(process.env).DATABASE_URL,
+        redisUrl: resolveE2EServices(process.env).REDIS_URL,
+        namespace: resolveRealtimeNamespace(process.env),
+      },
+    });
+  });
+
+  test('logs to a file named after its own port, beside the web server log', () => {
+    assert({
+      given: 'the configured realtime web server',
+      should: 'log to test-results/realtime-<port>.log',
+      actual: realtime?.command.includes(
+        `test-results/realtime-${realtime?.env?.REALTIME_PORT}.log`,
+      ),
+      expected: true,
+    });
+  });
+
+  test('follows the same reuse policy as the web server', () => {
+    assert({
+      given: 'the configured realtime web server',
+      should: 'share resolveReuseExistingServer with the web server',
+      actual: realtime?.reuseExistingServer,
+      expected: resolveReuseExistingServer(process.env),
     });
   });
 });

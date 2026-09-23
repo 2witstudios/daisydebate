@@ -88,10 +88,10 @@ Every checkout on the machine (the main checkout and each git worktree or
 which `bun slot:up` derives from the checkout folder
 ([ADR 0034](../decisions/0034-shared-stack-slots.md)):
 
-| Checkout                      | Databases                                     | Redis namespaces                             | Ports (app, e2e)               | Realtime (dev, e2e) |
-| ----------------------------- | --------------------------------------------- | -------------------------------------------- | ------------------------------ | ------------------- |
-| Main checkout                 | `daisy`, `daisy_test`                         | `daisy`, `daisy-e2e`                         | 3000, 3100                     | 3011, 3103          |
-| Worktree folder `wt-3ctbm0tw` | `daisy_wt_3ctbm0tw`, `daisy_wt_3ctbm0tw_test` | `daisy-wt-3ctbm0tw`, `daisy-wt-3ctbm0tw-e2e` | 13000+10n, 13001+10n (block n) | +5n, +4n (block n)  |
+| Checkout                      | Databases                                     | Redis namespaces                             | Ports (app, e2e)               | Realtime (dev, e2e)            |
+| ----------------------------- | --------------------------------------------- | -------------------------------------------- | ------------------------------ | ------------------------------ |
+| Main checkout                 | `daisy`, `daisy_test`                         | `daisy`, `daisy-e2e`                         | 3000, 3100                     | 3011, 3103                     |
+| Worktree folder `wt-3ctbm0tw` | `daisy_wt_3ctbm0tw`, `daisy_wt_3ctbm0tw_test` | `daisy-wt-3ctbm0tw`, `daisy-wt-3ctbm0tw-e2e` | 13000+10n, 13001+10n (block n) | 13005+10n, 13004+10n (block n) |
 
 In a new worktree, copy the main checkout's `.env` (or `.env.example`) and
 run `bun slot:up`. It is idempotent:
