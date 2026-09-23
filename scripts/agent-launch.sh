@@ -13,8 +13,8 @@ if [ ! -f "$env_file" ]; then
   echo "agent-launch: no .env.agent; copy .env.agent.example and add the machine user token (GRD-6.2)." >&2
   exit 1
 fi
-bun "$(dirname "$0")/agent-identity.ts" check-env "$env_file"
-set -a
-. "$env_file"
-set +a
+# The validated values are exported literally; .env.agent is never sourced,
+# so nothing in it is expanded by the shell.
+exports=$(bun "$(dirname "$0")/agent-identity.ts" export-env "$env_file")
+eval "$exports"
 exec "$@"

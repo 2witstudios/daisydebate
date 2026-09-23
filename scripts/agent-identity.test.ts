@@ -162,6 +162,22 @@ describe('agent launcher', () => {
     });
   });
 
+  test('refuses values the shell would expand instead of passing them through', () => {
+    const expanding = [
+      filled.replace('GH_TOKEN=agent-token-value', 'GH_TOKEN=${GITHUB_TOKEN}'),
+      filled.replace('GH_TOKEN=agent-token-value', 'GH_TOKEN="${NOPE:-}"'),
+      filled.replace('GH_TOKEN=agent-token-value', 'GH_TOKEN=$(printf x)'),
+      filled.replace('GH_TOKEN=agent-token-value', 'GH_TOKEN=`printf x`'),
+    ].map((file) => launch(file));
+    assert({
+      given:
+        'GH_TOKEN written as a variable, a default, and command substitutions',
+      should: 'exit non-zero without starting the agent',
+      actual: expanding.map((run) => [run.exitCode, run.stdout.toString()]),
+      expected: Array(4).fill([1, '']),
+    });
+  });
+
   test('refuses to start an agent without the machine identity', () => {
     const missing = launch(undefined);
     const empty = launch(example);

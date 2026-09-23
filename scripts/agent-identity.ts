@@ -40,7 +40,33 @@ export function assessAgentEnv(env: Env): readonly string[] {
     env.GIT_SSH_COMMAND === 'false'
       ? undefined
       : 'GIT_SSH_COMMAND must refuse SSH so the owner key is never used',
+    ...identityKeys(env)
+      .filter((key) => /[$`]/.test(env[key] ?? ''))
+      .map(
+        (key) =>
+          `${key} must be a literal value; shell expansion is not allowed`,
+      ),
   ].filter((problem): problem is string => problem !== undefined);
+}
+
+/** The keys of .env.agent the launcher exports; nothing else is passed on. */
+function identityKeys(env: Env): readonly string[] {
+  return Object.keys(env).filter((key) =>
+    /^(?:GH_TOKEN|DAISY_AUTONOMOUS|GIT_SSH_COMMAND|GIT_CONFIG_COUNT|GIT_CONFIG_(?:KEY|VALUE)_\d+)$/.test(
+      key,
+    ),
+  );
+}
+
+/**
+ * Shell lines that export the validated identity values literally, so the
+ * launcher never sources .env.agent (which would expand $VAR and $(…)).
+ */
+export function exportScript(env: Env): string {
+  const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
+  return identityKeys(env)
+    .map((key) => `export ${key}=${quote(env[key] ?? '')}`)
+    .join('\n');
 }
 
 export type IdentityFacts = {
@@ -85,12 +111,17 @@ export function assessGithubIdentity(facts: IdentityFacts): {
 
 if (import.meta.main) {
   const [mode, file] = process.argv.slice(2);
-  if (mode !== 'check-env' || !file) {
-    process.stderr.write('usage: agent-identity.ts check-env <env file>\n');
+  if ((mode !== 'check-env' && mode !== 'export-env') || !file) {
+    process.stderr.write(
+      'usage: agent-identity.ts check-env|export-env <env file>\n',
+    );
     process.exit(2);
   }
-  const problems = assessAgentEnv(parseDotenv(readFileSync(file, 'utf8')));
+  const env = parseDotenv(readFileSync(file, 'utf8'));
+  const problems = assessAgentEnv(env);
   for (const problem of problems)
     process.stderr.write(`agent-launch: ${problem}\n`);
+  if (problems.length === 0 && mode === 'export-env')
+    process.stdout.write(`${exportScript(env)}\n`);
   process.exit(problems.length > 0 ? 1 : 0);
 }
