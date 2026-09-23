@@ -38,7 +38,6 @@ const enrollment = createPasskeyEnrollment({
 export function SecurityPage() {
   const [passkeys, setPasskeys] = useState<readonly PasskeyRow[]>([]);
   const [sessions, setSessions] = useState<readonly SessionRow[]>([]);
-  const [currentToken, setCurrentToken] = useState<string | undefined>();
   const [passkeysNotice, setPasskeysNotice] = useState<string | undefined>();
   const [sessionsNotice, setSessionsNotice] = useState<string | undefined>();
   const [enrolling, setEnrolling] = useState(false);
@@ -49,14 +48,10 @@ export function SecurityPage() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const [overview, session] = await Promise.all([
-        loadSecurityOverview(authClient),
-        authClient.getSession(),
-      ]);
+      const overview = await loadSecurityOverview(authClient);
       if (cancelled) return;
       setPasskeys(overview.passkeys);
       setSessions(overview.sessions);
-      setCurrentToken(session.data?.session.token);
       setPasskeysNotice(
         overview.passkeysOutcome.kind === 'ok'
           ? undefined
@@ -142,7 +137,6 @@ export function SecurityPage() {
             <SessionRowView
               key={session.id}
               session={session}
-              current={session.token === currentToken}
               onRevoked={(id) =>
                 setSessions((rows) => rows.filter((row) => row.id !== id))
               }

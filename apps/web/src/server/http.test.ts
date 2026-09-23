@@ -76,7 +76,7 @@ describe('handleOperation', () => {
     });
   });
 
-  test('logs the ingress-resolved client identity for Fly proxy verification', async () => {
+  test('logs a hash of the ingress-resolved client identity, never the raw address', async () => {
     recorded.length = 0;
     await handleOperation(
       new Request('http://localhost/api/foundation/proof', {
@@ -85,11 +85,18 @@ describe('handleOperation', () => {
       'test.operation',
       () => Promise.resolve(Response.json({ ok: true })),
     );
+    const hash = (
+      recorded.at(-1)?.fields as Record<string, unknown>
+    ).clientIdHash;
     assert({
       given: 'a request carrying the ingress-stamped client identity header',
-      should: 'attach the resolved client identity to the completion log',
-      actual: (recorded.at(-1)?.fields as Record<string, unknown>).clientId,
-      expected: '203.0.113.9',
+      should:
+        'attach a stable hex hash of the resolved identity, correlatable but never the raw address',
+      actual: {
+        shape: typeof hash === 'string' && /^[0-9a-f]{64}$/.test(hash),
+        leaksRawAddress: JSON.stringify(recorded).includes('203.0.113.9'),
+      },
+      expected: { shape: true, leaksRawAddress: false },
     });
 
     recorded.length = 0;
@@ -100,8 +107,9 @@ describe('handleOperation', () => {
     );
     assert({
       given: 'a request with no ingress-stamped client identity header',
-      should: 'log no clientId field',
-      actual: (recorded.at(-1)?.fields as Record<string, unknown>).clientId,
+      should: 'log no clientIdHash field',
+      actual: (recorded.at(-1)?.fields as Record<string, unknown>)
+        .clientIdHash,
       expected: undefined,
     });
   });

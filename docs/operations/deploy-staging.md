@@ -56,16 +56,19 @@ Confirm the real chain after first deploy:
 
 ```
 # /api/health/ready (not /live, which logs nothing) routes through
-# handleOperation, whose http.request.completed log carries the
-# ingress-resolved clientId field (apps/web/src/server/http.ts).
+# handleOperation, whose http.request.completed log carries a hashed
+# clientIdHash field (apps/web/src/server/http.ts) — never the raw
+# address, which falls outside ADR 0019's loggable allowlist.
 curl -s https://<app>.fly.dev/api/health/ready -H "X-Forwarded-For: 203.0.113.9"
 fly logs -a <app> --no-tail | grep '"event":"http.request.completed"'
+node -e "console.log(require('crypto').createHash('sha3-256').update('203.0.113.9').digest('hex'))"
 ```
 
-The matched line's `clientId` field is the identity the ingress resolved for
-that request — compare it against the real caller (or, for the command
-above, the `X-Forwarded-For` value it sent) to confirm the proxy chain
-resolved correctly.
+The matched line's `clientIdHash` field is a SHA3-256 hash of the identity
+the ingress resolved for that request. Compute the same hash of the real
+caller's address (or, for the command above, the `X-Forwarded-For` value it
+sent) and compare hex digests to confirm the proxy chain resolved
+correctly.
 
 If the resolved client address is not the real caller, widen or correct
 `AUTH_TRUSTED_PROXIES` in `fly.toml` and redeploy — do not leave it unset,

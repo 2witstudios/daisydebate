@@ -19,38 +19,62 @@ const clientWith = (overrides: Partial<SecurityClient>): SecurityClient => ({
     updatePasskey: noop,
     deletePasskey: noop,
   },
-  listSessions: async () => ({ data: [], error: null }),
-  revokeSession: noop,
   revokeOtherSessions: noop,
   signOut: noop,
   changeEmail: noop,
   ...overrides,
 });
 
+/** Stubs global fetch for one call and restores it after `use` resolves. */
+async function withFetch<T>(
+  respond: (input: string, init?: RequestInit) => Response,
+  use: () => Promise<T>,
+): Promise<T> {
+  const original = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) =>
+    respond(String(input), init)) as typeof fetch;
+  try {
+    return await use();
+  } finally {
+    globalThis.fetch = original;
+  }
+}
+
+const jsonResponse = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  });
+
 describe('loadSecurityOverview', () => {
-  test('a healthy client returns both lists as ok', async () => {
+  test('a healthy client and route return both lists as ok', async () => {
     const passkeys = [{ id: 'p1', name: 'Laptop', createdAt: '2026-01-01' }];
     const sessions = [
       {
         id: 's1',
-        token: 't1',
         createdAt: '2026-01-01',
         updatedAt: '2026-01-01',
         expiresAt: '2026-01-08',
+        userAgent: null,
+        ipAddress: null,
+        current: true,
       },
     ];
-    const overview = await loadSecurityOverview(
-      clientWith({
-        passkey: {
-          listUserPasskeys: async () => ({ data: passkeys, error: null }),
-          updatePasskey: noop,
-          deletePasskey: noop,
-        },
-        listSessions: async () => ({ data: sessions, error: null }),
-      }),
+    const overview = await withFetch(
+      () => jsonResponse({ sessions }),
+      () =>
+        loadSecurityOverview(
+          clientWith({
+            passkey: {
+              listUserPasskeys: async () => ({ data: passkeys, error: null }),
+              updatePasskey: noop,
+              deletePasskey: noop,
+            },
+          }),
+        ),
     );
     assert({
-      given: 'a client whose lists resolve without error',
+      given: 'a client and route that both resolve without error',
       should: 'return both lists and an ok outcome for each',
       actual: {
         passkeys: overview.passkeys,
@@ -71,26 +95,31 @@ describe('loadSecurityOverview', () => {
     const sessions = [
       {
         id: 's1',
-        token: 't1',
         createdAt: '2026-01-01',
         updatedAt: '2026-01-01',
         expiresAt: '2026-01-08',
+        userAgent: null,
+        ipAddress: null,
+        current: true,
       },
     ];
-    const overview = await loadSecurityOverview(
-      clientWith({
-        passkey: {
-          listUserPasskeys: () => {
-            throw new Error('network down');
-          },
-          updatePasskey: noop,
-          deletePasskey: noop,
-        },
-        listSessions: async () => ({ data: sessions, error: null }),
-      }),
+    const overview = await withFetch(
+      () => jsonResponse({ sessions }),
+      () =>
+        loadSecurityOverview(
+          clientWith({
+            passkey: {
+              listUserPasskeys: () => {
+                throw new Error('network down');
+              },
+              updatePasskey: noop,
+              deletePasskey: noop,
+            },
+          }),
+        ),
     );
     assert({
-      given: 'a passkey list call that throws while the session list succeeds',
+      given: 'a passkey list call that throws while the session route succeeds',
       should:
         'report the sessions normally and an unavailable passkey outcome, never reject',
       actual: {
@@ -108,17 +137,17 @@ describe('loadSecurityOverview', () => {
     });
   });
 
-  test('a stale session on list-sessions reports an empty list, not a crash', async () => {
-    const overview = await loadSecurityOverview(
-      clientWith({
-        listSessions: async () => ({
-          data: null,
-          error: { status: 403, code: 'SESSION_NOT_FRESH' },
-        }),
-      }),
+  test('a stale session on the sessions route reports an empty list, not a crash', async () => {
+    const overview = await withFetch(
+      () =>
+        jsonResponse(
+          { error: { code: 'AUTHENTICATION', message: 'x', requestId: 'r' } },
+          401,
+        ),
+      () => loadSecurityOverview(clientWith({})),
     );
     assert({
-      given: 'a client whose session list requires fresh authentication',
+      given: 'a session route that requires fresh authentication',
       should: 'report an empty session list and a stale-session outcome',
       actual: {
         sessions: overview.sessions,
@@ -208,11 +237,32 @@ describe('removePasskey', () => {
 
 describe('revokeSession and revokeOtherSessions', () => {
   test('revoking another session succeeds', async () => {
+    const actual = await withFetch(
+      () => jsonResponse({ status: true }),
+      () => revokeSession('other-session-id'),
+    );
     assert({
-      given: 'a client that accepts the revocation',
+      given: 'a route that accepts the revocation',
       should: 'report ok',
-      actual: await revokeSession(clientWith({}), 'other-token'),
+      actual,
       expected: { kind: 'ok' },
+    });
+  });
+
+  test("another user's session id reports not-found, never a crash", async () => {
+    const actual = await withFetch(
+      () =>
+        jsonResponse(
+          { error: { code: 'NOT_FOUND', message: 'x', requestId: 'r' } },
+          404,
+        ),
+      () => revokeSession('foreign-session-id'),
+    );
+    assert({
+      given: "a route refusing another user's session id",
+      should: 'report not-found',
+      actual,
+      expected: { kind: 'not-found' },
     });
   });
 
