@@ -29,8 +29,15 @@ adds the delivery and abuse controls ADR 0020 requires before activation.
   and sending-domain reputation from many recipients each staying under their
   own ceiling). A limiter failure fails closed as a safe `503` (the route
   boundary adds `Retry-After: 5`); there is no process-local fallback and no
-  allow-on-error. `429` carries `Retry-After`. (Amended 2026-09-23, ISSUE-5:
-  the recipient and global rules were added; the client rule is unchanged.)
+  allow-on-error. `429` carries `Retry-After`. The gate consumes a request's
+  buckets in order (client, recipients, global) and every consume counts,
+  admitted or not, so a request denied by a later bucket has already spent
+  the earlier buckets' budget. That is accepted: a caller who keeps retrying
+  while the global ceiling is saturated also exhausts their own client and
+  recipient allowance, but nothing is admitted wrongly, and spending nothing
+  on denial would need one atomic multi-key script across every bucket.
+  Integration tests prove the recipient hour and day ceilings and both
+  global ceilings against real Redis.
 - **Trusted client identity — one resolver.** Better Auth's `advanced.ipAddress`
   is fixed to `{ ipAddressHeaders: [CLIENT_IP_HEADER] }`, the internal
   `x-daisy-client-ip` header, with no deployment-configurable header list and
