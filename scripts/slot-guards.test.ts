@@ -4,6 +4,7 @@ import {
   serviceRefusal,
   slotEnvValues,
   slotMismatches,
+  withSlotEnv,
   worktreeSlot,
 } from './slot-model';
 
@@ -129,6 +130,37 @@ describe('one server per slot', () => {
       expected: [
         'TEST_DATABASE_URL is on localhost:25432, expected the DATABASE_URL server localhost:15432',
       ],
+    });
+  });
+});
+
+describe('child processes after slot:up', () => {
+  test('see the slot values slot:up just wrote, not the ones inherited', () => {
+    const inherited = {
+      DATABASE_URL: 'postgres://daisy:pw@localhost:15432/daisy',
+      REDIS_NAMESPACE: 'daisy',
+      PUBLIC_APP_URL: 'http://localhost:3000',
+      PATH: '/usr/bin',
+      BETTER_AUTH_SECRET: 'kept',
+    };
+    const rewritten = [
+      'DATABASE_URL=postgres://daisy:pw@localhost:15432/daisy_wt_abc',
+      'REDIS_NAMESPACE=daisy-wt-abc',
+      'PUBLIC_APP_URL=http://localhost:13010',
+      'BETTER_AUTH_SECRET=from-file',
+      '',
+    ].join('\n');
+    assert({
+      given: 'an environment loaded before slot:up rewrote .env',
+      should: 'replace every slot value and leave everything else alone',
+      actual: withSlotEnv(inherited, rewritten),
+      expected: {
+        DATABASE_URL: 'postgres://daisy:pw@localhost:15432/daisy_wt_abc',
+        REDIS_NAMESPACE: 'daisy-wt-abc',
+        PUBLIC_APP_URL: 'http://localhost:13010',
+        PATH: '/usr/bin',
+        BETTER_AUTH_SECRET: 'kept',
+      },
     });
   });
 });

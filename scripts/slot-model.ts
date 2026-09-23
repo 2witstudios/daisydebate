@@ -254,6 +254,19 @@ const requireEnv = (env: Env, key: string): string => {
   return value;
 };
 
+/** Every .env key `bun slot:up` owns (see slotEnvValues). */
+const slotEnvKeys = [
+  'DATABASE_URL',
+  'TEST_DATABASE_URL',
+  'REDIS_NAMESPACE',
+  'E2E_DATABASE_URL',
+  'E2E_REDIS_URL',
+  'E2E_REDIS_NAMESPACE',
+  'PORT',
+  'PUBLIC_APP_URL',
+  'E2E_PORT',
+] as const;
+
 /**
  * The slot's .env values. The server (host, port, credentials) comes from
  * the existing URLs, which is how the admin connection is injected.
@@ -266,7 +279,7 @@ export function slotEnvValues({
   readonly slot: Slot;
   readonly env: Env;
   readonly portBlock?: number;
-}): Readonly<Record<string, string>> {
+}): Readonly<Record<(typeof slotEnvKeys)[number], string>> {
   const databaseUrl = requireEnv(env, 'DATABASE_URL');
   const redisUrl = requireEnv(env, 'REDIS_URL');
   const ports =
@@ -307,6 +320,20 @@ const assignment = (key: string) => new RegExp(`^${key}=(.*)$`, 'gm');
 
 export function readEnvValue(content: string, key: string): string | undefined {
   return [...content.matchAll(assignment(key))].at(-1)?.[1];
+}
+
+/**
+ * The environment for processes started after `slot:up` rewrote .env: the
+ * slot values come from the file, because values inherited from a parent
+ * (Bun loads .env on start) would otherwise win over `--env-file`.
+ */
+export function withSlotEnv(env: Env, content: string): Env {
+  const fresh = Object.fromEntries(
+    slotEnvKeys
+      .map((key) => [key, readEnvValue(content, key)] as const)
+      .filter(([, value]) => value !== undefined),
+  );
+  return { ...env, ...fresh };
 }
 
 /** Rewrites every canonical `KEY=` line; appends keys the file lacks. */
