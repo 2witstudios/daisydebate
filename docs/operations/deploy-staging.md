@@ -232,7 +232,7 @@ Run from the repository root (so `apps/web/Dockerfile`'s build context is
 the monorepo):
 
 ```
-fly deploy -a daisy-debate-staging \
+fly deploy -a daisy-debate-staging --ha=false \
   --build-arg APP_VERSION="$(git rev-parse --short HEAD)" \
   --build-arg GIT_COMMIT="$(git rev-parse HEAD)"
 ```
@@ -243,6 +243,10 @@ do not add a migration step anywhere else.
 
 Verify: `fly status -a daisy-debate-staging` shows one deployed release and
 `fly releases -a daisy-debate-staging` shows it as successful.
+
+`--ha=false` keeps one machine: without it `fly deploy` creates two for
+high availability, which doubles the (idle-free) footprint and is
+pointless for staging. If two exist, `fly scale count 1 -a daisy-debate-staging`.
 
 ## 7. Verify
 

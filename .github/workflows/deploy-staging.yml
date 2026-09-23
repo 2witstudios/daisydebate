@@ -36,7 +36,7 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@v1
       - name: Deploy
         run: >-
-          flyctl deploy -a daisy-debate-staging --remote-only
+          flyctl deploy -a daisy-debate-staging --remote-only --ha=false
           --build-arg APP_VERSION="${GITHUB_SHA::7}"
           --build-arg GIT_COMMIT="$GITHUB_SHA"
       - name: Verify readiness

@@ -52,7 +52,13 @@ primary_region = "ord"
   # Fly does not document a narrower CIDR for fly-proxy's own address, so the
   # whole prefix is trusted here — see docs/operations/deploy-staging.md
   # "Client identity on Fly" for the verification step run on first deploy.
-  AUTH_TRUSTED_PROXIES = "fdaa::/8"
+  # First-deploy finding (September 22): fly-proxy reaches the app over
+  # IPv4 from 172.16.0.0/12 (observed peers 172.16.x and 172.19.x), not
+  # from the fdaa::/8 6PN prefix, so trusting only fdaa::/8 left every
+  # caller resolved to the proxy's address — one shared rate-limit bucket.
+  # Only fly-proxy can reach a machine with no dedicated public IP, so the
+  # private IPv4 range is trusted as well.
+  AUTH_TRUSTED_PROXIES = "fdaa::/8,172.16.0.0/12"
 
 [http_service]
   # Must match Dockerfile EXPOSE and the PORT env above.
