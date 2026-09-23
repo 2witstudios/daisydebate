@@ -296,4 +296,26 @@ describe('deliveredCodes', () => {
       expected: ['RT-3.1', 'RT-3.1b'],
     });
   });
+
+  test('closes an issue only from the title or branch, never from a Tasks link', () => {
+    const body = '- Tasks: [Issues list](url) · [ISSUE-1](url)';
+    assert({
+      given:
+        'a PR whose Tasks line only links ISSUE-1, and one whose title names ISSUE-3',
+      should: 'deliver no issue for the first and ISSUE-3 for the second',
+      actual: [
+        deliveredCodes({
+          title: 'docs(agents): route findings to Issues',
+          headRefName: 'docs/issues-list',
+          body,
+        }),
+        deliveredCodes({
+          title: 'fix(ci): pin the sprint-room actions (ISSUE-3)',
+          headRefName: 'pu/issue-3',
+          body: '- Tasks: [ISSUE-3](url)',
+        }),
+      ],
+      expected: [[], ['ISSUE-3']],
+    });
+  });
 });
