@@ -29,9 +29,9 @@ export const cleanupActorFor = (userId: string) =>
  * RT-2.2f-r2: deletes the `users` row `signUp()` created (and any actor
  * still referencing it, since `actors.user_id` is `onDelete: 'restrict'`),
  * keyed by the user id resolved at sign-up rather than the account's
- * possibly-changed email.
+ * possibly-changed email. Only `trackedSignUp` below calls this directly.
  */
-export const cleanupUserFor = (userId: string) =>
+const cleanupUserFor = (userId: string) =>
   withSql(async (sql) => {
     await sql`DELETE FROM actors WHERE user_id = ${userId}`;
     await sql`DELETE FROM users WHERE id = ${userId}`;
