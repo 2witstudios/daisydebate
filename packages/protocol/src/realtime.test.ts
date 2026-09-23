@@ -15,6 +15,7 @@ import {
   seasonIdSchema,
   topicStringSchema,
 } from './realtime';
+import { parseOutcome } from './parse-outcome.test-support';
 
 setupRitewayBun();
 
@@ -112,11 +113,15 @@ describe('topic grammar', () => {
       given: 'a season slug ending in a hyphen',
       should: 'reject it',
       actual: [
-        seasonIdSchema.safeParse('2026-').success,
-        seasonIdSchema.safeParse('2026').success,
-        seasonIdSchema.safeParse('fall-2026').success,
+        parseOutcome(seasonIdSchema, '2026-'),
+        parseOutcome(seasonIdSchema, '2026'),
+        parseOutcome(seasonIdSchema, 'fall-2026'),
       ],
-      expected: [false, true, true],
+      expected: [
+        { issues: ['(root)'] },
+        { data: '2026' },
+        { data: 'fall-2026' },
+      ],
     });
   });
 
@@ -124,9 +129,12 @@ describe('topic grammar', () => {
     const oversizedTopic = `standings:${'a'.repeat(200)}`;
     assert({
       given: 'a topic string far longer than any real topic',
-      should: 'fail the length bound before the shape refinement even runs',
-      actual: topicStringSchema.safeParse(oversizedTopic).success,
-      expected: false,
+      should:
+        'fail the length bound alone: the shape refinement never parses an oversized string',
+      actual: topicStringSchema
+        .safeParse(oversizedTopic)
+        .error?.issues.map((issue) => issue.code),
+      expected: ['too_big'],
     });
   });
 });
@@ -137,8 +145,8 @@ describe('the since cursor', () => {
     assert({
       given: 'a cursor with each part at the 20-digit bound',
       should: 'accept it',
-      actual: cursorSchema.safeParse(`${twentyDigits}:${twentyDigits}`).success,
-      expected: true,
+      actual: parseOutcome(cursorSchema, `${twentyDigits}:${twentyDigits}`),
+      expected: { data: `${twentyDigits}:${twentyDigits}` },
     });
   });
 
@@ -149,10 +157,10 @@ describe('the since cursor', () => {
         'a cursor with a part past the 20-digit bound, and one with a leading zero',
       should: 'reject both',
       actual: [
-        cursorSchema.safeParse(`${twentyOneDigits}:1`).success,
-        cursorSchema.safeParse('01:1').success,
+        parseOutcome(cursorSchema, `${twentyOneDigits}:1`),
+        parseOutcome(cursorSchema, '01:1'),
       ],
-      expected: [false, false],
+      expected: [{ issues: ['(root)'] }, { issues: ['(root)'] }],
     });
   });
 });

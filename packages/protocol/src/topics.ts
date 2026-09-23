@@ -95,7 +95,8 @@ export function parseTopic(topic: string): ParsedTopic | undefined {
  */
 export const topicStringSchema = z
   .string()
-  .max(128)
+  // Aborts: an oversized string never reaches parseTopic's grammar.
+  .max(128, { abort: true })
   .refine((value) => parseTopic(value) !== undefined, {
     message: 'Not a valid realtime topic',
   });
