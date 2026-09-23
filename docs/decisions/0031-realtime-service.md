@@ -62,7 +62,7 @@ installs (`docs/runtime/http/websockets.mdx`, `serve.d.ts`), and the
 installed `@socket.io/bun-engine@0.1.2` README and source with
 `socket.io@4.8.3` / `socket.io-client@4.8.3`. The spike used placeholder
 application codes (4401, 4408) and a shortened 300 ms `hello` timer; the
-normative values are in sections 7 and 10.
+normative values are in sections 8 and 11.
 
 | Question                                   | Native `Bun.serve` (measured)                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | socket.io + `@socket.io/bun-engine` 0.1.2 (measured)                                                                                                                                                                                                                                                          |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -73,7 +73,7 @@ normative values are in sections 7 and 10.
 | Transports                                 | WebSocket only                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | `GET /socket.io/?EIO=4&transport=polling` answered 200 with a session id: long-polling is on by default (`TRANSPORTS = ["polling", "websocket"]`); the documented `allowRequest` hook can refuse it (403)                                                                                                     |
 | `maxPayloadLength`                         | Oversize inbound message closes the socket; the client saw 1006, not the 1009 the `close()` docs list                                                                                                                                                                                                                                                                                                                                                                                             | `maxHttpBufferSize`, same underlying limit                                                                                                                                                                                                                                                                    |
 | `idleTimeout`                              | A silent socket closed at 7,998 ms (`idleTimeout: 8`) and 32,004 ms (`32`). Values round up to 4 s (`10` closed at 12,000 ms; `1` never fired in 6 s), and a close can land up to 2 s early (30,011 ms at `32` under load, in review)                                                                                                                                                                                                                                                             | Sets the HTTP `idleTimeout`, not the WebSocket one                                                                                                                                                                                                                                                            |
-| `sendPings`                                | Timed on the server: with `sendPings: true`, a reader-paused peer (zero pongs) was closed at 8,004 ms (`idleTimeout: 8`) and 36,028 ms (`36`); a live peer sending no application messages stayed open past 45 s on protocol pongs alone. A peer that stops reading but keeps sending is not idle and is reaped only by the backpressure bounds (section 8). (A first, client-side-only measurement reported "stayed open"; a paused client cannot observe the close, and the review refuted it.) | Engine.IO's own 25 s ping / 20 s timeout                                                                                                                                                                                                                                                                      |
+| `sendPings`                                | Timed on the server: with `sendPings: true`, a reader-paused peer (zero pongs) was closed at 8,004 ms (`idleTimeout: 8`) and 36,028 ms (`36`); a live peer sending no application messages stayed open past 45 s on protocol pongs alone. A peer that stops reading but keeps sending is not idle and is reaped only by the backpressure bounds (section 9). (A first, client-side-only measurement reported "stayed open"; a paused client cannot observe the close, and the review refuted it.) | Engine.IO's own 25 s ping / 20 s timeout                                                                                                                                                                                                                                                                      |
 | Per-message compression                    | `perMessageDeflate: true` negotiated `permessage-deflate; server_no_context_takeover; client_no_context_takeover`                                                                                                                                                                                                                                                                                                                                                                                 | Not configurable through the engine                                                                                                                                                                                                                                                                           |
 | Client cost                                | 0 bytes (native `WebSocket`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | `socket.io-client` minified 49,812 B, 15,759 B gzipped                                                                                                                                                                                                                                                        |
 | Maturity                                   | Part of the pinned runtime (ADR 0001)                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Pre-1.0 engine (0.1.2)                                                                                                                                                                                                                                                                                        |
@@ -112,14 +112,41 @@ nothing else:
 | `presence.activity` | `{activity: 'active' \| 'idle'}` for this connection's lease   |
 | `ping`              | `{id}`: application heartbeat                                  |
 
-### 5. The envelope
+### 5. Subscribe authorization table
+
+Every `subscribe` is checked against one table-driven registry, owned as
+data by `@daisy/protocol` (`subscribeAuthorizationTable`); the registry
+itself (RT-2.5a) performs no authorization of its own, it only consumes
+this table. A topic family absent from the table is refused. `@daisy/db`'s
+read models settle which side of a rule a given debate falls on; this table
+only names the rule.
+
+| Topic family                          | Who may subscribe                                                                                     |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `debate:<id>`, `debate:<id>:presence` | any signed-in member when the debate is public; every seated role and invited spectators when private |
+| `debate:<id>:chat`                    | every seated role always; signed-in members too, when the debate is public                            |
+| `user:<id>:inbox`                     | the owner only, matched against the connecting ticket's `actorId` (never a `users.id`)                |
+| `standings:<season>`                  | any signed-in member                                                                                  |
+
+Subscriptions are re-authorized in a batch every 60 s, the same period as
+session revalidation (section 11). Every socket may also hold at most a
+bounded number of active subscriptions; `@daisy/config`'s validated
+environment owns the exact bound (`apps/realtime`'s concern, not this
+package's), so a client cannot force unbounded per-socket authorization
+work by subscribing without limit.
+
+### 6. The envelope
 
 Every message in both directions is a JSON text frame
 `{v, type, id?, ...fields}`:
 
-- `v` is the envelope version, the integer `1`. `hello.protocolVersion`
-  negotiates the protocol; an unsupported one closes with
-  `protocol_unsupported`.
+- `v` is the envelope version (`ENVELOPE_VERSION`, the integer `1`):
+  wire framing only. `hello.protocolVersion` (`PROTOCOL_VERSION`)
+  separately negotiates the message set and semantics; an unsupported one
+  closes with `protocol_unsupported`. The two are distinct values, tracked
+  by two separate `@daisy/protocol` constants that both happen to start at
+  `1` rather than one constant reused under two names, so either can change
+  without forcing the other.
 - `type` is the discriminant. `@daisy/protocol` owns one zod discriminated
   union for client messages and one for server messages, and the close-code
   table; TypeScript types are inferred from the schemas.
@@ -127,7 +154,8 @@ Every message in both directions is a JSON text frame
   reply (`subscribe`, `unsubscribe`, `ping`). The server answers with the
   same `id`: `subscribed`, `unsubscribed`, `resync_required` or `error` for
   subscriptions, `pong` for `ping`. Server-initiated messages (`ready`
-  after `hello`, `event`, `revoked`, `server.restarting`) carry no `id`.
+  after `hello`, `event`, `presence.changed`, `revoked`,
+  `server.restarting`) carry no `id`.
 - The receiving side always runs `safeParse`, server and client. An inbound
   message that fails to parse, or any message before a successful `hello`,
   is rejected loudly by closing the socket; nothing is silently dropped.
@@ -139,7 +167,22 @@ Every message in both directions is a JSON text frame
   `maxPayloadLength: 4096` bytes (a `hello` with its ticket is under 300);
   Bun closes an oversize frame abruptly (measured: 1006).
 
-### 6. Heartbeat: application `ping` every 15 s
+Server messages, exactly:
+
+| `type`              | Fields beyond `{v, type}`    | Purpose                                                                                                                                                                                                                                                             |
+| ------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `subscribed`        | `{id, topic, position}`      | acknowledges `subscribe`; `position` is the outbox cursor to catch up from                                                                                                                                                                                          |
+| `unsubscribed`      | `{id, topic}`                | acknowledges `unsubscribe`                                                                                                                                                                                                                                          |
+| `resync_required`   | `{id, topic}`                | the requested `since` fell before the retained range; reload over HTTP                                                                                                                                                                                              |
+| `error`             | `{id?, code, message}`       | a request-scoped or connection-scoped error                                                                                                                                                                                                                         |
+| `pong`              | `{id}`                       | answers `ping`                                                                                                                                                                                                                                                      |
+| `event`             | `{topic, position, payload}` | an outbox row fanned out to a subscriber; `payload.kind` is one of the doorbell or inbox kind names ADR 0032 §6 lists                                                                                                                                               |
+| `presence.changed`  | `{topic}`                    | the presence doorbell (ADR 0033 §1): a `debate:<id>:presence` topic's projected value changed. No `position`: presence is never written to the outbox, so there is nothing to carry beyond the topic, and the client always refetches the projected value over HTTP |
+| `ready`             | none                         | `hello` succeeded                                                                                                                                                                                                                                                   |
+| `revoked`           | none                         | `session.revoked`, or the 60 s revalidation found the session gone                                                                                                                                                                                                  |
+| `server.restarting` | none                         | SIGTERM drain                                                                                                                                                                                                                                                       |
+
+### 7. Heartbeat: application `ping` every 15 s
 
 Browsers cannot send WebSocket ping frames, so client-side liveness is an
 application message; server-side reaping uses the protocol's own pings:
@@ -160,7 +203,7 @@ application message; server-side reaping uses the protocol's own pings:
   36,028 ms at `36`), and a live browser answers protocol pings without
   running JavaScript, so a throttled hidden tab is not reaped. A peer that
   stops reading but keeps sending is not idle; the backpressure bounds
-  (section 8) reap it once traffic flows to it, and until then it holds at
+  (section 9) reap it once traffic flows to it, and until then it holds at
   most its bounded buffer.
 - `idleTimeout` fires on a 4 s tick and was measured up to 2 s early
   (30,011 ms at `32` under load). `32` would leave only 0–2 s over two
@@ -168,9 +211,14 @@ application message; server-side reaping uses the protocol's own pings:
   15 s `ping` keeps at least 4 s of margin even if a pong round is lost.
 - The heartbeat period feeds the attendance invariant
   `checkInGraceMs >= heartbeatMs * 2 + reconnectBudgetMs` (ADR 0033); a
-  change to 15 s is a change to that invariant.
+  change to the 15 s period is a change to that invariant.
+- `@daisy/protocol` exports `heartbeatMs` (15 000), `reconnectBudgetMs`
+  (10 000) and `idleTimeout` (36, Bun's seconds unit, not milliseconds) as
+  named constants, so `apps/realtime`'s socket wiring and the engine's
+  rules validation (ADR 0033 §6) read the same values this section fixes
+  rather than each hard-coding its own copy.
 
-### 7. Close codes
+### 8. Close codes
 
 `@daisy/protocol` owns the close-code table, in the 4000–4999 application
 range. The client reacts per code:
@@ -181,7 +229,7 @@ range. The client reacts per code:
 | 4002 | `revoked`              | `session.revoked`, or the 60 s revalidation finds the session gone                                    | do not reconnect; refetch the session over HTTP                                                               |
 | 4003 | `protocol_unsupported` | `hello.protocolVersion` unsupported, or an inbound message (including the first) fails to parse       | do not reconnect; ask the user to reload                                                                      |
 | 4004 | `rate_limited`         | connection or inbound-message rate limit exceeded                                                     | reconnect with jittered backoff from a 30 s floor                                                             |
-| 4005 | `slow_consumer`        | the socket's send buffer passed the soft bound (section 8)                                            | reconnect with jitter and resubscribe from cursors                                                            |
+| 4005 | `slow_consumer`        | the socket's send buffer passed the soft bound (section 9)                                            | reconnect with jitter and resubscribe from cursors                                                            |
 | 4006 | `server_restarting`    | SIGTERM drain                                                                                         | reconnect with 0–5 s jitter (another instance takes it)                                                       |
 
 Transport-level closes the client also handles: `1000` (normal) and `1001`
@@ -190,7 +238,7 @@ Bun's hard backpressure limit, an oversize frame, `idleTimeout`) reconnects
 with jittered exponential backoff and no lifetime ceiling on clean
 reconnects. An unknown code is treated as `1006`.
 
-### 8. Slow-consumer policy
+### 9. Slow-consumer policy
 
 Correctness never depends on the socket, so the server never buffers without
 bound; it closes and lets the client catch up from its cursor. Measured
@@ -207,8 +255,12 @@ the server closes.
   A direct `send` returning `0` (dropped) also closes with 4005.
 - Doorbells are about 100 bytes, so 256 KiB is thousands of undelivered
   rows: a socket that far behind is cheaper to resync than to feed.
+- `@daisy/protocol` exports both bounds as `backpressureBounds.hardBytes`
+  (1 048 576, the 1 MiB backstop) and `backpressureBounds.softBytes`
+  (262 144, the 256 KiB coded-close bound), so `apps/realtime`'s socket
+  wiring reads the same values this section fixes.
 
-### 9. Compression off
+### 10. Compression off
 
 `perMessageDeflate` is disabled. Payloads are ~100-byte doorbells, so
 compression costs per-socket CPU and memory for no gain, and compressing
@@ -216,7 +268,7 @@ owner-only deltas next to attacker-influenced bytes invites a
 CRIME/BREACH-style length oracle. Revisit only with a topic whose frames
 exceed 1 KiB, in a superseding ADR.
 
-### 10. First-message tickets
+### 11. First-message tickets
 
 A socket is authenticated by a single-use ticket sent in its first message,
 never in the URL (browsers cannot set headers on a WebSocket, and a query
@@ -252,7 +304,7 @@ string lands in proxy and access logs):
 Tickets, raw frames and payloads are never logged; logs carry event names,
 connection and actor ids, and close codes (ADR 0019).
 
-### 11. Allowed edges
+### 12. Allowed edges
 
 `apps/realtime` may depend on exactly:
 

@@ -1,18 +1,53 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  backpressureBounds,
   buildDebateChatTopic,
   buildDebatePresenceTopic,
   buildDebateTopic,
   buildStandingsTopic,
   buildUserInboxTopic,
   cursorSchema,
+  heartbeatMs,
+  idleTimeout,
   parseTopic,
+  reconnectBudgetMs,
   seasonIdSchema,
   topicStringSchema,
 } from './realtime';
 
 setupRitewayBun();
+
+describe('protocol constants (ADR 0031 §7, §9; ADR 0033 §6)', () => {
+  test('names the heartbeat, reconnect budget, idle timeout and backpressure bounds the ADRs fix', () => {
+    assert({
+      given: 'the exported protocol constants',
+      should: 'equal the values ADR 0031 and ADR 0033 fix',
+      actual: {
+        heartbeatMs,
+        reconnectBudgetMs,
+        idleTimeout,
+        backpressureBounds,
+      },
+      expected: {
+        heartbeatMs: 15_000,
+        reconnectBudgetMs: 10_000,
+        idleTimeout: 36,
+        backpressureBounds: { hardBytes: 1_048_576, softBytes: 262_144 },
+      },
+    });
+  });
+
+  test('satisfies the check-in-grace-covers-reconnect invariant input ADR 0033 §6 fixes', () => {
+    assert({
+      given: 'heartbeatMs and reconnectBudgetMs',
+      should:
+        'size a 40 000 ms grace floor: heartbeatMs * 2 + reconnectBudgetMs',
+      actual: heartbeatMs * 2 + reconnectBudgetMs,
+      expected: 40_000,
+    });
+  });
+});
 
 const id = 'k2v9x0f4m8q3w1z7c5n6b4d2';
 
@@ -38,7 +73,7 @@ describe('topic grammar', () => {
         { family: 'debate', debateId: id },
         { family: 'debate:presence', debateId: id },
         { family: 'debate:chat', debateId: id },
-        { family: 'user:inbox', userId: id },
+        { family: 'user:inbox', actorId: id },
         { family: 'standings', season: '2026' },
       ],
     });

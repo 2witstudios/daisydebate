@@ -1,5 +1,5 @@
 /**
- * The documented close-code taxonomy (ADR 0031 §7): a small, fixed set in
+ * The documented close-code taxonomy (ADR 0031 §8): a small, fixed set in
  * the application range (4000-4999), each with the client reaction the ADR
  * specifies. This table is the single authority the socket and its clients
  * code against — @daisy/protocol conforms to it, not the reverse.

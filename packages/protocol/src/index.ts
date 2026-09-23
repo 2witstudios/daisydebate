@@ -1,6 +1,13 @@
 import { z } from 'zod';
 import { idSchema, debateRoleSchema } from './primitives';
-export * from './primitives';
+export {
+  cuid2IdPattern,
+  idSchema,
+  debateRoles,
+  debateRoleSchema,
+  errorSchema,
+} from './primitives';
+export type { DebateRole, ProtocolError } from './primitives';
 export const phaseSchema = z.enum(['waiting', 'active', 'completed']);
 const seatCountSchema = z.int().min(0);
 /**
@@ -77,4 +84,53 @@ export const eventSchema = z.strictObject({
 });
 export type Command = z.infer<typeof commandSchema>;
 export type DebateEvent = z.infer<typeof eventSchema>;
-export * from './realtime';
+
+/**
+ * Named re-exports, not `export *` (AGENTS.md: explicit exports, no
+ * barrels). This is `@daisy/protocol`'s only public entry point, so every
+ * symbol `apps/web`, `apps/realtime` and the other packages may import is
+ * listed here by name.
+ */
+export {
+  seasonIdSchema,
+  parseTopic,
+  topicStringSchema,
+  buildDebateTopic,
+  buildDebatePresenceTopic,
+  buildDebateChatTopic,
+  buildUserInboxTopic,
+  buildStandingsTopic,
+  closeCodeTable,
+  doorbellKinds,
+  doorbellKindSchema,
+  doorbellPayloadSchema,
+  inboxDeltaPayloadSchema,
+  sessionRevokedPayloadSchema,
+  accessRevokedPayloadSchema,
+  outboxPayloadSchema,
+  topicFamilyPayloadKinds,
+  isPayloadAllowedOnTopic,
+  ENVELOPE_VERSION,
+  PROTOCOL_VERSION,
+  heartbeatMs,
+  reconnectBudgetMs,
+  idleTimeout,
+  backpressureBounds,
+  cursorSchema,
+  ticketSchema,
+  subscribeAuthorizationTable,
+  presenceStatusSchema,
+  clientMessageSchema,
+  serverMessageSchema,
+} from './realtime';
+export type {
+  TopicFamily,
+  ParsedTopic,
+  CloseCodeReason,
+  DoorbellKind,
+  OutboxPayload,
+  OutboxPayloadKind,
+  SubscribeAuthorizationRule,
+  ClientMessage,
+  ServerMessage,
+} from './realtime';
