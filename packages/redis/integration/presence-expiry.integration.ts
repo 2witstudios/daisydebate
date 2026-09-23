@@ -208,7 +208,7 @@ test('readActorConnections drops a record whose hash names a different actor tha
   }
 });
 
-test('a delete never recreates the online zset from a stale leftover member with no expiry', async () => {
+test('a delete never propagates a stale leftover member into the online zset', async () => {
   // Reproduces the sequence a reviewer found: one connection (staleConn)
   // lapses without ever being read, so its stale, past-scored member is
   // still sitting in the actor zset. Deleting the OTHER, still-live
