@@ -232,21 +232,15 @@ const composeBetterAuth = (dependencies: {
 };
 
 /**
- * Only what production callers actually read off the result: the app's
- * routes and pages (`server/app.ts` composes it) use `config`,
- * `instance`, `limiter`, `clock` and `logger`; `mail` is read by tests
- * exercising delivery directly.
- * `database`, `ledger` and `ids` stay internal to composition
- * (composeBetterAuth still receives them) — nothing outside this module
- * ever reads them back off the returned server, so widening the type to
- * carry them was dead surface.
+ * Only what production callers read off the result: the app's routes and
+ * pages (`server/app.ts` composes it) use `config`, `instance`, `limiter`,
+ * `clock` and `logger`. Mail delivery, `database`, `ledger` and `ids` stay
+ * internal to composition; tests reach delivery through a real auth
+ * request.
  */
 export type AuthServer = {
   readonly config: AuthConfig;
   readonly instance: AuthInstance;
-  readonly mail: {
-    readonly send: (message: AuthEmailMessage) => Promise<void>;
-  };
   readonly limiter: AuthRateLimiter;
   readonly logger: Logger;
   readonly clock: Clock;
@@ -333,7 +327,6 @@ export function createAuthServer<
       appendSessionRevoked: dependencies.appendSessionRevoked,
       revokeOtherSessions: dependencies.revokeOtherSessions,
     }),
-    mail: { send: sendMail },
     limiter: dependencies.limiter,
     logger: dependencies.logger,
     clock: dependencies.clock,

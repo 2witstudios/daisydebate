@@ -156,31 +156,26 @@ describe('AUTH-3.3 magic-link issuance', () => {
 
 describe('auth mail receipt recording', () => {
   test('receipt failure after provider acceptance', async () => {
-    const { server, logs } = create({ recordFailure: true });
-    const message = {
-      to: 'player@daisy.example.com',
-      subject: 's',
-      text: 'https://x.invalid/?token=secret-link',
-    } as never;
-    const result = await server.mail.send(message).then(
-      () => 'sent',
-      () => 'threw',
-    );
+    const { server, logs, sent } = create({ recordFailure: true });
+    const response = await server.instance.handler(magicLinkRequest());
+    const token = tokenIn(sent[0]);
     const serialized = JSON.stringify(logs);
     assert({
       given: 'the provider accepted a message but recording its receipt fails',
       should:
         'report success and log a receipt_failed event whose only addition is the provider message id',
       actual: {
-        result,
+        status: response.status,
         events: logs.map((entry) => entry[0]),
         receiptFields: logs[0]?.[1],
-        leaks: ['player@daisy', 'secret-link', 'record down'].some((s) =>
+        tokenSent: token !== '',
+        leaks: ['player@daisy', token, 'record down'].some((s) =>
           serialized.includes(s),
         ),
       },
       expected: {
-        result: 'sent',
+        status: 200,
+        tokenSent: true,
         events: ['auth.mail.receipt_failed', 'auth.mail.sent'],
         receiptFields: {
           operation: 'auth.mail.send',
