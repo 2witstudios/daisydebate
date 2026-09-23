@@ -339,24 +339,37 @@ describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () 
     // contract is that this path is atomic, unlike the best-effort
     // after-hooks: the DELETE must roll back with it.
     let completion!: Response;
-    await withOutboxInsertBlockedForTopic(
-      testDatabaseUrl as string,
-      buildUserInboxTopic(actorId),
-      async () => {
-        completion = await confirmPost(verifyToken);
-      },
-    );
+    try {
+      await withOutboxInsertBlockedForTopic(
+        testDatabaseUrl as string,
+        buildUserInboxTopic(actorId),
+        async () => {
+          completion = await confirmPost(verifyToken);
+        },
+      );
 
-    assert({
-      given:
-        "the atomic revocation's outbox append failing at the database level",
-      should:
-        'report the cleanup step failed and leave the other session still authenticated, proving the DELETE rolled back with it',
-      actual: {
-        status: completion.status,
-        otherSessionStillAuthenticated: await isAuthenticated(otherCookie),
-      },
-      expected: { status: 502, otherSessionStillAuthenticated: true },
-    });
+      assert({
+        given:
+          "the atomic revocation's outbox append failing at the database level",
+        should:
+          'report the cleanup step failed and leave the other session still authenticated, proving the DELETE rolled back with it',
+        actual: {
+          status: completion.status,
+          otherSessionStillAuthenticated: await isAuthenticated(otherCookie),
+        },
+        expected: { status: 502, otherSessionStillAuthenticated: true },
+      });
+    } finally {
+      // RT-2.2f-r1 minor: this fixture inserts the actor directly (above),
+      // so it must clean it — and the account's `users` row, RESTRICTed
+      // behind it — itself; no shared afterAll in this file does either.
+      // Better Auth's own second-hop verification already commits the
+      // email to `newEmail` before Daisy's atomic revocation ever runs (the
+      // 502 this test proves is only the "cleanup step", not the change
+      // itself), so cleanup must key off `uid`/`actorId`, never the
+      // pre-change `email` `removeAccount` matches on.
+      await withSql((sql) => sql`DELETE FROM actors WHERE id = ${actorId}`);
+      await withSql((sql) => sql`DELETE FROM users WHERE id = ${uid}`);
+    }
   });
 });
