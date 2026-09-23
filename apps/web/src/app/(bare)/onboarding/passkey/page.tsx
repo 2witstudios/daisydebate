@@ -1,11 +1,9 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { createAppError } from '@daisy/errors';
-import { readAuthEntry } from '../../../../lib/auth-entry';
+import { readOnboardingEntry } from '../../../../lib/auth-entry';
 import {
   onboardingHref,
   passkeyOfferHref,
-  signInHref,
   type SearchParams,
 } from '../../../../features/access/decision';
 import { PasskeyOffer } from '../../../../ui/auth/onboarding/passkey-offer';
@@ -25,10 +23,10 @@ export default async function OnboardingPasskeyPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const { destination, identity } = await readAuthEntry(searchParams);
-  if (identity.state === 'unavailable') throw createAppError('INFRASTRUCTURE');
-  if (identity.state === 'anonymous')
-    redirect(signInHref(passkeyOfferHref(destination)));
+  const { destination, identity } = await readOnboardingEntry(
+    searchParams,
+    passkeyOfferHref,
+  );
   if (identity.state === 'provisional') redirect(onboardingHref(destination));
   return (
     <PasskeyOffer username={identity.username} destination={destination} />

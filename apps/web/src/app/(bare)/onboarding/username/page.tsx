@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { createAppError } from '@daisy/errors';
-import { readAuthEntry } from '../../../../lib/auth-entry';
+import { readOnboardingEntry } from '../../../../lib/auth-entry';
 import {
   onboardingHref,
   signInHref,
@@ -26,10 +25,10 @@ export default async function OnboardingUsernamePage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const { destination, identity } = await readAuthEntry(searchParams);
-  if (identity.state === 'unavailable') throw createAppError('INFRASTRUCTURE');
-  if (identity.state === 'anonymous')
-    redirect(signInHref(onboardingHref(destination)));
+  const { destination, identity } = await readOnboardingEntry(
+    searchParams,
+    onboardingHref,
+  );
   if (identity.state === 'member') redirect(destination);
   return (
     <Onboarding
