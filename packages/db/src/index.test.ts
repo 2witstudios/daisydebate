@@ -95,7 +95,7 @@ describe('session revocation', () => {
     const { database, queries } = createTestDatabase([
       [['session-row-id']],
       [[actorId]],
-      [{ seq: '5', txid: '10' }],
+      [['5', '10']],
       [],
     ]);
 
