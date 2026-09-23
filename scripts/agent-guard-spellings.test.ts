@@ -38,14 +38,17 @@ describe('agent guard: who is an agent', () => {
 describe('agent guard: accident-class spellings', () => {
   test('refuses pkill that inverts or widens the match', () => {
     assert({
-      given: 'pkill -v on the worktree, and a second pattern beside it',
+      given:
+        'pkill -v, --inverse and its prefix --inv on the worktree, and a second pattern beside it',
       should: 'deny both and still allow a single worktree pattern',
       actual: [
         decide(`pkill -v -f "${worktree}"`),
         decide(`pkill -f bun "${worktree}"`),
+        decide(`pkill --inverse -f "${worktree}"`),
+        decide(`pkill --inv -f "${worktree}"`),
         decide(`pkill -f "${worktree}/apps/web"`),
       ],
-      expected: ['deny', 'deny', 'allow'],
+      expected: ['deny', 'deny', 'deny', 'deny', 'allow'],
     });
   });
 
@@ -171,6 +174,21 @@ describe('agent guard: accident-class spellings', () => {
         decide('rm -rf /repo/.pu/worktrees/wt-mine/tmp*'),
       ],
       expected: ['deny', 'deny', 'deny', 'deny', 'allow'],
+    });
+  });
+
+  test('refuses a find -delete that starts at, inside or above the registry', () => {
+    assert({
+      given:
+        'name-filtered find -delete runs starting in the registry, at the main checkout, and in the worktree',
+      should:
+        'deny the two that can reach registry records and allow the worktree one',
+      actual: [
+        decide(`find /repo/.pu/daisy/agents -name 'ag-*' -delete`),
+        decide(`find /repo -name 'ag-old.json' -delete`),
+        decide(`find . -name "*.tsbuildinfo" -delete`),
+      ],
+      expected: ['deny', 'deny', 'allow'],
     });
   });
 });

@@ -178,14 +178,24 @@ function findActs(args: readonly string[], facts: GuardFacts): boolean {
 function findDeletes(
   args: readonly string[],
   facts: GuardFacts,
+  cwd: string,
 ): readonly string[] {
-  const acts = findActs(args, facts);
   const firstExpression = args.findIndex((arg) => /^[-(!]/.test(arg));
-  const starts = args.slice(
+  const given = args.slice(
     0,
     firstExpression === -1 ? undefined : firstExpression,
   );
-  return acts ? (starts.length > 0 ? starts : ['.']) : [];
+  const starts = given.length > 0 ? given : ['.'];
+  // Registry records have no protected name, so a -delete that starts at,
+  // inside or above the registry acts on it whatever -name says.
+  const registry = lower(join(facts.mainCheckout, REGISTRY_DIR));
+  const nearRegistry = starts.some((start) => {
+    const path = lower(resolveFrom(cwd, start, facts.home));
+    return isWithin(path, registry) || isWithin(registry, path);
+  });
+  const acts =
+    findActs(args, facts) || (args.includes('-delete') && nearRegistry);
+  return acts ? starts : [];
 }
 
 function gitCleans(args: readonly string[]): readonly string[] {
@@ -204,6 +214,7 @@ function gitCleans(args: readonly string[]): readonly string[] {
 function changedPaths(
   invocation: Invocation,
   facts: GuardFacts,
+  cwd: string,
 ): readonly string[] {
   const [name = '', ...args] = invocation.words;
   if (removers.has(name)) return operands(args);
@@ -217,7 +228,7 @@ function changedPaths(
     args.some((arg) => /^-[A-Za-z]*i/.test(arg))
   )
     return operands(args);
-  if (name === 'find') return findDeletes(args, facts);
+  if (name === 'find') return findDeletes(args, facts, cwd);
   if (name === 'git') return gitCleans(args);
   return [];
 }
@@ -231,7 +242,7 @@ export function loopState(
   if (!facts.autonomous) return allow;
   const touched = [
     ...command.redirects,
-    ...changedPaths(invocation, facts),
+    ...changedPaths(invocation, facts, cwd),
   ].some((path) => reaches(path, cwd, facts));
   return touched ? deny(LOOP_REASON) : allow;
 }

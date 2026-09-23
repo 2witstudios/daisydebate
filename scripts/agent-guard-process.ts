@@ -68,7 +68,12 @@ function scopedPattern(args: readonly string[], worktree: string): boolean {
     else patterns.push(args[index]);
   }
   const [pattern = ''] = patterns;
-  const inverted = flags.some((flag) => /^-[a-zA-Z]*v/.test(flag));
+  // -v in a cluster, or --inverse and any prefix of it getopt accepts.
+  const inverted = flags.some(
+    (flag) =>
+      /^-[a-zA-Z]*v/.test(flag) ||
+      (flag.length >= 5 && '--inverse'.startsWith(flag)),
+  );
   return (
     flags.some((flag) => /^-[a-zA-Z]*f/.test(flag)) &&
     !inverted &&
