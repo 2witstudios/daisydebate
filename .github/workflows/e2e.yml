@@ -62,6 +62,15 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      # scripts/e2e-artifact-sanitizer.ts shells out to unzip/zip to redact
+      # retained trace archives before upload; that path is only exercised
+      # when a test actually fails and Playwright retains a trace, so it was
+      # never proven against this runner image until AUTH-6 hit its first
+      # real CI failure. Installing explicitly removes any dependency on
+      # the base image happening to include them.
+      - name: Ensure zip/unzip are available for artifact sanitization
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zip unzip
+
       - name: Apply test migrations
         run: bun run --cwd packages/db db:migrate
         env:

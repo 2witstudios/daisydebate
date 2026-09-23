@@ -86,7 +86,7 @@ function sanitizeZipInPlace(zipPath: string): boolean {
     // pass through unredacted under a "nothing changed" result.
     if (extracted.exitCode !== 0)
       throw new Error(
-        `could not extract ${zipPath} for sanitization (unzip exited ${extracted.exitCode}); refusing to publish an unscanned archive`,
+        `could not extract ${zipPath} for sanitization (unzip exited ${extracted.exitCode}: ${extracted.stderr?.toString().trim()}); refusing to publish an unscanned archive`,
       );
     let changed = false;
     for (const file of walk(extractDir)) {
@@ -99,7 +99,9 @@ function sanitizeZipInPlace(zipPath: string): boolean {
       cwd: extractDir,
     });
     if (rezipped.exitCode !== 0)
-      throw new Error(`could not rezip sanitized archive ${zipPath}`);
+      throw new Error(
+        `could not rezip sanitized archive ${zipPath} (zip exited ${rezipped.exitCode}: ${rezipped.stderr?.toString().trim()})`,
+      );
     return true;
   } finally {
     rmSync(extractDir, { recursive: true, force: true });
