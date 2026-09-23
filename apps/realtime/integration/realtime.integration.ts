@@ -1,4 +1,5 @@
 import { assert, test, setupRitewayBun } from 'riteway/bun';
+import { systemId } from '@daisy/clock';
 import { createDatabase } from '@daisy/db';
 import { createRedis } from '@daisy/redis';
 import { createLogger } from '@daisy/logger';
@@ -24,7 +25,10 @@ function bootServer() {
     service: 'realtime-integration-test',
     level: 'silent',
   });
-  const database = createDatabase({ url: databaseUrl });
+  const database = createDatabase({
+    url: databaseUrl,
+    nextActorId: () => systemId.next(),
+  });
   const redis = createRedis({
     url: redisUrl,
     namespace: `test-${crypto.randomUUID().slice(0, 8)}`,

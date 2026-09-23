@@ -109,6 +109,7 @@ describe('database health', () => {
       eventSink: (event, fields, message) =>
         events.push({ event, fields, message }),
       client,
+      nextActorId: createId,
     });
 
     await expect(database.checkListen()).rejects.toThrow();

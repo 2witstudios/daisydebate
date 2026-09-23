@@ -1,5 +1,5 @@
 import { readRealtimeConfig } from '@daisy/config';
-import { systemClock } from '@daisy/clock';
+import { systemClock, systemId } from '@daisy/clock';
 import { createDatabase } from '@daisy/db';
 import { createRedis } from '@daisy/redis';
 import { createLogger } from '@daisy/logger';
@@ -15,6 +15,7 @@ function createResources() {
   const database = createDatabase({
     url: config.DATABASE_URL,
     eventSink: (event, fields, message) => logger.log(event, fields, message),
+    nextActorId: () => systemId.next(),
   });
   const redis = createRedis({
     url: config.REDIS_URL,
