@@ -1,26 +1,10 @@
 import { toNextJsHandler } from 'better-auth/next-js';
 import { createAppError, isAppError } from '@daisy/errors';
-import type { EventName, Logger } from '@daisy/logger';
+import type { Logger } from '@daisy/logger';
 import { handleOperation } from '../../server/http';
+import { logAuthLifecycle } from './lifecycle-events';
 
 type Handler = (request: Request) => Promise<Response>;
-
-/**
- * Better Auth mounted paths whose successful outcome is a distinct auth
- * lifecycle milestone worth its own event, beyond the generic
- * `http.request.completed` (which shares one `auth.request` operation name
- * across every mounted route and cannot distinguish them). Only the stable
- * path and event name are logged: never the request body, query or cookies.
- */
-const LIFECYCLE_EVENTS: Readonly<Record<string, EventName>> = {
-  '/passkey/verify-registration': 'auth.passkey.enrolled',
-  '/passkey/verify-authentication': 'auth.passkey.authenticated',
-  '/passkey/delete-passkey': 'auth.passkey.removed',
-  '/revoke-session': 'auth.session.revoked',
-  '/revoke-sessions': 'auth.session.revoked_all',
-  '/revoke-other-sessions': 'auth.session.revoked_all',
-  '/change-email': 'auth.email_change.requested',
-};
 
 /**
  * Better Auth 1.7.5 registers these as GET endpoints
@@ -40,18 +24,6 @@ const DIRECT_REDEMPTION_BLOCKED_PATHS = new Set([
 /** Strips the mount prefix so only the stable Better Auth path is compared. */
 const mountedPath = (url: string): string =>
   new URL(url).pathname.replace(/^\/api\/auth/, '');
-
-/** A successful lifecycle milestone, logged once, with no request data. */
-function logLifecycleEvent(
-  logger: Logger,
-  request: Request,
-  response: Response,
-) {
-  if (response.status >= 400) return;
-  const event = LIFECYCLE_EVENTS[mountedPath(request.url)];
-  if (!event) return;
-  logger.log(event, { operation: 'auth.request' }, event.replace(/\./g, ' '));
-}
 
 /**
  * Copies a Better Auth response into a fresh mutable one without consuming
@@ -113,7 +85,8 @@ export function createAuthRouteHandlers(
             const delegate = toNextJsHandler({ handler: server.handler });
             const method = request.method as keyof typeof delegate;
             const response = await (delegate[method] ?? delegate.GET)(request);
-            logLifecycleEvent(logger, request, response);
+            if (response.status < 400)
+              logAuthLifecycle(logger, mountedPath(request.url));
             return preserve(response);
           } catch (error) {
             // Anything unexpected from the framework (a database failure while

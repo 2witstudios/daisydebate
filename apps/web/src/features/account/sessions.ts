@@ -2,6 +2,7 @@ import type { Logger } from '@daisy/logger';
 import { APIError } from 'better-auth/api';
 import { createAppError } from '@daisy/errors';
 import { z } from 'zod';
+import { logAuthLifecycle } from '../auth/lifecycle-events';
 import {
   handleOperation,
   parseValidated,
@@ -122,7 +123,7 @@ export function createRevokeSessionHandler(
       dependencies.logger,
       request,
       'account.sessions.revoke',
-      async () => {
+      async (_id, logger) => {
         requireSameOrigin(request, dependencies.origin());
         const { id } = parseValidated(revokeBody, await readJson(request));
         let rows: readonly BetterAuthSessionRow[];
@@ -138,6 +139,7 @@ export function createRevokeSessionHandler(
         } catch (error) {
           throw mapBetterAuthError(error);
         }
+        logAuthLifecycle(logger, '/revoke-session');
         return Response.json({ status: true });
       },
     );

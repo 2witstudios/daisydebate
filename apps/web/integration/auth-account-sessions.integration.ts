@@ -1,12 +1,20 @@
+import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createAccountFlows } from './auth-account-helpers';
+import { withSql } from './auth-mounted-helpers';
+import {
+  cleanupActorFor,
+  cleanupOutboxFor,
+  createActorFor,
+  sessionRevokedEvents,
+} from './auth-outbox-helpers';
 
 if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
   throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
 setupRitewayBun();
 
 const { signUp, flows } = createAccountFlows();
-const { origin, routes } = flows.testApp;
+const { origin, routes, withLoggedEvents } = flows.testApp;
 const sessionsRoute = routes.sessions;
 const revokeRoute = routes.revokeSession;
 
@@ -109,6 +117,72 @@ describe('AC7 GET /api/account/sessions never exposes a session token or client 
       should: 'refuse with 404 and leave the victim session untouched',
       actual: { status: response.status, stillListed },
       expected: { status: 404, stillListed: true },
+    });
+  });
+});
+
+describe('ISSUE-49 POST /api/account/sessions/revoke is audited', () => {
+  const cleanups: Array<() => Promise<unknown>> = [];
+  afterAll(async () => {
+    for (const cleanup of cleanups) await cleanup();
+  });
+
+  test('a successful revoke logs auth.session.revoked and rings the doorbell', async () => {
+    const account = await signUp();
+    const [user] = await withSql(
+      (sql) => sql`SELECT id FROM users WHERE email = ${account.email}`,
+    );
+    const userId = String(user?.id);
+    const actorId = await createActorFor(userId);
+    cleanups.push(
+      () => cleanupOutboxFor(actorId),
+      () => cleanupActorFor(userId),
+    );
+    const ownId =
+      (
+        (await (await listSessions(account.cookie)).json()) as {
+          sessions: Array<{ id: string }>;
+        }
+      ).sessions[0]?.id ?? '';
+    const { result, events } = await withLoggedEvents(() =>
+      revokeSession(account.cookie, ownId),
+    );
+    assert({
+      given:
+        "a real account revoking its own session from the account UI's route",
+      should:
+        'answer ok, log auth.session.revoked once and append one session.revoked outbox row',
+      actual: {
+        status: result.status,
+        revokedEvents: events.filter(
+          (event) => event === 'auth.session.revoked',
+        ).length,
+        doorbells: await sessionRevokedEvents(actorId),
+      },
+      expected: { status: 200, revokedEvents: 1, doorbells: 1 },
+    });
+  });
+
+  test('a refused revoke logs no revocation', async () => {
+    const victim = await signUp();
+    const attacker = await signUp();
+    const victimId =
+      (
+        (await (await listSessions(victim.cookie)).json()) as {
+          sessions: Array<{ id: string }>;
+        }
+      ).sessions[0]?.id ?? '';
+    const { result, events } = await withLoggedEvents(() =>
+      revokeSession(attacker.cookie, victimId),
+    );
+    assert({
+      given: 'a revoke of a foreign session id, refused as not found',
+      should: 'log no auth.session.revoked event',
+      actual: {
+        status: result.status,
+        revoked: events.includes('auth.session.revoked'),
+      },
+      expected: { status: 404, revoked: false },
     });
   });
 });
