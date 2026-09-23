@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { eventRegistry } from '@daisy/logger';
 
@@ -26,6 +27,8 @@ function parseEventTable(markdown: string): Record<string, Severity> {
     const match = line.match(/^\|\s*`([^`]+)`\s*\|\s*(info|warn|error)\s*\|/);
     if (!match) continue;
     const [, event, severity] = match;
+    if (event in rows)
+      throw new Error(`observability.md: duplicate event row "${event}"`);
     rows[event] = severity as Severity;
   }
   return rows;
@@ -62,5 +65,21 @@ describe('observability docs drift guard', () => {
       actual: parseEventTable(fixture),
       expected: { 'example.one': 'info', 'example.two': 'error' },
     });
+  });
+
+  test('a duplicate event row fails the parse instead of silently keeping the last severity', () => {
+    const fixture = [
+      '## Event registry',
+      '',
+      '| Event | Severity | Meaning |',
+      '| --- | --- | --- |',
+      '| `example.one` | info | does a thing |',
+      '| `example.one` | info | the same event, listed twice |',
+      '',
+      '## Rules',
+    ].join('\n');
+    expect(() => parseEventTable(fixture)).toThrow(
+      'observability.md: duplicate event row "example.one"',
+    );
   });
 });
