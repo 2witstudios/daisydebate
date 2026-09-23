@@ -12,6 +12,16 @@ import { createDocumentationEvent } from './docs-pipeline';
 
 setupRitewayBun();
 
+/** The message a rejected input throws, or `accepted`. */
+const failureOf = (run: () => unknown) => {
+  try {
+    run();
+    return 'accepted';
+  } catch (error) {
+    return (error as Error).message;
+  }
+};
+
 describe('sanitizeUntrustedText', async () => {
   test('removes control, zero-width, and bidi override characters', async () => {
     const actual = sanitizeUntrustedText('fix\u0000: add\u200b lobb\u202ey');
@@ -109,10 +119,13 @@ describe('assessEventText', async () => {
     assert({
       given: 'a body with injected instructions',
       should: 'flag the event and name the body field in the reasons',
-      actual:
-        actual.textRisk === 'flagged' &&
-        actual.reasons.some((reason) => reason.includes('body')),
-      expected: true,
+      actual: { textRisk: actual.textRisk, reasons: actual.reasons },
+      expected: {
+        textRisk: 'flagged',
+        reasons: [
+          'body: matched injection pattern \\b(?:ignore|disregard|forget)\\b[^.\\n]*\\b(?:instructions?|prompts?|rules?|constraints?)\\b',
+        ],
+      },
     });
   });
 });
@@ -158,32 +171,21 @@ describe('parseDocumentationEvent', async () => {
         pipelines: ['oracle-reads'],
       },
     };
-    let message = '';
-    try {
-      parseDocumentationEvent(mutated);
-    } catch (error) {
-      message = (error as Error).message;
-    }
     assert({
       given: 'an event with an unknown version and unknown pipelines',
       should: 'fail closed naming both problems',
-      actual: message.includes('eventVersion') && message.includes('pipelines'),
-      expected: true,
+      actual: failureOf(() => parseDocumentationEvent(mutated)),
+      expected:
+        'Invalid documentation payload: eventVersion must be "docs-event-v1"; classification.pipelines must be a subset of technical-docs, user-docs, blog, accuracy-review, adversarial-review, prose-review, anti-slop-review',
     });
   });
 
   test('rejects non-object input', async () => {
-    let threw = false;
-    try {
-      parseDocumentationEvent('not-an-event');
-    } catch {
-      threw = true;
-    }
     assert({
       given: 'a string instead of an event',
-      should: 'throw',
-      actual: threw,
-      expected: true,
+      should: 'throw naming the expected shape',
+      actual: failureOf(() => parseDocumentationEvent('not-an-event')),
+      expected: 'Invalid documentation payload: event must be an object',
     });
   });
 });
@@ -231,10 +233,13 @@ describe('publicationDecision', async () => {
     assert({
       given: 'injection-flagged event text',
       should: 'route to review with a reason naming the risk',
-      actual:
-        actual.decision === 'review' &&
-        actual.reasons.some((reason) => reason.includes('injection')),
-      expected: true,
+      actual: { decision: actual.decision, reasons: actual.reasons },
+      expected: {
+        decision: 'review',
+        reasons: [
+          'the event text matched an injection pattern; a human must review the candidate',
+        ],
+      },
     });
   });
 

@@ -141,8 +141,8 @@ describe('AUTH-5.1 passkey enrollment', () => {
     assert({
       given: 'a real passkey registration ceremony that succeeds',
       should: 'emit auth.passkey.enrolled',
-      actual: events.includes('auth.passkey.enrolled'),
-      expected: true,
+      actual: events.filter((event) => event.startsWith('auth.passkey.')),
+      expected: ['auth.passkey.enrolled'],
     });
   });
 
@@ -293,8 +293,8 @@ describe('AUTH-5.2 passkey sign-in', () => {
     assert({
       given: 'a real passkey assertion that succeeds',
       should: 'emit auth.passkey.authenticated',
-      actual: events.includes('auth.passkey.authenticated'),
-      expected: true,
+      actual: events.filter((event) => event.startsWith('auth.passkey.')),
+      expected: ['auth.passkey.authenticated'],
     });
   });
 
