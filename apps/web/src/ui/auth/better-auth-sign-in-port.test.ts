@@ -129,14 +129,33 @@ describe('Better Auth sign-in port: passkey autofill', () => {
     });
   });
 
-  test('an aborted autofill request is cancelled', async () => {
+  test('tells a newer ceremony, a dismissal and a refused pick apart', async () => {
+    const outcome = async (passkey: Error) =>
+      (await portWith({ passkey }).port.offerPasskeyAutofill()).kind;
     assert({
-      given: 'an autofill request the explicit button or navigation aborted',
-      should: 'report cancelled',
-      actual: await portWith({
-        passkey: { status: 400, code: 'ERROR_CEREMONY_ABORTED' },
-      }).port.offerPasskeyAutofill(),
-      expected: { kind: 'cancelled' },
+      given:
+        'an abort, a dismissed prompt, a lost challenge, an unknown passkey, a throttle and a server fault',
+      should:
+        'answer superseded, interrupted, refused, refused, interrupted, interrupted',
+      actual: [
+        await outcome({ status: 400, code: 'ERROR_CEREMONY_ABORTED' }),
+        await outcome({
+          status: 400,
+          code: 'ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY',
+        }),
+        await outcome({ status: 400, code: 'CHALLENGE_NOT_FOUND' }),
+        await outcome({ status: 401, code: 'PASSKEY_NOT_FOUND' }),
+        await outcome({ status: 429 }),
+        await outcome({ status: 503 }),
+      ],
+      expected: [
+        'superseded',
+        'interrupted',
+        'refused',
+        'refused',
+        'interrupted',
+        'interrupted',
+      ],
     });
   });
 
@@ -144,9 +163,83 @@ describe('Better Auth sign-in port: passkey autofill', () => {
     const { port, calls } = portWith({ autofill: false });
     assert({
       given: 'a browser that cannot offer passkeys in autofill',
-      should: 'report unsupported without calling the client',
+      should: 'report unavailable without calling the client',
       actual: [await port.offerPasskeyAutofill(), calls],
-      expected: [{ kind: 'unsupported' }, []],
+      expected: [{ kind: 'unavailable' }, []],
+    });
+  });
+});
+
+/**
+ * A client whose autofill ceremony stays pending until released, and whose
+ * button ceremonies answer from a script, for the abort race.
+ */
+const racingPort = (button: readonly Error[]) => {
+  const calls: string[] = [];
+  let releaseAutofill: (error: Error) => void = () => {};
+  const script = [...button];
+  const client: SignInClient = {
+    signIn: {
+      magicLink: async () => ({ error: null }),
+      passkey: (opts) => {
+        if (opts?.autoFill) {
+          calls.push('passkey-autofill');
+          return new Promise((resolve) => {
+            releaseAutofill = (error) => resolve({ error });
+          });
+        }
+        calls.push('passkey');
+        return Promise.resolve({ error: script.shift() ?? null });
+      },
+    },
+  };
+  const port = createBetterAuthSignInPort({
+    client,
+    destination: '/ranked',
+    supportsPasskeys: () => true,
+    supportsPasskeyAutofill: async () => true,
+  });
+  return {
+    port,
+    calls,
+    releaseAutofill: (error: Error) => releaseAutofill(error),
+  };
+};
+
+describe('Better Auth sign-in port: autofill and button race', () => {
+  test('retries the button once when a late autofill request aborted it', async () => {
+    const { port, calls, releaseAutofill } = racingPort([
+      { status: 400, code: 'ERROR_CEREMONY_ABORTED' },
+      null,
+    ]);
+    const autofill = port.offerPasskeyAutofill();
+    // Let the autofill request reach the client before the button starts.
+    await new Promise((resolve) => setImmediate(resolve));
+    const outcome = await port.signInWithPasskey();
+    releaseAutofill({ status: 400, code: 'ERROR_CEREMONY_ABORTED' });
+    assert({
+      given:
+        'an autofill request still in flight when the button ceremony is aborted',
+      should:
+        'run the button ceremony again, which then aborts the autofill instead',
+      actual: [outcome, calls, await autofill],
+      expected: [
+        { kind: 'signed-in' },
+        ['passkey-autofill', 'passkey', 'passkey'],
+        { kind: 'superseded' },
+      ],
+    });
+  });
+
+  test('does not retry an aborted button ceremony with no autofill in flight', async () => {
+    const { port, calls } = racingPort([
+      { status: 400, code: 'ERROR_CEREMONY_ABORTED' },
+    ]);
+    assert({
+      given: 'a button ceremony aborted while no autofill request is running',
+      should: 'report it cancelled after a single attempt',
+      actual: [await port.signInWithPasskey(), calls],
+      expected: [{ kind: 'cancelled' }, ['passkey']],
     });
   });
 });

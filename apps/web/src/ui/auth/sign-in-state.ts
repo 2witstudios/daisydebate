@@ -1,4 +1,8 @@
-import type { LinkRequestOutcome, PasskeyOutcome } from './sign-in-port';
+import type {
+  LinkRequestOutcome,
+  PasskeyAutofillOutcome,
+  PasskeyOutcome,
+} from './sign-in-port';
 
 /** How long the inbox step waits before offering to resend. */
 export const RESEND_COOLDOWN_MS = 60_000;
@@ -34,7 +38,10 @@ export type SignInEvent =
     }
   | { readonly type: 'passkey-requested' }
   | { readonly type: 'passkey-settled'; readonly outcome: PasskeyOutcome }
-  | { readonly type: 'passkey-autofilled'; readonly outcome: PasskeyOutcome }
+  | {
+      readonly type: 'passkey-autofilled';
+      readonly outcome: PasskeyAutofillOutcome;
+    }
   | { readonly type: 'change-email' }
   | { readonly type: 'resend-requested'; readonly at: string };
 
@@ -102,6 +109,22 @@ const settlePasskey = (
     : idle(state.email, `passkey-${outcome.kind}`);
 };
 
+/**
+ * Autofill is ambient. A verified pick signs in from any step, because the
+ * server has already created the session; a refused pick explains itself on
+ * an idle email step; every other ending is silent.
+ */
+const settleAutofill = (
+  state: SignInState,
+  outcome: PasskeyAutofillOutcome,
+): SignInState => {
+  if (state.step === 'signed-in') return state;
+  if (outcome.kind === 'signed-in') return { step: 'signed-in' };
+  return outcome.kind === 'refused' && isIdle(state)
+    ? idle(state.email, 'passkey-failed')
+    : state;
+};
+
 type Transitions = {
   readonly [Type in SignInEvent['type']]: (
     state: SignInState,
@@ -119,11 +142,7 @@ const transitions: Transitions = {
   'passkey-requested': (state) =>
     isIdle(state) ? { ...idle(state.email), pending: 'passkey' } : state,
   'passkey-settled': (state, { outcome }) => settlePasskey(state, outcome),
-  // Autofill is ambient: only a sign-in counts; an abort or refusal is silent.
-  'passkey-autofilled': (state, { outcome }) =>
-    state.step === 'enter-email' && outcome.kind === 'signed-in'
-      ? { step: 'signed-in' }
-      : state,
+  'passkey-autofilled': (state, { outcome }) => settleAutofill(state, outcome),
   'change-email': (state) =>
     state.step === 'check-inbox' && !state.resending
       ? idle(state.email)

@@ -130,18 +130,18 @@ describe('auth instance composition', () => {
     assert({
       given: 'a request for passkey sign-in options',
       should:
-        'carry an advisory client-device hint alongside a fresh challenge and the challenge cookie',
+        'carry an advisory client-device hint alongside a fresh challenge and exactly one challenge cookie',
       actual: {
         status: response.status,
         hints: body['hints'],
         challenge: typeof body['challenge'],
-        challengeCookie: response.headers.has('set-cookie'),
+        challengeCookies: response.headers.getSetCookie().length,
       },
       expected: {
         status: 200,
         hints: ['client-device'],
         challenge: 'string',
-        challengeCookie: true,
+        challengeCookies: 1,
       },
     });
   });

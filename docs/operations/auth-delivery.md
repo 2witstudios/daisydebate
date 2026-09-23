@@ -58,6 +58,14 @@ to your topology before release.
 | Magic-link request, per recipient   | 3 / 60 s   | `429` + `Retry-After`    |
 | Redis unavailable                   | —          | `503` + `Retry-After: 5` |
 
+The sign-in page offers passkeys in browser autofill, so every view spends
+one `/passkey/generate-authenticate-options` request (a challenge row and a
+slot in that path's bucket) without a click. The page renews it every
+4 minutes, before the 5-minute challenge lifetime ends, and re-offers after
+a dismissed or refused pick with backoff from 1 s up to 4 minutes, so a
+failing service is never polled. Clients behind one untrusted address share
+that bucket with the explicit passkey button.
+
 There is no in-process fallback: while Redis is down every auth request that
 needs a decision answers `503`. Restore Redis; no state needs replay. Keys
 live under `<REDIS_NAMESPACE>:v1:rl:<sha3-256>` and expire within 60 seconds.

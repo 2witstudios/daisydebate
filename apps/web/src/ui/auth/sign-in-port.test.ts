@@ -107,16 +107,17 @@ describe('offerPasskeyAutofillSafely', () => {
     });
   });
 
-  test('turns an asynchronous or synchronous throw into a failure', async () => {
+  test('turns an asynchronous or synchronous throw into unavailable', async () => {
     assert({
       given:
         'autofill requests that throw after and before returning a promise',
-      should: 'settle both as failures, never a success',
+      should:
+        'settle both as unavailable so autofill stops instead of retrying a broken port',
       actual: [
         await offerPasskeyAutofillSafely(throwingPort),
         await offerPasskeyAutofillSafely(synchronouslyThrowingPort),
       ],
-      expected: [{ kind: 'failed' }, { kind: 'failed' }],
+      expected: [{ kind: 'unavailable' }, { kind: 'unavailable' }],
     });
   });
 });

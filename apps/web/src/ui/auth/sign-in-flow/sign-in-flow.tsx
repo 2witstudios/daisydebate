@@ -17,6 +17,12 @@ import {
   type SignInState,
 } from '../sign-in-state';
 import { renderSignInFlow } from './sign-in-flow.render';
+import { startPasskeyAutofill, type AutofillTimers } from './passkey-autofill';
+
+const browserTimers: AutofillTimers = {
+  set: (run, ms) => setTimeout(run, ms),
+  clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
+};
 
 export type SignInFlowProps = {
   /** Who authenticates: the mock today, the Better Auth adapter later. */
@@ -57,14 +63,16 @@ export function SignInFlow({
     if (state.step === 'signed-in') onSignedIn();
   }, [state.step, onSignedIn]);
 
-  // Re-armed each time the email step goes idle: the explicit passkey button
+  // Armed whenever the email step goes idle: the explicit passkey button
   // aborts the pending autofill request, so it must be offered again after.
   const autofillArmed = canOfferPasskeyAutofill(state);
   useEffect(() => {
     if (!autofillArmed) return;
-    void offerPasskeyAutofillSafely(port).then((outcome) =>
-      dispatch({ type: 'passkey-autofilled', outcome }),
-    );
+    return startPasskeyAutofill({
+      offer: () => offerPasskeyAutofillSafely(port),
+      onSettled: (outcome) => dispatch({ type: 'passkey-autofilled', outcome }),
+      timers: browserTimers,
+    });
   }, [autofillArmed, port]);
 
   const sendLink = async (email: string) =>
