@@ -112,9 +112,11 @@ privacy` (planned, PRIV-3) will gate undeclared or stale entries once
 - Use TDD: red, green, refactor. New behavior lands with tests in the same
   change; never skip, weaken, or disable tests.
 - Tests use RITEway's `riteway/bun` imports and call `setupRitewayBun()` once
-  per file. Prefer `assert({ given, should, actual, expected })`; use
-  `expect(...).toThrow()` or `rejects.toThrow()` only for exception paths.
-  The canonical example is `packages/debate-engine/src/engine.test.ts`.
+  per file. Prefer `assert({ given, should, actual, expected })`; assert an
+  expected `AppError` with `assertRejects` from `@daisy/errors/testing` (it
+  checks the code), and use a specific `toThrow(message)` only for other
+  exception paths, never a bare `.toThrow()`. The canonical example is
+  `packages/debate-engine/src/engine.test.ts`.
 - Inject clocks and IDs. Do not sleep-and-hope, share mutable test state, or
   point integration tests at non-test data. `TEST_DATABASE_URL` must end in
   `_test`; integration also requires `TEST_REDIS_URL`.

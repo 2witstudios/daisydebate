@@ -15,9 +15,10 @@ Tiers 1–2 remain unchanged; `riteway/bun` is a thin, typed layer over
 repo.
 
 Convention details: `given`/`should` are written as a specification
-sentence, not prose decoration. `expect(...).toThrow()` and
-`rejects.toThrow()` are permitted only on exception paths, where they
-document the error contract directly. All existing suites are converted;
+sentence, not prose decoration. An expected `AppError` is asserted by its
+code with `assertRejects` (`@daisy/errors/testing`); `toThrow(message)` is
+permitted only on other exception paths, and a bare `.toThrow()` never
+(ISSUE-11). All existing suites are converted;
 `packages/debate-engine/src/engine.test.ts` is the canonical example. New
 tests follow TDD and land in the same change as the behavior they specify.
 This decision constrains test form only; the tiering rules in

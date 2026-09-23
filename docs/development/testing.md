@@ -123,10 +123,15 @@ not exist — PageSpace lost entire tiers this way. `bun evidence` (in
 - **RITEway format.** Tests import `describe`, `test`, `assert` and
   `setupRitewayBun` from `riteway/bun` (9.3.0, the Bun-native entry point),
   call `setupRitewayBun()` once per file, and assert value contracts with
-  `assert({ given, should, actual, expected })`. `bun:test`'s
-  `expect(...).toThrow()`/`rejects.toThrow()` is allowed only on exception
-  paths. `given`/`should` read as a specification sentence: when the
-  assertion fails, its message is the bug report.
+  `assert({ given, should, actual, expected })`. An expected `AppError` is
+  asserted with `assertRejects({ given, should, actual, code })` from
+  `@daisy/errors/testing`, which checks the factory-minted code (and
+  `invariantId`) of a throw or a rejection, so a stray `TypeError` fails;
+  `rejectionOf` reports the same outcome as a value. Other exception paths
+  use `bun:test`'s `toThrow(message)` or the exact error, never a bare
+  `.toThrow()`. Schema tests assert the parsed value or the issue paths, not
+  a `.success` boolean. `given`/`should` read as a specification sentence:
+  when the assertion fails, its message is the bug report.
 - **Dead code.** `bun run knip` fails on unused files, exports and
   dependencies; keep findings at zero (ADR 0013).
 - **Duplication.** `bun run duplication` fails on any copy-pasted block not
@@ -136,6 +141,12 @@ not exist — PageSpace lost entire tiers this way. `bun evidence` (in
 - Tests are deterministic: inject clocks/IDs; never sleep-and-hope; no
   cross-test shared state; use deterministic unit IDs and CSPRNG isolation IDs
   only in real-service integration tests; clean only records you created.
+  Wait on the state under test, never a timing window: fire a Redis expiry
+  with `PEXPIREAT` (the redis `withRedis` fixture's `expireNow`) instead of
+  waiting out a TTL, read lease scores against the Redis server clock,
+  resolve on the LISTEN callback, and release a lock holder once
+  `pg_locks` shows the waiter. An expiry Better Auth stamps is read as
+  `expires_at - created_at` from the row, not against the runner's clock.
 - Integration tests read `TEST_DATABASE_URL` (must end in `_test`) and
   `TEST_REDIS_URL`; never point them at development or production data.
   Missing services hard-fail (`throw`), never skip.
