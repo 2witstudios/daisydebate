@@ -36,7 +36,8 @@ forward-only migration discipline applies without exception.
 Acceptance criteria:
 
 - Given the repository's migration directory, should contain exactly one
-  cuid2-native baseline with no uuid columns and no migration-time guards.
+  squashed cuid2-native baseline migration, with no uuid columns and no
+  migration-time guards, that later forward-only migrations build on.
 - Given an identifier that is not 24-characters lowercase alphanumeric,
   should be rejected by `@daisy/protocol` with no legacy carve-out.
 - Given a branch that rewrites committed migration history, should fail

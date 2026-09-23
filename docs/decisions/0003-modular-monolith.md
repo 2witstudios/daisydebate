@@ -2,8 +2,8 @@
 
 Status: accepted.
 
-We ship one deployable application over one database. Not a microservice
-fleet: at foundation stage, distributed coordination would consume the
+We ship one deployable application over one database at foundation stage.
+Not a microservice fleet: distributed coordination would consume the
 engineering budget the domain needs, and premature service boundaries usually
 encode wrong guesses. Also not a single Next.js package: framework delivery,
 domain, and infrastructure have different change cadences and owners.

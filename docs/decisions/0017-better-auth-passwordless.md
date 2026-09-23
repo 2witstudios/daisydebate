@@ -13,13 +13,12 @@ Ownership follows the repository edges. `apps/web` owns all Better Auth
 configuration and application orchestration: the server composition lives in
 `apps/web/src/features/auth/`, and `apps/web/src/lib/` is reserved for narrow
 composition entrypoints — they exist only when a real consumer imports them,
-and feature behavior lives under `features/auth`, never in `lib`. Current
-state: only the React client entrypoint `apps/web/src/lib/auth-client.ts`
-exists, and its test forbids server modules (including any `lib/auth.ts`) from
-its import graph. The server entrypoint and the `/api/auth` route handler do
-not exist yet; they arrive with auth activation (Phase C of
-`docs/development/implementation-plan.md`, ADR 0020). Until then `authClient`
-has no live route behind it and must not be wired into UI. `packages/auth`
+and feature behavior lives under `features/auth`, never in `lib`. The React
+client entrypoint `apps/web/src/lib/auth-client.ts`, the server entrypoint
+`apps/web/src/lib/auth.ts`, and the `/api/auth` route handler at
+`apps/web/src/app/api/auth/[...all]/route.ts` all exist and `authClient` is
+wired into the sign-in, onboarding, session-refresh, and security-settings
+UI. `packages/auth`
 remains the framework-free Principal/Permission vocabulary and must never
 import Better Auth, Next, React, Drizzle, or Bun APIs; trusted authentication
 adapters resolve into its `Principal` contract. `packages/db` constructs the
