@@ -130,6 +130,19 @@ describe('classifyResendEvent', () => {
     });
   });
 
+  test('ignores event types that name Object.prototype members', () => {
+    const types = ['constructor', 'toString', '__proto__'];
+    assert({
+      given: 'signed events typed constructor, toString and __proto__',
+      should:
+        'classify none of them: only the provider event types map to a status',
+      actual: types.map((type) =>
+        classifyResendEvent({ type, data: { email_id: 'em' } }),
+      ),
+      expected: [null, null, null],
+    });
+  });
+
   test('ignores events without a usable message id', () => {
     assert({
       given: 'a delivered event lacking data.email_id',
