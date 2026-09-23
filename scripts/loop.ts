@@ -132,11 +132,16 @@ export function escalate(
     deps.notice(`No active loop: ${ACTIVE} does not exist.`);
     return 1;
   }
+  const head = deps.run(['git', 'rev-parse', 'HEAD'], deps.cwd);
+  if (head.code !== 0 || head.stdout.trim() === '') {
+    deps.notice('git rev-parse HEAD failed; the loop is still active.');
+    return 1;
+  }
   const parent = registeredParent(deps, deps.agentId);
   const escalation = {
     reason,
     detail: detail.trim(),
-    sha: deps.run(['git', 'rev-parse', 'HEAD'], deps.cwd).stdout.trim(),
+    sha: head.stdout.trim(),
     at: deps.now(),
     child: deps.agentId ?? 'owner-session',
     parent,

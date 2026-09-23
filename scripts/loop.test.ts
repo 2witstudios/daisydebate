@@ -227,6 +227,24 @@ describe('loop:escalate', () => {
     });
   });
 
+  test('fails without pausing when the commit cannot be read', () => {
+    const { deps, calls, fs } = fakes(
+      { [`${child}/${ACTIVE}`]: state, ...registered('ag-parent') },
+      {},
+      ['git rev-parse'],
+    );
+    assert({
+      given: 'git rev-parse HEAD failing',
+      should: 'exit 1, notify nobody and leave the loop active',
+      actual: [
+        escalate(deps, 'blocked', 'CI secret missing'),
+        calls.some((call) => call[0] === 'pu' || call[0] === 'gh'),
+        fs.get(`${child}/${ACTIVE}`) === state,
+      ],
+      expected: [1, false, true],
+    });
+  });
+
   test('refuses unknown reasons and a missing loop', () => {
     assert({
       given: 'an unknown reason, an empty detail, and no active loop',
@@ -286,14 +304,14 @@ describe('loop:close and loop:resume', () => {
         run.fs.has(`${child}/${ACTIVE}`),
         run.fs.has(`${child}/${ESCALATED}`),
         comment?.[5],
-        run.calls.find((call) => call[1] === 'send')?.[3]?.includes('owner..'),
+        run.calls.find((call) => call[1] === 'send')?.[3],
       ],
       expected: [
         0,
         false,
         false,
         '**Loop closed** by the owner: Merged by the owner',
-        false,
+        '[loop] Your loop was closed by the owner: Merged by the owner. It will not resume. Finish your handoff: commit, push, update the handoff page and report to your parent.',
       ],
     });
   });
