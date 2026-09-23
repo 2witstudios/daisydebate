@@ -314,20 +314,24 @@ GRD-6.2) is what holds against them:
     section to declare them in
   - a leaf or a prompt with a term a merged ADR superseded
     (`policy/superseded-terms.json`)
-  - a full active-builder cap (default 3), which counts every running
-    coding agent not registered as a reviewer, raw `pu spawn` ones included
+  - a full builder cap (default 3), which counts every running coding
+    agent not registered as a reviewer, raw `pu spawn` ones included
 
-  With `DAISY_AUTONOMOUS=1` it also refuses `--cap` and `--role`, and a
-  builder without `--task`, and `--override` does not apply: an agent
-  cannot raise the cap, spawn an uncounted reviewer or skip the leaf
-  checks. The owner spawns reviewers.
+  Roles are `builder` and `reviewer` only, each with its own cap (builder
+  3, reviewer 2), which only the owner changes with `--cap`. A reviewer
+  (`--role reviewer --worktree <id>`) joins the existing worktree it
+  reviews, with no new worktree or setup, so it cannot be a builder in
+  disguise, and counts only against the reviewer cap; a builder may not
+  pass `--worktree`. With `DAISY_AUTONOMOUS=1` the wrapper refuses `--cap`
+  and a builder without `--task`, and `--override` does not apply: an agent
+  may spawn a reviewer, but cannot raise a cap or skip the leaf checks.
 
-  It creates the worktree, installs dependencies and brings the slot up
-  before the prompt is sent. It resolves the child from `pu status --json`,
-  registers it (section 7), and confirms the prompt was taken: a new user
-  turn in the transcript, or output from an agent that was quiet before the
-  send, nudging once with an empty `pu send`. `bun agent:send` confirms any
-  later send the same way.
+  For a builder it creates the worktree, installs dependencies and brings
+  the slot up before the prompt is sent. It resolves the child from
+  `pu status --json`, registers it (section 7), and confirms the prompt was
+  taken: a new user turn in the transcript, or output from an agent that
+  was quiet before the send, nudging once with an empty `pu send`.
+  `bun agent:send` confirms any later send the same way.
 
 - **Numbers.** `bun adr:next` prints the ADR and migration numbers free
   across origin/main and every open PR. `bun policy` fails a branch whose
