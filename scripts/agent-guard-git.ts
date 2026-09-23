@@ -65,7 +65,7 @@ const pushValueOptions = new Set([
 ]);
 
 /** The long option git would read for an abbreviation, when unambiguous. */
-export function expandLong(flag: string, options: readonly string[]): string {
+function expandLong(flag: string, options: readonly string[]): string {
   if (options.includes(flag)) return flag;
   const matches = options.filter((option) => option.startsWith(flag));
   return matches.length === 1 ? matches[0] : flag;
