@@ -35,9 +35,12 @@ export {
   inboxDeltaPayloadSchema,
   sessionRevokedPayloadSchema,
   accessRevokedPayloadSchema,
+  actorPresencePreferenceChangedPayloadSchema,
   outboxPayloadSchema,
   topicFamilyPayloadKinds,
+  storageFamilyPayloadKinds,
   isPayloadAllowedOnTopic,
+  isPayloadStorableOnTopic,
 } from './realtime-payloads';
 export type {
   DoorbellKind,
@@ -46,22 +49,52 @@ export type {
 } from './realtime-payloads';
 
 /**
+ * Nominal branding (a phantom marker, erased at runtime) so
+ * `ENVELOPE_VERSION` and `PROTOCOL_VERSION` cannot be validated against each
+ * other by a future edit: assigning one where the other is expected, or
+ * defining one in terms of the other, is a type error caught by
+ * `bun typecheck`, even though both equal `1` today. A plain shared `number`
+ * literal cannot make that distinction, since the values coincide.
+ */
+type Brand<T, TBrand extends string> = T & { readonly __brand: TBrand };
+export type EnvelopeVersion = Brand<number, 'EnvelopeVersion'>;
+export type ProtocolVersion = Brand<number, 'ProtocolVersion'>;
+
+/**
  * The message-envelope version, stamped on `v` in every client and server
  * message. It versions the wire framing (the envelope shape itself), not
  * the message set `hello` negotiates (ADR 0031 §6): the two are distinct
- * values that happen to both start at `1`, tracked by separate constants so
- * one can change without forcing the other. An unsupported `v` closes the
- * socket with `protocol_unsupported` rather than being silently dropped,
- * unlike PageSpace's socket.io events.
+ * values that happen to both start at `1`, tracked by separate branded
+ * constants so one can change without forcing the other. An unsupported `v`
+ * closes the socket with `protocol_unsupported` rather than being silently
+ * dropped, unlike PageSpace's socket.io events.
  */
-export const ENVELOPE_VERSION = 1;
+export const ENVELOPE_VERSION: EnvelopeVersion = 1 as EnvelopeVersion;
 
 /**
  * The application protocol version `hello.protocolVersion` negotiates: the
  * client and server message set and semantics. See `ENVELOPE_VERSION` for
- * why this is a separate constant rather than the same literal reused.
+ * why this is a separate branded constant rather than the same literal
+ * reused.
  */
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION: ProtocolVersion = 1 as ProtocolVersion;
+
+/**
+ * Typed literal builders: each accepts only its own branded version type, so
+ * `envelopeVersionLiteral(PROTOCOL_VERSION)` (AC3's mutation M3a) or
+ * `PROTOCOL_VERSION` declared as `= ENVELOPE_VERSION` (mutation M3b) are
+ * both type errors, not merely a coincidence that both constants are `1`.
+ */
+export function envelopeVersionLiteral(
+  version: EnvelopeVersion,
+): z.ZodLiteral<EnvelopeVersion> {
+  return z.literal(version);
+}
+export function protocolVersionLiteral(
+  version: ProtocolVersion,
+): z.ZodLiteral<ProtocolVersion> {
+  return z.literal(version);
+}
 
 /**
  * Heartbeat, reconnect and backpressure constants `@daisy/protocol` owns
@@ -151,8 +184,14 @@ export const subscribeAuthorizationTable: Readonly<
 
 // --- Client and server message envelopes -------------------------------
 
-const envelope = { v: z.literal(ENVELOPE_VERSION) };
+const envelope = { v: envelopeVersionLiteral(ENVELOPE_VERSION) };
 const presenceActivitySchema = z.enum(['active', 'idle']);
+/**
+ * The projected presence status vocabulary. It lost its only in-package
+ * consumer when `presence.update` was removed (RT-2.1b): RT-3.2a's HTTP
+ * refetch of a `debate:<id>:presence` topic's projected value, triggered by
+ * the `presence.changed` doorbell, is this schema's owner.
+ */
 export const presenceStatusSchema = z.enum([
   'in-debate',
   'online',
@@ -171,7 +210,7 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
   z.strictObject({
     ...envelope,
     type: z.literal('hello'),
-    protocolVersion: z.literal(PROTOCOL_VERSION),
+    protocolVersion: protocolVersionLiteral(PROTOCOL_VERSION),
     ticket: ticketSchema,
   }),
   z.strictObject({

@@ -3,8 +3,12 @@ import {
   buildDebateTopic,
   clientMessageSchema,
   ENVELOPE_VERSION,
+  envelopeVersionLiteral,
   PROTOCOL_VERSION,
+  protocolVersionLiteral,
   ticketSchema,
+  type EnvelopeVersion,
+  type ProtocolVersion,
 } from './realtime';
 
 setupRitewayBun();
@@ -76,6 +80,28 @@ describe('client message schema', () => {
         }).success,
       ],
       expected: [false, false],
+    });
+  });
+
+  test('builds the envelope v literal and the hello protocolVersion literal from independently injected branded versions (AC3)', () => {
+    const injectedEnvelopeVersion = 11 as EnvelopeVersion;
+    const injectedProtocolVersion = 22 as ProtocolVersion;
+    const vLiteral = envelopeVersionLiteral(injectedEnvelopeVersion);
+    const protocolVersionField = protocolVersionLiteral(
+      injectedProtocolVersion,
+    );
+    assert({
+      given:
+        'builders called with distinct injected envelope and protocol versions',
+      should:
+        "accept only their own injected version and reject the other field's value, proving neither can stand in for the other",
+      actual: [
+        vLiteral.safeParse(11).success,
+        vLiteral.safeParse(22).success,
+        protocolVersionField.safeParse(22).success,
+        protocolVersionField.safeParse(11).success,
+      ],
+      expected: [true, false, true, false],
     });
   });
 
