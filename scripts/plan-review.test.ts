@@ -1,7 +1,11 @@
-import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { readdirSync } from 'node:fs';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { adrIndex, parseVerdict, planReviewPrompt } from './plan-review';
+import {
+  adrFile,
+  adrIndex,
+  parseVerdict,
+  planReviewPrompt,
+} from './plan-review';
 
 setupRitewayBun();
 
@@ -62,10 +66,10 @@ describe('adrIndex', () => {
         { file: 'README.md', firstLine: '# Decisions' },
       ]),
       expected: [
-        { number: '0001', title: 'Bun as the only runtime' },
-        { number: '0018', title: 'cuid2 identifiers' },
-        { number: '0023', title: 'Greenfield baseline' },
-        { number: '0040', title: 'no heading' },
+        { number: '0001', title: 'Bun as the only runtime', superseded: false },
+        { number: '0018', title: 'cuid2 identifiers', superseded: false },
+        { number: '0023', title: 'Greenfield baseline', superseded: false },
+        { number: '0040', title: 'no heading', superseded: false },
       ],
     });
   });
@@ -75,14 +79,51 @@ describe('adrIndex', () => {
     const files = readdirSync(dir).filter((file) => /^\d{4}-/.test(file));
     assert({
       given: 'docs/decisions, whose older records are headed "# ADR 0001: …"',
-      should: 'feed every one of them to the review',
-      actual: adrIndex(
-        files.map((file) => ({
-          file,
-          firstLine: readFileSync(join(dir, file), 'utf8').split('\n')[0],
-        })),
-      ).length,
-      expected: files.length,
+      should:
+        'feed every one of them, titled from its heading, with superseded ones marked',
+      actual: (() => {
+        const index = adrIndex(files.map((file) => adrFile(dir, file)));
+        return [
+          index.length,
+          index.find((adr) => adr.number === '0001')?.title,
+          index.filter((adr) => adr.superseded).map((adr) => adr.number),
+        ];
+      })(),
+      expected: [
+        files.length,
+        'Bun as the only runtime and package manager',
+        ['0022'],
+      ],
+    });
+  });
+});
+
+describe('superseded decisions', () => {
+  test('labels a superseded ADR in the prompt so a plan cannot lean on it', () => {
+    const adrs = adrIndex([
+      {
+        file: '0022-legacy.md',
+        firstLine: '# 0022: Legacy identifier compatibility',
+        status:
+          'Status: superseded by [ADR 0023](0023-greenfield-baseline.md).',
+      },
+      {
+        file: '0023-greenfield.md',
+        firstLine: '# 0023: Greenfield baseline',
+        status: 'Status: accepted.',
+      },
+    ]);
+    const prompt = planReviewPrompt({ agents: '', adrs, plan: '' });
+    assert({
+      given: 'a superseded ADR 0022 and an accepted ADR 0023',
+      should: 'mark 0022 as superseded and 0023 as in force',
+      actual: [
+        prompt.includes(
+          'ADR 0022: Legacy identifier compatibility (superseded: not in force)',
+        ),
+        prompt.includes('ADR 0023: Greenfield baseline\n'),
+      ],
+      expected: [true, true],
     });
   });
 });
@@ -97,8 +138,16 @@ describe('parseVerdict', () => {
         parseVerdict('findings…\nPLAN REVIEW: APPROVE\n'),
         parseVerdict('PLAN REVIEW: CHANGES REQUESTED'),
         parseVerdict('looks fine'),
+        parseVerdict('Final: PLAN REVIEW: APPROVE'),
+        parseVerdict('PLAN REVIEW: APPROVE once fixed'),
       ],
-      expected: ['APPROVE', 'CHANGES REQUESTED', undefined],
+      expected: [
+        'APPROVE',
+        'CHANGES REQUESTED',
+        undefined,
+        undefined,
+        undefined,
+      ],
     });
   });
 

@@ -10,23 +10,44 @@
 import { readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-type Adr = { readonly number: string; readonly title: string };
+type Adr = {
+  readonly number: string;
+  readonly title: string;
+  /** A later ADR replaced it: listed so a plan citing it is caught. */
+  readonly superseded?: boolean;
+};
+
+type AdrFile = {
+  readonly file: string;
+  readonly firstLine: string;
+  /** The record's "Status:" line, when it has one. */
+  readonly status?: string;
+};
+
+/** A decision record's file name, heading line and status line. */
+export function adrFile(dir: string, file: string): AdrFile {
+  const lines = readFileSync(join(dir, file), 'utf8').split('\n');
+  return {
+    file,
+    firstLine: lines[0] ?? '',
+    status: lines.find((line) => /^Status:/i.test(line)),
+  };
+}
 
 /**
  * Every decision record, numbered by its file name. The title comes from a
  * "# 0023: …" or "# ADR 0001: …" heading, or else from the file name, so
  * no record is left out of the review.
  */
-export function adrIndex(
-  files: readonly { readonly file: string; readonly firstLine: string }[],
-): readonly Adr[] {
+export function adrIndex(files: readonly AdrFile[]): readonly Adr[] {
   return files
-    .flatMap(({ file, firstLine }) => {
+    .flatMap(({ file, firstLine, status }) => {
       const named = /^(\d{4})-(.+)\.md$/.exec(file);
       if (!named) return [];
       const heading = /^#\s*(?:ADR\s+)?\d{4}:\s*(.+)$/.exec(firstLine.trim());
       const title = heading?.[1] ?? named[2].replaceAll('-', ' ');
-      return [{ number: named[1], title }];
+      const superseded = /^Status:\s*superseded/i.test(status ?? '');
+      return [{ number: named[1], title, superseded }];
     })
     .sort((a, b) => a.number.localeCompare(b.number));
 }
@@ -50,8 +71,11 @@ export function planReviewPrompt(input: {
     '## AGENTS.md',
     input.agents,
     '',
-    '## Accepted decisions',
-    ...input.adrs.map((adr) => `ADR ${adr.number}: ${adr.title}`),
+    '## Decisions (superseded ones are marked and are not in force)',
+    ...input.adrs.map(
+      (adr) =>
+        `ADR ${adr.number}: ${adr.title}${adr.superseded ? ' (superseded: not in force)' : ''}`,
+    ),
     '',
     '## Plan',
     input.plan,
@@ -88,10 +112,7 @@ if (import.meta.main) {
   const prompt = planReviewPrompt({
     agents: readFileSync(join(root, 'AGENTS.md'), 'utf8'),
     adrs: adrIndex(
-      readdirSync(decisions).map((file) => ({
-        file,
-        firstLine: readFileSync(join(decisions, file), 'utf8').split('\n')[0],
-      })),
+      readdirSync(decisions).map((file) => adrFile(decisions, file)),
     ),
     plan:
       (JSON.parse(plan.stdout.toString()) as { content?: string }).content ??
