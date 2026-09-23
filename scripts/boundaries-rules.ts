@@ -71,3 +71,25 @@ export const forbiddenDependencyIssue = (
     return `${workspacePath}: forbidden dependency ${dependency}`;
   return null;
 };
+
+/**
+ * A workspace import must name the package root or a subpath its `exports`
+ * map declares (public API, e.g. `@daisy/errors/testing`); anything else
+ * reaches into another package's files. Third-party subpaths are left to
+ * the dependency rules.
+ */
+export const deepImportIssue = (
+  specifier: string,
+  exportsOf: (packageName: string) => unknown,
+): string | null => {
+  if (!specifier.startsWith('@daisy/')) return null;
+  const packageName = specifier.split('/').slice(0, 2).join('/');
+  if (specifier === packageName) return null;
+  const exported = exportsOf(packageName);
+  const subpath = `.${specifier.slice(packageName.length)}`;
+  return exported !== null &&
+    typeof exported === 'object' &&
+    Object.hasOwn(exported, subpath)
+    ? null
+    : `workspace deep import ${specifier}`;
+};

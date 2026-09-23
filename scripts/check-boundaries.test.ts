@@ -2,6 +2,7 @@ import {
   adobeIsolationIssue,
   adobeWorkspaces,
   allowedWorkspaceDependencies,
+  deepImportIssue,
   forbiddenDependencyIssue,
 } from './boundaries-rules';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -166,6 +167,49 @@ describe('realtime workspace edges (ADR 0031 §12)', () => {
         '@daisy/debate-engine',
         withoutRealtime,
       ),
+      expected: null,
+    });
+  });
+});
+
+describe('workspace deep imports', () => {
+  const exportsOf = (name: string) =>
+    name === '@daisy/errors'
+      ? { '.': './src/index.ts', './testing': './src/testing.ts' }
+      : { '.': './src/index.ts' };
+
+  test('admits a package root and a subpath the package exports', () => {
+    assert({
+      given: "a package's root and a subpath named in its exports map",
+      should: 'report no issue for either',
+      actual: [
+        deepImportIssue('@daisy/errors', exportsOf),
+        deepImportIssue('@daisy/errors/testing', exportsOf),
+      ],
+      expected: [null, null],
+    });
+  });
+
+  test('refuses a subpath the package does not export', () => {
+    assert({
+      given: 'a reach into a source file the exports map does not name',
+      should: 'report the deep import',
+      actual: [
+        deepImportIssue('@daisy/errors/src/index', exportsOf),
+        deepImportIssue('@daisy/db/schema', exportsOf),
+      ],
+      expected: [
+        'workspace deep import @daisy/errors/src/index',
+        'workspace deep import @daisy/db/schema',
+      ],
+    });
+  });
+
+  test('ignores packages outside the workspace', () => {
+    assert({
+      given: 'a subpath import of a third-party package',
+      should: 'leave it to the dependency rules',
+      actual: deepImportIssue('drizzle-orm/pg-core', exportsOf),
       expected: null,
     });
   });

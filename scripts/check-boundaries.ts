@@ -9,6 +9,7 @@ import {
 import {
   adobeIsolationIssue,
   allowedWorkspaceDependencies as allowed,
+  deepImportIssue,
   forbiddenDependencyIssue,
 } from './boundaries-rules';
 
@@ -107,10 +108,11 @@ for (const workspace of workspaces) {
           issues.push(
             `${relative(root, file)}: undeclared dependency ${packageName}`,
           );
-        if (specifier.startsWith('@daisy/') && specifier !== packageName)
-          issues.push(
-            `${relative(root, file)}: workspace deep import ${specifier}`,
-          );
+        const deepImport = deepImportIssue(
+          specifier,
+          (name) => byName.get(name)?.manifest.exports,
+        );
+        if (deepImport) issues.push(`${relative(root, file)}: ${deepImport}`);
         const importIssue = adobeIsolationIssue(
           workspace.manifest.name,
           specifier,
