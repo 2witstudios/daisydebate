@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "advisories": [
+    {
+      "advisory": "GHSA-82fw-gwwq-j7x9",
+      "packages": ["@vitest/mocker", "vitest"],
+      "dependencyPath": "riteway 9.3.0 (devDependency of every testing workspace) > vitest 3.2.7 > @vitest/mocker 3.2.7. better-auth lists vitest only as an optional peer, so riteway is what installs it.",
+      "reason": "Path traversal in @vitest/mocker's redirect mock (moderate). Fixed in vitest 4.1.11, but riteway 9.x hard-depends on vitest ^3.2.4 for its riteway/vitest entry.",
+      "unreachable": "Dev-only and never loaded: Daisy's tests run on bun:test through riteway/bun, nothing imports riteway/vitest, vitest or better-auth/test, and no production image installs dev dependencies.",
+      "owner": "platform",
+      "adr": "docs/decisions/0039-dated-dependency-audit-exceptions.md",
+      "reviewBy": "2026-12-23"
+    },
+    {
+      "advisory": "GHSA-qpx9-hpmf-5gmw",
+      "packages": ["underscore"],
+      "dependencyPath": "@daisy/debate-engine > @adobe/data 0.10.19 > jsonpath 1.3.0 > underscore 1.13.6 (exact pin in jsonpath).",
+      "reason": "Unbounded recursion in _.flatten and _.isEqual, a denial of service (high). Fixed in underscore 1.13.8, which jsonpath's exact pin excludes.",
+      "unreachable": "Only @adobe/data's schema/dynamic modules import jsonpath. Daisy imports @adobe/data/ecs alone (packages/debate-engine/src/ecs-adapter.ts), whose module graph contains neither jsonpath nor underscore.",
+      "owner": "debate-engine",
+      "adr": "docs/decisions/0039-dated-dependency-audit-exceptions.md",
+      "reviewBy": "2026-12-23"
+    }
+  ]
+}
