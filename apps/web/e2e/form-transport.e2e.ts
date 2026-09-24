@@ -6,7 +6,7 @@ import {
   signUpProvisional,
   uniqueName,
 } from './support/accounts';
-import { claimUsername } from './support/forms';
+import { changeEmail, claimUsername } from './support/forms';
 import { effectsRan } from './support/hydration';
 
 // ISSUE-94: with JavaScript on, a form's server action is a fetch the page
@@ -55,8 +55,7 @@ test('an email change lost in transport shows the unavailable notice beside the 
   await effectsRan(page);
   await dropServerActions(page);
   const next = freshEmail();
-  await page.getByLabel('New email address').fill(next);
-  await page.getByRole('button', { name: 'Change email' }).click();
+  await changeEmail(page, next);
   await expect(page.locator('#email-change-notice')).toContainText(
     'Please try again.',
   );

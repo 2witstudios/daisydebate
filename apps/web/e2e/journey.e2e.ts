@@ -11,7 +11,11 @@ import {
   reachOnboarding,
   sessionUsername,
 } from './support/accounts';
-import { claimUsername, declineOfferToLobby } from './support/forms';
+import {
+  changeEmail,
+  claimUsername,
+  declineOfferToLobby,
+} from './support/forms';
 import { effectsRan } from './support/hydration';
 import { watchTopbarLinks } from './support/topbar';
 
@@ -345,8 +349,7 @@ test.describe('with JavaScript off', () => {
     const { email } = await signUpMember(page.request);
     await page.goto('/settings/security');
     const next = freshEmail();
-    await page.getByLabel('New email address').fill(next);
-    await page.getByRole('button', { name: 'Change email' }).click();
+    await changeEmail(page, next);
     await expect(page.locator('#email-change-notice')).toContainText(
       /approve this change/i,
     );
