@@ -176,7 +176,7 @@ describe('createAuthRouteHandlers', () => {
     });
   });
 
-  test('refuses a direct GET or POST to /magic-link/verify or /verify-email with 404, never reaching Better Auth', async () => {
+  test('refuses a direct GET or POST to /magic-link/verify or /email-change/verify with 404, never reaching Better Auth', async () => {
     let delegated = 0;
     const handlers = createAuthRouteHandlers(
       () => ({
@@ -196,12 +196,12 @@ describe('createAuthRouteHandlers', () => {
       new Request(`http://localhost:3000/api/auth${path}?token=T`);
     const results = await Promise.all([
       handlers.GET(get('/magic-link/verify')),
-      handlers.GET(get('/verify-email')),
+      handlers.GET(get('/email-change/verify')),
       handlers.POST(get('/magic-link/verify')),
-      handlers.POST(get('/verify-email')),
+      handlers.POST(get('/email-change/verify')),
     ]);
     assert({
-      given: 'a direct request to either GET-redeemable auth link endpoint',
+      given: 'a direct request to either emailed-link redemption endpoint',
       should: 'answer 404 with no cookie and never call Better Auth',
       actual: {
         statuses: results.map((response) => response.status),

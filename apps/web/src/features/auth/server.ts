@@ -13,16 +13,17 @@ import type {
 } from './mail-types';
 import { buildConfirmLink } from './confirm-link';
 import {
-  sendChangeEmailConfirmation,
-  sendChangeEmailVerification,
-} from './change-email-mail';
+  emailedLinkIdentifier,
+  generateEmailedLinkToken,
+} from './emailed-link-token';
+import { emailChangePlugin } from './email-change';
 import { createMagicLinkGatePlugin } from './magic-link-gate';
 import { freshSessionGatePlugin } from './fresh-session-gate';
 import { browserSessionShapePlugin } from './browser-session-shape';
 import { passkeyDeviceHintPlugin } from './passkey-device-hint';
 import { passkeyNotificationsPlugin } from './passkey-notifications';
 import { sessionRevokedOutboxPlugin } from './session-revoked-outbox';
-import { revokeOthersOnVerifyEmailPlugin } from './revoke-others-on-verify-email';
+import { revokeOthersOnEmailChangePlugin } from './revoke-others-on-email-change';
 import { deriveRecipientSubkey, recipientKey } from './recipient-key';
 import { renderAuthEmail } from './mail/templates';
 import { sendOrUnavailable } from './deliver-or-unavailable';
@@ -39,11 +40,8 @@ import {
 } from './rate-limit';
 
 const MAGIC_LINK_EXPIRES_IN_SECONDS = 300;
-// Matches the emailed-link token-delivery model's 5-minute figure; Better
-// Auth's own default (1 hour) is otherwise silently applied to this token.
-export const EMAIL_VERIFICATION_EXPIRES_IN_SECONDS = 300;
 
-/** ISSUE-3 AC3: the atomic revoke `revokeOthersOnVerifyEmailPlugin` runs. */
+/** ISSUE-3 AC3: the atomic revoke `revokeOthersOnEmailChangePlugin` runs. */
 type RevokeOtherSessions = (
   userId: string,
   keepToken: string,
@@ -76,6 +74,7 @@ const composeBetterAuth = (dependencies: {
   readonly ledger: AuthDeliveryLedger;
   readonly logger: Logger;
   readonly ids: IdGenerator;
+  readonly clock: Clock;
   readonly appendSessionRevoked: (userId: string) => Promise<void>;
   readonly revokeOtherSessions: RevokeOtherSessions;
 }) => {
@@ -152,31 +151,28 @@ const composeBetterAuth = (dependencies: {
       // lists through GET /api/account/sessions, and the server still calls
       // auth.api.listSessions (disabledPaths gates HTTP only).
       '/list-sessions',
+      // ISSUE-2: Better Auth's email verification mints signed JWT links;
+      // the email change runs on opaque stored tokens (`email-change.ts`).
+      '/verify-email',
+      '/send-verification-email',
     ],
     user: {
       additionalFields: {
         // Readable on the session; `input: false` refuses any client value.
         username: { type: 'string', required: false, input: false },
       },
-      changeEmail: {
-        enabled: true,
-        sendChangeEmailConfirmation: sendChangeEmailConfirmation(
-          origin,
-          dependencies.deliver,
-        ),
-      },
-    },
-    emailVerification: {
-      sendVerificationEmail: sendChangeEmailVerification(
-        origin,
-        dependencies.deliver,
-      ),
-      expiresIn: EMAIL_VERIFICATION_EXPIRES_IN_SECONDS,
     },
     plugins: [
       magicLink({
         expiresIn: MAGIC_LINK_EXPIRES_IN_SECONDS,
-        storeToken: 'hashed',
+        // ISSUE-2: the emailed-link model — an opaque 256-bit CSPRNG token,
+        // stored only as its purpose-scoped SHA3-256 digest (Better Auth's
+        // `'hashed'` option is SHA-256).
+        generateToken: () => generateEmailedLinkToken(),
+        storeToken: {
+          type: 'custom-hasher',
+          hash: async (token) => emailedLinkIdentifier('sign-in', token),
+        },
         sendMagicLink: async ({ email, url }) => {
           const href = buildConfirmLink(origin, url).toString();
           const message = renderAuthEmail({ kind: 'sign-in', url: href });
@@ -205,12 +201,17 @@ const composeBetterAuth = (dependencies: {
         dependencies.logger,
       ),
       magicLinkGatePlugin,
+      emailChangePlugin({
+        origin,
+        deliver: dependencies.deliver,
+        clock: dependencies.clock,
+      }),
       freshSessionGatePlugin,
       sessionRevokedOutboxPlugin(
         dependencies.appendSessionRevoked,
         dependencies.logger,
       ),
-      revokeOthersOnVerifyEmailPlugin(
+      revokeOthersOnEmailChangePlugin(
         dependencies.revokeOtherSessions,
         dependencies.logger,
       ),
@@ -332,6 +333,7 @@ export function createAuthServer<
       ledger,
       logger: dependencies.logger,
       ids: dependencies.ids,
+      clock: dependencies.clock,
       appendSessionRevoked: dependencies.appendSessionRevoked,
       revokeOtherSessions: dependencies.revokeOtherSessions,
     }),

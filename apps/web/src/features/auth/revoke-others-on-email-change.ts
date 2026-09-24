@@ -1,6 +1,7 @@
 import type { BetterAuthPlugin } from 'better-auth';
 import { createAuthMiddleware } from 'better-auth/api';
 import type { Logger } from '@daisy/logger';
+import { EMAIL_CHANGE_VERIFY_PATH } from './email-change';
 
 /** Set on the response when the atomic revoke below fails, so the confirm
  * page can still tell the person their other sessions were not confirmed
@@ -9,10 +10,11 @@ import type { Logger } from '@daisy/logger';
 export const SESSION_CLEANUP_FAILED_HEADER = 'x-daisy-session-cleanup-failed';
 
 /**
- * ISSUE-3 AC3: `/verify-email`'s final hop (the one that sets a session
- * cookie, proving live access to the new mailbox) must revoke every other
- * session for the account (AUTH-5.6), whoever calls the endpoint: the
- * confirm page, a direct request, or `auth.api.verifyEmail`. A `hooks.after`
+ * ISSUE-3 AC3: the email change's final hop (`/email-change/verify`
+ * redeeming a verify-purpose token, the one that sets a session cookie,
+ * proving live access to the new mailbox) must revoke every other session
+ * for the account (AUTH-5.6), whoever calls the endpoint: the confirm page,
+ * a direct request, or `auth.api.verifyEmailChange`. A `hooks.after`
  * matcher on the endpoint itself cannot be skipped by the caller: Better
  * Auth runs it for the HTTP router and for `auth.api.*` alike
  * (`dispatchAuthEndpoint` is the one hook runner both go through).
@@ -23,15 +25,15 @@ export const SESSION_CLEANUP_FAILED_HEADER = 'x-daisy-session-cleanup-failed';
  * the response via a header instead, so the confirm page can still say the
  * cleanup step failed.
  */
-export const revokeOthersOnVerifyEmailPlugin = (
+export const revokeOthersOnEmailChangePlugin = (
   revokeOtherSessions: (userId: string, keepToken: string) => Promise<number>,
   logger: Logger,
 ): BetterAuthPlugin => ({
-  id: 'daisy-revoke-others-on-verify-email',
+  id: 'daisy-revoke-others-on-email-change',
   hooks: {
     after: [
       {
-        matcher: (context) => context.path === '/verify-email',
+        matcher: (context) => context.path === EMAIL_CHANGE_VERIFY_PATH,
         handler: createAuthMiddleware(async (context) => {
           const newSession = context.context.newSession;
           if (!newSession) return;

@@ -1,3 +1,4 @@
+import { CONFIRM_EMAIL_PATH } from './email-change';
 import {
   confirmDocument,
   escapeHtml,
@@ -5,20 +6,14 @@ import {
   pageHeaders,
 } from './confirm-page-shared';
 
-const CONFIRM_EMAIL_PATH = '/auth/confirm-email';
-
 export type EmailConfirmView =
-  | {
-      readonly kind: 'confirm';
-      readonly token: string;
-      readonly callbackURL: string;
-    }
+  | { readonly kind: 'confirm'; readonly token: string }
   | { readonly kind: 'expired' }
   | { readonly kind: 'done'; readonly callbackURL: string }
   | { readonly kind: 'incomplete'; readonly callbackURL: string };
 
 const confirmBody = (view: Extract<EmailConfirmView, { kind: 'confirm' }>) =>
-  `<h1>Confirm this email change</h1><p>Select the button to continue changing this account's email.</p><form method="post" action="${CONFIRM_EMAIL_PATH}">${hiddenInput('token', view.token)}${hiddenInput('callbackURL', view.callbackURL)}<button type="submit">Continue</button></form>`;
+  `<h1>Confirm this email change</h1><p>Select the button to continue changing this account's email.</p><form method="post" action="${CONFIRM_EMAIL_PATH}">${hiddenInput('token', view.token)}<button type="submit">Continue</button></form>`;
 
 const expiredBody =
   '<h1>This link can no longer be used</h1><p>It may have expired or already been used. Start the email change again from account security settings.</p>';
