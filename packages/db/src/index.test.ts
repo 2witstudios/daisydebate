@@ -155,9 +155,10 @@ describe('database health', () => {
 describe('session revocation', () => {
   const actorId = 'z9y8x7w6v5u4t3s2r1q0p9o8';
 
-  test('revokes every other session for the user in one atomic statement, resolving the actor and appending session.revoked in the same transaction', async () => {
+  test('locks the user row, then revokes every other session in one atomic statement, resolving the actor and appending session.revoked in the same transaction', async () => {
     const userId = 'a7b3c9d1e5f2k4m6n8p1r3t5';
     const { database, queries } = createTestDatabase([
+      [[userId]],
       [['session-row-id']],
       [[actorId]],
       [['5', '10']],
@@ -168,28 +169,33 @@ describe('session revocation', () => {
 
     const lower = (index: number) => queries[index]?.query.toLowerCase() ?? '';
     const selectsActor =
-      lower(1).includes('select') && lower(1).includes('actors');
+      lower(2).includes('select') && lower(2).includes('actors');
     const insertsOutbox =
-      lower(2).includes('insert into') && lower(2).includes('outbox');
+      lower(3).includes('insert into') && lower(3).includes('outbox');
 
     assert({
       given: "a user's other sessions and the token to keep",
       should:
-        'issue the DELETE first with no prior listing query, resolve the actor, then append the outbox row and NOTIFY in the same transaction',
+        'lock the user row first (ISSUE-22), then issue the DELETE with no listing query, resolve the actor, then append the outbox row and NOTIFY in the same transaction',
       actual: {
         removed,
         queryCount: queries.length,
-        deletesSession: lower(0).includes('delete'),
-        mentionsUserId: queries[0]?.query.includes('user_id'),
-        mentionsToken: queries[0]?.query.includes('token'),
-        params: queries[0]?.params,
+        locksUserRow:
+          lower(0).includes('"users"') && lower(0).endsWith('for update'),
+        lockParams: queries[0]?.params,
+        deletesSession: lower(1).includes('delete'),
+        mentionsUserId: queries[1]?.query.includes('user_id'),
+        mentionsToken: queries[1]?.query.includes('token'),
+        params: queries[1]?.params,
         selectsActor,
         insertsOutbox,
-        notifies: lower(3).includes('pg_notify'),
+        notifies: lower(4).includes('pg_notify'),
       },
       expected: {
         removed: 1,
-        queryCount: 4,
+        queryCount: 5,
+        locksUserRow: true,
+        lockParams: [userId],
         deletesSession: true,
         mentionsUserId: true,
         mentionsToken: true,
@@ -201,11 +207,41 @@ describe('session revocation', () => {
     });
   });
 
+  test('revokes every session, the current one included, when no token is kept', async () => {
+    const userId = 'a7b3c9d1e5f2k4m6n8p1r3t5';
+    const { database, queries } = createTestDatabase([
+      [[userId]],
+      [['session-a'], ['session-b']],
+      [[actorId]],
+      [['5', '10']],
+      [],
+    ]);
+
+    const removed = await database.revokeOtherSessions(userId, null);
+
+    assert({
+      given: 'a revoke-all with no session to keep',
+      should: 'delete by the user alone, under the same lock',
+      actual: {
+        removed,
+        locksUserRow: queries[0]?.query.toLowerCase().endsWith('for update'),
+        mentionsToken: queries[1]?.query.includes('token'),
+        params: queries[1]?.params,
+      },
+      expected: {
+        removed: 2,
+        locksUserRow: true,
+        mentionsToken: false,
+        params: [userId],
+      },
+    });
+  });
+
   test('revokes sessions but appends nothing and reports a registered event when the user has no actor row (never claimed a username)', async () => {
     const userId = 'a7b3c9d1e5f2k4m6n8p1r3t5';
     const events: SinkEvent[] = [];
     const { database, queries } = createTestDatabase(
-      [[['session-row-id']], []],
+      [[[userId]], [['session-row-id']], []],
       events,
     );
 
@@ -222,7 +258,7 @@ describe('session revocation', () => {
       },
       expected: {
         removed: 1,
-        queryCount: 2,
+        queryCount: 3,
         events: [
           {
             event: 'realtime.outbox.actor_missing',
@@ -235,15 +271,16 @@ describe('session revocation', () => {
 
   test('appends no outbox row when there is nothing to revoke', async () => {
     const userId = 'a7b3c9d1e5f2k4m6n8p1r3t5';
-    const { database, queries } = createTestDatabase([[]]);
+    const { database, queries } = createTestDatabase([[[userId]], []]);
 
     const removed = await database.revokeOtherSessions(userId, 'keep-me');
 
     assert({
       given: 'a user with no other sessions to revoke',
-      should: 'issue only the DELETE, appending nothing to the outbox',
+      should:
+        'issue only the lock and the DELETE, appending nothing to the outbox',
       actual: { removed, queryCount: queries.length },
-      expected: { removed: 0, queryCount: 1 },
+      expected: { removed: 0, queryCount: 2 },
     });
   });
 

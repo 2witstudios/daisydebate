@@ -207,33 +207,31 @@ describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () 
     const { verifyToken } = await flows.confirmedEmailChange(cookie);
 
     // A bare `Promise.all` race is nondeterministic about which pipeline
-    // reaches the database first, so asserting on it either way would be
-    // flaky. This pins the interleaving that matters — the concurrent
-    // sign-in's session fully committed while the completion request is
-    // still in flight — by holding the real `revokeOtherSessions` call
-    // (still the genuine atomic DELETE against real Postgres, not a stub;
-    // only its start is delayed) until that sign-in's response resolves.
-    // The regression guard for the snapshot-then-delete shape itself is
-    // `packages/db/src/index.test.ts`'s "one atomic statement" unit test,
-    // which fails the moment a listing query reappears; this test proves
-    // the operational behavior that atomicity buys, against real services.
+    // reaches the database first. ISSUE-22's CI failure was that race: when
+    // the sign-in's account lookup landed after the completion had moved the
+    // account off the old address, it found no account there and signed up a
+    // brand-new one, whose session no revocation of this account could touch
+    // (ISSUE-99 now revokes that link instead). This pins the interleaving
+    // under test: the completion's address switch (the real transactional
+    // `completeEmailChange`, only its start delayed) waits until the
+    // concurrent sign-in has committed its session on this account, so the
+    // revocation that follows must remove it. The database guarantee for a
+    // session that commits while the revoke-all itself is in flight is
+    // proven in `packages/db/integration/session-revoke-all-race.integration.ts`.
     const { database } = app;
-    const realRevoke = database.revokeOtherSessions.bind(database);
-    let releaseRevoke = () => {};
-    const revokeMayProceed = new Promise<void>((resolve) => {
-      releaseRevoke = resolve;
+    const realComplete = database.completeEmailChange.bind(database);
+    let releaseCompletion = () => {};
+    const completionMayProceed = new Promise<void>((resolve) => {
+      releaseCompletion = resolve;
     });
-    database.revokeOtherSessions = async (
-      userId: string,
-      keepToken: string,
-    ) => {
-      await revokeMayProceed;
-      return realRevoke(userId, keepToken);
+    database.completeEmailChange = async (input) => {
+      await completionMayProceed;
+      return realComplete(input);
     };
     try {
       const [concurrentSignIn, completion] = await Promise.all([
         redeem(concurrentToken).then((response) => {
-          releaseRevoke();
+          releaseCompletion();
           return response;
         }),
         flows.confirmEmailPost(verifyToken),
@@ -242,7 +240,7 @@ describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () 
 
       assert({
         given:
-          "a brand-new sign-in that finishes committing its session while the email-change completion's atomic revocation is still in flight",
+          'a sign-in to the account that commits its session while the email-change completion is still in flight',
         should: 'complete the change and revoke that sign-in anyway',
         actual: {
           completionRedirected: completion.status,
@@ -257,7 +255,7 @@ describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () 
         },
       });
     } finally {
-      database.revokeOtherSessions = realRevoke;
+      database.completeEmailChange = realComplete;
     }
   });
 });

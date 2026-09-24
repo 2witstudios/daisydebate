@@ -240,25 +240,29 @@ are not best-effort HTTP.
   Daisy-owned transaction wraps the delete (revision 4.7, from RT-2.2's
   second review pass: main's AUTH-5.6 made the email-change session delete
   Daisy-owned):
-  - The browser calls Better Auth's `/revoke-session`,
-    `/revoke-other-sessions` and `/revoke-sessions` directly (AUTH-5.5); no
-    Daisy-owned transaction wraps those internal deletes. The writer is a
-    Better Auth plugin registering `hooks.after` on all three, next to the
-    existing hooks in `apps/web/src/features/auth/server.ts`. The append is
+  - The browser calls Better Auth's `/revoke-session` directly (AUTH-5.5);
+    no Daisy-owned transaction wraps that internal delete. The writer is a
+    Better Auth plugin registering `hooks.after` on it
+    (`apps/web/src/features/auth/session-revoked-outbox.ts`). The append is
     **best-effort**, appended **after** the delete is confirmed, in its own
     short transaction, never in the same transaction as the delete. A
     failed append is logged as a registered structured event and never
     fails the revocation, whose session delete has already committed. The
     realtime service's 60 s session revalidation is the safety net, so the
     kick is late by at most 60 s, never missed.
-  - Email-change completion (AUTH-5.6) deletes through `@daisy/db`'s
-    `revokeOtherSessions`, a Daisy-owned single-statement DELETE, not
-    Better Auth's internal adapter. Because Daisy owns the transaction
-    here, the append happens in the **same transaction** as that DELETE: a
-    failed append rolls the DELETE back too, and the endpoint reports the
-    cleanup step failed rather than silently completing without the
-    doorbell. This is the one `session.revoked` writer that is atomic with
-    its delete.
+  - Every revoke-all deletes through `@daisy/db`'s `revokeOtherSessions`,
+    Daisy's one serialized revoke-all (ISSUE-22): the email-change
+    completion (AUTH-5.6) and the self-service `/revoke-other-sessions` and
+    `/revoke-sessions`, which `revoke-sessions.ts` replaces under Better
+    Auth's own paths. It locks the user row, then deletes in one statement,
+    so a session committed while it runs cannot survive it
+    ([persistence](../architecture/persistence.md)). Because Daisy owns the
+    transaction here, the append happens in the **same transaction** as that
+    DELETE: a failed append rolls the DELETE back too. The email change
+    reports the cleanup step failed; the self-service endpoints report the
+    outage, so the person retries rather than believing they signed out
+    other devices. These are the `session.revoked` writers that are atomic
+    with their delete.
 
 - **`access.revoked`** is appended by the seat and visibility mutations:
   leaving a seat, removal from a debate, and a debate becoming private. The

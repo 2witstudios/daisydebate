@@ -10,6 +10,7 @@ import {
   type AuthEmailMessage,
 } from '../src/features/auth/server';
 import type { CompleteEmailChange } from '../src/features/auth/email-change';
+import type { RevokeSessions } from '../src/features/auth/revoke-sessions';
 import { silentLogger } from '../src/server/test-loggers.test-support';
 import { authTestEnv } from '../src/features/auth/auth-server.test-support';
 
@@ -42,10 +43,7 @@ export const createTestAuthServer = (
     /** Defaults to a no-op; a suite proving RT-2.2's outbox append wires the real one. */
     readonly appendSessionRevoked?: (userId: string) => Promise<void>;
     /** Defaults to a no-op; a suite proving ISSUE-3 AC3 wires the real one. */
-    readonly revokeOtherSessions?: (
-      userId: string,
-      keepToken: string,
-    ) => Promise<number>;
+    readonly revokeOtherSessions?: RevokeSessions;
     /** Defaults to refusing; a suite completing an email change wires the real one. */
     readonly completeEmailChange?: CompleteEmailChange;
   },
@@ -116,6 +114,8 @@ export const createDatabaseAuthServer = (
   const auth = createTestAuthServer(database.authAdapter, {
     sent,
     recordedLogs: logged,
+    revokeOtherSessions: (userId, keepToken) =>
+      database.revokeOtherSessions(userId, keepToken),
     completeEmailChange: (input) => database.completeEmailChange(input),
     ...wire(database),
   });

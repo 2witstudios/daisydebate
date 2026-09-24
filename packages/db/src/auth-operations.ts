@@ -104,26 +104,47 @@ export const authOperations = ({
       });
     },
     /**
-     * Revokes every session for `userId` except `keepToken` in one atomic
-     * DELETE — no snapshot-then-delete round trips, so a session created
-     * concurrently with this call cannot slip through a listing window.
-     * This is Daisy's own operation (AUTH-5.6's email-change completion),
-     * not one of Better Auth's internal deletes, so the `session.revoked`
-     * append happens in the *same* transaction as the DELETE (ADR 0032 §5,
-     * plan revision 4.7): unlike the after-hook writers, a failed append
-     * here rolls the DELETE back too, rather than being swallowed
-     * best-effort. Returns the number of sessions removed.
+     * The one revoke-all (ISSUE-22, owner decision 2026-09-23): revokes
+     * every session for `userId` except `keepToken` (every session when it
+     * is null), serialized in the database against session creation for
+     * that user. It first takes the user row `FOR UPDATE`; every session
+     * insert holds `FOR KEY SHARE` on that same row until it commits (the
+     * `session.user_id` foreign key check), and the two conflict. So an
+     * insert still uncommitted when the revoke starts makes the revoke wait,
+     * and the DELETE, a separate statement with its own Read Committed
+     * snapshot taken after the lock, then sees and removes that session; an
+     * insert that starts after the lock waits for the revoke to commit and
+     * lands after it. One statement could not do this: a statement's
+     * snapshot predates any lock wait inside it. Better Auth's own revoke
+     * endpoints are routed here (`revoke-sessions.ts`), and every future
+     * revoke-all (recovery, admin ban) must call it too.
+     *
+     * Daisy's own operation, not one of Better Auth's internal deletes, so
+     * the `session.revoked` append happens in the *same* transaction as the
+     * DELETE (ADR 0032 §5, plan revision 4.7): a failed append rolls the
+     * DELETE back too, rather than being swallowed best-effort. Returns the
+     * number of sessions removed.
      */
     async revokeOtherSessions(
       userId: string,
-      keepToken: string,
+      keepToken: string | null,
     ): Promise<number> {
       return instrumented(eventSink, 'revokeOtherSessions', () =>
         database.transaction(async (tx) => {
+          await tx
+            .select({ id: users.id })
+            .from(users)
+            .where(eq(users.id, userId))
+            .for('update');
           const rows = await tx
             .delete(sessions)
             .where(
-              and(eq(sessions.userId, userId), ne(sessions.token, keepToken)),
+              keepToken === null
+                ? eq(sessions.userId, userId)
+                : and(
+                    eq(sessions.userId, userId),
+                    ne(sessions.token, keepToken),
+                  ),
             )
             .returning({ id: sessions.id });
           if (rows.length > 0)
