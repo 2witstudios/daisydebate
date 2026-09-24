@@ -4,7 +4,7 @@ import { createRedis, redisKey } from '../src';
 import { deleteNamespace } from '../src/namespaces';
 
 /** A raw client for assertions our own package's API cannot make: PTTL, EXISTS, and direct key manipulation. */
-async function rawClient(url: string) {
+export async function rawClient(url: string) {
   const client = new RedisClient(url);
   await client.connect();
   return client;

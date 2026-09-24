@@ -71,6 +71,21 @@ function fakeRedis(values: Map<string, string> = new Map()) {
   };
 }
 
+/** A Redis client whose connection always fails, for the shared "propagates outage" proof. */
+export const createOfflineRedis = (
+  events: Array<{ event: string; fields: Record<string, unknown> }>,
+) =>
+  createRedis({
+    url: 'redis://127.0.0.1:1',
+    namespace: 'test',
+    eventSink: (event, fields) => events.push({ event, fields }),
+    client: {
+      async connect() {
+        throw new Error('offline');
+      },
+    } as never,
+  });
+
 export const createTestRedis = (
   events: Array<{
     event: string;

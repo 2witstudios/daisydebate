@@ -124,6 +124,7 @@ describe('structured logging: field allowlist (ADR 0019)', () => {
       deleted: 0,
       batches: 3,
       closeCode: 4001,
+      deliverySeqLagEstimate: 42,
     };
     const { entry } = emit(
       fields,

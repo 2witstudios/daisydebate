@@ -91,3 +91,7 @@ export const topicStringSchema = z
  */
 export const buildUserInboxTopic = (actorId: string): string =>
   `user:${idSchema.parse(actorId)}:inbox`;
+
+/** The `debate:<id>` family (RT-2.3b's first consumer). */
+export const buildDebateTopic = (debateId: string): string =>
+  `debate:${idSchema.parse(debateId)}`;

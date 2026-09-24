@@ -13,6 +13,9 @@
       "entry": ["e2e/support/server.ts", "integration/**/*.integration.ts"],
     },
     "packages/db": { "entry": ["integration/**/*.integration.ts"] },
+    "apps/realtime": {
+      "entry": ["integration/**/*.integration.ts"],
+    },
     "packages/redis": {
       "entry": ["integration/**/*.integration.ts"],
     },
