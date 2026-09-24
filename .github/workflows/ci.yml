@@ -148,8 +148,7 @@ jobs:
 
   # The one required check for the main ruleset (policy/github/repository.json)
   # and the CI half of deploy-staging's condition: it passes only when every
-  # CI job above passed except the dependency audit, which is red by owner
-  # decision until ISSUE-31 fixes its advisories at source (ISSUE-51).
+  # CI job above passed, the dependency audit included (ADR 0039).
   gate:
     name: CI gate
     runs-on: ubuntu-24.04
@@ -172,9 +171,7 @@ jobs:
     name: Report failure to drive Incidents
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    # The audit is left out for the same reason as in gate (ISSUE-51): its
-    # known red state is not an incident.
-    needs: [checks, migrations, integration]
+    needs: [checks, audit, migrations, integration]
     if: failure()
     steps:
       - uses: actions/checkout@v7
