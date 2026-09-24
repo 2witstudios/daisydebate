@@ -6,6 +6,7 @@ import { systemClock, systemId } from '@daisy/clock';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import { createApp } from '../src/server/app';
 import { createRoutes } from '../src/server/routes';
+import { authTestEnv } from '../src/features/auth/auth-server.test-support';
 import { resendRequest } from '../src/features/auth/resend-capture.test-support';
 
 /**
@@ -19,24 +20,14 @@ import { resendRequest } from '../src/features/auth/resend-capture.test-support'
  * substituted: the production Resend sender runs unchanged and its HTTP call
  * lands on the suite's mailbox `fetch`. Suites that exercise the Better Auth
  * persistence seams directly build `auth-server-harness.ts`'s server over
- * the same `authEnv`.
+ * the same `authTestEnv`.
  */
 
 export const { databaseUrl: testDatabaseUrl, redisUrl: testRedisUrl } =
   requireTestServices(process.env);
 
-export const origin = 'http://localhost:3000';
+export const origin = authTestEnv.PUBLIC_APP_URL;
 export const webhookSecret = `whsec_${Buffer.from(createId() + createId()).toString('base64')}`;
-
-/** The auth environment every suite's app and auth server is built from. */
-export const authEnv = {
-  NODE_ENV: 'test',
-  PUBLIC_APP_URL: origin,
-  BETTER_AUTH_SECRET:
-    '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
-  RESEND_API_KEY: 're_integration_000000000000',
-  AUTH_EMAIL_FROM: 'Daisy <no-reply@daisy.example.com>',
-};
 
 type CapturedMail = {
   readonly to: string;
@@ -129,7 +120,7 @@ export function createTestApp(
   setDefaultTimeout(30_000);
   const redisNamespace = `t3-${createId().slice(0, 10)}`;
   const env = {
-    ...authEnv,
+    ...authTestEnv,
     DATABASE_URL: testDatabaseUrl,
     REDIS_URL: testRedisUrl,
     REDIS_NAMESPACE: redisNamespace,
@@ -227,10 +218,24 @@ export function createTestApp(
     accounts.push({ email });
     return email;
   };
-  /** Records the user id behind an address from `freshEmail`. */
-  const trackAccount = (email: string, userId: string | undefined) => {
-    const account = accounts.find((entry) => entry.email === email);
-    if (account && userId) account.userId = userId;
+  /**
+   * Keys every tracked account that now has a user by its id too, in one
+   * query, so a later email change cannot orphan it.
+   */
+  const recordAccountIds = async () => {
+    const pending = accounts.filter((account) => !account.userId);
+    if (pending.length === 0) return;
+    const rows = await withSql(
+      (sql) =>
+        sql`SELECT id, email FROM users WHERE email = ANY(${sql.array(
+          pending.map(({ email }) => email),
+          'text',
+        )}::text[])`,
+    );
+    for (const { id, email } of rows as Array<{ id: string; email: string }>) {
+      const account = pending.find((entry) => entry.email === email);
+      if (account) account.userId = id;
+    }
   };
   // One ordered teardown: accounts go while the app's pools are still open,
   // and each step runs even when an earlier one fails (a throwing afterAll
@@ -265,7 +270,7 @@ export function createTestApp(
     recordLogs,
     withLoggedEvents,
     freshEmail,
-    trackAccount,
+    recordAccountIds,
   };
 }
 

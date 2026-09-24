@@ -10,12 +10,12 @@ import {
   type AuthEmailMessage,
 } from '../src/features/auth/server';
 import { silentLogger } from '../src/server/test-loggers.test-support';
-import { authEnv } from './fixtures';
+import { authTestEnv } from '../src/features/auth/auth-server.test-support';
 
 /**
  * A Better Auth server over a given database adapter, built from the
- * fixture module's `authEnv`, for the suites that exercise the persistence
- * seams directly rather than the mounted routes.
+ * shared `authTestEnv`, for the suites that exercise the persistence seams
+ * directly rather than the mounted routes.
  */
 
 // Child loggers record into the same sink, so nothing logged is hidden.
@@ -48,7 +48,7 @@ export const createTestAuthServer = (
   },
 ) =>
   createAuthServer({
-    config: readAuthConfig(authEnv),
+    config: readAuthConfig(authTestEnv),
     database,
     emailSender: {
       send: async (message) => {

@@ -4,7 +4,10 @@ import { readAuthConfig } from '@daisy/config';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import { createAuthServer, type AuthEmailMessage } from './server';
 
-/** Shared fixtures for the auth unit suites: one env, one composed server. */
+/**
+ * Shared fixtures for the auth suites: one env (the integration apps are
+ * built from it too), one composed server.
+ */
 
 export const authTestEnv = {
   NODE_ENV: 'test',

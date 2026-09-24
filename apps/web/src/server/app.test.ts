@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { fixedClock, sequentialId } from '@daisy/clock';
 import { rejectionOf } from '@daisy/errors/testing';
+import { authTestEnv } from '../features/auth/auth-server.test-support';
 import { createApp } from './app';
 
 setupRitewayBun();
@@ -12,12 +13,6 @@ const baseEnv = {
   REDIS_NAMESPACE: 'unit-a',
   PUBLIC_APP_URL: 'http://localhost:3000',
   LOG_LEVEL: 'silent',
-};
-const authEnv = {
-  BETTER_AUTH_SECRET:
-    '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
-  RESEND_API_KEY: 're_test_000000000000000000000000',
-  AUTH_EMAIL_FROM: 'Daisy <no-reply@daisy.example.com>',
 };
 
 type Sent = { readonly url: string; readonly to: string };
@@ -104,7 +99,7 @@ describe('createApp', () => {
   test('validates auth configuration only when auth is first used', async () => {
     const app = build({
       ...baseEnv,
-      ...authEnv,
+      ...authTestEnv,
       BETTER_AUTH_SECRET: 'too-short',
     });
     const message = errorOf(() => app.auth());
@@ -122,7 +117,7 @@ describe('createApp', () => {
   });
 
   test('composes auth once per instance', async () => {
-    const app = build({ ...baseEnv, ...authEnv });
+    const app = build({ ...baseEnv, ...authTestEnv });
     const same = app.auth() === app.auth();
     await app.close();
     assert({
@@ -134,7 +129,7 @@ describe('createApp', () => {
   });
 
   test('refuses the delivery webhook without a signing secret', async () => {
-    const app = build({ ...baseEnv, ...authEnv });
+    const app = build({ ...baseEnv, ...authTestEnv });
     const refusal = await rejectionOf(() => app.mailWebhook());
     await app.close();
     assert({

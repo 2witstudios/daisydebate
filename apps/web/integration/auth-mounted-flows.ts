@@ -22,7 +22,7 @@ export function createFlows() {
     formPost,
     newClient,
     freshEmail: fresh,
-    trackAccount: track,
+    recordAccountIds,
   } = testApp;
   const authRoute = routes.auth;
   const confirmRoute = routes.confirm;
@@ -50,8 +50,14 @@ export function createFlows() {
         headers: { [CLIENT_IP_HEADER]: newClient() },
       }),
     );
-  const redeem = (token: string, extra: Record<string, string> = {}) =>
-    confirmRoute.POST(formPost({ token, callbackURL: '/lobby', ...extra }));
+  /** Redeems a link; a new account is then keyed by its user id too. */
+  const redeem = async (token: string, extra: Record<string, string> = {}) => {
+    const response = await confirmRoute.POST(
+      formPost({ token, callbackURL: '/lobby', ...extra }),
+    );
+    await recordAccountIds();
+    return response;
+  };
   /** A new address with a requested link and its token. */
   const startSignup = async () => {
     const email = fresh();
@@ -78,7 +84,6 @@ export function createFlows() {
     jsonPost,
     formPost,
     fresh,
-    track,
     requestLink,
     linkTokenFor,
     signInAgain,

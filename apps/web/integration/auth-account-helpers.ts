@@ -1,7 +1,7 @@
 import { createId } from '@paralleldrive/cuid2';
 import type { Identity } from '@daisy/auth';
 import { createFlows } from './auth-mounted-flows';
-import { cookieHeader, userIdOf, withSql } from './fixtures';
+import { cookieHeader, withSql } from './fixtures';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import { identify, resolveSession } from '../src/lib/identity';
 
@@ -24,7 +24,6 @@ export function createAccountFlows() {
     const response = await flows.redeem(token, {
       newUserCallbackURL: '/onboarding/username?next=%2Flobby',
     });
-    flows.track(email, await userIdOf(email));
     return { email, token, response, cookie: cookieHeader(response) };
   };
 
