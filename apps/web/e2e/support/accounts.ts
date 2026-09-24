@@ -1,4 +1,4 @@
-import { expect, type APIRequestContext } from '@playwright/test';
+import { expect, type APIRequestContext, type Page } from '@playwright/test';
 import { createId } from '@paralleldrive/cuid2';
 import { resolveE2EOrigin, resolveE2EPorts } from '../../playwright.config';
 
@@ -66,3 +66,57 @@ export async function signUpMember(request: APIRequestContext) {
   expect(claimed.status()).toBe(201);
   return { email, username };
 }
+
+/** Requests a sign-in link from the /sign-in form the page is on. */
+export async function requestSignInLink(page: Page, email: string) {
+  await page.getByLabel('Email').fill(email);
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await expect(
+    page.getByRole('heading', { name: /check your inbox/i }),
+  ).toBeVisible();
+}
+
+/** Opens a sign-in link and takes the confirmation tap. */
+export async function confirmSignIn(page: Page, link: string) {
+  await page.goto(link);
+  await page.getByRole('button', { name: 'Sign in to Daisy' }).click();
+}
+
+/** A brand-new address signed in through the real form, left at onboarding. */
+export async function reachOnboarding(page: Page, request: APIRequestContext) {
+  const email = freshEmail();
+  await page.goto('/sign-in');
+  await requestSignInLink(page, email);
+  await confirmSignIn(page, await emailedLink(request, email));
+  await expect(page).toHaveURL(/\/onboarding\/username/);
+  return email;
+}
+
+/** Enrolls a passkey from account security settings on the page's device. */
+export async function addPasskeyFromSettings(page: Page) {
+  await page.goto('/settings/security');
+  await expect(page.getByRole('heading', { name: 'Passkeys' })).toBeVisible();
+  await page.getByRole('button', { name: 'Add a passkey' }).click();
+  await expect(page.getByRole('button', { name: 'Remove' })).toHaveCount(1);
+}
+
+/**
+ * Signs out, then back in with the device's passkey, proving a listed
+ * credential really authenticates: lands on the validated /lobby.
+ */
+export async function passkeySignInAfterSignOut(page: Page) {
+  // The button's own handler navigates to /sign-in once sign-out resolves;
+  // wait for that navigation instead of racing it with another.
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  await page.waitForURL(/\/sign-in$/);
+  await page.goto('/sign-in?next=%2Flobby');
+  await page.getByRole('button', { name: 'Sign in with a passkey' }).click();
+  await expect(page).toHaveURL(/\/lobby$/);
+}
+
+/** The username the page's own session carries, read from the server. */
+export const sessionUsername = async (page: Page) => {
+  const session = await page.request.get('/api/auth/get-session');
+  return ((await session.json()) as { user: { username: string } }).user
+    .username;
+};

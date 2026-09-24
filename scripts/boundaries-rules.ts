@@ -73,3 +73,41 @@ export const forbiddenDependencyIssue = (
     return `${workspacePath}: forbidden dependency ${dependency}`;
   return null;
 };
+
+/**
+ * A workspace import must name the package root or a subpath its `exports`
+ * map declares (public API, e.g. `@daisy/errors/testing`); anything else
+ * reaches into another package's files. Third-party subpaths are left to
+ * the dependency rules.
+ */
+export const deepImportIssue = (
+  specifier: string,
+  exportsOf: (packageName: string) => unknown,
+): string | null => {
+  if (!specifier.startsWith('@daisy/')) return null;
+  const packageName = specifier.split('/').slice(0, 2).join('/');
+  if (specifier === packageName) return null;
+  const exported = exportsOf(packageName);
+  const subpath = `.${specifier.slice(packageName.length)}`;
+  return exported !== null &&
+    typeof exported === 'object' &&
+    Object.hasOwn(exported, subpath)
+    ? null
+    : `workspace deep import ${specifier}`;
+};
+
+/** Suites, a workspace's integration and e2e folders, and test support. */
+const TEST_CODE =
+  /^(?:apps|packages)\/[^/]+\/(?:integration|e2e)\/|(?:^|\/)test-support\/|\.(?:test|integration|e2e)\.tsx?$|\.test-support\.tsx?$/;
+
+/**
+ * A workspace's `./testing` subpath is test support (it may import
+ * devDependencies such as riteway): only test code may import it.
+ */
+export const testSupportIssue = (
+  specifier: string,
+  importer: string,
+): string | null =>
+  /^@daisy\/[^/]+\/testing$/.test(specifier) && !TEST_CODE.test(importer)
+    ? `production import of test support ${specifier}`
+    : null;

@@ -1,6 +1,5 @@
-import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createAppError } from '@daisy/errors';
+import { assertRejects } from '@daisy/errors/testing';
 import { readJson } from './http';
 
 setupRitewayBun();
@@ -22,22 +21,32 @@ describe('readJson', () => {
     });
   });
 
-  test('rejects non-JSON content types', () => {
-    expect(() =>
-      readJson(jsonRequest('a=1', 'application/x-www-form-urlencoded')),
-    ).toThrow(createAppError('VALIDATION'));
+  test('rejects non-JSON content types', async () => {
+    await assertRejects({
+      given: 'a form-encoded body',
+      should: 'refuse with VALIDATION',
+      actual: () =>
+        readJson(jsonRequest('a=1', 'application/x-www-form-urlencoded')),
+      code: 'VALIDATION',
+    });
   });
 
   test('rejects bodies beyond the byte bound', async () => {
     const large = JSON.stringify({ text: 'x'.repeat(128) });
-    await expect(readJson(jsonRequest(large), 64)).rejects.toThrow(
-      createAppError('PAYLOAD_TOO_LARGE'),
-    );
+    await assertRejects({
+      given: 'a 140-byte body against a 64-byte bound',
+      should: 'refuse with PAYLOAD_TOO_LARGE',
+      actual: () => readJson(jsonRequest(large), 64),
+      code: 'PAYLOAD_TOO_LARGE',
+    });
   });
 
   test('rejects malformed JSON', async () => {
-    await expect(readJson(jsonRequest('{nope'))).rejects.toThrow(
-      createAppError('VALIDATION'),
-    );
+    await assertRejects({
+      given: 'a body that is not JSON',
+      should: 'refuse with VALIDATION',
+      actual: () => readJson(jsonRequest('{nope')),
+      code: 'VALIDATION',
+    });
   });
 });

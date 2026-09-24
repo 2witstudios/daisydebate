@@ -14,7 +14,7 @@ describe('redisKey', () => {
       actual: redisKey('daisy', 'presence', 'user-1'),
       expected: 'daisy:v1:presence:user-1',
     });
-    expect(() => redisKey('daisy', 'a:b')).toThrow();
+    expect(() => redisKey('daisy', 'a:b')).toThrow('Invalid Redis key segment');
   });
 });
 
@@ -122,7 +122,9 @@ describe('redis adapter failures', () => {
         events.push({ event, fields, message }),
     });
 
-    await expect(redis.get('key')).rejects.toThrow();
+    await expect(redis.get('key')).rejects.toMatchObject({
+      code: 'ERR_REDIS_CONNECTION_CLOSED',
+    });
 
     assert({
       given: 'a Redis command that fails',
@@ -187,13 +189,13 @@ describe('redis atomic rate limit', () => {
     const { redis, commands } = createTestRedis();
     await expect(
       redis.consumeRateLimit('bad key!', { windowSeconds: 60, max: 3 }),
-    ).rejects.toThrow();
+    ).rejects.toThrow('Invalid Redis key segment');
     await expect(
       redis.consumeRateLimit('ok', { windowSeconds: 0, max: 3 }),
-    ).rejects.toThrow();
+    ).rejects.toThrow('Invalid rate limit rule');
     await expect(
       redis.consumeRateLimit('ok', { windowSeconds: 60, max: 0 }),
-    ).rejects.toThrow();
+    ).rejects.toThrow('Invalid rate limit rule');
     assert({
       given: 'invalid limiter input',
       should: 'issue no Redis command',

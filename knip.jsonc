@@ -10,14 +10,11 @@
     // Integration suites are globbed by scripts/test-integration.ts, which
     // each workspace's test:integration runs instead of listing files.
     "apps/web": {
-      "entry": [
-        "e2e/support/server.ts",
-        "integration/**/*.integration{,.test}.ts",
-      ],
+      "entry": ["e2e/support/server.ts", "integration/**/*.integration.ts"],
     },
-    "packages/db": { "entry": ["integration/**/*.integration{,.test}.ts"] },
+    "packages/db": { "entry": ["integration/**/*.integration.ts"] },
     "packages/redis": {
-      "entry": ["integration/**/*.integration{,.test}.ts"],
+      "entry": ["integration/**/*.integration.ts"],
     },
   },
 }

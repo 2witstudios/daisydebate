@@ -1,6 +1,6 @@
-import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError, createInvariantError } from '@daisy/errors';
+import { assertRejects } from '@daisy/errors/testing';
 import { handleOperation, readJson, requireSameOrigin } from './http';
 import { createRecordingLogger } from './test-loggers.test-support';
 
@@ -282,14 +282,18 @@ describe('handleOperation', () => {
     });
   });
 
-  test('rejects cross-origin state-changing requests', () => {
-    expect(() =>
-      requireSameOrigin(
-        new Request('http://localhost/api/foundation/proof', {
-          headers: { origin: 'https://evil.example' },
-        }),
-        'http://localhost:3000',
-      ),
-    ).toThrow(createAppError('AUTHORIZATION'));
+  test('rejects cross-origin state-changing requests', async () => {
+    await assertRejects({
+      given: 'a state-changing request from another origin',
+      should: 'refuse with AUTHORIZATION',
+      actual: () =>
+        requireSameOrigin(
+          new Request('http://localhost/api/foundation/proof', {
+            headers: { origin: 'https://evil.example' },
+          }),
+          'http://localhost:3000',
+        ),
+      code: 'AUTHORIZATION',
+    });
   });
 });

@@ -7,9 +7,10 @@ export function QuoteCard() {
       <Image
         src={art.quoteRidge.src}
         alt=""
-        fill
+        width={art.quoteRidge.width}
+        height={art.quoteRidge.height}
         sizes="316px"
-        className="-z-2 object-cover object-quote-photo brightness-50 saturate-80"
+        className="absolute inset-0 -z-2 size-full object-cover object-quote-photo brightness-50 saturate-80"
       />
       <span
         className="absolute inset-0 -z-1 bg-linear-to-t/srgb from-scrim/88 from-30% to-scrim/25 to-75%"

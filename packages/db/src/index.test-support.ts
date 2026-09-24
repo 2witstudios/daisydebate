@@ -196,6 +196,29 @@ export const sampleDebate = () => ({
   outcome: null,
 });
 
+/** The createDebate input that writes a sample record. */
+export const createInputOf = (record: ReturnType<typeof sampleDebate>) => ({
+  id: record.id,
+  resolution: record.resolution,
+  format: record.format,
+  snapshot: record.snapshot,
+  mode: record.mode,
+  visibility: record.visibility,
+});
+
+/** The saveSnapshot input moving a sample record to `phase`. */
+export const saveInputOf = (
+  record: ReturnType<typeof sampleDebate>,
+  phase: DebatePhase,
+  outcome?: DebateOutcome,
+) => ({
+  id: record.id,
+  expectedVersion: record.version,
+  snapshot: sampleSnapshot({ phase }),
+  updatedAt: record.updatedAt,
+  ...(outcome === undefined ? {} : { outcome }),
+});
+
 export const sampleUser = () => ({
   id: 'a7b3c9d1e5f2k4m6n8p1r3t5',
   username: 'demo',

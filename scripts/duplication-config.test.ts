@@ -63,10 +63,10 @@ describe('deadScanRoots', () => {
   });
 });
 
-describe('.jscpd.json', () => {
+describe.each(['.jscpd.json', '.jscpd-tests.json'])('%s', (config) => {
   test('every scan root matches tracked source', async () => {
     const root = resolve(import.meta.dir, '..');
-    const committed = (await Bun.file(resolve(root, '.jscpd.json')).json()) as {
+    const committed = (await Bun.file(resolve(root, config)).json()) as {
       pattern: string;
       ignore: readonly string[];
     };
@@ -74,7 +74,7 @@ describe('.jscpd.json', () => {
       .split('\n')
       .filter(Boolean);
     assert({
-      given: 'the committed duplication config and the tracked tree',
+      given: `the committed ${config} and the tracked tree`,
       should: 'leave no scan root matching zero scannable files',
       actual: deadScanRoots(committed, tracked),
       expected: [],

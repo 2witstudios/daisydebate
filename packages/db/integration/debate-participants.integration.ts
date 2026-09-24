@@ -1,29 +1,11 @@
-import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createDatabase } from '../src';
-import { createTestOnlyOperations } from '../src/test-only-operations';
-import { snapshotFor } from './constraint-helpers';
+import { seatedDebate, snapshotOf } from './constraint-helpers';
+import { requireTestServices } from '@daisy/config';
 
 setupRitewayBun();
 
-const url = process.env.TEST_DATABASE_URL;
-if (!url)
-  throw new Error(
-    'TEST_DATABASE_URL required; never use application database for tests',
-  );
-if (!new URL(url).pathname.endsWith('_test'))
-  throw new Error('Test database name must end in _test');
-
-const snapshotOf = (
-  id: string,
-  phase: 'waiting' | 'active' | 'completed',
-  participants: ReadonlyArray<{
-    id: string;
-    side: 'affirmative' | 'negative';
-    ready: boolean;
-  }>,
-) => snapshotFor(id, { phase, participants });
+const { databaseUrl: url } = requireTestServices(process.env);
 
 /**
  * ISSUE-6: `debate_participants` is a projection of the snapshot's
@@ -32,22 +14,20 @@ const snapshotOf = (
  * equals the snapshot's seats.
  */
 test('debate_participants is written in the snapshot transaction and always equals the snapshot seats', async () => {
-  const fixture = new SQL(url, { max: 1 });
-  const database = createDatabase({ url, nextActorId: createId });
-  const testOnly = createTestOnlyOperations({ client: fixture });
-  const debateId = createId();
-  const users = [createId(), createId()];
-  const [first, second] = [createId(), createId()];
+  const {
+    fixture,
+    database,
+    testOnly,
+    debateId,
+    actors: [first, second],
+    cleanup,
+  } = await seatedDebate(url, 2);
   const seats = () => fixture`
     select actor_id, role, slot, status
     from debate_participants where debate_id = ${debateId}
     order by role
   `;
   try {
-    for (const [index, actorId] of [first, second].entries()) {
-      await fixture`insert into users (id) values (${users[index]})`;
-      await fixture`insert into actors (id, kind, user_id) values (${actorId}, 'human', ${users[index]})`;
-    }
     await database.createDebate({
       id: debateId,
       createdBy: null,
@@ -122,11 +102,7 @@ test('debate_participants is written in the snapshot transaction and always equa
       expected: { version: 3, seats: afterLeave },
     });
   } finally {
-    await database.close();
-    await fixture`delete from debates where id = ${debateId}`;
-    await fixture`delete from actors where id in ${fixture([first!, second!])}`;
-    await fixture`delete from users where id in ${fixture(users)}`;
-    await fixture.close();
+    await cleanup();
   }
 });
 
@@ -138,12 +114,14 @@ test('debate_participants is written in the snapshot transaction and always equa
  * any write, even a ready toggle.
  */
 test('a snapshot write never touches a judge seat or its ballot', async () => {
-  const fixture = new SQL(url, { max: 1 });
-  const database = createDatabase({ url, nextActorId: createId });
-  const testOnly = createTestOnlyOperations({ client: fixture });
-  const debateId = createId();
-  const users = [createId(), createId(), createId()];
-  const [debater, other, judge] = [createId(), createId(), createId()];
+  const {
+    fixture,
+    database,
+    testOnly,
+    debateId,
+    actors: [debater, other, judge],
+    cleanup,
+  } = await seatedDebate(url, 3);
   const ballots = () => fixture`
     select id, judge_actor_id, decision, status, version
     from ballots where debate_id = ${debateId}
@@ -153,10 +131,6 @@ test('a snapshot write never touches a judge seat or its ballot', async () => {
     from debate_participants where debate_id = ${debateId} and role = 'judge'
   `;
   try {
-    for (const [index, actorId] of [debater, other, judge].entries()) {
-      await fixture`insert into users (id) values (${users[index]})`;
-      await fixture`insert into actors (id, kind, user_id) values (${actorId}, 'human', ${users[index]})`;
-    }
     await database.createDebate({
       id: debateId,
       createdBy: null,
@@ -249,10 +223,6 @@ test('a snapshot write never touches a judge seat or its ballot', async () => {
       },
     });
   } finally {
-    await database.close();
-    await fixture`delete from debates where id = ${debateId}`;
-    await fixture`delete from actors where id in ${fixture([debater!, other!, judge!])}`;
-    await fixture`delete from users where id in ${fixture(users)}`;
-    await fixture.close();
+    await cleanup();
   }
 });

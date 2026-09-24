@@ -1,5 +1,6 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
+import ts from 'typescript';
 import { claimsIntegrationSuite } from './test-integration';
 
 const root = resolve(import.meta.dir, '..');
@@ -56,21 +57,84 @@ export function classifyTestFile(relativePath: string): TestTier {
   return 'orphan';
 }
 
+export const TEST_SERVICES_GUARD = {
+  module: '@daisy/config',
+  name: 'requireTestServices',
+} as const;
+
+// The local names a suite binds to the shared guard's import.
+const guardBindings = (source: ts.SourceFile): ReadonlySet<string> => {
+  const names = new Set<string>();
+  for (const statement of source.statements) {
+    if (
+      !ts.isImportDeclaration(statement) ||
+      !ts.isStringLiteral(statement.moduleSpecifier) ||
+      statement.moduleSpecifier.text !== TEST_SERVICES_GUARD.module
+    )
+      continue;
+    const bindings = statement.importClause?.namedBindings;
+    if (!bindings || !ts.isNamedImports(bindings)) continue;
+    for (const element of bindings.elements)
+      if (
+        (element.propertyName ?? element.name).text === TEST_SERVICES_GUARD.name
+      )
+        names.add(element.name.text);
+  }
+  return names;
+};
+
+// `guard(process.env)`: the imported guard called directly (no optional
+// chaining) on the process environment, nothing else.
+const isGuardCall = (
+  node: ts.Node | undefined,
+  names: ReadonlySet<string>,
+): boolean =>
+  node !== undefined &&
+  ts.isCallExpression(node) &&
+  node.questionDotToken === undefined &&
+  ts.isIdentifier(node.expression) &&
+  names.has(node.expression.text) &&
+  node.arguments.length === 1 &&
+  node.arguments[0]!.getText() === 'process.env';
+
+// Whether the guard runs unconditionally when the module loads: a top-level
+// `guard(process.env);` statement or a `const … = guard(process.env);`
+// declaration. Anything under an `if`, a `try`, a short-circuit or a block
+// may never run, so it does not count.
+const callsAtLoad = (source: ts.SourceFile, names: ReadonlySet<string>) =>
+  source.statements.some(
+    (statement) =>
+      (ts.isExpressionStatement(statement) &&
+        isGuardCall(statement.expression, names)) ||
+      (ts.isVariableStatement(statement) &&
+        statement.declarationList.declarations.length === 1 &&
+        isGuardCall(
+          statement.declarationList.declarations[0]!.initializer,
+          names,
+        )),
+  );
+
 // A suite that nothing invokes is indistinguishable from a suite that does
-// not exist (PageSpace lesson): every integration file must hard-fail on a
-// missing test service instead of silently passing an empty run.
+// not exist (PageSpace lesson): every integration suite imports the one
+// shared guard and calls it at load, so a missing test service fails the
+// file instead of silently passing an empty run. Checked on the parsed
+// import graph, never on text a comment or a copied guard could satisfy.
 export function integrationGuardProblems(
   content: string,
   relativePath: string,
 ): readonly EvidenceProblem[] {
-  const declaresTestEnvironment =
-    content.includes('TEST_DATABASE_URL') || content.includes('TEST_REDIS_URL');
-  const hardFails = content.includes('throw new Error');
-  if (declaresTestEnvironment && hardFails) return [];
+  const source = ts.createSourceFile(
+    relativePath,
+    content,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  if (callsAtLoad(source, guardBindings(source))) return [];
   return [
     {
       code: 'GUARD_MISSING',
-      detail: `${relativePath} must declare TEST_DATABASE_URL or TEST_REDIS_URL and throw when absent (never skip)`,
+      detail: `${relativePath} must import ${TEST_SERVICES_GUARD.name} from ${TEST_SERVICES_GUARD.module} and call it on process.env in a top-level statement (it throws on a missing service; never skip)`,
     },
   ];
 }

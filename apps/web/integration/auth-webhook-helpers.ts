@@ -1,13 +1,7 @@
 import { createHmac } from 'node:crypto';
 import { afterAll } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
-import {
-  createTestApp,
-  fixtureEmail,
-  removeAccount,
-  webhookSecret,
-  withSql,
-} from './auth-mounted-helpers';
+import { createTestApp, webhookSecret, withSql } from './fixtures';
 import {
   deriveRecipientSubkey,
   recipientKey,
@@ -65,14 +59,14 @@ export const deliveryRow = (messageId: string) =>
  */
 export function createMailSuite() {
   const testApp = createTestApp();
-  const { app, routes, mailbox, jsonPost, formPost } = testApp;
+  const { app, routes, mailbox, jsonPost, formPost, freshEmail } = testApp;
   const recipientSubkey = deriveRecipientSubkey(
     app.auth().config.BETTER_AUTH_SECRET,
   );
   const emails: string[] = [];
   const messageIds: string[] = [];
   const fresh = () => {
-    const email = fixtureEmail();
+    const email = freshEmail();
     emails.push(email);
     return email;
   };
@@ -94,7 +88,6 @@ export function createMailSuite() {
       for (const email of emails)
         await sql`DELETE FROM email_suppression WHERE recipient_hash = ${recipientKey(recipientSubkey, email)}`;
     });
-    for (const email of emails) await removeAccount(email);
   });
   return {
     app,

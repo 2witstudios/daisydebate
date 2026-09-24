@@ -1,9 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createFlows, tokenOf } from './auth-mounted-flows';
-import { counts } from './auth-mounted-helpers';
+import { createFlows } from './auth-mounted-flows';
+import { counts, tokenOf } from './fixtures';
+import { requireTestServices } from '@daisy/config';
 
-if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
-  throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
+requireTestServices(process.env);
 setupRitewayBun();
 const { requestLink, redeem, fresh } = createFlows();
 
@@ -49,7 +49,12 @@ describe('AUTH-6.3 concurrent account creation', () => {
         atLeastOneWinner: true,
         loserStatusIsSafeOrAbsent: true,
         loserLeaksDetail: false,
-        counts: { users: 1, sessions: winners.length, verifications: 0 },
+        counts: {
+          users: 1,
+          sessions: winners.length,
+          verifications: 0,
+          passkeys: 0,
+        },
       },
     });
   });

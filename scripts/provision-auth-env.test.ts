@@ -201,8 +201,8 @@ describe('auth secret provisioning', () => {
       actual: /^[0-9a-f]{64}$/.test(secret),
       expected: true,
     });
-    expect(() =>
-      provisionAuthSecret('', { generate: () => 'short' }),
-    ).toThrow();
+    expect(() => provisionAuthSecret('', { generate: () => 'short' })).toThrow(
+      'Generated auth secret must be 64 non-whitespace characters',
+    );
   });
 });

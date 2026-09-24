@@ -1,6 +1,7 @@
 import { createId } from '@paralleldrive/cuid2';
+import type { Identity } from '@daisy/auth';
 import { createFlows } from './auth-mounted-flows';
-import { cookieHeader, withSql } from './auth-mounted-helpers';
+import { cookieHeader, withSql } from './fixtures';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import { identify, resolveSession } from '../src/lib/identity';
 
@@ -47,6 +48,12 @@ export function createAccountFlows() {
   return { flows, identifyAs, sessionAs, signUp, claim };
 }
 
+/** The user id behind a signed-in identity, or null for anyone else. */
+export const identityUserId = (identity: Identity): string | null =>
+  identity.state === 'member' || identity.state === 'provisional'
+    ? identity.principal.userId
+    : null;
+
 export const uniqueName = () => `u${createId().slice(0, 14)}`;
 
 export const usernameOf = (email: string) =>
@@ -57,11 +64,3 @@ export const usernameOf = (email: string) =>
           { username: string | null } | undefined
       )?.username ?? null,
   );
-
-export const sessionCount = async (email: string) =>
-  (
-    await withSql(
-      (sql) =>
-        sql`SELECT count(*)::int AS c FROM session s JOIN users u ON u.id = s.user_id WHERE u.email = ${email}`,
-    )
-  )[0]?.c as number;

@@ -1,18 +1,16 @@
 import { expect } from 'bun:test';
 import { RedisClient } from 'bun';
+import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { deleteNamespace, listNamespaces } from '../src/namespaces';
+import { requireTestServices } from '@daisy/config';
 
 setupRitewayBun();
 
-const url = process.env.TEST_REDIS_URL;
-if (!url) throw new Error('TEST_REDIS_URL required');
+const { redisUrl: url } = requireTestServices(process.env);
 
-const suffix = Array.from(crypto.getRandomValues(new Uint8Array(4)), (byte) =>
-  byte.toString(16).padStart(2, '0'),
-).join('');
 // A unique prefix: these tests only ever see and delete their own keys.
-const prefix = `nsit${suffix}`;
+const prefix = `nsit${createId()}`;
 
 /** The real client, recording every command so the test can audit them. */
 const recordingClient = () => {

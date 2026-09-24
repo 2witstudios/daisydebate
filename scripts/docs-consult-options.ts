@@ -37,6 +37,8 @@ export type ConsultOptions = {
   readonly attempt?: number;
   readonly pollIntervalMs?: number;
   readonly delay?: (ms: number) => Promise<void>;
+  /** The clock deadlines are measured on; tests inject one with `delay`. */
+  readonly now?: () => number;
 };
 
 // A replay targets only the pipelines that need it, so recovering one dead run
@@ -84,13 +86,15 @@ export function replayAttempt(value: number | undefined): number {
 }
 
 export function resolveOptions(options: ConsultOptions) {
+  const now = options.now ?? Date.now;
   return {
+    now,
     agentId: options.agentId ?? documentationLocation().agentPageId,
     fetchImpl: options.fetchImpl ?? fetch,
     nonce: options.nonce ?? (() => randomBytes(16).toString('hex')),
     timeoutMs: options.timeoutMs ?? DEFAULT_WAIT_MS,
     budgetEnd: Math.min(
-      Date.now() + (options.budgetMs ?? DEFAULT_BUDGET_MS),
+      now() + (options.budgetMs ?? DEFAULT_BUDGET_MS),
       options.budgetEndsAt ?? jobBudgetEnd(),
     ),
     pollIntervalMs: options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS,

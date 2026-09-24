@@ -16,19 +16,20 @@ import {
 
 setupRitewayBun();
 
+const sessions = [
+  {
+    id: 's1',
+    createdAt: '2026-01-01',
+    updatedAt: '2026-01-01',
+    expiresAt: '2026-01-08',
+    userAgent: null,
+    current: true,
+  },
+];
+
 describe('loadSecurityOverview', () => {
   test('a healthy client and route return both lists as ok', async () => {
     const passkeys = [{ id: 'p1', name: 'Laptop', createdAt: '2026-01-01' }];
-    const sessions = [
-      {
-        id: 's1',
-        createdAt: '2026-01-01',
-        updatedAt: '2026-01-01',
-        expiresAt: '2026-01-08',
-        userAgent: null,
-        current: true,
-      },
-    ];
     const overview = await withFetch(
       () => jsonResponse({ sessions }),
       (send) =>
@@ -62,16 +63,6 @@ describe('loadSecurityOverview', () => {
   });
 
   test('a throwing passkey list does not fail the session list, or the whole call', async () => {
-    const sessions = [
-      {
-        id: 's1',
-        createdAt: '2026-01-01',
-        updatedAt: '2026-01-01',
-        expiresAt: '2026-01-08',
-        userAgent: null,
-        current: true,
-      },
-    ];
     const overview = await withFetch(
       () => jsonResponse({ sessions }),
       (send) =>

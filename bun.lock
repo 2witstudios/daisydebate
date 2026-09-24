@@ -125,6 +125,7 @@
         "zod": "4.6.5",
       },
       "devDependencies": {
+        "@daisy/config": "workspace:*",
         "drizzle-kit": "1.0.0-rc.4",
         "riteway": "9.3.0",
       },
@@ -189,6 +190,7 @@
         "@daisy/protocol": "workspace:*",
       },
       "devDependencies": {
+        "@daisy/config": "workspace:*",
         "@paralleldrive/cuid2": "3.3.0",
         "riteway": "9.3.0",
       },

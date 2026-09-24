@@ -1,22 +1,13 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { APIError } from 'better-auth/api';
 import type { Logger } from '@daisy/logger';
+import { createEventRecorder as recorder } from '../../server/test-loggers.test-support';
 import {
   appendSessionRevokedBestEffort,
   sessionRevokedOutboxPlugin,
 } from './session-revoked-outbox';
 
 setupRitewayBun();
-
-type Logged = { event: string; fields: Record<string, unknown> };
-const recorder = () => {
-  const logged: Logged[] = [];
-  const logger: Logger = {
-    log: (event, fields) => void logged.push({ event, fields }),
-    child: () => logger,
-  };
-  return { logged, logger };
-};
 
 const context = (path: string, returned: unknown, userId?: string) => ({
   path,
@@ -40,6 +31,23 @@ const runAfterHook = async (
   if (!hook.matcher(ctx as never)) return 'not-matched';
   await hook.handler(ctx as never);
   return 'ran';
+};
+
+/** The user ids the hook appended for one response. */
+const appendedAfter = async (
+  path: string,
+  returned: unknown,
+  userId?: string,
+) => {
+  const appended: string[] = [];
+  await runAfterHook(
+    async (id) => void appended.push(id),
+    recorder().logger,
+    path,
+    returned,
+    userId,
+  );
+  return appended;
 };
 
 describe('sessionRevokedOutboxPlugin matcher', () => {
@@ -66,11 +74,7 @@ describe('sessionRevokedOutboxPlugin matcher', () => {
 
 describe('sessionRevokedOutboxPlugin handler', () => {
   test('appends once for a successful response with a userId', async () => {
-    const appended: string[] = [];
-    const { logger } = recorder();
-    await runAfterHook(
-      async (userId) => void appended.push(userId),
-      logger,
+    const appended = await appendedAfter(
       '/revoke-session',
       { status: true },
       'user-1',
@@ -84,11 +88,7 @@ describe('sessionRevokedOutboxPlugin handler', () => {
   });
 
   test('does not append for an APIError response, even with a userId', async () => {
-    const appended: string[] = [];
-    const { logger } = recorder();
-    await runAfterHook(
-      async (userId) => void appended.push(userId),
-      logger,
+    const appended = await appendedAfter(
       '/revoke-session',
       new APIError('UNAUTHORIZED'),
       'user-1',
@@ -102,11 +102,7 @@ describe('sessionRevokedOutboxPlugin handler', () => {
   });
 
   test('does not append when the response is missing status:true', async () => {
-    const appended: string[] = [];
-    const { logger } = recorder();
-    await runAfterHook(
-      async (userId) => void appended.push(userId),
-      logger,
+    const appended = await appendedAfter(
       '/revoke-session',
       { status: false },
       'user-1',
@@ -120,11 +116,7 @@ describe('sessionRevokedOutboxPlugin handler', () => {
   });
 
   test('does not append when no session userId is available', async () => {
-    const appended: string[] = [];
-    const { logger } = recorder();
-    await runAfterHook(
-      async (userId) => void appended.push(userId),
-      logger,
+    const appended = await appendedAfter(
       '/revoke-session',
       { status: true },
       undefined,

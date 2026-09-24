@@ -154,8 +154,9 @@ describe('dispatchDocumentationEvent receipt', async () => {
   });
 
   test('bounds a hung reservation by its request cap', async () => {
+    // The hung append settles only when its request cap aborts it, so an
+    // uncapped append never returns and the test fails on its own timeout.
     const stub = routedFetch({ consult: async () => ok(), hang: ['append'] });
-    const started = Date.now();
     const message = await failureOf(
       dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
         ...baseOptions,
@@ -171,13 +172,11 @@ describe('dispatchDocumentationEvent receipt', async () => {
         appends: stub.counts.appends,
         consults: stub.counts.consult,
         reservationFailed: message.includes('reserving its receipt failed'),
-        bounded: Date.now() - started < 2_000,
       },
       expected: {
         appends: 1,
         consults: 0,
         reservationFailed: true,
-        bounded: true,
       },
     });
   });

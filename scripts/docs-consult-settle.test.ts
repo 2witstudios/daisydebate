@@ -9,6 +9,7 @@ import {
   mergeEvent,
   routedFetch,
   routeFailure,
+  technicalDispatchFailure,
 } from './docs-consult.test-support';
 
 setupRitewayBun();
@@ -43,16 +44,7 @@ describe('dispatchDocumentationEvent settlement', async () => {
       consult: async () => new Response('', { status: 502 }),
       roles: () => [],
     });
-    let message = 'no throw';
-    try {
-      await dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
-        ...baseOptions,
-        ...instant,
-        fetchImpl,
-      });
-    } catch (error) {
-      message = (error as Error).message;
-    }
+    const message = await technicalDispatchFailure(fetchImpl);
     assert({
       given: 'a 502 and a conversation that never appears',
       should: 'fail naming the status as the cause',
@@ -104,16 +96,7 @@ describe('dispatchDocumentationEvent settlement', async () => {
       consult: () => Promise.reject(new TypeError('getaddrinfo ENOTFOUND')),
       roles: () => [],
     });
-    let message = 'no throw';
-    try {
-      await dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
-        ...baseOptions,
-        ...instant,
-        fetchImpl,
-      });
-    } catch (error) {
-      message = (error as Error).message;
-    }
+    const message = await technicalDispatchFailure(fetchImpl);
     assert({
       given: 'a transport failure and a conversation that never appears',
       should: 'fail after one grace read, naming the original error',
@@ -131,17 +114,9 @@ describe('dispatchDocumentationEvent settlement', async () => {
       consult: hangUntilAborted,
       roles: () => ['user'],
     });
-    let message = 'no throw';
-    try {
-      await dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
-        ...baseOptions,
-        ...instant,
-        fetchImpl,
-        timeoutMs: 5,
-      });
-    } catch (error) {
-      message = (error as Error).message;
-    }
+    const message = await technicalDispatchFailure(fetchImpl, {
+      timeoutMs: 5,
+    });
     assert({
       given: 'a run whose conversation still lacks an answer at the deadline',
       should:
@@ -166,17 +141,9 @@ describe('dispatchDocumentationEvent settlement', async () => {
         ),
       roles: () => ['user'],
     });
-    let message = 'no throw';
-    try {
-      await dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
-        ...baseOptions,
-        ...instant,
-        fetchImpl,
-        timeoutMs: 5,
-      });
-    } catch (error) {
-      message = (error as Error).message;
-    }
+    const message = await technicalDispatchFailure(fetchImpl, {
+      timeoutMs: 5,
+    });
     assert({
       given: 'the runtime raising TimeoutError instead of AbortError',
       should: 'name the expired wait as the cause',
@@ -209,7 +176,10 @@ describe('dispatchDocumentationEvent settlement', async () => {
       consult: async () => new Response('', { status: 502 }),
       roles: () => ['user'],
     });
-    const started = Date.now();
+    // An injected clock that moves only when the dispatch waits: every wait
+    // it asks for is recorded, and none of it is real time.
+    let clock = 1_000_000;
+    const waits: number[] = [];
     let message = 'no throw';
     try {
       await dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
@@ -217,20 +187,25 @@ describe('dispatchDocumentationEvent settlement', async () => {
         fetchImpl,
         timeoutMs: 50,
         pollIntervalMs: 10_000,
+        now: () => clock,
+        delay: async (ms) => {
+          waits.push(ms);
+          clock += ms;
+        },
       });
     } catch (error) {
       message = (error as Error).message;
     }
     assert({
       given:
-        'a poll interval far longer than the time left before the deadline',
+        'a poll interval far longer than the 50 ms left before the deadline',
       should:
-        'shorten the wait to the deadline instead of overrunning the budget',
+        'shorten each wait to the time left instead of overrunning the budget',
       actual: {
         reportedPending: message.includes('did not answer within'),
-        finishedWell: Date.now() - started < 2_000,
+        waits,
       },
-      expected: { reportedPending: true, finishedWell: true },
+      expected: { reportedPending: true, waits: [50] },
     });
   });
 

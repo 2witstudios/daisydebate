@@ -2,6 +2,8 @@ import {
   adobeIsolationIssue,
   adobeWorkspaces,
   allowedWorkspaceDependencies,
+  deepImportIssue,
+  testSupportIssue,
   forbiddenDependencyIssue,
 } from './boundaries-rules';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -167,6 +169,89 @@ describe('realtime workspace edges (ADR 0031 §12)', () => {
         withoutRealtime,
       ),
       expected: null,
+    });
+  });
+});
+
+describe('workspace deep imports', () => {
+  const exportsOf = (name: string) =>
+    name === '@daisy/errors'
+      ? { '.': './src/index.ts', './testing': './src/testing.ts' }
+      : { '.': './src/index.ts' };
+
+  test('admits a package root and a subpath the package exports', () => {
+    assert({
+      given: "a package's root and a subpath named in its exports map",
+      should: 'report no issue for either',
+      actual: [
+        deepImportIssue('@daisy/errors', exportsOf),
+        deepImportIssue('@daisy/errors/testing', exportsOf),
+      ],
+      expected: [null, null],
+    });
+  });
+
+  test('refuses a subpath the package does not export', () => {
+    assert({
+      given: 'a reach into a source file the exports map does not name',
+      should: 'report the deep import',
+      actual: [
+        deepImportIssue('@daisy/errors/src/index', exportsOf),
+        deepImportIssue('@daisy/db/schema', exportsOf),
+      ],
+      expected: [
+        'workspace deep import @daisy/errors/src/index',
+        'workspace deep import @daisy/db/schema',
+      ],
+    });
+  });
+
+  test('ignores packages outside the workspace', () => {
+    assert({
+      given: 'a subpath import of a third-party package',
+      should: 'leave it to the dependency rules',
+      actual: deepImportIssue('drizzle-orm/pg-core', exportsOf),
+      expected: null,
+    });
+  });
+});
+
+describe('test support subpaths', () => {
+  test('admits a testing subpath from suites and test support', () => {
+    assert({
+      given:
+        '@daisy/errors/testing imported by unit, integration, e2e and support files',
+      should: 'report no issue',
+      actual: [
+        'packages/debate-engine/src/engine.test.ts',
+        'apps/web/src/ui/app.test.tsx',
+        'packages/db/integration/outbox.integration.ts',
+        'apps/web/integration/fixtures.ts',
+        'apps/web/e2e/support/accounts.ts',
+        'packages/debate-engine/src/runtime.test-support.ts',
+        'packages/redis/integration/test-support.ts',
+      ].map((file) => testSupportIssue('@daisy/errors/testing', file)),
+      expected: Array(7).fill(null),
+    });
+  });
+
+  test('refuses a testing subpath from production source', () => {
+    assert({
+      given: '@daisy/errors/testing imported by a production module',
+      should: 'report the production import of test support',
+      actual: [
+        testSupportIssue('@daisy/errors/testing', 'packages/db/src/outbox.ts'),
+        testSupportIssue(
+          '@daisy/errors/testing',
+          'apps/web/src/features/integration/sync.ts',
+        ),
+        testSupportIssue('@daisy/errors', 'packages/db/src/outbox.ts'),
+      ],
+      expected: [
+        'production import of test support @daisy/errors/testing',
+        'production import of test support @daisy/errors/testing',
+        null,
+      ],
     });
   });
 });

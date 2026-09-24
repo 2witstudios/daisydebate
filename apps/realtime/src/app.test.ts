@@ -19,6 +19,18 @@ const build = (overrides: Record<string, string> = {}) =>
     ids: sequentialId('realtime'),
   });
 
+/** An app whose database and Redis closes are counted, never real. */
+const withCountedCloses = () => {
+  const app = build();
+  let closed = 0;
+  const count = async () => {
+    closed += 1;
+  };
+  Object.assign(app.database, { close: count });
+  Object.assign(app.redis, { close: count });
+  return { app, closes: () => closed };
+};
+
 describe('createRealtimeApp', () => {
   test('builds independent instances from their own environments', async () => {
     const first = build();
@@ -56,37 +68,25 @@ describe('createRealtimeApp', () => {
   });
 
   test('drain starts shutdown without closing the pools', async () => {
-    const app = build();
-    let closed = 0;
-    const count = async () => {
-      closed += 1;
-    };
-    Object.assign(app.database, { close: count });
-    Object.assign(app.redis, { close: count });
+    const { app, closes } = withCountedCloses();
     const before = app.isDraining();
     app.drain();
     assert({
       given: 'a running app told to drain',
       should: 'report draining from then on and leave both pools open',
-      actual: { before, after: app.isDraining(), closed },
+      actual: { before, after: app.isDraining(), closed: closes() },
       expected: { before: false, after: true, closed: 0 },
     });
     await app.close();
   });
 
   test('closing drains and closes both pools exactly once', async () => {
-    const app = build();
-    let closed = 0;
-    const count = async () => {
-      closed += 1;
-    };
-    Object.assign(app.database, { close: count });
-    Object.assign(app.redis, { close: count });
+    const { app, closes } = withCountedCloses();
     await app.close();
     assert({
       given: 'an app holding a database pool and a Redis client',
       should: 'flag draining and close every pool',
-      actual: { draining: app.isDraining(), closed },
+      actual: { draining: app.isDraining(), closed: closes() },
       expected: { draining: true, closed: 2 },
     });
   });

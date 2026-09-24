@@ -17,6 +17,21 @@ const exportStarRestriction = {
 };
 
 /**
+ * ISSUE-11: an expected failure names what it expects. A bare `.toThrow()`
+ * passes for any error, including a typo's TypeError; name the message,
+ * pattern or class, or use `assertRejects` from `@daisy/errors/testing`.
+ * `.not.toThrow()` stays: with no argument it is the strict form.
+ * Every `no-restricted-syntax` list below carries it, as it does the
+ * export-star ban.
+ */
+const bareToThrowRestriction = {
+  selector:
+    'CallExpression[callee.property.name=/^toThrow(Error)?$/][arguments.length=0]:not([callee.object.property.name="not"])',
+  message:
+    'Name the expected error (message, pattern or class) or use assertRejects from @daisy/errors/testing.',
+};
+
+/**
  * ISSUE-7's process edge: app code receives configuration and resources as
  * arguments from a composition root, so nothing in an app may mutate
  * process.env or globalThis, tests included (each builds its own app).
@@ -146,6 +161,7 @@ const repoSyntaxRestrictions = [
     message: 'Inject an identity generator instead of creating an ID directly.',
   },
   exportStarRestriction,
+  bareToThrowRestriction,
   ...processMutationRestrictions,
 ];
 
@@ -364,7 +380,11 @@ export default [
       '**/integration/**/*.ts',
     ],
     rules: {
-      'no-restricted-syntax': ['error', exportStarRestriction],
+      'no-restricted-syntax': [
+        'error',
+        exportStarRestriction,
+        bareToThrowRestriction,
+      ],
     },
   },
   // Integration setup may read ambient time, but app suites still never
@@ -375,6 +395,7 @@ export default [
       'no-restricted-syntax': [
         'error',
         exportStarRestriction,
+        bareToThrowRestriction,
         ...processMutationRestrictions,
       ],
     },
@@ -412,6 +433,7 @@ export default [
       'no-restricted-syntax': [
         'error',
         exportStarRestriction,
+        bareToThrowRestriction,
         ...processMutationRestrictions,
         ...processEdgeLoads,
       ],
