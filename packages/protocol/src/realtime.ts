@@ -101,7 +101,7 @@ export const cursorSchema = z
  * base64url-encoded, so exactly 43 characters and never padded. It is a
  * bearer secret, so it is never a cuid2 and is never logged.
  */
-const ticketSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
+export const ticketSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 
 // --- Client message envelopes -----------------------------------------
 

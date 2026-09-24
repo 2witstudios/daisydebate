@@ -7,6 +7,7 @@ import { createConfirmEmailHandlers } from '../features/auth/confirm-email';
 import { createConfirmHandlers } from '../features/auth/confirm';
 import { createAuthRouteHandlers } from '../features/auth/handlers';
 import { createProofHandlers } from '../features/foundation/handlers';
+import { createTicketHandler } from '../features/realtime/ticket';
 import { identify } from '../lib/identity';
 import type { App } from './app';
 import { handleOperation } from './http';
@@ -63,6 +64,32 @@ export function createRoutes(app: App) {
         identify: (request) => identify(app.auth(), request.headers),
         limiter: () => app.auth().limiter,
         claim: (input) => database.claimUsername(input),
+      }),
+    },
+    ticket: {
+      POST: createTicketHandler({
+        logger,
+        origin,
+        identify: (request) => identify(app.auth(), request.headers),
+        sessionId: async (headers) => {
+          const found = await app.auth().instance.api.getSession({
+            headers,
+            query: { disableRefresh: true },
+          });
+          return found?.session.id ?? null;
+        },
+        limiter: () => app.auth().limiter,
+        getActorByUserId: (userId) => database.getActorByUserId(userId),
+        issueTicket: (input) =>
+          app.redis.issueConnectTicket(
+            input.ticketHash,
+            {
+              actorId: input.actorId,
+              sessionId: input.sessionId,
+              origin: input.origin,
+            },
+            input.ttlSeconds,
+          ),
       }),
     },
     /** Provider-signed, server-to-server: authenticity replaces the origin check. */
