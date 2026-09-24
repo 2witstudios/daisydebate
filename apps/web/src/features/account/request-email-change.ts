@@ -26,7 +26,7 @@ export const requestEmailChange = async (
     response = await send('/api/auth/change-email', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ newEmail, callbackURL: '/settings/security' }),
+      body: JSON.stringify({ newEmail }),
     });
   } catch {
     return { kind: 'unavailable' };

@@ -152,10 +152,7 @@ export async function createPasskeyFlows() {
       new Request(link, { headers: { [CLIENT_IP_HEADER]: newClient() } }),
     );
   /** Submits the confirm page's form for an email-change token. */
-  const confirmEmailPost = (
-    token: string,
-    callbackURL = '/settings/security',
-  ) =>
+  const confirmEmailPost = (token: string) =>
     confirmEmailRoute.POST(
       new Request(`${origin}/auth/confirm-email`, {
         method: 'POST',
@@ -164,7 +161,7 @@ export async function createPasskeyFlows() {
           origin,
           [CLIENT_IP_HEADER]: newClient(),
         },
-        body: new URLSearchParams({ token, callbackURL }).toString(),
+        body: new URLSearchParams({ token }).toString(),
       }),
     );
   /**

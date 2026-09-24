@@ -75,7 +75,7 @@ export const emailChangePlugin = (dependencies: {
         '/change-email',
         {
           method: 'POST',
-          body: z.object({ newEmail: z.email() }),
+          body: z.strictObject({ newEmail: z.email() }),
           use: [sensitiveSessionMiddleware],
         },
         async (ctx) => {
@@ -106,7 +106,7 @@ export const emailChangePlugin = (dependencies: {
       ),
       verifyEmailChange: createAuthEndpoint(
         EMAIL_CHANGE_VERIFY_PATH,
-        { method: 'POST', body: z.object({ token: z.string() }) },
+        { method: 'POST', body: z.strictObject({ token: z.string() }) },
         async (ctx) => {
           const { token } = ctx.body;
           const approved = await consume(ctx, 'email-change-approve', token);

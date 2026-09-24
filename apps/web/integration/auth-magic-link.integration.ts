@@ -2,6 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createFlows } from './auth-mounted-flows';
 import { counts, origin, tokenOf, withSql } from './fixtures';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+import { emailedLinkIdentifier } from '../src/features/auth/emailed-link-token';
 import { requireTestServices } from '@daisy/config';
 
 requireTestServices(process.env);
@@ -42,7 +43,7 @@ describe('AUTH-3.3 magic link request through the mounted handler', () => {
     });
   });
 
-  test('the token is stored hashed with a five-minute expiry and no user exists yet', async () => {
+  test('the token is stored as its purpose-scoped SHA3-256 digest with a five-minute expiry and no user exists yet (ISSUE-2)', async () => {
     const { email, token } = await startSignup();
     const stored = await withSql(
       (sql) =>
@@ -55,17 +56,19 @@ describe('AUTH-3.3 magic link request through the mounted handler', () => {
     assert({
       given: 'the persisted verification record for a fresh link',
       should:
-        'hold a hashed identifier (never the token), expire within five minutes and create no user',
+        'hold the sign-in purpose and SHA3-256 digest of an opaque 256-bit token (never the token), expire within five minutes and create no user',
       actual: {
         rows: stored.length,
-        identifierIsToken: stored[0]?.identifier === token,
+        opaque256: /^[A-Za-z0-9_-]{43}$/.test(token),
+        identifier: stored[0]?.identifier,
         plaintextLookup: plaintext.length,
         lifetimeSeconds: stored[0]?.lifetime,
         counts: await counts(email),
       },
       expected: {
         rows: 1,
-        identifierIsToken: false,
+        opaque256: true,
+        identifier: emailedLinkIdentifier('sign-in', token),
         plaintextLookup: 0,
         lifetimeSeconds: 300,
         counts: { users: 0, sessions: 0, verifications: 1, passkeys: 0 },
