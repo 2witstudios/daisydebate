@@ -4,10 +4,13 @@ import { CheckInbox } from '../check-inbox/check-inbox';
 import { SignInForm } from '../sign-in-form/sign-in-form';
 import { resendRemainingMs, type SignInState } from '../sign-in-state';
 
-/** Void actions the flow container binds to the port and the reducer. */
+/** Actions the flow container binds to the server action, port and reducer. */
 export type SignInActions = {
   readonly typeEmail: (email: string) => void;
-  readonly requestLink: () => void;
+  /** The email form's POST (a server action through `useActionState`). */
+  readonly postLink: (form: FormData) => void;
+  /** Marks the request in flight; false when the form must not post. */
+  readonly requestLink: () => boolean;
   readonly signInWithPasskey: () => void;
   readonly resend: () => void;
   readonly changeEmail: () => void;
@@ -35,6 +38,7 @@ export function renderSignInFlow(
           pending={state.pending}
           notice={state.notice}
           typeEmail={actions.typeEmail}
+          action={actions.postLink}
           requestLink={actions.requestLink}
           signInWithPasskey={actions.signInWithPasskey}
         />

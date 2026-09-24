@@ -1,3 +1,4 @@
+import type { LinkFormState } from './request-link';
 import type {
   LinkRequestOutcome,
   PasskeyAutofillOutcome,
@@ -170,3 +171,19 @@ export const signInReducer = (
       event: SignInEvent,
     ) => SignInState
   )(state, event);
+
+/**
+ * The state a page render starts from: where the last posted form ended.
+ * Without JavaScript, every post renders the page again from here.
+ */
+export const signInStateFrom = ({
+  email,
+  answer,
+}: LinkFormState): SignInState =>
+  answer === undefined
+    ? initialSignInState(email)
+    : settleLink(
+        { step: 'enter-email', email, pending: 'link' },
+        answer.outcome,
+        answer.at,
+      );

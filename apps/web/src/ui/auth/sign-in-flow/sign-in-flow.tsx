@@ -1,10 +1,17 @@
 'use client';
 
-import { useEffect, useReducer, useState, useSyncExternalStore } from 'react';
+import {
+  startTransition,
+  useActionState,
+  useEffect,
+  useReducer,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import type { Clock } from '@daisy/clock';
+import { initialLinkForm, type LinkFormState } from '../request-link';
 import {
   offerPasskeyAutofillSafely,
-  requestLinkSafely,
   signInWithPasskeySafely,
   type SignInPort,
 } from '../sign-in-port';
@@ -12,8 +19,8 @@ import {
   canOfferPasskeyAutofill,
   canRequestLink,
   canResend,
-  initialSignInState,
   signInReducer,
+  signInStateFrom,
   type SignInState,
 } from '../sign-in-state';
 import { renderSignInFlow } from './sign-in-flow.render';
@@ -41,14 +48,24 @@ const browserTimers: AutofillTimers = {
   clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
 };
 
+/** The link request: a server action bound to the validated destination. */
+export type RequestLinkAction = (
+  state: LinkFormState,
+  form: FormData,
+) => Promise<LinkFormState>;
+
 export type SignInFlowProps = {
-  /** Who authenticates: the Better Auth adapter in the live page. */
+  /** Passkey ceremonies: the Better Auth adapter in the live page. */
   readonly port: SignInPort;
+  /**
+   * The email form's POST. A submission before hydration or without
+   * JavaScript is the same POST, and the page renders its answer.
+   */
+  readonly requestLink: RequestLinkAction;
   /** Injected so the cooldown is testable and never reads ambient time. */
   readonly clock: Clock;
   /** Must keep the same identity across renders (useCallback). */
   readonly onSignedIn: () => void;
-  readonly initialState?: SignInState;
 };
 
 /**
@@ -66,15 +83,38 @@ function useNow(clock: Clock, state: SignInState): string {
   return now;
 }
 
-/** Sign-in container: the reducer holds the state, the port does the work. */
+/**
+ * Sign-in container: the reducer holds the state, the server action sends
+ * links and the port runs passkey ceremonies. The first render starts from
+ * the action's last answer, so a post made without JavaScript renders the
+ * step it led to.
+ */
 export function SignInFlow({
   port,
+  requestLink,
   clock,
   onSignedIn,
-  initialState = initialSignInState(),
 }: SignInFlowProps) {
-  const [state, dispatch] = useReducer(signInReducer, initialState);
+  const [answered, postLink] = useActionState(requestLink, initialLinkForm);
+  const [state, dispatch] = useReducer(
+    signInReducer,
+    answered,
+    signInStateFrom,
+  );
   const now = useNow(clock, state);
+
+  // Each answer settles the request in flight, timed by this browser's
+  // clock so the resend countdown never depends on the server's. The
+  // answer a page was rendered with settles nothing: no request is in
+  // flight then.
+  useEffect(() => {
+    if (answered.answer === undefined) return;
+    dispatch({
+      type: 'link-settled',
+      outcome: answered.answer.outcome,
+      at: clock.now(),
+    });
+  }, [answered, clock]);
 
   useEffect(() => {
     if (state.step === 'signed-in') onSignedIn();
@@ -94,19 +134,13 @@ export function SignInFlow({
     });
   }, [autofillArmed, port, clock]);
 
-  const sendLink = async (email: string) =>
-    dispatch({
-      type: 'link-settled',
-      outcome: await requestLinkSafely(port, email),
-      at: clock.now(),
-    });
-
   return renderSignInFlow(state, now, {
     typeEmail: (email) => dispatch({ type: 'email-typed', email }),
+    postLink,
     requestLink: () => {
-      if (!canRequestLink(state) || state.step !== 'enter-email') return;
+      if (!canRequestLink(state)) return false;
       dispatch({ type: 'link-requested' });
-      void sendLink(state.email.trim());
+      return true;
     },
     signInWithPasskey: () => {
       if (state.step !== 'enter-email' || state.pending !== 'none') return;
@@ -119,7 +153,9 @@ export function SignInFlow({
       const at = clock.now();
       if (!canResend(state, at) || state.step !== 'check-inbox') return;
       dispatch({ type: 'resend-requested', at });
-      void sendLink(state.email);
+      const form = new FormData();
+      form.set('email', state.email);
+      startTransition(() => postLink(form));
     },
     changeEmail: () => dispatch({ type: 'change-email' }),
   });

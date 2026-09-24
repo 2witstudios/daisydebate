@@ -37,7 +37,6 @@ export type PasskeyAutofillOutcome =
  * outcomes, so the screens never see transport errors.
  */
 export type SignInPort = {
-  readonly requestLink: (email: string) => Promise<LinkRequestOutcome>;
   readonly signInWithPasskey: () => Promise<PasskeyOutcome>;
   /** Offers stored passkeys in the browser's autofill on the email field. */
   readonly offerPasskeyAutofill: () => Promise<PasskeyAutofillOutcome>;
@@ -56,13 +55,6 @@ const settleSafely = async <Outcome>(
     return fallback;
   }
 };
-
-/** A port that throws is treated as unavailable: the screen never hangs. */
-export const requestLinkSafely = (
-  port: SignInPort,
-  email: string,
-): Promise<LinkRequestOutcome> =>
-  settleSafely(() => port.requestLink(email), { kind: 'unavailable' });
 
 /** A ceremony that throws is a failure, never a false success. */
 export const signInWithPasskeySafely = (

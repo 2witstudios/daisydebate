@@ -11,7 +11,8 @@ const props = (overrides: Partial<SignInFormProps> = {}): SignInFormProps => ({
   email: '',
   pending: 'none',
   typeEmail: () => {},
-  requestLink: () => {},
+  action: () => {},
+  requestLink: () => true,
   signInWithPasskey: () => {},
   ...overrides,
 });
@@ -117,10 +118,15 @@ describe('SignInForm', () => {
 
   test('wires the actions', () => {
     const calls: string[] = [];
+    const action = () => {};
     const tree = SignInForm(
       props({
         typeEmail: (email) => calls.push(`type:${email}`),
-        requestLink: () => calls.push('link'),
+        action,
+        requestLink: () => {
+          calls.push('link');
+          return true;
+        },
         signInWithPasskey: () => calls.push('passkey'),
       }),
     );
@@ -140,9 +146,38 @@ describe('SignInForm', () => {
     (field?.props['typeEmail'] as (email: string) => void)('j@school.edu');
     assert({
       given: 'a submit, a passkey click, and typing',
-      should: 'call the matching actions and stop the native submit',
+      should:
+        'post the form to its action, marking the request, and call the matching actions',
+      actual: [form?.props['action'] === action, calls],
+      expected: [true, ['link', 'passkey', 'type:j@school.edu']],
+    });
+  });
+
+  test('keeps a request that must not post from posting', () => {
+    const calls: string[] = [];
+    const tree = SignInForm(props({ requestLink: () => false }));
+    const form = findElements(tree, (element) => element.type === 'form')[0];
+    (form?.props['onSubmit'] as (event: object) => void)({
+      preventDefault: () => calls.push('prevented'),
+    });
+    assert({
+      given: 'a submit the flow refuses (an empty address, or one in flight)',
+      should: 'stop the post',
       actual: calls,
-      expected: ['prevented', 'link', 'passkey', 'type:j@school.edu'],
+      expected: ['prevented'],
+    });
+  });
+
+  test('renders a form the browser can post without JavaScript', () => {
+    const page = html();
+    assert({
+      given: 'the server render',
+      should: 'post the address as the email field, and never by GET',
+      actual: [
+        page.includes('name="email"'),
+        /<form[^>]*method="get"/i.test(page),
+      ],
+      expected: [true, false],
     });
   });
 });

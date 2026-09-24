@@ -1,7 +1,5 @@
-import { onboardingHref } from '../../features/access/decision';
 import type { ClientError } from '../../features/auth/client-error';
 import type {
-  LinkRequestOutcome,
   PasskeyAutofillOutcome,
   PasskeyOutcome,
   SignInPort,
@@ -13,24 +11,12 @@ import type {
  */
 export type SignInClient = {
   readonly signIn: {
-    readonly magicLink: (input: {
-      email: string;
-      callbackURL: string;
-      newUserCallbackURL: string;
-    }) => Promise<{ readonly error: ClientError }>;
     readonly passkey: (opts?: {
       autoFill?: boolean;
       /** Better Auth applies these only to the verify request. */
       fetchOptions?: { onRequest?: () => void };
     }) => Promise<{ readonly error: ClientError }>;
   };
-};
-
-const linkOutcome = (error: ClientError): LinkRequestOutcome => {
-  if (error === null) return { kind: 'sent' };
-  if (error.code === 'EMAIL_UNDELIVERABLE') return { kind: 'undeliverable' };
-  if (error.status === 429) return { kind: 'rate-limited' };
-  return { kind: 'unavailable' };
 };
 
 /**
@@ -70,18 +56,16 @@ const autofillOutcome = (
 };
 
 /**
- * Better Auth behind the sign-in screens: client results become the four
- * honest outcomes each screen can show. `destination` is already validated;
- * a new account is routed through username onboarding on the way to it.
+ * Better Auth's passkey ceremonies behind the sign-in screens: client
+ * results become the honest outcomes each screen can show. The emailed link
+ * is not here: it is a form post to a server action (`request-link.ts`).
  */
 export function createBetterAuthSignInPort({
   client,
-  destination,
   supportsPasskeys,
   supportsPasskeyAutofill,
 }: {
   readonly client: SignInClient;
-  readonly destination: string;
   readonly supportsPasskeys: () => boolean;
   /** Whether the browser can list passkeys in autofill (conditional UI). */
   readonly supportsPasskeyAutofill: () => Promise<boolean>;
@@ -93,16 +77,6 @@ export function createBetterAuthSignInPort({
   // retries once, which then aborts the autofill instead.
   let autofillsInFlight = 0;
   return {
-    requestLink: async (email) =>
-      linkOutcome(
-        (
-          await client.signIn.magicLink({
-            email,
-            callbackURL: destination,
-            newUserCallbackURL: onboardingHref(destination),
-          })
-        ).error,
-      ),
     signInWithPasskey: async () => {
       if (!supportsPasskeys()) return { kind: 'unsupported' };
       const raced = autofillsInFlight > 0;
