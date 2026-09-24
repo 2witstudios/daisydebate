@@ -49,3 +49,4 @@ export function createRealtimeApp({
     ...createDrainState([database, redis]),
   };
 }
+export type RealtimeApp = ReturnType<typeof createRealtimeApp>;

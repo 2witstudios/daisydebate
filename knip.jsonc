@@ -16,6 +16,9 @@
       ],
     },
     "packages/db": { "entry": ["integration/**/*.integration{,.test}.ts"] },
+    "apps/realtime": {
+      "entry": ["integration/**/*.integration{,.test}.ts"],
+    },
     "packages/redis": {
       "entry": ["integration/**/*.integration{,.test}.ts"],
     },

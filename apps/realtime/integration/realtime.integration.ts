@@ -1,65 +1,17 @@
 import { assert, test, setupRitewayBun } from 'riteway/bun';
-import { systemClock, systemId } from '@daisy/clock';
 import { ENVELOPE_VERSION, PROTOCOL_VERSION } from '@daisy/protocol';
-import { createRealtimeApp } from '../src/app';
-import { createRealtimeServer, SOCKET_PATH } from '../src/server';
+import { SOCKET_PATH } from '../src/server';
+import { awaitClose, bootServer } from './support';
 
 setupRitewayBun();
 
-function requiredEnv(name: 'TEST_DATABASE_URL' | 'TEST_REDIS_URL'): string {
-  const value = process.env[name];
-  if (!value)
-    throw new Error(
-      `apps/realtime integration tests require TEST_DATABASE_URL and TEST_REDIS_URL (missing ${name})`,
-    );
-  return value;
-}
-const databaseUrl = requiredEnv('TEST_DATABASE_URL');
-const redisUrl = requiredEnv('TEST_REDIS_URL');
-
-/**
- * A real Bun.serve server on this test's own realtime app (its own env and
- * Redis namespace) against real PostgreSQL and Redis, bound to an ephemeral
- * port.
- */
-function bootServer() {
-  const resources = createRealtimeApp({
-    env: {
-      NODE_ENV: 'test',
-      DATABASE_URL: databaseUrl,
-      REDIS_URL: redisUrl,
-      REDIS_NAMESPACE: `test-${systemId.next().slice(0, 10)}`,
-      LOG_LEVEL: 'silent',
-    },
-    clock: systemClock,
-    ids: systemId,
-  });
-  const { fetch, websocket } = createRealtimeServer({ resources });
-  const server = Bun.serve({
-    port: 0,
-    hostname: '127.0.0.1',
-    fetch,
-    websocket,
-  });
-  return {
-    server,
-    origin: `http://127.0.0.1:${server.port}`,
-    async close() {
-      server.stop(true);
-      await resources.close();
-    },
-  };
-}
-
-const awaitClose = (ws: WebSocket) =>
-  new Promise<{ code: number; reason: string }>((resolve) => {
-    ws.addEventListener('close', (event) =>
-      resolve({ code: event.code, reason: event.reason }),
-    );
-  });
+if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
+  throw new Error(
+    'apps/realtime integration tests require TEST_DATABASE_URL and TEST_REDIS_URL',
+  );
 
 test('answers liveness and readiness against real PostgreSQL and Redis', async () => {
-  const { origin, close } = bootServer();
+  const { origin, close } = await bootServer();
   try {
     const live = await fetch(`${origin}/health/live`);
     const ready = await fetch(`${origin}/health/ready`);
@@ -82,7 +34,7 @@ test('answers liveness and readiness against real PostgreSQL and Redis', async (
 });
 
 test('refuses a non-WebSocket request to the socket path with 400, never falling through', async () => {
-  const { origin, close } = bootServer();
+  const { origin, close } = await bootServer();
   try {
     const response = await fetch(`${origin}${SOCKET_PATH}`);
 
@@ -98,7 +50,7 @@ test('refuses a non-WebSocket request to the socket path with 400, never falling
 });
 
 test('a real WebSocket client sending hello first is closed 4001 auth_failed', async () => {
-  const { origin, close } = bootServer();
+  const { origin, close } = await bootServer();
   const ws = new WebSocket(origin.replace('http', 'ws') + SOCKET_PATH);
   try {
     const closed = awaitClose(ws);
@@ -126,7 +78,7 @@ test('a real WebSocket client sending hello first is closed 4001 auth_failed', a
 });
 
 test('a real WebSocket client sending an unparseable first frame is closed 4003 protocol_unsupported', async () => {
-  const { origin, close } = bootServer();
+  const { origin, close } = await bootServer();
   const ws = new WebSocket(origin.replace('http', 'ws') + SOCKET_PATH);
   try {
     const closed = awaitClose(ws);
@@ -144,7 +96,7 @@ test('a real WebSocket client sending an unparseable first frame is closed 4003 
 });
 
 test('a real WebSocket client sending a well-formed message before hello is closed 4001, proving hello is not silently accepted', async () => {
-  const { origin, close } = bootServer();
+  const { origin, close } = await bootServer();
   const ws = new WebSocket(origin.replace('http', 'ws') + SOCKET_PATH);
   try {
     const closed = awaitClose(ws);
