@@ -38,10 +38,12 @@ export async function emailedLink(
 }
 
 /**
- * Signs the context's browser in as a new member through the real handlers.
- * Use `context.request` (or `page.request`) so the session cookie is shared.
+ * Signs the context's browser in to a new account through the real
+ * handlers, stopping before the username claim: the account is provisional
+ * and onboarding is next. Use `context.request` (or `page.request`) so the
+ * session cookie is shared.
  */
-export async function signUpMember(request: APIRequestContext) {
+export async function signUpProvisional(request: APIRequestContext) {
   await resetRateLimits(request);
   const email = freshEmail();
   const requested = await request.post('/api/auth/sign-in/magic-link', {
@@ -58,6 +60,12 @@ export async function signUpMember(request: APIRequestContext) {
     maxRedirects: 0,
   });
   expect(confirmed.status()).toBe(303);
+  return { email };
+}
+
+/** Signs the context's browser in as a new member with a claimed username. */
+export async function signUpMember(request: APIRequestContext) {
+  const { email } = await signUpProvisional(request);
   const username = uniqueName('member');
   const claimed = await request.post('/api/account/username', {
     headers: { origin },

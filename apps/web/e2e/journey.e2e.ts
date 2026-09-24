@@ -4,6 +4,7 @@ import {
   freshEmail,
   resetRateLimits,
   signUpMember,
+  signUpProvisional,
   uniqueName,
 } from './support/accounts';
 
@@ -301,42 +302,80 @@ test('a fresh session makes no refresh call, and neither does a visitor', async 
   expect(calls).toEqual([]);
 });
 
-test('a username submitted before the page hydrates is claimed, never put in the URL', async ({
-  page,
-  request,
-}) => {
-  const email = freshEmail();
-  await page.goto('/sign-in');
-  await requestLink(page, email);
-  await confirm(page, await emailedLink(request, email));
-  await expect(page).toHaveURL(/\/onboarding\/username/);
+/**
+ * Every mutating form works with JavaScript off (docs/development/
+ * ui-conventions.md). These contexts run no script at all, inline or
+ * bundled, so a page that only script can reveal, or a form that only
+ * script can submit, fails here.
+ */
+test.describe('with JavaScript off', () => {
+  test.use({ javaScriptEnabled: false });
 
-  // No script ever runs on this load: the form is exactly what a person
-  // sees before hydration, or with JavaScript off.
-  await page.route(/\/_next\/static\/.+\.js(\?.*)?$/, (route) => route.abort());
-  await page.goto('/onboarding/username?next=%2Flobby');
+  /** Form values must never reach the address bar, history or referrers. */
+  const expectNotInUrl = (page: Page, value: string) => {
+    expect(page.url()).not.toContain(value);
+    expect(page.url()).not.toContain(encodeURIComponent(value));
+  };
 
-  // A refusal comes back from the server with the name as typed.
-  await claimUsername(page, 'no spaces allowed');
-  await expect(page.locator('#username-notice')).toContainText(
-    'That username will not work',
-  );
-  await expect(page.getByLabel('Username')).toHaveValue('no spaces allowed');
-  expect(page.url()).not.toContain('spaces');
+  test('sign-in emails a link through a POST and shows the inbox step', async ({
+    page,
+    request,
+  }) => {
+    const email = freshEmail();
+    await page.goto('/sign-in?next=%2Flobby');
+    await requestLink(page, email);
+    await expect(page.getByText(email)).toBeVisible();
+    expectNotInUrl(page, email);
 
-  const name = uniqueName('prehydration');
-  await claimUsername(page, name);
+    // The emailed link is real: it finishes sign-in on this browser, still
+    // with no script, and a new account goes on to onboarding.
+    await confirm(page, await emailedLink(request, email));
+    await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)lobby$/);
+  });
 
-  await expect(
-    page.getByRole('heading', { name: /next time, one tap/i }),
-  ).toBeVisible();
-  expect(page.url()).not.toContain(name);
-  await page.getByRole('link', { name: 'Not now' }).click();
-  await expect(page).toHaveURL(/\/lobby$/);
+  test('the username form renders, refuses and claims', async ({ page }) => {
+    await signUpProvisional(page.request);
+    await page.goto('/onboarding/username?next=%2Flobby');
 
-  const session = await page.request.get('/api/auth/get-session');
-  const body = (await session.json()) as { user: { username: string } };
-  expect(body.user.username).toBe(name);
+    // A refusal comes back from the server with the name as typed.
+    await claimUsername(page, 'no spaces allowed');
+    await expect(page.locator('#username-notice')).toContainText(
+      'That username will not work',
+    );
+    await expect(page.getByLabel('Username')).toHaveValue('no spaces allowed');
+    expectNotInUrl(page, 'no spaces allowed');
+
+    const name = uniqueName('noscript');
+    await claimUsername(page, name);
+    await expect(
+      page.getByRole('heading', { name: /next time, one tap/i }),
+    ).toBeVisible();
+    expectNotInUrl(page, name);
+    await page.getByRole('link', { name: 'Not now' }).click();
+    await expect(page).toHaveURL(/\/lobby$/);
+    await expect(page.getByRole('heading', { name: 'Lobby' })).toBeVisible();
+
+    const session = await page.request.get('/api/auth/get-session');
+    const body = (await session.json()) as { user: { username: string } };
+    expect(body.user.username).toBe(name);
+  });
+
+  test('an email change starts through a POST and mails the address on file', async ({
+    page,
+    request,
+  }) => {
+    const { email } = await signUpMember(page.request);
+    await page.goto('/settings/security');
+    const next = freshEmail();
+    await page.getByLabel('New email address').fill(next);
+    await page.getByRole('button', { name: 'Change email' }).click();
+    await expect(page.locator('#email-change-notice')).toContainText(
+      /approve this change/i,
+    );
+    expectNotInUrl(page, next);
+    // The approval goes to the address on file, never the new one.
+    expect(await emailedLink(request, email)).toContain('/auth/confirm-email');
+  });
 });
 
 test('the topbar offers sign-in to a visitor', async ({ page }) => {
