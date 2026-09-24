@@ -1,49 +1,55 @@
-import type { Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 
 /**
- * ISSUE-19: from the first paint until `settle`, checks on every frame that
- * the topmost element at the centre of the topbar's Sign in link is that
- * link, never a sidebar or rail layer painted over the topbar. Call before
- * the navigation it should watch.
+ * From the first paint until `settle`, checks on every frame that the
+ * topmost element at the centre of each topbar link named in `names` (its
+ * aria-label, else its text) is that link: never a sidebar or rail layer
+ * painted over the topbar (ISSUE-19), nor another topbar control laid over
+ * it, as the search box once covered the logo on phones (ISSUE-67). Call
+ * before the navigation it should watch.
  */
-export async function watchTopbarSignIn(page: Page) {
-  await page.addInitScript(() => {
+export async function watchTopbarLinks(page: Page, names: readonly string[]) {
+  await page.addInitScript((watched: readonly string[]) => {
     const covered: string[] = [];
     Reflect.set(window, '__topbarCovered', covered);
-    // Frames that found the link laid out: zero means nothing was checked.
-    Reflect.set(window, '__topbarInspected', 0);
+    // Frames that found each link laid out: a name missing here was never
+    // checked.
+    const inspected: Record<string, number> = {};
+    Reflect.set(window, '__topbarInspected', inspected);
     const check = () => {
+      const nameOf = (link: Element) =>
+        link.getAttribute('aria-label') ?? link.textContent?.trim() ?? '';
       const links = Array.from(document.querySelectorAll('header a')).filter(
-        (link) => link.textContent?.trim() === 'Sign in',
+        (link) => watched.includes(nameOf(link)),
       );
       for (const link of links) {
         const box = link.getBoundingClientRect();
         if (box.width === 0 || box.height === 0) continue;
-        Reflect.set(
-          window,
-          '__topbarInspected',
-          Number(Reflect.get(window, '__topbarInspected')) + 1,
-        );
+        inspected[nameOf(link)] = (inspected[nameOf(link)] ?? 0) + 1;
         const top = document.elementFromPoint(
           box.x + box.width / 2,
           box.y + box.height / 2,
         );
         if (top && !link.contains(top))
           covered.push(
-            `${document.readyState}: under ${top.tagName.toLowerCase()} in ${top.closest('aside, nav, main, header')?.getAttribute('aria-label') ?? 'body'}`,
+            `${document.readyState}: ${nameOf(link)} under ${top.tagName.toLowerCase()} in ${top.closest('aside, nav, main, header')?.getAttribute('aria-label') ?? 'body'}`,
           );
       }
       if (!Reflect.get(window, '__topbarSettled')) requestAnimationFrame(check);
     };
     requestAnimationFrame(check);
-  });
-  const inspected = () =>
-    page.evaluate(() => Number(Reflect.get(window, '__topbarInspected')));
+  }, names);
+  const inspections = () =>
+    page.evaluate(() =>
+      Object.values(
+        Reflect.get(window, '__topbarInspected') as Record<string, number>,
+      ).reduce((sum, count) => sum + count, 0),
+    );
   /**
    * Waits until every image the viewport shows has loaded (lazy images below
    * the fold never start and cannot move the topbar) and one more frame has
    * inspected that final layout, stops watching, and reports the covered
-   * frames and how many frames inspected the link.
+   * frames and, per watched link, how many frames inspected it.
    */
   const settle = async () => {
     await page.waitForFunction(() =>
@@ -54,15 +60,16 @@ export async function watchTopbarSignIn(page: Page) {
         })
         .every((image) => image.complete),
     );
-    await page.waitForFunction(
-      (before) => Number(Reflect.get(window, '__topbarInspected')) > before,
-      await inspected(),
-    );
+    const before = await inspections();
+    await expect.poll(inspections).toBeGreaterThan(before);
     return page.evaluate(() => {
       Reflect.set(window, '__topbarSettled', true);
       return {
         covered: Reflect.get(window, '__topbarCovered') as string[],
-        inspected: Number(Reflect.get(window, '__topbarInspected')),
+        inspected: Reflect.get(window, '__topbarInspected') as Record<
+          string,
+          number
+        >,
       };
     });
   };

@@ -13,7 +13,7 @@ import {
 } from './support/accounts';
 import { claimUsername, declineOfferToLobby } from './support/forms';
 import { effectsRan } from './support/hydration';
-import { watchTopbarSignIn } from './support/topbar';
+import { watchTopbarLinks } from './support/topbar';
 
 // The whole sign-in journey in a real browser against the production build:
 // request a link on /sign-in, open the emailed link, get a session, pick a
@@ -356,15 +356,17 @@ test.describe('with JavaScript off', () => {
   });
 });
 
-test('the topbar offers sign-in to a visitor', async ({ page }) => {
-  const topbar = await watchTopbarSignIn(page);
+test('the topbar offers sign-in to a visitor, with nothing laid over its links', async ({
+  page,
+}) => {
+  const topbar = await watchTopbarLinks(page, ['Daisy home', 'Sign in']);
   await page.goto('/');
   const signIn = page
     .getByRole('banner')
     .getByRole('link', { name: 'Sign in' });
   await expect(signIn).toBeVisible();
   const { covered, inspected } = await topbar.settle();
-  expect(inspected).toBeGreaterThan(0);
+  expect(Object.keys(inspected).sort()).toEqual(['Daisy home', 'Sign in']);
   expect(covered).toEqual([]);
   await signIn.click();
   await expect(page).toHaveURL(/\/sign-in$/);
