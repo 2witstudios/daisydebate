@@ -34,6 +34,17 @@ export const ENVELOPE_VERSION: EnvelopeVersion = 1 as EnvelopeVersion;
 export const PROTOCOL_VERSION: ProtocolVersion = 1 as ProtocolVersion;
 
 /**
+ * The application heartbeat period (ADR 0031 §7): the client sends `ping`
+ * every 15 s and judges misses by elapsed time since the last `pong`, dead
+ * after two periods without one. Named here, in the change that adds its
+ * first consumer (the RT-2.6a client heartbeat), so the client and the
+ * engine's attendance invariant (`checkInGraceMs >= heartbeatMs * 2 +
+ * reconnectBudgetMs`, ADR 0033 §6) read one value instead of each hard-coding
+ * `15000`.
+ */
+export const heartbeatMs = 15_000;
+
+/**
  * Typed literal builders: each accepts only its own branded version type, so
  * `PROTOCOL_VERSION` declared as `= ENVELOPE_VERSION` (RT-2.1c AC1's mutation
  * M3b) is a type error caught by `bun typecheck`, not merely a coincidence

@@ -36,8 +36,14 @@ const liveResponse = () =>
  * `redis.command.failed` event (with `operation` naming the check) through
  * the same `eventSink` wired into `resources.logger` at composition.
  */
-const readyResponse = async (resources: ReadinessResources) => {
+const readyResponse = async (resources: RealtimeServerResources) => {
   const report = await checkReadiness(resources);
+  if (report.deliverySeqLagEstimate !== undefined)
+    resources.logger.log(
+      'realtime.outbox.delivery_lag_estimated',
+      { deliverySeqLagEstimate: report.deliverySeqLagEstimate },
+      'Delivery lag estimated',
+    );
   return Response.json(
     { status: report.ready ? 'ready' : 'unavailable' },
     { status: report.ready ? 200 : 503, headers: noStore },

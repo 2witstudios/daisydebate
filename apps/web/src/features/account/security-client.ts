@@ -42,10 +42,6 @@ export type SecurityClient = {
   };
   readonly revokeOtherSessions: () => Result<{ status: boolean }>;
   readonly signOut: () => Result<unknown>;
-  readonly changeEmail: (input: {
-    newEmail: string;
-    callbackURL?: string;
-  }) => Result<{ status: boolean }>;
 };
 
 /** A settings action's outcome. Only `ok` did what it says. */
@@ -171,18 +167,3 @@ export const revokeOtherSessions = async (
   client: SecurityClient,
 ): Promise<SecurityOutcome> =>
   outcomeFor((await safely(() => client.revokeOtherSessions())).error);
-
-export const requestEmailChange = async (
-  client: SecurityClient,
-  newEmail: string,
-): Promise<SecurityOutcome> =>
-  outcomeFor(
-    (
-      await safely(() =>
-        client.changeEmail({
-          newEmail,
-          callbackURL: '/settings/security',
-        }),
-      )
-    ).error,
-  );

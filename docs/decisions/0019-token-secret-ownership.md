@@ -45,29 +45,30 @@ or a credential URL cannot pass as any of them. The message must be fixed
 prose: letters and light punctuation, no digits, and words of at most 24
 characters. Any other message is replaced with `[REDACTED]`.
 
-| Field               | Kind  |
-| ------------------- | ----- |
-| `operation`         | code  |
-| `errorCode`         | code  |
-| `source`            | code  |
-| `sourceLevel`       | code  |
-| `closeReason`       | code  |
-| `cause`             | code  |
-| `invariantId`       | code  |
-| `requestId`         | id    |
-| `traceId`           | id    |
-| `userId`            | id    |
-| `actorId`           | id    |
-| `providerMessageId` | id    |
-| `route`             | path  |
-| `path`              | path  |
-| `clientIdHash`      | hash  |
-| `durationMs`        | count |
-| `status`            | count |
-| `port`              | count |
-| `deleted`           | count |
-| `batches`           | count |
-| `closeCode`         | count |
+| Field                    | Kind  |
+| ------------------------ | ----- |
+| `operation`              | code  |
+| `errorCode`              | code  |
+| `source`                 | code  |
+| `sourceLevel`            | code  |
+| `closeReason`            | code  |
+| `cause`                  | code  |
+| `invariantId`            | code  |
+| `requestId`              | id    |
+| `traceId`                | id    |
+| `userId`                 | id    |
+| `actorId`                | id    |
+| `providerMessageId`      | id    |
+| `route`                  | path  |
+| `path`                   | path  |
+| `clientIdHash`           | hash  |
+| `durationMs`             | count |
+| `status`                 | count |
+| `port`                   | count |
+| `deleted`                | count |
+| `batches`                | count |
+| `closeCode`              | count |
+| `deliverySeqLagEstimate` | count |
 
 Kinds: **code**, a letter followed by up to 79 letters, digits, `_`, `.` or
 `-`; **id**, 1–128 letters, digits, `_` or `-`; **path**, `/` followed by

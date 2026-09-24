@@ -9,12 +9,10 @@ setupRitewayBun();
 type Error = { status?: number; code?: string } | null;
 
 const portWith = ({
-  link = null,
   passkey = null,
   supported = true,
   autofill = true,
 }: {
-  link?: Error;
   passkey?: Error;
   supported?: boolean;
   autofill?: boolean;
@@ -22,10 +20,6 @@ const portWith = ({
   const calls: unknown[] = [];
   const client: SignInClient = {
     signIn: {
-      magicLink: async (input) => {
-        calls.push(input);
-        return { error: link };
-      },
       passkey: async (opts) => {
         calls.push(opts?.autoFill ? 'passkey-autofill' : 'passkey');
         return { error: passkey };
@@ -36,50 +30,11 @@ const portWith = ({
     calls,
     port: createBetterAuthSignInPort({
       client,
-      destination: '/ranked',
       supportsPasskeys: () => supported,
       supportsPasskeyAutofill: async () => autofill,
     }),
   };
 };
-
-describe('Better Auth sign-in port: magic link', () => {
-  test('asks for a link that lands on the destination, or on onboarding first', async () => {
-    const { port, calls } = portWith({});
-    const outcome = await port.requestLink('ada@example.test');
-    assert({
-      given: 'an accepted request for a link',
-      should: 'report sent and pass both callbacks',
-      actual: [outcome, calls],
-      expected: [
-        { kind: 'sent' },
-        [
-          {
-            email: 'ada@example.test',
-            callbackURL: '/ranked',
-            newUserCallbackURL: '/onboarding/username?next=%2Franked',
-          },
-        ],
-      ],
-    });
-  });
-
-  test('maps refusals to their honest outcomes', async () => {
-    const outcome = async (link: Error) =>
-      (await portWith({ link }).port.requestLink('a@b.test')).kind;
-    assert({
-      given: 'suppressed, throttled, failing and unknown refusals',
-      should: 'answer undeliverable, rate-limited, unavailable, unavailable',
-      actual: [
-        await outcome({ status: 422, code: 'EMAIL_UNDELIVERABLE' }),
-        await outcome({ status: 429 }),
-        await outcome({ status: 503, code: 'EMAIL_DELIVERY_FAILED' }),
-        await outcome({}),
-      ],
-      expected: ['undeliverable', 'rate-limited', 'unavailable', 'unavailable'],
-    });
-  });
-});
 
 describe('Better Auth sign-in port: passkey', () => {
   test('a verified ceremony signs in', async () => {
@@ -133,7 +88,6 @@ describe('Better Auth sign-in port: passkey autofill', () => {
     const outcome = async (error: Error, picked: boolean) => {
       const client: SignInClient = {
         signIn: {
-          magicLink: async () => ({ error: null }),
           passkey: async (opts) => {
             // Better Auth hands `fetchOptions` only to the verify request.
             if (picked) opts?.fetchOptions?.onRequest?.();
@@ -143,7 +97,6 @@ describe('Better Auth sign-in port: passkey autofill', () => {
       };
       const port = createBetterAuthSignInPort({
         client,
-        destination: '/ranked',
         supportsPasskeys: () => true,
         supportsPasskeyAutofill: async () => true,
       });
@@ -194,7 +147,6 @@ const racingPort = (button: readonly Error[]) => {
   const script = [...button];
   const client: SignInClient = {
     signIn: {
-      magicLink: async () => ({ error: null }),
       passkey: (opts) => {
         if (opts?.autoFill) {
           calls.push('passkey-autofill');
@@ -209,7 +161,6 @@ const racingPort = (button: readonly Error[]) => {
   };
   const port = createBetterAuthSignInPort({
     client,
-    destination: '/ranked',
     supportsPasskeys: () => true,
     supportsPasskeyAutofill: async () => true,
   });
@@ -261,7 +212,6 @@ describe('Better Auth sign-in port: autofill and button race', () => {
     const calls: string[] = [];
     const client: SignInClient = {
       signIn: {
-        magicLink: async () => ({ error: null }),
         passkey: async (opts) => {
           calls.push(opts?.autoFill ? 'passkey-autofill' : 'passkey');
           if (opts?.autoFill) throw new Error('network down');
@@ -271,7 +221,6 @@ describe('Better Auth sign-in port: autofill and button race', () => {
     };
     const port = createBetterAuthSignInPort({
       client,
-      destination: '/ranked',
       supportsPasskeys: () => true,
       supportsPasskeyAutofill: async () => true,
     });

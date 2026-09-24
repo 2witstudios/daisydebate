@@ -69,6 +69,12 @@ const post = (headers?: Record<string, string>) =>
     headers: headers ?? { origin: 'http://localhost:3000' },
   });
 
+/** A refused response's status alongside its public error code. */
+const statusAndCode = async (response: Response): Promise<[number, string]> => [
+  response.status,
+  ((await response.json()) as { error: { code: string } }).error.code,
+];
+
 describe('POST /api/realtime/ticket gates', () => {
   test('a session-store outage is a retryable 503, not a sign-out', async () => {
     const { handler, issued } = handlerWith({
@@ -78,11 +84,7 @@ describe('POST /api/realtime/ticket gates', () => {
     assert({
       given: 'an identity that could not be resolved',
       should: 'answer 503 INFRASTRUCTURE and issue nothing',
-      actual: [
-        response.status,
-        ((await response.json()) as { error: { code: string } }).error.code,
-        issued,
-      ],
+      actual: [...(await statusAndCode(response)), issued],
       expected: [503, 'INFRASTRUCTURE', []],
     });
   });
@@ -96,12 +98,7 @@ describe('POST /api/realtime/ticket gates', () => {
       given: 'a request whose Origin does not match the app',
       should:
         'answer 403 AUTHORIZATION and touch neither the limiter nor issueTicket',
-      actual: [
-        response.status,
-        ((await response.json()) as { error: { code: string } }).error.code,
-        consumeCalls,
-        issued,
-      ],
+      actual: [...(await statusAndCode(response)), consumeCalls, issued],
       expected: [403, 'AUTHORIZATION', [], []],
     });
   });
@@ -113,12 +110,7 @@ describe('POST /api/realtime/ticket gates', () => {
       given: 'a request with no Origin header at all',
       should:
         'answer 403 AUTHORIZATION and touch neither the limiter nor issueTicket',
-      actual: [
-        response.status,
-        ((await response.json()) as { error: { code: string } }).error.code,
-        consumeCalls,
-        issued,
-      ],
+      actual: [...(await statusAndCode(response)), consumeCalls, issued],
       expected: [403, 'AUTHORIZATION', [], []],
     });
   });
@@ -131,11 +123,7 @@ describe('POST /api/realtime/ticket gates', () => {
     assert({
       given: 'no session',
       should: 'answer 401 AUTHENTICATION and issue nothing',
-      actual: [
-        response.status,
-        ((await response.json()) as { error: { code: string } }).error.code,
-        issued,
-      ],
+      actual: [...(await statusAndCode(response)), issued],
       expected: [401, 'AUTHENTICATION', []],
     });
   });
@@ -151,11 +139,7 @@ describe('POST /api/realtime/ticket gates', () => {
     assert({
       given: 'a signed-in account that has not claimed a username',
       should: 'answer 403 AUTHORIZATION and issue nothing',
-      actual: [
-        response.status,
-        ((await response.json()) as { error: { code: string } }).error.code,
-        issued,
-      ],
+      actual: [...(await statusAndCode(response)), issued],
       expected: [403, 'AUTHORIZATION', []],
     });
   });
@@ -231,11 +215,7 @@ describe('POST /api/realtime/ticket gates', () => {
     assert({
       given: 'a member identity whose actors row is missing',
       should: 'answer 503 INFRASTRUCTURE and issue nothing',
-      actual: [
-        response.status,
-        ((await response.json()) as { error: { code: string } }).error.code,
-        issued,
-      ],
+      actual: [...(await statusAndCode(response)), issued],
       expected: [503, 'INFRASTRUCTURE', []],
     });
   });

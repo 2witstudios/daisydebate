@@ -1,10 +1,13 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 import { systemClock } from '@daisy/clock';
 import { authClient } from '../../../lib/auth-client';
 import { createBetterAuthSignInPort } from '../better-auth-sign-in-port';
-import { SignInFlow } from '../sign-in-flow/sign-in-flow';
+import {
+  SignInFlow,
+  type RequestLinkAction,
+} from '../sign-in-flow/sign-in-flow';
 
 const supportsPasskeys = () =>
   typeof window !== 'undefined' &&
@@ -16,25 +19,35 @@ const supportsPasskeyAutofill = async () =>
     'function' &&
   (await window.PublicKeyCredential.isConditionalMediationAvailable());
 
+const port = createBetterAuthSignInPort({
+  client: authClient,
+  supportsPasskeys,
+  supportsPasskeyAutofill,
+});
+
 /**
- * The live sign-in: Better Auth over the real /api/auth handler. The
- * destination arrives already validated by the server page; a full
- * navigation follows sign-in so the next server render sees the new cookie.
+ * The live sign-in: emailed links through `requestLink`, a server action
+ * bound to the destination the server page validated, and passkeys through
+ * Better Auth over the real /api/auth handler. A full navigation follows a
+ * passkey sign-in so the next server render sees the new cookie.
  */
-export function SignIn({ destination }: { readonly destination: string }) {
-  const port = useMemo(
-    () =>
-      createBetterAuthSignInPort({
-        client: authClient,
-        destination,
-        supportsPasskeys,
-        supportsPasskeyAutofill,
-      }),
-    [destination],
-  );
+export function SignIn({
+  destination,
+  requestLink,
+}: {
+  readonly destination: string;
+  readonly requestLink: RequestLinkAction;
+}) {
   const onSignedIn = useCallback(
     () => window.location.assign(destination),
     [destination],
   );
-  return <SignInFlow port={port} clock={systemClock} onSignedIn={onSignedIn} />;
+  return (
+    <SignInFlow
+      port={port}
+      requestLink={requestLink}
+      clock={systemClock}
+      onSignedIn={onSignedIn}
+    />
+  );
 }

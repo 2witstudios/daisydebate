@@ -13,8 +13,9 @@ import {
 
 /**
  * Automated accessibility coverage for every authentication and security
- * screen (AUTH-6.6), plus the signed-in product shell's home and settings
- * routes in both themes (ISSUE-10): zero serious/critical axe findings,
+ * screen (AUTH-6.6), the passkey offer in both themes (ISSUE-77), plus the
+ * signed-in product shell's home and settings routes in both themes
+ * (ISSUE-10): zero serious/critical axe findings,
  * keyboard-only use, visible focus, live-region announcements and usability
  * at 200% zoom. Chromium/Firefox/WebKit desktop and mobile projects all run
  * this file (only passkey-lifecycle.e2e.ts is Chromium-only), so narrow
@@ -237,5 +238,20 @@ test('settings has no serious or critical accessibility findings in dark or ligh
   await assertNoSeriousFindings(page);
 
   await gotoWithTheme(page, '/settings', 'light');
+  await assertNoSeriousFindings(page);
+});
+
+test('the passkey offer has no serious or critical accessibility findings in dark or light', async ({
+  page,
+}) => {
+  await signUpMember(page.request);
+
+  await gotoWithTheme(page, '/onboarding/passkey?next=%2Flobby', 'dark');
+  await expect(
+    page.getByRole('heading', { name: /next time, one tap/i }),
+  ).toBeVisible();
+  await assertNoSeriousFindings(page);
+
+  await gotoWithTheme(page, '/onboarding/passkey?next=%2Flobby', 'light');
   await assertNoSeriousFindings(page);
 });

@@ -1,7 +1,6 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createRedis } from './index';
-import { createTestRedis } from './test-support';
+import { createOfflineRedis, createTestRedis } from './test-support';
 
 setupRitewayBun();
 
@@ -37,17 +36,17 @@ describe('issueConnectTicket', () => {
     const { redis, commands } = createTestRedis();
     await expect(
       redis.issueConnectTicket('not-a-hash', binding, 60),
-    ).rejects.toThrow();
+    ).rejects.toThrow('Invalid ticket hash');
     await expect(
       redis.issueConnectTicket(
         ticketHash,
         { ...binding, actorId: 'short' },
         60,
       ),
-    ).rejects.toThrow();
+    ).rejects.toThrow('Invalid ticket binding');
     await expect(
       redis.issueConnectTicket(ticketHash, binding, 0),
-    ).rejects.toThrow();
+    ).rejects.toThrow('TTL must be a positive integer');
     assert({
       given: 'an invalid hash, binding or TTL',
       should: 'issue no Redis command',
@@ -134,8 +133,10 @@ describe('consumeConnectTicket', () => {
     const { redis, commands } = createTestRedis();
     await expect(
       redis.consumeConnectTicket('not-a-hash', origin),
-    ).rejects.toThrow();
-    await expect(redis.consumeConnectTicket(ticketHash, '')).rejects.toThrow();
+    ).rejects.toThrow('Invalid ticket hash');
+    await expect(redis.consumeConnectTicket(ticketHash, '')).rejects.toThrow(
+      'Invalid expected origin',
+    );
     assert({
       given: 'an invalid hash or empty expected origin',
       should: 'issue no Redis command',
@@ -147,16 +148,7 @@ describe('consumeConnectTicket', () => {
   test('propagates outage and reports it without swallowing', async () => {
     const events: Array<{ event: string; fields: Record<string, unknown> }> =
       [];
-    const outageRedis = createRedis({
-      url: 'redis://127.0.0.1:1',
-      namespace: 'test',
-      eventSink: (event, fields) => events.push({ event, fields }),
-      client: {
-        async connect() {
-          throw new Error('offline');
-        },
-      } as never,
-    });
+    const outageRedis = createOfflineRedis(events);
     await expect(
       outageRedis.consumeConnectTicket(ticketHash, origin),
     ).rejects.toThrow('offline');

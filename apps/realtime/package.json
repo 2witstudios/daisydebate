@@ -6,7 +6,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "bun test src",
-    "test:integration": "bun test ./integration/realtime.integration.ts",
+    "test:integration": "bun ../../scripts/test-integration.ts",
     "dev": "bun --watch src/start.ts",
     "start": "NODE_ENV=production bun src/start.ts"
   },

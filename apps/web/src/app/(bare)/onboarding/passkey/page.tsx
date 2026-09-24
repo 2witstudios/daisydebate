@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 };
 
 /**
- * The passkey offer that follows a claimed username. The claim redirects
+ * The passkey offer that follows a claimed username. The claim moves on to
  * here, with or without JavaScript. An account still choosing a name goes
  * back to that step; anonymous visitors sign in first.
  */
