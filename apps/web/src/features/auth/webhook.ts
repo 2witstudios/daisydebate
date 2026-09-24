@@ -31,14 +31,21 @@ type ApplyInput = Omit<DeliveryEvent, 'messageId'> & {
   readonly at: string;
 };
 
-/** The protocol status each provider event reports; ranks are the protocol's. */
-const STATUS_BY_EVENT: Readonly<Record<string, EmailDeliveryStatus>> = {
-  'email.sent': 'sent',
-  'email.delivery_delayed': 'delayed',
-  'email.delivered': 'delivered',
-  'email.failed': 'failed',
-  'email.complained': 'complained',
-};
+/**
+ * The protocol status each provider event reports; ranks are the protocol's.
+ * A Map, not an object literal: a lookup by an attacker-chosen event type
+ * must never reach an inherited `Object.prototype` member.
+ */
+const STATUS_BY_EVENT: ReadonlyMap<string, EmailDeliveryStatus> = new Map<
+  string,
+  EmailDeliveryStatus
+>([
+  ['email.sent', 'sent'],
+  ['email.delivery_delayed', 'delayed'],
+  ['email.delivered', 'delivered'],
+  ['email.failed', 'failed'],
+  ['email.complained', 'complained'],
+]);
 /** Only a permanent failure or a complaint stops automatic mail. */
 const SUPPRESSION: Partial<
   Record<EmailDeliveryStatus, EmailSuppressionReason>
@@ -57,7 +64,7 @@ export function classifyResendEvent(
   const bounce =
     event.data?.bounce?.type === 'Permanent' ? 'bounced' : 'delayed';
   const status =
-    event.type === 'email.bounced' ? bounce : STATUS_BY_EVENT[event.type];
+    event.type === 'email.bounced' ? bounce : STATUS_BY_EVENT.get(event.type);
   if (!status) return null;
   return {
     status,
