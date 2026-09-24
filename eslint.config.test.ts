@@ -301,7 +301,7 @@ describe('restrictions every no-restricted-syntax list carries', () => {
       ["'refused'", 'TypeError'],
     ].map(
       ([message, type]) =>
-        `import { expect } from 'bun:test';\nawait expect(async () => {}).rejects.toThrow(${message});\nexpect(() => {}).toThrowError(${type});`,
+        `import { expect } from 'bun:test';\nawait expect(async () => {}).rejects.toThrow(${message});\nexpect(() => {}).toThrowError(${type});\nexpect(() => {}).not.toThrow();`,
     ) as [string, string];
     const suites = [
       web('server/x.test.ts'),
@@ -316,9 +316,9 @@ describe('restrictions every no-restricted-syntax list carries', () => {
     ]);
     assert({
       given:
-        'unit, integration, e2e and script suites asserting a bare toThrow, and one naming the error',
+        'unit, integration, e2e and script suites asserting a bare toThrow, one naming the error, and a strict not.toThrow()',
       should:
-        'report each bare toThrow as an error and the named ones not at all',
+        'report each bare toThrow as an error and the named and negated ones not at all',
       actual: await actual,
       expected,
     });

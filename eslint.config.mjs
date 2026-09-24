@@ -20,12 +20,13 @@ const exportStarRestriction = {
  * ISSUE-11: an expected failure names what it expects. A bare `.toThrow()`
  * passes for any error, including a typo's TypeError; name the message,
  * pattern or class, or use `assertRejects` from `@daisy/errors/testing`.
+ * `.not.toThrow()` stays: with no argument it is the strict form.
  * Every `no-restricted-syntax` list below carries it, as it does the
  * export-star ban.
  */
 const bareToThrowRestriction = {
   selector:
-    'CallExpression[callee.property.name=/^toThrow(Error)?$/][arguments.length=0]',
+    'CallExpression[callee.property.name=/^toThrow(Error)?$/][arguments.length=0]:not([callee.object.property.name="not"])',
   message:
     'Name the expected error (message, pattern or class) or use assertRejects from @daisy/errors/testing.',
 };
