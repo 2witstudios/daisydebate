@@ -108,7 +108,7 @@ export async function passkeySignInAfterSignOut(page: Page) {
   // The button's own handler navigates to /sign-in once sign-out resolves;
   // wait for that navigation instead of racing it with another.
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
-  await page.waitForURL(/\/sign-in/);
+  await page.waitForURL(/\/sign-in$/);
   await page.goto('/sign-in?next=%2Flobby');
   await page.getByRole('button', { name: 'Sign in with a passkey' }).click();
   await expect(page).toHaveURL(/\/lobby$/);

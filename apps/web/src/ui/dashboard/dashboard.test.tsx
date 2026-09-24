@@ -6,8 +6,6 @@ import { occurrences, renderInStore } from '../test-support/render-in-store';
 
 setupRitewayBun();
 
-const count = occurrences;
-
 const render = (): string => renderInStore(h(Dashboard));
 
 describe('Dashboard', () => {
@@ -20,7 +18,7 @@ describe('Dashboard', () => {
       should: 'link each tile destination exactly once inside the named list',
       actual: [
         start > -1,
-        tiles.map((tile) => count(list, `href="${tile.href}"`)),
+        tiles.map((tile) => occurrences(list, `href="${tile.href}"`)),
       ],
       expected: [true, tiles.map(() => 1)],
     });
@@ -32,7 +30,11 @@ describe('Dashboard', () => {
       given: "the dashboard rendered inside AppShell's <main>",
       should:
         'carry exactly one h1, no h3 before it has an h2, and no own main',
-      actual: [count(html, '<h1'), count(html, '<h3'), count(html, '<main')],
+      actual: [
+        occurrences(html, '<h1'),
+        occurrences(html, '<h3'),
+        occurrences(html, '<main'),
+      ],
       expected: [1, 0, 0],
     });
   });

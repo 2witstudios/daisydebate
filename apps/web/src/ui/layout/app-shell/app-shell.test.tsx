@@ -5,8 +5,6 @@ import { occurrences, renderInStore } from '../../test-support/render-in-store';
 
 setupRitewayBun();
 
-const count = occurrences;
-
 const render = (): string =>
   renderInStore(
     h(AppShell, {
@@ -23,10 +21,10 @@ describe('AppShell', () => {
       given: 'the shell, with the root layout rendering no landmark of its own',
       should: 'render exactly one main, one banner, one primary nav, one aside',
       actual: [
-        count(html, '<main'),
-        count(html, '<header'),
-        count(html, '<nav'),
-        count(html, '<aside'),
+        occurrences(html, '<main'),
+        occurrences(html, '<header'),
+        occurrences(html, '<nav'),
+        occurrences(html, '<aside'),
       ],
       expected: [1, 1, 1, 1],
     });

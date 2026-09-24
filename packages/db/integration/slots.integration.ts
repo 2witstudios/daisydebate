@@ -205,7 +205,12 @@ test('slot administration is serialized across concurrent checkouts', async () =
       return count === 1;
     };
     // A lock that failed to serialize lets b run instead; stop and report it.
-    while (!events.includes('b:start') && !(await waiting()));
+    const deadline = performance.now() + 4_000;
+    while (!events.includes('b:start') && !(await waiting()))
+      if (performance.now() > deadline)
+        throw new Error(
+          'the second session never waited on the slot advisory lock',
+        );
     const whileHeld = [...events];
     release();
     await Promise.all([first, second]);
