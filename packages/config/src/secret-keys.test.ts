@@ -6,13 +6,14 @@ setupRitewayBun();
 describe('secret configuration keys', () => {
   test('lists every schema field marked secret, across every schema', () => {
     assert({
-      given: 'the server, realtime and auth schemas',
+      given: 'the server, realtime, auth and migration schemas',
       should:
         'derive the secret-bearing keys from the fields themselves, each once',
       actual: [...secretConfigKeys].sort(),
       expected: [
         'BETTER_AUTH_SECRET',
         'DATABASE_URL',
+        'MIGRATION_DATABASE_URL',
         'REDIS_URL',
         'RESEND_API_KEY',
         'RESEND_WEBHOOK_SECRET',

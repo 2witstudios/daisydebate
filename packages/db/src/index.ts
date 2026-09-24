@@ -9,6 +9,12 @@ import { actorOperations } from './actor-operations';
 import { emailDeliveryOperations } from './email-delivery-operations';
 import { outboxOperations } from './outbox';
 import { instrumented, type DatabaseEventSink } from './instrumented';
+import {
+  runtimeRoleFactsFrom,
+  runtimeRoleFactsQuery,
+  runtimeRoleProblems,
+  type RuntimeRoleFactsRow,
+} from './runtime-role';
 export type {
   DebateMode,
   DebateOutcome,
@@ -79,6 +85,19 @@ export function createDatabase({
       return instrumented(eventSink, 'checkListen', async () => {
         await probeListen(client);
         return true;
+      });
+    },
+    /**
+     * How the connected role could create or alter schema objects in
+     * `public` (ISSUE-39); empty for the DML-only runtime role. Production
+     * startup refuses to serve unless it is empty.
+     */
+    async runtimeRoleProblems() {
+      return instrumented(eventSink, 'runtimeRoleProblems', async () => {
+        const [row] = (await database.execute(
+          runtimeRoleFactsQuery,
+        )) as unknown as RuntimeRoleFactsRow[];
+        return runtimeRoleProblems(runtimeRoleFactsFrom(row));
       });
     },
     async close() {

@@ -47,10 +47,67 @@ export function findFlyReleaseCommandProblem(flyToml: string): string | null {
   return null;
 }
 
+const uncommented = (text: string) =>
+  text
+    .split('\n')
+    .filter((line) => !/^\s*(#|\/\/)/.test(line))
+    .join('\n');
+
+/**
+ * ISSUE-39: DATABASE_URL (`daisy_web`) and MIGRATION_DATABASE_URL (the
+ * owner) are Fly secrets. fly.toml is committed, so its [env] table must
+ * never carry either.
+ */
+export function findFlyDatabaseSecretProblem(flyToml: string): string | null {
+  const lines = flyToml.split('\n');
+  const envStart = lines.findIndex((line) => line.trim() === '[env]');
+  if (envStart === -1) return null;
+  const body: string[] = [];
+  for (const line of lines.slice(envStart + 1)) {
+    if (/^\[/.test(line.trim())) break;
+    body.push(line);
+  }
+  const key = uncommented(body.join('\n')).match(
+    /^\s*((?:MIGRATION_)?DATABASE_URL)\s*=/m,
+  );
+  return key
+    ? `fly.toml [env] sets ${key[1]}; database credentials are Fly secrets`
+    : null;
+}
+
+/**
+ * ISSUE-39: production startup refuses a DATABASE_URL role that can create
+ * or alter schema objects, before Next prepares or the port opens.
+ */
+export function findRuntimeRoleGateProblem(startTs: string): string | null {
+  const code = uncommented(startTs);
+  const gate = code.indexOf('await refuseSchemaAlteringRole(app);');
+  const prepare = code.indexOf('await nextApp.prepare();');
+  return gate === -1 || prepare === -1 || gate > prepare
+    ? 'start.ts does not await refuseSchemaAlteringRole(app) before nextApp.prepare()'
+    : null;
+}
+
+/**
+ * ISSUE-39: the release command migrates through the validated migration
+ * credential, never by reading the runtime DATABASE_URL itself.
+ */
+export function findMigrationCredentialProblem(
+  migrateTs: string,
+): string | null {
+  const code = uncommented(migrateTs);
+  return code.includes('readMigrationConfig(process.env)') &&
+    !code.includes('process.env.DATABASE_URL')
+    ? null
+    : 'migrate.ts does not read its credential through readMigrationConfig(process.env)';
+}
+
 export function verifyDeployConfig(input: {
   readonly dockerfile: string;
   readonly flyToml: string;
   readonly bunVersion: string;
+  readonly startTs: string;
+  readonly migrateTs: string;
 }): readonly string[] {
   return [
     findDockerfileBunVersionProblem({
@@ -58,6 +115,9 @@ export function verifyDeployConfig(input: {
       bunVersion: input.bunVersion,
     }),
     findFlyReleaseCommandProblem(input.flyToml),
+    findFlyDatabaseSecretProblem(input.flyToml),
+    findRuntimeRoleGateProblem(input.startTs),
+    findMigrationCredentialProblem(input.migrateTs),
   ].filter((problem): problem is string => problem !== null);
 }
 
@@ -66,6 +126,8 @@ if (import.meta.main) {
     dockerfile: readFileSync('apps/web/Dockerfile', 'utf8'),
     flyToml: readFileSync('fly.toml', 'utf8'),
     bunVersion: readFileSync('.bun-version', 'utf8').trim(),
+    startTs: readFileSync('apps/web/src/server/start.ts', 'utf8'),
+    migrateTs: readFileSync('packages/db/scripts/migrate.ts', 'utf8'),
   });
   if (problems.length > 0) {
     process.stderr.write(
@@ -74,7 +136,7 @@ if (import.meta.main) {
     process.exitCode = 1;
   } else {
     process.stdout.write(
-      'Deploy config matches .bun-version and keeps the release command.\n',
+      'Deploy config matches .bun-version, keeps the release command and the database role split.\n',
     );
   }
 }
