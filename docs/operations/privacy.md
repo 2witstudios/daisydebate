@@ -75,9 +75,11 @@ inventory becomes the single index:
 
 - [ADR 0025](../decisions/0025-auth-delivery-and-abuse-protection.md) and
   [docs/operations/auth-delivery.md](auth-delivery.md): expired
-  `verification` rows are purged after 24 hours; `email_delivery*` rows
-  retain only keyed recipient hashes and are kept so a suppression survives
-  an account.
+  `verification` rows are purged after 24 hours; `email_delivery` and
+  `email_delivery_event` rows hold only keyed recipient hashes and IDs and
+  are purged after 30 days; `email_suppression` rows are kept so a
+  suppression survives an account. One retention sweep
+  (`apps/web/src/server/retention-sweep.ts`) owns all of these.
 - [ADR 0029](../decisions/0029-competitive-schema-foundation.md): account
   deletion tombstones the user (below); competitive history, actors and
   ratings are retained indefinitely as the product's own record, holding no

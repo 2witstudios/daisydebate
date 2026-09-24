@@ -15,7 +15,7 @@ describe('presence reads', () => {
     assert({
       given: 'a live connection returned by the one-op read',
       should:
-        'issue exactly one EVALSHA naming the actor zset key, the actorId and the conn-hash key prefix, and parse the Redis now plus the flat 5-tuple',
+        'issue exactly one EVALSHA naming the actor zset key, the actorId, the conn-hash key prefix and the 32-connection bound, and parse the Redis now plus the flat 5-tuple',
       actual: {
         evalCount: evalshas.length,
         evalArgs: evalshas[0]?.args.slice(1),
@@ -29,6 +29,7 @@ describe('presence reads', () => {
           `test:v1:presence:actor:${actorId}`,
           actorId,
           'test:v1:presence:conn:',
+          '32',
         ],
         nowMs: 5000,
         connections: [
@@ -96,6 +97,38 @@ describe('presence reads', () => {
       should: 'issue no Redis command',
       actual: commands.length,
       expected: 0,
+    });
+  });
+});
+
+describe('presence limits', () => {
+  test('refuses a read or sweep limit over the cap before touching Redis, and accepts the cap', async () => {
+    const { redis, scriptEval, commands } = createTestRedis();
+    const refused = await Promise.all([
+      redis.readOnlinePresence(1001).then(
+        () => 'ran',
+        (error: Error) => error.message,
+      ),
+      redis.sweepOnlinePresence(1001).then(
+        () => 'ran',
+        (error: Error) => error.message,
+      ),
+    ]);
+    const refusedCommands = commands.length;
+    scriptEval(0);
+    const atCap = await redis.sweepOnlinePresence(1000);
+    assert({
+      given: 'a limit of 1001, one over the cap, and then the cap itself',
+      should:
+        'refuse both over-cap calls with no Redis command, and run the sweep at the cap',
+      actual: { refused, refusedCommands, atCap },
+      expected: {
+        refused: Array(2).fill(
+          'Limit must be a positive integer no greater than 1000',
+        ),
+        refusedCommands: 0,
+        atCap: 0,
+      },
     });
   });
 });

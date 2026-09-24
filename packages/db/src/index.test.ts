@@ -20,7 +20,7 @@ describe('package entry surface (ISSUE-8 AC1)', () => {
     assert({
       given: "the package entry's exported names",
       should:
-        'exclude appendOutboxEvent, drainOutbox, purgeExpiredOutboxEvents and the raw outbox table — each takes or is a Drizzle handle, so a caller outside packages/db can only reach the opaque createDatabase() surface',
+        'exclude appendOutboxEvent, drainOutbox, deleteExpiredBatch and the raw outbox table — each takes or is a Drizzle handle, so a caller outside packages/db can only reach the opaque createDatabase() surface',
       actual: Object.keys(packageEntry).sort(),
       expected: [
         'OUTBOX_ORIGIN',

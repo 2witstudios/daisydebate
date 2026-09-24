@@ -81,12 +81,13 @@ here.
 
 ## Scale-to-zero consequences
 
-- **Hourly verification purge (AUTH-7.5a) stops while suspended.**
-  `apps/web/src/server/start.ts` starts `startMaintenance` (hourly
+- **The hourly retention sweep stops while suspended.**
+  `apps/web/src/server/start.ts` starts `startRetentionSweep` (hourly
   `setInterval`, `runOnStart: true`) in-process. A suspended machine runs no
-  process, so no interval fires; expired verification rows accumulate while
-  stopped and are purged immediately on the next wake (`runOnStart: true`
-  runs the purge as soon as the process starts again). This is inherent to
+  process, so no interval fires; expired verification, outbox and email
+  rows and lapsed online-presence members accumulate while stopped and are
+  pruned immediately on the next wake (`runOnStart: true` runs the sweep as
+  soon as the process starts again). This is inherent to
   scale-to-zero, not a defect — do not add a Fly-side cron to work around it
   without an explicit decision to do so.
 - **Cold start, measured locally (not on Fly):** `docker build` of the
