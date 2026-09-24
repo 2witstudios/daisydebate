@@ -7,26 +7,30 @@ import {
 
 export const validTicket = 'a'.repeat(43);
 
-/** A controllable virtual clock and timer queue: no real timers in tests. */
-function createFakeScheduler(): Scheduler & {
-  readonly scheduled: readonly { readonly id: number; readonly ms: number }[];
-  advance(ms: number): void;
-} {
+/**
+ * A controllable virtual clock and timer queue: no real timers in tests.
+ * `computeAt` maps a `setTimeout` call's (current clock, requested delay) to
+ * the absolute time it actually fires, so this same queue backs both a
+ * plain fake scheduler (fires exactly on request) and a throttled one
+ * (connection-store-heartbeat-throttle.test.ts's hidden-tab simulation,
+ * which coalesces every fire to a later boundary) without duplicating the
+ * timer-map/advance scaffolding between them.
+ */
+export function createTimerQueue(
+  computeAt: (clock: number, ms: number) => number,
+): Scheduler & { advance(ms: number): void } {
   let clock = 0;
   let nextId = 1;
-  const timers = new Map<number, { at: number; cb: () => void; ms: number }>();
+  const timers = new Map<number, { at: number; cb: () => void }>();
   return {
     now: () => clock,
     setTimeout(cb, ms) {
       const id = nextId++;
-      timers.set(id, { at: clock + ms, cb, ms });
+      timers.set(id, { at: computeAt(clock, ms), cb });
       return id;
     },
     clearTimeout(id) {
       timers.delete(id as number);
-    },
-    get scheduled() {
-      return [...timers.entries()].map(([id, t]) => ({ id, ms: t.ms }));
     },
     advance(ms: number) {
       const target = clock + ms;
@@ -45,10 +49,20 @@ function createFakeScheduler(): Scheduler & {
   };
 }
 
-type Listener = (event: { type: string; [key: string]: unknown }) => void;
+const createFakeScheduler = () => createTimerQueue((clock, ms) => clock + ms);
 
-/** A fake native WebSocket: no network, fully driven by the test. */
-class FakeSocket implements WebSocketLike {
+export type Listener = (event: {
+  type: string;
+  [key: string]: unknown;
+}) => void;
+
+/**
+ * A fake native WebSocket: no network, fully driven by the test. Exported so
+ * other realtime test files (e.g. the throttled-heartbeat suite) subclass it
+ * for their own fake server behaviour instead of reimplementing the
+ * open/close/message/emit scaffolding.
+ */
+export class FakeSocket implements WebSocketLike {
   readyState = 0;
   sent: string[] = [];
   closedWith: { code?: number; reason?: string } | null = null;
@@ -84,7 +98,10 @@ class FakeSocket implements WebSocketLike {
     this.readyState = 3;
     this.emit('close', { type: 'close', code, reason: '' });
   }
-  private emit(type: string, event: { type: string; [key: string]: unknown }) {
+  protected emit(
+    type: string,
+    event: { type: string; [key: string]: unknown },
+  ) {
     for (const listener of this.listeners[type] ?? []) listener(event);
   }
 }

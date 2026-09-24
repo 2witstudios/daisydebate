@@ -1,7 +1,12 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { ENVELOPE_VERSION, heartbeatMs } from '@daisy/protocol';
-import { createConnectionStore, type Scheduler } from './connection-store';
-import { harness, openAndReady } from './connection-store.test-support';
+import { createConnectionStore } from './connection-store';
+import {
+  FakeSocket,
+  createTimerQueue,
+  harness,
+  openAndReady,
+} from './connection-store.test-support';
 
 setupRitewayBun();
 
@@ -11,83 +16,31 @@ setupRitewayBun();
  * tab's chained timers to about once a minute (ADR 0031 §7). `now()` still
  * reports real elapsed time correctly whenever a callback actually runs.
  */
-function createThrottledScheduler(
-  throttleMs: number,
-): Scheduler & { advance(ms: number): void } {
-  let clock = 0;
-  let nextId = 1;
-  const timers = new Map<number, { at: number; cb: () => void }>();
-  return {
-    now: () => clock,
-    setTimeout(cb, ms) {
-      const id = nextId++;
-      const at = Math.ceil((clock + ms) / throttleMs) * throttleMs;
-      timers.set(id, { at, cb });
-      return id;
-    },
-    clearTimeout(id) {
-      timers.delete(id as number);
-    },
-    advance(ms: number) {
-      const target = clock + ms;
-      while (true) {
-        const due = [...timers.entries()]
-          .filter(([, t]) => t.at <= target)
-          .sort((a, b) => a[1].at - b[1].at)[0];
-        if (!due) break;
-        const [id, t] = due;
-        timers.delete(id);
-        clock = t.at;
-        t.cb();
-      }
-      clock = target;
-    },
-  };
-}
+const createThrottledScheduler = (throttleMs: number) =>
+  createTimerQueue(
+    (clock, ms) => Math.ceil((clock + ms) / throttleMs) * throttleMs,
+  );
 
-type Listener = (event: { type: string; [key: string]: unknown }) => void;
-
-/** A fake server that answers every `ping` with a `pong` at once. */
-class AlwaysPongSocket {
-  readyState = 0;
-  closedWith: { code?: number; reason?: string } | null = null;
-  private listeners: Record<string, Listener[]> = {};
-  addEventListener(type: string, listener: Listener) {
-    (this.listeners[type] ??= []).push(listener);
-  }
-  send(data: string) {
+/**
+ * A fake server that answers every `ping` with a `pong` at once. Extends
+ * the shared `FakeSocket` (connection-store.test-support.ts) rather than
+ * reimplementing the open/close/message/emit scaffolding: only `send`'s
+ * auto-pong behaviour is specific to this suite.
+ */
+class AlwaysPongSocket extends FakeSocket {
+  override send(data: string) {
     const message: unknown = JSON.parse(data);
     if (
       typeof message === 'object' &&
       message !== null &&
       Reflect.get(message, 'type') === 'ping'
     ) {
-      this.emit('message', {
-        type: 'message',
-        data: JSON.stringify({
-          v: ENVELOPE_VERSION,
-          type: 'pong',
-          id: Reflect.get(message, 'id'),
-        }),
+      this.message({
+        v: ENVELOPE_VERSION,
+        type: 'pong',
+        id: Reflect.get(message, 'id'),
       });
     }
-  }
-  close(code?: number, reason?: string) {
-    if (this.closedWith) return;
-    const resolvedCode = code ?? 1000;
-    this.closedWith = { code: resolvedCode, reason: reason ?? '' };
-    this.readyState = 3;
-    this.emit('close', { type: 'close', code: resolvedCode, reason: '' });
-  }
-  open() {
-    this.readyState = 1;
-    this.emit('open', { type: 'open' });
-  }
-  message(data: unknown) {
-    this.emit('message', { type: 'message', data: JSON.stringify(data) });
-  }
-  private emit(type: string, event: { type: string; [key: string]: unknown }) {
-    for (const listener of this.listeners[type] ?? []) listener(event);
   }
 }
 
