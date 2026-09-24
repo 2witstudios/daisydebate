@@ -164,4 +164,5 @@ schema)` cannot be declared without a zod schema; every write is parsed
   migration credential. The release command still reads `DATABASE_URL`;
   separating the two is tracked as its own issue.
 - `bun audit` no longer reports esbuild. The vitest and underscore
-  advisories remain (ISSUE-31).
+  advisories remain (ISSUE-31); ADR 0039 records them as dated, unreachable
+  exceptions.
