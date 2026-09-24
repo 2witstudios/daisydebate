@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { ENVELOPE_VERSION } from '@daisy/protocol';
+import { ENVELOPE_VERSION, heartbeatMs } from '@daisy/protocol';
 import { createConnectionStore, type Scheduler } from './connection-store';
 import { harness, openAndReady } from './connection-store.test-support';
 
@@ -190,6 +190,41 @@ describe('the earliest unanswered ping is never pushed back (RT-2.6a second-pass
       given: "the earliest ping's own deadline (30s after it was sent) reached",
       should: 'judge the socket dead despite the repeated visibility pings',
       actual: deadSocket.closedWith !== null,
+      expected: true,
+    });
+  });
+});
+
+describe('a pong only answers the ping with its own id (ADR 0031 §7, third-pass minor)', () => {
+  test("a stale duplicate pong for an earlier, already-answered ping never clears a newer ping's deadline", async () => {
+    const h = harness();
+    await openAndReady(h); // ready at t=0: ping-1 sent, tracked, deadline 30s out.
+    const socket = h.latestSocket();
+
+    h.scheduler.advance(heartbeatMs); // t=15s: still waiting on ping-1.
+    socket.message({ v: ENVELOPE_VERSION, type: 'pong', id: 'ping-1' }); // answered on time.
+    h.scheduler.advance(heartbeatMs); // t=30s: ping-1 was answered, so this tick sends ping-2.
+
+    // A stale, out-of-order duplicate of ping-1's pong arrives after ping-2
+    // is already the tracked ping. It must be ignored, not clear ping-2's
+    // still-live deadline (ping-2's real deadline is t=60s).
+    socket.message({ v: ENVELOPE_VERSION, type: 'pong', id: 'ping-1' });
+
+    h.scheduler.advance(heartbeatMs); // t=45s: ping-2 not yet overdue.
+    assert({
+      given:
+        'a stale duplicate pong for ping-1 arriving after ping-2 is tracked',
+      should: "not clear ping-2's deadline: not yet dead at 45s",
+      actual: socket.closedWith,
+      expected: null,
+    });
+
+    h.scheduler.advance(heartbeatMs); // t=60s: ping-2's own deadline.
+    assert({
+      given: "ping-2's own deadline (30s after it was sent) reached",
+      should:
+        'judge the socket dead exactly there, proving the stale pong changed nothing',
+      actual: socket.closedWith !== null,
       expected: true,
     });
   });
