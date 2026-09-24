@@ -1,14 +1,13 @@
+import { ticketSchema } from '@daisy/protocol';
+
 /**
  * The RT-2.4a route's contract: `POST /api/realtime/ticket` issues a
- * single-use, 43-character base64url ticket (ADR 0031 §11's shape,
- * mirrored here rather than imported since `@daisy/protocol` does not
- * export its internal `ticketSchema`). Same-origin, credentials included so
- * the session cookie authenticates the caller. `fetchImpl` is injected: RT-2.4a
- * is being built in parallel, so tests stub the fetch against this contract
- * rather than hitting a real route.
+ * single-use ticket in `@daisy/protocol`'s `ticketSchema` shape (ADR 0031
+ * §11). Same-origin, credentials included so the session cookie
+ * authenticates the caller. `fetchImpl` is injected: RT-2.4a is being built
+ * in parallel, so tests stub the fetch against this contract rather than
+ * hitting a real route.
  */
-const TICKET_PATTERN = /^[A-Za-z0-9_-]{43}$/;
-
 export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 
 export async function fetchRealtimeTicket({
@@ -28,8 +27,9 @@ export async function fetchRealtimeTicket({
     typeof body === 'object' && body !== null && 'ticket' in body
       ? Reflect.get(body, 'ticket')
       : undefined;
-  if (typeof ticket !== 'string' || !TICKET_PATTERN.test(ticket)) {
+  const result = ticketSchema.safeParse(ticket);
+  if (!result.success) {
     throw new Error('realtime ticket response was malformed');
   }
-  return ticket;
+  return result.data;
 }
