@@ -359,9 +359,7 @@ test.describe('with JavaScript off', () => {
   });
 });
 
-test('the topbar offers sign-in to a visitor, with nothing laid over its links', async ({
-  page,
-}) => {
+test('a visitor can reach the topbar logo and Sign in', async ({ page }) => {
   const topbar = await watchTopbarLinks(page, ['Daisy home', 'Sign in']);
   await page.goto('/');
   const signIn = page
