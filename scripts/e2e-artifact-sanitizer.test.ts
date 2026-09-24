@@ -47,6 +47,56 @@ describe('e2e artifact sanitizer', () => {
     });
   });
 
+  test('redacts a PEM private key, whatever its type (ISSUE-78)', () => {
+    const key = (type: string) =>
+      `-----BEGIN ${type}PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\nBKcwggSjAgEAAoIBAQC7\n-----END ${type}PRIVATE KEY-----`;
+    assert({
+      given:
+        'the TLS edge key (PKCS#8), an RSA and an EC key, and a certificate beside one',
+      should: 'redact every key block and leave the certificate',
+      actual: redactText(
+        [
+          key(''),
+          key('RSA '),
+          key('EC '),
+          '-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----',
+        ].join('\n'),
+      ),
+      expected: [
+        '[REDACTED PRIVATE KEY]',
+        '[REDACTED PRIVATE KEY]',
+        '[REDACTED PRIVATE KEY]',
+        '-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----',
+      ].join('\n'),
+    });
+  });
+
+  test('redacts a key.pem left in an artifact tree', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'daisy-e2e-sanitize-pem-'));
+    try {
+      mkdirSync(join(root, 'e2e-tls-3101'));
+      writeFileSync(
+        join(root, 'e2e-tls-3101', 'key.pem'),
+        '-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\n-----END PRIVATE KEY-----\n',
+      );
+      const result = sanitizeArtifactTree(root);
+      assert({
+        given: 'a run that left the TLS edge key under test-results',
+        should: 'publish no private key material',
+        actual: {
+          result,
+          key: await Bun.file(join(root, 'e2e-tls-3101', 'key.pem')).text(),
+        },
+        expected: {
+          result: { scanned: 1, redacted: 1 },
+          key: '[REDACTED PRIVATE KEY]\n',
+        },
+      });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   test('leaves ordinary text untouched', () => {
     assert({
       given: 'a line with none of the sensitive shapes',
