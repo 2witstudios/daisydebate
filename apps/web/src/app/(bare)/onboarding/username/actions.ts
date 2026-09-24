@@ -1,11 +1,11 @@
 'use server';
 
 import { headers } from 'next/headers';
-import { redirect, RedirectType } from 'next/navigation';
 import {
   passkeyOfferHref,
   returnDestination,
 } from '../../../../features/access/decision';
+import { moveOn } from '../../../../server/form-action';
 import { processRoute } from '../../../../server/process-app';
 import {
   submitClaim,
@@ -22,7 +22,8 @@ const claimRoute = processRoute((routes) => routes.username.POST);
  * handler in process with this request's headers, so the same-origin,
  * session, rate-limit and claim gates all apply. Every argument comes from
  * the browser: `next` is validated again and the form is read defensively.
- * A claimed (or already named) account moves on by redirect, never by a
+ * A claimed (or already named) account moves on (`moveOn`: a 303 without
+ * JavaScript, a destination the page navigates to with it), never by a
  * username in a URL.
  */
 export async function claimUsernameAction(
@@ -33,16 +34,18 @@ export async function claimUsernameAction(
   const destination = returnDestination(
     typeof next === 'string' ? next : undefined,
   );
-  const claim = createClaimUsername(
-    inProcessFetch(claimRoute, new Headers(await headers())),
-  );
+  const incoming = new Headers(await headers());
+  const claim = createClaimUsername(inProcessFetch(claimRoute, incoming));
   const result = await submitClaim(
     claim,
     form instanceof FormData ? form : new FormData(),
   );
-  if (result.kind === 'claimed')
-    redirect(passkeyOfferHref(destination), RedirectType.replace);
-  if (result.kind === 'already-set')
-    redirect(destination, RedirectType.replace);
-  return result.state;
+  if (result.kind === 'refused') return result.state;
+  return {
+    username: '',
+    ...moveOn(
+      incoming,
+      result.kind === 'claimed' ? passkeyOfferHref(destination) : destination,
+    ),
+  };
 }
