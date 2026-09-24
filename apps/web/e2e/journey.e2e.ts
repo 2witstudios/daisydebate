@@ -2,11 +2,13 @@ import { expect, test, type Page } from '@playwright/test';
 import {
   emailedLink,
   freshEmail,
+  origin,
   resetRateLimits,
   signUpMember,
   signUpProvisional,
   uniqueName,
 } from './support/accounts';
+import { effectsRan } from './support/hydration';
 
 // The whole sign-in journey in a real browser against the production build:
 // request a link on /sign-in, open the emailed link, get a session, pick a
@@ -290,16 +292,79 @@ test('a fresh session makes no refresh call, and neither does a visitor', async 
     if (new URL(request.url()).pathname === '/api/auth/get-session')
       calls.push(request.url());
   });
+  // A refresh is made from a mount effect, so each page is checked once its
+  // effects have run, not once the network (avatars included) goes idle.
   await page.goto('/');
-  await page.waitForLoadState('networkidle');
+  await effectsRan(page);
   await signUpMember(page.request);
   await page.goto('/');
-  await page.waitForLoadState('networkidle');
+  await effectsRan(page);
   await page.goto('/lobby');
-  await page.waitForLoadState('networkidle');
+  await effectsRan(page);
   // A refresh is due only a day after the last extension, so a browser
   // spends the rate-limited endpoint about once a day, not per page load.
   expect(calls).toEqual([]);
+});
+
+test('a claim made with JavaScript moves on without the server fetching the next page', async ({
+  page,
+}) => {
+  await signUpProvisional(page.request);
+  await page.goto('/onboarding/username?next=%2Flobby');
+  await effectsRan(page);
+  const answered = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.request().headers()['next-action'] !== undefined,
+  );
+  await claimUsername(page, uniqueName('scripted'));
+  // A redirect() here makes Next fetch the next page from the public origin
+  // with the browser's cookies (ISSUE-80); it announces it with this header.
+  expect((await answered).headers()['x-action-redirect']).toBeUndefined();
+  await expect(
+    page.getByRole('heading', { name: /next time, one tap/i }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/\/onboarding\/passkey\?next=(\/|%2F)lobby$/);
+});
+
+test('a new claim hides the last refusal while it is pending', async ({
+  page,
+  playwright,
+}) => {
+  const other = await playwright.request.newContext({
+    baseURL: origin,
+    ignoreHTTPSErrors: true,
+  });
+  const { username: taken } = await signUpMember(other);
+  await other.dispose();
+  await signUpProvisional(page.request);
+  await page.goto('/onboarding/username?next=%2Flobby');
+  await effectsRan(page);
+  await claimUsername(page, taken);
+  const notice = page.locator('#username-notice');
+  await expect(notice).toContainText('already taken');
+
+  // Hold the next claim's POST until the pending screen has been checked:
+  // nothing waits on a timer.
+  let release = () => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route('**/onboarding/username**', async (route) => {
+    if (route.request().method() === 'POST') await held;
+    await route.continue();
+  });
+  await claimUsername(page, uniqueName('pending'));
+  await expect(page.getByRole('button', { name: /saving/i })).toBeVisible();
+  await expect(page.getByText(/already taken/)).toHaveCount(0);
+  await expect(page.getByLabel('Username')).not.toHaveAttribute(
+    'aria-invalid',
+    'true',
+  );
+  release();
+  await expect(
+    page.getByRole('heading', { name: /next time, one tap/i }),
+  ).toBeVisible();
 });
 
 /**
