@@ -33,7 +33,7 @@ export const memoryTables = () => ({
  * the unit suites; the real transaction is proven against PostgreSQL in
  * `integration/auth-email-change-old-address-links.integration.ts`.
  */
-export const memoryEmailChange =
+const memoryEmailChange =
   (tables: ReturnType<typeof memoryTables>): CompleteEmailChange =>
   async ({ userId, email, newEmail, signInPurpose }) => {
     const user = tables.user.find(
