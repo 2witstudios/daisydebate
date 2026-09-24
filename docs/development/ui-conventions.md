@@ -37,6 +37,13 @@ JavaScript only enhances it.
   `apps/web/next.config.ts`, ISSUE-79). Next reads and decodes the body
   before the action's own gates run, so a form that needs more (a file
   upload) needs its own route and a recorded decision, not a higher cap.
+- A form's action state comes from `useFormAction`
+  (`apps/web/src/ui/form-action/form-action.ts`), not a bare
+  `useActionState`. With JavaScript on, the action is a fetch the page makes.
+  If that fetch fails in transport (a dropped connection), the form answers
+  its own unavailable state with the typed value kept, never the root error
+  screen (ISSUE-94). The server render keeps the server action itself,
+  because React renders the no-JavaScript POST only from a server action.
 - JavaScript may add a local check before posting (`onSubmit` calling
   `preventDefault()` for a value that cannot be valid), pending states and
   focus handling. React runs the action only when `onSubmit` did not
