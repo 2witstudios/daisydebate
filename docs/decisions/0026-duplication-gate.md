@@ -26,18 +26,16 @@ against the whole tree, and the scan is cheap enough to run on every push.
   "no Rust" foundation rule governs first-party code, not vendored tool
   binaries.
 - **Scope** (`.jscpd.json`). First-party TypeScript, TSX, JavaScript, JSX and
-  CSS under `apps/*/src`, `apps/*/integration`, `packages/*/src`,
-  `packages/*/scripts`, `scripts` and `scenarios`. The integration root is
-  scanned for its non-test helpers (`auth-helpers.ts`); the
-  `*.integration.ts` suites in it stay ignored like every other test. Root
+  CSS under `apps/*/src`, `packages/*/src`, `packages/*/scripts`, `scripts`
+  and `scenarios`. All of `apps/*/integration`, suites and helpers alike, is
+  test code and belongs to the tests scan below. Root
   and package config files (`eslint.config.mjs`, `next.config.ts`,
   `playwright.config.ts`, `drizzle.config.ts`) are deliberately out of scope:
   they are declarative, one per tool, and have nothing to consolidate into.
   `scripts/duplication-config.test.ts` fails when any scan root stops matching
   tracked, scannable, non-ignored source, because `failOnEmpty` only fires
   when the whole scan is empty. Ignored:
-  test suites and test support (`*.test.ts(x)`, `*.integration.ts`,
-  `*.e2e.ts`, `*.test-support.ts`, `test-support/`), generated output
+  test suites and test support (`*.test.ts(x)`, `*.e2e.ts`, `*.test-support.ts`, `test-support/`), generated output
   (`.next`, `.turbo`, `node_modules`, migrations `meta/`), and the throwaway
   fixtures in `apps/web/src/ui/mock/`. jscpd's JSON config cannot carry
   comments, so this record is where each ignore is justified.
@@ -89,7 +87,7 @@ config, `.jscpd-tests.json`, against its own `.jscpd-tests-baseline.json`;
 hook enforce both. Its scan roots name test files explicitly: unit suites
 and `*.test-support.ts` under `apps/*/src`, `packages/*/src` and `scripts`,
 `test-support/` folders, the `*.integration.ts` suites, all of
-`packages/*/integration` and `apps/web/e2e` (specs and support), and
+`apps/*/integration` and `packages/*/integration`, and `apps/web/e2e` (specs and support), and
 `eslint.config.test.ts`. The same sensitivity, ratchet and exception rules
 apply, and `scripts/duplication-config.test.ts` guards both configs' scan
 roots. The source config's test ignores stay, so no file is counted twice.
@@ -100,11 +98,14 @@ gate was switched on. ISSUE-11 consolidated them into shared fixtures (the
 web integration `fixtures.ts` and flows, the auth unit
 `auth-server.test-support.ts`, the redis `withRedis`, the engine
 `runtime.test-support.ts`, the protocol `parseOutcome`, the e2e sign-in
-helpers) and left 11 in the baseline. ISSUE-8 part 2 then removed the nine retention-sweep clones, leaving three, each in the row below.
+helpers) and left 11 in the baseline. ISSUE-8 part 2 then removed the nine retention-sweep clones, and moving
+all of `apps/*/integration` into this scan dropped the stale debate pair,
+leaving two, each in a row below.
 
-| Date       | Clone                                                                                                                                                                                                                                                                                                                                               | Reason                                                                                                                                                                                                                                                                                                                                                                                     |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 2026-09-23 | `apps/web/integration/auth-email-change.integration.ts` ↔ `auth-session-management.integration.ts` (preamble); `packages/redis/integration/presence-expiry.integration.ts` ↔ `presence.integration.ts` (preamble); `packages/db/integration/debate-clock.integration.ts` ↔ `debate-participants.integration.ts` (preamble and `seatedDebate` setup) | Each suite imports and calls `requireTestServices` at load, which `bun evidence` requires, then builds its own flows or Redis fixture: two suites on one subject share that preamble token for token. Both are what remains of larger clones between the same files on adoption, shrunk by this consolidation; the redis pair was split for the line limit and cannot merge back under it. |
+| Date       | Clone                                                                                                         | Reason                                                                                                                                                                                   |
+| ---------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-23 | `apps/web/integration/auth-email-change.integration.ts` ↔ `auth-session-management.integration.ts` (preamble) | Both suites import and call `requireTestServices` at load, which `bun evidence` requires, then build the same passkey flows; the shared part is that required preamble.                  |
+| 2026-09-23 | `packages/redis/integration/presence-expiry.integration.ts` ↔ `presence.integration.ts` (preamble)            | Both suites import and call `requireTestServices` at load, which `bun evidence` requires, then import the same presence helpers; the expiry suite was split out for the file line limit. |
 
 ## Consequences
 
