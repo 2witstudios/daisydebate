@@ -4,6 +4,8 @@ version: 2
 # Bun upgrades manually with `bun outdated` / `bun audit` until Dependabot
 # supports the current lockfile format.
 updates:
+  # Workflows pin actions to full commit SHAs with a trailing version
+  # comment (ADR 0040); Dependabot updates the SHA and the comment together.
   - package-ecosystem: github-actions
     directory: /
     schedule:

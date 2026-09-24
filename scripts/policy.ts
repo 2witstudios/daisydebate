@@ -10,6 +10,7 @@ import * as ts from 'typescript';
 import { auditPolicyProblems } from './audit';
 import { numberCollisionProblems } from './number-claims';
 import { reviewDateStatus, utcToday } from './review-date';
+import { collectWorkflowHardeningProblems } from './workflow-hardening';
 
 const root = resolve(import.meta.dir, '..');
 const registryPath = join(root, 'policy/exceptions.json');
@@ -381,6 +382,7 @@ export async function collectPolicy(): Promise<PolicyReport> {
     ...validateMigrationBaselines(baselinesRegistry, { knownPaths }),
     ...duplicateAdrNumberProblems(knownPaths),
     ...numberCollisionProblems(),
+    ...collectWorkflowHardeningProblems(root),
   ];
   const exceptions = new Set(
     (registry.exceptions ?? []).map(({ path, rule }) => `${path}|${rule}`),
