@@ -31,6 +31,11 @@ const refused = (
   notice: UsernameNotice,
 ): ClaimSubmission => ({ kind: 'refused', state: { username, notice } });
 
+const postedUsername = (form: FormData): string => {
+  const field = form.get('username');
+  return typeof field === 'string' ? field : '';
+};
+
 /**
  * One posted username form, claimed through `claim`. The form is untrusted:
  * a missing or non-text field is an empty name, and a malformed name is
@@ -41,8 +46,7 @@ export async function submitClaim(
   claim: ClaimUsername,
   form: FormData,
 ): Promise<ClaimSubmission> {
-  const field = form.get('username');
-  const username = typeof field === 'string' ? field : '';
+  const username = postedUsername(form);
   if (refusesShape(username)) return refused(username, 'invalid');
   let outcome: Awaited<ReturnType<ClaimUsername>>;
   try {
@@ -54,6 +58,15 @@ export async function submitClaim(
     return { kind: outcome.kind };
   return refused(username, outcome.kind);
 }
+
+/**
+ * A posted form whose claim never reached the server, because the
+ * browser's call to the action failed in transport.
+ */
+export const claimUnavailable = (form: FormData): UsernameFormState => ({
+  username: postedUsername(form),
+  notice: 'unavailable',
+});
 
 /**
  * What the browser adds to the server's answer: its own refusal of a

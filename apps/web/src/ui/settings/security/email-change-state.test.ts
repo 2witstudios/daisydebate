@@ -1,6 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { SecurityOutcome } from '../../../features/account/security-client';
-import { emailChangeNotice, submitEmailChange } from './email-change-state';
+import {
+  emailChangeNotice,
+  emailChangeUnavailable,
+  submitEmailChange,
+} from './email-change-state';
 
 setupRitewayBun();
 
@@ -67,6 +71,25 @@ describe('emailChangeNotice', () => {
             'Check the inbox for the address currently on file to approve this change.',
         },
         { tone: 'error', title: 'That email is already in use.' },
+      ],
+    });
+  });
+});
+
+describe('emailChangeUnavailable', () => {
+  test('answers unavailable for the posted address', () => {
+    const typed = new FormData();
+    typed.set('newEmail', ' ada@example.test ');
+    const file = new FormData();
+    file.set('newEmail', new Blob(['x']));
+    assert({
+      given: 'a posted form whose change never reached the server',
+      should:
+        'answer unavailable with the trimmed address, or an empty one for a file',
+      actual: [emailChangeUnavailable(typed), emailChangeUnavailable(file)],
+      expected: [
+        { newEmail: 'ada@example.test', outcome: 'unavailable' },
+        { newEmail: '', outcome: 'unavailable' },
       ],
     });
   });

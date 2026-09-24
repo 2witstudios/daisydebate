@@ -9,6 +9,7 @@ type Env = Readonly<Record<string, string | undefined>>;
 export const AUTH_JOURNEY_SPECS = [
   '**/journey.e2e.ts',
   '**/onboarding.e2e.ts',
+  '**/form-transport.e2e.ts',
   '**/passkey-lifecycle.e2e.ts',
   '**/accessibility.e2e.ts',
   '**/auth-routes.e2e.ts',

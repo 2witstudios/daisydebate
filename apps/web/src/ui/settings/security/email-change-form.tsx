@@ -1,10 +1,11 @@
 'use client';
 
-import { useActionState } from 'react';
 import { Button } from '../../components/button/button';
 import { Notice } from '../../auth/notice/notice';
+import { useFormAction } from '../../form-action/form-action';
 import {
   emailChangeNotice,
+  emailChangeUnavailable,
   initialEmailChange,
   type EmailChangeState,
 } from './email-change-state';
@@ -19,14 +20,19 @@ export type EmailChangeAction = (
  * Starting an email change. The form posts to `action`, a server action, so
  * a submission before hydration or without JavaScript is the same POST and
  * the page renders its answer. JavaScript only adds the pending state, which
- * also hides the previous answer while a new one is on its way.
+ * also hides the previous answer while a new one is on its way, and the
+ * unavailable notice when the post never reaches the server.
  */
 export function EmailChangeForm({
   action,
 }: {
   readonly action: EmailChangeAction;
 }) {
-  const [answered, post, pending] = useActionState(action, initialEmailChange);
+  const [answered, post, pending] = useFormAction(
+    action,
+    initialEmailChange,
+    emailChangeUnavailable,
+  );
   const notice = pending ? undefined : emailChangeNotice(answered);
   return (
     <form action={post} className="flex flex-col items-start gap-3">

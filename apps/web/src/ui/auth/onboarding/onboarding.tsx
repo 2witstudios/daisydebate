@@ -1,8 +1,10 @@
 'use client';
 
-import { useActionState, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useFormAction } from '../../form-action/form-action';
 import {
+  claimUnavailable,
   initialUsernameForm,
   refusesShape,
   shownNotice,
@@ -31,7 +33,11 @@ export function Onboarding({
   readonly claim: ClaimAction;
   readonly signInHref: string;
 }) {
-  const [answered, post, posting] = useActionState(claim, initialUsernameForm);
+  const [answered, post, posting] = useFormAction(
+    claim,
+    initialUsernameForm,
+    claimUnavailable,
+  );
   const [local, setLocal] = useState<LocalNotice>(undefined);
   const router = useRouter();
   useEffect(() => {

@@ -60,6 +60,11 @@ export const createRequestLink =
     return response.ok ? { kind: 'sent' } : refusal(response);
   };
 
+const postedEmail = (form: FormData): string => {
+  const field = form.get('email');
+  return typeof field === 'string' ? field.trim() : '';
+};
+
 /**
  * One posted sign-in form. The form is untrusted: a missing or non-text
  * field is an empty address, which the route refuses. A request that throws
@@ -69,8 +74,7 @@ export async function submitLinkRequest(
   requestLink: RequestLink,
   form: FormData,
 ): Promise<LinkFormState> {
-  const field = form.get('email');
-  const email = typeof field === 'string' ? field.trim() : '';
+  const email = postedEmail(form);
   let outcome: LinkRequestOutcome;
   try {
     outcome = await requestLink(email);
@@ -79,6 +83,15 @@ export async function submitLinkRequest(
   }
   return { email, outcome };
 }
+
+/**
+ * A posted form whose request never reached the server, because the
+ * browser's call to the action failed in transport.
+ */
+export const linkUnavailable = (form: FormData): LinkFormState => ({
+  email: postedEmail(form),
+  outcome: UNAVAILABLE,
+});
 
 /**
  * The state a page render starts from: where the last posted form ended,
