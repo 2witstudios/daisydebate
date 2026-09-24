@@ -327,3 +327,14 @@ The token can only deploy this one app; rotate it by re-running the two
 commands. Production is never deployed by this workflow (AUTH-7.2/7.3 are
 human-gated). Verify: the "Deploy staging" run is green after a main merge
 and `/api/health/ready` answers at the staging hostname.
+
+A failed deploy posts to the drive's Incidents channel, the same way
+`ci.yml` reports CI failures. The workflow's `notify-drive` job runs when
+the gate job or the deploy job fails and calls `scripts/notify-drive.ts
+incidents --deploy daisy-debate-staging`. The message names the app, the
+first failing step (`<job>.<step id>`, for example `deploy.readiness`), the
+commit and the run URL. It never carries flyctl output, secrets or
+database URLs. The job holds only the Incidents webhook URL and secret
+(`PAGESPACE_INCIDENTS_WEBHOOK_URL`, `PAGESPACE_INCIDENTS_WEBHOOK_SECRET`,
+the repository secrets `ci.yml` already uses), scoped to the step that
+posts.

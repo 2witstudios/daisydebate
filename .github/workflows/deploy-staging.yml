@@ -34,11 +34,18 @@ jobs:
       actions: read
     outputs:
       deploy: ${{ steps.decide.outputs.deploy }}
+      # Read by notify-drive below to name the failing step.
+      outcomes: >-
+        ready.checkout=${{ steps.checkout.outcome }}
+        ready.setup-bun=${{ steps.setup-bun.outcome }}
+        ready.decide=${{ steps.decide.outcome }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - id: setup-bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: '1.4.2'
       - id: decide
@@ -62,13 +69,23 @@ jobs:
       # the deployed source and its stamped version can never diverge
       # (GITHUB_SHA is the default-branch tip at run time, not this commit).
       DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+    outputs:
+      # Read by notify-drive below to name the failing step.
+      outcomes: >-
+        deploy.checkout=${{ steps.checkout.outcome }}
+        deploy.setup-flyctl=${{ steps.setup-flyctl.outcome }}
+        deploy.deploy=${{ steps.deploy.outcome }}
+        deploy.readiness=${{ steps.readiness.outcome }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.DEPLOY_SHA }}
           persist-credentials: false
-      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # 1.6
-      - name: Deploy
+      - id: setup-flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # 1.6
+      - id: deploy
+        name: Deploy
         # The deploy token is scoped to this one step, not the job, so the
         # checkout and setup actions never see it.
         env:
@@ -77,7 +94,8 @@ jobs:
           flyctl deploy -a daisy-debate-staging --remote-only --ha=false
           --build-arg APP_VERSION="${DEPLOY_SHA::7}"
           --build-arg GIT_COMMIT="$DEPLOY_SHA"
-      - name: Verify readiness
+      - id: readiness
+        name: Verify readiness
         run: |
           for attempt in 1 2 3 4 5 6; do
             if curl -fsS --max-time 20 https://daisy-debate-staging.fly.dev/api/health/ready; then
@@ -87,3 +105,36 @@ jobs:
           done
           echo "staging did not become ready" >&2
           exit 1
+
+  # Staging failures reach the drive's Incidents channel as ci.yml's do, not
+  # only Fly's own email. The message carries the app, the failing step
+  # (from the outcomes above), the commit and the run URL; this job holds
+  # no deploy or database credential, only the Incidents webhook, on the one
+  # step that posts. It checks out the trusted default branch, never the
+  # deployed commit, and runs even when the deploy job's checkout failed.
+  notify-drive:
+    name: Report a failed deploy to drive Incidents
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    needs: [ready, deploy]
+    if: failure()
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: '1.4.2'
+      - name: Post the failure to the Incidents channel
+        env:
+          PAGESPACE_INCIDENTS_WEBHOOK_URL: ${{ secrets.PAGESPACE_INCIDENTS_WEBHOOK_URL }}
+          PAGESPACE_INCIDENTS_WEBHOOK_SECRET: ${{ secrets.PAGESPACE_INCIDENTS_WEBHOOK_SECRET }}
+          NOTIFY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+          NOTIFY_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          NOTIFY_OUTCOMES: ${{ needs.ready.outputs.outcomes }} ${{ needs.deploy.outputs.outcomes }}
+        run: >-
+          bun scripts/notify-drive.ts incidents
+          --deploy daisy-debate-staging
+          --sha "$NOTIFY_SHA"
+          --run-url "$NOTIFY_RUN_URL"
+          --outcomes "$NOTIFY_OUTCOMES"
