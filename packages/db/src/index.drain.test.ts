@@ -28,7 +28,7 @@ describe('RT-2.3b drain surface on createDatabase()', () => {
 
     await expect(
       database.drainOutbox({ txid: '0', seq: 0n }, 10),
-    ).rejects.toThrow();
+    ).rejects.toThrow('Failed query');
 
     assert({
       given: 'a drainOutbox query that fails',

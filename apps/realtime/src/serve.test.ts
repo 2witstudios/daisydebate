@@ -1,20 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { OUTBOX_ORIGIN, type OutboxPosition, type OutboxRow } from '@daisy/db';
-import type { Logger } from '@daisy/logger';
 import { serveRealtime } from './serve';
 import type { RealtimeApp } from './app';
+import { deferred, noopLogger } from './outbox-drain.test-support';
 
 setupRitewayBun();
-
-const noopLogger: Logger = { log: () => {}, child: () => noopLogger };
-
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((resolveFn) => {
-    resolve = resolveFn;
-  });
-  return { promise, resolve };
-}
 
 /**
  * A minimal `RealtimeApp` stand-in: only the fields `serveRealtime` and

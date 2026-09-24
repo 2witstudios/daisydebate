@@ -1,55 +1,26 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { OUTBOX_ORIGIN, type OutboxPosition, type OutboxRow } from '@daisy/db';
-import type { Logger } from '@daisy/logger';
+import { startOutboxDrain, type IntervalTimers } from './outbox-drain';
 import {
-  createOutboxDrainLoop,
-  startOutboxDrain,
-  type IntervalTimers,
-} from './outbox-drain';
+  buildTestLoop,
+  deferred,
+  fakeRow,
+  flush,
+  noopLogger,
+} from './outbox-drain.test-support';
 
 setupRitewayBun();
-
-const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
-
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((resolveFn) => {
-    resolve = resolveFn;
-  });
-  return { promise, resolve };
-}
-
-const noopLogger: Logger = { log: () => {}, child: () => noopLogger };
-
-const fakeRow = (seq: bigint): OutboxRow => ({
-  txid: '1',
-  seq,
-  topic: 'debate:fake',
-  kind: 'debate.phase-changed',
-  version: 1,
-  payload: { entityVersion: 1, kind: 'debate.phase-changed', ids: ['fake'] },
-  createdAt: '2026-09-23T00:00:00.000Z',
-});
 
 describe('createOutboxDrainLoop coalescing (ADR 0032 §3)', () => {
   test('wakeups that arrive while a pass is in flight only re-arm the dirty flag, never spawning a second query mid-pass', async () => {
     let queryCount = 0;
     const pending: Array<{ resolve: (rows: readonly OutboxRow[]) => void }> =
       [];
-    const drainOutbox = async (): Promise<readonly OutboxRow[]> => {
+    const { loop } = buildTestLoop(async () => {
       queryCount += 1;
       const d = deferred<readonly OutboxRow[]>();
       pending.push(d);
       return d.promise;
-    };
-    const delivered: (readonly OutboxRow[])[] = [];
-    const loop = createOutboxDrainLoop({
-      drainOutbox,
-      sink: (rows) => {
-        delivered.push(rows);
-      },
-      initialCursor: OUTBOX_ORIGIN,
-      logger: noopLogger,
     });
 
     loop.wake();
@@ -90,15 +61,9 @@ describe('createOutboxDrainLoop coalescing (ADR 0032 §3)', () => {
 
   test('poll runs a pass even when nothing is dirty, since the poll is the correctness mechanism', async () => {
     let queryCount = 0;
-    const drainOutbox = async (): Promise<readonly OutboxRow[]> => {
+    const { loop } = buildTestLoop(async () => {
       queryCount += 1;
       return [];
-    };
-    const loop = createOutboxDrainLoop({
-      drainOutbox,
-      sink: () => {},
-      initialCursor: OUTBOX_ORIGIN,
-      logger: noopLogger,
     });
 
     loop.poll();
@@ -119,21 +84,10 @@ describe('createOutboxDrainLoop coalescing (ADR 0032 §3)', () => {
       { length: 500 },
       (_, i) => fakeRow(BigInt(i + 1)),
     );
-    const drainOutbox = async (
-      cursor: OutboxPosition,
-    ): Promise<readonly OutboxRow[]> => {
+    const { loop, delivered } = buildTestLoop(async (cursor) => {
       queryCount += 1;
       calls.push(cursor);
       return queryCount === 1 ? fullRange : [];
-    };
-    const delivered: (readonly OutboxRow[])[] = [];
-    const loop = createOutboxDrainLoop({
-      drainOutbox,
-      sink: (rows) => {
-        delivered.push(rows);
-      },
-      initialCursor: OUTBOX_ORIGIN,
-      logger: noopLogger,
     });
 
     loop.wake();

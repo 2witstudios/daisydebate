@@ -11,6 +11,7 @@ import {
   drainOutbox,
 } from '../src/outbox';
 import { requireTestServices } from '@daisy/config';
+import { openOutOfOrderTransactions } from './two-transaction-race.test-support';
 
 setupRitewayBun();
 
@@ -132,25 +133,10 @@ test('a committed transaction delivers its outbox row with a txid, a NOTIFY and 
 });
 
 test('two transactions that commit out of seq order never let the drain skip a row', async () => {
-  const connA = new SQL(url, { max: 1 });
-  const connB = new SQL(url, { max: 1 });
-  const connC = new SQL(url, { max: 1 });
-  const drizzleC = drizzle({ client: connC });
   const topic = `debate:${createId()}`;
+  const { connA, connB, connC, drizzleC, rowA, rowB } =
+    await openOutOfOrderTransactions(url, topic);
   try {
-    await connA.unsafe('BEGIN');
-    const [rowA] = await connA.unsafe(
-      "insert into outbox (topic, kind, version, payload) values ($1, 'test.a', 1, '{}'::jsonb) returning seq, txid",
-      [topic],
-    );
-
-    await connB.unsafe('BEGIN');
-    const [rowB] = await connB.unsafe(
-      "insert into outbox (topic, kind, version, payload) values ($1, 'test.b', 1, '{}'::jsonb) returning seq, txid",
-      [topic],
-    );
-    await connB.unsafe('COMMIT');
-
     // A is still open, so its txid still holds back the snapshot xmin: the
     // drain must show neither row yet, not even B's, which already committed.
     const midDrain = await drainOutbox(drizzleC, OUTBOX_ORIGIN, 500);

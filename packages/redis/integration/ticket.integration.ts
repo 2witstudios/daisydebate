@@ -1,10 +1,11 @@
 import { expect, test } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
 import { createHash } from 'node:crypto';
+import { requireTestServices } from '@daisy/config';
 import { createRedis, redisKey } from '../src';
 import { rawClient } from './test-support';
-const url = process.env.TEST_REDIS_URL;
-if (!url) throw new Error('TEST_REDIS_URL required');
+
+const { redisUrl: url } = requireTestServices(process.env);
 
 const sha3 = (value: string) =>
   createHash('sha3-256').update(value).digest('hex');

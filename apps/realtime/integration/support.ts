@@ -5,7 +5,9 @@ import { createRealtimeApp } from '../src/app';
 import { serveRealtime } from '../src/serve';
 import type { OutboxRowsSink } from '../src/outbox-drain';
 
-export const { databaseUrl, redisUrl } = requireTestServices(process.env);
+const testServices = requireTestServices(process.env);
+export const databaseUrl = testServices.databaseUrl;
+const redisUrl = testServices.redisUrl;
 
 /**
  * A real Bun.serve server on this test's own realtime app (its own env and

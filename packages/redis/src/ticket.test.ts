@@ -37,17 +37,17 @@ describe('issueConnectTicket', () => {
     const { redis, commands } = createTestRedis();
     await expect(
       redis.issueConnectTicket('not-a-hash', binding, 60),
-    ).rejects.toThrow();
+    ).rejects.toThrow('Invalid ticket hash');
     await expect(
       redis.issueConnectTicket(
         ticketHash,
         { ...binding, actorId: 'short' },
         60,
       ),
-    ).rejects.toThrow();
+    ).rejects.toThrow('Invalid ticket binding');
     await expect(
       redis.issueConnectTicket(ticketHash, binding, 0),
-    ).rejects.toThrow();
+    ).rejects.toThrow('TTL must be a positive integer');
     assert({
       given: 'an invalid hash, binding or TTL',
       should: 'issue no Redis command',
@@ -134,8 +134,10 @@ describe('consumeConnectTicket', () => {
     const { redis, commands } = createTestRedis();
     await expect(
       redis.consumeConnectTicket('not-a-hash', origin),
-    ).rejects.toThrow();
-    await expect(redis.consumeConnectTicket(ticketHash, '')).rejects.toThrow();
+    ).rejects.toThrow('Invalid ticket hash');
+    await expect(redis.consumeConnectTicket(ticketHash, '')).rejects.toThrow(
+      'Invalid expected origin',
+    );
     assert({
       given: 'an invalid hash or empty expected origin',
       should: 'issue no Redis command',

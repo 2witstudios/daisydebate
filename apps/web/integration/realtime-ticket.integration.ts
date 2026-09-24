@@ -1,12 +1,12 @@
 import { createHash } from 'node:crypto';
 import { RedisClient } from 'bun';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { requireTestServices } from '@daisy/config';
 import { ticketSchema } from '@daisy/protocol';
 import { createAccountFlows, uniqueName } from './auth-account-helpers';
 import { origin, testRedisUrl, withSql } from './fixtures';
 
-if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
-  throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
+requireTestServices(process.env);
 setupRitewayBun();
 
 const { flows, signUp, claim } = createAccountFlows();
