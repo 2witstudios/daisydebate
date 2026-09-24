@@ -34,9 +34,9 @@ describe('ECS adapter contract', () => {
     restored.dispose();
     await assertRejects({
       given: 'a disposed runtime',
-      should: 'refuse to read its snapshot',
+      should: 'refuse to read its snapshot as a programming error',
       actual: () => world.snapshot(),
-      code: 'INVARIANT',
+      code: 'INTERNAL',
     });
   });
 
@@ -47,6 +47,7 @@ describe('ECS adapter contract', () => {
       should: 'refuse because the participant must join first',
       actual: () => world.markReady(id),
       code: 'INVARIANT',
+      invariantId: 'debate.participant.ready.requires-join',
     });
     await assertRejects({
       given: 'an empty debate asked to start',
