@@ -63,7 +63,13 @@ test('opens exactly one socket per tab even when many components mount, and the 
   await page.addScriptTag({ content: harnessScript });
   await page.evaluate(stubTicketFetchAndCountingSocket);
 
-  await page.evaluate((url) => {
+  // The three connect() calls and the count read happen inside one
+  // page.evaluate: createSocket runs synchronously inside connect(), so the
+  // count is exactly 1 here, before any event (including the jittered
+  // reconnect that follows the real 4001 close below) can run. Polling for
+  // this count separately raced that reconnect: the whole test can finish
+  // in under a second, so a poll's first read can already see socket 3.
+  const socketCountAfterMount = await page.evaluate((url) => {
     const store = window.__daisyRealtimeHarness(url);
     (window as unknown as { __rtStore: unknown }).__rtStore = store;
 
@@ -72,15 +78,10 @@ test('opens exactly one socket per tab even when many components mount, and the 
     store.connect();
     store.connect();
     store.connect();
-  }, socketUrl);
 
-  await expect
-    .poll(() =>
-      page.evaluate(
-        () => (window as unknown as { __socketCount?: number }).__socketCount,
-      ),
-    )
-    .toBe(1);
+    return (window as unknown as { __socketCount?: number }).__socketCount;
+  }, socketUrl);
+  expect(socketCountAfterMount).toBe(1);
 
   // The real scaffold rejects every hello with 4001 auth_failed today
   // (ticket consumption is RT-2.4b). The store's documented reaction is to
