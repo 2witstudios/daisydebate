@@ -9,7 +9,8 @@ setupRitewayBun();
 
 const actions: SignInActions = {
   typeEmail: () => {},
-  requestLink: () => {},
+  postLink: () => {},
+  requestLink: () => true,
   signInWithPasskey: () => {},
   resend: () => {},
   changeEmail: () => {},
@@ -39,10 +40,11 @@ describe('renderSignInFlow', () => {
         element.type === SignInForm,
         element.props['email'],
         element.props['notice'],
+        element.props['action'] === actions.postLink,
         element.props['requestLink'] === actions.requestLink,
         element.props['signInWithPasskey'] === actions.signInWithPasskey,
       ],
-      expected: [true, 'j@school.edu', 'rate-limited', true, true],
+      expected: [true, 'j@school.edu', 'rate-limited', true, true, true],
     });
   });
 

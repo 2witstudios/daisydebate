@@ -42,8 +42,10 @@ Direct single-agent work may proceed without `pu`.
    put application operations there; otherwise create the feature folder —
    not a global `lib/` or `components/`.
 2. Page: colocate `page.tsx` under `src/app/<route>/`; export `metadata`;
-   use the App Router boundaries (`loading.tsx`, `error.tsx`,
-   `not-found.tsx`) rather than bespoke spinners.
+   use the App Router boundaries (`error.tsx`, `not-found.tsx`) rather than
+   bespoke error screens. A `loading.tsx` streams its page into a node only
+   script reveals, so never put one above a page with a form
+   (`docs/development/ui-conventions.md`).
 3. API route: thin handler in `src/app/api/…` — resolve principal, call the
    feature operation through `handleOperation` (correlation, structured
    logging, error mapping), validate untrusted input with

@@ -10,6 +10,15 @@ const config: NextConfig = {
     '@daisy/observability',
     '@daisy/config',
   ],
+  experimental: {
+    serverActions: {
+      // Form actions carry a few short fields (the username claim's own
+      // route reads at most 4 KiB). Next reads and decodes the whole body
+      // before an action's session and rate-limit gates run, so anything
+      // larger is refused unread instead of at the 1 MB default (ISSUE-79).
+      bodySizeLimit: '16kb',
+    },
+  },
   transpilePackages: [
     '@daisy/debate-engine',
     '@daisy/protocol',

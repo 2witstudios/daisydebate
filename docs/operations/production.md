@@ -52,6 +52,23 @@ Next build, serves requests over a custom HTTP server, and owns lifecycle:
    Multi-instance safety relies on PostgreSQL for truth and Redis for
    coordination; sticky sessions are not part of any design.
 
+## Form actions and the public edge
+
+Forms post to Next server actions (`docs/development/ui-conventions.md`).
+Each action body is capped at 16 KiB before any action code runs. No action
+calls `redirect()` when the page's script calls it: Next 16 would then fetch
+the next page from the request's own public origin, through the edge, with
+the browser's cookies forwarded (ISSUE-80). Actions answer those calls with
+the destination instead, so the app makes no server-to-self request, and a
+form posted without JavaScript gets a plain 303.
+
+Whether the production edge accepts a server-to-self request carrying a
+session cookie has not been checked: no production deploy exists yet, and
+nothing relies on it. The browser suite's edge refuses it (its certificate
+is self-signed), which is how ISSUE-80 was found. If an action ever needs
+`redirect()` on the scripted path, check the deployed edge first and record
+the result here.
+
 ## Concurrency contract for mutations
 
 Every competitive mutation (join, ready, ballot, complete, rating update)

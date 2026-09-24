@@ -1,5 +1,7 @@
 import { RedisClient } from 'bun';
-import { mkdirSync, readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { systemClock, systemId } from '@daisy/clock';
 import { createApp } from '../../src/server/app';
 import { resendRequest } from '../../src/features/auth/resend-capture.test-support';
@@ -80,10 +82,10 @@ Bun.serve({
   },
 });
 
-// A throwaway self-signed certificate for localhost, created per run, in a
-// directory of its own port so concurrent suites never mix key and cert.
-const certDir = `test-results/e2e-tls-${edgePort}`;
-mkdirSync(certDir, { recursive: true });
+// A throwaway self-signed certificate for localhost, created per run in a
+// private temporary directory and deleted once loaded, so the private key
+// never sits under test-results, whose files CI uploads (ISSUE-78).
+const certDir = mkdtempSync(join(tmpdir(), 'daisy-e2e-tls-'));
 const made = Bun.spawnSync([
   'openssl',
   'req',
@@ -94,23 +96,26 @@ const made = Bun.spawnSync([
   '-days',
   '1',
   '-keyout',
-  `${certDir}/key.pem`,
+  join(certDir, 'key.pem'),
   '-out',
-  `${certDir}/cert.pem`,
+  join(certDir, 'cert.pem'),
   '-subj',
   '/CN=localhost',
   '-addext',
   'subjectAltName=DNS:localhost',
 ]);
-if (made.exitCode !== 0) throw new Error('openssl could not create the cert');
+const tls = {
+  key: made.exitCode === 0 ? readFileSync(join(certDir, 'key.pem')) : null,
+  cert: made.exitCode === 0 ? readFileSync(join(certDir, 'cert.pem')) : null,
+};
+rmSync(certDir, { recursive: true, force: true });
+if (tls.key === null || tls.cert === null)
+  throw new Error('openssl could not create the cert');
 
 Bun.serve({
   hostname: '127.0.0.1',
   port: edgePort,
-  tls: {
-    key: readFileSync(`${certDir}/key.pem`),
-    cert: readFileSync(`${certDir}/cert.pem`),
-  },
+  tls: { key: tls.key, cert: tls.cert },
   async fetch(request) {
     const url = new URL(request.url);
     const headers = new Headers(request.headers);

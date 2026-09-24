@@ -64,56 +64,15 @@ const FORBIDDEN_GRAPH_FRAGMENTS = [
 ];
 
 describe('auth client entrypoint', () => {
-  test('exposes the magic-link and passkey plugin clients', () => {
+  test('exposes the passkey plugin client', () => {
     assert({
       given: 'the reserved client entrypoint',
-      should:
-        'expose magic-link and passkey clients for sign-in and enrollment',
+      should: 'expose the passkey client for sign-in and enrollment',
       actual: {
-        magicLink: typeof authClient.signIn?.magicLink,
         passkey: typeof authClient.signIn?.passkey,
         addPasskey: typeof authClient.passkey?.addPasskey,
       },
-      expected: {
-        magicLink: 'function',
-        passkey: 'function',
-        addPasskey: 'function',
-      },
-    });
-  });
-
-  test('sends magic-link sign-in requests through the browser client transport', async () => {
-    const requests: Array<{
-      readonly url: string;
-      readonly method: string | undefined;
-      readonly body: string | undefined;
-    }> = [];
-    const customFetchImpl = async (
-      input: RequestInfo | URL,
-      init?: RequestInit,
-    ) => {
-      requests.push({
-        url: String(input),
-        method: init?.method,
-        body: typeof init?.body === 'string' ? init.body : undefined,
-      });
-      return Response.json({ status: true });
-    };
-    await authClient.signIn.magicLink({
-      email: 'player@daisy.example.com',
-      fetchOptions: { customFetchImpl },
-    });
-    assert({
-      given: 'a magic-link sign-in through the browser client',
-      should: 'send the expected POST request and email body',
-      actual: requests,
-      expected: [
-        {
-          url: '/api/auth/sign-in/magic-link',
-          method: 'POST',
-          body: JSON.stringify({ email: 'player@daisy.example.com' }),
-        },
-      ],
+      expected: { passkey: 'function', addPasskey: 'function' },
     });
   });
 

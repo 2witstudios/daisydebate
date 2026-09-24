@@ -1,7 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   offerPasskeyAutofillSafely,
-  requestLinkSafely,
   signInWithPasskeySafely,
   type SignInPort,
 } from './sign-in-port';
@@ -9,16 +8,12 @@ import {
 setupRitewayBun();
 
 const throwingPort: SignInPort = {
-  requestLink: () => Promise.reject(new Error('network down')),
   signInWithPasskey: () => Promise.reject(new Error('ceremony blew up')),
   offerPasskeyAutofill: () => Promise.reject(new Error('autofill blew up')),
 };
 
 // Throws before any promise exists: client init or argument validation.
 const synchronouslyThrowingPort: SignInPort = {
-  requestLink: () => {
-    throw new Error('client not initialised');
-  },
   signInWithPasskey: () => {
     throw new Error('WebAuthn options invalid');
   },
@@ -28,45 +23,9 @@ const synchronouslyThrowingPort: SignInPort = {
 };
 
 const passingPort: SignInPort = {
-  requestLink: (email) =>
-    Promise.resolve(
-      email === 'j@school.edu' ? { kind: 'sent' } : { kind: 'rate-limited' },
-    ),
   signInWithPasskey: () => Promise.resolve({ kind: 'signed-in' }),
   offerPasskeyAutofill: () => Promise.resolve({ kind: 'signed-in' }),
 };
-
-describe('requestLinkSafely', () => {
-  test('passes the outcome through', async () => {
-    assert({
-      given: 'a port that answers',
-      should: 'return its outcome for the email it was given',
-      actual: await requestLinkSafely(passingPort, 'j@school.edu'),
-      expected: { kind: 'sent' },
-    });
-  });
-
-  test('turns a throw into unavailable', async () => {
-    assert({
-      given: 'a port that throws',
-      should: 'report the service as unavailable',
-      actual: await requestLinkSafely(throwingPort, 'j@school.edu'),
-      expected: { kind: 'unavailable' },
-    });
-  });
-
-  test('turns a synchronous throw into unavailable', async () => {
-    assert({
-      given: 'a port that throws before returning a promise',
-      should: 'still settle as unavailable instead of escaping',
-      actual: await requestLinkSafely(
-        synchronouslyThrowingPort,
-        'j@school.edu',
-      ),
-      expected: { kind: 'unavailable' },
-    });
-  });
-});
 
 describe('signInWithPasskeySafely', () => {
   test('passes the outcome through', async () => {

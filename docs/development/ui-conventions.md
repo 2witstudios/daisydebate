@@ -22,20 +22,36 @@ JavaScript only enhances it.
   redirect to a page that needs nothing from the form.
 - The server re-validates everything the browser sends back, including
   arguments bound with `.bind`: they round-trip through the page and are
-  untrusted. The action runs the same gates as the equivalent API route.
-  The username claim calls that route's handler in process with the
-  request's own headers (`inProcessFetch` in
-  `apps/web/src/ui/auth/onboarding/claim-username.ts`).
+  untrusted. The action runs the same gates as the equivalent API route:
+  it calls that route's handler in process with the request's own headers
+  (`inProcessFetch` in `apps/web/src/server/in-process-fetch.ts`). The
+  username claim, the sign-in link request and the email change all work
+  this way.
+- An action that moves on ends with `moveOn` (`apps/web/src/server/form-action.ts`),
+  never a bare `redirect()`. A form posted without JavaScript gets a 303;
+  a hydrated page gets the destination back as action state and navigates
+  itself. A `redirect()` in an action the page's script calls makes Next
+  fetch the target from the public origin with the browser's cookies, and
+  print a raw error when that fails (ISSUE-80).
+- Every action body is capped at 16 KiB (`serverActions.bodySizeLimit` in
+  `apps/web/next.config.ts`, ISSUE-79). Next reads and decodes the body
+  before the action's own gates run, so a form that needs more (a file
+  upload) needs its own route and a recorded decision, not a higher cap.
 - JavaScript may add a local check before posting (`onSubmit` calling
   `preventDefault()` for a value that cannot be valid), pending states and
   focus handling. React runs the action only when `onSubmit` did not
   prevent the default.
 - A choice that only navigates, such as "Not now", is a link (`<a href>`),
   not a button with an `onClick`, so it works before hydration too.
-- Prove it in the browser suite. Abort the page's script chunks
-  (`page.route(/\/_next\/static\/.+\.js/, (route) => route.abort())`), then
-  submit and assert the outcome and the URL. See "a username submitted
-  before the page hydrates…" in `apps/web/e2e/journey.e2e.ts`.
+- No `loading.tsx` or `<Suspense>` fallback sits above a page with a form.
+  Next streams such a page into a hidden node that only an inline script
+  reveals, so without JavaScript the page never appears (ISSUE-74).
+- Prove it in the browser suite with JavaScript actually off: a context
+  with `javaScriptEnabled: false` runs no script at all, inline or bundled.
+  Submit, then assert the outcome and a URL without the submitted values.
+  Aborting only the script chunks is not enough, because inline scripts
+  still run and reveal what a script-less browser never sees. See the
+  "with JavaScript off" block in `apps/web/e2e/journey.e2e.ts`.
 
 Forms that predate this rule are tracked as issues in the PageSpace `Issues`
 list. Bring each one into line when you next change it.

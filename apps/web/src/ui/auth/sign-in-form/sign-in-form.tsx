@@ -11,7 +11,13 @@ export type SignInFormProps = {
   readonly pending: Extract<SignInState, { step: 'enter-email' }>['pending'];
   readonly notice?: SignInNotice | undefined;
   readonly typeEmail: (email: string) => void;
-  readonly requestLink: () => void;
+  /**
+   * The form's POST. Given a server action, React renders a form the browser
+   * can submit before hydration or without JavaScript.
+   */
+  readonly action: (form: FormData) => void;
+  /** Marks the request in flight; false when the form must not post. */
+  readonly requestLink: () => boolean;
   readonly signInWithPasskey: () => void;
 };
 
@@ -25,7 +31,9 @@ const pendingStatus = {
 } as const;
 
 /**
- * One email field for new and returning people alike. A saved passkey is
+ * One email field for new and returning people alike. It is a real POST:
+ * before hydration, or without JavaScript, the browser submits it to the
+ * same server action and the page renders the inbox step. A saved passkey is
  * offered by the browser's autofill (`username webauthn`) and by the quieter
  * passkey button for browsers without it. The button can only use a passkey
  * that already exists (a WebAuthn `get()`), so its hint sends new people to
@@ -36,6 +44,7 @@ export function SignInForm({
   pending,
   notice,
   typeEmail,
+  action,
   requestLink,
   signInWithPasskey,
 }: SignInFormProps) {
@@ -52,11 +61,11 @@ export function SignInForm({
         browser will offer it.
       </AuthHeading>
       <form
+        action={action}
         className="flex flex-col gap-3"
         aria-busy={busy}
         onSubmit={(event) => {
-          event.preventDefault();
-          requestLink();
+          if (!requestLink()) event.preventDefault();
         }}
       >
         <EmailField

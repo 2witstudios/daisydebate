@@ -190,7 +190,8 @@ foundation proof, auth) and stays the primary CI project. Cross-browser and
 mobile-layout parity is scoped to the auth journeys the spec requires
 ("the supported magic-link/account journeys"), not the whole app:
 `chromium-mobile`, `firefox`, `webkit` and `webkit-mobile` testMatch only
-`AUTH_JOURNEY_SPECS` (journey, passkey-lifecycle, accessibility, auth-routes)
+`AUTH_JOURNEY_SPECS` (journey, onboarding, passkey-lifecycle, accessibility,
+auth-routes)
 in `apps/web/playwright.config.ts`, plus `passkey-autofill.e2e.ts` for
 `chromium-mobile`. CDP WebAuthn (the virtual authenticator
 behind every passkey ceremony) is Chromium-only, so
@@ -206,7 +207,8 @@ presence is held never completes, even after presence returns. The same
 behaviour makes `passkey-autofill.e2e.ts` the autofill proof in both
 Chromium projects. `apps/web/e2e/accessibility.e2e.ts` runs
 `@axe-core/playwright` against every auth screen (sign-in idle/pending,
-onboarding, settings/security, an expired link), asserting zero
+onboarding, the passkey offer in both themes, settings/security, an expired
+link), asserting zero
 serious/critical findings, plus keyboard-only navigation, a live-region
 assertion and a 200%-effective-zoom reflow check (halving the viewport, the
 standard technique since Playwright has no native browser-zoom control).
@@ -236,9 +238,10 @@ Styling is token-locked Tailwind v4 (ADR 0028). Every rule fails
 
 ### Visual parity
 
-`apps/web/e2e/visual.e2e.ts` takes full-page screenshots of the dashboard
-and settings in dark and light at 1440, 1024 and 390 px wide and compares
-them with `apps/web/e2e/visual-baselines/`. Baselines are Linux-only: fonts
+`apps/web/e2e/visual.e2e.ts` takes full-page screenshots of the dashboard,
+settings and the onboarding username and passkey screens in dark and light
+at 1440, 1024 and 390 px wide and compares them with
+`apps/web/e2e/visual-baselines/`. Baselines are Linux-only: fonts
 render differently elsewhere. CI runs on Linux natively. On any other host
 the `visual` Playwright project is excluded until a Linux browser is
 provided:
@@ -305,3 +308,7 @@ The Browser E2E workflow uploads `apps/web/test-results` and
 contain screenshots, videos, traces, the HTML report, and the production
 server's structured `server-<port>.log` (one per app port); server logs run at `info` level so request
 IDs can be correlated with browser failures without rerunning CI.
+`scripts/e2e-artifact-sanitizer.ts` redacts tokens, cookies, placeholder
+secrets and any PEM private key before upload. The e2e server keeps its TLS
+edge key out of `test-results` altogether: it is created in a private
+temporary directory and deleted once loaded (ISSUE-78).

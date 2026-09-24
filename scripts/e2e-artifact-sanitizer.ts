@@ -1,8 +1,8 @@
 /**
  * AUTH-6.1: retained Playwright artifacts (server.log, the HTML report, and
  * trace/network archives) can carry a live magic-link token, a session
- * cookie, or the e2e placeholder secrets baked into playwright.config.ts's
- * webServer.env. This redacts those before upload; it never deletes an
+ * cookie, a private key, or the e2e placeholder secrets baked into
+ * playwright.config.ts's webServer.env. This redacts those before upload; it never deletes an
  * artifact, only the sensitive substrings inside it.
  */
 import {
@@ -18,6 +18,12 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 const redactions: readonly (readonly [RegExp, string])[] = [
+  // Any PEM private key, such as the e2e TLS edge's (ISSUE-78): an artifact
+  // must never carry key material, however short-lived.
+  [
+    /-----BEGIN ([A-Z0-9 ]*)PRIVATE KEY-----[\s\S]*?-----END \1PRIVATE KEY-----/g,
+    '[REDACTED PRIVATE KEY]',
+  ],
   [/token=[^&\s"'<>]+/gi, 'token=[REDACTED]'],
   [/"cookie"\s*:\s*"[^"]*"/gi, '"cookie":"[REDACTED]"'],
   [/set-cookie:\s*[^\r\n]+/gi, 'set-cookie: [REDACTED]'],
