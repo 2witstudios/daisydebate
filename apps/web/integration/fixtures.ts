@@ -372,7 +372,7 @@ export const counts = (account: Account): Promise<AccountCounts> =>
  * accounts and passkeys cascade) and the verification rows naming their
  * emails. Never touches unrelated rows.
  */
-export const removeAccounts = (accounts: readonly Account[]) =>
+const removeAccounts = (accounts: readonly Account[]) =>
   withSql(async (sql) => {
     const keys = accounts.map(keysOf);
     const emails = keys.flatMap(({ email }) => (email ? [email] : []));
