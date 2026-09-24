@@ -212,7 +212,8 @@ with the invariant id. Zod (`formatRulesSchema`) checks only the shape.
   ```
 
   `heartbeatMs` (15 000) and `reconnectBudgetMs` (10 000) are protocol
-  constants in `@daisy/protocol`, next to the heartbeat ADR 0031 defines,
+  constants in `@daisy/protocol` (added with this rule, their first
+  consumer), next to the heartbeat ADR 0031 defines,
   so the default `checkInGraceMs` is 40 000 ms. `reconnectBudgetMs` is a
   nominal allowance, not a bound ADR 0031's backoff enforces: the backoff
   has no cap and `rate_limited` waits at least 30 s. Since check-ins go

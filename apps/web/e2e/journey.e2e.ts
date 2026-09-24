@@ -7,6 +7,8 @@ import {
   resetRateLimits,
   signUpMember,
   uniqueName,
+  reachOnboarding,
+  sessionUsername,
 } from './support/accounts';
 
 // The whole sign-in journey in a real browser against the production build:
@@ -76,7 +78,7 @@ test('anonymous visits are sent to sign-in and the whole loop ends on the protec
   await expect(
     page.getByRole('heading', { name: /next time, one tap/i }),
   ).toBeVisible();
-  await page.getByRole('button', { name: 'Not now' }).click();
+  await page.getByRole('link', { name: 'Not now' }).click();
 
   // The safe return destination survived, and the username is the identity.
   await expect(page).toHaveURL(/\/lobby$/);
@@ -157,7 +159,7 @@ test('return destinations are validated and spectator routes stay public', async
   await confirmSignIn(page, await emailedLink(request, email));
   await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)lobby$/);
   await claimUsername(page, uniqueName('safe'));
-  await page.getByRole('button', { name: 'Not now' }).click();
+  await page.getByRole('link', { name: 'Not now' }).click();
   await expect(page).toHaveURL(/\/lobby$/);
 });
 
@@ -220,24 +222,13 @@ test('an emailed link opened in a different browser than the one that requested 
   const other = await browser.newContext({ ignoreHTTPSErrors: true });
   const otherPage = await other.newPage();
   await confirmSignIn(otherPage, link);
-  await expect(otherPage).toHaveURL(/\/onboarding\/username/, {
-    timeout: 15_000,
-  });
+  await expect(otherPage).toHaveURL(/\/onboarding\/username/);
   await claimUsername(otherPage, uniqueName('cross-browser'));
-  // Whether the fresh context offers a passkey save depends on that
-  // context's own WebAuthn availability, and how long the claim itself
-  // takes under load; race the two possible outcomes instead of assuming
-  // either happens within a short fixed window, so neither is checked
-  // before the app has actually settled on one.
-  const offered = await Promise.race([
-    otherPage
-      .getByRole('heading', { name: /next time, one tap/i })
-      .waitFor({ state: 'visible', timeout: 15_000 })
-      .then(() => true),
-    otherPage.waitForURL(/\/lobby$/, { timeout: 15_000 }).then(() => false),
-  ]).catch(() => false);
-  if (offered) await otherPage.getByRole('button', { name: 'Not now' }).click();
-  await expect(otherPage).toHaveURL(/\/lobby$/, { timeout: 15_000 });
+  await expect(
+    otherPage.getByRole('heading', { name: /next time, one tap/i }),
+  ).toBeVisible();
+  await otherPage.getByRole('link', { name: 'Not now' }).click();
+  await expect(otherPage).toHaveURL(/\/lobby$/);
 
   // The requesting page never redeemed the link itself and stays anonymous.
   await page.goto('/lobby');
@@ -249,33 +240,30 @@ test('refreshing or navigating back mid-onboarding does not lose the session or 
   page,
   request,
 }) => {
-  const email = freshEmail();
-  await page.goto('/sign-in');
-  await requestSignInLink(page, email);
-  await confirmSignIn(page, await emailedLink(request, email));
-  await expect(page).toHaveURL(/\/onboarding\/username/);
+  await reachOnboarding(page, request);
 
   // A reload mid-flow must not sign the person out or drop the destination.
   await page.reload();
   await expect(page).toHaveURL(/\/onboarding\/username/);
 
   const name = uniqueName('resumed');
+  const offer = page.getByRole('heading', { name: /next time, one tap/i });
   await claimUsername(page, name);
-  await expect(
-    page.getByRole('heading', { name: /next time, one tap/i }),
-  ).toBeVisible();
+  await expect(offer).toBeVisible();
 
-  // Going back to the (now-completed) onboarding step and forward again must
-  // not re-open a claim for an account that already has a username: the
-  // server-rendered onboarding page recognizes completion and sends the
-  // account straight past the passkey offer to its destination.
-  await page.goBack();
-  await page.goForward();
+  // The offer is its own page: a reload keeps it, and the session.
+  await page.reload();
+  await expect(offer).toBeVisible();
+
+  // The claim never reopens for an account that has a username: the
+  // server-rendered onboarding page sends it straight to its destination,
+  // and going back from there returns to the offer, not to a claim form.
+  await page.goto('/onboarding/username?next=%2Flobby');
   await expect(page).toHaveURL(/\/lobby$/);
+  await page.goBack();
+  await expect(offer).toBeVisible();
 
-  const session = await page.request.get('/api/auth/get-session');
-  const body = (await session.json()) as { user: { username: string } };
-  expect(body.user.username).toBe(name);
+  expect(await sessionUsername(page)).toBe(name);
 });
 
 test('a fresh session makes no refresh call, and neither does a visitor', async ({
@@ -296,6 +284,38 @@ test('a fresh session makes no refresh call, and neither does a visitor', async 
   // A refresh is due only a day after the last extension, so a browser
   // spends the rate-limited endpoint about once a day, not per page load.
   expect(calls).toEqual([]);
+});
+
+test('a username submitted before the page hydrates is claimed, never put in the URL', async ({
+  page,
+  request,
+}) => {
+  await reachOnboarding(page, request);
+
+  // No script ever runs on this load: the form is exactly what a person
+  // sees before hydration, or with JavaScript off.
+  await page.route(/\/_next\/static\/.+\.js(\?.*)?$/, (route) => route.abort());
+  await page.goto('/onboarding/username?next=%2Flobby');
+
+  // A refusal comes back from the server with the name as typed.
+  await claimUsername(page, 'no spaces allowed');
+  await expect(page.locator('#username-notice')).toContainText(
+    'That username will not work',
+  );
+  await expect(page.getByLabel('Username')).toHaveValue('no spaces allowed');
+  expect(page.url()).not.toContain('spaces');
+
+  const name = uniqueName('prehydration');
+  await claimUsername(page, name);
+
+  await expect(
+    page.getByRole('heading', { name: /next time, one tap/i }),
+  ).toBeVisible();
+  expect(page.url()).not.toContain(name);
+  await page.getByRole('link', { name: 'Not now' }).click();
+  await expect(page).toHaveURL(/\/lobby$/);
+
+  expect(await sessionUsername(page)).toBe(name);
 });
 
 test('the topbar offers sign-in to a visitor', async ({ page }) => {

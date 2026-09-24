@@ -8,10 +8,12 @@
     "./testing": "./src/testing.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
     "test": "bun test src"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@daisy/protocol": "workspace:*"
+  },
   "devDependencies": {
     "riteway": "9.3.0"
   }

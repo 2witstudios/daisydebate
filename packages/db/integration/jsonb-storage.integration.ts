@@ -91,7 +91,11 @@ test('appendOutboxEvent stores payload as a real jsonb object, not a double-enco
         topic,
         kind: 'debate.phase-changed',
         version: 1,
-        payload: { version: 1, kind: 'debate.phase-changed', ids: [debateId] },
+        payload: {
+          entityVersion: 1,
+          kind: 'debate.phase-changed',
+          ids: [debateId],
+        },
       }),
     );
     const [row] = await fixture`

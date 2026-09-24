@@ -1,5 +1,5 @@
 import { PresenceDot } from '../presence-dot/presence-dot';
-import type { Presence } from '../../types/presence/presence';
+import type { PresenceStatus as Presence } from '@daisy/protocol';
 import { avatarClass, type AvatarSize } from './avatar-class';
 
 export type AvatarProps = {

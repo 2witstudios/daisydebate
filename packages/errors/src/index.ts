@@ -1,4 +1,10 @@
-const definitions = {
+import type { ProtocolError } from '@daisy/protocol';
+
+/** The code vocabulary is the protocol's; this table only maps each code. */
+export type ErrorCode = ProtocolError['code'];
+const definitions: Readonly<
+  Record<ErrorCode, readonly [status: number, message: string]>
+> = {
   VALIDATION: [400, 'Invalid input'],
   AUTHENTICATION: [401, 'Authentication required'],
   AUTHORIZATION: [403, 'Permission denied'],
@@ -9,8 +15,7 @@ const definitions = {
   RATE_LIMIT: [429, 'Too many requests'],
   INFRASTRUCTURE: [503, 'Service temporarily unavailable'],
   INTERNAL: [500, 'Unexpected internal error'],
-} as const;
-export type ErrorCode = keyof typeof definitions;
+};
 export type AppError = Error & {
   readonly code: ErrorCode;
   readonly invariantId?: string;
@@ -40,7 +45,14 @@ export function createInvariantError(
 export function isAppError(error: unknown): error is AppError {
   return error instanceof Error && knownErrors.has(error);
 }
-export function toPublicError(error: unknown, requestId: string) {
+/** The HTTP status and `{ error }` body, whose `error` is the protocol's public error. */
+export function toPublicError(
+  error: unknown,
+  requestId: string,
+): {
+  readonly status: number;
+  readonly body: { readonly error: ProtocolError };
+} {
   const code = isAppError(error) ? error.code : 'INTERNAL';
   const invariantId =
     code === 'INVARIANT' && isAppError(error) ? error.invariantId : undefined;
@@ -48,6 +60,8 @@ export function toPublicError(error: unknown, requestId: string) {
     status: definitions[code][0],
     body: {
       error: {
+        version: 1,
+        type: 'error',
         code,
         message: definitions[code][1],
         requestId,

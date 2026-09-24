@@ -4,6 +4,7 @@
   "$schema": "./node_modules/knip/schema.json",
   // Scenario documents are loaded by the `bun scenario <name>` CLI.
   "ignore": ["scenarios/*.ts"],
+  "includeEntryExports": true,
   "workspaces": {
     // The e2e production server is started by Playwright's webServer command.
     // Integration suites are globbed by scripts/test-integration.ts, which

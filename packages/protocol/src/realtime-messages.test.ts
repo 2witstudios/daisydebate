@@ -1,12 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   buildClientMessageSchema,
-  buildDebateTopic,
   buildHelloMessageSchema,
   clientMessageSchema,
   ENVELOPE_VERSION,
   PROTOCOL_VERSION,
-  ticketSchema,
   type EnvelopeVersion,
   type ProtocolVersion,
 } from './realtime';
@@ -28,8 +26,8 @@ describe('client message schema', () => {
   test('accepts hello, subscribe, unsubscribe, presence.activity and ping{id}', () => {
     const messages = [
       { ...base, type: 'hello', protocolVersion: PROTOCOL_VERSION, ticket },
-      { ...base, type: 'subscribe', id, topic: buildDebateTopic(otherId) },
-      { ...base, type: 'unsubscribe', id, topic: buildDebateTopic(otherId) },
+      { ...base, type: 'subscribe', id, topic: `debate:${otherId}` },
+      { ...base, type: 'unsubscribe', id, topic: `debate:${otherId}` },
       { ...base, type: 'presence.activity', activity: 'active' },
       { ...base, type: 'ping', id },
     ];
@@ -44,7 +42,7 @@ describe('client message schema', () => {
   test('rejects unknown message types', () => {
     assert({
       given: 'a message with a type outside the client union',
-      should: 'reject it, naming the offending field',
+      should: 'reject',
       actual: parseOutcome(clientMessageSchema, {
         ...base,
         type: 'debate.command',
@@ -56,7 +54,7 @@ describe('client message schema', () => {
   test('rejects an unsupported envelope version', () => {
     assert({
       given: 'a ping stamped with a future envelope version',
-      should: 'reject it, naming the offending field',
+      should: 'reject',
       actual: parseOutcome(clientMessageSchema, { v: 2, type: 'ping', id }),
       expected: { issues: ['v'] },
     });
@@ -123,7 +121,7 @@ describe('client message schema', () => {
       injectedEnvelopeVersion,
       PROTOCOL_VERSION,
     );
-    const topic = buildDebateTopic(otherId);
+    const topic = `debate:${otherId}`;
     const messagesAtV33 = [
       { v: 33, type: 'subscribe', id, topic },
       { v: 33, type: 'unsubscribe', id, topic },
@@ -145,7 +143,7 @@ describe('client message schema', () => {
         ),
       ],
       expected: [
-        ...messagesAtV33.map((message) => ({ data: message })),
+        ...parsedUnchanged(messagesAtV33),
         ...messagesAtV33.map(() => ({ issues: ['v'] })),
         ...messagesAtV33.map(() => ({ issues: ['v'] })),
       ],
@@ -155,7 +153,7 @@ describe('client message schema', () => {
   test('rejects a subscribe with a hand-built topic string', () => {
     assert({
       given: 'a subscribe naming an invalid topic string',
-      should: 'reject it, naming the offending field',
+      should: 'reject',
       actual: parseOutcome(clientMessageSchema, {
         ...base,
         type: 'subscribe',
@@ -169,7 +167,7 @@ describe('client message schema', () => {
   test("rejects ping without id, per ADR 0031's ping{id}/pong{id} pairing", () => {
     assert({
       given: 'a ping with no id',
-      should: 'reject it, naming the offending field',
+      should: 'reject',
       actual: parseOutcome(clientMessageSchema, { ...base, type: 'ping' }),
       expected: { issues: ['id'] },
     });
@@ -180,14 +178,14 @@ describe('client message schema', () => {
       ...base,
       type: 'subscribe',
       id,
-      topic: buildDebateTopic(otherId),
+      topic: `debate:${otherId}`,
       since,
     });
     const withoutSince = {
       ...base,
       type: 'subscribe',
       id,
-      topic: buildDebateTopic(otherId),
+      topic: `debate:${otherId}`,
     };
     assert({
       given:
@@ -208,20 +206,24 @@ describe('client message schema', () => {
 });
 
 describe('the connect ticket', () => {
+  const helloWith = (candidate: string) => ({
+    v: ENVELOPE_VERSION,
+    type: 'hello',
+    protocolVersion: PROTOCOL_VERSION,
+    ticket: candidate,
+  });
   test('accepts exactly 43 base64url characters and rejects other shapes', () => {
     assert({
       given:
         'a 43-character base64url ticket, one 42 characters, and one with an invalid character',
       should: 'accept only the 43-character one',
-      actual: [
-        parseOutcome(ticketSchema, ticket),
-        parseOutcome(ticketSchema, ticket.slice(1)),
-        parseOutcome(ticketSchema, `${ticket.slice(1)}!`),
-      ],
+      actual: [ticket, ticket.slice(1), `${ticket.slice(1)}!`].map(
+        (candidate) => parseOutcome(clientMessageSchema, helloWith(candidate)),
+      ),
       expected: [
-        { data: ticket },
-        { issues: ['(root)'] },
-        { issues: ['(root)'] },
+        { data: helloWith(ticket) },
+        { issues: ['ticket'] },
+        { issues: ['ticket'] },
       ],
     });
   });

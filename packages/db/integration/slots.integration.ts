@@ -60,7 +60,7 @@ const e2eCanWrite = (database: string) =>
     try {
       await client`
         insert into outbox (topic, kind, version, payload)
-        values ('user:slotit:inbox', 'session.revoked', 1, ${{ version: 1, kind: 'session.revoked', ids: [] }})
+        values ('user:slotit:inbox', 'session.revoked', 1, ${{ entityVersion: 1, kind: 'session.revoked', ids: [] }})
       `;
       return 'written';
     } catch (error) {

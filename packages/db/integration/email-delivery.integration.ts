@@ -2,6 +2,10 @@ import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
+import type {
+  EmailDeliveryStatus,
+  EmailSuppressionReason,
+} from '@daisy/protocol';
 import { createDatabase } from '../src';
 
 setupRitewayBun();
@@ -43,9 +47,9 @@ test('delivery events dedupe, never lower status, and suppress only after hard f
 
     const event = (
       eventId: string,
-      status: string,
+      status: EmailDeliveryStatus,
       rank: number,
-      suppress: 'bounce' | 'complaint' | null = null,
+      suppress: EmailSuppressionReason | null = null,
     ) =>
       database.applyEmailDeliveryEvent({
         eventId,

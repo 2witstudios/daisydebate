@@ -7,7 +7,7 @@ const at = '2026-09-20T00:00:00.000Z';
 const event = {
   eventId: 'evt_1',
   providerMessageId: 'msg_1',
-  status: 'bounced',
+  status: 'bounced' as const,
   rank: 5,
   at,
 };

@@ -23,7 +23,8 @@ describe('repository ESLint configuration', () => {
 
     assert({
       given: 'unallowlisted source using ambient time or identity primitives',
-      should: 'report one lint error for each forbidden primitive',
+      should:
+        'report one lint error for each forbidden primitive, plus the pure-package crypto global',
       actual: result.messages.map(({ ruleId, severity }) => ({
         ruleId,
         severity,
@@ -32,6 +33,7 @@ describe('repository ESLint configuration', () => {
         { ruleId: 'no-restricted-syntax', severity: 2 },
         { ruleId: 'no-restricted-syntax', severity: 2 },
         { ruleId: 'no-restricted-syntax', severity: 2 },
+        { ruleId: 'no-restricted-globals', severity: 2 },
         { ruleId: 'no-restricted-syntax', severity: 2 },
       ],
     });

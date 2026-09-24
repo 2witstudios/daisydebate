@@ -1,13 +1,12 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { debateSnapshotSchema, formatRulesSchema } from './index';
 import {
-  commandSchema,
   debateRoleSchema,
   debateRoles,
+  debateSideSchema,
+  debateSides,
   errorSchema,
-  eventSchema,
-  debateSnapshotSchema,
-  formatRulesSchema,
-} from './index';
+} from './primitives';
 import { parseOutcome } from './parse-outcome.test-support';
 
 setupRitewayBun();
@@ -28,61 +27,8 @@ const validSnapshot = {
   participants: [],
 };
 
-describe('command schema', () => {
-  test('validates intent, rejects future versions and extraneous fields', () => {
-    const command = {
-      version: 1,
-      type: 'debate.ready',
-      commandId: id,
-      debateId: id,
-      participantId: id,
-    } as const;
-    assert({
-      given: 'a valid version 1 command',
-      should: 'parse to an equal command',
-      actual: commandSchema.parse(command),
-      expected: command,
-    });
-    assert({
-      given: 'a command stamped with a future version',
-      should: 'reject it',
-      actual: parseOutcome(commandSchema, { ...command, version: 2 }),
-      expected: { issues: ['version'] },
-    });
-    assert({
-      given: 'a command carrying extraneous permissions',
-      should: 'reject it',
-      actual: parseOutcome(commandSchema, {
-        ...command,
-        permissions: ['admin'],
-      }),
-      expected: { issues: ['(root)'] },
-    });
-    assert({
-      given: 'a command with a non-string participant id',
-      should: 'reject it',
-      actual: parseOutcome(commandSchema, { ...command, participantId: 1 }),
-      expected: { issues: ['participantId'] },
-    });
-  });
-});
-
-describe('event and snapshot schemas', () => {
-  test('have separate portable contracts', () => {
-    const event = {
-      version: 1,
-      type: 'debate.phase-changed',
-      eventId: id,
-      debateId: id,
-      occurredAt: '2026-01-01T00:00:00.000Z',
-      phase: 'active',
-    };
-    assert({
-      given: 'a valid phase-changed event',
-      should: 'accept it',
-      actual: parseOutcome(eventSchema, event),
-      expected: { data: event },
-    });
+describe('snapshot schema', () => {
+  test('accepts a valid waiting-phase snapshot', () => {
     assert({
       given: 'a valid waiting-phase snapshot',
       should: 'accept it',
@@ -154,6 +100,34 @@ describe('error schema', () => {
 });
 
 describe('debate roles and format rules', () => {
+  test('own the side vocabulary once, and build the roles from it', () => {
+    assert({
+      given: 'the canonical side array',
+      should: 'list affirmative and negative in that order',
+      actual: debateSides,
+      expected: ['affirmative', 'negative'],
+    });
+    assert({
+      given: 'the role array',
+      should: 'begin with exactly the sides, then the judge',
+      actual: debateRoles,
+      expected: [...debateSides, 'judge'],
+    });
+    assert({
+      given: 'the side schema built from the side array',
+      should:
+        'accept each side and reject the judge, which is a role but not a side',
+      actual: [
+        ...debateSides.map((side) => parseOutcome(debateSideSchema, side)),
+        parseOutcome(debateSideSchema, 'judge'),
+      ],
+      expected: [
+        ...debateSides.map((side) => ({ data: side })),
+        { issues: ['(root)'] },
+      ],
+    });
+  });
+
   test('own the role vocabulary once', () => {
     assert({
       given: 'the canonical role array',

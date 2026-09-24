@@ -24,9 +24,9 @@ export const adobeIsolationIssue = (
 /** Workspace suffixes (after `@daisy/`) each workspace may depend on. */
 export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
   'debate-engine': ['errors', 'protocol'],
-  protocol: ['errors'],
+  protocol: [],
   auth: ['errors'],
-  errors: [],
+  errors: ['protocol'],
   db: ['config', 'errors', 'protocol'],
   redis: ['config', 'errors', 'protocol'],
   config: [],

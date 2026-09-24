@@ -1,6 +1,7 @@
 import { createAppError, createInvariantError } from '@daisy/errors';
 import {
   debateRoles,
+  debateSides,
   debateSnapshotSchema,
   type DebateSnapshot,
   type FormatRules,
@@ -8,6 +9,8 @@ import {
   type DebatePhase,
 } from '@daisy/protocol';
 import { createAdapter } from './ecs-adapter';
+import { debateInvariantIds } from './invariant-ids';
+export { debateInvariantIds } from './invariant-ids';
 export type {
   DebateSnapshot,
   FormatRules,
@@ -21,19 +24,6 @@ export type DebateRuntime = {
   transition(phase: DebatePhase): void;
   dispose(): void;
 };
-export const debateInvariantIds = {
-  participantIdentitiesUnique: 'debate.participants.identities-unique',
-  participantSeatsUnique: 'debate.participants.seats-unique',
-  startedRequiresReadyParticipants:
-    'debate.phase.active.requires-ready-participants',
-  joiningRequiresWaitingPhase: 'debate.participant.join.waiting-phase',
-  readinessRequiresWaitingPhase: 'debate.participant.ready.waiting-phase',
-  legalPhaseTransition: 'debate.phase.transition.legal',
-  completedIsTerminal: 'debate.phase.completed.terminal',
-  seatsWithinFormat: 'debate.seats.within-format',
-  seatsCapacitySupported: 'debate.seats.capacity-supported',
-} as const;
-const sides = ['affirmative', 'negative'] as const;
 /**
  * True when `rules` are exactly the canonical rules of the format (key order
  * ignored). A ranked debate must run under canonical rules (ADR 0030); a
@@ -67,7 +57,7 @@ function validateSnapshot(input: unknown): DebateSnapshot {
       'Participant seats must be unique',
     );
   // After uniqueness: a duplicate seat is reported as such, not as capacity.
-  for (const side of sides) {
+  for (const side of debateSides) {
     // Team formats need slot modelling; until then the engine is honest
     // about its limit instead of seating one and refusing the rest.
     if (rules.seats[side] > 1)
@@ -81,7 +71,7 @@ function validateSnapshot(input: unknown): DebateSnapshot {
         `The format offers ${rules.seats[side]} ${side} seat(s)`,
       );
   }
-  const everySeatFilled = sides.every(
+  const everySeatFilled = debateSides.every(
     (side) =>
       participants.filter((p) => p.side === side).length === rules.seats[side],
   );

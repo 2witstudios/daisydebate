@@ -19,6 +19,7 @@ and detailed procedures in the linked documents, not here.
 - Package responsibilities and allowed edges: [architecture overview](docs/architecture/overview.md).
 - Local setup and command catalog: [local development](docs/development/local-development.md).
 - Test tiers and test rules: [testing](docs/development/testing.md).
+- UI rules, including mutating forms that work without JavaScript: [UI conventions](docs/development/ui-conventions.md).
 - Policy decisions and the policy gate: [identifier strategy](docs/decisions/0018-cuid2-identifiers.md), [token and secret ownership](docs/decisions/0019-token-secret-ownership.md), [auth activation](docs/decisions/0020-auth-activation-gates.md), [AIDD overrides](docs/decisions/0021-repository-aidd-overrides.md), and [greenfield baseline](docs/decisions/0023-greenfield-baseline.md).
 - Structural change recipes: [extending the repository](docs/development/extending.md).
 - Parallel sessions, branches, and vertical ownership: [parallel work](docs/development/parallel-work.md).

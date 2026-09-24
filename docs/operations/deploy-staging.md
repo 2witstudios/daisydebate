@@ -290,10 +290,17 @@ Verify: `fly status -a daisy-debate-staging` and
 
 ## 10. Continuous deployment (GitHub Actions)
 
-`.github/workflows/deploy-staging.yml` deploys every `main` push that passes
-the CI workflow (`workflow_run` on CI success, checked out at the verified
-`head_sha`), or on manual `workflow_dispatch`. It needs one repository
-secret, `FLY_API_TOKEN`, a deploy token scoped to the staging app:
+`.github/workflows/deploy-staging.yml` deploys a `main` push once its CI
+gate job and its Browser E2E run are both green, checked out at the
+verified `head_sha`, or on manual `workflow_dispatch`. Both workflows
+trigger it on completion; `scripts/staging-gate.ts` reads the two runs for
+the commit and lets only the later completion deploy, so each commit ships
+once, and only while it is still `main`'s tip: re-running an older commit's
+CI or E2E never rolls staging back. The dependency audit job sits outside the CI gate by owner decision
+(2026-09-23, ISSUE-51): while ISSUE-31's advisories are open it stays a red
+check on the CI run, but it neither holds staging back nor posts to
+Incidents. The workflow needs one repository secret, `FLY_API_TOKEN`, a
+deploy token scoped to the staging app:
 
 ```
 fly tokens create deploy -a daisy-debate-staging --name github-actions-staging --expiry 8760h \

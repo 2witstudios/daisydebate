@@ -1,4 +1,4 @@
-import type { Presence } from '../../types/presence/presence';
+import type { PresenceStatus as Presence } from '@daisy/protocol';
 
 const base =
   'inline-block size-presence-dot rounded-round border-2 border-surface';

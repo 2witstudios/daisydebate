@@ -145,6 +145,9 @@
     "packages/errors": {
       "name": "@daisy/errors",
       "version": "0.0.0",
+      "dependencies": {
+        "@daisy/protocol": "workspace:*",
+      },
       "devDependencies": {
         "riteway": "9.3.0",
       },

@@ -113,3 +113,10 @@ export async function passkeySignInAfterSignOut(page: Page) {
   await page.getByRole('button', { name: 'Sign in with a passkey' }).click();
   await expect(page).toHaveURL(/\/lobby$/);
 }
+
+/** The username the page's own session carries, read from the server. */
+export const sessionUsername = async (page: Page) => {
+  const session = await page.request.get('/api/auth/get-session');
+  return ((await session.json()) as { user: { username: string } }).user
+    .username;
+};

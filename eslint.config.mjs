@@ -62,7 +62,8 @@ const appImportRestrictions = [{ group: ['@adobe/*', '@daisy/*/src/*'] }];
 /**
  * ISSUE-7: the web process edge (`server/process-app.ts`) holds the
  * process's app, so importing it is reaching a process-wide locator. Route
- * modules may bind `processRoute` only; the process entries (proxy,
+ * modules and server action modules (`actions.ts`) may bind `processRoute`
+ * only; the process entries (proxy,
  * instrumentation, production start, and the server-component session
  * read) may use `processApp`; everything else receives the app, or part of
  * it, as an argument.
@@ -92,6 +93,34 @@ const processEntries = [
   'apps/web/src/instrumentation.ts',
   'apps/web/src/server/start.ts',
   'apps/web/src/lib/request-session.ts',
+];
+
+/**
+ * ISSUE-9: the domain and contract packages are pure, so they read no host
+ * clock, randomness, environment, timer or runtime at all; the app edges
+ * inject each one. The repo-wide list above still applies on top.
+ */
+const pureAmbientGlobals = [
+  ['performance', 'Inject a clock instead of reading the host timer.'],
+  ['crypto', 'Inject an identity or randomness source.'],
+  ['process', 'Receive configuration as an argument.'],
+  ['Bun', 'Domain and contract packages are runtime-independent.'],
+  ['globalThis', 'Receive resources as arguments.'],
+  ...[
+    'setTimeout',
+    'setInterval',
+    'setImmediate',
+    'clearTimeout',
+    'clearInterval',
+    'clearImmediate',
+    'queueMicrotask',
+  ].map((name) => [name, 'Inject a scheduler instead of a host timer.']),
+].map(([name, message]) => ({ name, message }));
+const purePackages = [
+  'packages/debate-engine/**/*.ts',
+  'packages/protocol/**/*.ts',
+  'packages/errors/**/*.ts',
+  'packages/auth/**/*.ts',
 ];
 
 /** The repo-wide `no-restricted-syntax` list; overrides extend or replace it. */
@@ -278,6 +307,10 @@ export default [
     },
   },
   {
+    files: purePackages,
+    rules: { 'no-restricted-globals': ['error', ...pureAmbientGlobals] },
+  },
+  {
     files: ['packages/db/**/*.ts'],
     rules: {
       'no-restricted-imports': [
@@ -396,7 +429,7 @@ export default [
     },
   },
   {
-    files: ['apps/web/src/app/**/route.ts'],
+    files: ['apps/web/src/app/**/route.ts', 'apps/web/src/app/**/actions.ts'],
     rules: {
       'no-restricted-imports': [
         'error',

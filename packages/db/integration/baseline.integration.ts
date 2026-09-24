@@ -298,7 +298,7 @@ test('daisy_e2e inherits exactly daisy_web and appends to the outbox through it'
     refused(
       () => client`
         insert into outbox (topic, kind, version, payload)
-        values (${topic}, 'session.revoked', 1, ${{ version: 1, kind: 'session.revoked', ids: [] }})
+        values (${topic}, 'session.revoked', 1, ${{ entityVersion: 1, kind: 'session.revoked', ids: [] }})
       `,
     ),
   );
