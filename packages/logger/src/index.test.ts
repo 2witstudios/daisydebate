@@ -191,6 +191,7 @@ describe('structured logging', () => {
       'auth.mail.sent',
       'auth.mail.failed',
       'auth.mail.receipt_failed',
+      'auth.mail.suppressed',
       'retention.sweep.completed',
       'retention.sweep.failed',
     ];
@@ -212,6 +213,7 @@ describe('structured logging', () => {
         ['auth.mail.sent', 30],
         ['auth.mail.failed', 50],
         ['auth.mail.receipt_failed', 50],
+        ['auth.mail.suppressed', 30],
         ['retention.sweep.completed', 30],
         ['retention.sweep.failed', 50],
       ],

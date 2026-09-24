@@ -2,7 +2,7 @@ import type { BetterAuthPlugin } from 'better-auth';
 import { createAuthMiddleware, isAPIError } from 'better-auth/api';
 import type { Logger } from '@daisy/logger';
 import { renderAuthEmail } from './mail/templates';
-import type { AuthEmailMessage } from './mail-types';
+import type { Deliver } from './deliver-or-unavailable';
 
 const NOTIFIED_PATHS: Readonly<
   Record<string, 'passkey-added' | 'passkey-removed'>
@@ -21,11 +21,13 @@ const NOTIFIED_PATHS: Readonly<
  *
  * Best-effort, like `revokeOthersOnEmailChangePlugin`: a notification
  * failure must never turn an already-completed passkey change into a
- * reported failure for the person who just added or removed it.
+ * reported failure for the person who just added or removed it. A
+ * suppressed address is skipped by `deliver` itself (ISSUE-54), which logs
+ * `auth.mail.suppressed`; that is not a failure.
  */
 export const passkeyNotificationsPlugin = (
   origin: string,
-  deliver: (message: AuthEmailMessage) => Promise<void>,
+  deliver: Deliver,
   logger: Logger,
 ): BetterAuthPlugin => ({
   id: 'daisy-passkey-notifications',

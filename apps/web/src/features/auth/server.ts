@@ -6,11 +6,7 @@ import { createAppError } from '@daisy/errors';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import type { AuthConfig } from '@daisy/config';
-import type {
-  AuthEmailMessage,
-  AuthEmailSender,
-  AuthDeliveryLedger,
-} from './mail-types';
+import type { AuthEmailSender, AuthDeliveryLedger } from './mail-types';
 import { buildConfirmLink } from './confirm-link';
 import {
   emailedLinkIdentifier,
@@ -27,7 +23,7 @@ import { revokeOthersOnEmailChangePlugin } from './revoke-others-on-email-change
 import { revokeSessionsPlugin, type RevokeSessions } from './revoke-sessions';
 import { deriveRecipientSubkey, recipientKey } from './recipient-key';
 import { renderAuthEmail } from './mail/templates';
-import { sendOrUnavailable } from './deliver-or-unavailable';
+import { sendOrUnavailable, type Deliver } from './deliver-or-unavailable';
 import {
   SESSION_EXPIRES_IN_SECONDS,
   SESSION_FRESH_AGE_SECONDS,
@@ -64,7 +60,7 @@ const composeBetterAuth = (dependencies: {
   readonly config: AuthConfig;
   readonly recipientSubkey: string;
   readonly database: BetterAuthOptions['database'];
-  readonly deliver: (message: AuthEmailMessage) => Promise<void>;
+  readonly deliver: Deliver;
   readonly limiter: AuthRateLimiter;
   readonly ledger: AuthDeliveryLedger;
   readonly logger: Logger;
@@ -284,7 +280,20 @@ export function createAuthServer<
   const { config } = dependencies;
   const recipientSubkey = deriveRecipientSubkey(config.BETTER_AUTH_SECRET);
   const ledger = dependencies.ledger ?? noLedger;
-  const sendMail = async (message: AuthEmailMessage): Promise<void> => {
+  // ISSUE-54: every auth mail, required or best-effort, goes through this
+  // one path, and it honours suppression before anything reaches the
+  // transport. A ledger outage is a failed send (callers fail closed or log),
+  // never an implicit allow.
+  const sendMail: Deliver = async (message) => {
+    const recipientHash = recipientKey(recipientSubkey, message.to);
+    if (await ledger.isSuppressed(recipientHash)) {
+      dependencies.logger.log(
+        'auth.mail.suppressed',
+        { operation: 'auth.mail.send' },
+        'Auth mail not sent: the recipient is suppressed',
+      );
+      return 'suppressed';
+    }
     let receipt: Awaited<ReturnType<AuthEmailSender['send']>>;
     try {
       receipt = await dependencies.emailSender.send(message);
@@ -302,7 +311,7 @@ export function createAuthServer<
       try {
         await ledger.record({
           providerMessageId: receipt.providerMessageId,
-          recipientHash: recipientKey(recipientSubkey, message.to),
+          recipientHash,
           at: dependencies.clock.now(),
         });
       } catch {
@@ -325,6 +334,7 @@ export function createAuthServer<
       { operation: 'auth.mail.send' },
       'Auth mail delivered',
     );
+    return 'sent';
   };
   return {
     config,

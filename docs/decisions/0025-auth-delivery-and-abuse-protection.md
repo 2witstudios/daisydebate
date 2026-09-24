@@ -61,7 +61,10 @@ token>` as the `verification.identifier`. The subject (the email for
   from rotating clients), and two whole-application ceilings independent of
   any client or recipient (120/60 s, 3,000/day — protects Resend quota, cost
   and sending-domain reputation from many recipients each staying under their
-  own ceiling). A limiter failure fails closed as a safe `503` (the route
+  own ceiling). The whole-application ceilings meter only links to addresses
+  with no account, that is sign-up links (ISSUE-54, amended 2026-09-24); the
+  gate looks the address up only after the client and recipient buckets have
+  admitted the request. A limiter failure fails closed as a safe `503` (the route
   boundary adds `Retry-After: 5`); there is no process-local fallback and no
   allow-on-error. `429` carries `Retry-After`. The gate consumes a request's
   buckets in order (client, recipients, global) and every consume counts,
@@ -72,6 +75,42 @@ token>` as the `verification.identifier`. The subject (the email for
   on denial would need one atomic multi-key script across every bucket.
   Integration tests prove the recipient hour and day ceilings and both
   global ceilings against real Redis.
+- **Global-ceiling sign-in denial (ISSUE-54, amended 2026-09-24).** Before
+  this amendment the global ceilings counted every magic-link request, so a
+  single actor could deny magic-link sign-in to the whole application. At
+  the client rate (3 a minute per address), rotating IPv6 /128 addresses
+  made every request a new client, and plus-addressed recipients
+  (`victim+1@…`, `victim+2@…`) made every request a new recipient, so no
+  per-client or per-recipient bucket ever stopped it and 3,000 requests
+  spent the day's allowance for everyone. Accepted mitigation: sign-in to
+  an existing account never counts against the global ceilings and is never
+  denied by them. That mail stays bounded per account by the recipient
+  ceilings (20 a day per account), so its total is bounded by the account
+  base, not by any attacker. Plus-addressed variants are distinct
+  addresses with no account, so they stay metered. Residual risks, accepted:
+  one actor can still drain the global ceilings with new addresses, which
+  delays new sign-ups (they answer `429` until the window resets) but denies
+  no sign-in, and passkey sign-in never sends mail at all. While a global
+  ceiling is saturated, a `429` for an address and a `200` for another tells
+  the caller which one has an account; probing costs the caller its own
+  client and recipient allowance and mails each real account holder a
+  sign-in link, which they can see.
+- **Suppression covers every auth mail (ISSUE-54).** Every auth email
+  (sign-in links, email-change approval and confirmation, passkey
+  added/removed notices) goes through the one delivery path
+  (`createAuthServer`'s `sendMail`), which checks the suppression ledger
+  before anything reaches the transport. A suppressed recipient is logged
+  as `auth.mail.suppressed` and nothing is sent. A mail the flow cannot
+  proceed without (the sign-in link, the email-change approval to the
+  current address, the confirmation to the new one) answers the same `422
+EMAIL_UNDELIVERABLE` the sign-in gate does. A passkey notice is
+  best-effort, so the change it reports still completes. A ledger outage
+  fails the send: required mail fails closed with the retryable `503`, and
+  a notice logs `auth.passkey.notification_failed`. The sign-in gate keeps
+  its own check before a token is created, so a suppressed address leaves
+  no stored link. An email change to a suppressed new address is refused
+  only at the approval hop, after the approval link has been used, and the
+  person starts again with another address.
 - **Trusted client identity — one resolver.** Better Auth's `advanced.ipAddress`
   is fixed to `{ ipAddressHeaders: [CLIENT_IP_HEADER] }`, the internal
   `x-daisy-client-ip` header, with no deployment-configurable header list and
