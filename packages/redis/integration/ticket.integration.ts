@@ -104,6 +104,48 @@ test('an unknown ticket hash is rejected as not-found', async () => {
   }
 });
 
+test('25 concurrent consumers on separate connections accept the ticket exactly once', async () => {
+  const namespace = `test-${createId()}`;
+  const actorId = createId();
+  const sessionId = createId();
+  const origin = 'https://daisydebate.example';
+  const ticketHash = sha3(createId());
+  const issuer = createRedis({ url, namespace });
+  // Each consumer dials its own connection: a shared client would already
+  // serialize commands and hide a non-atomic implementation (get-then-del)
+  // behind Bun's own connection queue, so this would not actually exercise
+  // Redis's cross-connection atomicity.
+  const consumers = Array.from({ length: 25 }, () =>
+    createRedis({ url, namespace }),
+  );
+  try {
+    await issuer.issueConnectTicket(
+      ticketHash,
+      { actorId, sessionId, origin },
+      60,
+    );
+
+    const results = await Promise.all(
+      consumers.map((consumer) =>
+        consumer.consumeConnectTicket(ticketHash, origin),
+      ),
+    );
+
+    const accepted = results.filter((result) => result.accepted);
+    // Negative control (mirrors the reviewer's mutation): replacing GETDEL
+    // with GET then DEL turns this from exactly 1 into as many as 25, since
+    // every connection can read the value before any of them deletes it.
+    expect(accepted.length).toBe(1);
+    expect(accepted[0]).toEqual({ accepted: true, actorId, sessionId });
+    expect(
+      results.filter((result) => !result.accepted).map((result) => result),
+    ).toEqual(Array(24).fill({ accepted: false, reason: 'not-found' }));
+  } finally {
+    issuer.close();
+    for (const consumer of consumers) consumer.close();
+  }
+});
+
 test('the ticket key carries a mandatory TTL, never a bare SET', async () => {
   const namespace = `test-${createId()}`;
   const redis = createRedis({ url, namespace });

@@ -63,10 +63,10 @@ const handlerWith = ({
   return { handler, consumeCalls, issued };
 };
 
-const post = () =>
+const post = (headers?: Record<string, string>) =>
   new Request('http://localhost:3000/api/realtime/ticket', {
     method: 'POST',
-    headers: { origin: 'http://localhost:3000' },
+    headers: headers ?? { origin: 'http://localhost:3000' },
   });
 
 describe('POST /api/realtime/ticket gates', () => {
@@ -84,6 +84,42 @@ describe('POST /api/realtime/ticket gates', () => {
         issued,
       ],
       expected: [503, 'INFRASTRUCTURE', []],
+    });
+  });
+
+  test('a foreign Origin is refused before any session read, rate-limit spend or issue', async () => {
+    const { handler, issued, consumeCalls } = handlerWith();
+    const response = await handler(
+      post({ origin: 'https://attacker.example' }),
+    );
+    assert({
+      given: 'a request whose Origin does not match the app',
+      should:
+        'answer 403 AUTHORIZATION and touch neither the limiter nor issueTicket',
+      actual: [
+        response.status,
+        ((await response.json()) as { error: { code: string } }).error.code,
+        consumeCalls,
+        issued,
+      ],
+      expected: [403, 'AUTHORIZATION', [], []],
+    });
+  });
+
+  test('a missing Origin is refused before any session read, rate-limit spend or issue', async () => {
+    const { handler, issued, consumeCalls } = handlerWith();
+    const response = await handler(post({}));
+    assert({
+      given: 'a request with no Origin header at all',
+      should:
+        'answer 403 AUTHORIZATION and touch neither the limiter nor issueTicket',
+      actual: [
+        response.status,
+        ((await response.json()) as { error: { code: string } }).error.code,
+        consumeCalls,
+        issued,
+      ],
+      expected: [403, 'AUTHORIZATION', [], []],
     });
   });
 
