@@ -75,5 +75,6 @@ export {
   presenceActivitySchema,
   presenceStatuses,
   clientMessageSchema,
+  ticketSchema,
 } from './realtime';
 export type { PresenceActivity, PresenceStatus } from './realtime';
