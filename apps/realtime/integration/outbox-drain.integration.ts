@@ -21,14 +21,20 @@ test('a burst of notifications for many committed, distinct-payload rows produce
   const delivered: OutboxRow[] = [];
   const BURST_SIZE = 30;
   const topic = buildDebateTopic(systemId.next());
-  // Counted from the sink, not from a global query tally (RT-2.3b-f1
-  // criterion 2): `bun test:integration` runs this suite and @daisy/db's
-  // concurrently under turbo, and both append to and NOTIFY the same
-  // shared slot database's `outbox` channel. A query triggered by another
-  // suite's traffic that returns none of this topic's rows is real
-  // background activity, not an extra query "spent" delivering this
-  // burst, so it must not count against the bound.
+  // Two counters, for two different regressions (RT-2.3b-f1 criterion 2):
+  // `relevantQueries` (from the sink) is precise but, on its own, cannot
+  // tell one coalesced query that happens to grab every row from many
+  // uncoalesced queries that each happen to grab every row too (removing
+  // the loop's `running` guard does not stop the first query from still
+  // draining everything, since all 30 rows commit in one transaction and
+  // become visible together) — so `totalQueries` (every `drainOutbox`
+  // call, via `onQuery`) also has to stay far below one-per-event (30).
+  // `bun test:integration` runs this suite and @daisy/db's concurrently
+  // under turbo, and both notify the same shared slot database's `outbox`
+  // channel, so `totalQueries` tolerates a little foreign-traffic noise
+  // rather than asserting it is exactly `relevantQueries`.
   let relevantQueries = 0;
+  let totalQueries = 0;
   // A long poll interval isolates the NOTIFY path: any query observed here
   // comes from coalesced wakeups, not the correctness-mechanism poll.
   const { close } = await bootServer({
@@ -37,9 +43,13 @@ test('a burst of notifications for many committed, distinct-payload rows produce
       if (rows.some((row) => row.topic === topic)) relevantQueries += 1;
     },
     pollIntervalMs: 60_000,
+    onQuery: () => {
+      totalQueries += 1;
+    },
   });
   const client = new SQL(databaseUrl);
   try {
+    const queriesBefore = totalQueries;
     // One transaction, distinct payloads: PostgreSQL folds identical NOTIFY
     // payloads sent in one transaction into a single delivery, so this is
     // what actually proves a burst rather than de-duplication.
@@ -53,12 +63,17 @@ test('a burst of notifications for many committed, distinct-payload rows produce
     assert({
       given: `${BURST_SIZE} committed rows with distinct payloads, notified together in one transaction, on a shared database other suites are also using`,
       should:
-        'deliver every row via at most 2 coalesced range queries that actually carried one of its rows, never one per notification',
+        'deliver every row via at most 2 coalesced range queries that actually carried one of its rows, and stay far under one query per event overall',
       actual: {
         deliveredCount: delivered.filter((row) => row.topic === topic).length,
         queriesAtMostTwo: relevantQueries <= 2,
+        totalQueriesFarBelowBurstSize: totalQueries - queriesBefore <= 5,
       },
-      expected: { deliveredCount: BURST_SIZE, queriesAtMostTwo: true },
+      expected: {
+        deliveredCount: BURST_SIZE,
+        queriesAtMostTwo: true,
+        totalQueriesFarBelowBurstSize: true,
+      },
     });
   } finally {
     await client.unsafe('delete from outbox where topic = $1', [topic]);
@@ -138,22 +153,18 @@ test('a LISTEN reconnect drains from the in-memory cursor, missing nothing', asy
     await waitFor(() => delivered.some((row) => row.topic === topicBefore));
 
     const listenWakesBeforeKill = listenWakeCount;
-    await killer.unsafe(
-      'select pg_terminate_backend(pid) from pg_stat_activity where application_name = $1 and pid <> pg_backend_pid()',
-      [tag],
-    );
 
-    // Independent of any content on the shared database (RT-2.3b-f1
-    // criterion 2): `onListenWake` fires only for this connection's own
-    // subscription, so it cannot be satisfied by another suite's NOTIFY
-    // traffic the way an end-to-end delivery check could.
-    await waitFor(() => listenWakeCount > listenWakesBeforeKill, 15_000);
-
-    // A row committed and notified while the listen connection is down (or
-    // still reconnecting) can have its NOTIFY lost by design (ADR 0032 §3);
-    // only the reconnect's catch-up wake, never the poll (disabled above),
-    // may deliver it in this test.
-    const after = await insertOutboxRow(client, {
+    // Committed with no NOTIFY ever sent for it, inserted only once
+    // topicBefore's own delivery (and hence the drain's cursor) has
+    // already settled: the only way this instance can ever learn about it
+    // is a wake that queries from the cursor — the reconnect's catch-up,
+    // or (a narrower, unavoidable risk on this shared database) another
+    // suite's unrelated traffic. Sending a NOTIFY for it and racing the
+    // reconnect's timing, as an earlier version of this test did, is
+    // fragile: if the NOTIFY happens to go out after Bun has already
+    // finished reconnecting, it arrives over the ordinary, already-working
+    // onNotify path and proves nothing about the catch-up wake specifically.
+    await insertOutboxRow(client, {
       topic: topicAfter,
       kind: 'debate.phase-changed',
       version: 1,
@@ -163,8 +174,21 @@ test('a LISTEN reconnect drains from the in-memory cursor, missing nothing', asy
         ids: [topicAfter],
       },
     });
-    await notifyOutbox(client, after);
 
+    const terminated = await killer.unsafe(
+      'select pg_terminate_backend(pid) from pg_stat_activity where application_name = $1 and pid <> pg_backend_pid()',
+      [tag],
+    );
+    if (terminated.length === 0)
+      throw new Error(
+        `No backend tagged application_name=${tag} was found to terminate; the reconnect this test proves never happened`,
+      );
+
+    // Two independent proofs: the reconnect itself happened (via
+    // `onListenWake`, immune to any other suite's traffic on the shared
+    // channel — RT-2.3b-f1 criterion 2), and the row was actually
+    // delivered.
+    await waitFor(() => listenWakeCount > listenWakesBeforeKill, 15_000);
     await waitFor(
       () => delivered.some((row) => row.topic === topicAfter),
       15_000,

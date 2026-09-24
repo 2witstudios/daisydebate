@@ -241,4 +241,47 @@ describe('startOutboxDrain startup order (ADR 0032 §2)', () => {
       },
     });
   });
+
+  test('unlistens and rethrows when the high-water mark read fails after LISTEN has resolved (CodeRabbit RT-2.3b review finding 4)', async () => {
+    let unlistened = false;
+    const database = {
+      async listenOutbox() {
+        return {
+          unlisten: async () => {
+            unlistened = true;
+          },
+        };
+      },
+      async readOutboxHighWaterMark(): Promise<OutboxPosition> {
+        throw new Error('connection reset');
+      },
+      async drainOutbox(): Promise<readonly OutboxRow[]> {
+        return [];
+      },
+    };
+
+    let caught: unknown;
+    try {
+      await startOutboxDrain({
+        database,
+        sink: () => {},
+        logger: noopLogger,
+        timers: { setInterval: () => 0 as never, clearInterval: () => {} },
+      });
+    } catch (error) {
+      caught = error;
+    }
+
+    assert({
+      given:
+        'a LISTEN subscription that resolves, followed by a high-water-mark read that rejects',
+      should:
+        'unlisten the dedicated LISTEN connection before rethrowing the original error, so it never outlives this call',
+      actual: {
+        unlistened,
+        caughtMessage: caught instanceof Error ? caught.message : caught,
+      },
+      expected: { unlistened: true, caughtMessage: 'connection reset' },
+    });
+  });
 });

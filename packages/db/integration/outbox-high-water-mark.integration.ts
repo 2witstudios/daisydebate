@@ -20,11 +20,26 @@ test('the high-water mark follows the same commit-order visibility rule as the d
 
     await connA.unsafe('COMMIT');
 
-    const afterCommit = await readOutboxHighWaterMark(drizzleC);
-    const reachesB =
+    // A single read right after A's commit can still land behind another
+    // suite's own open, uncommitted transaction on this shared test
+    // database, since the high-water mark's whole point is to hold back for
+    // ANY open transaction, not just this test's. Polling for a bounded time
+    // tolerates that unrelated, transient concurrency without weakening what
+    // the assertion actually proves.
+    const deadline = Date.now() + 5000;
+    let afterCommit = await readOutboxHighWaterMark(drizzleC);
+    let reachesB =
       BigInt(afterCommit.txid) > positionB.txid ||
       (BigInt(afterCommit.txid) === positionB.txid &&
         afterCommit.seq >= positionB.seq);
+    while (!reachesB && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      afterCommit = await readOutboxHighWaterMark(drizzleC);
+      reachesB =
+        BigInt(afterCommit.txid) > positionB.txid ||
+        (BigInt(afterCommit.txid) === positionB.txid &&
+          afterCommit.seq >= positionB.seq);
+    }
 
     assert({
       given:

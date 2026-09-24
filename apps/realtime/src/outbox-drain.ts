@@ -36,6 +36,14 @@ export type OutboxDrainLoop = {
   /** The 1 s poll wakeup: the correctness mechanism, never a fallback. */
   readonly poll: () => void;
   readonly cursor: () => OutboxPosition;
+  /**
+   * Stops accepting new wakeups and resolves once any in-flight pass has
+   * ended, so a caller can safely close the database pool right after:
+   * without this, a pass already mid-flight would keep calling
+   * `drainOutbox` after shutdown started, against a pool that may already
+   * be closing.
+   */
+  readonly stop: () => Promise<void>;
 };
 
 /**
@@ -66,6 +74,8 @@ export function createOutboxDrainLoop({
   let cursor = initialCursor;
   let dirty = false;
   let running = false;
+  let stopped = false;
+  let current: Promise<void> = Promise.resolve();
 
   async function runPass(): Promise<void> {
     if (running) return;
@@ -76,6 +86,7 @@ export function createOutboxDrainLoop({
         let rows: readonly OutboxRow[];
         try {
           do {
+            if (stopped) return;
             onQuery?.();
             rows = await drainOutbox(cursor, MAX_DRAIN_LIMIT);
             if (rows.length > 0) {
@@ -101,21 +112,26 @@ export function createOutboxDrainLoop({
           );
           return;
         }
-      } while (dirty);
+      } while (dirty && !stopped);
     } finally {
       running = false;
     }
   }
 
   function trigger(): void {
+    if (stopped) return;
     dirty = true;
-    if (!running) void runPass();
+    if (!running) current = runPass();
   }
 
   return {
     wake: trigger,
     poll: trigger,
     cursor: () => cursor,
+    async stop() {
+      stopped = true;
+      await current;
+    },
   };
 }
 
@@ -204,24 +220,34 @@ export async function startOutboxDrain({
     },
   });
 
-  const initialCursor = await database.readOutboxHighWaterMark();
-  const loop = createOutboxDrainLoop({
-    drainOutbox: database.drainOutbox,
-    sink,
-    initialCursor,
-    logger,
-    onQuery,
-  });
-  state.loop = loop;
-  if (state.pendingWake) loop.wake();
+  // From here on, any failure must still unlisten: otherwise the dedicated
+  // LISTEN connection outlives this function, and neither `start.ts`'s
+  // shutdown handler (never installed, since `serveRealtime` never
+  // resolved) nor anything else ever closes it.
+  try {
+    const initialCursor = await database.readOutboxHighWaterMark();
+    const loop = createOutboxDrainLoop({
+      drainOutbox: database.drainOutbox,
+      sink,
+      initialCursor,
+      logger,
+      onQuery,
+    });
+    state.loop = loop;
+    if (state.pendingWake) loop.wake();
 
-  const interval = timers.setInterval(() => loop.poll(), pollIntervalMs);
+    const interval = timers.setInterval(() => loop.poll(), pollIntervalMs);
 
-  return {
-    cursor: () => loop.cursor(),
-    async stop() {
-      timers.clearInterval(interval);
-      await subscription.unlisten();
-    },
-  };
+    return {
+      cursor: () => loop.cursor(),
+      async stop() {
+        timers.clearInterval(interval);
+        await loop.stop();
+        await subscription.unlisten();
+      },
+    };
+  } catch (error) {
+    await subscription.unlisten();
+    throw error;
+  }
 }

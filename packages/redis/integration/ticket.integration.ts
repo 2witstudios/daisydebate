@@ -48,7 +48,13 @@ async function issuedFixtureWithRawAccess(): Promise<{
   const redis = createRedis({ url, namespace: fixture.namespace });
   const raw = await rawClient(url);
   const key = redisKey(fixture.namespace, 'ticket', fixture.ticketHash);
-  await issueFixtureTicket(redis, fixture);
+  try {
+    await issueFixtureTicket(redis, fixture);
+  } catch (error) {
+    redis.close();
+    raw.close();
+    throw error;
+  }
   return { fixture, redis, raw, key };
 }
 

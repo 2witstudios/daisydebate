@@ -3,6 +3,7 @@ import { OUTBOX_ORIGIN, type OutboxRow } from '@daisy/db';
 import { createOutboxDrainLoop } from './outbox-drain';
 import {
   buildTestLoop,
+  deferred,
   fakeRow,
   flush,
   noopLogger,
@@ -152,6 +153,55 @@ describe('createOutboxDrainLoop sink/cursor tick (ADR 0032 §4, RT-2.3b-f1 crite
         loggedDrainFailure: events.includes('realtime.outbox.drain_failed'),
       },
       expected: { cursor: OUTBOX_ORIGIN, loggedDrainFailure: true },
+    });
+  });
+});
+
+describe('createOutboxDrainLoop stop() (CodeRabbit RT-2.3b review finding 2)', () => {
+  test('stop() waits for an in-flight pass to finish and ignores wakeups after stop() is called', async () => {
+    let queryCount = 0;
+    const gate = deferred<readonly OutboxRow[]>();
+    const { loop } = buildTestLoop(async () => {
+      queryCount += 1;
+      return gate.promise;
+    });
+
+    loop.wake();
+    await flush();
+    const queriesWhilePending = queryCount;
+
+    let stopResolved = false;
+    const stopPromise = loop.stop().then(() => {
+      stopResolved = true;
+    });
+    await flush();
+    const stopResolvedWhilePassPending = stopResolved;
+
+    // A wakeup arriving after stop() must never start a new pass.
+    loop.wake();
+    await flush();
+    const queriesAfterPostStopWake = queryCount;
+
+    gate.resolve([]);
+    await stopPromise;
+
+    assert({
+      given:
+        'stop() called while a pass is mid-query, followed by a wakeup after stop()',
+      should:
+        "not resolve stop() until the in-flight pass's query settles, and never start a new pass for a wakeup that arrives after stop()",
+      actual: {
+        queriesWhilePending,
+        stopResolvedWhilePassPending,
+        queriesAfterPostStopWake,
+        stopResolvedAfterGateOpens: stopResolved,
+      },
+      expected: {
+        queriesWhilePending: 1,
+        stopResolvedWhilePassPending: false,
+        queriesAfterPostStopWake: 1,
+        stopResolvedAfterGateOpens: true,
+      },
     });
   });
 });
