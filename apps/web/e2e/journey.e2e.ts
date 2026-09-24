@@ -10,6 +10,7 @@ import {
   reachOnboarding,
   sessionUsername,
 } from './support/accounts';
+import { watchTopbarSignIn } from './support/topbar';
 
 // The whole sign-in journey in a real browser against the production build:
 // request a link on /sign-in, open the emailed link, get a session, pick a
@@ -316,4 +317,18 @@ test('a username submitted before the page hydrates is claimed, never put in the
   await expect(page).toHaveURL(/\/lobby$/);
 
   expect(await sessionUsername(page)).toBe(name);
+});
+
+test('the topbar offers sign-in to a visitor', async ({ page }) => {
+  const topbar = await watchTopbarSignIn(page);
+  await page.goto('/');
+  const signIn = page
+    .getByRole('banner')
+    .getByRole('link', { name: 'Sign in' });
+  await expect(signIn).toBeVisible();
+  const { covered, inspected } = await topbar.settle();
+  expect(inspected).toBeGreaterThan(0);
+  expect(covered).toEqual([]);
+  await signIn.click();
+  await expect(page).toHaveURL(/\/sign-in$/);
 });
