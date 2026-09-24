@@ -1,16 +1,11 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { SQL } from 'bun';
 import { resolve } from 'node:path';
+import { requireTestServices } from '@daisy/config';
 
 setupRitewayBun();
 
-const url = process.env.TEST_DATABASE_URL;
-if (!url)
-  throw new Error(
-    'TEST_DATABASE_URL required; never use application database for tests',
-  );
-if (!new URL(url).pathname.endsWith('_test'))
-  throw new Error('Test database name must end in _test');
+const { databaseUrl: url } = requireTestServices(process.env);
 
 const seedIds = [
   'k2v9x0f4m8q3w1z7c5n6b4d2',
@@ -18,6 +13,14 @@ const seedIds = [
   'c8d4e2f6a1b3k5m7n9p2r4t6',
 ];
 const seedActorIds = ['h3j7m1p5r9t2v6x0z4b8d2f6', 'q5s9u3w7y1a4c8e2g6j0l4n8'];
+
+/** Removes the rows the seeds insert, children first. */
+const removeSeedRows = async (database: SQL) => {
+  await database`delete from debates where id = ${seedIds[2]}`;
+  await database`delete from actors where id in (${seedActorIds[0]}, ${seedActorIds[1]})`;
+  await database`delete from users where id in (${seedIds[0]}, ${seedIds[1]})`;
+  await database`delete from seed_versions where seed_name in ('agent', 'formats')`;
+};
 
 // A filesystem path, not URL.pathname: that stays percent-encoded, so a
 // checkout path containing a space would not exist as a spawn cwd.
@@ -67,10 +70,7 @@ describe('reference data', () => {
     } finally {
       try {
         await database`update formats set name = ${original?.name} where id = 'foundation'`;
-        await database`delete from debates where id = ${seedIds[2]}`;
-        await database`delete from actors where id in (${seedActorIds[0]}, ${seedActorIds[1]})`;
-        await database`delete from users where id in (${seedIds[0]}, ${seedIds[1]})`;
-        await database`delete from seed_versions where seed_name in ('agent', 'formats')`;
+        await removeSeedRows(database);
       } finally {
         await database.close();
       }
@@ -139,10 +139,7 @@ describe('agent seed', () => {
       });
     } finally {
       try {
-        await database`delete from debates where id = ${seedIds[2]}`;
-        await database`delete from actors where id in (${seedActorIds[0]}, ${seedActorIds[1]})`;
-        await database`delete from users where id in (${seedIds[0]}, ${seedIds[1]})`;
-        await database`delete from seed_versions where seed_name in ('agent', 'formats')`;
+        await removeSeedRows(database);
       } finally {
         await database.close();
       }

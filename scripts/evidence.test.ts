@@ -3,7 +3,6 @@ import {
   ciGateProblems,
   ciInvokedTasks,
   classifyTestFile,
-  integrationGuardProblems,
   isTestFilePath,
   rootClaimProblems,
 } from './evidence';
@@ -115,7 +114,7 @@ describe('classifyTestFile', () => {
       should: 'stay claimed by their own runners',
       actual: [
         'packages/db/integration/db.integration.ts',
-        'packages/db/integration/seed.integration.test.ts',
+        'packages/db/integration/seed.integration.ts',
         'apps/web/e2e/app.e2e.ts',
       ].map(classifyTestFile),
       expected: ['integration', 'integration', 'e2e'],
@@ -132,44 +131,6 @@ describe('classifyTestFile', () => {
         'apps/web/src/ui/store/store.integration.tsx',
       ].map(classifyTestFile),
       expected: ['orphan', 'orphan'],
-    });
-  });
-});
-
-describe('integrationGuardProblems', () => {
-  test('accepts a suite that throws on a missing test service', () => {
-    const content = [
-      'const url = process.env.TEST_DATABASE_URL;',
-      "if (!url) throw new Error('TEST_DATABASE_URL required');",
-    ].join('\n');
-    assert({
-      given: 'a hard-failing environment guard',
-      should: 'report no problems',
-      actual: integrationGuardProblems(content, 'db.integration.ts'),
-      expected: [],
-    });
-  });
-
-  test('flags a suite that can silently pass without services', () => {
-    const content = 'const url = process.env.TEST_DATABASE_URL;';
-    assert({
-      given: 'a guard that never throws',
-      should: 'fail with GUARD_MISSING instead of trusting a silent skip',
-      actual: integrationGuardProblems(content, 'db.integration.ts').map(
-        ({ code }) => code,
-      ),
-      expected: ['GUARD_MISSING'],
-    });
-  });
-
-  test('flags a suite that declares no test environment at all', () => {
-    assert({
-      given: 'an integration suite without any test service env var',
-      should: 'fail with GUARD_MISSING',
-      actual:
-        integrationGuardProblems("test('x', () => {});", 'loose.integration.ts')
-          .length > 0,
-      expected: true,
     });
   });
 });

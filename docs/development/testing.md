@@ -17,7 +17,7 @@ AIDD/Vitest guidance is overridden here by Bun and RITEway (ADR 0021).
    mapping). Requires `bun slot:up`, which migrates this checkout's test
    database. Suites are discovered, not listed: each workspace's
    `test:integration` runs `scripts/test-integration.ts`, which runs every
-   `integration/**/*.integration.ts` and `*.integration.test.ts`.
+   `integration/**/*.integration.ts`.
 3. **Browser E2E (`bun test:e2e`)** — Playwright boots the **production**
    server (`e2e/support/server.ts` wrapping `src/server/start.ts`,
    `NODE_ENV=production`) with production-refined configuration. The
@@ -93,9 +93,14 @@ not exist — PageSpace lost entire tiers this way. `bun evidence` (in
   test (`bun lint`). Anything else is an ORPHAN_SUITE.
 - Every `integration/` suite must be run by its workspace's
   `test:integration` script (the discovery runner claims the whole folder)
-  and must **throw** when
-  `TEST_DATABASE_URL`/`TEST_REDIS_URL` is missing — a guard that skips
-  instead of failing is GUARD_MISSING.
+  and must import `requireTestServices` from `@daisy/config` and call it on
+  `process.env` in a top-level statement (`requireTestServices(process.env);`
+  or `const … = requireTestServices(process.env);`). It **throws** when
+  `TEST_DATABASE_URL` (ending in `_test`) or `TEST_REDIS_URL` is missing, so
+  the file fails instead of skipping. The gate reads the parsed import and
+  call, not text: a hand-written guard, a mention in a comment, a call
+  deferred into a test body, or one behind an `if`, a `try`, a short-circuit
+  or an optional call is GUARD_MISSING.
 - Every `*.e2e.ts` is claimed by the Playwright config, and exactly one
   workflow runs `test:e2e`.
 - `bun test src` globs only `*.test.ts(x)`, and Playwright matches only
@@ -120,17 +125,33 @@ not exist — PageSpace lost entire tiers this way. `bun evidence` (in
 - **RITEway format.** Tests import `describe`, `test`, `assert` and
   `setupRitewayBun` from `riteway/bun` (9.3.0, the Bun-native entry point),
   call `setupRitewayBun()` once per file, and assert value contracts with
-  `assert({ given, should, actual, expected })`. `bun:test`'s
-  `expect(...).toThrow()`/`rejects.toThrow()` is allowed only on exception
-  paths. `given`/`should` read as a specification sentence: when the
-  assertion fails, its message is the bug report.
+  `assert({ given, should, actual, expected })`. An expected `AppError` is
+  asserted with `assertRejects({ given, should, actual, code })` from
+  `@daisy/errors/testing`, which checks the factory-minted code (and
+  `invariantId`) of a throw or a rejection, so a stray `TypeError` fails;
+  `rejectionOf` reports the same outcome as a value. Other exception paths
+  use `bun:test`'s `toThrow(message)` or the exact error, never a bare
+  `.toThrow()` (ESLint rejects one). `scripts/check-boundaries.ts` (in
+  `bun lint`) admits an `@daisy/*/testing` import only from suites,
+  `integration/`, `e2e/` and test support, never production source. Schema
+  tests assert the parsed value or the issue paths, not a `.success`
+  boolean. `given`/`should` read as a specification sentence:
+  when the assertion fails, its message is the bug report.
 - **Dead code.** `bun run knip` fails on unused files, exports and
   dependencies; keep findings at zero (ADR 0013).
 - **Duplication.** `bun run duplication` fails on any copy-pasted block not
-  in `.jscpd-baseline.json`; consolidate instead of re-baselining (ADR 0026).
+  in `.jscpd-baseline.json`, and on any copy-pasted test block not in
+  `.jscpd-tests-baseline.json` (tests have their own scan and baseline);
+  consolidate instead of re-baselining (ADR 0026).
 - Tests are deterministic: inject clocks/IDs; never sleep-and-hope; no
   cross-test shared state; use deterministic unit IDs and CSPRNG isolation IDs
   only in real-service integration tests; clean only records you created.
+  Wait on the state under test, never a timing window: fire a Redis expiry
+  with `PEXPIREAT` (the redis `withRedis` fixture's `expireNow`) instead of
+  waiting out a TTL, read lease scores against the Redis server clock,
+  resolve on the LISTEN callback, and release a lock holder once
+  `pg_locks` shows the waiter. An expiry Better Auth stamps is read as
+  `expires_at - created_at` from the row, not against the runner's clock.
 - Integration tests read `TEST_DATABASE_URL` (must end in `_test`) and
   `TEST_REDIS_URL`; never point them at development or production data.
   Missing services hard-fail (`throw`), never skip.
@@ -139,8 +160,11 @@ not exist — PageSpace lost entire tiers this way. `bun evidence` (in
 - New domain behavior lands with engine tests first; new durable behavior
   lands with an integration test through the application operation, not by
   mocking the database.
-- Every `apps/web` integration suite builds its own app with `createTestApp`
-  (`apps/web/integration/auth-mounted-helpers.ts`): `createApp` over the test
+- The web integration suites share one fixture module,
+  `apps/web/integration/fixtures.ts`: the test environment, the app, the
+  accounts a suite creates (`fixtureEmail`), their cleanup (`removeAccount`,
+  keyed by email and user id) and their row counts (`counts`). Every suite
+  builds its own app with its `createTestApp`: `createApp` over the test
   services with its own validated environment, Redis namespace, mailbox
   `fetch`, log output and client addresses, and the route handlers
   `createRoutes` builds from it. Suites share one `bun test` process, so a

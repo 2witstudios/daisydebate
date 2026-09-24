@@ -26,18 +26,16 @@ against the whole tree, and the scan is cheap enough to run on every push.
   "no Rust" foundation rule governs first-party code, not vendored tool
   binaries.
 - **Scope** (`.jscpd.json`). First-party TypeScript, TSX, JavaScript, JSX and
-  CSS under `apps/*/src`, `apps/*/integration`, `packages/*/src`,
-  `packages/*/scripts`, `scripts` and `scenarios`. The integration root is
-  scanned for its non-test helpers (`auth-helpers.ts`); the
-  `*.integration.ts` suites in it stay ignored like every other test. Root
+  CSS under `apps/*/src`, `packages/*/src`, `packages/*/scripts`, `scripts`
+  and `scenarios`. All of `apps/*/integration`, suites and helpers alike, is
+  test code and belongs to the tests scan below. Root
   and package config files (`eslint.config.mjs`, `next.config.ts`,
   `playwright.config.ts`, `drizzle.config.ts`) are deliberately out of scope:
   they are declarative, one per tool, and have nothing to consolidate into.
   `scripts/duplication-config.test.ts` fails when any scan root stops matching
   tracked, scannable, non-ignored source, because `failOnEmpty` only fires
   when the whole scan is empty. Ignored:
-  test suites and test support (`*.test.ts(x)`, `*.integration.ts`,
-  `*.e2e.ts`, `*.test-support.ts`, `test-support/`), generated output
+  test suites and test support (`*.test.ts(x)`, `*.e2e.ts`, `*.test-support.ts`, `test-support/`), generated output
   (`.next`, `.turbo`, `node_modules`, migrations `meta/`), and the throwaway
   fixtures in `apps/web/src/ui/mock/`. jscpd's JSON config cannot carry
   comments, so this record is where each ignore is justified.
@@ -80,6 +78,35 @@ them. When real routes replace them they are scanned like any other source.
 | ---------- | --------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 2026-09-23 | `apps/realtime/src/app.ts` ↔ `apps/web/src/server/app.ts` | 12 lines, 63 tokens | ISSUE-7: each app's composition root builds its database and Redis from its own validated config. Apps cannot import each other, and a package depending on both `@daisy/db` and `@daisy/redis` only for this would be the speculative shared package AGENTS.md forbids. |
 
+### Tests under their own gate (2026-09-23, ISSUE-11)
+
+The owner decided that the copy-paste gate covers tests strictly: it fails
+CI, with a baseline that only shrinks. Test code is scanned by a second
+config, `.jscpd-tests.json`, against its own `.jscpd-tests-baseline.json`;
+`bun run duplication` runs both scans, so `bun check`, CI and the pre-push
+hook enforce both. Its scan roots name test files explicitly: unit suites
+and `*.test-support.ts` under `apps/*/src`, `packages/*/src` and `scripts`,
+`test-support/` folders, all of `apps/*/integration` and
+`packages/*/integration`, `apps/web/e2e` (specs and support), and
+`eslint.config.test.ts`. The same sensitivity, ratchet and exception rules
+apply, and `scripts/duplication-config.test.ts` guards both configs' scan
+roots. The source config's test ignores stay, so no file is counted twice.
+This extends the gate's scope; it loosens nothing.
+
+A one-off scan at `235b129` found 71 test clones, and 68 remained when the
+gate was switched on. ISSUE-11 consolidated them into shared fixtures (the
+web integration `fixtures.ts` and flows, the auth unit
+`auth-server.test-support.ts`, the redis `withRedis`, the engine
+`runtime.test-support.ts`, the protocol `parseOutcome`, the e2e sign-in
+helpers) and left 11 in the baseline. ISSUE-8 part 2 then removed the nine retention-sweep clones, and moving
+all of `apps/*/integration` into this scan dropped the stale debate pair,
+leaving two, each in a row below.
+
+| Date       | Clone                                                                                                         | Reason                                                                                                                                                                                   |
+| ---------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-23 | `apps/web/integration/auth-email-change.integration.ts` ↔ `auth-session-management.integration.ts` (preamble) | Both suites import and call `requireTestServices` at load, which `bun evidence` requires, then build the same passkey flows; the shared part is that required preamble.                  |
+| 2026-09-23 | `packages/redis/integration/presence-expiry.integration.ts` ↔ `presence.integration.ts` (preamble)            | Both suites import and call `requireTestServices` at load, which `bun evidence` requires, then import the same presence helpers; the expiry suite was split out for the file line limit. |
+
 ## Consequences
 
 - The gate costs about 0.05 s locally (13 ms of detection), so it is free in
@@ -87,7 +114,8 @@ them. When real routes replace them they are scanned like any other source.
 - When it fires, the fix is consolidation: extract the shared function,
   component, or data table into the owning module (a shared abstraction now
   has its two real consumers). Deleting a grandfathered clone should be
-  followed by `bunx --bun jscpd --update-baseline` so the baseline shrinks.
+  followed by `bunx --bun jscpd --update-baseline` (add
+  `--config .jscpd-tests.json` for a test clone) so the baseline shrinks.
 - Supply chain, stated plainly. jscpd 5.3.0 was published on 2026-09-18, two
   days before adoption, and the 5.x line is a fresh Rust rewrite of a tool
   whose 4.x line was JavaScript. It ships prebuilt per-platform binaries

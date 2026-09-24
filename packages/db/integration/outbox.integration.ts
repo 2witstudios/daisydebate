@@ -10,27 +10,34 @@ import {
   decodeOutboxCursor,
   drainOutbox,
 } from '../src/outbox';
+import { requireTestServices } from '@daisy/config';
 
 setupRitewayBun();
 
-const url = process.env.TEST_DATABASE_URL;
-if (!url)
-  throw new Error(
-    'TEST_DATABASE_URL required; never use application database for tests',
-  );
-if (!new URL(url).pathname.endsWith('_test'))
-  throw new Error('Test database name must end in _test');
+const { databaseUrl: url } = requireTestServices(process.env);
 
-const waitFor = async (
-  check: () => boolean,
-  timeoutMs = 2000,
-): Promise<void> => {
-  const start = Date.now();
-  while (!check()) {
-    if (Date.now() - start > timeoutMs)
-      throw new Error('Timed out waiting for condition');
-    await new Promise((resolve) => setTimeout(resolve, 20));
-  }
+/**
+ * The NOTIFY payloads a LISTEN connection receives, and a promise that
+ * resolves from the LISTEN callback itself once one matches: no polling.
+ */
+const notificationLog = () => {
+  const received: string[] = [];
+  const waiters: Array<{
+    readonly matches: (payload: string) => boolean;
+    readonly resolve: () => void;
+  }> = [];
+  return {
+    record: (payload: string) => {
+      received.push(payload);
+      for (const waiter of waiters.filter(({ matches }) => matches(payload)))
+        waiter.resolve();
+    },
+    notified: (matches: (payload: string) => boolean) =>
+      new Promise<void>((resolve) => {
+        if (received.some(matches)) resolve();
+        else waiters.push({ matches, resolve });
+      }),
+  };
 };
 
 test('a committed transaction delivers its outbox row with a txid, a NOTIFY and an object payload; a rolled-back one delivers nothing', async () => {
@@ -46,11 +53,9 @@ test('a committed transaction delivers its outbox row with a txid, a NOTIFY and 
     kind: 'debate.phase-changed' as const,
     ids: [debateId],
   };
-  const notifications: string[] = [];
+  const notifications = notificationLog();
   try {
-    const subscription = await listener.listen('outbox', (received) => {
-      notifications.push(received);
-    });
+    const subscription = await listener.listen('outbox', notifications.record);
     try {
       const committed = await testOnly.transaction((tx) =>
         appendOutboxEvent(tx, {
@@ -80,15 +85,13 @@ test('a committed transaction delivers its outbox row with a txid, a NOTIFY and 
         rolledBack = true;
       }
 
-      await waitFor(() =>
-        notifications.some((received) => {
-          try {
-            return decodeOutboxCursor(received).seq === committed.seq;
-          } catch {
-            return false;
-          }
-        }),
-      );
+      await notifications.notified((received) => {
+        try {
+          return decodeOutboxCursor(received).seq === committed.seq;
+        } catch {
+          return false;
+        }
+      });
 
       const rows = await drainOutbox(readerDb, OUTBOX_ORIGIN, 500);
       const delivered = rows.filter((row) => row.topic === topic);

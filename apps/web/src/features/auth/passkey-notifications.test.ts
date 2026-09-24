@@ -1,20 +1,11 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { APIError } from 'better-auth/api';
 import type { Logger } from '@daisy/logger';
+import { createEventRecorder as recorder } from '../../server/test-loggers.test-support';
 import { passkeyNotificationsPlugin } from './passkey-notifications';
 import type { AuthEmailMessage } from './server';
 
 setupRitewayBun();
-
-type Logged = { event: string; fields: Record<string, unknown> };
-const recorder = () => {
-  const logged: Logged[] = [];
-  const logger: Logger = {
-    log: (event, fields) => void logged.push({ event, fields }),
-    child: () => logger,
-  };
-  return { logged, logger };
-};
 
 const origin = 'https://daisy.example.com';
 const email = 'player@daisy.example.com';
@@ -39,6 +30,23 @@ const runAfterHook = async (
   if (!hook.matcher(ctx as never)) return 'not-matched';
   await hook.handler(ctx as never);
   return 'matched';
+};
+
+/** The notices the hook delivered for one response. */
+const sentAfter = async (
+  path: string,
+  session: Parameters<typeof context>[1],
+  returned?: unknown,
+) => {
+  const sent: AuthEmailMessage[] = [];
+  await runAfterHook(
+    async (message) => void sent.push(message),
+    recorder().logger,
+    path,
+    session,
+    returned,
+  );
+  return sent;
 };
 
 describe('passkeyNotificationsPlugin matcher', () => {
@@ -66,14 +74,9 @@ describe('passkeyNotificationsPlugin matcher', () => {
 
 describe('passkeyNotificationsPlugin handler', () => {
   test('sends the passkey-added notice on a successful registration', async () => {
-    const sent: AuthEmailMessage[] = [];
-    const { logger } = recorder();
-    await runAfterHook(
-      async (message) => void sent.push(message),
-      logger,
-      '/passkey/verify-registration',
-      { user: { email } },
-    );
+    const sent = await sentAfter('/passkey/verify-registration', {
+      user: { email },
+    });
     assert({
       given: 'a successful passkey registration for a signed-in session',
       should: 'deliver exactly one passkey-added notice to that address',
@@ -87,14 +90,9 @@ describe('passkeyNotificationsPlugin handler', () => {
   });
 
   test('sends the passkey-removed notice on a successful deletion', async () => {
-    const sent: AuthEmailMessage[] = [];
-    const { logger } = recorder();
-    await runAfterHook(
-      async (message) => void sent.push(message),
-      logger,
-      '/passkey/delete-passkey',
-      { user: { email } },
-    );
+    const sent = await sentAfter('/passkey/delete-passkey', {
+      user: { email },
+    });
     assert({
       given: 'a successful passkey deletion for a signed-in session',
       should: 'deliver exactly one passkey-removed notice to that address',
@@ -110,11 +108,7 @@ describe('passkeyNotificationsPlugin handler', () => {
   });
 
   test('sends nothing when the endpoint itself failed', async () => {
-    const sent: AuthEmailMessage[] = [];
-    const { logger } = recorder();
-    await runAfterHook(
-      async (message) => void sent.push(message),
-      logger,
+    const sent = await sentAfter(
       '/passkey/delete-passkey',
       { user: { email } },
       new APIError('FORBIDDEN', { message: 'not yours' }),
@@ -128,14 +122,7 @@ describe('passkeyNotificationsPlugin handler', () => {
   });
 
   test('sends nothing without a session on the context', async () => {
-    const sent: AuthEmailMessage[] = [];
-    const { logger } = recorder();
-    await runAfterHook(
-      async (message) => void sent.push(message),
-      logger,
-      '/passkey/verify-registration',
-      undefined,
-    );
+    const sent = await sentAfter('/passkey/verify-registration', undefined);
     assert({
       given: 'no session on the after-hook context',
       should: 'send no notification',

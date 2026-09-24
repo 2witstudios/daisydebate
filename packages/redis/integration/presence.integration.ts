@@ -1,242 +1,210 @@
-import { expect, test } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
-import { createRedis, redisKey } from '../src';
-import { rawClient } from './test-support';
-const url = process.env.TEST_REDIS_URL;
-if (!url) throw new Error('TEST_REDIS_URL required');
+import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { requireTestServices } from '@daisy/config';
+import { lease, withRedis } from './test-support';
 
-/** Every score is server time, so a client-side check tolerates script/network latency, never exact equality. */
-function expectExpiryNear(
-  actual: number,
-  ttlSeconds: number,
-  toleranceMs = 5_000,
-) {
-  const now = Date.now();
-  expect(actual).toBeGreaterThan(now + ttlSeconds * 1000 - toleranceMs);
-  expect(actual).toBeLessThanOrEqual(now + ttlSeconds * 1000 + toleranceMs);
-}
+setupRitewayBun();
 
-test('presence lease upsert, refresh and delete are visible through the reads', async () => {
-  const namespace = `test-${createId()}`;
-  const redis = createRedis({ url, namespace });
-  const actorId = createId();
-  try {
+const { redisUrl: url } = requireTestServices(process.env);
+
+/**
+ * A lease's remaining life in whole tens of seconds, read against the Redis
+ * server clock the same read used: scores are server time, so the only
+ * slack is the latency between the write and the read, far under 5 s.
+ */
+const leaseSeconds = (expiresAtMs: number, nowMs: number) =>
+  Math.round((expiresAtMs - nowMs) / 10_000) * 10;
+
+test('presence lease upsert, refresh and delete are visible through the reads', () =>
+  withRedis(url, async ({ redis }) => {
+    const actorId = createId();
+    const connections = async () => {
+      const { connections: found, nowMs } =
+        await redis.readActorConnections(actorId);
+      return found
+        .map(({ connId, activity, instanceId, expiresAtMs }) => ({
+          connId,
+          activity,
+          instanceId,
+          lease: leaseSeconds(expiresAtMs, nowMs),
+        }))
+        .sort((a, b) => a.connId.localeCompare(b.connId));
+    };
+    const online = async () => {
+      const { actors, nowMs } = await redis.readOnlinePresence(100);
+      return actors.map((actor) => ({
+        actorId: actor.actorId,
+        lease: leaseSeconds(actor.expiresAtMs, nowMs),
+      }));
+    };
+
     await redis.upsertPresenceLease(
-      { connId: 'connA1', actorId, instanceId: 'instX', activity: 'active' },
+      lease('connA1', actorId, 'active', 'instX'),
       60,
     );
-    // A second connection from the same actor is scored independently.
     await redis.upsertPresenceLease(
-      { connId: 'connA2', actorId, instanceId: 'instY', activity: 'idle' },
+      lease('connA2', actorId, 'idle', 'instY'),
       120,
     );
-    const { connections: afterUpsert } =
-      await redis.readActorConnections(actorId);
-    expect(afterUpsert.length).toBe(2);
-    expect(afterUpsert.map((c) => c.connId).sort()).toEqual([
-      'connA1',
-      'connA2',
-    ]);
-    const conn1 = afterUpsert.find((c) => c.connId === 'connA1');
-    expect(conn1?.activity).toBe('active');
-    expect(conn1?.instanceId).toBe('instX');
-    expectExpiryNear(conn1!.expiresAtMs, 60);
-    // Online set is scored by the actor's LATEST lease expiry (connA2's 120s), not the first upsert.
-    const { actors: onlineAfterUpsert } = await redis.readOnlinePresence(100);
-    expect(onlineAfterUpsert.length).toBe(1);
-    expect(onlineAfterUpsert[0]!.actorId).toBe(actorId);
-    expectExpiryNear(onlineAfterUpsert[0]!.expiresAtMs, 120);
+    assert({
+      given: 'two connections from one actor with 60 s and 120 s leases',
+      should:
+        'score each connection independently and the actor online by its longest lease',
+      actual: { connections: await connections(), online: await online() },
+      expected: {
+        connections: [
+          {
+            connId: 'connA1',
+            activity: 'active',
+            instanceId: 'instX',
+            lease: 60,
+          },
+          {
+            connId: 'connA2',
+            activity: 'idle',
+            instanceId: 'instY',
+            lease: 120,
+          },
+        ],
+        online: [{ actorId, lease: 120 }],
+      },
+    });
 
     const refreshed = await redis.refreshPresenceLease(
       { connId: 'connA1', actorId },
       90,
     );
-    expect(refreshed).toEqual({ refreshed: true });
-    const { connections: afterRefresh } =
-      await redis.readActorConnections(actorId);
-    expectExpiryNear(
-      afterRefresh.find((c) => c.connId === 'connA1')!.expiresAtMs,
-      90,
-    );
-
     await redis.deletePresenceLease({ connId: 'connA2', actorId });
-    const { connections: afterDelete } =
-      await redis.readActorConnections(actorId);
-    expect(afterDelete.map((c) => c.connId)).toEqual(['connA1']);
-    // Online score falls back to the one remaining connection's expiry.
-    const { actors: onlineAfterDelete } = await redis.readOnlinePresence(100);
-    expect(onlineAfterDelete.length).toBe(1);
-    expectExpiryNear(onlineAfterDelete[0]!.expiresAtMs, 90);
+    assert({
+      given: 'connA1 refreshed to 90 s, then connA2 deleted',
+      should:
+        'report the refresh and fall the online score back to the remaining lease',
+      actual: {
+        refreshed,
+        connections: await connections(),
+        online: await online(),
+      },
+      expected: {
+        refreshed: { refreshed: true },
+        connections: [
+          {
+            connId: 'connA1',
+            activity: 'active',
+            instanceId: 'instX',
+            lease: 90,
+          },
+        ],
+        online: [{ actorId, lease: 90 }],
+      },
+    });
 
     await redis.deletePresenceLease({ connId: 'connA1', actorId });
-    expect((await redis.readActorConnections(actorId)).connections).toEqual([]);
-    // No connections remain, so the actor drops out of the online set entirely.
-    expect((await redis.readOnlinePresence(100)).actors).toEqual([]);
-  } finally {
-    await redis.deletePresenceLease({ connId: 'connA1', actorId });
-    await redis.deletePresenceLease({ connId: 'connA2', actorId });
-    redis.close();
-  }
-});
+    assert({
+      given: 'the last connection deleted',
+      should: 'leave no connection and drop the actor from the online set',
+      actual: { connections: await connections(), online: await online() },
+      expected: { connections: [], online: [] },
+    });
+  }));
 
-test('the actor and online zsets carry a mandatory expiry covering the longest live lease, never PTTL -1', async () => {
-  const namespace = `test-${createId()}`;
-  const redis = createRedis({ url, namespace });
-  const raw = await rawClient(url);
-  const actorId = createId();
-  try {
-    await redis.upsertPresenceLease(
-      { connId: 'connX', actorId, instanceId: 'inst1', activity: 'active' },
-      60,
-    );
-    const connPttl = await raw.pttl(
-      redisKey(namespace, 'presence', 'conn', 'connX'),
-    );
-    const actorPttl = await raw.pttl(
-      redisKey(namespace, 'presence', 'actor', actorId),
-    );
-    const onlinePttl = await raw.pttl(
-      redisKey(namespace, 'presence', 'online'),
-    );
-    // All three keys must carry an expiry; -1 means "no TTL" (unbounded growth).
-    expect(connPttl).toBeGreaterThan(0);
-    expect(actorPttl).toBeGreaterThan(0);
-    expect(onlinePttl).toBeGreaterThan(0);
-    expect(connPttl).toBeLessThanOrEqual(60_000);
-    expect(actorPttl).toBeLessThanOrEqual(60_000);
-    expect(onlinePttl).toBeLessThanOrEqual(60_000);
-  } finally {
-    await redis.deletePresenceLease({ connId: 'connX', actorId });
-    redis.close();
-    raw.close();
-  }
-});
+test('the actor and online zsets carry a mandatory expiry covering the longest live lease, never PTTL -1', () =>
+  withRedis(url, async ({ redis, raw, key }) => {
+    const actorId = createId();
+    await redis.upsertPresenceLease(lease('connX', actorId), 60);
+    const keys = [
+      key('presence', 'conn', 'connX'),
+      key('presence', 'actor', actorId),
+      key('presence', 'online'),
+    ];
+    const pttls = await Promise.all(keys.map((name) => raw.pttl(name)));
+    assert({
+      given: 'a 60 s lease',
+      should:
+        'give the conn hash, the actor zset and the online zset each an expiry within 60 s (-1 would mean unbounded growth)',
+      actual: pttls.map((pttl) => pttl > 0 && pttl <= 60_000),
+      expected: [true, true, true],
+    });
+  }));
 
-test('refreshing with a longer TTL extends both the actor and online zset expiries (PEXPIRE ... GT), not just arms them once', async () => {
-  // The mandatory-expiry test above only proves a TTL gets set at all
-  // (which PEXPIRE ... NX alone would also do). This proves GT actually
-  // extends it on BOTH zsets: without GT, a second PEXPIRE against an
-  // already-TTL'd key is a no-op, so the zset's expiry would still reflect
-  // the first (shorter) write and this would fail. The online assertion is
-  // the RT-3.1f addition: RT-3.1v's third-pass minor 10 found the prior
-  // version of this test proved GT only on the actor zset, so deleting the
-  // refresh script's `arm(KEYS[3], top, now)` (presence.ts:90) survived
-  // every test while the online zset silently kept its 5s expiry — an
-  // actor who only ever refreshes would drop offline once that first lease
-  // ran out even though their connection was still live.
-  const namespace = `test-${createId()}`;
-  const redis = createRedis({ url, namespace });
-  const raw = await rawClient(url);
-  const actorId = createId();
-  try {
-    await redis.upsertPresenceLease(
-      { connId: 'connG', actorId, instanceId: 'inst1', activity: 'active' },
-      5,
-    );
+test('refreshing with a longer TTL extends both the actor and online zset expiries (PEXPIRE ... GT), not just arms them once', () =>
+  // Without GT a second PEXPIRE on an already-expiring key is a no-op, so
+  // either zset would keep the first 5 s expiry; RT-3.1v found deleting the
+  // refresh script's online `arm` survived when only the actor zset was
+  // checked, so both are asserted.
+  withRedis(url, async ({ redis, raw, key }) => {
+    const actorId = createId();
+    await redis.upsertPresenceLease(lease('connG', actorId), 5);
     await redis.refreshPresenceLease({ connId: 'connG', actorId }, 100);
-    const actorPttl = await raw.pttl(
-      redisKey(namespace, 'presence', 'actor', actorId),
-    );
-    const onlinePttl = await raw.pttl(
-      redisKey(namespace, 'presence', 'online'),
-    );
-    expect(actorPttl).toBeGreaterThan(5_000);
-    expect(onlinePttl).toBeGreaterThan(5_000);
-  } finally {
-    await redis.deletePresenceLease({ connId: 'connG', actorId });
-    redis.close();
-    raw.close();
-  }
-});
+    assert({
+      given: 'a 5 s lease refreshed to 100 s',
+      should: 'extend both zset expiries beyond the first 5 s',
+      actual: {
+        actor: (await raw.pttl(key('presence', 'actor', actorId))) > 5_000,
+        online: (await raw.pttl(key('presence', 'online'))) > 5_000,
+      },
+      expected: { actor: true, online: true },
+    });
+  }));
 
-test('a delete arms a fresh expiry when it recreates a dropped online zset from a genuinely live remaining connection', async () => {
-  // Distinct from the "never recreates from a stale leftover" test: here
-  // the remaining connection is still perfectly live. The online zset key
-  // is dropped directly (simulating an earlier read's trim), and deleting
-  // the OTHER connection must still leave the recreated online key with a
-  // bounded expiry, not PTTL -1.
-  const namespace = `test-${createId()}`;
-  const redis = createRedis({ url, namespace });
-  const raw = await rawClient(url);
-  const actorId = createId();
-  const onlineKey = redisKey(namespace, 'presence', 'online');
-  try {
+test('a delete arms a fresh expiry when it recreates a dropped online zset from a genuinely live remaining connection', () =>
+  // The online key is dropped directly (as an earlier trim would), and
+  // deleting the OTHER connection must recreate it with a bounded expiry.
+  withRedis(url, async ({ redis, raw, key }) => {
+    const actorId = createId();
+    const onlineKey = key('presence', 'online');
+    await redis.upsertPresenceLease(lease('staying', actorId), 100);
     await redis.upsertPresenceLease(
-      { connId: 'staying', actorId, instanceId: 'inst1', activity: 'active' },
+      lease('leaving', actorId, 'active', 'inst2'),
       100,
     );
-    await redis.upsertPresenceLease(
-      { connId: 'leaving', actorId, instanceId: 'inst2', activity: 'active' },
-      100,
-    );
-    // Simulate the online zset having already been dropped.
     await raw.del(onlineKey);
-
     await redis.deletePresenceLease({ connId: 'leaving', actorId });
+    assert({
+      given: 'a delete beside a live lease after the online key was dropped',
+      should: 'put the actor back online on a key that expires',
+      actual: {
+        online: (await redis.readOnlinePresence(100)).actors.map(
+          (actor) => actor.actorId,
+        ),
+        expires: (await raw.pttl(onlineKey)) > 0,
+      },
+      expected: { online: [actorId], expires: true },
+    });
+  }));
 
-    // "staying" is still live, so the actor must be back online — with a
-    // real expiry on the recreated key, never PTTL -1.
-    const { actors: online } = await redis.readOnlinePresence(100);
-    expect(online.map((a) => a.actorId)).toEqual([actorId]);
-    expect(await raw.pttl(onlineKey)).toBeGreaterThan(0);
-  } finally {
-    await redis.deletePresenceLease({ connId: 'staying', actorId });
-    await redis.deletePresenceLease({ connId: 'leaving', actorId });
-    redis.close();
-    raw.close();
-  }
-});
-
-test('the online score always reflects the actor’s longest live lease, not the most recently upserted one', async () => {
-  // Negative control for a real mutation a reviewer found: scoring the
-  // online set by the just-upserted lease instead of the actor zset's top
-  // would pass every other test here because they always upsert the
-  // longest lease last. This one upserts the longer lease FIRST.
-  const namespace = `test-${createId()}`;
-  const redis = createRedis({ url, namespace });
-  const actorId = createId();
-  try {
+test('the online score always reflects the actor’s longest live lease, not the most recently upserted one', () =>
+  // Negative control for a reviewer's mutation (scoring online by the
+  // just-upserted lease): the longer lease is written FIRST here.
+  withRedis(url, async ({ redis }) => {
+    const actorId = createId();
+    await redis.upsertPresenceLease(lease('longConn', actorId), 120);
     await redis.upsertPresenceLease(
-      { connId: 'longConn', actorId, instanceId: 'inst1', activity: 'active' },
-      120,
-    );
-    await redis.upsertPresenceLease(
-      { connId: 'shortConn', actorId, instanceId: 'inst2', activity: 'active' },
+      lease('shortConn', actorId, 'active', 'inst2'),
       5,
     );
-    const { actors: online } = await redis.readOnlinePresence(100);
-    expect(online.length).toBe(1);
-    // Must still reflect the 120s lease, not the 5s one just written.
-    expectExpiryNear(online[0]!.expiresAtMs, 120);
-  } finally {
-    await redis.deletePresenceLease({ connId: 'longConn', actorId });
-    await redis.deletePresenceLease({ connId: 'shortConn', actorId });
-    redis.close();
-  }
-});
+    const { actors, nowMs } = await redis.readOnlinePresence(100);
+    assert({
+      given: 'a 120 s lease followed by a 5 s lease',
+      should: 'keep the actor online on the 120 s lease',
+      actual: actors.map((actor) => leaseSeconds(actor.expiresAtMs, nowMs)),
+      expected: [120],
+    });
+  }));
 
-test('both reads return the Redis server clock they used, never requiring an instance clock (ADR 0033 §1.1)', async () => {
-  const namespace = `test-${createId()}`;
-  const redis = createRedis({ url, namespace });
-  const actorId = createId();
-  try {
-    await redis.upsertPresenceLease(
-      { connId: 'connNow', actorId, instanceId: 'inst1', activity: 'active' },
-      60,
-    );
-    const beforeMs = Date.now();
+test('both reads return the Redis server clock they used, never requiring an instance clock (ADR 0033 §1.1)', () =>
+  withRedis(url, async ({ redis, serverNowMs }) => {
+    const actorId = createId();
+    await redis.upsertPresenceLease(lease('connNow', actorId), 60);
+    const before = await serverNowMs();
     const { nowMs: actorNowMs } = await redis.readActorConnections(actorId);
     const { nowMs: onlineNowMs } = await redis.readOnlinePresence(100);
-    const afterMs = Date.now();
-    // The Redis server clock and the test-runner clock are different
-    // machines' clocks; this only bounds them to the same few seconds, it
-    // never asserts equality with Date.now().
-    expect(actorNowMs).toBeGreaterThanOrEqual(beforeMs - 5_000);
-    expect(actorNowMs).toBeLessThanOrEqual(afterMs + 5_000);
-    expect(onlineNowMs).toBeGreaterThanOrEqual(beforeMs - 5_000);
-    expect(onlineNowMs).toBeLessThanOrEqual(afterMs + 5_000);
-  } finally {
-    await redis.deletePresenceLease({ connId: 'connNow', actorId });
-    redis.close();
-  }
-});
+    const after = await serverNowMs();
+    assert({
+      given: 'both reads bracketed by Redis TIME calls',
+      should: 'report a server time between the two brackets',
+      actual: [actorNowMs, onlineNowMs].map(
+        (nowMs) => nowMs >= before && nowMs <= after,
+      ),
+      expected: [true, true],
+    });
+  }));

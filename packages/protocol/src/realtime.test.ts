@@ -2,6 +2,7 @@ import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { cursorSchema } from './realtime';
 import { buildUserInboxTopic, parseTopic, topicStringSchema } from './topics';
+import { parseOutcome } from './parse-outcome.test-support';
 
 setupRitewayBun();
 
@@ -58,7 +59,9 @@ describe('topic grammar', () => {
   });
 
   test('the builder throws on a non-cuid2 segment instead of building a bad topic', () => {
-    expect(() => buildUserInboxTopic('not-a-cuid2')).toThrow();
+    expect(() => buildUserInboxTopic('not-a-cuid2')).toThrow(
+      'Invalid string: must match pattern',
+    );
   });
 
   test('rejects a season slug with a trailing hyphen', () => {
@@ -78,9 +81,12 @@ describe('topic grammar', () => {
     const oversizedTopic = `standings:${'a'.repeat(200)}`;
     assert({
       given: 'a topic string far longer than any real topic',
-      should: 'fail the length bound before the shape refinement even runs',
-      actual: topicStringSchema.safeParse(oversizedTopic).success,
-      expected: false,
+      should:
+        'fail the length bound alone: the shape refinement never parses an oversized string',
+      actual: topicStringSchema
+        .safeParse(oversizedTopic)
+        .error?.issues.map((issue) => issue.code),
+      expected: ['too_big'],
     });
   });
 });
@@ -91,8 +97,8 @@ describe('the since cursor', () => {
     assert({
       given: 'a cursor with each part at the 20-digit bound',
       should: 'accept it',
-      actual: cursorSchema.safeParse(`${twentyDigits}:${twentyDigits}`).success,
-      expected: true,
+      actual: parseOutcome(cursorSchema, `${twentyDigits}:${twentyDigits}`),
+      expected: { data: `${twentyDigits}:${twentyDigits}` },
     });
   });
 
@@ -103,10 +109,10 @@ describe('the since cursor', () => {
         'a cursor with a part past the 20-digit bound, and one with a leading zero',
       should: 'reject both',
       actual: [
-        cursorSchema.safeParse(`${twentyOneDigits}:1`).success,
-        cursorSchema.safeParse('01:1').success,
+        parseOutcome(cursorSchema, `${twentyOneDigits}:1`),
+        parseOutcome(cursorSchema, '01:1'),
       ],
-      expected: [false, false],
+      expected: [{ issues: ['(root)'] }, { issues: ['(root)'] }],
     });
   });
 });

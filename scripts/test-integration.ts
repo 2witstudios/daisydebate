@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /**
  * Runs a workspace's integration suites, discovered by folder and suffix
- * (`integration/**` + `*.integration.ts`, `*.integration.test.ts`) instead of
+ * (`integration/**` + `*.integration.ts`) instead of
  * a hand-kept list in package.json. Bun's runner does not match the
  * `.integration.ts` suffix from a directory argument, so the files are
  * globbed here and passed explicitly. `bun evidence` treats this runner as
@@ -11,8 +11,7 @@ import { constants } from 'node:os';
 
 export const INTEGRATION_RUNNER = 'bun ../../scripts/test-integration.ts';
 
-const SUITE =
-  /(?:^|\/)integration\/(?:.+\/)?[^/]+\.integration(?:\.test)?\.tsx?$/;
+const SUITE = /(?:^|\/)integration\/(?:.+\/)?[^/]+\.integration\.tsx?$/;
 
 export const integrationSuites = (files: readonly string[]): string[] =>
   files.filter((file) => SUITE.test(file)).sort();
@@ -42,7 +41,7 @@ export function exitCodeOf(result: {
 
 // A repository path the runner reaches: <apps|packages>/<name>/integration/….
 const RUNNER_SUITE =
-  /^[^/]+\/[^/]+\/integration\/(?:.+\/)?[^/]+\.integration(?:\.test)?\.tsx?$/;
+  /^[^/]+\/[^/]+\/integration\/(?:.+\/)?[^/]+\.integration\.tsx?$/;
 
 /**
  * Whether a workspace's test:integration script runs this suite, given its

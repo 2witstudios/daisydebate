@@ -6,17 +6,16 @@ import {
   type RequestLink,
 } from './request-link';
 import { initialSignInState } from './sign-in-state';
+import {
+  answering as recording,
+  firstPost,
+} from '../../lib/recorded-post.test-support';
 
 setupRitewayBun();
 
 const answering = (response: Response | Error) => {
-  const requests: { url: string; init: RequestInit }[] = [];
-  const fetchImpl = async (url: string, init: RequestInit) => {
-    requests.push({ url, init });
-    if (response instanceof Error) throw response;
-    return response;
-  };
-  return { requests, requestLink: createRequestLink(fetchImpl, '/ranked') };
+  const { requests, send } = recording(response);
+  return { requests, requestLink: createRequestLink(send, '/ranked') };
 };
 
 describe('createRequestLink', () => {
@@ -28,13 +27,7 @@ describe('createRequestLink', () => {
     assert({
       given: 'an accepted request for a link',
       should: 'report sent, having posted the address and both callbacks',
-      actual: {
-        outcome,
-        url: requests[0]?.url,
-        method: requests[0]?.init.method,
-        headers: requests[0]?.init.headers,
-        body: JSON.parse(String(requests[0]?.init.body)) as unknown,
-      },
+      actual: { outcome, ...firstPost(requests) },
       expected: {
         outcome: { kind: 'sent' },
         url: '/api/auth/sign-in/magic-link',

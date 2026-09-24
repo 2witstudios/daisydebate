@@ -4,11 +4,11 @@ import {
   uniqueName,
   usernameOf,
 } from './auth-account-helpers';
-import { origin, withSql } from './auth-mounted-helpers';
+import { origin, withSql } from './fixtures';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+import { requireTestServices } from '@daisy/config';
 
-if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
-  throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
+requireTestServices(process.env);
 setupRitewayBun();
 const { flows, signUp, claim } = createAccountFlows();
 const { authRoute, newClient } = flows;

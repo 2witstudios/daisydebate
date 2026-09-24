@@ -1,52 +1,73 @@
-import { expect, test } from 'bun:test';
-import { createId } from '@paralleldrive/cuid2';
+import { expect } from 'bun:test';
+import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { requireTestServices } from '@daisy/config';
 import { createRedis } from '../src';
-const url = process.env.TEST_REDIS_URL;
-if (!url) throw new Error('TEST_REDIS_URL required');
+import { withRedis } from './test-support';
 
-test('ephemeral namespace roundtrip and cleanup', async () => {
-  const redis = createRedis({ url, namespace: `test-${createId()}` });
-  try {
-    expect(await redis.health()).toBe(true);
+setupRitewayBun();
+
+const { redisUrl: url } = requireTestServices(process.env);
+
+test('ephemeral namespace roundtrip and cleanup', () =>
+  withRedis(url, async ({ redis }) => {
+    const healthy = await redis.health();
     await redis.setEphemeral('proof', 'value', 60);
-    expect(await redis.get('proof')).toBe('value');
+    const stored = await redis.get('proof');
     await redis.delete('proof');
-    expect(await redis.get('proof')).toBeNull();
-  } finally {
-    await redis.delete('proof');
-    redis.close();
-  }
-});
-test('rate limit admits exactly max across concurrent instances and expires atomically', async () => {
-  const namespace = `test-${createId()}`;
-  // Two clients stand in for two application instances sharing one Redis.
-  const instances = [
-    createRedis({ url, namespace }),
-    createRedis({ url, namespace }),
-  ];
-  const rule = { windowSeconds: 2, max: 7 };
-  try {
-    const decisions = await Promise.all(
-      Array.from({ length: 100 }, (_, index) =>
-        instances[index % 2]!.consumeRateLimit('concurrent', rule),
-      ),
-    );
-    const allowed = decisions.filter((decision) => decision.allowed).length;
-    const retry = decisions.find((decision) => !decision.allowed);
-    expect(allowed).toBe(7);
-    expect(retry?.retryAfterSeconds).toBeGreaterThanOrEqual(1);
-    expect(retry?.retryAfterSeconds).toBeLessThanOrEqual(2);
-    // The key must carry an expiry (never a permanent counter).
-    const ttl = await instances[0]!.consumeRateLimit('other-key', rule);
-    expect(ttl.allowed).toBe(true);
-    // Once the window has elapsed the same key admits again.
-    await Bun.sleep(2100);
-    const after = await instances[1]!.consumeRateLimit('concurrent', rule);
-    expect(after.allowed).toBe(true);
-  } finally {
-    for (const instance of instances) instance.close();
-  }
-});
+    assert({
+      given: 'a value set, read back and deleted in a fresh namespace',
+      should: 'report health, return the value, then nothing',
+      actual: { healthy, stored, afterDelete: await redis.get('proof') },
+      expected: { healthy: true, stored: 'value', afterDelete: null },
+    });
+  }));
+
+test('rate limit admits exactly max across concurrent instances and expires atomically', () =>
+  withRedis(url, async ({ namespace, redis, raw, key, expireNow }) => {
+    // A second client over the same namespace stands in for a second
+    // application instance sharing one Redis.
+    const other = createRedis({ url, namespace });
+    const rule = { windowSeconds: 2, max: 7 };
+    try {
+      const decisions = await Promise.all(
+        Array.from({ length: 100 }, (_, index) =>
+          (index % 2 === 0 ? redis : other).consumeRateLimit(
+            'concurrent',
+            rule,
+          ),
+        ),
+      );
+      const counterKey = key('rl', 'concurrent');
+      const pttl = await raw.pttl(counterKey);
+      assert({
+        given: '100 concurrent consumes across two instances, max 7 in 2 s',
+        should:
+          'admit exactly 7, tell the rest to retry within the window, and expire the counter within it',
+        actual: {
+          allowed: decisions.filter((decision) => decision.allowed).length,
+          retryAfter: [
+            ...new Set(
+              decisions
+                .filter((decision) => !decision.allowed)
+                .map((decision) => decision.retryAfterSeconds),
+            ),
+          ].every((seconds) => seconds >= 1 && seconds <= 2),
+          expiresWithinWindow: pttl > 0 && pttl <= 2_000,
+        },
+        expected: { allowed: 7, retryAfter: true, expiresWithinWindow: true },
+      });
+      // The window's expiry fires: the same key admits again.
+      await expireNow(counterKey);
+      assert({
+        given: 'the rate-limit window expiring',
+        should: 'admit the same key again',
+        actual: (await other.consumeRateLimit('concurrent', rule)).allowed,
+        expected: true,
+      });
+    } finally {
+      other.close();
+    }
+  }));
 
 test('rate limit reports outage as a thrown error, never an allow', async () => {
   const dead = createRedis({
@@ -56,7 +77,7 @@ test('rate limit reports outage as a thrown error, never an allow', async () => 
   try {
     await expect(
       dead.consumeRateLimit('k', { windowSeconds: 60, max: 3 }),
-    ).rejects.toThrow();
+    ).rejects.toMatchObject({ code: 'ERR_REDIS_CONNECTION_CLOSED' });
   } finally {
     dead.close();
   }

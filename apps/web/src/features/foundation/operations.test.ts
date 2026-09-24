@@ -1,5 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createAppError, isAppError } from '@daisy/errors';
+import { createAppError } from '@daisy/errors';
+import { assertRejects, rejectionOf } from '@daisy/errors/testing';
+import type { Permission } from '@daisy/auth';
 import { fixedClock } from '@daisy/clock';
 import {
   createProofDebate,
@@ -44,15 +46,6 @@ const dependencies: ProofDependencies = {
   ...primitives,
 };
 
-const capture = async (operation: Promise<unknown>): Promise<unknown> => {
-  try {
-    await operation;
-    return undefined;
-  } catch (error) {
-    return error;
-  }
-};
-
 describe('foundation operation error mapping', () => {
   test('wraps coded adapter failures as infrastructure errors', async () => {
     database.createDebate = () =>
@@ -61,33 +54,29 @@ describe('foundation operation error mapping', () => {
           code: 'ERR_POSTGRES_CONNECTION_REFUSED',
         }),
       );
-    const caught = await capture(
-      createProofDebate(
-        { resolution: 'A representative resolution' },
-        dependencies,
-      ),
-    );
-    assert({
+    await assertRejects({
       given: 'a database driver error carrying a code property',
       should: 'map to an INFRASTRUCTURE app error',
-      actual: isAppError(caught) ? caught.code : 'not-an-app-error',
-      expected: 'INFRASTRUCTURE',
+      actual: () =>
+        createProofDebate(
+          { resolution: 'A representative resolution' },
+          dependencies,
+        ),
+      code: 'INFRASTRUCTURE',
     });
   });
 
   test('preserves app errors raised by the adapter', async () => {
     database.createDebate = () => Promise.reject(createAppError('CONFLICT'));
-    const caught = await capture(
-      createProofDebate(
-        { resolution: 'A representative resolution' },
-        dependencies,
-      ),
-    );
-    assert({
+    await assertRejects({
       given: 'an app error raised by the adapter',
       should: 'pass through with its code intact',
-      actual: isAppError(caught) ? caught.code : 'not-an-app-error',
-      expected: 'CONFLICT',
+      actual: () =>
+        createProofDebate(
+          { resolution: 'A representative resolution' },
+          dependencies,
+        ),
+      code: 'CONFLICT',
     });
   });
 });
@@ -155,68 +144,61 @@ describe('foundation debate retrieval', () => {
 
   test('answers a missing debate with NOT_FOUND', async () => {
     database.getDebate = () => Promise.resolve(undefined);
-    const caught = await capture(
+    const caught = await rejectionOf(() =>
       getProofDebate('z9x7v5t3r1p8n6m4k2b5d7f1', dependencies),
     );
 
     assert({
       given: 'a debate id matching no stored record',
       should: 'map the absence to a NOT_FOUND app error',
-      actual: isAppError(caught) ? caught.code : 'not-an-app-error',
+      actual: caught.code,
       expected: 'NOT_FOUND',
     });
   });
 
   test('refuses a principal holding only debate:create', async () => {
-    let reads = 0;
-    database.getDebate = () => {
-      reads += 1;
-      return Promise.resolve(undefined);
-    };
-    const caught = await capture(
-      getProofDebate('z9x7v5t3r1p8n6m4k2b5d7f1', dependencies, {
-        kind: 'service',
-        serviceId: 'create-only',
-        permissions: ['debate:create'],
-      }),
-    );
-
+    const outcome = await readOfUnknownDebateAs('create-only', 'debate:create');
     assert({
       given: 'a principal holding debate:create but not debate:read',
       should: 'refuse with AUTHORIZATION before touching the database',
-      actual: {
-        code: isAppError(caught) ? caught.code : 'not-an-app-error',
-        reads,
-      },
+      actual: outcome,
       expected: { code: 'AUTHORIZATION', reads: 0 },
     });
   });
 
   test('admits a principal holding only debate:read', async () => {
-    let reads = 0;
-    database.getDebate = () => {
-      reads += 1;
-      return Promise.resolve(undefined);
-    };
-    const caught = await capture(
-      getProofDebate('z9x7v5t3r1p8n6m4k2b5d7f1', dependencies, {
-        kind: 'service',
-        serviceId: 'read-only',
-        permissions: ['debate:read'],
-      }),
-    );
-
+    const outcome = await readOfUnknownDebateAs('read-only', 'debate:read');
     assert({
       given: 'a principal holding debate:read and an unknown debate id',
       should: 'pass the gate, read the database, and report NOT_FOUND',
-      actual: {
-        code: isAppError(caught) ? caught.code : 'not-an-app-error',
-        reads,
-      },
+      actual: outcome,
       expected: { code: 'NOT_FOUND', reads: 1 },
     });
   });
 });
+
+/**
+ * A read of an unknown debate by a service principal holding one
+ * permission: the rejection code and how many database reads it made.
+ */
+async function readOfUnknownDebateAs(
+  serviceId: string,
+  permission: Permission,
+) {
+  let reads = 0;
+  database.getDebate = () => {
+    reads += 1;
+    return Promise.resolve(undefined);
+  };
+  const { code } = await rejectionOf(() =>
+    getProofDebate('z9x7v5t3r1p8n6m4k2b5d7f1', dependencies, {
+      kind: 'service',
+      serviceId,
+      permissions: [permission],
+    }),
+  );
+  return { code, reads };
+}
 
 describe('foundation debate creation gate', () => {
   test('refuses a principal holding only debate:read', async () => {
@@ -225,7 +207,7 @@ describe('foundation debate creation gate', () => {
       writes += 1;
       return Promise.resolve();
     };
-    const caught = await capture(
+    const caught = await rejectionOf(() =>
       createProofDebate(
         { resolution: 'A representative resolution' },
         dependencies,
@@ -241,7 +223,7 @@ describe('foundation debate creation gate', () => {
       given: 'a principal holding debate:read but not debate:create',
       should: 'refuse with AUTHORIZATION before touching the database',
       actual: {
-        code: isAppError(caught) ? caught.code : 'not-an-app-error',
+        code: caught.code,
         writes,
       },
       expected: { code: 'AUTHORIZATION', writes: 0 },
@@ -265,13 +247,13 @@ describe('foundation proof gate', () => {
         getDebate: () => count(),
       }),
     };
-    const created = await capture(
+    const created = await rejectionOf(() =>
       createProofDebate(
         { resolution: 'A representative resolution' },
         disabled,
       ),
     );
-    const read = await capture(
+    const read = await rejectionOf(() =>
       getProofDebate('z9x7v5t3r1p8n6m4k2b5d7f1', disabled),
     );
 
@@ -280,9 +262,7 @@ describe('foundation proof gate', () => {
       should:
         'refuse create and read with NOT_FOUND before any database access',
       actual: {
-        codes: [created, read].map((caught) =>
-          isAppError(caught) ? caught.code : 'not-an-app-error',
-        ),
+        codes: [created, read].map((caught) => caught.code),
         touched,
       },
       expected: { codes: ['NOT_FOUND', 'NOT_FOUND'], touched: 0 },

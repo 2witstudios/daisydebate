@@ -9,6 +9,7 @@ import {
   ok,
   recordingFetch,
   routedFetch,
+  technicalDispatchFailure,
 } from './docs-consult.test-support';
 
 setupRitewayBun();
@@ -107,7 +108,9 @@ describe('dispatchDocumentationEvent', async () => {
       consult: async () => {
         inFlight += 1;
         peak = Math.max(peak, inFlight);
-        await new Promise((resolve) => setTimeout(resolve, 5));
+        // One full event-loop turn: long enough for a concurrent consult
+        // to start, with no wall-clock wait.
+        await new Promise((resolve) => setImmediate(resolve));
         inFlight -= 1;
         return new Response('{}', { status: 200 });
       },
@@ -259,16 +262,7 @@ describe('dispatchDocumentationEvent', async () => {
         new Response('{"error":"forbidden"}', { status: 403 }),
       roles: () => ['user', 'assistant'],
     });
-    let message = 'no throw';
-    try {
-      await dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
-        ...baseOptions,
-        ...instant,
-        fetchImpl,
-      });
-    } catch (error) {
-      message = (error as Error).message;
-    }
+    const message = await technicalDispatchFailure(fetchImpl);
     assert({
       given: 'a definitive 403 from the consult route',
       should: 'throw the refusal without polling',

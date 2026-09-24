@@ -1,26 +1,15 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { memoryAdapter } from '@better-auth/memory-adapter';
 import type { BetterAuthOptions } from 'better-auth';
-import { readAuthConfig } from '@daisy/config';
-import { fixedClock, sequentialId } from '@daisy/clock';
-import type { Logger } from '@daisy/logger';
-import { createAuthServer, type AuthEmailMessage } from './server';
+import {
+  authTestEnv,
+  capturingSender,
+  composeAuthServer,
+  memoryTables,
+} from './auth-server.test-support';
+import type { AuthEmailMessage } from './server';
 
 setupRitewayBun();
-
-const env = {
-  NODE_ENV: 'test',
-  BETTER_AUTH_SECRET:
-    '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
-  PUBLIC_APP_URL: 'http://localhost:3000',
-  RESEND_API_KEY: 're_test_000000000000000000000000',
-  AUTH_EMAIL_FROM: 'Daisy <no-reply@daisy.example.com>',
-};
-
-const silentLogger: Logger = {
-  log: () => {},
-  child: () => silentLogger,
-};
 
 const message: AuthEmailMessage = {
   to: 'player@daisy.example.com',
@@ -29,58 +18,23 @@ const message: AuthEmailMessage = {
   html: '<p>Open the link to continue.</p>',
 };
 
-const create = (overrides?: {
-  env?: Record<string, string | undefined>;
-  emailSender?: ReturnType<typeof capturingSender>;
-  database?: BetterAuthOptions['database'];
-}) =>
-  createAuthServer({
-    config: readAuthConfig(overrides?.env ?? env),
-    database:
-      overrides?.database ??
-      memoryAdapter({
-        user: [],
-        session: [],
-        account: [],
-        verification: [],
-        passkey: [],
-      }),
-    emailSender: overrides?.emailSender ?? capturingSender(),
-    limiter: { consume: async () => ({ allowed: true, retryAfterSeconds: 0 }) },
-    logger: silentLogger,
-    clock: fixedClock('2026-09-20T00:00:00.000Z'),
-    ids: sequentialId('auth'),
-    appendSessionRevoked: async () => {},
-    revokeOtherSessions: async () => 0,
-  });
-
-const requestLink = (server: ReturnType<typeof create>) =>
+const requestLink = (server: ReturnType<typeof composeAuthServer>) =>
   server.instance.api.signInMagicLink({
     body: { email: message.to },
-    headers: new Headers({ origin: env.PUBLIC_APP_URL }),
+    headers: new Headers({ origin: authTestEnv.PUBLIC_APP_URL }),
   });
-
-function capturingSender() {
-  const sent: AuthEmailMessage[] = [];
-  return {
-    sent,
-    send: async (input: AuthEmailMessage) => {
-      sent.push(input);
-    },
-  };
-}
 
 describe('auth server composition', () => {
   test('exposes the validated configuration it was given', () => {
     assert({
       given: 'configuration validated from the four required auth variables',
       should: 'expose it with an empty proxy list',
-      actual: create().config,
+      actual: composeAuthServer().config,
       expected: {
-        BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET,
-        PUBLIC_APP_URL: env.PUBLIC_APP_URL,
-        RESEND_API_KEY: env.RESEND_API_KEY,
-        AUTH_EMAIL_FROM: env.AUTH_EMAIL_FROM,
+        BETTER_AUTH_SECRET: authTestEnv.BETTER_AUTH_SECRET,
+        PUBLIC_APP_URL: authTestEnv.PUBLIC_APP_URL,
+        RESEND_API_KEY: authTestEnv.RESEND_API_KEY,
+        AUTH_EMAIL_FROM: authTestEnv.AUTH_EMAIL_FROM,
         AUTH_TRUSTED_PROXIES: [],
       },
     });
@@ -88,13 +42,7 @@ describe('auth server composition', () => {
 
   test('composes lazily without querying the injected database adapter', async () => {
     let adapterQueries = 0;
-    const underlying = memoryAdapter({
-      user: [],
-      session: [],
-      account: [],
-      verification: [],
-      passkey: [],
-    });
+    const underlying = memoryAdapter(memoryTables());
     const database: BetterAuthOptions['database'] = (options) => {
       const adapter = underlying(options);
       return new Proxy(adapter, {
@@ -108,22 +56,10 @@ describe('auth server composition', () => {
         },
       });
     };
-    const server = createAuthServer({
-      config: readAuthConfig(env),
-      database,
-      emailSender: capturingSender(),
-      limiter: {
-        consume: async () => ({ allowed: true, retryAfterSeconds: 0 }),
-      },
-      logger: silentLogger,
-      clock: fixedClock('2026-09-20T00:00:00.000Z'),
-      ids: sequentialId('auth'),
-      appendSessionRevoked: async () => {},
-      revokeOtherSessions: async () => 0,
-    });
+    const server = composeAuthServer({ database });
     const composed = {
       configValidated:
-        server.config.BETTER_AUTH_SECRET === env.BETTER_AUTH_SECRET,
+        server.config.BETTER_AUTH_SECRET === authTestEnv.BETTER_AUTH_SECRET,
       adapterQueries,
     };
     await server.instance.api.signInMagicLink({
@@ -150,14 +86,14 @@ describe('auth server composition', () => {
       given: 'a composed auth server',
       should:
         'expose config, instance, limiter, logger and clock, and no test-only mail seam',
-      actual: Object.keys(create()).sort(),
+      actual: Object.keys(composeAuthServer()).sort(),
       expected: ['clock', 'config', 'instance', 'limiter', 'logger'],
     });
   });
 
   test('delivers mail through the injected sender exactly once', async () => {
     const sender = capturingSender();
-    const server = create({ emailSender: sender });
+    const server = composeAuthServer({ emailSender: sender });
     await requestLink(server);
     assert({
       given: 'a magic-link request and a capturing email sender',
@@ -168,22 +104,12 @@ describe('auth server composition', () => {
   });
 
   test('maps sender failure to a retryable error without provider detail', async () => {
-    const server = createAuthServer({
-      config: readAuthConfig(env),
-      database: memoryAdapter({ user: [], session: [], account: [] }),
+    const server = composeAuthServer({
       emailSender: {
         send: async () => {
           throw new Error('resend provider exception AB12CD');
         },
       },
-      limiter: {
-        consume: async () => ({ allowed: true, retryAfterSeconds: 0 }),
-      },
-      logger: silentLogger,
-      clock: fixedClock('2026-09-20T00:00:00.000Z'),
-      ids: sequentialId('auth'),
-      appendSessionRevoked: async () => {},
-      revokeOtherSessions: async () => 0,
     });
     const response = await server.instance.handler(
       new Request('http://localhost:3000/api/auth/sign-in/magic-link', {

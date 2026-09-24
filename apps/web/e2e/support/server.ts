@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { systemClock, systemId } from '@daisy/clock';
 import { createApp } from '../../src/server/app';
+import { resendRequest } from '../../src/features/auth/resend-capture.test-support';
 import { adoptProcessApp } from '../../src/server/process-app';
 
 /**
@@ -33,17 +34,12 @@ const captureFetch = async (
   input: string | URL | Request,
   init?: RequestInit,
 ) => {
-  const url = input instanceof Request ? input.url : String(input);
-  if (url !== 'https://api.resend.com/emails') return fetch(input, init);
-  const body = JSON.parse(String(init?.body)) as {
-    to: string[];
-    subject: string;
-    text: string;
-  };
+  const sent = resendRequest(input, init);
+  if (!sent) return fetch(input, init);
   mails.push({
-    to: (body.to[0] ?? '').toLowerCase(),
-    subject: body.subject,
-    text: body.text,
+    to: sent.to.toLowerCase(),
+    subject: sent.subject,
+    text: sent.text,
   });
   return Response.json({ id: `msg_e2e_${mails.length}` });
 };

@@ -1,15 +1,15 @@
 import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { counts, withSql } from './auth-mounted-helpers';
+import { counts, withSql } from './fixtures';
 import {
   createMailSuite,
   deliveryRow,
   providerEvent,
 } from './auth-webhook-helpers';
 import { recipientKey } from '../src/features/auth/recipient-key';
+import { requireTestServices } from '@daisy/config';
 
-if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
-  throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
+requireTestServices(process.env);
 setupRitewayBun();
 const suite = createMailSuite();
 const { webhookRoute, app, recipientSubkey, messageIds } = suite;
@@ -84,8 +84,18 @@ describe('AUTH-3.6 provider delivery events', () => {
           'received_at',
         ],
         payloadLeak: 0,
-        strangerAccount: { users: 0, sessions: 0, verifications: 0 },
-        requesterAccount: { users: 0, sessions: 0, verifications: 1 },
+        strangerAccount: {
+          users: 0,
+          sessions: 0,
+          verifications: 0,
+          passkeys: 0,
+        },
+        requesterAccount: {
+          users: 0,
+          sessions: 0,
+          verifications: 1,
+          passkeys: 0,
+        },
       },
     });
   });

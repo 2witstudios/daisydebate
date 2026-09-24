@@ -1,28 +1,20 @@
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createDatabase } from '@daisy/db';
 import { buildUserInboxTopic } from '@daisy/protocol';
+import { withOutboxInsertBlockedForTopic } from './auth-outbox-helpers';
+import { fixtureEmail, linkFrom, removeAccount, tokenOf } from './fixtures';
 import {
-  capturedToken,
+  createDatabaseAuthServer,
   createTestAuthServer,
-  fixtureEmail,
   redeemMagicLink,
-  removeFixture,
-  withOutboxInsertBlockedForTopic,
   type SentMessages,
-} from './auth-helpers';
-import type { RecordedLogs } from '../src/features/auth/log-leaks';
+} from './auth-server-harness';
+import { requireTestServices } from '@daisy/config';
 
 setupRitewayBun();
 
-const url = process.env.TEST_DATABASE_URL;
-if (!url)
-  throw new Error(
-    'TEST_DATABASE_URL required; never use application database for tests',
-  );
-if (!new URL(url).pathname.endsWith('_test'))
-  throw new Error('Test database name must end in _test');
+const { databaseUrl: url } = requireTestServices(process.env);
 
 const signInOnce = async (
   auth: ReturnType<typeof createTestAuthServer>,
@@ -33,7 +25,7 @@ const signInOnce = async (
     body: { email },
     headers: new Headers({ origin: auth.config.PUBLIC_APP_URL }),
   });
-  const token = capturedToken(sent.at(-1)!);
+  const token = tokenOf(linkFrom(sent.at(-1)!));
   const response = await redeemMagicLink(auth, token);
   const cookie = response.headers.get('set-cookie')?.split(';')[0] ?? '';
   // Read on the server through auth.api: browser responses carry no session
@@ -78,14 +70,12 @@ const routes: readonly {
 for (const route of routes) {
   test(`a forced outbox failure never fails a real ${route.path} call, and logs the registered event`, async () => {
     const email = fixtureEmail();
-    const sent: SentMessages = [];
-    const logged: RecordedLogs = [];
-    const database = createDatabase({ url, nextActorId: createId });
-    const auth = createTestAuthServer(database.authAdapter, {
-      sent,
-      recordedLogs: logged,
-      appendSessionRevoked: (userId) => database.appendSessionRevoked(userId),
-    });
+    const { sent, logged, database, auth } = createDatabaseAuthServer(
+      url,
+      (pool) => ({
+        appendSessionRevoked: (userId) => pool.appendSessionRevoked(userId),
+      }),
+    );
     const admin = new SQL(url);
     let userId: string | undefined;
     try {
@@ -104,7 +94,6 @@ for (const route of routes) {
 
       let response: Response | undefined;
       await withOutboxInsertBlockedForTopic(
-        url,
         buildUserInboxTopic(actorId),
         async () => {
           response = await auth.instance.handler(
@@ -150,10 +139,8 @@ for (const route of routes) {
       });
     } finally {
       await database.close();
-      if (userId)
-        await admin.unsafe('delete from actors where user_id = $1', [userId]);
       await admin.close();
-      await removeFixture(url, email, userId, []);
+      await removeAccount({ email, userId });
     }
   });
 }
@@ -181,7 +168,7 @@ test('withOutboxInsertBlockedForTopic blocks only its own topic, never an unrela
   try {
     let blockedAttempt = '';
     let otherAttempt = '';
-    await withOutboxInsertBlockedForTopic(url, blockedTopic, async () => {
+    await withOutboxInsertBlockedForTopic(blockedTopic, async () => {
       blockedAttempt = await insertOutboxRow(admin, blockedTopic);
       otherAttempt = await insertOutboxRow(admin, otherTopic);
     });

@@ -2,9 +2,9 @@ import { describe, test } from 'riteway/bun';
 import { setupRitewayBun, assert } from 'riteway/bun';
 import {
   classifyDocumentationChange,
-  createDocumentationEvent,
   parseChangedFiles,
 } from './docs-pipeline';
+import { mergedPullRequestEvent } from './docs-event.test-support';
 
 setupRitewayBun();
 
@@ -140,23 +140,7 @@ describe('classifyDocumentationChange', async () => {
 
 describe('createDocumentationEvent', async () => {
   test('includes stable provenance and idempotency metadata', async () => {
-    const actual = createDocumentationEvent({
-      eventId: 'evt-1',
-      eventType: 'pull_request.merged',
-      occurredAt: '2026-09-20T00:00:00.000Z',
-      repository: 'daisydebate',
-      baseRef: 'main',
-      commit: 'abc123',
-      pullRequest: {
-        number: 12,
-        title: 'feat: add tournaments',
-        body: null,
-        url: 'https://github.test/pr/12',
-        author: 'alice',
-        mergedBy: 'bob',
-      },
-      taskIds: ['ENG-1.1'],
-      changedFiles: ['packages/protocol/src/events.ts'],
+    const actual = mergedPullRequestEvent({
       promptVersion: 'docs-prompt-v1',
     });
     assert({

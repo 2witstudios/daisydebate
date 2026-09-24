@@ -2,15 +2,9 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { buildUserInboxTopic } from '@daisy/protocol';
 import { createPasskeyFlows } from './auth-passkey-flows';
-import { withOutboxInsertBlockedForTopic } from './auth-helpers';
-import {
-  cookieHeader,
-  origin,
-  testDatabaseUrl,
-  withSql,
-  type CapturedMail,
-} from './auth-mounted-helpers';
-import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+import { withOutboxInsertBlockedForTopic } from './auth-outbox-helpers';
+import { cookieHeader, userIdOf, withSql } from './fixtures';
+import { requireTestServices } from '@daisy/config';
 
 /**
  * ISSUE-23: the after-hook revoke-other-sessions failure path on
@@ -25,60 +19,19 @@ import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
  * test, and never blocks the `@daisy/db` integration suite's own outbox
  * inserts running concurrently against the same `TEST_DATABASE_URL`.
  */
-if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
-  throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
+requireTestServices(process.env);
 setupRitewayBun();
 
 const flows = await createPasskeyFlows();
-const { newClient } = flows.account.flows;
 const { withLoggedEvents } = flows.account.flows.testApp;
-const confirmEmailRoute = flows.account.flows.testApp.routes.confirmEmail;
-
-const linkFrom = (mail: CapturedMail): URL => {
-  const found = mail.text.match(/https?:\/\/\S+/)?.[0];
-  if (!found) throw new Error('No link in captured mail');
-  return new URL(found);
-};
-
-const confirmPost = (token: string, callbackURL = '/settings/security') =>
-  confirmEmailRoute.POST(
-    new Request(`${origin}/auth/confirm-email`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/x-www-form-urlencoded',
-        origin,
-        [CLIENT_IP_HEADER]: newClient(),
-      },
-      body: new URLSearchParams({ token, callbackURL }).toString(),
-    }),
-  );
-
-const tokenOf = (link: URL) => link.searchParams.get('token') ?? '';
-
-const isAuthenticated = async (cookie: string): Promise<boolean> =>
-  (await (
-    await flows.get('/api/auth/get-session?disableCookieCache=true', cookie)
-  ).json()) !== null;
-
-const userIdOf = (email: string) =>
-  withSql((sql) => sql`SELECT id FROM users WHERE email = ${email}`).then(
-    (rows) => rows[0]?.id as string | undefined,
-  );
 
 describe('ISSUE-23 a real fault injected into revokeOtherSessions during /verify-email', () => {
   test('a forced outbox failure inside the atomic revocation rolls back the session delete too', async () => {
     const { email, cookie } = await flows.account.signUp();
-    const { requestLink, redeem } = flows.account.flows;
-    const { link } = await requestLink(email);
-    const otherToken = new URL(link as URL).searchParams.get('token') ?? '';
+    const { redeem } = flows.account.flows;
+    const otherToken = await flows.account.flows.linkTokenFor(email);
     const otherCookie = cookieHeader(await redeem(otherToken));
-    const before = flows.account.flows.mailbox.mails.length;
-    const newEmail = `${createId()}@example.test`;
-    await flows.changeEmail(cookie, newEmail);
-    const confirmMail = flows.account.flows.mailbox.mails[before];
-    await confirmPost(tokenOf(linkFrom(confirmMail!)));
-    const verifyMail = flows.account.flows.mailbox.mails[before + 1];
-    const verifyToken = tokenOf(linkFrom(verifyMail!));
+    const { verifyToken } = await flows.confirmedEmailChange(cookie);
 
     // Plan revision 4.10: the append only runs once the actor resolves.
     // This account never claims a username (an unrelated surface to the
@@ -92,45 +45,35 @@ describe('ISSUE-23 a real fault injected into revokeOtherSessions during /verify
     );
 
     let completion!: Response;
-    let loggedEvents: readonly string[] = [];
-    try {
-      ({ events: loggedEvents } = await withLoggedEvents(() =>
-        withOutboxInsertBlockedForTopic(
-          testDatabaseUrl as string,
-          buildUserInboxTopic(actorId),
-          async () => {
-            completion = await confirmPost(verifyToken);
-          },
-        ),
-      ));
+    const { events: loggedEvents } = await withLoggedEvents(() =>
+      withOutboxInsertBlockedForTopic(
+        buildUserInboxTopic(actorId),
+        async () => {
+          completion = await flows.confirmEmailPost(verifyToken);
+        },
+      ),
+    );
 
-      assert({
-        given:
-          "the atomic revocation's outbox append failing at the database level",
-        should:
-          'report the cleanup step failed, still carry the new session cookie, leave the other session authenticated (the DELETE rolled back with it), and log the cleanup-failed event',
-        actual: {
-          status: completion.status,
-          carriesNewSessionCookie: completion.headers.getSetCookie().length > 0,
-          otherSessionStillAuthenticated: await isAuthenticated(otherCookie),
-          loggedCleanupFailed: loggedEvents.includes(
-            'auth.email_change.cleanup_failed',
-          ),
-        },
-        expected: {
-          status: 502,
-          carriesNewSessionCookie: true,
-          otherSessionStillAuthenticated: true,
-          loggedCleanupFailed: true,
-        },
-      });
-    } finally {
-      // This test's own accounts and actor are cleaned up here: no shared
-      // afterAll backstop in this single-test file.
-      await withSql((sql) => sql`DELETE FROM actors WHERE id = ${actorId}`);
-      await withSql(
-        (sql) => sql`DELETE FROM users WHERE email IN (${email}, ${newEmail})`,
-      );
-    }
+    assert({
+      given:
+        "the atomic revocation's outbox append failing at the database level",
+      should:
+        'report the cleanup step failed, still carry the new session cookie, leave the other session authenticated (the DELETE rolled back with it), and log the cleanup-failed event',
+      actual: {
+        status: completion.status,
+        carriesNewSessionCookie: completion.headers.getSetCookie().length > 0,
+        otherSessionStillAuthenticated:
+          await flows.isAuthenticated(otherCookie),
+        loggedCleanupFailed: loggedEvents.includes(
+          'auth.email_change.cleanup_failed',
+        ),
+      },
+      expected: {
+        status: 502,
+        carriesNewSessionCookie: true,
+        otherSessionStillAuthenticated: true,
+        loggedCleanupFailed: true,
+      },
+    });
   });
 });

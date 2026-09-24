@@ -177,6 +177,7 @@ export async function dispatchDocumentationEvent(
     pollIntervalMs,
     requestTimeoutMs,
     delay,
+    now,
   } = resolveOptions(options);
   const attempt = replayAttempt(options.attempt);
   const pipelines = replayPipelines(
@@ -188,7 +189,7 @@ export async function dispatchDocumentationEvent(
   // accepts and never answers must not outlive the budget, or the CI job is
   // cancelled before its incidents step runs.
   const until = (end: number, cap = Number.POSITIVE_INFINITY): AbortSignal =>
-    AbortSignal.timeout(Math.max(1, Math.min(cap, end - Date.now())));
+    AbortSignal.timeout(Math.max(1, Math.min(cap, end - now())));
 
   // 'absent' is a successful read that found no conversation; 'unreadable' is
   // a read that failed, which proves nothing either way.
@@ -240,10 +241,10 @@ export async function dispatchDocumentationEvent(
       if (state === 'pending') seenQuestion = true;
       if (state === 'absent') emptyReads += 1;
       if (!seenQuestion && emptyReads >= 2) return 'absent';
-      if (Date.now() >= deadline) return seenQuestion ? 'pending' : state;
+      if (now() >= deadline) return seenQuestion ? 'pending' : state;
       // Never sleep past the deadline: the next read, bounded by the budget,
       // then still ends inside it.
-      await delay(Math.min(pollIntervalMs, deadline - Date.now()));
+      await delay(Math.min(pollIntervalMs, deadline - now()));
     }
   };
 
@@ -378,18 +379,15 @@ export async function dispatchDocumentationEvent(
     // The consult stops one request-timeout before the budget, reserving a
     // window to read the conversation afterwards: a read given only what was
     // left of the deadline would report a slow run as never having arrived.
-    const deadline = Math.min(
-      Date.now() + timeoutMs,
-      budgetEnd - requestTimeoutMs,
-    );
+    const deadline = Math.min(now() + timeoutMs, budgetEnd - requestTimeoutMs);
     // The pre-check and the reservation spend time of their own, so the
     // window is checked again here: a question sent with none left would be
     // abandoned at once. Nothing was sent, so the same id replays it.
-    if (deadline <= Date.now())
+    if (deadline <= now())
       throw new Error(
         `${consultFor(pipeline)} was not sent: the dispatch budget ran out after reserving its receipt, ${receipt}, which stays failed; replay with ${replayWith(pipeline, attempt)}`,
       );
-    const waitSeconds = Math.round((deadline - Date.now()) / 1000);
+    const waitSeconds = Math.round((deadline - now()) / 1000);
     const replay = replayWith(pipeline, attempt + 1);
     // Nothing tells a live run from a dead one, and a live run's row stays
     // failed until it ends. PageSpace caps a consult run at 20 tool steps and
@@ -439,9 +437,7 @@ export async function dispatchDocumentationEvent(
     if (reported !== undefined) {
       let state = await readConversation(conversationId, budgetEnd);
       if (state === 'absent' || state === 'unreadable') {
-        await delay(
-          Math.min(pollIntervalMs, Math.max(0, deadline - Date.now())),
-        );
+        await delay(Math.min(pollIntervalMs, Math.max(0, deadline - now())));
         state = await readConversation(conversationId, budgetEnd);
       }
       if (state === 'answered') return answered;
@@ -475,7 +471,7 @@ export async function dispatchDocumentationEvent(
   for (const pipeline of pipelines) {
     // Start a consult only while it would get time of its own beyond the
     // settlement window; otherwise the question would be sent and abandoned.
-    if (Date.now() >= budgetEnd - requestTimeoutMs) {
+    if (now() >= budgetEnd - requestTimeoutMs) {
       failures.push(
         `${consultFor(pipeline)} was not sent: the dispatch budget ran out and no row was reserved; replay with ${replayWith(pipeline, attempt)}`,
       );

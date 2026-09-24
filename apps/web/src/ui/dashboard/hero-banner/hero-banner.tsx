@@ -7,10 +7,11 @@ export function HeroBanner() {
       <Image
         src={art.heroRidge.src}
         alt={art.heroRidge.alt}
-        fill
+        width={art.heroRidge.width}
+        height={art.heroRidge.height}
         priority
         sizes="(max-width: 1100px) 100vw, 1180px"
-        className="-z-2 object-cover object-hero-photo brightness-82 saturate-85"
+        className="absolute inset-0 -z-2 size-full object-cover object-hero-photo brightness-82 saturate-85"
       />
       <div className="absolute inset-0 -z-1 scrim-hero" aria-hidden="true" />
       <div className="relative flex max-w-hero-content flex-col items-start gap-4">

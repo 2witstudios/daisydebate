@@ -2,13 +2,18 @@ import { expect, test, type Page } from '@playwright/test';
 import {
   emailedLink,
   freshEmail,
+  confirmSignIn,
+  requestSignInLink,
   resetRateLimits,
   signUpMember,
   signUpProvisional,
   uniqueName,
+  reachOnboarding,
+  sessionUsername,
 } from './support/accounts';
-import { claimUsername, confirm, requestLink } from './support/forms';
+import { claimUsername, declineOfferToLobby } from './support/forms';
 import { effectsRan } from './support/hydration';
+import { watchTopbarSignIn } from './support/topbar';
 
 // The whole sign-in journey in a real browser against the production build:
 // request a link on /sign-in, open the emailed link, get a session, pick a
@@ -26,9 +31,9 @@ test('anonymous visits are sent to sign-in and the whole loop ends on the protec
   await expect(page).toHaveURL(/\/sign-in\?next=%2Flobby$/);
 
   const email = freshEmail();
-  await requestLink(page, email);
+  await requestSignInLink(page, email);
   const link = await emailedLink(request, email);
-  await confirm(page, link);
+  await confirmSignIn(page, link);
 
   // A brand-new account is forced through username onboarding first.
   await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)lobby$/);
@@ -47,8 +52,8 @@ test('anonymous visits are sent to sign-in and the whole loop ends on the protec
   const otherPage = await other.newPage();
   const otherEmail = freshEmail();
   await otherPage.goto('/sign-in');
-  await requestLink(otherPage, otherEmail);
-  await confirm(otherPage, await emailedLink(request, otherEmail));
+  await requestSignInLink(otherPage, otherEmail);
+  await confirmSignIn(otherPage, await emailedLink(request, otherEmail));
   await claimUsername(otherPage, taken);
   await expect(
     otherPage.getByRole('heading', { name: /next time, one tap/i }),
@@ -72,11 +77,8 @@ test('anonymous visits are sent to sign-in and the whole loop ends on the protec
   await expect(
     page.getByRole('heading', { name: /next time, one tap/i }),
   ).toBeVisible();
-  await page.getByRole('link', { name: 'Not now' }).click();
-
   // The safe return destination survived, and the username is the identity.
-  await expect(page).toHaveURL(/\/lobby$/);
-  await expect(page.getByRole('heading', { name: 'Lobby' })).toBeVisible();
+  await declineOfferToLobby(page);
   await page.goto('/');
   await expect(
     page.getByRole('link', { name: `Account settings for ${mine}` }),
@@ -102,13 +104,13 @@ test('anonymous visits are sent to sign-in and the whole loop ends on the protec
 test('a redeemed link cannot be replayed', async ({ page, request }) => {
   await page.goto('/sign-in');
   const email = freshEmail();
-  await requestLink(page, email);
+  await requestSignInLink(page, email);
   const link = await emailedLink(request, email);
-  await confirm(page, link);
+  await confirmSignIn(page, link);
   await expect(page).toHaveURL(/\/onboarding\/username/);
 
   await page.context().clearCookies();
-  await confirm(page, link);
+  await confirmSignIn(page, link);
   await expect(
     page.getByRole('heading', { name: /can no longer be used/i }),
   ).toBeVisible();
@@ -122,15 +124,15 @@ test('an interrupted signup resumes onboarding on the next sign-in', async ({
 }) => {
   await page.goto('/sign-in?next=%2Franked');
   const email = freshEmail();
-  await requestLink(page, email);
-  await confirm(page, await emailedLink(request, email));
+  await requestSignInLink(page, email);
+  await confirmSignIn(page, await emailedLink(request, email));
   await expect(page).toHaveURL(/\/onboarding\/username/);
 
   // Walk away without choosing a name, then sign in again later.
   await page.context().clearCookies();
   await resetRateLimits(request);
   await page.goto('/sign-in?next=%2Franked');
-  await requestLink(page, email);
+  await requestSignInLink(page, email);
   const second = await emailedLink(request, email);
   expect(second).toBeTruthy();
   await page.goto(second);
@@ -149,8 +151,8 @@ test('return destinations are validated and spectator routes stay public', async
 
   await page.goto('/sign-in?next=%2F%2Fevil.example%2Fpath');
   const email = freshEmail();
-  await requestLink(page, email);
-  await confirm(page, await emailedLink(request, email));
+  await requestSignInLink(page, email);
+  await confirmSignIn(page, await emailedLink(request, email));
   await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)lobby$/);
   await claimUsername(page, uniqueName('safe'));
   await page.getByRole('link', { name: 'Not now' }).click();
@@ -168,6 +170,7 @@ test('sign-in works by keyboard alone and every control has an accessible name',
   ).toBeVisible();
 
   const email = freshEmail();
+  await expect(page.getByLabel('Email')).toBeVisible();
   await page.getByLabel('Email').focus();
   await page.keyboard.type(email);
   await page.keyboard.press('Enter');
@@ -195,7 +198,7 @@ test('a browser without WebAuthn is told so and keeps the email path', async ({
     page.getByRole('status').filter({ hasText: /cannot use passkeys/i }),
   ).toBeVisible();
   const email = freshEmail();
-  await requestLink(page, email);
+  await requestSignInLink(page, email);
   await expect(emailedLink(request, email)).resolves.toContain('/auth/confirm');
 });
 
@@ -206,7 +209,7 @@ test('an emailed link opened in a different browser than the one that requested 
 }) => {
   const email = freshEmail();
   await page.goto('/sign-in');
-  await requestLink(page, email);
+  await requestSignInLink(page, email);
   const link = await emailedLink(request, email);
 
   // A genuinely separate browser context: no cookies, storage or history
@@ -214,7 +217,7 @@ test('an emailed link opened in a different browser than the one that requested 
   // case a bearer magic link must support).
   const other = await browser.newContext({ ignoreHTTPSErrors: true });
   const otherPage = await other.newPage();
-  await confirm(otherPage, link);
+  await confirmSignIn(otherPage, link);
   await expect(otherPage).toHaveURL(/\/onboarding\/username/);
   await claimUsername(otherPage, uniqueName('cross-browser'));
   await expect(
@@ -233,11 +236,7 @@ test('refreshing or navigating back mid-onboarding does not lose the session or 
   page,
   request,
 }) => {
-  const email = freshEmail();
-  await page.goto('/sign-in');
-  await requestLink(page, email);
-  await confirm(page, await emailedLink(request, email));
-  await expect(page).toHaveURL(/\/onboarding\/username/);
+  await reachOnboarding(page, request);
 
   // A reload mid-flow must not sign the person out or drop the destination.
   await page.reload();
@@ -260,9 +259,7 @@ test('refreshing or navigating back mid-onboarding does not lose the session or 
   await page.goBack();
   await expect(offer).toBeVisible();
 
-  const session = await page.request.get('/api/auth/get-session');
-  const body = (await session.json()) as { user: { username: string } };
-  expect(body.user.username).toBe(name);
+  expect(await sessionUsername(page)).toBe(name);
 });
 
 test('a fresh session makes no refresh call, and neither does a visitor', async ({
@@ -308,13 +305,13 @@ test.describe('with JavaScript off', () => {
   }) => {
     const email = freshEmail();
     await page.goto('/sign-in?next=%2Flobby');
-    await requestLink(page, email);
+    await requestSignInLink(page, email);
     await expect(page.getByText(email)).toBeVisible();
     expectNotInUrl(page, email);
 
     // The emailed link is real: it finishes sign-in on this browser, still
     // with no script, and a new account goes on to onboarding.
-    await confirm(page, await emailedLink(request, email));
+    await confirmSignIn(page, await emailedLink(request, email));
     await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)lobby$/);
   });
 
@@ -336,13 +333,9 @@ test.describe('with JavaScript off', () => {
       page.getByRole('heading', { name: /next time, one tap/i }),
     ).toBeVisible();
     expectNotInUrl(page, name);
-    await page.getByRole('link', { name: 'Not now' }).click();
-    await expect(page).toHaveURL(/\/lobby$/);
-    await expect(page.getByRole('heading', { name: 'Lobby' })).toBeVisible();
+    await declineOfferToLobby(page);
 
-    const session = await page.request.get('/api/auth/get-session');
-    const body = (await session.json()) as { user: { username: string } };
-    expect(body.user.username).toBe(name);
+    expect(await sessionUsername(page)).toBe(name);
   });
 
   test('an email change starts through a POST and mails the address on file', async ({
@@ -364,7 +357,15 @@ test.describe('with JavaScript off', () => {
 });
 
 test('the topbar offers sign-in to a visitor', async ({ page }) => {
+  const topbar = await watchTopbarSignIn(page);
   await page.goto('/');
-  await page.getByRole('link', { name: 'Sign in' }).click();
+  const signIn = page
+    .getByRole('banner')
+    .getByRole('link', { name: 'Sign in' });
+  await expect(signIn).toBeVisible();
+  const { covered, inspected } = await topbar.settle();
+  expect(inspected).toBeGreaterThan(0);
+  expect(covered).toEqual([]);
+  await signIn.click();
   await expect(page).toHaveURL(/\/sign-in$/);
 });

@@ -6,17 +6,9 @@ export const claimUsername = async (page: Page, name: string) => {
   await page.getByRole('button', { name: 'Continue' }).click();
 };
 
-/** Asks /sign-in for a link and waits for the inbox step. */
-export async function requestLink(page: Page, email: string) {
-  await page.getByLabel('Email').fill(email);
-  await page.getByRole('button', { name: 'Continue' }).click();
-  await expect(
-    page.getByRole('heading', { name: /check your inbox/i }),
-  ).toBeVisible();
-}
-
-/** Opens the emailed link and takes the confirmation tap. */
-export async function confirm(page: Page, link: string) {
-  await page.goto(link);
-  await page.getByRole('button', { name: 'Sign in to Daisy' }).click();
-}
+/** Declines the passkey offer and lands on the lobby. */
+export const declineOfferToLobby = async (page: Page) => {
+  await page.getByRole('link', { name: 'Not now' }).click();
+  await expect(page).toHaveURL(/\/lobby$/);
+  await expect(page.getByRole('heading', { name: 'Lobby' })).toBeVisible();
+};

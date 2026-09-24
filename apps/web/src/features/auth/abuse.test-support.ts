@@ -1,17 +1,7 @@
 import { memoryAdapter } from '@better-auth/memory-adapter';
-import { fixedClock, sequentialId } from '@daisy/clock';
-import { readAuthConfig } from '@daisy/config';
 import type { Logger } from '@daisy/logger';
-import { createAuthServer, type AuthEmailMessage } from './server';
-
-const env = {
-  NODE_ENV: 'test',
-  BETTER_AUTH_SECRET:
-    '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
-  PUBLIC_APP_URL: 'http://localhost:3000',
-  RESEND_API_KEY: 're_test_000000000000000000000000',
-  AUTH_EMAIL_FROM: 'Daisy <no-reply@daisy.example.com>',
-};
+import { composeAuthServer, memoryTables } from './auth-server.test-support';
+import type { AuthEmailMessage } from './server';
 
 export type Consumed = {
   key: string;
@@ -31,13 +21,7 @@ export const create = (
     }>;
   } = {},
 ) => {
-  const db = {
-    user: [],
-    session: [],
-    account: [],
-    verification: [] as Array<Record<string, unknown>>,
-    passkey: [],
-  };
+  const db = memoryTables();
   const consumed: Consumed[] = [];
   const lookups = { count: 0 };
   const sent: AuthEmailMessage[] = [];
@@ -48,8 +32,7 @@ export const create = (
   };
   const recorded: Array<{ providerMessageId: string; recipientHash: string }> =
     [];
-  const server = createAuthServer({
-    config: readAuthConfig(env),
+  const server = composeAuthServer({
     database: memoryAdapter(db),
     emailSender: {
       send: async (message) => {
@@ -77,10 +60,6 @@ export const create = (
       },
     },
     logger,
-    clock: fixedClock('2026-09-20T00:00:00.000Z'),
-    ids: sequentialId('auth'),
-    appendSessionRevoked: async () => {},
-    revokeOtherSessions: async () => 0,
   });
   return { server, db, consumed, sent, recorded, lookups, logs };
 };

@@ -3,12 +3,13 @@ import { createAppError } from '@daisy/errors';
 import { parseUsername, type Identity } from '@daisy/auth';
 import type { UsernameClaim } from '@daisy/db';
 import { z } from 'zod';
-import { readDecision, type AuthRateLimiter } from '../auth/rate-limit';
+import { consumeOrThrow, type AuthRateLimiter } from '../auth/rate-limit';
 import {
   handleOperation,
   parseValidated,
   readJson,
   requireSameOrigin,
+  requireSignedIn,
 } from '../../server/http';
 
 /** Enough for a person retrying a typo; far below what enumerates names. */
@@ -40,20 +41,6 @@ const CONFLICTS = {
 
 const conflict = (kind: keyof typeof CONFLICTS, requestId: string) =>
   Response.json({ error: { ...CONFLICTS[kind], requestId } }, { status: 409 });
-
-/** Gate 4: one atomic decision per account; an outage fails closed. */
-async function consumeClaimLimit(limiter: AuthRateLimiter, userId: string) {
-  let decision: { readonly allowed: boolean };
-  try {
-    // A malformed answer is an outage too, exactly as at the auth gate.
-    decision = readDecision(
-      await limiter.consume(`account:username:${userId}`, CLAIM_RULE),
-    );
-  } catch (error) {
-    throw createAppError('INFRASTRUCTURE', undefined, error);
-  }
-  if (!decision.allowed) throw createAppError('RATE_LIMIT');
-}
 
 /** The body is exactly `{ username }`: any other field is a refusal. */
 const claimBody = z.strictObject({ username: z.unknown() });
@@ -97,14 +84,13 @@ export function createUsernameHandler(dependencies: UsernameDependencies) {
       'account.username.claim',
       async (id) => {
         requireSameOrigin(request, dependencies.origin());
-        const identity = await dependencies.identify(request);
-        // A session-store outage is retryable, not "your sign-in ended".
-        if (identity.state === 'unavailable')
-          throw createAppError('INFRASTRUCTURE');
-        if (identity.state === 'anonymous')
-          throw createAppError('AUTHENTICATION');
+        const identity = requireSignedIn(await dependencies.identify(request));
         const { userId } = identity.principal;
-        await consumeClaimLimit(dependencies.limiter(), userId);
+        await consumeOrThrow(
+          dependencies.limiter(),
+          `account:username:${userId}`,
+          CLAIM_RULE,
+        );
         const username = await readClaimedName(request);
         return respond(
           await dependencies.claim({ userId, username }),

@@ -1,5 +1,6 @@
 import { createAccountFlows } from './auth-account-helpers';
-import { cookieHeader, origin } from './auth-mounted-helpers';
+import { createId } from '@paralleldrive/cuid2';
+import { cookieHeader, linkFrom, origin, tokenOf } from './fixtures';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import {
   buildAuthenticationResponse,
@@ -144,6 +145,50 @@ export async function createPasskeyFlows() {
   const changeEmail = (cookie: string, newEmail: string) =>
     post('/api/auth/change-email', { newEmail }, cookie);
 
+  const confirmEmailRoute = account.flows.testApp.routes.confirmEmail;
+  /** Follows an email-change link to the confirm page as a browser does. */
+  const confirmEmailGet = (link: URL) =>
+    confirmEmailRoute.GET(
+      new Request(link, { headers: { [CLIENT_IP_HEADER]: newClient() } }),
+    );
+  /** Submits the confirm page's form for an email-change token. */
+  const confirmEmailPost = (
+    token: string,
+    callbackURL = '/settings/security',
+  ) =>
+    confirmEmailRoute.POST(
+      new Request(`${origin}/auth/confirm-email`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/x-www-form-urlencoded',
+          origin,
+          [CLIENT_IP_HEADER]: newClient(),
+        },
+        body: new URLSearchParams({ token, callbackURL }).toString(),
+      }),
+    );
+  /**
+   * Requests a change of the cookie's account to a fresh address and
+   * confirms the first hop through the confirm page, returning the new
+   * address and the second-hop verification token it mailed.
+   */
+  const confirmedEmailChange = async (cookie: string) => {
+    const { mails } = account.flows.mailbox;
+    const before = mails.length;
+    const newEmail = `${createId()}@example.test`;
+    await changeEmail(cookie, newEmail);
+    await confirmEmailPost(tokenOf(linkFrom(mails[before]!)));
+    return { newEmail, verifyToken: tokenOf(linkFrom(mails[before + 1]!)) };
+  };
+  /** The event names this suite's app logged while `work` ran (AUTH-6.4). */
+  const recordedEvents = async (work: () => Promise<void>) => [
+    ...(await account.flows.testApp.withLoggedEvents(work)).events,
+  ];
+  const isAuthenticated = async (cookie: string): Promise<boolean> =>
+    (await (
+      await get('/api/auth/get-session?disableCookieCache=true', cookie)
+    ).json()) !== null;
+
   return {
     account,
     authRoute,
@@ -160,5 +205,10 @@ export async function createPasskeyFlows() {
     revokeOtherSessions,
     revokeSessions,
     changeEmail,
+    confirmEmailGet,
+    confirmEmailPost,
+    confirmedEmailChange,
+    isAuthenticated,
+    recordedEvents,
   };
 }

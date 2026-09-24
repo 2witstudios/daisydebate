@@ -1,4 +1,3 @@
-import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { sequentialId } from '@daisy/clock';
 import { createResendSender } from './mail';
@@ -37,6 +36,7 @@ const ok = (id = 'msg_1') =>
 const create = (
   responses: Array<Response | Error | 'hang'>,
   timeoutMs = 10_000,
+  elapsed?: () => number,
 ) => {
   const { calls, fetchImpl } = scripted(responses);
   return {
@@ -47,9 +47,20 @@ const create = (
       ids: sequentialId('idem'),
       fetch: fetchImpl,
       timeoutMs,
+      ...(elapsed ? { elapsed } : {}),
     }),
   };
 };
+/** The status class a failed send carries (never its body or recipient). */
+const failureOf = (sending: Promise<unknown>) =>
+  sending.then(
+    () => 'delivered',
+    (error: { message: string; transient: boolean; status?: number }) => ({
+      message: error.message,
+      transient: error.transient,
+      status: error.status,
+    }),
+  );
 
 describe('Resend sender', () => {
   test('posts one message with bearer auth, an idempotency key and no tracking fields', async () => {
@@ -143,31 +154,57 @@ describe('Resend sender', () => {
       new Response('{"name":"validation_error"}', { status: 422 }),
       ok(),
     ]);
-    await expect(sender.send(message)).rejects.toThrow();
+    const failure = await failureOf(sender.send(message));
     assert({
       given: 'a 422 provider response',
-      should: 'not retry',
-      actual: calls.length,
-      expected: 1,
+      should: 'fail as permanent, carrying the status, without a retry',
+      actual: { failure, calls: calls.length },
+      expected: {
+        failure: {
+          message: 'Email delivery failed',
+          transient: false,
+          status: 422,
+        },
+        calls: 1,
+      },
     });
   });
 
   test('bounds the whole operation by the delivery deadline', async () => {
-    const { sender, calls } = create(['hang', 'hang'], 60);
-    const started = performance.now();
-    await expect(sender.send(message)).rejects.toThrow();
-    const elapsed = performance.now() - started;
+    // The injected elapsed clock reads 0 when the send starts and the whole
+    // 60ms budget once the first attempt has timed out: no retry fits.
+    const readings = [0, 60];
+    const { sender, calls } = create(['hang', 'hang'], 60, () =>
+      Number(readings.shift()),
+    );
+    const failure = await failureOf(sender.send(message));
     assert({
-      given: 'a provider that never answers within a 60ms budget',
-      should: 'give up inside the total deadline rather than hang',
-      actual: { boundedByDeadline: elapsed < 500, attempts: calls.length },
-      expected: { boundedByDeadline: true, attempts: 1 },
+      given: 'a provider that never answers and a spent 60ms budget',
+      should: 'give up after one attempt instead of retrying past the deadline',
+      actual: { failure, attempts: calls.length },
+      expected: {
+        failure: {
+          message: 'Email delivery failed',
+          transient: true,
+          status: undefined,
+        },
+        attempts: 1,
+      },
     });
   });
 
   test('rejects a success response without a message ID', async () => {
     const { sender } = create([new Response('{}', { status: 200 })]);
-    await expect(sender.send(message)).rejects.toThrow();
+    assert({
+      given: 'a 200 response whose body has no message ID',
+      should: 'fail as permanent rather than report a delivery',
+      actual: await failureOf(sender.send(message)),
+      expected: {
+        message: 'Email delivery failed',
+        transient: false,
+        status: 200,
+      },
+    });
   });
 });
 

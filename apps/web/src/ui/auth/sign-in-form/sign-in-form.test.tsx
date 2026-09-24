@@ -17,6 +17,15 @@ const props = (overrides: Partial<SignInFormProps> = {}): SignInFormProps => ({
   ...overrides,
 });
 
+/** Submits the form's element, recording a prevented default in `calls`. */
+const submit = (tree: ReturnType<typeof SignInForm>, calls: string[]) => {
+  const form = findElements(tree, (element) => element.type === 'form')[0];
+  (form?.props['onSubmit'] as (event: object) => void)({
+    preventDefault: () => calls.push('prevented'),
+  });
+  return form;
+};
+
 const html = (overrides: Partial<SignInFormProps> = {}) =>
   renderToString(h(SignInForm, props(overrides)));
 
@@ -130,10 +139,7 @@ describe('SignInForm', () => {
         signInWithPasskey: () => calls.push('passkey'),
       }),
     );
-    const form = findElements(tree, (element) => element.type === 'form')[0];
-    (form?.props['onSubmit'] as (event: object) => void)({
-      preventDefault: () => calls.push('prevented'),
-    });
+    const form = submit(tree, calls);
     (
       byText(tree, Button, 'Sign in with a passkey')?.props[
         'onClick'
@@ -155,11 +161,7 @@ describe('SignInForm', () => {
 
   test('keeps a request that must not post from posting', () => {
     const calls: string[] = [];
-    const tree = SignInForm(props({ requestLink: () => false }));
-    const form = findElements(tree, (element) => element.type === 'form')[0];
-    (form?.props['onSubmit'] as (event: object) => void)({
-      preventDefault: () => calls.push('prevented'),
-    });
+    submit(SignInForm(props({ requestLink: () => false })), calls);
     assert({
       given: 'a submit the flow refuses (an empty address, or one in flight)',
       should: 'stop the post',

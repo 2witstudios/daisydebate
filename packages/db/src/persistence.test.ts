@@ -1,6 +1,7 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  createInputOf,
   createTestDatabase,
   debateRow,
   sampleDebate,
@@ -64,14 +65,7 @@ describe('database debate persistence', () => {
     const record = sampleDebate();
     const { database, queries } = createTestDatabase([[debateRow(record)]]);
 
-    await database.createDebate({
-      id: record.id,
-      resolution: record.resolution,
-      format: record.format,
-      snapshot: record.snapshot,
-      mode: record.mode,
-      visibility: record.visibility,
-    });
+    await database.createDebate(createInputOf(record));
 
     assert({
       given: 'a debate created without an author',
@@ -106,16 +100,9 @@ describe('database debate persistence', () => {
     const { database } = createTestDatabase([[]], events);
     const record = sampleDebate();
 
-    await expect(
-      database.createDebate({
-        id: record.id,
-        resolution: record.resolution,
-        format: record.format,
-        snapshot: record.snapshot,
-        mode: record.mode,
-        visibility: record.visibility,
-      }),
-    ).rejects.toThrow('Debate insert returned no row');
+    await expect(database.createDebate(createInputOf(record))).rejects.toThrow(
+      'Debate insert returned no row',
+    );
 
     assert({
       given: 'a debate insert that silently returns nothing',

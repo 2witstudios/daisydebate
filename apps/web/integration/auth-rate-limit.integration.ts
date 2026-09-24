@@ -1,11 +1,11 @@
 import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createTestApp, fixtureEmail, origin } from './auth-mounted-helpers';
+import { createTestApp, origin } from './fixtures';
 import { createSecondInstances, statuses } from './auth-rate-limit-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+import { requireTestServices } from '@daisy/config';
 
-if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
-  throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
+requireTestServices(process.env);
 setupRitewayBun();
 const testApp = createTestApp();
 const { mailbox, jsonPost, newClient, redisKeys, redisNamespace } = testApp;
@@ -14,7 +14,7 @@ const { secondInstance, closeExtraInstances } = createSecondInstances(testApp);
 
 const magicLink = (
   headers: Record<string, string> = {},
-  email = fixtureEmail(),
+  email = testApp.freshEmail(),
 ) =>
   authRoute.POST(jsonPost('/api/auth/sign-in/magic-link', { email }, headers));
 
@@ -49,7 +49,7 @@ describe('AUTH-3.4 shared atomic rate limits through the mounted handler', () =>
   });
 
   test('one recipient is limited to 3 per 60 seconds even across many clients', async () => {
-    const email = fixtureEmail();
+    const email = testApp.freshEmail();
     const before = mailbox.mails.length;
     const responses = await Promise.all(
       Array.from({ length: 12 }, () =>
@@ -96,7 +96,7 @@ describe('AUTH-3.4 shared atomic rate limits through the mounted handler', () =>
       instance.handlers.POST(
         jsonPost(
           '/api/auth/sign-in/magic-link',
-          { email: fixtureEmail() },
+          { email: testApp.freshEmail() },
           { [CLIENT_IP_HEADER]: client },
         ),
       );
@@ -120,7 +120,7 @@ describe('AUTH-3.4 shared atomic rate limits through the mounted handler', () =>
     // Its own writes: a magic-link request fills the client, recipient and
     // global buckets; a session read fills the default bucket.
     const client = newClient();
-    const email = fixtureEmail();
+    const email = testApp.freshEmail();
     await magicLink({ [CLIENT_IP_HEADER]: client }, email);
     await authRoute.GET(
       new Request(`${origin}/api/auth/get-session`, {
@@ -179,7 +179,7 @@ describe('AUTH-3.4 outage fails closed', () => {
         await dead.handlers.POST(
           jsonPost(
             '/api/auth/sign-in/magic-link',
-            { email: fixtureEmail() },
+            { email: testApp.freshEmail() },
             { [CLIENT_IP_HEADER]: client },
           ),
         ),
@@ -190,7 +190,7 @@ describe('AUTH-3.4 outage fails closed', () => {
           dead.handlers.POST(
             jsonPost(
               '/api/auth/sign-in/magic-link',
-              { email: fixtureEmail() },
+              { email: testApp.freshEmail() },
               { [CLIENT_IP_HEADER]: client },
             ),
           ),
@@ -232,7 +232,7 @@ describe('AUTH-3.4 outage fails closed', () => {
       }),
     });
     const response = await flaky.handlers.POST(
-      jsonPost('/api/auth/sign-in/magic-link', { email: fixtureEmail() }),
+      jsonPost('/api/auth/sign-in/magic-link', { email: testApp.freshEmail() }),
     );
     assert({
       given: 'the recipient counter becoming unavailable mid-request',

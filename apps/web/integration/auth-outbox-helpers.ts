@@ -1,6 +1,7 @@
 import { createId } from '@paralleldrive/cuid2';
 import { buildUserInboxTopic } from '@daisy/protocol';
-import { withSql } from './auth-mounted-helpers';
+import { SQL } from 'bun';
+import { testDatabaseUrl, withSql } from './fixtures';
 
 /**
  * RT-2.2: shared fixtures for suites that assert an auth operation appends a
@@ -13,7 +14,7 @@ import { withSql } from './auth-mounted-helpers';
  * inserts the actor directly rather than going through the onboarding route.
  * Revocation rows are keyed by `actors.id`, never `userId`.
  */
-export const createActorFor = async (userId: string): Promise<string> => {
+const createActorFor = async (userId: string): Promise<string> => {
   const actorId = createId();
   await withSql(
     (sql) =>
@@ -22,52 +23,79 @@ export const createActorFor = async (userId: string): Promise<string> => {
   return actorId;
 };
 
-export const cleanupActorFor = (userId: string) =>
+const cleanupActorFor = (userId: string) =>
   withSql((sql) => sql`DELETE FROM actors WHERE user_id = ${userId}`);
 
-/**
- * RT-2.2f-r2: deletes the `users` row `signUp()` created (and any actor
- * still referencing it, since `actors.user_id` is `onDelete: 'restrict'`),
- * keyed by the user id resolved at sign-up rather than the account's
- * possibly-changed email. Only `trackedSignUp` below calls this directly.
- */
-const cleanupUserFor = (userId: string) =>
-  withSql(async (sql) => {
-    await sql`DELETE FROM actors WHERE user_id = ${userId}`;
-    await sql`DELETE FROM users WHERE id = ${userId}`;
-  });
-
-/**
- * RT-2.2f-r2: wraps a suite's `signUp()` to track every created user id (an
- * account's email changes mid-test in these suites, so cleanup can't key on
- * the original or final address) and returns the matching `afterAll`
- * cleanup, so each suite adds two lines instead of repeating this tracking.
- */
-export function trackedSignUp<T extends { email: string }>(
-  rawSignUp: () => Promise<T>,
-  resolveUserId: (email: string) => Promise<string | undefined>,
-): { signUp: () => Promise<T>; cleanup: () => Promise<unknown> } {
-  const userIds: string[] = [];
-  return {
-    signUp: async () => {
-      const result = await rawSignUp();
-      const userId = await resolveUserId(result.email);
-      if (userId) userIds.push(userId);
-      return result;
-    },
-    cleanup: () => Promise.all(userIds.map(cleanupUserFor)),
-  };
-}
-
 /** Outbox rows a `session.revoked`-emitting operation appended for this actor. */
-export const sessionRevokedEvents = (actorId: string) =>
+const sessionRevokedEvents = (actorId: string) =>
   withSql(
     (sql) =>
       sql`SELECT topic FROM outbox WHERE kind = 'session.revoked' AND topic = ${buildUserInboxTopic(actorId)}`,
   ).then((rows) => rows.length);
 
-export const cleanupOutboxFor = (actorId: string) =>
+const cleanupOutboxFor = (actorId: string) =>
   withSql(
     (sql) =>
       sql`DELETE FROM outbox WHERE kind = 'session.revoked' AND topic = ${buildUserInboxTopic(actorId)}`,
   );
+
+/**
+ * Forces one genuine Postgres-level `appendOutboxEvent` failure (RT-2.2v
+ * minor 3), scoped to exactly one topic: a `BEFORE INSERT` trigger that
+ * raises only for that topic's rows, dropped again once `work` settles.
+ * turbo runs `@daisy/db` and `@daisy/web` `test:integration` concurrently
+ * against one `TEST_DATABASE_URL` (`turbo.json`, no ordering); renaming the
+ * shared `outbox` table away for the duration of `work` would fail every
+ * unrelated insert and drain running at the same time and hold an ACCESS
+ * EXCLUSIVE lock for that whole window. A topic-scoped trigger holds that
+ * lock only for the brief `CREATE`/`DROP TRIGGER` DDL, and only rejects
+ * inserts naming this fixture's own topic. Two real consumers:
+ * `auth-session-revoked-outbox.integration.ts` and
+ * `auth-email-change-atomicity.integration.ts`.
+ */
+export const withOutboxInsertBlockedForTopic = async (
+  topic: string,
+  work: () => Promise<void>,
+) => {
+  const admin = new SQL(testDatabaseUrl);
+  const name = `outbox_force_failure_${createId()}`;
+  const escapedTopic = topic.replace(/'/g, "''");
+  try {
+    await admin.unsafe(`
+      create function "${name}"() returns trigger as $body$
+      begin
+        if new.topic = '${escapedTopic}' then
+          raise exception 'forced outbox failure for topic % (fixture-scoped)', new.topic;
+        end if;
+        return new;
+      end;
+      $body$ language plpgsql
+    `);
+    await admin.unsafe(`
+      create trigger "${name}_trigger" before insert on outbox
+      for each row execute function "${name}"()
+    `);
+    await work();
+  } finally {
+    await admin.unsafe(`drop trigger if exists "${name}_trigger" on outbox`);
+    await admin.unsafe(`drop function if exists "${name}"()`);
+    await admin.close();
+  }
+};
+
+/**
+ * Gives a user a human actor and counts the `session.revoked` rows appended
+ * for it from now on; `cleanup` removes those rows and the actor again.
+ */
+export const trackRevocations = async (userId: string) => {
+  const actorId = await createActorFor(userId);
+  const before = await sessionRevokedEvents(actorId);
+  return {
+    actorId,
+    appended: async () => (await sessionRevokedEvents(actorId)) - before,
+    cleanup: async () => {
+      await cleanupOutboxFor(actorId);
+      await cleanupActorFor(userId);
+    },
+  };
+};

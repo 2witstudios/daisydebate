@@ -1,9 +1,12 @@
 import { expect } from 'bun:test';
+import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  createInputOf,
   createTestDatabase,
   debateRow,
   sampleDebate,
+  saveInputOf,
   sampleSnapshot,
 } from './index.test-support';
 
@@ -14,14 +17,7 @@ describe('database debate lifecycle projections', () => {
     const record = sampleDebate();
     const { database, queries } = createTestDatabase([[debateRow(record)]]);
 
-    const created = await database.createDebate({
-      id: record.id,
-      resolution: record.resolution,
-      format: record.format,
-      snapshot: record.snapshot,
-      mode: record.mode,
-      visibility: record.visibility,
-    });
+    const created = await database.createDebate(createInputOf(record));
 
     assert({
       given:
@@ -45,16 +41,20 @@ describe('database debate lifecycle projections', () => {
     const record = sampleDebate();
     const { database, queries } = createTestDatabase([[debateRow(record)]]);
 
-    await expect(
-      database.createDebate({
-        id: record.id,
-        resolution: record.resolution,
-        format: record.format,
-        snapshot: { ...sampleSnapshot(), phase: 'paused' },
-        mode: record.mode,
-        visibility: record.visibility,
-      }),
-    ).rejects.toThrow('Invalid debate snapshot');
+    await assertRejects({
+      given: 'a snapshot whose phase is outside the protocol vocabulary',
+      should: 'refuse it as invalid input',
+      actual: () =>
+        database.createDebate({
+          id: record.id,
+          resolution: record.resolution,
+          format: record.format,
+          snapshot: { ...sampleSnapshot(), phase: 'paused' },
+          mode: record.mode,
+          visibility: record.visibility,
+        }),
+      code: 'VALIDATION',
+    });
 
     assert({
       given: 'a snapshot with a phase outside the protocol vocabulary',
@@ -108,21 +108,12 @@ describe('database debate lifecycle projections', () => {
     const { database, queries } = createTestDatabase([[]]);
 
     await expect(
-      database.saveSnapshot({
-        id: record.id,
-        expectedVersion: record.version,
-        snapshot: sampleSnapshot({ phase: 'completed' }),
-        updatedAt: record.updatedAt,
-      }),
+      database.saveSnapshot(saveInputOf(record, 'completed')),
     ).rejects.toThrow('outcome');
 
-    await database.saveSnapshot({
-      id: record.id,
-      expectedVersion: record.version,
-      snapshot: sampleSnapshot({ phase: 'completed' }),
-      updatedAt: record.updatedAt,
-      outcome: 'affirmative',
-    });
+    await database.saveSnapshot(
+      saveInputOf(record, 'completed', 'affirmative'),
+    );
 
     assert({
       given: 'a completing save without and then with an outcome',
@@ -143,13 +134,7 @@ describe('database debate lifecycle projections', () => {
     const record = sampleDebate();
     const { database, queries } = createTestDatabase([[]]);
 
-    await database.saveSnapshot({
-      id: record.id,
-      expectedVersion: record.version,
-      snapshot: sampleSnapshot({ phase: 'completed' }),
-      updatedAt: record.updatedAt,
-      outcome: 'abandoned',
-    });
+    await database.saveSnapshot(saveInputOf(record, 'completed', 'abandoned'));
 
     assert({
       given: 'a debate abandoned straight from waiting',
@@ -171,13 +156,7 @@ describe('database debate lifecycle projections', () => {
     const { database, queries } = createTestDatabase([[]]);
 
     await expect(
-      database.saveSnapshot({
-        id: record.id,
-        expectedVersion: record.version,
-        snapshot: sampleSnapshot({ phase: 'active' }),
-        updatedAt: record.updatedAt,
-        outcome: 'draw',
-      }),
+      database.saveSnapshot(saveInputOf(record, 'active', 'draw')),
     ).rejects.toThrow('outcome');
 
     assert({

@@ -1,39 +1,25 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { memoryAdapter } from '@better-auth/memory-adapter';
-import { fixedClock, sequentialId } from '@daisy/clock';
-import { readAuthConfig } from '@daisy/config';
-import type { Logger } from '@daisy/logger';
 import type { AuthRateLimiter } from './rate-limit';
 import { CLIENT_IP_HEADER } from './client-ip';
-import { createAuthServer } from './server';
+import {
+  authTestEnv,
+  composeAuthServer,
+  memoryTables,
+  requestLinkStatus,
+} from './auth-server.test-support';
 
 setupRitewayBun();
 
-const env = {
-  NODE_ENV: 'test',
-  BETTER_AUTH_SECRET:
-    '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
-  PUBLIC_APP_URL: 'http://localhost:3000',
-  RESEND_API_KEY: 're_test_000000000000000000000000',
-  AUTH_EMAIL_FROM: 'Daisy <no-reply@daisy.example.com>',
-};
 const email = 'player@daisy.example.com';
-const silentLogger: Logger = { log: () => {}, child: () => silentLogger };
 type Decision = Awaited<ReturnType<AuthRateLimiter['consume']>>;
 const allow: Decision = { allowed: true, retryAfterSeconds: 0 };
 
 const compose = (options: { decide?: (key: string) => Decision }) => {
   const keys: string[] = [];
   const sent: string[] = [];
-  const tables = {
-    user: [],
-    session: [],
-    account: [],
-    verification: [] as unknown[],
-    passkey: [],
-  };
-  const server = createAuthServer({
-    config: readAuthConfig(env),
+  const tables = memoryTables();
+  const server = composeAuthServer({
     database: memoryAdapter(tables),
     emailSender: {
       send: async ({ to }) => {
@@ -47,26 +33,12 @@ const compose = (options: { decide?: (key: string) => Decision }) => {
         return options.decide ? options.decide(key) : allow;
       },
     },
-    logger: silentLogger,
-    clock: fixedClock('2026-09-20T00:00:00.000Z'),
-    ids: sequentialId('auth'),
-    appendSessionRevoked: async () => {},
-    revokeOtherSessions: async () => 0,
   });
-  const requestLink = async (address: string, extra?: HeadersInit) => {
-    try {
-      await server.instance.api.signInMagicLink({
-        body: { email: address },
-        headers: new Headers({ origin: env.PUBLIC_APP_URL, ...extra }),
-      });
-      return 'OK';
-    } catch (error) {
-      return String((error as { status?: unknown }).status);
-    }
-  };
+  const requestLink = (address: string, extra?: HeadersInit) =>
+    requestLinkStatus(server, address, extra);
   const getSession = (extra?: HeadersInit) =>
     server.instance.handler(
-      new Request(`${env.PUBLIC_APP_URL}/api/auth/get-session`, {
+      new Request(`${authTestEnv.PUBLIC_APP_URL}/api/auth/get-session`, {
         headers: new Headers(extra),
       }),
     );
