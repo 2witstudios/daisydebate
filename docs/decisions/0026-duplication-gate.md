@@ -86,8 +86,8 @@ config, `.jscpd-tests.json`, against its own `.jscpd-tests-baseline.json`;
 `bun run duplication` runs both scans, so `bun check`, CI and the pre-push
 hook enforce both. Its scan roots name test files explicitly: unit suites
 and `*.test-support.ts` under `apps/*/src`, `packages/*/src` and `scripts`,
-`test-support/` folders, the `*.integration.ts` suites, all of
-`apps/*/integration` and `packages/*/integration`, and `apps/web/e2e` (specs and support), and
+`test-support/` folders, all of `apps/*/integration` and
+`packages/*/integration`, `apps/web/e2e` (specs and support), and
 `eslint.config.test.ts`. The same sensitivity, ratchet and exception rules
 apply, and `scripts/duplication-config.test.ts` guards both configs' scan
 roots. The source config's test ignores stay, so no file is counted twice.

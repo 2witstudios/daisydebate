@@ -96,9 +96,9 @@ export const deepImportIssue = (
     : `workspace deep import ${specifier}`;
 };
 
-/** Suites, the integration and e2e folders, and test support modules. */
+/** Suites, a workspace's integration and e2e folders, and test support. */
 const TEST_CODE =
-  /(?:^|\/)(?:integration|e2e|test-support)\/|\.(?:test|integration|e2e)\.tsx?$|\.test-support\.tsx?$/;
+  /^(?:apps|packages)\/[^/]+\/(?:integration|e2e)\/|(?:^|\/)test-support\/|\.(?:test|integration|e2e)\.tsx?$|\.test-support\.tsx?$/;
 
 /**
  * A workspace's `./testing` subpath is test support (it may import

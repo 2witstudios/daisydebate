@@ -241,9 +241,14 @@ describe('test support subpaths', () => {
       should: 'report the production import of test support',
       actual: [
         testSupportIssue('@daisy/errors/testing', 'packages/db/src/outbox.ts'),
+        testSupportIssue(
+          '@daisy/errors/testing',
+          'apps/web/src/features/integration/sync.ts',
+        ),
         testSupportIssue('@daisy/errors', 'packages/db/src/outbox.ts'),
       ],
       expected: [
+        'production import of test support @daisy/errors/testing',
         'production import of test support @daisy/errors/testing',
         null,
       ],
