@@ -37,9 +37,26 @@ export function createFlows() {
     const mail = mailbox.mails[before];
     return { response, mail, link: mail ? linkFrom(mail) : undefined };
   };
+  /**
+   * The link a request that must succeed mailed. One that mailed nothing
+   * fails with the answer it got instead, so a refusal or an outage names
+   * itself rather than surfacing as a TypeError in `tokenOf` (ISSUE-98).
+   */
+  const mailedLink = async ({
+    response,
+    link,
+  }: Awaited<ReturnType<typeof requestLink>>) => {
+    if (link) return link;
+    const { code } = (await response.json().catch(() => ({}))) as {
+      code?: unknown;
+    };
+    throw new Error(
+      `The link request mailed nothing: HTTP ${response.status}, code ${String(code)}`,
+    );
+  };
   /** A fresh magic-link token for an address, as its mail carries it. */
   const linkTokenFor = async (email: string) =>
-    tokenOf((await requestLink(email)).link as URL);
+    tokenOf(await mailedLink(await requestLink(email)));
   /** A second real session for an address: a new link, redeemed. */
   const signInAgain = async (email: string) =>
     cookieHeader(await redeem(await linkTokenFor(email)));
@@ -63,7 +80,7 @@ export function createFlows() {
   const startSignup = async () => {
     const email = fresh();
     const requested = await requestLink(email);
-    const link = requested.link as URL;
+    const link = await mailedLink(requested);
     return { email, ...requested, link, token: tokenOf(link) };
   };
   const session = (response: Response) =>
