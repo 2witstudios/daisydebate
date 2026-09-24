@@ -1,8 +1,8 @@
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { and, eq, inArray, notInArray, sql } from 'drizzle-orm';
 import {
+  debateSides,
   formatRulesSchema,
-  participantSchema,
   type DebateSnapshot,
   type FormatRules,
 } from '@daisy/protocol';
@@ -105,7 +105,7 @@ type Tx = Pick<BunSQLDatabase, 'delete' | 'insert' | 'select'>;
  * `ballots` cascade from a judge seat, so a snapshot write never deletes,
  * updates or claims one.
  */
-const snapshotRoles = participantSchema.shape.side.options;
+const snapshotRoles = [...debateSides];
 
 /** The database clock of the write (ADR 0033 §3.2), never a caller's time. */
 const writeTime = sql`statement_timestamp()`;
