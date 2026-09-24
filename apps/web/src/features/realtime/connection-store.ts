@@ -25,7 +25,7 @@ export type WebSocketLike = {
 };
 
 /**
- * The injected timing seam: production wires real `Date.now`/
+ * The injected timing seam: production wires real `performance.now`/
  * `setTimeout`/`clearTimeout`; tests wire a virtual clock and timer queue so
  * the heartbeat and backoff rules are proven deterministically (AGENTS.md:
  * inject clocks, never sleep-and-hope).
