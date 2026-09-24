@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 
 /**
  * Resolves once the page has hydrated and run its mount effects, with no
@@ -26,4 +26,22 @@ export async function effectsRan(page: Page) {
       }),
     )
     .toBe(flipped);
+}
+
+/**
+ * Resolves once React has hydrated the element `locator` finds, so a click
+ * reaches its handler instead of an inert server-rendered node. React tags
+ * hydrated DOM nodes with a `__reactProps$…` key. It waits as long as the
+ * test allows, with no timer of its own: under load, hydration can lag the
+ * first paint by seconds (ISSUE-84).
+ */
+export async function hydrated(locator: Locator) {
+  await locator
+    .page()
+    .waitForFunction(
+      (element) =>
+        element !== null &&
+        Object.keys(element).some((key) => key.startsWith('__reactProps$')),
+      await locator.elementHandle(),
+    );
 }

@@ -11,6 +11,7 @@ import {
   passkeySignInAfterSignOut,
   requestSignInLink,
 } from './support/accounts';
+import { hydrated } from './support/hydration';
 import { addVirtualAuthenticator } from './support/webauthn';
 
 /**
@@ -279,8 +280,12 @@ test('an email change is approved from the old inbox and verified at the new one
   await expect(page).toHaveURL(/\/settings\/security$/);
 
   // The redirect alone doesn't prove the account now owns newEmail; prove
-  // it by signing back in with a magic link sent to the new address.
-  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  // it by signing back in with a magic link sent to the new address. Sign
+  // out works only once hydrated (ISSUE-93 keeps it a script button), and
+  // under load the page can paint well before that (ISSUE-84).
+  const signOut = page.getByRole('button', { name: 'Sign out', exact: true });
+  await hydrated(signOut);
+  await signOut.click();
   await page.waitForURL(/\/sign-in/);
   await page.goto('/sign-in');
   await requestSignInLink(page, newEmail);

@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { signUpMember } from './support/accounts';
+import { hydrated } from './support/hydration';
 
 const DARK_BACKGROUND = 'rgb(10, 14, 12)';
 const LIGHT_BACKGROUND = 'rgb(242, 245, 242)';
@@ -40,18 +41,12 @@ const watchForProblems = async (page: Page) => {
 };
 
 /**
- * Opens /settings and waits for the switcher to hydrate: a click on the
- * inert server-rendered radio would do nothing. React tags hydrated DOM
- * nodes with a `__reactProps$…` key.
+ * Waits for the switcher to hydrate: a click on the inert server-rendered
+ * radio would do nothing.
  */
 const hydratedSwitcher = async (page: Page) => {
   const group = page.getByRole('radiogroup', { name: 'Theme' });
-  await page.waitForFunction(
-    (radio) =>
-      radio !== null &&
-      Object.keys(radio).some((key) => key.startsWith('__reactProps$')),
-    await group.getByRole('radio').first().elementHandle(),
-  );
+  await hydrated(group.getByRole('radio').first());
   return group;
 };
 
