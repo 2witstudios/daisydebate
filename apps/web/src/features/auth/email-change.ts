@@ -24,6 +24,19 @@ export const CONFIRM_EMAIL_PATH = '/auth/confirm-email';
 /** The one redemption path; only the confirm page's internal forward reaches it. */
 export const EMAIL_CHANGE_VERIFY_PATH = '/email-change/verify';
 
+/**
+ * ISSUE-99: the final step's one transaction (`@daisy/db`'s
+ * `completeEmailChange`): move the account to the new address and delete
+ * every outstanding sign-in link (stored under `signInPurpose`) whose
+ * subject is the old one. `stale` changed nothing.
+ */
+export type CompleteEmailChange = (input: {
+  readonly userId: string;
+  readonly email: string;
+  readonly newEmail: string;
+  readonly signInPurpose: EmailedLinkPurpose;
+}) => Promise<'changed' | 'stale'>;
+
 /** Server-side subject of an email-change token; never inside the link. */
 const claimSchema = z.object({
   userId: z.string(),
@@ -56,6 +69,7 @@ export const emailChangePlugin = (dependencies: {
   readonly origin: string;
   readonly deliver: Deliver;
   readonly clock: Clock;
+  readonly completeEmailChange: CompleteEmailChange;
 }): BetterAuthPlugin => {
   const confirmLink = (token: string) => {
     const link = new URL(CONFIRM_EMAIL_PATH, dependencies.origin);
@@ -124,10 +138,17 @@ export const emailChangePlugin = (dependencies: {
           }
           const verified = await consume(ctx, 'email-change-verify', token);
           if (!verified) throw invalidToken();
-          const updated = await ctx.context.internalAdapter.updateUser(
+          // The address switch and the revocation of every sign-in link
+          // still mailed to the old address commit together (ISSUE-99).
+          const completion = await dependencies.completeEmailChange({
+            ...verified,
+            signInPurpose: 'sign-in',
+          });
+          if (completion === 'stale') throw invalidToken();
+          const updated = await ctx.context.internalAdapter.findUserById(
             verified.userId,
-            { email: verified.newEmail, emailVerified: true },
           );
+          if (!updated) throw invalidToken();
           const session = await ctx.context.internalAdapter.createSession(
             verified.userId,
           );

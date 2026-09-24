@@ -16,7 +16,7 @@ import {
   emailedLinkIdentifier,
   generateEmailedLinkToken,
 } from './emailed-link-token';
-import { emailChangePlugin } from './email-change';
+import { emailChangePlugin, type CompleteEmailChange } from './email-change';
 import { createMagicLinkGatePlugin } from './magic-link-gate';
 import { freshSessionGatePlugin } from './fresh-session-gate';
 import { browserSessionShapePlugin } from './browser-session-shape';
@@ -77,6 +77,7 @@ const composeBetterAuth = (dependencies: {
   readonly clock: Clock;
   readonly appendSessionRevoked: (userId: string) => Promise<void>;
   readonly revokeOtherSessions: RevokeOtherSessions;
+  readonly completeEmailChange: CompleteEmailChange;
 }) => {
   const { config, ledger, recipientSubkey } = dependencies;
   const origin = new URL(config.PUBLIC_APP_URL).origin;
@@ -205,6 +206,7 @@ const composeBetterAuth = (dependencies: {
         origin,
         deliver: dependencies.deliver,
         clock: dependencies.clock,
+        completeEmailChange: dependencies.completeEmailChange,
       }),
       freshSessionGatePlugin,
       sessionRevokedOutboxPlugin(
@@ -276,6 +278,8 @@ export function createAuthServer<
   /** RT-2.2: appends `session.revoked` after a confirmed self-service revoke. */
   readonly appendSessionRevoked: (userId: string) => Promise<void>;
   readonly revokeOtherSessions: RevokeOtherSessions;
+  /** ISSUE-99: the email change's address switch and link revocation. */
+  readonly completeEmailChange: CompleteEmailChange;
 }): AuthServer {
   const { config } = dependencies;
   const recipientSubkey = deriveRecipientSubkey(config.BETTER_AUTH_SECRET);
@@ -336,6 +340,7 @@ export function createAuthServer<
       clock: dependencies.clock,
       appendSessionRevoked: dependencies.appendSessionRevoked,
       revokeOtherSessions: dependencies.revokeOtherSessions,
+      completeEmailChange: dependencies.completeEmailChange,
     }),
     limiter: dependencies.limiter,
     logger: dependencies.logger,

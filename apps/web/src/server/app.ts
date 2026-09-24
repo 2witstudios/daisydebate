@@ -86,6 +86,7 @@ export function createApp({
       appendSessionRevoked: (userId) => database.appendSessionRevoked(userId),
       revokeOtherSessions: (userId, keepToken) =>
         database.revokeOtherSessions(userId, keepToken),
+      completeEmailChange: (input) => database.completeEmailChange(input),
       logger,
       clock,
       ids,

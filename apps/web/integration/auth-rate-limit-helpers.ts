@@ -53,6 +53,7 @@ export function createSecondInstances(testApp: TestApp) {
       ledger: noLedger,
       appendSessionRevoked: async () => {},
       revokeOtherSessions: async () => 0,
+      completeEmailChange: (input) => database.completeEmailChange(input),
       logger: silentLogger,
       clock: systemClock,
       ids: systemId,

@@ -9,6 +9,7 @@ import {
   createAuthServer,
   type AuthEmailMessage,
 } from '../src/features/auth/server';
+import type { CompleteEmailChange } from '../src/features/auth/email-change';
 import { silentLogger } from '../src/server/test-loggers.test-support';
 import { authTestEnv } from '../src/features/auth/auth-server.test-support';
 
@@ -45,6 +46,8 @@ export const createTestAuthServer = (
       userId: string,
       keepToken: string,
     ) => Promise<number>;
+    /** Defaults to refusing; a suite completing an email change wires the real one. */
+    readonly completeEmailChange?: CompleteEmailChange;
   },
 ) =>
   createAuthServer({
@@ -66,6 +69,8 @@ export const createTestAuthServer = (
     ids: systemId,
     appendSessionRevoked: options.appendSessionRevoked ?? (async () => {}),
     revokeOtherSessions: options.revokeOtherSessions ?? (async () => 0),
+    completeEmailChange:
+      options.completeEmailChange ?? (async () => 'stale' as const),
   });
 
 /**
@@ -111,6 +116,7 @@ export const createDatabaseAuthServer = (
   const auth = createTestAuthServer(database.authAdapter, {
     sent,
     recordedLogs: logged,
+    completeEmailChange: (input) => database.completeEmailChange(input),
     ...wire(database),
   });
   return { sent, logged, database, auth };

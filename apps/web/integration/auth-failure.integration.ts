@@ -32,6 +32,7 @@ const unreachableDatabase = () => {
     ledger: { isSuppressed: async () => false, record: async () => {} },
     appendSessionRevoked: async () => {},
     revokeOtherSessions: async () => 0,
+    completeEmailChange: (input) => database.completeEmailChange(input),
     logger: silent,
     clock: systemClock,
     ids: systemId,

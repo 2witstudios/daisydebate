@@ -1,5 +1,4 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { memoryAdapter } from '@better-auth/memory-adapter';
 import { systemClock } from '@daisy/clock';
 import {
   authTestEnv,
@@ -27,11 +26,13 @@ const linkIn = (message: AuthEmailMessage | undefined) =>
 async function signedIn() {
   const db = memoryTables();
   const sent: AuthEmailMessage[] = [];
-  const server = composeAuthServer({
-    database: memoryAdapter(db),
-    clock: systemClock,
-    emailSender: { send: async (message) => void sent.push(message) },
-  });
+  const server = composeAuthServer(
+    {
+      clock: systemClock,
+      emailSender: { send: async (message) => void sent.push(message) },
+    },
+    db,
+  );
   const call = (path: string, init: RequestInit = {}, cookie = '') =>
     server.instance.handler(
       new Request(`${origin}/api/auth${path}`, {

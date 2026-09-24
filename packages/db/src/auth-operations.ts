@@ -1,16 +1,20 @@
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { and, eq, ne } from 'drizzle-orm';
+import { and, eq, ne, sql } from 'drizzle-orm';
 import { drizzleAdapter } from '@better-auth/drizzle-adapter';
 import { accounts, passkeys, sessions, verifications } from './schema/auth';
 import { users } from './schema/users';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { appendSessionRevokedFor } from './session-revoked';
+import { isUniqueViolation } from './unique-violation';
+
+/** What an email-change completion did; `stale` changed nothing. */
+export type EmailChangeCompletion = 'changed' | 'stale';
 
 /**
- * The auth area (ISSUE-8 AC1): Better Auth's own adapter plus Daisy's two
- * session-revocation operations. Drizzle stays inside this module; callers
- * receive the adapter as an opaque capability, never a table or a
- * transaction handle.
+ * The auth area (ISSUE-8 AC1): Better Auth's own adapter plus Daisy's
+ * email-change completion and two session-revocation operations. Drizzle
+ * stays inside this module; callers receive the adapter as an opaque
+ * capability, never a table or a transaction handle.
  */
 export const authOperations = ({
   database,
@@ -48,6 +52,56 @@ export const authOperations = ({
           ),
         ),
       );
+    },
+    /**
+     * ISSUE-99 (AUTH-5.6): the email change's final step, in one
+     * transaction. It moves the account from `email` to `newEmail` (marked
+     * verified, since the caller just proved the new inbox) and deletes every
+     * outstanding emailed sign-in link whose subject is the old address, so a
+     * link mailed there before the change can neither sign in to the account
+     * nor, once the address is free, sign up a new account there. The links
+     * are the rows whose identifier starts with `<signInPurpose>:` (the
+     * caller's emailed-link purpose prefix, ADR 0025) and whose JSON value
+     * names the old address, compared case-insensitively. `stale`, changing
+     * nothing, when the account no longer holds `email` or `newEmail` is
+     * taken in the meantime (the unique index decides a race).
+     */
+    async completeEmailChange(input: {
+      readonly userId: string;
+      readonly email: string;
+      readonly newEmail: string;
+      readonly signInPurpose: string;
+    }): Promise<EmailChangeCompletion> {
+      return instrumented(eventSink, 'completeEmailChange', async () => {
+        try {
+          return await database.transaction(async (tx) => {
+            const moved = await tx
+              .update(users)
+              .set({
+                email: input.newEmail,
+                emailVerified: true,
+                updatedAt: sql`now()`,
+                version: sql`${users.version} + 1`,
+              })
+              .where(
+                and(eq(users.id, input.userId), eq(users.email, input.email)),
+              )
+              .returning({ id: users.id });
+            if (moved.length === 0) return 'stale';
+            // CASE, not AND: Postgres may evaluate AND operands in any order,
+            // and only rows of this purpose are guaranteed to hold JSON.
+            await tx
+              .delete(verifications)
+              .where(
+                sql`case when starts_with(${verifications.identifier}, ${`${input.signInPurpose}:`}) then lower(${verifications.value}::jsonb ->> 'email') = lower(${input.email}) else false end`,
+              );
+            return 'changed';
+          });
+        } catch (error) {
+          if (isUniqueViolation(error)) return 'stale';
+          throw error;
+        }
+      });
     },
     /**
      * Revokes every session for `userId` except `keepToken` in one atomic

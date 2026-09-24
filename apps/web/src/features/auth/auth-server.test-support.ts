@@ -2,6 +2,7 @@ import { memoryAdapter } from '@better-auth/memory-adapter';
 import { fixedClock, sequentialId } from '@daisy/clock';
 import { readAuthConfig } from '@daisy/config';
 import { silentLogger } from '../../server/test-loggers.test-support';
+import type { CompleteEmailChange } from './email-change';
 import { createAuthServer, type AuthEmailMessage } from './server';
 
 /**
@@ -27,6 +28,31 @@ export const memoryTables = () => ({
   passkey: [] as Array<Record<string, unknown>>,
 });
 
+/**
+ * `@daisy/db`'s `completeEmailChange` contract over in-memory tables, for
+ * the unit suites; the real transaction is proven against PostgreSQL in
+ * `integration/auth-email-change-old-address-links.integration.ts`.
+ */
+export const memoryEmailChange =
+  (tables: ReturnType<typeof memoryTables>): CompleteEmailChange =>
+  async ({ userId, email, newEmail, signInPurpose }) => {
+    const user = tables.user.find(
+      (row) => row.id === userId && row.email === email,
+    );
+    if (!user || tables.user.some((row) => row.email === newEmail))
+      return 'stale';
+    Object.assign(user, { email: newEmail, emailVerified: true });
+    const revoked = tables.verification.filter(
+      (row) =>
+        String(row.identifier).startsWith(`${signInPurpose}:`) &&
+        String(JSON.parse(String(row.value)).email).toLowerCase() ===
+          email.toLowerCase(),
+    );
+    for (const row of revoked)
+      tables.verification.splice(tables.verification.indexOf(row), 1);
+    return 'changed';
+  };
+
 /** A mail seam that keeps every message it was asked to send. */
 export function capturingSender() {
   const sent: AuthEmailMessage[] = [];
@@ -45,10 +71,12 @@ export function capturingSender() {
  */
 export const composeAuthServer = (
   overrides: Partial<Parameters<typeof createAuthServer>[0]> = {},
+  tables = memoryTables(),
 ) =>
   createAuthServer({
     config: readAuthConfig(authTestEnv),
-    database: memoryAdapter(memoryTables()),
+    database: memoryAdapter(tables),
+    completeEmailChange: memoryEmailChange(tables),
     emailSender: capturingSender(),
     limiter: { consume: async () => ({ allowed: true, retryAfterSeconds: 0 }) },
     logger: silentLogger,
