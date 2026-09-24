@@ -101,6 +101,8 @@ export function createDatabase({
         const [row] = (await database.execute(
           runtimeRoleFactsQuery,
         )) as unknown as RuntimeRoleFactsRow[];
+        // No row means no schema public: nothing proves the role is safe.
+        if (row === undefined) throw new Error('Schema public is missing');
         return runtimeRoleProblems(runtimeRoleFactsFrom(row));
       });
     },

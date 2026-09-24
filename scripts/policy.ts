@@ -353,9 +353,8 @@ async function filesIn(
       entry.isFile() &&
       (extensions === undefined ||
         extensions.has(entry.name.slice(entry.name.lastIndexOf('.'))))
-    ) {
+    )
       files.push(join(directory, entry.name));
-    }
   }
   return files;
 }
