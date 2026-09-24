@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { signUpMember } from './support/accounts';
+import { signUpMember, signUpProvisional } from './support/accounts';
 
 const viewports = [
   { name: 'desktop', width: 1440, height: 900 },
@@ -7,17 +7,31 @@ const viewports = [
   { name: 'mobile', width: 390, height: 844 },
 ] as const;
 const themes = ['dark', 'light'] as const;
+// Who each screen needs: settings and the passkey offer a member, the
+// username step an account that has not chosen one yet.
 const routes = [
-  { name: 'dashboard', path: '/' },
-  { name: 'settings', path: '/settings' },
+  { name: 'dashboard', path: '/', account: 'none' },
+  { name: 'settings', path: '/settings', account: 'member' },
+  {
+    name: 'onboarding-username',
+    path: '/onboarding/username?next=%2Flobby',
+    account: 'provisional',
+  },
+  {
+    name: 'onboarding-passkey',
+    path: '/onboarding/passkey?next=%2Flobby',
+    account: 'member',
+  },
 ] as const;
 
 /**
  * Parity oracle for the Tailwind transition (ADR 0028): full-page shots of
- * the dashboard and settings across themes and widths. The theme is pinned
- * through the saved-preference cookie (ADR 0027), motion is frozen, and the
- * pages render static mock data, so the frames are deterministic. Baselines
- * are Linux-only; see docs/development/testing.md ("Visual parity").
+ * the dashboard, settings and the onboarding screens (ISSUE-77) across
+ * themes and widths. The theme is pinned through the saved-preference cookie
+ * (ADR 0027), motion is frozen, and the pages render static mock data, so
+ * the frames are deterministic. The random per-run username is masked.
+ * Baselines are Linux-only; see docs/development/testing.md ("Visual
+ * parity").
  */
 for (const viewport of viewports) {
   for (const theme of themes) {
@@ -33,10 +47,11 @@ for (const viewport of viewports) {
         await context.addCookies([
           { name: 'daisy-theme', value: theme, url: baseURL ?? '' },
         ]);
-        // Settings needs an account; its page shows no account details, but
-        // the shell's topbar now shows the account link with the random
-        // username signUpMember claims, so that link is masked below.
-        if (route.path === '/settings') await signUpMember(context.request);
+        // The shell's topbar and the passkey offer show the random username
+        // signUpMember claims, so both are masked below.
+        if (route.account === 'member') await signUpMember(context.request);
+        if (route.account === 'provisional')
+          await signUpProvisional(context.request);
         const page = await context.newPage();
         await page.goto(route.path);
         await page.evaluate(() => document.fonts.ready);
@@ -46,7 +61,10 @@ for (const viewport of viewports) {
             fullPage: true,
             animations: 'disabled',
             caret: 'hide',
-            mask: [page.getByRole('link', { name: /^Account settings for/ })],
+            mask: [
+              page.getByRole('link', { name: /^Account settings for/ }),
+              page.getByText(/^Signed in as /),
+            ],
             // Headless font antialiasing jitters a few subpixels run to
             // run on thin, low-contrast text (the search placeholder);
             // this absorbs that noise without hiding a real color or

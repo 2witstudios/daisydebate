@@ -66,26 +66,3 @@ export const createClaimUsername =
         : { kind: 'already-set' };
     return REFUSALS[response.status] ?? { kind: 'unavailable' };
   };
-
-/** A Request needs an absolute URL; the handler never reads its host. */
-const IN_PROCESS = 'http://in-process.invalid';
-
-/**
- * The claim's transport inside the server: the POST /api/account/username
- * handler called directly, carrying the browser request's own headers (its
- * Origin and session cookie), so every gate of that route still runs.
- */
-export const inProcessFetch =
-  (
-    handler: (request: Request) => Promise<Response>,
-    incoming: Headers,
-  ): FetchLike =>
-  (url, init) => {
-    const headers = new Headers(incoming);
-    for (const name of ['content-length', 'content-type', 'transfer-encoding'])
-      headers.delete(name);
-    new Headers(init.headers).forEach((value, name) =>
-      headers.set(name, value),
-    );
-    return handler(new Request(new URL(url, IN_PROCESS), { ...init, headers }));
-  };

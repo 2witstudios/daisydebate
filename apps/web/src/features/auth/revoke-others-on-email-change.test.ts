@@ -2,9 +2,9 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { Logger } from '@daisy/logger';
 import { createEventRecorder as recorder } from '../../server/test-loggers.test-support';
 import {
-  revokeOthersOnVerifyEmailPlugin,
+  revokeOthersOnEmailChangePlugin,
   SESSION_CLEANUP_FAILED_HEADER,
-} from './revoke-others-on-verify-email';
+} from './revoke-others-on-email-change';
 
 setupRitewayBun();
 
@@ -24,7 +24,7 @@ const runAfterHook = async (
   newSession: Parameters<typeof context>[1],
   responseHeaders?: Headers,
 ) => {
-  const plugin = revokeOthersOnVerifyEmailPlugin(revokeOtherSessions, logger);
+  const plugin = revokeOthersOnEmailChangePlugin(revokeOtherSessions, logger);
   const hook = plugin.hooks?.after?.[0];
   if (!hook) throw new Error('plugin defines no after hook');
   const ctx = context(path, newSession, responseHeaders);
@@ -33,23 +33,28 @@ const runAfterHook = async (
   return ctx.context.responseHeaders;
 };
 
-describe('revokeOthersOnVerifyEmailPlugin matcher', () => {
-  test('matches only /verify-email', () => {
+describe('revokeOthersOnEmailChangePlugin matcher', () => {
+  test('matches only /email-change/verify', () => {
     const { logger } = recorder();
-    const plugin = revokeOthersOnVerifyEmailPlugin(async () => 0, logger);
+    const plugin = revokeOthersOnEmailChangePlugin(async () => 0, logger);
     const hook = plugin.hooks?.after?.[0];
     if (!hook) throw new Error('plugin defines no after hook');
-    const paths = ['/verify-email', '/magic-link/verify', '/change-email'];
+    const paths = [
+      '/email-change/verify',
+      '/verify-email',
+      '/magic-link/verify',
+      '/change-email',
+    ];
     assert({
-      given: '/verify-email and two unrelated paths',
-      should: 'match only /verify-email',
+      given: '/email-change/verify and three unrelated paths',
+      should: 'match only /email-change/verify',
       actual: paths.map((path) => hook.matcher(context(path, null) as never)),
-      expected: [true, false, false],
+      expected: [true, false, false, false],
     });
   });
 });
 
-describe('revokeOthersOnVerifyEmailPlugin handler', () => {
+describe('revokeOthersOnEmailChangePlugin handler', () => {
   test('revokes every other session for the new session owner, keeping its own token', async () => {
     const calls: Array<[string, string]> = [];
     const { logger } = recorder();
@@ -59,7 +64,7 @@ describe('revokeOthersOnVerifyEmailPlugin handler', () => {
         return 1;
       },
       logger,
-      '/verify-email',
+      '/email-change/verify',
       { session: { token: 'new-token' }, user: { id: 'user-1' } },
     );
     assert({
@@ -79,7 +84,7 @@ describe('revokeOthersOnVerifyEmailPlugin handler', () => {
         return 0;
       },
       logger,
-      '/verify-email',
+      '/email-change/verify',
       null,
     );
     assert({
@@ -100,7 +105,7 @@ describe('revokeOthersOnVerifyEmailPlugin handler', () => {
           throw new Error('db unavailable: password=hunter2');
         },
         logger,
-        '/verify-email',
+        '/email-change/verify',
         { session: { token: 'new-token' }, user: { id: 'user-1' } },
       );
     } catch {

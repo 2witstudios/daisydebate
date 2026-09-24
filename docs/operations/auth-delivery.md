@@ -98,8 +98,11 @@ live under `<REDIS_NAMESPACE>:v1:rl:<sha3-256>` and expire within 60 seconds.
 
 ## Retention of verification records
 
-Magic-link requests write a `verification` row (hashed token identifier; the
-requested email is inside `value`). Redeeming deletes the row; unredeemed rows
+Every emailed link writes a `verification` row. The identifier is the
+purpose and the SHA3-256 digest of the token (`sign-in:…`,
+`email-change-approve:…`, `email-change-verify:…`), never the token itself.
+The subject is inside `value`: the requested email for sign-in, and the
+account id plus both addresses for an email change (ADR 0025). Redeeming deletes the row; unredeemed rows
 are purged by the retention sweep in each server process (once at start-up,
 then hourly), only once expired for more than 24 hours, at most 20 batches of
 500 per run (a bigger backlog drains over later runs). Runs are idempotent and

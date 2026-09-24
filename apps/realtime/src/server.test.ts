@@ -159,4 +159,71 @@ describe('createRealtimeServer fetch', () => {
       expected: 404,
     });
   });
+
+  test('logs deliverySeqLagEstimate on /health/ready when an outbox cursor is wired (RT-2.3b-f1 criterion 3)', async () => {
+    const events: Array<{
+      event: string;
+      fields: Record<string, unknown>;
+    }> = [];
+    const recordingLogger: Logger = {
+      log: (event, fields) => {
+        events.push({ event, fields });
+      },
+      child: () => recordingLogger,
+    };
+    const server = createRealtimeServer({
+      resources: resources({
+        logger: recordingLogger,
+        outbox: {
+          cursor: () => ({ txid: '5', seq: 3n }),
+          highWaterMark: async () => ({ txid: '5', seq: 10n }),
+        },
+      }),
+    });
+
+    await server.fetch(
+      new Request('http://localhost/health/ready'),
+      fakeServer(false),
+    );
+
+    assert({
+      given:
+        'a readiness probe with a drain cursor behind a fresh high-water mark',
+      should: 'log realtime.outbox.delivery_lag_estimated with the estimate',
+      actual: events.filter(
+        (event) => event.event === 'realtime.outbox.delivery_lag_estimated',
+      ),
+      expected: [
+        {
+          event: 'realtime.outbox.delivery_lag_estimated',
+          fields: { deliverySeqLagEstimate: 7 },
+        },
+      ],
+    });
+  });
+
+  test('logs nothing for delivery lag when no outbox resource is wired', async () => {
+    const events: string[] = [];
+    const recordingLogger: Logger = {
+      log: (event) => {
+        events.push(event);
+      },
+      child: () => recordingLogger,
+    };
+    const server = createRealtimeServer({
+      resources: resources({ logger: recordingLogger }),
+    });
+
+    await server.fetch(
+      new Request('http://localhost/health/ready'),
+      fakeServer(false),
+    );
+
+    assert({
+      given: 'a readiness probe with no outbox resource wired',
+      should: 'never log realtime.outbox.delivery_lag_estimated',
+      actual: events.includes('realtime.outbox.delivery_lag_estimated'),
+      expected: false,
+    });
+  });
 });

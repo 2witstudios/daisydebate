@@ -1,32 +1,83 @@
 import { expect, test } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
 import { createHash } from 'node:crypto';
+import { requireTestServices } from '@daisy/config';
 import { createRedis, redisKey } from '../src';
 import { rawClient } from './test-support';
-const url = process.env.TEST_REDIS_URL;
-if (!url) throw new Error('TEST_REDIS_URL required');
+
+const { redisUrl: url } = requireTestServices(process.env);
 
 const sha3 = (value: string) =>
   createHash('sha3-256').update(value).digest('hex');
 
-test('a ticket is single-use: the second GETDEL finds nothing', async () => {
-  const namespace = `test-${createId()}`;
-  const redis = createRedis({ url, namespace });
-  const actorId = createId();
-  const sessionId = createId();
-  const origin = 'https://daisydebate.example';
-  const ticketHash = sha3(createId());
+/** A fresh namespace, binding and ticket hash for one test's own ticket. */
+function ticketFixture() {
+  return {
+    namespace: `test-${createId()}`,
+    actorId: createId(),
+    sessionId: createId(),
+    origin: 'https://daisydebate.example',
+    ticketHash: sha3(createId()),
+  };
+}
+
+async function issueFixtureTicket(
+  redis: ReturnType<typeof createRedis>,
+  fixture: ReturnType<typeof ticketFixture>,
+  ttlSeconds = 60,
+): Promise<void> {
+  await redis.issueConnectTicket(
+    fixture.ticketHash,
+    {
+      actorId: fixture.actorId,
+      sessionId: fixture.sessionId,
+      origin: fixture.origin,
+    },
+    ttlSeconds,
+  );
+}
+
+/** A fresh, already-issued ticket plus a raw client for direct key assertions. */
+async function issuedFixtureWithRawAccess(): Promise<{
+  readonly fixture: ReturnType<typeof ticketFixture>;
+  readonly redis: ReturnType<typeof createRedis>;
+  readonly raw: Awaited<ReturnType<typeof rawClient>>;
+  readonly key: string;
+}> {
+  const fixture = ticketFixture();
+  const redis = createRedis({ url, namespace: fixture.namespace });
+  const raw = await rawClient(url);
+  const key = redisKey(fixture.namespace, 'ticket', fixture.ticketHash);
   try {
-    await redis.issueConnectTicket(
-      ticketHash,
-      { actorId, sessionId, origin },
-      60,
+    await issueFixtureTicket(redis, fixture);
+  } catch (error) {
+    redis.close();
+    raw.close();
+    throw error;
+  }
+  return { fixture, redis, raw, key };
+}
+
+test('a ticket is single-use: the second GETDEL finds nothing', async () => {
+  const fixture = ticketFixture();
+  const redis = createRedis({ url, namespace: fixture.namespace });
+  try {
+    await issueFixtureTicket(redis, fixture);
+
+    const first = await redis.consumeConnectTicket(
+      fixture.ticketHash,
+      fixture.origin,
+    );
+    const replay = await redis.consumeConnectTicket(
+      fixture.ticketHash,
+      fixture.origin,
     );
 
-    const first = await redis.consumeConnectTicket(ticketHash, origin);
-    const replay = await redis.consumeConnectTicket(ticketHash, origin);
-
-    expect(first).toEqual({ accepted: true, actorId, sessionId });
+    expect(first).toEqual({
+      accepted: true,
+      actorId: fixture.actorId,
+      sessionId: fixture.sessionId,
+    });
     // A negative control: a ticket consumed once must not be consumable
     // again, proving GETDEL actually removed it rather than merely reading it.
     expect(replay).toEqual({ accepted: false, reason: 'not-found' });
@@ -36,24 +87,19 @@ test('a ticket is single-use: the second GETDEL finds nothing', async () => {
 });
 
 test('a ticket bound to a different origin is rejected, and still consumed', async () => {
-  const namespace = `test-${createId()}`;
-  const redis = createRedis({ url, namespace });
-  const actorId = createId();
-  const sessionId = createId();
-  const origin = 'https://daisydebate.example';
-  const ticketHash = sha3(createId());
+  const fixture = ticketFixture();
+  const redis = createRedis({ url, namespace: fixture.namespace });
   try {
-    await redis.issueConnectTicket(
-      ticketHash,
-      { actorId, sessionId, origin },
-      60,
-    );
+    await issueFixtureTicket(redis, fixture);
 
     const mismatched = await redis.consumeConnectTicket(
-      ticketHash,
+      fixture.ticketHash,
       'https://attacker.example',
     );
-    const replay = await redis.consumeConnectTicket(ticketHash, origin);
+    const replay = await redis.consumeConnectTicket(
+      fixture.ticketHash,
+      fixture.origin,
+    );
 
     expect(mismatched).toEqual({ accepted: false, reason: 'origin-mismatch' });
     // Negative control: even a rejected (wrong-origin) consumption is single-use.
@@ -64,25 +110,15 @@ test('a ticket bound to a different origin is rejected, and still consumed', asy
 });
 
 test('an expired ticket is rejected as not-found', async () => {
-  const namespace = `test-${createId()}`;
-  const redis = createRedis({ url, namespace });
-  const raw = await rawClient(url);
-  const actorId = createId();
-  const sessionId = createId();
-  const origin = 'https://daisydebate.example';
-  const ticketHash = sha3(createId());
-  const key = redisKey(namespace, 'ticket', ticketHash);
+  const { fixture, redis, raw, key } = await issuedFixtureWithRawAccess();
   try {
-    await redis.issueConnectTicket(
-      ticketHash,
-      { actorId, sessionId, origin },
-      60,
-    );
     // Forces the stored ticket to have already expired, rather than
     // sleeping past its real TTL (flaky, and needlessly slow).
     await raw.send('PEXPIRE', [key, '-1']);
 
-    expect(await redis.consumeConnectTicket(ticketHash, origin)).toEqual({
+    expect(
+      await redis.consumeConnectTicket(fixture.ticketHash, fixture.origin),
+    ).toEqual({
       accepted: false,
       reason: 'not-found',
     });
@@ -93,8 +129,8 @@ test('an expired ticket is rejected as not-found', async () => {
 });
 
 test('an unknown ticket hash is rejected as not-found', async () => {
-  const namespace = `test-${createId()}`;
-  const redis = createRedis({ url, namespace });
+  const fixture = ticketFixture();
+  const redis = createRedis({ url, namespace: fixture.namespace });
   try {
     expect(
       await redis.consumeConnectTicket(sha3(createId()), 'https://x.example'),
@@ -105,29 +141,21 @@ test('an unknown ticket hash is rejected as not-found', async () => {
 });
 
 test('25 concurrent consumers on separate connections accept the ticket exactly once', async () => {
-  const namespace = `test-${createId()}`;
-  const actorId = createId();
-  const sessionId = createId();
-  const origin = 'https://daisydebate.example';
-  const ticketHash = sha3(createId());
-  const issuer = createRedis({ url, namespace });
+  const fixture = ticketFixture();
+  const issuer = createRedis({ url, namespace: fixture.namespace });
   // Each consumer dials its own connection: a shared client would already
   // serialize commands and hide a non-atomic implementation (get-then-del)
   // behind Bun's own connection queue, so this would not actually exercise
   // Redis's cross-connection atomicity.
   const consumers = Array.from({ length: 25 }, () =>
-    createRedis({ url, namespace }),
+    createRedis({ url, namespace: fixture.namespace }),
   );
   try {
-    await issuer.issueConnectTicket(
-      ticketHash,
-      { actorId, sessionId, origin },
-      60,
-    );
+    await issueFixtureTicket(issuer, fixture);
 
     const results = await Promise.all(
       consumers.map((consumer) =>
-        consumer.consumeConnectTicket(ticketHash, origin),
+        consumer.consumeConnectTicket(fixture.ticketHash, fixture.origin),
       ),
     );
 
@@ -136,7 +164,11 @@ test('25 concurrent consumers on separate connections accept the ticket exactly 
     // with GET then DEL turns this from exactly 1 into as many as 25, since
     // every connection can read the value before any of them deletes it.
     expect(accepted.length).toBe(1);
-    expect(accepted[0]).toEqual({ accepted: true, actorId, sessionId });
+    expect(accepted[0]).toEqual({
+      accepted: true,
+      actorId: fixture.actorId,
+      sessionId: fixture.sessionId,
+    });
     expect(
       results.filter((result) => !result.accepted).map((result) => result),
     ).toEqual(Array(24).fill({ accepted: false, reason: 'not-found' }));
@@ -147,25 +179,13 @@ test('25 concurrent consumers on separate connections accept the ticket exactly 
 });
 
 test('the ticket key carries a mandatory TTL, never a bare SET', async () => {
-  const namespace = `test-${createId()}`;
-  const redis = createRedis({ url, namespace });
-  const raw = await rawClient(url);
-  const actorId = createId();
-  const sessionId = createId();
-  const origin = 'https://daisydebate.example';
-  const ticketHash = sha3(createId());
-  const key = redisKey(namespace, 'ticket', ticketHash);
+  const { fixture, redis, raw, key } = await issuedFixtureWithRawAccess();
   try {
-    await redis.issueConnectTicket(
-      ticketHash,
-      { actorId, sessionId, origin },
-      60,
-    );
     const ttl = await raw.send('TTL', [key]);
     expect(Number(ttl)).toBeGreaterThan(0);
     expect(Number(ttl)).toBeLessThanOrEqual(60);
   } finally {
-    await redis.consumeConnectTicket(ticketHash, origin);
+    await redis.consumeConnectTicket(fixture.ticketHash, fixture.origin);
     redis.close();
     raw.close();
   }

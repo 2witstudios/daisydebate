@@ -1,12 +1,28 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { cursorSchema } from './realtime';
-import { buildUserInboxTopic, parseTopic, topicStringSchema } from './topics';
+import { cursorSchema, heartbeatMs } from './realtime';
+import {
+  buildDebateTopic,
+  buildUserInboxTopic,
+  parseTopic,
+  topicStringSchema,
+} from './topics';
 import { parseOutcome } from './parse-outcome.test-support';
 
 setupRitewayBun();
 
 const id = 'k2v9x0f4m8q3w1z7c5n6b4d2';
+
+describe('heartbeat period constant (ADR 0031 §7)', () => {
+  test('names the value the client heartbeat sends on', () => {
+    assert({
+      given: 'the protocol module',
+      should: 'export the 15 s heartbeat period',
+      actual: heartbeatMs,
+      expected: 15_000,
+    });
+  });
+});
 
 describe('topic grammar', () => {
   test('parses every topic family, and the inbox builder round-trips', () => {
@@ -60,6 +76,18 @@ describe('topic grammar', () => {
 
   test('the builder throws on a non-cuid2 segment instead of building a bad topic', () => {
     expect(() => buildUserInboxTopic('not-a-cuid2')).toThrow(
+      'Invalid string: must match pattern',
+    );
+  });
+
+  test('the debate topic builder round-trips through the parser and throws on a non-cuid2 segment (RT-2.3b)', () => {
+    assert({
+      given: 'a debate id',
+      should: 'build a topic the parser accepts back as the debate family',
+      actual: parseTopic(buildDebateTopic(id)),
+      expected: { family: 'debate', debateId: id },
+    });
+    expect(() => buildDebateTopic('not-a-cuid2')).toThrow(
       'Invalid string: must match pattern',
     );
   });

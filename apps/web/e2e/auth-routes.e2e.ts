@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
-import { origin } from './support/accounts';
+import { expect, test, type APIRequestContext } from '@playwright/test';
+import { origin, signUpProvisional, uniqueName } from './support/accounts';
 
 // The production server (NODE_ENV=production, HTTPS public origin, real
 // ingress stamping) with the auth routes mounted. Header behavior is asserted
@@ -66,4 +66,67 @@ test('the Resend webhook refuses unsigned requests', async ({ request }) => {
     data: { type: 'email.delivered', data: { email_id: 'msg_e2e' } },
   });
   expect(response.status()).toBe(400);
+});
+
+/** The username form's native POST: its target and hidden fields. */
+async function usernameFormPost(request: APIRequestContext) {
+  const page = '/onboarding/username?next=%2Flobby';
+  const html = await (await request.get(page)).text();
+  const form = html.match(/<form\b[^>]*>[\s\S]*?<\/form>/)?.[0] ?? '';
+  const action = form.match(/\baction="([^"]*)"/)?.[1] ?? '';
+  const hidden = [...form.matchAll(/<input\b[^>]*type="hidden"[^>]*>/g)].map(
+    (input) => [
+      input[0].match(/\bname="([^"]*)"/)?.[1] ?? '',
+      (input[0].match(/\bvalue="([^"]*)"/)?.[1] ?? '').replaceAll(
+        '&quot;',
+        '"',
+      ),
+    ],
+  );
+  // An empty action posts back to the page itself.
+  return {
+    action: action === '' ? page : action.replaceAll('&amp;', '&'),
+    hidden,
+  };
+}
+
+const claimedName = async (request: APIRequestContext) =>
+  (
+    (await (await request.get('/api/auth/get-session')).json()) as {
+      user: { username: string | null };
+    }
+  ).user.username ?? null;
+
+test('a server action body over the 16 KiB limit is refused before the action runs', async ({
+  playwright,
+}) => {
+  const browser = await playwright.request.newContext({
+    baseURL: origin,
+    ignoreHTTPSErrors: true,
+  });
+  await signUpProvisional(browser);
+  const { action, hidden } = await usernameFormPost(browser);
+  expect(hidden.length).toBeGreaterThan(0);
+  const post = (username: string, padding: number) =>
+    browser.post(action, {
+      headers: { origin },
+      multipart: {
+        ...Object.fromEntries(hidden),
+        username,
+        ...(padding > 0 ? { padding: 'x'.repeat(padding) } : {}),
+      },
+      maxRedirects: 0,
+    });
+
+  // Well-formed, and only oversized: nothing is claimed.
+  const oversized = await post(uniqueName('big'), 17 * 1024);
+  expect(oversized.status()).toBe(500);
+  expect(await claimedName(browser)).toBeNull();
+
+  // The control: the same post under the limit claims and moves on.
+  const name = uniqueName('small');
+  const small = await post(name, 1024);
+  expect(small.status()).toBe(303);
+  expect(await claimedName(browser)).toBe(name);
+  await browser.dispose();
 });

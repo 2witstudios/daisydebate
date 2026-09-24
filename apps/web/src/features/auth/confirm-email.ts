@@ -1,7 +1,8 @@
 import type { Logger } from '@daisy/logger';
 import { handleOperation, requireSameOrigin } from '../../server/http';
 import { renderEmailConfirmPage } from './confirm-email-page';
-import { SESSION_CLEANUP_FAILED_HEADER } from './revoke-others-on-verify-email';
+import { EMAIL_CHANGE_VERIFY_PATH } from './email-change';
+import { SESSION_CLEANUP_FAILED_HEADER } from './revoke-others-on-email-change';
 import {
   createForward,
   createViewHeadHandlers,
@@ -9,13 +10,14 @@ import {
   redirect,
   type ConfirmAuth,
 } from './confirm-http-shared';
-import { safeLocalDestination } from './redirect';
 
 const MAX_FORM_BYTES = 4096;
-// Better Auth's email-verification token is a signed JWT: base64url segments
-// joined by dots, longer than a magic-link's plain random string.
-const tokenShape = /^[A-Za-z0-9_.-]{16,4096}$/;
-const DEFAULT_DESTINATION = '/settings/security';
+// An opaque 256-bit emailed-link token (`emailed-link-token.ts`): nothing
+// else is ever forwarded.
+const tokenShape = /^[A-Za-z0-9_-]{43}$/;
+// Both hops end in account security settings; the link carries no
+// destination, only the token.
+const DESTINATION = '/settings/security';
 
 type ConfirmEmailDependencies = {
   readonly auth: ConfirmAuth;
@@ -29,14 +31,9 @@ export function createConfirmEmailHandlers({
   const forward = createForward(auth);
 
   const view = (request: Request): Response => {
-    const params = new URL(request.url).searchParams;
-    const token = params.get('token');
-    const callbackURL = safeLocalDestination(
-      params.get('callbackURL'),
-      DEFAULT_DESTINATION,
-    );
+    const token = new URL(request.url).searchParams.get('token');
     return token && tokenShape.test(token)
-      ? renderEmailConfirmPage({ kind: 'confirm', token, callbackURL })
+      ? renderEmailConfirmPage({ kind: 'confirm', token })
       : renderEmailConfirmPage({ kind: 'expired' }, 400);
   };
 
@@ -46,16 +43,16 @@ export function createConfirmEmailHandlers({
     logger: Logger,
   ) => {
     const token = form.get('token') ?? '';
-    const callbackURL = safeLocalDestination(
-      form.get('callbackURL'),
-      DEFAULT_DESTINATION,
-    );
     if (!tokenShape.test(token))
       return renderEmailConfirmPage({ kind: 'expired' }, 400);
     const response = await forward(
       request,
-      `/api/auth/verify-email?${new URLSearchParams({ token })}`,
-      { method: 'GET' },
+      `/api/auth${EMAIL_CHANGE_VERIFY_PATH}`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ token }),
+      },
     );
     if (!response.ok) return renderEmailConfirmPage({ kind: 'expired' }, 400);
     const cookies = response.headers.getSetCookie();
@@ -65,8 +62,8 @@ export function createConfirmEmailHandlers({
     // forwards straight into Better Auth), so this is the one place the
     // milestone is observable: no token, cookie or address. The atomic
     // revoke of every other session (AUTH-5.6) now runs on the endpoint
-    // itself (`revokeOthersOnVerifyEmailPlugin`, ISSUE-3 AC3), so it can no
-    // longer be skipped by any caller of `/verify-email`; a failure there is
+    // itself (`revokeOthersOnEmailChangePlugin`, ISSUE-3 AC3), so it can no
+    // longer be skipped by any caller of the endpoint; a failure there is
     // best-effort and flagged on the response rather than kept as a second,
     // skippable path here.
     if (cookies.length > 0) {
@@ -77,14 +74,14 @@ export function createConfirmEmailHandlers({
       );
       if (response.headers.get(SESSION_CLEANUP_FAILED_HEADER) === 'true')
         return renderEmailConfirmPage(
-          { kind: 'incomplete', callbackURL },
+          { kind: 'incomplete', callbackURL: DESTINATION },
           502,
           cookies,
         );
     }
     const headers = new Headers();
     for (const cookie of cookies) headers.append('set-cookie', cookie);
-    return redirect(callbackURL, headers);
+    return redirect(DESTINATION, headers);
   };
 
   return {

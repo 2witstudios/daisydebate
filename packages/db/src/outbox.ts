@@ -162,13 +162,37 @@ export async function drainOutbox(
 }
 
 /**
+ * The greatest final position: the highest `(txid, seq)` whose transaction
+ * has finished for every observer (ADR 0032 §2). Instance startup reads
+ * this exactly once, after `LISTEN` acknowledges, to seed the drain loop's
+ * cursor; instances hold no history of their own, and clients bring their
+ * own cursors. An empty outbox has no final position, so the origin stands
+ * in for "nothing yet".
+ */
+export async function readOutboxHighWaterMark(
+  db: Pick<BunSQLDatabase, 'execute'>,
+): Promise<OutboxPosition> {
+  const result = await db.execute(sql`
+    select txid, seq
+    from outbox
+    where txid < pg_snapshot_xmin(pg_current_snapshot())
+    order by txid desc, seq desc
+    limit 1
+  `);
+  const [row] = result as unknown as Record<string, unknown>[];
+  if (!row) return OUTBOX_ORIGIN;
+  return {
+    txid: String(row.txid),
+    seq: BigInt(row.seq as string | number | bigint),
+  };
+}
+
+/**
  * The outbox area's production surface (ISSUE-8 AC1): its retention batch,
- * wrapped with the one failure wrapper. `appendOutboxEvent` runs inside a
- * caller's own transaction and is composed directly by the areas that need
- * it (auth's `session.revoked`, debates' future write paths), not through
- * this factory. `drainOutbox` has no production consumer yet (T5) and stays
- * out of `createDatabase()`'s return; `packages/db`'s own integration suite
- * imports it directly from this module.
+ * the RT-2.3b drain loop's two reads, wrapped with the one failure wrapper.
+ * `appendOutboxEvent` runs inside a caller's own transaction and is composed
+ * directly by the areas that need it (auth's `session.revoked`, debates'
+ * future write paths), not through this factory.
  */
 export const outboxOperations = ({
   database,
@@ -190,6 +214,25 @@ export const outboxOperations = ({
         { table: outbox, key: outbox.seq, at: outbox.createdAt },
         input,
       ),
+    );
+  },
+  /**
+   * The RT-2.3b drain loop's one range query per wakeup, bound to this
+   * instance's own connection pool so `apps/realtime` never touches the
+   * Drizzle handle directly (ISSUE-8 AC1's boundary).
+   */
+  async drainOutbox(
+    cursor: OutboxPosition,
+    limit?: number,
+  ): Promise<readonly OutboxRow[]> {
+    return instrumented(eventSink, 'drainOutbox', () =>
+      drainOutbox(database, cursor, limit),
+    );
+  },
+  /** The RT-2.3b startup read (ADR 0032 §2), bound the same way. */
+  async readOutboxHighWaterMark(): Promise<OutboxPosition> {
+    return instrumented(eventSink, 'readOutboxHighWaterMark', () =>
+      readOutboxHighWaterMark(database),
     );
   },
 });

@@ -25,6 +25,8 @@ export const eventRegistry = {
   'auth.email_change.cleanup_failed': 'error',
   'realtime.outbox.append_failed': 'error',
   'realtime.outbox.actor_missing': 'warn',
+  'realtime.outbox.drain_failed': 'error',
+  'realtime.outbox.delivery_lag_estimated': 'info',
   'realtime.connection.rejected': 'info',
   'db.query.failed': 'error',
   'retention.sweep.completed': 'info',
@@ -107,6 +109,7 @@ export const loggableFields = {
   deleted: 'count',
   batches: 'count',
   closeCode: 'count',
+  deliverySeqLagEstimate: 'count',
 } as const satisfies Record<string, FieldKind>;
 
 const CENSOR = '[REDACTED]';

@@ -3,7 +3,6 @@ import {
   loadSecurityOverview,
   removePasskey,
   renamePasskey,
-  requestEmailChange,
   revokeOtherSessions,
   revokeSession,
 } from './security-client';
@@ -240,45 +239,6 @@ describe('revokeSession and revokeOtherSessions', () => {
         }),
       ),
       expected: { kind: 'stale-session' },
-    });
-  });
-});
-
-describe('requestEmailChange', () => {
-  test('a conflicting email reports conflict', async () => {
-    assert({
-      given: 'a client rejecting the new address as already in use',
-      should: 'report conflict',
-      actual: await requestEmailChange(
-        clientWith({
-          changeEmail: async () => ({ data: null, error: { status: 409 } }),
-        }),
-        'taken@example.test',
-      ),
-      expected: { kind: 'conflict' },
-    });
-  });
-
-  test('a rate-limited attempt reports rate-limited', async () => {
-    assert({
-      given: 'a client throttling repeated attempts',
-      should: 'report rate-limited',
-      actual: await requestEmailChange(
-        clientWith({
-          changeEmail: async () => ({ data: null, error: { status: 429 } }),
-        }),
-        'someone@example.test',
-      ),
-      expected: { kind: 'rate-limited' },
-    });
-  });
-
-  test('success reports ok', async () => {
-    assert({
-      given: 'a client that accepts the request',
-      should: 'report ok',
-      actual: await requestEmailChange(clientWith({}), 'new@example.test'),
-      expected: { kind: 'ok' },
     });
   });
 });

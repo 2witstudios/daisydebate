@@ -6,6 +6,7 @@ import {
   type SearchParams,
 } from '../../../features/access/decision';
 import { SignIn } from '../../../ui/auth/sign-in/sign-in';
+import { requestLinkAction } from './actions';
 
 export const metadata: Metadata = {
   title: 'Sign in',
@@ -25,5 +26,10 @@ export default async function SignInPage({
   const { destination, identity } = await readAuthEntry(searchParams);
   if (identity.state === 'member') redirect(destination);
   if (identity.state === 'provisional') redirect(onboardingHref(destination));
-  return <SignIn destination={destination} />;
+  return (
+    <SignIn
+      destination={destination}
+      requestLink={requestLinkAction.bind(null, destination)}
+    />
+  );
 }

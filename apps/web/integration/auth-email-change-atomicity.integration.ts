@@ -1,10 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
-import { signJWT, verifyJWT } from 'better-auth/crypto';
 import { buildUserInboxTopic } from '@daisy/protocol';
 import { createPasskeyFlows } from './auth-passkey-flows';
 import { cookieHeader, emailOf, userIdOf, withSql } from './fixtures';
-import { EMAIL_VERIFICATION_EXPIRES_IN_SECONDS } from '../src/features/auth/server';
+import { EMAIL_CHANGE_LINK_EXPIRES_IN_SECONDS } from '../src/features/auth/email-change';
+import { emailedLinkIdentifier } from '../src/features/auth/emailed-link-token';
 import { requireTestServices } from '@daisy/config';
 
 /**
@@ -21,60 +21,85 @@ const { signUp } = flows.account;
 
 describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () => {
   test('an expired verification token is rejected server-side and changes nothing', async () => {
-    const { email } = await signUp();
+    const { email, cookie } = await signUp();
     const uid = (await userIdOf(email)) ?? '';
-    const newEmail = `${createId()}@example.test`;
-    const secret = flows.account.flows.app.auth().config.BETTER_AUTH_SECRET;
-    const payload = {
-      email,
-      updateTo: newEmail,
-      requestType: 'change-email-verification',
-    };
-    // Same signing routine and secret the real handler uses
-    // (`better-auth/crypto`'s `signJWT`, HS256) — only the expiry differs,
-    // isolating the expiry check from every other rejection reason.
-    const expiredToken = await signJWT(payload, secret, -60);
-    const validToken = await signJWT(payload, secret, 60);
-    const expiredAttempt = await flows.confirmEmailPost(expiredToken);
+    const expired = await flows.confirmedEmailChange(cookie);
+    // The real row the real request stored, expired in place: only the
+    // expiry differs from the fresh change that follows.
+    await withSql(
+      (sql) =>
+        sql`UPDATE verification SET expires_at = now() - interval '1 minute' WHERE identifier = ${emailedLinkIdentifier('email-change-verify', expired.verifyToken)}`,
+    );
+    const expiredAttempt = await flows.confirmEmailPost(expired.verifyToken);
     const emailAfterExpired = await emailOf(uid);
-    const validAttempt = await flows.confirmEmailPost(validToken);
+    const expiredReplay = await flows.confirmEmailPost(expired.verifyToken);
+    const fresh = await flows.confirmedEmailChange(cookie);
+    const validAttempt = await flows.confirmEmailPost(fresh.verifyToken);
     assert({
       given:
-        'a correctly signed but already-expired email-change verification token, next to an equivalent unexpired one',
+        'a real email-change verification token whose stored row has expired, next to a fresh change',
       should:
-        'reject the expired token and leave the account on its original address, while the unexpired token still succeeds',
+        'reject the expired token, and its replay, leaving the original address, while the fresh token still succeeds',
       actual: {
         expiredStatus: expiredAttempt.status,
         emailAfterExpired,
+        expiredReplayStatus: expiredReplay.status,
         validStatus: validAttempt.status,
         emailAfterValid: await emailOf(uid),
       },
       expected: {
         expiredStatus: 400,
         emailAfterExpired: email,
+        expiredReplayStatus: 400,
         validStatus: 303,
-        emailAfterValid: newEmail,
+        emailAfterValid: fresh.newEmail,
       },
     });
   });
 
-  test('the real second-hop verification token is minted with the configured lifetime', async () => {
+  test('each hop stores only the purpose and SHA3-256 digest of an opaque token, with its subject and the configured lifetime', async () => {
     const { email, cookie } = await signUp();
-    const { verifyToken } = await flows.confirmedEmailChange(cookie);
-    const secret = flows.account.flows.app.auth().config.BETTER_AUTH_SECRET;
-    const payload = await verifyJWT<{ iat: number; exp: number }>(
-      verifyToken,
-      secret,
+    const uid = (await userIdOf(email)) ?? '';
+    const { newEmail, verifyToken } = await flows.confirmedEmailChange(cookie);
+    const rows = await withSql(
+      (sql) =>
+        sql`SELECT identifier, value, round(extract(epoch from (expires_at - created_at)))::int AS lifetime FROM verification WHERE identifier LIKE 'email-change-%' AND strpos(value, ${uid}) > 0`,
+    );
+    const tokenAnywhere = await withSql(
+      (sql) =>
+        sql`SELECT 1 FROM verification WHERE strpos(identifier, ${verifyToken}) > 0 OR strpos(value, ${verifyToken}) > 0`,
     );
     assert({
       given:
-        'a second-hop email-change verification token minted by the production `sendChangeEmailVerification` path (not self-forged)',
+        'the second-hop token minted by the production approval (the approval row already consumed)',
       should:
-        "carry an exp - iat interval equal to the server's configured EMAIL_VERIFICATION_EXPIRES_IN_SECONDS",
-      actual: (payload?.exp ?? 0) - (payload?.iat ?? 0),
-      expected: EMAIL_VERIFICATION_EXPIRES_IN_SECONDS,
+        'be an opaque 256-bit token, not a JWT, stored only as its purpose-scoped SHA3-256 digest with the account, both addresses and the configured lifetime',
+      actual: {
+        opaque256: /^[A-Za-z0-9_-]{43}$/.test(verifyToken),
+        rows: rows.map(
+          (row: { identifier: string; value: string; lifetime: number }) => ({
+            identifier: row.identifier,
+            subject: JSON.parse(row.value),
+            lifetime: row.lifetime,
+          }),
+        ),
+        tokenStored: tokenAnywhere.length,
+      },
+      expected: {
+        opaque256: true,
+        rows: [
+          {
+            identifier: emailedLinkIdentifier(
+              'email-change-verify',
+              verifyToken,
+            ),
+            subject: { userId: uid, email, newEmail },
+            lifetime: EMAIL_CHANGE_LINK_EXPIRES_IN_SECONDS,
+          },
+        ],
+        tokenStored: 0,
+      },
     });
-    void email;
   });
 
   test("the atomic revocation's session.revoked append commits on the exact transaction that deleted the session", async () => {

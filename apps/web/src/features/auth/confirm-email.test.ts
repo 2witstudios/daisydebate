@@ -1,18 +1,18 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import { createConfirmEmailHandlers } from './confirm-email';
-import { SESSION_CLEANUP_FAILED_HEADER } from './revoke-others-on-verify-email';
+import { SESSION_CLEANUP_FAILED_HEADER } from './revoke-others-on-email-change';
 
 setupRitewayBun();
 
-const token = 'a'.repeat(32);
+const token = 'a'.repeat(43);
 const PUBLIC_APP_URL = 'https://daisy.invalid';
 
 /**
  * A fake Better Auth handler answering the one sub-request confirm-email
- * makes (verify-email). The atomic revoke of every other session now runs
+ * makes (a POST to /email-change/verify with the token in a JSON body). The atomic revoke of every other session now runs
  * inside Better Auth's own after-hook on that endpoint
- * (`revokeOthersOnVerifyEmailPlugin`), so this fake simulates its outcome
+ * (`revokeOthersOnEmailChangePlugin`), so this fake simulates its outcome
  * the same way the real hook reports it: via a response header.
  */
 const handlersWith = (cleanupFailed = false) =>
@@ -22,7 +22,15 @@ const handlersWith = (cleanupFailed = false) =>
       config: { PUBLIC_APP_URL },
       handler: async (request: Request) => {
         const url = new URL(request.url);
-        if (url.pathname === '/api/auth/verify-email')
+        const body = (await request.json().catch(() => ({}))) as {
+          token?: string;
+        };
+        if (
+          request.method === 'POST' &&
+          url.pathname === '/api/auth/email-change/verify' &&
+          url.search === '' &&
+          body.token === token
+        )
           return new Response(null, {
             status: 200,
             headers: {
@@ -44,10 +52,7 @@ const post = () =>
       'content-type': 'application/x-www-form-urlencoded',
       origin: PUBLIC_APP_URL,
     },
-    body: new URLSearchParams({
-      token,
-      callbackURL: '/settings/security',
-    }).toString(),
+    body: new URLSearchParams({ token }).toString(),
   });
 
 describe('confirm-email: when the forwarded auth request fails', () => {
