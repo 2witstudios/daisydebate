@@ -4,10 +4,14 @@ import type { ClaimUsername } from './claim-username';
 export type UsernameNotice =
   'invalid' | 'taken' | 'signed-out' | 'rate-limited' | 'unavailable';
 
-/** What the username form shows: the name as typed, and why it was refused. */
+/**
+ * What the username form shows: the name as typed, and why it was refused;
+ * or, once the account has its name, where the page goes next.
+ */
 export type UsernameFormState = {
   readonly username: string;
   readonly notice?: UsernameNotice;
+  readonly next?: string;
 };
 
 export const initialUsernameForm: UsernameFormState = { username: '' };
@@ -57,10 +61,20 @@ export async function submitClaim(
  */
 export type LocalNotice = 'invalid' | 'edited' | undefined;
 
-export const shownNotice = (
-  local: LocalNotice,
-  answered: UsernameNotice | undefined,
-): UsernameNotice | undefined => {
-  if (local === 'edited') return undefined;
+/**
+ * The notice the form shows. A pending claim shows none: the server's last
+ * answer was about the name before it, and its refusal must not come back
+ * for the new name while that one is in flight.
+ */
+export const shownNotice = ({
+  local,
+  answered,
+  pending,
+}: {
+  readonly local: LocalNotice;
+  readonly answered: UsernameNotice | undefined;
+  readonly pending: boolean;
+}): UsernameNotice | undefined => {
+  if (pending || local === 'edited') return undefined;
   return local ?? answered;
 };

@@ -116,11 +116,25 @@ describe('shownNotice', () => {
       given: 'no local override, a local refusal, and typing since the answer',
       should: 'show the server notice, the local one, then nothing',
       actual: [
-        shownNotice(undefined, 'taken'),
-        shownNotice('invalid', 'taken'),
-        shownNotice('edited', 'taken'),
+        shownNotice({ local: undefined, answered: 'taken', pending: false }),
+        shownNotice({ local: 'invalid', answered: 'taken', pending: false }),
+        shownNotice({ local: 'edited', answered: 'taken', pending: false }),
       ],
       expected: ['taken', 'invalid', undefined],
+    });
+  });
+
+  test('a pending claim shows no answer from before it (ISSUE-76)', () => {
+    assert({
+      given:
+        'a refusal still held from the last claim while the next one is pending',
+      should: 'show nothing until the new answer arrives',
+      actual: shownNotice({
+        local: undefined,
+        answered: 'taken',
+        pending: true,
+      }),
+      expected: undefined,
     });
   });
 });
