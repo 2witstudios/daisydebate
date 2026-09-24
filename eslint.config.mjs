@@ -441,13 +441,26 @@ export default [
   },
   {
     files: ['apps/web/e2e/**/*.ts'],
-    ignores: ['apps/web/e2e/support/server.ts'],
+    ignores: [
+      'apps/web/e2e/support/server.ts',
+      'apps/web/e2e/realtime-connection-store.e2e.ts',
+    ],
     rules: {
       'no-restricted-syntax': [
         'error',
         ...repoSyntaxRestrictions,
         ...processEdgeLoads,
       ],
+    },
+  },
+  // RT-2.6a's browser proof: the `page.evaluate` bodies below run inside the
+  // real browser, not this Node test process, so `Date.now`/`Math.random`
+  // there are the browser edge (mirroring `browser-adapters.ts`), not an
+  // ambient read from test code itself.
+  {
+    files: ['apps/web/e2e/realtime-connection-store.e2e.ts'],
+    rules: {
+      'no-restricted-syntax': ['error', exportStarRestriction],
     },
   },
   {
@@ -472,6 +485,7 @@ export default [
     files: ['apps/web/src/**/*.{ts,tsx}', 'apps/realtime/src/**/*.ts'],
     ignores: [
       'apps/web/src/server/process-app.ts',
+      'apps/web/src/features/realtime/browser-adapters.ts',
       'apps/realtime/src/start.ts',
       '**/*.test.{ts,tsx}',
       '**/*.test-support.{ts,tsx}',
@@ -500,6 +514,18 @@ export default [
             'Receive resources as arguments; only the process edge reads globalThis.',
         },
       ],
+    },
+  },
+  // RT-2.6a: the browser runtime edge for the client connection store
+  // (ADR 0031 §7-8). `apps/web`'s domain and features stay pure and inject
+  // a clock, an id source and resources (AGENTS.md); this one module reads
+  // the real browser `WebSocket`, `fetch`, `Date.now`, `Math.random` and
+  // `document`/`window` and wires them into `createConnectionStore`, the
+  // same role `process-app.ts` plays for server-side ambient reads.
+  {
+    files: ['apps/web/src/features/realtime/browser-adapters.ts'],
+    rules: {
+      'no-restricted-syntax': ['error', exportStarRestriction],
     },
   },
   {
