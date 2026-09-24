@@ -86,14 +86,23 @@ export function createConnectionStore(
   let consecutiveAuthFailures = 0;
   let reconnectAttempt = 0;
   /**
-   * The deadline of the one outstanding (unanswered) ping, or null when the
-   * last ping sent has already been answered (or none has been sent yet).
-   * Judging death by this — the age of the oldest *unanswered* ping — rather
+   * The id and deadline of the *earliest* outstanding (unanswered) ping, or
+   * null when it has already been answered (or none has been sent yet).
+   * Judging death by this — the age of the oldest unanswered ping — rather
    * than by elapsed time since the tick last happened to run is what keeps a
    * throttled hidden tab from declaring a healthy socket dead: a ping that
    * gets answered promptly clears this before the next (possibly late) tick
    * ever checks it, so a late tick just sends a fresh ping and waits.
+   *
+   * Only a `pong` whose `id` matches this one clears it (ADR 0031 §7: "the
+   * client sends ping every 15s and expects pong" with the same id), and
+   * nothing may push the deadline later once it is set: an extra ping (the
+   * visibilitychange nudge) is still sent on the wire, but never starts or
+   * extends tracking while an earlier ping is still outstanding — otherwise
+   * repeated visibility changes could defer detecting a truly dead socket
+   * forever.
    */
+  let outstandingPingId: string | null = null;
   let outstandingPingDeadline: number | null = null;
   let pingCounter = 0;
   let heartbeatTimer: unknown = null;
@@ -101,7 +110,7 @@ export function createConnectionStore(
   const listeners = new Set<(state: ConnectionState) => void>();
 
   deps.onVisibilityChange((visible) => {
-    if (visible && status === 'open' && socket) sendFreshPing(generation);
+    if (visible && status === 'open' && socket) sendVisibilityPing(generation);
   });
 
   function snapshot(): ConnectionState {
@@ -119,26 +128,47 @@ export function createConnectionStore(
     if (reconnectTimer !== null) deps.scheduler.clearTimeout(reconnectTimer);
     reconnectTimer = null;
   }
-  function sendPing(myGeneration: number) {
-    if (myGeneration !== generation || !socket) return;
+  /** Sends a ping frame and returns its id, or undefined if nothing was sent. */
+  function sendPingFrame(myGeneration: number): string | undefined {
+    if (myGeneration !== generation || !socket) return undefined;
     pingCounter += 1;
-    socket.send(
-      JSON.stringify({
-        v: ENVELOPE_VERSION,
-        type: 'ping',
-        id: `ping-${pingCounter}`,
-      }),
-    );
+    const id = `ping-${pingCounter}`;
+    socket.send(JSON.stringify({ v: ENVELOPE_VERSION, type: 'ping', id }));
+    return id;
+  }
+  /** Starts tracking `id` as the earliest outstanding ping's own deadline. */
+  function trackOutstandingPing(id: string) {
+    outstandingPingId = id;
+    outstandingPingDeadline = deps.scheduler.now() + HEARTBEAT_DEAD_AFTER_MS;
   }
   /**
-   * Sends a fresh ping and (re)starts its own death deadline. The deadline
-   * is set before the socket send so that a synchronously-delivered pong
-   * (real sockets never are, but a test double may be) still clears it
-   * rather than being overwritten afterward.
+   * Sends a fresh ping known to be the only one in flight (on `ready`, or a
+   * tick that found nothing outstanding) and starts tracking its deadline.
+   * Tracking is set before the socket send so that a synchronously-delivered
+   * pong (real sockets never are, but a test double may be) still clears it
+   * rather than being overwritten afterward — this requires knowing the id
+   * in advance, so `pingCounter` is read here rather than inside `sendPingFrame`.
    */
   function sendFreshPing(myGeneration: number) {
-    outstandingPingDeadline = deps.scheduler.now() + HEARTBEAT_DEAD_AFTER_MS;
-    sendPing(myGeneration);
+    pingCounter += 1;
+    const id = `ping-${pingCounter}`;
+    trackOutstandingPing(id);
+    if (myGeneration !== generation || !socket) return;
+    socket.send(JSON.stringify({ v: ENVELOPE_VERSION, type: 'ping', id }));
+  }
+  /**
+   * The visibilitychange nudge (ADR 0031 §7: "pings at once on
+   * visibilitychange"): always sent on the wire, but it only starts tracking
+   * a deadline when nothing is currently outstanding. If an earlier ping is
+   * still awaiting its answer, this must never push that ping's own deadline
+   * later — repeated visibility changes could otherwise defer detecting a
+   * truly dead socket forever.
+   */
+  function sendVisibilityPing(myGeneration: number) {
+    const id = sendPingFrame(myGeneration);
+    if (id !== undefined && outstandingPingId === null) {
+      trackOutstandingPing(id);
+    }
   }
   function reapDeadSocket(myGeneration: number) {
     if (myGeneration !== generation) return;
@@ -147,6 +177,7 @@ export function createConnectionStore(
     // triggered below cannot also run handleClose and double-schedule a
     // reconnect.
     clearHeartbeat();
+    outstandingPingId = null;
     outstandingPingDeadline = null;
     generation += 1;
     const deadSocket = socket;
@@ -239,12 +270,19 @@ export function createConnectionStore(
       return;
     }
     if (type === 'pong') {
-      outstandingPingDeadline = null;
+      // Only a pong matching the earliest outstanding ping's own id clears
+      // it (ADR 0031 §7): a late pong for an older, already-superseded ping
+      // must never cancel a newer ping's still-live deadline.
+      if (Reflect.get(message, 'id') === outstandingPingId) {
+        outstandingPingId = null;
+        outstandingPingDeadline = null;
+      }
     }
   }
   function handleClose(myGeneration: number, code: number) {
     if (myGeneration !== generation) return;
     clearHeartbeat();
+    outstandingPingId = null;
     outstandingPingDeadline = null;
     socket = null;
     const decision = decideOnClose({ code, consecutiveAuthFailures });
@@ -316,6 +354,7 @@ export function createConnectionStore(
     terminal = null;
     consecutiveAuthFailures = 0;
     reconnectAttempt = 0;
+    outstandingPingId = null;
     outstandingPingDeadline = null;
     const current = socket;
     socket = null;

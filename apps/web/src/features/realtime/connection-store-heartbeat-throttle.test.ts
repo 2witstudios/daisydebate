@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { ENVELOPE_VERSION } from '@daisy/protocol';
 import { createConnectionStore, type Scheduler } from './connection-store';
+import { harness, openAndReady } from './connection-store.test-support';
 
 setupRitewayBun();
 
@@ -156,6 +157,39 @@ describe('heartbeat under a throttled hidden tab (ADR 0031 §7)', () => {
       should:
         'still judge the first socket dead (proving the rule is exercised, not vacuous)',
       actual: firstSocket().closedWith !== null,
+      expected: true,
+    });
+  });
+});
+
+describe('the earliest unanswered ping is never pushed back (RT-2.6a second-pass finding 1)', () => {
+  test('repeated visibility changes never defer detecting a genuinely dead socket', async () => {
+    const h = harness();
+    await openAndReady(h); // ready at t=0: ping-1 sent, its deadline is 30s out.
+    const deadSocket = h.latestSocket();
+
+    // A user flipping tabs every 5s while the server never answers a ping
+    // must not push the *first* ping's own deadline later.
+    for (let i = 0; i < 5; i++) {
+      h.scheduler.advance(5_000);
+      h.fireVisible();
+    }
+
+    assert({
+      given:
+        '25s elapsed with a visibility ping fired every 5s, none ever answered',
+      should:
+        "not yet be judged dead: the earliest ping's own 30s deadline has not passed",
+      actual: deadSocket.closedWith,
+      expected: null,
+    });
+
+    h.scheduler.advance(5_000);
+
+    assert({
+      given: "the earliest ping's own deadline (30s after it was sent) reached",
+      should: 'judge the socket dead despite the repeated visibility pings',
+      actual: deadSocket.closedWith !== null,
       expected: true,
     });
   });
