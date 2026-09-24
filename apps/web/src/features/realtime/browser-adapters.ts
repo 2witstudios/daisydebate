@@ -12,9 +12,8 @@ import { fetchRealtimeTicket } from './ticket-client';
 /** The real browser clock and timer queue (production `Scheduler`). */
 const systemScheduler: Scheduler = {
   now: () => Date.now(),
-  setTimeout: (callback, ms) => globalThis.setTimeout(callback, ms),
-  clearTimeout: (id) =>
-    globalThis.clearTimeout(id as ReturnType<typeof setTimeout>),
+  setTimeout: (callback, ms) => setTimeout(callback, ms),
+  clearTimeout: (id) => clearTimeout(id as ReturnType<typeof setTimeout>),
 };
 
 /** The real `document.visibilitychange` event, wrapped to the store's seam. */
@@ -40,7 +39,7 @@ export function createBrowserConnectionStore(url: string): ConnectionStore {
       new WebSocket(socketUrl),
     scheduler: systemScheduler,
     fetchTicket: () =>
-      fetchRealtimeTicket({ fetchImpl: fetch.bind(globalThis) }),
+      fetchRealtimeTicket({ fetchImpl: (url, init) => fetch(url, init) }),
     random: () => Math.random(),
     onVisibilityChange: onDocumentVisibilityChange,
   };

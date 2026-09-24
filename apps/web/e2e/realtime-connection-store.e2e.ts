@@ -3,12 +3,17 @@ import { resolveE2EPorts } from '../playwright.config';
 import { buildRealtimeHarnessScript } from './support/realtime-harness';
 
 /**
- * RT-2.6a's browser proof: the real `createBrowserConnectionStore` (bundled
- * from source, not reimplemented) driven in a real browser against the real
- * `apps/realtime` scaffold booted by this config's `webServer`. Ticket
- * consumption is RT-2.4b, so every `hello` here is rejected 4001
- * auth_failed today (apps/realtime/src/handlers/hello.ts) — this proves the
- * connect and close-code reactions, not delivery. `POST /api/realtime/ticket`
+ * RT-2.6a's browser proof (revision 4.14): the real
+ * `createBrowserConnectionStore` (bundled from source, not reimplemented)
+ * driven in a real browser against the real `apps/realtime` scaffold booted
+ * by this config's `webServer`. Ticket consumption is RT-2.4b, so every
+ * `hello` here is rejected 4001 auth_failed today
+ * (apps/realtime/src/handlers/hello.ts), and the store never reaches
+ * `open` — this proves single-socket-per-tab and the close-code reactions
+ * only. The heartbeat/visibility/throttling rules are proven deterministically
+ * with an injected scheduler in the unit suite instead
+ * (connection-store.test.ts, connection-store-heartbeat-throttle.test.ts);
+ * the browser-level throttling proof is RT-2.7's. `POST /api/realtime/ticket`
  * (RT-2.4a) is a parallel, unmerged leaf, so `window.fetch`'s answer for it
  * is stubbed here — "stub the fetch in tests" applies to this browser suite
  * exactly as it does to the unit suite.
@@ -50,7 +55,7 @@ function stubTicketFetchAndCountingSocket() {
     CountingSocket;
 }
 
-test('opens exactly one socket per tab even when many components mount, and reacts to the real 4001 close by reconnecting once', async ({
+test('opens exactly one socket per tab even when many components mount, and the real 4001 close reaction reaches terminal signed-out after three tries', async ({
   page,
 }) => {
   const harnessScript = buildRealtimeHarnessScript();
@@ -77,50 +82,36 @@ test('opens exactly one socket per tab even when many components mount, and reac
     )
     .toBe(1);
 
-  // A visibility flip while connecting/backing off must not itself spawn an
-  // extra socket outside the store's own single-flight schedule.
-  await page.evaluate(() => {
-    Object.defineProperty(document, 'visibilityState', {
-      value: 'hidden',
-      configurable: true,
-    });
-    document.dispatchEvent(new Event('visibilitychange'));
-    Object.defineProperty(document, 'visibilityState', {
-      value: 'visible',
-      configurable: true,
-    });
-    document.dispatchEvent(new Event('visibilitychange'));
-  });
-  expect(
-    await page.evaluate(
-      () => (window as unknown as { __socketCount?: number }).__socketCount,
-    ),
-  ).toBe(1);
-
   // The real scaffold rejects every hello with 4001 auth_failed today
   // (ticket consumption is RT-2.4b). The store's documented reaction is to
-  // fetch a fresh ticket and reconnect: exactly one more socket appears.
-  await expect
-    .poll(
-      () =>
-        page.evaluate(
-          () => (window as unknown as { __socketCount?: number }).__socketCount,
-        ),
-      { timeout: 15_000 },
-    )
-    .toBe(2);
+  // fetch a fresh ticket and reconnect, and to stop after 3 consecutive
+  // failures with terminal signed-out (ADR 0031 §8). Waiting for that
+  // terminal state, rather than asserting an exact socket count mid-flight,
+  // is what makes this deterministic: the backoff between attempts is
+  // jittered, so a poll for "count === 2" can race the third attempt.
+  const getState = () =>
+    page.evaluate(() =>
+      (
+        window as unknown as {
+          __rtStore: {
+            getState(): { generation: number; terminal: string | null };
+          };
+        }
+      ).__rtStore.getState(),
+    );
 
-  const state = await page.evaluate(() =>
-    (
-      window as unknown as {
-        __rtStore: {
-          getState(): { generation: number; terminal: string | null };
-        };
-      }
-    ).__rtStore.getState(),
-  );
-  expect(state.generation).toBe(2);
-  expect(state.terminal).toBeNull();
+  await expect
+    .poll(async () => (await getState()).terminal, { timeout: 20_000 })
+    .toBe('signed-out');
+
+  const [state, socketCount] = await Promise.all([
+    getState(),
+    page.evaluate(
+      () => (window as unknown as { __socketCount?: number }).__socketCount,
+    ),
+  ]);
+  expect(state.generation).toBe(3);
+  expect(socketCount).toBe(3);
 });
 
 test('negative control: a store never told to connect opens no socket against the real scaffold', async ({

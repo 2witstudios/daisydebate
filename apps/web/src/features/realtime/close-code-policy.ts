@@ -1,12 +1,14 @@
+import { closeCodeTable, type CloseCodeReason } from '@daisy/protocol';
 import type { ReconnectKind } from './backoff';
 
 /**
  * The per-close-code client reaction (ADR 0031 §8): a pure decision from a
- * close code and how many *consecutive* 4001s preceded it (reset to 0 on
- * every successful `ready`, by the caller). `AUTH_FAILURE_LIMIT` matches the
- * table's "after 3 consecutive failures, stop and show signed-out state":
- * this decision is for the 3rd failure itself, so it fires once
- * `consecutiveAuthFailures` (the count *before* this one) reaches 2.
+ * close code and how many *consecutive* auth-failed closes preceded it
+ * (reset to 0 on every successful `ready`, by the caller).
+ * `AUTH_FAILURE_LIMIT` matches the table's "after 3 consecutive failures,
+ * stop and show signed-out state": this decision is for the 3rd failure
+ * itself, so it fires once `consecutiveAuthFailures` (the count *before*
+ * this one) reaches 2.
  */
 const AUTH_FAILURE_LIMIT = 3;
 
@@ -41,6 +43,17 @@ function stop(terminal: TerminalReason): CloseDecision {
   };
 }
 
+/**
+ * Resolves a close code to `@daisy/protocol`'s own reason name, the single
+ * authority `apps/realtime` already codes against (`hello.ts`'s
+ * `closeFor`). A code the table does not list (1000, 1001, 1006, or an
+ * unrecognized application code) resolves to `null`, so this client never
+ * hard-codes the table's numbers itself.
+ */
+export function closeReasonForCode(code: number): CloseCodeReason | null {
+  return closeCodeTable.find((row) => row.code === code)?.reason ?? null;
+}
+
 export function decideOnClose({
   code,
   consecutiveAuthFailures,
@@ -48,23 +61,24 @@ export function decideOnClose({
   readonly code: number;
   readonly consecutiveAuthFailures: number;
 }): CloseDecision {
-  switch (code) {
-    case 4001:
+  switch (closeReasonForCode(code)) {
+    case 'auth_failed':
       return consecutiveAuthFailures + 1 >= AUTH_FAILURE_LIMIT
         ? stop('signed-out')
         : reconnect('standard', true);
-    case 4002:
+    case 'revoked':
       return stop('revoked');
-    case 4003:
+    case 'protocol_unsupported':
       return stop('unsupported');
-    case 4004:
+    case 'rate_limited':
       return reconnect('rate-limited', false);
-    case 4005:
+    case 'slow_consumer':
       return reconnect('standard', false);
-    case 4006:
+    case 'server_restarting':
       return reconnect('immediate', false);
     default:
-      // 1000, 1001, 1006 and any unrecognized code (treated as 1006).
+      // 1000, 1001, 1006 and any code the table does not list are all
+      // treated as 1006 (ADR 0031 §8: "an unknown code is treated as 1006").
       return reconnect('standard', false);
   }
 }
