@@ -7,6 +7,7 @@ import {
   decodeOutboxCursor,
   drainOutbox,
   encodeOutboxCursor,
+  readOutboxHighWaterMark,
 } from './outbox';
 
 setupRitewayBun();
@@ -290,6 +291,28 @@ describe('drainOutbox limit validation', () => {
       should: 'refuse every one without querying',
       actual: attempts,
       expected: attempts.map(() => 'refused'),
+    });
+  });
+});
+
+describe('readOutboxHighWaterMark (RT-2.3b startup read, ADR 0032 §2)', () => {
+  test('returns the origin when the outbox has no final row yet', async () => {
+    const db = { execute: async () => [] };
+    assert({
+      given: 'an empty result (no row is final yet)',
+      should: 'return the origin position rather than a bogus one',
+      actual: await readOutboxHighWaterMark(db as never),
+      expected: OUTBOX_ORIGIN,
+    });
+  });
+
+  test('decodes the returned row into a position', async () => {
+    const db = { execute: async () => [{ txid: '1042', seq: '7' }] };
+    assert({
+      given: 'the greatest final (txid, seq) row',
+      should: 'decode it into an OutboxPosition',
+      actual: await readOutboxHighWaterMark(db as never),
+      expected: { txid: '1042', seq: 7n },
     });
   });
 });

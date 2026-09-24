@@ -1,7 +1,11 @@
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { sql } from 'drizzle-orm';
-import { probeListen } from './listen';
+import {
+  probeListen,
+  subscribeOutbox,
+  type OutboxListenHandlers,
+} from './listen';
 import { claimUsername } from './username-claim';
 import { authOperations } from './auth-operations';
 import { debateOperations } from './debate-operations';
@@ -80,6 +84,14 @@ export function createDatabase({
         await probeListen(client);
         return true;
       });
+    },
+    /**
+     * The RT-2.3b drain loop's LISTEN subscription (ADR 0032 §2, §3): the
+     * raw client only `createDatabase` holds, never handed out as the
+     * opaque Drizzle handle other operations receive.
+     */
+    listenOutbox(handlers: OutboxListenHandlers) {
+      return subscribeOutbox(client, handlers);
     },
     async close() {
       await client.close({ timeout: 5 });
