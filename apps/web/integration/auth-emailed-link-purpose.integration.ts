@@ -16,7 +16,7 @@ const flows = await createPasskeyFlows();
 const { signUp } = flows.account;
 const { redeem, linkTokenFor, mailbox } = flows.account.flows;
 
-describe('ISSUE-2 emailed-link tokens redeem only for their own purpose', () => {
+describe('ISSUE-2 emailed-link tokens: purpose-bound and consumed atomically', () => {
   test('a sign-in token is refused by the email-change confirm page and an email-change token by the sign-in one', async () => {
     const { email, cookie } = await signUp();
     const uid = (await userIdOf(email)) ?? '';
@@ -60,6 +60,47 @@ describe('ISSUE-2 emailed-link tokens redeem only for their own purpose', () => 
         emailAfterCrossing: email,
         signInOwnPage: true,
         approvalOwnPage: 303,
+      },
+    });
+  });
+
+  test('concurrent redemptions of one email-change token succeed exactly once', async () => {
+    const { email, cookie } = await signUp();
+    const uid = (await userIdOf(email)) ?? '';
+    const before = mailbox.mails.length;
+    const newEmail = `moved-${uid}@example.test`;
+    await flows.changeEmail(cookie, newEmail);
+    const approveToken = tokenOf(linkFrom(mailbox.mails[before]!));
+    const approvals = await Promise.all(
+      Array.from({ length: 8 }, () => flows.confirmEmailPost(approveToken)),
+    );
+    const verificationMails = mailbox.mails.length - (before + 1);
+    const verifyToken = tokenOf(linkFrom(mailbox.mails[before + 1]!));
+    const verifications = await Promise.all(
+      Array.from({ length: 8 }, () => flows.confirmEmailPost(verifyToken)),
+    );
+    const statuses = (responses: readonly Response[]) =>
+      responses.map((response) => response.status).sort();
+    assert({
+      given:
+        'eight simultaneous submissions of the approval token, then eight of the verification token',
+      should:
+        'admit exactly one of each, mail the new address once and issue exactly one session',
+      actual: {
+        approvals: statuses(approvals),
+        verificationMails,
+        verifications: statuses(verifications),
+        sessionsIssued: verifications.filter(
+          (response) => response.headers.getSetCookie().length > 0,
+        ).length,
+        finalEmail: await emailOf(uid),
+      },
+      expected: {
+        approvals: [303, 400, 400, 400, 400, 400, 400, 400],
+        verificationMails: 1,
+        verifications: [303, 400, 400, 400, 400, 400, 400, 400],
+        sessionsIssued: 1,
+        finalEmail: newEmail,
       },
     });
   });

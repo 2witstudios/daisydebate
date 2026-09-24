@@ -185,26 +185,36 @@ describe('AUTH-5.6 change the recovery email', () => {
     });
   });
 
-  test('a replayed verification link changes nothing', async () => {
+  test('a replayed approval or verification link changes nothing', async () => {
     const { email, cookie } = await signUp();
     const before = flows.account.flows.mailbox.mails.length;
     const newEmail = `${createId()}@example.test`;
     await flows.changeEmail(cookie, newEmail);
-    const confirmLink = linkFrom(flows.account.flows.mailbox.mails[before]!);
+    const { mails } = flows.account.flows.mailbox;
+    const confirmLink = linkFrom(mails[before]!);
     await flows.confirmEmailPost(tokenOf(confirmLink));
-    const verifyLink = linkFrom(flows.account.flows.mailbox.mails[before + 1]!);
+    // Replayed while the change is still pending, so only consumption
+    // (not the account having already moved) can refuse it (ISSUE-2).
+    const approvalReplay = await flows.confirmEmailPost(tokenOf(confirmLink));
+    const mailsAfterApprovalReplay = mails.length - before;
+    const verifyLink = linkFrom(mails[before + 1]!);
     const first = await flows.confirmEmailPost(tokenOf(verifyLink));
     const replay = await flows.confirmEmailPost(tokenOf(verifyLink));
     const uid = await userIdOf(newEmail);
     assert({
-      given: 'the same verification link redeemed twice',
-      should: 'succeed once and leave the account unchanged on replay',
+      given: 'the approval link and then the verification link each redeemed twice',
+      should:
+        'succeed once each, refusing the replays without a second mail or change',
       actual: {
+        approvalReplayStatus: approvalReplay.status,
+        mailsAfterApprovalReplay,
         firstRedirected: first.status,
         replayStatus: replay.status,
         finalEmail: uid ? await emailOf(uid) : null,
       },
       expected: {
+        approvalReplayStatus: 400,
+        mailsAfterApprovalReplay: 2,
         firstRedirected: 303,
         replayStatus: 400,
         finalEmail: newEmail,
