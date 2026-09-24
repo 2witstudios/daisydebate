@@ -313,9 +313,8 @@ verified `head_sha`, or on manual `workflow_dispatch`. Both workflows
 trigger it on completion; `scripts/staging-gate.ts` reads the two runs for
 the commit and lets only the later completion deploy, so each commit ships
 once, and only while it is still `main`'s tip: re-running an older commit's
-CI or E2E never rolls staging back. The dependency audit job sits outside the CI gate by owner decision
-(2026-09-23, ISSUE-51): while ISSUE-31's advisories are open it stays a red
-check on the CI run, but it neither holds staging back nor posts to
+CI or E2E never rolls staging back. The CI gate needs the dependency audit
+job (ADR 0039), so a new advisory holds staging back and posts to
 Incidents. The workflow needs one repository secret, `FLY_API_TOKEN`, a
 deploy token scoped to the staging app:
 

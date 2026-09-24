@@ -7,6 +7,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 import * as ts from 'typescript';
 
+import { auditPolicyProblems } from './audit';
 import { numberCollisionProblems } from './number-claims';
 import { reviewDateStatus, utcToday } from './review-date';
 
@@ -363,12 +364,9 @@ export async function collectPolicy(): Promise<PolicyReport> {
     version?: unknown;
     exceptions?: readonly PolicyException[];
   };
-  const baselinesRegistry = (await Bun.file(
-    resolve(root, 'policy/migration-baselines.json'),
-  ).exists())
-    ? ((await Bun.file(
-        resolve(root, 'policy/migration-baselines.json'),
-      ).json()) as {
+  const baselinesFile = Bun.file(join(root, 'policy/migration-baselines.json'));
+  const baselinesRegistry = (await baselinesFile.exists())
+    ? ((await baselinesFile.json()) as {
         version?: unknown;
         baselines?: readonly MigrationBaseline[];
       })
@@ -379,6 +377,7 @@ export async function collectPolicy(): Promise<PolicyReport> {
   );
   const problems = [
     ...validatePolicyRegistry(registry, { knownPaths }),
+    ...(await auditPolicyProblems(knownPaths)),
     ...validateMigrationBaselines(baselinesRegistry, { knownPaths }),
     ...duplicateAdrNumberProblems(knownPaths),
     ...numberCollisionProblems(),

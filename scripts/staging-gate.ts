@@ -2,9 +2,9 @@
 /**
  * Decides whether deploy-staging ships a main commit (ISSUE-51, owner
  * decision 2026-09-23): staging deploys when the CI gate job is green and
- * the Browser E2E run is green. The dependency audit job sits outside the
- * gate's needs, so its red state never holds staging back; it stays a
- * visible failing check on the CI run.
+ * the Browser E2E run is green. The gate needs every CI job, the
+ * dependency audit included (ADR 0039), so a new advisory holds staging
+ * back.
  *
  *   bun scripts/staging-gate.ts --sha <commit> --trigger <CI|Browser E2E>
  *

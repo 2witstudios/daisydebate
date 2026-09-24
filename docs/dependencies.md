@@ -62,6 +62,24 @@ held-back majors are ESLint 10 (below) and TypeScript 7 (below).
 | PostgreSQL             | `18`         | Durable authoritative state                           | [Manual](https://www.postgresql.org/docs/18/)                                                                                                                                          | Container volume root is `/var/lib/postgresql`. Major upgrades need backup/restore or pg_upgrade.                                                                                                                                                                                                                                       |
 | Redis                  | `8`          | Ephemeral coordination only                           | [Docs](https://redis.io/docs/latest/)                                                                                                                                                  | Intentionally no durable volume; loss must be harmless. Never authoritative for results, ballots, ratings, identities.                                                                                                                                                                                                                  |
 
+## Audit exceptions
+
+`bun run audit` (CI's `audit` job, inside the CI gate) runs `bun audit`
+with one `--ignore` per entry in `policy/audit-exceptions.json` and nothing
+broader (ADR 0039). Each entry records its dependency path, reason,
+why Daisy cannot reach the vulnerable code, an owner and a review-by date;
+`bun policy` fails an expired entry, one `bun audit` no longer reports, and
+one whose advisory reaches a package it does not list.
+
+| Advisory                                                                            | Packages                         | Path                                                  | Why unreachable                                                                                                                            | Review by    |
+| ----------------------------------------------------------------------------------- | -------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------ |
+| [GHSA-82fw-gwwq-j7x9](https://github.com/advisories/GHSA-82fw-gwwq-j7x9) (moderate) | `vitest`, `@vitest/mocker` 3.2.7 | RITEway 9.3.0 (dev) → vitest → @vitest/mocker         | Dev-only; tests use `riteway/bun`, nothing loads `riteway/vitest`, `vitest` or `better-auth/test`; production images omit dev dependencies | `2026-12-23` |
+| [GHSA-qpx9-hpmf-5gmw](https://github.com/advisories/GHSA-qpx9-hpmf-5gmw) (high)     | `underscore` 1.13.6              | `@adobe/data` 0.10.19 → `jsonpath` 1.3.0 → underscore | Only `@adobe/data`'s `schema/dynamic` imports jsonpath; Daisy imports `@adobe/data/ecs` alone, whose module graph excludes both            | `2026-12-23` |
+
+Remove an entry by upgrading past the fix (RITEway without a hard vitest
+dependency, or an `@adobe/data` release off jsonpath's underscore pin);
+`bun policy` then fails until the stale entry is deleted.
+
 ## Deliberately absent
 
 - No second Redis client, no ORM besides Drizzle, no date library (`Date` +

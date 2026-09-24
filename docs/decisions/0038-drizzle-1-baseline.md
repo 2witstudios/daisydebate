@@ -4,7 +4,9 @@ Status: accepted (ISSUE-6, ISSUE-17, ISSUE-24; owner decisions of
 2026-09-23). Supersedes ADR 0012's "never switch to an RC" sentence for
 Drizzle, ADR 0023's journal-fingerprint sanction mechanism, and the
 template database and e2e grants of ADR 0034. Amends ADR 0007 and ADR 0029
-as noted below.
+as noted below. Amended by ADR 0039: the rejection of `bun audit --ignore`
+and exception registries below no longer holds for the two dated,
+unreachable advisories that ADR 0039 lists.
 
 ## Context
 
@@ -168,4 +170,5 @@ schema)` cannot be declared without a zod schema; every write is parsed
   migration credential. The release command still reads `DATABASE_URL`;
   separating the two is tracked as its own issue.
 - `bun audit` no longer reports esbuild. The vitest and underscore
-  advisories remain (ISSUE-31).
+  advisories remain (ISSUE-31); ADR 0039 records them as dated, unreachable
+  exceptions.

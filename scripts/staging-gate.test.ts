@@ -27,7 +27,7 @@ const green: StagingEvidence = {
 };
 
 describe('stagingDecision', () => {
-  test('a green CI gate and green E2E, the audit aside', () => {
+  test('a green CI gate and green E2E', () => {
     assert({
       given: 'a green CI gate and a green E2E run, triggered by the later run',
       should: 'deploy',
@@ -140,7 +140,7 @@ describe('stagingDecision: re-runs', () => {
   test('a re-run on a commit that is no longer main tip', () => {
     assert({
       given:
-        'a green CI gate and E2E for a commit main has moved past (an audit or E2E re-run on it completing later)',
+        'a green CI gate and E2E for a commit main has moved past (a CI or E2E re-run on it completing later)',
       should: 'not deploy, so staging never rolls back to older code',
       actual: stagingDecision({ ...green, sha: OLDER, trigger: 'CI' }),
       expected: {
@@ -202,11 +202,11 @@ describe('readStagingEvidence', () => {
   const jobs = {
     jobs: [
       { name: 'Dependency vulnerability audit', conclusion: 'failure' },
-      { name: 'CI gate', conclusion: 'success' },
+      { name: 'CI gate', conclusion: 'failure' },
     ],
   };
 
-  test('a CI run that failed only on the audit', () => {
+  test('a CI run that failed on the audit', () => {
     const calls: string[] = [];
     const evidence = readStagingEvidence(
       (path) => {
@@ -218,8 +218,8 @@ describe('readStagingEvidence', () => {
     );
     assert({
       given:
-        'the newest CI run failed on the audit alone and E2E passed (as at f5e5b89)',
-      should: "read the CI gate's verdict rather than the run's conclusion",
+        'the newest CI run failed on the audit, which the CI gate needs, and E2E passed',
+      should: "read the CI gate's verdict and hold staging back",
       actual: { evidence, deploy: stagingDecision(evidence).deploy },
       expected: {
         evidence: {
@@ -228,7 +228,7 @@ describe('readStagingEvidence', () => {
           mainTip: sha,
           ci: {
             status: 'completed',
-            gate: 'success',
+            gate: 'failure',
             completedAt: '2026-09-23T17:58:00Z',
           },
           e2e: {
@@ -237,7 +237,7 @@ describe('readStagingEvidence', () => {
             completedAt: '2026-09-23T18:02:00Z',
           },
         },
-        deploy: true,
+        deploy: false,
       },
     });
     assert({
