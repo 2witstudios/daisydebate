@@ -202,7 +202,8 @@ describe('AUTH-5.6 change the recovery email', () => {
     const replay = await flows.confirmEmailPost(tokenOf(verifyLink));
     const uid = await userIdOf(newEmail);
     assert({
-      given: 'the approval link and then the verification link each redeemed twice',
+      given:
+        'the approval link and then the verification link each redeemed twice',
       should:
         'succeed once each, refusing the replays without a second mail or change',
       actual: {

@@ -89,7 +89,10 @@ describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () 
         opaque256: true,
         rows: [
           {
-            identifier: emailedLinkIdentifier('email-change-verify', verifyToken),
+            identifier: emailedLinkIdentifier(
+              'email-change-verify',
+              verifyToken,
+            ),
             subject: { userId: uid, email, newEmail },
             lifetime: EMAIL_CHANGE_LINK_EXPIRES_IN_SECONDS,
           },

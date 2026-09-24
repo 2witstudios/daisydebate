@@ -29,5 +29,4 @@ export function generateEmailedLinkToken(): string {
 export const emailedLinkIdentifier = (
   purpose: EmailedLinkPurpose,
   token: string,
-): string =>
-  `${purpose}:${createHash('sha3-256').update(token).digest('hex')}`;
+): string => `${purpose}:${createHash('sha3-256').update(token).digest('hex')}`;
