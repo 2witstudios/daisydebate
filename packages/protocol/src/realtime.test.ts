@@ -1,6 +1,6 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { cursorSchema } from './realtime';
+import { cursorSchema, heartbeatMs } from './realtime';
 import {
   buildDebateTopic,
   buildUserInboxTopic,
@@ -12,6 +12,17 @@ import { parseOutcome } from './parse-outcome.test-support';
 setupRitewayBun();
 
 const id = 'k2v9x0f4m8q3w1z7c5n6b4d2';
+
+describe('heartbeat period constant (ADR 0031 §7)', () => {
+  test('names the value the client heartbeat sends on', () => {
+    assert({
+      given: 'the protocol module',
+      should: 'export the 15 s heartbeat period',
+      actual: heartbeatMs,
+      expected: 15_000,
+    });
+  });
+});
 
 describe('topic grammar', () => {
   test('parses every topic family, and the inbox builder round-trips', () => {
