@@ -325,6 +325,8 @@ test('the topbar offers sign-in to a visitor', async ({ page }) => {
   await page.addInitScript(() => {
     const covered: string[] = [];
     Reflect.set(window, '__topbarCovered', covered);
+    // Frames that found the link laid out: zero means nothing was checked.
+    Reflect.set(window, '__topbarInspected', 0);
     const check = () => {
       const links = Array.from(document.querySelectorAll('header a')).filter(
         (link) => link.textContent?.trim() === 'Sign in',
@@ -332,6 +334,11 @@ test('the topbar offers sign-in to a visitor', async ({ page }) => {
       for (const link of links) {
         const box = link.getBoundingClientRect();
         if (box.width === 0 || box.height === 0) continue;
+        Reflect.set(
+          window,
+          '__topbarInspected',
+          Number(Reflect.get(window, '__topbarInspected')) + 1,
+        );
         const top = document.elementFromPoint(
           box.x + box.width / 2,
           box.y + box.height / 2,
@@ -361,9 +368,12 @@ test('the topbar offers sign-in to a visitor', async ({ page }) => {
       .every((image) => image.complete),
   );
   await page.evaluate(() => Reflect.set(window, '__topbarSettled', true));
-  expect(
-    await page.evaluate(() => Reflect.get(window, '__topbarCovered')),
-  ).toEqual([]);
+  const { covered, inspected } = await page.evaluate(() => ({
+    covered: Reflect.get(window, '__topbarCovered') as string[],
+    inspected: Number(Reflect.get(window, '__topbarInspected')),
+  }));
+  expect(inspected).toBeGreaterThan(0);
+  expect(covered).toEqual([]);
   await signIn.click();
   await expect(page).toHaveURL(/\/sign-in$/);
 });
