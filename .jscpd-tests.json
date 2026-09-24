@@ -1,6 +1,6 @@
 {
   "path": ["."],
-  "pattern": "{apps/*/src/**/*.test.ts,apps/*/src/**/*.test.tsx,apps/*/src/**/*.test-support.ts,apps/*/src/**/test-support/**/*,apps/*/integration/**/*.integration.ts,apps/web/e2e/**/*,packages/*/src/**/*.test.ts,packages/*/src/**/*.test-support.ts,packages/*/integration/**/*,scripts/**/*.test.ts,scripts/**/*.test-support.ts,eslint.config.test.ts}",
+  "pattern": "{apps/*/src/**/*.test.ts,apps/*/src/**/*.test.tsx,apps/*/src/**/*.test-support.ts,apps/*/src/**/test-support/**/*,apps/*/integration/**/*,apps/web/e2e/**/*,packages/*/src/**/*.test.ts,packages/*/src/**/*.test-support.ts,packages/*/integration/**/*,scripts/**/*.test.ts,scripts/**/*.test-support.ts,eslint.config.test.ts}",
   "format": ["typescript", "tsx"],
   "minTokens": 50,
   "minLines": 5,
