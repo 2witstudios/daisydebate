@@ -1,7 +1,12 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { cursorSchema } from './realtime';
-import { buildUserInboxTopic, parseTopic, topicStringSchema } from './topics';
+import {
+  buildDebateTopic,
+  buildUserInboxTopic,
+  parseTopic,
+  topicStringSchema,
+} from './topics';
 
 setupRitewayBun();
 
@@ -59,6 +64,16 @@ describe('topic grammar', () => {
 
   test('the builder throws on a non-cuid2 segment instead of building a bad topic', () => {
     expect(() => buildUserInboxTopic('not-a-cuid2')).toThrow();
+  });
+
+  test('the debate topic builder round-trips through the parser and throws on a non-cuid2 segment (RT-2.3b)', () => {
+    assert({
+      given: 'a debate id',
+      should: 'build a topic the parser accepts back as the debate family',
+      actual: parseTopic(buildDebateTopic(id)),
+      expected: { family: 'debate', debateId: id },
+    });
+    expect(() => buildDebateTopic('not-a-cuid2')).toThrow();
   });
 
   test('rejects a season slug with a trailing hyphen', () => {

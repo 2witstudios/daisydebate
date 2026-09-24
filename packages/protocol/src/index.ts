@@ -61,7 +61,7 @@ export type {
   EmailDeliveryStatus,
   EmailSuppressionReason,
 } from './email-delivery';
-export { buildUserInboxTopic } from './topics';
+export { buildUserInboxTopic, buildDebateTopic } from './topics';
 export { closeCodeTable } from './close-codes';
 export type { CloseCodeReason } from './close-codes';
 export {
