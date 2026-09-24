@@ -1,4 +1,5 @@
 import { APIError, createAuthMiddleware, getIP } from 'better-auth/api';
+import { createAppError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import { recipientKey } from './recipient-key';
 
@@ -101,7 +102,7 @@ const retryAfterHeaders = (retryAfterSeconds: unknown): HeadersInit =>
 
 // The limiter is an injected boundary: a decision without a boolean verdict
 // is an outage, never an implicit allow and never a TypeError.
-export const readDecision = (decision: unknown) => {
+const readDecision = (decision: unknown) => {
   if (typeof decision !== 'object' || decision === null)
     throw new TypeError('Malformed limiter decision');
   const allowed: unknown = Reflect.get(decision, 'allowed');
@@ -110,6 +111,27 @@ export const readDecision = (decision: unknown) => {
   const retryAfterSeconds: unknown = Reflect.get(decision, 'retryAfterSeconds');
   return { allowed, retryAfterSeconds };
 };
+
+/**
+ * The single-bucket atomic-limit gate a route runs before its durable work:
+ * consume one decision, fail closed with `INFRASTRUCTURE` on outage or a
+ * malformed answer, and refuse with `RATE_LIMIT` when denied. Callers with
+ * more than one bucket (this file's own middleware, with its magic-link and
+ * recipient buckets) stay on `readDecision` directly.
+ */
+export async function consumeOrThrow(
+  limiter: AuthRateLimiter,
+  key: string,
+  rule: RateRule,
+): Promise<void> {
+  let decision: { readonly allowed: boolean };
+  try {
+    decision = readDecision(await limiter.consume(key, rule));
+  } catch (error) {
+    throw createAppError('INFRASTRUCTURE', undefined, error);
+  }
+  if (!decision.allowed) throw createAppError('RATE_LIMIT');
+}
 
 const denial = (
   logger: Logger,
