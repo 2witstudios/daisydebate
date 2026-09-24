@@ -72,7 +72,9 @@ address share that bucket with the explicit passkey button.
 
 There is no in-process fallback: while Redis is down every auth request that
 needs a decision answers `503`. Restore Redis; no state needs replay. Keys
-live under `<REDIS_NAMESPACE>:v1:rl:<sha3-256>` and expire within 60 seconds.
+live under `<REDIS_NAMESPACE>:v1:rl:<sha3-256>` and expire with their window:
+60 seconds for the per-route and minute buckets, up to a day for the
+recipient hour and day ceilings and the whole-application day ceiling.
 
 ## Mail failure and bounces
 
