@@ -11,10 +11,8 @@ import {
   submitClaim,
   type UsernameFormState,
 } from '../../../../ui/auth/onboarding/claim-form';
-import {
-  createClaimUsername,
-  inProcessFetch,
-} from '../../../../ui/auth/onboarding/claim-username';
+import { createClaimUsername } from '../../../../ui/auth/onboarding/claim-username';
+import { inProcessFetch } from '../../../../server/in-process-fetch';
 
 const claimRoute = processRoute((routes) => routes.username.POST);
 
