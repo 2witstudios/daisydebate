@@ -1,11 +1,6 @@
 import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  createTestApp,
-  fixtureEmail,
-  removeAccount,
-  withSql,
-} from './fixtures';
+import { createTestApp, withSql } from './fixtures';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import { requireTestServices } from '@daisy/config';
 
@@ -25,13 +20,11 @@ const open = createTestApp({ FOUNDATION_PROOF_ENABLED: 'true' });
 const shut = createTestApp({ FOUNDATION_PROOF_ENABLED: 'false' });
 
 const createdIds: string[] = [];
-const emails: string[] = [];
 afterAll(async () => {
   await withSql(async (sql) => {
     for (const id of createdIds)
       await sql`DELETE FROM debates WHERE id = ${id}`;
   });
-  for (const email of emails) await removeAccount(email);
 });
 
 const proofPost = (testApp: typeof open) =>
@@ -74,13 +67,11 @@ describe('ISSUE-7 composition root', () => {
     const client = '198.51.100.77';
     const openBefore = open.mailbox.mails.length;
     const shutBefore = shut.mailbox.mails.length;
-    const email = fixtureEmail();
-    emails.push(email);
+    const email = open.freshEmail();
     const exhausted = [];
     for (let index = 0; index < 4; index += 1)
       exhausted.push((await magicLink(open, client, email)).status);
-    const other = fixtureEmail();
-    emails.push(other);
+    const other = shut.freshEmail();
     const fromOtherApp = (await magicLink(shut, client, other)).status;
     const openKeys = await open.redisKeys();
     const shutKeys = await shut.redisKeys();

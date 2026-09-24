@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { RedisClient } from 'bun';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { redisKey } from '@daisy/redis';
-import { createTestApp, fixtureEmail, type TestApp } from './fixtures';
+import { createTestApp, type TestApp } from './fixtures';
 import { statuses } from './auth-rate-limit-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import {
@@ -53,7 +53,7 @@ const elapse = async (testApp: TestApp, ...buckets: string[]) => {
 
 const magicLink = (
   headers: Record<string, string> = {},
-  email = fixtureEmail(),
+  email = globalApp.freshEmail(),
 ) =>
   globalApp.routes.auth.POST(
     globalApp.jsonPost('/api/auth/sign-in/magic-link', { email }, headers),
@@ -61,7 +61,7 @@ const magicLink = (
 
 describe('ISSUE-5 AC4 per-recipient and global mail-volume ceilings', () => {
   test('one recipient across many clients: the real hour ceiling denies the eleventh', async () => {
-    const email = fixtureEmail();
+    const email = hourApp.freshEmail();
     const responses: Response[] = [];
     for (let index = 0; index < 11; index += 1) {
       // The minute window elapses between requests; the hour and day
@@ -91,7 +91,7 @@ describe('ISSUE-5 AC4 per-recipient and global mail-volume ceilings', () => {
   });
 
   test('one recipient across many clients: the real day ceiling denies the twenty-first', async () => {
-    const email = fixtureEmail();
+    const email = dayApp.freshEmail();
     const responses: Response[] = [];
     for (let index = 0; index < 21; index += 1) {
       // Both the minute and the hour windows elapse between requests; only
@@ -138,7 +138,7 @@ describe('ISSUE-5 AC4 per-recipient and global mail-volume ceilings', () => {
             globalDayApp.routes.auth.POST(
               globalDayApp.jsonPost(
                 '/api/auth/sign-in/magic-link',
-                { email: fixtureEmail() },
+                { email: globalDayApp.freshEmail() },
                 { [CLIENT_IP_HEADER]: globalDayApp.newClient() },
               ),
             ),
@@ -165,7 +165,7 @@ describe('ISSUE-5 AC4 per-recipient and global mail-volume ceilings', () => {
       Array.from({ length: 121 }, () =>
         magicLink(
           { [CLIENT_IP_HEADER]: globalApp.newClient() },
-          fixtureEmail(),
+          globalApp.freshEmail(),
         ),
       ),
     );

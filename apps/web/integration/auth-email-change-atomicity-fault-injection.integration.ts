@@ -31,7 +31,7 @@ describe('ISSUE-23 a real fault injected into revokeOtherSessions during /verify
     const { redeem } = flows.account.flows;
     const otherToken = await flows.account.flows.linkTokenFor(email);
     const otherCookie = cookieHeader(await redeem(otherToken));
-    const { newEmail, verifyToken } = await flows.confirmedEmailChange(cookie);
+    const { verifyToken } = await flows.confirmedEmailChange(cookie);
 
     // Plan revision 4.10: the append only runs once the actor resolves.
     // This account never claims a username (an unrelated surface to the
@@ -45,45 +45,35 @@ describe('ISSUE-23 a real fault injected into revokeOtherSessions during /verify
     );
 
     let completion!: Response;
-    let loggedEvents: readonly string[] = [];
-    try {
-      ({ events: loggedEvents } = await withLoggedEvents(() =>
-        withOutboxInsertBlockedForTopic(
-          buildUserInboxTopic(actorId),
-          async () => {
-            completion = await flows.confirmEmailPost(verifyToken);
-          },
-        ),
-      ));
+    const { events: loggedEvents } = await withLoggedEvents(() =>
+      withOutboxInsertBlockedForTopic(
+        buildUserInboxTopic(actorId),
+        async () => {
+          completion = await flows.confirmEmailPost(verifyToken);
+        },
+      ),
+    );
 
-      assert({
-        given:
-          "the atomic revocation's outbox append failing at the database level",
-        should:
-          'report the cleanup step failed, still carry the new session cookie, leave the other session authenticated (the DELETE rolled back with it), and log the cleanup-failed event',
-        actual: {
-          status: completion.status,
-          carriesNewSessionCookie: completion.headers.getSetCookie().length > 0,
-          otherSessionStillAuthenticated:
-            await flows.isAuthenticated(otherCookie),
-          loggedCleanupFailed: loggedEvents.includes(
-            'auth.email_change.cleanup_failed',
-          ),
-        },
-        expected: {
-          status: 502,
-          carriesNewSessionCookie: true,
-          otherSessionStillAuthenticated: true,
-          loggedCleanupFailed: true,
-        },
-      });
-    } finally {
-      // This test's own accounts and actor are cleaned up here: no shared
-      // afterAll backstop in this single-test file.
-      await withSql((sql) => sql`DELETE FROM actors WHERE id = ${actorId}`);
-      await withSql(
-        (sql) => sql`DELETE FROM users WHERE email IN (${email}, ${newEmail})`,
-      );
-    }
+    assert({
+      given:
+        "the atomic revocation's outbox append failing at the database level",
+      should:
+        'report the cleanup step failed, still carry the new session cookie, leave the other session authenticated (the DELETE rolled back with it), and log the cleanup-failed event',
+      actual: {
+        status: completion.status,
+        carriesNewSessionCookie: completion.headers.getSetCookie().length > 0,
+        otherSessionStillAuthenticated:
+          await flows.isAuthenticated(otherCookie),
+        loggedCleanupFailed: loggedEvents.includes(
+          'auth.email_change.cleanup_failed',
+        ),
+      },
+      expected: {
+        status: 502,
+        carriesNewSessionCookie: true,
+        otherSessionStillAuthenticated: true,
+        loggedCleanupFailed: true,
+      },
+    });
   });
 });

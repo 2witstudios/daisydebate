@@ -1,10 +1,7 @@
-import { afterAll } from 'bun:test';
 import {
   cookieHeader,
   createTestApp,
-  fixtureEmail,
   linkFrom,
-  removeAccount,
   tokenOf,
   withSql,
 } from './fixtures';
@@ -13,30 +10,22 @@ import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 /**
  * Mounted-route flow harness: the REAL `/api/auth` and `/auth/confirm` route
  * handlers of this suite's own app over real PostgreSQL/Redis with only the
- * mail transport captured. Registers its own cleanup for the accounts it
- * created.
+ * mail transport captured.
+ * Its app removes the accounts it created after the suite.
  */
 export function createFlows() {
   const testApp = createTestApp();
-  const { routes, mailbox, jsonPost, formPost, newClient } = testApp;
+  const {
+    routes,
+    mailbox,
+    jsonPost,
+    formPost,
+    newClient,
+    freshEmail: fresh,
+    trackAccount: track,
+  } = testApp;
   const authRoute = routes.auth;
   const confirmRoute = routes.confirm;
-  // Every account this suite created, by its first email and, once known,
-  // its user id: an email change mid-test leaves the id as the only key.
-  const accounts: Array<{ email: string; userId?: string }> = [];
-  const fresh = () => {
-    const email = fixtureEmail();
-    accounts.push({ email });
-    return email;
-  };
-  /** Records the user id behind an address this suite created. */
-  const track = (email: string, userId: string | undefined) => {
-    const account = accounts.find((entry) => entry.email === email);
-    if (account && userId) account.userId = userId;
-  };
-  afterAll(async () => {
-    for (const account of accounts) await removeAccount(account);
-  });
   const requestLink = async (
     email: string,
     body: Record<string, unknown> = {},

@@ -6,6 +6,7 @@ import { systemClock, systemId } from '@daisy/clock';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import { createApp } from '../src/server/app';
 import { createRoutes } from '../src/server/routes';
+import { resendRequest } from '../src/features/auth/resend-capture.test-support';
 
 /**
  * The one fixture module for the web integration suites (ISSUE-11): the
@@ -60,30 +61,17 @@ function createMailbox() {
     input: string | URL | Request,
     init?: RequestInit,
   ) => {
-    const url = input instanceof Request ? input.url : String(input);
-    if (url !== 'https://api.resend.com/emails') return fetch(input, init);
+    const sent = resendRequest(input, init);
+    if (!sent) return fetch(input, init);
     const failure = failures.shift();
     if (failure === 'transient')
       return new Response('{"message":"upstream boom for someone@x.test"}', {
         status: 503,
       });
     if (failure === 'permanent') return new Response('{}', { status: 422 });
-    const body = JSON.parse(String(init?.body)) as {
-      to: string[];
-      subject: string;
-      text: string;
-      html: string;
-    };
     counter += 1;
     const messageId = `msg_${runId}_${counter}`;
-    mails.push({
-      to: body.to[0] ?? '',
-      subject: body.subject,
-      text: body.text,
-      html: body.html,
-      idempotencyKey: new Headers(init?.headers).get('idempotency-key') ?? '',
-      messageId,
-    });
+    mails.push({ ...sent, messageId });
     return Response.json({ id: messageId });
   };
   return {
@@ -230,9 +218,37 @@ export function createTestApp(
     const { result, records } = await recordLogs(run);
     return { result, events: records.map((record) => String(record.event)) };
   };
+  // Every account this suite created, by its first email and, once known,
+  // its user id: an email change mid-test leaves the id as the only key.
+  const accounts: Array<{ email: string; userId?: string }> = [];
+  /** A unique address whose account is removed after the suite. */
+  const freshEmail = () => {
+    const email = fixtureEmail();
+    accounts.push({ email });
+    return email;
+  };
+  /** Records the user id behind an address from `freshEmail`. */
+  const trackAccount = (email: string, userId: string | undefined) => {
+    const account = accounts.find((entry) => entry.email === email);
+    if (account && userId) account.userId = userId;
+  };
+  // One ordered teardown: accounts go while the app's pools are still open,
+  // and each step runs even when an earlier one fails (a throwing afterAll
+  // skips the hooks after it), so the errors are rethrown together.
   afterAll(async () => {
-    await clearRedisNamespace();
-    await app.close();
+    const errors: unknown[] = [];
+    const step = async (work: () => Promise<unknown>) => {
+      try {
+        await work();
+      } catch (error) {
+        errors.push(error);
+      }
+    };
+    await step(() => removeAccounts(accounts));
+    await step(clearRedisNamespace);
+    await step(() => app.close());
+    if (errors.length > 0)
+      throw new AggregateError(errors, 'createTestApp teardown failed');
   });
   return {
     app,
@@ -248,6 +264,8 @@ export function createTestApp(
     redisKeys,
     recordLogs,
     withLoggedEvents,
+    freshEmail,
+    trackAccount,
   };
 }
 
@@ -344,14 +362,21 @@ export const counts = (account: Account): Promise<AccountCounts> =>
   });
 
 /**
- * Removes exactly this account's records: its actors (actors.user_id is
- * RESTRICT, so they go first), the user (sessions, accounts and passkeys
- * cascade) and its verification rows. Never touches unrelated rows.
+ * Removes exactly these accounts' records over one connection: their actors
+ * (actors.user_id is RESTRICT, so they go first), the users (sessions,
+ * accounts and passkeys cascade) and the verification rows naming their
+ * emails. Never touches unrelated rows.
  */
-export const removeAccount = (account: Account) =>
+export const removeAccounts = (accounts: readonly Account[]) =>
   withSql(async (sql) => {
-    const { email, userId } = keysOf(account);
-    await sql`DELETE FROM actors WHERE user_id IN (SELECT id FROM users WHERE email = ${email} OR id = ${userId})`;
-    await sql`DELETE FROM users WHERE email = ${email} OR id = ${userId}`;
-    await sql`DELETE FROM verification WHERE strpos(value, ${email}) > 0`;
+    const keys = accounts.map(keysOf);
+    const emails = keys.flatMap(({ email }) => (email ? [email] : []));
+    const userIds = keys.flatMap(({ userId }) => (userId ? [userId] : []));
+    const owned = sql`SELECT id FROM users WHERE email = ANY(${sql.array(emails, 'text')}::text[]) OR id = ANY(${sql.array(userIds, 'text')}::text[])`;
+    await sql`DELETE FROM actors WHERE user_id IN (${owned})`;
+    await sql`DELETE FROM users WHERE id IN (${owned})`;
+    await sql`DELETE FROM verification USING unnest(${sql.array(emails, 'text')}::text[]) AS fixture(email) WHERE strpos(verification.value, fixture.email) > 0`;
   });
+
+/** Removes exactly one account's records; see `removeAccounts`. */
+export const removeAccount = (account: Account) => removeAccounts([account]);

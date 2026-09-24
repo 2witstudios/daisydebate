@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createTestApp, fixtureEmail, origin } from './fixtures';
+import { createTestApp, origin } from './fixtures';
 import {
   CLIENT_IP_HEADER,
   stampClientIdentity,
@@ -12,7 +12,8 @@ requireTestServices(process.env);
 setupRitewayBun();
 // The ingress requests reach the production sender: its mail lands on this
 // suite's private mailbox rather than the network.
-const authRoute = createTestApp().routes.auth;
+const { routes, freshEmail } = createTestApp();
+const authRoute = routes.auth;
 
 /** Stand-in for the deployment ingress: the same stamping start.ts performs. */
 async function ingress(trustedProxies: string[]) {
@@ -44,7 +45,7 @@ async function ingress(trustedProxies: string[]) {
       fetch(`http://127.0.0.1:${port}/api/auth/sign-in/magic-link`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', origin, ...headers },
-        body: JSON.stringify({ email: fixtureEmail() }),
+        body: JSON.stringify({ email: freshEmail() }),
       }),
     close: () => new Promise<void>((resolve) => server.close(() => resolve())),
   };

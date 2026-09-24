@@ -1,11 +1,5 @@
-import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  createTestApp,
-  fixtureEmail,
-  linkFrom,
-  removeAccount,
-} from './fixtures';
+import { createTestApp, linkFrom } from './fixtures';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import { requireTestServices } from '@daisy/config';
 
@@ -14,23 +8,16 @@ setupRitewayBun();
 
 // This suite's own app, served under an https public origin.
 const httpsOrigin = 'https://daisy.example.com';
-const { routes, mailbox, newClient } = createTestApp({
+const {
+  routes,
+  mailbox,
+  newClient,
+  freshEmail: fresh,
+} = createTestApp({
   PUBLIC_APP_URL: httpsOrigin,
 });
 const authRoute = routes.auth;
 const confirmRoute = routes.confirm;
-const emails: string[] = [];
-
-afterAll(async () => {
-  for (const email of emails) await removeAccount(email);
-});
-
-const fresh = () => {
-  const email = fixtureEmail();
-  emails.push(email);
-  return email;
-};
-
 const requestLink = async (email: string) => {
   const before = mailbox.mails.length;
   const response = await authRoute.POST(
