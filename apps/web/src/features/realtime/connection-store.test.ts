@@ -100,17 +100,26 @@ describe('connection store: heartbeat (ADR 0031 §7)', () => {
   test('30s without a pong (elapsed time, not tick count) is judged dead and reconnects', async () => {
     const h = harness();
     await openAndReady(h);
+    const deadSocket = h.latestSocket();
 
     // No pong ever answered. Two heartbeat periods pass with silence.
     h.scheduler.advance(heartbeatMs);
     h.scheduler.advance(heartbeatMs);
+    // Past the standard backoff window: proves the death is actually
+    // reconnected, not merely detected (a store that reaps but never
+    // reconnects would leave sockets.length at 1 here).
+    h.scheduler.advance(30_000);
+    await flush();
 
     assert({
       given:
-        'no pong for two full heartbeat periods (30 s at the default 15 s)',
-      should: 'close the dead socket',
-      actual: h.latestSocket().closedWith !== null,
-      expected: true,
+        'no pong for two full heartbeat periods (30 s at the default 15 s), then time past the backoff window',
+      should: 'close the dead socket and open a second one',
+      actual: {
+        deadClosed: deadSocket.closedWith !== null,
+        socketCount: h.sockets.length,
+      },
+      expected: { deadClosed: true, socketCount: 2 },
     });
   });
 

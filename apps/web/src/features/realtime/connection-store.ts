@@ -4,7 +4,11 @@ import {
   heartbeatMs,
 } from '@daisy/protocol';
 import { nextReconnectDelayMs } from './backoff';
-import { decideOnClose, type TerminalReason } from './close-code-policy';
+import {
+  closeReasonForCode,
+  decideOnClose,
+  type TerminalReason,
+} from './close-code-policy';
 
 /**
  * The subset of the browser's native `WebSocket` this store uses. Tests
@@ -81,14 +85,23 @@ export function createConnectionStore(
   let socket: WebSocketLike | null = null;
   let consecutiveAuthFailures = 0;
   let reconnectAttempt = 0;
-  let lastPongAt = 0;
+  /**
+   * The deadline of the one outstanding (unanswered) ping, or null when the
+   * last ping sent has already been answered (or none has been sent yet).
+   * Judging death by this — the age of the oldest *unanswered* ping — rather
+   * than by elapsed time since the tick last happened to run is what keeps a
+   * throttled hidden tab from declaring a healthy socket dead: a ping that
+   * gets answered promptly clears this before the next (possibly late) tick
+   * ever checks it, so a late tick just sends a fresh ping and waits.
+   */
+  let outstandingPingDeadline: number | null = null;
   let pingCounter = 0;
   let heartbeatTimer: unknown = null;
   let reconnectTimer: unknown = null;
   const listeners = new Set<(state: ConnectionState) => void>();
 
   deps.onVisibilityChange((visible) => {
-    if (visible && status === 'open' && socket) sendPing(generation);
+    if (visible && status === 'open' && socket) sendFreshPing(generation);
   });
 
   function snapshot(): ConnectionState {
@@ -117,36 +130,62 @@ export function createConnectionStore(
       }),
     );
   }
+  /**
+   * Sends a fresh ping and (re)starts its own death deadline. The deadline
+   * is set before the socket send so that a synchronously-delivered pong
+   * (real sockets never are, but a test double may be) still clears it
+   * rather than being overwritten afterward.
+   */
+  function sendFreshPing(myGeneration: number) {
+    outstandingPingDeadline = deps.scheduler.now() + HEARTBEAT_DEAD_AFTER_MS;
+    sendPing(myGeneration);
+  }
+  function reapDeadSocket(myGeneration: number) {
+    if (myGeneration !== generation) return;
+    // Half-open: reap it locally. Bumping the generation first makes this
+    // socket's own listeners stale, so the synchronous close event
+    // triggered below cannot also run handleClose and double-schedule a
+    // reconnect.
+    clearHeartbeat();
+    outstandingPingDeadline = null;
+    generation += 1;
+    const deadSocket = socket;
+    socket = null;
+    status = 'closed';
+    try {
+      deadSocket?.close();
+    } catch {
+      // The socket may already be closing; nothing to react to.
+    }
+    notify();
+    scheduleReconnect('standard');
+  }
   function scheduleHeartbeatTick(myGeneration: number) {
     heartbeatTimer = deps.scheduler.setTimeout(() => {
       if (myGeneration !== generation) return;
-      const elapsed = deps.scheduler.now() - lastPongAt;
-      if (elapsed >= HEARTBEAT_DEAD_AFTER_MS) {
-        // Half-open: reap it locally. Bumping the generation first makes
-        // this socket's own listeners stale, so the synchronous close event
-        // triggered below cannot also run handleClose and double-schedule
-        // a reconnect.
-        clearHeartbeat();
-        generation += 1;
-        const deadSocket = socket;
-        socket = null;
-        status = 'closed';
-        try {
-          deadSocket?.close();
-        } catch {
-          // The socket may already be closing; nothing to react to.
-        }
-        notify();
-        scheduleReconnect('standard');
+      if (
+        outstandingPingDeadline !== null &&
+        deps.scheduler.now() >= outstandingPingDeadline
+      ) {
+        // The ping that is overdue was actually sent (and given its own
+        // deadline) at send time, so this fires only when the server truly
+        // failed to answer it within HEARTBEAT_DEAD_AFTER_MS of *that* send
+        // — never merely because this tick itself ran late.
+        reapDeadSocket(myGeneration);
         return;
       }
-      sendPing(myGeneration);
+      if (outstandingPingDeadline === null) {
+        // The previous ping (if any) was already answered: send a fresh one
+        // and start tracking its own deadline. A tick that finds a ping
+        // still outstanding but not yet overdue sends nothing and waits.
+        sendFreshPing(myGeneration);
+      }
       scheduleHeartbeatTick(myGeneration);
     }, heartbeatMs);
   }
   function startHeartbeat(myGeneration: number) {
     clearHeartbeat();
-    lastPongAt = deps.scheduler.now();
+    sendFreshPing(myGeneration);
     scheduleHeartbeatTick(myGeneration);
   }
 
@@ -200,15 +239,17 @@ export function createConnectionStore(
       return;
     }
     if (type === 'pong') {
-      lastPongAt = deps.scheduler.now();
+      outstandingPingDeadline = null;
     }
   }
   function handleClose(myGeneration: number, code: number) {
     if (myGeneration !== generation) return;
     clearHeartbeat();
+    outstandingPingDeadline = null;
     socket = null;
     const decision = decideOnClose({ code, consecutiveAuthFailures });
-    if (code === 4001) consecutiveAuthFailures += 1;
+    if (closeReasonForCode(code) === 'auth_failed')
+      consecutiveAuthFailures += 1;
     else consecutiveAuthFailures = 0;
     if (!decision.reconnect) {
       status = 'closed';
@@ -275,6 +316,7 @@ export function createConnectionStore(
     terminal = null;
     consecutiveAuthFailures = 0;
     reconnectAttempt = 0;
+    outstandingPingDeadline = null;
     const current = socket;
     socket = null;
     notify();
