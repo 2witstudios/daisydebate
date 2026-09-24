@@ -148,29 +148,47 @@ export function validateAuditExceptions(
   return problems;
 }
 
-/** Reads every advisory bun audit reports for the root lockfile, unfiltered. */
-function readLiveAdvisories(): LiveAdvisories | string {
+/** What `bun audit --json` printed and how it exited. */
+type AuditOutput = {
+  readonly stdout: string;
+  readonly exitCode: number | null;
+};
+
+/**
+ * Validates the registry against the advisories bun audit printed. Output
+ * that is not an advisory map fails rather than passing, and the offline
+ * checks still run.
+ */
+export function liveAuditProblems(
+  registry: Registry,
+  audit: AuditOutput,
+  options: Omit<AuditValidationOptions, 'live'>,
+): readonly string[] {
+  try {
+    const live = liveAdvisories(JSON.parse(audit.stdout));
+    return validateAuditExceptions(registry, { ...options, live });
+  } catch {
+    return [
+      ...validateAuditExceptions(registry, options),
+      `audit: could not read live advisories (bun audit --json exited ${audit.exitCode})`,
+    ];
+  }
+}
+
+/** `bun policy`'s edge: runs the unfiltered audit on the root lockfile. */
+export async function auditPolicyProblems(
+  knownPaths: ReadonlySet<string>,
+): Promise<readonly string[]> {
   const result = Bun.spawnSync(['bun', 'audit', '--json'], {
     cwd: root,
     stdout: 'pipe',
     stderr: 'pipe',
   });
-  try {
-    return liveAdvisories(JSON.parse(result.stdout.toString()));
-  } catch {
-    return `audit: could not read live advisories (bun audit --json exited ${result.exitCode})`;
-  }
-}
-
-/** `bun policy`'s check of the committed registry against live advisories. */
-export async function auditPolicyProblems(
-  knownPaths: ReadonlySet<string>,
-): Promise<readonly string[]> {
-  const live = readLiveAdvisories();
-  const registry = (await Bun.file(auditRegistryPath).json()) as Registry;
-  return typeof live === 'string'
-    ? [...validateAuditExceptions(registry, { knownPaths }), live]
-    : validateAuditExceptions(registry, { knownPaths, live });
+  return liveAuditProblems(
+    (await Bun.file(auditRegistryPath).json()) as Registry,
+    { stdout: result.stdout.toString(), exitCode: result.exitCode },
+    { knownPaths },
+  );
 }
 
 if (import.meta.main) {

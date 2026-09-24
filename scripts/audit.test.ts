@@ -2,6 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   auditCommand,
   liveAdvisories,
+  liveAuditProblems,
   validateAuditExceptions,
   type AuditException,
 } from './audit';
@@ -147,9 +148,7 @@ describe('audit exception registry', () => {
       should: 'report the package mismatch instead of silently ignoring it',
       actual: validateAuditExceptions(
         registry(entry({ packages: ['vitest'] })),
-        {
-          ...options,
-        },
+        options,
       ),
       expected: [
         'audit[0]: GHSA-82fw-gwwq-j7x9 affects @vitest/mocker, vitest, but the exception lists vitest',
@@ -205,6 +204,75 @@ describe('audit exception registry', () => {
       expected: [
         'audit: version must be 1',
         'audit: advisories must be an array',
+      ],
+    });
+  });
+});
+
+describe('audit policy check', () => {
+  const auditJson = JSON.stringify({
+    vitest: [{ url: 'https://github.com/advisories/GHSA-82fw-gwwq-j7x9' }],
+    '@vitest/mocker': [
+      { url: 'https://github.com/advisories/GHSA-82fw-gwwq-j7x9' },
+    ],
+  });
+  const checkOptions = { today: options.today, knownPaths: options.knownPaths };
+
+  test('validates the registry against the advisories bun audit printed', () => {
+    assert({
+      given: 'bun audit --json exiting 1 with the listed advisory in stdout',
+      should: 'parse the output and report no problems',
+      actual: liveAuditProblems(
+        registry(entry()),
+        { stdout: auditJson, exitCode: 1 },
+        checkOptions,
+      ),
+      expected: [],
+    });
+  });
+
+  test('a stale entry fails against a clean audit', () => {
+    assert({
+      given: 'bun audit --json printing {} for a clean tree',
+      should: 'report the entry as stale',
+      actual: liveAuditProblems(
+        registry(entry()),
+        { stdout: '{}', exitCode: 0 },
+        checkOptions,
+      ),
+      expected: [
+        'audit[0]: GHSA-82fw-gwwq-j7x9 no longer matches a live advisory; remove the exception',
+      ],
+    });
+  });
+
+  test('unreadable audit output fails instead of passing', () => {
+    assert({
+      given: 'bun audit --json exiting 1 with no JSON (registry unreachable)',
+      should: 'still check the registry offline and report the failed read',
+      actual: liveAuditProblems(
+        registry(entry({ reviewBy: '2026-09-22' })),
+        { stdout: 'error: ConnectionRefused', exitCode: 1 },
+        checkOptions,
+      ),
+      expected: [
+        'audit[0]: reviewBy has expired: 2026-09-22',
+        'audit: could not read live advisories (bun audit --json exited 1)',
+      ],
+    });
+  });
+
+  test('JSON that is not an advisory map fails instead of passing', () => {
+    assert({
+      given: 'bun audit --json printing null',
+      should: 'report the failed read',
+      actual: liveAuditProblems(
+        registry(entry()),
+        { stdout: 'null', exitCode: 0 },
+        checkOptions,
+      ),
+      expected: [
+        'audit: could not read live advisories (bun audit --json exited 0)',
       ],
     });
   });
