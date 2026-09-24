@@ -71,6 +71,7 @@ export {
 export {
   ENVELOPE_VERSION,
   PROTOCOL_VERSION,
+  heartbeatMs,
   cursorSchema,
   presenceActivitySchema,
   presenceStatuses,
