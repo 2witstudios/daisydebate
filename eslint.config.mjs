@@ -165,23 +165,6 @@ const repoSyntaxRestrictions = [
   ...processMutationRestrictions,
 ];
 
-/**
- * RT-2.6a: the browser runtime edge for the client connection store
- * (browser-adapters.ts) reads the real `Date.now` and `Math.random`
- * (ADR 0031 §7-8) — the same role `process-app.ts` plays for server-side
- * ambient reads. Every other repo-wide syntax restriction still applies to
- * it exactly as to any other apps/web source file: this removes only the
- * two selectors the edge legitimately needs, rather than swapping in a
- * shorter list that would also drop the process-mutation guards.
- */
-const browserRuntimeEdgeSyntaxRestrictions = repoSyntaxRestrictions.filter(
-  (rule) =>
-    rule.selector !==
-      "CallExpression[callee.object.name='Date'][callee.property.name='now']" &&
-    rule.selector !==
-      "CallExpression[callee.object.name='Math'][callee.property.name='random']",
-);
-
 export default [
   {
     ignores: [
@@ -516,24 +499,6 @@ export default [
           message:
             'Receive resources as arguments; only the process edge reads globalThis.',
         },
-      ],
-    },
-  },
-  // RT-2.6a: the browser runtime edge for the client connection store
-  // (ADR 0031 §7-8). `apps/web`'s domain and features stay pure and inject
-  // a clock, an id source and resources (AGENTS.md); this one module reads
-  // the real browser `WebSocket`, `fetch`, `Date.now`, `Math.random` and
-  // `document`/`window` and wires them into `createConnectionStore`, the
-  // same role `process-app.ts` plays for server-side ambient reads. Every
-  // other restriction (process-mutation, the process-edge import guard,
-  // `crypto.randomUUID`, `new Date()`) still applies to this file.
-  {
-    files: ['apps/web/src/features/realtime/browser-adapters.ts'],
-    rules: {
-      'no-restricted-syntax': [
-        'error',
-        ...browserRuntimeEdgeSyntaxRestrictions,
-        ...processEdgeLoads,
       ],
     },
   },
