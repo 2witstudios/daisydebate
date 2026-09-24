@@ -46,6 +46,12 @@ function fakeRedis(values: Map<string, string> = new Map()) {
       commands.push({ command: 'DEL', args: [key] });
       return values.delete(key) ? 1 : 0;
     },
+    async getdel(key: string) {
+      commands.push({ command: 'GETDEL', args: [key] });
+      const value = values.get(key) ?? null;
+      values.delete(key);
+      return value;
+    },
     close() {
       closed = true;
     },

@@ -1,5 +1,6 @@
 import { RedisClient } from 'bun';
 import { createPresenceOperations } from './presence';
+import { createTicketOperations } from './ticket';
 import { redisKey } from './redis-key';
 export { redisKey } from './redis-key';
 export type RedisConfig = { readonly url: string; readonly namespace: string };
@@ -121,6 +122,7 @@ export function createRedis({
       }
     },
     ...createPresenceOperations({ client, namespace, reportFailure }),
+    ...createTicketOperations({ client, namespace, reportFailure }),
     close() {
       client.close();
     },
