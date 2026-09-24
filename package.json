@@ -76,7 +76,7 @@
     "slot:reset-e2e": "bun scripts/slot.ts reset-e2e",
     "slot:prune": "bun scripts/slot.ts prune",
     "infra:logs": "docker compose -f infra/compose.yaml logs -f",
-    "audit": "bun audit"
+    "audit": "bun scripts/audit.ts"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",
