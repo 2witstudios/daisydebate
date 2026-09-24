@@ -213,8 +213,11 @@ export function createTestApp(
   // its user id: an email change mid-test leaves the id as the only key.
   const accounts: Array<{ email: string; userId?: string }> = [];
   /** A unique address whose account is removed after the suite. */
+  // Every address this app hands out carries its namespace, so teardown
+  // clears their verification rows in one scan however many there are.
+  const emailMarker = `-${redisNamespace}-`;
   const freshEmail = () => {
-    const email = fixtureEmail();
+    const email = `auth${emailMarker}${createId()}@example.test`;
     accounts.push({ email });
     return email;
   };
@@ -249,7 +252,7 @@ export function createTestApp(
         errors.push(error);
       }
     };
-    await step(() => removeAccounts(accounts));
+    await step(() => removeAccounts(accounts, [emailMarker]));
     await step(clearRedisNamespace);
     await step(() => app.close());
     if (errors.length > 0)
@@ -369,10 +372,15 @@ export const counts = (account: Account): Promise<AccountCounts> =>
 /**
  * Removes exactly these accounts' records over one connection: their actors
  * (actors.user_id is RESTRICT, so they go first), the users (sessions,
- * accounts and passkeys cascade) and the verification rows naming their
- * emails. Never touches unrelated rows.
+ * accounts and passkeys cascade) and the verification rows containing any
+ * of `markers` (by default the accounts' emails; a caller whose emails all
+ * share a unique marker passes that, one scan instead of one per email).
+ * Never touches unrelated rows.
  */
-const removeAccounts = (accounts: readonly Account[]) =>
+const removeAccounts = (
+  accounts: readonly Account[],
+  markers?: readonly string[],
+) =>
   withSql(async (sql) => {
     const keys = accounts.map(keysOf);
     const emails = keys.flatMap(({ email }) => (email ? [email] : []));
@@ -380,7 +388,7 @@ const removeAccounts = (accounts: readonly Account[]) =>
     const owned = sql`SELECT id FROM users WHERE email = ANY(${sql.array(emails, 'text')}::text[]) OR id = ANY(${sql.array(userIds, 'text')}::text[])`;
     await sql`DELETE FROM actors WHERE user_id IN (${owned})`;
     await sql`DELETE FROM users WHERE id IN (${owned})`;
-    await sql`DELETE FROM verification USING unnest(${sql.array(emails, 'text')}::text[]) AS fixture(email) WHERE strpos(verification.value, fixture.email) > 0`;
+    await sql`DELETE FROM verification USING unnest(${sql.array([...(markers ?? emails)], 'text')}::text[]) AS fixture(marker) WHERE strpos(verification.value, fixture.marker) > 0`;
   });
 
 /** Removes exactly one account's records; see `removeAccounts`. */

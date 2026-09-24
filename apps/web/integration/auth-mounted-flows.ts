@@ -55,7 +55,8 @@ export function createFlows() {
     const response = await confirmRoute.POST(
       formPost({ token, callbackURL: '/lobby', ...extra }),
     );
-    await recordAccountIds();
+    // Only a redemption that set a session can have created a user.
+    if (response.headers.getSetCookie().length > 0) await recordAccountIds();
     return response;
   };
   /** A new address with a requested link and its token. */
