@@ -152,7 +152,7 @@ jobs:
     name: CI gate
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    needs: [checks, migrations, integration]
+    needs: [checks, audit, migrations, integration]
     if: always()
     steps:
       - name: Require every CI job to pass
