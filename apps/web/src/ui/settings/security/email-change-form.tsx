@@ -1,54 +1,47 @@
 'use client';
 
-import { useState } from 'react';
-import { authClient } from '../../../lib/auth-client';
-import { requestEmailChange } from '../../../features/account/security-client';
+import { useActionState } from 'react';
 import { Button } from '../../components/button/button';
 import { Notice } from '../../auth/notice/notice';
-import { OUTCOME_NOTICES } from './security-notices';
+import {
+  emailChangeNotice,
+  initialEmailChange,
+  type EmailChangeState,
+} from './email-change-state';
 
-export function EmailChangeForm() {
-  const [newEmail, setNewEmail] = useState('');
-  const [pending, setPending] = useState(false);
-  const [notice, setNotice] = useState<
-    { readonly tone: 'error' | 'info'; readonly title: string } | undefined
-  >();
+/** The email change: a server action that runs the Better Auth route. */
+export type EmailChangeAction = (
+  state: EmailChangeState,
+  form: FormData,
+) => Promise<EmailChangeState>;
 
-  const submit = async () => {
-    setPending(true);
-    setNotice(undefined);
-    const outcome = await requestEmailChange(authClient, newEmail.trim());
-    setPending(false);
-    setNotice(
-      outcome.kind === 'ok'
-        ? {
-            tone: 'info',
-            title:
-              'Check the inbox for the address currently on file to approve this change.',
-          }
-        : { tone: 'error', title: OUTCOME_NOTICES[outcome.kind] },
-    );
-  };
-
+/**
+ * Starting an email change. The form posts to `action`, a server action, so
+ * a submission before hydration or without JavaScript is the same POST and
+ * the page renders its answer. JavaScript only adds the pending state, which
+ * also hides the previous answer while a new one is on its way.
+ */
+export function EmailChangeForm({
+  action,
+}: {
+  readonly action: EmailChangeAction;
+}) {
+  const [answered, post, pending] = useActionState(action, initialEmailChange);
+  const notice = pending ? undefined : emailChangeNotice(answered);
   return (
-    <form
-      className="flex flex-col items-start gap-3"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void submit();
-      }}
-    >
+    <form action={post} className="flex flex-col items-start gap-3">
       <label htmlFor="new-email">New email address</label>
       <input
         id="new-email"
+        name="newEmail"
         type="email"
         required
-        value={newEmail}
-        onChange={(event) => setNewEmail(event.target.value)}
+        autoComplete="email"
+        defaultValue={answered.newEmail}
         disabled={pending}
         className="rounded-md border border-border bg-surface px-2 py-1"
       />
-      <Button type="submit" disabled={pending || newEmail.trim() === ''}>
+      <Button type="submit" disabled={pending}>
         {pending ? 'Sending…' : 'Change email'}
       </Button>
       {notice ? (

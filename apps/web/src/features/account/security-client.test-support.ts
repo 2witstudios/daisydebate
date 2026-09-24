@@ -12,7 +12,6 @@ export const clientWith = (
   },
   revokeOtherSessions: noop,
   signOut: noop,
-  changeEmail: noop,
   ...overrides,
 });
 

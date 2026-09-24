@@ -18,7 +18,7 @@ import { Button } from '../../components/button/button';
 import { Notice } from '../../auth/notice/notice';
 import { PasskeyRowView } from './passkey-row';
 import { SessionRowView } from './session-row';
-import { EmailChangeForm } from './email-change-form';
+import { EmailChangeForm, type EmailChangeAction } from './email-change-form';
 import { OUTCOME_NOTICES } from './security-notices';
 
 const supportsPasskeys = () =>
@@ -35,7 +35,12 @@ const enrollment = createPasskeyEnrollment({
  * Removing a passkey or revoking a session still leaves magic-link access to
  * the verified email; this screen never removes that fallback.
  */
-export function SecurityPage() {
+export function SecurityPage({
+  changeEmail,
+}: {
+  /** The email-change form's server action. */
+  readonly changeEmail: EmailChangeAction;
+}) {
   const [passkeys, setPasskeys] = useState<readonly PasskeyRow[]>([]);
   const [sessions, setSessions] = useState<readonly SessionRow[]>([]);
   const [passkeysNotice, setPasskeysNotice] = useState<string | undefined>();
@@ -171,7 +176,7 @@ export function SecurityPage() {
 
       <section aria-labelledby="email-heading">
         <h2 id="email-heading">Recovery email</h2>
-        <EmailChangeForm />
+        <EmailChangeForm action={changeEmail} />
       </section>
     </>
   );
