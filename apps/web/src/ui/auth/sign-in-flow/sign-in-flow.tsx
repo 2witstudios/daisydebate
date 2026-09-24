@@ -9,7 +9,11 @@ import {
   useSyncExternalStore,
 } from 'react';
 import type { Clock } from '@daisy/clock';
-import { initialLinkForm, type LinkFormState } from '../request-link';
+import {
+  initialLinkForm,
+  signInStateFrom,
+  type LinkFormState,
+} from '../request-link';
 import {
   offerPasskeyAutofillSafely,
   signInWithPasskeySafely,
@@ -20,7 +24,6 @@ import {
   canRequestLink,
   canResend,
   signInReducer,
-  signInStateFrom,
   type SignInState,
 } from '../sign-in-state';
 import { renderSignInFlow } from './sign-in-flow.render';
@@ -96,10 +99,8 @@ export function SignInFlow({
   onSignedIn,
 }: SignInFlowProps) {
   const [answered, postLink] = useActionState(requestLink, initialLinkForm);
-  const [state, dispatch] = useReducer(
-    signInReducer,
-    answered,
-    signInStateFrom,
+  const [state, dispatch] = useReducer(signInReducer, answered, (answer) =>
+    signInStateFrom(answer, clock.now()),
   );
   const now = useNow(clock, state);
 
@@ -108,10 +109,10 @@ export function SignInFlow({
   // answer a page was rendered with settles nothing: no request is in
   // flight then.
   useEffect(() => {
-    if (answered.answer === undefined) return;
+    if (answered.outcome === undefined) return;
     dispatch({
       type: 'link-settled',
-      outcome: answered.answer.outcome,
+      outcome: answered.outcome,
       at: clock.now(),
     });
   }, [answered, clock]);

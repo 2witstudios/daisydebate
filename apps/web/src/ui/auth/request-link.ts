@@ -1,21 +1,19 @@
 import { onboardingHref } from '../../features/access/decision';
 import type { LinkRequestOutcome } from './sign-in-port';
+import {
+  initialSignInState,
+  signInReducer,
+  type SignInState,
+} from './sign-in-state';
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 
 export type RequestLink = (email: string) => Promise<LinkRequestOutcome>;
 
-/**
- * What the sign-in form shows after a post: the address as typed, and how
- * the request ended with the time it was answered (UTC ISO), which starts
- * the resend cooldown.
- */
+/** What the sign-in form shows after a post: the address as typed, and how the request ended. */
 export type LinkFormState = {
   readonly email: string;
-  readonly answer?: {
-    readonly outcome: LinkRequestOutcome;
-    readonly at: string;
-  };
+  readonly outcome?: LinkRequestOutcome;
 };
 
 export const initialLinkForm: LinkFormState = { email: '' };
@@ -70,7 +68,6 @@ export const createRequestLink =
 export async function submitLinkRequest(
   requestLink: RequestLink,
   form: FormData,
-  at: string,
 ): Promise<LinkFormState> {
   const field = form.get('email');
   const email = typeof field === 'string' ? field.trim() : '';
@@ -80,5 +77,21 @@ export async function submitLinkRequest(
   } catch {
     outcome = UNAVAILABLE;
   }
-  return { email, answer: { outcome, at } };
+  return { email, outcome };
 }
+
+/**
+ * The state a page render starts from: where the last posted form ended,
+ * with a sent link's cooldown counted from `at` (UTC ISO, this render's
+ * clock). Without JavaScript, every post renders the page again from here.
+ */
+export const signInStateFrom = (
+  { email, outcome }: LinkFormState,
+  at: string,
+): SignInState =>
+  outcome === undefined
+    ? initialSignInState(email)
+    : signInReducer(
+        { step: 'enter-email', email, pending: 'link' },
+        { type: 'link-settled', outcome, at },
+      );

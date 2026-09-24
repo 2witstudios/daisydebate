@@ -3,7 +3,7 @@
 import { headers } from 'next/headers';
 import { returnDestination } from '../../../features/access/decision';
 import { inProcessFetch } from '../../../server/in-process-fetch';
-import { processApp, processRoute } from '../../../server/process-app';
+import { processRoute } from '../../../server/process-app';
 import {
   createRequestLink,
   submitLinkRequest,
@@ -32,6 +32,5 @@ export async function requestLinkAction(
   return submitLinkRequest(
     requestLink,
     form instanceof FormData ? form : new FormData(),
-    processApp().clock.now(),
   );
 }

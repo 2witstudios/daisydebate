@@ -7,7 +7,6 @@ import {
   RESEND_COOLDOWN_MS,
   resendRemainingMs,
   signInReducer,
-  signInStateFrom,
   type SignInState,
 } from './sign-in-state';
 
@@ -299,39 +298,6 @@ describe('formatCountdown', () => {
         formatCountdown(0),
       ],
       expected: ['0:42', '0:42', '1:00', '0:00'],
-    });
-  });
-});
-
-describe('signInStateFrom', () => {
-  test('starts where the last posted form ended', () => {
-    const at = iso(1_000);
-    assert({
-      given:
-        'no post yet, a sent link, and a refused request, as the server answered them',
-      should:
-        'show the empty email step, the inbox step counting from the answer, and the email step with its notice',
-      actual: [
-        signInStateFrom({ email: '' }),
-        signInStateFrom({
-          email: 'ada@school.edu',
-          answer: { outcome: { kind: 'sent' }, at },
-        }),
-        signInStateFrom({
-          email: 'ada@school.edu',
-          answer: { outcome: { kind: 'rate-limited' }, at },
-        }),
-      ],
-      expected: [
-        initialSignInState(),
-        {
-          step: 'check-inbox',
-          email: 'ada@school.edu',
-          sentAt: at,
-          resending: false,
-        },
-        entering({ email: 'ada@school.edu', notice: 'rate-limited' }),
-      ],
     });
   });
 });

@@ -1,9 +1,11 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   createRequestLink,
+  signInStateFrom,
   submitLinkRequest,
   type RequestLink,
 } from './request-link';
+import { initialSignInState } from './sign-in-state';
 
 setupRitewayBun();
 
@@ -89,7 +91,6 @@ describe('submitLinkRequest', () => {
     };
     return { asked, requestLink };
   };
-  const at = '2026-09-23T12:00:00.000Z';
 
   test('requests the trimmed address and answers with it', async () => {
     const { asked, requestLink } = recording(Promise.resolve({ kind: 'sent' }));
@@ -98,12 +99,9 @@ describe('submitLinkRequest', () => {
     assert({
       given: 'a posted email form',
       should: 'request a link for the trimmed address and echo it back',
-      actual: [await submitLinkRequest(requestLink, form, at), asked],
+      actual: [await submitLinkRequest(requestLink, form), asked],
       expected: [
-        {
-          email: 'ada@example.test',
-          answer: { outcome: { kind: 'sent' }, at },
-        },
+        { email: 'ada@example.test', outcome: { kind: 'sent' } },
         ['ada@example.test'],
       ],
     });
@@ -118,7 +116,7 @@ describe('submitLinkRequest', () => {
     assert({
       given: 'a form whose email field is a file',
       should: 'treat it as an empty address',
-      actual: [(await submitLinkRequest(requestLink, form, at)).email, asked],
+      actual: [(await submitLinkRequest(requestLink, form)).email, asked],
       expected: ['', ['']],
     });
   });
@@ -130,11 +128,45 @@ describe('submitLinkRequest', () => {
     assert({
       given: 'a link request that throws',
       should: 'answer unavailable',
-      actual: await submitLinkRequest(requestLink, form, at),
-      expected: {
-        email: 'ada@example.test',
-        answer: { outcome: { kind: 'unavailable' }, at },
-      },
+      actual: await submitLinkRequest(requestLink, form),
+      expected: { email: 'ada@example.test', outcome: { kind: 'unavailable' } },
+    });
+  });
+});
+
+describe('signInStateFrom', () => {
+  test('starts where the last posted form ended', () => {
+    const at = '2026-09-23T12:00:00.000Z';
+    assert({
+      given: 'no post yet, a sent link, and a refused request',
+      should:
+        'show the empty email step, the inbox step counting from now, and the email step with its notice',
+      actual: [
+        signInStateFrom({ email: '' }, at),
+        signInStateFrom(
+          { email: 'ada@school.edu', outcome: { kind: 'sent' } },
+          at,
+        ),
+        signInStateFrom(
+          { email: 'ada@school.edu', outcome: { kind: 'rate-limited' } },
+          at,
+        ),
+      ],
+      expected: [
+        initialSignInState(),
+        {
+          step: 'check-inbox',
+          email: 'ada@school.edu',
+          sentAt: at,
+          resending: false,
+        },
+        {
+          step: 'enter-email',
+          email: 'ada@school.edu',
+          pending: 'none',
+          notice: 'rate-limited',
+        },
+      ],
     });
   });
 });

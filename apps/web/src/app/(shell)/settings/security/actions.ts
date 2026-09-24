@@ -1,7 +1,7 @@
 'use server';
 
 import { headers } from 'next/headers';
-import { requestEmailChange } from '../../../../features/account/security-client';
+import { requestEmailChange } from '../../../../features/account/request-email-change';
 import { inProcessFetch } from '../../../../server/in-process-fetch';
 import { processRoute } from '../../../../server/process-app';
 import {
