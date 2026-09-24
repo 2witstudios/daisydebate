@@ -1,10 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createFlows, tokenOf } from './auth-mounted-flows';
-import { counts, origin, withSql } from './auth-mounted-helpers';
+import { createFlows } from './auth-mounted-flows';
+import { counts, origin, tokenOf, withSql } from './fixtures';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+import { requireTestServices } from '@daisy/config';
 
-if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
-  throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
+requireTestServices(process.env);
 setupRitewayBun();
 const flows = createFlows();
 const { requestLink, redeem, confirmGet, confirmRoute, startSignup } = flows;
@@ -46,13 +46,12 @@ describe('AUTH-3.3 magic link request through the mounted handler', () => {
     const { email, token } = await startSignup();
     const stored = await withSql(
       (sql) =>
-        sql`SELECT identifier, expires_at FROM verification WHERE value LIKE ${`%${email}%`}`,
+        // Better Auth stamps both timestamps from one clock in one call.
+        sql`SELECT identifier, round(extract(epoch from (expires_at - created_at)))::int AS lifetime FROM verification WHERE strpos(value, ${email}) > 0`,
     );
     const plaintext = await withSql(
       (sql) => sql`SELECT 1 FROM verification WHERE identifier = ${token}`,
     );
-    const seconds =
-      (new Date(stored[0]?.expires_at).getTime() - Date.now()) / 1000;
     assert({
       given: 'the persisted verification record for a fresh link',
       should:
@@ -61,15 +60,15 @@ describe('AUTH-3.3 magic link request through the mounted handler', () => {
         rows: stored.length,
         identifierIsToken: stored[0]?.identifier === token,
         plaintextLookup: plaintext.length,
-        fiveMinutes: seconds > 240 && seconds <= 300,
+        lifetimeSeconds: stored[0]?.lifetime,
         counts: await counts(email),
       },
       expected: {
         rows: 1,
         identifierIsToken: false,
         plaintextLookup: 0,
-        fiveMinutes: true,
-        counts: { users: 0, sessions: 0, verifications: 1 },
+        lifetimeSeconds: 300,
+        counts: { users: 0, sessions: 0, verifications: 1, passkeys: 0 },
       },
     });
   });
@@ -109,7 +108,7 @@ describe('AUTH-3.5 scanner-safe confirmation and single-use redemption', () => {
         headBodies: ['', ''],
         formPosts: true,
         noAssets: true,
-        counts: { users: 0, sessions: 0, verifications: 1 },
+        counts: { users: 0, sessions: 0, verifications: 1, passkeys: 0 },
       },
     });
   });
@@ -179,7 +178,7 @@ describe('AUTH-3.5 scanner-safe confirmation and single-use redemption', () => {
         status: 303,
         location: '/auth/confirm?error=INVALID_TOKEN',
         cookies: 0,
-        counts: { users: 1, sessions: 1, verifications: 0 },
+        counts: { users: 1, sessions: 1, verifications: 0, passkeys: 0 },
       },
     });
   });
@@ -203,7 +202,7 @@ describe('AUTH-3.5 scanner-safe confirmation and single-use redemption', () => {
       expected: {
         winners: 1,
         losers: Array(15).fill('/auth/confirm?error=INVALID_TOKEN'),
-        counts: { users: 1, sessions: 1, verifications: 0 },
+        counts: { users: 1, sessions: 1, verifications: 0, passkeys: 0 },
       },
     });
   });
@@ -229,7 +228,7 @@ describe('AUTH-3.3 / AUTH-3.5 returning users and expired links', () => {
       },
       expected: {
         location: '/play?tab=rules',
-        counts: { users: 1, sessions: 2, verifications: 0 },
+        counts: { users: 1, sessions: 2, verifications: 0, passkeys: 0 },
       },
     });
   });
@@ -264,7 +263,7 @@ describe('AUTH-3.3 / AUTH-3.5 returning users and expired links', () => {
       expected: {
         location: '/auth/confirm?error=INVALID_TOKEN',
         cookies: 0,
-        counts: { users: 0, sessions: 0, verifications: 0 },
+        counts: { users: 0, sessions: 0, verifications: 0, passkeys: 0 },
         offersResend: true,
         autoSent: 0,
         noStore: 'no-store',

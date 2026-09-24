@@ -1,13 +1,12 @@
 {
   "path": ["."],
-  "pattern": "{apps/*/src,apps/*/integration,packages/*/src,packages/*/scripts,scripts,scenarios}/**/*",
+  "pattern": "{apps/*/src,packages/*/src,packages/*/scripts,scripts,scenarios}/**/*",
   "format": ["typescript", "tsx", "javascript", "jsx", "css"],
   "minTokens": 50,
   "minLines": 5,
   "ignore": [
     "**/*.test.ts",
     "**/*.test.tsx",
-    "**/*.integration.ts",
     "**/*.e2e.ts",
     "**/*.test-support.ts",
     "**/test-support/**",

@@ -5,6 +5,16 @@ import { createTestRedis } from './test-support';
 
 setupRitewayBun();
 
+/** The script loads and EVALSHA calls among the recorded commands. */
+const scriptCommands = (
+  commands: ReadonlyArray<{ command: string; args: readonly string[] }>,
+) => ({
+  loads: commands.filter(
+    ({ command, args }) => command === 'SCRIPT' && args[0] === 'LOAD',
+  ),
+  evalshas: commands.filter(({ command }) => command === 'EVALSHA'),
+});
+
 describe('presence lease upsert', () => {
   test('loads the script once and runs it by SHA1, over three namespaced keys with the TTL, actorId, activity, instanceId and connId; no client-computed score or now', async () => {
     const actorId = createId();
@@ -18,10 +28,7 @@ describe('presence lease upsert', () => {
       },
       60,
     );
-    const loads = commands.filter(
-      ({ command, args }) => command === 'SCRIPT' && args[0] === 'LOAD',
-    );
-    const evalshas = commands.filter(({ command }) => command === 'EVALSHA');
+    const { loads, evalshas } = scriptCommands(commands);
     const evals = commands.filter(({ command }) => command === 'EVAL');
     assert({
       given: 'a presence lease upsert',
@@ -58,10 +65,7 @@ describe('presence lease upsert', () => {
       { connId: 'conn1', actorId, instanceId: 'inst1', activity: 'active' },
       60,
     );
-    const loads = commands.filter(
-      ({ command, args }) => command === 'SCRIPT' && args[0] === 'LOAD',
-    );
-    const evalshas = commands.filter(({ command }) => command === 'EVALSHA');
+    const { loads, evalshas } = scriptCommands(commands);
     assert({
       given: 'a NOSCRIPT error on the first EVALSHA',
       should: 'reload the script and retry exactly once, succeeding',

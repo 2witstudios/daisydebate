@@ -5,9 +5,29 @@ import {
   requestId,
   withSpan,
 } from '@daisy/observability';
+import type { Identity } from '@daisy/auth';
 import type { Logger } from '@daisy/logger';
 import { type ZodType } from 'zod';
 import { CLIENT_ID_HASH_HEADER } from '../features/auth/client-ip';
+
+/** An `Identity` once anonymous and unavailable are ruled out. */
+export type SignedInIdentity = Extract<
+  Identity,
+  { state: 'provisional' | 'member' }
+>;
+
+/**
+ * The Principal half of ADR 0020's gates, common to every route that needs
+ * a session at all: a session-store outage is retryable (`INFRASTRUCTURE`),
+ * never "signed out"; an anonymous visitor is `AUTHENTICATION`. A route
+ * that requires a full member (not merely signed in) narrows the result
+ * itself.
+ */
+export function requireSignedIn(identity: Identity): SignedInIdentity {
+  if (identity.state === 'unavailable') throw createAppError('INFRASTRUCTURE');
+  if (identity.state === 'anonymous') throw createAppError('AUTHENTICATION');
+  return identity;
+}
 
 /** Single trust-boundary entry for untrusted payloads; failures map to VALIDATION. */
 export function parseValidated<T>(schema: ZodType<T>, input: unknown): T {

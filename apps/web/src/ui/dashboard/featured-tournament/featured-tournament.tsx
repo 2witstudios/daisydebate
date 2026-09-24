@@ -64,9 +64,10 @@ export function FeaturedTournament() {
         <Image
           src={art.earthNight.src}
           alt=""
-          fill
+          width={art.earthNight.width}
+          height={art.earthNight.height}
           sizes="(max-width: 900px) 100vw, 460px"
-          className="object-cover object-tournament-art"
+          className="absolute inset-0 size-full object-cover object-tournament-art"
         />
       </div>
     </section>

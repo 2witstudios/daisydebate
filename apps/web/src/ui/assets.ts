@@ -7,19 +7,31 @@ export type ArtKey = 'heroRidge' | 'earthNight' | 'quoteRidge';
 
 export const art: Record<
   ArtKey,
-  { readonly src: string; readonly alt: string }
+  {
+    readonly src: string;
+    readonly alt: string;
+    /** Intrinsic pixel size: the image stays in flow before CSS applies. */
+    readonly width: number;
+    readonly height: number;
+  }
 > = {
   heroRidge: {
     src: '/images/hero-ridge.jpg',
     alt: 'A green mountain ridge at dawn with rolling fog',
+    width: 2200,
+    height: 1311,
   },
   earthNight: {
     src: '/images/earth-night.jpg',
     alt: 'Earth at night seen from orbit, city lights glowing',
+    width: 1600,
+    height: 1065,
   },
   quoteRidge: {
     src: '/images/hero-ridge.jpg',
     alt: 'A green mountain ridge under fog',
+    width: 2200,
+    height: 1311,
   },
 };
 

@@ -1,6 +1,8 @@
+import { dispatchDocumentationEvent } from './docs-consult';
+import type { ConsultOptions } from './docs-consult-options';
 import { createDocumentationEvent } from './docs-pipeline';
 
-// Shared fixtures for the docs-consult suites (jscpd ignores *.test-support.ts).
+// Shared fixtures for the docs-consult suites.
 
 export const CUID2 = /^[a-z][a-z0-9]{1,31}$/;
 
@@ -177,3 +179,20 @@ export const failureOf = async (dispatch: Promise<unknown>) => {
     return (error as Error).message;
   }
 };
+
+/**
+ * The message a technical-docs dispatch through `fetchImpl` fails with (or
+ * 'no throw'), polling instantly; `options` override anything else.
+ */
+export const technicalDispatchFailure = (
+  fetchImpl: typeof fetch,
+  options: ConsultOptions = {},
+) =>
+  failureOf(
+    dispatchDocumentationEvent(mergeEvent('fix: only technical'), {
+      ...baseOptions,
+      ...instant,
+      fetchImpl,
+      ...options,
+    }),
+  );

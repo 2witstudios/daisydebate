@@ -1,19 +1,11 @@
 import { SQL } from 'bun';
+import { requireTestServices } from '@daisy/config';
 import { systemClock, systemId } from '@daisy/clock';
 import { createRealtimeApp } from '../src/app';
 import { serveRealtime } from '../src/serve';
 import type { OutboxRowsSink } from '../src/outbox-drain';
 
-function requiredEnv(name: 'TEST_DATABASE_URL' | 'TEST_REDIS_URL'): string {
-  const value = process.env[name];
-  if (!value)
-    throw new Error(
-      `apps/realtime integration tests require TEST_DATABASE_URL and TEST_REDIS_URL (missing ${name})`,
-    );
-  return value;
-}
-export const databaseUrl = requiredEnv('TEST_DATABASE_URL');
-const redisUrl = requiredEnv('TEST_REDIS_URL');
+export const { databaseUrl, redisUrl } = requireTestServices(process.env);
 
 /**
  * A real Bun.serve server on this test's own realtime app (its own env and
@@ -72,13 +64,6 @@ export async function bootServer(
     },
   };
 }
-
-export const awaitClose = (ws: WebSocket) =>
-  new Promise<{ code: number; reason: string }>((resolve) => {
-    ws.addEventListener('close', (event) =>
-      resolve({ code: event.code, reason: event.reason }),
-    );
-  });
 
 export const waitFor = async (
   check: () => boolean,

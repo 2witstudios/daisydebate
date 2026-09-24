@@ -1,18 +1,11 @@
-import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { signJWT, verifyJWT } from 'better-auth/crypto';
 import { buildUserInboxTopic } from '@daisy/protocol';
 import { createPasskeyFlows } from './auth-passkey-flows';
-import { trackedSignUp } from './auth-outbox-helpers';
-import {
-  cookieHeader,
-  origin,
-  withSql,
-  type CapturedMail,
-} from './auth-mounted-helpers';
-import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+import { cookieHeader, emailOf, userIdOf, withSql } from './fixtures';
 import { EMAIL_VERIFICATION_EXPIRES_IN_SECONDS } from '../src/features/auth/server';
+import { requireTestServices } from '@daisy/config';
 
 /**
  * Stage 5 review follow-ups for AUTH-5.6: expired verification tokens and
@@ -20,52 +13,11 @@ import { EMAIL_VERIFICATION_EXPIRES_IN_SECONDS } from '../src/features/auth/serv
  * `auth-email-change.integration.ts` to keep each file under the lint's
  * line limit.
  */
-if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
-  throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
+requireTestServices(process.env);
 setupRitewayBun();
 
 const flows = await createPasskeyFlows();
-const { newClient } = flows.account.flows;
-const confirmEmailRoute = flows.account.flows.testApp.routes.confirmEmail;
-
-const linkFrom = (mail: CapturedMail): URL => {
-  const found = mail.text.match(/https?:\/\/\S+/)?.[0];
-  if (!found) throw new Error('No link in captured mail');
-  return new URL(found);
-};
-
-const confirmPost = (token: string, callbackURL = '/settings/security') =>
-  confirmEmailRoute.POST(
-    new Request(`${origin}/auth/confirm-email`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/x-www-form-urlencoded',
-        origin,
-        [CLIENT_IP_HEADER]: newClient(),
-      },
-      body: new URLSearchParams({ token, callbackURL }).toString(),
-    }),
-  );
-
-const tokenOf = (link: URL) => link.searchParams.get('token') ?? '';
-
-const isAuthenticated = async (cookie: string): Promise<boolean> =>
-  (await (
-    await flows.get('/api/auth/get-session?disableCookieCache=true', cookie)
-  ).json()) !== null;
-
-const emailOf = (userId: string) =>
-  withSql((sql) => sql`SELECT email FROM users WHERE id = ${userId}`).then(
-    (rows) => rows[0]?.email as string | undefined,
-  );
-
-const userIdOf = (email: string) =>
-  withSql((sql) => sql`SELECT id FROM users WHERE email = ${email}`).then(
-    (rows) => rows[0]?.id as string | undefined,
-  );
-
-const { signUp, cleanup } = trackedSignUp(flows.account.signUp, userIdOf);
-afterAll(cleanup);
+const { signUp } = flows.account;
 
 describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () => {
   test('an expired verification token is rejected server-side and changes nothing', async () => {
@@ -83,9 +35,9 @@ describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () 
     // isolating the expiry check from every other rejection reason.
     const expiredToken = await signJWT(payload, secret, -60);
     const validToken = await signJWT(payload, secret, 60);
-    const expiredAttempt = await confirmPost(expiredToken);
+    const expiredAttempt = await flows.confirmEmailPost(expiredToken);
     const emailAfterExpired = await emailOf(uid);
-    const validAttempt = await confirmPost(validToken);
+    const validAttempt = await flows.confirmEmailPost(validToken);
     assert({
       given:
         'a correctly signed but already-expired email-change verification token, next to an equivalent unexpired one',
@@ -108,13 +60,7 @@ describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () 
 
   test('the real second-hop verification token is minted with the configured lifetime', async () => {
     const { email, cookie } = await signUp();
-    const before = flows.account.flows.mailbox.mails.length;
-    const newEmail = `${createId()}@example.test`;
-    await flows.changeEmail(cookie, newEmail);
-    const confirmMail = flows.account.flows.mailbox.mails[before];
-    await confirmPost(tokenOf(linkFrom(confirmMail!)));
-    const verifyMail = flows.account.flows.mailbox.mails[before + 1];
-    const verifyToken = tokenOf(linkFrom(verifyMail!));
+    const { verifyToken } = await flows.confirmedEmailChange(cookie);
     const secret = flows.account.flows.app.auth().config.BETTER_AUTH_SECRET;
     const payload = await verifyJWT<{ iat: number; exp: number }>(
       verifyToken,
@@ -146,17 +92,10 @@ describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () 
     // separate pooled connection with its own transaction id and turns this
     // red without needing any forced failure.
     const { email, cookie } = await signUp();
-    const { requestLink, redeem } = flows.account.flows;
-    const { link } = await requestLink(email);
-    const otherToken = new URL(link as URL).searchParams.get('token') ?? '';
+    const { redeem } = flows.account.flows;
+    const otherToken = await flows.account.flows.linkTokenFor(email);
     await redeem(otherToken);
-    const before = flows.account.flows.mailbox.mails.length;
-    const newEmail = `${createId()}@example.test`;
-    await flows.changeEmail(cookie, newEmail);
-    const confirmMail = flows.account.flows.mailbox.mails[before];
-    await confirmPost(tokenOf(linkFrom(confirmMail!)));
-    const verifyMail = flows.account.flows.mailbox.mails[before + 1];
-    const verifyToken = tokenOf(linkFrom(verifyMail!));
+    const { verifyToken } = await flows.confirmedEmailChange(cookie);
 
     const uid = (await userIdOf(email)) ?? '';
     const actorId = createId();
@@ -189,7 +128,7 @@ describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () 
 
     let completion: Response;
     try {
-      completion = await confirmPost(verifyToken);
+      completion = await flows.confirmEmailPost(verifyToken);
     } finally {
       await withSql((sql) =>
         sql.unsafe(`drop trigger if exists "${fnName}_trigger" on session`),
@@ -238,17 +177,9 @@ describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () 
 
   test('a session committed while the completion is still in flight does not survive the atomic revocation', async () => {
     const { email, cookie } = await signUp();
-    const { requestLink, redeem, app } = flows.account.flows;
-    const { link } = await requestLink(email);
-    const concurrentToken =
-      new URL(link as URL).searchParams.get('token') ?? '';
-    const before = flows.account.flows.mailbox.mails.length;
-    const newEmail = `${createId()}@example.test`;
-    await flows.changeEmail(cookie, newEmail);
-    const confirmMail = flows.account.flows.mailbox.mails[before];
-    await confirmPost(tokenOf(linkFrom(confirmMail!)));
-    const verifyMail = flows.account.flows.mailbox.mails[before + 1];
-    const verifyToken = tokenOf(linkFrom(verifyMail!));
+    const { redeem, app } = flows.account.flows;
+    const concurrentToken = await flows.account.flows.linkTokenFor(email);
+    const { verifyToken } = await flows.confirmedEmailChange(cookie);
 
     // A bare `Promise.all` race is nondeterministic about which pipeline
     // reaches the database first, so asserting on it either way would be
@@ -280,7 +211,7 @@ describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () 
           releaseRevoke();
           return response;
         }),
-        confirmPost(verifyToken),
+        flows.confirmEmailPost(verifyToken),
       ]);
       const concurrentCookie = cookieHeader(concurrentSignIn);
 
@@ -292,7 +223,7 @@ describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () 
           completionRedirected: completion.status,
           concurrentSessionIssued: concurrentCookie.length > 0,
           concurrentSessionAuthenticated:
-            await isAuthenticated(concurrentCookie),
+            await flows.isAuthenticated(concurrentCookie),
         },
         expected: {
           completionRedirected: 303,

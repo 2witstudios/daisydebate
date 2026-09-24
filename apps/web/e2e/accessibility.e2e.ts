@@ -6,6 +6,9 @@ import {
   resetRateLimits,
   signUpMember,
   uniqueName,
+  confirmSignIn,
+  reachOnboarding,
+  requestSignInLink,
 } from './support/accounts';
 
 /**
@@ -68,11 +71,7 @@ test('sign-in (pending confirmation state) has no serious or critical accessibil
   page,
 }) => {
   await page.goto('/sign-in');
-  await page.getByLabel('Email').fill(freshEmail());
-  await page.getByRole('button', { name: 'Continue' }).click();
-  await expect(
-    page.getByRole('heading', { name: /check your inbox/i }),
-  ).toBeVisible();
+  await requestSignInLink(page, freshEmail());
   await assertNoSeriousFindings(page);
 });
 
@@ -80,13 +79,7 @@ test('username onboarding has no serious or critical accessibility findings', as
   page,
   request,
 }) => {
-  const email = freshEmail();
-  await page.goto('/sign-in');
-  await page.getByLabel('Email').fill(email);
-  await page.getByRole('button', { name: 'Continue' }).click();
-  await page.goto(await emailedLink(request, email));
-  await page.getByRole('button', { name: 'Sign in to Daisy' }).click();
-  await expect(page).toHaveURL(/\/onboarding\/username/);
+  await reachOnboarding(page, request);
   await assertNoSeriousFindings(page);
 
   // A recoverable validation error is also part of this screen's contract.
@@ -110,11 +103,9 @@ test('an expired confirmation link has no serious or critical accessibility find
 }) => {
   const email = freshEmail();
   await page.goto('/sign-in');
-  await page.getByLabel('Email').fill(email);
-  await page.getByRole('button', { name: 'Continue' }).click();
+  await requestSignInLink(page, email);
   const link = await emailedLink(request, email);
-  await page.goto(link);
-  await page.getByRole('button', { name: 'Sign in to Daisy' }).click();
+  await confirmSignIn(page, link);
   await page.context().clearCookies();
   // A redeemed link revisited looks the same as an expired one to the user.
   await page.goto(link);
@@ -130,14 +121,11 @@ test('username onboarding is fully usable by keyboard alone, with visible focus'
   request,
   browserName,
 }) => {
-  const email = freshEmail();
-  await page.goto('/sign-in');
-  await page.getByLabel('Email').fill(email);
-  await page.getByRole('button', { name: 'Continue' }).click();
-  await page.goto(await emailedLink(request, email));
-  await page.getByRole('button', { name: 'Sign in to Daisy' }).click();
-  await expect(page).toHaveURL(/\/onboarding\/username/);
+  await reachOnboarding(page, request);
 
+  // The shell streams in behind the root loading boundary and is revealed
+  // a moment later; focus the field only once it is the visible one.
+  await expect(page.getByLabel('Username')).toBeVisible();
   await page.getByLabel('Username').focus();
   await expect(page.getByLabel('Username')).toBeFocused();
   await page.keyboard.type(uniqueName('kbd'));
@@ -169,6 +157,10 @@ test('account security settings is operable by keyboard alone', async ({
   await page.goto('/settings/security');
 
   const newEmail = freshEmail();
+  // ISSUE-45: the settings page streams in behind the root loading boundary
+  // and React reveals it a moment later; a focus sent before that lands on
+  // the still-hidden copy and is lost. Focus the field once it is visible.
+  await expect(page.getByLabel('New email address')).toBeVisible();
   await page.getByLabel('New email address').focus();
   await expect(page.getByLabel('New email address')).toBeFocused();
   await page.keyboard.type(newEmail);

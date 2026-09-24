@@ -38,73 +38,26 @@ describe('repository ESLint configuration', () => {
       ],
     });
   });
-
-  test('rejects `export *`, the barrel AGENTS.md forbids (RT-2.1c AC2)', async () => {
-    const eslint = new ESLint({
-      cwd: process.cwd(),
-      overrideConfigFile: './eslint.config.mjs',
-    });
-    const [result] = await eslint.lintText("export * from './realtime';", {
-      filePath: 'packages/protocol/src/index.ts',
-    });
-
-    assert({
-      given: 'an `export * from` reintroduced into a workspace source file',
-      should: 'report one no-restricted-syntax error for the wildcard export',
-      actual: result.messages.map(({ ruleId, severity }) => ({
-        ruleId,
-        severity,
-      })),
-      expected: [{ ruleId: 'no-restricted-syntax', severity: 2 }],
-    });
-  });
-
-  test('accepts named re-exports, the pattern `export *` would replace', async () => {
-    const eslint = new ESLint({
-      cwd: process.cwd(),
-      overrideConfigFile: './eslint.config.mjs',
-    });
-    const [result] = await eslint.lintText(
-      "export { parseTopic } from './realtime';",
-      { filePath: 'packages/protocol/src/index.ts' },
-    );
-
-    assert({
-      given: 'the named re-export form the codebase actually uses',
-      should: 'report nothing',
-      actual: result.messages.map(({ ruleId }) => ruleId),
-      expected: [],
-    });
-  });
-
-  test('still rejects `export *` inside the ambient-time exemption paths (RT-2.1c AC6, revision 4.13)', async () => {
-    const eslint = new ESLint({
-      cwd: process.cwd(),
-      overrideConfigFile: './eslint.config.mjs',
-    });
-    const [result] = await eslint.lintText("export * from './index';", {
-      filePath: 'packages/clock/src/index.ts',
-    });
-
-    assert({
-      given:
-        'an `export * from` inside packages/clock, whose ambient-time exemption turns off the rest of no-restricted-syntax',
-      should:
-        'still report the wildcard export: the exemption never covers ExportAllDeclaration',
-      actual: result.messages.map(({ ruleId, severity }) => ({
-        ruleId,
-        severity,
-      })),
-      expected: [{ ruleId: 'no-restricted-syntax', severity: 2 }],
-    });
-  });
 });
 
-/** The rule id of each problem ESLint reports for `code` at `filePath`. */
-const ruleIds = async (code: string, filePath: string) => {
+/** Each problem ESLint reports for `code` at `filePath`, with its severity. */
+const problems = async (code: string, filePath: string) => {
   const [result] = await repositoryEslint().lintText(code, { filePath });
-  return (result?.messages ?? []).map(({ ruleId }) => ruleId);
+  return (result?.messages ?? []).map(({ ruleId, severity }) => ({
+    ruleId,
+    severity,
+  }));
 };
+/** The rule id of each problem ESLint reports for `code` at `filePath`. */
+const ruleIds = async (code: string, filePath: string) =>
+  (await problems(code, filePath)).map(({ ruleId }) => ruleId);
+type Problems = readonly [code: string, filePath: string, errors: number];
+const table = (cases: readonly Problems[]) => ({
+  actual: Promise.all(cases.map(([code, path]) => problems(code, path))),
+  expected: cases.map(([, , errors]) =>
+    Array(errors).fill({ ruleId: 'no-restricted-syntax', severity: 2 }),
+  ),
+});
 
 type Case = readonly [code: string, filePath: string, ruleIds: string[]];
 const outcomes = (cases: readonly Case[]) =>
@@ -321,6 +274,53 @@ describe('token-locked Tailwind lint rules (ADR 0028)', () => {
         'better-tailwindcss/no-unknown-classes',
         'better-tailwindcss/no-restricted-classes',
       ],
+    });
+  });
+});
+
+describe('restrictions every no-restricted-syntax list carries', () => {
+  test('rejects `export *` everywhere, the ambient-time exemption included (RT-2.1c AC2, AC6)', async () => {
+    const { actual, expected } = table([
+      ["export * from './realtime';", 'packages/protocol/src/index.ts', 1],
+      ["export * from './index';", 'packages/clock/src/index.ts', 1],
+      ["export { parseTopic } from './realtime';", web('x.ts'), 0],
+    ]);
+    assert({
+      given:
+        'a wildcard export in a source file and in packages/clock (whose exemption turns off the rest of no-restricted-syntax), and a named re-export',
+      should:
+        'report each wildcard export as an error and the named form not at all',
+      actual: await actual,
+      expected,
+    });
+  });
+
+  test('rejects an argument-less toThrow in every kind of suite (ISSUE-11)', async () => {
+    const [bare, named] = [
+      ['', ''],
+      ["'refused'", 'TypeError'],
+    ].map(
+      ([message, type]) =>
+        `import { expect } from 'bun:test';\nawait expect(async () => {}).rejects.toThrow(${message});\nexpect(() => {}).toThrowError(${type});\nexpect(() => {}).not.toThrow();`,
+    ) as [string, string];
+    const suites = [
+      web('server/x.test.ts'),
+      'packages/db/integration/x.integration.ts',
+      'apps/web/integration/x.integration.ts',
+      'apps/web/e2e/x.e2e.ts',
+      'scripts/x.test.ts',
+    ];
+    const { actual, expected } = table([
+      ...suites.map((suite): Problems => [bare, suite, 2]),
+      [named, web('server/x.test.ts'), 0],
+    ]);
+    assert({
+      given:
+        'unit, integration, e2e and script suites asserting a bare toThrow, one naming the error, and a strict not.toThrow()',
+      should:
+        'report each bare toThrow as an error and the named and negated ones not at all',
+      actual: await actual,
+      expected,
     });
   });
 });

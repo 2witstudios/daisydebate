@@ -63,6 +63,9 @@ test.describe('dashboard shell chrome', () => {
     await page.goto('/');
     const lobby = page.locator('nav[aria-label="Primary"] a[href="/lobby"]');
     await expect(lobby).not.toBeVisible();
+    await expect(
+      page.getByRole('link', { name: 'Play / Lobby' }),
+    ).toBeVisible();
     await page.getByRole('link', { name: 'Play / Lobby' }).focus();
     await expect(lobby).toBeVisible();
   });

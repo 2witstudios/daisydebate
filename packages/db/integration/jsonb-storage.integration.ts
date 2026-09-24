@@ -9,17 +9,18 @@ import { eq } from 'drizzle-orm';
 import { isAppError } from '@daisy/errors';
 import { ballots } from '../src/schema/ballots';
 import { debateCommands } from '../src/schema/debate-commands';
-import { at, digest, snapshotFor, withFixture } from './constraint-helpers';
+import {
+  at,
+  debateAuthoring,
+  digest,
+  snapshotFor,
+  withFixture,
+} from './constraint-helpers';
+import { requireTestServices } from '@daisy/config';
 
 setupRitewayBun();
 
-const url = process.env.TEST_DATABASE_URL;
-if (!url)
-  throw new Error(
-    'TEST_DATABASE_URL required; never use application database for tests',
-  );
-if (!new URL(url).pathname.endsWith('_test'))
-  throw new Error('Test database name must end in _test');
+const { databaseUrl: url } = requireTestServices(process.env);
 
 /**
  * ISSUE-4: drizzle-orm 0.45.2's built-in `jsonb()` double-encodes every
@@ -31,66 +32,53 @@ if (!new URL(url).pathname.endsWith('_test'))
  * the bug (that is why `db.integration.ts`'s `snapshot` equality check
  * alone does not catch this).
  */
-test('createDebate and saveSnapshot store snapshot as a real jsonb object, not a double-encoded string', async () => {
-  const id = createId();
-  const userId = createId();
-  const actorId = createId();
-  const formatId = `fmt-${createId()}`;
-  const database = createDatabase({ url, nextActorId: createId });
-  const fixture = new SQL(url);
-  const testOnly = createTestOnlyOperations({ client: fixture });
-  try {
-    await testOnly.createUser({ id: userId, username: `test-${userId}` });
-    await fixture`insert into actors (id, kind, user_id) values (${actorId}, 'human', ${userId})`;
-    await fixture`insert into formats (id, name, rules, ranked_eligible) values (${formatId}, 'Fixture', '{"version":1,"seats":{"affirmative":1,"negative":1,"judge":0},"clock":{"speechMs":1000,"prepMs":0}}'::jsonb, false)`;
-    await database.createDebate({
-      id,
-      createdBy: actorId,
-      resolution: 'jsonb storage proof',
-      format: formatId,
-      snapshot: snapshotFor(id, { format: formatId }),
-      mode: 'casual',
-      visibility: 'unlisted',
-    });
-    const [afterCreate] = await fixture`
-      select jsonb_typeof(snapshot) as type, snapshot->>'phase' as phase
-      from debates where id = ${id}
-    `;
-    await testOnly.saveSnapshot({
-      id,
-      expectedVersion: 1,
-      snapshot: snapshotFor(id, { format: formatId, phase: 'active' }),
-      updatedAt: '2026-01-01T00:00:00.000Z',
-    });
-    const [afterSave] = await fixture`
-      select jsonb_typeof(snapshot) as type, snapshot->>'phase' as phase
-      from debates where id = ${id}
-    `;
-    assert({
-      given: 'createDebate followed by saveSnapshot',
-      should:
-        'store snapshot as a jsonb object whose phase key is reachable with ->>, not a double-encoded string',
-      actual: {
-        afterCreate: { type: afterCreate?.type, phase: afterCreate?.phase },
-        afterSave: { type: afterSave?.type, phase: afterSave?.phase },
-      },
-      expected: {
-        afterCreate: { type: 'object', phase: 'waiting' },
-        afterSave: { type: 'object', phase: 'active' },
-      },
-    });
-  } finally {
-    await database.close();
+test('createDebate and saveSnapshot store snapshot as a real jsonb object, not a double-encoded string', () =>
+  withFixture(url, async (fixture) => {
+    const { id, actorId, formatId, database, testOnly } = await debateAuthoring(
+      fixture,
+      url,
+    );
     try {
-      await fixture`delete from debates where id = ${id}`;
-      await fixture`delete from actors where id = ${actorId}`;
-      await fixture`delete from users where id = ${userId}`;
-      await fixture`delete from formats where id = ${formatId}`;
+      await database.createDebate({
+        id,
+        createdBy: actorId,
+        resolution: 'jsonb storage proof',
+        format: formatId,
+        snapshot: snapshotFor(id, { format: formatId }),
+        mode: 'casual',
+        visibility: 'unlisted',
+      });
+      const [afterCreate] = await fixture.sql`
+      select jsonb_typeof(snapshot) as type, snapshot->>'phase' as phase
+      from debates where id = ${id}
+    `;
+      await testOnly.saveSnapshot({
+        id,
+        expectedVersion: 1,
+        snapshot: snapshotFor(id, { format: formatId, phase: 'active' }),
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      });
+      const [afterSave] = await fixture.sql`
+      select jsonb_typeof(snapshot) as type, snapshot->>'phase' as phase
+      from debates where id = ${id}
+    `;
+      assert({
+        given: 'createDebate followed by saveSnapshot',
+        should:
+          'store snapshot as a jsonb object whose phase key is reachable with ->>, not a double-encoded string',
+        actual: {
+          afterCreate: { type: afterCreate?.type, phase: afterCreate?.phase },
+          afterSave: { type: afterSave?.type, phase: afterSave?.phase },
+        },
+        expected: {
+          afterCreate: { type: 'object', phase: 'waiting' },
+          afterSave: { type: 'object', phase: 'active' },
+        },
+      });
     } finally {
-      await fixture.close();
+      await database.close();
     }
-  }
-});
+  }));
 
 test('appendOutboxEvent stores payload as a real jsonb object, not a double-encoded string', async () => {
   const fixture = new SQL(url);

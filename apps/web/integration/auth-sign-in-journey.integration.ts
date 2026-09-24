@@ -1,26 +1,24 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   createAccountFlows,
-  sessionCount,
   uniqueName,
   usernameOf,
 } from './auth-account-helpers';
-import { withSql } from './auth-mounted-helpers';
+import { counts, tokenOf, withSql } from './fixtures';
 import { decideAccess } from '../src/features/access/decision';
 import { sessionRefreshDue } from '../src/features/auth/session-policy';
+import { requireTestServices } from '@daisy/config';
 
-if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
-  throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
+requireTestServices(process.env);
 setupRitewayBun();
 const { flows, identifyAs, sessionAs, signUp, claim } = createAccountFlows();
 const { requestLink, redeem, session, newClient } = flows;
 const { redisKeys } = flows.testApp;
-const tokenOf = (link: URL) => link.searchParams.get('token') ?? '';
 
 describe('AUTH-4.4 / 4.2 sign-in loop through the real handlers', () => {
   test('request → emailed link → confirm → durable session → username → participant access', async () => {
     const { email, response, cookie } = await signUp();
-    const sessionRows = await sessionCount(email);
+    const sessionRows = (await counts(email)).sessions;
     const provisional = await identifyAs(cookie);
     const beforeAccess = decideAccess({
       identity: provisional,
@@ -76,7 +74,7 @@ describe('AUTH-4.4 / 4.2 sign-in loop through the real handlers', () => {
   test('replaying a redeemed link is rejected and mints no session', async () => {
     const { email, token } = await signUp();
     const replay = await redeem(token);
-    const sessions = await sessionCount(email);
+    const sessions = (await counts(email)).sessions;
     assert({
       given: 'the same emailed link redeemed a second time',
       should:

@@ -1,29 +1,10 @@
-import { SQL } from 'bun';
-import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createDatabase } from '../src';
-import { createTestOnlyOperations } from '../src/test-only-operations';
-import { snapshotFor } from './constraint-helpers';
+import { seatedDebate, snapshotOf } from './constraint-helpers';
+import { requireTestServices } from '@daisy/config';
 
 setupRitewayBun();
 
-const url = process.env.TEST_DATABASE_URL;
-if (!url)
-  throw new Error(
-    'TEST_DATABASE_URL required; never use application database for tests',
-  );
-if (!new URL(url).pathname.endsWith('_test'))
-  throw new Error('Test database name must end in _test');
-
-const snapshotOf = (
-  id: string,
-  phase: 'waiting' | 'active' | 'completed',
-  participants: ReadonlyArray<{
-    id: string;
-    side: 'affirmative' | 'negative';
-    ready: boolean;
-  }>,
-) => snapshotFor(id, { phase, participants });
+const { databaseUrl: url } = requireTestServices(process.env);
 
 /**
  * ISSUE-37 (ADR 0033 §3.2): every competitive time is PostgreSQL time. The
@@ -31,12 +12,14 @@ const snapshotOf = (
  * stamp that followed the caller would land in 2001.
  */
 test('started_at, completed_at and joined_at follow the database clock, never the caller', async () => {
-  const fixture = new SQL(url, { max: 1 });
-  const database = createDatabase({ url, nextActorId: createId });
-  const testOnly = createTestOnlyOperations({ client: fixture });
-  const debateId = createId();
-  const users = [createId(), createId()];
-  const [first, second] = [createId(), createId()];
+  const {
+    fixture,
+    database,
+    testOnly,
+    debateId,
+    actors: [first, second],
+    cleanup,
+  } = await seatedDebate(url, 2);
   const callerTime = '2001-01-01T00:00:00.000Z';
   const databaseNow = async () => {
     const [row] = await fixture`select statement_timestamp() as now`;
@@ -58,10 +41,6 @@ test('started_at, completed_at and joined_at follow the database clock, never th
   const within = (at: Date | null | undefined, from: number, to: number) =>
     at instanceof Date && at.getTime() >= from && at.getTime() <= to;
   try {
-    for (const [index, actorId] of [first, second].entries()) {
-      await fixture`insert into users (id) values (${users[index]})`;
-      await fixture`insert into actors (id, kind, user_id) values (${actorId}, 'human', ${users[index]})`;
-    }
     const beforeCreate = await databaseNow();
     await database.createDebate({
       id: debateId,
@@ -147,10 +126,6 @@ test('started_at, completed_at and joined_at follow the database clock, never th
       },
     });
   } finally {
-    await database.close();
-    await fixture`delete from debates where id = ${debateId}`;
-    await fixture`delete from actors where id in ${fixture([first!, second!])}`;
-    await fixture`delete from users where id in ${fixture(users)}`;
-    await fixture.close();
+    await cleanup();
   }
 });

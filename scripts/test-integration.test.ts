@@ -15,11 +15,13 @@ setupRitewayBun();
 describe('integration suite discovery', () => {
   test('finds suites by folder and suffix, in a stable order', () => {
     assert({
-      given: 'files under integration/ and elsewhere',
+      given:
+        'files under integration/ and elsewhere, and an old .integration.test.ts name',
       should: 'keep integration suites only, sorted',
       actual: integrationSuites([
         'integration/redis.integration.ts',
-        'integration/seed.integration.test.ts',
+        'integration/seed.integration.ts',
+        'integration/legacy.integration.test.ts',
         'integration/webauthn-authenticator.smoke.integration.ts',
         'integration/support/fixtures.ts',
         'src/index.test.ts',
@@ -28,7 +30,7 @@ describe('integration suite discovery', () => {
       expected: [
         'integration/nested/outbox.integration.ts',
         'integration/redis.integration.ts',
-        'integration/seed.integration.test.ts',
+        'integration/seed.integration.ts',
         'integration/webauthn-authenticator.smoke.integration.ts',
       ],
     });

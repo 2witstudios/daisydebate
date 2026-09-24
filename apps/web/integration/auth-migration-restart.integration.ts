@@ -1,12 +1,14 @@
-import { afterAll, expect, test } from 'bun:test';
+import { afterAll } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
+import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { Identity } from '@daisy/auth';
 import { systemClock, systemId } from '@daisy/clock';
 import { createPasskeyFlows } from './auth-passkey-flows';
-import { testDatabaseUrl, withSql } from './auth-mounted-helpers';
+import { counts, removeAccount, testDatabaseUrl, withSql } from './fixtures';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import { identify } from '../src/lib/identity';
 import { createApp } from '../src/server/app';
+import { requireTestServices } from '@daisy/config';
 
 /**
  * AUTH-6.2: proves a running app survives a migration re-application and a
@@ -15,8 +17,8 @@ import { createApp } from '../src/server/app';
  * against an empty database; this proves an *upgrade over live data* keeps
  * that data intact and the still-running app keeps serving it correctly.
  */
-if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
-  throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
+requireTestServices(process.env);
+setupRitewayBun();
 
 const flows = await createPasskeyFlows();
 const { signUp, identifyAs } = flows.account;
@@ -27,13 +29,6 @@ const userIdOf = (identity: Identity): string =>
     : (() => {
         throw new Error('expected an authenticated identity');
       })();
-
-const passkeyCount = (userId: string) =>
-  withSql(async (sql) => {
-    const [row] =
-      await sql`SELECT count(*)::int AS c FROM passkey WHERE user_id = ${userId}`;
-    return (row?.c as number) ?? 0;
-  });
 
 const debateOwner = (debateId: string) =>
   withSql(async (sql) => {
@@ -62,14 +57,18 @@ test('a migration re-application and a resource restart preserve a live session,
     `;
   });
 
-  afterAll(() =>
-    withSql(async (sql) => {
+  // ISSUE-20: the debate holds the actor, which holds the user (both
+  // RESTRICT), so this suite removes all three itself, the account keyed by
+  // the user id signUp() created, leaving nothing for a later run to count.
+  afterAll(async () => {
+    await withSql(async (sql) => {
       await sql`DELETE FROM debates WHERE id = ${debateId}`;
       await sql`DELETE FROM actors WHERE id = ${actorId}`;
-    }),
-  );
+    });
+    await removeAccount({ email, userId });
+  });
 
-  const beforePasskeys = await passkeyCount(userId);
+  const beforePasskeys = (await counts({ userId })).passkeys;
   const beforeOwner = await debateOwner(debateId);
 
   // "Migration upgrade": re-apply the already-applied migrations to
@@ -79,7 +78,7 @@ test('a migration re-application and a resource restart preserve a live session,
     env: { ...process.env, DATABASE_URL: testDatabaseUrl },
     cwd: `${import.meta.dir}/../../..`,
   });
-  expect(migrated.exitCode).toBe(0);
+  const migrationExit = migrated.exitCode;
 
   // "Application restart": close the running app's pools, then build a new
   // app from the same environment and read the session through it, exactly
@@ -98,22 +97,35 @@ test('a migration re-application and a resource restart preserve a live session,
     restarted.auth(),
     new Headers({ cookie, [CLIENT_IP_HEADER]: testApp.newClient() }),
   );
-  const afterPasskeys = await passkeyCount(userId);
+  const afterPasskeys = (await counts({ userId })).passkeys;
   const afterOwner = await debateOwner(debateId);
 
-  expect({
-    identity: after.state,
-    userId: userIdOf(after),
-    passkeys: afterPasskeys,
-    owner: afterOwner,
-  }).toEqual({
-    identity: before.state,
-    userId,
-    passkeys: beforePasskeys,
-    owner: beforeOwner,
+  assert({
+    given:
+      'a live session, an enrolled passkey and an owned debate, then a migration re-application and an app restart',
+    should:
+      'migrate cleanly and serve the same identity, passkey and debate ownership afterwards',
+    actual: {
+      migrationExit,
+      identity: after.state,
+      userId: userIdOf(after),
+      passkeys: afterPasskeys,
+      ownerBefore: beforeOwner,
+      ownerAfter: afterOwner,
+    },
+    expected: {
+      migrationExit: 0,
+      identity: before.state,
+      userId,
+      passkeys: beforePasskeys,
+      ownerBefore: { userId, phase: 'waiting' },
+      ownerAfter: { userId, phase: 'waiting' },
+    },
   });
-  expect(afterPasskeys).toBeGreaterThan(0);
-  expect(afterOwner?.userId).toBe(userId);
-
-  void email;
+  assert({
+    given: 'the passkey enrolled before the restart',
+    should: 'still be stored for the account',
+    actual: beforePasskeys,
+    expected: 1,
+  });
 });

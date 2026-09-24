@@ -4,29 +4,19 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createDatabase } from '@daisy/db';
 import type { RecordedLogs } from '../src/features/auth/log-leaks';
 import { createAuthRouteHandlers } from '../src/features/auth/handlers';
-import {
-  countFixtureRows,
-  createTestAuthServer,
-  emptyCounts,
-  fixtureEmail,
-  removeFixture,
-} from './auth-helpers';
+import { counts, emptyCounts, fixtureEmail, removeAccount } from './fixtures';
+import { createTestAuthServer, type SentMessages } from './auth-server-harness';
+import { requireTestServices } from '@daisy/config';
 
 setupRitewayBun();
 
-const url = process.env.TEST_DATABASE_URL;
-if (!url)
-  throw new Error(
-    'TEST_DATABASE_URL required; never use application database for tests',
-  );
-if (!new URL(url).pathname.endsWith('_test'))
-  throw new Error('Test database name must end in _test');
+const { databaseUrl: url } = requireTestServices(process.env);
 
 type ReportedFailure = { event: string; fields: unknown; message: string };
 
 test('delivery failure surfaces a safe retryable error and cleanup still leaves no fixture rows', async () => {
   const email = fixtureEmail();
-  const sent: import('./auth-helpers').SentMessages = [];
+  const sent: SentMessages = [];
   const database = createDatabase({ url, nextActorId: createId });
   const auth = createTestAuthServer(database.authAdapter, {
     sent,
@@ -58,13 +48,13 @@ test('delivery failure surfaces a safe retryable error and cleanup still leaves 
   } finally {
     await database.close();
     // No user id exists on this failed path; verification rows may exist.
-    await removeFixture(url, email, undefined, []);
+    await removeAccount(email);
   }
 
   assert({
     given: 'the bounded fixture cleanup after the failed request',
     should: 'leave no verification or user fixture records behind',
-    actual: await countFixtureRows(url, email, undefined),
+    actual: await counts(email),
     expected: emptyCounts,
   });
 });

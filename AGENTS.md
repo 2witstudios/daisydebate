@@ -113,16 +113,19 @@ privacy` (planned, PRIV-3) will gate undeclared or stale entries once
 - Use TDD: red, green, refactor. New behavior lands with tests in the same
   change; never skip, weaken, or disable tests.
 - Tests use RITEway's `riteway/bun` imports and call `setupRitewayBun()` once
-  per file. Prefer `assert({ given, should, actual, expected })`; use
-  `expect(...).toThrow()` or `rejects.toThrow()` only for exception paths.
-  The canonical example is `packages/debate-engine/src/engine.test.ts`.
+  per file. Prefer `assert({ given, should, actual, expected })`; assert an
+  expected `AppError` with `assertRejects` from `@daisy/errors/testing` (it
+  checks the code), and use a specific `toThrow(message)` only for other
+  exception paths, never a bare `.toThrow()`. The canonical example is
+  `packages/debate-engine/src/engine.test.ts`.
 - Inject clocks and IDs. Do not sleep-and-hope, share mutable test state, or
   point integration tests at non-test data. `TEST_DATABASE_URL` must end in
   `_test`; integration also requires `TEST_REDIS_URL`.
 - `bun run knip` is a required dead-code gate for unused files, exports, and
   dependencies. Keep `knip.jsonc` ignores limited to genuine implicit uses.
 - `bun run duplication` is a required copy-paste gate (jscpd, ADR 0026): any
-  clone of 50+ tokens that is not in `.jscpd-baseline.json` fails. When it
+  clone of 50+ tokens that is not in `.jscpd-baseline.json` fails, and tests
+  are scanned the same way against `.jscpd-tests-baseline.json`. When it
   fires, consolidate — extract the shared function, component, or data table
   into the owning module — rather than raising `minTokens`, adding an ignore,
   or re-baselining. Loosening the gate in any of those ways requires a dated

@@ -1,7 +1,8 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createFlows } from './auth-mounted-flows';
-import { counts, origin } from './auth-mounted-helpers';
+import { counts, origin } from './fixtures';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+import { requireTestServices } from '@daisy/config';
 
 /**
  * ISSUE-3: split from `auth-magic-link.integration.ts` to keep each file
@@ -9,8 +10,7 @@ import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
  * to redeem `/magic-link/verify` directly (a login-CSRF and same-origin
  * bypass), while the confirm page's internal forward still works.
  */
-if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
-  throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
+requireTestServices(process.env);
 setupRitewayBun();
 const flows = createFlows();
 const { redeem, startSignup, newClient } = flows;
@@ -40,7 +40,12 @@ describe('ISSUE-3: direct GET redemption of /magic-link/verify is refused', () =
       expected: {
         directStatus: 404,
         directCookies: 0,
-        countsAfterDirectAttempt: { users: 0, sessions: 0, verifications: 1 },
+        countsAfterDirectAttempt: {
+          users: 0,
+          sessions: 0,
+          verifications: 1,
+          passkeys: 0,
+        },
         legitimateRedemptionStatus: 303,
         legitimateCookieIssued: true,
       },

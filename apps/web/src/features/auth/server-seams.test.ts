@@ -1,26 +1,19 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { memoryAdapter } from '@better-auth/memory-adapter';
-import { fixedClock, sequentialId } from '@daisy/clock';
-import { readAuthConfig } from '@daisy/config';
 import type { Logger } from '@daisy/logger';
 import { logsLeakSecrets } from './log-leaks';
 import type { AuthRateLimiter } from './rate-limit';
-import { createAuthServer, type AuthEmailMessage } from './server';
+import {
+  authTestEnv,
+  composeAuthServer,
+  memoryTables,
+  requestLinkStatus,
+} from './auth-server.test-support';
+import type { AuthEmailMessage } from './server';
 
 setupRitewayBun();
 
-const env = {
-  NODE_ENV: 'test',
-  BETTER_AUTH_SECRET:
-    '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
-  PUBLIC_APP_URL: 'http://localhost:3000',
-  RESEND_API_KEY: 're_test_000000000000000000000000',
-  AUTH_EMAIL_FROM: 'Daisy <no-reply@daisy.example.com>',
-};
 const email = 'player@daisy.example.com';
-const allowing: AuthRateLimiter = {
-  consume: async () => ({ allowed: true, retryAfterSeconds: 0 }),
-};
 
 type Entry = readonly unknown[];
 const recordingLogger = (entries: Entry[]): Logger => ({
@@ -36,15 +29,8 @@ const compose = (overrides: {
 }) => {
   const sent: AuthEmailMessage[] = [];
   const logged: Entry[] = [];
-  const tables = {
-    user: [],
-    session: [],
-    account: [],
-    verification: [] as { id: string }[],
-    passkey: [],
-  };
-  const server = createAuthServer({
-    config: readAuthConfig(env),
+  const tables = memoryTables();
+  const server = composeAuthServer({
     database: memoryAdapter(tables),
     emailSender: {
       send: async (message) => {
@@ -52,24 +38,10 @@ const compose = (overrides: {
         sent.push(message);
       },
     },
-    limiter: overrides.limiter ?? allowing,
+    ...(overrides.limiter ? { limiter: overrides.limiter } : {}),
     logger: recordingLogger(logged),
-    clock: fixedClock('2026-09-20T00:00:00.000Z'),
-    ids: sequentialId('auth'),
-    appendSessionRevoked: async () => {},
-    revokeOtherSessions: async () => 0,
   });
-  const requestLink = async () => {
-    try {
-      await server.instance.api.signInMagicLink({
-        body: { email },
-        headers: new Headers({ origin: env.PUBLIC_APP_URL }),
-      });
-      return 'OK';
-    } catch (error) {
-      return String((error as { status?: unknown }).status);
-    }
-  };
+  const requestLink = () => requestLinkStatus(server, email);
   return { server, sent, logged, tables, requestLink };
 };
 
@@ -193,7 +165,7 @@ describe('auth server injected seams', () => {
       },
     });
     const response = await server.instance.handler(
-      new Request(`${env.PUBLIC_APP_URL}/api/auth/get-session`),
+      new Request(`${authTestEnv.PUBLIC_APP_URL}/api/auth/get-session`),
     );
     assert({
       given: 'a denied non-mail auth request through the HTTP handler',

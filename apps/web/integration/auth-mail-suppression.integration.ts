@@ -1,9 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { counts, linkFrom } from './auth-mounted-helpers';
+import { counts, linkFrom } from './fixtures';
 import { createMailSuite, providerEvent } from './auth-webhook-helpers';
+import { requireTestServices } from '@daisy/config';
 
-if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
-  throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
+requireTestServices(process.env);
 setupRitewayBun();
 const suite = createMailSuite();
 const { webhookRoute, authRoute, confirmRoute, mailbox } = suite;
@@ -56,7 +56,7 @@ describe('AUTH-3.6 suppression after hard delivery failures', () => {
         formStatus: 422,
         formGuidance: true,
         sent: 0,
-        account: { users: 1, sessions: 1, verifications: 0 },
+        account: { users: 1, sessions: 1, verifications: 0, passkeys: 0 },
       },
     });
   });

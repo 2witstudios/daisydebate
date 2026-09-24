@@ -1,5 +1,6 @@
 import { SQL } from 'bun';
 import { assert, test, setupRitewayBun } from 'riteway/bun';
+import { requireTestServices } from '@daisy/config';
 import { systemId } from '@daisy/clock';
 import type { OutboxRow } from '@daisy/db';
 import { buildDebateTopic } from '@daisy/protocol';
@@ -14,10 +15,7 @@ import {
 
 setupRitewayBun();
 
-if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
-  throw new Error(
-    'apps/realtime integration tests require TEST_DATABASE_URL and TEST_REDIS_URL',
-  );
+requireTestServices(process.env);
 
 test('a burst of notifications for many committed, distinct-payload rows produces at most 2 range queries relevant to it, never one per event', async () => {
   const delivered: OutboxRow[] = [];

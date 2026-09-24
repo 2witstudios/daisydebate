@@ -1,16 +1,11 @@
 import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createAccountFlows } from './auth-account-helpers';
-import { withSql } from './auth-mounted-helpers';
-import {
-  cleanupActorFor,
-  cleanupOutboxFor,
-  createActorFor,
-  sessionRevokedEvents,
-} from './auth-outbox-helpers';
+import { requireTestServices } from '@daisy/config';
+import { userIdOf } from './fixtures';
+import { trackRevocations } from './auth-outbox-helpers';
 
-if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
-  throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
+requireTestServices(process.env);
 setupRitewayBun();
 
 const { signUp, flows } = createAccountFlows();
@@ -129,15 +124,10 @@ describe('ISSUE-49 POST /api/account/sessions/revoke is audited', () => {
 
   test('a successful revoke logs auth.session.revoked and rings the doorbell', async () => {
     const account = await signUp();
-    const [user] = await withSql(
-      (sql) => sql`SELECT id FROM users WHERE email = ${account.email}`,
+    const revocations = await trackRevocations(
+      (await userIdOf(account.email)) ?? '',
     );
-    const userId = String(user?.id);
-    const actorId = await createActorFor(userId);
-    cleanups.push(
-      () => cleanupOutboxFor(actorId),
-      () => cleanupActorFor(userId),
-    );
+    cleanups.push(revocations.cleanup);
     const ownId =
       (
         (await (await listSessions(account.cookie)).json()) as {
@@ -157,7 +147,7 @@ describe('ISSUE-49 POST /api/account/sessions/revoke is audited', () => {
         revokedEvents: events.filter(
           (event) => event === 'auth.session.revoked',
         ).length,
-        doorbells: await sessionRevokedEvents(actorId),
+        doorbells: await revocations.appended(),
       },
       expected: { status: 200, revokedEvents: 1, doorbells: 1 },
     });

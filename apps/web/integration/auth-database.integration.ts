@@ -1,36 +1,32 @@
 import { SQL } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createId } from '@paralleldrive/cuid2';
-import { createDatabase } from '@daisy/db';
 import {
-  capturedToken,
-  countFixtureRows,
-  createTestAuthServer,
+  counts,
   emptyCounts,
-  expiresWithinMagicLinkWindow,
   fixtureEmail,
   isCuid2,
-  isDate,
+  linkFrom,
+  removeAccount,
+  tokenOf,
+} from './fixtures';
+import {
+  createDatabaseAuthServer,
+  createTestAuthServer,
   redeemMagicLink,
-  removeFixture,
-  verificationValue,
   type SentMessages,
-} from './auth-helpers';
+} from './auth-server-harness';
 import { CONFIRM_PATH } from '../src/features/auth/confirm-page';
 import {
   logsLeakSecrets,
   type RecordedLogs,
 } from '../src/features/auth/log-leaks';
+import { requireTestServices } from '@daisy/config';
 
 setupRitewayBun();
 
-const url = process.env.TEST_DATABASE_URL;
-if (!url)
-  throw new Error(
-    'TEST_DATABASE_URL required; never use application database for tests',
-  );
-if (!new URL(url).pathname.endsWith('_test'))
-  throw new Error('Test database name must end in _test');
+const { databaseUrl: url } = requireTestServices(process.env);
+
+const isDate = (value: unknown): value is Date => value instanceof Date;
 
 type RunContext = {
   auth: ReturnType<typeof createTestAuthServer>;
@@ -43,13 +39,7 @@ type RunContext = {
 /** Runs one auth server over the shared pool and cleans only its fixtures. */
 const runAuth = async (body: (context: RunContext) => Promise<void>) => {
   const email = fixtureEmail();
-  const sent: SentMessages = [];
-  const logged: RecordedLogs = [];
-  const database = createDatabase({ url, nextActorId: createId });
-  const auth = createTestAuthServer(database.authAdapter, {
-    sent,
-    recordedLogs: logged,
-  });
+  const { sent, logged, database, auth } = createDatabaseAuthServer(url);
   let userId: string | undefined;
   try {
     await body({
@@ -63,7 +53,7 @@ const runAuth = async (body: (context: RunContext) => Promise<void>) => {
     });
   } finally {
     await database.close();
-    await removeFixture(url, email, userId, []);
+    await removeAccount({ email, userId });
   }
   return { email, userId, logged };
 };
@@ -89,33 +79,36 @@ test('magic-link request persists a token-bearing verification record', async ()
 
     const probe = new SQL(url);
     try {
+      // Better Auth stamps expires_at and created_at from one clock in one
+      // call, so their difference is the link lifetime with no wall clock.
       const rows = await probe.unsafe(
-        'select id, identifier, value, expires_at from verification where value = $1',
-        [verificationValue(email)],
+        `select identifier, value,
+           round(extract(epoch from (expires_at - created_at)))::int as lifetime_seconds
+         from verification where strpos(value, $1) > 0`,
+        [email],
       );
-      const record = rows[0] as
-        | { id: string; identifier: string; value: string; expires_at: Date }
-        | undefined;
       assert({
         given: 'the durable verification record after requesting a link',
         should:
-          'carry the token in identifier, the account in value and a five-minute expiry',
-        actual: {
-          exists: record !== undefined,
-          carried: record?.value === verificationValue(email),
-          identifierIsNotTheEmail: record ? record.identifier !== email : false,
-          dateExpiry: isDate(record?.expires_at),
-          withinWindow: isDate(record?.expires_at)
-            ? expiresWithinMagicLinkWindow(record.expires_at)
-            : false,
-        },
-        expected: {
-          exists: true,
-          carried: true,
-          identifierIsNotTheEmail: true,
-          dateExpiry: true,
-          withinWindow: true,
-        },
+          'carry the account in value, a token (not the email) in identifier, and a five-minute lifetime',
+        actual: rows.map(
+          (row: {
+            identifier: string;
+            value: string;
+            lifetime_seconds: number;
+          }) => ({
+            value: JSON.parse(row.value),
+            identifierIsNotTheEmail: row.identifier !== email,
+            lifetimeSeconds: row.lifetime_seconds,
+          }),
+        ),
+        expected: [
+          {
+            value: { email },
+            identifierIsNotTheEmail: true,
+            lifetimeSeconds: 300,
+          },
+        ],
       });
     } finally {
       await probe.close();
@@ -125,7 +118,7 @@ test('magic-link request persists a token-bearing verification record', async ()
   assert({
     given: 'the bounded fixture cleanup after the request',
     should: 'leave no fixture records behind',
-    actual: await countFixtureRows(url, email, undefined),
+    actual: await counts(email),
     expected: emptyCounts,
   });
 });
@@ -283,7 +276,7 @@ test('redeeming the captured link durably creates a verified user and session', 
         actual: sent.length,
         expected: 1,
       });
-      const token = capturedToken(sent[0]!);
+      const token = tokenOf(linkFrom(sent[0]!));
 
       const sessionView = await redeemAndAssertSession(
         auth,
@@ -310,7 +303,7 @@ test('redeeming the captured link durably creates a verified user and session', 
   assert({
     given: 'the bounded fixture cleanup after the completed round trip',
     should: 'leave no user, session or verification records behind',
-    actual: await countFixtureRows(url, email, userId),
+    actual: await counts({ email, userId }),
     expected: emptyCounts,
   });
 });
