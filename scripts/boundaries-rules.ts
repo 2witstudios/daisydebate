@@ -30,7 +30,9 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
   db: ['config', 'errors', 'protocol'],
   redis: ['config', 'errors', 'protocol'],
   config: [],
-  logger: [],
+  // Test-only: the redaction tests derive their secret keys from config's
+  // schema (ADR 0019); the logger itself imports nothing from it.
+  logger: ['config'],
   observability: ['logger'],
   // ADR 0031 §12: the realtime deployment's exact ten allowed edges. It
   // never depends on `debate-engine`, `apps/web` or a third-party socket

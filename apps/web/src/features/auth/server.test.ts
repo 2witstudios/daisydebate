@@ -1,7 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { memoryAdapter } from '@better-auth/memory-adapter';
 import type { BetterAuthOptions } from 'better-auth';
-import { assertRejects } from '@daisy/errors/testing';
 import {
   authTestEnv,
   capturingSender,
@@ -18,6 +17,12 @@ const message: AuthEmailMessage = {
   text: 'Open the link to continue.',
   html: '<p>Open the link to continue.</p>',
 };
+
+const requestLink = (server: ReturnType<typeof composeAuthServer>) =>
+  server.instance.api.signInMagicLink({
+    body: { email: message.to },
+    headers: new Headers({ origin: authTestEnv.PUBLIC_APP_URL }),
+  });
 
 describe('auth server composition', () => {
   test('exposes the validated configuration it was given', () => {
@@ -76,15 +81,25 @@ describe('auth server composition', () => {
     });
   });
 
+  test('returns only the members production reads', () => {
+    assert({
+      given: 'a composed auth server',
+      should:
+        'expose config, instance, limiter, logger and clock, and no test-only mail seam',
+      actual: Object.keys(composeAuthServer()).sort(),
+      expected: ['clock', 'config', 'instance', 'limiter', 'logger'],
+    });
+  });
+
   test('delivers mail through the injected sender exactly once', async () => {
     const sender = capturingSender();
     const server = composeAuthServer({ emailSender: sender });
-    await server.mail.send(message);
+    await requestLink(server);
     assert({
-      given: 'a capturing email sender',
-      should: 'pass the message through untouched',
-      actual: sender.sent,
-      expected: [message],
+      given: 'a magic-link request and a capturing email sender',
+      should: 'hand exactly one message for that recipient to the sender',
+      actual: sender.sent.map((sent) => sent.to),
+      expected: [message.to],
     });
   });
 
@@ -96,24 +111,31 @@ describe('auth server composition', () => {
         },
       },
     });
-    await assertRejects({
-      given: 'a failing email sender',
-      should: 'surface a factory-minted retryable INFRASTRUCTURE error',
-      actual: () => server.mail.send(message),
-      code: 'INFRASTRUCTURE',
-    });
-    const text = await server.mail.send(message).then(
-      () => 'delivered',
-      (error: unknown) => String(error),
+    const response = await server.instance.handler(
+      new Request('http://localhost:3000/api/auth/sign-in/magic-link', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          origin: 'http://localhost:3000',
+        },
+        body: JSON.stringify({ email: message.to }),
+      }),
     );
+    const text = await response.text();
     assert({
-      given: 'a failing email sender',
-      should: 'never leak the provider cause in the surfaced error',
+      given: 'a magic-link request whose email sender fails',
+      should:
+        'answer the generic retryable delivery failure that never leaks the cause',
       actual: {
-        provider: text.includes('resend'),
-        code: text.includes('AB12CD'),
+        status: response.status,
+        code: (JSON.parse(text) as { code?: string }).code,
+        safeMessage: !text.includes('resend') && !text.includes('AB12CD'),
       },
-      expected: { provider: false, code: false },
+      expected: {
+        status: 503,
+        code: 'EMAIL_DELIVERY_FAILED',
+        safeMessage: true,
+      },
     });
   });
 });

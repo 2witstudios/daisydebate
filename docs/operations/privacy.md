@@ -45,8 +45,8 @@ under these same rules, not an exception.** `outbox.payload`
 different exposure surfaces ride it (`packages/protocol/src/realtime-
 payloads.ts`):
 
-- **Delivered to a subscribed browser** (`topicFamilyPayloadKinds`, the
-  delivery-side rule): `debate.phase-changed` on `debate`,
+- **Delivered to a subscribed browser** (the delivery-side rule, added to
+  `@daisy/protocol` with the first `event` sender): `debate.phase-changed` on `debate`,
   `standings.updated` on `standings`, and `user.notification-delivered` on
   `user:inbox`. The first two carry only ids and a projected competitive
   state (`identifier`/`none`). `user.notification-delivered` also carries
@@ -54,7 +54,7 @@ payloads.ts`):
   never free text) and `occurredAt` (a timestamp, category `none`);
   neither is personal, but both still need their own inventory entry.
 - **Storage-only, never delivered as an `event` to any client**
-  (`storageFamilyPayloadKinds` only): the three `user:inbox` control kinds
+  (storable through `isPayloadStorableOnTopic` only): the three `user:inbox` control kinds
   (`session.revoked`, `access.revoked`,
   `actor.presence-preference-changed`), each an array of ids only. These
   are durable rows the realtime service consumes internally to close
@@ -64,7 +64,7 @@ payloads.ts`):
 
 Both surfaces still need inventory entries — the point of this section is
 that neither is an exemption, delivered or storage-only. Any payload kind
-added to `topicFamilyPayloadKinds` or `storageFamilyPayloadKinds` must
+made storable (`isPayloadStorableOnTopic`) or deliverable (the delivery-side rule) must
 classify every one of its fields the same way a database column would
 before it can ride a topic.
 
@@ -75,9 +75,11 @@ inventory becomes the single index:
 
 - [ADR 0025](../decisions/0025-auth-delivery-and-abuse-protection.md) and
   [docs/operations/auth-delivery.md](auth-delivery.md): expired
-  `verification` rows are purged after 24 hours; `email_delivery*` rows
-  retain only keyed recipient hashes and are kept so a suppression survives
-  an account.
+  `verification` rows are purged after 24 hours; `email_delivery` and
+  `email_delivery_event` rows hold only keyed recipient hashes and IDs and
+  are purged after 30 days; `email_suppression` rows are kept so a
+  suppression survives an account. One retention sweep
+  (`apps/web/src/server/retention-sweep.ts`) owns all of these.
 - [ADR 0029](../decisions/0029-competitive-schema-foundation.md): account
   deletion tombstones the user (below); competitive history, actors and
   ratings are retained indefinitely as the product's own record, holding no

@@ -23,7 +23,6 @@ const sessions = [
     updatedAt: '2026-01-01',
     expiresAt: '2026-01-08',
     userAgent: null,
-    ipAddress: null,
     current: true,
   },
 ];

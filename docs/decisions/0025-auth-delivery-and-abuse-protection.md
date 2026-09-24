@@ -29,8 +29,15 @@ adds the delivery and abuse controls ADR 0020 requires before activation.
   and sending-domain reputation from many recipients each staying under their
   own ceiling). A limiter failure fails closed as a safe `503` (the route
   boundary adds `Retry-After: 5`); there is no process-local fallback and no
-  allow-on-error. `429` carries `Retry-After`. (Amended 2026-09-23, ISSUE-5:
-  the recipient and global rules were added; the client rule is unchanged.)
+  allow-on-error. `429` carries `Retry-After`. The gate consumes a request's
+  buckets in order (client, recipients, global) and every consume counts,
+  admitted or not, so a request denied by a later bucket has already spent
+  the earlier buckets' budget. That is accepted: a caller who keeps retrying
+  while the global ceiling is saturated also exhausts their own client and
+  recipient allowance, but nothing is admitted wrongly, and spending nothing
+  on denial would need one atomic multi-key script across every bucket.
+  Integration tests prove the recipient hour and day ceilings and both
+  global ceilings against real Redis.
 - **Trusted client identity — one resolver.** Better Auth's `advanced.ipAddress`
   is fixed to `{ ipAddressHeaders: [CLIENT_IP_HEADER] }`, the internal
   `x-daisy-client-ip` header, with no deployment-configurable header list and
@@ -38,14 +45,14 @@ adds the delivery and abuse controls ADR 0020 requires before activation.
   identity is resolved. The production ingress (`start.ts`) replaces any
   caller-supplied value with the socket peer, or — only when the peer is in
   `AUTH_TRUSTED_PROXIES` — the first untrusted hop from the right of
-  `X-Forwarded-For`. `next dev` runs without that ingress, so a dev-mode
-  request carries no such header and shares one "unknown" bucket per path,
+  `X-Forwarded-For`. Beside it the ingress stamps `x-daisy-client-id-hash`, a
+  SHA3-256 of the identity keyed by a subkey of `BETTER_AUTH_SECRET` (label
+  `client-id-hash`). Request logs carry only that keyed hash: an unkeyed
+  hash of an IPv4 address is reversed by hashing all 2^32 of them.
+  `next dev` runs without that ingress, so a dev-mode request carries no
+  such header and shares one "unknown" bucket per path,
   same as any other missing identity: a fail-safe bucket, never an escaped
-  limit. (Superseded 2026-09-23, ISSUE-5: the previous revision also let
-  Better Auth trust a deployment-configured `AUTH_TRUSTED_IP_HEADERS` list of
-  its own, a second, redundant resolver that had no effect in production but
-  left two trust configurations to keep in sync. `AUTH_TRUSTED_IP_HEADERS`
-  and its `clientIpFromConfig`/`ClientIpTrust` plumbing are deleted.)
+  limit.
 - **Origin rule.** State-changing `/api/auth/*` calls must carry the exact
   application `Origin`, in addition to Better Auth's own checks (which only
   engage for cookie-bearing requests). Callback destinations are local paths;
@@ -78,10 +85,14 @@ adds the delivery and abuse controls ADR 0020 requires before activation.
   (`DELETE … WHERE id IN (SELECT … LIMIT … FOR UPDATE SKIP LOCKED)` on the
   existing expiry index; no migration, no new service). Every instance runs it;
   concurrent runs split work without double deletes and live rows can never
-  match the predicate. It logs `auth.cleanup.completed` (counts only) or
-  `auth.cleanup.failed` (stable code). Shutdown stops the job between batches
-  and waits for it before the pool closes. Sessions and `email_delivery_event`
-  retention remain with AUTH-7.5.
+  match the predicate. Shutdown stops the job between batches and waits for
+  it before the pool closes. Since ISSUE-8 AC5 this job is one target of the
+  web server's single retention sweep
+  (`apps/web/src/server/retention-sweep.ts`), which also prunes
+  `email_delivery_event` 30 days after receipt and `email_delivery` 30 days
+  after its last status change (`email_suppression` is never pruned) and
+  logs `retention.sweep.completed` (counts only) or `retention.sweep.failed`
+  (stable code) per target. Session retention remains with AUTH-7.5.
 
 Why: each control closes a distinct failure the spec names (link prefetch,
 counter races and process-local limits, spoofed forwarding headers, provider

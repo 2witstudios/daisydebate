@@ -52,20 +52,24 @@ test('durable records survive reconnect; optimistic writes reject stale updates'
           given:
             'a debate written, the connection reopened, and two concurrent writes against version 1',
           should:
-            'read back the stored snapshot and projections, and let exactly one write win, moving the phase projection with it',
+            'read back the stored snapshot and projections, and let exactly one write win, moving the phase projection with it and stamping started_at from the database clock, never the caller (ADR 0033 §3.2, ISSUE-37)',
           actual: {
             healthy,
             snapshot: stored?.snapshot,
             projections: [stored?.mode, stored?.phase, stored?.visibility],
             winners: won.length,
-            winner: [won[0]?.phase, won[0]?.startedAt],
+            winner: {
+              phase: won[0]?.phase,
+              callerTime: won[0]?.startedAt === '2026-01-01T00:00:00.000Z',
+              validTime: !Number.isNaN(Date.parse(won[0]?.startedAt ?? '')),
+            },
           },
           expected: {
             healthy: true,
             snapshot: snapshotFor(id, { format: formatId }),
             projections: ['casual', 'waiting', 'unlisted'],
             winners: 1,
-            winner: ['active', '2026-01-01T00:00:00.000Z'],
+            winner: { phase: 'active', callerTime: false, validTime: true },
           },
         });
       } finally {

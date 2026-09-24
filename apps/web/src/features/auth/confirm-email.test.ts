@@ -64,8 +64,7 @@ describe('confirm-email: when the forwarded auth request fails', () => {
     const response = await throwingHandlers.POST(post());
     const body = await response.text();
     assert({
-      given:
-        'the composed auth handler throwing (a real outage, now that it no longer swallows to a bare 500)',
+      given: 'the composed auth handler throwing (a real outage)',
       should: 'answer 400 with no internal detail, not an unhandled rejection',
       actual: {
         status: response.status,

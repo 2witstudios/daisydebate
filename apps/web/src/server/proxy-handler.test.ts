@@ -1,3 +1,4 @@
+import { spyOn } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createHash } from 'node:crypto';
 import { NextRequest } from 'next/server';
@@ -110,6 +111,39 @@ describe('proxy content security policy', () => {
         allDistinct: new Set(nonces).size === nonces.length,
       },
       expected: { allSixteenBytes: true, allDistinct: true },
+    });
+  });
+
+  test('the nonce is the bytes the OS CSPRNG returned, and nothing else', () => {
+    const drawn: number[] = [];
+    const csprng = spyOn(crypto, 'getRandomValues').mockImplementation(
+      <T extends ArrayBufferView | null>(array: T): T => {
+        const bytes = array as unknown as Uint8Array;
+        drawn.push(bytes.length);
+        bytes.set(Array.from({ length: bytes.length }, (_, index) => index));
+        return array;
+      },
+    );
+    let nonce: string | undefined;
+    try {
+      nonce = (directives('production').get('script-src') ?? [])
+        .find((source) => source.startsWith("'nonce-"))
+        ?.slice("'nonce-".length, -1);
+    } finally {
+      csprng.mockRestore();
+    }
+    assert({
+      given:
+        'crypto.getRandomValues replaced by a spy returning the bytes 0..15',
+      should:
+        'draw 16 bytes from it once and encode exactly those bytes as the nonce',
+      actual: { drawn, nonce },
+      expected: {
+        drawn: [16],
+        nonce: Buffer.from(
+          Array.from({ length: 16 }, (_, index) => index),
+        ).toString('base64'),
+      },
     });
   });
 

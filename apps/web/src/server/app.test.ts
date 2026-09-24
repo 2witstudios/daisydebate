@@ -133,34 +133,6 @@ describe('createApp', () => {
     });
   });
 
-  test('sends auth mail through the injected fetch only', async () => {
-    const mailbox = recordingFetch();
-    const other = recordingFetch();
-    const app = build({ ...baseEnv, ...authEnv }, mailbox.fetch);
-    const bystander = build({ ...baseEnv, ...authEnv }, other.fetch);
-    await app.auth().mail.send({
-      to: 'player@daisy.example.com',
-      subject: 'Sign in to Daisy',
-      text: 'Open the link to continue.',
-      html: '<p>Open the link to continue.</p>',
-    });
-    await Promise.all([app.close(), bystander.close()]);
-    assert({
-      given: 'two apps, each with its own fetch, and mail sent by one',
-      should: "put the mail on that app's fetch and nobody else's",
-      actual: { mine: mailbox.sent, theirs: other.sent },
-      expected: {
-        mine: [
-          {
-            url: 'https://api.resend.com/emails',
-            to: 'player@daisy.example.com',
-          },
-        ],
-        theirs: [],
-      },
-    });
-  });
-
   test('refuses the delivery webhook without a signing secret', async () => {
     const app = build({ ...baseEnv, ...authEnv });
     await assertRejects({

@@ -48,8 +48,7 @@ describe('confirm submit when the forwarded auth request fails', () => {
     );
     const body = await response.text();
     assert({
-      given:
-        'the composed auth handler throwing (a real outage, now that it no longer swallows to a bare 500)',
+      given: 'the composed auth handler throwing (a real outage)',
       should:
         'answer a safe 503 confirm page, retryable, with no internal detail',
       actual: {

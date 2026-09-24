@@ -7,7 +7,6 @@ import {
   decodeOutboxCursor,
   drainOutbox,
   encodeOutboxCursor,
-  purgeExpiredOutboxEvents,
 } from './outbox';
 
 setupRitewayBun();
@@ -281,31 +280,6 @@ describe('drainOutbox limit validation', () => {
       should: 'refuse every one without querying',
       actual: attempts,
       expected: attempts.map(() => 'refused'),
-    });
-  });
-});
-
-describe('purgeExpiredOutboxEvents bounds validation', () => {
-  test('refuses an invalid limit or cutoff instead of deleting unbounded', async () => {
-    const db = { execute: () => Promise.reject(new Error('should not run')) };
-    const results = await Promise.all(
-      [
-        { before: '2026-01-01T00:00:00.000Z', limit: 0 },
-        { before: '2026-01-01T00:00:00.000Z', limit: 1.5 },
-        { before: 'not a date', limit: 5 },
-        { before: '2026-01-01T00:00:00.000Z', limit: 1001 },
-      ].map((input) =>
-        purgeExpiredOutboxEvents(db as never, input)
-          .then(() => 'ran')
-          .catch(() => 'refused'),
-      ),
-    );
-    assert({
-      given:
-        'a zero limit, a fractional limit, an unparsable cutoff, and an over-the-cap limit',
-      should: 'refuse each without touching the database',
-      actual: results,
-      expected: results.map(() => 'refused'),
     });
   });
 });

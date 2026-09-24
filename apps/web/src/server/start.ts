@@ -3,13 +3,18 @@ import {
   drainWithDeadline,
   installShutdownSignals,
 } from '@daisy/observability';
+import { deriveClientIdSubkey } from '../features/auth/client-ip';
 import { createHttpServer } from './http-server';
-import { startMaintenance } from './maintenance';
 import {
   closeProcessApp,
   processApp,
   processStartOptions,
 } from './process-app';
+import {
+  createRetentionSweep,
+  retentionTargets,
+  startRetentionSweep,
+} from './retention-sweep';
 
 // Refuses anything but NODE_ENV=production before building the app.
 const { port } = processStartOptions();
@@ -22,6 +27,7 @@ const nextApp = next({ dev: false, port });
 // after prepare().
 const server = createHttpServer({
   trustedProxies: authConfig.AUTH_TRUSTED_PROXIES ?? [],
+  clientIdSubkey: deriveClientIdSubkey(authConfig.BETTER_AUTH_SECRET),
   isDraining: app.isDraining,
   logger: app.logger,
   handle: nextApp.getRequestHandler(),
@@ -34,11 +40,14 @@ server.listen(port, '0.0.0.0', () =>
     'Server listening',
   ),
 );
-// Bounded retention runs at start and then hourly in this process; `unref` never holds it open.
-const maintenance = startMaintenance({
-  database: app.database,
-  clock: app.clock,
-  logger: app.logger,
+// The one bounded retention sweep runs at start and then hourly in this process; `unref` never holds it open.
+const retention = startRetentionSweep({
+  sweep: createRetentionSweep({
+    targets: retentionTargets({ database: app.database, redis: app.redis }),
+    clock: app.clock,
+    logger: app.logger,
+  }),
+  runOnStart: true,
   timers: {
     setInterval: (tick, ms) => setInterval(tick, ms).unref(),
     clearInterval: (handle) => clearInterval(handle as NodeJS.Timeout),
@@ -47,8 +56,8 @@ const maintenance = startMaintenance({
 async function shutdown() {
   if (app.isDraining()) return;
   app.drain();
-  // Ends any cleanup between batches; awaited before the pool closes below.
-  const maintenanceStopped = maintenance.stop();
+  // Ends any sweep between batches; awaited before the pools close below.
+  const retentionStopped = retention.stop();
   app.logger.log(
     'server.shutdown',
     { operation: 'server.shutdown' },
@@ -67,7 +76,7 @@ async function shutdown() {
         server.close((error) => (error ? reject(error) : resolve())),
       );
       await nextApp.close();
-      await maintenanceStopped;
+      await retentionStopped;
       await closeProcessApp();
     },
   });

@@ -23,10 +23,15 @@ import { debates } from './debates';
 export const participantStatuses = ['joined', 'ready'] as const;
 
 /**
- * One row per seat, keyed by the debate and the seated actor: a projection
- * of the snapshot's `participants` (whose ids are actor ids, ADR 0029),
- * rewritten in the same transaction as every snapshot write, so it always
- * equals the snapshot's seats (ADR 0038). Every role, including judges, is a
+ * One row per seat, keyed by the debate and the seated actor. The debater
+ * seats (`affirmative`, `negative`) are a projection of the snapshot's
+ * `participants` (whose ids are actor ids, ADR 0029), rewritten in the same
+ * transaction as every snapshot write, so they always equal the snapshot's
+ * seats (ADR 0038). The snapshot does not carry judges: a snapshot write
+ * scopes its delete and upsert to the debater roles, never touches a judge
+ * seat (whose `ballots` cascade from it), and refuses a snapshot that seats
+ * an actor already holding one (ISSUE-43). `joined_at` is the database time
+ * of the write that seated the actor (ADR 0033 §3.2). Every role, including judges, is a
  * `(role, slot)` pair, so team formats and judge panels are extra slots, not
  * extra tables. Which seats a format allows comes from `formats.rules.seats`
  * (the domain checks it); the database enforces seat and actor uniqueness.

@@ -227,6 +227,50 @@ export const debateAuthoring = async (fixture: Fixture, url: string) => {
   };
 };
 
+/** A snapshot of a debate in a phase with the given seats. */
+export const snapshotOf = (
+  id: string,
+  phase: 'waiting' | 'active' | 'completed',
+  participants: ReadonlyArray<{
+    id: string;
+    side: 'affirmative' | 'negative';
+    ready: boolean;
+  }>,
+) => snapshotFor(id, { phase, participants });
+
+/**
+ * A debate id and `count` human actors (each with a user) on one
+ * single-connection fixture, a database over the test server and the
+ * test-only operations; `cleanup` removes the debate, actors and users and
+ * closes both connections.
+ */
+export const seatedDebate = async (url: string, count: number) => {
+  const { SQL } = await import('bun');
+  const fixture = new SQL(url, { max: 1 });
+  const database = createDatabase({ url, nextActorId: createId });
+  const users = Array.from({ length: count }, () => createId());
+  const actors = Array.from({ length: count }, () => createId());
+  for (const [index, actorId] of actors.entries()) {
+    await fixture`insert into users (id) values (${users[index]})`;
+    await fixture`insert into actors (id, kind, user_id) values (${actorId}, 'human', ${users[index]})`;
+  }
+  const debateId = createId();
+  return {
+    fixture,
+    database,
+    testOnly: createTestOnlyOperations({ client: fixture }),
+    debateId,
+    actors,
+    cleanup: async () => {
+      await database.close();
+      await fixture`delete from debates where id = ${debateId}`;
+      await fixture`delete from actors where id in ${fixture(actors)}`;
+      await fixture`delete from users where id in ${fixture(users)}`;
+      await fixture.close();
+    },
+  };
+};
+
 export const at = new Date('2026-01-01T00:00:00.000Z');
 /** A well-formed SHA3-256 hex digest. */
 export const digest = 'a'.repeat(64);

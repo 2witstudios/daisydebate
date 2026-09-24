@@ -1,5 +1,9 @@
 import type { Clock, IdGenerator } from '@daisy/clock';
-import { readAuthConfig, readServerConfig } from '@daisy/config';
+import {
+  readAuthConfig,
+  readServerConfig,
+  type AuthConfig,
+} from '@daisy/config';
 import { createDatabase } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
 import { createLogger } from '@daisy/logger';
@@ -58,10 +62,13 @@ export function createApp({
     namespace: config.REDIS_NAMESPACE,
     eventSink: logger.log,
   });
+  let authConfig: AuthConfig | undefined;
   let auth: AuthServer | undefined;
   let mailWebhook: ReturnType<typeof createResendWebhook> | undefined;
+  /** Parsed once, on first use, and shared by auth and the webhook. */
+  const readAuth = (): AuthConfig => (authConfig ??= readAuthConfig(env));
   const composeAuth = (): AuthServer => {
-    const authConfig = readAuthConfig(env);
+    const authConfig = readAuth();
     return createAuthServer({
       config: authConfig,
       database: database.authAdapter,
@@ -85,7 +92,7 @@ export function createApp({
     });
   };
   const composeMailWebhook = () => {
-    const authConfig = readAuthConfig(env);
+    const authConfig = readAuth();
     // Refuses rather than accept unsigned deliveries.
     if (!authConfig.RESEND_WEBHOOK_SECRET)
       throw createAppError('INFRASTRUCTURE');

@@ -7,28 +7,35 @@ const migrations = new URL('../migrations/', import.meta.url).pathname;
 const repository = new URL('../../../', import.meta.url).pathname;
 
 describe('the migration history (ISSUE-6)', () => {
-  test('holds exactly one baseline in the drizzle-kit 1.0 folder layout', async () => {
+  test('starts from exactly one baseline, and every folder uses the drizzle-kit 1.0 layout', async () => {
     const entries = (await readdir(migrations, { withFileTypes: true }))
       .map((entry) => ({ name: entry.name, folder: entry.isDirectory() }))
       .sort((a, b) => a.name.localeCompare(b.name));
-    const [baseline] = entries;
-    const files = baseline?.folder
-      ? (await readdir(`${migrations}${baseline.name}`)).sort()
-      : [];
+    const layouts = await Promise.all(
+      entries.map(async ({ name, folder }) => ({
+        folder,
+        named: /^\d{14}_[a-z0-9_]+$/.test(name),
+        files: folder ? (await readdir(`${migrations}${name}`)).sort() : [],
+      })),
+    );
     assert({
       given: 'packages/db/migrations',
       should:
-        'contain one <14-digit timestamp>_baseline folder holding only migration.sql and snapshot.json, and no legacy meta/ journal',
+        'open with one <14-digit timestamp>_baseline folder, hold no other baseline and no legacy meta/ journal, and give every folder only migration.sql and snapshot.json',
       actual: {
-        entries: entries.length,
-        layout:
-          /^\d{14}_baseline$/.test(baseline?.name ?? '') && baseline?.folder,
-        files,
+        first: /^\d{14}_baseline$/.test(entries[0]?.name ?? ''),
+        baselines: entries.filter(({ name }) => name.endsWith('_baseline'))
+          .length,
+        layouts,
       },
       expected: {
-        entries: 1,
-        layout: true,
-        files: ['migration.sql', 'snapshot.json'],
+        first: true,
+        baselines: 1,
+        layouts: entries.map(() => ({
+          folder: true,
+          named: true,
+          files: ['migration.sql', 'snapshot.json'],
+        })),
       },
     });
   });

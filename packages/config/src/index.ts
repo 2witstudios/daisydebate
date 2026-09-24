@@ -1,5 +1,16 @@
 import { z } from 'zod';
 
+/**
+ * Fields whose value is a credential or carries one (a password inside a
+ * connection URL). Marked where each field is declared, so the list of
+ * secret keys is derived from the schemas rather than kept by hand.
+ */
+const secrets = z.registry<{ readonly secret: true }>();
+const secret = <Schema extends z.ZodType>(schema: Schema): Schema => {
+  secrets.add(schema, { secret: true });
+  return schema;
+};
+
 const databaseUrl = z
   .url()
   .refine(
@@ -47,8 +58,8 @@ const deploymentIdentityFields = {
   // Required, no default: an unset NODE_ENV must refuse to start rather than
   // silently become 'development' and skip every production check below.
   NODE_ENV: z.enum(['development', 'test', 'production']),
-  DATABASE_URL: databaseUrl,
-  REDIS_URL: redisUrl,
+  DATABASE_URL: secret(databaseUrl),
+  REDIS_URL: secret(redisUrl),
   REDIS_NAMESPACE: z
     .string()
     .regex(/^[a-z][a-z0-9-]{0,40}$/)
@@ -59,26 +70,25 @@ const deploymentIdentityFields = {
   APP_VERSION: z.string().min(1).default('development'),
   GIT_COMMIT: z.string().min(1).default('unknown'),
 };
-const serverConfigSchema = z
-  .object({
-    ...deploymentIdentityFields,
-    FOUNDATION_PROOF_ENABLED: z
-      .enum(['true', 'false'])
-      .default('false')
-      .transform((value) => value === 'true'),
-    PUBLIC_APP_URL: z.url(),
-  })
-  .superRefine((config, ctx) => {
-    if (config.NODE_ENV !== 'production') return;
-    requireHttpsOrigin(config.PUBLIC_APP_URL, ctx);
-    requireDeploymentIdentity(config, ctx);
-    if (config.FOUNDATION_PROOF_ENABLED)
-      ctx.addIssue({
-        code: 'custom',
-        path: ['FOUNDATION_PROOF_ENABLED'],
-        message: 'Foundation proof is development-only',
-      });
-  });
+const serverFields = {
+  ...deploymentIdentityFields,
+  FOUNDATION_PROOF_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  PUBLIC_APP_URL: z.url(),
+};
+const serverConfigSchema = z.object(serverFields).superRefine((config, ctx) => {
+  if (config.NODE_ENV !== 'production') return;
+  requireHttpsOrigin(config.PUBLIC_APP_URL, ctx);
+  requireDeploymentIdentity(config, ctx);
+  if (config.FOUNDATION_PROOF_ENABLED)
+    ctx.addIssue({
+      code: 'custom',
+      path: ['FOUNDATION_PROOF_ENABLED'],
+      message: 'Foundation proof is development-only',
+    });
+});
 export type ServerConfig = z.infer<typeof serverConfigSchema>;
 /** Validation reports field names only: never echo secret values. */
 export function readServerConfig(
@@ -142,38 +152,38 @@ const commaList = (entry: z.ZodType<string, string>) =>
  * Narrow server authentication configuration, validated only when the auth
  * composition is activated: baseline startup never requires auth variables.
  */
+const authFields = {
+  /** 64 characters from 32 random bytes (hex); see `bun auth:provision`. */
+  BETTER_AUTH_SECRET: secret(z.string().regex(/^\S{64}$/)),
+  PUBLIC_APP_URL: z.url().refine((value) => {
+    try {
+      return ['http:', 'https:'].includes(new URL(value).protocol);
+    } catch {
+      return false;
+    }
+  }, 'Expected HTTP(S) URL'),
+  RESEND_API_KEY: secret(z.string().regex(/^\S+$/)),
+  /** Sender email header value; newlines and malformed mailboxes are rejected. */
+  AUTH_EMAIL_FROM: z
+    .string()
+    .refine(
+      (value) =>
+        /^(?:[^<>\r\n]+ <[^\s@<>]+@[^\s@<>]+>|[^\s@<>]+@[^\s@<>]+)$/.test(
+          value,
+        ),
+      'Expected an email address or display name with an email address',
+    ),
+  /** Resend (Svix) signing secret for delivery webhooks; required in production. */
+  RESEND_WEBHOOK_SECRET: secret(
+    z.string().regex(/^whsec_[A-Za-z0-9+/=]{16,}$/),
+  ).optional(),
+  /** Proxy IPs or CIDR ranges skipped when a trusted header holds a chain. */
+  AUTH_TRUSTED_PROXIES: commaList(proxyAddress),
+  // Required, no default: see deploymentIdentityFields.NODE_ENV.
+  NODE_ENV: z.enum(['development', 'test', 'production']),
+};
 const authConfigSchema = z
-  .object({
-    /** 64 characters from 32 random bytes (hex); see `bun auth:provision`. */
-    BETTER_AUTH_SECRET: z.string().regex(/^\S{64}$/),
-    PUBLIC_APP_URL: z.url().refine((value) => {
-      try {
-        return ['http:', 'https:'].includes(new URL(value).protocol);
-      } catch {
-        return false;
-      }
-    }, 'Expected HTTP(S) URL'),
-    RESEND_API_KEY: z.string().regex(/^\S+$/),
-    /** Sender email header value; newlines and malformed mailboxes are rejected. */
-    AUTH_EMAIL_FROM: z
-      .string()
-      .refine(
-        (value) =>
-          /^(?:[^<>\r\n]+ <[^\s@<>]+@[^\s@<>]+>|[^\s@<>]+@[^\s@<>]+)$/.test(
-            value,
-          ),
-        'Expected an email address or display name with an email address',
-      ),
-    /** Resend (Svix) signing secret for delivery webhooks; required in production. */
-    RESEND_WEBHOOK_SECRET: z
-      .string()
-      .regex(/^whsec_[A-Za-z0-9+/=]{16,}$/)
-      .optional(),
-    /** Proxy IPs or CIDR ranges skipped when a trusted header holds a chain. */
-    AUTH_TRUSTED_PROXIES: commaList(proxyAddress),
-    // Required, no default: see deploymentIdentityFields.NODE_ENV.
-    NODE_ENV: z.enum(['development', 'test', 'production']),
-  })
+  .object(authFields)
   .superRefine((config, ctx) => {
     if (config.NODE_ENV !== 'production') return;
     requireHttpsOrigin(config.PUBLIC_APP_URL, ctx);
@@ -234,3 +244,20 @@ export function requireTestServices(env: Record<string, string | undefined>): {
     redisUrl: result.data.TEST_REDIS_URL,
   };
 }
+
+const unwrapOptional = (schema: z.ZodType): z.ZodType =>
+  schema instanceof z.ZodOptional
+    ? unwrapOptional(schema.unwrap() as z.ZodType)
+    : schema;
+
+/**
+ * Every configuration key marked secret in the server, realtime and auth
+ * schemas: the list the logger's redaction tests are derived from (ADR 0019).
+ */
+export const secretConfigKeys: readonly string[] = [
+  ...new Set(
+    Object.entries({ ...serverFields, ...authFields })
+      .filter(([, schema]) => secrets.has(unwrapOptional(schema)))
+      .map(([key]) => key),
+  ),
+];

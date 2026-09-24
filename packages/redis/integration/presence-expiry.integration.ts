@@ -8,12 +8,14 @@ setupRitewayBun();
 
 const { redisUrl: url } = requireTestServices(process.env);
 
-test('readActorConnections trims members scored in the past, one at a time, deterministically', () =>
+test('readActorConnections omits members scored in the past, one at a time, without deleting them', () =>
   // Simulates a crashed instance whose leases were never refreshed: each
   // connId's score is rewritten through a raw client to a point relative to
-  // the Redis server clock, so the trim is proven by the scores alone. The
+  // the Redis server clock, so the filter is proven by the scores alone. The
   // hashes carry a long TTL throughout, so a read that omits a member must
-  // have done so via ZREMRANGEBYSCORE, not because the hash disappeared.
+  // have done so by its score, not because the hash disappeared. The read
+  // never writes (ISSUE-46): the lapsed members are still stored afterwards,
+  // so putting a ZREMRANGEBYSCORE back into the read fails this test.
   withRedis(url, async ({ redis, raw, key, serverNowMs }) => {
     const actorId = createId();
     const actorKey = key('presence', 'actor', actorId);
@@ -37,8 +39,26 @@ test('readActorConnections trims members scored in the past, one at a time, dete
     await raw.send('ZADD', [actorKey, String(now - 10_000), 'midLease']);
     assert({
       given: 'a second lease lapsing afterwards',
-      should: 'drop only that member, one at a time',
-      actual: await connIds(),
+      should:
+        'omit only that member, one at a time, and leave both lapsed members stored',
+      actual: {
+        connections: await connIds(),
+        shortStored:
+          (await raw.send('ZSCORE', [actorKey, 'shortLease'])) !== null,
+        midStored: (await raw.send('ZSCORE', [actorKey, 'midLease'])) !== null,
+      },
+      expected: {
+        connections: ['longLease'],
+        shortStored: true,
+        midStored: true,
+      },
+    });
+    // The next write for this actor trims both lapsed members.
+    await redis.refreshPresenceLease({ connId: 'longLease', actorId }, 100);
+    assert({
+      given: 'a refresh of the live lease',
+      should: 'trim both lapsed members from the actor zset',
+      actual: await raw.send('ZRANGE', [actorKey, '0', '-1']),
       expected: ['longLease'],
     });
   }));
@@ -46,7 +66,7 @@ test('readActorConnections trims members scored in the past, one at a time, dete
 test('readOnlinePresence never returns an actor scored in the past', () =>
   // readOnlinePresence is a pure read (bounded ZRANGEBYSCORE, no ZREM), so a
   // ghost's stale member is filtered by score, not deleted; the sweep test
-  // in presence.integration.ts proves the removal.
+  // in presence-bounds.integration.ts proves the removal.
   withRedis(url, async ({ redis, raw, key, serverNowMs }) => {
     const liveActorId = createId();
     await redis.upsertPresenceLease(lease('liveConn', liveActorId), 100);

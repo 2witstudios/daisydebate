@@ -1,7 +1,6 @@
 import { setupRitewayBun, assert, describe, test } from 'riteway/bun';
 import { createPasskeyFlows } from './auth-passkey-flows';
-import { origin, withSql } from './fixtures';
-import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+import { withSql } from './fixtures';
 import { requireTestServices } from '@daisy/config';
 
 /**
@@ -14,17 +13,6 @@ setupRitewayBun();
 
 const flows = await createPasskeyFlows();
 const { signUp } = flows.account;
-const { authRoute } = flows;
-const { newClient } = flows.account.flows;
-
-/** Reads the current session with cookie caching disabled, as production does. */
-const protectedRead = (cookie: string) =>
-  authRoute.GET(
-    new Request(`${origin}/api/auth/get-session?disableCookieCache=true`, {
-      headers: { cookie, [CLIENT_IP_HEADER]: newClient() },
-    }),
-  );
-
 /** Backdates a session row's createdAt so the fresh-session gate refuses it. */
 const backdateSession = (token: string, hoursAgo: number) =>
   withSql(
@@ -33,12 +21,8 @@ const backdateSession = (token: string, hoursAgo: number) =>
   );
 
 /** Moves the cookie's session outside the fresh window (created 2 h ago). */
-const staleSession = async (cookie: string) => {
-  const sessionBody = (await (await protectedRead(cookie)).json()) as {
-    session?: { token: string };
-  };
-  await backdateSession(sessionBody.session?.token ?? '', 2);
-};
+const staleSession = async (cookie: string) =>
+  backdateSession((await flows.serverSession(cookie))?.session.token ?? '', 2);
 
 describe('AUTH-5.5 fresh-session gate', () => {
   test('a stale session is refused for revoking sessions and requires fresh authentication', async () => {

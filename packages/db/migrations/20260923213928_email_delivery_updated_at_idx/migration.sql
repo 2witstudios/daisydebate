@@ -1,0 +1,1 @@
+CREATE INDEX "email_delivery_updated_at_idx" ON "email_delivery" ("updated_at");

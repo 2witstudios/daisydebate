@@ -33,6 +33,27 @@ describe('deriveRecipientSubkey', () => {
     });
   });
 
+  test('matches the known-answer vector under its domain-separation label', () => {
+    // Computed independently (Python hashlib.sha3_256):
+    // SHA3-256('a' x 64, NUL, 'recipient-key'), then
+    // SHA3-256(subkey hex, NUL, 'player@daisy.example.com').
+    const subkey = deriveRecipientSubkey('a'.repeat(64));
+    assert({
+      given: "BETTER_AUTH_SECRET 'a' x 64 and a normalized recipient",
+      should:
+        'derive the labelled subkey and recipient key exactly, never the bare-secret hash',
+      actual: {
+        subkey,
+        key: recipientKey(subkey, ' Player@Daisy.example.com '),
+      },
+      expected: {
+        subkey:
+          '8acc3d0cc3274d2fcc51066cd59d9796d2d4b05c870a93032bc0d22424a13feb',
+        key: '9f8f8202a5cbbc0db751822905174a8e743ec8395b03c78ee122386d81033bea',
+      },
+    });
+  });
+
   test('a different secret derives a different subkey', () => {
     assert({
       given: 'two different secrets',

@@ -6,11 +6,15 @@ export const normalizeEmail = (email: string): string =>
 
 /**
  * A subkey derived once from `BETTER_AUTH_SECRET`, domain-separated by a
- * fixed label so a leaked recipient key can never double as a leaked
- * `BETTER_AUTH_SECRET` (which also signs sessions and tokens).
+ * fixed label per use, so a leaked subkey can never double as a leaked
+ * `BETTER_AUTH_SECRET` (which also signs sessions and tokens) or as another
+ * use's subkey.
  */
+export const deriveSubkey = (secret: string, label: string): string =>
+  createHash('sha3-256').update(`${secret}\0${label}`).digest('hex');
+
 export const deriveRecipientSubkey = (secret: string): string =>
-  createHash('sha3-256').update(`${secret}\0recipient-key`).digest('hex');
+  deriveSubkey(secret, 'recipient-key');
 
 /**
  * The one recipient identity used everywhere a recipient must be compared,

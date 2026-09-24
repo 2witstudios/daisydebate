@@ -11,14 +11,11 @@ export const SESSION_CLEANUP_FAILED_HEADER = 'x-daisy-session-cleanup-failed';
 /**
  * ISSUE-3 AC3: `/verify-email`'s final hop (the one that sets a session
  * cookie, proving live access to the new mailbox) must revoke every other
- * session for the account (AUTH-5.6). That invariant used to live in the
- * confirm-page wrapper (`confirm-email.ts`), which only the same-origin POST
- * page reached — so any other caller of this endpoint (a direct request once
- * unblocked, `auth.api.verifyEmail`, a future integration) could redeem the
- * token and skip it. A `hooks.after` matcher on the endpoint itself cannot be
- * skipped by the caller: Better Auth runs it for the HTTP router and for
- * `auth.api.*` alike (`dispatchAuthEndpoint` is the one hook runner both go
- * through).
+ * session for the account (AUTH-5.6), whoever calls the endpoint: the
+ * confirm page, a direct request, or `auth.api.verifyEmail`. A `hooks.after`
+ * matcher on the endpoint itself cannot be skipped by the caller: Better
+ * Auth runs it for the HTTP router and for `auth.api.*` alike
+ * (`dispatchAuthEndpoint` is the one hook runner both go through).
  *
  * Best-effort, like `sessionRevokedOutboxPlugin`: a revoke failure must never
  * turn an already-verified email and already-issued session into a reported

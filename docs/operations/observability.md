@@ -53,42 +53,40 @@ selected log levels, controls severity. This table is checked against
 `scripts/observability-docs-drift-guard.test.ts`, which fails if they
 diverge:
 
-| Event                              | Severity | Meaning                                                                                                |
-| ---------------------------------- | -------- | ------------------------------------------------------------------------------------------------------ |
-| `runtime.initialize`               | info     | The application runtime initialized                                                                    |
-| `server.start`                     | info     | The HTTP server began listening                                                                        |
-| `server.shutdown`                  | info     | Shutdown began draining requests                                                                       |
-| `http.request.completed`           | info     | A request operation returned a response                                                                |
-| `http.request.cancelled`           | warn     | A client/request signal aborted before completion                                                      |
-| `http.request.failed`              | error    | A request operation or server handler failed                                                           |
-| `invariant.violated`               | error    | A request operation violated a registered invariant                                                    |
-| `auth.rate_limit.denied`           | warn     | The auth rate-limit gate denied a request (public 429)                                                 |
-| `auth.rate_limit.unavailable`      | error    | The auth limiter or client resolution failed; denied with a public 503                                 |
-| `auth.session.unavailable`         | error    | The session store could not be read; guarded pages and the username claim answer 503, never a sign-out |
-| `auth.mail.sent`                   | info     | An auth email was handed to the mail transport                                                         |
-| `auth.mail.failed`                 | error    | Auth email delivery failed                                                                             |
-| `auth.mail.receipt_failed`         | error    | The provider accepted a message but recording its receipt failed                                       |
-| `auth.cleanup.completed`           | info     | A scheduled verification-record cleanup batch ran                                                      |
-| `auth.cleanup.failed`              | error    | A scheduled verification-record cleanup batch failed                                                   |
-| `auth.magic_link.verified`         | info     | A magic-link token was redeemed and a session established                                              |
-| `auth.passkey.enrolled`            | info     | A passkey registration ceremony completed                                                              |
-| `auth.passkey.authenticated`       | info     | A passkey authentication ceremony completed                                                            |
-| `auth.passkey.removed`             | info     | An owned passkey was deleted                                                                           |
-| `auth.passkey.notification_failed` | error    | The added/removed security notification email could not be sent                                        |
-| `auth.session.revoked`             | info     | A single named other session was revoked                                                               |
-| `auth.session.revoked_all`         | info     | Every other session for the account was revoked                                                        |
-| `auth.email_change.requested`      | info     | A fresh session started a recovery-email change                                                        |
-| `auth.email_change.verified`       | info     | Ownership of the new address was verified and the change completed                                     |
-| `auth.email_change.cleanup_failed` | error    | A scheduled email-change-token cleanup batch failed                                                    |
-| `realtime.cleanup.completed`       | info     | A scheduled realtime cleanup batch ran                                                                 |
-| `realtime.cleanup.failed`          | error    | A scheduled realtime cleanup batch failed                                                              |
-| `realtime.outbox.append_failed`    | error    | Appending to the transactional outbox failed                                                           |
-| `realtime.outbox.actor_missing`    | warn     | An outbox row referenced an actor that could not be resolved                                           |
-| `realtime.connection.rejected`     | info     | A realtime socket connection was rejected                                                              |
-| `request.unhandled`                | error    | Next reported an unhandled request failure                                                             |
-| `db.query.failed`                  | error    | A database query or transaction failed                                                                 |
-| `redis.command.failed`             | error    | A Redis command failed                                                                                 |
-| `telemetry.unknown_event`          | warn     | An unregistered runtime event name was normalized                                                      |
+| Event                              | Severity | Meaning                                                                                                                |
+| ---------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `runtime.initialize`               | info     | The application runtime initialized                                                                                    |
+| `server.start`                     | info     | The HTTP server began listening                                                                                        |
+| `server.shutdown`                  | info     | Shutdown began draining requests                                                                                       |
+| `http.request.completed`           | info     | A request operation returned a response                                                                                |
+| `http.request.cancelled`           | warn     | A client/request signal aborted before completion                                                                      |
+| `http.request.failed`              | error    | A request operation or server handler failed                                                                           |
+| `invariant.violated`               | error    | A request operation violated a registered invariant                                                                    |
+| `auth.rate_limit.denied`           | warn     | The auth rate-limit gate denied a request (public 429)                                                                 |
+| `auth.rate_limit.unavailable`      | error    | The auth limiter or client resolution failed; denied with a public 503                                                 |
+| `auth.session.unavailable`         | error    | The session store could not be read; guarded pages and the username claim answer 503, never a sign-out                 |
+| `auth.mail.sent`                   | info     | An auth email was handed to the mail transport                                                                         |
+| `auth.mail.failed`                 | error    | Auth email delivery failed                                                                                             |
+| `auth.mail.receipt_failed`         | error    | The provider accepted a message but recording its receipt failed                                                       |
+| `auth.magic_link.verified`         | info     | A magic-link token was redeemed and a session established                                                              |
+| `auth.passkey.enrolled`            | info     | A passkey registration ceremony completed                                                                              |
+| `auth.passkey.authenticated`       | info     | A passkey authentication ceremony completed                                                                            |
+| `auth.passkey.removed`             | info     | An owned passkey was deleted                                                                                           |
+| `auth.passkey.notification_failed` | error    | The added/removed security notification email could not be sent                                                        |
+| `auth.session.revoked`             | info     | A single named session was revoked, from `/api/auth/revoke-session` or the account UI's `/api/account/sessions/revoke` |
+| `auth.session.revoked_all`         | info     | Every other session for the account was revoked                                                                        |
+| `auth.email_change.requested`      | info     | A fresh session started a recovery-email change                                                                        |
+| `auth.email_change.verified`       | info     | Ownership of the new address was verified and the change completed                                                     |
+| `auth.email_change.cleanup_failed` | error    | A scheduled email-change-token cleanup batch failed                                                                    |
+| `realtime.outbox.append_failed`    | error    | Appending to the transactional outbox failed                                                                           |
+| `realtime.outbox.actor_missing`    | warn     | An outbox row referenced an actor that could not be resolved                                                           |
+| `realtime.connection.rejected`     | info     | A realtime socket connection was rejected                                                                              |
+| `request.unhandled`                | error    | Next reported an unhandled request failure                                                                             |
+| `db.query.failed`                  | error    | A database query or transaction failed                                                                                 |
+| `retention.sweep.completed`        | info     | One retention target (`operation`) swept its bounded batches                                                           |
+| `retention.sweep.failed`           | error    | One retention target failed; the sweep moved on and retries next hour                                                  |
+| `redis.command.failed`             | error    | A Redis command failed                                                                                                 |
+| `telemetry.unknown_event`          | warn     | An unregistered runtime event name was normalized                                                                      |
 
 Lifecycle events describe runtime, server, and request progress. Failure events
 describe invariant violations, unhandled requests, and adapter failures;
@@ -113,9 +111,10 @@ Which request failed / what else happened to it: correlate `requestId`
 (proxy-generated at the edge, echoed on responses and error bodies; the
 operation layer also honors well-formed caller IDs when the proxy is bypassed)
 with `traceId` once a provider is installed. Which deployment:
-`appVersion`/`gitCommit` log fields. Which user/debate: pass
-`userId`/`debateId` as structured fields at feature-operation level — add
-them where the operation knows them, not by re-parsing payloads.
+`appVersion`/`gitCommit` log fields. Which user: pass `userId` or
+`actorId` as structured fields at feature-operation level — add them where
+the operation knows them, not by re-parsing payloads. A log line carries
+only the fields ADR 0019's loggable-field table admits.
 
 For an incident, start with the event stream and filter by `event`, then
 correlate `requestId`, `traceId`, `operation`, and deployment fields. The
@@ -126,8 +125,9 @@ it; those facts exist only in the emitted entries.
 
 - Instrument meaningful boundaries (HTTP operations, adapter calls,
   scheduled work), not every function.
-- Never log credentials, cookies, raw request bodies, or raw exceptions;
-  pino redaction is defense in depth, not permission.
+- Never log credentials, cookies, raw request bodies, or raw exceptions.
+  The logger admits only ADR 0019's allowlisted fields of their declared
+  kind and fixed-prose messages; that is defense in depth, not permission.
 - Tracing exporters/SDK: install at deployment edge (collector sidecar or
   platform integration). Adding an SDK to application packages requires an
   ADR; Sentry and PostHog are the standing exception under ADR 0037.

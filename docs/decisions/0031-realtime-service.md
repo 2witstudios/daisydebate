@@ -347,8 +347,9 @@ the realtime PostgreSQL role, not by the import graph.
   when it is made. Realtime exposes its own `/health/live` and
   `/health/ready` (ready checks PostgreSQL, LISTEN and Redis) and drains on
   SIGTERM with `4006 server_restarting`.
-- The browser needs no client dependency; the connection store lives in
-  `apps/web/src/features/realtime/`.
+- The browser needs no client dependency; the connection store will live
+  in `apps/web/src/features/realtime/` (the outbox retention job that sat
+  there moved into the one retention sweep, ISSUE-8 AC5).
 
 ### Recorded conflicts
 

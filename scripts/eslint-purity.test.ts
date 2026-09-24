@@ -21,9 +21,14 @@ describe('domain and contract purity (ISSUE-9)', () => {
     'Bun.env;',
     'globalThis.performance.now();',
   ];
-  const lintErrors = async (code: string, filePath: string) => {
+  // Only the purity rule counts: `process.env;` alone also trips
+  // no-unused-expressions, which would pass this test without the ban.
+  const purityErrors = async (code: string, filePath: string) => {
     const [result] = await eslint.lintText(code, { filePath });
-    return result.messages.filter(({ severity }) => severity === 2).length;
+    return result.messages.filter(
+      ({ ruleId, severity }) =>
+        ruleId === 'no-restricted-globals' && severity === 2,
+    ).length;
   };
 
   test('rejects ambient clocks, randomness, environment, timers and Bun in domain and contract packages', async () => {
@@ -36,13 +41,13 @@ describe('domain and contract purity (ISSUE-9)', () => {
     const reported = await Promise.all(
       paths.flatMap((filePath) =>
         ambientReads.map(
-          async (code) => (await lintErrors(code, filePath)) > 0,
+          async (code) => (await purityErrors(code, filePath)) > 0,
         ),
       ),
     );
     assert({
       given: 'each ambient read in each pure package',
-      should: 'report a lint error for every one',
+      should: 'report a no-restricted-globals error for every one',
       actual: reported,
       expected: reported.map(() => true),
     });
@@ -52,7 +57,7 @@ describe('domain and contract purity (ISSUE-9)', () => {
     assert({
       given: 'performance.now() in an app request edge',
       should: 'not be reported by the purity rule',
-      actual: await lintErrors(
+      actual: await purityErrors(
         'export const start = () => performance.now();',
         'apps/web/src/server/timing.ts',
       ),
