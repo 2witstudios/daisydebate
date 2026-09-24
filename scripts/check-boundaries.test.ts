@@ -3,6 +3,7 @@ import {
   adobeWorkspaces,
   allowedWorkspaceDependencies,
   deepImportIssue,
+  testSupportIssue,
   forbiddenDependencyIssue,
 } from './boundaries-rules';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -211,6 +212,41 @@ describe('workspace deep imports', () => {
       should: 'leave it to the dependency rules',
       actual: deepImportIssue('drizzle-orm/pg-core', exportsOf),
       expected: null,
+    });
+  });
+});
+
+describe('test support subpaths', () => {
+  test('admits a testing subpath from suites and test support', () => {
+    assert({
+      given:
+        '@daisy/errors/testing imported by unit, integration, e2e and support files',
+      should: 'report no issue',
+      actual: [
+        'packages/debate-engine/src/engine.test.ts',
+        'apps/web/src/ui/app.test.tsx',
+        'packages/db/integration/outbox.integration.ts',
+        'apps/web/integration/fixtures.ts',
+        'apps/web/e2e/support/accounts.ts',
+        'packages/debate-engine/src/runtime.test-support.ts',
+        'packages/redis/integration/test-support.ts',
+      ].map((file) => testSupportIssue('@daisy/errors/testing', file)),
+      expected: Array(7).fill(null),
+    });
+  });
+
+  test('refuses a testing subpath from production source', () => {
+    assert({
+      given: '@daisy/errors/testing imported by a production module',
+      should: 'report the production import of test support',
+      actual: [
+        testSupportIssue('@daisy/errors/testing', 'packages/db/src/outbox.ts'),
+        testSupportIssue('@daisy/errors', 'packages/db/src/outbox.ts'),
+      ],
+      expected: [
+        'production import of test support @daisy/errors/testing',
+        null,
+      ],
     });
   });
 });

@@ -10,6 +10,7 @@ import {
   adobeIsolationIssue,
   allowedWorkspaceDependencies as allowed,
   deepImportIssue,
+  testSupportIssue,
   forbiddenDependencyIssue,
 } from './boundaries-rules';
 
@@ -113,6 +114,8 @@ for (const workspace of workspaces) {
           (name) => byName.get(name)?.manifest.exports,
         );
         if (deepImport) issues.push(`${relative(root, file)}: ${deepImport}`);
+        const testSupport = testSupportIssue(specifier, relative(root, file));
+        if (testSupport) issues.push(`${relative(root, file)}: ${testSupport}`);
         const importIssue = adobeIsolationIssue(
           workspace.manifest.name,
           specifier,

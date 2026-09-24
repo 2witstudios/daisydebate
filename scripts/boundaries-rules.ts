@@ -95,3 +95,19 @@ export const deepImportIssue = (
     ? null
     : `workspace deep import ${specifier}`;
 };
+
+/** Suites, the integration and e2e folders, and test support modules. */
+const TEST_CODE =
+  /(?:^|\/)(?:integration|e2e|test-support)\/|\.(?:test|integration|e2e)\.tsx?$|\.test-support\.tsx?$/;
+
+/**
+ * A workspace's `./testing` subpath is test support (it may import
+ * devDependencies such as riteway): only test code may import it.
+ */
+export const testSupportIssue = (
+  specifier: string,
+  importer: string,
+): string | null =>
+  /^@daisy\/[^/]+\/testing$/.test(specifier) && !TEST_CODE.test(importer)
+    ? `production import of test support ${specifier}`
+    : null;

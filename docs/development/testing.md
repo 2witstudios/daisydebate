@@ -131,8 +131,11 @@ not exist — PageSpace lost entire tiers this way. `bun evidence` (in
   `invariantId`) of a throw or a rejection, so a stray `TypeError` fails;
   `rejectionOf` reports the same outcome as a value. Other exception paths
   use `bun:test`'s `toThrow(message)` or the exact error, never a bare
-  `.toThrow()`. Schema tests assert the parsed value or the issue paths, not
-  a `.success` boolean. `given`/`should` read as a specification sentence:
+  `.toThrow()` (ESLint rejects one). `scripts/check-boundaries.ts` (in
+  `bun lint`) admits an `@daisy/*/testing` import only from suites,
+  `integration/`, `e2e/` and test support, never production source. Schema
+  tests assert the parsed value or the issue paths, not a `.success`
+  boolean. `given`/`should` read as a specification sentence:
   when the assertion fails, its message is the bug report.
 - **Dead code.** `bun run knip` fails on unused files, exports and
   dependencies; keep findings at zero (ADR 0013).
