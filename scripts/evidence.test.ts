@@ -216,6 +216,52 @@ describe('integrationGuardProblems', () => {
     });
   });
 
+  test('accepts the guard as a top-level declaration or statement only', () => {
+    assert({
+      given:
+        'the guard as a top-level expression statement and as a const initializer',
+      should: 'report no problems for either',
+      actual: [
+        codes(
+          [
+            "import { requireTestServices } from '@daisy/config';",
+            'requireTestServices(process.env);',
+          ].join('\n'),
+        ),
+        codes(guarded),
+      ],
+      expected: [[], []],
+    });
+  });
+
+  test('flags a guard call that may never run or checks something else', () => {
+    const probe = (call: string) =>
+      codes(
+        ["import { requireTestServices } from '@daisy/config';", call].join(
+          '\n',
+        ),
+      );
+    assert({
+      given:
+        'a guard behind an if, a swallowed try, a short-circuit, an optional call, literal values, and a nested block',
+      should: 'fail every one with GUARD_MISSING: none must throw at load',
+      actual: [
+        probe('if (process.env.CI) requireTestServices(process.env);'),
+        probe('try { requireTestServices(process.env); } catch {}'),
+        probe('process.env.SKIP || requireTestServices(process.env);'),
+        probe('requireTestServices?.(process.env);'),
+        probe(
+          "requireTestServices({ TEST_DATABASE_URL: 'postgres://x/y_test', TEST_REDIS_URL: 'redis://x' });",
+        ),
+        probe('{ requireTestServices(process.env); }'),
+        probe(
+          'const services = hasServices && requireTestServices(process.env);',
+        ),
+      ],
+      expected: Array.from({ length: 7 }, () => ['GUARD_MISSING']),
+    });
+  });
+
   test('flags a same-named guard from another module', () => {
     assert({
       given: 'requireTestServices imported from a local helper',

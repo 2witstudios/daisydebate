@@ -83,25 +83,36 @@ const guardBindings = (source: ts.SourceFile): ReadonlySet<string> => {
   return names;
 };
 
-// Whether a call to one of `names` runs when the module loads: no function
-// body stands between it and the file, so a missing service fails the load.
-const callsAtLoad = (source: ts.SourceFile, names: ReadonlySet<string>) => {
-  let found = false;
-  const visit = (node: ts.Node) => {
-    if (found || ts.isFunctionLike(node)) return;
-    if (
-      ts.isCallExpression(node) &&
-      ts.isIdentifier(node.expression) &&
-      names.has(node.expression.text)
-    ) {
-      found = true;
-      return;
-    }
-    ts.forEachChild(node, visit);
-  };
-  visit(source);
-  return found;
-};
+// `guard(process.env)`: the imported guard called directly (no optional
+// chaining) on the process environment, nothing else.
+const isGuardCall = (
+  node: ts.Node | undefined,
+  names: ReadonlySet<string>,
+): boolean =>
+  node !== undefined &&
+  ts.isCallExpression(node) &&
+  node.questionDotToken === undefined &&
+  ts.isIdentifier(node.expression) &&
+  names.has(node.expression.text) &&
+  node.arguments.length === 1 &&
+  node.arguments[0]!.getText() === 'process.env';
+
+// Whether the guard runs unconditionally when the module loads: a top-level
+// `guard(process.env);` statement or a `const … = guard(process.env);`
+// declaration. Anything under an `if`, a `try`, a short-circuit or a block
+// may never run, so it does not count.
+const callsAtLoad = (source: ts.SourceFile, names: ReadonlySet<string>) =>
+  source.statements.some(
+    (statement) =>
+      (ts.isExpressionStatement(statement) &&
+        isGuardCall(statement.expression, names)) ||
+      (ts.isVariableStatement(statement) &&
+        statement.declarationList.declarations.length === 1 &&
+        isGuardCall(
+          statement.declarationList.declarations[0]!.initializer,
+          names,
+        )),
+  );
 
 // A suite that nothing invokes is indistinguishable from a suite that does
 // not exist (PageSpace lesson): every integration suite imports the one
@@ -116,14 +127,14 @@ export function integrationGuardProblems(
     relativePath,
     content,
     ts.ScriptTarget.Latest,
-    false,
+    true,
     ts.ScriptKind.TS,
   );
   if (callsAtLoad(source, guardBindings(source))) return [];
   return [
     {
       code: 'GUARD_MISSING',
-      detail: `${relativePath} must import ${TEST_SERVICES_GUARD.name} from ${TEST_SERVICES_GUARD.module} and call it at load (it throws on a missing service; never skip)`,
+      detail: `${relativePath} must import ${TEST_SERVICES_GUARD.name} from ${TEST_SERVICES_GUARD.module} and call it on process.env in a top-level statement (it throws on a missing service; never skip)`,
     },
   ];
 }
