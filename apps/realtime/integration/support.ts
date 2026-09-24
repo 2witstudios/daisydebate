@@ -112,3 +112,42 @@ export async function notifyOutbox(
     `${position.txid}:${position.seq.toString()}`,
   ]);
 }
+
+/**
+ * Inserts `count` rows with distinct payloads and NOTIFYs each, all inside
+ * one transaction: PostgreSQL folds identical NOTIFY payloads sent in the
+ * same transaction into one delivery, so distinct payloads (a different
+ * `entityVersion` per row) are what proves a real burst, not an artifact of
+ * NOTIFY de-duplication.
+ */
+export async function insertAndNotifyBurst(
+  client: SQL,
+  topic: string,
+  count: number,
+): Promise<void> {
+  await client.begin(async (tx) => {
+    for (let index = 0; index < count; index += 1) {
+      const [row] = await tx.unsafe(
+        'insert into outbox (topic, kind, version, payload) values ($1, $2, $3, $4::jsonb) returning txid, seq',
+        [
+          topic,
+          'debate.phase-changed',
+          1,
+          {
+            entityVersion: index + 1,
+            kind: 'debate.phase-changed',
+            ids: [topic],
+          },
+        ],
+      );
+      const record = row as {
+        txid: string | number | bigint;
+        seq: string | number | bigint;
+      };
+      await tx.notify(
+        'outbox',
+        `${String(record.txid)}:${BigInt(record.seq).toString()}`,
+      );
+    }
+  });
+}

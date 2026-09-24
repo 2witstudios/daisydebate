@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { OUTBOX_ORIGIN, type OutboxPosition, type OutboxRow } from '@daisy/db';
+import type { Logger } from '@daisy/logger';
 import {
   createOutboxDrainLoop,
   startOutboxDrain,
@@ -17,6 +18,8 @@ function deferred<T>() {
   });
   return { promise, resolve };
 }
+
+const noopLogger: Logger = { log: () => {}, child: () => noopLogger };
 
 const fakeRow = (seq: bigint): OutboxRow => ({
   txid: '1',
@@ -46,6 +49,7 @@ describe('createOutboxDrainLoop coalescing (ADR 0032 §3)', () => {
         delivered.push(rows);
       },
       initialCursor: OUTBOX_ORIGIN,
+      logger: noopLogger,
     });
 
     loop.wake();
@@ -94,6 +98,7 @@ describe('createOutboxDrainLoop coalescing (ADR 0032 §3)', () => {
       drainOutbox,
       sink: () => {},
       initialCursor: OUTBOX_ORIGIN,
+      logger: noopLogger,
     });
 
     loop.poll();
@@ -128,6 +133,7 @@ describe('createOutboxDrainLoop coalescing (ADR 0032 §3)', () => {
         delivered.push(rows);
       },
       initialCursor: OUTBOX_ORIGIN,
+      logger: noopLogger,
     });
 
     loop.wake();
@@ -183,6 +189,7 @@ describe('startOutboxDrain startup order (ADR 0032 §2)', () => {
     const startPromise = startOutboxDrain({
       database,
       sink: () => {},
+      logger: noopLogger,
       timers: { setInterval: () => 0 as never, clearInterval: () => {} },
     });
 
@@ -250,6 +257,7 @@ describe('startOutboxDrain startup order (ADR 0032 §2)', () => {
     const control = await startOutboxDrain({
       database,
       sink: () => {},
+      logger: noopLogger,
       pollIntervalMs: 1_000,
       timers,
     });

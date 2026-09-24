@@ -1,4 +1,5 @@
 import type { OutboxPosition, OutboxRow } from '@daisy/db';
+import type { Logger } from '@daisy/logger';
 
 /**
  * Hands drained rows to whatever consumes them; RT-2.3c wires the real
@@ -18,6 +19,7 @@ export type OutboxDrainDeps = {
   ) => Promise<readonly OutboxRow[]>;
   readonly sink: OutboxRowsSink;
   readonly initialCursor: OutboxPosition;
+  readonly logger: Logger;
   /** Test seam only: counts range queries without altering behavior. */
   readonly onQuery?: (() => void) | undefined;
 };
@@ -37,14 +39,21 @@ export type OutboxDrainLoop = {
  * and fans each range out to the sink before moving the cursor. A wakeup
  * that arrives while a pass is running only sets the flag again, so the
  * loop reruns once as soon as the current pass ends instead of running one
- * query per event. Advancing the cursor and calling the sink happen with no
- * `await` between them within a single range, so a range is never counted
- * as delivered before its rows reach the sink.
+ * query per event.
+ *
+ * The cursor for a range advances only once the sink has accepted it: a
+ * failed range read or a throwing sink is caught, logged as a registered
+ * event, and ends this pass without re-throwing, leaving the cursor at the
+ * last range the sink actually accepted. The loop itself never dies; the
+ * next wakeup (a fresh NOTIFY or the next poll tick, ADR 0032 §3's
+ * correctness mechanism, never a fallback) starts a new pass and retries
+ * from that same cursor.
  */
 export function createOutboxDrainLoop({
   drainOutbox,
   sink,
   initialCursor,
+  logger,
   onQuery,
 }: OutboxDrainDeps): OutboxDrainLoop {
   let cursor = initialCursor;
@@ -58,15 +67,29 @@ export function createOutboxDrainLoop({
       do {
         dirty = false;
         let rows: readonly OutboxRow[];
-        do {
-          onQuery?.();
-          rows = await drainOutbox(cursor, MAX_DRAIN_LIMIT);
-          if (rows.length > 0) {
-            const last = rows[rows.length - 1];
-            if (last) cursor = { txid: last.txid, seq: last.seq };
-            await sink(rows);
-          }
-        } while (rows.length === MAX_DRAIN_LIMIT);
+        try {
+          do {
+            onQuery?.();
+            rows = await drainOutbox(cursor, MAX_DRAIN_LIMIT);
+            if (rows.length > 0) {
+              await sink(rows);
+              const last = rows[rows.length - 1];
+              if (last) cursor = { txid: last.txid, seq: last.seq };
+            }
+          } while (rows.length === MAX_DRAIN_LIMIT);
+        } catch {
+          // The failing operation (the range read or the sink) is not
+          // distinguished in the log: AGENTS.md forbids logging a raw
+          // exception, and either way the response is identical — stop
+          // this pass with the cursor unmoved past the failure, and let
+          // the next wakeup retry.
+          logger.log(
+            'realtime.outbox.drain_failed',
+            { operation: 'drainOutbox' },
+            'Outbox drain pass failed; the next wakeup retries',
+          );
+          return;
+        }
       } while (dirty);
     } finally {
       running = false;
@@ -132,12 +155,14 @@ export type OutboxDrainControl = {
 export async function startOutboxDrain({
   database,
   sink,
+  logger,
   pollIntervalMs = DRAIN_POLL_INTERVAL_MS,
   timers = systemIntervalTimers,
   onQuery,
 }: {
   readonly database: OutboxDrainDatabase;
   readonly sink: OutboxRowsSink;
+  readonly logger: Logger;
   /** Test seam only; production never overrides the ADR-fixed period. */
   readonly pollIntervalMs?: number;
   readonly timers?: IntervalTimers;
@@ -161,6 +186,7 @@ export async function startOutboxDrain({
     drainOutbox: database.drainOutbox,
     sink,
     initialCursor,
+    logger,
     onQuery,
   });
   state.loop = loop;

@@ -23,6 +23,7 @@ export async function serveRealtime({
   pollIntervalMs,
   timers,
   onQuery,
+  serve = Bun.serve,
 }: {
   readonly resources: RealtimeApp;
   readonly port: number;
@@ -31,6 +32,8 @@ export async function serveRealtime({
   readonly pollIntervalMs?: number;
   readonly timers?: IntervalTimers;
   readonly onQuery?: () => void;
+  /** Test seam only (RT-2.3b review finding 2): proves sockets are never accepted before `startOutboxDrain` resolves. */
+  readonly serve?: typeof Bun.serve;
 }): Promise<{
   readonly server: ReturnType<typeof Bun.serve>;
   readonly drain: OutboxDrainControl;
@@ -38,6 +41,7 @@ export async function serveRealtime({
   const drain = await startOutboxDrain({
     database: resources.database,
     sink,
+    logger: resources.logger,
     ...(pollIntervalMs === undefined ? {} : { pollIntervalMs }),
     ...(timers === undefined ? {} : { timers }),
     ...(onQuery === undefined ? {} : { onQuery }),
@@ -51,6 +55,6 @@ export async function serveRealtime({
       },
     },
   });
-  const server = Bun.serve({ hostname, port, fetch, websocket });
+  const server = serve({ hostname, port, fetch, websocket });
   return { server, drain };
 }

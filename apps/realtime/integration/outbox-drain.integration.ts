@@ -6,6 +6,7 @@ import { buildDebateTopic } from '@daisy/protocol';
 import {
   bootServer,
   databaseUrl,
+  insertAndNotifyBurst,
   insertOutboxRow,
   notifyOutbox,
   waitFor,
@@ -18,11 +19,12 @@ if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
     'apps/realtime integration tests require TEST_DATABASE_URL and TEST_REDIS_URL',
   );
 
-test('a burst of notifications for several committed rows produces one range query per wakeup, never one per event', async () => {
+test('a burst of notifications for many committed, distinct-payload rows produces at most 2 range queries, never one per event', async () => {
   const delivered: OutboxRow[] = [];
   let queryCount = 0;
+  const BURST_SIZE = 30;
   // A long poll interval isolates the NOTIFY path: any query observed here
-  // comes from coalesced wakeups, not the 1 s backstop.
+  // comes from coalesced wakeups, not the correctness-mechanism poll.
   const { close } = await bootServer({
     sink: (rows) => {
       delivered.push(...rows);
@@ -36,36 +38,25 @@ test('a burst of notifications for several committed rows produces one range que
   const topic = buildDebateTopic(systemId.next());
   try {
     const before = queryCount;
-    const burst = Array.from({ length: 5 }, (_, index) => index);
-    await Promise.all(
-      burst.map(async (index) => {
-        const position = await insertOutboxRow(client, {
-          topic,
-          kind: 'debate.phase-changed',
-          version: 1,
-          payload: {
-            entityVersion: index + 1,
-            kind: 'debate.phase-changed',
-            ids: [topic],
-          },
-        });
-        await notifyOutbox(client, position);
-      }),
-    );
+    // One transaction, distinct payloads: PostgreSQL folds identical NOTIFY
+    // payloads sent in one transaction into a single delivery, so this is
+    // what actually proves a burst rather than de-duplication.
+    await insertAndNotifyBurst(client, topic, BURST_SIZE);
 
     await waitFor(
-      () => delivered.filter((row) => row.topic === topic).length === 5,
+      () =>
+        delivered.filter((row) => row.topic === topic).length === BURST_SIZE,
     );
 
     assert({
-      given: '5 committed rows notified as a concurrent burst',
+      given: `${BURST_SIZE} committed rows with distinct payloads, notified together in one transaction`,
       should:
-        'deliver all 5 rows via a small, coalesced number of range queries, well under one per notification',
+        'deliver every row via at most 2 coalesced range queries (one pass plus at most one rerun), never one per notification',
       actual: {
         deliveredCount: delivered.filter((row) => row.topic === topic).length,
-        queriesUnderBurstSize: queryCount - before < burst.length,
+        queriesAtMostTwo: queryCount - before <= 2,
       },
-      expected: { deliveredCount: 5, queriesUnderBurstSize: true },
+      expected: { deliveredCount: BURST_SIZE, queriesAtMostTwo: true },
     });
   } finally {
     await client.unsafe('delete from outbox where topic = $1', [topic]);
@@ -113,7 +104,8 @@ test('a LISTEN reconnect drains from the in-memory cursor, missing nothing', asy
   const tag = `rt_reconnect_${systemId.next().slice(0, 10)}`;
   // The poll is disabled for the length of this test (60 s) so that any
   // delivery observed here can only come from the reconnect's own wakeup,
-  // not the poll backstop that would otherwise mask a missed reconnect.
+  // isolating that claim from the correctness-mechanism poll, which would
+  // otherwise mask a missed reconnect.
   const { close } = await bootServer({
     sink: (rows) => {
       delivered.push(...rows);
@@ -183,4 +175,4 @@ test('a LISTEN reconnect drains from the in-memory cursor, missing nothing', asy
     await killer.close();
     await close();
   }
-});
+}, 20_000);

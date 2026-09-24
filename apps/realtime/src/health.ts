@@ -28,13 +28,21 @@ export type ReadinessReport = {
     readonly listen: boolean;
     readonly redis: boolean;
   };
-  /** Rows: the high-water mark's `seq` minus the drain cursor's, never negative. `undefined` when unavailable or not wired. */
-  readonly deliveryLagRows?: number;
+  /**
+   * A seq-distance *estimate*, not a row count: the high-water mark's
+   * `seq` minus the drain cursor's `seq`, clamped at 0. `seq` commits out
+   * of commit order and is not contiguous (ADR 0032 §1's `(txid, seq)`
+   * ordering, not `seq` alone), so this is not "N rows behind" — it is a
+   * cheap proxy for how far the cursor trails, for the RT-4.3+
+   * cross-instance sampler to consume. `undefined` when unavailable or not
+   * wired.
+   */
+  readonly deliverySeqLagEstimate?: number;
 };
 const settledOk = (result: PromiseSettledResult<boolean>): boolean =>
   result.status === 'fulfilled' && result.value === true;
 
-async function readDeliveryLag(
+async function readDeliverySeqLagEstimate(
   outbox: NonNullable<ReadinessResources['outbox']>,
   timeoutMs: number,
 ): Promise<number | undefined> {
@@ -52,24 +60,27 @@ export async function checkReadiness(
   resources: ReadinessResources,
   timeoutMs = 2000,
 ): Promise<ReadinessReport> {
-  const [database, listen, redis, deliveryLagRows] = await Promise.allSettled([
-    withTimeout(resources.database.health(), timeoutMs),
-    withTimeout(resources.database.checkListen(), timeoutMs),
-    withTimeout(resources.redis.health(), timeoutMs),
-    resources.outbox
-      ? readDeliveryLag(resources.outbox, timeoutMs)
-      : Promise.resolve(undefined),
-  ]);
+  const [database, listen, redis, deliverySeqLagEstimate] =
+    await Promise.allSettled([
+      withTimeout(resources.database.health(), timeoutMs),
+      withTimeout(resources.database.checkListen(), timeoutMs),
+      withTimeout(resources.redis.health(), timeoutMs),
+      resources.outbox
+        ? readDeliverySeqLagEstimate(resources.outbox, timeoutMs)
+        : Promise.resolve(undefined),
+    ]);
   const checks = {
     database: settledOk(database),
     listen: settledOk(listen),
     redis: settledOk(redis),
   };
   const lag =
-    deliveryLagRows.status === 'fulfilled' ? deliveryLagRows.value : undefined;
+    deliverySeqLagEstimate.status === 'fulfilled'
+      ? deliverySeqLagEstimate.value
+      : undefined;
   return {
     ready: !resources.isDraining() && Object.values(checks).every(Boolean),
     checks,
-    ...(lag === undefined ? {} : { deliveryLagRows: lag }),
+    ...(lag === undefined ? {} : { deliverySeqLagEstimate: lag }),
   };
 }
