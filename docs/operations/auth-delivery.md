@@ -80,7 +80,9 @@ live under `<REDIS_NAMESPACE>:v1:rl:<sha3-256>` and expire within 60 seconds.
   table and should follow confirmation that the mailbox is fixed.
 - Diagnostics: `email_delivery` (message ID, status rank, recipient hash) and
   `email_delivery_event` (event ID dedupe). Neither holds an address or a
-  payload. Event rows are retained 30 days (AUTH-7.5 owns the cleanup job).
+  payload. The retention sweep deletes event rows 30 days after receipt and
+  delivery rows 30 days after their last status change; suppressions are
+  never pruned.
 - Webhooks that fail signature or tolerance answer `400`. An event for a
   message with no `email_delivery` row is handled by the event's provider
   timestamp (`created_at`): less than two minutes old, it answers `503` with
@@ -98,14 +100,15 @@ live under `<REDIS_NAMESPACE>:v1:rl:<sha3-256>` and expire within 60 seconds.
 
 Magic-link requests write a `verification` row (hashed token identifier; the
 requested email is inside `value`). Redeeming deletes the row; unredeemed rows
-are purged by a job in each server process (once at start-up, then hourly),
-only once expired for more than 24 hours, at most 20 batches of 500 per run (a
-bigger backlog drains over later runs). Runs are idempotent and safe across
-instances (`SKIP LOCKED`). On shutdown the job stops between batches and the
-server waits for it before closing the database, so a normal restart never
-raises a false `auth.cleanup.failed`. Events: `auth.cleanup.completed`
-(`deleted`, `batches`) and `auth.cleanup.failed` (alert on this one; a failing
-run is retried next hour).
+are purged by the retention sweep in each server process (once at start-up,
+then hourly), only once expired for more than 24 hours, at most 20 batches of
+500 per run (a bigger backlog drains over later runs). Runs are idempotent and
+safe across instances (`SKIP LOCKED`). On shutdown the sweep stops between
+batches and the server waits for it before closing the database, so a normal
+restart never raises a false failure. Events, with
+`operation: 'retention.verification'`: `retention.sweep.completed`
+(`deleted`, `batches`) and `retention.sweep.failed` (alert on this one; a
+failing run is retried next hour).
 
 No manual action is needed. To purge sooner, restart a server instance (it
 cleans once at start-up) or run one bounded batch in `psql`, repeating until it

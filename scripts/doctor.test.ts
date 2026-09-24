@@ -188,18 +188,24 @@ describe('migration currency', () => {
   });
 
   test('reads the hashes of committed migration SQL', async () => {
-    const baseline = new Bun.Glob('*_baseline/migration.sql').scanSync(
-      new URL('../packages/db/migrations/', import.meta.url).pathname,
+    const root = new URL('../packages/db/migrations/', import.meta.url)
+      .pathname;
+    const paths = [...new Bun.Glob('*/migration.sql').scanSync(root)].sort();
+    const expected = await Promise.all(
+      paths.map(async (path) =>
+        new Bun.CryptoHasher('sha256')
+          .update(await Bun.file(`${root}${path}`).bytes())
+          .digest('hex'),
+      ),
     );
-    const [path] = [...baseline];
-    const bytes = await Bun.file(
-      new URL(`../packages/db/migrations/${path}`, import.meta.url).pathname,
-    ).bytes();
     assert({
       given: 'the committed drizzle-kit 1.0 migration folders',
       should: 'return the sha256 the migrator records, in folder order',
-      actual: await readCommittedMigrationHashes(),
-      expected: [new Bun.CryptoHasher('sha256').update(bytes).digest('hex')],
+      actual: {
+        hashes: await readCommittedMigrationHashes(),
+        startsAtBaseline: paths[0]?.endsWith('_baseline/migration.sql'),
+      },
+      expected: { hashes: expected, startsAtBaseline: true },
     });
   });
 });

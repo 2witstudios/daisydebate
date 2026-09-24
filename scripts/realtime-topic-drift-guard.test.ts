@@ -10,8 +10,8 @@ setupRitewayBun();
  * call sites; this scan is the guard against the same drift here. It only
  * scans the two apps that speak the realtime protocol: any hand-built
  * `debate:`, `user:` or `standings:` prefix outside `@daisy/protocol`
- * itself means a caller bypassed the topic builders in `@daisy/protocol`'s
- * `realtime` module. It lives here, in the root script tier, because
+ * itself means a caller bypassed the topic builders `@daisy/protocol`
+ * exports. It lives here, in the root script tier, because
  * `packages/protocol` may never import `node:fs` (it stays framework- and
  * I/O-free, including in its own tests).
  */

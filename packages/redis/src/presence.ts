@@ -2,6 +2,7 @@ import type { RedisClient } from 'bun';
 import type { PresenceActivity } from '@daisy/protocol';
 import { redisKey } from './redis-key';
 import {
+  ACTOR_CONNECTIONS_MAX,
   assertActorId,
   assertKeySegment,
   assertLimit,
@@ -120,8 +121,8 @@ export function createPresenceOperations({
       }
     },
     /**
-     * An actor's live connections, trimmed, hydrated and actorId-checked in
-     * one Lua op. `nowMs` is the Redis server clock the script used to trim
+     * An actor's live connections (at most `ACTOR_CONNECTIONS_MAX`, latest
+     * expiry first), hydrated and actorId-checked in one read-only Lua op. `nowMs` is the Redis server clock the script used to trim
      * and score these leases (ADR 0033 §1.1); a caller computing
      * `derivePresence`'s `nowMs` must use this, never an instance clock.
      */
@@ -136,6 +137,7 @@ export function createPresenceOperations({
           redisKey(namespace, 'presence', 'actor', actorId),
           actorId,
           `${redisKey(namespace, 'presence', 'conn')}:`,
+          String(ACTOR_CONNECTIONS_MAX),
         ])) as (string | number)[];
         const nowMs = Number(flat[0]);
         const connections: PresenceConnection[] = [];
@@ -187,10 +189,10 @@ export function createPresenceOperations({
       }
     },
     /**
-     * Removes up to `limit` expired members from the online set. The write
-     * side of trimming that `readOnlinePresence` no longer does; callers
-     * run this on a bounded schedule (a periodic sweep), not per read.
-     * Returns the number of members removed.
+     * Removes up to `limit` (at most `PRESENCE_LIMIT_MAX`) expired members
+     * from the online set. The write side of trimming that
+     * `readOnlinePresence` never does; the web retention sweep runs it on
+     * its schedule, not per read (ADR 0033). Returns the number removed.
      */
     async sweepOnlinePresence(limit: number): Promise<number> {
       assertLimit(limit);

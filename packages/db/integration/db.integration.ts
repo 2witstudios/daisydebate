@@ -61,11 +61,12 @@ test('durable records survive reconnect; optimistic writes reject stale updates'
       );
       const won = outcomes.filter(Boolean);
       expect(won).toHaveLength(1);
-      // The phase projection travels with the snapshot in the same UPDATE.
-      expect([won[0]?.phase, won[0]?.startedAt]).toEqual([
-        'active',
-        '2026-01-01T00:00:00.000Z',
-      ]);
+      // The phase projection travels with the snapshot in the same UPDATE;
+      // started_at is the database's time, never the caller's 2026-01-01
+      // (ADR 0033 §3.2, ISSUE-37; proved in debate-clock.integration.ts).
+      expect(won[0]?.phase).toBe('active');
+      expect(won[0]?.startedAt).not.toBe('2026-01-01T00:00:00.000Z');
+      expect(Number.isNaN(Date.parse(won[0]?.startedAt ?? ''))).toBe(false);
     } finally {
       await reopened.close();
     }

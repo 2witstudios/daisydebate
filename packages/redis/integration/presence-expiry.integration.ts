@@ -5,14 +5,16 @@ import { rawClient } from './test-support';
 const url = process.env.TEST_REDIS_URL;
 if (!url) throw new Error('TEST_REDIS_URL required');
 
-test('readActorConnections trims members scored in the past, one at a time, deterministically', async () => {
+test('readActorConnections omits members scored in the past, one at a time, without deleting them', async () => {
   // Simulates a crashed instance whose leases were never refreshed. Rather
   // than waiting on real TTLs (flaky under host load — a prior version of
   // this test depended on a ~0.5s margin around real sleeps), each
   // connId's score is rewritten directly through a raw client to a fixed
-  // point relative to now, so the trim is proven by the scores alone. The
+  // point relative to now, so the filter is proven by the scores alone. The
   // hashes carry a long TTL throughout, so a read that omits a member must
-  // have done so via ZREMRANGEBYSCORE, not because the hash disappeared.
+  // have done so by its score, not because the hash disappeared. The read
+  // never writes (ISSUE-46): the lapsed member is still stored afterwards,
+  // so putting a ZREMRANGEBYSCORE back into the read fails this test.
   const namespace = `test-${createId()}`;
   const redis = createRedis({ url, namespace });
   const raw = await rawClient(url);
@@ -64,6 +66,14 @@ test('readActorConnections trims members scored in the past, one at a time, dete
     await raw.send('ZADD', [actorKey, String(now - 10_000), 'midLease']);
     const { connections: second } = await redis.readActorConnections(actorId);
     expect(second.map((c) => c.connId)).toEqual(['longLease']);
+    expect(await raw.send('ZSCORE', [actorKey, 'shortLease'])).not.toBeNull();
+    expect(await raw.send('ZSCORE', [actorKey, 'midLease'])).not.toBeNull();
+
+    // The next write for this actor trims both lapsed members.
+    await redis.refreshPresenceLease({ connId: 'longLease', actorId }, 100);
+    expect(await raw.send('ZRANGE', [actorKey, '0', '-1'])).toEqual([
+      'longLease',
+    ]);
   } finally {
     await redis.deletePresenceLease({ connId: 'shortLease', actorId });
     await redis.deletePresenceLease({ connId: 'midLease', actorId });

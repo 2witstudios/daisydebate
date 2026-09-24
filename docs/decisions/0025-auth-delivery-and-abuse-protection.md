@@ -78,10 +78,14 @@ adds the delivery and abuse controls ADR 0020 requires before activation.
   (`DELETE … WHERE id IN (SELECT … LIMIT … FOR UPDATE SKIP LOCKED)` on the
   existing expiry index; no migration, no new service). Every instance runs it;
   concurrent runs split work without double deletes and live rows can never
-  match the predicate. It logs `auth.cleanup.completed` (counts only) or
-  `auth.cleanup.failed` (stable code). Shutdown stops the job between batches
-  and waits for it before the pool closes. Sessions and `email_delivery_event`
-  retention remain with AUTH-7.5.
+  match the predicate. Shutdown stops the job between batches and waits for
+  it before the pool closes. Since ISSUE-8 AC5 this job is one target of the
+  web server's single retention sweep
+  (`apps/web/src/server/retention-sweep.ts`), which also prunes
+  `email_delivery_event` 30 days after receipt and `email_delivery` 30 days
+  after its last status change (`email_suppression` is never pruned) and
+  logs `retention.sweep.completed` (counts only) or `retention.sweep.failed`
+  (stable code) per target. Session retention remains with AUTH-7.5.
 
 Why: each control closes a distinct failure the spec names (link prefetch,
 counter races and process-local limits, spoofed forwarding headers, provider

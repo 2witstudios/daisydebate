@@ -68,8 +68,6 @@ diverge:
 | `auth.mail.sent`                   | info     | An auth email was handed to the mail transport                                                         |
 | `auth.mail.failed`                 | error    | Auth email delivery failed                                                                             |
 | `auth.mail.receipt_failed`         | error    | The provider accepted a message but recording its receipt failed                                       |
-| `auth.cleanup.completed`           | info     | A scheduled verification-record cleanup batch ran                                                      |
-| `auth.cleanup.failed`              | error    | A scheduled verification-record cleanup batch failed                                                   |
 | `auth.magic_link.verified`         | info     | A magic-link token was redeemed and a session established                                              |
 | `auth.passkey.enrolled`            | info     | A passkey registration ceremony completed                                                              |
 | `auth.passkey.authenticated`       | info     | A passkey authentication ceremony completed                                                            |
@@ -80,13 +78,13 @@ diverge:
 | `auth.email_change.requested`      | info     | A fresh session started a recovery-email change                                                        |
 | `auth.email_change.verified`       | info     | Ownership of the new address was verified and the change completed                                     |
 | `auth.email_change.cleanup_failed` | error    | A scheduled email-change-token cleanup batch failed                                                    |
-| `realtime.cleanup.completed`       | info     | A scheduled realtime cleanup batch ran                                                                 |
-| `realtime.cleanup.failed`          | error    | A scheduled realtime cleanup batch failed                                                              |
 | `realtime.outbox.append_failed`    | error    | Appending to the transactional outbox failed                                                           |
 | `realtime.outbox.actor_missing`    | warn     | An outbox row referenced an actor that could not be resolved                                           |
 | `realtime.connection.rejected`     | info     | A realtime socket connection was rejected                                                              |
 | `request.unhandled`                | error    | Next reported an unhandled request failure                                                             |
 | `db.query.failed`                  | error    | A database query or transaction failed                                                                 |
+| `retention.sweep.completed`        | info     | One retention target (`operation`) swept its bounded batches                                           |
+| `retention.sweep.failed`           | error    | One retention target failed; the sweep moved on and retries next hour                                  |
 | `redis.command.failed`             | error    | A Redis command failed                                                                                 |
 | `telemetry.unknown_event`          | warn     | An unregistered runtime event name was normalized                                                      |
 

@@ -35,7 +35,9 @@ end
  * its live connections' latest expiry. One EVAL, so a concurrent reader
  * never observes the hash without its zset entries or vice versa. The
  * actor and online zsets each get their own expiry covering the longest
- * live lease, so neither key can outlive every lease scored into it.
+ * live lease, so neither key can outlive every lease scored into it. The
+ * actor zset's lapsed members are trimmed here, on the write path, so the
+ * read never has to (and a reconnecting actor's zset stays small).
  * KEYS[1] conn hash; KEYS[2] actor zset; KEYS[3] online zset.
  * ARGV[1] actorId; ARGV[2] activity; ARGV[3] instanceId; ARGV[4] ttlMs;
  * ARGV[5] connId.
@@ -46,6 +48,7 @@ ${armZsetExpiry}
 local expiresAt = now + tonumber(ARGV[4])
 redis.call('HSET', KEYS[1], 'actorId', ARGV[1], 'activity', ARGV[2], 'instanceId', ARGV[3])
 redis.call('PEXPIRE', KEYS[1], ARGV[4])
+redis.call('ZREMRANGEBYSCORE', KEYS[2], '-inf', now - 1)
 redis.call('ZADD', KEYS[2], expiresAt, ARGV[5])
 local top = redis.call('ZREVRANGE', KEYS[2], 0, 0, 'WITHSCORES')
 arm(KEYS[2], top, now)
@@ -58,7 +61,8 @@ return 1
 /**
  * Extends the connection's TTL and rescores it, but only if the lease is
  * still live: a lease whose hash already expired must be re-upserted, not
- * silently resurrected by refresh. KEYS[1] conn hash; KEYS[2] actor zset;
+ * silently resurrected by refresh. Trims the actor zset's lapsed members
+ * like the upsert. KEYS[1] conn hash; KEYS[2] actor zset;
  * KEYS[3] online zset. ARGV[1] ttlMs; ARGV[2] connId; ARGV[3] actorId.
  */
 export const refreshPresenceLeaseScript = `
@@ -67,6 +71,7 @@ ${nowFromTime}
 ${armZsetExpiry}
 local expiresAt = now + tonumber(ARGV[1])
 redis.call('PEXPIRE', KEYS[1], ARGV[1])
+redis.call('ZREMRANGEBYSCORE', KEYS[2], '-inf', now - 1)
 redis.call('ZADD', KEYS[2], expiresAt, ARGV[2])
 local top = redis.call('ZREVRANGE', KEYS[2], 0, 0, 'WITHSCORES')
 arm(KEYS[2], top, now)
@@ -84,7 +89,7 @@ return 1
  * connId that already lapsed without ever being read can never masquerade
  * as the new top and get propagated into the online zset with a stale
  * score. Whenever a live top remains, both zsets are (re)armed: a prior
- * read's trim can empty and drop either key entirely between calls, and a
+ * write's trim or sweep can empty and drop either key entirely between calls, and a
  * bare ZADD onto a dropped key recreates it with no TTL, so this script
  * cannot assume either key's expiry is still intact just because it was
  * armed once. KEYS[1] conn hash; KEYS[2] actor zset; KEYS[3] online zset.
@@ -109,16 +114,19 @@ end
 return existed
 `;
 /**
- * One atomic op: trim members whose score (lease expiry) is in the past,
- * range the survivors, hydrate each from its connection hash, and drop any
- * whose hash is already gone (a benign race between the two keys) or whose
- * hash names a different actor than the one requested (the zset is scoped
- * per actor, so this should never happen with server-minted ids, but the
- * read never trusts it). Returns the Redis `now` it used as the first
- * element (ADR 0033 §1.1), so a caller never substitutes an instance clock
- * for the server clock that scored these leases. KEYS[1] actor zset.
- * ARGV[1] actorId; ARGV[2] the conn-hash key prefix (namespace-qualified,
- * no trailing connId).
+ * One atomic, read-only op: range at most ARGV[3] of the actor's members
+ * whose score (lease expiry) is not in the past, latest expiry first,
+ * hydrate each from its connection hash, and drop any whose hash is already
+ * gone (a benign race between the two keys) or whose hash names a different
+ * actor than the one requested (the zset is scoped per actor, so this should
+ * never happen with server-minted ids, but the read never trusts it).
+ * Lapsed members are filtered by the score range, never deleted: reads must
+ * not mutate state, and the upsert, refresh and delete scripts trim them on
+ * the write path. Returns the Redis `now` it used as the first element (ADR
+ * 0033 §1.1), so a caller never substitutes an instance clock for the
+ * server clock that scored these leases. KEYS[1] actor zset. ARGV[1]
+ * actorId; ARGV[2] the conn-hash key prefix (namespace-qualified, no
+ * trailing connId); ARGV[3] the most connections to return.
  *
  * Connection hash keys are built inside the script from ARGV[2] .. connId
  * rather than declared through KEYS: the member count is not known until
@@ -131,8 +139,7 @@ return existed
  */
 export const readActorConnectionsScript = `
 ${nowFromTime}
-redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', now - 1)
-local members = redis.call('ZRANGE', KEYS[1], 0, -1, 'WITHSCORES')
+local members = redis.call('ZREVRANGEBYSCORE', KEYS[1], '+inf', now, 'WITHSCORES', 'LIMIT', 0, tonumber(ARGV[3]))
 local result = {now}
 for i = 1, #members, 2 do
   local connId = members[i]
@@ -176,9 +183,12 @@ return result
 /**
  * A bounded write-path sweep: removes up to ARGV[1] members of the online
  * set whose score is in the past. Trimming moved here, off the read path
- * (`readOnlinePresenceScript`), so a read never mutates state; callers run
- * this periodically instead. Returns the number of members removed.
- * KEYS[1] online zset. ARGV[1] limit.
+ * (`readOnlinePresenceScript`), so a read never mutates state; the web
+ * retention sweep runs this on its schedule instead (ADR 0033). `unpack`
+ * passes every expired member to one ZREM, and Lua refuses to unpack more
+ * than about 8,000 values, so `assertLimit` caps ARGV[1] at
+ * `PRESENCE_LIMIT_MAX`, far below that. Returns the number of members
+ * removed. KEYS[1] online zset. ARGV[1] limit.
  */
 export const sweepOnlinePresenceScript = `
 ${nowFromTime}
@@ -205,9 +215,19 @@ export function assertTtlSeconds(ttlSeconds: number) {
   if (!Number.isSafeInteger(ttlSeconds) || ttlSeconds < 1)
     throw new Error('TTL must be a positive integer');
 }
+/**
+ * The most members one presence read or sweep may range. Bounds each
+ * script's work and reply, and keeps the sweep's `unpack` well under Lua's
+ * limit (ISSUE-46).
+ */
+export const PRESENCE_LIMIT_MAX = 1000;
+/** The most live connections `readActorConnections` returns for one actor. */
+export const ACTOR_CONNECTIONS_MAX = 32;
 export function assertLimit(limit: number) {
-  if (!Number.isSafeInteger(limit) || limit < 1)
-    throw new Error('Limit must be a positive integer');
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > PRESENCE_LIMIT_MAX)
+    throw new Error(
+      `Limit must be a positive integer no greater than ${PRESENCE_LIMIT_MAX}`,
+    );
 }
 
 /**

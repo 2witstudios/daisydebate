@@ -101,8 +101,8 @@ realtime topic family (`debate`, `debate:presence`, `debate:chat`,
 `user:inbox`, `standings`, `packages/protocol/src/topics.ts`) are
 telemetry-visible surfaces under these same rules, not an exception —
 whether a given payload kind is delivered to a browser
-(`topicFamilyPayloadKinds`) or stored only for the realtime service's own
-internal use (`storageFamilyPayloadKinds`), it classifies every field
+(the delivery-side rule) or stored only for the realtime service's own
+internal use (`isPayloadStorableOnTopic`), it classifies every field
 before it may exist (see [privacy](../operations/privacy.md) for the
 current split).
 
