@@ -1,6 +1,12 @@
 # 0017: Better Auth passwordless authentication boundaries
 
-Status: accepted.
+Status: accepted. Amended by ISSUE-2 (owner decision, 2026-09-23). Every
+emailed link follows the opaque, SHA3-256-stored, single-use token model in
+[ADR 0025](0025-auth-delivery-and-abuse-protection.md). Better Auth's
+JWT-based email verification (`/verify-email`,
+`/send-verification-email`) is disabled. The recovery-email change runs on
+Daisy's `daisy-email-change` plugin instead of the core `changeEmail`
+flow.
 
 Daisy adopts Better Auth, pinned to `1.7.5` together with
 `@better-auth/passkey` and `@better-auth/drizzle-adapter` at the same version,
@@ -40,6 +46,14 @@ injected `send` function (Resend in production, captured or failing senders in
 tests), so builds and unit suites never require live mail. Resend
 credentials and sender DNS are human-provisioned prerequisites; implementation
 stages proceed against injected senders without claiming live delivery.
+
+Better Auth owns the WebAuthn challenges, sessions and the atomic
+verification-row consume. Daisy owns the emailed-link token format: its
+entropy, its SHA3-256 storage digest and the purpose it is bound to. This
+is the one place Daisy replaces a Better Auth flow (ISSUE-2). The library's
+change-email tokens are signed JWTs that are never stored, so they can be
+neither revoked nor redeemed only once, and no option switches them to
+stored tokens.
 
 Why: Better Auth supplies maintained WebAuthn/passkey and magic-link flows
 instead of handmade cryptography, while the pinning, adapter ownership, and

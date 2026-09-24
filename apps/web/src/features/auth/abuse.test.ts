@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { systemClock } from '@daisy/clock';
 import { CLIENT_IP_HEADER } from './client-ip';
+import { emailedLinkIdentifier } from './emailed-link-token';
 import { create, magicLinkRequest, tokenIn } from './abuse.test-support';
 
 setupRitewayBun();
@@ -33,11 +34,12 @@ describe('AUTH-3.1 composed Better Auth options', () => {
         ipHeaders: [CLIENT_IP_HEADER],
         plugins: [
           'daisy-browser-session-shape',
+          'daisy-email-change',
           'daisy-fresh-session-gate',
           'daisy-magic-link-gate',
           'daisy-passkey-device-hint',
           'daisy-passkey-notifications',
-          'daisy-revoke-others-on-verify-email',
+          'daisy-revoke-others-on-email-change',
           'daisy-session-revoked-outbox',
           'magic-link',
           'passkey',
@@ -51,7 +53,7 @@ describe('AUTH-3.1 composed Better Auth options', () => {
 });
 
 describe('AUTH-3.3 magic-link issuance', () => {
-  test('stores only a hash of the token, expiring in five minutes', async () => {
+  test('stores only the SHA3-256 digest of a 256-bit token, expiring in five minutes (ISSUE-2)', async () => {
     const { server, db, sent } = create();
     const response = await server.instance.handler(magicLinkRequest());
     const token = tokenIn(sent[0]);
@@ -65,16 +67,18 @@ describe('AUTH-3.3 magic-link issuance', () => {
     assert({
       given: 'a magic-link request',
       should:
-        'persist a hashed identifier that is not the emailed token, expiring within five minutes',
+        'persist the sign-in purpose and SHA3-256 digest of an opaque 256-bit token, expiring within five minutes',
       actual: {
         status: response.status,
-        hashed: record.identifier !== token,
+        opaque256: /^[A-Za-z0-9_-]{43}$/.test(token),
+        identifier: record.identifier,
         tokenAbsent: JSON.stringify(db.verification).includes(token),
         fiveMinutes: ttlSeconds > 240 && ttlSeconds <= 300,
       },
       expected: {
         status: 200,
-        hashed: true,
+        opaque256: true,
+        identifier: emailedLinkIdentifier('sign-in', token),
         tokenAbsent: false,
         fiveMinutes: true,
       },

@@ -2,23 +2,25 @@ import { toNextJsHandler } from 'better-auth/next-js';
 import { createAppError, isAppError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import { handleOperation } from '../../server/http';
+import { EMAIL_CHANGE_VERIFY_PATH } from './email-change';
 import { logAuthLifecycle } from './lifecycle-events';
 
 type Handler = (request: Request) => Promise<Response>;
 
 /**
- * Better Auth 1.7.5 registers these as GET endpoints
- * (`better-auth/dist/plugins/magic-link/index.mjs:116-117`), so a direct
- * link reaches and redeems them without ever crossing the same-origin POST
- * confirm page (`confirm.ts`, `confirm-email.ts`) — a login-CSRF and a
- * `revokeOtherSessionsFor` bypass (ISSUE-3). Only the confirm pages' internal
+ * The emailed-link redemption endpoints. Better Auth 1.7.5 registers the
+ * magic-link one as a GET (`better-auth/dist/plugins/magic-link/index.mjs:116-117`),
+ * so a direct link would redeem it without ever crossing the same-origin
+ * POST confirm page (`confirm.ts`, `confirm-email.ts`) — a login-CSRF and a
+ * `revokeOtherSessionsFor` bypass (ISSUE-3); the email-change one
+ * (`email-change.ts`) is held to the same rule. Only the confirm pages' internal
  * forward may redeem: `confirm-http-shared.ts`'s `createForward` calls
  * `server.handler` directly, never through this mounted route, so refusing
  * every request here at the boundary cannot break that forward.
  */
 const DIRECT_REDEMPTION_BLOCKED_PATHS = new Set([
   '/magic-link/verify',
-  '/verify-email',
+  EMAIL_CHANGE_VERIFY_PATH,
 ]);
 
 /** Strips the mount prefix so only the stable Better Auth path is compared. */

@@ -12,17 +12,14 @@ describe('requestEmailChange', () => {
     assert({
       given: 'an accepted change',
       should:
-        'report ok, having posted the new address and the page to return to',
+        'report ok, having posted only the new address (the emailed links carry no destination, ISSUE-2)',
       actual: { outcome, ...firstPost(requests) },
       expected: {
         outcome: { kind: 'ok' },
         url: '/api/auth/change-email',
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: {
-          newEmail: 'new@example.test',
-          callbackURL: '/settings/security',
-        },
+        body: { newEmail: 'new@example.test' },
       },
     });
   });

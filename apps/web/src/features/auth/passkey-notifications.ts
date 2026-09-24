@@ -19,7 +19,7 @@ const NOTIFIED_PATHS: Readonly<
  * `sessionMiddleware` (`@better-auth/passkey`), so `context.context.session`
  * is always the acting account here.
  *
- * Best-effort, like `revokeOthersOnVerifyEmailPlugin`: a notification
+ * Best-effort, like `revokeOthersOnEmailChangePlugin`: a notification
  * failure must never turn an already-completed passkey change into a
  * reported failure for the person who just added or removed it.
  */

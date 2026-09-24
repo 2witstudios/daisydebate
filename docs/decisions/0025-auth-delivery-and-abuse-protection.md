@@ -13,9 +13,43 @@ adds the delivery and abuse controls ADR 0020 requires before activation.
   token-free, validated local path (default `/lobby`, new users
   `/onboarding/username`). Expired or consumed links land on
   `/auth/confirm?error=INVALID_TOKEN`, which offers a user-initiated resend;
-  nothing is ever sent automatically. Tokens are stored hashed
-  (`storeToken: 'hashed'`) with a five-minute expiry; Better Auth's atomic
-  consume keeps redemption single-use.
+  nothing is ever sent automatically. Email-change links open
+  `/auth/confirm-email?token=…` under the same rules. Every token follows
+  the model below.
+- **Emailed-link token model (ISSUE-2; owner decision, 2026-09-23).** This
+  is the standard for every emailed link: sign-in, recovery, email change
+  and every future type, such as invites. The link carries only an opaque
+  token: 32 bytes from the OS CSPRNG, base64url (256 bits). No claims ride
+  in the link. The server stores only `<purpose>:<SHA3-256 hex of the
+token>` as the `verification.identifier`. The subject (the email for
+  sign-in; the account, current address and new address for an email
+  change) lives in `value`, with the expiry in `expires_at` (five minutes).
+  The purpose prefix scopes the lookup, so a token redeems only in the
+  flow it was issued for. Redemption goes through Better Auth's atomic
+  `consumeVerificationValue`: one transaction per token under a consume
+  lock. Exactly one caller wins, a lost race sees nothing, and an expired
+  row is deleted without being honoured. Tokens are redeemed only by the
+  same-origin `POST` confirm pages. The mounted router answers `404` to a
+  direct request for either redemption endpoint (`/magic-link/verify`,
+  `/email-change/verify`; ISSUE-3). Tokens are not bound to a device, so a
+  link opened in another browser still works. Implementation:
+  `apps/web/src/features/auth/emailed-link-token.ts`. Magic links use it
+  through the plugin's `generateToken` and a `custom-hasher` `storeToken`.
+  Better Auth's `'hashed'` option would be SHA-256. The recovery-email
+  change (AUTH-5.6) is Daisy's `daisy-email-change` plugin
+  (`email-change.ts`). Better Auth 1.7.5's own change-email flow signs a
+  stateless JWT holding the addresses and the step, which can be neither
+  stored nor revoked. The plugin replaces the core `changeEmail` endpoint
+  under the same key and path, so the fresh-session gate, rate limit and
+  lifecycle event keyed on `/change-email` still apply. It redeems both
+  hops (old-inbox approval, then new-inbox verification) at
+  `/email-change/verify`. It refuses a claim whose account no longer holds
+  the old address, or whose new address was taken in the meantime.
+  `/verify-email` and `/send-verification-email` are disabled. The only
+  other value an emailed link carries is the sign-in link's requested
+  local destination, which grants nothing: it is re-validated as a local
+  path when the link is built and again on redemption. Email-change links
+  carry no destination at all.
 - **Rate limiting.** The ADR 0020 gate (`createRateLimitGate`, a Better Auth
   `hooks.before`; Better Auth's built-in limiter stays disabled) hands each
   bucket and its rule to the injected limiter. The Redis limiter runs one Lua

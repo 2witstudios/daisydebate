@@ -1,6 +1,6 @@
 /**
  * The auth mail contract, owned here rather than in server.ts: mail.ts,
- * magic-link-gate.ts, change-email-mail.ts and deliver-or-unavailable.ts
+ * magic-link-gate.ts, email-change.ts and deliver-or-unavailable.ts
  * all need these types, and importing them back from server.ts (which
  * imports those same modules for their values) formed a nominal import
  * cycle. Type-only imports are erased at runtime, so it was never a real
