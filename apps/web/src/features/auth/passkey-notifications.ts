@@ -12,10 +12,10 @@ const NOTIFIED_PATHS: Readonly<
 };
 
 /**
- * The templates for these already exist (`mail/templates.ts`) but were
- * never sent: a hijacked fresh session could add a permanent passkey, or an
- * attacker with a stolen one could remove the owner's, with no notice ever
- * reaching the account's verified email. Both mounted paths require
+ * Sends the `mail/templates.ts` passkey notices to the account's verified
+ * email, so a hijacked fresh session adding a permanent passkey, or an
+ * attacker with a stolen one removing the owner's, never goes unnoticed by
+ * the owner. Both mounted paths require
  * `sessionMiddleware` (`@better-auth/passkey`), so `context.context.session`
  * is always the acting account here.
  *

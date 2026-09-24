@@ -1,19 +1,59 @@
-import { afterAll } from 'bun:test';
+import { createHash } from 'node:crypto';
+import { RedisClient } from 'bun';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createTestApp, fixtureEmail } from './auth-mounted-helpers';
-import { createSecondInstances, statuses } from './auth-rate-limit-helpers';
+import { redisKey } from '@daisy/redis';
+import {
+  createTestApp,
+  fixtureEmail,
+  type TestApp,
+} from './auth-mounted-helpers';
+import { statuses } from './auth-rate-limit-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+import {
+  deriveRecipientSubkey,
+  recipientKey as keyRecipient,
+} from '../src/features/auth/recipient-key';
 
 if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
   throw new Error('TEST_DATABASE_URL and TEST_REDIS_URL are required');
 setupRitewayBun();
 
 // Each ceiling gets its own app, so each starts from empty buckets: the
-// global ceiling is application-wide, and ten admitted hour-ceiling requests
-// would otherwise count against it in whichever order the tests run.
+// global ceilings are application-wide, and the admitted requests of one
+// test would otherwise count against another in whichever order they run.
 const hourApp = createTestApp();
-const { secondInstance, closeExtraInstances } = createSecondInstances(hourApp);
+const dayApp = createTestApp();
+const globalDayApp = createTestApp();
 const globalApp = createTestApp();
+
+/** The limiter's real Redis key for a gate bucket key (`redis-limiter.ts`). */
+const limiterKey = (testApp: TestApp, bucket: string) =>
+  redisKey(
+    testApp.redisNamespace,
+    'rl',
+    createHash('sha3-256').update(bucket).digest('hex'),
+  );
+
+/** A recipient bucket key, as `rate-limit.ts` builds it. */
+const recipientKey = (testApp: TestApp, email: string, window: number) =>
+  `auth:magic-link:recipient:${keyRecipient(
+    deriveRecipientSubkey(String(testApp.env.BETTER_AUTH_SECRET)),
+    email,
+  )}:${window}`;
+
+/**
+ * A fixed window elapsing: its counter key expires in Redis, which is what
+ * the limiter's PEXPIRE does when the window ends. Every other bucket keeps
+ * its real count, so the ceiling under test is the one that decides.
+ */
+const elapse = async (testApp: TestApp, ...buckets: string[]) => {
+  const client = new RedisClient(String(process.env.TEST_REDIS_URL));
+  try {
+    for (const bucket of buckets) await client.del(limiterKey(testApp, bucket));
+  } finally {
+    client.close();
+  }
+};
 
 const magicLink = (
   headers: Record<string, string> = {},
@@ -23,49 +63,16 @@ const magicLink = (
     globalApp.jsonPost('/api/auth/sign-in/magic-link', { email }, headers),
   );
 
-afterAll(async () => {
-  await closeExtraInstances();
-});
-
 describe('ISSUE-5 AC4 per-recipient and global mail-volume ceilings', () => {
-  test('one recipient across many clients exceeds the hour ceiling once the minute window is out of the way', async () => {
-    // The minute window (3/60s) is the binding constraint for any burst
-    // within the same instant, so it must be exhausted and moved past
-    // before the hour ceiling (10/h) can be the one that denies. A fake
-    // sub-limiter lets the minute bucket's real Redis verdict decide as
-    // usual while pinning only the hour bucket's decision, so the gate's
-    // handling of a real recipient-hour denial is proven end to end without
-    // requiring an hour of real wall-clock time between requests.
+  test('one recipient across many clients: the real hour ceiling denies the eleventh', async () => {
     const email = fixtureEmail();
-    let hourDenials = 0;
-    const server = secondInstance({
-      limiter: (base) => ({
-        consume: (key, rule) => {
-          const isRecipientBucket = key.startsWith(
-            'auth:magic-link:recipient:',
-          );
-          // Bypass the real minute recipient window so the burst can reach
-          // the hour bucket without the (already separately proven) minute
-          // ceiling denying first; the client, day and global buckets stay
-          // real, since only ten single-client, single-recipient requests
-          // never come close to their real thresholds.
-          if (isRecipientBucket && rule.windowSeconds === 60)
-            return Promise.resolve({ allowed: true, retryAfterSeconds: 0 });
-          if (isRecipientBucket && rule.windowSeconds === 3_600) {
-            hourDenials += 1;
-            return Promise.resolve({
-              allowed: hourDenials <= 10,
-              retryAfterSeconds: 3_600,
-            });
-          }
-          return base.consume(key, rule);
-        },
-      }),
-    });
     const responses: Response[] = [];
-    for (let index = 0; index < 11; index += 1)
+    for (let index = 0; index < 11; index += 1) {
+      // The minute window elapses between requests; the hour and day
+      // buckets keep their real Redis counts.
+      await elapse(hourApp, recipientKey(hourApp, email, 60));
       responses.push(
-        await server.handlers.POST(
+        await hourApp.routes.auth.POST(
           hourApp.jsonPost(
             '/api/auth/sign-in/magic-link',
             { email },
@@ -73,15 +80,88 @@ describe('ISSUE-5 AC4 per-recipient and global mail-volume ceilings', () => {
           ),
         ),
       );
+    }
     assert({
       given:
-        'eleven sequential requests for one recipient, each from a distinct client, with the hour bucket pinned to allow exactly ten',
+        'eleven requests for one recipient from distinct clients, a minute apart, against real Redis',
       should:
-        'admit the first ten and deny the eleventh once the hour ceiling is reached',
-      actual: statuses(responses),
-      expected: { 200: 10, 429: 1 },
+        'admit ten (the recipient hour ceiling) and deny the eleventh with an hour-long retry',
+      actual: {
+        tally: statuses(responses),
+        retryAfter: Number(responses.at(-1)?.headers.get('retry-after')) > 60,
+      },
+      expected: { tally: { 200: 10, 429: 1 }, retryAfter: true },
     });
   });
+
+  test('one recipient across many clients: the real day ceiling denies the twenty-first', async () => {
+    const email = fixtureEmail();
+    const responses: Response[] = [];
+    for (let index = 0; index < 21; index += 1) {
+      // Both the minute and the hour windows elapse between requests; only
+      // the day bucket keeps counting.
+      await elapse(
+        dayApp,
+        recipientKey(dayApp, email, 60),
+        recipientKey(dayApp, email, 3_600),
+      );
+      responses.push(
+        await dayApp.routes.auth.POST(
+          dayApp.jsonPost(
+            '/api/auth/sign-in/magic-link',
+            { email },
+            { [CLIENT_IP_HEADER]: dayApp.newClient() },
+          ),
+        ),
+      );
+    }
+    assert({
+      given:
+        'twenty-one requests for one recipient from distinct clients, an hour apart, against real Redis',
+      should:
+        'admit twenty (the recipient day ceiling) and deny the twenty-first with a retry past an hour',
+      actual: {
+        tally: statuses(responses),
+        retryAfter:
+          Number(responses.at(-1)?.headers.get('retry-after')) > 3_600,
+      },
+      expected: { tally: { 200: 20, 429: 1 }, retryAfter: true },
+    });
+  });
+
+  test('the real global day ceiling denies the 3,001st distinct recipient of the day', async () => {
+    const before = globalDayApp.mailbox.mails.length;
+    const responses: Response[] = [];
+    // 3,001 requests in bursts of 100, each its own client and recipient;
+    // the global minute window elapses between bursts.
+    for (let sent = 0; sent < 3_001; sent += 100) {
+      await elapse(globalDayApp, 'auth:magic-link:global:60');
+      responses.push(
+        ...(await Promise.all(
+          Array.from({ length: Math.min(100, 3_001 - sent) }, () =>
+            globalDayApp.routes.auth.POST(
+              globalDayApp.jsonPost(
+                '/api/auth/sign-in/magic-link',
+                { email: fixtureEmail() },
+                { [CLIENT_IP_HEADER]: globalDayApp.newClient() },
+              ),
+            ),
+          ),
+        )),
+      );
+    }
+    assert({
+      given:
+        '3,001 magic-link requests over a simulated day, each its own client and recipient, against real Redis',
+      should:
+        'admit exactly 3,000 (the global day ceiling), deny the rest and mail only the admitted',
+      actual: {
+        tally: statuses(responses),
+        mails: globalDayApp.mailbox.mails.length - before,
+      },
+      expected: { tally: { 200: 3_000, 429: 1 }, mails: 3_000 },
+    });
+  }, 180_000);
 
   test('the global per-minute ceiling denies once 120 distinct recipients have sent this minute', async () => {
     const before = globalApp.mailbox.mails.length;

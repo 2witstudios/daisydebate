@@ -66,9 +66,12 @@ const plainRead = (cookie: string) =>
 const isAuthenticated = async (response: Response): Promise<boolean> =>
   (await response.clone().json()) !== null;
 
-const sessionTokenOf = async (response: Response): Promise<string> =>
-  ((await response.clone().json()) as { session?: { token: string } } | null)
-    ?.session?.token ?? '';
+/**
+ * A session's token, read on the server through auth.api as Daisy's own
+ * routes do: browser responses never carry it (ISSUE-63).
+ */
+const sessionTokenOf = async (cookie: string): Promise<string> =>
+  (await flows.serverSession(cookie))?.session.token ?? '';
 
 /** The event names this suite's app logged while `work` ran (AUTH-6.4). */
 async function recordedEvents(work: () => Promise<void>): Promise<string[]> {
@@ -90,8 +93,7 @@ describe('AUTH-5.5 session management', () => {
     const { link } = await requestLink(email);
     const token = new URL(link as URL).searchParams.get('token') ?? '';
     await redeem(token);
-    const listed = await flows.listSessions(first);
-    const rows = (await listed.json()) as { token: string }[];
+    const rows = await flows.listSessions(first);
     assert({
       given: 'one account signed in twice',
       should: 'list two distinct active sessions',
@@ -110,7 +112,7 @@ describe('AUTH-5.5 session management', () => {
     const token = new URL(link as URL).searchParams.get('token') ?? '';
     const second = cookieHeader(await redeem(token));
     const before = await protectedRead(second);
-    const secondToken = await sessionTokenOf(before);
+    const secondToken = await sessionTokenOf(second);
     const userId = await sessionUserIdOf(before);
     const actorId = await trackedCreateActorFor(userId);
     const eventsBefore = await sessionRevokedEvents(actorId);
@@ -146,7 +148,7 @@ describe('AUTH-5.5 session management', () => {
     const second = cookieHeader(
       await redeem(new URL(linkA as URL).searchParams.get('token') ?? ''),
     );
-    const secondToken = await sessionTokenOf(await protectedRead(second));
+    const secondToken = await sessionTokenOf(second);
     const singleEvents = await recordedEvents(async () => {
       await flows.revokeSession(first, secondToken);
     });
@@ -177,7 +179,7 @@ describe('AUTH-5.5 session management', () => {
     const token = new URL(link as URL).searchParams.get('token') ?? '';
     const second = cookieHeader(await redeem(token));
     const before = await plainRead(second);
-    const secondToken = await sessionTokenOf(before);
+    const secondToken = await sessionTokenOf(second);
     await flows.revokeSession(first, secondToken);
     const after = await plainRead(second);
     assert({
@@ -286,7 +288,7 @@ describe('AUTH-5.5 session management', () => {
   test("another user's session token does not revoke it", async () => {
     const alice = await signUp();
     const bob = await signUp();
-    const bobToken = await sessionTokenOf(await protectedRead(bob.cookie));
+    const bobToken = await sessionTokenOf(bob.cookie);
     await flows.revokeSession(alice.cookie, bobToken);
     const stillLive = await protectedRead(bob.cookie);
     assert({

@@ -57,7 +57,11 @@ export async function createPasskeyFlows() {
   /** Registers a new passkey for the cookie's account; returns the credential. */
   const enrollPasskey = async (
     cookie: string,
-    options: { readonly name?: string; readonly badOrigin?: string } = {},
+    options: {
+      readonly name?: string;
+      readonly badOrigin?: string;
+      readonly createSession?: boolean;
+    } = {},
   ) => {
     const optionsResponse = await get(
       '/api/auth/passkey/generate-register-options',
@@ -75,7 +79,11 @@ export async function createPasskeyFlows() {
     });
     const verifyResponse = await post(
       '/api/auth/passkey/verify-registration',
-      { response: registrationResponse, name: options.name },
+      {
+        response: registrationResponse,
+        name: options.name,
+        ...(options.createSession ? { createSession: true } : {}),
+      },
       mergeCookies(cookie, cookieHeader(optionsResponse)),
     );
     return { optionsResponse, verifyResponse, credential };
@@ -113,8 +121,19 @@ export async function createPasskeyFlows() {
   const renamePasskey = (cookie: string, id: string, name: string) =>
     post('/api/auth/passkey/update-passkey', { id, name }, cookie);
 
-  const listSessions = (cookie: string) =>
-    get('/api/auth/list-sessions', cookie);
+  // The mounted /list-sessions is disabled and browser responses carry no
+  // token (ISSUE-63), so suites that need a session token read it the way
+  // Daisy's own server code does: through auth.api, with no Request.
+  const serverApi = () => account.flows.app.auth().instance.api;
+  const listSessions = async (cookie: string) =>
+    (await serverApi().listSessions({
+      headers: new Headers({ cookie }),
+    })) as readonly { readonly token: string; readonly userId: string }[];
+  const serverSession = (cookie: string) =>
+    serverApi().getSession({
+      headers: new Headers({ cookie }),
+      query: { disableRefresh: true },
+    });
   const revokeSession = (cookie: string, token: string) =>
     post('/api/auth/revoke-session', { token }, cookie);
   const revokeOtherSessions = (cookie: string) =>
@@ -136,6 +155,7 @@ export async function createPasskeyFlows() {
     deletePasskey,
     renamePasskey,
     listSessions,
+    serverSession,
     revokeSession,
     revokeOtherSessions,
     revokeSessions,

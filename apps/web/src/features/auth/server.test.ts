@@ -2,7 +2,6 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { memoryAdapter } from '@better-auth/memory-adapter';
 import type { BetterAuthOptions } from 'better-auth';
 import { readAuthConfig } from '@daisy/config';
-import { isAppError } from '@daisy/errors';
 import { fixedClock, sequentialId } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import { createAuthServer, type AuthEmailMessage } from './server';
@@ -53,6 +52,12 @@ const create = (overrides?: {
     ids: sequentialId('auth'),
     appendSessionRevoked: async () => {},
     revokeOtherSessions: async () => 0,
+  });
+
+const requestLink = (server: ReturnType<typeof create>) =>
+  server.instance.api.signInMagicLink({
+    body: { email: message.to },
+    headers: new Headers({ origin: env.PUBLIC_APP_URL }),
   });
 
 function capturingSender() {
@@ -140,15 +145,25 @@ describe('auth server composition', () => {
     });
   });
 
+  test('returns only the members production reads', () => {
+    assert({
+      given: 'a composed auth server',
+      should:
+        'expose config, instance, limiter, logger and clock, and no test-only mail seam',
+      actual: Object.keys(create()).sort(),
+      expected: ['clock', 'config', 'instance', 'limiter', 'logger'],
+    });
+  });
+
   test('delivers mail through the injected sender exactly once', async () => {
     const sender = capturingSender();
     const server = create({ emailSender: sender });
-    await server.mail.send(message);
+    await requestLink(server);
     assert({
-      given: 'a capturing email sender',
-      should: 'pass the message through untouched',
-      actual: sender.sent,
-      expected: [message],
+      given: 'a magic-link request and a capturing email sender',
+      should: 'hand exactly one message for that recipient to the sender',
+      actual: sender.sent.map((sent) => sent.to),
+      expected: [message.to],
     });
   });
 
@@ -170,26 +185,31 @@ describe('auth server composition', () => {
       appendSessionRevoked: async () => {},
       revokeOtherSessions: async () => 0,
     });
-    let appError = false;
-    let code = '';
-    let text = '';
-    try {
-      await server.mail.send(message);
-    } catch (error) {
-      appError = isAppError(error);
-      code = String((error as { code?: string }).code);
-      text = String(error);
-    }
+    const response = await server.instance.handler(
+      new Request('http://localhost:3000/api/auth/sign-in/magic-link', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          origin: 'http://localhost:3000',
+        },
+        body: JSON.stringify({ email: message.to }),
+      }),
+    );
+    const text = await response.text();
     assert({
-      given: 'a failing email sender',
+      given: 'a magic-link request whose email sender fails',
       should:
-        'surface a factory-minted retryable error that never leaks the cause',
+        'answer the generic retryable delivery failure that never leaks the cause',
       actual: {
-        appError,
-        code,
+        status: response.status,
+        code: (JSON.parse(text) as { code?: string }).code,
         safeMessage: !text.includes('resend') && !text.includes('AB12CD'),
       },
-      expected: { appError: true, code: 'INFRASTRUCTURE', safeMessage: true },
+      expected: {
+        status: 503,
+        code: 'EMAIL_DELIVERY_FAILED',
+        safeMessage: true,
+      },
     });
   });
 });

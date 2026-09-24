@@ -2,6 +2,7 @@ import type { Logger } from '@daisy/logger';
 import { APIError } from 'better-auth/api';
 import { createAppError } from '@daisy/errors';
 import { z } from 'zod';
+import { logAuthLifecycle } from '../auth/lifecycle-events';
 import {
   handleOperation,
   parseValidated,
@@ -18,17 +19,18 @@ type BetterAuthSessionRow = {
   readonly updatedAt: string | Date;
   readonly expiresAt: string | Date;
   readonly userAgent?: string | null | undefined;
-  readonly ipAddress?: string | null | undefined;
 };
 
-/** The browser-safe shape: every field except the bearer-capable token. */
+/**
+ * The browser-safe shape: never the bearer-capable token or the client IP
+ * address, which stays on the server (ISSUE-5 AC7).
+ */
 export type SessionDto = {
   readonly id: string;
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly expiresAt: string;
   readonly userAgent: string | null;
-  readonly ipAddress: string | null;
   readonly current: boolean;
 };
 
@@ -44,7 +46,6 @@ const toDto = (
   updatedAt: iso(row.updatedAt),
   expiresAt: iso(row.expiresAt),
   userAgent: row.userAgent ?? null,
-  ipAddress: row.ipAddress ?? null,
   current: row.id === currentSessionId,
 });
 
@@ -122,7 +123,7 @@ export function createRevokeSessionHandler(
       dependencies.logger,
       request,
       'account.sessions.revoke',
-      async () => {
+      async (_id, logger) => {
         requireSameOrigin(request, dependencies.origin());
         const { id } = parseValidated(revokeBody, await readJson(request));
         let rows: readonly BetterAuthSessionRow[];
@@ -138,6 +139,7 @@ export function createRevokeSessionHandler(
         } catch (error) {
           throw mapBetterAuthError(error);
         }
+        logAuthLifecycle(logger, '/revoke-session');
         return Response.json({ status: true });
       },
     );

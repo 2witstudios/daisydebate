@@ -14,6 +14,7 @@ async function serve(trustedProxies: readonly string[] = []) {
   const seen: Array<string | string[] | undefined> = [];
   const server = createHttpServer({
     trustedProxies,
+    clientIdSubkey: 'http-server-test-subkey',
     isDraining: () => resources.draining,
     logger,
     handle: async (request, response) => {

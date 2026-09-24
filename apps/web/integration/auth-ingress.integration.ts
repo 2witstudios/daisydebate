@@ -17,7 +17,7 @@ const authRoute = createTestApp().routes.auth;
 /** Stand-in for the deployment ingress: the same stamping start.ts performs. */
 async function ingress(trustedProxies: string[]) {
   const toRequest = async (incoming: IncomingMessage) => {
-    stampClientIdentity(incoming, trustedProxies);
+    stampClientIdentity(incoming, trustedProxies, 'ingress-integration-subkey');
     const chunks: Buffer[] = [];
     for await (const chunk of incoming) chunks.push(chunk as Buffer);
     const headers = new Headers();

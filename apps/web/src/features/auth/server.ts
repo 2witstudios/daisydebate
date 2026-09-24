@@ -18,6 +18,7 @@ import {
 } from './change-email-mail';
 import { createMagicLinkGatePlugin } from './magic-link-gate';
 import { freshSessionGatePlugin } from './fresh-session-gate';
+import { browserSessionShapePlugin } from './browser-session-shape';
 import { passkeyDeviceHintPlugin } from './passkey-device-hint';
 import { passkeyNotificationsPlugin } from './passkey-notifications';
 import { sessionRevokedOutboxPlugin } from './session-revoked-outbox';
@@ -97,7 +98,7 @@ const composeBetterAuth = (dependencies: {
         if (level === 'error' || level === 'warn')
           dependencies.logger.log(
             'request.unhandled',
-            { source: 'better-auth', level },
+            { source: 'better-auth', sourceLevel: level },
             'Authentication library reported a failure',
           );
       },
@@ -147,6 +148,10 @@ const composeBetterAuth = (dependencies: {
       // Onboarding is server-owned: the profile has no general update
       // surface, so the username is set only by POST /api/account/username.
       '/update-user',
+      // Every row carries its bearer token and client IP; the account UI
+      // lists through GET /api/account/sessions, and the server still calls
+      // auth.api.listSessions (disabledPaths gates HTTP only).
+      '/list-sessions',
     ],
     user: {
       additionalFields: {
@@ -209,6 +214,9 @@ const composeBetterAuth = (dependencies: {
         dependencies.revokeOtherSessions,
         dependencies.logger,
       ),
+      // Last: strips the session token and ipAddress from every HTTP
+      // response after the plugins above have read the full result.
+      browserSessionShapePlugin,
     ],
   });
   return {
@@ -222,9 +230,9 @@ const composeBetterAuth = (dependencies: {
           { source: 'better-auth' },
           'Authentication request failed',
         );
-        // A retryable outage, typed at the source: callers (the mounted
-        // route wrapper, the confirm-page internal forward) no longer need
-        // to sniff a bodiless 500 for this signal.
+        // A retryable outage, typed at the source, so callers (the mounted
+        // route wrapper, the confirm-page internal forward) read the error
+        // code rather than the response.
         throw createAppError('INFRASTRUCTURE', undefined, error);
       }
     },
@@ -232,21 +240,15 @@ const composeBetterAuth = (dependencies: {
 };
 
 /**
- * Only what production callers actually read off the result: the app's
- * routes and pages (`server/app.ts` composes it) use `config`,
- * `instance`, `limiter`, `clock` and `logger`; `mail` is read by tests
- * exercising delivery directly.
- * `database`, `ledger` and `ids` stay internal to composition
- * (composeBetterAuth still receives them) — nothing outside this module
- * ever reads them back off the returned server, so widening the type to
- * carry them was dead surface.
+ * Only what production callers read off the result: the app's routes and
+ * pages (`server/app.ts` composes it) use `config`, `instance`, `limiter`,
+ * `clock` and `logger`. Mail delivery, `database`, `ledger` and `ids` stay
+ * internal to composition; tests reach delivery through a real auth
+ * request.
  */
 export type AuthServer = {
   readonly config: AuthConfig;
   readonly instance: AuthInstance;
-  readonly mail: {
-    readonly send: (message: AuthEmailMessage) => Promise<void>;
-  };
   readonly limiter: AuthRateLimiter;
   readonly logger: Logger;
   readonly clock: Clock;
@@ -333,7 +335,6 @@ export function createAuthServer<
       appendSessionRevoked: dependencies.appendSessionRevoked,
       revokeOtherSessions: dependencies.revokeOtherSessions,
     }),
-    mail: { send: sendMail },
     limiter: dependencies.limiter,
     logger: dependencies.logger,
     clock: dependencies.clock,

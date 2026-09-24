@@ -75,7 +75,42 @@ describe('handleOperation', () => {
     });
   });
 
-  test('logs a hash of the ingress-resolved client identity, never the raw address', async () => {
+  test('logs the ingress-stamped keyed client id hash, never the raw address', async () => {
+    const keyed =
+      '5630bc61fdecfeaed71c2c477912209c9c8626ca5dd485455024185bffa9d87b';
+    const unkeyed =
+      '6896eba5c88ed496934ccd4986c63e35dc5f89210f182d4dadd9b218a09337e1';
+    recorded.length = 0;
+    await handleOperation(
+      logger,
+      new Request('http://localhost/api/foundation/proof', {
+        headers: {
+          'x-daisy-client-ip': '203.0.113.9',
+          'x-daisy-client-id-hash': keyed,
+        },
+      }),
+      'test.operation',
+      () => Promise.resolve(Response.json({ ok: true })),
+    );
+    const serialized = JSON.stringify(recorded);
+    assert({
+      given:
+        'a request carrying the ingress-stamped identity and its keyed hash',
+      should:
+        'log the keyed hash, never the raw address or its enumerable unkeyed SHA3-256',
+      actual: {
+        clientIdHash: (recorded.at(-1)?.fields as Record<string, unknown>)
+          .clientIdHash,
+        leaksRawAddress: serialized.includes('203.0.113.9'),
+        logsUnkeyedHash: serialized.includes(unkeyed),
+      },
+      expected: {
+        clientIdHash: keyed,
+        leaksRawAddress: false,
+        logsUnkeyedHash: false,
+      },
+    });
+
     recorded.length = 0;
     await handleOperation(
       logger,
@@ -85,29 +120,9 @@ describe('handleOperation', () => {
       'test.operation',
       () => Promise.resolve(Response.json({ ok: true })),
     );
-    const hash = (recorded.at(-1)?.fields as Record<string, unknown>)
-      .clientIdHash;
     assert({
-      given: 'a request carrying the ingress-stamped client identity header',
-      should:
-        'attach a stable hex hash of the resolved identity, correlatable but never the raw address',
-      actual: {
-        shape: typeof hash === 'string' && /^[0-9a-f]{64}$/.test(hash),
-        leaksRawAddress: JSON.stringify(recorded).includes('203.0.113.9'),
-      },
-      expected: { shape: true, leaksRawAddress: false },
-    });
-
-    recorded.length = 0;
-    await handleOperation(
-      logger,
-      new Request('http://localhost/api/foundation/proof'),
-      'test.operation',
-      () => Promise.resolve(Response.json({ ok: true })),
-    );
-    assert({
-      given: 'a request with no ingress-stamped client identity header',
-      should: 'log no clientIdHash field',
+      given: 'a request with an identity but no ingress-stamped hash',
+      should: 'log no clientIdHash field rather than hash the address itself',
       actual: (recorded.at(-1)?.fields as Record<string, unknown>).clientIdHash,
       expected: undefined,
     });

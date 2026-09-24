@@ -45,17 +45,28 @@ describe('GET /api/account/sessions', () => {
     assert({
       given: "two real session rows, one of them the caller's own",
       should:
-        'answer 200 with no token anywhere in the body and the right row flagged current',
+        'answer 200 with no token or client IP anywhere in the body and the right row flagged current',
       actual: {
         status: response.status,
         leaksToken:
           body.includes('super-secret-bearer-token') ||
           body.includes('other-token'),
+        leaksIp: body.includes('203.0.113.9'),
+        fields: Object.keys(parsed.sessions[0] ?? {}).sort(),
         currentFlags: parsed.sessions.map((s) => [s.id, s.current]),
       },
       expected: {
         status: 200,
         leaksToken: false,
+        leaksIp: false,
+        fields: [
+          'createdAt',
+          'current',
+          'expiresAt',
+          'id',
+          'updatedAt',
+          'userAgent',
+        ],
         currentFlags: [
           ['s1', false],
           ['s2', true],

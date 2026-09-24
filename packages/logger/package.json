@@ -14,6 +14,7 @@
     "pino": "10.3.1"
   },
   "devDependencies": {
+    "@daisy/config": "workspace:*",
     "riteway": "9.3.0"
   }
 }

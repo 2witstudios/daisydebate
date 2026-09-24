@@ -27,6 +27,7 @@ describe('ingress listener', () => {
   test('forged identity headers', async () => {
     const seen: Array<string | string[] | undefined> = [];
     const listen = createIngressListener({
+      clientIdSubkey: 'ingress-test-subkey',
       isDraining: () => false,
       trustedProxies: [],
       handle: async (req) => {
@@ -53,6 +54,7 @@ describe('ingress listener', () => {
   test('forged chain behind a trusted proxy', async () => {
     const seen: Array<string | string[] | undefined> = [];
     const listen = createIngressListener({
+      clientIdSubkey: 'ingress-test-subkey',
       isDraining: () => false,
       trustedProxies: ['10.0.0.0/8'],
       handle: async (req) => {
@@ -79,6 +81,7 @@ describe('ingress listener', () => {
     let handled = 0;
     const res = response();
     const listen = createIngressListener({
+      clientIdSubkey: 'ingress-test-subkey',
       isDraining: () => true,
       trustedProxies: [],
       handle: async () => {
@@ -99,6 +102,7 @@ describe('ingress listener', () => {
     const errors: number[] = [];
     const res = response();
     const listen = createIngressListener({
+      clientIdSubkey: 'ingress-test-subkey',
       isDraining: () => false,
       trustedProxies: [],
       handle: () => Promise.reject(new Error('boom')),

@@ -3,6 +3,7 @@ import {
   drainWithDeadline,
   installShutdownSignals,
 } from '@daisy/observability';
+import { deriveClientIdSubkey } from '../features/auth/client-ip';
 import { createHttpServer } from './http-server';
 import {
   closeProcessApp,
@@ -26,6 +27,7 @@ const nextApp = next({ dev: false, port });
 // after prepare().
 const server = createHttpServer({
   trustedProxies: authConfig.AUTH_TRUSTED_PROXIES ?? [],
+  clientIdSubkey: deriveClientIdSubkey(authConfig.BETTER_AUTH_SECRET),
   isDraining: app.isDraining,
   logger: app.logger,
   handle: nextApp.getRequestHandler(),
