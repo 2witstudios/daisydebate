@@ -4,10 +4,16 @@ import type { Logger } from '@daisy/logger';
 /**
  * Hands drained rows to whatever consumes them; RT-2.3c wires the real
  * fan-out to subscribed sockets. This leaf stops at the seam.
+ *
+ * Synchronous by contract (ADR 0032 §4): the drain loop calls `sink` and
+ * advances its cursor in the same tick, with no `await` between them, so a
+ * subscribe racing the drain (RT-2.3c's ring) never observes a cursor that
+ * has moved past rows the sink has not yet published. A sink with its own
+ * async work (a socket write, a ring append) queues that work after this
+ * synchronous hand-off — fire-and-forget from the loop's point of view —
+ * rather than returning a pending promise here.
  */
-export type OutboxRowsSink = (
-  rows: readonly OutboxRow[],
-) => void | Promise<void>;
+export type OutboxRowsSink = (rows: readonly OutboxRow[]) => void;
 
 const MAX_DRAIN_LIMIT = 500;
 
@@ -41,13 +47,14 @@ export type OutboxDrainLoop = {
  * loop reruns once as soon as the current pass ends instead of running one
  * query per event.
  *
- * The cursor for a range advances only once the sink has accepted it: a
- * failed range read or a throwing sink is caught, logged as a registered
- * event, and ends this pass without re-throwing, leaving the cursor at the
- * last range the sink actually accepted. The loop itself never dies; the
- * next wakeup (a fresh NOTIFY or the next poll tick, ADR 0032 §3's
- * correctness mechanism, never a fallback) starts a new pass and retries
- * from that same cursor.
+ * A range's sink call and cursor advance happen in the same synchronous
+ * tick (ADR 0032 §4), so a synchronously throwing sink leaves the cursor
+ * unmoved past that range. A failed range read or a throwing sink is
+ * caught around the pass (never inside the tick), logged as a registered
+ * event, and ends this pass without re-throwing. The loop itself never
+ * dies; the next wakeup (a fresh NOTIFY or the next poll tick, ADR 0032
+ * §3's correctness mechanism, never a fallback) starts a new pass and
+ * retries from that same cursor.
  */
 export function createOutboxDrainLoop({
   drainOutbox,
@@ -72,7 +79,11 @@ export function createOutboxDrainLoop({
             onQuery?.();
             rows = await drainOutbox(cursor, MAX_DRAIN_LIMIT);
             if (rows.length > 0) {
-              await sink(rows);
+              // No `await` between these two lines (ADR 0032 §4): a
+              // synchronous throw from `sink` skips the cursor assignment,
+              // and nothing else can run in between to observe a moved
+              // cursor for rows the sink has not seen.
+              sink(rows);
               const last = rows[rows.length - 1];
               if (last) cursor = { txid: last.txid, seq: last.seq };
             }
@@ -159,6 +170,7 @@ export async function startOutboxDrain({
   pollIntervalMs = DRAIN_POLL_INTERVAL_MS,
   timers = systemIntervalTimers,
   onQuery,
+  onListenWake,
 }: {
   readonly database: OutboxDrainDatabase;
   readonly sink: OutboxRowsSink;
@@ -167,6 +179,14 @@ export async function startOutboxDrain({
   readonly pollIntervalMs?: number;
   readonly timers?: IntervalTimers;
   readonly onQuery?: () => void;
+  /**
+   * Test seam only: fires whenever Bun SQL's `onListen` runs (the initial
+   * subscribe and every reconnect), before the wake it triggers. Lets a
+   * test observe that a reconnect drove this instance's own subscription,
+   * independent of database content or any other listener's traffic on
+   * the shared `outbox` channel (RT-2.3b-f1 criterion 2).
+   */
+  readonly onListenWake?: () => void;
 }): Promise<OutboxDrainControl> {
   const state: { loop?: OutboxDrainLoop; pendingWake: boolean } = {
     pendingWake: false,
@@ -178,7 +198,10 @@ export async function startOutboxDrain({
 
   const subscription = await database.listenOutbox({
     onNotify: () => wake(),
-    onListen: () => wake(),
+    onListen: () => {
+      onListenWake?.();
+      wake();
+    },
   });
 
   const initialCursor = await database.readOutboxHighWaterMark();

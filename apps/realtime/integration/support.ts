@@ -28,6 +28,8 @@ export async function bootServer(
     readonly sink?: OutboxRowsSink;
     readonly pollIntervalMs?: number;
     readonly onQuery?: () => void;
+    /** Observes a reconnect independent of database content or other listeners' traffic (RT-2.3b-f1 criterion 2). */
+    readonly onListenWake?: () => void;
     /** Tags the drain connection so a test can find and kill it by name. */
     readonly applicationNameTag?: string;
   } = {},
@@ -55,6 +57,9 @@ export async function bootServer(
       ? {}
       : { pollIntervalMs: overrides.pollIntervalMs }),
     ...(overrides.onQuery === undefined ? {} : { onQuery: overrides.onQuery }),
+    ...(overrides.onListenWake === undefined
+      ? {}
+      : { onListenWake: overrides.onListenWake }),
   });
   return {
     server,

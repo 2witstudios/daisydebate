@@ -7,6 +7,8 @@ setupRitewayBun();
 
 const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
+const noopLogger: Logger = { log: () => {}, child: () => noopLogger };
+
 function recordingLogger(): {
   readonly logger: Logger;
   readonly events: string[];
@@ -134,5 +136,65 @@ describe('createOutboxDrainLoop error recovery (RT-2.3b review finding 1)', () =
     } finally {
       process.off('unhandledRejection', onUnhandled);
     }
+  });
+});
+
+describe('createOutboxDrainLoop sink/cursor tick (ADR 0032 §4, RT-2.3b-f1 criterion 1)', () => {
+  test('the sink call and the cursor advance happen in the same synchronous tick, so nothing observes a cursor moved past rows the sink has not seen', async () => {
+    const row = fakeRow(1n);
+    let capturedCursorDuringHandoff: unknown;
+    const loop = createOutboxDrainLoop({
+      drainOutbox: async () => [row],
+      sink: () => {
+        // Queued from inside the synchronous sink call: if an `await`
+        // separated the sink call from the cursor assignment, this
+        // microtask (queued before that `await`'s own continuation) would
+        // run first and observe the stale, pre-range cursor instead.
+        queueMicrotask(() => {
+          capturedCursorDuringHandoff = loop.cursor();
+        });
+      },
+      initialCursor: OUTBOX_ORIGIN,
+      logger: noopLogger,
+    });
+
+    loop.wake();
+    await flush();
+
+    assert({
+      given:
+        "a sink that queues a microtask, from inside its own synchronous call, to read the loop's cursor",
+      should:
+        'observe the cursor already advanced to this range, proving no await separates the sink call from the cursor assignment',
+      actual: capturedCursorDuringHandoff,
+      expected: { txid: row.txid, seq: row.seq },
+    });
+  });
+
+  test('a synchronously throwing sink leaves the cursor unmoved, with the failure caught around the pass, not inside the tick', async () => {
+    const row = fakeRow(1n);
+    const { logger, events } = recordingLogger();
+    const loop = createOutboxDrainLoop({
+      drainOutbox: async () => [row],
+      sink: () => {
+        throw new Error('publish failed');
+      },
+      initialCursor: OUTBOX_ORIGIN,
+      logger,
+    });
+
+    loop.wake();
+    await flush();
+
+    assert({
+      given: 'a sink that throws synchronously on the only row available',
+      should:
+        'leave the cursor at the origin and log the failure, never partially advancing it',
+      actual: {
+        cursor: loop.cursor(),
+        loggedDrainFailure: events.includes('realtime.outbox.drain_failed'),
+      },
+      expected: { cursor: OUTBOX_ORIGIN, loggedDrainFailure: true },
+    });
   });
 });

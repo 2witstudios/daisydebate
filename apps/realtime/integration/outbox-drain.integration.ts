@@ -19,25 +19,29 @@ if (!process.env.TEST_DATABASE_URL || !process.env.TEST_REDIS_URL)
     'apps/realtime integration tests require TEST_DATABASE_URL and TEST_REDIS_URL',
   );
 
-test('a burst of notifications for many committed, distinct-payload rows produces at most 2 range queries, never one per event', async () => {
+test('a burst of notifications for many committed, distinct-payload rows produces at most 2 range queries relevant to it, never one per event', async () => {
   const delivered: OutboxRow[] = [];
-  let queryCount = 0;
   const BURST_SIZE = 30;
+  const topic = buildDebateTopic(systemId.next());
+  // Counted from the sink, not from a global query tally (RT-2.3b-f1
+  // criterion 2): `bun test:integration` runs this suite and @daisy/db's
+  // concurrently under turbo, and both append to and NOTIFY the same
+  // shared slot database's `outbox` channel. A query triggered by another
+  // suite's traffic that returns none of this topic's rows is real
+  // background activity, not an extra query "spent" delivering this
+  // burst, so it must not count against the bound.
+  let relevantQueries = 0;
   // A long poll interval isolates the NOTIFY path: any query observed here
   // comes from coalesced wakeups, not the correctness-mechanism poll.
   const { close } = await bootServer({
     sink: (rows) => {
       delivered.push(...rows);
+      if (rows.some((row) => row.topic === topic)) relevantQueries += 1;
     },
     pollIntervalMs: 60_000,
-    onQuery: () => {
-      queryCount += 1;
-    },
   });
   const client = new SQL(databaseUrl);
-  const topic = buildDebateTopic(systemId.next());
   try {
-    const before = queryCount;
     // One transaction, distinct payloads: PostgreSQL folds identical NOTIFY
     // payloads sent in one transaction into a single delivery, so this is
     // what actually proves a burst rather than de-duplication.
@@ -49,12 +53,12 @@ test('a burst of notifications for many committed, distinct-payload rows produce
     );
 
     assert({
-      given: `${BURST_SIZE} committed rows with distinct payloads, notified together in one transaction`,
+      given: `${BURST_SIZE} committed rows with distinct payloads, notified together in one transaction, on a shared database other suites are also using`,
       should:
-        'deliver every row via at most 2 coalesced range queries (one pass plus at most one rerun), never one per notification',
+        'deliver every row via at most 2 coalesced range queries that actually carried one of its rows, never one per notification',
       actual: {
         deliveredCount: delivered.filter((row) => row.topic === topic).length,
-        queriesAtMostTwo: queryCount - before <= 2,
+        queriesAtMostTwo: relevantQueries <= 2,
       },
       expected: { deliveredCount: BURST_SIZE, queriesAtMostTwo: true },
     });
@@ -102,6 +106,7 @@ test('no notifications still delivers within the poll interval, since the poll i
 test('a LISTEN reconnect drains from the in-memory cursor, missing nothing', async () => {
   const delivered: OutboxRow[] = [];
   const tag = `rt_reconnect_${systemId.next().slice(0, 10)}`;
+  let listenWakeCount = 0;
   // The poll is disabled for the length of this test (60 s) so that any
   // delivery observed here can only come from the reconnect's own wakeup,
   // isolating that claim from the correctness-mechanism poll, which would
@@ -112,6 +117,9 @@ test('a LISTEN reconnect drains from the in-memory cursor, missing nothing', asy
     },
     pollIntervalMs: 60_000,
     applicationNameTag: tag,
+    onListenWake: () => {
+      listenWakeCount += 1;
+    },
   });
   const client = new SQL(databaseUrl);
   const killer = new SQL(databaseUrl);
@@ -131,10 +139,17 @@ test('a LISTEN reconnect drains from the in-memory cursor, missing nothing', asy
     await notifyOutbox(client, before);
     await waitFor(() => delivered.some((row) => row.topic === topicBefore));
 
+    const listenWakesBeforeKill = listenWakeCount;
     await killer.unsafe(
       'select pg_terminate_backend(pid) from pg_stat_activity where application_name = $1 and pid <> pg_backend_pid()',
       [tag],
     );
+
+    // Independent of any content on the shared database (RT-2.3b-f1
+    // criterion 2): `onListenWake` fires only for this connection's own
+    // subscription, so it cannot be satisfied by another suite's NOTIFY
+    // traffic the way an end-to-end delivery check could.
+    await waitFor(() => listenWakeCount > listenWakesBeforeKill, 15_000);
 
     // A row committed and notified while the listen connection is down (or
     // still reconnecting) can have its NOTIFY lost by design (ADR 0032 §3);
@@ -161,12 +176,17 @@ test('a LISTEN reconnect drains from the in-memory cursor, missing nothing', asy
       given:
         'the LISTEN connection killed after one row is delivered, then a second row committed and notified',
       should:
-        'reconnect, catch up from the in-memory cursor via onlisten, and deliver the second row too',
+        'reconnect (observed independently of any other traffic), catch up from the in-memory cursor via onlisten, and deliver the second row too',
       actual: {
+        reconnectedOwnConnection: listenWakeCount > listenWakesBeforeKill,
         firstDelivered: delivered.some((row) => row.topic === topicBefore),
         secondDelivered: delivered.some((row) => row.topic === topicAfter),
       },
-      expected: { firstDelivered: true, secondDelivered: true },
+      expected: {
+        reconnectedOwnConnection: true,
+        firstDelivered: true,
+        secondDelivered: true,
+      },
     });
   } finally {
     await client.unsafe('delete from outbox where topic = $1', [topicBefore]);

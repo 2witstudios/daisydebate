@@ -23,6 +23,7 @@ export async function serveRealtime({
   pollIntervalMs,
   timers,
   onQuery,
+  onListenWake,
   serve = Bun.serve,
 }: {
   readonly resources: RealtimeApp;
@@ -32,6 +33,8 @@ export async function serveRealtime({
   readonly pollIntervalMs?: number;
   readonly timers?: IntervalTimers;
   readonly onQuery?: () => void;
+  /** Test seam only (RT-2.3b-f1 criterion 2): observes a reconnect independent of database content or other listeners' traffic. */
+  readonly onListenWake?: () => void;
   /** Test seam only (RT-2.3b review finding 2): proves sockets are never accepted before `startOutboxDrain` resolves. */
   readonly serve?: typeof Bun.serve;
 }): Promise<{
@@ -45,6 +48,7 @@ export async function serveRealtime({
     ...(pollIntervalMs === undefined ? {} : { pollIntervalMs }),
     ...(timers === undefined ? {} : { timers }),
     ...(onQuery === undefined ? {} : { onQuery }),
+    ...(onListenWake === undefined ? {} : { onListenWake }),
   });
   const { fetch, websocket } = createRealtimeServer({
     resources: {
