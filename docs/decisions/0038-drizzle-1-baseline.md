@@ -167,8 +167,9 @@ schema)` cannot be declared without a zod schema; every write is parsed
 - Production and staging need `CREATEROLE` on the migration credential
   (unchanged since ADR 0032) and, to realise the runtime split, a
   `daisy_web` password and an app `DATABASE_URL` distinct from the
-  migration credential. The release command still reads `DATABASE_URL`;
-  separating the two is tracked as its own issue.
+  migration credential. ISSUE-39 split them: the release command reads
+  `MIGRATION_DATABASE_URL`, and the app refuses to start as a role that can
+  alter the schema.
 - `bun audit` no longer reports esbuild. The vitest and underscore
   advisories remain (ISSUE-31); ADR 0039 records them as dated, unreachable
   exceptions.

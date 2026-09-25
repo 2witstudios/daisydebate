@@ -12,8 +12,23 @@ installed flyctl has since changed.
 No custom domain: the app is reachable at `https://<app>.fly.dev` only
 (owner decision). Postgres is an always-on Fly machine in the same org and
 Redis is Fly-native Upstash (owner decision, September 22), both reached
-through the existing `DATABASE_URL` / `REDIS_URL` contract — no new client
-libraries.
+through the `DATABASE_URL` / `MIGRATION_DATABASE_URL` / `REDIS_URL`
+contract — no new client libraries.
+
+## Database credentials (ISSUE-39)
+
+Two Fly secrets hold two different PostgreSQL roles:
+
+| Secret                   | Role                                                                                            | Used by                                                                                                                                                          |
+| ------------------------ | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MIGRATION_DATABASE_URL` | `daisy_migrator`, the schema owner (`fly postgres attach`, superuser, so it holds `CREATEROLE`) | `release_command` only (`packages/db/scripts/migrate.ts`). It refuses to run in production without this secret, or when it names the same role as `DATABASE_URL` |
+| `DATABASE_URL`           | `daisy_web`, DML only (created by the baseline migration)                                       | The web app. `start.ts` refuses to start if this role can create or alter anything in schema `public`                                                            |
+
+The baseline creates `daisy_web` without a password (`CREATE ROLE daisy_web
+LOGIN` if it is missing). Setting that password is a one-time human step
+(step 2). Creating the role with its password before the first deploy is
+compatible, because the baseline skips an existing role and grants it the
+same privileges.
 
 ## Idle cost (per the owner's spend constraint)
 
@@ -157,10 +172,27 @@ machine: no automatic backups or failover — fine for staging only.
 ```
 fly postgres create --name daisy-debate-staging-db --org daisy-debate --region ord \
   --vm-size shared-cpu-1x --volume-size 1 --initial-cluster-size 1
-fly postgres attach daisy-debate-staging-db -a daisy-debate-staging   # sets DATABASE_URL
+# The migration owner. Attach creates a superuser login and prints its URL.
+fly postgres attach daisy-debate-staging-db -a daisy-debate-staging \
+  --database-name daisy_debate_staging --database-user daisy_migrator \
+  --variable-name MIGRATION_DATABASE_URL
+
+# The runtime role, once: a random password, then the role holding it.
+DAISY_WEB_PASSWORD="$(bun -e 'console.log(Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("hex"))')"
+echo "CREATE ROLE daisy_web LOGIN PASSWORD '$DAISY_WEB_PASSWORD';" \
+  | fly postgres connect -a daisy-debate-staging-db -d daisy_debate_staging
+# Same host, port, database and query string as the URL attach printed;
+# only the user and password differ.
+fly secrets set -a daisy-debate-staging --stage \
+  DATABASE_URL="postgres://daisy_web:$DAISY_WEB_PASSWORD@<host:port from attach>/daisy_debate_staging?sslmode=disable"
+unset DAISY_WEB_PASSWORD
 ```
 
-Verify: `fly secrets list -a daisy-debate-staging` shows `DATABASE_URL`.
+If `daisy_web` already exists (a deploy has run), use `ALTER ROLE daisy_web
+PASSWORD '...'` instead of `CREATE ROLE`.
+
+Verify: `fly secrets list -a daisy-debate-staging` shows `MIGRATION_DATABASE_URL`
+and `DATABASE_URL`.
 
 ## 3. Provision Redis
 
@@ -210,8 +242,8 @@ expected, nothing is listening yet).
 ## 5. Set secrets
 
 ```
-# DATABASE_URL was set by `fly postgres attach` (step 2) and REDIS_URL staged
-# in step 3; do not set them again here.
+# MIGRATION_DATABASE_URL and DATABASE_URL were set in step 2 and REDIS_URL
+# staged in step 3; do not set them again here.
 fly secrets set -a daisy-debate-staging --stage \
   BETTER_AUTH_SECRET="$(bun -e 'console.log(crypto.getRandomValues(new Uint8Array(32)).reduce((s,b)=>s+b.toString(16).padStart(2,"0"),""))')" \
   RESEND_API_KEY="re_..." \
@@ -225,7 +257,7 @@ persistent secrets — pass them as build args or set them via
 `APP_VERSION`/`GIT_COMMIT` at their `development`/`unknown` defaults
 (`packages/config/src/index.ts`).
 
-Verify: `fly secrets list -a daisy-debate-staging` shows all six names (not
+Verify: `fly secrets list -a daisy-debate-staging` shows all seven names (not
 values — Fly never displays a set secret's value back).
 
 ## 6. First deploy
@@ -240,8 +272,10 @@ fly deploy -a daisy-debate-staging --ha=false \
 ```
 
 `fly.toml`'s `[deploy] release_command = "bun /app/packages/db/scripts/migrate.ts"`
-runs once against `DATABASE_URL` before the new release receives traffic —
-do not add a migration step anywhere else.
+runs once as `MIGRATION_DATABASE_URL` before the new release receives
+traffic. Do not add a migration step anywhere else. The app then starts as
+`DATABASE_URL` (`daisy_web`). A release still pointing `DATABASE_URL` at the
+owner fails startup with "Production refuses a DATABASE_URL role that …".
 
 Verify: `fly status -a daisy-debate-staging` shows one deployed release and
 `fly releases -a daisy-debate-staging` shows it as successful.
@@ -327,3 +361,14 @@ The token can only deploy this one app; rotate it by re-running the two
 commands. Production is never deployed by this workflow (AUTH-7.2/7.3 are
 human-gated). Verify: the "Deploy staging" run is green after a main merge
 and `/api/health/ready` answers at the staging hostname.
+
+A failed deploy posts to the drive's Incidents channel, the same way
+`ci.yml` reports CI failures. The workflow's `notify-drive` job runs when
+the gate job or the deploy job fails and calls `scripts/notify-drive.ts
+incidents --deploy daisy-debate-staging`. The message names the app, the
+first failing step (`<job>.<step id>`, for example `deploy.readiness`), the
+commit and the run URL. It never carries flyctl output, secrets or
+database URLs. The job holds only the Incidents webhook URL and secret
+(`PAGESPACE_INCIDENTS_WEBHOOK_URL`, `PAGESPACE_INCIDENTS_WEBHOOK_SECRET`,
+the repository secrets `ci.yml` already uses), scoped to the step that
+posts.

@@ -34,7 +34,9 @@ Next build, serves requests over a custom HTTP server, and owns lifecycle:
    `bun db:seed` is a development fixture (agent users, actors, a seed
    debate) and never runs against production.
 2. Provide `APP_VERSION`, `GIT_COMMIT`, `PUBLIC_APP_URL` (HTTPS),
-   `DATABASE_URL` (non-development credentials), `REDIS_URL`,
+   `DATABASE_URL` (the DML-only `daisy_web` role; startup refuses a role
+   that can create or alter schema objects), `MIGRATION_DATABASE_URL` (the
+   schema owner, read only by the release migration), `REDIS_URL`,
    `REDIS_NAMESPACE`, `LOG_LEVEL`. Configuration refinement fails startup on
    missing identity or insecure defaults — do not work around it.
 3. Behind a reverse proxy, set `AUTH_TRUSTED_PROXIES` (IPs or CIDR ranges) to

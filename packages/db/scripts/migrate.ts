@@ -2,9 +2,12 @@ import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { migrate } from 'drizzle-orm/bun-sql/migrator';
 import { fileURLToPath } from 'node:url';
-const url = process.env.DATABASE_URL;
-if (!url) throw new Error('DATABASE_URL required');
-const client = new SQL(url, { max: 1 });
+import { readMigrationConfig } from '@daisy/config';
+
+// Production migrates only as the owner in MIGRATION_DATABASE_URL, never
+// the runtime DATABASE_URL (ISSUE-39); errors name fields, never values.
+const { databaseUrl } = readMigrationConfig(process.env);
+const client = new SQL(databaseUrl, { max: 1 });
 try {
   await migrate(drizzle({ client }), {
     migrationsFolder: fileURLToPath(new URL('../migrations', import.meta.url)),

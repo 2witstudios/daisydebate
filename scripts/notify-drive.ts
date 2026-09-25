@@ -77,6 +77,34 @@ export function composeIncidentMessage(input: {
   ].join('\n');
 }
 
+// One `<job>.<step id>=<outcome>` pair; anything else is dropped unread so a
+// malformed value can never reach the channel.
+const STEP_OUTCOME =
+  /^([a-z][a-z0-9-]*\.[a-z][a-z0-9-]*)=(success|failure|cancelled|skipped)?$/;
+
+/** The first failed step in a deploy workflow's reported step outcomes. */
+export function firstFailedStep(outcomes: string): string {
+  for (const pair of outcomes.split(/\s+/)) {
+    const match = pair.match(STEP_OUTCOME);
+    if (match?.[2] === 'failure') return match[1];
+  }
+  return 'unknown';
+}
+
+export function composeDeployFailureMessage(input: {
+  app: string;
+  step: string;
+  sha: string;
+  runUrl: string;
+}): string {
+  return [
+    `🔴 Deploy failed — ${input.app}`,
+    input.runUrl,
+    `Failing step: ${input.step}`,
+    `commit ${input.sha}`,
+  ].join('\n');
+}
+
 export function composeDocsFailureMessage(input: {
   pr: number;
   title?: string;
@@ -295,6 +323,13 @@ async function main(): Promise<void> {
       title: flags.title,
       url: requireFlag(flags, 'url'),
       skipped: flags.skipped === 'true',
+    });
+  } else if (channel === 'incidents' && flags.deploy !== undefined) {
+    content = composeDeployFailureMessage({
+      app: requireFlag(flags, 'deploy'),
+      step: firstFailedStep(flags.outcomes ?? ''),
+      sha: requireFlag(flags, 'sha'),
+      runUrl: requireFlag(flags, 'run-url'),
     });
   } else if (channel === 'incidents') {
     content = composeIncidentMessage({

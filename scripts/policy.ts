@@ -10,6 +10,7 @@ import * as ts from 'typescript';
 import { auditPolicyProblems } from './audit';
 import { numberCollisionProblems } from './number-claims';
 import { reviewDateStatus, utcToday } from './review-date';
+import { collectWorkflowHardeningProblems } from './workflow-hardening';
 
 const root = resolve(import.meta.dir, '..');
 const registryPath = join(root, 'policy/exceptions.json');
@@ -352,9 +353,8 @@ async function filesIn(
       entry.isFile() &&
       (extensions === undefined ||
         extensions.has(entry.name.slice(entry.name.lastIndexOf('.'))))
-    ) {
+    )
       files.push(join(directory, entry.name));
-    }
   }
   return files;
 }
@@ -381,6 +381,7 @@ export async function collectPolicy(): Promise<PolicyReport> {
     ...validateMigrationBaselines(baselinesRegistry, { knownPaths }),
     ...duplicateAdrNumberProblems(knownPaths),
     ...numberCollisionProblems(),
+    ...collectWorkflowHardeningProblems(root),
   ];
   const exceptions = new Set(
     (registry.exceptions ?? []).map(({ path, rule }) => `${path}|${rule}`),

@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.7.5",
+    "@daisy/config": "workspace:*",
     "@daisy/errors": "workspace:*",
     "@daisy/protocol": "workspace:*",
     "@paralleldrive/cuid2": "3.3.0",
@@ -26,7 +27,6 @@
     "zod": "4.6.5"
   },
   "devDependencies": {
-    "@daisy/config": "workspace:*",
     "drizzle-kit": "1.0.0-rc.4",
     "riteway": "9.3.0"
   }
