@@ -44,6 +44,12 @@ JavaScript only enhances it.
   its own unavailable state with the typed value kept, never the root error
   screen (ISSUE-94). The server render keeps the server action itself,
   because React renders the no-JavaScript POST only from a server action.
+- A form that disables its controls while the answer is pending hands focus
+  back with `useFocusAfterAnswer` from the same module. A disabled control
+  drops focus to `<body>`, so once each new answer renders, focus goes to
+  the form's field, or to the next step's heading when the answer leads to
+  a new step (ISSUE-107). The browser suite asserts `document.activeElement`
+  after each answer (`e2e/answer-focus.e2e.ts`).
 - JavaScript may add a local check before posting (`onSubmit` calling
   `preventDefault()` for a value that cannot be valid), pending states and
   focus handling. React runs the action only when `onSubmit` did not

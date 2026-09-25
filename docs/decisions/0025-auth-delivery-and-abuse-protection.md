@@ -142,15 +142,19 @@ token>` as the `verification.identifier`. The subject (the email for
   as `auth.mail.suppressed` and nothing is sent. A mail the flow cannot
   proceed without (the sign-in link, the email-change approval to the
   current address, the confirmation to the new one) answers the same `422
-EMAIL_UNDELIVERABLE` the sign-in gate does. A passkey notice is
+EMAIL_UNDELIVERABLE` the sign-in gate does, except the email-change
+  approval: the address on file cannot receive it, so a different new
+  address would not help, and it answers `422 CURRENT_EMAIL_UNDELIVERABLE`
+  (ISSUE-113). Both codes are defined once, in `undeliverable-codes.ts`. A passkey notice is
   best-effort, so the change it reports still completes. A ledger outage
   fails the send: required mail fails closed with the retryable `503`, and
   a notice logs `auth.passkey.notification_failed`. Two requests also check
   the ledger before any token is created or mail sent, through one shared
   check (`suppression-check.ts`): the sign-in gate, so a suppressed address
-  leaves no stored link, and `/change-email` for the new address
-  (ISSUE-104). The email change checks before it looks the address up, so
-  its `422` answers the same whether or not the address has an account. An
+  leaves no stored link, and `/change-email` for both the new address
+  (ISSUE-104) and the address on file (ISSUE-113). The email change runs
+  both checks before it looks the new address up, so each `422` answers the
+  same whether or not the new address has an account (ISSUE-117). An
   address suppressed after the request is still refused at the approval
   hop, where the confirm page says the new address cannot receive email and
   the person starts again with another address.
@@ -192,7 +196,8 @@ EMAIL_UNDELIVERABLE` the sign-in gate does. A passkey notice is
 - **Disclosure tradeoff.** A suppressed (hard-bounced or complained) address
   answers a distinct `422 EMAIL_UNDELIVERABLE`, revealing to any caller that
   the address bounced (not that an account exists); accepted for safe user
-  guidance.
+  guidance. `CURRENT_EMAIL_UNDELIVERABLE` tells a signed-in account holder
+  only about their own address on file.
 - **Verification retention (AUTH-7.5a).** Better Auth's `verification.value`
   holds the plaintext email JSON and Better Auth does not purge expired rows,
   so the server purges them itself: an in-process job (at start-up, then
