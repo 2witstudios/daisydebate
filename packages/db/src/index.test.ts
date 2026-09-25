@@ -28,7 +28,7 @@ const unreachableDatabase = () => {
 };
 
 describe('package entry surface (ISSUE-8 AC1)', () => {
-  test('never re-exports a function that takes a Drizzle transaction/table handle, only the createDatabase factory and value-typed outbox helpers', () => {
+  test('never re-exports a function that takes a Drizzle transaction/table handle, only the createDatabase factory, the startup role gate and value-typed outbox helpers', () => {
     assert({
       given: "the package entry's exported names",
       should:
@@ -39,6 +39,7 @@ describe('package entry surface (ISSUE-8 AC1)', () => {
         'createDatabase',
         'decodeOutboxCursor',
         'encodeOutboxCursor',
+        'refuseSchemaAlteringRole',
       ].sort(),
     });
   });

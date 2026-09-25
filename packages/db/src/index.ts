@@ -19,6 +19,7 @@ import {
   runtimeRoleProblems,
   type RuntimeRoleFactsRow,
 } from './runtime-role';
+import { RUNTIME_SESSION } from './session-bounds';
 export type {
   DebateMode,
   DebateOutcome,
@@ -76,7 +77,7 @@ export function createDatabase({
       max: maxConnections,
       connectionTimeout: 3,
       idleTimeout: 20,
-      connection: { statement_timeout: 5000, lock_timeout: 2000 },
+      connection: RUNTIME_SESSION,
     });
   const database = drizzle({ client });
   return {
