@@ -44,7 +44,10 @@ token>` as the `verification.identifier`. The subject (the email for
   lifecycle event keyed on `/change-email` still apply. It redeems both
   hops (old-inbox approval, then new-inbox verification) at
   `/email-change/verify`. It refuses a claim whose account no longer holds
-  the old address, or whose new address was taken in the meantime.
+  the old address. A new address that another account holds is never
+  claimed: the approval hop mails its owner a notice instead of a
+  verification link, and the verification hop refuses a claim whose new
+  address was taken in the meantime (ISSUE-119, below).
   `/verify-email` and `/send-verification-email` are disabled. The only
   other value an emailed link carries is the sign-in link's requested
   local destination, which grants nothing: it is re-validated as a local
@@ -76,6 +79,29 @@ token>` as the `verification.identifier`. The subject (the email for
   sessions and data. And whoever holds the old inbox could sign up at that
   address anyway by requesting a fresh link.
 
+- **An email change does not reveal whether the new address has an
+  account (ISSUE-119).** `/change-email` never looks the new address up.
+  After the suppression checks, every request stores an approval token and
+  mails the same approval notice to the address on file, so a free and a
+  taken new address get the same status, body and mail in the requester's
+  inbox from the same work, provider send included, and the response time
+  does not depend on the address. Before, a taken address answered at once
+  and mailed nothing, which the requester could read from their own inbox
+  and from the missing provider round trip. The taken case is settled at
+  the approval hop, once the old inbox has approved: a free address is
+  mailed the verification link, a taken one is mailed a notice
+  (`email-change-taken`: someone asked to move another account to this
+  address; it already belongs to your account, so nothing changed) whose
+  one link points to the security settings and redeems nothing. That is how
+  the owner of a taken address is told. Both approvals answer the same
+  (`303` to the security settings, no cookie), so the requester learns
+  nothing at that hop either: only the new inbox shows which mail came, and
+  whoever reads it already knows whether it has an account. Both mails
+  take the same delivery path and suppression refusal. The free path also
+  stores the verification token, one indexed insert the taken path skips,
+  which is accepted as noise beside the provider send both paths make. The
+  verification hop still refuses a claim whose new address was taken
+  meanwhile (ISSUE-2), so a taken address can never be claimed.
 - **No session survives an email change it straddles (ISSUE-103).** A
   redemption whose lookup found the account _before_ the address switch is
   not in that window. Better Auth creates its session in a later statement,
@@ -152,9 +178,9 @@ EMAIL_UNDELIVERABLE` the sign-in gate does, except the email-change
   the ledger before any token is created or mail sent, through one shared
   check (`suppression-check.ts`): the sign-in gate, so a suppressed address
   leaves no stored link, and `/change-email` for both the new address
-  (ISSUE-104) and the address on file (ISSUE-113). The email change runs
-  both checks before it looks the new address up, so each `422` answers the
-  same whether or not the new address has an account (ISSUE-117). An
+  (ISSUE-104) and the address on file (ISSUE-113). Neither check depends on
+  whether the new address has an account, so each `422` answers the same
+  either way (ISSUE-117, ISSUE-119). An
   address suppressed after the request is still refused at the approval
   hop, where the confirm page says the new address cannot receive email and
   the person starts again with another address.

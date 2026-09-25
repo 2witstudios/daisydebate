@@ -33,6 +33,9 @@ export const EMAIL_CHANGE_LINK_EXPIRES_IN_SECONDS = 300;
 /** The confirm page every email-change link opens (`confirm-email.ts`). */
 export const CONFIRM_EMAIL_PATH = '/auth/confirm-email';
 
+/** Where the notice to a taken new address points its owner (ISSUE-119). */
+const SECURITY_SETTINGS_PATH = '/settings/security';
+
 /** The one redemption path; only the confirm page's internal forward reaches it. */
 export const EMAIL_CHANGE_VERIFY_PATH = '/email-change/verify';
 
@@ -139,9 +142,9 @@ export const emailChangePlugin = (dependencies: {
               code: 'EMAIL_IS_THE_SAME',
               message: 'Email is the same',
             });
-          // Both addresses are checked before the account lookup, so each
-          // refusal answers the same whether or not the new address has an
-          // account. A suppressed address on file cannot receive the
+          // Neither check depends on whether the new address has an
+          // account, so each refusal answers the same either way. A
+          // suppressed address on file cannot receive the
           // approval notice (ISSUE-113, ISSUE-117). A suppressed new address
           // is refused now, before any mail, rather than after the old inbox
           // approves (ISSUE-104).
@@ -150,9 +153,10 @@ export const emailChangePlugin = (dependencies: {
             CURRENT_ADDRESS_REFUSALS,
           );
           await dependencies.checkSuppression(newEmail, NEW_ADDRESS_REFUSALS);
-          // Same answer whether or not the address is taken: no disclosure.
-          if (await ctx.context.internalAdapter.findUserByEmail(newEmail))
-            return ctx.json({ status: true });
+          // ISSUE-119: the new address is not looked up here. Whether or
+          // not it has an account, the requester gets the same approval
+          // notice from the same work; a taken address is settled at the
+          // approval hop, which only its owner's inbox can observe.
           const token = await issue(ctx, 'email-change-approve', {
             userId: user.id,
             email: user.email,
@@ -179,19 +183,32 @@ export const emailChangePlugin = (dependencies: {
           const { token } = ctx.body;
           const approved = await consume(ctx, 'email-change-approve', token);
           if (approved) {
-            // The old inbox approved: prove the new one next.
-            const next = await issue(ctx, 'email-change-verify', approved);
+            // The old inbox approved: prove the new one next. A new address
+            // that already has an account gets a notice instead, with no
+            // link that redeems anything, and the approval answers the same
+            // (ISSUE-119): its owner is told, the requester learns nothing.
+            const mail = (await isTaken(ctx, approved))
+              ? renderAuthEmail({
+                  kind: 'email-change-taken',
+                  url: new URL(
+                    SECURITY_SETTINGS_PATH,
+                    dependencies.origin,
+                  ).toString(),
+                })
+              : renderAuthEmail({
+                  kind: 'email-change-confirm',
+                  url: confirmLink(
+                    await issue(ctx, 'email-change-verify', approved),
+                  ),
+                });
             await sendOrUnavailable(dependencies.deliver, {
               to: approved.newEmail,
-              ...renderAuthEmail({
-                kind: 'email-change-confirm',
-                url: confirmLink(next),
-              }),
+              ...mail,
             });
             return ctx.json({ status: true });
           }
           const verified = await consume(ctx, 'email-change-verify', token);
-          if (!verified) throw invalidToken();
+          if (!verified || (await isTaken(ctx, verified))) throw invalidToken();
           // The address switch and the revocation of every sign-in link
           // still mailed to the old address commit together (ISSUE-99).
           const completion = await dependencies.completeEmailChange({
@@ -232,8 +249,8 @@ export const emailChangePlugin = (dependencies: {
   /**
    * Atomic, single-use and expiry-checked (Better Auth's
    * `consumeVerificationValue`). A claim whose account no longer holds the
-   * old address, or whose new address was taken meanwhile, is void: the
-   * token is spent either way.
+   * old address is void: the token is spent either way. Its new address is
+   * checked by the caller (`isTaken`): a taken one is never claimed.
    */
   async function consume(
     ctx: GenericEndpointContext,
@@ -247,8 +264,16 @@ export const emailChangePlugin = (dependencies: {
     const claim = claimSchema.parse(JSON.parse(row.value));
     const user = await ctx.context.internalAdapter.findUserById(claim.userId);
     if (!user || user.email !== claim.email) throw invalidToken();
-    if (await ctx.context.internalAdapter.findUserByEmail(claim.newEmail))
-      throw invalidToken();
     return claim;
+  }
+
+  /** Whether another account holds the claim's new address (ISSUE-2). */
+  async function isTaken(
+    ctx: GenericEndpointContext,
+    claim: Claim,
+  ): Promise<boolean> {
+    return Boolean(
+      await ctx.context.internalAdapter.findUserByEmail(claim.newEmail),
+    );
   }
 };

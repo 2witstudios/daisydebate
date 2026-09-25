@@ -33,8 +33,8 @@ const SUPPRESSED_RECIPIENT: UndeliverableRefusal = {
 /**
  * The one place a required mail's failure becomes a public outcome, used by
  * every Better Auth mail hook that cannot proceed without its mail
- * (sign-in, email-change-notice, email-change-confirm) instead of each hook
- * repeating its own try/catch: a send failure is the retryable
+ * (sign-in, email-change-notice, email-change-confirm or -taken) instead
+ * of each hook repeating its own try/catch: a send failure is the retryable
  * EMAIL_DELIVERY_FAILED, a suppressed recipient `refusal` (by default the
  * same EMAIL_UNDELIVERABLE the sign-in gate answers).
  */
