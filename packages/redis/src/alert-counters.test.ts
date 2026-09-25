@@ -1,6 +1,6 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createOfflineRedis, createTestRedis } from './test-support';
+import { createOutageRedis, createTestRedis } from './test-support';
 
 setupRitewayBun();
 
@@ -110,9 +110,7 @@ describe('redis alert counters (AUTH-7.7)', () => {
   });
 
   test('propagates outage and reports it without swallowing', async () => {
-    const events: Array<{ event: string; fields: Record<string, unknown> }> =
-      [];
-    const redis = createOfflineRedis(events);
+    const { events, redis } = createOutageRedis();
     await expect(
       redis.setIfAbsent('alert-unavailable-storage', 'v', 180),
     ).rejects.toThrow('offline');

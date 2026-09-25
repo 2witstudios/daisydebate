@@ -27,7 +27,7 @@ export type AlertSnapshot = {
   readonly retentionLastSuccessIso: string | null;
 };
 
-export type AlertConditionId =
+type AlertConditionId =
   | 'storage_unavailable'
   | 'limiter_unavailable'
   | 'delivery_failures'

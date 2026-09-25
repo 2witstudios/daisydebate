@@ -8,15 +8,22 @@ setupRitewayBun();
 const TOKEN = 'a'.repeat(32);
 const NOW = '2026-09-25T12:00:00.000Z';
 
+const makeHandler = (values = new Map<string, string>()) =>
+  createAlertsHandler({
+    logger: silentLogger,
+    redis: { get: async (key) => values.get(key) ?? null },
+    clock: fixedClock(NOW),
+    token: () => TOKEN,
+  });
+
+const authorizedRequest = () =>
+  new Request('http://localhost/api/ops/alerts', {
+    headers: { authorization: `Bearer ${TOKEN}` },
+  });
+
 describe('GET /api/ops/alerts (AUTH-7.7)', () => {
   test('refuses a request without the probe bearer token', async () => {
-    const handler = createAlertsHandler({
-      logger: silentLogger,
-      redis: { get: async () => null },
-      clock: fixedClock(NOW),
-      token: () => TOKEN,
-    });
-    const response = await handler(
+    const response = await makeHandler()(
       new Request('http://localhost/api/ops/alerts'),
     );
     assert({
@@ -28,20 +35,8 @@ describe('GET /api/ops/alerts (AUTH-7.7)', () => {
   });
 
   test('reports no conditions for a healthy, freshly-swept snapshot', async () => {
-    const values = new Map<string, string>([
-      ['alert-retention-last-success', NOW],
-    ]);
-    const handler = createAlertsHandler({
-      logger: silentLogger,
-      redis: { get: async (key) => values.get(key) ?? null },
-      clock: fixedClock(NOW),
-      token: () => TOKEN,
-    });
-    const response = await handler(
-      new Request('http://localhost/api/ops/alerts', {
-        headers: { authorization: `Bearer ${TOKEN}` },
-      }),
-    );
+    const values = new Map([['alert-retention-last-success', NOW]]);
+    const response = await makeHandler(values)(authorizedRequest());
     const body = (await response.json()) as { conditions: unknown[] };
     assert({
       given: 'a healthy snapshot with a token-authorized request',
@@ -52,20 +47,8 @@ describe('GET /api/ops/alerts (AUTH-7.7)', () => {
   });
 
   test('reports the cleanup_missed condition when the sweep has never succeeded', async () => {
-    const handler = createAlertsHandler({
-      logger: silentLogger,
-      redis: { get: async () => null },
-      clock: fixedClock(NOW),
-      token: () => TOKEN,
-    });
-    const response = await handler(
-      new Request('http://localhost/api/ops/alerts', {
-        headers: { authorization: `Bearer ${TOKEN}` },
-      }),
-    );
-    const body = (await response.json()) as {
-      conditions: { id: string }[];
-    };
+    const response = await makeHandler()(authorizedRequest());
+    const body = (await response.json()) as { conditions: { id: string }[] };
     assert({
       given: 'an all-absent snapshot (no sweep ever recorded)',
       should: 'fire exactly cleanup_missed',

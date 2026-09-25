@@ -1,7 +1,7 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createRedis, redisKey } from './index';
-import { createOfflineRedis, createTestRedis } from './test-support';
+import { createOutageRedis, createTestRedis } from './test-support';
 
 setupRitewayBun();
 
@@ -204,9 +204,7 @@ describe('redis atomic rate limit', () => {
   });
 
   test('propagates outage and reports it without swallowing', async () => {
-    const events: Array<{ event: string; fields: Record<string, unknown> }> =
-      [];
-    const redis = createOfflineRedis(events);
+    const { events, redis } = createOutageRedis();
     await expect(
       redis.consumeRateLimit('ok', { windowSeconds: 60, max: 3 }),
     ).rejects.toThrow('offline');
