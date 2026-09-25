@@ -10,12 +10,13 @@
  * Each role has its own cap (builder 3, reviewer 2); only the owner sets a
  * cap or overrides a refusal. Before a builder starts it refuses superseded
  * terms in the leaf or prompt, undeclared or unmerged prerequisites and a
- * full cap. A builder gets a new worktree, with dependencies installed and
- * its PAR-2 slot up before any prompt is sent; a reviewer joins the existing
- * worktree it reviews. The wrapper resolves the child id from `pu status
- * --json`, registers its parent and role in the main checkout's agent
- * registry, outside the child's reach (agent-registry.ts), and confirms the
- * prompt was taken, nudging with an empty `pu send` when it was not.
+ * full cap. One pu spawn creates a builder's worktree and its agent
+ * together, then its dependencies and PAR-2 slot come up in it; a reviewer
+ * joins the existing worktree it reviews. The wrapper resolves the child id
+ * from `pu status --json`, registers its parent and role in the main
+ * checkout's agent registry, outside the child's reach (agent-registry.ts),
+ * and confirms the prompt was taken, nudging with an empty `pu send` when
+ * it was not.
  */
 import {
   existsSync,
@@ -290,6 +291,40 @@ function reviewedWorktree(deps: SpawnDeps, id: string): Worktree {
   return worktree;
 }
 
+/**
+ * Runs the one pu spawn that creates the agent: `-w <worktree>` to join an
+ * existing reviewer worktree, or `-n <name> -b <base>` to create a builder's
+ * worktree and its real agent together (no placeholder is ever spawned).
+ * Returns the worktree and agent pu status shows afterward.
+ */
+function spawnAgentInto(
+  deps: SpawnDeps,
+  plan: SpawnPlan,
+  reviewed: Worktree | undefined,
+): { worktree: Worktree; agent: Agent } {
+  const before = puStatus(deps);
+  const spawnArgs = reviewed
+    ? ['pu', 'spawn', '-w', reviewed.id, '-a', plan.agent, ...plan.rest]
+    : [
+        'pu',
+        'spawn',
+        '-n',
+        plan.name,
+        '-b',
+        plan.base,
+        '-a',
+        plan.agent,
+        ...plan.rest,
+      ];
+  deps.run(spawnArgs);
+  const after = puStatus(deps);
+  const worktree = reviewed ?? newWorktree(before, after, `pu/${plan.name}`);
+  if (!worktree) throw new SpawnRefused(`pu did not create pu/${plan.name}`);
+  const agent = newAgent(before, after, worktree.id);
+  if (!agent) throw new SpawnRefused('pu status shows no new agent');
+  return { worktree, agent };
+}
+
 async function spawnChecked(deps: SpawnDeps, plan: SpawnPlan): Promise<number> {
   const blockers = [...checkLeaf(deps, plan), ...checkCap(deps, plan)];
   if (blockers.length > 0 && (!plan.override || deps.autonomous))
@@ -304,27 +339,7 @@ async function spawnChecked(deps: SpawnDeps, plan: SpawnPlan): Promise<number> {
   const prompt = promptText(deps, plan.rest);
   const turnsBefore =
     reviewed && prompt ? turnsWith(deps, reviewed.path, prompt) : 0;
-  const before = puStatus(deps);
-  deps.run(
-    reviewed
-      ? ['pu', 'spawn', '-w', reviewed.id, '-a', plan.agent, ...plan.rest]
-      : [
-          'pu',
-          'spawn',
-          '-n',
-          plan.name,
-          '-b',
-          plan.base,
-          '-a',
-          plan.agent,
-          ...plan.rest,
-        ],
-  );
-  const after = puStatus(deps);
-  const worktree = reviewed ?? newWorktree(before, after, `pu/${plan.name}`);
-  if (!worktree) throw new SpawnRefused(`pu did not create pu/${plan.name}`);
-  const agent = newAgent(before, after, worktree.id);
-  if (!agent) throw new SpawnRefused('pu status shows no new agent');
+  const { worktree, agent } = spawnAgentInto(deps, plan, reviewed);
   if (!reviewed) setUp(deps, worktree);
   deps.write(
     recordPath(deps.mainCheckout, agent.id),
