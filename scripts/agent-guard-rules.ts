@@ -77,10 +77,11 @@ export function combine(verdicts: readonly Verdict[]): Verdict {
 export const isWithin = (path: string, root: string): boolean =>
   path === root || path.startsWith(`${root}/`);
 
-// A word still carrying '$' (an unexpanded variable) or U+0000 (the parser's
-// marker for a command substitution it resolved statically) names no known
-// program.
-const UNRESOLVED_NAME = /[$\u0000]/;
+// A word still carrying '$' (an unexpanded variable) or the parser's marker
+// for a command substitution it resolved statically (shell-command.ts's
+// SUBSTITUTED, a lone U+0000) names no known program.
+const isUnresolvedName = (name: string): boolean =>
+  name.includes('$') || name.includes('\u0000');
 
 /**
  * A command whose executable name is built from a variable or a command
@@ -92,7 +93,7 @@ export function unresolvedNameVerdict(
   name: string,
   facts: GuardFacts,
 ): Verdict {
-  return UNRESOLVED_NAME.test(name)
+  return isUnresolvedName(name)
     ? autonomousOnly(
         facts,
         'The guard cannot tell which program this command runs: its name comes from a variable or a command substitution, not a literal word. Run the resolved command directly.',
