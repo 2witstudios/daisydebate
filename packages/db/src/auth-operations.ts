@@ -1,5 +1,5 @@
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { and, eq, ne, sql } from 'drizzle-orm';
+import { and, eq, ne, notExists, sql } from 'drizzle-orm';
 import { drizzleAdapter } from '@better-auth/drizzle-adapter';
 import { accounts, passkeys, sessions, verifications } from './schema/auth';
 import { users } from './schema/users';
@@ -12,7 +12,7 @@ export type EmailChangeCompletion = 'changed' | 'stale';
 
 /**
  * The auth area (ISSUE-8 AC1): Better Auth's own adapter plus Daisy's
- * email-change completion and two session-revocation operations. Drizzle
+ * email-change completion and three session-revocation operations. Drizzle
  * stays inside this module; callers receive the adapter as an opaque
  * capability, never a table or a transaction handle.
  */
@@ -102,6 +102,48 @@ export const authOperations = ({
           throw error;
         }
       });
+    },
+    /**
+     * ISSUE-103: deletes the session `token` unless its account still holds
+     * `email`, the address the sign-in that just created it proved, and
+     * reports whether it did. One statement, run after that session's insert
+     * has committed: an email change whose address switch committed first is
+     * seen by this statement's snapshot, and one that commits later is
+     * followed by its revoke-all, which the insert's user-row lock orders
+     * after the insert (ISSUE-22), so either way no session proved by the
+     * old address outlives the change. The session has not yet reached its
+     * client, so there is nothing to announce: no `session.revoked` append.
+     */
+    async revokeSessionUnlessAddressHeld(input: {
+      readonly token: string;
+      readonly email: string;
+    }): Promise<boolean> {
+      return instrumented(
+        eventSink,
+        'revokeSessionUnlessAddressHeld',
+        async () => {
+          const rows = await database
+            .delete(sessions)
+            .where(
+              and(
+                eq(sessions.token, input.token),
+                notExists(
+                  database
+                    .select({ id: users.id })
+                    .from(users)
+                    .where(
+                      and(
+                        eq(users.id, sessions.userId),
+                        eq(users.email, input.email),
+                      ),
+                    ),
+                ),
+              ),
+            )
+            .returning({ id: sessions.id });
+          return rows.length > 0;
+        },
+      );
     },
     /**
      * The one revoke-all (ISSUE-22, owner decision 2026-09-23): revokes

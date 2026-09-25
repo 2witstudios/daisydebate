@@ -87,6 +87,8 @@ export function createApp({
       revokeOtherSessions: (userId, keepToken) =>
         database.revokeOtherSessions(userId, keepToken),
       completeEmailChange: (input) => database.completeEmailChange(input),
+      revokeSessionUnlessAddressHeld: (input) =>
+        database.revokeSessionUnlessAddressHeld(input),
       logger,
       clock,
       ids,

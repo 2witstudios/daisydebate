@@ -3,6 +3,7 @@ import { fixedClock, sequentialId } from '@daisy/clock';
 import { readAuthConfig } from '@daisy/config';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import type { CompleteEmailChange } from './email-change';
+import type { RevokeSessionUnlessAddressHeld } from './sign-in-address-guard';
 import { createAuthServer, type AuthEmailMessage } from './server';
 
 /**
@@ -53,6 +54,26 @@ const memoryEmailChange =
     return 'changed';
   };
 
+/**
+ * `@daisy/db`'s `revokeSessionUnlessAddressHeld` contract over in-memory
+ * tables; the real statement's race is proven against PostgreSQL in
+ * `integration/auth-email-change-old-address-links.integration.ts`.
+ */
+const memorySessionGuard =
+  (tables: ReturnType<typeof memoryTables>): RevokeSessionUnlessAddressHeld =>
+  async ({ token, email }) => {
+    const session = tables.session.find((row) => row.token === token);
+    if (
+      !session ||
+      tables.user.some(
+        (row) => row.id === session.userId && row.email === email,
+      )
+    )
+      return false;
+    tables.session.splice(tables.session.indexOf(session), 1);
+    return true;
+  };
+
 /** A mail seam that keeps every message it was asked to send. */
 export function capturingSender() {
   const sent: AuthEmailMessage[] = [];
@@ -77,6 +98,7 @@ export const composeAuthServer = (
     config: readAuthConfig(authTestEnv),
     database: memoryAdapter(tables),
     completeEmailChange: memoryEmailChange(tables),
+    revokeSessionUnlessAddressHeld: memorySessionGuard(tables),
     emailSender: capturingSender(),
     limiter: { consume: async () => ({ allowed: true, retryAfterSeconds: 0 }) },
     logger: silentLogger,

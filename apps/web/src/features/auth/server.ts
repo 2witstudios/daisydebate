@@ -14,6 +14,7 @@ import {
 } from './emailed-link-token';
 import { emailChangePlugin, type CompleteEmailChange } from './email-change';
 import { createMagicLinkGatePlugin } from './magic-link-gate';
+import { createSuppressionCheck } from './suppression-check';
 import { freshSessionGatePlugin } from './fresh-session-gate';
 import { browserSessionShapePlugin } from './browser-session-shape';
 import { passkeyDeviceHintPlugin } from './passkey-device-hint';
@@ -21,6 +22,10 @@ import { passkeyNotificationsPlugin } from './passkey-notifications';
 import { sessionRevokedOutboxPlugin } from './session-revoked-outbox';
 import { revokeOthersOnEmailChangePlugin } from './revoke-others-on-email-change';
 import { revokeSessionsPlugin, type RevokeSessions } from './revoke-sessions';
+import {
+  signInAddressGuardPlugin,
+  type RevokeSessionUnlessAddressHeld,
+} from './sign-in-address-guard';
 import { deriveRecipientSubkey, recipientKey } from './recipient-key';
 import { renderAuthEmail } from './mail/templates';
 import { sendOrUnavailable, type Deliver } from './deliver-or-unavailable';
@@ -69,13 +74,12 @@ const composeBetterAuth = (dependencies: {
   readonly appendSessionRevoked: (userId: string) => Promise<void>;
   readonly revokeOtherSessions: RevokeSessions;
   readonly completeEmailChange: CompleteEmailChange;
+  readonly revokeSessionUnlessAddressHeld: RevokeSessionUnlessAddressHeld;
 }) => {
   const { config, ledger, recipientSubkey } = dependencies;
   const origin = new URL(config.PUBLIC_APP_URL).origin;
-  const magicLinkGatePlugin = createMagicLinkGatePlugin({
-    recipientSubkey,
-    ledger,
-  });
+  const checkSuppression = createSuppressionCheck({ recipientSubkey, ledger });
+  const magicLinkGatePlugin = createMagicLinkGatePlugin(checkSuppression);
   const instance = betterAuth({
     baseURL: config.PUBLIC_APP_URL,
     trustedOrigins: [origin],
@@ -193,11 +197,13 @@ const composeBetterAuth = (dependencies: {
         dependencies.logger,
       ),
       magicLinkGatePlugin,
+      signInAddressGuardPlugin(dependencies.revokeSessionUnlessAddressHeld),
       emailChangePlugin({
         origin,
         deliver: dependencies.deliver,
         clock: dependencies.clock,
         completeEmailChange: dependencies.completeEmailChange,
+        checkSuppression,
       }),
       freshSessionGatePlugin,
       sessionRevokedOutboxPlugin(
@@ -276,6 +282,11 @@ export function createAuthServer<
   readonly revokeOtherSessions: RevokeSessions;
   /** ISSUE-99: the email change's address switch and link revocation. */
   readonly completeEmailChange: CompleteEmailChange;
+  /**
+   * ISSUE-103: removes a just-created magic-link session whose account has
+   * moved off the address the link proved.
+   */
+  readonly revokeSessionUnlessAddressHeld: RevokeSessionUnlessAddressHeld;
 }): AuthServer {
   const { config } = dependencies;
   const recipientSubkey = deriveRecipientSubkey(config.BETTER_AUTH_SECRET);
@@ -351,6 +362,8 @@ export function createAuthServer<
       appendSessionRevoked: dependencies.appendSessionRevoked,
       revokeOtherSessions: dependencies.revokeOtherSessions,
       completeEmailChange: dependencies.completeEmailChange,
+      revokeSessionUnlessAddressHeld:
+        dependencies.revokeSessionUnlessAddressHeld,
     }),
     limiter: dependencies.limiter,
     logger: dependencies.logger,

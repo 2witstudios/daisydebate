@@ -3,39 +3,11 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createDatabase } from '../src/index';
+import { finishedOrBlockedBehind } from '../src/testing';
 
 setupRitewayBun();
 
 const { databaseUrl: url } = requireTestServices(process.env);
-
-/**
- * Which comes first for `work`: finishing, or the database reporting a
- * backend blocked on a lock `holderPid` holds (`pg_blocking_pids`, not a
- * timer). Bounded, so a revoke that neither finishes nor blocks fails
- * loudly instead of hanging the suite.
- */
-async function finishedOrBlockedBehind(
-  work: Promise<unknown>,
-  observer: SQL,
-  holderPid: number,
-) {
-  let finished = false;
-  void work.then(
-    () => (finished = true),
-    () => (finished = true),
-  );
-  const deadline = Date.now() + 5000;
-  while (Date.now() < deadline) {
-    if (finished) return 'finished' as const;
-    const [row] = await observer.unsafe(
-      'select count(*)::int as waiting from pg_stat_activity where $1 = any(pg_blocking_pids(pid))',
-      [holderPid],
-    );
-    if ((row as { waiting: number }).waiting > 0) return 'blocked' as const;
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
-  throw new Error('revoke neither finished nor blocked within 5 s');
-}
 
 const insertSession = (sql: SQL, userId: string, token: string) =>
   sql.unsafe(
@@ -77,6 +49,7 @@ test('ISSUE-22: a session inserted while a revoke-all is in flight never survive
       revoke,
       observer,
       inserterPid,
+      { now: Date.now },
     );
     await inserter.unsafe('commit');
     const removed = await revoke;

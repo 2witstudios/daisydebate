@@ -24,6 +24,20 @@ type ConfirmEmailDependencies = {
   readonly logger: Logger;
 };
 
+/**
+ * ISSUE-104: the approval hop refuses a new address suppressed since the
+ * request (its confirmation is never sent); the person is told why rather
+ * than shown the expired-link page. Anything else is a spent link.
+ */
+async function refusal(response: Response): Promise<Response> {
+  const body = (await response.json().catch(() => ({}))) as {
+    readonly code?: unknown;
+  };
+  return response.status === 422 && body.code === 'EMAIL_UNDELIVERABLE'
+    ? renderEmailConfirmPage({ kind: 'undeliverable' }, 422)
+    : renderEmailConfirmPage({ kind: 'expired' }, 400);
+}
+
 export function createConfirmEmailHandlers({
   auth,
   logger: baseLogger,
@@ -54,7 +68,7 @@ export function createConfirmEmailHandlers({
         body: JSON.stringify({ token }),
       },
     );
-    if (!response.ok) return renderEmailConfirmPage({ kind: 'expired' }, 400);
+    if (!response.ok) return refusal(response);
     const cookies = response.headers.getSetCookie();
     // Only the final hop (proving live access to the new mailbox) sets a
     // session cookie; the old-address approval hop hits this same route

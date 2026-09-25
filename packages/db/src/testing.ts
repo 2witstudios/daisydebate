@@ -63,3 +63,41 @@ export async function waitForOutboxFinality(
     await Bun.sleep(POLL_INTERVAL_MS);
   }
 }
+
+/**
+ * Test support for suites that pin a lock interleaving (ISSUE-22,
+ * ISSUE-103): which comes first for `work`, finishing, or the database
+ * reporting a backend blocked on a lock `holderPid` holds
+ * (`pg_blocking_pids`, not a timer). Past `deadlineMs` it rejects, so work
+ * that neither finishes nor blocks fails loudly instead of hanging the
+ * suite. The caller injects the clock (`now`, in milliseconds).
+ */
+export async function finishedOrBlockedBehind(
+  work: Promise<unknown>,
+  observer: SQL,
+  holderPid: number,
+  {
+    now,
+    deadlineMs = 5000,
+  }: { readonly now: () => number; readonly deadlineMs?: number },
+): Promise<'finished' | 'blocked'> {
+  let finished = false;
+  void work.then(
+    () => (finished = true),
+    () => (finished = true),
+  );
+  const deadline = now() + deadlineMs;
+  for (;;) {
+    if (finished) return 'finished';
+    const [row] = (await observer.unsafe(
+      'select count(*)::int as waiting from pg_stat_activity where $1 = any(pg_blocking_pids(pid))',
+      [holderPid],
+    )) as Array<{ waiting: number }>;
+    if ((row?.waiting ?? 0) > 0) return 'blocked';
+    if (now() >= deadline)
+      throw new Error(
+        `Work neither finished nor blocked behind pid ${holderPid} within ${deadlineMs} ms`,
+      );
+    await Bun.sleep(POLL_INTERVAL_MS);
+  }
+}
