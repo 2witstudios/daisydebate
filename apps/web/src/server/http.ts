@@ -118,22 +118,34 @@ export async function handleOperation(
   );
 }
 /**
- * Fail-closed origin gate for state changes. The Origin must be this app's,
- * with one browser case: a form posted from a page served with
- * `Referrer-Policy: no-referrer` (the emailed-link confirmation) carries
- * `Origin: null` even to its own origin. That is accepted only with
- * `Sec-Fetch-Site: same-origin`, which page script cannot set and which a
- * sandboxed or cross-site sender never reports.
+ * Fail-closed origin gate for state changes. The Origin must be this app's;
+ * everything else, including the opaque `Origin: null` a no-referrer page's
+ * form submission sends, is refused. Only the no-referrer confirmation
+ * routes may accept that opaque origin, through `requireSameOriginForm`
+ * below — never this one.
  */
 export function requireSameOrigin(request: Request, origin: string) {
-  const claimed = request.headers.get('origin');
-  if (claimed === new URL(origin).origin) return;
+  if (request.headers.get('origin') !== new URL(origin).origin)
+    throw createAppError('AUTHORIZATION');
+}
+
+/**
+ * Origin gate for form posts from pages served with `Referrer-Policy:
+ * no-referrer`: `/auth/confirm` and `/auth/confirm-email`, the emailed-link
+ * confirmation pages (`confirm-page-shared.ts`'s `pageHeaders`). Browsers
+ * then send `Origin: null` even to the same origin, so that value is
+ * accepted only with `Sec-Fetch-Site: same-origin`, a header page script
+ * cannot set. A sandboxed or cross-site sender reports something else and is
+ * still refused. No other route may use this: every other caller needs the
+ * strict `requireSameOrigin` above.
+ */
+export function requireSameOriginForm(request: Request, origin: string) {
   if (
-    claimed === 'null' &&
+    request.headers.get('origin') === 'null' &&
     request.headers.get('sec-fetch-site') === 'same-origin'
   )
     return;
-  throw createAppError('AUTHORIZATION');
+  requireSameOrigin(request, origin);
 }
 
 /**

@@ -1,5 +1,5 @@
 import type { Logger } from '@daisy/logger';
-import { handleOperation, requireSameOrigin } from '../../server/http';
+import { handleOperation, requireSameOriginForm } from '../../server/http';
 import { CONFIRM_PATH, renderConfirmPage, type Hidden } from './confirm-page';
 import {
   createForward,
@@ -187,7 +187,7 @@ export function createConfirmHandlers({
         request,
         'auth.confirm.submit',
         async (_id, logger) => {
-          requireSameOrigin(request, auth().config.PUBLIC_APP_URL);
+          requireSameOriginForm(request, auth().config.PUBLIC_APP_URL);
           const form = await readForm(request, MAX_FORM_BYTES);
           return form.get('intent') === 'resend'
             ? resend(request, form)

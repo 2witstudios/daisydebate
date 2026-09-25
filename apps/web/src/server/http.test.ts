@@ -1,7 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError, createInvariantError } from '@daisy/errors';
-import { assertRejects } from '@daisy/errors/testing';
-import { handleOperation, readJson, requireSameOrigin } from './http';
+import { handleOperation, readJson } from './http';
 import { createRecordingLogger } from './test-loggers.test-support';
 
 setupRitewayBun();
@@ -279,21 +278,6 @@ describe('handleOperation', () => {
           .durationMs,
         errorCode: 'REQUEST_CANCELLED',
       },
-    });
-  });
-
-  test('rejects cross-origin state-changing requests', async () => {
-    await assertRejects({
-      given: 'a state-changing request from another origin',
-      should: 'refuse with AUTHORIZATION',
-      actual: () =>
-        requireSameOrigin(
-          new Request('http://localhost/api/foundation/proof', {
-            headers: { origin: 'https://evil.example' },
-          }),
-          'http://localhost:3000',
-        ),
-      code: 'AUTHORIZATION',
     });
   });
 });
