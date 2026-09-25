@@ -44,3 +44,18 @@ export async function addVirtualAuthenticator(
   const credentials = () => readCredentials(session, authenticatorId);
   return { session, authenticatorId, setPresence, credentials };
 }
+
+/**
+ * The sign-in page also arms passkey autofill (conditional mediation), and
+ * Chromium's virtual authenticator completes that request with no pick at
+ * all, racing the explicit button. Specs that prove the button path hide
+ * conditional mediation so the button is the only way in.
+ */
+export async function withoutPasskeyAutofill(page: Page) {
+  await page.addInitScript(() => {
+    Reflect.deleteProperty(
+      PublicKeyCredential,
+      'isConditionalMediationAvailable',
+    );
+  });
+}
