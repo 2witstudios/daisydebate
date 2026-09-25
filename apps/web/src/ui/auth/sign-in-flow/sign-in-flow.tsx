@@ -21,6 +21,7 @@ import {
 import {
   offerPasskeyAutofillSafely,
   signInWithPasskeySafely,
+  type PasskeyOutcome,
   type SignInPort,
 } from '../sign-in-port';
 import {
@@ -28,6 +29,7 @@ import {
   canRequestLink,
   canResend,
   linkInFlight,
+  passkeyInFlight,
   signInReducer,
   type SignInState,
 } from '../sign-in-state';
@@ -129,6 +131,14 @@ export function SignInFlow({
   // Focus follows the state the answer settles into, one commit after the
   // answer itself: until then the screen is the pre-answer one.
   useFocusAfterAnswer(answered, answerFocusId(state), !linkInFlight(state));
+  // The passkey button is disabled while its ceremony runs, so its answer
+  // owes focus the same way (ISSUE-118). Each settle is a new object.
+  const [passkeyAnswer, setPasskeyAnswer] = useState<PasskeyOutcome>();
+  useFocusAfterAnswer(
+    passkeyAnswer,
+    answerFocusId(state),
+    !passkeyInFlight(state),
+  );
 
   useEffect(() => {
     if (state.step === 'signed-in') onSignedIn();
@@ -159,9 +169,10 @@ export function SignInFlow({
     signInWithPasskey: () => {
       if (state.step !== 'enter-email' || state.pending !== 'none') return;
       dispatch({ type: 'passkey-requested' });
-      void signInWithPasskeySafely(port).then((outcome) =>
-        dispatch({ type: 'passkey-settled', outcome }),
-      );
+      void signInWithPasskeySafely(port).then((outcome) => {
+        dispatch({ type: 'passkey-settled', outcome });
+        setPasskeyAnswer({ ...outcome });
+      });
     },
     resend: () => {
       const at = clock.now();

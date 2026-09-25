@@ -95,6 +95,10 @@ export const linkInFlight = (state: SignInState): boolean =>
   (state.step === 'enter-email' && state.pending === 'link') ||
   (state.step === 'check-inbox' && state.resending);
 
+/** Whether a passkey ceremony started from the button is awaiting its answer. */
+export const passkeyInFlight = (state: SignInState): state is EnterEmail =>
+  state.step === 'enter-email' && state.pending === 'passkey';
+
 const settleLink = (
   state: SignInState,
   outcome: LinkRequestOutcome,
@@ -111,7 +115,7 @@ const settlePasskey = (
   state: SignInState,
   outcome: PasskeyOutcome,
 ): SignInState => {
-  if (state.step !== 'enter-email' || state.pending !== 'passkey') return state;
+  if (!passkeyInFlight(state)) return state;
   return outcome.kind === 'signed-in'
     ? { step: 'signed-in' }
     : idle(state.email, `passkey-${outcome.kind}`);
