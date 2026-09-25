@@ -94,6 +94,23 @@ a failure or an empty test selection.
 A retry-pass or a single green run is not this gate; all three outcomes are
 retained as artifacts.
 
+### Multi-instance load and outage proof (AUTH-6.7)
+
+Cross-instance correctness (shared sessions, passkey challenges, one-time
+token consumption, username uniqueness) and outage/restart recovery
+(instance restart, database outage, Redis outage, Resend timeout) are
+deterministic proofs in the integration tier:
+`apps/web/integration/auth-cross-instance.integration.ts` and
+`apps/web/integration/auth-outage-recovery.integration.ts` (the latter uses
+`fault-proxy.ts`, a pausable TCP relay standing in for the shared local
+stack, which ADR 0034 forbids stopping or reconfiguring). Throughput,
+latency and the shipped 80/10/10 workload mix are proven separately by
+`apps/web/scripts/auth-load/` — two real production instances behind one
+shared TLS edge, run manually or by an operator, never part of `bun check`
+or `bun verify` (it needs a production build and takes minutes to hours
+depending on the requested duration). See its README for local usage and
+the staging go-ahead gate.
+
 ## Suite wiring (`bun evidence`)
 
 A suite that nothing invokes is indistinguishable from a suite that does
