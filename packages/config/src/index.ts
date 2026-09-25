@@ -38,9 +38,22 @@ const requireHttpsOrigin = (url: string, ctx: z.RefinementCtx) => {
  * PostgreSQL credentials.
  */
 const requireDeploymentIdentity = (
-  config: { APP_VERSION: string; GIT_COMMIT: string; DATABASE_URL: string },
+  config: {
+    APP_VERSION: string;
+    GIT_COMMIT: string;
+    DATABASE_URL: string;
+    MIGRATION_DATABASE_URL?: string | undefined;
+  },
   ctx: z.RefinementCtx,
 ) => {
+  // ISSUE-102: the schema owner lives only in the release-only migrator app
+  // (ADR 0041); a runtime machine holding it is a misplaced Fly secret.
+  if (config.MIGRATION_DATABASE_URL !== undefined)
+    ctx.addIssue({
+      code: 'custom',
+      path: ['MIGRATION_DATABASE_URL'],
+      message: 'Production runtime must not hold the migration credential',
+    });
   if (config.APP_VERSION === 'development' || config.GIT_COMMIT === 'unknown')
     ctx.addIssue({
       code: 'custom',
@@ -69,6 +82,16 @@ const deploymentIdentityFields = {
     .default('info'),
   APP_VERSION: z.string().min(1).default('development'),
   GIT_COMMIT: z.string().min(1).default('unknown'),
+  // Read only so production can refuse it; never part of the parsed config.
+  MIGRATION_DATABASE_URL: secret(z.string()).optional(),
+};
+/** Drops the migration credential a runtime reads only to refuse it. */
+const withoutMigrationCredential = <Config extends object>(
+  config: Config & { MIGRATION_DATABASE_URL?: string | undefined },
+): Omit<Config, 'MIGRATION_DATABASE_URL'> => {
+  const { MIGRATION_DATABASE_URL: refused, ...runtime } = config;
+  void refused;
+  return runtime;
 };
 const serverFields = {
   ...deploymentIdentityFields,
@@ -78,18 +101,21 @@ const serverFields = {
     .transform((value) => value === 'true'),
   PUBLIC_APP_URL: z.url(),
 };
-const serverConfigSchema = z.object(serverFields).superRefine((config, ctx) => {
-  if (config.NODE_ENV !== 'production') return;
-  requireHttpsOrigin(config.PUBLIC_APP_URL, ctx);
-  requireDeploymentIdentity(config, ctx);
-  if (config.FOUNDATION_PROOF_ENABLED)
-    ctx.addIssue({
-      code: 'custom',
-      path: ['FOUNDATION_PROOF_ENABLED'],
-      message: 'Foundation proof is development-only',
-    });
-});
-export type ServerConfig = z.infer<typeof serverConfigSchema>;
+const serverConfigSchema = z
+  .object(serverFields)
+  .superRefine((config, ctx) => {
+    if (config.NODE_ENV !== 'production') return;
+    requireHttpsOrigin(config.PUBLIC_APP_URL, ctx);
+    requireDeploymentIdentity(config, ctx);
+    if (config.FOUNDATION_PROOF_ENABLED)
+      ctx.addIssue({
+        code: 'custom',
+        path: ['FOUNDATION_PROOF_ENABLED'],
+        message: 'Foundation proof is development-only',
+      });
+  })
+  .transform(withoutMigrationCredential);
+export type ServerConfig = z.output<typeof serverConfigSchema>;
 /** Validation reports field names only: never echo secret values. */
 export function readServerConfig(
   env: Record<string, string | undefined>,
@@ -111,8 +137,9 @@ const realtimeConfigSchema = z
   .superRefine((config, ctx) => {
     if (config.NODE_ENV !== 'production') return;
     requireDeploymentIdentity(config, ctx);
-  });
-export type RealtimeConfig = z.infer<typeof realtimeConfigSchema>;
+  })
+  .transform(withoutMigrationCredential);
+export type RealtimeConfig = z.output<typeof realtimeConfigSchema>;
 /** Validation reports field names only: never echo secret values. */
 export function readRealtimeConfig(
   env: Record<string, string | undefined>,
