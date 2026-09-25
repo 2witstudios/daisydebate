@@ -55,6 +55,23 @@ same privileges.
 Net: about $2/month at rest (the Postgres machine), plus fractional-cent
 rootfs storage and any actual staging traffic while the web machine is awake.
 
+## Security proof against the live app (AUTH-7.8)
+
+`bun scripts/staging-security-probe.ts [--url https://<app>.fly.dev]` proves,
+with non-mutating GET/POST-with-bad-origin requests only, that the deployed
+app redirects plaintext HTTP to HTTPS, sets no credentialed wildcard CORS,
+never shares-caches an account response, refuses a cross-origin state
+change (including the `Origin: null` scope, AUTH-4.6) and resolves one real
+client identity regardless of a forged `X-Forwarded-For` or `Fly-Client-IP`.
+The trusted-client-IP and secret-leak checks additionally read `fly logs`
+when this machine has an authenticated flyctl session (`NOT RUN` otherwise).
+It never signs in — a real Set-Cookie attribute check needs an actual
+session, which is the owner's "Checklist — AUTH-6.6 real-device passkey
+evidence" step; the local proof is
+`apps/web/e2e/auth-routes.e2e.ts`'s "a real sign-in sets a host-only,
+HttpOnly, Secure, SameSite session cookie" test, over the production
+server's HTTPS front.
+
 ## Client identity on Fly (verify on first deploy)
 
 `apps/web/src/server/ingress.ts` stamps `x-daisy-client-ip` from the raw

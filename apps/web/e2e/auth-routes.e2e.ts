@@ -1,5 +1,10 @@
 import { expect, test, type APIRequestContext } from '@playwright/test';
-import { origin, signUpProvisional, uniqueName } from './support/accounts';
+import {
+  origin,
+  signUpProvisional,
+  signUpProvisionalResponse,
+  uniqueName,
+} from './support/accounts';
 
 // The production server (NODE_ENV=production, HTTPS public origin, real
 // ingress stamping) with the auth routes mounted. Header behavior is asserted
@@ -59,6 +64,31 @@ test('a wrong-origin confirmation POST is refused and leaves no cookie', async (
   });
   expect(response.status()).toBe(403);
   expect(response.headers()['set-cookie']).toBeUndefined();
+});
+
+// AUTH-7.8: staging's own non-mutating probes cannot capture a session
+// cookie (no probe may sign in for real), so this is the one place that
+// asserts the actual Set-Cookie attributes on a real sign-in, over the
+// production server's HTTPS front.
+test('a real sign-in sets a host-only, HttpOnly, Secure, SameSite session cookie', async ({
+  request,
+}) => {
+  const { confirmed } = await signUpProvisionalResponse(request);
+  const setCookies = confirmed
+    .headersArray()
+    .filter(({ name }) => name.toLowerCase() === 'set-cookie')
+    .map(({ value }) => value);
+  expect(setCookies.length).toBeGreaterThan(0);
+  for (const cookie of setCookies) {
+    const lower = cookie.toLowerCase();
+    expect(lower).toContain('httponly');
+    expect(lower).toContain('secure');
+    expect(lower).toMatch(/samesite=(lax|strict)/);
+    // Host-only: no Domain attribute, so the cookie never reaches a sibling
+    // subdomain even if one existed.
+    expect(lower).not.toMatch(/;\s*domain=/);
+    expect(lower).toMatch(/;\s*path=/);
+  }
 });
 
 test('the Resend webhook refuses unsigned requests', async ({ request }) => {
