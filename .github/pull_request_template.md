@@ -42,10 +42,12 @@ See [ADR 0036](docs/decisions/0036-privacy-by-design.md),
 log field, database/Redis column, `outbox.payload` kind, realtime topic
 payload field, or analytics event.
 
-- Columns classified (inventory entry: category, visibility, purpose,
-  lawful basis, storage, owner, retention, erasure):
-- Events registered (log or analytics event registry entry), including any
-  new `outbox.payload` kind or realtime topic-family payload field:
+- Columns and fields classified here (category, visibility, purpose,
+  lawful basis, retention, erasure) until `bun privacy` (PRIV-3) exists to
+  gate `data-inventory.ts` directly:
+- Log events registered (registry entry), including any new
+  `outbox.payload` kind or realtime topic-family payload field (an
+  analytics event registry is deferred to PRIV-6):
 - No personal data in telemetry (no `personal`/`sensitive`/`secret` field
   reaches a log, error report, analytics event, `outbox.payload` or
   realtime topic message):

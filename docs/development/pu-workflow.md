@@ -124,18 +124,10 @@ loop.
 ## The guard
 
 `scripts/agent-guard.ts` runs from `.githooks/pre-push` and from the committed
-Claude Code `PreToolUse` hook (`.claude/settings.json`).
-
-With `DAISY_AUTONOMOUS=1` it refuses:
-
-- pushes to `main` and `--no-verify` pushes
-- direct and `--admin` merges
-- ruleset, branch-protection and repository-settings changes
-- kill commands not scoped to the agent's worktree
-- Docker cleanup and `compose down` on the shared stack
-- `db:reset` or `slot:down` against another slot
-- hand edits of loop state, the agent registry and the guard's own hooks
-- `bun board:status … completed`: Done comes from an independent review
+Claude Code `PreToolUse` hook (`.claude/settings.json`). What it refuses for
+an agent session, the exact trigger condition, and the known bypasses are
+decided once in [ADR 0035 §6](../decisions/0035-autonomy-guardrails.md#6-the-local-guard-soft-layer);
+this page does not restate the list.
 
 In owner sessions it asks before a merge or a push to `main`. It catches
 accidents and can be bypassed; the machine identity and the `main` ruleset

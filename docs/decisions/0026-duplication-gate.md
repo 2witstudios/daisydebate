@@ -116,6 +116,13 @@ leaving two, each in a row below.
   has its two real consumers). Deleting a grandfathered clone should be
   followed by `bunx --bun jscpd --update-baseline` (add
   `--config .jscpd-tests.json` for a test clone) so the baseline shrinks.
+- Extracting a clone into a local helper or a `*.test-support.ts` file
+  inside the module that already owns both call sites is this consolidation,
+  not a new shared abstraction: it has no second package or feature as a
+  consumer, so AGENTS.md's "shared abstractions require two real consumers"
+  rule (which governs new packages and cross-feature modules; see
+  `extending.md` and `overview.md`) does not apply and no exception record
+  is needed.
 - Supply chain, stated plainly. jscpd 5.3.0 was published on 2026-09-18, two
   days before adoption, and the 5.x line is a fresh Rust rewrite of a tool
   whose 4.x line was JavaScript. It ships prebuilt per-platform binaries
