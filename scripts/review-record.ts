@@ -10,26 +10,31 @@
  * only code that can mint it.
  */
 import { appendFileSync } from 'node:fs';
-import { pagespaceApi } from './pagespace-docs';
+import {
+  DAISY_DRIVE,
+  commentBodies,
+  fetchPullRequest,
+  ghJson,
+  readRecords,
+  recordFromPage,
+  type PullRequest,
+  type RecordPage,
+} from './review-record-io';
 
-export type RecordPage = {
-  readonly id: string;
-  readonly title: string;
-  readonly content: string;
+export {
+  DAISY_DRIVE,
+  commentBodies,
+  recordFromPage,
+  type PullRequest,
+  type RecordPage,
 };
-export type PullRequest = {
-  readonly number: number;
-  readonly headSha: string;
-  readonly body: string;
-};
+
 export type Verdict = {
   readonly state: 'success' | 'failure' | 'pending';
   readonly description: string;
   readonly recordId?: string;
 };
 
-/** The Daisy Debate drive: records anywhere else are never read. */
-export const DAISY_DRIVE = 'lguvh1y1ejhadk96xcftohha';
 const PAGE_LINK = new RegExp(
   String.raw`pagespace\.ai\/dashboard\/${DAISY_DRIVE}\/([a-z0-9]{20,32})`,
   'g',
@@ -81,6 +86,19 @@ const NEXT_HEADING =
   /^#*\s*(?:Findings|Criteria|Negative controls?|Checked and found sound|What is good|Verdict)$/;
 
 /**
+ * Strips Markdown decoration a reviewer might reasonably wrap a Gates run
+ * line in (a leading list bullet, backticks, bold) so the line reads the
+ * same as its plain form; it never touches "not run" or "?", which must
+ * still disqualify the line however it is decorated.
+ */
+const stripDecoration = (line: string): string =>
+  line
+    .replace(/^(?:[-*]|\d+\.)\s*/, '')
+    .replaceAll('**', '')
+    .replaceAll('`', '')
+    .trim();
+
+/**
  * Gates run evidence: a line of the Gates run section itself that passed,
  * never one quoted elsewhere, and never a PASS that says it did not run.
  */
@@ -93,6 +111,7 @@ function gateLine(text: string, gate: RegExp): boolean {
   );
   return lines
     .slice(start + 1, end === -1 ? undefined : end)
+    .map(stripDecoration)
     .some((line) => gate.test(line) && !/not run|\?/i.test(line));
 }
 
@@ -206,86 +225,10 @@ export function reviewAppGate(
 
 // ------------------------------------------------------------------- edges
 
-type Run = (args: readonly string[]) => { code: number; stdout: string };
-
-const gh: Run = (args) => {
-  const result = Bun.spawnSync(['gh', ...args], {
-    stdout: 'pipe',
-    stderr: 'inherit',
-  });
-  return { code: result.exitCode, stdout: result.stdout.toString() };
-};
-
-function ghJson<T>(args: readonly string[]): T {
-  const result = gh(args);
-  if (result.code !== 0) throw new Error(`gh ${args[1]} failed`);
-  return JSON.parse(result.stdout) as T;
-}
-
-type FetchedPage = {
-  readonly title?: string;
-  readonly content?: string;
-  readonly driveId?: string;
-};
-
-/**
- * A fetched page as a record, or undefined when it lives outside the Daisy
- * drive: a Daisy-drive link naming another drive's page is not trusted.
- */
-export const recordFromPage = (
-  id: string,
-  page: FetchedPage,
-): RecordPage | undefined =>
-  page.driveId === DAISY_DRIVE
-    ? { id, title: page.title ?? '', content: page.content ?? '' }
-    : undefined;
-
-/** Every comment body across the pages gh api --paginate --slurp returns. */
-export const commentBodies = (
-  pages: readonly (readonly { readonly body: string }[])[],
-): string[] => pages.flat().map((comment) => comment.body);
-
-/** A linked page, or undefined when it cannot be read or is not Daisy's. */
-async function readRecord(id: string): Promise<RecordPage | undefined> {
-  const { apiUrl, headers } = pagespaceApi();
-  try {
-    const response = await fetch(new URL(`/api/pages/${id}`, apiUrl), {
-      headers,
-      redirect: 'error',
-    });
-    if (!response.ok) return undefined;
-    return recordFromPage(id, (await response.json()) as FetchedPage);
-  } catch {
-    return undefined;
-  }
-}
-
 export async function main(repository: string, prNumber: number) {
-  const pull = ghJson<{ head: { sha: string }; body: string | null }>([
-    'api',
-    `repos/${repository}/pulls/${prNumber}`,
-  ]);
-  // --slurp wraps every page in one array; without it, more than one page
-  // of comments prints several arrays and cannot be parsed.
-  const comments = commentBodies(
-    ghJson<{ body: string }[][]>([
-      'api',
-      '--paginate',
-      '--slurp',
-      `repos/${repository}/issues/${prNumber}/comments`,
-    ]),
-  );
-  const pr = {
-    number: prNumber,
-    headSha: pull.head.sha,
-    body: pull.body ?? '',
-  };
+  const { pr, comments } = fetchPullRequest(repository, prNumber);
   const ids = linkedPageIds([pr.body, ...comments]);
-  const read = await Promise.all(ids.map(readRecord));
-  const records = read.filter(
-    (record): record is RecordPage => record !== undefined,
-  );
-  const unreadable = ids.filter((_, index) => read[index] === undefined);
+  const { records, unreadable } = await readRecords(ids);
   const verdict = verifyReviewRecord(pr, records, unreadable);
   const driveUrl = `https://pagespace.ai/dashboard/${DAISY_DRIVE}`;
   ghJson([

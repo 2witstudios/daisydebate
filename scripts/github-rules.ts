@@ -192,17 +192,33 @@ export function applyRefusal(input: {
 
 const root = resolve(import.meta.dir, '..');
 
-function gh(args: readonly string[]): { code: number; stdout: string } {
+function gh(args: readonly string[]): {
+  code: number;
+  stdout: string;
+  stderr: string;
+} {
   const result = Bun.spawnSync(['gh', ...args], {
     stdout: 'pipe',
     stderr: 'pipe',
   });
-  return { code: result.exitCode, stdout: result.stdout.toString() };
+  return {
+    code: result.exitCode,
+    stdout: result.stdout.toString(),
+    stderr: result.stderr.toString(),
+  };
+}
+
+/** The failure message for a non-zero gh exit: the command, and gh's own reason when it gave one. */
+export function ghFailure(args: readonly string[], stderr: string): string {
+  const reason = stderr.trim();
+  return reason
+    ? `gh ${args.join(' ')} failed: ${reason}`
+    : `gh ${args.join(' ')} failed`;
 }
 
 function ghJson<T>(args: readonly string[]): T {
   const result = gh(args);
-  if (result.code !== 0) throw new Error(`gh ${args.join(' ')} failed`);
+  if (result.code !== 0) throw new Error(ghFailure(args, result.stderr));
   return JSON.parse(result.stdout) as T;
 }
 

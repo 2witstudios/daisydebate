@@ -22,6 +22,17 @@ Nobody sets that status by hand. The owner may merge before the record
 exists. The merged tasks then wait in **Merged** until the record grants
 Done.
 
+**Self-check before posting the verdict (ISSUE-122).** After publishing the
+record, run `bun review:check <recordPageId> --pr <n> --dispatch` and fix the
+record until it passes, before posting the verdict comment. It runs the same
+`verifyReviewRecord` decision the live check runs, against the record page
+and the PR's live head SHA and body, and prints `PASS` or the exact refusal.
+`--dispatch` re-runs the live status once it passes, so a red status left by
+an earlier comment (posted while the record page existed but was still being
+written) does not linger as the final state. A merged PR whose branch no
+longer carries the reviewed SHA can be checked with `--sha <sha>` to compare
+against the record's own SHA instead of the PR's current head.
+
 ```markdown
 # Review: <task or PR title> (<branch>)
 
@@ -91,7 +102,11 @@ Rules:
   integration tests and at least one negative control, and the Gates run
   section says so on its own lines: `bun test:integration: PASS` and
   `Negative control run: yes`. The review-record check enforces it too; a
-  PASS that says it did not run does not count.
+  PASS that says it did not run does not count. Markdown decoration (a
+  leading list bullet, backticks around the command, bold) is stripped
+  before matching, so a decorated line reads the same as a plain one — but
+  "not run" or a question mark anywhere on the line still disqualifies it,
+  however it is decorated.
 - A third review pass on the same leaf does not start: the reviewer stops
   and takes the open disagreement to the orchestrator or owner.
 - A second-pass review re-verifies the first pass finding by finding

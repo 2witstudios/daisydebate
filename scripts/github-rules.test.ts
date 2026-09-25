@@ -3,6 +3,7 @@ import {
   applyRefusal,
   desiredRuleset,
   diffValues,
+  ghFailure,
   planRules,
   type RepositoryConfig,
 } from './github-rules';
@@ -147,6 +148,26 @@ describe('planRules', () => {
       should: 'report no changes',
       actual: [plan.actions, plan.changes],
       expected: [[], []],
+    });
+  });
+});
+
+describe('ghFailure', () => {
+  test("includes gh's own stderr reason, or omits it when gh gave none", () => {
+    assert({
+      given: 'a failed gh call with a reason on stderr, and one with none',
+      should: 'name the command and, when present, the reason',
+      actual: [
+        ghFailure(
+          ['api', '-X', 'PATCH', 'repos/2witstudios/daisydebate'],
+          'HTTP 403: Resource not accessible by integration\n',
+        ),
+        ghFailure(['api', 'repos/2witstudios/daisydebate/rulesets'], ''),
+      ],
+      expected: [
+        'gh api -X PATCH repos/2witstudios/daisydebate failed: HTTP 403: Resource not accessible by integration',
+        'gh api repos/2witstudios/daisydebate/rulesets failed',
+      ],
     });
   });
 });

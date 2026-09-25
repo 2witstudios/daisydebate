@@ -86,37 +86,49 @@ export function fakeMachine(
   ]);
   const calls: string[][] = [];
   const output: string[] = [];
+  const newAgentInto = (
+    target: World['worktrees'][number],
+    args: readonly string[],
+  ) => {
+    target.agents['ag-new'] = {
+      id: 'ag-new',
+      agentType: 'claude',
+      status: 'running',
+      sessionId: 'sess-new',
+    };
+    files.set(
+      transcript,
+      options.submitsOnSpawn
+        ? userLine(String(args.at(-1)))
+        : '{"type":"mode"}',
+    );
+    return { code: 0, stdout: '' };
+  };
+  const joinExistingWorktree = (args: readonly string[]) => {
+    const target = args[args.indexOf('-w') + 1];
+    const created = world.worktrees.find((w) => w.id === target);
+    return created ? newAgentInto(created, args) : { code: 0, stdout: '' };
+  };
+  const spawnBuilderWorktree = (args: readonly string[]) => {
+    // A builder spawn creates the worktree and the real agent together; no
+    // disposable placeholder agent is ever created.
+    const worktree = {
+      id: 'wt-new',
+      path: newPath,
+      branch: `pu/${args[args.indexOf('-n') + 1]}`,
+      agents: {},
+    };
+    world.worktrees.push(worktree);
+    return newAgentInto(worktree, args);
+  };
   const run = (args: readonly string[], cwd?: string) => {
     calls.push([...args, ...(cwd ? [`@${cwd}`] : [])]);
     const key = args.slice(0, 2).join(' ');
     if (key === 'pu status') return { code: 0, stdout: JSON.stringify(world) };
-    if (key === 'pu spawn' && args.includes('terminal')) {
-      world.worktrees.push({
-        id: 'wt-new',
-        path: newPath,
-        branch: `pu/${args[args.indexOf('-n') + 1]}`,
-        agents: { 'ag-term': { id: 'ag-term', agentType: 'terminal' } },
-      });
-      return { code: 0, stdout: '' };
-    }
-    if (key === 'pu spawn') {
-      const target = args[args.indexOf('-w') + 1];
-      const created = world.worktrees.find((w) => w.id === target);
-      if (created)
-        created.agents['ag-new'] = {
-          id: 'ag-new',
-          agentType: 'claude',
-          status: 'running',
-          sessionId: 'sess-new',
-        };
-      files.set(
-        transcript,
-        options.submitsOnSpawn
-          ? userLine(String(args.at(-1)))
-          : '{"type":"mode"}',
-      );
-      return { code: 0, stdout: '' };
-    }
+    if (key === 'pu spawn')
+      return args.includes('-w')
+        ? joinExistingWorktree(args)
+        : spawnBuilderWorktree(args);
     if (key === 'pu send') {
       // An empty send presses Enter on the prompt that sat unsubmitted.
       const text = args[3] === '' ? 'Run the task' : String(args[3]);
