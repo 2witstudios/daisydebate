@@ -89,25 +89,32 @@ describe('ISSUE-54 notifications honour suppression', () => {
     });
   });
 
-  test('an email change requested from a suppressed address sends nothing and says why', async () => {
+  test('an email change requested from a suppressed address sends nothing and says why, account or not at the new address', async () => {
     const { email, cookie } = await signUp();
     await hardBounce(email);
+    const { email: taken } = await signUp();
     const before = mailbox.mails.length;
-    const response = await flows.changeEmail(
-      cookie,
-      `${createId()}@example.test`,
-    );
-    const body = (await response.json()) as { code?: string };
-    assert({
-      given: 'a signed-in account whose current address hard-bounced',
-      should:
-        'refuse the change with EMAIL_UNDELIVERABLE and send no approval notice',
-      actual: {
+    const refusals = [];
+    for (const newEmail of [`${createId()}@example.test`, taken]) {
+      const response = await flows.changeEmail(cookie, newEmail);
+      refusals.push({
         status: response.status,
-        code: body.code,
-        sent: mailbox.mails.length - before,
+        code: ((await response.json()) as { code?: string }).code,
+      });
+    }
+    assert({
+      given:
+        'a signed-in account whose current address hard-bounced, moving to a free address and then to another account’s (ISSUE-113, ISSUE-117)',
+      should:
+        'refuse both with the same CURRENT_EMAIL_UNDELIVERABLE and send no approval notice',
+      actual: { refusals, sent: mailbox.mails.length - before },
+      expected: {
+        refusals: [
+          { status: 422, code: 'CURRENT_EMAIL_UNDELIVERABLE' },
+          { status: 422, code: 'CURRENT_EMAIL_UNDELIVERABLE' },
+        ],
+        sent: 0,
       },
-      expected: { status: 422, code: 'EMAIL_UNDELIVERABLE', sent: 0 },
     });
   });
 

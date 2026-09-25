@@ -7,8 +7,11 @@ import {
   emailChangeNotice,
   emailChangeUnavailable,
   initialEmailChange,
+  refusesNewAddress,
   type EmailChangeState,
 } from './email-change-state';
+
+const NOTICE_ID = 'email-change-notice';
 
 /** The email change: a server action that runs the Better Auth route. */
 export type EmailChangeAction = (
@@ -34,6 +37,7 @@ export function EmailChangeForm({
     emailChangeUnavailable,
   );
   const notice = pending ? undefined : emailChangeNotice(answered);
+  const refused = notice !== undefined && refusesNewAddress(answered);
   return (
     <form action={post} className="flex flex-col items-start gap-3">
       <label htmlFor="new-email">New email address</label>
@@ -45,17 +49,15 @@ export function EmailChangeForm({
         autoComplete="email"
         defaultValue={answered.newEmail}
         disabled={pending}
+        aria-invalid={refused ? true : undefined}
+        aria-describedby={refused ? NOTICE_ID : undefined}
         className="rounded-md border border-border bg-surface px-2 py-1"
       />
       <Button type="submit" disabled={pending}>
         {pending ? 'Sending…' : 'Change email'}
       </Button>
       {notice ? (
-        <Notice
-          id="email-change-notice"
-          tone={notice.tone}
-          title={notice.title}
-        />
+        <Notice id={NOTICE_ID} tone={notice.tone} title={notice.title} />
       ) : null}
     </form>
   );

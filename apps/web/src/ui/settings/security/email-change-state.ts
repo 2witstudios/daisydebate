@@ -60,3 +60,11 @@ export const emailChangeNotice = ({
       }
     : { tone: 'error', title: OUTCOME_NOTICES[outcome] };
 };
+
+/**
+ * Whether the answer refuses the typed address itself, so the field is
+ * marked invalid and points at the notice. When the address on file is
+ * the one that cannot receive email, the typed address is not at fault.
+ */
+export const refusesNewAddress = ({ outcome }: EmailChangeState): boolean =>
+  outcome === 'undeliverable';

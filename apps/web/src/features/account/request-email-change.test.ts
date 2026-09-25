@@ -53,4 +53,25 @@ describe('requestEmailChange', () => {
       ],
     });
   });
+
+  test('tells an undeliverable new address from an undeliverable address on file (ISSUE-113)', async () => {
+    const outcome = async (code: string) =>
+      (
+        await requestEmailChange(
+          'x@example.test',
+          answering(jsonResponse({ code, message: 'server copy' }, 422)).send,
+        )
+      ).kind;
+    assert({
+      given:
+        'a 422 EMAIL_UNDELIVERABLE, a 422 CURRENT_EMAIL_UNDELIVERABLE and a 422 with any other code',
+      should: 'answer undeliverable, current-undeliverable and unavailable',
+      actual: [
+        await outcome('EMAIL_UNDELIVERABLE'),
+        await outcome('CURRENT_EMAIL_UNDELIVERABLE'),
+        await outcome('SOMETHING_ELSE'),
+      ],
+      expected: ['undeliverable', 'current-undeliverable', 'unavailable'],
+    });
+  });
 });

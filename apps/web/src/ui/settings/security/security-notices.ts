@@ -10,6 +10,10 @@ export const OUTCOME_NOTICES: Readonly<
   conflict: 'That email is already in use.',
   'rate-limited': 'Too many attempts. Wait a moment and try again.',
   invalid: 'That was not a valid request.',
+  undeliverable:
+    'We cannot send email to that address. Use a different address.',
+  'current-undeliverable':
+    'We cannot send email to the address on file, so this change cannot be approved by email.',
   unavailable: 'Something went wrong. Please try again.',
 };
 
