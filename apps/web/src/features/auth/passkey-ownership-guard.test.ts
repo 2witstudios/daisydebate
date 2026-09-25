@@ -63,12 +63,9 @@ describe('passkeyOwnershipGuardPlugin matcher', () => {
 
 describe('passkeyOwnershipGuardPlugin handler', () => {
   test('refuses with no session', async () => {
-    const result = await run(
-      '/passkey/delete-passkey',
-      { id: 'p1' },
-      null,
-      { userId: ownerId },
-    );
+    const result = await run('/passkey/delete-passkey', { id: 'p1' }, null, {
+      userId: ownerId,
+    });
     assert({
       given: 'a delete-passkey request with no session',
       should: 'refuse as unauthorized',

@@ -39,6 +39,7 @@ describe('AUTH-3.1 composed Better Auth options', () => {
           'daisy-magic-link-gate',
           'daisy-passkey-device-hint',
           'daisy-passkey-notifications',
+          'daisy-passkey-ownership-guard',
           'daisy-revoke-others-on-email-change',
           'daisy-revoke-sessions',
           'daisy-session-revoked-outbox',
