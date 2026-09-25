@@ -13,7 +13,7 @@ import {
 setupRitewayBun();
 
 describe('bun agent:spawn', () => {
-  test('prepares the worktree before the prompt and records the parent', async () => {
+  test('spawns the worktree and the agent in one call, then installs and records the parent', async () => {
     const machine = fakeMachine({ submitsOnSpawn: true });
     const code = await spawnAgent(machine.deps, spawnArgs);
     const order = machine.calls
@@ -27,10 +27,14 @@ describe('bun agent:spawn', () => {
     assert({
       given: 'a builder spawn under the cap',
       should:
-        'check the leaf, create the worktree, install and bring the slot up, then send the prompt, and register the parent outside the worktree',
+        'check the leaf, run exactly one pu spawn that creates the worktree and the real agent together (no terminal placeholder), then install and bring the slot up, and register the parent outside the worktree',
       actual: {
         code,
         order,
+        puSpawnCalls: spawned(machine.calls).length,
+        terminalAgentSpawned: spawned(machine.calls).some((call) =>
+          call.includes('terminal'),
+        ),
         setupInWorktree: machine.calls
           .filter((call) => call[0] === 'bun')
           .every((call) => call.at(-1) === `@${newPath}`),
@@ -38,17 +42,18 @@ describe('bun agent:spawn', () => {
         inWorktree: [...machine.files.keys()].filter(
           (path) => path.startsWith(`${newPath}/`) && path !== transcript,
         ),
-        promptSpawn: spawned(machine.calls)[1]?.slice(0, 6),
+        promptSpawn: spawned(machine.calls)[0]?.slice(0, 8),
       },
       expected: {
         code: 0,
         order: [
           'pagespace pages read',
-          'pu spawn -a',
+          'pu spawn -n',
           'bun install --frozen-lockfile',
           'bun slot:up',
-          'pu spawn -w',
         ],
+        puSpawnCalls: 1,
+        terminalAgentSpawned: false,
         setupInWorktree: true,
         record: serializeRecord({
           parent: 'ag-parent',
@@ -56,7 +61,16 @@ describe('bun agent:spawn', () => {
           worktree: newPath,
         }),
         inWorktree: [],
-        promptSpawn: ['pu', 'spawn', '-w', 'wt-new', '-a', 'claude'],
+        promptSpawn: [
+          'pu',
+          'spawn',
+          '-n',
+          'grd-9',
+          '-b',
+          'main',
+          '-a',
+          'claude',
+        ],
       },
     });
   });
@@ -76,14 +90,19 @@ describe('bun agent:spawn', () => {
     });
   });
 
-  test('sends no prompt when setup fails', async () => {
+  test('stops before registering the agent when setup fails', async () => {
     const machine = fakeMachine({ setupFails: true });
     const code = await spawnAgent(machine.deps, spawnArgs);
     assert({
-      given: 'bun install failing in the new worktree',
-      should: 'stop before the agent spawn',
-      actual: [code, spawned(machine.calls).length],
-      expected: [1, 1],
+      given: 'bun install failing in the freshly spawned worktree',
+      should:
+        'still run only the one combined spawn, but never register the agent',
+      actual: [
+        code,
+        spawned(machine.calls).length,
+        machine.files.has(recordPath(repo, 'ag-new')),
+      ],
+      expected: [1, 1, false],
     });
   });
 

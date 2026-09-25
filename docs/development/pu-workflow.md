@@ -50,16 +50,18 @@ owner may change a cap with `--cap` and override a refusal with
 `--cap`, cannot override, and must pass `--task` for a builder. For a
 builder it then:
 
-1. creates the worktree
-2. runs `bun install --frozen-lockfile` and `bun slot:up` in it, so the
-   agent never starts on another checkout's databases, Redis namespace or
-   ports ([ADR 0034](../decisions/0034-shared-stack-slots.md))
-3. starts the agent in that worktree
-4. resolves the child id from `pu status --json`
-5. registers the child's parent (the spawner's `PU_AGENT_ID`), role and
+1. runs one `pu spawn -n <name> -b <base> -a <agent> …` that creates the
+   worktree and starts the agent together, so no disposable placeholder
+   agent is ever created or left behind
+2. finds the new worktree from `pu status --json`, then runs
+   `bun install --frozen-lockfile` and `bun slot:up` in it, so the agent
+   never starts on another checkout's databases, Redis namespace or ports
+   ([ADR 0034](../decisions/0034-shared-stack-slots.md))
+3. resolves the child id from `pu status --json`
+4. registers the child's parent (the spawner's `PU_AGENT_ID`), role and
    worktree in `.pu/daisy/agents/<id>.json` in the main checkout, where the
    child cannot write
-6. confirms the prompt was taken (a new user turn in the transcript, or
+5. confirms the prompt was taken (a new user turn in the transcript, or
    output from an agent that was quiet before the send), nudging with an
    empty `pu send` when it was not
 

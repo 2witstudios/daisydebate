@@ -90,16 +90,7 @@ export function fakeMachine(
     calls.push([...args, ...(cwd ? [`@${cwd}`] : [])]);
     const key = args.slice(0, 2).join(' ');
     if (key === 'pu status') return { code: 0, stdout: JSON.stringify(world) };
-    if (key === 'pu spawn' && args.includes('terminal')) {
-      world.worktrees.push({
-        id: 'wt-new',
-        path: newPath,
-        branch: `pu/${args[args.indexOf('-n') + 1]}`,
-        agents: { 'ag-term': { id: 'ag-term', agentType: 'terminal' } },
-      });
-      return { code: 0, stdout: '' };
-    }
-    if (key === 'pu spawn') {
+    if (key === 'pu spawn' && args.includes('-w')) {
       const target = args[args.indexOf('-w') + 1];
       const created = world.worktrees.find((w) => w.id === target);
       if (created)
@@ -109,6 +100,30 @@ export function fakeMachine(
           status: 'running',
           sessionId: 'sess-new',
         };
+      files.set(
+        transcript,
+        options.submitsOnSpawn
+          ? userLine(String(args.at(-1)))
+          : '{"type":"mode"}',
+      );
+      return { code: 0, stdout: '' };
+    }
+    if (key === 'pu spawn') {
+      // A builder spawn creates the worktree and the real agent together;
+      // no disposable placeholder agent is ever created.
+      world.worktrees.push({
+        id: 'wt-new',
+        path: newPath,
+        branch: `pu/${args[args.indexOf('-n') + 1]}`,
+        agents: {
+          'ag-new': {
+            id: 'ag-new',
+            agentType: 'claude',
+            status: 'running',
+            sessionId: 'sess-new',
+          },
+        },
+      });
       files.set(
         transcript,
         options.submitsOnSpawn
