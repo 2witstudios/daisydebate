@@ -2,9 +2,11 @@ name: Deploy staging
 # Continuous deployment of main to the scale-to-zero Fly.io staging app
 # (AUTH-7.0). A main push deploys once the CI gate job and the Browser E2E
 # run are both green (scripts/staging-gate.ts, ISSUE-51); the gate includes
-# the dependency audit (ADR 0039). `fly deploy` builds the image remotely
-# with Fly's builder from apps/web/Dockerfile (see fly.toml) and runs the
-# migration release command before traffic switches. Production rollout is
+# the dependency audit (ADR 0039). The release-only migrator app
+# (fly.migrate.toml) deploys first: its release command migrates as the
+# schema owner and it creates no machines. Only then does `fly deploy` build
+# and roll out the web app, which never holds the owner credential (ISSUE-102,
+# ADR 0041). Both build remotely from apps/web/Dockerfile. Production rollout is
 # a separate, human-gated step (AUTH-7.2/7.3) and is never automated here.
 on:
   workflow_run:
@@ -74,6 +76,7 @@ jobs:
       outcomes: >-
         deploy.checkout=${{ steps.checkout.outcome }}
         deploy.setup-flyctl=${{ steps.setup-flyctl.outcome }}
+        deploy.migrate=${{ steps.migrate.outcome }}
         deploy.deploy=${{ steps.deploy.outcome }}
         deploy.readiness=${{ steps.readiness.outcome }}
     steps:
@@ -84,6 +87,19 @@ jobs:
           persist-credentials: false
       - id: setup-flyctl
         uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # 1.6
+      - id: migrate
+        name: Migrate
+        # The migrator app's own deploy token, scoped to this step: it can
+        # deploy only daisy-debate-staging-migrate, whose sole secret is the
+        # owner credential. --update-only creates no machines, so only the
+        # release command's temporary machine ever holds that credential; a
+        # failed migration fails this step and the web deploy never runs.
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_MIGRATE_API_TOKEN }}
+        run: >-
+          flyctl deploy -c fly.migrate.toml --remote-only --update-only
+          --build-arg APP_VERSION="${DEPLOY_SHA::7}"
+          --build-arg GIT_COMMIT="$DEPLOY_SHA"
       - id: deploy
         name: Deploy
         # The deploy token is scoped to this one step, not the job, so the

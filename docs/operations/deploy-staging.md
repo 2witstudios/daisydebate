@@ -1,7 +1,8 @@
 # Deploy: Fly.io staging (AUTH-7.0)
 
 Scale-to-zero staging deployment of `apps/web` on Fly.io, org `daisy-debate`.
-`fly.toml` (repo root) and `apps/web/Dockerfile` define the app; this is the
+`fly.toml` (repo root) and `apps/web/Dockerfile` define the app, and
+`fly.migrate.toml` the release-only migrator app beside it; this is the
 operator runbook for the account-side steps a Builder agent cannot take
 (creating billing-adjacent resources, setting secrets, deploying). Every
 step's flag names were verified against the installed `flyctl` (v0.4.105,
@@ -15,14 +16,25 @@ Redis is Fly-native Upstash (owner decision, September 22), both reached
 through the `DATABASE_URL` / `MIGRATION_DATABASE_URL` / `REDIS_URL`
 contract — no new client libraries.
 
-## Database credentials (ISSUE-39)
+## Database credentials (ISSUE-39, ISSUE-102)
 
-Two Fly secrets hold two different PostgreSQL roles:
+Two Fly secrets hold two different PostgreSQL roles, in two different Fly
+apps. Fly secrets are app-wide: every secret of an app is an environment
+variable on every machine of that app, and on its `release_command`
+machine too. Fly has no release-only or per-machine secret. A
+`MIGRATION_DATABASE_URL` set on the web app would therefore sit in every
+web machine's environment, not only the release command's. So the owner
+credential lives in its own release-only app
+([ADR 0041](../decisions/0041-migration-credential-in-a-release-only-app.md)):
 
-| Secret                   | Role                                                                                            | Used by                                                                                                                                                          |
-| ------------------------ | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `MIGRATION_DATABASE_URL` | `daisy_migrator`, the schema owner (`fly postgres attach`, superuser, so it holds `CREATEROLE`) | `release_command` only (`packages/db/scripts/migrate.ts`). It refuses to run in production without this secret, or when it names the same role as `DATABASE_URL` |
-| `DATABASE_URL`           | `daisy_web`, DML only (created by the baseline migration)                                       | The web app. `start.ts` refuses to start if this role can create or alter anything in schema `public`                                                            |
+| Secret                   | App                                                      | Role                                                                                            | Used by                                                                                                                                                                                               |
+| ------------------------ | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MIGRATION_DATABASE_URL` | `daisy-debate-staging-migrate` (`fly.migrate.toml`) only | `daisy_migrator`, the schema owner (`fly postgres attach`, superuser, so it holds `CREATEROLE`) | That app's `release_command` (`packages/db/scripts/migrate.ts`), on a temporary machine destroyed when it exits. The runner refuses to run in production without this secret                          |
+| `DATABASE_URL`           | `daisy-debate-staging` (`fly.toml`)                      | `daisy_web`, DML only (created by the baseline migration)                                       | The web app. `start.ts` refuses to start if this role can create or alter anything in schema `public`, and production config refuses to start with `MIGRATION_DATABASE_URL` in the environment at all |
+
+The migrator app has no services and no machines. The workflow deploys it
+with `--update-only`, so the only machine that ever holds the owner
+credential is the release command's temporary one.
 
 The baseline creates `daisy_web` without a password (`CREATE ROLE daisy_web
 LOGIN` if it is missing). Setting that password is a one-time human step
@@ -157,10 +169,13 @@ here.
 ```
 fly auth login                       # once per operator machine
 fly apps create daisy-debate-staging --org daisy-debate
+fly apps create daisy-debate-staging-migrate --org daisy-debate   # release-only migrator (ADR 0041)
 ```
 
-Verify: `fly status -a daisy-debate-staging` shows the app with no machines
-yet (this only reserves the name; `fly.toml`'s `app` field must match).
+Verify: `fly status -a daisy-debate-staging` and
+`fly status -a daisy-debate-staging-migrate` show both apps with no machines
+yet (this only reserves the names; the `app` fields of `fly.toml` and
+`fly.migrate.toml` must match).
 
 ## 2. Provision Postgres
 
@@ -172,8 +187,9 @@ machine: no automatic backups or failover — fine for staging only.
 ```
 fly postgres create --name daisy-debate-staging-db --org daisy-debate --region ord \
   --vm-size shared-cpu-1x --volume-size 1 --initial-cluster-size 1
-# The migration owner. Attach creates a superuser login and prints its URL.
-fly postgres attach daisy-debate-staging-db -a daisy-debate-staging \
+# The migration owner, attached to the migrator app only. Attach creates a
+# superuser login, prints its URL and sets it as that app's secret.
+fly postgres attach daisy-debate-staging-db -a daisy-debate-staging-migrate \
   --database-name daisy_debate_staging --database-user daisy_migrator \
   --variable-name MIGRATION_DATABASE_URL
 
@@ -191,8 +207,9 @@ unset DAISY_WEB_PASSWORD
 If `daisy_web` already exists (a deploy has run), use `ALTER ROLE daisy_web
 PASSWORD '...'` instead of `CREATE ROLE`.
 
-Verify: `fly secrets list -a daisy-debate-staging` shows `MIGRATION_DATABASE_URL`
-and `DATABASE_URL`.
+Verify: `fly secrets list -a daisy-debate-staging-migrate` shows only
+`MIGRATION_DATABASE_URL`, and `fly secrets list -a daisy-debate-staging`
+shows `DATABASE_URL` and no `MIGRATION_DATABASE_URL`.
 
 ## 3. Provision Redis
 
@@ -242,8 +259,8 @@ expected, nothing is listening yet).
 ## 5. Set secrets
 
 ```
-# MIGRATION_DATABASE_URL and DATABASE_URL were set in step 2 and REDIS_URL
-# staged in step 3; do not set them again here.
+# DATABASE_URL was set in step 2 and REDIS_URL staged in step 3; do not set
+# them again here. MIGRATION_DATABASE_URL belongs to the migrator app only.
 fly secrets set -a daisy-debate-staging --stage \
   BETTER_AUTH_SECRET="$(bun -e 'console.log(crypto.getRandomValues(new Uint8Array(32)).reduce((s,b)=>s+b.toString(16).padStart(2,"0"),""))')" \
   RESEND_API_KEY="re_..." \
@@ -257,8 +274,9 @@ persistent secrets — pass them as build args or set them via
 `APP_VERSION`/`GIT_COMMIT` at their `development`/`unknown` defaults
 (`packages/config/src/index.ts`).
 
-Verify: `fly secrets list -a daisy-debate-staging` shows all seven names (not
-values — Fly never displays a set secret's value back).
+Verify: `fly secrets list -a daisy-debate-staging` shows all six names (not
+values — Fly never displays a set secret's value back), and no
+`MIGRATION_DATABASE_URL`.
 
 ## 6. First deploy
 
@@ -266,23 +284,76 @@ Run from the repository root (so `apps/web/Dockerfile`'s build context is
 the monorepo):
 
 ```
+# 1. Migrate: the migrator app's release command, no machines created.
+fly deploy -c fly.migrate.toml --remote-only --update-only \
+  --build-arg APP_VERSION="$(git rev-parse --short HEAD)" \
+  --build-arg GIT_COMMIT="$(git rev-parse HEAD)"
+# 2. Only after step 1 succeeds: the web app.
 fly deploy -a daisy-debate-staging --ha=false \
   --build-arg APP_VERSION="$(git rev-parse --short HEAD)" \
   --build-arg GIT_COMMIT="$(git rev-parse HEAD)"
 ```
 
-`fly.toml`'s `[deploy] release_command = "bun /app/packages/db/scripts/migrate.ts"`
-runs once as `MIGRATION_DATABASE_URL` before the new release receives
-traffic. Do not add a migration step anywhere else. The app then starts as
-`DATABASE_URL` (`daisy_web`). A release still pointing `DATABASE_URL` at the
-owner fails startup with "Production refuses a DATABASE_URL role that …".
+`fly.migrate.toml`'s `[deploy] release_command = "bun /app/packages/db/scripts/migrate.ts"`
+runs once as `MIGRATION_DATABASE_URL`, before the web release. Its session
+gives up on a lock after 1 s (ISSUE-112), so a migration blocked by live
+traffic fails step 1 and step 2 never runs. Do not add a migration step
+anywhere else, and never add a `release_command` to `fly.toml`. The web app
+starts as `DATABASE_URL` (`daisy_web`). A release still pointing
+`DATABASE_URL` at the owner fails startup with "Production refuses a
+DATABASE_URL role that …". A web app that still holds
+`MIGRATION_DATABASE_URL` fails startup with "Invalid server configuration:
+MIGRATION_DATABASE_URL".
 
-Verify: `fly status -a daisy-debate-staging` shows one deployed release and
-`fly releases -a daisy-debate-staging` shows it as successful.
+Verify: `fly releases -a daisy-debate-staging-migrate` shows the release as
+successful and `fly machines list -a daisy-debate-staging-migrate` lists no
+machines. `fly status -a daisy-debate-staging` shows one deployed release
+and `fly releases -a daisy-debate-staging` shows it as successful.
 
 `--ha=false` keeps one machine: without it `fly deploy` creates two for
 high availability, which doubles the (idle-free) footprint and is
 pointless for staging. If two exist, `fly scale count 1 -a daisy-debate-staging`.
+
+## 6a. Move an existing owner credential off the web app (ISSUE-102)
+
+Staging deployed before ISSUE-102 holds `MIGRATION_DATABASE_URL` as a secret
+of the web app, so it has been in every web machine's environment. This is a
+one-time owner step. Rotate the password rather than copy the old value,
+because the old value was on web machines. Run it before the first deploy
+of a main that includes ISSUE-102: that deploy's migrate step needs the
+migrator app, and its web machines refuse to start while the web app still
+holds the secret.
+
+```
+# Confirm the exposure first: prints the owner URL from a web machine.
+fly ssh console -a daisy-debate-staging -C 'printenv MIGRATION_DATABASE_URL'
+
+fly apps create daisy-debate-staging-migrate --org daisy-debate
+
+# New owner password; set it only on the migrator app.
+DAISY_MIGRATOR_PASSWORD="$(bun -e 'console.log(Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("hex"))')"
+echo "ALTER ROLE daisy_migrator PASSWORD '$DAISY_MIGRATOR_PASSWORD';" \
+  | fly postgres connect -a daisy-debate-staging-db -d daisy_debate_staging
+# Same host, port, database and query string as the old owner URL;
+# only the password differs.
+fly secrets set -a daisy-debate-staging-migrate --stage \
+  MIGRATION_DATABASE_URL="postgres://daisy_migrator:$DAISY_MIGRATOR_PASSWORD@<host:port>/daisy_debate_staging?sslmode=disable"
+unset DAISY_MIGRATOR_PASSWORD
+
+# Remove it from the web app. --stage keeps the running release up until
+# the next deploy replaces its machines.
+fly secrets unset -a daisy-debate-staging --stage MIGRATION_DATABASE_URL
+
+fly tokens create deploy -a daisy-debate-staging-migrate --name github-actions-staging-migrate --expiry 8760h \
+  | gh secret set FLY_MIGRATE_API_TOKEN
+```
+
+Verify after the next staging deploy:
+`fly secrets list -a daisy-debate-staging` has no `MIGRATION_DATABASE_URL`,
+`fly ssh console -a daisy-debate-staging -C 'printenv MIGRATION_DATABASE_URL'`
+prints nothing and exits non-zero,
+`fly machines list -a daisy-debate-staging-migrate` lists no machines, and
+the "Deploy staging" run shows `migrate` then `deploy` green.
 
 ## 7. Verify
 
@@ -320,6 +391,10 @@ fly releases -a daisy-debate-staging --image     # find the prior release's imag
 fly deploy -a daisy-debate-staging --image <prior-image-ref>
 ```
 
+Rolling back the web image never rolls back the schema: migrations are
+forward-only and expand/contract, so the previous release still runs
+against the newer schema. Do not redeploy the migrator app to roll back.
+
 Verify: `fly releases -a daisy-debate-staging` shows the rollback as the
 newest release, and step 7's health checks pass again.
 
@@ -327,16 +402,19 @@ newest release, and step 7's health checks pass again.
 
 ```
 fly apps destroy daisy-debate-staging --yes
+fly apps destroy daisy-debate-staging-migrate --yes
 fly apps destroy daisy-debate-staging-db --yes      # the Postgres machine and its volume (the recurring charge)
 fly redis destroy daisy-debate-staging-redis --yes
 ```
 
 Then delete the Resend webhook (`resend webhooks delete <id>`) and rotate
-`FLY_API_TOKEN` out of the GitHub repository secrets
-(`fly tokens revoke`, `gh secret delete FLY_API_TOKEN`).
+`FLY_API_TOKEN` and `FLY_MIGRATE_API_TOKEN` out of the GitHub repository
+secrets (`fly tokens revoke`, `gh secret delete FLY_API_TOKEN`,
+`gh secret delete FLY_MIGRATE_API_TOKEN`).
 
-Verify: `fly status -a daisy-debate-staging` and
-`fly status -a daisy-debate-staging-db` both return "app not found", and
+Verify: `fly status -a daisy-debate-staging`,
+`fly status -a daisy-debate-staging-migrate` and
+`fly status -a daisy-debate-staging-db` all return "app not found", and
 `fly redis list` no longer lists the database.
 
 ## 10. Continuous deployment (GitHub Actions)
@@ -349,16 +427,21 @@ the commit and lets only the later completion deploy, so each commit ships
 once, and only while it is still `main`'s tip: re-running an older commit's
 CI or E2E never rolls staging back. The CI gate needs the dependency audit
 job (ADR 0039), so a new advisory holds staging back and posts to
-Incidents. The workflow needs one repository secret, `FLY_API_TOKEN`, a
-deploy token scoped to the staging app:
+Incidents. The deploy job's `migrate` step deploys the migrator app
+(`fly.migrate.toml`, `--update-only`) and its `deploy` step, which runs
+only after `migrate` succeeds, deploys the web app. The workflow needs two
+repository secrets, each a deploy token scoped to one app and exposed only
+on its own step:
 
 ```
 fly tokens create deploy -a daisy-debate-staging --name github-actions-staging --expiry 8760h \
   | gh secret set FLY_API_TOKEN
+fly tokens create deploy -a daisy-debate-staging-migrate --name github-actions-staging-migrate --expiry 8760h \
+  | gh secret set FLY_MIGRATE_API_TOKEN
 ```
 
-The token can only deploy this one app; rotate it by re-running the two
-commands. Production is never deployed by this workflow (AUTH-7.2/7.3 are
+Each token can deploy only its own app; rotate one by re-running its
+command. Production is never deployed by this workflow (AUTH-7.2/7.3 are
 human-gated). Verify: the "Deploy staging" run is green after a main merge
 and `/api/health/ready` answers at the staging hostname.
 

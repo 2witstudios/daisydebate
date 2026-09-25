@@ -19,28 +19,18 @@ primary_region = "ord"
   # from the repository root so this relative path resolves.
   dockerfile = "apps/web/Dockerfile"
 
-[deploy]
-  # Migrations run once per release, never at app boot (start.ts refuses to
-  # run them itself) — see AGENTS.md "Releases" and docs/operations/production.md.
-  # `bun db:migrate` (the root package.json script) is not used here: it
-  # runs `bun --env-file=.env packages/db/scripts/migrate.ts`, and no .env
-  # file exists in this image (Fly injects DATABASE_URL etc. as real process
-  # env via `fly secrets`) — `--env-file=.env` would fail before ever
-  # reading DATABASE_URL. The runtime image's WORKDIR is /app/apps/web
-  # (apps/web/Dockerfile), which has no db:migrate script of its own, so
-  # this invokes the migration runner (copied into the image alongside
-  # packages/db/migrations) by absolute path instead.
-  # Credentials (ISSUE-39): the runner connects with MIGRATION_DATABASE_URL,
-  # the schema owner, and refuses to run in production without it or when
-  # it names the same role as DATABASE_URL. The app connects with
-  # DATABASE_URL as the DML-only daisy_web role and refuses to start as any
-  # role that can create or alter schema objects. Both are Fly secrets.
-  release_command = "bun /app/packages/db/scripts/migrate.ts"
+# No [deploy] release_command: migrations run from the release-only
+# migrator app (fly.migrate.toml, ADR 0041), deployed first by
+# .github/workflows/deploy-staging.yml. Fly secrets are app-wide, so a
+# release command here would put the schema owner credential on every web
+# machine (ISSUE-102). This app holds DATABASE_URL as the DML-only daisy_web
+# role and refuses to start as any role that can create or alter schema
+# objects, or with MIGRATION_DATABASE_URL in its environment.
 
 [env]
   # Non-secret configuration. Secrets (BETTER_AUTH_SECRET, RESEND_API_KEY,
-  # AUTH_EMAIL_FROM, RESEND_WEBHOOK_SECRET, DATABASE_URL, MIGRATION_DATABASE_URL,
-  # REDIS_URL) are set with `fly secrets set`, never written here (fly.toml
+  # AUTH_EMAIL_FROM, RESEND_WEBHOOK_SECRET, DATABASE_URL, REDIS_URL) are set
+  # with `fly secrets set`, never written here (fly.toml
   # is committed; scripts/verify-deploy-config.ts refuses a database URL here).
   PORT = "8080"
   PUBLIC_APP_URL = "https://daisy-debate-staging.fly.dev"

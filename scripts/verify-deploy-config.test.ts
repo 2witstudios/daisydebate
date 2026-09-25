@@ -6,7 +6,10 @@ import {
   findFlyDatabaseSecretProblem,
   findFlyReleaseCommandProblem,
   findMigrationCredentialProblem,
+  findMigratorAppProblem,
   findRuntimeRoleGateProblem,
+  findWebReleaseCommandProblem,
+  findWorkflowMigrationOrderProblem,
   verifyDeployConfig,
 } from './verify-deploy-config';
 
@@ -14,6 +17,11 @@ setupRitewayBun();
 
 const realDockerfile = readFileSync('apps/web/Dockerfile', 'utf8');
 const realFlyToml = readFileSync('fly.toml', 'utf8');
+const realMigratorToml = readFileSync('fly.migrate.toml', 'utf8');
+const realWorkflow = readFileSync(
+  '.github/workflows/deploy-staging.yml',
+  'utf8',
+);
 const realBunVersion = readFileSync('.bun-version', 'utf8').trim();
 const realStart = readFileSync('apps/web/src/server/start.ts', 'utf8');
 const realMigrate = readFileSync('packages/db/scripts/migrate.ts', 'utf8');
@@ -58,11 +66,11 @@ describe('findDockerfileBunVersionProblem', () => {
 });
 
 describe('findFlyReleaseCommandProblem', () => {
-  test('the committed fly.toml keeps the migration release command', () => {
+  test('the committed fly.migrate.toml keeps the migration release command', () => {
     assert({
-      given: 'the real fly.toml',
+      given: 'the real fly.migrate.toml',
       should: 'report no drift',
-      actual: findFlyReleaseCommandProblem(realFlyToml),
+      actual: findFlyReleaseCommandProblem(realMigratorToml),
       expected: null,
     });
   });
@@ -72,7 +80,7 @@ describe('findFlyReleaseCommandProblem', () => {
       given: 'a [deploy] block with no release_command',
       should: 'report it missing',
       actual: findFlyReleaseCommandProblem('[deploy]\n'),
-      expected: 'fly.toml has no `release_command` under [deploy]',
+      expected: 'fly.migrate.toml has no `release_command` under [deploy]',
     });
   });
 
@@ -83,7 +91,7 @@ describe('findFlyReleaseCommandProblem', () => {
       actual: findFlyReleaseCommandProblem(
         '[deploy]\n  release_command = ""\n',
       ),
-      expected: 'fly.toml release_command is empty',
+      expected: 'fly.migrate.toml release_command is empty',
     });
   });
 
@@ -94,7 +102,7 @@ describe('findFlyReleaseCommandProblem', () => {
       actual: findFlyReleaseCommandProblem(
         '[deploy]\n  release_command = "true"\n',
       ),
-      expected: `fly.toml release_command is "true", expected "${EXPECTED_RELEASE_COMMAND}"`,
+      expected: `fly.migrate.toml release_command is "true", expected "${EXPECTED_RELEASE_COMMAND}"`,
     });
   });
 
@@ -105,7 +113,7 @@ describe('findFlyReleaseCommandProblem', () => {
       actual: findFlyReleaseCommandProblem(
         `[deploy]\n  # release_command = "${EXPECTED_RELEASE_COMMAND}"\n`,
       ),
-      expected: 'fly.toml has no `release_command` under [deploy]',
+      expected: 'fly.migrate.toml has no `release_command` under [deploy]',
     });
   });
 
@@ -116,7 +124,7 @@ describe('findFlyReleaseCommandProblem', () => {
       actual: findFlyReleaseCommandProblem(
         `[deploy]\n[other]\n  release_command = "${EXPECTED_RELEASE_COMMAND}"\n`,
       ),
-      expected: 'fly.toml has no `release_command` under [deploy]',
+      expected: 'fly.migrate.toml has no `release_command` under [deploy]',
     });
   });
 
@@ -125,7 +133,7 @@ describe('findFlyReleaseCommandProblem', () => {
       given: 'a fly.toml with no [deploy] table at all',
       should: 'report the table missing',
       actual: findFlyReleaseCommandProblem('[env]\n  PORT = "8080"\n'),
-      expected: 'fly.toml has no `[deploy]` table',
+      expected: 'fly.migrate.toml has no `[deploy]` table',
     });
   });
 });
@@ -134,11 +142,13 @@ describe('verifyDeployConfig', () => {
   test('the real repository files together', () => {
     assert({
       given:
-        'the committed Dockerfile, fly.toml, .bun-version, start.ts and migrate.ts',
+        'the committed Dockerfile, both fly configs, the deploy workflow, .bun-version, start.ts and migrate.ts',
       should: 'report no problems',
       actual: verifyDeployConfig({
         dockerfile: realDockerfile,
         flyToml: realFlyToml,
+        migratorToml: realMigratorToml,
+        workflow: realWorkflow,
         bunVersion: realBunVersion,
         startTs: realStart,
         migrateTs: realMigrate,
@@ -153,7 +163,9 @@ describe('verifyDeployConfig', () => {
       should: 'report both problems, not just the first',
       actual: verifyDeployConfig({
         dockerfile: 'FROM oven/bun:1.0.0-slim AS base\n',
-        flyToml: '[deploy]\n',
+        flyToml: realFlyToml,
+        migratorToml: '[deploy]\n',
+        workflow: realWorkflow,
         bunVersion: '1.4.2',
         startTs: realStart,
         migrateTs: realMigrate,
@@ -164,7 +176,16 @@ describe('verifyDeployConfig', () => {
 });
 
 describe('findFlyDatabaseSecretProblem', () => {
-  test('the committed fly.toml keeps database credentials out of [env]', () => {
+  test('the committed fly configs keep database credentials out of [env]', () => {
+    assert({
+      given: 'the real fly.migrate.toml',
+      should: 'report no problem',
+      actual: findFlyDatabaseSecretProblem(
+        realMigratorToml,
+        'fly.migrate.toml',
+      ),
+      expected: null,
+    });
     assert({
       given: 'the real fly.toml',
       should: 'report no problem: both URLs are Fly secrets',
@@ -233,6 +254,95 @@ describe('findMigrationCredentialProblem', () => {
       ),
       expected:
         'migrate.ts does not read its credential through readMigrationConfig(process.env)',
+    });
+  });
+});
+
+describe('findWebReleaseCommandProblem (ISSUE-102)', () => {
+  test('the committed web fly.toml runs no release command', () => {
+    assert({
+      given: 'the real fly.toml',
+      should: 'report no problem',
+      actual: findWebReleaseCommandProblem(realFlyToml),
+      expected: null,
+    });
+  });
+
+  test('a web fly.toml that migrates in its own release', () => {
+    assert({
+      given: `the pre-ISSUE-102 web [deploy] release_command`,
+      should:
+        'report it, because it would need the owner credential among the web secrets',
+      actual: findWebReleaseCommandProblem(
+        `[deploy]\n  # the old way\n  release_command = "${EXPECTED_RELEASE_COMMAND}"\n`,
+      ),
+      expected:
+        'fly.toml runs a release_command; migrations run only from fly.migrate.toml, so the web app never holds the owner credential',
+    });
+  });
+});
+
+describe('findMigratorAppProblem (ISSUE-102)', () => {
+  test('the committed migrator app serves nothing', () => {
+    assert({
+      given: 'the real fly.migrate.toml',
+      should: 'report no problem',
+      actual: findMigratorAppProblem(realMigratorToml),
+      expected: null,
+    });
+  });
+
+  test('a migrator app that would boot serving machines', () => {
+    assert({
+      given:
+        'fly.migrate.toml with an [http_service], [[services]] or [processes]',
+      should: 'report each, since its machines would hold the owner credential',
+      actual: [
+        '[http_service]\n  internal_port = 8080\n',
+        '[[services]]\n',
+        '[processes]\n  app = "bun start"\n',
+        '# [http_service]\n',
+      ].map(findMigratorAppProblem),
+      expected: [
+        'fly.migrate.toml defines [http_service]; the migrator app must have no services or processes',
+        'fly.migrate.toml defines [[services]]; the migrator app must have no services or processes',
+        'fly.migrate.toml defines [processes]; the migrator app must have no services or processes',
+        null,
+      ],
+    });
+  });
+});
+
+describe('findWorkflowMigrationOrderProblem (ISSUE-102)', () => {
+  const migrate =
+    '        run: >-\n          flyctl deploy -c fly.migrate.toml --remote-only --update-only\n';
+  const web =
+    '        run: >-\n          flyctl deploy -a daisy-debate-staging --remote-only --ha=false\n';
+
+  test('the committed workflow migrates before the web deploy', () => {
+    assert({
+      given: 'the real deploy-staging workflow',
+      should: 'report no problem',
+      actual: findWorkflowMigrationOrderProblem(realWorkflow),
+      expected: null,
+    });
+  });
+
+  test('a workflow that skips the migrator, deploys web first, or lets it create machines', () => {
+    const problem =
+      'deploy-staging.yml does not run `flyctl deploy -c fly.migrate.toml ... --update-only` before the web deploy';
+    assert({
+      given:
+        'no migrator deploy, a migrator deploy after the web one, a commented migrator deploy, and one without --update-only',
+      should: 'report each',
+      actual: [
+        web,
+        web + migrate,
+        '# flyctl deploy -c fly.migrate.toml --remote-only --update-only\n' +
+          web,
+        migrate.replace(' --update-only', '') + web,
+      ].map(findWorkflowMigrationOrderProblem),
+      expected: [problem, problem, problem, problem],
     });
   });
 });
