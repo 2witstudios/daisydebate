@@ -2,7 +2,6 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { readOutboxHighWaterMark } from '../src/outbox';
-import { waitForOutboxFinality } from '../src/testing';
 import { openOutOfOrderTransactions } from './two-transaction-race.test-support';
 
 setupRitewayBun();
@@ -11,7 +10,7 @@ const { databaseUrl: url } = requireTestServices(process.env);
 
 test('the high-water mark follows the same commit-order visibility rule as the drain: an open transaction holds it back even below an already-committed later one', async () => {
   const topic = `debate:${createId()}`;
-  const { connA, connB, connC, drizzleC, rowA, rowB } =
+  const { connA, connB, connC, drizzleC, rowA, rowB, commitA } =
     await openOutOfOrderTransactions(url, topic);
   const positionA = { txid: BigInt(rowA.txid), seq: BigInt(rowA.seq) };
   const positionB = { txid: BigInt(rowB.txid), seq: BigInt(rowB.seq) };
@@ -19,10 +18,7 @@ test('the high-water mark follows the same commit-order visibility rule as the d
     const whileOpen = await readOutboxHighWaterMark(drizzleC);
     const blockedByA = BigInt(whileOpen.txid) < positionA.txid;
 
-    await connA.unsafe('COMMIT');
-
-    await waitForOutboxFinality(connC, String(rowA.txid), { now: Date.now });
-    await waitForOutboxFinality(connC, String(rowB.txid), { now: Date.now });
+    await commitA();
     const afterCommit = await readOutboxHighWaterMark(drizzleC);
     const reachesB =
       BigInt(afterCommit.txid) > positionB.txid ||

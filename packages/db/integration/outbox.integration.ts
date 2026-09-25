@@ -138,7 +138,7 @@ test('a committed transaction delivers its outbox row with a txid, a NOTIFY and 
 
 test('two transactions that commit out of seq order never let the drain skip a row', async () => {
   const topic = `debate:${createId()}`;
-  const { connA, connB, connC, drizzleC, rowA, rowB } =
+  const { connA, connB, connC, drizzleC, rowA, rowB, commitA } =
     await openOutOfOrderTransactions(url, topic);
   try {
     // A is still open, so its txid still holds back the snapshot xmin: the
@@ -146,9 +146,7 @@ test('two transactions that commit out of seq order never let the drain skip a r
     const midDrain = await drainOutbox(drizzleC, OUTBOX_ORIGIN, 500);
     const midForTopic = midDrain.filter((row) => row.topic === topic);
 
-    await connA.unsafe('COMMIT');
-    await waitForOutboxFinality(connC, String(rowA.txid), { now: Date.now });
-    await waitForOutboxFinality(connC, String(rowB.txid), { now: Date.now });
+    await commitA();
 
     const finalDrain = await drainOutbox(drizzleC, OUTBOX_ORIGIN, 500);
     const forTopic = finalDrain.filter((row) => row.topic === topic);

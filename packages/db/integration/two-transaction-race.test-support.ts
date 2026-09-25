@@ -1,6 +1,7 @@
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import { waitForOutboxFinality } from '../src/testing';
 
 export type RaceRow = {
   readonly txid: string | bigint;
@@ -16,7 +17,9 @@ export type RaceRow = {
  * high-water mark / drain cursor itself, since its whole contract is to
  * never advance past an earlier transaction that is still open, even though
  * a later one already committed. A third, uninvolved connection (`connC` /
- * `drizzleC`) is also opened, for the caller's own reads.
+ * `drizzleC`) is also opened, for the caller's own reads. `commitA` commits
+ * A and returns once both rows are final (ISSUE-82): the cluster-wide
+ * snapshot xmin can still be held back by another database's transaction.
  */
 export async function openOutOfOrderTransactions(
   url: string,
@@ -28,6 +31,7 @@ export async function openOutOfOrderTransactions(
   readonly drizzleC: BunSQLDatabase;
   readonly rowA: RaceRow;
   readonly rowB: RaceRow;
+  readonly commitA: () => Promise<void>;
 }> {
   const connA = new SQL(url, { max: 1 });
   const connB = new SQL(url, { max: 1 });
@@ -51,6 +55,13 @@ export async function openOutOfOrderTransactions(
       drizzleC: drizzle({ client: connC }),
       rowA: rowA as RaceRow,
       rowB: rowB as RaceRow,
+      async commitA() {
+        await connA.unsafe('COMMIT');
+        for (const row of [rowA, rowB] as RaceRow[])
+          await waitForOutboxFinality(connC, String(row.txid), {
+            now: Date.now,
+          });
+      },
     };
   } catch (error) {
     // A failure partway through must not leave connA holding an open
