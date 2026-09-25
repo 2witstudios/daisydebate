@@ -10,7 +10,7 @@ import {
   requestSignInLink,
 } from './support/accounts';
 import { assertNoSeriousFindings } from './support/axe';
-import { changeEmail } from './support/forms';
+import { changeEmail, declineByKeyboard } from './support/forms';
 
 /**
  * Automated accessibility coverage for every authentication and security
@@ -107,7 +107,6 @@ test('an expired confirmation link has no serious or critical accessibility find
 test('username onboarding is fully usable by keyboard alone, with visible focus', async ({
   page,
   request,
-  browserName,
 }) => {
   await reachOnboarding(page, request);
 
@@ -121,21 +120,25 @@ test('username onboarding is fully usable by keyboard alone, with visible focus'
   await expect(
     page.getByRole('heading', { name: /next time, one tap/i }),
   ).toBeVisible();
-  // Reach "Not now" by tabbing forward through whatever comes before it,
-  // proving it is keyboard-reachable without hard-coding a specific tab
-  // index. It is a link, and WebKit (like Safari) moves focus to links with
-  // Option+Tab rather than Tab.
-  const tabKey = browserName === 'webkit' ? 'Alt+Tab' : 'Tab';
-  const notNow = page.getByRole('link', { name: 'Not now' });
-  for (
-    let tab = 0;
-    tab < 10 && !(await notNow.evaluate((el) => el === document.activeElement));
-    tab += 1
-  )
-    await page.keyboard.press(tabKey);
-  await expect(notNow).toBeFocused();
+  // ISSUE-75: both decline choices are real buttons, so plain Tab reaches
+  // them in every engine (WebKit used to skip links on Tab, needing
+  // Option+Tab).
+  await declineByKeyboard(page, 'Not now');
+});
+
+test('the shared-computer decline choice is reachable with plain Tab in every engine', async ({
+  page,
+  request,
+}) => {
+  await reachOnboarding(page, request);
+  await expect(page.getByLabel('Username')).toBeVisible();
+  await page.getByLabel('Username').focus();
+  await page.keyboard.type(uniqueName('kbd2'));
   await page.keyboard.press('Enter');
-  await expect(page).toHaveURL(/\/lobby$/);
+  await expect(
+    page.getByRole('heading', { name: /next time, one tap/i }),
+  ).toBeVisible();
+  await declineByKeyboard(page, 'This is a shared computer');
 });
 
 test('account security settings is operable by keyboard alone', async ({

@@ -14,6 +14,7 @@ import {
 import {
   changeEmail,
   claimUsername,
+  declineByKeyboard,
   declineOfferToLobby,
 } from './support/forms';
 import { effectsRan } from './support/hydration';
@@ -159,7 +160,7 @@ test('return destinations are validated and spectator routes stay public', async
   await confirmSignIn(page, await emailedLink(request, email));
   await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)lobby$/);
   await claimUsername(page, uniqueName('safe'));
-  await page.getByRole('link', { name: 'Not now' }).click();
+  await page.getByRole('button', { name: 'Not now' }).click();
   await expect(page).toHaveURL(/\/lobby$/);
 });
 
@@ -227,7 +228,7 @@ test('an emailed link opened in a different browser than the one that requested 
   await expect(
     otherPage.getByRole('heading', { name: /next time, one tap/i }),
   ).toBeVisible();
-  await otherPage.getByRole('link', { name: 'Not now' }).click();
+  await otherPage.getByRole('button', { name: 'Not now' }).click();
   await expect(otherPage).toHaveURL(/\/lobby$/);
 
   // The requesting page never redeemed the link itself and stays anonymous.
@@ -337,7 +338,9 @@ test.describe('with JavaScript off', () => {
       page.getByRole('heading', { name: /next time, one tap/i }),
     ).toBeVisible();
     expectNotInUrl(page, name);
-    await declineOfferToLobby(page);
+    // ISSUE-75: the decline choices are real buttons plain Tab reaches, and
+    // Enter activates them, with no script at all — not only a click.
+    await declineByKeyboard(page, 'Not now');
 
     expect(await sessionUsername(page)).toBe(name);
   });

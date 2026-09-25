@@ -7,6 +7,7 @@ import {
   type SearchParams,
 } from '../../../../features/access/decision';
 import { PasskeyOffer } from '../../../../ui/auth/onboarding/passkey-offer';
+import { declinePasskeyAction } from './actions';
 
 export const metadata: Metadata = {
   title: 'Save a passkey',
@@ -29,6 +30,10 @@ export default async function OnboardingPasskeyPage({
   );
   if (identity.state === 'provisional') redirect(onboardingHref(destination));
   return (
-    <PasskeyOffer username={identity.username} destination={destination} />
+    <PasskeyOffer
+      username={identity.username}
+      destination={destination}
+      decline={declinePasskeyAction.bind(null, destination)}
+    />
   );
 }
