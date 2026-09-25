@@ -88,7 +88,10 @@ const UNRESOLVED_NAME = /[$\u0000]/;
  * shell to find out what it resolves to. Fail closed for an autonomous
  * agent instead of matching against a name no rule recognizes.
  */
-export function unresolvedNameVerdict(name: string, facts: GuardFacts): Verdict {
+export function unresolvedNameVerdict(
+  name: string,
+  facts: GuardFacts,
+): Verdict {
   return UNRESOLVED_NAME.test(name)
     ? autonomousOnly(
         facts,
