@@ -13,6 +13,8 @@ test-results/
 qualification-results/
 # bun verify keeps each stage's full output here.
 verify-logs/
+# AUTH-6.7 load harness run reports.
+apps/web/scripts/auth-load/reports/
 # pu runtime state stays local; its config and agent context are committed.
 .pu/*
 !.pu/config.yaml
