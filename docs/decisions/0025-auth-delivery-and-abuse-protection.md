@@ -50,19 +50,45 @@ token>` as the `verification.identifier`. The subject (the email for
   local destination, which grants nothing: it is re-validated as a local
   path when the link is built and again on redemption. Email-change links
   carry no destination at all.
-- **Residual risk: concurrent redemption at a released address (ISSUE-99;
+- **Residual risk: sign-up at a released address (ISSUE-99, ISSUE-110;
   owner decision, 2026-09-24).** Completing an email change deletes every
   outstanding sign-in link to the old address in the same transaction that
-  moves the account (`completeEmailChange`). A link redeemed after the
-  change completes therefore creates no session and no account; the ISSUE-99
-  integration test proves it through the real confirm pages. One
-  interleaving remains open: Better Auth consumes a sign-in token before it
-  looks the address up, so a link to the old address redeemed in the same
-  instant the change commits can find the address already released and
-  sign up a new, empty account there. The owner accepted this as residual
-  risk. It is not a takeover: the changed account keeps its new address,
+  moves the account (`completeEmailChange`). That delete sees only the links
+  whose stored rows committed before its statement started. Such a link,
+  redeemed after the change completes, creates no session and no account;
+  the ISSUE-99 integration test proves it through the real confirm pages.
+  Two interleavings around the instant the change commits remain open, and
+  each can sign up a new, empty account at the released old address:
+  - A link _requested_ while the change is committing: its row commits
+    after the delete statement started but before the change commits, so
+    the delete does not see it and it survives. Redeemed at any later time
+    within its five-minute lifetime, it finds no account at the old address
+    and signs one up (reproduced by the PR #95 second-pass review).
+  - A link _redeemed_ in that instant: Better Auth consumes a sign-in token
+    before it looks the address up, so the lookup can land after the
+    address switch, find the address already released and sign up there
+    (ISSUE-109).
+
+  The owner accepted the concurrent released-address sign-up as residual
+  risk. That the acceptance also covers a link requested in the committing
+  instant is recorded as DEC-5, open until the owner confirms or overrules
+  it. It is not a takeover: the changed account keeps its new address,
   sessions and data. And whoever holds the old inbox could sign up at that
   address anyway by requesting a fresh link.
+
+- **No session survives an email change it straddles (ISSUE-103).** A
+  redemption whose lookup found the account _before_ the address switch is
+  not in that window. Better Auth creates its session in a later statement,
+  so the change's revoke-all could run first, and the session would then
+  outlive the change on an account that no longer holds the address the
+  link proved. After the session commits, an `after` hook on
+  `/magic-link/verify` (`sign-in-address-guard.ts`) runs one statement
+  (`revokeSessionUnlessAddressHeld`) that deletes it unless the account
+  still holds that address, and answers as for a spent link. A change
+  whose switch committed first is visible to that statement. One that
+  commits later is followed by its revoke-all, which the insert's user-row
+  lock orders after the session (ISSUE-22). So either the guard or the
+  revoke-all removes it.
 - **Rate limiting.** The ADR 0020 gate (`createRateLimitGate`, a Better Auth
   `hooks.before`; Better Auth's built-in limiter stays disabled) hands each
   bucket and its rule to the injected limiter. The Redis limiter runs one Lua
