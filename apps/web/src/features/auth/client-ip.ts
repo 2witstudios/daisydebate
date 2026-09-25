@@ -48,13 +48,35 @@ const isTrusted = (list: BlockList, address: string) => {
 };
 
 /**
+ * The right-most hop of `forwardedFor` that is not itself a trusted proxy,
+ * so a caller-prepended left-most value never selects the rate-limit
+ * identity; `peer` (already known trusted) is the fallback for an empty or
+ * malformed chain.
+ */
+const resolveFromForwardedChain = (
+  forwardedFor: string | null | undefined,
+  trusted: BlockList,
+  peer: string,
+): string => {
+  const chain = (forwardedFor ?? '')
+    .split(',')
+    .map((hop) => unmap(hop.trim()))
+    .filter(Boolean);
+  for (let index = chain.length - 1; index >= 0; index -= 1) {
+    const hop = chain[index] ?? '';
+    if (isIP(hop) === 0) return peer;
+    if (!isTrusted(trusted, hop)) return hop;
+  }
+  return peer;
+};
+
+/**
  * The client is the socket peer unless the peer is a configured trusted
  * ingress hop (zero trust: a header is only ever read from a peer the
  * deployment names as its own proxy). A trusted peer's `Fly-Client-IP` is
  * taken directly, since fly-proxy sets it to the resolved caller address
  * itself, never a chain to walk; only when it is absent or unusable does
- * this fall back to walking `X-Forwarded-For` from the right, so a
- * caller-forged left-most value never selects the rate-limit identity.
+ * this fall back to walking `X-Forwarded-For` from the right.
  */
 export function resolveClientIp(input: {
   readonly peer: string | undefined;
@@ -70,16 +92,7 @@ export function resolveClientIp(input: {
   if (!isTrusted(trusted, peer)) return peer;
   const flyClientIp = unmap((input.flyClientIp ?? '').trim());
   if (isIP(flyClientIp) !== 0) return flyClientIp;
-  const chain = (input.forwardedFor ?? '')
-    .split(',')
-    .map((hop) => unmap(hop.trim()))
-    .filter(Boolean);
-  for (let index = chain.length - 1; index >= 0; index -= 1) {
-    const hop = chain[index] ?? '';
-    if (isIP(hop) === 0) return peer;
-    if (!isTrusted(trusted, hop)) return hop;
-  }
-  return peer;
+  return resolveFromForwardedChain(input.forwardedFor, trusted, peer);
 }
 
 type IngressRequest = {
