@@ -139,6 +139,33 @@ describe('auth instance composition', () => {
     });
   });
 
+  test('refuses direct calls to the disabled account-deletion endpoints', async () => {
+    const server = composeAuthServer();
+    const paths = ['/api/auth/delete-user', '/api/auth/delete-user/callback'];
+    const statuses = [];
+    const setCookies = [];
+    for (const path of paths) {
+      const response = await server.instance.handler(
+        new Request(`http://localhost:3000${path}`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({}),
+        }),
+      );
+      statuses.push(response.status);
+      setCookies.push(response.headers.has('set-cookie'));
+    }
+    assert({
+      given: 'direct calls to /delete-user and /delete-user/callback',
+      should: 'refuse both without any account-deletion effect',
+      actual: { statuses, setCookies },
+      expected: {
+        statuses: [404, 404],
+        setCookies: [false, false],
+      },
+    });
+  });
+
   test('refuses direct calls to password signup, signin and reset endpoints', async () => {
     const server = composeAuthServer();
     const passwords = ['Sup3rSecret!', 'Sup3rSecret!', 'Sup3rSecret!'];
