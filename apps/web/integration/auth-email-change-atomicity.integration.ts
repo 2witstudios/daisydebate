@@ -210,8 +210,11 @@ describe('AUTH-5.6 change the recovery email: expiry and atomic revocation', () 
     // reaches the database first. ISSUE-22's CI failure was that race: when
     // the sign-in's account lookup landed after the completion had moved the
     // account off the old address, it found no account there and signed up a
-    // brand-new one, whose session no revocation of this account could touch
-    // (ISSUE-99 now revokes that link instead). This pins the interleaving
+    // brand-new one, whose session no revocation of this account could touch.
+    // ISSUE-99 revokes links still outstanding when the change commits; a
+    // link consumed in that same instant may still sign up an empty account
+    // at the released address, a residual risk ADR 0025 records as accepted
+    // by the owner. This test does not cover that case. It pins the interleaving
     // under test: the completion's address switch (the real transactional
     // `completeEmailChange`, only its start delayed) waits until the
     // concurrent sign-in has committed its session on this account, so the

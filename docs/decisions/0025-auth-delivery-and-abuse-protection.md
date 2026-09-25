@@ -50,6 +50,19 @@ token>` as the `verification.identifier`. The subject (the email for
   local destination, which grants nothing: it is re-validated as a local
   path when the link is built and again on redemption. Email-change links
   carry no destination at all.
+- **Residual risk: concurrent redemption at a released address (ISSUE-99;
+  owner decision, 2026-09-24).** Completing an email change deletes every
+  outstanding sign-in link to the old address in the same transaction that
+  moves the account (`completeEmailChange`). A link redeemed after the
+  change completes therefore creates no session and no account; the ISSUE-99
+  integration test proves it through the real confirm pages. One
+  interleaving remains open: Better Auth consumes a sign-in token before it
+  looks the address up, so a link to the old address redeemed in the same
+  instant the change commits can find the address already released and
+  sign up a new, empty account there. The owner accepted this as residual
+  risk. It is not a takeover: the changed account keeps its new address,
+  sessions and data. And whoever holds the old inbox could sign up at that
+  address anyway by requesting a fresh link.
 - **Rate limiting.** The ADR 0020 gate (`createRateLimitGate`, a Better Auth
   `hooks.before`; Better Auth's built-in limiter stays disabled) hands each
   bucket and its rule to the injected limiter. The Redis limiter runs one Lua
