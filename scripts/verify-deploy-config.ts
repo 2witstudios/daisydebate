@@ -81,10 +81,12 @@ export function findFlyDatabaseSecretProblem(flyToml: string): string | null {
  */
 export function findRuntimeRoleGateProblem(startTs: string): string | null {
   const code = uncommented(startTs);
-  const gate = code.indexOf('await refuseSchemaAlteringRole(app);');
+  const gate = code.indexOf(
+    "await refuseSchemaAlteringRole(app, 'daisy_web');",
+  );
   const prepare = code.indexOf('await nextApp.prepare();');
   return gate === -1 || prepare === -1 || gate > prepare
-    ? 'start.ts does not await refuseSchemaAlteringRole(app) before nextApp.prepare()'
+    ? "start.ts does not await refuseSchemaAlteringRole(app, 'daisy_web') before nextApp.prepare()"
     : null;
 }
 

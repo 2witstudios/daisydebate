@@ -189,7 +189,7 @@ describe('findFlyDatabaseSecretProblem', () => {
 
 describe('findRuntimeRoleGateProblem', () => {
   const prepare = 'await nextApp.prepare();\n';
-  const gate = 'await refuseSchemaAlteringRole(app);\n';
+  const gate = "await refuseSchemaAlteringRole(app, 'daisy_web');\n";
 
   test('the committed start.ts gates the role before serving', () => {
     assert({
@@ -208,7 +208,7 @@ describe('findRuntimeRoleGateProblem', () => {
         findRuntimeRoleGateProblem,
       ),
       expected: Array(3).fill(
-        'start.ts does not await refuseSchemaAlteringRole(app) before nextApp.prepare()',
+        "start.ts does not await refuseSchemaAlteringRole(app, 'daisy_web') before nextApp.prepare()",
       ),
     });
   });

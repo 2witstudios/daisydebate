@@ -37,6 +37,7 @@ export {
   type OutboxPosition,
   type OutboxRow,
 } from './outbox';
+export { refuseSchemaAlteringRole } from './runtime-role';
 
 /**
  * Composes the auth, debates, actor, email and outbox areas over one

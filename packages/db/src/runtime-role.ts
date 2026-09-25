@@ -63,3 +63,26 @@ export function runtimeRoleProblems(
       : null,
   ].filter((problem): problem is string => problem !== null);
 }
+
+/**
+ * Production serves only as its runtime role (ISSUE-39, ISSUE-101): the web
+ * app as `daisy_web`, the realtime service as `daisy_realtime`; migrations
+ * run as the owner from a separate release app (ADR 0041). Reads validated config,
+ * so a development server running as the local owner still starts.
+ */
+export async function refuseSchemaAlteringRole(
+  app: {
+    readonly config: { readonly NODE_ENV: string };
+    readonly database: {
+      readonly runtimeRoleProblems: () => Promise<readonly string[]>;
+    };
+  },
+  runtimeRole: 'daisy_web' | 'daisy_realtime',
+): Promise<void> {
+  if (app.config.NODE_ENV !== 'production') return;
+  const problems = await app.database.runtimeRoleProblems();
+  if (problems.length > 0)
+    throw new Error(
+      `Production refuses a DATABASE_URL role that ${problems.join(', ')}; use the ${runtimeRole} runtime role`,
+    );
+}

@@ -14,11 +14,15 @@ setupRitewayBun();
 function fakeApp(overrides: {
   readonly listenOutbox: () => Promise<{ unlisten: () => Promise<void> }>;
   readonly readOutboxHighWaterMark: () => Promise<OutboxPosition>;
+  readonly NODE_ENV?: string;
+  readonly runtimeRoleProblems?: () => Promise<readonly string[]>;
 }): RealtimeApp {
   return {
+    config: { NODE_ENV: overrides.NODE_ENV ?? 'test' },
     isDraining: () => false,
     logger: noopLogger,
     database: {
+      runtimeRoleProblems: overrides.runtimeRoleProblems ?? (async () => []),
       health: async () => true,
       checkListen: async () => true,
       listenOutbox: overrides.listenOutbox,
@@ -75,6 +79,72 @@ describe('serveRealtime startup order (RT-2.3b review finding 2)', () => {
         afterListenOnly: false,
         afterBoth: true,
       },
+    });
+  });
+});
+
+describe('serveRealtime runtime role gate (ISSUE-101)', () => {
+  const boot = async (
+    NODE_ENV: string,
+    problems: readonly string[],
+  ): Promise<{
+    readonly refused: string | null;
+    readonly listened: boolean;
+    readonly served: boolean;
+  }> => {
+    let listened = false;
+    let served = false;
+    const resources = fakeApp({
+      NODE_ENV,
+      runtimeRoleProblems: async () => problems,
+      listenOutbox: async () => {
+        listened = true;
+        return { unlisten: async () => {} };
+      },
+      readOutboxHighWaterMark: async () => OUTBOX_ORIGIN,
+    });
+    const fakeServe = ((): ReturnType<typeof Bun.serve> => {
+      served = true;
+      return { port: 0, stop: async () => {} } as unknown as ReturnType<
+        typeof Bun.serve
+      >;
+    }) as typeof Bun.serve;
+    try {
+      const { drain } = await serveRealtime({
+        resources,
+        port: 0,
+        sink: () => {},
+        serve: fakeServe,
+      });
+      await drain.stop();
+      return { refused: null, listened, served };
+    } catch (error) {
+      return { refused: (error as Error).message, listened, served };
+    }
+  };
+
+  test('refuses a production role that can alter the schema before LISTEN or serve()', async () => {
+    assert({
+      given:
+        'production config and a DATABASE_URL role that owns schema public',
+      should:
+        'refuse to start, naming daisy_realtime, without subscribing or accepting sockets',
+      actual: await boot('production', ['owns schema public']),
+      expected: {
+        refused:
+          'Production refuses a DATABASE_URL role that owns schema public; use the daisy_realtime runtime role',
+        listened: false,
+        served: false,
+      },
+    });
+  });
+
+  test('serves in production as a role with no schema capability', async () => {
+    assert({
+      given: 'production config and the daisy_realtime role',
+      should: 'subscribe and serve',
+      actual: await boot('production', []),
+      expected: { refused: null, listened: true, served: true },
     });
   });
 });
