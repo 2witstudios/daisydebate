@@ -273,7 +273,8 @@ fly secrets set -a daisy-debate-staging --stage \
   BETTER_AUTH_SECRET="$(bun -e 'console.log(crypto.getRandomValues(new Uint8Array(32)).reduce((s,b)=>s+b.toString(16).padStart(2,"0"),""))')" \
   RESEND_API_KEY="re_..." \
   AUTH_EMAIL_FROM="Daisy <no-reply@yourdomain.example>" \
-  RESEND_WEBHOOK_SECRET="whsec_..."
+  RESEND_WEBHOOK_SECRET="whsec_..." \
+  OPS_PROBE_TOKEN="$(bun -e 'console.log(crypto.getRandomValues(new Uint8Array(32)).reduce((s,b)=>s+b.toString(16).padStart(2,"0"),""))')"
 ```
 
 `APP_VERSION` and `GIT_COMMIT` are non-secret and set per-release, not as
@@ -282,8 +283,14 @@ persistent secrets — pass them as build args or set them via
 `APP_VERSION`/`GIT_COMMIT` at their `development`/`unknown` defaults
 (`packages/config/src/index.ts`).
 
-Verify: `fly secrets list -a daisy-debate-staging` shows all six names (not
-values — Fly never displays a set secret's value back), and no
+`OPS_PROBE_TOKEN` (AUTH-7.7) also needs setting as the repository secret
+the scheduled `auth-alerts.yml` workflow reads:
+`fly secrets list -a daisy-debate-staging` never displays it back, so copy
+it while generating it, then `echo -n "<same value>" | gh secret set
+OPS_PROBE_TOKEN`.
+
+Verify: `fly secrets list -a daisy-debate-staging` shows all seven names
+(not values — Fly never displays a set secret's value back), and no
 `MIGRATION_DATABASE_URL`.
 
 ## 6. First deploy
@@ -463,3 +470,8 @@ database URLs. The job holds only the Incidents webhook URL and secret
 (`PAGESPACE_INCIDENTS_WEBHOOK_URL`, `PAGESPACE_INCIDENTS_WEBHOOK_SECRET`,
 the repository secrets `ci.yml` already uses), scoped to the step that
 posts.
+
+The separate `auth-alerts.yml` workflow (AUTH-7.7) needs `OPS_PROBE_TOKEN`
+as a repository secret (the exact value set on the app above via `fly
+secrets set`) alongside the same two Incidents webhook secrets; see
+[auth-delivery.md](auth-delivery.md#alerting-auth-77).

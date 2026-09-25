@@ -143,19 +143,24 @@ describe('evaluateAlerts (AUTH-7.7)', () => {
     assert({
       given: 'a sweep that succeeded just under 2 hours ago',
       should: 'not fire (negative control)',
-      actual: evaluateAlerts({ ...baseSnapshot, retentionLastSuccessIso: justUnder })
-        .map((c) => c.id),
+      actual: evaluateAlerts({
+        ...baseSnapshot,
+        retentionLastSuccessIso: justUnder,
+      }).map((c) => c.id),
       expected: [],
     });
     assert({
       given: 'a sweep that last succeeded exactly 2 hours ago',
       should: 'fire cleanup_missed',
-      actual: evaluateAlerts({ ...baseSnapshot, retentionLastSuccessIso: atThreshold })
-        .map((c) => c.id),
+      actual: evaluateAlerts({
+        ...baseSnapshot,
+        retentionLastSuccessIso: atThreshold,
+      }).map((c) => c.id),
       expected: ['cleanup_missed'],
     });
     assert({
-      given: 'a sweep that has never once succeeded (fresh/never-recorded state)',
+      given:
+        'a sweep that has never once succeeded (fresh/never-recorded state)',
       should: 'fire cleanup_missed',
       actual: evaluateAlerts(baseSnapshot).map((c) => c.id),
       expected: ['cleanup_missed'],
@@ -177,7 +182,9 @@ describe('evaluateAlerts (AUTH-7.7)', () => {
     assert({
       given: 'every alert condition firing at once',
       should: 'each name a runbook path into auth-delivery.md',
-      actual: conditions.every((c) => c.runbook.startsWith('docs/operations/auth-delivery.md#')),
+      actual: conditions.every((c) =>
+        c.runbook.startsWith('docs/operations/auth-delivery.md#'),
+      ),
       expected: true,
     });
   });

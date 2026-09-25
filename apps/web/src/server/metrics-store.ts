@@ -32,20 +32,32 @@ export function createMetricsStore() {
   let mailDeliveryFailuresTotal = 0;
   const retentionSweepFailuresByOperation = new Map<string, number>();
 
+  const recordHttpOutcome = (fields: Readonly<Record<string, unknown>>) => {
+    const { operation, status } = fields;
+    if (typeof operation !== 'string' || !operation.startsWith('auth.')) return;
+    if (typeof status !== 'number') return;
+    const cls = statusClassOf(status);
+    if (cls) httpRequestsByStatusClass[cls] += 1;
+  };
+
+  const recordRetentionFailure = (
+    fields: Readonly<Record<string, unknown>>,
+  ) => {
+    const operation = fields.operation;
+    if (typeof operation !== 'string') return;
+    retentionSweepFailuresByOperation.set(
+      operation,
+      (retentionSweepFailuresByOperation.get(operation) ?? 0) + 1,
+    );
+  };
+
   return {
     observe(event: string, fields: Readonly<Record<string, unknown>>): void {
       switch (event) {
         case 'http.request.completed':
-        case 'http.request.failed': {
-          const operation = fields.operation;
-          const status = fields.status;
-          if (typeof operation !== 'string' || !operation.startsWith('auth.'))
-            return;
-          if (typeof status !== 'number') return;
-          const cls = statusClassOf(status);
-          if (cls) httpRequestsByStatusClass[cls] += 1;
+        case 'http.request.failed':
+          recordHttpOutcome(fields);
           return;
-        }
         case 'auth.rate_limit.denied':
           rateLimitDeniedTotal += 1;
           return;
@@ -55,15 +67,9 @@ export function createMetricsStore() {
         case 'auth.mail.failed':
           mailDeliveryFailuresTotal += 1;
           return;
-        case 'retention.sweep.failed': {
-          const operation = fields.operation;
-          if (typeof operation !== 'string') return;
-          retentionSweepFailuresByOperation.set(
-            operation,
-            (retentionSweepFailuresByOperation.get(operation) ?? 0) + 1,
-          );
+        case 'retention.sweep.failed':
+          recordRetentionFailure(fields);
           return;
-        }
         default:
           return;
       }

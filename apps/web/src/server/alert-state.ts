@@ -54,6 +54,86 @@ const runbook = (id: AlertConditionId) =>
 const elapsedMs = (sinceIso: string, nowIso: string): number =>
   Date.parse(nowIso) - Date.parse(sinceIso);
 
+const checkStorageUnavailable = (
+  snapshot: AlertSnapshot,
+): AlertCondition | undefined =>
+  snapshot.storageUnavailableSinceIso !== null &&
+  elapsedMs(snapshot.storageUnavailableSinceIso, snapshot.nowIso) >=
+    ALERT_THRESHOLDS.unavailableMs
+    ? {
+        id: 'storage_unavailable',
+        summary: `Session/database storage unavailable since ${snapshot.storageUnavailableSinceIso}`,
+        runbook: runbook('storage_unavailable'),
+      }
+    : undefined;
+
+const checkLimiterUnavailable = (
+  snapshot: AlertSnapshot,
+): AlertCondition | undefined =>
+  snapshot.limiterUnavailableSinceIso !== null &&
+  elapsedMs(snapshot.limiterUnavailableSinceIso, snapshot.nowIso) >=
+    ALERT_THRESHOLDS.unavailableMs
+    ? {
+        id: 'limiter_unavailable',
+        summary: `Auth rate limiter unavailable since ${snapshot.limiterUnavailableSinceIso}`,
+        runbook: runbook('limiter_unavailable'),
+      }
+    : undefined;
+
+const checkDeliveryFailures = (
+  snapshot: AlertSnapshot,
+): AlertCondition | undefined =>
+  snapshot.deliveryConsecutiveFailures >=
+  ALERT_THRESHOLDS.consecutiveDeliveryFailures
+    ? {
+        id: 'delivery_failures',
+        summary: `${snapshot.deliveryConsecutiveFailures} consecutive mail delivery failures`,
+        runbook: runbook('delivery_failures'),
+      }
+    : undefined;
+
+const checkAuth5xxRate = (
+  snapshot: AlertSnapshot,
+): AlertCondition | undefined => {
+  const { total, serverErrors, windowMinutes } = snapshot.authRequests;
+  if (
+    total < ALERT_THRESHOLDS.auth5xxMinRequests ||
+    serverErrors / total <= ALERT_THRESHOLDS.auth5xxRate
+  )
+    return undefined;
+  return {
+    id: 'auth_5xx_rate',
+    summary: `Auth 5xx rate ${((serverErrors / total) * 100).toFixed(2)}% over ${windowMinutes}m (${serverErrors}/${total} requests)`,
+    runbook: runbook('auth_5xx_rate'),
+  };
+};
+
+const checkCleanupMissed = (
+  snapshot: AlertSnapshot,
+): AlertCondition | undefined =>
+  snapshot.retentionLastSuccessIso === null ||
+  elapsedMs(snapshot.retentionLastSuccessIso, snapshot.nowIso) >=
+    ALERT_THRESHOLDS.retentionMissedMs
+    ? {
+        id: 'cleanup_missed',
+        summary:
+          snapshot.retentionLastSuccessIso === null
+            ? 'Retention sweep has not completed successfully since boot'
+            : `Retention sweep last succeeded ${snapshot.retentionLastSuccessIso}`,
+        runbook: runbook('cleanup_missed'),
+      }
+    : undefined;
+
+const ALERT_CHECKS: readonly ((
+  snapshot: AlertSnapshot,
+) => AlertCondition | undefined)[] = [
+  checkStorageUnavailable,
+  checkLimiterUnavailable,
+  checkDeliveryFailures,
+  checkAuth5xxRate,
+  checkCleanupMissed,
+];
+
 /**
  * AUTH-7.7's four alert conditions, evaluated from a snapshot the caller
  * already read (`readAlertSnapshot`). Pure: every threshold and duration
@@ -63,66 +143,9 @@ const elapsedMs = (sinceIso: string, nowIso: string): number =>
 export function evaluateAlerts(
   snapshot: AlertSnapshot,
 ): readonly AlertCondition[] {
-  const conditions: AlertCondition[] = [];
-
-  if (
-    snapshot.storageUnavailableSinceIso !== null &&
-    elapsedMs(snapshot.storageUnavailableSinceIso, snapshot.nowIso) >=
-      ALERT_THRESHOLDS.unavailableMs
-  )
-    conditions.push({
-      id: 'storage_unavailable',
-      summary: `Session/database storage unavailable since ${snapshot.storageUnavailableSinceIso}`,
-      runbook: runbook('storage_unavailable'),
-    });
-
-  if (
-    snapshot.limiterUnavailableSinceIso !== null &&
-    elapsedMs(snapshot.limiterUnavailableSinceIso, snapshot.nowIso) >=
-      ALERT_THRESHOLDS.unavailableMs
-  )
-    conditions.push({
-      id: 'limiter_unavailable',
-      summary: `Auth rate limiter unavailable since ${snapshot.limiterUnavailableSinceIso}`,
-      runbook: runbook('limiter_unavailable'),
-    });
-
-  if (
-    snapshot.deliveryConsecutiveFailures >=
-    ALERT_THRESHOLDS.consecutiveDeliveryFailures
-  )
-    conditions.push({
-      id: 'delivery_failures',
-      summary: `${snapshot.deliveryConsecutiveFailures} consecutive mail delivery failures`,
-      runbook: runbook('delivery_failures'),
-    });
-
-  const { total, serverErrors, windowMinutes } = snapshot.authRequests;
-  if (
-    total >= ALERT_THRESHOLDS.auth5xxMinRequests &&
-    serverErrors / total > ALERT_THRESHOLDS.auth5xxRate
-  )
-    conditions.push({
-      id: 'auth_5xx_rate',
-      summary: `Auth 5xx rate ${((serverErrors / total) * 100).toFixed(2)}% over ${windowMinutes}m (${serverErrors}/${total} requests)`,
-      runbook: runbook('auth_5xx_rate'),
-    });
-
-  if (
-    snapshot.retentionLastSuccessIso === null ||
-    elapsedMs(snapshot.retentionLastSuccessIso, snapshot.nowIso) >=
-      ALERT_THRESHOLDS.retentionMissedMs
-  )
-    conditions.push({
-      id: 'cleanup_missed',
-      summary:
-        snapshot.retentionLastSuccessIso === null
-          ? 'Retention sweep has not completed successfully since boot'
-          : `Retention sweep last succeeded ${snapshot.retentionLastSuccessIso}`,
-      runbook: runbook('cleanup_missed'),
-    });
-
-  return conditions;
+  return ALERT_CHECKS.map((check) => check(snapshot)).filter(
+    (condition): condition is AlertCondition => condition !== undefined,
+  );
 }
 
 export type AlertStateRedis = {
@@ -156,17 +179,22 @@ export async function readAlertSnapshot({
     { length: windowMinutes },
     (_, index) => currentBucket - index,
   );
-  const [storageSince, limiterSince, mailFailures, retentionLastSuccess, ...bucketValues] =
-    await Promise.all([
-      redis.get('alert-unavailable-storage'),
-      redis.get('alert-unavailable-limiter'),
-      redis.get('alert-mail-consecutive-failures'),
-      redis.get('alert-retention-last-success'),
-      ...buckets.flatMap((bucket) => [
-        redis.get(HTTP_TOTAL_KEY(bucket)),
-        redis.get(HTTP_5XX_KEY(bucket)),
-      ]),
-    ]);
+  const [
+    storageSince,
+    limiterSince,
+    mailFailures,
+    retentionLastSuccess,
+    ...bucketValues
+  ] = await Promise.all([
+    redis.get('alert-unavailable-storage'),
+    redis.get('alert-unavailable-limiter'),
+    redis.get('alert-mail-consecutive-failures'),
+    redis.get('alert-retention-last-success'),
+    ...buckets.flatMap((bucket) => [
+      redis.get(HTTP_TOTAL_KEY(bucket)),
+      redis.get(HTTP_5XX_KEY(bucket)),
+    ]),
+  ]);
   let total = 0;
   let serverErrors = 0;
   for (let index = 0; index < bucketValues.length; index += 2) {

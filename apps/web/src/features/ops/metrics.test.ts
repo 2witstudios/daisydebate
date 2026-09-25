@@ -14,7 +14,9 @@ describe('GET /api/ops/metrics (AUTH-7.7)', () => {
       metrics: createMetricsStore(),
       token: () => TOKEN,
     });
-    const response = await handler(new Request('http://localhost/api/ops/metrics'));
+    const response = await handler(
+      new Request('http://localhost/api/ops/metrics'),
+    );
     assert({
       given: 'a request with no Authorization header',
       should: 'answer 401',
@@ -25,8 +27,15 @@ describe('GET /api/ops/metrics (AUTH-7.7)', () => {
 
   test('answers Prometheus text exposition for an authorized request', async () => {
     const metrics = createMetricsStore();
-    metrics.observe('http.request.completed', { operation: 'auth.request', status: 200 });
-    const handler = createMetricsHandler({ logger: silentLogger, metrics, token: () => TOKEN });
+    metrics.observe('http.request.completed', {
+      operation: 'auth.request',
+      status: 200,
+    });
+    const handler = createMetricsHandler({
+      logger: silentLogger,
+      metrics,
+      token: () => TOKEN,
+    });
     const response = await handler(
       new Request('http://localhost/api/ops/metrics', {
         headers: { authorization: `Bearer ${TOKEN}` },
@@ -39,7 +48,9 @@ describe('GET /api/ops/metrics (AUTH-7.7)', () => {
       actual: {
         status: response.status,
         contentType: response.headers.get('content-type'),
-        hasSample: text.includes('auth_http_requests_total{status_class="2xx"} 1'),
+        hasSample: text.includes(
+          'auth_http_requests_total{status_class="2xx"} 1',
+        ),
       },
       expected: {
         status: 200,

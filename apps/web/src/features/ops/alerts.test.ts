@@ -16,7 +16,9 @@ describe('GET /api/ops/alerts (AUTH-7.7)', () => {
       clock: fixedClock(NOW),
       token: () => TOKEN,
     });
-    const response = await handler(new Request('http://localhost/api/ops/alerts'));
+    const response = await handler(
+      new Request('http://localhost/api/ops/alerts'),
+    );
     assert({
       given: 'a request with no Authorization header',
       should: 'answer 401',

@@ -6,14 +6,30 @@ setupRitewayBun();
 describe('createMetricsStore (AUTH-7.7)', () => {
   test('buckets auth-operation completions by status class only', () => {
     const store = createMetricsStore();
-    store.observe('http.request.completed', { operation: 'auth.request', status: 200 });
-    store.observe('http.request.completed', { operation: 'auth.request', status: 204 });
-    store.observe('http.request.failed', { operation: 'auth.request', status: 503 });
-    store.observe('http.request.completed', { operation: 'auth.request', status: 429 });
-    store.observe('http.request.completed', { operation: 'health.readiness', status: 500 });
+    store.observe('http.request.completed', {
+      operation: 'auth.request',
+      status: 200,
+    });
+    store.observe('http.request.completed', {
+      operation: 'auth.request',
+      status: 204,
+    });
+    store.observe('http.request.failed', {
+      operation: 'auth.request',
+      status: 503,
+    });
+    store.observe('http.request.completed', {
+      operation: 'auth.request',
+      status: 429,
+    });
+    store.observe('http.request.completed', {
+      operation: 'health.readiness',
+      status: 500,
+    });
     assert({
       given: '3 auth 2xx, 1 auth 4xx, 1 auth 5xx, and 1 non-auth 5xx',
-      should: 'count only the auth-prefixed operations, bucketed by status class',
+      should:
+        'count only the auth-prefixed operations, bucketed by status class',
       actual: store.snapshot().httpRequestsByStatusClass,
       expected: { '2xx': 2, '3xx': 0, '4xx': 1, '5xx': 1 },
     });
@@ -45,7 +61,9 @@ describe('createMetricsStore (AUTH-7.7)', () => {
     const store = createMetricsStore();
     store.observe('retention.sweep.failed', { operation: 'retention.session' });
     store.observe('retention.sweep.failed', { operation: 'retention.session' });
-    store.observe('retention.sweep.failed', { operation: 'retention.verification' });
+    store.observe('retention.sweep.failed', {
+      operation: 'retention.verification',
+    });
     assert({
       given: 'two failures of one target and one of another',
       should: 'tally each target name separately',
@@ -75,16 +93,22 @@ describe('createMetricsStore (AUTH-7.7)', () => {
 describe('formatPrometheusMetrics (AUTH-7.7)', () => {
   test('renders one HELP/TYPE/sample line group per metric, with bounded labels', () => {
     const store = createMetricsStore();
-    store.observe('http.request.completed', { operation: 'auth.request', status: 200 });
+    store.observe('http.request.completed', {
+      operation: 'auth.request',
+      status: 200,
+    });
     store.observe('retention.sweep.failed', { operation: 'retention.session' });
     const text = formatPrometheusMetrics(store.snapshot());
     assert({
       given: 'a snapshot with one 2xx auth request and one retention failure',
-      should: 'expose Prometheus text exposition with the sample values present',
+      should:
+        'expose Prometheus text exposition with the sample values present',
       actual: {
         hasHelp: text.includes('# HELP auth_http_requests_total'),
         hasType: text.includes('# TYPE auth_http_requests_total counter'),
-        has2xxSample: text.includes('auth_http_requests_total{status_class="2xx"} 1'),
+        has2xxSample: text.includes(
+          'auth_http_requests_total{status_class="2xx"} 1',
+        ),
         hasRetentionSample: text.includes(
           'retention_sweep_failures_total{operation="retention.session"} 1',
         ),

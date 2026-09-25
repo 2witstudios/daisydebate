@@ -35,6 +35,35 @@ const swallow = (promise: Promise<unknown>): void => {
 };
 
 /**
+ * The two HTTP lifecycle events, scoped to `auth.*` operations with a
+ * numeric `status` (bounded cardinality: a small, known operation-name
+ * set, never a raw path or identifier).
+ */
+const recordHttpOutcome = (
+  redis: AlertRecorderRedis,
+  clock: Clock,
+  fields: Readonly<Record<string, unknown>>,
+): void => {
+  const { operation, status } = fields;
+  if (typeof operation !== 'string' || !operation.startsWith('auth.')) return;
+  if (typeof status !== 'number') return;
+  const bucket = Math.floor(Date.parse(clock.now()) / MINUTE_MS);
+  swallow(
+    redis.incrementWithExpiry(
+      `alert-http-total-${bucket}`,
+      HTTP_BUCKET_TTL_SECONDS,
+    ),
+  );
+  if (status >= 500)
+    swallow(
+      redis.incrementWithExpiry(
+        `alert-http-5xx-${bucket}`,
+        HTTP_BUCKET_TTL_SECONDS,
+      ),
+    );
+};
+
+/**
  * Derives AUTH-7.7's durable, bounded-cardinality Redis alert state from the
  * structured event stream that already exists — no new call sites, no new
  * event names. `withAlertRecording` below feeds it every event the composed
@@ -89,28 +118,9 @@ export function createAlertRecorder({
           );
           return;
         case 'http.request.completed':
-        case 'http.request.failed': {
-          const operation = fields.operation;
-          const status = fields.status;
-          if (typeof operation !== 'string' || !operation.startsWith('auth.'))
-            return;
-          if (typeof status !== 'number') return;
-          const bucket = Math.floor(Date.parse(clock.now()) / MINUTE_MS);
-          swallow(
-            redis.incrementWithExpiry(
-              `alert-http-total-${bucket}`,
-              HTTP_BUCKET_TTL_SECONDS,
-            ),
-          );
-          if (status >= 500)
-            swallow(
-              redis.incrementWithExpiry(
-                `alert-http-5xx-${bucket}`,
-                HTTP_BUCKET_TTL_SECONDS,
-              ),
-            );
+        case 'http.request.failed':
+          recordHttpOutcome(redis, clock, fields);
           return;
-        }
         default:
           return;
       }

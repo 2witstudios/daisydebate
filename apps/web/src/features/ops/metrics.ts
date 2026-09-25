@@ -1,5 +1,8 @@
 import type { Logger } from '@daisy/logger';
-import { formatPrometheusMetrics, type MetricsStore } from '../../server/metrics-store';
+import {
+  formatPrometheusMetrics,
+  type MetricsStore,
+} from '../../server/metrics-store';
 import { handleOperation } from '../../server/http';
 import { requireProbeToken } from './probe-auth';
 

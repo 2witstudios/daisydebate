@@ -15,8 +15,7 @@ const hash = (value: string): string =>
  */
 export function requireProbeToken(request: Request, token: string): void {
   const header = request.headers.get('authorization') ?? '';
-  if (!header.startsWith(BEARER_PREFIX))
-    throw createAppError('AUTHENTICATION');
+  if (!header.startsWith(BEARER_PREFIX)) throw createAppError('AUTHENTICATION');
   const provided = header.slice(BEARER_PREFIX.length);
   if (hash(provided) !== hash(token)) throw createAppError('AUTHENTICATION');
 }
