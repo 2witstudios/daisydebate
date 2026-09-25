@@ -75,11 +75,15 @@ admitted and the rest answer 429 with `Retry-After`.
   segment sends. A sustained run this close to a real, deliberately
   conservative security ceiling will occasionally answer 429 on that
   segment even with nothing wrong; the report's `magic-link` breakdown makes
-  this visible rather than hiding it inside the overall success rate. This
-  is a property of the two numbers the spec fixes together (the 20 req/s
-  baseline and the 80/10/10 split), not a defect in the harness or the
-  limiter — record it plainly when this run's evidence is reviewed, and do
-  not lower the workload split or the ceiling to make it disappear.
+  this visible rather than hiding it inside the overall success rate, and the
+  success-rate threshold itself is computed over _admitted_ traffic (offered
+  minus the shipped limiter's deliberate 429s), never against those 429s, so
+  this expected behavior cannot fail the run on its own (AC4: "report
+  deliberate 429s ... separately"). This is a property of the two numbers
+  the spec fixes together (the 20 req/s baseline and the 80/10/10 split),
+  not a defect in the harness or the limiter — record it plainly when this
+  run's evidence is reviewed, and do not lower the workload split or the
+  ceiling to make it disappear.
 - **No `--base-url` provisioning path yet.** `run.ts` refuses a `--base-url`
   run today because provisioning needs a private mail sink it does not yet
   know how to reach on a deployed target (staging's real Resend delivery has

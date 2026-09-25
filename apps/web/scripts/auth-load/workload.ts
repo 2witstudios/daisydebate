@@ -18,9 +18,25 @@ export function workloadKindFor(requestIndex: number): WorkloadKind {
   return 'session-read';
 }
 
+/**
+ * `/api/auth/get-session` answers 200 with a JSON `null` body for a stale or
+ * invalid cookie, not an error status; a status-only check would misreport
+ * that as a successful protected read.
+ */
+async function sessionReadStatus(
+  response: Response,
+): Promise<200 | 'empty-session'> {
+  const body: unknown = await response
+    .clone()
+    .json()
+    .catch(() => null);
+  return body === null || body === undefined ? 'empty-session' : 200;
+}
+
 export type WorkloadOutcome = {
   readonly kind: WorkloadKind;
-  readonly status: number | 'timeout' | 'error';
+  /** 'empty-session': a 200 whose body carries no session (stale cookie). */
+  readonly status: number | 'timeout' | 'error' | 'empty-session';
   readonly latencyMs: number;
 };
 
@@ -55,11 +71,11 @@ export async function runWorkloadRequest({
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await runOne();
-    return {
-      kind,
-      status: response.status,
-      latencyMs: performance.now() - started,
-    };
+    const status =
+      kind === 'session-read' && response.status === 200
+        ? await sessionReadStatus(response)
+        : response.status;
+    return { kind, status, latencyMs: performance.now() - started };
   } catch (error) {
     const latencyMs = performance.now() - started;
     if ((error as { name?: string }).name === 'AbortError')

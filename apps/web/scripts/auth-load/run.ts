@@ -37,14 +37,26 @@ function parseArgs(argv: readonly string[]): Args {
     argv
       .find((entry) => entry.startsWith(`--${name}=`))
       ?.slice(name.length + 3) ?? fallback;
+  const positive = (name: string, fallback: string) => {
+    const value = Number(flag(name, fallback));
+    if (!Number.isFinite(value) || value <= 0)
+      throw new Error(`--${name} must be a finite number greater than 0`);
+    return value;
+  };
+  const positiveInteger = (name: string, fallback: string) => {
+    const value = positive(name, fallback);
+    if (!Number.isInteger(value))
+      throw new Error(`--${name} must be a positive integer`);
+    return value;
+  };
   const baseUrl = argv.find((entry) => entry.startsWith('--base-url='));
   return {
-    durationSeconds: Number(flag('duration-seconds', '600')),
-    clientCount: Number(flag('clients', '50')),
-    targetRps: Number(flag('target-rps', '20')),
-    sessionAccountCount: Number(flag('session-accounts', '50')),
-    passkeyAccountCount: Number(flag('passkey-accounts', '10')),
-    requestTimeoutMs: Number(flag('request-timeout-ms', '5000')),
+    durationSeconds: positive('duration-seconds', '600'),
+    clientCount: positiveInteger('clients', '50'),
+    targetRps: positive('target-rps', '20'),
+    sessionAccountCount: positiveInteger('session-accounts', '50'),
+    passkeyAccountCount: positiveInteger('passkey-accounts', '10'),
+    requestTimeoutMs: positive('request-timeout-ms', '5000'),
     label: flag('label', 'local'),
     ...(baseUrl ? { baseUrl: flag('base-url', '') } : {}),
   };
@@ -142,6 +154,14 @@ async function main() {
 
   const tallies = tally(outcomes);
   const latenciesMs = outcomes.map((outcome) => outcome.latencyMs);
+  // The success-rate threshold is over admitted traffic, never over the
+  // shipped limiter's own deliberate 429s (AUTH-6.7 AC4: "report deliberate
+  // 429s ... separately"). The magic-link segment sits right at the shipped
+  // global ceiling by construction (see README), so counting its expected
+  // 429s against the 99% bar would fail the run for exercising the workload
+  // exactly as specified, not for a real capacity problem.
+  const admitted =
+    tallies.overall.offered - (tallies.overall.rejectedByStatus[429] ?? 0);
   const report = {
     label: args.label,
     startedAt: startedAt.toISOString(),
@@ -162,12 +182,8 @@ async function main() {
     p95Ms: percentile(latenciesMs, 95),
     p99Ms: percentile(latenciesMs, 99),
     unexpected5xxRate: unexpected5xxRate(tallies.overall),
-    successRate:
-      tallies.overall.offered === 0
-        ? 0
-        : tallies.overall.successful / tallies.overall.offered,
-    admitted:
-      tallies.overall.offered - (tallies.overall.rejectedByStatus[429] ?? 0),
+    successRate: admitted === 0 ? 0 : tallies.overall.successful / admitted,
+    admitted,
     tallies,
     thresholds: {
       p95BelowMs: 500,
@@ -178,8 +194,7 @@ async function main() {
       p95: percentile(latenciesMs, 95) < 500,
       unexpected5xx: unexpected5xxRate(tallies.overall) < 0.01,
       successRate:
-        tallies.overall.offered > 0 &&
-        tallies.overall.successful / tallies.overall.offered >= 0.99,
+        admitted > 0 && tallies.overall.successful / admitted >= 0.99,
     },
   };
 

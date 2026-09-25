@@ -39,7 +39,13 @@ export function tally(
       bucket.offered += 1;
       if (outcome.status === 'timeout') {
         bucket.timedOut += 1;
-      } else if (outcome.status === 'error') {
+      } else if (
+        outcome.status === 'error' ||
+        outcome.status === 'empty-session'
+      ) {
+        // 'empty-session': a 200 whose body carries no session (a stale or
+        // invalid cookie) is not the success it looks like at the status
+        // line alone.
         bucket.unexpectedFailure += 1;
       } else if (SUCCESS_STATUSES.has(outcome.status)) {
         bucket.successful += 1;

@@ -52,7 +52,10 @@ async function signUp(
     { token: tokenFromMail(mail.text), callbackURL: '/lobby' },
     clientHeader,
   );
-  return { email, cookie: cookieHeader(response) };
+  const cookie = cookieHeader(response);
+  if (response.status >= 400 || cookie === '')
+    throw new Error(`Provisioning confirm failed: HTTP ${response.status}`);
+  return { email, cookie };
 }
 
 /** Registers a software passkey credential for an already-signed-in account. */

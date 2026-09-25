@@ -94,9 +94,12 @@ export async function startTwoInstances(
   });
 
   try {
+    // Each instance directly, on its own plain-HTTP app port: probing both
+    // through the round-robin edge can route both checks to the same
+    // instance by chance, resolving while the other is still unready.
     await Promise.all([
-      waitForReady(`https://localhost:${ports.edge}/api/health/ready`, 60),
-      waitForReady(`https://localhost:${ports.edge}/api/health/ready`, 60),
+      waitForReady(`http://127.0.0.1:${ports.appA}/api/health/ready`, 60),
+      waitForReady(`http://127.0.0.1:${ports.appB}/api/health/ready`, 60),
     ]);
   } catch (error) {
     instanceA.kill();
