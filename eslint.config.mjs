@@ -353,7 +353,9 @@ export default [
     },
   },
   {
-    files: ['scripts/**/*.ts'],
+    // The AUTH-6.7 load harness (apps/web/scripts/auth-load) is procedural
+    // CLI glue exactly like the root scripts/ tree, not application source.
+    files: ['scripts/**/*.ts', 'apps/web/scripts/**/*.ts'],
     rules: {
       // Repo tooling is procedural CLI glue; application source remains subject
       // to the stricter complexity and size ratchets.
@@ -377,6 +379,7 @@ export default [
       'packages/clock/**/*.ts',
       'packages/observability/**/*.ts',
       'scripts/**/*.ts',
+      'apps/web/scripts/**/*.ts',
       '**/integration/**/*.ts',
     ],
     rules: {
