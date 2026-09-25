@@ -1,12 +1,12 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { rejectionOf } from '@daisy/errors/testing';
-import { requireSameOrigin } from './http';
+import { requireSameOriginForm } from './http';
 
 setupRitewayBun();
 
 const outcome = (headers: Record<string, string>) =>
   rejectionOf(() =>
-    requireSameOrigin(
+    requireSameOriginForm(
       new Request('http://localhost/auth/confirm', { headers }),
       'http://localhost:3000',
     ),
@@ -14,7 +14,7 @@ const outcome = (headers: Record<string, string>) =>
 const admitted = { code: 'NO_REJECTION' };
 const refused = { code: 'AUTHORIZATION' };
 
-describe('requireSameOrigin: opaque form origins', () => {
+describe('requireSameOriginForm: opaque form origins', () => {
   test('accepts the origin a no-referrer page sends only from the same origin', async () => {
     assert({
       given:

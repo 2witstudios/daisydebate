@@ -105,6 +105,32 @@ describe('POST /api/account/username gates', () => {
     });
   });
 
+  test('refuses Origin: null even with Sec-Fetch-Site: same-origin', async () => {
+    const { handler, claims } = handlerWith();
+    const response = await handler(
+      new Request('http://localhost:3000/api/account/username', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          origin: 'null',
+          'sec-fetch-site': 'same-origin',
+        },
+        body: JSON.stringify({ username: 'ada' }),
+      }),
+    );
+    assert({
+      given:
+        'a claim posted with the opaque form origin carve-out headers, not a fetch from this origin',
+      should: 'refuse with 403 AUTHORIZATION and claim nothing',
+      actual: [
+        response.status,
+        ((await response.json()) as { error: { code: string } }).error.code,
+        claims,
+      ],
+      expected: [403, 'AUTHORIZATION', []],
+    });
+  });
+
   test('a verified account claims the normalized name for its own id', async () => {
     const { handler, claims } = handlerWith();
     const response = await handler(post({ username: '  Ada_1 ' }));

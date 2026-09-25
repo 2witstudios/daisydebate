@@ -1,5 +1,5 @@
 import type { Logger } from '@daisy/logger';
-import { handleOperation, requireSameOrigin } from '../../server/http';
+import { handleOperation, requireSameOriginForm } from '../../server/http';
 import { renderEmailConfirmPage } from './confirm-email-page';
 import { EMAIL_CHANGE_VERIFY_PATH } from './email-change';
 import { SESSION_CLEANUP_FAILED_HEADER } from './revoke-others-on-email-change';
@@ -107,7 +107,7 @@ export function createConfirmEmailHandlers({
         request,
         'auth.confirm_email.submit',
         async (_id, logger) => {
-          requireSameOrigin(request, auth().config.PUBLIC_APP_URL);
+          requireSameOriginForm(request, auth().config.PUBLIC_APP_URL);
           const form = await readForm(request, MAX_FORM_BYTES);
           return redeem(request, form, logger);
         },
