@@ -1,6 +1,7 @@
 import { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
 import { systemClock, systemId } from '@daisy/clock';
+import { waitForOutboxFinality } from '@daisy/db/testing';
 import { createRealtimeApp } from '../src/app';
 import { serveRealtime } from '../src/serve';
 import type { OutboxRowsSink } from '../src/outbox-drain';
@@ -79,7 +80,14 @@ export const waitFor = async (
   }
 };
 
-/** Bypasses application validation to exercise the drain loop directly, as packages/db's own outbox.integration.ts does. */
+/**
+ * Bypasses application validation to exercise the drain loop directly, as
+ * packages/db's own outbox.integration.ts does, and returns once the row is
+ * final (ISSUE-82): the drain reads a row only after every older
+ * transaction in the cluster has ended, so a test that isolates one wake
+ * path (a NOTIFY, a reconnect) with the poll switched off must not trigger
+ * that wake while another database's transaction still holds the row back.
+ */
 export async function insertOutboxRow(
   client: SQL,
   input: { topic: string; kind: string; version: number; payload: unknown },
@@ -92,7 +100,9 @@ export async function insertOutboxRow(
     txid: string | number | bigint;
     seq: string | number | bigint;
   };
-  return { txid: String(record.txid), seq: BigInt(record.seq) };
+  const position = { txid: String(record.txid), seq: BigInt(record.seq) };
+  await waitForOutboxFinality(client, position.txid, { now: Date.now });
+  return position;
 }
 
 export async function notifyOutbox(
@@ -106,18 +116,21 @@ export async function notifyOutbox(
 }
 
 /**
- * Inserts `count` rows with distinct payloads and NOTIFYs each, all inside
- * one transaction: PostgreSQL folds identical NOTIFY payloads sent in the
- * same transaction into one delivery, so distinct payloads (a different
+ * Commits `count` rows with distinct payloads in one transaction, waits
+ * until they are final, then NOTIFYs each of them from one second
+ * transaction: PostgreSQL folds identical NOTIFY payloads sent in the same
+ * transaction into one delivery, so distinct payloads (a different
  * `entityVersion` per row) are what proves a real burst, not an artifact of
- * NOTIFY de-duplication.
+ * NOTIFY de-duplication. The notifications go out only once the rows are
+ * final (ISSUE-82), so every wake they cause can read them.
  */
 export async function insertAndNotifyBurst(
   client: SQL,
   topic: string,
   count: number,
 ): Promise<void> {
-  await client.begin(async (tx) => {
+  const positions = await client.begin(async (tx) => {
+    const inserted: string[] = [];
     for (let index = 0; index < count; index += 1) {
       const [row] = await tx.unsafe(
         'insert into outbox (topic, kind, version, payload) values ($1, $2, $3, $4::jsonb) returning txid, seq',
@@ -136,10 +149,14 @@ export async function insertAndNotifyBurst(
         txid: string | number | bigint;
         seq: string | number | bigint;
       };
-      await tx.notify(
-        'outbox',
-        `${String(record.txid)}:${BigInt(record.seq).toString()}`,
-      );
+      inserted.push(`${String(record.txid)}:${BigInt(record.seq).toString()}`);
     }
+    return inserted;
+  });
+  const [txid] = (positions[0] ?? '').split(':');
+  if (!txid) throw new Error('The burst inserted no rows');
+  await waitForOutboxFinality(client, txid, { now: Date.now });
+  await client.begin(async (tx) => {
+    for (const position of positions) await tx.notify('outbox', position);
   });
 }
