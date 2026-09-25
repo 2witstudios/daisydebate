@@ -8,7 +8,7 @@
  */
 import { autonomousOnly, type Rule } from './agent-guard-rules';
 
-export const FLY_REASON =
+const FLY_REASON =
   'Deploy-rail and production-data changes need a human-only sign-off leaf (AGENTS.md); an autonomous agent never runs fly or flyctl.';
 
 export const fly: Rule = (_invocation, facts) =>
