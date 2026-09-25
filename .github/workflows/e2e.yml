@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   pull_request:
+  # AUTH-6.2-AC7: the release-qualification gate (three consecutive full
+  # suite runs, retries disabled) is not a per-PR check — it runs only on
+  # manual dispatch, on this uncontended runner instead of a shared
+  # development machine, alongside the unchanged single-run push/PR gate.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -18,7 +23,10 @@ jobs:
   e2e:
     name: Playwright E2E
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    # A manual dispatch runs the three-consecutive-run release
+    # qualification instead of the single-run PR gate; three full suites
+    # need more than the single-run budget below.
+    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 60 || 20 }}
     services:
       postgres:
         image: postgres:18.3-alpine
@@ -102,6 +110,7 @@ jobs:
         run: bunx --bun playwright install --with-deps chromium firefox webkit
 
       - name: Run browser tests
+        if: ${{ github.event_name != 'workflow_dispatch' }}
         run: bun run --cwd apps/web test:e2e
         env:
           CI: true
@@ -110,15 +119,26 @@ jobs:
           E2E_REDIS_URL: redis://localhost:6379/2
           E2E_REDIS_NAMESPACE: ci-e2e
 
+      # AUTH-6.2-AC7: three consecutive full-suite runs, retries disabled
+      # (the standing playwright.config.ts default), every outcome kept.
+      - name: Run release-qualification (three consecutive full-suite runs)
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: bun test:e2e:qualify
+        env:
+          CI: true
+          E2E_DATABASE_URL: postgres://daisy_e2e:e2e-loopback-only@localhost:5432/daisy_e2e
+          E2E_REDIS_URL: redis://localhost:6379/2
+          E2E_REDIS_NAMESPACE: ci-e2e
+
       - name: Report discovered/executed/pass/fail/skip counts
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && github.event_name != 'workflow_dispatch' }}
         run: bun scripts/e2e-report-counts.ts apps/web/test-results/results.json
 
       - name: Sanitize retained artifacts before upload
         id: sanitize
         if: ${{ !cancelled() }}
         run: |
-          bun scripts/e2e-artifact-sanitizer.ts apps/web/test-results apps/web/playwright-report
+          bun scripts/e2e-artifact-sanitizer.ts apps/web/test-results apps/web/playwright-report apps/web/qualification-results
 
       # Never upload when sanitization itself failed (e.g. a corrupt trace
       # archive it could not extract and scan): an unscanned artifact cannot
@@ -133,3 +153,14 @@ jobs:
             apps/web/playwright-report/
           if-no-files-found: ignore
           retention-days: 7
+
+      # The release-qualification report is the AUTH-6.2-AC7 artifact
+      # itself: upload it on success too, not only on failure.
+      - name: Upload release-qualification report
+        if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && steps.sanitize.outcome == 'success' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: e2e-qualification-${{ github.run_id }}
+          path: apps/web/qualification-results/
+          if-no-files-found: error
+          retention-days: 30

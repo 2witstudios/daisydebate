@@ -19,6 +19,7 @@ import { freshSessionGatePlugin } from './fresh-session-gate';
 import { browserSessionShapePlugin } from './browser-session-shape';
 import { passkeyDeviceHintPlugin } from './passkey-device-hint';
 import { passkeyNotificationsPlugin } from './passkey-notifications';
+import { passkeyOwnershipGuardPlugin } from './passkey-ownership-guard';
 import { sessionRevokedOutboxPlugin } from './session-revoked-outbox';
 import { revokeOthersOnEmailChangePlugin } from './revoke-others-on-email-change';
 import { revokeSessionsPlugin, type RevokeSessions } from './revoke-sessions';
@@ -191,6 +192,7 @@ const composeBetterAuth = (dependencies: {
         },
       }),
       passkeyDeviceHintPlugin,
+      passkeyOwnershipGuardPlugin,
       passkeyNotificationsPlugin(
         origin,
         dependencies.deliver,
