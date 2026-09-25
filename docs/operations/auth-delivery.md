@@ -48,12 +48,17 @@ to your topology before release.
 
 ## Limits and outage behaviour
 
-| Scope                               | Limit      | On exceed                |
-| ----------------------------------- | ---------- | ------------------------ |
-| Any auth route, per client and path | 100 / 60 s | `429` + `Retry-After`    |
-| Magic-link request, per client      | 3 / 60 s   | `429` + `Retry-After`    |
-| Magic-link request, per recipient   | 3 / 60 s   | `429` + `Retry-After`    |
-| Redis unavailable                   | —          | `503` + `Retry-After: 5` |
+| Scope                                                     | Limit                         | On exceed                |
+| --------------------------------------------------------- | ----------------------------- | ------------------------ |
+| Any auth route, per client and path                       | 100 / 60 s                    | `429` + `Retry-After`    |
+| Magic-link request, per client                            | 3 / 60 s                      | `429` + `Retry-After`    |
+| Magic-link request, per recipient                         | 3 / 60 s, 10 / hour, 20 / day | `429` + `Retry-After`    |
+| Sign-up link (address with no account), whole application | 120 / 60 s, 3,000 / day       | `429` + `Retry-After`    |
+| Redis unavailable                                         | —                             | `503` + `Retry-After: 5` |
+
+The whole-application ceilings never count or deny a sign-in link for an
+existing account (ADR 0025, ISSUE-54): a drained ceiling delays new
+sign-ups only.
 
 The sign-in page offers passkeys in browser autofill, so every visible view
 spends one `/passkey/generate-authenticate-options` request (a challenge row
@@ -67,7 +72,9 @@ address share that bucket with the explicit passkey button.
 
 There is no in-process fallback: while Redis is down every auth request that
 needs a decision answers `503`. Restore Redis; no state needs replay. Keys
-live under `<REDIS_NAMESPACE>:v1:rl:<sha3-256>` and expire within 60 seconds.
+live under `<REDIS_NAMESPACE>:v1:rl:<sha3-256>` and expire with their window:
+60 seconds for the per-route and minute buckets, up to a day for the
+recipient hour and day ceilings and the whole-application day ceiling.
 
 ## Mail failure and bounces
 
@@ -76,7 +83,9 @@ live under `<REDIS_NAMESPACE>:v1:rl:<sha3-256>` and expire within 60 seconds.
 - Hard bounce or complaint: the address is suppressed (`email_suppression`,
   keyed hash only). Requests for it answer `422 EMAIL_UNDELIVERABLE` with
   guidance to use a passkey or another address; existing sessions and passkeys
-  are untouched. Clearing a suppression is an explicit operator action on that
+  are untouched. No auth mail is sent to it at all: an email change to or
+  from it is refused with the same `422`, and a passkey added/removed notice
+  is skipped and logged as `auth.mail.suppressed` (ADR 0025). Clearing a suppression is an explicit operator action on that
   table and should follow confirmation that the mailbox is fixed.
 - Diagnostics: `email_delivery` (message ID, status rank, recipient hash) and
   `email_delivery_event` (event ID dedupe). Neither holds an address or a

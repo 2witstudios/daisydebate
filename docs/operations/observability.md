@@ -68,6 +68,7 @@ diverge:
 | `auth.mail.sent`                         | info     | An auth email was handed to the mail transport                                                                         |
 | `auth.mail.failed`                       | error    | Auth email delivery failed                                                                                             |
 | `auth.mail.receipt_failed`               | error    | The provider accepted a message but recording its receipt failed                                                       |
+| `auth.mail.suppressed`                   | info     | An auth email was not sent because its recipient is suppressed (hard bounce or complaint)                              |
 | `auth.magic_link.verified`               | info     | A magic-link token was redeemed and a session established                                                              |
 | `auth.passkey.enrolled`                  | info     | A passkey registration ceremony completed                                                                              |
 | `auth.passkey.authenticated`             | info     | A passkey authentication ceremony completed                                                                            |

@@ -51,7 +51,7 @@ const appendedAfter = async (
 };
 
 describe('sessionRevokedOutboxPlugin matcher', () => {
-  test('matches the three self-service revoke paths and nothing else', () => {
+  test('matches only the single-session revoke, whose delete Better Auth owns', () => {
     const { logger } = recorder();
     const plugin = sessionRevokedOutboxPlugin(async () => {}, logger);
     const hook = plugin.hooks?.after?.[0];
@@ -64,10 +64,12 @@ describe('sessionRevokedOutboxPlugin matcher', () => {
       '/list-sessions',
     ];
     assert({
-      given: 'the three self-service revoke paths and two unrelated paths',
-      should: 'match only the three revoke paths',
+      given:
+        'the three self-service revoke paths and two unrelated paths, the two revoke-alls being Daisy-owned (ISSUE-22)',
+      should:
+        'match only /revoke-session: the revoke-alls append in their own transaction',
       actual: paths.map((path) => hook.matcher(context(path, {}) as never)),
-      expected: [true, true, true, false, false],
+      expected: [true, false, false, false, false],
     });
   });
 });
@@ -138,7 +140,7 @@ describe('sessionRevokedOutboxPlugin handler', () => {
           throw new Error('outbox unavailable: password=hunter2');
         },
         logger,
-        '/revoke-other-sessions',
+        '/revoke-session',
         { status: true },
         'user-1',
       );

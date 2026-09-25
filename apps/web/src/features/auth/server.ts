@@ -6,17 +6,13 @@ import { createAppError } from '@daisy/errors';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import type { AuthConfig } from '@daisy/config';
-import type {
-  AuthEmailMessage,
-  AuthEmailSender,
-  AuthDeliveryLedger,
-} from './mail-types';
+import type { AuthEmailSender, AuthDeliveryLedger } from './mail-types';
 import { buildConfirmLink } from './confirm-link';
 import {
   emailedLinkIdentifier,
   generateEmailedLinkToken,
 } from './emailed-link-token';
-import { emailChangePlugin } from './email-change';
+import { emailChangePlugin, type CompleteEmailChange } from './email-change';
 import { createMagicLinkGatePlugin } from './magic-link-gate';
 import { freshSessionGatePlugin } from './fresh-session-gate';
 import { browserSessionShapePlugin } from './browser-session-shape';
@@ -24,9 +20,10 @@ import { passkeyDeviceHintPlugin } from './passkey-device-hint';
 import { passkeyNotificationsPlugin } from './passkey-notifications';
 import { sessionRevokedOutboxPlugin } from './session-revoked-outbox';
 import { revokeOthersOnEmailChangePlugin } from './revoke-others-on-email-change';
+import { revokeSessionsPlugin, type RevokeSessions } from './revoke-sessions';
 import { deriveRecipientSubkey, recipientKey } from './recipient-key';
 import { renderAuthEmail } from './mail/templates';
-import { sendOrUnavailable } from './deliver-or-unavailable';
+import { sendOrUnavailable, type Deliver } from './deliver-or-unavailable';
 import {
   SESSION_EXPIRES_IN_SECONDS,
   SESSION_FRESH_AGE_SECONDS,
@@ -40,12 +37,6 @@ import {
 } from './rate-limit';
 
 const MAGIC_LINK_EXPIRES_IN_SECONDS = 300;
-
-/** ISSUE-3 AC3: the atomic revoke `revokeOthersOnEmailChangePlugin` runs. */
-type RevokeOtherSessions = (
-  userId: string,
-  keepToken: string,
-) => Promise<number>;
 
 /** Application-level email contract; the Resend transport plugs in here. */
 export type {
@@ -69,14 +60,15 @@ const composeBetterAuth = (dependencies: {
   readonly config: AuthConfig;
   readonly recipientSubkey: string;
   readonly database: BetterAuthOptions['database'];
-  readonly deliver: (message: AuthEmailMessage) => Promise<void>;
+  readonly deliver: Deliver;
   readonly limiter: AuthRateLimiter;
   readonly ledger: AuthDeliveryLedger;
   readonly logger: Logger;
   readonly ids: IdGenerator;
   readonly clock: Clock;
   readonly appendSessionRevoked: (userId: string) => Promise<void>;
-  readonly revokeOtherSessions: RevokeOtherSessions;
+  readonly revokeOtherSessions: RevokeSessions;
+  readonly completeEmailChange: CompleteEmailChange;
 }) => {
   const { config, ledger, recipientSubkey } = dependencies;
   const origin = new URL(config.PUBLIC_APP_URL).origin;
@@ -205,6 +197,7 @@ const composeBetterAuth = (dependencies: {
         origin,
         deliver: dependencies.deliver,
         clock: dependencies.clock,
+        completeEmailChange: dependencies.completeEmailChange,
       }),
       freshSessionGatePlugin,
       sessionRevokedOutboxPlugin(
@@ -215,6 +208,7 @@ const composeBetterAuth = (dependencies: {
         dependencies.revokeOtherSessions,
         dependencies.logger,
       ),
+      revokeSessionsPlugin(dependencies.revokeOtherSessions),
       // Last: strips the session token and ipAddress from every HTTP
       // response after the plugins above have read the full result.
       browserSessionShapePlugin,
@@ -275,12 +269,31 @@ export function createAuthServer<
   readonly ledger?: AuthDeliveryLedger | undefined;
   /** RT-2.2: appends `session.revoked` after a confirmed self-service revoke. */
   readonly appendSessionRevoked: (userId: string) => Promise<void>;
-  readonly revokeOtherSessions: RevokeOtherSessions;
+  /**
+   * ISSUE-22: the one serialized revoke-all (`@daisy/db`), behind the email
+   * change's revocation and both self-service revoke-all endpoints.
+   */
+  readonly revokeOtherSessions: RevokeSessions;
+  /** ISSUE-99: the email change's address switch and link revocation. */
+  readonly completeEmailChange: CompleteEmailChange;
 }): AuthServer {
   const { config } = dependencies;
   const recipientSubkey = deriveRecipientSubkey(config.BETTER_AUTH_SECRET);
   const ledger = dependencies.ledger ?? noLedger;
-  const sendMail = async (message: AuthEmailMessage): Promise<void> => {
+  // ISSUE-54: every auth mail, required or best-effort, goes through this
+  // one path, and it honours suppression before anything reaches the
+  // transport. A ledger outage is a failed send (callers fail closed or log),
+  // never an implicit allow.
+  const sendMail: Deliver = async (message) => {
+    const recipientHash = recipientKey(recipientSubkey, message.to);
+    if (await ledger.isSuppressed(recipientHash)) {
+      dependencies.logger.log(
+        'auth.mail.suppressed',
+        { operation: 'auth.mail.send' },
+        'Auth mail not sent: the recipient is suppressed',
+      );
+      return 'suppressed';
+    }
     let receipt: Awaited<ReturnType<AuthEmailSender['send']>>;
     try {
       receipt = await dependencies.emailSender.send(message);
@@ -298,7 +311,7 @@ export function createAuthServer<
       try {
         await ledger.record({
           providerMessageId: receipt.providerMessageId,
-          recipientHash: recipientKey(recipientSubkey, message.to),
+          recipientHash,
           at: dependencies.clock.now(),
         });
       } catch {
@@ -321,6 +334,7 @@ export function createAuthServer<
       { operation: 'auth.mail.send' },
       'Auth mail delivered',
     );
+    return 'sent';
   };
   return {
     config,
@@ -336,6 +350,7 @@ export function createAuthServer<
       clock: dependencies.clock,
       appendSessionRevoked: dependencies.appendSessionRevoked,
       revokeOtherSessions: dependencies.revokeOtherSessions,
+      completeEmailChange: dependencies.completeEmailChange,
     }),
     limiter: dependencies.limiter,
     logger: dependencies.logger,

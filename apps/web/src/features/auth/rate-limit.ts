@@ -24,9 +24,14 @@ const MAGIC_LINK_RECIPIENT_RULES: readonly RateRule[] = [
   { windowSeconds: 86_400, max: 20 },
 ];
 /**
- * The whole application's mail volume, independent of any single recipient
- * or client: protects Resend quota, cost and sending-domain reputation from
- * many recipients each staying under their own ceiling.
+ * The whole application's sign-up mail volume, independent of any single
+ * recipient or client: protects Resend quota, cost and sending-domain
+ * reputation from many new addresses each staying under their own ceiling.
+ * It meters only links to addresses with no account (ISSUE-54): sign-in to
+ * an existing account never counts against it and is never denied by it,
+ * so one actor draining it (rotating client addresses, plus-addressed
+ * recipients) delays new sign-ups but cannot deny sign-in to anyone.
+ * Existing accounts' mail stays bounded by their recipient ceilings above.
  */
 const MAGIC_LINK_GLOBAL_RULES: readonly RateRule[] = [
   { windowSeconds: 60, max: 120 },
@@ -66,13 +71,9 @@ type Bucket = { readonly key: string; readonly rule: RateRule };
 // subkey-derived digest, so the address never reaches Redis keys or logs.
 const recipientBuckets = (
   recipientSubkey: string,
-  path: string,
-  body: unknown,
+  email: string | undefined,
 ): Bucket[] => {
-  if (path !== magicLinkPath || typeof body !== 'object' || body === null)
-    return [];
-  const email: unknown = Reflect.get(body, 'email');
-  if (typeof email !== 'string') return [];
+  if (email === undefined) return [];
   const key = recipientKey(recipientSubkey, email);
   return MAGIC_LINK_RECIPIENT_RULES.map((rule) => ({
     key: `auth:magic-link:recipient:${key}:${rule.windowSeconds}`,
@@ -81,15 +82,19 @@ const recipientBuckets = (
 };
 
 // One fixed key per window: shared by every recipient and client, so it caps
-// the whole application's magic-link volume independent of any single
+// the whole application's sign-up volume independent of any single
 // recipient or client bucket.
-const globalBuckets = (path: string): Bucket[] =>
-  path === magicLinkPath
-    ? MAGIC_LINK_GLOBAL_RULES.map((rule) => ({
-        key: `auth:magic-link:global:${rule.windowSeconds}`,
-        rule,
-      }))
-    : [];
+const globalBuckets: readonly Bucket[] = MAGIC_LINK_GLOBAL_RULES.map(
+  (rule) => ({ key: `auth:magic-link:global:${rule.windowSeconds}`, rule }),
+);
+
+/** The requested sign-in address, when the request is for a magic link. */
+const magicLinkEmail = (path: string, body: unknown): string | undefined => {
+  if (path !== magicLinkPath || typeof body !== 'object' || body === null)
+    return undefined;
+  const email: unknown = Reflect.get(body, 'email');
+  return typeof email === 'string' ? email : undefined;
+};
 
 // A valid hint is rounded up to whole seconds; an invalid one (NaN, negative,
 // non-finite) omits the header rather than advertising a made-up wait.
@@ -203,6 +208,7 @@ export const createRateLimitGate = (dependencies: {
         throw denial(dependencies.logger, path, 'INFRASTRUCTURE');
       }
     };
+    const email = magicLinkEmail(path, context.body);
     const buckets = await failClosed((): Bucket[] => {
       // Direct `auth.api.*` calls carry no Request, only forwarded Headers.
       const source = context.request ?? context.headers;
@@ -214,13 +220,14 @@ export const createRateLimitGate = (dependencies: {
           key: `auth:client:${client ?? 'unknown'}:${path}`,
           rule: path === magicLinkPath ? MAGIC_LINK_CLIENT_RULE : DEFAULT_RULE,
         },
-        ...recipientBuckets(dependencies.recipientSubkey, path, context.body),
-        ...globalBuckets(path),
+        ...recipientBuckets(dependencies.recipientSubkey, email),
       ];
     });
-    for (const { key, rule } of buckets) {
+    const consume = async (bucket: Bucket) => {
       const decision = await failClosed(async () =>
-        readDecision(await dependencies.limiter.consume(key, rule)),
+        readDecision(
+          await dependencies.limiter.consume(bucket.key, bucket.rule),
+        ),
       );
       if (!decision.allowed)
         throw denial(
@@ -229,5 +236,16 @@ export const createRateLimitGate = (dependencies: {
           'RATE_LIMIT',
           decision.retryAfterSeconds,
         );
-    }
+    };
+    for (const bucket of buckets) await consume(bucket);
+    if (email === undefined) return;
+    // Only a link to an address with no account (a sign-up) is metered by
+    // the global ceilings; the lookup runs only once the client and
+    // recipient buckets have admitted the request. A database outage here
+    // propagates like any other (the typed INFRASTRUCTURE 503), never an
+    // allow and never reported as a limiter outage.
+    const account =
+      await context.context.internalAdapter.findUserByEmail(email);
+    if (account) return;
+    for (const bucket of globalBuckets) await consume(bucket);
   });

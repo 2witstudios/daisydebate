@@ -13,6 +13,7 @@ export const eventRegistry = {
   'auth.mail.sent': 'info',
   'auth.mail.failed': 'error',
   'auth.mail.receipt_failed': 'error',
+  'auth.mail.suppressed': 'info',
   'auth.magic_link.verified': 'info',
   'auth.passkey.enrolled': 'info',
   'auth.passkey.authenticated': 'info',

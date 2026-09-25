@@ -49,26 +49,30 @@ const sessionExists = async (admin: SQL, token: string): Promise<boolean> => {
 };
 
 /**
- * RT-2.2v nit: the repository's real-fault forced-failure proof previously
- * covered only `/revoke-other-sessions`. `/revoke-session` and
- * `/revoke-sessions` share the same `sessionRevokedOutboxPlugin` matcher
- * (`session-revoked-outbox.ts`) but only had unit proof. Parameterized over
- * all three real Better Auth endpoints.
+ * RT-2.2v nit: a real-fault forced-failure proof for every self-service
+ * revoke endpoint. `/revoke-session` is Better Auth's own delete, so its
+ * doorbell is the best-effort `sessionRevokedOutboxPlugin` append: a failure
+ * never fails the call. `/revoke-other-sessions` and `/revoke-sessions` are
+ * Daisy's serialized revoke-all (ISSUE-22, `revoke-sessions.ts`), whose
+ * append shares the DELETE's transaction (ADR 0032 §5): a failure rolls the
+ * whole revocation back and the call reports the outage.
  */
 const routes: readonly {
   readonly path: string;
+  readonly atomic: boolean;
   readonly body: (secondToken: string) => string;
 }[] = [
-  { path: '/revoke-other-sessions', body: () => '{}' },
-  { path: '/revoke-sessions', body: () => '{}' },
+  { path: '/revoke-other-sessions', atomic: true, body: () => '{}' },
+  { path: '/revoke-sessions', atomic: true, body: () => '{}' },
   {
     path: '/revoke-session',
+    atomic: false,
     body: (secondToken) => JSON.stringify({ token: secondToken }),
   },
 ];
 
 for (const route of routes) {
-  test(`a forced outbox failure never fails a real ${route.path} call, and logs the registered event`, async () => {
+  test(`a forced outbox failure on a real ${route.path} call ${route.atomic ? 'rolls the whole revocation back' : 'never fails it, and logs the registered event'}`, async () => {
     const email = fixtureEmail();
     const { sent, logged, database, auth } = createDatabaseAuthServer(
       url,
@@ -93,20 +97,29 @@ for (const route of routes) {
       );
 
       let response: Response | undefined;
+      let failureCode: unknown;
       await withOutboxInsertBlockedForTopic(
         buildUserInboxTopic(actorId),
         async () => {
-          response = await auth.instance.handler(
-            new Request(`${auth.config.PUBLIC_APP_URL}/api/auth${route.path}`, {
-              method: 'POST',
-              headers: new Headers({
-                origin: auth.config.PUBLIC_APP_URL,
-                cookie: first.cookie,
-                'content-type': 'application/json',
-              }),
-              body: route.body(second.sessionToken),
-            }),
-          );
+          response = await auth.instance
+            .handler(
+              new Request(
+                `${auth.config.PUBLIC_APP_URL}/api/auth${route.path}`,
+                {
+                  method: 'POST',
+                  headers: new Headers({
+                    origin: auth.config.PUBLIC_APP_URL,
+                    cookie: first.cookie,
+                    'content-type': 'application/json',
+                  }),
+                  body: route.body(second.sessionToken),
+                },
+              ),
+            )
+            .catch((error: { code?: unknown }) => {
+              failureCode = error.code;
+              return undefined;
+            });
         },
       );
 
@@ -117,10 +130,12 @@ for (const route of routes) {
 
       assert({
         given: `a real ${route.path} call while its topic's outbox insert is forced to fail`,
-        should:
-          'still deny the target session and answer success, appending nothing and logging the registered failure event instead of throwing',
+        should: route.atomic
+          ? 'report the outage and keep the target session: the append and the DELETE commit together or not at all'
+          : 'still deny the target session and answer success, appending nothing and logging the registered failure event instead of throwing',
         actual: {
           status: response?.status,
+          failureCode,
           secondSessionDenied: !(await sessionExists(
             admin,
             second.sessionToken,
@@ -130,12 +145,21 @@ for (const route of routes) {
             ([event]) => event === 'realtime.outbox.append_failed',
           ),
         },
-        expected: {
-          status: 200,
-          secondSessionDenied: true,
-          outboxRowsAppended: 0,
-          loggedAppendFailure: true,
-        },
+        expected: route.atomic
+          ? {
+              status: undefined,
+              failureCode: 'INFRASTRUCTURE',
+              secondSessionDenied: false,
+              outboxRowsAppended: 0,
+              loggedAppendFailure: false,
+            }
+          : {
+              status: 200,
+              failureCode: undefined,
+              secondSessionDenied: true,
+              outboxRowsAppended: 0,
+              loggedAppendFailure: true,
+            },
       });
     } finally {
       await database.close();

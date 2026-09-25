@@ -8,7 +8,7 @@ const getSession = (headers: Record<string, string> = {}) =>
   new Request('http://localhost:3000/api/auth/get-session', { headers });
 
 describe('AUTH-3.4 rules the gate hands the atomic limiter', () => {
-  test('magic-link requests carry one client bucket, three recipient windows and two global ceilings', async () => {
+  test('a sign-up link request carries one client bucket, three recipient windows and two global ceilings', async () => {
     const { server, consumed } = create();
     await server.instance.handler(magicLinkRequest());
     const kindOf = (key: string) =>
@@ -20,7 +20,7 @@ describe('AUTH-3.4 rules the gate hands the atomic limiter', () => {
             ? 'client'
             : 'other';
     assert({
-      given: 'one magic-link request',
+      given: 'one magic-link request for an address with no account',
       should:
         'consume the client bucket, all three recipient windows and both global ceilings, never carrying the address',
       actual: {
@@ -41,6 +41,41 @@ describe('AUTH-3.4 rules the gate hands the atomic limiter', () => {
         ],
         leaksAddress: false,
       },
+    });
+  });
+
+  test('a sign-in link for an existing account never reaches the global ceilings (ISSUE-54)', async () => {
+    const { server, db, consumed } = create({
+      limiter: (record) => async (key, rule) => {
+        record.push({ key, rule });
+        // The global ceilings are saturated: were they consulted, this
+        // request would be denied.
+        return key.startsWith('auth:magic-link:global:')
+          ? { allowed: false, retryAfterSeconds: 30 }
+          : { allowed: true, retryAfterSeconds: 0 };
+      },
+    });
+    db.user.push({
+      id: 'user-1',
+      email: 'player@daisy.example.com',
+      emailVerified: true,
+      name: '',
+      createdAt: new Date('2026-09-20T00:00:00.000Z'),
+      updatedAt: new Date('2026-09-20T00:00:00.000Z'),
+    });
+    const response = await server.instance.handler(magicLinkRequest());
+    assert({
+      given:
+        'saturated global ceilings and a magic-link request for an address that has an account',
+      should:
+        'admit it on its client and recipient buckets alone, never consuming a global bucket',
+      actual: {
+        status: response.status,
+        globalConsumed: consumed.filter(({ key }) =>
+          key.startsWith('auth:magic-link:global:'),
+        ).length,
+      },
+      expected: { status: 200, globalConsumed: 0 },
     });
   });
 
@@ -138,13 +173,13 @@ describe('AUTH-3.4 rules the gate hands the atomic limiter', () => {
     assert({
       given: 'a throttled request and an admitted request',
       should:
-        'answer 429 without any suppression lookup, while the admitted one performs exactly one',
+        'answer 429 without any suppression lookup, while the admitted one performs two: the gate before a token exists, then the one delivery path every auth mail shares (ISSUE-54)',
       actual: {
         status: denied.status,
         throttledLookups: throttled.lookups.count,
         admittedLookups: admitted.lookups.count,
       },
-      expected: { status: 429, throttledLookups: 0, admittedLookups: 1 },
+      expected: { status: 429, throttledLookups: 0, admittedLookups: 2 },
     });
   });
 });

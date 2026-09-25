@@ -3,6 +3,7 @@ import { APIError } from 'better-auth/api';
 import type { Logger } from '@daisy/logger';
 import { createEventRecorder as recorder } from '../../server/test-loggers.test-support';
 import { passkeyNotificationsPlugin } from './passkey-notifications';
+import type { Deliver } from './deliver-or-unavailable';
 import type { AuthEmailMessage } from './server';
 
 setupRitewayBun();
@@ -17,7 +18,7 @@ const context = (
 ) => ({ path, context: { session, returned } });
 
 const runAfterHook = async (
-  deliver: (message: AuthEmailMessage) => Promise<void>,
+  deliver: Deliver,
   logger: Logger,
   path: string,
   session: Parameters<typeof context>[1],
@@ -40,7 +41,10 @@ const sentAfter = async (
 ) => {
   const sent: AuthEmailMessage[] = [];
   await runAfterHook(
-    async (message) => void sent.push(message),
+    async (message) => {
+      sent.push(message);
+      return 'sent';
+    },
     recorder().logger,
     path,
     session,
@@ -52,7 +56,11 @@ const sentAfter = async (
 describe('passkeyNotificationsPlugin matcher', () => {
   test('matches only the registration and deletion paths', () => {
     const { logger } = recorder();
-    const plugin = passkeyNotificationsPlugin(origin, async () => {}, logger);
+    const plugin = passkeyNotificationsPlugin(
+      origin,
+      async () => 'sent',
+      logger,
+    );
     const hook = plugin.hooks?.after?.[0];
     if (!hook) throw new Error('plugin defines no after hook');
     const paths = [
