@@ -195,6 +195,33 @@ test('a batch deletes at most its limit, and an email suppression is never prune
   }
 });
 
+/**
+ * Four independent connection pools draining one operation in batches of
+ * five until each sees a short batch, all at once. Shared by the
+ * verification and session concurrency proofs below.
+ */
+async function drainConcurrently(
+  operation: 'purgeExpiredVerifications' | 'purgeExpiredSessions',
+  isolatedBefore: string,
+) {
+  const workers = Array.from({ length: 4 }, () =>
+    createDatabase({ url, maxConnections: 2, nextActorId: createId }),
+  );
+  const drain = async (database: Database) => {
+    let total = 0;
+    for (;;) {
+      const deleted = await database[operation]({
+        before: isolatedBefore,
+        limit: 5,
+      });
+      total += deleted;
+      if (deleted === 0) return total;
+    }
+  };
+  const totals = await Promise.all(workers.map(drain));
+  return { workers, totals };
+}
+
 test('concurrent sweeps delete each expired row exactly once', async () => {
   const tag = `rt-${createId().slice(0, 10)}`;
   const [verification] = tables;
@@ -203,22 +230,11 @@ test('concurrent sweeps delete each expired row exactly once', async () => {
     for (let index = 0; index < 40; index += 1)
       await verification!.insert(sql, tag, '2001-01-01T00:00:00.000Z');
   });
-  const workers = Array.from({ length: 4 }, () =>
-    createDatabase({ url, maxConnections: 2, nextActorId: createId }),
+  const { workers, totals } = await drainConcurrently(
+    'purgeExpiredVerifications',
+    isolatedBefore,
   );
   try {
-    const drain = async (database: Database) => {
-      let total = 0;
-      for (;;) {
-        const deleted = await database.purgeExpiredVerifications({
-          before: isolatedBefore,
-          limit: 5,
-        });
-        total += deleted;
-        if (deleted === 0) return total;
-      }
-    };
-    const totals = await Promise.all(workers.map(drain));
     assert({
       given:
         'forty expired rows and four sweeps draining in batches of five at once',
@@ -251,22 +267,11 @@ test('concurrent session sweeps race-free delete each expired session exactly on
     await sql`insert into passkey (id, public_key, user_id, credential_id, counter, device_type, backed_up)
       values (${`${tag}-passkey`}, 'pk', ${tag}, ${`${tag}-cred`}, 0, 'singleDevice', false)`;
   });
-  const workers = Array.from({ length: 4 }, () =>
-    createDatabase({ url, maxConnections: 2, nextActorId: createId }),
+  const { workers, totals } = await drainConcurrently(
+    'purgeExpiredSessions',
+    isolatedBefore,
   );
   try {
-    const drain = async (database: Database) => {
-      let total = 0;
-      for (;;) {
-        const deleted = await database.purgeExpiredSessions({
-          before: isolatedBefore,
-          limit: 5,
-        });
-        total += deleted;
-        if (deleted === 0) return total;
-      }
-    };
-    const totals = await Promise.all(workers.map(drain));
     const [sessionsLeft, liveLeft, userLeft, passkeyLeft] = await withSql(
       async (sql) => [
         await session!.left(sql, tag),

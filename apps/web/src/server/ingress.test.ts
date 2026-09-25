@@ -23,108 +23,84 @@ const response = () => {
   return Object.assign(fake as unknown as ServerResponse, { calls });
 };
 
+/** Runs one request through the ingress listener and returns the identity
+ * header the handler saw. */
+const resolvedIdentity = async (
+  peer: string,
+  headers: Req['headers'],
+  trustedProxies: readonly string[],
+) => {
+  const seen: Array<string | string[] | undefined> = [];
+  const listen = createIngressListener({
+    clientIdSubkey: 'ingress-test-subkey',
+    isDraining: () => false,
+    trustedProxies,
+    handle: async (req) => {
+      seen.push(req.headers['x-daisy-client-ip']);
+    },
+    onError: () => undefined,
+  });
+  await listen(request(peer, headers), response());
+  return seen;
+};
+
 describe('ingress listener', () => {
   test('forged identity headers', async () => {
-    const seen: Array<string | string[] | undefined> = [];
-    const listen = createIngressListener({
-      clientIdSubkey: 'ingress-test-subkey',
-      isDraining: () => false,
-      trustedProxies: [],
-      handle: async (req) => {
-        seen.push(req.headers['x-daisy-client-ip']);
-      },
-      onError: () => undefined,
-    });
-    await listen(
-      request('203.0.113.9', {
-        'x-daisy-client-ip': '1.1.1.1',
-        'x-forwarded-for': '2.2.2.2',
-      }),
-      response(),
-    );
     assert({
       given:
         'a forged x-daisy-client-ip and X-Forwarded-For from an untrusted peer',
       should: 'hand the handler the socket peer as identity',
-      actual: seen,
+      actual: await resolvedIdentity(
+        '203.0.113.9',
+        { 'x-daisy-client-ip': '1.1.1.1', 'x-forwarded-for': '2.2.2.2' },
+        [],
+      ),
       expected: ['203.0.113.9'],
     });
   });
 
   test('forged chain behind a trusted proxy', async () => {
-    const seen: Array<string | string[] | undefined> = [];
-    const listen = createIngressListener({
-      clientIdSubkey: 'ingress-test-subkey',
-      isDraining: () => false,
-      trustedProxies: ['10.0.0.0/8'],
-      handle: async (req) => {
-        seen.push(req.headers['x-daisy-client-ip']);
-      },
-      onError: () => undefined,
-    });
-    await listen(
-      request('10.0.0.5', {
-        'x-daisy-client-ip': '1.1.1.1',
-        'x-forwarded-for': '6.6.6.6, 198.51.100.7',
-      }),
-      response(),
-    );
     assert({
       given: 'a trusted proxy peer and a forged left-most forwarded value',
       should: 'resolve the right-most untrusted hop',
-      actual: seen,
+      actual: await resolvedIdentity(
+        '10.0.0.5',
+        {
+          'x-daisy-client-ip': '1.1.1.1',
+          'x-forwarded-for': '6.6.6.6, 198.51.100.7',
+        },
+        ['10.0.0.0/8'],
+      ),
       expected: ['198.51.100.7'],
     });
   });
 
   test('a trusted fly-proxy peer resolves identity from Fly-Client-IP, not the forwarded chain', async () => {
-    const seen: Array<string | string[] | undefined> = [];
-    const listen = createIngressListener({
-      clientIdSubkey: 'ingress-test-subkey',
-      isDraining: () => false,
-      trustedProxies: ['fdaa::/8'],
-      handle: async (req) => {
-        seen.push(req.headers['x-daisy-client-ip']);
-      },
-      onError: () => undefined,
-    });
-    await listen(
-      request('fdaa::1', {
-        'fly-client-ip': '203.0.113.9',
-        'x-forwarded-for': '6.6.6.6, 198.51.100.7',
-      }),
-      response(),
-    );
     assert({
       given: "a trusted fly-proxy peer carrying Fly's authoritative header",
       should:
         'resolve identity from Fly-Client-IP, ignoring the forwarded chain',
-      actual: seen,
+      actual: await resolvedIdentity(
+        'fdaa::1',
+        {
+          'fly-client-ip': '203.0.113.9',
+          'x-forwarded-for': '6.6.6.6, 198.51.100.7',
+        },
+        ['fdaa::/8'],
+      ),
       expected: ['203.0.113.9'],
     });
   });
 
   test('an untrusted peer cannot spoof identity through Fly-Client-IP', async () => {
-    const seen: Array<string | string[] | undefined> = [];
-    const listen = createIngressListener({
-      clientIdSubkey: 'ingress-test-subkey',
-      isDraining: () => false,
-      trustedProxies: ['fdaa::/8'],
-      handle: async (req) => {
-        seen.push(req.headers['x-daisy-client-ip']);
-      },
-      onError: () => undefined,
-    });
-    await listen(
-      request('203.0.113.9', {
-        'fly-client-ip': '198.51.100.7',
-      }),
-      response(),
-    );
     assert({
       given: 'a direct, untrusted caller forging Fly-Client-IP',
       should: 'hand the handler the socket peer, ignoring the forged header',
-      actual: seen,
+      actual: await resolvedIdentity(
+        '203.0.113.9',
+        { 'fly-client-ip': '198.51.100.7' },
+        ['fdaa::/8'],
+      ),
       expected: ['203.0.113.9'],
     });
   });
