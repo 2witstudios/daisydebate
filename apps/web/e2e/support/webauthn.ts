@@ -59,3 +59,23 @@ export async function withoutPasskeyAutofill(page: Page) {
     );
   });
 }
+
+/**
+ * Playwright's Linux WebKit (the CI image) is built without WebAuthn:
+ * `PublicKeyCredential` is a plain object, not a constructor, and
+ * `navigator.credentials` is missing, so the sign-in page rightly answers
+ * "cannot use passkeys" before any request. macOS WebKit, Chromium and
+ * Firefox expose both. A spec about what follows the ceremony's server
+ * exchange declares the capability where the engine lacks it, so every
+ * engine reaches that exchange; an engine that has it is left untouched.
+ */
+export async function withPasskeyCapability(page: Page) {
+  await page.addInitScript(() => {
+    if (typeof window.PublicKeyCredential === 'function') return;
+    Object.defineProperty(window, 'PublicKeyCredential', {
+      configurable: true,
+      writable: true,
+      value: function PublicKeyCredential() {},
+    });
+  });
+}

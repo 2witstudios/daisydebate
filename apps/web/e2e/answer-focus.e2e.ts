@@ -9,7 +9,10 @@ import { assertNoSeriousFindings } from './support/axe';
 import { expectFocusOn, pressByKeyboard } from './support/focus';
 import { dropServerActions } from './support/forms';
 import { effectsRan } from './support/hydration';
-import { withoutPasskeyAutofill } from './support/webauthn';
+import {
+  withPasskeyCapability,
+  withoutPasskeyAutofill,
+} from './support/webauthn';
 
 // ISSUE-107: a form disables its field and button while its answer is on
 // the way, and a disabled control loses focus. With JavaScript on, each
@@ -169,13 +172,18 @@ test('a passkey sign-in in a browser without passkeys returns focus to the email
 test('a failed passkey sign-in returns focus to the email field', async ({
   page,
 }) => {
+  await withPasskeyCapability(page);
   await withoutPasskeyAutofill(page);
   await openSignIn(page);
-  await page.route(
-    '**/api/auth/passkey/generate-authenticate-options*',
-    (route) => route.abort('internetdisconnected'),
+  const options = '**/api/auth/passkey/generate-authenticate-options*';
+  await page.route(options, (route) => route.abort('internetdisconnected'));
+  // The ceremony fails at its server exchange on every engine, never at
+  // the browser's capability check.
+  const exchangeFailed = page.waitForEvent('requestfailed', (request) =>
+    request.url().includes('/api/auth/passkey/generate-authenticate-options'),
   );
   await pressByKeyboard(passkeyButton(page));
+  await exchangeFailed;
   await expect(
     page.getByText('We could not sign you in with a passkey.'),
   ).toBeVisible();
