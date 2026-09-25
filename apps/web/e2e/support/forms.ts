@@ -18,3 +18,12 @@ export const declineOfferToLobby = async (page: Page) => {
   await expect(page).toHaveURL(/\/lobby$/);
   await expect(page.getByRole('heading', { name: 'Lobby' })).toBeVisible();
 };
+
+/** Drops every server-action POST the page makes, as a lost connection would. */
+export const dropServerActions = (page: Page) =>
+  page.route('**/*', (route) =>
+    route.request().method() === 'POST' &&
+    route.request().headers()['next-action'] !== undefined
+      ? route.abort('internetdisconnected')
+      : route.continue(),
+  );

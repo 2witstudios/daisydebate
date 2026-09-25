@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useEffect, useRef } from 'react';
 
 /** A form's server action, as `useActionState` calls it. */
 export type FormAction<S> = (state: Awaited<S>, form: FormData) => Promise<S>;
@@ -43,4 +43,34 @@ export function useFormAction<S>(
       : answerUnavailableOnThrow(action, unavailable),
     initial,
   );
+}
+
+/**
+ * Hands keyboard focus to the element `targetId` names once each new
+ * answer has rendered (ISSUE-107). A form disables its controls while its
+ * answer is on the way, and a disabled control drops focus to <body>. The
+ * answer the page was rendered with owes no focus. Focus is owed until an
+ * enabled target takes it: an answer that leads to another step, such as
+ * the sign-in link's inbox step, renders it one commit later. With no
+ * target, nothing is owed.
+ */
+export function useFocusAfterAnswer(
+  answered: unknown,
+  targetId: string | undefined,
+) {
+  const seen = useRef(answered);
+  const owed = useRef(false);
+  useEffect(() => {
+    if (answered === seen.current) return;
+    seen.current = answered;
+    owed.current = true;
+  }, [answered]);
+  useEffect(() => {
+    if (!owed.current) return;
+    const target =
+      targetId === undefined ? null : document.getElementById(targetId);
+    target?.focus();
+    if (target === null || document.activeElement === target)
+      owed.current = false;
+  });
 }

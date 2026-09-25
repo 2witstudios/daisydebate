@@ -6,7 +6,7 @@ import {
   signUpProvisional,
   uniqueName,
 } from './support/accounts';
-import { changeEmail, claimUsername } from './support/forms';
+import { changeEmail, claimUsername, dropServerActions } from './support/forms';
 import { effectsRan } from './support/hydration';
 
 // ISSUE-94: with JavaScript on, a form's server action is a fetch the page
@@ -16,15 +16,6 @@ import { effectsRan } from './support/hydration';
 test.beforeEach(async ({ request }) => {
   await resetRateLimits(request);
 });
-
-/** Drops every server-action POST the page makes, as a lost connection would. */
-const dropServerActions = (page: Page) =>
-  page.route('**/*', (route) =>
-    route.request().method() === 'POST' &&
-    route.request().headers()['next-action'] !== undefined
-      ? route.abort('internetdisconnected')
-      : route.continue(),
-  );
 
 const expectNoRootError = async (page: Page) =>
   expect(

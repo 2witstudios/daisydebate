@@ -8,7 +8,10 @@ import {
   useSyncExternalStore,
 } from 'react';
 import type { Clock } from '@daisy/clock';
-import { useFormAction } from '../../form-action/form-action';
+import {
+  useFocusAfterAnswer,
+  useFormAction,
+} from '../../form-action/form-action';
 import {
   initialLinkForm,
   linkUnavailable,
@@ -27,7 +30,7 @@ import {
   signInReducer,
   type SignInState,
 } from '../sign-in-state';
-import { renderSignInFlow } from './sign-in-flow.render';
+import { answerFocusId, renderSignInFlow } from './sign-in-flow.render';
 import { startPasskeyAutofill, type AutofillTimers } from './passkey-autofill';
 
 const subscribeToVisibility = (onChange: () => void) => {
@@ -121,6 +124,8 @@ export function SignInFlow({
       at: clock.now(),
     });
   }, [answered, clock]);
+
+  useFocusAfterAnswer(answered, answerFocusId(state));
 
   useEffect(() => {
     if (state.step === 'signed-in') onSignedIn();

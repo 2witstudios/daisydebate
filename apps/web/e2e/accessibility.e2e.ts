@@ -1,4 +1,3 @@
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import {
   emailedLink,
@@ -10,6 +9,7 @@ import {
   reachOnboarding,
   requestSignInLink,
 } from './support/accounts';
+import { assertNoSeriousFindings } from './support/axe';
 import { changeEmail } from './support/forms';
 
 /**
@@ -26,20 +26,6 @@ import { changeEmail } from './support/forms';
 test.beforeEach(async ({ request }) => {
   await resetRateLimits(request);
 });
-
-/** Fails on any serious/critical finding; moderate/minor are not gating. */
-async function assertNoSeriousFindings(page: Page) {
-  // Contrast checks read real computed/rendered colors; scanning before the
-  // brand webfont finishes swapping in can catch a mid-swap paint and
-  // misreport a transient color, so wait for fonts to settle first.
-  await page.evaluate(() => document.fonts.ready);
-  const results = await new AxeBuilder({ page }).analyze();
-  const blocking = results.violations.filter(
-    (violation) =>
-      violation.impact === 'serious' || violation.impact === 'critical',
-  );
-  expect(blocking, JSON.stringify(blocking, null, 2)).toEqual([]);
-}
 
 /**
  * Navigates with the theme cookie already set, so the server renders the

@@ -2,7 +2,10 @@
 
 import { Button } from '../../components/button/button';
 import { Notice } from '../../auth/notice/notice';
-import { useFormAction } from '../../form-action/form-action';
+import {
+  useFocusAfterAnswer,
+  useFormAction,
+} from '../../form-action/form-action';
 import {
   emailChangeNotice,
   emailChangeUnavailable,
@@ -11,6 +14,7 @@ import {
   type EmailChangeState,
 } from './email-change-state';
 
+const FIELD_ID = 'new-email';
 const NOTICE_ID = 'email-change-notice';
 
 /** The email change: a server action that runs the Better Auth route. */
@@ -36,13 +40,14 @@ export function EmailChangeForm({
     initialEmailChange,
     emailChangeUnavailable,
   );
+  useFocusAfterAnswer(answered, FIELD_ID);
   const notice = pending ? undefined : emailChangeNotice(answered);
   const refused = notice !== undefined && refusesNewAddress(answered);
   return (
     <form action={post} className="flex flex-col items-start gap-3">
-      <label htmlFor="new-email">New email address</label>
+      <label htmlFor={FIELD_ID}>New email address</label>
       <input
-        id="new-email"
+        id={FIELD_ID}
         name="newEmail"
         type="email"
         required

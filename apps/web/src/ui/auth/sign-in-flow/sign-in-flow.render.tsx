@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { AuthFrame, AuthHeading, taglinePanel } from '../auth-frame/auth-frame';
-import { CheckInbox } from '../check-inbox/check-inbox';
-import { SignInForm } from '../sign-in-form/sign-in-form';
+import { CHECK_INBOX_HEADING_ID, CheckInbox } from '../check-inbox/check-inbox';
+import { SIGN_IN_EMAIL_ID, SignInForm } from '../sign-in-form/sign-in-form';
 import { resendRemainingMs, type SignInState } from '../sign-in-state';
 
 /** Actions the flow container binds to the server action, port and reducer. */
@@ -22,6 +22,22 @@ export type SignInActions = {
  */
 const laterOf = (now: string, sentAt: string): string =>
   now > sentAt ? now : sentAt;
+
+/**
+ * Where keyboard focus lands once a link answer has rendered (ISSUE-107):
+ * back on the email field when refused, on the inbox step's heading when
+ * sent. A signed-in page is on its way out, so it takes no focus.
+ */
+export const answerFocusId = (state: SignInState): string | undefined => {
+  switch (state.step) {
+    case 'enter-email':
+      return SIGN_IN_EMAIL_ID;
+    case 'check-inbox':
+      return CHECK_INBOX_HEADING_ID;
+    case 'signed-in':
+      return undefined;
+  }
+};
 
 /** Pure: the screen for a state at a moment, wired to the given actions. */
 export function renderSignInFlow(

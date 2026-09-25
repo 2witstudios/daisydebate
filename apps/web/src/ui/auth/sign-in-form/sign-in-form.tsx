@@ -21,6 +21,8 @@ export type SignInFormProps = {
   readonly signInWithPasskey: () => void;
 };
 
+/** The email field, where focus returns when a link request is refused. */
+export const SIGN_IN_EMAIL_ID = 'sign-in-email';
 const NOTICE_ID = 'sign-in-notice';
 const PASSKEY_HINT_ID = 'sign-in-passkey-hint';
 
@@ -69,7 +71,7 @@ export function SignInForm({
         }}
       >
         <EmailField
-          id="sign-in-email"
+          id={SIGN_IN_EMAIL_ID}
           label="Email"
           autoComplete="username webauthn"
           value={email}
