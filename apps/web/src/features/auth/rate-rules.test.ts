@@ -4,6 +4,16 @@ import { create, magicLinkRequest } from './abuse.test-support';
 
 setupRitewayBun();
 
+/** An account holding the address `magicLinkRequest` asks for. */
+const existingAccount = {
+  id: 'user-1',
+  email: 'player@daisy.example.com',
+  emailVerified: true,
+  name: '',
+  createdAt: new Date('2026-09-20T00:00:00.000Z'),
+  updatedAt: new Date('2026-09-20T00:00:00.000Z'),
+};
+
 const getSession = (headers: Record<string, string> = {}) =>
   new Request('http://localhost:3000/api/auth/get-session', { headers });
 
@@ -55,14 +65,7 @@ describe('AUTH-3.4 rules the gate hands the atomic limiter', () => {
           : { allowed: true, retryAfterSeconds: 0 };
       },
     });
-    db.user.push({
-      id: 'user-1',
-      email: 'player@daisy.example.com',
-      emailVerified: true,
-      name: '',
-      createdAt: new Date('2026-09-20T00:00:00.000Z'),
-      updatedAt: new Date('2026-09-20T00:00:00.000Z'),
-    });
+    db.user.push(existingAccount);
     const response = await server.instance.handler(magicLinkRequest());
     assert({
       given:
@@ -121,13 +124,7 @@ describe('AUTH-3.4 rules the gate hands the atomic limiter', () => {
 
   test('an email change carries its client bucket and the new address’s three recipient windows, whoever holds it (ISSUE-121)', async () => {
     const { server, db, consumed } = create();
-    db.user.push({
-      id: 'user-1',
-      email: 'player@daisy.example.com',
-      emailVerified: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
+    db.user.push(existingAccount);
     const changeTo = (newEmail: string) =>
       server.instance.handler(
         new Request('http://localhost:3000/api/auth/change-email', {
