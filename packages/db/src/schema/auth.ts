@@ -27,6 +27,10 @@ export const sessions = pgTable(
   (table) => [
     uniqueIndex('session_token_unique').on(table.token),
     index('session_user_id_idx').on(table.userId),
+    // Supports the hourly retention.session sweep's `expires_at < cutoff
+    // ORDER BY expires_at` query (AUTH-7.5, ISSUE-123), the same shape
+    // `verification_expires_at_idx` already supports for `verification`.
+    index('session_expires_at_idx').on(table.expiresAt),
   ],
 );
 

@@ -30,16 +30,19 @@ setting the message API cannot override — and a webhook pointing at
 Rate limits bucket by client. There is exactly one resolver: the composition
 trusts only `x-daisy-client-ip`, stamped by our own ingress (`start.ts`) on
 every request, replacing any caller value. It is the socket peer, or — only
-when the peer is in `AUTH_TRUSTED_PROXIES` — the first address from the
-**right** of `X-Forwarded-For` that is not itself a trusted hop, so an
+when the peer is in `AUTH_TRUSTED_PROXIES` — Fly's own authoritative
+`Fly-Client-IP` (AUTH-7.9, `client-ip.ts`), falling back to the first
+address from the **right** of `X-Forwarded-For` that is not itself a
+trusted hop only when `Fly-Client-IP` is absent or unusable, so an
 attacker-prepended left-most value never selects the bucket. Better Auth has
 no header list of its own to configure: `next dev` runs without the
 stamping ingress, so a dev-mode request simply carries no identity and
 shares one rate-limit bucket per path with every other unstamped request.
 
-In production, `AUTH_TRUSTED_PROXIES` (with `X-Forwarded-For`) is the mechanism
-for reading the real client behind a proxy. A proxy not listed there makes all
-its users share one rate-limit bucket.
+In production, `AUTH_TRUSTED_PROXIES` (with `Fly-Client-IP`, falling back to
+`X-Forwarded-For`) is the mechanism for reading the real client behind a
+proxy. A proxy not listed there makes all its users share one rate-limit
+bucket.
 
 Configure exactly the hops you operate; an over-broad range re-opens spoofing.
 Under `next dev` there is no ingress stamp and requests share the loopback
@@ -132,6 +135,30 @@ reports `DELETE 0`:
 ```sql
 DELETE FROM verification WHERE id IN (
   SELECT id FROM verification
+  WHERE expires_at < now() - interval '24 hours'
+  ORDER BY expires_at LIMIT 500 FOR UPDATE SKIP LOCKED);
+```
+
+## Retention of sessions (AUTH-7.5)
+
+A session that is signed out of is deleted immediately, in the same
+transaction that revokes it (`revokeOtherSessions`,
+`revokeSessionUnlessAddressHeld`); the sweep below never sees a revoked
+session, only one that ran to its own `expires_at` and was never signed out
+of. Those rows, `ip_address` and `user_agent` included, are purged by the
+same hourly, idempotent sweep as `verification`, with the same 24-hour
+grace, `SKIP LOCKED` batches (at most 20 of 500 per run) and shutdown
+behaviour. Events, with `operation: 'retention.session'`:
+`retention.sweep.completed` (`deleted`, `batches`) and
+`retention.sweep.failed` (alert on this one; a failing run is retried next
+hour).
+
+No manual action is needed. To purge sooner, restart a server instance or
+run one bounded batch in `psql`, repeating until it reports `DELETE 0`:
+
+```sql
+DELETE FROM session WHERE id IN (
+  SELECT id FROM session
   WHERE expires_at < now() - interval '24 hours'
   ORDER BY expires_at LIMIT 500 FOR UPDATE SKIP LOCKED);
 ```

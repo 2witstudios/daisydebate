@@ -49,9 +49,11 @@ Next build, serves requests over a custom HTTP server, and owns lifecycle:
    in their environment. Configuration refinement fails startup on missing
    identity or insecure defaults — do not work around it.
 3. Behind a reverse proxy, set `AUTH_TRUSTED_PROXIES` (IPs or CIDR ranges) to
-   your own proxy's addresses: the ingress (`start.ts`) walks the
-   `X-Forwarded-For` chain past those hops and stamps the resolved address
-   onto `x-daisy-client-ip`, the one header Better Auth trusts. Unset, no
+   your own proxy's addresses: the ingress (`start.ts`) reads `Fly-Client-IP`
+   directly past a trusted hop (Fly's own authoritative resolved value,
+   AUTH-7.9), or walks the `X-Forwarded-For` chain past those hops when that
+   header is absent or unusable, and stamps the resolved address onto
+   `x-daisy-client-ip`, the one header Better Auth trusts. Unset, no
    hop is trusted and every client behind the proxy shares one rate-limit
    bucket per auth path — safe, but coarse. Invalid proxy entries fail auth
    configuration by field name. Proxy validation is intentionally stricter

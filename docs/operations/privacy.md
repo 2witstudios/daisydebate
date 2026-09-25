@@ -84,10 +84,12 @@ inventory becomes the single index:
   deletion tombstones the user (below); competitive history, actors and
   ratings are retained indefinitely as the product's own record, holding no
   PII.
-- `session.ip_address` and `session.user_agent` have no retention rule yet;
-  that gap belongs to AUTH-7.5, not this epic, and the inventory entry for
-  those columns links there rather than duplicating a rule that does not
-  exist yet.
+- **AUTH-7.5**: an expired `session` row (`ip_address` and `user_agent`
+  travel with it) is purged 24 hours after `expires_at`, the same grace and
+  the same sweep as `verification`. A revoked session is deleted
+  immediately by the revoking operation (`revokeOtherSessions`,
+  `revokeSessionUnlessAddressHeld`) and is never seen by the sweep; neither
+  path ever logs `ip_address`, `user_agent` or a token.
 
 ## Data subject rights
 

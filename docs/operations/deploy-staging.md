@@ -58,24 +58,26 @@ rootfs storage and any actual staging traffic while the web machine is awake.
 ## Client identity on Fly (verify on first deploy)
 
 `apps/web/src/server/ingress.ts` stamps `x-daisy-client-ip` from the raw
-socket peer unless that peer is a configured trusted proxy, in which case it
-walks `X-Forwarded-For` from the right instead (see
-`apps/web/src/features/auth/client-ip.ts`). Fly's edge (fly-proxy)
-terminates the client's TLS connection and forwards to the app's machine
-over Fly's private 6PN network
+socket peer unless that peer is a configured trusted proxy (zero trust: a
+forwarded header is only ever read from a peer the deployment names as its
+own proxy). Fly's edge (fly-proxy) terminates the client's TLS connection
+and forwards to the app's machine over Fly's private 6PN network
 (https://fly.io/docs/networking/private-networking/, prefix `fdaa::/8`), so
 the socket peer the app sees is fly-proxy's 6PN address, not the caller's —
 `AUTH_TRUSTED_PROXIES` must include that range or every request collapses to
 one shared rate-limit identity. Fly documents that fly-proxy sets both
 `Fly-Client-IP` and `X-Forwarded-For` "including the address of the client
 that originated the request"
-(https://fly.io/docs/networking/request-headers/); this app only reads
-`X-Forwarded-For` (hardcoded in `client-ip.ts`), so `Fly-Client-IP` is not
-used. `fly.toml` sets `AUTH_TRUSTED_PROXIES = "fdaa::/8"` — Fly does not
-document a narrower CIDR specific to fly-proxy's own address, so the whole
-6PN prefix is trusted (only Fly's own infrastructure can originate traffic
-on that private network; the internet cannot reach a Fly machine's 6PN
-interface directly).
+(https://fly.io/docs/networking/request-headers/). Once the peer is
+trusted, `client-ip.ts` (`resolveClientIp`, AUTH-7.9) reads `Fly-Client-IP`
+directly — it is Fly's own resolved value, not a chain to walk — and only
+falls back to walking `X-Forwarded-For` from the right when `Fly-Client-IP`
+is absent or unusable (a non-Fly trusted-proxy deployment, or a probe with
+no such header). `fly.toml` sets `AUTH_TRUSTED_PROXIES = "fdaa::/8"` — Fly
+does not document a narrower CIDR specific to fly-proxy's own address, so
+the whole 6PN prefix is trusted (only Fly's own infrastructure can
+originate traffic on that private network; the internet cannot reach a Fly
+machine's 6PN interface directly).
 
 **This is inferred from Fly's documented header contract, not measured**:
 Fly's docs do not state the literal TCP peer address an app process sees.
@@ -100,16 +102,22 @@ If every request carries the same hash, whichever network it came from,
 the ingress is resolving fly-proxy's own address rather than the caller.
 
 Then prove a caller cannot choose its own identity. From one machine, send
-two requests with different forged `X-Forwarded-For` values:
+two requests with different forged `X-Forwarded-For` values, and two more
+with different forged `Fly-Client-IP` values:
 
 ```
 curl -s https://<app>.fly.dev/api/health/ready -H "X-Forwarded-For: 203.0.113.9"
 curl -s https://<app>.fly.dev/api/health/ready -H "X-Forwarded-For: 198.51.100.7"
+curl -s https://<app>.fly.dev/api/health/ready -H "Fly-Client-IP: 203.0.113.9"
+curl -s https://<app>.fly.dev/api/health/ready -H "Fly-Client-IP: 198.51.100.7"
 fly logs -a <app> --no-tail | grep '"event":"http.request.completed"'
 ```
 
-Both lines must carry the same `clientIdHash`, which is also the value this
-machine logs with no forged header. Different values mean the ingress
+All four lines must carry the same `clientIdHash`, which is also the value
+this machine logs with no forged header at all: fly-proxy overwrites both
+headers with its own resolved value before the app ever sees the request,
+so a caller-supplied `Fly-Client-IP` or `X-Forwarded-For` never reaches
+`client-ip.ts`. A different hash on any of the four means the ingress
 trusted a caller-supplied hop, so a caller could pick its rate-limit
 identity.
 
@@ -127,8 +135,8 @@ here.
 - **The hourly retention sweep stops while suspended.**
   `apps/web/src/server/start.ts` starts `startRetentionSweep` (hourly
   `setInterval`, `runOnStart: true`) in-process. A suspended machine runs no
-  process, so no interval fires; expired verification, outbox and email
-  rows and lapsed online-presence members accumulate while stopped and are
+  process, so no interval fires; expired verification, session, outbox and
+  email rows and lapsed online-presence members accumulate while stopped and are
   pruned immediately on the next wake (`runOnStart: true` runs the sweep as
   soon as the process starts again). This is inherent to
   scale-to-zero, not a defect — do not add a Fly-side cron to work around it

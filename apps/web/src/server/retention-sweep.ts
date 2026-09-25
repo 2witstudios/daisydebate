@@ -50,6 +50,7 @@ export function retentionTargets({
     readonly purgeExpiredOutboxEvents: (batch: Batch) => Promise<number>;
     readonly purgeExpiredEmailDeliveryEvents: (batch: Batch) => Promise<number>;
     readonly purgeExpiredEmailDeliveries: (batch: Batch) => Promise<number>;
+    readonly purgeExpiredSessions: (batch: Batch) => Promise<number>;
   };
   readonly redis: {
     readonly sweepOnlinePresence: (limit: number) => Promise<number>;
@@ -85,6 +86,23 @@ export function retentionTargets({
       maxBatches: 200,
       purge: ({ now, limit }) =>
         database.purgeExpiredOutboxEvents({
+          before: cutoff(now, DAY_MS),
+          limit,
+        }),
+    },
+    /**
+     * AUTH-7.5: a session is deleted the instant it is revoked
+     * (`revokeOtherSessions`, `revokeSessionUnlessAddressHeld`), so this
+     * sweep only ever finds sessions that ran to their own `expires_at` and
+     * were never signed out of; it keeps the same 24-hour grace as
+     * verification rows.
+     */
+    {
+      name: 'retention.session',
+      batchSize: 500,
+      maxBatches: 20,
+      purge: ({ now, limit }) =>
+        database.purgeExpiredSessions({
           before: cutoff(now, DAY_MS),
           limit,
         }),

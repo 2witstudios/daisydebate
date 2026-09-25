@@ -5,6 +5,7 @@ import { accounts, passkeys, sessions, verifications } from './schema/auth';
 import { users } from './schema/users';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { appendSessionRevokedFor } from './session-revoked';
+import { deleteExpiredBatch, type RetentionBatch } from './retention';
 import { isUniqueViolation } from './unique-violation';
 
 /** What an email-change completion did; `stale` changed nothing. */
@@ -198,6 +199,25 @@ export const authOperations = ({
             );
           return rows.length;
         }),
+      );
+    },
+    /**
+     * Retention (AUTH-7.5): one bounded batch of session rows whose expiry
+     * is before the cutoff. `revokeOtherSessions` and
+     * `revokeSessionUnlessAddressHeld` already delete a revoked session
+     * immediately, so nothing "revoked" is ever left for this sweep to
+     * find; it only drains sessions that ran to their own natural expiry
+     * and were never signed out of, which is why it needs the same 24-hour
+     * grace as verification rows rather than deleting the moment they
+     * expire.
+     */
+    async purgeExpiredSessions(input: RetentionBatch) {
+      return instrumented(eventSink, 'purgeExpiredSessions', () =>
+        deleteExpiredBatch(
+          database,
+          { table: sessions, key: sessions.id, at: sessions.expiresAt },
+          input,
+        ),
       );
     },
   };
