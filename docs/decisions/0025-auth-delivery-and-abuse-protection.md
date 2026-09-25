@@ -140,6 +140,32 @@ token>` as the `verification.identifier`. The subject (the email for
   on denial would need one atomic multi-key script across every bucket.
   Integration tests prove the recipient hour and day ceilings and both
   global ceilings against real Redis.
+- **Email-change mail ceilings for the new address (ISSUE-121).** An
+  approved email change mails its new address: a verification link, or,
+  when the address already has an account, the `email-change-taken` notice
+  (ISSUE-119). `/change-email` meters that address with the same three
+  recipient windows as a sign-in link (3/60 s, 10/hour, 20/day), in the
+  same gate, under its own key
+  (`auth:email-change:recipient:<recipient key>:<window>`), beside the
+  per-client default (100/60 s). Without them, one account rotating client
+  addresses could request and approve a change to someone else's address
+  again and again and flood that inbox with notices, past the 20-a-day
+  ceiling every other mail to an account has. The bucket is keyed on the
+  address alone and the gate never looks the account up for this route, so
+  a free and a taken address spend the same budget and get the same `429`:
+  the ceiling reveals nothing about whether the address has an account. It
+  is metered at the request, before any token or mail, because each
+  admitted request leads to at most one mail to the new address (its
+  approval redeems once). There is no global ceiling on this route: it
+  needs a fresh session, and every mail it sends to a new address is capped
+  by that address's windows. The email-change and sign-in windows are
+  separate, so each flow caps its own mail. Their sum (up to 40 a day to
+  one address) is accepted: a shared bucket would let a stranger's
+  email-change requests spend an account's sign-in allowance. A stranger
+  can also exhaust a free address's email-change allowance for the day,
+  which delays a change to that address and nothing else. An integration
+  test rotates client addresses and proves the day ceiling for a taken and
+  a free address, with the same refusal for both.
 - **Global-ceiling sign-in denial (ISSUE-54, amended 2026-09-24).** Before
   this amendment the global ceilings counted every magic-link request, so a
   single actor could deny magic-link sign-in to the whole application. At
