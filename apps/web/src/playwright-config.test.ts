@@ -29,6 +29,29 @@ describe('Playwright failure artifacts', () => {
   });
 });
 
+describe('Playwright Chromium TLS', () => {
+  test('accepts the edge certificate at the TLS layer in every Chromium project', () => {
+    const chromium = (playwrightConfig.projects ?? []).filter((project) =>
+      project.name?.startsWith('chromium'),
+    );
+    assert({
+      given:
+        'the per-run self-signed edge certificate, which ignoreHTTPSErrors alone answers by restarting requests (ISSUE-21)',
+      should: 'launch each Chromium project with certificate errors ignored',
+      actual: chromium.map((project) => [
+        project.name,
+        project.use?.launchOptions?.args?.includes(
+          '--ignore-certificate-errors',
+        ),
+      ]),
+      expected: [
+        ['chromium', true],
+        ['chromium-mobile', true],
+      ],
+    });
+  });
+});
+
 describe('Playwright port resolution', () => {
   test('defaults to the canonical port', () => {
     assert({

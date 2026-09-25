@@ -32,7 +32,10 @@ AIDD/Vitest guidance is overridden here by Bun and RITEway (ADR 0021).
    server (`e2e/support/server.ts` wrapping `src/server/start.ts`,
    `NODE_ENV=production`) with production-refined configuration. The
    wrapper adds only a loopback TLS edge (a per-run self-signed certificate,
-   so the public origin is HTTPS and Secure session cookies work) and a
+   so the public origin is HTTPS and Secure session cookies work; the
+   Chromium projects launch with `--ignore-certificate-errors`, because
+   `ignoreHTTPSErrors` alone restarts every request on a new connection and
+   a burst of them can drop the page CSS, ISSUE-21) and a
    capture of the outbound Resend call; tokens, users and sessions are made
    by the real handlers, and nothing under `src/` imports the wrapper. Specs
    for account-only pages sign up through those handlers
@@ -200,8 +203,8 @@ foundation proof, auth) and stays the primary CI project. Cross-browser and
 mobile-layout parity is scoped to the auth journeys the spec requires
 ("the supported magic-link/account journeys"), not the whole app:
 `chromium-mobile`, `firefox`, `webkit` and `webkit-mobile` testMatch only
-`AUTH_JOURNEY_SPECS` (journey, onboarding, passkey-lifecycle, accessibility,
-auth-routes)
+`AUTH_JOURNEY_SPECS` (journey, onboarding, form-transport, passkey-lifecycle,
+accessibility, auth-routes)
 in `apps/web/playwright.config.ts`, plus `passkey-autofill.e2e.ts` for
 `chromium-mobile`. CDP WebAuthn (the virtual authenticator
 behind every passkey ceremony) is Chromium-only, so

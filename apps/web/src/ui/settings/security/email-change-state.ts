@@ -11,6 +11,11 @@ export const initialEmailChange: EmailChangeState = { newEmail: '' };
 
 export type ChangeEmail = (newEmail: string) => Promise<SecurityOutcome>;
 
+const postedEmail = (form: FormData): string => {
+  const field = form.get('newEmail');
+  return typeof field === 'string' ? field.trim() : '';
+};
+
 /**
  * One posted email-change form. The form is untrusted: a missing or
  * non-text field is an empty address, which the route refuses. A change
@@ -20,14 +25,22 @@ export async function submitEmailChange(
   change: ChangeEmail,
   form: FormData,
 ): Promise<EmailChangeState> {
-  const field = form.get('newEmail');
-  const newEmail = typeof field === 'string' ? field.trim() : '';
+  const newEmail = postedEmail(form);
   try {
     return { newEmail, outcome: (await change(newEmail)).kind };
   } catch {
     return { newEmail, outcome: 'unavailable' };
   }
 }
+
+/**
+ * A posted form whose change never reached the server, because the
+ * browser's call to the action failed in transport.
+ */
+export const emailChangeUnavailable = (form: FormData): EmailChangeState => ({
+  newEmail: postedEmail(form),
+  outcome: 'unavailable',
+});
 
 export type EmailChangeNotice = {
   readonly tone: 'error' | 'info';

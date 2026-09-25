@@ -9,6 +9,7 @@ type Env = Readonly<Record<string, string | undefined>>;
 export const AUTH_JOURNEY_SPECS = [
   '**/journey.e2e.ts',
   '**/onboarding.e2e.ts',
+  '**/form-transport.e2e.ts',
   '**/passkey-lifecycle.e2e.ts',
   '**/accessibility.e2e.ts',
   '**/auth-routes.e2e.ts',
@@ -79,6 +80,15 @@ export const resolveE2EPorts = (env: Env) => {
 export const resolveE2EOrigin = (env: Env): string =>
   `https://localhost:${resolveE2EPorts(env).edge}`;
 
+// The edge's certificate is self-signed per run. Under ignoreHTTPSErrors
+// alone, Chromium fails every new TLS connection to it and restarts the
+// request; in a burst of parallel connections (a page's Link prefetches) a
+// restarted request is handed other requests' failing connections until it
+// runs out of restarts, and the page loses its stylesheet to
+// ERR_TOO_MANY_RETRIES (ISSUE-21). Accepting the certificate at the TLS
+// layer leaves nothing to restart. The restart path is Chromium's own.
+const chromiumLaunch = { args: ['--ignore-certificate-errors'] };
+
 const ports = resolveE2EPorts(process.env);
 const origin = resolveE2EOrigin(process.env);
 const browserEndpoint = resolveBrowserEndpoint(process.env);
@@ -124,12 +134,12 @@ export default defineConfig({
     // from every non-Chromium project.
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { ...devices['Desktop Chrome'], launchOptions: chromiumLaunch },
       testIgnore: '**/visual.e2e.ts',
     },
     {
       name: 'chromium-mobile',
-      use: { ...devices['Pixel 8'] },
+      use: { ...devices['Pixel 8'], launchOptions: chromiumLaunch },
       testMatch: [...AUTH_JOURNEY_SPECS, PASSKEY_AUTOFILL_SPEC],
     },
     {

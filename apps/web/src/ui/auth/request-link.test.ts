@@ -2,6 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   createRequestLink,
   signInStateFrom,
+  linkUnavailable,
   submitLinkRequest,
   type RequestLink,
 } from './request-link';
@@ -123,6 +124,25 @@ describe('submitLinkRequest', () => {
       should: 'answer unavailable',
       actual: await submitLinkRequest(requestLink, form),
       expected: { email: 'ada@example.test', outcome: { kind: 'unavailable' } },
+    });
+  });
+});
+
+describe('linkUnavailable', () => {
+  test('answers unavailable for the posted address', () => {
+    const typed = new FormData();
+    typed.set('email', ' ada@example.test ');
+    const file = new FormData();
+    file.set('email', new Blob(['x']));
+    assert({
+      given: 'a posted form whose request never reached the server',
+      should:
+        'answer unavailable with the trimmed address, or an empty one for a file',
+      actual: [linkUnavailable(typed), linkUnavailable(file)],
+      expected: [
+        { email: 'ada@example.test', outcome: { kind: 'unavailable' } },
+        { email: '', outcome: { kind: 'unavailable' } },
+      ],
     });
   });
 });

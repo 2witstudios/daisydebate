@@ -1,6 +1,11 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { ClaimOutcome } from './claim-username';
-import { refusesShape, shownNotice, submitClaim } from './claim-form';
+import {
+  claimUnavailable,
+  refusesShape,
+  shownNotice,
+  submitClaim,
+} from './claim-form';
 
 setupRitewayBun();
 
@@ -95,6 +100,24 @@ describe('submitClaim', () => {
         kind: 'refused',
         state: { username: 'ada', notice: 'unavailable' },
       },
+    });
+  });
+});
+
+describe('claimUnavailable', () => {
+  test('answers unavailable for the posted name', () => {
+    assert({
+      given: 'a posted form whose claim never reached the server',
+      should:
+        'refuse as unavailable with the name as typed, or an empty one for a file',
+      actual: [
+        claimUnavailable(posted('ada')),
+        claimUnavailable(posted(new Blob(['x']))),
+      ],
+      expected: [
+        { username: 'ada', notice: 'unavailable' },
+        { username: '', notice: 'unavailable' },
+      ],
     });
   });
 });

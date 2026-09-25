@@ -2,15 +2,16 @@
 
 import {
   startTransition,
-  useActionState,
   useEffect,
   useReducer,
   useState,
   useSyncExternalStore,
 } from 'react';
 import type { Clock } from '@daisy/clock';
+import { useFormAction } from '../../form-action/form-action';
 import {
   initialLinkForm,
+  linkUnavailable,
   signInStateFrom,
   type LinkFormState,
 } from '../request-link';
@@ -98,7 +99,11 @@ export function SignInFlow({
   clock,
   onSignedIn,
 }: SignInFlowProps) {
-  const [answered, postLink] = useActionState(requestLink, initialLinkForm);
+  const [answered, postLink] = useFormAction(
+    requestLink,
+    initialLinkForm,
+    linkUnavailable,
+  );
   const [state, dispatch] = useReducer(signInReducer, answered, (answer) =>
     signInStateFrom(answer, clock.now()),
   );

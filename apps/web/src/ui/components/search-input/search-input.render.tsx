@@ -14,7 +14,7 @@ export function renderSearchInput(props: SearchInputRenderProps): ReactNode {
   return (
     <label
       className={
-        'flex max-w-search flex-1 items-center gap-2 rounded-sm border border-border bg-surface-sunken px-4 py-2 text-ink-muted transition-colors duration-120 ease-standard focus-within:border-border-strong focus-within:bg-surface hover:border-border-strong'
+        'flex max-w-search min-w-0 flex-1 items-center gap-2 rounded-sm border border-border bg-surface-sunken px-4 py-2 text-ink-muted transition-colors duration-120 ease-standard focus-within:border-border-strong focus-within:bg-surface hover:border-border-strong'
       }
     >
       <Icon name="search" size={16} />
@@ -24,7 +24,7 @@ export function renderSearchInput(props: SearchInputRenderProps): ReactNode {
         value={value}
         placeholder={placeholder}
         className={
-          'flex-1 border-none bg-transparent px-search-x py-search-y text-base text-ink outline-none placeholder:text-ink-faint'
+          'min-w-0 flex-1 border-none bg-transparent px-search-x py-search-y text-base text-ink outline-none placeholder:text-ink-faint'
         }
         onChange={(event) => typeSearchQuery(event.currentTarget.value)}
       />

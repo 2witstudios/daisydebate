@@ -10,6 +10,7 @@ import {
   reachOnboarding,
   requestSignInLink,
 } from './support/accounts';
+import { changeEmail } from './support/forms';
 
 /**
  * Automated accessibility coverage for every authentication and security
@@ -176,8 +177,7 @@ test('feedback regions announce updates through an accessible live region', asyn
 }) => {
   await signUpMember(page.request);
   await page.goto('/settings/security');
-  await page.getByLabel('New email address').fill(freshEmail());
-  await page.getByRole('button', { name: 'Change email' }).click();
+  await changeEmail(page, freshEmail());
   const notice = page.locator('#email-change-notice');
   await expect(notice).toContainText(/approve this change/i);
   // `role="status"` implies an accessible-name-only live region announcement

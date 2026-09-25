@@ -11,6 +11,8 @@ import {
   passkeySignInAfterSignOut,
   requestSignInLink,
 } from './support/accounts';
+import { changeEmail } from './support/forms';
+import { hydrated } from './support/hydration';
 import { addVirtualAuthenticator } from './support/webauthn';
 
 /**
@@ -263,8 +265,7 @@ test('an email change is approved from the old inbox and verified at the new one
   await page.goto('/settings/security');
 
   const newEmail = freshEmail();
-  await page.getByLabel('New email address').fill(newEmail);
-  await page.getByRole('button', { name: 'Change email' }).click();
+  await changeEmail(page, newEmail);
   await expect(page.locator('#email-change-notice')).toContainText(
     /approve this change/i,
   );
@@ -279,8 +280,12 @@ test('an email change is approved from the old inbox and verified at the new one
   await expect(page).toHaveURL(/\/settings\/security$/);
 
   // The redirect alone doesn't prove the account now owns newEmail; prove
-  // it by signing back in with a magic link sent to the new address.
-  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  // it by signing back in with a magic link sent to the new address. Sign
+  // out works only once hydrated (ISSUE-93 keeps it a script button), and
+  // under load the page can paint well before that (ISSUE-84).
+  const signOut = page.getByRole('button', { name: 'Sign out', exact: true });
+  await hydrated(signOut);
+  await signOut.click();
   await page.waitForURL(/\/sign-in/);
   await page.goto('/sign-in');
   await requestSignInLink(page, newEmail);
@@ -295,8 +300,7 @@ test('a conflicting email answers the same success shape, never disclosing the o
   await signUpMember(page.request); // the requester whose browser context we drive
   await page.goto('/settings/security');
 
-  await page.getByLabel('New email address').fill(other.email);
-  await page.getByRole('button', { name: 'Change email' }).click();
+  await changeEmail(page, other.email);
   await expect(page.locator('#email-change-notice')).toContainText(
     /approve this change/i,
   );
