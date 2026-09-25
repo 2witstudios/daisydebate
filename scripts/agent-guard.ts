@@ -19,12 +19,14 @@ import {
   pushTargetVerdict,
   isAgentSession,
   resolveFrom,
+  unresolvedNameVerdict,
   unwrap,
   type GuardFacts,
   type Rule,
   type Verdict,
 } from './agent-guard-rules';
 import { isProtectedFile, loopState } from './agent-guard-files';
+import { fly } from './agent-guard-deploy';
 import { gh } from './agent-guard-gh';
 import { git } from './agent-guard-git';
 import { kill, otherKillers } from './agent-guard-process';
@@ -35,6 +37,19 @@ import { deriveSlot } from './slot-model';
 import { parseShell } from './shell-command';
 
 const shells = new Set(['sh', 'bash', 'zsh', 'dash']);
+
+/**
+ * The guarded executables (ADR 0035 §6): every one an autonomous agent can
+ * reach whose parsed (subcommand, flags) are checked against the operations
+ * this session allows, rather than against a list of banned spellings. An
+ * executable's rule is itself the allowlist: it resolves the operation the
+ * invocation performs and returns `allow` only for a form it recognizes as
+ * permitted, `deny`/`ask` for one it recognizes as not, and `deny` (for an
+ * autonomous agent) for a shape it cannot resolve with confidence, such as
+ * git's unrecognized push destination (agent-guard-git.ts) or an unowned
+ * kill target (agent-guard-process.ts). Everything outside this table is
+ * read-only or local by construction and is not a guarded operation.
+ */
 const rules: Readonly<Record<string, Rule>> = {
   git,
   gh,
@@ -48,6 +63,8 @@ const rules: Readonly<Record<string, Rule>> = {
   docker,
   'docker-compose': docker,
   bun,
+  fly,
+  flyctl: fly,
 };
 
 // Shell options that take the next word as their value.
@@ -101,6 +118,7 @@ export function classifyCommand(command: string, given: GuardFacts): Verdict {
   for (const simple of parseShell(command)) {
     const invocation = unwrap(simple);
     const [name = '', ...args] = invocation.words;
+    verdicts.push(unresolvedNameVerdict(name, facts));
     verdicts.push(identityVerdict(name, args, facts));
     verdicts.push(guardVariables(invocation, facts));
     verdicts.push(loopState(simple, invocation, facts, cwd));

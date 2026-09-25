@@ -335,6 +335,82 @@ GRD-6.2) is what holds against them:
   regime off for later spawns (and `bun doctor` then warns)
 - `git credential fill`, which hands out the credential git would use
 
+### 6a. From banned spellings to allowlisted operations (2026-09-25 amendment, ISSUE-129)
+
+The 20 fixes to `scripts/agent-guard*.ts` between GRD-6.1 and 2026-09-23
+were almost all the same shape: another way of spelling a push to `main`, an
+unscoped kill, or a Docker/compose cleanup slipped past the check for it
+(`pkill -v`, a `-mb --auto` short-flag cluster, `git -c remote.*.push`, a
+case-variant or glob path, `env -S`, …). A blocklist of dangerous spellings
+is open-ended because a shell has unbounded ways to write the same
+operation; each fix only closed the one hole a reviewer or CodeRabbit found.
+
+**The guard was already closer to an allowlist than the retrospective
+assumed.** `scripts/shell-command.ts` is a real POSIX-shell reader, not a
+regex over the raw string: it resolves quoting, escapes, separators,
+redirection targets and command substitution. `agent-guard-rules.ts`'s
+`unwrap` resolves wrappers (`env`, `sudo`, `nice`, `timeout`, `xargs`,
+`nohup`, `command -p`, `exec -a`) and `bash -c`/`sh -c`/`zsh -c` down to the
+real invocation before any rule sees it. Every guarded executable's rule —
+`git` (push destination, `-c`/`config` settings), `gh` (`pr merge` flags,
+`api` method and endpoint, GraphQL mutation names), `kill`/`pkill`/`killall`
+(target ownership), `docker`/`docker-compose` (the destructive subcommand
+set), and `bun` (the slot/db scripts and `github:rules --apply`) — already
+parses argv and checks the resolved (subcommand, flags, target) against
+what that operation allows for an autonomous agent, denying by default
+when it cannot prove the target is safe (an unresolved push branch, an
+unowned pid, a database that is not the agent's own slot). None of that
+needed rewriting, and none of it is a list of banned spellings: it is
+already the allowlist of permitted mutating operations the Plan asked for,
+scoped as `docs/development/parallel-work.md`'s originating plan states
+(the design question at ISSUE-129's origin), to the operations this file
+already names as guarded, not to git, gh, docker or bun's full command
+surface. A blanket allowlist over every subcommand of those tools would
+deny the read-only and local commands (`git status`, `git log`, `gh pr
+view`, `docker ps`, …) that make up nearly all agent traffic, is not what
+any of the 20 fixes needed, and is not built here.
+
+**Two real gaps did exist, both closed in this change:**
+
+- **A dynamic executable name resolved to nothing, and fell through to
+  allow.** `$(echo git) push origin main`, `` `git` push origin main ``,
+  `$CMD push origin main`, `eval "$CMD"` and `bash -c "$CMD"` all name their
+  program (or, for `eval`/`-c`, their whole command) with a variable or a
+  command substitution the guard does not evaluate. Every rule keys on a
+  literal word, so none matched, and the command fell through to the
+  default `allow` — a real bypass, not a missing spelling of a known
+  pattern. `unresolvedNameVerdict` (`agent-guard-rules.ts`) now denies, for
+  an autonomous agent, any command whose resolved executable word still
+  carries `$` (an unexpanded variable) or the parser's U+0000 marker for a
+  resolved substitution; `eval` and shell `-c` recurse into the same
+  unresolved text and are caught by the same check, so no separate case was
+  needed for them. This is the "parse, don't regex" fail-closed rule: what
+  the guard cannot resolve with confidence is refused for an agent, not
+  allowed by omission. Owner sessions are unaffected (section 6's opening
+  rule): the hook only asks before a merge or a push to `main` for them.
+- **`fly` and `flyctl` were not guarded at all.** Deploy-rail and
+  production-data changes need a human-only sign-off leaf (this file's
+  parent, `AGENTS.md`); no autonomous use of `fly`/`flyctl` is legitimate,
+  so `agent-guard-deploy.ts` denies every invocation for an agent outright
+  rather than allowlisting a subcommand set — the same shape as this
+  section's existing full refusals (rulesets, `--admin` merges).
+
+**`pu` was named at the plan's origin as a candidate guarded executable but
+is out of scope here.** `bun agent:spawn`, `bun agent:send` and
+`bun loop:*` already shell out to `pu spawn`/`pu send`/`pu status` as part
+of an agent's normal, sanctioned orchestration (section 7, section 8), so a
+blanket refusal would break the fleet, and scoping an allowlist to exactly
+`pu`'s safe subcommands (a raw `pu kill --agent <other-agent>` reaching a
+session this agent does not own, in particular) needs the ownership model
+`pu` itself enforces, which this change does not have visibility into.
+Filed as `ISSUE-130` for the `pu`/agent-guard owner to scope separately.
+
+**Regression corpus.** `agent-guard-spellings.test.ts` keeps every case the
+20 fixes established, renamed in intent, not in file, to a parsing
+regression corpus rather than a list of things to keep banning; nothing in
+it changed. `agent-guard-dynamic.test.ts` and `agent-guard-deploy.test.ts`
+add the two gaps above as the adversarial cases the old design missed.
+
 ### 7. PR loops that can finish
 
 - **Escalate.** `bun loop:escalate <needs-owner|blocked|stalled|out-of-scope> "<detail>"`
