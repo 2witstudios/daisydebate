@@ -74,27 +74,40 @@ describe('ISSUE-2 email-change claim guards at redemption', () => {
     });
   });
 
-  test('an approval whose new address another account claimed meanwhile mails nothing', async () => {
+  test('an approval whose new address another account claimed meanwhile mails no verification link', async () => {
     const requester = await signUp();
     const requesterId = (await userIdOf(requester.email)) ?? '';
     const before = mails.length;
     const newEmail = `${createId()}@example.test`;
     await flows.changeEmail(requester.cookie, newEmail);
     const approval = tokenOf(linkFrom(mails[before]!));
-    await claimByAnotherAccount(newEmail);
+    const otherId = await claimByAnotherAccount(newEmail);
     const mailsBefore = mails.length;
     const redeemed = await flows.confirmEmailPost(approval);
+    const sent = mails.slice(mailsBefore);
     assert({
       given:
         "an approval link redeemed after another account took the change's new address",
       should:
-        "refuse it without mailing a verification link to the other account's address or changing anything",
+        'mail that address only a notice with no link that redeems anything, answer as any approval does (ISSUE-119), and change nothing',
       actual: {
         status: redeemed.status,
-        newMails: mails.length - mailsBefore,
+        location: redeemed.headers.get('location'),
+        sent: sent.map((mail) => ({
+          to: mail.to,
+          link: linkFrom(mail).pathname,
+          token: tokenOf(linkFrom(mail)),
+        })),
         requesterEmail: await emailOf(requesterId),
+        claimedBy: await userIdOf(newEmail),
       },
-      expected: { status: 400, newMails: 0, requesterEmail: requester.email },
+      expected: {
+        status: 303,
+        location: '/settings/security',
+        sent: [{ to: newEmail, link: '/settings/security', token: '' }],
+        requesterEmail: requester.email,
+        claimedBy: otherId,
+      },
     });
   });
 
