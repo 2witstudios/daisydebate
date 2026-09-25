@@ -206,6 +206,12 @@ const authFields = {
   ).optional(),
   /** Proxy IPs or CIDR ranges skipped when a trusted header holds a chain. */
   AUTH_TRUSTED_PROXIES: commaList(proxyAddress),
+  /**
+   * Bearer credential for the read-only `/api/ops/alerts` and
+   * `/api/ops/metrics` probes (AUTH-7.7); required in production so the
+   * scheduled alert workflow, and nothing else, can read them.
+   */
+  OPS_PROBE_TOKEN: secret(z.string().min(32)).optional(),
   // Required, no default: see deploymentIdentityFields.NODE_ENV.
   NODE_ENV: z.enum(['development', 'test', 'production']),
 };
@@ -219,6 +225,12 @@ const authConfigSchema = z
         code: 'custom',
         path: ['RESEND_WEBHOOK_SECRET'],
         message: 'Production requires the webhook signing secret',
+      });
+    if (config.OPS_PROBE_TOKEN === undefined)
+      ctx.addIssue({
+        code: 'custom',
+        path: ['OPS_PROBE_TOKEN'],
+        message: 'Production requires the ops probe token',
       });
   })
   .transform(({ NODE_ENV: _nodeEnv, ...auth }) => auth);

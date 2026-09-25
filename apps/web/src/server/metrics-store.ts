@@ -1,0 +1,118 @@
+const STATUS_CLASSES = ['2xx', '3xx', '4xx', '5xx'] as const;
+type StatusClass = (typeof STATUS_CLASSES)[number];
+
+export type MetricsSnapshot = {
+  readonly httpRequestsByStatusClass: Readonly<Record<StatusClass, number>>;
+  readonly rateLimitDeniedTotal: number;
+  readonly rateLimitUnavailableTotal: number;
+  readonly mailDeliveryFailuresTotal: number;
+  /** Keyed by `retention-sweep.ts`'s own target names — a small, fixed set, never arbitrary input. */
+  readonly retentionSweepFailuresByOperation: Readonly<Record<string, number>>;
+};
+
+const statusClassOf = (status: number): StatusClass | undefined =>
+  STATUS_CLASSES.find((cls) => cls[0] === String(Math.floor(status / 100)));
+
+/**
+ * AUTH-7.7's bounded-cardinality dashboard source: in-memory, per-process
+ * counters over the same structured event stream `alert-recorder.ts` reads,
+ * fed by the same `withAlertRecording` tap. Every label comes from a small,
+ * known set (a status-code class, or one of `retentionTargets`' own target
+ * names) — never an email, token, IP, or other unbounded value.
+ */
+export function createMetricsStore() {
+  const httpRequestsByStatusClass: Record<StatusClass, number> = {
+    '2xx': 0,
+    '3xx': 0,
+    '4xx': 0,
+    '5xx': 0,
+  };
+  let rateLimitDeniedTotal = 0;
+  let rateLimitUnavailableTotal = 0;
+  let mailDeliveryFailuresTotal = 0;
+  const retentionSweepFailuresByOperation = new Map<string, number>();
+
+  return {
+    observe(event: string, fields: Readonly<Record<string, unknown>>): void {
+      switch (event) {
+        case 'http.request.completed':
+        case 'http.request.failed': {
+          const operation = fields.operation;
+          const status = fields.status;
+          if (typeof operation !== 'string' || !operation.startsWith('auth.'))
+            return;
+          if (typeof status !== 'number') return;
+          const cls = statusClassOf(status);
+          if (cls) httpRequestsByStatusClass[cls] += 1;
+          return;
+        }
+        case 'auth.rate_limit.denied':
+          rateLimitDeniedTotal += 1;
+          return;
+        case 'auth.rate_limit.unavailable':
+          rateLimitUnavailableTotal += 1;
+          return;
+        case 'auth.mail.failed':
+          mailDeliveryFailuresTotal += 1;
+          return;
+        case 'retention.sweep.failed': {
+          const operation = fields.operation;
+          if (typeof operation !== 'string') return;
+          retentionSweepFailuresByOperation.set(
+            operation,
+            (retentionSweepFailuresByOperation.get(operation) ?? 0) + 1,
+          );
+          return;
+        }
+        default:
+          return;
+      }
+    },
+    snapshot(): MetricsSnapshot {
+      return {
+        httpRequestsByStatusClass: { ...httpRequestsByStatusClass },
+        rateLimitDeniedTotal,
+        rateLimitUnavailableTotal,
+        mailDeliveryFailuresTotal,
+        retentionSweepFailuresByOperation: Object.fromEntries(
+          retentionSweepFailuresByOperation,
+        ),
+      };
+    },
+  };
+}
+
+export type MetricsStore = ReturnType<typeof createMetricsStore>;
+
+/**
+ * Prometheus text exposition (0.0.4): the format Fly's `[metrics]` scrape
+ * config and any Prometheus-compatible dashboard already understand, with
+ * no new client library. See the AUTH-7.7 ADR for why this shape and not a
+ * new vendor SDK.
+ */
+export function formatPrometheusMetrics(snapshot: MetricsSnapshot): string {
+  const lines: string[] = [
+    '# HELP auth_http_requests_total Auth-route HTTP responses by status class since process start.',
+    '# TYPE auth_http_requests_total counter',
+    ...STATUS_CLASSES.map(
+      (cls) =>
+        `auth_http_requests_total{status_class="${cls}"} ${snapshot.httpRequestsByStatusClass[cls]}`,
+    ),
+    '# HELP auth_rate_limit_denied_total Auth requests denied by the rate limiter (429) since process start.',
+    '# TYPE auth_rate_limit_denied_total counter',
+    `auth_rate_limit_denied_total ${snapshot.rateLimitDeniedTotal}`,
+    '# HELP auth_rate_limit_unavailable_total Auth requests the rate limiter could not decide since process start.',
+    '# TYPE auth_rate_limit_unavailable_total counter',
+    `auth_rate_limit_unavailable_total ${snapshot.rateLimitUnavailableTotal}`,
+    '# HELP auth_mail_delivery_failures_total Auth email delivery failures since process start.',
+    '# TYPE auth_mail_delivery_failures_total counter',
+    `auth_mail_delivery_failures_total ${snapshot.mailDeliveryFailuresTotal}`,
+    '# HELP retention_sweep_failures_total Retention sweep failures by target since process start.',
+    '# TYPE retention_sweep_failures_total counter',
+    ...Object.entries(snapshot.retentionSweepFailuresByOperation).map(
+      ([operation, count]) =>
+        `retention_sweep_failures_total{operation="${operation}"} ${count}`,
+    ),
+  ];
+  return lines.join('\n') + '\n';
+}

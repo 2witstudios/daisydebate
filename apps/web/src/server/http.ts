@@ -105,6 +105,10 @@ export async function handleOperation(
           {
             durationMs: Math.round(performance.now() - start),
             errorCode: mapped.body.error.code,
+            // AUTH-7.7: the auth 5xx-rate alert reads this alongside
+            // http.request.completed's status; a thrown failure otherwise
+            // left no status on the event stream.
+            status: mapped.status,
           },
           'Request failed',
         );

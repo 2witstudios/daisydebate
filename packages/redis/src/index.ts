@@ -25,6 +25,33 @@ end
 if count > tonumber(ARGV[2]) then return {0, ttl} end
 return {1, ttl}
 `;
+
+/**
+ * ARGV[1] value, ARGV[2] TTL ms. AUTH-7.7's "first observed" markers (an
+ * outage's start): only the first caller within the TTL wins the write, and
+ * every caller (winner or not) reads back the value that stuck, so a racing
+ * write can never overwrite an earlier start time.
+ */
+const setIfAbsentScript = `
+if redis.call('SETNX', KEYS[1], ARGV[1]) == 1 then
+  redis.call('PEXPIRE', KEYS[1], ARGV[2])
+  return ARGV[1]
+end
+return redis.call('GET', KEYS[1])
+`;
+
+/**
+ * ARGV[1] TTL ms, armed only on the first hit. AUTH-7.7's bounded counters
+ * (consecutive failures, per-minute request buckets): a quiet period longer
+ * than the TTL resets the count to zero on the next increment.
+ */
+const incrementWithExpiryScript = `
+local count = redis.call('INCR', KEYS[1])
+if count == 1 then
+  redis.call('PEXPIRE', KEYS[1], ARGV[1])
+end
+return count
+`;
 export type RateLimitRule = {
   readonly windowSeconds: number;
   readonly max: number;
@@ -100,6 +127,50 @@ export function createRedis({
         };
       } catch (error) {
         reportFailure('consumeRateLimit');
+        throw error;
+      }
+    },
+    /**
+     * Writes `value` under `key` only while it is absent, with a mandatory
+     * TTL, and returns whichever value is now stored (the caller's, or an
+     * earlier winner's). AUTH-7.7 uses this to mark the start of an outage
+     * once, even under concurrent instances.
+     */
+    async setIfAbsent(key: string, value: string, ttlSeconds: number) {
+      if (!Number.isSafeInteger(ttlSeconds) || ttlSeconds < 1)
+        throw new Error('TTL must be a positive integer');
+      try {
+        await client.connect();
+        return (await client.send('EVAL', [
+          setIfAbsentScript,
+          '1',
+          redisKey(namespace, key),
+          value,
+          String(ttlSeconds * 1000),
+        ])) as string;
+      } catch (error) {
+        reportFailure('setIfAbsent');
+        throw error;
+      }
+    },
+    /**
+     * Atomically increments a counter, arming its expiry on the first hit,
+     * and returns the new count. AUTH-7.7's bounded consecutive-failure and
+     * per-minute request counters.
+     */
+    async incrementWithExpiry(key: string, ttlSeconds: number) {
+      if (!Number.isSafeInteger(ttlSeconds) || ttlSeconds < 1)
+        throw new Error('TTL must be a positive integer');
+      try {
+        await client.connect();
+        return (await client.send('EVAL', [
+          incrementWithExpiryScript,
+          '1',
+          redisKey(namespace, key),
+          String(ttlSeconds * 1000),
+        ])) as number;
+      } catch (error) {
+        reportFailure('incrementWithExpiry');
         throw error;
       }
     },

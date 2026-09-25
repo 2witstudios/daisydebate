@@ -240,6 +240,12 @@ describe('handleOperation', () => {
       actual: recorded.at(-1)?.event,
       expected: 'http.request.failed',
     });
+    assert({
+      given: 'an unexpected infrastructure failure mapped to a public status',
+      should: 'log the response status alongside the error code (AUTH-7.7 5xx-rate alert input)',
+      actual: (recorded.at(-1)?.fields as { status?: number }).status,
+      expected: response.status,
+    });
   });
 
   test('cancelled requests log without error-level noise and return 499', async () => {

@@ -74,6 +74,9 @@ export async function startTwoInstances(
     AUTH_EMAIL_FROM: 'Daisy <no-reply@auth-load.daisy.invalid>',
     RESEND_WEBHOOK_SECRET:
       'whsec_YXV0aC1sb2FkLXBsYWNlaG9sZGVyLW5vdC1hLXNlY3JldA==',
+    // AUTH-7.7: gates /api/ops/alerts and /api/ops/metrics; this harness
+    // never calls them.
+    OPS_PROBE_TOKEN: 'auth-load-ops-probe-token-placeholder-not-a-credential',
   };
   const spawnInstance = (port: number, mailPort: number) =>
     Bun.spawn(['bun', 'run', 'scripts/auth-load/instance-process.ts'], {
