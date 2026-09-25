@@ -136,6 +136,30 @@ DELETE FROM verification WHERE id IN (
   ORDER BY expires_at LIMIT 500 FOR UPDATE SKIP LOCKED);
 ```
 
+## Retention of sessions (AUTH-7.5)
+
+A session that is signed out of is deleted immediately, in the same
+transaction that revokes it (`revokeOtherSessions`,
+`revokeSessionUnlessAddressHeld`); the sweep below never sees a revoked
+session, only one that ran to its own `expires_at` and was never signed out
+of. Those rows, `ip_address` and `user_agent` included, are purged by the
+same hourly, idempotent sweep as `verification`, with the same 24-hour
+grace, `SKIP LOCKED` batches (at most 20 of 500 per run) and shutdown
+behaviour. Events, with `operation: 'retention.session'`:
+`retention.sweep.completed` (`deleted`, `batches`) and
+`retention.sweep.failed` (alert on this one; a failing run is retried next
+hour).
+
+No manual action is needed. To purge sooner, restart a server instance or
+run one bounded batch in `psql`, repeating until it reports `DELETE 0`:
+
+```sql
+DELETE FROM session WHERE id IN (
+  SELECT id FROM session
+  WHERE expires_at < now() - interval '24 hours'
+  ORDER BY expires_at LIMIT 500 FOR UPDATE SKIP LOCKED);
+```
+
 ## Incident runbooks (AUTH-6.4)
 
 Every instruction below is proved by an existing test: the event or status it

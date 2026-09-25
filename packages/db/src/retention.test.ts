@@ -21,6 +21,7 @@ describe('retention batch', () => {
         'received_at',
       ],
       ['purgeExpiredEmailDeliveries', 'email_delivery', 'updated_at'],
+      ['purgeExpiredSessions', 'session', 'expires_at'],
     ] as const;
     const shapes = await Promise.all(
       operations.map(async ([operation, table, column]) => {
