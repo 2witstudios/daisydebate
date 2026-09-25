@@ -31,7 +31,7 @@ const controls: readonly Control[] = [
   {
     name: 'atomic rate limiting replaced with an always-allow adapter',
     file: 'apps/web/src/features/auth/rate-limit.ts',
-    find: `export const readDecision = (decision: unknown) => {
+    find: `const readDecision = (decision: unknown) => {
   if (typeof decision !== 'object' || decision === null)
     throw new TypeError('Malformed limiter decision');
   const allowed: unknown = Reflect.get(decision, 'allowed');
@@ -40,7 +40,7 @@ const controls: readonly Control[] = [
   const retryAfterSeconds: unknown = Reflect.get(decision, 'retryAfterSeconds');
   return { allowed, retryAfterSeconds };
 };`,
-    replace: `export const readDecision = (_decision: unknown) => {
+    replace: `const readDecision = (_decision: unknown) => {
   // SABOTAGE: an always-allow adapter, ignoring the real limiter's verdict.
   return { allowed: true, retryAfterSeconds: 0 };
 };`,
