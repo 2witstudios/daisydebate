@@ -16,8 +16,7 @@ import { requireTestServices } from '@daisy/config';
  * auth-session-revoked-outbox.integration.ts uses: a topic-scoped
  * `BEFORE INSERT` trigger is a genuine Postgres-level failure of the exact
  * statement `appendOutboxEvent` issues, never a stub of the function under
- * test, and never blocks the `@daisy/db` integration suite's own outbox
- * inserts running concurrently against the same `TEST_DATABASE_URL`.
+ * test, and it rejects no other topic's inserts.
  */
 requireTestServices(process.env);
 setupRitewayBun();

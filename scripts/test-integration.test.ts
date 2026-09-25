@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import rootPackage from '../package.json';
 import {
   claimsIntegrationSuite,
   discoverSuites,
@@ -95,6 +96,24 @@ describe('running the suites', () => {
         exitCodeOf({ exitCode: 0, signalCode: null }),
       ],
       expected: [137, 3, 0],
+    });
+  });
+
+  test("runs one workspace's suites at a time, never two against the shared test database", () => {
+    // ISSUE-61, ISSUE-100: @daisy/db's out-of-order proof holds transaction
+    // A open on outbox while it inserts B; @daisy/web's fixtures CREATE
+    // TRIGGER on outbox and session. Run side by side on one database, the
+    // queued trigger waits on A and B's insert waits on the trigger: a lock
+    // queue Postgres cannot see as a deadlock, since A waits on B in the
+    // client, so the db tests hit their timeout and the web app's
+    // lock_timeout answers 502.
+    assert({
+      given: 'the root test:integration script',
+      should: 'run turbo with a concurrency of one',
+      actual: rootPackage.scripts['test:integration']
+        .split(/\s+/)
+        .includes('--concurrency=1'),
+      expected: true,
     });
   });
 });
