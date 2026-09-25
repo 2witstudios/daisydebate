@@ -1,6 +1,62 @@
 const STATUS_CLASSES = ['2xx', '3xx', '4xx', '5xx'] as const;
 type StatusClass = (typeof STATUS_CLASSES)[number];
 
+/** Fixed latency buckets, in milliseconds (Prometheus `le` boundaries). */
+export const LATENCY_BUCKETS_MS = [50, 100, 250, 500, 1000, 2500] as const;
+
+/**
+ * The bounded, closed set of operation names any `handleOperation` call
+ * site passes today (grep-verified across `apps/web/src`). A latency
+ * observation for any other string — a bug, a future call site added
+ * without updating this list, or an attacker-influenced value — collapses
+ * into `OTHER_OPERATION_LABEL` instead of minting a new label, so this
+ * histogram's cardinality can never grow past `KNOWN_OPERATIONS.length + 1`.
+ */
+export const KNOWN_OPERATIONS = [
+  'auth.request',
+  'auth.confirm.view',
+  'auth.confirm.submit',
+  'auth.confirm_email.view',
+  'auth.confirm_email.submit',
+  'auth.mail.webhook',
+  'account.sessions.list',
+  'account.sessions.revoke',
+  'account.username.claim',
+  'realtime.ticket.issue',
+  'foundation.proof.create',
+  'foundation.proof.fetch',
+  'health.readiness',
+  'ops.alerts',
+  'ops.metrics',
+] as const;
+const OTHER_OPERATION_LABEL = 'other';
+type OperationLabel =
+  (typeof KNOWN_OPERATIONS)[number] | typeof OTHER_OPERATION_LABEL;
+
+const operationLabelFor = (operation: string): OperationLabel =>
+  (KNOWN_OPERATIONS as readonly string[]).includes(operation)
+    ? (operation as OperationLabel)
+    : OTHER_OPERATION_LABEL;
+
+type LatencyHistogramSnapshot = {
+  /** Cumulative counts, one per `LATENCY_BUCKETS_MS` boundary (observations <= that boundary). */
+  readonly bucketCounts: readonly number[];
+  readonly count: number;
+  readonly sum: number;
+};
+
+type LatencyHistogram = {
+  readonly bucketCounts: number[];
+  count: number;
+  sum: number;
+};
+
+const emptyHistogram = (): LatencyHistogram => ({
+  bucketCounts: LATENCY_BUCKETS_MS.map(() => 0),
+  count: 0,
+  sum: 0,
+});
+
 export type MetricsSnapshot = {
   readonly httpRequestsByStatusClass: Readonly<Record<StatusClass, number>>;
   readonly rateLimitDeniedTotal: number;
@@ -8,6 +64,10 @@ export type MetricsSnapshot = {
   readonly mailDeliveryFailuresTotal: number;
   /** Keyed by `retention-sweep.ts`'s own target names — a small, fixed set, never arbitrary input. */
   readonly retentionSweepFailuresByOperation: Readonly<Record<string, number>>;
+  /** Keyed by the bounded `OperationLabel` set (`KNOWN_OPERATIONS` plus "other"). */
+  readonly latencyMsByOperation: Readonly<
+    Record<string, LatencyHistogramSnapshot>
+  >;
 };
 
 const statusClassOf = (status: number): StatusClass | undefined =>
@@ -31,13 +91,35 @@ export function createMetricsStore() {
   let rateLimitUnavailableTotal = 0;
   let mailDeliveryFailuresTotal = 0;
   const retentionSweepFailuresByOperation = new Map<string, number>();
+  const latencyByOperation = new Map<OperationLabel, LatencyHistogram>();
 
-  const recordHttpOutcome = (fields: Readonly<Record<string, unknown>>) => {
+  const recordStatusClass = (fields: Readonly<Record<string, unknown>>) => {
     const { operation, status } = fields;
     if (typeof operation !== 'string' || !operation.startsWith('auth.')) return;
     if (typeof status !== 'number') return;
     const cls = statusClassOf(status);
     if (cls) httpRequestsByStatusClass[cls] += 1;
+  };
+
+  const recordLatency = (fields: Readonly<Record<string, unknown>>) => {
+    const { operation, durationMs } = fields;
+    if (typeof operation !== 'string' || typeof durationMs !== 'number') return;
+    const label = operationLabelFor(operation);
+    const histogram = latencyByOperation.get(label) ?? emptyHistogram();
+    const bucketCounts = LATENCY_BUCKETS_MS.map((boundary, index) => {
+      const current = histogram.bucketCounts[index] ?? 0;
+      return durationMs <= boundary ? current + 1 : current;
+    });
+    latencyByOperation.set(label, {
+      bucketCounts,
+      count: histogram.count + 1,
+      sum: histogram.sum + durationMs,
+    });
+  };
+
+  const recordHttpOutcome = (fields: Readonly<Record<string, unknown>>) => {
+    recordStatusClass(fields);
+    recordLatency(fields);
   };
 
   const recordRetentionFailure = (
@@ -83,6 +165,16 @@ export function createMetricsStore() {
         retentionSweepFailuresByOperation: Object.fromEntries(
           retentionSweepFailuresByOperation,
         ),
+        latencyMsByOperation: Object.fromEntries(
+          [...latencyByOperation.entries()].map(([label, histogram]) => [
+            label,
+            {
+              bucketCounts: [...histogram.bucketCounts],
+              count: histogram.count,
+              sum: histogram.sum,
+            },
+          ]),
+        ),
       };
     },
   };
@@ -119,6 +211,24 @@ export function formatPrometheusMetrics(snapshot: MetricsSnapshot): string {
       ([operation, count]) =>
         `retention_sweep_failures_total{operation="${operation}"} ${count}`,
     ),
+    '# HELP auth_http_request_duration_ms Request latency in milliseconds by operation, bounded buckets.',
+    '# TYPE auth_http_request_duration_ms histogram',
+    ...Object.entries(snapshot.latencyMsByOperation).flatMap(
+      ([operation, histogram]) => formatLatencyHistogram(operation, histogram),
+    ),
   ];
   return lines.join('\n') + '\n';
 }
+
+const formatLatencyHistogram = (
+  operation: string,
+  histogram: LatencyHistogramSnapshot,
+): string[] => [
+  ...LATENCY_BUCKETS_MS.map(
+    (boundary, index) =>
+      `auth_http_request_duration_ms_bucket{operation="${operation}",le="${boundary}"} ${histogram.bucketCounts[index] ?? 0}`,
+  ),
+  `auth_http_request_duration_ms_bucket{operation="${operation}",le="+Inf"} ${histogram.count}`,
+  `auth_http_request_duration_ms_sum{operation="${operation}"} ${histogram.sum}`,
+  `auth_http_request_duration_ms_count{operation="${operation}"} ${histogram.count}`,
+];

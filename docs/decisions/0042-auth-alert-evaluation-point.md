@@ -109,11 +109,21 @@ transaction boundary (`retention.ts`'s comment on why batches are never
 wrapped in one transaction).
 
 **`/api/ops/alerts` and `/api/ops/metrics` are gated by one new
-`OPS_PROBE_TOKEN`** (production-required, `packages/config`), compared as
-SHA3-256 digests rather than raw strings (ADR 0019's secret-comparison
-rule). Both are non-mutating `GET`s, `handleOperation`-wrapped like every
-other route, and read auth configuration lazily per request (ADR 0020:
-baseline startup never requires auth variables).
+`OPS_PROBE_TOKEN`** (`packages/config`'s `REQUIRED_IN_PRODUCTION` list),
+compared as SHA3-256 digests rather than raw strings (ADR 0019's
+secret-comparison rule). Both are non-mutating `GET`s, `handleOperation`-wrapped
+like every other route, and each route handler's own closure reads
+`app.opsProbeToken()` lazily, per request, rather than at route-table
+construction — the same treatment `confirmAuth` already gets elsewhere in
+`routes.ts` (ADR 0020: a bare, unactivated `App` instance never requires
+auth variables just to exist). That per-request laziness is not the same
+claim as "optional in production": `apps/web/src/server/start.ts:25` calls
+`app.auth().config` unconditionally before the server ever listens, and
+`readAuthConfig`'s production `superRefine` (`packages/config/src/index.ts`)
+requires `OPS_PROBE_TOKEN` there exactly like `RESEND_WEBHOOK_SECRET` — a
+production deploy with no `OPS_PROBE_TOKEN` set refuses to boot, the same
+fail-closed shape as every other required auth secret, not a route that
+quietly 401s while the rest of the app runs.
 
 **Bounded-cardinality dashboards are an in-process Prometheus text
 exposition endpoint (`/api/ops/metrics`), not a new vendor.** Counters:
@@ -154,6 +164,19 @@ lands, the `alert-*` keys and `/api/ops/metrics`'s counters classify as
   re-alerts every 5 minutes until it clears. AUTH-7.7 asks for a fired,
   runbooked alert, not an incident-management system; silencing is an
   operator action via the runbook, not a feature this ADR adds.
+- **The 5-minute probe cadence keeps staging effectively always-on, at a
+  quantified cost.** Every 5-minute cycle's `GET /api/health/ready` (and
+  the follow-on `GET /api/ops/alerts`) wakes or keeps awake the web
+  machine, well inside Fly's auto-stop idle window, so `fly.toml`'s
+  `min_machines_running = 0` stops doing much in practice: the machine
+  spends most of its time running rather than stopped. That is a real,
+  named cost trade-off, not an accident — **owner decision DEC-10
+  (confirmed)**: keep the probe cadence at 5 minutes everywhere (no
+  cadence change), accepting roughly **$4/month** of continuous Fly
+  machine run time on staging instead of the roughly **$0/month** a
+  cadence outside the auto-stop window (or an app-internal-only signal)
+  would have cost. See `docs/operations/deploy-staging.md`'s idle-cost
+  table for the itemized number.
 
 ## Consequences
 

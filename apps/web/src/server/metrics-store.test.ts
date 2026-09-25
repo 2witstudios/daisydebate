@@ -1,5 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createMetricsStore, formatPrometheusMetrics } from './metrics-store';
+import {
+  createMetricsStore,
+  formatPrometheusMetrics,
+  KNOWN_OPERATIONS,
+  LATENCY_BUCKETS_MS,
+} from './metrics-store';
 
 setupRitewayBun();
 
@@ -77,7 +82,7 @@ describe('createMetricsStore (AUTH-7.7)', () => {
     store.observe('auth.magic_link.verified', {});
     assert({
       given: 'an event this store does not track',
-      should: 'leave every counter at zero',
+      should: 'leave every counter and histogram empty',
       actual: store.snapshot(),
       expected: {
         httpRequestsByStatusClass: { '2xx': 0, '3xx': 0, '4xx': 0, '5xx': 0 },
@@ -85,7 +90,88 @@ describe('createMetricsStore (AUTH-7.7)', () => {
         rateLimitUnavailableTotal: 0,
         mailDeliveryFailuresTotal: 0,
         retentionSweepFailuresByOperation: {},
+        latencyMsByOperation: {},
       },
+    });
+  });
+
+  test('observes latency into cumulative bounded buckets, by operation', () => {
+    const store = createMetricsStore();
+    store.observe('http.request.completed', {
+      operation: 'auth.request',
+      status: 200,
+      durationMs: 30,
+    });
+    store.observe('http.request.failed', {
+      operation: 'auth.request',
+      status: 503,
+      durationMs: 600,
+    });
+    const histogram = store.snapshot().latencyMsByOperation['auth.request'];
+    assert({
+      given: 'one 30ms success and one 600ms failure for the same operation',
+      should:
+        'count the 30ms sample into every bucket >= 50ms and the 600ms sample only into buckets >= 1000ms, with count/sum tracked',
+      actual: histogram,
+      expected: {
+        bucketCounts: LATENCY_BUCKETS_MS.map(
+          (boundary) => [30, 600].filter((d) => d <= boundary).length,
+        ),
+        count: 2,
+        sum: 630,
+      },
+    });
+  });
+
+  test('tracks latency for every known operation, not only auth-prefixed ones', () => {
+    const store = createMetricsStore();
+    store.observe('http.request.completed', {
+      operation: 'health.readiness',
+      status: 200,
+      durationMs: 10,
+    });
+    assert({
+      given: 'a non-auth known operation',
+      should: 'still record its own latency histogram',
+      actual: store.snapshot().latencyMsByOperation['health.readiness']?.count,
+      expected: 1,
+    });
+  });
+
+  test('collapses an unknown operation into the single "other" latency label (cardinality bound)', () => {
+    const store = createMetricsStore();
+    for (let i = 0; i < 50; i += 1)
+      store.observe('http.request.completed', {
+        operation: `attacker-controlled-operation-${i}`,
+        status: 200,
+        durationMs: 5,
+      });
+    const snapshot = store.snapshot();
+    assert({
+      given: '50 distinct, never-before-seen operation strings',
+      should:
+        'never mint a new label: every one collapses into "other", so the label set stays bounded',
+      actual: {
+        labels: Object.keys(snapshot.latencyMsByOperation),
+        otherCount: snapshot.latencyMsByOperation.other?.count,
+      },
+      expected: { labels: ['other'], otherCount: 50 },
+    });
+  });
+
+  test('the known-operation allowlist is the closed, bounded label set', () => {
+    const store = createMetricsStore();
+    for (const operation of KNOWN_OPERATIONS)
+      store.observe('http.request.completed', {
+        operation,
+        status: 200,
+        durationMs: 1,
+      });
+    assert({
+      given: 'one observation for every known operation',
+      should: 'produce exactly that many labels, never more',
+      actual: Object.keys(store.snapshot().latencyMsByOperation).length,
+      expected: KNOWN_OPERATIONS.length,
     });
   });
 });
@@ -120,6 +206,45 @@ describe('formatPrometheusMetrics (AUTH-7.7)', () => {
         has2xxSample: true,
         hasRetentionSample: true,
         endsWithNewline: true,
+      },
+    });
+  });
+
+  test('renders the latency histogram with a bounded operation label and a +Inf bucket', () => {
+    const store = createMetricsStore();
+    store.observe('http.request.completed', {
+      operation: 'auth.request',
+      status: 200,
+      durationMs: 30,
+    });
+    const text = formatPrometheusMetrics(store.snapshot());
+    assert({
+      given: 'one latency observation for a known operation',
+      should:
+        'expose a histogram type, one bucket line per boundary plus +Inf, and _sum/_count lines, all scoped to that operation label',
+      actual: {
+        hasType: text.includes(
+          '# TYPE auth_http_request_duration_ms histogram',
+        ),
+        has50msBucket: text.includes(
+          'auth_http_request_duration_ms_bucket{operation="auth.request",le="50"} 1',
+        ),
+        hasInfBucket: text.includes(
+          'auth_http_request_duration_ms_bucket{operation="auth.request",le="+Inf"} 1',
+        ),
+        hasSum: text.includes(
+          'auth_http_request_duration_ms_sum{operation="auth.request"} 30',
+        ),
+        hasCount: text.includes(
+          'auth_http_request_duration_ms_count{operation="auth.request"} 1',
+        ),
+      },
+      expected: {
+        hasType: true,
+        has50msBucket: true,
+        hasInfBucket: true,
+        hasSum: true,
+        hasCount: true,
       },
     });
   });
