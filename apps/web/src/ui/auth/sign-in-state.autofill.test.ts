@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   canOfferPasskeyAutofill,
+  passkeyInFlight,
   signInReducer,
   type SignInState,
 } from './sign-in-state';
@@ -19,6 +20,25 @@ const inbox: SignInState = {
   sentAt: '2026-09-21T12:00:00.000Z',
   resending: false,
 };
+
+describe('passkeyInFlight', () => {
+  test('reports only a button ceremony awaiting its answer', () => {
+    assert({
+      given:
+        'a pending ceremony, then idle, a pending link, the inbox step, and a signed-in page',
+      should:
+        'report a passkey in flight only while the button ceremony awaits its answer',
+      actual: [
+        passkeyInFlight({ ...idle, pending: 'passkey' }),
+        passkeyInFlight(idle),
+        passkeyInFlight({ ...idle, pending: 'link' }),
+        passkeyInFlight(inbox),
+        passkeyInFlight({ step: 'signed-in' }),
+      ],
+      expected: [true, false, false, false, false],
+    });
+  });
+});
 
 describe('canOfferPasskeyAutofill', () => {
   test('offers autofill only while the email step is idle and on screen', () => {

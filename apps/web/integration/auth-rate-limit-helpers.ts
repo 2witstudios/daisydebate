@@ -1,14 +1,55 @@
+import { createHash } from 'node:crypto';
+import { RedisClient } from 'bun';
 import { systemClock, systemId } from '@daisy/clock';
 import { readAuthConfig } from '@daisy/config';
 import { createDatabase } from '@daisy/db';
-import { createRedis } from '@daisy/redis';
+import { createRedis, redisKey } from '@daisy/redis';
 import { testDatabaseUrl, testRedisUrl, type TestApp } from './fixtures';
 import { createAuthRouteHandlers } from '../src/features/auth/handlers';
 import { createAuthRateLimiter } from '../src/features/auth/redis-limiter';
+import {
+  deriveRecipientSubkey,
+  recipientKey,
+} from '../src/features/auth/recipient-key';
 import { createAuthServer } from '../src/features/auth/server';
 
 const silentLogger = { log: () => {}, child: () => silentLogger };
 const noLedger = { isSuppressed: async () => false, record: async () => {} };
+
+/** The limiter's real Redis key for a gate bucket key (`redis-limiter.ts`). */
+const limiterKey = (testApp: TestApp, bucket: string) =>
+  redisKey(
+    testApp.redisNamespace,
+    'rl',
+    createHash('sha3-256').update(bucket).digest('hex'),
+  );
+
+/** A recipient bucket key for one mail flow, as `rate-limit.ts` builds it. */
+export const recipientBucket = (
+  testApp: TestApp,
+  flow: 'magic-link' | 'email-change',
+  email: string,
+  window: number,
+) =>
+  `auth:${flow}:recipient:${recipientKey(
+    deriveRecipientSubkey(String(testApp.env.BETTER_AUTH_SECRET)),
+    email,
+  )}:${window}`;
+
+/**
+ * Fixed windows elapsing: each bucket's counter key expires in Redis, which
+ * is what the limiter's PEXPIRE does when the window ends. Every other
+ * bucket keeps its real count, so the ceiling under test is the one that
+ * decides.
+ */
+export const elapse = async (testApp: TestApp, ...buckets: string[]) => {
+  const client = new RedisClient(testRedisUrl as string);
+  try {
+    for (const bucket of buckets) await client.del(limiterKey(testApp, bucket));
+  } finally {
+    client.close();
+  }
+};
 
 export const statuses = (responses: Response[]) =>
   responses.reduce<Record<number, number>>((tally, response) => {

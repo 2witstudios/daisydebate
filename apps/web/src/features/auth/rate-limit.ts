@@ -16,9 +16,9 @@ const MAGIC_LINK_CLIENT_RULE: RateRule = { windowSeconds: 60, max: 3 };
  * One recipient's mail volume, multi-window: the 60 s rule alone admits
  * about 4,300 emails a day to one victim from rotating client addresses, so
  * an hour and a day ceiling each cap the total regardless of how the minute
- * window resets.
+ * window resets. Each mail flow keeps its own windows per recipient.
  */
-const MAGIC_LINK_RECIPIENT_RULES: readonly RateRule[] = [
+const RECIPIENT_RULES: readonly RateRule[] = [
   { windowSeconds: 60, max: 3 },
   { windowSeconds: 3_600, max: 10 },
   { windowSeconds: 86_400, max: 20 },
@@ -65,18 +65,49 @@ export const clientIpOptions = (headerName: string) => ({
 
 const magicLinkPath = '/sign-in/magic-link';
 
+/**
+ * The routes that mail an address named in their body, and that field: a
+ * sign-in link to `email`, and an email change, whose approved request
+ * mails `newEmail` a verification link or, when the address already has an
+ * account, a notice (ISSUE-119, ISSUE-121).
+ */
+const MAILED_RECIPIENTS = {
+  [magicLinkPath]: { flow: 'magic-link', field: 'email' },
+  '/change-email': { flow: 'email-change', field: 'newEmail' },
+} as const satisfies Readonly<
+  Record<string, { readonly flow: string; readonly field: string }>
+>;
+
+type Recipient = { readonly flow: string; readonly email: string };
+
+/** The address a request would mail, when its route mails one. */
+const mailedRecipient = (
+  path: string,
+  body: unknown,
+): Recipient | undefined => {
+  const route = Object.hasOwn(MAILED_RECIPIENTS, path)
+    ? MAILED_RECIPIENTS[path as keyof typeof MAILED_RECIPIENTS]
+    : undefined;
+  if (route === undefined || typeof body !== 'object' || body === null)
+    return undefined;
+  const email: unknown = Reflect.get(body, route.field);
+  return typeof email === 'string' ? { flow: route.flow, email } : undefined;
+};
+
 type Bucket = { readonly key: string; readonly rule: RateRule };
 
 // The per-recipient bucket is keyed by `recipientKey` (recipient-key.ts): a
 // subkey-derived digest, so the address never reaches Redis keys or logs.
+// It is keyed on the address alone, never on whether it has an account, so
+// a refusal reveals nothing about that (ISSUE-119).
 const recipientBuckets = (
   recipientSubkey: string,
-  email: string | undefined,
+  recipient: Recipient | undefined,
 ): Bucket[] => {
-  if (email === undefined) return [];
-  const key = recipientKey(recipientSubkey, email);
-  return MAGIC_LINK_RECIPIENT_RULES.map((rule) => ({
-    key: `auth:magic-link:recipient:${key}:${rule.windowSeconds}`,
+  if (recipient === undefined) return [];
+  const key = recipientKey(recipientSubkey, recipient.email);
+  return RECIPIENT_RULES.map((rule) => ({
+    key: `auth:${recipient.flow}:recipient:${key}:${rule.windowSeconds}`,
     rule,
   }));
 };
@@ -87,14 +118,6 @@ const recipientBuckets = (
 const globalBuckets: readonly Bucket[] = MAGIC_LINK_GLOBAL_RULES.map(
   (rule) => ({ key: `auth:magic-link:global:${rule.windowSeconds}`, rule }),
 );
-
-/** The requested sign-in address, when the request is for a magic link. */
-const magicLinkEmail = (path: string, body: unknown): string | undefined => {
-  if (path !== magicLinkPath || typeof body !== 'object' || body === null)
-    return undefined;
-  const email: unknown = Reflect.get(body, 'email');
-  return typeof email === 'string' ? email : undefined;
-};
 
 // A valid hint is rounded up to whole seconds; an invalid one (NaN, negative,
 // non-finite) omits the header rather than advertising a made-up wait.
@@ -208,7 +231,7 @@ export const createRateLimitGate = (dependencies: {
         throw denial(dependencies.logger, path, 'INFRASTRUCTURE');
       }
     };
-    const email = magicLinkEmail(path, context.body);
+    const recipient = mailedRecipient(path, context.body);
     const buckets = await failClosed((): Bucket[] => {
       // Direct `auth.api.*` calls carry no Request, only forwarded Headers.
       const source = context.request ?? context.headers;
@@ -220,7 +243,7 @@ export const createRateLimitGate = (dependencies: {
           key: `auth:client:${client ?? 'unknown'}:${path}`,
           rule: path === magicLinkPath ? MAGIC_LINK_CLIENT_RULE : DEFAULT_RULE,
         },
-        ...recipientBuckets(dependencies.recipientSubkey, email),
+        ...recipientBuckets(dependencies.recipientSubkey, recipient),
       ];
     });
     const consume = async (bucket: Bucket) => {
@@ -238,14 +261,15 @@ export const createRateLimitGate = (dependencies: {
         );
     };
     for (const bucket of buckets) await consume(bucket);
-    if (email === undefined) return;
+    if (recipient?.flow !== 'magic-link') return;
     // Only a link to an address with no account (a sign-up) is metered by
     // the global ceilings; the lookup runs only once the client and
     // recipient buckets have admitted the request. A database outage here
     // propagates like any other (the typed INFRASTRUCTURE 503), never an
     // allow and never reported as a limiter outage.
-    const account =
-      await context.context.internalAdapter.findUserByEmail(email);
+    const account = await context.context.internalAdapter.findUserByEmail(
+      recipient.email,
+    );
     if (account) return;
     for (const bucket of globalBuckets) await consume(bucket);
   });

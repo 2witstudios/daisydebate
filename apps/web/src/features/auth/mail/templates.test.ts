@@ -17,6 +17,7 @@ const INPUTS: readonly AuthEmailInput[] = [
   { kind: 'passkey-removed', url: DANGEROUS_URL },
   { kind: 'email-change-notice', url: DANGEROUS_URL },
   { kind: 'email-change-confirm', url: DANGEROUS_URL },
+  { kind: 'email-change-taken', url: DANGEROUS_URL },
 ];
 
 const linkCount = (source: string, needle: string) =>

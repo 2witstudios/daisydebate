@@ -4,6 +4,16 @@ import { create, magicLinkRequest } from './abuse.test-support';
 
 setupRitewayBun();
 
+/** An account holding the address `magicLinkRequest` asks for. */
+const existingAccount = {
+  id: 'user-1',
+  email: 'player@daisy.example.com',
+  emailVerified: true,
+  name: '',
+  createdAt: new Date('2026-09-20T00:00:00.000Z'),
+  updatedAt: new Date('2026-09-20T00:00:00.000Z'),
+};
+
 const getSession = (headers: Record<string, string> = {}) =>
   new Request('http://localhost:3000/api/auth/get-session', { headers });
 
@@ -55,14 +65,7 @@ describe('AUTH-3.4 rules the gate hands the atomic limiter', () => {
           : { allowed: true, retryAfterSeconds: 0 };
       },
     });
-    db.user.push({
-      id: 'user-1',
-      email: 'player@daisy.example.com',
-      emailVerified: true,
-      name: '',
-      createdAt: new Date('2026-09-20T00:00:00.000Z'),
-      updatedAt: new Date('2026-09-20T00:00:00.000Z'),
-    });
+    db.user.push(existingAccount);
     const response = await server.instance.handler(magicLinkRequest());
     assert({
       given:
@@ -116,6 +119,52 @@ describe('AUTH-3.4 rules the gate hands the atomic limiter', () => {
       should: 'deny the request even though every other bucket allows it',
       actual: response.status,
       expected: 429,
+    });
+  });
+
+  test('an email change carries its client bucket and the new address’s three recipient windows, whoever holds it (ISSUE-121)', async () => {
+    const { server, db, consumed } = create();
+    db.user.push(existingAccount);
+    const changeTo = (newEmail: string) =>
+      server.instance.handler(
+        new Request('http://localhost:3000/api/auth/change-email', {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            origin: 'http://localhost:3000',
+          },
+          body: JSON.stringify({ newEmail }),
+        }),
+      );
+    await changeTo('player@daisy.example.com');
+    await changeTo('free@daisy.example.com');
+    const shapeOf = ({ key, rule }: (typeof consumed)[number]) => ({
+      kind: key.startsWith('auth:email-change:recipient:')
+        ? 'recipient'
+        : key.startsWith('auth:client:')
+          ? 'client'
+          : 'other',
+      rule,
+    });
+    const perRequest = [
+      { kind: 'client', rule: { windowSeconds: 60, max: 100 } },
+      { kind: 'recipient', rule: { windowSeconds: 60, max: 3 } },
+      { kind: 'recipient', rule: { windowSeconds: 3_600, max: 10 } },
+      { kind: 'recipient', rule: { windowSeconds: 86_400, max: 20 } },
+    ];
+    assert({
+      given:
+        'an email change to an address that has an account, then to one that has none',
+      should:
+        'consume the same buckets for each, keyed on the new address and never carrying it, with no global ceiling',
+      actual: {
+        buckets: consumed.map(shapeOf),
+        leaksAddress: consumed.some(({ key }) => key.includes('@')),
+      },
+      expected: {
+        buckets: [...perRequest, ...perRequest],
+        leaksAddress: false,
+      },
     });
   });
 

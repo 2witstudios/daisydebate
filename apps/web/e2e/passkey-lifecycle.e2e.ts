@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import {
   emailedLink,
   freshEmail,
@@ -12,8 +12,12 @@ import {
   requestSignInLink,
 } from './support/accounts';
 import { changeEmail } from './support/forms';
-import { hydrated } from './support/hydration';
-import { addVirtualAuthenticator } from './support/webauthn';
+import { expectFocusOn, pressByKeyboard } from './support/focus';
+import { effectsRan, hydrated } from './support/hydration';
+import {
+  addVirtualAuthenticator,
+  withoutPasskeyAutofill,
+} from './support/webauthn';
 
 /**
  * Real Chromium virtual WebAuthn authenticators (CDP
@@ -27,21 +31,6 @@ import { addVirtualAuthenticator } from './support/webauthn';
 test.beforeEach(async ({ request }) => {
   await resetRateLimits(request);
 });
-
-/**
- * The sign-in page also arms passkey autofill (conditional mediation), and
- * Chromium's virtual authenticator completes that request with no pick at
- * all, racing the explicit button. Specs that prove the button path hide
- * conditional mediation so the button is the only way in.
- */
-async function withoutPasskeyAutofill(page: Page) {
-  await page.addInitScript(() => {
-    Reflect.deleteProperty(
-      PublicKeyCredential,
-      'isConditionalMediationAvailable',
-    );
-  });
-}
 
 test('a passkey saved during onboarding is usable to sign back in later', async ({
   page,
@@ -304,6 +293,23 @@ test('a conflicting email answers the same success shape, never disclosing the o
   await expect(page.locator('#email-change-notice')).toContainText(
     /approve this change/i,
   );
+});
+
+test('a cancelled passkey ceremony returns keyboard focus to the email field', async ({
+  page,
+}) => {
+  // ISSUE-118: the button is disabled while the ceremony runs, which drops
+  // focus; the settled notice hands it back (answer-focus.e2e.ts proves
+  // the unsupported and failed endings on every engine).
+  await withoutPasskeyAutofill(page);
+  await addVirtualAuthenticator(page);
+  await page.goto('/sign-in');
+  await effectsRan(page);
+  await pressByKeyboard(
+    page.getByRole('button', { name: 'Sign in with a passkey' }),
+  );
+  await expect(page.getByText('No passkey used.')).toBeVisible();
+  await expectFocusOn(page, 'input', 'sign-in-email');
 });
 
 test('a cancelled passkey ceremony shows no success and email sign-in still works', async ({

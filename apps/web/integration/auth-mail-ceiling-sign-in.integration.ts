@@ -1,9 +1,6 @@
-import { createHash } from 'node:crypto';
-import { RedisClient } from 'bun';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { redisKey } from '@daisy/redis';
 import { createAccountFlows } from './auth-account-helpers';
-import { statuses } from './auth-rate-limit-helpers';
+import { elapse, statuses } from './auth-rate-limit-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import { requireTestServices } from '@daisy/config';
 
@@ -17,7 +14,7 @@ import { requireTestServices } from '@daisy/config';
  * account is bounded by that account's own recipient ceilings instead, so
  * draining the global ceiling delays new sign-ups but never denies sign-in.
  */
-const { redisUrl } = requireTestServices(process.env);
+requireTestServices(process.env);
 setupRitewayBun();
 
 const accounts = createAccountFlows();
@@ -34,22 +31,7 @@ const magicLink = (email: string) =>
   );
 
 /** The global minute window elapsing: its real counter key expires. */
-const elapseGlobalMinute = async () => {
-  const client = new RedisClient(redisUrl);
-  try {
-    await client.del(
-      redisKey(
-        testApp.redisNamespace,
-        'rl',
-        createHash('sha3-256')
-          .update('auth:magic-link:global:60')
-          .digest('hex'),
-      ),
-    );
-  } finally {
-    client.close();
-  }
-};
+const elapseGlobalMinute = () => elapse(testApp, 'auth:magic-link:global:60');
 
 describe('ISSUE-54 the global mail ceiling cannot deny sign-in', () => {
   test('with the global minute ceiling drained by new-address requests, existing accounts still get their sign-in links', async () => {

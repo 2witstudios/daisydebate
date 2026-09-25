@@ -6,8 +6,13 @@ import {
   signUpMember,
 } from './support/accounts';
 import { assertNoSeriousFindings } from './support/axe';
+import { expectFocusOn, pressByKeyboard } from './support/focus';
 import { dropServerActions } from './support/forms';
 import { effectsRan } from './support/hydration';
+import {
+  withPasskeyCapability,
+  withoutPasskeyAutofill,
+} from './support/webauthn';
 
 // ISSUE-107: a form disables its field and button while its answer is on
 // the way, and a disabled control loses focus. With JavaScript on, each
@@ -29,17 +34,6 @@ const submitByKeyboard = async (field: Locator, value: string) => {
   await field.page().keyboard.type(value);
   await field.page().keyboard.press('Enter');
 };
-
-/** Where focus is, read from the document itself. */
-const activeElement = (page: Page) =>
-  page.evaluate(() => {
-    const active = document.activeElement;
-    return { tag: active?.tagName.toLowerCase(), id: active?.id };
-  });
-
-/** `document.activeElement` settles on the element `tag#id`, never `<body>`. */
-const expectFocusOn = (page: Page, tag: 'input' | 'h1', id: string) =>
-  expect.poll(() => activeElement(page)).toEqual({ tag, id });
 
 const openSignIn = async (page: Page) => {
   await page.goto('/sign-in?next=%2Flobby');
@@ -147,6 +141,51 @@ test('a sign-in link resend lost in transport returns focus to the email field',
   await resendByKeyboard(page);
   await expect(
     page.getByText('Sign-in is temporarily unavailable.'),
+  ).toBeVisible();
+  await expectFocusOn(page, 'input', 'sign-in-email');
+  await assertNoSeriousFindings(page);
+});
+
+// ISSUE-118: the passkey button is disabled while its ceremony runs, the
+// same focus drop. A ceremony that ends without signing in hands focus
+// back to the email field its notice points to. These two endings reach
+// every engine; a cancelled ceremony needs Chromium's virtual
+// authenticator (passkey-lifecycle.e2e.ts).
+const passkeyButton = (page: Page) =>
+  page.getByRole('button', { name: 'Sign in with a passkey' });
+
+test('a passkey sign-in in a browser without passkeys returns focus to the email field', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Reflect.deleteProperty(window, 'PublicKeyCredential');
+  });
+  await openSignIn(page);
+  await pressByKeyboard(passkeyButton(page));
+  await expect(
+    page.getByText('This browser cannot use passkeys.'),
+  ).toBeVisible();
+  await expectFocusOn(page, 'input', 'sign-in-email');
+  await assertNoSeriousFindings(page);
+});
+
+test('a failed passkey sign-in returns focus to the email field', async ({
+  page,
+}) => {
+  await withPasskeyCapability(page);
+  await withoutPasskeyAutofill(page);
+  await openSignIn(page);
+  const options = '**/api/auth/passkey/generate-authenticate-options*';
+  await page.route(options, (route) => route.abort('internetdisconnected'));
+  // The ceremony fails at its server exchange on every engine, never at
+  // the browser's capability check.
+  const exchangeFailed = page.waitForEvent('requestfailed', (request) =>
+    request.url().includes('/api/auth/passkey/generate-authenticate-options'),
+  );
+  await pressByKeyboard(passkeyButton(page));
+  await exchangeFailed;
+  await expect(
+    page.getByText('We could not sign you in with a passkey.'),
   ).toBeVisible();
   await expectFocusOn(page, 'input', 'sign-in-email');
   await assertNoSeriousFindings(page);

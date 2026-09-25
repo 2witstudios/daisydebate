@@ -11,7 +11,8 @@ export type AuthEmailInput =
   | { readonly kind: 'passkey-added'; readonly url: string }
   | { readonly kind: 'passkey-removed'; readonly url: string }
   | { readonly kind: 'email-change-notice'; readonly url: string }
-  | { readonly kind: 'email-change-confirm'; readonly url: string };
+  | { readonly kind: 'email-change-confirm'; readonly url: string }
+  | { readonly kind: 'email-change-taken'; readonly url: string };
 
 export type RenderedAuthEmail = {
   readonly subject: string;
@@ -109,6 +110,29 @@ function emailChangeConfirm(url: string): RenderedAuthEmail {
   });
 }
 
+/**
+ * ISSUE-119: sent to an address another account asked to move to, once
+ * that account's old inbox approved, when this address already has an
+ * account. It stands where the confirmation link would, so the requester
+ * cannot tell the two apart; its one link only points to the account's
+ * security settings.
+ */
+function emailChangeTaken(url: string): RenderedAuthEmail {
+  return renderAuthEmailLayout({
+    subject: 'Someone tried to use your email on Daisy',
+    preheader: 'Your address stays with your account. Nothing changed.',
+    eyebrow: 'Security update',
+    headline: 'Your email stays yours.',
+    paragraphs: [
+      'Someone asked to move another Daisy account to this email address. It already belongs to your account, so nothing changed.',
+      'No action is needed. If you are worried, review your account.',
+    ],
+    linkLabel: 'Review your account',
+    url,
+    footerNote: FOOTER_NOTE,
+  });
+}
+
 /** The single entry point stage 5 (and stage 3) render every message through. */
 export function renderAuthEmail(input: AuthEmailInput): RenderedAuthEmail {
   switch (input.kind) {
@@ -122,5 +146,7 @@ export function renderAuthEmail(input: AuthEmailInput): RenderedAuthEmail {
       return emailChangeNotice(input.url);
     case 'email-change-confirm':
       return emailChangeConfirm(input.url);
+    case 'email-change-taken':
+      return emailChangeTaken(input.url);
   }
 }

@@ -53,6 +53,7 @@ to your topology before release.
 | Any auth route, per client and path                       | 100 / 60 s                    | `429` + `Retry-After`    |
 | Magic-link request, per client                            | 3 / 60 s                      | `429` + `Retry-After`    |
 | Magic-link request, per recipient                         | 3 / 60 s, 10 / hour, 20 / day | `429` + `Retry-After`    |
+| Email change, per new address (ISSUE-121)                 | 3 / 60 s, 10 / hour, 20 / day | `429` + `Retry-After`    |
 | Sign-up link (address with no account), whole application | 120 / 60 s, 3,000 / day       | `429` + `Retry-After`    |
 | Redis unavailable                                         | —                             | `503` + `Retry-After: 5` |
 

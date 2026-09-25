@@ -44,3 +44,38 @@ export async function addVirtualAuthenticator(
   const credentials = () => readCredentials(session, authenticatorId);
   return { session, authenticatorId, setPresence, credentials };
 }
+
+/**
+ * The sign-in page also arms passkey autofill (conditional mediation), and
+ * Chromium's virtual authenticator completes that request with no pick at
+ * all, racing the explicit button. Specs that prove the button path hide
+ * conditional mediation so the button is the only way in.
+ */
+export async function withoutPasskeyAutofill(page: Page) {
+  await page.addInitScript(() => {
+    Reflect.deleteProperty(
+      PublicKeyCredential,
+      'isConditionalMediationAvailable',
+    );
+  });
+}
+
+/**
+ * Playwright's Linux WebKit (the CI image) is built without WebAuthn:
+ * `PublicKeyCredential` is a plain object, not a constructor, and
+ * `navigator.credentials` is missing, so the sign-in page rightly answers
+ * "cannot use passkeys" before any request. macOS WebKit, Chromium and
+ * Firefox expose both. A spec about what follows the ceremony's server
+ * exchange declares the capability where the engine lacks it, so every
+ * engine reaches that exchange; an engine that has it is left untouched.
+ */
+export async function withPasskeyCapability(page: Page) {
+  await page.addInitScript(() => {
+    if (typeof window.PublicKeyCredential === 'function') return;
+    Object.defineProperty(window, 'PublicKeyCredential', {
+      configurable: true,
+      writable: true,
+      value: function PublicKeyCredential() {},
+    });
+  });
+}
