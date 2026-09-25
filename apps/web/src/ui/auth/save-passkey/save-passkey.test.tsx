@@ -13,7 +13,7 @@ const props = (
   username: 'jordan_l',
   pending: false,
   savePasskey: () => {},
-  continueHref: '/lobby?tab=a',
+  decline: () => {},
   ...overrides,
 });
 
@@ -29,19 +29,23 @@ describe('SavePasskey', () => {
         page.includes('This is a shared computer'),
         page.includes('Not now'),
         page.includes('disabled=""'),
-        page.includes('aria-disabled="'),
       ],
-      expected: [true, true, true, true, false, false],
+      expected: [true, true, true, true, false],
     });
   });
 
-  test('continuing without a passkey is a plain link to the destination', () => {
+  test('declining without a passkey is a real button in its own form, so it works without JavaScript', () => {
     const page = renderToString(h(SavePasskey, props()));
     assert({
       given: 'the shared-computer and not-now choices',
-      should: 'link both to the destination, so they work without JavaScript',
-      actual: page.match(/<a [^>]*href="\/lobby\?tab=a"/g)?.length,
-      expected: 2,
+      should: 'be submit buttons inside their own forms, never links',
+      actual: [
+        page.match(/<form/g)?.length,
+        page.match(/<button[^>]*type="submit"/g)?.length,
+        page.includes('>This is a shared computer</a>'),
+        page.includes('>Not now</a>'),
+      ],
+      expected: [2, 2, false, false],
     });
   });
 
@@ -49,13 +53,12 @@ describe('SavePasskey', () => {
     const page = renderToString(h(SavePasskey, props({ pending: true })));
     assert({
       given: 'a pending save',
-      should: 'say so, disable the save and mark both links unavailable',
+      should: 'say so and disable the save button and both decline buttons',
       actual: [
         page.includes('Waiting for your device…'),
         page.match(/disabled=""/g)?.length,
-        page.match(/aria-disabled="true"/g)?.length,
       ],
-      expected: [true, 1, 2],
+      expected: [true, 3],
     });
   });
 

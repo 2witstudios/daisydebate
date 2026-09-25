@@ -1,10 +1,6 @@
 import type { ReactNode } from 'react';
-import { cn } from '../../cn';
 import { Button } from '../../components/button/button';
-import {
-  buttonClass,
-  type ButtonVariant,
-} from '../../components/button/button-class';
+import type { ButtonVariant } from '../../components/button/button-class';
 import { Icon } from '../../components/icon/icon';
 import { AuthFrame, AuthHeading } from '../auth-frame/auth-frame';
 import { Notice } from '../notice/notice';
@@ -15,10 +11,12 @@ export type SavePasskeyProps = {
   readonly pending: boolean;
   readonly savePasskey: () => void;
   /**
-   * Where declining goes (not now, or a shared computer). Both are plain
-   * links, so they work before hydration and without JavaScript.
+   * The POST that declines without saving a passkey (shared computer, or
+   * not now). A real form action, so both choices are buttons plain Tab
+   * reaches in every engine and both still work before hydration and
+   * without JavaScript.
    */
-  readonly continueHref: string;
+  readonly decline: (form: FormData) => void | Promise<void>;
   /** Why the last attempt saved nothing; never a success. */
   readonly notice?: string | undefined;
 };
@@ -30,32 +28,30 @@ const savedFacts = [
 ] as const;
 
 /** A choice that leaves without a passkey; unavailable while one is saving. */
-function ContinueLink({
-  href,
+function DeclineButton({
+  decline,
   variant,
   locked,
   className,
   children,
 }: {
-  readonly href: string;
+  readonly decline: (form: FormData) => void | Promise<void>;
   readonly variant: ButtonVariant;
   readonly locked: boolean;
   readonly className?: string;
   readonly children: ReactNode;
 }) {
   return (
-    <a
-      href={href}
-      aria-disabled={locked ? true : undefined}
-      tabIndex={locked ? -1 : undefined}
-      className={cn(
-        buttonClass(variant),
-        'aria-disabled:pointer-events-none aria-disabled:opacity-60',
-        className,
-      )}
-    >
-      {children}
-    </a>
+    <form action={decline}>
+      <Button
+        type="submit"
+        variant={variant}
+        disabled={locked}
+        className={className}
+      >
+        {children}
+      </Button>
+    </form>
   );
 }
 
@@ -67,7 +63,7 @@ export function SavePasskey({
   username,
   pending,
   savePasskey,
-  continueHref,
+  decline,
   notice,
 }: SavePasskeyProps) {
   return (
@@ -108,27 +104,27 @@ export function SavePasskey({
               ? 'Waiting for your device…'
               : 'Save a passkey on this device'}
           </Button>
-          <ContinueLink
-            href={continueHref}
+          <DeclineButton
+            decline={decline}
             variant="secondary"
             locked={pending}
             className="h-auth-control"
           >
             <Icon name="users" />
             This is a shared computer
-          </ContinueLink>
+          </DeclineButton>
         </div>
         {notice === undefined ? null : (
           <Notice id="save-passkey-notice" tone="info" title={notice} />
         )}
-        <ContinueLink
-          href={continueHref}
+        <DeclineButton
+          decline={decline}
           variant="ghost"
           locked={pending}
           className="-ml-3"
         >
           Not now
-        </ContinueLink>
+        </DeclineButton>
       </div>
     </AuthFrame>
   );
