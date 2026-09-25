@@ -46,10 +46,14 @@ JavaScript only enhances it.
   because React renders the no-JavaScript POST only from a server action.
 - A form that disables its controls while the answer is pending hands focus
   back with `useFocusAfterAnswer` from the same module. A disabled control
-  drops focus to `<body>`, so once each new answer renders, focus goes to
-  the form's field, or to the next step's heading when the answer leads to
-  a new step (ISSUE-107). The browser suite asserts `document.activeElement`
-  after each answer (`e2e/answer-focus.e2e.ts`).
+  drops focus to `<body>`, so each new answer owes focus until the state it
+  settles into has rendered; the caller says when that is (`settled`), and
+  focus then goes to the element that state names: the form's field, or the
+  next step's heading when the answer leads to a new step (ISSUE-107). A
+  target named before the answer settles may be about to unmount, as the
+  inbox heading is when a resend is refused. The browser suite asserts
+  `document.activeElement` after each answer, resends included
+  (`e2e/answer-focus.e2e.ts`).
 - JavaScript may add a local check before posting (`onSubmit` calling
   `preventDefault()` for a value that cannot be valid), pending states and
   focus handling. React runs the action only when `onSubmit` did not

@@ -27,6 +27,7 @@ import {
   canOfferPasskeyAutofill,
   canRequestLink,
   canResend,
+  linkInFlight,
   signInReducer,
   type SignInState,
 } from '../sign-in-state';
@@ -125,7 +126,9 @@ export function SignInFlow({
     });
   }, [answered, clock]);
 
-  useFocusAfterAnswer(answered, answerFocusId(state));
+  // Focus follows the state the answer settles into, one commit after the
+  // answer itself: until then the screen is the pre-answer one.
+  useFocusAfterAnswer(answered, answerFocusId(state), !linkInFlight(state));
 
   useEffect(() => {
     if (state.step === 'signed-in') onSignedIn();

@@ -47,16 +47,18 @@ export function useFormAction<S>(
 
 /**
  * Hands keyboard focus to the element `targetId` names once each new
- * answer has rendered (ISSUE-107). A form disables its controls while its
+ * answer has settled (ISSUE-107). A form disables its controls while its
  * answer is on the way, and a disabled control drops focus to <body>. The
- * answer the page was rendered with owes no focus. Focus is owed until an
- * enabled target takes it: an answer that leads to another step, such as
- * the sign-in link's inbox step, renders it one commit later. With no
- * target, nothing is owed.
+ * answer the page was rendered with owes no focus. A new answer owes focus
+ * until the state it leads to has rendered: while `settled` is false the
+ * target is still the pre-answer screen's, which may be about to unmount,
+ * so nothing is focused. Once settled, the target takes focus and the debt
+ * is paid. With no target, nothing is owed.
  */
 export function useFocusAfterAnswer(
   answered: unknown,
   targetId: string | undefined,
+  settled: boolean,
 ) {
   const seen = useRef(answered);
   const owed = useRef(false);
@@ -66,11 +68,8 @@ export function useFocusAfterAnswer(
     owed.current = true;
   }, [answered]);
   useEffect(() => {
-    if (!owed.current) return;
-    const target =
-      targetId === undefined ? null : document.getElementById(targetId);
-    target?.focus();
-    if (target === null || document.activeElement === target)
-      owed.current = false;
+    if (!owed.current || !settled) return;
+    owed.current = false;
+    if (targetId !== undefined) document.getElementById(targetId)?.focus();
   });
 }

@@ -40,7 +40,7 @@ export function EmailChangeForm({
     initialEmailChange,
     emailChangeUnavailable,
   );
-  useFocusAfterAnswer(answered, FIELD_ID);
+  useFocusAfterAnswer(answered, FIELD_ID, !pending);
   const notice = pending ? undefined : emailChangeNotice(answered);
   const refused = notice !== undefined && refusesNewAddress(answered);
   return (
