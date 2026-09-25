@@ -41,9 +41,11 @@ export async function emailedLink(
  * Signs the context's browser in to a new account through the real
  * handlers, stopping before the username claim: the account is provisional
  * and onboarding is next. Use `context.request` (or `page.request`) so the
- * session cookie is shared.
+ * session cookie is shared. Returns the redemption response too, so a
+ * caller that needs to inspect it (its Set-Cookie attributes, for one)
+ * never has to duplicate the request-link-then-confirm flow.
  */
-export async function signUpProvisional(request: APIRequestContext) {
+export async function signUpProvisionalResponse(request: APIRequestContext) {
   await resetRateLimits(request);
   const email = freshEmail();
   const requested = await request.post('/api/auth/sign-in/magic-link', {
@@ -60,6 +62,12 @@ export async function signUpProvisional(request: APIRequestContext) {
     maxRedirects: 0,
   });
   expect(confirmed.status()).toBe(303);
+  return { email, confirmed };
+}
+
+/** As `signUpProvisionalResponse`, for callers that only need the email. */
+export async function signUpProvisional(request: APIRequestContext) {
+  const { email } = await signUpProvisionalResponse(request);
   return { email };
 }
 
