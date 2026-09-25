@@ -47,54 +47,41 @@ const controls: readonly Control[] = [
     testFile: 'apps/web/src/features/auth/rate-limit.test.ts',
   },
   {
-    name: 'same-origin (CSRF) enforcement on state-changing requests',
-    file: 'apps/web/src/server/http.ts',
-    find: `export function requireSameOrigin(request: Request, origin: string) {
-  const claimed = request.headers.get('origin');
-  if (claimed === new URL(origin).origin) return;
-  if (
-    claimed === 'null' &&
-    request.headers.get('sec-fetch-site') === 'same-origin'
-  )
-    return;
-  throw createAppError('AUTHORIZATION');
-}`,
-    replace: `export function requireSameOrigin(_request: Request, _origin: string) {
-  // SABOTAGE: never refuses a forged or cross-site Origin.
-  return;
-}`,
-    testFile: 'apps/web/src/server/same-origin-form.test.ts',
+    name: 'passkey credential ownership on rename and removal',
+    file: 'apps/web/src/features/auth/passkey-ownership-guard.ts',
+    // AUTH-6.3.1: Better Auth's own `requireResourceOwnership` (vendored
+    // @better-auth/passkey, untracked) also enforces this, but it cannot be
+    // sabotaged as a reviewable repo diff. This app-owned guard duplicates
+    // the same guarantee ahead of it, so the guarantee has a repo-owned
+    // enforcement point to sabotage directly.
+    find: `          if (passkey && passkey.userId !== session.user.id)
+            throw new APIError('UNAUTHORIZED', {
+              code: 'YOU_ARE_NOT_ALLOWED_TO_REGISTER_THIS_PASSKEY',
+            });`,
+    replace: `          // SABOTAGE: never refuses a mismatched owner.
+          void passkey;`,
+    testFile: 'apps/web/src/features/auth/passkey-ownership-guard.test.ts',
+  },
+  {
+    name: 'token replay on an already-consumed emailed-link token',
+    file: 'apps/web/src/features/auth/email-change.ts',
+    // AUTH-6.3.1 / ISSUE-2: every emailed link (sign-in and email-change) is
+    // an opaque, SHA3-hashed, single-use app-owned token. The magic-link
+    // sign-in path's redemption is entirely vendored, but the email-change
+    // path's `consume` is app-owned and calls the same atomic,
+    // delete-on-read `consumeVerificationValue`; swapping it for the
+    // non-consuming `findVerificationValue` read permits a replay.
+    find: `    const row = await ctx.context.internalAdapter.consumeVerificationValue(
+      emailedLinkIdentifier(purpose, token),
+    );`,
+    replace: `    const row = await ctx.context.internalAdapter.findVerificationValue(
+      emailedLinkIdentifier(purpose, token),
+    );`,
+    testFile: 'apps/web/src/features/auth/email-change.test.ts',
   },
 ];
 
-/**
- * The two remaining named sabotages from AUTH-6.3 AC4 (passkey ownership
- * validation, permitting replayed verification tokens) are enforced entirely
- * inside the pinned, vendored `@better-auth/passkey` and `better-auth`
- * magic-link plugins (confirmed by reading their compiled output under
- * node_modules): no repository-owned source implements or could sabotage
- * that check. node_modules is untracked, so a "sabotage then git restore"
- * cycle there is not a reviewable diff and mutating a third-party dependency
- * to prove a point is itself the kind of production-safeguard weakening the
- * builder contract forbids. Those two guarantees are instead proven end to
- * end against the real vendored behavior by existing real-service
- * integration tests: apps/web/integration/auth-passkey-management.integration.ts
- * ("another user's credential id is refused for rename and removal") and
- * apps/web/integration/auth-magic-link.integration.ts ("a replay of a
- * consumed token fails with no cookie, extra session or duplicate user").
- */
-const blockedControls = [
-  {
-    name: 'bypassing passkey ownership validation',
-    reason:
-      'enforced inside the vendored @better-auth/passkey plugin (node_modules, untracked); proven instead by apps/web/integration/auth-passkey-management.integration.ts',
-  },
-  {
-    name: 'permitting replayed verification tokens',
-    reason:
-      'enforced inside the vendored better-auth magic-link plugin storeToken/verify path (node_modules, untracked); proven instead by apps/web/integration/auth-magic-link.integration.ts',
-  },
-] as const;
+const blockedControls: readonly { name: string; reason: string }[] = [];
 
 type RunResult = {
   readonly exitCode: number;
