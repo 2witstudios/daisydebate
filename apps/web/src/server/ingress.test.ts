@@ -97,7 +97,8 @@ describe('ingress listener', () => {
     );
     assert({
       given: "a trusted fly-proxy peer carrying Fly's authoritative header",
-      should: "resolve identity from Fly-Client-IP, ignoring the forwarded chain",
+      should:
+        'resolve identity from Fly-Client-IP, ignoring the forwarded chain',
       actual: seen,
       expected: ['203.0.113.9'],
     });

@@ -266,8 +266,10 @@ describe('stampClientIdentity', () => {
     };
     stampClientIdentity(request, ['fdaa::/8'], SUBKEY);
     assert({
-      given: 'a trusted fly-proxy peer forwarding Fly-Client-IP and X-Forwarded-For',
-      should: "stamp the identity header from Fly-Client-IP, not the forwarded chain",
+      given:
+        'a trusted fly-proxy peer forwarding Fly-Client-IP and X-Forwarded-For',
+      should:
+        'stamp the identity header from Fly-Client-IP, not the forwarded chain',
       actual: request.headers[CLIENT_IP_HEADER],
       expected: '203.0.113.9',
     });

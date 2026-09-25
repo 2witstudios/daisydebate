@@ -90,9 +90,7 @@ const tables: readonly Table[] = [
         values (${`${tag}-${createId()}`}, ${at}, ${`${tag}-${createId()}`}, ${tag})`;
     },
     left: (sql, tag) =>
-      count(
-        sql`select count(*)::int as n from session where user_id = ${tag}`,
-      ),
+      count(sql`select count(*)::int as n from session where user_id = ${tag}`),
     clear: (sql, tag) => sql`delete from session where user_id = ${tag}`,
   },
 ];
@@ -239,7 +237,9 @@ test('concurrent sweeps delete each expired row exactly once', async () => {
 
 test('concurrent session sweeps race-free delete each expired session exactly once and never touch a live session, its user, or its passkey', async () => {
   const tag = `rt-${createId().slice(0, 10)}`;
-  const [session] = tables.filter((table) => table.operation === 'purgeExpiredSessions');
+  const [session] = tables.filter(
+    (table) => table.operation === 'purgeExpiredSessions',
+  );
   const isolatedBefore = '2001-01-01T01:00:00.000Z';
   await withSql(async (sql) => {
     await sql`insert into users (id, name) values (${tag}, '') on conflict (id) do nothing`;
