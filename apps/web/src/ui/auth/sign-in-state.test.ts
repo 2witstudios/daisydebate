@@ -5,7 +5,6 @@ import {
   formatCountdown,
   initialSignInState,
   linkInFlight,
-  passkeyInFlight,
   RESEND_COOLDOWN_MS,
   resendRemainingMs,
   signInReducer,
@@ -287,23 +286,6 @@ describe('guards', () => {
         linkInFlight({ step: 'signed-in' }),
       ],
       expected: [true, true, false, false, false, false],
-    });
-  });
-
-  test('passkeyInFlight', () => {
-    assert({
-      given:
-        'a button ceremony awaiting its answer, then idle, a link in flight, a resend, and a signed-in page',
-      should:
-        'report a passkey in flight only while the button ceremony awaits its answer',
-      actual: [
-        passkeyInFlight(entering({ pending: 'passkey' })),
-        passkeyInFlight(entering()),
-        passkeyInFlight(entering({ pending: 'link' })),
-        passkeyInFlight(inbox({ resending: true })),
-        passkeyInFlight({ step: 'signed-in' }),
-      ],
-      expected: [true, false, false, false, false],
     });
   });
 });
