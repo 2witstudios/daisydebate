@@ -7,6 +7,7 @@ import {
   findArchitectureExceptionMarkers,
 } from './architecture-exceptions';
 import {
+  adminSurfaceIssue,
   adobeIsolationIssue,
   allowedWorkspaceDependencies as allowed,
   deepImportIssue,
@@ -78,6 +79,8 @@ for (const workspace of workspaces) {
     absolute: true,
   })) {
     if (file.includes('/node_modules/') || file.includes('/.next/')) continue;
+    const adminIssue = adminSurfaceIssue(relative(root, file));
+    if (adminIssue) issues.push(adminIssue);
     architectureExceptionMarkers.push(
       ...findArchitectureExceptionMarkers(await Bun.file(file).text()),
     );
