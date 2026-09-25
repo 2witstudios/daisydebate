@@ -29,10 +29,8 @@ test('a burst of notifications for many committed, distinct-payload rows produce
   // draining everything, since all 30 rows commit in one transaction and
   // become visible together) — so `totalQueries` (every `drainOutbox`
   // call, via `onQuery`) also has to stay far below one-per-event (30).
-  // `bun test:integration` runs this suite and @daisy/db's concurrently
-  // under turbo, and both notify the same shared slot database's `outbox`
-  // channel, so `totalQueries` tolerates a little foreign-traffic noise
-  // rather than asserting it is exactly `relevantQueries`.
+  // It counts every wake, not only this burst's, so it is bounded rather
+  // than asserted equal to `relevantQueries`.
   let relevantQueries = 0;
   let totalQueries = 0;
   // A long poll interval isolates the NOTIFY path: any query observed here
@@ -61,7 +59,7 @@ test('a burst of notifications for many committed, distinct-payload rows produce
     );
 
     assert({
-      given: `${BURST_SIZE} committed rows with distinct payloads, notified together in one transaction, on a shared database other suites are also using`,
+      given: `${BURST_SIZE} committed rows with distinct payloads, notified together in one transaction`,
       should:
         'deliver every row via at most 2 coalesced range queries that actually carried one of its rows, and stay far under one query per event overall',
       actual: {
@@ -157,9 +155,8 @@ test('a LISTEN reconnect drains from the in-memory cursor, missing nothing', asy
     // Committed with no NOTIFY ever sent for it, inserted only once
     // topicBefore's own delivery (and hence the drain's cursor) has
     // already settled: the only way this instance can ever learn about it
-    // is a wake that queries from the cursor — the reconnect's catch-up,
-    // or (a narrower, unavoidable risk on this shared database) another
-    // suite's unrelated traffic. Sending a NOTIFY for it and racing the
+    // is a wake that queries from the cursor: the reconnect's catch-up.
+    // Sending a NOTIFY for it and racing the
     // reconnect's timing, as an earlier version of this test did, is
     // fragile: if the NOTIFY happens to go out after Bun has already
     // finished reconnecting, it arrives over the ordinary, already-working

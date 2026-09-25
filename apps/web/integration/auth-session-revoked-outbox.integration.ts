@@ -183,7 +183,7 @@ const insertOutboxRow = (admin: SQL, topic: string) =>
  * `BEFORE INSERT` trigger only rejects its own topic — if the `if new.topic
  * = …` guard were ever dropped, every other test using the helper would
  * still pass (they only insert on their own already-blocked topic), and
- * only a concurrent `@daisy/db` run would notice.
+ * nothing would notice.
  */
 test('withOutboxInsertBlockedForTopic blocks only its own topic, never an unrelated one', async () => {
   const admin = new SQL(url);

@@ -43,13 +43,13 @@ const cleanupOutboxFor = (actorId: string) =>
  * Forces one genuine Postgres-level `appendOutboxEvent` failure (RT-2.2v
  * minor 3), scoped to exactly one topic: a `BEFORE INSERT` trigger that
  * raises only for that topic's rows, dropped again once `work` settles.
- * turbo runs `@daisy/db` and `@daisy/web` `test:integration` concurrently
- * against one `TEST_DATABASE_URL` (`turbo.json`, no ordering); renaming the
- * shared `outbox` table away for the duration of `work` would fail every
- * unrelated insert and drain running at the same time and hold an ACCESS
- * EXCLUSIVE lock for that whole window. A topic-scoped trigger holds that
- * lock only for the brief `CREATE`/`DROP TRIGGER` DDL, and only rejects
- * inserts naming this fixture's own topic. Two real consumers:
+ * Renaming the shared `outbox` table away for the duration of `work` would
+ * fail every unrelated insert and drain and hold an ACCESS EXCLUSIVE lock
+ * for that whole window; a topic-scoped trigger rejects only inserts naming
+ * this fixture's own topic. Its `CREATE`/`DROP TRIGGER` still queue behind
+ * every open transaction that wrote `outbox`, and every later insert queues
+ * behind them, which is why the root `test:integration` runs one
+ * workspace at a time (ISSUE-61, ISSUE-100). Two real consumers:
  * `auth-session-revoked-outbox.integration.ts` and
  * `auth-email-change-atomicity.integration.ts`.
  */

@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./dev-seed": "./src/dev-seed.ts",
-    "./slots": "./src/slots.ts"
+    "./slots": "./src/slots.ts",
+    "./testing": "./src/testing.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

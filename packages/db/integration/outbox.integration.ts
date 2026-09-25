@@ -10,6 +10,7 @@ import {
   decodeOutboxCursor,
   drainOutbox,
 } from '../src/outbox';
+import { waitForOutboxFinality } from '../src/testing';
 import { requireTestServices } from '@daisy/config';
 import { openOutOfOrderTransactions } from './two-transaction-race.test-support';
 
@@ -93,6 +94,9 @@ test('a committed transaction delivers its outbox row with a txid, a NOTIFY and 
           return false;
         }
       });
+      // The NOTIFY says the commit happened, not that every older
+      // transaction in the cluster has ended: the drain reads only once it has.
+      await waitForOutboxFinality(reader, committed.txid, { now: Date.now });
 
       const rows = await drainOutbox(readerDb, OUTBOX_ORIGIN, 500);
       const delivered = rows.filter((row) => row.topic === topic);
@@ -134,7 +138,7 @@ test('a committed transaction delivers its outbox row with a txid, a NOTIFY and 
 
 test('two transactions that commit out of seq order never let the drain skip a row', async () => {
   const topic = `debate:${createId()}`;
-  const { connA, connB, connC, drizzleC, rowA, rowB } =
+  const { connA, connB, connC, drizzleC, rowA, rowB, commitA } =
     await openOutOfOrderTransactions(url, topic);
   try {
     // A is still open, so its txid still holds back the snapshot xmin: the
@@ -142,7 +146,7 @@ test('two transactions that commit out of seq order never let the drain skip a r
     const midDrain = await drainOutbox(drizzleC, OUTBOX_ORIGIN, 500);
     const midForTopic = midDrain.filter((row) => row.topic === topic);
 
-    await connA.unsafe('COMMIT');
+    await commitA();
 
     const finalDrain = await drainOutbox(drizzleC, OUTBOX_ORIGIN, 500);
     const forTopic = finalDrain.filter((row) => row.topic === topic);
