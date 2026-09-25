@@ -77,7 +77,7 @@ describe('passkeyOwnershipGuardPlugin handler', () => {
   test('refuses when the passkey belongs to a different user', async () => {
     const result = await run(
       '/passkey/update-passkey',
-      { id: 'p1', name: 'renamed' },
+      { id: 'p1' },
       { user: { id: 'attacker-id' } },
       { userId: ownerId },
     );
