@@ -1,11 +1,8 @@
-import { RedisClient } from 'bun';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { systemClock, systemId } from '@daisy/clock';
 import { createApp } from '../../src/server/app';
-import { resendRequest } from '../../src/features/auth/resend-capture.test-support';
 import { adoptProcessApp } from '../../src/server/process-app';
+import { createMailCapture } from './mail-capture';
+import { createSelfSignedTlsEdge } from './tls-edge';
 
 /**
  * The browser suite's production server, with exactly two additions around it
@@ -25,122 +22,25 @@ const env = (name: string) => {
 const appPort = Number(env('PORT'));
 const edgePort = Number(env('E2E_EDGE_PORT'));
 const mailPort = Number(env('E2E_MAIL_PORT'));
-const namespace = env('REDIS_NAMESPACE');
 
-type Captured = { to: string; subject: string; text: string };
-const mails: Captured[] = [];
-/** The app's outbound HTTP: Resend calls are captured, the rest pass through. */
-const captureFetch = async (
-  input: string | URL | Request,
-  init?: RequestInit,
-) => {
-  const sent = resendRequest(input, init);
-  if (!sent) return fetch(input, init);
-  mails.push({
-    to: sent.to.toLowerCase(),
-    subject: sent.subject,
-    text: sent.text,
-  });
-  return Response.json({ id: `msg_e2e_${mails.length}` });
-};
+const mailCapture = createMailCapture({
+  port: mailPort,
+  redisUrl: env('REDIS_URL'),
+  redisNamespace: env('REDIS_NAMESPACE'),
+});
+
 // The production server below runs this app: the real environment, with
 // only its mail transport captured. Nothing process-wide is replaced.
 adoptProcessApp(
   createApp({
     env: process.env,
-    fetch: captureFetch,
+    fetch: mailCapture.captureFetch,
     clock: systemClock,
     ids: systemId,
   }),
 );
 
-/** Rate-limit buckets are keyed by client, and the browser is one client. */
-const resetRateLimits = async () => {
-  const client = new RedisClient(env('REDIS_URL'));
-  try {
-    const keys = (await client.send('KEYS', [`${namespace}:*`])) as string[];
-    for (const key of keys) await client.del(key);
-  } finally {
-    client.close();
-  }
-};
-
-Bun.serve({
-  hostname: '127.0.0.1',
-  port: mailPort,
-  async fetch(request) {
-    const url = new URL(request.url);
-    if (url.pathname === '/mails') {
-      const to = (url.searchParams.get('to') ?? '').toLowerCase();
-      return Response.json(mails.filter((mail) => mail.to === to));
-    }
-    if (url.pathname === '/reset' && request.method === 'POST') {
-      await resetRateLimits();
-      return new Response(null, { status: 204 });
-    }
-    return new Response(null, { status: 404 });
-  },
-});
-
-// A throwaway self-signed certificate for localhost, created per run in a
-// private temporary directory and deleted once loaded, so the private key
-// never sits under test-results, whose files CI uploads (ISSUE-78).
-const certDir = mkdtempSync(join(tmpdir(), 'daisy-e2e-tls-'));
-const made = Bun.spawnSync([
-  'openssl',
-  'req',
-  '-x509',
-  '-newkey',
-  'rsa:2048',
-  '-nodes',
-  '-days',
-  '1',
-  '-keyout',
-  join(certDir, 'key.pem'),
-  '-out',
-  join(certDir, 'cert.pem'),
-  '-subj',
-  '/CN=localhost',
-  '-addext',
-  'subjectAltName=DNS:localhost',
-]);
-const tls = {
-  key: made.exitCode === 0 ? readFileSync(join(certDir, 'key.pem')) : null,
-  cert: made.exitCode === 0 ? readFileSync(join(certDir, 'cert.pem')) : null,
-};
-rmSync(certDir, { recursive: true, force: true });
-if (tls.key === null || tls.cert === null)
-  throw new Error('openssl could not create the cert');
-
-Bun.serve({
-  hostname: '127.0.0.1',
-  port: edgePort,
-  tls: { key: tls.key, cert: tls.cert },
-  async fetch(request) {
-    const url = new URL(request.url);
-    const headers = new Headers(request.headers);
-    headers.set('x-forwarded-proto', 'https');
-    const upstream = await fetch(
-      `http://127.0.0.1:${appPort}${url.pathname}${url.search}`,
-      {
-        method: request.method,
-        headers,
-        body: request.body,
-        redirect: 'manual',
-        // @ts-expect-error Bun: stream a request body through the proxy.
-        duplex: 'half',
-      },
-    );
-    // fetch has already decoded the body, so its encoding headers are stale.
-    const answered = new Headers(upstream.headers);
-    answered.delete('content-encoding');
-    answered.delete('content-length');
-    return new Response(upstream.body, {
-      status: upstream.status,
-      headers: answered,
-    });
-  },
-});
+createSelfSignedTlsEdge({ appPort, edgePort });
 
 await import('../../src/server/start');
 // The app drains and closes its own resources on these signals; the capture
