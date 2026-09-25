@@ -5,6 +5,7 @@ import {
   signInReducer,
   type SignInState,
 } from './sign-in-state';
+import { EMAIL_UNDELIVERABLE } from '../../features/auth/undeliverable-codes';
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -30,7 +31,7 @@ const errorCode = async (response: Response): Promise<unknown> => {
 
 const refusal = async (response: Response): Promise<LinkRequestOutcome> => {
   if (response.status === 429) return { kind: 'rate-limited' };
-  return (await errorCode(response)) === 'EMAIL_UNDELIVERABLE'
+  return (await errorCode(response)) === EMAIL_UNDELIVERABLE
     ? { kind: 'undeliverable' }
     : UNAVAILABLE;
 };

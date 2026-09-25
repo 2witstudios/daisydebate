@@ -2,6 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { SecurityOutcome } from '../../../features/account/security-client';
 import {
   emailChangeNotice,
+  refusesNewAddress,
   emailChangeUnavailable,
   submitEmailChange,
 } from './email-change-state';
@@ -72,6 +73,65 @@ describe('emailChangeNotice', () => {
         },
         { tone: 'error', title: 'That email is already in use.' },
       ],
+    });
+  });
+});
+
+describe('emailChangeNotice for an undeliverable address (ISSUE-113)', () => {
+  test('says which address cannot receive email, and only asks for another new one when that helps', () => {
+    const answer = (outcome: 'undeliverable' | 'current-undeliverable') => ({
+      notice: emailChangeNotice({ newEmail: 'a@b.test', outcome }),
+      refusesNewAddress: refusesNewAddress({ newEmail: 'a@b.test', outcome }),
+    });
+    assert({
+      given:
+        'a refusal because the new address cannot receive email, then because the address on file cannot',
+      should:
+        'ask for a different new address and mark the field, then explain the approval cannot be emailed without blaming the new address',
+      actual: [answer('undeliverable'), answer('current-undeliverable')],
+      expected: [
+        {
+          notice: {
+            tone: 'error',
+            title:
+              'We cannot send email to that address. Use a different address.',
+          },
+          refusesNewAddress: true,
+        },
+        {
+          notice: {
+            tone: 'error',
+            title:
+              'We cannot send email to the address on file, so this change cannot be approved by email.',
+          },
+          refusesNewAddress: false,
+        },
+      ],
+    });
+  });
+
+  test('marks the field only for an undeliverable new address', () => {
+    assert({
+      given: 'no answer, an accepted change and every other refusal',
+      should: 'leave the field valid',
+      actual: (
+        [
+          undefined,
+          'ok',
+          'stale-session',
+          'conflict',
+          'rate-limited',
+          'invalid',
+          'unavailable',
+        ] as const
+      ).map((outcome) =>
+        refusesNewAddress(
+          outcome === undefined
+            ? { newEmail: '' }
+            : { newEmail: 'a@b.test', outcome },
+        ),
+      ),
+      expected: [false, false, false, false, false, false, false],
     });
   });
 });

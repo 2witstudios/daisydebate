@@ -2,7 +2,11 @@ import type { BetterAuthPlugin } from 'better-auth';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
 import { normalizeEmail } from './recipient-key';
 import { safeLocalDestination } from './redirect';
-import type { SuppressionCheck } from './suppression-check';
+import type {
+  SuppressionCheck,
+  SuppressionRefusals,
+} from './suppression-check';
+import { EMAIL_UNDELIVERABLE } from './undeliverable-codes';
 
 type MagicLinkBody = {
   readonly email?: unknown;
@@ -29,10 +33,13 @@ function assertLocalDestinations(body: MagicLinkBody) {
       });
 }
 
-const SIGN_IN_REFUSALS = {
+const SIGN_IN_REFUSALS: SuppressionRefusals = {
   unavailable: 'Sign-in is temporarily unavailable. Please try again shortly.',
-  undeliverable:
-    'We cannot send sign-in emails to this address. Sign in with a passkey or use a different address.',
+  undeliverable: {
+    code: EMAIL_UNDELIVERABLE,
+    message:
+      'We cannot send sign-in emails to this address. Sign in with a passkey or use a different address.',
+  },
 };
 
 /**

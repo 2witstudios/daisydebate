@@ -12,6 +12,9 @@ export type CheckInboxProps = {
   readonly changeEmail: () => void;
 };
 
+/** The inbox step's headline, where focus lands when a link is sent. */
+export const CHECK_INBOX_HEADING_ID = 'check-inbox-heading';
+
 const nextSteps = [
   'Open the email titled “Sign in to Daisy”.',
   'Select the link inside it, on any device.',
@@ -56,7 +59,11 @@ export function CheckInbox({
       }}
       footer="Opened the link on your phone? You will be signed in there, and this tab stays as it is."
     >
-      <AuthHeading eyebrow="Link on its way" title="Check your inbox.">
+      <AuthHeading
+        id={CHECK_INBOX_HEADING_ID}
+        eyebrow="Link on its way"
+        title="Check your inbox."
+      >
         If <strong className="font-semibold text-ink">{email}</strong> can
         receive email, a sign-in link is on its way. It works once and expires
         in 5 minutes.

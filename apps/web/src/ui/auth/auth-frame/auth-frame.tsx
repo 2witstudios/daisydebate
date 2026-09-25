@@ -60,6 +60,8 @@ export type AuthHeadingProps = {
   readonly children: ReactNode;
   /** Quiet eyebrow for steps that report a dead end rather than progress. */
   readonly muted?: boolean;
+  /** Makes the headline a focus target, for a step an answer leads to. */
+  readonly id?: string;
 };
 
 /** Eyebrow, display headline and lede at the top of a step. */
@@ -68,6 +70,7 @@ export function AuthHeading({
   title,
   children,
   muted = false,
+  id,
 }: AuthHeadingProps) {
   return (
     <div className="flex flex-col gap-4">
@@ -80,7 +83,11 @@ export function AuthHeading({
       >
         {eyebrow}
       </p>
-      <h1 className="font-display text-display leading-display font-semibold tracking-display text-balance max-narrow:text-3xl">
+      <h1
+        id={id}
+        tabIndex={id === undefined ? undefined : -1}
+        className="font-display text-display leading-display font-semibold tracking-display text-balance max-narrow:text-3xl"
+      >
         {title}
       </h1>
       <p className="text-lg text-ink-muted">{children}</p>

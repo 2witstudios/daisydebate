@@ -39,6 +39,22 @@ afterAll(async () => {
 });
 
 /** A real permanent bounce, through the signed webhook, for a mail sent to `email`. */
+/** Asks for each email change in turn and records its status and code. */
+const changeEmailAnswers = async (
+  cookie: string,
+  addresses: readonly string[],
+) => {
+  const answers = [];
+  for (const newEmail of addresses) {
+    const response = await flows.changeEmail(cookie, newEmail);
+    answers.push({
+      status: response.status,
+      code: ((await response.json()) as { code?: string }).code,
+    });
+  }
+  return answers;
+};
+
 const hardBounce = async (email: string) => {
   const mail = mailbox.mails.filter((sent) => sent.to === email).at(-1);
   if (!mail) throw new Error('no mail was sent to that address');
@@ -89,25 +105,28 @@ describe('ISSUE-54 notifications honour suppression', () => {
     });
   });
 
-  test('an email change requested from a suppressed address sends nothing and says why', async () => {
+  test('an email change requested from a suppressed address sends nothing and says why, account or not at the new address', async () => {
     const { email, cookie } = await signUp();
     await hardBounce(email);
+    const { email: taken } = await signUp();
     const before = mailbox.mails.length;
-    const response = await flows.changeEmail(
-      cookie,
+    const refusals = await changeEmailAnswers(cookie, [
       `${createId()}@example.test`,
-    );
-    const body = (await response.json()) as { code?: string };
+      taken,
+    ]);
     assert({
-      given: 'a signed-in account whose current address hard-bounced',
+      given:
+        'a signed-in account whose current address hard-bounced, moving to a free address and then to another account’s (ISSUE-113, ISSUE-117)',
       should:
-        'refuse the change with EMAIL_UNDELIVERABLE and send no approval notice',
-      actual: {
-        status: response.status,
-        code: body.code,
-        sent: mailbox.mails.length - before,
+        'refuse both with the same CURRENT_EMAIL_UNDELIVERABLE and send no approval notice',
+      actual: { refusals, sent: mailbox.mails.length - before },
+      expected: {
+        refusals: [
+          { status: 422, code: 'CURRENT_EMAIL_UNDELIVERABLE' },
+          { status: 422, code: 'CURRENT_EMAIL_UNDELIVERABLE' },
+        ],
+        sent: 0,
       },
-      expected: { status: 422, code: 'EMAIL_UNDELIVERABLE', sent: 0 },
     });
   });
 
@@ -121,14 +140,7 @@ describe('ISSUE-54 notifications honour suppression', () => {
     const { email: claimed } = await signUp();
     await hardBounce(claimed);
     const before = mailbox.mails.length;
-    const refusals = [];
-    for (const newEmail of [unclaimed, claimed]) {
-      const response = await flows.changeEmail(cookie, newEmail);
-      refusals.push({
-        status: response.status,
-        code: ((await response.json()) as { code?: string }).code,
-      });
-    }
+    const refusals = await changeEmailAnswers(cookie, [unclaimed, claimed]);
     assert({
       given:
         'a signed-in account asking to move to a suppressed address, once with no account there and once with one',

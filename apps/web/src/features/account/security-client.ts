@@ -1,4 +1,8 @@
 import type { ClientError } from '../auth/client-error';
+import {
+  CURRENT_EMAIL_UNDELIVERABLE,
+  EMAIL_UNDELIVERABLE,
+} from '../auth/undeliverable-codes';
 
 /** Better Auth's stored passkey row, as `listUserPasskeys` returns it. */
 export type PasskeyRow = {
@@ -52,6 +56,10 @@ export type SecurityOutcome =
   | { readonly kind: 'conflict' }
   | { readonly kind: 'rate-limited' }
   | { readonly kind: 'invalid' }
+  /** The new address of an email change cannot receive email. */
+  | { readonly kind: 'undeliverable' }
+  /** The address on file cannot receive the email-change approval. */
+  | { readonly kind: 'current-undeliverable' }
   | { readonly kind: 'unavailable' };
 
 export const outcomeFor = (error: ClientError): SecurityOutcome => {
@@ -62,6 +70,9 @@ export const outcomeFor = (error: ClientError): SecurityOutcome => {
   if (error.status === 409) return { kind: 'conflict' };
   if (error.status === 429) return { kind: 'rate-limited' };
   if (error.status === 400) return { kind: 'invalid' };
+  if (error.code === EMAIL_UNDELIVERABLE) return { kind: 'undeliverable' };
+  if (error.code === CURRENT_EMAIL_UNDELIVERABLE)
+    return { kind: 'current-undeliverable' };
   return { kind: 'unavailable' };
 };
 

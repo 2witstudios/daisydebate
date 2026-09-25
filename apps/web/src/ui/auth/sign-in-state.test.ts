@@ -4,6 +4,7 @@ import {
   canResend,
   formatCountdown,
   initialSignInState,
+  linkInFlight,
   RESEND_COOLDOWN_MS,
   resendRemainingMs,
   signInReducer,
@@ -267,6 +268,24 @@ describe('guards', () => {
         canResend(entering(), iso(1_000 + RESEND_COOLDOWN_MS)),
       ],
       expected: [false, true, false, false],
+    });
+  });
+
+  test('linkInFlight', () => {
+    assert({
+      given:
+        'a first send and a resend awaiting their answers, then idle, a passkey ceremony, a settled inbox, and a signed-in page',
+      should:
+        'report a link in flight only while a send or resend awaits its answer',
+      actual: [
+        linkInFlight(entering({ pending: 'link' })),
+        linkInFlight(inbox({ resending: true })),
+        linkInFlight(entering()),
+        linkInFlight(entering({ pending: 'passkey' })),
+        linkInFlight(inbox()),
+        linkInFlight({ step: 'signed-in' }),
+      ],
+      expected: [true, true, false, false, false, false],
     });
   });
 });

@@ -7,14 +7,25 @@ import {
 import { setSessionCookie } from 'better-auth/cookies';
 import * as z from 'zod';
 import type { Clock } from '@daisy/clock';
-import { sendOrUnavailable, type Deliver } from './deliver-or-unavailable';
+import {
+  sendOrUnavailable,
+  type Deliver,
+  type UndeliverableRefusal,
+} from './deliver-or-unavailable';
 import {
   emailedLinkIdentifier,
   generateEmailedLinkToken,
   type EmailedLinkPurpose,
 } from './emailed-link-token';
 import { renderAuthEmail } from './mail/templates';
-import type { SuppressionCheck } from './suppression-check';
+import type {
+  SuppressionCheck,
+  SuppressionRefusals,
+} from './suppression-check';
+import {
+  CURRENT_EMAIL_UNDELIVERABLE,
+  EMAIL_UNDELIVERABLE,
+} from './undeliverable-codes';
 
 /** Same five-minute figure as a sign-in link (ADR 0025). */
 export const EMAIL_CHANGE_LINK_EXPIRES_IN_SECONDS = 300;
@@ -46,11 +57,30 @@ const claimSchema = z.object({
 });
 type Claim = z.infer<typeof claimSchema>;
 
-const NEW_ADDRESS_REFUSALS = {
-  unavailable:
-    'Changing your email is temporarily unavailable. Please try again shortly.',
-  undeliverable:
-    'We cannot send email to that address. Use a different address.',
+const CHANGE_UNAVAILABLE =
+  'Changing your email is temporarily unavailable. Please try again shortly.';
+
+const NEW_ADDRESS_REFUSALS: SuppressionRefusals = {
+  unavailable: CHANGE_UNAVAILABLE,
+  undeliverable: {
+    code: EMAIL_UNDELIVERABLE,
+    message: 'We cannot send email to that address. Use a different address.',
+  },
+};
+
+/**
+ * ISSUE-113: the address on file cannot receive the approval notice, so a
+ * different new address would not help.
+ */
+const CURRENT_ADDRESS_UNDELIVERABLE: UndeliverableRefusal = {
+  code: CURRENT_EMAIL_UNDELIVERABLE,
+  message:
+    'We cannot send email to the address on file, so this change cannot be approved by email.',
+};
+
+const CURRENT_ADDRESS_REFUSALS: SuppressionRefusals = {
+  unavailable: CHANGE_UNAVAILABLE,
+  undeliverable: CURRENT_ADDRESS_UNDELIVERABLE,
 };
 
 const invalidToken = () =>
@@ -109,10 +139,16 @@ export const emailChangePlugin = (dependencies: {
               code: 'EMAIL_IS_THE_SAME',
               message: 'Email is the same',
             });
-          // ISSUE-104: a suppressed new address is refused now, before any
-          // mail, rather than after the old inbox approves. It runs before
-          // the account lookup, so it answers the same whether or not the
-          // address has an account.
+          // Both addresses are checked before the account lookup, so each
+          // refusal answers the same whether or not the new address has an
+          // account. A suppressed address on file cannot receive the
+          // approval notice (ISSUE-113, ISSUE-117). A suppressed new address
+          // is refused now, before any mail, rather than after the old inbox
+          // approves (ISSUE-104).
+          await dependencies.checkSuppression(
+            user.email,
+            CURRENT_ADDRESS_REFUSALS,
+          );
           await dependencies.checkSuppression(newEmail, NEW_ADDRESS_REFUSALS);
           // Same answer whether or not the address is taken: no disclosure.
           if (await ctx.context.internalAdapter.findUserByEmail(newEmail))
@@ -122,13 +158,17 @@ export const emailChangePlugin = (dependencies: {
             email: user.email,
             newEmail,
           });
-          await sendOrUnavailable(dependencies.deliver, {
-            to: user.email,
-            ...renderAuthEmail({
-              kind: 'email-change-notice',
-              url: confirmLink(token),
-            }),
-          });
+          await sendOrUnavailable(
+            dependencies.deliver,
+            {
+              to: user.email,
+              ...renderAuthEmail({
+                kind: 'email-change-notice',
+                url: confirmLink(token),
+              }),
+            },
+            CURRENT_ADDRESS_UNDELIVERABLE,
+          );
           return ctx.json({ status: true });
         },
       ),

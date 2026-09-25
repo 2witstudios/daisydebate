@@ -90,15 +90,17 @@ export const formatCountdown = (ms: number): string => {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 };
 
+/** Whether a link request, first send or resend, is awaiting its answer. */
+export const linkInFlight = (state: SignInState): boolean =>
+  (state.step === 'enter-email' && state.pending === 'link') ||
+  (state.step === 'check-inbox' && state.resending);
+
 const settleLink = (
   state: SignInState,
   outcome: LinkRequestOutcome,
   at: string,
 ): SignInState => {
-  const inFlight =
-    (state.step === 'enter-email' && state.pending === 'link') ||
-    (state.step === 'check-inbox' && state.resending);
-  if (!inFlight) return state;
+  if (!linkInFlight(state)) return state;
   const { email } = state as EnterEmail | CheckInbox;
   return outcome.kind === 'sent'
     ? { step: 'check-inbox', email, sentAt: at, resending: false }

@@ -3,7 +3,11 @@ import { isValidElement, type ReactElement } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { CheckInbox } from '../check-inbox/check-inbox';
 import { SignInForm } from '../sign-in-form/sign-in-form';
-import { renderSignInFlow, type SignInActions } from './sign-in-flow.render';
+import {
+  answerFocusId,
+  renderSignInFlow,
+  type SignInActions,
+} from './sign-in-flow.render';
 
 setupRitewayBun();
 
@@ -104,6 +108,33 @@ describe('renderSignInFlow', () => {
         renderToString(node as ReactElement).includes('role="status"'),
       ],
       expected: [true, true],
+    });
+  });
+});
+
+describe('answerFocusId', () => {
+  test('names where focus lands after a link answer, for each step', () => {
+    const sentAt = '2026-09-24T12:00:00.000Z';
+    assert({
+      given:
+        'a refused answer back on the email step, a sent one on the inbox step, and a signed-in page',
+      should:
+        'name the email field, then the inbox heading, then nothing (the page is leaving)',
+      actual: [
+        answerFocusId({
+          step: 'enter-email',
+          email: 'j@x.test',
+          pending: 'none',
+        }),
+        answerFocusId({
+          step: 'check-inbox',
+          email: 'j@x.test',
+          sentAt,
+          resending: false,
+        }),
+        answerFocusId({ step: 'signed-in' }),
+      ],
+      expected: ['sign-in-email', 'check-inbox-heading', undefined],
     });
   });
 });

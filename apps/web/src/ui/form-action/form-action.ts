@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useEffect, useRef } from 'react';
 
 /** A form's server action, as `useActionState` calls it. */
 export type FormAction<S> = (state: Awaited<S>, form: FormData) => Promise<S>;
@@ -43,4 +43,33 @@ export function useFormAction<S>(
       : answerUnavailableOnThrow(action, unavailable),
     initial,
   );
+}
+
+/**
+ * Hands keyboard focus to the element `targetId` names once each new
+ * answer has settled (ISSUE-107). A form disables its controls while its
+ * answer is on the way, and a disabled control drops focus to <body>. The
+ * answer the page was rendered with owes no focus. A new answer owes focus
+ * until the state it leads to has rendered: while `settled` is false the
+ * target is still the pre-answer screen's, which may be about to unmount,
+ * so nothing is focused. Once settled, the target takes focus and the debt
+ * is paid. With no target, nothing is owed.
+ */
+export function useFocusAfterAnswer(
+  answered: unknown,
+  targetId: string | undefined,
+  settled: boolean,
+) {
+  const seen = useRef(answered);
+  const owed = useRef(false);
+  useEffect(() => {
+    if (answered === seen.current) return;
+    seen.current = answered;
+    owed.current = true;
+  }, [answered]);
+  useEffect(() => {
+    if (!owed.current || !settled) return;
+    owed.current = false;
+    if (targetId !== undefined) document.getElementById(targetId)?.focus();
+  });
 }

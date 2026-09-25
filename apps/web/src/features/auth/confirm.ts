@@ -9,6 +9,7 @@ import {
   type ConfirmAuth,
 } from './confirm-http-shared';
 import { safeLocalDestination } from './redirect';
+import { EMAIL_UNDELIVERABLE } from './undeliverable-codes';
 
 const NEW_USER_DESTINATION = '/onboarding/username';
 const EXPIRED = `${CONFIRM_PATH}?error=INVALID_TOKEN`;
@@ -17,7 +18,7 @@ const tokenShape = /^[A-Za-z0-9_-]{16,256}$/;
 const emailShape = /^[^\s@<>"']{1,64}@[^\s@<>"']{1,255}$/;
 /** Only fixed, safe codes minted by the auth composition are shown to people. */
 const SHOWN_CODES = new Set([
-  'EMAIL_UNDELIVERABLE',
+  EMAIL_UNDELIVERABLE,
   'RATE_LIMITED',
   'EMAIL_DELIVERY_FAILED',
   'AUTH_TEMPORARILY_UNAVAILABLE',

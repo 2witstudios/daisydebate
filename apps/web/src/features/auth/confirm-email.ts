@@ -10,6 +10,7 @@ import {
   redirect,
   type ConfirmAuth,
 } from './confirm-http-shared';
+import { EMAIL_UNDELIVERABLE } from './undeliverable-codes';
 
 const MAX_FORM_BYTES = 4096;
 // An opaque 256-bit emailed-link token (`emailed-link-token.ts`): nothing
@@ -33,7 +34,7 @@ async function refusal(response: Response): Promise<Response> {
   const body = (await response.json().catch(() => ({}))) as {
     readonly code?: unknown;
   };
-  return response.status === 422 && body.code === 'EMAIL_UNDELIVERABLE'
+  return response.status === 422 && body.code === EMAIL_UNDELIVERABLE
     ? renderEmailConfirmPage({ kind: 'undeliverable' }, 422)
     : renderEmailConfirmPage({ kind: 'expired' }, 400);
 }
