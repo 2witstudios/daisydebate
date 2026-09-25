@@ -3,7 +3,7 @@ import { check, index, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { notBefore, oneOf, timestampColumn } from './columns';
 import { users } from './users';
 
-export const grantRoles = ['admin', 'moderator', 'judge'] as const;
+export const grantRoles = ['moderator', 'judge'] as const;
 /** Widened (tournament, league) by forward migration. */
 export const grantScopeTypes = ['global'] as const;
 
