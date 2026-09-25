@@ -11,6 +11,7 @@ import {
 } from '../src/features/auth/server';
 import type { CompleteEmailChange } from '../src/features/auth/email-change';
 import type { RevokeSessions } from '../src/features/auth/revoke-sessions';
+import type { RevokeSessionUnlessAddressHeld } from '../src/features/auth/sign-in-address-guard';
 import { silentLogger } from '../src/server/test-loggers.test-support';
 import { authTestEnv } from '../src/features/auth/auth-server.test-support';
 
@@ -46,6 +47,8 @@ export const createTestAuthServer = (
     readonly revokeOtherSessions?: RevokeSessions;
     /** Defaults to refusing; a suite completing an email change wires the real one. */
     readonly completeEmailChange?: CompleteEmailChange;
+    /** Defaults to keeping every session; a suite over PostgreSQL wires the real one. */
+    readonly revokeSessionUnlessAddressHeld?: RevokeSessionUnlessAddressHeld;
   },
 ) =>
   createAuthServer({
@@ -69,6 +72,8 @@ export const createTestAuthServer = (
     revokeOtherSessions: options.revokeOtherSessions ?? (async () => 0),
     completeEmailChange:
       options.completeEmailChange ?? (async () => 'stale' as const),
+    revokeSessionUnlessAddressHeld:
+      options.revokeSessionUnlessAddressHeld ?? (async () => false),
   });
 
 /**
@@ -117,6 +122,8 @@ export const createDatabaseAuthServer = (
     revokeOtherSessions: (userId, keepToken) =>
       database.revokeOtherSessions(userId, keepToken),
     completeEmailChange: (input) => database.completeEmailChange(input),
+    revokeSessionUnlessAddressHeld: (input) =>
+      database.revokeSessionUnlessAddressHeld(input),
     ...wire(database),
   });
   return { sent, logged, database, auth };

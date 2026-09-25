@@ -54,6 +54,8 @@ export function createSecondInstances(testApp: TestApp) {
       appendSessionRevoked: async () => {},
       revokeOtherSessions: async () => 0,
       completeEmailChange: (input) => database.completeEmailChange(input),
+      revokeSessionUnlessAddressHeld: (input) =>
+        database.revokeSessionUnlessAddressHeld(input),
       logger: silentLogger,
       clock: systemClock,
       ids: systemId,

@@ -33,6 +33,8 @@ const unreachableDatabase = () => {
     appendSessionRevoked: async () => {},
     revokeOtherSessions: async () => 0,
     completeEmailChange: (input) => database.completeEmailChange(input),
+    revokeSessionUnlessAddressHeld: (input) =>
+      database.revokeSessionUnlessAddressHeld(input),
     logger: silent,
     clock: systemClock,
     ids: systemId,
