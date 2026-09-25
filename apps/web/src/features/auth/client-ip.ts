@@ -6,6 +6,14 @@ import { deriveSubkey } from './recipient-key';
 export const CLIENT_IP_HEADER = 'x-daisy-client-ip';
 /** Internal header the ingress stamps: the keyed hash request logs carry. */
 export const CLIENT_ID_HASH_HEADER = 'x-daisy-client-id-hash';
+/**
+ * Fly's own authoritative single-value client address (AUTH-7.9): fly-proxy
+ * sets it on every request it forwards, so once the peer is a trusted
+ * fly-proxy hop it needs no chain-walking heuristic the way
+ * `X-Forwarded-For` does
+ * (https://fly.io/docs/networking/request-headers/).
+ */
+export const FLY_CLIENT_IP_HEADER = 'fly-client-ip';
 
 export const deriveClientIdSubkey = (secret: string): string =>
   deriveSubkey(secret, 'client-id-hash');
@@ -41,12 +49,17 @@ const isTrusted = (list: BlockList, address: string) => {
 
 /**
  * The client is the socket peer unless the peer is a configured trusted
- * ingress hop; only then is the forwarded chain read, from the right, so a
+ * ingress hop (zero trust: a header is only ever read from a peer the
+ * deployment names as its own proxy). A trusted peer's `Fly-Client-IP` is
+ * taken directly, since fly-proxy sets it to the resolved caller address
+ * itself, never a chain to walk; only when it is absent or unusable does
+ * this fall back to walking `X-Forwarded-For` from the right, so a
  * caller-forged left-most value never selects the rate-limit identity.
  */
 export function resolveClientIp(input: {
   readonly peer: string | undefined;
   readonly forwardedFor: string | null | undefined;
+  readonly flyClientIp?: string | null | undefined;
   readonly trustedProxies: readonly string[];
 }): string | null {
   if (!input.peer) return null;
@@ -55,6 +68,8 @@ export function resolveClientIp(input: {
   if (input.trustedProxies.length === 0) return peer;
   const trusted = blockList(input.trustedProxies);
   if (!isTrusted(trusted, peer)) return peer;
+  const flyClientIp = unmap((input.flyClientIp ?? '').trim());
+  if (isIP(flyClientIp) !== 0) return flyClientIp;
   const chain = (input.forwardedFor ?? '')
     .split(',')
     .map((hop) => unmap(hop.trim()))
@@ -83,9 +98,14 @@ export function stampClientIdentity(
   clientIdSubkey: string,
 ): void {
   const forwarded = request.headers['x-forwarded-for'];
+  const flyClientIpHeader = request.headers[FLY_CLIENT_IP_HEADER];
   const client = resolveClientIp({
     peer: request.socket.remoteAddress,
     forwardedFor: Array.isArray(forwarded) ? forwarded.join(',') : forwarded,
+    // Fly never duplicates this header; an array here is tampering, not a
+    // value to salvage, so only a plain string is honored.
+    flyClientIp:
+      typeof flyClientIpHeader === 'string' ? flyClientIpHeader : undefined,
     trustedProxies,
   });
   if (client) {

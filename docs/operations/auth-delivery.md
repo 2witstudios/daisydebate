@@ -30,16 +30,19 @@ setting the message API cannot override — and a webhook pointing at
 Rate limits bucket by client. There is exactly one resolver: the composition
 trusts only `x-daisy-client-ip`, stamped by our own ingress (`start.ts`) on
 every request, replacing any caller value. It is the socket peer, or — only
-when the peer is in `AUTH_TRUSTED_PROXIES` — the first address from the
-**right** of `X-Forwarded-For` that is not itself a trusted hop, so an
+when the peer is in `AUTH_TRUSTED_PROXIES` — Fly's own authoritative
+`Fly-Client-IP` (AUTH-7.9, `client-ip.ts`), falling back to the first
+address from the **right** of `X-Forwarded-For` that is not itself a
+trusted hop only when `Fly-Client-IP` is absent or unusable, so an
 attacker-prepended left-most value never selects the bucket. Better Auth has
 no header list of its own to configure: `next dev` runs without the
 stamping ingress, so a dev-mode request simply carries no identity and
 shares one rate-limit bucket per path with every other unstamped request.
 
-In production, `AUTH_TRUSTED_PROXIES` (with `X-Forwarded-For`) is the mechanism
-for reading the real client behind a proxy. A proxy not listed there makes all
-its users share one rate-limit bucket.
+In production, `AUTH_TRUSTED_PROXIES` (with `Fly-Client-IP`, falling back to
+`X-Forwarded-For`) is the mechanism for reading the real client behind a
+proxy. A proxy not listed there makes all its users share one rate-limit
+bucket.
 
 Configure exactly the hops you operate; an over-broad range re-opens spoofing.
 Under `next dev` there is no ingress stamp and requests share the loopback
