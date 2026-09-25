@@ -14,7 +14,7 @@ const { databaseUrl: ownerUrl } = requireTestServices(process.env);
  * DATABASE_URL would log in as. No role is created or dropped: role DDL is
  * cluster-wide and would reach every other slot's suites.
  */
-const problemsAs = async (role: 'owner' | 'daisy_web') => {
+const problemsAs = async (role: 'owner' | 'daisy_web' | 'daisy_realtime') => {
   const client = new SQL(ownerUrl, { max: 1 });
   const database = createDatabase({
     url: ownerUrl,
@@ -22,7 +22,7 @@ const problemsAs = async (role: 'owner' | 'daisy_web') => {
     nextActorId: createId,
   });
   try {
-    if (role === 'daisy_web') await client.unsafe('set role daisy_web');
+    if (role !== 'owner') await client.unsafe(`set role ${role}`);
     return await database.runtimeRoleProblems();
   } finally {
     await database.close();
@@ -30,25 +30,33 @@ const problemsAs = async (role: 'owner' | 'daisy_web') => {
 };
 
 /**
- * ISSUE-39: the check production startup runs, against the real catalog of
- * the migrated test database, as the migration owner and as daisy_web.
+ * ISSUE-39, ISSUE-101: the check web and realtime startup run in
+ * production, against the real catalog of the migrated test database, as
+ * the migration owner and as each runtime role.
  */
-test('refuses the migration owner and accepts daisy_web', async () => {
-  const [owner, runtime] = [
+test('refuses the migration owner and accepts daisy_web and daisy_realtime', async () => {
+  const [owner, web, realtime] = [
     await problemsAs('owner'),
     await problemsAs('daisy_web'),
+    await problemsAs('daisy_realtime'),
   ];
   assert({
-    given: 'the migration owner and the daisy_web runtime role',
+    given: 'the migration owner and the daisy_web and daisy_realtime roles',
     should:
-      'report the owner as able to create and own schema objects, and nothing for daisy_web',
+      'report the owner as able to create and own schema objects, and nothing for either runtime role',
     actual: {
       ownerRefused: owner.length > 0,
       ownerOwnsObjects: owner.some((problem) =>
         /^owns \d+ objects in schema public$/.test(problem),
       ),
-      runtime,
+      web,
+      realtime,
     },
-    expected: { ownerRefused: true, ownerOwnsObjects: true, runtime: [] },
+    expected: {
+      ownerRefused: true,
+      ownerOwnsObjects: true,
+      web: [],
+      realtime: [],
+    },
   });
 });

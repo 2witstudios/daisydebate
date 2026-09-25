@@ -26,19 +26,28 @@ Next build, serves requests over a custom HTTP server, and owns lifecycle:
 
 ## Releases
 
-1. Migrations run once per release as a pipeline step (`bun db:migrate`
-   against production with migration credentials), never from every app
-   instance, and before enabling dependent code (expand/contract for
-   rolling deploys). Reference data that the schema depends on (the
+1. Migrations run once per release as a pipeline step
+   (`packages/db/scripts/migrate.ts` with the migration credential), never
+   from every app instance, and before enabling dependent code
+   (expand/contract for rolling deploys). The migrator's session gives up
+   on a lock after 1 s and on a statement after 60 s, so hot-table DDL
+   fails the release instead of stalling live traffic
+   ([database operations](database.md), ISSUE-112). On Fly the release is a
+   separate, release-only migrator app ([ADR 0041](../decisions/0041-migration-credential-in-a-release-only-app.md)):
+   Fly secrets are app-wide, reaching every machine of an app and its
+   release command, so a `MIGRATION_DATABASE_URL` set on the web app would
+   sit in every web machine's environment, not only the release command's. Reference data that the schema depends on (the
    `foundation` row in `formats`, ADR 0029) ships inside the migration;
    `bun db:seed` is a development fixture (agent users, actors, a seed
    debate) and never runs against production.
 2. Provide `APP_VERSION`, `GIT_COMMIT`, `PUBLIC_APP_URL` (HTTPS),
    `DATABASE_URL` (the DML-only `daisy_web` role; startup refuses a role
-   that can create or alter schema objects), `MIGRATION_DATABASE_URL` (the
-   schema owner, read only by the release migration), `REDIS_URL`,
-   `REDIS_NAMESPACE`, `LOG_LEVEL`. Configuration refinement fails startup on
-   missing identity or insecure defaults — do not work around it.
+   that can create or alter schema objects), `REDIS_URL`,
+   `REDIS_NAMESPACE`, `LOG_LEVEL`. Never give the web app
+   `MIGRATION_DATABASE_URL` (the schema owner): only the release migration
+   holds it, and production web and realtime startup refuse to run with it
+   in their environment. Configuration refinement fails startup on missing
+   identity or insecure defaults — do not work around it.
 3. Behind a reverse proxy, set `AUTH_TRUSTED_PROXIES` (IPs or CIDR ranges) to
    your own proxy's addresses: the ingress (`start.ts`) walks the
    `X-Forwarded-For` chain past those hops and stamps the resolved address
@@ -53,6 +62,21 @@ Next build, serves requests over a custom HTTP server, and owns lifecycle:
 4. Scale horizontally: the app is stateless except pools/logger/draining.
    Multi-instance safety relies on PostgreSQL for truth and Redis for
    coordination; sticky sessions are not part of any design.
+
+## Realtime service
+
+`apps/realtime` (`bun run start`, `NODE_ENV=production`) connects with
+`DATABASE_URL` as `daisy_realtime`, the realtime service's only database
+credential (ADR 0032 §7: `SELECT` on the delivery tables and nothing that
+alters schema). It is never the migration owner and never `daisy_web`.
+Before it subscribes to the outbox or accepts a socket, production startup
+refuses a `DATABASE_URL` role that can create or alter objects in schema
+`public` (`refuseSchemaAlteringRole` in `packages/db`, called by
+`apps/realtime/src/serve.ts`, ISSUE-101), and refuses a
+`MIGRATION_DATABASE_URL` in its environment (ISSUE-102). Set the
+`daisy_realtime` password out of band, as for `daisy_web`. No realtime
+deployment exists yet; when one is added it gets its own Fly app and
+secrets, and never shares the migrator app's.
 
 ## Form actions and the public edge
 

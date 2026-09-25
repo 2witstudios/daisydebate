@@ -1,4 +1,5 @@
 import next from 'next';
+import { refuseSchemaAlteringRole } from '@daisy/db';
 import {
   drainWithDeadline,
   installShutdownSignals,
@@ -15,7 +16,6 @@ import {
   retentionTargets,
   startRetentionSweep,
 } from './retention-sweep';
-import { refuseSchemaAlteringRole } from './runtime-role-gate';
 
 // Refuses anything but NODE_ENV=production before building the app.
 const { port } = processStartOptions();
@@ -25,7 +25,7 @@ const app = processApp();
 const authConfig = app.auth().config;
 // Production refuses a DATABASE_URL role that could create or alter schema
 // objects, before Next prepares or the port opens (ISSUE-39).
-await refuseSchemaAlteringRole(app);
+await refuseSchemaAlteringRole(app, 'daisy_web');
 const nextApp = next({ dev: false, port });
 // The handler it wraps only resolves Next's request handler per request,
 // after prepare().

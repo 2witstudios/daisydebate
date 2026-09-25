@@ -1,5 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { runtimeRoleFactsFrom, runtimeRoleProblems } from './runtime-role';
+import {
+  refuseSchemaAlteringRole,
+  runtimeRoleFactsFrom,
+  runtimeRoleProblems,
+} from './runtime-role';
 
 setupRitewayBun();
 
@@ -37,6 +41,89 @@ describe('runtimeRoleProblems', () => {
         ['owns schema public'],
         ['owns 3 objects in schema public'],
       ],
+    });
+  });
+});
+
+const gateOutcome = async (
+  NODE_ENV: string,
+  problems: readonly string[],
+  runtimeRole: 'daisy_web' | 'daisy_realtime',
+) => {
+  let queried = false;
+  try {
+    await refuseSchemaAlteringRole(
+      {
+        config: { NODE_ENV },
+        database: {
+          runtimeRoleProblems: async () => {
+            queried = true;
+            return problems;
+          },
+        },
+      },
+      runtimeRole,
+    );
+    return { queried, refused: null };
+  } catch (error) {
+    return { queried, refused: (error as Error).message };
+  }
+};
+
+describe('refuseSchemaAlteringRole', () => {
+  test('refuses a production role that can alter the schema', async () => {
+    assert({
+      given: 'production config and a role that owns schema public',
+      should: 'refuse to start, naming the capabilities and the fix',
+      actual: await gateOutcome(
+        'production',
+        ['can create in schema public', 'owns schema public'],
+        'daisy_web',
+      ),
+      expected: {
+        queried: true,
+        refused:
+          'Production refuses a DATABASE_URL role that can create in schema public, owns schema public; use the daisy_web runtime role',
+      },
+    });
+  });
+
+  test('names the runtime role of the service that refuses', async () => {
+    assert({
+      given: 'the realtime service in production as the migration owner',
+      should: 'refuse to start and name daisy_realtime as the fix',
+      actual: await gateOutcome(
+        'production',
+        ['owns 12 objects in schema public'],
+        'daisy_realtime',
+      ),
+      expected: {
+        queried: true,
+        refused:
+          'Production refuses a DATABASE_URL role that owns 12 objects in schema public; use the daisy_realtime runtime role',
+      },
+    });
+  });
+
+  test('starts in production as a runtime role', async () => {
+    assert({
+      given: 'production config and a role with no schema capability',
+      should: 'start',
+      actual: await gateOutcome('production', [], 'daisy_web'),
+      expected: { queried: true, refused: null },
+    });
+  });
+
+  test('never checks outside production', async () => {
+    assert({
+      given: 'development config running as the local owner',
+      should: 'start without querying the role',
+      actual: await gateOutcome(
+        'development',
+        ['owns schema public'],
+        'daisy_realtime',
+      ),
+      expected: { queried: false, refused: null },
     });
   });
 });

@@ -169,7 +169,8 @@ schema)` cannot be declared without a zod schema; every write is parsed
   `daisy_web` password and an app `DATABASE_URL` distinct from the
   migration credential. ISSUE-39 split them: the release command reads
   `MIGRATION_DATABASE_URL`, and the app refuses to start as a role that can
-  alter the schema.
+  alter the schema. ADR 0041 moves that credential into a release-only Fly
+  app, because Fly secrets reach every machine of an app.
 - `bun audit` no longer reports esbuild. The vitest and underscore
   advisories remain (ISSUE-31); ADR 0039 records them as dated, unreachable
   exceptions.

@@ -19,6 +19,7 @@ import {
   runtimeRoleProblems,
   type RuntimeRoleFactsRow,
 } from './runtime-role';
+import { RUNTIME_SESSION } from './session-bounds';
 export type {
   DebateMode,
   DebateOutcome,
@@ -37,6 +38,7 @@ export {
   type OutboxPosition,
   type OutboxRow,
 } from './outbox';
+export { refuseSchemaAlteringRole } from './runtime-role';
 
 /**
  * Composes the auth, debates, actor, email and outbox areas over one
@@ -75,7 +77,7 @@ export function createDatabase({
       max: maxConnections,
       connectionTimeout: 3,
       idleTimeout: 20,
-      connection: { statement_timeout: 5000, lock_timeout: 2000 },
+      connection: RUNTIME_SESSION,
     });
   const database = drizzle({ client });
   return {
