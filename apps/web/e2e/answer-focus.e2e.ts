@@ -65,13 +65,9 @@ test('a sent sign-in link moves focus to the inbox step heading', async ({
   await assertNoSeriousFindings(page);
 });
 
-test('a refused sign-in link returns focus to the email field', async ({
-  page,
-}) => {
-  const email = freshEmail();
-  // The recipient allowance is three links a minute: spend it, so the
-  // form's request is the refused fourth.
-  for (let sent = 0; sent < 3; sent += 1)
+/** Sends `count` sign-in links to `email` through the API, off the page. */
+const spendLinks = async (page: Page, email: string, count: number) => {
+  for (let sent = 0; sent < count; sent += 1)
     expect(
       (
         await page.request.post('/api/auth/sign-in/magic-link', {
@@ -80,6 +76,35 @@ test('a refused sign-in link returns focus to the email field', async ({
         })
       ).status(),
     ).toBe(200);
+};
+
+/**
+ * Sends a link from the form on a page whose clock is installed before it
+ * loads, so the resend cooldown can be crossed without waiting a minute.
+ */
+const sendFromForm = async (page: Page, email: string) => {
+  await page.clock.install();
+  await openSignIn(page);
+  await submitByKeyboard(page.getByLabel('Email'), email);
+  await expectFocusOn(page, 'h1', 'check-inbox-heading');
+};
+
+/** Waits out the resend cooldown, then presses Enter on "Resend link". */
+const resendByKeyboard = async (page: Page) => {
+  await page.clock.fastForward('01:05');
+  const resend = page.getByRole('button', { name: 'Resend link' });
+  await expect(resend).toBeEnabled();
+  await resend.focus();
+  await page.keyboard.press('Enter');
+};
+
+test('a refused sign-in link returns focus to the email field', async ({
+  page,
+}) => {
+  const email = freshEmail();
+  // The recipient allowance is three links a minute: spend it, so the
+  // form's request is the refused fourth.
+  await spendLinks(page, email, 3);
   await openSignIn(page);
   await submitByKeyboard(page.getByLabel('Email'), email);
   await expect(page.getByText('Too many attempts for now.')).toBeVisible();
@@ -93,6 +118,33 @@ test('a sign-in link lost in transport returns focus to the email field', async 
   await openSignIn(page);
   await dropServerActions(page);
   await submitByKeyboard(page.getByLabel('Email'), freshEmail());
+  await expect(
+    page.getByText('Sign-in is temporarily unavailable.'),
+  ).toBeVisible();
+  await expectFocusOn(page, 'input', 'sign-in-email');
+  await assertNoSeriousFindings(page);
+});
+
+test('a refused sign-in link resend returns focus to the email field', async ({
+  page,
+}) => {
+  const email = freshEmail();
+  // Two links through the API and the form's third spend the recipient's
+  // allowance of three a minute, so the resend is the refused fourth.
+  await spendLinks(page, email, 2);
+  await sendFromForm(page, email);
+  await resendByKeyboard(page);
+  await expect(page.getByText('Too many attempts for now.')).toBeVisible();
+  await expectFocusOn(page, 'input', 'sign-in-email');
+  await assertNoSeriousFindings(page);
+});
+
+test('a sign-in link resend lost in transport returns focus to the email field', async ({
+  page,
+}) => {
+  await sendFromForm(page, freshEmail());
+  await dropServerActions(page);
+  await resendByKeyboard(page);
   await expect(
     page.getByText('Sign-in is temporarily unavailable.'),
   ).toBeVisible();
