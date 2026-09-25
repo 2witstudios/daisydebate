@@ -119,6 +119,58 @@ describe('AUTH-3.4 rules the gate hands the atomic limiter', () => {
     });
   });
 
+  test('an email change carries its client bucket and the new address’s three recipient windows, whoever holds it (ISSUE-121)', async () => {
+    const { server, db, consumed } = create();
+    db.user.push({
+      id: 'user-1',
+      email: 'player@daisy.example.com',
+      emailVerified: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const changeTo = (newEmail: string) =>
+      server.instance.handler(
+        new Request('http://localhost:3000/api/auth/change-email', {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            origin: 'http://localhost:3000',
+          },
+          body: JSON.stringify({ newEmail }),
+        }),
+      );
+    await changeTo('player@daisy.example.com');
+    await changeTo('free@daisy.example.com');
+    const shapeOf = ({ key, rule }: (typeof consumed)[number]) => ({
+      kind: key.startsWith('auth:email-change:recipient:')
+        ? 'recipient'
+        : key.startsWith('auth:client:')
+          ? 'client'
+          : 'other',
+      rule,
+    });
+    const perRequest = [
+      { kind: 'client', rule: { windowSeconds: 60, max: 100 } },
+      { kind: 'recipient', rule: { windowSeconds: 60, max: 3 } },
+      { kind: 'recipient', rule: { windowSeconds: 3_600, max: 10 } },
+      { kind: 'recipient', rule: { windowSeconds: 86_400, max: 20 } },
+    ];
+    assert({
+      given:
+        'an email change to an address that has an account, then to one that has none',
+      should:
+        'consume the same buckets for each, keyed on the new address and never carrying it, with no global ceiling',
+      actual: {
+        buckets: consumed.map(shapeOf),
+        leaksAddress: consumed.some(({ key }) => key.includes('@')),
+      },
+      expected: {
+        buckets: [...perRequest, ...perRequest],
+        leaksAddress: false,
+      },
+    });
+  });
+
   test('every other route carries the 100 per 60 seconds default', async () => {
     const { server, consumed } = create();
     await server.instance.handler(getSession());

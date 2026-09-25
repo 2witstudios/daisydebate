@@ -1,17 +1,10 @@
-import { createHash } from 'node:crypto';
-import { RedisClient } from 'bun';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { redisKey } from '@daisy/redis';
 import { createTestApp, type TestApp } from './fixtures';
-import { statuses } from './auth-rate-limit-helpers';
+import { elapse, recipientBucket, statuses } from './auth-rate-limit-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
-import {
-  deriveRecipientSubkey,
-  recipientKey as keyRecipient,
-} from '../src/features/auth/recipient-key';
 import { requireTestServices } from '@daisy/config';
 
-const { redisUrl } = requireTestServices(process.env);
+requireTestServices(process.env);
 setupRitewayBun();
 
 // Each ceiling gets its own app, so each starts from empty buckets: the
@@ -22,34 +15,9 @@ const dayApp = createTestApp();
 const globalDayApp = createTestApp();
 const globalApp = createTestApp();
 
-/** The limiter's real Redis key for a gate bucket key (`redis-limiter.ts`). */
-const limiterKey = (testApp: TestApp, bucket: string) =>
-  redisKey(
-    testApp.redisNamespace,
-    'rl',
-    createHash('sha3-256').update(bucket).digest('hex'),
-  );
-
-/** A recipient bucket key, as `rate-limit.ts` builds it. */
+/** A magic-link recipient bucket key, as `rate-limit.ts` builds it. */
 const recipientKey = (testApp: TestApp, email: string, window: number) =>
-  `auth:magic-link:recipient:${keyRecipient(
-    deriveRecipientSubkey(String(testApp.env.BETTER_AUTH_SECRET)),
-    email,
-  )}:${window}`;
-
-/**
- * A fixed window elapsing: its counter key expires in Redis, which is what
- * the limiter's PEXPIRE does when the window ends. Every other bucket keeps
- * its real count, so the ceiling under test is the one that decides.
- */
-const elapse = async (testApp: TestApp, ...buckets: string[]) => {
-  const client = new RedisClient(redisUrl);
-  try {
-    for (const bucket of buckets) await client.del(limiterKey(testApp, bucket));
-  } finally {
-    client.close();
-  }
-};
+  recipientBucket(testApp, 'magic-link', email, window);
 
 const magicLink = (
   headers: Record<string, string> = {},
