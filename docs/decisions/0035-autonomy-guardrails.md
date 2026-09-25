@@ -178,12 +178,26 @@ and only code running from `main` can use its key.
     `APPROVE` or `APPROVE WITH MINORS` with no open blocker or major;
   - for a verdict with zero findings, requires its own
     `bun test:integration: PASS` and `Negative control run: yes` lines in
-    the gates section.
+    the gates section; a line may carry a leading list bullet, backticks
+    or bold and still count (the decoration is stripped before matching),
+    but "not run" or a `?` anywhere on the line still disqualifies it,
+    however it is decorated (ISSUE-122).
 
   Every record for the SHA must approve: one reviewer's approval does not
   outvote another's request for changes. Then it sets `success` with the
   record as the target URL; otherwise `failure` with the refusing record's
   reason.
+
+  **Self-check.** `bun review:check <recordPageId> --pr <n> [--sha <sha>]
+[--dispatch]` (ISSUE-122) runs this same `verifyReviewRecord` against a
+  given record page and the PR's live head SHA and body, so a reviewer sees
+  the check's exact answer before posting the verdict comment instead of a
+  red status after the fact. `--sha` compares against a SHA other than the
+  PR's live head, for a merged PR whose branch no longer carries it.
+  `--dispatch` re-runs the live status (`gh workflow run review-record.yml`)
+  once the self-check passes, so a transient red left by a comment posted
+  while the record was still being drafted does not linger as the final
+  state.
 
 - **Why not the other candidates.**
   - A second machine identity for reviewers is ruled out by the one free

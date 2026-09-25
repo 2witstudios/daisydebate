@@ -27,6 +27,7 @@
     "adr:next": "bun scripts/number-claims.ts",
     "plan:review": "bun scripts/plan-review.ts",
     "github:rules": "bun scripts/github-rules.ts",
+    "review:check": "bun scripts/review-check.ts",
     "invariants": "bun scripts/invariants.ts",
     "evidence": "bun scripts/evidence.ts",
     "migrations:check": "bun scripts/check-migrations.ts",
