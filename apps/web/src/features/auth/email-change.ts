@@ -14,6 +14,7 @@ import {
   type EmailedLinkPurpose,
 } from './emailed-link-token';
 import { renderAuthEmail } from './mail/templates';
+import type { SuppressionCheck } from './suppression-check';
 
 /** Same five-minute figure as a sign-in link (ADR 0025). */
 export const EMAIL_CHANGE_LINK_EXPIRES_IN_SECONDS = 300;
@@ -45,6 +46,13 @@ const claimSchema = z.object({
 });
 type Claim = z.infer<typeof claimSchema>;
 
+const NEW_ADDRESS_REFUSALS = {
+  unavailable:
+    'Changing your email is temporarily unavailable. Please try again shortly.',
+  undeliverable:
+    'We cannot send email to that address. Use a different address.',
+};
+
 const invalidToken = () =>
   APIError.from('BAD_REQUEST', {
     code: 'INVALID_TOKEN',
@@ -70,6 +78,7 @@ export const emailChangePlugin = (dependencies: {
   readonly deliver: Deliver;
   readonly clock: Clock;
   readonly completeEmailChange: CompleteEmailChange;
+  readonly checkSuppression: SuppressionCheck;
 }): BetterAuthPlugin => {
   const confirmLink = (token: string) => {
     const link = new URL(CONFIRM_EMAIL_PATH, dependencies.origin);
@@ -100,6 +109,11 @@ export const emailChangePlugin = (dependencies: {
               code: 'EMAIL_IS_THE_SAME',
               message: 'Email is the same',
             });
+          // ISSUE-104: a suppressed new address is refused now, before any
+          // mail, rather than after the old inbox approves. It runs before
+          // the account lookup, so it answers the same whether or not the
+          // address has an account.
+          await dependencies.checkSuppression(newEmail, NEW_ADDRESS_REFUSALS);
           // Same answer whether or not the address is taken: no disclosure.
           if (await ctx.context.internalAdapter.findUserByEmail(newEmail))
             return ctx.json({ status: true });

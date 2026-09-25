@@ -110,3 +110,37 @@ describe('confirm-email: post-verification session revocation', () => {
     });
   });
 });
+
+describe('confirm-email: an approval refused because the new address is suppressed (ISSUE-104)', () => {
+  const refusedWith = (code: string) =>
+    createConfirmEmailHandlers({
+      logger: silentLogger,
+      auth: () => ({
+        config: { PUBLIC_APP_URL },
+        handler: async () => Response.json({ code }, { status: 422 }),
+      }),
+    });
+
+  test('tells the person the new address cannot receive email', async () => {
+    const undeliverable = await refusedWith('EMAIL_UNDELIVERABLE').POST(post());
+    const other = await refusedWith('SOMETHING_ELSE').POST(post());
+    const [undeliverablePage, otherPage] = await Promise.all([
+      undeliverable.text(),
+      other.text(),
+    ]);
+    assert({
+      given:
+        'the approval hop answering 422 EMAIL_UNDELIVERABLE, next to a 422 with another code',
+      should:
+        'render the cannot-receive-email page for the suppression only, and the expired-link page otherwise',
+      actual: {
+        undeliverable: [
+          undeliverable.status,
+          undeliverablePage.includes('cannot receive email'),
+        ],
+        other: [other.status, otherPage.includes('can no longer be used')],
+      },
+      expected: { undeliverable: [422, true], other: [400, true] },
+    });
+  });
+});

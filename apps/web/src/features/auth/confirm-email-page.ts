@@ -9,6 +9,7 @@ import {
 export type EmailConfirmView =
   | { readonly kind: 'confirm'; readonly token: string }
   | { readonly kind: 'expired' }
+  | { readonly kind: 'undeliverable' }
   | { readonly kind: 'done'; readonly callbackURL: string }
   | { readonly kind: 'incomplete'; readonly callbackURL: string };
 
@@ -17,6 +18,9 @@ const confirmBody = (view: Extract<EmailConfirmView, { kind: 'confirm' }>) =>
 
 const expiredBody =
   '<h1>This link can no longer be used</h1><p>It may have expired or already been used. Start the email change again from account security settings.</p>';
+
+const undeliverableBody =
+  '<h1>The new address cannot receive email</h1><p>Mail to that address bounced or was reported, so we cannot send it the confirmation and the change cannot finish. Start the email change again from account security settings with a different address.</p>';
 
 const doneBody = (view: Extract<EmailConfirmView, { kind: 'done' }>) =>
   `<h1>Done</h1><p>Continue to <a href="${escapeHtml(view.callbackURL)}">account security settings</a>.</p>`;
@@ -33,7 +37,9 @@ const bodyFor = (view: EmailConfirmView) =>
       ? doneBody(view)
       : view.kind === 'incomplete'
         ? incompleteBody(view)
-        : expiredBody;
+        : view.kind === 'undeliverable'
+          ? undeliverableBody
+          : expiredBody;
 
 /** Server-rendered, script-free and asset-free: nothing to prefetch or leak. */
 export function renderEmailConfirmPage(

@@ -84,7 +84,8 @@ recipient hour and day ceilings and the whole-application day ceiling.
   keyed hash only). Requests for it answer `422 EMAIL_UNDELIVERABLE` with
   guidance to use a passkey or another address; existing sessions and passkeys
   are untouched. No auth mail is sent to it at all: an email change to or
-  from it is refused with the same `422`, and a passkey added/removed notice
+  from it is refused with the same `422` (a change to it when requested,
+  before any approval mail), and a passkey added/removed notice
   is skipped and logged as `auth.mail.suppressed` (ADR 0025). Clearing a suppression is an explicit operator action on that
   table and should follow confirmation that the mailbox is fixed.
 - Diagnostics: `email_delivery` (message ID, status rank, recipient hash) and

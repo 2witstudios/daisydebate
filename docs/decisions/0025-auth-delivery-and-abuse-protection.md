@@ -119,11 +119,15 @@ token>` as the `verification.identifier`. The subject (the email for
 EMAIL_UNDELIVERABLE` the sign-in gate does. A passkey notice is
   best-effort, so the change it reports still completes. A ledger outage
   fails the send: required mail fails closed with the retryable `503`, and
-  a notice logs `auth.passkey.notification_failed`. The sign-in gate keeps
-  its own check before a token is created, so a suppressed address leaves
-  no stored link. An email change to a suppressed new address is refused
-  only at the approval hop, after the approval link has been used, and the
-  person starts again with another address.
+  a notice logs `auth.passkey.notification_failed`. Two requests also check
+  the ledger before any token is created or mail sent, through one shared
+  check (`suppression-check.ts`): the sign-in gate, so a suppressed address
+  leaves no stored link, and `/change-email` for the new address
+  (ISSUE-104). The email change checks before it looks the address up, so
+  its `422` answers the same whether or not the address has an account. An
+  address suppressed after the request is still refused at the approval
+  hop, where the confirm page says the new address cannot receive email and
+  the person starts again with another address.
 - **Trusted client identity — one resolver.** Better Auth's `advanced.ipAddress`
   is fixed to `{ ipAddressHeaders: [CLIENT_IP_HEADER] }`, the internal
   `x-daisy-client-ip` header, with no deployment-configurable header list and

@@ -1,9 +1,8 @@
 import type { BetterAuthPlugin } from 'better-auth';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
-import { normalizeEmail, recipientKey } from './recipient-key';
+import { normalizeEmail } from './recipient-key';
 import { safeLocalDestination } from './redirect';
-import { unavailable } from './public-errors';
-import type { AuthDeliveryLedger } from './mail-types';
+import type { SuppressionCheck } from './suppression-check';
 
 type MagicLinkBody = {
   readonly email?: unknown;
@@ -30,47 +29,31 @@ function assertLocalDestinations(body: MagicLinkBody) {
       });
 }
 
+const SIGN_IN_REFUSALS = {
+  unavailable: 'Sign-in is temporarily unavailable. Please try again shortly.',
+  undeliverable:
+    'We cannot send sign-in emails to this address. Sign in with a passkey or use a different address.',
+};
+
 /**
  * Pre-send gate for `/sign-in/magic-link` (runs after the rate-limit gate):
- * destination validation and the suppression check. A ledger failure is a
- * safe 503 — never an allow.
+ * destination validation and the suppression check.
  */
-function createMagicLinkGate(dependencies: {
-  readonly recipientSubkey: string;
-  readonly ledger: AuthDeliveryLedger;
-}) {
+function createMagicLinkGate(checkSuppression: SuppressionCheck) {
   return async (body: MagicLinkBody | undefined) => {
     assertLocalDestinations(body ?? {});
     const email =
       typeof body?.email === 'string' ? normalizeEmail(body.email) : '';
     if (!email) return;
-    let suppressed: boolean;
-    try {
-      suppressed = await dependencies.ledger.isSuppressed(
-        recipientKey(dependencies.recipientSubkey, email),
-      );
-    } catch {
-      throw unavailable(
-        'AUTH_TEMPORARILY_UNAVAILABLE',
-        'Sign-in is temporarily unavailable. Please try again shortly.',
-      );
-    }
-    if (suppressed)
-      // A prior hard bounce or complaint: never loop automatic resends.
-      throw new APIError('UNPROCESSABLE_ENTITY', {
-        code: 'EMAIL_UNDELIVERABLE',
-        message:
-          'We cannot send sign-in emails to this address. Sign in with a passkey or use a different address.',
-      });
+    await checkSuppression(email, SIGN_IN_REFUSALS);
   };
 }
 
 /** Runs after the rate-limit gate: a throttled request does no lookups. */
-export function createMagicLinkGatePlugin(dependencies: {
-  readonly recipientSubkey: string;
-  readonly ledger: AuthDeliveryLedger;
-}): BetterAuthPlugin {
-  const gate = createMagicLinkGate(dependencies);
+export function createMagicLinkGatePlugin(
+  checkSuppression: SuppressionCheck,
+): BetterAuthPlugin {
+  const gate = createMagicLinkGate(checkSuppression);
   return {
     id: 'daisy-magic-link-gate',
     hooks: {

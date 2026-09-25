@@ -14,6 +14,7 @@ import {
 } from './emailed-link-token';
 import { emailChangePlugin, type CompleteEmailChange } from './email-change';
 import { createMagicLinkGatePlugin } from './magic-link-gate';
+import { createSuppressionCheck } from './suppression-check';
 import { freshSessionGatePlugin } from './fresh-session-gate';
 import { browserSessionShapePlugin } from './browser-session-shape';
 import { passkeyDeviceHintPlugin } from './passkey-device-hint';
@@ -77,10 +78,8 @@ const composeBetterAuth = (dependencies: {
 }) => {
   const { config, ledger, recipientSubkey } = dependencies;
   const origin = new URL(config.PUBLIC_APP_URL).origin;
-  const magicLinkGatePlugin = createMagicLinkGatePlugin({
-    recipientSubkey,
-    ledger,
-  });
+  const checkSuppression = createSuppressionCheck({ recipientSubkey, ledger });
+  const magicLinkGatePlugin = createMagicLinkGatePlugin(checkSuppression);
   const instance = betterAuth({
     baseURL: config.PUBLIC_APP_URL,
     trustedOrigins: [origin],
@@ -204,6 +203,7 @@ const composeBetterAuth = (dependencies: {
         deliver: dependencies.deliver,
         clock: dependencies.clock,
         completeEmailChange: dependencies.completeEmailChange,
+        checkSuppression,
       }),
       freshSessionGatePlugin,
       sessionRevokedOutboxPlugin(

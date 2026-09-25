@@ -111,34 +111,74 @@ describe('ISSUE-54 notifications honour suppression', () => {
     });
   });
 
-  test('an email change to a suppressed new address never mails its confirmation there', async () => {
+  test('an email change to a suppressed new address is refused when requested, account or not', async () => {
     const { email, cookie } = await signUp();
-    // The new address hard-bounced a sign-in link mailed to it earlier.
+    // One suppressed address with no account (it hard-bounced a sign-in
+    // link), one suppressed address that belongs to another account.
+    const unclaimed = testApp.freshEmail();
+    await flows.account.flows.requestLink(unclaimed);
+    await hardBounce(unclaimed);
+    const { email: claimed } = await signUp();
+    await hardBounce(claimed);
+    const before = mailbox.mails.length;
+    const refusals = [];
+    for (const newEmail of [unclaimed, claimed]) {
+      const response = await flows.changeEmail(cookie, newEmail);
+      refusals.push({
+        status: response.status,
+        code: ((await response.json()) as { code?: string }).code,
+      });
+    }
+    assert({
+      given:
+        'a signed-in account asking to move to a suppressed address, once with no account there and once with one',
+      should:
+        'answer 422 EMAIL_UNDELIVERABLE both times, before any approval mail reaches the current address',
+      actual: { refusals, sentToCurrent: mailsTo(email, before) },
+      expected: {
+        refusals: [
+          { status: 422, code: 'EMAIL_UNDELIVERABLE' },
+          { status: 422, code: 'EMAIL_UNDELIVERABLE' },
+        ],
+        sentToCurrent: 0,
+      },
+    });
+  });
+
+  test('an approval whose confirmation mail is refused as suppressed says the new address cannot receive email', async () => {
+    const { email, cookie } = await signUp();
+    // Deliverable when requested; it hard-bounces a sign-in link mailed
+    // earlier before the current inbox approves.
     const newEmail = testApp.freshEmail();
     await flows.account.flows.requestLink(newEmail);
-    await hardBounce(newEmail);
     const before = mailbox.mails.length;
     const requested = await flows.changeEmail(cookie, newEmail);
     const notice = mailbox.mails[before];
+    await hardBounce(newEmail);
     const approved = await flows.confirmEmailPost(
       notice ? tokenOf(linkFrom(notice)) : '',
     );
+    const page = await approved.text();
     assert({
       given:
-        'an email change to an address that hard-bounced, approved from the current address',
+        'an email change requested to a deliverable address that is suppressed before the current inbox approves it',
       should:
-        'mail the approval notice to the current address, then refuse the approval without mailing the suppressed new address',
+        'mail nothing to the new address and show a page saying it cannot receive email, not the expired-link page',
       actual: {
         requestStatus: requested.status,
         noticeTo: notice?.to,
         approvedStatus: approved.status,
         sentToSuppressed: mailsTo(newEmail, before),
+        saysUndeliverable: page.includes('cannot receive email'),
+        saysExpired: page.includes('can no longer be used'),
       },
       expected: {
         requestStatus: 200,
         noticeTo: email,
-        approvedStatus: 400,
+        approvedStatus: 422,
         sentToSuppressed: 0,
+        saysUndeliverable: true,
+        saysExpired: false,
       },
     });
   });
