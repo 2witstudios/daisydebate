@@ -62,8 +62,16 @@ export async function applyDevSeed({
             target: users.id,
             set: {
               username: sql`excluded.username`,
-              email: sql`excluded.email`,
-              emailVerified: sql`excluded.email_verified`,
+              // A seed entry that omits email/emailVerified must not wipe a
+              // value an earlier run (or another writer) already set: only
+              // overwrite the column this entry actually specifies, never
+              // force it back to null/false on every reseed (AUTH-7.6 review).
+              email:
+                person.email === undefined ? users.email : sql`excluded.email`,
+              emailVerified:
+                person.emailVerified === undefined
+                  ? users.emailVerified
+                  : sql`excluded.email_verified`,
             },
           });
         await tx
