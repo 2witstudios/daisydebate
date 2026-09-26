@@ -8,9 +8,10 @@
  * hard limits are the machine identity and the main ruleset.
  */
 import { existsSync, readlinkSync } from 'node:fs';
-import { dirname, isAbsolute, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, resolve } from 'node:path';
 import {
   allow,
+  autonomousOnly,
   branchName,
   combine,
   deny,
@@ -19,14 +20,21 @@ import {
   pushTargetVerdict,
   isAgentSession,
   resolveFrom,
+  unresolvedNameVerdict,
   unwrap,
   type GuardFacts,
+  type Invocation,
   type Rule,
   type Verdict,
 } from './agent-guard-rules';
 import { isProtectedFile, loopState } from './agent-guard-files';
 import { gh } from './agent-guard-gh';
 import { git } from './agent-guard-git';
+import {
+  canonicalInterpreterName,
+  interpreter,
+  opaque,
+} from './agent-guard-interpreters';
 import { kill, otherKillers } from './agent-guard-process';
 import { bun, docker } from './agent-guard-stacks';
 import { identityRegime } from './agent-identity';
@@ -35,6 +43,19 @@ import { deriveSlot } from './slot-model';
 import { parseShell } from './shell-command';
 
 const shells = new Set(['sh', 'bash', 'zsh', 'dash']);
+
+/**
+ * The guarded executables (ADR 0035 §6): every one an autonomous agent can
+ * reach whose parsed (subcommand, flags) are checked against the operations
+ * this session allows, rather than against a list of banned spellings. An
+ * executable's rule is itself the allowlist: it resolves the operation the
+ * invocation performs and returns `allow` only for a form it recognizes as
+ * permitted, `deny`/`ask` for one it recognizes as not, and `deny` (for an
+ * autonomous agent) for a shape it cannot resolve with confidence, such as
+ * git's unrecognized push destination (agent-guard-git.ts) or an unowned
+ * kill target (agent-guard-process.ts). Everything outside this table is
+ * read-only or local by construction and is not a guarded operation.
+ */
 const rules: Readonly<Record<string, Rule>> = {
   git,
   gh,
@@ -48,7 +69,122 @@ const rules: Readonly<Record<string, Rule>> = {
   docker,
   'docker-compose': docker,
   bun,
+  ssh: opaque,
+  make: opaque,
+  python: interpreter,
+  python2: interpreter,
+  python3: interpreter,
+  node: interpreter,
+  nodejs: interpreter,
+  perl: interpreter,
+  ruby: interpreter,
+  php: interpreter,
+  awk: interpreter,
+  osascript: interpreter,
 };
+
+// find's actions that run another command: the command and its own
+// arguments follow, up to a bare ; or + terminator.
+const FIND_EXECS = new Set(['-exec', '-execdir', '-ok', '-okdir']);
+
+/** The argv of each command find's -exec/-execdir/-ok/-okdir would run. */
+function findExecInvocations(args: readonly string[]): readonly string[][] {
+  const invocations: string[][] = [];
+  for (let index = 0; index < args.length; index += 1) {
+    if (!FIND_EXECS.has(args[index])) continue;
+    const start = index + 1;
+    let end = start;
+    while (end < args.length && args[end] !== ';' && args[end] !== '+')
+      end += 1;
+    invocations.push(args.slice(start, end));
+    index = end;
+  }
+  return invocations;
+}
+
+// xargs templates its command from stdin at run time with -I/-i/-J; the
+// resolved argv the guard would otherwise see is a placeholder, not what
+// actually runs.
+const isXargsTemplateFlag = (arg: string): boolean =>
+  /^-[IiJ]/.test(arg) || arg === '--replace' || arg.startsWith('--replace=');
+
+function xargsTemplates(words: readonly string[]): boolean {
+  const [head, ...rest] = words;
+  return (
+    (head !== undefined ? basename(head) : '') === 'xargs' &&
+    rest.some(isXargsTemplateFlag)
+  );
+}
+const XARGS_TEMPLATE_REASON =
+  'xargs -I/-i/-J templates its command from stdin at run time; the guard cannot verify what it will run. Run the resolved command directly.';
+
+const FIND_PLACEHOLDER_REASON =
+  'find substitutes {} with the matched path at run time; the guard cannot verify what program or script that path names. Run the resolved command directly.';
+
+/**
+ * Whether find's {} placeholder names the -exec'd program itself, or is the
+ * whole script a recognized shell's -c would run: both are resolved only at
+ * run time, from whatever path find matched, so classifying the literal
+ * "{}" proves nothing. {} used as an ordinary argument (`grep -l {}`) is
+ * unaffected.
+ */
+function usesFindPlaceholder(words: readonly string[]): boolean {
+  const [name = '', ...rest] = words;
+  if (name === '{}') return true;
+  if (!shells.has(basename(name))) return false;
+  const input = shellInput(rest);
+  return 'script' in input && input.script === '{}';
+}
+
+/**
+ * Judges what one already-unwrapped invocation runs: a shell recurses, eval
+ * recurses, a guarded executable's own rule applies, and find's -exec family
+ * recurses into argv the guard never re-parses as shell text (find hands it
+ * words directly, not a shell string). This is the one dispatch both
+ * `classifyCommand`'s per-line loop and a nested find -exec/-execdir/-ok/
+ * -okdir command go through.
+ */
+function classifyInvocation(
+  invocation: Invocation,
+  facts: GuardFacts,
+  cwd: string,
+): Verdict {
+  const [name = '', ...args] = invocation.words;
+  const verdicts: Verdict[] = [
+    unresolvedNameVerdict(name, facts),
+    identityVerdict(name, args, facts),
+  ];
+  const rule = rules[name] ?? rules[canonicalInterpreterName(name)];
+  if (shells.has(name)) verdicts.push(shellVerdict(args, { ...facts, cwd }));
+  else if (name === 'eval')
+    verdicts.push(classifyCommand(args.join(' '), { ...facts, cwd }));
+  else if (rule) verdicts.push(rule(invocation, facts, cwd));
+  else if (name === 'find')
+    verdicts.push(
+      ...findExecInvocations(args).flatMap((inner) => [
+        usesFindPlaceholder(inner)
+          ? autonomousOnly(facts, FIND_PLACEHOLDER_REASON)
+          : allow,
+        // Checked on the raw argv, before unwrap can strip xargs away and
+        // leave only the command it templates (agent-guard-rules.ts's
+        // wrapperValueOptions.xargs resolves straight past it otherwise).
+        xargsTemplates(inner)
+          ? autonomousOnly(facts, XARGS_TEMPLATE_REASON)
+          : allow,
+        classifyInvocation(
+          unwrap({
+            words: inner,
+            assignments: {},
+            redirects: [],
+            dynamic: false,
+          }),
+          facts,
+          cwd,
+        ),
+      ]),
+    );
+  return combine(verdicts);
+}
 
 // Shell options that take the next word as their value.
 const SHELL_VALUE_OPTIONS = new Set([
@@ -99,18 +235,15 @@ export function classifyCommand(command: string, given: GuardFacts): Verdict {
   const verdicts: Verdict[] = [];
   let cwd = facts.cwd;
   for (const simple of parseShell(command)) {
+    if (xargsTemplates(simple.words))
+      verdicts.push(autonomousOnly(facts, XARGS_TEMPLATE_REASON));
     const invocation = unwrap(simple);
-    const [name = '', ...args] = invocation.words;
-    verdicts.push(identityVerdict(name, args, facts));
+    const [name, ...args] = invocation.words;
     verdicts.push(guardVariables(invocation, facts));
     verdicts.push(loopState(simple, invocation, facts, cwd));
     if (name === 'cd' || name === 'pushd')
       cwd = resolveFrom(cwd, args[0] ?? '~', facts.home);
-    else if (shells.has(name))
-      verdicts.push(shellVerdict(args, { ...facts, cwd }));
-    else if (name === 'eval')
-      verdicts.push(classifyCommand(args.join(' '), { ...facts, cwd }));
-    else if (rules[name]) verdicts.push(rules[name](invocation, facts, cwd));
+    else verdicts.push(classifyInvocation(invocation, facts, cwd));
   }
   return combine(verdicts);
 }

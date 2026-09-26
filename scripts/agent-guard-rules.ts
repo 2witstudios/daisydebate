@@ -77,6 +77,30 @@ export function combine(verdicts: readonly Verdict[]): Verdict {
 export const isWithin = (path: string, root: string): boolean =>
   path === root || path.startsWith(`${root}/`);
 
+// A word still carrying '$' (an unexpanded variable) or the parser's marker
+// for a command substitution it resolved statically (shell-command.ts's
+// SUBSTITUTED, a lone U+0000) names no known program.
+const isUnresolvedName = (name: string): boolean =>
+  name.includes('$') || name.includes('\u0000');
+
+/**
+ * A command whose executable name is built from a variable or a command
+ * substitution cannot be judged with confidence: the guard does not run the
+ * shell to find out what it resolves to. Fail closed for an autonomous
+ * agent instead of matching against a name no rule recognizes.
+ */
+export function unresolvedNameVerdict(
+  name: string,
+  facts: GuardFacts,
+): Verdict {
+  return isUnresolvedName(name)
+    ? autonomousOnly(
+        facts,
+        'The guard cannot tell which program this command runs: its name comes from a variable or a command substitution, not a literal word. Run the resolved command directly.',
+      )
+    : allow;
+}
+
 /**
  * A path argument as the shell would resolve it: ~, $HOME and $PWD are
  * expanded (the parser leaves them literal), then it is resolved from cwd.
