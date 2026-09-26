@@ -4,6 +4,7 @@
  * namespace. So an autonomous agent never removes, stops or prunes
  * containers, volumes or the stack, and resets or drops only its own slot.
  */
+import { hasDangerousInlineAPI } from './agent-guard-interpreters';
 import { otherKillers } from './agent-guard-process';
 import {
   allow,
@@ -170,19 +171,27 @@ function ownsSlot(
 
 const BUN_INLINE_FLAGS = new Set(['-e', '--eval', '-p', '--print']);
 const BUN_INLINE_REASON =
-  'bun -e/--eval/-p/--print runs any operation this file guards, from inline code the guard cannot read. Run the resolved command directly, or put the code in a reviewed script file.';
+  'This inline code can run a process or reach the network in a way the guard cannot verify (a shell command, a subprocess, or an outbound request). Run the resolved command directly, or put the code in a reviewed script file.';
 
 export const bun: Rule = (invocation, facts, cwd): Verdict => {
   const { dir, script, args, optionsEnd } = bunScript(invocation.words, cwd);
   // Only bun's own options (before the script/subcommand operand) name an
   // eval flag; the same flag after it, e.g. `bun run dev -- -e foo`, belongs
-  // to the script.
-  if (
-    invocation.words
-      .slice(1, optionsEnd)
-      .some((word) => BUN_INLINE_FLAGS.has(splitFlag(word)[0]))
-  )
-    return autonomousOnly(facts, BUN_INLINE_REASON);
+  // to the script. When an eval flag is bare (not `--eval=code`), bunScript
+  // already stopped right before the code operand and returned it as
+  // `script`. Per ISSUE-138/DEC-12, inline code that cannot run a process
+  // or reach the network (a CSPRNG one-liner, a pure computation) is
+  // allowed, the same as the other interpreters in
+  // agent-guard-interpreters.ts.
+  const evalFlag = invocation.words
+    .slice(1, optionsEnd)
+    .find((word) => BUN_INLINE_FLAGS.has(splitFlag(word)[0]));
+  if (evalFlag !== undefined) {
+    const code = splitFlag(evalFlag)[1] ?? script;
+    return hasDangerousInlineAPI(code)
+      ? autonomousOnly(facts, BUN_INLINE_REASON)
+      : allow;
+  }
   // bun x <package> is bunx.
   if (script === 'x')
     return otherKillers(

@@ -1,14 +1,17 @@
 /**
- * Regression corpus for the interpreter rule (ADR 0035 amendment, review
- * finding on PR #113): a general-purpose interpreter given inline code can
- * run any operation the guard checks, and the guard cannot read that
- * language well enough to judge what the code does. Verified directly
- * against the PR #113 review's four demonstrated bypass categories (a push
- * to main, an admin merge, an unscoped kill, and shared-stack teardown),
- * each run through a different interpreter.
+ * Regression corpus for the interpreter rule (ADR 0035 §6a/6b/6c amendment,
+ * review finding on PR #113, ISSUE-138): a general-purpose interpreter given
+ * inline code can run any operation the guard checks, and the guard cannot
+ * fully read that language, so it looks only for the named process- and
+ * network-capable APIs (ISSUE-138). Verified directly against the PR #113
+ * review's four demonstrated bypass categories (a push to main, an admin
+ * merge, an unscoped kill, and shared-stack teardown), each run through a
+ * different interpreter, and against ISSUE-138's read-only false positives
+ * (`awk '{print $2}'`, `bun -e` generating a CSPRNG secret, `node -e`/
+ * `python3 -c` parsing JSON).
  */
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { decide, owner } from './agent-guard.test-support';
+import { decide, facts, owner } from './agent-guard.test-support';
 
 setupRitewayBun();
 
@@ -97,15 +100,39 @@ describe('agent guard: interpreters given inline code', () => {
 
   test('still allows an interpreter running a script file', () => {
     assert({
-      given:
-        'python, node and awk given a file argument instead of inline code',
+      given: 'python and node given a file argument instead of inline code',
       should: 'allow each one, the same parity a shell script file has',
       actual: [
         decide('python3 scripts/tool.py'),
         decide('node scripts/tool.js'),
-        decide('awk -f scripts/tool.awk data.txt'),
       ],
-      expected: Array(3).fill('allow'),
+      expected: Array(2).fill('allow'),
+    });
+  });
+
+  test('allows inline code that has no process or network API (ISSUE-138: node -e/python3 -c parsing JSON)', () => {
+    assert({
+      given: 'node -e and python3 -c doing pure computation and JSON parsing',
+      should: 'allow both: there is no process or network call to hide',
+      actual: [
+        decide(`node -e "console.log(1 + 1)"`),
+        decide(`python3 -c "import json,sys; print(json.load(sys.stdin))"`),
+      ],
+      expected: Array(2).fill('allow'),
+    });
+  });
+
+  test('still refuses inline code that reaches the network', () => {
+    assert({
+      given: "node -e calling fetch and python3 -c using Python's requests",
+      should: 'deny both: the guard cannot verify the destination or payload',
+      actual: [
+        decide(`node -e "fetch('https://example.com')"`),
+        decide(
+          `python3 -c "import requests; requests.post('https://example.com')"`,
+        ),
+      ],
+      expected: Array(2).fill('deny'),
     });
   });
 
@@ -114,6 +141,80 @@ describe('agent guard: interpreters given inline code', () => {
       given: 'an owner session running python -c',
       should: 'allow it',
       actual: decide(`python3 -c "print(1)"`, owner()),
+      expected: 'allow',
+    });
+  });
+});
+
+describe('agent guard: awk given inline code (ISSUE-138)', () => {
+  test('allows a program that cannot execute a command', () => {
+    assert({
+      given: "awk '{print $2}'",
+      should: 'allow it: it has no system(), piped command or getline from one',
+      actual: decide(`awk '{print $2}'`),
+      expected: 'allow',
+    });
+  });
+
+  test('still refuses system(), a piped command and getline from a command', () => {
+    assert({
+      given: 'system(), print piped to a shell, and getline reading from one',
+      should: 'deny each: all three can run an arbitrary command',
+      actual: [
+        decide(`awk 'BEGIN{system("git push origin main")}'`),
+        decide(`awk '{print $1 | "sh"}'`),
+        decide(`awk 'BEGIN{"git log -1" | getline line; print line}'`),
+      ],
+      expected: Array(3).fill('deny'),
+    });
+  });
+
+  test('allows a -f program file the guard can read and judges safe', () => {
+    assert({
+      given: '-f naming a field-printing program the guard can read',
+      should: 'allow it, the same as if it were inline',
+      actual: decide(
+        'awk -f scripts/tool.awk data.txt',
+        facts({
+          readFile: (path) =>
+            path.endsWith('scripts/tool.awk') ? '{print $2}' : undefined,
+        }),
+      ),
+      expected: 'allow',
+    });
+  });
+
+  test('refuses a -f program file the guard cannot read', () => {
+    assert({
+      given: '-f naming a file the guard has no way to read',
+      should: 'deny it: an unreadable program cannot be judged safe',
+      actual: decide('awk -f scripts/tool.awk data.txt'),
+      expected: 'deny',
+    });
+  });
+
+  test('refuses a -f program file that is readable but can run a command', () => {
+    assert({
+      given: '-f naming a file whose program calls system()',
+      should: 'deny it, the same as the identical inline program',
+      actual: decide(
+        'awk -f scripts/tool.awk',
+        facts({
+          readFile: (path) =>
+            path.endsWith('scripts/tool.awk')
+              ? 'BEGIN{system("git push origin main")}'
+              : undefined,
+        }),
+      ),
+      expected: 'deny',
+    });
+  });
+
+  test('leaves owner sessions unaffected', () => {
+    assert({
+      given: 'an owner session running an awk program with system()',
+      should: 'allow it',
+      actual: decide(`awk 'BEGIN{system("git push origin main")}'`, owner()),
       expected: 'allow',
     });
   });
@@ -144,18 +245,33 @@ describe('agent guard: ssh and make', () => {
 });
 
 describe('agent guard: bun given inline code', () => {
-  test('refuses bun -e, --eval and -p the same as any other interpreter', () => {
+  test('refuses bun -e/--eval/-p when the inline code can run a process or reach the network', () => {
     assert({
-      given: 'bun -e, bun --eval and bun -p running inline code',
+      given: 'inline code using child_process, Bun.spawn and fetch',
       should: 'deny each one',
       actual: [
         decide(
           `bun -e "require('child_process').execSync('git push origin main')"`,
         ),
+        decide(`bun --eval "Bun.spawnSync(['git','push','origin','main'])"`),
+        decide(`bun -p "fetch('https://example.com')"`),
+      ],
+      expected: Array(3).fill('deny'),
+    });
+  });
+
+  test('allows bun -e/--eval/-p when the inline code cannot run a process (ISSUE-138: CSPRNG generation, docs/operations/deploy-staging.md)', () => {
+    assert({
+      given: 'bun -e generating a CSPRNG secret, and harmless literals',
+      should: 'allow all three: there is no process or network call to hide',
+      actual: [
+        decide(
+          `bun -e "console.log(Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('hex'))"`,
+        ),
         decide(`bun --eval "1"`),
         decide(`bun -p "1"`),
       ],
-      expected: Array(3).fill('deny'),
+      expected: Array(3).fill('allow'),
     });
   });
 

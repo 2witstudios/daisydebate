@@ -489,6 +489,51 @@ residual risk or filed follow-ups, not silent gaps: the point of this
 amendment is that what is not yet covered is a short, named list, not an
 unbounded one.
 
+### 6c. awk and interpreter false positives (2026-09-25 amendment, ISSUE-138)
+
+Section 6b's blanket refusal of every named interpreter's inline code
+denied `awk '{print $2}'`, a read-only agent shell command, and blocked the
+orchestrator (2026-09-25). Per the owner's confirmed stance (DEC-12): this
+guard is accident prevention, not a security boundary, until the separate
+agent identity at GRD-6.2, so a false positive that blocks normal read-only
+agent work costs more than the bypass it would close. This amendment keeps
+6b's fail-closed default — inline code the guard cannot judge safe is still
+refused — but narrows what counts as unsafe from "every inline invocation"
+to "inline code that names a process- or network-capable API."
+
+- **awk** (`scripts/agent-guard-interpreters.ts`) now parses its own
+  program text instead of refusing every inline program outright: it is
+  refused only when it can run a command — `system(`, `print`/`printf`
+  piped to a command (`print $1 | "cmd"`), or `"cmd" | getline` — and
+  allowed otherwise (`awk '{print $2}'`, `awk -F, '{print $1}'`, …). A `-f`
+  program **file** is now read and judged by the same rule, rather than
+  allowed unconditionally as before: a file the guard cannot read (missing,
+  unreadable permissions, outside what `GuardFacts.readFile` resolves) is
+  refused, since it cannot be judged safe either. `GuardFacts` gained an
+  injected `readFile` seam for this (the same pattern as `branchOf`,
+  `databaseOf` and `processCwd`), keeping the rule itself a pure function of
+  its input.
+- **The other named interpreters** (`python`/`python2`/`python3`, `node`/
+  `nodejs`, `perl`, `ruby`, `php`, `osascript`, and `bun`'s own `-e`/
+  `--eval`/`-p`/`--print` in `scripts/agent-guard-stacks.ts`) keep 6b's
+  inline-flag detection, but the verdict now depends on the inline code
+  text: it is refused only when it contains a named process- or
+  network-capable API — `system(`/`popen(`, `subprocess`, `child_process`,
+  `Bun.spawn`, `exec`/`execSync`/`execFile`, `spawn`/`spawnSync`, `do shell
+script`, `fetch(`, the `http`/`https` module, `urllib`, `requests.get`/
+  `post`/`put`/`delete`/`patch` — and allowed otherwise
+  (`hasDangerousInlineAPI` in `scripts/agent-guard-interpreters.ts`, shared
+  by both files so the list is defined once). This closes the concrete
+  false positives named at ISSUE-138's origin: `bun -e` generating a CSPRNG
+  secret (`docs/operations/deploy-staging.md`), and `node -e`/`python3 -c`
+  doing pure computation or parsing JSON. It is a named, bounded list of
+  APIs, the same kind of disclosed residual as 6b's named list of
+  interpreters: an API this list does not name (a less common HTTP client,
+  a language-specific process primitive not listed above) is not detected,
+  and inline code that reaches one is not refused by this rule. `ssh` and
+  `make` are unaffected by this amendment — section 6b's outright refusal,
+  with no inline-code exception, still applies to both.
+
 ### 7. PR loops that can finish
 
 - **Escalate.** `bun loop:escalate <needs-owner|blocked|stalled|out-of-scope> "<detail>"`
