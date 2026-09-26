@@ -114,7 +114,7 @@ describe('AUTH-4.2 username claim', () => {
         { username: 42 },
         {},
         { username: uniqueName(), userId: 'someone-else' },
-        { username: uniqueName(), role: 'admin' },
+        { username: uniqueName(), role: 'moderator' },
         [uniqueName()],
       ].map(async (body) => (await claim(cookie, body)).status),
     );

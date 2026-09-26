@@ -50,6 +50,10 @@ and detailed procedures in the linked documents, not here.
 - No Rust, Kubernetes, Kafka, event sourcing, second Redis client, speculative
   shared package, or second validation/error/state-management library in this
   foundation without an explicit architectural decision.
+- No admin screens or admin-only routes in `apps/web`: admins get a
+  separate future admin app with its own accounts and a signed internal
+  API (`scripts/check-boundaries.ts` enforces this mechanically); see
+  [ADR 0043](docs/decisions/0043-no-admin-surface-in-participant-app.md).
 
 ## Design constraints
 

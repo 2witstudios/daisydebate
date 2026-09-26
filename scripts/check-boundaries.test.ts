@@ -1,4 +1,5 @@
 import {
+  adminSurfaceIssue,
   adobeIsolationIssue,
   adobeWorkspaces,
   allowedWorkspaceDependencies,
@@ -212,6 +213,58 @@ describe('workspace deep imports', () => {
       should: 'leave it to the dependency rules',
       actual: deepImportIssue('drizzle-orm/pg-core', exportsOf),
       expected: null,
+    });
+  });
+});
+
+describe('no admin surface in the participant app (ADR 0043)', () => {
+  test('flags an admin route segment under the app router', () => {
+    assert({
+      given:
+        'a route segment named admin, plain or grouped, under apps/web/src/app',
+      should: 'report an admin surface issue',
+      actual: [
+        'apps/web/src/app/admin/page.tsx',
+        'apps/web/src/app/(admin)/dashboard/page.tsx',
+        'apps/web/src/app/api/admin/route.ts',
+      ].map((file) => adminSurfaceIssue(file)),
+      expected: [
+        'apps/web/src/app/admin/page.tsx: admin surface in the participant app (ADR 0043)',
+        'apps/web/src/app/(admin)/dashboard/page.tsx: admin surface in the participant app (ADR 0043)',
+        'apps/web/src/app/api/admin/route.ts: admin surface in the participant app (ADR 0043)',
+      ],
+    });
+  });
+
+  test('flags a feature or module named admin anywhere under apps/web', () => {
+    assert({
+      given: 'a feature directory or a module file named admin',
+      should: 'report an admin surface issue',
+      actual: [
+        'apps/web/src/features/admin/index.ts',
+        'apps/web/src/lib/admin.ts',
+        'apps/web/src/ui/admin.test.tsx',
+      ].map((file) => adminSurfaceIssue(file)),
+      expected: [
+        'apps/web/src/features/admin/index.ts: admin surface in the participant app (ADR 0043)',
+        'apps/web/src/lib/admin.ts: admin surface in the participant app (ADR 0043)',
+        'apps/web/src/ui/admin.test.tsx: admin surface in the participant app (ADR 0043)',
+      ],
+    });
+  });
+
+  test('leaves ordinary participant routes, features and near-miss names alone', () => {
+    assert({
+      given:
+        'legitimate participant paths and names that merely start with admin',
+      should: 'report no issue',
+      actual: [
+        'apps/web/src/app/(shell)/profile/page.tsx',
+        'apps/web/src/features/access/index.ts',
+        'apps/web/src/lib/administration.ts',
+        'packages/db/src/slots.ts',
+      ].map((file) => adminSurfaceIssue(file)),
+      expected: [null, null, null, null],
     });
   });
 });

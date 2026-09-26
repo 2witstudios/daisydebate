@@ -111,3 +111,20 @@ export const testSupportIssue = (
   /^@daisy\/[^/]+\/testing$/.test(specifier) && !TEST_CODE.test(importer)
     ? `production import of test support ${specifier}`
     : null;
+
+/**
+ * ADR 0043: the participant app hosts no admin routes or admin surfaces.
+ * Privileged operations are pure domain operations taking an explicit
+ * principal, wrapped later by a signed internal API for a separate admin
+ * app. A path segment counts whether it names a route (plain or grouped,
+ * e.g. `admin` or `(admin)`) or a file's base name (`admin.ts`,
+ * `admin.test.tsx`); `administration.ts` is a different word and passes.
+ */
+export const adminSurfaceIssue = (relativePath: string): string | null => {
+  if (!relativePath.startsWith('apps/web/src/')) return null;
+  const isAdminSegment = (segment: string) =>
+    segment.replace(/^\(|\)$/g, '').split('.')[0] === 'admin';
+  return relativePath.split('/').some(isAdminSegment)
+    ? `${relativePath}: admin surface in the participant app (ADR 0043)`
+    : null;
+};
