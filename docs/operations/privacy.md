@@ -14,8 +14,13 @@ it only points at the mechanism and answers "where do I look".
 Every field, column, Redis key and vendor-held record carries a category —
 `none | identifier | personal | sensitive | secret` — and, when `personal`,
 a visibility — `public | private`. See ADR 0036 §1 for the full definitions
-and the `users.username` / `users.email` worked examples. `sensitive` and
-`secret` values never reach any telemetry surface regardless of visibility.
+and the `users.username` / `users.email` worked examples. `personal`,
+`sensitive` and `secret` values never reach a log line, an error report or
+an analytics event, whatever a `personal` value's visibility. The outbox
+and realtime topic payloads are product data, not telemetry: a
+`personal`/`public` value such as a display name may ride one once it is
+classified in the inventory below; `sensitive` and `secret` values never
+appear in either.
 
 Identifiers are scoped per telemetry surface — logs, errors, analytics —
 never global; ADR 0036 §2 is the source of truth for which identifier a

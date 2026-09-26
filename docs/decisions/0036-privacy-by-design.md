@@ -55,9 +55,19 @@ CHECK requires `username IS NULL` on a tombstoned row, not a placeholder,
 so `anonymize` would misdescribe the already-merged schema. `users.email`
 is personal/private, purpose "authentication", erasure `delete`.
 
-`none` and `identifier` never require a visibility. `sensitive` and
-`secret` are never emitted to any telemetry surface at all, visibility
-notwithstanding.
+`none` and `identifier` never require a visibility. `personal`, `sensitive`
+and `secret` values never reach a log line, an error report or an analytics
+event, whatever the `personal` value's visibility — `packages/logger`'s
+`loggableFields` allowlist is the enforcement mechanism for logs today; the
+adapters in ADR 0037 are the mechanism for errors and analytics.
+
+This ban is on the three named surfaces, not on every persisted or
+transmitted representation: the outbox (`outbox.payload`) and realtime
+topic payloads are product data, not telemetry, so a `personal`/`public`
+value such as a display name may legitimately ride one once its column or
+field is classified in the inventory (§3) with `storage: postgres` (the
+outbox row) or `vendor` (the realtime fan-out). `sensitive` and `secret`
+values still never appear in either, regardless of classification.
 
 ### 2. Identifiers are scoped per telemetry surface, not global
 
