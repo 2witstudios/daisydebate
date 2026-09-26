@@ -58,16 +58,23 @@ is personal/private, purpose "authentication", erasure `delete`.
 `none` and `identifier` never require a visibility. `personal`, `sensitive`
 and `secret` values never reach a log line, an error report or an analytics
 event, whatever the `personal` value's visibility — `packages/logger`'s
-`loggableFields` allowlist is the enforcement mechanism for logs today; the
-adapters in ADR 0037 are the mechanism for errors and analytics.
+`loggableFields` allowlist enforces this by restricting which field names
+and kinds may appear in a log call at all; a `path` or `route` field's
+value must be a route pattern (e.g. `/profile/:username`), never a
+concrete URL, so a personal value cannot ride through it either (the
+allowlist does not yet enforce that shape; the gap is closed by PRIV-8).
+The adapters in ADR 0037 are the mechanism for errors and analytics.
 
 This ban is on the three named surfaces, not on every persisted or
-transmitted representation: the outbox (`outbox.payload`) and realtime
-topic payloads are product data, not telemetry, so a `personal`/`public`
-value such as a display name may legitimately ride one once its column or
-field is classified in the inventory (§3) with `storage: postgres` (the
-outbox row) or `vendor` (the realtime fan-out). `sensitive` and `secret`
-values still never appear in either, regardless of classification.
+transmitted representation: the outbox (`outbox.payload`) and every
+realtime topic payload are classified surfaces (§3), not telemetry — every
+field rides only once it is declared in the inventory, the same as a
+database column. Once classified, a `personal`/`public` value such as a
+display name may legitimately ride one; a `personal`/`private` value never
+may, and `sensitive` and `secret` values never appear in either regardless
+of classification. The payload's only storage is the `outbox` row
+(`storage: postgres`); realtime delivery is transient in-process fan-out
+inside `apps/realtime` (ADR 0031) and needs no separate storage entry.
 
 ### 2. Identifiers are scoped per telemetry surface, not global
 
@@ -109,12 +116,13 @@ missing from the inventory, or a `personal` entry missing `visibility`,
 gap 1 in the spec: `outbox.payload` (an untyped JSON column) and every
 realtime topic family (`debate`, `debate:presence`, `debate:chat`,
 `user:inbox`, `standings`, `packages/protocol/src/topics.ts`) are
-telemetry-visible surfaces under these same rules, not an exception —
-whether a given payload kind is delivered to a browser
-(the delivery-side rule) or stored only for the realtime service's own
-internal use (`isPayloadStorableOnTopic`), it classifies every field
-before it may exist (see [privacy](../operations/privacy.md) for the
-current split).
+classified surfaces under §1's rule, not an exception to it — a
+`personal`/`public` value may ride one once classified; `personal`/`private`,
+`sensitive` and `secret` values never may. Whether a given payload kind is
+delivered to a browser (the delivery-side rule) or stored only for the
+realtime service's own internal use (`isPayloadStorableOnTopic`), it
+classifies every field before it may exist (see [privacy](../operations/privacy.md)
+for the current split).
 
 The registry and its gate (`bun privacy`) are PRIV-3's mechanism; this ADR
 fixes the shape the gate enforces.

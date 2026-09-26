@@ -17,10 +17,11 @@ a visibility — `public | private`. See ADR 0036 §1 for the full definitions
 and the `users.username` / `users.email` worked examples. `personal`,
 `sensitive` and `secret` values never reach a log line, an error report or
 an analytics event, whatever a `personal` value's visibility. The outbox
-and realtime topic payloads are product data, not telemetry: a
-`personal`/`public` value such as a display name may ride one once it is
-classified in the inventory below; `sensitive` and `secret` values never
-appear in either.
+and every realtime topic payload are classified surfaces, not telemetry:
+every field rides only once it is declared in the inventory below. Once
+classified, a `personal`/`public` value such as a display name may ride
+one; `personal`/`private`, `sensitive` and `secret` values never appear in
+either.
 
 Identifiers are scoped per telemetry surface — logs, errors, analytics —
 never global; ADR 0036 §2 is the source of truth for which identifier a
@@ -48,11 +49,13 @@ once it lands, and will carry the PR-body entries into the inventory.
 Adding a column that holds personal data will get its own recipe in
 `docs/development/extending.md` at the same time.
 
-**`outbox.payload` and every realtime topic are telemetry-visible surfaces
-under these same rules, not an exception.** `outbox.payload`
-(`packages/db/src/schema/outbox.ts`) is an untyped JSON column, and two
-different exposure surfaces ride it (`packages/protocol/src/realtime-
-payloads.ts`):
+**`outbox.payload` and every realtime topic are classified surfaces under
+these same rules, not an exception.** `outbox.payload`
+(`packages/db/src/schema/outbox.ts`) is an untyped JSON column — its only
+storage is the `outbox` row (`storage: postgres`); realtime delivery from
+it is transient in-process fan-out inside `apps/realtime` (ADR 0031) and
+needs no separate storage entry — and two different exposure surfaces ride
+it (`packages/protocol/src/realtime-payloads.ts`):
 
 - **Delivered to a subscribed browser** (the delivery-side rule, added to
   `@daisy/protocol` with the first `event` sender): `debate.phase-changed` on `debate`,
@@ -75,7 +78,8 @@ Both surfaces still need inventory entries — the point of this section is
 that neither is an exemption, delivered or storage-only. Any payload kind
 made storable (`isPayloadStorableOnTopic`) or deliverable (the delivery-side rule) must
 classify every one of its fields the same way a database column would
-before it can ride a topic.
+before it can ride a topic: a `personal`/`public` value is allowed once
+classified; a `personal`/`private`, `sensitive` or `secret` value never is.
 
 ## Retention
 

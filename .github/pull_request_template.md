@@ -48,8 +48,10 @@ payload field, or analytics event.
 - Log events registered (registry entry), including any new
   `outbox.payload` kind or realtime topic-family payload field (an
   analytics event registry is deferred to PRIV-6):
-- No personal data in telemetry (no `personal`/`sensitive`/`secret` field
-  reaches a log, error report, analytics event, `outbox.payload` or
-  realtime topic message):
+- No personal data in telemetry (no `personal`, `sensitive` or `secret`
+  field reaches a log, error report or analytics event; an
+  `outbox.payload` kind or realtime topic message carries a
+  `personal`/`public` value only once classified in the inventory, never a
+  `personal`/`private`, `sensitive` or `secret` value):
 - Retention and erasure defined for any new personal-data column:
 - Consent category declared for any new client-side tracking:
