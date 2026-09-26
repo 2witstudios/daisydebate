@@ -2,7 +2,13 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { recordPath, serializeRecord } from './agent-registry';
 import { spawnAgent } from './agent-spawn';
 import { activeCount, parseSpawnArgs } from './agent-spawn-model';
-import { repo, fakeMachine, spawned } from './agent-spawn.test-support';
+import {
+  repo,
+  fakeMachine,
+  spawned,
+  reviewArgs,
+  working,
+} from './agent-spawn.test-support';
 
 setupRitewayBun();
 
@@ -51,7 +57,7 @@ describe('parseSpawnArgs for an autonomous agent', () => {
       given:
         'an agent spawning a reviewer, an agent spawning a leaf builder, and the owner setting each cap',
       should:
-        'use the per-role defaults (builder 3, reviewer 2) unless the owner sets one',
+        'use the per-role defaults (builder 3, reviewer uncapped) unless the owner sets one',
       actual: [
         planOf([...review, '--', 'Review PR #61'], true),
         planOf([...task, ...spawn], true),
@@ -59,7 +65,7 @@ describe('parseSpawnArgs for an autonomous agent', () => {
         planOf([...review, '--cap', '4', '--', 'Review'], false),
       ],
       expected: [
-        ['reviewer', 2, 'wt-8zirdrl0'],
+        ['reviewer', undefined, 'wt-8zirdrl0'],
         ['builder', 3, undefined],
         ['builder', 5, undefined],
         ['reviewer', 4, 'wt-8zirdrl0'],
@@ -143,23 +149,7 @@ describe('activeCount for builders', () => {
 });
 
 describe('bun agent:spawn for a reviewer', () => {
-  const reviewArgs = (worktree: string) => [
-    '--role',
-    'reviewer',
-    '--worktree',
-    worktree,
-    '--',
-    '-a',
-    'claude',
-    'Review PR #61',
-  ];
-  // A new agent still writing after the first round is working on its prompt.
-  const working = (machine: ReturnType<typeof fakeMachine>) => ({
-    ...machine.deps,
-    idleOf: () => 0,
-  });
-
-  test('joins the existing worktree and counts against the reviewer cap only', async () => {
+  test('joins the existing worktree and is not blocked by the builder cap', async () => {
     const machine = fakeMachine({ builders: 3, reviewers: 1 });
     const code = await spawnAgent(working(machine), reviewArgs('wt-b0'));
     assert({
@@ -186,27 +176,25 @@ describe('bun agent:spawn for a reviewer', () => {
     });
   });
 
-  test('refuses a reviewer for a worktree pu does not list, and at the reviewer cap', async () => {
+  test('refuses a reviewer for a worktree pu does not list, but never on reviewer count', async () => {
     const missing = fakeMachine({ builders: 1 });
-    const full = fakeMachine({ builders: 1, reviewers: 2 });
-    const owner = fakeMachine({ builders: 1, reviewers: 2, autonomous: false });
+    const many = fakeMachine({ builders: 1, reviewers: 9 });
     const results = [
       await spawnAgent(working(missing), reviewArgs('wt-nope')),
-      await spawnAgent(working(full), reviewArgs('wt-b0')),
-      await spawnAgent(working(owner), ['--override', ...reviewArgs('wt-b0')]),
+      await spawnAgent(working(many), reviewArgs('wt-b0')),
     ];
     assert({
       given:
-        'a worktree that does not exist, two reviewers already running, and the owner overriding that cap',
+        'a worktree that does not exist, and nine reviewers already running',
       should:
-        'refuse the first two without spawning, and let the owner through',
+        'refuse only the missing worktree; any number of reviewers spawns',
       actual: [
         results,
-        spawned(missing.calls).length + spawned(full.calls).length,
+        spawned(missing.calls).length,
+        spawned(many.calls).length,
         missing.output.join('').includes('no worktree wt-nope'),
-        full.output.join('').includes('2 reviewers are active; the cap is 2'),
       ],
-      expected: [[1, 1, 0], 0, true, true],
+      expected: [[1, 0], 0, 1, true],
     });
   });
 });

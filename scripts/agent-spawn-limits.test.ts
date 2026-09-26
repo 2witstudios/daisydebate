@@ -6,9 +6,39 @@ import {
   spawnArgs,
   spawned,
   userLine,
+  reviewArgs,
+  working,
 } from './agent-spawn.test-support';
 
 setupRitewayBun();
+
+describe('agent:spawn role caps (ADR 0035 section 8)', () => {
+  test('spawns any number of reviewers: the role has no cap', async () => {
+    const machine = fakeMachine({ builders: 1, reviewers: 50 });
+    const code = await spawnAgent(working(machine), reviewArgs('wt-b0'));
+    assert({
+      given: '50 reviewers already running against the same worktree',
+      should: 'spawn the 51st without a cap refusal',
+      actual: [code, spawned(machine.calls).length],
+      expected: [0, 1],
+    });
+  });
+
+  test('still refuses a 4th builder at its default cap of 3', async () => {
+    const machine = fakeMachine({ builders: 3 });
+    const code = await spawnAgent(machine.deps, spawnArgs);
+    assert({
+      given: '3 active builders and no --cap',
+      should: 'refuse a 4th builder',
+      actual: [
+        code,
+        spawned(machine.calls).length,
+        machine.output.join('').includes('3 builders are active; the cap is 3'),
+      ],
+      expected: [1, 0, true],
+    });
+  });
+});
 
 describe('agent:spawn pu flags', () => {
   test('refuses pu flags that choose the worktree or root behind the wrapper', () => {

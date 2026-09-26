@@ -379,14 +379,17 @@ GRD-6.2) is what holds against them:
   - a full builder cap (default 3), which counts every running coding
     agent not registered as a reviewer, raw `pu spawn` ones included
 
-  Roles are `builder` and `reviewer` only, each with its own cap (builder
-  3, reviewer 2), which only the owner changes with `--cap`. A reviewer
+  Roles are `builder` and `reviewer` only. Only `builder` has a cap
+  (default 3); the owner may change it with `--cap`. `reviewer` is
+  uncapped: a reviewer is read-only against the worktree it joins and
+  cannot cause branch drift, so any number may run. A reviewer
   (`--role reviewer --worktree <id>`) joins the existing worktree it
   reviews, with no new worktree or setup, so it cannot be a builder in
-  disguise, and counts only against the reviewer cap; a builder may not
-  pass `--worktree`. With `DAISY_AUTONOMOUS=1` the wrapper refuses `--cap`
-  and a builder without `--task`, and `--override` does not apply: an agent
-  may spawn a reviewer, but cannot raise a cap or skip the leaf checks.
+  disguise, and counts only against the (absent) reviewer cap; a builder
+  may not pass `--worktree`. With `DAISY_AUTONOMOUS=1` the wrapper refuses
+  `--cap` and a builder without `--task`, and `--override` does not apply:
+  an agent may spawn a reviewer, but cannot raise a cap or skip the leaf
+  checks.
 
   For a builder it creates the worktree, installs dependencies and brings
   the slot up before the prompt is sent. It resolves the child from

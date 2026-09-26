@@ -39,13 +39,14 @@ refuses:
   leaf with no Related pages section to declare them in
 - a leaf or prompt that uses a term a merged ADR superseded
   (`policy/superseded-terms.json`)
-- a new builder when the builder cap (3) is reached; every running coding
-  agent not registered as a reviewer counts
+- a new builder at its cap; every running coding agent not registered as a
+  reviewer counts (cap default and reviewer's uncapped status: ADR 0035
+  section 8)
 
 A reviewer (`--role reviewer`) joins the existing worktree it reviews,
-named with `--worktree`, with no new worktree or setup, and counts only
-against the reviewer cap (2). Only `builder` and `reviewer` are roles. The
-owner may change a cap with `--cap` and override a refusal with
+named with `--worktree`, with no new worktree or setup, and is uncapped.
+Only `builder` and `reviewer` are roles. The owner may change a cap with
+`--cap` and override a refusal with
 `--override`. An autonomous agent may spawn reviewers, but may not pass
 `--cap`, cannot override, and must pass `--task` for a builder. For a
 builder it then:
