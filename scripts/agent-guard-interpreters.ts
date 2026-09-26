@@ -80,15 +80,68 @@ export function hasDangerousInlineAPI(code: string): boolean {
   return DANGEROUS_INLINE_APIS.some((pattern) => pattern.test(code));
 }
 
-/** The pipe-to-command and command-execution forms awk's own grammar allows. */
-const AWK_DANGEROUS: readonly RegExp[] = [
-  /\bsystem\s*\(/, // system("cmd")
-  /\|\s*"/, // print/printf … | "cmd"
-  /"[^"]*"\s*\|\s*getline\b/, // "cmd" | getline
-];
+/**
+ * Whether a `/` at this point in the program starts a regex literal rather
+ * than dividing: awk (like JS) uses the same ambiguous token, resolved the
+ * same way — a regex can start wherever a value cannot already have ended,
+ * so it never follows an identifier character, a digit, `)`, `]`, `$` or a
+ * closing quote.
+ */
+function canStartRegex(previous: string): boolean {
+  return previous === '' || !/[\w)\]$."]/.test(previous);
+}
+
+/**
+ * True if the program contains a `|` that is not part of `||`, outside any
+ * string ("...") or regex (/.../) literal. awk has no bitwise-or operator,
+ * so every other `|` is a pipe: `print ... | expr` writes to a command,
+ * `expr | getline` reads from one, and both can name an arbitrary command
+ * through a variable as easily as through a literal string — the guard
+ * cannot tell the difference by reading further, so it refuses the pipe
+ * itself rather than pattern-matching what runs through it.
+ */
+function hasCommandPipe(text: string): boolean {
+  let inString = false;
+  let inRegex = false;
+  let previous = '';
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    if (inString) {
+      if (char === '\\') index += 1;
+      else if (char === '"') inString = false;
+      continue;
+    }
+    if (inRegex) {
+      if (char === '\\') index += 1;
+      else if (char === '/') {
+        inRegex = false;
+        previous = ')'; // a regex literal is a value, like a closing paren
+      }
+      continue;
+    }
+    if (char === '"') {
+      inString = true;
+      continue;
+    }
+    if (char === '/' && canStartRegex(previous)) {
+      inRegex = true;
+      continue;
+    }
+    if (char === '|') {
+      if (text[index + 1] === '|') {
+        index += 1;
+        previous = '|';
+        continue;
+      }
+      return true;
+    }
+    if (!/\s/.test(char)) previous = char;
+  }
+  return false;
+}
 
 function awkProgramIsDangerous(text: string): boolean {
-  return AWK_DANGEROUS.some((pattern) => pattern.test(text));
+  return /\bsystem\s*\(/.test(text) || hasCommandPipe(text);
 }
 
 /** The single-letter switches of an inline-flag set (`-e` -> `e`), for reading a cluster. */

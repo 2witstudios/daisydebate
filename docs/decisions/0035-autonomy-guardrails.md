@@ -503,16 +503,25 @@ to "inline code that names a process- or network-capable API."
 
 - **awk** (`scripts/agent-guard-interpreters.ts`) now parses its own
   program text instead of refusing every inline program outright: it is
-  refused only when it can run a command — `system(`, `print`/`printf`
-  piped to a command (`print $1 | "cmd"`), or `"cmd" | getline` — and
-  allowed otherwise (`awk '{print $2}'`, `awk -F, '{print $1}'`, …). A `-f`
-  program **file** is now read and judged by the same rule, rather than
-  allowed unconditionally as before: a file the guard cannot read (missing,
-  unreadable permissions, outside what `GuardFacts.readFile` resolves) is
-  refused, since it cannot be judged safe either. `GuardFacts` gained an
-  injected `readFile` seam for this (the same pattern as `branchOf`,
-  `databaseOf` and `processCwd`), keeping the rule itself a pure function of
-  its input.
+  refused for `system(`, and — structurally, not by pattern-matching a
+  literal command string — for any `|` that is not part of `||`, outside a
+  string (`"…"`) or regex (`/…/`) literal. awk has no bitwise-or operator,
+  so every other `|` is a pipe: `print … | expr` writes to a command and
+  `expr | getline` reads from one, and both can name an arbitrary command
+  through a variable (`c = "git push origin main"; print $0 | c`) exactly
+  as easily as through a literal quoted string, which an earlier version of
+  this fix matched only literally (PR #117 review) — the guard cannot tell
+  the difference by reading further, so it refuses the pipe itself.
+  `awk '{print $2}'`, `awk -F, '{print $1}'`, `awk 'NR>1 || $3=="x"'`
+  (logical or) and `awk '/a|b/'` (a `|` inside a regex literal) are all
+  allowed; a program with an unpaired `|` outside a literal is refused
+  regardless of what it names. A `-f` program **file** is now read and
+  judged by the same rule, rather than allowed unconditionally as before: a
+  file the guard cannot read (missing, unreadable permissions, outside what
+  `GuardFacts.readFile` resolves) is refused, since it cannot be judged
+  safe either. `GuardFacts` gained an injected `readFile` seam for this
+  (the same pattern as `branchOf`, `databaseOf` and `processCwd`), keeping
+  the rule itself a pure function of its input.
 - **The other named interpreters** (`python`/`python2`/`python3`, `node`/
   `nodejs`, `perl`, `ruby`, `php`, `osascript`, and `bun`'s own `-e`/
   `--eval`/`-p`/`--print` in `scripts/agent-guard-stacks.ts`) keep 6b's

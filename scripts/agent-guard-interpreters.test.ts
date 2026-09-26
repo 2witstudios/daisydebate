@@ -169,6 +169,34 @@ describe('agent guard: awk given inline code (ISSUE-138)', () => {
     });
   });
 
+  test('refuses a variable piped to or from a command, not just a literal quoted one (PR #117 review)', () => {
+    assert({
+      given:
+        'a command built into a variable, then piped out with print or in with getline',
+      should:
+        'deny both: awk has no bitwise-or, so any lone | outside a string or regex is a pipe to or from a command',
+      actual: [
+        decide(`awk 'BEGIN{c="git push origin main"; print $0 | c}'`),
+        decide(`awk 'BEGIN{c="git push origin main"; c | getline}'`),
+      ],
+      expected: Array(2).fill('deny'),
+    });
+  });
+
+  test('allows logical || and a | inside a string or regex literal (PR #117 review)', () => {
+    assert({
+      given:
+        'a logical-or comparison and a | that belongs to a string or regex, not a pipe',
+      should: 'allow all three: none of them names a command pipe',
+      actual: [
+        decide(`awk 'NR>1 || $3=="x"'`),
+        decide(`awk '/a|b/'`),
+        decide(`awk 'BEGIN{print "a|b"}'`),
+      ],
+      expected: Array(3).fill('allow'),
+    });
+  });
+
   test('allows a -f program file the guard can read and judges safe', () => {
     assert({
       given: '-f naming a field-printing program the guard can read',
