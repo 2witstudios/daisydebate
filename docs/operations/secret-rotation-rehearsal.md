@@ -22,29 +22,29 @@ commands, never let it print, and prefer `resend webhooks rotate-signing-secret`
 
 ## Safe pattern
 
-A shell redirect (`> file`) creates the file with permissions derived from
-the operator's `umask` — on a typical `umask 022` host, world-readable, so
-the token or signing secret sits world-readable on disk until the `shred`.
-`umask 077` before the redirect (restored after) makes the file
-owner-only (`0600`) from the moment it exists, no window at all:
+A shell redirect (`> file`) to a fixed, guessable path is two risks at
+once: the file's permissions come from the operator's `umask` (typically
+`022`, world-readable, so the token or signing secret sits world-readable
+on disk until the `shred`), and a fixed path can already exist — including
+as a symlink pointing somewhere the operator does not intend — so `>`
+opens and truncates whatever it points to rather than a fresh file.
+`mktemp` closes both: it atomically creates a brand-new, uniquely-named
+file (refusing an existing path or a symlink) with owner-only (`0600`)
+permissions already set, no `umask` needed:
 
 ```
 bun -e 'console.log("BETTER_AUTH_SECRET=" + crypto.getRandomValues(new Uint8Array(32)).reduce((s,b)=>s+b.toString(16).padStart(2,"0"),""))' \
   | fly secrets import -a daisy-debate-staging
 
-(
-  umask 077
-  resend api-keys create --name "<name>" --permission sending_access --domain-id <sending-domain-id> --json > /path/to/scratch/key.json
-)
-jq -r '"RESEND_API_KEY=" + .token' /path/to/scratch/key.json | fly secrets import -a daisy-debate-staging
-shred -u /path/to/scratch/key.json   # or rm -f if shred is unavailable
+key_file=$(mktemp)
+resend api-keys create --name "<name>" --permission sending_access --domain-id <sending-domain-id> --json > "$key_file"
+jq -r '"RESEND_API_KEY=" + .token' "$key_file" | fly secrets import -a daisy-debate-staging
+shred -u "$key_file"   # or rm -f if shred is unavailable
 
-(
-  umask 077
-  resend webhooks rotate-signing-secret <id> --json > /path/to/scratch/wh.json
-)
-jq -r '"RESEND_WEBHOOK_SECRET=" + .signing_secret' /path/to/scratch/wh.json | fly secrets import -a daisy-debate-staging
-shred -u /path/to/scratch/wh.json
+wh_file=$(mktemp)
+resend webhooks rotate-signing-secret <id> --json > "$wh_file"
+jq -r '"RESEND_WEBHOOK_SECRET=" + .signing_secret' "$wh_file" | fly secrets import -a daisy-debate-staging
+shred -u "$wh_file"
 ```
 
 `fly secrets import` triggers the same rolling machine update as
@@ -114,7 +114,7 @@ under this scope can send mail from that domain and nothing else, never
 manage other domains, contacts, broadcasts or keys:
 
 1. `resend api-keys create --permission sending_access --domain-id
-a6f552e6-fe5b-417a-8fb1-b16999e40469` (output to a `umask 077` file) →
+a6f552e6-fe5b-417a-8fb1-b16999e40469` (output to a fresh `mktemp` file) →
    `fly secrets import` → machine healthy.
 2. `POST /api/auth/sign-in/magic-link` → `resend logs` shows a fresh `200`
    `/emails` POST signed with the new, scoped key.
