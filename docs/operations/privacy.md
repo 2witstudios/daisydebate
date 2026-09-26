@@ -23,21 +23,25 @@ given surface may carry.
 
 ## The personal-data inventory
 
-`packages/db/src/schema/data-inventory.ts` is the single declaration of
-every `table.column`'s category, visibility, purpose, lawful basis,
+`packages/db/src/schema/data-inventory.ts` will be the single declaration
+of every `table.column`'s category, visibility, purpose, lawful basis,
 storage (`postgres | redis | vendor`), owner, retention, erasure rule and
-exportability, per ADR 0036 §3. Redis key namespaces and vendor-held
-records (the PostHog person, Sentry user context) are classified in the
-same inventory, not a separate one.
+exportability, per ADR 0036 §3, once PRIV-3 builds it. Redis key
+namespaces and vendor-held records (the PostHog person, Sentry user
+context) will be classified in the same inventory, not a separate one.
 
-**Planned (PRIV-3, not yet built):** `bun privacy` will fail the build on
-an unclassified column, a stale entry, or a personal column missing
-`visibility`, `storage`, `owner`, `retention` or `erasure`, and will name
-the owning area in every failure. It is planned to run as part of
-`bun check` and the CI matrix once PRIV-3 lands; neither the command nor
-its `check`/CI wiring exists yet. Adding a column that holds personal data
-will get its own recipe in `docs/development/extending.md` at the same
-time.
+**Until PRIV-3 lands (DEC-11):** the file above does not exist yet, so a
+personal-data column, log field, `outbox.payload` kind or realtime topic
+payload field carries its classification (category, visibility, purpose,
+lawful basis, retention, erasure) in the PR body instead, per the "Privacy
+& telemetry" section of `.github/pull_request_template.md`. `bun privacy`
+(planned, PRIV-3) will then fail the build on an unclassified column, a
+stale entry, or a personal column missing `visibility`, `storage`,
+`owner`, `retention` or `erasure`, and will name the owning area in every
+failure; it is planned to run as part of `bun check` and the CI matrix
+once it lands, and will carry the PR-body entries into the inventory.
+Adding a column that holds personal data will get its own recipe in
+`docs/development/extending.md` at the same time.
 
 **`outbox.payload` and every realtime topic are telemetry-visible surfaces
 under these same rules, not an exception.** `outbox.payload`

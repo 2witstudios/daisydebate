@@ -90,10 +90,11 @@ and detailed procedures in the linked documents, not here.
   and, when personal, a visibility (`public | private`); identifiers are
   scoped per telemetry surface (logs, errors, analytics), never global. See
   [privacy](docs/operations/privacy.md), [ADR 0036](docs/decisions/0036-privacy-by-design.md).
-- A personal-data column ships with its inventory entry (purpose, lawful
-  basis, storage, owner, retention, erasure) in the same change; `bun
-privacy` (planned, PRIV-3) will gate undeclared or stale entries once
-  built. See [privacy](docs/operations/privacy.md).
+- A personal-data column ships with its classification (category,
+  visibility, purpose, lawful basis, retention, erasure) in the PR body in
+  the same change; `bun privacy` (planned, PRIV-3) will gate undeclared or
+  stale entries in `data-inventory.ts` once built. See
+  [privacy](docs/operations/privacy.md).
 - Error tracking and product analytics go only through the `ErrorReporter`
   and `track` adapters (Sentry, PostHog); both stay inert without their
   deploy-time keys, and a raw exception goes only to the scrubbed error
@@ -128,8 +129,9 @@ privacy` (planned, PRIV-3) will gate undeclared or stale entries once
   are scanned the same way against `.jscpd-tests-baseline.json`. When it
   fires, consolidate — extract the shared function, component, or data table
   into the owning module — rather than raising `minTokens`, adding an ignore,
-  or re-baselining. Loosening the gate in any of those ways requires a dated
-  note in ADR 0026; the baseline otherwise only shrinks.
+  or re-baselining. When consolidation would break a dependency rule, follow
+  ADR 0026's exception procedure (a dated row); the baseline otherwise only
+  shrinks.
 - `bun evidence` fails on suites no runner claims, integration guards that
   skip instead of throwing on missing services, and gates that silently
   stop running in CI. `bun run duplication`, `bun invariants`, and
