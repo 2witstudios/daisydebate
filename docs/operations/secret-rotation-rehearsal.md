@@ -59,9 +59,40 @@ one domain, unlike the account's default `full_access` grant.
 ## BETTER_AUTH_SECRET
 
 `server.ts` passes it straight to Better Auth as `secret`, which signs the
-session cookie's value (`<token>.<hmac>`) and derives the recipient-hash
-subkey (`client-ip.ts`). Rotating it does not touch the `session` table at
-all — only the cookie's signature stops verifying.
+session cookie's value (`<token>.<hmac>`). Rotating it affects four things:
+
+1. **The cookie signature.** `session` rows are untouched; only the HMAC
+   stops verifying, so a pre-rotation cookie stops authenticating even
+   though its row still exists.
+2. **The suppression ledger.** `recipient-key.ts`'s `deriveRecipientSubkey`
+   derives a subkey from this same secret, and `recipientKey` (subkey +
+   normalized email) is the only form an address takes in
+   `email_suppression.recipient_hash`, delivery receipts and
+   `createSuppressionCheck`'s lookup (`suppression-check.ts`). A rotation
+   changes the subkey, so every existing suppression row's hash stops
+   matching a lookup computed with the new one: **an address that hard-
+   bounced or complained becomes mailable again**, with nothing in the
+   application to show it happened. This coupling is a design defect, filed
+   as <a class="mention" data-mention-type="page" data-page-id="gxjfa42wj7kuvxlhyi31o4cq">@ISSUE-141</a> — out of scope for this rehearsal leaf to fix.
+   Operator step until it lands: treat every `BETTER_AUTH_SECRET` rotation,
+   planned or emergency, as requiring a manual re-check of
+   `email_suppression` against provider-side bounce/complaint history
+   immediately after, since the application's own suppression check cannot
+   be trusted across the rotation boundary.
+3. **Per-recipient rate-limit buckets.** `rate-limit.ts`'s bucket key is
+   also `recipientKey(recipientSubkey, email)` — a rotation resets every
+   recipient's rate-limit counter to zero, the same way it resets the
+   suppression lookup.
+4. **Client-id hash continuity in logs.** `client-ip.ts`'s `clientIdHash`
+   derives from the same secret (`deriveSubkey(secret, 'client-id-hash')`);
+   a rotation makes the same real client produce a different
+   `clientIdHash` before and after, breaking log correlation across the
+   boundary.
+
+**Verification links in flight survive a rotation.** `emailedLinkIdentifier`
+(`emailed-link-token.ts`) hashes only the token itself (SHA3-256, unkeyed) —
+`BETTER_AUTH_SECRET` never enters it — so a magic link or email-change link
+issued before a rotation still redeems normally after it.
 
 **Planned rotation** (executed): generated a fresh 32-byte CSPRNG value,
 piped into `fly secrets import`. Fly rolled the one staging machine
@@ -80,12 +111,28 @@ piped into `fly secrets import`. Fly rolled the one staging machine
 a compromise response should not stop at the cookie signature — the
 `session` rows themselves are unaffected by this rotation, so anyone who
 captured a raw pre-rotation session token (not just an intact cookie) still
-has a row that matches it. The emergency runbook step this rehearsal adds
-beyond the planned path: after rotating the secret, also revoke every
-session (`DELETE FROM session;`, the same primitive
-`Database.purgeAllForRestore` uses for the restore runbook, or Better
-Auth's own revoke-all if driving it through the application layer) so a
-compromise is not only cookie-invalid but session-row-gone.
+has a row that matches it. There is no application-level revoke-all for a
+live database (`revokeOtherSessions` is per-user; `purgeAllForRestore`
+refuses by design outside an isolated restore copy), so the emergency step
+is a raw SQL delete. `daisy_web` (the runtime role, `DATABASE_URL`) already
+holds unscoped `DELETE` on every table, `session` included (`database.md`),
+so no elevated credential is needed — executed for real on staging, as the
+Postgres superuser over the machine's own `fly ssh console` access (the
+same pattern this rehearsal's Postgres access section uses throughout, so
+no connection string with a password ever left the machine):
+
+```
+psql "postgres://postgres@localhost:5432/daisy_debate_staging" -c "delete from session;"
+```
+
+Staging: 4 sessions before, 0 after; `/api/health/live` and `/ready` stayed
+healthy, and a fresh sign-in immediately afterward succeeded. This is raw
+SQL, not `revokeOtherSessions`, so it never appends the `session.revoked`
+outbox row that operation adds — a realtime instance watching for that
+event is not notified. That is an accepted consequence of an emergency,
+database-wide revoke, not a defect: the point is removing every session
+row immediately, and no realtime consumer needs to react to a compromise
+response the same way it reacts to a user's own sign-out.
 
 **Recovery/rollback**: rolling back to the previous secret value re-validates
 any cookie signed with it — safe for "we rotated by mistake and need
@@ -105,10 +152,9 @@ other three keys (`daisydebate`, the operator's own CLI key; `PageSpace`;
 
 **Planned rotation** (executed): create the replacement key, set it, verify
 a send, then revoke the old one — old key stays valid until the new key is
-already live, so sending never stops. Also used this rotation to correct a
-finding from review: the account's `api-keys create` defaults to
-`full_access` (account-wide management), while the app only ever sends
-mail, so the replacement key was created `sending_access`, scoped to the
+already live, so sending never stops. The account's `api-keys create`
+defaults to `full_access` (account-wide management), while the app only
+ever sends mail, so the replacement key is `sending_access`, scoped to the
 `daisydebate.com` domain id (the app's only sending domain) — a leaked key
 under this scope can send mail from that domain and nothing else, never
 manage other domains, contacts, broadcasts or keys:
@@ -149,8 +195,7 @@ needs to hold both secrets for. Our verifier
 (`apps/web/src/features/auth/webhook.ts`, `resend.webhooks.verify({ ...,
 webhookSecret: secret })`) checks against exactly the one `secret` value
 `RESEND_WEBHOOK_SECRET` currently holds — never a list, never both old and
-new. Two consequences follow, corrected here from an earlier draft that
-got the second one backwards:
+new. Two consequences follow:
 
 - **Real deliveries never break across a rotation.** Because Resend signs
   every delivery in the 24h window with both secrets, whichever one secret
@@ -162,46 +207,29 @@ got the second one backwards:
   holding only the old secret can reproduce for a request they send us
   directly.
 
+**Use `rotate-signing-secret` + `fly secrets import` for both the planned
+and the emergency case.** The single-secret verifier above means this is
+already the immediate response to a leak: the old secret stops working the
+moment the import lands, with no 24-hour exposure window to wait out and no
+need to touch the webhook endpoint at all.
+
 **Planned rotation** (executed): `rotate-signing-secret` on the existing
 webhook id (endpoint URL unchanged) → `fly secrets import` → machine
 healthy. A subsequent sign-in produced an `auth.mail.webhook` /
 `http.request.completed` log line at `status:200` within seconds —
 verification against the new secret succeeds.
 
-**Emergency (compromised) variant** (corrected from an earlier draft of
-this rehearsal): the same `rotate-signing-secret` → `fly secrets import`
-sequence as the planned path **is already the immediate response** — the
-single-secret verifier above means the leaked secret stops working the
-moment the import lands, with no 24-hour exposure window to wait out and no
-need to touch the webhook endpoint at all. This rehearsal originally tried
-deleting and recreating the webhook instead, on the mistaken assumption
-that only a new endpoint id could invalidate the old secret immediately;
-that attempt is kept below as a documented finding, not a recommended step:
-
-1. `resend webhooks delete <id>` → sign-in attempt produces no
-   `auth.mail.webhook` log line at all (no endpoint registered to deliver
-   to) — expected: webhook _delivery_ is unavailable for the deletion
-   window, though mail sending itself (a different secret) is unaffected.
-2. `resend webhooks create` (same endpoint URL, output to a file) →
-   `fly secrets import`.
-3. **Observed limitation, not expected going in**: the recreated endpoint
-   did not deliver any event for several minutes in this rehearsal, despite
-   `resend webhooks get` showing `status: enabled` and `resend emails get`
-   showing the sends themselves reached `last_event: "sent"`. Rotating the
-   secret again on that _same, now-established_ endpoint id (no new
-   `create`) delivered within seconds on the very next send. Recreating a
-   webhook endpoint is therefore not a same-second recovery the way
-   rotating a key or a signing secret is — its dispatch does not resume
-   provably until an operator sees a real event arrive, and this rehearsal
-   found no CLI signal (`status`, `get`) that told the difference.
-
-**Recommendation, corrected**: always use `rotate-signing-secret` +
-`fly secrets import`, for both the planned and the emergency case — it is
-strictly better than delete+recreate on every axis this rehearsal checked
-(immediacy of old-secret rejection, since the app only ever holds one
-secret; and delivery continuity, since delete+recreate's observed gap is
-avoided entirely). Reserve delete+recreate for the one case
-`rotate-signing-secret` cannot cover: the endpoint URL itself must change.
+**Never delete and recreate the webhook to rotate its secret.** Reserve
+delete+recreate for the one case `rotate-signing-secret` cannot cover: the
+endpoint URL itself must change. Deleting and recreating the same endpoint
+URL, observed on this rehearsal: the recreated endpoint delivered no event
+for several minutes despite `resend webhooks get` showing `status:
+enabled` and `resend emails get` showing the underlying sends reached
+`last_event: "sent"` — rotating the secret again on the same, already-
+established endpoint id delivered within seconds on the next send by
+contrast. Delete+recreate is therefore not a same-second recovery the way
+`rotate-signing-secret` is, and there is no CLI signal (`status`, `get`)
+that distinguishes "still recovering" from "broken."
 
 **Recovery/rollback**: once the 24-hour grace window from a rotation has
 elapsed, the previous secret no longer verifies anything — there is nothing
