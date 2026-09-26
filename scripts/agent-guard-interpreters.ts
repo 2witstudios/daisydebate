@@ -92,50 +92,75 @@ function canStartRegex(previous: string): boolean {
 }
 
 /**
+ * The index of the closing `"` or `/` of a string/regex literal that opened
+ * at `start`, honoring a `\` escape so an escaped quote or slash cannot
+ * close it early — or the index of an unescaped newline / `text.length`
+ * when it runs off the end unterminated instead, since neither literal can
+ * span a line in awk.
+ */
+function literalEnd(text: string, start: number, closer: string): number {
+  let index = start;
+  while (index < text.length && text[index] !== '\n') {
+    if (text[index] === '\\') index += 1;
+    else if (text[index] === closer) break;
+    index += 1;
+  }
+  return index;
+}
+
+/** The index of the `\n` ending a `#` comment that opened at `start`, or `text.length` when it is the program's last line. */
+function commentEnd(text: string, start: number): number {
+  let index = start;
+  while (index < text.length && text[index] !== '\n') index += 1;
+  return index;
+}
+
+/**
  * True if the program contains a `|` that is not part of `||`, outside any
- * string ("...") or regex (/.../) literal. awk has no bitwise-or operator,
- * so every other `|` is a pipe: `print ... | expr` writes to a command,
- * `expr | getline` reads from one, and both can name an arbitrary command
- * through a variable as easily as through a literal string — the guard
- * cannot tell the difference by reading further, so it refuses the pipe
- * itself rather than pattern-matching what runs through it.
+ * string ("...") or regex (/.../) literal, and outside a `#` comment. awk
+ * has no bitwise-or operator, so every other `|` is a pipe: `print ... |
+ * expr` writes to a command, `expr | getline` reads from one, and both can
+ * name an arbitrary command through a variable as easily as through a
+ * literal string — the guard cannot tell the difference by reading
+ * further, so it refuses the pipe itself rather than pattern-matching what
+ * runs through it.
+ *
+ * Each literal or comment is skipped in one jump to `literalEnd`/
+ * `commentEnd`, which always stop at a `\n` (never spanned by any of the
+ * three in awk): a comment or string holding an odd number of quotes can
+ * therefore never leak an open string state into a later line and hide the
+ * pipe check there. A comment's own trailing `\` is not an escape (unlike
+ * inside a string or regex) — it does not continue the comment onto the
+ * next line — so `commentEnd` never looks for one.
  */
 function hasCommandPipe(text: string): boolean {
-  let inString = false;
-  let inRegex = false;
   let previous = '';
-  for (let index = 0; index < text.length; index += 1) {
+  let index = 0;
+  while (index < text.length) {
     const char = text[index];
-    if (inString) {
-      if (char === '\\') index += 1;
-      else if (char === '"') inString = false;
-      continue;
-    }
-    if (inRegex) {
-      if (char === '\\') index += 1;
-      else if (char === '/') {
-        inRegex = false;
-        previous = ')'; // a regex literal is a value, like a closing paren
-      }
+    if (char === '#') {
+      index = commentEnd(text, index + 1);
       continue;
     }
     if (char === '"') {
-      inString = true;
+      index = literalEnd(text, index + 1, '"') + 1;
       continue;
     }
     if (char === '/' && canStartRegex(previous)) {
-      inRegex = true;
+      index = literalEnd(text, index + 1, '/') + 1;
+      previous = ')'; // a regex literal is a value, like a closing paren
       continue;
     }
     if (char === '|') {
       if (text[index + 1] === '|') {
-        index += 1;
+        index += 2;
         previous = '|';
         continue;
       }
       return true;
     }
     if (!/\s/.test(char)) previous = char;
+    index += 1;
   }
   return false;
 }

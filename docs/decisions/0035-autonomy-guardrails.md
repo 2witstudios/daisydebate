@@ -515,7 +515,14 @@ to "inline code that names a process- or network-capable API."
   `awk '{print $2}'`, `awk -F, '{print $1}'`, `awk 'NR>1 || $3=="x"'`
   (logical or) and `awk '/a|b/'` (a `|` inside a regex literal) are all
   allowed; a program with an unpaired `|` outside a literal is refused
-  regardless of what it names. A `-f` program **file** is now read and
+  regardless of what it names. A `#` comment, a string and a regex literal
+  are each skipped in one jump to the index that ends them, and none of the
+  three ever runs past an unescaped newline — the same rule awk itself
+  uses, none of them spans a line — so a comment or string holding an odd
+  number of quotes can never leak an open string state into a later line
+  and hide the pipe check there (PR #117 review, round 2); a comment's own
+  trailing `\` is not an escape and does not continue it onto the next
+  line, unlike inside a string or regex. A `-f` program **file** is now read and
   judged by the same rule, rather than allowed unconditionally as before: a
   file the guard cannot read (missing, unreadable permissions, outside what
   `GuardFacts.readFile` resolves) is refused, since it cannot be judged

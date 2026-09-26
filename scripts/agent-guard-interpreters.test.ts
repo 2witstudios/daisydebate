@@ -183,6 +183,45 @@ describe('agent guard: awk given inline code (ISSUE-138)', () => {
     });
   });
 
+  test('refuses a variable pipe even after a comment with an odd number of quotes, on the next line (PR #117 review round 2)', () => {
+    assert({
+      given:
+        'a standalone comment containing one double quote, then a real command pipe on the next line',
+      should:
+        'deny it: the odd quote in the comment must not flip the scanner into a string state that swallows the following pipe',
+      actual: decide(
+        `awk '# note: says "hello\nBEGIN{c="git push origin main"; print $0 | c}'`,
+      ),
+      expected: 'deny',
+    });
+  });
+
+  test('refuses a variable pipe after a trailing comment with an odd quote, in the same multi-line program (PR #117 review round 2)', () => {
+    assert({
+      given:
+        'a line of code followed by a trailing comment with one double quote, then the pipe on the next line of the same program',
+      should:
+        'deny it, the same as the standalone-comment case: the trailing comment must not leak an open string into the rest of the program',
+      actual: decide(
+        `awk 'BEGIN{\nc="git push origin main" # comment with an odd quote here: "\nprint $0 | c\n}'`,
+      ),
+      expected: 'deny',
+    });
+  });
+
+  test('refuses a pipe on the line after a comment ending in a trailing backslash', () => {
+    assert({
+      given:
+        'a comment whose last character is \\ (not an escape in a comment), then a real command pipe on the next line',
+      should:
+        "deny it: a comment's trailing backslash must not be read as continuing the comment onto the next line",
+      actual: decide(
+        `awk '# a trailing backslash\\\nBEGIN{c="git push origin main"; print $0 | c}'`,
+      ),
+      expected: 'deny',
+    });
+  });
+
   test('allows logical || and a | inside a string or regex literal (PR #117 review)', () => {
     assert({
       given:
