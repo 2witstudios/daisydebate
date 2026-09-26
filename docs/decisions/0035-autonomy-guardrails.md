@@ -316,9 +316,13 @@ GRD-6.2) is what holds against them:
 
 - git and `gh` aliases (`git config alias.p push`, then `git p`) and shell
   aliases or functions defined earlier in the session
-- command names built at run time (`$cmd push`, `eval` of a variable)
-- another interpreter running the command (`python -c`, `node -e`,
-  `bun -e`), or a script written to a file and then executed
+- ~~command names built at run time (`$cmd push`, `eval` of a variable)~~ —
+  closed, section 6a (2026-09-25)
+- ~~another interpreter running the command (`python -c`, `node -e`,
+  `bun -e`)~~ — closed for the named interpreters, section 6b
+  (2026-09-25); a script written to a file and then executed remains
+  accepted (the guard does not read into a file any more than it reads
+  into a shell script run the same way)
 - another shell or terminal outside Claude Code, where `--no-verify`
   skips the pre-push hook and no `PreToolUse` hook runs
 - editors and tools other than the hooked Edit and Write tools changing a
@@ -410,6 +414,78 @@ Filed as `ISSUE-130` for the `pu`/agent-guard owner to scope separately.
 regression corpus rather than a list of things to keep banning; nothing in
 it changed. `agent-guard-dynamic.test.ts` and `agent-guard-deploy.test.ts`
 add the two gaps above as the adversarial cases the old design missed.
+
+### 6b. Payload-hiding vectors closed after the PR #113 review (2026-09-25 amendment)
+
+The review of section 6a's PR (#113) tested four categories against the
+unpatched guard — a push to `main`, an admin merge, an unscoped kill, and
+shared-stack teardown — each run through a general-purpose interpreter or a
+job runner instead of directly, and found every one an unconditional
+bypass. Section 6's original "known and accepted" list already named
+"another interpreter running the command (`python -c`, `node -e`,
+`bun -e`)" as accepted residual risk for the hard layer to hold against,
+but ISSUE-129's fail-closed principle ("anything [the guard] can't parse
+with confidence… is refused") applies here as much as it does to a dynamic
+executable name, so this amendment closes it for the interpreters the
+review named, rather than leaving it as an accepted gap the redesign was
+supposed to remove:
+
+- **Interpreters given inline code.** `python`/`python2`/`python3`, `node`/
+  `nodejs`, `perl`, `ruby`, `php`, `awk` and `osascript` can run any
+  operation this file guards from code the guard cannot read. A command
+  using one of their inline-code flags (`-c` for python/perl/ruby/php,
+  `-e`/`--eval`/`-p`/`--print` for node, `-e` for osascript, awk's own
+  program text when it is not read from a `-f` file) is refused for an
+  autonomous agent (`scripts/agent-guard-interpreters.ts`). Running the
+  interpreter on a script **file** is unaffected: the guard does not read
+  into that file any more than it reads into a shell script run the same
+  way, so `python3 tool.py` and `node tool.js` keep working. `bun -e`,
+  `--eval` and `-p` get the identical check in `agent-guard-stacks.ts`,
+  since `bun` is already a guarded executable and the eval flags are its
+  own. This is a named, bounded list, not a claim that every interpreter or
+  scripting language is covered; an unnamed one (Lua, Tcl, R, a database
+  client's `-c` flag, …) is not guarded by this change.
+- **`ssh` and `make` are refused outright**, with no inline-code exception.
+  `GIT_SSH_COMMAND=false` already stops git from using SSH for an agent
+  (section 1), so a raw `ssh` invocation has no legitimate autonomous use
+  here. `make`'s recipe lines are never visible on the command line — they
+  live in a Makefile or come from stdin (`make -f -`) — so there is no
+  subcommand shape to allowlist the way `fly` gets one below; this repository
+  has no Makefile agents would need to run in any case.
+- **`find -exec`/`-execdir`/`-ok`/`-okdir` now recurse.** The guard
+  previously classified `find` itself (for the loop-state check) but never
+  the command those four actions run, so `find . -exec bash -c "git push
+origin main" \;` reached the payload with no rule seeing it. The argv
+  between the action and its `;`/`+` terminator is now judged exactly as a
+  top-level command would be (`agent-guard.ts`'s `classifyInvocation`),
+  including recursing into a nested shell or `eval`.
+- **`xargs -I`/`-i`/`-J` (and `--replace`) are refused.** These template
+  xargs's command from each stdin line at run time; the argv the guard can
+  see is the placeholder (`{}`, or whatever `-I` named), not what actually
+  runs, so classifying it proves nothing. Plain `xargs` (appending stdin to
+  a fixed command, no placeholder) is unaffected — the guard already denies
+  the specific abuses that shape enables case by case (e.g. `xargs kill`,
+  denied because it names no explicit target).
+- **`fly`/`flyctl` are now a read-only allowlist, not a blanket refusal.**
+  Section 6a's full refusal denied `fly logs`, which
+  `scripts/staging-security-probe.ts` (AUTH-7.8) depends on for its
+  trusted-IP correlation. `agent-guard-deploy.ts` now allows only
+  `logs`, `status`, `version`, `doctor`, `apps list`, `machines list`/
+  `status`, `secrets list`, `releases list`, `checks list`, `config show`/
+  `validate` and `auth whoami`; every mutating subcommand (`deploy`,
+  `secrets set`/`unset`, `apps create`/`destroy`, `machines stop`/`start`/
+  `destroy`/`run`, `ssh console`, …) and anything this list does not
+  recognize is still refused.
+
+**Not fixed here, filed as follow-ups.** `git config --get core.hooksPath`
+(a read-only diagnostic) is refused by the same check meant to catch a
+`core.hooksPath` **override**, a pre-existing false positive
+(`scripts/agent-guard-git.ts`); filed as `ISSUE-135`, not blocking, since
+it denies too much rather than too little. Every other named interpreter
+or scripting language, and `pu` (section 6a), remain open as documented
+residual risk or filed follow-ups, not silent gaps: the point of this
+amendment is that what is not yet covered is a short, named list, not an
+unbounded one.
 
 ### 7. PR loops that can finish
 

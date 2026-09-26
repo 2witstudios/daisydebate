@@ -163,7 +163,17 @@ function ownsSlot(
   );
 }
 
+const BUN_INLINE_FLAGS = new Set(['-e', '--eval', '-p', '--print']);
+const BUN_INLINE_REASON =
+  'bun -e/--eval/-p/--print runs any operation this file guards, from inline code the guard cannot read. Run the resolved command directly, or put the code in a reviewed script file.';
+
 export const bun: Rule = (invocation, facts, cwd): Verdict => {
+  if (
+    invocation.words
+      .slice(1)
+      .some((word) => BUN_INLINE_FLAGS.has(splitFlag(word)[0]))
+  )
+    return autonomousOnly(facts, BUN_INLINE_REASON);
   const { dir, script, args } = bunScript(invocation.words, cwd);
   // bun x <package> is bunx.
   if (script === 'x')

@@ -8,9 +8,10 @@
  * hard limits are the machine identity and the main ruleset.
  */
 import { existsSync, readlinkSync } from 'node:fs';
-import { dirname, isAbsolute, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, resolve } from 'node:path';
 import {
   allow,
+  autonomousOnly,
   branchName,
   combine,
   deny,
@@ -29,6 +30,7 @@ import { isProtectedFile, loopState } from './agent-guard-files';
 import { fly } from './agent-guard-deploy';
 import { gh } from './agent-guard-gh';
 import { git } from './agent-guard-git';
+import { interpreter, opaque } from './agent-guard-interpreters';
 import { kill, otherKillers } from './agent-guard-process';
 import { bun, docker } from './agent-guard-stacks';
 import { identityRegime } from './agent-identity';
@@ -65,7 +67,76 @@ const rules: Readonly<Record<string, Rule>> = {
   bun,
   fly,
   flyctl: fly,
+  ssh: opaque,
+  make: opaque,
+  python: interpreter,
+  python2: interpreter,
+  python3: interpreter,
+  node: interpreter,
+  nodejs: interpreter,
+  perl: interpreter,
+  ruby: interpreter,
+  php: interpreter,
+  awk: interpreter,
+  osascript: interpreter,
 };
+
+// find's actions that run another command: the command and its own
+// arguments follow, up to a bare ; or + terminator.
+const FIND_EXECS = new Set(['-exec', '-execdir', '-ok', '-okdir']);
+
+/** The argv of each command find's -exec/-execdir/-ok/-okdir would run. */
+function findExecInvocations(args: readonly string[]): readonly string[][] {
+  const invocations: string[][] = [];
+  for (let index = 0; index < args.length; index += 1) {
+    if (!FIND_EXECS.has(args[index])) continue;
+    const start = index + 1;
+    let end = start;
+    while (end < args.length && args[end] !== ';' && args[end] !== '+')
+      end += 1;
+    invocations.push(args.slice(start, end));
+    index = end;
+  }
+  return invocations;
+}
+
+// xargs templates its command from stdin at run time with -I/-i/-J; the
+// resolved argv the guard would otherwise see is a placeholder, not what
+// actually runs.
+const isXargsTemplateFlag = (arg: string): boolean =>
+  /^-[IiJ]/.test(arg) || arg === '--replace' || arg.startsWith('--replace=');
+
+function xargsTemplates(words: readonly string[]): boolean {
+  const [head, ...rest] = words;
+  return (
+    (head !== undefined ? basename(head) : '') === 'xargs' &&
+    rest.some(isXargsTemplateFlag)
+  );
+}
+const XARGS_TEMPLATE_REASON =
+  'xargs -I/-i/-J templates its command from stdin at run time; the guard cannot verify what it will run. Run the resolved command directly.';
+
+/** Judges an invocation's argv directly, without re-parsing it as shell text
+ * (find -exec and -execdir hand the guard argv, not a shell string). */
+function classifyInvocation(
+  words: readonly string[],
+  facts: GuardFacts,
+  cwd: string,
+): Verdict {
+  const [name = '', ...args] = words;
+  const verdicts: Verdict[] = [
+    unresolvedNameVerdict(name, facts),
+    identityVerdict(name, args, facts),
+  ];
+  if (shells.has(name)) verdicts.push(shellVerdict(args, { ...facts, cwd }));
+  else if (name === 'eval')
+    verdicts.push(classifyCommand(args.join(' '), { ...facts, cwd }));
+  else if (rules[name])
+    verdicts.push(
+      rules[name]({ words, assignments: {}, unset: [] }, facts, cwd),
+    );
+  return combine(verdicts);
+}
 
 // Shell options that take the next word as their value.
 const SHELL_VALUE_OPTIONS = new Set([
@@ -116,6 +187,8 @@ export function classifyCommand(command: string, given: GuardFacts): Verdict {
   const verdicts: Verdict[] = [];
   let cwd = facts.cwd;
   for (const simple of parseShell(command)) {
+    if (xargsTemplates(simple.words))
+      verdicts.push(autonomousOnly(facts, XARGS_TEMPLATE_REASON));
     const invocation = unwrap(simple);
     const [name = '', ...args] = invocation.words;
     verdicts.push(unresolvedNameVerdict(name, facts));
@@ -129,6 +202,12 @@ export function classifyCommand(command: string, given: GuardFacts): Verdict {
     else if (name === 'eval')
       verdicts.push(classifyCommand(args.join(' '), { ...facts, cwd }));
     else if (rules[name]) verdicts.push(rules[name](invocation, facts, cwd));
+    else if (name === 'find')
+      verdicts.push(
+        ...findExecInvocations(args).map((inner) =>
+          classifyInvocation(inner, facts, cwd),
+        ),
+      );
   }
   return combine(verdicts);
 }
