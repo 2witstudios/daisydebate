@@ -24,6 +24,8 @@ export type GuardFacts = {
   readonly processCwd: (pid: number) => string | undefined;
   /** A pu agent running without its machine identity (ADR 0035). */
   readonly misconfigured?: boolean;
+  /** A file's contents for a rule to judge (e.g. awk -f); undefined when it cannot be read. */
+  readonly readFile?: (path: string) => string | undefined;
 };
 
 export type Invocation = {

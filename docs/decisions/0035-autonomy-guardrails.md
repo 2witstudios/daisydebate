@@ -489,6 +489,67 @@ residual risk or filed follow-ups, not silent gaps: the point of this
 amendment is that what is not yet covered is a short, named list, not an
 unbounded one.
 
+### 6c. awk and interpreter false positives (2026-09-25 amendment, ISSUE-138)
+
+Section 6b's blanket refusal of every named interpreter's inline code
+denied `awk '{print $2}'`, a read-only agent shell command, and blocked the
+orchestrator (2026-09-25). Per the owner's confirmed stance (DEC-12): this
+guard is accident prevention, not a security boundary, until the separate
+agent identity at GRD-6.2, so a false positive that blocks normal read-only
+agent work costs more than the bypass it would close. This amendment keeps
+6b's fail-closed default — inline code the guard cannot judge safe is still
+refused — but narrows what counts as unsafe from "every inline invocation"
+to "inline code that names a process- or network-capable API."
+
+- **awk** (`scripts/agent-guard-interpreters.ts`) now parses its own
+  program text instead of refusing every inline program outright: it is
+  refused for `system(`, and — structurally, not by pattern-matching a
+  literal command string — for any `|` that is not part of `||`, outside a
+  string (`"…"`) or regex (`/…/`) literal. awk has no bitwise-or operator,
+  so every other `|` is a pipe: `print … | expr` writes to a command and
+  `expr | getline` reads from one, and both can name an arbitrary command
+  through a variable (`c = "git push origin main"; print $0 | c`) exactly
+  as easily as through a literal quoted string, which an earlier version of
+  this fix matched only literally (PR #117 review) — the guard cannot tell
+  the difference by reading further, so it refuses the pipe itself.
+  `awk '{print $2}'`, `awk -F, '{print $1}'`, `awk 'NR>1 || $3=="x"'`
+  (logical or) and `awk '/a|b/'` (a `|` inside a regex literal) are all
+  allowed; a program with an unpaired `|` outside a literal is refused
+  regardless of what it names. A `#` comment, a string and a regex literal
+  are each skipped in one jump to the index that ends them, and none of the
+  three ever runs past an unescaped newline — the same rule awk itself
+  uses, none of them spans a line — so a comment or string holding an odd
+  number of quotes can never leak an open string state into a later line
+  and hide the pipe check there (PR #117 review, round 2); a comment's own
+  trailing `\` is not an escape and does not continue it onto the next
+  line, unlike inside a string or regex. A `-f` program **file** is now read and
+  judged by the same rule, rather than allowed unconditionally as before: a
+  file the guard cannot read (missing, unreadable permissions, outside what
+  `GuardFacts.readFile` resolves) is refused, since it cannot be judged
+  safe either. `GuardFacts` gained an injected `readFile` seam for this
+  (the same pattern as `branchOf`, `databaseOf` and `processCwd`), keeping
+  the rule itself a pure function of its input.
+- **The other named interpreters** (`python`/`python2`/`python3`, `node`/
+  `nodejs`, `perl`, `ruby`, `php`, `osascript`, and `bun`'s own `-e`/
+  `--eval`/`-p`/`--print` in `scripts/agent-guard-stacks.ts`) keep 6b's
+  inline-flag detection, but the verdict now depends on the inline code
+  text: it is refused only when it contains a named process- or
+  network-capable API — `system(`/`popen(`, `subprocess`, `child_process`,
+  `Bun.spawn`, `exec`/`execSync`/`execFile`, `spawn`/`spawnSync`, `do shell
+script`, `fetch(`, the `http`/`https` module, `urllib`, `requests.get`/
+  `post`/`put`/`delete`/`patch` — and allowed otherwise
+  (`hasDangerousInlineAPI` in `scripts/agent-guard-interpreters.ts`, shared
+  by both files so the list is defined once). This closes the concrete
+  false positives named at ISSUE-138's origin: `bun -e` generating a CSPRNG
+  secret (`docs/operations/deploy-staging.md`), and `node -e`/`python3 -c`
+  doing pure computation or parsing JSON. It is a named, bounded list of
+  APIs, the same kind of disclosed residual as 6b's named list of
+  interpreters: an API this list does not name (a less common HTTP client,
+  a language-specific process primitive not listed above) is not detected,
+  and inline code that reaches one is not refused by this rule. `ssh` and
+  `make` are unaffected by this amendment — section 6b's outright refusal,
+  with no inline-code exception, still applies to both.
+
 ### 7. PR loops that can finish
 
 - **Escalate.** `bun loop:escalate <needs-owner|blocked|stalled|out-of-scope> "<detail>"`

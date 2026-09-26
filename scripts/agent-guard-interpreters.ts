@@ -1,14 +1,23 @@
 /**
- * The agent guard's interpreter rule (ADR 0035 amendment, review finding on
- * PR #113). A general-purpose interpreter given inline code on its command
- * line (`python -c`, `node -e`, `perl -e`, `ruby -e`, `php -r`, awk's own
- * program text, `osascript -e`) can run any operation this file guards, and
- * the guard does not understand that language well enough to classify what
- * the inline code does. That is unparseable with confidence, so it is
- * refused for an autonomous agent outright. Running the interpreter on a
- * script file is unaffected — the same parity `bash script.sh` already has
- * with the shell rules, since the guard does not read into a file either
- * way.
+ * The agent guard's interpreter rule (ADR 0035 §6a/6b, amended for ISSUE-138).
+ * A general-purpose interpreter given inline code on its command line
+ * (`python -c`, `node -e`, `perl -e`, `ruby -e`, `php -r`, awk's own program
+ * text, `osascript -e`) can run any operation this file guards, and the
+ * guard does not understand that language well enough to fully classify
+ * what the inline code does. So it looks only for the small set of APIs
+ * that could run a process or reach the network — `system(`, a piped
+ * command, `child_process`, `Bun.spawn`, `subprocess`, `os.system`, `exec`,
+ * `fetch`, … — and refuses only inline code that has one, per the owner's
+ * DEC-12 stance that this guard is accident prevention, not a security
+ * boundary, until GRD-6.2: a blanket refusal of every inline invocation
+ * blocked ordinary read-only agent work (`awk '{print $2}'`, `bun -e`
+ * generating a CSPRNG secret per `docs/operations/deploy-staging.md`,
+ * `node -e`/`python3 -c` parsing JSON) more than it closed a real bypass.
+ * Running the interpreter on a script file is unaffected — the same parity
+ * `bash script.sh` already has with the shell rules — except awk's `-f`,
+ * which reads the named file so it can be judged the same way as inline
+ * code; a file the guard cannot read is refused, since it cannot be judged
+ * safe either.
  *
  * `ssh` and `make` are refused outright, without an inline-code exception:
  * ADR 0035 already stops agent git from ever using SSH
@@ -19,12 +28,17 @@
 import {
   allow,
   autonomousOnly,
+  resolveFrom,
   splitFlag,
+  type GuardFacts,
   type Rule,
 } from './agent-guard-rules';
 
 const INLINE_REASON =
-  'This interpreter can run any operation the guard checks, from inline code the guard cannot read. Run the resolved command directly, or put the code in a reviewed script file.';
+  'This inline code can run a process or reach the network in a way the guard cannot verify (a shell command, a subprocess, or an outbound request). Run the resolved command directly, or put the code in a reviewed script file.';
+
+const AWK_FILE_REASON =
+  'This -f program file could not be read, so the guard cannot tell whether it runs a command. Run the resolved command directly, or make the file readable to the guard.';
 
 const INLINE_FLAGS: Readonly<Record<string, ReadonlySet<string>>> = {
   python: new Set(['-c']),
@@ -38,6 +52,123 @@ const INLINE_FLAGS: Readonly<Record<string, ReadonlySet<string>>> = {
   osascript: new Set(['-e']),
 };
 
+/**
+ * The named process- and network-capable APIs an interpreter's inline code
+ * could use to run any operation this file guards (ISSUE-138, DEC-12): a
+ * named, bounded list, not a claim that every dangerous API in every
+ * language is covered. Matched against the inline code text itself, never
+ * against the interpreter's other arguments.
+ */
+const DANGEROUS_INLINE_APIS: readonly RegExp[] = [
+  /\bsystem\s*\(/, // perl/ruby/php system("cmd"); python os.system(...)
+  /\bpopen\s*\(/, // os.popen / IO.popen
+  /\bsubprocess\b/, // python subprocess module
+  /\bchild_process\b/, // node/bun require('child_process')
+  /\bBun\.spawn(?:Sync)?\s*\(/, // bun
+  /\bexec(?:Sync|File|FileSync)?\s*\(/, // node child_process.exec family
+  /\bspawn(?:Sync)?\s*\(/, // node child_process.spawn family
+  /do shell script/i, // osascript
+  /\bfetch\s*\(/, // outbound network call
+  /\brequire\(\s*['"]https?['"]\s*\)/, // node http/https module
+  /\bhttp\.request\s*\(/,
+  /\burllib\b/, // python urllib
+  /\brequests\.(?:get|post|put|delete|patch)\s*\(/, // python requests library
+];
+
+/** Whether an interpreter's inline code has an API that could run a process or reach the network. */
+export function hasDangerousInlineAPI(code: string): boolean {
+  return DANGEROUS_INLINE_APIS.some((pattern) => pattern.test(code));
+}
+
+/**
+ * Whether a `/` at this point in the program starts a regex literal rather
+ * than dividing: awk (like JS) uses the same ambiguous token, resolved the
+ * same way — a regex can start wherever a value cannot already have ended,
+ * so it never follows an identifier character, a digit, `)`, `]`, `$` or a
+ * closing quote.
+ */
+function canStartRegex(previous: string): boolean {
+  return previous === '' || !/[\w)\]$."]/.test(previous);
+}
+
+/**
+ * The index of the closing `"` or `/` of a string/regex literal that opened
+ * at `start`, honoring a `\` escape so an escaped quote or slash cannot
+ * close it early — or the index of an unescaped newline / `text.length`
+ * when it runs off the end unterminated instead, since neither literal can
+ * span a line in awk.
+ */
+function literalEnd(text: string, start: number, closer: string): number {
+  let index = start;
+  while (index < text.length && text[index] !== '\n') {
+    if (text[index] === '\\') index += 1;
+    else if (text[index] === closer) break;
+    index += 1;
+  }
+  return index;
+}
+
+/** The index of the `\n` ending a `#` comment that opened at `start`, or `text.length` when it is the program's last line. */
+function commentEnd(text: string, start: number): number {
+  let index = start;
+  while (index < text.length && text[index] !== '\n') index += 1;
+  return index;
+}
+
+/**
+ * True if the program contains a `|` that is not part of `||`, outside any
+ * string ("...") or regex (/.../) literal, and outside a `#` comment. awk
+ * has no bitwise-or operator, so every other `|` is a pipe: `print ... |
+ * expr` writes to a command, `expr | getline` reads from one, and both can
+ * name an arbitrary command through a variable as easily as through a
+ * literal string — the guard cannot tell the difference by reading
+ * further, so it refuses the pipe itself rather than pattern-matching what
+ * runs through it.
+ *
+ * Each literal or comment is skipped in one jump to `literalEnd`/
+ * `commentEnd`, which always stop at a `\n` (never spanned by any of the
+ * three in awk): a comment or string holding an odd number of quotes can
+ * therefore never leak an open string state into a later line and hide the
+ * pipe check there. A comment's own trailing `\` is not an escape (unlike
+ * inside a string or regex) — it does not continue the comment onto the
+ * next line — so `commentEnd` never looks for one.
+ */
+function hasCommandPipe(text: string): boolean {
+  let previous = '';
+  let index = 0;
+  while (index < text.length) {
+    const char = text[index];
+    if (char === '#') {
+      index = commentEnd(text, index + 1);
+      continue;
+    }
+    if (char === '"') {
+      index = literalEnd(text, index + 1, '"') + 1;
+      continue;
+    }
+    if (char === '/' && canStartRegex(previous)) {
+      index = literalEnd(text, index + 1, '/') + 1;
+      previous = ')'; // a regex literal is a value, like a closing paren
+      continue;
+    }
+    if (char === '|') {
+      if (text[index + 1] === '|') {
+        index += 2;
+        previous = '|';
+        continue;
+      }
+      return true;
+    }
+    if (!/\s/.test(char)) previous = char;
+    index += 1;
+  }
+  return false;
+}
+
+function awkProgramIsDangerous(text: string): boolean {
+  return /\bsystem\s*\(/.test(text) || hasCommandPipe(text);
+}
+
 /** The single-letter switches of an inline-flag set (`-e` -> `e`), for reading a cluster. */
 function singleLetters(flags: ReadonlySet<string>): ReadonlySet<string> {
   return new Set(
@@ -46,31 +177,66 @@ function singleLetters(flags: ReadonlySet<string>): ReadonlySet<string> {
 }
 
 /**
- * True for a plain inline flag (`-e`, `--eval`) and for one clustered with
- * other single-letter switches the way Perl reads them (`-we`, `-pe`,
- * `-wne`, …): every character after the dash is its own switch, so any of
- * them naming an inline-code flag makes the whole cluster one.
+ * The inline code text passed to one of an interpreter's inline-code flags
+ * (`-e`, `--eval`, …), plain or clustered with other single-letter switches
+ * the way Perl reads them (`-we`, `-pe`, `-wne`, …): every character after
+ * the dash is its own switch, so any of them naming an inline-code flag
+ * takes the next word as the code the same way the bare flag would.
+ * `undefined` when the interpreter has no inline code on this line.
  */
-function hasInlineFlag(name: string, args: readonly string[]): boolean {
+function inlineCodeText(
+  name: string,
+  args: readonly string[],
+): string | undefined {
   const flags = INLINE_FLAGS[name];
-  if (flags === undefined) return false;
+  if (flags === undefined) return undefined;
   const letters = singleLetters(flags);
-  return args.some((arg) => {
-    if (flags.has(splitFlag(arg)[0])) return true;
-    return (
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    const [flag, inline] = splitFlag(arg);
+    if (flags.has(flag)) return inline ?? args[index + 1];
+    if (
       /^-[A-Za-z]+$/.test(arg) &&
       [...arg.slice(1)].some((letter) => letters.has(letter))
-    );
-  });
+    )
+      return args[index + 1];
+  }
+  return undefined;
 }
 
-/** awk's program is its own first non-option operand unless -f reads one from a file. */
-function awkIsInline(args: readonly string[]): boolean {
-  for (const arg of args) {
-    if (arg === '-f' || arg === '--file' || arg.startsWith('-f')) return false;
-    if (!arg.startsWith('-')) return true;
+type AwkSource =
+  | { readonly kind: 'inline'; readonly text: string }
+  | { readonly kind: 'file'; readonly path: string }
+  | { readonly kind: 'none' };
+
+/** awk's program is its own first non-option operand, unless -f/--file names one to read from a file. */
+function awkSource(args: readonly string[]): AwkSource {
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === '-f' || arg === '--file') {
+      const path = args[index + 1];
+      return path === undefined ? { kind: 'none' } : { kind: 'file', path };
+    }
+    if (arg.startsWith('--file='))
+      return { kind: 'file', path: arg.slice('--file='.length) };
+    if (arg.startsWith('-f')) return { kind: 'file', path: arg.slice(2) };
+    if (!arg.startsWith('-')) return { kind: 'inline', text: arg };
   }
-  return false;
+  return { kind: 'none' };
+}
+
+function awkVerdict(args: readonly string[], facts: GuardFacts, cwd: string) {
+  const source = awkSource(args);
+  if (source.kind === 'none') return allow;
+  if (source.kind === 'inline')
+    return awkProgramIsDangerous(source.text)
+      ? autonomousOnly(facts, INLINE_REASON)
+      : allow;
+  const content = facts.readFile?.(resolveFrom(cwd, source.path, facts.home));
+  if (content === undefined) return autonomousOnly(facts, AWK_FILE_REASON);
+  return awkProgramIsDangerous(content)
+    ? autonomousOnly(facts, INLINE_REASON)
+    : allow;
 }
 
 // python3.11, python3.12, ruby3.2, perl5.34, php8.2, … (Homebrew, pyenv and
@@ -84,11 +250,15 @@ export function canonicalInterpreterName(name: string): string {
   return match ? match[1] : name;
 }
 
-export const interpreter: Rule = (invocation, facts) => {
+export const interpreter: Rule = (invocation, facts, cwd) => {
   const [rawName = '', ...args] = invocation.words;
   const name = canonicalInterpreterName(rawName);
-  const inline = name === 'awk' ? awkIsInline(args) : hasInlineFlag(name, args);
-  return inline ? autonomousOnly(facts, INLINE_REASON) : allow;
+  if (name === 'awk') return awkVerdict(args, facts, cwd);
+  const code = inlineCodeText(name, args);
+  if (code === undefined) return allow;
+  return hasDangerousInlineAPI(code)
+    ? autonomousOnly(facts, INLINE_REASON)
+    : allow;
 };
 
 const OPAQUE_REASON =

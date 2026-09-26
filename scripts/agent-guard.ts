@@ -7,7 +7,7 @@
  * merge or a push to main and allows the rest. It catches accidents: the
  * hard limits are the machine identity and the main ruleset.
  */
-import { existsSync, readlinkSync } from 'node:fs';
+import { existsSync, readFileSync, readlinkSync } from 'node:fs';
 import { basename, dirname, isAbsolute, resolve } from 'node:path';
 import {
   allow,
@@ -355,6 +355,13 @@ function liveFacts(cwd: string, projectDir?: string): GuardFacts {
       run(['git', 'symbolic-ref', '--short', '-q', 'HEAD'], dir),
     databaseOf: (dir) => slotDatabase(dir, mainCheckout),
     processCwd,
+    readFile: (path) => {
+      try {
+        return existsSync(path) ? readFileSync(path, 'utf8') : undefined;
+      } catch {
+        return undefined;
+      }
+    },
   };
 }
 
