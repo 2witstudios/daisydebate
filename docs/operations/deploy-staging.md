@@ -44,16 +44,19 @@ same privileges.
 
 ## Idle cost (per the owner's spend constraint)
 
-| Piece                                                                                       | Idle cost                                                                                                                                                                          | Source                             |
-| ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| Fly machine (shared-cpu-1x, 512mb), stopped (`min_machines_running = 0`)                    | $0 compute. Only rootfs storage is billed while stopped: $0.15 per 1GB for 30 days (this image is ~1.2GB, so a fraction of $0.15/mo when stopped)                                  | https://fly.io/docs/about/pricing/ |
-| Fly machine, running                                                                        | ~$0.00000156/s ≈ **$4.04/month if left running continuously** (region-dependent; staging should spend almost none of this since `auto_stop_machines` suspends it between requests) | https://fly.io/docs/about/pricing/ |
-| Fly Postgres machine `daisy-debate-staging-db` (shared-cpu-1x 256MB, 1GB volume), always on | ≈ $1.94/month compute + $0.15/month volume. Owner decision: left running; `fly machine stop` between sessions drops it to the volume charge.                                       |
-| Fly Redis `daisy-debate-staging-redis` (Upstash, Pay-as-you-go)                             | $0 at rest; $0.20 per 100K commands.                                                                                                                                               |
-| Resend                                                                                      | Free tier covers low-volume staging email + webhooks; no idle cost beyond the account itself                                                                                       | https://resend.com/pricing         |
+| Piece                                                                                       | Idle cost                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Source                             |
+| ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| Fly machine (shared-cpu-1x, 512mb), stopped (`min_machines_running = 0`)                    | $0 compute. Only rootfs storage is billed while stopped: $0.15 per 1GB for 30 days (this image is ~1.2GB, so a fraction of $0.15/mo when stopped)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | https://fly.io/docs/about/pricing/ |
+| Fly machine, running                                                                        | ~$0.00000156/s ≈ **$4.04/month if left running continuously** (region-dependent). **Owner decision DEC-10 (confirmed)**: the AUTH-7.7 alert probe (`auth-alerts.yml`) polls `/api/health/ready` and `/api/ops/alerts` every 5 minutes, well inside Fly's default auto-stop idle window, so the web machine is woken (or kept awake) on every cycle and effectively never reaches `min_machines_running = 0` in practice — the owner accepted this ~$4/month cost against the ~$0/month a slower or app-internal-only cadence would have kept, in exchange for the probe cadence AUTH-7.7 and ADR 0042 specify everywhere (dashboards, runbooks, the workflow itself); no cadence change followed from this trade-off | https://fly.io/docs/about/pricing/ |
+| Fly Postgres machine `daisy-debate-staging-db` (shared-cpu-1x 256MB, 1GB volume), always on | ≈ $1.94/month compute + $0.15/month volume. Owner decision: left running; `fly machine stop` between sessions drops it to the volume charge.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Fly Redis `daisy-debate-staging-redis` (Upstash, Pay-as-you-go)                             | $0 at rest; $0.20 per 100K commands.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Resend                                                                                      | Free tier covers low-volume staging email + webhooks; no idle cost beyond the account itself                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | https://resend.com/pricing         |
 
-Net: about $2/month at rest (the Postgres machine), plus fractional-cent
-rootfs storage and any actual staging traffic while the web machine is awake.
+Net: about $6/month at rest (the Postgres machine plus the AUTH-7.7 probe
+keeping the web machine effectively always-on per DEC-10 — see the row
+above), plus fractional-cent rootfs storage and any actual staging traffic.
+Before DEC-10 (no probe, or a probe outside the auto-stop window) this line
+was about $2/month.
 
 ## Security proof against the live app (AUTH-7.8)
 
@@ -290,7 +293,8 @@ fly secrets set -a daisy-debate-staging --stage \
   BETTER_AUTH_SECRET="$(bun -e 'console.log(crypto.getRandomValues(new Uint8Array(32)).reduce((s,b)=>s+b.toString(16).padStart(2,"0"),""))')" \
   RESEND_API_KEY="re_..." \
   AUTH_EMAIL_FROM="Daisy <no-reply@yourdomain.example>" \
-  RESEND_WEBHOOK_SECRET="whsec_..."
+  RESEND_WEBHOOK_SECRET="whsec_..." \
+  OPS_PROBE_TOKEN="$(bun -e 'console.log(crypto.getRandomValues(new Uint8Array(32)).reduce((s,b)=>s+b.toString(16).padStart(2,"0"),""))')"
 ```
 
 `APP_VERSION` and `GIT_COMMIT` are non-secret and set per-release, not as
@@ -299,8 +303,14 @@ persistent secrets — pass them as build args or set them via
 `APP_VERSION`/`GIT_COMMIT` at their `development`/`unknown` defaults
 (`packages/config/src/index.ts`).
 
-Verify: `fly secrets list -a daisy-debate-staging` shows all six names (not
-values — Fly never displays a set secret's value back), and no
+`OPS_PROBE_TOKEN` (AUTH-7.7) also needs setting as the repository secret
+the scheduled `auth-alerts.yml` workflow reads:
+`fly secrets list -a daisy-debate-staging` never displays it back, so copy
+it while generating it, then `echo -n "<same value>" | gh secret set
+OPS_PROBE_TOKEN`.
+
+Verify: `fly secrets list -a daisy-debate-staging` shows all seven names
+(not values — Fly never displays a set secret's value back), and no
 `MIGRATION_DATABASE_URL`.
 
 ## 6. First deploy
@@ -480,3 +490,8 @@ database URLs. The job holds only the Incidents webhook URL and secret
 (`PAGESPACE_INCIDENTS_WEBHOOK_URL`, `PAGESPACE_INCIDENTS_WEBHOOK_SECRET`,
 the repository secrets `ci.yml` already uses), scoped to the step that
 posts.
+
+The separate `auth-alerts.yml` workflow (AUTH-7.7) needs `OPS_PROBE_TOKEN`
+as a repository secret (the exact value set on the app above via `fly
+secrets set`) alongside the same two Incidents webhook secrets; see
+[auth-delivery.md](auth-delivery.md#alerting-auth-77).

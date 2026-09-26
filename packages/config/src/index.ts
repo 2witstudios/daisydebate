@@ -206,20 +206,28 @@ const authFields = {
   ).optional(),
   /** Proxy IPs or CIDR ranges skipped when a trusted header holds a chain. */
   AUTH_TRUSTED_PROXIES: commaList(proxyAddress),
+  /**
+   * Bearer credential for the read-only `/api/ops/alerts` and
+   * `/api/ops/metrics` probes (AUTH-7.7); required in production so the
+   * scheduled alert workflow, and nothing else, can read them.
+   */
+  OPS_PROBE_TOKEN: secret(z.string().min(32)).optional(),
   // Required, no default: see deploymentIdentityFields.NODE_ENV.
   NODE_ENV: z.enum(['development', 'test', 'production']),
 };
+/** Fields that must be set once NODE_ENV is production, each reported by name only. */
+const REQUIRED_IN_PRODUCTION = [
+  ['RESEND_WEBHOOK_SECRET', 'Production requires the webhook signing secret'],
+  ['OPS_PROBE_TOKEN', 'Production requires the ops probe token'],
+] as const;
 const authConfigSchema = z
   .object(authFields)
   .superRefine((config, ctx) => {
     if (config.NODE_ENV !== 'production') return;
     requireHttpsOrigin(config.PUBLIC_APP_URL, ctx);
-    if (config.RESEND_WEBHOOK_SECRET === undefined)
-      ctx.addIssue({
-        code: 'custom',
-        path: ['RESEND_WEBHOOK_SECRET'],
-        message: 'Production requires the webhook signing secret',
-      });
+    for (const [field, message] of REQUIRED_IN_PRODUCTION)
+      if (config[field] === undefined)
+        ctx.addIssue({ code: 'custom', path: [field], message });
   })
   .transform(({ NODE_ENV: _nodeEnv, ...auth }) => auth);
 export type AuthConfig = z.infer<typeof authConfigSchema>;

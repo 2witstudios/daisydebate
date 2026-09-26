@@ -1,5 +1,6 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { authEnv } from './auth-env.test-support';
 import { readAuthConfig, readBrowserConfig, readServerConfig } from './index';
 
 setupRitewayBun();
@@ -86,15 +87,6 @@ describe('configuration', () => {
 });
 
 describe('authentication configuration', () => {
-  const authEnv = {
-    NODE_ENV: 'development',
-    BETTER_AUTH_SECRET:
-      '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
-    PUBLIC_APP_URL: 'https://daisy.example.com',
-    RESEND_API_KEY: 're_test_000000000000000000000000',
-    AUTH_EMAIL_FROM: 'Daisy <no-reply@daisy.example.com>',
-  };
-
   test('a missing NODE_ENV refuses to start rather than skip production checks', () => {
     const withoutNodeEnv = { ...authEnv };
     Reflect.deleteProperty(withoutNodeEnv, 'NODE_ENV');
@@ -198,6 +190,7 @@ describe('authentication configuration', () => {
           NODE_ENV: 'production',
           PUBLIC_APP_URL: 'http://daisy.example.com',
           RESEND_WEBHOOK_SECRET: 'whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw',
+          OPS_PROBE_TOKEN: 'a'.repeat(32),
         }),
       ),
       expected: 'Error: Invalid auth configuration: PUBLIC_APP_URL',
@@ -259,6 +252,7 @@ describe('authentication configuration', () => {
       actual: readAuthConfig({
         ...production,
         RESEND_WEBHOOK_SECRET: 'whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw',
+        OPS_PROBE_TOKEN: 'a'.repeat(32),
       }).RESEND_WEBHOOK_SECRET,
       expected: 'whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw',
     });
@@ -281,3 +275,4 @@ describe('authentication configuration', () => {
     });
   });
 });
+// OPS_PROBE_TOKEN (AUTH-7.7) has its own suite: ops-probe-token.test.ts.

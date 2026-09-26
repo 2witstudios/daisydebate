@@ -13,6 +13,8 @@ import { createResendSender, type Fetch } from '../features/auth/mail';
 import { createAuthRateLimiter } from '../features/auth/redis-limiter';
 import { createAuthServer, type AuthServer } from '../features/auth/server';
 import { createResendWebhook } from '../features/auth/webhook';
+import { createAlertRecorder, withAlertRecording } from './alert-recorder';
+import { createMetricsStore, type MetricsStore } from './metrics-store';
 
 export type AppDependencies = {
   /** Raw environment, validated here and nowhere else. */
@@ -45,22 +47,31 @@ export function createApp({
   logDestination,
 }: AppDependencies) {
   const config = readServerConfig(env);
-  const logger = createLogger({
+  const baseLogger = createLogger({
     service: 'web',
     level: config.LOG_LEVEL,
     appVersion: config.APP_VERSION,
     gitCommit: config.GIT_COMMIT,
     ...(logDestination ? { destination: logDestination } : {}),
   });
+  const metrics: MetricsStore = createMetricsStore();
+  const redis = createRedis({
+    url: config.REDIS_URL,
+    namespace: config.REDIS_NAMESPACE,
+    eventSink: baseLogger.log,
+  });
+  const alertRecorder = createAlertRecorder({ redis, clock });
+  // AUTH-7.7: every existing `logger.log` call site (auth, retention, HTTP)
+  // feeds both the durable Redis alert state and the in-process metrics
+  // counters, with no per-site change.
+  const logger = withAlertRecording(
+    withAlertRecording(baseLogger, alertRecorder),
+    metrics,
+  );
   const database = createDatabase({
     url: config.DATABASE_URL,
     eventSink: logger.log,
     nextActorId: () => ids.next(),
-  });
-  const redis = createRedis({
-    url: config.REDIS_URL,
-    namespace: config.REDIS_NAMESPACE,
-    eventSink: logger.log,
   });
   let authConfig: AuthConfig | undefined;
   let auth: AuthServer | undefined;
@@ -113,8 +124,19 @@ export function createApp({
     logger,
     database,
     redis,
+    /** AUTH-7.7's bounded-cardinality in-process counters (`/api/ops/metrics`). */
+    metrics,
     /** The composed auth server, validated and built on first use. */
     auth: (): AuthServer => (auth ??= composeAuth()),
+    /**
+     * `OPS_PROBE_TOKEN` (AUTH-7.7): refuses, like the webhook secret, rather
+     * than serve `/api/ops/alerts`/`/api/ops/metrics` unauthenticated.
+     */
+    opsProbeToken: (): string => {
+      const token = readAuth().OPS_PROBE_TOKEN;
+      if (!token) throw createAppError('INFRASTRUCTURE');
+      return token;
+    },
     /** The Resend delivery webhook; refuses when the signing secret is unset. */
     mailWebhook: () => (mailWebhook ??= composeMailWebhook()),
     /** isDraining, drain, and close (drains, then closes both pools). */

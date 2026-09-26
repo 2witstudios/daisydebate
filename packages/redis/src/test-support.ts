@@ -86,6 +86,12 @@ export const createOfflineRedis = (
     } as never,
   });
 
+/** A fresh failure-event recorder paired with an always-offline Redis wired to it. */
+export const createOutageRedis = () => {
+  const events: Array<{ event: string; fields: Record<string, unknown> }> = [];
+  return { events, redis: createOfflineRedis(events) };
+};
+
 export const createTestRedis = (
   events: Array<{
     event: string;

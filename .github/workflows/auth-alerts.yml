@@ -1,0 +1,43 @@
+name: Auth alert probe
+# AUTH-7.7: staging scales to zero (fly.toml min_machines_running = 0), so
+# nothing running inside the app can notice its own multi-minute or
+# multi-hour silence, or alert while it is asleep or crash-looping. This
+# scheduled workflow is the evaluation point instead (see the AUTH-7.7 ADR):
+# every 5 minutes it probes the public origin's readiness endpoint
+# (non-mutating, proving routing/TLS/security headers) and the bearer-token
+# gated /api/ops/alerts, then posts whatever fired to the drive's Incidents
+# channel (scripts/auth-alert-probe.ts). GitHub's schedule is best-effort
+# and may run a few minutes late under platform load; the thresholds
+# already bridge that (2-minute/10-minute/2-hour windows, not exact edges).
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: auth-alert-probe
+  cancel-in-progress: false
+jobs:
+  probe:
+    name: Probe the staging origin and alert conditions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: '1.4.2'
+      - name: Probe the origin and alert conditions
+        env:
+          OPS_PROBE_TOKEN: ${{ secrets.OPS_PROBE_TOKEN }}
+          PAGESPACE_INCIDENTS_WEBHOOK_URL: ${{ secrets.PAGESPACE_INCIDENTS_WEBHOOK_URL }}
+          PAGESPACE_INCIDENTS_WEBHOOK_SECRET: ${{ secrets.PAGESPACE_INCIDENTS_WEBHOOK_SECRET }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: >-
+          bun scripts/auth-alert-probe.ts
+          --origin https://daisy-debate-staging.fly.dev
+          --token "$OPS_PROBE_TOKEN"
+          --run-url "$RUN_URL"

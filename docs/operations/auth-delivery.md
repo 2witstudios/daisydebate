@@ -7,14 +7,15 @@ deploy and to reason about failures.
 
 ## Required configuration (production refuses to start without it)
 
-| Variable                | Purpose                                                        |
-| ----------------------- | -------------------------------------------------------------- |
-| `BETTER_AUTH_SECRET`    | 64 characters from 32 random bytes; also keys recipient hashes |
-| `PUBLIC_APP_URL`        | HTTPS canonical origin; derives the passkey RP ID and origin   |
-| `RESEND_API_KEY`        | Resend send credential (owner-provisioned; never in PageSpace) |
-| `AUTH_EMAIL_FROM`       | Verified sender mailbox                                        |
-| `RESEND_WEBHOOK_SECRET` | `whsec_…` signing secret of the Resend webhook                 |
-| `AUTH_TRUSTED_PROXIES`  | Optional IP/CIDR list of deployment ingress hops (see below)   |
+| Variable                | Purpose                                                                                                                               |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `BETTER_AUTH_SECRET`    | 64 characters from 32 random bytes; also keys recipient hashes                                                                        |
+| `PUBLIC_APP_URL`        | HTTPS canonical origin; derives the passkey RP ID and origin                                                                          |
+| `RESEND_API_KEY`        | Resend send credential (owner-provisioned; never in PageSpace)                                                                        |
+| `AUTH_EMAIL_FROM`       | Verified sender mailbox                                                                                                               |
+| `RESEND_WEBHOOK_SECRET` | `whsec_…` signing secret of the Resend webhook                                                                                        |
+| `AUTH_TRUSTED_PROXIES`  | Optional IP/CIDR list of deployment ingress hops (see below)                                                                          |
+| `OPS_PROBE_TOKEN`       | Bearer credential for `/api/ops/alerts` and `/api/ops/metrics` (AUTH-7.7); the scheduled `auth-alerts.yml` workflow's only credential |
 
 `apps/web/src/server/start.ts` validates these at boot and reports field names
 only. Live delivery additionally needs the human prerequisite AUTH-1.3: a
@@ -163,7 +164,41 @@ DELETE FROM session WHERE id IN (
   ORDER BY expires_at LIMIT 500 FOR UPDATE SKIP LOCKED);
 ```
 
-## Incident runbooks (AUTH-6.4)
+## Alerting (AUTH-7.7)
+
+Staging scales to zero (`fly.toml`'s `min_machines_running = 0`), so the
+evaluation point for these alerts is a scheduled GitHub Actions workflow
+(`.github/workflows/auth-alerts.yml`, `scripts/auth-alert-probe.ts`), not a
+timer inside the app — see [ADR 0042](../decisions/0042-auth-alert-evaluation-point.md)
+for why. Every 5 minutes it probes the public origin's readiness endpoint
+(non-mutating, proving routing/TLS/security headers) and reads
+`GET /api/ops/alerts` (bearer-token gated by `OPS_PROBE_TOKEN`), which
+answers the already-evaluated conditions computed by
+`apps/web/src/server/alert-state.ts`'s `evaluateAlerts`. Whatever fires is
+posted to the drive's Incidents channel via the existing
+`scripts/notify-drive.ts incidents --message`, naming the condition's own
+runbook below.
+
+The four conditions, and the durable Redis marker each reads
+(`apps/web/src/server/alert-recorder.ts` writes them by tapping the
+existing event stream — no new call sites):
+
+| Condition             | Fires when                                                                                      | Marker                                             |
+| --------------------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `storage_unavailable` | `auth.session.unavailable` persists 2+ minutes                                                  | `alert-unavailable-storage`                        |
+| `limiter_unavailable` | `auth.rate_limit.unavailable` persists 2+ minutes                                               | `alert-unavailable-limiter`                        |
+| `delivery_failures`   | 3+ consecutive `auth.mail.failed`, reset by `auth.mail.sent`                                    | `alert-mail-consecutive-failures`                  |
+| `auth_5xx_rate`       | >1% of auth-operation requests are 5xx over the trailing 10 minutes, with at least 100 requests | per-minute `alert-http-total-*`/`alert-http-5xx-*` |
+| `cleanup_missed`      | the retention sweep has not completed successfully in 2+ hours, or never has                    | `alert-retention-last-success`                     |
+
+`GET /api/ops/metrics` (same bearer token) exposes the bounded-cardinality
+Prometheus counters behind AUTH-7.7's dashboard criterion: auth HTTP
+responses by status class, rate-limit denied/unavailable totals, mail
+delivery failures, and retention sweep failures by target name — no
+per-email or per-token labels. Wiring an actual scrape config or rendered
+dashboard is a separate, owner-approved deploy-rail step (ADR 0042).
+
+## Incident runbooks (AUTH-6.4, AUTH-7.7)
 
 Every instruction below is proved by an existing test: the event or status it
 names is asserted by the test file/case cited, so a change that breaks the
@@ -292,3 +327,79 @@ out.
    username claim answer `503` (never a silent sign-out), logged as
    `auth.session.unavailable` — treat it as the database/Redis runbook
    above, not as a revocation bug.
+
+### Storage or rate limiter unavailable
+
+**Symptom:** the `storage_unavailable` or `limiter_unavailable` alert fires
+(`apps/web/src/server/alert-state.test.ts`, "storage unavailable for
+exactly the threshold fires" / "limiter unavailable for 2+ minutes fires
+limiter_unavailable").
+
+1. This is the same underlying condition as "Database or Redis storage
+   failure" above (`auth.session.unavailable`/`auth.rate_limit.unavailable`);
+   follow that runbook to diagnose the outage itself.
+2. The alert fires only once the condition has held for 2+ minutes
+   (`apps/web/src/server/alert-recorder.test.ts`, "marks storage unavailable
+   on auth.session.unavailable" proves the marker is written on the first
+   occurrence with a 3-minute bridging TTL) — a single transient failure
+   does not page anyone.
+3. No manual reset is needed: the marker expires on its own 3 minutes after
+   the last occurrence, so the alert clears passively once the dependency
+   recovers and stays recovered.
+
+### Delivery provider failing repeatedly
+
+**Symptom:** the `delivery_failures` alert fires
+(`apps/web/src/server/alert-state.test.ts`, "3 consecutive delivery
+failures fire; 2 does not").
+
+1. Follow "Mail delivery is failing" above to diagnose Resend itself; this
+   alert is that same condition crossing 3 consecutive `auth.mail.failed`
+   events with no intervening successful send
+   (`apps/web/src/server/alert-recorder.test.ts`, "increments consecutive
+   mail failures on auth.mail.failed, resets on auth.mail.sent").
+2. The counter resets to zero on the next successful send; no manual reset
+   is needed once Resend recovers.
+
+### Auth 5xx error rate elevated
+
+**Symptom:** the `auth_5xx_rate` alert fires
+(`apps/web/src/server/alert-state.test.ts`, "auth 5xx above 1% with at
+least 100 requests fires; below either threshold does not").
+
+1. Filter the event stream for `event:"http.request.completed"` or
+   `event:"http.request.failed"` with `operation` starting `auth.` and
+   `status >= 500` over the alert's window; both events carry `status`
+   (`apps/web/src/server/http.test.ts`, "log the response status alongside
+   the error code (AUTH-7.7 5xx-rate alert input)" proves `http.request.failed`
+   carries it too, not only the completed path).
+2. A burst of `auth.request` 503s usually means the storage/limiter runbook
+   above; a burst of `INTERNAL`/`500`s with no matching `db.query.failed`
+   or `redis.command.failed` means an application defect, not an outage —
+   escalate rather than wait for recovery.
+3. The rate is computed over a trailing 10-minute window and requires at
+   least 100 requests in that window, so a low-traffic burst of failures
+   (fewer than 100 total auth requests) does not page anyone even at 100%
+   failure — check `GET /api/ops/metrics`'s `auth_http_requests_total` for
+   the actual volume before assuming the alert under- or over-fired.
+
+### Retention cleanup missed
+
+**Symptom:** the `cleanup_missed` alert fires
+(`apps/web/src/server/alert-state.test.ts`, "a retention sweep silent for
+2+ hours, or never successful, fires cleanup_missed").
+
+1. Filter the event stream for `event:"retention.sweep.failed"` — see
+   "Retention of verification records" and "Retention of sessions" above
+   for the manual `psql` fallback if a backlog needs draining sooner than
+   the next hourly run.
+2. If no `retention.sweep.failed` events appear either, the sweep is not
+   running at all — check that the app process is up (`GET
+/api/health/ready`) and that it has completed at least one boot since
+   the last deploy (`retention-sweep.ts`'s `runOnStart` sweeps once at
+   start-up, before the hourly schedule).
+3. The marker this alert reads (`alert-retention-last-success`) is written
+   only on `retention.sweep.completed`, so a sweep that runs but never
+   fully succeeds keeps this alert firing even while individual batches
+   make progress — that is intentional (AUTH-7.7's "cleanup missed" names
+   the failure to _complete_, not the failure to _attempt_).

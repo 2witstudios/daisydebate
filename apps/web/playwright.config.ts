@@ -213,6 +213,9 @@ export default defineConfig({
         RESEND_API_KEY: 're_e2e_placeholder_not_a_credential',
         AUTH_EMAIL_FROM: 'Daisy <no-reply@e2e.daisy.invalid>',
         RESEND_WEBHOOK_SECRET: 'whsec_ZTJlLXBsYWNlaG9sZGVyLW5vdC1hLXNlY3JldA==',
+        // AUTH-7.7: gates /api/ops/alerts and /api/ops/metrics; no probe
+        // workflow runs against this local e2e server.
+        OPS_PROBE_TOKEN: 'e2e-ops-probe-token-placeholder-not-a-credential',
       },
     },
     {

@@ -7,6 +7,8 @@ import { createConfirmEmailHandlers } from '../features/auth/confirm-email';
 import { createConfirmHandlers } from '../features/auth/confirm';
 import { createAuthRouteHandlers } from '../features/auth/handlers';
 import { createProofHandlers } from '../features/foundation/handlers';
+import { createAlertsHandler } from '../features/ops/alerts';
+import { createMetricsHandler } from '../features/ops/metrics';
 import { createTicketHandler } from '../features/realtime/ticket';
 import { identify } from '../lib/identity';
 import type { App } from './app';
@@ -114,6 +116,23 @@ export function createRoutes(app: App) {
         isDraining: app.isDraining,
         logger,
       }),
+    },
+    ops: {
+      alerts: {
+        GET: createAlertsHandler({
+          logger,
+          redis: app.redis,
+          clock: app.clock,
+          token: () => app.opsProbeToken(),
+        }),
+      },
+      metrics: {
+        GET: createMetricsHandler({
+          logger,
+          metrics: app.metrics,
+          token: () => app.opsProbeToken(),
+        }),
+      },
     },
   };
 }

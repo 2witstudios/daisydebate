@@ -32,6 +32,7 @@ export const CLIENT_BUNDLE_SECRET_ENV_VARS = [
   'BETTER_AUTH_SECRET',
   'RESEND_API_KEY',
   'RESEND_WEBHOOK_SECRET',
+  'OPS_PROBE_TOKEN',
 ] as const;
 
 export function clientBundleSecretIssues(
