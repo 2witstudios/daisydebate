@@ -114,6 +114,24 @@ function xargsTemplates(words: readonly string[]): boolean {
 const XARGS_TEMPLATE_REASON =
   'xargs -I/-i/-J templates its command from stdin at run time; the guard cannot verify what it will run. Run the resolved command directly.';
 
+const FIND_PLACEHOLDER_REASON =
+  'find substitutes {} with the matched path at run time; the guard cannot verify what program or script that path names. Run the resolved command directly.';
+
+/**
+ * Whether find's {} placeholder names the -exec'd program itself, or is the
+ * whole script a recognized shell's -c would run: both are resolved only at
+ * run time, from whatever path find matched, so classifying the literal
+ * "{}" proves nothing. {} used as an ordinary argument (`grep -l {}`) is
+ * unaffected.
+ */
+function usesFindPlaceholder(words: readonly string[]): boolean {
+  const [name = '', ...rest] = words;
+  if (name === '{}') return true;
+  if (!shells.has(basename(name))) return false;
+  const input = shellInput(rest);
+  return 'script' in input && input.script === '{}';
+}
+
 /**
  * Judges what one already-unwrapped invocation runs: a shell recurses, eval
  * recurses, a guarded executable's own rule applies, and find's -exec family
@@ -138,7 +156,16 @@ function classifyInvocation(
   else if (rules[name]) verdicts.push(rules[name](invocation, facts, cwd));
   else if (name === 'find')
     verdicts.push(
-      ...findExecInvocations(args).map((inner) =>
+      ...findExecInvocations(args).flatMap((inner) => [
+        usesFindPlaceholder(inner)
+          ? autonomousOnly(facts, FIND_PLACEHOLDER_REASON)
+          : allow,
+        // Checked on the raw argv, before unwrap can strip xargs away and
+        // leave only the command it templates (agent-guard-rules.ts's
+        // wrapperValueOptions.xargs resolves straight past it otherwise).
+        xargsTemplates(inner)
+          ? autonomousOnly(facts, XARGS_TEMPLATE_REASON)
+          : allow,
         classifyInvocation(
           unwrap({
             words: inner,
@@ -149,7 +176,7 @@ function classifyInvocation(
           facts,
           cwd,
         ),
-      ),
+      ]),
     );
   return combine(verdicts);
 }

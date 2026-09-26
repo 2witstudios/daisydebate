@@ -126,7 +126,7 @@ function databaseName(url: string): string | undefined {
   }
 }
 
-/** The script bun runs and the directory it runs in. */
+/** The script bun runs, the directory it runs in, and where its own options end. */
 function bunScript(words: readonly string[], cwd: string) {
   let dir = cwd;
   let index = 1;
@@ -137,7 +137,12 @@ function bunScript(words: readonly string[], cwd: string) {
     else if (words[index] === 'run' || words[index].startsWith('-')) index += 1;
     else break;
   }
-  return { dir, script: words[index] ?? '', args: words.slice(index + 1) };
+  return {
+    dir,
+    script: words[index] ?? '',
+    args: words.slice(index + 1),
+    optionsEnd: index,
+  };
 }
 
 function ownsSlot(
@@ -168,13 +173,16 @@ const BUN_INLINE_REASON =
   'bun -e/--eval/-p/--print runs any operation this file guards, from inline code the guard cannot read. Run the resolved command directly, or put the code in a reviewed script file.';
 
 export const bun: Rule = (invocation, facts, cwd): Verdict => {
+  const { dir, script, args, optionsEnd } = bunScript(invocation.words, cwd);
+  // Only bun's own options (before the script/subcommand operand) name an
+  // eval flag; the same flag after it, e.g. `bun run dev -- -e foo`, belongs
+  // to the script.
   if (
     invocation.words
-      .slice(1)
+      .slice(1, optionsEnd)
       .some((word) => BUN_INLINE_FLAGS.has(splitFlag(word)[0]))
   )
     return autonomousOnly(facts, BUN_INLINE_REASON);
-  const { dir, script, args } = bunScript(invocation.words, cwd);
   // bun x <package> is bunx.
   if (script === 'x')
     return otherKillers(

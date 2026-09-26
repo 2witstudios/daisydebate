@@ -49,6 +49,20 @@ describe('agent guard: interpreters given inline code', () => {
     });
   });
 
+  test('reads clustered perl switches (CodeRabbit finding on PR #113)', () => {
+    assert({
+      given:
+        '-we, -pe and -wne, where -e clusters with other single-letter switches',
+      should: 'deny each one, the same as bare -e',
+      actual: [
+        decide(`perl -we 'system("git push origin main")'`),
+        decide(`perl -pe 'system("git push origin main")'`),
+        decide(`perl -wne 'system("git push origin main")'`),
+      ],
+      expected: Array(3).fill('deny'),
+    });
+  });
+
   test('reads php -r, node --eval and node -p the same way', () => {
     assert({
       given: 'the other inline-eval spellings',
@@ -127,6 +141,18 @@ describe('agent guard: bun given inline code', () => {
         decide(`bun -p "1"`),
       ],
       expected: Array(3).fill('deny'),
+    });
+  });
+
+  test('does not treat a script’s own passthrough arguments as bun’s eval flags (CodeRabbit finding on PR #113)', () => {
+    assert({
+      given: '-e and -p passed after -- to the script itself, not to bun',
+      should: 'allow both: those flags belong to the script, not bun',
+      actual: [
+        decide('bun run dev -- -e should-not-trigger'),
+        decide('bun test -- -p nope'),
+      ],
+      expected: ['allow', 'allow'],
     });
   });
 

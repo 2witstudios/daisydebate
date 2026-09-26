@@ -51,6 +51,41 @@ describe('agent guard: find -exec and friends', () => {
       expected: 'ask',
     });
   });
+
+  test('refuses find’s {} placeholder used as the executable or as a shell -c script (CodeRabbit finding on PR #113)', () => {
+    assert({
+      given:
+        'find substitutes {} with the matched path at run time, so the guard cannot know what it names',
+      should: 'deny {} as the -exec’d program and as bash/sh -c’s whole script',
+      actual: [
+        decide(`find /tmp -type f -exec {} \\;`),
+        decide(`find /tmp -type f -exec bash -c {} \\;`),
+        decide(`find /tmp -type f -exec sh -c {} \\;`),
+      ],
+      expected: Array(3).fill('deny'),
+    });
+  });
+
+  test('still allows {} as an ordinary argument', () => {
+    assert({
+      given: 'grep taking {} as the file to search, a safe, common use',
+      should: 'allow it',
+      actual: decide(`find /tmp -name "*.ts" -exec grep -l foo {} \\;`),
+      expected: 'allow',
+    });
+  });
+
+  test('catches xargs templating when find -exec runs xargs directly, not only through a nested shell (CodeRabbit finding on PR #113)', () => {
+    assert({
+      given:
+        'find -exec xargs -I@ git push origin @: unwrapping xargs down to "git push origin @" before checking would read @ as a literal, harmless branch name',
+      should: 'deny it: the guard cannot know what xargs will substitute for @',
+      actual: decide(
+        `find /tmp -maxdepth 0 -exec xargs -I@ git push origin @ \\;`,
+      ),
+      expected: 'deny',
+    });
+  });
 });
 
 describe('agent guard: xargs templating', () => {

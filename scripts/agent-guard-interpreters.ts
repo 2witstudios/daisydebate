@@ -38,11 +38,30 @@ const INLINE_FLAGS: Readonly<Record<string, ReadonlySet<string>>> = {
   osascript: new Set(['-e']),
 };
 
+/** The single-letter switches of an inline-flag set (`-e` -> `e`), for reading a cluster. */
+function singleLetters(flags: ReadonlySet<string>): ReadonlySet<string> {
+  return new Set(
+    [...flags].filter((flag) => flag.length === 2).map((flag) => flag[1]),
+  );
+}
+
+/**
+ * True for a plain inline flag (`-e`, `--eval`) and for one clustered with
+ * other single-letter switches the way Perl reads them (`-we`, `-pe`,
+ * `-wne`, …): every character after the dash is its own switch, so any of
+ * them naming an inline-code flag makes the whole cluster one.
+ */
 function hasInlineFlag(name: string, args: readonly string[]): boolean {
   const flags = INLINE_FLAGS[name];
-  return (
-    flags !== undefined && args.some((arg) => flags.has(splitFlag(arg)[0]))
-  );
+  if (flags === undefined) return false;
+  const letters = singleLetters(flags);
+  return args.some((arg) => {
+    if (flags.has(splitFlag(arg)[0])) return true;
+    return (
+      /^-[A-Za-z]+$/.test(arg) &&
+      [...arg.slice(1)].some((letter) => letters.has(letter))
+    );
+  });
 }
 
 /** awk's program is its own first non-option operand unless -f reads one from a file. */
