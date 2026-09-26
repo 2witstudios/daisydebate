@@ -17,9 +17,14 @@
  */
 import { SQL } from 'bun';
 import { applyDevSeed } from '@daisy/db/dev-seed';
+import { refusalForStagingSeed } from './restore-guard';
 
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error('DATABASE_URL is required');
+
+const force = process.argv.slice(2).includes('--force');
+const refusal = refusalForStagingSeed(url, force);
+if (refusal) throw new Error(refusal);
 
 const restoreSeedVersion = 'restore-rehearsal-seed-v1';
 

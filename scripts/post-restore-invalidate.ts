@@ -15,15 +15,27 @@
  * a database name check can catch). `--force` overrides the name check for
  * an isolated database that does not happen to carry "restore" in its name;
  * it never overrides anything else.
+ *
+ * The Redis target is guarded separately and unconditionally: a real
+ * restore's `REDIS_NAMESPACE` need not contain "restore" (a blue/green
+ * restore can reuse the live namespace on purpose), so there is no name
+ * pattern to infer isolation from. `--confirm-redis-namespace <namespace>`
+ * must retype `REDIS_NAMESPACE`'s exact value, an explicit, deliberate act
+ * an operator only takes after independently confirming that namespace
+ * belongs to the isolated restore target — `--force` never substitutes for
+ * it.
  */
 import { RedisClient } from 'bun';
 import { systemId } from '@daisy/clock';
 import { createDatabase } from '@daisy/db';
 import { clearAuthRateLimits } from '@daisy/redis/namespaces';
-import { refusalFor } from './restore-guard';
+import { refusalFor, refusalForRedis } from './restore-guard';
 
 const args = process.argv.slice(2);
 const force = args.includes('--force');
+const confirmFlagIndex = args.indexOf('--confirm-redis-namespace');
+const confirmedRedisNamespace =
+  confirmFlagIndex === -1 ? undefined : args[confirmFlagIndex + 1];
 
 const databaseUrl = process.env.DATABASE_URL;
 const redisUrl = process.env.REDIS_URL;
@@ -35,6 +47,9 @@ if (!redisNamespace) throw new Error('REDIS_NAMESPACE is required');
 
 const refusal = refusalFor(databaseUrl, force);
 if (refusal) throw new Error(refusal);
+
+const redisRefusal = refusalForRedis(redisNamespace, confirmedRedisNamespace);
+if (redisRefusal) throw new Error(redisRefusal);
 
 const targetDatabaseName = new URL(databaseUrl).pathname.replace(/^\//, '');
 
