@@ -60,7 +60,7 @@ and `secret` values never reach a log line, an error report or an analytics
 event, whatever the `personal` value's visibility — `packages/logger`'s
 `loggableFields` allowlist enforces this by restricting which field names
 and kinds may appear in a log call at all; a `path` or `route` field's
-value must be a route pattern (e.g. `/profile/:username`), never a
+value must be a route pattern (e.g. `/profile/[username]`), never a
 concrete URL, so a personal value cannot ride through it either (the
 allowlist does not yet enforce that shape; the gap is closed by PRIV-8).
 The adapters in ADR 0037 are the mechanism for errors and analytics.
