@@ -286,6 +286,11 @@ expected, nothing is listening yet).
 
 ## 5. Set secrets
 
+Rotating one of these later (routine or emergency) follows
+[secret-rotation-rehearsal.md](secret-rotation-rehearsal.md) (AUTH-7.6),
+including the safe `fly secrets import` pattern that never takes a secret
+value as a CLI argument.
+
 ```
 # DATABASE_URL was set in step 2 and REDIS_URL staged in step 3; do not set
 # them again here. MIGRATION_DATABASE_URL belongs to the migrator app only.
