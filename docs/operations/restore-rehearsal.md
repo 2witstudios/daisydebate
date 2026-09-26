@@ -138,18 +138,48 @@ closes it, retyping `REDIS_URL`'s host only (never the full URL, which
 routinely carries a password a command-line argument must never hold).
 The full real-path proof is
 `apps/web/integration/auth-restore-invalidation.integration.ts`: a real
-sign-in through the mounted routes, a real session cookie, then
+sign-in through the mounted routes, a real session cookie, a real,
+unredeemed magic-link token, a real rate-limit key, then
 `purgeAllForRestore`/`clearAuthRateLimits` exactly as the script runs them,
-then the same cookie replayed against the real `identify` seam — RED
-without the purge (`identify` still resolves `provisional`), GREEN with it
-(`identify` resolves `anonymous`).
+then each artifact replayed against the real seam that would have accepted
+it — the session cookie against `identify`, the magic-link token against
+the real `/auth/confirm` redemption path, the rate-limit key against Redis
+directly. RED without the purge (`identify` still resolves `provisional`,
+the verification row still exists), GREEN with it (`identify` resolves
+`anonymous`, the redemption is rejected exactly as a replayed/invalid
+token is, the rate-limit key is gone).
 
-On this rehearsal's isolated copy, the equivalent SQL
+`bun scripts/post-restore-invalidate.ts` (`bun restore:invalidate`) is also
+run end to end, not only through the functions it calls: seeded this
+checkout's own dev database with `scripts/staging-restore-seed.ts --force`,
+`pg_dump`/`pg_restore`'d it into an isolated
+`daisy_wt_e2qc2pm6_restore_proof` database (same local Postgres container,
+`docker exec daisy-postgres-1 pg_dump`/`pg_restore`), then ran the real
+command:
+
+```
+DATABASE_URL=postgres://daisy:...@localhost:15432/daisy_wt_e2qc2pm6_restore_proof \
+REDIS_URL=redis://localhost:6379/1 REDIS_NAMESPACE=daisy-wt-e2qc2pm6-restore-proof \
+  bun restore:invalidate \
+  --confirm-redis-namespace daisy-wt-e2qc2pm6-restore-proof \
+  --confirm-redis-host localhost:6379
+```
+
+Output: `{"database":"daisy_wt_e2qc2pm6_restore_proof","redisNamespace":"daisy-wt-e2qc2pm6-restore-proof","deletedSessions":2,"deletedVerifications":1,"clearedRateLimitKeys":0}`.
+The source dev database kept its own 2 sessions and 1 verification row
+afterward, confirmed by direct query. The isolated database and dump file
+were dropped after.
+
+On the live staging rehearsal's isolated copy, the equivalent SQL
 (`DELETE FROM session; DELETE FROM verification;`, what
 `purgeAllForRestore` runs in one transaction) removed 2 sessions and 1
-verification row. Before: the seeded session's token
-(`restore-seed-session-token-0`) matched exactly one `session` row. After:
-zero rows match that token — the same token a client's cookie would carry
+verification row — the committed script above was not the command run
+against staging itself, only against the local proof; the equivalent SQL
+is what ran on `daisy_debate_restore_rehearsal`. Before: the seeded
+session's token (the literal `restore-seed-session-token-0` at the time of
+this run — the seed script now derives it from a `sha3-256` hash instead,
+never a guessable literal) matched exactly one `session` row. After: zero
+rows match that token — the same token a client's cookie would carry
 can no longer resolve to a session, exactly as the integration test proves
 through the real HTTP path. `daisy_debate_staging` (the live source) was
 checked immediately after and still held its original 2 sessions and 1
@@ -173,12 +203,17 @@ or for exercising staging by hand, not a leftover to clean up.
 
 1. Confirm the target is staging, never production, for **both** apps the
    rehearsal touches: `fly status -a daisy-debate-staging-db` names the
-   database app step 2 restores, and, separately,
-   `fly ssh console -a daisy-debate-staging -C 'printenv DATABASE_URL'`
-   confirms the **web app's own** `DATABASE_URL` (the one section 1's seed
-   command actually runs under) points at `daisy_debate_staging` and not
-   some other database — checking the database app alone says nothing
-   about which database the web app's seed step writes to.
+   database app step 2 restores, and, separately, confirm the **web app's
+   own** `DATABASE_URL` (the one section 1's seed command actually runs
+   under) points at `daisy_debate_staging` and not some other database —
+   checking the database app alone says nothing about which database the
+   web app's seed step writes to. Never `printenv DATABASE_URL` for this:
+   that prints the `daisy_web` password to the terminal. Print only the
+   database name instead, exactly what `scripts/staging-restore-seed.ts`'s
+   own guard checks:
+   ```
+   fly ssh console -a daisy-debate-staging -C "bun -e 'console.log(new URL(process.env.DATABASE_URL).pathname.slice(1))'"
+   ```
 2. Seed if the row counts in step 1 come back zero.
 3. Run steps 2–4 verbatim; halt before step 5 if any count mismatches.
 4. Run step 5 only against the isolated copy — `scripts/restore-guard.ts`
