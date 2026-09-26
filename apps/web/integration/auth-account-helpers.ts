@@ -3,7 +3,23 @@ import type { Identity } from '@daisy/auth';
 import { createFlows } from './auth-mounted-flows';
 import { cookieHeader, withSql } from './fixtures';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+import { CONFIRM_PATH } from '../src/features/auth/confirm-page';
 import { identify, resolveSession } from '../src/lib/identity';
+
+/**
+ * A replayed, invalid or otherwise redeemed emailed-link token maps to a
+ * 303 back to the confirm page with `?error=INVALID_TOKEN` and no cookie,
+ * never the success redirect (`confirm.ts`).
+ */
+export const emailedLinkRejected = (response: Response): boolean => {
+  const location = response.headers.get('location') ?? '';
+  return (
+    response.status === 303 &&
+    location.startsWith(CONFIRM_PATH) &&
+    location.includes('error=INVALID_TOKEN') &&
+    response.headers.getSetCookie().length === 0
+  );
+};
 
 /**
  * Account harness for the stage-4 suites: real sign-up through the mounted

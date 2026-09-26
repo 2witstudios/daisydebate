@@ -9,13 +9,13 @@ import {
   removeAccount,
   tokenOf,
 } from './fixtures';
+import { emailedLinkRejected } from './auth-account-helpers';
 import {
   createDatabaseAuthServer,
   createTestAuthServer,
   redeemMagicLink,
   type SentMessages,
 } from './auth-server-harness';
-import { CONFIRM_PATH } from '../src/features/auth/confirm-page';
 import {
   logsLeakSecrets,
   type RecordedLogs,
@@ -142,19 +142,6 @@ const sessionBoundary = (
   cookieTokenMatchesRow: row?.token === view?.session.token,
 });
 
-// The confirm page's redeem() maps a replayed/invalid token to a 303 back to
-// itself with `?error=INVALID_TOKEN` and no cookie, never the success
-// redirect (`confirm.ts`).
-const replayRejected = (response: Response) => {
-  const location = response.headers.get('location') ?? '';
-  return (
-    response.status === 303 &&
-    location.startsWith(CONFIRM_PATH) &&
-    location.includes('error=INVALID_TOKEN') &&
-    response.headers.getSetCookie().length === 0
-  );
-};
-
 const probeSessionRow = async (userId: string) => {
   const probe = new SQL(url);
   try {
@@ -249,7 +236,7 @@ const assertReplayRejected = async (
   assert({
     given: 'a replayed verification token through the confirm page',
     should: 'authenticate no second time',
-    actual: { rejected: replayRejected(replay) },
+    actual: { rejected: emailedLinkRejected(replay) },
     expected: { rejected: true },
   });
 
