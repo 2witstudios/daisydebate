@@ -22,5 +22,6 @@ branch and its open PR).
 6. Publish the record with the `review` skill, including the line
    `Candidate: <full sha> · PR #<n> · Builder: <id> · Reviewer: <your id>`.
    The review-record status is minted from that record, never by you.
-7. If this would be the third review pass on the same leaf, stop and
-   escalate the open disagreement to the orchestrator or owner instead.
+7. Review again as many passes as it takes to reach a verdict. Escalate an
+   open disagreement to the orchestrator or owner only when it is a decision
+   only they can make, never because of a pass count.

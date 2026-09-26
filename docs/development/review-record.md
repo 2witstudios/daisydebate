@@ -110,8 +110,10 @@ Rules:
   before matching, so a decorated line reads the same as a plain one — but
   "not run" or a question mark anywhere on the line still disqualifies it,
   however it is decorated.
-- A third review pass on the same leaf does not start: the reviewer stops
-  and takes the open disagreement to the orchestrator or owner.
+- No pass limit: the reviewer reviews again as many times as it takes to
+  reach a verdict, and takes an open disagreement to the orchestrator or
+  owner only when it is a decision only they can make, never because of a
+  pass count.
 - A second-pass review re-verifies the first pass finding by finding
   before approving.
 - Record environment gotchas discovered during review (stale builds,

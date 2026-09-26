@@ -106,8 +106,9 @@ in **Merged** until an independent review record grants Done; after the
 enforcement cutoff a merge without one files review debt. `bun board:stale`
 lists tasks whose status disagrees with git.
 
-A review that would be the third pass on one leaf stops and goes to the
-orchestrator or owner with the open disagreement instead of another pass.
+A leaf is reviewed as many passes as it takes to reach a verdict; a
+disagreement goes to the orchestrator or owner only when it is a decision
+only they can make, never because of a pass count.
 
 Follow [review records](review-record.md): gates run up front, findings
 with severity and fix commits, an explicit verdict, and a second pass
