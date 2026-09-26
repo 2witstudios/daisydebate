@@ -51,8 +51,12 @@ leaves every row unchanged. Runs from the staging web machine itself
 credential:
 
 ```
-fly ssh console -a daisy-debate-staging -C "sh -c 'echo <base64 of scripts/staging-restore-seed.ts> | base64 -d > /app/apps/web/tmp-seed.ts && cd /app/apps/web && bun tmp-seed.ts; rm -f /app/apps/web/tmp-seed.ts'"
+fly ssh console -a daisy-debate-staging -C "sh -c 'set -e; trap \"rm -f /app/apps/web/tmp-seed.ts\" EXIT; echo <base64 of scripts/staging-restore-seed.ts> | base64 -d > /app/apps/web/tmp-seed.ts && cd /app/apps/web && bun tmp-seed.ts'"
 ```
+
+`set -e` plus an `EXIT` trap: a decode or seed failure now fails the whole
+command (instead of being masked by a `rm -f` that still exits 0), while the
+temporary file is still removed on every path, success or failure.
 
 Verified row counts after seeding, `daisy_debate_staging`:
 
@@ -113,12 +117,18 @@ and `REDIS_URL`/`REDIS_NAMESPACE` before it takes traffic:
 
 ```
 DATABASE_URL=<restore copy> REDIS_URL=<its redis> REDIS_NAMESPACE=<its namespace> \
-  bun scripts/post-restore-invalidate.ts
+  bun scripts/post-restore-invalidate.ts \
+  --confirm-redis-namespace <its namespace>
 ```
 
 It refuses unless the database name contains "restore" (`--force` overrides
 for a database independently confirmed isolated) — a naming-mistake guard,
-tested in `scripts/restore-guard.test.ts`. The full real-path proof is
+tested in `scripts/restore-guard.test.ts`. The Redis target is guarded
+separately: `--confirm-redis-namespace` must retype `REDIS_NAMESPACE`'s
+exact value, since a real restore's namespace need not contain "restore"
+at all (a blue/green restore can reuse the live namespace on purpose) —
+there is no name pattern to infer isolation from, so the operator states it
+explicitly instead. The full real-path proof is
 `apps/web/integration/auth-restore-invalidation.integration.ts`: a real
 sign-in through the mounted routes, a real session cookie, then
 `purgeAllForRestore`/`clearAuthRateLimits` exactly as the script runs them,
@@ -153,11 +163,19 @@ or for exercising staging by hand, not a leftover to clean up.
 
 ## Reproducing this rehearsal
 
-1. Confirm the target is staging, never production:
-   `fly status -a daisy-debate-staging-db` names the same app as step 2.
+1. Confirm the target is staging, never production, for **both** apps the
+   rehearsal touches: `fly status -a daisy-debate-staging-db` names the
+   database app step 2 restores, and, separately,
+   `fly ssh console -a daisy-debate-staging -C 'printenv DATABASE_URL'`
+   confirms the **web app's own** `DATABASE_URL` (the one section 1's seed
+   command actually runs under) points at `daisy_debate_staging` and not
+   some other database — checking the database app alone says nothing
+   about which database the web app's seed step writes to.
 2. Seed if the row counts in step 1 come back zero.
 3. Run steps 2–4 verbatim; halt before step 5 if any count mismatches.
 4. Run step 5 only against the isolated copy — `scripts/restore-guard.ts`
    refuses a `DATABASE_URL` without "restore" in the database name for
-   exactly this reason.
+   exactly this reason, and separately refuses to touch Redis at all
+   unless `--confirm-redis-namespace` retypes the exact `REDIS_NAMESPACE`
+   in use.
 5. Always run step 6, even after a failure partway through.

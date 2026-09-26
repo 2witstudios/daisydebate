@@ -22,21 +22,39 @@ commands, never let it print, and prefer `resend webhooks rotate-signing-secret`
 
 ## Safe pattern
 
+A shell redirect (`> file`) creates the file with permissions derived from
+the operator's `umask` — on a typical `umask 022` host, world-readable, so
+the token or signing secret sits world-readable on disk until the `shred`.
+`umask 077` before the redirect (restored after) makes the file
+owner-only (`0600`) from the moment it exists, no window at all:
+
 ```
 bun -e 'console.log("BETTER_AUTH_SECRET=" + crypto.getRandomValues(new Uint8Array(32)).reduce((s,b)=>s+b.toString(16).padStart(2,"0"),""))' \
   | fly secrets import -a daisy-debate-staging
 
-resend api-keys create --name "<name>" --json > /path/to/scratch/key.json
+(
+  umask 077
+  resend api-keys create --name "<name>" --permission sending_access --domain-id <sending-domain-id> --json > /path/to/scratch/key.json
+)
 jq -r '"RESEND_API_KEY=" + .token' /path/to/scratch/key.json | fly secrets import -a daisy-debate-staging
 shred -u /path/to/scratch/key.json   # or rm -f if shred is unavailable
 
-resend webhooks rotate-signing-secret <id> --json > /path/to/scratch/wh.json
+(
+  umask 077
+  resend webhooks rotate-signing-secret <id> --json > /path/to/scratch/wh.json
+)
 jq -r '"RESEND_WEBHOOK_SECRET=" + .signing_secret' /path/to/scratch/wh.json | fly secrets import -a daisy-debate-staging
 shred -u /path/to/scratch/wh.json
 ```
 
 `fly secrets import` triggers the same rolling machine update as
 `fly secrets set`, without ever taking the value as a CLI argument.
+`--permission sending_access --domain-id <id>` (the app's own domain,
+`daisydebate.com` on this account) scopes the replacement key to sending
+mail from that domain only — the app never needs `full_access` (account
+management, other domains, contacts, broadcasts), so a leaked
+`RESEND_API_KEY` under this scope cannot do more than send mail from that
+one domain, unlike the account's default `full_access` grant.
 
 ## BETTER_AUTH_SECRET
 
@@ -87,12 +105,19 @@ other three keys (`daisydebate`, the operator's own CLI key; `PageSpace`;
 
 **Planned rotation** (executed): create the replacement key, set it, verify
 a send, then revoke the old one — old key stays valid until the new key is
-already live, so sending never stops:
+already live, so sending never stops. Also used this rotation to correct a
+finding from review: the account's `api-keys create` defaults to
+`full_access` (account-wide management), while the app only ever sends
+mail, so the replacement key was created `sending_access`, scoped to the
+`daisydebate.com` domain id (the app's only sending domain) — a leaked key
+under this scope can send mail from that domain and nothing else, never
+manage other domains, contacts, broadcasts or keys:
 
-1. `resend api-keys create` (output to file) → `fly secrets import` → machine
-   healthy.
+1. `resend api-keys create --permission sending_access --domain-id
+a6f552e6-fe5b-417a-8fb1-b16999e40469` (output to a `umask 077` file) →
+   `fly secrets import` → machine healthy.
 2. `POST /api/auth/sign-in/magic-link` → `resend logs` shows a fresh `200`
-   `/emails` POST signed with the new key.
+   `/emails` POST signed with the new, scoped key.
 3. `resend api-keys delete <old id>` → sent again → still `200`. Zero
    observed downtime.
 
@@ -118,21 +143,40 @@ revocation is immediate and irreversible by design.
 
 `resend webhooks rotate-signing-secret <id> --help` documents Resend's own
 grace window: "for 24 hours, payloads are signed with both the new and the
-previous secret" — a rotation on the same endpoint is zero-downtime by the
-vendor's own contract, not something this rehearsal needs to prove by
-waiting 24 hours.
+previous secret" — that is Resend's outbound behavior (every delivery in
+that window carries a signature for each secret), not anything our side
+needs to hold both secrets for. Our verifier
+(`apps/web/src/features/auth/webhook.ts`, `resend.webhooks.verify({ ...,
+webhookSecret: secret })`) checks against exactly the one `secret` value
+`RESEND_WEBHOOK_SECRET` currently holds — never a list, never both old and
+new. Two consequences follow, corrected here from an earlier draft that
+got the second one backwards:
+
+- **Real deliveries never break across a rotation.** Because Resend signs
+  every delivery in the 24h window with both secrets, whichever one secret
+  our app currently holds, the payload always carries a matching signature.
+- **A forged request signed only with the leaked old secret is rejected
+  immediately** once `fly secrets import` lands the new secret — our
+  verifier has already forgotten the old one, and Resend's dual-signing is
+  a property of its own outbound deliveries, not something an attacker
+  holding only the old secret can reproduce for a request they send us
+  directly.
 
 **Planned rotation** (executed): `rotate-signing-secret` on the existing
 webhook id (endpoint URL unchanged) → `fly secrets import` → machine
 healthy. A subsequent sign-in produced an `auth.mail.webhook` /
 `http.request.completed` log line at `status:200` within seconds —
-verification against the new secret succeeds, and (per Resend's documented
-grace window) so would the old one, for 24 hours.
+verification against the new secret succeeds.
 
-**Emergency (compromised) variant** (executed): if the leaked secret must
-stop verifying immediately rather than in 24 hours, the CLI's only lever is
-deleting the webhook and creating a new one (a new endpoint id has no
-grace-window relationship to the old secret at all):
+**Emergency (compromised) variant** (corrected from an earlier draft of
+this rehearsal): the same `rotate-signing-secret` → `fly secrets import`
+sequence as the planned path **is already the immediate response** — the
+single-secret verifier above means the leaked secret stops working the
+moment the import lands, with no 24-hour exposure window to wait out and no
+need to touch the webhook endpoint at all. This rehearsal originally tried
+deleting and recreating the webhook instead, on the mistaken assumption
+that only a new endpoint id could invalidate the old secret immediately;
+that attempt is kept below as a documented finding, not a recommended step:
 
 1. `resend webhooks delete <id>` → sign-in attempt produces no
    `auth.mail.webhook` log line at all (no endpoint registered to deliver
@@ -151,13 +195,13 @@ grace-window relationship to the old secret at all):
    provably until an operator sees a real event arrive, and this rehearsal
    found no CLI signal (`status`, `get`) that told the difference.
 
-**Recommendation from this finding**: prefer `rotate-signing-secret` over
-delete+recreate even for a suspected compromise. It loses the sub-24h
-immediacy delete+recreate would otherwise offer, but delete+recreate traded
-that immediacy for an observed, unbounded-in-practice delivery gap with no
-way to confirm recovery short of watching for a live event — a worse
-outcome for an operator trying to restore webhook visibility quickly.
-Reserve delete+recreate for when the endpoint URL itself must change.
+**Recommendation, corrected**: always use `rotate-signing-secret` +
+`fly secrets import`, for both the planned and the emergency case — it is
+strictly better than delete+recreate on every axis this rehearsal checked
+(immediacy of old-secret rejection, since the app only ever holds one
+secret; and delivery continuity, since delete+recreate's observed gap is
+avoided entirely). Reserve delete+recreate for the one case
+`rotate-signing-secret` cannot cover: the endpoint URL itself must change.
 
 **Recovery/rollback**: once the 24-hour grace window from a rotation has
 elapsed, the previous secret no longer verifies anything — there is nothing
@@ -166,8 +210,10 @@ by rotating again and re-importing, not by trying to recover the old value.
 
 ## End-of-rehearsal state
 
-- `daisydebate-app-sending`: a fresh key (old one revoked); `daisydebate`
-  (operator CLI), `PageSpace` and `Onboarding` untouched.
+- `daisydebate-app-sending`: a fresh key, `sending_access` scoped to the
+  `daisydebate.com` domain id (every earlier `full_access` replacement
+  created during this rehearsal was revoked); `daisydebate` (operator CLI),
+  `PageSpace` and `Onboarding` untouched.
 - The webhook: same endpoint URL and event subscriptions as before the
   rehearsal, current secret matches `RESEND_WEBHOOK_SECRET`.
 - `BETTER_AUTH_SECRET`: rotated once from its pre-rehearsal value; every
