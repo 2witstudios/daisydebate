@@ -392,12 +392,19 @@ any of the 20 fixes needed, and is not built here.
   the guard cannot resolve with confidence is refused for an agent, not
   allowed by omission. Owner sessions are unaffected (section 6's opening
   rule): the hook only asks before a merge or a push to `main` for them.
-- **`fly` and `flyctl` were not guarded at all.** Deploy-rail and
-  production-data changes need a human-only sign-off leaf (this file's
-  parent, `AGENTS.md`); no autonomous use of `fly`/`flyctl` is legitimate,
-  so `agent-guard-deploy.ts` denies every invocation for an agent outright
-  rather than allowlisting a subcommand set — the same shape as this
-  section's existing full refusals (rulesets, `--admin` merges).
+
+**`fly`/`flyctl` are deliberately left unguarded, owner decision (DEC-12,
+2026-09-25).** `fly`/`flyctl` were named at the plan's origin alongside `pu`
+as a candidate guarded executable, and an early version of this PR guarded
+them; the owner overruled that before merge: no fly restriction ships until
+there is a real production launch (there are no user-facing features yet,
+and agents currently share the owner's Fly credentials, so a local refusal
+would not be a security boundary, only friction). The trigger is the same
+one that starts the machine-identity work in `ISSUE-132` (server-side
+enforcement: agents get their own GitHub identity with no admin and no Fly
+token, or a read-only one, superseding any local `fly` pattern) — see
+`ISSUE-132` and `ISSUE-134` (parked, DEC-12/DEC-14) for the scoped
+allowlist this file will get then.
 
 **`pu` was named at the plan's origin as a candidate guarded executable but
 is out of scope here.** `bun agent:spawn`, `bun agent:send` and
@@ -412,8 +419,8 @@ Filed as `ISSUE-130` for the `pu`/agent-guard owner to scope separately.
 **Regression corpus.** `agent-guard-spellings.test.ts` keeps every case the
 20 fixes established, renamed in intent, not in file, to a parsing
 regression corpus rather than a list of things to keep banning; nothing in
-it changed. `agent-guard-dynamic.test.ts` and `agent-guard-deploy.test.ts`
-add the two gaps above as the adversarial cases the old design missed.
+it changed. `agent-guard-dynamic.test.ts` adds the dynamic-executable-name
+gap above as the adversarial case the old design missed.
 
 ### 6b. Payload-hiding vectors closed after the PR #113 review (2026-09-25 amendment)
 
@@ -450,8 +457,8 @@ supposed to remove:
   (section 1), so a raw `ssh` invocation has no legitimate autonomous use
   here. `make`'s recipe lines are never visible on the command line — they
   live in a Makefile or come from stdin (`make -f -`) — so there is no
-  subcommand shape to allowlist the way `fly` gets one below; this repository
-  has no Makefile agents would need to run in any case.
+  subcommand shape to allowlist, and this repository has no Makefile agents
+  would need to run in any case.
 - **`find -exec`/`-execdir`/`-ok`/`-okdir` now recurse.** The guard
   previously classified `find` itself (for the loop-state check) but never
   the command those four actions run, so `find . -exec bash -c "git push
@@ -466,16 +473,11 @@ origin main" \;` reached the payload with no rule seeing it. The argv
   a fixed command, no placeholder) is unaffected — the guard already denies
   the specific abuses that shape enables case by case (e.g. `xargs kill`,
   denied because it names no explicit target).
-- **`fly`/`flyctl` are now a read-only allowlist, not a blanket refusal.**
-  Section 6a's full refusal denied `fly logs`, which
-  `scripts/staging-security-probe.ts` (AUTH-7.8) depends on for its
-  trusted-IP correlation. `agent-guard-deploy.ts` now allows only
-  `logs`, `status`, `version`, `doctor`, `apps list`, `machines list`/
-  `status`, `secrets list`, `releases list`, `checks list`, `config show`/
-  `validate` and `auth whoami`; every mutating subcommand (`deploy`,
-  `secrets set`/`unset`, `apps create`/`destroy`, `machines stop`/`start`/
-  `destroy`/`run`, `ssh console`, …) and anything this list does not
-  recognize is still refused.
+
+`fly`/`flyctl` are not part of this amendment: see the DEC-12 note under
+section 6a above. An early version of this change gave `fly`/`flyctl` a
+read-only allowlist (`logs`, `status`, `apps list`, …); it is not shipped
+here.
 
 **Not fixed here, filed as follow-ups.** `git config --get core.hooksPath`
 (a read-only diagnostic) is refused by the same check meant to catch a

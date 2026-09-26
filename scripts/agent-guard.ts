@@ -28,7 +28,6 @@ import {
   type Verdict,
 } from './agent-guard-rules';
 import { isProtectedFile, loopState } from './agent-guard-files';
-import { fly } from './agent-guard-deploy';
 import { gh } from './agent-guard-gh';
 import { git } from './agent-guard-git';
 import { interpreter, opaque } from './agent-guard-interpreters';
@@ -66,8 +65,6 @@ const rules: Readonly<Record<string, Rule>> = {
   docker,
   'docker-compose': docker,
   bun,
-  fly,
-  flyctl: fly,
   ssh: opaque,
   make: opaque,
   python: interpreter,
