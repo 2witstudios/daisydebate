@@ -180,3 +180,20 @@ export const spawnArgs = [
 ];
 export const spawned = (calls: string[][]) =>
   calls.filter((call) => call[0] === 'pu' && call[1] === 'spawn');
+
+export const reviewArgs = (worktree: string) => [
+  '--role',
+  'reviewer',
+  '--worktree',
+  worktree,
+  '--',
+  '-a',
+  'claude',
+  'Review PR #61',
+];
+
+// A new agent still writing after the first round is working on its prompt.
+export const working = (machine: ReturnType<typeof fakeMachine>) => ({
+  ...machine.deps,
+  idleOf: () => 0,
+});

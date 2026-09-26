@@ -42,7 +42,7 @@ describe('parseSpawnArgs', () => {
         role: 'reviewer',
         worktree: 'wt-8zirdrl0',
         override: false,
-        cap: 2,
+        cap: undefined,
         name: 'grd-7',
         base: 'main',
         agent: 'codex',

@@ -12,7 +12,8 @@ export type SpawnPlan = {
   /** A reviewer's existing pu worktree id; a builder gets a new worktree. */
   readonly worktree: string | undefined;
   readonly override: boolean;
-  readonly cap: number;
+  /** undefined means uncapped (ADR 0035 section 8). */
+  readonly cap: number | undefined;
   readonly name: string;
   readonly base: string;
   readonly agent: string;
@@ -23,10 +24,13 @@ export type SpawnPlan = {
 const SPAWN_USAGE =
   'usage: bun agent:spawn [--task <leafPageId>] [--role builder | --role reviewer --worktree <worktreeId>] [--cap N] [--override] -- [-n <name>] [-b <base>] [-a <agent>] [pu spawn options] "<prompt>"';
 
-/** Running agents allowed per role; only the owner changes a cap. */
-const DEFAULT_CAPS: Readonly<Record<Role, number>> = {
+/**
+ * Running agents allowed per role; only the owner changes a cap (ADR 0035
+ * section 8). undefined means uncapped.
+ */
+const DEFAULT_CAPS: Readonly<Record<Role, number | undefined>> = {
   builder: 3,
-  reviewer: 2,
+  reviewer: undefined,
 };
 const ROLES = new Set(Object.keys(DEFAULT_CAPS));
 

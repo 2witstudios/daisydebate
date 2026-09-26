@@ -7,8 +7,8 @@
  *   bun agent:spawn --role reviewer --worktree <worktreeId> -- [-a <agent>] …
  *   bun agent:send <agent> "<text>"
  *
- * Each role has its own cap (builder 3, reviewer 2); only the owner sets a
- * cap or overrides a refusal. Before a builder starts it refuses superseded
+ * Caps are per role (ADR 0035 section 8); only the owner sets a cap or
+ * overrides a refusal. Before a builder starts it refuses superseded
  * terms in the leaf or prompt, undeclared or unmerged prerequisites and a
  * full cap. One pu spawn creates a builder's worktree and its agent
  * together, then its dependencies and PAR-2 slot come up in it; a reviewer
@@ -177,7 +177,7 @@ function checkCap(deps: SpawnDeps, plan: SpawnPlan): readonly string[] {
     },
     plan.role,
   );
-  return active >= plan.cap
+  return plan.cap !== undefined && active >= plan.cap
     ? [`${active} ${plan.role}s are active; the cap is ${plan.cap}`]
     : [];
 }
