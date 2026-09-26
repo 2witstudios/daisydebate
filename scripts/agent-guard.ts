@@ -23,6 +23,7 @@ import {
   unresolvedNameVerdict,
   unwrap,
   type GuardFacts,
+  type Invocation,
   type Rule,
   type Verdict,
 } from './agent-guard-rules';
@@ -116,14 +117,20 @@ function xargsTemplates(words: readonly string[]): boolean {
 const XARGS_TEMPLATE_REASON =
   'xargs -I/-i/-J templates its command from stdin at run time; the guard cannot verify what it will run. Run the resolved command directly.';
 
-/** Judges an invocation's argv directly, without re-parsing it as shell text
- * (find -exec and -execdir hand the guard argv, not a shell string). */
+/**
+ * Judges what one already-unwrapped invocation runs: a shell recurses, eval
+ * recurses, a guarded executable's own rule applies, and find's -exec family
+ * recurses into argv the guard never re-parses as shell text (find hands it
+ * words directly, not a shell string). This is the one dispatch both
+ * `classifyCommand`'s per-line loop and a nested find -exec/-execdir/-ok/
+ * -okdir command go through.
+ */
 function classifyInvocation(
-  words: readonly string[],
+  invocation: Invocation,
   facts: GuardFacts,
   cwd: string,
 ): Verdict {
-  const [name = '', ...args] = words;
+  const [name = '', ...args] = invocation.words;
   const verdicts: Verdict[] = [
     unresolvedNameVerdict(name, facts),
     identityVerdict(name, args, facts),
@@ -131,9 +138,21 @@ function classifyInvocation(
   if (shells.has(name)) verdicts.push(shellVerdict(args, { ...facts, cwd }));
   else if (name === 'eval')
     verdicts.push(classifyCommand(args.join(' '), { ...facts, cwd }));
-  else if (rules[name])
+  else if (rules[name]) verdicts.push(rules[name](invocation, facts, cwd));
+  else if (name === 'find')
     verdicts.push(
-      rules[name]({ words, assignments: {}, unset: [] }, facts, cwd),
+      ...findExecInvocations(args).map((inner) =>
+        classifyInvocation(
+          unwrap({
+            words: inner,
+            assignments: {},
+            redirects: [],
+            dynamic: false,
+          }),
+          facts,
+          cwd,
+        ),
+      ),
     );
   return combine(verdicts);
 }
@@ -190,24 +209,12 @@ export function classifyCommand(command: string, given: GuardFacts): Verdict {
     if (xargsTemplates(simple.words))
       verdicts.push(autonomousOnly(facts, XARGS_TEMPLATE_REASON));
     const invocation = unwrap(simple);
-    const [name = '', ...args] = invocation.words;
-    verdicts.push(unresolvedNameVerdict(name, facts));
-    verdicts.push(identityVerdict(name, args, facts));
+    const [name, ...args] = invocation.words;
     verdicts.push(guardVariables(invocation, facts));
     verdicts.push(loopState(simple, invocation, facts, cwd));
     if (name === 'cd' || name === 'pushd')
       cwd = resolveFrom(cwd, args[0] ?? '~', facts.home);
-    else if (shells.has(name))
-      verdicts.push(shellVerdict(args, { ...facts, cwd }));
-    else if (name === 'eval')
-      verdicts.push(classifyCommand(args.join(' '), { ...facts, cwd }));
-    else if (rules[name]) verdicts.push(rules[name](invocation, facts, cwd));
-    else if (name === 'find')
-      verdicts.push(
-        ...findExecInvocations(args).map((inner) =>
-          classifyInvocation(inner, facts, cwd),
-        ),
-      );
+    else verdicts.push(classifyInvocation(invocation, facts, cwd));
   }
   return combine(verdicts);
 }
