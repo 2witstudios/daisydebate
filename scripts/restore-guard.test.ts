@@ -87,32 +87,73 @@ describe('restore-guard: refusalForStagingSeed', () => {
 });
 
 describe('restore-guard: refusalForRedis', () => {
-  test('allows a namespace with no naming convention when explicitly confirmed', () => {
+  const url = 'redis://:secret-password@redis.internal:6379';
+
+  test('allows a namespace with no naming convention when both are explicitly confirmed', () => {
     assert({
       given:
-        '--confirm-redis-namespace matching REDIS_NAMESPACE exactly, even "daisy"',
+        '--confirm-redis-namespace and --confirm-redis-host matching exactly, even "daisy"',
       should: 'not refuse',
-      actual: refusalForRedis('daisy', 'daisy'),
+      actual: refusalForRedis(url, 'daisy', 'daisy', 'redis.internal:6379'),
       expected: undefined,
     });
   });
 
   test('refuses when no confirmation was passed', () => {
     assert({
-      given: 'no --confirm-redis-namespace at all',
-      should: 'refuse with a message naming the namespace',
-      actual: refusalForRedis('daisy-restore-rehearsal', undefined)?.includes(
-        'daisy-restore-rehearsal',
-      ),
-      expected: true,
+      given: 'no --confirm-redis-namespace or --confirm-redis-host at all',
+      should: 'refuse with a message naming the namespace and the host',
+      actual: [
+        refusalForRedis(
+          url,
+          'daisy-restore-rehearsal',
+          undefined,
+          undefined,
+        )?.includes('daisy-restore-rehearsal'),
+        refusalForRedis(
+          url,
+          'daisy-restore-rehearsal',
+          undefined,
+          undefined,
+        )?.includes('redis.internal:6379'),
+      ],
+      expected: [true, true],
     });
   });
 
-  test('refuses when the confirmation does not match REDIS_NAMESPACE exactly', () => {
+  test('never includes the password from REDIS_URL in its refusal message', () => {
     assert({
-      given: 'a confirmation for a different namespace than REDIS_NAMESPACE',
+      given: 'a REDIS_URL carrying a password',
+      should: 'never echo the password back',
+      actual: refusalForRedis(url, 'daisy', undefined, undefined)?.includes(
+        'secret-password',
+      ),
+      expected: false,
+    });
+  });
+
+  test('refuses when the namespace confirmation does not match', () => {
+    assert({
+      given: 'a namespace confirmation for a different namespace, host correct',
       should: 'refuse',
-      actual: refusalForRedis('daisy-restore-rehearsal', 'daisy') === undefined,
+      actual:
+        refusalForRedis(
+          url,
+          'daisy-restore-rehearsal',
+          'daisy',
+          'redis.internal:6379',
+        ) === undefined,
+      expected: false,
+    });
+  });
+
+  test('refuses when the host confirmation does not match', () => {
+    assert({
+      given: 'a host confirmation for a different host, namespace correct',
+      should: 'refuse',
+      actual:
+        refusalForRedis(url, 'daisy', 'daisy', 'some-other-host:6379') ===
+        undefined,
       expected: false,
     });
   });

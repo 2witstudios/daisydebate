@@ -51,17 +51,34 @@ export function refusalForStagingSeed(
  * separate confirmation — a deliberate act, not an inferred one — so a
  * `REDIS_NAMESPACE` left over from a different, live command never gets
  * its rate-limit counters cleared by accident.
+ *
+ * Confirming the namespace alone still leaves a gap review caught: a
+ * confirmed namespace says nothing about which Redis instance
+ * `REDIS_URL` actually points at (this repo's shared-Redis-per-namespace
+ * architecture, ADR 0034, makes that a real question, not a hypothetical
+ * one) — an operator could correctly confirm the intended namespace while
+ * a stale or wrong `REDIS_URL` in the environment points at a live
+ * deployment's own Redis. `--confirm-redis-host` closes it the same way:
+ * an explicit, separate retyping, this time of `REDIS_URL`'s host only
+ * (`new URL(redisUrl).host`, never the full URL) — a Redis URL routinely
+ * carries a password, and a confirmation argument is a command-line
+ * argument, so the host is the only part of it this check ever compares
+ * or echoes back in a refusal message.
  */
 export function refusalForRedis(
+  redisUrl: string,
   namespace: string,
   confirmedNamespace: string | undefined,
+  confirmedHost: string | undefined,
 ): string | undefined {
-  if (confirmedNamespace === namespace) return undefined;
+  const host = new URL(redisUrl).host;
+  if (confirmedNamespace === namespace && confirmedHost === host)
+    return undefined;
   return (
-    `Refusing: --confirm-redis-namespace was not passed with exactly ` +
-    `REDIS_NAMESPACE's value ("${namespace}"). Pass ` +
-    `--confirm-redis-namespace ${namespace} only after independently ` +
-    'confirming this Redis namespace belongs to the isolated restore ' +
-    'target, never a namespace a live deployment still reads from.'
+    `Refusing: pass both --confirm-redis-namespace ${namespace} and ` +
+    `--confirm-redis-host ${host}, exactly matching REDIS_NAMESPACE and ` +
+    "REDIS_URL's host, only after independently confirming this Redis " +
+    'target — namespace and instance both — belongs to the isolated ' +
+    'restore target, never one a live deployment still reads from.'
   );
 }

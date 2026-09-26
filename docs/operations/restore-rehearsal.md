@@ -118,17 +118,25 @@ and `REDIS_URL`/`REDIS_NAMESPACE` before it takes traffic:
 ```
 DATABASE_URL=<restore copy> REDIS_URL=<its redis> REDIS_NAMESPACE=<its namespace> \
   bun scripts/post-restore-invalidate.ts \
-  --confirm-redis-namespace <its namespace>
+  --confirm-redis-namespace <its namespace> \
+  --confirm-redis-host <its redis host, e.g. host:port>
 ```
 
 It refuses unless the database name contains "restore" (`--force` overrides
 for a database independently confirmed isolated) — a naming-mistake guard,
 tested in `scripts/restore-guard.test.ts`. The Redis target is guarded
-separately: `--confirm-redis-namespace` must retype `REDIS_NAMESPACE`'s
-exact value, since a real restore's namespace need not contain "restore"
-at all (a blue/green restore can reuse the live namespace on purpose) —
-there is no name pattern to infer isolation from, so the operator states it
-explicitly instead. The full real-path proof is
+separately, by two confirmations: `--confirm-redis-namespace` must retype
+`REDIS_NAMESPACE`'s exact value, since a real restore's namespace need not
+contain "restore" at all (a blue/green restore can reuse the live
+namespace on purpose) — there is no name pattern to infer isolation from,
+so the operator states it explicitly instead. Confirming the namespace
+alone still leaves a gap: this repo's Redis is shared per environment and
+isolated only by namespace (ADR 0034), so a correctly confirmed namespace
+says nothing about whether `REDIS_URL` itself points at that same live
+deployment's Redis rather than an isolated one — `--confirm-redis-host`
+closes it, retyping `REDIS_URL`'s host only (never the full URL, which
+routinely carries a password a command-line argument must never hold).
+The full real-path proof is
 `apps/web/integration/auth-restore-invalidation.integration.ts`: a real
 sign-in through the mounted routes, a real session cookie, then
 `purgeAllForRestore`/`clearAuthRateLimits` exactly as the script runs them,
@@ -176,6 +184,6 @@ or for exercising staging by hand, not a leftover to clean up.
 4. Run step 5 only against the isolated copy — `scripts/restore-guard.ts`
    refuses a `DATABASE_URL` without "restore" in the database name for
    exactly this reason, and separately refuses to touch Redis at all
-   unless `--confirm-redis-namespace` retypes the exact `REDIS_NAMESPACE`
-   in use.
+   unless `--confirm-redis-namespace` and `--confirm-redis-host` each
+   retype the exact `REDIS_NAMESPACE` and `REDIS_URL` host in use.
 5. Always run step 6, even after a failure partway through.
