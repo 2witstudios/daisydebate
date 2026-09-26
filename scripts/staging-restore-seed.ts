@@ -13,11 +13,18 @@
  *
  * Only ever point this at an isolated database: staging's own
  * `daisy_debate_staging` for the rehearsal's synthetic source rows, never
- * production.
+ * production. The URL-string check (`refusalForStagingSeed`) runs before
+ * any connection opens, but a `?database=` query parameter on the same
+ * URL overrides which database Bun's `SQL` client actually connects to
+ * (standard libpq connection-string behavior), so after connecting this
+ * also checks `current_database()` — the server's own answer, which a
+ * connection string cannot lie about — before `applyDevSeed`'s first
+ * write (AUTH-7.6 review).
  */
+import { createHash } from 'node:crypto';
 import { SQL } from 'bun';
 import { applyDevSeed } from '@daisy/db/dev-seed';
-import { refusalForStagingSeed } from './restore-guard';
+import { refusalForActualName, refusalForStagingSeed } from './restore-guard';
 
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error('DATABASE_URL is required');
@@ -27,6 +34,31 @@ const refusal = refusalForStagingSeed(url, force);
 if (refusal) throw new Error(refusal);
 
 const restoreSeedVersion = 'restore-rehearsal-seed-v1';
+
+/**
+ * The same `<purpose>:<sha3-256(token)>` shape
+ * `apps/web/src/features/auth/emailed-link-token.ts`'s
+ * `emailedLinkIdentifier` and Better Auth's `magicLink` plugin store a real
+ * sign-in link under — duplicated here (a one-line hash, not imported)
+ * because a root script does not reach into `apps/web/src` for runtime
+ * code. Matching the real shape lets a row-count/shape audit of the
+ * restored copy tell this row apart from a malformed one, even though its
+ * token is a fixed placeholder, never delivered, never redeemable.
+ */
+const emailedLinkIdentifier = (purpose: string, token: string): string =>
+  `${purpose}:${createHash('sha3-256').update(token).digest('hex')}`;
+
+/**
+ * A deterministic, non-obvious session token (`sha3-256` of a fixed
+ * per-index seed, base64url-encoded) — never a real CSPRNG value, since a
+ * rerun must produce the exact same token for `ON CONFLICT DO UPDATE` to be
+ * a true no-op, but never a guessable literal string either (AUTH-7.6
+ * review nit).
+ */
+const seedSessionToken = (index: number): string =>
+  createHash('sha3-256')
+    .update(`restore-seed-session-token-${index}`)
+    .digest('base64url');
 
 const people = [
   {
@@ -49,6 +81,17 @@ const debateId = 'n9o0p1q2r3s4t5u6v7w8x9y0';
 const resolution =
   'Resolved: AUTH-7.6 needs a representative debate to prove a restore.';
 const createdAt = '2026-01-01T00:00:00.000Z';
+
+const probe = new SQL(url, { max: 1 });
+try {
+  const [row] = (await probe`select current_database() as name`) as Array<{
+    name: string;
+  }>;
+  const actualRefusal = refusalForActualName(row!.name, 'staging', force);
+  if (actualRefusal) throw new Error(actualRefusal);
+} finally {
+  await probe.close();
+}
 
 await applyDevSeed({
   url,
@@ -94,8 +137,8 @@ try {
       insert into session (id, expires_at, token, ip_address, user_agent, user_id)
       values (
         ${`restore-seed-session-${index}`},
-        now() + interval '30 days',
-        ${`restore-seed-session-token-${index}`},
+        now() + interval '7 days',
+        ${seedSessionToken(index)},
         '198.18.0.1',
         'restore-rehearsal-seed',
         ${person.userId}
@@ -132,8 +175,8 @@ try {
     insert into verification (id, identifier, value, expires_at)
     values (
       'restore-seed-verification-0',
-      ${`sign-in:${people[0].email}`},
-      'restore-rehearsal-placeholder-token',
+      ${emailedLinkIdentifier('sign-in', 'restore-rehearsal-placeholder-token')},
+      ${JSON.stringify({ email: people[0].email, name: null })},
       now() + interval '5 minutes'
     )
     on conflict (id) do update set

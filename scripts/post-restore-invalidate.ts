@@ -14,7 +14,13 @@
  * database still serving traffic (a naming mistake is the one failure mode
  * a database name check can catch). `--force` overrides the name check for
  * an isolated database that does not happen to carry "restore" in its name;
- * it never overrides anything else.
+ * it never overrides anything else. That URL-string check runs before any
+ * connection opens, but it is not the last word: a `?database=` query
+ * parameter on the same URL overrides which database Bun's `SQL` client
+ * actually connects to, so after connecting this also checks
+ * `Database.currentDatabaseName()` (`current_database()`, the server's own
+ * answer) against the same rule — the one check that cannot be fooled by
+ * the connection string (AUTH-7.6 review).
  *
  * The Redis target is guarded separately and unconditionally: a real
  * restore's `REDIS_NAMESPACE` need not contain "restore" (a blue/green
@@ -31,7 +37,11 @@ import { RedisClient } from 'bun';
 import { systemId } from '@daisy/clock';
 import { createDatabase } from '@daisy/db';
 import { clearAuthRateLimits } from '@daisy/redis/namespaces';
-import { refusalFor, refusalForRedis } from './restore-guard';
+import {
+  refusalFor,
+  refusalForActualName,
+  refusalForRedis,
+} from './restore-guard';
 
 const args = process.argv.slice(2);
 const force = args.includes('--force');
@@ -61,8 +71,6 @@ const redisRefusal = refusalForRedis(
 );
 if (redisRefusal) throw new Error(redisRefusal);
 
-const targetDatabaseName = new URL(databaseUrl).pathname.replace(/^\//, '');
-
 const database = createDatabase({
   url: databaseUrl,
   nextActorId: systemId.next,
@@ -70,11 +78,19 @@ const database = createDatabase({
 const redis = new RedisClient(redisUrl);
 
 try {
+  const actualDatabaseName = await database.currentDatabaseName();
+  const actualRefusal = refusalForActualName(
+    actualDatabaseName,
+    'restore',
+    force,
+  );
+  if (actualRefusal) throw new Error(actualRefusal);
+
   const purged = await database.purgeAllForRestore();
   const clearedRateLimitKeys = await clearAuthRateLimits(redis, redisNamespace);
   console.log(
     JSON.stringify({
-      database: targetDatabaseName,
+      database: actualDatabaseName,
       redisNamespace,
       deletedSessions: purged.sessions,
       deletedVerifications: purged.verifications,

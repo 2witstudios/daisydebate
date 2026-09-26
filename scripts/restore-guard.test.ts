@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   refusalFor,
+  refusalForActualName,
   refusalForRedis,
   refusalForStagingSeed,
 } from './restore-guard';
@@ -46,6 +47,65 @@ describe('restore-guard: refusalFor', () => {
       given: 'force true and a database name with no restore marker',
       should: 'not refuse',
       actual: refusalFor('postgres://u:p@host:5432/anything', true),
+      expected: undefined,
+    });
+  });
+});
+
+describe('restore-guard: refusalFor cannot see a ?database= override', () => {
+  test('a URL whose path names a restore copy but whose ?database= query overrides it passes the URL check', () => {
+    // Bun's SQL client honors a ?database= query parameter over the URL's
+    // own path (standard libpq connection-string behavior): this URL's
+    // path looks safe, but the connection it opens lands on
+    // daisy_debate_staging. refusalFor only ever sees the path, so it is
+    // fooled — refusalForActualName (checked against current_database()
+    // after connecting) is what actually catches this, in the next
+    // describe block.
+    assert({
+      given:
+        'a restore-named path with a ?database= query overriding it to the live database',
+      should: 'not refuse, because refusalFor only parses the URL path',
+      actual: refusalFor(
+        'postgres://u:p@host:5432/daisy_debate_restore_rehearsal?database=daisy_debate_staging',
+        false,
+      ),
+      expected: undefined,
+    });
+  });
+});
+
+describe('restore-guard: refusalForActualName', () => {
+  test('catches exactly the ?database= bypass the URL-only check above misses', () => {
+    // The same scenario as above, but checked against the name the server
+    // actually reports (current_database()) instead of the URL string.
+    assert({
+      given:
+        'current_database() reporting the live database despite a restore-named URL path',
+      should: 'refuse, naming the actual database in the message',
+      actual: refusalForActualName(
+        'daisy_debate_staging',
+        'restore',
+        false,
+      )?.includes('daisy_debate_staging'),
+      expected: true,
+    });
+    assert({
+      given: 'the actual database name naming itself correctly',
+      should: 'not refuse',
+      actual: refusalForActualName(
+        'daisy_debate_restore_rehearsal',
+        'restore',
+        false,
+      ),
+      expected: undefined,
+    });
+  });
+
+  test('--force overrides the actual-name check too', () => {
+    assert({
+      given: 'force true and an actual name with no marker',
+      should: 'not refuse',
+      actual: refusalForActualName('anything', 'restore', true),
       expected: undefined,
     });
   });
