@@ -73,8 +73,20 @@ function awkIsInline(args: readonly string[]): boolean {
   return false;
 }
 
+// python3.11, python3.12, ruby3.2, perl5.34, php8.2, … (Homebrew, pyenv and
+// system package managers all install these) read the same inline-code
+// flags as their unversioned name.
+const VERSIONED_NAME = /^(python|ruby|perl|php)\d+(?:\.\d+)*$/;
+
+/** The name to look inline flags up by: a version suffix reads the same flags as the plain interpreter. */
+export function canonicalInterpreterName(name: string): string {
+  const match = VERSIONED_NAME.exec(name);
+  return match ? match[1] : name;
+}
+
 export const interpreter: Rule = (invocation, facts) => {
-  const [name = '', ...args] = invocation.words;
+  const [rawName = '', ...args] = invocation.words;
+  const name = canonicalInterpreterName(rawName);
   const inline = name === 'awk' ? awkIsInline(args) : hasInlineFlag(name, args);
   return inline ? autonomousOnly(facts, INLINE_REASON) : allow;
 };

@@ -63,6 +63,21 @@ describe('agent guard: interpreters given inline code', () => {
     });
   });
 
+  test('reads version-suffixed interpreter binaries the same way (CodeRabbit finding on PR #113)', () => {
+    assert({
+      given:
+        'python3.11, python3.12, ruby3.2 and perl5.34, common Homebrew/pyenv/system binaries',
+      should: 'deny each one, the same as the unversioned name',
+      actual: [
+        decide(`python3.11 -c "import os; os.system('git push origin main')"`),
+        decide(`python3.12 -c "import os; os.system('git push origin main')"`),
+        decide(`ruby3.2 -e 'system("git push origin main")'`),
+        decide(`perl5.34 -e 'system("git push origin main")'`),
+      ],
+      expected: Array(4).fill('deny'),
+    });
+  });
+
   test('reads php -r, node --eval and node -p the same way', () => {
     assert({
       given: 'the other inline-eval spellings',

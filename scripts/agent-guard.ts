@@ -30,7 +30,11 @@ import {
 import { isProtectedFile, loopState } from './agent-guard-files';
 import { gh } from './agent-guard-gh';
 import { git } from './agent-guard-git';
-import { interpreter, opaque } from './agent-guard-interpreters';
+import {
+  canonicalInterpreterName,
+  interpreter,
+  opaque,
+} from './agent-guard-interpreters';
 import { kill, otherKillers } from './agent-guard-process';
 import { bun, docker } from './agent-guard-stacks';
 import { identityRegime } from './agent-identity';
@@ -150,10 +154,11 @@ function classifyInvocation(
     unresolvedNameVerdict(name, facts),
     identityVerdict(name, args, facts),
   ];
+  const rule = rules[name] ?? rules[canonicalInterpreterName(name)];
   if (shells.has(name)) verdicts.push(shellVerdict(args, { ...facts, cwd }));
   else if (name === 'eval')
     verdicts.push(classifyCommand(args.join(' '), { ...facts, cwd }));
-  else if (rules[name]) verdicts.push(rules[name](invocation, facts, cwd));
+  else if (rule) verdicts.push(rule(invocation, facts, cwd));
   else if (name === 'find')
     verdicts.push(
       ...findExecInvocations(args).flatMap((inner) => [
