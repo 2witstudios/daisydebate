@@ -29,7 +29,7 @@ Stages {
 2. Automated external plan review
    `bun plan:review <planPageId> > <scratchpad>/plan-review-<epic-slug>.md` runs Codex read-only with AGENTS.md and the ADR index.
    Publish its output as `Plan review — <epic> (codex)` in Reviews/<Epic>, mentioning the plan.
-   CHANGES REQUESTED => revise the plan and review again. After two review rounds that still disagree, stop and take the open disagreement to the owner with the next stage.
+   CHANGES REQUESTED => revise the plan and review again until the review approves. Take a disagreement to the owner only when it is a decision only the owner can make (scope or intent), never because of a round count.
 
 3. Owner approval (the one stop)
    Send the owner the plan link, the review verdict and every open decision (`bun decision:record` ids) in one message to Epic Updates.
