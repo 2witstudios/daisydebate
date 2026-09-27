@@ -2,7 +2,11 @@ import { expect } from 'bun:test';
 import { RedisClient } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { deleteNamespace, listNamespaces } from '../src/namespaces';
+import {
+  clearAuthRateLimits,
+  deleteNamespace,
+  listNamespaces,
+} from '../src/namespaces';
 import { requireTestServices } from '@daisy/config';
 
 setupRitewayBun();
@@ -25,6 +29,21 @@ const recordingClient = () => {
     },
   };
 };
+
+/** Both deletion helpers share this contract: never FLUSHDB/FLUSHALL. */
+const assertUnlinkedNeverFlushed = (
+  commands: readonly string[],
+  given: string,
+) =>
+  assert({
+    given,
+    should: 'use UNLINK and never FLUSHDB or FLUSHALL',
+    actual: {
+      flush: commands.filter((command) => command.startsWith('FLUSH')),
+      unlink: commands.includes('UNLINK'),
+    },
+    expected: { flush: [], unlink: true },
+  });
 
 test('deletes exactly one namespace by SCAN and UNLINK, never FLUSH*', async () => {
   const redis = recordingClient();
@@ -78,15 +97,10 @@ test('deletes exactly one namespace by SCAN and UNLINK, never FLUSH*', async () 
         [keys.main[0]!]: true,
       },
     });
-    assert({
-      given: 'every command the deletion issued',
-      should: 'use UNLINK and never FLUSHDB or FLUSHALL',
-      actual: {
-        flush: redis.commands.filter((command) => command.startsWith('FLUSH')),
-        unlink: redis.commands.includes('UNLINK'),
-      },
-      expected: { flush: [], unlink: true },
-    });
+    assertUnlinkedNeverFlushed(
+      redis.commands,
+      'every command the deletion issued',
+    );
   } finally {
     for (const namespace of [
       `${prefix}-wt-a`,
@@ -95,6 +109,54 @@ test('deletes exactly one namespace by SCAN and UNLINK, never FLUSH*', async () 
       prefix,
     ])
       await deleteNamespace(redis, namespace);
+    redis.client.close();
+  }
+});
+
+test('AUTH-7.6: clears only the rl sub-namespace, leaving presence and ticket keys', async () => {
+  const redis = recordingClient();
+  const keys = {
+    rateLimit: [`${prefix}:v1:rl:a`, `${prefix}:v1:rl:b`],
+    presence: [`${prefix}:v1:presence:room1`],
+    ticket: [`${prefix}:v1:ticket:t1`],
+  };
+  try {
+    await Promise.all(
+      [...keys.rateLimit, ...keys.presence, ...keys.ticket].map((key) =>
+        redis.client.send('SET', [key, '1', 'EX', '60']),
+      ),
+    );
+
+    assert({
+      given: 'a namespace holding rate-limit, presence and ticket keys',
+      should: 'delete only the rate-limit keys',
+      actual: await clearAuthRateLimits(redis, prefix),
+      expected: 2,
+    });
+
+    const remaining = await Promise.all(
+      [...keys.rateLimit, ...keys.presence, ...keys.ticket].map(async (key) => [
+        key,
+        await redis.client.exists(key),
+      ]),
+    );
+    assert({
+      given: 'the rate-limit sub-namespace cleared',
+      should: 'leave presence and ticket keys in place',
+      actual: Object.fromEntries(remaining),
+      expected: {
+        [keys.rateLimit[0]!]: false,
+        [keys.rateLimit[1]!]: false,
+        [keys.presence[0]!]: true,
+        [keys.ticket[0]!]: true,
+      },
+    });
+    assertUnlinkedNeverFlushed(
+      redis.commands,
+      'every command the clear issued',
+    );
+  } finally {
+    await deleteNamespace(redis, prefix);
     redis.client.close();
   }
 });

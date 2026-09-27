@@ -87,6 +87,23 @@ export function createDatabase({
         return true;
       });
     },
+    /**
+     * The database this connection actually landed on, from the server
+     * itself (`current_database()`), never parsed back out of `url`. A
+     * connection URL's database name can be overridden by a `?database=`
+     * query parameter Bun's `SQL` client honors (standard libpq connection-
+     * string behavior), so a caller that must confirm which database it
+     * is about to act on — a destructive script guarding against the wrong
+     * target — checks this, not the URL string.
+     */
+    async currentDatabaseName(): Promise<string> {
+      return instrumented(eventSink, 'currentDatabaseName', async () => {
+        const [row] = (await database.execute(
+          sql`select current_database() as name`,
+        )) as unknown as Array<{ name: string }>;
+        return row!.name;
+      });
+    },
     async checkListen() {
       return instrumented(eventSink, 'checkListen', async () => {
         await probeListen(client);

@@ -39,5 +39,4 @@ jobs:
         run: >-
           bun scripts/auth-alert-probe.ts
           --origin https://daisy-debate-staging.fly.dev
-          --token "$OPS_PROBE_TOKEN"
           --run-url "$RUN_URL"

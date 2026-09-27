@@ -20,8 +20,8 @@
  *   3. posts whatever fired to the drive's Incidents channel via the
  *      existing `scripts/notify-drive.ts incidents --message`.
  *
- *   bun scripts/auth-alert-probe.ts --origin https://daisy.example.com \
- *     --token <OPS_PROBE_TOKEN> [--run-url <workflow run URL>]
+ *   OPS_PROBE_TOKEN=<token> bun scripts/auth-alert-probe.ts \
+ *     --origin https://daisy.example.com [--run-url <workflow run URL>]
  */
 import type { AlertCondition } from '../apps/web/src/server/alert-state';
 
@@ -81,6 +81,39 @@ const flag = (args: readonly string[], name: string): string | undefined => {
   return index === -1 ? undefined : args[index + 1];
 };
 
+/**
+ * Pure: the bearer token comes only from the environment — this takes no
+ * `args` parameter at all, so a `--token` on the command line (the shape
+ * AUTH-7.11 removed everywhere else) has no way to reach it, even if one
+ * were still passed.
+ */
+export const resolveProbeToken = (
+  env: Readonly<Record<string, string | undefined>>,
+): string | undefined => env.OPS_PROBE_TOKEN;
+
+export type ProbeConfig = {
+  readonly origin: string;
+  readonly token: string;
+  readonly runUrl: string | undefined;
+};
+
+/**
+ * Pure: the full set of inputs `main` needs, or `undefined` when required
+ * inputs are missing — refusal, not just token resolution, is what a
+ * regression reintroducing a `--token` fallback must be caught changing.
+ * `args` here can carry any flag, including a stray `--token`; only
+ * `resolveProbeToken`'s environment lookup can ever supply the token.
+ */
+export function resolveProbeConfig(
+  args: readonly string[],
+  env: Readonly<Record<string, string | undefined>>,
+): ProbeConfig | undefined {
+  const origin = flag(args, 'origin');
+  const token = resolveProbeToken(env);
+  const runUrl = flag(args, 'run-url');
+  return origin && token ? { origin, token, runUrl } : undefined;
+}
+
 async function readHeaders(response: Response): Promise<Map<string, string>> {
   const headers = new Map<string, string>();
   for (const [name, value] of response.headers) headers.set(name, value);
@@ -88,17 +121,15 @@ async function readHeaders(response: Response): Promise<Map<string, string>> {
 }
 
 async function main(): Promise<void> {
-  const args = process.argv.slice(2);
-  const origin = flag(args, 'origin');
-  const token = flag(args, 'token');
-  const runUrl = flag(args, 'run-url');
-  if (!origin || !token) {
+  const config = resolveProbeConfig(process.argv.slice(2), process.env);
+  if (!config) {
     process.stderr.write(
-      'usage: bun scripts/auth-alert-probe.ts --origin <https url> --token <OPS_PROBE_TOKEN> [--run-url <url>]\n',
+      'usage: OPS_PROBE_TOKEN=<token> bun scripts/auth-alert-probe.ts --origin <https url> [--run-url <url>]\n',
     );
     process.exit(2);
     return;
   }
+  const { origin, token, runUrl } = config;
 
   const readyResponse = await fetch(new URL('/api/health/ready', origin), {
     redirect: 'error',

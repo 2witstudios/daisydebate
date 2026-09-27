@@ -220,5 +220,34 @@ export const authOperations = ({
         ),
       );
     },
+    /**
+     * AUTH-7.6: the post-restore step. Unconditionally deletes every session
+     * and verification row, run once against a freshly restored database
+     * before it takes traffic, so a pre-restore session cookie or emailed
+     * link can never authenticate against the restored copy. Unlike
+     * `revokeOtherSessions` this is total and never scoped to one user — a
+     * restore has no live user context to scope to — so it never appends a
+     * `session.revoked` outbox row (no realtime instance watches a copy that
+     * has not taken traffic yet).
+     */
+    async purgeAllForRestore(): Promise<{
+      readonly sessions: number;
+      readonly verifications: number;
+    }> {
+      return instrumented(eventSink, 'purgeAllForRestore', () =>
+        database.transaction(async (tx) => {
+          const deletedSessions = await tx
+            .delete(sessions)
+            .returning({ id: sessions.id });
+          const deletedVerifications = await tx
+            .delete(verifications)
+            .returning({ id: verifications.id });
+          return {
+            sessions: deletedSessions.length,
+            verifications: deletedVerifications.length,
+          };
+        }),
+      );
+    },
   };
 };

@@ -73,6 +73,8 @@
     "db:studio": "bun --env-file=.env run --cwd packages/db db:studio",
     "db:reset": "bun --env-file=.env scripts/db-reset.ts",
     "db:roles": "bun scripts/db-roles.ts",
+    "restore:invalidate": "bun scripts/post-restore-invalidate.ts",
+    "restore:seed": "bun scripts/staging-restore-seed.ts",
     "slot:up": "bun scripts/slot.ts up",
     "slot:down": "bun scripts/slot.ts down",
     "slot:reset-e2e": "bun scripts/slot.ts reset-e2e",

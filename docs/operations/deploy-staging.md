@@ -286,15 +286,32 @@ expected, nothing is listening yet).
 
 ## 5. Set secrets
 
+Rotating one of these later (routine or emergency) follows
+[secret-rotation-rehearsal.md](secret-rotation-rehearsal.md) (AUTH-7.6),
+including the safe `fly secrets import` pattern that never takes a secret
+value as a CLI argument, and, for `OPS_PROBE_TOKEN`, the matching GitHub
+repository secret it must always agree with.
+
+`OPS_PROBE_TOKEN` also needs setting as a GitHub repository secret for the
+scheduled `auth-alerts.yml` workflow (below), so it is generated into a
+shell variable first, imported to Fly, then piped to `gh` from that same
+variable — never displayed, never a command-line argument, never typed
+twice:
+
 ```
 # DATABASE_URL was set in step 2 and REDIS_URL staged in step 3; do not set
 # them again here. MIGRATION_DATABASE_URL belongs to the migrator app only.
-fly secrets set -a daisy-debate-staging --stage \
-  BETTER_AUTH_SECRET="$(bun -e 'console.log(crypto.getRandomValues(new Uint8Array(32)).reduce((s,b)=>s+b.toString(16).padStart(2,"0"),""))')" \
-  RESEND_API_KEY="re_..." \
-  AUTH_EMAIL_FROM="Daisy <no-reply@yourdomain.example>" \
-  RESEND_WEBHOOK_SECRET="whsec_..." \
-  OPS_PROBE_TOKEN="$(bun -e 'console.log(crypto.getRandomValues(new Uint8Array(32)).reduce((s,b)=>s+b.toString(16).padStart(2,"0"),""))')"
+better_auth_secret="$(bun -e 'console.log(crypto.getRandomValues(new Uint8Array(32)).reduce((s,b)=>s+b.toString(16).padStart(2,"0"),""))')"
+ops_probe_token="$(bun -e 'console.log(crypto.getRandomValues(new Uint8Array(32)).reduce((s,b)=>s+b.toString(16).padStart(2,"0"),""))')"
+fly secrets import -a daisy-debate-staging --stage <<SECRETS
+BETTER_AUTH_SECRET=$better_auth_secret
+RESEND_API_KEY=re_...
+AUTH_EMAIL_FROM=Daisy <no-reply@yourdomain.example>
+RESEND_WEBHOOK_SECRET=whsec_...
+OPS_PROBE_TOKEN=$ops_probe_token
+SECRETS
+echo -n "$ops_probe_token" | gh secret set OPS_PROBE_TOKEN
+unset better_auth_secret ops_probe_token
 ```
 
 `APP_VERSION` and `GIT_COMMIT` are non-secret and set per-release, not as
@@ -303,15 +320,17 @@ persistent secrets — pass them as build args or set them via
 `APP_VERSION`/`GIT_COMMIT` at their `development`/`unknown` defaults
 (`packages/config/src/index.ts`).
 
-`OPS_PROBE_TOKEN` (AUTH-7.7) also needs setting as the repository secret
-the scheduled `auth-alerts.yml` workflow reads:
-`fly secrets list -a daisy-debate-staging` never displays it back, so copy
-it while generating it, then `echo -n "<same value>" | gh secret set
-OPS_PROBE_TOKEN`.
-
 Verify: `fly secrets list -a daisy-debate-staging` shows all seven names
 (not values — Fly never displays a set secret's value back), and no
-`MIGRATION_DATABASE_URL`.
+`MIGRATION_DATABASE_URL`; `gh secret list` shows `OPS_PROBE_TOKEN` with a
+recent "Updated" timestamp. Rotating `OPS_PROBE_TOKEN` later — planned or
+emergency — is documented in
+[secret-rotation-rehearsal.md](secret-rotation-rehearsal.md#ops_probe_token),
+never repeated here.
+
+Verify: the next scheduled (or manually dispatched) `auth-alerts.yml` run
+succeeds against `/api/ops/alerts` — a stale GitHub-side value fails that
+step with 401, distinguishing "both rotated" from "only Fly rotated."
 
 ## 6. First deploy
 

@@ -1,7 +1,114 @@
+import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { composeAlertMessage, evaluateOriginProbe } from './auth-alert-probe';
+import {
+  composeAlertMessage,
+  evaluateOriginProbe,
+  resolveProbeConfig,
+  resolveProbeToken,
+} from './auth-alert-probe';
 
 setupRitewayBun();
+
+const SCRIPT_PATH = join(import.meta.dir, 'auth-alert-probe.ts');
+
+/**
+ * Runs the real script as a subprocess — the only way to prove `main()`
+ * itself refuses, since it calls `process.exit` directly and cannot be
+ * invoked in-process without killing the test runner. Port 1 on localhost
+ * refuses the connection immediately (no DNS lookup, no timeout), so a
+ * regression that proceeds past the refusal check still fails fast rather
+ * than hanging.
+ */
+function spawnProbe(args: readonly string[]) {
+  return Bun.spawnSync(['bun', SCRIPT_PATH, ...args], {
+    env: { PATH: process.env.PATH ?? '' },
+    stdout: 'pipe',
+    stderr: 'pipe',
+  });
+}
+
+describe('resolveProbeToken (ISSUE-144)', () => {
+  test('reads the bearer token from the environment', () => {
+    assert({
+      given: 'an environment with OPS_PROBE_TOKEN set',
+      should: 'return that value',
+      actual: resolveProbeToken({ OPS_PROBE_TOKEN: 'env-value' }),
+      expected: 'env-value',
+    });
+  });
+
+  test('takes no command-line arguments, so a --token flag can never reach it', () => {
+    // resolveProbeToken's only parameter is the environment record — there
+    // is no args parameter for a --token flag to occupy, so this call site
+    // is itself proof the flag is no longer accepted; TypeScript would
+    // refuse a second argument if one were added back.
+    assert({
+      given: "resolveProbeToken's exported signature",
+      should: 'accept exactly one parameter (the environment)',
+      actual: resolveProbeToken.length,
+      expected: 1,
+    });
+  });
+});
+
+describe('resolveProbeConfig (ISSUE-144, NC24 regression guard)', () => {
+  test('refuses a --token flag with no OPS_PROBE_TOKEN in the environment', () => {
+    // If main (or its arg parser) ever read --token as a fallback source
+    // again, this would resolve a config instead of refusing.
+    assert({
+      given: '--origin and --token on the command line, no OPS_PROBE_TOKEN set',
+      should: 'refuse (return undefined) rather than accept the --token value',
+      actual: resolveProbeConfig(
+        ['--origin', 'https://example.test', '--token', 'sneaky-value'],
+        {},
+      ),
+      expected: undefined,
+    });
+  });
+
+  test('uses OPS_PROBE_TOKEN from the environment, ignoring an unrelated --token flag', () => {
+    assert({
+      given:
+        'OPS_PROBE_TOKEN in the environment and a --token flag with a different value',
+      should:
+        'resolve a config carrying the environment value, never the flag value',
+      actual: resolveProbeConfig(
+        ['--origin', 'https://example.test', '--token', 'ignored-value'],
+        { OPS_PROBE_TOKEN: 'real-value' },
+      ),
+      expected: {
+        origin: 'https://example.test',
+        token: 'real-value',
+        runUrl: undefined,
+      },
+    });
+  });
+});
+
+describe('main() (AUTH-7.15, NC24/NC26 regression guard)', () => {
+  test('exits 2 with the usage error and sends no request, given --token but no OPS_PROBE_TOKEN', () => {
+    // Drives the real script, not resolveProbeConfig in isolation: a
+    // rewrite of main() that stops calling resolveProbeConfig at all (NC26)
+    // or one that reintroduces --token as a fallback inside it (NC24) both
+    // change this process's observable exit code and stderr, so either
+    // regression fails this test regardless of which function it lives in.
+    const result = spawnProbe([
+      '--origin',
+      'http://127.0.0.1:1',
+      '--token',
+      'sneaky-value',
+    ]);
+    assert({
+      given: '--origin and --token on the command line, no OPS_PROBE_TOKEN set',
+      should: 'exit 2 with the usage error, never reaching a fetch',
+      actual: {
+        exitCode: result.exitCode,
+        stderrHasUsage: result.stderr.toString().includes('usage:'),
+      },
+      expected: { exitCode: 2, stderrHasUsage: true },
+    });
+  });
+});
 
 const HEALTHY_HEADERS = new Map<string, string>([
   ['x-content-type-options', 'nosniff'],

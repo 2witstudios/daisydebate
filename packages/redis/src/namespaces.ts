@@ -58,3 +58,25 @@ export async function deleteNamespace(
   });
   return removed;
 }
+
+/**
+ * AUTH-7.6's post-restore step: deletes only the auth rate-limit counters
+ * (`<namespace>:v1:rl:*`, the keys `consumeRateLimit` writes), leaving
+ * presence and ticket keys of the same namespace untouched. A restored
+ * database's fresh sessions and verification rows must not be met with
+ * stale rate-limit counters carried over from the source deployment.
+ */
+export async function clearAuthRateLimits(
+  client: RedisCommands,
+  namespace: string,
+): Promise<number> {
+  let removed = 0;
+  await scanKeys(
+    client,
+    `${requireNamespace(namespace)}:v1:rl:*`,
+    async (keys) => {
+      removed += Number(await client.send('UNLINK', [...keys]));
+    },
+  );
+  return removed;
+}
