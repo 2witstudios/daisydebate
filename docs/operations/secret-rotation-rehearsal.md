@@ -224,10 +224,26 @@ password ever left the machine. `daisy_web` (the runtime role) also holds
 `DELETE` on `session` and could run this same statement over its own
 `DATABASE_URL` instead; the superuser path is documented here because it
 is what this rehearsal actually ran, using access already open for the
-restore rehearsal's own dump/restore steps:
+restore rehearsal's own dump/restore steps. A `current_database()` guard
+runs first, the same defense-in-depth `restore-rehearsal.md`'s staging
+purge uses, so a copy-pasted `-d` naming the wrong database aborts before
+the delete runs — this statement has no `WHERE` clause, so a wrong target
+would otherwise revoke every session on whatever database it landed on:
 
 ```
-psql "postgres://postgres@localhost:5432/daisy_debate_staging" -c "delete from session;"
+revoke_sql=$(mktemp)
+cat > "$revoke_sql" <<'SQL'
+DO $$
+BEGIN
+  IF current_database() <> 'daisy_debate_staging' THEN
+    RAISE EXCEPTION 'refusing: current_database() is %, not daisy_debate_staging', current_database();
+  END IF;
+END $$;
+DELETE FROM session;
+SQL
+fly ssh console -a daisy-debate-staging-db -C \
+  "sh -c 'echo $(base64 < "$revoke_sql") | base64 -d | PGPASSWORD=\"\$OPERATOR_PASSWORD\" psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d daisy_debate_staging -f -'"
+rm -f "$revoke_sql"
 ```
 
 Staging: 4 sessions before, 0 after; `/api/health/live` and `/ready` stayed

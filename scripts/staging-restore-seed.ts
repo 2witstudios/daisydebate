@@ -25,6 +25,10 @@ import { createHash } from 'node:crypto';
 import { SQL } from 'bun';
 import { applyDevSeed } from '@daisy/db/dev-seed';
 import { refusalForActualName, refusalForStagingSeed } from './restore-guard';
+import {
+  emailedLinkIdentifier,
+  randomVerificationToken,
+} from './restore-seed-token';
 
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error('DATABASE_URL is required');
@@ -34,19 +38,6 @@ const refusal = refusalForStagingSeed(url, force);
 if (refusal) throw new Error(refusal);
 
 const restoreSeedVersion = 'restore-rehearsal-seed-v1';
-
-/**
- * The same `<purpose>:<sha3-256(token)>` shape
- * `apps/web/src/features/auth/emailed-link-token.ts`'s
- * `emailedLinkIdentifier` and Better Auth's `magicLink` plugin store a real
- * sign-in link under — duplicated here (a one-line hash, not imported)
- * because a root script does not reach into `apps/web/src` for runtime
- * code. Matching the real shape lets a row-count/shape audit of the
- * restored copy tell this row apart from a malformed one, even though its
- * token is a fixed placeholder, never delivered, never redeemable.
- */
-const emailedLinkIdentifier = (purpose: string, token: string): string =>
-  `${purpose}:${createHash('sha3-256').update(token).digest('hex')}`;
 
 /**
  * A deterministic session token (`sha3-256` of a fixed per-index seed,
@@ -174,11 +165,16 @@ try {
         credential_id = excluded.credential_id
     `;
   }
+  // The token is generated only to be hashed into `identifier` on the next
+  // line, then discarded: never bound to a name that outlives this
+  // expression, never logged, never stored. Only its SHA3-256 digest goes
+  // into the row, so nothing in this repository or its history can ever
+  // redeem it.
   await client`
     insert into verification (id, identifier, value, expires_at)
     values (
       'restore-seed-verification-0',
-      ${emailedLinkIdentifier('sign-in', 'restore-rehearsal-placeholder-token')},
+      ${emailedLinkIdentifier('sign-in', randomVerificationToken())},
       ${JSON.stringify({ email: people[0].email, name: null })},
       now() + interval '5 minutes'
     )

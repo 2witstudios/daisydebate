@@ -44,18 +44,34 @@ It runs through `@daisy/db`'s `applyDevSeed` adapter operation for the
 users/actors/debate (extended with optional `email`/`emailVerified` fields
 for this leaf) and direct inserts for `session`/`passkey`/`verification`,
 which `applyDevSeed` does not cover. Idempotent like `applyDevSeed`: rerun
-leaves every row unchanged. Runs from the staging web machine itself
+leaves every row unchanged. Every verification token is a fresh CSPRNG
+value, hashed into the row and discarded immediately — the script never
+stores, logs or reuses a literal token (`scripts/restore-seed-token.ts`,
+unit-tested against exactly this). Runs from the staging web machine itself
 (`fly ssh console -a daisy-debate-staging`), using that machine's own
 `DATABASE_URL` (the `daisy_web` runtime role, which already holds
 `INSERT`/`UPDATE`/`DELETE` on every table) — never the migration owner
-credential:
+credential.
+
+`scripts/staging-restore-seed.ts` imports two sibling files
+(`./restore-guard`, `./restore-seed-token`) that do not exist on the
+deployed web image outside `scripts/`, so copying the script alone fails
+with `Cannot find module './restore-guard'`. Bundle it first — `bun build`
+inlines both siblings and leaves `@daisy/db` external, since that package
+is already a real dependency in the image's `node_modules` — then run the
+single resulting file the same way:
 
 ```
-fly ssh console -a daisy-debate-staging -C "sh -c 'set -e; trap \"rm -f /app/apps/web/tmp-seed.ts\" EXIT; echo <base64 of scripts/staging-restore-seed.ts> | base64 -d > /app/apps/web/tmp-seed.ts && cd /app/apps/web && bun tmp-seed.ts'"
+bun build --target=bun --external @daisy/db scripts/staging-restore-seed.ts --outfile=/tmp/staging-restore-seed-bundle.js
+fly ssh console -a daisy-debate-staging -C "sh -c 'set -e; trap \"rm -f /app/apps/web/tmp-seed.js\" EXIT; echo <base64 of /tmp/staging-restore-seed-bundle.js> | base64 -d > /app/apps/web/tmp-seed.js && cd /app/apps/web && bun tmp-seed.js'"
 ```
 
 `set -e` fails the whole command on a decode or seed error; the `EXIT` trap
-removes the temporary file on every path, success or failure.
+removes the temporary file on every path, success or failure. **Executed**:
+ran the bundle against `daisy-debate-staging` for real —
+`Restore rehearsal seed version: restore-rehearsal-seed-v1` printed, and
+the resulting `verification` row's `identifier` is a proper
+`sign-in:<sha3-256 hex>` value, never the raw token.
 
 Verified row counts after seeding, `daisy_debate_staging`:
 
@@ -194,11 +210,29 @@ same one transaction — run directly against the restored copy as the
 Postgres superuser, over `fly ssh console`, the same access pattern this
 whole document uses for every other staging Postgres command; it needs no
 repo, no `bun`, and no privilege the restore did not already grant the
-superuser as the restore's owner:
+superuser as the restore's owner. A `current_database()` guard runs first,
+inside the same transaction, so a copy-pasted `-d` naming the wrong
+database — `daisy_debate_staging` itself, say — aborts before either
+`DELETE` runs, the same defense-in-depth `refusalForActualName` gives the
+committed script:
 
 ```
+purge_sql=$(mktemp)
+cat > "$purge_sql" <<'SQL'
+DO $$
+BEGIN
+  IF current_database() <> 'daisy_debate_restore_rehearsal' THEN
+    RAISE EXCEPTION 'refusing: current_database() is %, not the restored copy', current_database();
+  END IF;
+END $$;
+BEGIN;
+DELETE FROM session;
+DELETE FROM verification;
+COMMIT;
+SQL
 fly ssh console -a daisy-debate-staging-db -C \
-  "sh -c 'PGPASSWORD=\"\$OPERATOR_PASSWORD\" psql -h localhost -U postgres -d daisy_debate_restore_rehearsal -v ON_ERROR_STOP=1 -c \"BEGIN; DELETE FROM session; DELETE FROM verification; COMMIT;\"'"
+  "sh -c 'echo $(base64 < "$purge_sql") | base64 -d | PGPASSWORD=\"\$OPERATOR_PASSWORD\" psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d daisy_debate_restore_rehearsal -f -'"
+rm -f "$purge_sql"
 ```
 
 Executed against this rehearsal's `daisy_debate_restore_rehearsal`: removed
