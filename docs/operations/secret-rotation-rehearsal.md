@@ -75,10 +75,34 @@ session cookie's value (`<token>.<hmac>`). Rotating it affects four things:
    application to show it happened. This coupling is a design defect, filed
    as <a class="mention" data-mention-type="page" data-page-id="gxjfa42wj7kuvxlhyi31o4cq">@ISSUE-141</a> — out of scope for this rehearsal leaf to fix.
    Operator step until it lands: treat every `BETTER_AUTH_SECRET` rotation,
-   planned or emergency, as requiring a manual re-check of
-   `email_suppression` against provider-side bounce/complaint history
-   immediately after, since the application's own suppression check cannot
-   be trusted across the rotation boundary.
+   planned or emergency, as requiring reconciliation immediately after,
+   never a rotation left unreconciled. Sending stays paused
+   (`fly scale count 0 -a daisy-debate-staging`) until it completes,
+   since the application's own suppression check cannot be trusted across
+   the rotation boundary. Provider-side history is Resend's own
+   suppression list, `resend suppressions list --json` (or `resend
+suppressions get <email>` for one address), which holds the real email
+   and an `origin` of `bounce`, `complaint` or `manual` — the raw addresses
+   `email_suppression.recipient_hash` never stores. For each `bounce`/
+   `complaint` entry, recompute its hash with the **new** secret
+   (`deriveRecipientSubkey` then `recipientKey`, both `recipient-key.ts`)
+   and upsert it:
+   ```
+   bun -e '
+   const { createHash } = require("node:crypto");
+   const deriveSubkey = (secret, label) => createHash("sha3-256").update(`${secret}\0${label}`).digest("hex");
+   const recipientKey = (subkey, email) => createHash("sha3-256").update(`${subkey}\0${email.trim().toLowerCase()}`).digest("hex");
+   const subkey = deriveSubkey(process.env.BETTER_AUTH_SECRET, "recipient-key");
+   console.log(recipientKey(subkey, process.argv[1]));
+   ' "$EMAIL"
+   ```
+   then `INSERT INTO email_suppression (recipient_hash, reason) VALUES
+('<hash>', 'bounce' | 'complaint') ON CONFLICT (recipient_hash) DO
+NOTHING` for each (`reason` is exactly Resend's `origin`, `manual`
+   entries excluded — `email_suppression_reason_check` only allows
+   `bounce`/`complaint`). Only after every provider-listed address is
+   reconciled does sending resume (`fly scale count 1
+-a daisy-debate-staging`).
 3. **Per-recipient rate-limit buckets.** `rate-limit.ts`'s bucket key is
    also `recipientKey(recipientSubkey, email)` — a rotation resets every
    recipient's rate-limit counter to zero, the same way it resets the
@@ -114,12 +138,14 @@ captured a raw pre-rotation session token (not just an intact cookie) still
 has a row that matches it. There is no application-level revoke-all for a
 live database (`revokeOtherSessions` is per-user; `purgeAllForRestore`
 refuses by design outside an isolated restore copy), so the emergency step
-is a raw SQL delete. `daisy_web` (the runtime role, `DATABASE_URL`) already
-holds unscoped `DELETE` on every table, `session` included (`database.md`),
-so no elevated credential is needed — executed for real on staging, as the
-Postgres superuser over the machine's own `fly ssh console` access (the
-same pattern this rehearsal's Postgres access section uses throughout, so
-no connection string with a password ever left the machine):
+is a raw SQL delete, run as the Postgres superuser over the database
+machine's own `fly ssh console` access — the same pattern this rehearsal's
+Postgres access section uses throughout, so no connection string with a
+password ever left the machine. `daisy_web` (the runtime role) also holds
+`DELETE` on `session` and could run this same statement over its own
+`DATABASE_URL` instead; the superuser path is documented here because it
+is what this rehearsal actually ran, using access already open for the
+restore rehearsal's own dump/restore steps:
 
 ```
 psql "postgres://postgres@localhost:5432/daisy_debate_staging" -c "delete from session;"
@@ -174,9 +200,12 @@ _first_, accepting a gap, then replace it:
 2. Immediate sign-in attempt: `{"code":"EMAIL_DELIVERY_FAILED","message":"We
 could not send the email. Please try again."}` — a real, observed outage
    window, unlike the planned path.
-3. `resend api-keys create` → `fly secrets import` → sign-in succeeds again
-   (`200`, confirmed against a second recipient address after the first hit
-   the per-recipient rate limit — the abuse protection working as intended,
+3. `resend api-keys create --permission sending_access --domain-id
+a6f552e6-fe5b-417a-8fb1-b16999e40469` (same scope as the planned
+   rotation — an emergency replacement is never broader) → `fly secrets
+import` → sign-in succeeds again (`200`, confirmed against a second
+   recipient address after the first hit the per-recipient rate limit —
+   the abuse protection working as intended,
    not a rotation defect).
 
 **Recovery/rollback**: a revoked Resend key cannot be un-revoked; recovery

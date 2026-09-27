@@ -49,11 +49,14 @@ const emailedLinkIdentifier = (purpose: string, token: string): string =>
   `${purpose}:${createHash('sha3-256').update(token).digest('hex')}`;
 
 /**
- * A deterministic, non-obvious session token (`sha3-256` of a fixed
- * per-index seed, base64url-encoded) — never a real CSPRNG value, since a
- * rerun must produce the exact same token for `ON CONFLICT DO UPDATE` to be
- * a true no-op, but never a guessable literal string either (AUTH-7.6
- * review nit).
+ * A deterministic session token (`sha3-256` of a fixed per-index seed,
+ * base64url-encoded), not a real CSPRNG value: a rerun must produce the
+ * exact same token for `ON CONFLICT DO UPDATE` to be a true no-op. It is
+ * fully derivable from this committed source — anyone who reads this file
+ * knows it — and harmless only because a client authenticates with the
+ * signed cookie (`<token>.<hmac over token, keyed by BETTER_AUTH_SECRET>`,
+ * `secret-rotation-rehearsal.md`), never the bare token: knowing this
+ * token alone cannot forge a valid cookie (AUTH-7.6 review).
  */
 const seedSessionToken = (index: number): string =>
   createHash('sha3-256')

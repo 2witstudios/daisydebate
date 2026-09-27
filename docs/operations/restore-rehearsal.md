@@ -176,10 +176,8 @@ On the live staging rehearsal's isolated copy, the equivalent SQL
 verification row — the committed script above was not the command run
 against staging itself, only against the local proof; the equivalent SQL
 is what ran on `daisy_debate_restore_rehearsal`. Before: the seeded
-session's token (the literal `restore-seed-session-token-0` at the time of
-this run — the seed script now derives it from a `sha3-256` hash instead,
-never a guessable literal) matched exactly one `session` row. After: zero
-rows match that token — the same token a client's cookie would carry
+session's token matched exactly one `session` row. After: zero rows match
+that token — the same token a client's cookie would carry
 can no longer resolve to a session, exactly as the integration test proves
 through the real HTTP path. `daisy_debate_staging` (the live source) was
 checked immediately after and still held its original 2 sessions and 1
@@ -195,9 +193,14 @@ rm -f /tmp/staging-rehearsal.dump
 ```
 
 Confirmed: `daisy_debate_restore_rehearsal` absent from `pg_database`, dump
-file absent. The synthetic seed rows in `daisy_debate_staging` itself are
-left in place deliberately — representative content for the next rehearsal
-or for exercising staging by hand, not a leftover to clean up.
+file absent. The synthetic seed rows in `daisy_debate_staging` (users,
+actors, passkeys, the debate, the verification row) are left in place
+deliberately — representative content for the next rehearsal or for
+exercising staging by hand, not a leftover to clean up. Their `session`
+rows do not stay in that state: the secret-rotation rehearsal's emergency
+`BETTER_AUTH_SECRET` step (`secret-rotation-rehearsal.md`) later deleted
+every `session` row on staging, these included — rerunning
+`scripts/staging-restore-seed.ts` recreates them.
 
 ## Reproducing this rehearsal
 
