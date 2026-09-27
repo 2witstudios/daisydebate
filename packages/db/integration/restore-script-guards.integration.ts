@@ -21,6 +21,19 @@ const STAGING_RESTORE_SEED = join(
 );
 const REDIS_NAMESPACE = 'guard-test-namespace';
 
+// The two guards' refusal messages differ only in this context clause
+// (restore-guard.ts's `nameRefusal`), so asserting one specifically is what
+// proves a given scenario failed through its own guard, not the other one
+// or an unrelated crash (NC35: only the URL-string guard's throw removed —
+// the actual-name guard downstream still refuses, with different text;
+// NC37: an early, unrelated crash — also non-zero, with unrelated text).
+const RESTORE_URL_GUARD_MESSAGE =
+  'This command is destructive to every session and verification row.';
+const STAGING_URL_GUARD_MESSAGE =
+  'This script writes synthetic auth and debate rows.';
+const ACTUAL_NAME_GUARD_MESSAGE =
+  'The database this connection actually landed on does not match what its URL claimed.';
+
 /**
  * The same trick both scripts' `current_database()` guard exists to catch:
  * a `?database=` query parameter overrides which database Bun's `SQL`
@@ -37,15 +50,20 @@ function withDatabaseOverride(baseUrl: string, pretendPath: string): string {
 }
 
 /**
- * Spawns the real script and asserts it refuses (non-zero exit) without
- * mutating anything — the only way to prove a guard's wiring, since NC33
- * showed every existing check stayed green after both throws were removed.
+ * Spawns the real script and asserts it refuses through the specific guard
+ * `expectedStderr` names — exit code exactly 1 (Bun's uncaught-throw code,
+ * never merely "non-zero") and that message on stderr — without mutating
+ * anything. A generic "non-zero exit" check passes for the wrong reason
+ * under NC35 (only the URL-string guard's throw removed; the downstream
+ * actual-name guard still refuses, with different text) and NC37 (an early,
+ * unrelated crash); requiring this scenario's own message rules both out.
  */
 async function assertRefusesWithoutMutating(
   given: string,
   scriptPath: string,
   args: readonly string[],
   env: Readonly<Record<string, string>>,
+  expectedStderr: string,
   checkUnaffected: () => Promise<boolean>,
 ): Promise<void> {
   const result = Bun.spawnSync(['bun', scriptPath, ...args], {
@@ -56,9 +74,14 @@ async function assertRefusesWithoutMutating(
   const unaffected = await checkUnaffected();
   assert({
     given,
-    should: 'exit non-zero and leave the database unaffected',
-    actual: { refused: result.exitCode !== 0, unaffected },
-    expected: { refused: true, unaffected: true },
+    should:
+      'exit exactly 1 with this guard’s own refusal message on stderr, and leave the database unaffected',
+    actual: {
+      exitCode: result.exitCode,
+      refusedByThisGuard: result.stderr.toString().includes(expectedStderr),
+      unaffected,
+    },
+    expected: { exitCode: 1, refusedByThisGuard: true, unaffected: true },
   });
 }
 
@@ -76,18 +99,20 @@ async function cleanupStagingSeedRows(db: SQL): Promise<void> {
   await db`delete from users where id in ('r1s2t3u4v5w6x7y8z9a0b1c2', 'p5q6r7s8t9u0v1w2x3y4z5a6')`;
 }
 
-describe('post-restore-invalidate.ts (AUTH-7.16, NC33 regression guard)', () => {
+describe('post-restore-invalidate.ts (AUTH-7.16/7.17, NC33/NC35/NC37 regression guard)', () => {
   const scenarios = [
     {
       title:
         "a DATABASE_URL whose own database name isn't a restore copy, deleting nothing",
       databaseUrl: () => databaseUrl,
+      expectedStderr: RESTORE_URL_GUARD_MESSAGE,
     },
     {
       title:
         'a DATABASE_URL path naming a restore copy but a ?database= override landing elsewhere, deleting nothing',
       databaseUrl: () =>
         withDatabaseOverride(databaseUrl, 'pretend_restore_copy'),
+      expectedStderr: ACTUAL_NAME_GUARD_MESSAGE,
     },
   ];
 
@@ -117,6 +142,7 @@ describe('post-restore-invalidate.ts (AUTH-7.16, NC33 regression guard)', () => 
             REDIS_URL: redisUrl,
             REDIS_NAMESPACE,
           },
+          scenario.expectedStderr,
           async () =>
             (await db`select id from verification where id = ${markerId}`)
               .length === 1,
@@ -129,18 +155,20 @@ describe('post-restore-invalidate.ts (AUTH-7.16, NC33 regression guard)', () => 
   }
 });
 
-describe('staging-restore-seed.ts (AUTH-7.16, NC33 regression guard)', () => {
+describe('staging-restore-seed.ts (AUTH-7.16/7.17, NC33/NC35/NC37 regression guard)', () => {
   const scenarios = [
     {
       title:
         "a DATABASE_URL whose own database name isn't a staging copy, inserting nothing",
       databaseUrl: () => databaseUrl,
+      expectedStderr: STAGING_URL_GUARD_MESSAGE,
     },
     {
       title:
         'a DATABASE_URL path naming a staging copy but a ?database= override landing elsewhere, inserting nothing',
       databaseUrl: () =>
         withDatabaseOverride(databaseUrl, 'pretend_staging_copy'),
+      expectedStderr: ACTUAL_NAME_GUARD_MESSAGE,
     },
   ];
 
@@ -157,6 +185,7 @@ describe('staging-restore-seed.ts (AUTH-7.16, NC33 regression guard)', () => {
             PATH: process.env.PATH ?? '',
             DATABASE_URL: scenario.databaseUrl(),
           },
+          scenario.expectedStderr,
           async () =>
             (
               await db`select id from users where username = 'restore-rehearsal-a'`
