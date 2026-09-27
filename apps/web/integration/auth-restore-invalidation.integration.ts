@@ -38,20 +38,40 @@ describe('AUTH-7.6 post-restore invalidation', () => {
       'restore-invalidation-proof',
     );
     const rawRedis = new RedisClient(testRedisUrl as string);
-    await rawRedis.send('SET', [rateLimitKey, '1', 'EX', '60']);
+    const outcome = await (async () => {
+      try {
+        await rawRedis.send('SET', [rateLimitKey, '1', 'EX', '60']);
 
-    const before = await identifyAs(cookie);
+        const before = await identifyAs(cookie);
+        const purged = await app.database.purgeAllForRestore();
+        const clearedRateLimitKeys = await clearAuthRateLimits(
+          rawRedis,
+          redisNamespace,
+        );
+        const after = await identifyAs(cookie);
+        const linkReplay = await flows.redeem(pendingToken);
+        const rateLimitKeyStillExists = await rawRedis.exists(rateLimitKey);
 
-    const purged = await app.database.purgeAllForRestore();
-    const clearedRateLimitKeys = await clearAuthRateLimits(
-      rawRedis,
-      redisNamespace,
-    );
-
-    const after = await identifyAs(cookie);
-    const linkReplay = await flows.redeem(pendingToken);
-    const rateLimitKeyStillExists = await rawRedis.exists(rateLimitKey);
-    rawRedis.close();
+        return {
+          before,
+          purged,
+          clearedRateLimitKeys,
+          after,
+          linkReplay,
+          rateLimitKeyStillExists,
+        };
+      } finally {
+        rawRedis.close();
+      }
+    })();
+    const {
+      before,
+      purged,
+      clearedRateLimitKeys,
+      after,
+      linkReplay,
+      rateLimitKeyStillExists,
+    } = outcome;
 
     assert({
       given: 'a real session cookie from the mounted sign-in flow',
