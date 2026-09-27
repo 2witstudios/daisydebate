@@ -111,7 +111,7 @@ describe('authentication configuration', () => {
     });
   });
 
-  test('refuses a missing RECIPIENT_HASH_SECRET, naming the field only (NC2)', () => {
+  test('refuses a missing RECIPIENT_HASH_SECRET, naming the field only', () => {
     const withoutRecipientHashSecret = { ...authEnv };
     Reflect.deleteProperty(withoutRecipientHashSecret, 'RECIPIENT_HASH_SECRET');
     let message = '';

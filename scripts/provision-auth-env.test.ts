@@ -257,7 +257,7 @@ describe('auth secret provisioning', () => {
   });
 });
 
-describe('provisionAuthEnv (the main() loop, NC3)', () => {
+describe('provisionAuthEnv (the main() loop)', () => {
   test('provisions every real PROVISIONED_VARIABLES entry, not just the first', async () => {
     // No `variables` override: this exercises the real, default list, so
     // dropping RECIPIENT_HASH_SECRET from PROVISIONED_VARIABLES (as it once

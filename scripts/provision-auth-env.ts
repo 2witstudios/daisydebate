@@ -58,9 +58,9 @@ export function provisionAuthSecret(
 /**
  * Runs `provisionAuthSecret` once per variable in `variables` (defaulting
  * to the real `PROVISIONED_VARIABLES`, so a test exercising this without
- * overriding it fails if a variable is ever dropped from that list — the
- * gap NC3 found: `main()`'s loop itself was untested). Writes once, only
- * if anything changed.
+ * overriding it fails if a variable is ever dropped from that list —
+ * `main()`'s loop itself, not just `provisionAuthSecret`, is exercised).
+ * Writes once, only if anything changed.
  */
 export async function provisionAuthEnv({
   content,

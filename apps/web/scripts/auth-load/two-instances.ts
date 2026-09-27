@@ -15,6 +15,32 @@ export type RunningInstances = {
 
 const webDir = new URL('../..', import.meta.url).pathname;
 
+/**
+ * The options `startTwoInstances` spawns each instance process with.
+ * Exported so a test can assert `stdin: 'pipe'` (ISSUE-150/151) without
+ * spawning a real process: that pipe, never written to or closed here, is
+ * the OS-delivered EOF the instance's `watchParentLiveness` relies on when
+ * this driver process dies for any reason, including a SIGKILL that never
+ * reaches the child with SIGTERM.
+ */
+export function instanceSpawnOptions(
+  port: number,
+  mailPort: number,
+  sharedEnv: Readonly<Record<string, string | undefined>>,
+): Bun.SpawnOptions.OptionsObject<'pipe', 'pipe', 'pipe'> {
+  return {
+    cwd: webDir,
+    env: {
+      ...sharedEnv,
+      PORT: String(port),
+      LOAD_MAIL_PORT: String(mailPort),
+    },
+    stdin: 'pipe',
+    stdout: 'pipe',
+    stderr: 'pipe',
+  };
+}
+
 /** Polls `url` (ignoring the self-signed edge certificate) until it answers OK. */
 async function waitForReady(url: string, attempts: number): Promise<void> {
   for (let attempt = 0; attempt < attempts; attempt += 1) {
@@ -81,22 +107,10 @@ export async function startTwoInstances(
     OPS_PROBE_TOKEN: 'auth-load-ops-probe-token-placeholder-not-a-credential',
   };
   const spawnInstance = (port: number, mailPort: number) =>
-    Bun.spawn(['bun', 'run', 'scripts/auth-load/instance-process.ts'], {
-      cwd: webDir,
-      env: {
-        ...sharedEnv,
-        PORT: String(port),
-        LOAD_MAIL_PORT: String(mailPort),
-      },
-      // ISSUE-150: never written to or closed here. Its only purpose is
-      // the pipe itself — the OS closes it when this driver process dies
-      // for any reason, including a SIGKILL that never reaches the child
-      // with SIGTERM, so the instance's `watchParentLiveness` sees EOF and
-      // exits on its own instead of surviving reparented to launchd.
-      stdin: 'pipe',
-      stdout: 'pipe',
-      stderr: 'pipe',
-    });
+    Bun.spawn(
+      ['bun', 'run', 'scripts/auth-load/instance-process.ts'],
+      instanceSpawnOptions(port, mailPort, sharedEnv),
+    );
   const instanceA = spawnInstance(ports.appA, ports.mailA);
   const instanceB = spawnInstance(ports.appB, ports.mailB);
   const edge = createSelfSignedTlsEdge({

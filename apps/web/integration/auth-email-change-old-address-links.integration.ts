@@ -162,13 +162,17 @@ describe('ISSUE-99 an email change revokes the old address sign-in links', () =>
   });
 });
 
-// ISSUE-148: advisory locks are per database, and a slot's test database is
-// shared by every concurrent integration run against it (a reviewer and a
-// builder in the same worktree, for example) — a single fixed key would
-// let two unrelated runs of this same test block on each other's holder.
-// The namespace stays fixed; `hashtext(uid)` scopes the actual lock to
-// this run's own freshly-created account, so two concurrent runs almost
-// never collide.
+// Advisory locks are per database. This key only needs to be distinct from
+// any other advisory lock this codebase takes on the same connection — not
+// scoped per test run: apps/web/integration/fixtures.ts's ISSUE-148 run
+// lock already refuses a second concurrent apps/web integration run
+// against this same test database, so this file never runs concurrently
+// with itself in practice. (A `hashtext(uid)`-scoped key was tried here to
+// make concurrent self-runs safe on their own; it made no measured
+// difference — 5 of 15 self-concurrent runs still fail either way, since
+// the interference is the per-test `create trigger`/`drop trigger` DDL on
+// the shared `session` table, not this lock's key. Removed rather than
+// keep a fix that does not do what its comment claimed; see ISSUE-151.)
 const INSERT_GATE_KEY = 103_001;
 
 const sessionsOf = (userId: string) =>
@@ -193,7 +197,7 @@ const gateSessionInserts = async (userId: string, email: string) => {
         if new.user_id = '${userId}' and exists (
           select 1 from users where id = new.user_id and email = '${email}'
         ) then
-          perform pg_advisory_xact_lock_shared(${INSERT_GATE_KEY}, hashtext('${userId}'));
+          perform pg_advisory_xact_lock_shared(${INSERT_GATE_KEY});
         end if;
         return new;
       end;
@@ -226,8 +230,8 @@ describe('ISSUE-103 no session survives an email change it straddles', () => {
     let released = false;
     try {
       const [{ pid: holderPid }] = (await holder.unsafe(
-        'select pg_backend_pid() as pid, pg_advisory_lock($1, hashtext($2))',
-        [INSERT_GATE_KEY, uid],
+        'select pg_backend_pid() as pid, pg_advisory_lock($1)',
+        [INSERT_GATE_KEY],
       )) as [{ pid: number }];
       // 1. The sign-in consumes the link, finds the account at the old
       //    address and blocks on its session insert.
@@ -242,10 +246,7 @@ describe('ISSUE-103 no session survives an email change it straddles', () => {
       //    revoke-all, which finds no session of the sign-in to remove.
       const completion = await flows.confirmEmailPost(verifyToken);
       // 3. Only now does the sign-in's session insert commit.
-      await holder.unsafe('select pg_advisory_unlock($1, hashtext($2))', [
-        INSERT_GATE_KEY,
-        uid,
-      ]);
+      await holder.unsafe('select pg_advisory_unlock($1)', [INSERT_GATE_KEY]);
       released = true;
       const lateSignIn = await signIn;
       const lateCookie = cookieHeader(lateSignIn);
@@ -279,10 +280,7 @@ describe('ISSUE-103 no session survives an email change it straddles', () => {
     } finally {
       if (!released)
         await holder
-          .unsafe('select pg_advisory_unlock($1, hashtext($2))', [
-            INSERT_GATE_KEY,
-            uid,
-          ])
+          .unsafe('select pg_advisory_unlock($1)', [INSERT_GATE_KEY])
           .catch(() => {});
       await removeGate();
       await Promise.allSettled([holder.close(), observer.close()]);

@@ -9,11 +9,12 @@ import {
   type Context,
 } from '@opentelemetry/api';
 
+import type { SignalTarget } from './process-lifecycle';
 export {
   installForcedShutdown,
   watchParentLiveness,
   type LivenessStdin,
-  type SignalTarget as ForcedShutdownSignalTarget,
+  type SignalTarget,
 } from './process-lifecycle';
 
 const traceparentPattern =
@@ -149,9 +150,6 @@ export function createDrainState(
   };
 }
 
-/** The subset of `process` this needs; a caller injects a fake to test wiring. */
-export type SignalTarget = { readonly once: typeof process.once };
-
 /** Registers `shutdown` once for SIGTERM and SIGINT, exiting on rejection. */
 export function installShutdownSignals(
   shutdown: () => Promise<void>,
@@ -160,6 +158,3 @@ export function installShutdownSignals(
   for (const signal of ['SIGTERM', 'SIGINT'] as const)
     target.once(signal, () => void shutdown().catch(() => process.exit(1)));
 }
-
-// ISSUE-150's ephemeral-process shutdown seams (installForcedShutdown,
-// watchParentLiveness) live in process-lifecycle.ts, re-exported below.
