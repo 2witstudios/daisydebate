@@ -117,7 +117,11 @@ session cookie's value (`<token>.<hmac>`). Rotating it affects four things:
      ' "$1"
    }
 
-   remote_script=$(mktemp)
+   remote_sql=$(mktemp)
+   trap 'rm -f "$remote_sql"' EXIT
+
+   sql_quote() { printf '%s' "$1" | sed "s/'/''/g"; }
+
    cursor=""
    while :; do
      page=$(resend suppressions list --limit 100 --json ${cursor:+--after "$cursor"})
@@ -126,11 +130,8 @@ session cookie's value (`<token>.<hmac>`). Rotating it affects four things:
        reason=$(echo "$row" | jq -r '.origin')
        source_id=$(echo "$row" | jq -r '.source_id // "reconciled-secret-rotation"')
        hash=$(subkey_reconcile "$email")
-       {
-         printf 'psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d daisy_debate_staging \\\n'
-         printf '  -v hash=%q -v reason=%q -v source_id=%q \\\n' "$hash" "$reason" "$source_id"
-         printf "  -c \"INSERT INTO email_suppression (recipient_hash, reason, provider_message_id) VALUES (:'hash', :'reason', :'source_id') ON CONFLICT (recipient_hash) DO NOTHING;\"\n"
-       } >> "$remote_script"
+       printf "INSERT INTO email_suppression (recipient_hash, reason, provider_message_id) VALUES ('%s', '%s', '%s') ON CONFLICT (recipient_hash) DO NOTHING;\n" \
+         "$(sql_quote "$hash")" "$(sql_quote "$reason")" "$(sql_quote "$source_id")" >> "$remote_sql"
      done
      has_more=$(echo "$page" | jq -r '.has_more')
      [ "$has_more" = "true" ] || break
@@ -138,18 +139,25 @@ session cookie's value (`<token>.<hmac>`). Rotating it affects four things:
    done
 
    fly ssh console -a daisy-debate-staging-db -C \
-     "sh -c 'echo $(base64 < "$remote_script") | base64 -d | PGPASSWORD=\"\$OPERATOR_PASSWORD\" bash -e'"
-   shred -u "$remote_script"
+     "sh -c 'echo $(base64 < "$remote_sql") | base64 -d | PGPASSWORD=\"\$OPERATOR_PASSWORD\" psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d daisy_debate_staging -f -'"
 
    echo "BETTER_AUTH_SECRET=$new_secret" | fly secrets import -a daisy-debate-staging
    unset new_secret
    ```
 
-   Every value that reaches SQL text (`hash`, `reason`, `source_id`) goes
-   through a psql `-v` variable and is substituted with `:'var'`, which
-   psql quotes as an SQL literal — never interpolated into the SQL string
-   directly. Run from the repository root (the `import` is relative to
-   it).
+   The generated SQL is fed to `psql -f -` on standard input, one
+   statement per suppression row, each with `hash`, `reason` and
+   `source_id` embedded as SQL string literals with embedded `'`
+   characters doubled (`sql_quote`) — not left as raw interpolation. A
+   `psql -c "... :'var' ..."` form looks equivalent but psql does not
+   perform variable substitution inside a `-c` argument, so it fails with
+   a syntax error at `:`; this only works fed on standard input. The
+   `trap` cleans up the temporary SQL file on any exit, including a
+   failed `fly ssh console` call under `set -e` — `shred`, used elsewhere
+   in this document, is not available on macOS, and this file holds only
+   already-hashed suppression rows and Resend message ids, never
+   `new_secret` itself, so a plain removal is enough. Run from the
+   repository root (the `import` is relative to it).
    `email_suppression.reason` accepts exactly Resend's `bounce`/`complaint`
    origins (`manual` entries are excluded — they were never automatic, and
    `email_suppression_reason_check` does not allow that value); `source_id`
