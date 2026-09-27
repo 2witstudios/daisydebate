@@ -109,10 +109,11 @@ held, held on the restored copy.
 
 ## 5. Post-restore step: proof it disables pre-restore auth
 
-The committed, tested path is `bun scripts/post-restore-invalidate.ts`
-(`packages/db`'s `Database.purgeAllForRestore` plus `@daisy/redis/namespaces`'s
-`clearAuthRateLimits`), run against the restored database's `DATABASE_URL`
-and `REDIS_URL`/`REDIS_NAMESPACE` before it takes traffic:
+`bun scripts/post-restore-invalidate.ts` (`packages/db`'s
+`Database.purgeAllForRestore` plus `@daisy/redis/namespaces`'s
+`clearAuthRateLimits`) is the committed, tested implementation of this
+step, run against the restored database's `DATABASE_URL` and
+`REDIS_URL`/`REDIS_NAMESPACE` before it takes traffic:
 
 ```
 DATABASE_URL=<restore copy> REDIS_URL=<its redis> REDIS_NAMESPACE=<its namespace> \
@@ -121,21 +122,38 @@ DATABASE_URL=<restore copy> REDIS_URL=<its redis> REDIS_NAMESPACE=<its namespace
   --confirm-redis-host <its redis host, e.g. host:port>
 ```
 
-It refuses unless the database name contains "restore" (`--force` overrides
-for a database independently confirmed isolated) — a naming-mistake guard,
-tested in `scripts/restore-guard.test.ts`. The Redis target is guarded
-separately, by two confirmations: `--confirm-redis-namespace` must retype
-`REDIS_NAMESPACE`'s exact value, since a real restore's namespace need not
-contain "restore" at all (a blue/green restore can reuse the live
-namespace on purpose) — there is no name pattern to infer isolation from,
-so the operator states it explicitly instead. Confirming the namespace
-alone still leaves a gap: this repo's Redis is shared per environment and
-isolated only by namespace (ADR 0034), so a correctly confirmed namespace
-says nothing about whether `REDIS_URL` itself points at that same live
-deployment's Redis rather than an isolated one — `--confirm-redis-host`
-closes it, retyping `REDIS_URL`'s host only (never the full URL, which
-routinely carries a password a command-line argument must never hold).
-The full real-path proof is
+**This does not run on `daisy-debate-staging-db` or `daisy-debate-staging`
+themselves — three separate reasons, any one of which alone would block
+it**: `daisy-debate-staging-db` has no repository checkout and no `bun`
+(it is a bare Postgres machine); `daisy-debate-staging`'s deployed image
+has no `scripts/` directory (the Next.js production build output only,
+never the repo root); and even given a way to run it, the restored copy
+(`--no-owner --no-privileges`, section 3) grants nothing to `daisy_web` —
+that role does not exist as a grantee on this ad hoc database at all, so it
+could not `DELETE` from `session`/`verification` even if the script could
+reach it. "On staging" below is what actually ran against this rehearsal's
+restored copy, and is the real staging procedure until one of the three
+blockers above is removed (a runner image with the repo, or a role
+explicitly granted on every restored copy — neither exists today, so this
+is not a placeholder).
+
+The script itself refuses unless the database name contains "restore"
+(`--force` overrides for a database independently confirmed isolated) — a
+naming-mistake guard, tested in `scripts/restore-guard.test.ts`. The Redis
+target is guarded separately, by two confirmations: `--confirm-redis-namespace`
+must retype `REDIS_NAMESPACE`'s exact value, since a real restore's
+namespace need not contain "restore" at all (a blue/green restore can reuse
+the live namespace on purpose) — there is no name pattern to infer
+isolation from, so the operator states it explicitly instead. Confirming
+the namespace alone still leaves a gap: this repo's Redis is shared per
+environment and isolated only by namespace (ADR 0034), so a correctly
+confirmed namespace says nothing about whether `REDIS_URL` itself points at
+that same live deployment's Redis rather than an isolated one —
+`--confirm-redis-host` closes it, retyping `REDIS_URL`'s host only (never
+the full URL, which routinely carries a password a command-line argument
+must never hold).
+
+The full real-path proof of the script's own logic is
 `apps/web/integration/auth-restore-invalidation.integration.ts`: a real
 sign-in through the mounted routes, a real session cookie, a real,
 unredeemed magic-link token, a real rate-limit key, then
@@ -169,19 +187,41 @@ The source dev database kept its own 2 sessions and 1 verification row
 afterward, confirmed by direct query. The isolated database and dump file
 were dropped after.
 
-On the live staging rehearsal's isolated copy, the equivalent SQL
-(`DELETE FROM session; DELETE FROM verification;`, what
-`purgeAllForRestore` runs in one transaction) removed 2 sessions and 1
-verification row — the committed script above was not the command run
-against staging itself, only against the local proof; the equivalent SQL
-is what ran on `daisy_debate_restore_rehearsal`. Before: the seeded
-session's token matched exactly one `session` row. After: zero rows match
-that token — the same token a client's cookie would carry
-can no longer resolve to a session, exactly as the integration test proves
-through the real HTTP path. `daisy_debate_staging` (the live source) was
-checked immediately after and still held its original 2 sessions and 1
-verification row — the invalidation never touched anything outside the
-isolated copy.
+### On staging: the actual procedure
+
+The equivalent of `purgeAllForRestore` — the same two statements, in the
+same one transaction — run directly against the restored copy as the
+Postgres superuser, over `fly ssh console`, the same access pattern this
+whole document uses for every other staging Postgres command; it needs no
+repo, no `bun`, and no privilege the restore did not already grant the
+superuser as the restore's owner:
+
+```
+fly ssh console -a daisy-debate-staging-db -C \
+  "sh -c 'PGPASSWORD=\"\$OPERATOR_PASSWORD\" psql -h localhost -U postgres -d daisy_debate_restore_rehearsal -v ON_ERROR_STOP=1 -c \"BEGIN; DELETE FROM session; DELETE FROM verification; COMMIT;\"'"
+```
+
+Executed against this rehearsal's `daisy_debate_restore_rehearsal`: removed
+2 sessions and 1 verification row. Before: the seeded session's token
+matched exactly one `session` row. After: zero rows match that token — the
+same token a client's cookie would carry can no longer resolve to a
+session, exactly as the integration test proves through the real HTTP
+path. `daisy_debate_staging` (the live source) was checked immediately
+after and still held its original 2 sessions and 1 verification row — the
+invalidation never touched anything outside the isolated copy.
+
+There is no isolated Redis namespace in this rehearsal to run
+`clearAuthRateLimits`'s equivalent against — this exercise dumps and
+restores Postgres only, and Redis holds no durable state a backup would
+need to restore (rate-limit counters and presence data are expected to
+reset, never to survive a restore). `clearAuthRateLimits`'s own logic is
+proven above, against a real Redis, by both the integration test and the
+local `bun restore:invalidate` run. A real disaster recovery that also
+provisions an isolated Redis namespace for the restored copy would clear it
+the same way this section clears Postgres: the raw commands
+(`SCAN`/`DEL` on the `rl:*` sub-namespace) run wherever that Redis is
+actually reachable from, never by assuming the committed script itself can
+run against the restore target.
 
 ## 6. Cleanup
 
@@ -218,9 +258,14 @@ every `session` row on staging, these included — rerunning
    ```
 2. Seed if the row counts in step 1 come back zero.
 3. Run steps 2–4 verbatim; halt before step 5 if any count mismatches.
-4. Run step 5 only against the isolated copy — `scripts/restore-guard.ts`
-   refuses a `DATABASE_URL` without "restore" in the database name for
-   exactly this reason, and separately refuses to touch Redis at all
-   unless `--confirm-redis-namespace` and `--confirm-redis-host` each
-   retype the exact `REDIS_NAMESPACE` and `REDIS_URL` host in use.
+4. On staging, run step 5's "On staging" procedure against the isolated
+   copy only, never `bun scripts/post-restore-invalidate.ts` directly — it
+   cannot reach `daisy-debate-staging-db`. Where the target is a database
+   the script itself can reach (this checkout's own dev database, or any
+   future restore target with a repo and a granted role), run the script
+   instead: `scripts/restore-guard.ts` refuses a `DATABASE_URL` without
+   "restore" in the database name for exactly this reason, and separately
+   refuses to touch Redis at all unless `--confirm-redis-namespace` and
+   `--confirm-redis-host` each retype the exact `REDIS_NAMESPACE` and
+   `REDIS_URL` host in use.
 5. Always run step 6, even after a failure partway through.

@@ -1,8 +1,9 @@
 # Secret-rotation rehearsal (AUTH-7.6)
 
 Staging-only rehearsal of planned and emergency (compromised) rotation for
-`BETTER_AUTH_SECRET`, `RESEND_API_KEY` and `RESEND_WEBHOOK_SECRET`, run
-against `daisy-debate-staging` on 2026-09-26. Every new value came from a
+`BETTER_AUTH_SECRET`, `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET` and
+`OPS_PROBE_TOKEN`, run against `daisy-debate-staging` (2026-09-26 for the
+first three, 2026-09-27 for `OPS_PROBE_TOKEN`). Every new value came from a
 CSPRNG or the Resend API and was piped directly into `fly secrets import`
 (`NAME=VALUE` over stdin — `fly secrets set` has no such flag, and a literal
 value on the command line is itself a leak); no value was ever printed,
@@ -94,9 +95,9 @@ session cookie's value (`<token>.<hmac>`). Rotating it affects four things:
    are inert under the old secret and importing first would otherwise
    strand the new secret in Fly if reconciliation then failed. Save this
    as a script and run it with `bash`, not an interactive shell — `zsh`
-   does not word-split the
-   `--after` expansion below, so pagination past the first page would
-   silently send `resend` a malformed flag:
+   does not word-split the `--after` expansion below, so pagination past
+   the first page would send `resend` a malformed flag and it fails with
+   `unknown option '--after <id>'`:
 
    ```bash
    #!/usr/bin/env bash
@@ -238,12 +239,19 @@ database-wide revoke, not a defect: the point is removing every session
 row immediately, and no realtime consumer needs to react to a compromise
 response the same way it reacts to a user's own sign-out.
 
-**Recovery/rollback**: rolling back to the previous secret value re-validates
-any cookie signed with it — safe for "we rotated by mistake and need
-yesterday's secret back" (keep the previous value for the deploy window,
-never past it), actively wrong for "the secret leaked" (rolling back hands
-the leaked value back its validity). A leaked secret is only recovered by
-rotating forward again, never by rolling back.
+**Recovery/rollback**: Fly secrets are write-only and the safe pattern above
+pipes a fresh CSPRNG value straight into `fly secrets import` without ever
+displaying, saving or logging it, so this runbook itself retains no copy of
+the value a rotation replaced — there is no "roll back to the previous
+secret" available from this procedure alone. A rotation done by mistake is
+recovered the same way a compromise is: forward, never backward. If an
+operator's own secrets manager independently holds the pre-rotation value
+and wants it live again, that is a new rotation to that value, run through
+the same safe pattern (piped in, never a CLI argument) — never a special
+"rollback" path, since the identical mechanism that would restore a
+mistaken rotation would just as easily hand a leaked secret its validity
+back. There is exactly one direction: rotate forward to whichever value
+should be current.
 
 ## RESEND_API_KEY
 
@@ -343,6 +351,46 @@ elapsed, the previous secret no longer verifies anything — there is nothing
 to roll back to. A wrong new secret set in `RESEND_WEBHOOK_SECRET` is fixed
 by rotating again and re-importing, not by trying to recover the old value.
 
+## OPS_PROBE_TOKEN
+
+`requireProbeToken` (`apps/web/src/features/ops/probe-auth.ts`) compares a
+SHA3-256 digest of the request's bearer token against a digest of exactly
+the one `OPS_PROBE_TOKEN` value the app currently holds — the same
+single-secret shape as `RESEND_WEBHOOK_SECRET` above, never a list, so a
+rotation's new value takes effect and forgets the old one the moment it
+lands, with no grace window. It gates `/api/ops/alerts` and
+`/api/ops/metrics`; the scheduled `auth-alerts.yml` workflow is its only
+caller, authenticating with the value GitHub holds as the
+`OPS_PROBE_TOKEN` repository secret — so, unlike the other three secrets in
+this document, a rotation has two destinations that must carry the
+identical value, or the workflow starts sending a token the app no longer
+accepts.
+
+**Rotate both from one generated value, in the same shell session, planned
+or emergency alike — there is no revoke step and no separate emergency
+variant, the same as `RESEND_WEBHOOK_SECRET`'s single-secret case:**
+
+```
+new_probe_token="$(bun -e 'console.log(crypto.getRandomValues(new Uint8Array(32)).reduce((s,b)=>s+b.toString(16).padStart(2,"0"),""))')"
+echo "OPS_PROBE_TOKEN=$new_probe_token" | fly secrets import -a daisy-debate-staging
+echo -n "$new_probe_token" | gh secret set OPS_PROBE_TOKEN
+unset new_probe_token
+```
+
+**Executed**: rotated for real against `daisy-debate-staging` and its
+`OPS_PROBE_TOKEN` GitHub repository secret. Immediately after import, a
+direct request with the new value (`curl -H "Authorization: Bearer
+<new_probe_token>" https://daisy-debate-staging.fly.dev/api/ops/alerts`)
+returned `200`; the same request with an arbitrary wrong token returned
+`401` — the old value (never captured, never printed) stopped
+authenticating the instant the new one landed.
+
+**Recovery/rollback**: same shape as `RESEND_WEBHOOK_SECRET` — the safe
+pattern never retains the previous value and Fly cannot return it, so there
+is nothing to roll back to. A wrong value in either destination is fixed by
+rotating again, generating one new value and re-setting both, never by
+trying to recover the old one.
+
 ## End-of-rehearsal state
 
 - `daisydebate-app-sending`: a fresh key, `sending_access` scoped to the
@@ -360,6 +408,10 @@ by rotating again and re-importing, not by trying to recover the old value.
   rotation happened before that step existed, and staging had nothing to
   reconcile in any case. The step is documented for the next rotation, once
   the ledger holds real rows.
+- `OPS_PROBE_TOKEN`: rotated once from its pre-rehearsal value on both Fly
+  and the `OPS_PROBE_TOKEN` GitHub repository secret; a request bearing the
+  new value against `/api/ops/alerts` returned `200`, an arbitrary wrong
+  value returned `401`.
 - Verified before finishing: `GET /api/health/live` → `alive`,
   `GET /api/health/ready` → `ready`,
   `bun scripts/staging-security-probe.ts --url https://daisy-debate-staging.fly.dev`
