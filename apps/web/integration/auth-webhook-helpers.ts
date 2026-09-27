@@ -61,7 +61,7 @@ export function createMailSuite() {
   const testApp = createTestApp();
   const { app, routes, mailbox, jsonPost, formPost, freshEmail } = testApp;
   const recipientSubkey = deriveRecipientSubkey(
-    app.auth().config.BETTER_AUTH_SECRET,
+    app.auth().config.RECIPIENT_HASH_SECRET,
   );
   const emails: string[] = [];
   const messageIds: string[] = [];

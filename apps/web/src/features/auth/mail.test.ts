@@ -209,5 +209,5 @@ describe('Resend sender', () => {
 });
 
 // The recipient-hashing function moved to recipient-key.ts (recipientKey,
-// keyed by a subkey derived from BETTER_AUTH_SECRET rather than the raw
+// keyed by a subkey derived from RECIPIENT_HASH_SECRET rather than the raw
 // secret directly); see recipient-key.test.ts.

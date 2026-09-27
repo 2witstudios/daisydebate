@@ -23,7 +23,7 @@ setupRitewayBun();
 const flows = await createPasskeyFlows();
 const { signUp } = flows.account;
 const { testApp, mailbox } = flows.account.flows;
-const subkey = deriveRecipientSubkey(testApp.env.BETTER_AUTH_SECRET);
+const subkey = deriveRecipientSubkey(testApp.env.RECIPIENT_HASH_SECRET);
 const suppressedAddresses: string[] = [];
 const messageIds: string[] = [];
 

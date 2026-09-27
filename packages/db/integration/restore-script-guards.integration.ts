@@ -24,9 +24,9 @@ const REDIS_NAMESPACE = 'guard-test-namespace';
 // The two guards' refusal messages differ only in this context clause
 // (restore-guard.ts's `nameRefusal`), so asserting one specifically is what
 // proves a given scenario failed through its own guard, not the other one
-// or an unrelated crash (NC35: only the URL-string guard's throw removed —
-// the actual-name guard downstream still refuses, with different text;
-// NC37: an early, unrelated crash — also non-zero, with unrelated text).
+// or an unrelated crash: if only the URL-string guard's throw were removed,
+// the actual-name guard downstream would still refuse, with different text;
+// an early, unrelated crash would also exit non-zero, with unrelated text.
 const RESTORE_URL_GUARD_MESSAGE =
   'This command is destructive to every session and verification row.';
 const STAGING_URL_GUARD_MESSAGE =
@@ -53,10 +53,11 @@ function withDatabaseOverride(baseUrl: string, pretendPath: string): string {
  * Spawns the real script and asserts it refuses through the specific guard
  * `expectedStderr` names — exit code exactly 1 (Bun's uncaught-throw code,
  * never merely "non-zero") and that message on stderr — without mutating
- * anything. A generic "non-zero exit" check passes for the wrong reason
- * under NC35 (only the URL-string guard's throw removed; the downstream
- * actual-name guard still refuses, with different text) and NC37 (an early,
- * unrelated crash); requiring this scenario's own message rules both out.
+ * anything. A generic "non-zero exit" check passes for the wrong reason if
+ * only the URL-string guard's throw were removed (the downstream
+ * actual-name guard still refuses, with different text) or if the script
+ * crashed early for an unrelated reason (also non-zero, with unrelated
+ * text); requiring this scenario's own message rules both out.
  */
 async function assertRefusesWithoutMutating(
   given: string,
@@ -99,7 +100,7 @@ async function cleanupStagingSeedRows(db: SQL): Promise<void> {
   await db`delete from users where id in ('r1s2t3u4v5w6x7y8z9a0b1c2', 'p5q6r7s8t9u0v1w2x3y4z5a6')`;
 }
 
-describe('post-restore-invalidate.ts (AUTH-7.16/7.17, NC33/NC35/NC37 regression guard)', () => {
+describe('post-restore-invalidate.ts (AUTH-7.16/7.17, refuses through its own guard message, not just a non-zero exit)', () => {
   const scenarios = [
     {
       title:
@@ -155,7 +156,7 @@ describe('post-restore-invalidate.ts (AUTH-7.16/7.17, NC33/NC35/NC37 regression 
   }
 });
 
-describe('staging-restore-seed.ts (AUTH-7.16/7.17, NC33/NC35/NC37 regression guard)', () => {
+describe('staging-restore-seed.ts (AUTH-7.16/7.17, refuses through its own guard message, not just a non-zero exit)', () => {
   const scenarios = [
     {
       title:

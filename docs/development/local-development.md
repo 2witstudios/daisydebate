@@ -73,18 +73,22 @@ PostgreSQL is exposed on host port `15432` to coexist with host-level
 Postgres installs; `.env.example` holds the main checkout's slot values and
 `bun slot:up` rewrites them in a worktree.
 
-Authentication variables (`BETTER_AUTH_SECRET`, `RESEND_API_KEY`,
-`AUTH_EMAIL_FROM`) are documented in `.env.example` and validated only when
-the auth composition activates — baseline startup and `bun doctor` never
-require them. Run `bun auth:provision` to generate a 64-character
-`BETTER_AUTH_SECRET` into `.env` whenever a canonical
-`BETTER_AUTH_SECRET=<value>` assignment is missing. A canonical value is
-always preserved; non-canonical but loader-supported assignments
-(`export BETTER_AUTH_SECRET=…`, `BETTER_AUTH_SECRET = …`) rotate: the
-generated value is appended as the final assignment (dotenv last-assignment
-semantics), the stale line is left untouched, and repeated runs are no-ops.
-The value is never printed or committed. Live email delivery additionally
-needs owner-provisioned Resend credentials. The optional
+Authentication variables (`BETTER_AUTH_SECRET`, `RECIPIENT_HASH_SECRET`,
+`RESEND_API_KEY`, `AUTH_EMAIL_FROM`) are documented in `.env.example` and
+validated only when the auth composition activates — baseline startup and
+`bun doctor` never require them. `RECIPIENT_HASH_SECRET` keys the
+suppression ledger and per-recipient rate-limit buckets independently of
+`BETTER_AUTH_SECRET` (ADR 0044, ISSUE-141), so a session-secret rotation
+never desynchronizes them. Run `bun auth:provision` to generate a
+64-character value into `.env` for each of `BETTER_AUTH_SECRET` and
+`RECIPIENT_HASH_SECRET` whenever its canonical `<NAME>=<value>` assignment
+is missing. A canonical value is always preserved; non-canonical but
+loader-supported assignments (`export BETTER_AUTH_SECRET=…`,
+`BETTER_AUTH_SECRET = …`) rotate: the generated value is appended as the
+final assignment (dotenv last-assignment semantics), the stale line is left
+untouched, and repeated runs are no-ops. Neither value is ever printed or
+committed. Live email delivery additionally needs owner-provisioned Resend
+credentials. The optional
 `AUTH_TRUSTED_PROXIES` list declares which of your own reverse proxy's IPs
 or CIDR ranges to skip when walking a forwarded chain; leave it unset
 locally (`next dev` runs without the stamping ingress, so no request carries

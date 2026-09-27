@@ -227,8 +227,9 @@ echo "CREATE ROLE daisy_web LOGIN PASSWORD '$DAISY_WEB_PASSWORD';" \
   | fly postgres connect -a daisy-debate-staging-db -d daisy_debate_staging
 # Same host, port, database and query string as the URL attach printed;
 # only the user and password differ.
-fly secrets set -a daisy-debate-staging --stage \
-  DATABASE_URL="postgres://daisy_web:$DAISY_WEB_PASSWORD@<host:port from attach>/daisy_debate_staging?sslmode=disable"
+fly secrets import -a daisy-debate-staging --stage <<SECRETS
+DATABASE_URL=postgres://daisy_web:$DAISY_WEB_PASSWORD@<host:port from attach>/daisy_debate_staging?sslmode=disable
+SECRETS
 unset DAISY_WEB_PASSWORD
 ```
 
@@ -249,7 +250,9 @@ when flyctl runs without a TTY:
 fly redis create --org daisy-debate --region ord --name daisy-debate-staging-redis \
   --no-replicas --disable-eviction --plan "Pay-as-you-go" --enable-prodpack=false
 fly redis status daisy-debate-staging-redis      # shows the private redis:// URL
-fly secrets set -a daisy-debate-staging --stage REDIS_URL="<that url>"
+fly secrets import -a daisy-debate-staging --stage <<SECRETS
+REDIS_URL=<that url>
+SECRETS
 ```
 
 Verify: `fly secrets list -a daisy-debate-staging` shows `REDIS_URL` (staged).
@@ -302,17 +305,25 @@ twice:
 # DATABASE_URL was set in step 2 and REDIS_URL staged in step 3; do not set
 # them again here. MIGRATION_DATABASE_URL belongs to the migrator app only.
 better_auth_secret="$(bun -e 'console.log(crypto.getRandomValues(new Uint8Array(32)).reduce((s,b)=>s+b.toString(16).padStart(2,"0"),""))')"
+recipient_hash_secret="$(bun -e 'console.log(crypto.getRandomValues(new Uint8Array(32)).reduce((s,b)=>s+b.toString(16).padStart(2,"0"),""))')"
 ops_probe_token="$(bun -e 'console.log(crypto.getRandomValues(new Uint8Array(32)).reduce((s,b)=>s+b.toString(16).padStart(2,"0"),""))')"
 fly secrets import -a daisy-debate-staging --stage <<SECRETS
 BETTER_AUTH_SECRET=$better_auth_secret
+RECIPIENT_HASH_SECRET=$recipient_hash_secret
 RESEND_API_KEY=re_...
 AUTH_EMAIL_FROM=Daisy <no-reply@yourdomain.example>
 RESEND_WEBHOOK_SECRET=whsec_...
 OPS_PROBE_TOKEN=$ops_probe_token
 SECRETS
 echo -n "$ops_probe_token" | gh secret set OPS_PROBE_TOKEN
-unset better_auth_secret ops_probe_token
+unset better_auth_secret recipient_hash_secret ops_probe_token
 ```
+
+`RECIPIENT_HASH_SECRET` is a distinct value from `BETTER_AUTH_SECRET`
+(ADR 0044, ISSUE-141), never the same value copied twice: it keys the
+suppression ledger and per-recipient rate-limit buckets independently of
+the session-signing secret, so routinely rotating `BETTER_AUTH_SECRET`
+never desynchronizes them.
 
 `APP_VERSION` and `GIT_COMMIT` are non-secret and set per-release, not as
 persistent secrets — pass them as build args or set them via
@@ -320,7 +331,7 @@ persistent secrets — pass them as build args or set them via
 `APP_VERSION`/`GIT_COMMIT` at their `development`/`unknown` defaults
 (`packages/config/src/index.ts`).
 
-Verify: `fly secrets list -a daisy-debate-staging` shows all seven names
+Verify: `fly secrets list -a daisy-debate-staging` shows all eight names
 (not values — Fly never displays a set secret's value back), and no
 `MIGRATION_DATABASE_URL`; `gh secret list` shows `OPS_PROBE_TOKEN` with a
 recent "Updated" timestamp. Rotating `OPS_PROBE_TOKEN` later — planned or
@@ -390,8 +401,9 @@ echo "ALTER ROLE daisy_migrator PASSWORD '$DAISY_MIGRATOR_PASSWORD';" \
   | fly postgres connect -a daisy-debate-staging-db -d daisy_debate_staging
 # Same host, port, database and query string as the old owner URL;
 # only the password differs.
-fly secrets set -a daisy-debate-staging-migrate --stage \
-  MIGRATION_DATABASE_URL="postgres://daisy_migrator:$DAISY_MIGRATOR_PASSWORD@<host:port>/daisy_debate_staging?sslmode=disable"
+fly secrets import -a daisy-debate-staging-migrate --stage <<SECRETS
+MIGRATION_DATABASE_URL=postgres://daisy_migrator:$DAISY_MIGRATOR_PASSWORD@<host:port>/daisy_debate_staging?sslmode=disable
+SECRETS
 unset DAISY_MIGRATOR_PASSWORD
 
 # Remove it from the web app. --stage keeps the running release up until

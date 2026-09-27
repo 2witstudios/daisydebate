@@ -291,7 +291,7 @@ export function createAuthServer<
   readonly revokeSessionUnlessAddressHeld: RevokeSessionUnlessAddressHeld;
 }): AuthServer {
   const { config } = dependencies;
-  const recipientSubkey = deriveRecipientSubkey(config.BETTER_AUTH_SECRET);
+  const recipientSubkey = deriveRecipientSubkey(config.RECIPIENT_HASH_SECRET);
   const ledger = dependencies.ledger ?? noLedger;
   // ISSUE-54: every auth mail, required or best-effort, goes through this
   // one path, and it honours suppression before anything reaches the

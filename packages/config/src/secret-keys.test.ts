@@ -15,6 +15,7 @@ describe('secret configuration keys', () => {
         'DATABASE_URL',
         'MIGRATION_DATABASE_URL',
         'OPS_PROBE_TOKEN',
+        'RECIPIENT_HASH_SECRET',
         'REDIS_URL',
         'RESEND_API_KEY',
         'RESEND_WEBHOOK_SECRET',

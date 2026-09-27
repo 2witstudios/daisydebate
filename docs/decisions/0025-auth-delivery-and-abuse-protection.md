@@ -272,6 +272,9 @@ counter races and process-local limits, spoofed forwarding headers, provider
 outages and bounce loops) using existing PostgreSQL and Redis only.
 
 Tradeoffs: a fixed window admits up to twice the limit across a window
-boundary; suppression is keyed to `BETTER_AUTH_SECRET`, so rotating it forgets
-suppressions (acceptable: the provider re-suppresses on the next hard bounce);
-the strict `Origin` requirement means non-browser API clients are unsupported.
+boundary; suppression is keyed to `RECIPIENT_HASH_SECRET`, independent of
+`BETTER_AUTH_SECRET` since ADR 0044 (ISSUE-141) — rotating that dedicated
+secret still forgets suppressions (acceptable: the provider re-suppresses on
+the next hard bounce), but a routine `BETTER_AUTH_SECRET` rotation no longer
+does; the strict `Origin` requirement means non-browser API clients are
+unsupported.
