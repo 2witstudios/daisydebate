@@ -93,13 +93,19 @@ session cookie's value (`<token>.<hmac>`). Rotating it affects four things:
    echo "BETTER_AUTH_SECRET=$new_secret" | fly secrets import -a daisy-debate-staging
 
    subkey_reconcile() {
-     bun -e '
+     echo "$new_secret" | bun -e '
        const { deriveRecipientSubkey, recipientKey } = await import("./apps/web/src/features/auth/recipient-key.ts");
-       const subkey = deriveRecipientSubkey(process.argv[1]);
-       console.log(recipientKey(subkey, process.argv[2]));
-     ' "$new_secret" "$1"
+       const secret = await new Promise((resolve) => {
+         let data = "";
+         process.stdin.on("data", (chunk) => (data += chunk));
+         process.stdin.on("end", () => resolve(data.trim()));
+       });
+       const subkey = deriveRecipientSubkey(secret);
+       console.log(recipientKey(subkey, process.argv[1]));
+     ' "$1"
    }
 
+   set -euo pipefail
    cursor=""
    while :; do
      page=$(resend suppressions list --limit 100 --json ${cursor:+--after "$cursor"})
@@ -108,7 +114,7 @@ session cookie's value (`<token>.<hmac>`). Rotating it affects four things:
        reason=$(echo "$row" | jq -r '.origin')
        source_id=$(echo "$row" | jq -r '.source_id // "reconciled-secret-rotation"')
        hash=$(subkey_reconcile "$email")
-       psql "postgres://postgres@localhost:5432/daisy_debate_staging" -c \
+       psql -v ON_ERROR_STOP=1 "postgres://postgres@localhost:5432/daisy_debate_staging" -c \
          "INSERT INTO email_suppression (recipient_hash, reason, provider_message_id) VALUES ('$hash', '$reason', '$source_id') ON CONFLICT (recipient_hash) DO NOTHING;"
      done
      has_more=$(echo "$page" | jq -r '.has_more')
