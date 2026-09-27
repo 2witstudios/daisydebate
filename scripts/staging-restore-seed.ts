@@ -7,9 +7,13 @@
  * does not cover (sessions, verification tokens, passkeys) by direct
  * insert. Every value is synthetic: fixed cuid2-shaped ids, `@example.test`
  * addresses (RFC 2606, never delivered) and placeholder WebAuthn material —
- * never real personal data, and never anyone's real inbox. Idempotent, like
- * `applyDevSeed`: rerunning leaves every row unchanged (`ON CONFLICT DO
- * NOTHING`/`DO UPDATE` throughout).
+ * never real personal data, and never anyone's real inbox. Idempotent in
+ * row identity, like `applyDevSeed`: rerunning creates no new row (`ON
+ * CONFLICT DO NOTHING`/`DO UPDATE` throughout, always on a fixed `id`) —
+ * the session and verification rows' credential columns (`token`,
+ * `identifier`, `value`) are the exception, deliberately refreshed to a new
+ * CSPRNG value on every run rather than held fixed, so no rerun can ever
+ * reintroduce a stable, guessable credential.
  *
  * Only ever point this at an isolated database: staging's own
  * `daisy_debate_staging` for the rehearsal's synthetic source rows, never
@@ -21,14 +25,10 @@
  * connection string cannot lie about — before `applyDevSeed`'s first
  * write.
  */
-import { createHash } from 'node:crypto';
 import { SQL } from 'bun';
 import { applyDevSeed } from '@daisy/db/dev-seed';
 import { refusalForActualName, refusalForStagingSeed } from './restore-guard';
-import {
-  emailedLinkIdentifier,
-  randomVerificationToken,
-} from './restore-seed-token';
+import { emailedLinkIdentifier, randomSeedToken } from './restore-seed-token';
 
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error('DATABASE_URL is required');
@@ -38,21 +38,6 @@ const refusal = refusalForStagingSeed(url, force);
 if (refusal) throw new Error(refusal);
 
 const restoreSeedVersion = 'restore-rehearsal-seed-v1';
-
-/**
- * A deterministic session token (`sha3-256` of a fixed per-index seed,
- * base64url-encoded), not a real CSPRNG value: a rerun must produce the
- * exact same token for `ON CONFLICT DO UPDATE` to be a true no-op. It is
- * fully derivable from this committed source — anyone who reads this file
- * knows it — and harmless only because a client authenticates with the
- * signed cookie (`<token>.<hmac over token, keyed by BETTER_AUTH_SECRET>`,
- * `secret-rotation-rehearsal.md`), never the bare token: knowing this
- * token alone cannot forge a valid cookie.
- */
-const seedSessionToken = (index: number): string =>
-  createHash('sha3-256')
-    .update(`restore-seed-session-token-${index}`)
-    .digest('base64url');
 
 const people = [
   {
@@ -127,12 +112,16 @@ await applyDevSeed({
 const client = new SQL(url, { max: 1 });
 try {
   for (const [index, person] of people.entries()) {
+    // A fresh CSPRNG token every run, never bound to a name that outlives
+    // this expression: a session row needs its `token` column to hold
+    // something, but nothing about it needs to be derivable from source or
+    // stable across reruns — only the row's `id` does, for `ON CONFLICT`.
     await client`
       insert into session (id, expires_at, token, ip_address, user_agent, user_id)
       values (
         ${`restore-seed-session-${index}`},
         now() + interval '7 days',
-        ${seedSessionToken(index)},
+        ${randomSeedToken()},
         '198.18.0.1',
         'restore-rehearsal-seed',
         ${person.userId}
@@ -174,7 +163,7 @@ try {
     insert into verification (id, identifier, value, expires_at)
     values (
       'restore-seed-verification-0',
-      ${emailedLinkIdentifier('sign-in', randomVerificationToken())},
+      ${emailedLinkIdentifier('sign-in', randomSeedToken())},
       ${JSON.stringify({ email: people[0].email, name: null })},
       now() + interval '5 minutes'
     )

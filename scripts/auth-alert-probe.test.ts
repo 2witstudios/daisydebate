@@ -1,7 +1,35 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { composeAlertMessage, evaluateOriginProbe } from './auth-alert-probe';
+import {
+  composeAlertMessage,
+  evaluateOriginProbe,
+  resolveProbeToken,
+} from './auth-alert-probe';
 
 setupRitewayBun();
+
+describe('resolveProbeToken (ISSUE-144)', () => {
+  test('reads the bearer token from the environment', () => {
+    assert({
+      given: 'an environment with OPS_PROBE_TOKEN set',
+      should: 'return that value',
+      actual: resolveProbeToken({ OPS_PROBE_TOKEN: 'env-value' }),
+      expected: 'env-value',
+    });
+  });
+
+  test('takes no command-line arguments, so a --token flag can never reach it', () => {
+    // resolveProbeToken's only parameter is the environment record — there
+    // is no args parameter for a --token flag to occupy, so this call site
+    // is itself proof the flag is no longer accepted; TypeScript would
+    // refuse a second argument if one were added back.
+    assert({
+      given: "resolveProbeToken's exported signature",
+      should: 'accept exactly one parameter (the environment)',
+      actual: resolveProbeToken.length,
+      expected: 1,
+    });
+  });
+});
 
 const HEALTHY_HEADERS = new Map<string, string>([
   ['x-content-type-options', 'nosniff'],

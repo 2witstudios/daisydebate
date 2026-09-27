@@ -144,7 +144,7 @@ session cookie's value (`<token>.<hmac>`). Rotating it affects four things:
    printf 'SELECT count(*) AS suppression_rows_after FROM email_suppression;\n' >> "$remote_sql"
 
    fly ssh console -a daisy-debate-staging-db -C \
-     "sh -c 'echo $(base64 < "$remote_sql") | base64 -d | PGPASSWORD=\"\$OPERATOR_PASSWORD\" psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d daisy_debate_staging -f -'"
+     "sh -c 'echo $(base64 < "$remote_sql" | tr -d '\n') | base64 -d | PGPASSWORD=\"\$OPERATOR_PASSWORD\" psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d daisy_debate_staging -f -'"
 
    echo "BETTER_AUTH_SECRET=$new_secret" | fly secrets import -a daisy-debate-staging
    unset new_secret
@@ -225,14 +225,17 @@ password ever left the machine. `daisy_web` (the runtime role) also holds
 `DATABASE_URL` instead; the superuser path is documented here because it
 is what this rehearsal actually ran, using access already open for the
 restore rehearsal's own dump/restore steps. A `current_database()` guard
-runs first, the same defense-in-depth `restore-rehearsal.md`'s staging
-purge uses, so a copy-pasted `-d` naming the wrong database aborts before
-the delete runs — this statement has no `WHERE` clause, so a wrong target
-would otherwise revoke every session on whatever database it landed on:
+runs first, inside the same transaction as the delete — the guard and the
+delete succeed or fail together, so a copy-pasted `-d` naming the wrong
+database aborts the whole transaction before the delete ever commits, not
+only when `ON_ERROR_STOP` happens to be set — this statement has no
+`WHERE` clause, so a wrong target would otherwise revoke every session on
+whatever database it landed on:
 
 ```
 revoke_sql=$(mktemp)
 cat > "$revoke_sql" <<'SQL'
+BEGIN;
 DO $$
 BEGIN
   IF current_database() <> 'daisy_debate_staging' THEN
@@ -240,9 +243,10 @@ BEGIN
   END IF;
 END $$;
 DELETE FROM session;
+COMMIT;
 SQL
 fly ssh console -a daisy-debate-staging-db -C \
-  "sh -c 'echo $(base64 < "$revoke_sql") | base64 -d | PGPASSWORD=\"\$OPERATOR_PASSWORD\" psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d daisy_debate_staging -f -'"
+  "sh -c 'echo $(base64 < "$revoke_sql" | tr -d '\n') | base64 -d | PGPASSWORD=\"\$OPERATOR_PASSWORD\" psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d daisy_debate_staging -f -'"
 rm -f "$revoke_sql"
 ```
 

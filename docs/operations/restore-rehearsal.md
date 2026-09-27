@@ -23,8 +23,13 @@ fly ssh console -a daisy-debate-staging-db -C "sh -c 'echo <base64 script> | bas
 The script inside uses `PGPASSWORD="$OPERATOR_PASSWORD"` with `psql`,
 `pg_dump`, `pg_restore`, `createdb` and `dropdb` — never prints the
 password, and the base64 wrapper only avoids quoting problems over SSH, not
-secrecy (the script text itself holds no secret). Evidence below is limited
-to table names, row counts and exit codes.
+secrecy (the script text itself holds no secret). Every concrete instance
+below pipes the encode step through `tr -d '\n'`: GNU `base64` (a Linux
+operator host) wraps its output at 76 characters by default, unlike BSD
+`base64` (macOS), and an embedded newline inside the `-C` argument corrupts
+the command `fly ssh console` sends over SSH — `tr -d '\n'` produces one
+line on either platform. Evidence below is limited to table names, row
+counts and exit codes.
 
 ## 1. Synthetic content
 
@@ -43,11 +48,18 @@ representative slice — synthetic, never real personal data:
 It runs through `@daisy/db`'s `applyDevSeed` adapter operation for the
 users/actors/debate (extended with optional `email`/`emailVerified` fields
 for this leaf) and direct inserts for `session`/`passkey`/`verification`,
-which `applyDevSeed` does not cover. Idempotent like `applyDevSeed`: rerun
-leaves every row unchanged. Every verification token is a fresh CSPRNG
-value, hashed into the row and discarded immediately — the script never
-stores, logs or reuses a literal token (`scripts/restore-seed-token.ts`,
-unit-tested against exactly this). Runs from the staging web machine itself
+which `applyDevSeed` does not cover. Idempotent in row identity, like
+`applyDevSeed`: rerunning creates no new row — the session and verification
+rows' credential columns are the deliberate exception, refreshed to a new
+CSPRNG value every run. Both the session token and the verification token
+are fresh CSPRNG values, generated inline and discarded immediately, never
+bound to a name that outlives the expression (`scripts/restore-seed-token.ts`).
+Its unit tests (`scripts/restore-seed-token.test.ts`) verify the values this
+produces — never the historical leaked literal, never repeated across
+calls, full CSPRNG length — not the absence of a log call or a stored copy,
+which a unit test cannot observe; that guarantee comes from the source
+never binding the token to a variable that outlives the expression, plain
+to see by reading the two call sites. Runs from the staging web machine itself
 (`fly ssh console -a daisy-debate-staging`), using that machine's own
 `DATABASE_URL` (the `daisy_web` runtime role, which already holds
 `INSERT`/`UPDATE`/`DELETE` on every table) — never the migration owner
@@ -63,7 +75,8 @@ single resulting file the same way:
 
 ```
 bun build --target=bun --external @daisy/db scripts/staging-restore-seed.ts --outfile=/tmp/staging-restore-seed-bundle.js
-fly ssh console -a daisy-debate-staging -C "sh -c 'set -e; trap \"rm -f /app/apps/web/tmp-seed.js\" EXIT; echo <base64 of /tmp/staging-restore-seed-bundle.js> | base64 -d > /app/apps/web/tmp-seed.js && cd /app/apps/web && bun tmp-seed.js'"
+fly ssh console -a daisy-debate-staging -C \
+  "sh -c 'set -e; trap \"rm -f /app/apps/web/tmp-seed.js\" EXIT; echo $(base64 < /tmp/staging-restore-seed-bundle.js | tr -d '\n') | base64 -d > /app/apps/web/tmp-seed.js && cd /app/apps/web && bun tmp-seed.js'"
 ```
 
 `set -e` fails the whole command on a decode or seed error; the `EXIT` trap
@@ -211,27 +224,29 @@ Postgres superuser, over `fly ssh console`, the same access pattern this
 whole document uses for every other staging Postgres command; it needs no
 repo, no `bun`, and no privilege the restore did not already grant the
 superuser as the restore's owner. A `current_database()` guard runs first,
-inside the same transaction, so a copy-pasted `-d` naming the wrong
-database — `daisy_debate_staging` itself, say — aborts before either
-`DELETE` runs, the same defense-in-depth `refusalForActualName` gives the
-committed script:
+inside the same transaction as both deletes — the guard and the deletes
+succeed or fail together, so a copy-pasted `-d` naming the wrong database —
+`daisy_debate_staging` itself, say — aborts the whole transaction before
+either `DELETE` commits, not only when `ON_ERROR_STOP` happens to be set,
+the same defense-in-depth `refusalForActualName` gives the committed
+script:
 
 ```
 purge_sql=$(mktemp)
 cat > "$purge_sql" <<'SQL'
+BEGIN;
 DO $$
 BEGIN
   IF current_database() <> 'daisy_debate_restore_rehearsal' THEN
     RAISE EXCEPTION 'refusing: current_database() is %, not the restored copy', current_database();
   END IF;
 END $$;
-BEGIN;
 DELETE FROM session;
 DELETE FROM verification;
 COMMIT;
 SQL
 fly ssh console -a daisy-debate-staging-db -C \
-  "sh -c 'echo $(base64 < "$purge_sql") | base64 -d | PGPASSWORD=\"\$OPERATOR_PASSWORD\" psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d daisy_debate_restore_rehearsal -f -'"
+  "sh -c 'echo $(base64 < "$purge_sql" | tr -d '\n') | base64 -d | PGPASSWORD=\"\$OPERATOR_PASSWORD\" psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d daisy_debate_restore_rehearsal -f -'"
 rm -f "$purge_sql"
 ```
 

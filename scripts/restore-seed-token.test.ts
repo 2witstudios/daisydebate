@@ -1,8 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  emailedLinkIdentifier,
-  randomVerificationToken,
-} from './restore-seed-token';
+import { emailedLinkIdentifier, randomSeedToken } from './restore-seed-token';
 
 setupRitewayBun();
 
@@ -14,19 +11,19 @@ setupRitewayBun();
  */
 const HISTORICAL_LEAKED_TOKEN = 'restore-rehearsal-placeholder-token';
 
-describe('randomVerificationToken', () => {
+describe('randomSeedToken', () => {
   test('never returns the historical, publicly committed placeholder token', () => {
     assert({
-      given: 'a freshly generated verification token',
+      given: 'a freshly generated seed token',
       should: 'not equal the literal token a past version of this seed stored',
-      actual: randomVerificationToken() === HISTORICAL_LEAKED_TOKEN,
+      actual: randomSeedToken() === HISTORICAL_LEAKED_TOKEN,
       expected: false,
     });
   });
 
   test('generates a different token on every call', () => {
-    const first = randomVerificationToken();
-    const second = randomVerificationToken();
+    const first = randomSeedToken();
+    const second = randomSeedToken();
     assert({
       given: 'two separate calls',
       should: 'return two different values',
@@ -36,9 +33,9 @@ describe('randomVerificationToken', () => {
   });
 
   test('is not a short or fixed value — 256 bits of CSPRNG, base64url-encoded', () => {
-    const token = randomVerificationToken();
+    const token = randomSeedToken();
     assert({
-      given: 'a freshly generated verification token',
+      given: 'a freshly generated seed token',
       should: 'be at least 43 base64url characters (32 CSPRNG bytes)',
       actual: token.length >= 43,
       expected: true,
@@ -46,9 +43,9 @@ describe('randomVerificationToken', () => {
   });
 
   test('contains no literal words, only base64url characters', () => {
-    const token = randomVerificationToken();
+    const token = randomSeedToken();
     assert({
-      given: 'a freshly generated verification token',
+      given: 'a freshly generated seed token',
       should: 'match the base64url alphabet only, never a readable placeholder',
       actual: /^[A-Za-z0-9_-]+$/.test(token),
       expected: true,
@@ -58,7 +55,7 @@ describe('randomVerificationToken', () => {
 
 describe('emailedLinkIdentifier', () => {
   test('never includes the raw token in the stored identifier', () => {
-    const token = randomVerificationToken();
+    const token = randomSeedToken();
     const identifier = emailedLinkIdentifier('sign-in', token);
     assert({
       given: 'a token and its computed identifier',
@@ -69,10 +66,7 @@ describe('emailedLinkIdentifier', () => {
   });
 
   test('never stores the historical leaked literal, hashed or not', () => {
-    const identifier = emailedLinkIdentifier(
-      'sign-in',
-      randomVerificationToken(),
-    );
+    const identifier = emailedLinkIdentifier('sign-in', randomSeedToken());
     assert({
       given: "a fresh token's computed identifier",
       should:
