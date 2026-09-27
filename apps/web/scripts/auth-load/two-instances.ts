@@ -88,6 +88,12 @@ export async function startTwoInstances(
         PORT: String(port),
         LOAD_MAIL_PORT: String(mailPort),
       },
+      // ISSUE-150: never written to or closed here. Its only purpose is
+      // the pipe itself — the OS closes it when this driver process dies
+      // for any reason, including a SIGKILL that never reaches the child
+      // with SIGTERM, so the instance's `watchParentLiveness` sees EOF and
+      // exits on its own instead of surviving reparented to launchd.
+      stdin: 'pipe',
       stdout: 'pipe',
       stderr: 'pipe',
     });

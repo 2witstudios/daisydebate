@@ -224,6 +224,9 @@ describe('installShutdownSignals', () => {
   });
 });
 
+// installForcedShutdown and watchParentLiveness (ISSUE-150) moved to
+// process-lifecycle.ts / process-lifecycle.test.ts.
+
 describe('createDrainState', () => {
   test('drain flips readiness without closing anything', async () => {
     let closed = 0;

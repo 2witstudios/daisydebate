@@ -1,4 +1,8 @@
 import { systemClock, systemId } from '@daisy/clock';
+import {
+  installForcedShutdown,
+  watchParentLiveness,
+} from '@daisy/observability';
 import { createApp } from '../../src/server/app';
 import { adoptProcessApp } from '../../src/server/process-app';
 import { createMailCapture } from '../../e2e/support/mail-capture';
@@ -13,6 +17,21 @@ import { createMailCapture } from '../../e2e/support/mail-capture';
  * `DATABASE_URL` and `REDIS_NAMESPACE`, never a single process and never
  * a sticky session. Spawned by `two-instances.ts`, never run directly.
  */
+
+// ISSUE-150: installed before the potentially slow `import('../../src/
+// server/start')` below, so a hang during start-up can never leave this
+// instance ignoring SIGTERM/SIGINT, and so a stdin pipe closing (the
+// parent driver dying without calling `two-instances.ts`'s `stop()`) is
+// caught from the first tick this process runs.
+installForcedShutdown({
+  drainBudgetMs: 3000,
+  exit: (code) => process.exit(code),
+});
+watchParentLiveness({
+  stdin: process.stdin,
+  onParentGone: () => process.exit(0),
+});
+
 const env = (name: string) => {
   const value = process.env[name];
   if (!value) throw new Error(`${name} is required`);
@@ -37,7 +56,3 @@ adoptProcessApp(
 );
 
 await import('../../src/server/start');
-for (const signal of ['SIGTERM', 'SIGINT'] as const)
-  process.once(signal, () => {
-    setTimeout(() => process.exit(0), 3000);
-  });

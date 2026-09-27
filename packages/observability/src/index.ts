@@ -9,6 +9,13 @@ import {
   type Context,
 } from '@opentelemetry/api';
 
+export {
+  installForcedShutdown,
+  watchParentLiveness,
+  type LivenessStdin,
+  type SignalTarget as ForcedShutdownSignalTarget,
+} from './process-lifecycle';
+
 const traceparentPattern =
   /^(?!ff-)([\da-f]{2})-([\da-f]{32})-([\da-f]{16})-([\da-f]{2})$/;
 
@@ -153,3 +160,6 @@ export function installShutdownSignals(
   for (const signal of ['SIGTERM', 'SIGINT'] as const)
     target.once(signal, () => void shutdown().catch(() => process.exit(1)));
 }
+
+// ISSUE-150's ephemeral-process shutdown seams (installForcedShutdown,
+// watchParentLiveness) live in process-lifecycle.ts, re-exported below.
