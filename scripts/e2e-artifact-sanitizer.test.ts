@@ -47,6 +47,18 @@ describe('e2e artifact sanitizer', () => {
     });
   });
 
+  test('redacts the e2e placeholder recipient-hash secret', () => {
+    assert({
+      given:
+        'the inert RECIPIENT_HASH_SECRET placeholder from playwright.config.ts',
+      should: 'redact it like any other secret shape',
+      actual: redactText(
+        'RECIPIENT_HASH_SECRET=a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2',
+      ),
+      expected: 'RECIPIENT_HASH_SECRET=[REDACTED]',
+    });
+  });
+
   test('redacts a PEM private key, whatever its type (ISSUE-78)', () => {
     const key = (type: string) =>
       `-----BEGIN ${type}PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\nBKcwggSjAgEAAoIBAQC7\n-----END ${type}PRIVATE KEY-----`;

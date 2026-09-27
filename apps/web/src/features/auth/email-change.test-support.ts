@@ -1,4 +1,5 @@
 import { systemClock } from '@daisy/clock';
+import { readAuthConfig } from '@daisy/config';
 import {
   authTestEnv,
   composeAuthServer,
@@ -20,7 +21,7 @@ export const linkIn = (message: AuthEmailMessage | undefined) =>
  * Better Auth against the ambient one, so this suite injects the system
  * clock.
  */
-export async function signedIn() {
+export async function signedIn(envOverrides: Partial<typeof authTestEnv> = {}) {
   const db = memoryTables();
   const sent: AuthEmailMessage[] = [];
   // Every address deliverable until a test says otherwise.
@@ -31,6 +32,7 @@ export async function signedIn() {
   };
   const server = composeAuthServer(
     {
+      config: readAuthConfig({ ...authTestEnv, ...envOverrides }),
       clock: systemClock,
       emailSender: { send: async (message) => void sent.push(message) },
       ledger: {
@@ -86,7 +88,7 @@ export async function signedIn() {
   const suppress = (address: string, ...answers: boolean[]) =>
     ledger.answers.set(
       recipientKey(
-        deriveRecipientSubkey(authTestEnv.BETTER_AUTH_SECRET),
+        deriveRecipientSubkey(authTestEnv.RECIPIENT_HASH_SECRET),
         address,
       ),
       answers,

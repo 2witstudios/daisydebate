@@ -182,6 +182,14 @@ const commaList = (entry: z.ZodType<string, string>) =>
 const authFields = {
   /** 64 characters from 32 random bytes (hex); see `bun auth:provision`. */
   BETTER_AUTH_SECRET: secret(z.string().regex(/^\S{64}$/)),
+  /**
+   * 64 characters from 32 random bytes (hex); see `bun auth:provision`.
+   * Keys `recipientKey` (the suppression ledger and per-recipient
+   * rate-limit buckets) independently of `BETTER_AUTH_SECRET`, so rotating
+   * the session-signing secret can never desynchronize them (ADR 0044,
+   * ISSUE-141).
+   */
+  RECIPIENT_HASH_SECRET: secret(z.string().regex(/^\S{64}$/)),
   PUBLIC_APP_URL: z.url().refine((value) => {
     try {
       return ['http:', 'https:'].includes(new URL(value).protocol);

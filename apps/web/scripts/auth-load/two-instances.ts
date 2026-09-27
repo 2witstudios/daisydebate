@@ -70,6 +70,8 @@ export async function startTwoInstances(
     // it), and no webhook is ever delivered.
     BETTER_AUTH_SECRET:
       '3f7ccdc8a1c17f0c3c8fd72be8c1e74d7d3d66dfd44ed9f8aca2b9ecd6e01733',
+    RECIPIENT_HASH_SECRET:
+      '4a8ddce9b2d28f1d4d9fe83cf9d2f85e8e4e77e0e55fea09bdb3caeed7f12844',
     RESEND_API_KEY: 're_auth_load_placeholder_not_a_credential',
     AUTH_EMAIL_FROM: 'Daisy <no-reply@auth-load.daisy.invalid>',
     RESEND_WEBHOOK_SECRET:

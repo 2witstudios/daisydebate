@@ -22,7 +22,7 @@ describe('deriveRecipientSubkey', () => {
   test('is deterministic and domain-separated from the raw secret', () => {
     const secret = 'a'.repeat(64);
     assert({
-      given: 'the same BETTER_AUTH_SECRET twice',
+      given: 'the same RECIPIENT_HASH_SECRET twice',
       should: 'derive the identical subkey, distinct from the raw secret',
       actual: {
         deterministic:
@@ -39,7 +39,7 @@ describe('deriveRecipientSubkey', () => {
     // SHA3-256(subkey hex, NUL, 'player@daisy.example.com').
     const subkey = deriveRecipientSubkey('a'.repeat(64));
     assert({
-      given: "BETTER_AUTH_SECRET 'a' x 64 and a normalized recipient",
+      given: "RECIPIENT_HASH_SECRET 'a' x 64 and a normalized recipient",
       should:
         'derive the labelled subkey and recipient key exactly, never the bare-secret hash',
       actual: {

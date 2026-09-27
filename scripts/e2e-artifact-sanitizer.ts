@@ -37,6 +37,10 @@ const redactions: readonly (readonly [RegExp, string])[] = [
     /e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0/g,
     '[REDACTED]',
   ],
+  [
+    /a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2/g,
+    '[REDACTED]',
+  ],
   [/re_e2e_placeholder_not_a_credential/g, '[REDACTED]'],
   [/whsec_ZTJlLXBsYWNlaG9sZGVyLW5vdC1hLXNlY3JldA==/g, '[REDACTED]'],
 ];

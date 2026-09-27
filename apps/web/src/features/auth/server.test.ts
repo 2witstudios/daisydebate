@@ -27,11 +27,12 @@ const requestLink = (server: ReturnType<typeof composeAuthServer>) =>
 describe('auth server composition', () => {
   test('exposes the validated configuration it was given', () => {
     assert({
-      given: 'configuration validated from the four required auth variables',
+      given: 'configuration validated from the required auth variables',
       should: 'expose it with an empty proxy list',
       actual: composeAuthServer().config,
       expected: {
         BETTER_AUTH_SECRET: authTestEnv.BETTER_AUTH_SECRET,
+        RECIPIENT_HASH_SECRET: authTestEnv.RECIPIENT_HASH_SECRET,
         PUBLIC_APP_URL: authTestEnv.PUBLIC_APP_URL,
         RESEND_API_KEY: authTestEnv.RESEND_API_KEY,
         AUTH_EMAIL_FROM: authTestEnv.AUTH_EMAIL_FROM,

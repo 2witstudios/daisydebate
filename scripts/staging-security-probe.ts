@@ -188,6 +188,7 @@ export const SECRET_LEAK_PATTERNS: readonly RegExp[] = [
   /\bMIGRATION_DATABASE_URL\b/,
   /\bDATABASE_URL\b/,
   /\bBETTER_AUTH_SECRET\b/,
+  /\bRECIPIENT_HASH_SECRET\b/,
   /\bRESEND_API_KEY\b/,
   /\bRESEND_WEBHOOK_SECRET\b/,
 ];

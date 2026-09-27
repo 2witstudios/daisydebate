@@ -210,6 +210,8 @@ export default defineConfig({
         // never reaches Resend, and no webhook is ever delivered.
         BETTER_AUTH_SECRET:
           'e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0',
+        RECIPIENT_HASH_SECRET:
+          'a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2',
         RESEND_API_KEY: 're_e2e_placeholder_not_a_credential',
         AUTH_EMAIL_FROM: 'Daisy <no-reply@e2e.daisy.invalid>',
         RESEND_WEBHOOK_SECRET: 'whsec_ZTJlLXBsYWNlaG9sZGVyLW5vdC1hLXNlY3JldA==',

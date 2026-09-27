@@ -193,6 +193,52 @@ describe('auth secret provisioning', () => {
     });
   });
 
+  test('provisions a different named variable independently (ADR 0044, ISSUE-141)', () => {
+    const content =
+      'BETTER_AUTH_SECRET=existing\nDATABASE_URL=postgres://localhost/daisy\n';
+    const result = provisionAuthSecret(content, {
+      generate: () => marker,
+      variableName: 'RECIPIENT_HASH_SECRET',
+    });
+    assert({
+      given: 'a .env with BETTER_AUTH_SECRET set but no RECIPIENT_HASH_SECRET',
+      should:
+        'append a RECIPIENT_HASH_SECRET line and leave BETTER_AUTH_SECRET untouched',
+      actual: {
+        changed: result.changed,
+        hasRecipientHashLine: result.content.includes(
+          `RECIPIENT_HASH_SECRET=${marker}\n`,
+        ),
+        keepsBetterAuthSecret: result.content.includes(
+          'BETTER_AUTH_SECRET=existing\n',
+        ),
+      },
+      expected: {
+        changed: true,
+        hasRecipientHashLine: true,
+        keepsBetterAuthSecret: true,
+      },
+    });
+  });
+
+  test('preserves an existing named variable without invoking the generator', () => {
+    let generateCalls = 0;
+    const content = 'RECIPIENT_HASH_SECRET=existing\n';
+    const result = provisionAuthSecret(content, {
+      generate: () => {
+        generateCalls += 1;
+        return marker;
+      },
+      variableName: 'RECIPIENT_HASH_SECRET',
+    });
+    assert({
+      given: 'a .env with an existing RECIPIENT_HASH_SECRET value',
+      should: 'preserve the file and never generate',
+      actual: { changed: result.changed, generateCalls },
+      expected: { changed: false, generateCalls: 0 },
+    });
+  });
+
   test('the real generator emits 64 hexadecimal characters', () => {
     const secret = generateAuthSecret();
     assert({

@@ -32,7 +32,7 @@ export const recipientBucket = (
   window: number,
 ) =>
   `auth:${flow}:recipient:${recipientKey(
-    deriveRecipientSubkey(String(testApp.env.BETTER_AUTH_SECRET)),
+    deriveRecipientSubkey(String(testApp.env.RECIPIENT_HASH_SECRET)),
     email,
   )}:${window}`;
 

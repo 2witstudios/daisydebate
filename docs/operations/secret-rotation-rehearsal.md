@@ -60,137 +60,27 @@ one domain, unlike the account's default `full_access` grant.
 ## BETTER_AUTH_SECRET
 
 `server.ts` passes it straight to Better Auth as `secret`, which signs the
-session cookie's value (`<token>.<hmac>`). Rotating it affects four things:
+session cookie's value (`<token>.<hmac>`). Rotating it affects two things:
 
 1. **The cookie signature.** `session` rows are untouched; only the HMAC
    stops verifying, so a pre-rotation cookie stops authenticating even
    though its row still exists.
-2. **The suppression ledger.** `recipient-key.ts`'s `deriveRecipientSubkey`
-   derives a subkey from this same secret, and `recipientKey` (subkey +
-   normalized email) is the only form an address takes in
-   `email_suppression.recipient_hash`, delivery receipts and
-   `createSuppressionCheck`'s lookup (`suppression-check.ts`). A rotation
-   changes the subkey, so every existing suppression row's hash stops
-   matching a lookup computed with the new one: **our own suppression
-   check stops recognizing a hard-bounced or complained address**, with
-   nothing in the application to show it happened. This does not make the
-   address mailable in practice — Resend maintains its own suppression
-   list independently and blocks delivery to it regardless of what our
-   application decides — but it is still a real defect: our audit trail
-   goes wrong, and nothing protects an address on a channel Resend's own
-   list does not cover (a complaint recorded some other way, or a future
-   provider migration). This coupling is a design defect, filed as
-   <a class="mention" data-mention-type="page" data-page-id="gxjfa42wj7kuvxlhyi31o4cq">@ISSUE-141</a> — out of scope for this rehearsal leaf to fix.
-
-   Operator step until it lands: reconcile `email_suppression` to the new
-   secret as part of the same rotation, not as a separate later step —
-   `BETTER_AUTH_SECRET`'s value cannot be read back from Fly once set (the
-   safe pattern above pipes it there directly), so reconciliation must run
-   in the same session, from the same shell variable, before that value is
-   gone. `daisy-debate-staging-db` has no external endpoint (see the
-   Postgres access section of `restore-rehearsal.md`), so the hashes are
-   computed locally (this needs the repo and the `resend` CLI) and applied
-   over `fly ssh console`, the same way that rehearsal reaches Postgres;
-   the hashes go in before `BETTER_AUTH_SECRET` is imported, since they
-   are inert under the old secret and importing first would otherwise
-   strand the new secret in Fly if reconciliation then failed. Save this
-   as a script and run it with `bash`, not an interactive shell — `zsh`
-   does not word-split the `--after` expansion below, so pagination past
-   the first page would send `resend` a malformed flag and it fails with
-   `unknown option '--after <id>'`:
-
-   ```bash
-   #!/usr/bin/env bash
-   set -euo pipefail
-
-   new_secret=$(bun -e 'console.log(crypto.getRandomValues(new Uint8Array(32)).reduce((s,b)=>s+b.toString(16).padStart(2,"0"),""))')
-
-   subkey_reconcile() {
-     echo "$new_secret" | bun -e '
-       const { deriveRecipientSubkey, recipientKey } = await import("./apps/web/src/features/auth/recipient-key.ts");
-       const secret = await new Promise((resolve) => {
-         let data = "";
-         process.stdin.on("data", (chunk) => (data += chunk));
-         process.stdin.on("end", () => resolve(data.trim()));
-       });
-       const subkey = deriveRecipientSubkey(secret);
-       console.log(recipientKey(subkey, process.argv[1]));
-     ' "$1"
-   }
-
-   remote_sql=$(mktemp)
-   trap 'rm -f "$remote_sql"' EXIT
-
-   sql_quote() { printf '%s' "$1" | sed "s/'/''/g"; }
-
-   printf 'SELECT count(*) AS suppression_rows_before FROM email_suppression;\n' > "$remote_sql"
-
-   cursor=""
-   while :; do
-     page=$(resend suppressions list --limit 100 --json ${cursor:+--after "$cursor"})
-     echo "$page" | jq -c '.data[] | select(.origin == "bounce" or .origin == "complaint")' | while read -r row; do
-       email=$(echo "$row" | jq -r '.email')
-       reason=$(echo "$row" | jq -r '.origin')
-       source_id=$(echo "$row" | jq -r '.source_id // "reconciled-secret-rotation"')
-       hash=$(subkey_reconcile "$email")
-       printf "INSERT INTO email_suppression (recipient_hash, reason, provider_message_id) VALUES ('%s', '%s', '%s') ON CONFLICT (recipient_hash) DO NOTHING;\n" \
-         "$(sql_quote "$hash")" "$(sql_quote "$reason")" "$(sql_quote "$source_id")" >> "$remote_sql"
-     done
-     has_more=$(echo "$page" | jq -r '.has_more')
-     [ "$has_more" = "true" ] || break
-     cursor=$(echo "$page" | jq -r '.data[-1].id')
-   done
-
-   printf 'SELECT count(*) AS suppression_rows_after FROM email_suppression;\n' >> "$remote_sql"
-
-   fly ssh console -a daisy-debate-staging-db -C \
-     "sh -c 'echo $(base64 < "$remote_sql" | tr -d '\n') | base64 -d | PGPASSWORD=\"\$OPERATOR_PASSWORD\" psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d daisy_debate_staging -f -'"
-
-   echo "BETTER_AUTH_SECRET=$new_secret" | fly secrets import -a daisy-debate-staging
-   unset new_secret
-   ```
-
-   The generated SQL is fed to `psql -f -` on standard input, one
-   statement per suppression row, each with `hash`, `reason` and
-   `source_id` embedded as SQL string literals with embedded `'`
-   characters doubled (`sql_quote`) — not left as raw interpolation. A
-   `psql -c "... :'var' ..."` form looks equivalent but psql does not
-   perform variable substitution inside a `-c` argument, so it fails with
-   a syntax error at `:`; this only works fed on standard input. The
-   `trap` cleans up the temporary SQL file on any exit, including a
-   failed `fly ssh console` call under `set -e` — `shred`, used elsewhere
-   in this document, is not available on macOS, and this file holds only
-   already-hashed suppression rows and Resend message ids, never
-   `new_secret` itself, so a plain removal is enough. `psql -f -` prints
-   the bracketing `suppression_rows_before`/`suppression_rows_after`
-   queries' results to the operator's terminal as it runs — the row count
-   itself, never a hash or address, is the evidence this rehearsal records
-   for the reconciliation step, the same way the emergency session revoke
-   below records a session count. Run from the repository root (the
-   `import` is relative to it).
-   `email_suppression.reason` accepts exactly Resend's `bounce`/`complaint`
-   origins (`manual` entries are excluded — they were never automatic, and
-   `email_suppression_reason_check` does not allow that value); `source_id`
-   is Resend's own originating message id, the real
-   `provider_message_id` this reconciliation would otherwise have no value
-   for. `resend suppressions list` pages at 100 per call and reports
-   `has_more`; the loop above follows every page, not only the first. The
-   list is account-wide, not scoped to this app's sending domain — this
-   account also sends for other apps sharing it, so reconciliation can
-   insert a hash for an address Daisy never mailed. That is over-
-   suppression, never under-suppression, and costs nothing but an unused
-   row: safe to leave as a known imprecision of this rehearsal rather than
-   building sender-scoped filtering the CLI does not offer.
-
-3. **Per-recipient rate-limit buckets.** `rate-limit.ts`'s bucket key is
-   also `recipientKey(recipientSubkey, email)` — a rotation resets every
-   recipient's rate-limit counter to zero, the same way it resets the
-   suppression lookup.
-4. **Client-id hash continuity in logs.** `client-ip.ts`'s `clientIdHash`
-   derives from the same secret (`deriveSubkey(secret, 'client-id-hash')`);
+2. **Client-id hash continuity in logs.** `client-ip.ts`'s `clientIdHash`
+   derives from this same secret (`deriveSubkey(secret, 'client-id-hash')`);
    a rotation makes the same real client produce a different
    `clientIdHash` before and after, breaking log correlation across the
    boundary.
+
+**The suppression ledger and per-recipient rate-limit buckets are
+unaffected.** `recipient-key.ts`'s `deriveRecipientSubkey` used to derive its
+subkey from this same `BETTER_AUTH_SECRET`, which meant a rotation changed
+every `email_suppression.recipient_hash` and rate-limit bucket key at once:
+**our own suppression check would stop recognizing a hard-bounced or
+complained address**, with nothing in the application to show it happened.
+ADR 0044 (ISSUE-141) resolved this by keying `recipientKey` from its own
+`RECIPIENT_HASH_SECRET` instead, independent of the session-signing secret
+— see that secret's own section below for what actually needs
+reconciling, and when.
 
 **Verification links in flight survive a rotation.** `emailedLinkIdentifier`
 (`emailed-link-token.ts`) hashes only the token itself (SHA3-256, unkeyed) —
@@ -274,6 +164,127 @@ the same safe pattern (piped in, never a CLI argument) — never a special
 "rollback" path, since the identical mechanism that would restore a
 mistaken rotation would just as easily hand a leaked secret its validity
 back. There is exactly one direction: rotate forward to whichever value
+should be current.
+
+## RECIPIENT_HASH_SECRET
+
+`recipient-key.ts`'s `deriveRecipientSubkey` derives a subkey from this
+secret, and `recipientKey` (subkey + normalized email) is the only form an
+address takes in `email_suppression.recipient_hash`, delivery receipts and
+`createSuppressionCheck`'s lookup (`suppression-check.ts`), and the
+per-recipient rate-limit bucket keys (`rate-limit.ts`). Unlike
+`BETTER_AUTH_SECRET`, this secret is never rotated on a routine schedule —
+ADR 0044 (ISSUE-141) split it out from `BETTER_AUTH_SECRET` for exactly
+this reason, so a routine session-secret rotation never touches it.
+Rotating it at all (a suspected compromise of this specific value, never a
+routine cadence) has the same effect `BETTER_AUTH_SECRET`'s suppression
+coupling used to: every existing `email_suppression` row's hash stops
+matching a lookup computed with the new subkey, and every rate-limit bucket
+resets to zero. This does not make a suppressed address mailable in
+practice — Resend maintains its own suppression list independently and
+blocks delivery to it regardless of what our application decides — but the
+same reconciliation this repository used to run for `BETTER_AUTH_SECRET`
+still applies here, unchanged except for which secret it imports:
+
+Operator step: reconcile `email_suppression` to the new secret as part of
+the same rotation, not as a separate later step — the value cannot be read
+back from Fly once set (the safe pattern above pipes it there directly), so
+reconciliation must run in the same session, from the same shell variable,
+before that value is gone. `daisy-debate-staging-db` has no external
+endpoint (see the Postgres access section of `restore-rehearsal.md`), so
+the hashes are computed locally (this needs the repo and the `resend` CLI)
+and applied over `fly ssh console`, the same way that rehearsal reaches
+Postgres; the hashes go in before `RECIPIENT_HASH_SECRET` is imported,
+since they are inert under the old secret and importing first would
+otherwise strand the new secret in Fly if reconciliation then failed. Save
+this as a script and run it with `bash`, not an interactive shell — `zsh`
+does not word-split the `--after` expansion below, so pagination past the
+first page would send `resend` a malformed flag and it fails with `unknown
+option '--after <id>'`:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+new_secret=$(bun -e 'console.log(crypto.getRandomValues(new Uint8Array(32)).reduce((s,b)=>s+b.toString(16).padStart(2,"0"),""))')
+
+subkey_reconcile() {
+  echo "$new_secret" | bun -e '
+    const { deriveRecipientSubkey, recipientKey } = await import("./apps/web/src/features/auth/recipient-key.ts");
+    const secret = await new Promise((resolve) => {
+      let data = "";
+      process.stdin.on("data", (chunk) => (data += chunk));
+      process.stdin.on("end", () => resolve(data.trim()));
+    });
+    const subkey = deriveRecipientSubkey(secret);
+    console.log(recipientKey(subkey, process.argv[1]));
+  ' "$1"
+}
+
+remote_sql=$(mktemp)
+trap 'rm -f "$remote_sql"' EXIT
+
+sql_quote() { printf '%s' "$1" | sed "s/'/''/g"; }
+
+printf 'SELECT count(*) AS suppression_rows_before FROM email_suppression;\n' > "$remote_sql"
+
+cursor=""
+while :; do
+  page=$(resend suppressions list --limit 100 --json ${cursor:+--after "$cursor"})
+  echo "$page" | jq -c '.data[] | select(.origin == "bounce" or .origin == "complaint")' | while read -r row; do
+    email=$(echo "$row" | jq -r '.email')
+    reason=$(echo "$row" | jq -r '.origin')
+    source_id=$(echo "$row" | jq -r '.source_id // "reconciled-secret-rotation"')
+    hash=$(subkey_reconcile "$email")
+    printf "INSERT INTO email_suppression (recipient_hash, reason, provider_message_id) VALUES ('%s', '%s', '%s') ON CONFLICT (recipient_hash) DO NOTHING;\n" \
+      "$(sql_quote "$hash")" "$(sql_quote "$reason")" "$(sql_quote "$source_id")" >> "$remote_sql"
+  done
+  has_more=$(echo "$page" | jq -r '.has_more')
+  [ "$has_more" = "true" ] || break
+  cursor=$(echo "$page" | jq -r '.data[-1].id')
+done
+
+printf 'SELECT count(*) AS suppression_rows_after FROM email_suppression;\n' >> "$remote_sql"
+
+fly ssh console -a daisy-debate-staging-db -C \
+  "sh -c 'echo $(base64 < "$remote_sql" | tr -d '\n') | base64 -d | PGPASSWORD=\"\$OPERATOR_PASSWORD\" psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d daisy_debate_staging -f -'"
+
+echo "RECIPIENT_HASH_SECRET=$new_secret" | fly secrets import -a daisy-debate-staging
+unset new_secret
+```
+
+The generated SQL is fed to `psql -f -` on standard input, one statement
+per suppression row, each with `hash`, `reason` and `source_id` embedded as
+SQL string literals with embedded `'` characters doubled (`sql_quote`) —
+not left as raw interpolation. A `psql -c "... :'var' ..."` form looks
+equivalent but psql does not perform variable substitution inside a `-c`
+argument, so it fails with a syntax error at `:`; this only works fed on
+standard input. The `trap` cleans up the temporary SQL file on any exit,
+including a failed `fly ssh console` call under `set -e` — `shred`, used
+elsewhere in this document, is not available on macOS, and this file holds
+only already-hashed suppression rows and Resend message ids, never
+`new_secret` itself, so a plain removal is enough. `psql -f -` prints the
+bracketing `suppression_rows_before`/`suppression_rows_after` queries'
+results to the operator's terminal as it runs — the row count itself,
+never a hash or address, is the evidence this reconciliation records, the
+same way the emergency session revoke above records a session count. Run
+from the repository root (the `import` is relative to it).
+`email_suppression.reason` accepts exactly Resend's `bounce`/`complaint`
+origins (`manual` entries are excluded — they were never automatic, and
+`email_suppression_reason_check` does not allow that value); `source_id`
+is Resend's own originating message id, the real `provider_message_id`
+this reconciliation would otherwise have no value for. `resend suppressions
+list` pages at 100 per call and reports `has_more`; the loop above follows
+every page, not only the first. The list is account-wide, not scoped to
+this app's sending domain — this account also sends for other apps sharing
+it, so reconciliation can insert a hash for an address Daisy never mailed.
+That is over-suppression, never under-suppression, and costs nothing but
+an unused row: safe to leave as a known imprecision rather than building
+sender-scoped filtering the CLI does not offer.
+
+**Recovery/rollback**: same shape as `BETTER_AUTH_SECRET` above — there is
+nothing to roll back to; a rotation done by mistake is recovered the same
+way a compromise is, forward, by reconciling again to whichever value
 should be current.
 
 ## RESEND_API_KEY
@@ -427,11 +438,13 @@ trying to recover the old one.
   session created before this rehearsal no longer authenticates (expected —
   the synthetic seed's sessions from `restore-rehearsal.md` are among them).
 - `email_suppression`: 0 rows on `daisy_debate_staging` at the time of this
-  rotation (`select count(*) from email_suppression;`), so the reconciliation
-  step above was not exercised against staging during this rehearsal — the
-  rotation happened before that step existed, and staging had nothing to
-  reconcile in any case. The step is documented for the next rotation, once
-  the ledger holds real rows.
+  rotation (`select count(*) from email_suppression;`), so no reconciliation
+  step was exercised against staging during this rehearsal — the rotation
+  happened before `RECIPIENT_HASH_SECRET` existed (ADR 0044, ISSUE-141),
+  and staging had nothing to reconcile in any case. `BETTER_AUTH_SECRET`
+  rotations from now on never touch `email_suppression`; the reconciliation
+  step is documented under `RECIPIENT_HASH_SECRET` above, for the (rare)
+  case that secret itself is ever rotated once the ledger holds real rows.
 - `OPS_PROBE_TOKEN`: rotated once from its pre-rehearsal value on both Fly
   and the `OPS_PROBE_TOKEN` GitHub repository secret; a request bearing the
   new value against `/api/ops/alerts` returned `200`, an arbitrary wrong

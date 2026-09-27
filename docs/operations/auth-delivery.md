@@ -9,7 +9,8 @@ deploy and to reason about failures.
 
 | Variable                | Purpose                                                                                                                               |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `BETTER_AUTH_SECRET`    | 64 characters from 32 random bytes; also keys recipient hashes                                                                        |
+| `BETTER_AUTH_SECRET`    | 64 characters from 32 random bytes; signs the session cookie                                                                          |
+| `RECIPIENT_HASH_SECRET` | 64 characters from 32 random bytes; keys recipient hashes independently of `BETTER_AUTH_SECRET` (ADR 0044, ISSUE-141)                 |
 | `PUBLIC_APP_URL`        | HTTPS canonical origin; derives the passkey RP ID and origin                                                                          |
 | `RESEND_API_KEY`        | Resend send credential (owner-provisioned; never in PageSpace)                                                                        |
 | `AUTH_EMAIL_FROM`       | Verified sender mailbox                                                                                                               |
@@ -218,10 +219,13 @@ EMAIL_UNDELIVERABLE`) appears for addresses that should be deliverable.
 2. Check the Resend status page/API directly; the application never persists
    the provider exception, by design.
 3. If addresses are unexpectedly suppressed, the row is keyed by
-   `recipientHash(BETTER_AUTH_SECRET, email)` (SHA3-256 of the secret and the
-   normalized address; `apps/web/src/features/auth/mail.ts`), which cannot be
+   `recipientKey(deriveRecipientSubkey(RECIPIENT_HASH_SECRET), email)`
+   (SHA3-256 of a domain-separated subkey of `RECIPIENT_HASH_SECRET` and the
+   normalized address, never `BETTER_AUTH_SECRET`; ADR 0044, ISSUE-141;
+   `apps/web/src/features/auth/recipient-key.ts`), which cannot be
    recomputed from SQL alone — run `bun repl` (or a one-off script) importing
-   `recipientHash` with the deployment's secret to look up
+   `recipientKey`/`deriveRecipientSubkey` with the deployment's
+   `RECIPIENT_HASH_SECRET` to look up
    `SELECT reason, created_at FROM email_suppression WHERE recipient_hash =
 '<computed hash>'`, or correlate via `auth.mail.receipt_failed`'s
    `providerMessageId` against Resend's dashboard. Suppression only follows a

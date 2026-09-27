@@ -102,11 +102,30 @@ describe('authentication configuration', () => {
       actual: readAuthConfig(authEnv),
       expected: {
         BETTER_AUTH_SECRET: authEnv.BETTER_AUTH_SECRET,
+        RECIPIENT_HASH_SECRET: authEnv.RECIPIENT_HASH_SECRET,
         PUBLIC_APP_URL: authEnv.PUBLIC_APP_URL,
         RESEND_API_KEY: authEnv.RESEND_API_KEY,
         AUTH_EMAIL_FROM: authEnv.AUTH_EMAIL_FROM,
         AUTH_TRUSTED_PROXIES: [],
       },
+    });
+  });
+
+  test('rejects a short RECIPIENT_HASH_SECRET and reports the field name only', () => {
+    let message = '';
+    try {
+      readAuthConfig({ ...authEnv, RECIPIENT_HASH_SECRET: 'too-short' });
+    } catch (error) {
+      message = String(error);
+    }
+    assert({
+      given: 'a 9-character RECIPIENT_HASH_SECRET',
+      should: 'name the field without echoing the value',
+      actual: {
+        namesField: message.includes('RECIPIENT_HASH_SECRET'),
+        echoesValue: message.includes('too-short'),
+      },
+      expected: { namesField: true, echoesValue: false },
     });
   });
 
@@ -212,6 +231,7 @@ describe('authentication configuration', () => {
         'AUTH_TRUSTED_PROXIES',
         'BETTER_AUTH_SECRET',
         'PUBLIC_APP_URL',
+        'RECIPIENT_HASH_SECRET',
         'RESEND_API_KEY',
       ],
     });
