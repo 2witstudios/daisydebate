@@ -2,6 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   composeAlertMessage,
   evaluateOriginProbe,
+  resolveProbeConfig,
   resolveProbeToken,
 } from './auth-alert-probe';
 
@@ -27,6 +28,40 @@ describe('resolveProbeToken (ISSUE-144)', () => {
       should: 'accept exactly one parameter (the environment)',
       actual: resolveProbeToken.length,
       expected: 1,
+    });
+  });
+});
+
+describe('resolveProbeConfig (ISSUE-144, NC24 regression guard)', () => {
+  test('refuses a --token flag with no OPS_PROBE_TOKEN in the environment', () => {
+    // If main (or its arg parser) ever read --token as a fallback source
+    // again, this would resolve a config instead of refusing.
+    assert({
+      given: '--origin and --token on the command line, no OPS_PROBE_TOKEN set',
+      should: 'refuse (return undefined) rather than accept the --token value',
+      actual: resolveProbeConfig(
+        ['--origin', 'https://example.test', '--token', 'sneaky-value'],
+        {},
+      ),
+      expected: undefined,
+    });
+  });
+
+  test('uses OPS_PROBE_TOKEN from the environment, ignoring an unrelated --token flag', () => {
+    assert({
+      given:
+        'OPS_PROBE_TOKEN in the environment and a --token flag with a different value',
+      should:
+        'resolve a config carrying the environment value, never the flag value',
+      actual: resolveProbeConfig(
+        ['--origin', 'https://example.test', '--token', 'ignored-value'],
+        { OPS_PROBE_TOKEN: 'real-value' },
+      ),
+      expected: {
+        origin: 'https://example.test',
+        token: 'real-value',
+        runUrl: undefined,
+      },
     });
   });
 });

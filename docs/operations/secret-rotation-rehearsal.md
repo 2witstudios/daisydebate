@@ -216,7 +216,10 @@ a compromise response should not stop at the cookie signature — the
 captured a raw pre-rotation session token (not just an intact cookie) still
 has a row that matches it. There is no application-level revoke-all for a
 live database (`revokeOtherSessions` is per-user; `purgeAllForRestore`
-refuses by design outside an isolated restore copy), so the emergency step
+itself deletes unconditionally — it is `scripts/post-restore-invalidate.ts`
+that refuses by design outside an isolated restore copy, via
+`restore-guard.ts`'s database-name and `current_database()` checks, before
+ever calling it), so the emergency step
 is a raw SQL delete, run as the Postgres superuser over the database
 machine's own `fly ssh console` access — the same pattern this rehearsal's
 Postgres access section uses throughout, so no connection string with a
