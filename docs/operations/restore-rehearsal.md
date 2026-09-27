@@ -268,9 +268,10 @@ proven above, against a real Redis, by both the integration test and the
 local `bun restore:invalidate` run. A real disaster recovery that also
 provisions an isolated Redis namespace for the restored copy would clear it
 the same way this section clears Postgres: the raw commands
-(`SCAN`/`DEL` on the `rl:*` sub-namespace) run wherever that Redis is
-actually reachable from, never by assuming the committed script itself can
-run against the restore target.
+(`SCAN MATCH <namespace>:v1:rl:*`, then `UNLINK` on the matched keys, as
+`clearAuthRateLimits` itself does) run wherever that Redis is actually
+reachable from, never by assuming the committed script itself can run
+against the restore target.
 
 ## 6. Cleanup
 
