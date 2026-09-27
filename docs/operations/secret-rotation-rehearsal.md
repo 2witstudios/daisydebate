@@ -70,39 +70,69 @@ session cookie's value (`<token>.<hmac>`). Rotating it affects four things:
    `email_suppression.recipient_hash`, delivery receipts and
    `createSuppressionCheck`'s lookup (`suppression-check.ts`). A rotation
    changes the subkey, so every existing suppression row's hash stops
-   matching a lookup computed with the new one: **an address that hard-
-   bounced or complained becomes mailable again**, with nothing in the
-   application to show it happened. This coupling is a design defect, filed
-   as <a class="mention" data-mention-type="page" data-page-id="gxjfa42wj7kuvxlhyi31o4cq">@ISSUE-141</a> — out of scope for this rehearsal leaf to fix.
-   Operator step until it lands: treat every `BETTER_AUTH_SECRET` rotation,
-   planned or emergency, as requiring reconciliation immediately after,
-   never a rotation left unreconciled. Sending stays paused
-   (`fly scale count 0 -a daisy-debate-staging`) until it completes,
-   since the application's own suppression check cannot be trusted across
-   the rotation boundary. Provider-side history is Resend's own
-   suppression list, `resend suppressions list --json` (or `resend
-suppressions get <email>` for one address), which holds the real email
-   and an `origin` of `bounce`, `complaint` or `manual` — the raw addresses
-   `email_suppression.recipient_hash` never stores. For each `bounce`/
-   `complaint` entry, recompute its hash with the **new** secret
-   (`deriveRecipientSubkey` then `recipientKey`, both `recipient-key.ts`)
-   and upsert it:
+   matching a lookup computed with the new one: **our own suppression
+   check stops recognizing a hard-bounced or complained address**, with
+   nothing in the application to show it happened. This does not make the
+   address mailable in practice — Resend maintains its own suppression
+   list independently and blocks delivery to it regardless of what our
+   application decides — but it is still a real defect: our audit trail
+   goes wrong, and nothing protects an address on a channel Resend's own
+   list does not cover (a complaint recorded some other way, or a future
+   provider migration). This coupling is a design defect, filed as
+   <a class="mention" data-mention-type="page" data-page-id="gxjfa42wj7kuvxlhyi31o4cq">@ISSUE-141</a> — out of scope for this rehearsal leaf to fix.
+
+   Operator step until it lands: reconcile `email_suppression` to the new
+   secret as part of the same rotation, not as a separate later step —
+   `BETTER_AUTH_SECRET`'s value cannot be read back from Fly once set (the
+   safe pattern above pipes it there directly), so reconciliation must run
+   in the same session, from the same shell variable, before that value is
+   gone:
+
    ```
-   bun -e '
-   const { createHash } = require("node:crypto");
-   const deriveSubkey = (secret, label) => createHash("sha3-256").update(`${secret}\0${label}`).digest("hex");
-   const recipientKey = (subkey, email) => createHash("sha3-256").update(`${subkey}\0${email.trim().toLowerCase()}`).digest("hex");
-   const subkey = deriveSubkey(process.env.BETTER_AUTH_SECRET, "recipient-key");
-   console.log(recipientKey(subkey, process.argv[1]));
-   ' "$EMAIL"
+   new_secret=$(bun -e 'console.log(crypto.getRandomValues(new Uint8Array(32)).reduce((s,b)=>s+b.toString(16).padStart(2,"0"),""))')
+   echo "BETTER_AUTH_SECRET=$new_secret" | fly secrets import -a daisy-debate-staging
+
+   subkey_reconcile() {
+     bun -e '
+       const { deriveRecipientSubkey, recipientKey } = await import("./apps/web/src/features/auth/recipient-key.ts");
+       const subkey = deriveRecipientSubkey(process.argv[1]);
+       console.log(recipientKey(subkey, process.argv[2]));
+     ' "$new_secret" "$1"
+   }
+
+   cursor=""
+   while :; do
+     page=$(resend suppressions list --limit 100 --json ${cursor:+--after "$cursor"})
+     echo "$page" | jq -c '.data[] | select(.origin == "bounce" or .origin == "complaint")' | while read -r row; do
+       email=$(echo "$row" | jq -r '.email')
+       reason=$(echo "$row" | jq -r '.origin')
+       source_id=$(echo "$row" | jq -r '.source_id // "reconciled-secret-rotation"')
+       hash=$(subkey_reconcile "$email")
+       psql "postgres://postgres@localhost:5432/daisy_debate_staging" -c \
+         "INSERT INTO email_suppression (recipient_hash, reason, provider_message_id) VALUES ('$hash', '$reason', '$source_id') ON CONFLICT (recipient_hash) DO NOTHING;"
+     done
+     has_more=$(echo "$page" | jq -r '.has_more')
+     [ "$has_more" = "true" ] || break
+     cursor=$(echo "$page" | jq -r '.data[-1].id')
+   done
+   unset new_secret
    ```
-   then `INSERT INTO email_suppression (recipient_hash, reason) VALUES
-('<hash>', 'bounce' | 'complaint') ON CONFLICT (recipient_hash) DO
-NOTHING` for each (`reason` is exactly Resend's `origin`, `manual`
-   entries excluded — `email_suppression_reason_check` only allows
-   `bounce`/`complaint`). Only after every provider-listed address is
-   reconciled does sending resume (`fly scale count 1
--a daisy-debate-staging`).
+
+   Run from the repository root (the `import` is relative to it).
+   `email_suppression.reason` accepts exactly Resend's `bounce`/`complaint`
+   origins (`manual` entries are excluded — they were never automatic, and
+   `email_suppression_reason_check` does not allow that value); `source_id`
+   is Resend's own originating message id, the real
+   `provider_message_id` this reconciliation would otherwise have no value
+   for. `resend suppressions list` pages at 100 per call and reports
+   `has_more`; the loop above follows every page, not only the first. The
+   list is account-wide, not scoped to this app's sending domain — this
+   account also sends for other apps sharing it, so reconciliation can
+   insert a hash for an address Daisy never mailed. That is over-
+   suppression, never under-suppression, and costs nothing but an unused
+   row: safe to leave as a known imprecision of this rehearsal rather than
+   building sender-scoped filtering the CLI does not offer.
+
 3. **Per-recipient rate-limit buckets.** `rate-limit.ts`'s bucket key is
    also `recipientKey(recipientSubkey, email)` — a rotation resets every
    recipient's rate-limit counter to zero, the same way it resets the
