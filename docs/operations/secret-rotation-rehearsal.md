@@ -72,14 +72,11 @@ session cookie's value (`<token>.<hmac>`). Rotating it affects two things:
    boundary.
 
 **The suppression ledger and per-recipient rate-limit buckets are
-unaffected.** `recipient-key.ts`'s `deriveRecipientSubkey` used to derive its
-subkey from this same `BETTER_AUTH_SECRET`, which meant a rotation changed
-every `email_suppression.recipient_hash` and rate-limit bucket key at once:
-**our own suppression check would stop recognizing a hard-bounced or
-complained address**, with nothing in the application to show it happened.
-ADR 0044 (ISSUE-141) resolved this by keying `recipientKey` from its own
-`RECIPIENT_HASH_SECRET` instead, independent of the session-signing secret
-— see that secret's own section below for what actually needs
+unaffected.** `recipient-key.ts`'s `deriveRecipientSubkey` keys `recipientKey`
+from `RECIPIENT_HASH_SECRET` (ADR 0044, ISSUE-141), independent of this
+secret — a `BETTER_AUTH_SECRET` rotation never touches
+`email_suppression.recipient_hash` or a rate-limit bucket key. See
+`RECIPIENT_HASH_SECRET`'s own section below for what actually needs
 reconciling, and when.
 
 **Verification links in flight survive a rotation.** `emailedLinkIdentifier`
@@ -177,14 +174,13 @@ per-recipient rate-limit bucket keys (`rate-limit.ts`). Unlike
 ADR 0044 (ISSUE-141) split it out from `BETTER_AUTH_SECRET` for exactly
 this reason, so a routine session-secret rotation never touches it.
 Rotating it at all (a suspected compromise of this specific value, never a
-routine cadence) has the same effect `BETTER_AUTH_SECRET`'s suppression
-coupling used to: every existing `email_suppression` row's hash stops
-matching a lookup computed with the new subkey, and every rate-limit bucket
-resets to zero. This does not make a suppressed address mailable in
-practice — Resend maintains its own suppression list independently and
-blocks delivery to it regardless of what our application decides — but the
-same reconciliation this repository used to run for `BETTER_AUTH_SECRET`
-still applies here, unchanged except for which secret it imports:
+routine cadence) changes the subkey `recipientKey` derives: every existing
+`email_suppression` row's hash stops matching a lookup computed with the
+new subkey, and every rate-limit bucket resets to zero. This does not make
+a suppressed address mailable in practice — Resend maintains its own
+suppression list independently and blocks delivery to it regardless of
+what our application decides — but the reconciliation below applies,
+importing `RECIPIENT_HASH_SECRET` instead of `BETTER_AUTH_SECRET`:
 
 Operator step: reconcile `email_suppression` to the new secret as part of
 the same rotation, not as a separate later step — the value cannot be read

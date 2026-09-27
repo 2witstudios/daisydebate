@@ -103,6 +103,7 @@ jobs:
           # inert placeholder secrets (playwright.config.ts webServer.env);
           # these values are for the static build step only.
           BETTER_AUTH_SECRET: ci-isolation-sentinel-auth-0000000000000000000000000000000000000
+          RECIPIENT_HASH_SECRET: ci-isolation-sentinel-recipient-hash-000000000000000000000000000
           RESEND_API_KEY: ci-isolation-sentinel-resend-key
           RESEND_WEBHOOK_SECRET: ci-isolation-sentinel-webhook-secret
 

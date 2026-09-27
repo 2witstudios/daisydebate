@@ -111,6 +111,28 @@ describe('authentication configuration', () => {
     });
   });
 
+  test('refuses a missing RECIPIENT_HASH_SECRET, naming the field only (NC2)', () => {
+    const withoutRecipientHashSecret = { ...authEnv };
+    Reflect.deleteProperty(withoutRecipientHashSecret, 'RECIPIENT_HASH_SECRET');
+    let message = '';
+    try {
+      readAuthConfig(withoutRecipientHashSecret);
+    } catch (error) {
+      message = String(error);
+    }
+    assert({
+      given:
+        'an otherwise-complete auth environment with no RECIPIENT_HASH_SECRET at all',
+      should:
+        'refuse, naming the field, never treat it as an optional field that defaults to absent',
+      actual: {
+        rejected: message !== '',
+        namesField: message.includes('RECIPIENT_HASH_SECRET'),
+      },
+      expected: { rejected: true, namesField: true },
+    });
+  });
+
   test('rejects a short RECIPIENT_HASH_SECRET and reports the field name only', () => {
     let message = '';
     try {

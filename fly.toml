@@ -28,9 +28,10 @@ primary_region = "ord"
 # objects, or with MIGRATION_DATABASE_URL in its environment.
 
 [env]
-  # Non-secret configuration. Secrets (BETTER_AUTH_SECRET, RESEND_API_KEY,
-  # AUTH_EMAIL_FROM, RESEND_WEBHOOK_SECRET, DATABASE_URL, REDIS_URL) are set
-  # with `fly secrets set`, never written here (fly.toml
+  # Non-secret configuration. Secrets (BETTER_AUTH_SECRET,
+  # RECIPIENT_HASH_SECRET, RESEND_API_KEY, AUTH_EMAIL_FROM,
+  # RESEND_WEBHOOK_SECRET, OPS_PROBE_TOKEN, DATABASE_URL, REDIS_URL) are set
+  # with `fly secrets import`, never written here (fly.toml
   # is committed; scripts/verify-deploy-config.ts refuses a database URL here).
   PORT = "8080"
   PUBLIC_APP_URL = "https://daisy-debate-staging.fly.dev"

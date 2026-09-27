@@ -1,6 +1,10 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { generateAuthSecret, provisionAuthSecret } from './provision-auth-env';
+import {
+  generateAuthSecret,
+  provisionAuthEnv,
+  provisionAuthSecret,
+} from './provision-auth-env';
 
 setupRitewayBun();
 
@@ -250,5 +254,67 @@ describe('auth secret provisioning', () => {
     expect(() => provisionAuthSecret('', { generate: () => 'short' })).toThrow(
       'Generated auth secret must be 64 non-whitespace characters',
     );
+  });
+});
+
+describe('provisionAuthEnv (the main() loop, NC3)', () => {
+  test('provisions every real PROVISIONED_VARIABLES entry, not just the first', async () => {
+    // No `variables` override: this exercises the real, default list, so
+    // dropping RECIPIENT_HASH_SECRET from PROVISIONED_VARIABLES (as it once
+    // was) fails this test, not just typecheck or a hand-picked variable.
+    let written = '';
+    let generateCalls = 0;
+    const result = await provisionAuthEnv({
+      content: '',
+      write: async (content) => {
+        written = content;
+      },
+      generate: () => {
+        generateCalls += 1;
+        return `${'m'.repeat(63)}${generateCalls}`;
+      },
+      log: () => {},
+    });
+    assert({
+      given: 'an empty .env and the real PROVISIONED_VARIABLES list',
+      should:
+        'generate and write a distinct value for every provisioned variable',
+      actual: {
+        changedAny: result.changedAny,
+        hasBetterAuthSecret: /^BETTER_AUTH_SECRET=\S{64}$/m.test(written),
+        hasRecipientHashSecret: /^RECIPIENT_HASH_SECRET=\S{64}$/m.test(written),
+        generateCalls,
+      },
+      expected: {
+        changedAny: true,
+        hasBetterAuthSecret: true,
+        hasRecipientHashSecret: true,
+        generateCalls: 2,
+      },
+    });
+  });
+
+  test('never writes when every provisioned variable already has a value', async () => {
+    let writeCalls = 0;
+    const content =
+      'BETTER_AUTH_SECRET=existing1\nRECIPIENT_HASH_SECRET=existing2\n';
+    const result = await provisionAuthEnv({
+      content,
+      write: async () => {
+        writeCalls += 1;
+      },
+      generate: () => marker,
+      log: () => {},
+    });
+    assert({
+      given: 'a .env where every provisioned variable already has a value',
+      should: 'report no change and never write',
+      actual: {
+        changedAny: result.changedAny,
+        content: result.content,
+        writeCalls,
+      },
+      expected: { changedAny: false, content, writeCalls: 0 },
+    });
   });
 });

@@ -401,8 +401,9 @@ echo "ALTER ROLE daisy_migrator PASSWORD '$DAISY_MIGRATOR_PASSWORD';" \
   | fly postgres connect -a daisy-debate-staging-db -d daisy_debate_staging
 # Same host, port, database and query string as the old owner URL;
 # only the password differs.
-fly secrets set -a daisy-debate-staging-migrate --stage \
-  MIGRATION_DATABASE_URL="postgres://daisy_migrator:$DAISY_MIGRATOR_PASSWORD@<host:port>/daisy_debate_staging?sslmode=disable"
+fly secrets import -a daisy-debate-staging-migrate --stage <<SECRETS
+MIGRATION_DATABASE_URL=postgres://daisy_migrator:$DAISY_MIGRATOR_PASSWORD@<host:port>/daisy_debate_staging?sslmode=disable
+SECRETS
 unset DAISY_MIGRATOR_PASSWORD
 
 # Remove it from the web app. --stage keeps the running release up until

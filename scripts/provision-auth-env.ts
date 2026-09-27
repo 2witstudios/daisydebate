@@ -55,10 +55,46 @@ export function provisionAuthSecret(
   return { content: written, changed: true };
 }
 
+/**
+ * Runs `provisionAuthSecret` once per variable in `variables` (defaulting
+ * to the real `PROVISIONED_VARIABLES`, so a test exercising this without
+ * overriding it fails if a variable is ever dropped from that list — the
+ * gap NC3 found: `main()`'s loop itself was untested). Writes once, only
+ * if anything changed.
+ */
+export async function provisionAuthEnv({
+  content,
+  write,
+  generate,
+  variables = PROVISIONED_VARIABLES,
+  log = console.log,
+}: {
+  readonly content: string;
+  readonly write: (content: string) => Promise<void>;
+  readonly generate: () => string;
+  readonly variables?: readonly string[];
+  readonly log?: (message: string) => void;
+}): Promise<{ readonly changedAny: boolean; readonly content: string }> {
+  let updated = content;
+  let changedAny = false;
+  for (const variableName of variables) {
+    const result = provisionAuthSecret(updated, { generate, variableName });
+    updated = result.content;
+    changedAny = changedAny || result.changed;
+    log(
+      result.changed
+        ? `${variableName}: generated a new 64-character value into .env.`
+        : `${variableName}: existing value preserved.`,
+    );
+  }
+  if (changedAny) await write(updated);
+  return { changedAny, content: updated };
+}
+
 const envPath = resolve(import.meta.dir, '..', '.env');
 
 async function main() {
-  let content = '';
+  let content: string;
   try {
     content = await readFile(envPath, 'utf8');
   } catch {
@@ -66,21 +102,11 @@ async function main() {
     process.exitCode = 1;
     return;
   }
-  let anyChanged = false;
-  for (const variableName of PROVISIONED_VARIABLES) {
-    const result = provisionAuthSecret(content, {
-      generate: generateAuthSecret,
-      variableName,
-    });
-    content = result.content;
-    anyChanged = anyChanged || result.changed;
-    console.log(
-      result.changed
-        ? `${variableName}: generated a new 64-character value into .env.`
-        : `${variableName}: existing value preserved.`,
-    );
-  }
-  if (anyChanged) await Bun.write(envPath, content);
+  await provisionAuthEnv({
+    content,
+    write: (written) => Bun.write(envPath, written),
+    generate: generateAuthSecret,
+  });
 }
 
 if (import.meta.main) await main();
