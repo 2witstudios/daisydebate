@@ -86,11 +86,23 @@ session cookie's value (`<token>.<hmac>`). Rotating it affects four things:
    `BETTER_AUTH_SECRET`'s value cannot be read back from Fly once set (the
    safe pattern above pipes it there directly), so reconciliation must run
    in the same session, from the same shell variable, before that value is
-   gone:
+   gone. `daisy-debate-staging-db` has no external endpoint (see the
+   Postgres access section of `restore-rehearsal.md`), so the hashes are
+   computed locally (this needs the repo and the `resend` CLI) and applied
+   over `fly ssh console`, the same way that rehearsal reaches Postgres;
+   the hashes go in before `BETTER_AUTH_SECRET` is imported, since they
+   are inert under the old secret and importing first would otherwise
+   strand the new secret in Fly if reconciliation then failed. Save this
+   as a script and run it with `bash`, not an interactive shell — `zsh`
+   does not word-split the
+   `--after` expansion below, so pagination past the first page would
+   silently send `resend` a malformed flag:
 
-   ```
+   ```bash
+   #!/usr/bin/env bash
+   set -euo pipefail
+
    new_secret=$(bun -e 'console.log(crypto.getRandomValues(new Uint8Array(32)).reduce((s,b)=>s+b.toString(16).padStart(2,"0"),""))')
-   echo "BETTER_AUTH_SECRET=$new_secret" | fly secrets import -a daisy-debate-staging
 
    subkey_reconcile() {
      echo "$new_secret" | bun -e '
@@ -105,7 +117,7 @@ session cookie's value (`<token>.<hmac>`). Rotating it affects four things:
      ' "$1"
    }
 
-   set -euo pipefail
+   remote_script=$(mktemp)
    cursor=""
    while :; do
      page=$(resend suppressions list --limit 100 --json ${cursor:+--after "$cursor"})
@@ -114,17 +126,30 @@ session cookie's value (`<token>.<hmac>`). Rotating it affects four things:
        reason=$(echo "$row" | jq -r '.origin')
        source_id=$(echo "$row" | jq -r '.source_id // "reconciled-secret-rotation"')
        hash=$(subkey_reconcile "$email")
-       psql -v ON_ERROR_STOP=1 "postgres://postgres@localhost:5432/daisy_debate_staging" -c \
-         "INSERT INTO email_suppression (recipient_hash, reason, provider_message_id) VALUES ('$hash', '$reason', '$source_id') ON CONFLICT (recipient_hash) DO NOTHING;"
+       {
+         printf 'psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d daisy_debate_staging \\\n'
+         printf '  -v hash=%q -v reason=%q -v source_id=%q \\\n' "$hash" "$reason" "$source_id"
+         printf "  -c \"INSERT INTO email_suppression (recipient_hash, reason, provider_message_id) VALUES (:'hash', :'reason', :'source_id') ON CONFLICT (recipient_hash) DO NOTHING;\"\n"
+       } >> "$remote_script"
      done
      has_more=$(echo "$page" | jq -r '.has_more')
      [ "$has_more" = "true" ] || break
      cursor=$(echo "$page" | jq -r '.data[-1].id')
    done
+
+   fly ssh console -a daisy-debate-staging-db -C \
+     "sh -c 'echo $(base64 < "$remote_script") | base64 -d | PGPASSWORD=\"\$OPERATOR_PASSWORD\" bash -e'"
+   shred -u "$remote_script"
+
+   echo "BETTER_AUTH_SECRET=$new_secret" | fly secrets import -a daisy-debate-staging
    unset new_secret
    ```
 
-   Run from the repository root (the `import` is relative to it).
+   Every value that reaches SQL text (`hash`, `reason`, `source_id`) goes
+   through a psql `-v` variable and is substituted with `:'var'`, which
+   psql quotes as an SQL literal — never interpolated into the SQL string
+   directly. Run from the repository root (the `import` is relative to
+   it).
    `email_suppression.reason` accepts exactly Resend's `bounce`/`complaint`
    origins (`manual` entries are excluded — they were never automatic, and
    `email_suppression_reason_check` does not allow that value); `source_id`
