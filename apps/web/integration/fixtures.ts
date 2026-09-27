@@ -8,6 +8,7 @@ import { createApp } from '../src/server/app';
 import { createRoutes } from '../src/server/routes';
 import { authTestEnv } from '../src/features/auth/auth-server.test-support';
 import { resendRequest } from '../src/features/auth/resend-capture.test-support';
+import { acquireIntegrationRunLock } from './integration-run-lock';
 
 /**
  * The one fixture module for the web integration suites (ISSUE-11): the
@@ -25,6 +26,10 @@ import { resendRequest } from '../src/features/auth/resend-capture.test-support'
 
 export const { databaseUrl: testDatabaseUrl, redisUrl: testRedisUrl } =
   requireTestServices(process.env);
+
+// ISSUE-148: refuses a second concurrent apps/web integration run against
+// the same test database (see integration-run-lock.ts for why).
+await acquireIntegrationRunLock(testDatabaseUrl);
 
 export const origin = authTestEnv.PUBLIC_APP_URL;
 export const webhookSecret = `whsec_${Buffer.from(createId() + createId()).toString('base64')}`;

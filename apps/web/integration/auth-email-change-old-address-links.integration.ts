@@ -162,7 +162,13 @@ describe('ISSUE-99 an email change revokes the old address sign-in links', () =>
   });
 });
 
-// Advisory locks are per database, and each checkout owns its test database.
+// ISSUE-148: advisory locks are per database, and a slot's test database is
+// shared by every concurrent integration run against it (a reviewer and a
+// builder in the same worktree, for example) — a single fixed key would
+// let two unrelated runs of this same test block on each other's holder.
+// The namespace stays fixed; `hashtext(uid)` scopes the actual lock to
+// this run's own freshly-created account, so two concurrent runs almost
+// never collide.
 const INSERT_GATE_KEY = 103_001;
 
 const sessionsOf = (userId: string) =>
@@ -187,7 +193,7 @@ const gateSessionInserts = async (userId: string, email: string) => {
         if new.user_id = '${userId}' and exists (
           select 1 from users where id = new.user_id and email = '${email}'
         ) then
-          perform pg_advisory_xact_lock_shared(${INSERT_GATE_KEY});
+          perform pg_advisory_xact_lock_shared(${INSERT_GATE_KEY}, hashtext('${userId}'));
         end if;
         return new;
       end;
@@ -220,8 +226,8 @@ describe('ISSUE-103 no session survives an email change it straddles', () => {
     let released = false;
     try {
       const [{ pid: holderPid }] = (await holder.unsafe(
-        'select pg_backend_pid() as pid, pg_advisory_lock($1)',
-        [INSERT_GATE_KEY],
+        'select pg_backend_pid() as pid, pg_advisory_lock($1, hashtext($2))',
+        [INSERT_GATE_KEY, uid],
       )) as [{ pid: number }];
       // 1. The sign-in consumes the link, finds the account at the old
       //    address and blocks on its session insert.
@@ -236,7 +242,10 @@ describe('ISSUE-103 no session survives an email change it straddles', () => {
       //    revoke-all, which finds no session of the sign-in to remove.
       const completion = await flows.confirmEmailPost(verifyToken);
       // 3. Only now does the sign-in's session insert commit.
-      await holder.unsafe('select pg_advisory_unlock($1)', [INSERT_GATE_KEY]);
+      await holder.unsafe('select pg_advisory_unlock($1, hashtext($2))', [
+        INSERT_GATE_KEY,
+        uid,
+      ]);
       released = true;
       const lateSignIn = await signIn;
       const lateCookie = cookieHeader(lateSignIn);
@@ -270,7 +279,10 @@ describe('ISSUE-103 no session survives an email change it straddles', () => {
     } finally {
       if (!released)
         await holder
-          .unsafe('select pg_advisory_unlock($1)', [INSERT_GATE_KEY])
+          .unsafe('select pg_advisory_unlock($1, hashtext($2))', [
+            INSERT_GATE_KEY,
+            uid,
+          ])
           .catch(() => {});
       await removeGate();
       await Promise.allSettled([holder.close(), observer.close()]);
