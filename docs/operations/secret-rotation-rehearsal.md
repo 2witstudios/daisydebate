@@ -405,8 +405,9 @@ unset new_probe_token
 direct request with the new value (`curl -H "Authorization: Bearer
 <new_probe_token>" https://daisy-debate-staging.fly.dev/api/ops/alerts`)
 returned `200`; the same request with an arbitrary wrong token returned
-`401` — the old value (never captured, never printed) stopped
-authenticating the instant the new one landed.
+`401`. The old value was never captured, so it was never separately sent —
+that it too now fails is an inference from `requireProbeToken`'s
+single-digest comparison above, not a second observation.
 
 **Recovery/rollback**: same shape as `RESEND_WEBHOOK_SECRET` — the safe
 pattern never retains the previous value and Fly cannot return it, so there
