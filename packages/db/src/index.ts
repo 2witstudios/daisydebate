@@ -94,7 +94,7 @@ export function createDatabase({
      * query parameter Bun's `SQL` client honors (standard libpq connection-
      * string behavior), so a caller that must confirm which database it
      * is about to act on — a destructive script guarding against the wrong
-     * target — checks this, not the URL string (AUTH-7.6 review).
+     * target — checks this, not the URL string.
      */
     async currentDatabaseName(): Promise<string> {
       return instrumented(eventSink, 'currentDatabaseName', async () => {

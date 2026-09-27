@@ -39,12 +39,12 @@ bun -e 'console.log("BETTER_AUTH_SECRET=" + crypto.getRandomValues(new Uint8Arra
 key_file=$(mktemp)
 resend api-keys create --name "<name>" --permission sending_access --domain-id <sending-domain-id> --json > "$key_file"
 jq -r '"RESEND_API_KEY=" + .token' "$key_file" | fly secrets import -a daisy-debate-staging
-shred -u "$key_file"   # or rm -f if shred is unavailable
+shred -u "$key_file" 2>/dev/null || rm -f "$key_file"   # shred doesn't exist on macOS
 
 wh_file=$(mktemp)
 resend webhooks rotate-signing-secret <id> --json > "$wh_file"
 jq -r '"RESEND_WEBHOOK_SECRET=" + .signing_secret' "$wh_file" | fly secrets import -a daisy-debate-staging
-shred -u "$wh_file"
+shred -u "$wh_file" 2>/dev/null || rm -f "$wh_file"
 ```
 
 `fly secrets import` triggers the same rolling machine update as
@@ -122,6 +122,8 @@ session cookie's value (`<token>.<hmac>`). Rotating it affects four things:
 
    sql_quote() { printf '%s' "$1" | sed "s/'/''/g"; }
 
+   printf 'SELECT count(*) AS suppression_rows_before FROM email_suppression;\n' > "$remote_sql"
+
    cursor=""
    while :; do
      page=$(resend suppressions list --limit 100 --json ${cursor:+--after "$cursor"})
@@ -137,6 +139,8 @@ session cookie's value (`<token>.<hmac>`). Rotating it affects four things:
      [ "$has_more" = "true" ] || break
      cursor=$(echo "$page" | jq -r '.data[-1].id')
    done
+
+   printf 'SELECT count(*) AS suppression_rows_after FROM email_suppression;\n' >> "$remote_sql"
 
    fly ssh console -a daisy-debate-staging-db -C \
      "sh -c 'echo $(base64 < "$remote_sql") | base64 -d | PGPASSWORD=\"\$OPERATOR_PASSWORD\" psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d daisy_debate_staging -f -'"
@@ -156,8 +160,13 @@ session cookie's value (`<token>.<hmac>`). Rotating it affects four things:
    failed `fly ssh console` call under `set -e` — `shred`, used elsewhere
    in this document, is not available on macOS, and this file holds only
    already-hashed suppression rows and Resend message ids, never
-   `new_secret` itself, so a plain removal is enough. Run from the
-   repository root (the `import` is relative to it).
+   `new_secret` itself, so a plain removal is enough. `psql -f -` prints
+   the bracketing `suppression_rows_before`/`suppression_rows_after`
+   queries' results to the operator's terminal as it runs — the row count
+   itself, never a hash or address, is the evidence this rehearsal records
+   for the reconciliation step, the same way the emergency session revoke
+   below records a session count. Run from the repository root (the
+   `import` is relative to it).
    `email_suppression.reason` accepts exactly Resend's `bounce`/`complaint`
    origins (`manual` entries are excluded — they were never automatic, and
    `email_suppression_reason_check` does not allow that value); `source_id`
@@ -345,6 +354,12 @@ by rotating again and re-importing, not by trying to recover the old value.
 - `BETTER_AUTH_SECRET`: rotated once from its pre-rehearsal value; every
   session created before this rehearsal no longer authenticates (expected —
   the synthetic seed's sessions from `restore-rehearsal.md` are among them).
+- `email_suppression`: 0 rows on `daisy_debate_staging` at the time of this
+  rotation (`select count(*) from email_suppression;`), so the reconciliation
+  step above was not exercised against staging during this rehearsal — the
+  rotation happened before that step existed, and staging had nothing to
+  reconcile in any case. The step is documented for the next rotation, once
+  the ledger holds real rows.
 - Verified before finishing: `GET /api/health/live` → `alive`,
   `GET /api/health/ready` → `ready`,
   `bun scripts/staging-security-probe.ts --url https://daisy-debate-staging.fly.dev`

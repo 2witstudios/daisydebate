@@ -35,7 +35,7 @@ const seedWith = (person: {
     },
   });
 
-describe('AUTH-7.6 review: applyDevSeed preserves email/emailVerified it does not specify', () => {
+describe('applyDevSeed preserves email/emailVerified it does not specify', () => {
   test('a reseed with no email/emailVerified keeps a value set on an earlier run', async () => {
     const database = new SQL(url, { max: 1 });
     try {

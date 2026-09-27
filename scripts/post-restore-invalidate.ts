@@ -20,7 +20,7 @@
  * actually connects to, so after connecting this also checks
  * `Database.currentDatabaseName()` (`current_database()`, the server's own
  * answer) against the same rule — the one check that cannot be fooled by
- * the connection string (AUTH-7.6 review).
+ * the connection string.
  *
  * The Redis target is guarded separately and unconditionally: a real
  * restore's `REDIS_NAMESPACE` need not contain "restore" (a blue/green

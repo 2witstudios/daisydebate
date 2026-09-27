@@ -4,10 +4,10 @@
  * truth: a `?database=` query parameter on the same URL overrides which
  * database Bun's `SQL` client actually connects to (standard libpq
  * connection-string behavior), so this can name one database while the
- * connection lands on another (AUTH-7.6 review). `refusalForActualName`
- * below is the authoritative check, run against `current_database()` after
- * connecting; this one exists only to fail fast on an honest mistake
- * before opening a connection at all.
+ * connection lands on another. `refusalForActualName` below is the
+ * authoritative check, run against `current_database()` after connecting;
+ * this one exists only to fail fast on an honest mistake before opening a
+ * connection at all.
  */
 const urlDatabaseName = (databaseUrl: string): string =>
   new URL(databaseUrl).pathname.replace(/^\//, '');
@@ -51,9 +51,9 @@ export function refusalFor(
  * staging refuses the command outright, `--force` aside. This script
  * writes synthetic users, actors, a debate, sessions, passkeys and a
  * verification token — real writes, so a `DATABASE_URL` pointed at
- * production by mistake must never reach `applyDevSeed`'s first insert
- * (AUTH-7.6 review). See `refusalForActualName` for the check that runs
- * after connecting, against the real database.
+ * production by mistake must never reach `applyDevSeed`'s first insert.
+ * See `refusalForActualName` for the check that runs after connecting,
+ * against the real database.
  */
 export function refusalForStagingSeed(
   databaseUrl: string,
@@ -94,13 +94,13 @@ export function refusalForActualName(
  * independent of the database-name check above: a real restore's namespace
  * need not contain "restore" at all (a blue/green restore can reuse the
  * live app's own namespace on purpose), so this deliberately does not reuse
- * `refusalFor`'s name-pattern heuristic (AUTH-7.6 review). Instead it
+ * `refusalFor`'s name-pattern heuristic. Instead it
  * requires the operator to retype the exact namespace as an explicit,
  * separate confirmation — a deliberate act, not an inferred one — so a
  * `REDIS_NAMESPACE` left over from a different, live command never gets
  * its rate-limit counters cleared by accident.
  *
- * Confirming the namespace alone still leaves a gap review caught: a
+ * Confirming the namespace alone still leaves a gap: a
  * confirmed namespace says nothing about which Redis instance
  * `REDIS_URL` actually points at (this repo's shared-Redis-per-namespace
  * architecture, ADR 0034, makes that a real question, not a hypothetical

@@ -3,7 +3,7 @@ import { createTestDatabase } from './index.test-support';
 
 setupRitewayBun();
 
-describe('currentDatabaseName (AUTH-7.6 review)', () => {
+describe('currentDatabaseName', () => {
   test("reports the server's own answer, not a parsed URL", async () => {
     const { database } = createTestDatabase([
       [{ name: 'daisy_debate_staging' }],

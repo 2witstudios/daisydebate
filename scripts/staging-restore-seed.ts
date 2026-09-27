@@ -19,7 +19,7 @@
  * (standard libpq connection-string behavior), so after connecting this
  * also checks `current_database()` — the server's own answer, which a
  * connection string cannot lie about — before `applyDevSeed`'s first
- * write (AUTH-7.6 review).
+ * write.
  */
 import { createHash } from 'node:crypto';
 import { SQL } from 'bun';
@@ -56,7 +56,7 @@ const emailedLinkIdentifier = (purpose: string, token: string): string =>
  * knows it — and harmless only because a client authenticates with the
  * signed cookie (`<token>.<hmac over token, keyed by BETTER_AUTH_SECRET>`,
  * `secret-rotation-rehearsal.md`), never the bare token: knowing this
- * token alone cannot forge a valid cookie (AUTH-7.6 review).
+ * token alone cannot forge a valid cookie.
  */
 const seedSessionToken = (index: number): string =>
   createHash('sha3-256')

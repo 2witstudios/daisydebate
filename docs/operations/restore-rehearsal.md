@@ -54,9 +54,8 @@ credential:
 fly ssh console -a daisy-debate-staging -C "sh -c 'set -e; trap \"rm -f /app/apps/web/tmp-seed.ts\" EXIT; echo <base64 of scripts/staging-restore-seed.ts> | base64 -d > /app/apps/web/tmp-seed.ts && cd /app/apps/web && bun tmp-seed.ts'"
 ```
 
-`set -e` plus an `EXIT` trap: a decode or seed failure now fails the whole
-command (instead of being masked by a `rm -f` that still exits 0), while the
-temporary file is still removed on every path, success or failure.
+`set -e` fails the whole command on a decode or seed error; the `EXIT` trap
+removes the temporary file on every path, success or failure.
 
 Verified row counts after seeding, `daisy_debate_staging`:
 
