@@ -8,6 +8,7 @@ type Env = Readonly<Record<string, string | undefined>>;
 // Chromium-only: cross-browser parity for them is outside this epic's scope.
 export const AUTH_JOURNEY_SPECS = [
   '**/journey.e2e.ts',
+  '**/journey-no-js.e2e.ts',
   '**/onboarding.e2e.ts',
   '**/form-transport.e2e.ts',
   '**/answer-focus.e2e.ts',

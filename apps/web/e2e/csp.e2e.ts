@@ -1,6 +1,10 @@
 import { expect, test } from '@playwright/test';
 import { resetRateLimits } from './support/accounts';
-import { reachSentState, requestConfirmLink } from './support/confirm-page';
+import {
+  reachRetryState,
+  reachSentState,
+  requestConfirmLink,
+} from './support/confirm-page';
 import { watchCspViolations } from './support/csp';
 
 // A fixed-shape token: real redemption is never exercised here, only that
@@ -74,6 +78,10 @@ test('AUTH-4.7: every confirm-page state renders under the production CSP withou
 
   // expired, then sent (a separate link, spent then resent)
   await reachSentState(page, request);
+
+  // retry ("too many attempts")
+  await resetRateLimits(request);
+  await reachRetryState(page, request);
 
   // email-change confirm page
   await page.goto(`/auth/confirm-email?token=${'a'.repeat(43)}`);

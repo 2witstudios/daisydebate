@@ -3,6 +3,7 @@ import {
   emailedLink,
   freshEmail,
   confirmSignIn,
+  origin,
   requestSignInLink,
   resetRateLimits,
   signUpMember,
@@ -100,19 +101,47 @@ test.describe('with JavaScript off', () => {
     expectNotInUrl(page, email);
   });
 
-  test('AUTH-4.7: submitting a spent confirm link a second time ends on a usable page, with no JavaScript', async ({
+  test('AUTH-4.7: a real double submit of the same confirm link ends on a usable page, with no JavaScript', async ({
     page,
     request,
   }) => {
     const { link } = await requestConfirmLink(page, request);
-    // First submission: signs in for real.
-    await confirmSignIn(page, link);
-    await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)lobby$/);
+    const linkUrl = new URL(link);
+    const formBody = {
+      token: linkUrl.searchParams.get('token') ?? '',
+      callbackURL: linkUrl.searchParams.get('callbackURL') ?? '/lobby',
+    };
+    // Two overlapping submissions of the very same token, fired together
+    // rather than sequentially: the double submit a slow network or an
+    // eager double-click produces, with no script to debounce the second
+    // click. `page.request` shares the page's cookie jar, so whichever
+    // submission actually signs in leaves its session cookie behind for
+    // the page navigations below.
+    const post = () =>
+      page.request.post('/auth/confirm', {
+        headers: { origin },
+        form: formBody,
+        maxRedirects: 0,
+      });
+    const [first, second] = await Promise.all([post(), post()]);
 
-    // Second submission of the very same link/token, still signed in: the
-    // double submit a slow network or an eager double-click can produce.
-    await page.goto(link);
-    await page.getByRole('button', { name: 'Sign in to Daisy' }).click();
+    const signedIn = [first, second].filter(
+      (response) => response.headers()['set-cookie'],
+    );
+    // The redemption is atomic: exactly one submission signs in, whichever
+    // arrived first; the other finds the token already spent.
+    expect(signedIn.length).toBe(1);
+    for (const response of [first, second]) expect(response.status()).toBe(303);
+
+    // The winner's own redirect target is a real, working page.
+    const winnerLocation = signedIn[0]?.headers()['location'] ?? '/lobby';
+    await page.goto(winnerLocation);
+    await expect(page).not.toHaveURL(/\/sign-in/);
+
+    // The loser's redirect lands on the expired state, itself still usable:
+    // the resend form and "Continue to Daisy" both work from here.
+    const loser = [first, second].find((response) => response !== signedIn[0]);
+    await page.goto(loser?.headers()['location'] ?? '/auth/confirm');
     await expect(
       page.getByRole('heading', { name: /can no longer be used/i }),
     ).toBeVisible();
@@ -120,8 +149,6 @@ test.describe('with JavaScript off', () => {
       name: /already signed in\? continue to daisy/i,
     });
     await continueLink.click();
-    // Still signed in: it lands on a real, working page, not another
-    // sign-in prompt.
     await expect(page).not.toHaveURL(/\/sign-in/);
   });
 });

@@ -56,13 +56,13 @@ const SIGN_IN_PANEL: PanelContent = {
 const RETRY_PANEL: PanelContent = {
   kicker: 'Sign in',
   title: 'One click keeps your link yours.',
-  body: 'If sign-in is briefly unavailable, the page says so and keeps your link ready to try again.',
+  body: 'If sign‑in is briefly unavailable, the page says so and keeps your link ready to try again.',
 };
 
 const EXPIRED_PANEL: PanelContent = {
   kicker: 'Links are single-use',
   title: 'Fresh links, every time.',
-  body: 'Each sign-in link works once and only for five minutes, so a forwarded or old email can’t be used to get into your account.',
+  body: 'Each sign‑in link works once and only for five minutes, so a forwarded or old email can’t be used to get into your account.',
 };
 
 const SENT_PANEL: PanelContent = {
@@ -94,7 +94,7 @@ const expiredFrame = (
 ): AuthFrameContent => ({
   body:
     '<p class="af-eyebrow af-muted">Link expired</p>' +
-    '<h1>This sign-in link can no longer be used.</h1>' +
+    '<h1>This sign‑in link can no longer be used.</h1>' +
     noticeHtml(view.notice) +
     '<p class="af-lede">Links expire after 5 minutes and work once. Enter your email and we’ll send a new one.</p>' +
     `<form class="af-form" method="post" action="${CONFIRM_PATH}">${hiddenInput('intent', 'resend')}${hiddenInputs(view.hidden)}<div class="af-field"><label for="email">Email</label><input class="af-input" id="email" name="email" type="email" autocomplete="email" placeholder="you@school.edu" required></div><button class="af-btn" type="submit">Email me a new link</button></form>` +

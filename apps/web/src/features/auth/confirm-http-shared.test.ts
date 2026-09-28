@@ -40,6 +40,12 @@ test('pageContext: a malformed x-nonce header is refused, not trusted (negative 
     // content: a length-only check (for example `/^.{24}$/`) would wrongly
     // accept this.
     `${'x'.repeat(20)}"><x`,
+    // A valid nonce with trailing or leading hostile characters: an
+    // unanchored shape check (for example dropping `^`/`$`) would wrongly
+    // accept either of these, since it would just match the valid nonce
+    // as a substring.
+    `${validNonce}"><x`,
+    `x${validNonce}`,
   ];
   const results = malformed.map(
     (value) => pageContext(request({ 'x-nonce': value })).nonce,

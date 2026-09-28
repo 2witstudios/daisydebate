@@ -289,6 +289,9 @@ main {
   z-index: -1;
   color: var(--af-accent);
   opacity: 0.2;
+  /* Some engines paint a faint Canvas-colored backdrop behind a large,
+     opacity-composited replaced element; keep the mark itself transparent. */
+  background: transparent;
 }
 
 .af-panel-kicker {
