@@ -11,7 +11,7 @@ export const petalShape: PetalShape = {
   length: 9.4,
   width: 4.8,
   bulb: 0.66,
-  tipSharpness: 0.85,
+  tipSharpness: 0.95,
 };
 
 /** The bloom in a 24 × 24 drawing, centred. */

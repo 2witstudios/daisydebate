@@ -51,7 +51,10 @@ read on the forest-black page.
   `--stage-text` (cream), `--stage-text-muted`, and a sage
   `--stage-accent` / `--stage-accent-strong` button with forest
   `--stage-accent-text`. Stage content uses `text-stage-ink` and the
-  `stage-accent` classes, never the page's `text-ink` or `bg-accent`.
+  `stage-accent` classes, never the page's `text-ink` or `bg-accent`:
+  in light those are forest on forest. The render tests of each stage
+  surface (the auth panel and its step bodies, the featured tournament)
+  fail on any page-palette colour class.
 - `--gold` becomes brass in light (`#7e5c12`) and butter in dark
   (`#f0cf7a`), for honours. `--live`, `--online` and `--tier-diamond` are
   retuned for contrast on the new surfaces.
@@ -77,8 +80,10 @@ quarter-ellipse closes the rounded outer bulb. Four parameters shape it:
 - **bulb**: where the petal is widest, as a fraction of the length from the
   tip;
 - **tip sharpness**: how the sides leave the tip. At 0 they leave square to
-  the axis (a round tip); at 1 they leave along the chord to the widest point
-  (the sharpest point whose sides stay convex). A side never bends inward.
+  the axis (a round tip); at 1 they aim straight at the bulb's handle, the
+  sharpest point whose outline stays convex. Each side's control polygon
+  stays convex, so the outline never bends inward; `petal.test.ts` checks
+  the curvature over the brand sheet's whole range.
 
 The placement puts the tip at a point, turns the petal clockwise from
 upright, and scales it about the tip. `bloom(count = 8)` returns the
@@ -88,10 +93,12 @@ other turned half a circle.
 Every tunable number lives in **one constants module**,
 `apps/web/src/ui/brand/brand-geometry.ts`, and every brand renderer reads it.
 The committed values are length 9.4, width 4.8, bulb 0.66 and tip
-sharpness 0.85, in a 24-unit drawing. The disc radius is 2.5, the petal
+sharpness 0.95, in a 24-unit drawing. The disc radius is 2.5, the petal
 tips sit 2.1 from the centre (under the disc, so no seam shows), and the
 mono ring gap is 0.8. The `/foundation` brand sheet previews other values
-with sliders, but what ships is the module.
+with sliders, but what ships is the module. The sliders' ranges keep every
+preview inside its drawing: the longest petal is half the drawing less the
+petal inset.
 
 ### 3. Mark variants
 

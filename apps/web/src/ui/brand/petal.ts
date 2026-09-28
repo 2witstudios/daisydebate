@@ -13,8 +13,9 @@ export type PetalShape = {
   readonly bulb: number;
   /**
    * How the sides leave the tip: 0 leaves square to the axis (a round tip),
-   * 1 along the chord from the tip to the widest point (the sharpest point
-   * whose sides stay convex); a side never bends inward.
+   * 1 aims straight at the bulb's handle, the sharpest point whose outline
+   * stays convex. The outline never bends inward (petal.test.ts checks it
+   * over the brand sheet's ranges).
    */
   readonly tipSharpness: number;
 };
@@ -33,7 +34,7 @@ export type PetalPlacement = {
 const KAPPA = 0.5523;
 
 /** How far back from the bulb its tangent handle reaches, as a fraction. */
-const BULB_HANDLE = 0.55;
+const BULB_HANDLE = 0.25;
 
 const assertDrawable = ({ length, width, bulb, tipSharpness }: PetalShape) => {
   if (!(length > 0)) throw new RangeError('petal length must be positive');
@@ -74,14 +75,18 @@ export const petalPath = (
   const half = width / 2;
   const widest = bulb * length;
   const cap = length - widest;
-  const chord = Math.atan2(half, widest);
-  const tipAngle = chord + (Math.PI / 2 - chord) * (1 - tipSharpness);
-  const tipReach = widest / 2;
+  const bulbHandle = widest * (1 - BULB_HANDLE);
+  // The taper's control polygon (tip, tip handle, bulb handle, widest point)
+  // stays convex, so the curve has no inflection: the tip handle aims no
+  // lower than the bulb handle and reaches no higher than the bulb.
+  const convexLimit = Math.atan2(half, bulbHandle);
+  const tipAngle =
+    convexLimit + (Math.PI / 2 - convexLimit) * (1 - tipSharpness);
+  const tipReach = Math.min(Math.hypot(bulbHandle, half) / 2, half);
   const tipHandle = [
     tipReach * Math.cos(tipAngle),
     tipReach * Math.sin(tipAngle),
   ] as const;
-  const bulbHandle = widest * (1 - BULB_HANDLE);
 
   // Each side: tip → widest point (the taper), widest point → end (a quarter
   // ellipse, so the outer end is round).
