@@ -103,6 +103,14 @@ inventory becomes the single index:
   immediately by the revoking operation (`revokeOtherSessions`,
   `revokeSessionUnlessAddressHeld`) and is never seen by the sweep; neither
   path ever logs `ip_address`, `user_agent` or a token.
+- **Operational logs** (AUTH-7.5-AC3): every process writes structured
+  JSON to stdout only ([observability](observability.md)); no log shipper
+  or second store is configured, so Fly.io's platform log search is the
+  only place they persist, and it
+  [retains app logs for 7 days](https://docs.fly.io/monitoring/logging-overview/).
+  That is inside the plan's 30-day ceiling. Adding a log drain or shipper
+  must keep its retention at 30 days or less, and it must be recorded
+  here.
 
 ## Data subject rights
 
