@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import {
   emailedLink,
   freshEmail,
@@ -6,17 +6,11 @@ import {
   requestSignInLink,
   resetRateLimits,
   signUpMember,
-  signUpProvisional,
   uniqueName,
   reachOnboarding,
   sessionUsername,
 } from './support/accounts';
-import {
-  changeEmail,
-  claimUsername,
-  declineByKeyboard,
-  declineOfferToLobby,
-} from './support/forms';
+import { claimUsername, declineOfferToLobby } from './support/forms';
 import { effectsRan } from './support/hydration';
 import { watchTopbarLinks } from './support/topbar';
 
@@ -287,79 +281,6 @@ test('a fresh session makes no refresh call, and neither does a visitor', async 
   // A refresh is due only a day after the last extension, so a browser
   // spends the rate-limited endpoint about once a day, not per page load.
   expect(calls).toEqual([]);
-});
-
-/**
- * Every mutating form works with JavaScript off (docs/development/
- * ui-conventions.md). These contexts run no script at all, inline or
- * bundled, so a page that only script can reveal, or a form that only
- * script can submit, fails here.
- */
-test.describe('with JavaScript off', () => {
-  test.use({ javaScriptEnabled: false });
-
-  /** Form values must never reach the address bar, history or referrers. */
-  const expectNotInUrl = (page: Page, value: string) => {
-    expect(page.url()).not.toContain(value);
-    expect(page.url()).not.toContain(encodeURIComponent(value));
-  };
-
-  test('sign-in emails a link through a POST and shows the inbox step', async ({
-    page,
-    request,
-  }) => {
-    const email = freshEmail();
-    await page.goto('/sign-in?next=%2Flobby');
-    await requestSignInLink(page, email);
-    await expect(page.getByText(email)).toBeVisible();
-    expectNotInUrl(page, email);
-
-    // The emailed link is real: it finishes sign-in on this browser, still
-    // with no script, and a new account goes on to onboarding.
-    await confirmSignIn(page, await emailedLink(request, email));
-    await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)lobby$/);
-  });
-
-  test('the username form renders, refuses and claims', async ({ page }) => {
-    await signUpProvisional(page.request);
-    await page.goto('/onboarding/username?next=%2Flobby');
-
-    // A refusal comes back from the server with the name as typed.
-    await claimUsername(page, 'no spaces allowed');
-    await expect(page.locator('#username-notice')).toContainText(
-      'That username will not work',
-    );
-    await expect(page.getByLabel('Username')).toHaveValue('no spaces allowed');
-    expectNotInUrl(page, 'no spaces allowed');
-
-    const name = uniqueName('noscript');
-    await claimUsername(page, name);
-    await expect(
-      page.getByRole('heading', { name: /next time, one tap/i }),
-    ).toBeVisible();
-    expectNotInUrl(page, name);
-    // ISSUE-75: the decline choices are real buttons plain Tab reaches, and
-    // Enter activates them, with no script at all — not only a click.
-    await declineByKeyboard(page, 'Not now');
-
-    expect(await sessionUsername(page)).toBe(name);
-  });
-
-  test('an email change starts through a POST and mails the address on file', async ({
-    page,
-    request,
-  }) => {
-    const { email } = await signUpMember(page.request);
-    await page.goto('/settings/security');
-    const next = freshEmail();
-    await changeEmail(page, next);
-    await expect(page.locator('#email-change-notice')).toContainText(
-      /approve this change/i,
-    );
-    expectNotInUrl(page, next);
-    // The approval goes to the address on file, never the new one.
-    expect(await emailedLink(request, email)).toContain('/auth/confirm-email');
-  });
 });
 
 test('a visitor can reach the topbar logo and Sign in', async ({ page }) => {

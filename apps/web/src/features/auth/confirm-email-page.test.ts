@@ -47,7 +47,7 @@ test('renderEmailConfirmPage: the incomplete state carries its warning with role
 
 test('renderEmailConfirmPage: an untrusted callbackURL is escaped, not injected', async () => {
   const html = await renderEmailConfirmPage(
-    { kind: 'done', callbackURL: '"><script>alert(1)</script>' },
+    { kind: 'incomplete', callbackURL: '"><script>alert(1)</script>' },
     request(),
   ).text();
   assert({

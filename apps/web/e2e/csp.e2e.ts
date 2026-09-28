@@ -1,10 +1,15 @@
 import { expect, test } from '@playwright/test';
-
-type Violation = { readonly directive: string; readonly blocked: string };
+import { resetRateLimits } from './support/accounts';
+import { reachSentState, requestConfirmLink } from './support/confirm-page';
+import { watchCspViolations } from './support/csp';
 
 // A fixed-shape token: real redemption is never exercised here, only that
 // the view renders with a style nonce.
 const token = 'e2eTokenNotARealCredential0123456789';
+
+test.beforeEach(async ({ request }) => {
+  await resetRateLimits(request);
+});
 
 test('the confirm page style nonce equals the response CSP header nonce (AUTH-4.7)', async ({
   request,
@@ -21,22 +26,7 @@ test('the confirm page style nonce equals the response CSP header nonce (AUTH-4.
 test('the dashboard renders under the production CSP without violations', async ({
   page,
 }) => {
-  const consoleViolations: string[] = [];
-  page.on('console', (message) => {
-    if (/content security policy|refused to/i.test(message.text()))
-      consoleViolations.push(message.text());
-  });
-  // Registered before any document script so no early violation is missed.
-  await page.addInitScript(() => {
-    const seen: Violation[] = [];
-    Reflect.set(window, '__cspViolations', seen);
-    document.addEventListener('securitypolicyviolation', (event) => {
-      seen.push({
-        directive: event.effectiveDirective,
-        blocked: event.blockedURI,
-      });
-    });
-  });
+  const violations = await watchCspViolations(page);
 
   await page.goto('/');
   const hero = page.getByRole('img', {
@@ -58,11 +48,8 @@ test('the dashboard renders under the production CSP without violations', async 
       area: box.width * box.height,
     };
   });
-  const eventViolations = await page.evaluate(
-    () => Reflect.get(window, '__cspViolations') as Violation[],
-  );
 
-  expect({ eventViolations, consoleViolations }).toEqual({
+  expect(await violations.read()).toEqual({
     eventViolations: [],
     consoleViolations: [],
   });
@@ -70,4 +57,30 @@ test('the dashboard renders under the production CSP without violations', async 
   expect(geometry.area).toBeGreaterThan(0);
   expect(geometry.widthDelta).toBeLessThanOrEqual(1);
   expect(geometry.heightDelta).toBeLessThanOrEqual(1);
+});
+
+test('AUTH-4.7: every confirm-page state renders under the production CSP without violations', async ({
+  page,
+  request,
+}) => {
+  const violations = await watchCspViolations(page);
+
+  // confirm
+  const { link } = await requestConfirmLink(page, request);
+  await page.goto(link);
+  await expect(
+    page.getByRole('button', { name: 'Sign in to Daisy' }),
+  ).toBeVisible();
+
+  // expired, then sent (a separate link, spent then resent)
+  await reachSentState(page, request);
+
+  // email-change confirm page
+  await page.goto(`/auth/confirm-email?token=${'a'.repeat(43)}`);
+  await expect(page.getByRole('button', { name: 'Continue' })).toBeVisible();
+
+  expect(await violations.read()).toEqual({
+    eventViolations: [],
+    consoleViolations: [],
+  });
 });

@@ -11,6 +11,9 @@ import {
 
 export const CONFIRM_PATH = '/auth/confirm';
 
+/** The mock bolds only its lead sentence, with the rest read as plain text. */
+type Notice = { readonly lead: string; readonly rest: string };
+
 export type Hidden = {
   readonly callbackURL: string;
   readonly newUserCallbackURL?: string;
@@ -20,7 +23,7 @@ export type View =
       readonly kind: 'confirm';
       readonly token: string;
       readonly hidden: Hidden;
-      readonly notice?: string;
+      readonly notice?: Notice;
     }
   | {
       readonly kind: 'expired';
@@ -36,6 +39,12 @@ const hiddenInputs = (hidden: Hidden) =>
 const noticeHtml = (notice: string | undefined) =>
   notice
     ? `<div class="af-notice" role="alert"><span class="af-notice-icon" aria-hidden="true">!</span><p><strong>${escapeHtml(notice)}</strong></p></div>`
+    : '';
+
+/** The confirm state's notice (the mock's retry copy): only the lead sentence is bold. */
+const retryNoticeHtml = (notice: Notice | undefined) =>
+  notice
+    ? `<div class="af-notice" role="alert"><span class="af-notice-icon" aria-hidden="true">!</span><p><strong>${escapeHtml(notice.lead)}</strong> ${escapeHtml(notice.rest)}</p></div>`
     : '';
 
 const SIGN_IN_PANEL: PanelContent = {
@@ -68,8 +77,11 @@ const confirmFrame = (
   body:
     '<p class="af-eyebrow">Sign in</p>' +
     '<h1>Finish signing in.</h1>' +
-    noticeHtml(view.notice) +
-    '<p class="af-lede">Select the button to sign in to Daisy on this device.</p>' +
+    retryNoticeHtml(view.notice) +
+    // The mock's retry state has no lede: the notice takes its place.
+    (view.notice
+      ? ''
+      : '<p class="af-lede">Select the button to sign in to Daisy on this device.</p>') +
     `<form class="af-form" method="post" action="${CONFIRM_PATH}">${hiddenInput('token', view.token)}${hiddenInputs(view.hidden)}<button class="af-btn" type="submit">Sign in to Daisy</button></form>` +
     '<p class="af-why">We ask for this click so email security scanners that open links can’t use your link before you do.</p>',
   footer:
@@ -110,7 +122,15 @@ const frameFor = (view: View): AuthFrameContent =>
     sent: () => sentFrame,
   })[view.kind](view as never);
 
-/** Server-rendered, script-free and asset-free: nothing to prefetch or leak. */
+/** Matches the mock: each state gets its own tab/history title. */
+const titleFor = (view: View): string =>
+  ({
+    confirm: 'Finish signing in · Daisy',
+    expired: 'Link expired · Daisy',
+    sent: 'Check your inbox · Daisy',
+  })[view.kind];
+
+/** Server-rendered, script-free, with no third-party or external asset: nothing to prefetch or leak. */
 export function renderConfirmPage(
   view: View,
   request: Request,
@@ -118,7 +138,7 @@ export function renderConfirmPage(
   extra: Record<string, string> = {},
 ): Response {
   const document = confirmDocument(
-    'Finish signing in · Daisy',
+    titleFor(view),
     frameFor(view),
     pageContext(request),
   );

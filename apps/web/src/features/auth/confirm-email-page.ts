@@ -13,7 +13,6 @@ export type EmailConfirmView =
   | { readonly kind: 'confirm'; readonly token: string }
   | { readonly kind: 'expired' }
   | { readonly kind: 'undeliverable' }
-  | { readonly kind: 'done'; readonly callbackURL: string }
   | { readonly kind: 'incomplete'; readonly callbackURL: string };
 
 const PANEL: PanelContent = {
@@ -53,17 +52,6 @@ const undeliverableFrame: AuthFrameContent = {
   panel: PANEL,
 };
 
-const doneFrame = (
-  view: Extract<EmailConfirmView, { kind: 'done' }>,
-): AuthFrameContent => ({
-  body:
-    '<p class="af-eyebrow">Account security</p>' +
-    '<h1>Done.</h1>' +
-    `<div class="af-links"><a class="af-link" href="${escapeHtml(view.callbackURL)}">Continue to account security settings</a></div>`,
-  footer: 'Your email is updated.',
-  panel: PANEL,
-});
-
 const incompleteFrame = (
   view: Extract<EmailConfirmView, { kind: 'incomplete' }>,
 ): AuthFrameContent => ({
@@ -79,15 +67,13 @@ const incompleteFrame = (
 const frameFor = (view: EmailConfirmView): AuthFrameContent =>
   view.kind === 'confirm'
     ? confirmFrame(view)
-    : view.kind === 'done'
-      ? doneFrame(view)
-      : view.kind === 'incomplete'
-        ? incompleteFrame(view)
-        : view.kind === 'undeliverable'
-          ? undeliverableFrame
-          : expiredFrame;
+    : view.kind === 'incomplete'
+      ? incompleteFrame(view)
+      : view.kind === 'undeliverable'
+        ? undeliverableFrame
+        : expiredFrame;
 
-/** Server-rendered, script-free and asset-free: nothing to prefetch or leak. */
+/** Server-rendered, script-free, with no third-party or external asset: nothing to prefetch or leak. */
 export function renderEmailConfirmPage(
   view: EmailConfirmView,
   request: Request,

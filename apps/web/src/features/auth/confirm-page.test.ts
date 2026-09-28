@@ -18,6 +18,22 @@ const request = (extra: Record<string, string> = {}) =>
 
 const token = 'a'.repeat(32);
 
+const RETRY_NOTICE = {
+  lead: 'Too many attempts.',
+  rest: 'Wait a minute, then select the button again. Your link still works.',
+};
+
+const retryHtml = () =>
+  renderConfirmPage(
+    {
+      kind: 'confirm',
+      token,
+      hidden: { callbackURL: '/lobby' },
+      notice: RETRY_NOTICE,
+    },
+    request(),
+  ).text();
+
 test('renderConfirmPage: the confirm state is a single-h1, script- and asset-free document', async () => {
   const html = await renderConfirmPage(
     { kind: 'confirm', token, hidden: { callbackURL: '/lobby' } },
@@ -38,20 +54,54 @@ test('renderConfirmPage: the confirm state is a single-h1, script- and asset-fre
 });
 
 test('renderConfirmPage: a retry notice carries role="alert"', async () => {
-  const html = await renderConfirmPage(
-    {
-      kind: 'confirm',
-      token,
-      hidden: { callbackURL: '/lobby' },
-      notice: 'Too many attempts. Wait a moment and try again.',
-    },
-    request(),
-  ).text();
+  const html = await retryHtml();
   assert({
     given: 'a confirm view with a notice (the retry state)',
     should: 'render the notice inside a role="alert" element',
     actual: /role="alert"[^>]*>.*Too many attempts/s.test(html),
     expected: true,
+  });
+});
+
+test('renderConfirmPage: the retry state matches the mock exactly — only the lead sentence bold, no lede', async () => {
+  const html = await retryHtml();
+  assert({
+    given: 'the retry (too many attempts) state',
+    should:
+      'bold only the lead sentence, keep the rest plain, and drop the confirm lede',
+    actual: {
+      exactNotice: html.includes(
+        '<strong>Too many attempts.</strong> Wait a minute, then select the button again. Your link still works.',
+      ),
+      noLede: !html.includes(
+        'Select the button to sign in to Daisy on this device.',
+      ),
+    },
+    expected: { exactNotice: true, noLede: true },
+  });
+});
+
+test('renderConfirmPage: each state gets its own <title>, matching the mock', async () => {
+  const titles = await Promise.all([
+    renderConfirmPage(
+      { kind: 'confirm', token, hidden: { callbackURL: '/lobby' } },
+      request(),
+    ).text(),
+    renderConfirmPage(
+      { kind: 'expired', hidden: { callbackURL: '/lobby' } },
+      request(),
+    ).text(),
+    renderConfirmPage({ kind: 'sent' }, request()).text(),
+  ]);
+  assert({
+    given: 'the confirm, expired and sent states',
+    should: 'each carry the mock-matching <title>',
+    actual: titles.map((html) => /<title>([^<]*)<\/title>/.exec(html)?.[1]),
+    expected: [
+      'Finish signing in · Daisy',
+      'Link expired · Daisy',
+      'Check your inbox · Daisy',
+    ],
   });
 });
 
@@ -82,6 +132,23 @@ test('renderConfirmPage: an absent or malformed nonce renders with no <style> at
       'omit the stylesheet entirely rather than trust an unvalidated nonce',
     actual: html.includes('<style'),
     expected: false,
+  });
+});
+
+test('renderConfirmPage: a right-length hostile nonce still renders with no <style> (negative control for a loosened shape check)', async () => {
+  // Same overall length (24 characters) as a real nonce, so a regression
+  // that only checks length (for example `NONCE_SHAPE = /^.{24}$/`) would
+  // wrongly accept it; the real shape check refuses it on content.
+  const hostile = `${'x'.repeat(20)}"><x`;
+  const html = await renderConfirmPage(
+    { kind: 'confirm', token, hidden: { callbackURL: '/lobby' } },
+    request({ 'x-nonce': hostile }),
+  ).text();
+  assert({
+    given: 'a 24-character x-nonce header carrying `">` instead of base64',
+    should: 'refuse it and render with no <style> at all',
+    actual: { length: hostile.length, hasStyle: html.includes('<style') },
+    expected: { length: 24, hasStyle: false },
   });
 });
 

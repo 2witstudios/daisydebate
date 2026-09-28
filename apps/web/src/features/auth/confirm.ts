@@ -97,9 +97,16 @@ function retryView(
       kind: 'confirm',
       token,
       hidden,
+      // The mock's exact retry copy: only the lead sentence is bold.
       notice: limited
-        ? 'Too many attempts. Wait a moment and try again.'
-        : 'We could not complete sign-in. Please try again.',
+        ? {
+            lead: 'Too many attempts.',
+            rest: 'Wait a minute, then select the button again. Your link still works.',
+          }
+        : {
+            lead: 'We could not complete sign-in.',
+            rest: 'Please try again.',
+          },
     },
     request,
     limited ? 429 : 503,

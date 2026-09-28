@@ -56,6 +56,7 @@ export function confirmPageStylesheet(): string {
 
 html, body {
   margin: 0;
+  height: 100%;
   background: var(--af-background);
   color: var(--af-ink);
   font-family: var(--af-font-body);
@@ -66,12 +67,20 @@ body {
   display: flex;
 }
 
+/* main is body's one flex item: without an explicit flex-basis it sizes
+   to its content, so the frame stops short of the viewport and the panel
+   floats mid-page instead of sitting flush right. */
+main {
+  flex: 1;
+  display: flex;
+  min-width: 0;
+}
+
 .af-page {
   flex: 1;
   display: flex;
   gap: 24px;
   padding: 24px;
-  min-height: 100vh;
 }
 
 .af-main {
@@ -260,7 +269,7 @@ body {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  width: 420px;
+  width: 500px;
   flex-shrink: 0;
   border-radius: 16px;
   background: var(--af-surface-emerald);
@@ -308,12 +317,19 @@ body {
 }
 
 /* The rail breakpoint (globals.css --breakpoint-rail): hide the panel and
-   let the content column take the full width, matching the mock's phone
-   layout at any narrower viewport, including 320 px reflow. */
+   let the content column take the full width. This alone must not trigger
+   the phone-only rules below (a 1024 px laptop or tablet keeps the design's
+   normal button and heading sizes; only a narrow phone gets the stretched
+   button and smaller heading). */
 @media (max-width: 1100px) {
   .af-panel { display: none; }
-  .af-page { padding: 16px; }
   .af-main { padding: 8px 8px 16px; gap: 40px; }
+}
+
+/* Phone-only, matching the mock's own narrow breakpoint, down to 320 px
+   reflow. */
+@media (max-width: 480px) {
+  .af-page { padding: 16px; }
   .af-body h1 { font-size: 1.9rem; }
   .af-btn { align-self: stretch; }
 }

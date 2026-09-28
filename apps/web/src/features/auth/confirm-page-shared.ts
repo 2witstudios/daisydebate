@@ -30,9 +30,15 @@ const petals = () =>
     .join('');
 
 /** The Daisy mark, matching `ui/components/daisy-mark`: eight filled petals
- * around a solid disc, drawn inline (no external asset). */
-const daisyMarkSvg = (size: number, extraAttrs = '') =>
-  `<svg viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true"${extraAttrs}><g fill="currentColor">${petals()}</g><circle cx="12" cy="12" r="2.4" fill="currentColor"></circle></svg>`;
+ * around a solid disc, drawn inline (no external asset). The panel's large
+ * mark carries a gold centre disc, matching the mock; the small brand mark
+ * keeps the disc in the petals' own color. */
+const daisyMarkSvg = (
+  size: number,
+  extraAttrs = '',
+  discFill = 'currentColor',
+) =>
+  `<svg viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true"${extraAttrs}><g fill="currentColor">${petals()}</g><circle cx="12" cy="12" r="2.4" fill="${discFill}"></circle></svg>`;
 
 export type PanelContent = {
   readonly kicker: string;
@@ -43,7 +49,7 @@ export type PanelContent = {
 /** The emerald side panel, hidden under the rail breakpoint (AUTH-4.7). */
 const panel = (content: PanelContent | undefined) =>
   content
-    ? `<aside class="af-panel" aria-hidden="true">${daisyMarkSvg(520, ' class="af-panel-mark"')}<p class="af-panel-kicker">${escapeHtml(content.kicker)}</p><p class="af-panel-title">${escapeHtml(content.title)}</p><p class="af-panel-body">${escapeHtml(content.body)}</p></aside>`
+    ? `<aside class="af-panel" aria-hidden="true">${daisyMarkSvg(520, ' class="af-panel-mark"', 'var(--af-gold)')}<p class="af-panel-kicker">${escapeHtml(content.kicker)}</p><p class="af-panel-title">${escapeHtml(content.title)}</p><p class="af-panel-body">${escapeHtml(content.body)}</p></aside>`
     : '';
 
 export type AuthFrameContent = {
@@ -53,11 +59,12 @@ export type AuthFrameContent = {
 };
 
 /**
- * Server-rendered, script-free and asset-free AuthFrame layout: the brand
- * row, the content column and the emerald panel, matching the approved
- * design (artifact Nc1KBhwPeBhmUqK4UkqG1M). Nothing here is served through
- * the Next app's own stylesheet pipeline, so the whole visual layer travels
- * as one nonce'd `<style>` and this markup.
+ * Server-rendered, script-free AuthFrame layout, with no third-party or
+ * external asset (the two fonts are same-origin, fixed-path files): the
+ * brand row, the content column and the emerald panel, matching the
+ * approved design (artifact Nc1KBhwPeBhmUqK4UkqG1M). Nothing here is served
+ * through the Next app's own stylesheet pipeline, so the whole visual layer
+ * travels as one nonce'd `<style>` and this markup.
  */
 function authFrame({ body, footer, panel: panelContent }: AuthFrameContent) {
   return (
@@ -70,10 +77,10 @@ function authFrame({ body, footer, panel: panelContent }: AuthFrameContent) {
 }
 
 /**
- * Server-rendered, script-free and asset-free confirmation document: nothing
- * to prefetch or leak. The `<style>` carries the request's CSP nonce and is
- * omitted entirely when no valid nonce was provided (fail safe: the page
- * still functions, just unstyled).
+ * Server-rendered, script-free confirmation document with no third-party or
+ * external asset: nothing to prefetch or leak. The `<style>` carries the
+ * request's CSP nonce and is omitted entirely when no valid nonce was
+ * provided (fail safe: the page still functions, just unstyled).
  */
 export const confirmDocument = (
   title: string,
