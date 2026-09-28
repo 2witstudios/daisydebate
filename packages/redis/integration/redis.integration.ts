@@ -70,40 +70,55 @@ test('rate limit admits exactly max across concurrent instances and expires atom
   }));
 
 test('markOccurrenceSince keeps the since-value and re-arms the TTL on every later occurrence, bridging a continuous run past a single TTL window', () =>
-  withRedis(url, async ({ redis, raw, key }) => {
+  withRedis(url, async ({ redis, raw, key, expireNow }) => {
     const markerKey = key('marker');
-    const first = await redis.markOccurrenceSince('marker', 'first', 1);
-    await Bun.sleep(700);
-    // A second occurrence within the TTL: keeps the original since-value...
-    const second = await redis.markOccurrenceSince('marker', 'second', 1);
+    const ttlSeconds = 60;
+    // Stands in for time passing: the marker is about to expire.
+    const nearlyExpire = () => raw.send('PEXPIRE', [markerKey, '1000']);
+    const first = await redis.markOccurrenceSince(
+      'marker',
+      'first',
+      ttlSeconds,
+    );
+    await nearlyExpire();
+    // A later occurrence keeps the original since-value and re-arms the TTL...
+    const second = await redis.markOccurrenceSince(
+      'marker',
+      'second',
+      ttlSeconds,
+    );
     const ttlAfterSecond = await raw.pttl(markerKey);
-    await Bun.sleep(700);
-    // ...and a third, past where an un-refreshed 1s TTL would have expired
-    // (700ms + 700ms > 1000ms), still keeps the original value: the
-    // condition's since-time never resets during a continuous outage.
-    const third = await redis.markOccurrenceSince('marker', 'third', 1);
+    await nearlyExpire();
+    // ...and so does the next: the condition's since-time never resets
+    // during a continuous outage.
+    const third = await redis.markOccurrenceSince(
+      'marker',
+      'third',
+      ttlSeconds,
+    );
+    const ttlAfterThird = await raw.pttl(markerKey);
     assert({
       given:
-        'three occurrences of the same condition, 700ms apart, each with a 1s TTL',
+        'three occurrences of the same condition, each arriving when the marker has 1s left of its TTL',
       should:
-        'return the first value every time and keep re-arming the TTL, never expiring between occurrences',
+        'return the first value every time and re-arm the full TTL, never expiring between occurrences',
       actual: {
         first,
         second,
         third,
-        ttlWasRearmed: ttlAfterSecond > 500,
+        rearmed: [ttlAfterSecond, ttlAfterThird].every((ttl) => ttl > 1_000),
       },
       expected: {
         first: 'first',
         second: 'first',
         third: 'first',
-        ttlWasRearmed: true,
+        rearmed: true,
       },
     });
     // Once occurrences stop, the marker still expires on its own.
-    await Bun.sleep(1100);
+    await expireNow(markerKey);
     assert({
-      given: 'no further occurrence for longer than the TTL',
+      given: 'no further occurrence before the TTL runs out',
       should: 'let the marker expire so the condition clears passively',
       actual: await redis.get('marker'),
       expected: null,

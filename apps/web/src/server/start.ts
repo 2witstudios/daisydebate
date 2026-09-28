@@ -86,7 +86,9 @@ const retention = startRetentionSweep({
     waitForHealthy({
       health: () => app.redis.health(),
       sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-    }).then(() => undefined),
+      timeout: (ms) =>
+        new Promise((resolve) => setTimeout(resolve, ms).unref()),
+    }),
   timers: {
     setInterval: (tick, ms) => setInterval(tick, ms).unref(),
     clearInterval: (handle) => clearInterval(handle as NodeJS.Timeout),

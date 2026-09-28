@@ -83,7 +83,7 @@ describe('retention sweep schedule', () => {
       sweep: gated.sweep,
       timers,
       runOnStart: true,
-      waitUntilReady: () => ready,
+      waitUntilReady: () => ready.then(() => true),
     });
     // Drain microtasks: nothing has run yet because waitUntilReady has not
     // resolved (a cold Fly boot's Redis connection not answering yet).
@@ -101,6 +101,41 @@ describe('retention sweep schedule', () => {
       should: 'start no sweep until it resolves, then run exactly once',
       actual: { beforeReady, afterReady: gated.state.started },
       expected: { beforeReady: 0, afterReady: 1 },
+    });
+  });
+
+  test('a start-up wait that reports not-ready or rejects skips the start-up run, leaving the hourly schedule (ISSUE-146)', async () => {
+    const outcomes = await Promise.all(
+      [
+        () => Promise.resolve(false),
+        () => Promise.reject(new Error('redis down')),
+      ].map(async (waitUntilReady) => {
+        const { state, timers } = fakeTimers();
+        const gated = gatedSweep();
+        const schedule = startRetentionSweep({
+          sweep: gated.sweep,
+          timers,
+          runOnStart: true,
+          waitUntilReady,
+        });
+        await schedule.initial;
+        const startUpRuns = gated.state.started;
+        const nextTick = state.tick?.();
+        gated.state.release();
+        await nextTick;
+        return { startUpRuns, afterTick: gated.state.started };
+      }),
+    );
+    assert({
+      given:
+        'a start-up wait that resolves false (Redis never healthy), and one that rejects',
+      should:
+        'run no start-up sweep, settle without throwing, and still run the next hourly tick',
+      actual: outcomes,
+      expected: [
+        { startUpRuns: 0, afterTick: 1 },
+        { startUpRuns: 0, afterTick: 1 },
+      ],
     });
   });
 

@@ -8,12 +8,16 @@ const fakeSleep = () => {
   return { calls, sleep: async (ms: number) => void calls.push(ms) };
 };
 
+/** An attempt timeout that never fires: every attempt settles on its own. */
+const noTimeout = () => new Promise<void>(() => {});
+
 describe('waitForHealthy (ISSUE-146)', () => {
   test('returns true immediately once health answers true, sleeping nothing', async () => {
     const { calls, sleep } = fakeSleep();
     const result = await waitForHealthy({
       health: async () => true,
       sleep,
+      timeout: noTimeout,
     });
     assert({
       given: 'a health check that is already true',
@@ -32,6 +36,7 @@ describe('waitForHealthy (ISSUE-146)', () => {
         return attempts >= 3;
       },
       sleep,
+      timeout: noTimeout,
       intervalMs: 250,
     });
     assert({
@@ -52,6 +57,7 @@ describe('waitForHealthy (ISSUE-146)', () => {
         return true;
       },
       sleep,
+      timeout: noTimeout,
     });
     assert({
       given: 'a health check that rejects once, then succeeds',
@@ -61,11 +67,42 @@ describe('waitForHealthy (ISSUE-146)', () => {
     });
   });
 
+  test('a health attempt that never settles times out as not-ready, so polling advances', async () => {
+    const { calls, sleep } = fakeSleep();
+    const timeouts: number[] = [];
+    let attempts = 0;
+    const result = await waitForHealthy({
+      health: () => {
+        attempts += 1;
+        return attempts === 1
+          ? new Promise<boolean>(() => {})
+          : Promise.resolve(true);
+      },
+      sleep,
+      timeout: async (ms) => void timeouts.push(ms),
+      attemptTimeoutMs: 1_000,
+      intervalMs: 250,
+    });
+    assert({
+      given: 'a first health check that hangs forever (a stalled PING)',
+      should:
+        'bound it by the attempt timeout, count it not-ready, sleep, and succeed on the next attempt',
+      actual: { result, attempts, sleeps: calls, timeouts },
+      expected: {
+        result: true,
+        attempts: 2,
+        sleeps: [250],
+        timeouts: [1_000, 1_000],
+      },
+    });
+  });
+
   test('gives up after maxAttempts, reporting not healthy', async () => {
     const { calls, sleep } = fakeSleep();
     const result = await waitForHealthy({
       health: async () => false,
       sleep,
+      timeout: noTimeout,
       maxAttempts: 4,
       intervalMs: 100,
     });

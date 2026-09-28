@@ -237,17 +237,19 @@ export function startRetentionSweep({
   /** Also sweep once now: processes restarted more often than hourly still prune. */
   readonly runOnStart?: boolean;
   /**
-   * Resolves once the start-up run's dependencies are reachable (ISSUE-146):
-   * a scale-to-zero Fly machine's Redis connection is not necessarily ready
-   * the instant this process starts listening, so `runOnStart`'s one run
-   * waits here instead of logging a spurious `retention.sweep.failed` on
-   * every cold boot. Omitted, the start-up run fires synchronously exactly
-   * as before. Ignored when `runOnStart` is false; the hourly schedule
-   * never waits on it. Reserves `current` for the whole wait, so a timer
+   * Resolves true once the start-up run's dependencies are reachable
+   * (ISSUE-146): a scale-to-zero Fly machine's Redis connection is not
+   * necessarily ready the instant this process starts listening, so
+   * `runOnStart`'s one run waits here instead of logging a spurious
+   * `retention.sweep.failed` on every cold boot. Resolving false or
+   * rejecting means the dependencies never became reachable: the start-up
+   * run is skipped and the next hourly tick sweeps instead. Omitted, the
+   * start-up run fires synchronously. Ignored when `runOnStart` is false;
+   * the hourly schedule never waits on it. Reserves `current` for the whole wait, so a timer
    * tick that arrives during it is skipped rather than racing the start-up
    * run.
    */
-  readonly waitUntilReady?: () => Promise<void>;
+  readonly waitUntilReady?: () => Promise<boolean>;
 }) {
   let stopped = false;
   let current: Promise<unknown> | undefined;
@@ -263,10 +265,12 @@ export function startRetentionSweep({
   let initial: Promise<unknown> | undefined;
   if (runOnStart) {
     if (waitUntilReady) {
-      const started = waitUntilReady().then(() => {
-        current = undefined;
-        return tick();
-      });
+      const started = waitUntilReady()
+        .catch(() => false)
+        .then((ready) => {
+          current = undefined;
+          return ready ? tick() : undefined;
+        });
       current = started;
       initial = started;
     } else {

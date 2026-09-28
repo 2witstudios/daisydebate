@@ -118,10 +118,11 @@ export type AlertConditionsResult =
 
 /**
  * Fetches the already-evaluated conditions from `/api/ops/alerts`. Never
- * throws: a non-2xx response or a fetch failure (a Redis outage most often
- * surfaces as the latter, since `/api/ops/alerts` itself depends on Redis
- * to answer at all) comes back as `{ ok: false, error }` so `main` can still
- * post to Incidents instead of dying before it posts anything.
+ * throws: a non-2xx response, a body without a `conditions` array, or a
+ * fetch failure (a Redis outage most often surfaces as the latter, since
+ * `/api/ops/alerts` itself depends on Redis to answer at all) comes back as
+ * `{ ok: false, error }` so `main` can still post to Incidents instead of
+ * dying before it posts anything.
  */
 export async function fetchAlertConditions(
   origin: string,
@@ -138,9 +139,14 @@ export async function fetchAlertConditions(
         error: `/api/ops/alerts responded ${response.status}`,
       };
     const { conditions } = (await response.json()) as {
-      conditions: AlertCondition[];
+      conditions?: unknown;
     };
-    return { ok: true, conditions };
+    if (!Array.isArray(conditions))
+      return {
+        ok: false,
+        error: '/api/ops/alerts responded without a conditions array',
+      };
+    return { ok: true, conditions: conditions as AlertCondition[] };
   } catch (error) {
     return {
       ok: false,

@@ -275,6 +275,23 @@ describe('fetchAlertConditions (ISSUE-156)', () => {
     });
   });
 
+  test('a 2xx body without a conditions array resolves not-ok, never ok with undefined conditions', async () => {
+    using server = Bun.serve({ port: 0, fetch: () => Response.json({}) });
+    const result = await fetchAlertConditions(
+      `http://127.0.0.1:${server.port}`,
+      'token',
+    );
+    assert({
+      given: 'a 200 from /api/ops/alerts whose JSON has no conditions array',
+      should: 'resolve not-ok naming the malformed body, not ok',
+      actual: result,
+      expected: {
+        ok: false,
+        error: '/api/ops/alerts responded without a conditions array',
+      },
+    });
+  });
+
   test('a refused connection resolves not-ok naming the failure, never throws', async () => {
     const result = await fetchAlertConditions('http://127.0.0.1:1', 'token');
     assert({

@@ -52,11 +52,11 @@ same privileges.
 | Fly Redis `daisy-debate-staging-redis` (Upstash, Pay-as-you-go)                             | $0 at rest; $0.20 per 100K commands.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | Resend                                                                                      | Free tier covers low-volume staging email + webhooks; no idle cost beyond the account itself                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | https://resend.com/pricing         |
 
-Net: about $6/month at rest (the Postgres machine plus the AUTH-7.7 probe
-keeping the web machine effectively always-on per DEC-10 — see the row
-above), plus fractional-cent rootfs storage and any actual staging traffic.
-Before DEC-10 (no probe, or a probe outside the auto-stop window) this line
-was about $2/month.
+Net: about $2/month at rest (the always-on Postgres machine and its
+volume). Separately: fractional-cent rootfs storage, any actual staging
+traffic, and the AUTH-7.7 probe, which bills web-machine compute only while
+each real run has it awake — a small fraction of the ~$4/month that
+continuous operation would cost (see the row above).
 
 ## Security proof against the live app (AUTH-7.8)
 

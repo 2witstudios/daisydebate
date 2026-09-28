@@ -9,8 +9,9 @@ few minutes late under platform load." That assumption was false at the
 granularity DEC-10 relied on; this ADR corrects the measured facts and
 records the owner's resolution: **keep the GitHub-scheduled probe exactly as
 built, and accept its real, best-effort cadence for staging.** No new
-scheduler, no new Fly machine, no in-app evaluator. `.github/workflows/auth-alerts.yml`
-is unchanged.
+scheduler, no new Fly machine, no in-app evaluator. The workflow's
+schedule, the accepted probe cadence and its cost are unchanged; the
+probe's error handling (ISSUE-156) and the explanatory comments do change.
 
 ## Context (measured, ISSUE-157)
 
@@ -78,8 +79,10 @@ directly rather than relying on the schedule.
   limitations" section is corrected: GitHub's schedule is not "a few
   minutes late" at the observed 2–5 hour granularity — it is amended to
   state the real, accepted cadence.
-- No code, `fly.toml`, or workflow change: the probe, its cadence, and its
-  cost stay exactly as ADR 0042 shipped them.
+- No schedule, `fly.toml`, or cadence change: the workflow's schedule, the
+  probe's cadence, and its cost stay as ADR 0042 shipped them. (The probe's
+  error handling changes separately under ISSUE-156, so an unreachable
+  origin or alerts endpoint still posts to Incidents.)
 - `.github/workflows/auth-alerts.yml`, `scripts/auth-alert-probe.ts` and
   `apps/web/src/features/ops/alerts.ts`'s docblocks are corrected to state
   the real cadence instead of "every 5 minutes."
