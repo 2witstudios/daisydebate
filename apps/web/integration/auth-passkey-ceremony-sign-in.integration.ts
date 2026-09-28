@@ -145,41 +145,43 @@ describe('AUTH-5.2 passkey sign-in', () => {
     });
   });
 
-  test('an assertion signed for another origin creates no session (ISSUE-160)', async () => {
-    const { cookie } = await signUp();
-    const { credential } = await flows.enrollPasskey(cookie);
-    const { verifyResponse } = await flows.signInWithPasskey(credential, {
-      badOrigin: 'https://attacker.example',
-    });
-    const session = await flows.account.sessionAs(cookieHeader(verifyResponse));
-    assert({
+  const foreignAssertions = [
+    {
+      name: 'an assertion signed for another origin',
       given:
         'an assertion whose clientData names a foreign origin, for a credential that is enrolled',
-      should: 'be rejected and create no session',
-      actual: {
-        ok: verifyResponse.ok,
-        sessionUserId: identityUserId(session.identity),
-      },
-      expected: { ok: false, sessionUserId: null },
-    });
-  });
-
-  test('an assertion whose authenticator data carries another RP ID hash creates no session (ISSUE-160)', async () => {
-    const { cookie } = await signUp();
-    const { credential } = await flows.enrollPasskey(cookie);
-    const { verifyResponse } = await flows.signInWithPasskey(credential, {
-      badRpID: 'attacker.example',
-    });
-    const session = await flows.account.sessionAs(cookieHeader(verifyResponse));
-    assert({
+      tamper: { badOrigin: 'https://attacker.example' },
+    },
+    {
+      name: 'an assertion whose authenticator data carries another RP ID hash',
       given:
         'an assertion whose authenticatorData rpIdHash names a foreign relying party, for a credential that is enrolled',
-      should: 'be rejected and create no session',
-      actual: {
-        ok: verifyResponse.ok,
-        sessionUserId: identityUserId(session.identity),
-      },
-      expected: { ok: false, sessionUserId: null },
+      tamper: { badRpID: 'attacker.example' },
+    },
+  ] as const;
+
+  for (const { name, given, tamper } of foreignAssertions)
+    test(`${name} creates no session (ISSUE-160)`, async () => {
+      const { cookie } = await signUp();
+      const { credential } = await flows.enrollPasskey(cookie);
+      const before = (await flows.listSessions(cookie)).length;
+      const { verifyResponse } = await flows.signInWithPasskey(
+        credential,
+        tamper,
+      );
+      const session = await flows.account.sessionAs(
+        cookieHeader(verifyResponse),
+      );
+      assert({
+        given,
+        should:
+          "be rejected, set no working cookie and add no row to the account's sessions",
+        actual: {
+          ok: verifyResponse.ok,
+          sessionUserId: identityUserId(session.identity),
+          sessionsAdded: (await flows.listSessions(cookie)).length - before,
+        },
+        expected: { ok: false, sessionUserId: null, sessionsAdded: 0 },
+      });
     });
-  });
 });

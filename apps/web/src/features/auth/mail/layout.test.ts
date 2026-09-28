@@ -50,6 +50,22 @@ const parseStyle = (declarations: string): Record<string, string> =>
       ]),
   );
 
+const attribute = (attributes: string, name: string) =>
+  new RegExp(`${name}="([^"]*)"`).exec(attributes)?.[1];
+
+const elementFrom = (
+  tag: string,
+  attributes: string,
+  parent: MailElement | undefined,
+  text: string,
+): MailElement => ({
+  tag,
+  classes: attribute(attributes, 'class')?.split(/\s+/) ?? [],
+  style: parseStyle(attribute(attributes, 'style') ?? ''),
+  parent: parent ?? null,
+  text,
+});
+
 /**
  * The rendered body's elements, each with its classes, inline style, parent
  * and own text, walked from the real markup a mail client receives: the
@@ -68,13 +84,7 @@ function parseElements(html: string): MailElement[] {
       if (parent) parent.text += text!;
       continue;
     }
-    const element: MailElement = {
-      tag,
-      classes: /class="([^"]*)"/.exec(attributes!)?.[1]?.split(/\s+/) ?? [],
-      style: parseStyle(/style="([^"]*)"/.exec(attributes!)?.[1] ?? ''),
-      parent: stack.at(-1) ?? null,
-      text: text!,
-    };
+    const element = elementFrom(tag, attributes!, stack.at(-1), text!);
     elements.push(element);
     if (!VOID_TAGS.has(tag)) stack.push(element);
   }

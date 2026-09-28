@@ -21,7 +21,7 @@ const secret = 'a'.repeat(32);
  * and auth config this test controls; a stand-in for Next's handler records
  * the identity headers the app would see.
  */
-async function serveProduction(trustedProxies: readonly string[]) {
+async function serveProduction(trustedProxies: string[]) {
   const state = { draining: false };
   const seen: Array<{ ip: unknown; idHash: unknown }> = [];
   const server = createProductionServer({
