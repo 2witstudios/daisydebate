@@ -75,7 +75,11 @@ export function SavePasskey({
           <ul className="flex flex-col gap-3">
             {savedFacts.map((fact) => (
               <li key={fact} className="flex items-start gap-3">
-                <Icon name="check" size={18} className="mt-1 text-accent" />
+                <Icon
+                  name="check"
+                  size={18}
+                  className="mt-1 text-stage-accent"
+                />
                 <span>{fact}</span>
               </li>
             ))}

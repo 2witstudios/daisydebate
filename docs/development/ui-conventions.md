@@ -2,7 +2,9 @@
 
 Rules every screen in `apps/web` follows. They sit beside the component
 guidance in `apps/web/src/ui`; this page holds only the rules that have
-caused defects when broken.
+caused defects when broken. The brand (which mark on which surface, stage
+ink, brand graphics and contrast pairs) has its own guide:
+[brand usage](brand.md).
 
 ## Mutating forms work without JavaScript
 

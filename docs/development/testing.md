@@ -285,8 +285,12 @@ To regenerate after an intended visual change, run the same command with
 `--update-snapshots` appended to the Playwright invocation
 (`node node_modules/@playwright/test/cli.js test --project=visual
 --update-snapshots` from `apps/web`, with `PW_WS_ENDPOINT` set), review the
-image diff, and record the before/after on the plan. The image tag in
-`package.json` must match the installed `@playwright/test` version.
+image diff, and record the before/after on the plan. `bun visual:server`
+runs `scripts/visual-server.ts`, which takes the image tag and run-server
+version from the web app's exact `@playwright/test` pin, so they always
+match. The
+command lives in a script because Bun rewrites `npx` in a `package.json`
+script to `bun x`, which the image lacks (ISSUE-92).
 
 ## UI component tests
 

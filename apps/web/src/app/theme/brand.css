@@ -1,0 +1,16 @@
+/* Brand sheet previews (ADR 0045). The one sanctioned exception to <html
+   data-theme> owning color-scheme: a /foundation panel pins its scheme so the
+   owner can compare light and dark side by side. globals.css re-declares the
+   tokens on both classes, so light-dark() resolves in the panel's scheme.
+   brand-sheet.test.tsx fails if either class is used anywhere else. */
+@utility preview-scheme-light {
+  color-scheme: light;
+  background: var(--background);
+  color: var(--text);
+}
+
+@utility preview-scheme-dark {
+  color-scheme: dark;
+  background: var(--background);
+  color: var(--text);
+}

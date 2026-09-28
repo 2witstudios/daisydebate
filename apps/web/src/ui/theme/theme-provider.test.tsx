@@ -52,13 +52,13 @@ describe('ThemeProvider', () => {
       expected: [
         [
           'name="color-scheme" content="light"',
-          'name="theme-color" media="(prefers-color-scheme: light)" content="#f2f5f2"',
-          'name="theme-color" media="(prefers-color-scheme: dark)" content="#f2f5f2"',
+          'name="theme-color" media="(prefers-color-scheme: light)" content="#f5f0e4"',
+          'name="theme-color" media="(prefers-color-scheme: dark)" content="#f5f0e4"',
         ],
         [
           'name="color-scheme" content="light dark"',
-          'name="theme-color" media="(prefers-color-scheme: light)" content="#f2f5f2"',
-          'name="theme-color" media="(prefers-color-scheme: dark)" content="#0a0e0c"',
+          'name="theme-color" media="(prefers-color-scheme: light)" content="#f5f0e4"',
+          'name="theme-color" media="(prefers-color-scheme: dark)" content="#0d1812"',
         ],
       ],
     });

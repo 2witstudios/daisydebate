@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { prose } from '../../ui/prose-class';
+import { BrandSheet } from './brand-sheet';
 
 export const metadata: Metadata = { title: 'Foundation proof' };
 // Reachable only when the deployment enables the proof: the proxy refuses
@@ -27,6 +28,7 @@ export default function FoundationProofPage() {
         the record, restores the domain runtime from the snapshot, and returns
         the re-validated representation.
       </p>
+      <BrandSheet />
     </section>
   );
 }

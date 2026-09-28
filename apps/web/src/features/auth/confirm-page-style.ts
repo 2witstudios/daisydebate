@@ -1,4 +1,5 @@
 import { AUTH_BRAND_PALETTE } from './brand-palette';
+import { confirmPanelStyles } from './confirm-panel-style';
 
 /** Same-origin, fixed paths (AUTH-4.7): this route cannot see build hashes. */
 const FRAUNCES_PATH = '/fonts/fraunces-latin.woff2';
@@ -21,7 +22,9 @@ export function confirmPageStylesheet(): string {
 
 :root {
   --af-background: ${lightDark('background')};
-  --af-surface-emerald: ${lightDark('surfaceEmerald')};
+  --af-surface-stage: ${lightDark('surfaceStage')};
+  --af-stage-ink: ${lightDark('stageInk')};
+  --af-stage-ink-muted: ${lightDark('stageInkMuted')};
   --af-surface-raised: ${lightDark('surfaceRaised')};
   --af-ink: ${lightDark('ink')};
   --af-ink-muted: ${lightDark('inkMuted')};
@@ -30,6 +33,8 @@ export function confirmPageStylesheet(): string {
   --af-accent-strong: ${lightDark('accentStrong')};
   --af-accent-ink: ${lightDark('accentInk')};
   --af-gold: ${lightDark('gold')};
+  --af-cream: ${lightDark('cream')};
+  --af-butter: ${lightDark('butter')};
   --af-notice-bg: ${lightDark('noticeBg')};
   --af-notice-border: ${lightDark('noticeBorder')};
   --af-notice-ink: ${lightDark('noticeInk')};
@@ -265,60 +270,7 @@ main {
   line-height: 1.5;
 }
 
-.af-panel {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  width: 500px;
-  flex-shrink: 0;
-  border-radius: 16px;
-  background: var(--af-surface-emerald);
-  padding: 40px;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  gap: 14px;
-}
-
-.af-panel-mark {
-  position: absolute;
-  top: -140px;
-  right: -160px;
-  width: 520px;
-  height: 520px;
-  z-index: -1;
-  /* A pre-mixed color, not opacity: some engines rasterize a large,
-     opacity-composited replaced element with a faint off-color box behind
-     it (visible on Linux, not on macOS Chromium). Painting the already-
-     blended color directly has no layer to composite, so there is nothing
-     to show through. */
-  color: color-mix(in srgb, var(--af-accent) 20%, var(--af-surface-emerald));
-}
-
-.af-panel-kicker {
-  margin: 0;
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--af-ink-muted);
-}
-
-.af-panel-title {
-  margin: 0;
-  font-family: var(--af-font-display);
-  font-weight: 600;
-  font-size: 1.9rem;
-  line-height: 1.15;
-  letter-spacing: -0.02em;
-  text-wrap: balance;
-}
-
-.af-panel-body {
-  margin: 0;
-  color: var(--af-ink-muted);
-  line-height: 1.55;
-}
+${confirmPanelStyles}
 
 /* The rail breakpoint (globals.css --breakpoint-rail): hide the panel and
    let the content column take the full width. This alone must not trigger

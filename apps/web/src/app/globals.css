@@ -4,6 +4,7 @@
 @import './theme/shell.css';
 @import './theme/dashboard.css';
 @import './theme/auth.css';
+@import './theme/brand.css';
 
 /* Tailwind v4 is configured here and nowhere else (ADR 0028): no
    tailwind.config.*, no arbitrary values, no default palette. Class names
@@ -12,15 +13,17 @@
    properties, so the theme switch restyles the page with no class changes and
    `dark:` variants are banned. */
 
-/* Design tokens — Daisy green. Each color token is written once as
-   light-dark(<light>, <dark>) and resolves through color-scheme, which
-   <html data-theme> selects (ADR 0027):
+/* Design tokens — the Daisy board palette (ADR 0045). Each color token is
+   written once as light-dark(<light>, <dark>) and resolves through
+   color-scheme, which <html data-theme> selects (ADR 0027):
      dark   → dark only (the default when no preference is saved)
      light  → light only
      system → light dark, following prefers-color-scheme live, no JS.
-   The server renders data-theme from the viewer's cookie; the theme
-   provider rewrites it on a switch. Every color token must use
-   light-dark() (globals-css.test.ts), so no mode is ever left unset. */
+   Light reads as the board's cream, dark as its forest. The server renders
+   data-theme from the viewer's cookie; the theme provider rewrites it on a
+   switch. Every color token must use light-dark() (globals-css.test.ts), so
+   no mode is ever left unset, and every declared text and UI pairing holds
+   WCAG AA in both schemes (palette-contrast.test.ts). */
 :root,
 :root[data-theme='dark'] {
   color-scheme: dark;
@@ -34,71 +37,106 @@
   color-scheme: light dark;
 }
 
-:root {
-  /* Surfaces — near-black green with warm undertones in dark. */
-  --background: light-dark(#f2f5f2, #0a0e0c);
-  --surface: light-dark(#fbfdfb, #111814);
-  --surface-raised: light-dark(#ffffff, #18211b);
-  --surface-overlay: light-dark(#e9efe9, #1f2a23);
-  --surface-sunken: light-dark(#e3eae4, #060907);
-  /* Deep tournament-green for the product's stage moments. */
-  --surface-emerald: light-dark(#e2f1e7, #16281f);
+/* The brand sheet's preview panels (ADR 0045) re-declare the tokens, because
+   the browser resolves light-dark() where a custom property is declared: an
+   inherited token keeps the page's scheme, a re-declared one takes the
+   panel's. */
+:root,
+.preview-scheme-light,
+.preview-scheme-dark {
+  /* Brand primitives — the board's forest, sage, deep sage, cream and
+     butter. Light keeps the board values; dark lifts forest and deep sage so
+     they still read on the forest-black page. Chrome takes the semantic
+     tokens below; the primitives paint the mark and brand graphics. */
+  --forest: light-dark(#173b2a, #4a8a64);
+  --sage: light-dark(#a7c09c, #a7c09c);
+  --sage-deep: light-dark(#7e9c79, #8fae89);
+  --cream: light-dark(#f5f0e4, #f5f0e4);
+  --butter: light-dark(#f7da8c, #f7da8c);
 
-  /* Borders */
-  --border: light-dark(#d8e2d9, #26332b);
-  --border-strong: light-dark(#bccfc2, #3a4c40);
+  /* Surfaces — cream stepping toward paper in light, forest stepping up
+     from forest-black in dark. */
+  --background: light-dark(#f5f0e4, #0d1812);
+  --surface: light-dark(#faf7ef, #122019);
+  --surface-raised: light-dark(#fffdf8, #182a20);
+  --surface-overlay: light-dark(#ede7d8, #1f3328);
+  --surface-sunken: light-dark(#e8e1d0, #08110c);
 
-  /* Text — slightly warm, three quiet steps. */
-  --text: light-dark(#17211b, #f4f8f3);
-  --text-muted: light-dark(#5b6d61, #a3b3a6);
-  --text-faint: light-dark(#67736c, #7a8c7f);
+  /* The stage — a forest panel in both schemes for the product's stage
+     moments, with its own ink and a sage button, as on the board's banners. */
+  --surface-stage: light-dark(#173b2a, #173b2a);
+  --stage-text: light-dark(#f5f0e4, #f5f0e4);
+  --stage-text-muted: light-dark(#bccdb3, #bccdb3);
+  --stage-accent: light-dark(#a7c09c, #a7c09c);
+  --stage-accent-strong: light-dark(#bdd2b2, #bdd2b2);
+  --stage-accent-text: light-dark(#173b2a, #173b2a);
+
+  /* Borders — warm sage-grey. */
+  --border: light-dark(#ddd6c4, #24382c);
+  --border-strong: light-dark(#bfbfa9, #3e5a48);
+
+  /* Text — forest on cream, cream on forest, three quiet steps. */
+  --text: light-dark(#173b2a, #f5f0e4);
+  --text-muted: light-dark(#4a5f51, #b4c2ae);
+  --text-faint: light-dark(#56665a, #8fa08c);
   /* Neutral line-art glyphs (action tiles). */
-  --glyph: light-dark(#33453a, #dde7de);
+  --glyph: light-dark(#2c4536, #dce3d3);
 
-  /* Accent — Daisy green */
-  --accent: light-dark(#157c3e, #3ecf7a);
-  --accent-strong: light-dark(#116b36, #2fb968);
-  --accent-soft: light-dark(rgba(23, 138, 69, 0.1), rgba(62, 207, 122, 0.12));
-  --accent-text: light-dark(#ffffff, #052b16);
+  /* Accent — forest with cream ink in light, sage with forest ink in dark. */
+  --accent: light-dark(#173b2a, #a7c09c);
+  --accent-strong: light-dark(#0e2a1c, #bdd2b2);
+  --accent-soft: light-dark(rgba(23, 59, 42, 0.08), rgba(167, 192, 156, 0.12));
+  --accent-text: light-dark(#f5f0e4, #173b2a);
 
   /* Semantic status */
-  --online: light-dark(#178a45, #3ecf7a);
-  --live: light-dark(#be373b, #f74e53);
-  --live-soft: light-dark(rgba(211, 61, 66, 0.1), rgba(229, 72, 77, 0.14));
-  /* Trophy gold — muted brass, reserved for events and honors. */
-  --gold: light-dark(#9a7a35, #c9a35c);
-  --gold-soft: light-dark(rgba(154, 122, 53, 0.12), rgba(201, 163, 92, 0.12));
-  --gold-border: light-dark(rgba(154, 122, 53, 0.4), rgba(201, 163, 92, 0.35));
-  --tier-diamond: light-dark(#2f7fd1, #7fc0ef);
+  --online: light-dark(#2f7a4b, #8ccb94);
+  --live: light-dark(#b0343a, #f26a6e);
+  --live-soft: light-dark(rgba(176, 52, 58, 0.1), rgba(242, 106, 110, 0.14));
+  /* Honours — brass in light, butter in dark; reserved for events and
+     honours. */
+  --gold: light-dark(#7e5c12, #f0cf7a);
+  --gold-soft: light-dark(rgba(126, 92, 18, 0.1), rgba(240, 207, 122, 0.12));
+  --gold-border: light-dark(rgba(126, 92, 18, 0.4), rgba(240, 207, 122, 0.35));
+  --tier-diamond: light-dark(#275f9c, #86c3ef);
 
   /* Ink over dark-graded photography (scrims guarantee contrast). */
   /* Photo scrim ink: the same in both schemes on purpose, because the
      photography is always dark-graded. Fade it with color-mix(). */
   --scrim: light-dark(#060a08, #060a08);
-  --text-on-media: light-dark(#ffffff, #f6faf5);
+  --text-on-media: light-dark(#fffdf8, #f5f0e4);
 
   /* Feedback */
   --focus-ring: 0 0 0 2px var(--background), 0 0 0 4px var(--accent);
 
   /* Elevation — nearly flat in dark; surfaces separate through tone. */
   --elevation-1: 0 1px 2px
-    light-dark(rgba(20, 32, 26, 0.08), rgba(0, 0, 0, 0.35));
+    light-dark(rgba(23, 59, 42, 0.08), rgba(0, 0, 0, 0.35));
   --elevation-2: 0 2px 12px
-    light-dark(rgba(20, 32, 26, 0.1), rgba(0, 0, 0, 0.35));
+    light-dark(rgba(23, 59, 42, 0.1), rgba(0, 0, 0, 0.35));
   --elevation-3: 0 12px 40px
-    light-dark(rgba(20, 32, 26, 0.14), rgba(0, 0, 0, 0.5));
+    light-dark(rgba(23, 59, 42, 0.14), rgba(0, 0, 0, 0.5));
 }
 
 /* Colors. Names mirror the `:root` tokens; text ink is `ink` so classes read
    `text-ink-muted`, not `text-text-muted`. `inline` makes utilities emit
    var(--token) directly instead of a second theme variable. */
 @theme inline {
+  --color-forest: var(--forest);
+  --color-sage: var(--sage);
+  --color-sage-deep: var(--sage-deep);
+  --color-cream: var(--cream);
+  --color-butter: var(--butter);
   --color-background: var(--background);
   --color-surface: var(--surface);
   --color-surface-raised: var(--surface-raised);
   --color-surface-overlay: var(--surface-overlay);
   --color-surface-sunken: var(--surface-sunken);
-  --color-surface-emerald: var(--surface-emerald);
+  --color-surface-stage: var(--surface-stage);
+  --color-stage-ink: var(--stage-text);
+  --color-stage-ink-muted: var(--stage-text-muted);
+  --color-stage-accent: var(--stage-accent);
+  --color-stage-accent-strong: var(--stage-accent-strong);
+  --color-stage-accent-ink: var(--stage-accent-text);
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
   --color-ink: var(--text);
