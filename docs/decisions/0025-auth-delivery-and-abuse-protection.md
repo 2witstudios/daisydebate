@@ -6,7 +6,9 @@ Stage 3 of passwordless authentication mounts Better Auth at `/api/auth/*` and
 adds the delivery and abuse controls ADR 0020 requires before activation.
 
 - **Scanner-safe links.** Emailed links open `/auth/confirm?token=…`, a
-  server-rendered, no-store, asset-free page. `GET`/`HEAD` never redeem. Only
+  server-rendered, no-store page with no script and no third-party or
+  external asset (AUTH-4.7's same-origin, fixed-path fonts are the one
+  static load). `GET`/`HEAD` never redeem. Only
   an explicit same-origin `POST` forwards the token to Better Auth's
   `/magic-link/verify` through the mounted router (rate limits and origin
   checks apply), copies every `Set-Cookie`, and redirects `303` to a

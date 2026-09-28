@@ -287,7 +287,7 @@ describe('AUTH-3.3 / AUTH-3.5 returning users and expired links', () => {
         status: resend.status,
         newMails: mailbox.mails.length - before,
         neutral: (await resend.text()).includes(
-          'If that address can receive email',
+          'If that address can sign in to Daisy',
         ),
       },
       expected: { status: 200, newMails: 1, neutral: true },
