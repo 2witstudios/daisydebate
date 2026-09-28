@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { safeLocalDestination } from './redirect';
+import { returnableDestination, safeLocalDestination } from './redirect';
 
 setupRitewayBun();
 
@@ -58,6 +58,44 @@ describe('safeLocalDestination', () => {
       given: 'an unsafe value and a custom fallback',
       should: 'return the fallback',
       actual: safeLocalDestination('//evil', '/onboarding/username'),
+      expected: '/onboarding/username',
+    });
+  });
+});
+
+describe('returnableDestination (ISSUE-167)', () => {
+  test('keeps an ordinary local destination', () => {
+    assert({
+      given: 'an ordinary local path',
+      should: 'keep it, exactly as safeLocalDestination would',
+      actual: returnableDestination('/ranked?tab=open'),
+      expected: '/ranked?tab=open',
+    });
+  });
+
+  test('falls back for a destination that would loop through sign-in, auth or api, plain or disguised', () => {
+    const loops = [
+      '/sign-in',
+      '/sign-in?next=%2Flobby',
+      '/auth/confirm',
+      '/api/auth/sign-out',
+      '/lobby/../api/auth/sign-out',
+      '/%73ign-in',
+      '/%2573ign-in',
+    ];
+    assert({
+      given: 'destinations that resolve to sign-in, auth or api routes',
+      should: 'fall back to /lobby, never return the forbidden route',
+      actual: loops.map((value) => returnableDestination(value)),
+      expected: loops.map(() => '/lobby'),
+    });
+  });
+
+  test('honors an explicit fallback for a forbidden destination', () => {
+    assert({
+      given: 'a forbidden destination and a custom fallback',
+      should: 'return the fallback, not /lobby',
+      actual: returnableDestination('/api/x', '/onboarding/username'),
       expected: '/onboarding/username',
     });
   });

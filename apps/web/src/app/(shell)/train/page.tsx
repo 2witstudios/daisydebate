@@ -1,9 +1,16 @@
 import type { Metadata } from 'next';
+import type { SearchParams } from '../../../features/access/decision';
+import { requireAccess } from '../../../lib/access';
 import { RouteShell } from '../../ui/route-shell';
 
 export const metadata: Metadata = { title: 'Train' };
 
-export default function TrainPage() {
+export default async function TrainPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  await requireAccess('/train', searchParams);
   return (
     <RouteShell
       title="Train"

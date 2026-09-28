@@ -13,6 +13,7 @@ export const AUTH_JOURNEY_SPECS = [
   '**/form-transport.e2e.ts',
   '**/answer-focus.e2e.ts',
   '**/passkey-lifecycle.e2e.ts',
+  '**/email-change-and-sessions.e2e.ts',
   '**/accessibility.e2e.ts',
   '**/auth-routes.e2e.ts',
   '**/csp-confirm.e2e.ts',
@@ -104,6 +105,10 @@ export default defineConfig({
   timeout: 30_000,
   fullyParallel: false,
   workers: 1,
+  // A committed test.only would otherwise run alone and pass the gate
+  // silently; refuse the whole run at collection time instead (ISSUE-164).
+  // Off outside CI so a developer can still focus a test while iterating.
+  forbidOnly: Boolean(process.env.CI),
   // Release qualification requires retries disabled: a retry-pass is a
   // flaky result, not proof (spec "Prevent tests from proving their own
   // fixtures"). CI always writes the json reporter so

@@ -4,7 +4,6 @@ import {
   drainWithDeadline,
   installShutdownSignals,
 } from '@daisy/observability';
-import { deriveClientIdSubkey } from '../features/auth/client-ip';
 import { createHttpServer } from './http-server';
 import {
   closeProcessApp,
@@ -16,6 +15,7 @@ import {
   retentionTargets,
   startRetentionSweep,
 } from './retention-sweep';
+import { buildHttpServerOptions } from './server-wiring';
 
 // Refuses anything but NODE_ENV=production before building the app.
 const { port } = processStartOptions();
@@ -29,13 +29,13 @@ await refuseSchemaAlteringRole(app, 'daisy_web');
 const nextApp = next({ dev: false, port });
 // The handler it wraps only resolves Next's request handler per request,
 // after prepare().
-const server = createHttpServer({
-  trustedProxies: authConfig.AUTH_TRUSTED_PROXIES ?? [],
-  clientIdSubkey: deriveClientIdSubkey(authConfig.BETTER_AUTH_SECRET),
-  isDraining: app.isDraining,
-  logger: app.logger,
-  handle: nextApp.getRequestHandler(),
-});
+const server = createHttpServer(
+  buildHttpServerOptions({
+    app,
+    authConfig,
+    handle: nextApp.getRequestHandler(),
+  }),
+);
 await nextApp.prepare();
 server.listen(port, '0.0.0.0', () =>
   app.logger.log(

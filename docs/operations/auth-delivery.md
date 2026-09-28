@@ -324,7 +324,7 @@ out.
 3. A sensitive session/credential change (revoke, passkey removal, email
    change) that fails with `401`/`403` on an otherwise-valid cookie is the
    fresh-session gate: these require re-authentication within the last hour
-   (`apps/web/integration/auth-session-management.integration.ts`, "a stale
+   (`apps/web/integration/auth-session-freshness.integration.ts`, "a stale
    session is refused for revoking..."). Direct the user to sign in again
    (magic link or passkey); this is expected behavior, not a fault.
 4. If the session store itself is unreachable, guarded pages and the

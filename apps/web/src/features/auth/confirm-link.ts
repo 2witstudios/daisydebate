@@ -1,4 +1,4 @@
-import { safeLocalDestination } from './redirect';
+import { returnableDestination } from './redirect';
 
 /**
  * The emailed sign-in link opens a no-store confirmation page; the token is
@@ -14,10 +14,10 @@ export function buildConfirmLink(origin: string, betterAuthUrl: string): URL {
   const requested = source.get('callbackURL');
   link.searchParams.set(
     'callbackURL',
-    safeLocalDestination(requested === '/' ? null : requested),
+    returnableDestination(requested === '/' ? null : requested),
   );
   const newUser = source.get('newUserCallbackURL');
   if (newUser)
-    link.searchParams.set('newUserCallbackURL', safeLocalDestination(newUser));
+    link.searchParams.set('newUserCallbackURL', returnableDestination(newUser));
   return link;
 }

@@ -524,5 +524,5 @@ posts.
 
 The separate `auth-alerts.yml` workflow (AUTH-7.7) needs `OPS_PROBE_TOKEN`
 as a repository secret (the exact value set on the app above via `fly
-secrets set`) alongside the same two Incidents webhook secrets; see
-[auth-delivery.md](auth-delivery.md#alerting-auth-77).
+secrets import`, step 5) alongside the same two Incidents webhook secrets;
+see [auth-delivery.md](auth-delivery.md#alerting-auth-77).

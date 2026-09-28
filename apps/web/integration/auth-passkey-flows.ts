@@ -61,6 +61,8 @@ export async function createPasskeyFlows() {
     options: {
       readonly name?: string;
       readonly badOrigin?: string;
+      readonly badRpID?: string;
+      readonly badChallenge?: string;
       readonly createSession?: boolean;
     } = {},
   ) => {
@@ -74,9 +76,9 @@ export async function createPasskeyFlows() {
     const credential = await createSoftwareCredential();
     const registrationResponse = buildRegistrationResponse({
       credential,
-      challenge: registrationOptions.challenge,
+      challenge: options.badChallenge ?? registrationOptions.challenge,
       origin: options.badOrigin ?? origin,
-      rpID,
+      rpID: options.badRpID ?? rpID,
     });
     const verifyResponse = await post(
       '/api/auth/passkey/verify-registration',
@@ -91,7 +93,10 @@ export async function createPasskeyFlows() {
   };
 
   /** Authenticates with an already-enrolled credential; returns the response. */
-  const signInWithPasskey = async (credential: SoftwareCredential) => {
+  const signInWithPasskey = async (
+    credential: SoftwareCredential,
+    options: { readonly badOrigin?: string; readonly badRpID?: string } = {},
+  ) => {
     const optionsResponse = await get(
       '/api/auth/passkey/generate-authenticate-options',
     );
@@ -101,8 +106,8 @@ export async function createPasskeyFlows() {
     const assertion = await buildAuthenticationResponse({
       credential,
       challenge: authenticationOptions.challenge,
-      origin,
-      rpID,
+      origin: options.badOrigin ?? origin,
+      rpID: options.badRpID ?? rpID,
     });
     const verifyResponse = await post(
       '/api/auth/passkey/verify-authentication',

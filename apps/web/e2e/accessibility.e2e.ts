@@ -161,6 +161,23 @@ test('username onboarding is fully usable by keyboard alone, with visible focus'
   await declineByKeyboard(page, 'Not now');
 });
 
+test('keyboard focus is visible, not only present in the DOM (ISSUE-167)', async ({
+  page,
+}) => {
+  // `toBeFocused()` elsewhere in this suite proves DOM focus state; it
+  // never proves a sighted keyboard user can see where focus is (WCAG
+  // 2.4.7). This asserts the actual rendered indicator.
+  await page.goto('/sign-in');
+  const email = page.getByLabel('Email');
+  await email.focus();
+  await expect(email).toBeFocused();
+  const boxShadow = await email.evaluate(
+    (el) => getComputedStyle(el).boxShadow,
+  );
+  expect(boxShadow).not.toBe('none');
+  expect(boxShadow.length).toBeGreaterThan(0);
+});
+
 test('the shared-computer decline choice is reachable with plain Tab in every engine', async ({
   page,
   request,

@@ -49,6 +49,8 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
     '(shell)/ranked/page.tsx': () => import('../../app/(shell)/ranked/page'),
     '(shell)/recordings/page.tsx': () =>
       import('../../app/(shell)/recordings/page'),
+    '(shell)/prep/page.tsx': () => import('../../app/(shell)/prep/page'),
+    '(shell)/train/page.tsx': () => import('../../app/(shell)/train/page'),
     '(shell)/settings/page.tsx': () =>
       import('../../app/(shell)/settings/page'),
     '(shell)/settings/security/page.tsx': () =>
@@ -102,7 +104,16 @@ describe('guarded pages', () => {
       actual: [
         ...new Set(guarded.map(({ route }) => route.split('/')[1])),
       ].sort(),
-      expected: ['judge', 'lobby', 'play', 'ranked', 'recordings', 'settings'],
+      expected: [
+        'judge',
+        'lobby',
+        'play',
+        'prep',
+        'ranked',
+        'recordings',
+        'settings',
+        'train',
+      ],
     });
     const requests = await requestsOf(guarded);
     assert({

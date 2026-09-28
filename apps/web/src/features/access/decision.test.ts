@@ -127,7 +127,7 @@ describe('decideAccess during a session-store outage', () => {
 });
 
 describe('isGuardedPath', () => {
-  test('the six participant areas and their descendants are guarded', () => {
+  test('the eight participant areas and their descendants are guarded', () => {
     assert({
       given: 'guarded roots, a descendant, lookalikes and spectator routes',
       should: 'guard only the roots and their descendants',
@@ -138,6 +138,8 @@ describe('isGuardedPath', () => {
         '/judge',
         '/recordings',
         '/settings',
+        '/prep',
+        '/train',
         '/lobby/abc',
         '/settings/security',
         '/playground',
@@ -148,6 +150,8 @@ describe('isGuardedPath', () => {
         '/',
       ].map(isGuardedPath),
       expected: [
+        true,
+        true,
         true,
         true,
         true,

@@ -8,7 +8,7 @@
  */
 type PlaywrightResult = { status: string; retry: number };
 type PlaywrightTest = { results: PlaywrightResult[]; projectName?: string };
-type PlaywrightSpec = { tests: PlaywrightTest[] };
+type PlaywrightSpec = { title?: string; tests: PlaywrightTest[] };
 type PlaywrightSuite = { specs?: PlaywrightSpec[]; suites?: PlaywrightSuite[] };
 type PlaywrightReport = {
   suites: PlaywrightSuite[];
@@ -27,6 +27,7 @@ export type ProjectCounts = {
   failed: number;
   skipped: number;
   retried: number;
+  skippedTitles: string[];
 };
 
 function collectSpecs(suite: PlaywrightSuite): PlaywrightSpec[] {
@@ -51,11 +52,13 @@ export function countsByProject(
           failed: 0,
           skipped: 0,
           retried: 0,
+          skippedTitles: [],
         });
         counts.discovered += 1;
         const last = test.results.at(-1);
         if (!last || last.status === 'skipped') {
           counts.skipped += 1;
+          counts.skippedTitles.push(spec.title ?? '(untitled test)');
           continue;
         }
         counts.executed += 1;
@@ -67,7 +70,7 @@ export function countsByProject(
 }
 
 export type CountsProblem = {
-  code: 'EMPTY_SELECTION' | 'RETRY_PASS';
+  code: 'EMPTY_SELECTION' | 'RETRY_PASS' | 'SKIPPED_TEST';
   detail: string;
 };
 
@@ -81,12 +84,22 @@ export function countsProblems(
       code: 'EMPTY_SELECTION',
       detail: 'no tests were discovered; the E2E project selection is empty',
     });
-  for (const [project, counts] of projects)
+  for (const [project, counts] of projects) {
     if (counts.retried > 0)
       problems.push({
         code: 'RETRY_PASS',
         detail: `${project}: ${counts.retried} test(s) needed a retry; a retry-pass is not release proof`,
       });
+    // A skipped or fixme'd required test (test.skip/test.fixme, or a
+    // conditional skip a project hit) reports Playwright status "skipped";
+    // a required suite has none, so any is a quarantined test the gate
+    // must catch (ISSUE-164), named so it can be found.
+    for (const title of counts.skippedTitles)
+      problems.push({
+        code: 'SKIPPED_TEST',
+        detail: `${project}: "${title}" was skipped; a required E2E project may not skip, fixme or focus a test`,
+      });
+  }
   return problems;
 }
 

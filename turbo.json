@@ -30,10 +30,12 @@
       "persistent": true,
       "passThroughEnv": [
         "BETTER_AUTH_SECRET",
+        "RECIPIENT_HASH_SECRET",
         "RESEND_API_KEY",
         "AUTH_EMAIL_FROM",
         "RESEND_WEBHOOK_SECRET",
-        "AUTH_TRUSTED_PROXIES"
+        "AUTH_TRUSTED_PROXIES",
+        "OPS_PROBE_TOKEN"
       ]
     },
     "build": {
