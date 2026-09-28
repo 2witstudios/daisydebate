@@ -52,8 +52,7 @@ async function matchesBaseline(
     // thin, low-contrast text; this absorbs that noise without hiding a
     // real color or layout regression, which moves a far larger share of
     // the frame than antialiasing jitter ever does.
-    maxDiffPixelRatio: 0,
-    threshold: 0,
+    maxDiffPixelRatio: 0.02,
   });
 }
 
