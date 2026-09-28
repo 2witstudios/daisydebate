@@ -48,7 +48,7 @@ export function CheckInbox({
           <ol className="flex flex-col gap-4">
             {nextSteps.map((step, index) => (
               <li key={step} className="flex items-start gap-3">
-                <span className="flex size-auth-step shrink-0 items-center justify-center rounded-full border border-border-strong text-sm font-bold text-ink">
+                <span className="flex size-auth-step shrink-0 items-center justify-center rounded-full border border-stage-ink-muted text-sm font-bold text-stage-ink">
                   {index + 1}
                 </span>
                 <span>{step}</span>

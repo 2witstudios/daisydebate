@@ -42,7 +42,12 @@ ink (`text-stage-ink`, `text-stage-ink-muted`) and button
 (`bg-stage-accent`, `hover:bg-stage-accent-strong`,
 `text-stage-accent-ink`), never the page's `text-ink` or `bg-accent`: in
 light those are forest, and they would disappear on the stage. Stage
-moments today are the featured tournament and the auth panel.
+moments today are the featured tournament and the auth panel, including
+the step bodies passed into it (the check-inbox steps, the saved-passkey
+facts). Each one's render test runs `pageColourClasses`
+(`apps/web/src/ui/test-support/stage-palette.ts`) and fails on any
+page-palette colour class; add the same assertion to any new stage
+surface.
 
 ## Brand graphics
 
