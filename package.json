@@ -36,6 +36,7 @@
     "hooks:install": "git config core.hooksPath .githooks",
     "agent:spawn": "bun scripts/agent-spawn.ts spawn",
     "agent:send": "bun scripts/agent-spawn.ts send",
+    "agent:cap": "bun scripts/agent-cap.ts",
     "loop:escalate": "bun scripts/loop.ts escalate",
     "loop:close": "bun scripts/loop.ts close",
     "loop:resume": "bun scripts/loop.ts resume",
