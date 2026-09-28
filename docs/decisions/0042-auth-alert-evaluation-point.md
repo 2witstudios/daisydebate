@@ -153,7 +153,7 @@ lands, the `alert-*` keys and `/api/ops/metrics`'s counters classify as
 
 **Known limitations, accepted rather than engineered around:**
 
-- **Corrected by [ADR 0045](0045-auth-alert-probe-cadence-correction.md):**
+- **Corrected by [ADR 0046](0046-auth-alert-probe-cadence-correction.md):**
   this bullet originally read "GitHub's `schedule` trigger is best-effort
   and can run a few minutes late under platform load." Measured over 43.5
   hours (ISSUE-157), the real gap between runs is 2–5 hours, not minutes —

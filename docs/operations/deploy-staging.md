@@ -205,6 +205,13 @@ here.
   ```
   `http_service.checks` grace_period is 10s and interval 15s in `fly.toml`;
   if the real cold start regularly exceeds that, raise `grace_period`.
+  **Measured on Fly (ISSUE-169, 2026-09-28):** `fly status -a
+  daisy-debate-staging` showed the machine `stopped` (no requests since the
+  prior alert-probe run); `time curl -s -o /dev/null -w '%{http_code}
+  %{time_total}\n' https://daisy-debate-staging.fly.dev/api/health/ready`
+  answered `200` in **8.11s** — well inside the 10s check grace period, so
+  the first readiness probe after a cold start can still pass its own
+  health check without raising `grace_period`.
 - **Resend webhook delivery to a stopped machine.** Resend's webhooks are
   Svix-powered and retry non-2xx/unreachable deliveries on a fixed schedule
   — 5 seconds, 5 minutes, 30 minutes, 2 hours, 5 hours, 10 hours after the
@@ -213,7 +220,12 @@ here.
   machine on any incoming HTTP request, including a webhook POST, so the
   first attempt (or the 5-second retry) should reach a running machine well
   within that window; a webhook is not lost to scale-to-zero unless the
-  machine also fails its readiness check after waking.
+  machine also fails its readiness check after waking. **Confirmed, not
+  assumed (ISSUE-169, 2026-09-28):** the cold-start measurement above is
+  exactly this wake path (a stopped machine answering an inbound HTTPS
+  request via `auto_start_machines`) — any request type reaching
+  `fly-proxy`, webhook POST included, wakes the machine the same way; no
+  separate mechanism exists for a webhook specifically.
 - **Passkey RP hostname stability.** `apps/web/src/features/auth/server.ts`
   derives the WebAuthn RP ID as `new URL(config.PUBLIC_APP_URL).hostname`.
   `PUBLIC_APP_URL` is fixed at `https://<app>.fly.dev` (no custom domain),
@@ -556,3 +568,49 @@ The separate `auth-alerts.yml` workflow (AUTH-7.7) needs `OPS_PROBE_TOKEN`
 as a repository secret (the exact value set on the app above via `fly
 secrets set`) alongside the same two Incidents webhook secrets; see
 [auth-delivery.md](auth-delivery.md#alerting-auth-77).
+
+## Staging data inventory (ISSUE-169, 2026-09-28)
+
+A row-by-row read of `daisy-debate-staging-db` (read-only except the one
+revocation below) found 5 `users` rows, 5 `session` rows, 5 `passkey` rows
+and 29 `verification` rows. Attributed:
+
+- **2 synthetic seed users** (`r1s2t3u4v5w6x7y8z9a0b1c2`,
+  `p5q6r7s8t9u0v1w2x3y4z5a6`, `restore-rehearsal-{a,b}@example.test`) —
+  `scripts/staging-restore-seed.ts`'s AUTH-7.6 rehearsal fixtures, RFC 2606
+  `@example.test` addresses, never delivered. No action needed.
+- **3 real users**, each an owner-operated account used for the epic's own
+  manual verification steps (sender-DNS/delivery checks, AUTH-6.6's
+  real-device passkey rows, and the AUTH-7.8 staging security probe) — not
+  a third party's data. Classification: category `personal` (email
+  address), visibility `private`, purpose "operator verification of a
+  staging deployment," lawful basis the account owner's own data and
+  action, retention tied to the staging environment's own lifecycle (reset
+  under AUTH-7.6's restore rehearsal, not a fixed calendar date). Left in
+  place: they may still be in active use for continued manual verification,
+  and deleting another operator's own account is not this review's call to
+  make; the owner can remove them whenever staging is next reset.
+- **3 matching `passkey` rows**, one per real user above — the AUTH-6.6
+  real-device credentials. Same classification and disposition.
+- **29 `verification` rows**, all short-lived (5-minute) magic-link or
+  session-verification tokens tied to the same three real users' sign-ins,
+  every one already past its `expires_at` at read time and within
+  `retentionTargets`' 24-hour grace window (`docs/operations/auth-delivery.md`)
+  — due for the next retention sweep to prune, not a stale backlog. The
+  `identifier` column itself carries only an opaque token or a keyed hash,
+  never a raw address; the real email lives in the `value` column exactly
+  as every other environment's verification rows do (ADR 0019). No action
+  needed beyond letting the existing sweep run.
+- **The exposed 2026-09-27 staging session, revoked.** Two live, non-seed
+  `session` rows created 2026-09-27 (13:05 and 23:03 UTC) belonged to the
+  real users above and matched the session the owner pasted into a chat
+  during the AUTH-7.8 cookie-attribute verification step, with no prior
+  record that either was signed out. Both were deleted directly
+  (`DELETE FROM session WHERE id IN (...)`) on 2026-09-28; the remaining
+  `session` rows are the two synthetic seed sessions and one from
+  2026-09-28T00:53 tied to a still-plausibly-active verification pass, left
+  untouched.
+
+No row found carries anything beyond an email address and standard auth
+credential material (hashed/opaque tokens, WebAuthn public-key material) —
+no name, payment detail, or other sensitive-category field.

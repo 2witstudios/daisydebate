@@ -1,4 +1,4 @@
-# 0045: The AUTH-7.7 alert probe's GitHub Actions schedule does not run at DEC-10's assumed cadence — owner decision needed to correct it
+# 0046: The AUTH-7.7 alert probe's GitHub Actions schedule does not run at DEC-10's assumed cadence — owner decision needed to correct it
 
 Status: accepted (the finding: DEC-10's assumed cadence does not hold in
 production). The fix between it is not decided — recorded as a pending
