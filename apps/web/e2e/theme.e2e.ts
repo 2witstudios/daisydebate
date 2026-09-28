@@ -73,8 +73,8 @@ const moreLink = (page: Page) =>
     .getByRole('link', { name: 'More' });
 
 const LIGHT_CHROME = [
-  '(prefers-color-scheme: light) → #f2f5f2',
-  '(prefers-color-scheme: dark) → #f2f5f2',
+  '(prefers-color-scheme: light) → #f5f0e4',
+  '(prefers-color-scheme: dark) → #f5f0e4',
 ];
 
 const servedTheme = (html: string) =>

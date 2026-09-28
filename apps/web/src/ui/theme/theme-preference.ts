@@ -51,8 +51,8 @@ export type ThemeColorEntry = {
   readonly color: string;
 };
 
-/** Browser chrome colors; they mirror the --background pair in globals.css. */
-const chromeColor = { light: '#f2f5f2', dark: '#0a0e0c' } as const;
+/** Browser chrome colors; they mirror the --background pair in globals.css (pinned by theme-preference.test.ts). */
+const chromeColor = { light: '#f5f0e4', dark: '#0d1812' } as const;
 
 /**
  * One theme-color entry per OS scheme, so the rendered metas keep stable
