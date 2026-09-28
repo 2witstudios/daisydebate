@@ -24,7 +24,7 @@ const FONT_DISPLAY = "Georgia, 'Iowan Old Style', 'Palatino Linotype', serif";
 const FONT_BODY =
   "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
-// The one Daisy green palette, shared with both confirm pages
+// The one Daisy board palette (ADR 0045), shared with both confirm pages
 // (brand-palette.ts): email clients cannot read CSS custom properties in
 // inline styles, so these stay plain values here too.
 const LIGHT = {
@@ -89,6 +89,7 @@ export function renderAuthEmailLayout(content: AuthEmailContent): {
     .auth-mail-ink p { color: ${DARK.ink} !important; }
     .auth-mail-muted { color: ${DARK.inkMuted} !important; }
     .auth-mail-accent { color: ${DARK.accent} !important; }
+    .auth-mail-accent-bg { background: ${DARK.accent} !important; }
     .auth-mail-button { background: ${DARK.accent} !important; color: ${DARK.accentInk} !important; }
     .auth-mail-button a { color: ${DARK.accentInk} !important; }
   }

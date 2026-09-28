@@ -145,6 +145,28 @@ describe('AUTH-3.9 auth email templates', () => {
       });
     });
 
+    test(`${input.kind}: the dark scheme overrides every element that carries a light colour inline`, () => {
+      const dark =
+        /@media \(prefers-color-scheme: dark\) \{([\s\S]*?)\n\s*\}\n/.exec(
+          rendered.html,
+        )?.[1] ?? '';
+      const body = rendered.html.slice(rendered.html.indexOf('<body'));
+      const classed = [
+        ...new Set(
+          [...body.matchAll(/class="(auth-mail-[a-z-]+)"/g)].map(
+            ([, name]) => name,
+          ),
+        ),
+      ];
+      assert({
+        given: `every auth-mail class on an element in the ${input.kind} body`,
+        should:
+          'have a rule in the dark block, so no light inline colour survives into a dark client',
+        actual: classed.filter((name) => !dark.includes(`.${name} {`)),
+        expected: [],
+      });
+    });
+
     test(`${input.kind}: has no JavaScript and no tracking pixels`, () => {
       assert({
         given: `the ${input.kind} HTML part`,

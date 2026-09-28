@@ -26,13 +26,13 @@ export const confirmPanelStyles = `.af-panel {
   width: 520px;
   height: 520px;
   z-index: -1;
-  /* A pre-mixed color, not opacity: some engines rasterize a large,
-     opacity-composited replaced element with a faint off-color box behind
-     it (visible on Linux, not on macOS Chromium). Painting the already-
-     blended color directly has no layer to composite, so there is nothing
-     to show through. */
 }
 
+/* Pre-mixed colours, not opacity: some engines rasterize a large,
+   opacity-composited replaced element with a faint off-color box behind it
+   (visible on Linux, not on macOS Chromium). Painting the already-blended
+   colours directly has no layer to composite, so there is nothing to show
+   through. */
 .af-panel-petal {
   fill: color-mix(in srgb, var(--af-cream) 20%, var(--af-surface-stage));
 }
