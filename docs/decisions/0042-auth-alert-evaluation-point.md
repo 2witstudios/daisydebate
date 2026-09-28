@@ -160,10 +160,13 @@ lands, the `alert-*` keys and `/api/ops/metrics`'s counters classify as
   GitHub's own docs describe delays "as much as 15 minutes, or even longer,"
   and this deployment falls well past even that. The 2-minute and
   10-minute alert windows lapse between runs at the cadence actually
-  observed; only the 2-hour `cleanup_missed` condition survives it. ADR
-  0045 lays out the fix (blocked on an owner decision between an always-on
-  in-app evaluator and a dedicated always-on prober machine) without
-  choosing one.
+  observed; only the 2-hour `cleanup_missed` condition reliably survives
+  the gap between scheduled runs on its own. **Owner decision (DEC-33,
+  2026-09-28): keep this exact mechanism and accept its best-effort
+  cadence** rather than build an always-on in-app evaluator or a dedicated
+  prober machine; DEC-10's five-minute figure is amended to best-effort for
+  staging. Proving the other three conditions live uses an independent
+  trigger plus `workflow_dispatch`, not the schedule itself (ISSUE-157-AC2).
 - `/api/ops/metrics` counters are per-process (reset on restart, not
   aggregated across instances in-app) — the normal Prometheus convention; a
   scraper aggregates across instances and restarts at query time, not this

@@ -50,18 +50,22 @@ primary_region = "ord"
   # Fly does not document a narrower CIDR for fly-proxy's own address, so the
   # whole prefix is trusted here — see docs/operations/deploy-staging.md
   # "Client identity on Fly" for the verification step run on first deploy.
-  # First-deploy finding (September 22): fly-proxy reaches the app over
-  # IPv4 from 172.16.0.0/12 (observed peers 172.16.x and 172.19.x), not
-  # from the fdaa::/8 6PN prefix, so trusting only fdaa::/8 left every
-  # caller resolved to the proxy's address — one shared rate-limit bucket.
-  # Only fly-proxy can reach a machine with no dedicated public IP, so the
-  # private IPv4 range is trusted as well.
-  # Second finding: after trusting 172.16/12 the resolved caller became a
-  # Fly edge node (66.241.125.x), i.e. the X-Forwarded-For chain is
-  # "<caller>, <edge>" and the edge hop is public. Fly's anycast edge range
-  # 66.241.124.0/22 is trusted too — a fallback range only, kept in case
-  # Fly-Client-IP is ever missing from a request through this path.
-  AUTH_TRUSTED_PROXIES = "fdaa::/8,172.16.0.0/12,66.241.124.0/22"
+  # ISSUE-162/DEC-36 (owner decision, 2026-09-28): 172.16.0.0/12 (a private
+  # IPv4 range reachable by any machine on this Fly org's network, not only
+  # fly-proxy) and 66.241.124.0/22 (Fly's public anycast edge range) are
+  # deliberately NOT trusted, even though an earlier first-deploy finding
+  # observed fly-proxy's own peer address on 172.16.x/172.19.x in this
+  # environment. The owner's answer: nothing outside fly-proxy's 6PN path
+  # may supply a client IP, full stop — trusting a range other machines or
+  # the public internet's edge could plausibly reach was a wider trust
+  # boundary than warranted, even though the safe failure mode (identity
+  # collapses to one shared rate-limit bucket, never data exposure) was
+  # already known. If the real peer address in this environment does not
+  # match fdaa::/8, every client resolves to fly-proxy's own address and
+  # rate limiting degrades to one shared bucket per path — verify this on
+  # first deploy after this change per deploy-staging.md's "Client identity
+  # on Fly" section, and escalate to the owner if it does.
+  AUTH_TRUSTED_PROXIES = "fdaa::/8"
 
 [http_service]
   # Must match Dockerfile EXPOSE and the PORT env above.

@@ -4,8 +4,10 @@
  * (`fly.toml`'s `min_machines_running = 0`), so nothing running inside the
  * app can notice its own multi-minute or multi-hour silence, or alert while
  * it is asleep or crash-looping. This script runs outside the app instead
- * (the scheduled `auth-alerts.yml` GitHub Actions workflow, every 5
- * minutes) and:
+ * (the scheduled `auth-alerts.yml` GitHub Actions workflow — configured for
+ * every 5 minutes, though GitHub's schedule trigger does not actually run
+ * that often in production; the owner accepted this best-effort cadence
+ * for staging rather than build a new scheduler, see ADR 0046/DEC-33) and:
  *
  *   1. probes the public origin's readiness endpoint — one non-mutating
  *      GET, proving routing (a 200 from the expected host), TLS (the fetch
@@ -57,6 +59,40 @@ export function evaluateOriginProbe(input: {
       issues.push(`${name}: expected "${expected}", got ${actual ?? 'none'}`);
   }
   return { ok: issues.length === 0, issues };
+}
+
+async function readHeaders(response: Response): Promise<Map<string, string>> {
+  const headers = new Map<string, string>();
+  for (const [name, value] of response.headers) headers.set(name, value);
+  return headers;
+}
+
+/**
+ * Fetches `/api/health/ready` and evaluates it. Never throws: an origin
+ * that cannot be reached at all (DNS failure, TLS failure, connection
+ * refused) is itself an origin-probe issue, modeled without ever
+ * constructing a placeholder `Response` — `Response` refuses a status
+ * outside 101/200-599 (`new Response(null, { status: 0 })` throws
+ * `RangeError`), which previously made an unreachable origin crash `main`
+ * before it could post anything (ISSUE-156).
+ */
+export async function fetchOriginProbe(
+  origin: string,
+): Promise<OriginProbeResult> {
+  try {
+    const response = await fetch(new URL('/api/health/ready', origin), {
+      redirect: 'error',
+    });
+    return evaluateOriginProbe({
+      status: response.status,
+      headers: await readHeaders(response),
+    });
+  } catch (error) {
+    return {
+      ok: false,
+      issues: [`/api/health/ready request failed: ${(error as Error).message}`],
+    };
+  }
 }
 
 /** Pure: the Incidents message for whatever fired, naming each condition's own runbook. */
@@ -191,12 +227,6 @@ export function resolveProbeConfig(
   return origin && token ? { origin, token, runUrl } : undefined;
 }
 
-async function readHeaders(response: Response): Promise<Map<string, string>> {
-  const headers = new Map<string, string>();
-  for (const [name, value] of response.headers) headers.set(name, value);
-  return headers;
-}
-
 async function main(): Promise<void> {
   const config = resolveProbeConfig(process.argv.slice(2), process.env);
   if (!config) {
@@ -208,17 +238,7 @@ async function main(): Promise<void> {
   }
   const { origin, token, runUrl } = config;
 
-  const readyResponse = await fetch(new URL('/api/health/ready', origin), {
-    redirect: 'error',
-  }).catch(
-    (error) =>
-      new Response(null, { status: 0, statusText: (error as Error).message }),
-  );
-  const originProbe = evaluateOriginProbe({
-    status: readyResponse.status,
-    headers: await readHeaders(readyResponse),
-  });
-
+  const originProbe = await fetchOriginProbe(origin);
   const alertConditions = await fetchAlertConditions(origin, token);
   const outcome = decideProbeOutcome({ originProbe, alertConditions, runUrl });
 

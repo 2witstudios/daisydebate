@@ -44,13 +44,13 @@ same privileges.
 
 ## Idle cost (per the owner's spend constraint)
 
-| Piece                                                                                       | Idle cost                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Source                             |
-| ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| Fly machine (shared-cpu-1x, 512mb), stopped (`min_machines_running = 0`)                    | $0 compute. Only rootfs storage is billed while stopped: $0.15 per 1GB for 30 days (this image is ~1.2GB, so a fraction of $0.15/mo when stopped)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | https://fly.io/docs/about/pricing/ |
-| Fly machine, running                                                                        | ~$0.00000156/s ≈ **$4.04/month if left running continuously** (region-dependent). **Owner decision DEC-10 (confirmed)**: the AUTH-7.7 alert probe (`auth-alerts.yml`) polls `/api/health/ready` and `/api/ops/alerts` every 5 minutes, well inside Fly's default auto-stop idle window, so the web machine is woken (or kept awake) on every cycle and effectively never reaches `min_machines_running = 0` in practice — the owner accepted this ~$4/month cost against the ~$0/month a slower or app-internal-only cadence would have kept, in exchange for the probe cadence AUTH-7.7 and ADR 0042 specify everywhere (dashboards, runbooks, the workflow itself); no cadence change followed from this trade-off | https://fly.io/docs/about/pricing/ |
-| Fly Postgres machine `daisy-debate-staging-db` (shared-cpu-1x 256MB, 1GB volume), always on | ≈ $1.94/month compute + $0.15/month volume. Owner decision: left running; `fly machine stop` between sessions drops it to the volume charge.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| Fly Redis `daisy-debate-staging-redis` (Upstash, Pay-as-you-go)                             | $0 at rest; $0.20 per 100K commands.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| Resend                                                                                      | Free tier covers low-volume staging email + webhooks; no idle cost beyond the account itself                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | https://resend.com/pricing         |
+| Piece                                                                                       | Idle cost                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Source                             |
+| ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| Fly machine (shared-cpu-1x, 512mb), stopped (`min_machines_running = 0`)                    | $0 compute. Only rootfs storage is billed while stopped: $0.15 per 1GB for 30 days (this image is ~1.2GB, so a fraction of $0.15/mo when stopped)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | https://fly.io/docs/about/pricing/ |
+| Fly machine, running                                                                        | ~$0.00000156/s ≈ **$4.04/month if left running continuously** (region-dependent). **Owner decision DEC-10 (confirmed, amended by DEC-33/ADR 0046, 2026-09-28)**: `auth-alerts.yml` polls `/api/health/ready` and `/api/ops/alerts` on a `*/5 * * * *` cron, but GitHub's `schedule` trigger runs it at a real, measured cadence of 2-5 hours apart, not every 5 minutes — the web machine wakes on each real run and then goes back to sleep for hours, so it does _not_ run continuously and the ~$4/month figure is an upper bound, not the actual spend. The owner accepted this best-effort cadence for staging (no new scheduler); the actual continuous-run cost this trade-off implied never materializes because the schedule itself never delivers the cadence that would have caused it. | https://fly.io/docs/about/pricing/ |
+| Fly Postgres machine `daisy-debate-staging-db` (shared-cpu-1x 256MB, 1GB volume), always on | ≈ $1.94/month compute + $0.15/month volume. Owner decision: left running; `fly machine stop` between sessions drops it to the volume charge.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Fly Redis `daisy-debate-staging-redis` (Upstash, Pay-as-you-go)                             | $0 at rest; $0.20 per 100K commands.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Resend                                                                                      | Free tier covers low-volume staging email + webhooks; no idle cost beyond the account itself                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | https://resend.com/pricing         |
 
 Net: about $6/month at rest (the Postgres machine plus the AUTH-7.7 probe
 keeping the web machine effectively always-on per DEC-10 — see the row
@@ -93,41 +93,38 @@ trusted, `client-ip.ts` (`resolveClientIp`, AUTH-7.9) reads `Fly-Client-IP`
 directly — it is Fly's own resolved value, not a chain to walk — and only
 falls back to walking `X-Forwarded-For` from the right when `Fly-Client-IP`
 is absent or unusable (a non-Fly trusted-proxy deployment, or a probe with
-no such header). `fly.toml` sets `AUTH_TRUSTED_PROXIES` to all three ranges
-its own comment records, each trusted for a distinct, observed reason:
+no such header). `fly.toml` sets `AUTH_TRUSTED_PROXIES` to exactly one
+range:
 
 - `fdaa::/8` — Fly's org-wide 6PN (private IPv6 network), fly-proxy's own
   address on it. Fly does not document a narrower CIDR specific to
   fly-proxy's own address, so the whole prefix is trusted.
-- `172.16.0.0/12` — the resolved peer was observed as a private IPv4
-  address, not the 6PN IPv6 range above, on the same connection path; only
-  fly-proxy can reach a machine with no dedicated public IP, so this range
-  is trusted for the same reason as the 6PN one.
-- `66.241.124.0/22` — Fly's public anycast edge range, kept as a fallback
-  for the case where the `X-Forwarded-For` chain's edge hop is public
-  (`<caller>, <edge>`) and `Fly-Client-IP` is unavailable.
 
-**Trust-boundary caveat, not yet owner-decided**: `fdaa::/8` and
-`172.16.0.0/12` are Fly's _org-wide_ 6PN, not something scoped to this one
-app's own fly-proxy instances — the internet cannot reach a machine's 6PN
-interface, but every machine in the `daisy-debate` Fly organization can
-(any other app, any developer's `fly ssh console` or WireGuard peer). Any
-such peer that connects directly to this app's internal port and sets
-`Fly-Client-IP` itself, bypassing fly-proxy, has that value taken verbatim
-as the resolved caller — `resolveClientIp` has no way to tell "fly-proxy
-forwarding a real caller" from "another org machine calling directly" once
-both are inside the trusted range. This never exposes application data (it
-can only let another org-internal machine choose its own rate-limit
-identity), but it is a real widening of who can influence that decision,
-and no owner sign-off accepting or narrowing it is recorded. **Recommendation:**
-narrow the trust to fly-proxy specifically if Fly ever documents a scoped
-mechanism for it (an internal-only listener bound to a fly-proxy-only
-interface, or a narrower published fly-proxy CIDR); until then, accepting
-the current org-wide trust is the pragmatic choice, since Fly does not
-publish a narrower boundary — but that acceptance is the owner's call, not
-this doc's or this codebase's to make silently. Tracked as the AUTH-7.0
-follow-up task on the drive's Tasks board until an owner decision records
-Confirmed or a narrower configuration ships.
+**Trust boundary (ISSUE-162/DEC-36, owner decision, 2026-09-28): nothing
+outside fly-proxy's 6PN path may supply a client IP, full stop.**
+`172.16.0.0/12` (a private IPv4 range any machine in the `daisy-debate` Fly
+organization can reach — another app, a developer's `fly ssh console` or
+WireGuard peer, not only fly-proxy) and `66.241.124.0/22` (Fly's public
+anycast edge range) were both trusted at first deploy because the observed
+peer address didn't match `fdaa::/8` alone (see below) — but neither is
+scoped to fly-proxy specifically, so both are now dropped. The owner
+weighed this against the earlier first-deploy finding (below) and decided
+the narrower trust boundary wins: if the real peer address in this
+environment turns out not to be on `fdaa::/8`, the safe failure mode is
+every caller collapsing to fly-proxy's own address (one shared rate-limit
+bucket, never data exposure) — not a wider, effectively org-wide trust of
+who may set `Fly-Client-IP`. Verify the real chain after the first deploy
+following this change (the same procedure below); escalate to the owner
+if it does not match `fdaa::/8`, rather than re-widening the range here.
+
+**Superseded first-deploy finding (September 22, pre-DEC-36):** fly-proxy
+was observed reaching the app over IPv4 from `172.16.0.0/12` (peers
+`172.16.x`/`172.19.x`), not from `fdaa::/8`, and — once that range was
+trusted — the resolved caller became a Fly edge node (`66.241.125.x`),
+i.e. an `X-Forwarded-For` chain of `<caller>, <edge>` with a public edge
+hop. Both ranges were trusted at the time to preserve per-client rate
+limiting. DEC-36 accepts the regression to one shared bucket as the price
+of the narrower trust boundary, pending re-verification below.
 
 **This is inferred from Fly's documented header contract, not measured**:
 Fly's docs do not state the literal TCP peer address an app process sees.
