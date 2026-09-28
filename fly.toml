@@ -37,37 +37,21 @@ primary_region = "ord"
   PUBLIC_APP_URL = "https://daisy-debate-staging.fly.dev"
   REDIS_NAMESPACE = "daisy"
   LOG_LEVEL = "info"
-  # AUTH_TRUSTED_PROXIES: Fly's edge (fly-proxy) terminates the client TLS
-  # connection and forwards over its private 6PN network, so the app's own
-  # ingress (apps/web/src/server/ingress.ts) sees fly-proxy's 6PN peer
-  # address on the socket, not the caller's address, unless this is trusted.
-  # Once trusted, the code reads the caller's address from Fly's own
-  # authoritative Fly-Client-IP header (AUTH-7.9, apps/web/src/features/
-  # auth/client-ip.ts), falling back to walking X-Forwarded-For from the
-  # right only when that header is absent or unusable (fly-proxy sets both
-  # per https://fly.io/docs/networking/request-headers/). fdaa::/8 is Fly's
-  # entire 6PN ULA prefix (https://fly.io/docs/networking/private-networking/);
-  # Fly does not document a narrower CIDR for fly-proxy's own address, so the
-  # whole prefix is trusted here — see docs/operations/deploy-staging.md
-  # "Client identity on Fly" for the verification step run on first deploy.
-  # ISSUE-162/DEC-36 (recorded, pending owner Confirmed status): 172.16.0.0/12
-  # (a private IPv4 range reachable by any machine on this Fly org's
-  # network, not only fly-proxy) and 66.241.124.0/22 (Fly's public anycast
-  # edge range) are deliberately NOT trusted, even though an earlier
-  # first-deploy finding observed fly-proxy's own peer address on
-  # 172.16.x/172.19.x in this environment. Nothing outside fly-proxy's 6PN
-  # path may supply a client IP, full stop. CONCRETE CONSEQUENCE if that
-  # first-deploy finding still holds: every client collapses to fly-proxy's
-  # single address, so every client-keyed rate limit becomes one shared
-  # bucket for all of staging — the magic-link rule (3 requests/60s per
-  # client, apps/web/src/features/auth/rate-limit.ts) becomes 3 requests/60s
-  # for the whole environment, meaning any one caller can lock every other
-  # tester out of sign-in for up to a minute. See
-  # docs/operations/deploy-staging.md's "Client identity on Fly" section for
-  # the full framing; verify the real peer chain on first deploy after this
-  # change, and escalate to the owner before leaving this in place if it
-  # does not match fdaa::/8.
-  AUTH_TRUSTED_PROXIES = "fdaa::/8"
+  # AUTH_TRUSTED_PROXIES: fly-proxy terminates the client TLS connection and
+  # reaches the app over the machine's private IPv4 link (the app binds
+  # 0.0.0.0, as https://fly.io/docs/networking/app-services/ requires), so
+  # the socket peer the ingress sees is fly-proxy, not the caller. Measured
+  # on staging (ISSUE-162, 2026-09-28): every public connection arrives from
+  # the machine's default gateway (172.19.3.97 on that host), never from 6PN
+  # (fdaa::/8). `gateway` trusts exactly that one address, read from
+  # /proc/net/route at start (apps/web/src/server/trusted-proxies.ts); a
+  # trusted peer's Fly-Client-IP then names the caller
+  # (apps/web/src/features/auth/client-ip.ts). DEC-39 (supersedes DEC-36):
+  # no range is trusted — not 6PN, which every machine and WireGuard peer in
+  # the org shares, nor 172.16.0.0/12 or Fly's public edge. With no single
+  # gateway it trusts nothing and logs ingress.trusted_proxy.unresolved. See
+  # docs/operations/deploy-staging.md "Client identity on Fly".
+  AUTH_TRUSTED_PROXIES = "gateway"
 
 [http_service]
   # Must match Dockerfile EXPOSE and the PORT env above.

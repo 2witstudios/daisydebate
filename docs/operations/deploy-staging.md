@@ -75,75 +75,51 @@ evidence" step; the local proof is
 HttpOnly, Secure, SameSite session cookie" test, over the production
 server's HTTPS front.
 
-## Client identity on Fly (verify on first deploy)
+## Client identity on Fly (verify on every deploy)
 
 `apps/web/src/server/ingress.ts` stamps `x-daisy-client-ip` from the raw
 socket peer unless that peer is a configured trusted proxy (zero trust: a
 forwarded header is only ever read from a peer the deployment names as its
 own proxy). Fly's edge (fly-proxy) terminates the client's TLS connection
-and forwards to the app's machine over Fly's private 6PN network
-(https://fly.io/docs/networking/private-networking/, prefix `fdaa::/8`), so
-the socket peer the app sees is fly-proxy's 6PN address, not the caller's —
-`AUTH_TRUSTED_PROXIES` must include that range or every request collapses to
-one shared rate-limit identity. Fly documents that fly-proxy sets both
-`Fly-Client-IP` and `X-Forwarded-For` "including the address of the client
-that originated the request"
-(https://fly.io/docs/networking/request-headers/). Once the peer is
-trusted, `client-ip.ts` (`resolveClientIp`, AUTH-7.9) reads `Fly-Client-IP`
-directly — it is Fly's own resolved value, not a chain to walk — and only
-falls back to walking `X-Forwarded-For` from the right when `Fly-Client-IP`
-is absent or unusable (a non-Fly trusted-proxy deployment, or a probe with
-no such header). `fly.toml` sets `AUTH_TRUSTED_PROXIES` to exactly one
-range:
+and reaches the machine over its private IPv4 link — "Fly Proxy reaches
+services through a private IPv4 address on each VM, so the process should
+listen on `0.0.0.0:<port>`" (https://fly.io/docs/networking/app-services/),
+which `apps/web/src/server/start.ts` does. The socket peer is therefore
+fly-proxy, not the caller. Once that peer is trusted, `client-ip.ts`
+(`resolveClientIp`, AUTH-7.9) reads Fly's own resolved `Fly-Client-IP`
+(https://fly.io/docs/networking/request-headers/), falling back to walking
+`X-Forwarded-For` from the right only when it is absent or unusable.
 
-- `fdaa::/8` — Fly's org-wide 6PN (private IPv6 network), fly-proxy's own
-  address on it. Fly does not document a narrower CIDR specific to
-  fly-proxy's own address, so the whole prefix is trusted.
+**Measured, not inferred (ISSUE-162, 2026-09-28, machine `811006b93572d8`):**
+reading `/proc/net/tcp` and `/proc/net/tcp6` over `fly ssh console` during
+about 40 seconds of public requests showed the app listening on IPv4
+`0.0.0.0:8080` only, and every public connection arriving from
+`172.19.3.97` — the machine's default gateway (the host end of its
+`172.19.3.96/29` link; the machine is `.98`). None arrived over 6PN
+(`fdaa::/8`), which the app does not listen on for this port. Two short
+connections came from `172.16.3.98`, not the gateway; they are untrusted
+and resolve to themselves, which costs nothing because they are not
+sign-in traffic.
 
-**Trust boundary (ISSUE-162/DEC-36 — recorded, not yet Confirmed by the
-owner on the decisions register; the concrete consequence below was
-identified after the initial framing and needs the owner's explicit
-sign-off against it, not just the general narrowing): nothing outside
-fly-proxy's 6PN path may supply a client IP, full stop.**
-`172.16.0.0/12` (a private IPv4 range any machine in the `daisy-debate` Fly
-organization can reach — another app, a developer's `fly ssh console` or
-WireGuard peer, not only fly-proxy) and `66.241.124.0/22` (Fly's public
-anycast edge range) were both trusted at first deploy because the observed
-peer address didn't match `fdaa::/8` alone (see below) — but neither is
-scoped to fly-proxy specifically, so both are dropped here.
+**Trust boundary (DEC-39, owner decision 2026-09-28, supersedes DEC-36):
+only this machine's default gateway may supply a client IP.** `fly.toml`
+sets `AUTH_TRUSTED_PROXIES = "gateway"`. At start, `start.ts` reads
+`/proc/net/route` once and `apps/web/src/server/trusted-proxies.ts`
+(`defaultGateway`, `resolveTrustedProxies`) replaces the keyword with that
+single address — derived per machine, so it follows a machine moved to
+another host without a config change. No range is trusted: not `fdaa::/8`
+(every machine and WireGuard/`fly ssh` peer in the organization shares it),
+not the rest of `172.16.0.0/12`, and not Fly's public edge
+(`66.241.124.0/22`), which is never the socket peer. When the table has no
+default gateway, or more than one, nothing is trusted for the keyword and
+the server logs `ingress.trusted_proxy.unresolved` (warn) at start. That
+fails closed: every caller then shares the gateway's identity, so
+client-keyed rate limits become one staging-wide bucket (the magic-link
+rule, `MAGIC_LINK_CLIENT_RULE` in `apps/web/src/features/auth/rate-limit.ts`,
+becomes 3 requests per 60 seconds for everyone). Treat that event as an
+incident, not noise.
 
-**Concrete consequence if the September 22 finding still holds** (fly-proxy's
-real peer on this deployment is `172.16.x`/`172.19.x`, not `fdaa::/8`):
-every caller collapses to fly-proxy's own single address, so every
-rate-limit rule keyed by client identity becomes one shared bucket for
-_all_ of staging combined — not a per-caller inconvenience. The magic-link
-client rule is 3 requests per 60 seconds per client
-(`apps/web/src/features/auth/rate-limit.ts`'s `MAGIC_LINK_CLIENT_RULE`);
-collapsed to one shared identity, that becomes **3 magic-link sign-in
-requests per 60 seconds for the entire staging environment** — three
-requests from anyone exhausts it, and every other sign-in attempt is
-rate-limited until the window rolls over. A single caller (deliberately or
-by retrying a failed request) can lock every other tester out of signing in
-for up to a minute at a time. This is a real availability regression, not
-merely "one shared bucket," and needs the owner's sign-off against this
-specific consequence — not only the general "narrow the trust boundary"
-framing — before this ships. Verify the real peer chain immediately after
-the first deploy following this change (the same procedure below); if it
-does not match `fdaa::/8`, escalate to the owner before leaving the
-narrower config in place, rather than silently accepting the lockout risk
-or quietly re-widening the range.
-
-**Superseded first-deploy finding (September 22, pre-DEC-36):** fly-proxy
-was observed reaching the app over IPv4 from `172.16.0.0/12` (peers
-`172.16.x`/`172.19.x`), not from `fdaa::/8`, and — once that range was
-trusted — the resolved caller became a Fly edge node (`66.241.125.x`),
-i.e. an `X-Forwarded-For` chain of `<caller>, <edge>` with a public edge
-hop. Both ranges were trusted at the time to preserve per-client rate
-limiting.
-
-**This is inferred from Fly's documented header contract, not measured**:
-Fly's docs do not state the literal TCP peer address an app process sees.
-Confirm the real chain after first deploy by comparing, never by
+Confirm the resolved identity after each deploy by comparing, never by
 recomputing: the log line's `clientIdHash` is keyed by a subkey of
 `BETTER_AUTH_SECRET` (`apps/web/src/features/auth/client-ip.ts`), so it
 cannot be reproduced from an address, and the raw address is never
@@ -183,10 +159,10 @@ so a caller-supplied `Fly-Client-IP` or `X-Forwarded-For` never reaches
 trusted a caller-supplied hop, so a caller could pick its rate-limit
 identity.
 
-If the resolved client address is not the real caller, widen or correct
-`AUTH_TRUSTED_PROXIES` in `fly.toml` and redeploy — do not leave it unset,
-since that degrades every user to one shared rate-limit bucket per auth
-path (safe, but defeats per-client rate limiting).
+If every caller resolves to one hash, first check the start-up log for
+`ingress.trusted_proxy.unresolved`, then re-measure the peer address as
+above before changing `AUTH_TRUSTED_PROXIES`; never widen it to a range to
+make the symptom go away.
 
 Better Auth trusts only `x-daisy-client-ip` (`CLIENT_IP_HEADER`), stamped by
 the ingress above — there is no deployment-configurable header list to set

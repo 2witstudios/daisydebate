@@ -35,6 +35,7 @@ export const eventRegistry = {
   'redis.command.failed': 'error',
   'server.start': 'info',
   'server.shutdown': 'info',
+  'ingress.trusted_proxy.unresolved': 'warn',
   'telemetry.unknown_event': 'warn',
 } as const satisfies Record<string, 'info' | 'warn' | 'error'>;
 
