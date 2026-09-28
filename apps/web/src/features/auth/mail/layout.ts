@@ -90,6 +90,7 @@ export function renderAuthEmailLayout(content: AuthEmailContent): {
     .auth-mail-muted { color: ${DARK.inkMuted} !important; }
     .auth-mail-accent { color: ${DARK.accent} !important; }
     .auth-mail-button { background: ${DARK.accent} !important; color: ${DARK.accentInk} !important; }
+    .auth-mail-button a { color: ${DARK.accentInk} !important; }
   }
 </style>
 </head>
