@@ -153,9 +153,17 @@ lands, the `alert-*` keys and `/api/ops/metrics`'s counters classify as
 
 **Known limitations, accepted rather than engineered around:**
 
-- GitHub's `schedule` trigger is best-effort and can run a few minutes late
-  under platform load; the 2-minute/10-minute/2-hour windows already have
-  margin built in and no criterion asks for second-level precision.
+- **Corrected by [ADR 0045](0045-auth-alert-probe-cadence-correction.md):**
+  this bullet originally read "GitHub's `schedule` trigger is best-effort
+  and can run a few minutes late under platform load." Measured over 43.5
+  hours (ISSUE-157), the real gap between runs is 2–5 hours, not minutes —
+  GitHub's own docs describe delays "as much as 15 minutes, or even longer,"
+  and this deployment falls well past even that. The 2-minute and
+  10-minute alert windows lapse between runs at the cadence actually
+  observed; only the 2-hour `cleanup_missed` condition survives it. ADR
+  0045 lays out the fix (blocked on an owner decision between an always-on
+  in-app evaluator and a dedicated always-on prober machine) without
+  choosing one.
 - `/api/ops/metrics` counters are per-process (reset on restart, not
   aggregated across instances in-app) — the normal Prometheus convention; a
   scraper aggregates across instances and restarts at query time, not this
