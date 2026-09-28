@@ -1,12 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { installedPlaywrightVersion, visualServerArgs } from './visual-server';
+import { pinnedPlaywrightVersion, visualServerArgs } from './visual-server';
 
 setupRitewayBun();
 
 describe('visualServerArgs', () => {
-  test('runs the Playwright image matching the installed version', () => {
+  test('runs the Playwright image matching the pinned version', () => {
     const args = visualServerArgs('1.63.0');
     assert({
       given: 'Playwright 1.63.0',
@@ -57,20 +57,18 @@ describe('bun visual:server', () => {
     });
   });
 
-  test('reads the version the web app actually installed', () => {
-    const installed = JSON.parse(
-      readFileSync(
-        require.resolve('@playwright/test/package.json', {
-          paths: [join(import.meta.dir, '../apps/web')],
-        }),
-        'utf8',
-      ),
-    ).version as string;
+  test('reads the exact version the web app pins', () => {
+    const version = pinnedPlaywrightVersion();
     assert({
-      given: 'the installed @playwright/test',
-      should: 'report its version',
-      actual: installedPlaywrightVersion(),
-      expected: installed,
+      given: "the web app's @playwright/test pin",
+      should: 'be an exact version the server command accepts',
+      actual: [
+        /^\d+\.\d+\.\d+$/.test(version),
+        visualServerArgs(version).includes(
+          `mcr.microsoft.com/playwright:v${version}-noble`,
+        ),
+      ],
+      expected: [true, true],
     });
   });
 });

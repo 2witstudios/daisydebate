@@ -287,7 +287,8 @@ To regenerate after an intended visual change, run the same command with
 --update-snapshots` from `apps/web`, with `PW_WS_ENDPOINT` set), review the
 image diff, and record the before/after on the plan. `bun visual:server`
 runs `scripts/visual-server.ts`, which takes the image tag and run-server
-version from the installed `@playwright/test`, so they always match. The
+version from the web app's exact `@playwright/test` pin, so they always
+match. The
 command lives in a script because Bun rewrites `npx` in a `package.json`
 script to `bun x`, which the image lacks (ISSUE-92).
 
