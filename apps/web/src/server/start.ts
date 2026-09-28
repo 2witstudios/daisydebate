@@ -16,6 +16,7 @@ import {
   retentionTargets,
   startRetentionSweep,
 } from './retention-sweep';
+import { waitForHealthy } from './wait-for-healthy';
 
 // Refuses anything but NODE_ENV=production before building the app.
 const { port } = processStartOptions();
@@ -44,7 +45,13 @@ server.listen(port, '0.0.0.0', () =>
     'Server listening',
   ),
 );
-// The one bounded retention sweep runs at start and then hourly in this process; `unref` never holds it open.
+// The one bounded retention sweep runs at start and then hourly in this
+// process; `unref` never holds it open. The start-up run waits for Redis to
+// answer first (ISSUE-146): a scale-to-zero Fly machine's Redis connection
+// is not necessarily ready the instant this process starts listening, and
+// readiness already reports 503 correctly during that window (a live check
+// per request, never a boot flag) — this only stops the sweep from logging
+// a spurious retention.sweep.failed on every cold boot.
 const retention = startRetentionSweep({
   sweep: createRetentionSweep({
     targets: retentionTargets({ database: app.database, redis: app.redis }),
@@ -52,6 +59,11 @@ const retention = startRetentionSweep({
     logger: app.logger,
   }),
   runOnStart: true,
+  waitUntilReady: () =>
+    waitForHealthy({
+      health: () => app.redis.health(),
+      sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    }).then(() => undefined),
   timers: {
     setInterval: (tick, ms) => setInterval(tick, ms).unref(),
     clearInterval: (handle) => clearInterval(handle as NodeJS.Timeout),

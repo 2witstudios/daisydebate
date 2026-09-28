@@ -72,6 +72,37 @@ describe('retention sweep schedule', () => {
     });
   });
 
+  test('the start-up run waits for waitUntilReady before sweeping, never before (ISSUE-146)', async () => {
+    const { state, timers } = fakeTimers();
+    const gated = gatedSweep();
+    let releaseReady: () => void = () => {};
+    const ready = new Promise<void>((resolve) => {
+      releaseReady = resolve;
+    });
+    const schedule = startRetentionSweep({
+      sweep: gated.sweep,
+      timers,
+      runOnStart: true,
+      waitUntilReady: () => ready,
+    });
+    // Drain microtasks: nothing has run yet because waitUntilReady has not
+    // resolved (a cold Fly boot's Redis connection not answering yet).
+    for (let hop = 0; hop < 10; hop += 1) await Promise.resolve();
+    const beforeReady = gated.state.started;
+    releaseReady();
+    // Let the now-unblocked waitUntilReady microtask run tick(), which
+    // calls sweep.run(); only then is there a run to release.
+    for (let hop = 0; hop < 10; hop += 1) await Promise.resolve();
+    gated.state.release();
+    await schedule.initial;
+    assert({
+      given: 'a start-up run gated on waitUntilReady, which has not resolved yet',
+      should: 'start no sweep until it resolves, then run exactly once',
+      actual: { beforeReady, afterReady: gated.state.started },
+      expected: { beforeReady: 0, afterReady: 1 },
+    });
+  });
+
   test('stop clears the timer, stops the sweep, waits for the run in progress and starts no new run', async () => {
     const { state, timers } = fakeTimers();
     const gated = gatedSweep();
