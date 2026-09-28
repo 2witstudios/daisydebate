@@ -93,11 +93,41 @@ trusted, `client-ip.ts` (`resolveClientIp`, AUTH-7.9) reads `Fly-Client-IP`
 directly — it is Fly's own resolved value, not a chain to walk — and only
 falls back to walking `X-Forwarded-For` from the right when `Fly-Client-IP`
 is absent or unusable (a non-Fly trusted-proxy deployment, or a probe with
-no such header). `fly.toml` sets `AUTH_TRUSTED_PROXIES = "fdaa::/8"` — Fly
-does not document a narrower CIDR specific to fly-proxy's own address, so
-the whole 6PN prefix is trusted (only Fly's own infrastructure can
-originate traffic on that private network; the internet cannot reach a Fly
-machine's 6PN interface directly).
+no such header). `fly.toml` sets `AUTH_TRUSTED_PROXIES` to all three ranges
+its own comment records, each trusted for a distinct, observed reason:
+
+- `fdaa::/8` — Fly's org-wide 6PN (private IPv6 network), fly-proxy's own
+  address on it. Fly does not document a narrower CIDR specific to
+  fly-proxy's own address, so the whole prefix is trusted.
+- `172.16.0.0/12` — the resolved peer was observed as a private IPv4
+  address, not the 6PN IPv6 range above, on the same connection path; only
+  fly-proxy can reach a machine with no dedicated public IP, so this range
+  is trusted for the same reason as the 6PN one.
+- `66.241.124.0/22` — Fly's public anycast edge range, kept as a fallback
+  for the case where the `X-Forwarded-For` chain's edge hop is public
+  (`<caller>, <edge>`) and `Fly-Client-IP` is unavailable.
+
+**Trust-boundary caveat, not yet owner-decided**: `fdaa::/8` and
+`172.16.0.0/12` are Fly's *org-wide* 6PN, not something scoped to this one
+app's own fly-proxy instances — the internet cannot reach a machine's 6PN
+interface, but every machine in the `daisy-debate` Fly organization can
+(any other app, any developer's `fly ssh console` or WireGuard peer). Any
+such peer that connects directly to this app's internal port and sets
+`Fly-Client-IP` itself, bypassing fly-proxy, has that value taken verbatim
+as the resolved caller — `resolveClientIp` has no way to tell "fly-proxy
+forwarding a real caller" from "another org machine calling directly" once
+both are inside the trusted range. This never exposes application data (it
+can only let another org-internal machine choose its own rate-limit
+identity), but it is a real widening of who can influence that decision,
+and no owner sign-off accepting or narrowing it is recorded. **Recommendation:**
+narrow the trust to fly-proxy specifically if Fly ever documents a scoped
+mechanism for it (an internal-only listener bound to a fly-proxy-only
+interface, or a narrower published fly-proxy CIDR); until then, accepting
+the current org-wide trust is the pragmatic choice, since Fly does not
+publish a narrower boundary — but that acceptance is the owner's call, not
+this doc's or this codebase's to make silently. Tracked as the AUTH-7.0
+follow-up task on the drive's Tasks board until an owner decision records
+Confirmed or a narrower configuration ships.
 
 **This is inferred from Fly's documented header contract, not measured**:
 Fly's docs do not state the literal TCP peer address an app process sees.
