@@ -85,17 +85,30 @@ async function resendNotice(response: Response): Promise<string> {
  * Rate-limited or transient failure: keep the token in the POST-only form so
  * the person can retry, without ever placing it in a URL.
  */
-function retryView(token: string, hidden: Hidden, response: Response) {
+function retryView(
+  token: string,
+  hidden: Hidden,
+  response: Response,
+  request: Request,
+) {
   const limited = response.status === 429;
   return renderConfirmPage(
     {
       kind: 'confirm',
       token,
       hidden,
+      // The mock's exact retry copy: only the lead sentence is bold.
       notice: limited
-        ? 'Too many attempts. Wait a moment and try again.'
-        : 'We could not complete sign-in. Please try again.',
+        ? {
+            lead: 'Too many attempts.',
+            rest: 'Wait a minute, then select the button again. Your link still works.',
+          }
+        : {
+            lead: 'We could not complete sign-in.',
+            rest: 'Please try again.',
+          },
     },
+    request,
     limited ? 429 : 503,
     { 'Retry-After': (limited && retryAfter(response)) || '5' },
   );
@@ -113,8 +126,8 @@ export function createConfirmHandlers({
     const token = params.get('token');
     const hidden = hiddenFrom(params);
     return token && tokenShape.test(token)
-      ? renderConfirmPage({ kind: 'confirm', token, hidden })
-      : renderConfirmPage({ kind: 'expired', hidden });
+      ? renderConfirmPage({ kind: 'confirm', token, hidden }, request)
+      : renderConfirmPage({ kind: 'expired', hidden }, request);
   };
 
   const redeem = async (
@@ -150,7 +163,7 @@ export function createConfirmHandlers({
     }
     if (response.status >= 300 && response.status < 400)
       return redirect(EXPIRED);
-    return retryView(token, hidden, response);
+    return retryView(token, hidden, response, request);
   };
 
   const resend = async (request: Request, form: URLSearchParams) => {
@@ -159,6 +172,7 @@ export function createConfirmHandlers({
     if (!emailShape.test(email))
       return renderConfirmPage(
         { kind: 'expired', hidden, notice: 'Enter a valid email address.' },
+        request,
         400,
       );
     const response = await forward(request, '/api/auth/sign-in/magic-link', {
@@ -170,10 +184,11 @@ export function createConfirmHandlers({
         newUserCallbackURL: hidden.newUserCallbackURL ?? NEW_USER_DESTINATION,
       }),
     });
-    if (response.ok) return renderConfirmPage({ kind: 'sent' });
+    if (response.ok) return renderConfirmPage({ kind: 'sent' }, request);
     const retry = retryAfter(response);
     return renderConfirmPage(
       { kind: 'expired', hidden, notice: await resendNotice(response) },
+      request,
       [422, 429].includes(response.status) ? response.status : 503,
       retry ? { 'Retry-After': retry } : {},
     );

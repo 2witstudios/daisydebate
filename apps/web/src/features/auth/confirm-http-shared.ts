@@ -1,8 +1,35 @@
 import { createAppError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import { handleOperation } from '../../server/http';
+import {
+  parseThemePreference,
+  preferenceFromCookies,
+  type ThemePreference,
+} from '../../ui/theme/theme-preference';
 import { readBoundedBody } from './bounded-body';
 import { CLIENT_IP_HEADER } from './client-ip';
+
+export type PageContext = {
+  /** Absent when `x-nonce` is missing or malformed: the page then renders
+   * with no `<style>` at all, rather than trust an unvalidated value. */
+  readonly nonce: string | undefined;
+  readonly theme: ThemePreference;
+};
+
+// `proxy-handler.ts` encodes 16 CSPRNG bytes as base64: exactly 22 base64
+// characters plus the fixed "==" padding those 16 bytes always produce.
+const NONCE_SHAPE = /^[A-Za-z0-9+/]{22}==$/;
+
+/** Pure: derives the nonce and theme every confirm-page render needs. */
+export function pageContext(request: Request): PageContext {
+  const rawNonce = request.headers.get('x-nonce');
+  const nonce = rawNonce && NONCE_SHAPE.test(rawNonce) ? rawNonce : undefined;
+  const cookie = request.headers.get('cookie');
+  const theme = cookie
+    ? preferenceFromCookies(cookie)
+    : parseThemePreference(undefined);
+  return { nonce, theme };
+}
 
 export type ConfirmAuth = () => {
   readonly handler: (request: Request) => Promise<Response>;
