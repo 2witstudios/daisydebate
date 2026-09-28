@@ -3,7 +3,7 @@ import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { Button } from '../../components/button/button';
 import { byText } from '../../test-support/find-elements';
-import { pageColourClasses } from '../../test-support/stage-palette';
+import { panelPageColours } from '../../test-support/stage-palette';
 import { CheckInbox, type CheckInboxProps } from './check-inbox';
 
 setupRitewayBun();
@@ -85,7 +85,7 @@ describe('CheckInbox', () => {
     assert({
       given: 'the numbered steps on the forest stage panel',
       should: 'use no page-palette colour, which is forest on forest in light',
-      actual: pageColourClasses(page.slice(page.indexOf('<aside'))),
+      actual: panelPageColours(page),
       expected: [],
     });
   });

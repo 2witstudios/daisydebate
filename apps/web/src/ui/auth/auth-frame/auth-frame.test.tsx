@@ -2,7 +2,7 @@ import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { AuthFrame, AuthHeading } from './auth-frame';
-import { pageColourClasses } from '../../test-support/stage-palette';
+import { panelPageColours } from '../../test-support/stage-palette';
 
 setupRitewayBun();
 
@@ -60,7 +60,7 @@ describe('AuthHeading', () => {
     assert({
       given: 'the forest stage panel',
       should: 'use no page-palette colour in its own markup',
-      actual: pageColourClasses(page.slice(page.indexOf('<aside'))),
+      actual: panelPageColours(page),
       expected: [],
     });
   });

@@ -3,8 +3,8 @@ import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { Button } from '../../components/button/button';
 import { byText } from '../../test-support/find-elements';
-import { pageColourClasses } from '../../test-support/stage-palette';
 import { SavePasskey, type SavePasskeyProps } from './save-passkey';
+import { panelPageColours } from '../../test-support/stage-palette';
 
 setupRitewayBun();
 
@@ -80,7 +80,7 @@ describe('SavePasskey', () => {
     assert({
       given: 'the saved-facts list on the forest stage panel',
       should: 'use no page-palette colour, which is forest on forest in light',
-      actual: pageColourClasses(page.slice(page.indexOf('<aside'))),
+      actual: panelPageColours(page),
       expected: [],
     });
   });
