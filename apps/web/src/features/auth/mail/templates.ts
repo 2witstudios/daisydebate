@@ -21,7 +21,7 @@ export type RenderedAuthEmail = {
 };
 
 const FOOTER_NOTE =
-  'Daisy never asks for your password by email because you do not have one — every sign-in works through a link or a passkey.';
+  'Daisy Debate never asks for your password by email because you do not have one — every sign-in works through a link or a passkey.';
 
 /**
  * Same subject and body shape whichever kind of account the address
@@ -31,15 +31,15 @@ const FOOTER_NOTE =
  */
 function signIn(url: string): RenderedAuthEmail {
   return renderAuthEmailLayout({
-    subject: 'Sign in to Daisy',
+    subject: 'Sign in to Daisy Debate',
     preheader: 'Open this link to sign in. It expires in 5 minutes.',
     eyebrow: 'Sign in',
     headline: 'One link, and you are in.',
     paragraphs: [
-      'Open the link below to finish signing in to Daisy.',
+      'Open the link below to finish signing in to Daisy Debate.',
       'It expires in 5 minutes and works once. If you did not request it, you can ignore this email.',
     ],
-    linkLabel: 'Sign in to Daisy',
+    linkLabel: 'Sign in to Daisy Debate',
     url,
     footerNote: FOOTER_NOTE,
   });
@@ -47,12 +47,12 @@ function signIn(url: string): RenderedAuthEmail {
 
 function passkeyAdded(url: string): RenderedAuthEmail {
   return renderAuthEmailLayout({
-    subject: 'A passkey was added to your Daisy account',
-    preheader: 'A new passkey can now sign in to your Daisy account.',
+    subject: 'A passkey was added to your Daisy Debate account',
+    preheader: 'A new passkey can now sign in to your Daisy Debate account.',
     eyebrow: 'Security update',
     headline: 'A new passkey was added.',
     paragraphs: [
-      'A passkey was just added to your Daisy account and can now sign in on its device.',
+      'A passkey was just added to your Daisy Debate account and can now sign in on its device.',
       'If this was you, no action is needed. If it was not, review your account now.',
     ],
     linkLabel: 'Review your account',
@@ -63,12 +63,12 @@ function passkeyAdded(url: string): RenderedAuthEmail {
 
 function passkeyRemoved(url: string): RenderedAuthEmail {
   return renderAuthEmailLayout({
-    subject: 'A passkey was removed from your Daisy account',
-    preheader: 'A passkey can no longer sign in to your Daisy account.',
+    subject: 'A passkey was removed from your Daisy Debate account',
+    preheader: 'A passkey can no longer sign in to your Daisy Debate account.',
     eyebrow: 'Security update',
     headline: 'A passkey was removed.',
     paragraphs: [
-      'A passkey was just removed from your Daisy account and can no longer sign in.',
+      'A passkey was just removed from your Daisy Debate account and can no longer sign in.',
       'If this was you, no action is needed. If it was not, review your account now.',
     ],
     linkLabel: 'Review your account',
@@ -79,12 +79,13 @@ function passkeyRemoved(url: string): RenderedAuthEmail {
 
 function emailChangeNotice(url: string): RenderedAuthEmail {
   return renderAuthEmailLayout({
-    subject: 'Approve email change on Daisy',
-    preheader: 'Open this link only if you asked to change your Daisy email.',
+    subject: 'Approve email change on Daisy Debate',
+    preheader:
+      'Open this link only if you asked to change your Daisy Debate email.',
     eyebrow: 'Security update',
     headline: 'Approve this email change?',
     paragraphs: [
-      'Someone asked to change the email address on your Daisy account away from this one.',
+      'Someone asked to change the email address on your Daisy Debate account away from this one.',
       'If that was you, open the link below to approve it and continue to the new address. If it was not you, do not open it: ignoring this message keeps your account exactly as it is.',
     ],
     linkLabel: 'Approve the change',
@@ -95,13 +96,13 @@ function emailChangeNotice(url: string): RenderedAuthEmail {
 
 function emailChangeConfirm(url: string): RenderedAuthEmail {
   return renderAuthEmailLayout({
-    subject: 'Confirm your new Daisy email',
+    subject: 'Confirm your new Daisy Debate email',
     preheader:
       'Open this link to confirm your new email. It expires in 5 minutes.',
     eyebrow: 'Confirm your email',
     headline: 'Confirm this is your new email.',
     paragraphs: [
-      'Open the link below to confirm this address for your Daisy account.',
+      'Open the link below to confirm this address for your Daisy Debate account.',
       'It expires in 5 minutes and works once. If you did not request it, you can ignore this email.',
     ],
     linkLabel: 'Confirm your email',
@@ -119,12 +120,12 @@ function emailChangeConfirm(url: string): RenderedAuthEmail {
  */
 function emailChangeTaken(url: string): RenderedAuthEmail {
   return renderAuthEmailLayout({
-    subject: 'Someone tried to use your email on Daisy',
+    subject: 'Someone tried to use your email on Daisy Debate',
     preheader: 'Your address stays with your account. Nothing changed.',
     eyebrow: 'Security update',
     headline: 'Your email stays yours.',
     paragraphs: [
-      'Someone asked to move another Daisy account to this email address. It already belongs to your account, so nothing changed.',
+      'Someone asked to move another Daisy Debate account to this email address. It already belongs to your account, so nothing changed.',
       'No action is needed. If you are worried, review your account.',
     ],
     linkLabel: 'Review your account',

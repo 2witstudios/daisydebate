@@ -23,11 +23,11 @@ export function AuthFrame({ panel, footer, children }: AuthFrameProps) {
       <div className="flex min-w-0 flex-1 flex-col justify-between gap-12 px-16 pt-4 pb-8 max-reflow:px-8 max-narrow:px-0">
         <Link
           href="/"
-          className="flex items-center gap-3 self-start text-ink no-underline hover:no-underline"
+          className="flex items-center gap-2 self-start text-ink no-underline hover:no-underline"
         >
           <DaisyLogo />
           <span className="font-display text-xl leading-shell-brand font-semibold tracking-tight text-ink">
-            Daisy
+            Daisy Debate
           </span>
         </Link>
         <div className="flex max-w-auth-copy flex-col gap-8">{children}</div>

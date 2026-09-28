@@ -13,7 +13,9 @@ const petalClasses = (html: string) =>
   );
 
 const discClass = (html: string) =>
-  /<circle cx="12" cy="12" r="2.5" class="([^"]+)"/.exec(html)?.[1];
+  new RegExp(
+    `<circle cx="12" cy="12" r="${markGeometry.discRadius}" class="([^"]+)"`,
+  ).exec(html)?.[1];
 
 const uprightPetal = petalPath(petalShape, {
   tip: [markGeometry.centre, markGeometry.centre - markGeometry.petalInset],
@@ -38,75 +40,55 @@ describe('DaisyMark', () => {
     });
   });
 
-  test('colours the primary mark forest, sage and butter', () => {
+  test('colours the primary mark from the scheme-following petal tokens and yolk', () => {
     const html = renderToString(h(DaisyMark, { size: 24, variant: 'primary' }));
     assert({
       given: 'the primary variant',
       should:
-        'alternate forest cardinals with sage diagonals around a butter disc',
+        'alternate cardinal and diagonal petals (forest and sage on cream, cream on the dark page) around a yolk disc',
       actual: [petalClasses(html), discClass(html)],
       expected: [
         [
-          'fill-forest',
-          'fill-sage',
-          'fill-forest',
-          'fill-sage',
-          'fill-forest',
-          'fill-sage',
-          'fill-forest',
-          'fill-sage',
+          'fill-mark-cardinal',
+          'fill-mark-diagonal',
+          'fill-mark-cardinal',
+          'fill-mark-diagonal',
+          'fill-mark-cardinal',
+          'fill-mark-diagonal',
+          'fill-mark-cardinal',
+          'fill-mark-diagonal',
         ],
-        'fill-butter',
+        'fill-yolk',
       ],
     });
   });
 
-  test('draws the mono mark in currentColor with a ring knocked out of the petals', () => {
+  test('draws the mono mark in currentColor, with no mask', () => {
     const html = renderToString(h(DaisyMark, { size: 24, variant: 'mono' }));
-    const maskId = /<mask id="([^"]+)"/.exec(html)?.[1];
     assert({
       given: 'the mono variant',
       should:
-        'fill every petal and the disc with currentColor and mask a ring wider than the disc',
-      actual: [
-        new Set(petalClasses(html)),
-        discClass(html),
-        html.includes(`<g mask="url(#${maskId})">`),
-        html.includes(
-          `r="${markGeometry.discRadius + markGeometry.ringGap}" fill="black"`,
-        ),
-      ],
-      expected: [new Set(['fill-current']), 'fill-current', true, true],
-    });
-  });
-
-  test('gives each mono mark its own mask', () => {
-    const html = renderToString(
-      h('div', null, [
-        h(DaisyMark, { key: 'a', size: 24, variant: 'mono' }),
-        h(DaisyMark, { key: 'b', size: 24, variant: 'mono' }),
-      ]),
-    );
-    const ids = [...html.matchAll(/<mask id="([^"]+)"/g)].map(([, id]) => id);
-    assert({
-      given: 'two mono marks on one page',
-      should: 'give them different mask ids',
-      actual: new Set(ids).size,
-      expected: 2,
-    });
-  });
-
-  test('draws the reverse mark with cream petals and a butter disc', () => {
-    const html = renderToString(h(DaisyMark, { size: 24, variant: 'reverse' }));
-    assert({
-      given: 'the reverse variant',
-      should: 'use cream petals and a butter disc, with no mask',
+        'fill every petal and the disc with currentColor and mask nothing',
       actual: [
         new Set(petalClasses(html)),
         discClass(html),
         html.includes('<mask'),
       ],
-      expected: [new Set(['fill-cream']), 'fill-butter', false],
+      expected: [new Set(['fill-current']), 'fill-current', false],
+    });
+  });
+
+  test('draws the reverse mark with cream petals and a yolk disc', () => {
+    const html = renderToString(h(DaisyMark, { size: 24, variant: 'reverse' }));
+    assert({
+      given: 'the reverse variant',
+      should: 'use cream petals and a yolk disc, with no mask',
+      actual: [
+        new Set(petalClasses(html)),
+        discClass(html),
+        html.includes('<mask'),
+      ],
+      expected: [new Set(['fill-cream']), 'fill-yolk', false],
     });
   });
 
@@ -135,12 +117,12 @@ describe('DaisyTile', () => {
     assert({
       given: 'the favicon tile',
       should:
-        'render a stage-coloured rounded square under eight cream petals and a butter disc, aria-hidden',
+        'render a stage-coloured rounded square under eight cream petals and a yolk disc, aria-hidden',
       actual: [
         /<rect [^>]*rx="5.5"[^>]*class="fill-surface-stage"/.test(html),
         petalClasses(html).length,
         new Set(petalClasses(html)),
-        html.includes('class="fill-butter"'),
+        html.includes('class="fill-yolk"'),
         html.includes('aria-hidden="true"'),
         html.includes('width="16"'),
       ],
@@ -150,17 +132,20 @@ describe('DaisyTile', () => {
 });
 
 describe('DaisyLogo', () => {
-  test('sits the mono mark on the accent tile', () => {
+  test('is the primary mark at logo size, with no tile', () => {
     const html = renderToString(h(DaisyLogo));
     assert({
       given: 'the logo',
-      should: 'wrap a mono teardrop mark in the accent tile',
+      should:
+        'render the primary bloom at the shell logo size, with no accent tile and no mask',
       actual: [
+        petalClasses(html).includes('fill-mark-cardinal'),
+        discClass(html),
+        html.includes('size-shell-logo'),
         html.includes('bg-accent'),
         html.includes('<mask'),
-        html.includes('<ellipse'),
       ],
-      expected: [true, true, false],
+      expected: [true, 'fill-yolk', true, false, false],
     });
   });
 });

@@ -28,7 +28,7 @@ const display = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: { default: 'Daisy', template: '%s · Daisy' },
+  title: { default: 'Daisy Debate', template: '%s · Daisy Debate' },
   description: 'Competitive debate, structured like chess.',
 };
 

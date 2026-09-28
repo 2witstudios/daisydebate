@@ -35,6 +35,9 @@ export function confirmPageStylesheet(): string {
   --af-gold: ${lightDark('gold')};
   --af-cream: ${lightDark('cream')};
   --af-butter: ${lightDark('butter')};
+  --af-mark-cardinal: ${lightDark('markCardinal')};
+  --af-mark-diagonal: ${lightDark('markDiagonal')};
+  --af-yolk: ${lightDark('yolk')};
   --af-notice-bg: ${lightDark('noticeBg')};
   --af-notice-border: ${lightDark('noticeBorder')};
   --af-notice-ink: ${lightDark('noticeInk')};
@@ -101,22 +104,18 @@ main {
 .af-brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   color: var(--af-ink);
   text-decoration: none;
   align-self: flex-start;
 }
 
 .af-logo {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  background: var(--af-accent);
-  color: var(--af-accent-ink);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  flex-shrink: 0;
 }
+.af-logo-cardinal { fill: var(--af-mark-cardinal); }
+.af-logo-diagonal { fill: var(--af-mark-diagonal); }
+.af-logo-disc { fill: var(--af-yolk); }
 
 .af-word {
   font-family: var(--af-font-display);

@@ -45,7 +45,7 @@ test('AUTH-4.7: every confirm-page state renders under the production CSP withou
   const { link } = await requestConfirmLink(page, request);
   await page.goto(link);
   await expect(
-    page.getByRole('button', { name: 'Sign in to Daisy' }),
+    page.getByRole('button', { name: 'Sign in to Daisy Debate' }),
   ).toBeVisible();
 
   // expired, then sent (a separate link, spent then resent)

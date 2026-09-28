@@ -6,7 +6,7 @@ setupRitewayBun();
 
 const message = {
   to: 'player@daisy.example.com',
-  subject: 'Sign in to Daisy',
+  subject: 'Sign in to Daisy Debate',
   text: 'Open https://daisy.example.com/auth/confirm?token=SECRETTOKEN',
   html: '<p>x</p>',
 };
@@ -43,7 +43,7 @@ const create = (
     calls,
     sender: createResendSender({
       apiKey: 're_test_key',
-      from: 'Daisy <no-reply@daisy.example.com>',
+      from: 'Daisy Debate <no-reply@daisy.example.com>',
       ids: sequentialId('idem'),
       fetch: fetchImpl,
       timeoutMs,
@@ -87,7 +87,7 @@ describe('Resend sender', () => {
         auth: 'Bearer re_test_key',
         idempotency: 'idem-1',
         body: {
-          from: 'Daisy <no-reply@daisy.example.com>',
+          from: 'Daisy Debate <no-reply@daisy.example.com>',
           to: [message.to],
           subject: message.subject,
           text: message.text,

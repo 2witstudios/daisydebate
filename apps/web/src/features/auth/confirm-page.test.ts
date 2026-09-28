@@ -77,7 +77,7 @@ test('renderConfirmPage: the retry state matches the mock exactly — only the l
         '<strong>Too many attempts.</strong> Wait a minute, then select the button again. Your link still works.',
       ),
       noLede: !html.includes(
-        'Select the button to sign in to Daisy on this device.',
+        'Select the button to sign in to Daisy Debate on this device.',
       ),
     },
     expected: { exactNotice: true, noLede: true },
@@ -101,9 +101,9 @@ test('renderConfirmPage: each state gets its own <title>, matching the mock', as
     should: 'each carry the mock-matching <title>',
     actual: titles.map((html) => /<title>([^<]*)<\/title>/.exec(html)?.[1]),
     expected: [
-      'Finish signing in · Daisy',
-      'Link expired · Daisy',
-      'Check your inbox · Daisy',
+      'Finish signing in · Daisy Debate',
+      'Link expired · Daisy Debate',
+      'Check your inbox · Daisy Debate',
     ],
   });
 });
@@ -190,15 +190,16 @@ test('renderConfirmPage: draws the Daisy mark from the brand geometry, with no e
   assert({
     given: 'the confirm page with its brand row and stage panel',
     should:
-      'draw both marks (the mono logo and the reverse panel art) from bloomPetals, and no <ellipse>',
+      'draw both marks (the primary logo and the reverse panel art) from bloomPetals, with the logo petals classed by the scheme-following tokens, and no <ellipse> or mask',
     actual: {
       ellipses: html.match(/<ellipse/g)?.length ?? 0,
       everyPetalTwice: petals.every(
         (d) => html.split(`d="${d}"`).length - 1 === 2,
       ),
-      monoRingMask: html.includes('<mask id="af-ring">'),
+      logoPetals: html.match(/class="af-logo-(cardinal|diagonal)"/g)?.length,
+      masks: html.match(/<mask/g)?.length ?? 0,
     },
-    expected: { ellipses: 0, everyPetalTwice: true, monoRingMask: true },
+    expected: { ellipses: 0, everyPetalTwice: true, logoPetals: 8, masks: 0 },
   });
 });
 

@@ -16,7 +16,7 @@ export type CheckInboxProps = {
 export const CHECK_INBOX_HEADING_ID = 'check-inbox-heading';
 
 const nextSteps = [
-  'Open the email titled “Sign in to Daisy”.',
+  'Open the email titled “Sign in to Daisy Debate”.',
   'Select the link inside it, on any device.',
   'Confirm on the page that opens. You are signed in on that device.',
 ] as const;
@@ -73,7 +73,7 @@ export function CheckInbox({
         <p>
           <strong className="font-semibold text-ink">School email?</strong>{' '}
           Filters can hold messages for a few minutes. Check spam or quarantine
-          for “Sign in to Daisy”.
+          for “Sign in to Daisy Debate”.
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-3">
