@@ -287,11 +287,12 @@ main {
   width: 520px;
   height: 520px;
   z-index: -1;
-  color: var(--af-accent);
-  opacity: 0.2;
-  /* Some engines paint a faint Canvas-colored backdrop behind a large,
-     opacity-composited replaced element; keep the mark itself transparent. */
-  background: transparent;
+  /* A pre-mixed color, not opacity: some engines rasterize a large,
+     opacity-composited replaced element with a faint off-color box behind
+     it (visible on Linux, not on macOS Chromium). Painting the already-
+     blended color directly has no layer to composite, so there is nothing
+     to show through. */
+  color: color-mix(in srgb, var(--af-accent) 20%, var(--af-surface-emerald));
 }
 
 .af-panel-kicker {

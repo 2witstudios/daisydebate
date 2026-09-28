@@ -49,7 +49,7 @@ export type PanelContent = {
 /** The emerald side panel, hidden under the rail breakpoint (AUTH-4.7). */
 const panel = (content: PanelContent | undefined) =>
   content
-    ? `<aside class="af-panel" aria-hidden="true">${daisyMarkSvg(520, ' class="af-panel-mark"', 'var(--af-gold)')}<p class="af-panel-kicker">${escapeHtml(content.kicker)}</p><p class="af-panel-title">${escapeHtml(content.title)}</p><p class="af-panel-body">${escapeHtml(content.body)}</p></aside>`
+    ? `<aside class="af-panel" aria-hidden="true">${daisyMarkSvg(520, ' class="af-panel-mark"', 'color-mix(in srgb, var(--af-gold) 20%, var(--af-surface-emerald))')}<p class="af-panel-kicker">${escapeHtml(content.kicker)}</p><p class="af-panel-title">${escapeHtml(content.title)}</p><p class="af-panel-body">${escapeHtml(content.body)}</p></aside>`
     : '';
 
 export type AuthFrameContent = {

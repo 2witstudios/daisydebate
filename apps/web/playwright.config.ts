@@ -15,6 +15,7 @@ export const AUTH_JOURNEY_SPECS = [
   '**/passkey-lifecycle.e2e.ts',
   '**/accessibility.e2e.ts',
   '**/auth-routes.e2e.ts',
+  '**/csp-confirm.e2e.ts',
 ];
 // Passkey autofill is proven through Chromium's CDP virtual authenticator,
 // which answers a conditional request without browser UI, so it runs in both
