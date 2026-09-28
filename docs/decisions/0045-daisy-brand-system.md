@@ -170,8 +170,11 @@ if either class appears anywhere outside the brand sheet (DEC-32).
   replaces it with the lockups.
 - Each later brand leaf is built from the geometry module and the
   primitives, not from new numbers.
-- The auth email's static palette copy
-  (`apps/web/src/features/auth/mail/layout.ts`) still carries the old
-  values until BRAND-2.3 re-syncs it.
+- Pages that the Next stylesheet never reaches (the AUTH-4.7 confirm pages
+  and the auth email) read the palette as static values from
+  `apps/web/src/features/auth/brand-palette.ts`, which a test pins to
+  `globals.css`, stage tokens included. The confirm pages draw both marks
+  from `bloomPetals`, and their panel is the forest stage with its own ink.
+  BRAND-2.3 still owns the email's mark and wordmark.
 - A palette change that drops any declared pairing below AA fails
   `bun check`.

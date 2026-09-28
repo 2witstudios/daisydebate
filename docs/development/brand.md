@@ -47,7 +47,8 @@ the step bodies passed into it (the check-inbox steps, the saved-passkey
 facts). Each one's render test runs `pageColourClasses`
 (`apps/web/src/ui/test-support/stage-palette.ts`) and fails on any
 page-palette colour class; add the same assertion to any new stage
-surface.
+surface. The AUTH-4.7 confirm pages are rendered outside React, so their
+stylesheet test checks the same thing: the panel uses `--af-stage-ink`.
 
 ## Brand graphics
 

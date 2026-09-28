@@ -1,5 +1,5 @@
 /**
- * The Daisy green palette, copied as static values from `globals.css`'s
+ * The Daisy board palette (ADR 0045), copied as static values from `globals.css`'s
  * `light-dark()` tokens (`brand-palette.test.ts` keeps the two equal). No CSS
  * custom property can be read outside a browser stylesheet, so the emailed
  * link (`mail/layout.ts`) and the two confirm pages, which are never served
@@ -7,7 +7,10 @@
  */
 export type BrandPalette = {
   readonly background: string;
-  readonly surfaceEmerald: string;
+  /** The forest stage panel, the same in both schemes, with its own ink. */
+  readonly surfaceStage: string;
+  readonly stageInk: string;
+  readonly stageInkMuted: string;
   readonly surfaceRaised: string;
   readonly ink: string;
   readonly inkMuted: string;
@@ -16,6 +19,9 @@ export type BrandPalette = {
   readonly accentStrong: string;
   readonly accentInk: string;
   readonly gold: string;
+  /** Brand primitives for the mark: reverse petals and the disc. */
+  readonly cream: string;
+  readonly butter: string;
   /** Amber notice surface: no equivalent token exists in globals.css yet. */
   readonly noticeBg: string;
   readonly noticeBorder: string;
@@ -27,31 +33,39 @@ export const AUTH_BRAND_PALETTE: {
   readonly dark: BrandPalette;
 } = {
   light: {
-    background: '#f2f5f2',
-    surfaceEmerald: '#e2f1e7',
-    surfaceRaised: '#ffffff',
-    ink: '#17211b',
-    inkMuted: '#5b6d61',
-    border: '#d8e2d9',
-    accent: '#157c3e',
-    accentStrong: '#116b36',
-    accentInk: '#ffffff',
-    gold: '#9a7a35',
+    background: '#f5f0e4',
+    surfaceStage: '#173b2a',
+    stageInk: '#f5f0e4',
+    stageInkMuted: '#bccdb3',
+    surfaceRaised: '#fffdf8',
+    ink: '#173b2a',
+    inkMuted: '#4a5f51',
+    border: '#ddd6c4',
+    accent: '#173b2a',
+    accentStrong: '#0e2a1c',
+    accentInk: '#f5f0e4',
+    gold: '#7e5c12',
+    cream: '#f5f0e4',
+    butter: '#f7da8c',
     noticeBg: '#fdf3e2',
     noticeBorder: '#ecd19c',
     noticeInk: '#6b4a0a',
   },
   dark: {
-    background: '#0a0e0c',
-    surfaceEmerald: '#16281f',
-    surfaceRaised: '#18211b',
-    ink: '#f4f8f3',
-    inkMuted: '#a3b3a6',
-    border: '#26332b',
-    accent: '#3ecf7a',
-    accentStrong: '#2fb968',
-    accentInk: '#052b16',
-    gold: '#c9a35c',
+    background: '#0d1812',
+    surfaceStage: '#173b2a',
+    stageInk: '#f5f0e4',
+    stageInkMuted: '#bccdb3',
+    surfaceRaised: '#182a20',
+    ink: '#f5f0e4',
+    inkMuted: '#b4c2ae',
+    border: '#24382c',
+    accent: '#a7c09c',
+    accentStrong: '#bdd2b2',
+    accentInk: '#173b2a',
+    gold: '#f0cf7a',
+    cream: '#f5f0e4',
+    butter: '#f7da8c',
     noticeBg: '#2a2110',
     noticeBorder: '#5a4516',
     noticeInk: '#f2d38c',

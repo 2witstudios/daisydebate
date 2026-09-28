@@ -21,7 +21,9 @@ export function confirmPageStylesheet(): string {
 
 :root {
   --af-background: ${lightDark('background')};
-  --af-surface-emerald: ${lightDark('surfaceEmerald')};
+  --af-surface-stage: ${lightDark('surfaceStage')};
+  --af-stage-ink: ${lightDark('stageInk')};
+  --af-stage-ink-muted: ${lightDark('stageInkMuted')};
   --af-surface-raised: ${lightDark('surfaceRaised')};
   --af-ink: ${lightDark('ink')};
   --af-ink-muted: ${lightDark('inkMuted')};
@@ -30,6 +32,8 @@ export function confirmPageStylesheet(): string {
   --af-accent-strong: ${lightDark('accentStrong')};
   --af-accent-ink: ${lightDark('accentInk')};
   --af-gold: ${lightDark('gold')};
+  --af-cream: ${lightDark('cream')};
+  --af-butter: ${lightDark('butter')};
   --af-notice-bg: ${lightDark('noticeBg')};
   --af-notice-border: ${lightDark('noticeBorder')};
   --af-notice-ink: ${lightDark('noticeInk')};
@@ -272,7 +276,8 @@ main {
   width: 500px;
   flex-shrink: 0;
   border-radius: 16px;
-  background: var(--af-surface-emerald);
+  background: var(--af-surface-stage);
+  color: var(--af-stage-ink);
   padding: 40px;
   display: flex;
   flex-direction: column;
@@ -292,7 +297,14 @@ main {
      it (visible on Linux, not on macOS Chromium). Painting the already-
      blended color directly has no layer to composite, so there is nothing
      to show through. */
-  color: color-mix(in srgb, var(--af-accent) 20%, var(--af-surface-emerald));
+}
+
+.af-panel-petal {
+  fill: color-mix(in srgb, var(--af-cream) 20%, var(--af-surface-stage));
+}
+
+.af-panel-disc {
+  fill: color-mix(in srgb, var(--af-butter) 20%, var(--af-surface-stage));
 }
 
 .af-panel-kicker {
@@ -301,7 +313,7 @@ main {
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--af-ink-muted);
+  color: var(--af-stage-ink-muted);
 }
 
 .af-panel-title {
@@ -316,7 +328,7 @@ main {
 
 .af-panel-body {
   margin: 0;
-  color: var(--af-ink-muted);
+  color: var(--af-stage-ink-muted);
   line-height: 1.55;
 }
 
