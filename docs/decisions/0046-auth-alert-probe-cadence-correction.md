@@ -5,7 +5,7 @@ production). The fix between it is not decided — recorded as a pending
 decision on the owner's behalf per ADR 0035 §4, open until confirmed or
 overruled. Amends [ADR 0042](0042-auth-alert-evaluation-point.md), which
 chose GitHub Actions'
-`schedule` trigger as the evaluator and accepted, as a *known limitation*,
+`schedule` trigger as the evaluator and accepted, as a _known limitation_,
 that "GitHub's `schedule` trigger is best-effort and can run a few minutes
 late under platform load." That assumption is false at the granularity DEC-10
 relied on. This ADR does not change the decision itself — it corrects the
@@ -58,31 +58,32 @@ longer scale-to-zero) and run the existing `evaluateAlerts`/
 `setInterval`/`unref` shape `retention-sweep.ts` already uses), posting
 directly to the Incidents webhook from the app process instead of shelling
 out to `notify-drive.ts` from CI.
-  - Delivers a *real* 5-minute cadence for all four conditions, with no
-    dependency on any external scheduler's reliability.
-  - Costs almost exactly what DEC-10 already approved: an always-on
-    shared-cpu-1x/512mb machine (staging's current size) runs continuously
-    for the same ballpark ~$4/month DEC-10 accepted for "the probe keeps it
-    awake" — this corrects the mechanism, not the price DEC-10 signed off
-    on. (Confirm against Fly's current published price per second before
-    treating this figure as exact; ISSUE-168 already flags the deploy doc's
-    idle-cost figure as stale.)
-  - **Loses the one thing ADR 0042 built the external evaluator to catch**:
-    an evaluator running inside the app cannot notice the app being fully
-    down or crash-looping. A much lighter external liveness probe (not the
-    full alert-condition evaluator, just "is `/api/health/ready` answering
-    at all") would still be worth keeping, at whatever cadence GitHub
-    Actions actually delivers — that gap is now honestly documented instead
-    of assumed away.
-  - Requires a new production secret: the Incidents webhook URL/secret,
-    currently CI-only (`.github/workflows/auth-alerts.yml`'s `secrets:`),
-    would need to reach the running web app's environment. Same webhook,
-    same signing scheme `notify-drive.ts` already uses — not a new vendor —
-    but it does move a credential's reachable surface from "CI only" to
-    "the production app process," which is exactly the kind of thing
-    [ADR 0019](0019-token-secret-ownership.md) exists to make an explicit
-    call about, not an incidental side effect of a bug fix.
-  - `fly.toml` and a new production secret are both deploy-rail changes.
+
+- Delivers a _real_ 5-minute cadence for all four conditions, with no
+  dependency on any external scheduler's reliability.
+- Costs almost exactly what DEC-10 already approved: an always-on
+  shared-cpu-1x/512mb machine (staging's current size) runs continuously
+  for the same ballpark ~$4/month DEC-10 accepted for "the probe keeps it
+  awake" — this corrects the mechanism, not the price DEC-10 signed off
+  on. (Confirm against Fly's current published price per second before
+  treating this figure as exact; ISSUE-168 already flags the deploy doc's
+  idle-cost figure as stale.)
+- **Loses the one thing ADR 0042 built the external evaluator to catch**:
+  an evaluator running inside the app cannot notice the app being fully
+  down or crash-looping. A much lighter external liveness probe (not the
+  full alert-condition evaluator, just "is `/api/health/ready` answering
+  at all") would still be worth keeping, at whatever cadence GitHub
+  Actions actually delivers — that gap is now honestly documented instead
+  of assumed away.
+- Requires a new production secret: the Incidents webhook URL/secret,
+  currently CI-only (`.github/workflows/auth-alerts.yml`'s `secrets:`),
+  would need to reach the running web app's environment. Same webhook,
+  same signing scheme `notify-drive.ts` already uses — not a new vendor —
+  but it does move a credential's reachable surface from "CI only" to
+  "the production app process," which is exactly the kind of thing
+  [ADR 0019](0019-token-secret-ownership.md) exists to make an explicit
+  call about, not an incidental side effect of a bug fix.
+- `fly.toml` and a new production secret are both deploy-rail changes.
 
 **Option B — a dedicated, always-on Fly machine that only runs the existing
 external prober**, on its own true 5-minute loop (in-process interval, not
@@ -90,16 +91,17 @@ external prober**, on its own true 5-minute loop (in-process interval, not
 confirmed via `fly machine run --help`, so Fly's own scheduled-machine
 feature cannot hit this cadence at all). Leaves
 `daisy-debate-staging` unchanged at `min_machines_running = 0`.
-  - Keeps ADR 0042's original detection guarantee intact (an evaluator
-    genuinely outside the app it is evaluating), and needs no new secret in
-    the web app's own environment.
-  - Is a wholly new piece of infrastructure to provision, deploy, and
-    monitor — a small dedicated machine (e.g. shared-cpu-1x/256mb) run
-    continuously, at a cost *in addition to* what DEC-10 already accepted
-    (order of $2/month more, not a substitution for it).
-  - A new Fly app/machine is unambiguously a new deploy-rail resource and a
-    new ongoing cost, neither of which this ADR or any agent may accept on
-    the owner's behalf.
+
+- Keeps ADR 0042's original detection guarantee intact (an evaluator
+  genuinely outside the app it is evaluating), and needs no new secret in
+  the web app's own environment.
+- Is a wholly new piece of infrastructure to provision, deploy, and
+  monitor — a small dedicated machine (e.g. shared-cpu-1x/256mb) run
+  continuously, at a cost _in addition to_ what DEC-10 already accepted
+  (order of $2/month more, not a substitution for it).
+- A new Fly app/machine is unambiguously a new deploy-rail resource and a
+  new ongoing cost, neither of which this ADR or any agent may accept on
+  the owner's behalf.
 
 ## Decision
 

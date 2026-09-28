@@ -122,7 +122,10 @@ describe('redis alert counters (AUTH-7.7)', () => {
       should: 'emit a failure event naming each operation',
       actual: events,
       expected: [
-        { event: 'redis.command.failed', fields: { operation: 'markOccurrenceSince' } },
+        {
+          event: 'redis.command.failed',
+          fields: { operation: 'markOccurrenceSince' },
+        },
         {
           event: 'redis.command.failed',
           fields: { operation: 'incrementWithExpiry' },

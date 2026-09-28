@@ -108,7 +108,7 @@ its own comment records, each trusted for a distinct, observed reason:
   (`<caller>, <edge>`) and `Fly-Client-IP` is unavailable.
 
 **Trust-boundary caveat, not yet owner-decided**: `fdaa::/8` and
-`172.16.0.0/12` are Fly's *org-wide* 6PN, not something scoped to this one
+`172.16.0.0/12` are Fly's _org-wide_ 6PN, not something scoped to this one
 app's own fly-proxy instances — the internet cannot reach a machine's 6PN
 interface, but every machine in the `daisy-debate` Fly organization can
 (any other app, any developer's `fly ssh console` or WireGuard peer). Any
@@ -206,9 +206,9 @@ here.
   `http_service.checks` grace_period is 10s and interval 15s in `fly.toml`;
   if the real cold start regularly exceeds that, raise `grace_period`.
   **Measured on Fly (ISSUE-169, 2026-09-28):** `fly status -a
-  daisy-debate-staging` showed the machine `stopped` (no requests since the
+daisy-debate-staging` showed the machine `stopped` (no requests since the
   prior alert-probe run); `time curl -s -o /dev/null -w '%{http_code}
-  %{time_total}\n' https://daisy-debate-staging.fly.dev/api/health/ready`
+%{time_total}\n' https://daisy-debate-staging.fly.dev/api/health/ready`
   answered `200` in **8.11s** — well inside the 10s check grace period, so
   the first readiness probe after a cold start can still pass its own
   health check without raising `grace_period`.

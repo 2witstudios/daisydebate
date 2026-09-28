@@ -63,7 +63,8 @@ export function classifyTestFile(relativePath: string): TestTier {
   // A workspace's own operational scripts (e.g. apps/web/scripts/auth-load),
   // never the top-level scripts/ folder (already matched above): claimed by
   // widening that workspace's "test" script to "bun test src scripts".
-  if (/\/scripts\/.+\.test\.tsx?$/.test(relativePath)) return 'workspace-script';
+  if (/\/scripts\/.+\.test\.tsx?$/.test(relativePath))
+    return 'workspace-script';
   return 'orphan';
 }
 
@@ -238,7 +239,9 @@ const workspaceClaimProblems = async (
   for (const [workspace, bucket] of byWorkspace) {
     const scripts = await readScripts(join(root, workspace, 'package.json'));
     const requiredTestScript =
-      bucket.workspaceScript.length > 0 ? 'bun test src scripts' : 'bun test src';
+      bucket.workspaceScript.length > 0
+        ? 'bun test src scripts'
+        : 'bun test src';
     if (
       (bucket.unit.length > 0 || bucket.workspaceScript.length > 0) &&
       scripts.test !== requiredTestScript

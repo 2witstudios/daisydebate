@@ -34,7 +34,8 @@ describe('successRate (AUTH-6.7 AC2/AC4, ISSUE-165)', () => {
     ];
     const result = successRate(tally(outcomes));
     assert({
-      given: "3 deliberate magic-link 429s out of 100 offered, everything else successful",
+      given:
+        '3 deliberate magic-link 429s out of 100 offered, everything else successful',
       should:
         'exclude only those 3 from admitted (100 - 3 = 97) and pass at 100% of admitted',
       actual: { admitted: result.admitted, rate: result.rate },
@@ -49,7 +50,8 @@ describe('successRate (AUTH-6.7 AC2/AC4, ISSUE-165)', () => {
     ];
     const result = successRate(tally(outcomes));
     assert({
-      given: '990 of 1000 session-read requests answered 429 (not the magic-link segment)',
+      given:
+        '990 of 1000 session-read requests answered 429 (not the magic-link segment)',
       should:
         'count every one of the 990 against the 99% bar (admitted stays 1000, rate collapses to 1%)',
       actual: {

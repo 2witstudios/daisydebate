@@ -83,7 +83,8 @@ test('markOccurrenceSince keeps the since-value and re-arms the TTL on every lat
     // condition's since-time never resets during a continuous outage.
     const third = await redis.markOccurrenceSince('marker', 'third', 1);
     assert({
-      given: 'three occurrences of the same condition, 700ms apart, each with a 1s TTL',
+      given:
+        'three occurrences of the same condition, 700ms apart, each with a 1s TTL',
       should:
         'return the first value every time and keep re-arming the TTL, never expiring between occurrences',
       actual: {

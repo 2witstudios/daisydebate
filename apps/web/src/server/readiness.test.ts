@@ -44,7 +44,8 @@ describe('createReadinessHandler (ISSUE-146: cold-start ordering)', () => {
       new Request('http://x/api/health/ready'),
     );
     assert({
-      given: 'redis unhealthy, then healthy, on the same handler with no restart',
+      given:
+        'redis unhealthy, then healthy, on the same handler with no restart',
       should:
         'answer 503 unavailable during the outage and 200 ready the moment it recovers, proving readiness is a live check rather than a boot-time flag',
       actual: {

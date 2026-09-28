@@ -71,7 +71,8 @@ describe('waitForHealthy (ISSUE-146)', () => {
     });
     assert({
       given: 'a dependency that never becomes healthy',
-      should: 'stop after maxAttempts, sleeping only between attempts, and report false',
+      should:
+        'stop after maxAttempts, sleeping only between attempts, and report false',
       actual: { result, sleeps: calls },
       expected: { result: false, sleeps: [100, 100, 100] },
     });

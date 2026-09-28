@@ -44,7 +44,10 @@ describe('createAlertRecorder (AUTH-7.7)', () => {
         'mark the storage occurrence, keeping since-time and re-arming the 3-minute bridging TTL',
       actual: calls,
       expected: [
-        { op: 'markOccurrenceSince', args: ['alert-unavailable-storage', NOW, 180] },
+        {
+          op: 'markOccurrenceSince',
+          args: ['alert-unavailable-storage', NOW, 180],
+        },
       ],
     });
   });
@@ -55,10 +58,14 @@ describe('createAlertRecorder (AUTH-7.7)', () => {
     recorder.observe('auth.rate_limit.unavailable', {});
     assert({
       given: 'a rate-limiter unavailability event',
-      should: 'mark the limiter occurrence, keeping since-time and re-arming the 3-minute bridging TTL',
+      should:
+        'mark the limiter occurrence, keeping since-time and re-arming the 3-minute bridging TTL',
       actual: calls,
       expected: [
-        { op: 'markOccurrenceSince', args: ['alert-unavailable-limiter', NOW, 180] },
+        {
+          op: 'markOccurrenceSince',
+          args: ['alert-unavailable-limiter', NOW, 180],
+        },
       ],
     });
   });

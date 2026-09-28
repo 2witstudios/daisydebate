@@ -229,7 +229,8 @@ describe('fetchAlertConditions (ISSUE-156)', () => {
             {
               id: 'cleanup_missed',
               summary: 'x',
-              runbook: 'docs/operations/auth-delivery.md#retention-cleanup-missed',
+              runbook:
+                'docs/operations/auth-delivery.md#retention-cleanup-missed',
             },
           ],
         }),
@@ -266,7 +267,8 @@ describe('fetchAlertConditions (ISSUE-156)', () => {
       'token',
     );
     assert({
-      given: 'a 500 from /api/ops/alerts (e.g. Redis is unreachable server-side)',
+      given:
+        'a 500 from /api/ops/alerts (e.g. Redis is unreachable server-side)',
       should: 'resolve not-ok naming the status, not throw',
       actual: result,
       expected: { ok: false, error: '/api/ops/alerts responded 500' },
@@ -308,7 +310,8 @@ describe('decideProbeOutcome (ISSUE-156)', () => {
       },
     });
     assert({
-      given: 'a healthy origin but an unreachable /api/ops/alerts (Redis fully down)',
+      given:
+        'a healthy origin but an unreachable /api/ops/alerts (Redis fully down)',
       should:
         'report not-healthy with a message naming the unreachable dependency, so posting to Incidents never depends on it answering',
       actual: {
@@ -329,7 +332,8 @@ describe('decideProbeOutcome (ISSUE-156)', () => {
           {
             id: 'limiter_unavailable',
             summary: 'x',
-            runbook: 'docs/operations/auth-delivery.md#storage-or-rate-limiter-unavailable',
+            runbook:
+              'docs/operations/auth-delivery.md#storage-or-rate-limiter-unavailable',
           },
         ],
       },
@@ -339,7 +343,8 @@ describe('decideProbeOutcome (ISSUE-156)', () => {
       should: 'report not-healthy naming the condition',
       actual: {
         healthy: outcome.healthy,
-        namesCondition: outcome.message?.includes('limiter_unavailable') ?? false,
+        namesCondition:
+          outcome.message?.includes('limiter_unavailable') ?? false,
       },
       expected: { healthy: false, namesCondition: true },
     });

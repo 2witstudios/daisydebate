@@ -123,9 +123,9 @@ describe('classifyTestFile', () => {
 
   test('claims a workspace operational script suite outside the top-level scripts/ folder', () => {
     assert({
-      given: "a .test.ts under a workspace's own scripts/ directory (not the root one)",
-      should:
-        'assign workspace-script, distinct from the root scripts/ runner',
+      given:
+        "a .test.ts under a workspace's own scripts/ directory (not the root one)",
+      should: 'assign workspace-script, distinct from the root scripts/ runner',
       actual: [
         classifyTestFile('apps/web/scripts/auth-load/metrics.test.ts'),
         classifyTestFile('scripts/doctor.test.ts'),

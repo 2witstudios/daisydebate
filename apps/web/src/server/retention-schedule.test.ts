@@ -73,7 +73,7 @@ describe('retention sweep schedule', () => {
   });
 
   test('the start-up run waits for waitUntilReady before sweeping, never before (ISSUE-146)', async () => {
-    const { state, timers } = fakeTimers();
+    const { timers } = fakeTimers();
     const gated = gatedSweep();
     let releaseReady: () => void = () => {};
     const ready = new Promise<void>((resolve) => {
@@ -96,7 +96,8 @@ describe('retention sweep schedule', () => {
     gated.state.release();
     await schedule.initial;
     assert({
-      given: 'a start-up run gated on waitUntilReady, which has not resolved yet',
+      given:
+        'a start-up run gated on waitUntilReady, which has not resolved yet',
       should: 'start no sweep until it resolves, then run exactly once',
       actual: { beforeReady, afterReady: gated.state.started },
       expected: { beforeReady: 0, afterReady: 1 },
