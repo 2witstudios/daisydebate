@@ -6,6 +6,10 @@ epic's "deliberately no shadcn and no Tailwind" scope line. Builds on
 [ADR 0027](0027-theme-preference.md) (theme tokens) and the strict nonce CSP
 in `apps/web/src/proxy.ts`.
 
+The palette the tokens carry, and the brand built on them, are in
+[ADR 0045](0045-daisy-brand-system.md). This record stays the authority for
+how tokens are written and used.
+
 ## Context
 
 The component library was vanilla CSS Modules over design tokens: 25
