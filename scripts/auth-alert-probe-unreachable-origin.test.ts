@@ -16,7 +16,7 @@ const SCRIPT_PATH = join(import.meta.dir, 'auth-alert-probe.ts');
  * a plain HTTP stub). Self-signed per call, same approach as
  * `apps/web/e2e/support/tls-edge.ts` — not shared with it directly since
  * that would cross the apps/web workspace boundary from this top-level
- * script (ADR 0026 exception, `.jscpd-baseline.json`); the private key is
+ * script (ADR 0026 exception, `.jscpd-tests-baseline.json`); the private key is
  * generated into a private temp directory and deleted immediately after
  * loading.
  */

@@ -100,22 +100,38 @@ range:
   address on it. Fly does not document a narrower CIDR specific to
   fly-proxy's own address, so the whole prefix is trusted.
 
-**Trust boundary (ISSUE-162/DEC-36, owner decision, 2026-09-28): nothing
-outside fly-proxy's 6PN path may supply a client IP, full stop.**
+**Trust boundary (ISSUE-162/DEC-36 — recorded, not yet Confirmed by the
+owner on the decisions register; the concrete consequence below was
+identified after the initial framing and needs the owner's explicit
+sign-off against it, not just the general narrowing): nothing outside
+fly-proxy's 6PN path may supply a client IP, full stop.**
 `172.16.0.0/12` (a private IPv4 range any machine in the `daisy-debate` Fly
 organization can reach — another app, a developer's `fly ssh console` or
 WireGuard peer, not only fly-proxy) and `66.241.124.0/22` (Fly's public
 anycast edge range) were both trusted at first deploy because the observed
 peer address didn't match `fdaa::/8` alone (see below) — but neither is
-scoped to fly-proxy specifically, so both are now dropped. The owner
-weighed this against the earlier first-deploy finding (below) and decided
-the narrower trust boundary wins: if the real peer address in this
-environment turns out not to be on `fdaa::/8`, the safe failure mode is
-every caller collapsing to fly-proxy's own address (one shared rate-limit
-bucket, never data exposure) — not a wider, effectively org-wide trust of
-who may set `Fly-Client-IP`. Verify the real chain after the first deploy
-following this change (the same procedure below); escalate to the owner
-if it does not match `fdaa::/8`, rather than re-widening the range here.
+scoped to fly-proxy specifically, so both are dropped here.
+
+**Concrete consequence if the September 22 finding still holds** (fly-proxy's
+real peer on this deployment is `172.16.x`/`172.19.x`, not `fdaa::/8`):
+every caller collapses to fly-proxy's own single address, so every
+rate-limit rule keyed by client identity becomes one shared bucket for
+_all_ of staging combined — not a per-caller inconvenience. The magic-link
+client rule is 3 requests per 60 seconds per client
+(`apps/web/src/features/auth/rate-limit.ts`'s `MAGIC_LINK_CLIENT_RULE`);
+collapsed to one shared identity, that becomes **3 magic-link sign-in
+requests per 60 seconds for the entire staging environment** — three
+requests from anyone exhausts it, and every other sign-in attempt is
+rate-limited until the window rolls over. A single caller (deliberately or
+by retrying a failed request) can lock every other tester out of signing in
+for up to a minute at a time. This is a real availability regression, not
+merely "one shared bucket," and needs the owner's sign-off against this
+specific consequence — not only the general "narrow the trust boundary"
+framing — before this ships. Verify the real peer chain immediately after
+the first deploy following this change (the same procedure below); if it
+does not match `fdaa::/8`, escalate to the owner before leaving the
+narrower config in place, rather than silently accepting the lockout risk
+or quietly re-widening the range.
 
 **Superseded first-deploy finding (September 22, pre-DEC-36):** fly-proxy
 was observed reaching the app over IPv4 from `172.16.0.0/12` (peers
@@ -123,8 +139,7 @@ was observed reaching the app over IPv4 from `172.16.0.0/12` (peers
 trusted — the resolved caller became a Fly edge node (`66.241.125.x`),
 i.e. an `X-Forwarded-For` chain of `<caller>, <edge>` with a public edge
 hop. Both ranges were trusted at the time to preserve per-client rate
-limiting. DEC-36 accepts the regression to one shared bucket as the price
-of the narrower trust boundary, pending re-verification below.
+limiting.
 
 **This is inferred from Fly's documented header contract, not measured**:
 Fly's docs do not state the literal TCP peer address an app process sees.
@@ -217,12 +232,17 @@ daisy-debate-staging` showed the machine `stopped` (no requests since the
   machine on any incoming HTTP request, including a webhook POST, so the
   first attempt (or the 5-second retry) should reach a running machine well
   within that window; a webhook is not lost to scale-to-zero unless the
-  machine also fails its readiness check after waking. **Confirmed, not
-  assumed (ISSUE-169, 2026-09-28):** the cold-start measurement above is
-  exactly this wake path (a stopped machine answering an inbound HTTPS
-  request via `auto_start_machines`) — any request type reaching
-  `fly-proxy`, webhook POST included, wakes the machine the same way; no
-  separate mechanism exists for a webhook specifically.
+  machine also fails its readiness check after waking. **Measured directly
+  (ISSUE-169-AC3, review round 3, 2026-09-28):** with the machine stopped,
+  a real Svix-shaped `POST /api/webhooks/resend` (the mounted webhook
+  route, `svix-id`/`svix-timestamp`/`svix-signature` headers, a JSON body)
+  woke it and received a response — `400 VALIDATION` in **8.57s**, since
+  the signature was necessarily invalid (this is a wake-time measurement,
+  not a real Resend delivery) but the wake and response themselves are
+  real. Consistent with the plain-GET cold start above (8.11s): any
+  request type reaching `fly-proxy` wakes the machine via
+  `auto_start_machines`, webhook POST included, well inside the 18-hour
+  retry window.
 - **Passkey RP hostname stability.** `apps/web/src/features/auth/server.ts`
   derives the WebAuthn RP ID as `new URL(config.PUBLIC_APP_URL).hostname`.
   `PUBLIC_APP_URL` is fixed at `https://<app>.fly.dev` (no custom domain),

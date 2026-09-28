@@ -50,21 +50,23 @@ primary_region = "ord"
   # Fly does not document a narrower CIDR for fly-proxy's own address, so the
   # whole prefix is trusted here — see docs/operations/deploy-staging.md
   # "Client identity on Fly" for the verification step run on first deploy.
-  # ISSUE-162/DEC-36 (owner decision, 2026-09-28): 172.16.0.0/12 (a private
-  # IPv4 range reachable by any machine on this Fly org's network, not only
-  # fly-proxy) and 66.241.124.0/22 (Fly's public anycast edge range) are
-  # deliberately NOT trusted, even though an earlier first-deploy finding
-  # observed fly-proxy's own peer address on 172.16.x/172.19.x in this
-  # environment. The owner's answer: nothing outside fly-proxy's 6PN path
-  # may supply a client IP, full stop — trusting a range other machines or
-  # the public internet's edge could plausibly reach was a wider trust
-  # boundary than warranted, even though the safe failure mode (identity
-  # collapses to one shared rate-limit bucket, never data exposure) was
-  # already known. If the real peer address in this environment does not
-  # match fdaa::/8, every client resolves to fly-proxy's own address and
-  # rate limiting degrades to one shared bucket per path — verify this on
-  # first deploy after this change per deploy-staging.md's "Client identity
-  # on Fly" section, and escalate to the owner if it does.
+  # ISSUE-162/DEC-36 (recorded, pending owner Confirmed status): 172.16.0.0/12
+  # (a private IPv4 range reachable by any machine on this Fly org's
+  # network, not only fly-proxy) and 66.241.124.0/22 (Fly's public anycast
+  # edge range) are deliberately NOT trusted, even though an earlier
+  # first-deploy finding observed fly-proxy's own peer address on
+  # 172.16.x/172.19.x in this environment. Nothing outside fly-proxy's 6PN
+  # path may supply a client IP, full stop. CONCRETE CONSEQUENCE if that
+  # first-deploy finding still holds: every client collapses to fly-proxy's
+  # single address, so every client-keyed rate limit becomes one shared
+  # bucket for all of staging — the magic-link rule (3 requests/60s per
+  # client, apps/web/src/features/auth/rate-limit.ts) becomes 3 requests/60s
+  # for the whole environment, meaning any one caller can lock every other
+  # tester out of sign-in for up to a minute. See
+  # docs/operations/deploy-staging.md's "Client identity on Fly" section for
+  # the full framing; verify the real peer chain on first deploy after this
+  # change, and escalate to the owner before leaving this in place if it
+  # does not match fdaa::/8.
   AUTH_TRUSTED_PROXIES = "fdaa::/8"
 
 [http_service]
