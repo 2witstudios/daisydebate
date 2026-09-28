@@ -5,30 +5,14 @@ import {
   petalShape,
   tileGeometry,
 } from '../../brand/brand-geometry';
-import { bloom, petalPath, type PetalShape } from '../../brand/petal';
+import { bloomPetals, type PetalShape } from '../../brand/petal';
 import { markFills, type DaisyMarkVariant } from './daisy-mark-class';
 
-const { size: drawing, centre, discRadius, petalInset, ringGap } = markGeometry;
-
-type BloomPetal = { readonly d: string; readonly cardinal: boolean };
+const { size: drawing, centre, discRadius, ringGap } = markGeometry;
 
 /** The eight petals around the centre, scaled about it. */
-const bloomPetals = (shape: PetalShape, scale = 1): readonly BloomPetal[] =>
-  bloom().map((angle, index) => {
-    const radians = (angle * Math.PI) / 180;
-    const reach = petalInset * scale;
-    return {
-      d: petalPath(shape, {
-        tip: [
-          centre + Math.sin(radians) * reach,
-          centre - Math.cos(radians) * reach,
-        ],
-        angle,
-        scale,
-      }),
-      cardinal: index % 2 === 0,
-    };
-  });
+const petalsOf = (shape: PetalShape, scale = 1) =>
+  bloomPetals(shape, markGeometry, scale);
 
 export type DaisyMarkProps = {
   readonly size: number;
@@ -75,7 +59,7 @@ export function DaisyMark({
         </defs>
       ) : null}
       <g mask={mono ? `url(#${maskId})` : undefined}>
-        {bloomPetals(shape).map(({ d, cardinal }) => (
+        {petalsOf(shape).map(({ d, cardinal }) => (
           <path
             key={d}
             d={d}
@@ -115,7 +99,7 @@ export function DaisyTile({
         rx={cornerRadius}
         className="fill-surface-stage"
       />
-      {bloomPetals(shape, bloomScale).map(({ d }) => (
+      {petalsOf(shape, bloomScale).map(({ d }) => (
         <path key={d} d={d} className={markFills.reverse.cardinal} />
       ))}
       <circle

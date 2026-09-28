@@ -107,6 +107,44 @@ export const bloom = (count = 8): readonly number[] => {
   return Array.from({ length: count }, (_, index) => (index * 360) / count);
 };
 
+export type BloomLayout = {
+  readonly centre: number;
+  /** Centre to each petal's inner tip. */
+  readonly petalInset: number;
+};
+
+export type BloomPetal = {
+  readonly d: string;
+  /** Every other petal from upright: the forest N, E, S, W of the mark. */
+  readonly cardinal: boolean;
+};
+
+/**
+ * A bloom's petals: each tip on a ring `petalInset` from the centre, turned
+ * outward, the whole bloom scaled about the centre. Every mark renderer (the
+ * React marks, the server-rendered confirm pages) draws from this.
+ */
+export const bloomPetals = (
+  shape: PetalShape,
+  { centre, petalInset }: BloomLayout,
+  scale = 1,
+): readonly BloomPetal[] =>
+  bloom().map((angle, index) => {
+    const radians = (angle * Math.PI) / 180;
+    const reach = petalInset * scale;
+    return {
+      d: petalPath(shape, {
+        tip: [
+          centre + Math.sin(radians) * reach,
+          centre - Math.cos(radians) * reach,
+        ],
+        angle,
+        scale,
+      }),
+      cardinal: index % 2 === 0,
+    };
+  });
+
 export type OpposingLayout = {
   readonly centre: Point;
   /** Distance between the two tips. */

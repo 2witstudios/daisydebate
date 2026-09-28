@@ -1,5 +1,11 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { bloom, opposingPetals, petalPath, type PetalShape } from './petal';
+import {
+  bloom,
+  bloomPetals,
+  opposingPetals,
+  petalPath,
+  type PetalShape,
+} from './petal';
 
 setupRitewayBun();
 
@@ -240,6 +246,38 @@ describe('bloom', () => {
         'bloom count must be a positive whole number',
         'bloom count must be a positive whole number',
       ],
+    });
+  });
+});
+
+describe('bloomPetals', () => {
+  test('places each petal tip on a ring around the centre, turned outward', () => {
+    const petals = bloomPetals(shape, { centre: 12, petalInset: 2 });
+    assert({
+      given: 'a bloom centred at 12 with tips 2 from the centre',
+      should:
+        'draw eight petals, upright first with its tip at (12, 10), the third pointing right, cardinals and diagonals alternating',
+      actual: [
+        petals.length,
+        petals[0]?.d,
+        petals[2]?.d,
+        petals.map(({ cardinal }) => cardinal),
+      ],
+      expected: [
+        8,
+        petalPath(shape, { tip: [12, 10], angle: 0 }),
+        petalPath(shape, { tip: [14, 12], angle: 90 }),
+        [true, false, true, false, true, false, true, false],
+      ],
+    });
+  });
+
+  test('scales the ring and the petals about the centre', () => {
+    assert({
+      given: 'the same bloom at half size',
+      should: 'pull the tips in to 1 from the centre and halve each petal',
+      actual: bloomPetals(shape, { centre: 12, petalInset: 2 }, 0.5)[0]?.d,
+      expected: petalPath(shape, { tip: [12, 11], angle: 0, scale: 0.5 }),
     });
   });
 });
