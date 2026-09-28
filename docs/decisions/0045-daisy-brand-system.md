@@ -11,7 +11,7 @@ how tokens are written and used. The usage guide is
 Daisy had no real logo. The mark was eight plain ellipses around a disc,
 and the palette was a bright "Daisy green" (`#157c3e` / `#3ecf7a`) that did
 not match the brand inspiration board. The board defines a whole system: an
-eight-petal bloom of forest and sage petals around a butter disc, a
+eight-petal bloom of forest and sage petals around a yolk disc, a
 monochrome icon, a forest favicon tile, a heavy-serif "Daisy / DEBATE"
 wordmark, the petal primitive and a pair of opposing petals, a petal
 lattice, cropped-bloom art, a bracket that resolves into a bloom, pill
@@ -29,13 +29,14 @@ Tokens stay in `apps/web/src/app/globals.css`, each written once with
 Light keeps the board values; dark lifts the two darkest so they still
 read on the forest-black page.
 
-| Token         | Light     | Dark      | Role                                     |
-| ------------- | --------- | --------- | ---------------------------------------- |
-| `--forest`    | `#173b2a` | `#4a8a64` | Mark cardinals, the stage, primary ink   |
-| `--sage`      | `#a7c09c` | `#a7c09c` | Mark diagonals, the dark accent          |
-| `--sage-deep` | `#7e9c79` | `#8fae89` | Deeper petals in graphics and patterns   |
-| `--cream`     | `#f5f0e4` | `#f5f0e4` | The light page, reverse petals, dark ink |
-| `--butter`    | `#f7da8c` | `#f7da8c` | The disc; honours lean toward it         |
+| Token         | Light     | Dark      | Role                                          |
+| ------------- | --------- | --------- | --------------------------------------------- |
+| `--forest`    | `#173b2a` | `#4a8a64` | Mark cardinals, the stage, primary ink        |
+| `--sage`      | `#a7c09c` | `#a7c09c` | Mark diagonals, the dark accent               |
+| `--sage-deep` | `#7e9c79` | `#8fae89` | Deeper petals in graphics and patterns        |
+| `--cream`     | `#f5f0e4` | `#f5f0e4` | The light page, reverse petals, dark ink      |
+| `--butter`    | `#f7da8c` | `#f7da8c` | The email's brand dot; honours lean toward it |
+| `--yolk`      | `#f2c14e` | `#f2c14e` | The mark's disc                               |
 
 **Semantic tokens** are retuned from the primitives:
 
@@ -92,10 +93,15 @@ other turned half a circle.
 
 Every tunable number lives in **one constants module**,
 `apps/web/src/ui/brand/brand-geometry.ts`, and every brand renderer reads it.
-The committed values are length 9.4, width 4.8, bulb 0.66 and tip
-sharpness 0.95, in a 24-unit drawing. The disc radius is 2.5, the petal
-tips sit 2.1 from the centre (under the disc, so no seam shows), and the
-mono ring gap is 0.8. The `/foundation` brand sheet previews other values
+The committed values are length 8.4, width 4.1, bulb 0.58 and tip
+sharpness 0.2, in a 24-unit drawing. The disc radius is 2.6 and the petal
+tips sit 2.7 from the centre, so a ring of the surface shows between the
+disc and the petals' rounded inner ends. A first tuning (length 9.4, bulb
+0.66, sharpness 0.95, tips under the disc) pinched every petal to a point
+at the centre and read as a pinwheel at the auth panel's 520px, so the
+petals keep the round inner ends of the original ellipse mark with a
+fuller outer bulb, slim enough that the gaps between petals still show at
+the 34px logo. The `/foundation` brand sheet previews other values
 with sliders, but what ships is the module. The sliders' ranges keep every
 preview inside its drawing: the longest petal is half the drawing less the
 petal inset.
@@ -105,12 +111,15 @@ petal inset.
 `DaisyMark` (`apps/web/src/ui/components/daisy-mark/`) takes a required
 `variant`:
 
-- **primary**: forest cardinal petals (N, E, S, W), sage diagonals, and a
-  butter disc. It sits on cream or the page background.
-- **mono**: every petal and the disc in `currentColor`, with a ring knocked
-  out around the disc through a per-instance SVG mask. Use it for one-colour
-  contexts: the accent tile, print, and embossing.
-- **reverse**: cream petals and a butter disc, for forest surfaces (the
+- **primary**: cardinal petals (N, E, S, W), diagonal petals and a yolk
+  disc, on the page background in either scheme. The petals take the
+  `--mark-cardinal` and `--mark-diagonal` tokens: forest and sage on the
+  cream page, cream on the dark page (a lifted forest sank into the
+  background there and read as an icon, not a logo).
+- **mono**: every petal and the disc in `currentColor`. The ring between
+  the disc and the petals is part of the geometry, so no mask is needed.
+  Use it for one-colour contexts: print and embossing.
+- **reverse**: cream petals and a yolk disc, for forest surfaces (the
   stage).
 
 `DaisyTile` is the favicon tile: a forest (`surface-stage`) rounded square,
@@ -122,6 +131,11 @@ names something gets its accessible name from the link or text beside it.
 ### 4. Wordmark and lockups
 
 BRAND-2.1 builds these lockups. The rules are fixed here.
+
+- **The name**: the company and product are "Daisy Debate". Every surface
+  a person sees (wordmarks, page titles, emails, the passkey name) says
+  "Daisy Debate", never "Daisy" alone. Until BRAND-2.1's lockups land, the
+  interim wordmark beside the mark is "Daisy Debate" on one line.
 
 - **"Daisy"**: Fraunces at black or heavy weight, SOFT 0, WONK off, high
   optical size. It is live text.
@@ -138,7 +152,7 @@ BRAND-2.1 builds these lockups. The rules are fixed here.
   - mono mark and the tile: 16px;
   - horizontal lockup: 24px mark;
   - stacked lockup: 48px mark;
-  - wordmark-only: "Daisy" at 20px.
+  - wordmark-only: "Daisy Debate" at 20px.
 
 ### 5. Graphic usage
 
@@ -166,8 +180,12 @@ if either class appears anywhere outside the brand sheet (DEC-32).
 
 - The bright Daisy green and the ellipse mark are gone. No alias, legacy
   variant or compatibility token remains (ADR 0023).
-- `DaisyLogo` stays, as the mono mark on the accent tile, until BRAND-2.1
-  replaces it with the lockups.
+- Every mark's disc is `--yolk` (`#f2c14e`), deeper than butter so the
+  centre reads against cream petals at logo size; butter stays for the
+  email's brand dot.
+- `DaisyLogo` stays, as the primary mark with no tile beside the wordmark,
+  until BRAND-2.1 replaces it with the lockups. The confirm pages draw the
+  same logo from `bloomPetals`.
 - Each later brand leaf is built from the geometry module and the
   primitives, not from new numbers.
 - Pages that the Next stylesheet never reaches (the AUTH-4.7 confirm pages
@@ -175,6 +193,7 @@ if either class appears anywhere outside the brand sheet (DEC-32).
   `apps/web/src/features/auth/brand-palette.ts`, which a test pins to
   `globals.css`, stage tokens included. The confirm pages draw both marks
   from `bloomPetals`, and their panel is the forest stage with its own ink.
+  The mark tokens are in the palette too.
   BRAND-2.3 still owns the email's mark and wordmark.
 - A palette change that drops any declared pairing below AA fails
   `bun check`.

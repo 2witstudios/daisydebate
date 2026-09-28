@@ -68,7 +68,7 @@ const EXPIRED_PANEL: PanelContent = {
 const SENT_PANEL: PanelContent = {
   kicker: 'Link sent',
   title: 'Nearly there.',
-  body: 'Open the newest email from Daisy on this device and select the button to finish signing in.',
+  body: 'Open the newest email from Daisy Debate on this device and select the button to finish signing in.',
 };
 
 const confirmFrame = (
@@ -81,8 +81,8 @@ const confirmFrame = (
     // The mock's retry state has no lede: the notice takes its place.
     (view.notice
       ? ''
-      : '<p class="af-lede">Select the button to sign in to Daisy on this device.</p>') +
-    `<form class="af-form" method="post" action="${CONFIRM_PATH}">${hiddenInput('token', view.token)}${hiddenInputs(view.hidden)}<button class="af-btn" type="submit">Sign in to Daisy</button></form>` +
+      : '<p class="af-lede">Select the button to sign in to Daisy Debate on this device.</p>') +
+    `<form class="af-form" method="post" action="${CONFIRM_PATH}">${hiddenInput('token', view.token)}${hiddenInputs(view.hidden)}<button class="af-btn" type="submit">Sign in to Daisy Debate</button></form>` +
     '<p class="af-why">We ask for this click so email security scanners that open links can’t use your link before you do.</p>',
   footer:
     'Didn’t request this? Close this page. Nothing happens until you select the button.',
@@ -98,9 +98,9 @@ const expiredFrame = (
     noticeHtml(view.notice) +
     '<p class="af-lede">Links expire after 5 minutes and work once. Enter your email and we’ll send a new one.</p>' +
     `<form class="af-form" method="post" action="${CONFIRM_PATH}">${hiddenInput('intent', 'resend')}${hiddenInputs(view.hidden)}<div class="af-field"><label for="email">Email</label><input class="af-input" id="email" name="email" type="email" autocomplete="email" placeholder="you@school.edu" required></div><button class="af-btn" type="submit">Email me a new link</button></form>` +
-    `<div class="af-links"><a class="af-link" href="${escapeHtml(signInHref(view.hidden.callbackURL))}">Back to sign in</a><a class="af-link" href="${escapeHtml(view.hidden.callbackURL)}">Already signed in? Continue to Daisy</a></div>`,
+    `<div class="af-links"><a class="af-link" href="${escapeHtml(signInHref(view.hidden.callbackURL))}">Back to sign in</a><a class="af-link" href="${escapeHtml(view.hidden.callbackURL)}">Already signed in? Continue to Daisy Debate</a></div>`,
   footer:
-    'Clicked the button twice? You’re probably already signed in. Use “Continue to Daisy”.',
+    'Clicked the button twice? You’re probably already signed in. Use “Continue to Daisy Debate”.',
   panel: EXPIRED_PANEL,
 });
 
@@ -108,7 +108,7 @@ const sentFrame: AuthFrameContent = {
   body:
     '<p class="af-eyebrow">Link sent</p>' +
     '<h1>Check your inbox.</h1>' +
-    '<p class="af-lede">If that address can sign in to Daisy, a new link is on its way. It expires in 5 minutes.</p>' +
+    '<p class="af-lede">If that address can sign in to Daisy Debate, a new link is on its way. It expires in 5 minutes.</p>' +
     '<p class="af-why"><strong>School email?</strong> Filters can hold messages for a few minutes. Check spam or quarantine before requesting another.</p>' +
     '<div class="af-links"><a class="af-link" href="/sign-in">Back to sign in</a></div>',
   footer: 'You can close this tab. The new link opens a fresh page.',
@@ -125,9 +125,9 @@ const frameFor = (view: View): AuthFrameContent =>
 /** Matches the mock: each state gets its own tab/history title. */
 const titleFor = (view: View): string =>
   ({
-    confirm: 'Finish signing in · Daisy',
-    expired: 'Link expired · Daisy',
-    sent: 'Check your inbox · Daisy',
+    confirm: 'Finish signing in · Daisy Debate',
+    expired: 'Link expired · Daisy Debate',
+    sent: 'Check your inbox · Daisy Debate',
   })[view.kind];
 
 /** Server-rendered, script-free, with no third-party or external asset: nothing to prefetch or leak. */

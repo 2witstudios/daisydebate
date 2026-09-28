@@ -8,21 +8,22 @@ import type { PetalShape } from './petal';
 
 /** The petal primitive, in the mark's 24-unit drawing. */
 export const petalShape: PetalShape = {
-  length: 9.4,
-  width: 4.8,
-  bulb: 0.66,
-  tipSharpness: 0.95,
+  length: 8.4,
+  width: 4.1,
+  bulb: 0.58,
+  tipSharpness: 0.2,
 };
 
 /** The bloom in a 24 × 24 drawing, centred. */
 export const markGeometry = {
   size: 24,
   centre: 12,
-  discRadius: 2.5,
-  /** Centre to each petal's inner tip; under the disc, so no seam shows. */
-  petalInset: 2.1,
-  /** Width of the knocked-out ring around the mono mark's disc. */
-  ringGap: 0.8,
+  discRadius: 2.6,
+  /**
+   * Centre to each petal's inner tip; past the disc, so a ring of the
+   * surface shows between the disc and the petals' rounded inner ends.
+   */
+  petalInset: 2.7,
 } as const;
 
 /** The favicon tile: a rounded square holding a smaller reverse bloom. */

@@ -22,6 +22,10 @@ export type BrandPalette = {
   /** Brand primitives for the mark: reverse petals and the disc. */
   readonly cream: string;
   readonly butter: string;
+  /** The primary mark's petals, which follow the scheme. */
+  readonly markCardinal: string;
+  readonly markDiagonal: string;
+  readonly yolk: string;
   /** Amber notice surface: no equivalent token exists in globals.css yet. */
   readonly noticeBg: string;
   readonly noticeBorder: string;
@@ -47,6 +51,9 @@ export const AUTH_BRAND_PALETTE: {
     gold: '#7e5c12',
     cream: '#f5f0e4',
     butter: '#f7da8c',
+    markCardinal: '#173b2a',
+    markDiagonal: '#a7c09c',
+    yolk: '#f2c14e',
     noticeBg: '#fdf3e2',
     noticeBorder: '#ecd19c',
     noticeInk: '#6b4a0a',
@@ -66,6 +73,9 @@ export const AUTH_BRAND_PALETTE: {
     gold: '#f0cf7a',
     cream: '#f5f0e4',
     butter: '#f7da8c',
+    markCardinal: '#f5f0e4',
+    markDiagonal: '#f5f0e4',
+    yolk: '#f2c14e',
     noticeBg: '#2a2110',
     noticeBorder: '#5a4516',
     noticeInk: '#f2d38c',

@@ -33,7 +33,7 @@ describe('AUTH-3.6 message rendering', () => {
         escaped: true,
         textNotice: true,
         htmlNotice: true,
-        subject: 'Sign in to Daisy',
+        subject: 'Sign in to Daisy Debate',
       },
     });
   });

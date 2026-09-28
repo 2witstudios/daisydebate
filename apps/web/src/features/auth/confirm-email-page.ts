@@ -81,7 +81,7 @@ export function renderEmailConfirmPage(
   setCookies: readonly string[] = [],
 ): Response {
   const document = confirmDocument(
-    'Confirm email · Daisy',
+    'Confirm email · Daisy Debate',
     frameFor(view),
     pageContext(request),
   );

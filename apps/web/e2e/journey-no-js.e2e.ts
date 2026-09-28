@@ -139,7 +139,7 @@ test.describe('with JavaScript off', () => {
     await expect(page).not.toHaveURL(/\/sign-in/);
 
     // The loser's redirect lands on the expired state, itself still usable:
-    // the resend form and "Continue to Daisy" both work from here.
+    // the resend form and "Continue to Daisy Debate" both work from here.
     const loser = [first, second].find((response) => response !== signedIn[0]);
     await page.goto(loser?.headers()['location'] ?? '/auth/confirm');
     await expect(

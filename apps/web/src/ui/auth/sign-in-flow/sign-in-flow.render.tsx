@@ -76,7 +76,7 @@ export function renderSignInFlow(
       return (
         <AuthFrame panel={taglinePanel}>
           <AuthHeading eyebrow="Signed in" title="You're in.">
-            <span role="status">Taking you to Daisy…</span>
+            <span role="status">Taking you to Daisy Debate…</span>
           </AuthHeading>
         </AuthFrame>
       );

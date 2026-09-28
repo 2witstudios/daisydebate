@@ -1,9 +1,13 @@
-/** Fills per mark variant (ADR 0045). Cardinals are the N/E/S/W petals. */
+/**
+ * Fills per mark variant (ADR 0045). Cardinals are the N/E/S/W petals. The
+ * primary petals follow the scheme: forest and sage on the cream page, cream
+ * on the dark page.
+ */
 export const markFills = {
   primary: {
-    cardinal: 'fill-forest',
-    diagonal: 'fill-sage',
-    disc: 'fill-butter',
+    cardinal: 'fill-mark-cardinal',
+    diagonal: 'fill-mark-diagonal',
+    disc: 'fill-yolk',
   },
   mono: {
     cardinal: 'fill-current',
@@ -13,7 +17,7 @@ export const markFills = {
   reverse: {
     cardinal: 'fill-cream',
     diagonal: 'fill-cream',
-    disc: 'fill-butter',
+    disc: 'fill-yolk',
   },
 } as const;
 

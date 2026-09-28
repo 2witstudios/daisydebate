@@ -134,8 +134,9 @@ const declaredPairs: readonly Pair[] = [
   // button against the page, and the stage button against the stage.
   ...on(['--accent', '--glyph', '--online', '--live'], pageSurfaces, UI),
   { fg: '--stage-accent', bg: '--surface-stage', min: UI },
-  // The mark's forest petals must read on the page in both schemes.
-  ...on(['--forest'], ['--background', '--surface'], UI),
+  // The primary mark's cardinal petals and the opposing pair's forest petal
+  // must read on the page in both schemes.
+  ...on(['--forest', '--mark-cardinal'], ['--background', '--surface'], UI),
 ];
 
 describe('palette contrast', () => {

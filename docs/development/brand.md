@@ -17,18 +17,18 @@ change, open the brand sheet on `/foundation` with
   (`primary`, `mono`, `reverse`), `DaisyTile`, `OpposingPetals` and, until
   BRAND-2.1, `DaisyLogo`.
 - Colour: the brand primitives (`forest`, `sage`, `sage-deep`, `cream`,
-  `butter`) and the semantic tokens in `apps/web/src/app/globals.css`.
+  `butter`, and `yolk` for the mark's disc) and the semantic tokens in `apps/web/src/app/globals.css`.
 
 ## Which mark on which surface
 
-| Surface                                       | Use                                                          |
-| --------------------------------------------- | ------------------------------------------------------------ |
-| The page background or a card, either scheme  | `primary`                                                    |
-| The stage (`bg-surface-stage`) or any forest  | `reverse`                                                    |
-| One-colour contexts: accent tile, print, foil | `mono`, coloured by the text colour around it                |
-| Browser tab, app icon, 16–32px                | `DaisyTile`                                                  |
-| Anything about the two sides of a debate      | `OpposingPetals`                                             |
-| Below 24px                                    | `mono` or `DaisyTile`; the primary colours blur at that size |
+| Surface                                      | Use                                                          |
+| -------------------------------------------- | ------------------------------------------------------------ |
+| The page background or a card, either scheme | `primary`                                                    |
+| The stage (`bg-surface-stage`) or any forest | `reverse`                                                    |
+| One-colour contexts: print, foil             | `mono`, coloured by the text colour around it                |
+| Browser tab, app icon, 16–32px               | `DaisyTile`                                                  |
+| Anything about the two sides of a debate     | `OpposingPetals`                                             |
+| Below 24px                                   | `mono` or `DaisyTile`; the primary colours blur at that size |
 
 - Do not recolour a variant with classes, and do not rotate, stretch or
   outline a mark.

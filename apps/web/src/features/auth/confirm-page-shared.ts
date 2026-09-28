@@ -21,24 +21,27 @@ export const hiddenInput = (name: string, value: string | undefined) =>
     ? ''
     : `<input type="hidden" name="${name}" value="${escapeHtml(value)}">`;
 
-const { size: drawing, centre, discRadius, ringGap } = markGeometry;
+const { size: drawing, centre, discRadius } = markGeometry;
 
-const petalPaths = (attrs = '') =>
+const petalPaths = (classOf: (cardinal: boolean) => string) =>
   bloomPetals(petalShape, markGeometry)
-    .map(({ d }) => `<path d="${d}"${attrs}></path>`)
+    .map(
+      ({ d, cardinal }) =>
+        `<path d="${d}" class="${classOf(cardinal)}"></path>`,
+    )
     .join('');
 
 /**
- * The mono Daisy mark (ADR 0045), drawn from the same geometry as
- * `ui/components/daisy-mark`: currentColor petals and disc, with a ring
- * knocked out around the disc. A page carries one, so the mask id is fixed.
+ * The primary Daisy mark (ADR 0045), drawn from the same geometry as
+ * `ui/components/daisy-mark`: its petals follow the scheme through the
+ * stylesheet, forest and sage on cream, cream on the dark page.
  */
-const monoMarkSvg = (size: number) =>
-  `<svg viewBox="0 0 ${drawing} ${drawing}" width="${size}" height="${size}" aria-hidden="true"><defs><mask id="af-ring"><rect width="${drawing}" height="${drawing}" fill="white"></rect><circle cx="${centre}" cy="${centre}" r="${discRadius + ringGap}" fill="black"></circle></mask></defs><g fill="currentColor" mask="url(#af-ring)">${petalPaths()}</g><circle cx="${centre}" cy="${centre}" r="${discRadius}" fill="currentColor"></circle></svg>`;
+const logoSvg = (size: number) =>
+  `<svg class="af-logo" viewBox="0 0 ${drawing} ${drawing}" width="${size}" height="${size}" aria-hidden="true">${petalPaths((cardinal) => (cardinal ? 'af-logo-cardinal' : 'af-logo-diagonal'))}<circle class="af-logo-disc" cx="${centre}" cy="${centre}" r="${discRadius}"></circle></svg>`;
 
 /** The reverse mark as the stage panel's art; its colours are in the stylesheet. */
 const panelMarkSvg = () =>
-  `<svg class="af-panel-mark" viewBox="0 0 ${drawing} ${drawing}" width="520" height="520" aria-hidden="true">${petalPaths(' class="af-panel-petal"')}<circle class="af-panel-disc" cx="${centre}" cy="${centre}" r="${discRadius}"></circle></svg>`;
+  `<svg class="af-panel-mark" viewBox="0 0 ${drawing} ${drawing}" width="520" height="520" aria-hidden="true">${petalPaths(() => 'af-panel-petal')}<circle class="af-panel-disc" cx="${centre}" cy="${centre}" r="${discRadius}"></circle></svg>`;
 
 export type PanelContent = {
   readonly kicker: string;
@@ -69,7 +72,7 @@ export type AuthFrameContent = {
 function authFrame({ body, footer, panel: panelContent }: AuthFrameContent) {
   return (
     `<div class="af-page"><div class="af-main">` +
-    `<a class="af-brand" href="/"><span class="af-logo">${monoMarkSvg(22)}</span><span class="af-word">Daisy</span></a>` +
+    `<a class="af-brand" href="/">${logoSvg(34)}<span class="af-word">Daisy Debate</span></a>` +
     `<div class="af-body">${body}</div>` +
     `<p class="af-foot">${footer}</p>` +
     `</div>${panel(panelContent)}</div>`

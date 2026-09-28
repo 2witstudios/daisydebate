@@ -58,7 +58,7 @@ describe('auth instance composition', () => {
       expected: {
         magicLinkSender: 'function',
         rpID: 'daisy.example.com',
-        rpName: 'Daisy',
+        rpName: 'Daisy Debate',
         origin: 'https://daisy.example.com',
       },
     });
@@ -134,7 +134,7 @@ describe('auth instance composition', () => {
       should: 'deliver exactly one message through the injected sender',
       actual: sender.sent.map(({ to, subject }) => ({ to, subject })),
       expected: [
-        { to: 'player@daisy.example.com', subject: 'Sign in to Daisy' },
+        { to: 'player@daisy.example.com', subject: 'Sign in to Daisy Debate' },
       ],
     });
   });

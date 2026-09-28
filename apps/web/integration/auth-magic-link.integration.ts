@@ -35,7 +35,7 @@ describe('AUTH-3.3 magic link request through the mounted handler', () => {
         noStore: 'no-store',
         hasRequestId: true,
         to: true,
-        subject: 'Sign in to Daisy',
+        subject: 'Sign in to Daisy Debate',
         path: '/auth/confirm',
         callback: '/lobby',
         idempotent: true,
@@ -287,7 +287,7 @@ describe('AUTH-3.3 / AUTH-3.5 returning users and expired links', () => {
         status: resend.status,
         newMails: mailbox.mails.length - before,
         neutral: (await resend.text()).includes(
-          'If that address can sign in to Daisy',
+          'If that address can sign in to Daisy Debate',
         ),
       },
       expected: { status: 200, newMails: 1, neutral: true },

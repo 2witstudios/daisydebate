@@ -32,8 +32,8 @@ describe('BrandSheet', () => {
           count(html, /preview-scheme-light/),
           count(html, /preview-scheme-dark/),
         ],
-        primary: count(html, /class="fill-butter"/),
-        mono: count(html, /<mask /),
+        primary: count(html, /class="fill-yolk"/),
+        mono: count(html, /class="fill-current"/),
         faviconTiles: count(html, /<svg[^>]*width="16"[^>]*height="16"/),
         pairs: count(html, /viewBox="0 0 48 24"/),
       },
@@ -41,7 +41,8 @@ describe('BrandSheet', () => {
         panels: [1, 1],
         // Per panel: the primary and reverse discs plus two tiles' discs.
         primary: 8,
-        mono: 2,
+        // Per panel: the mono mark's eight petals and its disc.
+        mono: 18,
         faviconTiles: 2,
         pairs: 2,
       },

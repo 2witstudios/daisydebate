@@ -34,7 +34,7 @@ export async function reachExpiredLink(
   await confirmSignIn(page, link);
   await page.context().clearCookies();
   await gotoWithTheme(page, link, theme);
-  await page.getByRole('button', { name: 'Sign in to Daisy' }).click();
+  await page.getByRole('button', { name: 'Sign in to Daisy Debate' }).click();
   await expect(
     page.getByRole('heading', { name: /can no longer be used/i }),
   ).toBeVisible();
@@ -86,7 +86,7 @@ export async function reachRetryState(
       form: { token: PROBE_TOKEN, callbackURL: '/lobby' },
     });
   await gotoWithTheme(page, link, theme);
-  await page.getByRole('button', { name: 'Sign in to Daisy' }).click();
+  await page.getByRole('button', { name: 'Sign in to Daisy Debate' }).click();
   // `getByRole('alert')` also matches Next's own
   // `#__next-route-announcer__`; the notice is the one with real text.
   await expect(page.getByText(/too many attempts/i)).toBeVisible();

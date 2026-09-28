@@ -220,7 +220,9 @@ test('sessions can be listed and another session revoked; the revoked cookie is 
   ).toBeVisible();
   const link = await emailedLink(request, email);
   await otherPage.goto(link);
-  await otherPage.getByRole('button', { name: 'Sign in to Daisy' }).click();
+  await otherPage
+    .getByRole('button', { name: 'Sign in to Daisy Debate' })
+    .click();
   await expect(otherPage).toHaveURL(/\/lobby$/);
 
   await page.goto('/settings/security');

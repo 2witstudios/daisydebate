@@ -38,7 +38,7 @@ export const confirmPanelStyles = `.af-panel {
 }
 
 .af-panel-disc {
-  fill: color-mix(in srgb, var(--af-butter) 20%, var(--af-surface-stage));
+  fill: color-mix(in srgb, var(--af-yolk) 20%, var(--af-surface-stage));
 }
 
 .af-panel-kicker {

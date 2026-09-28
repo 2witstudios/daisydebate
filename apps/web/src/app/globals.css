@@ -53,6 +53,13 @@
   --sage-deep: light-dark(#7e9c79, #8fae89);
   --cream: light-dark(#f5f0e4, #f5f0e4);
   --butter: light-dark(#f7da8c, #f7da8c);
+  /* The primary mark's petals: forest and sage on the cream page, cream on
+     the dark page, where a lifted forest would sink into the background. */
+  --mark-cardinal: light-dark(#173b2a, #f5f0e4);
+  --mark-diagonal: light-dark(#a7c09c, #f5f0e4);
+  /* The mark's disc: a deeper yolk than butter, so the centre still reads
+     against cream petals at logo size. */
+  --yolk: light-dark(#f2c14e, #f2c14e);
 
   /* Surfaces — cream stepping toward paper in light, forest stepping up
      from forest-black in dark. */
@@ -126,6 +133,9 @@
   --color-sage-deep: var(--sage-deep);
   --color-cream: var(--cream);
   --color-butter: var(--butter);
+  --color-mark-cardinal: var(--mark-cardinal);
+  --color-mark-diagonal: var(--mark-diagonal);
+  --color-yolk: var(--yolk);
   --color-background: var(--background);
   --color-surface: var(--surface);
   --color-surface-raised: var(--surface-raised);

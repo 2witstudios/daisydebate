@@ -95,7 +95,7 @@ export async function requestSignInLink(page: Page, email: string) {
 /** Opens a sign-in link and takes the confirmation tap. */
 export async function confirmSignIn(page: Page, link: string) {
   await page.goto(link);
-  await page.getByRole('button', { name: 'Sign in to Daisy' }).click();
+  await page.getByRole('button', { name: 'Sign in to Daisy Debate' }).click();
 }
 
 /** A brand-new address signed in through the real form, left at onboarding. */

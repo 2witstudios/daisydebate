@@ -1,4 +1,3 @@
-import { useId } from 'react';
 import { cn } from '../../cn';
 import {
   markGeometry,
@@ -8,7 +7,7 @@ import {
 import { bloomPetals, type PetalShape } from '../../brand/petal';
 import { markFills, type DaisyMarkVariant } from './daisy-mark-class';
 
-const { size: drawing, centre, discRadius, ringGap } = markGeometry;
+const { size: drawing, centre, discRadius } = markGeometry;
 
 /** The eight petals around the centre, scaled about it. */
 const petalsOf = (shape: PetalShape, scale = 1) =>
@@ -24,8 +23,8 @@ export type DaisyMarkProps = {
 
 /**
  * The Daisy mark: eight teardrop petals around a disc (ADR 0045).
- * `primary` sits on cream, `mono` takes currentColor with a ring knocked out
- * around the disc, and `reverse` sits on forest.
+ * `primary` sits on the page in either scheme, `mono` takes currentColor,
+ * and `reverse` sits on forest.
  */
 export function DaisyMark({
   size,
@@ -33,10 +32,7 @@ export function DaisyMark({
   className,
   shape = petalShape,
 }: DaisyMarkProps) {
-  // Each mono mark masks its own ring; useId keeps two on a page apart.
-  const maskId = `daisy-ring-${useId().replace(/[^\w-]/g, '')}`;
   const fills = markFills[variant];
-  const mono = variant === 'mono';
   return (
     <svg
       viewBox={`0 0 ${drawing} ${drawing}`}
@@ -45,28 +41,13 @@ export function DaisyMark({
       aria-hidden="true"
       className={cn('shrink-0', className)}
     >
-      {mono ? (
-        <defs>
-          <mask id={maskId}>
-            <rect width={drawing} height={drawing} fill="white" />
-            <circle
-              cx={centre}
-              cy={centre}
-              r={discRadius + ringGap}
-              fill="black"
-            />
-          </mask>
-        </defs>
-      ) : null}
-      <g mask={mono ? `url(#${maskId})` : undefined}>
-        {petalsOf(shape).map(({ d, cardinal }) => (
-          <path
-            key={d}
-            d={d}
-            className={cardinal ? fills.cardinal : fills.diagonal}
-          />
-        ))}
-      </g>
+      {petalsOf(shape).map(({ d, cardinal }) => (
+        <path
+          key={d}
+          d={d}
+          className={cardinal ? fills.cardinal : fills.diagonal}
+        />
+      ))}
       <circle cx={centre} cy={centre} r={discRadius} className={fills.disc} />
     </svg>
   );
@@ -112,14 +93,7 @@ export function DaisyTile({
   );
 }
 
-/** The mark on its accent tile, as it sits beside the wordmark. */
+/** The mark as it sits beside the wordmark: the primary bloom, no tile. */
 export function DaisyLogo() {
-  return (
-    <span
-      className="inline-flex size-shell-logo items-center justify-center rounded-sm bg-accent text-accent-ink"
-      aria-hidden="true"
-    >
-      <DaisyMark size={20} variant="mono" />
-    </span>
-  );
+  return <DaisyMark size={34} variant="primary" className="size-shell-logo" />;
 }

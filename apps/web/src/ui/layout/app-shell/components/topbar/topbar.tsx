@@ -45,14 +45,14 @@ export function Topbar({ account }: { readonly account: ShellAccount }) {
     <header className="flex h-topbar items-center gap-6 px-6 max-compact:gap-4 max-compact:px-4">
       <Link
         href="/"
-        aria-label="Daisy home"
-        className="flex items-center gap-3 text-ink no-underline hover:no-underline"
+        aria-label="Daisy Debate home"
+        className="flex items-center gap-2 text-ink no-underline hover:no-underline"
       >
         <DaisyLogo />
         <span className="font-display text-xl leading-shell-brand font-semibold tracking-tight text-ink max-narrow:hidden">
-          Daisy
+          Daisy Debate
         </span>
-        <span className="flex flex-col border-l border-border pl-2 text-shell-tagline leading-shell-tagline font-strong tracking-widest text-ink-faint uppercase max-rail:hidden">
+        <span className="ml-1 flex flex-col border-l border-border pl-2 text-shell-tagline leading-shell-tagline font-strong tracking-widest text-ink-faint uppercase max-rail:hidden">
           Sharper minds.
           <br />A brighter world.
         </span>

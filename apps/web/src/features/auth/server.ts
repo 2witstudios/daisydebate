@@ -181,7 +181,7 @@ const composeBetterAuth = (dependencies: {
       }),
       passkey({
         rpID: new URL(config.PUBLIC_APP_URL).hostname,
-        rpName: 'Daisy',
+        rpName: 'Daisy Debate',
         origin,
         // Discoverable, so username-less and autofill sign-in can find it;
         // no attachment, so platform and roaming authenticators both enroll.
