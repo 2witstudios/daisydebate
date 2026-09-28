@@ -1,4 +1,9 @@
-import { expect, test, type Page } from '@playwright/test';
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type Page,
+} from '@playwright/test';
 import {
   emailedLink,
   freshEmail,
@@ -85,22 +90,34 @@ test('account security settings has no serious or critical accessibility finding
   await assertNoSeriousFindings(page);
 });
 
-test('an expired confirmation link has no serious or critical accessibility findings', async ({
-  page,
-  request,
-}) => {
+/**
+ * A redeemed link revisited looks the same as an expired one to the user
+ * (AUTH-4.7's expired state): sign up, redeem, clear the session, then
+ * revisit and take the confirmation tap again.
+ */
+async function reachExpiredLink(
+  page: Page,
+  request: APIRequestContext,
+): Promise<string> {
   const email = freshEmail();
   await page.goto('/sign-in');
   await requestSignInLink(page, email);
   const link = await emailedLink(request, email);
   await confirmSignIn(page, link);
   await page.context().clearCookies();
-  // A redeemed link revisited looks the same as an expired one to the user.
   await page.goto(link);
   await page.getByRole('button', { name: 'Sign in to Daisy' }).click();
   await expect(
     page.getByRole('heading', { name: /can no longer be used/i }),
   ).toBeVisible();
+  return email;
+}
+
+test('an expired confirmation link has no serious or critical accessibility findings', async ({
+  page,
+  request,
+}) => {
+  await reachExpiredLink(page, request);
   await assertNoSeriousFindings(page);
 });
 
@@ -228,6 +245,62 @@ test('settings has no serious or critical accessibility findings in dark or ligh
 
   await gotoWithTheme(page, '/settings', 'light');
   await assertNoSeriousFindings(page);
+});
+
+test('the confirm sign-in page (AUTH-4.7) has no serious or critical accessibility findings in dark or light', async ({
+  page,
+  request,
+}) => {
+  const email = freshEmail();
+  await page.goto('/sign-in');
+  await requestSignInLink(page, email);
+  const link = await emailedLink(request, email);
+
+  await gotoWithTheme(page, link, 'dark');
+  await expect(
+    page.getByRole('button', { name: 'Sign in to Daisy' }),
+  ).toBeVisible();
+  await assertNoSeriousFindings(page);
+
+  await gotoWithTheme(page, link, 'light');
+  await assertNoSeriousFindings(page);
+});
+
+test('the expired-link resend state has no serious or critical accessibility findings, and lands on "check your inbox"', async ({
+  page,
+  request,
+}) => {
+  const email = await reachExpiredLink(page, request);
+  await page.getByLabel('Email').fill(email);
+  await page.getByRole('button', { name: 'Email me a new link' }).click();
+  await expect(
+    page.getByRole('heading', { name: /check your inbox/i }),
+  ).toBeVisible();
+  await assertNoSeriousFindings(page);
+});
+
+test('the confirm sign-in page stays usable with no horizontal overflow at 320 px and 200% effective zoom', async ({
+  page,
+  request,
+}) => {
+  const email = freshEmail();
+  await page.goto('/sign-in');
+  await requestSignInLink(page, email);
+  const link = await emailedLink(request, email);
+
+  for (const width of [320, 640]) {
+    await page.setViewportSize({ width, height: 480 });
+    await page.goto(link);
+    const overflowsHorizontally = await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth >
+        document.documentElement.clientWidth + 1,
+    );
+    expect(overflowsHorizontally).toBe(false);
+    await expect(
+      page.getByRole('button', { name: 'Sign in to Daisy' }),
+    ).toBeVisible();
+  }
 });
 
 test('the passkey offer has no serious or critical accessibility findings in dark or light', async ({

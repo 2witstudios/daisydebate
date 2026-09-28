@@ -30,13 +30,16 @@ type ConfirmEmailDependencies = {
  * request (its confirmation is never sent); the person is told why rather
  * than shown the expired-link page. Anything else is a spent link.
  */
-async function refusal(response: Response): Promise<Response> {
+async function refusal(
+  response: Response,
+  request: Request,
+): Promise<Response> {
   const body = (await response.json().catch(() => ({}))) as {
     readonly code?: unknown;
   };
   return response.status === 422 && body.code === EMAIL_UNDELIVERABLE
-    ? renderEmailConfirmPage({ kind: 'undeliverable' }, 422)
-    : renderEmailConfirmPage({ kind: 'expired' }, 400);
+    ? renderEmailConfirmPage({ kind: 'undeliverable' }, request, 422)
+    : renderEmailConfirmPage({ kind: 'expired' }, request, 400);
 }
 
 export function createConfirmEmailHandlers({
@@ -48,8 +51,8 @@ export function createConfirmEmailHandlers({
   const view = (request: Request): Response => {
     const token = new URL(request.url).searchParams.get('token');
     return token && tokenShape.test(token)
-      ? renderEmailConfirmPage({ kind: 'confirm', token })
-      : renderEmailConfirmPage({ kind: 'expired' }, 400);
+      ? renderEmailConfirmPage({ kind: 'confirm', token }, request)
+      : renderEmailConfirmPage({ kind: 'expired' }, request, 400);
   };
 
   const redeem = async (
@@ -59,7 +62,7 @@ export function createConfirmEmailHandlers({
   ) => {
     const token = form.get('token') ?? '';
     if (!tokenShape.test(token))
-      return renderEmailConfirmPage({ kind: 'expired' }, 400);
+      return renderEmailConfirmPage({ kind: 'expired' }, request, 400);
     const response = await forward(
       request,
       `/api/auth${EMAIL_CHANGE_VERIFY_PATH}`,
@@ -69,7 +72,7 @@ export function createConfirmEmailHandlers({
         body: JSON.stringify({ token }),
       },
     );
-    if (!response.ok) return refusal(response);
+    if (!response.ok) return refusal(response, request);
     const cookies = response.headers.getSetCookie();
     // Only the final hop (proving live access to the new mailbox) sets a
     // session cookie; the old-address approval hop hits this same route
@@ -90,6 +93,7 @@ export function createConfirmEmailHandlers({
       if (response.headers.get(SESSION_CLEANUP_FAILED_HEADER) === 'true')
         return renderEmailConfirmPage(
           { kind: 'incomplete', callbackURL: DESTINATION },
+          request,
           502,
           cookies,
         );

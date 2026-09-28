@@ -1,9 +1,12 @@
 import { CONFIRM_EMAIL_PATH } from './email-change';
+import { pageContext } from './confirm-http-shared';
 import {
   confirmDocument,
   escapeHtml,
   hiddenInput,
   pageHeaders,
+  type AuthFrameContent,
+  type PanelContent,
 } from './confirm-page-shared';
 
 export type EmailConfirmView =
@@ -13,41 +16,89 @@ export type EmailConfirmView =
   | { readonly kind: 'done'; readonly callbackURL: string }
   | { readonly kind: 'incomplete'; readonly callbackURL: string };
 
-const confirmBody = (view: Extract<EmailConfirmView, { kind: 'confirm' }>) =>
-  `<h1>Confirm this email change</h1><p>Select the button to continue changing this account's email.</p><form method="post" action="${CONFIRM_EMAIL_PATH}">${hiddenInput('token', view.token)}<button type="submit">Continue</button></form>`;
+const PANEL: PanelContent = {
+  kicker: 'Account security',
+  title: 'Confirm it’s you, on both ends.',
+  body: 'Changing the email on your account takes a click from the old address and the new one, so neither alone can move your account.',
+};
 
-const expiredBody =
-  '<h1>This link can no longer be used</h1><p>It may have expired or already been used. Start the email change again from account security settings.</p>';
+const confirmFrame = (
+  view: Extract<EmailConfirmView, { kind: 'confirm' }>,
+): AuthFrameContent => ({
+  body:
+    '<p class="af-eyebrow">Account security</p>' +
+    '<h1>Confirm this email change.</h1>' +
+    '<p class="af-lede">Select the button to continue changing this account’s email.</p>' +
+    `<form class="af-form" method="post" action="${CONFIRM_EMAIL_PATH}">${hiddenInput('token', view.token)}<button class="af-btn" type="submit">Continue</button></form>`,
+  footer:
+    'Didn’t request this? Close this page. Nothing changes until you select the button.',
+  panel: PANEL,
+});
 
-const undeliverableBody =
-  '<h1>The new address cannot receive email</h1><p>Mail to that address bounced or was reported, so we cannot send it the confirmation and the change cannot finish. Start the email change again from account security settings with a different address.</p>';
+const expiredFrame: AuthFrameContent = {
+  body:
+    '<p class="af-eyebrow af-muted">Link expired</p>' +
+    '<h1>This link can no longer be used.</h1>' +
+    '<p class="af-lede">It may have expired or already been used. Start the email change again from account security settings.</p>',
+  footer: 'Nothing changed on your account.',
+  panel: PANEL,
+};
 
-const doneBody = (view: Extract<EmailConfirmView, { kind: 'done' }>) =>
-  `<h1>Done</h1><p>Continue to <a href="${escapeHtml(view.callbackURL)}">account security settings</a>.</p>`;
+const undeliverableFrame: AuthFrameContent = {
+  body:
+    '<p class="af-eyebrow af-muted">Cannot receive email</p>' +
+    '<h1>The new address cannot receive email.</h1>' +
+    '<p class="af-lede">Mail to that address bounced or was reported, so we cannot send it the confirmation and the change cannot finish. Start the email change again from account security settings with a different address.</p>',
+  footer: 'Nothing changed on your account.',
+  panel: PANEL,
+};
 
-const incompleteBody = (
+const doneFrame = (
+  view: Extract<EmailConfirmView, { kind: 'done' }>,
+): AuthFrameContent => ({
+  body:
+    '<p class="af-eyebrow">Account security</p>' +
+    '<h1>Done.</h1>' +
+    `<div class="af-links"><a class="af-link" href="${escapeHtml(view.callbackURL)}">Continue to account security settings</a></div>`,
+  footer: 'Your email is updated.',
+  panel: PANEL,
+});
+
+const incompleteFrame = (
   view: Extract<EmailConfirmView, { kind: 'incomplete' }>,
-) =>
-  `<h1>Email changed, but a cleanup step failed</h1><p>Your new email address is verified, but we could not confirm every other session was signed out. Continue to <a href="${escapeHtml(view.callbackURL)}">account security settings</a> and check the sessions list.</p>`;
+): AuthFrameContent => ({
+  body:
+    '<p class="af-eyebrow af-muted">Cleanup step failed</p>' +
+    '<h1>Email changed, but a cleanup step failed.</h1>' +
+    '<div class="af-notice" role="alert"><span class="af-notice-icon" aria-hidden="true">!</span><p><strong>Your new email address is verified, but we could not confirm every other session was signed out.</strong></p></div>' +
+    `<div class="af-links"><a class="af-link" href="${escapeHtml(view.callbackURL)}">Continue to account security settings</a></div>`,
+  footer: 'Check the sessions list once you continue.',
+  panel: PANEL,
+});
 
-const bodyFor = (view: EmailConfirmView) =>
+const frameFor = (view: EmailConfirmView): AuthFrameContent =>
   view.kind === 'confirm'
-    ? confirmBody(view)
+    ? confirmFrame(view)
     : view.kind === 'done'
-      ? doneBody(view)
+      ? doneFrame(view)
       : view.kind === 'incomplete'
-        ? incompleteBody(view)
+        ? incompleteFrame(view)
         : view.kind === 'undeliverable'
-          ? undeliverableBody
-          : expiredBody;
+          ? undeliverableFrame
+          : expiredFrame;
 
 /** Server-rendered, script-free and asset-free: nothing to prefetch or leak. */
 export function renderEmailConfirmPage(
   view: EmailConfirmView,
+  request: Request,
   status = 200,
   setCookies: readonly string[] = [],
 ): Response {
-  const document = confirmDocument('Confirm email — Daisy', bodyFor(view));
+  const document = confirmDocument(
+    'Confirm email · Daisy',
+    frameFor(view),
+    pageContext(request),
+  );
   const headers = new Headers(pageHeaders());
   for (const cookie of setCookies) headers.append('set-cookie', cookie);
   return new Response(document, { status, headers });
