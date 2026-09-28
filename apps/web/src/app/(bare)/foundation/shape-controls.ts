@@ -1,3 +1,4 @@
+import { markGeometry } from '../../../ui/brand/brand-geometry';
 import type { PetalShape } from '../../../ui/brand/petal';
 
 export type ShapeControl = {
@@ -8,10 +9,22 @@ export type ShapeControl = {
   readonly step: number;
 };
 
+/**
+ * The longest petal that stays inside the mark's drawing: a petal reaches
+ * from its tip, `petalInset` from the centre, one length outward.
+ */
+const longestPetal = markGeometry.size / 2 - markGeometry.petalInset;
+
 /** The brand sheet's tuning sliders, one per petal parameter. */
 export const shapeControls: readonly ShapeControl[] = [
-  { key: 'length', label: 'Petal length', min: 6, max: 11, step: 0.1 },
-  { key: 'width', label: 'Petal width', min: 3, max: 7, step: 0.1 },
+  {
+    key: 'length',
+    label: 'Petal length',
+    min: 6,
+    max: longestPetal,
+    step: 0.1,
+  },
+  { key: 'width', label: 'Petal width', min: 3, max: 5.5, step: 0.1 },
   { key: 'bulb', label: 'Bulb position', min: 0.4, max: 0.85, step: 0.01 },
   { key: 'tipSharpness', label: 'Tip sharpness', min: 0, max: 1, step: 0.01 },
 ];
