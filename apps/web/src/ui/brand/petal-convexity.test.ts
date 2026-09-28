@@ -1,15 +1,8 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { petalPath } from './petal';
+import { pointsOf } from './petal.test-support';
 
 setupRitewayBun();
-
-/** Every coordinate pair the path passes through or steers by. */
-const pointsOf = (path: string): readonly (readonly [number, number])[] => {
-  const numbers = path.match(/-?\d+(?:\.\d+)?/g)?.map(Number) ?? [];
-  return numbers.flatMap((value, index) =>
-    index % 2 === 0 ? [[value, numbers[index + 1] ?? Number.NaN] as const] : [],
-  );
-};
 
 /**
  * Signed curvature samples along every cubic of a path: the cross product

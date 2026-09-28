@@ -6,6 +6,7 @@ import {
   petalPath,
   type PetalShape,
 } from './petal';
+import { pointsOf } from './petal.test-support';
 
 setupRitewayBun();
 
@@ -14,14 +15,6 @@ const shape: PetalShape = {
   width: 5,
   bulb: 0.6,
   tipSharpness: 0.5,
-};
-
-/** Every coordinate pair the path passes through or steers by. */
-const pointsOf = (path: string): readonly (readonly [number, number])[] => {
-  const numbers = path.match(/-?\d+(?:\.\d+)?/g)?.map(Number) ?? [];
-  return numbers.flatMap((value, index) =>
-    index % 2 === 0 ? [[value, numbers[index + 1] ?? Number.NaN] as const] : [],
-  );
 };
 
 /** The on-curve points: the move target and each curve's end point. */
