@@ -2,7 +2,7 @@ import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createAccountFlows } from './auth-account-helpers';
 import { requireTestServices } from '@daisy/config';
-import { userIdOf } from './fixtures';
+import { userIdOf, withSql } from './fixtures';
 import { trackRevocations } from './auth-outbox-helpers';
 
 requireTestServices(process.env);
@@ -10,6 +10,7 @@ setupRitewayBun();
 
 const { signUp, flows } = createAccountFlows();
 const { origin, routes, withLoggedEvents } = flows.testApp;
+const { signInAgain } = flows;
 const sessionsRoute = routes.sessions;
 const revokeRoute = routes.revokeSession;
 
@@ -173,6 +174,70 @@ describe('ISSUE-49 POST /api/account/sessions/revoke is audited', () => {
         revoked: events.includes('auth.session.revoked'),
       },
       expected: { status: 404, revoked: false },
+    });
+  });
+});
+
+type Listed = { sessions: Array<{ id: string; current: boolean }> };
+
+/** An account signed in twice: the caller's cookie and a second session's. */
+const twoSessions = async () => {
+  const account = await signUp();
+  const other = await signInAgain(account.email);
+  const listed = (await (await listSessions(account.cookie)).json()) as Listed;
+  const otherId = listed.sessions.find((row) => !row.current)?.id ?? '';
+  return { cookie: account.cookie, other, otherId };
+};
+
+/** Whether a cookie still authenticates on its next real request. */
+const stillSignedIn = async (cookie: string) =>
+  (await listSessions(cookie)).status === 200;
+
+describe('POST /api/account/sessions/revoke from another session', () => {
+  test("revoking another session's row refuses that session's cookie on its next request (ISSUE-174)", async () => {
+    const { cookie, other, otherId } = await twoSessions();
+    const response = await revokeSession(cookie, otherId);
+    assert({
+      given: "a second session revoked by id from the first session's row",
+      should:
+        "answer ok, refuse the revoked session's cookie on its next request and keep the caller signed in",
+      actual: {
+        status: response.status,
+        revokedStillSignedIn: await stillSignedIn(other),
+        callerStillSignedIn: await stillSignedIn(cookie),
+      },
+      expected: {
+        status: 200,
+        revokedStillSignedIn: false,
+        callerStillSignedIn: true,
+      },
+    });
+  });
+
+  test('a stale session is refused and the targeted session survives (ISSUE-167)', async () => {
+    const { cookie, other, otherId } = await twoSessions();
+    const token =
+      (
+        await flows.app.auth().instance.api.getSession({
+          headers: new Headers({ cookie }),
+          query: { disableRefresh: true },
+        })
+      )?.session.token ?? '';
+    await withSql(
+      (sql) =>
+        sql`UPDATE session SET created_at = now() - interval '2 hours' WHERE token = ${token}`,
+    );
+    const response = await revokeSession(cookie, otherId);
+    assert({
+      given:
+        "a caller whose session was created outside the fresh window revoking another session's row",
+      should:
+        'refuse with 401 (fresh authentication required) and leave the targeted session signed in',
+      actual: {
+        status: response.status,
+        targetStillSignedIn: await stillSignedIn(other),
+      },
+      expected: { status: 401, targetStillSignedIn: true },
     });
   });
 });
