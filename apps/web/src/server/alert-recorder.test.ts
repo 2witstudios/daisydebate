@@ -13,8 +13,8 @@ type Call = { readonly op: string; readonly args: readonly unknown[] };
 function fakeAlertRedis() {
   const calls: Call[] = [];
   const redis: AlertRecorderRedis = {
-    setIfAbsent: async (key, value, ttl) => {
-      calls.push({ op: 'setIfAbsent', args: [key, value, ttl] });
+    markOccurrenceSince: async (key, value, ttl) => {
+      calls.push({ op: 'markOccurrenceSince', args: [key, value, ttl] });
       return value;
     },
     incrementWithExpiry: async (key, ttl) => {
@@ -41,10 +41,10 @@ describe('createAlertRecorder (AUTH-7.7)', () => {
     assert({
       given: 'a session storage unavailability event',
       should:
-        'set the storage marker if absent, with the 3-minute bridging TTL',
+        'mark the storage occurrence, keeping since-time and re-arming the 3-minute bridging TTL',
       actual: calls,
       expected: [
-        { op: 'setIfAbsent', args: ['alert-unavailable-storage', NOW, 180] },
+        { op: 'markOccurrenceSince', args: ['alert-unavailable-storage', NOW, 180] },
       ],
     });
   });
@@ -55,10 +55,10 @@ describe('createAlertRecorder (AUTH-7.7)', () => {
     recorder.observe('auth.rate_limit.unavailable', {});
     assert({
       given: 'a rate-limiter unavailability event',
-      should: 'set the limiter marker if absent',
+      should: 'mark the limiter occurrence, keeping since-time and re-arming the 3-minute bridging TTL',
       actual: calls,
       expected: [
-        { op: 'setIfAbsent', args: ['alert-unavailable-limiter', NOW, 180] },
+        { op: 'markOccurrenceSince', args: ['alert-unavailable-limiter', NOW, 180] },
       ],
     });
   });
@@ -177,7 +177,7 @@ describe('createAlertRecorder (AUTH-7.7)', () => {
 
   test('a Redis failure is swallowed, never thrown back at the caller', () => {
     const redis: AlertRecorderRedis = {
-      setIfAbsent: async () => {
+      markOccurrenceSince: async () => {
         throw new Error('redis down');
       },
       incrementWithExpiry: async () => {

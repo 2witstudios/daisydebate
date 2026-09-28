@@ -76,6 +76,83 @@ export function composeAlertMessage(input: {
   return lines.join('\n');
 }
 
+export type AlertConditionsResult =
+  | { readonly ok: true; readonly conditions: readonly AlertCondition[] }
+  | { readonly ok: false; readonly error: string };
+
+/**
+ * Fetches the already-evaluated conditions from `/api/ops/alerts`. Never
+ * throws: a non-2xx response or a fetch failure (a Redis outage most often
+ * surfaces as the latter, since `/api/ops/alerts` itself depends on Redis
+ * to answer at all) comes back as `{ ok: false, error }` so `main` can still
+ * post to Incidents instead of dying before it posts anything.
+ */
+export async function fetchAlertConditions(
+  origin: string,
+  token: string,
+): Promise<AlertConditionsResult> {
+  try {
+    const response = await fetch(new URL('/api/ops/alerts', origin), {
+      headers: { authorization: `Bearer ${token}` },
+      redirect: 'error',
+    });
+    if (!response.ok)
+      return {
+        ok: false,
+        error: `/api/ops/alerts responded ${response.status}`,
+      };
+    const { conditions } = (await response.json()) as {
+      conditions: AlertCondition[];
+    };
+    return { ok: true, conditions };
+  } catch (error) {
+    return {
+      ok: false,
+      error: `/api/ops/alerts request failed: ${(error as Error).message}`,
+    };
+  }
+}
+
+export type ProbeOutcome =
+  | { readonly healthy: true; readonly message: null }
+  | { readonly healthy: false; readonly message: string };
+
+/**
+ * Pure: decides whether the probe run is healthy and, if not, the message
+ * to post. An unreachable `/api/ops/alerts` (Redis outage, deploy fault, or
+ * any other failure) is itself treated as an alert-worthy condition, not a
+ * reason to skip posting — this is what lets a full Redis outage still
+ * reach Incidents (AUTH-7.7-AC2/ISSUE-156).
+ */
+export function decideProbeOutcome(input: {
+  readonly originProbe: OriginProbeResult;
+  readonly alertConditions: AlertConditionsResult;
+  readonly runUrl?: string;
+}): ProbeOutcome {
+  if (!input.alertConditions.ok)
+    return {
+      healthy: false,
+      message: composeAlertMessage({
+        conditions: [],
+        originIssues: [
+          ...input.originProbe.issues,
+          `alert conditions unavailable: ${input.alertConditions.error}`,
+        ],
+        runUrl: input.runUrl,
+      }),
+    };
+  if (input.alertConditions.conditions.length === 0 && input.originProbe.ok)
+    return { healthy: true, message: null };
+  return {
+    healthy: false,
+    message: composeAlertMessage({
+      conditions: input.alertConditions.conditions,
+      originIssues: input.originProbe.issues,
+      runUrl: input.runUrl,
+    }),
+  };
+}
+
 const flag = (args: readonly string[], name: string): string | undefined => {
   const index = args.indexOf(`--${name}`);
   return index === -1 ? undefined : args[index + 1];
@@ -133,37 +210,32 @@ async function main(): Promise<void> {
 
   const readyResponse = await fetch(new URL('/api/health/ready', origin), {
     redirect: 'error',
-  });
+  }).catch(
+    (error) =>
+      new Response(null, { status: 0, statusText: (error as Error).message }),
+  );
   const originProbe = evaluateOriginProbe({
     status: readyResponse.status,
     headers: await readHeaders(readyResponse),
   });
 
-  const alertsResponse = await fetch(new URL('/api/ops/alerts', origin), {
-    headers: { authorization: `Bearer ${token}` },
-    redirect: 'error',
-  });
-  if (!alertsResponse.ok)
-    throw new Error(
-      `/api/ops/alerts responded ${alertsResponse.status}; cannot evaluate alert conditions`,
-    );
-  const { conditions } = (await alertsResponse.json()) as {
-    conditions: AlertCondition[];
-  };
+  const alertConditions = await fetchAlertConditions(origin, token);
+  const outcome = decideProbeOutcome({ originProbe, alertConditions, runUrl });
 
-  if (conditions.length === 0 && originProbe.ok) {
+  if (outcome.healthy) {
     console.log('AUTH-7.7 probe: healthy, nothing to report');
     return;
   }
 
-  const message = composeAlertMessage({
-    conditions,
-    originIssues: originProbe.issues,
-    runUrl,
-  });
-  console.log(message);
+  console.log(outcome.message);
   const result = Bun.spawnSync(
-    ['bun', 'scripts/notify-drive.ts', 'incidents', '--message', message],
+    [
+      'bun',
+      'scripts/notify-drive.ts',
+      'incidents',
+      '--message',
+      outcome.message,
+    ],
     { stdout: 'inherit', stderr: 'inherit' },
   );
   if (result.exitCode !== 0)

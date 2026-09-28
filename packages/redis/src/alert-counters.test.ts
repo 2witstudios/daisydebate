@@ -5,9 +5,9 @@ import { createOutageRedis, createTestRedis } from './test-support';
 setupRitewayBun();
 
 describe('redis alert counters (AUTH-7.7)', () => {
-  test('setIfAbsent issues one namespaced EVAL carrying the value and TTL', async () => {
+  test('markOccurrenceSince issues one namespaced EVAL carrying the value and TTL', async () => {
     const { redis, commands } = createTestRedis();
-    await redis.setIfAbsent(
+    await redis.markOccurrenceSince(
       'alert-unavailable-storage',
       '2026-09-25T00:00:00.000Z',
       180,
@@ -32,13 +32,13 @@ describe('redis alert counters (AUTH-7.7)', () => {
     });
   });
 
-  test('setIfAbsent returns the stored value', async () => {
+  test('markOccurrenceSince returns the stored value', async () => {
     const { redis, scriptEval } = createTestRedis();
     scriptEval('2026-09-25T00:00:00.000Z');
     assert({
       given: 'a script result returning the winning value',
       should: 'return that value to the caller',
-      actual: await redis.setIfAbsent(
+      actual: await redis.markOccurrenceSince(
         'alert-unavailable-storage',
         'ignored',
         180,
@@ -47,9 +47,9 @@ describe('redis alert counters (AUTH-7.7)', () => {
     });
   });
 
-  test('setIfAbsent refuses a non-positive-integer TTL before touching Redis', async () => {
+  test('markOccurrenceSince refuses a non-positive-integer TTL before touching Redis', async () => {
     const { redis, commands } = createTestRedis();
-    await expect(redis.setIfAbsent('k', 'v', 0)).rejects.toThrow(
+    await expect(redis.markOccurrenceSince('k', 'v', 0)).rejects.toThrow(
       'TTL must be a positive integer',
     );
     assert({
@@ -112,7 +112,7 @@ describe('redis alert counters (AUTH-7.7)', () => {
   test('propagates outage and reports it without swallowing', async () => {
     const { events, redis } = createOutageRedis();
     await expect(
-      redis.setIfAbsent('alert-unavailable-storage', 'v', 180),
+      redis.markOccurrenceSince('alert-unavailable-storage', 'v', 180),
     ).rejects.toThrow('offline');
     await expect(
       redis.incrementWithExpiry('alert-mail-consecutive-failures', 3600),
@@ -122,7 +122,7 @@ describe('redis alert counters (AUTH-7.7)', () => {
       should: 'emit a failure event naming each operation',
       actual: events,
       expected: [
-        { event: 'redis.command.failed', fields: { operation: 'setIfAbsent' } },
+        { event: 'redis.command.failed', fields: { operation: 'markOccurrenceSince' } },
         {
           event: 'redis.command.failed',
           fields: { operation: 'incrementWithExpiry' },
