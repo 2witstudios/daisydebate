@@ -171,7 +171,11 @@ Staging scales to zero (`fly.toml`'s `min_machines_running = 0`), so the
 evaluation point for these alerts is a scheduled GitHub Actions workflow
 (`.github/workflows/auth-alerts.yml`, `scripts/auth-alert-probe.ts`), not a
 timer inside the app — see [ADR 0042](../decisions/0042-auth-alert-evaluation-point.md)
-for why. Every 5 minutes it probes the public origin's readiness endpoint
+for why. Its cron is configured for every 5 minutes, but GitHub's `schedule`
+trigger runs it best-effort — measured runs land hours apart, and the owner
+accepted that cadence for staging ([ADR 0046](../decisions/0046-auth-alert-probe-cadence-correction.md),
+DEC-33) — so a condition can fire and resolve between runs unseen. On each
+run it probes the public origin's readiness endpoint
 (non-mutating, proving routing/TLS/security headers) and reads
 `GET /api/ops/alerts` (bearer-token gated by `OPS_PROBE_TOKEN`), which
 answers the already-evaluated conditions computed by
