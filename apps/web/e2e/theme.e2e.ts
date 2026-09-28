@@ -2,8 +2,8 @@ import { expect, test, type Page } from '@playwright/test';
 import { signUpMember } from './support/accounts';
 import { hydrated } from './support/hydration';
 
-const DARK_BACKGROUND = 'rgb(10, 14, 12)';
-const LIGHT_BACKGROUND = 'rgb(242, 245, 242)';
+const DARK_BACKGROUND = 'rgb(13, 24, 18)';
+const LIGHT_BACKGROUND = 'rgb(245, 240, 228)';
 
 const backgroundOf = (page: Page) =>
   page
