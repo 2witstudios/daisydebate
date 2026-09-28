@@ -16,7 +16,13 @@ const skipDirectories = new Set([
 ]);
 
 export type TestTier =
-  'unit' | 'root-script' | 'root-config' | 'integration' | 'e2e' | 'orphan';
+  | 'unit'
+  | 'workspace-script'
+  | 'root-script'
+  | 'root-config'
+  | 'integration'
+  | 'e2e'
+  | 'orphan';
 
 export type EvidenceProblemCode =
   'ORPHAN_SUITE' | 'UNRUN_SUITE' | 'GUARD_MISSING' | 'E2E_DUPLICATED';
@@ -54,6 +60,10 @@ export function classifyTestFile(relativePath: string): TestTier {
   // under src/, and any .integration.tsx or .e2e.tsx (Playwright's testMatch
   // is **/*.e2e.ts), is executed by no runner and falls through to orphan.
   if (/\/src\/.+\.test\.tsx?$/.test(relativePath)) return 'unit';
+  // A workspace's own operational scripts (e.g. apps/web/scripts/auth-load),
+  // never the top-level scripts/ folder (already matched above): claimed by
+  // widening that workspace's "test" script to "bun test src scripts".
+  if (/\/scripts\/.+\.test\.tsx?$/.test(relativePath)) return 'workspace-script';
   return 'orphan';
 }
 
@@ -219,15 +229,23 @@ export const rootClaimProblems = (
 };
 
 const workspaceClaimProblems = async (
-  byWorkspace: ReadonlyMap<string, { unit: string[]; integration: string[] }>,
+  byWorkspace: ReadonlyMap<
+    string,
+    { unit: string[]; workspaceScript: string[]; integration: string[] }
+  >,
 ): Promise<readonly EvidenceProblem[]> => {
   const problems: EvidenceProblem[] = [];
   for (const [workspace, bucket] of byWorkspace) {
     const scripts = await readScripts(join(root, workspace, 'package.json'));
-    if (bucket.unit.length > 0 && scripts.test !== 'bun test src')
+    const requiredTestScript =
+      bucket.workspaceScript.length > 0 ? 'bun test src scripts' : 'bun test src';
+    if (
+      (bucket.unit.length > 0 || bucket.workspaceScript.length > 0) &&
+      scripts.test !== requiredTestScript
+    )
       problems.push({
         code: 'UNRUN_SUITE',
-        detail: `${workspace} has src suites but its "test" script is not "bun test src"`,
+        detail: `${workspace} has ${bucket.workspaceScript.length > 0 ? 'src/scripts' : 'src'} suites but its "test" script is not "${requiredTestScript}"`,
       });
     for (const file of bucket.integration) {
       if (!claimsIntegrationSuite(scripts['test:integration'] ?? '', file))
@@ -331,6 +349,7 @@ export async function collectEvidence(): Promise<EvidenceReport> {
   }));
   const tiers = {
     unit: 0,
+    'workspace-script': 0,
     'root-script': 0,
     'root-config': 0,
     integration: 0,
@@ -349,14 +368,20 @@ export async function collectEvidence(): Promise<EvidenceReport> {
   const workspaces = await workspaceDirectories();
   const byWorkspace = new Map<
     string,
-    { unit: string[]; integration: string[] }
-  >(workspaces.map((name) => [name, { unit: [], integration: [] }]));
+    { unit: string[]; workspaceScript: string[]; integration: string[] }
+  >(
+    workspaces.map((name) => [
+      name,
+      { unit: [], workspaceScript: [], integration: [] },
+    ]),
+  );
   for (const { file, tier } of classified) {
     if (tier === 'orphan') continue;
     const workspace = workspaces.find((name) => file.startsWith(`${name}/`));
     const bucket = byWorkspace.get(workspace ?? '');
     if (!bucket) continue;
     if (tier === 'unit') bucket.unit.push(file);
+    if (tier === 'workspace-script') bucket.workspaceScript.push(file);
     if (tier === 'integration') bucket.integration.push(file);
   }
 
