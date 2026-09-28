@@ -208,33 +208,6 @@ export default [
       ],
     },
   },
-  // ISSUE-167: a `*.test-support.ts(x)` module exists only to build fixtures
-  // for tests (or, in packages/db, other integration suites); production
-  // code has no legitimate reason to import one.
-  {
-    files: ['**/*.{ts,tsx}'],
-    ignores: [
-      '**/*.test.{ts,tsx}',
-      '**/*.test-support.{ts,tsx}',
-      '**/*.integration.{ts,tsx}',
-      '**/integration/**',
-      '**/e2e/**',
-    ],
-    rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            {
-              group: ['*.test-support', '**/*.test-support'],
-              message:
-                'A *.test-support module builds test fixtures; production code may not import one.',
-            },
-          ],
-        },
-      ],
-    },
-  },
   // Token-locked Tailwind (ADR 0028): classes must come from the Daisy theme in
   // globals.css. Arbitrary values, per-element dark variants, unknown,
   // conflicting and duplicate classes fail here; exceptions go through

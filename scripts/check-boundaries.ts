@@ -91,6 +91,8 @@ for (const workspace of workspaces) {
       true,
     );
     const check = (specifier: string) => {
+      const testSupport = testSupportIssue(specifier, relative(root, file));
+      if (testSupport) issues.push(`${relative(root, file)}: ${testSupport}`);
       if (specifier.startsWith('.')) {
         const target = resolve(dirname(file), specifier);
         if (!target.startsWith(`${resolve(root, workspace.path)}/`))
@@ -117,8 +119,6 @@ for (const workspace of workspaces) {
           (name) => byName.get(name)?.manifest.exports,
         );
         if (deepImport) issues.push(`${relative(root, file)}: ${deepImport}`);
-        const testSupport = testSupportIssue(specifier, relative(root, file));
-        if (testSupport) issues.push(`${relative(root, file)}: ${testSupport}`);
         const importIssue = adobeIsolationIssue(
           workspace.manifest.name,
           specifier,

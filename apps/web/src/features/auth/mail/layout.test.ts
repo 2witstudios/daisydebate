@@ -1,5 +1,4 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { AUTH_BRAND_PALETTE, type BrandPalette } from '../brand-palette';
 import { renderAuthEmail } from './templates';
 
 setupRitewayBun();
@@ -29,73 +28,205 @@ function contrastRatio(a: string, b: string): number {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
+type MailElement = {
+  readonly tag: string;
+  readonly classes: readonly string[];
+  readonly style: Readonly<Record<string, string>>;
+  readonly parent: MailElement | null;
+  text: string;
+};
+
+const VOID_TAGS = new Set(['meta', 'br', 'img', 'hr', 'link', '!doctype']);
+
+const parseStyle = (declarations: string): Record<string, string> =>
+  Object.fromEntries(
+    declarations
+      .split(';')
+      .map((declaration) => declaration.split(/:(.*)/s, 2))
+      .filter((pair): pair is [string, string] => pair.length === 2)
+      .map(([property, value]) => [
+        property.trim(),
+        value.replace('!important', '').trim(),
+      ]),
+  );
+
 /**
- * The layout's own foreground/background pairs, mirroring `LIGHT`/`DARK` in
- * layout.ts (mail clients read inline styles only, never a design-system
- * component, so this checks the actual emailed colors, not the app theme).
+ * The rendered body's elements, each with its classes, inline style, parent
+ * and own text, walked from the real markup a mail client receives: the
+ * colors under test are the emailed ones, not a copy of the palette.
  */
-const pairsFor = (palette: BrandPalette) => ({
-  headlineOnSurface: [palette.ink, palette.surfaceRaised] as const,
-  mutedOnSurface: [palette.inkMuted, palette.surfaceRaised] as const,
-  buttonLabelOnAccent: [palette.accentInk, palette.accentStrong] as const,
-});
+function parseElements(html: string): MailElement[] {
+  const body = html.slice(html.indexOf('<body'));
+  const elements: MailElement[] = [];
+  const stack: MailElement[] = [];
+  const token = /<(\/?)([a-z0-9!]+)([^>]*)>([^<]*)/gi;
+  for (const [, closing, rawTag, attributes, text] of body.matchAll(token)) {
+    const tag = rawTag!.toLowerCase();
+    if (closing) {
+      stack.pop();
+      const parent = stack.at(-1);
+      if (parent) parent.text += text!;
+      continue;
+    }
+    const element: MailElement = {
+      tag,
+      classes: /class="([^"]*)"/.exec(attributes!)?.[1]?.split(/\s+/) ?? [],
+      style: parseStyle(/style="([^"]*)"/.exec(attributes!)?.[1] ?? ''),
+      parent: stack.at(-1) ?? null,
+      text: text!,
+    };
+    elements.push(element);
+    if (!VOID_TAGS.has(tag)) stack.push(element);
+  }
+  return elements;
+}
+
+type DarkRule = {
+  readonly selector: readonly string[];
+  readonly style: Readonly<Record<string, string>>;
+};
+
+/** The `prefers-color-scheme: dark` block's rules, in source order. */
+function parseDarkRules(html: string): DarkRule[] {
+  const block =
+    /@media \(prefers-color-scheme: dark\) \{([\s\S]*?)\n\s*\}\n/.exec(
+      html,
+    )?.[1] ?? '';
+  return [...block.matchAll(/([^{}]+)\{([^}]*)\}/g)].map(
+    ([, selector, declarations]) => ({
+      selector: selector!.trim().split(/\s+/),
+      style: parseStyle(declarations!),
+    }),
+  );
+}
+
+const matchesPart = (element: MailElement, part: string) =>
+  part.startsWith('.')
+    ? element.classes.includes(part.slice(1))
+    : element.tag === part;
+
+/** A descendant-combinator selector (`.a p`) matched right to left. */
+function matchesSelector(element: MailElement, selector: readonly string[]) {
+  if (!matchesPart(element, selector.at(-1)!)) return false;
+  let rest = selector.slice(0, -1);
+  for (let node = element.parent; node && rest.length; node = node.parent)
+    if (matchesPart(node, rest.at(-1)!)) rest = rest.slice(0, -1);
+  return rest.length === 0;
+}
+
+type Theme = 'light' | 'dark';
+
+/**
+ * The element's own declared value for a property: in dark mode an
+ * `!important` media rule that matches it wins, else its inline style.
+ * An inherited dark color never beats an element's own inline color.
+ */
+function ownValue(
+  element: MailElement,
+  property: string,
+  theme: Theme,
+  rules: readonly DarkRule[],
+): string | undefined {
+  const dark =
+    theme === 'dark'
+      ? rules
+          .filter(
+            (rule) =>
+              rule.style[property] && matchesSelector(element, rule.selector),
+          )
+          .at(-1)?.style[property]
+      : undefined;
+  return dark ?? element.style[property];
+}
+
+/** Color inherits; the backdrop is the nearest painted ancestor. */
+function resolved(
+  element: MailElement,
+  property: 'color' | 'background',
+  theme: Theme,
+  rules: readonly DarkRule[],
+): string | undefined {
+  for (let node: MailElement | null = element; node; node = node.parent) {
+    const value = ownValue(node, property, theme, rules);
+    if (value) return value;
+  }
+  return undefined;
+}
+
+const elements = parseElements(rendered);
+const darkRules = parseDarkRules(rendered);
+
+/** Every element that paints visible text (the hidden preheader excluded). */
+const visibleText = elements.filter(
+  (element) =>
+    element.text.replaceAll('&nbsp;', '').trim() !== '' &&
+    element.style.display !== 'none',
+);
+
+/** Text runs whose color on their backdrop falls under WCAG AA (4.5:1). */
+function contrastFailures(theme: Theme): string[] {
+  return visibleText.flatMap((element) => {
+    const color = resolved(element, 'color', theme, darkRules);
+    const backdrop = resolved(element, 'background', theme, darkRules);
+    if (!color || !backdrop)
+      return [`<${element.tag}> "${element.text.trim()}" has no color`];
+    const ratio = contrastRatio(color, backdrop);
+    return ratio >= 4.5
+      ? []
+      : [
+          `<${element.tag}> "${element.text.trim()}" ${color} on ${backdrop} is ${ratio.toFixed(2)}:1`,
+        ];
+  });
+}
 
 describe('AUTH-3.9 auth email layout: width, dark mode and contrast (ISSUE-167)', () => {
-  test('constrains the surface to a fixed mobile-safe width', () => {
-    assert({
-      given: 'the rendered layout markup',
-      should:
-        'set both a fluid 100% width and a 600px cap on the message surface',
-      actual: {
-        hasFluidWidth: rendered.includes('width="600"'),
-        hasMaxWidth: rendered.includes('max-width:600px'),
-      },
-      expected: { hasFluidWidth: true, hasMaxWidth: true },
-    });
-  });
-
-  test('declares a dark-mode override for every themed surface class', () => {
-    assert({
-      given: 'the rendered layout markup',
-      should:
-        'carry a prefers-color-scheme: dark block that overrides the background, surface, ink, muted, accent and button classes',
-      actual: {
-        hasDarkMediaQuery: rendered.includes(
-          '@media (prefers-color-scheme: dark)',
-        ),
-        overridesEveryClass: [
-          '.auth-mail-bg',
-          '.auth-mail-surface',
-          '.auth-mail-ink',
-          '.auth-mail-muted',
-          '.auth-mail-accent',
-          '.auth-mail-button',
-        ].every((selector) => rendered.includes(selector)),
-      },
-      expected: { hasDarkMediaQuery: true, overridesEveryClass: true },
-    });
-  });
-
-  /** Whether every named foreground/background pair meets WCAG AA (4.5:1). */
-  const meetsAA = (pairs: Record<string, readonly [string, string]>) =>
-    Object.fromEntries(
-      Object.entries(pairs).map(([name, [fg, bg]]) => [
-        name,
-        contrastRatio(fg, bg) >= 4.5,
-      ]),
+  test('keeps the message surface fluid up to a 600px cap', () => {
+    const surface = elements.find(
+      (element) =>
+        element.tag === 'table' &&
+        element.classes.includes('auth-mail-surface'),
     );
+    assert({
+      given: 'the rendered message surface',
+      should: 'fill the viewport width and stop at 600px',
+      actual: {
+        width: surface?.style.width,
+        maxWidth: surface?.style['max-width'],
+      },
+      expected: { width: '100%', maxWidth: '600px' },
+    });
+  });
+
+  test('gives every themed class a dark-mode override', () => {
+    const themed = [
+      ...new Set(
+        elements.flatMap((element) =>
+          element.classes.filter((name) => name.startsWith('auth-mail-')),
+        ),
+      ),
+    ];
+    const overridden = new Set(
+      darkRules.flatMap((rule) =>
+        rule.selector
+          .filter((part) => part.startsWith('.'))
+          .map((part) => part.slice(1)),
+      ),
+    );
+    assert({
+      given: 'every auth-mail-* class the markup uses',
+      should: 'each be restyled under prefers-color-scheme: dark',
+      actual: themed.filter((name) => !overridden.has(name)),
+      expected: [],
+    });
+  });
 
   for (const theme of ['light', 'dark'] as const) {
-    test(`every ${theme}-mode text/background pair meets WCAG AA (4.5:1)`, () => {
-      const pairs = pairsFor(AUTH_BRAND_PALETTE[theme]);
-      const actual = meetsAA(pairs);
+    test(`every visible ${theme}-mode text run meets WCAG AA (4.5:1) on its backdrop`, () => {
       assert({
-        given: `the ${theme} palette's headline, muted and button-label pairs`,
-        should: 'each reach at least a 4.5:1 contrast ratio',
-        actual,
-        expected: Object.fromEntries(
-          Object.keys(actual).map((name) => [name, true]),
-        ),
+        given: `the rendered email's text as a ${theme}-mode client paints it`,
+        should: 'each run reach at least a 4.5:1 contrast ratio',
+        actual: contrastFailures(theme),
+        expected: [],
       });
     });
   }

@@ -162,8 +162,9 @@ not exist — PageSpace lost entire tiers this way. `bun evidence` (in
   `rejectionOf` reports the same outcome as a value. Other exception paths
   use `bun:test`'s `toThrow(message)` or the exact error, never a bare
   `.toThrow()` (ESLint rejects one). `scripts/check-boundaries.ts` (in
-  `bun lint`) admits an `@daisy/*/testing` import only from suites,
-  `integration/`, `e2e/` and test support, never production source. Schema
+  `bun lint`) admits an `@daisy/*/testing` or `*.test-support` import only
+  from suites, `integration/`, `e2e/` and test support, never production
+  source. Schema
   tests assert the parsed value or the issue paths, not a `.success`
   boolean. `given`/`should` read as a specification sentence:
   when the assertion fails, its message is the bug report.

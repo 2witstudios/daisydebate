@@ -185,7 +185,7 @@ test("another session's own row Sign out button revokes it, distinctly from the 
   request,
   browser,
 }) => {
-  const { context: other, otherPage } = await memberWithSecondSession(
+  const { context: other } = await memberWithSecondSession(
     page,
     request,
     browser,
@@ -234,11 +234,7 @@ test('an email change is approved from the old inbox and verified at the new one
   const { email } = await signUpMember(page.request);
   await page.goto('/settings/security');
 
-  const { newEmail } = await requestAndApproveEmailChange(
-    page,
-    request,
-    email,
-  );
+  const { newEmail } = await requestAndApproveEmailChange(page, request, email);
 
   // The redirect alone doesn't prove the account now owns newEmail; prove
   // it by signing back in with a magic link sent to the new address.
