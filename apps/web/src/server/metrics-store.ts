@@ -62,6 +62,8 @@ export type MetricsSnapshot = {
   readonly rateLimitDeniedTotal: number;
   readonly rateLimitUnavailableTotal: number;
   readonly mailDeliveryFailuresTotal: number;
+  /** Saturated sign-in/sign-up work shed past its bound (ISSUE-185, DEC-73). */
+  readonly authMailShedTotal: number;
   /** Keyed by `retention-sweep.ts`'s own target names — a small, fixed set, never arbitrary input. */
   readonly retentionSweepFailuresByOperation: Readonly<Record<string, number>>;
   /** Keyed by the bounded `OperationLabel` set (`KNOWN_OPERATIONS` plus "other"). */
@@ -90,6 +92,7 @@ export function createMetricsStore() {
   let rateLimitDeniedTotal = 0;
   let rateLimitUnavailableTotal = 0;
   let mailDeliveryFailuresTotal = 0;
+  let authMailShedTotal = 0;
   const retentionSweepFailuresByOperation = new Map<string, number>();
   const latencyByOperation = new Map<OperationLabel, LatencyHistogram>();
 
@@ -149,6 +152,9 @@ export function createMetricsStore() {
         case 'auth.mail.failed':
           mailDeliveryFailuresTotal += 1;
           return;
+        case 'auth.mail.shed':
+          authMailShedTotal += 1;
+          return;
         case 'retention.sweep.failed':
           recordRetentionFailure(fields);
           return;
@@ -162,6 +168,7 @@ export function createMetricsStore() {
         rateLimitDeniedTotal,
         rateLimitUnavailableTotal,
         mailDeliveryFailuresTotal,
+        authMailShedTotal,
         retentionSweepFailuresByOperation: Object.fromEntries(
           retentionSweepFailuresByOperation,
         ),
@@ -205,6 +212,9 @@ export function formatPrometheusMetrics(snapshot: MetricsSnapshot): string {
     '# HELP auth_mail_delivery_failures_total Auth email delivery failures since process start.',
     '# TYPE auth_mail_delivery_failures_total counter',
     `auth_mail_delivery_failures_total ${snapshot.mailDeliveryFailuresTotal}`,
+    '# HELP auth_mail_shed_total Auth mail work shed after the answer because its backlog was full, since process start.',
+    '# TYPE auth_mail_shed_total counter',
+    `auth_mail_shed_total ${snapshot.authMailShedTotal}`,
     '# HELP retention_sweep_failures_total Retention sweep failures by target since process start.',
     '# TYPE retention_sweep_failures_total counter',
     ...Object.entries(snapshot.retentionSweepFailuresByOperation).map(

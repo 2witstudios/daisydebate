@@ -141,6 +141,20 @@ export function createApp({
     },
     /** The Resend delivery webhook; refuses when the signing secret is unset. */
     mailWebhook: () => (mailWebhook ??= composeMailWebhook()),
+    /**
+     * Logs how much auth work handed off past its answer is still unfinished
+     * (`auth.mail.abandoned`, a count only) when a shutdown's deadline cuts
+     * it off (ISSUE-214). Silent when there is none.
+     */
+    reportUnfinishedWork: () => {
+      const pending = auth?.pendingWork() ?? 0;
+      if (pending > 0)
+        logger.log(
+          'auth.mail.abandoned',
+          { operation: 'server.shutdown', pending },
+          'Auth work after the answer was cut off by the shutdown deadline',
+        );
+    },
     isDraining: drainState.isDraining,
     drain: drainState.drain,
     /**

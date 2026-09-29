@@ -46,18 +46,23 @@ describe('createMetricsStore (AUTH-7.7)', () => {
     store.observe('auth.rate_limit.denied', {});
     store.observe('auth.rate_limit.unavailable', {});
     store.observe('auth.mail.failed', {});
+    store.observe('auth.mail.shed', { pending: 68 });
+    store.observe('auth.mail.shed', { pending: 68 });
     assert({
-      given: '2 denials, 1 limiter outage, 1 mail failure',
+      given:
+        '2 denials, 1 limiter outage, 1 mail failure, 2 shed pieces of work',
       should: 'count each independently',
       actual: {
         rateLimitDeniedTotal: store.snapshot().rateLimitDeniedTotal,
         rateLimitUnavailableTotal: store.snapshot().rateLimitUnavailableTotal,
         mailDeliveryFailuresTotal: store.snapshot().mailDeliveryFailuresTotal,
+        authMailShedTotal: store.snapshot().authMailShedTotal,
       },
       expected: {
         rateLimitDeniedTotal: 2,
         rateLimitUnavailableTotal: 1,
         mailDeliveryFailuresTotal: 1,
+        authMailShedTotal: 2,
       },
     });
   });
@@ -89,6 +94,7 @@ describe('createMetricsStore (AUTH-7.7)', () => {
         rateLimitDeniedTotal: 0,
         rateLimitUnavailableTotal: 0,
         mailDeliveryFailuresTotal: 0,
+        authMailShedTotal: 0,
         retentionSweepFailuresByOperation: {},
         latencyMsByOperation: {},
       },

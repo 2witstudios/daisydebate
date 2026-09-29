@@ -1,5 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  AFTER_RESPONSE_MAX_QUEUED,
+  AFTER_RESPONSE_MAX_RUNNING,
+} from './after-response';
+import {
   create,
   existingAccount,
   magicLinkRequest,
@@ -249,6 +253,50 @@ describe('a saturated ceiling answers before any account-dependent work (ISSUE-1
         tokens: [known.db.verification.length, unknown.db.verification.length],
       },
       expected: { sent: [1, 0], tokens: [1, 0] },
+    });
+  });
+
+  test('past the bound, an existing account and an unknown address are shed alike, before any lookup (DEC-73)', async () => {
+    const harness = saturatedHeld();
+    harness.db.user.push(existingAccount);
+    const bound = AFTER_RESPONSE_MAX_RUNNING + AFTER_RESPONSE_MAX_QUEUED;
+    for (let index = 0; index < bound; index += 1)
+      await harness.server.instance.handler(magicLinkRequest());
+    const tokensBefore = harness.db.verification.length;
+    const answer = async (response: Response) => ({
+      status: response.status,
+      body: await response.text(),
+      headers: [...response.headers.entries()],
+    });
+    const knownAnswer = await answer(
+      await harness.server.instance.handler(magicLinkRequest()),
+    );
+    const unknownAnswer = await answer(
+      await harness.server.instance.handler(
+        magicLinkRequest({}, 'newcomer@daisy.example.com'),
+      ),
+    );
+    harness.release();
+    await harness.server.settled();
+    assert({
+      given: `saturated ceilings and ${bound} handed-off sign-ins the transport has not answered, then one more request for an existing account and one for an unknown address`,
+      should:
+        'answer both alike, shed both with a log line, mail neither, and leave both tokens untouched (no lookup, send or drop ran)',
+      actual: {
+        known: knownAnswer,
+        status: knownAnswer.status,
+        shed: harness.logs.filter(([event]) => event === 'auth.mail.shed')
+          .length,
+        sent: harness.sent.length,
+        tokensKept: harness.db.verification.length - tokensBefore,
+      },
+      expected: {
+        known: unknownAnswer,
+        status: 200,
+        shed: 2,
+        sent: bound,
+        tokensKept: 2,
+      },
     });
   });
 });

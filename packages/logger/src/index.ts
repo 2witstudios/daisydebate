@@ -14,6 +14,8 @@ export const eventRegistry = {
   'auth.mail.failed': 'error',
   'auth.mail.receipt_failed': 'error',
   'auth.mail.suppressed': 'info',
+  'auth.mail.shed': 'warn',
+  'auth.mail.abandoned': 'error',
   'auth.magic_link.verified': 'info',
   'auth.passkey.enrolled': 'info',
   'auth.passkey.authenticated': 'info',
@@ -113,6 +115,7 @@ export const loggableFields = {
   batches: 'count',
   closeCode: 'count',
   deliverySeqLagEstimate: 'count',
+  pending: 'count',
 } as const satisfies Record<string, FieldKind>;
 
 const CENSOR = '[REDACTED]';

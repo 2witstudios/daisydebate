@@ -263,6 +263,8 @@ export type AuthServer = {
   readonly clock: Clock;
   /** Resolves once work handed off past an answer has finished (ISSUE-185). */
   readonly settled: () => Promise<void>;
+  /** Handed-off work not yet finished (bounded, ISSUE-185). */
+  readonly pendingWork: () => number;
 };
 
 /**
@@ -332,5 +334,6 @@ export function createAuthServer<
     logger: dependencies.logger,
     clock: dependencies.clock,
     settled: afterResponse.settled,
+    pendingWork: afterResponse.pending,
   };
 }

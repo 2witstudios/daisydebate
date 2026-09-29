@@ -185,6 +185,47 @@ export function findAlwaysOnProblem(flyToml: string): string | null {
   return null;
 }
 
+/** Seconds Fly must wait past the drain deadline before it SIGKILLs. */
+const KILL_TIMEOUT_MARGIN_S = 10;
+
+/**
+ * ISSUE-214: Fly sends kill_signal and SIGKILLs a machine that has not
+ * exited kill_timeout later (default 5 s). The server drains for up to
+ * SHUTDOWN_DRAIN_DEADLINE_MS (apps/web/src/server/shutdown-budget.ts) and
+ * then forces its own exit, so kill_timeout, a top-level key in seconds or
+ * a duration string, must exceed that deadline with margin, and start.ts
+ * must drain with that constant.
+ */
+export function findKillTimeoutProblem(input: {
+  readonly flyToml: string;
+  readonly shutdownBudgetTs: string;
+  readonly startTs: string;
+}): string | null {
+  const deadline = uncommented(input.shutdownBudgetTs).match(
+    /export const SHUTDOWN_DRAIN_DEADLINE_MS = ([\d_]+);/,
+  );
+  if (!deadline)
+    return 'shutdown-budget.ts does not export SHUTDOWN_DRAIN_DEADLINE_MS as a number of milliseconds';
+  if (
+    !uncommented(input.startTs).includes(
+      'deadlineMs: SHUTDOWN_DRAIN_DEADLINE_MS,',
+    )
+  )
+    return 'start.ts does not drain with deadlineMs: SHUTDOWN_DRAIN_DEADLINE_MS';
+  const drainSeconds = Math.ceil(
+    Number(deadline[1]?.replaceAll('_', '')) / 1000,
+  );
+  const required = drainSeconds + KILL_TIMEOUT_MARGIN_S;
+  const topLevel = uncommented(input.flyToml).split(/^\s*\[/m)[0] ?? '';
+  const setting = topLevel.match(
+    /^\s*kill_timeout\s*=\s*(?:(\d+)|"(\d+)s")\s*$/m,
+  );
+  const seconds = Number(setting?.[1] ?? setting?.[2] ?? 5);
+  return seconds >= required
+    ? null
+    : `fly.toml kill_timeout must be at least ${required} s (the ${drainSeconds} s shutdown drain plus ${KILL_TIMEOUT_MARGIN_S} s margin); Fly SIGKILLs a machine that has not exited by then (ISSUE-214)`;
+}
+
 export function verifyDeployConfig(input: {
   readonly dockerfile: string;
   readonly flyToml: string;
@@ -193,6 +234,7 @@ export function verifyDeployConfig(input: {
   readonly bunVersion: string;
   readonly startTs: string;
   readonly migrateTs: string;
+  readonly shutdownBudgetTs: string;
 }): readonly string[] {
   return [
     findDockerfileBunVersionProblem({
@@ -205,6 +247,7 @@ export function verifyDeployConfig(input: {
     findWorkflowMigrationOrderProblem(input.workflow),
     findFlyDatabaseSecretProblem(input.flyToml),
     findAlwaysOnProblem(input.flyToml),
+    findKillTimeoutProblem(input),
     findFlyDatabaseSecretProblem(input.migratorToml, 'fly.migrate.toml'),
     findRuntimeRoleGateProblem(input.startTs),
     findMigrationCredentialProblem(input.migrateTs),
@@ -220,6 +263,10 @@ if (import.meta.main) {
     bunVersion: readFileSync('.bun-version', 'utf8').trim(),
     startTs: readFileSync('apps/web/src/server/start.ts', 'utf8'),
     migrateTs: readFileSync('packages/db/scripts/migrate.ts', 'utf8'),
+    shutdownBudgetTs: readFileSync(
+      'apps/web/src/server/shutdown-budget.ts',
+      'utf8',
+    ),
   });
   if (problems.length > 0) {
     process.stderr.write(
@@ -228,7 +275,7 @@ if (import.meta.main) {
     process.exitCode = 1;
   } else {
     process.stdout.write(
-      'Deploy config matches .bun-version, migrates only from the migrator app, first, keeps the database role split and keeps staging always on.\n',
+      'Deploy config matches .bun-version, migrates only from the migrator app, first, keeps the database role split, keeps staging always on and outlasts the shutdown drain.\n',
     );
   }
 }

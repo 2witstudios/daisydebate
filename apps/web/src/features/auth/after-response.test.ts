@@ -1,7 +1,11 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { Logger } from '@daisy/logger';
 import { silentLogger } from '../../server/test-loggers.test-support';
-import { createAfterResponse } from './after-response';
+import {
+  AFTER_RESPONSE_MAX_QUEUED,
+  AFTER_RESPONSE_MAX_RUNNING,
+  createAfterResponse,
+} from './after-response';
 
 setupRitewayBun();
 
@@ -112,6 +116,52 @@ describe('createAfterResponse', () => {
           'Authentication work after the answer failed',
         ],
       ],
+    });
+  });
+
+  test('holds at most the bound and sheds, logs and never starts what arrives past it', async () => {
+    const { opened, open } = gate();
+    const logged: unknown[][] = [];
+    const logger: Logger = {
+      log: (...entry) => void logged.push(entry),
+      child: () => logger,
+    };
+    const { defer, settled, pending } = createAfterResponse(logger);
+    const bound = AFTER_RESPONSE_MAX_RUNNING + AFTER_RESPONSE_MAX_QUEUED;
+    let started = 0;
+    let peak = 0;
+    for (let index = 0; index < bound + 10; index += 1) {
+      defer(async () => {
+        started += 1;
+        await opened;
+      });
+      peak = Math.max(peak, pending());
+    }
+    await Promise.resolve();
+    const runningAtOnce = started;
+    open();
+    await settled();
+    assert({
+      given: `${bound + 10} pieces of work handed off while none can finish`,
+      should: `run ${AFTER_RESPONSE_MAX_RUNNING} at once, hold at most ${bound}, shed 10 with a count-only log line, and run the held ones once they can`,
+      actual: {
+        runningAtOnce,
+        peak,
+        started,
+        pendingAfter: pending(),
+        shed: logged.filter(([event]) => event === 'auth.mail.shed'),
+      },
+      expected: {
+        runningAtOnce: AFTER_RESPONSE_MAX_RUNNING,
+        peak: bound,
+        started: bound,
+        pendingAfter: 0,
+        shed: Array.from({ length: 10 }, () => [
+          'auth.mail.shed',
+          { operation: 'auth.after-response', pending: bound },
+          'Auth work after the answer was shed; its backlog is full',
+        ]),
+      },
     });
   });
 });
