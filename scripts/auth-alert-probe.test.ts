@@ -145,6 +145,42 @@ describe('evaluateOriginProbe (AUTH-7.7)', () => {
     });
   });
 
+  test('a non-200 with none of the app headers is one issue, not one per header (ISSUE-196)', () => {
+    const result = evaluateOriginProbe({ status: 503, headers: new Map() });
+    assert({
+      given:
+        'a 503 carrying none of the app headers (Fly proxy cold start or start-up gate)',
+      should:
+        'report exactly one issue naming the status and that the app likely did not answer',
+      actual: {
+        ok: result.ok,
+        count: result.issues.length,
+        namesStatus: result.issues[0]?.includes('503'),
+        saysNotApp: result.issues[0]?.includes('did not come from the app'),
+      },
+      expected: { ok: false, count: 1, namesStatus: true, saysNotApp: true },
+    });
+  });
+
+  test('a 200 reports every header mismatch, one issue each (ISSUE-196)', () => {
+    const headers = new Map(HEALTHY_HEADERS);
+    headers.delete('strict-transport-security');
+    headers.set('x-frame-options', 'SAMEORIGIN');
+    assert({
+      given:
+        'a 200 missing Strict-Transport-Security and weakening X-Frame-Options',
+      should: 'report both mismatches',
+      actual: evaluateOriginProbe({ status: 200, headers }),
+      expected: {
+        ok: false,
+        issues: [
+          'x-frame-options: expected "DENY", got SAMEORIGIN',
+          'strict-transport-security: expected "max-age=31536000; includeSubDomains", got none',
+        ],
+      },
+    });
+  });
+
   test('a missing security header is reported by name', () => {
     const headers = new Map(HEALTHY_HEADERS);
     headers.delete('strict-transport-security');

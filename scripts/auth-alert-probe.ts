@@ -45,14 +45,22 @@ export type OriginProbeResult = {
  * proves routing (an expected 200) and the security-header contract. TLS
  * itself is proven by the caller's `fetch` completing at all against an
  * `https://` URL — an invalid certificate never reaches this function.
+ * Headers are checked only on a 200: any other status most likely came from
+ * the edge proxy or start-up gate rather than Next, so it is one issue, not
+ * one per missing header (ISSUE-196).
  */
 export function evaluateOriginProbe(input: {
   readonly status: number;
   readonly headers: ReadonlyMap<string, string>;
 }): OriginProbeResult {
-  const issues: string[] = [];
   if (input.status !== 200)
-    issues.push(`readiness answered ${input.status}, not 200`);
+    return {
+      ok: false,
+      issues: [
+        `readiness answered ${input.status}, not 200; the response likely did not come from the app (cold start, start-up gate, or app down)`,
+      ],
+    };
+  const issues: string[] = [];
   for (const [name, expected] of Object.entries(REQUIRED_SECURITY_HEADERS)) {
     const actual = input.headers.get(name);
     if (actual !== expected)
