@@ -83,3 +83,13 @@ export const magicLinkRequest = (
     },
     body: JSON.stringify({ email }),
   });
+
+/** An account holding the address `magicLinkRequest` asks for. */
+export const existingAccount = {
+  id: 'user-1',
+  email: 'player@daisy.example.com',
+  emailVerified: true,
+  name: '',
+  createdAt: new Date('2026-09-20T00:00:00.000Z'),
+  updatedAt: new Date('2026-09-20T00:00:00.000Z'),
+};
