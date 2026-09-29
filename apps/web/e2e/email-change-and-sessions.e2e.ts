@@ -17,6 +17,7 @@ import {
 } from './support/accounts';
 import { changeEmail } from './support/forms';
 import { hydrated } from './support/hydration';
+import { removeRowByClick, securityRows } from './support/security-rows';
 
 /**
  * A second, genuinely independent session for the same account, signed in
@@ -206,23 +207,13 @@ test("another session's own row Sign out button revokes it, and its cookie is re
   await page.goto('/settings/security');
   // The per-row button lives inside the sessions list; the page's own
   // "Sign out" control (same label) sits outside it and is never matched.
-  const sessionRows = page
-    .getByRole('region', { name: 'Sessions' })
-    .getByRole('listitem');
+  const sessionRows = securityRows(page, 'Sessions');
   const rowSignOut = sessionRows.getByRole('button', {
     name: 'Sign out',
     exact: true,
   });
-  await expect(sessionRows).toHaveCount(2);
   await expect(rowSignOut).toHaveCount(1);
-  // Under load, hydration can lag first paint by seconds (ISSUE-84): a
-  // click before React wires the handler is a silent no-op.
-  await hydrated(rowSignOut);
-  await rowSignOut.click();
-  // The row leaves only once the revoke has answered ok. The button alone
-  // is no signal: it relabels to "Signing out…" while the request is still
-  // in flight, and a check sent then races the revoke (ISSUE-174).
-  await expect(sessionRows).toHaveCount(1);
+  await removeRowByClick(sessionRows, rowSignOut, 2);
   await expect(sessionRows).toContainText('This device');
 
   // The revoked session's own cookie, on its very next requests: the
