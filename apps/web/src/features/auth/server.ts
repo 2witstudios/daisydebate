@@ -7,7 +7,6 @@ import type { Clock, IdGenerator } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import type { AuthConfig } from '@daisy/config';
 import type { AuthEmailSender, AuthDeliveryLedger } from './mail-types';
-import { buildConfirmLink } from './confirm-link';
 import {
   emailedLinkIdentifier,
   generateEmailedLinkToken,
@@ -28,8 +27,8 @@ import {
   type RevokeSessionUnlessAddressHeld,
 } from './sign-in-address-guard';
 import { deriveRecipientSubkey, recipientKey } from './recipient-key';
-import { renderAuthEmail } from './mail/templates';
-import { sendOrUnavailable, type Deliver } from './deliver-or-unavailable';
+import { type Deliver } from './deliver-or-unavailable';
+import { createSendMagicLink } from './sign-in-mail';
 import {
   SESSION_EXPIRES_IN_SECONDS,
   SESSION_FRESH_AGE_SECONDS,
@@ -82,10 +81,6 @@ const composeBetterAuth = (dependencies: {
   const origin = new URL(config.PUBLIC_APP_URL).origin;
   const checkSuppression = createSuppressionCheck({ recipientSubkey, ledger });
   const magicLinkGatePlugin = createMagicLinkGatePlugin(checkSuppression);
-  const admitSignUp = createSignUpCeiling({
-    limiter: dependencies.limiter,
-    logger: dependencies.logger,
-  });
   const instance = betterAuth({
     baseURL: config.PUBLIC_APP_URL,
     trustedOrigins: [origin],
@@ -175,31 +170,14 @@ const composeBetterAuth = (dependencies: {
           type: 'custom-hasher',
           hash: async (token) => emailedLinkIdentifier('sign-in', token),
         },
-        sendMagicLink: async ({ email, url, token }, context) => {
-          // Better Auth always passes the endpoint context; without it the
-          // account lookup cannot run, so the send fails closed.
-          if (!context) throw createAppError('INFRASTRUCTURE');
-          const { internalAdapter } = context.context;
-          // A link to an address with no account is a sign-up, metered by
-          // the global ceilings. Saturated, the mail is dropped and its
-          // unmailed token deleted, and the endpoint answers the same
-          // success an existing account gets (ISSUE-182).
-          if (
-            !(await internalAdapter.findUserByEmail(email)) &&
-            !(await admitSignUp())
-          ) {
-            await internalAdapter.deleteVerificationByIdentifier(
-              emailedLinkIdentifier('sign-in', token),
-            );
-            return;
-          }
-          const href = buildConfirmLink(origin, url).toString();
-          const message = renderAuthEmail({ kind: 'sign-in', url: href });
-          await sendOrUnavailable(dependencies.deliver, {
-            to: email,
-            ...message,
-          });
-        },
+        sendMagicLink: createSendMagicLink({
+          origin,
+          deliver: dependencies.deliver,
+          admitSignUp: createSignUpCeiling({
+            limiter: dependencies.limiter,
+            logger: dependencies.logger,
+          }),
+        }),
       }),
       passkey({
         rpID: new URL(config.PUBLIC_APP_URL).hostname,
