@@ -4,8 +4,10 @@
  * (`fly.toml`'s `min_machines_running = 0`), so nothing running inside the
  * app can notice its own multi-minute or multi-hour silence, or alert while
  * it is asleep or crash-looping. This script runs outside the app instead
- * (the scheduled `auth-alerts.yml` GitHub Actions workflow, every 5
- * minutes) and:
+ * (the scheduled `auth-alerts.yml` GitHub Actions workflow — configured for
+ * every 5 minutes, though GitHub's schedule trigger does not actually run
+ * that often in production; the owner accepted this best-effort cadence
+ * for staging rather than build a new scheduler, see ADR 0046/DEC-33) and:
  *
  *   1. probes the public origin's readiness endpoint — one non-mutating
  *      GET, proving routing (a 200 from the expected host), TLS (the fetch
@@ -59,6 +61,40 @@ export function evaluateOriginProbe(input: {
   return { ok: issues.length === 0, issues };
 }
 
+async function readHeaders(response: Response): Promise<Map<string, string>> {
+  const headers = new Map<string, string>();
+  for (const [name, value] of response.headers) headers.set(name, value);
+  return headers;
+}
+
+/**
+ * Fetches `/api/health/ready` and evaluates it. Never throws: an origin
+ * that cannot be reached at all (DNS failure, TLS failure, connection
+ * refused) is itself an origin-probe issue, modeled without ever
+ * constructing a placeholder `Response` — `Response` refuses a status
+ * outside 101/200-599 (`new Response(null, { status: 0 })` throws
+ * `RangeError`), which previously made an unreachable origin crash `main`
+ * before it could post anything (ISSUE-156).
+ */
+export async function fetchOriginProbe(
+  origin: string,
+): Promise<OriginProbeResult> {
+  try {
+    const response = await fetch(new URL('/api/health/ready', origin), {
+      redirect: 'error',
+    });
+    return evaluateOriginProbe({
+      status: response.status,
+      headers: await readHeaders(response),
+    });
+  } catch (error) {
+    return {
+      ok: false,
+      issues: [`/api/health/ready request failed: ${(error as Error).message}`],
+    };
+  }
+}
+
 /** Pure: the Incidents message for whatever fired, naming each condition's own runbook. */
 export function composeAlertMessage(input: {
   readonly conditions: readonly AlertCondition[];
@@ -74,6 +110,89 @@ export function composeAlertMessage(input: {
     lines.push(`- origin_probe: ${issue}`);
   if (input.runUrl) lines.push(input.runUrl);
   return lines.join('\n');
+}
+
+export type AlertConditionsResult =
+  | { readonly ok: true; readonly conditions: readonly AlertCondition[] }
+  | { readonly ok: false; readonly error: string };
+
+/**
+ * Fetches the already-evaluated conditions from `/api/ops/alerts`. Never
+ * throws: a non-2xx response, a body without a `conditions` array, or a
+ * fetch failure (a Redis outage most often surfaces as the latter, since
+ * `/api/ops/alerts` itself depends on Redis to answer at all) comes back as
+ * `{ ok: false, error }` so `main` can still post to Incidents instead of
+ * dying before it posts anything.
+ */
+export async function fetchAlertConditions(
+  origin: string,
+  token: string,
+): Promise<AlertConditionsResult> {
+  try {
+    const response = await fetch(new URL('/api/ops/alerts', origin), {
+      headers: { authorization: `Bearer ${token}` },
+      redirect: 'error',
+    });
+    if (!response.ok)
+      return {
+        ok: false,
+        error: `/api/ops/alerts responded ${response.status}`,
+      };
+    const { conditions } = (await response.json()) as {
+      conditions?: unknown;
+    };
+    if (!Array.isArray(conditions))
+      return {
+        ok: false,
+        error: '/api/ops/alerts responded without a conditions array',
+      };
+    return { ok: true, conditions: conditions as AlertCondition[] };
+  } catch (error) {
+    return {
+      ok: false,
+      error: `/api/ops/alerts request failed: ${(error as Error).message}`,
+    };
+  }
+}
+
+export type ProbeOutcome =
+  | { readonly healthy: true; readonly message: null }
+  | { readonly healthy: false; readonly message: string };
+
+/**
+ * Pure: decides whether the probe run is healthy and, if not, the message
+ * to post. An unreachable `/api/ops/alerts` (Redis outage, deploy fault, or
+ * any other failure) is itself treated as an alert-worthy condition, not a
+ * reason to skip posting — this is what lets a full Redis outage still
+ * reach Incidents (AUTH-7.7-AC2/ISSUE-156).
+ */
+export function decideProbeOutcome(input: {
+  readonly originProbe: OriginProbeResult;
+  readonly alertConditions: AlertConditionsResult;
+  readonly runUrl?: string;
+}): ProbeOutcome {
+  if (!input.alertConditions.ok)
+    return {
+      healthy: false,
+      message: composeAlertMessage({
+        conditions: [],
+        originIssues: [
+          ...input.originProbe.issues,
+          `alert conditions unavailable: ${input.alertConditions.error}`,
+        ],
+        runUrl: input.runUrl,
+      }),
+    };
+  if (input.alertConditions.conditions.length === 0 && input.originProbe.ok)
+    return { healthy: true, message: null };
+  return {
+    healthy: false,
+    message: composeAlertMessage({
+      conditions: input.alertConditions.conditions,
+      originIssues: input.originProbe.issues,
+      runUrl: input.runUrl,
+    }),
+  };
 }
 
 const flag = (args: readonly string[], name: string): string | undefined => {
@@ -114,12 +233,6 @@ export function resolveProbeConfig(
   return origin && token ? { origin, token, runUrl } : undefined;
 }
 
-async function readHeaders(response: Response): Promise<Map<string, string>> {
-  const headers = new Map<string, string>();
-  for (const [name, value] of response.headers) headers.set(name, value);
-  return headers;
-}
-
 async function main(): Promise<void> {
   const config = resolveProbeConfig(process.argv.slice(2), process.env);
   if (!config) {
@@ -131,39 +244,24 @@ async function main(): Promise<void> {
   }
   const { origin, token, runUrl } = config;
 
-  const readyResponse = await fetch(new URL('/api/health/ready', origin), {
-    redirect: 'error',
-  });
-  const originProbe = evaluateOriginProbe({
-    status: readyResponse.status,
-    headers: await readHeaders(readyResponse),
-  });
+  const originProbe = await fetchOriginProbe(origin);
+  const alertConditions = await fetchAlertConditions(origin, token);
+  const outcome = decideProbeOutcome({ originProbe, alertConditions, runUrl });
 
-  const alertsResponse = await fetch(new URL('/api/ops/alerts', origin), {
-    headers: { authorization: `Bearer ${token}` },
-    redirect: 'error',
-  });
-  if (!alertsResponse.ok)
-    throw new Error(
-      `/api/ops/alerts responded ${alertsResponse.status}; cannot evaluate alert conditions`,
-    );
-  const { conditions } = (await alertsResponse.json()) as {
-    conditions: AlertCondition[];
-  };
-
-  if (conditions.length === 0 && originProbe.ok) {
+  if (outcome.healthy) {
     console.log('AUTH-7.7 probe: healthy, nothing to report');
     return;
   }
 
-  const message = composeAlertMessage({
-    conditions,
-    originIssues: originProbe.issues,
-    runUrl,
-  });
-  console.log(message);
+  console.log(outcome.message);
   const result = Bun.spawnSync(
-    ['bun', 'scripts/notify-drive.ts', 'incidents', '--message', message],
+    [
+      'bun',
+      'scripts/notify-drive.ts',
+      'incidents',
+      '--message',
+      outcome.message,
+    ],
     { stdout: 'inherit', stderr: 'inherit' },
   );
   if (result.exitCode !== 0)

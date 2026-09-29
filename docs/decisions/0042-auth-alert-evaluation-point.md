@@ -31,8 +31,10 @@ one an in-process timer cannot see.
 ## Decision
 
 **The evaluator is a scheduled GitHub Actions workflow
-(`.github/workflows/auth-alerts.yml`), not a timer inside the app.** Every 5
-minutes it:
+(`.github/workflows/auth-alerts.yml`), not a timer inside the app.**
+Configured for every 5 minutes (`cron: '*/5 * * * *'`) — though GitHub's
+`schedule` trigger does not actually deliver that cadence in production;
+see the corrected cadence below (ADR 0046/DEC-33). Each run it:
 
 1. Sends one non-mutating `GET /api/health/ready` to the public origin and
    checks the response status (routing: an expected 200), the fact the
@@ -64,12 +66,15 @@ exactly one place.
   `auth.session.unavailable`/`auth.rate_limit.unavailable`. A new
   `withAlertRecording` tap around the composed `Logger` (`app.ts`) observes
   every event the app already logs and, for these two, writes a
-  first-observed timestamp to Redis with `setIfAbsent` (a new atomic
-  `SETNX`+`PEXPIRE` Lua primitive) under a 3-minute TTL — long enough to
-  bridge a gap between two failures of the same incident without pinning
-  the "since" time to the most recent one, short enough that a quiet period
-  resets the next incident's clock. `evaluateAlerts` fires once
-  `now - since >= 2 minutes`.
+  first-observed timestamp to Redis with `markOccurrenceSince` (an atomic
+  Lua primitive: `SETNX`+`PEXPIRE` on the first occurrence, `PEXPIRE` only
+  — keeping the original since-value — on every later one) under a
+  3-minute TTL, re-armed on every occurrence — long enough to bridge a gap
+  between two failures of the same incident without pinning the "since"
+  time to the most recent one, and to keep that since-time alive for the
+  whole length of a continuous outage rather than only its first 180s
+  (ISSUE-156). A quiet period longer than the TTL resets the next
+  incident's clock. `evaluateAlerts` fires once `now - since >= 2 minutes`.
 - **Consecutive delivery-provider failures.** `auth.mail.failed` increments
   a bounded Redis counter (`incrementWithExpiry`, a new atomic
   `INCR`+`PEXPIRE`-on-first-hit primitive) with a 1-hour TTL;
@@ -90,7 +95,7 @@ exactly one place.
   if the marker has never been set at all (covers "a sweep that never
   ran" — accepted trade-off: a fresh deploy can show this condition for the
   few seconds between boot and the `runOnStart` sweep's first completion,
-  which the 5-minute probe cadence never actually observes in practice).
+  a window no probe run — at any cadence — is likely to land inside).
 
 **Redis, not Postgres, holds every alert marker**, including the retention
 one, even though ADR 0023/persistence.md name PostgreSQL the source of
@@ -153,34 +158,45 @@ lands, the `alert-*` keys and `/api/ops/metrics`'s counters classify as
 
 **Known limitations, accepted rather than engineered around:**
 
-- GitHub's `schedule` trigger is best-effort and can run a few minutes late
-  under platform load; the 2-minute/10-minute/2-hour windows already have
-  margin built in and no criterion asks for second-level precision.
+- **Corrected by [ADR 0046](0046-auth-alert-probe-cadence-correction.md):**
+  this bullet originally read "GitHub's `schedule` trigger is best-effort
+  and can run a few minutes late under platform load." Measured over 43.5
+  hours (ISSUE-157), the real gap between runs is 2–5 hours, not minutes —
+  GitHub's own docs describe delays "as much as 15 minutes, or even longer,"
+  and this deployment falls well past even that. The 2-minute and
+  10-minute alert windows lapse between runs at the cadence actually
+  observed; only the 2-hour `cleanup_missed` condition reliably survives
+  the gap between scheduled runs on its own. **Owner decision (DEC-33,
+  2026-09-28): keep this exact mechanism and accept its best-effort
+  cadence** rather than build an always-on in-app evaluator or a dedicated
+  prober machine; DEC-10's five-minute figure is amended to best-effort for
+  staging. Proving the other three conditions live uses an independent
+  trigger plus `workflow_dispatch`, not the schedule itself (ISSUE-157-AC2).
 - `/api/ops/metrics` counters are per-process (reset on restart, not
   aggregated across instances in-app) — the normal Prometheus convention; a
   scraper aggregates across instances and restarts at query time, not this
   endpoint.
 - Alerts do not deduplicate across probe runs: a condition that stays true
-  re-alerts every 5 minutes until it clears. AUTH-7.7 asks for a fired,
+  re-alerts on every run until it clears — at the real, best-effort cadence
+  (ADR 0046/DEC-33), not every 5 minutes. AUTH-7.7 asks for a fired,
   runbooked alert, not an incident-management system; silencing is an
   operator action via the runbook, not a feature this ADR adds.
-- **The 5-minute probe cadence keeps staging effectively always-on, at a
-  quantified cost.** Every 5-minute cycle's `GET /api/health/ready` (and
-  the follow-on `GET /api/ops/alerts`) wakes or keeps awake the web
-  machine, well inside Fly's auto-stop idle window, so `fly.toml`'s
-  `min_machines_running = 0` stops doing much in practice: the machine
-  spends most of its time running rather than stopped. That is a real,
-  named cost trade-off, not an accident — **owner decision DEC-10
-  (confirmed)**: keep the probe cadence at 5 minutes everywhere (no
-  cadence change), accepting roughly **$4/month** of continuous Fly
-  machine run time on staging instead of the roughly **$0/month** a
-  cadence outside the auto-stop window (or an app-internal-only signal)
-  would have cost. See `docs/operations/deploy-staging.md`'s idle-cost
-  table for the itemized number.
+- **The probe cadence was expected to keep staging effectively always-on;
+  it does not, because the real cadence is hours apart, not 5 minutes
+  (ADR 0046).** Each real run's `GET /api/health/ready` (and the follow-on
+  `GET /api/ops/alerts`) does wake or keep awake the web machine for that
+  one cycle, but between real runs — 2 to 5 hours apart, measured — the
+  machine sleeps for hours under `fly.toml`'s `min_machines_running = 0`
+  exactly as scale-to-zero intends; it does not stay running continuously.
+  **Owner decision DEC-10 (confirmed, amended by DEC-33/ADR 0046,
+  2026-09-28)**: keep this mechanism and accept its real cadence, which
+  costs meaningfully less than the ~$4/month DEC-10 originally priced in
+  for a true 5-minute always-on cycle — see
+  `docs/operations/deploy-staging.md`'s idle-cost table.
 
 ## Consequences
 
-- `packages/redis`: `setIfAbsent`, `incrementWithExpiry` (new atomic
+- `packages/redis`: `markOccurrenceSince`, `incrementWithExpiry` (new atomic
   primitives).
 - `packages/config`: `OPS_PROBE_TOKEN` (new, production-required auth
   field).

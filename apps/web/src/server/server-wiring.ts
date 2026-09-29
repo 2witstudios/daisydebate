@@ -3,6 +3,7 @@ import type { AuthConfig } from '@daisy/config';
 import type { Logger } from '@daisy/logger';
 import { deriveClientIdSubkey } from '../features/auth/client-ip';
 import { createHttpServer } from './http-server';
+import { defaultGateway, resolveTrustedProxies } from './trusted-proxies';
 
 /**
  * The production server start.ts runs, composed from the app this process
@@ -13,10 +14,17 @@ import { createHttpServer } from './http-server';
  * here, eagerly, is what refuses a production start without auth secrets
  * before Next prepares or the port opens; its errors name fields only
  * (AUTH-7.0-AC3).
+ *
+ * The `gateway` keyword in `AUTH_TRUSTED_PROXIES` becomes this machine's one
+ * default gateway from `readRouteTable` (fly-proxy's address on Fly,
+ * ISSUE-162). Unreadable or ambiguous, it trusts nothing for that entry —
+ * every caller then shares the gateway's identity — and logs
+ * `ingress.trusted_proxy.unresolved`.
  */
 export function createProductionServer({
   app,
   handle,
+  readRouteTable,
 }: {
   readonly app: {
     readonly auth: () => {
@@ -29,10 +37,24 @@ export function createProductionServer({
     readonly logger: Logger;
   };
   readonly handle: Parameters<typeof createHttpServer>[0]['handle'];
+  /** `/proc/net/route`'s text, or null when it cannot be read. */
+  readonly readRouteTable: () => string | null;
 }): Server {
   const authConfig = app.auth().config;
+  const routeTable =
+    authConfig.AUTH_TRUSTED_PROXIES.length > 0 ? readRouteTable() : null;
+  const { trustedProxies, gatewayUnresolved } = resolveTrustedProxies(
+    authConfig.AUTH_TRUSTED_PROXIES,
+    routeTable === null ? null : defaultGateway(routeTable),
+  );
+  if (gatewayUnresolved)
+    app.logger.log(
+      'ingress.trusted_proxy.unresolved',
+      { operation: 'server.start' },
+      'No single default gateway was found, so no proxy is trusted for it',
+    );
   return createHttpServer({
-    trustedProxies: authConfig.AUTH_TRUSTED_PROXIES,
+    trustedProxies,
     clientIdSubkey: deriveClientIdSubkey(authConfig.BETTER_AUTH_SECRET),
     isDraining: app.isDraining,
     logger: app.logger,

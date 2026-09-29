@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { createHttpClient } from './http-client';
 import { localServices } from './local-services';
-import { percentile, tally, unexpected5xxRate } from './metrics';
+import { percentile, successRate, tally, unexpected5xxRate } from './metrics';
 import { provisionPopulation } from './provision';
 import { simulatedClients } from './client-identity';
 import { startTwoInstances } from './two-instances';
@@ -156,12 +156,13 @@ async function main() {
   const latenciesMs = outcomes.map((outcome) => outcome.latencyMs);
   // The success-rate threshold is over admitted traffic, never over the
   // shipped limiter's own deliberate 429s (AUTH-6.7 AC4: "report deliberate
-  // 429s ... separately"). The magic-link segment sits right at the shipped
-  // global ceiling by construction (see README), so counting its expected
-  // 429s against the 99% bar would fail the run for exercising the workload
-  // exactly as specified, not for a real capacity problem.
-  const admitted =
-    tallies.overall.offered - (tallies.overall.rejectedByStatus[429] ?? 0);
+  // 429s ... separately"). Only the magic-link segment's 429s are excluded:
+  // it sits right at the shipped global ceiling by construction (see
+  // README), so counting its expected 429s against the 99% bar would fail
+  // the run for exercising the workload exactly as specified, not for a
+  // real capacity problem. A 429 storm on session-read or passkey-assertion
+  // stays in the admitted count and fails the bar (successRate, ISSUE-165).
+  const { admitted, rate: successRateValue } = successRate(tallies);
   const report = {
     label: args.label,
     startedAt: startedAt.toISOString(),
@@ -182,7 +183,7 @@ async function main() {
     p95Ms: percentile(latenciesMs, 95),
     p99Ms: percentile(latenciesMs, 99),
     unexpected5xxRate: unexpected5xxRate(tallies.overall),
-    successRate: admitted === 0 ? 0 : tallies.overall.successful / admitted,
+    successRate: successRateValue,
     admitted,
     tallies,
     thresholds: {
@@ -193,8 +194,7 @@ async function main() {
     passed: {
       p95: percentile(latenciesMs, 95) < 500,
       unexpected5xx: unexpected5xxRate(tallies.overall) < 0.01,
-      successRate:
-        admitted > 0 && tallies.overall.successful / admitted >= 0.99,
+      successRate: admitted > 0 && successRateValue >= 0.99,
     },
   };
 
@@ -246,7 +246,7 @@ function renderMarkdown(report: Record<string, unknown>): string {
     `- p50 / p95 / p99 server latency: ${r.p50Ms.toFixed(1)}ms / ${r.p95Ms.toFixed(1)}ms / ${r.p99Ms.toFixed(1)}ms`,
     `- Unexpected 5xx rate: ${(r.unexpected5xxRate * 100).toFixed(3)}%`,
     `- Success rate: ${(r.successRate * 100).toFixed(3)}%`,
-    `- Admitted (offered minus deliberate 429s): ${r.admitted}`,
+    `- Admitted (offered minus the magic-link segment's deliberate 429s): ${r.admitted}`,
     '',
     '## Thresholds',
     `- p95 < 500ms: ${r.passed.p95 ? 'PASS' : 'FAIL'}`,

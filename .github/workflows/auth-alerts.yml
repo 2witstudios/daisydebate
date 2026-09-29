@@ -3,12 +3,18 @@ name: Auth alert probe
 # nothing running inside the app can notice its own multi-minute or
 # multi-hour silence, or alert while it is asleep or crash-looping. This
 # scheduled workflow is the evaluation point instead (see the AUTH-7.7 ADR):
-# every 5 minutes it probes the public origin's readiness endpoint
-# (non-mutating, proving routing/TLS/security headers) and the bearer-token
-# gated /api/ops/alerts, then posts whatever fired to the drive's Incidents
-# channel (scripts/auth-alert-probe.ts). GitHub's schedule is best-effort
-# and may run a few minutes late under platform load; the thresholds
-# already bridge that (2-minute/10-minute/2-hour windows, not exact edges).
+# it probes the public origin's readiness endpoint (non-mutating, proving
+# routing/TLS/security headers) and the bearer-token gated /api/ops/alerts,
+# then posts whatever fired to the drive's Incidents channel
+# (scripts/auth-alert-probe.ts). The cron below is configured for every 5
+# minutes, but GitHub's schedule trigger does not actually run that often in
+# production: ADR 0046 measured runs 2-5 hours apart over 43.5 hours, not
+# "a few minutes late". Owner decision (DEC-33, 2026-09-28): keep this exact
+# mechanism and accept its best-effort cadence for staging rather than build
+# a new scheduler; revisit before a production launch. Only the 2-hour
+# cleanup_missed window reliably survives the real gap between runs on its
+# own — the other conditions are proven live via an independent trigger plus
+# workflow_dispatch, not by waiting on the schedule (ISSUE-157-AC2).
 on:
   schedule:
     - cron: '*/5 * * * *'

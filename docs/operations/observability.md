@@ -58,6 +58,7 @@ diverge:
 | `runtime.initialize`                     | info     | The application runtime initialized                                                                                    |
 | `server.start`                           | info     | The HTTP server began listening                                                                                        |
 | `server.shutdown`                        | info     | Shutdown began draining requests                                                                                       |
+| `ingress.trusted_proxy.unresolved`       | warn     | `AUTH_TRUSTED_PROXIES` names `gateway` but no single default gateway was found at start, so none is trusted            |
 | `http.request.completed`                 | info     | A request operation returned a response                                                                                |
 | `http.request.cancelled`                 | warn     | A client/request signal aborted before completion                                                                      |
 | `http.request.failed`                    | error    | A request operation or server handler failed                                                                           |

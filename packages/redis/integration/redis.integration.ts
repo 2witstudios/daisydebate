@@ -69,6 +69,62 @@ test('rate limit admits exactly max across concurrent instances and expires atom
     }
   }));
 
+test('markOccurrenceSince keeps the since-value and re-arms the TTL on every later occurrence, bridging a continuous run past a single TTL window', () =>
+  withRedis(url, async ({ redis, raw, key, expireNow }) => {
+    const markerKey = key('marker');
+    const ttlSeconds = 60;
+    // Stands in for time passing: the marker is about to expire.
+    const nearlyExpire = () => raw.send('PEXPIRE', [markerKey, '1000']);
+    const first = await redis.markOccurrenceSince(
+      'marker',
+      'first',
+      ttlSeconds,
+    );
+    await nearlyExpire();
+    // A later occurrence keeps the original since-value and re-arms the TTL...
+    const second = await redis.markOccurrenceSince(
+      'marker',
+      'second',
+      ttlSeconds,
+    );
+    const ttlAfterSecond = await raw.pttl(markerKey);
+    await nearlyExpire();
+    // ...and so does the next: the condition's since-time never resets
+    // during a continuous outage.
+    const third = await redis.markOccurrenceSince(
+      'marker',
+      'third',
+      ttlSeconds,
+    );
+    const ttlAfterThird = await raw.pttl(markerKey);
+    assert({
+      given:
+        'three occurrences of the same condition, each arriving when the marker has 1s left of its TTL',
+      should:
+        'return the first value every time and re-arm the full TTL, never expiring between occurrences',
+      actual: {
+        first,
+        second,
+        third,
+        rearmed: [ttlAfterSecond, ttlAfterThird].every((ttl) => ttl > 1_000),
+      },
+      expected: {
+        first: 'first',
+        second: 'first',
+        third: 'first',
+        rearmed: true,
+      },
+    });
+    // Once occurrences stop, the marker still expires on its own.
+    await expireNow(markerKey);
+    assert({
+      given: 'no further occurrence before the TTL runs out',
+      should: 'let the marker expire so the condition clears passively',
+      actual: await redis.get('marker'),
+      expected: null,
+    });
+  }));
+
 test('rate limit reports outage as a thrown error, never an allow', async () => {
   const dead = createRedis({
     url: 'redis://127.0.0.1:1',

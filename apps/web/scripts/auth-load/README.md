@@ -77,9 +77,12 @@ admitted and the rest answer 429 with `Retry-After`.
   segment even with nothing wrong; the report's `magic-link` breakdown makes
   this visible rather than hiding it inside the overall success rate, and the
   success-rate threshold itself is computed over _admitted_ traffic (offered
-  minus the shipped limiter's deliberate 429s), never against those 429s, so
-  this expected behavior cannot fail the run on its own (AC4: "report
-  deliberate 429s ... separately"). This is a property of the two numbers
+  minus only the magic-link segment's own deliberate 429s), never against
+  those 429s, so this expected behavior cannot fail the run on its own (AC4:
+  "report deliberate 429s ... separately"). A 429 storm on session-read or
+  passkey-assertion is a real capacity failure, not this expected ceiling
+  behavior, and stays counted against the 99% bar (`metrics.ts`'s
+  `successRate`, ISSUE-165). This is a property of the two numbers
   the spec fixes together (the 20 req/s baseline and the 80/10/10 split),
   not a defect in the harness or the limiter — record it plainly when this
   run's evidence is reviewed, and do not lower the workload split or the

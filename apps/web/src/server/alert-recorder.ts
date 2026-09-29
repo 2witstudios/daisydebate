@@ -2,7 +2,7 @@ import type { Clock } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 
 const MINUTE_MS = 60_000;
-/** Bridges the 2-minute unavailability threshold across gaps between failures without pinning the incident's start to the most recent one. */
+/** Bridges the 2-minute unavailability threshold across gaps between failures without pinning the incident's start to the most recent one. Re-armed on every occurrence (markOccurrenceSince), so a continuous outage never lets the since-time lapse. */
 const UNAVAILABLE_MARK_TTL_SECONDS = 180;
 /** A quiet hour resets the consecutive-failure count; no legitimate retry cadence needs longer. */
 const DELIVERY_FAILURE_WINDOW_SECONDS = 60 * 60;
@@ -12,7 +12,7 @@ const RETENTION_SUCCESS_TTL_SECONDS = 30 * 24 * 60 * 60;
 const HTTP_BUCKET_TTL_SECONDS = 11 * 60;
 
 export type AlertRecorderRedis = {
-  readonly setIfAbsent: (
+  readonly markOccurrenceSince: (
     key: string,
     value: string,
     ttlSeconds: number,
@@ -81,7 +81,7 @@ export function createAlertRecorder({
       switch (event) {
         case 'auth.session.unavailable':
           swallow(
-            redis.setIfAbsent(
+            redis.markOccurrenceSince(
               'alert-unavailable-storage',
               clock.now(),
               UNAVAILABLE_MARK_TTL_SECONDS,
@@ -90,7 +90,7 @@ export function createAlertRecorder({
           return;
         case 'auth.rate_limit.unavailable':
           swallow(
-            redis.setIfAbsent(
+            redis.markOccurrenceSince(
               'alert-unavailable-limiter',
               clock.now(),
               UNAVAILABLE_MARK_TTL_SECONDS,

@@ -4,6 +4,7 @@ import {
   ciInvokedTasks,
   classifyTestFile,
   isTestFilePath,
+  orphanSuiteDetail,
   rootClaimProblems,
 } from './evidence';
 
@@ -118,6 +119,67 @@ describe('classifyTestFile', () => {
         'apps/web/e2e/app.e2e.ts',
       ].map(classifyTestFile),
       expected: ['integration', 'integration', 'e2e'],
+    });
+  });
+
+  test('claims a workspace operational script suite outside the top-level scripts/ folder', () => {
+    assert({
+      given:
+        "a .test.ts under a workspace's own scripts/ directory (not the root one)",
+      should: 'assign workspace-script, distinct from the root scripts/ runner',
+      actual: [
+        classifyTestFile('apps/web/scripts/auth-load/metrics.test.ts'),
+        classifyTestFile('scripts/doctor.test.ts'),
+      ],
+      expected: ['workspace-script', 'root-script'],
+    });
+  });
+
+  test('flags scripts/ and src/ suites outside any workspace as orphans (ISSUE-171)', () => {
+    assert({
+      given:
+        'a scripts/ and a src/ suite under a directory that is neither apps/* nor packages/*',
+      should: 'classify both orphan, since no workspace runner executes them',
+      actual: [
+        classifyTestFile('infra/scripts/x.test.ts'),
+        classifyTestFile('infra/src/z.test.ts'),
+      ],
+      expected: ['orphan', 'orphan'],
+    });
+  });
+
+  test('flags an integration/ suite outside any workspace as an orphan (ISSUE-180)', () => {
+    assert({
+      given:
+        'an integration/ suite under a directory that is neither apps/* nor packages/*, beside a workspace one',
+      should:
+        'classify the outside one orphan and keep the workspace one claimed',
+      actual: [
+        classifyTestFile('infra/integration/x.integration.ts'),
+        classifyTestFile('packages/db/integration/db.integration.ts'),
+      ],
+      expected: ['orphan', 'integration'],
+    });
+  });
+
+  test('names workspace locations in the ORPHAN_SUITE hint, never a bare src/ or scripts/ (ISSUE-180)', () => {
+    const detail = orphanSuiteDetail('infra/scripts/x.test.ts');
+    assert({
+      given: 'an orphan suite outside any workspace',
+      should:
+        'name the file and the workspace-rooted locations the gate actually claims',
+      actual: {
+        namesFile: detail.startsWith('infra/scripts/x.test.ts '),
+        namesWorkspaceSrc: detail.includes('apps/*/src/'),
+        bareSrc: /[(,] src\//.test(detail),
+        bareScriptsOnlyAsRoot: /[(,] scripts\/[,)]/.test(detail),
+      },
+      expected: {
+        namesFile: true,
+        namesWorkspaceSrc: true,
+        bareSrc: false,
+        bareScriptsOnlyAsRoot: false,
+      },
     });
   });
 

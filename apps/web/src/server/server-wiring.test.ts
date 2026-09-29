@@ -13,7 +13,6 @@ import { createProductionServer } from './server-wiring';
 
 setupRitewayBun();
 
-const logger: Logger = { log: () => undefined, child: () => logger };
 const secret = 'a'.repeat(32);
 
 /**
@@ -21,9 +20,17 @@ const secret = 'a'.repeat(32);
  * and auth config this test controls; a stand-in for Next's handler records
  * the identity headers the app would see.
  */
-async function serveProduction(trustedProxies: string[]) {
+async function serveProduction(
+  trustedProxies: string[],
+  routeTable: string | null = null,
+) {
   const state = { draining: false };
   const seen: Array<{ ip: unknown; idHash: unknown }> = [];
+  const events: string[] = [];
+  const logger: Logger = {
+    log: (event) => void events.push(event),
+    child: () => logger,
+  };
   const server = createProductionServer({
     app: {
       auth: () => ({
@@ -42,6 +49,7 @@ async function serveProduction(trustedProxies: string[]) {
       });
       response.end('ok');
     },
+    readRouteTable: () => routeTable,
   });
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address() as AddressInfo;
@@ -54,8 +62,15 @@ async function serveProduction(trustedProxies: string[]) {
       server.closeAllConnections();
       server.close(() => resolve());
     });
-  return { state, seen, get, close };
+  return { state, seen, events, get, close };
 }
+
+/** A /proc/net/route whose one default route goes via 127.0.0.1 (host-order hex). */
+const LOOPBACK_GATEWAY_TABLE = [
+  'Iface\tDestination\tGateway \tFlags\tRefCnt\tUse\tMetric\tMask\t\tMTU\tWindow\tIRTT',
+  'lo\t00000000\t0100007F\t0003\t0\t0\t0\t00000000\t0\t0\t0',
+  '',
+].join('\n');
 
 const forgedHeaders = {
   [CLIENT_IP_HEADER]: '1.1.1.1',
@@ -82,6 +97,42 @@ describe('createProductionServer (AUTH-3.8 start.ts wiring, ISSUE-158)', () => {
             idHash: clientIdHash(deriveClientIdSubkey(secret), '198.51.100.7'),
           },
         ],
+      },
+    });
+  });
+
+  test("resolves the gateway keyword to the route table's default gateway before the server trusts it (ISSUE-162, ISSUE-172)", async () => {
+    const { seen, events, get, close } = await serveProduction(
+      ['gateway'],
+      LOOPBACK_GATEWAY_TABLE,
+    );
+    await get(forgedHeaders);
+    await close();
+    assert({
+      given:
+        'AUTH_TRUSTED_PROXIES = gateway and a route table whose one default gateway is the loopback peer',
+      should:
+        'trust that resolved address, handing the app the right-most untrusted hop, and log nothing unresolved',
+      actual: { ips: seen.map(({ ip }) => ip), events },
+      expected: { ips: ['198.51.100.7'], events: [] },
+    });
+  });
+
+  test('an unreadable route table trusts nothing for the gateway keyword and logs it (ISSUE-162, ISSUE-172)', async () => {
+    const { seen, events, get, close } = await serveProduction(
+      ['gateway'],
+      null,
+    );
+    await get(forgedHeaders);
+    await close();
+    assert({
+      given: 'AUTH_TRUSTED_PROXIES = gateway and no readable route table',
+      should:
+        'fail closed to the socket peer and log ingress.trusted_proxy.unresolved',
+      actual: { ips: seen.map(({ ip }) => ip), events },
+      expected: {
+        ips: ['127.0.0.1'],
+        events: ['ingress.trusted_proxy.unresolved'],
       },
     });
   });
@@ -136,6 +187,7 @@ describe('createProductionServer refuses a start without auth secrets (AUTH-7.0-
         handle: async (_request, response) => {
           response.end('ok');
         },
+        readRouteTable: () => null,
       });
     } catch (error) {
       refusal = error instanceof Error ? error.message : String(error);

@@ -68,6 +68,25 @@ export function percentile(latenciesMs: readonly number[], p: number): number {
   return sorted[Math.min(Math.max(rank, 0), sorted.length - 1)]!;
 }
 
+/**
+ * The 99% success bar's admitted count and rate. AUTH-6.7 AC4 excludes only
+ * the magic-link segment's documented, deliberate 429 ceiling (it sits at
+ * the shipped global rate limit by construction — see the harness README) —
+ * a 429 storm on session-read or passkey-assertion is a real capacity
+ * failure and must count against the bar, not be excluded from it
+ * (ISSUE-165).
+ */
+export function successRate(
+  tallies: Record<'overall' | WorkloadOutcome['kind'], OutcomeTally>,
+): { readonly admitted: number; readonly rate: number } {
+  const magicLink429 = tallies['magic-link'].rejectedByStatus[429] ?? 0;
+  const admitted = tallies.overall.offered - magicLink429;
+  return {
+    admitted,
+    rate: admitted === 0 ? 0 : tallies.overall.successful / admitted,
+  };
+}
+
 /** Unexpected 5xx as a share of offered traffic (AUTH-6.7 AC2: below 1%). */
 export const unexpected5xxRate = (t: OutcomeTally): number => {
   const unexpected5xx = Object.entries(t.rejectedByStatus)

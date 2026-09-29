@@ -72,6 +72,73 @@ describe('retention sweep schedule', () => {
     });
   });
 
+  test('the start-up run waits for waitUntilReady before sweeping, never before (ISSUE-146)', async () => {
+    const { timers } = fakeTimers();
+    const gated = gatedSweep();
+    let releaseReady: () => void = () => {};
+    const ready = new Promise<void>((resolve) => {
+      releaseReady = resolve;
+    });
+    const schedule = startRetentionSweep({
+      sweep: gated.sweep,
+      timers,
+      runOnStart: true,
+      waitUntilReady: () => ready.then(() => true),
+    });
+    // Drain microtasks: nothing has run yet because waitUntilReady has not
+    // resolved (a cold Fly boot's Redis connection not answering yet).
+    for (let hop = 0; hop < 10; hop += 1) await Promise.resolve();
+    const beforeReady = gated.state.started;
+    releaseReady();
+    // Let the now-unblocked waitUntilReady microtask run tick(), which
+    // calls sweep.run(); only then is there a run to release.
+    for (let hop = 0; hop < 10; hop += 1) await Promise.resolve();
+    gated.state.release();
+    await schedule.initial;
+    assert({
+      given:
+        'a start-up run gated on waitUntilReady, which has not resolved yet',
+      should: 'start no sweep until it resolves, then run exactly once',
+      actual: { beforeReady, afterReady: gated.state.started },
+      expected: { beforeReady: 0, afterReady: 1 },
+    });
+  });
+
+  test('a start-up wait that reports not-ready or rejects skips the start-up run, leaving the hourly schedule (ISSUE-146)', async () => {
+    const outcomes = await Promise.all(
+      [
+        () => Promise.resolve(false),
+        () => Promise.reject(new Error('redis down')),
+      ].map(async (waitUntilReady) => {
+        const { state, timers } = fakeTimers();
+        const gated = gatedSweep();
+        const schedule = startRetentionSweep({
+          sweep: gated.sweep,
+          timers,
+          runOnStart: true,
+          waitUntilReady,
+        });
+        await schedule.initial;
+        const startUpRuns = gated.state.started;
+        const nextTick = state.tick?.();
+        gated.state.release();
+        await nextTick;
+        return { startUpRuns, afterTick: gated.state.started };
+      }),
+    );
+    assert({
+      given:
+        'a start-up wait that resolves false (Redis never healthy), and one that rejects',
+      should:
+        'run no start-up sweep, settle without throwing, and still run the next hourly tick',
+      actual: outcomes,
+      expected: [
+        { startUpRuns: 0, afterTick: 1 },
+        { startUpRuns: 0, afterTick: 1 },
+      ],
+    });
+  });
+
   test('stop clears the timer, stops the sweep, waits for the run in progress and starts no new run', async () => {
     const { state, timers } = fakeTimers();
     const gated = gatedSweep();

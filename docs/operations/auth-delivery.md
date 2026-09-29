@@ -171,7 +171,11 @@ Staging scales to zero (`fly.toml`'s `min_machines_running = 0`), so the
 evaluation point for these alerts is a scheduled GitHub Actions workflow
 (`.github/workflows/auth-alerts.yml`, `scripts/auth-alert-probe.ts`), not a
 timer inside the app — see [ADR 0042](../decisions/0042-auth-alert-evaluation-point.md)
-for why. Every 5 minutes it probes the public origin's readiness endpoint
+for why. Its cron is configured for every 5 minutes, but GitHub's `schedule`
+trigger runs it best-effort — measured runs land hours apart, and the owner
+accepted that cadence for staging ([ADR 0046](../decisions/0046-auth-alert-probe-cadence-correction.md),
+DEC-33) — so a condition can fire and resolve between runs unseen. On each
+run it probes the public origin's readiness endpoint
 (non-mutating, proving routing/TLS/security headers) and reads
 `GET /api/ops/alerts` (bearer-token gated by `OPS_PROBE_TOKEN`), which
 answers the already-evaluated conditions computed by
@@ -343,13 +347,23 @@ limiter_unavailable").
    failure" above (`auth.session.unavailable`/`auth.rate_limit.unavailable`);
    follow that runbook to diagnose the outage itself.
 2. The alert fires only once the condition has held for 2+ minutes
-   (`apps/web/src/server/alert-recorder.test.ts`, "marks storage unavailable
-   on auth.session.unavailable" proves the marker is written on the first
-   occurrence with a 3-minute bridging TTL) — a single transient failure
-   does not page anyone.
-3. No manual reset is needed: the marker expires on its own 3 minutes after
-   the last occurrence, so the alert clears passively once the dependency
-   recovers and stays recovered.
+   (`apps/web/src/server/alert-recorder.test.ts`, "mark the storage
+   occurrence, keeping since-time and re-arming the 3-minute bridging TTL"
+   proves the marker's since-value is written once on the first occurrence
+   and every later occurrence re-arms its TTL without disturbing that
+   value) — a single transient failure does not page anyone.
+3. No manual reset is needed: every occurrence re-arms the marker's 3-minute
+   TTL (`packages/redis/integration/redis.integration.ts`,
+   "markOccurrenceSince keeps the since-value and re-arms the TTL on every
+   later occurrence..."), so during a continuous outage it never expires,
+   and it expires on its own only once occurrences stop for 3 minutes — the
+   alert clears passively once the dependency recovers and stays recovered.
+4. If `/api/ops/alerts` itself is unreachable — most often a full Redis
+   outage, since the endpoint depends on Redis to answer at all — the probe
+   (`scripts/auth-alert-probe.ts`, `fetchAlertConditions` /
+   `decideProbeOutcome`) still posts to Incidents, naming the unreachable
+   endpoint instead of the specific condition; posting to Incidents never
+   depends on the dependency that is down.
 
 ### Delivery provider failing repeatedly
 

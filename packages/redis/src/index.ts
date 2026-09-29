@@ -27,17 +27,22 @@ return {1, ttl}
 `;
 
 /**
- * ARGV[1] value, ARGV[2] TTL ms. AUTH-7.7's "first observed" markers (an
- * outage's start): only the first caller within the TTL wins the write, and
- * every caller (winner or not) reads back the value that stuck, so a racing
- * write can never overwrite an earlier start time.
+ * ARGV[1] value, ARGV[2] TTL ms. AUTH-7.7's "since" markers (an outage's
+ * start): the first occurrence wins the write and every later occurrence
+ * reads back that same value, so a racing write can never overwrite an
+ * earlier start time — but every occurrence (winner or not) re-arms the
+ * TTL, so a continuous run of occurrences spaced closer than the TTL keeps
+ * the marker alive indefinitely instead of expiring 180s after only the
+ * first one.
  */
-const setIfAbsentScript = `
-if redis.call('SETNX', KEYS[1], ARGV[1]) == 1 then
+const markOccurrenceSinceScript = `
+local existing = redis.call('GET', KEYS[1])
+if existing then
   redis.call('PEXPIRE', KEYS[1], ARGV[2])
-  return ARGV[1]
+  return existing
 end
-return redis.call('GET', KEYS[1])
+redis.call('SET', KEYS[1], ARGV[1], 'PX', ARGV[2])
+return ARGV[1]
 `;
 
 /**
@@ -131,25 +136,26 @@ export function createRedis({
       }
     },
     /**
-     * Writes `value` under `key` only while it is absent, with a mandatory
-     * TTL, and returns whichever value is now stored (the caller's, or an
-     * earlier winner's). AUTH-7.7 uses this to mark the start of an outage
-     * once, even under concurrent instances.
+     * Writes `value` under `key` only on the first call, with a mandatory
+     * TTL that every later call re-arms, and returns whichever value is now
+     * stored (the caller's, or an earlier winner's). AUTH-7.7 uses this to
+     * mark the start of an outage once, even under concurrent instances,
+     * and keep that since-time alive across a continuous run of failures.
      */
-    async setIfAbsent(key: string, value: string, ttlSeconds: number) {
+    async markOccurrenceSince(key: string, value: string, ttlSeconds: number) {
       if (!Number.isSafeInteger(ttlSeconds) || ttlSeconds < 1)
         throw new Error('TTL must be a positive integer');
       try {
         await client.connect();
         return (await client.send('EVAL', [
-          setIfAbsentScript,
+          markOccurrenceSinceScript,
           '1',
           redisKey(namespace, key),
           value,
           String(ttlSeconds * 1000),
         ])) as string;
       } catch (error) {
-        reportFailure('setIfAbsent');
+        reportFailure('markOccurrenceSince');
         throw error;
       }
     },
