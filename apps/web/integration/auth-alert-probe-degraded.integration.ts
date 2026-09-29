@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto';
 import { resolve } from 'node:path';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -7,6 +8,8 @@ import {
   createRetentionSweep,
   retentionTargets,
 } from '../src/server/retention-sweep';
+import { createSelfSignedTlsEdge } from '../e2e/support/tls-edge';
+import { ALERT_STATE_READ_TIMEOUT_MS } from '../src/server/alert-state';
 import { createFaultedApp } from './fault-proxy';
 import { createTestApp } from './fixtures';
 
@@ -15,6 +18,7 @@ setupRitewayBun();
 
 const REPOSITORY_ROOT = resolve(import.meta.dir, '../../..');
 const opsToken = `ops-${createId()}${createId()}`;
+const INCIDENTS_SECRET = `incidents-${createId()}`;
 
 /**
  * Next's response headers as production serves them (`next.config.ts`):
@@ -34,28 +38,74 @@ async function productionHeaders(): Promise<Headers> {
   return headers;
 }
 
+type IncidentsPost = { readonly body: string; readonly headers: Headers };
+
 /**
- * The real probe CLI, as the scheduled workflow runs it, against `origin`.
- * Asynchronous: the origin is served from this process, so a blocking spawn
- * would leave it unable to answer.
+ * A real Incidents receiver seam (ISSUE-210): a loopback server capturing
+ * each post, behind the repository's self-signed TLS edge, since
+ * notify-drive refuses a non-https webhook.
  */
-async function runProbe(origin: string) {
+function createIncidentsReceiver() {
+  const posts: IncidentsPost[] = [];
+  const capture = Bun.serve({
+    port: 0,
+    fetch: async (request) => {
+      posts.push({ body: await request.text(), headers: request.headers });
+      return new Response('ok');
+    },
+  });
+  const edge = createSelfSignedTlsEdge({
+    appPort: capture.port as number,
+    edgePort: 0,
+  });
+  return {
+    url: `https://127.0.0.1:${edge.port}`,
+    posts: () => [...posts],
+    stop: () => {
+      edge.stop(true);
+      void capture.stop(true);
+    },
+  };
+}
+
+/** Whether a post carries notify-drive's HMAC signature for `secret`. */
+const signedWith = (secret: string, post: IncidentsPost) => {
+  const timestamp = post.headers.get('x-pagespace-timestamp');
+  return (
+    post.headers.get('x-pagespace-signature') ===
+    `v0=${createHmac('sha256', secret).update(`v0:${timestamp}:${post.body}`).digest('hex')}`
+  );
+};
+
+/**
+ * The real probe CLI, as the scheduled workflow runs it, against `origin`,
+ * posting to `webhookUrl`. Asynchronous: the origin and the receiver are
+ * served from this process, so a blocking spawn would leave them unable to
+ * answer.
+ */
+async function runProbe(origin: string, webhookUrl: string) {
   const probe = Bun.spawn(
     ['bun', 'scripts/auth-alert-probe.ts', '--origin', origin],
     {
       cwd: REPOSITORY_ROOT,
-      // No Incidents webhook: a probe that decides to post prints its
-      // message and then fails to deliver it, which this suite reads.
-      env: { PATH: process.env.PATH ?? '', OPS_PROBE_TOKEN: opsToken },
+      env: {
+        PATH: process.env.PATH ?? '',
+        OPS_PROBE_TOKEN: opsToken,
+        PAGESPACE_INCIDENTS_WEBHOOK_URL: webhookUrl,
+        PAGESPACE_INCIDENTS_WEBHOOK_SECRET: INCIDENTS_SECRET,
+        // The receiver's certificate is self-signed for this run; only this
+        // subprocess's outbound fetch is told to accept it.
+        NODE_TLS_REJECT_UNAUTHORIZED: '0',
+      },
       stdout: 'pipe',
       stderr: 'pipe',
     },
   );
-  const [stdout] = await Promise.all([
+  const [stdout, exitCode] = await Promise.all([
     new Response(probe.stdout).text(),
     probe.exited,
   ]);
-  return stdout;
+  return { stdout, exitCode };
 }
 
 /**
@@ -95,26 +145,94 @@ describe('ISSUE-199 the probe over an unreadable alert state', () => {
       },
     });
     const originUrl = `http://127.0.0.1:${origin.port}`;
-    const beforeOutage = await runProbe(originUrl);
-    faulted.proxy.pause();
-    const duringOutage = await runProbe(originUrl);
+    const receiver = createIncidentsReceiver();
+    try {
+      const beforeOutage = await runProbe(originUrl, receiver.url);
+      const postsBefore = receiver.posts().length;
+      faulted.proxy.pause();
+      const duringOutage = await runProbe(originUrl, receiver.url);
+      faulted.proxy.resume();
+      const [post] = receiver.posts().slice(postsBefore);
+      const content = post
+        ? (JSON.parse(post.body) as { content: string }).content
+        : '';
+      assert({
+        given:
+          "the real probe CLI against a healthy readiness, before and while the alerts instance's Redis is paused, posting to a real signed Incidents receiver",
+        should:
+          'report healthy and post nothing before, then deliver one signed post naming the unevaluated conditions and exit 0',
+        actual: {
+          before: {
+            exitCode: beforeOutage.exitCode,
+            healthy: beforeOutage.stdout.includes('healthy, nothing to report'),
+            posts: postsBefore,
+          },
+          during: {
+            exitCode: duringOutage.exitCode,
+            posts: receiver.posts().length - postsBefore,
+            signed: post !== undefined && signedWith(INCIDENTS_SECRET, post),
+            namesUnread: content.includes('alert state unread'),
+            namesSkipped: content.includes('auth_5xx_rate'),
+            namesReadiness: content.includes('origin_probe: readiness'),
+          },
+        },
+        expected: {
+          before: { exitCode: 0, healthy: true, posts: 0 },
+          during: {
+            exitCode: 0,
+            posts: 1,
+            signed: true,
+            namesUnread: true,
+            namesSkipped: true,
+            namesReadiness: false,
+          },
+        },
+      });
+    } finally {
+      receiver.stop();
+    }
+  });
+});
+
+/**
+ * ISSUE-208: a Redis that stops answering (connections open, nothing
+ * relayed) must not hold `/api/ops/alerts` open: each read has its own
+ * budget, and the endpoint answers an unreachable snapshot within it.
+ */
+describe('ISSUE-208 /api/ops/alerts over a stalled Redis', () => {
+  const testApp = createTestApp({ OPS_PROBE_TOKEN: opsToken });
+  const faulted = createFaultedApp(testApp, 'REDIS_URL');
+
+  test('a Redis that stops answering yields an unreachable snapshot within the read budget', async () => {
+    const alertsRequest = () =>
+      new Request(`${testApp.origin}/api/ops/alerts`, {
+        headers: { authorization: `Bearer ${opsToken}` },
+      });
+    const baseline = await faulted.routes.ops.alerts.GET(alertsRequest());
+    faulted.proxy.stall();
+    const started = performance.now();
+    const stalled = await faulted.routes.ops.alerts.GET(alertsRequest());
+    const elapsedMs = performance.now() - started;
+    const body = (await stalled.json()) as {
+      snapshot: { redisState: string };
+    };
     faulted.proxy.resume();
     assert({
       given:
-        "the real probe CLI against a healthy readiness, before and while the alerts instance's Redis is paused",
+        'the real alerts handler, before and while its Redis connection stays open but answers nothing',
       should:
-        'report healthy before, then post that the Redis-backed conditions were not evaluated',
+        'answer 200 before, then 200 with an unreachable snapshot within the per-read budget',
       actual: {
-        beforeHealthy: beforeOutage.includes('healthy, nothing to report'),
-        duringHealthy: duringOutage.includes('healthy, nothing to report'),
-        duringNamesUnread: duringOutage.includes('alert state unread'),
-        duringNamesOrigin: duringOutage.includes('origin_probe: readiness'),
+        baselineStatus: baseline.status,
+        status: stalled.status,
+        redisState: body.snapshot.redisState,
+        withinBudget: elapsedMs < ALERT_STATE_READ_TIMEOUT_MS + 3_000,
       },
       expected: {
-        beforeHealthy: true,
-        duringHealthy: false,
-        duringNamesUnread: true,
-        duringNamesOrigin: false,
+        baselineStatus: 200,
+        status: 200,
+        redisState: 'unreachable',
+        withinBudget: true,
       },
     });
   });
