@@ -25,7 +25,7 @@ describe('bun agent:spawn', () => {
           .join(' '),
       );
     assert({
-      given: 'a builder spawn under the cap',
+      given: 'a builder spawn',
       should:
         'check the leaf, run exactly one pu spawn that creates the worktree and the real agent together (no terminal placeholder), then install and bring the slot up, and register the parent outside the worktree',
       actual: {
@@ -106,17 +106,19 @@ describe('bun agent:spawn', () => {
     });
   });
 
-  test('refuses a new builder at the cap unless the owner overrides', async () => {
-    const agent = fakeMachine({ builders: 3 });
-    const agentOverride = fakeMachine({ builders: 3 });
+  test('refuses a builder with an unmerged prerequisite unless the owner overrides', async () => {
+    const leaf =
+      '<h3>\nRelated pages\n</h3>\n<ul>\n<li>\nPrerequisite: PR #50\n</li>\n</ul>';
+    const agent = fakeMachine({ leaf });
+    const agentOverride = fakeMachine({ leaf });
     const owner = fakeMachine({
-      builders: 3,
+      leaf,
       autonomous: false,
       submitsOnSpawn: true,
     });
     assert({
       given:
-        'three active builders, an agent, an agent override, an owner override',
+        'an open prerequisite PR, an agent, an agent override, an owner override',
       should: 'refuse the agent twice and let the owner through',
       actual: [
         await spawnAgent(agent.deps, spawnArgs),
@@ -148,17 +150,6 @@ describe('bun agent:spawn', () => {
         stalePrompt.output.join('').includes('superseded by ADR 0018'),
       ],
       expected: [[1, 1], true, true],
-    });
-  });
-
-  test('counts builders that bypassed the wrapper toward the cap', async () => {
-    const machine = fakeMachine({ builders: 3, unregistered: true });
-    assert({
-      given:
-        'three running agents from a raw pu spawn, with no registry record',
-      should: 'refuse a fourth builder',
-      actual: await spawnAgent(machine.deps, spawnArgs),
-      expected: 1,
     });
   });
 

@@ -23,12 +23,11 @@ it. The guardrails that make autonomous agents safe are decided in
 ## Spawning and messaging
 
 ```text
-bun agent:spawn [--task <leaf>] [--cap N] [--override] \
+bun agent:spawn [--task <leaf>] [--override] \
   -- -n <name> [-b main] [-a claude|codex|opencode] "<prompt>"
 bun agent:spawn --role reviewer --worktree <worktreeId> \
   -- [-a claude|codex|opencode] "<prompt>"
 bun agent:send <agent> "<text>"
-bun agent:cap <n>
 pu status | pu logs <agent> | pu attach <agent>
 pu kill --agent <agent> && pu clean
 ```
@@ -40,19 +39,16 @@ refuses:
   leaf with no Related pages section to declare them in
 - a leaf or prompt that uses a term a merged ADR superseded
   (`policy/superseded-terms.json`)
-- a new builder at its cap; every running coding agent not registered as a
-  reviewer counts (cap default and reviewer's uncapped status: ADR 0035
-  section 8)
+
+It enforces no builder or reviewer cap: how many agents run at once is
+the machine's capacity, left to PurePoint (ADR 0035 section 8). It rejects
+any option it does not know.
 
 A reviewer (`--role reviewer`) joins the existing worktree it reviews,
-named with `--worktree`, with no new worktree or setup, and is uncapped.
-Only `builder` and `reviewer` are roles. The builder cap is this
-machine's capacity: set it once with `bun agent:cap <n>` (it writes the
-main checkout's `.pu/daisy/caps.json`), or for one spawn with `--cap`;
-with neither it is 3. The owner may override a refusal with `--override`.
-An autonomous agent may spawn reviewers, but may not pass `--cap` or run
-`bun agent:cap`, cannot override, and must pass `--task` for a builder. For a
-builder it then:
+named with `--worktree`, with no new worktree or setup. Only `builder` and
+`reviewer` are roles. The owner may override a refusal with `--override`.
+An autonomous agent may spawn reviewers, cannot override, and must pass
+`--task` for a builder. For a builder it then:
 
 1. runs one `pu spawn -n <name> -b <base> -a <agent> …` that creates the
    worktree and starts the agent together, so no disposable placeholder

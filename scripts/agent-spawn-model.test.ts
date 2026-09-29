@@ -42,7 +42,6 @@ describe('parseSpawnArgs', () => {
         role: 'reviewer',
         worktree: 'wt-8zirdrl0',
         override: false,
-        cap: undefined,
         name: 'grd-7',
         base: 'main',
         agent: 'codex',
@@ -51,7 +50,7 @@ describe('parseSpawnArgs', () => {
     });
   });
 
-  test('defaults to a claude builder under the cap of 3', () => {
+  test('defaults to a claude builder on main', () => {
     const parsed = parseSpawnArgs(['--', '--name', 'x', 'prompt']);
     assert({
       given: 'only a name and a prompt',
@@ -59,8 +58,8 @@ describe('parseSpawnArgs', () => {
       actual:
         'error' in parsed
           ? parsed.error
-          : [parsed.role, parsed.agent, parsed.cap, parsed.base],
-      expected: ['builder', 'claude', 3, 'main'],
+          : [parsed.role, parsed.agent, parsed.base],
+      expected: ['builder', 'claude', 'main'],
     });
   });
 
