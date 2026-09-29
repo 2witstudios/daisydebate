@@ -241,24 +241,47 @@ true` starts it again on the next request if it is ever found stopped.
   included, answers `503` without reaching Next, so fly-proxy routes no
   traffic to a machine that is still preparing. The process then logs
   `server.ready` with `durationMs`, the time from listening to ready.
-  **Measured on Fly (ISSUE-172, 2026-09-29, machine `811006b93572d8`):**
-  12 boots, 9 by `fly machine stop` then `fly machine start` and 3 by
-  `fly deploy` of the same image, timed from the boot's first platform log
-  line ("Starting machine", or "Configuring firecracker" for a deploy) to
-  the log lines below.
+  **Measured on Fly (ISSUE-172, ISSUE-194, 2026-09-29, machine
+  `811006b93572d8`):** 13 boots, 9 by `fly machine stop` then
+  `fly machine start` and 4 by `fly deploy` (the last, boot 13, is the
+  deploy that applied the 15s grace period). Every offset is from the
+  boot's anchor, its first platform log line ("Starting machine", or
+  "Configuring firecracker" for a deploy), to the `server.start` and
+  `server.ready` log lines' `time` and Fly's "Health check ... is now
+  passing" lines, all read from `fly logs -a daisy-debate-staging -j`.
+
+  | #   | Kind       | Anchor (UTC)             | server.start | server.ready | Liveness passing | Readiness passing | server.ready durationMs |
+  | --- | ---------- | ------------------------ | ------------ | ------------ | ---------------- | ----------------- | ----------------------- |
+  | 1   | stop/start | 2026-09-29T16:33:59.724Z | 3.43s        | 6.11s        | 3.53s            | 7.76s             | 2680                    |
+  | 2   | stop/start | 2026-09-29T16:34:33.950Z | 3.38s        | 6.03s        | 4.91s            | 7.92s             | 2655                    |
+  | 3   | stop/start | 2026-09-29T16:35:04.945Z | 3.43s        | 6.08s        | 3.48s            | 7.70s             | 2655                    |
+  | 4   | stop/start | 2026-09-29T16:36:24.862Z | 3.56s        | 6.15s        | 3.79s            | 8.01s             | 2594                    |
+  | 5   | stop/start | 2026-09-29T16:36:59.131Z | 3.42s        | 6.10s        | 3.91s            | 7.53s             | 2672                    |
+  | 6   | stop/start | 2026-09-29T16:37:32.408Z | 3.41s        | 6.08s        | 3.82s            | 7.43s             | 2663                    |
+  | 7   | stop/start | 2026-09-29T16:38:06.554Z | 3.44s        | 6.09s        | 4.06s            | 7.68s             | 2648                    |
+  | 8   | stop/start | 2026-09-29T16:38:38.477Z | 3.40s        | 6.06s        | 4.71s            | 7.74s             | 2660                    |
+  | 9   | stop/start | 2026-09-29T16:39:42.763Z | 3.47s        | 6.03s        | 5.00s            | 7.41s             | 2561                    |
+  | 10  | deploy     | 2026-09-29T16:41:53.141Z | 5.01s        | 7.62s        | 5.59s            | 9.21s             | 2615                    |
+  | 11  | deploy     | 2026-09-29T16:42:42.490Z | 4.43s        | 7.08s        | 4.49s            | 8.72s             | 2646                    |
+  | 12  | deploy     | 2026-09-29T16:43:31.306Z | 4.39s        | 7.08s        | 5.14s            | 8.76s             | 2695                    |
+  | 13  | deploy     | 2026-09-29T16:45:20.625Z | 4.98s        | 7.66s        | 6.27s            | 9.28s             | 2687                    |
 
   | Phase                                       | min   | median | max   | p95 (nearest rank) |
   | ------------------------------------------- | ----- | ------ | ----- | ------------------ |
   | Port open (`server.start`)                  | 3.38s | 3.44s  | 5.01s | 5.01s              |
   | Start-up work (`server.ready` `durationMs`) | 2.56s | 2.66s  | 2.70s | 2.70s              |
-  | `server.ready`                              | 6.03s | 6.10s  | 7.62s | 7.62s              |
-  | Liveness check passing (`servicecheck-00`)  | 3.48s | 4.49s  | 5.59s | 5.59s              |
-  | Readiness check passing (`servicecheck-01`) | 7.41s | 7.76s  | 9.21s | 9.21s              |
+  | `server.ready`                              | 6.03s | 6.10s  | 7.66s | 7.66s              |
+  | Liveness check passing (`servicecheck-00`)  | 3.48s | 4.49s  | 6.27s | 6.27s              |
+  | Readiness check passing (`servicecheck-01`) | 7.41s | 7.76s  | 9.28s | 9.28s              |
 
-  A readiness p95 of 9.21s left 0.79s under a 10s grace period, less than
-  the 2s margin this deployment requires, so `fly.toml` sets the readiness
-  check's `grace_period` to 15s (5.79s margin). Liveness passes by 5.59s at
-  p95 and keeps 10s. The deploys are the slow end: the new VM boots while
+  Nearest-rank p95 of 13 is the 13th smallest value (⌈0.95 × 13⌉ = 13).
+  Readiness passing, sorted: 7.41, 7.43, 7.53, 7.68, 7.70, 7.74, 7.76,
+  7.92, 8.01, 8.72, 8.76, 9.21, 9.28 s, so p95 is 9.28s. Under a 10s grace
+  period that leaves 0.72s, less than the 2s margin this deployment
+  requires, so `fly.toml` sets the readiness check's `grace_period` to
+  15s: a 5.72s margin. (The first 12 boots alone give p95 9.21s, rank 12
+  of 12, and a 5.79s margin.) Liveness passes by 6.27s at p95 and keeps
+  10s (3.73s margin). The deploys are the slow end: the new VM boots while
   the old process drains. Re-measure after any change to start-up work:
   stream `fly logs -a daisy-debate-staging -j` to a file, run
   `fly machine stop <id>`, `fly machine wait <id> --state stopped` and
