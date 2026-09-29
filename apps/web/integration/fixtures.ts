@@ -175,19 +175,12 @@ export function createTestApp(
       },
       body: new URLSearchParams(fields).toString(),
     });
-  /**
-   * Removes exactly the keys this suite created in its own namespace, one
-   * UNLINK per SCAN page: the global-day ceiling suite leaves about 12,000
-   * keys, and one DEL round trip per key overran the 30 s teardown hook on
-   * a loaded machine (ISSUE-192).
-   */
+  /** Removes exactly the keys this suite created in its own namespace. */
+  // One UNLINK per SCAN page: a DEL per key overran the 30 s teardown for
+  // the ~12,000 keys the global-day ceiling suite leaves (ISSUE-192).
   const clearRedisNamespace = async () => {
     const client = new RedisClient(testRedisUrl as string);
-    try {
-      await deleteNamespace(client, redisNamespace);
-    } finally {
-      client.close();
-    }
+    await deleteNamespace(client, redisNamespace).finally(() => client.close());
   };
   const redisKeys = () =>
     withNamespaceKeys(redisNamespace, (client, keys) =>
