@@ -420,7 +420,8 @@ export async function runProbe(
 
 /**
  * Posts through `notify-drive.ts`, which bounds each delivery attempt. Like
- * the probe itself in `auth-alerts.yml`, it never auto-installs (ISSUE-219).
+ * the probe itself in `auth-alerts.yml`, it never auto-installs, and it
+ * imports no package either (ISSUE-225).
  */
 const notifyIncidents = (message: string): boolean =>
   Bun.spawnSync(

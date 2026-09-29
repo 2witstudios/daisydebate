@@ -397,11 +397,17 @@ limiter_unavailable").
    `NOTIFY_ATTEMPT_TIMEOUT_MS`, 20 s each), so a hung origin posts in well
    under the job's 5 minutes, and a probe that throws posts a fail-closed
    message before it exits 1 (`scripts/auth-alert-probe-cli.test.ts`,
-   `scripts/auth-alert-probe-fail-closed.test.ts`). A failed probe job
-   (exit 1) means the post itself did not reach Incidents or the probe
-   threw; exit 0 means the run was healthy or its alert was delivered. The
-   job installs from bun.lock and runs the probe with `bun --no-install`,
-   so a registry outage cannot stop it (ISSUE-219).
+   `scripts/auth-alert-probe-fail-closed.test.ts`). The probe job's exit
+   code says whether Incidents heard about it:
+   - 0: the run was healthy, or its alert was delivered.
+   - 1: the post itself did not reach Incidents, or the probe threw (after
+     it tried to post). Check the job log for the message it printed.
+   - 2: a usage error, such as a missing `--origin` or `OPS_PROBE_TOKEN`
+     secret. Nothing was probed.
+
+   The probe needs no installed packages: the job installs nothing and runs
+   it with `bun --no-install`, so a registry outage cannot stop it
+   (ISSUE-225).
 
 ### Delivery provider failing repeatedly
 

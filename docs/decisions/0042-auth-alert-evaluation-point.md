@@ -60,18 +60,23 @@ ISSUE-209). Each of its two requests is abandoned after
 `PROBE_FETCH_TIMEOUT_MS` (20 s) and each Incidents delivery attempt after
 `NOTIFY_ATTEMPT_TIMEOUT_MS` (20 s, three attempts), so a run where every
 request hangs still posts in about 100 s, well inside the job's 5-minute
-`timeout-minutes`. It validates the `/api/ops/alerts` body with zod: a
-malformed body, an entry that is not a condition, or an unknown condition
-id posts as an unreadable alert state. Anything that throws before the
-decision posts a fail-closed message and exits 1.
+`timeout-minutes`. It validates the `/api/ops/alerts` body with a small,
+pure, hand-written validator (`parseAlertsBody`): a malformed body, an
+entry that is not a condition, or an unknown condition id posts as an
+unreadable alert state. Anything that throws before the decision posts a
+fail-closed message and exits 1.
 
 Its exit code says whether Incidents heard about it: 0 when the run is
 healthy or its alert was delivered, 1 when the post failed or the probe
-threw (after it tried to post), and 2 for a usage error. The job installs
-exactly bun.lock's versions with `bun install --frozen-lockfile` and runs the
-probe with `bun --no-install`, so Bun never auto-installs its zod import from
-the registry; `scripts/verify-deploy-config.ts` refuses a workflow that
-drops either (ISSUE-219).
+threw (after it tried to post), and 2 for a usage error.
+
+The probe and `notify-drive` run with nothing installed (ISSUE-225). They
+and every module they load import only relative modules and `node:`/`bun`
+builtins, never a package. The job has no install step and runs the probe
+with `bun --no-install`, so nothing is ever fetched, and a registry outage
+cannot stop the probe from posting. `scripts/verify-deploy-config.ts` walks
+their runtime import graph and refuses any package import, and it refuses a
+workflow that installs anything or drops `--no-install`.
 
 `scripts/auth-alert-probe.ts` is the workflow's script: pure
 `evaluateOriginProbe`/`composeAlertMessage` functions, unit-tested, plus a
