@@ -81,8 +81,21 @@ exactly one place.
   When the Redis read itself fails, the snapshot is marked
   `redisState: 'unreachable'` and `evaluateAlerts` checks only
   `limiter_unavailable`, from the in-process since-time; every other
-  condition waits for Redis to return. Each instance serving auth traffic
-  sees the outage itself, so whichever one the probe reaches can report it.
+  condition waits for Redis to return, and the probe posts that unread
+  state as well as any condition that fired (ISSUE-199).
+
+  The in-process marker covers exactly one case: the instance answering
+  the probe itself saw a limiter failure at least 2 minutes earlier and
+  another within the last 3 minutes. It lives in one process's memory, so
+  it is lost on a restart, deploy or auto-stop; a machine the probe itself
+  wakes starts empty; an instance that served no auth traffic during the
+  outage has none; and with more than one web machine each keeps its own,
+  so the probe sees only the one it reaches (ISSUE-200). Readiness covers
+  every one of those cases: it answers 503 while Redis is unreachable, and
+  the probe posts that. Running more than one web machine needs a shared
+  store for this marker, chosen under a new ADR, before
+  `limiter_unavailable` can be exact.
+
 - **Consecutive delivery-provider failures.** `auth.mail.failed` increments
   a bounded Redis counter (`incrementWithExpiry`, a new atomic
   `INCR`+`PEXPIRE`-on-first-hit primitive) with a 1-hour TTL;
