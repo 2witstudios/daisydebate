@@ -55,6 +55,16 @@ see the corrected cadence below (ADR 0046/DEC-33). Each run it:
    `bun scripts/notify-drive.ts incidents --message`, naming each
    condition's own runbook section in `docs/operations/auth-delivery.md`.
 
+The probe never ends without posting when something is wrong (ISSUE-208,
+ISSUE-209). Each of its two requests is abandoned after
+`PROBE_FETCH_TIMEOUT_MS` (20 s) and each Incidents delivery attempt after
+`NOTIFY_ATTEMPT_TIMEOUT_MS` (20 s, three attempts), so a run where every
+request hangs still posts in about 100 s, well inside the job's 5-minute
+`timeout-minutes`. It validates the `/api/ops/alerts` body with zod: a
+malformed body, an entry that is not a condition, or an unknown condition
+id posts as an unreadable alert state. Anything that throws before the
+decision posts a fail-closed message and exits 1.
+
 `scripts/auth-alert-probe.ts` is the workflow's script: pure
 `evaluateOriginProbe`/`composeAlertMessage` functions, unit-tested, plus a
 thin `main()` that performs the two fetches and shells out to
@@ -79,8 +89,10 @@ exactly one place.
   The limiter shares that Redis, so the recorder also keeps the limiter's
   since-time in process under the same bridging rule, and
   `readAlertSnapshot` reports the earlier of the two (ISSUE-191, DEC-63).
-  When the Redis read itself fails, the snapshot is marked
-  `redisState: 'unreachable'` and `evaluateAlerts` checks only
+  Each of those reads is bounded by `ALERT_STATE_READ_TIMEOUT_MS` (2 s,
+  readiness's own PING budget), so a Redis that stops answering counts
+  as a failed read (ISSUE-208). When the Redis read fails, the snapshot is
+  marked `redisState: 'unreachable'` and `evaluateAlerts` checks only
   `limiter_unavailable`, from the in-process since-time; every other
   condition waits for Redis to return, and the probe posts that unread
   state as well as any condition that fired (ISSUE-199).

@@ -379,11 +379,17 @@ limiter_unavailable").
    too. The in-process `limiter_unavailable` marker belongs to one process
    and is empty after a deploy, restart or crash, so the readiness post may
    be the only one (ADR 0042).
-5. If `/api/ops/alerts` itself is unreachable (a deploy fault, the app
-   down), the probe (`scripts/auth-alert-probe.ts`, `fetchAlertConditions` /
-   `decideProbeOutcome`) still posts to Incidents, naming the unreachable
-   endpoint instead of the specific condition; posting to Incidents never
-   depends on the dependency that is down.
+5. If `/api/ops/alerts` itself is unreachable, hangs or answers a body the
+   probe cannot validate (a deploy fault, the app down, a proxy answering
+   on its path), the probe (`scripts/auth-alert-probe.ts`,
+   `fetchAlertConditions` / `decideProbeOutcome`) still posts to Incidents,
+   naming the failed request or the unreadable alert state instead of the
+   specific condition; posting to Incidents never depends on the dependency
+   that is down. Every request is bounded (`PROBE_FETCH_TIMEOUT_MS`,
+   `NOTIFY_ATTEMPT_TIMEOUT_MS`, 20 s each), so a hung origin posts in well
+   under the job's 5 minutes, and a probe that throws posts a fail-closed
+   message before it exits 1 (`scripts/auth-alert-probe-cli.test.ts`,
+   `scripts/auth-alert-probe-fail-closed.test.ts`).
 
 ### Delivery provider failing repeatedly
 

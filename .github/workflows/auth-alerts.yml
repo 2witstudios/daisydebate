@@ -28,6 +28,9 @@ jobs:
   probe:
     name: Probe the staging origin and alert conditions
     runs-on: ubuntu-24.04
+    # The probe's request budgets (PROBE_FETCH_TIMEOUT_MS and
+    # NOTIFY_ATTEMPT_TIMEOUT_MS) fit a fully hung run in about 100 s, so it
+    # always posts before this limit (ISSUE-208).
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
