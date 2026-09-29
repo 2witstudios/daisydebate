@@ -44,9 +44,11 @@ see the corrected cadence below (ADR 0046/DEC-33). Each run it:
    `next.config.ts` already sets on every response
    (`X-Content-Type-Options`, `X-Frame-Options`, `Strict-Transport-Security`,
    `Referrer-Policy`). This is AUTH-7.7's "5-minute, non-mutating health and
-   session probe of the final public origin" criterion. Staging is always
-   on (DEC-40), so the probe reaches a running machine and a failure it
-   sees is real unavailability, not a machine starting up.
+   session probe of the final public origin" criterion. A failed probe
+   means the origin was unavailable when the probe ran. Staging is always
+   on (DEC-40), but a deploy, restart or crash still takes the machine
+   through start-up, when readiness answers 503 (ISSUE-172), so a single
+   failure can also land in that window.
 2. Reads the already-evaluated conditions from `GET /api/ops/alerts`, a new
    bearer-token-gated endpoint the app itself serves.
 3. Posts whatever fired to the Incidents channel via the existing

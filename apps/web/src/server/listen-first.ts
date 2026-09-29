@@ -10,6 +10,20 @@ type Handle = (
 
 const LIVENESS_PATH = '/api/health/live';
 
+/**
+ * The request's path, or null when no URL parser accepts its target (a
+ * client may send `//` or `http://[`): such a request is simply not
+ * liveness, so the gate answers it 503 instead of throwing out of the
+ * request listener.
+ */
+const requestPath = (target: string | undefined): string | null => {
+  try {
+    return new URL(target ?? '/', 'http://localhost').pathname;
+  } catch {
+    return null;
+  }
+};
+
 const answer = (response: ServerResponse, status: number, body: object) => {
   response.writeHead(status, {
     'Content-Type': 'application/json',
@@ -30,8 +44,8 @@ function createStartupGate(handle: Handle) {
   return {
     handle: (request: IncomingMessage, response: ServerResponse) => {
       if (prepared) return handle(request, response);
-      const path = new URL(request.url ?? '/', 'http://localhost').pathname;
-      if (path === LIVENESS_PATH) answer(response, 200, { status: 'alive' });
+      if (requestPath(request.url) === LIVENESS_PATH)
+        answer(response, 200, { status: 'alive' });
       else answer(response, 503, { status: 'unavailable' });
       return Promise.resolve();
     },

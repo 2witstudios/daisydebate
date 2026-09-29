@@ -1,4 +1,4 @@
-import type { AddressInfo } from 'node:net';
+import { connect, type AddressInfo } from 'node:net';
 import type { Logger } from '@daisy/logger';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { startProductionServer } from './listen-first';
@@ -82,12 +82,27 @@ function startProduction({ refusalPending = false } = {}) {
     const response = await fetch(`http://127.0.0.1:${port}${path}`);
     return { status: response.status, body: await response.text() };
   };
+  /** One raw request line, unnormalized, as a client could send it. */
+  const rawStatus = (target: string) =>
+    new Promise<number>((resolve, reject) => {
+      const { port } = server.address() as AddressInfo;
+      const socket = connect(port, '127.0.0.1', () =>
+        socket.write(
+          `GET ${target} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n`,
+        ),
+      );
+      let text = '';
+      socket.on('data', (chunk) => (text += chunk.toString()));
+      socket.on('end', () => resolve(Number(text.split(' ')[1] ?? 0)));
+      socket.on('error', reject);
+    });
   const close = () =>
     new Promise<void>((resolve) => {
       server.closeAllConnections();
       server.close(() => resolve());
     });
   return {
+    rawStatus,
     events,
     reached,
     steps,
@@ -260,6 +275,27 @@ describe('startProductionServer composition (ISSUE-193)', () => {
         auth: 503,
         reachedNext: 0,
       },
+    });
+  });
+});
+
+describe('startup gate request targets', () => {
+  test('answers 503 to a target no URL parser accepts, and keeps serving', async () => {
+    const { rawStatus, reached, preparing, started, listening, get, close } =
+      startProduction();
+    await listening();
+    const statuses = [await rawStatus('//'), await rawStatus('http://[')];
+    const live = (await get('/api/health/live')).status;
+    preparing.resolve();
+    await started;
+    await close();
+    assert({
+      given:
+        "request targets '//' and 'http://[' while start-up work is still running",
+      should:
+        'answer each 503 without reaching Next, and still answer liveness afterwards',
+      actual: { statuses, live, reachedNext: reached.length },
+      expected: { statuses: [503, 503], live: 200, reachedNext: 0 },
     });
   });
 });
