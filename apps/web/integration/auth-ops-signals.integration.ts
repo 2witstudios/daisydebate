@@ -1,23 +1,13 @@
-import { afterAll } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { systemClock, systemId } from '@daisy/clock';
+import { systemClock } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
-import { createApp } from '../src/server/app';
 import {
   createRetentionSweep,
   retentionTargets,
 } from '../src/server/retention-sweep';
-import { createRoutes } from '../src/server/routes';
-import { createFaultProxy, throughProxy } from './fault-proxy';
-import {
-  cookieHeader,
-  createTestApp,
-  linkFrom,
-  testDatabaseUrl,
-  testRedisUrl,
-  tokenOf,
-} from './fixtures';
+import { createFaultedApp } from './fault-proxy';
+import { cookieHeader, createTestApp, linkFrom, tokenOf } from './fixtures';
 import { sampleOf, serveEdge } from './ops-edge';
 
 /**
@@ -32,8 +22,6 @@ requireTestServices(process.env);
 setupRitewayBun();
 
 const opsToken = `ops-${createId()}${createId()}`;
-/** The proxied apps' log output: an outage is loud, and never printed. */
-const quiet = { write: () => {} };
 
 describe('ISSUE-190 mail delivery failure signals', () => {
   const { app, routes, mailbox, freshEmail } = createTestApp({
@@ -93,28 +81,14 @@ describe('ISSUE-190 mail delivery failure signals', () => {
  */
 describe('ISSUE-190 rate limiter unavailable signals', () => {
   const testApp = createTestApp({ OPS_PROBE_TOKEN: opsToken });
-  const redisTarget = new URL(testRedisUrl as string);
-  const redisProxy = createFaultProxy({
-    hostname: redisTarget.hostname,
-    port: Number(redisTarget.port),
-  });
-  const app = createApp({
-    env: {
-      ...testApp.env,
-      REDIS_URL: throughProxy(testRedisUrl as string, redisProxy),
-    },
-    fetch: testApp.mailbox.fetch,
-    clock: systemClock,
-    ids: systemId,
-    logDestination: quiet,
-  });
-  afterAll(async () => {
-    redisProxy.close();
-    await app.close();
-  });
+  const {
+    app,
+    routes,
+    proxy: redisProxy,
+  } = createFaultedApp(testApp, 'REDIS_URL');
 
   test('a limiter outage counts each refused request once on /api/ops/metrics', async () => {
-    const edge = await serveEdge({ app, routes: createRoutes(app), opsToken });
+    const edge = await serveEdge({ app, routes, opsToken });
     try {
       const magicLink = () =>
         edge.post('/api/auth/sign-in/magic-link', {
@@ -154,26 +128,11 @@ describe('ISSUE-190 rate limiter unavailable signals', () => {
 
 describe('ISSUE-190 storage unavailable and retention signals', () => {
   const testApp = createTestApp({ OPS_PROBE_TOKEN: opsToken });
-  const dbTarget = new URL(testDatabaseUrl as string);
-  const dbProxy = createFaultProxy({
-    hostname: dbTarget.hostname,
-    port: Number(dbTarget.port),
-  });
-  const app = createApp({
-    env: {
-      ...testApp.env,
-      DATABASE_URL: throughProxy(testDatabaseUrl as string, dbProxy),
-    },
-    fetch: testApp.mailbox.fetch,
-    clock: systemClock,
-    ids: systemId,
-    logDestination: quiet,
-  });
-  const routes = createRoutes(app);
-  afterAll(async () => {
-    dbProxy.close();
-    await app.close();
-  });
+  const {
+    app,
+    routes,
+    proxy: dbProxy,
+  } = createFaultedApp(testApp, 'DATABASE_URL');
 
   test('a session read during a database outage marks storage unavailable on /api/ops/alerts', async () => {
     // A real session, signed in while the database is reachable.

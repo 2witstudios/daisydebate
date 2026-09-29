@@ -25,7 +25,7 @@ const routeFor = (routes: Routes, method: string, path: string) => {
   return undefined;
 };
 
-export type AlertSnapshotBody = {
+type AlertSnapshotBody = {
   readonly storageUnavailableSinceIso: string | null;
   readonly limiterUnavailableSinceIso: string | null;
   readonly deliveryConsecutiveFailures: number;
