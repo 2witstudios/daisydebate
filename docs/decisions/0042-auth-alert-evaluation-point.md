@@ -65,6 +65,14 @@ malformed body, an entry that is not a condition, or an unknown condition
 id posts as an unreadable alert state. Anything that throws before the
 decision posts a fail-closed message and exits 1.
 
+Its exit code says whether Incidents heard about it: 0 when the run is
+healthy or its alert was delivered, 1 when the post failed or the probe
+threw (after it tried to post), and 2 for a usage error. The job installs
+exactly bun.lock's versions with `bun install --frozen-lockfile` and runs the
+probe with `bun --no-install`, so Bun never auto-installs its zod import from
+the registry; `scripts/verify-deploy-config.ts` refuses a workflow that
+drops either (ISSUE-219).
+
 `scripts/auth-alert-probe.ts` is the workflow's script: pure
 `evaluateOriginProbe`/`composeAlertMessage` functions, unit-tested, plus a
 thin `main()` that performs the two fetches and shells out to

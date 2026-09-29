@@ -28,7 +28,7 @@
  * workflow's 5-minute job limit, a body it cannot validate is an unreadable
  * alert state, and anything that throws still posts before exiting 1.
  *
- *   OPS_PROBE_TOKEN=<token> bun scripts/auth-alert-probe.ts \
+ *   OPS_PROBE_TOKEN=<token> bun --no-install scripts/auth-alert-probe.ts \
  *     --origin https://daisy.example.com [--run-url <workflow run URL>]
  */
 import { z } from 'zod';
@@ -408,7 +408,7 @@ async function main(): Promise<void> {
   const config = resolveProbeConfig(process.argv.slice(2), process.env);
   if (!config) {
     process.stderr.write(
-      'usage: OPS_PROBE_TOKEN=<token> bun scripts/auth-alert-probe.ts --origin <https url> [--run-url <url>]\n',
+      'usage: OPS_PROBE_TOKEN=<token> bun --no-install scripts/auth-alert-probe.ts --origin <https url> [--run-url <url>]\n',
     );
     process.exit(2);
     return;

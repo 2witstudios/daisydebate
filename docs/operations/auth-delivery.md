@@ -397,7 +397,11 @@ limiter_unavailable").
    `NOTIFY_ATTEMPT_TIMEOUT_MS`, 20 s each), so a hung origin posts in well
    under the job's 5 minutes, and a probe that throws posts a fail-closed
    message before it exits 1 (`scripts/auth-alert-probe-cli.test.ts`,
-   `scripts/auth-alert-probe-fail-closed.test.ts`).
+   `scripts/auth-alert-probe-fail-closed.test.ts`). A failed probe job
+   (exit 1) means the post itself did not reach Incidents or the probe
+   threw; exit 0 means the run was healthy or its alert was delivered. The
+   job installs from bun.lock and runs the probe with `bun --no-install`,
+   so a registry outage cannot stop it (ISSUE-219).
 
 ### Delivery provider failing repeatedly
 
