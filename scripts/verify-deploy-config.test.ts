@@ -209,11 +209,15 @@ describe('findFlyDatabaseSecretProblem', () => {
   });
 });
 
-describe('findRuntimeRoleGateProblem', () => {
-  const prepare = 'await nextApp.prepare();\n';
-  const gate = "await refuseSchemaAlteringRole(app, 'daisy_web');\n";
+describe('findRuntimeRoleGateProblem (ISSUE-39, ISSUE-193)', () => {
+  const refusal =
+    "  refuseRole: () => refuseSchemaAlteringRole(app, 'daisy_web'),\n";
+  const start = (body: string, awaitStarted = 'await started;\n') =>
+    `const { server, started } = startProductionServer({\n  app,\n  nextApp,\n${body}  port,\n  host: '0.0.0.0',\n});\n${awaitStarted}`;
+  const missing =
+    "start.ts does not start through startProductionServer with refuseRole: () => refuseSchemaAlteringRole(app, 'daisy_web') and await started";
 
-  test('the committed start.ts gates the role before serving', () => {
+  test('the committed start.ts starts only through startProductionServer', () => {
     assert({
       given: 'the real start.ts',
       should: 'report no problem',
@@ -222,16 +226,35 @@ describe('findRuntimeRoleGateProblem', () => {
     });
   });
 
-  test('a start.ts without the gate, or with it after Next prepares', () => {
+  test('a start.ts without the role refusal, with it commented out, or not awaiting start-up', () => {
     assert({
-      given: 'no gate, a commented gate, and a gate after nextApp.prepare()',
-      should: 'report each as missing its startup role check',
-      actual: [prepare, `// ${gate}${prepare}`, `${prepare}${gate}`].map(
-        findRuntimeRoleGateProblem,
-      ),
-      expected: Array(3).fill(
-        "start.ts does not await refuseSchemaAlteringRole(app, 'daisy_web') before nextApp.prepare()",
-      ),
+      given:
+        'no refuseRole, a commented refuseRole, and a start-up whose result is never awaited',
+      should: 'report each as missing its gated start-up',
+      actual: [
+        start(''),
+        start(`  // ${refusal.trim()}\n`),
+        start(refusal, ''),
+      ].map(findRuntimeRoleGateProblem),
+      expected: [missing, missing, missing],
+    });
+  });
+
+  test('a start.ts that composes, prepares or listens outside startProductionServer', () => {
+    assert({
+      given:
+        "the review's mutation (Next's handler handed to createProductionServer), a direct nextApp.prepare(), and a direct server.listen",
+      should: 'report each as bypassing the start-up gate',
+      actual: [
+        `${start(refusal)}const bypass = createProductionServer({ app, handle: nextApp.getRequestHandler(), readRouteTable });\n`,
+        `await nextApp.prepare();\n${start(refusal)}`,
+        `${start(refusal)}server.listen(port, '0.0.0.0');\n`,
+      ].map(findRuntimeRoleGateProblem),
+      expected: [
+        'start.ts bypasses the start-up gate with createProductionServer(; start only through startProductionServer (ISSUE-193)',
+        'start.ts bypasses the start-up gate with nextApp.prepare(; start only through startProductionServer (ISSUE-193)',
+        'start.ts bypasses the start-up gate with .listen(; start only through startProductionServer (ISSUE-193)',
+      ],
     });
   });
 });

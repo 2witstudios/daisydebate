@@ -1,8 +1,7 @@
 import type { AddressInfo } from 'node:net';
 import type { Logger } from '@daisy/logger';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createStartupGate, listenThenPrepare } from './listen-first';
-import { createProductionServer } from './server-wiring';
+import { startProductionServer } from './listen-first';
 
 setupRitewayBun();
 
@@ -24,11 +23,11 @@ function steppedClock(instants: readonly string[]) {
 }
 
 /**
- * The server start.ts composes (createProductionServer over the startup
- * gate), started by listenThenPrepare on a real loopback socket, with a
- * prepare step this test holds open.
+ * Exactly what start.ts runs (startProductionServer), on a real loopback
+ * socket, with a stand-in for Next whose handler records what reached it
+ * and whose prepare() and the runtime-role refusal this test holds open.
  */
-function startProduction() {
+function startProduction({ refusalPending = false } = {}) {
   const events: Array<{ event: string; fields: unknown }> = [];
   const started = deferred();
   const logger: Logger = {
@@ -39,11 +38,11 @@ function startProduction() {
     child: () => logger,
   };
   const reached: string[] = [];
-  const gate = createStartupGate(async (request, response) => {
-    reached.push(request.url ?? '');
-    response.end('next');
-  });
-  const server = createProductionServer({
+  const steps: string[] = [];
+  const preparing = deferred();
+  const refusing = deferred();
+  if (!refusalPending) refusing.resolve();
+  const { server, started: starting } = startProductionServer({
     app: {
       auth: () => ({
         config: {
@@ -53,22 +52,28 @@ function startProduction() {
       }),
       isDraining: () => false,
       logger,
+      clock: steppedClock([
+        '2026-09-29T00:00:00.000Z',
+        '2026-09-29T00:00:07.250Z',
+      ]),
     },
-    handle: gate.handle,
+    nextApp: {
+      getRequestHandler: () => async (request, response) => {
+        reached.push(request.url ?? '');
+        response.end('next');
+      },
+      prepare: () => {
+        steps.push('prepare');
+        return preparing.promise;
+      },
+    },
+    refuseRole: () => {
+      steps.push('refuseRole');
+      return refusing.promise;
+    },
     readRouteTable: () => null,
-  });
-  const preparing = deferred();
-  const starting = listenThenPrepare({
-    server,
     port: 0,
     host: '127.0.0.1',
-    prepare: () => preparing.promise,
-    gate,
-    logger,
-    clock: steppedClock([
-      '2026-09-29T00:00:00.000Z',
-      '2026-09-29T00:00:07.250Z',
-    ]),
   });
   /** Resolves once start-up has logged server.start: the port is open. */
   const listening = () => started.promise;
@@ -85,7 +90,9 @@ function startProduction() {
   return {
     events,
     reached,
+    steps,
     preparing,
+    refusing,
     started: starting,
     listening,
     get,
@@ -93,7 +100,7 @@ function startProduction() {
   };
 }
 
-describe('listenThenPrepare (ISSUE-172)', () => {
+describe('startProductionServer (ISSUE-172)', () => {
   test('opens the port before prepare settles and answers 503 on readiness until it does', async () => {
     const { reached, preparing, started, listening, get, close } =
       startProduction();
@@ -165,11 +172,11 @@ describe('listenThenPrepare (ISSUE-172)', () => {
     });
   });
 
-  test('a failed prepare rejects and never opens the gate', async () => {
+  test('a failed Next prepare rejects and never opens the gate', async () => {
     const { reached, preparing, started, listening, get, close } =
       startProduction();
     await listening();
-    preparing.reject(new Error('refused: schema-altering role'));
+    preparing.reject(new Error('prepare failed'));
     const refusal = await started.then(
       () => 'resolved',
       (error: Error) => error.message,
@@ -177,12 +184,80 @@ describe('listenThenPrepare (ISSUE-172)', () => {
     const page = (await get('/')).status;
     await close();
     assert({
-      given: 'a prepare step that rejects (a refused runtime role)',
+      given: "Next's prepare() rejecting",
       should: 'reject with its error and keep answering 503 without Next',
       actual: { refusal, page, reachedNext: reached.length },
       expected: {
-        refusal: 'refused: schema-altering role',
+        refusal: 'prepare failed',
         page: 503,
+        reachedNext: 0,
+      },
+    });
+  });
+});
+
+describe('startProductionServer composition (ISSUE-193)', () => {
+  test('routes nothing to Next while the runtime-role refusal is pending', async () => {
+    const {
+      reached,
+      steps,
+      refusing,
+      preparing,
+      started,
+      listening,
+      get,
+      close,
+    } = startProduction({ refusalPending: true });
+    await listening();
+    const whileRefusing = {
+      page: (await get('/sign-in')).status,
+      auth: (await get('/api/auth/get-session')).status,
+      reachedNext: reached.length,
+      steps: [...steps],
+    };
+    refusing.resolve();
+    preparing.resolve();
+    await started;
+    const afterStart = (await get('/sign-in')).body;
+    await close();
+    assert({
+      given: 'the port open and the ISSUE-39 role refusal not yet settled',
+      should:
+        'answer 503 without reaching Next, refuse before preparing Next, then serve through Next',
+      actual: { whileRefusing, steps, afterStart },
+      expected: {
+        whileRefusing: {
+          page: 503,
+          auth: 503,
+          reachedNext: 0,
+          steps: ['refuseRole'],
+        },
+        steps: ['refuseRole', 'prepare'],
+        afterStart: 'next',
+      },
+    });
+  });
+
+  test('a refused runtime role never prepares Next or opens the gate', async () => {
+    const { reached, steps, refusing, started, listening, get, close } =
+      startProduction({ refusalPending: true });
+    await listening();
+    refusing.reject(new Error('refused: schema-altering role'));
+    const refusal = await started.then(
+      () => 'resolved',
+      (error: Error) => error.message,
+    );
+    const auth = (await get('/api/auth/get-session')).status;
+    await close();
+    assert({
+      given: 'a DATABASE_URL role that can alter the schema',
+      should:
+        'reject with the refusal, never call prepare, and keep every route at 503 without Next',
+      actual: { refusal, steps, auth, reachedNext: reached.length },
+      expected: {
+        refusal: 'refused: schema-altering role',
+        steps: ['refuseRole'],
+        auth: 503,
         reachedNext: 0,
       },
     });

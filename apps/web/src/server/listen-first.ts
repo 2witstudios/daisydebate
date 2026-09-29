@@ -1,6 +1,7 @@
 import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 import type { Clock } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
+import { createProductionServer } from './server-wiring';
 
 type Handle = (
   request: IncomingMessage,
@@ -24,7 +25,7 @@ const answer = (response: ServerResponse, status: number, body: object) => {
  * answers 503 `unavailable` without reaching Next, so fly-proxy routes
  * nothing here before Next is prepared and the runtime role is checked.
  */
-export function createStartupGate(handle: Handle) {
+function createStartupGate(handle: Handle) {
   let prepared = false;
   return {
     handle: (request: IncomingMessage, response: ServerResponse) => {
@@ -48,7 +49,7 @@ export function createStartupGate(handle: Handle) {
  * `server.ready` with the start-up work's duration. A rejected `prepare`
  * rejects here with the gate still shut, so no request ever reaches Next.
  */
-export async function listenThenPrepare({
+async function listenThenPrepare({
   server,
   port,
   host,
@@ -82,4 +83,53 @@ export async function listenThenPrepare({
     },
     'Server ready',
   );
+}
+
+/**
+ * The production start-up start.ts runs, whole, so its ordering is tested
+ * rather than trusted (ISSUE-193): Next's handler sits behind the start-up
+ * gate, the port opens, the ISSUE-39 runtime-role refusal runs, then Next
+ * prepares, and only then does the gate open. A refusal rejects `started`
+ * before Next is prepared, with every route still answering 503.
+ */
+export function startProductionServer({
+  app,
+  nextApp,
+  refuseRole,
+  readRouteTable,
+  port,
+  host,
+}: {
+  readonly app: Parameters<typeof createProductionServer>[0]['app'] & {
+    readonly clock: Clock;
+  };
+  readonly nextApp: {
+    readonly getRequestHandler: () => Handle;
+    readonly prepare: () => Promise<void>;
+  };
+  /** Refuses a DATABASE_URL role that can create or alter schema objects. */
+  readonly refuseRole: () => Promise<void>;
+  readonly readRouteTable: () => string | null;
+  readonly port: number;
+  readonly host: string;
+}): { readonly server: Server; readonly started: Promise<void> } {
+  const gate = createStartupGate(nextApp.getRequestHandler());
+  const server = createProductionServer({
+    app,
+    handle: gate.handle,
+    readRouteTable,
+  });
+  const started = listenThenPrepare({
+    server,
+    port,
+    host,
+    prepare: async () => {
+      await refuseRole();
+      await nextApp.prepare();
+    },
+    gate,
+    logger: app.logger,
+    clock: app.clock,
+  });
+  return { server, started };
 }

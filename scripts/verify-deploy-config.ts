@@ -130,19 +130,30 @@ export function findFlyDatabaseSecretProblem(
 }
 
 /**
- * ISSUE-39: production startup refuses a DATABASE_URL role that can create
- * or alter schema objects before Next prepares, so no request reaches Next
- * as that role (the port opens first behind a 503 gate, ISSUE-172).
+ * ISSUE-39, ISSUE-193: production startup refuses a DATABASE_URL role that
+ * can create or alter schema objects before Next prepares, and no request
+ * reaches Next before both finish. That ordering lives in
+ * startProductionServer (apps/web/src/server/listen-first.ts, tested there);
+ * start.ts must start only through it, handing it the refusal, and must not
+ * compose, prepare or listen on its own.
  */
 export function findRuntimeRoleGateProblem(startTs: string): string | null {
   const code = uncommented(startTs);
-  const gate = code.indexOf(
-    "await refuseSchemaAlteringRole(app, 'daisy_web');",
-  );
-  const prepare = code.indexOf('await nextApp.prepare();');
-  return gate === -1 || prepare === -1 || gate > prepare
-    ? "start.ts does not await refuseSchemaAlteringRole(app, 'daisy_web') before nextApp.prepare()"
-    : null;
+  for (const bypass of [
+    'createProductionServer(',
+    'getRequestHandler(',
+    'nextApp.prepare(',
+    '.listen(',
+  ])
+    if (code.includes(bypass))
+      return `start.ts bypasses the start-up gate with ${bypass}; start only through startProductionServer (ISSUE-193)`;
+  return code.includes('startProductionServer({') &&
+    code.includes(
+      "refuseRole: () => refuseSchemaAlteringRole(app, 'daisy_web'),",
+    ) &&
+    code.includes('await started;')
+    ? null
+    : "start.ts does not start through startProductionServer with refuseRole: () => refuseSchemaAlteringRole(app, 'daisy_web') and await started";
 }
 
 /**
