@@ -5,7 +5,7 @@ builds on [ADR 0012](0012-native-bun-infrastructure.md). The delivery path
 (outbox, cursors, drain) is the outbox ADR's (0032) and presence and
 attendance are the presence ADR's (0033); this record fixes only the service
 and its socket protocol. Section 5 is amended by
-[ADR 0047](0047-authorization-core.md).
+[ADR 0048](0048-authorization-core.md).
 
 ## Context
 
@@ -115,7 +115,7 @@ nothing else:
 
 ### 5. Subscribe authorization table
 
-_(Amended by [ADR 0047](0047-authorization-core.md), section 8.)_ Every
+_(Amended by [ADR 0048](0048-authorization-core.md), section 8.)_ Every
 `subscribe` is decided by one pure function, `authorizeSubscribe`, owned by
 `@daisy/auth`. The topic vocabulary and parsing stay in `@daisy/protocol`
 (the family registry, added with its first consumer, RT-2.5a, is data owned
@@ -384,7 +384,7 @@ the realtime PostgreSQL role, not by the import graph.
 
 ## Amendment (2026-09-29): subscribe decisions
 
-[ADR 0047](0047-authorization-core.md) replaces section 5's per-family table
+[ADR 0048](0048-authorization-core.md) replaces section 5's per-family table
 and the sentences that said the registry "performs no authorization of its
 own" and is "owned as data by `@daisy/protocol`". All five topic families
 (`debate`, `debate:presence`, `debate:chat`, `user:inbox`, `standings`) are

@@ -31,7 +31,7 @@ One schema file per ownership area under `packages/db/src/schema/`. Every status
 | `rating_changes`      | ratings       | Append-only ledger: finite before/after triples, `calculation_version`, `occurred_at`; one row per `(debate, actor)`, keyed to a participant of the debate and the debate's format                                                                                                                                                                                                                                                         | `RESTRICT` everywhere                                             |
 | `role_grants`         | identity      | `admin`/`moderator`/`judge` grants to `users` with `scope_type` (`global`), `granted_by`, `granted_at`, `revoked_at`; one active grant per scope (partial unique index)                                                                                                                                                                                                                                                                    | `RESTRICT` from `users`                                           |
 
-## Leagues and ranked ladders (ADR 0047)
+## Leagues and ranked ladders (ADR 0048)
 
 The design the authorization-core epic (AZC) delivers. None of it exists in
 the schema yet; each row names the leaf that builds it, and the tables above

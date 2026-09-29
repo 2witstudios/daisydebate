@@ -1,4 +1,4 @@
-# 0047: The authorization core
+# 0048: The authorization core
 
 Status: accepted (AZC-1.1; owner-approved plan of 2026-09-29, revision 4).
 Amends [ADR 0029](0029-competitive-schema-foundation.md),

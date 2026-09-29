@@ -5,7 +5,7 @@ must never be logged) and [ADR 0029](0029-competitive-schema-foundation.md)
 (the tombstone transaction, which this ADR's erasure planner drives).
 Amended by [ADR 0037](0037-error-tracking-and-product-analytics.md) for the
 vendor surfaces this ADR's classification applies to, and by
-[ADR 0047](0047-authorization-core.md) for the `authorization` owner and the
+[ADR 0048](0048-authorization-core.md) for the `authorization` owner and the
 `record-lifetime` retention kind.
 
 ## Context
@@ -220,7 +220,7 @@ user actually agreed to from what the deployment happened to expose.
 
 ## Amendment (2026-09-29): `authorization` and `record-lifetime`
 
-[ADR 0047](0047-authorization-core.md) adds to section 3:
+[ADR 0048](0048-authorization-core.md) adds to section 3:
 
 - The `owner` value `authorization`, for the league, membership and
   authorization-decision entries.

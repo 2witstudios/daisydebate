@@ -1,6 +1,6 @@
 # 0019: token and secret ownership
 
-Status: accepted. Amended by [ADR 0047](0047-authorization-core.md): the
+Status: accepted. Amended by [ADR 0048](0048-authorization-core.md): the
 loggable field `denyReason` (see the amendment at the end).
 
 Better Auth owns its session, verification, and credential token persistence
@@ -87,7 +87,7 @@ configuration, and a new field joins this table only with an ADR amendment.
 
 ## Amendment (2026-09-29): `denyReason`
 
-[ADR 0047](0047-authorization-core.md) adds one loggable field, `denyReason`,
+[ADR 0048](0048-authorization-core.md) adds one loggable field, `denyReason`,
 of kind **code**. Its values are exactly the deny reasons `denied`,
 `account-erased`, `unauthenticated`, `not-member` and `missing-capability`,
 each with privacy category `none`. It explains why an authorization

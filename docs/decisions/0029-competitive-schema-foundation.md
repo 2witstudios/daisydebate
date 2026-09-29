@@ -8,7 +8,7 @@ into one baseline, `debates.format`/`created_by` are `format_id` and
 `created_by_actor_id`, `debate_participants` is keyed by
 `(debate_id, actor_id)` and written in every snapshot transaction, ballots
 reference their seat by `judge_actor_id`, and `db:seed` no longer writes
-formats. Amended by [ADR 0047](0047-authorization-core.md): leagues exist,
+formats. Amended by [ADR 0048](0048-authorization-core.md): leagues exist,
 `seasons` and `ratings` are per league, and `debates.league_id` is present
 exactly for ranked debates.
 
@@ -149,7 +149,7 @@ NOTHING`); its slug id is deterministic, so ADR 0018 is not in conflict.
 
 ## Amendment (2026-09-29): leagues and per-league seasons
 
-[ADR 0047](0047-authorization-core.md) adds the league model. Item 8's
+[ADR 0048](0048-authorization-core.md) adds the league model. Item 8's
 "`seasons` allows at most one `active` row (partial unique index)" is
 superseded: a season and its ratings belong to one league, `seasons` allows
 at most one `active` row per league, and `ratings` is keyed

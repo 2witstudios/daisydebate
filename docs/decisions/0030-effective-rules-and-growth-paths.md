@@ -1,7 +1,7 @@
 # 0030: Effective rules and growth paths
 
 Status: accepted. Extends [ADR 0029](0029-competitive-schema-foundation.md).
-Amended by [ADR 0047](0047-authorization-core.md): the league model
+Amended by [ADR 0048](0048-authorization-core.md): the league model
 supersedes the league growth paths, and `visibility` is now read.
 
 ## Context
@@ -70,14 +70,14 @@ not, and this ADR decides them now.
   bookkeeping, not a migration of history. `rules.version` is the shape
   version of the rules object, not the ruleset version.
 - **Clubs, leagues, tournaments.** _(The league-authority part is superseded
-  by [ADR 0047](0047-authorization-core.md); see the amendment below.)_ New tables with nullable foreign keys onto
+  by [ADR 0048](0048-authorization-core.md); see the amendment below.)_ New tables with nullable foreign keys onto
   `debates` and `actors` (`clubs`, `club_members(actor_id)`, `tournaments`,
   `tournament_entries(actor_id)`, `tournament_rounds`,
   `debates.tournament_id`). Membership and competition attach to actors;
   authority attaches to users by widening `role_grants.scope_type` with
   `club` and `league` (one CHECK swap). Expand-only.
 - **League seasons are not rating seasons.** _(Superseded by
-  [ADR 0047](0047-authorization-core.md): a league is a ranked ladder, and
+  [ADR 0048](0048-authorization-core.md): a league is a ranked ladder, and
   seasons and ratings are per league.)_ `seasons` is the rating epoch.
   A league calendar is its own table; a league may use the global ladder,
   its own standings, or none.
@@ -87,7 +87,7 @@ not, and this ADR decides them now.
   audit record and is pruned after the retry window, in the pattern of the
   verification purge (ADR 0025). `rating_changes` is history: partition by
   season when it reaches many millions of rows; never prune.
-- **Access enforcement.** _(Updated by [ADR 0047](0047-authorization-core.md).)_
+- **Access enforcement.** _(Updated by [ADR 0048](0048-authorization-core.md).)_
   `visibility` is read by `authorize`. `role_grants` is still unread, and
   LEAGUE-OPS replaces or drops it. The first reader of any other stored
   access fact (lobby listing, judge assignment) must enforce it through
@@ -109,7 +109,7 @@ not, and this ADR decides them now.
 
 ## Amendment (2026-09-29): the league model
 
-[ADR 0047](0047-authorization-core.md) decides how leagues, ranked play and
+[ADR 0048](0048-authorization-core.md) decides how leagues, ranked play and
 authorization fit together:
 
 - `mode = 'ranked'` holds exactly when the debate has a league

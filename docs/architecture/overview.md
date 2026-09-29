@@ -123,7 +123,7 @@ package; this map lists only packages that exist today.
    repository gates that fail on arbitrary values, unknown classes and
    `dark:` variants.
 
-## Authorization core (ADR 0047)
+## Authorization core (ADR 0048)
 
 The design the AZC epic delivers. Until each leaf lands, the code keeps the
 flat permission list described in the package map above.
