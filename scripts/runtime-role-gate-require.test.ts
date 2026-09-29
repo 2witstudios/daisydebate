@@ -1,0 +1,157 @@
+import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { findRuntimeRoleGateProblem } from './runtime-role-gate';
+import {
+  append,
+  bypass,
+  edit,
+  NO_OP_OPTIONS,
+  type Row,
+  START_IMPORT,
+} from './runtime-role-gate.test-support';
+
+setupRitewayBun();
+
+// Only the real CommonJS require binding is a bypass, never a property,
+// member or local that happens to be named require (ISSUE-227). A module
+// start.ts loads may not listen or prepare Next either, and require-like
+// escapes (import equals, globalThis['require'], eval, new Function) are
+// refused (ISSUE-228).
+const BOOT3 = 'apps/web/src/server/boot3.ts';
+const loads = (path: string, token: string) =>
+  `start.ts loads ${path}, which bypasses the start-up gate with ${token}; start only through startProductionServer (ISSUE-228)`;
+const withBoot3 = `${START_IMPORT}import './boot3';\n`;
+
+const harmless: readonly Row[] = [
+  {
+    shape: 'ISSUE-227 review: an object key named require',
+    startTs: append('const c = { require: 2 };\nvoid c;\n'),
+    expected: null,
+  },
+  {
+    shape: 'ISSUE-227 review: an interface member named require',
+    startTs: append(
+      'interface I {\n  require: string;\n}\nexport type { I };\n',
+    ),
+    expected: null,
+  },
+  {
+    shape: 'ISSUE-227 review: a local function named require',
+    startTs: append('function require() {}\nvoid require;\n'),
+    expected: null,
+  },
+  {
+    shape: 'ISSUE-227: a parameter named require',
+    startTs: append(
+      'const bump = (require: number) => require + 1;\nvoid bump;\n',
+    ),
+    expected: null,
+  },
+  {
+    shape: "ISSUE-227: a local object's require member called",
+    startTs: append('const c = { require: () => 2 };\nc.require();\n'),
+    expected: null,
+  },
+];
+
+const refused: readonly Row[] = [
+  {
+    shape: "ISSUE-227: require('./listen-first') is still a bypass",
+    startTs: append("require('./listen-first');\n"),
+    expected: bypass('require('),
+  },
+  {
+    shape: 'ISSUE-227: require passed around as a value',
+    startTs: append(
+      `const load = require;\nload('./listen-first').startProductionServer(${NO_OP_OPTIONS});\n`,
+    ),
+    expected: bypass('require('),
+  },
+  {
+    shape: 'ISSUE-227: require in a shorthand property',
+    startTs: append(
+      `const o = { require };\no.require('./listen-first').startProductionServer(${NO_OP_OPTIONS});\n`,
+    ),
+    expected: bypass('require('),
+  },
+  {
+    shape: 'ISSUE-227: import.meta.require',
+    startTs: append(
+      `import.meta.require('./listen-first').startProductionServer(${NO_OP_OPTIONS});\n`,
+    ),
+    expected: bypass('import.meta.require('),
+  },
+  {
+    shape: 'ISSUE-228 review: a side-effect module that listens',
+    startTs: edit(START_IMPORT, withBoot3),
+    files: {
+      [BOOT3]:
+        "import http from 'node:http';\nhttp.createServer().listen(9);\n",
+    },
+    expected: loads(BOOT3, '.listen('),
+  },
+  {
+    shape: 'ISSUE-228 review: a side-effect module that prepares Next',
+    startTs: edit(START_IMPORT, withBoot3),
+    files: {
+      [BOOT3]:
+        "import next from 'next';\nawait next({ dev: false }).prepare();\n",
+    },
+    expected: loads(BOOT3, 'nextApp.prepare('),
+  },
+  {
+    shape: 'ISSUE-228: a side-effect module that requires listen-first',
+    startTs: edit(START_IMPORT, withBoot3),
+    files: {
+      [BOOT3]: `require('./listen-first').startProductionServer(${NO_OP_OPTIONS});\n`,
+    },
+    expected: loads(BOOT3, 'require('),
+  },
+  {
+    shape: 'ISSUE-228: import equals',
+    startTs: append(
+      `import lf = require('./listen-first');\nlf.startProductionServer(${NO_OP_OPTIONS});\n`,
+    ),
+    expected: bypass('require('),
+  },
+  {
+    shape: "ISSUE-228: globalThis['require']",
+    startTs: append(
+      `globalThis['require']('./listen-first').startProductionServer(${NO_OP_OPTIONS});\n`,
+    ),
+    expected: bypass('globalThis.require('),
+  },
+  {
+    shape: 'ISSUE-228: eval of a dynamic import',
+    startTs: append('eval("import(\'./listen-first\')");\n'),
+    expected: bypass('eval('),
+  },
+  {
+    shape: 'ISSUE-228: new Function returning a dynamic import',
+    startTs: append('new Function("return import(\'./listen-first\')")();\n'),
+    expected: bypass('Function('),
+  },
+];
+
+describe('findRuntimeRoleGateProblem ignores names that are not require (ISSUE-227)', () => {
+  for (const row of harmless)
+    test(row.shape, () => {
+      assert({
+        given: `start.ts with ${row.shape}`,
+        should: 'report no problem',
+        actual: findRuntimeRoleGateProblem(row.startTs, row.files),
+        expected: row.expected,
+      });
+    });
+});
+
+describe('findRuntimeRoleGateProblem refuses real require and loaded modules that bypass (ISSUE-227, ISSUE-228)', () => {
+  for (const row of refused)
+    test(row.shape, () => {
+      assert({
+        given: `start.ts with ${row.shape}`,
+        should: 'report the bypass',
+        actual: findRuntimeRoleGateProblem(row.startTs, row.files),
+        expected: row.expected,
+      });
+    });
+});

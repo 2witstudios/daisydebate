@@ -1,7 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { isBuiltin } from 'node:module';
-import { dirname, resolve } from 'node:path';
+import { dirname, relative, resolve } from 'node:path';
 import ts from 'typescript';
+import { bypassToken } from './runtime-role-gate-bypass';
 
 /**
  * ISSUE-39, ISSUE-193, ISSUE-206, ISSUE-218: production start-up refuses a
@@ -13,9 +14,15 @@ import ts from 'typescript';
  * comments and formatting never matter and no alias, shim, `.call`,
  * optional or second call slips past a text match. start.ts must:
  * - parse without a syntax error, and resolve every import (ISSUE-221);
- * - never compose, prepare, listen, require or import dynamically on its
- *   own, by any access form: `.`, `['…']` or destructuring (ISSUE-222,
- *   ISSUE-224);
+ * - never compose, prepare, listen, require, eval or import dynamically
+ *   on its own, by any access form: `.`, `['…']` or destructuring
+ *   (ISSUE-222, ISSUE-224). Only the real CommonJS binding counts as
+ *   require: a call, a value reference, `module.require`,
+ *   `globalThis['require']`, `import.meta.require`, an import equals or a
+ *   require-named import, never a key, member or local of that name
+ *   (ISSUE-227). The same holds for every relative module start.ts loads,
+ *   outside listen-first.ts's own imports (ISSUE-228). Computed names such
+ *   as `server['li' + 'sten']` are out of scope;
  * - import startProductionServer, unaliased, from ./listen-first;
  * - be the only module that references it (so no side-effect import can
  *   start a second server), exactly once, as the direct callee of the one
@@ -39,9 +46,18 @@ export function findRuntimeRoleGateProblem(
   if (syntax) return unparsed(start, syntax);
   const nodes = descendants(start);
 
-  const bypass = nodes.map(bypassToken).find((token) => token !== null);
+  const bypassIn = (file: ts.SourceFile) =>
+    descendants(file)
+      .map((node) => bypassToken(checker, node))
+      .find((token) => token !== null);
+  const bypass = bypassIn(start);
   if (bypass)
     return `start.ts bypasses the start-up gate with ${bypass}; start only through startProductionServer (ISSUE-193)`;
+  for (const file of loadedModules(program)) {
+    const token = bypassIn(file);
+    if (token)
+      return `start.ts loads ${relative(ROOT, file.fileName)}, which bypasses the start-up gate with ${token}; start only through startProductionServer (ISSUE-228)`;
+  }
   const [missingImport] = unresolved;
   if (missingImport)
     return `start.ts imports ${missingImport}, which does not resolve; the gate cannot be checked (ISSUE-221)`;
@@ -163,6 +179,7 @@ const awaitProblem = (
   return awaited ? null : MISSING;
 };
 
+const ROOT = resolve('.');
 const START = resolve('apps/web/src/server/start.ts');
 const LISTEN_FIRST = resolve('apps/web/src/server/listen-first.ts');
 
@@ -176,49 +193,6 @@ const OVERRIDDEN =
   "start.ts's startProductionServer call must set refuseRole once by a plain key, with no spread or computed key that could override it (ISSUE-206, ISSUE-218)";
 const NOT_FROM_DB =
   'start.ts must import refuseSchemaAlteringRole from @daisy/db and use it only as the refuseRole (ISSUE-206)';
-
-/** Members start.ts must never touch itself, by any access form. */
-const BYPASS_MEMBERS = new Map([
-  ['listen', '.listen('],
-  ['prepare', 'nextApp.prepare('],
-  ['getRequestHandler', 'getRequestHandler('],
-]);
-
-/** A module-loading or gate-bypassing step start.ts must never take
- * itself, as the token it reports (ISSUE-193, ISSUE-222, ISSUE-224). */
-const bypassToken = (node: ts.Node): string | null => {
-  if (
-    ts.isCallExpression(node) &&
-    node.expression.kind === ts.SyntaxKind.ImportKeyword
-  )
-    return 'import(';
-  if (ts.isIdentifier(node)) return identifierBypass(node);
-  const member = memberName(node);
-  return (member !== undefined && BYPASS_MEMBERS.get(member)) || null;
-};
-
-const identifierBypass = (node: ts.Identifier): string | null => {
-  if (node.text === 'createProductionServer') return 'createProductionServer(';
-  if (node.text === 'createRequire') return 'createRequire(';
-  if (node.text !== 'require') return null;
-  return ts.isPropertyAccessExpression(node.parent) && node.parent.name === node
-    ? 'module.require('
-    : 'require(';
-};
-
-/** The member a `.name`, `['name']` or `{ name }` destructuring touches. */
-const memberName = (node: ts.Node): string | undefined => {
-  if (ts.isPropertyAccessExpression(node)) return node.name.text;
-  if (
-    ts.isElementAccessExpression(node) &&
-    ts.isStringLiteralLike(node.argumentExpression)
-  )
-    return node.argumentExpression.text;
-  if (!ts.isBindingElement(node) || !ts.isObjectBindingPattern(node.parent))
-    return undefined;
-  const key = node.propertyName ?? node.name;
-  return ts.isIdentifier(key) || ts.isStringLiteral(key) ? key.text : undefined;
-};
 
 const moduleOf = (declaration: ts.ImportDeclaration) =>
   ts.isStringLiteral(declaration.moduleSpecifier)
@@ -289,6 +263,24 @@ const reachingModules = (program: ts.Program): ts.SourceFile[] => {
       }
   }
   return [...reaching];
+};
+
+/** Every relative module in the program other than start.ts and the
+ * modules listen-first.ts itself imports, which own the one listen and
+ * prepare (ISSUE-228). */
+const loadedModules = (program: ts.Program): ts.SourceFile[] => {
+  const files = program.getSourceFiles();
+  const gate = new Set<string>();
+  const visit = (path: string) => {
+    const file = files.find((candidate) => candidate.fileName === path);
+    if (!file || gate.has(path)) return;
+    gate.add(path);
+    importedPaths(file).forEach(visit);
+  };
+  visit(LISTEN_FIRST);
+  return files.filter(
+    (file) => file.fileName !== START && !gate.has(file.fileName),
+  );
 };
 
 const importedPaths = (file: ts.SourceFile): string[] =>
