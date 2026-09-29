@@ -96,4 +96,32 @@ describe('alert state with the limiter kept in process (ISSUE-191)', () => {
       },
     });
   });
+
+  test('a Redis that stops answering yields an unreachable snapshot within the read budget (ISSUE-208)', async () => {
+    const since = '2026-09-25T11:57:00.000Z';
+    const stalled = { get: () => new Promise<string | null>(() => {}) };
+    const started = performance.now();
+    const snapshot = await readAlertSnapshot({
+      redis: stalled,
+      clock,
+      local: { limiterUnavailableSince: () => since },
+      readTimeoutMs: 50,
+    });
+    assert({
+      given:
+        'every Redis read left pending forever, with a 50 ms per-command budget',
+      should:
+        'answer an unreachable snapshot carrying the in-process limiter marker within a second',
+      actual: {
+        redisState: snapshot.redisState,
+        limiterSince: snapshot.limiterUnavailableSinceIso,
+        withinBudget: performance.now() - started < 1000,
+      },
+      expected: {
+        redisState: 'unreachable',
+        limiterSince: since,
+        withinBudget: true,
+      },
+    });
+  });
 });
