@@ -59,12 +59,15 @@ to your topology before release.
 | Magic-link request, per client                            | 3 / 60 s                      | `429` + `Retry-After`    |
 | Magic-link request, per recipient                         | 3 / 60 s, 10 / hour, 20 / day | `429` + `Retry-After`    |
 | Email change, per new address (ISSUE-121)                 | 3 / 60 s, 10 / hour, 20 / day | `429` + `Retry-After`    |
-| Sign-up link (address with no account), whole application | 120 / 60 s, 3,000 / day       | `429` + `Retry-After`    |
+| Sign-up link (address with no account), whole application | 120 / 60 s, 3,000 / day       | `200`, no mail (logged)  |
 | Redis unavailable                                         | —                             | `503` + `Retry-After: 5` |
 
-The whole-application ceilings never count or deny a sign-in link for an
-existing account (ADR 0025, ISSUE-54): a drained ceiling delays new
-sign-ups only.
+The whole-application ceilings never count or hold back a sign-in link for
+an existing account (ADR 0025, ISSUE-54): a drained ceiling delays new
+sign-ups only. Past a ceiling, a sign-up request gets the same `200` as any
+other and no mail, so the answer never shows whether an address has an
+account (ISSUE-182); the saturation shows only as `auth.rate_limit.denied`
+with `path: /sign-in/magic-link` in the log.
 
 The sign-in page offers passkeys in browser autofill, so every visible view
 spends one `/passkey/generate-authenticate-options` request (a challenge row

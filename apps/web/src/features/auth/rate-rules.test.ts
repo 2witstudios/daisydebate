@@ -106,8 +106,8 @@ describe('AUTH-3.4 rules the gate hands the atomic limiter', () => {
     });
   });
 
-  test('the global per-minute ceiling denies a request even when its own client and recipient buckets allow', async () => {
-    const { server } = create({
+  test('a saturated global per-minute ceiling drops the sign-up mail behind the ordinary success (ISSUE-182)', async () => {
+    const { server, sent, db, logs } = create({
       limiter: () => async (key) =>
         key === 'auth:magic-link:global:60'
           ? { allowed: false, retryAfterSeconds: 30 }
@@ -115,10 +115,43 @@ describe('AUTH-3.4 rules the gate hands the atomic limiter', () => {
     });
     const response = await server.instance.handler(magicLinkRequest());
     assert({
-      given: 'a limiter denying only the global per-minute magic-link bucket',
-      should: 'deny the request even though every other bucket allows it',
-      actual: response.status,
-      expected: 429,
+      given:
+        'a limiter denying only the global per-minute bucket and a request for an address with no account',
+      should:
+        'answer the ordinary 200 with no Retry-After, send nothing, keep no token and log the denial',
+      actual: {
+        status: response.status,
+        body: await response.json(),
+        retryAfter: response.headers.has('retry-after'),
+        sent: sent.length,
+        tokens: db.verification.length,
+        logged: logs.map(([event]) => event).includes('auth.rate_limit.denied'),
+      },
+      expected: {
+        status: 200,
+        body: { status: true },
+        retryAfter: false,
+        sent: 0,
+        tokens: 0,
+        logged: true,
+      },
+    });
+  });
+
+  test('a limiter outage on the global ceiling fails the sign-up closed with a 503 and no mail', async () => {
+    const { server, sent } = create({
+      limiter: () => async (key) => {
+        if (key.startsWith('auth:magic-link:global:'))
+          throw new Error('redis down');
+        return { allowed: true, retryAfterSeconds: 0 };
+      },
+    });
+    const response = await server.instance.handler(magicLinkRequest());
+    assert({
+      given: 'a limiter that fails only on the global ceiling',
+      should: 'answer the public 503 and send nothing',
+      actual: { status: response.status, sent: sent.length },
+      expected: { status: 503, sent: 0 },
     });
   });
 

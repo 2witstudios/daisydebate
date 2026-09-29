@@ -32,6 +32,9 @@ const RECIPIENT_RULES: readonly RateRule[] = [
  * so one actor draining it (rotating client addresses, plus-addressed
  * recipients) delays new sign-ups but cannot deny sign-in to anyone.
  * Existing accounts' mail stays bounded by their recipient ceilings above.
+ * A saturated ceiling drops the sign-up mail behind the ordinary success
+ * answer (ISSUE-182), so it never tells a caller which address has an
+ * account.
  */
 const MAGIC_LINK_GLOBAL_RULES: readonly RateRule[] = [
   { windowSeconds: 60, max: 120 },
@@ -161,12 +164,11 @@ export async function consumeOrThrow(
   if (!decision.allowed) throw createAppError('RATE_LIMIT');
 }
 
-const denial = (
+const logDenial = (
   logger: Logger,
   path: string,
   errorCode: 'RATE_LIMIT' | 'INFRASTRUCTURE',
-  retryAfterSeconds?: unknown,
-) => {
+) =>
   // Only the stable route path and code are logged: never the key, client
   // address, request body, or the limiter's raw exception. A denial is
   // expected traffic (warn); only an outage is an error.
@@ -179,6 +181,14 @@ const denial = (
       ? 'Auth request rate limited'
       : 'Auth rate limiter unavailable; request denied',
   );
+
+const denial = (
+  logger: Logger,
+  path: string,
+  errorCode: 'RATE_LIMIT' | 'INFRASTRUCTURE',
+  retryAfterSeconds?: unknown,
+) => {
+  logDenial(logger, path, errorCode);
   return errorCode === 'RATE_LIMIT'
     ? new APIError(
         'TOO_MANY_REQUESTS',
@@ -261,15 +271,37 @@ export const createRateLimitGate = (dependencies: {
         );
     };
     for (const bucket of buckets) await consume(bucket);
-    if (recipient?.flow !== 'magic-link') return;
-    // Only a link to an address with no account (a sign-up) is metered by
-    // the global ceilings; the lookup runs only once the client and
-    // recipient buckets have admitted the request. A database outage here
-    // propagates like any other (the typed INFRASTRUCTURE 503), never an
-    // allow and never reported as a limiter outage.
-    const account = await context.context.internalAdapter.findUserByEmail(
-      recipient.email,
-    );
-    if (account) return;
-    for (const bucket of globalBuckets) await consume(bucket);
   });
+
+/**
+ * The global sign-up ceilings, spent at the send of a link to an address
+ * with no account (`createAuthServer`'s `sendMagicLink`), after the gate,
+ * destination and suppression checks have admitted the request exactly as
+ * they admit one for an existing account. `false` when a ceiling is
+ * saturated: the caller drops the mail and answers the ordinary success, so
+ * the answer is the same whether or not the address has an account
+ * (ISSUE-182). Operators see the saturation as `auth.rate_limit.denied`,
+ * never the caller. A limiter outage fails closed with the public 503.
+ */
+export const createSignUpCeiling =
+  (dependencies: {
+    readonly limiter: AuthRateLimiter;
+    readonly logger: Logger;
+  }) =>
+  async (): Promise<boolean> => {
+    for (const bucket of globalBuckets) {
+      let allowed: boolean;
+      try {
+        ({ allowed } = readDecision(
+          await dependencies.limiter.consume(bucket.key, bucket.rule),
+        ));
+      } catch {
+        throw denial(dependencies.logger, magicLinkPath, 'INFRASTRUCTURE');
+      }
+      if (!allowed) {
+        logDenial(dependencies.logger, magicLinkPath, 'RATE_LIMIT');
+        return false;
+      }
+    }
+    return true;
+  };

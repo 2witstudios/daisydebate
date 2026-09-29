@@ -93,7 +93,7 @@ describe('ISSUE-5 AC4 per-recipient and global mail-volume ceilings', () => {
     });
   });
 
-  test('the real global day ceiling denies the 3,001st distinct recipient of the day', async () => {
+  test('the real global day ceiling mails no 3,001st distinct recipient of the day', async () => {
     const before = globalDayApp.mailbox.mails.length;
     const responses: Response[] = [];
     // 3,001 requests in bursts of 100, each its own client and recipient;
@@ -118,16 +118,16 @@ describe('ISSUE-5 AC4 per-recipient and global mail-volume ceilings', () => {
       given:
         '3,001 magic-link requests over a simulated day, each its own client and recipient, against real Redis',
       should:
-        'admit exactly 3,000 (the global day ceiling), deny the rest and mail only the admitted',
+        'mail exactly 3,000 (the global day ceiling) and answer the one past it with the same success, mailing nothing (ISSUE-182)',
       actual: {
         tally: statuses(responses),
         mails: globalDayApp.mailbox.mails.length - before,
       },
-      expected: { tally: { 200: 3_000, 429: 1 }, mails: 3_000 },
+      expected: { tally: { 200: 3_001 }, mails: 3_000 },
     });
   }, 180_000);
 
-  test('the global per-minute ceiling denies once 120 distinct recipients have sent this minute', async () => {
+  test('the global per-minute ceiling stops mail once 120 distinct recipients have sent this minute', async () => {
     const before = globalApp.mailbox.mails.length;
     const responses = await Promise.all(
       Array.from({ length: 121 }, () =>
@@ -141,12 +141,12 @@ describe('ISSUE-5 AC4 per-recipient and global mail-volume ceilings', () => {
       given:
         '121 simultaneous magic-link requests, each its own client and recipient',
       should:
-        'admit exactly 120 (the global per-minute ceiling) and deny the rest, independent of any single client or recipient bucket',
+        'mail exactly 120 (the global per-minute ceiling), independent of any single client or recipient bucket, and answer the one past it with the same success (ISSUE-182)',
       actual: {
         tally: statuses(responses),
         mails: globalApp.mailbox.mails.length - before,
       },
-      expected: { tally: { 200: 120, 429: 1 }, mails: 120 },
+      expected: { tally: { 200: 121 }, mails: 120 },
     });
   });
 });
