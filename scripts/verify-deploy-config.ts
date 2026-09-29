@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { findRuntimeRoleGateProblem } from './runtime-role-gate';
 
 /** Pure check: does the Dockerfile's base image pin exactly `.bun-version`? */
 export function findDockerfileBunVersionProblem(input: {
@@ -128,64 +129,6 @@ export function findFlyDatabaseSecretProblem(
     ? `${file} [env] sets ${key[1]}; database credentials are Fly secrets`
     : null;
 }
-
-/**
- * ISSUE-39, ISSUE-193: production startup refuses a DATABASE_URL role that
- * can create or alter schema objects before Next prepares, and no request
- * reaches Next before both finish. That ordering lives in
- * startProductionServer (apps/web/src/server/listen-first.ts, tested there);
- * start.ts must start only through it, handing it the refusal, and must not
- * compose, prepare or listen on its own. It calls it exactly once, sets
- * refuseRole once with no spread that could override it, and the refusal is
- * @daisy/db's own, never a local or imported no-op (ISSUE-206).
- */
-export function findRuntimeRoleGateProblem(startTs: string): string | null {
-  const code = uncommented(startTs);
-  for (const bypass of [
-    'createProductionServer(',
-    'getRequestHandler(',
-    'nextApp.prepare(',
-    '.listen(',
-  ])
-    if (code.includes(bypass))
-      return `start.ts bypasses the start-up gate with ${bypass}; start only through startProductionServer (ISSUE-193)`;
-  if (
-    !code.includes('startProductionServer({') ||
-    !code.includes(REFUSAL) ||
-    !code.includes('await started;')
-  )
-    return "start.ts does not start through startProductionServer with refuseRole: () => refuseSchemaAlteringRole(app, 'daisy_web') and await started";
-  // ISSUE-206: the checked refusal must be the only one that can run.
-  if (occurrences(code, 'startProductionServer(') !== 1)
-    return 'start.ts must call startProductionServer exactly once; a second call starts a server the checked refusal does not guard (ISSUE-206)';
-  const options = callArguments(code, 'startProductionServer(');
-  if (occurrences(options, 'refuseRole') !== 1 || options.includes('...'))
-    return "start.ts's startProductionServer call sets refuseRole more than once or spreads other options into it; only refuseRole: () => refuseSchemaAlteringRole(app, 'daisy_web') may set it (ISSUE-206)";
-  if (
-    !code.includes("import { refuseSchemaAlteringRole } from '@daisy/db';") ||
-    occurrences(code, 'refuseSchemaAlteringRole') !== 2
-  )
-    return 'start.ts must import refuseSchemaAlteringRole from @daisy/db and use it only as the refuseRole (ISSUE-206)';
-  return null;
-}
-
-const REFUSAL = "refuseRole: () => refuseSchemaAlteringRole(app, 'daisy_web'),";
-
-const occurrences = (text: string, needle: string) =>
-  text.split(needle).length - 1;
-
-/** The source text between a call's parentheses, by bracket depth. */
-const callArguments = (code: string, callee: string): string => {
-  const start = code.indexOf(callee) + callee.length;
-  let depth = 1;
-  for (let index = start; index < code.length; index++) {
-    const char = code[index];
-    if (char === '(' || char === '{' || char === '[') depth++;
-    else if (char === ')' || char === '}' || char === ']') depth--;
-    if (depth === 0) return code.slice(start, index);
-  }
-  return code.slice(start);
-};
 
 /**
  * ISSUE-39: the release command migrates through the validated migration
