@@ -374,9 +374,9 @@ limiter_unavailable").
    began"). The probe posts that unread state even when readiness passes
    (`apps/web/integration/auth-alert-probe-degraded.integration.ts`), and
    readiness answers 503 while Redis is unreachable, which the probe posts
-   too. The in-process `limiter_unavailable` marker belongs to one machine
-   and is empty after a restart, deploy, auto-stop or a probe-triggered
-   wake, so the readiness post may be the only one (ADR 0042).
+   too. The in-process `limiter_unavailable` marker belongs to one process
+   and is empty after a deploy, restart or crash, so the readiness post may
+   be the only one (ADR 0042).
 5. If `/api/ops/alerts` itself is unreachable (a deploy fault, the app
    down), the probe (`scripts/auth-alert-probe.ts`, `fetchAlertConditions` /
    `decideProbeOutcome`) still posts to Incidents, naming the unreachable

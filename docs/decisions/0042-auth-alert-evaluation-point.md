@@ -86,15 +86,15 @@ exactly one place.
 
   The in-process marker covers exactly one case: the instance answering
   the probe itself saw a limiter failure at least 2 minutes earlier and
-  another within the last 3 minutes. It lives in one process's memory, so
-  it is lost on a restart, deploy or auto-stop; a machine the probe itself
-  wakes starts empty; an instance that served no auth traffic during the
-  outage has none; and with more than one web machine each keeps its own,
-  so the probe sees only the one it reaches (ISSUE-200). Readiness covers
-  every one of those cases: it answers 503 while Redis is unreachable, and
-  the probe posts that. Running more than one web machine needs a shared
-  store for this marker, chosen under a new ADR, before
-  `limiter_unavailable` can be exact.
+  another within the last 3 minutes. It lives in one process's memory.
+  Staging is always on (DEC-40), but a deploy, restart or crash still
+  starts a new process whose marker is empty; an instance that served no
+  auth traffic during the outage has none; and with more than one web
+  machine each keeps its own, so the probe sees only the one it reaches
+  (ISSUE-200). Readiness covers every one of those cases: it answers 503
+  while Redis is unreachable, and the probe posts that. Running more than
+  one web machine needs a shared store for this marker, chosen under a new
+  ADR, before `limiter_unavailable` can be exact.
 
 - **Consecutive delivery-provider failures.** `auth.mail.failed` increments
   a bounded Redis counter (`incrementWithExpiry`, a new atomic
