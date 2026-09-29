@@ -199,9 +199,23 @@ token>` as the `verification.identifier`. The subject (the email for
   for both (ISSUE-185): each answer waits on the same work (the gate's
   buckets, the suppression check, the token write and the ceiling spend)
   and on nothing that depends on the account, so the provider round trip
-  of a real send is never part of it. The handed-off work finishes before
-  the app's pools close on shutdown. A database failure during it is logged
-  as `request.unhandled`, and its unmailed token expires unused. What stays
+  of a real send is never part of it. The handed-off work is bounded
+  (DEC-73): at most 4 tasks run at once (`AFTER_RESPONSE_MAX_RUNNING`,
+  two-fifths of the 10-connection Postgres pool, since a task holds one
+  connection at a time) and at most 64 wait (`AFTER_RESPONSE_MAX_QUEUED`,
+  small enough to clear within the shutdown drain). A task arriving past
+  both is shed before it starts, so before the account lookup: the request
+  has already had the same `200`, no lookup, send or drop runs, the token
+  expires unused, and `auth.mail.shed` is logged with the backlog's size
+  only and counted as `auth_mail_shed_total` on `/api/ops/metrics`.
+  Shedding depends only on how much work is pending, never on the address,
+  so it reveals nothing. Under a flood, an existing account's sign-in mail
+  can be shed too: availability yields to a bounded backlog. The handed-off
+  work finishes before the app's pools close on shutdown, and a shutdown
+  deadline that cuts it off logs `auth.mail.abandoned` with the count
+  (fly.toml's `kill_timeout` outlasts that deadline, ISSUE-214). A database
+  failure during the work is logged as `request.unhandled`, and its
+  unmailed token expires unused. What stays
   observable: the account holder receives every sign-in link a prober
   requests, and sees it. Operators see saturation as `auth.rate_limit.denied` in the
   structured log, never in a response. A drained ceiling delays new
@@ -215,7 +229,10 @@ token>` as the `verification.identifier`. The subject (the email for
   given a round trip, compares the two paths' response times with a
   two-sample Kolmogorov–Smirnov test (α = 0.001), and a unit test pins that
   both answer after the identical seam calls while the transport has not
-  answered.
+  answered. Flood tests against real services (200 existing-account
+  requests over 20 connections with the provider held, and 1,200
+  new-address requests over 1,000 connections) prove the backlog never
+  exceeds 68 and that the rest is shed and counted.
 - **Suppression covers every auth mail (ISSUE-54).** Every auth email
   (sign-in links, email-change approval and confirmation, passkey
   added/removed notices) goes through the one delivery path

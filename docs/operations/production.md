@@ -16,7 +16,10 @@ lifecycle:
   dependency.
 - **Shutdown order**: stop accepting → drain HTTP → close Next → finish
   auth work handed off past its answer (ISSUE-185) → close database and
-  Redis pools. Connection pools are process-local resources;
+  Redis pools. The drain deadline is `SHUTDOWN_DRAIN_DEADLINE_MS` (25 s,
+  `shutdown-budget.ts`); work it cuts off is logged as
+  `auth.mail.abandoned`. fly.toml's `kill_timeout` (35 s) outlasts it, and
+  `verify-deploy-config` fails when it does not (ISSUE-214). Connection pools are process-local resources;
   never shared across instances.
 
 ## Health and readiness

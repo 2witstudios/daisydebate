@@ -72,7 +72,11 @@ ceiling, a sign-up request gets the same `200` as any other and no mail
 before the account lookup and the send or drop, which finish afterwards
 (ISSUE-185), so a failed sign-in send also answers `200` (ISSUE-189): watch
 `auth.mail.failed`, and `request.unhandled` with `source:
-auth.after-response` for a database failure in that work.
+auth.after-response` for a database failure in that work. That work is
+bounded (4 running, 64 waiting); past it a request's work is shed with no
+mail, logged as `auth.mail.shed` and counted as `auth_mail_shed_total` on
+`/api/ops/metrics`. A rising `auth_mail_shed_total` means a flood, or real
+sign-in volume above what the bound drains; it is not a mail outage.
 
 The sign-in page offers passkeys in browser autofill, so every visible view
 spends one `/passkey/generate-authenticate-options` request (a challenge row
