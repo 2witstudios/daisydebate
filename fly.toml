@@ -81,8 +81,11 @@ primary_region = "ord"
     # Readiness: 200 only when not draining AND Postgres and Redis answer
     # within 2s (apps/web/src/app/api/health/ready/route.ts), and 503 until
     # start-up work finishes (apps/web/src/server/listen-first.ts). fly-proxy
-    # only routes traffic to a machine passing its checks.
-    grace_period = "10s"
+    # only routes traffic to a machine passing its checks. Measured over 12
+    # boots (ISSUE-172, 2026-09-29): this check first passes 7.41-9.21s
+    # after the machine starts, p95 9.21s, so 15s keeps a 5.79s margin
+    # (docs/operations/deploy-staging.md "Always-on behavior").
+    grace_period = "15s"
     interval = "15s"
     method = "GET"
     path = "/api/health/ready"

@@ -148,7 +148,15 @@ therefore the one address `AUTH_TRUSTED_PROXIES = "gateway"` resolves to:
 forwarded header only from that peer. A connection that arrives over 6PN
 has its own `fdaa:` address as its socket peer, which is not trusted, so it
 is keyed by that address and its headers are ignored.
-SIXPN_PROBE_PLACEHOLDER
+**Measured (2026-09-29, from `daisy-debate-staging-db`'s machine over
+`fly ssh console`):** this machine's 6PN address answered a TCP connection
+on port 22 (hallpass SSH) in 2 ms, so the org's other machines do reach it
+directly. Port 8080 on the same address refused the connection: the app
+listens on IPv4 `0.0.0.0:8080` only (`/proc/net/tcp`), and nothing but SSH
+listens on 6PN (`/proc/net/tcp6`). A request carrying a forged
+`Fly-Client-IP` therefore never reached the app over 6PN. If the app ever
+listens on IPv6 too, such a request is still keyed by its own `fdaa:` peer,
+not by the header.
 
 **Pre-condition: owner sign-off before another app joins the org.** Every
 app created in the `daisy-debate` org puts its machines on this 6PN. While
@@ -233,7 +241,31 @@ true` starts it again on the next request if it is ever found stopped.
   included, answers `503` without reaching Next, so fly-proxy routes no
   traffic to a machine that is still preparing. The process then logs
   `server.ready` with `durationMs`, the time from listening to ready.
-  CHECKS_MEASUREMENT_PLACEHOLDER
+  **Measured on Fly (ISSUE-172, 2026-09-29, machine `811006b93572d8`):**
+  12 boots, 9 by `fly machine stop` then `fly machine start` and 3 by
+  `fly deploy` of the same image, timed from the boot's first platform log
+  line ("Starting machine", or "Configuring firecracker" for a deploy) to
+  the log lines below.
+
+  | Phase                                       | min   | median | max   | p95 (nearest rank) |
+  | ------------------------------------------- | ----- | ------ | ----- | ------------------ |
+  | Port open (`server.start`)                  | 3.38s | 3.44s  | 5.01s | 5.01s              |
+  | Start-up work (`server.ready` `durationMs`) | 2.56s | 2.66s  | 2.70s | 2.70s              |
+  | `server.ready`                              | 6.03s | 6.10s  | 7.62s | 7.62s              |
+  | Liveness check passing (`servicecheck-00`)  | 3.48s | 4.49s  | 5.59s | 5.59s              |
+  | Readiness check passing (`servicecheck-01`) | 7.41s | 7.76s  | 9.21s | 9.21s              |
+
+  A readiness p95 of 9.21s left 0.79s under a 10s grace period, less than
+  the 2s margin this deployment requires, so `fly.toml` sets the readiness
+  check's `grace_period` to 15s (5.79s margin). Liveness passes by 5.59s at
+  p95 and keeps 10s. The deploys are the slow end: the new VM boots while
+  the old process drains. Re-measure after any change to start-up work:
+  stream `fly logs -a daisy-debate-staging -j` to a file, run
+  `fly machine stop <id>`, `fly machine wait <id> --state stopped` and
+  `fly machine start <id>` several times, and read the "Starting machine",
+  `server.start`, `server.ready` and "Health check ... is now passing"
+  lines.
+
 - **Resend webhook delivery.** Resend's webhooks are Svix-powered and retry
   non-2xx or unreachable deliveries 5 seconds, 5 minutes, 30 minutes, 2
   hours, 5 hours and 10 hours after the original attempt
