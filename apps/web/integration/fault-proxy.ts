@@ -1,6 +1,6 @@
 import { afterAll } from 'bun:test';
 import type { Socket } from 'bun';
-import { systemClock, systemId } from '@daisy/clock';
+import { systemClock, systemId, type Clock } from '@daisy/clock';
 import { createApp } from '../src/server/app';
 import { createRoutes } from '../src/server/routes';
 import { testDatabaseUrl, testRedisUrl, type TestApp } from './fixtures';
@@ -122,11 +122,13 @@ function throughProxy(url: string, proxy: FaultProxy): string {
  * A second app over `testApp`'s environment and mailbox with one real
  * service (PostgreSQL or Redis) behind a pausable fault proxy this suite
  * owns, for outage proofs; the shared stack itself is never stopped (ADR
- * 0034). Its log output is discarded, and both close after the suite.
+ * 0034). Its log output is discarded, and both close after the suite. Pass
+ * a clock to step time through an outage.
  */
 export function createFaultedApp(
   testApp: TestApp,
   service: 'DATABASE_URL' | 'REDIS_URL',
+  clock: Clock = systemClock,
 ) {
   const url = (
     service === 'DATABASE_URL' ? testDatabaseUrl : testRedisUrl
@@ -139,7 +141,7 @@ export function createFaultedApp(
   const app = createApp({
     env: { ...testApp.env, [service]: throughProxy(url, proxy) },
     fetch: testApp.mailbox.fetch,
-    clock: systemClock,
+    clock,
     ids: systemId,
     logDestination: { write: () => {} },
   });

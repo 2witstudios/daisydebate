@@ -74,11 +74,6 @@ describe('ISSUE-190 mail delivery failure signals', () => {
   });
 });
 
-/**
- * Only the in-process counter can prove this outage: the alert recorder's
- * `limiterUnavailableSinceIso` marker goes to the same unreachable Redis
- * and is lost (ISSUE-191).
- */
 describe('ISSUE-190 rate limiter unavailable signals', () => {
   const testApp = createTestApp({ OPS_PROBE_TOKEN: opsToken });
   const {
@@ -117,6 +112,67 @@ describe('ISSUE-190 rate limiter unavailable signals', () => {
           outageStatuses: [503, 503],
           unavailable: 2,
           serverErrors: 2,
+        },
+      });
+    } finally {
+      redisProxy.resume();
+      await edge.close();
+    }
+  });
+});
+
+/**
+ * ISSUE-191: the limiter and every alert marker share one Redis, so its
+ * outage must still reach /api/ops/alerts as limiter_unavailable, from the
+ * time the first refused request saw it. The app's clock is stepped so the
+ * outage spans the 2-minute threshold without waiting it out.
+ */
+describe('ISSUE-191 limiter_unavailable through a Redis outage', () => {
+  const testApp = createTestApp({ OPS_PROBE_TOKEN: opsToken });
+  let nowMs = Date.parse(systemClock.now());
+  const clock = { now: () => new Date(nowMs).toISOString() };
+  const {
+    app,
+    routes,
+    proxy: redisProxy,
+  } = createFaultedApp(testApp, 'REDIS_URL', clock);
+
+  test('a Redis outage that outlasts the threshold fires limiter_unavailable from when it began', async () => {
+    const edge = await serveEdge({ app, routes, opsToken });
+    try {
+      const magicLink = () =>
+        edge.post('/api/auth/sign-in/magic-link', {
+          email: testApp.freshEmail(),
+        });
+      const baselineStatus = await magicLink();
+      redisProxy.pause();
+      const outageBegan = clock.now();
+      const outageStatuses = [await magicLink()];
+      nowMs += 60_000;
+      outageStatuses.push(await magicLink());
+      nowMs += 61_000;
+      outageStatuses.push(await magicLink());
+      const duringOutage = await edge.alerts();
+      assert({
+        given:
+          'real magic-link requests through the production server refused over 2 minutes and 1 second while the limiter and alert Redis is unreachable',
+        should:
+          'answer /api/ops/alerts with limiter_unavailable since the first refusal, reporting its Redis state unreachable',
+        actual: {
+          baselineStatus,
+          outageStatuses,
+          status: duringOutage.status,
+          conditions: duringOutage.conditions,
+          redisState: duringOutage.snapshot?.redisState,
+          since: duringOutage.snapshot?.limiterUnavailableSinceIso,
+        },
+        expected: {
+          baselineStatus: 200,
+          outageStatuses: [503, 503, 503],
+          status: 200,
+          conditions: ['limiter_unavailable'],
+          redisState: 'unreachable',
+          since: outageBegan,
         },
       });
     } finally {

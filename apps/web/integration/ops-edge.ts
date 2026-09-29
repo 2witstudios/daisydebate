@@ -26,6 +26,7 @@ const routeFor = (routes: Routes, method: string, path: string) => {
 };
 
 type AlertSnapshotBody = {
+  readonly redisState: 'read' | 'unreachable';
   readonly storageUnavailableSinceIso: string | null;
   readonly limiterUnavailableSinceIso: string | null;
   readonly deliveryConsecutiveFailures: number;
@@ -102,6 +103,24 @@ export async function serveEdge({
           snapshot: AlertSnapshotBody;
         }
       ).snapshot,
+    /**
+     * `/api/ops/alerts` as the probe sees it, whatever it answers: the
+     * status, the fired condition ids and the snapshot.
+     */
+    alerts: async () => {
+      const response = await fetch(`${base}/api/ops/alerts`, {
+        headers: { authorization: `Bearer ${opsToken}` },
+      });
+      const body = (await response.json()) as {
+        conditions?: readonly { readonly id: string }[];
+        snapshot?: AlertSnapshotBody;
+      };
+      return {
+        status: response.status,
+        conditions: body.conditions?.map((condition) => condition.id),
+        snapshot: body.snapshot,
+      };
+    },
     close: () =>
       new Promise<void>((resolve) => {
         server.closeAllConnections();

@@ -122,6 +122,7 @@ export function createRoutes(app: App) {
         GET: createAlertsHandler({
           logger,
           redis: app.redis,
+          local: app.localAlertState,
           clock: app.clock,
           token: () => app.opsProbeToken(),
         }),

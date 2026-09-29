@@ -16,6 +16,12 @@ export const ALERT_THRESHOLDS = {
 
 export type AlertSnapshot = {
   readonly nowIso: string;
+  /**
+   * Whether the Redis-backed markers below were read. `unreachable` leaves
+   * them at their empty values, which `evaluateAlerts` then ignores
+   * (ISSUE-191).
+   */
+  readonly redisState: 'read' | 'unreachable';
   readonly storageUnavailableSinceIso: string | null;
   readonly limiterUnavailableSinceIso: string | null;
   readonly deliveryConsecutiveFailures: number;
@@ -124,15 +130,18 @@ const checkCleanupMissed = (
       }
     : undefined;
 
-const ALERT_CHECKS: readonly ((
-  snapshot: AlertSnapshot,
-) => AlertCondition | undefined)[] = [
+type AlertCheck = (snapshot: AlertSnapshot) => AlertCondition | undefined;
+
+const ALERT_CHECKS: readonly AlertCheck[] = [
   checkStorageUnavailable,
   checkLimiterUnavailable,
   checkDeliveryFailures,
   checkAuth5xxRate,
   checkCleanupMissed,
 ];
+
+/** The one check whose state this process keeps without Redis (ISSUE-191). */
+const IN_PROCESS_CHECKS: readonly AlertCheck[] = [checkLimiterUnavailable];
 
 /**
  * AUTH-7.7's four alert conditions, evaluated from a snapshot the caller
@@ -143,9 +152,13 @@ const ALERT_CHECKS: readonly ((
 export function evaluateAlerts(
   snapshot: AlertSnapshot,
 ): readonly AlertCondition[] {
-  return ALERT_CHECKS.map((check) => check(snapshot)).filter(
-    (condition): condition is AlertCondition => condition !== undefined,
-  );
+  const checks =
+    snapshot.redisState === 'read' ? ALERT_CHECKS : IN_PROCESS_CHECKS;
+  return checks
+    .map((check) => check(snapshot))
+    .filter(
+      (condition): condition is AlertCondition => condition !== undefined,
+    );
 }
 
 export type AlertStateRedis = {
@@ -153,6 +166,14 @@ export type AlertStateRedis = {
 };
 
 export type AlertClock = { readonly now: () => string };
+
+/** The alert state this process keeps itself (`alert-recorder.ts`). */
+export type LocalAlertState = {
+  readonly limiterUnavailableSince: () => string | null;
+};
+
+const earlierOf = (left: string | null, right: string | null) =>
+  left === null || (right !== null && right < left) ? right : left;
 
 const HTTP_TOTAL_KEY = (bucket: number) => `alert-http-total-${bucket}`;
 const HTTP_5XX_KEY = (bucket: number) => `alert-http-5xx-${bucket}`;
@@ -166,14 +187,46 @@ const HTTP_5XX_KEY = (bucket: number) => `alert-http-5xx-${bucket}`;
  */
 export async function readAlertSnapshot({
   redis,
+  local,
   clock,
   windowMinutes = ALERT_THRESHOLDS.auth5xxWindowMinutes,
 }: {
   readonly redis: AlertStateRedis;
+  readonly local: LocalAlertState;
   readonly clock: AlertClock;
   readonly windowMinutes?: number;
 }): Promise<AlertSnapshot> {
   const nowIso = clock.now();
+  const localLimiterSince = local.limiterUnavailableSince();
+  try {
+    const read = await readRedisMarkers(redis, nowIso, windowMinutes);
+    return {
+      ...read,
+      limiterUnavailableSinceIso: earlierOf(
+        read.limiterUnavailableSinceIso,
+        localLimiterSince,
+      ),
+    };
+  } catch {
+    // The limiter shares this Redis: its outage must still be reportable
+    // from what this process saw (ISSUE-191).
+    return {
+      nowIso,
+      redisState: 'unreachable',
+      storageUnavailableSinceIso: null,
+      limiterUnavailableSinceIso: localLimiterSince,
+      deliveryConsecutiveFailures: 0,
+      authRequests: { total: 0, serverErrors: 0, windowMinutes },
+      retentionLastSuccessIso: null,
+    };
+  }
+}
+
+async function readRedisMarkers(
+  redis: AlertStateRedis,
+  nowIso: string,
+  windowMinutes: number,
+): Promise<AlertSnapshot> {
   const currentBucket = Math.floor(Date.parse(nowIso) / MINUTE_MS);
   const buckets = Array.from(
     { length: windowMinutes },
@@ -203,6 +256,7 @@ export async function readAlertSnapshot({
   }
   return {
     nowIso,
+    redisState: 'read',
     storageUnavailableSinceIso: storageSince,
     limiterUnavailableSinceIso: limiterSince,
     deliveryConsecutiveFailures: Number(mailFailures ?? 0),
