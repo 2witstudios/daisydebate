@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createTestApp, origin } from './fixtures';
+import { requestFrom } from './socket-request';
 import {
   CLIENT_IP_HEADER,
   stampClientIdentity,
@@ -17,18 +18,9 @@ const authRoute = routes.auth;
 
 /** Stand-in for the deployment ingress: the same stamping start.ts performs. */
 async function ingress(trustedProxies: string[]) {
-  const toRequest = async (incoming: IncomingMessage) => {
+  const toRequest = (incoming: IncomingMessage) => {
     stampClientIdentity(incoming, trustedProxies, 'ingress-integration-subkey');
-    const chunks: Buffer[] = [];
-    for await (const chunk of incoming) chunks.push(chunk as Buffer);
-    const headers = new Headers();
-    for (const [name, value] of Object.entries(incoming.headers))
-      if (typeof value === 'string') headers.set(name, value);
-    return new Request(`${origin}${incoming.url}`, {
-      method: incoming.method ?? 'POST',
-      headers,
-      ...(incoming.method === 'POST' ? { body: Buffer.concat(chunks) } : {}),
-    });
+    return requestFrom(incoming);
   };
   const server = createServer((incoming, outgoing) => {
     void toRequest(incoming)

@@ -5,6 +5,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createProductionServer } from '../src/server/server-wiring';
 import { createTestApp, origin } from './fixtures';
+import { requestFrom } from './socket-request';
 
 requireTestServices(process.env);
 setupRitewayBun();
@@ -32,19 +33,6 @@ const routeFor = (method: string, path: string) => {
   return undefined;
 };
 
-async function toRequest(incoming: IncomingMessage) {
-  const chunks: Buffer[] = [];
-  for await (const chunk of incoming) chunks.push(chunk as Buffer);
-  const headers = new Headers();
-  for (const [name, value] of Object.entries(incoming.headers))
-    if (typeof value === 'string') headers.set(name, value);
-  return new Request(`${origin}${incoming.url}`, {
-    method: incoming.method,
-    headers,
-    ...(incoming.method === 'POST' ? { body: Buffer.concat(chunks) } : {}),
-  });
-}
-
 async function handle(incoming: IncomingMessage, outgoing: ServerResponse) {
   const route = routeFor(incoming.method ?? 'GET', incoming.url ?? '/');
   if (!route) {
@@ -52,7 +40,7 @@ async function handle(incoming: IncomingMessage, outgoing: ServerResponse) {
     outgoing.end();
     return;
   }
-  const response = await route(await toRequest(incoming));
+  const response = await route(await requestFrom(incoming));
   outgoing.writeHead(response.status, {
     'content-type': response.headers.get('content-type') ?? 'text/plain',
   });
