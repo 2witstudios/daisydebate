@@ -129,19 +129,82 @@ describe('evaluateOriginProbe (AUTH-7.7)', () => {
     });
   });
 
-  test('a non-200 status is a routing issue (negative control on the healthy case)', () => {
+  test('a non-200 carrying the app headers is the app reporting not ready (ISSUE-203)', () => {
     const result = evaluateOriginProbe({
       status: 503,
       headers: HEALTHY_HEADERS,
     });
     assert({
-      given: 'a 503 from the readiness endpoint',
+      given:
+        'a 503 carrying the app header contract (dependency down or draining)',
+      should:
+        'report exactly one issue naming the status and that the app reported not ready',
+      actual: {
+        ok: result.ok,
+        count: result.issues.length,
+        namesStatus: result.issues[0]?.includes('503'),
+        saysNotReady: result.issues[0]?.includes('the app reported not ready'),
+        saysNotApp: result.issues[0]?.includes('did not come from the app'),
+      },
+      expected: {
+        ok: false,
+        count: 1,
+        namesStatus: true,
+        saysNotReady: true,
+        saysNotApp: false,
+      },
+    });
+  });
+
+  test('a non-5xx non-200 is not ok even with every header (ISSUE-203)', () => {
+    const result = evaluateOriginProbe({
+      status: 404,
+      headers: HEALTHY_HEADERS,
+    });
+    assert({
+      given: 'a 404 from the readiness endpoint carrying every required header',
       should: 'report not-ok naming the status',
       actual: {
         ok: result.ok,
-        namesStatus: result.issues.some((i) => i.includes('503')),
+        namesStatus: result.issues.some((i) => i.includes('404')),
       },
       expected: { ok: false, namesStatus: true },
+    });
+  });
+
+  test('a non-200 with none of the app headers is one issue, not one per header (ISSUE-196)', () => {
+    const result = evaluateOriginProbe({ status: 503, headers: new Map() });
+    assert({
+      given:
+        'a 503 carrying none of the app headers (Fly proxy cold start or start-up gate)',
+      should:
+        'report exactly one issue naming the status and that the app likely did not answer',
+      actual: {
+        ok: result.ok,
+        count: result.issues.length,
+        namesStatus: result.issues[0]?.includes('503'),
+        saysNotApp: result.issues[0]?.includes('did not come from the app'),
+      },
+      expected: { ok: false, count: 1, namesStatus: true, saysNotApp: true },
+    });
+  });
+
+  test('a 200 reports every header mismatch, one issue each (ISSUE-196)', () => {
+    const headers = new Map(HEALTHY_HEADERS);
+    headers.delete('strict-transport-security');
+    headers.set('x-frame-options', 'SAMEORIGIN');
+    assert({
+      given:
+        'a 200 missing Strict-Transport-Security and weakening X-Frame-Options',
+      should: 'report both mismatches',
+      actual: evaluateOriginProbe({ status: 200, headers }),
+      expected: {
+        ok: false,
+        issues: [
+          'x-frame-options: expected "DENY", got SAMEORIGIN',
+          'strict-transport-security: expected "max-age=31536000; includeSubDomains", got none',
+        ],
+      },
     });
   });
 
