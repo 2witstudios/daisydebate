@@ -131,7 +131,8 @@ export function findFlyDatabaseSecretProblem(
 
 /**
  * ISSUE-39: production startup refuses a DATABASE_URL role that can create
- * or alter schema objects, before Next prepares or the port opens.
+ * or alter schema objects before Next prepares, so no request reaches Next
+ * as that role (the port opens first behind a 503 gate, ISSUE-172).
  */
 export function findRuntimeRoleGateProblem(startTs: string): string | null {
   const code = uncommented(startTs);
@@ -158,6 +159,21 @@ export function findMigrationCredentialProblem(
     : 'migrate.ts does not read its credential through readMigrationConfig(process.env)';
 }
 
+/**
+ * Owner decision DEC-40 (ISSUE-175): the staging web app is always on.
+ * fly-proxy never stops its machine for idleness and keeps one running.
+ */
+export function findAlwaysOnProblem(flyToml: string): string | null {
+  const body = tableBody(flyToml, '[http_service]');
+  if (body === null) return 'fly.toml has no `[http_service]` table';
+  const service = uncommented(body.join('\n'));
+  if (!/^\s*auto_stop_machines\s*=\s*"off"\s*$/m.test(service))
+    return 'fly.toml [http_service] must set auto_stop_machines = "off" (DEC-40)';
+  if (!/^\s*min_machines_running\s*=\s*1\s*$/m.test(service))
+    return 'fly.toml [http_service] must set min_machines_running = 1 (DEC-40)';
+  return null;
+}
+
 export function verifyDeployConfig(input: {
   readonly dockerfile: string;
   readonly flyToml: string;
@@ -177,6 +193,7 @@ export function verifyDeployConfig(input: {
     findMigratorAppProblem(input.migratorToml),
     findWorkflowMigrationOrderProblem(input.workflow),
     findFlyDatabaseSecretProblem(input.flyToml),
+    findAlwaysOnProblem(input.flyToml),
     findFlyDatabaseSecretProblem(input.migratorToml, 'fly.migrate.toml'),
     findRuntimeRoleGateProblem(input.startTs),
     findMigrationCredentialProblem(input.migrateTs),
@@ -200,7 +217,7 @@ if (import.meta.main) {
     process.exitCode = 1;
   } else {
     process.stdout.write(
-      'Deploy config matches .bun-version, migrates only from the migrator app, first, and keeps the database role split.\n',
+      'Deploy config matches .bun-version, migrates only from the migrator app, first, keeps the database role split and keeps staging always on.\n',
     );
   }
 }

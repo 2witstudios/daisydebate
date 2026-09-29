@@ -1,5 +1,5 @@
-# Fly.io app definition for the daisy-debate org's scale-to-zero staging
-# environment (AUTH-7.0). See docs/operations/deploy-staging.md for the
+# Fly.io app definition for the daisy-debate org's always-on staging
+# environment (AUTH-7.0, DEC-40). See docs/operations/deploy-staging.md for the
 # create -> secrets -> deploy -> verify -> rollback -> destroy runbook; every
 # non-default line below is explained inline. Schema verified against the
 # installed flyctl (v0.4.105) and https://fly.io/docs/reference/configuration/.
@@ -19,8 +19,9 @@ primary_region = "ord"
   # from the repository root so this relative path resolves.
   dockerfile = "apps/web/Dockerfile"
 
-# No [deploy] release_command: migrations run from the release-only
-# migrator app (fly.migrate.toml, ADR 0041), deployed first by
+# No [deploy] release_command: migrations run once per release as a
+# pipeline step (docs/operations/production.md "## Releases"), from the
+# release-only migrator app (fly.migrate.toml, ADR 0041), deployed first by
 # .github/workflows/deploy-staging.yml. Fly secrets are app-wide, so a
 # release command here would put the schema owner credential on every web
 # machine (ISSUE-102). This app holds DATABASE_URL as the DML-only daisy_web
@@ -58,14 +59,18 @@ primary_region = "ord"
   internal_port = 8080
   # Reject plaintext; fly-proxy issues the TLS cert for <app>.fly.dev.
   force_https = true
-  # Owner decision (AUTH-7.0): the box must not be always-on.
-  auto_stop_machines = "stop"
+  # Owner decision DEC-40 (confirmed 2026-09-29): staging is always on.
+  # One machine keeps running and fly-proxy never stops it for idleness,
+  # about $3.99/month for this VM in ord (docs/operations/deploy-staging.md
+  # "Cost"). auto_start_machines restarts it if it ever stops otherwise.
+  auto_stop_machines = "off"
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
 
   [[http_service.checks]]
     # Fly's liveness probe: process aliveness only, no dependency calls.
-    # This is what schedules a restart, not what gates traffic.
+    # This is what schedules a restart, not what gates traffic. The port
+    # opens before Next prepares and answers this at once (ISSUE-172).
     grace_period = "10s"
     interval = "15s"
     method = "GET"
@@ -74,7 +79,8 @@ primary_region = "ord"
 
   [[http_service.checks]]
     # Readiness: 200 only when not draining AND Postgres and Redis answer
-    # within 2s (apps/web/src/app/api/health/ready/route.ts). fly-proxy
+    # within 2s (apps/web/src/app/api/health/ready/route.ts), and 503 until
+    # start-up work finishes (apps/web/src/server/listen-first.ts). fly-proxy
     # only routes traffic to a machine passing its checks.
     grace_period = "10s"
     interval = "15s"
@@ -89,6 +95,6 @@ primary_region = "ord"
   # ~100MiB headroom). 256mb (Fly's minimum increment) boots and answers
   # /api/health/ready but leaves little margin for concurrent staging
   # traffic; 512mb is the smallest size with real headroom under load. See
-  # docs/operations/deploy-staging.md "Idle cost" for the full measurement.
+  # docs/operations/deploy-staging.md "Cost" for the full measurement.
   size = "shared-cpu-1x"
   memory = "512mb"

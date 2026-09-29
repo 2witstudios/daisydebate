@@ -1,6 +1,7 @@
 # Deploy: Fly.io staging (AUTH-7.0)
 
-Scale-to-zero staging deployment of `apps/web` on Fly.io, org `daisy-debate`.
+Always-on staging deployment of `apps/web` on Fly.io, org `daisy-debate`
+(owner decision DEC-40).
 `fly.toml` (repo root) and `apps/web/Dockerfile` define the app, and
 `fly.migrate.toml` the release-only migrator app beside it; this is the
 operator runbook for the account-side steps a Builder agent cannot take
@@ -42,21 +43,30 @@ LOGIN` if it is missing). Setting that password is a one-time human step
 compatible, because the baseline skips an existing role and grants it the
 same privileges.
 
-## Idle cost (per the owner's spend constraint)
+## Cost (per the owner's spend constraint)
 
-| Piece                                                                                       | Idle cost                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Source                             |
-| ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| Fly machine (shared-cpu-1x, 512mb), stopped (`min_machines_running = 0`)                    | $0 compute. Only rootfs storage is billed while stopped: $0.15 per 1GB for 30 days (this image is ~1.2GB, so a fraction of $0.15/mo when stopped)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | https://fly.io/docs/about/pricing/ |
-| Fly machine, running                                                                        | ~$0.00000156/s ≈ **$4.04/month if left running continuously** (region-dependent). **Owner decision DEC-10 (confirmed, amended by DEC-33/ADR 0046, 2026-09-28)**: `auth-alerts.yml` polls `/api/health/ready` and `/api/ops/alerts` on a `*/5 * * * *` cron, but GitHub's `schedule` trigger runs it at a real, measured cadence of 2-5 hours apart, not every 5 minutes — the web machine wakes on each real run and then goes back to sleep for hours, so it does _not_ run continuously and the ~$4/month figure is an upper bound, not the actual spend. The owner accepted this best-effort cadence for staging (no new scheduler); the actual continuous-run cost this trade-off implied never materializes because the schedule itself never delivers the cadence that would have caused it. | https://fly.io/docs/about/pricing/ |
-| Fly Postgres machine `daisy-debate-staging-db` (shared-cpu-1x 256MB, 1GB volume), always on | ≈ $1.94/month compute + $0.15/month volume. Owner decision: left running; `fly machine stop` between sessions drops it to the volume charge.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| Fly Redis `daisy-debate-staging-redis` (Upstash, Pay-as-you-go)                             | $0 at rest; $0.20 per 100K commands.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| Resend                                                                                      | Free tier covers low-volume staging email + webhooks; no idle cost beyond the account itself                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | https://resend.com/pricing         |
+Owner decision DEC-40 (confirmed 2026-09-29): the staging web app is always
+on. `fly.toml` sets `min_machines_running = 1` and
+`auto_stop_machines = "off"`, so its one machine runs continuously and is
+billed for every second. Prices were re-read from Fly's live pricing page
+on 2026-09-29: shared CPU $0.00000075 per vCPU-second, with 256MB included
+per shared vCPU, plus $0.00000193 per GB-second of additional RAM,
+multiplied by the region's markup. Chicago (`ord`) carries a 1.25 markup.
+A month is 30 days (2,592,000 s), as Fly's own calculator counts it.
 
-Net: about $2/month at rest (the always-on Postgres machine and its
-volume). Separately: fractional-cent rootfs storage, any actual staging
-traffic, and the AUTH-7.7 probe, which bills web-machine compute only while
-each real run has it awake — a small fraction of the ~$4/month that
-continuous operation would cost (see the row above).
+| Piece                                                                                       | Monthly cost                                                                                                                                                              | Source                             |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| Web machine `daisy-debate-staging` (shared-cpu-1x, 512mb, `ord`), always on                 | (0.00000075 + 0.25 × 0.00000193) × 1.25 ≈ $0.00000154/s ≈ **$3.99/month** (about $4). A running machine's rootfs is not billed separately                                 | https://docs.fly.io/about/pricing/ |
+| Migrator app `daisy-debate-staging-migrate`                                                 | $0: it has no machines; the release command's temporary machine bills only for the seconds each migration runs                                                            | https://docs.fly.io/about/pricing/ |
+| Fly Postgres machine `daisy-debate-staging-db` (shared-cpu-1x 256MB, 1GB volume), always on | 0.00000075 × 1.25 × 2,592,000 ≈ $2.43/month compute + $0.15/month volume. Owner decision: left running; `fly machine stop` between sessions drops it to the volume charge | https://docs.fly.io/about/pricing/ |
+| Fly Redis `daisy-debate-staging-redis` (Upstash, Pay-as-you-go)                             | $0 at rest; $0.20 per 100K commands                                                                                                                                       |                                    |
+| Resend                                                                                      | Free tier covers low-volume staging email and webhooks; no cost beyond the account itself                                                                                 | https://resend.com/pricing         |
+
+Net: about $6.57/month at rest: the always-on web machine ($3.99), the
+always-on Postgres machine ($2.43) and its volume ($0.15). Staging traffic
+adds Redis commands and outbound data transfer on top. The AUTH-7.7 alert
+probe (`auth-alerts.yml`) adds nothing: it requests a machine that is
+already running.
 
 ## Security proof against the live app (AUTH-7.8)
 
@@ -123,6 +133,35 @@ rule, `MAGIC_LINK_CLIENT_RULE` in `apps/web/src/features/auth/rate-limit.ts`,
 becomes 3 requests per 60 seconds for everyone). Treat that event as an
 incident, not noise.
 
+**Who can reach this machine without fly-proxy.** The public internet
+cannot reach 6PN, but that is not the boundary. Fly's private networking
+docs (https://fly.io/docs/networking/private-networking/, re-read
+2026-09-29) state that "Fly Apps in an organization are connected by a
+mesh of WireGuard tunnels using IPv6 called a 6PN" and that "6PN addresses
+directly connect one Fly Machine with another, bypassing the Fly Proxy".
+So any machine of any app in the `daisy-debate` org, and any WireGuard
+peer (`fly ssh`, `fly proxy`, `fly wireguard`), can open a connection to
+this machine's 6PN address that fly-proxy never sees, and can send any
+`Fly-Client-IP` or `X-Forwarded-For` it likes. The trust boundary is
+therefore the one address `AUTH_TRUSTED_PROXIES = "gateway"` resolves to:
+`resolveClientIp` (`apps/web/src/features/auth/client-ip.ts`) reads a
+forwarded header only from that peer. A connection that arrives over 6PN
+has its own `fdaa:` address as its socket peer, which is not trusted, so it
+is keyed by that address and its headers are ignored.
+SIXPN_PROBE_PLACEHOLDER
+
+**Pre-condition: owner sign-off before another app joins the org.** Every
+app created in the `daisy-debate` org puts its machines on this 6PN. While
+this trust configuration stands, no app beyond the three this runbook
+creates (`daisy-debate-staging`, `daisy-debate-staging-migrate` and
+`daisy-debate-staging-db`) may be created in the org until the owner has
+signed off explicitly and that sign-off is recorded: a decision recorded
+with `bun decision:record`, confirmed by the owner, and linked from this
+section. This is a security-behavior change, so it is the owner's call, not
+a Builder's or an operator's. The sign-off must say whether the new app's
+machines may reach this one over 6PN, or whether it goes in a custom
+private network (`fly apps create --network`) instead.
+
 Confirm the resolved identity after each deploy by comparing, never by
 recomputing: the log line's `clientIdHash` is keyed by a subkey of
 `BETTER_AUTH_SECRET` (`apps/web/src/features/auth/client-ip.ts`), so it
@@ -172,64 +211,42 @@ Better Auth trusts only `x-daisy-client-ip` (`CLIENT_IP_HEADER`), stamped by
 the ingress above — there is no deployment-configurable header list to set
 here.
 
-## Scale-to-zero consequences
+## Always-on behavior (DEC-40)
 
-- **The hourly retention sweep stops while suspended.**
+- **The machine keeps running.** `auto_stop_machines = "off"` means
+  fly-proxy never stops it for idleness, and `min_machines_running = 1`
+  keeps one machine in the region. It stops only for a deploy, a
+  `fly machine restart`, a host event or a crash. `auto_start_machines =
+true` starts it again on the next request if it is ever found stopped.
+  Check it at any time with `fly status -a daisy-debate-staging`: the one
+  `app` machine is `started`, with 2 of 2 checks passing.
+- **The hourly retention sweep runs continuously.**
   `apps/web/src/server/start.ts` starts `startRetentionSweep` (hourly
-  `setInterval`, `runOnStart: true`) in-process. A suspended machine runs no
-  process, so no interval fires; expired verification, session, outbox and
-  email rows and lapsed online-presence members accumulate while stopped and are
-  pruned immediately on the next wake (`runOnStart: true` runs the sweep as
-  soon as the process starts again). This is inherent to
-  scale-to-zero, not a defect — do not add a Fly-side cron to work around it
-  without an explicit decision to do so.
-- **Cold start, measured locally (not on Fly):** `docker build` of the
-  production image takes ~30-60s depending on cache; a fresh container
-  (`docker run`, production config, against the local `*_test` stack)
-  answers `/api/health/ready` with `200` within ~4s of `docker run` — see
-  the Handoff page for the exact timed run. This is a **local proxy**, not a
-  measurement of Fly's actual cold start (Firecracker VM boot + volume
-  attach + fly-proxy health-check grace period all add time Fly does not
-  publish a fixed number for). Time the real cold start after first deploy:
-  ```
-  fly machine list -a <app> --json   # confirm 0 machines running (stopped)
-  time curl -s -o /dev/null -w '%{http_code}\n' https://<app>.fly.dev/api/health/ready
-  ```
-  `http_service.checks` grace_period is 10s and interval 15s in `fly.toml`;
-  if the real cold start regularly exceeds that, raise `grace_period`.
-  **Measured on Fly (ISSUE-169, 2026-09-28):** `fly status -a
-daisy-debate-staging` showed the machine `stopped` (no requests since the
-  prior alert-probe run); `time curl -s -o /dev/null -w '%{http_code}
-%{time_total}\n' https://daisy-debate-staging.fly.dev/api/health/ready`
-  answered `200` in **8.11s** — well inside the 10s check grace period, so
-  the first readiness probe after a cold start can still pass its own
-  health check without raising `grace_period`.
-- **Resend webhook delivery to a stopped machine.** Resend's webhooks are
-  Svix-powered and retry non-2xx/unreachable deliveries on a fixed schedule
-  — 5 seconds, 5 minutes, 30 minutes, 2 hours, 5 hours, 10 hours after the
-  original attempt (https://resend.com/docs/dashboard/webhooks/introduction),
-  roughly an 18-hour total window. `auto_start_machines = true` wakes the
-  machine on any incoming HTTP request, including a webhook POST, so the
-  first attempt (or the 5-second retry) should reach a running machine well
-  within that window; a webhook is not lost to scale-to-zero unless the
-  machine also fails its readiness check after waking. **Measured directly
-  (ISSUE-169-AC3, review round 3, 2026-09-28):** with the machine stopped,
-  a real Svix-shaped `POST /api/webhooks/resend` (the mounted webhook
-  route, `svix-id`/`svix-timestamp`/`svix-signature` headers, a JSON body)
-  woke it and received a response — `400 VALIDATION` in **8.57s**, since
-  the signature was necessarily invalid (this is a wake-time measurement,
-  not a real Resend delivery) but the wake and response themselves are
-  real. Consistent with the plain-GET cold start above (8.11s): any
-  request type reaching `fly-proxy` wakes the machine via
-  `auto_start_machines`, webhook POST included, well inside the 18-hour
-  retry window.
+  `setInterval`, `runOnStart: true`) in-process, so expired verification,
+  session, outbox and email rows and lapsed online-presence members are
+  pruned every hour, and once more right after every deploy or restart.
+- **Start-up and health checks (ISSUE-172).** `start.ts` opens port 8080
+  before its slow start-up work (the runtime-role check and Next's
+  `prepare()`), behind `createStartupGate`
+  (`apps/web/src/server/listen-first.ts`). Until that work finishes,
+  `/api/health/live` answers `200` and every other path, `/api/health/ready`
+  included, answers `503` without reaching Next, so fly-proxy routes no
+  traffic to a machine that is still preparing. The process then logs
+  `server.ready` with `durationMs`, the time from listening to ready.
+  CHECKS_MEASUREMENT_PLACEHOLDER
+- **Resend webhook delivery.** Resend's webhooks are Svix-powered and retry
+  non-2xx or unreachable deliveries 5 seconds, 5 minutes, 30 minutes, 2
+  hours, 5 hours and 10 hours after the original attempt
+  (https://resend.com/docs/dashboard/webhooks/introduction), roughly an
+  18-hour window. A delivery normally reaches the running machine on its
+  first attempt; one that lands during a deploy or restart gets `503` from
+  the start-up gate and is retried inside that window.
 - **Passkey RP hostname stability.** `apps/web/src/features/auth/server.ts`
   derives the WebAuthn RP ID as `new URL(config.PUBLIC_APP_URL).hostname`.
   `PUBLIC_APP_URL` is fixed at `https://<app>.fly.dev` (no custom domain),
-  and that hostname never changes across stop/start cycles — only the
-  underlying machine and its 6PN address change, neither of which RP ID
-  depends on. Passkeys registered against this staging app stay valid
-  across every scale-to-zero cycle.
+  and that hostname never changes across deploys or restarts; only the
+  underlying machine and its 6PN address can change, and RP ID depends on
+  neither. Passkeys registered against this staging app stay valid.
 
 ## 1. Create the app
 
@@ -244,11 +261,15 @@ Verify: `fly status -a daisy-debate-staging` and
 yet (this only reserves the names; the `app` fields of `fly.toml` and
 `fly.migrate.toml` must match).
 
+These two apps and step 2's Postgres app are the only apps this org may
+hold without the owner's recorded sign-off; see "Pre-condition: owner
+sign-off before another app joins the org" under "Client identity on Fly".
+
 ## 2. Provision Postgres
 
 Owner decision (September 22): staging Postgres is an ordinary Fly machine
-in the same org, left running (about $2/month for shared-cpu-1x 256MB plus
-$0.15/GB volume), not an external provider. It is a single unmanaged
+in the same org, left running (about $2.43/month for shared-cpu-1x 256MB in
+`ord` plus $0.15/GB volume, see "Cost"), not an external provider. It is a single unmanaged
 machine: no automatic backups or failover — fine for staging only.
 
 ```

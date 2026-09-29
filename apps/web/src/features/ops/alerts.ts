@@ -11,7 +11,7 @@ import { requireProbeToken } from './probe-auth';
 /**
  * `GET /api/ops/alerts` (AUTH-7.7): a non-mutating, token-gated read of the
  * current alert-condition snapshot. The scheduled probe workflow (outside
- * this app, since staging scales to zero) calls this and fires an operator
+ * this app, which cannot alert on its own outage) calls this and fires an operator
  * alert for whatever `conditions` names — on GitHub's own best-effort
  * schedule, which the owner has accepted as-is (ADR 0046, DEC-33): GitHub's
  * `schedule` trigger measures 2-5 hours apart in production, not the 5

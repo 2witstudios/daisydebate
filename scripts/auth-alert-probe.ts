@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
 /**
- * AUTH-7.7's alert evaluation point. Staging scales to zero
- * (`fly.toml`'s `min_machines_running = 0`), so nothing running inside the
- * app can notice its own multi-minute or multi-hour silence, or alert while
- * it is asleep or crash-looping. This script runs outside the app instead
+ * AUTH-7.7's alert evaluation point. Nothing running inside the app can
+ * alert on its own unavailability while it is down, restarting or
+ * crash-looping, even though staging is always on (DEC-40, `fly.toml`'s
+ * `min_machines_running = 1`). This script runs outside the app instead
  * (the scheduled `auth-alerts.yml` GitHub Actions workflow — configured for
  * every 5 minutes, though GitHub's schedule trigger does not actually run
  * that often in production; the owner accepted this best-effort cadence

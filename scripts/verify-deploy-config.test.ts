@@ -2,6 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { readFileSync } from 'node:fs';
 import {
   EXPECTED_RELEASE_COMMAND,
+  findAlwaysOnProblem,
   findDockerfileBunVersionProblem,
   findFlyDatabaseSecretProblem,
   findFlyReleaseCommandProblem,
@@ -343,6 +344,40 @@ describe('findWorkflowMigrationOrderProblem (ISSUE-102)', () => {
         migrate.replace(' --update-only', '') + web,
       ].map(findWorkflowMigrationOrderProblem),
       expected: [problem, problem, problem, problem],
+    });
+  });
+});
+
+describe('findAlwaysOnProblem (ISSUE-175, DEC-40)', () => {
+  const service = (lines: string) =>
+    `[http_service]\n  internal_port = 8080\n${lines}\n\n  [[http_service.checks]]\n    grace_period = "10s"\n`;
+
+  test('the committed fly.toml keeps staging always on', () => {
+    assert({
+      given: 'the real fly.toml',
+      should: 'report no problem',
+      actual: findAlwaysOnProblem(realFlyToml),
+      expected: null,
+    });
+  });
+
+  test('a service that may stop idle machines or keep none running', () => {
+    assert({
+      given:
+        'auto-stop on, no machine kept running, a commented-out setting, and no [http_service]',
+      should: 'report each as not always on',
+      actual: [
+        service('  auto_stop_machines = "stop"\n  min_machines_running = 1'),
+        service('  auto_stop_machines = "off"\n  min_machines_running = 0'),
+        service('  # auto_stop_machines = "off"\n  min_machines_running = 1'),
+        '[env]\n  PORT = "8080"\n',
+      ].map(findAlwaysOnProblem),
+      expected: [
+        'fly.toml [http_service] must set auto_stop_machines = "off" (DEC-40)',
+        'fly.toml [http_service] must set min_machines_running = 1 (DEC-40)',
+        'fly.toml [http_service] must set auto_stop_machines = "off" (DEC-40)',
+        'fly.toml has no `[http_service]` table',
+      ],
     });
   });
 });
