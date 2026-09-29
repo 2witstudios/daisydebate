@@ -2,6 +2,7 @@ import { afterAll, setDefaultTimeout } from 'bun:test';
 import { RedisClient, SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
+import { deleteNamespace } from '@daisy/redis/namespaces';
 import { systemClock, systemId } from '@daisy/clock';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import { createApp } from '../src/server/app';
@@ -174,11 +175,20 @@ export function createTestApp(
       },
       body: new URLSearchParams(fields).toString(),
     });
-  /** Removes exactly the keys this suite created in its own namespace. */
-  const clearRedisNamespace = () =>
-    withNamespaceKeys(redisNamespace, async (client, keys) => {
-      for (const key of keys) await client.del(key);
-    });
+  /**
+   * Removes exactly the keys this suite created in its own namespace, one
+   * UNLINK per SCAN page: the global-day ceiling suite leaves about 12,000
+   * keys, and one DEL round trip per key overran the 30 s teardown hook on
+   * a loaded machine (ISSUE-192).
+   */
+  const clearRedisNamespace = async () => {
+    const client = new RedisClient(testRedisUrl as string);
+    try {
+      await deleteNamespace(client, redisNamespace);
+    } finally {
+      client.close();
+    }
+  };
   const redisKeys = () =>
     withNamespaceKeys(redisNamespace, (client, keys) =>
       Promise.all(
