@@ -1,7 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { recordPath, serializeRecord } from './agent-registry';
 import { spawnAgent } from './agent-spawn';
-import { activeCount, parseSpawnArgs } from './agent-spawn-model';
+import { parseSpawnArgs } from './agent-spawn-model';
 import {
   repo,
   fakeMachine,
@@ -22,22 +22,18 @@ describe('parseSpawnArgs for an autonomous agent', () => {
 
   const review = ['--role', 'reviewer', '--worktree', 'wt-8zirdrl0'];
 
-  test('refuses the cap, unknown roles, a builder without a leaf and a reviewer without a worktree', () => {
+  test('refuses unknown roles, a builder without a leaf and a reviewer without a worktree', () => {
     assert({
       given:
-        'an autonomous --cap, an unknown role, a builder without --task, a reviewer without --worktree and a builder with one',
+        'an unknown role, a builder without --task, a reviewer without --worktree and a builder with one',
       should: 'refuse each with its reason',
       actual: [
-        errorOf([...task, '--cap', '99', ...spawn], true),
-        errorOf([...review, '--cap', '9', ...spawn], true),
         errorOf([...task, '--role', 'boss', ...spawn], true),
         errorOf(spawn, true),
         errorOf(['--role', 'reviewer', ...spawn], true),
         errorOf([...task, '--worktree', 'wt-8zirdrl0', ...spawn], true),
       ],
       expected: [
-        'Only the owner can pass --cap.',
-        'Only the owner can pass --cap.',
         '--role must be builder or reviewer',
         'An autonomous agent spawns a builder only for a leaf: pass --task <leafPageId>.',
         'A reviewer joins the worktree it reviews: pass --worktree <existing worktree id>.',
@@ -46,115 +42,36 @@ describe('parseSpawnArgs for an autonomous agent', () => {
     });
   });
 
-  test('accepts a reviewer for an existing worktree from an agent, and the caps from the owner', () => {
+  test('accepts a reviewer for an existing worktree and a leaf builder from an agent', () => {
     const planOf = (argv: string[], autonomous: boolean) => {
       const parsed = parseSpawnArgs(argv, autonomous);
       return 'error' in parsed
         ? parsed.error
-        : [parsed.role, parsed.cap, parsed.worktree];
+        : [parsed.role, parsed.task, parsed.worktree];
     };
     assert({
       given:
-        'an agent spawning a reviewer, an agent spawning a leaf builder, and the owner setting each cap',
-      should:
-        'use the per-role defaults (builder 3, reviewer uncapped) unless the owner sets one',
+        'an agent spawning a reviewer, and an agent spawning a leaf builder',
+      should: 'plan each role with its worktree or leaf',
       actual: [
         planOf([...review, '--', 'Review PR #61'], true),
         planOf([...task, ...spawn], true),
-        planOf(['--cap', '5', ...spawn], false),
-        planOf([...review, '--cap', '4', '--', 'Review'], false),
       ],
       expected: [
         ['reviewer', undefined, 'wt-8zirdrl0'],
-        ['builder', 3, undefined],
-        ['builder', 5, undefined],
-        ['reviewer', 4, 'wt-8zirdrl0'],
+        ['builder', 'tmzz7plnnrlz21d6qyyjp8sq', undefined],
       ],
-    });
-  });
-});
-
-describe('activeCount', () => {
-  const status = {
-    worktrees: [
-      {
-        path: '/a',
-        agents: {
-          x: { status: 'running', agentType: 'claude' },
-          r1: { status: 'running', agentType: 'claude' },
-          r2: { status: 'exited', agentType: 'claude' },
-        },
-      },
-    ],
-  };
-  const roleOf = (agentId: string) =>
-    agentId.startsWith('r') ? ('reviewer' as const) : undefined;
-
-  test('counts reviewers against their own cap', () => {
-    assert({
-      given: 'an unregistered builder, a running reviewer and a stopped one',
-      should: 'count one builder and one reviewer',
-      actual: [
-        activeCount(status, roleOf, 'builder'),
-        activeCount(status, roleOf, 'reviewer'),
-      ],
-      expected: [1, 1],
-    });
-  });
-});
-
-describe('activeCount for builders', () => {
-  test('counts every running coding agent not registered as a reviewer', () => {
-    const status = {
-      worktrees: [
-        {
-          path: '/a',
-          agents: { x: { status: 'running', agentType: 'claude' } },
-        },
-        {
-          path: '/b',
-          agents: {
-            y: { status: 'running', agentType: 'claude' },
-            z: { status: 'running', agentType: 'terminal' },
-          },
-        },
-        { path: '/c', agents: { w: { status: 'exited', agentType: 'codex' } } },
-        {
-          path: '/d',
-          agents: { v: { status: 'running', agentType: 'claude' } },
-        },
-        {
-          path: '/e',
-          agents: { u: { status: 'running', agentType: 'claude' } },
-        },
-      ],
-    };
-    assert({
-      given:
-        'builders, a reviewer, a terminal, a stopped agent and an unregistered agent from a raw pu spawn',
-      should: 'count the builders and the unregistered agent',
-      actual: activeCount(
-        status,
-        (agentId) =>
-          agentId === 'v'
-            ? 'reviewer'
-            : agentId === 'u'
-              ? undefined
-              : 'builder',
-        'builder',
-      ),
-      expected: 3,
     });
   });
 });
 
 describe('bun agent:spawn for a reviewer', () => {
-  test('joins the existing worktree and is not blocked by the builder cap', async () => {
+  test('joins the existing worktree', async () => {
     const machine = fakeMachine({ builders: 3, reviewers: 1 });
     const code = await spawnAgent(working(machine), reviewArgs('wt-b0'));
     assert({
       given:
-        'an agent spawning a reviewer for wt-b0 with the builder cap full and one reviewer running',
+        'an agent spawning a reviewer for wt-b0 with three builders and one reviewer running',
       should:
         'spawn into wt-b0 without a new worktree or setup, and register the reviewer',
       actual: {

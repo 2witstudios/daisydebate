@@ -41,7 +41,7 @@ Stages {
    Human-only leaves are marked so in their title and never delegated.
 
 5. Orchestration
-   Follow the Library "Orchestrator stage loop": `bun board:stale`, read Issues, commit Ready leaves, write prompts from the Builder and Reviewer contracts, spawn with `bun agent:spawn` (prerequisites, builder cap 3, superseded terms, slot, parent, submission), reviews with `/review`, loops with the Library "Converge loop".
+   Follow the Library "Orchestrator stage loop": `bun board:stale`, read Issues, commit Ready leaves, write prompts from the Builder and Reviewer contracts, spawn with `bun agent:spawn` (prerequisites, superseded terms, slot, parent, submission), reviews with `/review`, loops with the Library "Converge loop".
    Stop again only at a human-only leaf or a decision only the owner can make; everything else continues.
    }
 

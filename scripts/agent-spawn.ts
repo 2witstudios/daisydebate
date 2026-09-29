@@ -2,15 +2,15 @@
 /**
  * The committed spawn wrapper (ADR 0035).
  *
- *   bun agent:spawn [--task <leaf>] [--cap N] [--override] -- -n <name>
+ *   bun agent:spawn [--task <leaf>] [--override] -- -n <name>
  *     [-b <base>] [-a <agent>] … "<prompt>"
  *   bun agent:spawn --role reviewer --worktree <worktreeId> -- [-a <agent>] …
  *   bun agent:send <agent> "<text>"
  *
- * Caps are per role (ADR 0035 section 8), from `--cap` or agent-cap.ts;
- * only the owner sets a cap or overrides a refusal. Before a builder starts it refuses superseded
- * terms in the leaf or prompt, undeclared or unmerged prerequisites and a
- * full cap. One pu spawn creates a builder's worktree and its agent
+ * Only the owner overrides a refusal. Before a builder starts it refuses
+ * superseded terms in the leaf or prompt and undeclared or unmerged
+ * prerequisites; it enforces no concurrency limit (ADR 0035 section 8).
+ * One pu spawn creates a builder's worktree and its agent
  * together, then its dependencies and PAR-2 slot come up in it; a reviewer
  * joins the existing worktree it reviews. The wrapper resolves the child id
  * from `pu status --json`, registers its parent and role in the main
@@ -29,7 +29,6 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import {
   activeAfterSend,
-  activeCount,
   QUIET_SECONDS,
   findPrerequisites,
   parseSpawnArgs,
@@ -45,9 +44,8 @@ import {
   newAgent,
   newWorktree,
 } from './agent-spawn-model';
-import { capsPath } from './agent-cap';
 import { isAgentSession } from './agent-guard-rules';
-import { parseRecord, recordPath, serializeRecord } from './agent-registry';
+import { recordPath, serializeRecord } from './agent-registry';
 
 type Result = { readonly code: number; readonly stdout: string };
 
@@ -155,20 +153,6 @@ function checkLeaf(deps: SpawnDeps, plan: SpawnPlan): readonly string[] {
   const terms = [...promptTerms, ...supersededTerms(content, table)];
   if (plan.role !== 'builder') return terms;
   return [...terms, ...prerequisiteChecks(deps, content)];
-}
-
-function checkCap(deps: SpawnDeps, plan: SpawnPlan): readonly string[] {
-  const active = activeCount(
-    puStatus(deps),
-    (agentId) => {
-      const text = deps.read(recordPath(deps.mainCheckout, agentId));
-      return text === undefined ? undefined : parseRecord(text)?.role;
-    },
-    plan.role,
-  );
-  return plan.cap !== undefined && active >= plan.cap
-    ? [`${active} ${plan.role}s are active; the cap is ${plan.cap}`]
-    : [];
 }
 
 function turnsWith(deps: SpawnDeps, cwd: string, text: string): number {
@@ -298,7 +282,7 @@ function spawnAgentInto(
 }
 
 async function spawnChecked(deps: SpawnDeps, plan: SpawnPlan): Promise<number> {
-  const blockers = [...checkLeaf(deps, plan), ...checkCap(deps, plan)];
+  const blockers = checkLeaf(deps, plan);
   if (blockers.length > 0 && (!plan.override || deps.autonomous))
     throw new SpawnRefused(
       `Refusing to spawn:\n- ${blockers.join('\n- ')}\n${deps.autonomous ? 'Only the owner can override.' : 'Pass --override to spawn anyway.'}`,
@@ -341,8 +325,7 @@ export async function spawnAgent(
   deps: SpawnDeps,
   argv: readonly string[],
 ): Promise<number> {
-  const caps = deps.read(capsPath(deps.mainCheckout));
-  const plan = parseSpawnArgs(argv, deps.autonomous, caps);
+  const plan = parseSpawnArgs(argv, deps.autonomous);
   if ('error' in plan) {
     deps.out(`${plan.error}\n`);
     return 2;

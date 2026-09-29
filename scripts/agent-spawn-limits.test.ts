@@ -12,30 +12,46 @@ import {
 
 setupRitewayBun();
 
-describe('agent:spawn role caps (ADR 0035 section 8)', () => {
-  test('spawns any number of reviewers: the role has no cap', async () => {
+describe('agent:spawn concurrency', () => {
+  test('spawns any number of reviewers', async () => {
     const machine = fakeMachine({ builders: 1, reviewers: 50 });
     const code = await spawnAgent(working(machine), reviewArgs('wt-b0'));
     assert({
       given: '50 reviewers already running against the same worktree',
-      should: 'spawn the 51st without a cap refusal',
+      should: 'spawn the 51st',
       actual: [code, spawned(machine.calls).length],
       expected: [0, 1],
     });
   });
 
-  test('still refuses a 4th builder at its default cap of 3', async () => {
-    const machine = fakeMachine({ builders: 3 });
+  test('spawns a builder however many builders are running', async () => {
+    const machine = fakeMachine({ builders: 25, submitsOnSpawn: true });
     const code = await spawnAgent(machine.deps, spawnArgs);
     assert({
-      given: '3 active builders and no --cap',
-      should: 'refuse a 4th builder',
+      given: '25 running builders',
+      should: 'spawn the builder without a refusal',
       actual: [
         code,
         spawned(machine.calls).length,
-        machine.output.join('').includes('3 builders are active; the cap is 3'),
+        machine.output.join('').includes('Refusing to spawn'),
       ],
-      expected: [1, 0, true],
+      expected: [0, 1, false],
+    });
+  });
+
+  test('rejects --cap as an unknown option', () => {
+    const errorOf = (autonomous: boolean) => {
+      const parsed = parseSpawnArgs(
+        ['--cap', '5', '--', '-n', 'x', 'prompt'],
+        autonomous,
+      );
+      return 'error' in parsed ? parsed.error.split('\n')[0] : 'ok';
+    };
+    assert({
+      given: '--cap 5 from the owner and from an agent',
+      should: 'reject the flag as unknown for both',
+      actual: [errorOf(false), errorOf(true)],
+      expected: Array(2).fill('unknown agent:spawn option --cap'),
     });
   });
 });
@@ -66,7 +82,7 @@ describe('agent:spawn pu flags', () => {
 });
 
 describe('agent:spawn failure paths', () => {
-  test('refuses to spawn when pu status fails during the cap check', async () => {
+  test('refuses to spawn when pu status fails', async () => {
     const machine = fakeMachine();
     const failing: SpawnDeps = {
       ...machine.deps,

@@ -27,8 +27,6 @@ export function fakeMachine(
     builders?: number;
     // Running reviewers, registered in the first builder's worktree.
     reviewers?: number;
-    // Builders started by a raw pu spawn, with no registry record.
-    unregistered?: boolean;
     leaf?: string;
     submitsOnSpawn?: boolean;
     setupFails?: boolean;
@@ -72,7 +70,7 @@ export function fakeMachine(
           }),
         ] as [string, string],
     ),
-    ...(options.unregistered ? [] : world.worktrees).map(
+    ...world.worktrees.map(
       (w, i) =>
         [
           recordPath(repo, `ag-b${i}`),
