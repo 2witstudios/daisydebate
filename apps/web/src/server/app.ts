@@ -123,6 +123,10 @@ export function createApp({
     redis,
     /** AUTH-7.7's bounded-cardinality in-process counters (`/api/ops/metrics`). */
     metrics,
+    /** The alert state this process keeps without Redis (ISSUE-191). */
+    localAlertState: {
+      limiterUnavailableSince: () => alertRecorder.limiterUnavailableSince(),
+    },
     /** The composed auth server, validated and built on first use. */
     auth: (): AuthServer => (auth ??= composeAuth()),
     /**

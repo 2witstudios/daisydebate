@@ -119,10 +119,11 @@ export type AlertConditionsResult =
 /**
  * Fetches the already-evaluated conditions from `/api/ops/alerts`. Never
  * throws: a non-2xx response, a body without a `conditions` array, or a
- * fetch failure (a Redis outage most often surfaces as the latter, since
- * `/api/ops/alerts` itself depends on Redis to answer at all) comes back as
+ * fetch failure (a deploy fault or the app being down) comes back as
  * `{ ok: false, error }` so `main` can still post to Incidents instead of
- * dying before it posts anything.
+ * dying before it posts anything. A Redis outage is not one of these: the
+ * endpoint still answers `limiter_unavailable` from what the app saw itself
+ * (ISSUE-191).
  */
 export async function fetchAlertConditions(
   origin: string,
@@ -161,10 +162,10 @@ export type ProbeOutcome =
 
 /**
  * Pure: decides whether the probe run is healthy and, if not, the message
- * to post. An unreachable `/api/ops/alerts` (Redis outage, deploy fault, or
- * any other failure) is itself treated as an alert-worthy condition, not a
- * reason to skip posting — this is what lets a full Redis outage still
- * reach Incidents (AUTH-7.7-AC2/ISSUE-156).
+ * to post. An unreachable `/api/ops/alerts` (a deploy fault or any other
+ * failure) is itself treated as an alert-worthy condition, not a reason to
+ * skip posting, so a failing endpoint still reaches Incidents
+ * (AUTH-7.7-AC2/ISSUE-156).
  */
 export function decideProbeOutcome(input: {
   readonly originProbe: OriginProbeResult;

@@ -63,6 +63,23 @@ const recordHttpOutcome = (
     );
 };
 
+/** An outage's first and latest occurrence, both UTC ISO timestamps. */
+type OutageMark = { readonly sinceIso: string; readonly lastIso: string };
+
+const withinBridge = (mark: OutageMark, nowIso: string): boolean =>
+  Date.parse(nowIso) - Date.parse(mark.lastIso) <=
+  UNAVAILABLE_MARK_TTL_SECONDS * 1000;
+
+/**
+ * The in-process twin of `markOccurrenceSince`: keeps the since-time while
+ * occurrences arrive within the bridging TTL, and starts a new outage after
+ * a longer quiet gap.
+ */
+const nextOutageMark = (mark: OutageMark | null, nowIso: string): OutageMark =>
+  mark !== null && withinBridge(mark, nowIso)
+    ? { sinceIso: mark.sinceIso, lastIso: nowIso }
+    : { sinceIso: nowIso, lastIso: nowIso };
+
 /**
  * Derives AUTH-7.7's durable, bounded-cardinality Redis alert state from the
  * structured event stream that already exists — no new call sites, no new
@@ -76,7 +93,19 @@ export function createAlertRecorder({
   readonly redis: AlertRecorderRedis;
   readonly clock: Clock;
 }) {
+  // ISSUE-191: the limiter's Redis is the one the marker below is written
+  // to, so its outage loses that marker; this process's own copy survives it.
+  let limiterOutage: OutageMark | null = null;
   return {
+    /**
+     * When this process first saw the rate limiter unavailable in the current
+     * outage, or null once none has occurred within the bridging TTL.
+     */
+    limiterUnavailableSince(): string | null {
+      return limiterOutage !== null && withinBridge(limiterOutage, clock.now())
+        ? limiterOutage.sinceIso
+        : null;
+    },
     observe(event: string, fields: Readonly<Record<string, unknown>>): void {
       switch (event) {
         case 'auth.session.unavailable':
@@ -89,6 +118,7 @@ export function createAlertRecorder({
           );
           return;
         case 'auth.rate_limit.unavailable':
+          limiterOutage = nextOutageMark(limiterOutage, clock.now());
           swallow(
             redis.markOccurrenceSince(
               'alert-unavailable-limiter',
