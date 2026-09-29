@@ -1,8 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createAccountFlows } from './auth-account-helpers';
+import { createCeilingFlows, GLOBAL_MINUTE } from './auth-ceiling-helpers';
 import { elapse, holdOpen, recipientBucket } from './auth-rate-limit-helpers';
 import { createTestApp } from './fixtures';
-import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import { requireTestServices } from '@daisy/config';
 
 /**
@@ -19,11 +18,15 @@ import { requireTestServices } from '@daisy/config';
 requireTestServices(process.env);
 setupRitewayBun();
 
-const accounts = createAccountFlows();
-const { flows } = accounts;
-const { testApp, mailbox, newClient, fresh } = flows;
-
-const GLOBAL_MINUTE = 'auth:magic-link:global:60';
+const {
+  accounts,
+  testApp,
+  mailbox,
+  fresh,
+  magicLink,
+  elapseGlobalMinute,
+  settled,
+} = createCeilingFlows();
 
 /**
  * A stand-in for one Resend round trip, and smaller than a real one, so a
@@ -59,24 +62,12 @@ const median = (sample: number[]) => {
   return sorted[Math.floor(sorted.length / 2)] ?? Number.NaN;
 };
 
-const magicLink = (email: string) =>
-  flows.authRoute.POST(
-    flows.jsonPost(
-      '/api/auth/sign-in/magic-link',
-      { email },
-      { [CLIENT_IP_HEADER]: newClient() },
-    ),
-  );
-
-/** Post-answer work (sends, drops) finished. */
-const settled = () => testApp.app.auth().settled();
-
 /**
  * The real minute ceiling saturated by 120 new addresses, then held open
  * for the whole test so no sample lands in a fresh window.
  */
 const saturate = async () => {
-  await elapse(testApp, GLOBAL_MINUTE);
+  await elapseGlobalMinute();
   await Promise.all(Array.from({ length: 120 }, () => magicLink(fresh())));
   await settled();
   await holdOpen(testApp, GLOBAL_MINUTE, 600_000);
@@ -93,7 +84,7 @@ const recipientRoom = (email: string) =>
 
 describe('ISSUE-185 a saturated sign-up ceiling answers in the same time for any address', () => {
   test('the answer to an existing account does not wait on its delivery', async () => {
-    await elapse(testApp, GLOBAL_MINUTE);
+    await elapseGlobalMinute();
     const existing = (await accounts.signUp()).email;
     await saturate();
     const release = mailbox.hold();
@@ -128,7 +119,7 @@ describe('ISSUE-185 a saturated sign-up ceiling answers in the same time for any
   });
 
   test('response times for unknown addresses and existing accounts are not distinguishable', async () => {
-    await elapse(testApp, GLOBAL_MINUTE);
+    await elapseGlobalMinute();
     const existing = [
       (await accounts.signUp()).email,
       (await accounts.signUp()).email,
@@ -190,7 +181,7 @@ describe('ISSUE-185 a saturated sign-up ceiling answers in the same time for any
   });
 
   test('closing the app finishes the work answered before it, then closes the pools', async () => {
-    await elapse(testApp, GLOBAL_MINUTE);
+    await elapseGlobalMinute();
     const existing = (await accounts.signUp()).email;
     // An app of its own, so this test can close it: same databases, its own
     // Redis namespace and mailbox.

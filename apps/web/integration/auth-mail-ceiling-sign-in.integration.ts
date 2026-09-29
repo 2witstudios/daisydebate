@@ -1,8 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createAccountFlows } from './auth-account-helpers';
-import { elapse, statuses } from './auth-rate-limit-helpers';
+import { createCeilingFlows } from './auth-ceiling-helpers';
+import { statuses } from './auth-rate-limit-helpers';
 import { counts } from './fixtures';
-import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import { requireTestServices } from '@daisy/config';
 
 /**
@@ -21,21 +20,16 @@ import { requireTestServices } from '@daisy/config';
 requireTestServices(process.env);
 setupRitewayBun();
 
-const accounts = createAccountFlows();
-const { flows } = accounts;
-const { testApp, mailbox, newClient, fresh } = flows;
-
-const magicLink = (email: string, client = newClient()) =>
-  flows.authRoute.POST(
-    flows.jsonPost(
-      '/api/auth/sign-in/magic-link',
-      { email },
-      { [CLIENT_IP_HEADER]: client },
-    ),
-  );
-
-/** The global minute window elapsing: its real counter key expires. */
-const elapseGlobalMinute = () => elapse(testApp, 'auth:magic-link:global:60');
+const {
+  accounts,
+  testApp,
+  mailbox,
+  newClient,
+  fresh,
+  magicLink,
+  elapseGlobalMinute,
+  settled,
+} = createCeilingFlows();
 
 /** Fills the global minute ceiling with 120 new addresses, each its own client. */
 const saturate = async () => {
@@ -57,9 +51,6 @@ const observable = async (response: Response) => ({
     .map(([name, value]) => [name, PER_RESPONSE.has(name) ? '*' : value])
     .sort(([left = ''], [right = '']) => left.localeCompare(right)),
 });
-
-/** Post-answer work (a saturated ceiling's sends and drops) finished. */
-const settled = () => testApp.app.auth().settled();
 
 /** Mails sent to `email` by `work`, including after its answer. */
 const mailsTo = async (email: string, work: () => Promise<Response>) => {
