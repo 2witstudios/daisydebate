@@ -123,6 +123,37 @@ package; this map lists only packages that exist today.
    repository gates that fail on arbitrary values, unknown classes and
    `dark:` variants.
 
+## Authorization core (ADR 0047)
+
+The design the AZC epic delivers. Until each leaf lands, the code keeps the
+flat permission list described in the package map above.
+
+- **One pure decision point.** `authorize` and `authorizeInbox` in
+  `@daisy/auth` (AZC-1.3) answer every read and create question from facts
+  the shared loader in `@daisy/db` (`packages/db/src/league-scoped/`,
+  AZC-3.1) loads fresh per request; `authorizeSubscribe` does the same for
+  the five realtime topic families (AZC-3.4). Principals carry no
+  permissions. `apps/web` composes the loader and `authorize` in
+  `authorizeRequest`, and `apps/realtime` composes them in its subscribe
+  decision, so neither app imports the other.
+- **The `auth → protocol` edge.** The capability, resource kind and deny
+  reason vocabularies are `@daisy/protocol`'s (AZC-1.2), so `@daisy/auth`'s
+  allowed edges change from `errors` to `errors` and `protocol` (AZC-1.3, in
+  `scripts/boundaries-rules.ts` and `package.json`). `@daisy/db` may not
+  import `@daisy/auth`; it returns a plain projection and `@daisy/auth`'s
+  `toAuthorizationInput` maps it.
+- **Leagues.** A league is a ranked ladder (`leagues`), membership is an
+  active `league_members` row and carries no powers, each league has its own
+  active season, and a debate has a league (`debates.league_id`, nullable)
+  exactly when it is ranked (AZC-2.1). Unranked debates belong to no league.
+  The Daisy league is an ordinary row, and a database index plus a startup
+  check refuse a second league until row-level security is enabled on every
+  league-owned table (LEAGUE-OPS). Details: [persistence](persistence.md).
+- **Denied reads** answer `NOT_FOUND` for every principal; denied
+  non-read capabilities answer the authentication, participant-redirect or
+  authorization result; an unavailable identity answers 503 before any
+  decision.
+
 Detailed documents: persistence and Redis semantics
 (`docs/architecture/persistence.md`), engine boundary
 (`docs/domains/engine.md`), decision records (`docs/decisions/`).

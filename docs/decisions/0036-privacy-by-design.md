@@ -4,7 +4,9 @@ Status: accepted. Extends [ADR 0019](0019-token-secret-ownership.md) (what
 must never be logged) and [ADR 0029](0029-competitive-schema-foundation.md)
 (the tombstone transaction, which this ADR's erasure planner drives).
 Amended by [ADR 0037](0037-error-tracking-and-product-analytics.md) for the
-vendor surfaces this ADR's classification applies to.
+vendor surfaces this ADR's classification applies to, and by
+[ADR 0047](0047-authorization-core.md) for the `authorization` owner and the
+`record-lifetime` retention kind.
 
 ## Context
 
@@ -103,10 +105,12 @@ is declared once, with all of:
 - `purpose`
 - `lawfulBasis`
 - `storage`: `postgres | redis | vendor`
-- `owner`: a closed union (`auth | competitive | telemetry | privacy | …`)
+- `owner`: a closed union (`auth | authorization | competitive | telemetry | privacy | …`)
   that grows with each feature area, so a gate failure names who is
   responsible
-- `retention`: `{ kind: 'account-lifetime' | 'ttl' | 'legal', ms? }`
+- `retention`: `{ kind: 'account-lifetime' | 'ttl' | 'legal' | 'record-lifetime', ms? }`
+  (`record-lifetime` is valid only for `none` and `identifier` entries; see
+  the amendment at the end)
 - `erasure`: `delete | anonymize | cascade | tombstone | retain`
 - `exportable`
 
@@ -213,3 +217,17 @@ user actually agreed to from what the deployment happened to expose.
   https://gdpr-info.eu/art-9-gdpr/
 - Data subject rights to erasure and to access (Articles 15, 17):
   https://gdpr-info.eu/art-15-gdpr/, https://gdpr-info.eu/art-17-gdpr/
+
+## Amendment (2026-09-29): `authorization` and `record-lifetime`
+
+[ADR 0047](0047-authorization-core.md) adds to section 3:
+
+- The `owner` value `authorization`, for the league, membership and
+  authorization-decision entries.
+- The `retention` kind `record-lifetime`: the row lives as long as the league
+  or competitive record it describes. It is valid only for entries whose
+  category is `none` or `identifier`. A `personal`, `sensitive` or `secret`
+  entry never uses it and keeps `account-lifetime`, `ttl` or `legal`, so a
+  personal value cannot outlive its subject under this kind. The registry
+  and gate (PRIV-3) enforce the restriction when they land; no code type
+  carries the union until then.
