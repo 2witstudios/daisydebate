@@ -59,6 +59,16 @@ async function memberWithSecondSession(
 }
 
 /**
+ * Submits an email change once the security page has hydrated: under load
+ * hydration can lag first paint by seconds (ISSUE-84), and a click in that
+ * gap submits nothing the notice can answer.
+ */
+async function submitEmailChange(page: Page, newEmail: string) {
+  await hydrated(page.getByRole('button', { name: 'Change email' }));
+  await changeEmail(page, newEmail);
+}
+
+/**
  * The old-inbox approval hop, then the new-inbox verification hop, each a
  * real emailed link opened and confirmed; lands on account security once
  * both are spent.
@@ -91,7 +101,7 @@ async function requestAndApproveEmailChange(
   oldEmail: string,
 ) {
   const newEmail = freshEmail();
-  await changeEmail(page, newEmail);
+  await submitEmailChange(page, newEmail);
   await expect(page.locator('#email-change-notice')).toContainText(
     /approve this change/i,
   );
@@ -252,7 +262,7 @@ test('a conflicting email answers the same success shape, and leaves both accoun
   const requester = await signUpMember(page.request); // the requester whose browser context we drive
   await page.goto('/settings/security');
 
-  await changeEmail(page, other.email);
+  await submitEmailChange(page, other.email);
   await expect(page.locator('#email-change-notice')).toContainText(
     /approve this change/i,
   );
@@ -299,15 +309,18 @@ test('a replayed email-change link shows a safe error and leaves the account ema
   const { email } = await signUpMember(page.request);
   await page.goto('/settings/security');
 
-  const { newEmail, verifyLink } = await requestAndApproveEmailChange(
+  // A → B, then B → C: the spent A → B verification link would move the
+  // account back to B if a replay were ever applied, so "unchanged" (still
+  // C) is an assertion that can fail.
+  const { newEmail: second, verifyLink: spentLink } =
+    await requestAndApproveEmailChange(page, request, email);
+  const { newEmail: third } = await requestAndApproveEmailChange(
     page,
     request,
-    email,
+    second,
   );
 
-  // The verification link is single-use; replaying it after the change
-  // already completed must be refused, not silently re-applied.
-  await page.goto(verifyLink);
+  await page.goto(spentLink);
   await page.getByRole('button', { name: 'Continue' }).click();
   await expect(
     page.getByRole('heading', { name: /can no longer be used/i }),
@@ -315,5 +328,5 @@ test('a replayed email-change link shows a safe error and leaves the account ema
 
   const session = await page.request.get('/api/auth/get-session');
   const body = (await session.json()) as { user: { email: string } };
-  expect(body.user.email).toBe(newEmail);
+  expect(body.user.email).toBe(third);
 });
