@@ -285,12 +285,15 @@ describe('fetchAlertConditions (ISSUE-156)', () => {
     );
     assert({
       given: 'a 200 from /api/ops/alerts whose JSON has no conditions array',
-      should: 'resolve not-ok naming the malformed body, not ok',
-      actual: result,
-      expected: {
-        ok: false,
-        error: '/api/ops/alerts responded without a conditions array',
+      should:
+        'resolve not-ok naming an unreadable alert state and the missing conditions, not ok',
+      actual: {
+        ok: result.ok,
+        namesUnreadable:
+          !result.ok && result.error.includes('unreadable alert state'),
+        namesConditions: !result.ok && result.error.includes('conditions'),
       },
+      expected: { ok: false, namesUnreadable: true, namesConditions: true },
     });
   });
 
