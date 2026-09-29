@@ -168,13 +168,17 @@ token>` as the `verification.identifier`. The subject (the email for
   test rotates client addresses and proves the day ceiling for a taken and
   a free address, with the same refusal for both.
 - **Global sign-up ceilings and account existence (ISSUE-54, ISSUE-182,
-  ISSUE-188, ISSUE-189).** Every magic-link send spends the
+  ISSUE-185, ISSUE-188, ISSUE-189).** Every magic-link send spends the
   whole-application ceilings, whether or not the address has an account.
   They are spent at the send (`sign-in-mail.ts`), after the rate-limit gate,
   the destination check and the suppression check have admitted the request
-  exactly as they admit one for an existing account. Only a sign-up is held
-  back. Past a ceiling, a sign-up's mail is dropped and its unmailed token
-  deleted, while a sign-in link to an existing account is still sent. No one
+  exactly as they admit one for an existing account. With room, the link is
+  sent to any address and the answer waits on delivery. Past a ceiling the
+  request is answered at once, and everything that depends on the account
+  runs after the answer (`after-response.ts`): the account lookup, then
+  either the sign-in link's send to an existing account or, for a sign-up,
+  the dropped mail and the deletion of its unmailed token. Only a sign-up is
+  held back. No one
   can deny sign-in by draining the ceilings: rotating IPv6 /128 client
   addresses and plus-addressed recipients (`victim+1@…`, `victim+2@…`) slip
   past every per-client and per-recipient bucket, but a drained ceiling
@@ -191,22 +195,31 @@ token>` as the `verification.identifier`. The subject (the email for
   The ceilings' remaining capacity is the same after either request, so a
   caller's own follow-up sign-up cannot read the answer back (ISSUE-188).
   The per-client and per-recipient buckets meter both alike, and their
-  `429` is the same for both. What stays observable: response latency
-  under saturation, because a sign-in link is really sent while a dropped
-  sign-up is not. That channel is open and tracked as ISSUE-185. The
-  account holder also receives every sign-in link a prober requests, and
-  sees it. Operators see saturation as `auth.rate_limit.denied` in the
+  `429` is the same for both. Response time under saturation is the same
+  for both (ISSUE-185): each answer waits on the same work (the gate's
+  buckets, the suppression check, the token write and the ceiling spend)
+  and on nothing that depends on the account, so the provider round trip
+  of a real send is never part of it. The handed-off work finishes before
+  the app's pools close on shutdown. A database failure during it is logged
+  as `request.unhandled`, and its unmailed token expires unused. What stays
+  observable: the account holder receives every sign-in link a prober
+  requests, and sees it. Operators see saturation as `auth.rate_limit.denied` in the
   structured log, never in a response. A drained ceiling delays new
   sign-ups until its window resets: the person gets no mail and requests
   another link. A limiter failure on a ceiling fails closed with the same
   `503` as any other bucket. Integration tests against real Redis saturate
   the minute ceiling and prove identical answers, and run the canary probe
   (fill to 119 with the caller's own addresses, request the target, then
-  one more own address), which is mailed alike whatever the target is.
+  one more own address), which is mailed alike whatever the target is. A
+  latency test against real PostgreSQL and Redis, with the mail provider
+  given a round trip, compares the two paths' response times with a
+  two-sample Kolmogorov–Smirnov test (α = 0.001), and a unit test pins that
+  both answer after the identical seam calls while the transport has not
+  answered.
 - **Suppression covers every auth mail (ISSUE-54).** Every auth email
   (sign-in links, email-change approval and confirmation, passkey
   added/removed notices) goes through the one delivery path
-  (`createAuthServer`'s `sendMail`), which checks the suppression ledger
+  (`send-mail.ts`), which checks the suppression ledger
   before anything reaches the transport. A suppressed recipient is logged
   as `auth.mail.suppressed` and nothing is sent. A mail the flow cannot
   proceed without (the sign-in link, the email-change approval to the

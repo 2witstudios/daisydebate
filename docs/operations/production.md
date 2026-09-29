@@ -14,8 +14,9 @@ lifecycle:
 - **Timeouts**: request 30s, headers 15s, keep-alive 5s; database statements
   5s and locks 2s (adapter level); readiness probes bounded at 2s per
   dependency.
-- **Shutdown order**: stop accepting → drain HTTP → close Next → close
-  database and Redis pools. Connection pools are process-local resources;
+- **Shutdown order**: stop accepting → drain HTTP → close Next → finish
+  auth work handed off past its answer (ISSUE-185) → close database and
+  Redis pools. Connection pools are process-local resources;
   never shared across instances.
 
 ## Health and readiness

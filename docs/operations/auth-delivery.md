@@ -68,8 +68,11 @@ ISSUE-188): a drained ceiling delays new sign-ups, never sign-in. A day's
 sign-up capacity is 3,000 minus that day's magic-link sign-ins. Past a
 ceiling, a sign-up request gets the same `200` as any other and no mail
 (ISSUE-182); the saturation shows only as `auth.rate_limit.denied` with
-`path: /sign-in/magic-link` in the log. While saturated, a failed sign-in
-send also answers `200` (ISSUE-189); watch `auth.mail.failed`.
+`path: /sign-in/magic-link` in the log. While saturated, the answer comes
+before the account lookup and the send or drop, which finish afterwards
+(ISSUE-185), so a failed sign-in send also answers `200` (ISSUE-189): watch
+`auth.mail.failed`, and `request.unhandled` with `source:
+auth.after-response` for a database failure in that work.
 
 The sign-in page offers passkeys in browser autofill, so every visible view
 spends one `/passkey/generate-authenticate-options` request (a challenge row
