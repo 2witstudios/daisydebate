@@ -128,20 +128,19 @@ token>` as the `verification.identifier`. The subject (the email for
   from rotating clients), and two whole-application ceilings independent of
   any client or recipient (120/60 s, 3,000/day — protects Resend quota, cost
   and sending-domain reputation from many recipients each staying under their
-  own ceiling). The whole-application ceilings meter only links to addresses
-  with no account, that is sign-up links (ISSUE-54, amended 2026-09-24); the
-  gate looks the address up only after the client and recipient buckets have
-  admitted the request. A limiter failure fails closed as a safe `503` (the route
-  boundary adds `Retry-After: 5`); there is no process-local fallback and no
-  allow-on-error. `429` carries `Retry-After`. The gate consumes a request's
-  buckets in order (client, recipients, global) and every consume counts,
-  admitted or not, so a request denied by a later bucket has already spent
-  the earlier buckets' budget. That is accepted: a caller who keeps retrying
-  while the global ceiling is saturated also exhausts their own client and
-  recipient allowance, but nothing is admitted wrongly, and spending nothing
-  on denial would need one atomic multi-key script across every bucket.
-  Integration tests prove the recipient hour and day ceilings and both
-  global ceilings against real Redis.
+  own ceiling). Every magic-link send counts against the whole-application
+  ceilings, but only a sign-up (a link to an address with no account) is
+  held back by them, and they never refuse a request (ISSUE-54, ISSUE-182,
+  ISSUE-188; see below). A limiter failure fails closed as a safe
+  `503` (the route boundary adds `Retry-After: 5`); there is no
+  process-local fallback and no allow-on-error. `429` carries `Retry-After`.
+  The gate consumes a request's buckets in order (client, then recipients)
+  and every consume counts, admitted or not, so a request denied by the
+  recipient bucket has already spent its client budget. That is accepted:
+  nothing is admitted wrongly, and spending nothing on denial would need one
+  atomic multi-key script across every bucket. Integration tests prove the
+  recipient hour and day ceilings and both global ceilings against real
+  Redis.
 - **Email-change mail ceilings for the new address (ISSUE-121).** An
   approved email change mails its new address: a verification link, or,
   when the address already has an account, the `email-change-taken` notice
@@ -168,26 +167,42 @@ token>` as the `verification.identifier`. The subject (the email for
   which delays a change to that address and nothing else. An integration
   test rotates client addresses and proves the day ceiling for a taken and
   a free address, with the same refusal for both.
-- **Global-ceiling sign-in denial (ISSUE-54, amended 2026-09-24).** Before
-  this amendment the global ceilings counted every magic-link request, so a
-  single actor could deny magic-link sign-in to the whole application. At
-  the client rate (3 a minute per address), rotating IPv6 /128 addresses
-  made every request a new client, and plus-addressed recipients
-  (`victim+1@…`, `victim+2@…`) made every request a new recipient, so no
-  per-client or per-recipient bucket ever stopped it and 3,000 requests
-  spent the day's allowance for everyone. Accepted mitigation: sign-in to
-  an existing account never counts against the global ceilings and is never
-  denied by them. That mail stays bounded per account by the recipient
-  ceilings (20 a day per account), so its total is bounded by the account
-  base, not by any attacker. Plus-addressed variants are distinct
-  addresses with no account, so they stay metered. Residual risks, accepted:
-  one actor can still drain the global ceilings with new addresses, which
-  delays new sign-ups (they answer `429` until the window resets) but denies
-  no sign-in, and passkey sign-in never sends mail at all. While a global
-  ceiling is saturated, a `429` for an address and a `200` for another tells
-  the caller which one has an account; probing costs the caller its own
-  client and recipient allowance and mails each real account holder a
-  sign-in link, which they can see.
+- **Global sign-up ceilings and account existence (ISSUE-54, ISSUE-182,
+  ISSUE-188, ISSUE-189).** Every magic-link send spends the
+  whole-application ceilings, whether or not the address has an account.
+  They are spent at the send (`sign-in-mail.ts`), after the rate-limit gate,
+  the destination check and the suppression check have admitted the request
+  exactly as they admit one for an existing account. Only a sign-up is held
+  back. Past a ceiling, a sign-up's mail is dropped and its unmailed token
+  deleted, while a sign-in link to an existing account is still sent. No one
+  can deny sign-in by draining the ceilings: rotating IPv6 /128 client
+  addresses and plus-addressed recipients (`victim+1@…`, `victim+2@…`) slip
+  past every per-client and per-recipient bucket, but a drained ceiling
+  only delays new sign-ups. Existing accounts' mail stays bounded by the
+  recipient ceilings (20 a day per account). Sign-in links count toward the
+  same 120 a minute and 3,000 a day, so a day's sign-up capacity is 3,000
+  minus that day's magic-link sign-ins (passkey sign-in sends no mail and
+  spends nothing). What the ceilings close: while one is saturated, an
+  address with no account and an existing account's address get the same
+  `200`, body and headers, with no `Retry-After` (ISSUE-182). The same holds
+  when mail delivery also fails: a saturated request's answer never depends
+  on delivery, so a failed sign-in send answers the dropped sign-up's `200`
+  (ISSUE-189). With room, a failed send is the retryable `503` for both.
+  The ceilings' remaining capacity is the same after either request, so a
+  caller's own follow-up sign-up cannot read the answer back (ISSUE-188).
+  The per-client and per-recipient buckets meter both alike, and their
+  `429` is the same for both. What stays observable: response latency
+  under saturation, because a sign-in link is really sent while a dropped
+  sign-up is not. That channel is open and tracked as ISSUE-185. The
+  account holder also receives every sign-in link a prober requests, and
+  sees it. Operators see saturation as `auth.rate_limit.denied` in the
+  structured log, never in a response. A drained ceiling delays new
+  sign-ups until its window resets: the person gets no mail and requests
+  another link. A limiter failure on a ceiling fails closed with the same
+  `503` as any other bucket. Integration tests against real Redis saturate
+  the minute ceiling and prove identical answers, and run the canary probe
+  (fill to 119 with the caller's own addresses, request the target, then
+  one more own address), which is mailed alike whatever the target is.
 - **Suppression covers every auth mail (ISSUE-54).** Every auth email
   (sign-in links, email-change approval and confirmation, passkey
   added/removed notices) goes through the one delivery path
