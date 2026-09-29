@@ -161,6 +161,46 @@ test('username onboarding is fully usable by keyboard alone, with visible focus'
   await declineByKeyboard(page, 'Not now');
 });
 
+test('keyboard focus is visible on every sign-in control, not only present in the DOM (ISSUE-167)', async ({
+  page,
+}) => {
+  // `toBeFocused()` elsewhere in this suite proves DOM focus state; it
+  // never proves a sighted keyboard user can see where focus is (WCAG
+  // 2.4.7). Each control is reached with Tab (keyboard modality, so
+  // :focus-visible applies) and its rendered indicator compared with the
+  // same control unfocused: a ring that looks the same both ways is none.
+  await page.goto('/sign-in');
+  await expect(page.getByLabel('Email')).toBeVisible();
+  const checked: string[] = [];
+  const invisible: string[] = [];
+  for (let step = 0; step < 12; step += 1) {
+    await page.keyboard.press('Tab');
+    const control = await page.evaluate(() => {
+      const element = document.activeElement;
+      if (!(element instanceof HTMLElement) || element === document.body)
+        return null;
+      const indicator = () => {
+        const style = getComputedStyle(element);
+        return `${style.outlineStyle} ${style.outlineWidth} ${style.boxShadow}`;
+      };
+      const focused = indicator();
+      element.blur();
+      const resting = indicator();
+      element.focus();
+      const name =
+        element.getAttribute('aria-label') ??
+        (element.textContent?.trim() || element.getAttribute('name') || '') +
+          ` <${element.tagName.toLowerCase()}>`;
+      return { name, visible: focused !== resting };
+    });
+    if (!control || checked.includes(control.name)) continue;
+    checked.push(control.name);
+    if (!control.visible) invisible.push(control.name);
+  }
+  expect(checked.length).toBeGreaterThanOrEqual(2);
+  expect(invisible).toEqual([]);
+});
+
 test('the shared-computer decline choice is reachable with plain Tab in every engine', async ({
   page,
   request,

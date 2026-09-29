@@ -317,6 +317,11 @@ export default [
             '@daisy/*/src/*',
             '@daisy/db',
             '@daisy/redis',
+            // ISSUE-167: packages/auth is the framework-free identity domain
+            // (Identity, Requirement, username shape); Better Auth is a
+            // delivery-layer detail apps/web composes, never a domain import.
+            'better-auth',
+            'better-auth/*',
           ],
         },
       ],

@@ -141,6 +141,24 @@ test('an interrupted signup resumes onboarding on the next sign-in', async ({
   await expect(page).toHaveURL(/\/onboarding\/username\?next=%2Franked$/);
 });
 
+test('declining the passkey offer after onboarding from a protected page other than /lobby returns there (AUTH-4.3-AC3, ISSUE-159)', async ({
+  page,
+  request,
+}) => {
+  await page.goto('/ranked');
+  await expect(page).toHaveURL(/\/sign-in\?next=%2Franked$/);
+  const email = freshEmail();
+  await requestSignInLink(page, email);
+  await confirmSignIn(page, await emailedLink(request, email));
+  await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)ranked$/);
+  await claimUsername(page, uniqueName('ranked'));
+  await expect(
+    page.getByRole('heading', { name: /next time, one tap/i }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Not now' }).click();
+  await expect(page).toHaveURL(/\/ranked$/);
+});
+
 test('return destinations are validated and spectator routes stay public', async ({
   page,
   request,

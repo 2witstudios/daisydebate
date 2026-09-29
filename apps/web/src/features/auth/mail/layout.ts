@@ -95,7 +95,7 @@ export function renderAuthEmailLayout(content: AuthEmailContent): {
   }
 </style>
 </head>
-<body style="margin:0;padding:0;background:${LIGHT.background};">
+<body class="auth-mail-bg" style="margin:0;padding:0;background:${LIGHT.background};">
 <span style="display:none;overflow:hidden;line-height:1px;opacity:0;max-height:0;max-width:0;mso-hide:all;">${escapeHtml(content.preheader)}${preheaderPadding}</span>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="auth-mail-bg" style="background:${LIGHT.background};">
 <tr><td align="center" style="padding:32px 16px;">

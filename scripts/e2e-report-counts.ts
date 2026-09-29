@@ -8,7 +8,12 @@
  */
 type PlaywrightResult = { status: string; retry: number };
 type PlaywrightTest = { results: PlaywrightResult[]; projectName?: string };
-type PlaywrightSpec = { tests: PlaywrightTest[] };
+type PlaywrightSpec = {
+  title?: string;
+  file?: string;
+  line?: number;
+  tests: PlaywrightTest[];
+};
 type PlaywrightSuite = { specs?: PlaywrightSpec[]; suites?: PlaywrightSuite[] };
 type PlaywrightReport = {
   suites: PlaywrightSuite[];
@@ -27,6 +32,8 @@ export type ProjectCounts = {
   failed: number;
   skipped: number;
   retried: number;
+  /** Each skipped test as `file:line "title"`, so the gate can point at it. */
+  skippedTests: string[];
 };
 
 function collectSpecs(suite: PlaywrightSuite): PlaywrightSpec[] {
@@ -35,6 +42,9 @@ function collectSpecs(suite: PlaywrightSuite): PlaywrightSpec[] {
     ...(suite.suites ?? []).flatMap(collectSpecs),
   ];
 }
+
+const skippedName = (spec: PlaywrightSpec) =>
+  `${spec.file ?? '(unknown file)'}:${spec.line ?? '?'} "${spec.title ?? '(untitled test)'}"`;
 
 export function countsByProject(
   report: PlaywrightReport,
@@ -51,11 +61,13 @@ export function countsByProject(
           failed: 0,
           skipped: 0,
           retried: 0,
+          skippedTests: [],
         });
         counts.discovered += 1;
         const last = test.results.at(-1);
         if (!last || last.status === 'skipped') {
           counts.skipped += 1;
+          counts.skippedTests.push(skippedName(spec));
           continue;
         }
         counts.executed += 1;
@@ -67,7 +79,7 @@ export function countsByProject(
 }
 
 export type CountsProblem = {
-  code: 'EMPTY_SELECTION' | 'RETRY_PASS';
+  code: 'EMPTY_SELECTION' | 'RETRY_PASS' | 'SKIPPED_TEST';
   detail: string;
 };
 
@@ -81,12 +93,22 @@ export function countsProblems(
       code: 'EMPTY_SELECTION',
       detail: 'no tests were discovered; the E2E project selection is empty',
     });
-  for (const [project, counts] of projects)
+  for (const [project, counts] of projects) {
     if (counts.retried > 0)
       problems.push({
         code: 'RETRY_PASS',
         detail: `${project}: ${counts.retried} test(s) needed a retry; a retry-pass is not release proof`,
       });
+    // A skipped or fixme'd required test (test.skip/test.fixme, or a
+    // conditional skip a project hit) reports Playwright status "skipped";
+    // a required suite has none, so any is a quarantined test the gate
+    // must catch (ISSUE-164), named so it can be found.
+    for (const skipped of counts.skippedTests)
+      problems.push({
+        code: 'SKIPPED_TEST',
+        detail: `${project}: ${skipped} was skipped; a required E2E project may not skip, fixme or focus a test`,
+      });
+  }
   return problems;
 }
 

@@ -2,11 +2,8 @@ import { createHash } from 'node:crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import type { IdGenerator } from '@daisy/clock';
 import { isValidTraceparent } from '@daisy/observability';
-import {
-  isGuardedPath,
-  returnDestination,
-  signInHref,
-} from '../features/access/decision';
+import { isGuardedPath, signInHref } from '../features/access/decision';
+import { returnableDestination } from '../features/auth/redirect';
 import { hasSessionCookie } from '../features/auth/session-cookie';
 // A nonce never authorizes a `style="…"` attribute, and `next/image` always
 // server-renders one. Hash the exact strings it emits (`fill`, and the default)
@@ -71,7 +68,7 @@ function signInHint(
   // own origin is plain HTTP, and the Host header is caller-controlled, so
   // the target is the validated configured public origin and nothing else.
   const origin = new URL(publicAppUrl).origin;
-  const next = returnDestination(`${pathname}${search}`);
+  const next = returnableDestination(`${pathname}${search}`);
   const response = NextResponse.redirect(new URL(signInHref(next), origin));
   response.headers.set('Content-Security-Policy', policy);
   response.headers.set('Cache-Control', 'no-store');

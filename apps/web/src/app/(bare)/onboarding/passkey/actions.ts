@@ -1,7 +1,7 @@
 'use server';
 
 import { headers } from 'next/headers';
-import { returnDestination } from '../../../../features/access/decision';
+import { returnableDestination } from '../../../../features/auth/redirect';
 import { moveOn } from '../../../../server/form-action';
 import type { DeclineState } from '../../../../ui/auth/onboarding/decline-offer';
 
@@ -16,7 +16,7 @@ export async function declinePasskeyAction(
   _state: DeclineState,
   _form: unknown,
 ): Promise<DeclineState> {
-  const destination = returnDestination(
+  const destination = returnableDestination(
     typeof next === 'string' ? next : undefined,
   );
   return moveOn(new Headers(await headers()), destination);

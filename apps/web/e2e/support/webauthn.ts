@@ -1,4 +1,4 @@
-import type { CDPSession, Page } from '@playwright/test';
+import { expect, type CDPSession, type Page } from '@playwright/test';
 
 const readCredentials = async (session: CDPSession, authenticatorId: string) =>
   (await session.send('WebAuthn.getCredentials', { authenticatorId }))
@@ -43,6 +43,24 @@ export async function addVirtualAuthenticator(
     });
   const credentials = () => readCredentials(session, authenticatorId);
   return { session, authenticatorId, setPresence, credentials };
+}
+
+/**
+ * Accepts the passkey offer right after onboarding, waiting for the real
+ * ceremony's own response before the full-page navigation that follows a
+ * successful save, so a slow verify never races the client's in-flight
+ * request.
+ */
+export async function savePasskeyOffer(page: Page) {
+  await expect(
+    page.getByRole('heading', { name: /next time, one tap/i }),
+  ).toBeVisible();
+  await Promise.all([
+    page.waitForResponse((response) =>
+      response.url().includes('/passkey/verify-registration'),
+    ),
+    page.getByRole('button', { name: 'Save a passkey on this device' }).click(),
+  ]);
 }
 
 /**

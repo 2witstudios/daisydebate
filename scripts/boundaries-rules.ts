@@ -100,15 +100,20 @@ export const deepImportIssue = (
 const TEST_CODE =
   /^(?:apps|packages)\/[^/]+\/(?:integration|e2e)\/|(?:^|\/)test-support\/|\.(?:test|integration|e2e)\.tsx?$|\.test-support\.tsx?$/;
 
+/** A workspace's `./testing` subpath, or any `*.test-support` module. */
+const TEST_SUPPORT_SPECIFIER =
+  /^@daisy\/[^/]+\/testing$|\.test-support(?:\.tsx?)?$/;
+
 /**
- * A workspace's `./testing` subpath is test support (it may import
- * devDependencies such as riteway): only test code may import it.
+ * Test support (a workspace's `./testing` subpath or a `*.test-support`
+ * module) builds fixtures and may import devDependencies such as riteway:
+ * only test code may import it (ISSUE-167).
  */
 export const testSupportIssue = (
   specifier: string,
   importer: string,
 ): string | null =>
-  /^@daisy\/[^/]+\/testing$/.test(specifier) && !TEST_CODE.test(importer)
+  TEST_SUPPORT_SPECIFIER.test(specifier) && !TEST_CODE.test(importer)
     ? `production import of test support ${specifier}`
     : null;
 

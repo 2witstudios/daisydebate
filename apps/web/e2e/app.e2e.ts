@@ -7,10 +7,8 @@ const publicTitles: Record<string, string> = {
   '/watch': 'Watch',
   '/leaderboard': 'Leaderboard',
   '/tournaments': 'Tournaments',
-  '/train': 'Train',
-  '/prep': 'Prep',
 };
-// Participant areas (and Settings) need an account (AUTH-4.5).
+// Participant areas (and Settings) need an account (AUTH-4.5, ISSUE-167: /prep and /train too).
 const guardedTitles: Record<string, string> = {
   '/play': 'Play',
   '/ranked': 'Ranked',
@@ -18,6 +16,8 @@ const guardedTitles: Record<string, string> = {
   '/judge': 'Judge',
   '/recordings': 'Recordings',
   '/settings': 'Settings',
+  '/prep': 'Prep',
+  '/train': 'Train',
 };
 
 const expectShell = async (page: Page, route: string, title: string) => {

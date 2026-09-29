@@ -61,3 +61,46 @@ export function safeLocalDestination(
     ? value
     : fallback;
 }
+
+/** Routes that are never a place to return to: they would loop or misuse it. */
+const NEVER_A_DESTINATION = /^\/(?:sign-in|auth|api)(?:\/|$)/;
+
+/**
+ * The paths a browser could actually land on for a local destination: its
+ * pathname once dot segments resolve, and again after each layer of
+ * percent-decoding (bounded, as in `safeLocalDestination`), so neither
+ * `/lobby/../api` nor `/%73ign-in` hides a forbidden route.
+ */
+function resolvedPaths(destination: string): string[] {
+  const paths: string[] = [];
+  let layer = destination;
+  for (let depth = 0; depth < 4; depth += 1) {
+    paths.push(new URL(layer, ORIGIN).pathname);
+    let decoded: string;
+    try {
+      decoded = decodeURIComponent(layer);
+    } catch {
+      break;
+    }
+    if (decoded === layer) break;
+    layer = decoded;
+  }
+  return paths;
+}
+
+/**
+ * As `safeLocalDestination`, but a destination that resolves to sign-in,
+ * auth or api also falls back: those routes would loop a return trip or let
+ * an emailed link's callback misuse them (ISSUE-167).
+ */
+export function returnableDestination(
+  value: string | null | undefined,
+  fallback = '/lobby',
+): string {
+  const destination = safeLocalDestination(value, fallback);
+  return resolvedPaths(destination).some((path) =>
+    NEVER_A_DESTINATION.test(path),
+  )
+    ? fallback
+    : destination;
+}

@@ -8,7 +8,7 @@ import {
   redirect,
   type ConfirmAuth,
 } from './confirm-http-shared';
-import { safeLocalDestination } from './redirect';
+import { returnableDestination } from './redirect';
 import { EMAIL_UNDELIVERABLE } from './undeliverable-codes';
 
 const NEW_USER_DESTINATION = '/onboarding/username';
@@ -32,10 +32,10 @@ type ConfirmDependencies = {
 const hiddenFrom = (params: URLSearchParams): Hidden => {
   const newUser = params.get('newUserCallbackURL');
   return {
-    callbackURL: safeLocalDestination(params.get('callbackURL')),
+    callbackURL: returnableDestination(params.get('callbackURL')),
     ...(newUser
       ? {
-          newUserCallbackURL: safeLocalDestination(
+          newUserCallbackURL: returnableDestination(
             newUser,
             NEW_USER_DESTINATION,
           ),
@@ -58,7 +58,7 @@ function signedInRedirect(response: Response, publicUrl: string) {
   const headers = new Headers();
   for (const cookie of cookies) headers.append('set-cookie', cookie);
   return redirect(
-    safeLocalDestination(
+    returnableDestination(
       sameOrigin ? `${target.pathname}${target.search}` : null,
     ),
     headers,

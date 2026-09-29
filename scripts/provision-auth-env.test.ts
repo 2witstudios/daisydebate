@@ -294,6 +294,36 @@ describe('provisionAuthEnv (the main() loop)', () => {
     });
   });
 
+  test('never prints the generated secret (ISSUE-167)', async () => {
+    const secrets: string[] = [];
+    let generateCalls = 0;
+    const messages: string[] = [];
+    await provisionAuthEnv({
+      content: '',
+      write: async () => {},
+      generate: () => {
+        generateCalls += 1;
+        const secret = `${'s'.repeat(63)}${generateCalls}`;
+        secrets.push(secret);
+        return secret;
+      },
+      log: (message) => messages.push(message),
+    });
+    assert({
+      given:
+        'a real provisioning run that generates two secrets and logs one line per variable',
+      should:
+        'name the variable and whether it changed, never the secret value itself, in any logged line',
+      actual: {
+        loggedLines: messages.length,
+        anyLineLeaksASecret: messages.some((message) =>
+          secrets.some((secret) => message.includes(secret)),
+        ),
+      },
+      expected: { loggedLines: 2, anyLineLeaksASecret: false },
+    });
+  });
+
   test('never writes when every provisioned variable already has a value', async () => {
     let writeCalls = 0;
     const content =
