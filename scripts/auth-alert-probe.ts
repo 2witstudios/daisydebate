@@ -113,8 +113,25 @@ export function composeAlertMessage(input: {
 }
 
 export type AlertConditionsResult =
-  | { readonly ok: true; readonly conditions: readonly AlertCondition[] }
+  | {
+      readonly ok: true;
+      readonly conditions: readonly AlertCondition[];
+      /**
+       * Whether the endpoint read its Redis alert state. When it could not
+       * (`snapshot.redisState` other than "read", or absent), it evaluated
+       * only `limiter_unavailable` (ISSUE-191, ISSUE-199).
+       */
+      readonly alertStateRead: boolean;
+    }
   | { readonly ok: false; readonly error: string };
+
+/** What `/api/ops/alerts` skips while it cannot read its Redis alert state. */
+const UNEVALUATED_WITHOUT_ALERT_STATE = [
+  'storage_unavailable',
+  'delivery_failures',
+  'auth_5xx_rate',
+  'cleanup_missed',
+] as const;
 
 /**
  * Fetches the already-evaluated conditions from `/api/ops/alerts`. Never
@@ -122,8 +139,9 @@ export type AlertConditionsResult =
  * fetch failure (a deploy fault or the app being down) comes back as
  * `{ ok: false, error }` so `main` can still post to Incidents instead of
  * dying before it posts anything. A Redis outage is not one of these: the
- * endpoint still answers `limiter_unavailable` from what the app saw itself
- * (ISSUE-191).
+ * endpoint still answers, from what the app saw itself, and says it could
+ * not read its alert state (ISSUE-191); `alertStateRead` carries that, and
+ * anything but an explicit "read" counts as unread (ISSUE-199).
  */
 export async function fetchAlertConditions(
   origin: string,
@@ -139,15 +157,20 @@ export async function fetchAlertConditions(
         ok: false,
         error: `/api/ops/alerts responded ${response.status}`,
       };
-    const { conditions } = (await response.json()) as {
+    const { conditions, snapshot } = (await response.json()) as {
       conditions?: unknown;
+      snapshot?: { redisState?: unknown };
     };
     if (!Array.isArray(conditions))
       return {
         ok: false,
         error: '/api/ops/alerts responded without a conditions array',
       };
-    return { ok: true, conditions: conditions as AlertCondition[] };
+    return {
+      ok: true,
+      conditions: conditions as AlertCondition[],
+      alertStateRead: snapshot?.redisState === 'read',
+    };
   } catch (error) {
     return {
       ok: false,
@@ -165,7 +188,8 @@ export type ProbeOutcome =
  * to post. An unreachable `/api/ops/alerts` (a deploy fault or any other
  * failure) is itself treated as an alert-worthy condition, not a reason to
  * skip posting, so a failing endpoint still reaches Incidents
- * (AUTH-7.7-AC2/ISSUE-156).
+ * (AUTH-7.7-AC2/ISSUE-156). So is an alert state the endpoint could not
+ * read, whatever readiness says (ISSUE-199).
  */
 export function decideProbeOutcome(input: {
   readonly originProbe: OriginProbeResult;
@@ -184,13 +208,21 @@ export function decideProbeOutcome(input: {
         runUrl: input.runUrl,
       }),
     };
-  if (input.alertConditions.conditions.length === 0 && input.originProbe.ok)
+  const { conditions, alertStateRead } = input.alertConditions;
+  if (conditions.length === 0 && input.originProbe.ok && alertStateRead)
     return { healthy: true, message: null };
   return {
     healthy: false,
     message: composeAlertMessage({
-      conditions: input.alertConditions.conditions,
-      originIssues: input.originProbe.issues,
+      conditions,
+      originIssues: [
+        ...input.originProbe.issues,
+        ...(alertStateRead
+          ? []
+          : [
+              `alert state unread: /api/ops/alerts could not read its Redis alert state, so ${UNEVALUATED_WITHOUT_ALERT_STATE.join(', ')} were not evaluated`,
+            ]),
+      ],
       runUrl: input.runUrl,
     }),
   };

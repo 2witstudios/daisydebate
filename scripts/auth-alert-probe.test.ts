@@ -233,6 +233,7 @@ describe('fetchAlertConditions (ISSUE-156)', () => {
                 'docs/operations/auth-delivery.md#retention-cleanup-missed',
             },
           ],
+          snapshot: { redisState: 'read' },
         }),
     });
     const result = await fetchAlertConditions(
@@ -253,6 +254,7 @@ describe('fetchAlertConditions (ISSUE-156)', () => {
               'docs/operations/auth-delivery.md#retention-cleanup-missed',
           },
         ],
+        alertStateRead: true,
       },
     });
   });
@@ -312,7 +314,7 @@ describe('decideProbeOutcome (ISSUE-156)', () => {
       should: 'report healthy with no message',
       actual: decideProbeOutcome({
         originProbe: HEALTHY_ORIGIN,
-        alertConditions: { ok: true, conditions: [] },
+        alertConditions: { ok: true, conditions: [], alertStateRead: true },
       }),
       expected: { healthy: true, message: null },
     });
@@ -345,6 +347,7 @@ describe('decideProbeOutcome (ISSUE-156)', () => {
       originProbe: HEALTHY_ORIGIN,
       alertConditions: {
         ok: true,
+        alertStateRead: true,
         conditions: [
           {
             id: 'limiter_unavailable',
