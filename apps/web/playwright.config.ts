@@ -192,8 +192,10 @@ export default defineConfig({
       command: `mkdir -p test-results && bun e2e/support/server.ts > test-results/server-${ports.app}.log 2>&1`,
       // Probe through the TLS edge, not the app port: the edge and the mail
       // capture live in the same wrapper process, so a reused server is only
-      // accepted when all three listeners are up.
-      url: `${origin}/api/health/live`,
+      // accepted when all three listeners are up. Readiness, not liveness:
+      // liveness answers 200 as soon as the port opens, while start.ts is
+      // still preparing Next and every page answers 503 (ISSUE-172, ISSUE-197).
+      url: `${origin}/api/health/ready`,
       ignoreHTTPSErrors: true,
       name: 'production web',
       timeout: 60_000,
