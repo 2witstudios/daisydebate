@@ -1,7 +1,7 @@
 'use server';
 
 import { headers } from 'next/headers';
-import { returnDestination } from '../../../features/access/decision';
+import { returnableDestination } from '../../../features/auth/redirect';
 import { inProcessFetch } from '../../../server/in-process-fetch';
 import { processRoute } from '../../../server/process-app';
 import {
@@ -27,7 +27,7 @@ export async function requestLinkAction(
 ): Promise<LinkFormState> {
   const requestLink = createRequestLink(
     inProcessFetch(authRoute, new Headers(await headers())),
-    returnDestination(typeof next === 'string' ? next : undefined),
+    returnableDestination(typeof next === 'string' ? next : undefined),
   );
   return submitLinkRequest(
     requestLink,

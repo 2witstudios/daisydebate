@@ -1,33 +1,7 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import postcss from 'postcss';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { declarationsOf, rootTokens } from '../ui/test-support/globals-tokens';
 
 setupRitewayBun();
-
-const stylesheet = postcss.parse(
-  readFileSync(join(import.meta.dir, 'globals.css'), 'utf8'),
-);
-
-/** Each rule's declarations by selector, parsed rather than pattern-matched. */
-const declarationsOf = (matches: (selector: string) => boolean) => {
-  const found = new Map<string, string>();
-  stylesheet.walkRules((rule) => {
-    if (rule.selectors.some(matches))
-      rule.each((node) => {
-        if (node.type === 'decl') found.set(node.prop, node.value);
-      });
-  });
-  return found;
-};
-
-/** Every custom property declared in any `:root…` rule, name → value. */
-const rootTokens = (): ReadonlyMap<string, string> =>
-  new Map(
-    [...declarationsOf((selector) => selector.startsWith(':root'))].filter(
-      ([name]) => name.startsWith('--'),
-    ),
-  );
 
 const literalColor = /#[\da-f]{3,8}\b|\b(?:rgba?|hsla?|oklch|oklab|lab|lch)\(/i;
 

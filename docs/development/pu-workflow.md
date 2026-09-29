@@ -28,6 +28,7 @@ bun agent:spawn [--task <leaf>] [--cap N] [--override] \
 bun agent:spawn --role reviewer --worktree <worktreeId> \
   -- [-a claude|codex|opencode] "<prompt>"
 bun agent:send <agent> "<text>"
+bun agent:cap <n>
 pu status | pu logs <agent> | pu attach <agent>
 pu kill --agent <agent> && pu clean
 ```
@@ -45,10 +46,12 @@ refuses:
 
 A reviewer (`--role reviewer`) joins the existing worktree it reviews,
 named with `--worktree`, with no new worktree or setup, and is uncapped.
-Only `builder` and `reviewer` are roles. The owner may change a cap with
-`--cap` and override a refusal with
-`--override`. An autonomous agent may spawn reviewers, but may not pass
-`--cap`, cannot override, and must pass `--task` for a builder. For a
+Only `builder` and `reviewer` are roles. The builder cap is this
+machine's capacity: set it once with `bun agent:cap <n>` (it writes the
+main checkout's `.pu/daisy/caps.json`), or for one spawn with `--cap`;
+with neither it is 3. The owner may override a refusal with `--override`.
+An autonomous agent may spawn reviewers, but may not pass `--cap` or run
+`bun agent:cap`, cannot override, and must pass `--task` for a builder. For a
 builder it then:
 
 1. runs one `pu spawn -n <name> -b <base> -a <agent> …` that creates the

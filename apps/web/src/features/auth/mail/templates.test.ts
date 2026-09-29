@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { inlineColoursWithoutDarkOverride } from './rendered-mail.test-support';
 import { renderAuthEmail, type AuthEmailInput } from './templates';
 
 setupRitewayBun();
@@ -125,6 +126,16 @@ describe('AUTH-3.9 auth email templates', () => {
           textNonEmpty: rendered.text.trim().length > 0,
         },
         expected: { hasSubject: true, textNonEmpty: true },
+      });
+    });
+
+    test(`${input.kind}: the dark scheme overrides every colour set inline`, () => {
+      assert({
+        given: `every element in the ${input.kind} body that sets a background or colour inline`,
+        should:
+          'have a dark-block rule overriding that same property on it (the button link and brand dot included), so no light value survives into a dark client',
+        actual: inlineColoursWithoutDarkOverride(rendered.html),
+        expected: [],
       });
     });
 

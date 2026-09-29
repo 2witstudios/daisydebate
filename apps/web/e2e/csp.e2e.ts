@@ -1,26 +1,10 @@
 import { expect, test } from '@playwright/test';
-
-type Violation = { readonly directive: string; readonly blocked: string };
+import { watchCspViolations } from './support/csp';
 
 test('the dashboard renders under the production CSP without violations', async ({
   page,
 }) => {
-  const consoleViolations: string[] = [];
-  page.on('console', (message) => {
-    if (/content security policy|refused to/i.test(message.text()))
-      consoleViolations.push(message.text());
-  });
-  // Registered before any document script so no early violation is missed.
-  await page.addInitScript(() => {
-    const seen: Violation[] = [];
-    Reflect.set(window, '__cspViolations', seen);
-    document.addEventListener('securitypolicyviolation', (event) => {
-      seen.push({
-        directive: event.effectiveDirective,
-        blocked: event.blockedURI,
-      });
-    });
-  });
+  const violations = await watchCspViolations(page);
 
   await page.goto('/');
   const hero = page.getByRole('img', {
@@ -42,11 +26,8 @@ test('the dashboard renders under the production CSP without violations', async 
       area: box.width * box.height,
     };
   });
-  const eventViolations = await page.evaluate(
-    () => Reflect.get(window, '__cspViolations') as Violation[],
-  );
 
-  expect({ eventViolations, consoleViolations }).toEqual({
+  expect(await violations.read()).toEqual({
     eventViolations: [],
     consoleViolations: [],
   });

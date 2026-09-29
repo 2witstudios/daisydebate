@@ -9,6 +9,7 @@ import {
   THEME_PREFERENCES,
   themeColorFor,
 } from './theme-preference';
+import { rootTokens, schemeValue } from '../test-support/globals-tokens';
 
 setupRitewayBun();
 
@@ -98,12 +99,12 @@ describe('themeColorFor', () => {
       actual: [themeColorFor('dark'), themeColorFor('light')],
       expected: [
         [
-          { media: lightQuery, color: '#0a0e0c' },
-          { media: darkQuery, color: '#0a0e0c' },
+          { media: lightQuery, color: '#0d1812' },
+          { media: darkQuery, color: '#0d1812' },
         ],
         [
-          { media: lightQuery, color: '#f2f5f2' },
-          { media: darkQuery, color: '#f2f5f2' },
+          { media: lightQuery, color: '#f5f0e4' },
+          { media: darkQuery, color: '#f5f0e4' },
         ],
       ],
     });
@@ -115,8 +116,24 @@ describe('themeColorFor', () => {
       should: 'return each scheme its own color',
       actual: themeColorFor('system'),
       expected: [
-        { media: lightQuery, color: '#f2f5f2' },
-        { media: darkQuery, color: '#0a0e0c' },
+        { media: lightQuery, color: '#f5f0e4' },
+        { media: darkQuery, color: '#0d1812' },
+      ],
+    });
+  });
+});
+
+describe('themeColorFor and globals.css', () => {
+  test('mirror the --background pair', () => {
+    const background = rootTokens().get('--background') ?? '';
+    const [light, dark] = themeColorFor('system').map(({ color }) => color);
+    assert({
+      given: 'the system chrome colors and the page background token',
+      should: "paint each OS scheme with that scheme's background",
+      actual: [light, dark],
+      expected: [
+        schemeValue(background, 'light'),
+        schemeValue(background, 'dark'),
       ],
     });
   });

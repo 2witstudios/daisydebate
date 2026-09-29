@@ -73,7 +73,7 @@ test('magic-link request persists a token-bearing verification record', async ()
       },
       expected: {
         status: true,
-        sent: [{ to: email, subject: 'Sign in to Daisy' }],
+        sent: [{ to: email, subject: 'Sign in to Daisy Debate' }],
       },
     });
 

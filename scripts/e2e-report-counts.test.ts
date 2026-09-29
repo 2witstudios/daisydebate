@@ -14,16 +14,27 @@ describe('e2e counts report', () => {
       suites: [
         {
           specs: [
-            { tests: [test_('functional', [{ status: 'passed', retry: 0 }])] },
-            { tests: [test_('functional', [{ status: 'failed', retry: 0 }])] },
-            { tests: [test_('functional', [{ status: 'skipped', retry: 0 }])] },
+            {
+              title: 'passes',
+              tests: [test_('functional', [{ status: 'passed', retry: 0 }])],
+            },
+            {
+              title: 'fails',
+              tests: [test_('functional', [{ status: 'failed', retry: 0 }])],
+            },
+            {
+              title: 'is skipped',
+              file: 'e2e/journey.e2e.ts',
+              line: 7,
+              tests: [test_('functional', [{ status: 'skipped', retry: 0 }])],
+            },
           ],
         },
       ],
     };
     assert({
       given: 'a report with one pass, one fail and one skip in one project',
-      should: 'tally each bucket correctly',
+      should: 'tally each bucket correctly and name the skipped test',
       actual: countsByProject(report),
       expected: {
         functional: {
@@ -33,6 +44,7 @@ describe('e2e counts report', () => {
           failed: 1,
           skipped: 1,
           retried: 0,
+          skippedTests: ['e2e/journey.e2e.ts:7 "is skipped"'],
         },
       },
     });
@@ -97,6 +109,36 @@ describe('e2e counts report', () => {
         (p) => p.code,
       ),
       expected: ['EMPTY_SELECTION'],
+    });
+  });
+
+  test('flags a skipped test by name (ISSUE-164)', () => {
+    const report = {
+      suites: [
+        {
+          specs: [
+            {
+              title: 'a required journey',
+              file: 'e2e/journey.e2e.ts',
+              line: 12,
+              tests: [test_('functional', [{ status: 'skipped', retry: 0 }])],
+            },
+          ],
+        },
+      ],
+    };
+    const problems = countsProblems(countsByProject(report));
+    assert({
+      given: 'a required project reporting one skipped test',
+      should: 'report SKIPPED_TEST naming that test by file, line and title',
+      actual: problems,
+      expected: [
+        {
+          code: 'SKIPPED_TEST',
+          detail:
+            'functional: e2e/journey.e2e.ts:12 "a required journey" was skipped; a required E2E project may not skip, fixme or focus a test',
+        },
+      ],
     });
   });
 

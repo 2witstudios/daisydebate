@@ -107,8 +107,9 @@ post-merge "Client identity on Fly" check records the answer on ISSUE-162.
 **Trust boundary (DEC-39, owner decision 2026-09-28, supersedes DEC-36):
 only this machine's default gateway may supply a client IP.** `fly.toml`
 sets `AUTH_TRUSTED_PROXIES = "gateway"`. At start, `start.ts` reads
-`/proc/net/route` once and `apps/web/src/server/trusted-proxies.ts`
-(`defaultGateway`, `resolveTrustedProxies`) replaces the keyword with that
+`/proc/net/route` once and `createProductionServer`
+(`apps/web/src/server/server-wiring.ts`, through `trusted-proxies.ts`'s
+`defaultGateway` and `resolveTrustedProxies`) replaces the keyword with that
 single address — derived per machine, so it follows a machine moved to
 another host without a config change. No range is trusted: not `fdaa::/8`
 (every machine and WireGuard/`fly ssh` peer in the organization shares it),
@@ -562,8 +563,8 @@ posts.
 
 The separate `auth-alerts.yml` workflow (AUTH-7.7) needs `OPS_PROBE_TOKEN`
 as a repository secret (the exact value set on the app above via `fly
-secrets set`) alongside the same two Incidents webhook secrets; see
-[auth-delivery.md](auth-delivery.md#alerting-auth-77).
+secrets import`, step 5) alongside the same two Incidents webhook secrets;
+see [auth-delivery.md](auth-delivery.md#alerting-auth-77).
 
 ## Staging data inventory (ISSUE-169, 2026-09-28)
 

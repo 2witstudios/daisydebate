@@ -36,7 +36,7 @@ describe('Topbar', () => {
       given:
         'the brand link, whose logo is aria-hidden and whose wordmark and tagline hide at narrow widths',
       should: 'carry its own accessible name',
-      actual: /<a [^>]*aria-label="Daisy home"[^>]*href="\/"/.test(html),
+      actual: /<a [^>]*aria-label="Daisy Debate home"[^>]*href="\/"/.test(html),
       expected: true,
     });
   });

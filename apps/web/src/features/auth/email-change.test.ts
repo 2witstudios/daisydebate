@@ -201,7 +201,7 @@ describe('ISSUE-119 an email change does not reveal whether the new address has 
         approved: 200,
         body: '{"status":true}',
         to: takenEmail,
-        subject: 'Someone tried to use your email on Daisy',
+        subject: 'Someone tried to use your email on Daisy Debate',
         link: 'http://localhost:3000/settings/security',
         mails: 2,
         email: oldEmail,

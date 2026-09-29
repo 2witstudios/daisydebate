@@ -80,6 +80,18 @@ export type SinkEvent = {
   message: string;
 };
 
+/** A database whose server refuses connections, recording sink events. */
+export const unreachableDatabase = () => {
+  const events: SinkEvent[] = [];
+  const database = createDatabase({
+    url: 'postgresql://user:password@127.0.0.1:1/daisy',
+    eventSink: (event, fields, message) =>
+      events.push({ event, fields, message }),
+    nextActorId: createId,
+  });
+  return { database, events };
+};
+
 export const createTestDatabase = (
   script: ScriptedResult[],
   events: SinkEvent[] = [],

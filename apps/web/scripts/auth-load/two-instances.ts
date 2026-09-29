@@ -99,7 +99,7 @@ export async function startTwoInstances(
     RECIPIENT_HASH_SECRET:
       '4a8ddce9b2d28f1d4d9fe83cf9d2f85e8e4e77e0e55fea09bdb3caeed7f12844',
     RESEND_API_KEY: 're_auth_load_placeholder_not_a_credential',
-    AUTH_EMAIL_FROM: 'Daisy <no-reply@auth-load.daisy.invalid>',
+    AUTH_EMAIL_FROM: 'Daisy Debate <no-reply@auth-load.daisy.invalid>',
     RESEND_WEBHOOK_SECRET:
       'whsec_YXV0aC1sb2FkLXBsYWNlaG9sZGVyLW5vdC1hLXNlY3JldA==',
     // AUTH-7.7: gates /api/ops/alerts and /api/ops/metrics; this harness

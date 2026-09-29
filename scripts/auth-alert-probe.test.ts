@@ -53,7 +53,7 @@ describe('resolveProbeToken (ISSUE-144)', () => {
   });
 });
 
-describe('resolveProbeConfig (ISSUE-144, NC24 regression guard)', () => {
+describe('resolveProbeConfig (ISSUE-144 regression guard)', () => {
   test('refuses a --token flag with no OPS_PROBE_TOKEN in the environment', () => {
     // If main (or its arg parser) ever read --token as a fallback source
     // again, this would resolve a config instead of refusing.
@@ -87,13 +87,13 @@ describe('resolveProbeConfig (ISSUE-144, NC24 regression guard)', () => {
   });
 });
 
-describe('main() (AUTH-7.15, NC24/NC26 regression guard)', () => {
+describe('main() (AUTH-7.15 regression guard)', () => {
   test('exits 2 with the usage error and sends no request, given --token but no OPS_PROBE_TOKEN', () => {
     // Drives the real script, not resolveProbeConfig in isolation: a
-    // rewrite of main() that stops calling resolveProbeConfig at all (NC26)
-    // or one that reintroduces --token as a fallback inside it (NC24) both
-    // change this process's observable exit code and stderr, so either
-    // regression fails this test regardless of which function it lives in.
+    // rewrite of main() that stops calling resolveProbeConfig at all, or
+    // one that reintroduces --token as a fallback inside it, both change
+    // this process's observable exit code and stderr, so either regression
+    // fails this test regardless of which function it lives in.
     const result = spawnProbe([
       '--origin',
       'http://127.0.0.1:1',

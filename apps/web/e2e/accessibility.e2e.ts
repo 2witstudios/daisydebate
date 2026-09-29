@@ -1,16 +1,21 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import {
-  emailedLink,
   freshEmail,
   resetRateLimits,
   signUpMember,
   uniqueName,
-  confirmSignIn,
   reachOnboarding,
   requestSignInLink,
 } from './support/accounts';
 import { assertNoSeriousFindings } from './support/axe';
+import {
+  reachExpiredLink,
+  reachRetryState,
+  reachSentState,
+  requestConfirmLink,
+} from './support/confirm-page';
 import { changeEmail, declineByKeyboard } from './support/forms';
+import { gotoWithTheme } from './support/theme';
 
 /**
  * Automated accessibility coverage for every authentication and security
@@ -26,27 +31,6 @@ import { changeEmail, declineByKeyboard } from './support/forms';
 test.beforeEach(async ({ request }) => {
   await resetRateLimits(request);
 });
-
-/**
- * Navigates with the theme cookie already set, so the server renders the
- * requested `data-theme` from the first response (no flash, no client
- * switch to wait on).
- */
-async function gotoWithTheme(
-  page: Page,
-  path: string,
-  theme: 'light' | 'dark',
-) {
-  await page.goto(path);
-  await page.context().addCookies([
-    {
-      name: 'daisy-theme',
-      value: theme,
-      url: new URL(page.url()).origin,
-    },
-  ]);
-  await page.goto(path);
-}
 
 test('sign-in (idle state) has no serious or critical accessibility findings', async ({
   page,
@@ -85,23 +69,74 @@ test('account security settings has no serious or critical accessibility finding
   await assertNoSeriousFindings(page);
 });
 
-test('an expired confirmation link has no serious or critical accessibility findings', async ({
+test('AUTH-4.7 confirm state has no serious or critical accessibility findings in dark or light', async ({
   page,
   request,
 }) => {
-  const email = freshEmail();
-  await page.goto('/sign-in');
-  await requestSignInLink(page, email);
-  const link = await emailedLink(request, email);
-  await confirmSignIn(page, link);
-  await page.context().clearCookies();
-  // A redeemed link revisited looks the same as an expired one to the user.
-  await page.goto(link);
-  await page.getByRole('button', { name: 'Sign in to Daisy' }).click();
-  await expect(
-    page.getByRole('heading', { name: /can no longer be used/i }),
-  ).toBeVisible();
-  await assertNoSeriousFindings(page);
+  const { link } = await requestConfirmLink(page, request);
+  for (const theme of ['dark', 'light'] as const) {
+    await gotoWithTheme(page, link, theme);
+    await expect(
+      page.getByRole('button', { name: 'Sign in to Daisy Debate' }),
+    ).toBeVisible();
+    await assertNoSeriousFindings(page);
+  }
+});
+
+test('AUTH-4.7 expired state has no serious or critical accessibility findings in dark or light', async ({
+  page,
+  request,
+}) => {
+  for (const theme of ['dark', 'light'] as const) {
+    await reachExpiredLink(page, request, theme);
+    await assertNoSeriousFindings(page);
+  }
+});
+
+test('AUTH-4.7 "too many attempts" retry state has no serious or critical accessibility findings in dark or light', async ({
+  page,
+  request,
+}) => {
+  test.slow();
+  for (const theme of ['dark', 'light'] as const) {
+    await reachRetryState(page, request, theme);
+    await assertNoSeriousFindings(page);
+    await resetRateLimits(request);
+  }
+});
+
+test('AUTH-4.7 "check your inbox" sent state has no serious or critical accessibility findings in dark or light', async ({
+  page,
+  request,
+}) => {
+  for (const theme of ['dark', 'light'] as const) {
+    // Two magic-link requests per iteration (the initial link, then the
+    // resend): reset between themes so the second iteration never spends
+    // the first's share of the 3-per-60s client/recipient ceiling.
+    await resetRateLimits(request);
+    await reachSentState(page, request, theme);
+    await assertNoSeriousFindings(page);
+  }
+});
+
+test('AUTH-4.7 email-change confirm page has no serious or critical accessibility findings in dark or light', async ({
+  page,
+}) => {
+  for (const theme of ['dark', 'light'] as const) {
+    await gotoWithTheme(
+      page,
+      `/auth/confirm-email?token=${'a'.repeat(43)}`,
+      theme,
+    );
+    await expect(page.getByRole('button', { name: 'Continue' })).toBeVisible();
+    await assertNoSeriousFindings(page);
+
+    await gotoWithTheme(page, '/auth/confirm-email?token=too-short', theme);
+    await expect(
+      page.getByRole('heading', { name: /can no longer be used/i }),
+    ).toBeVisible();
+    await assertNoSeriousFindings(page);
+  }
 });
 
 test('username onboarding is fully usable by keyboard alone, with visible focus', async ({
@@ -124,6 +159,46 @@ test('username onboarding is fully usable by keyboard alone, with visible focus'
   // them in every engine (WebKit used to skip links on Tab, needing
   // Option+Tab).
   await declineByKeyboard(page, 'Not now');
+});
+
+test('keyboard focus is visible on every sign-in control, not only present in the DOM (ISSUE-167)', async ({
+  page,
+}) => {
+  // `toBeFocused()` elsewhere in this suite proves DOM focus state; it
+  // never proves a sighted keyboard user can see where focus is (WCAG
+  // 2.4.7). Each control is reached with Tab (keyboard modality, so
+  // :focus-visible applies) and its rendered indicator compared with the
+  // same control unfocused: a ring that looks the same both ways is none.
+  await page.goto('/sign-in');
+  await expect(page.getByLabel('Email')).toBeVisible();
+  const checked: string[] = [];
+  const invisible: string[] = [];
+  for (let step = 0; step < 12; step += 1) {
+    await page.keyboard.press('Tab');
+    const control = await page.evaluate(() => {
+      const element = document.activeElement;
+      if (!(element instanceof HTMLElement) || element === document.body)
+        return null;
+      const indicator = () => {
+        const style = getComputedStyle(element);
+        return `${style.outlineStyle} ${style.outlineWidth} ${style.boxShadow}`;
+      };
+      const focused = indicator();
+      element.blur();
+      const resting = indicator();
+      element.focus();
+      const name =
+        element.getAttribute('aria-label') ??
+        (element.textContent?.trim() || element.getAttribute('name') || '') +
+          ` <${element.tagName.toLowerCase()}>`;
+      return { name, visible: focused !== resting };
+    });
+    if (!control || checked.includes(control.name)) continue;
+    checked.push(control.name);
+    if (!control.visible) invisible.push(control.name);
+  }
+  expect(checked.length).toBeGreaterThanOrEqual(2);
+  expect(invisible).toEqual([]);
 });
 
 test('the shared-computer decline choice is reachable with plain Tab in every engine', async ({
@@ -228,6 +303,26 @@ test('settings has no serious or critical accessibility findings in dark or ligh
 
   await gotoWithTheme(page, '/settings', 'light');
   await assertNoSeriousFindings(page);
+});
+
+test('the confirm sign-in page stays usable with no horizontal overflow at 320 px and 200% effective zoom', async ({
+  page,
+  request,
+}) => {
+  const { link } = await requestConfirmLink(page, request);
+  for (const width of [320, 640]) {
+    await page.setViewportSize({ width, height: 480 });
+    await page.goto(link);
+    const overflowsHorizontally = await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth >
+        document.documentElement.clientWidth + 1,
+    );
+    expect(overflowsHorizontally).toBe(false);
+    await expect(
+      page.getByRole('button', { name: 'Sign in to Daisy Debate' }),
+    ).toBeVisible();
+  }
 });
 
 test('the passkey offer has no serious or critical accessibility findings in dark or light', async ({

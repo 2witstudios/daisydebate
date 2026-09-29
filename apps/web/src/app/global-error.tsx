@@ -27,7 +27,7 @@ export default function GlobalError({
   return (
     <html lang="en" data-theme={theme}>
       <body>
-        <title>Something went wrong · Daisy</title>
+        <title>Something went wrong · Daisy Debate</title>
         <main>
           <h1 className={prose.h1}>Something went wrong</h1>
           <p className={prose.p}>

@@ -107,3 +107,66 @@ describe('confirm submit behind TLS termination', () => {
     });
   });
 });
+
+describe('confirm destinations never return to sign-in, auth or api routes (ISSUE-167)', () => {
+  test('forwards returnable destinations to the redemption, not auth or api routes', async () => {
+    const forwarded: URL[] = [];
+    const recording = createConfirmHandlers({
+      logger: silentLogger,
+      auth: () => ({
+        config: { PUBLIC_APP_URL: 'https://daisy.invalid' },
+        handler: async (request: Request) => {
+          forwarded.push(new URL(request.url));
+          return new Response(null, {
+            status: 302,
+            headers: {
+              location: 'https://daisy.invalid/lobby',
+              'set-cookie': 'session=value; Path=/',
+            },
+          });
+        },
+      }),
+    });
+    await recording.POST(
+      new Request('https://daisy.invalid/auth/confirm', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/x-www-form-urlencoded',
+          origin: 'https://daisy.invalid',
+        },
+        body: new URLSearchParams({
+          token,
+          callbackURL: '/api/auth/sign-out',
+          newUserCallbackURL: '/sign-in',
+        }).toString(),
+      }),
+    );
+    assert({
+      given:
+        'a submitted form whose destinations name an api route and the sign-in page',
+      should:
+        'forward the lobby and the username onboarding page to the redemption instead',
+      actual: {
+        callbackURL: forwarded[0]?.searchParams.get('callbackURL'),
+        newUserCallbackURL:
+          forwarded[0]?.searchParams.get('newUserCallbackURL'),
+      },
+      expected: {
+        callbackURL: '/lobby',
+        newUserCallbackURL: '/onboarding/username',
+      },
+    });
+  });
+
+  test('a same-origin success redirect to an api route lands on the lobby', async () => {
+    const response = await handlers(
+      'https://daisy.invalid/api/account/sessions',
+    ).POST(post({ origin: 'https://daisy.invalid' }));
+    assert({
+      given: "a signed-in redirect to the public origin's own /api route",
+      should: 'send the new session to the lobby instead',
+      actual: [response.status, response.headers.get('location')],
+      expected: [303, '/lobby'],
+    });
+  });
+});

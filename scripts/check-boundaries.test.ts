@@ -307,4 +307,37 @@ describe('test support subpaths', () => {
       ],
     });
   });
+
+  test('refuses a relative *.test-support module from production source (ISSUE-167)', () => {
+    assert({
+      given: 'a *.test-support module imported relatively by production code',
+      should: 'report the production import of test support',
+      actual: [
+        testSupportIssue('./index.test-support', 'packages/db/src/index.ts'),
+        testSupportIssue(
+          '../auth/abuse.test-support.ts',
+          'apps/web/src/features/account/username.ts',
+        ),
+        testSupportIssue('./support', 'packages/db/src/index.ts'),
+      ],
+      expected: [
+        'production import of test support ./index.test-support',
+        'production import of test support ../auth/abuse.test-support.ts',
+        null,
+      ],
+    });
+  });
+
+  test('admits a relative *.test-support module from test code', () => {
+    assert({
+      given: 'a *.test-support module imported by suites and other support',
+      should: 'report no issue',
+      actual: [
+        'packages/db/src/index.test.ts',
+        'packages/db/integration/username-claim.integration.ts',
+        'apps/web/src/features/auth/email-change.test-support.ts',
+      ].map((file) => testSupportIssue('./index.test-support', file)),
+      expected: [null, null, null],
+    });
+  });
 });

@@ -1,3 +1,4 @@
+import { AUTH_BRAND_PALETTE } from '../brand-palette';
 import { escapeHtml } from './escape';
 
 /**
@@ -23,25 +24,26 @@ const FONT_DISPLAY = "Georgia, 'Iowan Old Style', 'Palatino Linotype', serif";
 const FONT_BODY =
   "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
-// Daisy green tokens (globals.css), copied as static values: email clients
-// cannot read CSS custom properties in inline styles.
+// The one Daisy board palette (ADR 0045), shared with both confirm pages
+// (brand-palette.ts): email clients cannot read CSS custom properties in
+// inline styles, so these stay plain values here too.
 const LIGHT = {
-  background: '#f2f5f2',
-  surface: '#ffffff',
-  ink: '#17211b',
-  inkMuted: '#5b6d61',
-  border: '#d8e2d9',
-  accent: '#116b36',
-  accentInk: '#ffffff',
+  background: AUTH_BRAND_PALETTE.light.background,
+  surface: AUTH_BRAND_PALETTE.light.surfaceRaised,
+  ink: AUTH_BRAND_PALETTE.light.ink,
+  inkMuted: AUTH_BRAND_PALETTE.light.inkMuted,
+  border: AUTH_BRAND_PALETTE.light.border,
+  accent: AUTH_BRAND_PALETTE.light.accentStrong,
+  accentInk: AUTH_BRAND_PALETTE.light.accentInk,
 };
 const DARK = {
-  background: '#0a0e0c',
-  surface: '#111814',
-  ink: '#f4f8f3',
-  inkMuted: '#a3b3a6',
-  border: '#26332b',
-  accent: '#3ecf7a',
-  accentInk: '#052b16',
+  background: AUTH_BRAND_PALETTE.dark.background,
+  surface: AUTH_BRAND_PALETTE.dark.surfaceRaised,
+  ink: AUTH_BRAND_PALETTE.dark.ink,
+  inkMuted: AUTH_BRAND_PALETTE.dark.inkMuted,
+  border: AUTH_BRAND_PALETTE.dark.border,
+  accent: AUTH_BRAND_PALETTE.dark.accent,
+  accentInk: AUTH_BRAND_PALETTE.dark.accentInk,
 };
 
 /** Zero-width joiners pad the hidden preheader so clients don't fall back to visible body text. */
@@ -87,11 +89,13 @@ export function renderAuthEmailLayout(content: AuthEmailContent): {
     .auth-mail-ink p { color: ${DARK.ink} !important; }
     .auth-mail-muted { color: ${DARK.inkMuted} !important; }
     .auth-mail-accent { color: ${DARK.accent} !important; }
+    .auth-mail-accent-bg { background: ${DARK.accent} !important; }
     .auth-mail-button { background: ${DARK.accent} !important; color: ${DARK.accentInk} !important; }
+    .auth-mail-button a { color: ${DARK.accentInk} !important; }
   }
 </style>
 </head>
-<body style="margin:0;padding:0;background:${LIGHT.background};">
+<body class="auth-mail-bg" style="margin:0;padding:0;background:${LIGHT.background};">
 <span style="display:none;overflow:hidden;line-height:1px;opacity:0;max-height:0;max-width:0;mso-hide:all;">${escapeHtml(content.preheader)}${preheaderPadding}</span>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="auth-mail-bg" style="background:${LIGHT.background};">
 <tr><td align="center" style="padding:32px 16px;">
@@ -99,7 +103,7 @@ export function renderAuthEmailLayout(content: AuthEmailContent): {
 <tr><td style="padding:32px 40px 0;">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
 <td width="20" height="20" style="background:${LIGHT.accent};border-radius:999px;font-size:0;line-height:0;" class="auth-mail-accent-bg">&nbsp;</td>
-<td style="padding-left:10px;font-family:${FONT_BODY};font-size:17px;font-weight:700;letter-spacing:-0.01em;color:${LIGHT.ink};" class="auth-mail-ink">Daisy</td>
+<td style="padding-left:10px;font-family:${FONT_BODY};font-size:17px;font-weight:700;letter-spacing:-0.01em;color:${LIGHT.ink};" class="auth-mail-ink">Daisy Debate</td>
 </tr></table>
 </td></tr>
 <tr><td style="padding:28px 40px 0;">

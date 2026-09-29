@@ -37,6 +37,7 @@ export async function claimUsername(
           .update(users)
           .set({
             username: input.username,
+            name: input.username,
             updatedAt: sql`now()`,
             version: sql`${users.version} + 1`,
           })

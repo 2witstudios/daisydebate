@@ -16,13 +16,19 @@ const actorIdsOf = async (fixture: Fixture, userId: string) =>
     ])) as Array<{ id: string }>
   ).map(({ id }) => id);
 
+/** A provisional user (no username, a fresh actor id ready to claim with). */
+const provisionalUser = async (fixture: Fixture) => {
+  const userId = createId();
+  const actorId = createId();
+  fixture.track('actors', actorId);
+  await fixture.insert('users', { id: userId, username: null });
+  return { userId, actorId };
+};
+
 describe('claimUsername creates the human actor (ACTOR-1, ADR 0029)', () => {
   test('a claim inserts a human actor row using the injected id source', async () => {
     await withFixture(url, async (fixture) => {
-      const userId = createId();
-      const actorId = createId();
-      fixture.track('actors', actorId);
-      await fixture.insert('users', { id: userId, username: null });
+      const { userId, actorId } = await provisionalUser(fixture);
       const database = createDatabase({ url, nextActorId: () => actorId });
       let outcome;
       try {
@@ -189,6 +195,30 @@ describe('claimUsername creates the human actor (ACTOR-1, ADR 0029)', () => {
         should: 'answer already-set and insert no actor for that user',
         actual: [outcome?.kind, count],
         expected: ['already-set', 0],
+      });
+    });
+  });
+
+  test('a completed claim also sets users.name to the claimed username (ISSUE-167)', async () => {
+    await withFixture(url, async (fixture) => {
+      const { userId, actorId } = await provisionalUser(fixture);
+      const database = createDatabase({ url, nextActorId: () => actorId });
+      const username = `named-${userId}`;
+      try {
+        await database.claimUsername({ userId, username });
+      } finally {
+        await database.close();
+      }
+      const [row] = (await fixture.sql.unsafe(
+        'select name from users where id = $1',
+        [userId],
+      )) as Array<{ name: string }>;
+      assert({
+        given:
+          "a provisional user (name defaults to '') completing username onboarding",
+        should: 'set users.name to the claimed username, not leave it empty',
+        actual: row?.name,
+        expected: username,
       });
     });
   });

@@ -8,12 +8,15 @@ type Env = Readonly<Record<string, string | undefined>>;
 // Chromium-only: cross-browser parity for them is outside this epic's scope.
 export const AUTH_JOURNEY_SPECS = [
   '**/journey.e2e.ts',
+  '**/journey-no-js.e2e.ts',
   '**/onboarding.e2e.ts',
   '**/form-transport.e2e.ts',
   '**/answer-focus.e2e.ts',
   '**/passkey-lifecycle.e2e.ts',
+  '**/email-change-and-sessions.e2e.ts',
   '**/accessibility.e2e.ts',
   '**/auth-routes.e2e.ts',
+  '**/csp-confirm.e2e.ts',
 ];
 // Passkey autofill is proven through Chromium's CDP virtual authenticator,
 // which answers a conditional request without browser UI, so it runs in both
@@ -102,6 +105,10 @@ export default defineConfig({
   timeout: 30_000,
   fullyParallel: false,
   workers: 1,
+  // A committed test.only would otherwise run alone and pass the gate
+  // silently; refuse the whole run at collection time instead (ISSUE-164).
+  // Off outside CI so a developer can still focus a test while iterating.
+  forbidOnly: Boolean(process.env.CI),
   // Release qualification requires retries disabled: a retry-pass is a
   // flaky result, not proof (spec "Prevent tests from proving their own
   // fixtures"). CI always writes the json reporter so
@@ -213,7 +220,7 @@ export default defineConfig({
         RECIPIENT_HASH_SECRET:
           'a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2a1b2',
         RESEND_API_KEY: 're_e2e_placeholder_not_a_credential',
-        AUTH_EMAIL_FROM: 'Daisy <no-reply@e2e.daisy.invalid>',
+        AUTH_EMAIL_FROM: 'Daisy Debate <no-reply@e2e.daisy.invalid>',
         RESEND_WEBHOOK_SECRET: 'whsec_ZTJlLXBsYWNlaG9sZGVyLW5vdC1hLXNlY3JldA==',
         // AUTH-7.7: gates /api/ops/alerts and /api/ops/metrics; no probe
         // workflow runs against this local e2e server.

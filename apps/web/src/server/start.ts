@@ -5,8 +5,6 @@ import {
   drainWithDeadline,
   installShutdownSignals,
 } from '@daisy/observability';
-import { deriveClientIdSubkey } from '../features/auth/client-ip';
-import { createHttpServer } from './http-server';
 import {
   closeProcessApp,
   processApp,
@@ -17,49 +15,33 @@ import {
   retentionTargets,
   startRetentionSweep,
 } from './retention-sweep';
-import { defaultGateway, resolveTrustedProxies } from './trusted-proxies';
+import { createProductionServer } from './server-wiring';
 import { waitForHealthy } from './wait-for-healthy';
 
 // Refuses anything but NODE_ENV=production before building the app.
 const { port } = processStartOptions();
 const app = processApp();
+const nextApp = next({ dev: false, port });
 // Production must not boot without validated auth configuration (secret,
-// Resend sender/key, webhook secret, HTTPS origin); errors name fields only.
-const authConfig = app.auth().config;
+// Resend sender/key, webhook secret, HTTPS origin): building the server
+// reads it eagerly and its errors name fields only. The handler it wraps
+// only resolves Next's request handler per request, after prepare().
+const server = createProductionServer({
+  app,
+  handle: nextApp.getRequestHandler(),
+  // The one read of the route table, for the `gateway` keyword in
+  // AUTH_TRUSTED_PROXIES (ISSUE-162); unreadable, it trusts nothing for it.
+  readRouteTable: () => {
+    try {
+      return readFileSync('/proc/net/route', 'utf8');
+    } catch {
+      return null;
+    }
+  },
+});
 // Production refuses a DATABASE_URL role that could create or alter schema
 // objects, before Next prepares or the port opens (ISSUE-39).
 await refuseSchemaAlteringRole(app, 'daisy_web');
-// The one read of the route table: the `gateway` keyword in
-// AUTH_TRUSTED_PROXIES trusts only this machine's default gateway (fly-proxy's
-// address on Fly, ISSUE-162). Unreadable or ambiguous, it trusts nothing for
-// that entry — every caller then shares the gateway's identity — and says so.
-const readGateway = () => {
-  try {
-    return defaultGateway(readFileSync('/proc/net/route', 'utf8'));
-  } catch {
-    return null;
-  }
-};
-const { trustedProxies, gatewayUnresolved } = resolveTrustedProxies(
-  authConfig.AUTH_TRUSTED_PROXIES,
-  authConfig.AUTH_TRUSTED_PROXIES.length > 0 ? readGateway() : null,
-);
-if (gatewayUnresolved)
-  app.logger.log(
-    'ingress.trusted_proxy.unresolved',
-    { operation: 'server.start' },
-    'No single default gateway was found, so no proxy is trusted for it',
-  );
-const nextApp = next({ dev: false, port });
-// The handler it wraps only resolves Next's request handler per request,
-// after prepare().
-const server = createHttpServer({
-  trustedProxies,
-  clientIdSubkey: deriveClientIdSubkey(authConfig.BETTER_AUTH_SECRET),
-  isDraining: app.isDraining,
-  logger: app.logger,
-  handle: nextApp.getRequestHandler(),
-});
 await nextApp.prepare();
 server.listen(port, '0.0.0.0', () =>
   app.logger.log(
