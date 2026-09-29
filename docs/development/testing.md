@@ -177,6 +177,13 @@ not exist — PageSpace lost entire tiers this way. `bun evidence` (in
 - Tests are deterministic: inject clocks/IDs; never sleep-and-hope; no
   cross-test shared state; use deterministic unit IDs and CSPRNG isolation IDs
   only in real-service integration tests; clean only records you created.
+  The runner enforces it: `scripts/test-integration.ts` counts every table
+  in the test database before and after a workspace's run and fails the
+  run, naming the table, when any table ends with more rows than it started
+  with. Leaked rows pile up run over run and slow every later run until a
+  hook times out (ISSUE-192). `createTestApp` removes its accounts, its
+  Redis namespace (one `UNLINK` per `SCAN` page) and every delivery,
+  webhook-event and suppression row keyed by its mailbox's message ids.
   Wait on the state under test, never a timing window: fire a Redis expiry
   with `PEXPIREAT` (the redis `withRedis` fixture's `expireNow`) instead of
   waiting out a TTL, read lease scores against the Redis server clock,
