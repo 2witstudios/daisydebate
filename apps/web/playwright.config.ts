@@ -93,6 +93,18 @@ export const resolveE2EOrigin = (env: Env): string =>
 // layer leaves nothing to restart. The restart path is Chromium's own.
 const chromiumLaunch = { args: ['--ignore-certificate-errors'] };
 
+// Firefox saves every submitted field value as form history and, on the next
+// fill of a field with the same name, looks it up asynchronously and opens a
+// suggestion dropdown in the browser chrome, under the field. Playwright
+// closes that dropdown before it synthesizes a click, but a lookup that
+// answers after the close (under load) reopens it over the button below, and
+// the click lands in the dropdown: the button is never pressed (ISSUE-186,
+// an expired-link resend reusing the address /sign-in had just submitted).
+// The dropdown is browser UI, not the app, so the suite runs without it.
+const firefoxLaunch = {
+  firefoxUserPrefs: { 'browser.formfill.enable': false },
+};
+
 const ports = resolveE2EPorts(process.env);
 const origin = resolveE2EOrigin(process.env);
 const browserEndpoint = resolveBrowserEndpoint(process.env);
@@ -152,7 +164,7 @@ export default defineConfig({
     },
     {
       name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
+      use: { ...devices['Desktop Firefox'], launchOptions: firefoxLaunch },
       testMatch: AUTH_JOURNEY_SPECS,
       testIgnore: '**/passkey-lifecycle.e2e.ts',
     },
