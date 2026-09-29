@@ -85,6 +85,11 @@ exactly one place.
   per-minute Redis counter for both the total and 5xx-only count, scoped to
   operations whose name starts with `auth.` (bounded: the auth route
   surface is a small, known set of operation names, never a raw path).
+  `handleOperation` binds `operation` on its request-scoped child logger,
+  not on the completion call, so the tap observes each event with every
+  field its ancestors bound merged under the call's own; one tap feeds the
+  alert recorder and the metrics store once each (ISSUE-173,
+  `apps/web/integration/auth-alert-counters.integration.ts`).
   `readAlertSnapshot` sums the trailing 10 one-minute buckets (each with an
   11-minute TTL) and fires at `total >= 100 && serverErrors/total > 0.01`.
 - **Cleanup missed.** `retention.sweep.completed` sets a durable
