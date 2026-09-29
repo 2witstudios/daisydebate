@@ -1,16 +1,18 @@
 import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createAccountFlows } from './auth-account-helpers';
+import { createAccountFlows, uniqueName } from './auth-account-helpers';
 import { requireTestServices } from '@daisy/config';
 import { userIdOf, withSql } from './fixtures';
 import { trackRevocations } from './auth-outbox-helpers';
+import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+import { decideAccess, requirementFor } from '../src/features/access/decision';
 
 requireTestServices(process.env);
 setupRitewayBun();
 
-const { signUp, flows } = createAccountFlows();
+const { signUp, flows, identifyAs, claim } = createAccountFlows();
 const { origin, routes, withLoggedEvents } = flows.testApp;
-const { signInAgain } = flows;
+const { signInAgain, authRoute, newClient } = flows;
 const sessionsRoute = routes.sessions;
 const revokeRoute = routes.revokeSession;
 
@@ -210,6 +212,47 @@ describe('POST /api/account/sessions/revoke from another session', () => {
         status: 200,
         revokedStillSignedIn: false,
         callerStillSignedIn: true,
+      },
+    });
+  });
+
+  test("the revoked cookie's next get-session and /lobby access check are refused once the revoke answers (ISSUE-174)", async () => {
+    const { cookie, other, otherId } = await twoSessions();
+    // A member, as in the browser journey: /lobby then allows the session.
+    await claim(cookie, { username: uniqueName() });
+    // The two reads the browser check makes with the revoked session's own
+    // cookie: the mounted get-session route without the cookie cache, and
+    // the durable identity read behind /lobby's server-side guard.
+    const nextRequest = async () => {
+      const response = await authRoute.GET(
+        new Request(`${origin}/api/auth/get-session?disableCookieCache=true`, {
+          headers: { cookie: other, [CLIENT_IP_HEADER]: newClient() },
+        }),
+      );
+      return {
+        getSession: (await response.json()) === null ? 'null' : 'session',
+        lobby: decideAccess({
+          identity: await identifyAs(other),
+          path: '/lobby',
+          requirement: requirementFor('/lobby') ?? 'participant',
+        }),
+      };
+    };
+    const before = await nextRequest();
+    const response = await revokeSession(cookie, otherId);
+    assert({
+      given:
+        "a second session's own cookie, before and after the first session revokes its row",
+      should:
+        'authenticate it before, then answer get-session null and redirect /lobby to sign-in on its very next request',
+      actual: { before, status: response.status, after: await nextRequest() },
+      expected: {
+        before: { getSession: 'session', lobby: { kind: 'allow' } },
+        status: 200,
+        after: {
+          getSession: 'null',
+          lobby: { kind: 'redirect', to: '/sign-in?next=%2Flobby' },
+        },
       },
     });
   });
