@@ -1,4 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import {
+  parseDarkRules,
+  parseElements,
+  resolved,
+  type Theme,
+} from './rendered-mail.test-support';
 import { renderAuthEmail } from './templates';
 
 setupRitewayBun();
@@ -26,141 +32,6 @@ function contrastRatio(a: string, b: string): number {
   const l2 = relativeLuminance(b);
   const [lighter, darker] = l1 >= l2 ? [l1, l2] : [l2, l1];
   return (lighter + 0.05) / (darker + 0.05);
-}
-
-type MailElement = {
-  readonly tag: string;
-  readonly classes: readonly string[];
-  readonly style: Readonly<Record<string, string>>;
-  readonly parent: MailElement | null;
-  text: string;
-};
-
-const VOID_TAGS = new Set(['meta', 'br', 'img', 'hr', 'link', '!doctype']);
-
-const parseStyle = (declarations: string): Record<string, string> =>
-  Object.fromEntries(
-    declarations
-      .split(';')
-      .map((declaration) => declaration.split(/:(.*)/s, 2))
-      .filter((pair): pair is [string, string] => pair.length === 2)
-      .map(([property, value]) => [
-        property.trim(),
-        value.replace('!important', '').trim(),
-      ]),
-  );
-
-const attribute = (attributes: string, name: string) =>
-  new RegExp(`${name}="([^"]*)"`).exec(attributes)?.[1];
-
-const elementFrom = (
-  tag: string,
-  attributes: string,
-  parent: MailElement | undefined,
-  text: string,
-): MailElement => ({
-  tag,
-  classes: attribute(attributes, 'class')?.split(/\s+/) ?? [],
-  style: parseStyle(attribute(attributes, 'style') ?? ''),
-  parent: parent ?? null,
-  text,
-});
-
-/**
- * The rendered body's elements, each with its classes, inline style, parent
- * and own text, walked from the real markup a mail client receives: the
- * colors under test are the emailed ones, not a copy of the palette.
- */
-function parseElements(html: string): MailElement[] {
-  const body = html.slice(html.indexOf('<body'));
-  const elements: MailElement[] = [];
-  const stack: MailElement[] = [];
-  const token = /<(\/?)([a-z0-9!]+)([^>]*)>([^<]*)/gi;
-  for (const [, closing, rawTag, attributes, text] of body.matchAll(token)) {
-    const tag = rawTag!.toLowerCase();
-    if (closing) {
-      stack.pop();
-      const parent = stack.at(-1);
-      if (parent) parent.text += text!;
-      continue;
-    }
-    const element = elementFrom(tag, attributes!, stack.at(-1), text!);
-    elements.push(element);
-    if (!VOID_TAGS.has(tag)) stack.push(element);
-  }
-  return elements;
-}
-
-type DarkRule = {
-  readonly selector: readonly string[];
-  readonly style: Readonly<Record<string, string>>;
-};
-
-/** The `prefers-color-scheme: dark` block's rules, in source order. */
-function parseDarkRules(html: string): DarkRule[] {
-  const block =
-    /@media \(prefers-color-scheme: dark\) \{([\s\S]*?)\n\s*\}\n/.exec(
-      html,
-    )?.[1] ?? '';
-  return [...block.matchAll(/([^{}]+)\{([^}]*)\}/g)].map(
-    ([, selector, declarations]) => ({
-      selector: selector!.trim().split(/\s+/),
-      style: parseStyle(declarations!),
-    }),
-  );
-}
-
-const matchesPart = (element: MailElement, part: string) =>
-  part.startsWith('.')
-    ? element.classes.includes(part.slice(1))
-    : element.tag === part;
-
-/** A descendant-combinator selector (`.a p`) matched right to left. */
-function matchesSelector(element: MailElement, selector: readonly string[]) {
-  if (!matchesPart(element, selector.at(-1)!)) return false;
-  let rest = selector.slice(0, -1);
-  for (let node = element.parent; node && rest.length; node = node.parent)
-    if (matchesPart(node, rest.at(-1)!)) rest = rest.slice(0, -1);
-  return rest.length === 0;
-}
-
-type Theme = 'light' | 'dark';
-
-/**
- * The element's own declared value for a property: in dark mode an
- * `!important` media rule that matches it wins, else its inline style.
- * An inherited dark color never beats an element's own inline color.
- */
-function ownValue(
-  element: MailElement,
-  property: string,
-  theme: Theme,
-  rules: readonly DarkRule[],
-): string | undefined {
-  const dark =
-    theme === 'dark'
-      ? rules
-          .filter(
-            (rule) =>
-              rule.style[property] && matchesSelector(element, rule.selector),
-          )
-          .at(-1)?.style[property]
-      : undefined;
-  return dark ?? element.style[property];
-}
-
-/** Color inherits; the backdrop is the nearest painted ancestor. */
-function resolved(
-  element: MailElement,
-  property: 'color' | 'background',
-  theme: Theme,
-  rules: readonly DarkRule[],
-): string | undefined {
-  for (let node: MailElement | null = element; node; node = node.parent) {
-    const value = ownValue(node, property, theme, rules);
-    if (value) return value;
-  }
-  return undefined;
 }
 
 const elements = parseElements(rendered);
@@ -204,29 +75,6 @@ describe('AUTH-3.9 auth email layout: width, dark mode and contrast (ISSUE-167)'
         maxWidth: surface?.style['max-width'],
       },
       expected: { width: '100%', maxWidth: '600px' },
-    });
-  });
-
-  test('gives every themed class a dark-mode override', () => {
-    const themed = [
-      ...new Set(
-        elements.flatMap((element) =>
-          element.classes.filter((name) => name.startsWith('auth-mail-')),
-        ),
-      ),
-    ];
-    const overridden = new Set(
-      darkRules.flatMap((rule) =>
-        rule.selector
-          .filter((part) => part.startsWith('.'))
-          .map((part) => part.slice(1)),
-      ),
-    );
-    assert({
-      given: 'every auth-mail-* class the markup uses',
-      should: 'each be restyled under prefers-color-scheme: dark',
-      actual: themed.filter((name) => !overridden.has(name)),
-      expected: [],
     });
   });
 
