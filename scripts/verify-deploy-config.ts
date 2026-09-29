@@ -216,11 +216,46 @@ export function findAlwaysOnProblem(flyToml: string): string | null {
   return null;
 }
 
+/**
+ * ISSUE-219: `auth-alerts.yml` runs `scripts/auth-alert-probe.ts`, which
+ * imports zod. Without a `node_modules`, Bun auto-installs imports from the
+ * registry on every run, bypassing bun.lock, and an unreachable registry
+ * kills the probe before it can post. The job must set up Bun from
+ * `.bun-version`, run `bun install --frozen-lockfile` before the probe, and
+ * run every probe command with `--no-install` so auto-install can never run.
+ */
+export function findProbeInstallProblem(workflow: string): string | null {
+  const code = uncommented(workflow);
+  const probes = [...code.matchAll(/^.*scripts\/auth-alert-probe\.ts.*$/gm)];
+  const firstProbe = probes[0]?.index ?? -1;
+  const install = code.search(/run:\s*bun install --frozen-lockfile\b/);
+  const problems = [
+    /oven-sh\/setup-bun@[0-9a-f]{40}[^\n]*\n\s*with:\s*\n\s*bun-version-file:\s*['"]?\.bun-version['"]?/.test(
+      code,
+    )
+      ? null
+      : 'sets up Bun without `bun-version-file: .bun-version`',
+    firstProbe === -1 ? 'never runs scripts/auth-alert-probe.ts' : null,
+    install === -1 || install > firstProbe
+      ? 'does not run `bun install --frozen-lockfile` before the probe'
+      : null,
+    probes.every(([line]) =>
+      /\bbun --no-install scripts\/auth-alert-probe\.ts\b/.test(line),
+    )
+      ? null
+      : 'runs the probe without `bun --no-install`',
+  ].filter((problem): problem is string => problem !== null);
+  return problems.length === 0
+    ? null
+    : `auth-alerts.yml ${problems.join('; ')} (ISSUE-219)`;
+}
+
 export function verifyDeployConfig(input: {
   readonly dockerfile: string;
   readonly flyToml: string;
   readonly migratorToml: string;
   readonly workflow: string;
+  readonly probeWorkflow: string;
   readonly bunVersion: string;
   readonly startTs: string;
   readonly migrateTs: string;
@@ -239,6 +274,7 @@ export function verifyDeployConfig(input: {
     findFlyDatabaseSecretProblem(input.migratorToml, 'fly.migrate.toml'),
     findRuntimeRoleGateProblem(input.startTs),
     findMigrationCredentialProblem(input.migrateTs),
+    findProbeInstallProblem(input.probeWorkflow),
   ].filter((problem): problem is string => problem !== null);
 }
 
@@ -248,6 +284,7 @@ if (import.meta.main) {
     flyToml: readFileSync('fly.toml', 'utf8'),
     migratorToml: readFileSync('fly.migrate.toml', 'utf8'),
     workflow: readFileSync('.github/workflows/deploy-staging.yml', 'utf8'),
+    probeWorkflow: readFileSync('.github/workflows/auth-alerts.yml', 'utf8'),
     bunVersion: readFileSync('.bun-version', 'utf8').trim(),
     startTs: readFileSync('apps/web/src/server/start.ts', 'utf8'),
     migrateTs: readFileSync('packages/db/scripts/migrate.ts', 'utf8'),
@@ -259,7 +296,7 @@ if (import.meta.main) {
     process.exitCode = 1;
   } else {
     process.stdout.write(
-      'Deploy config matches .bun-version, migrates only from the migrator app, first, keeps the database role split and keeps staging always on.\n',
+      'Deploy config matches .bun-version, migrates only from the migrator app, first, keeps the database role split, keeps staging always on and installs from bun.lock before the alert probe.\n',
     );
   }
 }
