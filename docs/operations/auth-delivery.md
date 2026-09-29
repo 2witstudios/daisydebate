@@ -358,9 +358,17 @@ limiter_unavailable").
    later occurrence..."), so during a continuous outage it never expires,
    and it expires on its own only once occurrences stop for 3 minutes — the
    alert clears passively once the dependency recovers and stays recovered.
-4. If `/api/ops/alerts` itself is unreachable — most often a full Redis
-   outage, since the endpoint depends on Redis to answer at all — the probe
-   (`scripts/auth-alert-probe.ts`, `fetchAlertConditions` /
+4. A full Redis outage takes the limiter and every alert marker with it,
+   yet `/api/ops/alerts` still answers: the snapshot reports
+   `redisState: "unreachable"`, `limiter_unavailable` fires from the time
+   the serving instance itself first saw the limiter unavailable, and the
+   Redis-backed conditions (`storage_unavailable`, `delivery_failures`,
+   `auth_5xx_rate`, `cleanup_missed`) are not evaluated until Redis returns
+   (`apps/web/integration/auth-ops-signals.integration.ts`, "a Redis outage
+   that outlasts the threshold fires limiter_unavailable from when it
+   began"). Readiness answers 503 throughout, which the probe posts too.
+5. If `/api/ops/alerts` itself is unreachable (a deploy fault, the app
+   down), the probe (`scripts/auth-alert-probe.ts`, `fetchAlertConditions` /
    `decideProbeOutcome`) still posts to Incidents, naming the unreachable
    endpoint instead of the specific condition; posting to Incidents never
    depends on the dependency that is down.

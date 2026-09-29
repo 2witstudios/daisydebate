@@ -75,6 +75,14 @@ exactly one place.
   whole length of a continuous outage rather than only its first 180s
   (ISSUE-156). A quiet period longer than the TTL resets the next
   incident's clock. `evaluateAlerts` fires once `now - since >= 2 minutes`.
+  The limiter shares that Redis, so the recorder also keeps the limiter's
+  since-time in process under the same bridging rule, and
+  `readAlertSnapshot` reports the earlier of the two (ISSUE-191, DEC-63).
+  When the Redis read itself fails, the snapshot is marked
+  `redisState: 'unreachable'` and `evaluateAlerts` checks only
+  `limiter_unavailable`, from the in-process since-time; every other
+  condition waits for Redis to return. Each instance serving auth traffic
+  sees the outage itself, so whichever one the probe reaches can report it.
 - **Consecutive delivery-provider failures.** `auth.mail.failed` increments
   a bounded Redis counter (`incrementWithExpiry`, a new atomic
   `INCR`+`PEXPIRE`-on-first-hit primitive) with a 1-hour TTL;
@@ -92,6 +100,10 @@ exactly one place.
   `apps/web/integration/auth-alert-counters.integration.ts`).
   `readAlertSnapshot` sums the trailing 10 one-minute buckets (each with an
   11-minute TTL) and fires at `total >= 100 && serverErrors/total > 0.01`.
+  These buckets live in Redis, so `auth_5xx_rate` is blind to a Redis
+  outage: the 503s it causes are never counted. `limiter_unavailable`
+  covers that outage, since every auth route passes the limiter, and the
+  probe's readiness check answers 503 throughout (ISSUE-191).
 - **Cleanup missed.** `retention.sweep.completed` sets a durable
   `alert-retention-last-success` marker (30-day TTL, effectively
   "durable" relative to the 2-hour threshold); `retention.sweep.failed`
@@ -102,9 +114,10 @@ exactly one place.
   few seconds between boot and the `runOnStart` sweep's first completion,
   a window no probe run — at any cadence — is likely to land inside).
 
-**Redis, not Postgres, holds every alert marker**, including the retention
-one, even though ADR 0023/persistence.md name PostgreSQL the source of
-competitive truth and Redis expendable. This is a deliberate, bounded
+**Redis, not Postgres, holds every durable alert marker**, including the
+retention one (the limiter's in-process copy above is not durable), even
+though ADR 0023/persistence.md name PostgreSQL the source of competitive
+truth and Redis expendable. This is a deliberate, bounded
 trade-off: Fly Redis for this deployment is Upstash, a managed service
 independent of the web app's machines (`docs/operations/deploy-staging.md`),
 so it does not scale to zero with the app and normally survives exactly the
@@ -143,11 +156,11 @@ retention sweep failures by target name (`retentionTargets`' own fixed set
 of ~6 names), plus the `auth_http_request_duration_ms` latency histogram
 by operation (`KNOWN_OPERATIONS` plus `other`). No field is ever an email,
 token, IP, or other unbounded value. Each counter, the histogram and each
-alert marker except the limiter-unavailable one is proven through the
+alert marker is proven through the
 composed app, from real requests, outages and sweeps, by
 `apps/web/integration/auth-alert-counters.integration.ts` and
-`auth-ops-signals.integration.ts` (ISSUE-190). A Redis outage loses the
-limiter-unavailable marker, which is written to that same Redis (ISSUE-191). Prometheus text exposition was chosen because it needs no client
+`auth-ops-signals.integration.ts` (ISSUE-190), the limiter-unavailable
+one through a real Redis outage (ISSUE-191). Prometheus text exposition was chosen because it needs no client
 library (plain string formatting) and is the format Fly's own `[metrics]`
 scrape config and any Prometheus-compatible dashboard already understand;
 this ADR ships the data source only. **Wiring an actual scrape config
