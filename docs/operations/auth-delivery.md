@@ -176,16 +176,21 @@ trigger runs it best-effort — measured runs land hours apart, and the owner
 accepted that cadence for staging ([ADR 0046](../decisions/0046-auth-alert-probe-cadence-correction.md),
 DEC-33) — so a condition can fire and resolve between runs unseen. On each
 run it probes the public origin's readiness endpoint
-(non-mutating, proving routing/TLS/security headers; headers are checked
-only on a `200`, since any other status most likely came from Fly's proxy or
-the start-up gate rather than the app, so it posts one `origin_probe` line
-naming the status instead of one per missing header) and reads
+(non-mutating, proving routing/TLS/security headers) and reads
 `GET /api/ops/alerts` (bearer-token gated by `OPS_PROBE_TOKEN`), which
 answers the already-evaluated conditions computed by
 `apps/web/src/server/alert-state.ts`'s `evaluateAlerts`. Whatever fires is
 posted to the drive's Incidents channel via the existing
 `scripts/notify-drive.ts incidents --message`, naming the condition's own
 runbook below.
+
+The origin probe checks the security headers only on a `200`. Any other
+status posts one `origin_probe` line naming the status, not one per missing
+header. With the app's headers present it says the app reported not ready:
+Postgres or Redis is unreachable (including the cold-boot Redis window) or
+the process is draining. With them absent it says the response likely did
+not come from the app: Fly's proxy during a cold start, the start-up gate,
+or the app down.
 
 The four conditions, and the durable Redis marker each reads
 (`apps/web/src/server/alert-recorder.ts` writes them by tapping the

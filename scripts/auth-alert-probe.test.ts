@@ -129,17 +129,44 @@ describe('evaluateOriginProbe (AUTH-7.7)', () => {
     });
   });
 
-  test('a non-200 status is a routing issue (negative control on the healthy case)', () => {
+  test('a non-200 carrying the app headers is the app reporting not ready (ISSUE-203)', () => {
     const result = evaluateOriginProbe({
       status: 503,
       headers: HEALTHY_HEADERS,
     });
     assert({
-      given: 'a 503 from the readiness endpoint',
+      given:
+        'a 503 carrying the app header contract (dependency down or draining)',
+      should:
+        'report exactly one issue naming the status and that the app reported not ready',
+      actual: {
+        ok: result.ok,
+        count: result.issues.length,
+        namesStatus: result.issues[0]?.includes('503'),
+        saysNotReady: result.issues[0]?.includes('the app reported not ready'),
+        saysNotApp: result.issues[0]?.includes('did not come from the app'),
+      },
+      expected: {
+        ok: false,
+        count: 1,
+        namesStatus: true,
+        saysNotReady: true,
+        saysNotApp: false,
+      },
+    });
+  });
+
+  test('a non-5xx non-200 is not ok even with every header (ISSUE-203)', () => {
+    const result = evaluateOriginProbe({
+      status: 404,
+      headers: HEALTHY_HEADERS,
+    });
+    assert({
+      given: 'a 404 from the readiness endpoint carrying every required header',
       should: 'report not-ok naming the status',
       actual: {
         ok: result.ok,
-        namesStatus: result.issues.some((i) => i.includes('503')),
+        namesStatus: result.issues.some((i) => i.includes('404')),
       },
       expected: { ok: false, namesStatus: true },
     });
