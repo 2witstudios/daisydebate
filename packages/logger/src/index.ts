@@ -34,6 +34,7 @@ export const eventRegistry = {
   'retention.sweep.failed': 'error',
   'redis.command.failed': 'error',
   'server.start': 'info',
+  'server.ready': 'info',
   'server.shutdown': 'info',
   'ingress.trusted_proxy.unresolved': 'warn',
   'telemetry.unknown_event': 'warn',

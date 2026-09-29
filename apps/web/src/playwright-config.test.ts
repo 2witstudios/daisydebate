@@ -290,4 +290,18 @@ describe('Playwright web server readiness', () => {
       expected: { edge: true, https: true, ignoreHTTPSErrors: true },
     });
   });
+
+  test('waits for readiness, which answers 200 only once the start-up gate opens (ISSUE-197)', () => {
+    const server = Array.isArray(playwrightConfig.webServer)
+      ? playwrightConfig.webServer[0]
+      : playwrightConfig.webServer;
+    assert({
+      given:
+        'a production server whose liveness answers 200 while start.ts still prepares Next (ISSUE-172)',
+      should:
+        'wait on /api/health/ready through the edge, never on liveness, so no navigation meets a gated 503',
+      actual: server?.url,
+      expected: `${playwrightConfig.use?.baseURL}/api/health/ready`,
+    });
+  });
 });

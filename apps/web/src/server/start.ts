@@ -15,7 +15,7 @@ import {
   retentionTargets,
   startRetentionSweep,
 } from './retention-sweep';
-import { createProductionServer } from './server-wiring';
+import { startProductionServer } from './listen-first';
 import { waitForHealthy } from './wait-for-healthy';
 
 // Refuses anything but NODE_ENV=production before building the app.
@@ -24,11 +24,15 @@ const app = processApp();
 const nextApp = next({ dev: false, port });
 // Production must not boot without validated auth configuration (secret,
 // Resend sender/key, webhook secret, HTTPS origin): building the server
-// reads it eagerly and its errors name fields only. The handler it wraps
-// only resolves Next's request handler per request, after prepare().
-const server = createProductionServer({
+// reads it eagerly and its errors name fields only. startProductionServer
+// opens the port first behind a start-up gate (ISSUE-172), refuses a
+// DATABASE_URL role that could create or alter schema objects, prepares
+// Next, and only then lets a request reach Next (ISSUE-39, ISSUE-193); a
+// refusal rejects `started` and the process exits.
+const { server, started } = startProductionServer({
   app,
-  handle: nextApp.getRequestHandler(),
+  nextApp,
+  refuseRole: () => refuseSchemaAlteringRole(app, 'daisy_web'),
   // The one read of the route table, for the `gateway` keyword in
   // AUTH_TRUSTED_PROXIES (ISSUE-162); unreadable, it trusts nothing for it.
   readRouteTable: () => {
@@ -38,22 +42,14 @@ const server = createProductionServer({
       return null;
     }
   },
+  port,
+  host: '0.0.0.0',
 });
-// Production refuses a DATABASE_URL role that could create or alter schema
-// objects, before Next prepares or the port opens (ISSUE-39).
-await refuseSchemaAlteringRole(app, 'daisy_web');
-await nextApp.prepare();
-server.listen(port, '0.0.0.0', () =>
-  app.logger.log(
-    'server.start',
-    { operation: 'server.start', port },
-    'Server listening',
-  ),
-);
+await started;
 // The one bounded retention sweep runs at start and then hourly in this
 // process; `unref` never holds it open. The start-up run waits for Redis to
-// answer first (ISSUE-146): a scale-to-zero Fly machine's Redis connection
-// is not necessarily ready the instant this process starts listening, and
+// answer first (ISSUE-146): a freshly started Fly machine's Redis connection
+// is not necessarily ready the instant this process is ready, and
 // readiness already reports 503 correctly during that window (a live check
 // per request, never a boot flag) — this only stops the sweep from logging
 // a spurious retention.sweep.failed on every cold boot.

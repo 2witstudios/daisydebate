@@ -57,6 +57,7 @@ diverge:
 | ---------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------- |
 | `runtime.initialize`                     | info     | The application runtime initialized                                                                                    |
 | `server.start`                           | info     | The HTTP server began listening                                                                                        |
+| `server.ready`                           | info     | Start-up work finished and requests reach Next; `durationMs` is the time since `server.start` (ISSUE-172)              |
 | `server.shutdown`                        | info     | Shutdown began draining requests                                                                                       |
 | `ingress.trusted_proxy.unresolved`       | warn     | `AUTH_TRUSTED_PROXIES` names `gateway` but no single default gateway was found at start, so none is trusted            |
 | `http.request.completed`                 | info     | A request operation returned a response                                                                                |

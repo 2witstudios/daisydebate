@@ -35,21 +35,17 @@ the measured 15-run sample shows delays far past even that stated ceiling.
 `schedule` was never designed for sub-hour reliability at scale; ADR 0042
 under-estimated how far short of 5 minutes it would fall.
 
-ADR 0042 also priced in that the 5-minute probe, by waking
-`daisy-debate-staging` on every run (`auto_start_machines`), would keep the
-machine running almost continuously — **owner decision DEC-10 (confirmed)**
-accepted roughly $4/month of continuous run time for that. In practice the
-probe runs 2–5 hours apart, so the machine is _not_ being kept awake as
-DEC-10's cost estimate assumed either: staging sleeps for hours at a time
-between real runs, then the next probe wakes it, evaluates state that has
-gone stale, and goes back to being invisible for hours.
+The probe's cadence bears only on detection latency, not on cost or on
+whether the machine runs: `daisy-debate-staging` runs continuously under
+owner decision DEC-40 (`fly.toml`'s `min_machines_running = 1` and
+`auto_stop_machines = "off"`, about $3.99/month). Between real runs, hours
+apart, a condition can fire and resolve with no probe to see it.
 
 ## Options considered
 
-Two real fixes exist for a genuine 5-minute cadence — an always-on in-app
-evaluator (`fly.toml` `min_machines_running = 1`, evaluation loop inside the
-app, the Incidents webhook secret added to the production app's own
-environment) or a dedicated always-on Fly machine running only the external
+Two real fixes exist for a genuine 5-minute cadence — an in-app
+evaluator (an evaluation loop inside the always-on app, the Incidents
+webhook secret added to the production app's own environment) or a dedicated always-on Fly machine running only the external
 prober. Both are deploy-rail or new-cost changes AGENTS.md reserves for the
 owner; both were presented to the owner (recorded as DEC-33) and both were
 **declined**.
@@ -96,6 +92,6 @@ directly rather than relying on the schedule.
 - Fly Machines `--schedule` granularity (hourly/daily/weekly/monthly only,
   confirmed via `fly machine run --help`, 2026-09-28):
   https://fly.io/docs/machines/flyctl/fly-machine-run/
-- Fly.io scale-to-zero and `auto_start_machines`/`min_machines_running`:
+- Fly.io `auto_stop_machines`/`auto_start_machines`/`min_machines_running`:
   https://fly.io/docs/reference/configuration/#the-http_service-section
 - `gh run list --workflow auth-alerts.yml` (measured cadence, 2026-09-28).
