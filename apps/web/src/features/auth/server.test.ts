@@ -13,7 +13,7 @@ setupRitewayBun();
 
 const message: AuthEmailMessage = {
   to: 'player@daisy.example.com',
-  subject: 'Sign in to Daisy',
+  subject: 'Sign in to Daisy Debate',
   text: 'Open the link to continue.',
   html: '<p>Open the link to continue.</p>',
 };

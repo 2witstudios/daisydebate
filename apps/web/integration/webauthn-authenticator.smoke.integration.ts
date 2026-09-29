@@ -24,7 +24,7 @@ const origin = 'http://localhost';
 test('the software authenticator produces a real, verifiable registration and assertion', async () => {
   const credential = await createSoftwareCredential();
   const registrationOptions = await generateRegistrationOptions({
-    rpName: 'Daisy',
+    rpName: 'Daisy Debate',
     rpID,
     userName: 'tester',
     attestationType: 'none',

@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { signUpMember } from './support/accounts';
 
 const publicTitles: Record<string, string> = {
-  '/': 'Daisy',
+  '/': 'Daisy Debate',
   '/debates': 'Debates',
   '/watch': 'Watch',
   '/leaderboard': 'Leaderboard',
@@ -24,7 +24,9 @@ const expectShell = async (page: Page, route: string, title: string) => {
   await page.goto(route);
   await expect(page).toHaveURL(new RegExp(`${route}$`));
   await expect(page).toHaveTitle(
-    route === '/' ? new RegExp(`^${title}$`) : new RegExp(`^${title} · Daisy$`),
+    route === '/'
+      ? new RegExp(`^${title}$`)
+      : new RegExp(`^${title} · Daisy Debate$`),
   );
   await expect(page.locator('main h1')).toHaveText(
     route === '/' ? 'Join the marketplace of ideas' : title,

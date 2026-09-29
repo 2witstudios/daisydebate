@@ -77,7 +77,7 @@ test('AUTH-4.7 confirm state has no serious or critical accessibility findings i
   for (const theme of ['dark', 'light'] as const) {
     await gotoWithTheme(page, link, theme);
     await expect(
-      page.getByRole('button', { name: 'Sign in to Daisy' }),
+      page.getByRole('button', { name: 'Sign in to Daisy Debate' }),
     ).toBeVisible();
     await assertNoSeriousFindings(page);
   }
@@ -320,7 +320,7 @@ test('the confirm sign-in page stays usable with no horizontal overflow at 320 p
     );
     expect(overflowsHorizontally).toBe(false);
     await expect(
-      page.getByRole('button', { name: 'Sign in to Daisy' }),
+      page.getByRole('button', { name: 'Sign in to Daisy Debate' }),
     ).toBeVisible();
   }
 });

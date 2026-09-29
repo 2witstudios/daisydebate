@@ -19,7 +19,7 @@ export const authTestEnv = {
     'b8a6a86e17fc0067bd98c85480bf6e6ee0d50b18dc11bd5dc6240453c40e8031',
   PUBLIC_APP_URL: 'http://localhost:3000',
   RESEND_API_KEY: 're_test_000000000000000000000000',
-  AUTH_EMAIL_FROM: 'Daisy <no-reply@daisy.example.com>',
+  AUTH_EMAIL_FROM: 'Daisy Debate <no-reply@daisy.example.com>',
 };
 
 /** Fresh in-memory Better Auth tables a test can inspect after the fact. */

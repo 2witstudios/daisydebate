@@ -23,7 +23,7 @@ export type SavePasskeyProps = {
 
 const savedFacts = [
   'Stays on your device or in your password manager',
-  'Works only on Daisy, so look-alike sites get nothing',
+  'Works only on Daisy Debate, so look-alike sites get nothing',
   'Email links keep working as a backup',
 ] as const;
 
@@ -70,12 +70,16 @@ export function SavePasskey({
     <AuthFrame
       panel={{
         eyebrow: 'What gets saved',
-        title: 'A key that only opens Daisy.',
+        title: 'A key that only opens Daisy Debate.',
         body: (
           <ul className="flex flex-col gap-3">
             {savedFacts.map((fact) => (
               <li key={fact} className="flex items-start gap-3">
-                <Icon name="check" size={18} className="mt-1 text-accent" />
+                <Icon
+                  name="check"
+                  size={18}
+                  className="mt-1 text-stage-accent"
+                />
                 <span>{fact}</span>
               </li>
             ))}

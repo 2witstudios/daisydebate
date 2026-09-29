@@ -24,7 +24,7 @@ const FONT_DISPLAY = "Georgia, 'Iowan Old Style', 'Palatino Linotype', serif";
 const FONT_BODY =
   "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
-// The one Daisy green palette, shared with both confirm pages
+// The one Daisy board palette (ADR 0045), shared with both confirm pages
 // (brand-palette.ts): email clients cannot read CSS custom properties in
 // inline styles, so these stay plain values here too.
 const LIGHT = {
@@ -90,7 +90,7 @@ export function renderAuthEmailLayout(content: AuthEmailContent): {
     .auth-mail-muted { color: ${DARK.inkMuted} !important; }
     .auth-mail-accent { color: ${DARK.accent} !important; }
     .auth-mail-accent-bg { background: ${DARK.accent} !important; }
-    .auth-mail-button { background: ${DARK.accent} !important; }
+    .auth-mail-button { background: ${DARK.accent} !important; color: ${DARK.accentInk} !important; }
     .auth-mail-button a { color: ${DARK.accentInk} !important; }
   }
 </style>
@@ -103,7 +103,7 @@ export function renderAuthEmailLayout(content: AuthEmailContent): {
 <tr><td style="padding:32px 40px 0;">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
 <td width="20" height="20" style="background:${LIGHT.accent};border-radius:999px;font-size:0;line-height:0;" class="auth-mail-accent-bg">&nbsp;</td>
-<td style="padding-left:10px;font-family:${FONT_BODY};font-size:17px;font-weight:700;letter-spacing:-0.01em;color:${LIGHT.ink};" class="auth-mail-ink">Daisy</td>
+<td style="padding-left:10px;font-family:${FONT_BODY};font-size:17px;font-weight:700;letter-spacing:-0.01em;color:${LIGHT.ink};" class="auth-mail-ink">Daisy Debate</td>
 </tr></table>
 </td></tr>
 <tr><td style="padding:28px 40px 0;">

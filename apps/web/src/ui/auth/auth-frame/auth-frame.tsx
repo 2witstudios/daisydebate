@@ -23,31 +23,31 @@ export function AuthFrame({ panel, footer, children }: AuthFrameProps) {
       <div className="flex min-w-0 flex-1 flex-col justify-between gap-12 px-16 pt-4 pb-8 max-reflow:px-8 max-narrow:px-0">
         <Link
           href="/"
-          className="flex items-center gap-3 self-start text-ink no-underline hover:no-underline"
+          className="flex items-center gap-2 self-start text-ink no-underline hover:no-underline"
         >
           <DaisyLogo />
           <span className="font-display text-xl leading-shell-brand font-semibold tracking-tight text-ink">
-            Daisy
+            Daisy Debate
           </span>
         </Link>
         <div className="flex max-w-auth-copy flex-col gap-8">{children}</div>
         {/* The slot stays when empty so the step keeps its vertical place. */}
         <div className="text-sm text-ink-muted">{footer}</div>
       </div>
-      <aside className="relative isolate flex w-auth-panel shrink-0 flex-col justify-end gap-4 overflow-hidden rounded-xl bg-surface-emerald p-10 text-ink max-rail:hidden">
+      <aside className="relative isolate flex w-auth-panel shrink-0 flex-col justify-end gap-4 overflow-hidden rounded-xl bg-surface-stage p-10 text-stage-ink max-rail:hidden">
         <DaisyMark
           size={520}
-          className="absolute -top-auth-mark-top -right-auth-mark-right -z-1 size-auth-mark text-accent opacity-20"
-          discClassName="fill-gold"
+          variant="reverse"
+          className="absolute -top-auth-mark-top -right-auth-mark-right -z-1 size-auth-mark opacity-20"
         />
-        <p className="text-xs font-bold tracking-widest text-ink-muted uppercase">
+        <p className="text-xs font-bold tracking-widest text-stage-ink-muted uppercase">
           {panel.eyebrow}
         </p>
         <p className="font-display text-3xl leading-tight font-semibold tracking-tighter text-balance">
           {panel.title}
         </p>
         {panel.body === undefined ? null : (
-          <div className="text-md text-ink-muted">{panel.body}</div>
+          <div className="text-md text-stage-ink-muted">{panel.body}</div>
         )}
       </aside>
     </div>

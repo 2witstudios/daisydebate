@@ -5,6 +5,7 @@ import { FeaturedTournament } from './featured-tournament';
 import { tournament } from '../../mock/tournament';
 import { createInitialState } from '../../store/state';
 import { UiStoreProvider } from '../../store/store';
+import { pageColourClasses } from '../../test-support/stage-palette';
 
 setupRitewayBun();
 
@@ -26,6 +27,21 @@ describe('FeaturedTournament', () => {
         html.includes(tournament.prizePool),
       ],
       expected: [true, true, true, true],
+    });
+  });
+
+  test('draws the stage card in the stage palette', () => {
+    const html = renderToString(
+      h(UiStoreProvider, {
+        initialState: createInitialState(),
+        children: h(FeaturedTournament, {}),
+      }),
+    );
+    assert({
+      given: 'the forest stage card',
+      should: 'use no page-palette colour, which is forest on forest in light',
+      actual: pageColourClasses(html),
+      expected: [],
     });
   });
 });

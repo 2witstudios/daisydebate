@@ -36,7 +36,9 @@ async function signInSecondSession(
   await otherPage.goto('/sign-in');
   await requestSignInLink(otherPage, email);
   await otherPage.goto(await emailedLink(request, email));
-  await otherPage.getByRole('button', { name: 'Sign in to Daisy' }).click();
+  await otherPage
+    .getByRole('button', { name: 'Sign in to Daisy Debate' })
+    .click();
   await expect(otherPage).toHaveURL(/\/lobby$/);
   return { context, otherPage };
 }

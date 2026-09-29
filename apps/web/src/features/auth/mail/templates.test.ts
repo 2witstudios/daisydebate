@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { AUTH_BRAND_PALETTE } from '../brand-palette';
 import { renderAuthEmail, type AuthEmailInput } from './templates';
 
 setupRitewayBun();
@@ -125,6 +126,44 @@ describe('AUTH-3.9 auth email templates', () => {
           textNonEmpty: rendered.text.trim().length > 0,
         },
         expected: { hasSubject: true, textNonEmpty: true },
+      });
+    });
+
+    test(`${input.kind}: the dark scheme recolours the button's link, not only its cell`, () => {
+      const dark =
+        /@media \(prefers-color-scheme: dark\) \{([\s\S]*?)\n\s*\}\n/.exec(
+          rendered.html,
+        )?.[1] ?? '';
+      assert({
+        given: `a ${input.kind} message whose link carries the light ink inline`,
+        should:
+          'override the anchor itself with the dark accent ink, so it stays legible on the dark accent',
+        actual: dark.includes(
+          `.auth-mail-button a { color: ${AUTH_BRAND_PALETTE.dark.accentInk} !important; }`,
+        ),
+        expected: true,
+      });
+    });
+
+    test(`${input.kind}: the dark scheme overrides every element that carries a light colour inline`, () => {
+      const dark =
+        /@media \(prefers-color-scheme: dark\) \{([\s\S]*?)\n\s*\}\n/.exec(
+          rendered.html,
+        )?.[1] ?? '';
+      const body = rendered.html.slice(rendered.html.indexOf('<body'));
+      const classed = [
+        ...new Set(
+          [...body.matchAll(/class="(auth-mail-[a-z-]+)"/g)].map(
+            ([, name]) => name,
+          ),
+        ),
+      ];
+      assert({
+        given: `every auth-mail class on an element in the ${input.kind} body`,
+        should:
+          'have a rule in the dark block, so no light inline colour survives into a dark client',
+        actual: classed.filter((name) => !dark.includes(`.${name} {`)),
+        expected: [],
       });
     });
 

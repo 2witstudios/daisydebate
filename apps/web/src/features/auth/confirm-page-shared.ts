@@ -1,3 +1,5 @@
+import { markGeometry, petalShape } from '../../ui/brand/brand-geometry';
+import { bloomPetals } from '../../ui/brand/petal';
 import { colorSchemeFor } from '../../ui/theme/theme-preference';
 import { confirmPageStylesheet } from './confirm-page-style';
 import { escapeHtml } from './mail/escape';
@@ -19,26 +21,27 @@ export const hiddenInput = (name: string, value: string | undefined) =>
     ? ''
     : `<input type="hidden" name="${name}" value="${escapeHtml(value)}">`;
 
-const petalAngles = [0, 45, 90, 135, 180, 225, 270, 315] as const;
+const { size: drawing, centre, discRadius } = markGeometry;
 
-const petals = () =>
-  petalAngles
+const petalPaths = (classOf: (cardinal: boolean) => string) =>
+  bloomPetals(petalShape, markGeometry)
     .map(
-      (angle) =>
-        `<ellipse cx="12" cy="5.1" rx="2.3" ry="3.9" transform="rotate(${angle} 12 12)"></ellipse>`,
+      ({ d, cardinal }) =>
+        `<path d="${d}" class="${classOf(cardinal)}"></path>`,
     )
     .join('');
 
-/** The Daisy mark, matching `ui/components/daisy-mark`: eight filled petals
- * around a solid disc, drawn inline (no external asset). The panel's large
- * mark carries a gold centre disc, matching the mock; the small brand mark
- * keeps the disc in the petals' own color. */
-const daisyMarkSvg = (
-  size: number,
-  extraAttrs = '',
-  discFill = 'currentColor',
-) =>
-  `<svg viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true"${extraAttrs}><g fill="currentColor">${petals()}</g><circle cx="12" cy="12" r="2.4" fill="${discFill}"></circle></svg>`;
+/**
+ * The primary Daisy mark (ADR 0045), drawn from the same geometry as
+ * `ui/components/daisy-mark`: its petals follow the scheme through the
+ * stylesheet, forest and sage on cream, cream on the dark page.
+ */
+const logoSvg = (size: number) =>
+  `<svg class="af-logo" viewBox="0 0 ${drawing} ${drawing}" width="${size}" height="${size}" aria-hidden="true">${petalPaths((cardinal) => (cardinal ? 'af-logo-cardinal' : 'af-logo-diagonal'))}<circle class="af-logo-disc" cx="${centre}" cy="${centre}" r="${discRadius}"></circle></svg>`;
+
+/** The reverse mark as the stage panel's art; its colours are in the stylesheet. */
+const panelMarkSvg = () =>
+  `<svg class="af-panel-mark" viewBox="0 0 ${drawing} ${drawing}" width="520" height="520" aria-hidden="true">${petalPaths(() => 'af-panel-petal')}<circle class="af-panel-disc" cx="${centre}" cy="${centre}" r="${discRadius}"></circle></svg>`;
 
 export type PanelContent = {
   readonly kicker: string;
@@ -46,10 +49,10 @@ export type PanelContent = {
   readonly body: string;
 };
 
-/** The emerald side panel, hidden under the rail breakpoint (AUTH-4.7). */
+/** The forest stage panel, hidden under the rail breakpoint (AUTH-4.7). */
 const panel = (content: PanelContent | undefined) =>
   content
-    ? `<aside class="af-panel" aria-hidden="true">${daisyMarkSvg(520, ' class="af-panel-mark"', 'color-mix(in srgb, var(--af-gold) 20%, var(--af-surface-emerald))')}<p class="af-panel-kicker">${escapeHtml(content.kicker)}</p><p class="af-panel-title">${escapeHtml(content.title)}</p><p class="af-panel-body">${escapeHtml(content.body)}</p></aside>`
+    ? `<aside class="af-panel" aria-hidden="true">${panelMarkSvg()}<p class="af-panel-kicker">${escapeHtml(content.kicker)}</p><p class="af-panel-title">${escapeHtml(content.title)}</p><p class="af-panel-body">${escapeHtml(content.body)}</p></aside>`
     : '';
 
 export type AuthFrameContent = {
@@ -61,7 +64,7 @@ export type AuthFrameContent = {
 /**
  * Server-rendered, script-free AuthFrame layout, with no third-party or
  * external asset (the two fonts are same-origin, fixed-path files): the
- * brand row, the content column and the emerald panel, matching the
+ * brand row, the content column and the stage panel, matching the
  * approved design (artifact Nc1KBhwPeBhmUqK4UkqG1M). Nothing here is served
  * through the Next app's own stylesheet pipeline, so the whole visual layer
  * travels as one nonce'd `<style>` and this markup.
@@ -69,7 +72,7 @@ export type AuthFrameContent = {
 function authFrame({ body, footer, panel: panelContent }: AuthFrameContent) {
   return (
     `<div class="af-page"><div class="af-main">` +
-    `<a class="af-brand" href="/"><span class="af-logo">${daisyMarkSvg(18)}</span><span class="af-word">Daisy</span></a>` +
+    `<a class="af-brand" href="/">${logoSvg(34)}<span class="af-word">Daisy Debate</span></a>` +
     `<div class="af-body">${body}</div>` +
     `<p class="af-foot">${footer}</p>` +
     `</div>${panel(panelContent)}</div>`

@@ -1,53 +1,99 @@
 import { cn } from '../../cn';
+import {
+  markGeometry,
+  petalShape,
+  tileGeometry,
+} from '../../brand/brand-geometry';
+import { bloomPetals, type PetalShape } from '../../brand/petal';
+import { markFills, type DaisyMarkVariant } from './daisy-mark-class';
 
-const petalAngles = [0, 45, 90, 135, 180, 225, 270, 315] as const;
+const { size: drawing, centre, discRadius } = markGeometry;
+
+/** The eight petals around the centre, scaled about it. */
+const petalsOf = (shape: PetalShape, scale = 1) =>
+  bloomPetals(shape, markGeometry, scale);
 
 export type DaisyMarkProps = {
   readonly size: number;
+  readonly variant: DaisyMarkVariant;
   readonly className?: string;
-  /** Fill of the centre disc; the petals always take currentColor. */
-  readonly discClassName?: string;
+  /** A preview shape for the brand sheet; everything else ships the committed one. */
+  readonly shape?: PetalShape;
 };
 
-/** The Daisy mark: eight petals around a solid disc. Filled, not stroked. */
+/**
+ * The Daisy mark: eight teardrop petals around a disc (ADR 0045).
+ * `primary` sits on the page in either scheme, `mono` takes currentColor,
+ * and `reverse` sits on forest.
+ */
 export function DaisyMark({
   size,
+  variant,
   className,
-  discClassName = 'fill-current',
+  shape = petalShape,
 }: DaisyMarkProps) {
+  const fills = markFills[variant];
   return (
     <svg
-      viewBox="0 0 24 24"
+      viewBox={`0 0 ${drawing} ${drawing}`}
       width={size}
       height={size}
       aria-hidden="true"
       className={cn('shrink-0', className)}
     >
-      <g className="fill-current">
-        {petalAngles.map((angle) => (
-          <ellipse
-            key={angle}
-            cx="12"
-            cy="5.1"
-            rx="2.3"
-            ry="3.9"
-            transform={`rotate(${angle} 12 12)`}
-          />
-        ))}
-      </g>
-      <circle cx="12" cy="12" r="2.4" className={discClassName} />
+      {petalsOf(shape).map(({ d, cardinal }) => (
+        <path
+          key={d}
+          d={d}
+          className={cardinal ? fills.cardinal : fills.diagonal}
+        />
+      ))}
+      <circle cx={centre} cy={centre} r={discRadius} className={fills.disc} />
     </svg>
   );
 }
 
-/** The mark on its accent tile, as it sits beside the wordmark. */
-export function DaisyLogo() {
+export type DaisyTileProps = {
+  readonly size: number;
+  readonly className?: string;
+  readonly shape?: PetalShape;
+};
+
+/** The favicon tile: a reverse bloom on a forest rounded square. */
+export function DaisyTile({
+  size,
+  className,
+  shape = petalShape,
+}: DaisyTileProps) {
+  const { cornerRadius, bloomScale } = tileGeometry;
   return (
-    <span
-      className="inline-flex size-shell-logo items-center justify-center rounded-sm bg-accent text-accent-ink"
+    <svg
+      viewBox={`0 0 ${drawing} ${drawing}`}
+      width={size}
+      height={size}
       aria-hidden="true"
+      className={cn('shrink-0', className)}
     >
-      <DaisyMark size={18} />
-    </span>
+      <rect
+        width={drawing}
+        height={drawing}
+        rx={cornerRadius}
+        className="fill-surface-stage"
+      />
+      {petalsOf(shape, bloomScale).map(({ d }) => (
+        <path key={d} d={d} className={markFills.reverse.cardinal} />
+      ))}
+      <circle
+        cx={centre}
+        cy={centre}
+        r={discRadius * bloomScale}
+        className={markFills.reverse.disc}
+      />
+    </svg>
   );
+}
+
+/** The mark as it sits beside the wordmark: the primary bloom, no tile. */
+export function DaisyLogo() {
+  return <DaisyMark size={34} variant="primary" className="size-shell-logo" />;
 }

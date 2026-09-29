@@ -135,7 +135,7 @@ test('an interrupted signup resumes onboarding on the next sign-in', async ({
   const second = await emailedLink(request, email);
   expect(second).toBeTruthy();
   await page.goto(second);
-  await page.getByRole('button', { name: 'Sign in to Daisy' }).click();
+  await page.getByRole('button', { name: 'Sign in to Daisy Debate' }).click();
   await expect(page).toHaveURL(/\/onboarding\/username\?next=%2Franked$/);
   await page.goto('/ranked');
   await expect(page).toHaveURL(/\/onboarding\/username\?next=%2Franked$/);
@@ -302,14 +302,17 @@ test('a fresh session makes no refresh call, and neither does a visitor', async 
 });
 
 test('a visitor can reach the topbar logo and Sign in', async ({ page }) => {
-  const topbar = await watchTopbarLinks(page, ['Daisy home', 'Sign in']);
+  const topbar = await watchTopbarLinks(page, ['Daisy Debate home', 'Sign in']);
   await page.goto('/');
   const signIn = page
     .getByRole('banner')
     .getByRole('link', { name: 'Sign in' });
   await expect(signIn).toBeVisible();
   const { covered, inspected } = await topbar.settle();
-  expect(Object.keys(inspected).sort()).toEqual(['Daisy home', 'Sign in']);
+  expect(Object.keys(inspected).sort()).toEqual([
+    'Daisy Debate home',
+    'Sign in',
+  ]);
   expect(covered).toEqual([]);
   await signIn.click();
   await expect(page).toHaveURL(/\/sign-in$/);

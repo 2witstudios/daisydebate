@@ -201,7 +201,7 @@ describe('authentication configuration', () => {
       given: 'an authentication sender without a valid mailbox',
       should: 'reject the sender configuration by field name',
       actual: failureOf(() =>
-        readAuthConfig({ ...authEnv, AUTH_EMAIL_FROM: 'Daisy @' }),
+        readAuthConfig({ ...authEnv, AUTH_EMAIL_FROM: 'Daisy Debate @' }),
       ),
       expected: 'Error: Invalid auth configuration: AUTH_EMAIL_FROM',
     });

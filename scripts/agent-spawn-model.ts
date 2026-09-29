@@ -4,6 +4,8 @@
  * ADR superseded, and whether a prompt reached the agent's transcript.
  */
 
+import { parseMachineCaps } from './agent-cap';
+
 export type Role = 'builder' | 'reviewer';
 
 export type SpawnPlan = {
@@ -25,8 +27,9 @@ const SPAWN_USAGE =
   'usage: bun agent:spawn [--task <leafPageId>] [--role builder | --role reviewer --worktree <worktreeId>] [--cap N] [--override] -- [-n <name>] [-b <base>] [-a <agent>] [pu spawn options] "<prompt>"';
 
 /**
- * Running agents allowed per role; only the owner changes a cap (ADR 0035
- * section 8). undefined means uncapped.
+ * Running agents allowed per role when neither `--cap` nor the machine's
+ * caps file (agent-cap.ts) sets one (ADR 0035 section 8). undefined means
+ * uncapped.
  */
 const DEFAULT_CAPS: Readonly<Record<Role, number | undefined>> = {
   builder: 3,
@@ -118,10 +121,17 @@ function puArgs(spawn: readonly string[]) {
 // at the project root, would escape the worktree checks and the caps.
 const WRAPPER_CHOSEN = new Set(['-w', '--worktree', '--root']);
 
+/** `--cap`, else the machine's builder cap (agent-cap.ts), else the default. */
+const capFor = (role: Role, flag: number | undefined, machine?: number) =>
+  flag ?? (role === 'builder' ? machine : undefined) ?? DEFAULT_CAPS[role];
+
 export function parseSpawnArgs(
   argv: readonly string[],
   autonomous = false,
+  capsFile?: string,
 ): SpawnPlan | { readonly error: string } {
+  const machineCaps = parseMachineCaps(capsFile);
+  if ('error' in machineCaps) return machineCaps;
   const split = argv.indexOf('--');
   const wrapper = split === -1 ? [] : argv.slice(0, split);
   const options = wrapperOptions(wrapper);
@@ -141,7 +151,7 @@ export function parseSpawnArgs(
   return {
     ...options,
     role,
-    cap: options.cap ?? DEFAULT_CAPS[role],
+    cap: capFor(role, options.cap, machineCaps.builder),
     name: picked.name ?? '',
     base: picked.base ?? 'main',
     agent: picked.agent ?? 'claude',
@@ -332,3 +342,39 @@ export const activeAfterSend = (
   samples.some(
     (sample) => sample.at >= 3 && sample.idle !== null && sample.idle <= 1,
   );
+
+type Agent = {
+  readonly id: string;
+  readonly agentType?: string;
+  readonly status?: string;
+};
+export type Worktree = {
+  readonly id: string;
+  readonly path: string;
+  readonly branch: string;
+  readonly agents?: Readonly<Record<string, Agent>>;
+};
+/** The parts of `pu status --json` the wrapper reads. */
+export type Status = {
+  readonly worktrees?: readonly Worktree[];
+  readonly agents?: readonly { readonly id: string }[];
+};
+
+/** The worktree a spawn created: absent before, on the spawned branch after. */
+export function newWorktree(before: Status, after: Status, branch: string) {
+  const known = new Set((before.worktrees ?? []).map((w) => w.id));
+  return (after.worktrees ?? []).find(
+    (worktree) => !known.has(worktree.id) && worktree.branch === branch,
+  );
+}
+
+/** The coding agent a spawn started in a worktree; pu's terminal agent is not it. */
+export function newAgent(before: Status, after: Status, worktreeId: string) {
+  const known = new Set(
+    (before.worktrees ?? []).flatMap((w) => Object.keys(w.agents ?? {})),
+  );
+  const worktree = after.worktrees?.find((w) => w.id === worktreeId);
+  return Object.values(worktree?.agents ?? {}).find(
+    (agent) => !known.has(agent.id) && agent.agentType !== 'terminal',
+  );
+}

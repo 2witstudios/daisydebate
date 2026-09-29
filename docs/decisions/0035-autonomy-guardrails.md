@@ -591,18 +591,24 @@ script`, `fetch(`, the `http`/`https` module, `urllib`, `requests.get`/
     section to declare them in
   - a leaf or a prompt with a term a merged ADR superseded
     (`policy/superseded-terms.json`)
-  - a full builder cap (default 3), which counts every running coding
+  - a full builder cap, which counts every running coding
     agent not registered as a reviewer, raw `pu spawn` ones included
 
-  Roles are `builder` and `reviewer` only. Only `builder` has a cap
-  (default 3); the owner may change it with `--cap`. `reviewer` is
+  Roles are `builder` and `reviewer` only. Only `builder` has a cap. How
+  many builders a machine runs is that machine's capacity, not a
+  repository decision: the cap is `--cap` for one spawn, else the main
+  checkout's machine-local `.pu/daisy/caps.json` (`{"builder": <n>}`, set
+  with `bun agent:cap <n>`, ISSUE-179), else 3. A malformed caps file
+  refuses every spawn and names the file. `reviewer` is
   uncapped: a reviewer is read-only against the worktree it joins and
   cannot cause branch drift, so any number may run. A reviewer
   (`--role reviewer --worktree <id>`) joins the existing worktree it
   reviews, with no new worktree or setup, so it cannot be a builder in
   disguise, and counts only against the (absent) reviewer cap; a builder
   may not pass `--worktree`. With `DAISY_AUTONOMOUS=1` the wrapper refuses
-  `--cap` and a builder without `--task`, and `--override` does not apply:
+  `--cap`, `bun agent:cap` and a builder without `--task` (the caps file
+  sits in `.pu/daisy`, which the guard already refuses agent edits to),
+  and `--override` does not apply:
   an agent may spawn a reviewer, but cannot raise a cap or skip the leaf
   checks.
 

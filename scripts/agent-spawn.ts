@@ -7,8 +7,8 @@
  *   bun agent:spawn --role reviewer --worktree <worktreeId> -- [-a <agent>] …
  *   bun agent:send <agent> "<text>"
  *
- * Caps are per role (ADR 0035 section 8); only the owner sets a cap or
- * overrides a refusal. Before a builder starts it refuses superseded
+ * Caps are per role (ADR 0035 section 8), from `--cap` or agent-cap.ts;
+ * only the owner sets a cap or overrides a refusal. Before a builder starts it refuses superseded
  * terms in the leaf or prompt, undeclared or unmerged prerequisites and a
  * full cap. One pu spawn creates a builder's worktree and its agent
  * together, then its dependencies and PAR-2 slot come up in it; a reviewer
@@ -39,8 +39,13 @@ import {
   projectDir,
   userTurnsWith,
   type SpawnPlan,
+  type Status,
   type SupersededTerm,
+  type Worktree,
+  newAgent,
+  newWorktree,
 } from './agent-spawn-model';
+import { capsPath } from './agent-cap';
 import { isAgentSession } from './agent-guard-rules';
 import { parseRecord, recordPath, serializeRecord } from './agent-registry';
 
@@ -61,22 +66,6 @@ export type SpawnDeps = {
   readonly parentId: string | undefined;
   readonly autonomous: boolean;
   readonly out: (text: string) => void;
-};
-
-type Agent = {
-  readonly id: string;
-  readonly agentType?: string;
-  readonly status?: string;
-};
-type Worktree = {
-  readonly id: string;
-  readonly path: string;
-  readonly branch: string;
-  readonly agents?: Readonly<Record<string, Agent>>;
-};
-type Status = {
-  readonly worktrees?: readonly Worktree[];
-  readonly agents?: readonly { readonly id: string }[];
 };
 
 class SpawnRefused extends Error {}
@@ -180,23 +169,6 @@ function checkCap(deps: SpawnDeps, plan: SpawnPlan): readonly string[] {
   return plan.cap !== undefined && active >= plan.cap
     ? [`${active} ${plan.role}s are active; the cap is ${plan.cap}`]
     : [];
-}
-
-function newWorktree(before: Status, after: Status, branch: string) {
-  const known = new Set((before.worktrees ?? []).map((w) => w.id));
-  return (after.worktrees ?? []).find(
-    (worktree) => !known.has(worktree.id) && worktree.branch === branch,
-  );
-}
-
-function newAgent(before: Status, after: Status, worktreeId: string) {
-  const known = new Set(
-    (before.worktrees ?? []).flatMap((w) => Object.keys(w.agents ?? {})),
-  );
-  const worktree = after.worktrees?.find((w) => w.id === worktreeId);
-  return Object.values(worktree?.agents ?? {}).find(
-    (agent) => !known.has(agent.id) && agent.agentType !== 'terminal',
-  );
 }
 
 function turnsWith(deps: SpawnDeps, cwd: string, text: string): number {
@@ -369,7 +341,8 @@ export async function spawnAgent(
   deps: SpawnDeps,
   argv: readonly string[],
 ): Promise<number> {
-  const plan = parseSpawnArgs(argv, deps.autonomous);
+  const caps = deps.read(capsPath(deps.mainCheckout));
+  const plan = parseSpawnArgs(argv, deps.autonomous, caps);
   if ('error' in plan) {
     deps.out(`${plan.error}\n`);
     return 2;
