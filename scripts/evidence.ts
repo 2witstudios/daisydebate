@@ -58,12 +58,15 @@ export function classifyTestFile(relativePath: string): TestTier {
     return 'e2e';
   // `bun test src` globs only *.test.ts(x). An .integration or .e2e suffix
   // under src/, and any .integration.tsx or .e2e.tsx (Playwright's testMatch
-  // is **/*.e2e.ts), is executed by no runner and falls through to orphan.
-  if (/\/src\/.+\.test\.tsx?$/.test(relativePath)) return 'unit';
+  // is **/*.e2e.ts), is executed by no runner and falls through to orphan,
+  // as does a src/ or scripts/ suite outside a workspace (apps/*,
+  // packages/*): no workspace runner reaches it (ISSUE-171).
+  if (/^(apps|packages)\/[^/]+\/src\/.+\.test\.tsx?$/.test(relativePath))
+    return 'unit';
   // A workspace's own operational scripts (e.g. apps/web/scripts/auth-load),
   // never the top-level scripts/ folder (already matched above): claimed by
   // widening that workspace's "test" script to "bun test src scripts".
-  if (/\/scripts\/.+\.test\.tsx?$/.test(relativePath))
+  if (/^(apps|packages)\/[^/]+\/scripts\/.+\.test\.tsx?$/.test(relativePath))
     return 'workspace-script';
   return 'orphan';
 }

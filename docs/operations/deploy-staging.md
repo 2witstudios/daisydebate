@@ -98,8 +98,11 @@ about 40 seconds of public requests showed the app listening on IPv4
 `172.19.3.96/29` link; the machine is `.98`). None arrived over 6PN
 (`fdaa::/8`), which the app does not listen on for this port. Two short
 connections came from `172.16.3.98`, not the gateway; they are untrusted
-and resolve to themselves, which costs nothing because they are not
-sign-in traffic.
+and resolve to themselves. Their source is unverified: they are most likely
+Fly's own `http_service.checks` against `/api/health/*` (every 15 s), which
+would make them harmless, but that is inferred, not measured. If they are
+sign-in traffic, those callers share one rate-limit identity. The
+post-merge "Client identity on Fly" check records the answer on ISSUE-162.
 
 **Trust boundary (DEC-39, owner decision 2026-09-28, supersedes DEC-36):
 only this machine's default gateway may supply a client IP.** `fly.toml`

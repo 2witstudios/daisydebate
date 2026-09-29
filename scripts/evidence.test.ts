@@ -134,6 +134,19 @@ describe('classifyTestFile', () => {
     });
   });
 
+  test('flags scripts/ and src/ suites outside any workspace as orphans (ISSUE-171)', () => {
+    assert({
+      given:
+        'a scripts/ and a src/ suite under a directory that is neither apps/* nor packages/*',
+      should: 'classify both orphan, since no workspace runner executes them',
+      actual: [
+        classifyTestFile('infra/scripts/x.test.ts'),
+        classifyTestFile('infra/src/z.test.ts'),
+      ],
+      expected: ['orphan', 'orphan'],
+    });
+  });
+
   test('flags TSX suites no runner globs as orphans', () => {
     assert({
       given:
