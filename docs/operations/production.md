@@ -3,8 +3,10 @@
 ## Process model
 
 The production unit is `apps/web`: `bun run start` executes
-`src/server/start.ts` (requires `NODE_ENV=production`), which prepares the
-Next build, serves requests over a custom HTTP server, and owns lifecycle:
+`src/server/start.ts` (requires `NODE_ENV=production`), which opens its
+port first behind a start-up gate (liveness answers 200, every other path 503) while it checks the runtime database role and prepares the Next build,
+then serves requests over a custom HTTP server (ISSUE-172), and owns
+lifecycle:
 
 - **Draining**: a `draining` flag rejects new requests with 503 while
   in-flight requests finish (SIGTERM/SIGINT; 25s deadline, then forceful

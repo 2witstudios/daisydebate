@@ -172,8 +172,10 @@ DELETE FROM session WHERE id IN (
 
 ## Alerting (AUTH-7.7)
 
-Staging scales to zero (`fly.toml`'s `min_machines_running = 0`), so the
-evaluation point for these alerts is a scheduled GitHub Actions workflow
+Nothing inside the app can alert on its own unavailability while it is
+down, restarting or crash-looping, even though staging is always on
+(DEC-40, `fly.toml`'s `min_machines_running = 1`), so the evaluation point
+for these alerts is a scheduled GitHub Actions workflow
 (`.github/workflows/auth-alerts.yml`, `scripts/auth-alert-probe.ts`), not a
 timer inside the app — see [ADR 0042](../decisions/0042-auth-alert-evaluation-point.md)
 for why. Its cron is configured for every 5 minutes, but GitHub's `schedule`
