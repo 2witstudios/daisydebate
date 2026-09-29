@@ -128,9 +128,10 @@ token>` as the `verification.identifier`. The subject (the email for
   from rotating clients), and two whole-application ceilings independent of
   any client or recipient (120/60 s, 3,000/day — protects Resend quota, cost
   and sending-domain reputation from many recipients each staying under their
-  own ceiling). The whole-application ceilings meter only links to addresses
-  with no account, that is sign-up links, and they never refuse a request
-  (ISSUE-54, ISSUE-182; see below). A limiter failure fails closed as a safe
+  own ceiling). Every magic-link send counts against the whole-application
+  ceilings, but only a sign-up (a link to an address with no account) is
+  held back by them, and they never refuse a request (ISSUE-54, ISSUE-182,
+  ISSUE-188; see below). A limiter failure fails closed as a safe
   `503` (the route boundary adds `Retry-After: 5`); there is no
   process-local fallback and no allow-on-error. `429` carries `Retry-After`.
   The gate consumes a request's buckets in order (client, then recipients)
@@ -166,33 +167,42 @@ token>` as the `verification.identifier`. The subject (the email for
   which delays a change to that address and nothing else. An integration
   test rotates client addresses and proves the day ceiling for a taken and
   a free address, with the same refusal for both.
-- **Global sign-up ceilings reveal nothing (ISSUE-54, ISSUE-182).** The
-  whole-application ceilings count only links to addresses with no account.
-  Sign-in to an existing account never counts against them and is never
-  held back by them, so no one can deny sign-in by draining them: rotating
-  IPv6 /128 client addresses and plus-addressed recipients (`victim+1@…`,
-  `victim+2@…`) slip past every per-client and per-recipient bucket, and
-  would otherwise spend the day's allowance for everyone. Existing
-  accounts' mail stays bounded by the recipient ceilings (20 a day per
-  account), so its total is bounded by the account base, not by any
-  attacker. Plus-addressed variants are distinct addresses with no account,
-  so they stay metered. The ceilings are spent at the send
-  (`createAuthServer`'s `sendMagicLink`), after the rate-limit gate, the
-  destination check and the suppression check have admitted the request
-  exactly as they admit one for an existing account. When a ceiling is
-  saturated, the sign-up mail is dropped, its unmailed token is deleted, and
-  the endpoint answers the same `200` with the same body and headers an
-  existing account gets, with no `Retry-After`. A saturated ceiling
-  therefore never tells a caller whether an address has an account.
-  Operators see saturation as `auth.rate_limit.denied` in the structured
-  log. The per-client and per-recipient buckets still meter every address,
-  with or without an account, and their `429` is the same for both. A
-  drained ceiling delays new sign-ups until its window resets: the person
-  gets no mail and requests another link. Passkey sign-in never sends mail
-  at all. A limiter failure on a ceiling fails closed with the same `503`
-  as any other bucket. An integration test saturates the real minute
-  ceiling and proves an unknown address and an existing account get the
-  same answer, and that only the existing account is mailed.
+- **Global sign-up ceilings and account existence (ISSUE-54, ISSUE-182,
+  ISSUE-188, ISSUE-189).** Every magic-link send spends the
+  whole-application ceilings, whether or not the address has an account.
+  They are spent at the send (`sign-in-mail.ts`), after the rate-limit gate,
+  the destination check and the suppression check have admitted the request
+  exactly as they admit one for an existing account. Only a sign-up is held
+  back. Past a ceiling, a sign-up's mail is dropped and its unmailed token
+  deleted, while a sign-in link to an existing account is still sent. No one
+  can deny sign-in by draining the ceilings: rotating IPv6 /128 client
+  addresses and plus-addressed recipients (`victim+1@…`, `victim+2@…`) slip
+  past every per-client and per-recipient bucket, but a drained ceiling
+  only delays new sign-ups. Existing accounts' mail stays bounded by the
+  recipient ceilings (20 a day per account). Sign-in links count toward the
+  same 120 a minute and 3,000 a day, so a day's sign-up capacity is 3,000
+  minus that day's magic-link sign-ins (passkey sign-in sends no mail and
+  spends nothing). What the ceilings close: while one is saturated, an
+  address with no account and an existing account's address get the same
+  `200`, body and headers, with no `Retry-After` (ISSUE-182). The same holds
+  when mail delivery also fails: a saturated request's answer never depends
+  on delivery, so a failed sign-in send answers the dropped sign-up's `200`
+  (ISSUE-189). With room, a failed send is the retryable `503` for both.
+  The ceilings' remaining capacity is the same after either request, so a
+  caller's own follow-up sign-up cannot read the answer back (ISSUE-188).
+  The per-client and per-recipient buckets meter both alike, and their
+  `429` is the same for both. What stays observable: response latency
+  under saturation, because a sign-in link is really sent while a dropped
+  sign-up is not. That channel is open and tracked as ISSUE-185. The
+  account holder also receives every sign-in link a prober requests, and
+  sees it. Operators see saturation as `auth.rate_limit.denied` in the
+  structured log, never in a response. A drained ceiling delays new
+  sign-ups until its window resets: the person gets no mail and requests
+  another link. A limiter failure on a ceiling fails closed with the same
+  `503` as any other bucket. Integration tests against real Redis saturate
+  the minute ceiling and prove identical answers, and run the canary probe
+  (fill to 119 with the caller's own addresses, request the target, then
+  one more own address), which is mailed alike whatever the target is.
 - **Suppression covers every auth mail (ISSUE-54).** Every auth email
   (sign-in links, email-change approval and confirmation, passkey
   added/removed notices) goes through the one delivery path

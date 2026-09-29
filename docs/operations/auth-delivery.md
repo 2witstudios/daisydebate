@@ -53,21 +53,23 @@ to your topology before release.
 
 ## Limits and outage behaviour
 
-| Scope                                                     | Limit                         | On exceed                |
-| --------------------------------------------------------- | ----------------------------- | ------------------------ |
-| Any auth route, per client and path                       | 100 / 60 s                    | `429` + `Retry-After`    |
-| Magic-link request, per client                            | 3 / 60 s                      | `429` + `Retry-After`    |
-| Magic-link request, per recipient                         | 3 / 60 s, 10 / hour, 20 / day | `429` + `Retry-After`    |
-| Email change, per new address (ISSUE-121)                 | 3 / 60 s, 10 / hour, 20 / day | `429` + `Retry-After`    |
-| Sign-up link (address with no account), whole application | 120 / 60 s, 3,000 / day       | `200`, no mail (logged)  |
-| Redis unavailable                                         | —                             | `503` + `Retry-After: 5` |
+| Scope                                                              | Limit                         | On exceed                                       |
+| ------------------------------------------------------------------ | ----------------------------- | ----------------------------------------------- |
+| Any auth route, per client and path                                | 100 / 60 s                    | `429` + `Retry-After`                           |
+| Magic-link request, per client                                     | 3 / 60 s                      | `429` + `Retry-After`                           |
+| Magic-link request, per recipient                                  | 3 / 60 s, 10 / hour, 20 / day | `429` + `Retry-After`                           |
+| Email change, per new address (ISSUE-121)                          | 3 / 60 s, 10 / hour, 20 / day | `429` + `Retry-After`                           |
+| Every magic-link send, whole application; holds back sign-ups only | 120 / 60 s, 3,000 / day       | sign-up: `200`, no mail (logged); sign-in: sent |
+| Redis unavailable                                                  | —                             | `503` + `Retry-After: 5`                        |
 
-The whole-application ceilings never count or hold back a sign-in link for
-an existing account (ADR 0025, ISSUE-54): a drained ceiling delays new
-sign-ups only. Past a ceiling, a sign-up request gets the same `200` as any
-other and no mail, so the answer never shows whether an address has an
-account (ISSUE-182); the saturation shows only as `auth.rate_limit.denied`
-with `path: /sign-in/magic-link` in the log.
+Every magic-link send counts against the whole-application ceilings, with
+or without an account, but only sign-ups are held back (ADR 0025, ISSUE-54,
+ISSUE-188): a drained ceiling delays new sign-ups, never sign-in. A day's
+sign-up capacity is 3,000 minus that day's magic-link sign-ins. Past a
+ceiling, a sign-up request gets the same `200` as any other and no mail
+(ISSUE-182); the saturation shows only as `auth.rate_limit.denied` with
+`path: /sign-in/magic-link` in the log. While saturated, a failed sign-in
+send also answers `200` (ISSUE-189); watch `auth.mail.failed`.
 
 The sign-in page offers passkeys in browser autofill, so every visible view
 spends one `/passkey/generate-authenticate-options` request (a challenge row

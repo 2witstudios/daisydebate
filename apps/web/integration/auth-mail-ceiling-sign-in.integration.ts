@@ -7,18 +7,16 @@ import { requireTestServices } from '@daisy/config';
 
 /**
  * ISSUE-54 AC2: the whole-application magic-link ceilings (120/minute,
- * 3,000/day) protect Resend quota and domain reputation, but before this
- * they counted every request, so one client rotating IPv6 /128 addresses
- * and plus-addressed recipients could spend the day's allowance and deny
- * magic-link sign-in to every account. They now meter only mail to
- * addresses with no account (sign-up links): sign-in to an existing
- * account is bounded by that account's own recipient ceilings instead, so
- * draining the global ceiling delays new sign-ups but never denies sign-in.
+ * 3,000/day) protect Resend quota and domain reputation. Every send counts
+ * against them, but only sign-ups (links to addresses with no account) are
+ * held back, so one client rotating IPv6 /128 addresses and plus-addressed
+ * recipients can drain them to delay new sign-ups but never deny sign-in.
  *
- * ISSUE-182: a saturated ceiling must not answer an unknown address any
- * differently from an existing account's: the unknown address gets the
- * same success answer and no mail, and only operators see the saturation,
- * in the structured log.
+ * ISSUE-182 and ISSUE-188: a saturated ceiling answers an unknown address
+ * exactly as an existing account's, sends it no mail, and is spent alike by
+ * both, so neither the answer nor a caller's own follow-up request reveals
+ * which address has an account. Only operators see the saturation, in the
+ * structured log.
  */
 requireTestServices(process.env);
 setupRitewayBun();
@@ -206,6 +204,47 @@ describe('ISSUE-182 a saturated sign-up ceiling reveals no account', () => {
       should: 'send one mail to each',
       actual: [unknownProbe.mails, existingProbe.mails],
       expected: [1, 1],
+    });
+  });
+});
+
+describe('ISSUE-188 the sign-up ceiling counter reveals no account', () => {
+  /**
+   * The reviewer's canary attack: fill the minute ceiling to 119 with the
+   * caller's own new addresses, request the target, then one more own
+   * address. Whether that canary is mailed must not depend on the target.
+   */
+  const canaryAfter = async (target: string) => {
+    await elapseGlobalMinute();
+    await Promise.all(Array.from({ length: 119 }, () => magicLink(fresh())));
+    const targetResponse = await magicLink(target);
+    const canary = fresh();
+    const { response, mails } = await mailsTo(canary, () => magicLink(canary));
+    return {
+      targetStatus: targetResponse.status,
+      canaryStatus: response.status,
+      canaryMailed: mails,
+    };
+  };
+
+  test('a canary sent after the target is mailed the same whether or not the target has an account', async () => {
+    await elapseGlobalMinute();
+    const existing = (await accounts.signUp()).email;
+    const existingProbe = await canaryAfter(existing);
+    const unknownProbe = await canaryAfter(fresh());
+    assert({
+      given:
+        'the real minute ceiling filled to 119 by own addresses, a request for the target, then one more own address, once for an existing account and once for an unknown address',
+      should:
+        'answer and mail (or not mail) the canary identically in both probes, the target having spent the last slot either way',
+      actual: existingProbe,
+      expected: unknownProbe,
+    });
+    assert({
+      given: 'the same probe',
+      should: 'leave no room for the canary after either target',
+      actual: [existingProbe.canaryMailed, unknownProbe.canaryMailed],
+      expected: [0, 0],
     });
   });
 });

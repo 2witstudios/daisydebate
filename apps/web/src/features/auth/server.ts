@@ -173,7 +173,7 @@ const composeBetterAuth = (dependencies: {
         sendMagicLink: createSendMagicLink({
           origin,
           deliver: dependencies.deliver,
-          admitSignUp: createSignUpCeiling({
+          spendCeiling: createSignUpCeiling({
             limiter: dependencies.limiter,
             logger: dependencies.logger,
           }),

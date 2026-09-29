@@ -27,14 +27,13 @@ const RECIPIENT_RULES: readonly RateRule[] = [
  * The whole application's sign-up mail volume, independent of any single
  * recipient or client: protects Resend quota, cost and sending-domain
  * reputation from many new addresses each staying under their own ceiling.
- * It meters only links to addresses with no account (ISSUE-54): sign-in to
- * an existing account never counts against it and is never denied by it,
- * so one actor draining it (rotating client addresses, plus-addressed
- * recipients) delays new sign-ups but cannot deny sign-in to anyone.
- * Existing accounts' mail stays bounded by their recipient ceilings above.
- * A saturated ceiling drops the sign-up mail behind the ordinary success
- * answer (ISSUE-182), so it never tells a caller which address has an
- * account.
+ * Every magic-link send counts against it, with or without an account, so
+ * its remaining capacity never tells a caller which address has one
+ * (ISSUE-188). Only sign-ups (links to addresses with no account) are held
+ * back by it: a sign-in link is always sent, so one actor draining it
+ * (rotating client addresses, plus-addressed recipients) delays new
+ * sign-ups but cannot deny sign-in to anyone (ISSUE-54). Past it, a
+ * sign-up's mail is dropped behind the ordinary success (ISSUE-182).
  */
 const MAGIC_LINK_GLOBAL_RULES: readonly RateRule[] = [
   { windowSeconds: 60, max: 120 },
@@ -274,14 +273,14 @@ export const createRateLimitGate = (dependencies: {
   });
 
 /**
- * The global sign-up ceilings, spent at the send of a link to an address
- * with no account (`createAuthServer`'s `sendMagicLink`), after the gate,
- * destination and suppression checks have admitted the request exactly as
- * they admit one for an existing account. `false` when a ceiling is
- * saturated: the caller drops the mail and answers the ordinary success, so
- * the answer is the same whether or not the address has an account
- * (ISSUE-182). Operators see the saturation as `auth.rate_limit.denied`,
- * never the caller. A limiter outage fails closed with the public 503.
+ * The global sign-up ceilings, spent by every magic-link send
+ * (`sign-in-mail.ts`) after the gate, destination and suppression checks,
+ * whether or not the address has an account, so their remaining capacity
+ * never depends on one (ISSUE-188). `false` when a ceiling is saturated:
+ * the caller drops a sign-up's mail behind the ordinary success and still
+ * sends a sign-in link (ISSUE-54, ISSUE-182). Operators see the saturation
+ * as `auth.rate_limit.denied`, never the caller. A limiter outage fails
+ * closed with the public 503.
  */
 export const createSignUpCeiling =
   (dependencies: {

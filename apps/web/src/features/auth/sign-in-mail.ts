@@ -6,17 +6,22 @@ import { renderAuthEmail } from './mail/templates';
 import { sendOrUnavailable, type Deliver } from './deliver-or-unavailable';
 
 /**
- * The magic-link plugin's `sendMagicLink`: mails the sign-in link, except
- * that a link to an address with no account is a sign-up, metered by the
- * global ceilings (`createSignUpCeiling`). Saturated, the mail is dropped
- * and its unmailed token deleted, and the endpoint answers the same success
- * an existing account gets (ISSUE-182).
+ * The magic-link plugin's `sendMagicLink`. Every link spends the global
+ * ceilings (`createSignUpCeiling`), whether or not its address has an
+ * account, so the ceilings' remaining capacity never depends on one
+ * (ISSUE-188). Only a sign-up (an address with no account) is held back:
+ * past a ceiling its mail is dropped and its unmailed token deleted, while
+ * a sign-in link is still sent (ISSUE-54). A saturated request's answer
+ * never depends on delivery either: a sign-in send that fails there answers
+ * the same success as a dropped sign-up (ISSUE-182, ISSUE-189). With room,
+ * a failed send stays the retryable 503 for both.
  */
 export const createSendMagicLink =
   (dependencies: {
     readonly origin: string;
     readonly deliver: Deliver;
-    readonly admitSignUp: () => Promise<boolean>;
+    /** Spends the global ceilings; `false` when one is saturated. */
+    readonly spendCeiling: () => Promise<boolean>;
   }) =>
   async (
     data: {
@@ -30,19 +35,27 @@ export const createSendMagicLink =
     // account lookup cannot run, so the send fails closed.
     if (!context) throw createAppError('INFRASTRUCTURE');
     const { internalAdapter } = context.context;
-    if (
-      !(await internalAdapter.findUserByEmail(data.email)) &&
-      !(await dependencies.admitSignUp())
-    ) {
-      await internalAdapter.deleteVerificationByIdentifier(
+    const withinCeiling = await dependencies.spendCeiling();
+    const account = await internalAdapter.findUserByEmail(data.email);
+    const dropLink = () =>
+      internalAdapter.deleteVerificationByIdentifier(
         emailedLinkIdentifier('sign-in', data.token),
       );
+    if (!account && !withinCeiling) {
+      await dropLink();
       return;
     }
     const href = buildConfirmLink(dependencies.origin, data.url).toString();
     const message = renderAuthEmail({ kind: 'sign-in', url: href });
-    await sendOrUnavailable(dependencies.deliver, {
+    const send = sendOrUnavailable(dependencies.deliver, {
       to: data.email,
       ...message,
     });
+    if (withinCeiling) return send;
+    try {
+      await send;
+    } catch {
+      // The delivery path has already logged the failure for operators.
+      await dropLink();
+    }
   };

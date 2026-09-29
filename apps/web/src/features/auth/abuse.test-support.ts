@@ -12,6 +12,8 @@ export const create = (
     suppressed?: boolean;
     ledgerFailure?: boolean;
     recordFailure?: boolean;
+    /** The mail transport rejects every send (a provider outage). */
+    sendFailure?: boolean;
     limiter?: (consumed: Consumed[]) => (
       key: string,
       rule: Consumed['rule'],
@@ -36,6 +38,7 @@ export const create = (
     database: memoryAdapter(db),
     emailSender: {
       send: async (message) => {
+        if (options.sendFailure) throw new Error('transport down');
         sent.push(message);
         return { providerMessageId: `msg_${sent.length}` };
       },
