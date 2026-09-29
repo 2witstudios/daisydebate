@@ -1,5 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { AUTH_BRAND_PALETTE } from '../brand-palette';
 import {
+  inlineColoursWithoutDarkOverride,
   parseDarkRules,
   parseElements,
   resolved,
@@ -78,6 +80,18 @@ describe('AUTH-3.9 auth email layout: width, dark mode and contrast (ISSUE-167)'
     });
   });
 
+  test('paints the brand dot with the dark accent in a dark client', () => {
+    const dot = elements.find((element) =>
+      element.classes.includes('auth-mail-accent-bg'),
+    );
+    assert({
+      given: 'the brand dot, whose light accent is set inline',
+      should: 'resolve to the dark accent under prefers-color-scheme: dark',
+      actual: dot && resolved(dot, 'background', 'dark', darkRules),
+      expected: AUTH_BRAND_PALETTE.dark.accent,
+    });
+  });
+
   for (const theme of ['light', 'dark'] as const) {
     test(`every visible ${theme}-mode text run meets WCAG AA (4.5:1) on its backdrop`, () => {
       assert({
@@ -88,4 +102,48 @@ describe('AUTH-3.9 auth email layout: width, dark mode and contrast (ISSUE-167)'
       });
     });
   }
+});
+
+describe('reading the dark block: an inline style beats a rule without !important', () => {
+  /** A minimal email whose dark rules differ only in `!important`. */
+  const email = (important: string) => `<html><head><style>
+  @media (prefers-color-scheme: dark) {
+    .dot { background: #000000${important}; }
+  }
+</style></head>
+<body><table><tr><td class="dot" style="background:#ffffff;">x</td></tr></table></body></html>`;
+
+  test('a dark rule without !important does not override an inline colour', () => {
+    const html = email('');
+    const [dot] = parseElements(html).filter((element) =>
+      element.classes.includes('dot'),
+    );
+    assert({
+      given:
+        'an inline light background and a matching dark rule without !important',
+      should:
+        'keep the inline value in dark mode and report the colour as not overridden',
+      actual: {
+        dark: dot && resolved(dot, 'background', 'dark', parseDarkRules(html)),
+        missing: inlineColoursWithoutDarkOverride(html),
+      },
+      expected: { dark: '#ffffff', missing: ['<td class="dot"> background'] },
+    });
+  });
+
+  test('a dark rule with !important overrides an inline colour', () => {
+    const html = email(' !important');
+    const [dot] = parseElements(html).filter((element) =>
+      element.classes.includes('dot'),
+    );
+    assert({
+      given: 'an inline light background and a matching !important dark rule',
+      should: 'resolve to the dark value and report nothing missing',
+      actual: {
+        dark: dot && resolved(dot, 'background', 'dark', parseDarkRules(html)),
+        missing: inlineColoursWithoutDarkOverride(html),
+      },
+      expected: { dark: '#000000', missing: [] },
+    });
+  });
 });
