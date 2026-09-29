@@ -31,7 +31,6 @@
  *   OPS_PROBE_TOKEN=<token> bun --no-install scripts/auth-alert-probe.ts \
  *     --origin https://daisy.example.com [--run-url <workflow run URL>]
  */
-import { z } from 'zod';
 import type { AlertCondition } from '../apps/web/src/server/alert-state';
 
 /** `auth-alerts.yml`'s `timeout-minutes: 5`: GitHub kills the job after this. */
@@ -171,20 +170,54 @@ const ALERT_CONDITION_IDS = [
   'cleanup_missed',
 ] as const satisfies readonly AlertCondition['id'][];
 
-/** The `/api/ops/alerts` body the probe accepts; anything else is unreadable. */
-const alertsBody = z.object({
-  conditions: z.array(
-    z.object({
-      id: z.enum(ALERT_CONDITION_IDS),
-      summary: z.string(),
-      runbook: z.string(),
-    }),
-  ),
-  snapshot: z.unknown().optional(),
-});
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
-/** Only an explicit "read" counts as a read alert state (ISSUE-199). */
-const readAlertState = z.object({ redisState: z.literal('read') });
+const isConditionId = (value: unknown): value is AlertCondition['id'] =>
+  (ALERT_CONDITION_IDS as readonly unknown[]).includes(value);
+
+/** Why one `conditions` entry is not a condition, or null when it is. */
+const conditionProblem = (entry: unknown, index: number): string | null => {
+  if (!isRecord(entry)) return `conditions.${index} is not an object`;
+  if (!isConditionId(entry.id))
+    return `conditions.${index}.id is not a known condition`;
+  if (typeof entry.summary !== 'string')
+    return `conditions.${index}.summary is not a string`;
+  if (typeof entry.runbook !== 'string')
+    return `conditions.${index}.runbook is not a string`;
+  return null;
+};
+
+export type AlertsBody =
+  | {
+      readonly ok: true;
+      readonly conditions: readonly AlertCondition[];
+      readonly alertStateRead: boolean;
+    }
+  | { readonly ok: false; readonly problem: string };
+
+/**
+ * Pure: the `/api/ops/alerts` body the probe accepts, validated by hand so
+ * the probe imports no package and runs with nothing installed (ISSUE-225).
+ * Anything but an object whose `conditions` is an array of known conditions
+ * is unreadable (ISSUE-209). Only an explicit `snapshot.redisState` of
+ * "read" counts as a read alert state (ISSUE-199).
+ */
+export function parseAlertsBody(body: unknown): AlertsBody {
+  if (!isRecord(body)) return { ok: false, problem: 'body is not an object' };
+  if (!Array.isArray(body.conditions))
+    return { ok: false, problem: 'conditions is not an array' };
+  const problems = body.conditions
+    .map(conditionProblem)
+    .filter((problem): problem is string => problem !== null);
+  if (problems.length > 0) return { ok: false, problem: problems.join('; ') };
+  return {
+    ok: true,
+    conditions: body.conditions as readonly AlertCondition[],
+    alertStateRead:
+      isRecord(body.snapshot) && body.snapshot.redisState === 'read',
+  };
+}
 
 /** What `/api/ops/alerts` skips while it cannot read its Redis alert state. */
 const UNEVALUATED_WITHOUT_ALERT_STATE = [
@@ -220,18 +253,16 @@ export async function fetchAlertConditions(
         ok: false,
         error: `/api/ops/alerts responded ${response.status}`,
       };
-    const body = alertsBody.safeParse(await response.json());
-    if (!body.success)
+    const body = parseAlertsBody(await response.json());
+    if (!body.ok)
       return {
         ok: false,
-        error: `/api/ops/alerts answered an unreadable alert state: ${body.error.issues
-          .map((issue) => `${issue.path.join('.') || 'body'} ${issue.message}`)
-          .join('; ')}`,
+        error: `/api/ops/alerts answered an unreadable alert state: ${body.problem}`,
       };
     return {
       ok: true,
-      conditions: body.data.conditions,
-      alertStateRead: readAlertState.safeParse(body.data.snapshot).success,
+      conditions: body.conditions,
+      alertStateRead: body.alertStateRead,
     };
   } catch (error) {
     return {

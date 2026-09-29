@@ -4,6 +4,7 @@ import {
   PROBE_JOB_LIMIT_MS,
   fetchAlertConditions,
   fetchOriginProbe,
+  parseAlertsBody,
   runProbe,
   type ProbeDependencies,
 } from './auth-alert-probe';
@@ -158,6 +159,44 @@ describe('the probe fails closed on an unexpected body (ISSUE-209)', () => {
         namesRun: true,
         logged: 1,
       },
+    });
+  });
+});
+
+describe('parseAlertsBody (ISSUE-209, ISSUE-225)', () => {
+  test('accepts only an object whose conditions are known conditions, failing closed on everything else', () => {
+    const condition = { id: 'cleanup_missed', summary: 's', runbook: 'r' };
+    const bodies = [
+      { conditions: [condition], snapshot: READ },
+      { conditions: [], snapshot: null },
+      { conditions: [{ ...condition, extra: 1 }] },
+      null,
+      [],
+      'text',
+      { conditions: [condition, null] },
+      { conditions: [{ ...condition, summary: 1 }] },
+      { conditions: [{ ...condition, runbook: undefined }] },
+    ];
+    assert({
+      given:
+        'a valid body read, one with a null snapshot, one with an extra field, then null, an array, a string, a null entry, a numeric summary and a missing runbook',
+      should:
+        'accept the first three (read only for the first) and reject each of the rest',
+      actual: bodies.map((body) => {
+        const parsed = parseAlertsBody(body);
+        return parsed.ok ? `ok read=${parsed.alertStateRead}` : 'unreadable';
+      }),
+      expected: [
+        'ok read=true',
+        'ok read=false',
+        'ok read=false',
+        'unreadable',
+        'unreadable',
+        'unreadable',
+        'unreadable',
+        'unreadable',
+        'unreadable',
+      ],
     });
   });
 });

@@ -39,13 +39,10 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: .bun-version
-      # ISSUE-219: the probe imports zod. Install exactly bun.lock's versions
-      # first, and run the probe with --no-install, so Bun never auto-installs
-      # from the registry (which would bypass bun.lock and, with the registry
-      # unreachable, kill the probe before it could post).
-      # scripts/verify-deploy-config.ts holds this in place.
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
+      # ISSUE-225: the probe and notify-drive import no package, so the job
+      # installs nothing and runs them with --no-install: nothing is ever
+      # fetched, and a registry outage cannot stop the probe from posting.
+      # scripts/verify-deploy-config.ts holds both rules in place.
       - name: Probe the origin and alert conditions
         env:
           OPS_PROBE_TOKEN: ${{ secrets.OPS_PROBE_TOKEN }}
