@@ -108,9 +108,10 @@ inventory becomes the single index:
   or second store is configured, so Fly.io's platform log search is the
   only place they persist, and it
   [retains app logs for 7 days](https://docs.fly.io/monitoring/logging-overview/).
-  That is inside the plan's 30-day ceiling. Adding a log drain or shipper
-  must keep its retention at 30 days or less, and it must be recorded
-  here.
+  The plan states operational logs "retain 30 days"; whether that is a
+  ceiling or a minimum is an open owner decision (DEC-42 on the drive's
+  Pending decisions list), so this states only the current fact. Any log
+  drain or shipper added later must record its retention here.
 
 ## Data subject rights
 
