@@ -191,6 +191,14 @@ posted to the drive's Incidents channel via the existing
 `scripts/notify-drive.ts incidents --message`, naming the condition's own
 runbook below.
 
+The origin probe checks the security headers only on a `200`. Any other
+status posts one `origin_probe` line naming the status, not one per missing
+header. With the app's headers present it says the app reported not ready:
+Postgres or Redis is unreachable (including the cold-boot Redis window) or
+the process is draining. With them absent it says the response likely did
+not come from the app: Fly's proxy during a cold start, the start-up gate,
+or the app down.
+
 The four conditions, and the durable Redis marker each reads
 (`apps/web/src/server/alert-recorder.ts` writes them by tapping the
 existing event stream — no new call sites):
