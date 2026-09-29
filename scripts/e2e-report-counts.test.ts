@@ -24,6 +24,8 @@ describe('e2e counts report', () => {
             },
             {
               title: 'is skipped',
+              file: 'e2e/journey.e2e.ts',
+              line: 7,
               tests: [test_('functional', [{ status: 'skipped', retry: 0 }])],
             },
           ],
@@ -42,7 +44,7 @@ describe('e2e counts report', () => {
           failed: 1,
           skipped: 1,
           retried: 0,
-          skippedTitles: ['is skipped'],
+          skippedTests: ['e2e/journey.e2e.ts:7 "is skipped"'],
         },
       },
     });
@@ -117,6 +119,8 @@ describe('e2e counts report', () => {
           specs: [
             {
               title: 'a required journey',
+              file: 'e2e/journey.e2e.ts',
+              line: 12,
               tests: [test_('functional', [{ status: 'skipped', retry: 0 }])],
             },
           ],
@@ -126,13 +130,13 @@ describe('e2e counts report', () => {
     const problems = countsProblems(countsByProject(report));
     assert({
       given: 'a required project reporting one skipped test',
-      should: 'report SKIPPED_TEST naming that test',
+      should: 'report SKIPPED_TEST naming that test by file, line and title',
       actual: problems,
       expected: [
         {
           code: 'SKIPPED_TEST',
           detail:
-            'functional: "a required journey" was skipped; a required E2E project may not skip, fixme or focus a test',
+            'functional: e2e/journey.e2e.ts:12 "a required journey" was skipped; a required E2E project may not skip, fixme or focus a test',
         },
       ],
     });

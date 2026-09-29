@@ -8,7 +8,12 @@
  */
 type PlaywrightResult = { status: string; retry: number };
 type PlaywrightTest = { results: PlaywrightResult[]; projectName?: string };
-type PlaywrightSpec = { title?: string; tests: PlaywrightTest[] };
+type PlaywrightSpec = {
+  title?: string;
+  file?: string;
+  line?: number;
+  tests: PlaywrightTest[];
+};
 type PlaywrightSuite = { specs?: PlaywrightSpec[]; suites?: PlaywrightSuite[] };
 type PlaywrightReport = {
   suites: PlaywrightSuite[];
@@ -27,7 +32,8 @@ export type ProjectCounts = {
   failed: number;
   skipped: number;
   retried: number;
-  skippedTitles: string[];
+  /** Each skipped test as `file:line "title"`, so the gate can point at it. */
+  skippedTests: string[];
 };
 
 function collectSpecs(suite: PlaywrightSuite): PlaywrightSpec[] {
@@ -36,6 +42,9 @@ function collectSpecs(suite: PlaywrightSuite): PlaywrightSpec[] {
     ...(suite.suites ?? []).flatMap(collectSpecs),
   ];
 }
+
+const skippedName = (spec: PlaywrightSpec) =>
+  `${spec.file ?? '(unknown file)'}:${spec.line ?? '?'} "${spec.title ?? '(untitled test)'}"`;
 
 export function countsByProject(
   report: PlaywrightReport,
@@ -52,13 +61,13 @@ export function countsByProject(
           failed: 0,
           skipped: 0,
           retried: 0,
-          skippedTitles: [],
+          skippedTests: [],
         });
         counts.discovered += 1;
         const last = test.results.at(-1);
         if (!last || last.status === 'skipped') {
           counts.skipped += 1;
-          counts.skippedTitles.push(spec.title ?? '(untitled test)');
+          counts.skippedTests.push(skippedName(spec));
           continue;
         }
         counts.executed += 1;
@@ -94,10 +103,10 @@ export function countsProblems(
     // conditional skip a project hit) reports Playwright status "skipped";
     // a required suite has none, so any is a quarantined test the gate
     // must catch (ISSUE-164), named so it can be found.
-    for (const title of counts.skippedTitles)
+    for (const skipped of counts.skippedTests)
       problems.push({
         code: 'SKIPPED_TEST',
-        detail: `${project}: "${title}" was skipped; a required E2E project may not skip, fixme or focus a test`,
+        detail: `${project}: ${skipped} was skipped; a required E2E project may not skip, fixme or focus a test`,
       });
   }
   return problems;
