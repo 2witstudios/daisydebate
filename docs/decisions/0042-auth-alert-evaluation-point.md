@@ -140,8 +140,14 @@ exposition endpoint (`/api/ops/metrics`), not a new vendor.** Counters:
 auth HTTP responses by status class (`2xx`/`3xx`/`4xx`/`5xx` — 4 values),
 rate-limit denied/unavailable totals, mail delivery failure total, and
 retention sweep failures by target name (`retentionTargets`' own fixed set
-of ~6 names). No field is ever an email, token, IP, or other unbounded
-value. Prometheus text exposition was chosen because it needs no client
+of ~6 names), plus the `auth_http_request_duration_ms` latency histogram
+by operation (`KNOWN_OPERATIONS` plus `other`). No field is ever an email,
+token, IP, or other unbounded value. Each counter, the histogram and each
+alert marker except the limiter-unavailable one is proven through the
+composed app, from real requests, outages and sweeps, by
+`apps/web/integration/auth-alert-counters.integration.ts` and
+`auth-ops-signals.integration.ts` (ISSUE-190). A Redis outage loses the
+limiter-unavailable marker, which is written to that same Redis (ISSUE-191). Prometheus text exposition was chosen because it needs no client
 library (plain string formatting) and is the format Fly's own `[metrics]`
 scrape config and any Prometheus-compatible dashboard already understand;
 this ADR ships the data source only. **Wiring an actual scrape config
