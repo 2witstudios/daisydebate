@@ -50,7 +50,8 @@ export function classifyTestFile(relativePath: string): TestTier {
   // `bun test <dir>` globs *.test.ts and *.test.tsx alike.
   if (/^scripts\/.+\.test\.tsx?$/.test(relativePath)) return 'root-script';
   if (relativePath === 'eslint.config.test.ts') return 'root-config';
-  if (relativePath.includes('/integration/')) return 'integration';
+  if (/^(apps|packages)\/[^/]+\/integration\//.test(relativePath))
+    return 'integration';
   if (
     relativePath.startsWith('apps/web/e2e/') &&
     relativePath.endsWith('.e2e.ts')
@@ -59,8 +60,9 @@ export function classifyTestFile(relativePath: string): TestTier {
   // `bun test src` globs only *.test.ts(x). An .integration or .e2e suffix
   // under src/, and any .integration.tsx or .e2e.tsx (Playwright's testMatch
   // is **/*.e2e.ts), is executed by no runner and falls through to orphan,
-  // as does a src/ or scripts/ suite outside a workspace (apps/*,
-  // packages/*): no workspace runner reaches it (ISSUE-171).
+  // as does a src/, scripts/ or integration/ suite outside a workspace
+  // (apps/*, packages/*): no workspace runner reaches it (ISSUE-171,
+  // ISSUE-180).
   if (/^(apps|packages)\/[^/]+\/src\/.+\.test\.tsx?$/.test(relativePath))
     return 'unit';
   // A workspace's own operational scripts (e.g. apps/web/scripts/auth-load),
@@ -69,6 +71,11 @@ export function classifyTestFile(relativePath: string): TestTier {
   if (/^(apps|packages)\/[^/]+\/scripts\/.+\.test\.tsx?$/.test(relativePath))
     return 'workspace-script';
   return 'orphan';
+}
+
+/** The ORPHAN_SUITE message: the file and the locations the gate claims. */
+export function orphanSuiteDetail(file: string): string {
+  return `${file} is not claimed by any runner; move it under a claimed location (apps/*/src/, packages/*/src/, apps/*/scripts/, packages/*/scripts/, apps/*/integration/, packages/*/integration/, the root scripts/, apps/web/e2e/)`;
 }
 
 export const TEST_SERVICES_GUARD = {
@@ -366,7 +373,7 @@ export async function collectEvidence(): Promise<EvidenceReport> {
     if (tier === 'orphan')
       orphanProblems.push({
         code: 'ORPHAN_SUITE',
-        detail: `${file} is not claimed by any runner; move it under a claimed location (src/, scripts/, integration/, apps/web/e2e/)`,
+        detail: orphanSuiteDetail(file),
       });
     else tiers[tier] += 1;
   }

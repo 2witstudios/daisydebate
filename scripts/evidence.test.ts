@@ -4,6 +4,7 @@ import {
   ciInvokedTasks,
   classifyTestFile,
   isTestFilePath,
+  orphanSuiteDetail,
   rootClaimProblems,
 } from './evidence';
 
@@ -144,6 +145,41 @@ describe('classifyTestFile', () => {
         classifyTestFile('infra/src/z.test.ts'),
       ],
       expected: ['orphan', 'orphan'],
+    });
+  });
+
+  test('flags an integration/ suite outside any workspace as an orphan (ISSUE-180)', () => {
+    assert({
+      given:
+        'an integration/ suite under a directory that is neither apps/* nor packages/*, beside a workspace one',
+      should:
+        'classify the outside one orphan and keep the workspace one claimed',
+      actual: [
+        classifyTestFile('infra/integration/x.integration.ts'),
+        classifyTestFile('packages/db/integration/db.integration.ts'),
+      ],
+      expected: ['orphan', 'integration'],
+    });
+  });
+
+  test('names workspace locations in the ORPHAN_SUITE hint, never a bare src/ or scripts/ (ISSUE-180)', () => {
+    const detail = orphanSuiteDetail('infra/scripts/x.test.ts');
+    assert({
+      given: 'an orphan suite outside any workspace',
+      should:
+        'name the file and the workspace-rooted locations the gate actually claims',
+      actual: {
+        namesFile: detail.startsWith('infra/scripts/x.test.ts '),
+        namesWorkspaceSrc: detail.includes('apps/*/src/'),
+        bareSrc: /[(,] src\//.test(detail),
+        bareScriptsOnlyAsRoot: /[(,] scripts\/[,)]/.test(detail),
+      },
+      expected: {
+        namesFile: true,
+        namesWorkspaceSrc: true,
+        bareSrc: false,
+        bareScriptsOnlyAsRoot: false,
+      },
     });
   });
 
