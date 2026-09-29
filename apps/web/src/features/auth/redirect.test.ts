@@ -82,12 +82,30 @@ describe('returnableDestination (ISSUE-167)', () => {
       '/lobby/../api/auth/sign-out',
       '/%73ign-in',
       '/%2573ign-in',
+      '/lobby/%2E%2E/auth/confirm',
+      '/%61pi/auth/get-session',
+      '/./sign-in?next=/lobby',
     ];
     assert({
       given: 'destinations that resolve to sign-in, auth or api routes',
       should: 'fall back to /lobby, never return the forbidden route',
       actual: loops.map((value) => returnableDestination(value)),
       expected: loops.map(() => '/lobby'),
+    });
+  });
+
+  test('keeps local pages whose names merely start like forbidden routes', () => {
+    const lookalikes = [
+      '/sign-ins',
+      '/apiary',
+      '/lobby/../ranked',
+      '/ranked?tab=%61',
+    ];
+    assert({
+      given: 'local pages that are not sign-in, auth or api routes',
+      should: 'keep them as given',
+      actual: lookalikes.map((value) => returnableDestination(value)),
+      expected: lookalikes,
     });
   });
 

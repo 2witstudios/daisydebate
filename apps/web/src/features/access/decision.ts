@@ -38,14 +38,6 @@ export const requirementFor = (pathname: string): Requirement | null => {
 export const isGuardedPath = (pathname: string): boolean =>
   requirementFor(pathname) !== null;
 
-/**
- * Where to send someone after sign-in or onboarding: a validated local path
- * (never absolute or protocol-relative) that does not resolve to sign-in,
- * auth or API routes, else the lobby.
- */
-export const returnDestination = (value: string | null | undefined): string =>
-  returnableDestination(value);
-
 export type SearchParams = Readonly<
   Record<string, string | readonly string[] | undefined>
 >;
@@ -53,7 +45,7 @@ export type SearchParams = Readonly<
 /** The validated `?next=` destination of a page's (untrusted) query. */
 export const nextDestination = (search: SearchParams): string => {
   const next = search.next;
-  return returnDestination(typeof next === 'string' ? next : next?.[0]);
+  return returnableDestination(typeof next === 'string' ? next : next?.[0]);
 };
 
 /** Sign in, then continue to an already validated destination. */
@@ -96,8 +88,8 @@ export function decideAccess({
 }): AccessDecision {
   if (identity.state === 'unavailable') return { kind: 'unavailable' };
   if (identity.state === 'anonymous')
-    return redirectTo(signInHref(returnDestination(path)));
+    return redirectTo(signInHref(returnableDestination(path)));
   if (identity.state === 'provisional' && requirement === 'participant')
-    return redirectTo(onboardingHref(returnDestination(path)));
+    return redirectTo(onboardingHref(returnableDestination(path)));
   return { kind: 'allow' };
 }

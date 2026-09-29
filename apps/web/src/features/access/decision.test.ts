@@ -9,7 +9,6 @@ import {
   signInHref,
   isGuardedPath,
   requestedPath,
-  returnDestination,
 } from './decision';
 
 setupRitewayBun();
@@ -166,66 +165,6 @@ describe('isGuardedPath', () => {
         false,
         false,
         false,
-      ],
-    });
-  });
-});
-
-describe('returnDestination: disguised forbidden routes', () => {
-  test('dot segments and percent-encoding cannot reach sign-in, auth or api', () => {
-    assert({
-      given:
-        'forbidden routes hidden by dot segments, encoding and double encoding',
-      should: 'fall back to the lobby for every one',
-      actual: [
-        '/lobby/../api/auth/sign-out',
-        '/%73ign-in',
-        '/%2573ign-in',
-        '/lobby/%2E%2E/auth/confirm',
-        '/%61pi/auth/get-session',
-        '/./sign-in?next=/lobby',
-      ].map(returnDestination),
-      expected: Array(6).fill('/lobby'),
-    });
-  });
-
-  test('ordinary destinations keep their path and query', () => {
-    assert({
-      given: 'local pages whose names merely start like forbidden routes',
-      should: 'keep them as given',
-      actual: [
-        '/sign-ins',
-        '/apiary',
-        '/lobby/../ranked',
-        '/ranked?tab=%61',
-      ].map(returnDestination),
-      expected: ['/sign-ins', '/apiary', '/lobby/../ranked', '/ranked?tab=%61'],
-    });
-  });
-});
-
-describe('returnDestination', () => {
-  test('keeps a local path and refuses loops and foreign targets', () => {
-    assert({
-      given: 'a local path, sign-in and API routes, and foreign URLs',
-      should: 'keep only the local product path',
-      actual: [
-        '/ranked?tab=open',
-        '/sign-in?next=/lobby',
-        '/api/auth/get-session',
-        '/auth/confirm',
-        'https://evil.example',
-        '//evil.example',
-        null,
-      ].map(returnDestination),
-      expected: [
-        '/ranked?tab=open',
-        '/lobby',
-        '/lobby',
-        '/lobby',
-        '/lobby',
-        '/lobby',
-        '/lobby',
       ],
     });
   });

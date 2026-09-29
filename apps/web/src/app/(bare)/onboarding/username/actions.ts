@@ -1,10 +1,8 @@
 'use server';
 
 import { headers } from 'next/headers';
-import {
-  passkeyOfferHref,
-  returnDestination,
-} from '../../../../features/access/decision';
+import { passkeyOfferHref } from '../../../../features/access/decision';
+import { returnableDestination } from '../../../../features/auth/redirect';
 import { moveOn } from '../../../../server/form-action';
 import { processRoute } from '../../../../server/process-app';
 import {
@@ -31,7 +29,7 @@ export async function claimUsernameAction(
   _state: UsernameFormState,
   form: unknown,
 ): Promise<UsernameFormState> {
-  const destination = returnDestination(
+  const destination = returnableDestination(
     typeof next === 'string' ? next : undefined,
   );
   const incoming = new Headers(await headers());
