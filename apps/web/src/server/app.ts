@@ -114,6 +114,7 @@ export function createApp({
       apply: (input) => database.applyEmailDeliveryEvent(input),
     });
   };
+  const drainState = createDrainState([database, redis]);
   return {
     config,
     clock,
@@ -140,8 +141,17 @@ export function createApp({
     },
     /** The Resend delivery webhook; refuses when the signing secret is unset. */
     mailWebhook: () => (mailWebhook ??= composeMailWebhook()),
-    /** isDraining, drain, and close (drains, then closes both pools). */
-    ...createDrainState([database, redis]),
+    isDraining: drainState.isDraining,
+    drain: drainState.drain,
+    /**
+     * Drains, lets auth finish the work it answered before doing (ISSUE-185),
+     * then closes both pools.
+     */
+    close: async () => {
+      drainState.drain();
+      await auth?.settled();
+      await drainState.close();
+    },
   };
 }
 

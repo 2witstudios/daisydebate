@@ -51,6 +51,24 @@ export const elapse = async (testApp: TestApp, ...buckets: string[]) => {
   }
 };
 
+/**
+ * A fixed window held open: its real counter keeps its count and expires
+ * `ms` from now, so a ceiling saturated by real requests stays saturated
+ * for a whole measurement however loaded the machine is.
+ */
+export const holdOpen = async (
+  testApp: TestApp,
+  bucket: string,
+  ms: number,
+) => {
+  const client = new RedisClient(testRedisUrl as string);
+  try {
+    await client.send('PEXPIRE', [limiterKey(testApp, bucket), String(ms)]);
+  } finally {
+    client.close();
+  }
+};
+
 export const statuses = (responses: Response[]) =>
   responses.reduce<Record<number, number>>((tally, response) => {
     tally[response.status] = (tally[response.status] ?? 0) + 1;

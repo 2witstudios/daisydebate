@@ -19,6 +19,7 @@ describe('global sign-up ceilings at the magic-link send', () => {
     });
     db.user.push(existingAccount);
     const response = await server.instance.handler(magicLinkRequest());
+    await server.settled();
     assert({
       given:
         'saturated global ceilings and a magic-link request for an address that has an account',
@@ -63,6 +64,7 @@ describe('global sign-up ceilings at the magic-link send', () => {
           : { allowed: true, retryAfterSeconds: 0 },
     });
     const response = await server.instance.handler(magicLinkRequest());
+    await server.settled();
     assert({
       given:
         'a limiter denying only the global per-minute bucket and a request for an address with no account',
@@ -127,6 +129,7 @@ describe('global sign-up ceilings at the magic-link send', () => {
     const knownAnswer = await answer(
       await known.server.instance.handler(magicLinkRequest()),
     );
+    await Promise.all([known.server.settled(), unknown.server.settled()]);
     assert({
       given:
         'saturated global ceilings and a failing mail transport, for an address with and without an account',
@@ -172,6 +175,80 @@ describe('global sign-up ceilings at the magic-link send', () => {
           },
         ],
       },
+    });
+  });
+});
+
+describe('a saturated ceiling answers before any account-dependent work (ISSUE-185)', () => {
+  const saturatedHeld = () =>
+    create({
+      heldTransport: true,
+      limiter: () => async (key) =>
+        key.startsWith('auth:magic-link:global:')
+          ? { allowed: false, retryAfterSeconds: 30 }
+          : { allowed: true, retryAfterSeconds: 0 },
+    });
+
+  /**
+   * The request's answer, or the fact that it was still waiting once the
+   * held transport had been reached and every queued task had run.
+   */
+  const answerOrWaiting = (
+    harness: ReturnType<typeof saturatedHeld>,
+  ): Promise<{ answered: number; trace: string[] } | 'waiting on delivery'> =>
+    Promise.race([
+      harness.server.instance.handler(magicLinkRequest()).then((response) => ({
+        answered: response.status,
+        trace: [...harness.trace],
+      })),
+      harness.transportReached
+        .then(() => new Promise((resolve) => setTimeout(resolve, 0)))
+        .then(() => 'waiting on delivery' as const),
+    ]);
+
+  test('an existing account and an unknown address answer with the same work done, while the transport has not answered', async () => {
+    const unknown = saturatedHeld();
+    const known = saturatedHeld();
+    known.db.user.push(existingAccount);
+    const unknownAnswer = await answerOrWaiting(unknown);
+    const knownAnswer = await answerOrWaiting(known);
+    assert({
+      given:
+        'saturated global ceilings and a mail transport that has not answered, for an address with and without an account',
+      should:
+        'answer both 200 after the identical seam calls (the limiter buckets and the suppression check), with no send, lookup-dependent step or receipt before the answer',
+      actual: knownAnswer,
+      expected: unknownAnswer,
+    });
+    assert({
+      given: 'the same two requests',
+      should: 'answer 200 without waiting on delivery',
+      actual:
+        unknownAnswer === 'waiting on delivery'
+          ? unknownAnswer
+          : unknownAnswer.answered,
+      expected: 200,
+    });
+  });
+
+  test('once answered, the existing account is still mailed and the unknown address still dropped', async () => {
+    const unknown = saturatedHeld();
+    const known = saturatedHeld();
+    known.db.user.push(existingAccount);
+    await answerOrWaiting(unknown);
+    await answerOrWaiting(known);
+    known.release();
+    unknown.release();
+    await Promise.all([known.server.settled(), unknown.server.settled()]);
+    assert({
+      given: 'the saturated requests above, after the transport answers',
+      should:
+        'mail and keep the token of the existing account only, and delete the unknown address token',
+      actual: {
+        sent: [known.sent.length, unknown.sent.length],
+        tokens: [known.db.verification.length, unknown.db.verification.length],
+      },
+      expected: { sent: [1, 0], tokens: [1, 0] },
     });
   });
 });

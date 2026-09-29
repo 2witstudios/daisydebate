@@ -58,10 +58,14 @@ const observable = async (response: Response) => ({
     .sort(([left = ''], [right = '']) => left.localeCompare(right)),
 });
 
-/** Mails sent to `email` while `work` ran. */
+/** Post-answer work (a saturated ceiling's sends and drops) finished. */
+const settled = () => testApp.app.auth().settled();
+
+/** Mails sent to `email` by `work`, including after its answer. */
 const mailsTo = async (email: string, work: () => Promise<Response>) => {
   const before = mailbox.mails.length;
   const response = await work();
+  await settled();
   return {
     response,
     mails: mailbox.mails.slice(before).filter((mail) => mail.to === email)
@@ -90,6 +94,7 @@ describe('ISSUE-54 the global mail ceiling cannot deny sign-in', () => {
       Promise.all(existing.map((email) => magicLink(email))),
       Promise.all(Array.from({ length: 10 }, () => magicLink(fresh()))),
     ]);
+    await settled();
     const mailed = mailbox.mails.slice(before).map((mail) => mail.to);
     const mailedAccounts = mailed.filter((to) => existing.includes(to)).length;
 

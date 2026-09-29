@@ -14,6 +14,8 @@ export const create = (
     recordFailure?: boolean;
     /** The mail transport rejects every send (a provider outage). */
     sendFailure?: boolean;
+    /** The mail transport answers nothing until `release()` is called. */
+    heldTransport?: boolean;
     limiter?: (consumed: Consumed[]) => (
       key: string,
       rule: Consumed['rule'],
@@ -34,37 +36,70 @@ export const create = (
   };
   const recorded: Array<{ providerMessageId: string; recipientHash: string }> =
     [];
+  /** Every seam call in order: each limiter key, suppression, send, record. */
+  const trace: string[] = [];
+  let release = () => {};
+  const held = options.heldTransport
+    ? new Promise<void>((resolve) => {
+        release = resolve;
+      })
+    : undefined;
+  let reached = () => {};
+  /** Resolves when the transport is first asked to send. */
+  const transportReached = new Promise<void>((resolve) => {
+    reached = resolve;
+  });
+  const limit = options.limiter
+    ? options.limiter(consumed)
+    : async (key: string, rule: Consumed['rule']) => {
+        consumed.push({ key, rule });
+        return { allowed: true, retryAfterSeconds: 0 };
+      };
   const server = composeAuthServer({
     database: memoryAdapter(db),
     emailSender: {
       send: async (message) => {
+        trace.push('send');
+        reached();
+        await held;
         if (options.sendFailure) throw new Error('transport down');
         sent.push(message);
         return { providerMessageId: `msg_${sent.length}` };
       },
     },
     limiter: {
-      consume: options.limiter
-        ? options.limiter(consumed)
-        : async (key, rule) => {
-            consumed.push({ key, rule });
-            return { allowed: true, retryAfterSeconds: 0 };
-          },
+      consume: (key, rule) => {
+        trace.push(key);
+        return limit(key, rule);
+      },
     },
     ledger: {
       isSuppressed: async () => {
+        trace.push('suppression');
         lookups.count += 1;
         if (options.ledgerFailure) throw new Error('ledger down');
         return options.suppressed ?? false;
       },
       record: async (input) => {
+        trace.push('record');
         if (options.recordFailure) throw new Error('record down');
         recorded.push(input);
       },
     },
     logger,
   });
-  return { server, db, consumed, sent, recorded, lookups, logs };
+  return {
+    server,
+    db,
+    consumed,
+    sent,
+    recorded,
+    lookups,
+    logs,
+    trace,
+    transportReached,
+    release: () => release(),
+  };
 };
 export const tokenIn = (message: AuthEmailMessage | undefined) =>
   new URL(

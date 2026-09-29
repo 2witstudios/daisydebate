@@ -7,8 +7,8 @@ import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import { createApp } from '../src/server/app';
 import { createRoutes } from '../src/server/routes';
 import { authTestEnv } from '../src/features/auth/auth-server.test-support';
-import { resendRequest } from '../src/features/auth/resend-capture.test-support';
 import { acquireIntegrationRunLock } from './integration-run-lock';
+import { createMailbox } from './mailbox';
 
 /**
  * The one fixture module for the web integration suites (ISSUE-11): the
@@ -33,50 +33,6 @@ await acquireIntegrationRunLock(testDatabaseUrl);
 
 export const origin = authTestEnv.PUBLIC_APP_URL;
 export const webhookSecret = `whsec_${Buffer.from(createId() + createId()).toString('base64')}`;
-
-type CapturedMail = {
-  readonly to: string;
-  readonly subject: string;
-  readonly text: string;
-  readonly html: string;
-  readonly idempotencyKey: string;
-  readonly messageId: string;
-};
-
-/**
- * A private mailbox: its `fetch` answers the Resend endpoint by capturing
- * what the production sender puts on the wire, and passes anything else to
- * the network. Nothing process-wide is replaced.
- */
-function createMailbox() {
-  const mails: CapturedMail[] = [];
-  const failures: Array<'transient' | 'permanent'> = [];
-  const runId = createId().slice(0, 8);
-  let counter = 0;
-  const mailboxFetch = async (
-    input: string | URL | Request,
-    init?: RequestInit,
-  ) => {
-    const sent = resendRequest(input, init);
-    if (!sent) return fetch(input, init);
-    const failure = failures.shift();
-    if (failure === 'transient')
-      return new Response('{"message":"upstream boom for someone@x.test"}', {
-        status: 503,
-      });
-    if (failure === 'permanent') return new Response('{}', { status: 422 });
-    counter += 1;
-    const messageId = `msg_${runId}_${counter}`;
-    mails.push({ ...sent, messageId });
-    return Response.json({ id: messageId });
-  };
-  return {
-    mails,
-    fetch: mailboxFetch,
-    failNext: (...kinds: Array<'transient' | 'permanent'>) =>
-      failures.push(...kinds),
-  };
-}
 
 // 198.18.0.0/15 (RFC 2544, benchmarking): 131,070 usable addresses.
 const CLIENT_SPACE = 2 ** 17 - 2;
