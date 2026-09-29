@@ -74,60 +74,14 @@ describe('ISSUE-190 mail delivery failure signals', () => {
   });
 });
 
-describe('ISSUE-190 rate limiter unavailable signals', () => {
-  const testApp = createTestApp({ OPS_PROBE_TOKEN: opsToken });
-  const {
-    app,
-    routes,
-    proxy: redisProxy,
-  } = createFaultedApp(testApp, 'REDIS_URL');
-
-  test('a limiter outage counts each refused request once on /api/ops/metrics', async () => {
-    const edge = await serveEdge({ app, routes, opsToken });
-    try {
-      const magicLink = () =>
-        edge.post('/api/auth/sign-in/magic-link', {
-          email: testApp.freshEmail(),
-        });
-      const baselineStatus = await magicLink();
-      redisProxy.pause();
-      const outageStatuses = [await magicLink(), await magicLink()];
-      const text = await edge.metricsText();
-      assert({
-        given:
-          'one admitted magic-link request, then two through the production server while the rate limiter Redis is unreachable',
-        should:
-          'refuse both with 503 and count 2 in auth_rate_limit_unavailable_total and 2 more 5xx in auth_http_requests_total',
-        actual: {
-          baselineStatus,
-          outageStatuses,
-          unavailable: sampleOf(text, 'auth_rate_limit_unavailable_total'),
-          serverErrors: sampleOf(
-            text,
-            'auth_http_requests_total{status_class="5xx"}',
-          ),
-        },
-        expected: {
-          baselineStatus: 200,
-          outageStatuses: [503, 503],
-          unavailable: 2,
-          serverErrors: 2,
-        },
-      });
-    } finally {
-      redisProxy.resume();
-      await edge.close();
-    }
-  });
-});
-
 /**
- * ISSUE-191: the limiter and every alert marker share one Redis, so its
- * outage must still reach /api/ops/alerts as limiter_unavailable, from the
- * time the first refused request saw it. The app's clock is stepped so the
- * outage spans the 2-minute threshold without waiting it out.
+ * The limiter and every alert marker share one Redis. Its outage must reach
+ * /api/ops/metrics as refused requests and, once it outlasts the 2-minute
+ * threshold, /api/ops/alerts as limiter_unavailable from the first refusal
+ * (ISSUE-191). The app's clock is stepped so the outage spans the threshold
+ * without waiting it out.
  */
-describe('ISSUE-191 limiter_unavailable through a Redis outage', () => {
+describe('ISSUE-190 and ISSUE-191 rate limiter unavailable signals', () => {
   const testApp = createTestApp({ OPS_PROBE_TOKEN: opsToken });
   let nowMs = Date.parse(systemClock.now());
   const clock = { now: () => new Date(nowMs).toISOString() };
@@ -137,7 +91,7 @@ describe('ISSUE-191 limiter_unavailable through a Redis outage', () => {
     proxy: redisProxy,
   } = createFaultedApp(testApp, 'REDIS_URL', clock);
 
-  test('a Redis outage that outlasts the threshold fires limiter_unavailable from when it began', async () => {
+  test('a Redis outage counts each refused request and, past the threshold, fires limiter_unavailable from when it began', async () => {
     const edge = await serveEdge({ app, routes, opsToken });
     try {
       const magicLink = () =>
@@ -152,24 +106,32 @@ describe('ISSUE-191 limiter_unavailable through a Redis outage', () => {
       outageStatuses.push(await magicLink());
       nowMs += 61_000;
       outageStatuses.push(await magicLink());
-      const duringOutage = await edge.alerts();
+      const text = await edge.metricsText();
+      const alerts = await edge.alerts();
       assert({
         given:
-          'real magic-link requests through the production server refused over 2 minutes and 1 second while the limiter and alert Redis is unreachable',
+          'one admitted magic-link request, then three through the production server refused over 2 minutes and 1 second while the limiter and alert Redis is unreachable',
         should:
-          'answer /api/ops/alerts with limiter_unavailable since the first refusal, reporting its Redis state unreachable',
+          'count 3 in auth_rate_limit_unavailable_total and 3 more 5xx, and answer /api/ops/alerts with limiter_unavailable since the first refusal, its Redis state unreachable',
         actual: {
           baselineStatus,
           outageStatuses,
-          status: duringOutage.status,
-          conditions: duringOutage.conditions,
-          redisState: duringOutage.snapshot?.redisState,
-          since: duringOutage.snapshot?.limiterUnavailableSinceIso,
+          unavailable: sampleOf(text, 'auth_rate_limit_unavailable_total'),
+          serverErrors: sampleOf(
+            text,
+            'auth_http_requests_total{status_class="5xx"}',
+          ),
+          alertsStatus: alerts.status,
+          conditions: alerts.conditions,
+          redisState: alerts.snapshot?.redisState,
+          since: alerts.snapshot?.limiterUnavailableSinceIso,
         },
         expected: {
           baselineStatus: 200,
           outageStatuses: [503, 503, 503],
-          status: 200,
+          unavailable: 3,
+          serverErrors: 3,
+          alertsStatus: 200,
           conditions: ['limiter_unavailable'],
           redisState: 'unreachable',
           since: outageBegan,
