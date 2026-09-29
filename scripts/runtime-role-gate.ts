@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
+import { isBuiltin } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import ts from 'typescript';
 
@@ -11,13 +12,19 @@ import ts from 'typescript';
  * relative imports and every symbol through aliases and re-exports, so
  * comments and formatting never matter and no alias, shim, `.call`,
  * optional or second call slips past a text match. start.ts must:
- * - never compose, prepare, listen or import dynamically on its own;
+ * - parse without a syntax error, and resolve every import (ISSUE-221);
+ * - never compose, prepare, listen, require or import dynamically on its
+ *   own, by any access form: `.`, `['…']` or destructuring (ISSUE-222,
+ *   ISSUE-224);
  * - import startProductionServer, unaliased, from ./listen-first;
- * - reference it exactly once, as the direct callee of the one call;
+ * - be the only module that references it (so no side-effect import can
+ *   start a second server), exactly once, as the direct callee of the one
+ *   call (ISSUE-224);
  * - pass that call one object literal that sets refuseRole once, by a
  *   plain key, with no spread or computed key;
  * - set it to `() => refuseSchemaAlteringRole(app, 'daisy_web')`, where
- *   refuseSchemaAlteringRole is @daisy/db's import, not a local or shadow;
+ *   refuseSchemaAlteringRole is @daisy/db's import, not a local or shadow,
+ *   and used nowhere else (ISSUE-223);
  * - await the `started` the call returns.
  * `files` overlays repository-relative paths (a test's shim module).
  */
@@ -25,19 +32,33 @@ export function findRuntimeRoleGateProblem(
   startTs: string,
   files: Readonly<Record<string, string>> = {},
 ): string | null {
-  const program = startProgram(startTs, files);
+  const { program, unresolved } = startProgram(startTs, files);
   const checker = program.getTypeChecker();
   const start = program.getSourceFile(START)!;
+  const [syntax] = program.getSyntacticDiagnostics(start);
+  if (syntax) return unparsed(start, syntax);
   const nodes = descendants(start);
 
   const bypass = nodes.map(bypassToken).find((token) => token !== null);
   if (bypass)
     return `start.ts bypasses the start-up gate with ${bypass}; start only through startProductionServer (ISSUE-193)`;
+  const [missingImport] = unresolved;
+  if (missingImport)
+    return `start.ts imports ${missingImport}, which does not resolve; the gate cannot be checked (ISSUE-221)`;
   if (!importsStartUnaliased(start)) return IMPORT;
   const call = theStartCall(program, checker, start, nodes);
   if (typeof call === 'string') return call;
-  return refusalProblem(checker, call) ?? awaitProblem(checker, start, call);
+  return (
+    refusalProblem(checker, call, nodes) ?? awaitProblem(checker, start, call)
+  );
 }
+
+/** Refuses a start.ts that does not parse, naming TypeScript's first
+ * syntax diagnostic: a recovered parse must never pass (ISSUE-221). */
+const unparsed = (start: ts.SourceFile, diagnostic: ts.Diagnostic) =>
+  `start.ts does not parse: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, ' ')} (line ${
+    start.getLineAndCharacterOfPosition(diagnostic.start ?? 0).line + 1
+  }); the gate cannot be checked (ISSUE-221)`;
 
 type StartCall = ts.CallExpression & {
   readonly parent: ts.VariableDeclaration;
@@ -63,17 +84,21 @@ const theStartCall = (
   nodes: readonly ts.Node[],
 ): StartCall | string => {
   const target = listenFirstExport(program, checker);
-  const references = nodes.filter(
-    (node): node is ts.Identifier =>
-      ts.isIdentifier(node) &&
-      !isImportBinding(node) &&
-      target !== undefined &&
-      resolved(checker, checker.getSymbolAtLocation(node)) === target,
-  );
-  if (references.length === 0) return MISSING;
+  const refersToTarget = (node: ts.Node): node is ts.Identifier =>
+    ts.isIdentifier(node) &&
+    !isImportBinding(node) &&
+    target !== undefined &&
+    resolved(checker, checker.getSymbolAtLocation(node)) === target;
+  const references = nodes.filter(refersToTarget);
+  const elsewhere = reachingModules(program)
+    .filter((file) => file !== start)
+    .some((file) => descendants(file).some(refersToTarget));
+  if (references.length === 0 && !elsewhere) return MISSING;
   const [callee] = references;
-  const call = callee!.parent;
-  return references.length === 1 &&
+  const call = callee?.parent;
+  return !elsewhere &&
+    call !== undefined &&
+    references.length === 1 &&
     ts.isCallExpression(call) &&
     call.expression === callee &&
     call.questionDotToken === undefined &&
@@ -93,6 +118,7 @@ const isTopLevelDeclaration = (start: ts.SourceFile, node: ts.Node) =>
 const refusalProblem = (
   checker: ts.TypeChecker,
   call: StartCall,
+  nodes: readonly ts.Node[],
 ): string | null => {
   const [options] = call.arguments;
   if (call.arguments.length !== 1 || !ts.isObjectLiteralExpression(options!))
@@ -110,9 +136,13 @@ const refusalProblem = (
   const [refusal] = refusals;
   const refused = refusal && refusalCallee(refusal);
   if (!refused) return MISSING;
-  return isDaisyDbRefusal(checker.getSymbolAtLocation(refused))
-    ? null
-    : NOT_FROM_DB;
+  const uses = nodes.filter(
+    (node) =>
+      ts.isIdentifier(node) &&
+      !isImportBinding(node) &&
+      isDaisyDbRefusal(checker.getSymbolAtLocation(node)),
+  );
+  return uses.length === 1 && uses[0] === refused ? null : NOT_FROM_DB;
 };
 
 /** A top-level `await started;` on the call's own `started` binding. */
@@ -147,24 +177,47 @@ const OVERRIDDEN =
 const NOT_FROM_DB =
   'start.ts must import refuseSchemaAlteringRole from @daisy/db and use it only as the refuseRole (ISSUE-206)';
 
-/** The call start.ts must never make itself, as the token it reports. */
+/** Members start.ts must never touch itself, by any access form. */
+const BYPASS_MEMBERS = new Map([
+  ['listen', '.listen('],
+  ['prepare', 'nextApp.prepare('],
+  ['getRequestHandler', 'getRequestHandler('],
+]);
+
+/** A module-loading or gate-bypassing step start.ts must never take
+ * itself, as the token it reports (ISSUE-193, ISSUE-222, ISSUE-224). */
 const bypassToken = (node: ts.Node): string | null => {
-  if (!ts.isCallExpression(node)) return null;
-  const callee = node.expression;
-  if (callee.kind === ts.SyntaxKind.ImportKeyword) return 'import(';
-  if (ts.isIdentifier(callee) && callee.text === 'createProductionServer')
-    return 'createProductionServer(';
-  if (!ts.isPropertyAccessExpression(callee)) return null;
-  const name = callee.name.text;
-  if (name === 'getRequestHandler') return 'getRequestHandler(';
-  if (name === 'listen') return '.listen(';
   if (
-    name === 'prepare' &&
-    ts.isIdentifier(callee.expression) &&
-    callee.expression.text === 'nextApp'
+    ts.isCallExpression(node) &&
+    node.expression.kind === ts.SyntaxKind.ImportKeyword
   )
-    return 'nextApp.prepare(';
-  return null;
+    return 'import(';
+  if (ts.isIdentifier(node)) return identifierBypass(node);
+  const member = memberName(node);
+  return (member !== undefined && BYPASS_MEMBERS.get(member)) || null;
+};
+
+const identifierBypass = (node: ts.Identifier): string | null => {
+  if (node.text === 'createProductionServer') return 'createProductionServer(';
+  if (node.text === 'createRequire') return 'createRequire(';
+  if (node.text !== 'require') return null;
+  return ts.isPropertyAccessExpression(node.parent) && node.parent.name === node
+    ? 'module.require('
+    : 'require(';
+};
+
+/** The member a `.name`, `['name']` or `{ name }` destructuring touches. */
+const memberName = (node: ts.Node): string | undefined => {
+  if (ts.isPropertyAccessExpression(node)) return node.name.text;
+  if (
+    ts.isElementAccessExpression(node) &&
+    ts.isStringLiteralLike(node.argumentExpression)
+  )
+    return node.argumentExpression.text;
+  if (!ts.isBindingElement(node) || !ts.isObjectBindingPattern(node.parent))
+    return undefined;
+  const key = node.propertyName ?? node.name;
+  return ts.isIdentifier(key) || ts.isStringLiteral(key) ? key.text : undefined;
 };
 
 const moduleOf = (declaration: ts.ImportDeclaration) =>
@@ -206,8 +259,54 @@ const importsStartUnaliased = (start: ts.SourceFile) => {
 
 const isImportBinding = (node: ts.Identifier) =>
   ts.isImportSpecifier(node.parent) ||
+  ts.isExportSpecifier(node.parent) ||
   ts.isImportClause(node.parent) ||
   ts.isNamespaceImport(node.parent);
+
+/** The program's modules, other than listen-first.ts, that can reach its
+ * export: any that names it or listen-first, and any that imports one of
+ * those, to a fixpoint. Only these are searched for other references. */
+const reachingModules = (program: ts.Program): ts.SourceFile[] => {
+  const files = program
+    .getSourceFiles()
+    .filter((file) => file.fileName !== LISTEN_FIRST);
+  const reaching = new Set(
+    files.filter((file) =>
+      /startProductionServer|listen-first/.test(file.text),
+    ),
+  );
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const file of files)
+      if (
+        !reaching.has(file) &&
+        importedPaths(file).some((path) =>
+          [...reaching].some((reached) => reached.fileName === path),
+        )
+      ) {
+        reaching.add(file);
+        grew = true;
+      }
+  }
+  return [...reaching];
+};
+
+const importedPaths = (file: ts.SourceFile): string[] =>
+  file.statements.flatMap((statement) =>
+    (ts.isImportDeclaration(statement) || ts.isExportDeclaration(statement)) &&
+    statement.moduleSpecifier !== undefined &&
+    ts.isStringLiteral(statement.moduleSpecifier) &&
+    statement.moduleSpecifier.text.startsWith('.')
+      ? relativeCandidates(file.fileName, statement.moduleSpecifier.text)
+      : [],
+  );
+
+const relativeCandidates = (containingFile: string, specifier: string) => {
+  const base = resolve(dirname(containingFile), specifier);
+  return [`${base}.ts`, `${base}.tsx`, `${base}/index.ts`, base].filter(
+    (path) => path.endsWith('.ts') || path.endsWith('.tsx'),
+  );
+};
 
 const resolved = (checker: ts.TypeChecker, symbol: ts.Symbol | undefined) =>
   symbol && symbol.flags & ts.SymbolFlags.Alias
@@ -292,8 +391,10 @@ const realSources = new Map<string, ts.SourceFile>();
 
 /**
  * start.ts (as given) and listen-first.ts, with relative imports resolved
- * against the repository or `files` and package imports left unresolved:
- * only symbols reachable through relative modules matter here.
+ * against the repository or `files` and package imports left out of the
+ * program: only symbols reachable through relative modules matter here.
+ * Every start.ts import must still resolve, a package one by TypeScript's
+ * own module resolution, or the gate fails closed (ISSUE-221).
  */
 const startProgram = (
   startTs: string,
@@ -323,13 +424,21 @@ const startProgram = (
     realSources.set(path, source);
     return source;
   };
+  const unresolved: string[] = [];
   host.resolveModuleNameLiterals = (literals, containingFile) =>
     literals.map((literal) => {
-      if (!literal.text.startsWith('.')) return { resolvedModule: undefined };
-      const base = resolve(dirname(containingFile), literal.text);
-      const found = [`${base}.ts`, `${base}.tsx`, `${base}/index.ts`, base]
-        .filter((path) => path.endsWith('.ts') || path.endsWith('.tsx'))
-        .find((path) => read(path) !== undefined);
+      if (!literal.text.startsWith('.')) {
+        if (
+          containingFile === START &&
+          !packageResolves(literal.text, containingFile)
+        )
+          unresolved.push(literal.text);
+        return { resolvedModule: undefined };
+      }
+      const found = relativeCandidates(containingFile, literal.text).find(
+        (path) => read(path) !== undefined,
+      );
+      if (!found && containingFile === START) unresolved.push(literal.text);
       return {
         resolvedModule: found
           ? {
@@ -342,9 +451,21 @@ const startProgram = (
           : undefined,
       };
     });
-  return ts.createProgram({
+  const program = ts.createProgram({
     rootNames: [START, LISTEN_FIRST],
     options: OPTIONS,
     host,
   });
+  program.getSourceFiles();
+  return { program, unresolved };
+};
+
+const packageResolves = (specifier: string, containingFile: string) =>
+  isBuiltin(specifier) ||
+  ts.resolveModuleName(specifier, containingFile, RESOLUTION, ts.sys)
+    .resolvedModule !== undefined;
+
+const RESOLUTION: ts.CompilerOptions = {
+  module: ts.ModuleKind.ESNext,
+  moduleResolution: ts.ModuleResolutionKind.Bundler,
 };

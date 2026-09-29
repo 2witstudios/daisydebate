@@ -1,5 +1,4 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { readFileSync } from 'node:fs';
 import { findRuntimeRoleGateProblem } from './runtime-role-gate';
 
 setupRitewayBun();
@@ -9,45 +8,25 @@ setupRitewayBun();
 // that nothing can duplicate, override or replace (ISSUE-206), read from the
 // TypeScript AST with symbols resolved through aliases and re-exports, so
 // comments and formatting never matter (ISSUE-218).
-const realStart = readFileSync('apps/web/src/server/start.ts', 'utf8');
-
-const REFUSAL =
-  "  refuseRole: () => refuseSchemaAlteringRole(app, 'daisy_web'),\n";
-const START_IMPORT =
-  "import { startProductionServer } from './listen-first';\n";
-const DB_IMPORT = "import { refuseSchemaAlteringRole } from '@daisy/db';\n";
-const CALL = 'const { server, started } = startProductionServer({\n';
-const ROUTE_READ = "      return readFileSync('/proc/net/route', 'utf8');\n";
-const NO_OP_OPTIONS =
-  "{\n  app,\n  nextApp,\n  refuseRole: async () => {},\n  readRouteTable: () => null,\n  port: port + 1,\n  host: '0.0.0.0',\n}";
-const SHIM = 'apps/web/src/server/shim.ts';
-
-const edit = (from: string, to: string) => {
-  if (!realStart.includes(from))
-    throw new Error(`fixture anchor missing: ${from}`);
-  return realStart.replace(from, to);
-};
-const append = (tail: string) => `${realStart}${tail}`;
-
-const MISSING =
-  "start.ts does not start through startProductionServer with refuseRole: () => refuseSchemaAlteringRole(app, 'daisy_web') and await started";
-const bypass = (token: string) =>
-  `start.ts bypasses the start-up gate with ${token}; start only through startProductionServer (ISSUE-193)`;
-const IMPORT =
-  'start.ts must import startProductionServer, unaliased, from ./listen-first and nothing else from it (ISSUE-218)';
-const ONE_CALL =
-  'start.ts must call startProductionServer exactly once, directly by that name; a second call, alias, .call, optional call or other reference starts a server the checked refusal does not guard (ISSUE-206, ISSUE-218)';
-const OVERRIDDEN =
-  "start.ts's startProductionServer call must set refuseRole once by a plain key, with no spread or computed key that could override it (ISSUE-206, ISSUE-218)";
-const NOT_FROM_DB =
-  'start.ts must import refuseSchemaAlteringRole from @daisy/db and use it only as the refuseRole (ISSUE-206)';
-
-type Row = {
-  readonly shape: string;
-  readonly startTs: string;
-  readonly files?: Readonly<Record<string, string>>;
-  readonly expected: string | null;
-};
+import {
+  append,
+  bypass,
+  CALL,
+  DB_IMPORT,
+  edit,
+  IMPORT,
+  MISSING,
+  NO_OP_OPTIONS,
+  NOT_FROM_DB,
+  ONE_CALL,
+  OVERRIDDEN,
+  realStart,
+  REFUSAL,
+  ROUTE_READ,
+  type Row,
+  SHIM,
+  START_IMPORT,
+} from './runtime-role-gate.test-support';
 
 const harmless: readonly Row[] = [
   { shape: 'the committed start.ts', startTs: realStart, expected: null },
@@ -172,6 +151,10 @@ const refused: readonly Row[] = [
       DB_IMPORT,
       "import { refuseSchemaAlteringRole } from './no-op';\n",
     ),
+    files: {
+      'apps/web/src/server/no-op.ts':
+        'export const refuseSchemaAlteringRole = async (..._: unknown[]) => {};\n',
+    },
     expected: NOT_FROM_DB,
   },
   // ISSUE-218: the review's missed shapes.
