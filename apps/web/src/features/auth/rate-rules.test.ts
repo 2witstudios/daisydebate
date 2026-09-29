@@ -1,18 +1,12 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { CLIENT_IP_HEADER } from './client-ip';
-import { create, magicLinkRequest } from './abuse.test-support';
+import {
+  create,
+  existingAccount,
+  magicLinkRequest,
+} from './abuse.test-support';
 
 setupRitewayBun();
-
-/** An account holding the address `magicLinkRequest` asks for. */
-const existingAccount = {
-  id: 'user-1',
-  email: 'player@daisy.example.com',
-  emailVerified: true,
-  name: '',
-  createdAt: new Date('2026-09-20T00:00:00.000Z'),
-  updatedAt: new Date('2026-09-20T00:00:00.000Z'),
-};
 
 const getSession = (headers: Record<string, string> = {}) =>
   new Request('http://localhost:3000/api/auth/get-session', { headers });
@@ -54,34 +48,6 @@ describe('AUTH-3.4 rules the gate hands the atomic limiter', () => {
     });
   });
 
-  test('a sign-in link for an existing account never reaches the global ceilings (ISSUE-54)', async () => {
-    const { server, db, consumed } = create({
-      limiter: (record) => async (key, rule) => {
-        record.push({ key, rule });
-        // The global ceilings are saturated: were they consulted, this
-        // request would be denied.
-        return key.startsWith('auth:magic-link:global:')
-          ? { allowed: false, retryAfterSeconds: 30 }
-          : { allowed: true, retryAfterSeconds: 0 };
-      },
-    });
-    db.user.push(existingAccount);
-    const response = await server.instance.handler(magicLinkRequest());
-    assert({
-      given:
-        'saturated global ceilings and a magic-link request for an address that has an account',
-      should:
-        'admit it on its client and recipient buckets alone, never consuming a global bucket',
-      actual: {
-        status: response.status,
-        globalConsumed: consumed.filter(({ key }) =>
-          key.startsWith('auth:magic-link:global:'),
-        ).length,
-      },
-      expected: { status: 200, globalConsumed: 0 },
-    });
-  });
-
   test('a recipient exhausting the hour ceiling is denied even though the minute window just reset', async () => {
     const hourExhausted = new Set<string>();
     const { server } = create({
@@ -103,22 +69,6 @@ describe('AUTH-3.4 rules the gate hands the atomic limiter', () => {
         'admit the first send and deny the second even though the minute window is fresh',
       actual: { first: first.status, second: second.status },
       expected: { first: 200, second: 429 },
-    });
-  });
-
-  test('the global per-minute ceiling denies a request even when its own client and recipient buckets allow', async () => {
-    const { server } = create({
-      limiter: () => async (key) =>
-        key === 'auth:magic-link:global:60'
-          ? { allowed: false, retryAfterSeconds: 30 }
-          : { allowed: true, retryAfterSeconds: 0 },
-    });
-    const response = await server.instance.handler(magicLinkRequest());
-    assert({
-      given: 'a limiter denying only the global per-minute magic-link bucket',
-      should: 'deny the request even though every other bucket allows it',
-      actual: response.status,
-      expected: 429,
     });
   });
 

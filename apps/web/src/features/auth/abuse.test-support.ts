@@ -12,6 +12,8 @@ export const create = (
     suppressed?: boolean;
     ledgerFailure?: boolean;
     recordFailure?: boolean;
+    /** The mail transport rejects every send (a provider outage). */
+    sendFailure?: boolean;
     limiter?: (consumed: Consumed[]) => (
       key: string,
       rule: Consumed['rule'],
@@ -36,6 +38,7 @@ export const create = (
     database: memoryAdapter(db),
     emailSender: {
       send: async (message) => {
+        if (options.sendFailure) throw new Error('transport down');
         sent.push(message);
         return { providerMessageId: `msg_${sent.length}` };
       },
@@ -80,3 +83,13 @@ export const magicLinkRequest = (
     },
     body: JSON.stringify({ email }),
   });
+
+/** An account holding the address `magicLinkRequest` asks for. */
+export const existingAccount = {
+  id: 'user-1',
+  email: 'player@daisy.example.com',
+  emailVerified: true,
+  name: '',
+  createdAt: new Date('2026-09-20T00:00:00.000Z'),
+  updatedAt: new Date('2026-09-20T00:00:00.000Z'),
+};

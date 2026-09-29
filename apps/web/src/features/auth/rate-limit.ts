@@ -27,11 +27,13 @@ const RECIPIENT_RULES: readonly RateRule[] = [
  * The whole application's sign-up mail volume, independent of any single
  * recipient or client: protects Resend quota, cost and sending-domain
  * reputation from many new addresses each staying under their own ceiling.
- * It meters only links to addresses with no account (ISSUE-54): sign-in to
- * an existing account never counts against it and is never denied by it,
- * so one actor draining it (rotating client addresses, plus-addressed
- * recipients) delays new sign-ups but cannot deny sign-in to anyone.
- * Existing accounts' mail stays bounded by their recipient ceilings above.
+ * Every magic-link send counts against it, with or without an account, so
+ * its remaining capacity never tells a caller which address has one
+ * (ISSUE-188). Only sign-ups (links to addresses with no account) are held
+ * back by it: a sign-in link is always sent, so one actor draining it
+ * (rotating client addresses, plus-addressed recipients) delays new
+ * sign-ups but cannot deny sign-in to anyone (ISSUE-54). Past it, a
+ * sign-up's mail is dropped behind the ordinary success (ISSUE-182).
  */
 const MAGIC_LINK_GLOBAL_RULES: readonly RateRule[] = [
   { windowSeconds: 60, max: 120 },
@@ -161,12 +163,11 @@ export async function consumeOrThrow(
   if (!decision.allowed) throw createAppError('RATE_LIMIT');
 }
 
-const denial = (
+const logDenial = (
   logger: Logger,
   path: string,
   errorCode: 'RATE_LIMIT' | 'INFRASTRUCTURE',
-  retryAfterSeconds?: unknown,
-) => {
+) =>
   // Only the stable route path and code are logged: never the key, client
   // address, request body, or the limiter's raw exception. A denial is
   // expected traffic (warn); only an outage is an error.
@@ -179,6 +180,14 @@ const denial = (
       ? 'Auth request rate limited'
       : 'Auth rate limiter unavailable; request denied',
   );
+
+const denial = (
+  logger: Logger,
+  path: string,
+  errorCode: 'RATE_LIMIT' | 'INFRASTRUCTURE',
+  retryAfterSeconds?: unknown,
+) => {
+  logDenial(logger, path, errorCode);
   return errorCode === 'RATE_LIMIT'
     ? new APIError(
         'TOO_MANY_REQUESTS',
@@ -261,15 +270,37 @@ export const createRateLimitGate = (dependencies: {
         );
     };
     for (const bucket of buckets) await consume(bucket);
-    if (recipient?.flow !== 'magic-link') return;
-    // Only a link to an address with no account (a sign-up) is metered by
-    // the global ceilings; the lookup runs only once the client and
-    // recipient buckets have admitted the request. A database outage here
-    // propagates like any other (the typed INFRASTRUCTURE 503), never an
-    // allow and never reported as a limiter outage.
-    const account = await context.context.internalAdapter.findUserByEmail(
-      recipient.email,
-    );
-    if (account) return;
-    for (const bucket of globalBuckets) await consume(bucket);
   });
+
+/**
+ * The global sign-up ceilings, spent by every magic-link send
+ * (`sign-in-mail.ts`) after the gate, destination and suppression checks,
+ * whether or not the address has an account, so their remaining capacity
+ * never depends on one (ISSUE-188). `false` when a ceiling is saturated:
+ * the caller drops a sign-up's mail behind the ordinary success and still
+ * sends a sign-in link (ISSUE-54, ISSUE-182). Operators see the saturation
+ * as `auth.rate_limit.denied`, never the caller. A limiter outage fails
+ * closed with the public 503.
+ */
+export const createSignUpCeiling =
+  (dependencies: {
+    readonly limiter: AuthRateLimiter;
+    readonly logger: Logger;
+  }) =>
+  async (): Promise<boolean> => {
+    for (const bucket of globalBuckets) {
+      let allowed: boolean;
+      try {
+        ({ allowed } = readDecision(
+          await dependencies.limiter.consume(bucket.key, bucket.rule),
+        ));
+      } catch {
+        throw denial(dependencies.logger, magicLinkPath, 'INFRASTRUCTURE');
+      }
+      if (!allowed) {
+        logDenial(dependencies.logger, magicLinkPath, 'RATE_LIMIT');
+        return false;
+      }
+    }
+    return true;
+  };

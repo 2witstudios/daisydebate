@@ -89,9 +89,7 @@ describe('AUTH-6.7 AC3 database outage and recovery', () => {
       actual: {
         baselineStatus: baseline.status,
         outageStatus: duringOutage.status,
-        outageCode: (
-          (await duringOutage.json()) as { error?: { code?: string } }
-        ).error?.code,
+        outageCode: ((await duringOutage.json()) as { code?: string }).code,
         countDuringOutage,
         redeemedHasCookie: redeemed.headers.getSetCookie().length > 0,
         countAfterRecovery,
@@ -99,7 +97,9 @@ describe('AUTH-6.7 AC3 database outage and recovery', () => {
       expected: {
         baselineStatus: 200,
         outageStatus: 503,
-        outageCode: 'INFRASTRUCTURE',
+        // The request-time suppression check is the first database read on
+        // this route: its outage answers the typed retryable 503.
+        outageCode: 'AUTH_TEMPORARILY_UNAVAILABLE',
         countDuringOutage: 0,
         redeemedHasCookie: true,
         countAfterRecovery: 1,
