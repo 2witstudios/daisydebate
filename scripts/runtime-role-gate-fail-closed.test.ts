@@ -1,5 +1,4 @@
-import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { findRuntimeRoleGateProblem } from './runtime-role-gate';
+import { setupRitewayBun } from 'riteway/bun';
 import {
   append,
   BOOT,
@@ -14,6 +13,7 @@ import {
   START_IMPORT,
   unparsed,
   unresolved,
+  describeRows,
 } from './runtime-role-gate.test-support';
 
 setupRitewayBun();
@@ -132,14 +132,8 @@ const refused: readonly Row[] = [
   },
 ];
 
-describe('findRuntimeRoleGateProblem fails closed (ISSUE-221, ISSUE-222, ISSUE-223, ISSUE-224)', () => {
-  for (const row of refused)
-    test(row.shape, () => {
-      assert({
-        given: `start.ts with ${row.shape}`,
-        should: 'report the problem, never pass',
-        actual: findRuntimeRoleGateProblem(row.startTs, row.files),
-        expected: row.expected,
-      });
-    });
-});
+describeRows(
+  'findRuntimeRoleGateProblem fails closed (ISSUE-221, ISSUE-222, ISSUE-223, ISSUE-224)',
+  'report the problem, never pass',
+  refused,
+);

@@ -1,4 +1,6 @@
 import { readFileSync } from 'node:fs';
+import { assert, describe, test } from 'riteway/bun';
+import { findRuntimeRoleGateProblem } from './runtime-role-gate';
 
 // Shared fixtures for the start.ts runtime-role gate's table tests
 // (scripts/runtime-role-gate.ts): the committed start.ts, the edits that
@@ -50,3 +52,21 @@ export type Row = {
   readonly files?: Readonly<Record<string, string>>;
   readonly expected: string | null;
 };
+
+/** One test per row: the gate's answer for that start.ts is `expected`. */
+export const describeRows = (
+  title: string,
+  should: string,
+  rows: readonly Row[],
+) =>
+  describe(title, () => {
+    for (const row of rows)
+      test(row.shape, () => {
+        assert({
+          given: `start.ts with ${row.shape}`,
+          should,
+          actual: findRuntimeRoleGateProblem(row.startTs, row.files),
+          expected: row.expected,
+        });
+      });
+  });

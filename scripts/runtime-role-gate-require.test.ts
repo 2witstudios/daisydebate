@@ -1,5 +1,4 @@
-import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { findRuntimeRoleGateProblem } from './runtime-role-gate';
+import { setupRitewayBun } from 'riteway/bun';
 import {
   append,
   bypass,
@@ -7,6 +6,7 @@ import {
   NO_OP_OPTIONS,
   type Row,
   START_IMPORT,
+  describeRows,
 } from './runtime-role-gate.test-support';
 
 setupRitewayBun();
@@ -132,26 +132,14 @@ const refused: readonly Row[] = [
   },
 ];
 
-describe('findRuntimeRoleGateProblem ignores names that are not require (ISSUE-227)', () => {
-  for (const row of harmless)
-    test(row.shape, () => {
-      assert({
-        given: `start.ts with ${row.shape}`,
-        should: 'report no problem',
-        actual: findRuntimeRoleGateProblem(row.startTs, row.files),
-        expected: row.expected,
-      });
-    });
-});
+describeRows(
+  'findRuntimeRoleGateProblem ignores names that are not require (ISSUE-227)',
+  'report no problem',
+  harmless,
+);
 
-describe('findRuntimeRoleGateProblem refuses real require and loaded modules that bypass (ISSUE-227, ISSUE-228)', () => {
-  for (const row of refused)
-    test(row.shape, () => {
-      assert({
-        given: `start.ts with ${row.shape}`,
-        should: 'report the bypass',
-        actual: findRuntimeRoleGateProblem(row.startTs, row.files),
-        expected: row.expected,
-      });
-    });
-});
+describeRows(
+  'findRuntimeRoleGateProblem refuses real require and loaded modules that bypass (ISSUE-227, ISSUE-228)',
+  'report the bypass',
+  refused,
+);

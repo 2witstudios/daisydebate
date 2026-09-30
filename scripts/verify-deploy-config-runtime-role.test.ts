@@ -1,5 +1,4 @@
-import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { findRuntimeRoleGateProblem } from './runtime-role-gate';
+import { setupRitewayBun } from 'riteway/bun';
 
 setupRitewayBun();
 
@@ -26,6 +25,7 @@ import {
   type Row,
   SHIM,
   START_IMPORT,
+  describeRows,
 } from './runtime-role-gate.test-support';
 
 const harmless: readonly Row[] = [
@@ -291,26 +291,14 @@ const refused: readonly Row[] = [
   },
 ];
 
-describe('findRuntimeRoleGateProblem allows harmless edits (ISSUE-218)', () => {
-  for (const row of harmless)
-    test(row.shape, () => {
-      assert({
-        given: `start.ts with ${row.shape}`,
-        should: 'report no problem',
-        actual: findRuntimeRoleGateProblem(row.startTs, row.files),
-        expected: row.expected,
-      });
-    });
-});
+describeRows(
+  'findRuntimeRoleGateProblem allows harmless edits (ISSUE-218)',
+  'report no problem',
+  harmless,
+);
 
-describe('findRuntimeRoleGateProblem refuses every bypass (ISSUE-193, ISSUE-206, ISSUE-218)', () => {
-  for (const row of refused)
-    test(row.shape, () => {
-      assert({
-        given: `start.ts with ${row.shape}`,
-        should: 'report the bypass',
-        actual: findRuntimeRoleGateProblem(row.startTs, row.files),
-        expected: row.expected,
-      });
-    });
-});
+describeRows(
+  'findRuntimeRoleGateProblem refuses every bypass (ISSUE-193, ISSUE-206, ISSUE-218)',
+  'report the bypass',
+  refused,
+);
