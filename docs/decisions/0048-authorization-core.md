@@ -205,17 +205,17 @@ depends on the reason:
 **Gates.** Every operation authorizes exactly one gate before any other
 check or protected read:
 
-| Operation                                                                          | Gate, then                                                                                                               |
-| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Debate read by id (page, JSON), `debate:<id>` and `debate:<id>:presence` subscribe | `debate.read` on the debate                                                                                              |
-| `debate:<id>:chat` subscribe                                                       | `debate.read` on the debate, and for a `private` debate the seated fact as well (the chat family's narrowing, section 8) |
-| League page                                                                        | `league.view` on the league                                                                                              |
-| Join                                                                               | `league.view`, then `league.join`                                                                                        |
-| Leave                                                                              | `league.view` (then the membership check in the operation)                                                               |
-| Unranked creation                                                                  | `debate.create` on `unranked`                                                                                            |
-| Ranked creation (hosting a ranked debate)                                          | `league.view`, then `debate.create` on the league                                                                        |
-| Season read (no route in this epic) and `standings:<seasonId>` subscribe           | `league.view` on the season's league                                                                                     |
-| `user:<actorId>:inbox` subscribe                                                   | `authorizeInbox`                                                                                                         |
+| Operation                                                                          | Gate, then                                                                                                                                                                           |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Debate read by id (page, JSON), `debate:<id>` and `debate:<id>:presence` subscribe | `debate.read` on the debate                                                                                                                                                          |
+| `debate:<id>:chat` subscribe                                                       | `debate.read` on the debate, and for a `private` debate the seated fact as well (the chat family's narrowing, section 8)                                                             |
+| League page                                                                        | `league.view` on the league                                                                                                                                                          |
+| Join                                                                               | `league.view`, then `league.join`                                                                                                                                                    |
+| Leave                                                                              | `league.view` (then the membership check in the operation)                                                                                                                           |
+| Unranked creation                                                                  | `debate.create` on `unranked`                                                                                                                                                        |
+| Ranked creation (hosting a ranked debate)                                          | `league.view`, then `league.join` only for a non-member of an open league (the creation operation's implicit join, section 9), then `debate.create` on the league (an active member) |
+| Season read (no route in this epic) and `standings:<seasonId>` subscribe           | `league.view` on the season's league                                                                                                                                                 |
+| `user:<actorId>:inbox` subscribe                                                   | `authorizeInbox`                                                                                                                                                                     |
 
 **Properties**, proven by property tests over generated principals,
 resources and contexts:

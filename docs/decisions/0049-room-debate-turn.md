@@ -70,7 +70,15 @@ applies the confirmed overrides (ADR 0030 section 1; ranked refuses overrides
 through `rulesMatchFormat`), then in one transaction creates the debate, seats
 every member, runs the engine's join, ready and start transitions, stamps the
 debate with its room and appends the outbox event. It is idempotent on a
-protocol `commandId` (ADR 0029). The engine is unchanged:
+protocol `commandId` (ADR 0029), which covers only a retry of the same
+command. Two starts with different `commandId` values (two members pressing
+start, or a start racing a settings change) are decided by a room-level guard:
+the transaction first moves the room from `open` to `started` with a
+conditional update (or locks the room row, and every seat and setting write
+takes the same lock), and proceeds only if it changed the row. The losing
+request finds the room not `open`, is refused with a `CONFLICT` public error
+that names no debate, creates no debate and writes nothing. A retry of the
+winner's `commandId` still returns its recorded result. The engine is unchanged:
 `debate.seats.within-format`, seat uniqueness and the start gate (every
 offered seat filled and ready) still decide, so a room that cannot legally
 start is refused with state unchanged. `waiting` remains a real engine phase,
