@@ -78,9 +78,11 @@ auth.after-response` for a database failure in that work. That work is
 bounded (4 running, 64 waiting); past it a request's work is shed with no
 mail, logged as `auth.mail.shed` and counted as `auth_mail_shed_total` on
 `/api/ops/metrics`. Sustained shedding fires the `mail_shed` alert (see
-"Alerting" and "Auth mail shed past the bound" below): it means a flood, or
-real sign-in volume above what the bound drains, and it is not a mail
-outage.
+"Alerting" and "Auth mail shed past the bound" below): it means a flood,
+real sign-in volume above what the bound drains, or slow or failing mail
+delivery, which holds every slot longer so the bound fills sooner. Check
+`auth.mail.failed` and the `delivery_failures` alert before assuming a
+flood.
 
 The sign-in page offers passkeys in browser autofill, so every visible view
 spends one `/passkey/generate-authenticate-options` request (a challenge row
