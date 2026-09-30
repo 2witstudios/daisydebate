@@ -3,7 +3,7 @@
  * Categories and visibilities follow ADR 0036: a personal field has a
  * visibility, nothing else does.
  */
-export type PrivacyCategory =
+type PrivacyCategory =
   'none' | 'identifier' | 'personal' | 'sensitive' | 'secret';
 
 export type PrivacyRow = {

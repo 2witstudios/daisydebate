@@ -24,7 +24,7 @@ export const seasonsHref = (season: number | null): string =>
     : `/leaderboard/seasons?season=${season}`;
 
 /** Rows in a season's snapshot. */
-export const SNAPSHOT_SIZE = 10;
+const SNAPSHOT_SIZE = 10;
 
 export type SeasonsView = {
   readonly season: Season;
