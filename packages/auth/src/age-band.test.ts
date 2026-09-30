@@ -1,12 +1,22 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { ageBand } from './age-band';
+import { ageBand, type AgeBand } from './index';
 
 setupRitewayBun();
 
 const at = (iso: string) => new Date(`${iso}T12:00:00.000Z`);
 
 describe('ageBand', () => {
+  const expected: AgeBand[] = [
+    'under-13',
+    '13-15',
+    '13-15',
+    '13-15',
+    '16-17',
+    '16-17',
+    'adult',
+  ];
+
   test('changes band in the month the person turns 13, 16 and 18', () => {
     assert({
       given: 'birth month 2010-06 and the months around each birthday year',
@@ -20,15 +30,7 @@ describe('ageBand', () => {
         ageBand('2010-06', at('2028-05-31')),
         ageBand('2010-06', at('2028-06-01')),
       ],
-      expected: [
-        'under-13',
-        '13-15',
-        '13-15',
-        '13-15',
-        '16-17',
-        '16-17',
-        'adult',
-      ],
+      expected,
     });
   });
 
