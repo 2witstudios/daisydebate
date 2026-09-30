@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { runBoard, type BoardDeps } from './board';
-import { contentHash } from './board-model';
+import { contentHash, ISSUES_LIST_ID } from './board-model';
 
 setupRitewayBun();
 
@@ -133,6 +133,39 @@ describe('bun board:*', () => {
         ),
       ],
       expected: [['--expect-lines', '5'], true],
+    });
+  });
+
+  test('numbers a new issue after the highest one in any Issues bucket', () => {
+    const board = fakeBoard();
+    const lists: Record<string, { title: string; pageId: string }[]> = {
+      [ISSUES_LIST_ID]: [
+        { title: 'ISSUE-3 — a', pageId: 'i3' },
+        { title: 'Bugs', pageId: 'bugs' },
+        { title: 'Backlog', pageId: 'backlog' },
+      ],
+      bugs: [{ title: 'ISSUE-9 — b', pageId: 'i9' }],
+      backlog: [{ title: 'TOURN-1 — c', pageId: 't1' }],
+    };
+    const base = board.deps.pagespace;
+    const pagespace: BoardDeps['pagespace'] = (args) =>
+      args[0] === 'tasks' && args[1] === 'list'
+        ? { code: 0, stdout: JSON.stringify({ tasks: lists[args[2]] ?? [] }) }
+        : base(args);
+    runBoard({ ...board.deps, pagespace }, [
+      'create',
+      list,
+      '--issue',
+      '--title',
+      'Given X, should Y',
+    ]);
+    assert({
+      given: 'ISSUE-9 in Bugs and ISSUE-3 at the root of Issues',
+      should: 'title the new issue ISSUE-10',
+      actual: board.calls
+        .find((call) => call[0] === 'tasks' && call[1] === 'create')
+        ?.at(4),
+      expected: 'ISSUE-10 — Given X, should Y',
     });
   });
 

@@ -266,6 +266,23 @@ export function findTask(
   );
 }
 
+/** The drive-root `Issues` list: its items live in bucket lists beneath it. */
+export const ISSUES_LIST_ID = 'cy7vznqfbs8ikfwj1qu8xxnm';
+
+/**
+ * The bucket lists nested in a list: its tasks that are not `<PREFIX>-n`
+ * items. Issue numbers span every bucket, so numbering reads these too.
+ */
+export function bucketPageIds(
+  tasks: readonly { readonly title?: string; readonly pageId: string }[],
+  prefix: string,
+): readonly string[] {
+  const item = new RegExp(`^${prefix}-\\d+\\b`);
+  return tasks
+    .filter(({ title }) => !item.test(title ?? ''))
+    .map((t) => t.pageId);
+}
+
 /** One more than the highest `<PREFIX>-n` title; 1 for an empty list. */
 export function nextCodeNumber(
   titles: readonly string[],
