@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { classifyPush } from './agent-guard';
@@ -71,26 +71,42 @@ describe('agent guard: pushes from a pu agent without its identity', () => {
 
 describe('agent guard: the identity regime through the real hook', () => {
   const root = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
-  const hook = (projectRoot: string, command: string) => {
+  // The hook reads the registry of the checkout it runs in, so the resumed
+  // agent is registered in a throwaway repository, never the real one.
+  const project = mkdtempSync(`${tmpdir()}/grd-6-project-`);
+  Bun.spawnSync(['git', 'init', '-q'], { cwd: project });
+  mkdirSync(`${project}/.pu/daisy/agents`, { recursive: true });
+  writeFileSync(
+    `${project}/.pu/daisy/agents/ag-resumed.json`,
+    JSON.stringify({ parent: null, role: 'builder', worktree: project }),
+  );
+  const hook = (
+    projectRoot: string,
+    command: string,
+    agentId = 'ag-resumed',
+  ) => {
     const env: Record<string, string | undefined> = { ...process.env };
     delete env.GH_TOKEN;
     delete env.DAISY_AUTONOMOUS;
-    const run = Bun.spawnSync(['bun', 'scripts/agent-guard.ts', 'hook'], {
-      cwd: root,
-      env: {
-        ...env,
-        CLAUDE_PROJECT_DIR: root,
-        PU_PROJECT_ROOT: projectRoot,
-        PU_AGENT_ID: 'ag-resumed',
+    const run = Bun.spawnSync(
+      ['bun', `${root}/scripts/agent-guard.ts`, 'hook'],
+      {
+        cwd: project,
+        env: {
+          ...env,
+          CLAUDE_PROJECT_DIR: project,
+          PU_PROJECT_ROOT: projectRoot,
+          PU_AGENT_ID: agentId,
+        },
+        stdin: Buffer.from(
+          JSON.stringify({
+            cwd: project,
+            tool_name: 'Bash',
+            tool_input: { command },
+          }),
+        ),
       },
-      stdin: Buffer.from(
-        JSON.stringify({
-          cwd: root,
-          tool_name: 'Bash',
-          tool_input: { command },
-        }),
-      ),
-    });
+    );
     return run.stdout.toString().includes('"deny"') ? 'deny' : 'silent';
   };
 
@@ -100,10 +116,22 @@ describe('agent guard: the identity regime through the real hook', () => {
     const inactive = mkdtempSync(`${tmpdir()}/grd-6-regime-`);
     assert({
       given:
-        'a resumed agent with no GH_TOKEN, under a project root with and without the owner .env.agent (this worktree has no copy)',
+        'a resumed registered agent with no GH_TOKEN, under a project root with and without the owner .env.agent (this worktree has no copy)',
       should: 'refuse gh only when the regime is active',
       actual: [hook(active, 'gh pr view 1'), hook(inactive, 'gh pr view 1')],
       expected: ['deny', 'silent'],
+    });
+  });
+
+  test('never treats the unregistered owner orchestrator as misconfigured', () => {
+    const active = mkdtempSync(`${tmpdir()}/grd-6-regime-`);
+    writeFileSync(`${active}/.env.agent`, 'GH_TOKEN=x\n');
+    assert({
+      given:
+        'an active regime and a PU_AGENT_ID with no registration (no GH_TOKEN)',
+      should: 'leave gh to the owner rules, not refuse it',
+      actual: hook(active, 'gh pr view 1', 'ag-owner-orchestrator'),
+      expected: 'silent',
     });
   });
 });

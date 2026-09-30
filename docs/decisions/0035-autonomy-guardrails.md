@@ -278,9 +278,21 @@ Claude Code `PreToolUse` hook in `.claude/settings.json`. It reads the shell
 command, including `&&` chains, pipes, `sh -c`, `eval`, `$(…)`, `cd` and
 prefix assignments.
 
-An agent is any session with `DAISY_AUTONOMOUS=1` or any `PU_AGENT_ID`,
-so clearing one variable does not make an agent the owner. For agents it
-refuses:
+An agent is any session with `DAISY_AUTONOMOUS=1`, or with a `PU_AGENT_ID`
+that `bun agent:spawn` registered in the main checkout's `.pu/daisy/agents`
+(the registry lookup is `scripts/agent-session.ts`; it resolves the main
+checkout from the git common dir, never from the worktree or
+`PU_PROJECT_ROOT`). A `PU_AGENT_ID` with no registration is the owner's own
+top-level orchestrator session: `board:status <task> completed` and the other
+owner-level board actions are allowed to it, which is how the reviewing
+orchestrator grants Done. An unreadable or malformed registration, or a main
+checkout that cannot be located, counts as an agent (fail closed). Clearing
+one variable does not make an agent the owner: `DAISY_AUTONOMOUS` alone keeps
+it an agent, and the registration lives outside its worktree. So that no
+registered agent can create an unregistered, owner-level session, it may not
+run a raw `pu spawn` or `pu swarm run`; a child comes from `bun agent:spawn`.
+An unregistered orchestrator is not a misconfigured agent (section 1a). For
+agents it refuses:
 
 - pushes to `main`, `--no-verify` pushes, and `core.hooksPath` overrides
 - merges without `--auto`, and `--admin`

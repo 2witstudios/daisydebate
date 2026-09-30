@@ -44,7 +44,7 @@ import {
   newAgent,
   newWorktree,
 } from './agent-spawn-model';
-import { isAgentSession } from './agent-guard-rules';
+import { mainCheckoutOf, sessionIsAgent } from './agent-session';
 import { recordPath, serializeRecord } from './agent-registry';
 
 type Result = { readonly code: number; readonly stdout: string };
@@ -418,8 +418,8 @@ if (import.meta.main) {
     ),
     repoRoot,
     parentId: process.env.PU_AGENT_ID || undefined,
-    // Any pu agent is an agent, as in the guard (ADR 0035 section 6).
-    autonomous: isAgentSession(process.env),
+    // A registered agent is an agent, as in the guard (ADR 0035 section 6).
+    autonomous: sessionIsAgent(process.env, mainCheckoutOf(repoRoot)),
     out: (text) => process.stdout.write(text),
   };
   const [mode, ...args] = process.argv.slice(2);

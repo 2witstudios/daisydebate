@@ -1,5 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { parseRecord, recordPath, serializeRecord } from './agent-registry';
+import {
+  parseRecord,
+  readRegistration,
+  recordPath,
+  serializeRecord,
+} from './agent-registry';
 
 setupRitewayBun();
 
@@ -44,6 +49,67 @@ describe('agent registry', () => {
         parseRecord('not json'),
       ],
       expected: [record, { ...record, parent: null }, undefined, undefined],
+    });
+  });
+});
+
+describe('registration lookup', () => {
+  const record = JSON.stringify({
+    parent: null,
+    role: 'builder',
+    worktree: '/repo/.pu/worktrees/wt-a',
+  });
+  const reads = (files: Record<string, string>) => (path: string) => {
+    if (path in files) return files[path];
+    return undefined;
+  };
+  const throws = () => {
+    throw new Error('EACCES');
+  };
+
+  test('reads the main checkout registry and fails closed on doubt', () => {
+    assert({
+      given:
+        'a valid record, no record, a malformed record, an unreadable registry and an id that is no file name',
+      should:
+        'call the record registered, the absent one absent, and the rest unreadable',
+      actual: [
+        readRegistration(
+          '/repo',
+          'ag-a',
+          reads({ '/repo/.pu/daisy/agents/ag-a.json': record }),
+        ),
+        readRegistration('/repo', 'ag-a', reads({})),
+        readRegistration(
+          '/repo',
+          'ag-a',
+          reads({ '/repo/.pu/daisy/agents/ag-a.json': '{not json' }),
+        ),
+        readRegistration('/repo', 'ag-a', throws),
+        readRegistration('/repo', '../ag-a', reads({})),
+      ],
+      expected: [
+        'registered',
+        'absent',
+        'unreadable',
+        'unreadable',
+        'unreadable',
+      ],
+    });
+  });
+
+  test('does not look in the worktree', () => {
+    assert({
+      given: 'a record only in a worktree copy of the registry',
+      should: 'still be absent from the main checkout',
+      actual: readRegistration(
+        '/repo',
+        'ag-a',
+        reads({
+          '/repo/.pu/worktrees/wt-a/.pu/daisy/agents/ag-a.json': record,
+        }),
+      ),
+      expected: 'absent',
     });
   });
 });

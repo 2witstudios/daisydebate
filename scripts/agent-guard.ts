@@ -18,7 +18,6 @@ import {
   guardVariables,
   LOOP_REASON,
   pushTargetVerdict,
-  isAgentSession,
   resolveFrom,
   unresolvedNameVerdict,
   unwrap,
@@ -38,7 +37,8 @@ import {
 import { kill, otherKillers } from './agent-guard-process';
 import { bun, docker } from './agent-guard-stacks';
 import { identityRegime } from './agent-identity';
-import { IDENTITY_REASON, identityVerdict } from './agent-guard-identity';
+import { IDENTITY_REASON, identityVerdict, pu } from './agent-guard-identity';
+import { sessionIsAgent } from './agent-session';
 import { deriveSlot } from './slot-model';
 import { parseShell } from './shell-command';
 
@@ -69,6 +69,7 @@ const rules: Readonly<Record<string, Rule>> = {
   docker,
   'docker-compose': docker,
   bun,
+  pu,
   ssh: opaque,
   make: opaque,
   python: interpreter,
@@ -342,9 +343,15 @@ function liveFacts(cwd: string, projectDir?: string): GuardFacts {
     worktree,
   );
   const mainCheckout = commonDir ? dirname(commonDir) : worktree;
+  const autonomous = sessionIsAgent(
+    process.env,
+    commonDir ? mainCheckout : undefined,
+  );
   return {
-    autonomous: isAgentSession(process.env),
+    autonomous,
+    // The owner's unregistered orchestrator is not a misconfigured agent.
     misconfigured:
+      autonomous &&
       identityRegime(process.env, existsSync, mainCheckout) === 'misconfigured',
     worktree,
     home: process.env.HOME,

@@ -41,3 +41,25 @@ export function parseRecord(text: string): AgentRecord | undefined {
     return undefined;
   }
 }
+
+export type Registration = 'registered' | 'absent' | 'unreadable';
+
+/**
+ * Whether the main checkout's registry holds a valid record for agentId.
+ * `read` returns undefined for a missing file and throws for any other
+ * failure. Anything but a clear yes or a clear no is `unreadable`, which the
+ * guard treats as an agent (fail closed).
+ */
+export function readRegistration(
+  mainCheckout: string,
+  agentId: string,
+  read: (path: string) => string | undefined,
+): Registration {
+  try {
+    const text = read(recordPath(mainCheckout, agentId));
+    if (text === undefined) return 'absent';
+    return parseRecord(text) ? 'registered' : 'unreadable';
+  } catch {
+    return 'unreadable';
+  }
+}
