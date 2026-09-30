@@ -66,5 +66,17 @@ export const inertActions = {
   exportPdf: { label: 'Export PDF', reason: notBuilt('Exporting a file') },
   print: { label: 'Print', reason: notBuilt('Printing') },
   copyText: { label: 'Copy as text', reason: notBuilt('Copying as text') },
+  stopSharing: {
+    label: 'Stop sharing',
+    reason: notBuilt('Changing who can see a brief'),
+  },
+  addGrant: { label: 'Add', reason: notBuilt('Sharing') },
+  comment: { label: 'Comment', reason: notBuilt('Comments') },
+  reply: { label: 'Reply', reason: notBuilt('Comments') },
+  resolve: { label: 'Resolve', reason: notBuilt('Comments') },
+  invite: { label: 'Invite', reason: notBuilt('Invitations') },
+  sendInvite: { label: 'Send invite', reason: notBuilt('Invitations') },
+  manageMember: { label: 'Manage', reason: notBuilt('Managing members') },
+  leaveTeam: { label: 'Leave team', reason: notBuilt('Leaving a team') },
   deleteCard: { label: 'Delete card', reason: notBuilt('Deleting a card') },
 } as const satisfies Record<string, InertAction>;

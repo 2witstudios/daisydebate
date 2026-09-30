@@ -1,8 +1,4 @@
-import {
-  sampleLibrary,
-  sampleSavedSearches,
-  sampleTeamSummaries,
-} from '../../ui/mock/prep';
+import { sampleLibrary, sampleSavedSearches } from '../../ui/mock/prep';
 import {
   filterOptions,
   inView,
@@ -19,6 +15,7 @@ import {
   libraryHref,
   type LibraryQuery,
 } from './library-query';
+import { listTeams } from './get-team';
 import { toRow, type LibraryRow } from './library-row';
 
 export type SavedSearch = {
@@ -82,6 +79,11 @@ export function listLibrary(query: LibraryQuery, now: string): LibraryListing {
         count: matching(all, savedQuery).length,
       };
     }),
-    teams: sampleTeamSummaries,
+    teams: listTeams().map((team) => ({
+      id: team.id,
+      name: team.name,
+      memberHandles: team.members.map((m) => m.handle),
+      sharedCount: team.items.length,
+    })),
   };
 }

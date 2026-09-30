@@ -192,17 +192,3 @@ export const sampleSavedSearches: readonly {
     query: { tag: 'framework', side: 'aff' },
   },
 ];
-
-export const sampleTeamSummaries: readonly {
-  readonly id: string;
-  readonly name: string;
-  readonly memberHandles: readonly string[];
-  readonly sharedCount: number;
-}[] = [
-  {
-    id: 'sample-team',
-    name: sampleTeamName,
-    memberHandles: ['debater-a', 'debater-b', 'debater-c', 'debater-d'],
-    sharedCount: 5,
-  },
-];
