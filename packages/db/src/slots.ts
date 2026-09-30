@@ -8,16 +8,10 @@
  * before it is quoted into SQL.
  */
 import type { SQL } from 'bun';
+import { quoteIdentifier } from './identifiers';
 
-const identifierPattern = /^[a-z_][a-z0-9_]{0,62}$/;
 const passwordPattern = /^[a-z0-9-]{1,64}$/;
 const commentPattern = /^[a-z0-9 =-]{1,100}$/;
-
-function quoteIdentifier(name: string): string {
-  if (!identifierPattern.test(name))
-    throw new Error('Invalid database identifier');
-  return `"${name}"`;
-}
 
 function quoteLiteral(value: string, pattern: RegExp, label: string): string {
   if (!pattern.test(value)) throw new Error(`Invalid ${label}`);

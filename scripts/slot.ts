@@ -30,6 +30,7 @@ import {
   setSlotDatabaseComment,
   withSlotLock,
 } from '@daisy/db/slots';
+import { dropAllTestRunDatabases } from '@daisy/db/test-runs';
 import { deleteNamespace, listNamespaces } from '@daisy/redis/namespaces';
 import {
   deriveSlot,
@@ -48,6 +49,7 @@ import {
   slotEnvValues,
   type Slot,
 } from './slot-model';
+import { stackReachable, withDatabase } from './slot-stack';
 import {
   clearTestNamespaces,
   openOwnTestRedis,
@@ -115,12 +117,6 @@ export async function liveSlotIds(
     ? [...new Set([...ids, checkout.slot.id])]
     : ids;
 }
-
-const withDatabase = (url: string, database: string) => {
-  const next = new URL(url);
-  next.pathname = `/${database}`;
-  return next.toString();
-};
 
 export type SlotServices = {
   readonly admin: SQL;
@@ -192,35 +188,6 @@ async function prune(services: SlotServices, checkout: Checkout) {
     for (const client of services.redis)
       await deleteNamespace(client, namespace);
   return orphans;
-}
-
-/**
- * Probes the stack with throwaway clients: a Bun RedisClient that failed
- * once never reconnects, so the clients slot:up works with are opened only
- * after the stack is known to be up.
- */
-async function stackReachable(
-  env: Readonly<Record<string, string | undefined>>,
-) {
-  const probe = new SQL(withDatabase(env.DATABASE_URL ?? '', 'postgres'), {
-    max: 1,
-    connectionTimeout: 3,
-  });
-  const redis = new RedisClient(env.REDIS_URL ?? '', {
-    connectionTimeout: 2000,
-    maxRetries: 0,
-    enableOfflineQueue: false,
-  });
-  try {
-    await probe`select 1`;
-    await redis.connect();
-    return (await redis.ping()) === 'PONG';
-  } catch {
-    return false;
-  } finally {
-    redis.close();
-    await probe.close({ timeout: 1 });
-  }
 }
 
 const isPortFree = (port: number): boolean => {
@@ -374,6 +341,8 @@ async function down(checkout: Checkout, envPath: string) {
   const services = openServices(envOf(await readEnvFile(envPath)));
   try {
     const removed = await withSlotLock(services.admin, async () => {
+      // Run databases first (ISSUE-238): a run's own copy of the slot's test database.
+      await dropAllTestRunDatabases(services.admin, slot.testDatabase);
       for (const database of slotDatabases(slot))
         await dropSlotDatabase(services.admin, database);
       let removed = 0;

@@ -2,7 +2,8 @@
 
 Status: accepted (PAR-2). Supersedes the per-session Compose stacks that
 `docs/development/local-development.md` and `parallel-work.md` described
-(PAR-1). Amended by [ADR 0038](0038-drizzle-1-baseline.md): each slot
+(PAR-1). Amended by the test-state sections below and by
+[ADR 0038](0038-drizzle-1-baseline.md): each slot
 has a third database for the browser suite, the template database is
 gone (slot databases copy `template0`), and the e2e login's access is its
 membership in `daisy_web`.
@@ -81,7 +82,20 @@ are tiny (`daisy` 9 MB, `daisy_test` 15 MB).
   missing value is passed as empty and the server refuses to start, so the
   suite never falls back to another checkout's data.
 
-## Test Redis: one logical database per slot (ISSUE-237)
+## Test state never outlives a run (ISSUE-237, ISSUE-238)
+
+The owner's bar (2026-09-29): a killed, crashed or timed-out integration run
+must never leave state behind in the shared stack. Both stores that
+integration suites write to meet it the same way, by construction rather than
+cleanup: Redis by giving each slot a logical database of its own with bounded,
+swept keys, Postgres by giving each run a database of its own that is dropped.
+One rule covers both: a suite obtains its services only from
+`requireTestServices`, which refuses any Redis that is not the slot's own
+database on its own server and any Postgres that is not the database the
+runner made for this run, so a file started by hand can neither leak nor
+delete anything outside its own slot.
+
+### Redis: one logical database per slot (ISSUE-237)
 
 On 2026-09-29 the test Redis (database 1, shared by every checkout) held
 78,208 stale `t3-*` keys from 85 runs. Teardown and every SCAN walk the whole
@@ -147,14 +161,103 @@ block` (3 to 501), written to `TEST_REDIS_URL` by `slot:up`. The port block
 - **Release.** `slot:down` deletes the slot's `t3-` namespaces. A prune of an
   orphaned worktree does not open its test database: its keys expire within
   two hours and the next slot to claim that block sweeps any remainder.
-- **Not covered here.** Postgres rows a killed run leaves in the test
-  database are not swept (ISSUE-238 carries it, with the measured leak).
+- **Postgres** has the same guarantee, by a different mechanism: see the next
+  subsection.
 
 The proof is `bun proof:test-redis` against a throwaway Redis: 100,000
 foreign keys in another slot's database leave teardown and the SCAN test
 within their baseline over 10 runs, the same keys in one shared database slow
 both several times over (the negative control), and a SIGKILLed run leaves
 nothing that survives the next sweep.
+
+### Postgres: one database per run (ISSUE-238)
+
+ISSUE-192's row ledger compares a run's row counts before and after and fails
+a suite that grew a table. It cannot see a run that never reached the end: a
+SIGKILL, a crash or a CI timeout skips every `afterAll`, and the rows it left
+(730 `verification` rows, measured 2026-09-29) become the next run's baseline,
+so nothing ever reports or removes them. The rule is that a killed run leaves
+no row that survives, by construction rather than by cleanup.
+
+- **A database per run.** `scripts/test-integration.ts` creates
+  `<slot test database>_run_<8 hex digits from the CSPRNG>` from `template0`
+  (for `daisy_wt_3ctbm0tw_test`: `daisy_wt_3ctbm0tw_test_run_0a1b2c3d`),
+  migrates it with the checkout's own migrator, runs the workspace's suites
+  with `TEST_DATABASE_URL` pointing at it, checks the row ledger against it
+  and drops it. Rows can only be written to a database that is dropped, so no
+  suite, however it exits, leaves rows in a database anyone else reads. The
+  ledger stays: a suite that leaves rows in its run database still fails the
+  run (ISSUE-192). Because every run migrates an empty database, every run
+  also proves the migrations apply from nothing.
+- **Liveness is a lock, not a clock.** The runner claims the name with a
+  session advisory lock (`pg_try_advisory_lock(hashtextextended(name, 0))`) on
+  one admin connection it holds for the whole run, before it creates the
+  database. Postgres releases the lock the moment that connection ends,
+  however the runner died. Before a run creates its own database it drops
+  every run database of its slot whose lock is free and that no session uses
+  (`DROP DATABASE ... WITH (FORCE)`). A suite process that outlives a
+  SIGKILLed runner is left to finish: its database is dropped by the first
+  sweep after its connections end, rows and all. A live run, in this
+  workspace's sibling run or another process, holds its lock and is never
+  touched; no idle-time or maximum-run-length guess can drop a slow run. If a
+  sweep runs in the few milliseconds before Postgres notices a dead runner,
+  it skips that database and the next run drops it.
+- **A lost lock stops the run (ISSUE-250).** The lock belongs to one
+  backend, and Bun silently reconnects a connection Postgres cut, which would
+  hold no lock. The runner therefore runs the suites as a child it supervises:
+  every 500 ms it checks that the admin connection is still the backend that
+  claimed the database (a query that fails on the dead connection counts as
+  lost), and on a loss it kills the suites and fails the run with a named
+  error, rather than let a concurrent sweep decide the run is dead. Two more
+  layers cover the moments before the runner notices: the sweep never drops a
+  database that any other session is connected to, and the check runs once
+  more when the suites exit. Proven by killing the runner's lock session
+  mid-run (`bun proof:test-postgres`): the run stops loudly, and the sweeps
+  run meanwhile never drop its database.
+- **Why not a row sweep.** Sweeping fixture rows by prefix and age would
+  need every table's cascade and every future table's registration; a table
+  someone forgets would leak again. Dropping a database has no such list. A
+  per-run schema was rejected for the same reason plus the migrator: it is
+  written for `public`.
+- **A suite cannot start by hand, and cannot reach another database
+  (ISSUE-249).** `requireTestServices` accepts a Postgres URL only when its
+  server (host and port; any spelling of this machine is the same server) is
+  the one `DATABASE_URL` names, its database is `<this slot's test
+database>_run_<8 hex digits>` (the slot is told from `DATABASE_URL`, which
+  `slot:up` writes), and it is exactly the database named by
+  `TEST_RUN_DATABASE`, which the runner sets for its suites and nothing else
+  does. So `bun test` on a suite file, another slot's or main's run
+  database, another run of this slot, and a well-formed name on another
+  server are all refused at import, naming the rule and never a host. The
+  runner's own reader (`requireTestSlotServices`) holds the slot's `_test`
+  database to the same slot and server rule before it creates or drops
+  anything. Someone who edits both `TEST_DATABASE_URL` and `TEST_RUN_DATABASE`
+  by hand to another run of the same slot, on the same server, is not told
+  from that run; only the database's liveness lock could, and a suite does not
+  hold a connection to it. The runner takes a suite file as an argument
+  (`bun ../../scripts/test-integration.ts integration/x.integration.ts` from
+  the workspace) and gives it a run database like any other.
+- **The slot's `_test` database remains** as the name run databases derive
+  from and the target of `bun verify`'s migration-idempotency gate and
+  `bun db:reset`; no suite writes to it. `_test_run_<8 hex>` is a reserved
+  suffix in slot ids, and a run database maps back to its slot, so a prune
+  never drops a live slot's runs and drops an orphaned slot's with it.
+  `bun slot:down` drops the slot's run databases first.
+- **Obsolete, removed.** ISSUE-148's advisory lock refused a second
+  concurrent apps/web run against one test database. Runs no longer share a
+  database, so the lock and its module are gone, and two runs of one slot can
+  proceed side by side.
+- **Cost and limits.** Migrating and dropping a run database took about a
+  second on a developer machine. CI needs nothing new: its Postgres user
+  creates databases. Postgres holds a database per live run, so a run of the
+  whole suite needs a few more connections than before, well inside
+  `max_connections=300`.
+
+The proof is `bun proof:test-postgres`: a real run of the mail-ceilings suite
+is SIGKILLed mid-suite (runner and suite process); its rows are in its run
+database and not in the slot's `_test` database; the next clean run drops it,
+passes, keeps the ledger flat and leaves no run database; a concurrent run
+never drops a live run's database; and a suite started by hand is refused.
 
 ## Consequences
 

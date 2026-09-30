@@ -18,11 +18,9 @@ AIDD/Vitest guidance is overridden here by Bun and RITEway (ADR 0021).
    database. Suites are discovered, not listed: each workspace's
    `test:integration` runs `scripts/test-integration.ts`, which runs every
    `integration/**/*.integration.ts`. The root `bun test:integration` runs
-   one workspace at a time (`--concurrency=1`): the workspaces share one
-   test database, and a fixture's `CREATE TRIGGER` on `outbox` or
-   `session` would queue behind another suite's deliberately open
-   transaction while that suite's next insert queues behind the trigger, a
-   wait Postgres cannot detect as a deadlock (ISSUE-61, ISSUE-100). A suite that
+   one workspace at a time (`--concurrency=1`) to bound load on the shared
+   stack; every run has a database of its own (below), so workspaces cannot
+   interfere through rows or triggers. A suite that
    drains the outbox, or triggers a drain with the poll switched off, first
    waits for its row with `waitForOutboxFinality` (`@daisy/db/testing`):
    `pg_snapshot_xmin` is cluster-wide, so on the shared local stack another
@@ -40,6 +38,16 @@ AIDD/Vitest guidance is overridden here by Bun and RITEway (ADR 0021).
    an hour) and fails the run, naming the keys, if any key has no expiry
    afterwards. `bun proof:test-redis` proves the isolation and the
    killed-run cleanup against a throwaway Redis.
+   **Test Postgres (ISSUE-238, ADR 0034).** Every run of a workspace's suites
+   gets a database of its own, made and migrated by
+   `scripts/test-integration.ts` and dropped after the run, so a killed run
+   cannot leave rows behind; the next run drops the database of any run whose
+   runner is gone. Suites take `TEST_DATABASE_URL` from `requireTestServices`,
+   which accepts only that per-run database: `bun test` on a suite file is
+   refused. To run one suite, from its workspace:
+   `bun --env-file=../../.env ../../scripts/test-integration.ts integration/x.integration.ts`.
+   `bun proof:test-postgres` proves the SIGKILL cleanup against this
+   checkout's slot.
 3. **Browser E2E (`bun test:e2e`)** — Playwright boots the **production**
    server (`e2e/support/server.ts` wrapping `src/server/start.ts`,
    `NODE_ENV=production`) with production-refined configuration. The
@@ -197,7 +205,7 @@ not exist — PageSpace lost entire tiers this way. `bun evidence` (in
   cross-test shared state; use deterministic unit IDs and CSPRNG isolation IDs
   only in real-service integration tests; clean only records you created.
   The runner enforces it: `scripts/test-integration.ts` counts every table
-  in the test database before and after a workspace's run and fails the
+  in the run's database before and after a workspace's run and fails the
   run, naming the table, when any table ends with more rows than it started
   with. Leaked rows pile up run over run and slow every later run until a
   hook times out (ISSUE-192). `createTestApp` removes its accounts, its

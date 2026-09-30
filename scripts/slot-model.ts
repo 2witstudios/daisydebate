@@ -33,7 +33,8 @@ const maxIdLength = 41 - worktreeNamespacePrefix.length - '-e2e'.length;
 // suffixes are reserved so every database and namespace name maps back to
 // exactly one slot.
 const slotIdPattern = /^[a-z0-9]+(?:_[a-z0-9]+)*$/;
-const reservedSuffix = /_(?:test|e2e)$/;
+// `_test_run_<8 hex>` names one integration run's database (ISSUE-238).
+const reservedSuffix = /_(?:test|e2e)$|_test_run_[0-9a-f]{8}$/;
 
 export const e2eRole = { user: 'daisy_e2e', password: 'e2e-loopback-only' };
 const e2eRedisDatabase = 2;
@@ -150,6 +151,7 @@ const idOfDatabase = (name: string): string | undefined => {
   if (!name.startsWith(worktreeDatabasePrefix)) return undefined;
   const id = name
     .slice(worktreeDatabasePrefix.length)
+    .replace(/_test_run_[0-9a-f]{8}$/, '')
     .replace(/_(?:test|e2e)$/, '');
   return isSlotId(id) ? id : undefined;
 };

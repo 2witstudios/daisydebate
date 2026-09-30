@@ -18,7 +18,9 @@ web and realtime (ADR 0031) development tasks, waits for web's
 URL, the realtime URL, seeded development identities, and seed version. It
 does not print database URLs or passwords. Use `bun dev` when `bun slot:up`
 has already run; it also migrates the test database, so integration tests
-need nothing more. `apps/realtime` listens on `REALTIME_PORT` (default
+need nothing more: every `bun test:integration` run makes, migrates and drops a
+database of its own from it (ADR 0034), and a suite started by hand with
+`bun test` is refused. `apps/realtime` listens on `REALTIME_PORT` (default
 `3011` in the main checkout; `bun slot:up` derives a worktree's own value),
 distinct from the web app's `PORT` so both can run at once; it has no
 handler logic yet beyond rejecting every connection (RT-2.3a).
@@ -31,7 +33,7 @@ handler logic yet beyond rejecting every connection (RT-2.3a).
 | `bun dev:agent`                                               | Run `slot:up`, seed, launch web and realtime, and wait ready                                                                                            |
 | `bun build`                                                   | Production builds through the turbo graph                                                                                                               |
 | `bun test`                                                    | Fast deterministic unit/domain tests; no services or Next boot                                                                                          |
-| `bun test:integration`                                        | Database, Redis, and web vertical tests against real services                                                                                           |
+| `bun test:integration`                                        | Database, Redis, and web vertical tests against real services, each run in its own Postgres database, dropped after it (ADR 0034)                       |
 | `bun visual:server`                                           | Linux Playwright browser server for screenshot parity on non-Linux hosts (see testing)                                                                  |
 | `bun test:e2e`                                                | Playwright against the production server build                                                                                                          |
 | `bun verify`                                                  | `bun check` plus migration-idempotency, integration, and E2E gates                                                                                      |

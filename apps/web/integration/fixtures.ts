@@ -15,7 +15,6 @@ import { createApp } from '../src/server/app';
 import type { AfterResponseLimits } from '../src/features/auth/after-response';
 import { createRoutes } from '../src/server/routes';
 import { authTestEnv } from '../src/features/auth/auth-server.test-support';
-import { acquireIntegrationRunLock } from './integration-run-lock';
 import { createMailbox, removeMailRecords } from './mailbox';
 
 /**
@@ -34,10 +33,6 @@ import { createMailbox, removeMailRecords } from './mailbox';
 
 export const { databaseUrl: testDatabaseUrl, redisUrl: testRedisUrl } =
   requireTestServices(process.env);
-
-// ISSUE-148: refuses a second concurrent apps/web integration run against
-// the same test database (see integration-run-lock.ts for why).
-await acquireIntegrationRunLock(testDatabaseUrl);
 
 export const origin = authTestEnv.PUBLIC_APP_URL;
 export const webhookSecret = `whsec_${Buffer.from(createId() + createId()).toString('base64')}`;

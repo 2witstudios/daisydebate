@@ -12,6 +12,8 @@ import {
   integrationSuites,
   redisLeakMessages,
   redisSweepMessage,
+  sweepMessage,
+  withSelectedSuites,
 } from './test-integration';
 
 setupRitewayBun();
@@ -200,6 +202,70 @@ describe('test Redis hygiene messages (ISSUE-237)', () => {
       should: 'print nothing',
       actual: redisLeakMessages([]),
       expected: [],
+    });
+  });
+});
+
+describe('running chosen suites (ISSUE-238)', () => {
+  const suites = [
+    'integration/a.integration.ts',
+    'integration/nested/b.integration.ts',
+  ];
+
+  test('runs every suite when no file is named', () => {
+    assert({
+      given: 'two suites and only a bun test flag',
+      should: 'run both and pass the flag on',
+      actual: withSelectedSuites(suites, ['-t', 'pattern']),
+      expected: {
+        files: suites,
+        rest: ['-t', 'pattern'],
+      },
+    });
+  });
+
+  test('runs only the named suites, however the path is spelled', () => {
+    assert({
+      given: 'a suite named with ./ and one by its plain path, plus a flag',
+      should: 'select exactly those two and keep the flag',
+      actual: withSelectedSuites(suites, [
+        './integration/nested/b.integration.ts',
+        'integration/a.integration.ts',
+        '--bail',
+      ]),
+      expected: { files: [suites[1], suites[0]], rest: ['--bail'] },
+    });
+  });
+
+  test('a named file that is not a suite is an error, not a silent full run', () => {
+    let failure = 'accepted';
+    try {
+      withSelectedSuites(suites, ['integration/missing.integration.ts']);
+    } catch (error) {
+      failure = String(error);
+    }
+
+    assert({
+      given: 'a file that is not one of the workspace’s suites',
+      should: 'refuse it by name',
+      actual: failure,
+      expected:
+        'Error: test-integration: integration/missing.integration.ts is not an integration suite of this workspace',
+    });
+  });
+
+  test('reports the run databases a sweep dropped, and is silent otherwise', () => {
+    assert({
+      given: 'no dropped databases, and two',
+      should: 'print nothing, then name the count and the databases',
+      actual: [
+        sweepMessage([]),
+        sweepMessage(['daisy_test_run_00000001', 'daisy_test_run_00000002']),
+      ],
+      expected: [
+        undefined,
+        'test-integration: dropped 2 test databases left by runs that died (ISSUE-238): daisy_test_run_00000001, daisy_test_run_00000002',
+      ],
     });
   });
 });

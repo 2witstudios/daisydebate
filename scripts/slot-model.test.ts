@@ -108,6 +108,7 @@ describe('slot derivation', () => {
       `wt-${'a'.repeat(29)}`,
       'wt-a-test',
       'wt-a-e2e',
+      'wt-a-test-run-0a1b2c3d',
     ])
       expect(() =>
         deriveSlot({ checkout: `/w/${folder}`, mainCheckout: main }),
@@ -188,6 +189,8 @@ describe('orphan detection', () => {
           'daisy_wt_gone',
           'daisy_wt_gone_test',
           'daisy_wt_gone_e2e',
+          'daisy_wt_gone_test_run_0a1b2c3d',
+          'daisy_wt_live1_test_run_0a1b2c3d',
           'daisy_wt_Bad',
           'postgres',
         ],
@@ -204,7 +207,12 @@ describe('orphan detection', () => {
       }),
       expected: {
         ids: ['gone'],
-        databases: ['daisy_wt_gone', 'daisy_wt_gone_e2e', 'daisy_wt_gone_test'],
+        databases: [
+          'daisy_wt_gone',
+          'daisy_wt_gone_e2e',
+          'daisy_wt_gone_test',
+          'daisy_wt_gone_test_run_0a1b2c3d',
+        ],
         namespaces: ['daisy-wt-gone', 'daisy-wt-gone-e2e'],
       },
     });

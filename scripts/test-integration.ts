@@ -9,12 +9,13 @@
  */
 import { constants } from 'node:os';
 import { RedisClient, SQL } from 'bun';
-import { requireTestServices } from '@daisy/config';
+import { requireTestSlotServices } from '@daisy/config';
 import {
   deleteKeysWithoutExpiry,
   sweepIdleNamespaces,
 } from '@daisy/redis/namespaces';
 import { TEST_NAMESPACE_PREFIX, TEST_RUN_MAX_MS } from '@daisy/redis/testing';
+import { superviseRun, withRunDatabase } from './test-run-database';
 
 export const INTEGRATION_RUNNER = 'bun ../../scripts/test-integration.ts';
 
@@ -124,6 +125,36 @@ async function withRedis<T>(
   }
 }
 
+/**
+ * The suites to run and the arguments to hand `bun test`: every suite, or
+ * only those the arguments name (by path, with or without `./`), so one file
+ * can run through the runner and still get its own database.
+ */
+export function withSelectedSuites(
+  suites: readonly string[],
+  args: readonly string[],
+): { readonly files: readonly string[]; readonly rest: readonly string[] } {
+  const normalized = (arg: string) => arg.replace(/^\.\//, '');
+  const named = args
+    .filter((arg) => SUITE.test(normalized(arg)))
+    .map(normalized);
+  const missing = named.find((file) => !suites.includes(file));
+  if (missing)
+    throw new Error(
+      `test-integration: ${missing} is not an integration suite of this workspace`,
+    );
+  return {
+    files: named.length > 0 ? named : suites,
+    rest: args.filter((arg) => !SUITE.test(normalized(arg))),
+  };
+}
+
+/** The line for a sweep that dropped databases of dead runs, else nothing. */
+export const sweepMessage = (dropped: readonly string[]): string | undefined =>
+  dropped.length === 0
+    ? undefined
+    : `test-integration: dropped ${dropped.length} test databases left by runs that died (ISSUE-238): ${dropped.join(', ')}`;
+
 /** Exact row counts of every public table in the test database. */
 async function rowCounts(databaseUrl: string): Promise<RowCounts> {
   const sql = new SQL(databaseUrl, { max: 1 });
@@ -147,12 +178,13 @@ async function rowCounts(databaseUrl: string): Promise<RowCounts> {
 }
 
 if (import.meta.main) {
-  const files = discoverSuites('.');
-  if (files.length === 0) {
+  const suites = discoverSuites('.');
+  if (suites.length === 0) {
     process.stderr.write('test-integration: no suites under integration/\n');
     process.exit(1);
   }
-  const { databaseUrl, redisUrl } = requireTestServices(process.env);
+  const { files, rest } = withSelectedSuites(suites, process.argv.slice(2));
+  const { databaseUrl, redisUrl } = requireTestSlotServices(process.env);
   // ISSUE-237: whatever a crashed, killed or timed-out run left in this
   // slot's test Redis database goes first, so no run pays for an earlier one.
   const sweptMessage = redisSweepMessage(
@@ -164,26 +196,55 @@ if (import.meta.main) {
     ),
   );
   if (sweptMessage) process.stderr.write(`${sweptMessage}\n`);
-  const before = await rowCounts(databaseUrl);
-  const child = Bun.spawnSync(
-    [
-      'bun',
-      'test',
-      ...files.map((file) => `./${file}`),
-      ...process.argv.slice(2),
-    ],
-    { stdio: ['inherit', 'inherit', 'inherit'] },
-  );
-  const leaks = redisLeakMessages(
-    await withRedis(redisUrl, deleteKeysWithoutExpiry),
-  );
-  for (const line of leaks) process.stderr.write(`${line}\n`);
-  const grown = grownTables(before, await rowCounts(databaseUrl));
-  for (const { table, before: from, after: to } of grown)
-    process.stderr.write(
-      `test-integration: ${table} grew from ${from} to ${to} rows; a suite left rows behind (ISSUE-192)\n`,
-    );
-  process.exit(
-    exitCodeOf(child) || (grown.length > 0 || leaks.length > 0 ? 1 : 0),
-  );
+  // ISSUE-238: the suites run against a database made for this run and
+  // dropped after it, so nothing they write can outlive the run.
+  const code = await withRunDatabase({
+    slotDatabaseUrl: databaseUrl,
+    root: `${import.meta.dir}/..`,
+    onSweep: (dropped) => {
+      const message = sweepMessage(dropped);
+      if (message) process.stderr.write(`${message}\n`);
+    },
+    work: async (run) => {
+      const before = await rowCounts(run.url);
+      const suites = Bun.spawn(
+        ['bun', 'test', ...files.map((file) => `./${file}`), ...rest],
+        {
+          stdio: ['inherit', 'inherit', 'inherit'],
+          env: {
+            ...process.env,
+            TEST_DATABASE_URL: run.url,
+            TEST_RUN_DATABASE: run.name,
+          },
+        },
+      );
+      const verdict = await superviseRun({
+        exited: suites.exited,
+        kill: () => suites.kill('SIGKILL'),
+        lockLost: run.lockLost,
+      });
+      if (verdict === 'lost') {
+        process.stderr.write(
+          `test-integration: this run's Postgres connection was cut, so its liveness lock is gone and another run could drop ${run.name}; the suites were stopped (ISSUE-250). Run again.\n`,
+        );
+        return 1;
+      }
+      const leaks = redisLeakMessages(
+        await withRedis(redisUrl, deleteKeysWithoutExpiry),
+      );
+      for (const line of leaks) process.stderr.write(`${line}\n`);
+      const grown = grownTables(before, await rowCounts(run.url));
+      for (const { table, before: from, after: to } of grown)
+        process.stderr.write(
+          `test-integration: ${table} grew from ${from} to ${to} rows; a suite left rows behind (ISSUE-192)\n`,
+        );
+      return (
+        exitCodeOf({
+          exitCode: suites.exitCode,
+          signalCode: suites.signalCode,
+        }) || (grown.length > 0 || leaks.length > 0 ? 1 : 0)
+      );
+    },
+  });
+  process.exit(code);
 }
