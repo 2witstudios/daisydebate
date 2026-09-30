@@ -1,59 +1,66 @@
-import type { ReactNode } from 'react';
-import type { TabCounts } from '../../../features/lobby/filter';
+import type { TabCounts } from '../../../../features/tournaments/filter';
 import {
   MAX_SEARCH_LENGTH,
   activeFilterCount,
   clearFiltersHref,
   isFiltered,
-  lobbyRanges,
-  lobbySorts,
-  type LobbyQuery,
-} from '../../../features/lobby/query';
-import { lobbyFormats } from '../../../features/lobby/room';
+  tournamentsHref,
+  type TournamentsQuery,
+} from '../../../../features/tournaments/query';
+import { tournamentTabs } from '../../../../features/tournaments/tournament';
 import {
   ClearFilters,
   FilterFooter,
-} from '../../components/filter-form/filter-form';
-import { Icon } from '../../components/icon/icon';
-import { LobbyTabs } from '../lobby-tabs/lobby-tabs';
-import { ModeToggle } from '../mode-toggle/mode-toggle';
-import { AutoSubmitForm } from './auto-submit-form';
+} from '../../../components/filter-form/filter-form';
+import { Icon } from '../../../components/icon/icon';
+import { AutoSubmitForm } from '../../../lobby/filter-bar/auto-submit-form';
 import {
   controlClass,
   dividerClass,
   filterBarClass,
   panelClass,
   summaryClass,
-} from './filter-bar-class';
+} from '../../../lobby/filter-bar/filter-bar-class';
+import { TabLinks } from '../../tab-links/tab-links';
 
 export type FilterBarProps = {
-  readonly query: LobbyQuery;
+  readonly query: TournamentsQuery;
   readonly counts: TabCounts;
   readonly resultCount: number;
 };
 
-const sortLabels: Readonly<Record<(typeof lobbySorts)[number], string>> = {
-  closest: 'Closest to me',
-  high: 'Highest rating',
-  low: 'Lowest rating',
-  waiting: 'Waiting longest',
-  newest: 'Newest',
-  watched: 'Most watched',
-};
+const tabLabels = {
+  open: 'Registration open',
+  upcoming: 'Upcoming',
+  live: 'In progress',
+  past: 'Past',
+} as const;
+
+const structureOptions = [
+  ['all', 'Any structure'],
+  ['single-elimination', 'Single elimination'],
+  ['round-robin', 'Round robin'],
+] as const;
+
+const rulesOptions = [
+  ['all', 'Any rules'],
+  ['standard', 'Standard rules'],
+  ['custom', 'Custom rules'],
+] as const;
 
 function Select(props: {
   readonly name: string;
   readonly label: string;
   readonly value: string;
   readonly options: readonly (readonly [string, string])[];
-  readonly className?: string;
-}): ReactNode {
+  readonly className: string;
+}) {
   return (
     <select
       name={props.name}
       aria-label={props.label}
       defaultValue={props.value}
-      className={`${controlClass} ${props.className ?? ''}`.trim()}
+      className={`${controlClass} ${props.className}`}
     >
       {props.options.map(([value, label]) => (
         <option key={value} value={value}>
@@ -64,40 +71,31 @@ function Select(props: {
   );
 }
 
-const formatOptions = [
-  ['all', 'All formats'],
-  ...lobbyFormats.map((format) => [format.slug, format.label] as const),
-] as const;
-
-const rangeOptions = lobbyRanges.map(
-  (range) =>
-    [
-      String(range),
-      range === 0 ? 'Any rating' : `Within ${range} of me`,
-    ] as const,
-);
-
-const sortOptions = lobbySorts.map((sort) => [sort, sortLabels[sort]] as const);
-
 /**
  * Tabs plus every filter as one GET form: the URL carries the state, so the
- * list filters and sorts on the server with no script. On the phone the mode,
- * format and range controls live in a details panel behind "Filters".
+ * list filters on the server with no script. On the phone structure and
+ * rules live in a details panel behind "Filters".
  */
 export function FilterBar({ query, counts, resultCount }: FilterBarProps) {
   const active = activeFilterCount(query);
   return (
     <AutoSubmitForm
-      action="/lobby"
+      action="/tournaments"
       role="search"
-      aria-label="Filter rooms"
+      aria-label="Filter tournaments"
       className={filterBarClass}
     >
       <input type="hidden" name="tab" value={query.tab} />
-      <LobbyTabs
-        query={query}
-        counts={counts}
+      <TabLinks
+        label="Registration status"
         className="order-1 min-w-0 flex-1 max-compact:basis-full"
+        tabs={tournamentTabs.map((tab) => ({
+          id: tab,
+          label: tabLabels[tab],
+          href: tournamentsHref({ ...query, tab }),
+          selected: query.tab === tab,
+          count: counts[tab],
+        }))}
       />
       <div className={dividerClass} aria-hidden="true" />
       <label
@@ -109,8 +107,8 @@ export function FilterBar({ query, counts, resultCount }: FilterBarProps) {
           name="q"
           defaultValue={query.q}
           maxLength={MAX_SEARCH_LENGTH}
-          placeholder="Search rooms"
-          aria-label="Search rooms or hosts"
+          placeholder="Tournament name"
+          aria-label="Search tournaments"
           className="min-w-0 flex-1 bg-transparent text-ink placeholder:text-ink-faint"
         />
       </label>
@@ -124,23 +122,19 @@ export function FilterBar({ query, counts, resultCount }: FilterBarProps) {
             </span>
           ) : null}
         </summary>
-        <ModeToggle
-          value={query.mode}
-          className="order-2 max-compact:order-none"
-        />
         <div className="contents max-compact:grid max-compact:grid-cols-2 max-compact:gap-3">
           <Select
-            name="format"
-            label="Format"
-            value={query.format}
-            options={formatOptions}
+            name="structure"
+            label="Structure"
+            value={query.structure}
+            options={structureOptions}
             className="order-5 max-compact:order-none"
           />
           <Select
-            name="range"
-            label="Rating range"
-            value={String(query.range)}
-            options={rangeOptions}
+            name="rules"
+            label="Rules"
+            value={query.rules}
+            options={rulesOptions}
             className="order-6 max-compact:order-none"
           />
         </div>
@@ -149,18 +143,8 @@ export function FilterBar({ query, counts, resultCount }: FilterBarProps) {
         ) : null}
       </details>
       <FilterFooter
-        resultLabel={`${resultCount} ${resultCount === 1 ? 'room' : 'rooms'}`}
-      >
-        <label className="order-7 flex items-center gap-2 text-sm text-ink-faint">
-          <span className="max-compact:sr-only">Sort</span>
-          <Select
-            name="sort"
-            label="Sort by"
-            value={query.sort}
-            options={sortOptions}
-          />
-        </label>
-      </FilterFooter>
+        resultLabel={`${resultCount} ${resultCount === 1 ? 'tournament' : 'tournaments'}`}
+      />
     </AutoSubmitForm>
   );
 }
