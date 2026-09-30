@@ -22,10 +22,14 @@ import { bypassToken } from './runtime-role-gate-bypass';
  *   import is refused; a key, interface member or local declared with
  *   that name is not (ISSUE-227, ISSUE-235). Any identifier or member
  *   named createRequire is refused, however it is imported or reached
- *   (ISSUE-239). The same holds for every
- *   relative module start.ts loads,
- *   outside listen-first.ts's own imports (ISSUE-228). Computed names such
- *   as `server['li' + 'sten']` are out of scope;
+ *   (ISSUE-239). eval and Function are refused as bare globals, as members
+ *   off any owner and as destructured keys (ISSUE-240), and so is every
+ *   Module loader entry point (`_load`, `_resolveFilename`, `_compile`,
+ *   `wrap`, `_extensions`, `_cache`, `runMain`, `register`,
+ *   `registerHooks`, `getBuiltinModule`, `Module` and the other
+ *   underscore internals) as a member, a destructured key or an import
+ *   from `module` (ISSUE-258). The same holds for every relative module
+ *   start.ts loads, outside listen-first.ts's own imports (ISSUE-228);
  * - import startProductionServer, unaliased, from ./listen-first;
  * - be the only module that references it (so no side-effect import can
  *   start a second server), exactly once, as the direct callee of the one
@@ -37,6 +41,25 @@ import { bypassToken } from './runtime-role-gate-bypass';
  *   and used nowhere else (ISSUE-223);
  * - await the `started` the call returns.
  * `files` overlays repository-relative paths (a test's shim module).
+ *
+ * What it cannot see (ISSUE-240, ISSUE-258), each a way to start a second,
+ * unguarded server that this check would pass:
+ * - names built at runtime: computed members (`globalThis['ev' + 'al']`,
+ *   `server['li' + 'sten']`), `Reflect.get`, `Object.values(Module)` or any
+ *   value reached through data rather than a spelled-out name;
+ * - code outside start.ts's relative import graph: package imports
+ *   (`@daisy/*`, `node_modules`) are resolved but never loaded or scanned,
+ *   so a dependency that loads listen-first itself is invisible;
+ * - listen-first.ts and its own imports, the gate's implementation, which
+ *   listen-first.test.ts tests instead;
+ * - loaders configured outside the source: Bun `preload` in bunfig.toml,
+ *   `--preload`, `--require` or `--import` flags, NODE_OPTIONS and
+ *   `Bun.plugin`;
+ * - other processes and threads: `new Worker(...)`, `Bun.spawn`,
+ *   `child_process`, and native code through `process.dlopen`;
+ * - anything the TypeScript parser recovers from but the runtime executes
+ *   differently: start.ts is refused on any syntax diagnostic, but its
+ *   imports are checked for resolution only, not for their own syntax.
  */
 export function findRuntimeRoleGateProblem(
   startTs: string,
