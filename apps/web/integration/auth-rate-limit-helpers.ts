@@ -11,6 +11,7 @@ import {
   deriveRecipientSubkey,
   recipientKey,
 } from '../src/features/auth/recipient-key';
+import { systemSendPacing } from '../src/features/auth/send-pacing';
 import { createAuthServer } from '../src/features/auth/server';
 
 const silentLogger = { log: () => {}, child: () => silentLogger };
@@ -88,6 +89,13 @@ export function createSecondInstances(testApp: TestApp) {
       limiter?: (
         base: ReturnType<typeof createAuthRateLimiter>,
       ) => Parameters<typeof createAuthServer>[0]['limiter'];
+      /** Delay before the transport accepts each message (a slow provider). */
+      providerRoundTripMs?: number;
+      /** Record receipts and read suppressions in the real ledger. */
+      realLedger?: boolean;
+      afterResponseLimits?: Parameters<
+        typeof createAuthServer
+      >[0]['afterResponseLimits'];
     } = {},
   ) => {
     const database = createDatabase({
@@ -105,11 +113,21 @@ export function createSecondInstances(testApp: TestApp) {
       database: database.authAdapter,
       emailSender: {
         send: async (message) => {
+          if (overrides.providerRoundTripMs)
+            await new Promise((resolve) =>
+              setTimeout(resolve, overrides.providerRoundTripMs),
+            );
           sent.push(message.to);
+          return { providerMessageId: `msg_${systemId.next()}` };
         },
       },
       limiter: overrides.limiter ? overrides.limiter(base) : base,
-      ledger: noLedger,
+      ledger: overrides.realLedger
+        ? {
+            isSuppressed: (hash) => database.isRecipientSuppressed(hash),
+            record: (input) => database.recordEmailDelivery(input),
+          }
+        : noLedger,
       appendSessionRevoked: async () => {},
       revokeOtherSessions: async () => 0,
       completeEmailChange: (input) => database.completeEmailChange(input),
@@ -118,13 +136,19 @@ export function createSecondInstances(testApp: TestApp) {
       logger: silentLogger,
       clock: systemClock,
       ids: systemId,
+      pacing: systemSendPacing,
+      ...(overrides.afterResponseLimits
+        ? { afterResponseLimits: overrides.afterResponseLimits }
+        : {}),
     });
     extraInstances.push(async () => {
+      await server.settled();
       await database.close();
       redis.close();
     });
     return {
       sent,
+      server,
       handlers: createAuthRouteHandlers(
         () => ({ handler: server.instance.handler, config: server.config }),
         silentLogger,

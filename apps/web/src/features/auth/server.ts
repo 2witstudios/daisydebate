@@ -27,9 +27,13 @@ import {
   type RevokeSessionUnlessAddressHeld,
 } from './sign-in-address-guard';
 import { deriveRecipientSubkey } from './recipient-key';
-import { createSendMail } from './send-mail';
+import { createSendMail, createSendStandIn } from './send-mail';
+import { createProviderLatency, type SendPacing } from './send-pacing';
 import type { Deliver } from './deliver-or-unavailable';
-import { createAfterResponse } from './after-response';
+import {
+  createAfterResponse,
+  type AfterResponseLimits,
+} from './after-response';
 import { createSendMagicLink } from './sign-in-mail';
 import {
   SESSION_EXPIRES_IN_SECONDS,
@@ -79,6 +83,10 @@ const composeBetterAuth = (dependencies: {
   readonly completeEmailChange: CompleteEmailChange;
   readonly revokeSessionUnlessAddressHeld: RevokeSessionUnlessAddressHeld;
   readonly afterResponse: ReturnType<typeof createAfterResponse>;
+  readonly standInForSend: (
+    to: string,
+    write: () => Promise<unknown>,
+  ) => Promise<void>;
 }) => {
   const { config, ledger, recipientSubkey } = dependencies;
   const origin = new URL(config.PUBLIC_APP_URL).origin;
@@ -181,6 +189,7 @@ const composeBetterAuth = (dependencies: {
             logger: dependencies.logger,
           }),
           afterResponse: dependencies.afterResponse.defer,
+          standInForSend: dependencies.standInForSend,
         }),
       }),
       passkey({
@@ -299,17 +308,27 @@ export function createAuthServer<
    * moved off the address the link proved.
    */
   readonly revokeSessionUnlessAddressHeld: RevokeSessionUnlessAddressHeld;
+  /** Host time seams for pacing a dropped sign-up like a send (ISSUE-185). */
+  readonly pacing: SendPacing;
+  /** The handed-off work's bound; the production sizes unless a test narrows it. */
+  readonly afterResponseLimits?: AfterResponseLimits;
 }): AuthServer {
   const { config } = dependencies;
   const recipientSubkey = deriveRecipientSubkey(config.RECIPIENT_HASH_SECRET);
   const ledger = dependencies.ledger ?? noLedger;
-  const afterResponse = createAfterResponse(dependencies.logger);
+  const afterResponse = createAfterResponse(
+    dependencies.logger,
+    dependencies.afterResponseLimits,
+  );
+  const latency = createProviderLatency(dependencies.pacing.pick);
   const sendMail = createSendMail({
     recipientSubkey,
     ledger,
     emailSender: dependencies.emailSender,
     logger: dependencies.logger,
     clock: dependencies.clock,
+    pacing: dependencies.pacing,
+    latency,
   });
   return {
     config,
@@ -329,6 +348,12 @@ export function createAuthServer<
       revokeSessionUnlessAddressHeld:
         dependencies.revokeSessionUnlessAddressHeld,
       afterResponse,
+      standInForSend: createSendStandIn({
+        recipientSubkey,
+        ledger,
+        pacing: dependencies.pacing,
+        latency,
+      }),
     }),
     limiter: dependencies.limiter,
     logger: dependencies.logger,

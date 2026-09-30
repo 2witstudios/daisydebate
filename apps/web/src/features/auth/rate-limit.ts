@@ -30,9 +30,10 @@ const RECIPIENT_RULES: readonly RateRule[] = [
  * Every magic-link send counts against it, with or without an account, so
  * its remaining capacity never tells a caller which address has one
  * (ISSUE-188). Only sign-ups (links to addresses with no account) are held
- * back by it: a sign-in link is always sent, so one actor draining it
- * (rotating client addresses, plus-addressed recipients) delays new
- * sign-ups but cannot deny sign-in to anyone (ISSUE-54). Past it, a
+ * back by it: past it a sign-in link is still sent, so one actor draining
+ * it (rotating client addresses, plus-addressed recipients) delays new
+ * sign-ups but does not by itself deny sign-in (ISSUE-54); a flood past the
+ * handed-off work's bound sheds sign-in mail too (DEC-73). Past it, a
  * sign-up's mail is dropped behind the ordinary success (ISSUE-182).
  */
 const MAGIC_LINK_GLOBAL_RULES: readonly RateRule[] = [

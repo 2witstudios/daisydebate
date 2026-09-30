@@ -12,6 +12,7 @@ import { createRedis } from '@daisy/redis';
 import { createResendSender, type Fetch } from '../features/auth/mail';
 import { createAuthRateLimiter } from '../features/auth/redis-limiter';
 import { createAuthServer, type AuthServer } from '../features/auth/server';
+import { systemSendPacing } from '../features/auth/send-pacing';
 import { createResendWebhook } from '../features/auth/webhook';
 import { createAlertRecorder, withAlertRecording } from './alert-recorder';
 import { createMetricsStore, type MetricsStore } from './metrics-store';
@@ -100,6 +101,7 @@ export function createApp({
       logger,
       clock,
       ids,
+      pacing: systemSendPacing,
     });
   };
   const composeMailWebhook = () => {

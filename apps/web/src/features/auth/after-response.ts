@@ -45,7 +45,18 @@ export type AfterResponse = (work: Work) => void;
  * logs one, never an unhandled rejection; its unmailed token expires
  * unused.
  */
-export function createAfterResponse(logger: Logger) {
+export type AfterResponseLimits = {
+  readonly maxRunning: number;
+  readonly maxQueued: number;
+};
+
+export function createAfterResponse(
+  logger: Logger,
+  limits: AfterResponseLimits = {
+    maxRunning: AFTER_RESPONSE_MAX_RUNNING,
+    maxQueued: AFTER_RESPONSE_MAX_QUEUED,
+  },
+) {
   const queues = new AsyncLocalStorage<Work[]>();
   const running = new Set<Promise<void>>();
   const waiting: Work[] = [];
@@ -68,8 +79,8 @@ export function createAfterResponse(logger: Logger) {
     running.add(task);
   };
   const start = (work: Work) => {
-    if (running.size < AFTER_RESPONSE_MAX_RUNNING) run(work);
-    else if (waiting.length < AFTER_RESPONSE_MAX_QUEUED) waiting.push(work);
+    if (running.size < limits.maxRunning) run(work);
+    else if (waiting.length < limits.maxQueued) waiting.push(work);
     else
       logger.log(
         'auth.mail.shed',

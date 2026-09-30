@@ -16,7 +16,9 @@ import type { AfterResponse } from './after-response';
  * the sign-in send (ISSUE-54: an existing account is still mailed) and the
  * sign-up's dropped mail and deleted token all run after the answer
  * (`afterResponse`), so neither the answer nor its timing reveals which
- * addresses have accounts (ISSUE-182, ISSUE-185, ISSUE-189).
+ * addresses have accounts (ISSUE-182, ISSUE-185, ISSUE-189). A dropped
+ * sign-up stands in for the send before it deletes its token, so both
+ * hold the handed-off work's capacity alike (DEC-41).
  */
 export const createSendMagicLink =
   (dependencies: {
@@ -25,6 +27,11 @@ export const createSendMagicLink =
     /** Spends the global ceilings; `false` when one is saturated. */
     readonly spendCeiling: () => Promise<boolean>;
     readonly afterResponse: AfterResponse;
+    /** A dropped sign-up's stand-in for the send (`createSendStandIn`). */
+    readonly standInForSend: (
+      to: string,
+      write: () => Promise<unknown>,
+    ) => Promise<void>;
   }) =>
   async (
     data: {
@@ -51,7 +58,7 @@ export const createSendMagicLink =
       );
     dependencies.afterResponse(async () => {
       if (!(await internalAdapter.findUserByEmail(data.email))) {
-        await dropLink();
+        await dependencies.standInForSend(data.email, dropLink);
         return;
       }
       try {
