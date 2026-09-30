@@ -66,6 +66,7 @@ const themes = ['dark', 'light'] as const;
 const routes = [
   { name: 'dashboard', path: '/', account: 'none' },
   { name: 'settings', path: '/settings', account: 'member' },
+  { name: 'lobby', path: '/lobby', account: 'member' },
   {
     name: 'onboarding-username',
     path: '/onboarding/username?next=%2Flobby',
