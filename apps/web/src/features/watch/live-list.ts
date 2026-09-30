@@ -27,7 +27,10 @@ export function featuredDebate(
 }
 
 /** Whether a debate passes the mode and search filters. */
-function matchesFilters(debate: WatchDebate, query: LiveQuery): boolean {
+export function matchesFilters(
+  debate: WatchDebate,
+  query: Pick<LiveQuery, 'mode' | 'q'>,
+): boolean {
   if (query.mode !== 'any' && query.mode !== debate.mode) return false;
   if (query.q === '') return true;
   const haystack = [debate.title, debate.aff.handle, debate.neg.handle]
