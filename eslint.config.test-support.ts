@@ -155,6 +155,13 @@ export const serverBindCases: ReadonlyArray<readonly [string, boolean]> = [
   ["Bun.serve({ hostname: '0:0:0:0:0:0:0:0', port: 0 });", true],
   ["Bun.serve({ hostname: '::1', port: 0 });", false],
   ["Bun.serve({ hostname: '10.0.0.1', port: 0 });", false],
+  // ISSUE-286: the default export by name, a dynamic import, and the
+  // IPv4-mapped wildcard; a mapped loopback stays clean.
+  ["import { default as b } from 'bun';\nb.serve({ port: 0 });", true],
+  ["const b = await import('bun');\nb.serve({ port: 0 });", true],
+  ["Bun.serve({ hostname: '::ffff:0.0.0.0', port: 0 });", true],
+  ["Bun.serve({ hostname: '::FFFF:0.0.0.0', port: 0 });", true],
+  ["Bun.serve({ hostname: '::ffff:127.0.0.1', port: 0 });", false],
 ];
 
 const unboundServe = `const url = 'redis://x';\nnew RedisClient(url);\nBun.serve({ port: 0, fetch: () => new Response(url) });`;
