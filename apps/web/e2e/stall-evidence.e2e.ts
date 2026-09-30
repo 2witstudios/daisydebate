@@ -146,7 +146,7 @@ test.describe('the stall evidence (live controls)', () => {
       message: failure?.message,
       cause: evidence.match(/^cause: (\w+)/m)?.[1],
       unanswered: /never answered Target\.createTarget/.test(evidence),
-      serverHeard: /server event loop: \d+ samples/.test(evidence),
+      serverHeard: /server event loop: [1-9]\d* samples/.test(evidence),
     }).toEqual({
       frozen: true,
       message:
