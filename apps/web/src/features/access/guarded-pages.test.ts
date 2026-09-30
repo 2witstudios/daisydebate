@@ -26,6 +26,11 @@ mock.module(join(import.meta.dir, '../../lib/access.ts'), () => ({
     return { state: 'anonymous' };
   },
 }));
+// Public pages that only read who is asking (the watch pages) get an
+// anonymous visitor instead of the request's cookies.
+mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
+  requestIdentity: async () => ({ state: 'anonymous' }),
+}));
 // The settings screen's client component is not under test here; loading it
 // would only add code this suite never runs.
 mock.module(
@@ -57,6 +62,8 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
       import('../../app/(shell)/settings/security/page'),
     '(shell)/page.tsx': () => import('../../app/(shell)/page'),
     '(shell)/watch/page.tsx': () => import('../../app/(shell)/watch/page'),
+    '(shell)/watch/[debateId]/page.tsx': () =>
+      import('../../app/(shell)/watch/[debateId]/page'),
     '(shell)/leaderboard/page.tsx': () =>
       import('../../app/(shell)/leaderboard/page'),
     '(shell)/tournaments/page.tsx': () =>
@@ -71,7 +78,7 @@ const guardRequestsOf = async (file: string) => {
   const searchParams = Promise.resolve({ from: 'test' });
   guardCalls.length = 0;
   await page({
-    params: Promise.resolve({ username: 'someone', id: 'x' }),
+    params: Promise.resolve({ username: 'someone', id: 'x', debateId: 'x' }),
     searchParams,
   });
   return guardCalls.map((call) => ({
@@ -129,7 +136,13 @@ describe('guarded pages', () => {
   });
 
   test('public spectator pages do not demand an account', async () => {
-    const publicRoutes = ['/', '/watch', '/leaderboard', '/tournaments'];
+    const publicRoutes = [
+      '/',
+      '/watch',
+      '/watch/[debateId]',
+      '/leaderboard',
+      '/tournaments',
+    ];
     const spectator = pages.filter(({ route }) => publicRoutes.includes(route));
     assert({
       given: 'the public spectator pages, each rendered',
