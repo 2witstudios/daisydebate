@@ -30,7 +30,7 @@ export type EliminationData = {
   readonly updatedAt: string;
 };
 
-export type RobinTable = {
+type RobinTable = {
   readonly table: number;
   readonly a: string;
   readonly b: string;
@@ -58,8 +58,8 @@ export type RobinData = {
 
 export type BracketData = EliminationData | RobinData;
 
-export const eliminationViews = ['bracket', 'rounds'] as const;
-export const robinViews = ['standings', 'grid', 'rounds'] as const;
+const eliminationViews = ['bracket', 'rounds'] as const;
+const robinViews = ['standings', 'grid', 'rounds'] as const;
 export type BracketView =
   (typeof eliminationViews)[number] | (typeof robinViews)[number];
 

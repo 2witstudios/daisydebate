@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { tabLinkClass } from './tab-links-class';
 
-export type TabLink = {
+type TabLink = {
   readonly id: string;
   readonly label: string;
   readonly href: string;

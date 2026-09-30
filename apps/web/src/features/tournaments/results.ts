@@ -75,7 +75,7 @@ export type Honour = {
   readonly text: string;
 };
 
-export type MyRound = {
+type MyRound = {
   readonly label: string;
   readonly opponent: string;
   readonly result: 'Won' | 'Lost';

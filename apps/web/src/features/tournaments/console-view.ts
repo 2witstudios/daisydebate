@@ -19,7 +19,7 @@ import {
 import { formatTime, shiftMinutes } from './dates';
 import { CHECK_IN_MINUTES, roundLabels } from './schedule';
 
-export type ConsoleTabLink = {
+type ConsoleTabLink = {
   readonly id: ConsoleTab;
   readonly label: string;
   readonly href: string;
@@ -27,7 +27,7 @@ export type ConsoleTabLink = {
   readonly count?: number;
 };
 
-export type RoundStep = {
+type RoundStep = {
   readonly n: number;
   readonly label: string;
   readonly enabled: boolean;
@@ -35,7 +35,7 @@ export type RoundStep = {
   readonly href: string;
 };
 
-export type ResultRow = {
+type ResultRow = {
   readonly id: string;
   readonly matchup: string;
   readonly detail: string;
@@ -44,7 +44,7 @@ export type ResultRow = {
   readonly live: boolean;
 };
 
-export type EnterResult = {
+type EnterResult = {
   readonly debate: string;
   readonly a: string;
   readonly b: string;

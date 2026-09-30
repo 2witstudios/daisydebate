@@ -7,7 +7,7 @@ import {
 export type OrganizePhase =
   'draft' | 'registration' | 'in-progress' | 'completed';
 
-export type OrganizeAction = { readonly label: string; readonly href: string };
+type OrganizeAction = { readonly label: string; readonly href: string };
 
 export type OrganizedTournament = {
   readonly id: string;

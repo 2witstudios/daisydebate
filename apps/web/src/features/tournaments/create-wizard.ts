@@ -13,7 +13,7 @@ export const wizardSteps = [
   'rules',
   'review',
 ] as const;
-export type WizardStep = (typeof wizardSteps)[number];
+type WizardStep = (typeof wizardSteps)[number];
 
 const stepLabels: Readonly<Record<WizardStep, string>> = {
   basics: 'Basics',
@@ -120,7 +120,7 @@ export const wizardMarks = (query: WizardQuery): readonly WizardStepMark[] =>
     };
   });
 
-export type RoundRow = {
+type RoundRow = {
   readonly label: string;
   /** Sample default date and time, UTC. */
   readonly date: string;

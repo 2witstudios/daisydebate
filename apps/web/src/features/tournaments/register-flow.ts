@@ -8,12 +8,7 @@ import { slotsLabel } from './labels';
 import { tournamentRoutes } from './routes';
 import { statusOf, type Tournament } from './tournament';
 
-export const registerSteps = [
-  'eligibility',
-  'entry',
-  'review',
-  'done',
-] as const;
+const registerSteps = ['eligibility', 'entry', 'review', 'done'] as const;
 export type RegisterStep = (typeof registerSteps)[number];
 
 export type RegisterQuery = {

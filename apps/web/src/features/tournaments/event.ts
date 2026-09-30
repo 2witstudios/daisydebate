@@ -34,7 +34,7 @@ export type Pairing = {
   readonly startsAt: string;
 };
 
-export type PlayedRound = {
+type PlayedRound = {
   readonly stage: string;
   readonly opponent: string;
   readonly side: Side;
@@ -68,8 +68,8 @@ export const eventHref = (id: string, moment: EventMoment): string =>
     ? tournamentRoutes.myEvent(id)
     : `${tournamentRoutes.myEvent(id)}?moment=${moment}`;
 
-export type PathMark = 'W' | 'L' | 'Now' | '';
-export type PathStep = {
+type PathMark = 'W' | 'L' | 'Now' | '';
+type PathStep = {
   readonly mark: PathMark;
   readonly stage: string;
   readonly detail: string;
