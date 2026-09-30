@@ -1,18 +1,13 @@
-import Link from 'next/link';
 import type { RecordingsHubListing } from '../../../features/watch/list-recordings';
-import { MAX_SEARCH_LENGTH } from '../../../features/watch/live-query';
 import {
   clearRecordingFiltersHref,
   isRecordingsFiltered,
   type RecordingsQuery,
 } from '../../../features/watch/recordings-query';
 import { watchRoutes } from '../../../features/watch/routes';
-import { buttonClass } from '../../components/button/button-class';
 import { Icon } from '../../components/icon/icon';
 import { cn } from '../../cn';
-import { AutoSubmitForm } from '../../lobby/filter-bar/auto-submit-form';
-import { controlClass } from '../../lobby/filter-bar/filter-bar-class';
-import { ModeToggle } from '../../lobby/mode-toggle/mode-toggle';
+import { FilterForm } from '../filter-form/filter-form';
 import { ActionLink } from '../action-link/action-link';
 import {
   RecordingRow,
@@ -34,55 +29,25 @@ const sortOptions = [
 
 function Filters({ query }: { query: RecordingsQuery }) {
   return (
-    <AutoSubmitForm
+    <FilterForm
       action={watchRoutes.recordings}
-      role="search"
-      aria-label="Filter recordings"
-      className="flex flex-wrap items-center gap-x-3 gap-y-3"
-    >
-      <label
-        className={cn(
-          controlClass,
-          'flex grow basis-1/4 items-center gap-2 text-ink-muted',
-        )}
-      >
-        <Icon name="search" size={16} />
-        <input
-          type="search"
-          name="q"
-          defaultValue={query.q}
-          maxLength={MAX_SEARCH_LENGTH}
-          placeholder="Search recordings or debaters"
-          aria-label="Search recordings or debaters"
-          className="min-w-0 flex-1 bg-transparent text-ink placeholder:text-ink-faint"
-        />
-      </label>
-      <ScopeToggle value={query.scope} />
-      <ModeToggle value={query.mode} />
-      <select
-        name="sort"
-        aria-label="Sort recordings"
-        defaultValue={query.sort}
-        className={controlClass}
-      >
-        {sortOptions.map(([value, label]) => (
-          <option key={value} value={value}>
-            {label}
-          </option>
-        ))}
-      </select>
-      <button type="submit" className={buttonClass('secondary')}>
-        Apply
-      </button>
-      {isRecordingsFiltered(query) ? (
-        <Link
-          href={clearRecordingFiltersHref(query)}
-          className="flex min-h-10 items-center px-1 text-base font-strong"
-        >
-          Clear
-        </Link>
-      ) : null}
-    </AutoSubmitForm>
+      label="Filter recordings"
+      search={{
+        value: query.q,
+        label: 'Search recordings or debaters',
+        placeholder: 'Search recordings or debaters',
+      }}
+      leading={<ScopeToggle value={query.scope} />}
+      mode={query.mode}
+      sort={{
+        value: query.sort,
+        label: 'Sort recordings',
+        options: sortOptions,
+      }}
+      clearHref={
+        isRecordingsFiltered(query) ? clearRecordingFiltersHref(query) : null
+      }
+    />
   );
 }
 

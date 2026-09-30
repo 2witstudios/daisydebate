@@ -1,19 +1,13 @@
-import Link from 'next/link';
 import type { LiveHubListing } from '../../../features/watch/list-live';
 import {
-  MAX_SEARCH_LENGTH,
   clearFiltersHref,
   isFiltered,
   type LiveQuery,
 } from '../../../features/watch/live-query';
 import { watchRoutes } from '../../../features/watch/routes';
-import { buttonClass } from '../../components/button/button-class';
 import { Icon } from '../../components/icon/icon';
-import { cn } from '../../cn';
-import { AutoSubmitForm } from '../../lobby/filter-bar/auto-submit-form';
-import { controlClass } from '../../lobby/filter-bar/filter-bar-class';
-import { ModeToggle } from '../../lobby/mode-toggle/mode-toggle';
 import { ActionLink } from '../action-link/action-link';
+import { FilterForm } from '../filter-form/filter-form';
 import { FeaturedDebate } from '../featured-debate/featured-debate';
 import { InertButton } from '../inert-button/inert-button';
 import { LiveCard } from '../live-card/live-card';
@@ -31,54 +25,22 @@ const sortOptions = [
 
 function Filters({ query }: { query: LiveQuery }) {
   return (
-    <AutoSubmitForm
+    <FilterForm
       action={watchRoutes.hub}
-      role="search"
-      aria-label="Filter live debates"
-      className="flex flex-wrap items-center gap-x-3 gap-y-3"
-    >
-      <label
-        className={cn(
-          controlClass,
-          'flex grow basis-1/4 items-center gap-2 text-ink-muted',
-        )}
-      >
-        <Icon name="search" size={16} />
-        <input
-          type="search"
-          name="q"
-          defaultValue={query.q}
-          maxLength={MAX_SEARCH_LENGTH}
-          placeholder="Search debaters or rooms"
-          aria-label="Search debaters or rooms"
-          className="min-w-0 flex-1 bg-transparent text-ink placeholder:text-ink-faint"
-        />
-      </label>
-      <ModeToggle value={query.mode} />
-      <select
-        name="sort"
-        aria-label="Sort live debates"
-        defaultValue={query.sort}
-        className={controlClass}
-      >
-        {sortOptions.map(([value, label]) => (
-          <option key={value} value={value}>
-            {label}
-          </option>
-        ))}
-      </select>
-      <button type="submit" className={buttonClass('secondary')}>
-        Apply
-      </button>
-      {isFiltered(query) ? (
-        <Link
-          href={clearFiltersHref(query)}
-          className="flex min-h-10 items-center px-1 text-base font-strong"
-        >
-          Clear
-        </Link>
-      ) : null}
-    </AutoSubmitForm>
+      label="Filter live debates"
+      search={{
+        value: query.q,
+        label: 'Search debaters or rooms',
+        placeholder: 'Search debaters or rooms',
+      }}
+      mode={query.mode}
+      sort={{
+        value: query.sort,
+        label: 'Sort live debates',
+        options: sortOptions,
+      }}
+      clearHref={isFiltered(query) ? clearFiltersHref(query) : null}
+    />
   );
 }
 
