@@ -29,11 +29,24 @@ const { check, finish } = proofSteps();
 const sweep = (maxRunMs: number) =>
   sweepTestRunDatabases(admin, slotDatabase, { maxRunMs });
 
+/** Every process the proof stops or starts, killed however the proof ends: a stopped suite is never left behind. */
+const spawned: Array<{ readonly pid: number }> = [];
+const killAll = () => {
+  for (const { pid } of spawned)
+    try {
+      process.kill(pid, 'SIGKILL');
+    } catch {
+      // already gone
+    }
+};
+
 async function main() {
   // The hung orphan: runner killed, suite stopped with its sessions open.
   const hung = runner(SLOW);
+  spawned.push(hung);
   const hungDatabase = await waitForBusyRun([], hung);
   const suites = descendants(hung.pid);
+  spawned.push(...suites.map((pid) => ({ pid })));
   for (const pid of suites) process.kill(pid, 'SIGSTOP');
   process.kill(hung.pid, 'SIGKILL');
   await hung.exited;
@@ -45,6 +58,7 @@ async function main() {
 
   // A live run beside it.
   const live = runner(SLOW);
+  spawned.push(live);
   const liveLog = textOf(live.stderr);
   const liveDatabase = await waitForBusyRun([hungDatabase], live);
   check(
@@ -78,7 +92,7 @@ async function main() {
     (await live.exited) === 0 && !(await liveLog).includes('lock is gone'),
     'ISSUE-260: the live run carried on beside the sweep and passed',
   );
-  for (const pid of suites) process.kill(pid, 'SIGKILL');
+  killAll();
   check(
     (await runDatabases()).length === 0,
     'ISSUE-260: no run database of the slot is left',
@@ -87,4 +101,8 @@ async function main() {
   finish();
 }
 
-await main();
+try {
+  await main();
+} finally {
+  killAll();
+}
