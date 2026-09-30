@@ -63,6 +63,12 @@ const testRedisRestrictions = [
   },
   {
     selector:
+      "VariableDeclarator[id.type='Identifier'][init.name='Bun'], VariableDeclarator[id.type='Identifier'][init.property.name='Bun'], VariableDeclarator[id.type='Identifier'][init.computed=true][init.property.value='Bun'], ObjectPattern > Property[key.name='Bun']",
+    message:
+      'Do not alias the Bun global: a suite reaches Redis only through openTestRedis(url).',
+  },
+  {
+    selector:
       "ImportExpression[source.value='bun'], CallExpression[callee.name='require'][arguments.0.value='bun']",
     message:
       "Import 'bun' statically (only SQL and the like): a dynamic import or require reaches RedisClient and redis.",

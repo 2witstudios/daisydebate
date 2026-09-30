@@ -112,6 +112,11 @@ describe('integration files reach Redis only through the guarded helper (ISSUE-2
       'const c = new Bun.RedisClient(url);',
       "const { redis } = Bun; await redis.send('GET', ['k']);",
       "const { redis } = globalThis.Bun; await redis.send('GET', ['k']);",
+      // ISSUE-271: aliasing the Bun global to get at redis later.
+      'const B = Bun; const c = B.redis;',
+      'const B = globalThis.Bun; const c = B.redis;',
+      'const { Bun: B } = globalThis; const c = B.redis;',
+      "const B = globalThis['Bun']; const c = B.redis;",
     ];
 
     const reports = await Promise.all(

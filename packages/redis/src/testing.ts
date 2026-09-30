@@ -103,11 +103,29 @@ const writesFirstKey = new Set([
  */
 const namespaceAnchored = /^t3-[a-z0-9-]{6,}/;
 
-const matchPattern = (command: string, args: readonly string[]) => {
-  if (command === 'KEYS') return args[0];
-  const at = args.findIndex((arg) => String(arg).toUpperCase() === 'MATCH');
-  return at === -1 ? undefined : args[at + 1];
-};
+/**
+ * Every pattern a SCAN or KEYS would apply, or undefined when the arguments
+ * are not ones Redis would parse as written. SCAN options are read in order
+ * the way Redis reads them (`MATCH <pattern>`, `COUNT <n>`, `TYPE <t>`), so a
+ * pattern cannot hide in another option's value, and every MATCH counts:
+ * Redis applies the last one, so all of them must be anchored (ISSUE-269).
+ */
+function matchPatterns(
+  command: string,
+  args: readonly string[],
+): string[] | undefined {
+  if (command === 'KEYS')
+    return args.length === 1 ? [String(args[0])] : undefined;
+  const patterns: string[] = [];
+  for (let at = 1; at < args.length; at += 2) {
+    const option = String(args[at]).toUpperCase();
+    const value = args[at + 1];
+    if (value === undefined) return undefined;
+    if (option === 'MATCH') patterns.push(String(value));
+    else if (option !== 'COUNT' && option !== 'TYPE') return undefined;
+  }
+  return patterns;
+}
 
 /**
  * Why a test client refuses `command`, or undefined to send it. `scripts` is
@@ -134,10 +152,12 @@ export function commandRefusal(
 
 type Refuse = (what: string) => string;
 
-/** A SCAN or KEYS is allowed only anchored at one test namespace. */
+/** A SCAN or KEYS is allowed only with every pattern anchored at one test namespace, and at least one. */
 function scanRefusal(command: string, args: readonly string[], refuse: Refuse) {
-  const pattern = matchPattern(command, args);
-  return pattern !== undefined && namespaceAnchored.test(pattern)
+  const patterns = matchPatterns(command, args);
+  return patterns !== undefined &&
+    patterns.length > 0 &&
+    patterns.every((pattern) => namespaceAnchored.test(pattern))
     ? undefined
     : refuse(`${command} that is not anchored at one test namespace`);
 }

@@ -158,8 +158,11 @@ block` (3 to 501), written to `TEST_REDIS_URL` by `slot:up`. The port block
   client library other than Bun's (the boundary check refuses an undeclared
   dependency, but a declared one would pass); code under test that is itself
   wrong, since the registered scripts and the adapter are trusted; a test that
-  disables the lint rule for a line (review catches it, lint does not); and
-  the slot's own other namespaces, which a pattern anchored at a namespace id
+  disables the lint rule for a line (review catches it, lint does not); the
+  Bun global reached by a route lint does not name (a function that returns
+  it, `Reflect.get(globalThis, 'Bun')`, a `with` block: the aliases
+  `const B = Bun`, `globalThis.Bun` and `{ Bun: B } = globalThis` are flagged,
+  and `Bun.redis` through them); and the slot's own other namespaces, which a pattern anchored at a namespace id
   of another concurrent run of this slot can still name. None reaches another
   slot's, dev's or e2e's keys: `requireTestServices` pins the URL to this
   slot's database on this slot's server before any of it runs.

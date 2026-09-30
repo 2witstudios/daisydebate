@@ -58,6 +58,67 @@ describe('commandRefusal: a namespace-anchored scan, whatever the pattern (ISSUE
     });
   });
 
+  test('ISSUE-269: every MATCH must be anchored, since Redis uses the last one', () => {
+    const anchored = `${NS}:*`;
+    assert({
+      given:
+        'SCAN with an anchored MATCH followed (or preceded) by a wildcard MATCH, in any case and with COUNT or TYPE between',
+      should: 'refuse each: the last MATCH is the one Redis applies',
+      actual: [
+        refused('SCAN', ['0', 'MATCH', 't3-zzzzzz*', 'MATCH', '*']),
+        refused('scan', ['0', 'match', anchored, 'match', '*']),
+        refused('SCAN', ['0', 'MATCH', anchored, 'COUNT', '10', 'MATCH', '*']),
+        refused('SCAN', [
+          '0',
+          'MATCH',
+          '*',
+          'TYPE',
+          'string',
+          'MATCH',
+          anchored,
+        ]),
+        refused('SCAN', ['0', 'MATCH', anchored, 'MATCH', '**']),
+      ],
+      expected: [true, true, true, true, true],
+    });
+  });
+
+  test('ISSUE-269: options are parsed the way Redis parses them, so nothing hides in one', () => {
+    const anchored = `${NS}:*`;
+    assert({
+      given:
+        'a MATCH with no pattern, an unknown option, a pattern that is itself named MATCH, and KEYS with a second argument',
+      should: 'refuse each',
+      actual: [
+        refused('SCAN', ['0', 'MATCH']),
+        refused('SCAN', ['0', 'MATCH', anchored, 'FOO', 'bar']),
+        refused('SCAN', ['0', 'MATCH', 'MATCH']),
+        refused('SCAN', ['0', 'COUNT']),
+        refused('KEYS', [anchored, '*']),
+      ],
+      expected: [true, true, true, true, true],
+    });
+  });
+
+  test('negative control: several MATCH options, all anchored, and TYPE or COUNT between, are allowed', () => {
+    assert({
+      given: 'two anchored MATCH options with COUNT and TYPE between them',
+      should: 'allow it',
+      actual: refused('scan', [
+        '0',
+        'MATCH',
+        `${NS}:a*`,
+        'COUNT',
+        '500',
+        'TYPE',
+        'string',
+        'match',
+        `${NS}:b*`,
+      ]),
+      expected: false,
+    });
+  });
+
   test('negative control: a pattern anchored at one test namespace is allowed', () => {
     assert({
       given:
