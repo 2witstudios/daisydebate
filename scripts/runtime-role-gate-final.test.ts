@@ -38,6 +38,35 @@ const UNDERSCORE_LOCALS = [
 ].join('\n');
 
 const harmless: readonly Row[] = [
+  // ISSUE-266: a .constructor value that is never called or new'd passes.
+  {
+    shape: 'ISSUE-266 review: err.constructor.name',
+    startTs: append(
+      'class AppError extends Error {}\nconst err = new AppError();\nvoid err.constructor.name;\n',
+    ),
+    expected: null,
+  },
+  {
+    shape: 'ISSUE-266 review: value.constructor === Object',
+    startTs: append(
+      'const value = {};\nvoid (value.constructor === Object);\n',
+    ),
+    expected: null,
+  },
+  {
+    shape: 'ISSUE-266 review: a class reading this.constructor.name',
+    startTs: append(
+      'class Base {\n  kind() {\n    return this.constructor.name;\n  }\n}\nvoid new Base().kind();\n',
+    ),
+    expected: null,
+  },
+  {
+    shape: 'ISSUE-266: a .constructor bound to a variable that is never called',
+    startTs: append(
+      'const err = new Error();\nconst Ctor = err.constructor;\nvoid Ctor.name;\n',
+    ),
+    expected: null,
+  },
   {
     shape: 'ISSUE-262 review: a local, class field and object key named _cache',
     startTs: append(UNDERSCORE_LOCALS),
@@ -81,6 +110,99 @@ const harmless: readonly Row[] = [
 ];
 
 const refused: readonly Row[] = [
+  // ISSUE-267: resolution sees through every operand that can yield Module.
+  {
+    shape: 'ISSUE-267 review: (0, M)._load',
+    startTs: withImport("import M from 'node:module';").concat(
+      `declare const c: boolean;\n(0, M)._load('./listen-first', null)${START_CALL}`,
+    ),
+    expected: bypass('node:module._load'),
+  },
+  {
+    shape: 'ISSUE-267 review: (c ? M : M)._load',
+    startTs: withImport("import M from 'node:module';").concat(
+      `declare const c: boolean;\n(c ? M : M)._load('./listen-first', null)${START_CALL}`,
+    ),
+    expected: bypass('node:module._load'),
+  },
+  {
+    shape: 'ISSUE-267: (c ? 0 : M)._load',
+    startTs: withImport("import M from 'node:module';").concat(
+      `declare const c: boolean;\n(c ? 0 : M)._load('./listen-first', null)${START_CALL}`,
+    ),
+    expected: bypass('node:module._load'),
+  },
+  {
+    shape: 'ISSUE-267 review: (M || 0)._load',
+    startTs: withImport("import M from 'node:module';").concat(
+      `declare const c: boolean;\n(M || 0)._load('./listen-first', null)${START_CALL}`,
+    ),
+    expected: bypass('node:module._load'),
+  },
+  {
+    shape: 'ISSUE-267: (0 ?? M)._load',
+    startTs: withImport("import M from 'node:module';").concat(
+      `declare const c: boolean;\n(0 ?? M)._load('./listen-first', null)${START_CALL}`,
+    ),
+    expected: bypass('node:module._load'),
+  },
+  {
+    shape: 'ISSUE-267: (c && M)._load',
+    startTs: withImport("import M from 'node:module';").concat(
+      `declare const c: boolean;\n(c && M)._load('./listen-first', null)${START_CALL}`,
+    ),
+    expected: bypass('node:module._load'),
+  },
+  {
+    shape: 'ISSUE-267: ((M))._load',
+    startTs: withImport("import M from 'node:module';").concat(
+      `declare const c: boolean;\n((M))._load('./listen-first', null)${START_CALL}`,
+    ),
+    expected: bypass('node:module._load'),
+  },
+  {
+    shape: 'ISSUE-267: a const bound to c ? M : 0, then Alias._load',
+    startTs: withImport("import M from 'node:module';").concat(
+      `declare const c: boolean;\nconst Alias = c ? M : 0;\n(Alias as typeof M)._load('./listen-first', null)${START_CALL}`,
+    ),
+    expected: bypass('node:module._load'),
+  },
+  // ISSUE-266: a .constructor value that is called or new'd is refused.
+  {
+    shape: 'ISSUE-266 review: const F = fn.constructor; F(src)',
+    startTs: append(
+      "const fn = () => 1;\nconst F = fn.constructor;\nvoid F('return 1');\n",
+    ),
+    expected: bypass('.constructor'),
+  },
+  {
+    shape: 'ISSUE-266 review: const { constructor: F } = fn, never called',
+    startTs: append(
+      'const fn = () => 1;\nconst { constructor: F } = fn;\nvoid F;\n',
+    ),
+    expected: bypass('.constructor'),
+  },
+  {
+    shape: 'ISSUE-266: new x.constructor(src)',
+    startTs: append(
+      "const fn = () => 1;\nvoid new fn.constructor('return 1');\n",
+    ),
+    expected: bypass('.constructor'),
+  },
+  {
+    shape: 'ISSUE-266: x.constructor.constructor(src)',
+    startTs: append(
+      "const v = {};\nvoid v.constructor.constructor('return 1');\n",
+    ),
+    expected: bypass('.constructor'),
+  },
+  {
+    shape: 'ISSUE-266: (0, fn.constructor)(src)',
+    startTs: append(
+      "const fn = () => 1;\nvoid (0, fn.constructor)('return 1');\n",
+    ),
+    expected: bypass('.constructor'),
+  },
   // ISSUE-262: resolution reaches the real binding through aliases.
   {
     shape: 'ISSUE-262: a const alias of Module, then M._load(...)',

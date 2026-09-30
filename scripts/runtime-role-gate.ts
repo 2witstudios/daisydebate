@@ -32,9 +32,15 @@ import { bypassToken } from './runtime-role-gate-bypass';
  *   const aliases, `new Module(...)`, `Module.prototype` or a
  *   `getBuiltinModule` result. A local, field or key with the same name,
  *   or a type-only import, passes (ISSUE-258, ISSUE-262). Any
- *   `getBuiltinModule` read or import, any `.constructor` read (Function
- *   from any function) and any non-type import or re-export of `vm` /
- *   `node:vm` is refused (ISSUE-263). The same holds for every relative
+ *   `getBuiltinModule` read or import, any non-type import or re-export
+ *   of `vm` / `node:vm`, a destructured `constructor` key, and a
+ *   `.constructor` value that is invoked (called or new'd, directly or
+ *   through a variable invoked later in the file: Function from any
+ *   function) is refused; a `.constructor` read that is never invoked,
+ *   such as `err.constructor.name`, passes (ISSUE-263, ISSUE-266).
+ *   Resolution sees through parentheses, commas, conditionals and
+ *   `&&` / `||` / `??`, checking every operand that can yield the value
+ *   (ISSUE-267). The same holds for every relative
  *   module start.ts loads, outside listen-first.ts's own imports
  *   (ISSUE-228);
  * - import startProductionServer, unaliased, from ./listen-first;
@@ -60,6 +66,9 @@ import { bypassToken } from './runtime-role-gate-bypass';
  *   (`const box = { M: Module }; box.M._load(...)`), a `let` reassigned
  *   later, or anything else that is not an import, alias, const,
  *   destructure, member, `new` or `getBuiltinModule` of it;
+ * - a `.constructor` value invoked somewhere the check does not follow:
+ *   passed to a function that calls it, re-bound through a second
+ *   variable (`const G = F; G(...)`), or invoked in another module;
  * - code outside start.ts's relative import graph: package imports
  *   (`@daisy/*`, `node_modules`) are resolved but never loaded or scanned,
  *   so a dependency that loads listen-first itself is invisible;

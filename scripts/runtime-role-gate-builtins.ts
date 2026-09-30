@@ -46,7 +46,8 @@ export const builtinBypass = (
     return specifierBypass(checker, node);
   const member = memberOf(node);
   if (!member) return null;
-  if (member.name === 'constructor') return '.constructor';
+  if (member.name === 'constructor')
+    return constructorBypass(checker, node) ? '.constructor' : null;
   if (member.name === 'getBuiltinModule') return 'process.getBuiltinModule';
   return MODULE_LOADERS.has(member.name) &&
     member.owner !== undefined &&
@@ -177,6 +178,8 @@ const resolvesToNodeModule = (
   const next = (inner: ts.Expression) =>
     resolvesToNodeModule(checker, inner, depth + 1);
   const node = ts.skipOuterExpressions(expression);
+  const operands = yieldedOperands(node);
+  if (operands) return operands.some(next);
   if (ts.isIdentifier(node)) {
     const symbol = checker.getSymbolAtLocation(node);
     const origin = builtinOrigin(checker, symbol);
@@ -194,6 +197,82 @@ const resolvesToNodeModule = (
     ts.isCallExpression(node) &&
     memberOf(node.expression)?.name === 'getBuiltinModule'
   );
+};
+
+/** The operands whose value an expression can yield: the right side of a
+ * comma, both branches of a conditional, both sides of `&&`, `||` and
+ * `??` (ISSUE-267). Undefined for any other expression. */
+const yieldedOperands = (
+  node: ts.Node,
+): readonly ts.Expression[] | undefined => {
+  if (ts.isConditionalExpression(node)) return [node.whenTrue, node.whenFalse];
+  if (!ts.isBinaryExpression(node)) return undefined;
+  const operator = node.operatorToken.kind;
+  if (operator === ts.SyntaxKind.CommaToken) return [node.right];
+  return operator === ts.SyntaxKind.AmpersandAmpersandToken ||
+    operator === ts.SyntaxKind.BarBarToken ||
+    operator === ts.SyntaxKind.QuestionQuestionToken
+    ? [node.left, node.right]
+    : undefined;
+};
+
+/** The outermost expression that still yields `node`'s value, through
+ * parentheses, type assertions, `!` and yielded operands. */
+const yieldingParent = (node: ts.Node): ts.Node => {
+  let at = node;
+  for (;;) {
+    const parent = at.parent;
+    const wraps =
+      ts.isParenthesizedExpression(parent) ||
+      ts.isAsExpression(parent) ||
+      ts.isNonNullExpression(parent) ||
+      ts.isSatisfiesExpression(parent) ||
+      ts.isTypeAssertionExpression(parent) ||
+      (yieldedOperands(parent)?.includes(at as ts.Expression) ?? false);
+    if (!wraps) return at;
+    at = parent;
+  }
+};
+
+/** Whether this expression's value is called or passed to `new`. */
+const isInvoked = (node: ts.Node) => {
+  const top = yieldingParent(node);
+  const parent = top.parent;
+  return (
+    (ts.isCallExpression(parent) || ts.isNewExpression(parent)) &&
+    parent.expression === top
+  );
+};
+
+/** A `.constructor` value reaches Function only when it is invoked:
+ * called or new'd directly, or through a variable that is invoked later
+ * in the same file. A destructured `constructor` key is always refused. A
+ * read that is never invoked (`err.constructor.name`,
+ * `v.constructor === Object`, `this.constructor`) passes (ISSUE-266). */
+const constructorBypass = (checker: ts.TypeChecker, node: ts.Node) => {
+  if (ts.isBindingElement(node)) return true;
+  if (isInvoked(node)) return true;
+  const top = yieldingParent(node);
+  const declaration = top.parent;
+  if (
+    !ts.isVariableDeclaration(declaration) ||
+    declaration.initializer !== top ||
+    !ts.isIdentifier(declaration.name)
+  )
+    return false;
+  const bound = checker.getSymbolAtLocation(declaration.name);
+  const uses: ts.Node[] = [];
+  const collect = (at: ts.Node) => {
+    if (
+      ts.isIdentifier(at) &&
+      at !== declaration.name &&
+      checker.getSymbolAtLocation(at) === bound
+    )
+      uses.push(at);
+    ts.forEachChild(at, collect);
+  };
+  collect(node.getSourceFile());
+  return uses.some(isInvoked);
 };
 
 /** The expression a `const x = …` or `const { x } = …` binding is read
