@@ -130,7 +130,7 @@ flat permission list described in the package map above.
 
 - **One pure decision point.** `authorize` and `authorizeInbox` in
   `@daisy/auth` (AZC-1.3) answer every read and create question from facts
-  the shared loader in `@daisy/db` (`packages/db/src/league-scoped/`,
+  the shared loader in `@daisy/db` (`packages/db/src/authorization/`,
   AZC-3.1) loads fresh per request; `authorizeSubscribe` (AZC-1.3) does the same for
   the five realtime topic families, and the realtime subscribe registry calls
   it (AZC-3.4). Principals carry no
@@ -143,13 +143,13 @@ flat permission list described in the package map above.
   `scripts/boundaries-rules.ts` and `package.json`). `@daisy/db` may not
   import `@daisy/auth`; it returns a plain projection and `@daisy/auth`'s
   `toAuthorizationInput` maps it.
-- **Leagues.** A league is a ranked ladder (`leagues`), membership is an
-  active `league_members` row and carries no powers, each league has its own
-  active season, and a debate has a league (`debates.league_id`, nullable)
-  exactly when it is ranked (AZC-2.1). Unranked debates belong to no league.
-  The Daisy league is an ordinary row, and a database index plus a startup
-  check refuse a second league until row-level security is enabled on every
-  league-owned table (LEAGUE-OPS). Details: [persistence](persistence.md).
+- **Ranked is Daisy's; leagues are future tournament tenants.** Ranked debates
+  belong to no league and count on Daisy's own ladder (one per format and
+  season), and anyone with an actor may host ranked or unranked play. A
+  league is an organizer's private tournament space with its own UI: it never
+  owns a ladder, and none exists at launch. The epic adds no migration;
+  tenancy, with row-level security in place before the first league, arrives
+  with LEAGUE-OPS (ADR 0048 section 6).
 - **Denied reads** answer `NOT_FOUND` for every principal; denied
   non-read capabilities answer the authentication, participant-redirect or
   authorization result; an unavailable identity answers 503 before any

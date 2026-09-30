@@ -1,8 +1,8 @@
 # 0030: Effective rules and growth paths
 
 Status: accepted. Extends [ADR 0029](0029-competitive-schema-foundation.md).
-Amended by [ADR 0048](0048-authorization-core.md): the league model
-supersedes the league growth paths, and `visibility` is now read.
+Amended by [ADR 0048](0048-authorization-core.md): ranked belongs to Daisy
+and leagues are tournament tenants, and `visibility` is now read.
 
 ## Context
 
@@ -76,11 +76,10 @@ not, and this ADR decides them now.
   `debates.tournament_id`). Membership and competition attach to actors;
   authority attaches to users by widening `role_grants.scope_type` with
   `club` and `league` (one CHECK swap). Expand-only.
-- **League seasons are not rating seasons.** _(Superseded by
-  [ADR 0048](0048-authorization-core.md): a league is a ranked ladder, and
-  seasons and ratings are per league.)_ `seasons` is the rating epoch.
-  A league calendar is its own table; a league may use the global ladder,
-  its own standings, or none.
+- **League seasons are not rating seasons.** _(Refined by
+  [ADR 0048](0048-authorization-core.md): a league never owns a ladder.)_
+  `seasons` is the rating epoch. A league calendar is its own table, and a
+  league's debates never create ratings.
 - **Retention and scale.** The growth tables are `debates`,
   `debate_participants`, `debate_commands`, `ballots` and `rating_changes`;
   every hot read is a single-index lookup. `debate_commands` is a dedupe and
@@ -107,33 +106,33 @@ not, and this ADR decides them now.
 - The PageSpace record is "Decision record — lobby rules and growth paths"
   in Plans → Lobby rules and growth paths.
 
-## Amendment (2026-09-29): the league model
+## Amendment (2026-09-29): ranked is Daisy's
 
-[ADR 0048](0048-authorization-core.md) decides how leagues, ranked play and
+[ADR 0048](0048-authorization-core.md) decides how ranked play, leagues and
 authorization fit together:
 
-- `mode = 'ranked'` holds exactly when the debate has a league
-  (`debates.league_id`); an unranked debate (`casual` or `practice`, any
-  format) has none. Decision item 2, that ranked requires canonical
-  rules on a ranked-eligible format, is unchanged.
-- **Superseded:** the growth-path bullet "League seasons are not rating
-  seasons". A league is a ranked ladder, and seasons and ratings are per
-  league.
+- `mode = 'ranked'` names Daisy's ladder. A ranked debate belongs to no league
+  and no tenant, and ratings and seasons stay global. Decision item 2, that
+  ranked requires canonical rules on a ranked-eligible format, is unchanged.
+- **Refined:** the growth-path bullet "League seasons are not rating
+  seasons". A league is a tournament tenant and never owns a ladder.
 - **Superseded, in part:** the "Clubs, leagues, tournaments" bullet's
   league authority, that is, authority through `role_grants.scope_type`
   widened with `league`. LEAGUE-OPS decides league authority. The club and
   tournament guidance in that bullet stands.
 - **Updated:** the "Access enforcement" bullet, as marked above.
+- **Added:** a tenant may one day hold formats of its own. Such a format is
+  never `ranked_eligible`, so it can never produce a rating, and no custom
+  lobby ever writes a `formats` row (decision item 1).
 
 ## Amendment (2026-09-30): hosted tables and the room
 
-[ADR 0048](0048-authorization-core.md)'s amendment of the same date lets any
-active member of a league host a ranked debate, the way a chess.com seek is
-posted, and [ADR 0049](0049-room-debate-turn.md) names the lobby's unit, the
-room:
+[ADR 0048](0048-authorization-core.md) lets any user with an actor host a
+ranked debate, the way a chess.com seek is posted, and
+[ADR 0049](0049-room-debate-turn.md) names the lobby's unit, the room:
 
-- **Ranked hosting is open to members.** A hosted ranked table is a room with
-  a league. Who may take its seats is Ratings-epic seating policy.
+- **Ranked hosting is open to everyone with an actor.** A hosted ranked table
+  is a ranked room. Who may take its seats is Ratings-epic seating policy.
 - **The lobby applies rule overrides when a table is hosted.** Decision item 1
   stands: the room copies the canonical rules from `formats.rules` and applies
   the host's overrides, which the debate snapshot freezes at start. Decision
