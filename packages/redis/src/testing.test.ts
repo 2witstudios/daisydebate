@@ -1,6 +1,7 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  guardTestClient,
   TEST_KEY_TTL_MAX_MS,
   TEST_NAMESPACE_PREFIX,
   TEST_RUN_MAX_MS,
@@ -187,5 +188,75 @@ describe('withBoundedExpiry', () => {
     });
     await bounded.connect();
     bounded.close();
+  });
+});
+
+describe('guardTestClient (ISSUE-246)', () => {
+  test('refuses every way of naming a whole-database or database-switching command, before it is sent', async () => {
+    const { client, sent } = recordingClient();
+    const guarded = guardTestClient(client);
+    const dangerous: Array<[string, string[]]> = [
+      ['FLUSHDB', []],
+      ['flushall', []],
+      [`FLUSH${'DB'}`, []],
+      [['flush', 'db'].join(''), []],
+      ['SCAN', ['0', 'MATCH', '*']],
+      ['scan', ['0', 'COUNT', '500', 'MATCH', '*']],
+      ['KEYS', ['*']],
+      ['keys', ['*']],
+      ['SELECT', ['0']],
+      ['swapdb', ['0', '1']],
+      ['MOVE', ['k', '0']],
+    ];
+
+    const outcomes = await Promise.all(
+      dangerous.map(([command, args]) =>
+        guarded.send(command, args).then(
+          () => 'sent',
+          (error: Error) => error.message,
+        ),
+      ),
+    );
+
+    assert({
+      given:
+        'FLUSHDB/FLUSHALL however spelled, SCAN or KEYS of everything in any case or option order, and SELECT, SWAPDB and MOVE',
+      should: 'reject each with a named refusal and send none',
+      actual: {
+        allRefused: outcomes.every((message) =>
+          message.startsWith('Test Redis client refuses'),
+        ),
+        sent,
+      },
+      expected: { allRefused: true, sent: [] },
+    });
+  });
+
+  test('refuses the keys helper for everything, and lets a namespace-scoped one through', async () => {
+    const { client } = recordingClient();
+    const guarded = guardTestClient(client) as unknown as {
+      keys: (pattern: string) => Promise<unknown>;
+    };
+
+    await expect(guarded.keys('*')).rejects.toThrow(
+      'Test Redis client refuses',
+    );
+  });
+
+  test('negative control: scoped and ordinary commands are sent untouched', async () => {
+    const { client, sent } = recordingClient();
+    const guarded = guardTestClient(client);
+
+    await guarded.send('SET', ['t3-a:v1:k', 'v']);
+    await guarded.send('scan', ['0', 'MATCH', 't3-a:*', 'COUNT', '500']);
+    await guarded.send('KEYS', ['t3-a:*']);
+    await guarded.send('UNLINK', ['t3-a:v1:k']);
+
+    assert({
+      given: 'a SET, a scan and KEYS scoped to one namespace, and an UNLINK',
+      should: 'reach Redis exactly as written',
+      actual: sent.map(({ command }) => command),
+      expected: ['SET', 'scan', 'KEYS', 'UNLINK'],
+    });
   });
 });

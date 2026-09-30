@@ -1,5 +1,5 @@
 import { afterAll, setDefaultTimeout } from 'bun:test';
-import { RedisClient, SQL } from 'bun';
+import { SQL, type RedisClient } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { buildUserInboxTopic } from '@daisy/protocol';

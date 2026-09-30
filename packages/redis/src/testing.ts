@@ -27,9 +27,55 @@ export const testNamespace = (id: string): string =>
  */
 export type GuardedTestRedisUrl = string & { readonly ownTestRedis: true };
 
-/** The one way an integration file opens Redis: a plain client on the slot's own database. */
+// Commands that touch more than this test's own namespace: every key of the
+// database, or a different database.
+const databaseWide = new Set([
+  'FLUSHALL',
+  'FLUSHDB',
+  'MOVE',
+  'SELECT',
+  'SWAPDB',
+]);
+
+const refuseWide = (what: string): never => {
+  throw new Error(
+    `Test Redis client refuses ${what}: match your own namespace (packages/redis/src/testing.ts)`,
+  );
+};
+
+/**
+ * Wraps a test client so no command can reach past its own namespace, however
+ * the call is spelled (ISSUE-246): the command is normalised to upper case at
+ * run time, so a template, a joined string or a variable cannot hide it from
+ * the check, and a SCAN or KEYS that matches everything, FLUSHDB, FLUSHALL,
+ * SELECT, SWAPDB and MOVE are refused before anything is sent. Lint catches
+ * the same shapes in source; this catches what lint cannot see.
+ */
+export function guardTestClient(client: RedisClient): RedisClient {
+  const send: Send = async (rawCommand, args) => {
+    const command = String(rawCommand).toUpperCase();
+    if (databaseWide.has(command)) return refuseWide(command);
+    if ((command === 'SCAN' || command === 'KEYS') && args.includes('*'))
+      return refuseWide(`${command} of every key`);
+    return client.send(rawCommand, args);
+  };
+  const keys = async (pattern: string) =>
+    pattern === '*' ? refuseWide('KEYS of every key') : send('KEYS', [pattern]);
+  return new Proxy(client, {
+    get(target, member) {
+      if (member === 'send') return send;
+      if (member === 'keys') return keys;
+      const value: unknown = Reflect.get(target, member, target);
+      return typeof value === 'function'
+        ? (value as (...args: unknown[]) => unknown).bind(target)
+        : value;
+    },
+  });
+}
+
+/** The one way an integration file opens Redis: a client on the slot's own database that cannot reach past its namespace. */
 export const openTestRedis = (url: GuardedTestRedisUrl): RedisClient =>
-  new RedisClient(url);
+  guardTestClient(new RedisClient(url));
 
 type Send = (command: string, args: string[]) => Promise<unknown>;
 

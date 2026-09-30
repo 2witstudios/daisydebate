@@ -1,4 +1,4 @@
-import { RedisClient } from 'bun';
+import type { RedisClient } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { createRedis, redisKey } from '../src';
 import { deleteNamespace } from '../src/namespaces';
