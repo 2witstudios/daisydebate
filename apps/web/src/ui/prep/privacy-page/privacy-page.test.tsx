@@ -17,10 +17,12 @@ describe('PrivacyPage', () => {
         html.includes('Private by default'),
         html.includes('Never part of a debate'),
         html.includes('<caption'),
+        html.includes('What each person sees in a debate'),
+        html.includes('No sign that a panel exists'),
         html.match(/<tr /g)?.length,
         /ADR|Proposed classification|owner decision/i.test(html),
       ],
-      expected: [1, true, true, true, 7, false],
+      expected: [1, true, true, true, true, true, 7, false],
     });
   });
 });

@@ -37,7 +37,9 @@ const speech = (n: number, blocks: readonly Block[]): Speech => ({
 });
 
 const framing = b('fr', 'Framing', fw, 180);
-const c1 = b('c1', 'Contention 1', fw, 440);
+const c1 = b('c1', 'Contention 1', fw, 440, {
+  claim: '[Claim: one sentence the judge can write on the flow.]',
+});
 const c2Old = b('c2', 'Contention 2', fw, 380, {
   text: 'Costs do not outweigh a rights claim',
 });

@@ -78,5 +78,14 @@ export const inertActions = {
   sendInvite: { label: 'Send invite', reason: notBuilt('Invitations') },
   manageMember: { label: 'Manage', reason: notBuilt('Managing members') },
   leaveTeam: { label: 'Leave team', reason: notBuilt('Leaving a team') },
+  sendCard: {
+    label: 'Send card',
+    reason: notBuilt('Sending a card to the room'),
+  },
+  copyCiteInRoom: {
+    label: 'Copy cite',
+    reason:
+      'The citation format is an open product decision, so there is nothing to copy yet.',
+  },
   deleteCard: { label: 'Delete card', reason: notBuilt('Deleting a card') },
 } as const satisfies Record<string, InertAction>;

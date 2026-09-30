@@ -1,4 +1,8 @@
-import { privacyPromises, privacyRows } from '../../../features/prep/privacy';
+import {
+  privacyPromises,
+  privacyRows,
+  whoSeesInDebate,
+} from '../../../features/prep/privacy';
 import { Breadcrumb } from '../breadcrumb/breadcrumb';
 import { PrepIcon } from '../prep-icon/prep-icon';
 
@@ -32,6 +36,32 @@ export function PrivacyPage() {
           </li>
         ))}
       </ul>
+      <section aria-labelledby="who-heading" className="flex flex-col gap-3">
+        <h2 id="who-heading" className="text-lg font-bold">
+          What each person sees in a debate
+        </h2>
+        <ul className="grid grid-cols-3 gap-4 max-compact:grid-cols-1">
+          {whoSeesInDebate.map((entry) => (
+            <li
+              key={entry.who}
+              className="flex flex-col gap-2 rounded-lg bg-surface p-5 shadow-1"
+            >
+              <h3 className="text-base font-bold">{entry.who}</h3>
+              <p
+                className={`flex items-center gap-2 rounded-md border px-3 py-3 text-sm ${
+                  entry.hasPanel
+                    ? 'border-accent bg-accent-soft text-ink'
+                    : 'border-dashed border-border-strong text-ink-faint'
+                }`}
+              >
+                {entry.hasPanel ? <PrepIcon name="lock" size={14} /> : null}
+                {entry.hasPanel ? 'Your prep' : 'No prep panel'}
+              </p>
+              <p className="text-sm text-ink-muted">{entry.sees}</p>
+            </li>
+          ))}
+        </ul>
+      </section>
       <div className="overflow-x-auto rounded-lg bg-surface shadow-1">
         <table className="w-full text-left text-sm">
           <caption className="sr-only">

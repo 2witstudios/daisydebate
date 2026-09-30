@@ -15,6 +15,8 @@ export type Block = {
   readonly sub: string;
   readonly words: number;
   readonly text?: string;
+  /** The claim shown in the in-debate panel when this block is next. */
+  readonly claim?: string;
   /** The card this block showed was deleted; the slot is kept. */
   readonly removed?: boolean;
   /** Where the block opens (a card or a brief), when it has a home. */

@@ -7,3 +7,6 @@ import type { Case } from './case';
  */
 export const getCase = (id: string): Case | undefined =>
   sampleCases.find((c) => c.id === id);
+
+/** Every case the owner has, for choosing one to bring into a debate. */
+export const listCases = (): readonly Case[] => sampleCases;

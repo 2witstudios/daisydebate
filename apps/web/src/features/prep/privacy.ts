@@ -57,3 +57,26 @@ export const privacyRows: readonly (readonly [string, string, string])[] = [
     'Cannot be recalled',
   ],
 ];
+
+/** Who sees the prep panel during a debate, and what they see instead. */
+export const whoSeesInDebate: readonly {
+  readonly who: string;
+  readonly sees: string;
+  readonly hasPanel: boolean;
+}[] = [
+  {
+    who: 'You',
+    sees: 'The room plus your own prep panel. Hide it any time.',
+    hasPanel: true,
+  },
+  {
+    who: 'Your opponent',
+    sees: 'The room only. No sign that a panel exists or what is in it.',
+    hasPanel: false,
+  },
+  {
+    who: 'Judge and spectators',
+    sees: 'The room only. Recordings also leave prep out.',
+    hasPanel: false,
+  },
+];

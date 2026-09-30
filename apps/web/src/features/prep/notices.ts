@@ -135,3 +135,18 @@ export const deleteInUse = (uses: number, keepHref: string): Notice => ({
     secondary('Keep card', keepHref),
   ],
 });
+
+export const caseChangedElsewhere = (
+  pinned: number,
+  latest: number,
+  switchHref: string,
+  keepHref: string,
+): Notice => ({
+  tone: 'info',
+  title: 'This case changed elsewhere',
+  body: `You saved v${latest} on another device. This debate keeps v${pinned} so your notes stay where you expect.`,
+  actions: [
+    secondary(`Switch to v${latest}`, switchHref),
+    { label: `Keep v${pinned}`, variant: 'ghost', href: keepHref },
+  ],
+});
