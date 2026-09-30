@@ -92,7 +92,7 @@ test('a refused sign-in link returns focus to the email field', async ({
   await spendLinks(page, email, 3);
   await openSignIn(page);
   await submitByKeyboard(page.getByLabel('Email'), email);
-  await expect(page.getByText('Too many attempts for now.')).toBeVisible();
+  await expect(page.getByText('Too many sign-in requests right now.')).toBeVisible();
   await expectFocusOn(page, 'input', 'sign-in-email');
   await assertNoSeriousFindings(page);
 });
@@ -119,7 +119,7 @@ test('a refused sign-in link resend returns focus to the email field', async ({
   await spendLinks(page, email, 2);
   await sendFromForm(page, email);
   await resendByKeyboard(page);
-  await expect(page.getByText('Too many attempts for now.')).toBeVisible();
+  await expect(page.getByText('Too many sign-in requests right now.')).toBeVisible();
   await expectFocusOn(page, 'input', 'sign-in-email');
   await assertNoSeriousFindings(page);
 });
