@@ -5,6 +5,9 @@ import {
   repositoryEslint,
   table,
   web,
+  serverBindCases,
+  serverGlobCases,
+  sharedFixtureCases,
   type Problems,
   props,
   globals,
@@ -245,40 +248,40 @@ describe('restrictions every no-restricted-syntax list carries', () => {
   });
 
   test('rejects an unbound Bun.serve under every glob, beside the Redis guard in every integration workspace (ISSUE-252, ISSUE-259)', async () => {
-    const both = `const url = 'redis://x';\nnew RedisClient(url);\nBun.serve({ port: 0, fetch: () => new Response(url) });`;
-    const bound = `const hostname = '127.0.0.1';\nBun.serve({ hostname, port: 0, fetch: () => new Response(hostname) });`;
-    const integration = [
-      'packages/db',
-      'packages/redis',
-      'apps/realtime',
-      'apps/web',
-    ];
-    const elsewhere = [
-      'scripts/x.test.ts',
-      'apps/web/e2e/x.e2e.ts',
-      web('x.ts'),
-      'packages/clock/src/x.ts',
-      'packages/db/src/x.ts',
-      'apps/realtime/src/x.ts',
-    ];
-    const { actual, expected } = table([
-      ...integration.map((root): Problems => [
-        both,
-        `${root}/integration/x.integration.ts`,
-        2,
-      ]),
-      ...elsewhere.map((path): Problems => [
-        both.replace('new RedisClient(url);\n', ''),
-        path,
-        1,
-      ]),
-      [bound, 'packages/db/integration/x.integration.ts', 0],
-    ]);
+    const { actual, expected } = table(serverGlobCases);
     assert({
       given:
         'an unbound Bun.serve and a raw RedisClient in each integration workspace, an unbound Bun.serve under every other glob, and a bound one',
       should:
         'report the serve everywhere and the Redis client in every integration workspace, and the bound serve nowhere',
+      actual: await actual,
+      expected,
+    });
+  });
+
+  test('rejects every route to a wildcard-bound server and leaves bound or unrelated calls alone (ISSUE-254)', async () => {
+    const { actual, expected } = table(
+      serverBindCases.map(([code, flagged]): Problems => [
+        code,
+        'scripts/x.test.ts',
+        flagged ? 1 : 0,
+      ]),
+    );
+    assert({
+      given:
+        'Bun.serve and Bun.listen, destructured and globalThis forms, node listen calls, and a Postgres LISTEN',
+      should: 'report each wildcard or unaddressed bind once and nothing else',
+      actual: await actual,
+      expected,
+    });
+  });
+
+  test('requires every e2e spec to use the shared, bounded page fixture (ISSUE-253)', async () => {
+    const { actual, expected } = table(sharedFixtureCases);
+    assert({
+      given:
+        'specs importing Playwright’s test, the shared fixture, or only types',
+      should: 'reject only the import of Playwright’s own test',
       actual: await actual,
       expected,
     });
