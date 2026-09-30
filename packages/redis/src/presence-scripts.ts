@@ -1,4 +1,5 @@
-import type { RedisClient } from 'bun';
+import { defineScript } from './script-registry';
+import type { RedisTransport } from './transport';
 import { idSchema, presenceActivitySchema } from '@daisy/protocol';
 import type { PresenceActivity } from '@daisy/protocol';
 import { redisSegmentPattern } from './redis-key';
@@ -42,7 +43,7 @@ end
  * ARGV[1] actorId; ARGV[2] activity; ARGV[3] instanceId; ARGV[4] ttlMs;
  * ARGV[5] connId.
  */
-export const upsertPresenceLeaseScript = `
+export const upsertPresenceLeaseScript = defineScript(`
 ${nowFromTime}
 ${armZsetExpiry}
 local expiresAt = now + tonumber(ARGV[4])
@@ -57,7 +58,7 @@ if top[2] then
   arm(KEYS[3], top, now)
 end
 return 1
-`;
+`);
 /**
  * Extends the connection's TTL and rescores it, but only if the lease is
  * still live: a lease whose hash already expired must be re-upserted, not
@@ -65,7 +66,7 @@ return 1
  * like the upsert. KEYS[1] conn hash; KEYS[2] actor zset;
  * KEYS[3] online zset. ARGV[1] ttlMs; ARGV[2] connId; ARGV[3] actorId.
  */
-export const refreshPresenceLeaseScript = `
+export const refreshPresenceLeaseScript = defineScript(`
 if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
 ${nowFromTime}
 ${armZsetExpiry}
@@ -80,7 +81,7 @@ if top[2] then
   arm(KEYS[3], top, now)
 end
 return 1
-`;
+`);
 /**
  * Deletes the connection hash immediately (a clean disconnect), drops it
  * from the actor's zset, then rescores or removes the actor from the
@@ -95,7 +96,7 @@ return 1
  * armed once. KEYS[1] conn hash; KEYS[2] actor zset; KEYS[3] online zset.
  * ARGV[1] connId; ARGV[2] actorId.
  */
-export const deletePresenceLeaseScript = `
+export const deletePresenceLeaseScript = defineScript(`
 ${nowFromTime}
 ${armZsetExpiry}
 local existed = redis.call('DEL', KEYS[1])
@@ -112,7 +113,7 @@ else
   redis.call('ZREM', KEYS[3], ARGV[2])
 end
 return existed
-`;
+`);
 /**
  * One atomic, read-only op: range at most ARGV[3] of the actor's members
  * whose score (lease expiry) is not in the past, latest expiry first,
@@ -137,7 +138,7 @@ return existed
  * redesigned around hash tags. See ADR 0033's amendment and this package's
  * README.
  */
-export const readActorConnectionsScript = `
+export const readActorConnectionsScript = defineScript(`
 ${nowFromTime}
 local members = redis.call('ZREVRANGEBYSCORE', KEYS[1], '+inf', now, 'WITHSCORES', 'LIMIT', 0, tonumber(ARGV[3]))
 local result = {now}
@@ -158,7 +159,7 @@ for i = 1, #members, 2 do
   end
 end
 return result
-`;
+`);
 /**
  * A read-only, bounded range of the online set: actors whose latest lease
  * has not expired, ranged by score with a caller-supplied LIMIT, no write.
@@ -171,7 +172,7 @@ return result
  * 0033 §1.1), so a caller never substitutes an instance clock for the
  * server clock that scored these leases. KEYS[1] online zset. ARGV[1] limit.
  */
-export const readOnlinePresenceScript = `
+export const readOnlinePresenceScript = defineScript(`
 ${nowFromTime}
 local members = redis.call('ZRANGEBYSCORE', KEYS[1], now, '+inf', 'WITHSCORES', 'LIMIT', 0, tonumber(ARGV[1]))
 local result = {now}
@@ -179,7 +180,7 @@ for i = 1, #members do
   table.insert(result, members[i])
 end
 return result
-`;
+`);
 /**
  * A bounded write-path sweep: removes up to ARGV[1] members of the online
  * set whose score is in the past. Trimming moved here, off the read path
@@ -190,14 +191,14 @@ return result
  * `PRESENCE_LIMIT_MAX`, far below that. Returns the number of members
  * removed. KEYS[1] online zset. ARGV[1] limit.
  */
-export const sweepOnlinePresenceScript = `
+export const sweepOnlinePresenceScript = defineScript(`
 ${nowFromTime}
 local expired = redis.call('ZRANGEBYSCORE', KEYS[1], '-inf', now - 1, 'LIMIT', 0, tonumber(ARGV[1]))
 if #expired > 0 then
   redis.call('ZREM', KEYS[1], unpack(expired))
 end
 return #expired
-`;
+`);
 
 /** connId and instanceId are server-minted identifiers, not domain actor ids: they only need to be safe Redis key segments. */
 export function assertKeySegment(label: string, value: string) {
@@ -237,7 +238,7 @@ export function assertLimit(limit: number) {
  * every call. One cache per `createScriptRunner` call, keyed by script
  * source.
  */
-export function createScriptRunner(client: RedisClient) {
+export function createScriptRunner(client: RedisTransport) {
   const shaByScript = new Map<string, string>();
   async function load(script: string): Promise<string> {
     const sha = (await client.send('SCRIPT', ['LOAD', script])) as string;

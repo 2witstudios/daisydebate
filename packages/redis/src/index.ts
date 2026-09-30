@@ -2,6 +2,8 @@ import { RedisClient } from 'bun';
 import { createPresenceOperations } from './presence';
 import { createTicketOperations } from './ticket';
 import { redisKey } from './redis-key';
+import { defineScript } from './script-registry';
+import type { RedisTransport } from './transport';
 export { redisKey } from './redis-key';
 export type RedisConfig = { readonly url: string; readonly namespace: string };
 export type RedisEventSink = (
@@ -15,7 +17,7 @@ export type RedisEventSink = (
  * counting, so the decision never depends on read-modify-write across calls.
  * KEYS[1] key; ARGV[1] window ms; ARGV[2] max. Returns {allowed, ttlMs}.
  */
-const consumeScript = `
+const consumeScript = defineScript(`
 local count = redis.call('INCR', KEYS[1])
 local ttl = redis.call('PTTL', KEYS[1])
 if count == 1 or ttl < 0 then
@@ -24,7 +26,7 @@ if count == 1 or ttl < 0 then
 end
 if count > tonumber(ARGV[2]) then return {0, ttl} end
 return {1, ttl}
-`;
+`);
 
 /**
  * ARGV[1] value, ARGV[2] TTL ms. AUTH-7.7's "since" markers (an outage's
@@ -35,7 +37,7 @@ return {1, ttl}
  * the marker alive indefinitely instead of expiring 180s after only the
  * first one.
  */
-const markOccurrenceSinceScript = `
+const markOccurrenceSinceScript = defineScript(`
 local existing = redis.call('GET', KEYS[1])
 if existing then
   redis.call('PEXPIRE', KEYS[1], ARGV[2])
@@ -43,20 +45,20 @@ if existing then
 end
 redis.call('SET', KEYS[1], ARGV[1], 'PX', ARGV[2])
 return ARGV[1]
-`;
+`);
 
 /**
  * ARGV[1] TTL ms, armed only on the first hit. AUTH-7.7's bounded counters
  * (consecutive failures, per-minute request buckets): a quiet period longer
  * than the TTL resets the count to zero on the next increment.
  */
-const incrementWithExpiryScript = `
+const incrementWithExpiryScript = defineScript(`
 local count = redis.call('INCR', KEYS[1])
 if count == 1 then
   redis.call('PEXPIRE', KEYS[1], ARGV[1])
 end
 return count
-`;
+`);
 export type RateLimitRule = {
   readonly windowSeconds: number;
   readonly max: number;
@@ -76,7 +78,7 @@ export function createRedis({
 }: RedisConfig & {
   readonly eventSink?: RedisEventSink;
   /** Overrides dialing `url`; tests inject a scripted client at this seam. */
-  readonly client?: RedisClient;
+  readonly client?: RedisTransport;
 }) {
   redisKey(namespace);
   const client = injectedClient ?? new RedisClient(url, redisClientOptions);

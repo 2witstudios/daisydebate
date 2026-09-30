@@ -76,7 +76,7 @@
     "restore:invalidate": "bun scripts/post-restore-invalidate.ts",
     "restore:seed": "bun scripts/staging-restore-seed.ts",
     "proof:test-redis": "bun scripts/prove-test-redis.ts",
-    "proof:test-postgres": "bun --env-file=.env scripts/prove-test-postgres.ts",
+    "proof:test-postgres": "bun --env-file=.env scripts/prove-test-postgres.ts && bun --env-file=.env scripts/prove-test-postgres-orphan.ts",
     "slot:up": "bun scripts/slot.ts up",
     "slot:down": "bun scripts/slot.ts down",
     "slot:reset-e2e": "bun scripts/slot.ts reset-e2e",

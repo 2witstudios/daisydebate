@@ -1,3 +1,4 @@
+import { posix } from 'node:path';
 /**
  * Declarative boundary rules for the architecture scan. Side-effect-free by
  * contract: unit tests import this module directly, so it must not touch the
@@ -133,3 +134,22 @@ export const adminSurfaceIssue = (relativePath: string): string | null => {
     ? `${relativePath}: admin surface in the participant app (ADR 0043)`
     : null;
 };
+
+/**
+ * ISSUE-275: the repository's own `scripts/` holds the runner and tooling
+ * (the whole-database Redis sweep among them); no workspace file, test or
+ * product, may import from it, however the relative path is spelled (a
+ * workspace's own `scripts/` folder is its own code). Package imports are
+ * already limited to each package's `exports`, and `scripts/` is not a
+ * package.
+ */
+export const runnerOnlyIssue = (
+  specifier: string,
+  importer: string,
+): string | null =>
+  specifier.startsWith('.') &&
+  posix
+    .normalize(posix.join(posix.dirname(importer), specifier))
+    .startsWith('scripts/')
+    ? `import of runner-only code from ${specifier}`
+    : null;

@@ -156,7 +156,7 @@ describe('deleteKeysWithoutExpiry', () => {
       'a:v1:soon': { idleSeconds: 1, pttl: 5_000 },
     });
 
-    const removed = await deleteKeysWithoutExpiry(redis);
+    const removed = await deleteKeysWithoutExpiry(redis, 'a:*');
 
     assert({
       given: 'one immortal key and one expiring key',
@@ -182,9 +182,12 @@ describe('deleteKeysWithoutExpiry', () => {
     });
   });
 
-  test('refuses a pattern that is neither everything nor one namespace', async () => {
+  test('refuses a pattern that is not one namespace, star included: the whole-database sweep belongs to the runner, in scripts/', async () => {
     const redis = fakeKeyspace({});
 
+    await expect(deleteKeysWithoutExpiry(redis, '*')).rejects.toThrow(
+      'Invalid key pattern',
+    );
     await expect(deleteKeysWithoutExpiry(redis, 'a*')).rejects.toThrow(
       'Invalid key pattern',
     );

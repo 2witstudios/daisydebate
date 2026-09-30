@@ -1,4 +1,3 @@
-import { RedisClient } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { createRedis, redisKey } from '../src';
 import { deleteNamespace } from '../src/namespaces';
@@ -7,6 +6,7 @@ import {
   openTestRedis,
   testNamespace,
   type GuardedTestRedisUrl,
+  type TestRedis,
 } from '../src/testing';
 
 /** A raw client for assertions our own package's API cannot make: PTTL, EXISTS, and direct key manipulation. */
@@ -37,7 +37,7 @@ export async function withRedis<T>(
   work: (context: {
     readonly namespace: string;
     readonly redis: ReturnType<typeof createRedis>;
-    readonly raw: RedisClient;
+    readonly raw: TestRedis;
     readonly key: (...segments: string[]) => string;
     /** Fires a key's expiry now: the moment its TTL would have run out. */
     readonly expireNow: (key: string) => Promise<unknown>;

@@ -102,10 +102,50 @@ const testRedisRestrictions = [
       "Open Redis with openTestRedis(url) from @daisy/redis/testing: it takes only a URL requireTestServices guarded as the slot's own database.",
   },
   {
+    selector: "NewExpression[callee.property.name='RedisClient']",
+    message:
+      'Open Redis with openTestRedis(url) from @daisy/redis/testing, not a namespaced RedisClient.',
+  },
+  {
     selector:
-      "CallExpression[callee.name='deleteKeysWithoutExpiry'][arguments.length<2]",
+      "MemberExpression[object.name='Bun'][property.name=/^(?:redis|RedisClient)$/], MemberExpression[object.name='Bun'][computed=true][property.value=/^(?:redis|RedisClient)$/], MemberExpression[object.property.name='Bun'][property.name=/^(?:redis|RedisClient)$/]",
+    message:
+      'Bun.redis and Bun.RedisClient dial Redis without requireTestServices: open Redis with openTestRedis(url).',
+  },
+  {
+    selector:
+      "VariableDeclarator[init.name='Bun'] > ObjectPattern > Property[key.name=/^(?:redis|RedisClient)$/], VariableDeclarator[init.property.name='Bun'] > ObjectPattern > Property[key.name=/^(?:redis|RedisClient)$/]",
+    message:
+      'Do not pull redis or RedisClient out of Bun: open Redis with openTestRedis(url).',
+  },
+  {
+    selector:
+      "VariableDeclarator[id.type='Identifier'][init.name='Bun'], VariableDeclarator[id.type='Identifier'][init.property.name='Bun'], VariableDeclarator[id.type='Identifier'][init.computed=true][init.property.value='Bun'], ObjectPattern > Property[key.name='Bun']",
+    message:
+      'Do not alias the Bun global: a suite reaches Redis only through openTestRedis(url).',
+  },
+  {
+    selector:
+      "ImportExpression[source.value='bun'], CallExpression[callee.name='require'][arguments.0.value='bun']",
+    message:
+      "Import 'bun' statically (only SQL and the like): a dynamic import or require reaches RedisClient and redis.",
+  },
+  {
+    selector:
+      "MemberExpression[property.name='constructor'], MemberExpression[computed=true][property.value='constructor']",
+    message:
+      'Never reach a constructor from a value in a suite: openTestRedis returns a wrapper with none, and a raw client is not for tests.',
+  },
+  {
+    selector:
+      "CallExpression[callee.name='deleteKeysWithoutExpiry'][arguments.length<2], CallExpression[callee.name='deleteKeysWithoutExpiry'][arguments.1.value='*']",
     message:
       'Never scan the whole database in a suite: pass deleteKeysWithoutExpiry a pattern under your own namespace.',
+  },
+  {
+    selector: "ImportSpecifier[imported.name='deleteAllKeysWithoutExpiry']",
+    message:
+      "deleteAllKeysWithoutExpiry walks the whole database and is the runner's alone.",
   },
   {
     selector: 'Literal[value=/^(?:FLUSHDB|FLUSHALL)$/i]',
@@ -113,17 +153,38 @@ const testRedisRestrictions = [
   },
   {
     selector:
-      "CallExpression[callee.property.name='send'][arguments.0.value='SCAN'][arguments.1.elements.2.value='*']",
+      "CallExpression[callee.property.name='send'][arguments.0.value=/^scan$/i]:has(ArrayExpression > Literal[value='*'])",
     message:
       'Never SCAN the whole database in a suite: match your own namespace.',
   },
   {
     selector:
-      "CallExpression[callee.property.name='send'][arguments.0.value='KEYS'][arguments.1.elements.0.value='*']",
+      "CallExpression[callee.property.name='send'][arguments.0.value=/^keys$/i]:has(ArrayExpression > Literal[value='*'])",
     message:
       'Never list every key of the database in a suite: match your own namespace.',
   },
+  {
+    selector:
+      "CallExpression[callee.property.name='keys'][arguments.0.value='*']",
+    message:
+      'Never list every key of the database in a suite: match your own namespace.',
+  },
+  {
+    selector:
+      "CallExpression[callee.property.name='send'][arguments.length=2][arguments.1.type='ArrayExpression']:not([arguments.0.type='Literal'])",
+    message:
+      'Name the Redis command as a string literal so it can be checked; a template, join or variable can hide FLUSHDB or a whole-database scan.',
+  },
 ];
+
+/** `bun`'s Redis exports in an integration file: only a type-only import of RedisClient is fine. */
+const bunRedisImport = {
+  name: 'bun',
+  importNames: ['RedisClient', 'redis'],
+  allowTypeImports: true,
+  message:
+    "Open Redis with openTestRedis(url) from @daisy/redis/testing; the default 'redis' export dials REDIS_URL and skips requireTestServices.",
+};
 
 /**
  * ISSUE-7's process edge: app code receives configuration and resources as
@@ -523,6 +584,12 @@ export default [
   {
     files: ['**/integration/**/*.ts'],
     rules: {
+      'no-restricted-imports': ['error', { paths: [bunRedisImport] }],
+    },
+  },
+  {
+    files: ['**/integration/**/*.ts'],
+    rules: {
       'no-restricted-syntax': [
         'error',
         exportStarRestriction,
@@ -577,6 +644,13 @@ export default [
   {
     files: ['apps/web/integration/**/*.ts'],
     rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [bunRedisImport],
+          patterns: [...appImportRestrictions, processEdgeImport],
+        },
+      ],
       'no-restricted-syntax': [
         'error',
         exportStarRestriction,

@@ -1,7 +1,7 @@
-import type { RedisClient } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
+import { createRedis } from '../src';
 import {
   deleteKeysWithoutExpiry,
   deleteNamespace,
@@ -12,6 +12,7 @@ import {
   openTestRedis,
   testNamespace,
   TEST_KEY_TTL_MAX_MS,
+  type TestRedis,
 } from '../src/testing';
 
 setupRitewayBun();
@@ -21,8 +22,8 @@ const { redisUrl: url } = requireTestServices(process.env);
 /** Runs `work` with a raw client, a bounded one and this test's own key prefix, then removes its keys. */
 async function withClients<T>(
   work: (context: {
-    readonly raw: RedisClient;
-    readonly bounded: RedisClient;
+    readonly raw: TestRedis;
+    readonly bounded: TestRedis;
     readonly namespace: string;
   }) => Promise<T>,
 ): Promise<T> {
@@ -38,11 +39,11 @@ async function withClients<T>(
   }
 }
 
-const pttlOf = async (raw: RedisClient, key: string) =>
+const pttlOf = async (raw: TestRedis, key: string) =>
   Number(await raw.send('PTTL', [key]));
 
 /** Waits until Redis reports the key idle for at least one second. */
-async function untilIdle(raw: RedisClient, key: string) {
+async function untilIdle(raw: TestRedis, key: string) {
   const deadline = Date.now() + 5_000;
   while (Number(await raw.send('OBJECT', ['IDLETIME', key])) < 1) {
     if (Date.now() > deadline) throw new Error(`${key} never became idle`);
@@ -59,16 +60,16 @@ test('ISSUE-237-AC1: no write through the bounded client can be immortal or outl
     await bounded.send('SET', [key('long'), 'v', 'EX', '99999999']);
     await bounded.send('INCR', [key('counter')]);
     await bounded.send('ZADD', [key('zset'), '1', 'member']);
-    await bounded.send('EVAL', [
-      "redis.call('SET', KEYS[1], 'v'); return 1",
-      '1',
-      key('scripted'),
-    ]);
+    // A registered adapter script (the rate limiter) arming a window far past the ceiling.
+    await createRedis({ url, namespace, client: bounded }).consumeRateLimit(
+      'scripted',
+      { windowSeconds: 99_999, max: 5 },
+    );
     await bounded.send('SET', [key('short'), 'v', 'EX', '60']);
 
     const ttls = Object.fromEntries(
       await Promise.all(
-        ['bare', 'long', 'counter', 'zset', 'scripted', 'short'].map(
+        ['bare', 'long', 'counter', 'zset', 'rl:scripted', 'short'].map(
           async (name) => [name, await pttlOf(raw, key(name))] as const,
         ),
       ),

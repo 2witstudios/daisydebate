@@ -105,19 +105,10 @@ export async function sweepIdleNamespaces(
   return { namespaces: swept.map(([namespace]) => namespace).sort(), keys };
 }
 
-/**
- * ISSUE-237: unlinks every key that has no expiry and returns their names, so
- * a run that left an immortal key fails loudly instead of feeding the next
- * run's SCANs forever. With no pattern it walks the whole database, which
- * only the runner does, after `requireTestServices` proved TEST_REDIS_URL is
- * this slot's own database (ISSUE-245); a suite passes `<namespace>:*`.
- */
-export async function deleteKeysWithoutExpiry(
+async function unlinkKeysWithoutExpiry(
   client: RedisCommands,
-  pattern = '*',
+  pattern: string,
 ): Promise<string[]> {
-  if (pattern !== '*' && !/^[a-z][a-z0-9-]{0,40}:\*$/.test(pattern))
-    throw new Error('Invalid key pattern');
   const immortal: string[] = [];
   await scanKeys(client, pattern, async (keys) => {
     const ttls = await Promise.all(
@@ -130,6 +121,21 @@ export async function deleteKeysWithoutExpiry(
   for (let from = 0; from < immortal.length; from += 500)
     await client.send('UNLINK', immortal.slice(from, from + 500));
   return immortal.sort();
+}
+
+/**
+ * ISSUE-237, ISSUE-245: unlinks every key of one namespace (`<namespace>:*`)
+ * that has no expiry and returns their names. A pattern that is anything
+ * else, `*` included, is refused: the whole-database sweep is the runner's
+ * (`scripts/redis-whole-database.ts`), out of every package export.
+ */
+export async function deleteKeysWithoutExpiry(
+  client: RedisCommands,
+  pattern: string,
+): Promise<string[]> {
+  if (!/^[a-z][a-z0-9-]{0,40}:\*$/.test(pattern))
+    throw new Error('Invalid key pattern');
+  return unlinkKeysWithoutExpiry(client, pattern);
 }
 
 /**

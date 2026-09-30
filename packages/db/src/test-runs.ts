@@ -108,24 +108,33 @@ async function runDatabasesOf(admin: SQL, slotTestDatabase: string) {
     .filter((name) => slotDatabaseOfRun(name) === slotTestDatabase);
 }
 
-async function hasSessions(admin: SQL, name: string): Promise<boolean> {
-  const [{ sessions }] = (await admin.unsafe(
-    `select count(*)::int as sessions from pg_stat_activity where datname = '${quoteIdentifier(name).slice(1, -1)}' and pid <> pg_backend_pid()`,
-  )) as [{ sessions: number }];
-  return sessions > 0;
+/**
+ * How many sessions other than ours use the database, and how many of those
+ * started within the run bound (ISSUE-260): a session older than the longest a
+ * run may last cannot belong to a live run.
+ */
+async function sessionsOn(admin: SQL, name: string, maxRunMs: number) {
+  const [row] = (await admin.unsafe(
+    `select count(*)::int as sessions,
+       (count(*) filter (where backend_start >= now() - ${Number(maxRunMs)} * interval '1 millisecond'))::int as young
+     from pg_stat_activity where datname = '${quoteIdentifier(name).slice(1, -1)}' and pid <> pg_backend_pid()`,
+  )) as [{ sessions: number; young: number }];
+  return row ?? { sessions: 0, young: 0 };
 }
 
 /**
  * Drops every run database of this slot whose runner is gone: the ones whose
- * liveness lock is free and that no session uses. A live run holds its lock,
- * and a run that lost it (ISSUE-250) still has its suites connected, so a
- * sweep in another process, or another workspace's run in the same slot,
- * never touches it.
+ * liveness lock is free and that no session younger than `maxRunMs` uses. A
+ * live run holds its lock, and a run that lost it (ISSUE-250) still has its
+ * young suite sessions, so a sweep in another process, or another workspace's
+ * run in the same slot, never touches it; an orphan that hangs past the bound
+ * has its sessions terminated and its database dropped (ISSUE-260).
  * Returns the names dropped.
  */
 export async function sweepTestRunDatabases(
   admin: SQL,
   slotTestDatabase: string,
+  { maxRunMs }: { readonly maxRunMs: number },
 ): Promise<readonly string[]> {
   const dropped: string[] = [];
   for (const name of await runDatabasesOf(admin, slotTestDatabase)) {
@@ -135,9 +144,11 @@ export async function sweepTestRunDatabases(
     )) as [{ free: boolean }];
     if (!free) continue;
     try {
-      // A free lock with a session still connected is a live run whose
-      // runner's connection was cut (ISSUE-250): never drop under a suite.
-      if (await hasSessions(admin, name)) continue;
+      // A free lock with a session started within the run bound is a live
+      // run whose runner's connection was cut (ISSUE-250): never drop under
+      // a suite. Sessions all older than the bound are a hung orphan's
+      // (ISSUE-260); the forced drop below ends them.
+      if ((await sessionsOn(admin, name, maxRunMs)).young > 0) continue;
       await dropTestRunDatabase(admin, name);
       dropped.push(name);
     } finally {

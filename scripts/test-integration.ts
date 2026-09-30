@@ -10,10 +10,8 @@
 import { constants } from 'node:os';
 import { RedisClient, SQL } from 'bun';
 import { requireTestSlotServices } from '@daisy/config';
-import {
-  deleteKeysWithoutExpiry,
-  sweepIdleNamespaces,
-} from '@daisy/redis/namespaces';
+import { sweepIdleNamespaces } from '@daisy/redis/namespaces';
+import { deleteAllKeysWithoutExpiry } from './redis-whole-database';
 import { TEST_NAMESPACE_PREFIX, TEST_RUN_MAX_MS } from '@daisy/redis/testing';
 import { superviseRun, withRunDatabase } from './test-run-database';
 
@@ -200,6 +198,7 @@ if (import.meta.main) {
   // dropped after it, so nothing they write can outlive the run.
   const code = await withRunDatabase({
     slotDatabaseUrl: databaseUrl,
+    maxRunMs: TEST_RUN_MAX_MS,
     root: `${import.meta.dir}/..`,
     onSweep: (dropped) => {
       const message = sweepMessage(dropped);
@@ -222,6 +221,7 @@ if (import.meta.main) {
         exited: suites.exited,
         kill: () => suites.kill('SIGKILL'),
         lockLost: run.lockLost,
+        maxRunMs: TEST_RUN_MAX_MS,
       });
       if (verdict === 'lost') {
         process.stderr.write(
@@ -229,8 +229,14 @@ if (import.meta.main) {
         );
         return 1;
       }
+      if (verdict === 'timeout') {
+        process.stderr.write(
+          `test-integration: the suites ran longer than the ${TEST_RUN_MAX_MS} ms run bound and were stopped (ISSUE-272).\n`,
+        );
+        return 1;
+      }
       const leaks = redisLeakMessages(
-        await withRedis(redisUrl, deleteKeysWithoutExpiry),
+        await withRedis(redisUrl, deleteAllKeysWithoutExpiry),
       );
       for (const line of leaks) process.stderr.write(`${line}\n`);
       const grown = grownTables(before, await rowCounts(run.url));

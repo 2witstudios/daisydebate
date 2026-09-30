@@ -1,4 +1,4 @@
-import type { RedisClient } from 'bun';
+import type { RedisTransport } from './transport';
 import type { PresenceActivity } from '@daisy/protocol';
 import { redisKey } from './redis-key';
 import {
@@ -40,7 +40,7 @@ export function createPresenceOperations({
   namespace,
   reportFailure,
 }: {
-  readonly client: RedisClient;
+  readonly client: RedisTransport;
   readonly namespace: string;
   readonly reportFailure: (operation: string) => void;
 }) {

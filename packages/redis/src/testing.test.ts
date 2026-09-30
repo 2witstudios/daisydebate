@@ -1,11 +1,14 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import './index';
+import './presence-scripts';
+import { registeredScripts } from './script-registry';
 import {
   TEST_KEY_TTL_MAX_MS,
   TEST_NAMESPACE_PREFIX,
   TEST_RUN_MAX_MS,
   testNamespace,
-  withBoundedExpiry,
+  wrapTestRedis,
 } from './testing';
 
 setupRitewayBun();
@@ -21,21 +24,17 @@ function recordingClient(reply: unknown = 'OK') {
       sent.push({ command, args });
       return reply;
     },
-    async get(key: string) {
-      sent.push({ command: 'GET', args: [key] });
-      return null;
-    },
     async connect() {},
     close() {},
-    async set() {
-      throw new Error('the raw set helper must never be reached');
-    },
   };
   return { client: client as never, sent };
 }
 
+// Any script the adapter registered: loading the modules above registers them.
+const consumeScriptForTests = [...registeredScripts()][0] ?? '';
 const MAX = 7_200_000;
-const boundOf = (sent: readonly Sent[], key: string) =>
+const NS = 't3-abcdefghij';
+const capOf = (sent: readonly Sent[], key: string) =>
   sent.find(
     ({ command, args }) =>
       command === 'EVAL' && args[0]?.includes('PTTL') && args.includes(key),
@@ -43,13 +42,14 @@ const boundOf = (sent: readonly Sent[], key: string) =>
 
 describe('test namespaces', () => {
   test('carry the sweepable prefix and fit REDIS_NAMESPACE', () => {
-    const namespace = testNamespace('abcdefghijklmnopqrstuvwx');
-
     assert({
       given: 'a cuid2',
       should: 'name a t3- namespace of ten id characters',
-      actual: { namespace, prefix: TEST_NAMESPACE_PREFIX },
-      expected: { namespace: 't3-abcdefghij', prefix: 't3-' },
+      actual: {
+        namespace: testNamespace('abcdefghijklmnopqrstuvwx'),
+        prefix: TEST_NAMESPACE_PREFIX,
+      },
+      expected: { namespace: NS, prefix: 't3-' },
     });
   });
 
@@ -63,12 +63,80 @@ describe('test namespaces', () => {
   });
 });
 
-describe('withBoundedExpiry', () => {
+describe('the wrapper a suite is handed is structural (ISSUE-274)', () => {
+  test('exposes a fixed set of methods and no constructor, prototype or raw handle', () => {
+    const { client } = recordingClient();
+    const redis = wrapTestRedis(client, { scripts: false });
+
+    assert({
+      given: 'a wrapped test client',
+      should:
+        'be a frozen object with no prototype whose only members are the guarded methods, so there is no constructor to build a raw client from and no handle to reach one through',
+      actual: {
+        prototype: Object.getPrototypeOf(redis),
+        constructorMember: (redis as unknown as Record<string, unknown>)
+          .constructor,
+        frozen: Object.isFrozen(redis),
+        members: Reflect.ownKeys(redis).map(String).sort(),
+      },
+      expected: {
+        prototype: null,
+        constructorMember: undefined,
+        frozen: true,
+        members: [
+          'close',
+          'connect',
+          'connected',
+          'del',
+          'exists',
+          'get',
+          'getdel',
+          'ping',
+          'pttl',
+          'send',
+        ],
+      },
+    });
+    expect(
+      () =>
+        new (
+          redis as unknown as { constructor: new (url: string) => unknown }
+        ).constructor('redis://localhost'),
+    ).toThrow('not a constructor');
+  });
+
+  test('every method goes through the guard, including the helpers', async () => {
+    const { client, sent } = recordingClient(1);
+    const redis = wrapTestRedis(client, { scripts: false });
+
+    await redis.get(`${NS}:v1:a`);
+    await redis.del(`${NS}:v1:a`);
+    await redis.exists(`${NS}:v1:a`);
+    await redis.pttl(`${NS}:v1:a`);
+    await redis.getdel(`${NS}:v1:a`);
+    await redis.ping();
+
+    assert({
+      given: 'the convenience methods',
+      should: 'each become one guarded command, and nothing else is sent',
+      actual: sent.map(({ command }) => command),
+      expected: ['GET', 'DEL', 'EXISTS', 'PTTL', 'GETDEL', 'PING'],
+    });
+    assert({
+      given: 'the lifecycle members',
+      should: 'reflect the real connection state',
+      actual: redis.connected,
+      expected: true,
+    });
+  });
+});
+
+describe('wrapTestRedis bounds expiry (ISSUE-237)', () => {
   test('a SET with no expiry gets one in the same command', async () => {
     const { client, sent } = recordingClient();
-    const bounded = withBoundedExpiry(client, MAX);
+    const redis = wrapTestRedis(client, { scripts: true, maxTtlMs: MAX });
 
-    await bounded.send('SET', ['t3-a:v1:k', 'v']);
+    await redis.send('SET', [`${NS}:v1:k`, 'v']);
 
     assert({
       given: 'a SET that forgot its expiry',
@@ -76,43 +144,40 @@ describe('withBoundedExpiry', () => {
       actual: sent[0],
       expected: {
         command: 'SET',
-        args: ['t3-a:v1:k', 'v', 'PX', String(MAX)],
+        args: [`${NS}:v1:k`, 'v', 'PX', String(MAX)],
       },
     });
   });
 
   test('a SET with its own short expiry is left as written, then capped', async () => {
     const { client, sent } = recordingClient();
-    const bounded = withBoundedExpiry(client, MAX);
+    const redis = wrapTestRedis(client, { scripts: true, maxTtlMs: MAX });
 
-    await bounded.send('SET', ['t3-a:v1:k', 'v', 'EX', '60']);
+    await redis.send('SET', [`${NS}:v1:k`, 'v', 'EX', '60']);
 
     assert({
       given: 'a SET EX 60',
       should: 'keep the 60 s expiry and follow with the ceiling script',
       actual: {
         first: sent[0],
-        capped: boundOf(sent, 't3-a:v1:k') !== undefined,
+        capped: capOf(sent, `${NS}:v1:k`) !== undefined,
       },
       expected: {
-        first: {
-          command: 'SET',
-          args: ['t3-a:v1:k', 'v', 'EX', '60'],
-        },
+        first: { command: 'SET', args: [`${NS}:v1:k`, 'v', 'EX', '60'] },
         capped: true,
       },
     });
   });
 
-  test('every key a script declares is capped after it runs', async () => {
+  test('every key a registered script declares is capped after it runs', async () => {
     const { client, sent } = recordingClient(1);
-    const bounded = withBoundedExpiry(client, MAX);
+    const redis = wrapTestRedis(client, { scripts: true, maxTtlMs: MAX });
 
-    await bounded.send('EVAL', ['return 1', '2', 'k1', 'k2', 'argv']);
+    await redis.send('EVAL', [consumeScriptForTests, '2', 'k1', 'k2', 'argv']);
 
-    const cap = boundOf(sent, 'k1');
+    const cap = capOf(sent, 'k1');
     assert({
-      given: 'an EVAL declaring two keys',
+      given: 'a registered script declaring two keys',
       should: 'cap both keys in one follow-up script at the ceiling',
       actual: cap && {
         keyCount: cap.args[1],
@@ -123,69 +188,54 @@ describe('withBoundedExpiry', () => {
     });
   });
 
-  test('a write returns the command reply, not the cap reply', async () => {
-    const { client } = recordingClient('the-reply');
-    const bounded = withBoundedExpiry(client, MAX);
+  test('a refused command is never sent, and a write returns its own reply', async () => {
+    const { client, sent } = recordingClient('the-reply');
+    const redis = wrapTestRedis(client, { scripts: true, maxTtlMs: MAX });
 
-    assert({
-      given: 'a SET',
-      should: 'return what SET answered',
-      actual: await bounded.send('SET', ['k', 'v', 'EX', '5']),
-      expected: 'the-reply',
-    });
-  });
-
-  test('reads and deletes pass through untouched', async () => {
-    const { client, sent } = recordingClient();
-    const bounded = withBoundedExpiry(client, MAX);
-
-    await bounded.send('PTTL', ['k']);
-    await bounded.send('UNLINK', ['k']);
-    await bounded.get('k');
-
-    assert({
-      given: 'PTTL, UNLINK and GET',
-      should: 'send only those commands',
-      actual: sent.map(({ command }) => command),
-      expected: ['PTTL', 'UNLINK', 'GET'],
-    });
-  });
-
-  test('a command whose keys it cannot attribute is refused, not written', async () => {
-    const { client, sent } = recordingClient();
-    const bounded = withBoundedExpiry(client, MAX);
-
-    await expect(bounded.send('RESTORE', ['k', '0', 'x'])).rejects.toThrow(
-      'cannot bound the expiry of RESTORE',
+    await expect(redis.send('FLUSHDB', [])).rejects.toThrow(
+      'Test Redis client refuses',
     );
     assert({
-      given: 'a write command outside the known table',
+      given: 'a refused FLUSHDB then a SET',
+      should:
+        'send nothing for the first and return SET’s reply for the second',
+      actual: {
+        reply: await redis.send('SET', [`${NS}:v1:k`, 'v', 'EX', '5']),
+        refusedSent: sent.some(({ command }) => command === 'FLUSHDB'),
+      },
+      expected: { reply: 'the-reply', refusedSent: false },
+    });
+  });
+
+  test('a write whose keys cannot be attributed is refused, not sent', async () => {
+    const { client, sent } = recordingClient();
+    const redis = wrapTestRedis(client, { scripts: true, maxTtlMs: MAX });
+
+    await expect(
+      redis.send('EVAL', [consumeScriptForTests, 'x']),
+    ).rejects.toThrow('cannot bound the expiry of EVAL');
+    assert({
+      given: 'a script whose key count is not a number',
       should: 'never reach Redis',
       actual: sent,
       expected: [],
     });
   });
 
-  test('a raw write helper is refused so it cannot bypass the ceiling', () => {
-    const { client } = recordingClient();
-    const bounded = withBoundedExpiry(client, MAX);
+  test('negative control: reads, deletes and scoped scans pass through untouched', async () => {
+    const { client, sent } = recordingClient();
+    const redis = wrapTestRedis(client, { scripts: false });
 
-    expect(() => (bounded as unknown as { set: () => void }).set()).toThrow(
-      'cannot bound the expiry',
-    );
-  });
-
-  test('connection state and lifecycle pass through', async () => {
-    const { client } = recordingClient();
-    const bounded = withBoundedExpiry(client, MAX);
+    await redis.send('PTTL', [`${NS}:v1:k`]);
+    await redis.send('UNLINK', [`${NS}:v1:k`]);
+    await redis.send('scan', ['0', 'MATCH', `${NS}:*`, 'COUNT', '500']);
+    await redis.send('KEYS', [`${NS}:*`]);
 
     assert({
-      given: 'the wrapped client',
-      should: 'expose the real connected flag',
-      actual: bounded.connected,
-      expected: true,
+      given: 'PTTL, UNLINK, and a scan and KEYS scoped to one namespace',
+      should: 'send exactly those commands',
+      actual: sent.map(({ command }) => command),
+      expected: ['PTTL', 'UNLINK', 'scan', 'KEYS'],
     });
-    await bounded.connect();
-    bounded.close();
   });
 });

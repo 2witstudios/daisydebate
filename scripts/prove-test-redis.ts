@@ -22,11 +22,11 @@
 import { RedisClient } from 'bun';
 import { createRedis } from '@daisy/redis';
 import {
-  deleteKeysWithoutExpiry,
   deleteNamespace,
   listNamespaces,
   sweepIdleNamespaces,
 } from '@daisy/redis/namespaces';
+import { deleteAllKeysWithoutExpiry } from './redis-whole-database';
 import {
   createBoundedTestClient,
   TEST_KEY_TTL_MAX_MS,
@@ -265,7 +265,7 @@ async function proveKilledRun(base: string) {
   );
 
   const control = await killedRun(base, 'unbounded');
-  const immortal = await deleteKeysWithoutExpiry(db);
+  const immortal = await deleteAllKeysWithoutExpiry(db);
   check(
     immortal.length === 500 &&
       immortal.every((key) => key.startsWith(`${control.namespace}:`)),

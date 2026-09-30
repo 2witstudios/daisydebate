@@ -90,4 +90,55 @@ describe('superviseRun (ISSUE-250)', () => {
       expected: 'lost',
     });
   });
+
+  test('ISSUE-272: a run that outlasts the run bound is killed and reported as too long', async () => {
+    const proc = fakeProcess();
+    let clock = 0;
+
+    const verdict = await superviseRun({
+      exited: proc.exited,
+      kill: proc.kill,
+      lockLost: async () => false,
+      maxRunMs: 1_000,
+      now: () => clock,
+      sleep: async () => {
+        clock += 400;
+        await tick();
+      },
+    });
+
+    assert({
+      given:
+        'a suite that never finishes, a one-second bound and a clock that advances 400 ms per poll',
+      should:
+        'kill it on the third poll (1,200 ms) and report timeout, so no run outlives the bound its sweep protects',
+      actual: { verdict, kills: proc.kills, clock },
+      expected: { verdict: 'timeout', kills: ['killed'], clock: 1_200 },
+    });
+  });
+
+  test('ISSUE-272 negative control: a run inside the bound is not cut short', async () => {
+    const proc = fakeProcess();
+    let clock = 0;
+
+    const verdict = await superviseRun({
+      exited: proc.exited,
+      kill: proc.kill,
+      lockLost: async () => false,
+      maxRunMs: 10_000,
+      now: () => clock,
+      sleep: async () => {
+        clock += 400;
+        if (clock >= 1_200) proc.finish();
+        await tick();
+      },
+    });
+
+    assert({
+      given: 'a suite that finishes at 1,200 ms with a ten-second bound',
+      should: 'report exited and never kill it',
+      actual: { verdict, kills: proc.kills },
+      expected: { verdict: 'exited', kills: [] },
+    });
+  });
 });

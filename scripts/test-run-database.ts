@@ -30,20 +30,28 @@ const withDatabase = (url: string, database: string): string => {
  * once, because a concurrent run's sweep could otherwise take the database
  * out from under it, and reports `lost`; the run then fails loudly. Checked
  * once more after the suite exits, so a lock lost at the very end still fails.
+ * A run that outlasts `maxRunMs` (the bound its own sweep protects, ISSUE-272)
+ * is killed and reported `timeout`, so no run is ever longer than the bound
+ * a concurrent sweep uses to tell a hung orphan from a live run.
  */
 export async function superviseRun({
   exited,
   kill,
   lockLost,
+  maxRunMs,
+  now = Date.now,
   pollMs = 500,
   sleep = (ms: number) => Bun.sleep(ms),
 }: {
   readonly exited: Promise<unknown>;
   readonly kill: () => void;
   readonly lockLost: () => Promise<boolean>;
+  readonly maxRunMs: number;
+  readonly now?: () => number;
   readonly pollMs?: number;
   readonly sleep?: (ms: number) => Promise<unknown>;
-}): Promise<'exited' | 'lost'> {
+}): Promise<'exited' | 'lost' | 'timeout'> {
+  const startedAt = now();
   let done = false;
   void exited.then(() => {
     done = true;
@@ -55,6 +63,11 @@ export async function superviseRun({
       await exited;
       return 'lost';
     }
+    if (!done && now() - startedAt > maxRunMs) {
+      kill();
+      await exited;
+      return 'timeout';
+    }
   }
   return (await lockLost()) ? 'lost' : 'exited';
 }
@@ -62,6 +75,7 @@ export async function superviseRun({
 export async function withRunDatabase<T>({
   slotDatabaseUrl,
   root,
+  maxRunMs,
   onSweep,
   work,
 }: {
@@ -69,6 +83,8 @@ export async function withRunDatabase<T>({
   readonly slotDatabaseUrl: string;
   /** The checkout whose migrations the run applies. */
   readonly root: string;
+  /** The longest a run may last (TEST_RUN_MAX_MS): a session older than this is a hung orphan's. */
+  readonly maxRunMs: number;
   readonly onSweep: (dropped: readonly string[]) => void;
   readonly work: (run: {
     readonly url: string;
@@ -87,7 +103,7 @@ export async function withRunDatabase<T>({
     testRunToken(crypto.getRandomValues(new Uint8Array(4))),
   );
   try {
-    onSweep(await sweepTestRunDatabases(admin, slotDatabase));
+    onSweep(await sweepTestRunDatabases(admin, slotDatabase, { maxRunMs }));
     const claimedBy = await claimTestRunDatabase(admin, name);
     const runUrl = withDatabase(slotDatabaseUrl, name);
     try {
