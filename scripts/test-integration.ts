@@ -8,8 +8,13 @@
  * claiming every suite in the workspace's integration folder.
  */
 import { constants } from 'node:os';
-import { SQL } from 'bun';
+import { RedisClient, SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
+import {
+  deleteKeysWithoutExpiry,
+  sweepIdleNamespaces,
+} from '@daisy/redis/namespaces';
+import { TEST_NAMESPACE_PREFIX, TEST_RUN_MAX_MS } from '@daisy/redis/testing';
 
 export const INTEGRATION_RUNNER = 'bun ../../scripts/test-integration.ts';
 
@@ -73,6 +78,52 @@ export const grownTables = (before: RowCounts, after: RowCounts) =>
     }))
     .sort((a, b) => a.table.localeCompare(b.table));
 
+/** The line for a pre-run sweep that removed something, else nothing. */
+export const redisSweepMessage = ({
+  namespaces,
+  keys,
+}: {
+  readonly namespaces: readonly string[];
+  readonly keys: number;
+}): string | undefined =>
+  keys === 0
+    ? undefined
+    : `test-integration: swept ${keys} stale test Redis keys in ${namespaces.length} namespaces left by earlier runs (ISSUE-237)`;
+
+const LEAK_NAMES_SHOWN = 10;
+
+/**
+ * ISSUE-237: the lines for keys a run left with no expiry. A key that can
+ * never expire is a leak by definition, so the run fails and names them.
+ */
+export const redisLeakMessages = (immortal: readonly string[]): string[] =>
+  immortal.length === 0
+    ? []
+    : [
+        `test-integration: ${immortal.length} test Redis keys had no expiry after the run and were removed (ISSUE-237); every test key must expire`,
+        ...immortal
+          .slice(0, LEAK_NAMES_SHOWN)
+          .map((key) => `test-integration:   ${key}`),
+        ...(immortal.length > LEAK_NAMES_SHOWN
+          ? [
+              `test-integration:   ...and ${immortal.length - LEAK_NAMES_SHOWN} more`,
+            ]
+          : []),
+      ];
+
+/** Runs `work` on a short-lived client (Bun blocks while the suites run, so none is held across them). */
+async function withRedis<T>(
+  url: string,
+  work: (client: RedisClient) => Promise<T>,
+): Promise<T> {
+  const client = new RedisClient(url);
+  try {
+    return await work(client);
+  } finally {
+    client.close();
+  }
+}
+
 /** Exact row counts of every public table in the test database. */
 async function rowCounts(databaseUrl: string): Promise<RowCounts> {
   const sql = new SQL(databaseUrl, { max: 1 });
@@ -101,7 +152,18 @@ if (import.meta.main) {
     process.stderr.write('test-integration: no suites under integration/\n');
     process.exit(1);
   }
-  const { databaseUrl } = requireTestServices(process.env);
+  const { databaseUrl, redisUrl } = requireTestServices(process.env);
+  // ISSUE-237: whatever a crashed, killed or timed-out run left in this
+  // slot's test Redis database goes first, so no run pays for an earlier one.
+  const sweptMessage = redisSweepMessage(
+    await withRedis(redisUrl, (client) =>
+      sweepIdleNamespaces(client, {
+        prefix: TEST_NAMESPACE_PREFIX,
+        idleMs: TEST_RUN_MAX_MS,
+      }),
+    ),
+  );
+  if (sweptMessage) process.stderr.write(`${sweptMessage}\n`);
   const before = await rowCounts(databaseUrl);
   const child = Bun.spawnSync(
     [
@@ -112,10 +174,16 @@ if (import.meta.main) {
     ],
     { stdio: ['inherit', 'inherit', 'inherit'] },
   );
+  const leaks = redisLeakMessages(
+    await withRedis(redisUrl, deleteKeysWithoutExpiry),
+  );
+  for (const line of leaks) process.stderr.write(`${line}\n`);
   const grown = grownTables(before, await rowCounts(databaseUrl));
   for (const { table, before: from, after: to } of grown)
     process.stderr.write(
       `test-integration: ${table} grew from ${from} to ${to} rows; a suite left rows behind (ISSUE-192)\n`,
     );
-  process.exit(exitCodeOf(child) || (grown.length > 0 ? 1 : 0));
+  process.exit(
+    exitCodeOf(child) || (grown.length > 0 || leaks.length > 0 ? 1 : 0),
+  );
 }
