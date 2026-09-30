@@ -241,7 +241,7 @@ slot. In owner sessions it asks before a merge or a push to `main`.
 ## Work management
 
 All repository work is planned in the PageSpace "Daisy Debate" drive
-(`lguvh1y1ejhadk96xcftohha`, via the `pagespace` CLI); its `Tasks` page is the
+(`lguvh1y1ejhadk96xcftohha`, via the `pagespace` CLI); its `Roadmap` page is the
 operating system. Work only on committed tasks: claim `Ready` leaves, advance
 In Progress to In Review at handoff, and mark Done only when acceptance
 criteria are proven. Status belongs in the status field; task bodies are
@@ -260,19 +260,20 @@ work](docs/development/parallel-work.md#branch-and-worktree-hygiene); they
 apply to every agent, worktree or not.
 
 Work that is not an epic leaf goes in the drive-root `Issues` task list,
-never in GitHub Issues: defects found after the owning leaf is Done, review
+filed into one of its buckets (Bugs, Test coverage, Agent tooling, Doc and
+spec drift, User feedback), never in GitHub Issues: defects found after the owning leaf is Done, review
 findings and minors with no open leaf to carry them, and small non-epic
 improvements. The test is whether an open leaf owns it: if one does, the
 finding is a follow-up leaf under that phase regardless of merge state. Title `ISSUE-n — Given X, should
 Y`; the body records origin (PR, review record, reporter), why, and the
 acceptance criteria; the Related pages block links the origin. An issue
 closes through a PR that names it, or is promoted to an epic leaf when it
-grows into feature work. `Backlog` stays for feature candidates awaiting a
-spec. Filing is an obligation: whoever observes a defect or a deferrable
+grows into feature work. `Issues/Backlog` holds feature candidates awaiting a
+spec, and `Issues/Pending decisions` the open owner decisions. Filing is an obligation: whoever observes a defect or a deferrable
 improvement — reviewer, builder, or orchestrator — creates the leaf or issue
 in the same session rather than mentioning it in prose, because an
 observation that lives only in a record or a handoff is lost once the PR
-merges. Before a stage starts, the orchestrator reads `Issues` for anything
+merges. Before a stage starts, the orchestrator reads every `Issues` bucket for anything
 touching the files or phase about to be built and carries it into the
 prompt; an epic cannot close while any issue it produced is untriaged
 (promoted, scheduled, or deferred by the owner with a reason).

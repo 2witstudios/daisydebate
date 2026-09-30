@@ -10,9 +10,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   appendRelated,
+  bucketPageIds,
   checkReplace,
   contentHash,
   findTask,
+  ISSUES_LIST_ID,
   leafBody,
   nextCodeNumber,
   parseBoardArgs,
@@ -129,13 +131,19 @@ function create(
   deps: BoardDeps,
   command: Extract<BoardCommand, { command: 'create' }>,
 ) {
-  const titles = command.prefix
-    ? json<{ tasks: { title: string }[] }>(deps, [
-        'tasks',
-        'list',
-        command.listId,
-      ]).tasks.map((task) => task.title)
-    : [];
+  const listTitles = (listId: string) =>
+    json<{ tasks: { title: string; pageId: string }[] }>(deps, [
+      'tasks',
+      'list',
+      listId,
+    ]).tasks;
+  // Issue numbers are global across the Issues buckets, wherever this lands.
+  const numbered = (): { title: string }[] => {
+    if (command.prefix !== 'ISSUE') return listTitles(command.listId);
+    const root = listTitles(ISSUES_LIST_ID);
+    return [...root, ...bucketPageIds(root, 'ISSUE').flatMap(listTitles)];
+  };
+  const titles = command.prefix ? numbered().map((task) => task.title) : [];
   const title = command.prefix
     ? `${command.prefix}-${nextCodeNumber(titles, command.prefix)} — ${command.title}`
     : command.title;

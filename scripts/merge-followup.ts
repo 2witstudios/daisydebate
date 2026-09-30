@@ -8,7 +8,13 @@
  * drive's Issues list and a Sprint Room notice. Merges before the cutoff
  * file nothing.
  */
-import { leafBody, nextCodeNumber, type RelatedEntry } from './board-model';
+import {
+  bucketPageIds,
+  ISSUES_LIST_ID,
+  leafBody,
+  nextCodeNumber,
+  type RelatedEntry,
+} from './board-model';
 import {
   debtIssue,
   deliveredCodes,
@@ -19,8 +25,6 @@ import {
 } from './board-state';
 import { postToDrive } from './notify-drive';
 import { DAISY_DEBATE_DRIVE_ID, pagespaceApi } from './pagespace-docs';
-
-export const ISSUES_LIST_ID = 'cy7vznqfbs8ikfwj1qu8xxnm';
 
 export type MergedPr = {
   readonly number: number;
@@ -231,7 +235,13 @@ function liveDeps(repository: string, cutoff: string | null): FollowupDeps {
         json('PATCH', { status }),
       );
     },
-    issueTitles: async () => (await tasksOf(ISSUES_LIST_ID)).titles,
+    issueTitles: async () => {
+      const root = await tasksOf(ISSUES_LIST_ID);
+      const nested = await Promise.all(
+        bucketPageIds(root.tasks, 'ISSUE').map(tasksOf),
+      );
+      return [...root.titles, ...nested.flatMap((list) => list.titles)];
+    },
     createIssue: async (title, criteria, related) => {
       const task = await pagespace<{ pageId?: string; page?: { id: string } }>(
         `/api/pages/${ISSUES_LIST_ID}/tasks`,
