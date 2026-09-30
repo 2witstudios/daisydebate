@@ -27,3 +27,4 @@ export function requirePermission(
 }
 export { parseUsername } from './username';
 export { resolveIdentity, type Identity } from './identity';
+export { ageBand, type AgeBand } from './age-band';
