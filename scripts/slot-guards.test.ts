@@ -79,6 +79,14 @@ describe('slot service scope', () => {
         }),
         serviceRefusal({ REDIS_URL: local.REDIS_URL }),
         serviceRefusal({ ...local, DATABASE_URL: 'not a url' }),
+        serviceRefusal({
+          ...local,
+          TEST_REDIS_URL: 'redis://cache.example.com:6379/1',
+        }),
+        serviceRefusal({
+          ...local,
+          TEST_REDIS_URL: 'redis://localhost:6379/3',
+        }),
       ],
       expected: [
         undefined,
@@ -88,6 +96,8 @@ describe('slot service scope', () => {
         'E2E_REDIS_URL must name the local stack (localhost, 127.0.0.1 or ::1), not 10.0.0.5',
         'DATABASE_URL is required in .env',
         'DATABASE_URL is not a valid URL',
+        'TEST_REDIS_URL must name the local stack (localhost, 127.0.0.1 or ::1), not cache.example.com',
+        undefined,
       ],
     });
   });

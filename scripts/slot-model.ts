@@ -5,6 +5,7 @@
  * effectful CLI lives in slot.ts.
  */
 import { basename } from 'node:path';
+import { sharedTestRedisMismatch, testRedisDatabase } from './slot-redis';
 
 export type Slot = {
   readonly kind: 'main' | 'worktree';
@@ -229,6 +230,7 @@ export function slotMismatches(slot: Slot, env: Env): readonly string[] {
         ? `${key} is unset, expected "${expected}"`
         : `${key} names "${actual}", expected "${expected}"`,
     );
+  const sharedRedis = sharedTestRedisMismatch(slot.kind, env.TEST_REDIS_URL);
   const server = serverOf(env.DATABASE_URL);
   const servers = (['TEST_DATABASE_URL', 'E2E_DATABASE_URL'] as const)
     .map((key) => [key, serverOf(env[key])] as const)
@@ -240,7 +242,7 @@ export function slotMismatches(slot: Slot, env: Env): readonly string[] {
       ([key, actual]) =>
         `${key} is on ${actual}, expected the DATABASE_URL server ${server}`,
     );
-  return [...names, ...servers];
+  return [...names, ...sharedRedis, ...servers];
 }
 
 const withPath = (
@@ -271,6 +273,7 @@ const slotEnvKeys = [
   'E2E_DATABASE_URL',
   'E2E_REDIS_URL',
   'E2E_REDIS_NAMESPACE',
+  'TEST_REDIS_URL',
   'PORT',
   'PUBLIC_APP_URL',
   'E2E_PORT',
@@ -310,6 +313,10 @@ export function slotEnvValues({
     E2E_DATABASE_URL: withPath(databaseUrl, slot.e2eDatabase, e2eRole),
     E2E_REDIS_URL: e2eRedisUrl(redisUrl),
     E2E_REDIS_NAMESPACE: slot.e2eNamespace,
+    TEST_REDIS_URL: withPath(
+      redisUrl,
+      String(testRedisDatabase(slot.kind === 'main' ? undefined : portBlock)),
+    ),
     PORT: String(ports.app),
     PUBLIC_APP_URL: `http://localhost:${ports.app}`,
     E2E_PORT: String(ports.e2e),
@@ -414,10 +421,15 @@ export function isLoopbackUrl(value: string | undefined): boolean {
  * ever talks to the local shared stack, never a stale or remote server.
  */
 export function serviceRefusal(env: Env): string | undefined {
-  for (const key of ['DATABASE_URL', 'REDIS_URL', 'E2E_REDIS_URL'] as const) {
+  for (const key of [
+    'DATABASE_URL',
+    'REDIS_URL',
+    'E2E_REDIS_URL',
+    'TEST_REDIS_URL',
+  ] as const) {
     const value = env[key];
     if (value === undefined) {
-      if (key === 'E2E_REDIS_URL') continue;
+      if (key === 'E2E_REDIS_URL' || key === 'TEST_REDIS_URL') continue;
       return `${key} is required in .env`;
     }
     let host: string;
