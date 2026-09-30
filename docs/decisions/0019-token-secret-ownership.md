@@ -1,6 +1,7 @@
 # 0019: token and secret ownership
 
-Status: accepted.
+Status: accepted. Amended by [ADR 0048](0048-authorization-core.md): the
+loggable field `denyReason` (see the amendment at the end).
 
 Better Auth owns its session, verification, and credential token persistence
 through its adapter. Daisy application code owns only application secrets and
@@ -84,3 +85,14 @@ configuration, and a new field joins this table only with an ADR amendment.
 `secretConfigKeys`, the fields the configuration schemas mark as secret, and
 `scripts/observability-docs-drift-guard.test.ts` fails when this table and
 `loggableFields` differ.
+
+## Amendment (2026-09-29): `denyReason`
+
+[ADR 0048](0048-authorization-core.md) adds one loggable field, `denyReason`,
+of kind **code**. Its values are exactly the deny reasons `denied`,
+`account-erased`, `unauthenticated`, `not-member` and `missing-capability`,
+each with privacy category `none`. It explains why an authorization
+decision denied and is logged with the operation, never with the resource's
+contents. It is not in the table above yet: `loggableFields` and the table
+are one change under the drift guard, so AZC-1.2 adds the field to both
+together.

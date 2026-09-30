@@ -1,5 +1,7 @@
 import {
   closeSync,
+  cpSync,
+  existsSync,
   mkdirSync,
   openSync,
   readFileSync,
@@ -49,10 +51,56 @@ type VerifyOptions = {
   /** Stores one stage's full output; returns where it was kept. */
   readonly writeLog?: (stage: string, output: string) => string;
   readonly print?: (text: string) => void;
+  /** Archives a failed browser run's artifacts; returns where, if anything. */
+  readonly keepE2eArtifacts?: () => string | undefined;
 };
 
 const TAIL_LINES = 40;
 const LOG_DIR = 'verify-logs';
+const E2E_RESULTS = join('apps', 'web', 'test-results');
+const E2E_ARCHIVE_DIR = join(LOG_DIR, 'e2e-failures');
+
+/**
+ * A failed browser run's archive name: its UTC start to the second, then the
+ * commit. Playwright empties test-results at the start of every run, so the
+ * only copy that outlives the next run is one under a name no run reuses.
+ */
+export function e2eArchiveName(now: Date, sha: string): string {
+  return `${now.toISOString().slice(0, 19).replaceAll(':', '-')}Z-${sha}`;
+}
+
+/**
+ * Copies the whole results folder: with retain-on-failure it holds only the
+ * failed tests' traces, screenshots and videos, plus the server logs.
+ */
+export function archiveE2eArtifacts({
+  from,
+  to,
+}: {
+  readonly from: string;
+  readonly to: string;
+}): boolean {
+  if (!existsSync(from)) return false;
+  mkdirSync(dirname(to), { recursive: true });
+  cpSync(from, to, { recursive: true });
+  return true;
+}
+
+function keepE2eResults(): string | undefined {
+  const sha = Bun.spawnSync(['git', 'rev-parse', '--short', 'HEAD'], {
+    cwd: root,
+  })
+    .stdout.toString()
+    .trim();
+  const to = join(
+    root,
+    E2E_ARCHIVE_DIR,
+    e2eArchiveName(new Date(), sha || 'unknown'),
+  );
+  return archiveE2eArtifacts({ from: join(root, E2E_RESULTS), to })
+    ? relative(root, to)
+    : undefined;
+}
 
 /**
  * A diff that touches only documentation: Markdown under docs/, ADRs
@@ -272,6 +320,16 @@ async function migrationGate(
     : fail('migration-idempotency', `second migration: ${second}`);
 }
 
+/** A failed browser run keeps its artifacts where the next run cannot reach. */
+const withArtifacts = (
+  detail: string,
+  keep: () => string | undefined,
+): string => {
+  if (detail === 'completed') return detail;
+  const kept = keep();
+  return kept ? `${detail}; artifacts ${kept}` : detail;
+};
+
 const gate = (name: VerifyGateName, detail: string): VerifyGate =>
   detail === 'completed' ? pass(name, detail) : fail(name, detail);
 
@@ -281,6 +339,7 @@ export async function runVerify({
   changedFiles = () => gitChangedFiles(),
   writeLog = writeStageLog,
   print = (text) => void process.stderr.write(text),
+  keepE2eArtifacts = keepE2eResults,
 }: VerifyOptions = {}): Promise<VerifyReport> {
   const stage: Stage = { run, writeLog, print };
   const check = await runCommand(
@@ -300,7 +359,10 @@ export async function runVerify({
       }
     : gate(
         'e2e',
-        await runCommand({ name: 'e2e', args: ['run', 'test:e2e'] }, stage),
+        withArtifacts(
+          await runCommand({ name: 'e2e', args: ['run', 'test:e2e'] }, stage),
+          keepE2eArtifacts,
+        ),
       );
   return createVerifyReport([
     gate('check', check),

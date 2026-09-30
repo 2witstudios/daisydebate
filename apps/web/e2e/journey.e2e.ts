@@ -40,7 +40,10 @@ test('anonymous visits are sent to sign-in and the whole loop ends on the protec
   await expect(page).toHaveURL(/\/onboarding\/username\?next=%2Fplay$/);
 
   // Recoverable errors: invalid, then a name someone else already owns.
-  const taken = uniqueName('taken');
+  // The other account only has to own a name, so it signs up through the
+  // real handlers without a second page: this page's own loop already walks
+  // the UI, and repeating it cost a third of the test on a loaded machine
+  // (ISSUE-204).
   const other = await page
     .context()
     .browser()!
@@ -48,15 +51,7 @@ test('anonymous visits are sent to sign-in and the whole loop ends on the protec
       ignoreHTTPSErrors: true,
       baseURL: page.url().split('/onboarding')[0]!,
     });
-  const otherPage = await other.newPage();
-  const otherEmail = freshEmail();
-  await otherPage.goto('/sign-in');
-  await requestSignInLink(otherPage, otherEmail);
-  await confirmSignIn(otherPage, await emailedLink(request, otherEmail));
-  await claimUsername(otherPage, taken);
-  await expect(
-    otherPage.getByRole('heading', { name: /next time, one tap/i }),
-  ).toBeVisible();
+  const { username: taken } = await signUpMember(other.request);
   await other.close();
 
   await page.goto('/onboarding/username?next=%2Flobby');

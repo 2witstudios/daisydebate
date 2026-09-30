@@ -16,6 +16,7 @@ const quiet = {
   changedFiles: async () => ['scripts/verify.ts'],
   writeLog: (stage: string) => `logs/${stage}.log`,
   print: () => undefined,
+  keepE2eArtifacts: () => undefined,
 };
 
 setupRitewayBun();
