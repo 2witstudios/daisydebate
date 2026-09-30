@@ -1,9 +1,12 @@
 # 0047: beehiiv as the newsletter vendor
 
 Status: accepted. Applies [ADR 0036](0036-privacy-by-design.md) (classification,
-vendor erasure) to a third vendor surface beside the two in
-[ADR 0037](0037-error-tracking-and-product-analytics.md), and follows the
-secret rules of [ADR 0019](0019-token-secret-ownership.md).
+vendor erasure) to a further vendor surface beside Sentry and PostHog
+([ADR 0037](0037-error-tracking-and-product-analytics.md)), and follows the
+secret rules of [ADR 0019](0019-token-secret-ownership.md). It amends ADR 0036
+§4 for beehiiv in one place: beehiiv is keyed by email address, not by the
+`subject_ref` cuid2 id that section calls "the key the vendors hold" (see
+Erasure).
 
 ## Context
 
@@ -62,10 +65,12 @@ throw into the caller and never a blocker for onboarding.
 
 ### Retention
 
-beehiiv keeps a subscriber until the person unsubscribes (through beehiiv's
-own link) or Daisy deletes the subscription. Daisy sets no separate
-retention clock and stores nothing to expire. An unsubscribed address stays
-in beehiiv as an inactive subscription until deleted.
+Daisy sets no retention clock for the beehiiv record and stores nothing to
+expire. beehiiv's own retention is not confirmed by the pages read: its
+[Delete subscription](https://developers.beehiiv.com/api-reference/subscriptions/delete)
+page says deletion is permanent and recommends unsubscribing instead when
+possible, and says nothing about how long an unsubscribed record, a backup
+or a log is kept. That is an open question below, not an assumption.
 
 ### Erasure
 
@@ -80,13 +85,34 @@ beehiiv documents no delete-by-email call. The job resolves the address with
 (`DELETE /v2/publications/{publicationId}/subscriptions/{subscriptionId}`,
 `subscriptions:write`, `204`, permanent: "all data associated with the
 subscription will also be deleted"). A `404` on lookup means nothing is held
-and counts as acknowledged. The job is filed as PRIV-4a.
+for **that address**, and it acknowledges only an address Daisy sent to
+beehiiv.
+
+**The address beehiiv holds must be one erasure can find.** A member can
+change their account email after opting in, so the address Daisy sent and the
+member's current address can differ; looking up only the current address
+would get a `404`, mark the job succeeded and leave the old address in
+beehiiv. Requirement on WAIT-4.4 and PRIV-4a: either the subscription's
+address is kept equal to the member's on every email change, or every address
+sent is recorded until erasure deletes it from beehiiv, or the opt-in is
+refused after a change until re-sent; an erasure job must delete every
+address Daisy sent. This ADR does not choose among them, and does not assume
+beehiiv offers an update-address call, since the pages read do not confirm
+one (open question below). The job is filed as PRIV-4a.
 
 The job needs the email, which the tombstone transaction deletes locally,
 while `privacy_jobs.subject_ref` is the cuid2 id. How the job holds the
 address until beehiiv acknowledges without becoming a second copy of
 personal data is an open question for PRIV-4a's design; it is not decided
 here.
+
+### Access and export
+
+Daisy holds no newsletter state, so `exportPersonalData` returns nothing for
+beehiiv. A member's access and portability request for the subscription is
+answered by beehiiv, which holds the record; the privacy policy (WAIT-6.1)
+says so and names the vendor. If the requirement above leads Daisy to record
+sent addresses, those addresses are exported like any other inventory column.
 
 ### Plan limits (Launch plan)
 
@@ -111,6 +137,7 @@ in the `docs/operations/privacy.md` subprocessor row:
   contractual clauses.
 - Whether an API key can be limited by permission or by publication, or
   whether the workspace must hold only this publication.
+- Whether an update-address call exists, and how an unsubscribed record is retained.
 - Whether a delete-by-email call exists beyond the two-step lookup and delete
   above.
 - Whether beehiiv retains backups or logs of a deleted subscription, and for

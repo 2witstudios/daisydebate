@@ -34,7 +34,7 @@ of every `table.column`'s category, visibility, purpose, lawful basis,
 storage (`postgres | redis | vendor`), owner, retention, erasure rule and
 exportability, per ADR 0036 §3, once PRIV-3 builds it. Redis key
 namespaces and vendor-held records (the PostHog person, Sentry user
-context) will be classified in the same inventory, not a separate one.
+context, the beehiiv subscriber: `personal`/`private`, storage `vendor`) will be classified in the same inventory, not a separate one.
 
 **Until PRIV-3 lands (DEC-11):** the file above does not exist yet, so a
 personal-data column, log field, `outbox.payload` kind or realtime topic
