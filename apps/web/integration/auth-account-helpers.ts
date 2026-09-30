@@ -1,7 +1,7 @@
 import { createId } from '@paralleldrive/cuid2';
 import type { Identity } from '@daisy/auth';
 import { createFlows } from './auth-mounted-flows';
-import { cookieHeader, withSql } from './fixtures';
+import { cookieHeader, withSql, type TestApp } from './fixtures';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import { CONFIRM_PATH } from '../src/features/auth/confirm-page';
 import { identify, resolveSession } from '../src/lib/identity';
@@ -26,8 +26,8 @@ export const emailedLinkRejected = (response: Response): boolean => {
  * request and /auth/confirm routes, and the real username claim route, all
  * on the suite's own app.
  */
-export function createAccountFlows() {
-  const flows = createFlows();
+export function createAccountFlows(testApp?: TestApp) {
+  const flows = createFlows(testApp);
   const { app, jsonPost, newClient } = flows;
   /** A server-side session read as a page render makes it for one client. */
   const identifyAs = (cookie: string, client = newClient()) =>

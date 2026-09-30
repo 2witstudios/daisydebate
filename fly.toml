@@ -14,6 +14,15 @@ app = "daisy-debate-staging"
 # machine lives.
 primary_region = "ord"
 
+# ISSUE-214: Fly sends kill_signal (SIGINT by default, which start.ts
+# handles) and SIGKILLs the machine kill_timeout seconds later (default 5).
+# The server drains for up to SHUTDOWN_DRAIN_DEADLINE_MS (25 s,
+# apps/web/src/server/shutdown-budget.ts): in-flight requests, then auth
+# mail work handed off past its answer, then the pools, and it logs any
+# work the deadline cuts off before forcing its own exit. 35 s outlasts
+# that with 10 s margin; scripts/verify-deploy-config.ts checks the two.
+kill_timeout = 35
+
 [build]
   # apps/web/Dockerfile builds the whole monorepo context; run `fly deploy`
   # from the repository root so this relative path resolves.

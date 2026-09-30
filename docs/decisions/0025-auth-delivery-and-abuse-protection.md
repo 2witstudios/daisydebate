@@ -168,17 +168,23 @@ token>` as the `verification.identifier`. The subject (the email for
   test rotates client addresses and proves the day ceiling for a taken and
   a free address, with the same refusal for both.
 - **Global sign-up ceilings and account existence (ISSUE-54, ISSUE-182,
-  ISSUE-188, ISSUE-189).** Every magic-link send spends the
+  ISSUE-185, ISSUE-188, ISSUE-189).** Every magic-link send spends the
   whole-application ceilings, whether or not the address has an account.
   They are spent at the send (`sign-in-mail.ts`), after the rate-limit gate,
   the destination check and the suppression check have admitted the request
-  exactly as they admit one for an existing account. Only a sign-up is held
-  back. Past a ceiling, a sign-up's mail is dropped and its unmailed token
-  deleted, while a sign-in link to an existing account is still sent. No one
-  can deny sign-in by draining the ceilings: rotating IPv6 /128 client
-  addresses and plus-addressed recipients (`victim+1@…`, `victim+2@…`) slip
-  past every per-client and per-recipient bucket, but a drained ceiling
-  only delays new sign-ups. Existing accounts' mail stays bounded by the
+  exactly as they admit one for an existing account. With room, the link is
+  sent to any address and the answer waits on delivery. Past a ceiling the
+  request is answered at once, and everything that depends on the account
+  runs after the answer (`after-response.ts`): the account lookup, then
+  either the sign-in link's send to an existing account or, for a sign-up,
+  the dropped mail and the deletion of its unmailed token. Only a sign-up is
+  held back. Draining the ceilings alone never denies sign-in: rotating
+  IPv6 /128 client addresses and plus-addressed recipients (`victim+1@…`,
+  `victim+2@…`) slip past every per-client and per-recipient bucket, but a
+  drained ceiling only delays new sign-ups. A drained ceiling together
+  with a flood past the handed-off work's bound (below) does stop sign-in
+  mail: real sign-ins are shed with everything else until the flood ends
+  (DEC-73, confirmed by the owner). Existing accounts' mail stays bounded by the
   recipient ceilings (20 a day per account). Sign-in links count toward the
   same 120 a minute and 3,000 a day, so a day's sign-up capacity is 3,000
   minus that day's magic-link sign-ins (passkey sign-in sends no mail and
@@ -191,22 +197,94 @@ token>` as the `verification.identifier`. The subject (the email for
   The ceilings' remaining capacity is the same after either request, so a
   caller's own follow-up sign-up cannot read the answer back (ISSUE-188).
   The per-client and per-recipient buckets meter both alike, and their
-  `429` is the same for both. What stays observable: response latency
-  under saturation, because a sign-in link is really sent while a dropped
-  sign-up is not. That channel is open and tracked as ISSUE-185. The
-  account holder also receives every sign-in link a prober requests, and
-  sees it. Operators see saturation as `auth.rate_limit.denied` in the
+  `429` is the same for both. Response time under saturation is the same
+  for both (ISSUE-185): each answer waits on the same work (the gate's
+  buckets, the suppression check, the token write and the ceiling spend)
+  and on nothing that depends on the account, so the provider round trip
+  of a real send is never part of it. The handed-off work is bounded
+  (DEC-73, DEC-76): at most 512 tasks hold a slot at once
+  (`AFTER_RESPONSE_MAX_RUNNING`) and at most 64 wait
+  (`AFTER_RESPONSE_MAX_QUEUED`). A holder mostly waits on the provider or
+  on the database gate, holding no connection, so the pool is sized by
+  memory (under 5 MB) rather than by the database. Only the database steps
+  (the account lookup, the suppression read and the one write) go through
+  a gate of 4 (two-fifths of the 10-connection Postgres pool), whose own
+  queue never exceeds the slot holders. A task arriving past both bounds
+  is shed before it starts, so before the account lookup: the request has
+  already had the same `200`, no lookup, send or drop runs, the token
+  expires unused, and `auth.mail.shed` is logged with the backlog's size
+  only and counted as `auth_mail_shed_total` on `/api/ops/metrics`. A flood
+  that fills the bound sheds real sign-ins too: availability yields to a
+  bounded backlog (DEC-73). Measured on the development host (a
+  steady flood of new addresses from rotating clients, a 300 ms provider,
+  10 real sign-ins spread through each run), the pool stayed far from full
+  up to 700 a second (peak occupancy 40, nothing shed, 10 of 10 sign-ins
+  mailed, as at 24 and 40 a second) and was full at 800 a second (3,573
+  shed, 3 of 10 sign-ins mailed). So it takes on the order of 750 new
+  addresses a second, far past any per-client limit, to stop sign-in mail;
+  production's smaller machine will saturate lower, and the `mail_shed`
+  alert reports it (ISSUE-220).
+
+  **Residual: slot occupancy and account existence (DEC-76, qualifying
+  DEC-41).** A real send holds its slot for a provider round trip; a
+  dropped sign-up frees its slot in milliseconds. That difference is
+  visible to another request only through shedding, and shedding happens
+  only while the global ceiling is saturated and the whole occupancy pool
+  (512 held, 64 waiting) is full. Then an attacker with their own
+  existing account can request a target, request their own account just
+  after, and read from whether their own link arrives whether the target
+  had an account: with the pool exactly at its edge the effect is total
+  (a one-slot pool gives 0 of 10 canaries mailed behind an existing target
+  and 10 of 10 behind an unknown one, `auth-mail-ceiling-occupancy.integration.ts`).
+  Under a real flood of 800 new addresses a second from rotating
+  clients (248,207 requests over 200 canary trials a side, ABBA, a 300 ms
+  provider), the pool was all or nothing: at the canary's moment its
+  occupancy had a median of 1 and a 90th percentile of 575 (full). The
+  canary was mailed 178 of 200 times behind an existing target and 181 of
+  200 behind an unknown one: a difference of −1.5 points (95 % CI −7.4
+  to +4.4, z −0.49), so the flood-held residual was not measurable at that
+  sample size.
+  So the attack needs a flood above about 750 new addresses a second held
+  for as long as it samples, timing that lands its probes in the moments
+  the pool is full, many samples, and its own accounts; each probe of one
+  target is also capped by the recipient windows (20 a day). The owner
+  accepted this flood-only residual in DEC-76's fallback, which qualifies
+  DEC-41: account existence stays unobservable except through shedding
+  once the occupancy pool is full. Two designs to close it were rejected.
+  An equal-occupancy stand-in (a dropped sign-up holding its slot as long
+  as a sampled real send) failed the power test: its holds matched within
+  about half a millisecond, but at a sharp shed edge that still gave a 15
+  to 20 point canary difference in 2 of 3 runs of 200 a side. A durable
+  outbox for real sends leaks through the canary's delivery latency: a
+  target's queued send delays the attacker's own mail. The handed-off
+  work finishes before the app's pools close on shutdown, and a shutdown
+  deadline that cuts it off logs `auth.mail.abandoned` with the count
+  (fly.toml's `kill_timeout` outlasts that deadline, ISSUE-214). A database
+  failure during the work is logged as `request.unhandled`, and its
+  unmailed token expires unused. What stays
+  observable: the account holder receives every sign-in link a prober
+  requests, and sees it. Operators see saturation as `auth.rate_limit.denied` in the
   structured log, never in a response. A drained ceiling delays new
   sign-ups until its window resets: the person gets no mail and requests
   another link. A limiter failure on a ceiling fails closed with the same
   `503` as any other bucket. Integration tests against real Redis saturate
   the minute ceiling and prove identical answers, and run the canary probe
   (fill to 119 with the caller's own addresses, request the target, then
-  one more own address), which is mailed alike whatever the target is.
+  one more own address), which is mailed alike whatever the target is. A
+  latency test against real PostgreSQL and Redis, with the mail provider
+  given a round trip, compares the two paths' response times with a
+  two-sample Kolmogorov–Smirnov test (α = 0.001), and a unit test pins that
+  both answer after the identical seam calls while the transport has not
+  answered. Flood tests against real services (200 existing-account
+  requests over 20 connections with the provider held and the bounds
+  narrowed to 4 and 64, and 1,200 new-address requests over 1,000
+  connections at the production bounds) prove the backlog never exceeds
+  the bound and that the rest is shed and counted.
+
 - **Suppression covers every auth mail (ISSUE-54).** Every auth email
   (sign-in links, email-change approval and confirmation, passkey
   added/removed notices) goes through the one delivery path
-  (`createAuthServer`'s `sendMail`), which checks the suppression ledger
+  (`send-mail.ts`), which checks the suppression ledger
   before anything reaches the transport. A suppressed recipient is logged
   as `auth.mail.suppressed` and nothing is sent. A mail the flow cannot
   proceed without (the sign-in link, the email-change approval to the

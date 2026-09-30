@@ -8,8 +8,12 @@ const UNAVAILABLE_MARK_TTL_SECONDS = 180;
 const DELIVERY_FAILURE_WINDOW_SECONDS = 60 * 60;
 /** Long-lived on purpose: cleared only by an actual successful sweep, so a multi-hour outage stays visible (ADR: see docs/decisions). */
 const RETENTION_SUCCESS_TTL_SECONDS = 30 * 24 * 60 * 60;
-/** Outlives the 10-minute read window `alert-state.ts` sums over. */
+/** Outlives the 10-minute read windows `alert-state.ts` sums over. */
 const HTTP_BUCKET_TTL_SECONDS = 11 * 60;
+
+/** The current one-minute bucket `alert-state.ts` sums trailing windows of. */
+const minuteBucket = (clock: Clock) =>
+  Math.floor(Date.parse(clock.now()) / MINUTE_MS);
 
 export type AlertRecorderRedis = {
   readonly markOccurrenceSince: (
@@ -47,7 +51,7 @@ const recordHttpOutcome = (
   const { operation, status } = fields;
   if (typeof operation !== 'string' || !operation.startsWith('auth.')) return;
   if (typeof status !== 'number') return;
-  const bucket = Math.floor(Date.parse(clock.now()) / MINUTE_MS);
+  const bucket = minuteBucket(clock);
   swallow(
     redis.incrementWithExpiry(
       `alert-http-total-${bucket}`,
@@ -132,6 +136,15 @@ export function createAlertRecorder({
             redis.incrementWithExpiry(
               'alert-mail-consecutive-failures',
               DELIVERY_FAILURE_WINDOW_SECONDS,
+            ),
+          );
+          return;
+        case 'auth.mail.shed':
+          // ISSUE-220: a count per minute, no address or task identity.
+          swallow(
+            redis.incrementWithExpiry(
+              `alert-mail-shed-${minuteBucket(clock)}`,
+              HTTP_BUCKET_TTL_SECONDS,
             ),
           );
           return;

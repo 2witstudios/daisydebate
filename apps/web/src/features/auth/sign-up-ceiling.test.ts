@@ -19,6 +19,7 @@ describe('global sign-up ceilings at the magic-link send', () => {
     });
     db.user.push(existingAccount);
     const response = await server.instance.handler(magicLinkRequest());
+    await server.settled();
     assert({
       given:
         'saturated global ceilings and a magic-link request for an address that has an account',
@@ -63,6 +64,7 @@ describe('global sign-up ceilings at the magic-link send', () => {
           : { allowed: true, retryAfterSeconds: 0 },
     });
     const response = await server.instance.handler(magicLinkRequest());
+    await server.settled();
     assert({
       given:
         'a limiter denying only the global per-minute bucket and a request for an address with no account',
@@ -127,6 +129,7 @@ describe('global sign-up ceilings at the magic-link send', () => {
     const knownAnswer = await answer(
       await known.server.instance.handler(magicLinkRequest()),
     );
+    await Promise.all([known.server.settled(), unknown.server.settled()]);
     assert({
       given:
         'saturated global ceilings and a failing mail transport, for an address with and without an account',

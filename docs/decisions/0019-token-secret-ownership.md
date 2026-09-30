@@ -70,6 +70,7 @@ characters. Any other message is replaced with `[REDACTED]`.
 | `batches`                | count |
 | `closeCode`              | count |
 | `deliverySeqLagEstimate` | count |
+| `pending`                | count |
 
 Kinds: **code**, a letter followed by up to 79 letters, digits, `_`, `.` or
 `-`; **id**, 1–128 letters, digits, `_` or `-`; **path**, `/` followed by
