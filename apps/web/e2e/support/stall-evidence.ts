@@ -27,11 +27,11 @@ export type ProtocolEntry = {
   readonly error?: string | undefined;
 };
 
-export type Layer = 'browser' | 'driver';
+type Layer = 'browser' | 'driver';
 export type Verdict = { readonly layer: Layer; readonly detail: string };
 
 /** A driver event-loop delay this long means it could not read an answer. */
-export const STARVED_MS = 1_000;
+const STARVED_MS = 1_000;
 
 /** Each engine's page-creation command. */
 const createMethods = new Set([
