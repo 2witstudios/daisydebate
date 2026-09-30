@@ -4,6 +4,9 @@ import { readAuthConfig } from './index';
 
 setupRitewayBun();
 
+/** Obvious placeholder fixture: no real signing secret. */
+const webhookSecret = `whsec_${Buffer.from('placeholder-webhook-signing-key').toString('base64')}`;
+
 /** The message a rejected configuration throws, or `accepted`. */
 const failureOf = (read: () => unknown) => {
   try {
@@ -19,7 +22,7 @@ describe('OPS_PROBE_TOKEN (AUTH-7.7)', () => {
     const production = {
       ...authEnv,
       NODE_ENV: 'production',
-      RESEND_WEBHOOK_SECRET: 'whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw',
+      RESEND_WEBHOOK_SECRET: webhookSecret,
     };
     let message = '';
     try {
