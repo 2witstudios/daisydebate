@@ -2,6 +2,7 @@ import { APIError, createAuthMiddleware, getIP } from 'better-auth/api';
 import { createAppError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import { recipientKey } from './recipient-key';
+import { clientNetworks, type NetworkScope } from './client-networks';
 
 /** Fixed-window allowance the gate asks the limiter to enforce for one key. */
 type RateRule = {
@@ -40,6 +41,26 @@ const MAGIC_LINK_GLOBAL_RULES: readonly RateRule[] = [
   { windowSeconds: 60, max: 120 },
   { windowSeconds: 86_400, max: 3_000 },
 ];
+
+/**
+ * AUTH-3.10: magic-link requests per network, on top of the per-client
+ * bucket. Better Auth keys an IPv6 client by its /64, so one /48 is 65,536
+ * clients and could send about 3,277 magic-link requests a second at 3 a
+ * minute each, enough to hold the handed-off work's 512-slot pool full
+ * (ADR 0025). These cap a /56 (a typical household or small site) at 30 a
+ * minute, a /48 (a typical organization, host or tunnel-broker allocation)
+ * at 120 a minute, and an IPv4 /24 at 120 a minute: 2 a second per /48 or
+ * /24, against a pool edge measured at 700 to 1,200 a second on the
+ * development host, so filling the pool takes hundreds of distinct /48s
+ * or /24s rather than one.
+ */
+export const MAGIC_LINK_NETWORK_RULES: Readonly<
+  Record<NetworkScope, RateRule>
+> = {
+  ipv6_56: { windowSeconds: 60, max: 30 },
+  ipv6_48: { windowSeconds: 60, max: 120 },
+  ipv4_24: { windowSeconds: 60, max: 120 },
+};
 
 /** Atomic multi-instance limiter contract backed by @daisy/redis. */
 export type AuthRateLimiter = {
@@ -97,7 +118,24 @@ const mailedRecipient = (
   return typeof email === 'string' ? { flow: route.flow, email } : undefined;
 };
 
-type Bucket = { readonly key: string; readonly rule: RateRule };
+type Bucket = {
+  readonly key: string;
+  readonly rule: RateRule;
+  /** Set on a network bucket, so its denial is logged as one. */
+  readonly scope?: NetworkScope;
+};
+
+// One bucket per network the client is in, keyed by the network (never the
+// client's own address) and the window.
+const networkBuckets = (client: string | null): Bucket[] =>
+  clientNetworks(client).map(({ scope, network }) => {
+    const rule = MAGIC_LINK_NETWORK_RULES[scope];
+    return {
+      key: `auth:magic-link:net:${scope}:${network}:${rule.windowSeconds}`,
+      rule,
+      scope,
+    };
+  });
 
 // The per-recipient bucket is keyed by `recipientKey` (recipient-key.ts): a
 // subkey-derived digest, so the address never reaches Redis keys or logs.
@@ -187,8 +225,9 @@ const denial = (
   path: string,
   errorCode: 'RATE_LIMIT' | 'INFRASTRUCTURE',
   retryAfterSeconds?: unknown,
+  logged = true,
 ) => {
-  logDenial(logger, path, errorCode);
+  if (logged) logDenial(logger, path, errorCode);
   return errorCode === 'RATE_LIMIT'
     ? new APIError(
         'TOO_MANY_REQUESTS',
@@ -253,6 +292,7 @@ export const createRateLimitGate = (dependencies: {
           key: `auth:client:${client ?? 'unknown'}:${path}`,
           rule: path === magicLinkPath ? MAGIC_LINK_CLIENT_RULE : DEFAULT_RULE,
         },
+        ...(path === magicLinkPath ? networkBuckets(client) : []),
         ...recipientBuckets(dependencies.recipientSubkey, recipient),
       ];
     });
@@ -262,13 +302,22 @@ export const createRateLimitGate = (dependencies: {
           await dependencies.limiter.consume(bucket.key, bucket.rule),
         ),
       );
-      if (!decision.allowed)
+      if (!decision.allowed) {
+        if (bucket.scope !== undefined)
+          // Counts only: the scope, never the network, client or address.
+          dependencies.logger.log(
+            'auth.rate_limit.network_denied',
+            { operation: 'auth.rate_limit', path, scope: bucket.scope },
+            'Auth magic-link request rate limited for its network',
+          );
         throw denial(
           dependencies.logger,
           path,
           'RATE_LIMIT',
           decision.retryAfterSeconds,
+          bucket.scope === undefined,
         );
+      }
     };
     for (const bucket of buckets) await consume(bucket);
   });

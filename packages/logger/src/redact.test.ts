@@ -126,6 +126,7 @@ describe('structured logging: field allowlist (ADR 0019)', () => {
       closeCode: 4001,
       deliverySeqLagEstimate: 42,
       pending: 68,
+      scope: 'ipv6_48',
     };
     const { entry } = emit(
       fields,

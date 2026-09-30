@@ -4,6 +4,7 @@ import {
   evaluateAlerts,
   readAlertSnapshot,
 } from './alert-state';
+import { emptySnapshot } from './alert-state.test-support';
 
 setupRitewayBun();
 
@@ -33,6 +34,7 @@ describe('alert state with the limiter kept in process (ISSUE-191)', () => {
         authRequests: { total: 0, serverErrors: 0, windowMinutes: 10 },
         retentionLastSuccessIso: null,
         mailShed: { count: 500, windowMinutes: 10 },
+        networkDenied: { count: 50_000, windowMinutes: 10 },
       }).map((c) => c.id),
       expected: ['limiter_unavailable'],
     });
@@ -87,14 +89,8 @@ describe('alert state with the limiter kept in process (ISSUE-191)', () => {
         local: { limiterUnavailableSince: () => since },
       }),
       expected: {
-        nowIso: NOW,
-        redisState: 'unreachable',
-        storageUnavailableSinceIso: null,
+        ...emptySnapshot(NOW, 'unreachable'),
         limiterUnavailableSinceIso: since,
-        deliveryConsecutiveFailures: 0,
-        authRequests: { total: 0, serverErrors: 0, windowMinutes: 10 },
-        retentionLastSuccessIso: null,
-        mailShed: { count: 0, windowMinutes: 10 },
       },
     });
   });

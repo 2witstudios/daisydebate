@@ -12,7 +12,7 @@ const getSession = (headers: Record<string, string> = {}) =>
   new Request('http://localhost:3000/api/auth/get-session', { headers });
 
 describe('AUTH-3.4 rules the gate hands the atomic limiter', () => {
-  test('a sign-up link request carries one client bucket, three recipient windows and two global ceilings', async () => {
+  test('a sign-up link request carries one client bucket, its network, three recipient windows and two global ceilings', async () => {
     const { server, consumed } = create();
     await server.instance.handler(magicLinkRequest());
     const kindOf = (key: string) =>
@@ -20,13 +20,15 @@ describe('AUTH-3.4 rules the gate hands the atomic limiter', () => {
         ? 'recipient'
         : key.startsWith('auth:magic-link:global:')
           ? 'global'
-          : key.startsWith('auth:client:')
-            ? 'client'
-            : 'other';
+          : key.startsWith('auth:magic-link:net:')
+            ? 'network'
+            : key.startsWith('auth:client:')
+              ? 'client'
+              : 'other';
     assert({
       given: 'one magic-link request for an address with no account',
       should:
-        'consume the client bucket, all three recipient windows and both global ceilings, never carrying the address',
+        'consume the client bucket, the loopback client’s /24 (AUTH-3.10), all three recipient windows and both global ceilings, never carrying the address',
       actual: {
         rulesByKind: consumed.map(({ key, rule }) => ({
           kind: kindOf(key),
@@ -37,6 +39,7 @@ describe('AUTH-3.4 rules the gate hands the atomic limiter', () => {
       expected: {
         rulesByKind: [
           { kind: 'client', rule: { windowSeconds: 60, max: 3 } },
+          { kind: 'network', rule: { windowSeconds: 60, max: 120 } },
           { kind: 'recipient', rule: { windowSeconds: 60, max: 3 } },
           { kind: 'recipient', rule: { windowSeconds: 3_600, max: 10 } },
           { kind: 'recipient', rule: { windowSeconds: 86_400, max: 20 } },

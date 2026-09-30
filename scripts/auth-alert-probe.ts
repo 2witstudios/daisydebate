@@ -169,6 +169,7 @@ const ALERT_CONDITION_IDS = [
   'auth_5xx_rate',
   'cleanup_missed',
   'mail_shed',
+  'network_limited',
 ] as const satisfies readonly AlertCondition['id'][];
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -227,6 +228,7 @@ const UNEVALUATED_WITHOUT_ALERT_STATE = [
   'auth_5xx_rate',
   'cleanup_missed',
   'mail_shed',
+  'network_limited',
 ] as const;
 
 /**
