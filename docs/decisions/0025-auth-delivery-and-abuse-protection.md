@@ -178,11 +178,13 @@ token>` as the `verification.identifier`. The subject (the email for
   runs after the answer (`after-response.ts`): the account lookup, then
   either the sign-in link's send to an existing account or, for a sign-up,
   the dropped mail and the deletion of its unmailed token. Only a sign-up is
-  held back. No one
-  can deny sign-in by draining the ceilings: rotating IPv6 /128 client
-  addresses and plus-addressed recipients (`victim+1@…`, `victim+2@…`) slip
-  past every per-client and per-recipient bucket, but a drained ceiling
-  only delays new sign-ups. Existing accounts' mail stays bounded by the
+  held back. Draining the ceilings alone never denies sign-in: rotating
+  IPv6 /128 client addresses and plus-addressed recipients (`victim+1@…`,
+  `victim+2@…`) slip past every per-client and per-recipient bucket, but a
+  drained ceiling only delays new sign-ups. A drained ceiling together
+  with a flood past the handed-off work's bound (below) does stop sign-in
+  mail: real sign-ins are shed with everything else until the flood ends
+  (DEC-73, confirmed by the owner). Existing accounts' mail stays bounded by the
   recipient ceilings (20 a day per account). Sign-in links count toward the
   same 120 a minute and 3,000 a day, so a day's sign-up capacity is 3,000
   minus that day's magic-link sign-ins (passkey sign-in sends no mail and
@@ -208,9 +210,25 @@ token>` as the `verification.identifier`. The subject (the email for
   has already had the same `200`, no lookup, send or drop runs, the token
   expires unused, and `auth.mail.shed` is logged with the backlog's size
   only and counted as `auth_mail_shed_total` on `/api/ops/metrics`.
-  Shedding depends only on how much work is pending, never on the address,
-  so it reveals nothing. Under a flood, an existing account's sign-in mail
-  can be shed too: availability yields to a bounded backlog. The handed-off
+  Shedding depends only on how much work is pending, and how much is
+  pending never depends on the address (DEC-41): a dropped sign-up stands
+  in for a send (`createSendStandIn`, `send-mail.ts`). It makes the same
+  suppression read, then holds its slot until a send drawn from the recent
+  sends' measured durations (`send-pacing.ts`: the last 64, from the
+  suppression read to the receipt write, picked by an OS CSPRNG index)
+  would have ended, with its one write (the token delete, where a send
+  records its receipt) timed to finish at that end. The wait is shortened
+  by the stand-in's own measured timer lateness and write cost, so its end
+  follows the sends' distribution instead of adding to it. So slot
+  occupancy, queue depth, shed probability and pool use are the same
+  whatever the address. We chose this over decoupling sends onto a durable
+  outbox: a bounded outbox would itself be an observable queue (a
+  target's queued send delays or sheds the attacker's own canary send),
+  while equal occupancy removes the difference at its source with no new
+  table or worker. A flood that fills the bound sheds real sign-ins too:
+  availability yields to a bounded backlog (DEC-73). The stand-in costs
+  capacity. A dropped sign-up now occupies a slot for a send's duration,
+  so a flood of new addresses fills the bound as fast as one of sign-ins. The handed-off
   work finishes before the app's pools close on shutdown, and a shutdown
   deadline that cuts it off logs `auth.mail.abandoned` with the count
   (fly.toml's `kill_timeout` outlasts that deadline, ISSUE-214). A database
@@ -232,7 +250,13 @@ token>` as the `verification.identifier`. The subject (the email for
   answered. Flood tests against real services (200 existing-account
   requests over 20 connections with the provider held, and 1,200
   new-address requests over 1,000 connections) prove the backlog never
-  exceeds 68 and that the rest is shed and counted.
+  exceeds 68 and that the rest is shed and counted. The review's canary
+  attack (request the target, then shortly after the attacker's own
+  existing account, and read whether that one is mailed) runs against
+  real services with a slow provider (400 ms) and the bound narrowed to
+  one running slot. Its 3 runs of 12 trials a side, at a canary 360 ms and
+  390 ms behind the target, must all give a two-proportion |z| under 3.29
+  (α = 0.001). Without the stand-in, |z| reaches about 4 at 360 ms.
 - **Suppression covers every auth mail (ISSUE-54).** Every auth email
   (sign-in links, email-change approval and confirmation, passkey
   added/removed notices) goes through the one delivery path

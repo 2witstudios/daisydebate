@@ -64,7 +64,9 @@ to your topology before release.
 
 Every magic-link send counts against the whole-application ceilings, with
 or without an account, but only sign-ups are held back (ADR 0025, ISSUE-54,
-ISSUE-188): a drained ceiling delays new sign-ups, never sign-in. A day's
+ISSUE-188): a drained ceiling alone delays new sign-ups, never sign-in,
+but a drained ceiling together with a flood past the handed-off work's
+bound sheds sign-in mail as well (DEC-73; see below). A day's
 sign-up capacity is 3,000 minus that day's magic-link sign-ins. Past a
 ceiling, a sign-up request gets the same `200` as any other and no mail
 (ISSUE-182); the saturation shows only as `auth.rate_limit.denied` with
