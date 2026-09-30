@@ -16,7 +16,7 @@
 
 /**
  * One protocol message, reduced to what tells the layers apart: its
- * direction, id and method. Parameters and results are never kept, so no
+ * direction, id, method and session. Parameters and results are never kept, so no
  * cookie, header or credential reaches the evidence.
  */
 export type ProtocolEntry = {
@@ -25,6 +25,8 @@ export type ProtocolEntry = {
   readonly id?: number | undefined;
   readonly method?: string | undefined;
   readonly error?: string | undefined;
+  /** The protocol session a command went to; none is the browser's own. */
+  readonly session?: string | undefined;
 };
 
 type Layer = 'browser' | 'driver';
@@ -41,6 +43,8 @@ const createMethods = new Set([
 ]);
 
 const since = (at: number, from: number) => `+${Math.round(at - from)}ms`;
+const sessionName = ({ session }: ProtocolEntry) =>
+  session ? `session ${session}` : 'the browser session';
 
 /** The protocol's verdict for the window that started at `from`. */
 export function protocolVerdict(
@@ -75,11 +79,29 @@ export function protocolVerdict(
       direction === 'send' && at >= create.at && !answeredIds.has(id!),
   );
   const [first] = pending;
-  if (first)
+  if (first) {
+    // Answers to commands sent after the first unanswered one show whether
+    // the browser process itself was still running (ISSUE-279).
+    const later = window.filter(
+      ({ direction, id, at }) =>
+        direction === 'send' &&
+        at >= first.at &&
+        id !== first.id &&
+        answeredIds.has(id!),
+    );
+    const named = later
+      .slice(0, 3)
+      .map((entry) => `${entry.method} #${entry.id} on ${sessionName(entry)}`)
+      .join(', ');
     return {
       layer: 'browser',
-      detail: `the browser answered ${create.method} #${create.id} but never answered ${pending.length} command(s) after it, first ${first.method} #${first.id} (sent ${since(first.at, from)}); it sent ${heardAfter(first.at)} other message(s) after that`,
+      detail: `the browser answered ${create.method} #${create.id} but never answered ${pending.length} command(s) after it, first ${first.method} #${first.id} on ${sessionName(first)} (sent ${since(first.at, from)}); ${
+        later.length
+          ? `meanwhile it answered ${later.length} command(s) sent after that (${named}), so the browser process was running while the page did not answer`
+          : `it answered nothing sent after that, and sent ${heardAfter(first.at)} other message(s)`
+      }`,
     };
+  }
   return {
     layer: 'driver',
     detail: `the browser answered every command, ${create.method} #${create.id} included, yet newPage never resolved`,

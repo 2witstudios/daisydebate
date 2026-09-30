@@ -16,12 +16,12 @@ import {
  * window). The pure verdicts come first; the live controls then freeze each
  * layer for real and check that the evidence names it.
  */
-const sent = (at: number, id: number, method: string): ProtocolEntry => ({
-  at,
-  direction: 'send',
-  id,
-  method,
-});
+const sent = (
+  at: number,
+  id: number,
+  method: string,
+  session?: string,
+): ProtocolEntry => ({ at, direction: 'send', id, method, session });
 const answered = (at: number, id: number): ProtocolEntry => ({
   at,
   direction: 'recv',
@@ -65,6 +65,28 @@ test.describe('the stall verdict (pure)', () => {
       allAnswered: 'driver',
       noCommand: 'driver',
       starvedDriverWins: 'driver',
+    });
+  });
+
+  test('tells a page that never answers apart from a silent browser process', () => {
+    // The shape of the first stall captured (aa636ef, load 222): the target
+    // was created, then the new page's session answered nothing while the
+    // browser session still answered.
+    const { layer, detail } = protocolVerdict(
+      [
+        sent(10, 7, 'Target.createTarget'),
+        answered(12, 7),
+        sent(13, 8, 'Page.startScreencast', 'page-1'),
+        sent(13, 9, 'Page.enable', 'page-1'),
+        sent(14, 10, 'Browser.setWindowBounds'),
+        answered(15, 10),
+      ],
+      5,
+    );
+    expect({ layer, detail }).toEqual({
+      layer: 'browser',
+      detail:
+        'the browser answered Target.createTarget #7 but never answered 2 command(s) after it, first Page.startScreencast #8 on session page-1 (sent +8ms); meanwhile it answered 1 command(s) sent after that (Browser.setWindowBounds #10 on the browser session), so the browser process was running while the page did not answer',
     });
   });
 

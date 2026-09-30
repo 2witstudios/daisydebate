@@ -28,24 +28,30 @@ const RING = 4_000;
 const entries: ProtocolEntry[] = [];
 const markers = ['SEND ► ', '◀ RECV '] as const;
 
-/** Reduces one pw:protocol line to its direction, id and method. */
+/** Reduces one pw:protocol line to its direction, id, method and session. */
 const entryOf = (text: string): ProtocolEntry | undefined => {
   const marker = markers.find((candidate) => text.includes(candidate));
   if (!marker) return undefined;
   const at = performance.now();
   const body = text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1);
   try {
-    const { id, method, error } = JSON.parse(body) as {
+    const { id, method, error, sessionId, pageProxyId } = JSON.parse(body) as {
       id?: number;
       method?: string;
       error?: { message?: string };
+      sessionId?: string;
+      pageProxyId?: string;
     };
+    // Chromium and Firefox address a page by sessionId, WebKit by
+    // pageProxyId; an opaque handle, shortened to stay readable.
+    const session = sessionId ?? pageProxyId;
     return {
       at,
       direction: marker === markers[0] ? 'send' : 'recv',
       id,
       method,
       error: error?.message?.slice(0, 200),
+      session: session === undefined ? undefined : String(session).slice(0, 8),
     };
   } catch {
     return { at, direction: marker === markers[0] ? 'send' : 'recv' };
@@ -54,7 +60,8 @@ const entryOf = (text: string): ProtocolEntry | undefined => {
 
 /**
  * Records Playwright's protocol log (pw:protocol) for the running test into
- * a bounded ring, keeping only each message's direction, id and method, and
+ * a bounded ring, keeping only each message's direction, id, method and
+ * session, and
  * returns the function that stops recording. Other DEBUG namespaces keep
  * reaching the original log.
  */
@@ -82,7 +89,7 @@ export function recordProtocol(): () => void {
 const line = (entry: ProtocolEntry, from: number) =>
   `+${Math.round(entry.at - from)}ms ${entry.direction === 'send' ? 'SEND ►' : '◀ RECV'} ${
     entry.id === undefined ? 'event' : `#${entry.id}`
-  }${entry.method ? ` ${entry.method}` : ''}${entry.error ? ` error: ${entry.error}` : ''}`;
+  }${entry.method ? ` ${entry.method}` : ''}${entry.session ? ` [${entry.session}]` : ''}${entry.error ? ` error: ${entry.error}` : ''}`;
 
 /** The whole test's protocol tail, for a failed test's protocol.log. */
 export const protocolLog = () =>
@@ -102,11 +109,23 @@ const ps = async () => {
     const { stdout } = await promisify(execFile)(
       'ps',
       ['-Ao', 'pid=,ppid=,stat=,pcpu=,comm='],
-      { timeout: 5_000 },
+      { timeout: 10_000 },
     );
     return stdout;
   } catch (error) {
-    return `ps failed: ${(error as Error).message}`;
+    // The first captured stall lost this to a bare "Command failed" at load
+    // 222: keep how it failed (exit code, signal, timeout kill, stderr).
+    const { code, signal, killed, stderr } = error as {
+      code?: unknown;
+      signal?: unknown;
+      killed?: unknown;
+      stderr?: unknown;
+    };
+    return `ps failed: code ${String(code)}, signal ${String(signal)}, killed ${String(killed)}: ${String(
+      stderr ?? '',
+    )
+      .trim()
+      .slice(0, 200)}`;
   }
 };
 
