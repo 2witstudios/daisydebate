@@ -41,19 +41,30 @@ const bareToThrowRestriction = {
  */
 const bunCallee =
   ":matches([callee.object.name='Bun'], [callee.object.object.name='globalThis'][callee.object.property.name='Bun'])";
-const wildcardAddress = '/^(0\\.0\\.0\\.0|::)$/';
+// Every spelling of the wildcard address, bracketed or not, and the empty
+// string (ISSUE-278).
+const wildcardAddress = '/^(0\\.0\\.0\\.0|\\[?::0?\\]?|)$/';
 const bindMessage =
   "Bind the server's address (hostname or host: '127.0.0.1'): a wildcard bind can share its port with another process's loopback listener.";
 /**
  * ISSUE-254 closes the routes the first selector missed: a hostname nested
  * in the handler rather than the options, an explicit wildcard address,
  * globalThis.Bun, a destructured serve or listen, Bun.listen, and a node
- * server's listen() with no host. Production's listen(port, host, …) and a
- * Postgres LISTEN (a string channel) stay clean.
+ * server's listen() with no host. ISSUE-278 adds serve or listen imported
+ * from 'bun', Bun under another name, hostname: undefined and every
+ * wildcard spelling. Production's listen(port, host, …) and a Postgres
+ * LISTEN (a string channel) stay clean.
  */
 const unboundServerRestrictions = [
   `CallExpression[callee.property.name=/^(serve|listen)$/]${bunCallee} > ObjectExpression.arguments:not(:has(> Property[key.name='hostname']))`,
   `CallExpression[callee.property.name=/^(serve|listen)$/]${bunCallee} > ObjectExpression.arguments > Property[key.name='hostname'][value.value=${wildcardAddress}]`,
+  // The Identifier type matters: esquery reads a Literal's missing name as
+  // the string 'undefined', which would match every hostname.
+  `CallExpression[callee.property.name=/^(serve|listen)$/]${bunCallee} > ObjectExpression.arguments > Property[key.name='hostname'] > Identifier.value[name='undefined']`,
+  // ISSUE-278: serve and listen imported from 'bun', and Bun under another
+  // name, reach the same servers without the Bun callee the selectors see.
+  "ImportDeclaration[source.value='bun'] > ImportSpecifier[imported.name=/^(serve|listen)$/]",
+  "VariableDeclarator[id.type='Identifier']:matches([init.name='Bun'], [init.object.name='globalThis'][init.property.name='Bun'])",
   "VariableDeclarator:matches([init.name='Bun'], [init.object.name='globalThis'][init.property.name='Bun']) > ObjectPattern > Property[key.name=/^(serve|listen)$/]",
   `CallExpression[callee.property.name='listen']:not(${bunCallee}):not([arguments.0.type='Literal'][arguments.0.value=/^[^0-9]/]):not([arguments.0.type='TemplateLiteral']):matches([arguments.length=1][arguments.0.type!='ObjectExpression'], [arguments.1.type=/Function/])`,
   `CallExpression[callee.property.name='listen']:not(${bunCallee}) > ObjectExpression.arguments:not(:has(> Property[key.name='host']))`,
@@ -203,6 +214,32 @@ const purePackages = [
   'packages/protocol/**/*.ts',
   'packages/errors/**/*.ts',
   'packages/auth/**/*.ts',
+];
+
+/**
+ * Every spec runs on the shared fixture (apps/web/e2e/support/fixtures.ts):
+ * Playwright's own page fixture and a bare newPage have no bound, while the
+ * shared ones fail a stalled page creation by name and keep the evidence
+ * that tells the browser, the driver and our server apart (ISSUE-253,
+ * ISSUE-276, ISSUE-277, ISSUE-279).
+ */
+const fixtureMessage =
+  'Import test from ./support/fixtures, the shared fixture with a bounded page and failure diagnostics.';
+const sharedFixtureRestrictions = [
+  ...[
+    "ImportDeclaration[source.value='@playwright/test'] > ImportSpecifier:matches([imported.name='test'], [imported.value='test'])",
+    "ImportDeclaration[source.value='@playwright/test'][importKind!='type'] > :matches(ImportNamespaceSpecifier, ImportDefaultSpecifier)",
+    "ExportNamedDeclaration[source.value='@playwright/test'] > ExportSpecifier[local.name='test']",
+    "ImportExpression[source.value='@playwright/test']",
+  ].map((selector) => ({ selector, message: fixtureMessage })),
+  ...[
+    "MemberExpression[property.name='newPage']",
+    "ObjectPattern > Property[key.name='newPage']",
+  ].map((selector) => ({
+    selector,
+    message:
+      'Open a page with openPage from ./support/fixtures: it bounds page creation and keeps the stall evidence.',
+  })),
 ];
 
 /** The repo-wide `no-restricted-syntax` list; overrides extend or replace it. */
@@ -540,14 +577,19 @@ export default [
         'error',
         ...repoSyntaxRestrictions,
         ...processEdgeLoads,
-        {
-          // ISSUE-253: Playwright's own page fixture has no bound; the shared
-          // one fails a stalled newPage by name and keeps browser diagnostics.
-          selector:
-            "ImportDeclaration[source.value='@playwright/test'] > ImportSpecifier[imported.name='test']",
-          message:
-            'Import test from ./support/fixtures, the shared fixture with a bounded page and failure diagnostics.',
-        },
+        ...sharedFixtureRestrictions,
+      ],
+    },
+  },
+  // The shared fixture is the one module built on Playwright's own test and
+  // newPage; every other e2e restriction still applies to it.
+  {
+    files: ['apps/web/e2e/support/fixtures.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...repoSyntaxRestrictions,
+        ...processEdgeLoads,
       ],
     },
   },

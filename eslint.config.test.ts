@@ -8,6 +8,7 @@ import {
   serverBindCases,
   serverGlobCases,
   sharedFixtureCases,
+  secondaryPageCases,
   type Problems,
   props,
   globals,
@@ -259,7 +260,7 @@ describe('restrictions every no-restricted-syntax list carries', () => {
     });
   });
 
-  test('rejects every route to a wildcard-bound server and leaves bound or unrelated calls alone (ISSUE-254)', async () => {
+  test('rejects every route to a wildcard-bound server and leaves bound or unrelated calls alone (ISSUE-254, ISSUE-278)', async () => {
     const { actual, expected } = table(
       serverBindCases.map(([code, flagged]): Problems => [
         code,
@@ -269,19 +270,31 @@ describe('restrictions every no-restricted-syntax list carries', () => {
     );
     assert({
       given:
-        'Bun.serve and Bun.listen, destructured and globalThis forms, node listen calls, and a Postgres LISTEN',
+        'Bun.serve and Bun.listen, destructured, imported, aliased and globalThis forms, every wildcard spelling, node listen calls, and a Postgres LISTEN',
       should: 'report each wildcard or unaddressed bind once and nothing else',
       actual: await actual,
       expected,
     });
   });
 
-  test('requires every e2e spec to use the shared, bounded page fixture (ISSUE-253)', async () => {
+  test('requires every e2e spec to use the shared, bounded page fixture (ISSUE-253, ISSUE-276)', async () => {
     const { actual, expected } = table(sharedFixtureCases);
     assert({
       given:
-        'specs importing Playwright’s test, the shared fixture, or only types',
-      should: 'reject only the import of Playwright’s own test',
+        'specs importing Playwright’s test by name, namespace, default, re-export or dynamic import, the shared fixture, or only types and expect',
+      should:
+        'reject every route to Playwright’s own test outside the shared fixture, and nothing else',
+      actual: await actual,
+      expected,
+    });
+  });
+
+  test('requires every secondary page to open through the bounded openPage (ISSUE-277)', async () => {
+    const { actual, expected } = table(secondaryPageCases);
+    assert({
+      given:
+        'a spec or support module calling newPage on a context or a browser, one using openPage, and the shared fixture',
+      should: 'reject each direct newPage outside the shared fixture',
       actual: await actual,
       expected,
     });
