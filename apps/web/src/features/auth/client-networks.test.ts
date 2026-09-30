@@ -69,7 +69,9 @@ describe('clientNetworks (AUTH-3.10)', () => {
       given: `the IPv4-mapped forms ${forms.join(', ')}`,
       should: 'name only the IPv4 /24 1.2.3.0/24 for each',
       actual: forms.map((form) => clientNetworks(form)),
-      expected: forms.map(() => [{ scope: 'ipv4_24', network: '1.2.3.0/24' }]),
+      expected: forms.map(() => [
+        { scope: 'ipv4_24' as const, network: '1.2.3.0/24' },
+      ]),
     });
   });
 
