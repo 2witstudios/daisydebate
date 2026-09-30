@@ -131,8 +131,9 @@ flat permission list described in the package map above.
 - **One pure decision point.** `authorize` and `authorizeInbox` in
   `@daisy/auth` (AZC-1.3) answer every read and create question from facts
   the shared loader in `@daisy/db` (`packages/db/src/league-scoped/`,
-  AZC-3.1) loads fresh per request; `authorizeSubscribe` does the same for
-  the five realtime topic families (AZC-3.4). Principals carry no
+  AZC-3.1) loads fresh per request; `authorizeSubscribe` (AZC-1.3) does the same for
+  the five realtime topic families, and the realtime subscribe registry calls
+  it (AZC-3.4). Principals carry no
   permissions. `apps/web` composes the loader and `authorize` in
   `authorizeRequest`, and `apps/realtime` composes them in its subscribe
   decision, so neither app imports the other.

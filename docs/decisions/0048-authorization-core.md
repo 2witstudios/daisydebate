@@ -451,13 +451,14 @@ $now, left_at = NULL WHERE league_members.left_at IS NOT NULL`.
 - Membership still matters now: it is the "on this ladder" fact that the
   Ratings epic's ranked seating requires.
 
-### 8. Realtime subscribe (AZC-3.4)
+### 8. Realtime subscribe (AZC-1.3, AZC-3.4)
 
 `apps/realtime` declares `@daisy/auth`. `authorizeSubscribe(topic,
 principal, input)` is pure, lives in `@daisy/auth`, and maps each of the five
 topic families to one decision (the table is ADR 0031 section 5, amended
-below). The subscribe registry (RT-2.5a) calls it over the shared loader
-(section 5). A denied or failed decision refuses the subscribe.
+below). AZC-1.3 delivers the pure function; AZC-3.4 has the subscribe
+registry (RT-2.5a) call it over the shared loader (section 5). A denied or
+failed decision refuses the subscribe.
 
 - Sockets require a ticket, and tickets are issued only to signed-in members
   with an actor, so an anonymous principal never subscribes. A public or
@@ -488,8 +489,7 @@ below). The subscribe registry (RT-2.5a) calls it over the shared loader
   implicit join on the first ranked queue in an open ladder), ranked
   seating, the rule that a ranked seat requires an active membership, rating
   changes and the first ranked-eligible format. It consumes `league.join`,
-  `inLeague` and `debates_league_iff_ranked`, and adds `league_id` to the
-  child tables with LEAGUE-OPS's RLS.
+  `inLeague` and `debates_league_iff_ranked`.
 - **LEAGUE-OPS.** It must land RLS, and drop `leagues_single_row` in the same
   migration, before any second league exists; the guard enforces this. It
   adds roles, grants, custom roles, audit, the organizer area and league
@@ -598,28 +598,32 @@ membership state.
 ## Decisions made on the owner's behalf (open)
 
 Recorded with `bun decision:record` and open on the drive's Pending
-decisions list until the owner confirms or overrules them:
+decisions list until the owner confirms or overrules them. The plan item
+numbers are those the three records themselves name, and each list below
+restates its record.
 
-- **DEC-70, evaluator and access semantics:** five deny reasons taken from
+- **DEC-70, evaluator and access semantics (plan items 1, 7, 8, 12, 15, 16,
+  17):** five deny reasons taken from
   the first rule that decides; unranked by-id reads get a JSON route
   (`GET /api/debates/[id]`) for the realtime refetch hook; private chat stays
   seated-only; `unlisted` is a listing flag, not access control; an
   `unavailable` identity answers 503 or fails closed; unranked creation
-  seats no one.
-- **DEC-71, data and isolation:** no TRUNCATE in the single migration; the
-  second-league guard is a constant unique index plus a doctor and startup
-  check matched by definition; the loader is a plain projection in
+  seats no one; `standings` topics are keyed by season id rather than a slug,
+  because seasons have no slug column (section 8, AZC-1.2).
+- **DEC-71, data and isolation (plan items 2, 5, 9, 10, 11, 13, 14, 18):** no TRUNCATE in the single migration; the
+  second-league guard is a constant unique index plus doctor and startup
+  checks, matched by definition, that require RLS and a policy on every
+  league-owned table (including those reached through foreign keys) before
+  the index can go; the loader is a plain projection in
   `@daisy/db` with a pure mapper in `@daisy/auth`; `resolveScopeById` is the
   one unscoped by-id read; type-only imports of league-owned schema modules
   are allowed and `@daisy/db` unit tests are exempt from the static check;
-  raw SQL is outside the static check; `withScratchDatabase` is the one
+  raw SQL is outside the static check, and test-only raw SQL in
+  `apps/web/integration` is allowed; `withScratchDatabase` is the one
   scratch-database harness.
-- **DEC-72, membership and naming:** join and leave write no audit row and
+- **DEC-72, membership and naming (plan items 3, 4, 6):** join and leave write no audit row and
   emit no realtime event in this epic; join and leave are idempotent; leaf
   codes use the prefix `AZC`.
-
-`standings` topics are keyed by season id rather than a slug, because
-seasons have no slug column (section 8, AZC-1.2).
 
 ## Consequences
 
