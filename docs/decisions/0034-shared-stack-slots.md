@@ -176,6 +176,70 @@ nothing that survives the next sweep.
 - Migration generation is still single-writer (`bun migrations:check`); each
   slot only applies its own branch's migrations to its own databases.
 
+## Test Postgres: one database per run (ISSUE-238)
+
+ISSUE-192's row ledger compares a run's row counts before and after and fails
+a suite that grew a table. It cannot see a run that never reached the end: a
+SIGKILL, a crash or a CI timeout skips every `afterAll`, and the rows it left
+(730 `verification` rows, measured 2026-09-29) become the next run's baseline,
+so nothing ever reports or removes them. The rule is that a killed run leaves
+no row that survives, by construction rather than by cleanup.
+
+- **A database per run.** `scripts/test-integration.ts` creates
+  `<slot test database>_run_<8 hex digits from the CSPRNG>` from `template0`
+  (for `daisy_wt_3ctbm0tw_test`: `daisy_wt_3ctbm0tw_test_run_0a1b2c3d`),
+  migrates it with the checkout's own migrator, runs the workspace's suites
+  with `TEST_DATABASE_URL` pointing at it, checks the row ledger against it
+  and drops it. Rows can only be written to a database that is dropped, so no
+  suite, however it exits, leaves rows in a database anyone else reads. The
+  ledger stays: a suite that leaves rows in its run database still fails the
+  run (ISSUE-192). Because every run migrates an empty database, every run
+  also proves the migrations apply from nothing.
+- **Liveness is a lock, not a clock.** The runner claims the name with a
+  session advisory lock (`pg_try_advisory_lock(hashtextextended(name, 0))`) on
+  one admin connection it holds for the whole run, before it creates the
+  database. Postgres releases the lock the moment that connection ends,
+  however the runner died. Before a run creates its own database it drops
+  every run database of its slot whose lock is free (`DROP DATABASE ... WITH
+(FORCE)`, which also stops a suite process the killed runner orphaned). A
+  live run, in this workspace's sibling run or another process, holds its lock
+  and is never touched; no idle-time or maximum-run-length guess can drop a
+  slow run. If a sweep runs in the few milliseconds before Postgres notices a
+  dead runner, it skips that database and the next run drops it.
+- **Why not a row sweep.** Sweeping fixture rows by prefix and age would
+  need every table's cascade and every future table's registration; a table
+  someone forgets would leak again. Dropping a database has no such list. A
+  per-run schema was rejected for the same reason plus the migrator: it is
+  written for `public`.
+- **A suite cannot start by hand.** `requireTestServices` accepts only a
+  database ending `_test_run_<8 hex digits>`, so `bun test` on a suite file
+  fails naming the rule instead of writing to a shared database. The runner
+  takes a suite file as an argument (`bun ../../scripts/test-integration.ts
+integration/x.integration.ts` from the workspace), and gives it a run
+  database like any other. `requireTestSlotServices` still accepts the slot's
+  `_test` database for tooling.
+- **The slot's `_test` database remains** as the name run databases derive
+  from and the target of `bun verify`'s migration-idempotency gate and
+  `bun db:reset`; no suite writes to it. `_test_run_<8 hex>` is a reserved
+  suffix in slot ids, and a run database maps back to its slot, so a prune
+  never drops a live slot's runs and drops an orphaned slot's with it.
+  `bun slot:down` drops the slot's run databases first.
+- **Obsolete, removed.** ISSUE-148's advisory lock refused a second
+  concurrent apps/web run against one test database. Runs no longer share a
+  database, so the lock and its module are gone, and two runs of one slot can
+  proceed side by side.
+- **Cost and limits.** Migrating and dropping a run database took about a
+  second on a developer machine. CI needs nothing new: its Postgres user
+  creates databases. Postgres holds a database per live run, so a run of the
+  whole suite needs a few more connections than before, well inside
+  `max_connections=300`.
+
+The proof is `bun proof:test-postgres`: a real run of the mail-ceilings suite
+is SIGKILLed mid-suite (runner and suite process); its rows are in its run
+database and not in the slot's `_test` database; the next clean run drops it,
+passes, keeps the ledger flat and leaves no run database; a concurrent run
+never drops a live run's database; and a suite started by hand is refused.
+
 ## Upgrade path
 
 Copy-on-write cloning (Postgres 18 `file_copy_method = clone`) needs a
