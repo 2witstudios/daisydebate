@@ -44,7 +44,7 @@ import {
   newAgent,
   newWorktree,
 } from './agent-spawn-model';
-import { isAgentSession } from './agent-guard-rules';
+import { mainCheckoutOf, sessionIsAgent } from './agent-session';
 import { recordPath, serializeRecord } from './agent-registry';
 
 type Result = { readonly code: number; readonly stdout: string };
@@ -296,7 +296,6 @@ async function spawnChecked(deps: SpawnDeps, plan: SpawnPlan): Promise<number> {
   const turnsBefore =
     reviewed && prompt ? turnsWith(deps, reviewed.path, prompt) : 0;
   const { worktree, agent } = spawnAgentInto(deps, plan, reviewed);
-  if (!reviewed) setUp(deps, worktree);
   deps.write(
     recordPath(deps.mainCheckout, agent.id),
     serializeRecord({
@@ -305,6 +304,8 @@ async function spawnChecked(deps: SpawnDeps, plan: SpawnPlan): Promise<number> {
       worktree: worktree.path,
     }),
   );
+  // Registered first: a failed setup must never leave an owner-looking agent.
+  if (!reviewed) setUp(deps, worktree);
   deps.out(
     `spawned ${agent.id} in ${worktree.path} (parent ${deps.parentId ?? 'owner'})\n`,
   );
@@ -418,8 +419,8 @@ if (import.meta.main) {
     ),
     repoRoot,
     parentId: process.env.PU_AGENT_ID || undefined,
-    // Any pu agent is an agent, as in the guard (ADR 0035 section 6).
-    autonomous: isAgentSession(process.env),
+    // A registered agent is an agent, as in the guard (ADR 0035 section 6).
+    autonomous: sessionIsAgent(process.env, mainCheckoutOf(repoRoot)),
     out: (text) => process.stdout.write(text),
   };
   const [mode, ...args] = process.argv.slice(2);

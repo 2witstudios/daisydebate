@@ -6,17 +6,67 @@ import { decide, facts, owner, worktree } from './agent-guard.test-support';
 setupRitewayBun();
 
 describe('agent guard: who is an agent', () => {
-  test('treats a pu agent as an agent even without DAISY_AUTONOMOUS', () => {
+  test('treats a registered pu agent as an agent even without DAISY_AUTONOMOUS', () => {
+    const lookup = (id: string) =>
+      id === 'ag-reg'
+        ? 'registered'
+        : id === 'ag-bad'
+          ? 'unreadable'
+          : 'absent';
     assert({
       given:
-        'DAISY_AUTONOMOUS=1, PU_AGENT_ID alone (DAISY_AUTONOMOUS cleared), and neither',
-      should: 'be an agent for the first two and the owner only for the last',
+        'DAISY_AUTONOMOUS=1 with and without a registration, a registered id, an unreadable registration, an unregistered id, and no id',
+      should:
+        'be an agent for all but the unregistered id (the owner orchestrator) and the empty session',
       actual: [
-        isAgentSession({ DAISY_AUTONOMOUS: '1' }),
-        isAgentSession({ PU_AGENT_ID: 'ag-1' }),
-        isAgentSession({ PU_AGENT_ID: '' }),
+        isAgentSession({ DAISY_AUTONOMOUS: '1' }, lookup),
+        isAgentSession(
+          { DAISY_AUTONOMOUS: '1', PU_AGENT_ID: 'ag-none' },
+          lookup,
+        ),
+        isAgentSession({ PU_AGENT_ID: 'ag-reg' }, lookup),
+        isAgentSession({ PU_AGENT_ID: 'ag-bad' }, lookup),
+        isAgentSession({ PU_AGENT_ID: 'ag-none' }, lookup),
+        isAgentSession({ PU_AGENT_ID: '' }, lookup),
       ],
-      expected: [true, true, false],
+      expected: [true, true, true, true, false, false],
+    });
+  });
+
+  test('refuses a raw pu spawn from a registered agent only', () => {
+    assert({
+      given:
+        'pu spawn and pu swarm run, and pu status, from an agent and the owner',
+      should: 'deny the spawning forms for the agent, allow everything else',
+      actual: [
+        decide('pu spawn "do it"'),
+        decide('pu swarm run team'),
+        decide(
+          'pu schedule create nightly --start-at 2026-10-01T00:00:00 --trigger inline-prompt',
+        ),
+        decide('pu schedule enable nightly'),
+        decide('pu trigger create t --on agent_idle'),
+        decide('pu trigger assign ag-1 t'),
+        decide('cd /x && pu spawn --root "p"'),
+        decide('env FOO=1 pu spawn p'),
+        decide('pu status --json'),
+        decide('pu swarm list'),
+        decide('pu schedule list'),
+        decide('pu trigger list'),
+        decide('pu spawn "do it"', owner()),
+        decide('pu swarm run team', owner()),
+        decide('pu schedule create x', owner()),
+      ],
+      expected: [
+        ...Array(8).fill('deny'),
+        'allow',
+        'allow',
+        'allow',
+        'allow',
+        'allow',
+        'allow',
+        'allow',
+      ],
     });
   });
 

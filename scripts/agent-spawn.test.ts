@@ -90,19 +90,19 @@ describe('bun agent:spawn', () => {
     });
   });
 
-  test('stops before registering the agent when setup fails', async () => {
+  test('registers the agent before setup, so a failed setup leaves it registered', async () => {
     const machine = fakeMachine({ setupFails: true });
     const code = await spawnAgent(machine.deps, spawnArgs);
     assert({
       given: 'bun install failing in the freshly spawned worktree',
       should:
-        'still run only the one combined spawn, but never register the agent',
+        'still run only the one combined spawn, and the agent is registered, never an owner-looking session',
       actual: [
         code,
         spawned(machine.calls).length,
         machine.files.has(recordPath(repo, 'ag-new')),
       ],
-      expected: [1, 1, false],
+      expected: [1, 1, true],
     });
   });
 

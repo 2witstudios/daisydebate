@@ -18,7 +18,7 @@ import {
   parseBoardArgs,
   type BoardCommand,
 } from './board-model';
-import { isAgentSession } from './agent-guard-rules';
+import { sessionIsAgent, thisRepoMainCheckout } from './agent-session';
 
 type Result = { readonly code: number; readonly stdout: string };
 
@@ -232,8 +232,8 @@ if (import.meta.main) {
         return { code: result.exitCode, stdout: result.stdout.toString() };
       },
       readFile: (path) => readFileSync(path, 'utf8'),
-      // Any pu agent is an agent, as in the guard (ADR 0035 section 6).
-      autonomous: isAgentSession(process.env),
+      // A registered agent is an agent, as in the guard (ADR 0035 section 6).
+      autonomous: sessionIsAgent(process.env, thisRepoMainCheckout()),
       scratch: (name) =>
         join(tmpdir(), `board-${branch}-${process.pid}-${name}`),
       out: (text) => process.stdout.write(text),
