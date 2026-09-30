@@ -130,11 +130,16 @@ block` (3 to 501), written to `TEST_REDIS_URL` by `slot:up`. The port block
   mismatch; the runner (which calls the same function) exits before its
   sweep or post-run scan; `slot:down` opens no client. An integration file
   reaches Redis only through `openTestRedis` (`@daisy/redis/testing`), which
-  accepts only a URL `requireTestServices` returned, and a lint rule fails
-  any integration file that creates a raw `RedisClient`, scans or lists the
-  whole database, or flushes; the only database-wide scan is the runner's,
-  after the check, so a hand-edited `.env` can never make a run delete
-  another database's keys.
+  accepts only a URL `requireTestServices` returned. The client it hands out
+  refuses, at run time and however the call is spelled, FLUSHDB, FLUSHALL,
+  SELECT, SWAPDB, MOVE and any SCAN or KEYS that matches everything. A lint
+  rule fails any integration file that imports `RedisClient` or `redis` from
+  `bun` (a type-only import is fine), aliased, namespaced or default, that
+  names a command other than as a string literal, or that scans, lists or
+  flushes the whole database in any spelling. The only database-wide
+  operations are the runner's (`deleteAllKeysWithoutExpiry`, after the
+  check), so a hand-edited `.env` can never make a run delete another
+  database's keys (ISSUE-245, ISSUE-246).
 - **Why not per-namespace key tracking.** Tracking each run's keys in a set
   needs every write attributed to a namespace at the seam: the presence
   scripts build a hash key inside Lua, and the slot tooling must still SCAN
@@ -194,10 +199,14 @@ no row that survives, by construction rather than by cleanup.
   one admin connection it holds for the whole run, before it creates the
   database. Postgres releases the lock the moment that connection ends,
   however the runner died. Before a run creates its own database it drops
-  every run database of its slot whose lock is free and that no session uses
-  (`DROP DATABASE ... WITH (FORCE)`). A suite process that outlives a
-  SIGKILLed runner is left to finish: its database is dropped by the first
-  sweep after its connections end, rows and all. A live run, in this
+  every run database of its slot whose lock is free and that has no session
+  younger than the longest a run may last (`TEST_RUN_MAX_MS`, one hour;
+  `DROP DATABASE ... WITH (FORCE)`). A suite process that outlives a
+  SIGKILLed runner is left to finish while its sessions are within that
+  bound, so a run that lost its lock is never dropped under its suite; a
+  suite that hangs past the bound has its sessions terminated by the forced
+  drop and its database removed, rows and all, so a hung orphan cannot keep a
+  run database indefinitely (ISSUE-260). A live run, in this
   workspace's sibling run or another process, holds its lock and is never
   touched; no idle-time or maximum-run-length guess can drop a slow run. If a
   sweep runs in the few milliseconds before Postgres notices a dead runner,
