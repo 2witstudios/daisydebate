@@ -1,12 +1,9 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { authEnv } from './auth-env.test-support';
+import { authEnv, webhookSecret } from './auth-env.test-support';
 import { readAuthConfig, readBrowserConfig, readServerConfig } from './index';
 
 setupRitewayBun();
-
-/** Obvious placeholder fixture: no real signing secret. */
-const webhookSecret = `whsec_${Buffer.from('placeholder-webhook-signing-key').toString('base64')}`;
 
 /** The message a rejected configuration throws, or `accepted`. */
 const failureOf = (read: () => unknown) => {
