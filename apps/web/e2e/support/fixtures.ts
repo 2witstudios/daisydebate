@@ -1,7 +1,13 @@
 import * as playwright from '@playwright/test';
-import type { Page } from '@playwright/test';
+import type { BrowserContext, Page } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
-import { boundedStep } from './bounded-step';
+import { boundedStep, STEP_LIMIT_MS, StepTimeoutError } from './bounded-step';
+import {
+  protocolLog,
+  recordProtocol,
+  recordStall,
+  startWindow,
+} from './stall-capture';
 
 /**
  * Per-test browser diagnostics for every spec (ISSUE-234, ISSUE-253): each
@@ -52,22 +58,75 @@ export function watchPage(page: Page) {
 }
 
 /**
- * Every spec's test (ISSUE-253; a lint rule rejects importing Playwright's
- * own). Its page is created as a bounded step, so a BrowserContext.newPage
- * that never answers fails by name at 15 s instead of as a bare 30 s
- * "while setting up page" (ISSUE-233, ISSUE-243), and it is watched, so a
- * failed test keeps its browser-diagnostics.log beside its trace.
+ * Opens a page in `context`, bounded (ISSUE-253, ISSUE-277): a newPage that
+ * never answers fails by name within `limitMs` instead of as a bare 30 s
+ * timeout, and leaves stall-evidence.log naming the layer that stopped, the
+ * browser, the driver or our server (ISSUE-279). The page is watched, so a
+ * failed test keeps its console and errors. The one route to a page: the
+ * lint gate rejects a direct newPage anywhere else.
  */
-export const test = playwright.test.extend({
-  page: async ({ context }, provide, testInfo) => {
-    lines.length = 0;
-    pages = 0;
-    started = performance.now();
-    const page = await boundedStep(
-      'creating the test page (fixture setup)',
-      () => context.newPage(),
-    );
+export async function openPage(
+  context: BrowserContext,
+  purpose: string,
+  {
+    limitMs = STEP_LIMIT_MS,
+    processSnapshot,
+  }: {
+    readonly limitMs?: number;
+    readonly processSnapshot?: () => Promise<string>;
+  } = {},
+): Promise<Page> {
+  const step = `opening ${purpose}`;
+  const from = startWindow();
+  try {
+    const page = await boundedStep(step, () => context.newPage(), limitMs);
     watchPage(page);
+    return page;
+  } catch (error) {
+    if (!(error instanceof StepTimeoutError)) throw error;
+    const cause = await recordStall(
+      playwright.test.info(),
+      { step, from, limitMs },
+      processSnapshot,
+    );
+    throw new Error(
+      `${error.message}; cause: ${cause} (see stall-evidence.log)`,
+      { cause: error },
+    );
+  }
+}
+
+/**
+ * Every spec's test (ISSUE-253; a lint rule rejects importing Playwright's
+ * own). Every test records Playwright's protocol traffic, so a failed test
+ * keeps protocol.log and a stalled page creation can be judged (ISSUE-279).
+ * Its page opens through openPage, and a failed test keeps its
+ * browser-diagnostics.log beside its trace.
+ */
+export const test = playwright.test.extend<{ protocolLog: void }>({
+  protocolLog: [
+    // Playwright reads fixture dependencies from this pattern: none here.
+    // eslint-disable-next-line no-empty-pattern
+    async ({}, provide, testInfo) => {
+      lines.length = 0;
+      pages = 0;
+      started = performance.now();
+      const stop = recordProtocol();
+      try {
+        await provide();
+      } finally {
+        stop();
+      }
+      if (testInfo.status !== testInfo.expectedStatus)
+        await writeFile(
+          testInfo.outputPath('protocol.log'),
+          `${protocolLog()}\n`,
+        );
+    },
+    { auto: true },
+  ],
+  page: async ({ context, protocolLog: _recording }, provide, testInfo) => {
+    const page = await openPage(context, 'the test page (fixture setup)');
     await provide(page);
     if (testInfo.status !== testInfo.expectedStatus)
       await writeFile(

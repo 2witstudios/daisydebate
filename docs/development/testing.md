@@ -363,6 +363,64 @@ and orphan-checks them like any `*.test.ts` suite.
   `ui/theme/apply-theme.ts` and `ui/theme/theme-controller.ts` (used by
   `theme-provider.tsx`) are the example.
 
+### Page creation and stall evidence (ISSUE-253, ISSUE-277, ISSUE-279, ISSUE-282, ISSUE-284)
+
+Every spec imports `test` from `apps/web/e2e/support/fixtures.ts`, and every
+page, the test's own and any second device or tab, opens through its
+`openPage(context, purpose)`. ESLint rejects Playwright's own `test` (by
+name, namespace, default, re-export or dynamic import) and any direct
+`newPage` outside that module. `openPage` bounds page creation at 15 s, so a
+browser that never answers fails by name instead of as a bare 30 s test
+timeout. Before it throws, it writes `stall-evidence.log` to the test's
+output folder within a 3 s budget (a process listing or log read that does
+not finish in time is cut and says so, ISSUE-282), naming the layer that
+stopped:
+
+- **browser**: Playwright sent the page-creation command
+  (`Target.createTarget`, `Playwright.createPage` or `Browser.newPage`) and
+  the browser never answered it, never attached the new page, or never
+  answered a command to the new page's own session (the one its attach
+  event opened). Another page's command still in flight never counts
+  (ISSUE-284). The log lists what the browser still answered meanwhile;
+- **driver**: Playwright's own event loop stalled for a second or more (the
+  bound's timer fired late), so it could not read an answer, or every
+  command was answered and `newPage` still did not resolve;
+- our **server**'s event loop in the same window: `e2e/support/server.ts`
+  logs one `e2e.event_loop` sample a second to `server-<port>.log`, and a
+  starved or stopped server writes none.
+
+The log also carries the protocol messages in the window, up to the moment
+the bound fired and tagged by session, the host's load,
+the worker's browser processes with their scheduler state (`T` is stopped)
+and the server log's lines for the window. A failed test also keeps
+`protocol.log`, its protocol traffic reduced to direction, id, method and
+session handles (never parameters, so no cookie or credential).
+`e2e/stall-evidence.e2e.ts` proves each verdict live: it freezes the browser
+with `SIGSTOP`, starves the driver, and starves the capture itself (a
+process listing that never returns), and each must be named within its
+budget.
+
+### Known limits of the browser harness
+
+- The page-creation stall of ISSUE-233 and ISSUE-243 (about 1 in 600 page
+  setups in the heavy suites under load, 0 in 5,000 bare setups in review)
+  is not reproduced on demand, and its cause is unverified. One capture
+  exists (ISSUE-233): the new page's session never answered while the
+  browser session did. Protocol traffic cannot tell a renderer that never
+  started from one that hung or a stalled helper process. Each further stall
+  leaves `stall-evidence.log`; under DEC-75, clean CI runs at the final
+  candidate decide.
+- The host line's `os.freemem` excludes inactive and cached memory on
+  macOS, so a figure of about 130 MiB there is routine, not memory pressure.
+- The protocol capture reads the `debug` instance playwright-core exports
+  as `playwright-core/lib/utilsBundle`, an untyped export. `playwright-core`
+  is pinned to the same version as `@playwright/test`; an upgrade must keep
+  `stall-evidence.e2e.ts` green, which fails if the capture records nothing.
+- While a test runs, the fixture owns the `pw:protocol` namespace;
+  `DEBUG=pw:protocol` still prints, and other `pw:*` namespaces are untouched.
+- The server evidence covers the web process (app, TLS edge and mail
+  capture); `apps/realtime` is not sampled, since no page creation reaches it.
+
 ## Test file naming
 
 New packages name their suite `src/index.test.ts`. Existing subject-named

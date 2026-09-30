@@ -3,7 +3,7 @@ import {
   type Browser,
   type Page,
 } from '@playwright/test';
-import { expect, test } from './support/fixtures';
+import { expect, openPage, test } from './support/fixtures';
 import {
   confirmSignIn,
   emailedLink,
@@ -32,7 +32,7 @@ async function signInSecondSession(
     ignoreHTTPSErrors: true,
     baseURL: origin,
   });
-  const otherPage = await context.newPage();
+  const otherPage = await openPage(context, 'the other device');
   await otherPage.goto('/sign-in');
   await requestSignInLink(otherPage, email);
   await otherPage.goto(await emailedLink(request, email));
@@ -279,7 +279,7 @@ test('a conflicting email answers the same success shape, and leaves both accoun
     ignoreHTTPSErrors: true,
     baseURL: origin,
   });
-  const otherPage = await otherContext.newPage();
+  const otherPage = await openPage(otherContext, 'the other device');
   await otherPage.goto('/sign-in');
   await requestSignInLink(otherPage, other.email);
   await confirmSignIn(otherPage, await emailedLink(request, other.email));

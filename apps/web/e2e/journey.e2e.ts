@@ -1,4 +1,4 @@
-import { expect, test } from './support/fixtures';
+import { expect, openPage, test } from './support/fixtures';
 import {
   emailedLink,
   freshEmail,
@@ -228,7 +228,7 @@ test('an emailed link opened in a different browser than the one that requested 
   // shared with the requesting page (the "opened it on another device"
   // case a bearer magic link must support).
   const other = await browser.newContext({ ignoreHTTPSErrors: true });
-  const otherPage = await other.newPage();
+  const otherPage = await openPage(other, 'the other browser');
   await confirmSignIn(otherPage, link);
   await expect(otherPage).toHaveURL(/\/onboarding\/username/);
   await claimUsername(otherPage, uniqueName('cross-browser'));

@@ -41,19 +41,46 @@ const bareToThrowRestriction = {
  */
 const bunCallee =
   ":matches([callee.object.name='Bun'], [callee.object.object.name='globalThis'][callee.object.property.name='Bun'])";
-const wildcardAddress = '/^(0\\.0\\.0\\.0|::)$/';
+// Every spelling of the wildcard address: IPv4's all-zero forms ('0',
+// '0.0.0.0'), IPv6's (only zeros and colons, bracketed or not: '::', '::0',
+// '::0000', '0:0:0:0:0:0:0:0', '[::]'), the IPv4-mapped '::ffff:0.0.0.0',
+// and the empty string (ISSUE-278, ISSUE-283, ISSUE-286). Loopback ('::1',
+// '127.0.0.1', '::ffff:127.0.0.1') has a non-zero digit.
+const wildcardAddress =
+  '/^(0+(\\.0+){0,3}|\\[?[0:]*:[0:]*\\]?|\\[?[0:]*:[fF]{4}:0+(\\.0+){3}\\]?|)$/';
 const bindMessage =
   "Bind the server's address (hostname or host: '127.0.0.1'): a wildcard bind can share its port with another process's loopback listener.";
 /**
  * ISSUE-254 closes the routes the first selector missed: a hostname nested
  * in the handler rather than the options, an explicit wildcard address,
  * globalThis.Bun, a destructured serve or listen, Bun.listen, and a node
- * server's listen() with no host. Production's listen(port, host, …) and a
- * Postgres LISTEN (a string channel) stay clean.
+ * server's listen() with no host. ISSUE-278, ISSUE-283 and ISSUE-286 add
+ * serve or listen imported from 'bun', Bun under another name (an alias,
+ * or 'bun' imported whole, by default name or dynamically), hostname:
+ * undefined and every wildcard spelling. Production's listen(port, host, …)
+ * and a Postgres LISTEN (a string channel) stay clean.
  */
 const unboundServerRestrictions = [
   `CallExpression[callee.property.name=/^(serve|listen)$/]${bunCallee} > ObjectExpression.arguments:not(:has(> Property[key.name='hostname']))`,
   `CallExpression[callee.property.name=/^(serve|listen)$/]${bunCallee} > ObjectExpression.arguments > Property[key.name='hostname'][value.value=${wildcardAddress}]`,
+  // The Identifier type matters: esquery reads a Literal's missing name as
+  // the string 'undefined', which would match every hostname.
+  `CallExpression[callee.property.name=/^(serve|listen)$/]${bunCallee} > ObjectExpression.arguments > Property[key.name='hostname'] > Identifier.value[name='undefined']`,
+  // ISSUE-278: serve and listen imported from 'bun', and Bun under another
+  // name, reach the same servers without the Bun callee the selectors see.
+  "ImportDeclaration[source.value='bun'] > ImportSpecifier[imported.name=/^(serve|listen)$/]",
+  "VariableDeclarator[id.type='Identifier']:matches([init.name='Bun'], [init.object.name='globalThis'][init.property.name='Bun'])",
+  // ISSUE-283, ISSUE-286: 'bun' imported whole (namespace, default, the
+  // default by name, or dynamically) is Bun under another name.
+  "ImportDeclaration[source.value='bun'] > :matches(ImportNamespaceSpecifier, ImportDefaultSpecifier)",
+  "ImportDeclaration[source.value='bun'] > ImportSpecifier[imported.name='default']",
+  // A dynamic import stays clean when it takes named values (SQL), and is
+  // rejected when it can reach a server: the module bound whole, serve or
+  // listen destructured, called on the awaited module, or handed to then().
+  "VariableDeclarator[id.type='Identifier'] > AwaitExpression.init > ImportExpression[source.value='bun']",
+  "VariableDeclarator[init.type='AwaitExpression'][init.argument.type='ImportExpression'][init.argument.source.value='bun'] > ObjectPattern.id > Property[key.name=/^(serve|listen)$/]",
+  "MemberExpression[property.name=/^(serve|listen)$/] > AwaitExpression.object > ImportExpression[source.value='bun']",
+  "CallExpression[callee.property.name='then'] > MemberExpression.callee > ImportExpression.object[source.value='bun']",
   "VariableDeclarator:matches([init.name='Bun'], [init.object.name='globalThis'][init.property.name='Bun']) > ObjectPattern > Property[key.name=/^(serve|listen)$/]",
   `CallExpression[callee.property.name='listen']:not(${bunCallee}):not([arguments.0.type='Literal'][arguments.0.value=/^[^0-9]/]):not([arguments.0.type='TemplateLiteral']):matches([arguments.length=1][arguments.0.type!='ObjectExpression'], [arguments.1.type=/Function/])`,
   `CallExpression[callee.property.name='listen']:not(${bunCallee}) > ObjectExpression.arguments:not(:has(> Property[key.name='host']))`,
@@ -203,6 +230,35 @@ const purePackages = [
   'packages/protocol/**/*.ts',
   'packages/errors/**/*.ts',
   'packages/auth/**/*.ts',
+];
+
+/**
+ * Every spec runs on the shared fixture (apps/web/e2e/support/fixtures.ts):
+ * Playwright's own page fixture and a bare newPage have no bound, while the
+ * shared ones fail a stalled page creation by name and keep the evidence
+ * that tells the browser, the driver and our server apart (ISSUE-253,
+ * ISSUE-276, ISSUE-277, ISSUE-279).
+ */
+const fixtureMessage =
+  'Import test from ./support/fixtures, the shared fixture with a bounded page and failure diagnostics.';
+const sharedFixtureRestrictions = [
+  ...[
+    "ImportDeclaration[source.value='@playwright/test'] > ImportSpecifier:matches([imported.name='test'], [imported.value='test'])",
+    "ImportDeclaration[source.value='@playwright/test'][importKind!='type'] > :matches(ImportNamespaceSpecifier, ImportDefaultSpecifier)",
+    "ExportNamedDeclaration[source.value='@playwright/test'] > ExportSpecifier[local.name='test']",
+    "ImportExpression[source.value='@playwright/test']",
+  ].map((selector) => ({ selector, message: fixtureMessage })),
+  ...[
+    "MemberExpression[computed=false][property.name='newPage']",
+    // ISSUE-283: c['newPage'] and c[`newPage`] reach the same method.
+    "MemberExpression[computed=true][property.value='newPage']",
+    "MemberExpression[computed=true] > TemplateLiteral.property[expressions.length=0] > TemplateElement[value.cooked='newPage']",
+    "ObjectPattern > Property[key.name='newPage']",
+  ].map((selector) => ({
+    selector,
+    message:
+      'Open a page with openPage from ./support/fixtures: it bounds page creation and keeps the stall evidence.',
+  })),
 ];
 
 /** The repo-wide `no-restricted-syntax` list; overrides extend or replace it. */
@@ -540,14 +596,19 @@ export default [
         'error',
         ...repoSyntaxRestrictions,
         ...processEdgeLoads,
-        {
-          // ISSUE-253: Playwright's own page fixture has no bound; the shared
-          // one fails a stalled newPage by name and keeps browser diagnostics.
-          selector:
-            "ImportDeclaration[source.value='@playwright/test'] > ImportSpecifier[imported.name='test']",
-          message:
-            'Import test from ./support/fixtures, the shared fixture with a bounded page and failure diagnostics.',
-        },
+        ...sharedFixtureRestrictions,
+      ],
+    },
+  },
+  // The shared fixture is the one module built on Playwright's own test and
+  // newPage; every other e2e restriction still applies to it.
+  {
+    files: ['apps/web/e2e/support/fixtures.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...repoSyntaxRestrictions,
+        ...processEdgeLoads,
       ],
     },
   },

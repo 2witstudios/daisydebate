@@ -42,6 +42,24 @@ adoptProcessApp(
 
 createSelfSignedTlsEdge({ appPort, edgePort });
 
+// ISSUE-279: this process's event-loop delay, one log line a second, so a
+// stalled test's evidence shows whether our server was starved in the
+// window (a starved or stopped server writes no line at all). Timer drift,
+// not monitorEventLoopDelay: Bun's histogram misses a blocked loop.
+let lastTick = performance.now();
+let worstDelay = 0;
+setInterval(() => {
+  const now = performance.now();
+  worstDelay = Math.max(worstDelay, now - lastTick - 100);
+  lastTick = now;
+}, 100).unref();
+setInterval(() => {
+  process.stdout.write(
+    `${JSON.stringify({ time: Math.round(performance.timeOrigin + performance.now()), event: 'e2e.event_loop', maxDelayMs: Math.round(worstDelay) })}\n`,
+  );
+  worstDelay = 0;
+}, 1_000).unref();
+
 await import('../../src/server/start');
 // The app drains and closes its own resources on these signals; the capture
 // and edge listeners must not keep the process alive after that.

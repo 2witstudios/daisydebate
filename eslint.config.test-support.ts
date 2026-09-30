@@ -131,6 +131,41 @@ export const serverBindCases: ReadonlyArray<readonly [string, boolean]> = [
     "declare const client: { listen: (...a: unknown[]) => void };\nclient.listen('outbox', () => {});",
     false,
   ],
+  // ISSUE-278: the routes the ISSUE-254 selectors still missed.
+  ["import { serve } from 'bun';\nserve({ port: 0 });", true],
+  ["import { listen as l } from 'bun';\nl({ port: 0, socket: {} });", true],
+  ['const b = Bun;\nb.serve({ port: 0 });', true],
+  ['const b = globalThis.Bun;\nb.serve({ port: 0 });', true],
+  ["import { SQL } from 'bun';\nexport const s = SQL;", false],
+  ['Bun.serve({ hostname: undefined, port: 0 });', true],
+  ["Bun.serve({ hostname: '', port: 0 });", true],
+  ["Bun.serve({ hostname: '::0', port: 0 });", true],
+  ["Bun.serve({ hostname: '[::]', port: 0 });", true],
+  ["Bun.serve({ hostname: 'localhost', port: 0 });", false],
+  [
+    "declare const server: { listen: (...a: unknown[]) => void };\nserver.listen({ port: 0, host: '[::]' });",
+    true,
+  ],
+  // ISSUE-283: Bun reached through a namespace or default import of 'bun',
+  // and the remaining spellings of the wildcard address; loopback stays clean.
+  ["import * as b from 'bun';\nb.serve({ port: 0 });", true],
+  ["import b from 'bun';\nb.serve({ port: 0 });", true],
+  ["Bun.serve({ hostname: '0', port: 0 });", true],
+  ["Bun.serve({ hostname: '::0000', port: 0 });", true],
+  ["Bun.serve({ hostname: '0:0:0:0:0:0:0:0', port: 0 });", true],
+  ["Bun.serve({ hostname: '::1', port: 0 });", false],
+  ["Bun.serve({ hostname: '10.0.0.1', port: 0 });", false],
+  // ISSUE-286: the default export by name, a dynamic import, and the
+  // IPv4-mapped wildcard; a mapped loopback stays clean.
+  ["import { default as b } from 'bun';\nb.serve({ port: 0 });", true],
+  ["const b = await import('bun');\nb.serve({ port: 0 });", true],
+  ["const { serve } = await import('bun');\nserve({ port: 0 });", true],
+  ["(await import('bun')).serve({ port: 0 });", true],
+  ["import('bun').then((b) => b.serve({ port: 0 }));", true],
+  ["const { SQL } = await import('bun');\nexport const s = SQL;", false],
+  ["Bun.serve({ hostname: '::ffff:0.0.0.0', port: 0 });", true],
+  ["Bun.serve({ hostname: '::FFFF:0.0.0.0', port: 0 });", true],
+  ["Bun.serve({ hostname: '::ffff:127.0.0.1', port: 0 });", false],
 ];
 
 const unboundServe = `const url = 'redis://x';\nnew RedisClient(url);\nBun.serve({ port: 0, fetch: () => new Response(url) });`;
@@ -169,7 +204,7 @@ export const serverGlobCases: readonly Problems[] = [
  * has an unbounded page fixture, so a spec importing it is an error, while
  * the shared fixture and type-only imports are fine.
  */
-export const sharedFixtureCases: readonly Problems[] = [
+const importCases: readonly Problems[] = [
   [
     "import { expect, test } from '@playwright/test';\ntest('x', () => expect(1).toBe(1));",
     'apps/web/e2e/x.e2e.ts',
@@ -190,4 +225,72 @@ export const sharedFixtureCases: readonly Problems[] = [
     'apps/web/e2e/x.e2e.ts',
     0,
   ],
+  // ISSUE-276: every other way to reach Playwright's own test.
+  [
+    "import * as pw from '@playwright/test';\npw.test('x', () => {});",
+    'apps/web/e2e/x.e2e.ts',
+    1,
+  ],
+  [
+    "import pw from '@playwright/test';\npw.test('x', () => {});",
+    'apps/web/e2e/x.e2e.ts',
+    1,
+  ],
+  ["export { test } from '@playwright/test';", 'apps/web/e2e/support/x.ts', 1],
+  [
+    "export { test as t } from '@playwright/test';",
+    'apps/web/e2e/support/x.ts',
+    1,
+  ],
+  [
+    "export const load = () => import('@playwright/test');",
+    'apps/web/e2e/x.e2e.ts',
+    1,
+  ],
+  [
+    "import { expect, type Page } from '@playwright/test';\nexport const p = (page: Page) => expect(page);",
+    'apps/web/e2e/x.e2e.ts',
+    0,
+  ],
+  [
+    "import type * as pw from '@playwright/test';\nexport type P = pw.Page;",
+    'apps/web/e2e/x.e2e.ts',
+    0,
+  ],
+  // The shared fixture itself is the one module built on Playwright's test.
+  [
+    "import * as playwright from '@playwright/test';\nexport const test = playwright.test.extend({});",
+    'apps/web/e2e/support/fixtures.ts',
+    0,
+  ],
+];
+
+const secondaryPage = (call: string) =>
+  `import type { Browser, BrowserContext } from '@playwright/test';\ndeclare const browser: Browser;\ndeclare const context: BrowserContext;\nexport const handles = [browser, context];\nexport const p = ${call};`;
+/**
+ * Every page a spec opens goes through the shared, bounded openPage
+ * (ISSUE-277): a direct newPage on a context or a browser is an error
+ * everywhere but the shared fixture.
+ */
+const secondaryPageCases: readonly Problems[] = [
+  [secondaryPage('context.newPage()'), 'apps/web/e2e/x.e2e.ts', 1],
+  [secondaryPage('browser.newPage()'), 'apps/web/e2e/x.e2e.ts', 1],
+  [secondaryPage('context.newPage'), 'apps/web/e2e/support/x.ts', 1],
+  // ISSUE-283: a computed member reaches the same method.
+  [secondaryPage("context['newPage']()"), 'apps/web/e2e/x.e2e.ts', 1],
+  [secondaryPage('context[`newPage`]()'), 'apps/web/e2e/x.e2e.ts', 1],
+  [
+    secondaryPage("openPage(context, 'the other device')").replace(
+      'export const p',
+      "import { openPage } from './support/fixtures';\nexport const p",
+    ),
+    'apps/web/e2e/x.e2e.ts',
+    0,
+  ],
+  [secondaryPage('context.newPage()'), 'apps/web/e2e/support/fixtures.ts', 0],
+];
+
+export const sharedFixtureCases: readonly Problems[] = [
+  ...importCases,
+  ...secondaryPageCases,
 ];

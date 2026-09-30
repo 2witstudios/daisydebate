@@ -7,9 +7,23 @@
 export const STEP_LIMIT_MS = 15_000;
 
 /**
- * Runs `run` and fails with a message naming `step` if it has not settled
- * within `ms`. For calls Playwright gives no timeout of their own: CDP
- * commands and closing a browser context.
+ * A bounded step that outlived its limit, typed so a caller recognises its
+ * own timeout without matching message text (ISSUE-284's nit).
+ */
+export class StepTimeoutError extends Error {
+  constructor(
+    readonly step: string,
+    readonly ms: number,
+  ) {
+    super(`${step} did not finish within ${ms} ms`);
+    this.name = 'StepTimeoutError';
+  }
+}
+
+/**
+ * Runs `run` and fails with a StepTimeoutError naming `step` if it has not
+ * settled within `ms`. For calls Playwright gives no timeout of their own:
+ * CDP commands and closing a browser context.
  */
 export async function boundedStep<T>(
   step: string,
@@ -18,10 +32,7 @@ export async function boundedStep<T>(
 ): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const limit = new Promise<never>((_, reject) => {
-    timer = setTimeout(
-      () => reject(new Error(`${step} did not finish within ${ms} ms`)),
-      ms,
-    );
+    timer = setTimeout(() => reject(new StepTimeoutError(step, ms)), ms);
   });
   try {
     return await Promise.race([run(), limit]);

@@ -1,5 +1,5 @@
 import { type Page } from '@playwright/test';
-import { expect, test } from './support/fixtures';
+import { expect, openPage, test } from './support/fixtures';
 import { signUpMember } from './support/accounts';
 import { hydrated } from './support/hydration';
 
@@ -188,8 +188,8 @@ test.describe('theme preference', () => {
   test('a switch in one tab reaches the viewer’s other tabs', async ({
     context,
   }) => {
-    const first = await context.newPage();
-    const second = await context.newPage();
+    const first = await openPage(context, 'the first tab');
+    const second = await openPage(context, 'the second tab');
     const verifyFirst = await watchForProblems(first);
     const verifySecond = await watchForProblems(second);
     const { group } = await openSettings(first);
