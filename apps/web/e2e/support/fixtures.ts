@@ -1,9 +1,10 @@
-import { test as base, type Page } from '@playwright/test';
+import * as playwright from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
 import { boundedStep } from './bounded-step';
 
 /**
- * Per-test browser diagnostics for the passkey specs (ISSUE-234): each
+ * Per-test browser diagnostics for every spec (ISSUE-234, ISSUE-253): each
  * watched page's console messages and uncaught errors, and every CDP
  * WebAuthn event and ceremony marker recorded through `recordDiagnostic`.
  * A failed test writes them to `browser-diagnostics.log` in its output
@@ -50,36 +51,30 @@ export function watchPage(page: Page) {
   });
 }
 
-type Fixtures = { browserDiagnostics: void };
-
 /**
- * The passkey specs' test: the default page is created as a bounded step
- * (ISSUE-233: a newPage that never answers fails by name, not as the test's
- * bare 30 s timeout) and watched, and a failure writes the log.
+ * Every spec's test (ISSUE-253; a lint rule rejects importing Playwright's
+ * own). Its page is created as a bounded step, so a BrowserContext.newPage
+ * that never answers fails by name at 15 s instead of as a bare 30 s
+ * "while setting up page" (ISSUE-233, ISSUE-243), and it is watched, so a
+ * failed test keeps its browser-diagnostics.log beside its trace.
  */
-export const test = base.extend<Fixtures>({
-  page: async ({ context }, provide) => {
+export const test = playwright.test.extend({
+  page: async ({ context }, provide, testInfo) => {
+    lines.length = 0;
+    pages = 0;
+    started = performance.now();
     const page = await boundedStep(
       'creating the test page (fixture setup)',
       () => context.newPage(),
     );
+    watchPage(page);
     await provide(page);
+    if (testInfo.status !== testInfo.expectedStatus)
+      await writeFile(
+        testInfo.outputPath('browser-diagnostics.log'),
+        `${lines.join('\n')}\n`,
+      );
   },
-  browserDiagnostics: [
-    async ({ page }, run, testInfo) => {
-      lines.length = 0;
-      pages = 0;
-      started = performance.now();
-      watchPage(page);
-      await run();
-      if (testInfo.status !== testInfo.expectedStatus)
-        await writeFile(
-          testInfo.outputPath('browser-diagnostics.log'),
-          `${lines.join('\n')}\n`,
-        );
-    },
-    { auto: true },
-  ],
 });
 
 export { expect } from '@playwright/test';

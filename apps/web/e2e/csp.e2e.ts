@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/fixtures';
 import { watchCspViolations } from './support/csp';
 
 test('the dashboard renders under the production CSP without violations', async ({

@@ -1,5 +1,5 @@
 import { origin, resetRateLimits, signUpMember } from './support/accounts';
-import { expect, test } from './support/browser-diagnostics';
+import { expect, test } from './support/fixtures';
 import { addVirtualAuthenticator } from './support/webauthn';
 
 /**

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from './support/fixtures';
 import { resolveE2EPorts } from '../playwright.config';
 import { buildRealtimeHarnessScript } from './support/realtime-harness';
 

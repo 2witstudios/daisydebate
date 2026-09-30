@@ -39,12 +39,27 @@ const bareToThrowRestriction = {
  * kernel refuse or avoid the taken port. Carried by every list, like the
  * two above.
  */
-const unboundServeRestriction = {
-  selector:
-    "CallExpression[callee.object.name='Bun'][callee.property.name='serve']:not(:has(Property[key.name='hostname']))",
-  message:
-    "Bind the server's address (hostname: '127.0.0.1'): a wildcard bind can share its port with another process's loopback listener.",
-};
+const bunCallee =
+  ":matches([callee.object.name='Bun'], [callee.object.object.name='globalThis'][callee.object.property.name='Bun'])";
+const wildcardAddress = '/^(0\\.0\\.0\\.0|::)$/';
+const bindMessage =
+  "Bind the server's address (hostname or host: '127.0.0.1'): a wildcard bind can share its port with another process's loopback listener.";
+/**
+ * ISSUE-254 closes the routes the first selector missed: a hostname nested
+ * in the handler rather than the options, an explicit wildcard address,
+ * globalThis.Bun, a destructured serve or listen, Bun.listen, and a node
+ * server's listen() with no host. Production's listen(port, host, …) and a
+ * Postgres LISTEN (a string channel) stay clean.
+ */
+const unboundServerRestrictions = [
+  `CallExpression[callee.property.name=/^(serve|listen)$/]${bunCallee} > ObjectExpression.arguments:not(:has(> Property[key.name='hostname']))`,
+  `CallExpression[callee.property.name=/^(serve|listen)$/]${bunCallee} > ObjectExpression.arguments > Property[key.name='hostname'][value.value=${wildcardAddress}]`,
+  "VariableDeclarator:matches([init.name='Bun'], [init.object.name='globalThis'][init.property.name='Bun']) > ObjectPattern > Property[key.name=/^(serve|listen)$/]",
+  `CallExpression[callee.property.name='listen']:not(${bunCallee}):not([arguments.0.type='Literal'][arguments.0.value=/^[^0-9]/]):not([arguments.0.type='TemplateLiteral']):matches([arguments.length=1][arguments.0.type!='ObjectExpression'], [arguments.1.type=/Function/])`,
+  `CallExpression[callee.property.name='listen']:not(${bunCallee}) > ObjectExpression.arguments:not(:has(> Property[key.name='host']))`,
+  `CallExpression[callee.property.name='listen']:not(${bunCallee}) > Literal.arguments[value=${wildcardAddress}]`,
+  `CallExpression[callee.property.name='listen']:not(${bunCallee}) > ObjectExpression.arguments > Property[key.name='host'][value.value=${wildcardAddress}]`,
+].map((selector) => ({ selector, message: bindMessage }));
 
 /**
  * ISSUE-245: an integration file reaches Redis only through the guarded
@@ -214,7 +229,7 @@ const repoSyntaxRestrictions = [
   },
   exportStarRestriction,
   bareToThrowRestriction,
-  unboundServeRestriction,
+  ...unboundServerRestrictions,
   ...processMutationRestrictions,
 ];
 
@@ -445,7 +460,7 @@ export default [
         'error',
         exportStarRestriction,
         bareToThrowRestriction,
-        unboundServeRestriction,
+        ...unboundServerRestrictions,
       ],
     },
   },
@@ -456,7 +471,7 @@ export default [
         'error',
         exportStarRestriction,
         bareToThrowRestriction,
-        unboundServeRestriction,
+        ...unboundServerRestrictions,
         ...testRedisRestrictions,
       ],
     },
@@ -470,7 +485,7 @@ export default [
         'error',
         exportStarRestriction,
         bareToThrowRestriction,
-        unboundServeRestriction,
+        ...unboundServerRestrictions,
         ...processMutationRestrictions,
         ...testRedisRestrictions,
       ],
@@ -510,7 +525,7 @@ export default [
         'error',
         exportStarRestriction,
         bareToThrowRestriction,
-        unboundServeRestriction,
+        ...unboundServerRestrictions,
         ...processMutationRestrictions,
         ...processEdgeLoads,
         ...testRedisRestrictions,
@@ -525,6 +540,14 @@ export default [
         'error',
         ...repoSyntaxRestrictions,
         ...processEdgeLoads,
+        {
+          // ISSUE-253: Playwright's own page fixture has no bound; the shared
+          // one fails a stalled newPage by name and keeps browser diagnostics.
+          selector:
+            "ImportDeclaration[source.value='@playwright/test'] > ImportSpecifier[imported.name='test']",
+          message:
+            'Import test from ./support/fixtures, the shared fixture with a bounded page and failure diagnostics.',
+        },
       ],
     },
   },

@@ -13,7 +13,7 @@ import {
 } from './support/accounts';
 import { expectFocusOn, pressByKeyboard } from './support/focus';
 import { boundedStep, STEP_LIMIT_MS } from './support/bounded-step';
-import { expect, test } from './support/browser-diagnostics';
+import { expect, test } from './support/fixtures';
 import { effectsRan, hydrated } from './support/hydration';
 import { removeRowByClick, securityRows } from './support/security-rows';
 import {

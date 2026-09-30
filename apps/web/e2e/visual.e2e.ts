@@ -1,11 +1,10 @@
 import {
-  expect,
-  test,
   type APIRequestContext,
   type Browser,
   type Locator,
   type Page,
 } from '@playwright/test';
+import { expect, test } from './support/fixtures';
 import {
   resetRateLimits,
   signUpMember,
