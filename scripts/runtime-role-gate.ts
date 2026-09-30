@@ -66,9 +66,15 @@ import { bypassToken } from './runtime-role-gate-bypass';
  *   (`const box = { M: Module }; box.M._load(...)`), a `let` reassigned
  *   later, or anything else that is not an import, alias, const,
  *   destructure, member, `new` or `getBuiltinModule` of it;
- * - a `.constructor` value invoked somewhere the check does not follow:
- *   passed to a function that calls it, re-bound through a second
- *   variable (`const G = F; G(...)`), or invoked in another module;
+ * - a `.constructor` value that is invoked, but not as the direct callee
+ *   of a call or `new` (ISSUE-268): passed as an argument (to a function
+ *   that calls it, or to `Reflect.apply` / `Reflect.construct`); the owner
+ *   of a member (`fn.constructor.call(null, src)`, `.apply(...)`,
+ *   `.bind(null)(src)`) or the tag of a template (``fn.constructor`src` ``);
+ *   held as a collection element or object property
+ *   (`[fn.constructor][0](src)`, `({ f: fn.constructor }).f(src)`);
+ *   re-bound through a second variable (`const G = F; G(...)`); or invoked
+ *   in another module;
  * - code outside start.ts's relative import graph: package imports
  *   (`@daisy/*`, `node_modules`) are resolved but never loaded or scanned,
  *   so a dependency that loads listen-first itself is invisible;

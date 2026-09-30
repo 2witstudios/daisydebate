@@ -109,6 +109,58 @@ const harmless: readonly Row[] = [
   },
 ];
 
+// ISSUE-268: the cannot-see list in scripts/runtime-role-gate.ts names these
+// forms. Each passes because the .constructor read is the owner of a member,
+// a tagged template, a call argument, a collection element or an object
+// property rather than the callee; a row turning red means the header list is stale.
+const FN = 'const fn = () => 1;\n';
+const documentedLimits: readonly Row[] = [
+  {
+    shape: "ISSUE-268: fn.constructor.call(null, 'return 1')",
+    startTs: append(`${FN}void fn.constructor.call(null, 'return 1');\n`),
+    expected: null,
+  },
+  {
+    shape: "ISSUE-268: fn.constructor.apply(null, ['return 1'])",
+    startTs: append(`${FN}void fn.constructor.apply(null, ['return 1']);\n`),
+    expected: null,
+  },
+  {
+    shape: "ISSUE-268: fn.constructor.bind(null)('return 1')",
+    startTs: append(`${FN}void fn.constructor.bind(null)('return 1');\n`),
+    expected: null,
+  },
+  {
+    shape: "ISSUE-268: Reflect.apply(fn.constructor, null, ['return 1'])",
+    startTs: append(
+      `${FN}void Reflect.apply(fn.constructor, null, ['return 1']);\n`,
+    ),
+    expected: null,
+  },
+  {
+    shape: 'ISSUE-268: a tagged template on fn.constructor',
+    startTs: append(`${FN}void fn.constructor\`return 1\`;\n`),
+    expected: null,
+  },
+  {
+    shape: "ISSUE-268: [fn.constructor][0]('return 1')",
+    startTs: append(`${FN}void [fn.constructor][0]!('return 1');\n`),
+    expected: null,
+  },
+  {
+    shape: "ISSUE-268: ({ f: fn.constructor }).f('return 1')",
+    startTs: append(`${FN}void ({ f: fn.constructor }).f('return 1');\n`),
+    expected: null,
+  },
+  {
+    shape: "ISSUE-268: Reflect.construct(fn.constructor, ['return 1'])",
+    startTs: append(
+      `${FN}void Reflect.construct(fn.constructor, ['return 1']);\n`,
+    ),
+    expected: null,
+  },
+];
+
 const refused: readonly Row[] = [
   // ISSUE-267: resolution sees through every operand that can yield Module.
   {
@@ -312,6 +364,12 @@ describeRows(
   'findRuntimeRoleGateProblem ignores underscore locals and type-only imports (ISSUE-262, ISSUE-263)',
   'report no problem',
   harmless,
+);
+
+describeRows(
+  'findRuntimeRoleGateProblem passes the .constructor forms its header lists as unseen (ISSUE-268)',
+  'report no problem, as documented',
+  documentedLimits,
 );
 
 describeRows(
