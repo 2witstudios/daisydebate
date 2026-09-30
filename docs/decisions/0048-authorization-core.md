@@ -1,6 +1,8 @@
 # 0048: The authorization core
 
-Status: accepted (AZC-1.1; owner-approved plan of 2026-09-29, revision 4).
+Status: accepted (AZC-1.1; owner-approved plan of 2026-09-29, revision 4),
+amended 2026-09-30: members host ranked debates (see
+[Amendment (2026-09-30)](#amendment-2026-09-30-members-host-ranked-debates)).
 Amends [ADR 0029](0029-competitive-schema-foundation.md),
 [ADR 0030](0030-effective-rules-and-growth-paths.md),
 [ADR 0031](0031-realtime-service.md) section 5,
@@ -64,8 +66,14 @@ The rules of the model:
   future admin app ([ADR 0043](0043-no-admin-surface-in-participant-app.md)).
 - **A provisional account has no actor,** so it is a member of nothing and
   can neither create nor join.
+- **Members host ranked debates.** Any active member of a league, like any
+  user with an actor for unranked play, may create a debate in it: a
+  hosted ranked table is an open challenge, posted the way a chess.com seek
+  is. Who may take a seat in a hosted ranked debate (rating band, format
+  eligibility) is seating policy, owned by the Ratings epic, not an
+  authorization capability.
 - **Creating a debate seats no one.** The engine starts every debate with no
-  participants and unranked creation adds none. A private debate's creator
+  participants and creation, ranked or unranked, adds none. A private debate's creator
   can read it and subscribe to its presence (the creator fact) but is
   refused its chat until seated (section 8). Seating comes from lobby and
   seating flows, which are out of scope. The scope chain of a resource (a
@@ -78,12 +86,12 @@ Capabilities are a const array with a derived zod enum and per-capability
 metadata: `resourceKinds` lists what the capability can be asked of, and
 `read` says whether it is a read capability.
 
-| Capability      | `resourceKinds`      | Read | Allowed by (this epic)                                                                       |
-| --------------- | -------------------- | ---- | -------------------------------------------------------------------------------------------- |
-| `league.view`   | `league`, `season`   | yes  | a public league: everyone. A private league: its active members                              |
-| `league.join`   | `league`             | no   | an open league, for a user with an actor who is not an active member                         |
-| `debate.create` | `league`, `unranked` | no   | `unranked`: any user with an actor. `league`: a grant or service holding it (none at launch) |
-| `debate.read`   | `debate`             | yes  | the debate's visibility rules, seating and creation (section 3)                              |
+| Capability      | `resourceKinds`      | Read | Allowed by (this epic)                                                        |
+| --------------- | -------------------- | ---- | ----------------------------------------------------------------------------- |
+| `league.view`   | `league`, `season`   | yes  | a public league: everyone. A private league: its active members               |
+| `league.join`   | `league`             | no   | an open league, for a user with an actor who is not an active member          |
+| `debate.create` | `league`, `unranked` | no   | `unranked`: any user with an actor. `league`: an active member of that league |
+| `debate.read`   | `debate`             | yes  | the debate's visibility rules, seating and creation (section 3)               |
 
 - **Resource kinds:** `league | debate | season | unranked`. `unranked` is the
   resource asked when creating an unranked debate: `{ kind: 'unranked' }`.
@@ -158,6 +166,8 @@ that of the first rule that decides.**
    - `league.join` on a league whose `membershipPolicy` is `open`: a user
      with an actor who is not an active member.
    - `debate.create` on `unranked`: a user with an actor.
+   - `debate.create` on a league: a user with an actor who is an active
+     member of that league (`context.member`).
    - `debate.read` of an unranked debate: `public` or `unlisted`, everyone;
      `private`, the creator and the seated.
    - `debate.read` of a ranked debate: `public` or `unlisted`, whoever holds
@@ -195,16 +205,17 @@ depends on the reason:
 **Gates.** Every operation authorizes exactly one gate before any other
 check or protected read:
 
-| Operation                                                                          | Gate, then                                                                                                               |
-| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Debate read by id (page, JSON), `debate:<id>` and `debate:<id>:presence` subscribe | `debate.read` on the debate                                                                                              |
-| `debate:<id>:chat` subscribe                                                       | `debate.read` on the debate, and for a `private` debate the seated fact as well (the chat family's narrowing, section 8) |
-| League page                                                                        | `league.view` on the league                                                                                              |
-| Join                                                                               | `league.view`, then `league.join`                                                                                        |
-| Leave                                                                              | `league.view` (then the membership check in the operation)                                                               |
-| Unranked creation                                                                  | `debate.create` on `unranked`                                                                                            |
-| Season read (no route in this epic) and `standings:<seasonId>` subscribe           | `league.view` on the season's league                                                                                     |
-| `user:<actorId>:inbox` subscribe                                                   | `authorizeInbox`                                                                                                         |
+| Operation                                                                          | Gate, then                                                                                                                                                                           |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Debate read by id (page, JSON), `debate:<id>` and `debate:<id>:presence` subscribe | `debate.read` on the debate                                                                                                                                                          |
+| `debate:<id>:chat` subscribe                                                       | `debate.read` on the debate, and for a `private` debate the seated fact as well (the chat family's narrowing, section 8)                                                             |
+| League page                                                                        | `league.view` on the league                                                                                                                                                          |
+| Join                                                                               | `league.view`, then `league.join`                                                                                                                                                    |
+| Leave                                                                              | `league.view` (then the membership check in the operation)                                                                                                                           |
+| Unranked creation                                                                  | `debate.create` on `unranked`                                                                                                                                                        |
+| Ranked creation (hosting a ranked debate)                                          | `league.view`, then `league.join` only for a non-member of an open league (the creation operation's implicit join, section 9), then `debate.create` on the league (an active member) |
+| Season read (no route in this epic) and `standings:<seasonId>` subscribe           | `league.view` on the season's league                                                                                                                                                 |
+| `user:<actorId>:inbox` subscribe                                                   | `authorizeInbox`                                                                                                                                                                     |
 
 **Properties**, proven by property tests over generated principals,
 resources and contexts:
@@ -345,7 +356,7 @@ and goes through `authorizeRequest`.
 
 **UI capability projection.** The server runs `authorize` for the
 capabilities a page needs and passes only booleans to client components (for
-example `{ canJoin, canLeave, canCreateUnranked }`). Membership lists,
+example `{ canJoin, canLeave, canCreateUnranked, canHostRanked }`). Membership lists,
 grants, deny facts and loaded rows never reach the browser, and a page never
 computes an access decision on the client.
 
@@ -485,11 +496,14 @@ failed decision refuses the subscribe.
   `league_members` rows in the erasure transaction, and the tombstone yields
   the `account-erased` deny fact through the loader. LEAGUE-OPS later
   extends erasure to grants and audit.
-- **Ratings.** It owns ranked debate creation, matchmaking (including the
-  implicit join on the first ranked queue in an open ladder), ranked
-  seating, the rule that a ranked seat requires an active membership, rating
-  changes and the first ranked-eligible format. It consumes `league.join`,
-  `inLeague` and `debates_league_iff_ranked`.
+- **Ratings.** It owns the ranked-debate creation operation (a hosted table
+  and a matchmade pairing both run through it, gated by `debate.create` on
+  the league, section 3), the implicit join (hosting or queueing in an open
+  ladder joins first, through `league.join`), ranked seating, the rule that a
+  ranked seat requires an active membership, who may take a hosted seat
+  (rating band, eligibility), rating changes and the first ranked-eligible
+  format. It consumes `league.join`, `debate.create`, `inLeague` and
+  `debates_league_iff_ranked`.
 - **LEAGUE-OPS.** It must land RLS, and drop `leagues_single_row` in the same
   migration, before any second league exists; the guard enforces this. It
   adds roles, grants, custom roles, audit, the organizer area and league
@@ -525,6 +539,7 @@ Each essential has a test that fails when it is removed:
 | Essential                                                                                                 | Test in          |
 | --------------------------------------------------------------------------------------------------------- | ---------------- |
 | Rule 0: resource kind checked before any allowance                                                        | AZC-1.3          |
+| Ranked creation requires an active membership (a non-member is denied `not-member`)                       | AZC-1.3          |
 | Scope chain only from rows loaded by id (foreign ancestry; the loader ignores client-supplied league ids) | AZC-1.3, AZC-3.1 |
 | Gate before any protected read (an operation reaching a read without `authorizeRequest` fails the test)   | AZC-3.1, AZC-3.3 |
 | `NOT_FOUND` for every denied read, anonymous included                                                     | AZC-3.1, AZC-3.3 |
@@ -594,6 +609,28 @@ this epic adds:
 
 No roster is displayed in this epic: a member sees only their own
 membership state.
+
+## Amendment (2026-09-30): members host ranked debates
+
+Owner decision. Ranked play works like chess.com: a player hosts a ranked
+debate and that is how they challenge others, as well as being matched. So
+`debate.create` on a `league` is a fixed allowance for an active member of
+that league (sections 1 to 3, the gate table and section 9 state it). It is
+not a grant or service capability.
+
+- **What changes:** the capability table row, evaluator rule 4, the gate
+  table, the UI projection (`canHostRanked`), the Ratings contract in
+  section 9 and one security essential. Nothing else in the model moves.
+- **What this does not decide:** the rating band a host may set, who may take
+  a hosted ranked seat, and whether matchmaking and hosted tables share one
+  rating pool. Those are Ratings-epic seating policy. Hosting does not seat
+  the host either: seating is a separate step.
+- **Who can host:** a non-member of an open league is joined by the creation
+  operation through `league.join` before `debate.create` is asked
+  (section 9), so in the Daisy league anyone with an actor can host.
+- **Leaves:** AZC-1.3 (evaluator, property suite) and AZC-3.x (UI
+  projection) deliver the rule. The lobby's ranked-host form is a Ratings
+  leaf and works without JavaScript like every mutating form.
 
 ## Decisions made on the owner's behalf (open)
 
