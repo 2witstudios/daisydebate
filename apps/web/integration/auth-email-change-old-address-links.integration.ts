@@ -162,17 +162,9 @@ describe('ISSUE-99 an email change revokes the old address sign-in links', () =>
   });
 });
 
-// Advisory locks are per database. This key only needs to be distinct from
-// any other advisory lock this codebase takes on the same connection — not
-// scoped per test run: apps/web/integration/fixtures.ts's ISSUE-148 run
-// lock already refuses a second concurrent apps/web integration run
-// against this same test database, so this file never runs concurrently
-// with itself in practice. (A `hashtext(uid)`-scoped key was tried here to
-// make concurrent self-runs safe on their own; it made no measured
-// difference — 5 of 15 self-concurrent runs still fail either way, since
-// the interference is the per-test `create trigger`/`drop trigger` DDL on
-// the shared `session` table, not this lock's key. Removed rather than
-// keep a fix that does not do what its comment claimed; see ISSUE-151.)
+// Advisory locks are per database, and every run has a database of its own
+// (ISSUE-238), so this key only needs to be distinct from any other
+// advisory lock this codebase takes on the same connection.
 const INSERT_GATE_KEY = 103_001;
 
 const sessionsOf = (userId: string) =>

@@ -30,6 +30,7 @@ import {
   setSlotDatabaseComment,
   withSlotLock,
 } from '@daisy/db/slots';
+import { dropAllTestRunDatabases } from '@daisy/db/test-runs';
 import { deleteNamespace, listNamespaces } from '@daisy/redis/namespaces';
 import {
   deriveSlot,
@@ -374,6 +375,8 @@ async function down(checkout: Checkout, envPath: string) {
   const services = openServices(envOf(await readEnvFile(envPath)));
   try {
     const removed = await withSlotLock(services.admin, async () => {
+      // Run databases first (ISSUE-238): a run's own copy of the slot's test database.
+      await dropAllTestRunDatabases(services.admin, slot.testDatabase);
       for (const database of slotDatabases(slot))
         await dropSlotDatabase(services.admin, database);
       let removed = 0;
