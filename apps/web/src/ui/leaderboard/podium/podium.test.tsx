@@ -1,7 +1,7 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { rowFixture } from '../ladder-row/ladder-row.test-support';
+import { rowFixture } from '../../../features/leaderboard/ladder.test-support';
 import { Podium } from './podium';
 
 setupRitewayBun();
