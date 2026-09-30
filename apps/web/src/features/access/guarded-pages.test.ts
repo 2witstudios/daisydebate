@@ -26,8 +26,9 @@ mock.module(join(import.meta.dir, '../../lib/access.ts'), () => ({
     return { state: 'anonymous' };
   },
 }));
-// Public pages that only read who is asking (the watch pages) get an
-// anonymous visitor instead of the request's cookies.
+// Public pages that only read who is asking (the watch pages, and the
+// leaderboard, which pins the viewer's line) get an anonymous visitor
+// instead of the request's cookies.
 mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestIdentity: async () => ({ state: 'anonymous' }),
 }));
