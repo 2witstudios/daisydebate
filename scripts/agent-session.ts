@@ -17,11 +17,21 @@ function readRecordFile(path: string): string | undefined {
   }
 }
 
-/** The parent of the git common dir of cwd; undefined when git cannot say. */
-export function mainCheckoutOf(cwd: string): string | undefined {
+/** The parent of the git common dir of cwd; undefined when git cannot say or times out. */
+export function mainCheckoutOf(
+  cwd: string,
+  timeoutMs = 5_000,
+): string | undefined {
   const result = Bun.spawnSync(
     ['git', 'rev-parse', '--path-format=absolute', '--git-common-dir'],
-    { cwd, env: process.env, stdout: 'pipe', stderr: 'ignore' },
+    {
+      cwd,
+      env: process.env,
+      stdout: 'pipe',
+      stderr: 'ignore',
+      // A hung git reads as unknown, which fails closed, instead of blocking.
+      timeout: timeoutMs,
+    },
   );
   const commonDir = result.stdout.toString().trim();
   return result.exitCode === 0 && commonDir !== ''

@@ -90,6 +90,32 @@ describe('who is an agent, against real registry files', () => {
     });
   });
 
+  test('a hung git reads as unknown and fails closed', () => {
+    const bin = join(root, 'bin');
+    mkdirSync(bin);
+    writeFileSync(join(bin, 'git'), '#!/bin/sh\nexec sleep 30\n', {
+      mode: 0o755,
+    });
+    const path = process.env.PATH;
+    process.env.PATH = `${bin}:${path}`;
+    const started = Date.now();
+    try {
+      const found = mainCheckoutOf(worktree, 200);
+      assert({
+        given: 'a git that never answers and a 200 ms timeout',
+        should: 'give up promptly with no checkout, so the session is an agent',
+        actual: [
+          found,
+          Date.now() - started < 5_000,
+          sessionIsAgent({ PU_AGENT_ID: 'ag-owner-orchestrator' }, found),
+        ],
+        expected: [undefined, true, true],
+      });
+    } finally {
+      process.env.PATH = path;
+    }
+  });
+
   test('a registered builder is an agent and cannot mark Done', () => {
     const agent = isAgent({ PU_AGENT_ID: 'ag-builder' });
     assert({
