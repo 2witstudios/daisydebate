@@ -13,23 +13,19 @@ import {
   NOTIFY_ATTEMPT_TIMEOUT_MS,
 } from './notify-drive';
 
+import { alertsFrom } from './auth-alert-probe.test-support';
+
 setupRitewayBun();
 
 /** An origin that accepts every request and never answers it. */
 const hungOrigin = () =>
   Bun.serve({
+    hostname: '127.0.0.1',
     port: 0,
     // Never drop an unanswered request: a hung endpoint must stay hung.
     idleTimeout: 0,
     fetch: () => new Promise<Response>(() => {}),
   });
-
-/** `/api/ops/alerts` answering 200 with this body. */
-const alertsFrom = async (body: unknown) => {
-  using server = Bun.serve({ port: 0, fetch: () => Response.json(body) });
-  // Awaited here: `using` stops the server as this function returns.
-  return await fetchAlertConditions(`http://127.0.0.1:${server.port}`, 'token');
-};
 
 const READ = { redisState: 'read' } as const;
 

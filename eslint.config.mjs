@@ -32,6 +32,21 @@ const bareToThrowRestriction = {
 };
 
 /**
+ * ISSUE-252: a Bun.serve with no hostname binds the wildcard address, and on
+ * macOS another process may hold the same port on 127.0.0.1; requests to
+ * 127.0.0.1 then reach that process instead (an Ollama or GitHub listener
+ * answered a probe test's request). Binding 127.0.0.1 explicitly makes the
+ * kernel refuse or avoid the taken port. Carried by every list, like the
+ * two above.
+ */
+const unboundServeRestriction = {
+  selector:
+    "CallExpression[callee.object.name='Bun'][callee.property.name='serve']:not(:has(Property[key.name='hostname']))",
+  message:
+    "Bind the server's address (hostname: '127.0.0.1'): a wildcard bind can share its port with another process's loopback listener.",
+};
+
+/**
  * ISSUE-245: an integration file reaches Redis only through the guarded
  * helper (`openTestRedis`, whose URL came from `requireTestServices`, which
  * refuses any database or server that is not the slot's own) and never
@@ -199,6 +214,7 @@ const repoSyntaxRestrictions = [
   },
   exportStarRestriction,
   bareToThrowRestriction,
+  unboundServeRestriction,
   ...processMutationRestrictions,
 ];
 
@@ -429,6 +445,7 @@ export default [
         'error',
         exportStarRestriction,
         bareToThrowRestriction,
+        unboundServeRestriction,
       ],
     },
   },
@@ -439,6 +456,7 @@ export default [
         'error',
         exportStarRestriction,
         bareToThrowRestriction,
+        unboundServeRestriction,
         ...testRedisRestrictions,
       ],
     },
@@ -452,6 +470,7 @@ export default [
         'error',
         exportStarRestriction,
         bareToThrowRestriction,
+        unboundServeRestriction,
         ...processMutationRestrictions,
         ...testRedisRestrictions,
       ],
@@ -491,6 +510,7 @@ export default [
         'error',
         exportStarRestriction,
         bareToThrowRestriction,
+        unboundServeRestriction,
         ...processMutationRestrictions,
         ...processEdgeLoads,
         ...testRedisRestrictions,

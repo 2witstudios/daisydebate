@@ -11,6 +11,7 @@ const SCRIPT_PATH = join(import.meta.dir, 'auth-alert-probe.ts');
 describe('fetchOriginProbe (ISSUE-156 major finding: unreachable origin must not throw)', () => {
   test('a healthy origin resolves ok with the exact security-header contract', async () => {
     using server = Bun.serve({
+      hostname: '127.0.0.1',
       port: 0,
       fetch: () =>
         new Response(null, {

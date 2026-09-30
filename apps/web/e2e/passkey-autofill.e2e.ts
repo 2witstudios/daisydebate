@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
 import { origin, resetRateLimits, signUpMember } from './support/accounts';
+import { expect, test } from './support/browser-diagnostics';
 import { addVirtualAuthenticator } from './support/webauthn';
 
 /**
