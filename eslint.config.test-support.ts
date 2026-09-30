@@ -69,7 +69,7 @@ export const lazyEdge = (path: string) =>
 const suite = 'apps/web/integration/leak.integration.ts';
 export const e2eServer = 'apps/web/e2e/support/server.ts';
 /** Every spelling that reaches the edge outside its entries (review 2). */
-export const computed = "export const l = import(`./${'process-app'}`);";
+const computed = "export const l = import(`./${'process-app'}`);";
 export const escapes: ReadonlyArray<readonly [string, string]> = [
   [edgeImport('../../server/', 'processApp', '.js'), web('features/x.ts')],
   [edgeImport('/repo/apps/web/src/server/', 'processApp', '.ts'), web('x.ts')],
