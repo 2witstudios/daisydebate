@@ -181,36 +181,6 @@ describe('createAlertRecorder (AUTH-7.7)', () => {
       expected: [],
     });
   });
-
-  test('a Redis failure is swallowed, never thrown back at the caller', () => {
-    const redis: AlertRecorderRedis = {
-      markOccurrenceSince: async () => {
-        throw new Error('redis down');
-      },
-      incrementWithExpiry: async () => {
-        throw new Error('redis down');
-      },
-      delete: async () => {
-        throw new Error('redis down');
-      },
-      setEphemeral: async () => {
-        throw new Error('redis down');
-      },
-    };
-    const recorder = createAlertRecorder({ redis, clock: fixedClock(NOW) });
-    let threw = false;
-    try {
-      recorder.observe('auth.session.unavailable', {});
-    } catch {
-      threw = true;
-    }
-    assert({
-      given: 'a Redis command that rejects',
-      should: 'never throw synchronously back at the logger call site',
-      actual: threw,
-      expected: false,
-    });
-  });
 });
 
 describe('withAlertRecording (AUTH-7.7)', () => {
@@ -251,6 +221,55 @@ describe('withAlertRecording (AUTH-7.7)', () => {
         observedEvents: ['auth.mail.failed', 'retention.sweep.completed'],
         loggedEvents: ['auth.mail.failed', 'retention.sweep.completed'],
       },
+    });
+  });
+
+  test('observes fields a child bound, as handleOperation binds operation (ISSUE-173)', () => {
+    const observed: Array<Record<string, unknown>> = [];
+    const logger = {
+      log: () => {},
+      child: () => logger,
+    };
+    const wrapped = withAlertRecording(logger, {
+      observe: (_event, fields) => void observed.push(fields),
+    });
+    wrapped
+      .child({ requestId: 'r1', operation: 'auth.request' })
+      .child({ traceId: 't1' })
+      .log('http.request.completed', { status: 429, durationMs: 3 }, 'msg');
+    assert({
+      given:
+        'an HTTP completion logged by a grandchild whose ancestors bound the request and operation',
+      should: 'observe the bound fields merged under the call fields',
+      actual: observed,
+      expected: [
+        {
+          requestId: 'r1',
+          operation: 'auth.request',
+          traceId: 't1',
+          status: 429,
+          durationMs: 3,
+        },
+      ],
+    });
+  });
+
+  test('feeds each recorder exactly once per event', () => {
+    const counts = { alerts: 0, metrics: 0 };
+    const logger = { log: () => {}, child: () => logger };
+    const wrapped = withAlertRecording(
+      logger,
+      { observe: () => void (counts.alerts += 1) },
+      { observe: () => void (counts.metrics += 1) },
+    );
+    wrapped
+      .child({ operation: 'auth.request' })
+      .log('http.request.completed', { status: 200 }, 'msg');
+    assert({
+      given: 'one logged event and two recorders',
+      should: 'observe it once in each',
+      actual: counts,
+      expected: { alerts: 1, metrics: 1 },
     });
   });
 });

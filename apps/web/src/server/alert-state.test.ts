@@ -12,6 +12,7 @@ const NOW = '2026-09-25T12:00:00.000Z';
 
 const baseSnapshot: AlertSnapshot = {
   nowIso: NOW,
+  redisState: 'read',
   storageUnavailableSinceIso: null,
   limiterUnavailableSinceIso: null,
   deliveryConsecutiveFailures: 0,
@@ -173,6 +174,7 @@ describe('evaluateAlerts (AUTH-7.7)', () => {
     ).toISOString();
     const conditions = evaluateAlerts({
       nowIso: NOW,
+      redisState: 'read',
       storageUnavailableSinceIso: since,
       limiterUnavailableSinceIso: since,
       deliveryConsecutiveFailures: 3,
@@ -192,6 +194,7 @@ describe('evaluateAlerts (AUTH-7.7)', () => {
 
 describe('readAlertSnapshot (AUTH-7.7)', () => {
   const clock = { now: () => NOW };
+  const noLocalOutage = { limiterUnavailableSince: () => null };
 
   test('reads each durable marker and sums the request window', async () => {
     const currentBucket = Math.floor(Date.parse(NOW) / 60_000);
@@ -208,9 +211,10 @@ describe('readAlertSnapshot (AUTH-7.7)', () => {
     assert({
       given: 'markers spread across the 10-minute request window',
       should: 'assemble one snapshot summing every bucket in range',
-      actual: await readAlertSnapshot({ redis, clock }),
+      actual: await readAlertSnapshot({ redis, clock, local: noLocalOutage }),
       expected: {
         nowIso: NOW,
+        redisState: 'read',
         storageUnavailableSinceIso: '2026-09-25T11:58:00.000Z',
         limiterUnavailableSinceIso: null,
         deliveryConsecutiveFailures: 2,
@@ -225,9 +229,10 @@ describe('readAlertSnapshot (AUTH-7.7)', () => {
     assert({
       given: 'no markers set at all',
       should: 'default counts to zero and timestamps to null',
-      actual: await readAlertSnapshot({ redis, clock }),
+      actual: await readAlertSnapshot({ redis, clock, local: noLocalOutage }),
       expected: {
         nowIso: NOW,
+        redisState: 'read',
         storageUnavailableSinceIso: null,
         limiterUnavailableSinceIso: null,
         deliveryConsecutiveFailures: 0,

@@ -72,11 +72,27 @@ test('deletes exactly one namespace by SCAN and UNLINK, never FLUSH*', async () 
       actual: await listNamespaces(redis, `${prefix}-wt-`),
       expected: [`${prefix}-wt-a`, `${prefix}-wt-a-e2e`, `${prefix}-wt-ab`],
     });
+    const listed = redis.commands.length;
     assert({
       given: 'a namespace with more keys than one SCAN page',
       should: 'delete every one of its keys',
       actual: await deleteNamespace(redis, `${prefix}-wt-a`),
       expected: 1202,
+    });
+    const deletion = redis.commands.slice(listed);
+    assert({
+      given: 'the 1,202-key namespace deleted',
+      should:
+        'send one UNLINK per SCAN page at most, never a command per key (ISSUE-192: per-key round trips overran a 30 s teardown)',
+      actual: {
+        perKey: deletion.filter(
+          (command) => command !== 'SCAN' && command !== 'UNLINK',
+        ),
+        batched:
+          deletion.filter((command) => command === 'UNLINK').length <=
+          deletion.filter((command) => command === 'SCAN').length,
+      },
+      expected: { perKey: [], batched: true },
     });
 
     const remaining = await Promise.all(

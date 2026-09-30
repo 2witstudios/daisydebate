@@ -31,6 +31,37 @@ One schema file per ownership area under `packages/db/src/schema/`. Every status
 | `rating_changes`      | ratings       | Append-only ledger: finite before/after triples, `calculation_version`, `occurred_at`; one row per `(debate, actor)`, keyed to a participant of the debate and the debate's format                                                                                                                                                                                                                                                         | `RESTRICT` everywhere                                             |
 | `role_grants`         | identity      | `admin`/`moderator`/`judge` grants to `users` with `scope_type` (`global`), `granted_by`, `granted_at`, `revoked_at`; one active grant per scope (partial unique index)                                                                                                                                                                                                                                                                    | `RESTRICT` from `users`                                           |
 
+## Leagues and ranked ladders (ADR 0048)
+
+The design the authorization-core epic (AZC) delivers. None of it exists in
+the schema yet; each row names the leaf that builds it, and the tables above
+describe the schema as it stands until then. One forward migration (AZC-2.1)
+makes every change below.
+
+| Change                                   | Leaf    | Holds                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ---------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `leagues`                                | AZC-2.1 | A ranked ladder: cuid2 `id`, unique `slug`, `name`, `visibility` (`public`, `private`), `membership_policy` (`open`, `explicit`; `open` requires `public`), `is_default`, `version`, timestamps. The Daisy row (slug `daisy`, public, open, default) ships in the migration as reference data. `leagues_single_row`, a unique index on a constant, admits at most one row until row-level security exists (the second-league guard) |
+| `league_members`                         | AZC-2.1 | "Actor on ladder": `(league_id, actor_id)` primary key, `joined_at`, `left_at` (active means `left_at IS NULL`; rejoining reuses the row). Erasure deletes the actor's rows (PRIV-4)                                                                                                                                                                                                                                                |
+| `debates.league_id`                      | AZC-2.1 | Nullable foreign key to `leagues`, present exactly for ranked debates (CHECK `debates_league_iff_ranked`); an unranked debate (`casual` or `practice`) has none                                                                                                                                                                                                                                                                     |
+| `seasons.league_id`, `ratings.league_id` | AZC-2.1 | Seasons and ratings are per league. At most one `active` season per league (replacing the product-wide partial unique index); `ratings` reaches its season through a composite foreign key `(season_id, league_id)` and is keyed `(league_id, actor_id, format_id, season_id)`                                                                                                                                                      |
+
+`league_id` never changes once written: a `BEFORE UPDATE` trigger raises on
+any change, including NULL to a value, and binds the table owner. The tables
+that carry or reach a league are league-owned (`leagues`, `league_members`,
+`debates`, `seasons`, `ratings`, `debate_participants`, `debate_commands`,
+`ballots`, `rating_changes`).
+
+AZC-2.2 adds the scoped query API: every operation on a league-owned table
+takes a branded scope (a league or `unranked`), `inLeague` and `inUnranked`
+set the transaction-local `daisy.league_id`, and a static check refuses a
+value import of a league-owned table's schema outside
+`packages/db/src/league-scoped/`. `daisy_web` reads `leagues` and writes
+`league_members`; `daisy_realtime` gets column-level SELECT on `leagues`,
+`league_members`, `seasons` and `users(id, deleted_at)` for the shared
+authorization loader (AZC-3.1). `bun doctor` and app startup run
+`secondLeagueGuardIssue`, which fails when `leagues_single_row` is absent
+while any league-owned table lacks row-level security and a policy.
+
 ## Roles, jsonb and the baseline (ADR 0038)
 
 The single baseline creates the runtime roles. `daisy_web` is the web

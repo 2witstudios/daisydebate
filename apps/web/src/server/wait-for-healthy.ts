@@ -1,7 +1,7 @@
 /**
  * Polls `health` until it answers true or `maxAttempts` is spent, sleeping
  * `intervalMs` between attempts. Used by the retention sweep's start-up run
- * (ISSUE-146): a scale-to-zero Fly machine's Redis connection is not
+ * (ISSUE-146): a freshly started Fly machine's Redis connection is not
  * necessarily ready the instant the process starts listening, so the first
  * sweep waits for it instead of logging a spurious `retention.sweep.failed`.
  * A `health` rejection counts as not-yet-ready, never a thrown failure, and

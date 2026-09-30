@@ -8,7 +8,9 @@ into one baseline, `debates.format`/`created_by` are `format_id` and
 `created_by_actor_id`, `debate_participants` is keyed by
 `(debate_id, actor_id)` and written in every snapshot transaction, ballots
 reference their seat by `judge_actor_id`, and `db:seed` no longer writes
-formats.
+formats. Amended by [ADR 0048](0048-authorization-core.md): leagues exist,
+`seasons` and `ratings` are per league, and `debates.league_id` is present
+exactly for ranked debates.
 
 ## Context
 
@@ -144,3 +146,16 @@ NOTHING`); its slug id is deterministic, so ADR 0018 is not in conflict.
 - The engine's `participantSchema.side` (`affirmative | negative`) is the
   competitive side of a debater and remains narrower than `DebateRole`;
   widening the engine to judges is a domain change, not a schema one.
+
+## Amendment (2026-09-29): leagues and per-league seasons
+
+[ADR 0048](0048-authorization-core.md) adds the league model. Item 8's
+"`seasons` allows at most one `active` row (partial unique index)" is
+superseded: a season and its ratings belong to one league, `seasons` allows
+at most one `active` row per league, and `ratings` is keyed
+`(league_id, actor_id, format_id, season_id)` under a composite foreign key
+to the season's league. A debate has a league exactly when it is ranked
+(`debates.league_id`, CHECK `debates_league_iff_ranked`), and `leagues` and
+`league_members` join the competitive tables. Item 1's statement that
+authority attaches to users through `role_grants` stands, and `authorize`
+does not read that table. The migration that delivers this is AZC-2.1.

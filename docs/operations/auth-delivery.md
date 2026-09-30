@@ -53,18 +53,23 @@ to your topology before release.
 
 ## Limits and outage behaviour
 
-| Scope                                                     | Limit                         | On exceed                |
-| --------------------------------------------------------- | ----------------------------- | ------------------------ |
-| Any auth route, per client and path                       | 100 / 60 s                    | `429` + `Retry-After`    |
-| Magic-link request, per client                            | 3 / 60 s                      | `429` + `Retry-After`    |
-| Magic-link request, per recipient                         | 3 / 60 s, 10 / hour, 20 / day | `429` + `Retry-After`    |
-| Email change, per new address (ISSUE-121)                 | 3 / 60 s, 10 / hour, 20 / day | `429` + `Retry-After`    |
-| Sign-up link (address with no account), whole application | 120 / 60 s, 3,000 / day       | `429` + `Retry-After`    |
-| Redis unavailable                                         | —                             | `503` + `Retry-After: 5` |
+| Scope                                                              | Limit                         | On exceed                                       |
+| ------------------------------------------------------------------ | ----------------------------- | ----------------------------------------------- |
+| Any auth route, per client and path                                | 100 / 60 s                    | `429` + `Retry-After`                           |
+| Magic-link request, per client                                     | 3 / 60 s                      | `429` + `Retry-After`                           |
+| Magic-link request, per recipient                                  | 3 / 60 s, 10 / hour, 20 / day | `429` + `Retry-After`                           |
+| Email change, per new address (ISSUE-121)                          | 3 / 60 s, 10 / hour, 20 / day | `429` + `Retry-After`                           |
+| Every magic-link send, whole application; holds back sign-ups only | 120 / 60 s, 3,000 / day       | sign-up: `200`, no mail (logged); sign-in: sent |
+| Redis unavailable                                                  | —                             | `503` + `Retry-After: 5`                        |
 
-The whole-application ceilings never count or deny a sign-in link for an
-existing account (ADR 0025, ISSUE-54): a drained ceiling delays new
-sign-ups only.
+Every magic-link send counts against the whole-application ceilings, with
+or without an account, but only sign-ups are held back (ADR 0025, ISSUE-54,
+ISSUE-188): a drained ceiling delays new sign-ups, never sign-in. A day's
+sign-up capacity is 3,000 minus that day's magic-link sign-ins. Past a
+ceiling, a sign-up request gets the same `200` as any other and no mail
+(ISSUE-182); the saturation shows only as `auth.rate_limit.denied` with
+`path: /sign-in/magic-link` in the log. While saturated, a failed sign-in
+send also answers `200` (ISSUE-189); watch `auth.mail.failed`.
 
 The sign-in page offers passkeys in browser autofill, so every visible view
 spends one `/passkey/generate-authenticate-options` request (a challenge row
@@ -167,8 +172,10 @@ DELETE FROM session WHERE id IN (
 
 ## Alerting (AUTH-7.7)
 
-Staging scales to zero (`fly.toml`'s `min_machines_running = 0`), so the
-evaluation point for these alerts is a scheduled GitHub Actions workflow
+Nothing inside the app can alert on its own unavailability while it is
+down, restarting or crash-looping, even though staging is always on
+(DEC-40, `fly.toml`'s `min_machines_running = 1`), so the evaluation point
+for these alerts is a scheduled GitHub Actions workflow
 (`.github/workflows/auth-alerts.yml`, `scripts/auth-alert-probe.ts`), not a
 timer inside the app — see [ADR 0042](../decisions/0042-auth-alert-evaluation-point.md)
 for why. Its cron is configured for every 5 minutes, but GitHub's `schedule`
@@ -183,6 +190,14 @@ answers the already-evaluated conditions computed by
 posted to the drive's Incidents channel via the existing
 `scripts/notify-drive.ts incidents --message`, naming the condition's own
 runbook below.
+
+The origin probe checks the security headers only on a `200`. Any other
+status posts one `origin_probe` line naming the status, not one per missing
+header. With the app's headers present it says the app reported not ready:
+Postgres or Redis is unreachable (including the cold-boot Redis window) or
+the process is draining. With them absent it says the response likely did
+not come from the app: Fly's proxy during a cold start, the start-up gate,
+or the app down.
 
 The four conditions, and the durable Redis marker each reads
 (`apps/web/src/server/alert-recorder.ts` writes them by tapping the
@@ -358,12 +373,41 @@ limiter_unavailable").
    later occurrence..."), so during a continuous outage it never expires,
    and it expires on its own only once occurrences stop for 3 minutes — the
    alert clears passively once the dependency recovers and stays recovered.
-4. If `/api/ops/alerts` itself is unreachable — most often a full Redis
-   outage, since the endpoint depends on Redis to answer at all — the probe
-   (`scripts/auth-alert-probe.ts`, `fetchAlertConditions` /
-   `decideProbeOutcome`) still posts to Incidents, naming the unreachable
-   endpoint instead of the specific condition; posting to Incidents never
-   depends on the dependency that is down.
+4. A full Redis outage takes the limiter and every alert marker with it,
+   yet `/api/ops/alerts` still answers: the snapshot reports
+   `redisState: "unreachable"`, `limiter_unavailable` fires from the time
+   the serving instance itself first saw the limiter unavailable, and the
+   Redis-backed conditions (`storage_unavailable`, `delivery_failures`,
+   `auth_5xx_rate`, `cleanup_missed`) are not evaluated until Redis returns
+   (`apps/web/integration/auth-ops-signals.integration.ts`, "a Redis outage
+   that outlasts the threshold fires limiter_unavailable from when it
+   began"). The probe posts that unread state even when readiness passes
+   (`apps/web/integration/auth-alert-probe-degraded.integration.ts`), and
+   readiness answers 503 while Redis is unreachable, which the probe posts
+   too. The in-process `limiter_unavailable` marker belongs to one process
+   and is empty after a deploy, restart or crash, so the readiness post may
+   be the only one (ADR 0042).
+5. If `/api/ops/alerts` itself is unreachable, hangs or answers a body the
+   probe cannot validate (a deploy fault, the app down, a proxy answering
+   on its path), the probe (`scripts/auth-alert-probe.ts`,
+   `fetchAlertConditions` / `decideProbeOutcome`) still posts to Incidents,
+   naming the failed request or the unreadable alert state instead of the
+   specific condition; posting to Incidents never depends on the dependency
+   that is down. Every request is bounded (`PROBE_FETCH_TIMEOUT_MS`,
+   `NOTIFY_ATTEMPT_TIMEOUT_MS`, 20 s each), so a hung origin posts in well
+   under the job's 5 minutes, and a probe that throws posts a fail-closed
+   message before it exits 1 (`scripts/auth-alert-probe-cli.test.ts`,
+   `scripts/auth-alert-probe-fail-closed.test.ts`). The probe job's exit
+   code says whether Incidents heard about it:
+   - 0: the run was healthy, or its alert was delivered.
+   - 1: the post itself did not reach Incidents, or the probe threw (after
+     it tried to post). Check the job log for the message it printed.
+   - 2: a usage error, such as a missing `--origin` or `OPS_PROBE_TOKEN`
+     secret. Nothing was probed.
+
+   The probe needs no installed packages: the job installs nothing and runs
+   it with `bun --no-install`, so a registry outage cannot stop it
+   (ISSUE-225).
 
 ### Delivery provider failing repeatedly
 

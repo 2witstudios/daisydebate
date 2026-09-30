@@ -1,5 +1,5 @@
 import type { Clock } from '@daisy/clock';
-import type { Logger } from '@daisy/logger';
+import type { LogFields, Logger } from '@daisy/logger';
 
 const MINUTE_MS = 60_000;
 /** Bridges the 2-minute unavailability threshold across gaps between failures without pinning the incident's start to the most recent one. Re-armed on every occurrence (markOccurrenceSince), so a continuous outage never lets the since-time lapse. */
@@ -63,6 +63,23 @@ const recordHttpOutcome = (
     );
 };
 
+/** An outage's first and latest occurrence, both UTC ISO timestamps. */
+type OutageMark = { readonly sinceIso: string; readonly lastIso: string };
+
+const withinBridge = (mark: OutageMark, nowIso: string): boolean =>
+  Date.parse(nowIso) - Date.parse(mark.lastIso) <=
+  UNAVAILABLE_MARK_TTL_SECONDS * 1000;
+
+/**
+ * The in-process twin of `markOccurrenceSince`: keeps the since-time while
+ * occurrences arrive within the bridging TTL, and starts a new outage after
+ * a longer quiet gap.
+ */
+const nextOutageMark = (mark: OutageMark | null, nowIso: string): OutageMark =>
+  mark !== null && withinBridge(mark, nowIso)
+    ? { sinceIso: mark.sinceIso, lastIso: nowIso }
+    : { sinceIso: nowIso, lastIso: nowIso };
+
 /**
  * Derives AUTH-7.7's durable, bounded-cardinality Redis alert state from the
  * structured event stream that already exists — no new call sites, no new
@@ -76,7 +93,19 @@ export function createAlertRecorder({
   readonly redis: AlertRecorderRedis;
   readonly clock: Clock;
 }) {
+  // ISSUE-191: the limiter's Redis is the one the marker below is written
+  // to, so its outage loses that marker; this process's own copy survives it.
+  let limiterOutage: OutageMark | null = null;
   return {
+    /**
+     * When this process first saw the rate limiter unavailable in the current
+     * outage, or null once none has occurred within the bridging TTL.
+     */
+    limiterUnavailableSince(): string | null {
+      return limiterOutage !== null && withinBridge(limiterOutage, clock.now())
+        ? limiterOutage.sinceIso
+        : null;
+    },
     observe(event: string, fields: Readonly<Record<string, unknown>>): void {
       switch (event) {
         case 'auth.session.unavailable':
@@ -89,6 +118,7 @@ export function createAlertRecorder({
           );
           return;
         case 'auth.rate_limit.unavailable':
+          limiterOutage = nextOutageMark(limiterOutage, clock.now());
           swallow(
             redis.markOccurrenceSince(
               'alert-unavailable-limiter',
@@ -132,21 +162,26 @@ export type AlertRecorder = ReturnType<typeof createAlertRecorder>;
 
 /**
  * Wraps a `Logger` so every event it logs — and every event any of its
- * children log — also reaches `recorder.observe` first. The composition
- * root (`app.ts`) applies this once; every existing `logger.log` call site
- * across the app (auth, retention, HTTP) feeds AUTH-7.7's alert state with
- * no per-site change.
+ * children log — reaches each recorder's `observe` once, first. Recorders
+ * see the fields every ancestor `child` bound merged under the call's own
+ * (ISSUE-173): `handleOperation` binds `operation` on its request child and
+ * logs only `status` and `durationMs`, so observing the call fields alone
+ * dropped every HTTP outcome. The composition root (`app.ts`) applies this
+ * once with all its recorders; every existing `logger.log` call site across
+ * the app (auth, retention, HTTP) feeds AUTH-7.7's alert state and metrics
+ * with no per-site change.
  */
 export function withAlertRecording(
   logger: Logger,
-  recorder: Pick<AlertRecorder, 'observe'>,
+  ...recorders: ReadonlyArray<Pick<AlertRecorder, 'observe'>>
 ): Logger {
-  const wrap = (target: Logger): Logger => ({
+  const wrap = (target: Logger, bound: LogFields): Logger => ({
     log: (event, fields, message) => {
-      recorder.observe(event, fields);
+      const observed = { ...bound, ...fields };
+      for (const recorder of recorders) recorder.observe(event, observed);
       target.log(event, fields, message);
     },
-    child: (fields) => wrap(target.child(fields)),
+    child: (fields) => wrap(target.child(fields), { ...bound, ...fields }),
   });
-  return wrap(logger);
+  return wrap(logger, {});
 }

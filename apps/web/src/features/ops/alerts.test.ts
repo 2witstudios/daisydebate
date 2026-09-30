@@ -8,10 +8,14 @@ setupRitewayBun();
 const TOKEN = 'a'.repeat(32);
 const NOW = '2026-09-25T12:00:00.000Z';
 
-const makeHandler = (values = new Map<string, string>()) =>
+const makeHandler = (
+  values = new Map<string, string>(),
+  local = { limiterUnavailableSince: (): string | null => null },
+) =>
   createAlertsHandler({
     logger: silentLogger,
     redis: { get: async (key) => values.get(key) ?? null },
+    local,
     clock: fixedClock(NOW),
     token: () => TOKEN,
   });
@@ -54,6 +58,41 @@ describe('GET /api/ops/alerts (AUTH-7.7)', () => {
       should: 'fire exactly cleanup_missed',
       actual: body.conditions.map((c) => c.id),
       expected: ['cleanup_missed'],
+    });
+  });
+
+  test('answers limiter_unavailable from the in-process marker while its Redis is unreachable (ISSUE-191)', async () => {
+    const handler = createAlertsHandler({
+      logger: silentLogger,
+      redis: {
+        get: async () => {
+          throw new Error('redis down');
+        },
+      },
+      local: { limiterUnavailableSince: () => '2026-09-25T11:57:00.000Z' },
+      clock: fixedClock(NOW),
+      token: () => TOKEN,
+    });
+    const response = await handler(authorizedRequest());
+    const body = (await response.json()) as {
+      conditions: { id: string }[];
+      snapshot: { redisState: string };
+    };
+    assert({
+      given:
+        'every alert Redis read rejecting and the limiter unavailable in process for 3 minutes',
+      should:
+        'answer 200 with limiter_unavailable and the snapshot marked unreachable',
+      actual: {
+        status: response.status,
+        conditions: body.conditions.map((c) => c.id),
+        redisState: body.snapshot.redisState,
+      },
+      expected: {
+        status: 200,
+        conditions: ['limiter_unavailable'],
+        redisState: 'unreachable',
+      },
     });
   });
 });

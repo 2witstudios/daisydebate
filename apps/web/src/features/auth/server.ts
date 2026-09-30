@@ -7,7 +7,6 @@ import type { Clock, IdGenerator } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import type { AuthConfig } from '@daisy/config';
 import type { AuthEmailSender, AuthDeliveryLedger } from './mail-types';
-import { buildConfirmLink } from './confirm-link';
 import {
   emailedLinkIdentifier,
   generateEmailedLinkToken,
@@ -28,8 +27,8 @@ import {
   type RevokeSessionUnlessAddressHeld,
 } from './sign-in-address-guard';
 import { deriveRecipientSubkey, recipientKey } from './recipient-key';
-import { renderAuthEmail } from './mail/templates';
-import { sendOrUnavailable, type Deliver } from './deliver-or-unavailable';
+import { type Deliver } from './deliver-or-unavailable';
+import { createSendMagicLink } from './sign-in-mail';
 import {
   SESSION_EXPIRES_IN_SECONDS,
   SESSION_FRESH_AGE_SECONDS,
@@ -39,6 +38,7 @@ import { CLIENT_IP_HEADER } from './client-ip';
 import {
   clientIpOptions,
   createRateLimitGate,
+  createSignUpCeiling,
   type AuthRateLimiter,
 } from './rate-limit';
 
@@ -170,14 +170,14 @@ const composeBetterAuth = (dependencies: {
           type: 'custom-hasher',
           hash: async (token) => emailedLinkIdentifier('sign-in', token),
         },
-        sendMagicLink: async ({ email, url }) => {
-          const href = buildConfirmLink(origin, url).toString();
-          const message = renderAuthEmail({ kind: 'sign-in', url: href });
-          await sendOrUnavailable(dependencies.deliver, {
-            to: email,
-            ...message,
-          });
-        },
+        sendMagicLink: createSendMagicLink({
+          origin,
+          deliver: dependencies.deliver,
+          spendCeiling: createSignUpCeiling({
+            limiter: dependencies.limiter,
+            logger: dependencies.logger,
+          }),
+        }),
       }),
       passkey({
         rpID: new URL(config.PUBLIC_APP_URL).hostname,

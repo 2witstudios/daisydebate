@@ -2,15 +2,8 @@ import { afterAll, setDefaultTimeout } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { systemClock, systemId } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
-import {
-  createTestApp,
-  linkFrom,
-  testDatabaseUrl,
-  testRedisUrl,
-  tokenOf,
-  withSql,
-} from './fixtures';
-import { createFaultProxy, throughProxy } from './fault-proxy';
+import { createFaultedApp } from './fault-proxy';
+import { createTestApp, linkFrom, tokenOf, withSql } from './fixtures';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import type { Fetch } from '../src/features/auth/mail';
 import { createApp } from '../src/server/app';
@@ -42,25 +35,10 @@ const countUsers = (email: string) =>
 
 describe('AUTH-6.7 AC3 database outage and recovery', () => {
   test('a paused database fails link issuance safely and a resumed one recovers with no duplicate identity', async () => {
-    const dbTarget = new URL(testDatabaseUrl as string);
-    const dbProxy = createFaultProxy({
-      hostname: dbTarget.hostname,
-      port: Number(dbTarget.port),
-    });
-    const app = createApp({
-      env: {
-        ...testApp.env,
-        DATABASE_URL: throughProxy(testDatabaseUrl as string, dbProxy),
-      },
-      fetch: testApp.mailbox.fetch,
-      clock: systemClock,
-      ids: systemId,
-    });
-    const routes = createRoutes(app);
-    afterAll(async () => {
-      dbProxy.close();
-      await app.close();
-    });
+    const { routes, proxy: dbProxy } = createFaultedApp(
+      testApp,
+      'DATABASE_URL',
+    );
 
     const email = testApp.freshEmail();
     const magicLink = () =>
@@ -89,9 +67,7 @@ describe('AUTH-6.7 AC3 database outage and recovery', () => {
       actual: {
         baselineStatus: baseline.status,
         outageStatus: duringOutage.status,
-        outageCode: (
-          (await duringOutage.json()) as { error?: { code?: string } }
-        ).error?.code,
+        outageCode: ((await duringOutage.json()) as { code?: string }).code,
         countDuringOutage,
         redeemedHasCookie: redeemed.headers.getSetCookie().length > 0,
         countAfterRecovery,
@@ -99,7 +75,9 @@ describe('AUTH-6.7 AC3 database outage and recovery', () => {
       expected: {
         baselineStatus: 200,
         outageStatus: 503,
-        outageCode: 'INFRASTRUCTURE',
+        // The request-time suppression check is the first database read on
+        // this route: its outage answers the typed retryable 503.
+        outageCode: 'AUTH_TEMPORARILY_UNAVAILABLE',
         countDuringOutage: 0,
         redeemedHasCookie: true,
         countAfterRecovery: 1,
@@ -110,25 +88,10 @@ describe('AUTH-6.7 AC3 database outage and recovery', () => {
 
 describe('AUTH-6.7 AC3 Redis outage and recovery', () => {
   test('a paused limiter fails every request safely, including a valid session read, and a resumed one recovers', async () => {
-    const redisTarget = new URL(testRedisUrl as string);
-    const redisProxy = createFaultProxy({
-      hostname: redisTarget.hostname,
-      port: Number(redisTarget.port),
-    });
-    const app = createApp({
-      env: {
-        ...testApp.env,
-        REDIS_URL: throughProxy(testRedisUrl as string, redisProxy),
-      },
-      fetch: testApp.mailbox.fetch,
-      clock: systemClock,
-      ids: systemId,
-    });
-    const routes = createRoutes(app);
-    afterAll(async () => {
-      redisProxy.close();
-      await app.close();
-    });
+    const { routes, proxy: redisProxy } = createFaultedApp(
+      testApp,
+      'REDIS_URL',
+    );
 
     // A real session, established before the outage, over the shared
     // database (unaffected: only Redis, the limiter, is behind this proxy).

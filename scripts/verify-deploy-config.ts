@@ -1,4 +1,7 @@
 import { readFileSync } from 'node:fs';
+import { posix } from 'node:path';
+import ts from 'typescript';
+import { findRuntimeRoleGateProblem } from './runtime-role-gate';
 
 /** Pure check: does the Dockerfile's base image pin exactly `.bun-version`? */
 export function findDockerfileBunVersionProblem(input: {
@@ -130,21 +133,6 @@ export function findFlyDatabaseSecretProblem(
 }
 
 /**
- * ISSUE-39: production startup refuses a DATABASE_URL role that can create
- * or alter schema objects, before Next prepares or the port opens.
- */
-export function findRuntimeRoleGateProblem(startTs: string): string | null {
-  const code = uncommented(startTs);
-  const gate = code.indexOf(
-    "await refuseSchemaAlteringRole(app, 'daisy_web');",
-  );
-  const prepare = code.indexOf('await nextApp.prepare();');
-  return gate === -1 || prepare === -1 || gate > prepare
-    ? "start.ts does not await refuseSchemaAlteringRole(app, 'daisy_web') before nextApp.prepare()"
-    : null;
-}
-
-/**
  * ISSUE-39: the release command migrates through the validated migration
  * credential, never by reading the runtime DATABASE_URL itself.
  */
@@ -158,11 +146,147 @@ export function findMigrationCredentialProblem(
     : 'migrate.ts does not read its credential through readMigrationConfig(process.env)';
 }
 
+/**
+ * Owner decision DEC-40 (ISSUE-175): the staging web app is always on.
+ * fly-proxy never stops its machine for idleness and keeps one running.
+ */
+export function findAlwaysOnProblem(flyToml: string): string | null {
+  const body = tableBody(flyToml, '[http_service]');
+  if (body === null) return 'fly.toml has no `[http_service]` table';
+  const service = uncommented(body.join('\n'));
+  if (!/^\s*auto_stop_machines\s*=\s*"off"\s*$/m.test(service))
+    return 'fly.toml [http_service] must set auto_stop_machines = "off" (DEC-40)';
+  if (!/^\s*min_machines_running\s*=\s*1\s*$/m.test(service))
+    return 'fly.toml [http_service] must set min_machines_running = 1 (DEC-40)';
+  return null;
+}
+
+/** The alert probe and the Incidents poster it spawns (ISSUE-225). */
+const PROBE_ENTRIES = [
+  'scripts/auth-alert-probe.ts',
+  'scripts/notify-drive.ts',
+] as const;
+
+/** A specifier that needs no installed package. */
+const isBuiltin = (specifier: string) =>
+  specifier.startsWith('node:') ||
+  specifier === 'bun' ||
+  specifier.startsWith('bun:');
+
+/**
+ * Every module specifier a file loads at run time: static imports and
+ * re-exports (not whole-statement `import type`/`export type`, which the
+ * transpiler erases), dynamic `import()` and `require()` of a literal.
+ */
+function runtimeSpecifiers(path: string, source: string): string[] {
+  const file = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true);
+  const specifiers: string[] = [];
+  const visit = (node: ts.Node) => {
+    if (
+      ts.isImportDeclaration(node) &&
+      !node.importClause?.isTypeOnly &&
+      ts.isStringLiteral(node.moduleSpecifier)
+    )
+      specifiers.push(node.moduleSpecifier.text);
+    else if (
+      ts.isExportDeclaration(node) &&
+      !node.isTypeOnly &&
+      node.moduleSpecifier &&
+      ts.isStringLiteral(node.moduleSpecifier)
+    )
+      specifiers.push(node.moduleSpecifier.text);
+    else if (
+      ts.isCallExpression(node) &&
+      (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
+        (ts.isIdentifier(node.expression) &&
+          node.expression.text === 'require')) &&
+      node.arguments[0] &&
+      ts.isStringLiteral(node.arguments[0])
+    )
+      specifiers.push(node.arguments[0].text);
+    ts.forEachChild(node, visit);
+  };
+  visit(file);
+  return specifiers;
+}
+
+/**
+ * ISSUE-225: the AUTH-7.7 probe and notify-drive must run with nothing
+ * installed, so a registry outage can never stop the probe from posting.
+ * Walks their runtime import graph from the repository root (`read` takes
+ * a root-relative path) and reports every bare package specifier and every
+ * relative import that does not resolve; only relative modules and
+ * `node:`/`bun` builtins are allowed.
+ */
+export function findProbeImportProblems(
+  read: (path: string) => string | undefined,
+): string[] {
+  const problems: string[] = [];
+  const seen = new Set<string>();
+  const pending: string[] = [...PROBE_ENTRIES];
+  const resolveModule = (from: string, specifier: string) =>
+    [
+      posix.join(posix.dirname(from), specifier),
+      `${posix.join(posix.dirname(from), specifier)}.ts`,
+      posix.join(posix.dirname(from), specifier, 'index.ts'),
+    ].find((candidate) => read(candidate) !== undefined);
+  for (let path = pending.shift(); path; path = pending.shift()) {
+    if (seen.has(path)) continue;
+    seen.add(path);
+    for (const specifier of runtimeSpecifiers(path, read(path) ?? '')) {
+      if (isBuiltin(specifier)) continue;
+      if (!specifier.startsWith('.')) {
+        problems.push(`${path} imports package '${specifier}'`);
+        continue;
+      }
+      const target = resolveModule(path, specifier);
+      if (target) pending.push(target);
+      else
+        problems.push(
+          `${path} imports '${specifier}', which does not resolve to a file`,
+        );
+    }
+  }
+  return problems.sort();
+}
+
+/**
+ * ISSUE-225: `auth-alerts.yml` installs nothing and runs the probe with
+ * `--no-install`, so nothing is ever fetched from the registry; its Bun
+ * comes from `.bun-version`.
+ */
+export function findProbeWorkflowProblem(workflow: string): string | null {
+  const code = uncommented(workflow);
+  const probes = [...code.matchAll(/^.*scripts\/auth-alert-probe\.ts.*$/gm)];
+  const problems = [
+    /oven-sh\/setup-bun@[0-9a-f]{40}[^\n]*\n\s*with:\s*\n\s*bun-version-file:\s*['"]?\.bun-version['"]?/.test(
+      code,
+    )
+      ? null
+      : 'sets up Bun without `bun-version-file: .bun-version`',
+    /\bbun (?:install|i|add)\b/.test(code)
+      ? 'installs packages (the probe needs none)'
+      : null,
+    probes.length === 0 ? 'never runs scripts/auth-alert-probe.ts' : null,
+    probes.every(([line]) =>
+      /\bbun --no-install scripts\/auth-alert-probe\.ts\b/.test(line),
+    )
+      ? null
+      : 'runs the probe without `bun --no-install`',
+  ].filter((problem): problem is string => problem !== null);
+  return problems.length === 0
+    ? null
+    : `auth-alerts.yml ${problems.join('; ')} (ISSUE-225)`;
+}
+
 export function verifyDeployConfig(input: {
   readonly dockerfile: string;
   readonly flyToml: string;
   readonly migratorToml: string;
   readonly workflow: string;
+  readonly probeWorkflow: string;
+  /** Reads a root-relative repository file, or undefined when it is absent. */
+  readonly readRepoFile: (path: string) => string | undefined;
   readonly bunVersion: string;
   readonly startTs: string;
   readonly migrateTs: string;
@@ -177,9 +301,12 @@ export function verifyDeployConfig(input: {
     findMigratorAppProblem(input.migratorToml),
     findWorkflowMigrationOrderProblem(input.workflow),
     findFlyDatabaseSecretProblem(input.flyToml),
+    findAlwaysOnProblem(input.flyToml),
     findFlyDatabaseSecretProblem(input.migratorToml, 'fly.migrate.toml'),
     findRuntimeRoleGateProblem(input.startTs),
     findMigrationCredentialProblem(input.migrateTs),
+    findProbeWorkflowProblem(input.probeWorkflow),
+    ...findProbeImportProblems(input.readRepoFile),
   ].filter((problem): problem is string => problem !== null);
 }
 
@@ -189,6 +316,14 @@ if (import.meta.main) {
     flyToml: readFileSync('fly.toml', 'utf8'),
     migratorToml: readFileSync('fly.migrate.toml', 'utf8'),
     workflow: readFileSync('.github/workflows/deploy-staging.yml', 'utf8'),
+    probeWorkflow: readFileSync('.github/workflows/auth-alerts.yml', 'utf8'),
+    readRepoFile: (path) => {
+      try {
+        return readFileSync(path, 'utf8');
+      } catch {
+        return undefined;
+      }
+    },
     bunVersion: readFileSync('.bun-version', 'utf8').trim(),
     startTs: readFileSync('apps/web/src/server/start.ts', 'utf8'),
     migrateTs: readFileSync('packages/db/scripts/migrate.ts', 'utf8'),
@@ -200,7 +335,7 @@ if (import.meta.main) {
     process.exitCode = 1;
   } else {
     process.stdout.write(
-      'Deploy config matches .bun-version, migrates only from the migrator app, first, and keeps the database role split.\n',
+      'Deploy config matches .bun-version, migrates only from the migrator app, first, keeps the database role split, keeps staging always on and runs the alert probe with nothing installed.\n',
     );
   }
 }

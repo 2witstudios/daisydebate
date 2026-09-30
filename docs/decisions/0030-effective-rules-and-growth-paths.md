@@ -1,6 +1,8 @@
 # 0030: Effective rules and growth paths
 
 Status: accepted. Extends [ADR 0029](0029-competitive-schema-foundation.md).
+Amended by [ADR 0048](0048-authorization-core.md): the league model
+supersedes the league growth paths, and `visibility` is now read.
 
 ## Context
 
@@ -67,13 +69,16 @@ not, and this ADR decides them now.
   already preserves the rules every past debate ran under, so this is
   bookkeeping, not a migration of history. `rules.version` is the shape
   version of the rules object, not the ruleset version.
-- **Clubs, leagues, tournaments.** New tables with nullable foreign keys onto
+- **Clubs, leagues, tournaments.** _(The league-authority part is superseded
+  by [ADR 0048](0048-authorization-core.md); see the amendment below.)_ New tables with nullable foreign keys onto
   `debates` and `actors` (`clubs`, `club_members(actor_id)`, `tournaments`,
   `tournament_entries(actor_id)`, `tournament_rounds`,
   `debates.tournament_id`). Membership and competition attach to actors;
   authority attaches to users by widening `role_grants.scope_type` with
   `club` and `league` (one CHECK swap). Expand-only.
-- **League seasons are not rating seasons.** `seasons` is the rating epoch.
+- **League seasons are not rating seasons.** _(Superseded by
+  [ADR 0048](0048-authorization-core.md): a league is a ranked ladder, and
+  seasons and ratings are per league.)_ `seasons` is the rating epoch.
   A league calendar is its own table; a league may use the global ladder,
   its own standings, or none.
 - **Retention and scale.** The growth tables are `debates`,
@@ -82,9 +87,11 @@ not, and this ADR decides them now.
   audit record and is pruned after the retry window, in the pattern of the
   verification purge (ADR 0025). `rating_changes` is history: partition by
   season when it reaches many millions of rows; never prune.
-- **Access enforcement.** `visibility` and `role_grants` are stored but not
-  yet read. The first reader (lobby listing, judge assignment) must enforce
-  them.
+- **Access enforcement.** _(Updated by [ADR 0048](0048-authorization-core.md).)_
+  `visibility` is read by `authorize`. `role_grants` is still unread, and
+  LEAGUE-OPS replaces or drops it. The first reader of any other stored
+  access fact (lobby listing, judge assignment) must enforce it through
+  `authorize`.
 
 ## Consequences
 
@@ -99,3 +106,21 @@ not, and this ADR decides them now.
   default format.
 - The PageSpace record is "Decision record — lobby rules and growth paths"
   in Plans → Lobby rules and growth paths.
+
+## Amendment (2026-09-29): the league model
+
+[ADR 0048](0048-authorization-core.md) decides how leagues, ranked play and
+authorization fit together:
+
+- `mode = 'ranked'` holds exactly when the debate has a league
+  (`debates.league_id`); an unranked debate (`casual` or `practice`, any
+  format) has none. Decision item 2, that ranked requires canonical
+  rules on a ranked-eligible format, is unchanged.
+- **Superseded:** the growth-path bullet "League seasons are not rating
+  seasons". A league is a ranked ladder, and seasons and ratings are per
+  league.
+- **Superseded, in part:** the "Clubs, leagues, tournaments" bullet's
+  league authority, that is, authority through `role_grants.scope_type`
+  widened with `league`. LEAGUE-OPS decides league authority. The club and
+  tournament guidance in that bullet stands.
+- **Updated:** the "Access enforcement" bullet, as marked above.

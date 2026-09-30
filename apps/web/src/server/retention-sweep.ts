@@ -238,7 +238,7 @@ export function startRetentionSweep({
   readonly runOnStart?: boolean;
   /**
    * Resolves true once the start-up run's dependencies are reachable
-   * (ISSUE-146): a scale-to-zero Fly machine's Redis connection is not
+   * (ISSUE-146): a freshly started Fly machine's Redis connection is not
    * necessarily ready the instant this process starts listening, so
    * `runOnStart`'s one run waits here instead of logging a spurious
    * `retention.sweep.failed` on every cold boot. Resolving false or

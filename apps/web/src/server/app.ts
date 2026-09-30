@@ -63,11 +63,8 @@ export function createApp({
   const alertRecorder = createAlertRecorder({ redis, clock });
   // AUTH-7.7: every existing `logger.log` call site (auth, retention, HTTP)
   // feeds both the durable Redis alert state and the in-process metrics
-  // counters, with no per-site change.
-  const logger = withAlertRecording(
-    withAlertRecording(baseLogger, alertRecorder),
-    metrics,
-  );
+  // counters, once each, with no per-site change.
+  const logger = withAlertRecording(baseLogger, alertRecorder, metrics);
   const database = createDatabase({
     url: config.DATABASE_URL,
     eventSink: logger.log,
@@ -126,6 +123,10 @@ export function createApp({
     redis,
     /** AUTH-7.7's bounded-cardinality in-process counters (`/api/ops/metrics`). */
     metrics,
+    /** The alert state this process keeps without Redis (ISSUE-191). */
+    localAlertState: {
+      limiterUnavailableSince: () => alertRecorder.limiterUnavailableSince(),
+    },
     /** The composed auth server, validated and built on first use. */
     auth: (): AuthServer => (auth ??= composeAuth()),
     /**

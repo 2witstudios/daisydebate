@@ -1,4 +1,9 @@
+import { afterAll } from 'bun:test';
 import type { Socket } from 'bun';
+import { systemClock, systemId, type Clock } from '@daisy/clock';
+import { createApp } from '../src/server/app';
+import { createRoutes } from '../src/server/routes';
+import { testDatabaseUrl, testRedisUrl, type TestApp } from './fixtures';
 
 /**
  * A pausable TCP relay in front of a real service (PostgreSQL or Redis),
@@ -14,6 +19,12 @@ export type FaultProxy = {
   readonly hostname: string;
   readonly port: number;
   pause(): void;
+  /**
+   * Keeps every connection open but relays nothing in either direction: a
+   * dependency that stops answering rather than refusing (ISSUE-208). A
+   * stalled connection has lost bytes, so it is not usable after resume.
+   */
+  stall(): void;
   resume(): void;
   isPaused(): boolean;
   close(): void;
@@ -21,11 +32,12 @@ export type FaultProxy = {
 
 type RelayState = { upstream?: Socket; buffered: Uint8Array[] };
 
-export function createFaultProxy(target: {
+function createFaultProxy(target: {
   readonly hostname: string;
   readonly port: number;
 }): FaultProxy {
   let paused = false;
+  let stalled = false;
   const relays = new Map<Socket, RelayState>();
 
   const flush = (state: RelayState) => {
@@ -50,7 +62,7 @@ export function createFaultProxy(target: {
           port: target.port,
           socket: {
             data: (_upstream, data) => {
-              client.write(data);
+              if (!stalled) client.write(data);
             },
             close: () => {
               client.end();
@@ -74,7 +86,7 @@ export function createFaultProxy(target: {
       },
       data(client, data) {
         const state = relays.get(client);
-        if (!state) return;
+        if (!state || stalled) return;
         if (state.upstream) state.upstream.write(data);
         else state.buffered.push(new Uint8Array(data));
       },
@@ -97,8 +109,12 @@ export function createFaultProxy(target: {
       for (const client of relays.keys()) client.terminate();
       relays.clear();
     },
+    stall() {
+      stalled = true;
+    },
     resume() {
       paused = false;
+      stalled = false;
     },
     isPaused: () => paused,
     close: () => listener.stop(true),
@@ -106,9 +122,43 @@ export function createFaultProxy(target: {
 }
 
 /** `url` with its host and port replaced by the proxy's, scheme preserved. */
-export function throughProxy(url: string, proxy: FaultProxy): string {
+function throughProxy(url: string, proxy: FaultProxy): string {
   const parsed = new URL(url);
   parsed.hostname = proxy.hostname;
   parsed.port = String(proxy.port);
   return parsed.toString();
+}
+
+/**
+ * A second app over `testApp`'s environment and mailbox with one real
+ * service (PostgreSQL or Redis) behind a pausable fault proxy this suite
+ * owns, for outage proofs; the shared stack itself is never stopped (ADR
+ * 0034). Its log output is discarded, and both close after the suite. Pass
+ * a clock to step time through an outage.
+ */
+export function createFaultedApp(
+  testApp: TestApp,
+  service: 'DATABASE_URL' | 'REDIS_URL',
+  clock: Clock = systemClock,
+) {
+  const url = (
+    service === 'DATABASE_URL' ? testDatabaseUrl : testRedisUrl
+  ) as string;
+  const target = new URL(url);
+  const proxy = createFaultProxy({
+    hostname: target.hostname,
+    port: Number(target.port),
+  });
+  const app = createApp({
+    env: { ...testApp.env, [service]: throughProxy(url, proxy) },
+    fetch: testApp.mailbox.fetch,
+    clock,
+    ids: systemId,
+    logDestination: { write: () => {} },
+  });
+  afterAll(async () => {
+    proxy.close();
+    await app.close();
+  });
+  return { app, proxy, routes: createRoutes(app) };
 }

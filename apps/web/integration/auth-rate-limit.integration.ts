@@ -128,7 +128,11 @@ describe('AUTH-3.4 shared atomic rate limits through the mounted handler', () =>
       }),
     );
     const keys = await redisKeys();
-    const pattern = new RegExp(`^${redisNamespace}:v1:rl:[0-9a-f]{64}$`);
+    // The same requests also feed AUTH-7.7's per-minute auth-request
+    // buckets (ISSUE-173): a bounded, identifier-free key per minute.
+    const pattern = new RegExp(
+      `^${redisNamespace}:v1:(rl:[0-9a-f]{64}|alert-http-(total|5xx)-[0-9]+)$`,
+    );
     const [first = '', second = ''] = client.split('.');
     const identifiers = new RegExp(
       [
@@ -142,7 +146,7 @@ describe('AUTH-3.4 shared atomic rate limits through the mounted handler', () =>
     );
     assert({
       given:
-        'every rate-limit key this suite wrote, including its own requests',
+        'every key this suite wrote, including its own requests: rate-limit buckets and the alert request buckets they feed',
       should:
         // The recipient and global tables above include 60 s, 1 h and 1 day
         // windows; a day is the longest TTL any bucket can carry.

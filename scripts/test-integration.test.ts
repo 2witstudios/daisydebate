@@ -7,6 +7,7 @@ import {
   claimsIntegrationSuite,
   discoverSuites,
   exitCodeOf,
+  grownTables,
   INTEGRATION_RUNNER,
   integrationSuites,
 } from './test-integration';
@@ -114,6 +115,40 @@ describe('running the suites', () => {
         .split(/\s+/)
         .includes('--concurrency=1'),
       expected: true,
+    });
+  });
+});
+
+describe('ISSUE-192 test database row ledger', () => {
+  test('names every table a run left with more rows than it started with', () => {
+    assert({
+      given:
+        'row counts before and after a run: one table grew, one shrank, one is new with rows, one is new and empty',
+      should: 'report the grown and the new non-empty tables only, sorted',
+      actual: grownTables(
+        { email_delivery: 84_725, session: 3, users: 0, formats: 1 },
+        {
+          email_delivery: 88_840,
+          session: 0,
+          users: 0,
+          formats: 1,
+          outbox: 2,
+          ballots: 0,
+        },
+      ),
+      expected: [
+        { table: 'email_delivery', before: 84_725, after: 88_840 },
+        { table: 'outbox', before: 0, after: 2 },
+      ],
+    });
+  });
+
+  test('reports nothing when a run leaves every table as it found it', () => {
+    assert({
+      given: 'identical row counts before and after',
+      should: 'report no table',
+      actual: grownTables({ users: 2, formats: 1 }, { users: 2, formats: 1 }),
+      expected: [],
     });
   });
 });
