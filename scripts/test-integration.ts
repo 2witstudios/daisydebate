@@ -10,10 +10,8 @@
 import { constants } from 'node:os';
 import { RedisClient, SQL } from 'bun';
 import { requireTestSlotServices } from '@daisy/config';
-import {
-  deleteAllKeysWithoutExpiry,
-  sweepIdleNamespaces,
-} from '@daisy/redis/namespaces';
+import { sweepIdleNamespaces } from '@daisy/redis/namespaces';
+import { deleteAllKeysWithoutExpiry } from './redis-whole-database';
 import { TEST_NAMESPACE_PREFIX, TEST_RUN_MAX_MS } from '@daisy/redis/testing';
 import { superviseRun, withRunDatabase } from './test-run-database';
 
@@ -223,10 +221,17 @@ if (import.meta.main) {
         exited: suites.exited,
         kill: () => suites.kill('SIGKILL'),
         lockLost: run.lockLost,
+        maxRunMs: TEST_RUN_MAX_MS,
       });
       if (verdict === 'lost') {
         process.stderr.write(
           `test-integration: this run's Postgres connection was cut, so its liveness lock is gone and another run could drop ${run.name}; the suites were stopped (ISSUE-250). Run again.\n`,
+        );
+        return 1;
+      }
+      if (verdict === 'timeout') {
+        process.stderr.write(
+          `test-integration: the suites ran longer than the ${TEST_RUN_MAX_MS} ms run bound and were stopped (ISSUE-272).\n`,
         );
         return 1;
       }

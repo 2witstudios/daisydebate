@@ -11,6 +11,8 @@ import { sweepTestRunDatabases } from '@daisy/db/test-runs';
 import {
   admin,
   awaitLockFree,
+  awaitSessionsOlderThan,
+  cleanUpProof,
   descendants,
   runDatabases,
   runner,
@@ -18,6 +20,7 @@ import {
   sessionsOn,
   slotDatabase,
   textOf,
+  track,
   waitForBusyRun,
 } from './proof-postgres-support';
 import { proofSteps } from './proof-support';
@@ -29,25 +32,12 @@ const { check, finish } = proofSteps();
 const sweep = (maxRunMs: number) =>
   sweepTestRunDatabases(admin, slotDatabase, { maxRunMs });
 
-/** Every process the proof stops or starts, killed however the proof ends: a stopped suite is never left behind. */
-const spawned: Array<{ readonly pid: number }> = [];
-const killAll = () => {
-  for (const { pid } of spawned)
-    try {
-      process.kill(pid, 'SIGKILL');
-    } catch {
-      // already gone
-    }
-};
-
 async function main() {
   // The hung orphan: runner killed, suite stopped with its sessions open.
   const hung = runner(SLOW);
-  spawned.push(hung);
   const hungDatabase = await waitForBusyRun([], hung);
-  const suites = descendants(hung.pid);
-  spawned.push(...suites.map((pid) => ({ pid })));
-  for (const pid of suites) process.kill(pid, 'SIGSTOP');
+  const hungSuites = descendants(hung.pid).map(track);
+  for (const pid of hungSuites) process.kill(pid, 'SIGSTOP');
   process.kill(hung.pid, 'SIGKILL');
   await hung.exited;
   await awaitLockFree(hungDatabase);
@@ -56,11 +46,14 @@ async function main() {
     `ISSUE-260: the runner is dead (lock free) but its stopped suite still holds sessions on ${hungDatabase}`,
   );
 
-  // A live run beside it.
+  // A live run beside it, held mid-suite so it is long enough by construction
+  // (ISSUE-270): its runner is alive and holds its lock, its suite is stopped
+  // with its sessions open, however fast or slow the machine is.
   const live = runner(SLOW);
-  spawned.push(live);
   const liveLog = textOf(live.stderr);
   const liveDatabase = await waitForBusyRun([hungDatabase], live);
+  const liveSuites = descendants(live.pid).map(track);
+  for (const pid of liveSuites) process.kill(pid, 'SIGSTOP');
   check(
     (await runDatabases()).includes(hungDatabase),
     'ISSUE-260: the live run’s own sweep (bound: the run length, one hour) left the orphan alone while its sessions are young',
@@ -70,13 +63,10 @@ async function main() {
     'ISSUE-260 control: a sweep with the real one-hour bound keeps the orphan, whose sessions are seconds old',
   );
 
-  // Past the bound: the orphan's sessions are terminated and its database dropped.
-  await Bun.sleep(BOUND_MS + 500);
-  // The comparison only means something while the live run is still running.
-  const runningBefore = live.exitCode === null;
+  // Past the bound, on the real condition (Postgres reports every session of
+  // the orphan older than the bound), not a sleep.
+  await awaitSessionsOlderThan(hungDatabase, BOUND_MS);
   const dropped = await sweep(BOUND_MS);
-  if (!runningBefore || live.exitCode !== null)
-    throw new Error('the live run ended before the proof could compare it');
   const remaining = await runDatabases();
   check(
     dropped.length === 1 &&
@@ -88,21 +78,23 @@ async function main() {
     remaining.includes(liveDatabase) && !dropped.includes(liveDatabase),
     `ISSUE-260: the live run’s ${liveDatabase}, whose sessions are just as old, was never dropped: its runner holds the lock`,
   );
+
+  // Let the live run finish: it carried on beside the sweep and passes.
+  for (const pid of liveSuites) process.kill(pid, 'SIGCONT');
   check(
     (await live.exited) === 0 && !(await liveLog).includes('lock is gone'),
     'ISSUE-260: the live run carried on beside the sweep and passed',
   );
-  killAll();
+  for (const pid of hungSuites) process.kill(pid, 'SIGKILL');
   check(
     (await runDatabases()).length === 0,
     'ISSUE-260: no run database of the slot is left',
   );
-  await admin.close();
-  finish();
 }
 
 try {
   await main();
 } finally {
-  killAll();
+  await cleanUpProof();
 }
+finish();

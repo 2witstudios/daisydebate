@@ -5,6 +5,7 @@
  */
 import { SQL } from 'bun';
 import { requireTestSlotServices } from '@daisy/config';
+import { dropAllTestRunDatabases } from '@daisy/db/test-runs';
 
 export const root = `${import.meta.dir}/..`;
 export const web = `${root}/apps/web`;
@@ -19,8 +20,15 @@ export const admin = new SQL(urlOf('postgres'), { max: 1 });
 
 export const SLOW = 'integration/auth-rate-limit-mail-ceilings.integration.ts';
 export const FAST = 'integration/composition-root.integration.ts';
-export const runner = (suite: string) =>
-  Bun.spawn(
+// Every process a proof starts or stops, killed however the proof ends (a
+// stopped suite is never left behind, ISSUE-273).
+const tracked: number[] = [];
+export const track = (pid: number): number => {
+  tracked.push(pid);
+  return pid;
+};
+export const runner = (suite: string) => {
+  const proc = Bun.spawn(
     [
       'bun',
       `--env-file=${root}/.env`,
@@ -29,6 +37,9 @@ export const runner = (suite: string) =>
     ],
     { cwd: web, stdout: 'pipe', stderr: 'pipe' },
   );
+  track(proc.pid);
+  return proc;
+};
 export const textOf = async (stream: ReadableStream<Uint8Array>) =>
   await new Response(stream).text();
 
@@ -158,4 +169,40 @@ export async function awaitRunEnded(database: string): Promise<void> {
       throw new Error(`${database} still has sessions or a held lock`);
     await Bun.sleep(100);
   }
+}
+
+/** Waits until every session on `database` started at least `ms` ago (and there is one): the real condition behind "older than the bound", read from Postgres, not a sleep. */
+export async function awaitSessionsOlderThan(
+  database: string,
+  ms: number,
+): Promise<void> {
+  const deadline = Date.now() + 300_000;
+  for (;;) {
+    const [row] = (await admin.unsafe(
+      `select count(*)::int as total,
+         (count(*) filter (where backend_start >= now() - ${Number(ms)} * interval '1 millisecond'))::int as young
+       from pg_stat_activity where datname = '${database}' and pid <> pg_backend_pid()`,
+    )) as Array<{ total: number; young: number }>;
+    if ((row?.total ?? 0) > 0 && row?.young === 0) return;
+    if (Date.now() > deadline)
+      throw new Error(`the sessions on ${database} never aged past ${ms} ms`);
+    await Bun.sleep(100);
+  }
+}
+
+/**
+ * Ends a proof however it ended (ISSUE-273): kills every process it started
+ * or stopped, with their descendants, drops the run databases it left (the
+ * proofs own the slot while they run), and closes the admin connection.
+ */
+export async function cleanUpProof(): Promise<void> {
+  for (const pid of tracked)
+    for (const target of [...descendants(pid), pid])
+      try {
+        process.kill(target, 'SIGKILL');
+      } catch {
+        // already gone
+      }
+  await dropAllTestRunDatabases(admin, slotDatabase);
+  await admin.close();
 }

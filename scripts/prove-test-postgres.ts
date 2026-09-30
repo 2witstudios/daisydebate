@@ -32,6 +32,7 @@ import { proofSteps } from './proof-support';
 import {
   admin,
   awaitRunEnded,
+  cleanUpProof,
   descendants,
   FAST,
   root,
@@ -235,8 +236,11 @@ async function main() {
 
   await proveLockLoss();
   await provePlantedRows();
-  await admin.close();
-  finish();
 }
 
-await main();
+try {
+  await main();
+} finally {
+  await cleanUpProof();
+}
+finish();
