@@ -1,6 +1,8 @@
 import { expect, type APIRequestContext, type Page } from '@playwright/test';
 import { createId } from '@paralleldrive/cuid2';
 import { resolveE2EOrigin, resolveE2EPorts } from '../../playwright.config';
+import { hydrated } from './hydration';
+import { enrollFromSettings, signInWithPasskey } from './webauthn';
 
 /**
  * Real accounts for the browser suite. Every step goes through the production
@@ -112,7 +114,7 @@ export async function reachOnboarding(page: Page, request: APIRequestContext) {
 export async function addPasskeyFromSettings(page: Page) {
   await page.goto('/settings/security');
   await expect(page.getByRole('heading', { name: 'Passkeys' })).toBeVisible();
-  await page.getByRole('button', { name: 'Add a passkey' }).click();
+  await enrollFromSettings(page);
   await expect(page.getByRole('button', { name: 'Remove' })).toHaveCount(1);
 }
 
@@ -122,11 +124,14 @@ export async function addPasskeyFromSettings(page: Page) {
  */
 export async function passkeySignInAfterSignOut(page: Page) {
   // The button's own handler navigates to /sign-in once sign-out resolves;
-  // wait for that navigation instead of racing it with another.
-  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  // wait for that navigation instead of racing it with another. Hardening
+  // (ISSUE-212): it is a script button, so wait for hydration first.
+  const signOut = page.getByRole('button', { name: 'Sign out', exact: true });
+  await hydrated(signOut);
+  await signOut.click();
   await page.waitForURL(/\/sign-in$/);
   await page.goto('/sign-in?next=%2Flobby');
-  await page.getByRole('button', { name: 'Sign in with a passkey' }).click();
+  await signInWithPasskey(page);
   await expect(page).toHaveURL(/\/lobby$/);
 }
 

@@ -90,6 +90,8 @@ export function createSelfSignedTlsEdge({
     },
   });
   return {
+    /** The bound port: `edgePort` itself, or the one chosen for port 0. */
+    port: server.port,
     stop: (closeActiveConnections?: boolean) =>
       server.stop(closeActiveConnections),
   };

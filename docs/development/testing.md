@@ -64,6 +64,13 @@ AIDD/Vitest guidance is overridden here by Bun and RITEway (ADR 0021).
      interleaved, into `verify-logs/<stage>.log` as they are written, and
      prints the last 40 lines of any stage that fails, so a failure is never
      reported without its cause.
+   - **Failed browser runs.** Playwright empties `apps/web/test-results` at
+     the start of every run, so when the e2e stage fails, `bun verify` copies
+     that folder to `verify-logs/e2e-failures/<UTC time>-<commit>/` and names
+     the copy in the e2e gate's detail. It holds each failed test's trace,
+     screenshot and video (`retain-on-failure`) and the production server's
+     and realtime's logs (`server-<port>.log`, `realtime-<port>.log`). No
+     later run writes there; delete old folders by hand.
    - **Docs-only diffs.** For a diff against `origin/main` (untracked files
      included) that touches only Markdown under `docs/`, ADRs included, it
      skips the browser tier and reports

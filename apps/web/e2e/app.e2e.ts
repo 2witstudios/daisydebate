@@ -29,7 +29,7 @@ const expectShell = async (page: Page, route: string, title: string) => {
       : new RegExp(`^${title} · Daisy Debate$`),
   );
   await expect(page.locator('main h1')).toHaveText(
-    route === '/' ? 'Join the marketplace of ideas' : title,
+    route === '/' ? 'Debate is a sport now.' : title,
   );
 };
 

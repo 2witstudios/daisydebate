@@ -22,6 +22,17 @@ const realWorkflow = readFileSync(
   '.github/workflows/deploy-staging.yml',
   'utf8',
 );
+const readRepoFile = (path: string) => {
+  try {
+    return readFileSync(path, 'utf8');
+  } catch {
+    return undefined;
+  }
+};
+const realProbeWorkflow = readFileSync(
+  '.github/workflows/auth-alerts.yml',
+  'utf8',
+);
 const realBunVersion = readFileSync('.bun-version', 'utf8').trim();
 const realStart = readFileSync('apps/web/src/server/start.ts', 'utf8');
 const realMigrate = readFileSync('packages/db/scripts/migrate.ts', 'utf8');
@@ -142,13 +153,15 @@ describe('verifyDeployConfig', () => {
   test('the real repository files together', () => {
     assert({
       given:
-        'the committed Dockerfile, both fly configs, the deploy workflow, .bun-version, start.ts and migrate.ts',
+        'the committed Dockerfile, both fly configs, the deploy and auth-alerts workflows, .bun-version, start.ts and migrate.ts',
       should: 'report no problems',
       actual: verifyDeployConfig({
         dockerfile: realDockerfile,
         flyToml: realFlyToml,
         migratorToml: realMigratorToml,
         workflow: realWorkflow,
+        probeWorkflow: realProbeWorkflow,
+        readRepoFile,
         bunVersion: realBunVersion,
         startTs: realStart,
         migrateTs: realMigrate,
@@ -166,6 +179,8 @@ describe('verifyDeployConfig', () => {
         flyToml: realFlyToml,
         migratorToml: '[deploy]\n',
         workflow: realWorkflow,
+        probeWorkflow: realProbeWorkflow,
+        readRepoFile,
         bunVersion: '1.4.2',
         startTs: realStart,
         migrateTs: realMigrate,

@@ -19,6 +19,12 @@ export type FaultProxy = {
   readonly hostname: string;
   readonly port: number;
   pause(): void;
+  /**
+   * Keeps every connection open but relays nothing in either direction: a
+   * dependency that stops answering rather than refusing (ISSUE-208). A
+   * stalled connection has lost bytes, so it is not usable after resume.
+   */
+  stall(): void;
   resume(): void;
   isPaused(): boolean;
   close(): void;
@@ -31,6 +37,7 @@ function createFaultProxy(target: {
   readonly port: number;
 }): FaultProxy {
   let paused = false;
+  let stalled = false;
   const relays = new Map<Socket, RelayState>();
 
   const flush = (state: RelayState) => {
@@ -55,7 +62,7 @@ function createFaultProxy(target: {
           port: target.port,
           socket: {
             data: (_upstream, data) => {
-              client.write(data);
+              if (!stalled) client.write(data);
             },
             close: () => {
               client.end();
@@ -79,7 +86,7 @@ function createFaultProxy(target: {
       },
       data(client, data) {
         const state = relays.get(client);
-        if (!state) return;
+        if (!state || stalled) return;
         if (state.upstream) state.upstream.write(data);
         else state.buffered.push(new Uint8Array(data));
       },
@@ -102,8 +109,12 @@ function createFaultProxy(target: {
       for (const client of relays.keys()) client.terminate();
       relays.clear();
     },
+    stall() {
+      stalled = true;
+    },
     resume() {
       paused = false;
+      stalled = false;
     },
     isPaused: () => paused,
     close: () => listener.stop(true),
