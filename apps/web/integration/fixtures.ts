@@ -2,13 +2,15 @@ import { afterAll, setDefaultTimeout } from 'bun:test';
 import { RedisClient, SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
+import { buildUserInboxTopic } from '@daisy/protocol';
+import { deleteNamespace } from '@daisy/redis/namespaces';
 import { systemClock, systemId } from '@daisy/clock';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import { createApp } from '../src/server/app';
 import { createRoutes } from '../src/server/routes';
 import { authTestEnv } from '../src/features/auth/auth-server.test-support';
 import { acquireIntegrationRunLock } from './integration-run-lock';
-import { createMailbox } from './mailbox';
+import { createMailbox, removeMailRecords } from './mailbox';
 
 /**
  * The one fixture module for the web integration suites (ISSUE-11): the
@@ -131,10 +133,12 @@ export function createTestApp(
       body: new URLSearchParams(fields).toString(),
     });
   /** Removes exactly the keys this suite created in its own namespace. */
-  const clearRedisNamespace = () =>
-    withNamespaceKeys(redisNamespace, async (client, keys) => {
-      for (const key of keys) await client.del(key);
-    });
+  // One UNLINK per SCAN page: a DEL per key overran the 30 s teardown for
+  // the ~12,000 keys the global-day ceiling suite leaves (ISSUE-192).
+  const clearRedisNamespace = async () => {
+    const client = new RedisClient(testRedisUrl as string);
+    await deleteNamespace(client, redisNamespace).finally(() => client.close());
+  };
   const redisKeys = () =>
     withNamespaceKeys(redisNamespace, (client, keys) =>
       Promise.all(
@@ -214,6 +218,7 @@ export function createTestApp(
       }
     };
     await step(() => removeAccounts(accounts, [emailMarker]));
+    await step(() => withSql((sql) => removeMailRecords(sql, mailbox)));
     await step(clearRedisNamespace);
     await step(() => app.close());
     if (errors.length > 0)
@@ -331,8 +336,10 @@ export const counts = (account: Account): Promise<AccountCounts> =>
   });
 
 /**
- * Removes exactly these accounts' records over one connection: their actors
- * (actors.user_id is RESTRICT, so they go first), the users (sessions,
+ * Removes exactly these accounts' records over one connection: the outbox
+ * rows on their actors' inbox topics (a session revoke appends one;
+ * ISSUE-192), their actors (actors.user_id is RESTRICT, so they go before
+ * the users), the users (sessions,
  * accounts and passkeys cascade) and the verification rows containing any
  * of `markers` (by default the accounts' emails; a caller whose emails all
  * share a unique marker passes that, one scan instead of one per email).
@@ -347,6 +354,14 @@ const removeAccounts = (
     const emails = keys.flatMap(({ email }) => (email ? [email] : []));
     const userIds = keys.flatMap(({ userId }) => (userId ? [userId] : []));
     const owned = sql`SELECT id FROM users WHERE email = ANY(${sql.array(emails, 'text')}::text[]) OR id = ANY(${sql.array(userIds, 'text')}::text[])`;
+    const actors =
+      (await sql`SELECT id FROM actors WHERE user_id IN (${owned})`) as Array<{
+        id: string;
+      }>;
+    await sql`DELETE FROM outbox WHERE topic = ANY(${sql.array(
+      actors.map(({ id }) => buildUserInboxTopic(id)),
+      'text',
+    )}::text[])`;
     await sql`DELETE FROM actors WHERE user_id IN (${owned})`;
     await sql`DELETE FROM users WHERE id IN (${owned})`;
     await sql`DELETE FROM verification USING unnest(${sql.array([...(markers ?? emails)], 'text')}::text[]) AS fixture(marker) WHERE strpos(verification.value, fixture.marker) > 0`;

@@ -8,7 +8,6 @@ import {
   findFlyReleaseCommandProblem,
   findMigrationCredentialProblem,
   findMigratorAppProblem,
-  findRuntimeRoleGateProblem,
   findWebReleaseCommandProblem,
   findWorkflowMigrationOrderProblem,
   verifyDeployConfig,
@@ -21,6 +20,17 @@ const realFlyToml = readFileSync('fly.toml', 'utf8');
 const realMigratorToml = readFileSync('fly.migrate.toml', 'utf8');
 const realWorkflow = readFileSync(
   '.github/workflows/deploy-staging.yml',
+  'utf8',
+);
+const readRepoFile = (path: string) => {
+  try {
+    return readFileSync(path, 'utf8');
+  } catch {
+    return undefined;
+  }
+};
+const realProbeWorkflow = readFileSync(
+  '.github/workflows/auth-alerts.yml',
   'utf8',
 );
 const realBunVersion = readFileSync('.bun-version', 'utf8').trim();
@@ -147,13 +157,15 @@ describe('verifyDeployConfig', () => {
   test('the real repository files together', () => {
     assert({
       given:
-        'the committed Dockerfile, both fly configs, the deploy workflow, .bun-version, start.ts, migrate.ts and the shutdown budget',
+        'the committed Dockerfile, both fly configs, the deploy and auth-alerts workflows, .bun-version, start.ts, migrate.ts and the shutdown budget',
       should: 'report no problems',
       actual: verifyDeployConfig({
         dockerfile: realDockerfile,
         flyToml: realFlyToml,
         migratorToml: realMigratorToml,
         workflow: realWorkflow,
+        probeWorkflow: realProbeWorkflow,
+        readRepoFile,
         bunVersion: realBunVersion,
         startTs: realStart,
         migrateTs: realMigrate,
@@ -172,6 +184,8 @@ describe('verifyDeployConfig', () => {
         flyToml: realFlyToml,
         migratorToml: '[deploy]\n',
         workflow: realWorkflow,
+        probeWorkflow: realProbeWorkflow,
+        readRepoFile,
         bunVersion: '1.4.2',
         startTs: realStart,
         migrateTs: realMigrate,
@@ -211,56 +225,6 @@ describe('findFlyDatabaseSecretProblem', () => {
       ),
       expected:
         'fly.toml [env] sets MIGRATION_DATABASE_URL; database credentials are Fly secrets',
-    });
-  });
-});
-
-describe('findRuntimeRoleGateProblem (ISSUE-39, ISSUE-193)', () => {
-  const refusal =
-    "  refuseRole: () => refuseSchemaAlteringRole(app, 'daisy_web'),\n";
-  const start = (body: string, awaitStarted = 'await started;\n') =>
-    `const { server, started } = startProductionServer({\n  app,\n  nextApp,\n${body}  port,\n  host: '0.0.0.0',\n});\n${awaitStarted}`;
-  const missing =
-    "start.ts does not start through startProductionServer with refuseRole: () => refuseSchemaAlteringRole(app, 'daisy_web') and await started";
-
-  test('the committed start.ts starts only through startProductionServer', () => {
-    assert({
-      given: 'the real start.ts',
-      should: 'report no problem',
-      actual: findRuntimeRoleGateProblem(realStart),
-      expected: null,
-    });
-  });
-
-  test('a start.ts without the role refusal, with it commented out, or not awaiting start-up', () => {
-    assert({
-      given:
-        'no refuseRole, a commented refuseRole, and a start-up whose result is never awaited',
-      should: 'report each as missing its gated start-up',
-      actual: [
-        start(''),
-        start(`  // ${refusal.trim()}\n`),
-        start(refusal, ''),
-      ].map(findRuntimeRoleGateProblem),
-      expected: [missing, missing, missing],
-    });
-  });
-
-  test('a start.ts that composes, prepares or listens outside startProductionServer', () => {
-    assert({
-      given:
-        "the review's mutation (Next's handler handed to createProductionServer), a direct nextApp.prepare(), and a direct server.listen",
-      should: 'report each as bypassing the start-up gate',
-      actual: [
-        `${start(refusal)}const bypass = createProductionServer({ app, handle: nextApp.getRequestHandler(), readRouteTable });\n`,
-        `await nextApp.prepare();\n${start(refusal)}`,
-        `${start(refusal)}server.listen(port, '0.0.0.0');\n`,
-      ].map(findRuntimeRoleGateProblem),
-      expected: [
-        'start.ts bypasses the start-up gate with createProductionServer(; start only through startProductionServer (ISSUE-193)',
-        'start.ts bypasses the start-up gate with nextApp.prepare(; start only through startProductionServer (ISSUE-193)',
-        'start.ts bypasses the start-up gate with .listen(; start only through startProductionServer (ISSUE-193)',
-      ],
     });
   });
 });

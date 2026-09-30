@@ -1,13 +1,8 @@
-import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { createPasskeyFlows } from './auth-passkey-flows';
 import { providerEvent } from './auth-webhook-helpers';
-import { linkFrom, tokenOf, withSql } from './fixtures';
-import {
-  deriveRecipientSubkey,
-  recipientKey,
-} from '../src/features/auth/recipient-key';
+import { linkFrom, tokenOf } from './fixtures';
 import { requireTestServices } from '@daisy/config';
 
 /**
@@ -23,21 +18,6 @@ setupRitewayBun();
 const flows = await createPasskeyFlows();
 const { signUp } = flows.account;
 const { testApp, mailbox } = flows.account.flows;
-const subkey = deriveRecipientSubkey(testApp.env.RECIPIENT_HASH_SECRET);
-const suppressedAddresses: string[] = [];
-const messageIds: string[] = [];
-
-afterAll(async () => {
-  await withSql(async (sql) => {
-    for (const id of messageIds) {
-      await sql`DELETE FROM email_delivery_event WHERE provider_message_id = ${id}`;
-      await sql`DELETE FROM email_delivery WHERE provider_message_id = ${id}`;
-    }
-    for (const email of suppressedAddresses)
-      await sql`DELETE FROM email_suppression WHERE recipient_hash = ${recipientKey(subkey, email)}`;
-  });
-});
-
 /** A real permanent bounce, through the signed webhook, for a mail sent to `email`. */
 /** Asks for each email change in turn and records its status and code. */
 const changeEmailAnswers = async (
@@ -58,8 +38,6 @@ const changeEmailAnswers = async (
 const hardBounce = async (email: string) => {
   const mail = mailbox.mails.filter((sent) => sent.to === email).at(-1);
   if (!mail) throw new Error('no mail was sent to that address');
-  messageIds.push(mail.messageId);
-  suppressedAddresses.push(email);
   const response = await testApp.routes.mailWebhook.POST(
     providerEvent('email.bounced', mail.messageId, {
       bounceType: 'Permanent',

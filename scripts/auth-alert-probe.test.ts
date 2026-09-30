@@ -129,19 +129,82 @@ describe('evaluateOriginProbe (AUTH-7.7)', () => {
     });
   });
 
-  test('a non-200 status is a routing issue (negative control on the healthy case)', () => {
+  test('a non-200 carrying the app headers is the app reporting not ready (ISSUE-203)', () => {
     const result = evaluateOriginProbe({
       status: 503,
       headers: HEALTHY_HEADERS,
     });
     assert({
-      given: 'a 503 from the readiness endpoint',
+      given:
+        'a 503 carrying the app header contract (dependency down or draining)',
+      should:
+        'report exactly one issue naming the status and that the app reported not ready',
+      actual: {
+        ok: result.ok,
+        count: result.issues.length,
+        namesStatus: result.issues[0]?.includes('503'),
+        saysNotReady: result.issues[0]?.includes('the app reported not ready'),
+        saysNotApp: result.issues[0]?.includes('did not come from the app'),
+      },
+      expected: {
+        ok: false,
+        count: 1,
+        namesStatus: true,
+        saysNotReady: true,
+        saysNotApp: false,
+      },
+    });
+  });
+
+  test('a non-5xx non-200 is not ok even with every header (ISSUE-203)', () => {
+    const result = evaluateOriginProbe({
+      status: 404,
+      headers: HEALTHY_HEADERS,
+    });
+    assert({
+      given: 'a 404 from the readiness endpoint carrying every required header',
       should: 'report not-ok naming the status',
       actual: {
         ok: result.ok,
-        namesStatus: result.issues.some((i) => i.includes('503')),
+        namesStatus: result.issues.some((i) => i.includes('404')),
       },
       expected: { ok: false, namesStatus: true },
+    });
+  });
+
+  test('a non-200 with none of the app headers is one issue, not one per header (ISSUE-196)', () => {
+    const result = evaluateOriginProbe({ status: 503, headers: new Map() });
+    assert({
+      given:
+        'a 503 carrying none of the app headers (Fly proxy cold start or start-up gate)',
+      should:
+        'report exactly one issue naming the status and that the app likely did not answer',
+      actual: {
+        ok: result.ok,
+        count: result.issues.length,
+        namesStatus: result.issues[0]?.includes('503'),
+        saysNotApp: result.issues[0]?.includes('did not come from the app'),
+      },
+      expected: { ok: false, count: 1, namesStatus: true, saysNotApp: true },
+    });
+  });
+
+  test('a 200 reports every header mismatch, one issue each (ISSUE-196)', () => {
+    const headers = new Map(HEALTHY_HEADERS);
+    headers.delete('strict-transport-security');
+    headers.set('x-frame-options', 'SAMEORIGIN');
+    assert({
+      given:
+        'a 200 missing Strict-Transport-Security and weakening X-Frame-Options',
+      should: 'report both mismatches',
+      actual: evaluateOriginProbe({ status: 200, headers }),
+      expected: {
+        ok: false,
+        issues: [
+          'x-frame-options: expected "DENY", got SAMEORIGIN',
+          'strict-transport-security: expected "max-age=31536000; includeSubDomains", got none',
+        ],
+      },
     });
   });
 
@@ -233,6 +296,7 @@ describe('fetchAlertConditions (ISSUE-156)', () => {
                 'docs/operations/auth-delivery.md#retention-cleanup-missed',
             },
           ],
+          snapshot: { redisState: 'read' },
         }),
     });
     const result = await fetchAlertConditions(
@@ -253,6 +317,7 @@ describe('fetchAlertConditions (ISSUE-156)', () => {
               'docs/operations/auth-delivery.md#retention-cleanup-missed',
           },
         ],
+        alertStateRead: true,
       },
     });
   });
@@ -283,12 +348,15 @@ describe('fetchAlertConditions (ISSUE-156)', () => {
     );
     assert({
       given: 'a 200 from /api/ops/alerts whose JSON has no conditions array',
-      should: 'resolve not-ok naming the malformed body, not ok',
-      actual: result,
-      expected: {
-        ok: false,
-        error: '/api/ops/alerts responded without a conditions array',
+      should:
+        'resolve not-ok naming an unreadable alert state and the missing conditions, not ok',
+      actual: {
+        ok: result.ok,
+        namesUnreadable:
+          !result.ok && result.error.includes('unreadable alert state'),
+        namesConditions: !result.ok && result.error.includes('conditions'),
       },
+      expected: { ok: false, namesUnreadable: true, namesConditions: true },
     });
   });
 
@@ -312,7 +380,7 @@ describe('decideProbeOutcome (ISSUE-156)', () => {
       should: 'report healthy with no message',
       actual: decideProbeOutcome({
         originProbe: HEALTHY_ORIGIN,
-        alertConditions: { ok: true, conditions: [] },
+        alertConditions: { ok: true, conditions: [], alertStateRead: true },
       }),
       expected: { healthy: true, message: null },
     });
@@ -345,6 +413,7 @@ describe('decideProbeOutcome (ISSUE-156)', () => {
       originProbe: HEALTHY_ORIGIN,
       alertConditions: {
         ok: true,
+        alertStateRead: true,
         conditions: [
           {
             id: 'limiter_unavailable',

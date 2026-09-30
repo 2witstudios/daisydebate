@@ -1,4 +1,15 @@
+import { withTimeout } from '@daisy/observability';
+
 const MINUTE_MS = 60_000;
+
+/**
+ * Each Redis read behind `/api/ops/alerts` is abandoned after this long,
+ * the same budget readiness gives its PING, so a Redis that stops
+ * answering yields a `redisState: 'unreachable'` snapshot instead of a
+ * request that never ends (ISSUE-208). Bounded per command, not by the
+ * client's own defaults, which leave a stalled connection pending.
+ */
+export const ALERT_STATE_READ_TIMEOUT_MS = 2_000;
 
 /**
  * The AUTH-7.7 alert thresholds, named once so `evaluateAlerts` and its
@@ -190,16 +201,22 @@ export async function readAlertSnapshot({
   local,
   clock,
   windowMinutes = ALERT_THRESHOLDS.auth5xxWindowMinutes,
+  readTimeoutMs = ALERT_STATE_READ_TIMEOUT_MS,
 }: {
   readonly redis: AlertStateRedis;
   readonly local: LocalAlertState;
   readonly clock: AlertClock;
   readonly windowMinutes?: number;
+  readonly readTimeoutMs?: number;
 }): Promise<AlertSnapshot> {
   const nowIso = clock.now();
   const localLimiterSince = local.limiterUnavailableSince();
   try {
-    const read = await readRedisMarkers(redis, nowIso, windowMinutes);
+    const read = await readRedisMarkers(
+      { get: (key) => withTimeout(redis.get(key), readTimeoutMs) },
+      nowIso,
+      windowMinutes,
+    );
     return {
       ...read,
       limiterUnavailableSinceIso: earlierOf(

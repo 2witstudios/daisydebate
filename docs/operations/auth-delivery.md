@@ -200,6 +200,14 @@ posted to the drive's Incidents channel via the existing
 `scripts/notify-drive.ts incidents --message`, naming the condition's own
 runbook below.
 
+The origin probe checks the security headers only on a `200`. Any other
+status posts one `origin_probe` line naming the status, not one per missing
+header. With the app's headers present it says the app reported not ready:
+Postgres or Redis is unreachable (including the cold-boot Redis window) or
+the process is draining. With them absent it says the response likely did
+not come from the app: Fly's proxy during a cold start, the start-up gate,
+or the app down.
+
 The four conditions, and the durable Redis marker each reads
 (`apps/web/src/server/alert-recorder.ts` writes them by tapping the
 existing event stream — no new call sites):
@@ -382,12 +390,33 @@ limiter_unavailable").
    `auth_5xx_rate`, `cleanup_missed`) are not evaluated until Redis returns
    (`apps/web/integration/auth-ops-signals.integration.ts`, "a Redis outage
    that outlasts the threshold fires limiter_unavailable from when it
-   began"). Readiness answers 503 throughout, which the probe posts too.
-5. If `/api/ops/alerts` itself is unreachable (a deploy fault, the app
-   down), the probe (`scripts/auth-alert-probe.ts`, `fetchAlertConditions` /
-   `decideProbeOutcome`) still posts to Incidents, naming the unreachable
-   endpoint instead of the specific condition; posting to Incidents never
-   depends on the dependency that is down.
+   began"). The probe posts that unread state even when readiness passes
+   (`apps/web/integration/auth-alert-probe-degraded.integration.ts`), and
+   readiness answers 503 while Redis is unreachable, which the probe posts
+   too. The in-process `limiter_unavailable` marker belongs to one process
+   and is empty after a deploy, restart or crash, so the readiness post may
+   be the only one (ADR 0042).
+5. If `/api/ops/alerts` itself is unreachable, hangs or answers a body the
+   probe cannot validate (a deploy fault, the app down, a proxy answering
+   on its path), the probe (`scripts/auth-alert-probe.ts`,
+   `fetchAlertConditions` / `decideProbeOutcome`) still posts to Incidents,
+   naming the failed request or the unreadable alert state instead of the
+   specific condition; posting to Incidents never depends on the dependency
+   that is down. Every request is bounded (`PROBE_FETCH_TIMEOUT_MS`,
+   `NOTIFY_ATTEMPT_TIMEOUT_MS`, 20 s each), so a hung origin posts in well
+   under the job's 5 minutes, and a probe that throws posts a fail-closed
+   message before it exits 1 (`scripts/auth-alert-probe-cli.test.ts`,
+   `scripts/auth-alert-probe-fail-closed.test.ts`). The probe job's exit
+   code says whether Incidents heard about it:
+   - 0: the run was healthy, or its alert was delivered.
+   - 1: the post itself did not reach Incidents, or the probe threw (after
+     it tried to post). Check the job log for the message it printed.
+   - 2: a usage error, such as a missing `--origin` or `OPS_PROBE_TOKEN`
+     secret. Nothing was probed.
+
+   The probe needs no installed packages: the job installs nothing and runs
+   it with `bun --no-install`, so a registry outage cannot stop it
+   (ISSUE-225).
 
 ### Delivery provider failing repeatedly
 

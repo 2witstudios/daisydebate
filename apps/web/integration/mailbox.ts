@@ -1,3 +1,4 @@
+import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { resendRequest } from '../src/features/auth/resend-capture.test-support';
 
@@ -20,7 +21,8 @@ type CapturedMail = {
 export function createMailbox() {
   const mails: CapturedMail[] = [];
   const failures: Array<'transient' | 'permanent'> = [];
-  const runId = createId().slice(0, 8);
+  // Every message id this mailbox issues starts with it (see removeMailRecords).
+  const messagePrefix = `msg_${createId().slice(0, 8)}_`;
   let counter = 0;
   let latencyMs = 0;
   let held: Promise<void> = Promise.resolve();
@@ -42,12 +44,13 @@ export function createMailbox() {
       });
     if (failure === 'permanent') return new Response('{}', { status: 422 });
     counter += 1;
-    const messageId = `msg_${runId}_${counter}`;
+    const messageId = `${messagePrefix}${counter}`;
     mails.push({ ...sent, messageId });
     return Response.json({ id: messageId });
   };
   return {
     mails,
+    messagePrefix,
     fetch: mailboxFetch,
     failNext: (...kinds: Array<'transient' | 'permanent'>) =>
       failures.push(...kinds),
@@ -69,4 +72,23 @@ export function createMailbox() {
         arrivals.push(resolve);
       }),
   };
+}
+
+/**
+ * Removes the delivery rows the app recorded for this mailbox's messages:
+ * delivery state, webhook events and suppressions, all keyed by the
+ * provider message id the mailbox issued. ISSUE-192: without this each run
+ * left its email_delivery rows behind (about 4,000 per full run), and the
+ * growing table slowed every later run.
+ */
+export async function removeMailRecords(
+  sql: SQL,
+  { messagePrefix }: { readonly messagePrefix: string },
+) {
+  for (const table of [
+    'email_delivery_event',
+    'email_delivery',
+    'email_suppression',
+  ])
+    await sql`DELETE FROM ${sql(table)} WHERE starts_with(provider_message_id, ${messagePrefix})`;
 }
