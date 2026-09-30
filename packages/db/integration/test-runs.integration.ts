@@ -25,6 +25,8 @@ const connect = (database: string) => {
 // CREATE/DROP DATABASE copy and remove files; under a machine full of
 // parallel suites a handful of them can exceed bun's 5 s per-test default.
 const ddlTimeoutMs = 30_000;
+// A run may last an hour: no session in these tests is that old.
+const RUN_BOUND = { maxRunMs: 3_600_000 };
 const randomToken = () =>
   testRunToken(crypto.getRandomValues(new Uint8Array(4)));
 
@@ -37,11 +39,15 @@ const exists = async (admin: SQL, name: string) =>
  * when its backend exits, a moment after the client closes, so the first
  * sweep can still see the runner as alive. Waits for that, not for a time.
  */
-async function sweepUntilDropped(sweeper: SQL, name: string) {
+async function sweepUntilDropped(
+  sweeper: SQL,
+  name: string,
+  bound = RUN_BOUND,
+) {
   const dropped: string[] = [];
   const deadline = Date.now() + 5_000;
   do {
-    dropped.push(...(await sweepTestRunDatabases(sweeper, base)));
+    dropped.push(...(await sweepTestRunDatabases(sweeper, base, bound)));
   } while (!dropped.includes(name) && Date.now() < deadline);
   return dropped;
 }
@@ -122,7 +128,11 @@ test(
         if (free || Date.now() > deadline) break;
         await Bun.sleep(25);
       }
-      const whileConnected = await sweepTestRunDatabases(sweeper, base);
+      const whileConnected = await sweepTestRunDatabases(
+        sweeper,
+        base,
+        RUN_BOUND,
+      );
       const keptWhileConnected = await exists(sweeper, run.name);
       await inRun.close();
 
@@ -191,6 +201,55 @@ test(
       await dropAllTestRunDatabases(admin, base);
       await run.runner.close();
       await admin.close();
+    }
+  },
+  ddlTimeoutMs,
+);
+
+test(
+  'ISSUE-260: a hung orphan is dropped past the run bound, a live run beside it is not',
+  async () => {
+    const sweeper = connect('postgres');
+    const hungRun = await startRun();
+    const liveRun = await startRun();
+    const bound = { maxRunMs: 1_500 };
+    try {
+      // The orphan: its runner died, its suite session stays open and idle.
+      const hungSession = connect(hungRun.name);
+      await hungSession`select 1`;
+      await hungRun.runner.close();
+      // The live run: its runner holds the lock and its suite is connected.
+      const liveSession = connect(liveRun.name);
+      await liveSession`select 1`;
+      await Bun.sleep(1_700);
+      const early = await sweepTestRunDatabases(sweeper, base, RUN_BOUND);
+
+      const dropped = await sweepUntilDropped(sweeper, hungRun.name, bound);
+
+      assert({
+        given:
+          'an orphan whose session is older than the bound (runner gone) and a live run whose session is just as old but whose runner holds its lock',
+        should:
+          'keep the orphan while the bound is an hour, then drop it once the bound passed, sessions terminated, and never touch the live run',
+        actual: {
+          early,
+          dropped,
+          hungLeft: await exists(sweeper, hungRun.name),
+          liveLeft: await exists(sweeper, liveRun.name),
+        },
+        expected: {
+          early: [],
+          dropped: [hungRun.name],
+          hungLeft: false,
+          liveLeft: true,
+        },
+      });
+      await liveSession.close();
+      await hungSession.close().catch(() => undefined);
+    } finally {
+      await dropAllTestRunDatabases(sweeper, base);
+      await liveRun.runner.close();
+      await sweeper.close();
     }
   },
   ddlTimeoutMs,

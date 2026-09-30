@@ -11,7 +11,7 @@ import { constants } from 'node:os';
 import { RedisClient, SQL } from 'bun';
 import { requireTestSlotServices } from '@daisy/config';
 import {
-  deleteKeysWithoutExpiry,
+  deleteAllKeysWithoutExpiry,
   sweepIdleNamespaces,
 } from '@daisy/redis/namespaces';
 import { TEST_NAMESPACE_PREFIX, TEST_RUN_MAX_MS } from '@daisy/redis/testing';
@@ -200,6 +200,7 @@ if (import.meta.main) {
   // dropped after it, so nothing they write can outlive the run.
   const code = await withRunDatabase({
     slotDatabaseUrl: databaseUrl,
+    maxRunMs: TEST_RUN_MAX_MS,
     root: `${import.meta.dir}/..`,
     onSweep: (dropped) => {
       const message = sweepMessage(dropped);
@@ -230,7 +231,7 @@ if (import.meta.main) {
         return 1;
       }
       const leaks = redisLeakMessages(
-        await withRedis(redisUrl, deleteKeysWithoutExpiry),
+        await withRedis(redisUrl, deleteAllKeysWithoutExpiry),
       );
       for (const line of leaks) process.stderr.write(`${line}\n`);
       const grown = grownTables(before, await rowCounts(run.url));

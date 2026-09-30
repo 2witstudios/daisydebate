@@ -62,6 +62,7 @@ export async function superviseRun({
 export async function withRunDatabase<T>({
   slotDatabaseUrl,
   root,
+  maxRunMs,
   onSweep,
   work,
 }: {
@@ -69,6 +70,8 @@ export async function withRunDatabase<T>({
   readonly slotDatabaseUrl: string;
   /** The checkout whose migrations the run applies. */
   readonly root: string;
+  /** The longest a run may last (TEST_RUN_MAX_MS): a session older than this is a hung orphan's. */
+  readonly maxRunMs: number;
   readonly onSweep: (dropped: readonly string[]) => void;
   readonly work: (run: {
     readonly url: string;
@@ -87,7 +90,7 @@ export async function withRunDatabase<T>({
     testRunToken(crypto.getRandomValues(new Uint8Array(4))),
   );
   try {
-    onSweep(await sweepTestRunDatabases(admin, slotDatabase));
+    onSweep(await sweepTestRunDatabases(admin, slotDatabase, { maxRunMs }));
     const claimedBy = await claimTestRunDatabase(admin, name);
     const runUrl = withDatabase(slotDatabaseUrl, name);
     try {
