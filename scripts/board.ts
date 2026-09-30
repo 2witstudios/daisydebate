@@ -18,7 +18,7 @@ import {
   parseBoardArgs,
   type BoardCommand,
 } from './board-model';
-import { mainCheckoutOf, sessionIsAgent } from './agent-session';
+import { sessionIsAgent, thisRepoMainCheckout } from './agent-session';
 
 type Result = { readonly code: number; readonly stdout: string };
 
@@ -233,7 +233,7 @@ if (import.meta.main) {
       },
       readFile: (path) => readFileSync(path, 'utf8'),
       // A registered agent is an agent, as in the guard (ADR 0035 section 6).
-      autonomous: sessionIsAgent(process.env, mainCheckoutOf(process.cwd())),
+      autonomous: sessionIsAgent(process.env, thisRepoMainCheckout()),
       scratch: (name) =>
         join(tmpdir(), `board-${branch}-${process.pid}-${name}`),
       out: (text) => process.stdout.write(text),

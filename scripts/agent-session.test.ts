@@ -9,8 +9,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import {
+  mainCheckoutOf,
+  sessionIsAgent,
+  thisRepoMainCheckout,
+} from './agent-session';
 import { parseBoardArgs } from './board-model';
-import { mainCheckoutOf, sessionIsAgent } from './agent-session';
 
 setupRitewayBun();
 
@@ -88,6 +92,26 @@ describe('who is an agent, against real registry files', () => {
       actual: [mainCheckoutOf(worktree), mainCheckoutOf(stray)],
       expected: [main, undefined],
     });
+  });
+
+  test('ignores GIT_DIR and the caller cwd when locating the main checkout', () => {
+    const repo = mainCheckoutOf(new URL('..', import.meta.url).pathname);
+    const cwd = process.cwd();
+    process.env.GIT_DIR = join(main, '.git');
+    process.chdir(main);
+    try {
+      assert({
+        given:
+          'GIT_DIR naming another repository and a cwd inside that repository',
+        should:
+          'still find this repository for a path in it, and the same one for the script anchor',
+        actual: [mainCheckoutOf(worktree), thisRepoMainCheckout()],
+        expected: [main, repo],
+      });
+    } finally {
+      delete process.env.GIT_DIR;
+      process.chdir(cwd);
+    }
   });
 
   test('a hung git reads as unknown and fails closed', () => {

@@ -290,7 +290,14 @@ checkout that cannot be located, counts as an agent (fail closed). Clearing
 one variable does not make an agent the owner: `DAISY_AUTONOMOUS` alone keeps
 it an agent, and the registration lives outside its worktree. So that no
 registered agent can create an unregistered, owner-level session, it may not
-run a raw `pu spawn` or `pu swarm run`; a child comes from `bun agent:spawn`.
+run `pu spawn`, `pu swarm run`, `pu schedule create|enable` or
+`pu trigger create|assign`; a child comes from `bun agent:spawn`, which
+writes the registration right after `pu spawn` returns and before setup, so a
+failed setup never leaves an owner-looking agent. Only the milliseconds
+between those two steps are unregistered, and the launcher's
+`DAISY_AUTONOMOUS=1` (once the identity regime is on) covers them. The lookup
+anchors to this repository from the script's own location and ignores `GIT_*`
+variables and the caller's cwd.
 An unregistered orchestrator is not a misconfigured agent (section 1a). For
 agents it refuses:
 

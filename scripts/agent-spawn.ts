@@ -296,7 +296,6 @@ async function spawnChecked(deps: SpawnDeps, plan: SpawnPlan): Promise<number> {
   const turnsBefore =
     reviewed && prompt ? turnsWith(deps, reviewed.path, prompt) : 0;
   const { worktree, agent } = spawnAgentInto(deps, plan, reviewed);
-  if (!reviewed) setUp(deps, worktree);
   deps.write(
     recordPath(deps.mainCheckout, agent.id),
     serializeRecord({
@@ -305,6 +304,8 @@ async function spawnChecked(deps: SpawnDeps, plan: SpawnPlan): Promise<number> {
       worktree: worktree.path,
     }),
   );
+  // Registered first: a failed setup must never leave an owner-looking agent.
+  if (!reviewed) setUp(deps, worktree);
   deps.out(
     `spawned ${agent.id} in ${worktree.path} (parent ${deps.parentId ?? 'owner'})\n`,
   );

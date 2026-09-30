@@ -55,19 +55,22 @@ export const LOOP_REASON =
   'Loop state, the agent registry (.pu/daisy in the main checkout) and the guard hooks (.claude/settings.json, .githooks) are not changed by an agent by hand. A loop ends only through its truthful completion promise. To pause it, run `bun loop:escalate <needs-owner|blocked|stalled|out-of-scope> "<detail>"`; only the parent or the owner can close or resume it.';
 
 /**
- * Agent mode (ADR 0035 section 6): DAISY_AUTONOMOUS=1, or a PU_AGENT_ID that
- * `bun agent:spawn` registered in the main checkout, or whose registration
- * cannot be read (fail closed). A pu session with an id and no registration
- * is the owner's own top-level orchestrator. Clearing one variable never
- * turns an agent into the owner: the registry is outside the worktree.
+ * Agent mode (ADR 0035 section 6): DAISY_AUTONOMOUS=1, or a PU_AGENT_ID whose
+ * registration exists or cannot be read. An id with no registration is the
+ * owner's own orchestrator.
  */
 export const isAgentSession = (
   env: Readonly<Record<string, string | undefined>>,
   registration: (agentId: string) => Registration,
-): boolean =>
-  env.DAISY_AUTONOMOUS === '1' ||
-  (Boolean(env.PU_AGENT_ID) &&
-    registration(env.PU_AGENT_ID as string) !== 'absent');
+): boolean => {
+  const agentId = env.PU_AGENT_ID;
+  return (
+    env.DAISY_AUTONOMOUS === '1' ||
+    (agentId !== undefined &&
+      agentId !== '' &&
+      registration(agentId) !== 'absent')
+  );
+};
 
 /** Autonomous sessions are refused; owner sessions are asked. */
 export const refuseOrAsk = (facts: GuardFacts, reason: string): Verdict =>

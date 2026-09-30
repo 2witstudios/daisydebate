@@ -6,8 +6,8 @@
 import {
   allow,
   autonomousOnly,
-  type GuardFacts,
   deny,
+  type GuardFacts,
   type Rule,
   type Verdict,
 } from './agent-guard-rules';
@@ -53,15 +53,22 @@ export function identityVerdict(
 }
 
 const PU_SPAWN_REASON =
-  'A registered agent creates children only with `bun agent:spawn`, which registers each one in the main checkout; a raw pu spawn would mint an unregistered session that the guard and the board treat as the owner.';
+  'A registered agent creates children only with `bun agent:spawn`, which registers each one; pu spawn, swarm run, schedule and trigger would mint an unregistered session that the guard and the board treat as the owner.';
 
-/**
- * pu subcommands that create an agent (`spawn`, `swarm run`). Refused for a
- * registered agent so every session it creates is registered (ADR 0035).
- */
+// pu subcommands that create or start an agent session (schedules run
+// agent definitions, swarms or prompts; a trigger assigned to an idle agent
+// drives it), keyed by the action that does so.
+const SESSION_MAKERS: Readonly<Record<string, ReadonlySet<string> | true>> = {
+  spawn: true,
+  swarm: new Set(['run']),
+  schedule: new Set(['create', 'enable']),
+  trigger: new Set(['create', 'assign']),
+};
+
 export const pu: Rule = (invocation, facts) => {
   const [, command = '', action = ''] = invocation.words;
-  return command === 'spawn' || (command === 'swarm' && action === 'run')
+  const makers = SESSION_MAKERS[command];
+  return makers === true || makers?.has(action)
     ? autonomousOnly(facts, PU_SPAWN_REASON)
     : allow;
 };
