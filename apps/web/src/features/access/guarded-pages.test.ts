@@ -62,6 +62,8 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
       import('../../app/(shell)/ranked/host/page'),
     '(shell)/recordings/page.tsx': () =>
       import('../../app/(shell)/recordings/page'),
+    '(shell)/recordings/[debateId]/page.tsx': () =>
+      import('../../app/(shell)/recordings/[debateId]/page'),
     '(shell)/prep/page.tsx': () => import('../../app/(shell)/prep/page'),
     '(shell)/train/page.tsx': () => import('../../app/(shell)/train/page'),
     '(shell)/train/welcome/page.tsx': () =>

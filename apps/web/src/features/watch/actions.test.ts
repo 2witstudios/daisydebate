@@ -12,6 +12,7 @@ describe('inert actions', () => {
       'report',
       'notify',
       'clearHistory',
+      'saveVisibility',
     ];
     assert({
       given: 'every inert action',
