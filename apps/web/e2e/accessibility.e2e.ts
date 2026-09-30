@@ -339,3 +339,19 @@ test('the passkey offer has no serious or critical accessibility findings in dar
   await gotoWithTheme(page, '/onboarding/passkey?next=%2Flobby', 'light');
   await assertNoSeriousFindings(page);
 });
+
+test('the axe check refuses a page with a frame, since its legacy mode would skip it (ISSUE-198)', async ({
+  page,
+}) => {
+  await page.goto('/sign-in');
+  // A titled frame: axe itself finds nothing wrong with it, so only the
+  // guard stands between it and a scan that quietly covers less.
+  await page.evaluate(() => {
+    const frame = document.createElement('iframe');
+    frame.title = 'Embedded content';
+    document.body.append(frame);
+  });
+  await expect(assertNoSeriousFindings(page)).rejects.toThrow(
+    /drop setLegacyMode/,
+  );
+});

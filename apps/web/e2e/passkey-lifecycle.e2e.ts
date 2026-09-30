@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import {
   emailedLink,
   freshEmail,
@@ -12,10 +12,14 @@ import {
   requestSignInLink,
 } from './support/accounts';
 import { expectFocusOn, pressByKeyboard } from './support/focus';
-import { effectsRan } from './support/hydration';
+import { boundedStep, STEP_LIMIT_MS } from './support/bounded-step';
+import { effectsRan, hydrated } from './support/hydration';
+import { removeRowByClick, securityRows } from './support/security-rows';
 import {
   addVirtualAuthenticator,
+  enrollFromSettings,
   savePasskeyOffer,
+  signInWithPasskey,
   withoutPasskeyAutofill,
 } from './support/webauthn';
 
@@ -34,6 +38,38 @@ import {
 test.beforeEach(async ({ request }) => {
   await resetRateLimits(request);
 });
+
+// A navigation that never loads fails as a named page.goto (or waitForURL)
+// step, not the test's bare 30 s timeout; closing the context is bounded the
+// same way, so a teardown hang names itself too (ISSUE-212).
+test.use({ navigationTimeout: STEP_LIMIT_MS });
+test.afterEach(async ({ context }) => {
+  await boundedStep('closing the browser context', () => context.close());
+});
+
+/** The account's passkeys as the server lists them, for the page's session. */
+async function listedPasskeys(page: Page) {
+  const response = await page.request.get(
+    '/api/auth/passkey/list-user-passkeys',
+  );
+  expect(response.status()).toBe(200);
+  return (await response.json()) as readonly { readonly id: string }[];
+}
+
+/**
+ * Removes the account's only passkey from settings. The server must stop
+ * listing it: a remove that never reached it (or that it refused) leaves the
+ * row gone on screen but the passkey still listed, and fails here.
+ */
+async function removeOnlyPasskey(page: Page) {
+  expect(await listedPasskeys(page)).toHaveLength(1);
+  await removeRowByClick(
+    securityRows(page, 'Passkeys'),
+    page.getByRole('button', { name: 'Remove' }),
+    1,
+  );
+  expect(await listedPasskeys(page)).toEqual([]);
+}
 
 test('a passkey saved during onboarding is usable to sign back in later', async ({
   page,
@@ -70,14 +106,18 @@ test('a passkey enrolled from settings can sign back in after signing out, and l
 
   await page.goto('/settings/security');
   await expect(page.getByRole('heading', { name: 'Passkeys' })).toBeVisible();
-  await page.getByRole('button', { name: 'Add a passkey' }).click();
+  await enrollFromSettings(page);
   await expect(page.getByRole('button', { name: 'Rename' })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  // Hardening (ISSUE-212): sign-out is a script button, and a click before
+  // hydration is a silent no-op (ISSUE-84).
+  const signOut = page.getByRole('button', { name: 'Sign out', exact: true });
+  await hydrated(signOut);
+  await signOut.click();
   await expect(page).toHaveURL(/\/sign-in/);
 
   await page.goto('/sign-in?next=%2Flobby');
-  await page.getByRole('button', { name: 'Sign in with a passkey' }).click();
+  await signInWithPasskey(page);
   await expect(page).toHaveURL(/\/lobby$/);
 });
 
@@ -135,8 +175,7 @@ test('an enrolled passkey can be renamed and removed from settings', async ({
   await expect(page.getByRole('button', { name: 'Rename' })).toBeDisabled();
   await expect(nameField).toHaveValue('Work laptop');
 
-  await page.getByRole('button', { name: 'Remove' }).first().click();
-  await expect(page.getByRole('button', { name: 'Remove' })).toHaveCount(0);
+  await removeOnlyPasskey(page);
 });
 
 test('removing the last passkey, recovering by magic link and enrolling a replacement chains into one working journey', async ({
@@ -150,14 +189,11 @@ test('removing the last passkey, recovering by magic link and enrolling a replac
   await page.getByRole('button', { name: 'Add a passkey' }).click();
   await expect(page.getByRole('button', { name: 'Remove' })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Remove' }).click();
-  await expect(page.getByRole('button', { name: 'Remove' })).toHaveCount(0);
+  await removeOnlyPasskey(page);
   // The device itself is gone, not just the server-side record: without
   // this, the removed credential would still sit in the browser's
   // credential store and could shadow the replacement below.
-  await lost.session.send('WebAuthn.removeVirtualAuthenticator', {
-    authenticatorId: lost.authenticatorId,
-  });
+  await lost.remove();
 
   // The button's own click handler navigates to /sign-in once sign-out
   // resolves; racing it with an explicit page.goto risks aborting whichever
@@ -210,8 +246,7 @@ test('a lost passkey recovers through magic link, and the recovered session can 
   // From the recovered session: remove the now-unreachable credential and
   // revoke every other session, including the original device's.
   await lostPage.goto('/settings/security');
-  await lostPage.getByRole('button', { name: 'Remove' }).click();
-  await expect(lostPage.getByRole('button', { name: 'Remove' })).toHaveCount(0);
+  await removeOnlyPasskey(lostPage);
   await lostPage
     .getByRole('button', { name: 'Sign out of all other sessions' })
     .click();
@@ -223,7 +258,7 @@ test('a lost passkey recovers through magic link, and the recovered session can 
   // and magic-link access still works for it going forward.
   await page.goto('/lobby');
   await expect(page).toHaveURL(/\/sign-in/);
-  await lost.close();
+  await boundedStep('closing the recovered device context', () => lost.close());
 });
 
 test('a cancelled passkey ceremony returns keyboard focus to the email field', async ({

@@ -80,11 +80,17 @@ export async function reachRetryState(
   const { link } = await requestConfirmLink(page, request);
   // A little over the 100/60s ceiling: margin against any probe that fails
   // to round-trip rather than land a 4xx (which still consumes the bucket).
-  for (let attempt = 0; attempt < 110; attempt += 1)
-    await page.request.post('/auth/confirm', {
-      headers: { origin },
-      form: { token: PROBE_TOKEN, callbackURL: '/lobby' },
-    });
+  // One concurrent burst, the shape a real flood takes: the limiter consumes
+  // atomically, so it counts the same as one-at-a-time probes, which cost
+  // 5-8 s of a 30 s test on a loaded machine (ISSUE-204).
+  await Promise.all(
+    Array.from({ length: 110 }, () =>
+      page.request.post('/auth/confirm', {
+        headers: { origin },
+        form: { token: PROBE_TOKEN, callbackURL: '/lobby' },
+      }),
+    ),
+  );
   await gotoWithTheme(page, link, theme);
   await page.getByRole('button', { name: 'Sign in to Daisy Debate' }).click();
   // `getByRole('alert')` also matches Next's own

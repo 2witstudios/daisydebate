@@ -52,6 +52,26 @@ describe('Playwright Chromium TLS', () => {
   });
 });
 
+describe('Playwright Firefox form history', () => {
+  test('turns form history off in every Firefox project', () => {
+    const firefox = (playwrightConfig.projects ?? []).filter((project) =>
+      project.name?.startsWith('firefox'),
+    );
+    assert({
+      given:
+        'an address already submitted once, whose history dropdown Firefox opens asynchronously after a fill and which can then take the next synthesized click (ISSUE-186)',
+      should: 'launch each Firefox project with browser.formfill.enable off',
+      actual: firefox.map((project) => [
+        project.name,
+        project.use?.launchOptions?.firefoxUserPrefs?.[
+          'browser.formfill.enable'
+        ],
+      ]),
+      expected: [['firefox', false]],
+    });
+  });
+});
+
 describe('Playwright port resolution', () => {
   test('defaults to the canonical port', () => {
     assert({
