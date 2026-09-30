@@ -124,3 +124,24 @@ authorization fit together:
   widened with `league`. LEAGUE-OPS decides league authority. The club and
   tournament guidance in that bullet stands.
 - **Updated:** the "Access enforcement" bullet, as marked above.
+
+## Amendment (2026-09-30): hosted tables and the room
+
+[ADR 0048](0048-authorization-core.md)'s amendment of the same date lets any
+active member of a league host a ranked debate, the way a chess.com seek is
+posted, and [ADR 0049](0049-room-debate-turn.md) names the lobby's unit, the
+room:
+
+- **Ranked hosting is open to members.** A hosted ranked table is a room with
+  a league. Who may take its seats is Ratings-epic seating policy.
+- **The lobby applies rule overrides when a table is hosted.** Decision item 1
+  stands: the room copies the canonical rules from `formats.rules` and applies
+  the host's overrides, which the debate snapshot freezes at start. Decision
+  item 2 also stands: a ranked table carries no overrides and runs the
+  format's canonical rules on a `ranked_eligible` format, so a ranked host
+  picks among canonical formats. Casual and practice tables may override.
+- **Superseded:** sandbox seat control as Redis room state (the sandbox-actor
+  bullet) and the nullable `lobby` provenance key. A room is a durable row
+  (ADR 0049), the sandbox driver is a seat column, and `debates.room_id`
+  records the room that started a debate. The rest of those bullets stands,
+  including that neither `lobby` nor `tournament` ever becomes a `mode`.
