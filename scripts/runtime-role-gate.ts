@@ -23,13 +23,26 @@ import { bypassToken } from './runtime-role-gate-bypass';
  *   that name is not (ISSUE-227, ISSUE-235). Any identifier or member
  *   named createRequire is refused, however it is imported or reached
  *   (ISSUE-239). eval and Function are refused as bare globals, as members
- *   off any owner and as destructured keys (ISSUE-240), and so is every
- *   Module loader entry point (`_load`, `_resolveFilename`, `_compile`,
- *   `wrap`, `_extensions`, `_cache`, `runMain`, `register`,
- *   `registerHooks`, `getBuiltinModule`, `Module` and the other
- *   underscore internals) as a member, a destructured key or an import
- *   from `module` (ISSUE-258). The same holds for every relative module
- *   start.ts loads, outside listen-first.ts's own imports (ISSUE-228);
+ *   off any owner and as destructured keys (ISSUE-240). Module's loader
+ *   entry points (`_load`, `_resolveFilename`, `_compile`, `wrap`,
+ *   `_extensions`, `_cache`, `runMain`, `register`, `registerHooks`,
+ *   `Module` and the other underscore internals) are refused when they
+ *   resolve to the real `module` / `node:module` value binding: a member,
+ *   destructured key or import of it, through aliases, re-export shims,
+ *   const aliases, `new Module(...)`, `Module.prototype` or a
+ *   `getBuiltinModule` result. A local, field or key with the same name,
+ *   or a type-only import, passes (ISSUE-258, ISSUE-262). Any
+ *   `getBuiltinModule` read or import, any non-type import or re-export
+ *   of `vm` / `node:vm`, a destructured `constructor` key, and a
+ *   `.constructor` value that is invoked (called or new'd, directly or
+ *   through a variable invoked later in the file: Function from any
+ *   function) is refused; a `.constructor` read that is never invoked,
+ *   such as `err.constructor.name`, passes (ISSUE-263, ISSUE-266).
+ *   Resolution sees through parentheses, commas, conditionals and
+ *   `&&` / `||` / `??`, checking every operand that can yield the value
+ *   (ISSUE-267). The same holds for every relative
+ *   module start.ts loads, outside listen-first.ts's own imports
+ *   (ISSUE-228);
  * - import startProductionServer, unaliased, from ./listen-first;
  * - be the only module that references it (so no side-effect import can
  *   start a second server), exactly once, as the direct callee of the one
@@ -42,11 +55,20 @@ import { bypassToken } from './runtime-role-gate-bypass';
  * - await the `started` the call returns.
  * `files` overlays repository-relative paths (a test's shim module).
  *
- * What it cannot see (ISSUE-240, ISSUE-258), each a way to start a second,
- * unguarded server that this check would pass:
+ * This contract is fixed (ISSUE-263): anything the gate cannot see is a
+ * documented limit below, not a reason for another round. What it cannot
+ * see, each a way to start a second, unguarded server it would pass:
  * - names built at runtime: computed members (`globalThis['ev' + 'al']`,
  *   `server['li' + 'sten']`), `Reflect.get`, `Object.values(Module)` or any
  *   value reached through data rather than a spelled-out name;
+ * - the real Module reached through a value the checker cannot follow:
+ *   a function's return, a parameter, an object property or collection
+ *   (`const box = { M: Module }; box.M._load(...)`), a `let` reassigned
+ *   later, or anything else that is not an import, alias, const,
+ *   destructure, member, `new` or `getBuiltinModule` of it;
+ * - a `.constructor` value invoked somewhere the check does not follow:
+ *   passed to a function that calls it, re-bound through a second
+ *   variable (`const G = F; G(...)`), or invoked in another module;
  * - code outside start.ts's relative import graph: package imports
  *   (`@daisy/*`, `node_modules`) are resolved but never loaded or scanned,
  *   so a dependency that loads listen-first itself is invisible;

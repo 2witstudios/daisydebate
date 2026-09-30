@@ -93,28 +93,28 @@ const refused: readonly Row[] = [
     startTs: withModule(MODULE_IMPORT).concat(
       `Module._load('./listen-first', null)${START_CALL}`,
     ),
-    expected: bypass('._load('),
+    expected: bypass('node:module._load'),
   },
   {
     shape: "ISSUE-258: Module['_load'](...)",
     startTs: withModule(MODULE_IMPORT).concat(
       `Module['_load']('./listen-first', null)${START_CALL}`,
     ),
-    expected: bypass('._load('),
+    expected: bypass('node:module._load'),
   },
   {
     shape: 'ISSUE-258: const { _load: load } = Module, then load(...)',
     startTs: withModule(MODULE_IMPORT).concat(
       `const { _load: load } = Module;\nload('./listen-first', null)${START_CALL}`,
     ),
-    expected: bypass('._load('),
+    expected: bypass('node:module._load'),
   },
   {
     shape: "ISSUE-258: import { _load } from 'node:module'",
     startTs: withModule("import { _load } from 'node:module';").concat(
       `_load('./listen-first', null)${START_CALL}`,
     ),
-    expected: bypass('._load('),
+    expected: bypass('node:module._load'),
   },
   {
     shape: 'ISSUE-258: _load re-exported by a shim, then _load(...)',
@@ -124,73 +124,73 @@ const refused: readonly Row[] = [
     files: {
       'apps/web/src/server/shim.ts': "export { _load } from 'node:module';\n",
     },
-    expected: bypass('._load('),
+    expected: bypass('node:module._load'),
   },
   {
     shape: 'ISSUE-258: Module._resolveFilename',
     startTs: withModule(MODULE_IMPORT).concat(
       "void Module._resolveFilename('./listen-first', null);\n",
     ),
-    expected: bypass('._resolveFilename('),
+    expected: bypass('node:module._resolveFilename'),
   },
   {
     shape: 'ISSUE-258: Module.wrap',
     startTs: withModule(MODULE_IMPORT).concat(
       `void Module.wrap(${LOAD_SOURCE});\n`,
     ),
-    expected: bypass('.wrap('),
+    expected: bypass('node:module.wrap'),
   },
   {
     shape: "ISSUE-258: import { wrap } from 'node:module'",
     startTs: withModule("import { wrap } from 'node:module';").concat(
       `void wrap(${LOAD_SOURCE});\n`,
     ),
-    expected: bypass('.wrap('),
+    expected: bypass('node:module.wrap'),
   },
   {
     shape: 'ISSUE-258: new Module(...)._compile(source)',
     startTs: withModule(MODULE_IMPORT).concat(
       `new Module('x')._compile(${LOAD_SOURCE}, 'x.js');\n`,
     ),
-    expected: bypass('._compile('),
+    expected: bypass('node:module._compile'),
   },
   {
     shape: 'ISSUE-258: Module.prototype._compile.call(...)',
     startTs: withModule(MODULE_IMPORT).concat(
       `Module.prototype._compile.call(new Module('x'), ${LOAD_SOURCE}, 'x.js');\n`,
     ),
-    expected: bypass('._compile('),
+    expected: bypass('node:module._compile'),
   },
   {
     shape: 'ISSUE-258: Module.register loader hooks',
     startTs: withModule(MODULE_IMPORT).concat(
       "Module.register('./hooks.mjs', import.meta.url);\n",
     ),
-    expected: bypass('.register('),
+    expected: bypass('node:module.register'),
   },
   {
     shape: 'ISSUE-258: Module.registerHooks',
     startTs: withModule(MODULE_IMPORT).concat('Module.registerHooks({});\n'),
-    expected: bypass('.registerHooks('),
+    expected: bypass('node:module.registerHooks'),
   },
   {
     shape: 'ISSUE-258: Module.runMain',
     startTs: withModule(MODULE_IMPORT).concat('Module.runMain();\n'),
-    expected: bypass('.runMain('),
+    expected: bypass('node:module.runMain'),
   },
   {
     shape: 'ISSUE-258: namespace m.Module, then _compile',
     startTs: withModule("import * as nm from 'node:module';").concat(
       `new nm.Module('x')._compile(${LOAD_SOURCE}, 'x.js');\n`,
     ),
-    expected: bypass('._compile('),
+    expected: bypass('node:module._compile'),
   },
   {
     shape: "ISSUE-258: process.getBuiltinModule('module'), then _load",
     startTs: append(
       `const M = process.getBuiltinModule('module');\nM._load('./listen-first', null)${START_CALL}`,
     ),
-    expected: bypass('.getBuiltinModule('),
+    expected: bypass('process.getBuiltinModule'),
   },
   {
     shape: 'ISSUE-258: Module._load in a module start.ts loads',
@@ -198,7 +198,7 @@ const refused: readonly Row[] = [
     files: {
       [BOOT3]: `${MODULE_IMPORT}\nModule._load('./listen-first', null)${START_CALL}`,
     },
-    expected: loads(BOOT3, '._load('),
+    expected: loads(BOOT3, 'node:module._load'),
   },
 ];
 
