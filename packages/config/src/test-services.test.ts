@@ -1,12 +1,13 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { requireTestServices } from './index';
+import { requireTestServices, requireTestSlotServices } from './index';
 
 setupRitewayBun();
 
 describe('requireTestServices', () => {
   // A worktree slot on port block 11: its own Redis database is 13.
   const testEnv = {
-    TEST_DATABASE_URL: 'postgres://user:secret@localhost:5432/daisy_test',
+    TEST_DATABASE_URL:
+      'postgres://user:secret@localhost:5432/daisy_test_run_0a1b2c3d',
     TEST_REDIS_URL: 'redis://localhost:6379/13',
     REDIS_URL: 'redis://localhost:6379',
     PORT: '13110',
@@ -19,6 +20,8 @@ describe('requireTestServices', () => {
       return String(error);
     }
   };
+  const runRule =
+    "Error: Integration suites require isolated test services: TEST_DATABASE_URL (must name this run's database, ending in _test_run_ and 8 hex digits: run suites with bun test:integration, which creates and drops it)";
   const refusal = (text: string) =>
     `Error: Integration suites require isolated test services: TEST_REDIS_URL (${text})`;
   const wrongDatabase = (index: number | string) =>
@@ -44,19 +47,26 @@ describe('requireTestServices', () => {
 
   test('throws, never skips, naming each missing or unsafe service', () => {
     assert({
-      given: 'no services, a non-test database, and a missing Redis URL',
-      should: 'throw naming the fields and the _test rule, never a value',
+      given:
+        'no services, a non-test database, the slot database itself (no run), and a missing Redis URL',
+      should:
+        'throw naming the fields and the per-run rule, never a value: a suite can only run against a database the runner made for this run (ISSUE-238)',
       actual: [
         failureOf({}),
         failureOf({
           ...testEnv,
           TEST_DATABASE_URL: 'postgres://user:secret@localhost:5432/daisy',
         }),
+        failureOf({
+          ...testEnv,
+          TEST_DATABASE_URL: 'postgres://user:secret@localhost:5432/daisy_test',
+        }),
         failureOf({ TEST_DATABASE_URL: testEnv.TEST_DATABASE_URL }),
       ],
       expected: [
         'Error: Integration suites require isolated test services: TEST_DATABASE_URL, TEST_REDIS_URL',
-        'Error: Integration suites require isolated test services: TEST_DATABASE_URL (must name a database ending in _test)',
+        runRule,
+        runRule,
         'Error: Integration suites require isolated test services: TEST_REDIS_URL',
       ],
     });
@@ -142,6 +152,87 @@ describe('requireTestServices', () => {
         'accepted',
         'accepted',
         'accepted',
+      ],
+    });
+  });
+});
+
+describe('requireTestSlotServices', () => {
+  const slotEnv = {
+    TEST_DATABASE_URL: 'postgres://user:secret@localhost:5432/daisy_test',
+    TEST_REDIS_URL: 'redis://localhost:6379/1',
+    REDIS_URL: 'redis://localhost:6379',
+  };
+  const failureOf = (env: Record<string, string | undefined>) => {
+    try {
+      requireTestSlotServices(env);
+      return 'accepted';
+    } catch (error) {
+      return String(error);
+    }
+  };
+  const slotRule =
+    'Error: Integration suites require isolated test services: TEST_DATABASE_URL (must name a database ending in _test)';
+
+  test('hands the runner the slot database the run databases derive from', () => {
+    assert({
+      given: 'main’s slot _test database and its own Redis database',
+      should: 'return both URLs',
+      actual: requireTestSlotServices(slotEnv),
+      expected: {
+        databaseUrl: slotEnv.TEST_DATABASE_URL,
+        redisUrl: slotEnv.TEST_REDIS_URL,
+      },
+    });
+  });
+
+  test('refuses a database that is not a slot _test database (a run never starts a run)', () => {
+    assert({
+      given: 'a dev database and a run database',
+      should: 'name TEST_DATABASE_URL and the _test rule',
+      actual: [
+        failureOf({
+          ...slotEnv,
+          TEST_DATABASE_URL: 'postgres://user:secret@localhost:5432/daisy',
+        }),
+        failureOf({
+          ...slotEnv,
+          TEST_DATABASE_URL:
+            'postgres://user:secret@localhost:5432/daisy_test_run_0a1b2c3d',
+        }),
+      ],
+      expected: [slotRule, slotRule],
+    });
+  });
+
+  test('ISSUE-245: the runner’s reader applies the same Redis rule, so it never sweeps or scans another database or server', () => {
+    const redisRefusal = (text: string) =>
+      `Error: Integration suites require isolated test services: TEST_REDIS_URL (${text})`;
+
+    assert({
+      given:
+        'main on database 1 (accepted), on dev 0, on another slot’s 5, and on database 1 of another server',
+      should: 'accept only main’s own database on its own server',
+      actual: [
+        failureOf(slotEnv),
+        failureOf({ ...slotEnv, TEST_REDIS_URL: 'redis://localhost:6379/0' }),
+        failureOf({ ...slotEnv, TEST_REDIS_URL: 'redis://localhost:6379/5' }),
+        failureOf({
+          ...slotEnv,
+          TEST_REDIS_URL: 'redis://127.0.0.1:6391/1',
+        }),
+      ],
+      expected: [
+        'accepted',
+        redisRefusal(
+          "TEST_REDIS_URL names Redis database 0, expected this slot's own database 1 (run bun slot:up)",
+        ),
+        redisRefusal(
+          "TEST_REDIS_URL names Redis database 5, expected this slot's own database 1 (run bun slot:up)",
+        ),
+        redisRefusal(
+          "TEST_REDIS_URL names a different Redis server than REDIS_URL, expected this slot's shared Redis (run bun slot:up)",
+        ),
       ],
     });
   });

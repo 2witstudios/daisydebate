@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { databaseUrl, redisUrl } from './urls';
 
-export { requireTestServices } from './test-services';
+export { requireTestServices, requireTestSlotServices } from './test-services';
 export {
   expectedTestRedisDatabase,
   testRedisDatabase,
