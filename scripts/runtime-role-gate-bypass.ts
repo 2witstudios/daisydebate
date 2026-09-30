@@ -3,15 +3,54 @@ import ts from 'typescript';
 // What start.ts, and every module it loads outside listen-first.ts's own
 // imports, must never do itself (scripts/runtime-role-gate.ts): compose,
 // prepare or listen by any access form, or load code through a dynamic
-// import, the real CommonJS require, eval or Function.
+// import, the real CommonJS require, eval, Function or any Module loader
+// entry point.
 
-/** Members start.ts must never touch itself, by any access form. */
-const BYPASS_MEMBERS = new Map([
+/** Module's loader entry points: each loads, resolves, compiles or hooks
+ * code (ISSUE-258). In Bun 1.4.2 `_load` returns undefined, but `_compile`
+ * runs source and `prototype.require` loads; all are refused regardless. */
+const MODULE_LOADERS = [
+  '_load',
+  '_resolveFilename',
+  '_compile',
+  '_extensions',
+  '_cache',
+  '_pathCache',
+  '_nodeModulePaths',
+  '_findPath',
+  '_initPaths',
+  '_preloadModules',
+  'wrap',
+  'runMain',
+  'register',
+  'registerHooks',
+  'getBuiltinModule',
+  'Module',
+] as const;
+
+/** Loader names unambiguous enough to refuse as any identifier too. */
+const UNAMBIGUOUS_LOADERS = new Set<string>(
+  MODULE_LOADERS.filter(
+    (name) =>
+      name.startsWith('_') ||
+      name === 'getBuiltinModule' ||
+      name === 'registerHooks',
+  ),
+);
+
+/** Members start.ts must never touch itself, by any access form and off
+ * any owner (ISSUE-224, ISSUE-239, ISSUE-240, ISSUE-258). */
+const BYPASS_MEMBERS = new Map<string, string>([
   ['listen', '.listen('],
   ['prepare', 'nextApp.prepare('],
   ['getRequestHandler', 'getRequestHandler('],
   ['createRequire', 'createRequire('],
+  ['eval', 'eval('],
+  ['Function', 'Function('],
+  ...MODULE_LOADERS.map((name) => [name, `.${name}(`] as const),
 ]);
+
+const NODE_MODULE = new Set(['module', 'node:module']);
 
 /** A module-loading or gate-bypassing step start.ts must never take
  * itself, as the token it reports (ISSUE-193, ISSUE-222, ISSUE-224,
@@ -32,6 +71,7 @@ export const bypassToken = (
       (node.propertyName ?? node.name).text === 'require')
   )
     return 'require(';
+  if (ts.isImportSpecifier(node)) return moduleImportBypass(node);
   if (ts.isIdentifier(node)) return identifierBypass(checker, node);
   const member = memberName(node);
   if (member === 'require') return requireMember(node);
@@ -54,8 +94,21 @@ const identifierBypass = (
   // Any identifier named createRequire, as main refused: an import alias,
   // a namespace member or a destructured key reaches it too (ISSUE-239).
   if (node.text === 'createRequire') return 'createRequire(';
+  if (UNAMBIGUOUS_LOADERS.has(node.text)) return `.${node.text}(`;
   return loader && isValueReference(node) && isGlobal(checker, node)
     ? loader
+    : null;
+};
+
+/** A Module loader imported by name from `module` or `node:module`,
+ * aliased or not (ISSUE-258). */
+const moduleImportBypass = (node: ts.ImportSpecifier): string | null => {
+  const name = (node.propertyName ?? node.name).text;
+  const declaration = node.parent.parent.parent;
+  return (MODULE_LOADERS as readonly string[]).includes(name) &&
+    ts.isStringLiteral(declaration.moduleSpecifier) &&
+    NODE_MODULE.has(declaration.moduleSpecifier.text)
+    ? `.${name}(`
     : null;
 };
 
