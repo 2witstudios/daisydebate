@@ -3,6 +3,14 @@
  * slot's server, the REAL runner over real suites, and the run databases the
  * runner leaves or holds, read straight from Postgres.
  */
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import { SQL } from 'bun';
 import { requireTestSlotServices } from '@daisy/config';
 import { dropAllTestRunDatabases } from '@daisy/db/test-runs';
@@ -21,22 +29,30 @@ export const admin = new SQL(urlOf('postgres'), { max: 1 });
 export const SLOW = 'integration/auth-rate-limit-mail-ceilings.integration.ts';
 export const FAST = 'integration/composition-root.integration.ts';
 // Every process a proof starts or stops, killed however the proof ends (a
-// stopped suite is never left behind, ISSUE-273).
-const tracked: number[] = [];
-export const track = (pid: number): number => {
-  tracked.push(pid);
+// stopped suite is never left behind, ISSUE-273). Each is remembered with the
+// start time the OS reports, so cleanup never signals a pid that exited and
+// was reused by an unrelated process (ISSUE-271).
+const startTimeOf = (pid: number): string =>
+  Bun.spawnSync(['ps', '-o', 'lstart=', '-p', String(pid)])
+    .stdout.toString()
+    .trim();
+const tracked: Array<{ readonly pid: number; readonly startedAt: string }> = [];
+const track = (pid: number): number => {
+  tracked.push({ pid, startedAt: startTimeOf(pid) });
   return pid;
 };
+const runnerCommand = (suite: string) => [
+  'bun',
+  `--env-file=${root}/.env`,
+  `${root}/scripts/test-integration.ts`,
+  suite,
+];
 export const runner = (suite: string) => {
-  const proc = Bun.spawn(
-    [
-      'bun',
-      `--env-file=${root}/.env`,
-      `${root}/scripts/test-integration.ts`,
-      suite,
-    ],
-    { cwd: web, stdout: 'pipe', stderr: 'pipe' },
-  );
+  const proc = Bun.spawn(runnerCommand(suite), {
+    cwd: web,
+    stdout: 'pipe',
+    stderr: 'pipe',
+  });
   track(proc.pid);
   return proc;
 };
@@ -196,13 +212,74 @@ export async function awaitSessionsOlderThan(
  * proofs own the slot while they run), and closes the admin connection.
  */
 export async function cleanUpProof(): Promise<void> {
-  for (const pid of tracked)
+  for (const { pid, startedAt } of tracked) {
+    // Only the process the proof started: a reused pid has another start time.
+    if (startedAt === '' || startTimeOf(pid) !== startedAt) continue;
     for (const target of [...descendants(pid), pid])
       try {
         process.kill(target, 'SIGKILL');
       } catch {
         // already gone
       }
+  }
+  rmSync(holdDirectory, { recursive: true, force: true });
   await dropAllTestRunDatabases(admin, slotDatabase);
   await admin.close();
+}
+
+const holdDirectory = `${web}/.proof-hold`;
+const holdSuite = `import { existsSync, writeFileSync } from 'node:fs';
+import { setDefaultTimeout, test } from 'bun:test';
+import { SQL } from 'bun';
+import { requireTestServices } from '@daisy/config';
+
+// A suite that only holds its run database open: it connects, says which
+// database it is on, and waits for a release file (ISSUE-270). Nothing in it
+// depends on the clock, so a proof can hold a live run, or leave an orphan,
+// for exactly as long as it needs.
+setDefaultTimeout(1_800_000);
+const { databaseUrl } = requireTestServices(process.env);
+const base = process.env.PROOF_HOLD_FILE ?? '';
+test('holds its run database until released', async () => {
+  const sql = new SQL(databaseUrl, { max: 1 });
+  await sql\`select 1\`;
+  writeFileSync(\`\${base}.ready\`, process.env.TEST_RUN_DATABASE ?? '');
+  while (!existsSync(\`\${base}.release\`)) await Bun.sleep(50);
+  await sql.close();
+}, 1_800_000);
+`;
+
+/**
+ * A REAL runner over the hold suite: a live run (or, once its runner is
+ * killed, a hung orphan) that stays exactly as long as the proof wants. It
+ * resolves once the suite is connected and has named its run database.
+ */
+export async function startHeldRun() {
+  mkdirSync(`${holdDirectory}/integration`, { recursive: true });
+  writeFileSync(`${holdDirectory}/integration/hold.integration.ts`, holdSuite);
+  const base = `${tmpdir()}/proof-hold-${crypto.getRandomValues(new Uint32Array(2)).join('-')}`;
+  const proc = Bun.spawn(runnerCommand('integration/hold.integration.ts'), {
+    cwd: holdDirectory,
+    stdout: 'pipe',
+    stderr: 'pipe',
+    env: { ...process.env, PROOF_HOLD_FILE: base },
+  });
+  track(proc.pid);
+  const log = textOf(proc.stderr);
+  let ended = false;
+  void proc.exited.then(() => (ended = true));
+  while (!existsSync(`${base}.ready`)) {
+    if (ended)
+      throw new Error(
+        `the held run ended (exit ${proc.exitCode}) before it was ready: ${(await log).slice(-500)}`,
+      );
+    await Bun.sleep(50);
+  }
+  return {
+    proc,
+    log,
+    database: readFileSync(`${base}.ready`, 'utf8'),
+    suites: descendants(proc.pid).map(track),
+    release: () => writeFileSync(`${base}.release`, ''),
+  };
 }

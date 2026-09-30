@@ -39,7 +39,9 @@ import {
   rowsIn,
   runDatabases,
   runner,
+  sessionsOn,
   SLOW,
+  startHeldRun,
   slotDatabase,
   tableCounts,
   textOf,
@@ -54,40 +56,43 @@ const { check, finish } = proofSteps();
 
 /** Kills the runner's lock session mid-run; sweeps meanwhile must not drop the database. */
 async function proveLockLoss() {
-  const victim = runner(SLOW);
-  const victimLog = textOf(victim.stderr);
-  const database = await waitForBusyRun([], victim);
+  const victim = await startHeldRun();
   const [holder] = (await admin.unsafe(
     `select pid from pg_locks where locktype = 'advisory' and granted
-     and ((classid::bigint << 32) | objid::bigint) = hashtextextended('${database}', 0)`,
+     and ((classid::bigint << 32) | objid::bigint) = hashtextextended('${victim.database}', 0)`,
   )) as Array<{ pid: number }>;
   if (!holder) throw new Error('the run holds no liveness lock');
   await admin.unsafe(`select pg_terminate_backend(${holder.pid})`);
-  // Hold the runner (the supervisor) still while its suites keep executing,
-  // so the sweep below provably runs during the window the lost lock opens,
-  // however loaded the machine is; then let it notice and stop the run.
-  process.kill(victim.pid, 'SIGSTOP');
-  const executingBefore = descendants(victim.pid).length > 0;
+  // Hold the runner (the supervisor) still while its suite keeps executing,
+  // so the sweep below runs during the window the lost lock opens, however
+  // loaded the machine is; then let it notice and stop the run. The suite is
+  // the hold suite, so it is still connected however long the sweep takes.
+  process.kill(victim.proc.pid, 'SIGSTOP');
+  const sessionsBefore = await sessionsOn(victim.database);
   const dropped = await sweepTestRunDatabases(admin, slotDatabase, {
     maxRunMs: RUN_MAX_MS,
   });
-  const executingAfter = descendants(victim.pid).length > 0;
-  process.kill(victim.pid, 'SIGCONT');
-  if (!executingBefore || !executingAfter)
-    throw new Error('the suites ended before the sweep could be compared');
-  await victim.exited;
-  const log = await victimLog;
+  const sessionsAfter = await sessionsOn(victim.database);
+  process.kill(victim.proc.pid, 'SIGCONT');
+  const exit = await victim.proc.exited;
+  const log = await victim.log;
+  const left = await runDatabases();
   check(
-    !dropped.includes(database),
-    `ISSUE-250: a sweep ran while the suites were executing with their runner's lock session killed, and did not drop ${database}`,
+    sessionsBefore > 0 &&
+      sessionsAfter > 0 &&
+      !dropped.includes(victim.database),
+    `ISSUE-250: a sweep ran while the suite was connected with its runner's lock session killed, and did not drop ${victim.database}`,
+    { sessionsBefore, sessionsAfter, dropped },
   );
   check(
-    victim.exitCode !== 0 && log.includes('liveness lock is gone'),
+    exit !== 0 && log.includes('liveness lock is gone'),
     'ISSUE-250: the run whose lock session was killed stopped loudly (non-zero exit, named error) instead of continuing unlocked',
+    { exit, log: log.slice(-600) },
   );
   check(
-    !(await runDatabases()).includes(database),
+    !left.includes(victim.database),
     'ISSUE-250: the stopped run dropped its own database, so nothing is left behind',
+    { left },
   );
 }
 
@@ -136,10 +141,12 @@ async function provePlantedRows() {
         results[1]?.log.includes("run's own database") === true &&
         results[2]?.log.includes('database of this slot') === true,
       'ISSUE-249: a suite started by hand against another run of this slot (URL alone, or with a wrong run name) and against another slot’s run database is refused at import',
+      results.map(({ exit, log }) => ({ exit, log: log.slice(-300) })),
     );
     check(
       rows.every((count) => count === 1),
       'ISSUE-249: the row planted in each of those databases survived',
+      { rows },
     );
   } finally {
     for (const name of [another, otherSlot])
@@ -150,7 +157,11 @@ async function provePlantedRows() {
 
 async function main() {
   const start = await runDatabases();
-  check(start.length === 0, `no run database of ${slotDatabase} to begin with`);
+  check(
+    start.length === 0,
+    `no run database of ${slotDatabase} to begin with`,
+    { start },
+  );
   const baseBefore = await tableCounts(slotDatabase);
 
   // 1. Kill a real run mid-suite.
@@ -172,25 +183,35 @@ async function main() {
     'AC control: before the next run the killed run’s database is still there (only the sweep removes it)',
   );
 
-  // 3a. A run that is alive is never swept by a concurrent run.
-  const alive = runner(SLOW);
-  const aliveLog = textOf(alive.stderr);
-  const aliveDatabase = await waitForBusyRun([doomedDatabase], alive);
+  // 3a. A run that is alive is never swept by a concurrent run. The live run
+  // is the hold suite, so it is still running however long the concurrent
+  // run takes (ISSUE-270).
+  const alive = await startHeldRun();
   const concurrent = runner(FAST);
   const concurrentLog = await textOf(concurrent.stderr);
-  await concurrent.exited;
+  const concurrentExit = await concurrent.exited;
   const stillThere = await runDatabases();
   check(
-    concurrent.exitCode === 0 &&
-      stillThere.includes(aliveDatabase) &&
+    concurrentExit === 0 &&
+      stillThere.includes(alive.database) &&
       !concurrentLog.includes('dropped') &&
       !stillThere.includes(doomedDatabase),
     'AC control: a concurrent run never drops the live run’s database',
+    {
+      concurrentExit,
+      alive: alive.database,
+      doomed: doomedDatabase,
+      runDatabases: stillThere,
+      concurrentLog: concurrentLog.slice(-500),
+    },
   );
-  const aliveExit = await alive.exited;
+  alive.release();
+  const aliveExit = await alive.proc.exited;
+  const aliveLog = await alive.log;
   check(
-    aliveExit === 0 && (await aliveLog).includes(doomedDatabase),
+    aliveExit === 0 && aliveLog.includes(doomedDatabase),
     'AC control: the live run swept the dead run’s database at its start, was unaffected by the concurrent run, and passed',
+    { aliveExit, doomed: doomedDatabase, log: aliveLog.slice(-600) },
   );
 
   // 2. The next clean run: sweep, pass, ledger flat, nothing left.
@@ -211,6 +232,7 @@ async function main() {
       cleanLog.includes(orphan) &&
       !cleanLog.includes('grew from'),
     'AC: the next run sweeps the killed run’s database, passes, and its row ledger is flat',
+    { exit: clean.exitCode, orphan, log: cleanLog.slice(-600) },
   );
   check(
     (await runDatabases()).length === 0,
@@ -232,6 +254,7 @@ async function main() {
   check(
     byHand.exitCode !== 0 && handLog.includes("must name this run's database"),
     'AC control: a suite run by hand against the slot database is refused, so it cannot leak rows',
+    { exit: byHand.exitCode, log: handLog.slice(-400) },
   );
 
   await proveLockLoss();

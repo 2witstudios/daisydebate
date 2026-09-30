@@ -6,9 +6,14 @@
 export function proofSteps() {
   const failures: string[] = [];
   return {
-    check: (ok: boolean, what: string) => {
+    /** A step: on failure it also prints `observed`, what the proof actually saw, so a failed control names its cause. */
+    check: (ok: boolean, what: string, observed?: unknown) => {
       process.stdout.write(`${ok ? 'PASS' : 'FAIL'}  ${what}\n`);
-      if (!ok) failures.push(what);
+      if (!ok) {
+        failures.push(what);
+        if (observed !== undefined)
+          process.stdout.write(`      observed: ${JSON.stringify(observed)}\n`);
+      }
     },
     /** Prints the verdict and exits non-zero when any step failed. */
     finish: () => {
