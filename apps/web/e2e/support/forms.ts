@@ -50,3 +50,12 @@ export const dropServerActions = (page: Page) =>
       ? route.abort('internetdisconnected')
       : route.continue(),
   );
+
+/** Waits out the resend cooldown, then presses Enter on "Resend link". */
+export const resendByKeyboard = async (page: Page) => {
+  await page.clock.fastForward('01:05');
+  const resend = page.getByRole('button', { name: 'Resend link' });
+  await expect(resend).toBeEnabled();
+  await resend.focus();
+  await page.keyboard.press('Enter');
+};

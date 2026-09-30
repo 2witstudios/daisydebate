@@ -1,23 +1,8 @@
 'use client';
 
-import {
-  startTransition,
-  useEffect,
-  useReducer,
-  useState,
-  useSyncExternalStore,
-} from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import type { Clock } from '@daisy/clock';
-import {
-  useFocusAfterAnswer,
-  useFormAction,
-} from '../../form-action/form-action';
-import {
-  initialLinkForm,
-  linkUnavailable,
-  signInStateFrom,
-  type LinkFormState,
-} from '../request-link';
+import { useFocusAfterAnswer } from '../../form-action/form-action';
 import {
   offerPasskeyAutofillSafely,
   signInWithPasskeySafely,
@@ -27,13 +12,10 @@ import {
 import {
   canOfferPasskeyAutofill,
   canRequestLink,
-  canResend,
-  linkInFlight,
   passkeyInFlight,
-  signInReducer,
-  type SignInState,
 } from '../sign-in-state';
 import { answerFocusId, renderSignInFlow } from './sign-in-flow.render';
+import { useLinkRequest, type RequestLinkAction } from './use-link-request';
 import { startPasskeyAutofill, type AutofillTimers } from './passkey-autofill';
 
 const subscribeToVisibility = (onChange: () => void) => {
@@ -58,11 +40,7 @@ const browserTimers: AutofillTimers = {
   clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
 };
 
-/** The link request: a server action bound to the validated destination. */
-export type RequestLinkAction = (
-  state: LinkFormState,
-  form: FormData,
-) => Promise<LinkFormState>;
+export type { RequestLinkAction };
 
 export type SignInFlowProps = {
   /** Passkey ceremonies: the Better Auth adapter in the live page. */
@@ -79,21 +57,6 @@ export type SignInFlowProps = {
 };
 
 /**
- * Ticks once a second while a countdown is showing. It starts from the send
- * time, so the server and the first client render agree.
- */
-function useNow(clock: Clock, state: SignInState): string {
-  const ticking = state.step === 'check-inbox';
-  const [now, setNow] = useState(() => (ticking ? state.sentAt : ''));
-  useEffect(() => {
-    if (!ticking) return;
-    const timer = setInterval(() => setNow(clock.now()), 1000);
-    return () => clearInterval(timer);
-  }, [clock, ticking]);
-  return now;
-}
-
-/**
  * Sign-in container: the reducer holds the state, the server action sends
  * links and the port runs passkey ceremonies. The first render starts from
  * the action's last answer, so a post made without JavaScript renders the
@@ -105,32 +68,8 @@ export function SignInFlow({
   clock,
   onSignedIn,
 }: SignInFlowProps) {
-  const [answered, postLink] = useFormAction(
-    requestLink,
-    initialLinkForm,
-    linkUnavailable,
-  );
-  const [state, dispatch] = useReducer(signInReducer, answered, (answer) =>
-    signInStateFrom(answer, clock.now()),
-  );
-  const now = useNow(clock, state);
-
-  // Each answer settles the request in flight, timed by this browser's
-  // clock so the resend countdown never depends on the server's. The
-  // answer a page was rendered with settles nothing: no request is in
-  // flight then.
-  useEffect(() => {
-    if (answered.outcome === undefined) return;
-    dispatch({
-      type: 'link-settled',
-      outcome: answered.outcome,
-      at: clock.now(),
-    });
-  }, [answered, clock]);
-
-  // Focus follows the state the answer settles into, one commit after the
-  // answer itself: until then the screen is the pre-answer one.
-  useFocusAfterAnswer(answered, answerFocusId(state), !linkInFlight(state));
+  const { state, dispatch, now, postLink, resend, changeEmail } =
+    useLinkRequest(requestLink, clock);
   // The passkey button is disabled while its ceremony runs, so its answer
   // owes focus the same way (ISSUE-118). Each settle is a new object.
   const [passkeyAnswer, setPasskeyAnswer] = useState<PasskeyOutcome>();
@@ -174,14 +113,7 @@ export function SignInFlow({
         setPasskeyAnswer({ ...outcome });
       });
     },
-    resend: () => {
-      const at = clock.now();
-      if (!canResend(state, at) || state.step !== 'check-inbox') return;
-      dispatch({ type: 'resend-requested', at });
-      const form = new FormData();
-      form.set('email', state.email);
-      startTransition(() => postLink(form));
-    },
-    changeEmail: () => dispatch({ type: 'change-email' }),
+    resend,
+    changeEmail,
   });
 }

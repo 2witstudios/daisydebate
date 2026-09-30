@@ -2,11 +2,15 @@ import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { Dashboard } from './dashboard';
 import { tiles } from './tiles';
+import { initialLinkForm } from '../auth/request-link';
 import { occurrences, renderInStore } from '../test-support/render-in-store';
 
 setupRitewayBun();
 
-const render = (): string => renderInStore(h(Dashboard));
+const render = (): string =>
+  renderInStore(
+    h(Dashboard, { requestLink: () => Promise.resolve(initialLinkForm) }),
+  );
 
 describe('Dashboard', () => {
   test('links every configured destination from a named list', () => {

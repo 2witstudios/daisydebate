@@ -2,6 +2,7 @@ import { createElement as h, type ComponentType } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { FeaturedTournament } from './featured-tournament/featured-tournament';
 import { HeroBanner } from './hero-banner/hero-banner';
+import { initialLinkForm } from '../auth/request-link';
 import { QuoteCard } from './quote-card/quote-card';
 import { renderInStore } from '../test-support/render-in-store';
 
@@ -22,10 +23,13 @@ const photoOf = (html: string) => {
   };
 };
 
+const HeroBannerWithLink = () =>
+  h(HeroBanner, { requestLink: () => Promise.resolve(initialLinkForm) });
+
 describe('dashboard photographs (ISSUE-19)', () => {
   const surfaces: ReadonlyArray<[string, ComponentType, string, string]> = [
     ['QuoteCard', QuoteCard, '2200', '1311'],
-    ['HeroBanner', HeroBanner, '2200', '1311'],
+    ['HeroBanner', HeroBannerWithLink, '2200', '1311'],
     ['FeaturedTournament', FeaturedTournament, '1600', '1065'],
   ];
 
