@@ -69,6 +69,11 @@ import { bypassToken } from './runtime-role-gate-bypass';
  * - a `.constructor` value invoked somewhere the check does not follow:
  *   passed to a function that calls it, re-bound through a second
  *   variable (`const G = F; G(...)`), or invoked in another module;
+ * - a `.constructor` that is the owner of a member or the tag of a
+ *   template, or a call argument or collection element, rather than the
+ *   callee (ISSUE-268): `fn.constructor.call(null, src)`, `.apply(...)`,
+ *   `.bind(null)(src)`, ``fn.constructor`src` ``, `Reflect.apply(
+ *   fn.constructor, null, [src])` and `[fn.constructor][0](src)` all pass;
  * - code outside start.ts's relative import graph: package imports
  *   (`@daisy/*`, `node_modules`) are resolved but never loaded or scanned,
  *   so a dependency that loads listen-first itself is invisible;
