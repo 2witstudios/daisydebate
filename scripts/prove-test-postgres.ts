@@ -62,33 +62,23 @@ async function proveLockLoss() {
   )) as Array<{ pid: number }>;
   if (!holder) throw new Error('the run holds no liveness lock');
   await admin.unsafe(`select pg_terminate_backend(${holder.pid})`);
-  const violations: string[] = [];
-  let observed = 0;
-  let stopped = false;
-  void victim.exited.then(() => (stopped = true));
-  const sessionsOf = async () =>
-    (
-      (await admin.unsafe(
-        `select count(*)::int as sessions from pg_stat_activity where datname = '${database}' and pid <> pg_backend_pid()`,
-      )) as Array<{ sessions: number }>
-    )[0]?.sessions ?? 0;
-  while (!stopped) {
-    // The suites are executing while Postgres shows sessions on the run
-    // database both before and after the sweep.
-    const before = await sessionsOf();
-    const dropped = await sweepTestRunDatabases(admin, slotDatabase, {
-      maxRunMs: RUN_MAX_MS,
-    });
-    if (before > 0 && (await sessionsOf()) > 0) {
-      observed += 1;
-      if (dropped.includes(database)) violations.push(database);
-    }
-    await Bun.sleep(10);
-  }
+  // Hold the runner (the supervisor) still while its suites keep executing,
+  // so the sweep below provably runs during the window the lost lock opens,
+  // however loaded the machine is; then let it notice and stop the run.
+  process.kill(victim.pid, 'SIGSTOP');
+  const executingBefore = descendants(victim.pid).length > 0;
+  const dropped = await sweepTestRunDatabases(admin, slotDatabase, {
+    maxRunMs: RUN_MAX_MS,
+  });
+  const executingAfter = descendants(victim.pid).length > 0;
+  process.kill(victim.pid, 'SIGCONT');
+  if (!executingBefore || !executingAfter)
+    throw new Error('the suites ended before the sweep could be compared');
+  await victim.exited;
   const log = await victimLog;
   check(
-    observed > 0 && violations.length === 0,
-    `ISSUE-250: ${observed} sweeps ran while the suites were still executing after their lock session was killed, and none dropped ${database}`,
+    !dropped.includes(database),
+    `ISSUE-250: a sweep ran while the suites were executing with their runner's lock session killed, and did not drop ${database}`,
   );
   check(
     victim.exitCode !== 0 && log.includes('liveness lock is gone'),
