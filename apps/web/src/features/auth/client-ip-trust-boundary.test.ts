@@ -78,4 +78,43 @@ describe('AUTH_TRUSTED_PROXIES trust boundary (ISSUE-162/DEC-39)', () => {
       expected: '66.241.125.10',
     });
   });
+  /**
+   * The gateway spelled in a form main never trusted (ISSUE-257 review):
+   * the trust decision is made on the peer as it arrives, and only the
+   * stamped client is canonical.
+   */
+  const untrustedSpellings = [
+    '::172.19.3.97',
+    '::ac13:361',
+    '::ffff:0:172.19.3.97',
+    '::ffff:0:ac13:361',
+    '::ffff:172.19.3.97%eth0',
+    '::172.19.3.97%eth0',
+    '::ffff:0:172.19.3.97%eth0',
+  ];
+
+  test('an alternate spelling of the gateway is not the trusted gateway', () => {
+    assert({
+      given: `peers ${untrustedSpellings.join(', ')} forging Fly-Client-IP`,
+      should:
+        'ignore the headers and resolve each to the peer itself, stamped in canonical form',
+      actual: untrustedSpellings.map(resolveAgainstDeployed),
+      expected: untrustedSpellings.map(() => MEASURED_GATEWAY),
+    });
+  });
+
+  test('an alternate spelling of the gateway in the forwarded chain is not a trusted hop', () => {
+    assert({
+      given:
+        'the trusted gateway forwarding a chain whose right-most hop spells the gateway ::172.19.3.97',
+      should:
+        'take that hop as the client, never skip it as trusted and reach the spoofable hop left of it',
+      actual: resolveClientIp({
+        peer: MEASURED_GATEWAY,
+        forwardedFor: '6.6.6.6, ::172.19.3.97',
+        trustedProxies: deployedTrustedProxies(),
+      }),
+      expected: MEASURED_GATEWAY,
+    });
+  });
 });

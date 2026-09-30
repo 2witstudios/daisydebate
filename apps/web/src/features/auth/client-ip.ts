@@ -28,12 +28,15 @@ export const clientIdHash = (subkey: string, client: string): string =>
   createHash('sha3-256').update(`${subkey}\0${client}`).digest('hex');
 
 /**
- * Every address the ingress reads is stamped in its canonical form: no zone
- * id, and an IPv4 address rather than any IPv6 form embedding one
- * (ISSUE-257). A value that is not an address is kept, so the callers'
- * `isIP` checks still reject it.
+ * Only the dotted IPv4-mapped form is read as IPv4 for the trust decision:
+ * any other spelling of a trusted hop (`::a.b.c.d`, `::ffff:0:a.b.c.d`, a
+ * zone id) is not that hop (DEC-39). Only the resolved client is made
+ * canonical, for its buckets (`resolveClientIp`, ISSUE-257).
  */
-const unmap = (address: string) => canonicalAddress(address) ?? address;
+const unmap = (address: string) =>
+  address.toLowerCase().startsWith('::ffff:') && isIP(address.slice(7)) === 4
+    ? address.slice(7)
+    : address;
 
 function blockList(entries: readonly string[]) {
   const list = new BlockList();
@@ -74,20 +77,14 @@ const resolveFromForwardedChain = (
   return peer;
 };
 
-/**
- * The client is the socket peer unless the peer is a configured trusted
- * ingress hop (zero trust: a header is only ever read from a peer the
- * deployment names as its own proxy). A trusted peer's `Fly-Client-IP` is
- * taken directly, since fly-proxy sets it to the resolved caller address
- * itself, never a chain to walk; only when it is absent or unusable does
- * this fall back to walking `X-Forwarded-For` from the right.
- */
-export function resolveClientIp(input: {
+type ClientIpInput = {
   readonly peer: string | undefined;
   readonly forwardedFor: string | null | undefined;
   readonly flyClientIp?: string | null | undefined;
   readonly trustedProxies: readonly string[];
-}): string | null {
+};
+
+function resolveTrustedClient(input: ClientIpInput): string | null {
   if (!input.peer) return null;
   const peer = unmap(input.peer);
   if (isIP(peer) === 0) return null;
@@ -97,6 +94,23 @@ export function resolveClientIp(input: {
   const flyClientIp = unmap((input.flyClientIp ?? '').trim());
   if (isIP(flyClientIp) !== 0) return flyClientIp;
   return resolveFromForwardedChain(input.forwardedFor, trusted, peer);
+}
+
+/**
+ * The client is the socket peer unless the peer is a configured trusted
+ * ingress hop (zero trust: a header is only ever read from a peer the
+ * deployment names as its own proxy). A trusted peer's `Fly-Client-IP` is
+ * taken directly, since fly-proxy sets it to the resolved caller address
+ * itself, never a chain to walk; only when it is absent or unusable does
+ * this fall back to walking `X-Forwarded-For` from the right. Trust is
+ * decided on each address as it arrives; the client it resolves to is
+ * returned in canonical form (no zone id, and an IPv4-embedding IPv6 form
+ * as its IPv4 address), so no two clients share a bucket through their
+ * notation (ISSUE-257).
+ */
+export function resolveClientIp(input: ClientIpInput): string | null {
+  const client = resolveTrustedClient(input);
+  return client === null ? null : (canonicalAddress(client) ?? client);
 }
 
 type IngressRequest = {
