@@ -356,7 +356,10 @@ EMAIL_UNDELIVERABLE` the sign-in gate does, except the email-change
   identity is resolved. The production ingress (`start.ts`) replaces any
   caller-supplied value with the socket peer, or — only when the peer is in
   `AUTH_TRUSTED_PROXIES` — the first untrusted hop from the right of
-  `X-Forwarded-For`. Beside it the ingress stamps `x-daisy-client-id-hash`, a
+  `X-Forwarded-For`. The address is stamped in canonical form, with no
+  zone id and any IPv4-embedding IPv6 form as its IPv4 address
+  (`canonicalAddress`, ISSUE-257), so no two clients share a bucket
+  through their notation. Beside it the ingress stamps `x-daisy-client-id-hash`, a
   SHA3-256 of the identity keyed by a subkey of `BETTER_AUTH_SECRET` (label
   `client-id-hash`). Request logs carry only that keyed hash: an unkeyed
   hash of an IPv4 address is reversed by hashing all 2^32 of them.
