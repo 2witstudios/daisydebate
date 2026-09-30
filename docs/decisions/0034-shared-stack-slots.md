@@ -2,7 +2,8 @@
 
 Status: accepted (PAR-2). Supersedes the per-session Compose stacks that
 `docs/development/local-development.md` and `parallel-work.md` described
-(PAR-1). Amended by [ADR 0038](0038-drizzle-1-baseline.md): each slot
+(PAR-1). Amended by the test-state sections below and by
+[ADR 0038](0038-drizzle-1-baseline.md): each slot
 has a third database for the browser suite, the template database is
 gone (slot databases copy `template0`), and the e2e login's access is its
 membership in `daisy_web`.
@@ -81,7 +82,20 @@ are tiny (`daisy` 9 MB, `daisy_test` 15 MB).
   missing value is passed as empty and the server refuses to start, so the
   suite never falls back to another checkout's data.
 
-## Test Redis: one logical database per slot (ISSUE-237)
+## Test state never outlives a run (ISSUE-237, ISSUE-238)
+
+The owner's bar (2026-09-29): a killed, crashed or timed-out integration run
+must never leave state behind in the shared stack. Both stores that
+integration suites write to meet it the same way, by construction rather than
+cleanup: Redis by giving each slot a logical database of its own with bounded,
+swept keys, Postgres by giving each run a database of its own that is dropped.
+One rule covers both: a suite obtains its services only from
+`requireTestServices`, which refuses any Redis that is not the slot's own
+database on its own server and any Postgres that is not the database the
+runner made for this run, so a file started by hand can neither leak nor
+delete anything outside its own slot.
+
+### Redis: one logical database per slot (ISSUE-237)
 
 On 2026-09-29 the test Redis (database 1, shared by every checkout) held
 78,208 stale `t3-*` keys from 85 runs. Teardown and every SCAN walk the whole
@@ -147,8 +161,8 @@ block` (3 to 501), written to `TEST_REDIS_URL` by `slot:up`. The port block
 - **Release.** `slot:down` deletes the slot's `t3-` namespaces. A prune of an
   orphaned worktree does not open its test database: its keys expire within
   two hours and the next slot to claim that block sweeps any remainder.
-- **Not covered here.** Postgres rows a killed run leaves in the test
-  database are not swept (ISSUE-238 carries it, with the measured leak).
+- **Postgres** has the same guarantee, by a different mechanism: see the next
+  subsection.
 
 The proof is `bun proof:test-redis` against a throwaway Redis: 100,000
 foreign keys in another slot's database leave teardown and the SCAN test
@@ -156,27 +170,7 @@ within their baseline over 10 runs, the same keys in one shared database slow
 both several times over (the negative control), and a SIGKILLed run leaves
 nothing that survives the next sweep.
 
-## Consequences
-
-- Removing a worktree leaves nothing running: its data goes on the next
-  `slot:up` anywhere, or `slot:prune`, or its own `slot:down` at handoff.
-- Every checkout depends on one stack; stopping it stops everyone. The
-  scripts therefore offer no `infra:down`.
-- The stack is per machine but pruning only knows its own repository's
-  worktrees: two clones of this repository on one machine would each prune
-  the other's worktree slots and share the main slot. Use worktrees of one
-  clone, never a second clone.
-- `slot:up` starts Compose only when the stack is unreachable, so a branch
-  whose compose file differs never recreates the running shared stack;
-  changing the stack's configuration is a deliberate operator step.
-- Pruning reads `git worktree list` under the slot lock, so a worktree
-  created and slotted while another `slot:up` waited is never pruned.
-- Two worktree folders that derive the same id (`a-b` and `a_b`) are
-  refused rather than allowed to share a slot.
-- Migration generation is still single-writer (`bun migrations:check`); each
-  slot only applies its own branch's migrations to its own databases.
-
-## Test Postgres: one database per run (ISSUE-238)
+### Postgres: one database per run (ISSUE-238)
 
 ISSUE-192's row ledger compares a run's row counts before and after and fails
 a suite that grew a table. It cannot see a run that never reached the end: a
@@ -239,6 +233,26 @@ is SIGKILLed mid-suite (runner and suite process); its rows are in its run
 database and not in the slot's `_test` database; the next clean run drops it,
 passes, keeps the ledger flat and leaves no run database; a concurrent run
 never drops a live run's database; and a suite started by hand is refused.
+
+## Consequences
+
+- Removing a worktree leaves nothing running: its data goes on the next
+  `slot:up` anywhere, or `slot:prune`, or its own `slot:down` at handoff.
+- Every checkout depends on one stack; stopping it stops everyone. The
+  scripts therefore offer no `infra:down`.
+- The stack is per machine but pruning only knows its own repository's
+  worktrees: two clones of this repository on one machine would each prune
+  the other's worktree slots and share the main slot. Use worktrees of one
+  clone, never a second clone.
+- `slot:up` starts Compose only when the stack is unreachable, so a branch
+  whose compose file differs never recreates the running shared stack;
+  changing the stack's configuration is a deliberate operator step.
+- Pruning reads `git worktree list` under the slot lock, so a worktree
+  created and slotted while another `slot:up` waited is never pruned.
+- Two worktree folders that derive the same id (`a-b` and `a_b`) are
+  refused rather than allowed to share a slot.
+- Migration generation is still single-writer (`bun migrations:check`); each
+  slot only applies its own branch's migrations to its own databases.
 
 ## Upgrade path
 

@@ -34,6 +34,7 @@ import {
   TEST_RUN_MAX_MS,
   testNamespace,
 } from '@daisy/redis/testing';
+import { proofSteps } from './proof-support';
 
 const FOREIGN_KEYS = 100_000;
 const RUNS = 10;
@@ -151,11 +152,7 @@ async function measure(label: string, url: string) {
   return { scan, teardown };
 }
 
-const failures: string[] = [];
-const check = (ok: boolean, what: string) => {
-  process.stdout.write(`${ok ? 'PASS' : 'FAIL'}  ${what}\n`);
-  if (!ok) failures.push(what);
-};
+const { check, finish } = proofSteps();
 
 async function preloadForeign(admin: RedisClient) {
   await admin.send('EVAL', [
@@ -281,11 +278,7 @@ async function main() {
   const base = await requireThrowawayRedis();
   await proveCost(base);
   await proveKilledRun(base);
-  if (failures.length > 0) {
-    process.stderr.write(`\n${failures.length} proof step(s) failed\n`);
-    process.exit(1);
-  }
-  process.stdout.write('\nall proof steps passed\n');
+  finish();
 }
 
 const [, , flag, url, mode] = process.argv;

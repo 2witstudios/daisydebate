@@ -16,6 +16,7 @@
  */
 import { SQL } from 'bun';
 import { requireTestSlotServices } from '@daisy/config';
+import { proofSteps } from './proof-support';
 
 const root = `${import.meta.dir}/..`;
 const web = `${root}/apps/web`;
@@ -43,11 +44,7 @@ const runner = (suite: string) =>
 const textOf = async (stream: ReadableStream<Uint8Array>) =>
   await new Response(stream).text();
 
-const failures: string[] = [];
-const check = (ok: boolean, what: string) => {
-  process.stdout.write(`${ok ? 'PASS' : 'FAIL'}  ${what}\n`);
-  if (!ok) failures.push(what);
-};
+const { check, finish } = proofSteps();
 
 async function runDatabases(): Promise<string[]> {
   const rows = (await admin`
@@ -201,11 +198,7 @@ async function main() {
   );
 
   await admin.close();
-  if (failures.length > 0) {
-    process.stderr.write(`\n${failures.length} proof step(s) failed\n`);
-    process.exit(1);
-  }
-  process.stdout.write('\nall proof steps passed\n');
+  finish();
 }
 
 await main();
