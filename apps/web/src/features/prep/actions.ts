@@ -42,5 +42,19 @@ export const inertActions = {
   },
   share: { label: 'Share', reason: notBuilt('Sharing') },
   edit: { label: 'Edit', reason: notBuilt('Editing a card') },
+  attachCard: { label: 'Attach a card', reason: notBuilt('Attaching a card') },
+  addContention: {
+    label: 'Add contention',
+    reason: notBuilt('Adding a contention'),
+  },
+  addResponse: {
+    label: 'Add a response',
+    reason: notBuilt('Adding a response'),
+  },
+  addToCase: {
+    label: 'Add to case',
+    reason: notBuilt('Adding a brief to a case'),
+  },
+  saveBrief: { label: 'Save changes', reason: notBuilt('Saving a brief') },
   deleteCard: { label: 'Delete card', reason: notBuilt('Deleting a card') },
 } as const satisfies Record<string, InertAction>;

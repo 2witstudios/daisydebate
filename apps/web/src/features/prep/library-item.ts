@@ -2,7 +2,7 @@
  * The Prep library's domain shapes. They are persistence-neutral view shapes
  * a real read replaces the mock with; sides are Aff and Neg only.
  */
-type Side = 'aff' | 'neg';
+export type Side = 'aff' | 'neg';
 
 /** Private to the owner, or shared with a named team. */
 export type Visibility =
@@ -48,7 +48,8 @@ type CaseItem = ItemBase & {
 export type LibraryItem = BriefItem | CardItem | CaseItem;
 export type ItemKind = LibraryItem['kind'];
 
-const sideLabel = (side: Side): string => (side === 'aff' ? 'Aff' : 'Neg');
+export const sideLabel = (side: Side): string =>
+  side === 'aff' ? 'Aff' : 'Neg';
 
 /** The second line of a row, by kind. */
 export function itemSubtitle(item: LibraryItem): string {

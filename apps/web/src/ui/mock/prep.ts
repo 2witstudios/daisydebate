@@ -20,7 +20,7 @@ export const sampleLibrary = (now: string): readonly LibraryItem[] => [
     title: 'Affirmative case: rights-based framework',
     motion: '[Motion A]',
     side: 'aff',
-    contentions: 4,
+    contentions: 3,
     tags: ['framework', 'rights'],
     visibility: team,
     editedAt: daysBefore(now, 2),

@@ -23,7 +23,7 @@ describe('toRow', () => {
         opened,
       }))(toRow(item('rights-framework'), now)),
       expected: {
-        subtitle: '[Motion A] · Aff · 4 contentions',
+        subtitle: '[Motion A] · Aff · 3 contentions',
         href: '/prep/briefs/rights-framework',
         meta: 'Edited 2 days ago',
         opened: 'Opened today',
