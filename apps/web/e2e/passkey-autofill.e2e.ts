@@ -1,5 +1,5 @@
 import { origin, resetRateLimits, signUpMember } from './support/accounts';
-import { expect, test } from './support/fixtures';
+import { expect, openPage, test } from './support/fixtures';
 import { addVirtualAuthenticator } from './support/webauthn';
 
 /**
@@ -24,7 +24,7 @@ test('a saved passkey signs in from autofill without the button', async ({
     ignoreHTTPSErrors: true,
     baseURL: origin,
   });
-  const enrollPage = await enrolling.newPage();
+  const enrollPage = await openPage(enrolling, 'the enrolling browser');
   const device = await addVirtualAuthenticator(enrollPage);
   await signUpMember(enrollPage.request);
   await enrollPage.goto('/settings/security');

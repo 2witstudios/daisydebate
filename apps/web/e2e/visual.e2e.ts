@@ -4,7 +4,7 @@ import {
   type Locator,
   type Page,
 } from '@playwright/test';
-import { expect, test } from './support/fixtures';
+import { expect, openPage, test } from './support/fixtures';
 import {
   resetRateLimits,
   signUpMember,
@@ -32,7 +32,7 @@ async function themedPage(
   await context.addCookies([
     { name: 'daisy-theme', value: theme, url: baseURL ?? '' },
   ]);
-  return context.newPage();
+  return openPage(context, 'the visual page');
 }
 
 /** Fonts settled, then the deterministic full-page baseline comparison. */

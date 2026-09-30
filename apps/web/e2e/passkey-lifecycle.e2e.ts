@@ -13,7 +13,7 @@ import {
 } from './support/accounts';
 import { expectFocusOn, pressByKeyboard } from './support/focus';
 import { boundedStep, STEP_LIMIT_MS } from './support/bounded-step';
-import { expect, test } from './support/fixtures';
+import { expect, openPage, test } from './support/fixtures';
 import { effectsRan, hydrated } from './support/hydration';
 import { removeRowByClick, securityRows } from './support/security-rows';
 import {
@@ -236,7 +236,7 @@ test('a lost passkey recovers through magic link, and the recovered session can 
     ignoreHTTPSErrors: true,
     baseURL: origin,
   });
-  const lostPage = await lost.newPage();
+  const lostPage = await openPage(lost, 'the lost device');
   await lostPage.goto('/sign-in?next=%2Flobby');
 
   // Recovery: the verified email still reaches the account.
