@@ -1,4 +1,8 @@
-import { type APIRequestContext, type Browser, type Page } from '@playwright/test';
+import {
+  type APIRequestContext,
+  type Browser,
+  type Page,
+} from '@playwright/test';
 import { expect, test } from './support/fixtures';
 import {
   confirmSignIn,
