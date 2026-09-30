@@ -16,11 +16,12 @@ import { bypassToken } from './runtime-role-gate-bypass';
  * - parse without a syntax error, and resolve every import (ISSUE-221);
  * - never compose, prepare, listen, require, eval or import dynamically
  *   on its own, by any access form: `.`, `['…']` or destructuring
- *   (ISSUE-222, ISSUE-224). Only the real CommonJS binding counts as
- *   require: a call, a value reference, `module.require`,
- *   `globalThis['require']`, `import.meta.require`, an import equals or a
- *   require-named import, never a key, member or local of that name
- *   (ISSUE-227). The same holds for every relative module start.ts loads,
+ *   (ISSUE-222, ISSUE-224). The host's require binding (a call or value
+ *   reference to a require with no non-ambient declaration), any read of a
+ *   `require` member off any owner, an import equals or a require-named
+ *   import is refused; a key, interface member or local declared with
+ *   that name is not (ISSUE-227, ISSUE-235). The same holds for every
+ *   relative module start.ts loads,
  *   outside listen-first.ts's own imports (ISSUE-228). Computed names such
  *   as `server['li' + 'sten']` are out of scope;
  * - import startProductionServer, unaliased, from ./listen-first;

@@ -46,14 +46,74 @@ const harmless: readonly Row[] = [
     ),
     expected: null,
   },
-  {
-    shape: "ISSUE-227: a local object's require member called",
-    startTs: append('const c = { require: () => 2 };\nc.require();\n'),
-    expected: null,
-  },
 ];
 
 const refused: readonly Row[] = [
+  // ISSUE-235: every require member read is a bypass, as on main, and a
+  // declared (ambient) require or module is still the host's own binding.
+  {
+    shape: 'ISSUE-235 review: const g = globalThis; g.require(...)',
+    startTs: append(
+      `const g = globalThis;\ng.require('./listen-first').startProductionServer(${NO_OP_OPTIONS});\n`,
+    ),
+    expected: bypass('g.require('),
+  },
+  {
+    shape: 'ISSUE-235 review: const m = module; m.require(...)',
+    startTs: append(
+      `const m = module;\nm.require('./listen-first').startProductionServer(${NO_OP_OPTIONS});\n`,
+    ),
+    expected: bypass('m.require('),
+  },
+  {
+    shape: 'ISSUE-235 review: process.mainModule!.require(...)',
+    startTs: append(
+      `process.mainModule!.require('./listen-first').startProductionServer(${NO_OP_OPTIONS});\n`,
+    ),
+    expected: bypass('.require('),
+  },
+  {
+    shape: 'ISSUE-235 review: (0, module).require(...)',
+    startTs: append(
+      `(0, module).require('./listen-first').startProductionServer(${NO_OP_OPTIONS});\n`,
+    ),
+    expected: bypass('.require('),
+  },
+  {
+    shape: 'ISSUE-235 review: Module.prototype.require.call(...)',
+    startTs: append(
+      `Module.prototype.require.call(module, './listen-first').startProductionServer(${NO_OP_OPTIONS});\n`,
+    ),
+    expected: bypass('.require('),
+  },
+  {
+    shape: "ISSUE-235: a local object's require member called, as main refused",
+    startTs: append('const c = { require: () => 2 };\nc.require();\n'),
+    expected: bypass('c.require('),
+  },
+  {
+    shape: 'ISSUE-235 review: declare const require, then require(...)',
+    startTs: append(
+      `declare const require: (id: string) => any;\nrequire('./listen-first').startProductionServer(${NO_OP_OPTIONS});\n`,
+    ),
+    expected: bypass('require('),
+  },
+  {
+    shape:
+      'ISSUE-235 review: declare global { var require }, then require(...)',
+    startTs: append(
+      `declare global {\n  var require: (id: string) => any;\n}\nrequire('./listen-first').startProductionServer(${NO_OP_OPTIONS});\n`,
+    ),
+    expected: bypass('require('),
+  },
+  {
+    shape:
+      'ISSUE-235 review: declare const module, then a value read of require',
+    startTs: append(
+      `declare const module: any;\nconst load = module['require'];\nload('./listen-first').startProductionServer(${NO_OP_OPTIONS});\n`,
+    ),
+    expected: bypass('module.require('),
+  },
   {
     shape: "ISSUE-227: require('./listen-first') is still a bypass",
     startTs: append("require('./listen-first');\n"),

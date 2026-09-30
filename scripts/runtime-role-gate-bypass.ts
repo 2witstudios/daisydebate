@@ -33,7 +33,7 @@ export const bypassToken = (
     return 'require(';
   if (ts.isIdentifier(node)) return identifierBypass(checker, node);
   const member = memberName(node);
-  if (member === 'require') return requireMember(checker, node);
+  if (member === 'require') return requireMember(node);
   return (member !== undefined && BYPASS_MEMBERS.get(member)) || null;
 };
 
@@ -57,12 +57,10 @@ const identifierBypass = (
     : null;
 };
 
-/** `module.require`, `globalThis['require']`, `import.meta.require` or
- * `const { require } = module`: require read off a global or import.meta. */
-const requireMember = (
-  checker: ts.TypeChecker,
-  node: ts.Node,
-): string | null => {
+/** Any read of a `require` member: `module.require`, `g.require` for any
+ * owner, `globalThis['require']`, `import.meta.require` or
+ * `const { require } = module`, as main refused (ISSUE-235). */
+const requireMember = (node: ts.Node): string => {
   const owner =
     ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)
       ? node.expression
@@ -71,9 +69,9 @@ const requireMember = (
         ? node.parent.parent.initializer
         : undefined;
   if (owner && ts.isMetaProperty(owner)) return 'import.meta.require(';
-  return owner && ts.isIdentifier(owner) && isGlobal(checker, owner)
+  return owner && ts.isIdentifier(owner)
     ? `${owner.text}.require(`
-    : null;
+    : '.require(';
 };
 
 /** A reference read as a value: not a declared, property or member name
@@ -95,13 +93,20 @@ const inType = (node: ts.Node): boolean => {
   return false;
 };
 
-/** No declaration anywhere in the program: the host's own binding. */
+/** No non-ambient declaration anywhere in the program: the host's own
+ * binding. */
 const isGlobal = (checker: ts.TypeChecker, node: ts.Identifier) => {
   const symbol = ts.isShorthandPropertyAssignment(node.parent)
     ? checker.getShorthandAssignmentValueSymbol(node.parent)
     : checker.getSymbolAtLocation(node);
-  return !symbol?.declarations?.length;
+  return (symbol?.declarations ?? []).every(isAmbient);
 };
+
+/** A `declare`d or `declare global` binding only describes the host's
+ * own one, so it never makes require or module local (ISSUE-235). */
+const isAmbient = (declaration: ts.Declaration) =>
+  (declaration.flags & ts.NodeFlags.Ambient) !== 0 ||
+  declaration.getSourceFile().isDeclarationFile;
 
 /** The member a `.name`, `['name']` or `{ name }` destructuring touches. */
 const memberName = (node: ts.Node): string | undefined => {
