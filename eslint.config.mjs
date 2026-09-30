@@ -74,7 +74,13 @@ const unboundServerRestrictions = [
   // default by name, or dynamically) is Bun under another name.
   "ImportDeclaration[source.value='bun'] > :matches(ImportNamespaceSpecifier, ImportDefaultSpecifier)",
   "ImportDeclaration[source.value='bun'] > ImportSpecifier[imported.name='default']",
-  "ImportExpression[source.value='bun']",
+  // A dynamic import stays clean when it takes named values (SQL), and is
+  // rejected when it can reach a server: the module bound whole, serve or
+  // listen destructured, called on the awaited module, or handed to then().
+  "VariableDeclarator[id.type='Identifier'] > AwaitExpression.init > ImportExpression[source.value='bun']",
+  "VariableDeclarator[init.type='AwaitExpression'][init.argument.type='ImportExpression'][init.argument.source.value='bun'] > ObjectPattern.id > Property[key.name=/^(serve|listen)$/]",
+  "MemberExpression[property.name=/^(serve|listen)$/] > AwaitExpression.object > ImportExpression[source.value='bun']",
+  "CallExpression[callee.property.name='then'] > MemberExpression.callee > ImportExpression.object[source.value='bun']",
   "VariableDeclarator:matches([init.name='Bun'], [init.object.name='globalThis'][init.property.name='Bun']) > ObjectPattern > Property[key.name=/^(serve|listen)$/]",
   `CallExpression[callee.property.name='listen']:not(${bunCallee}):not([arguments.0.type='Literal'][arguments.0.value=/^[^0-9]/]):not([arguments.0.type='TemplateLiteral']):matches([arguments.length=1][arguments.0.type!='ObjectExpression'], [arguments.1.type=/Function/])`,
   `CallExpression[callee.property.name='listen']:not(${bunCallee}) > ObjectExpression.arguments:not(:has(> Property[key.name='host']))`,

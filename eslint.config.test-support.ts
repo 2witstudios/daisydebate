@@ -159,6 +159,10 @@ export const serverBindCases: ReadonlyArray<readonly [string, boolean]> = [
   // IPv4-mapped wildcard; a mapped loopback stays clean.
   ["import { default as b } from 'bun';\nb.serve({ port: 0 });", true],
   ["const b = await import('bun');\nb.serve({ port: 0 });", true],
+  ["const { serve } = await import('bun');\nserve({ port: 0 });", true],
+  ["(await import('bun')).serve({ port: 0 });", true],
+  ["import('bun').then((b) => b.serve({ port: 0 }));", true],
+  ["const { SQL } = await import('bun');\nexport const s = SQL;", false],
   ["Bun.serve({ hostname: '::ffff:0.0.0.0', port: 0 });", true],
   ["Bun.serve({ hostname: '::FFFF:0.0.0.0', port: 0 });", true],
   ["Bun.serve({ hostname: '::ffff:127.0.0.1', port: 0 });", false],
