@@ -1,5 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { decideProbeOutcome, fetchAlertConditions } from './auth-alert-probe';
+import { decideProbeOutcome } from './auth-alert-probe';
+
+import { alertsFrom } from './auth-alert-probe.test-support';
 
 setupRitewayBun();
 
@@ -9,17 +11,6 @@ const LIMITER_UNAVAILABLE = {
   runbook:
     'docs/operations/auth-delivery.md#storage-or-rate-limiter-unavailable',
 } as const;
-
-/** `/api/ops/alerts` answering 200 with this body. */
-const fetchFrom = async (body: unknown) => {
-  using server = Bun.serve({
-    hostname: '127.0.0.1',
-    port: 0,
-    fetch: () => Response.json(body),
-  });
-  // Awaited here: `using` stops the server as this function returns.
-  return await fetchAlertConditions(`http://127.0.0.1:${server.port}`, 'token');
-};
 
 /**
  * ISSUE-199: during a Redis outage `/api/ops/alerts` answers 200 with a
@@ -34,12 +25,12 @@ describe('the alert state the probe read (ISSUE-199)', () => {
         'a 200 whose snapshot was read, one marked unreachable, and one with no snapshot at all',
       should: 'resolve ok for each and read the state only for the first',
       actual: [
-        await fetchFrom({ conditions: [], snapshot: { redisState: 'read' } }),
-        await fetchFrom({
+        await alertsFrom({ conditions: [], snapshot: { redisState: 'read' } }),
+        await alertsFrom({
           conditions: [],
           snapshot: { redisState: 'unreachable' },
         }),
-        await fetchFrom({ conditions: [] }),
+        await alertsFrom({ conditions: [] }),
       ],
       expected: [
         { ok: true, conditions: [], alertStateRead: true },
