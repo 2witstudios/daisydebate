@@ -1,141 +1,316 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { readFileSync } from 'node:fs';
-import { findRuntimeRoleGateProblem } from './verify-deploy-config';
+import { findRuntimeRoleGateProblem } from './runtime-role-gate';
 
 setupRitewayBun();
 
 // The start.ts runtime-role gate (ISSUE-39): start-up runs only through
 // startProductionServer (ISSUE-193), with exactly one @daisy/db refusal
-// nothing can duplicate, override or replace (ISSUE-206).
-const realStart = readFileSync('apps/web/src/server/start.ts', 'utf8');
+// that nothing can duplicate, override or replace (ISSUE-206), read from the
+// TypeScript AST with symbols resolved through aliases and re-exports, so
+// comments and formatting never matter (ISSUE-218).
+import {
+  append,
+  bypass,
+  CALL,
+  DB_IMPORT,
+  edit,
+  IMPORT,
+  MISSING,
+  NO_OP_OPTIONS,
+  NOT_FROM_DB,
+  ONE_CALL,
+  OVERRIDDEN,
+  realStart,
+  REFUSAL,
+  ROUTE_READ,
+  type Row,
+  SHIM,
+  START_IMPORT,
+} from './runtime-role-gate.test-support';
 
-describe('findRuntimeRoleGateProblem (ISSUE-39, ISSUE-193)', () => {
-  const refusal =
-    "  refuseRole: () => refuseSchemaAlteringRole(app, 'daisy_web'),\n";
-  const start = (body: string, awaitStarted = 'await started;\n') =>
-    `const { server, started } = startProductionServer({\n  app,\n  nextApp,\n${body}  port,\n  host: '0.0.0.0',\n});\n${awaitStarted}`;
-  const missing =
-    "start.ts does not start through startProductionServer with refuseRole: () => refuseSchemaAlteringRole(app, 'daisy_web') and await started";
+const harmless: readonly Row[] = [
+  { shape: 'the committed start.ts', startTs: realStart, expected: null },
+  {
+    shape: 'a JSDoc block naming startProductionServer( before the call',
+    startTs: edit(
+      CALL,
+      `/** Starts once: startProductionServer({ ... }) is the only entry. */\n${CALL}`,
+    ),
+    expected: null,
+  },
+  {
+    shape: 'a block comment naming startProductionServer( inside the call',
+    startTs: edit(
+      REFUSAL,
+      `${REFUSAL}  /* never a second startProductionServer( call */\n`,
+    ),
+    expected: null,
+  },
+  {
+    shape: 'a trailing same-line comment containing ...',
+    startTs: edit(
+      REFUSAL,
+      "  refuseRole: () => refuseSchemaAlteringRole(app, 'daisy_web'), // no ...spread here\n",
+    ),
+    expected: null,
+  },
+  {
+    shape: 'a trailing same-line comment naming refuseSchemaAlteringRole',
+    startTs: edit(
+      REFUSAL,
+      "  refuseRole: () => refuseSchemaAlteringRole(app, 'daisy_web'), // refuseSchemaAlteringRole is @daisy/db's\n",
+    ),
+    expected: null,
+  },
+  {
+    shape: 'a spread inside the readRouteTable body',
+    startTs: edit(
+      ROUTE_READ,
+      "      return [...[readFileSync('/proc/net/route', 'utf8')]].join('');\n",
+    ),
+    expected: null,
+  },
+  {
+    shape: 'reordered keys',
+    startTs: edit(
+      "  port,\n  host: '0.0.0.0',\n",
+      "  host: '0.0.0.0',\n  port,\n",
+    ),
+    expected: null,
+  },
+];
 
-  test('the committed start.ts starts only through startProductionServer', () => {
-    assert({
-      given: 'the real start.ts',
-      should: 'report no problem',
-      actual: findRuntimeRoleGateProblem(realStart),
-      expected: null,
+const refused: readonly Row[] = [
+  // ISSUE-193: start-up only through startProductionServer.
+  {
+    shape: "ISSUE-193 review: Next's handler handed to createProductionServer",
+    startTs: append(
+      'const bypass = createProductionServer({ app, handle: nextApp.getRequestHandler(), readRouteTable: () => null });\n',
+    ),
+    expected: bypass('createProductionServer('),
+  },
+  {
+    shape: 'ISSUE-193: a direct nextApp.prepare()',
+    startTs: append('await nextApp.prepare();\n'),
+    expected: bypass('nextApp.prepare('),
+  },
+  {
+    shape: 'ISSUE-193: a direct server.listen',
+    startTs: append("server.listen(port, '0.0.0.0');\n"),
+    expected: bypass('.listen('),
+  },
+  {
+    shape: 'ISSUE-193: the refusal removed',
+    startTs: edit(REFUSAL, ''),
+    expected: MISSING,
+  },
+  {
+    shape: 'ISSUE-193: the refusal commented out',
+    startTs: edit(REFUSAL, `  // ${REFUSAL.trim()}\n`),
+    expected: MISSING,
+  },
+  {
+    shape: 'ISSUE-193: start-up never awaited',
+    startTs: edit('await started;\n', ''),
+    expected: MISSING,
+  },
+  // ISSUE-206: the builder's six shapes.
+  {
+    shape: 'ISSUE-206 review: a second call with a no-op refuseRole',
+    startTs: append(
+      `const again = startProductionServer(${NO_OP_OPTIONS});\nawait again.started;\n`,
+    ),
+    expected: ONE_CALL,
+  },
+  {
+    shape: 'ISSUE-206 review: a spread of a no-op refuseRole',
+    startTs: edit(REFUSAL, `${REFUSAL}  ...{ refuseRole: async () => {} },\n`),
+    expected: OVERRIDDEN,
+  },
+  {
+    shape: 'ISSUE-206: a spread of an options object',
+    startTs: edit(REFUSAL, `${REFUSAL}  ...overrides,\n`),
+    expected: OVERRIDDEN,
+  },
+  {
+    shape: 'ISSUE-206: a second refuseRole key',
+    startTs: edit(REFUSAL, `${REFUSAL}  refuseRole: async () => {},\n`),
+    expected: OVERRIDDEN,
+  },
+  {
+    shape: 'ISSUE-206: a local no-op replacing the @daisy/db import',
+    startTs: edit(
+      DB_IMPORT,
+      'const refuseSchemaAlteringRole = async (..._: unknown[]) => {};\n',
+    ),
+    expected: NOT_FROM_DB,
+  },
+  {
+    shape: 'ISSUE-206: the refusal imported from another module',
+    startTs: edit(
+      DB_IMPORT,
+      "import { refuseSchemaAlteringRole } from './no-op';\n",
+    ),
+    files: {
+      'apps/web/src/server/no-op.ts':
+        'export const refuseSchemaAlteringRole = async (..._: unknown[]) => {};\n',
+    },
+    expected: NOT_FROM_DB,
+  },
+  // ISSUE-218: the review's missed shapes.
+  {
+    shape: 'ISSUE-218 review: an aliased import and an aliased second call',
+    startTs: append(
+      `import { startProductionServer as go } from './listen-first';\nconst again = go(${NO_OP_OPTIONS});\nawait again.started;\n`,
+    ),
+    expected: IMPORT,
+  },
+  {
+    shape: 'ISSUE-218 review: startProductionServer.call(null, ...)',
+    startTs: append(
+      `const again = startProductionServer.call(null, ${NO_OP_OPTIONS});\nawait again.started;\n`,
+    ),
+    expected: ONE_CALL,
+  },
+  {
+    shape: 'ISSUE-218 review: startProductionServer?.(...)',
+    startTs: append(
+      `const again = startProductionServer?.(${NO_OP_OPTIONS});\nawait again?.started;\n`,
+    ),
+    expected: ONE_CALL,
+  },
+  {
+    shape:
+      'ISSUE-218 review: a spaced second call startProductionServer ({ ... })',
+    startTs: append(
+      `const again = startProductionServer (${NO_OP_OPTIONS});\nawait again.started;\n`,
+    ),
+    expected: ONE_CALL,
+  },
+  {
+    shape:
+      'ISSUE-218 review: startProductionServer imported from a re-export shim',
+    startTs: edit(
+      START_IMPORT,
+      "import { startProductionServer } from './shim';\n",
+    ),
+    files: {
+      [SHIM]: "export { startProductionServer } from './listen-first';\n",
+    },
+    expected: IMPORT,
+  },
+  {
+    shape:
+      'ISSUE-218: a shim re-exporting it under another name, called a second time',
+    startTs: append(
+      `import { go } from './shim';\nconst again = go(${NO_OP_OPTIONS});\nawait again.started;\n`,
+    ),
+    files: {
+      [SHIM]: "export { startProductionServer as go } from './listen-first';\n",
+    },
+    expected: ONE_CALL,
+  },
+  {
+    shape: "ISSUE-218 review: a computed override key ['refuse' + 'Role']",
+    startTs: edit(
+      REFUSAL,
+      `${REFUSAL}  ['refuse' + 'Role']: async () => {},\n`,
+    ),
+    expected: OVERRIDDEN,
+  },
+  // Shapes the ISSUE-206 review found caught, kept caught.
+  {
+    shape: 'refuseRole through a shorthand variable',
+    startTs: edit(REFUSAL, '  refuseRole,\n').replace(
+      CALL,
+      `const refuseRole = async () => {};\n${CALL}`,
+    ),
+    expected: MISSING,
+  },
+  {
+    shape: 'a wrapper function around a second call',
+    startTs: append(
+      `const boot = () => startProductionServer(${NO_OP_OPTIONS});\nawait boot().started;\n`,
+    ),
+    expected: ONE_CALL,
+  },
+  {
+    shape: 'a dynamic-import second call',
+    startTs: append(
+      `const lf = await import('./listen-first');\nawait lf.startProductionServer(${NO_OP_OPTIONS}).started;\n`,
+    ),
+    expected: bypass('import('),
+  },
+  {
+    shape:
+      'a namespace-style (await import(...)).startProductionServer( second call',
+    startTs: append(
+      `await (await import('./listen-first')).startProductionServer(${NO_OP_OPTIONS}).started;\n`,
+    ),
+    expected: bypass('import('),
+  },
+  {
+    shape: 'a shadowed refuseSchemaAlteringRole parameter around the call',
+    startTs: edit(
+      CALL,
+      'const { server, started } = ((refuseSchemaAlteringRole: (...args: unknown[]) => Promise<void>) => startProductionServer({\n',
+    ).replace(
+      "  host: '0.0.0.0',\n});\n",
+      "  host: '0.0.0.0',\n}))(async () => {});\n",
+    ),
+    expected: ONE_CALL,
+  },
+  {
+    shape: 'the refusal only in a string, with a no-op key',
+    startTs: edit(REFUSAL, '  refuseRole: async () => {},\n').replace(
+      CALL,
+      `const note = "refuseRole: () => refuseSchemaAlteringRole(app, 'daisy_web'),";\n${CALL}`,
+    ),
+    expected: MISSING,
+  },
+  {
+    shape: 'the refusal only in a block comment, with a no-op key',
+    startTs: edit(
+      REFUSAL,
+      `  /* ${REFUSAL.trim()} */ refuseRole: async () => {},\n`,
+    ),
+    expected: MISSING,
+  },
+  {
+    shape: 'the refusal only in a trailing comment, with a no-op key',
+    startTs: edit(
+      REFUSAL,
+      `  refuseRole: async () => {}, // ${REFUSAL.trim()}\n`,
+    ),
+    expected: MISSING,
+  },
+  {
+    shape: "a quoted 'refuseRole' key overriding the refusal",
+    startTs: edit(REFUSAL, `${REFUSAL}  'refuseRole': async () => {},\n`),
+    expected: OVERRIDDEN,
+  },
+];
+
+describe('findRuntimeRoleGateProblem allows harmless edits (ISSUE-218)', () => {
+  for (const row of harmless)
+    test(row.shape, () => {
+      assert({
+        given: `start.ts with ${row.shape}`,
+        should: 'report no problem',
+        actual: findRuntimeRoleGateProblem(row.startTs, row.files),
+        expected: row.expected,
+      });
     });
-  });
-
-  test('a start.ts without the role refusal, with it commented out, or not awaiting start-up', () => {
-    assert({
-      given:
-        'no refuseRole, a commented refuseRole, and a start-up whose result is never awaited',
-      should: 'report each as missing its gated start-up',
-      actual: [
-        start(''),
-        start(`  // ${refusal.trim()}\n`),
-        start(refusal, ''),
-      ].map(findRuntimeRoleGateProblem),
-      expected: [missing, missing, missing],
-    });
-  });
-
-  test('a start.ts that composes, prepares or listens outside startProductionServer', () => {
-    assert({
-      given:
-        "the review's mutation (Next's handler handed to createProductionServer), a direct nextApp.prepare(), and a direct server.listen",
-      should: 'report each as bypassing the start-up gate',
-      actual: [
-        `${start(refusal)}const bypass = createProductionServer({ app, handle: nextApp.getRequestHandler(), readRouteTable });\n`,
-        `await nextApp.prepare();\n${start(refusal)}`,
-        `${start(refusal)}server.listen(port, '0.0.0.0');\n`,
-      ].map(findRuntimeRoleGateProblem),
-      expected: [
-        'start.ts bypasses the start-up gate with createProductionServer(; start only through startProductionServer (ISSUE-193)',
-        'start.ts bypasses the start-up gate with nextApp.prepare(; start only through startProductionServer (ISSUE-193)',
-        'start.ts bypasses the start-up gate with .listen(; start only through startProductionServer (ISSUE-193)',
-      ],
-    });
-  });
 });
 
-describe('findRuntimeRoleGateProblem refuses a disabled refusal (ISSUE-206)', () => {
-  const refusalLine =
-    "  refuseRole: () => refuseSchemaAlteringRole(app, 'daisy_web'),\n";
-  const importLine = "import { refuseSchemaAlteringRole } from '@daisy/db';\n";
-  const withRefusal = (after: string) =>
-    realStart.replace(refusalLine, `${refusalLine}${after}`);
-  const oneCall =
-    'start.ts must call startProductionServer exactly once; a second call starts a server the checked refusal does not guard (ISSUE-206)';
-  const overridden =
-    "start.ts's startProductionServer call sets refuseRole more than once or spreads other options into it; only refuseRole: () => refuseSchemaAlteringRole(app, 'daisy_web') may set it (ISSUE-206)";
-  const notFromDb =
-    'start.ts must import refuseSchemaAlteringRole from @daisy/db and use it only as the refuseRole (ISSUE-206)';
-
-  test('the committed start.ts still reports no problem', () => {
-    assert({
-      given: 'the real start.ts',
-      should: 'report no problem',
-      actual: findRuntimeRoleGateProblem(realStart),
-      expected: null,
+describe('findRuntimeRoleGateProblem refuses every bypass (ISSUE-193, ISSUE-206, ISSUE-218)', () => {
+  for (const row of refused)
+    test(row.shape, () => {
+      assert({
+        given: `start.ts with ${row.shape}`,
+        should: 'report the bypass',
+        actual: findRuntimeRoleGateProblem(row.startTs, row.files),
+        expected: row.expected,
+      });
     });
-  });
-
-  test("the review's shape: a second startProductionServer call with a no-op refuseRole", () => {
-    assert({
-      given:
-        'the committed call kept and a second startProductionServer({ ..., refuseRole: async () => {} }) added',
-      should: 'report the second call',
-      actual: findRuntimeRoleGateProblem(
-        `${realStart}const bypass = startProductionServer({\n  app,\n  nextApp,\n  refuseRole: async () => {},\n  readRouteTable: () => null,\n  port: port + 1,\n  host: '0.0.0.0',\n});\nawait bypass.started;\n`,
-      ),
-      expected: oneCall,
-    });
-  });
-
-  test("the review's shape: a later spread or refuseRole key that overrides the refusal", () => {
-    assert({
-      given:
-        'a spread of a no-op refuseRole, a spread of an options object, and a second refuseRole key, each after the committed refusal',
-      should: 'report each as overriding the refusal',
-      actual: [
-        withRefusal('  ...{ refuseRole: async () => {} },\n'),
-        withRefusal('  ...overrides,\n'),
-        withRefusal('  refuseRole: async () => {},\n'),
-      ].map(findRuntimeRoleGateProblem),
-      expected: [overridden, overridden, overridden],
-    });
-  });
-
-  test('a no-op refuseSchemaAlteringRole that shadows or replaces the @daisy/db one', () => {
-    assert({
-      given:
-        'the import swapped for a local no-op, the import pointed at another module, and a local no-op declared beside the import',
-      should: 'report each as not refusing through @daisy/db',
-      actual: [
-        realStart.replace(
-          importLine,
-          'const refuseSchemaAlteringRole = async (..._: unknown[]) => {};\n',
-        ),
-        realStart.replace(
-          importLine,
-          "import { refuseSchemaAlteringRole } from './no-op';\n",
-        ),
-        realStart
-          .replace(
-            'const { server, started } = startProductionServer({',
-            'const noOp = async () => {};\nconst { server, started } = startProductionServer({',
-          )
-          .replace(
-            refusalLine,
-            "  refuseRole: () => noOp() ?? refuseSchemaAlteringRole(app, 'daisy_web'),\n",
-          ),
-      ].map(findRuntimeRoleGateProblem),
-      expected: [
-        notFromDb,
-        notFromDb,
-        "start.ts does not start through startProductionServer with refuseRole: () => refuseSchemaAlteringRole(app, 'daisy_web') and await started",
-      ],
-    });
-  });
 });
