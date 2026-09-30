@@ -101,6 +101,17 @@ describe('integration files reach Redis only through the guarded helper (ISSUE-2
       "const cmd = 'FLUSHDB'; await client.send(cmd, []);",
       "await client.send('keys', ['*']);",
       "await client.keys('*');",
+      // ISSUE-274: ways to a raw client or the class behind a wrapper.
+      'const c = new client.constructor(url);',
+      'const C = client.constructor; const c = new C(url);',
+      "const c = new client['constructor'](url);",
+      "const { RedisClient } = await import('bun'); const c = new RedisClient(url);",
+      "const B = await import('bun'); const c = new B.RedisClient(url);",
+      "const B = require('bun'); const c = B.redis;",
+      "await Bun['redis'].send('GET', ['k']);",
+      'const c = new Bun.RedisClient(url);',
+      "const { redis } = Bun; await redis.send('GET', ['k']);",
+      "const { redis } = globalThis.Bun; await redis.send('GET', ['k']);",
     ];
 
     const reports = await Promise.all(

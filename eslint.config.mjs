@@ -50,9 +50,28 @@ const testRedisRestrictions = [
       'Open Redis with openTestRedis(url) from @daisy/redis/testing, not a namespaced RedisClient.',
   },
   {
-    selector: "MemberExpression[object.name='Bun'][property.name='redis']",
+    selector:
+      "MemberExpression[object.name='Bun'][property.name=/^(?:redis|RedisClient)$/], MemberExpression[object.name='Bun'][computed=true][property.value=/^(?:redis|RedisClient)$/], MemberExpression[object.property.name='Bun'][property.name=/^(?:redis|RedisClient)$/]",
     message:
-      'Bun.redis dials REDIS_URL and skips requireTestServices: open Redis with openTestRedis(url).',
+      'Bun.redis and Bun.RedisClient dial Redis without requireTestServices: open Redis with openTestRedis(url).',
+  },
+  {
+    selector:
+      "VariableDeclarator[init.name='Bun'] > ObjectPattern > Property[key.name=/^(?:redis|RedisClient)$/], VariableDeclarator[init.property.name='Bun'] > ObjectPattern > Property[key.name=/^(?:redis|RedisClient)$/]",
+    message:
+      'Do not pull redis or RedisClient out of Bun: open Redis with openTestRedis(url).',
+  },
+  {
+    selector:
+      "ImportExpression[source.value='bun'], CallExpression[callee.name='require'][arguments.0.value='bun']",
+    message:
+      "Import 'bun' statically (only SQL and the like): a dynamic import or require reaches RedisClient and redis.",
+  },
+  {
+    selector:
+      "MemberExpression[property.name='constructor'], MemberExpression[computed=true][property.value='constructor']",
+    message:
+      'Never reach a constructor from a value in a suite: openTestRedis returns a wrapper with none, and a raw client is not for tests.',
   },
   {
     selector:

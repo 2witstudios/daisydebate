@@ -1,4 +1,4 @@
-import type { RedisClient } from 'bun';
+import type { RedisTransport } from './transport';
 import { idSchema } from '@daisy/protocol';
 import { redisKey } from './redis-key';
 
@@ -61,7 +61,7 @@ export function createTicketOperations({
   namespace,
   reportFailure,
 }: {
-  readonly client: RedisClient;
+  readonly client: RedisTransport;
   readonly namespace: string;
   readonly reportFailure: (operation: string) => void;
 }) {

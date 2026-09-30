@@ -1,4 +1,4 @@
-import type { SQL } from 'bun';
+import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { createDatabase } from '../src';
 import { createTestOnlyOperations } from '../src/test-only-operations';
@@ -195,7 +195,6 @@ export const withFixture = async (
   url: string,
   body: (fixture: Fixture) => Promise<void>,
 ) => {
-  const { SQL } = await import('bun');
   const sql = new SQL(url);
   const fixture = new Fixture(sql);
   try {
@@ -245,7 +244,6 @@ export const snapshotOf = (
  * closes both connections.
  */
 export const seatedDebate = async (url: string, count: number) => {
-  const { SQL } = await import('bun');
   const fixture = new SQL(url, { max: 1 });
   const database = createDatabase({ url, nextActorId: createId });
   const users = Array.from({ length: count }, () => createId());

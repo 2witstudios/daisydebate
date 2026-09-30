@@ -1,10 +1,6 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  deleteAllKeysWithoutExpiry,
-  deleteKeysWithoutExpiry,
-  sweepIdleNamespaces,
-} from './namespaces';
+import { deleteKeysWithoutExpiry, sweepIdleNamespaces } from './namespaces';
 
 setupRitewayBun();
 
@@ -153,14 +149,14 @@ describe('sweepIdleNamespaces', () => {
   });
 });
 
-describe('deleteAllKeysWithoutExpiry and deleteKeysWithoutExpiry', () => {
+describe('deleteKeysWithoutExpiry', () => {
   test('removes exactly the keys with no TTL and returns them', async () => {
     const redis = fakeKeyspace({
       'a:v1:forever': { idleSeconds: 1, pttl: -1 },
       'a:v1:soon': { idleSeconds: 1, pttl: 5_000 },
     });
 
-    const removed = await deleteAllKeysWithoutExpiry(redis);
+    const removed = await deleteKeysWithoutExpiry(redis, 'a:*');
 
     assert({
       given: 'one immortal key and one expiring key',
@@ -186,7 +182,7 @@ describe('deleteAllKeysWithoutExpiry and deleteKeysWithoutExpiry', () => {
     });
   });
 
-  test('refuses a pattern that is not one namespace, star included: whole-database deletion is deleteAllKeysWithoutExpiry, for the runner alone', async () => {
+  test('refuses a pattern that is not one namespace, star included: the whole-database sweep belongs to the runner, in scripts/', async () => {
     const redis = fakeKeyspace({});
 
     await expect(deleteKeysWithoutExpiry(redis, '*')).rejects.toThrow(

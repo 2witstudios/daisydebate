@@ -11,6 +11,7 @@ import {
   adobeIsolationIssue,
   allowedWorkspaceDependencies as allowed,
   deepImportIssue,
+  runnerOnlyIssue,
   testSupportIssue,
   forbiddenDependencyIssue,
 } from './boundaries-rules';
@@ -91,6 +92,8 @@ for (const workspace of workspaces) {
       true,
     );
     const check = (specifier: string) => {
+      const runnerOnly = runnerOnlyIssue(specifier, relative(root, file));
+      if (runnerOnly) issues.push(`${relative(root, file)}: ${runnerOnly}`);
       const testSupport = testSupportIssue(specifier, relative(root, file));
       if (testSupport) issues.push(`${relative(root, file)}: ${testSupport}`);
       if (specifier.startsWith('.')) {

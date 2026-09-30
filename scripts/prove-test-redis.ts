@@ -22,11 +22,11 @@
 import { RedisClient } from 'bun';
 import { createRedis } from '@daisy/redis';
 import {
-  deleteAllKeysWithoutExpiry,
   deleteNamespace,
   listNamespaces,
   sweepIdleNamespaces,
 } from '@daisy/redis/namespaces';
+import { deleteAllKeysWithoutExpiry } from './redis-whole-database';
 import {
   createBoundedTestClient,
   TEST_KEY_TTL_MAX_MS,

@@ -124,19 +124,10 @@ async function unlinkKeysWithoutExpiry(
 }
 
 /**
- * ISSUE-237: unlinks every key of the database that has no expiry and returns
- * their names, so a run that left an immortal key fails loudly instead of
- * feeding the next run's SCANs forever. Whole-database: only the runner calls
- * it, after `requireTestServices` proved TEST_REDIS_URL is this slot's own
- * database (ISSUE-245); lint refuses it in integration files (ISSUE-246).
- */
-export const deleteAllKeysWithoutExpiry = (
-  client: RedisCommands,
-): Promise<string[]> => unlinkKeysWithoutExpiry(client, '*');
-
-/**
- * The same, scoped to one namespace (`<namespace>:*`), for suites (ISSUE-245).
- * A pattern that is anything else, `*` included, is refused.
+ * ISSUE-237, ISSUE-245: unlinks every key of one namespace (`<namespace>:*`)
+ * that has no expiry and returns their names. A pattern that is anything
+ * else, `*` included, is refused: the whole-database sweep is the runner's
+ * (`scripts/redis-whole-database.ts`), out of every package export.
  */
 export async function deleteKeysWithoutExpiry(
   client: RedisCommands,

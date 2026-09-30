@@ -4,6 +4,7 @@ import {
   adobeWorkspaces,
   allowedWorkspaceDependencies,
   deepImportIssue,
+  runnerOnlyIssue,
   testSupportIssue,
   forbiddenDependencyIssue,
 } from './boundaries-rules';
@@ -338,6 +339,55 @@ describe('test support subpaths', () => {
         'apps/web/src/features/auth/email-change.test-support.ts',
       ].map((file) => testSupportIssue('./index.test-support', file)),
       expected: [null, null, null],
+    });
+  });
+});
+
+describe('runner-only code (ISSUE-275)', () => {
+  test('no workspace file, test or product, may import from the root scripts/, however the path is spelled', () => {
+    assert({
+      given:
+        'imports of the runner-only Redis sweep from integration, unit-test, product and deep-relative files',
+      should: 'report each one',
+      actual: [
+        runnerOnlyIssue(
+          '../../../scripts/redis-whole-database',
+          'packages/redis/integration/x.integration.ts',
+        ),
+        runnerOnlyIssue(
+          '../../../../../scripts/redis-whole-database.ts',
+          'apps/web/src/features/x/x.test.ts',
+        ),
+        runnerOnlyIssue(
+          '../../../scripts/redis-whole-database',
+          'packages/redis/src/namespaces.ts',
+        ),
+        runnerOnlyIssue(
+          '../../../scripts/../scripts/redis-whole-database',
+          'apps/web/integration/x.integration.ts',
+        ),
+      ],
+      expected: [
+        'import of runner-only code from ../../../scripts/redis-whole-database',
+        'import of runner-only code from ../../../../../scripts/redis-whole-database.ts',
+        'import of runner-only code from ../../../scripts/redis-whole-database',
+        'import of runner-only code from ../../../scripts/../scripts/redis-whole-database',
+      ],
+    });
+  });
+
+  test('negative control: sibling, package and a workspace’s own scripts/ imports are not runner-only', () => {
+    assert({
+      given:
+        'a sibling import, a package import, a folder named like scripts inside a workspace, and apps/web’s own scripts/ folder',
+      should: 'report none',
+      actual: [
+        runnerOnlyIssue('./namespaces', 'packages/redis/src/testing.ts'),
+        runnerOnlyIssue('@daisy/redis/namespaces', 'apps/web/src/x.ts'),
+        runnerOnlyIssue('../feature-scripts/x', 'apps/web/src/x.ts'),
+        runnerOnlyIssue('../scripts/auth-load/x', 'apps/web/src/y.test.ts'),
+      ],
+      expected: [null, null, null, null],
     });
   });
 });

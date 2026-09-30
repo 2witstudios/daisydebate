@@ -6,6 +6,8 @@
  */
 import { RedisClient } from 'bun';
 import { redisClientOptions } from './index';
+import { isRegisteredScript } from './script-registry';
+import type { RedisTransport } from './transport';
 
 /** The prefix of every integration namespace; the runner sweeps by it. */
 export const TEST_NAMESPACE_PREFIX = 't3-';
@@ -27,77 +29,26 @@ export const testNamespace = (id: string): string =>
  */
 export type GuardedTestRedisUrl = string & { readonly ownTestRedis: true };
 
-// Commands that touch more than this test's own namespace: every key of the
-// database, or a different database.
-const databaseWide = new Set([
-  'FLUSHALL',
-  'FLUSHDB',
-  'MOVE',
-  'SELECT',
-  'SWAPDB',
-]);
-
-const refuseWide = (what: string): never => {
-  throw new Error(
-    `Test Redis client refuses ${what}: match your own namespace (packages/redis/src/testing.ts)`,
-  );
-};
-
-/**
- * Wraps a test client so no command can reach past its own namespace, however
- * the call is spelled (ISSUE-246): the command is normalised to upper case at
- * run time, so a template, a joined string or a variable cannot hide it from
- * the check, and a SCAN or KEYS that matches everything, FLUSHDB, FLUSHALL,
- * SELECT, SWAPDB and MOVE are refused before anything is sent. Lint catches
- * the same shapes in source; this catches what lint cannot see.
- */
-export function guardTestClient(client: RedisClient): RedisClient {
-  const send: Send = async (rawCommand, args) => {
-    const command = String(rawCommand).toUpperCase();
-    if (databaseWide.has(command)) return refuseWide(command);
-    if ((command === 'SCAN' || command === 'KEYS') && args.includes('*'))
-      return refuseWide(`${command} of every key`);
-    return client.send(rawCommand, args);
-  };
-  const keys = async (pattern: string) =>
-    pattern === '*' ? refuseWide('KEYS of every key') : send('KEYS', [pattern]);
-  return new Proxy(client, {
-    get(target, member) {
-      if (member === 'send') return send;
-      if (member === 'keys') return keys;
-      const value: unknown = Reflect.get(target, member, target);
-      return typeof value === 'function'
-        ? (value as (...args: unknown[]) => unknown).bind(target)
-        : value;
-    },
-  });
-}
-
-/** The one way an integration file opens Redis: a client on the slot's own database that cannot reach past its namespace. */
-export const openTestRedis = (url: GuardedTestRedisUrl): RedisClient =>
-  guardTestClient(new RedisClient(url));
-
 type Send = (command: string, args: string[]) => Promise<unknown>;
 
-// Commands that only read, delete or manage scripts: they create no key.
-const passthrough = new Set([
+// Commands a test may send that create no key (reads, deletes) or that write
+// or re-time the key they name first. Anything else is refused: the allowlist,
+// not a list of bad names, is what keeps a test inside its namespace.
+const reads = new Set([
   'DEL',
-  'DBSIZE',
   'EXISTS',
   'GET',
+  'GETDEL',
   'HGET',
   'HGETALL',
   'HMGET',
-  'KEYS',
   'LLEN',
   'LRANGE',
   'MGET',
   'OBJECT',
   'PING',
   'PTTL',
-  'SCAN',
   'SCARD',
-  'SCRIPT',
   'SISMEMBER',
   'SMEMBERS',
   'STRLEN',
@@ -112,8 +63,6 @@ const passthrough = new Set([
   'ZREVRANGE',
   'ZSCORE',
 ]);
-
-// Commands that write or re-time the key they name first.
 const writesFirstKey = new Set([
   'APPEND',
   'DECR',
@@ -145,6 +94,72 @@ const writesFirstKey = new Set([
   'ZREMRANGEBYSCORE',
 ]);
 
+/**
+ * The only shape of key pattern a test may scan or list by: a literal
+ * `t3-` test namespace prefix with at least six literal id characters, then
+ * anything. That names one test's namespace (ids are ten characters), so no
+ * wildcard-only, character-class, short-prefix or empty pattern can match
+ * beyond it, whatever it is spelled like.
+ */
+const namespaceAnchored = /^t3-[a-z0-9-]{6,}/;
+
+const matchPattern = (command: string, args: readonly string[]) => {
+  if (command === 'KEYS') return args[0];
+  const at = args.findIndex((arg) => String(arg).toUpperCase() === 'MATCH');
+  return at === -1 ? undefined : args[at + 1];
+};
+
+/**
+ * Why a test client refuses `command`, or undefined to send it. `scripts` is
+ * true only for the wrapper handed to code under test, which may run the
+ * adapter's registered scripts (`defineScript`) and nothing else: a test can
+ * run no Lua, so no `redis.call('FLUSHDB')` reaches the server (ISSUE-274).
+ */
+export function commandRefusal(
+  rawCommand: string,
+  args: readonly string[],
+  { scripts }: { readonly scripts: boolean },
+): string | undefined {
+  const command = String(rawCommand).toUpperCase();
+  const refuse = (what: string) =>
+    `Test Redis client refuses ${what}: a test reaches only its own namespace (packages/redis/src/testing.ts)`;
+  if (command === 'SCAN' || command === 'KEYS')
+    return scanRefusal(command, args, refuse);
+  if (command === 'EVAL' || command === 'EVALSHA' || command === 'SCRIPT')
+    return scriptRefusal(command, args, scripts, refuse);
+  return reads.has(command) || writesFirstKey.has(command)
+    ? undefined
+    : refuse(command);
+}
+
+type Refuse = (what: string) => string;
+
+/** A SCAN or KEYS is allowed only anchored at one test namespace. */
+function scanRefusal(command: string, args: readonly string[], refuse: Refuse) {
+  const pattern = matchPattern(command, args);
+  return pattern !== undefined && namespaceAnchored.test(pattern)
+    ? undefined
+    : refuse(`${command} that is not anchored at one test namespace`);
+}
+
+/** Lua is for code under test, and only the adapter's registered scripts. */
+function scriptRefusal(
+  command: string,
+  args: readonly string[],
+  scripts: boolean,
+  refuse: Refuse,
+) {
+  if (command === 'EVALSHA') return scripts ? undefined : refuse('EVALSHA');
+  const registered =
+    command === 'EVAL'
+      ? isRegisteredScript(String(args[0]))
+      : String(args[0]).toUpperCase() === 'LOAD' &&
+        isRegisteredScript(String(args[1]));
+  return scripts && registered
+    ? undefined
+    : refuse(`${command} of a script the adapter did not register`);
+}
+
 const expiryOptions = new Set(['EX', 'PX', 'EXAT', 'PXAT', 'KEEPTTL']);
 
 // Caps each key's remaining life to ARGV[1]; a missing key (PTTL -2) is skipped.
@@ -158,20 +173,7 @@ end
 return #KEYS
 `;
 
-// Client members a suite may use: none of them creates a key.
-const readOnlyMembers = new Set([
-  'close',
-  'connect',
-  'del',
-  'exists',
-  'get',
-  'getdel',
-  'ping',
-  'send',
-  'ttl',
-]);
-
-const refuse = (what: string): never => {
+const cannotBound = (what: string): never => {
   throw new Error(
     `Test Redis client cannot bound the expiry of ${what}; use a command it knows (packages/redis/src/testing.ts)`,
   );
@@ -181,30 +183,53 @@ const refuse = (what: string): never => {
 function writtenKeys(command: string, args: readonly string[]): string[] {
   if (command === 'EVAL' || command === 'EVALSHA') {
     const count = Number(args[1]);
-    if (!Number.isSafeInteger(count) || count < 0) return refuse(command);
+    if (!Number.isSafeInteger(count) || count < 0) return cannotBound(command);
     return args.slice(2, 2 + count);
   }
   const key = args[0];
-  return key === undefined ? refuse(command) : [key];
+  return key === undefined ? cannotBound(command) : [key];
 }
 
 /**
- * Wraps a Redis client so no key it writes can be immortal or outlive
- * `maxTtlMs`: a SET with no expiry gets `PX maxTtlMs` in the same command,
- * every other write is followed by a one-script cap of the keys it named, and
- * a write whose keys cannot be attributed is refused before it is sent. Use
- * it at the seam a test hands to the code under test.
+ * What a suite is handed instead of a Redis client (ISSUE-274): a frozen
+ * object with no prototype, so it has no `constructor` to build a raw client
+ * from, no `Symbol` or handle to reach the real one through, and only these
+ * members, each of which is one guarded command.
  */
-export function withBoundedExpiry(
-  client: RedisClient,
-  maxTtlMs: number = TEST_KEY_TTL_MAX_MS,
-): RedisClient {
-  const send: Send = (command, args) => client.send(command, args);
-  const bounded = async (rawCommand: string, args: string[]) => {
+export interface TestRedis {
+  send(command: string, args: string[]): Promise<unknown>;
+  get(key: string): Promise<string | null>;
+  getdel(key: string): Promise<string | null>;
+  del(key: string): Promise<number>;
+  exists(key: string): Promise<boolean>;
+  pttl(key: string): Promise<number>;
+  ping(): Promise<'PONG'>;
+  connect(): Promise<void>;
+  close(): void;
+  readonly connected: boolean;
+}
+
+/**
+ * Wraps a Redis client as a `TestRedis`: every command goes through
+ * `commandRefusal` first, and with `maxTtlMs` no key it writes can be
+ * immortal or outlive it (a SET with no expiry gets `PX maxTtlMs` in the same
+ * command, every other write is followed by a one-script cap of the keys it
+ * named, and a write whose keys cannot be attributed is refused).
+ */
+export function wrapTestRedis(
+  inner: RedisTransport & { readonly connected?: boolean },
+  {
+    scripts,
+    maxTtlMs,
+  }: { readonly scripts: boolean; readonly maxTtlMs?: number },
+): TestRedis {
+  const raw: Send = (command, args) => inner.send(command, args);
+  const send: Send = async (rawCommand, args) => {
+    const refusal = commandRefusal(rawCommand, args, { scripts });
+    if (refusal) throw new Error(refusal);
     const command = rawCommand.toUpperCase();
-    if (passthrough.has(command)) return send(command, args);
-    const isScript = command === 'EVAL' || command === 'EVALSHA';
-    if (!isScript && !writesFirstKey.has(command)) return refuse(command);
+    if (maxTtlMs === undefined || !writesOrRuns(command))
+      return raw(rawCommand, args);
     const keys = writtenKeys(command, args);
     const sent =
       command === 'SET' && !args.some((arg) => expiryOptions.has(arg))
@@ -212,26 +237,45 @@ export function withBoundedExpiry(
         : args;
     // Issued back to back so both ride one round trip on the connection.
     const [reply] = await Promise.all([
-      send(command, sent),
-      send('EVAL', [capScript, String(keys.length), ...keys, String(maxTtlMs)]),
+      raw(rawCommand, sent),
+      raw('EVAL', [capScript, String(keys.length), ...keys, String(maxTtlMs)]),
     ]);
     return reply;
   };
-  return new Proxy(client, {
-    get(target, member) {
-      if (member === 'send') return bounded;
-      const value: unknown = Reflect.get(target, member, target);
-      if (typeof value !== 'function') return value;
-      return readOnlyMembers.has(String(member))
-        ? (value as (...args: unknown[]) => unknown).bind(target)
-        : () => refuse(`${String(member)}()`);
-    },
+  const wrapper = Object.create(null) as Record<string, unknown>;
+  Object.assign(wrapper, {
+    send,
+    get: async (key: string) => (await send('GET', [key])) as string | null,
+    getdel: async (key: string) =>
+      (await send('GETDEL', [key])) as string | null,
+    del: async (key: string) => Number(await send('DEL', [key])),
+    exists: async (key: string) => Number(await send('EXISTS', [key])) > 0,
+    pttl: async (key: string) => Number(await send('PTTL', [key])),
+    ping: async () => String(await send('PING', [])) as 'PONG',
+    connect: () => inner.connect(),
+    close: () => inner.close(),
   });
+  Object.defineProperty(wrapper, 'connected', {
+    enumerable: true,
+    get: () => inner.connected === true,
+  });
+  return Object.freeze(wrapper) as unknown as TestRedis;
 }
 
-/** The client a suite hands to the code under test: the adapter's own dialing options, expiry bounded. */
+// Whether a command may create or re-time a key (so a bounded client caps it).
+const writesOrRuns = (command: string): boolean =>
+  command === 'EVAL' || command === 'EVALSHA' || writesFirstKey.has(command);
+
+/** The one way an integration file opens Redis: a `TestRedis` on the slot's own database, with no raw client behind it. */
+export const openTestRedis = (url: GuardedTestRedisUrl): TestRedis =>
+  wrapTestRedis(new RedisClient(url), { scripts: false });
+
+/** What a suite hands to the code under test: the adapter's dialing options, expiry bounded, and only the adapter's own scripts. */
 export const createBoundedTestClient = (
   url: GuardedTestRedisUrl,
   maxTtlMs: number = TEST_KEY_TTL_MAX_MS,
-): RedisClient =>
-  withBoundedExpiry(new RedisClient(url, redisClientOptions), maxTtlMs);
+): TestRedis =>
+  wrapTestRedis(new RedisClient(url, redisClientOptions), {
+    scripts: true,
+    maxTtlMs,
+  });

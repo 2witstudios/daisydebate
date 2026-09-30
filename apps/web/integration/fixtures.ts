@@ -1,5 +1,5 @@
 import { afterAll, setDefaultTimeout } from 'bun:test';
-import { SQL, type RedisClient } from 'bun';
+import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { buildUserInboxTopic } from '@daisy/protocol';
@@ -8,6 +8,7 @@ import {
   createBoundedTestClient,
   openTestRedis,
   testNamespace,
+  type TestRedis,
 } from '@daisy/redis/testing';
 import { systemClock, systemId } from '@daisy/clock';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
@@ -64,7 +65,7 @@ function createClients() {
 /** Runs `work` on a short-lived client with a namespace's key list. */
 async function withNamespaceKeys<T>(
   namespace: string,
-  work: (client: RedisClient, keys: string[]) => Promise<T>,
+  work: (client: TestRedis, keys: string[]) => Promise<T>,
 ) {
   const client = openTestRedis(testRedisUrl);
   try {
