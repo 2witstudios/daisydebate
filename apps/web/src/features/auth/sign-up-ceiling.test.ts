@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   create,
+  observableAnswer,
   existingAccount,
   magicLinkRequest,
 } from './abuse.test-support';
@@ -118,15 +119,10 @@ describe('global sign-up ceilings at the magic-link send', () => {
     const unknown = saturated();
     const known = saturated();
     known.db.user.push(existingAccount);
-    const answer = async (response: Response) => ({
-      status: response.status,
-      body: await response.text(),
-      headers: [...response.headers.entries()],
-    });
-    const unknownAnswer = await answer(
+    const unknownAnswer = await observableAnswer(
       await unknown.server.instance.handler(magicLinkRequest()),
     );
-    const knownAnswer = await answer(
+    const knownAnswer = await observableAnswer(
       await known.server.instance.handler(magicLinkRequest()),
     );
     await Promise.all([known.server.settled(), unknown.server.settled()]);
