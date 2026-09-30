@@ -1,8 +1,16 @@
 import { expect, type CDPSession, type Page } from '@playwright/test';
+import { boundedStep } from './bounded-step';
+import { hydrated } from './hydration';
 
+// Every CDP command below is a bounded step: Playwright gives CDP no timeout
+// of its own, so a hung authenticator call would otherwise surface only as
+// the test's 30 s timeout, naming nothing (ISSUE-212).
 const readCredentials = async (session: CDPSession, authenticatorId: string) =>
-  (await session.send('WebAuthn.getCredentials', { authenticatorId }))
-    .credentials;
+  (
+    await boundedStep('CDP WebAuthn.getCredentials', () =>
+      session.send('WebAuthn.getCredentials', { authenticatorId }),
+    )
+  ).credentials;
 type Credentials = Awaited<ReturnType<typeof readCredentials>>;
 
 /**
@@ -16,33 +24,43 @@ export async function addVirtualAuthenticator(
   page: Page,
   preloaded: Credentials = [],
 ) {
-  const session = await page.context().newCDPSession(page);
-  await session.send('WebAuthn.enable');
-  const { authenticatorId } = await session.send(
-    'WebAuthn.addVirtualAuthenticator',
-    {
-      options: {
-        protocol: 'ctap2',
-        transport: 'internal',
-        hasResidentKey: true,
-        hasUserVerification: true,
-        isUserVerified: true,
-        automaticPresenceSimulation: true,
-      },
-    },
+  const session = await boundedStep('CDP session for WebAuthn', () =>
+    page.context().newCDPSession(page),
+  );
+  await boundedStep('CDP WebAuthn.enable', () =>
+    session.send('WebAuthn.enable'),
+  );
+  const { authenticatorId } = await boundedStep(
+    'CDP WebAuthn.addVirtualAuthenticator',
+    () =>
+      session.send('WebAuthn.addVirtualAuthenticator', {
+        options: {
+          protocol: 'ctap2',
+          transport: 'internal',
+          hasResidentKey: true,
+          hasUserVerification: true,
+          isUserVerified: true,
+          automaticPresenceSimulation: true,
+        },
+      }),
   );
   for (const credential of preloaded)
-    await session.send('WebAuthn.addCredential', {
-      authenticatorId,
-      credential,
-    });
+    await boundedStep('CDP WebAuthn.addCredential', () =>
+      session.send('WebAuthn.addCredential', { authenticatorId, credential }),
+    );
   const setPresence = (enabled: boolean) =>
-    session.send('WebAuthn.setAutomaticPresenceSimulation', {
-      authenticatorId,
-      enabled,
-    });
+    boundedStep('CDP WebAuthn.setAutomaticPresenceSimulation', () =>
+      session.send('WebAuthn.setAutomaticPresenceSimulation', {
+        authenticatorId,
+        enabled,
+      }),
+    );
+  const remove = () =>
+    boundedStep('CDP WebAuthn.removeVirtualAuthenticator', () =>
+      session.send('WebAuthn.removeVirtualAuthenticator', { authenticatorId }),
+    );
   const credentials = () => readCredentials(session, authenticatorId);
-  return { session, authenticatorId, setPresence, credentials };
+  return { session, authenticatorId, setPresence, credentials, remove };
 }
 
 /**
@@ -62,6 +80,40 @@ export async function savePasskeyOffer(page: Page) {
     page.getByRole('button', { name: 'Save a passkey on this device' }).click(),
   ]);
 }
+
+/**
+ * Clicks a script button that starts a passkey ceremony and waits for that
+ * ceremony's own verify answer. Hardening, not a proven fix (ISSUE-212):
+ * hydration first, because a click before React wires the handler is a
+ * silent no-op (ISSUE-84), then the server's answer, bounded, so a ceremony
+ * that never reaches the server fails naming the endpoint it never called.
+ */
+async function ceremony(
+  page: Page,
+  button: string,
+  endpoint: 'verify-registration' | 'verify-authentication',
+) {
+  const control = page.getByRole('button', { name: button });
+  await hydrated(control);
+  const [answer] = await Promise.all([
+    boundedStep(`the ${endpoint} answer after "${button}"`, () =>
+      page.waitForResponse(
+        (response) => response.url().includes(`/passkey/${endpoint}`),
+        { timeout: 0 },
+      ),
+    ),
+    control.click(),
+  ]);
+  expect(answer.ok(), `${endpoint} answered ${answer.status()}`).toBe(true);
+}
+
+/** Enrolls a passkey from account security settings on the page's device. */
+export const enrollFromSettings = (page: Page) =>
+  ceremony(page, 'Add a passkey', 'verify-registration');
+
+/** Takes the sign-in page's explicit passkey button through to the server. */
+export const signInWithPasskey = (page: Page) =>
+  ceremony(page, 'Sign in with a passkey', 'verify-authentication');
 
 /**
  * The sign-in page also arms passkey autofill (conditional mediation), and

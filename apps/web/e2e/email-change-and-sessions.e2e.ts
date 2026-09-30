@@ -17,6 +17,7 @@ import {
 } from './support/accounts';
 import { changeEmail } from './support/forms';
 import { hydrated } from './support/hydration';
+import { removeRowByClick, securityRows } from './support/security-rows';
 
 /**
  * A second, genuinely independent session for the same account, signed in
@@ -192,12 +193,12 @@ test('sessions can be listed and another session revoked; the revoked cookie is 
   await other.close();
 });
 
-test("another session's own row Sign out button revokes it, distinctly from the bulk control (ISSUE-167)", async ({
+test("another session's own row Sign out button revokes it, and its cookie is refused on its next request (ISSUE-167, ISSUE-174)", async ({
   page,
   request,
   browser,
 }) => {
-  const { context: other } = await memberWithSecondSession(
+  const { context: other, otherPage } = await memberWithSecondSession(
     page,
     request,
     browser,
@@ -206,35 +207,23 @@ test("another session's own row Sign out button revokes it, distinctly from the 
   await page.goto('/settings/security');
   // The per-row button lives inside the sessions list; the page's own
   // "Sign out" control (same label) sits outside it and is never matched.
-  const rowSignOut = page
-    .locator('ul')
-    .getByRole('button', { name: 'Sign out', exact: true });
+  const sessionRows = securityRows(page, 'Sessions');
+  const rowSignOut = sessionRows.getByRole('button', {
+    name: 'Sign out',
+    exact: true,
+  });
   await expect(rowSignOut).toHaveCount(1);
-  // Under load, hydration can lag first paint by seconds (ISSUE-84): a
-  // click before React wires the handler is a silent no-op.
-  await hydrated(rowSignOut);
-  await rowSignOut.click();
-  await expect(rowSignOut).toHaveCount(0);
+  await removeRowByClick(sessionRows, rowSignOut, 2);
+  await expect(sessionRows).toContainText('This device');
 
-  // The row's own button (not the bulk "sign out of all other sessions"
-  // control) reached the real endpoint and the account's own session list
-  // no longer carries it — the server-authoritative signal for the click.
-  // (Cookie refusal for a revoked /revoke-session token is proven at
-  // integration tier — auth-session-revoked-outbox.integration.ts and
-  // auth-session-freshness.integration.ts — this browser check stops at the
-  // UI/API boundary. ISSUE-174 tracks a residual browser-only discrepancy:
-  // in this harness, a Chromium-driven otherPage sometimes still reaches
-  // /lobby right after this exact click, while Firefox/WebKit and the
-  // bulk-control test above never do.)
-  await expect(async () => {
-    const response = await page.request.get('/api/account/sessions');
-    const body = (await response.json()) as {
-      sessions: readonly { current: boolean }[];
-    };
-    expect(body.sessions.filter((s) => !s.current)).toHaveLength(0);
-  }).toPass({ timeout: 5_000 });
-  await page.reload();
-  await expect(page).toHaveURL(/\/settings\/security$/);
+  // The revoked session's own cookie, on its very next requests: the
+  // server refuses it, not only a client-side redirect.
+  const revoked = await otherPage.request.get(
+    '/api/auth/get-session?disableCookieCache=true',
+  );
+  expect(await revoked.json()).toBeNull();
+  await otherPage.goto('/lobby');
+  await expect(otherPage).toHaveURL(/\/sign-in/);
 
   await other.close();
 });

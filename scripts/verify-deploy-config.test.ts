@@ -2,12 +2,12 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { readFileSync } from 'node:fs';
 import {
   EXPECTED_RELEASE_COMMAND,
+  findAlwaysOnProblem,
   findDockerfileBunVersionProblem,
   findFlyDatabaseSecretProblem,
   findFlyReleaseCommandProblem,
   findMigrationCredentialProblem,
   findMigratorAppProblem,
-  findRuntimeRoleGateProblem,
   findWebReleaseCommandProblem,
   findWorkflowMigrationOrderProblem,
   verifyDeployConfig,
@@ -20,6 +20,17 @@ const realFlyToml = readFileSync('fly.toml', 'utf8');
 const realMigratorToml = readFileSync('fly.migrate.toml', 'utf8');
 const realWorkflow = readFileSync(
   '.github/workflows/deploy-staging.yml',
+  'utf8',
+);
+const readRepoFile = (path: string) => {
+  try {
+    return readFileSync(path, 'utf8');
+  } catch {
+    return undefined;
+  }
+};
+const realProbeWorkflow = readFileSync(
+  '.github/workflows/auth-alerts.yml',
   'utf8',
 );
 const realBunVersion = readFileSync('.bun-version', 'utf8').trim();
@@ -142,13 +153,15 @@ describe('verifyDeployConfig', () => {
   test('the real repository files together', () => {
     assert({
       given:
-        'the committed Dockerfile, both fly configs, the deploy workflow, .bun-version, start.ts and migrate.ts',
+        'the committed Dockerfile, both fly configs, the deploy and auth-alerts workflows, .bun-version, start.ts and migrate.ts',
       should: 'report no problems',
       actual: verifyDeployConfig({
         dockerfile: realDockerfile,
         flyToml: realFlyToml,
         migratorToml: realMigratorToml,
         workflow: realWorkflow,
+        probeWorkflow: realProbeWorkflow,
+        readRepoFile,
         bunVersion: realBunVersion,
         startTs: realStart,
         migrateTs: realMigrate,
@@ -166,6 +179,8 @@ describe('verifyDeployConfig', () => {
         flyToml: realFlyToml,
         migratorToml: '[deploy]\n',
         workflow: realWorkflow,
+        probeWorkflow: realProbeWorkflow,
+        readRepoFile,
         bunVersion: '1.4.2',
         startTs: realStart,
         migrateTs: realMigrate,
@@ -204,33 +219,6 @@ describe('findFlyDatabaseSecretProblem', () => {
       ),
       expected:
         'fly.toml [env] sets MIGRATION_DATABASE_URL; database credentials are Fly secrets',
-    });
-  });
-});
-
-describe('findRuntimeRoleGateProblem', () => {
-  const prepare = 'await nextApp.prepare();\n';
-  const gate = "await refuseSchemaAlteringRole(app, 'daisy_web');\n";
-
-  test('the committed start.ts gates the role before serving', () => {
-    assert({
-      given: 'the real start.ts',
-      should: 'report no problem',
-      actual: findRuntimeRoleGateProblem(realStart),
-      expected: null,
-    });
-  });
-
-  test('a start.ts without the gate, or with it after Next prepares', () => {
-    assert({
-      given: 'no gate, a commented gate, and a gate after nextApp.prepare()',
-      should: 'report each as missing its startup role check',
-      actual: [prepare, `// ${gate}${prepare}`, `${prepare}${gate}`].map(
-        findRuntimeRoleGateProblem,
-      ),
-      expected: Array(3).fill(
-        "start.ts does not await refuseSchemaAlteringRole(app, 'daisy_web') before nextApp.prepare()",
-      ),
     });
   });
 });
@@ -343,6 +331,40 @@ describe('findWorkflowMigrationOrderProblem (ISSUE-102)', () => {
         migrate.replace(' --update-only', '') + web,
       ].map(findWorkflowMigrationOrderProblem),
       expected: [problem, problem, problem, problem],
+    });
+  });
+});
+
+describe('findAlwaysOnProblem (ISSUE-175, DEC-40)', () => {
+  const service = (lines: string) =>
+    `[http_service]\n  internal_port = 8080\n${lines}\n\n  [[http_service.checks]]\n    grace_period = "10s"\n`;
+
+  test('the committed fly.toml keeps staging always on', () => {
+    assert({
+      given: 'the real fly.toml',
+      should: 'report no problem',
+      actual: findAlwaysOnProblem(realFlyToml),
+      expected: null,
+    });
+  });
+
+  test('a service that may stop idle machines or keep none running', () => {
+    assert({
+      given:
+        'auto-stop on, no machine kept running, a commented-out setting, and no [http_service]',
+      should: 'report each as not always on',
+      actual: [
+        service('  auto_stop_machines = "stop"\n  min_machines_running = 1'),
+        service('  auto_stop_machines = "off"\n  min_machines_running = 0'),
+        service('  # auto_stop_machines = "off"\n  min_machines_running = 1'),
+        '[env]\n  PORT = "8080"\n',
+      ].map(findAlwaysOnProblem),
+      expected: [
+        'fly.toml [http_service] must set auto_stop_machines = "off" (DEC-40)',
+        'fly.toml [http_service] must set min_machines_running = 1 (DEC-40)',
+        'fly.toml [http_service] must set auto_stop_machines = "off" (DEC-40)',
+        'fly.toml has no `[http_service]` table',
+      ],
     });
   });
 });

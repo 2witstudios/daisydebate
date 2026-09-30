@@ -64,6 +64,13 @@ AIDD/Vitest guidance is overridden here by Bun and RITEway (ADR 0021).
      interleaved, into `verify-logs/<stage>.log` as they are written, and
      prints the last 40 lines of any stage that fails, so a failure is never
      reported without its cause.
+   - **Failed browser runs.** Playwright empties `apps/web/test-results` at
+     the start of every run, so when the e2e stage fails, `bun verify` copies
+     that folder to `verify-logs/e2e-failures/<UTC time>-<commit>/` and names
+     the copy in the e2e gate's detail. It holds each failed test's trace,
+     screenshot and video (`retain-on-failure`) and the production server's
+     and realtime's logs (`server-<port>.log`, `realtime-<port>.log`). No
+     later run writes there; delete old folders by hand.
    - **Docs-only diffs.** For a diff against `origin/main` (untracked files
      included) that touches only Markdown under `docs/`, ADRs included, it
      skips the browser tier and reports
@@ -177,6 +184,13 @@ not exist — PageSpace lost entire tiers this way. `bun evidence` (in
 - Tests are deterministic: inject clocks/IDs; never sleep-and-hope; no
   cross-test shared state; use deterministic unit IDs and CSPRNG isolation IDs
   only in real-service integration tests; clean only records you created.
+  The runner enforces it: `scripts/test-integration.ts` counts every table
+  in the test database before and after a workspace's run and fails the
+  run, naming the table, when any table ends with more rows than it started
+  with. Leaked rows pile up run over run and slow every later run until a
+  hook times out (ISSUE-192). `createTestApp` removes its accounts, its
+  Redis namespace (one `UNLINK` per `SCAN` page) and every delivery,
+  webhook-event and suppression row keyed by its mailbox's message ids.
   Wait on the state under test, never a timing window: fire a Redis expiry
   with `PEXPIREAT` (the redis `withRedis` fixture's `expireNow`) instead of
   waiting out a TTL, read lease scores against the Redis server clock,

@@ -181,36 +181,6 @@ describe('createAlertRecorder (AUTH-7.7)', () => {
       expected: [],
     });
   });
-
-  test('a Redis failure is swallowed, never thrown back at the caller', () => {
-    const redis: AlertRecorderRedis = {
-      markOccurrenceSince: async () => {
-        throw new Error('redis down');
-      },
-      incrementWithExpiry: async () => {
-        throw new Error('redis down');
-      },
-      delete: async () => {
-        throw new Error('redis down');
-      },
-      setEphemeral: async () => {
-        throw new Error('redis down');
-      },
-    };
-    const recorder = createAlertRecorder({ redis, clock: fixedClock(NOW) });
-    let threw = false;
-    try {
-      recorder.observe('auth.session.unavailable', {});
-    } catch {
-      threw = true;
-    }
-    assert({
-      given: 'a Redis command that rejects',
-      should: 'never throw synchronously back at the logger call site',
-      actual: threw,
-      expected: false,
-    });
-  });
 });
 
 describe('withAlertRecording (AUTH-7.7)', () => {

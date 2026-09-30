@@ -21,12 +21,12 @@ non-mutating health/session probe of the final public origin — all without
 a new alerting service or vendor, using the existing PageSpace Incidents
 path (`scripts/notify-drive.ts incidents`, owner decision 2026-09-25).
 
-The design constraint that forces a real decision: staging's `fly.toml` sets
-`min_machines_running = 0`. An evaluator running inside the Next.js process
-cannot notice its own two-hour silence while the process itself is asleep,
-and cannot alert on its own unavailability while it is down or
-crash-looping — the one failure mode most worth alerting on is exactly the
-one an in-process timer cannot see.
+The design constraint that forces a real decision: an evaluator running
+inside the Next.js process cannot alert on its own unavailability while it
+is down, restarting or crash-looping — the one failure mode most worth
+alerting on is exactly the one an in-process timer cannot see. That holds
+with staging always on (owner decision DEC-40, `fly.toml`'s
+`min_machines_running = 1` and `auto_stop_machines = "off"`).
 
 ## Decision
 
@@ -44,15 +44,39 @@ see the corrected cadence below (ADR 0046/DEC-33). Each run it:
    `next.config.ts` already sets on every response
    (`X-Content-Type-Options`, `X-Frame-Options`, `Strict-Transport-Security`,
    `Referrer-Policy`). This is AUTH-7.7's "5-minute, non-mutating health and
-   session probe of the final public origin" criterion; a request that
-   reaches a sleeping app also wakes it (`auto_start_machines`), so the
-   probe cadence itself keeps staging from staying asleep across a full
-   cycle without also being the thing that would hide unavailability.
+   session probe of the final public origin" criterion. A failed probe
+   means the origin was unavailable when the probe ran. Staging is always
+   on (DEC-40), but a deploy, restart or crash still takes the machine
+   through start-up, when readiness answers 503 (ISSUE-172), so a single
+   failure can also land in that window.
 2. Reads the already-evaluated conditions from `GET /api/ops/alerts`, a new
    bearer-token-gated endpoint the app itself serves.
 3. Posts whatever fired to the Incidents channel via the existing
    `bun scripts/notify-drive.ts incidents --message`, naming each
    condition's own runbook section in `docs/operations/auth-delivery.md`.
+
+The probe never ends without posting when something is wrong (ISSUE-208,
+ISSUE-209). Each of its two requests is abandoned after
+`PROBE_FETCH_TIMEOUT_MS` (20 s) and each Incidents delivery attempt after
+`NOTIFY_ATTEMPT_TIMEOUT_MS` (20 s, three attempts), so a run where every
+request hangs still posts in about 100 s, well inside the job's 5-minute
+`timeout-minutes`. It validates the `/api/ops/alerts` body with a small,
+pure, hand-written validator (`parseAlertsBody`): a malformed body, an
+entry that is not a condition, or an unknown condition id posts as an
+unreadable alert state. Anything that throws before the decision posts a
+fail-closed message and exits 1.
+
+Its exit code says whether Incidents heard about it: 0 when the run is
+healthy or its alert was delivered, 1 when the post failed or the probe
+threw (after it tried to post), and 2 for a usage error.
+
+The probe and `notify-drive` run with nothing installed (ISSUE-225). They
+and every module they load import only relative modules and `node:`/`bun`
+builtins, never a package. The job has no install step and runs the probe
+with `bun --no-install`, so nothing is ever fetched, and a registry outage
+cannot stop the probe from posting. `scripts/verify-deploy-config.ts` walks
+their runtime import graph and refuses any package import, and it refuses a
+workflow that installs anything or drops `--no-install`.
 
 `scripts/auth-alert-probe.ts` is the workflow's script: pure
 `evaluateOriginProbe`/`composeAlertMessage` functions, unit-tested, plus a
@@ -75,6 +99,29 @@ exactly one place.
   whole length of a continuous outage rather than only its first 180s
   (ISSUE-156). A quiet period longer than the TTL resets the next
   incident's clock. `evaluateAlerts` fires once `now - since >= 2 minutes`.
+  The limiter shares that Redis, so the recorder also keeps the limiter's
+  since-time in process under the same bridging rule, and
+  `readAlertSnapshot` reports the earlier of the two (ISSUE-191, DEC-63).
+  Each of those reads is bounded by `ALERT_STATE_READ_TIMEOUT_MS` (2 s,
+  readiness's own PING budget), so a Redis that stops answering counts
+  as a failed read (ISSUE-208). When the Redis read fails, the snapshot is
+  marked `redisState: 'unreachable'` and `evaluateAlerts` checks only
+  `limiter_unavailable`, from the in-process since-time; every other
+  condition waits for Redis to return, and the probe posts that unread
+  state as well as any condition that fired (ISSUE-199).
+
+  The in-process marker covers exactly one case: the instance answering
+  the probe itself saw a limiter failure at least 2 minutes earlier and
+  another within the last 3 minutes. It lives in one process's memory.
+  Staging is always on (DEC-40), but a deploy, restart or crash still
+  starts a new process whose marker is empty; an instance that served no
+  auth traffic during the outage has none; and with more than one web
+  machine each keeps its own, so the probe sees only the one it reaches
+  (ISSUE-200). Readiness covers every one of those cases: it answers 503
+  while Redis is unreachable, and the probe posts that. Running more than
+  one web machine needs a shared store for this marker, chosen under a new
+  ADR, before `limiter_unavailable` can be exact.
+
 - **Consecutive delivery-provider failures.** `auth.mail.failed` increments
   a bounded Redis counter (`incrementWithExpiry`, a new atomic
   `INCR`+`PEXPIRE`-on-first-hit primitive) with a 1-hour TTL;
@@ -92,6 +139,10 @@ exactly one place.
   `apps/web/integration/auth-alert-counters.integration.ts`).
   `readAlertSnapshot` sums the trailing 10 one-minute buckets (each with an
   11-minute TTL) and fires at `total >= 100 && serverErrors/total > 0.01`.
+  These buckets live in Redis, so `auth_5xx_rate` is blind to a Redis
+  outage: the 503s it causes are never counted. `limiter_unavailable`
+  covers that outage, since every auth route passes the limiter, and the
+  probe's readiness check answers 503 throughout (ISSUE-191).
 - **Cleanup missed.** `retention.sweep.completed` sets a durable
   `alert-retention-last-success` marker (30-day TTL, effectively
   "durable" relative to the 2-hour threshold); `retention.sweep.failed`
@@ -102,12 +153,13 @@ exactly one place.
   few seconds between boot and the `runOnStart` sweep's first completion,
   a window no probe run — at any cadence — is likely to land inside).
 
-**Redis, not Postgres, holds every alert marker**, including the retention
-one, even though ADR 0023/persistence.md name PostgreSQL the source of
-competitive truth and Redis expendable. This is a deliberate, bounded
+**Redis, not Postgres, holds every durable alert marker**, including the
+retention one (the limiter's in-process copy above is not durable), even
+though ADR 0023/persistence.md name PostgreSQL the source of competitive
+truth and Redis expendable. This is a deliberate, bounded
 trade-off: Fly Redis for this deployment is Upstash, a managed service
 independent of the web app's machines (`docs/operations/deploy-staging.md`),
-so it does not scale to zero with the app and normally survives exactly the
+so it does not go down with the app and normally survives exactly the
 outage this system exists to detect. The failure mode this accepts — an
 operator-initiated Redis flush silently resetting `alert-retention-last-success`
 to "unknown" — produces at most one avoidable `cleanup_missed` alert cycle,
@@ -127,7 +179,7 @@ like every other route, and each route handler's own closure reads
 construction — the same treatment `confirmAuth` already gets elsewhere in
 `routes.ts` (ADR 0020: a bare, unactivated `App` instance never requires
 auth variables just to exist). That per-request laziness is not the same
-claim as "optional in production": `apps/web/src/server/start.ts:25` calls
+claim as "optional in production": `apps/web/src/server/start.ts` (through `createProductionServer`) reads
 `app.auth().config` unconditionally before the server ever listens, and
 `readAuthConfig`'s production `superRefine` (`packages/config/src/index.ts`)
 requires `OPS_PROBE_TOKEN` there exactly like `RESEND_WEBHOOK_SECRET` — a
@@ -140,8 +192,14 @@ exposition endpoint (`/api/ops/metrics`), not a new vendor.** Counters:
 auth HTTP responses by status class (`2xx`/`3xx`/`4xx`/`5xx` — 4 values),
 rate-limit denied/unavailable totals, mail delivery failure total, and
 retention sweep failures by target name (`retentionTargets`' own fixed set
-of ~6 names). No field is ever an email, token, IP, or other unbounded
-value. Prometheus text exposition was chosen because it needs no client
+of ~6 names), plus the `auth_http_request_duration_ms` latency histogram
+by operation (`KNOWN_OPERATIONS` plus `other`). No field is ever an email,
+token, IP, or other unbounded value. Each counter, the histogram and each
+alert marker is proven through the
+composed app, from real requests, outages and sweeps, by
+`apps/web/integration/auth-alert-counters.integration.ts` and
+`auth-ops-signals.integration.ts` (ISSUE-190), the limiter-unavailable
+one through a real Redis outage (ISSUE-191). Prometheus text exposition was chosen because it needs no client
 library (plain string formatting) and is the format Fly's own `[metrics]`
 scrape config and any Prometheus-compatible dashboard already understand;
 this ADR ships the data source only. **Wiring an actual scrape config
@@ -186,18 +244,13 @@ lands, the `alert-*` keys and `/api/ops/metrics`'s counters classify as
   (ADR 0046/DEC-33), not every 5 minutes. AUTH-7.7 asks for a fired,
   runbooked alert, not an incident-management system; silencing is an
   operator action via the runbook, not a feature this ADR adds.
-- **The probe cadence was expected to keep staging effectively always-on;
-  it does not, because the real cadence is hours apart, not 5 minutes
-  (ADR 0046).** Each real run's `GET /api/health/ready` (and the follow-on
-  `GET /api/ops/alerts`) does wake or keep awake the web machine for that
-  one cycle, but between real runs — 2 to 5 hours apart, measured — the
-  machine sleeps for hours under `fly.toml`'s `min_machines_running = 0`
-  exactly as scale-to-zero intends; it does not stay running continuously.
-  **Owner decision DEC-10 (confirmed, amended by DEC-33/ADR 0046,
-  2026-09-28)**: keep this mechanism and accept its real cadence, which
-  costs meaningfully less than the ~$4/month DEC-10 originally priced in
-  for a true 5-minute always-on cycle — see
-  `docs/operations/deploy-staging.md`'s idle-cost table.
+- **The probe's cadence has no bearing on cost.** Staging's web machine
+  runs continuously under owner decision DEC-40 (`min_machines_running =
+1`, `auto_stop_machines = "off"`), about $3.99/month on its own; each
+  real probe run requests a machine that is already running. **Owner
+  decision DEC-10 (confirmed, amended by DEC-33/ADR 0046, 2026-09-28)**:
+  keep this mechanism and accept its real cadence. See
+  `docs/operations/deploy-staging.md`'s "Cost" table.
 
 ## Consequences
 
@@ -224,7 +277,7 @@ lands, the `alert-*` keys and `/api/ops/metrics`'s counters classify as
 
 ## Sources
 
-- Fly.io scale-to-zero and `auto_start_machines`/`min_machines_running`:
+- Fly.io `auto_stop_machines`/`auto_start_machines`/`min_machines_running`:
   https://fly.io/docs/reference/configuration/#the-http_service-section
 - Fly.io metrics and Prometheus scraping:
   https://fly.io/docs/reference/metrics/

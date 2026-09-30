@@ -1,6 +1,6 @@
 name: Deploy staging
-# Continuous deployment of main to the scale-to-zero Fly.io staging app
-# (AUTH-7.0). A main push deploys once the CI gate job and the Browser E2E
+# Continuous deployment of main to the always-on Fly.io staging app
+# (AUTH-7.0, DEC-40). A main push deploys once the CI gate job and the Browser E2E
 # run are both green (scripts/staging-gate.ts, ISSUE-51); the gate includes
 # the dependency audit (ADR 0039). The release-only migrator app
 # (fly.migrate.toml) deploys first: its release command migrates as the

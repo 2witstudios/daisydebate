@@ -2,10 +2,7 @@ import { createHmac } from 'node:crypto';
 import { afterAll } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
 import { createTestApp, webhookSecret, withSql } from './fixtures';
-import {
-  deriveRecipientSubkey,
-  recipientKey,
-} from '../src/features/auth/recipient-key';
+import { deriveRecipientSubkey } from '../src/features/auth/recipient-key';
 
 const sign = (id: string, timestamp: string, body: string) =>
   `v1,${createHmac('sha256', Buffer.from(webhookSecret.slice(6), 'base64'))
@@ -63,20 +60,15 @@ export function createMailSuite() {
   const recipientSubkey = deriveRecipientSubkey(
     app.auth().config.RECIPIENT_HASH_SECRET,
   );
-  const emails: string[] = [];
+  // Ids of messages the suite makes up itself; the mailbox's own are
+  // removed by createTestApp's teardown.
   const messageIds: string[] = [];
-  const fresh = () => {
-    const email = freshEmail();
-    emails.push(email);
-    return email;
-  };
   const requestLink = async (email: string) => {
     const before = mailbox.mails.length;
     const response = await routes.auth.POST(
       jsonPost('/api/auth/sign-in/magic-link', { email }),
     );
     const mail = mailbox.mails[before];
-    if (mail) messageIds.push(mail.messageId);
     return { response, mail };
   };
   afterAll(async () => {
@@ -85,8 +77,6 @@ export function createMailSuite() {
         await sql`DELETE FROM email_delivery_event WHERE provider_message_id = ${id}`;
         await sql`DELETE FROM email_delivery WHERE provider_message_id = ${id}`;
       }
-      for (const email of emails)
-        await sql`DELETE FROM email_suppression WHERE recipient_hash = ${recipientKey(recipientSubkey, email)}`;
     });
   });
   return {
@@ -99,7 +89,7 @@ export function createMailSuite() {
     webhookRoute: routes.mailWebhook,
     recipientSubkey,
     messageIds,
-    fresh,
+    fresh: freshEmail,
     requestLink,
   };
 }

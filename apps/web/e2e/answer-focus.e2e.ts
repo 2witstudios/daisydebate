@@ -7,7 +7,7 @@ import {
 } from './support/accounts';
 import { assertNoSeriousFindings } from './support/axe';
 import { expectFocusOn, pressByKeyboard } from './support/focus';
-import { dropServerActions } from './support/forms';
+import { dropServerActions, resendByKeyboard } from './support/forms';
 import { effectsRan } from './support/hydration';
 import {
   withPasskeyCapability,
@@ -81,15 +81,6 @@ const sendFromForm = async (page: Page, email: string) => {
   await openSignIn(page);
   await submitByKeyboard(page.getByLabel('Email'), email);
   await expectFocusOn(page, 'h1', 'check-inbox-heading');
-};
-
-/** Waits out the resend cooldown, then presses Enter on "Resend link". */
-const resendByKeyboard = async (page: Page) => {
-  await page.clock.fastForward('01:05');
-  const resend = page.getByRole('button', { name: 'Resend link' });
-  await expect(resend).toBeEnabled();
-  await resend.focus();
-  await page.keyboard.press('Enter');
 };
 
 test('a refused sign-in link returns focus to the email field', async ({

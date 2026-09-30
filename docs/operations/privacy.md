@@ -34,7 +34,7 @@ of every `table.column`'s category, visibility, purpose, lawful basis,
 storage (`postgres | redis | vendor`), owner, retention, erasure rule and
 exportability, per ADR 0036 §3, once PRIV-3 builds it. Redis key
 namespaces and vendor-held records (the PostHog person, Sentry user
-context) will be classified in the same inventory, not a separate one.
+context, the beehiiv subscriber: `personal`/`private`, storage `vendor`) will be classified in the same inventory, not a separate one.
 
 **Until PRIV-3 lands (DEC-11):** the file above does not exist yet, so a
 personal-data column, log field, `outbox.payload` kind or realtime topic
@@ -108,10 +108,11 @@ inventory becomes the single index:
   or second store is configured, so Fly.io's platform log search is the
   only place they persist, and it
   [retains app logs for 7 days](https://docs.fly.io/monitoring/logging-overview/).
-  The plan states operational logs "retain 30 days"; whether that is a
-  ceiling or a minimum is an open owner decision (DEC-42 on the drive's
-  Pending decisions list), so this states only the current fact. Any log
-  drain or shipper added later must record its retention here.
+  Operational logs are kept no longer than 30 days: that is a ceiling,
+  not a minimum (owner decision DEC-42, confirmed 2026-09-29). Fly's 7-day
+  log search satisfies it, and no log shipper is added. Any log drain or
+  shipper added later must keep its retention at or under 30 days and
+  record it here.
 
 ## Data subject rights
 
@@ -155,12 +156,13 @@ consent.
 
 ## Subprocessors
 
-| Subprocessor     | Purpose                                                       | Data                                                                                                                          | Region                                 | DPA status                   |
-| ---------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- | ---------------------------- |
-| Sentry           | Error tracking (ADR 0037)                                     | Scrubbed error events; `user.id` (cuid2) only, no PII                                                                         | Deploy-time host/DSN setting           | PRIV-H, human-only           |
-| PostHog          | Product analytics and consent-gated session replay (ADR 0037) | Event properties classified `none`/`identifier` only; `anonymousId` or `userId`, `actorId` only on `competitive: true` events | Deploy-time `NEXT_PUBLIC_POSTHOG_HOST` | PRIV-H, human-only           |
-| Resend           | Transactional auth email delivery (ADR 0025)                  | Recipient email (delivery only); webhook events retain a keyed SHA3-256 recipient hash, never the raw address                 | Configured at the sending domain       | Existing, predates this epic |
-| Hosting provider | Application hosting                                           | Whatever the deployment platform's own subprocessor terms cover                                                               | Deploy-time                            | PRIV-H, human-only           |
+| Subprocessor     | Purpose                                                       | Data                                                                                                                          | Region                                 | DPA status                       |
+| ---------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- | -------------------------------- |
+| Sentry           | Error tracking (ADR 0037)                                     | Scrubbed error events; `user.id` (cuid2) only, no PII                                                                         | Deploy-time host/DSN setting           | PRIV-H, human-only               |
+| PostHog          | Product analytics and consent-gated session replay (ADR 0037) | Event properties classified `none`/`identifier` only; `anonymousId` or `userId`, `actorId` only on `competitive: true` events | Deploy-time `NEXT_PUBLIC_POSTHOG_HOST` | PRIV-H, human-only               |
+| Resend           | Transactional auth email delivery (ADR 0025)                  | Recipient email (delivery only); webhook events retain a keyed SHA3-256 recipient hash, never the raw address                 | Configured at the sending domain       | Existing, predates this epic     |
+| beehiiv          | Newsletter delivery for The Scoreboard (ADR 0047)             | Subscriber email (`personal`/`private`) for people who opted in through double opt-in; Daisy-chosen `utm_*` constants only    | Open question, owned by WAIT-1.2       | Open question, owned by WAIT-1.2 |
+| Hosting provider | Application hosting                                           | Whatever the deployment platform's own subprocessor terms cover                                                               | Deploy-time                            | PRIV-H, human-only               |
 
 Vendor account creation, region choice, DPA execution and deploy secrets are
 a human-only sign-off leaf (PRIV-H); no agent self-approves them.

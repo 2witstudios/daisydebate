@@ -52,6 +52,26 @@ describe('Playwright Chromium TLS', () => {
   });
 });
 
+describe('Playwright Firefox form history', () => {
+  test('turns form history off in every Firefox project', () => {
+    const firefox = (playwrightConfig.projects ?? []).filter((project) =>
+      project.name?.startsWith('firefox'),
+    );
+    assert({
+      given:
+        'an address already submitted once, whose history dropdown Firefox opens asynchronously after a fill and which can then take the next synthesized click (ISSUE-186)',
+      should: 'launch each Firefox project with browser.formfill.enable off',
+      actual: firefox.map((project) => [
+        project.name,
+        project.use?.launchOptions?.firefoxUserPrefs?.[
+          'browser.formfill.enable'
+        ],
+      ]),
+      expected: [['firefox', false]],
+    });
+  });
+});
+
 describe('Playwright port resolution', () => {
   test('defaults to the canonical port', () => {
     assert({
@@ -288,6 +308,20 @@ describe('Playwright web server readiness', () => {
         ignoreHTTPSErrors: server?.ignoreHTTPSErrors,
       },
       expected: { edge: true, https: true, ignoreHTTPSErrors: true },
+    });
+  });
+
+  test('waits for readiness, which answers 200 only once the start-up gate opens (ISSUE-197)', () => {
+    const server = Array.isArray(playwrightConfig.webServer)
+      ? playwrightConfig.webServer[0]
+      : playwrightConfig.webServer;
+    assert({
+      given:
+        'a production server whose liveness answers 200 while start.ts still prepares Next (ISSUE-172)',
+      should:
+        'wait on /api/health/ready through the edge, never on liveness, so no navigation meets a gated 503',
+      actual: server?.url,
+      expected: `${playwrightConfig.use?.baseURL}/api/health/ready`,
     });
   });
 });
