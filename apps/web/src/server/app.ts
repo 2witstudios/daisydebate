@@ -25,6 +25,10 @@ export type AppDependencies = {
   readonly ids: IdGenerator;
   /** Where log lines go; standard output when omitted. */
   readonly logDestination?: { readonly write: (line: string) => void };
+  /** A ready Redis client in place of dialing `REDIS_URL`: the seam integration suites bound key expiry at (ISSUE-237). */
+  readonly redisClient?: NonNullable<
+    Parameters<typeof createRedis>[0]['client']
+  >;
 };
 
 /**
@@ -45,6 +49,7 @@ export function createApp({
   clock,
   ids,
   logDestination,
+  redisClient,
 }: AppDependencies) {
   const config = readServerConfig(env);
   const baseLogger = createLogger({
@@ -59,6 +64,7 @@ export function createApp({
     url: config.REDIS_URL,
     namespace: config.REDIS_NAMESPACE,
     eventSink: baseLogger.log,
+    ...(redisClient ? { client: redisClient } : {}),
   });
   const alertRecorder = createAlertRecorder({ redis, clock });
   // AUTH-7.7: every existing `logger.log` call site (auth, retention, HTTP)

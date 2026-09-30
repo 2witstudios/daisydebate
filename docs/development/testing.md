@@ -28,6 +28,16 @@ AIDD/Vitest guidance is overridden here by Bun and RITEway (ADR 0021).
    `pg_snapshot_xmin` is cluster-wide, so on the shared local stack another
    checkout's open transaction holds a committed row back (ISSUE-82, ADR
    0032 §1).
+   **Test Redis (ISSUE-237, ADR 0034).** Each slot's suites write to their own
+   Redis database (`TEST_REDIS_URL`; a worktree's is `2 + its port block`).
+   Name a suite's namespace with `testNamespace(createId())` from
+   `@daisy/redis/testing`, so it is a `t3-` namespace the runner can sweep, and
+   hand code under test a client from `createBoundedTestClient(url)`: no key it
+   writes is immortal or outlives two hours. `scripts/test-integration.ts`
+   removes stale `t3-` namespaces before a workspace's suites start (idle over
+   an hour) and fails the run, naming the keys, if any key has no expiry
+   afterwards. `bun proof:test-redis` proves the isolation and the
+   killed-run cleanup against a throwaway Redis.
 3. **Browser E2E (`bun test:e2e`)** — Playwright boots the **production**
    server (`e2e/support/server.ts` wrapping `src/server/start.ts`,
    `NODE_ENV=production`) with production-refined configuration. The

@@ -2,6 +2,7 @@ import { RedisClient } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { createRedis, redisKey } from '../src';
 import { deleteNamespace } from '../src/namespaces';
+import { createBoundedTestClient, testNamespace } from '../src/testing';
 
 /** A raw client for assertions our own package's API cannot make: PTTL, EXISTS, and direct key manipulation. */
 export async function rawClient(url: string) {
@@ -39,8 +40,12 @@ export async function withRedis<T>(
     readonly serverNowMs: () => Promise<number>;
   }) => Promise<T>,
 ): Promise<T> {
-  const namespace = `test-${createId()}`;
-  const redis = createRedis({ url, namespace });
+  const namespace = testNamespace(createId());
+  const redis = createRedis({
+    url,
+    namespace,
+    client: createBoundedTestClient(url),
+  });
   const raw = await rawClient(url);
   try {
     return await work({

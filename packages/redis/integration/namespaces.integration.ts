@@ -8,13 +8,14 @@ import {
   listNamespaces,
 } from '../src/namespaces';
 import { requireTestServices } from '@daisy/config';
+import { testNamespace } from '../src/testing';
 
 setupRitewayBun();
 
 const { redisUrl: url } = requireTestServices(process.env);
 
 // A unique prefix: these tests only ever see and delete their own keys.
-const prefix = `nsit${createId()}`;
+const prefix = testNamespace(createId());
 
 /** The real client, recording every command so the test can audit them. */
 const recordingClient = () => {

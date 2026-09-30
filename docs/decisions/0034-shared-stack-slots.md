@@ -46,13 +46,13 @@ are tiny (`daisy` 9 MB, `daisy_test` 15 MB).
   creates the slot's databases from the template, migrates both, and writes
   the slot's values into the checkout's `.env`: `DATABASE_URL`,
   `TEST_DATABASE_URL`, `REDIS_NAMESPACE`, `E2E_DATABASE_URL`,
-  `E2E_REDIS_URL`, `E2E_REDIS_NAMESPACE`, `PORT`, `PUBLIC_APP_URL` and
-  `E2E_PORT`. Host, port and credentials are kept from the existing URLs, so
+  `E2E_REDIS_URL`, `E2E_REDIS_NAMESPACE`, `TEST_REDIS_URL`, `PORT`,
+  `PUBLIC_APP_URL` and `E2E_PORT`. Host, port and credentials are kept from the existing URLs, so
   the admin connection is whatever the `.env` names. A worktree's ports come
   from a port block claimed in the comment on its dev database: shared by
   every checkout and deleted with the database.
 - **`bun slot:down`** drops the worktree's databases and deletes its Redis
-  keys. It refuses the main checkout.
+  keys, including every `t3-` namespace in its test Redis database. It refuses the main checkout.
 - **`bun slot:prune`** (and the start of every `slot:up`) drops the
   `daisy_wt_*` databases and `daisy-wt-*` namespaces of worktrees that
   `git worktree list` no longer shows (a `prunable` entry, whose folder is
@@ -80,6 +80,66 @@ are tiny (`daisy` 9 MB, `daisy_test` 15 MB).
   and `E2E_REDIS_NAMESPACE` explicitly (CI sets them in `e2e.yml`). A
   missing value is passed as empty and the server refuses to start, so the
   suite never falls back to another checkout's data.
+
+## Test Redis: one logical database per slot (ISSUE-237)
+
+On 2026-09-29 the test Redis (database 1, shared by every checkout) held
+78,208 stale `t3-*` keys from 85 runs. Teardown and every SCAN walk the whole
+keyspace, so they slowed with other people's keys until the namespaces
+SCAN test timed out and blocked other checkouts' `bun verify`. ISSUE-192 made
+a normal teardown delete its namespace; a crashed, killed or timed-out run
+still leaked, and cost still scaled with everyone else's keys. The rule is
+now that leaked test state cannot happen, by three mechanisms and one
+isolation choice.
+
+- **Isolation: a Redis logical database per slot.** Main keeps database 1
+  (CI's too); a worktree slot's integration suites use database `2 + its port
+block` (3 to 501), written to `TEST_REDIS_URL` by `slot:up`. The port block
+  is already claimed in the slot database's comment and released when
+  `slot:down` or a prune drops that database, so there is no second claim store.
+  Dev (0), main's test (1) and the browser suite (2) are unchanged. A slot's
+  SCAN, `deleteNamespace` and sweep walk only its own database, so their cost
+  is independent of every other slot. `infra/compose.yaml` starts Redis with
+  `--databases 512`; `slot:up` reads `CONFIG GET databases` and refuses a
+  server with too few, naming the one-time
+  `docker compose -f infra/compose.yaml up -d --force-recreate redis`.
+  `slot:up` never recreates a running stack itself (that would drop every
+  checkout's Redis state), so the operator runs it once. `bun doctor` flags a
+  worktree whose `TEST_REDIS_URL` still names database 0, 1 or 2.
+- **Why not per-namespace key tracking.** Tracking each run's keys in a set
+  needs every write attributed to a namespace at the seam: the presence
+  scripts build a hash key inside Lua, and the slot tooling must still SCAN
+  production-shaped namespaces it never tracked. The namespaces SCAN test
+  would also still walk the shared keyspace, which is the cost that failed.
+  A logical database removes the shared keyspace instead of indexing it.
+- **Every test key expires.** `@daisy/redis/testing` wraps a client so that a
+  `SET` with no expiry is sent as `SET ... PX <ceiling>` and every other write
+  (a key-first command or an `EVAL`/`EVALSHA` with declared keys) is followed
+  by a script capping the touched keys' TTL at the ceiling, two hours: well
+  past the one-hour maximum run. A write whose keys it cannot attribute is
+  refused before it is sent, and so is a client helper that could bypass the
+  wrapper. `createTestApp` hands the composed app this client (`createApp`'s
+  `redisClient`), and `withRedis` does the same for the package's suites.
+  After every run the runner scans the database and fails, naming the keys, if
+  any has no expiry, then removes them.
+- **Self-healing on every run.** Every test namespace is `t3-<id>`
+  (`testNamespace`). Before a workspace's suites start, the runner removes
+  every `t3-` namespace whose newest key (`OBJECT IDLETIME`) has been idle
+  longer than the maximum run length. A run in progress keeps a fresh key, so
+  concurrent workspaces in the same slot are safe, and no other slot's
+  database is touched. The rule ignores TTLs, so it also clears an immortal
+  key a killed run wrote in the window between a write and its cap.
+- **Release.** `slot:down` deletes the slot's `t3-` namespaces. A prune of an
+  orphaned worktree does not open its test database: its keys expire within
+  two hours and the next slot to claim that block sweeps any remainder.
+- **Not covered here.** Postgres rows a killed run leaves in the test
+  database are not swept (ISSUE-238 carries it, with the measured leak).
+
+The proof is `bun proof:test-redis` against a throwaway Redis: 100,000
+foreign keys in another slot's database leave teardown and the SCAN test
+within their baseline over 10 runs, the same keys in one shared database slow
+both several times over (the negative control), and a SIGKILLed run leaves
+nothing that survives the next sweep.
 
 ## Consequences
 
