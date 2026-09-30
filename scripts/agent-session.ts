@@ -21,7 +21,7 @@ function readRecordFile(path: string): string | undefined {
 export function mainCheckoutOf(cwd: string): string | undefined {
   const result = Bun.spawnSync(
     ['git', 'rev-parse', '--path-format=absolute', '--git-common-dir'],
-    { cwd, stdout: 'pipe', stderr: 'ignore' },
+    { cwd, env: process.env, stdout: 'pipe', stderr: 'ignore' },
   );
   const commonDir = result.stdout.toString().trim();
   return result.exitCode === 0 && commonDir !== ''

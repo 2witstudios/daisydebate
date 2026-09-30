@@ -15,7 +15,12 @@ import { mainCheckoutOf, sessionIsAgent } from './agent-session';
 setupRitewayBun();
 
 const git = (cwd: string, ...args: string[]) =>
-  Bun.spawnSync(['git', ...args], { cwd, stdout: 'ignore', stderr: 'ignore' });
+  Bun.spawnSync(['git', ...args], {
+    cwd,
+    env: process.env,
+    stdout: 'ignore',
+    stderr: 'ignore',
+  });
 const record = JSON.stringify({
   parent: null,
   role: 'builder',
