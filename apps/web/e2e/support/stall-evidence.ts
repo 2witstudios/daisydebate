@@ -31,6 +31,11 @@ export type ProtocolEntry = {
   readonly session?: string | undefined;
   /** The session a target-attach event opens, for the new page's own. */
   readonly opens?: string | undefined;
+  /**
+   * The target a create response returned or an attach event is for, so the
+   * new page's attach is told apart from another target's.
+   */
+  readonly target?: string | undefined;
 };
 
 type Layer = 'browser' | 'driver';
@@ -78,21 +83,29 @@ export function protocolVerdict(
       layer: 'browser',
       detail: `the browser never answered ${create.method} #${create.id} (sent ${since(create.at, from)}) and sent ${heardAfter(create.at)} other message(s) after it`,
     };
-  // The new page's own session is the one the first browser-level
-  // target-attach event after the create opens (an iframe or worker of
-  // another page attaches on that page's session instead); only its commands are the new page's, so another
-  // page's call still in flight never counts against the browser (ISSUE-284).
+  // The new page's own session is the one its attach event opens: the
+  // browser-level attach for the target the create returned (ISSUE-287), or,
+  // when the response names no target, the first one after the create. Only
+  // its commands are the new page's, so another page's call still in flight
+  // never counts against the browser (ISSUE-284).
+  const created = window.find(
+    ({ direction, id }) => direction === 'recv' && id === create.id,
+  )?.target;
   const attach = window.find(
-    ({ direction, opens, session, at }) =>
+    ({ direction, opens, session, at, target }) =>
       direction === 'recv' &&
       opens !== undefined &&
       session === undefined &&
-      at >= create.at,
+      (created === undefined ? at >= create.at : target === created),
   );
   if (!attach)
     return {
       layer: 'browser',
-      detail: `the browser answered ${create.method} #${create.id} but never attached the new page (no target-attach event after it)`,
+      detail: `the browser answered ${create.method} #${create.id} but never attached the new page (${
+        created === undefined
+          ? 'no target-attach event after it'
+          : `no target-attach event for target ${created}`
+      })`,
     };
   const page = `session ${attach.opens}`;
   const pending = window.filter(

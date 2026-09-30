@@ -42,31 +42,43 @@ type Message = {
   error?: { message?: string };
   sessionId?: string;
   pageProxyId?: string;
-  params?: { sessionId?: string; pageProxyId?: string };
+  params?: {
+    sessionId?: string;
+    pageProxyId?: string;
+    targetInfo?: { targetId?: string };
+  };
+  result?: { targetId?: string; pageProxyId?: string };
 };
 
-/** A parsed message's id, method, error text and sessions. */
-const reduce = ({
-  id,
-  method,
-  error,
-  sessionId,
-  pageProxyId,
-  params,
-}: Message) => ({
-  id,
-  method,
-  error: error?.message?.slice(0, 200),
-  // Chromium and Firefox address a page by sessionId, WebKit by pageProxyId.
-  session: handle(sessionId ?? pageProxyId),
-  // The session a new target's attach event opens, so the verdict judges
-  // only the new page's own commands (ISSUE-284).
-  opens: attachEvents.has(method ?? '')
-    ? handle(params?.sessionId ?? params?.pageProxyId)
-    : undefined,
-});
+/**
+ * The target a create response returned (Chromium's and Firefox's targetId,
+ * WebKit's pageProxyId) or an attach event is for, so the verdict keys the
+ * new page to its own attach (ISSUE-287). An opaque handle, like a session.
+ */
+const targetOf = ({ method, params, result }: Message) =>
+  attachEvents.has(method ?? '')
+    ? handle(params?.targetInfo?.targetId ?? params?.pageProxyId)
+    : handle(result?.targetId ?? result?.pageProxyId);
 
-/** Reduces one pw:protocol line to its direction, id, method and sessions. */
+/** A parsed message's id, method, error text, sessions and target. */
+const reduce = (message: Message) => {
+  const { id, method, error, sessionId, pageProxyId, params } = message;
+  return {
+    id,
+    method,
+    error: error?.message?.slice(0, 200),
+    // Chromium and Firefox address a page by sessionId, WebKit by pageProxyId.
+    session: handle(sessionId ?? pageProxyId),
+    // The session a new target's attach event opens, so the verdict judges
+    // only the new page's own commands (ISSUE-284).
+    opens: attachEvents.has(method ?? '')
+      ? handle(params?.sessionId ?? params?.pageProxyId)
+      : undefined,
+    target: targetOf(message),
+  };
+};
+
+/** Reduces one pw:protocol line to its direction, id, method, sessions and target. */
 const entryOf = (text: string): ProtocolEntry | undefined => {
   const marker = markers.find((candidate) => text.includes(candidate));
   if (!marker) return undefined;
@@ -82,9 +94,9 @@ const entryOf = (text: string): ProtocolEntry | undefined => {
 
 /**
  * Records Playwright's protocol log (pw:protocol) for the running test into
- * a bounded ring, keeping only each message's direction, id, method and
- * sessions, and returns the function that stops recording. Other DEBUG
- * namespaces keep reaching the original log.
+ * a bounded ring, keeping only each message's direction, id, method,
+ * sessions and target, and returns the function that stops recording.
+ * Other DEBUG namespaces keep reaching the original log.
  */
 export function recordProtocol(): () => void {
   const { debug } = utilsBundle;
@@ -110,7 +122,7 @@ export function recordProtocol(): () => void {
 const line = (entry: ProtocolEntry, from: number) =>
   `+${Math.round(entry.at - from)}ms ${entry.direction === 'send' ? 'SEND ►' : '◀ RECV'} ${
     entry.id === undefined ? 'event' : `#${entry.id}`
-  }${entry.method ? ` ${entry.method}` : ''}${entry.session ? ` [${entry.session}]` : ''}${entry.opens ? ` opens [${entry.opens}]` : ''}${entry.error ? ` error: ${entry.error}` : ''}`;
+  }${entry.method ? ` ${entry.method}` : ''}${entry.session ? ` [${entry.session}]` : ''}${entry.opens ? ` opens [${entry.opens}]` : ''}${entry.target ? ` target [${entry.target}]` : ''}${entry.error ? ` error: ${entry.error}` : ''}`;
 
 /** The whole test's protocol tail, for a failed test's protocol.log. */
 export const protocolLog = () =>

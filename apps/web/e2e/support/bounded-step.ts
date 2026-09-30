@@ -21,9 +21,9 @@ export class StepTimeoutError extends Error {
 }
 
 /**
- * Runs `run` and fails with a StepTimeoutError naming `step` if it has not settled
- * within `ms`. For calls Playwright gives no timeout of their own: CDP
- * commands and closing a browser context.
+ * Runs `run` and fails with a StepTimeoutError naming `step` if it has not
+ * settled within `ms`. For calls Playwright gives no timeout of their own:
+ * CDP commands and closing a browser context.
  */
 export async function boundedStep<T>(
   step: string,

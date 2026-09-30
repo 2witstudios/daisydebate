@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import type { Browser } from '@playwright/test';
 import { expect, openPage, test } from './support/fixtures';
-import { CAPTURE_BUDGET_MS } from './support/stall-capture';
+import { CAPTURE_BUDGET_MS, protocolLog } from './support/stall-capture';
 import {
   judgeStall,
   protocolVerdict,
@@ -24,17 +24,18 @@ const sent = (
   method: string,
   session?: string,
 ): ProtocolEntry => ({ at, direction: 'send', id, method, session });
-const answered = (at: number, id: number): ProtocolEntry => ({
+const answered = (at: number, id: number, target?: string): ProtocolEntry => ({
   at,
   direction: 'recv',
   id,
+  target,
 });
-const event = (at: number, method: string, opens?: string): ProtocolEntry => ({
-  at,
-  direction: 'recv',
-  method,
-  opens,
-});
+const event = (
+  at: number,
+  method: string,
+  opens?: string,
+  target?: string,
+): ProtocolEntry => ({ at, direction: 'recv', method, opens, target });
 
 test.describe('the stall verdict (pure)', () => {
   test('names the layer from the protocol, the driver and the server', () => {
@@ -118,6 +119,38 @@ test.describe('the stall verdict (pure)', () => {
       layer: 'driver',
       detail:
         'the browser answered every command to the new page (session page-b), Target.createTarget #7 included, yet newPage never resolved',
+    });
+  });
+
+  test('keys the new page to the attach for the target the create returned, not the first attach (ISSUE-287)', () => {
+    // A popup of another page attaches (session popup-1) between the create
+    // and the new page's own attach; its commands were answered, the new
+    // page's (page-b, target t-new) never were.
+    const entries = [
+      sent(10, 7, 'Target.createTarget'),
+      event(11, 'Target.attachedToTarget', 'popup-1', 't-popup'),
+      sent(12, 8, 'Runtime.enable', 'popup-1'),
+      answered(13, 8),
+      event(14, 'Target.attachedToTarget', 'page-b', 't-new'),
+      answered(15, 7, 't-new'),
+      sent(16, 9, 'Page.enable', 'page-b'),
+    ];
+    const createdNeverAttached = [
+      sent(10, 7, 'Target.createTarget'),
+      event(11, 'Target.attachedToTarget', 'popup-1', 't-popup'),
+      answered(15, 7, 't-new'),
+    ];
+    expect({
+      layer: protocolVerdict(entries, 5).layer,
+      firstPending: /first Page\.enable #9/.test(
+        protocolVerdict(entries, 5).detail,
+      ),
+      neverAttached: protocolVerdict(createdNeverAttached, 5).detail,
+    }).toEqual({
+      layer: 'browser',
+      firstPending: true,
+      neverAttached:
+        'the browser answered Target.createTarget #7 but never attached the new page (no target-attach event for target t-new)',
     });
   });
 
@@ -259,6 +292,31 @@ test.describe('the stall evidence (live controls)', () => {
       cause: 'browser',
       snapshotCut: true,
     });
+  });
+
+  test("a real page creation's create answer and attach event name the same target (ISSUE-287)", async ({
+    browser,
+  }) => {
+    // The verdict keys the new page to the attach for the target the create
+    // returned; if the capture read the two differently, every real stall
+    // would read as "never attached".
+    const context = await browser.newContext();
+    await openPage(context, 'a page whose creation is recorded');
+    await context.close();
+    const log = protocolLog();
+    const id = /SEND ► #(\d+) Target\.createTarget/.exec(log)?.[1];
+    const created = new RegExp(`◀ RECV #${id} target \\[(\\w+)\\]`).exec(
+      log,
+    )?.[1];
+    const attached = [
+      ...log.matchAll(
+        /◀ RECV event Target\.attachedToTarget opens \[\w+\] target \[(\w+)\]/g,
+      ),
+    ].map(([, target]) => target);
+    expect({
+      created: created !== undefined,
+      attached: attached.includes(created),
+    }).toEqual({ created: true, attached: true });
   });
 
   test('a starved driver is named as the driver, not the browser', async ({
