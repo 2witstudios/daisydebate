@@ -162,7 +162,7 @@ exactly one place.
   `mail_shed` fires at `ALERT_THRESHOLDS.mailShedCount` (20). A saturated
   minute with real sign-in traffic can shed a stray task, so it waits for
   a sustained count, and any flood that fills the bound sheds far more:
-  every request past the 68 held tasks. The counter carries no address,
+  every request past the 576 held or waiting tasks. The counter carries no address,
   token or task identity. Like every Redis-backed condition, it is not
   evaluated while Redis is unreadable.
 

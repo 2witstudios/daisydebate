@@ -75,8 +75,8 @@ before the account lookup and the send or drop, which finish afterwards
 (ISSUE-185), so a failed sign-in send also answers `200` (ISSUE-189): watch
 `auth.mail.failed`, and `request.unhandled` with `source:
 auth.after-response` for a database failure in that work. That work is
-bounded (4 running, 64 waiting); past it a request's work is shed with no
-mail, logged as `auth.mail.shed` and counted as `auth_mail_shed_total` on
+bounded (512 holding a slot, 64 waiting, with only its database steps
+gated at 4 at once); past it a request's work is shed with no mail, logged as `auth.mail.shed` and counted as `auth_mail_shed_total` on
 `/api/ops/metrics`. Sustained shedding fires the `mail_shed` alert (see
 "Alerting" and "Auth mail shed past the bound" below): it means a flood,
 real sign-in volume above what the bound drains, or slow or failing mail
@@ -489,10 +489,13 @@ work were shed in the trailing 10 minutes
 `apps/web/src/server/alert-state.ts`; proven through the composed app in
 `apps/web/integration/auth-mail-shed-alert.integration.ts`). While the
 global sign-up ceiling is saturated, every magic-link request's lookup and
-send or drop runs after its answer, at most 4 at once with 64 waiting
-(`after-response.ts`). Everything past that is shed, and **real sign-ins
-get no mail** as well as sign-ups (DEC-73). The person sees the ordinary
-success and must request another link, or use a passkey.
+send or drop runs after its answer, at most 512 holding a slot with 64
+waiting (`after-response.ts`). Everything past that is shed, and **real
+sign-ins get no mail** as well as sign-ups (DEC-73). The person sees the
+ordinary success and must request another link, or use a passkey. On the
+development host the pool filled only at about 750 new addresses a
+second (nothing was shed at 700 a second, everything past the bound at
+800); production's smaller machine fills sooner (ADR 0025).
 
 1. Check `auth.rate_limit.denied` with `path: /sign-in/magic-link`. A
    saturated global ceiling is the precondition for shedding. Sustained
@@ -500,10 +503,14 @@ success and must request another link, or use a passkey.
    plus-addressed recipients), or real volume above the ceilings.
 2. Check `auth_mail_shed_total` on `/api/ops/metrics` for the rate. The
    alert carries counts only, never an address.
-3. A flood ends on its own when it stops. The ceiling's minute window
-   resets, and the backlog drains in about 17 provider round trips. If real
-   volume is the cause, raise the ceilings (`MAGIC_LINK_GLOBAL_RULES`,
-   `rate-limit.ts`, and ADR 0025) rather than the bound: the bound protects
-   the Postgres pool and the process's memory.
+3. Shedding stops as soon as the flood falls below the rate the pool
+   drains: the backlog clears within about one provider round trip. The
+   ceiling does not necessarily reopen with it. The minute ceiling resets
+   each minute, but once the day ceiling (3,000) is spent, new sign-ups get
+   no mail until its window ends, up to a day after its first send, while
+   sign-in links are still sent. If real volume is the cause, raise the
+   ceilings (`MAGIC_LINK_GLOBAL_RULES`, `rate-limit.ts`, and ADR 0025)
+   rather than the bound: the bound protects the Postgres pool and the
+   process's memory.
 4. Check `auth.mail.failed`: a slow or failing provider holds every slot
    longer, so the bound fills sooner.

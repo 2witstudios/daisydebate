@@ -24,11 +24,12 @@ export const ALERT_THRESHOLDS = {
   auth5xxRate: 0.01,
   retentionMissedMs: 2 * 60 * MINUTE_MS,
   /**
-   * ISSUE-220: handed-off auth mail work shed past its bound (4 running, 64
-   * waiting; DEC-73) over the trailing window. A saturated minute with some
-   * real sign-in traffic can shed a stray task, so it fires on a sustained
-   * count, 20 in 10 minutes, well below what any flood that fills the bound
-   * sheds (every request past the 68 held ones).
+   * ISSUE-220: handed-off auth mail work shed past its bound (512 holding
+   * a slot, 64 waiting; DEC-73, DEC-76) over the trailing window. A
+   * saturated minute with some real sign-in traffic can shed a stray task,
+   * so it fires on a sustained count, 20 in 10 minutes, well below what any
+   * flood that fills the bound sheds (every request past the 576 held or
+   * waiting).
    */
   mailShedWindowMinutes: 10,
   mailShedCount: 20,
