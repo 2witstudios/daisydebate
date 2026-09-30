@@ -262,4 +262,31 @@ describe('formatPrometheusMetrics (AUTH-7.7)', () => {
       },
     });
   });
+  test('the per-client denial counter says it excludes network denials, which have their own (AUTH-3.10.2)', () => {
+    const text = formatPrometheusMetrics(createMetricsStore().snapshot());
+    const help = (metric: string) =>
+      text.split('\n').find((line) => line.startsWith(`# HELP ${metric} `)) ??
+      '';
+    assert({
+      given: 'the exposition of both rate-limit denial counters',
+      should:
+        'say auth_rate_limit_denied_total excludes network denials, and that auth_rate_limit_network_denied_total counts them',
+      actual: {
+        deniedExcludesNetwork: /exclud\w* network/i.test(
+          help('auth_rate_limit_denied_total'),
+        ),
+        deniedPointsAtNetworkCounter: help(
+          'auth_rate_limit_denied_total',
+        ).includes('auth_rate_limit_network_denied_total'),
+        networkCounterDescribed: /network/i.test(
+          help('auth_rate_limit_network_denied_total'),
+        ),
+      },
+      expected: {
+        deniedExcludesNetwork: true,
+        deniedPointsAtNetworkCounter: true,
+        networkCounterDescribed: true,
+      },
+    });
+  });
 });

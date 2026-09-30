@@ -244,8 +244,18 @@ token>` as the `verification.identifier`. The subject (the email for
   and fires the `network_limited` alert past a sustained count (ADR 0042).
   The limits are sized against the pool edge: one /48 or /24 may send 2 a
   second and one /56 half a second, against an edge of 700 to 1,200 a
-  second on the development host, so filling the pool takes hundreds of
-  distinct /48s or /24s rather than one. A /56 is a typical household or
+  second on the development host. The bound is against one /48 or /24,
+  not against a distributed flood: no bucket sits above a /48, so the pool
+  fills again once an attacker holds about (pool edge ÷ 2) networks each
+  sending 2 a second. That is 350 to 600 networks at the low-load edge,
+  and about 100 to 300 on a loaded host (the review of PR #148 measured
+  300 IPv6 /48s at 503 a second filling the pool and mailing 1 of 10 real
+  sign-ins). One IPv6 /40 is 256 /48s, about 512 a second, and one /32 is
+  65,536 /48s, far past any edge; a botnet across a few hundred IPv4 /24s
+  does the same. So the bar is one /40 to one /32, or a few hundred /24s,
+  up from one /48 at about 3,277 a second. Past it, the `mail_shed` alert
+  is the signal (ISSUE-220), and the shedding is the owner's accepted
+  residual (DEC-77). A /56 is a typical household or
   small site, and a /48 or IPv4 /24 a typical organization, host or
   carrier NAT pool, so ordinary sign-in from one stays well inside them.
   Proven on the composed app at production bounds with real services
@@ -278,7 +288,7 @@ token>` as the `verification.identifier`. The subject (the email for
   to +4.4, z −0.49), so the flood-held residual was not measurable at that
   sample size.
   So the attack needs a flood that holds the pool full (above the host's
-  edge, which after AUTH-3.10 takes hundreds of distinct /48s or /24s)
+  edge, which after AUTH-3.10 takes one IPv6 /40 or a few hundred /24s)
   for as long as it samples, timing that lands its probes in the moments
   the pool is full, many samples, and its own accounts; each probe of one
   target is also capped by the recipient windows (20 a day). The owner

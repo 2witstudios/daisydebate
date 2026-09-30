@@ -221,7 +221,7 @@ export function formatPrometheusMetrics(snapshot: MetricsSnapshot): string {
       (cls) =>
         `auth_http_requests_total{status_class="${cls}"} ${snapshot.httpRequestsByStatusClass[cls]}`,
     ),
-    '# HELP auth_rate_limit_denied_total Auth requests denied by the rate limiter (429) since process start.',
+    '# HELP auth_rate_limit_denied_total Auth requests denied by a per-client or per-recipient rate limit (429) since process start; excludes network denials, which auth_rate_limit_network_denied_total counts.',
     '# TYPE auth_rate_limit_denied_total counter',
     `auth_rate_limit_denied_total ${snapshot.rateLimitDeniedTotal}`,
     '# HELP auth_rate_limit_unavailable_total Auth requests the rate limiter could not decide since process start.',
