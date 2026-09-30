@@ -1,6 +1,7 @@
 import {
   cookieHeader,
   createTestApp,
+  type TestApp,
   linkFrom,
   tokenOf,
   withSql,
@@ -13,8 +14,7 @@ import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
  * mail transport captured.
  * Its app removes the accounts it created after the suite.
  */
-export function createFlows() {
-  const testApp = createTestApp();
+export function createFlows(testApp: TestApp = createTestApp()) {
   const {
     routes,
     mailbox,

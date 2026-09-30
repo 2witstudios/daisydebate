@@ -24,6 +24,7 @@ describe('package entry surface (ISSUE-8 AC1)', () => {
         'exclude appendOutboxEvent, drainOutbox, deleteExpiredBatch and the raw outbox table — each takes or is a Drizzle handle, so a caller outside packages/db can only reach the opaque createDatabase() surface',
       actual: Object.keys(packageEntry).sort(),
       expected: [
+        'DEFAULT_MAX_CONNECTIONS',
         'OUTBOX_ORIGIN',
         'createDatabase',
         'decodeOutboxCursor',

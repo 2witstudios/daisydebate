@@ -213,14 +213,18 @@ describe('orphan detection', () => {
 
 describe('.env ownership check', () => {
   const slot = worktreeSlot('abc');
-  const own = slotEnvValues({
-    slot,
-    env: {
-      DATABASE_URL: 'postgres://daisy:pw@localhost:15432/daisy',
-      REDIS_URL: 'redis://localhost:6379',
-    },
-    portBlock: 1,
-  });
+  // A real .env carries REDIS_URL beside the values slot:up writes.
+  const own = {
+    REDIS_URL: 'redis://localhost:6379',
+    ...slotEnvValues({
+      slot,
+      env: {
+        DATABASE_URL: 'postgres://daisy:pw@localhost:15432/daisy',
+        REDIS_URL: 'redis://localhost:6379',
+      },
+      portBlock: 1,
+    }),
+  };
 
   test('accepts a .env written for this slot', () => {
     assert({
@@ -278,6 +282,7 @@ describe('slot .env values', () => {
           'postgres://daisy_e2e:e2e-loopback-only@localhost:15432/daisy_e2e',
         E2E_REDIS_URL: 'redis://localhost:6379/2',
         E2E_REDIS_NAMESPACE: 'daisy-e2e',
+        TEST_REDIS_URL: 'redis://localhost:6379/1',
         PORT: '3000',
         PUBLIC_APP_URL: 'http://localhost:3000',
         E2E_PORT: '3100',
@@ -307,6 +312,7 @@ describe('slot .env values', () => {
           'postgres://daisy_e2e:e2e-loopback-only@127.0.0.1:35432/daisy_wt_abc_e2e',
         E2E_REDIS_URL: 'redis://127.0.0.1:36379/2',
         E2E_REDIS_NAMESPACE: 'daisy-wt-abc-e2e',
+        TEST_REDIS_URL: 'redis://127.0.0.1:36379/4',
         PORT: '13020',
         PUBLIC_APP_URL: 'http://localhost:13020',
         E2E_PORT: '13021',

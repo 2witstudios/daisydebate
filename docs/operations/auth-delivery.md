@@ -29,7 +29,11 @@ setting the message API cannot override — and a webhook pointing at
 
 ## Client identity and ingress assumptions
 
-Rate limits bucket by client. There is exactly one resolver: the composition
+Rate limits bucket by client: one IPv4 address, or one IPv6 /64 (Better
+Auth's `getIP` collapses an IPv6 client to its /64). Magic-link requests
+are also counted per IPv6 /56 and /48 and per IPv4 /24 of that client
+(AUTH-3.10), since one /48 holds 65,536 /64s. There is exactly one
+resolver: the composition
 trusts only `x-daisy-client-ip`, stamped by our own ingress (`start.ts`) on
 every request, replacing any caller value. It is the socket peer, or — only
 when the peer is in `AUTH_TRUSTED_PROXIES` — Fly's own authoritative
@@ -57,6 +61,9 @@ to your topology before release.
 | ------------------------------------------------------------------ | ----------------------------- | ----------------------------------------------- |
 | Any auth route, per client and path                                | 100 / 60 s                    | `429` + `Retry-After`                           |
 | Magic-link request, per client                                     | 3 / 60 s                      | `429` + `Retry-After`                           |
+| Magic-link request, per IPv6 /56 (AUTH-3.10)                       | 30 / 60 s                     | `429` + `Retry-After`                           |
+| Magic-link request, per IPv6 /48 (AUTH-3.10)                       | 120 / 60 s                    | `429` + `Retry-After`                           |
+| Magic-link request, per IPv4 /24 (AUTH-3.10)                       | 120 / 60 s                    | `429` + `Retry-After`                           |
 | Magic-link request, per recipient                                  | 3 / 60 s, 10 / hour, 20 / day | `429` + `Retry-After`                           |
 | Email change, per new address (ISSUE-121)                          | 3 / 60 s, 10 / hour, 20 / day | `429` + `Retry-After`                           |
 | Every magic-link send, whole application; holds back sign-ups only | 120 / 60 s, 3,000 / day       | sign-up: `200`, no mail (logged); sign-in: sent |
@@ -64,12 +71,25 @@ to your topology before release.
 
 Every magic-link send counts against the whole-application ceilings, with
 or without an account, but only sign-ups are held back (ADR 0025, ISSUE-54,
-ISSUE-188): a drained ceiling delays new sign-ups, never sign-in. A day's
+ISSUE-188): a drained ceiling alone delays new sign-ups, never sign-in,
+but a drained ceiling together with a flood past the handed-off work's
+bound sheds sign-in mail as well (DEC-73; see below). A day's
 sign-up capacity is 3,000 minus that day's magic-link sign-ins. Past a
 ceiling, a sign-up request gets the same `200` as any other and no mail
 (ISSUE-182); the saturation shows only as `auth.rate_limit.denied` with
-`path: /sign-in/magic-link` in the log. While saturated, a failed sign-in
-send also answers `200` (ISSUE-189); watch `auth.mail.failed`.
+`path: /sign-in/magic-link` in the log. While saturated, the answer comes
+before the account lookup and the send or drop, which finish afterwards
+(ISSUE-185), so a failed sign-in send also answers `200` (ISSUE-189): watch
+`auth.mail.failed`, and `request.unhandled` with `source:
+auth.after-response` for a database failure in that work. That work is
+bounded (512 holding a slot, 64 waiting, with only its database steps
+gated at 4 at once); past it a request's work is shed with no mail, logged as `auth.mail.shed` and counted as `auth_mail_shed_total` on
+`/api/ops/metrics`. Sustained shedding fires the `mail_shed` alert (see
+"Alerting" and "Auth mail shed past the bound" below): it means a flood,
+real sign-in volume above what the bound drains, or slow or failing mail
+delivery, which holds every slot longer so the bound fills sooner. Check
+`auth.mail.failed` and the `delivery_failures` alert before assuming a
+flood.
 
 The sign-in page offers passkeys in browser autofill, so every visible view
 spends one `/passkey/generate-authenticate-options` request (a challenge row
@@ -199,7 +219,7 @@ the process is draining. With them absent it says the response likely did
 not come from the app: Fly's proxy during a cold start, the start-up gate,
 or the app down.
 
-The four conditions, and the durable Redis marker each reads
+The conditions, and the durable Redis marker each reads
 (`apps/web/src/server/alert-recorder.ts` writes them by tapping the
 existing event stream — no new call sites):
 
@@ -210,6 +230,8 @@ existing event stream — no new call sites):
 | `delivery_failures`   | 3+ consecutive `auth.mail.failed`, reset by `auth.mail.sent`                                    | `alert-mail-consecutive-failures`                  |
 | `auth_5xx_rate`       | >1% of auth-operation requests are 5xx over the trailing 10 minutes, with at least 100 requests | per-minute `alert-http-total-*`/`alert-http-5xx-*` |
 | `cleanup_missed`      | the retention sweep has not completed successfully in 2+ hours, or never has                    | `alert-retention-last-success`                     |
+| `mail_shed`           | 20+ `auth.mail.shed` over the trailing 10 minutes (ISSUE-220)                                   | per-minute `alert-mail-shed-*`                     |
+| `network_limited`     | 300+ `auth.rate_limit.network_denied` over the trailing 10 minutes (AUTH-3.10)                  | per-minute `alert-network-denied-*`                |
 
 `GET /api/ops/metrics` (same bearer token) exposes the bounded-cardinality
 Prometheus counters behind AUTH-7.7's dashboard criterion: auth HTTP
@@ -378,7 +400,9 @@ limiter_unavailable").
    `redisState: "unreachable"`, `limiter_unavailable` fires from the time
    the serving instance itself first saw the limiter unavailable, and the
    Redis-backed conditions (`storage_unavailable`, `delivery_failures`,
-   `auth_5xx_rate`, `cleanup_missed`) are not evaluated until Redis returns
+   `auth_5xx_rate`, `cleanup_missed`, `mail_shed`, `network_limited`) are
+   not evaluated until
+   Redis returns
    (`apps/web/integration/auth-ops-signals.integration.ts`, "a Redis outage
    that outlasts the threshold fires limiter_unavailable from when it
    began"). The probe posts that unread state even when readiness passes
@@ -465,3 +489,64 @@ least 100 requests fires; below either threshold does not").
    fully succeeds keeps this alert firing even while individual batches
    make progress — that is intentional (AUTH-7.7's "cleanup missed" names
    the failure to _complete_, not the failure to _attempt_).
+
+### Auth mail shed past the bound
+
+**Symptom:** the `mail_shed` alert fires: 20 or more pieces of magic-link
+work were shed in the trailing 10 minutes
+(`ALERT_THRESHOLDS.mailShedCount` and `mailShedWindowMinutes` in
+`apps/web/src/server/alert-state.ts`; proven through the composed app in
+`apps/web/integration/auth-mail-shed-alert.integration.ts`). While the
+global sign-up ceiling is saturated, every magic-link request's lookup and
+send or drop runs after its answer, at most 512 holding a slot with 64
+waiting (`after-response.ts`). Everything past that is shed, and **real
+sign-ins get no mail** as well as sign-ups (DEC-73). The person sees the
+ordinary success and must request another link, or use a passkey. Where
+the pool fills depends on the host and its load: 700 to 1,200 new
+addresses a second on the development host, unmeasured and lower on
+production's machine (ADR 0025). The aggregate network limits keep any
+one /48, /56 or IPv4 /24 far below that, so a full pool means a flood
+from many networks.
+
+1. Check `auth.rate_limit.denied` with `path: /sign-in/magic-link`. A
+   saturated global ceiling is the precondition for shedding. Sustained
+   denials with shedding mean a flood of new addresses (rotating clients,
+   plus-addressed recipients), or real volume above the ceilings.
+2. Check `auth_mail_shed_total` on `/api/ops/metrics` for the rate. The
+   alert carries counts only, never an address.
+3. Shedding stops as soon as the flood falls below the rate the pool
+   drains: the backlog clears within about one provider round trip. The
+   ceiling does not necessarily reopen with it. The minute ceiling resets
+   each minute, but once the day ceiling (3,000) is spent, new sign-ups get
+   no mail until its window ends, up to a day after its first send, while
+   sign-in links are still sent. If real volume is the cause, raise the
+   ceilings (`MAGIC_LINK_GLOBAL_RULES`, `rate-limit.ts`, and ADR 0025)
+   rather than the bound: the bound protects the Postgres pool and the
+   process's memory.
+4. Check `auth.mail.failed`: a slow or failing provider holds every slot
+   longer, so the bound fills sooner.
+
+### Magic-link requests limited per network
+
+**Symptom:** the `network_limited` alert fires: 300 or more magic-link
+requests were refused in the trailing 10 minutes because their client's
+IPv6 /56 or /48, or IPv4 /24, was over its limit
+(`ALERT_THRESHOLDS.networkDeniedCount` and `networkDeniedWindowMinutes`
+in `apps/web/src/server/alert-state.ts`; limits in
+`MAGIC_LINK_NETWORK_RULES`, `rate-limit.ts`; proven in
+`apps/web/integration/auth-network-limits.integration.ts`). The refused
+requests got a `429` with `Retry-After`, the same for any address, and did
+no work, so the pool and real users outside that network are unaffected.
+
+1. Check `auth_rate_limit_network_denied_total{scope}` on
+   `/api/ops/metrics` for which scope is refusing. The alert and the log
+   line carry the scope and counts only, never the network or a client.
+2. A single /48 or /56 refused at a high rate is one actor rotating its
+   /64s. Nothing needs doing while the refusals keep it off the pool; if
+   it persists, block the network at the edge (Fly, or the upstream
+   provider).
+3. A /24 or /48 refused at a low, steady rate may be a shared network with
+   real users (carrier NAT, a large site). Its users get a `429` and can
+   retry a minute later or sign in with a passkey. If that is real demand,
+   raise the limit in `MAGIC_LINK_NETWORK_RULES` and ADR 0025, keeping one
+   network far below the pool edge.

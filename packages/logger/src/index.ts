@@ -9,11 +9,14 @@ export const eventRegistry = {
   'invariant.violated': 'error',
   'auth.rate_limit.denied': 'warn',
   'auth.rate_limit.unavailable': 'error',
+  'auth.rate_limit.network_denied': 'warn',
   'auth.session.unavailable': 'error',
   'auth.mail.sent': 'info',
   'auth.mail.failed': 'error',
   'auth.mail.receipt_failed': 'error',
   'auth.mail.suppressed': 'info',
+  'auth.mail.shed': 'warn',
+  'auth.mail.abandoned': 'error',
   'auth.magic_link.verified': 'info',
   'auth.passkey.enrolled': 'info',
   'auth.passkey.authenticated': 'info',
@@ -113,6 +116,8 @@ export const loggableFields = {
   batches: 'count',
   closeCode: 'count',
   deliverySeqLagEstimate: 'count',
+  pending: 'count',
+  scope: 'code',
 } as const satisfies Record<string, FieldKind>;
 
 const CENSOR = '[REDACTED]';

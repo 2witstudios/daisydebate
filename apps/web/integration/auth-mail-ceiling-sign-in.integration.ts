@@ -1,8 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createAccountFlows } from './auth-account-helpers';
-import { elapse, statuses } from './auth-rate-limit-helpers';
+import { createCeilingFlows } from './auth-ceiling-helpers';
+import { statuses } from './auth-rate-limit-helpers';
 import { counts } from './fixtures';
-import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import { requireTestServices } from '@daisy/config';
 
 /**
@@ -21,21 +20,16 @@ import { requireTestServices } from '@daisy/config';
 requireTestServices(process.env);
 setupRitewayBun();
 
-const accounts = createAccountFlows();
-const { flows } = accounts;
-const { testApp, mailbox, newClient, fresh } = flows;
-
-const magicLink = (email: string, client = newClient()) =>
-  flows.authRoute.POST(
-    flows.jsonPost(
-      '/api/auth/sign-in/magic-link',
-      { email },
-      { [CLIENT_IP_HEADER]: client },
-    ),
-  );
-
-/** The global minute window elapsing: its real counter key expires. */
-const elapseGlobalMinute = () => elapse(testApp, 'auth:magic-link:global:60');
+const {
+  accounts,
+  testApp,
+  mailbox,
+  newClient,
+  fresh,
+  magicLink,
+  elapseGlobalMinute,
+  settled,
+} = createCeilingFlows();
 
 /** Fills the global minute ceiling with 120 new addresses, each its own client. */
 const saturate = async () => {
@@ -58,10 +52,11 @@ const observable = async (response: Response) => ({
     .sort(([left = ''], [right = '']) => left.localeCompare(right)),
 });
 
-/** Mails sent to `email` while `work` ran. */
+/** Mails sent to `email` by `work`, including after its answer. */
 const mailsTo = async (email: string, work: () => Promise<Response>) => {
   const before = mailbox.mails.length;
   const response = await work();
+  await settled();
   return {
     response,
     mails: mailbox.mails.slice(before).filter((mail) => mail.to === email)
@@ -90,6 +85,7 @@ describe('ISSUE-54 the global mail ceiling cannot deny sign-in', () => {
       Promise.all(existing.map((email) => magicLink(email))),
       Promise.all(Array.from({ length: 10 }, () => magicLink(fresh()))),
     ]);
+    await settled();
     const mailed = mailbox.mails.slice(before).map((mail) => mail.to);
     const mailedAccounts = mailed.filter((to) => existing.includes(to)).length;
 

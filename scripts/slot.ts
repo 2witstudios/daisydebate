@@ -48,6 +48,11 @@ import {
   slotEnvValues,
   type Slot,
 } from './slot-model';
+import {
+  clearTestNamespaces,
+  openOwnTestRedis,
+  requireRedisDatabases,
+} from './slot-redis';
 
 const root = resolve(import.meta.dir, '..');
 const worktreeDatabases = 'daisy_wt_';
@@ -122,6 +127,8 @@ export type SlotServices = {
   readonly connect: (database: string) => SQL;
   /** The dev (REDIS_URL) and e2e Redis databases every slot writes to. */
   readonly redis: readonly RedisClient[];
+  /** This slot's own test Redis database (TEST_REDIS_URL), when .env names one. */
+  readonly testRedis: RedisClient | undefined;
   readonly close: () => Promise<void>;
 };
 
@@ -142,12 +149,15 @@ export function openServices(
     ]),
   ];
   const redis = redisUrls.map((url) => new RedisClient(url));
+  const testRedis = openOwnTestRedis(env);
   return {
     admin,
     connect,
     redis,
+    testRedis,
     close: async () => {
       for (const client of redis) client.close();
+      testRedis?.close();
       await admin.close({ timeout: 5 });
     },
   };
@@ -278,6 +288,8 @@ const envOf = (content: string) => ({
   TEST_DATABASE_URL: readEnvValue(content, 'TEST_DATABASE_URL'),
   REDIS_URL: readEnvValue(content, 'REDIS_URL'),
   E2E_REDIS_URL: readEnvValue(content, 'E2E_REDIS_URL'),
+  TEST_REDIS_URL: readEnvValue(content, 'TEST_REDIS_URL'),
+  PORT: readEnvValue(content, 'PORT'),
 });
 
 const describeOrphans = (ids: readonly string[]) =>
@@ -316,6 +328,12 @@ async function up(checkout: Checkout, envPath: string) {
           slot.kind === 'worktree'
             ? await claimPortBlock(services.admin, slot)
             : undefined;
+        // ISSUE-237: the test database is 2 + the port block, so the
+        // server must offer that many databases; fail before writing .env.
+        await requireRedisDatabases(
+          services.redis[0] as RedisClient,
+          portBlock,
+        );
         const values = slotEnvValues({ slot, env, portBlock });
         // Under the lock too: the baseline creates cluster-wide roles,
         // which two first-time slot:up runs could otherwise race on.
@@ -335,6 +353,7 @@ async function up(checkout: Checkout, envPath: string) {
         `Slot ${slot.id} (${slot.kind})`,
         `  databases: ${slotDatabases(slot).join(', ')} (created: ${created.join(', ') || 'none'}; migrated)`,
         `  redis namespaces: ${slot.namespace}, ${slot.e2eNamespace}`,
+        `  test redis: ${values.TEST_REDIS_URL}`,
         `  ports: app ${values.PORT}, e2e ${values.E2E_PORT}`,
         `  .env: ${rewritten.changed ? 'updated' : 'unchanged'}`,
         `  pruned orphan slots: ${describeOrphans(pruned.ids)}`,
@@ -361,6 +380,8 @@ async function down(checkout: Checkout, envPath: string) {
       for (const client of services.redis)
         for (const namespace of [slot.namespace, slot.e2eNamespace])
           removed += await deleteNamespace(client, namespace);
+      // The slot's own test database: every namespace a run left behind.
+      removed += await clearTestNamespaces(services.testRedis);
       return removed;
     });
     process.stdout.write(

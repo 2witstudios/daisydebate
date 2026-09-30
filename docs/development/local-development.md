@@ -120,10 +120,15 @@ run `bun slot:up`. It is idempotent:
   `daisy_e2e` login as a member of the baseline's `daisy_web` runtime role
   (ADR 0038);
 - writes the slot's `DATABASE_URL`, `TEST_DATABASE_URL`, `REDIS_NAMESPACE`,
-  `E2E_DATABASE_URL`, `E2E_REDIS_URL`, `E2E_REDIS_NAMESPACE`, `PORT`,
-  `PUBLIC_APP_URL`, `E2E_PORT` and `REALTIME_PORT` into `.env`, keeping
-  host, port and credentials. A worktree's port block is claimed on its dev
-  database, so no two checkouts get the same ports.
+  `E2E_DATABASE_URL`, `E2E_REDIS_URL`, `E2E_REDIS_NAMESPACE`,
+  `TEST_REDIS_URL`, `PORT`, `PUBLIC_APP_URL`, `E2E_PORT` and `REALTIME_PORT`
+  into `.env`, keeping host, port and credentials. A worktree's port block is
+  claimed on its dev database, so no two checkouts get the same ports; its
+  integration suites use Redis database `2 + block`, so their cleanup and
+  SCANs never walk another checkout's keys (ADR 0034, ISSUE-237). The shared
+  Redis starts with `--databases 512` for this: if `slot:up` says the server
+  offers too few, recreate Redis once with the command it prints (the one
+  exception to the rule below, done by an operator, not an agent).
 
 Rules that keep sessions safe:
 

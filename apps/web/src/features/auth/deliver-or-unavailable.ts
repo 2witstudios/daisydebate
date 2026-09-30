@@ -7,7 +7,7 @@ import {
 } from './undeliverable-codes';
 
 /**
- * The one auth mail path (`createAuthServer`'s `sendMail`): `suppressed`
+ * The one auth mail path (`send-mail.ts`): `suppressed`
  * when the recipient hard-bounced or complained, so nothing was sent
  * (ADR 0025, ISSUE-54).
  */

@@ -1,8 +1,8 @@
-import { RedisClient } from 'bun';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { redisKey } from '@daisy/redis';
 import { clearAuthRateLimits } from '@daisy/redis/namespaces';
+import { openTestRedis } from '@daisy/redis/testing';
 import {
   createAccountFlows,
   emailedLinkRejected,
@@ -37,7 +37,7 @@ describe('AUTH-7.6 post-restore invalidation', () => {
       'rl',
       'restore-invalidation-proof',
     );
-    const rawRedis = new RedisClient(testRedisUrl as string);
+    const rawRedis = openTestRedis(testRedisUrl);
     const outcome = await (async () => {
       try {
         await rawRedis.send('SET', [rateLimitKey, '1', 'EX', '60']);

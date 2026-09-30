@@ -10,6 +10,8 @@ import {
   grownTables,
   INTEGRATION_RUNNER,
   integrationSuites,
+  redisLeakMessages,
+  redisSweepMessage,
 } from './test-integration';
 
 setupRitewayBun();
@@ -148,6 +150,55 @@ describe('ISSUE-192 test database row ledger', () => {
       given: 'identical row counts before and after',
       should: 'report no table',
       actual: grownTables({ users: 2, formats: 1 }, { users: 2, formats: 1 }),
+      expected: [],
+    });
+  });
+});
+
+describe('test Redis hygiene messages (ISSUE-237)', () => {
+  test('says nothing when nothing was swept', () => {
+    assert({
+      given: 'a sweep that found no stale namespace',
+      should: 'print no line',
+      actual: redisSweepMessage({ namespaces: [], keys: 0 }),
+      expected: undefined,
+    });
+  });
+
+  test('reports what a sweep removed', () => {
+    assert({
+      given: 'a sweep of 78,208 keys in 85 namespaces',
+      should: 'say how many keys and namespaces earlier runs left behind',
+      actual: redisSweepMessage({
+        namespaces: Array.from({ length: 85 }, (_, index) => `t3-${index}`),
+        keys: 78_208,
+      }),
+      expected:
+        'test-integration: swept 78208 stale test Redis keys in 85 namespaces left by earlier runs (ISSUE-237)',
+    });
+  });
+
+  test('names every key a run left without an expiry, capped at ten', () => {
+    const immortal = Array.from(
+      { length: 12 },
+      (_, index) => `t3-x:v1:k${String(index).padStart(2, '0')}`,
+    );
+
+    assert({
+      given: 'a run that left 12 keys with no TTL',
+      should:
+        'print the count once and the first ten names, so the offending suite is findable',
+      actual: redisLeakMessages(immortal),
+      expected: [
+        'test-integration: 12 test Redis keys had no expiry after the run and were removed (ISSUE-237); every test key must expire',
+        ...immortal.slice(0, 10).map((key) => `test-integration:   ${key}`),
+        'test-integration:   ...and 2 more',
+      ],
+    });
+    assert({
+      given: 'a run that left no immortal key',
+      should: 'print nothing',
+      actual: redisLeakMessages([]),
       expected: [],
     });
   });

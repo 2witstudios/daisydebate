@@ -36,6 +36,10 @@ const realProbeWorkflow = readFileSync(
 const realBunVersion = readFileSync('.bun-version', 'utf8').trim();
 const realStart = readFileSync('apps/web/src/server/start.ts', 'utf8');
 const realMigrate = readFileSync('packages/db/scripts/migrate.ts', 'utf8');
+const realShutdownBudget = readFileSync(
+  'apps/web/src/server/shutdown-budget.ts',
+  'utf8',
+);
 
 describe('findDockerfileBunVersionProblem', () => {
   test('the committed Dockerfile pins the committed .bun-version', () => {
@@ -153,7 +157,7 @@ describe('verifyDeployConfig', () => {
   test('the real repository files together', () => {
     assert({
       given:
-        'the committed Dockerfile, both fly configs, the deploy and auth-alerts workflows, .bun-version, start.ts and migrate.ts',
+        'the committed Dockerfile, both fly configs, the deploy and auth-alerts workflows, .bun-version, start.ts, migrate.ts and the shutdown budget',
       should: 'report no problems',
       actual: verifyDeployConfig({
         dockerfile: realDockerfile,
@@ -165,6 +169,7 @@ describe('verifyDeployConfig', () => {
         bunVersion: realBunVersion,
         startTs: realStart,
         migrateTs: realMigrate,
+        shutdownBudgetTs: realShutdownBudget,
       }),
       expected: [],
     });
@@ -184,6 +189,7 @@ describe('verifyDeployConfig', () => {
         bunVersion: '1.4.2',
         startTs: realStart,
         migrateTs: realMigrate,
+        shutdownBudgetTs: realShutdownBudget,
       }).length,
       expected: 2,
     });

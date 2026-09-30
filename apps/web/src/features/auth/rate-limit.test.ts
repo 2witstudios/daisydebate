@@ -56,25 +56,28 @@ const isGlobalKey = (key: string | undefined) =>
   /^auth:magic-link:global:\d+$/.test(key ?? '');
 
 describe('auth rate-limit gate: recipient bucket', () => {
-  test('consumes the client bucket, three recipient windows and two global ceilings', async () => {
+  test('consumes the client bucket, its network, three recipient windows and two global ceilings', async () => {
     const { keys, requestLink } = compose({});
     const outcome = await requestLink(email);
     assert({
-      given: 'an allowed magic-link request with a recording limiter',
+      given:
+        'an allowed magic-link request from the loopback client with a recording limiter',
       should:
-        'consume a client key, three hex recipient keys and two global keys, never the address',
+        'consume a client key, its /24 network key (AUTH-3.10), three hex recipient keys and two global keys, never the address',
       actual: {
         outcome,
         count: keys.length,
         clientFirst: keys[0]?.startsWith('auth:client:'),
-        recipientKeys: keys.slice(1, 4).every(isRecipientKey),
-        globalKeys: keys.slice(4, 6).every(isGlobalKey),
+        network: keys[1],
+        recipientKeys: keys.slice(2, 5).every(isRecipientKey),
+        globalKeys: keys.slice(5, 7).every(isGlobalKey),
         leaksAddress: keys.some((key) => key.toLowerCase().includes('player')),
       },
       expected: {
         outcome: 'OK',
-        count: 6,
+        count: 7,
         clientFirst: true,
+        network: 'auth:magic-link:net:ipv4_24:127.0.0.0/24:60',
         recipientKeys: true,
         globalKeys: true,
         leaksAddress: false,
@@ -91,8 +94,8 @@ describe('auth rate-limit gate: recipient bucket', () => {
       given: 'the same address with different case and padding',
       should: 'land in the identical recipient bucket',
       actual: {
-        keyed: isRecipientKey(noisy.keys[1]),
-        same: noisy.keys[1] === plain.keys[1],
+        keyed: isRecipientKey(noisy.keys[2]),
+        same: noisy.keys[2] === plain.keys[2],
       },
       expected: { keyed: true, same: true },
     });

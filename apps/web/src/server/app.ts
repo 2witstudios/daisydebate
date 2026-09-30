@@ -12,6 +12,7 @@ import { createRedis } from '@daisy/redis';
 import { createResendSender, type Fetch } from '../features/auth/mail';
 import { createAuthRateLimiter } from '../features/auth/redis-limiter';
 import { createAuthServer, type AuthServer } from '../features/auth/server';
+import type { AfterResponseLimits } from '../features/auth/after-response';
 import { createResendWebhook } from '../features/auth/webhook';
 import { createAlertRecorder, withAlertRecording } from './alert-recorder';
 import { createMetricsStore, type MetricsStore } from './metrics-store';
@@ -25,6 +26,15 @@ export type AppDependencies = {
   readonly ids: IdGenerator;
   /** Where log lines go; standard output when omitted. */
   readonly logDestination?: { readonly write: (line: string) => void };
+  /**
+   * Narrower bounds for auth's handed-off work, for suites that must fill
+   * them with a few requests; production uses the defaults.
+   */
+  readonly afterResponseLimits?: AfterResponseLimits;
+  /** A ready Redis client in place of dialing `REDIS_URL`: the seam integration suites bound key expiry at (ISSUE-237). */
+  readonly redisClient?: NonNullable<
+    Parameters<typeof createRedis>[0]['client']
+  >;
 };
 
 /**
@@ -45,6 +55,8 @@ export function createApp({
   clock,
   ids,
   logDestination,
+  afterResponseLimits,
+  redisClient,
 }: AppDependencies) {
   const config = readServerConfig(env);
   const baseLogger = createLogger({
@@ -59,6 +71,7 @@ export function createApp({
     url: config.REDIS_URL,
     namespace: config.REDIS_NAMESPACE,
     eventSink: baseLogger.log,
+    ...(redisClient ? { client: redisClient } : {}),
   });
   const alertRecorder = createAlertRecorder({ redis, clock });
   // AUTH-7.7: every existing `logger.log` call site (auth, retention, HTTP)
@@ -100,6 +113,7 @@ export function createApp({
       logger,
       clock,
       ids,
+      afterResponseLimits,
     });
   };
   const composeMailWebhook = () => {
@@ -114,6 +128,7 @@ export function createApp({
       apply: (input) => database.applyEmailDeliveryEvent(input),
     });
   };
+  const drainState = createDrainState([database, redis]);
   return {
     config,
     clock,
@@ -140,8 +155,31 @@ export function createApp({
     },
     /** The Resend delivery webhook; refuses when the signing secret is unset. */
     mailWebhook: () => (mailWebhook ??= composeMailWebhook()),
-    /** isDraining, drain, and close (drains, then closes both pools). */
-    ...createDrainState([database, redis]),
+    /**
+     * Logs how much auth work handed off past its answer is still unfinished
+     * (`auth.mail.abandoned`, a count only) when a shutdown's deadline cuts
+     * it off (ISSUE-214). Silent when there is none.
+     */
+    reportUnfinishedWork: () => {
+      const pending = auth?.pendingWork() ?? 0;
+      if (pending > 0)
+        logger.log(
+          'auth.mail.abandoned',
+          { operation: 'server.shutdown', pending },
+          'Auth work after the answer was cut off by the shutdown deadline',
+        );
+    },
+    isDraining: drainState.isDraining,
+    drain: drainState.drain,
+    /**
+     * Drains, lets auth finish the work it answered before doing (ISSUE-185),
+     * then closes both pools.
+     */
+    close: async () => {
+      drainState.drain();
+      await auth?.settled();
+      await drainState.close();
+    },
   };
 }
 

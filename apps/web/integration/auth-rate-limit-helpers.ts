@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
-import { RedisClient } from 'bun';
 import { systemClock, systemId } from '@daisy/clock';
 import { readAuthConfig } from '@daisy/config';
 import { createDatabase } from '@daisy/db';
 import { createRedis, redisKey } from '@daisy/redis';
+import { openTestRedis } from '@daisy/redis/testing';
 import { testDatabaseUrl, testRedisUrl, type TestApp } from './fixtures';
 import { createAuthRouteHandlers } from '../src/features/auth/handlers';
 import { createAuthRateLimiter } from '../src/features/auth/redis-limiter';
@@ -43,9 +43,27 @@ export const recipientBucket = (
  * decides.
  */
 export const elapse = async (testApp: TestApp, ...buckets: string[]) => {
-  const client = new RedisClient(testRedisUrl as string);
+  const client = openTestRedis(testRedisUrl);
   try {
     for (const bucket of buckets) await client.del(limiterKey(testApp, bucket));
+  } finally {
+    client.close();
+  }
+};
+
+/**
+ * A fixed window held open: its real counter keeps its count and expires
+ * `ms` from now, so a ceiling saturated by real requests stays saturated
+ * for a whole measurement however loaded the machine is.
+ */
+export const holdOpen = async (
+  testApp: TestApp,
+  bucket: string,
+  ms: number,
+) => {
+  const client = openTestRedis(testRedisUrl);
+  try {
+    await client.send('PEXPIRE', [limiterKey(testApp, bucket), String(ms)]);
   } finally {
     client.close();
   }
@@ -77,7 +95,7 @@ export function createSecondInstances(testApp: TestApp) {
       nextActorId: () => systemId.next(),
     });
     const redis = createRedis({
-      url: overrides.redisUrl ?? (testRedisUrl as string),
+      url: overrides.redisUrl ?? testRedisUrl,
       namespace: testApp.redisNamespace,
     });
     const base = createAuthRateLimiter(redis);
