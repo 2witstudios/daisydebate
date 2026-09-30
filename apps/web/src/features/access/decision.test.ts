@@ -140,6 +140,7 @@ describe('isGuardedPath', () => {
         '/prep',
         '/train',
         '/lobby/abc',
+        '/ranked/host',
         '/settings/security',
         '/playground',
         '/lobbyist',
@@ -149,6 +150,7 @@ describe('isGuardedPath', () => {
         '/',
       ].map(isGuardedPath),
       expected: [
+        true,
         true,
         true,
         true,
