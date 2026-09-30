@@ -184,7 +184,7 @@ export const serverGlobCases: readonly Problems[] = [
  * has an unbounded page fixture, so a spec importing it is an error, while
  * the shared fixture and type-only imports are fine.
  */
-export const sharedFixtureCases: readonly Problems[] = [
+const importCases: readonly Problems[] = [
   [
     "import { expect, test } from '@playwright/test';\ntest('x', () => expect(1).toBe(1));",
     'apps/web/e2e/x.e2e.ts',
@@ -252,7 +252,7 @@ const secondaryPage = (call: string) =>
  * (ISSUE-277): a direct newPage on a context or a browser is an error
  * everywhere but the shared fixture.
  */
-export const secondaryPageCases: readonly Problems[] = [
+const secondaryPageCases: readonly Problems[] = [
   [secondaryPage('context.newPage()'), 'apps/web/e2e/x.e2e.ts', 1],
   [secondaryPage('browser.newPage()'), 'apps/web/e2e/x.e2e.ts', 1],
   [secondaryPage('context.newPage'), 'apps/web/e2e/support/x.ts', 1],
@@ -265,4 +265,9 @@ export const secondaryPageCases: readonly Problems[] = [
     0,
   ],
   [secondaryPage('context.newPage()'), 'apps/web/e2e/support/fixtures.ts', 0],
+];
+
+export const sharedFixtureCases: readonly Problems[] = [
+  ...importCases,
+  ...secondaryPageCases,
 ];

@@ -8,7 +8,6 @@ import {
   serverBindCases,
   serverGlobCases,
   sharedFixtureCases,
-  secondaryPageCases,
   type Problems,
   props,
   globals,
@@ -277,24 +276,13 @@ describe('restrictions every no-restricted-syntax list carries', () => {
     });
   });
 
-  test('requires every e2e spec to use the shared, bounded page fixture (ISSUE-253, ISSUE-276)', async () => {
+  test('requires every e2e spec and page to go through the shared, bounded fixture (ISSUE-253, ISSUE-276, ISSUE-277)', async () => {
     const { actual, expected } = table(sharedFixtureCases);
     assert({
       given:
-        'specs importing Playwright’s test by name, namespace, default, re-export or dynamic import, the shared fixture, or only types and expect',
+        'specs importing Playwright’s test by name, namespace, default, re-export or dynamic import, or calling newPage directly; the shared fixture; only types and expect; openPage',
       should:
-        'reject every route to Playwright’s own test outside the shared fixture, and nothing else',
-      actual: await actual,
-      expected,
-    });
-  });
-
-  test('requires every secondary page to open through the bounded openPage (ISSUE-277)', async () => {
-    const { actual, expected } = table(secondaryPageCases);
-    assert({
-      given:
-        'a spec or support module calling newPage on a context or a browser, one using openPage, and the shared fixture',
-      should: 'reject each direct newPage outside the shared fixture',
+        'reject every route to Playwright’s own test or newPage outside the shared fixture, and nothing else',
       actual: await actual,
       expected,
     });
