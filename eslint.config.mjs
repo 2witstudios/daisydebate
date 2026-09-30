@@ -41,9 +41,11 @@ const bareToThrowRestriction = {
  */
 const bunCallee =
   ":matches([callee.object.name='Bun'], [callee.object.object.name='globalThis'][callee.object.property.name='Bun'])";
-// Every spelling of the wildcard address, bracketed or not, and the empty
-// string (ISSUE-278).
-const wildcardAddress = '/^(0\\.0\\.0\\.0|\\[?::0?\\]?|)$/';
+// Every spelling of the wildcard address: IPv4's all-zero forms ('0',
+// '0.0.0.0'), IPv6's (only zeros and colons, bracketed or not: '::', '::0',
+// '::0000', '0:0:0:0:0:0:0:0', '[::]') and the empty string (ISSUE-278,
+// ISSUE-283). Loopback ('::1', '127.0.0.1') has a non-zero digit.
+const wildcardAddress = '/^(0+(\\.0+){0,3}|\\[?[0:]*:[0:]*\\]?|)$/';
 const bindMessage =
   "Bind the server's address (hostname or host: '127.0.0.1'): a wildcard bind can share its port with another process's loopback listener.";
 /**
@@ -51,8 +53,9 @@ const bindMessage =
  * in the handler rather than the options, an explicit wildcard address,
  * globalThis.Bun, a destructured serve or listen, Bun.listen, and a node
  * server's listen() with no host. ISSUE-278 adds serve or listen imported
- * from 'bun', Bun under another name, hostname: undefined and every
- * wildcard spelling. Production's listen(port, host, …) and a Postgres
+ * from 'bun', Bun under another name (an alias, or 'bun' imported whole),
+ * hostname: undefined and every wildcard spelling (ISSUE-283 adds the
+ * whole-module imports and the remaining spellings). Production's listen(port, host, …) and a Postgres
  * LISTEN (a string channel) stay clean.
  */
 const unboundServerRestrictions = [
@@ -65,6 +68,8 @@ const unboundServerRestrictions = [
   // name, reach the same servers without the Bun callee the selectors see.
   "ImportDeclaration[source.value='bun'] > ImportSpecifier[imported.name=/^(serve|listen)$/]",
   "VariableDeclarator[id.type='Identifier']:matches([init.name='Bun'], [init.object.name='globalThis'][init.property.name='Bun'])",
+  // ISSUE-283: 'bun' as a whole module is Bun under another name.
+  "ImportDeclaration[source.value='bun'] > :matches(ImportNamespaceSpecifier, ImportDefaultSpecifier)",
   "VariableDeclarator:matches([init.name='Bun'], [init.object.name='globalThis'][init.property.name='Bun']) > ObjectPattern > Property[key.name=/^(serve|listen)$/]",
   `CallExpression[callee.property.name='listen']:not(${bunCallee}):not([arguments.0.type='Literal'][arguments.0.value=/^[^0-9]/]):not([arguments.0.type='TemplateLiteral']):matches([arguments.length=1][arguments.0.type!='ObjectExpression'], [arguments.1.type=/Function/])`,
   `CallExpression[callee.property.name='listen']:not(${bunCallee}) > ObjectExpression.arguments:not(:has(> Property[key.name='host']))`,
@@ -233,7 +238,10 @@ const sharedFixtureRestrictions = [
     "ImportExpression[source.value='@playwright/test']",
   ].map((selector) => ({ selector, message: fixtureMessage })),
   ...[
-    "MemberExpression[property.name='newPage']",
+    "MemberExpression[computed=false][property.name='newPage']",
+    // ISSUE-283: c['newPage'] and c[`newPage`] reach the same method.
+    "MemberExpression[computed=true][property.value='newPage']",
+    "MemberExpression[computed=true] > TemplateLiteral.property[expressions.length=0] > TemplateElement[value.cooked='newPage']",
     "ObjectPattern > Property[key.name='newPage']",
   ].map((selector) => ({
     selector,

@@ -146,6 +146,15 @@ export const serverBindCases: ReadonlyArray<readonly [string, boolean]> = [
     "declare const server: { listen: (...a: unknown[]) => void };\nserver.listen({ port: 0, host: '[::]' });",
     true,
   ],
+  // ISSUE-283: Bun reached through a namespace or default import of 'bun',
+  // and the remaining spellings of the wildcard address; loopback stays clean.
+  ["import * as b from 'bun';\nb.serve({ port: 0 });", true],
+  ["import b from 'bun';\nb.serve({ port: 0 });", true],
+  ["Bun.serve({ hostname: '0', port: 0 });", true],
+  ["Bun.serve({ hostname: '::0000', port: 0 });", true],
+  ["Bun.serve({ hostname: '0:0:0:0:0:0:0:0', port: 0 });", true],
+  ["Bun.serve({ hostname: '::1', port: 0 });", false],
+  ["Bun.serve({ hostname: '10.0.0.1', port: 0 });", false],
 ];
 
 const unboundServe = `const url = 'redis://x';\nnew RedisClient(url);\nBun.serve({ port: 0, fetch: () => new Response(url) });`;
@@ -256,6 +265,9 @@ const secondaryPageCases: readonly Problems[] = [
   [secondaryPage('context.newPage()'), 'apps/web/e2e/x.e2e.ts', 1],
   [secondaryPage('browser.newPage()'), 'apps/web/e2e/x.e2e.ts', 1],
   [secondaryPage('context.newPage'), 'apps/web/e2e/support/x.ts', 1],
+  // ISSUE-283: a computed member reaches the same method.
+  [secondaryPage("context['newPage']()"), 'apps/web/e2e/x.e2e.ts', 1],
+  [secondaryPage('context[`newPage`]()'), 'apps/web/e2e/x.e2e.ts', 1],
   [
     secondaryPage("openPage(context, 'the other device')").replace(
       'export const p',
