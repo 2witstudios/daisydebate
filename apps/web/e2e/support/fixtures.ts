@@ -1,7 +1,7 @@
 import * as playwright from '@playwright/test';
 import type { BrowserContext, Page } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
-import { boundedStep, STEP_LIMIT_MS } from './bounded-step';
+import { boundedStep, STEP_LIMIT_MS, StepTimeoutError } from './bounded-step';
 import {
   protocolLog,
   recordProtocol,
@@ -68,7 +68,13 @@ export function watchPage(page: Page) {
 export async function openPage(
   context: BrowserContext,
   purpose: string,
-  limitMs: number = STEP_LIMIT_MS,
+  {
+    limitMs = STEP_LIMIT_MS,
+    processSnapshot,
+  }: {
+    readonly limitMs?: number;
+    readonly processSnapshot?: () => Promise<string>;
+  } = {},
 ): Promise<Page> {
   const step = `opening ${purpose}`;
   const from = startWindow();
@@ -77,17 +83,14 @@ export async function openPage(
     watchPage(page);
     return page;
   } catch (error) {
-    if (
-      (error as Error).message !== `${step} did not finish within ${limitMs} ms`
-    )
-      throw error;
-    const cause = await recordStall(playwright.test.info(), {
-      step,
-      from,
-      limitMs,
-    });
+    if (!(error instanceof StepTimeoutError)) throw error;
+    const cause = await recordStall(
+      playwright.test.info(),
+      { step, from, limitMs },
+      processSnapshot,
+    );
     throw new Error(
-      `${step} did not finish within ${limitMs} ms; cause: ${cause} (see stall-evidence.log)`,
+      `${error.message}; cause: ${cause} (see stall-evidence.log)`,
       { cause: error },
     );
   }

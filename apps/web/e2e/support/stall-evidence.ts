@@ -2,8 +2,9 @@
  * The verdict on a page creation that never finished (ISSUE-279): which
  * layer stopped, from the evidence the shared fixture keeps for the window.
  *
- *   - browser: Playwright sent the page-creation command (or a command after
- *     it) and the browser never answered;
+ *   - browser: Playwright sent the page-creation command and the browser
+ *     never answered it, never attached the new page, or never answered a
+ *     command to the new page's own session;
  *   - driver: Playwright's own event loop was starved, so an answer could not
  *     be read, or every command was answered and newPage still did not
  *     resolve, or the command was never sent;
@@ -16,8 +17,9 @@
 
 /**
  * One protocol message, reduced to what tells the layers apart: its
- * direction, id, method and session. Parameters and results are never kept, so no
- * cookie, header or credential reaches the evidence.
+ * direction, id, method and session, and the session a target-attach event
+ * opens. Parameters and results are otherwise never kept, so no cookie,
+ * header or credential reaches the evidence.
  */
 export type ProtocolEntry = {
   readonly at: number;
@@ -27,6 +29,8 @@ export type ProtocolEntry = {
   readonly error?: string | undefined;
   /** The protocol session a command went to; none is the browser's own. */
   readonly session?: string | undefined;
+  /** The session a target-attach event opens, for the new page's own. */
+  readonly opens?: string | undefined;
 };
 
 type Layer = 'browser' | 'driver';
@@ -74,14 +78,34 @@ export function protocolVerdict(
       layer: 'browser',
       detail: `the browser never answered ${create.method} #${create.id} (sent ${since(create.at, from)}) and sent ${heardAfter(create.at)} other message(s) after it`,
     };
+  // The new page's own session is the one the first browser-level
+  // target-attach event after the create opens (an iframe or worker of
+  // another page attaches on that page's session instead); only its commands are the new page's, so another
+  // page's call still in flight never counts against the browser (ISSUE-284).
+  const attach = window.find(
+    ({ direction, opens, session, at }) =>
+      direction === 'recv' &&
+      opens !== undefined &&
+      session === undefined &&
+      at >= create.at,
+  );
+  if (!attach)
+    return {
+      layer: 'browser',
+      detail: `the browser answered ${create.method} #${create.id} but never attached the new page (no target-attach event after it)`,
+    };
+  const page = `session ${attach.opens}`;
   const pending = window.filter(
-    ({ direction, id, at }) =>
-      direction === 'send' && at >= create.at && !answeredIds.has(id!),
+    ({ direction, id, at, session }) =>
+      direction === 'send' &&
+      at >= create.at &&
+      session === attach.opens &&
+      !answeredIds.has(id!),
   );
   const [first] = pending;
   if (first) {
-    // Answers to commands sent after the first unanswered one show whether
-    // the browser process itself was still running (ISSUE-279).
+    // Answers to commands sent after the first unanswered one, on any
+    // session, show whether the browser process itself was still running.
     const later = window.filter(
       ({ direction, id, at }) =>
         direction === 'send' &&
@@ -95,7 +119,7 @@ export function protocolVerdict(
       .join(', ');
     return {
       layer: 'browser',
-      detail: `the browser answered ${create.method} #${create.id} but never answered ${pending.length} command(s) after it, first ${first.method} #${first.id} on ${sessionName(first)} (sent ${since(first.at, from)}); ${
+      detail: `the browser answered ${create.method} #${create.id} but never answered ${pending.length} command(s) to the new page (${page}), first ${first.method} #${first.id} (sent ${since(first.at, from)}); ${
         later.length
           ? `meanwhile it answered ${later.length} command(s) sent after that (${named}), so the browser process was running while the page did not answer`
           : `it answered nothing sent after that, and sent ${heardAfter(first.at)} other message(s)`
@@ -104,7 +128,7 @@ export function protocolVerdict(
   }
   return {
     layer: 'driver',
-    detail: `the browser answered every command, ${create.method} #${create.id} included, yet newPage never resolved`,
+    detail: `the browser answered every command to the new page (${page}), ${create.method} #${create.id} included, yet newPage never resolved`,
   };
 }
 

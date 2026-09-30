@@ -1,6 +1,6 @@
 import type { TestInfo } from '@playwright/test';
 import { execFile } from 'node:child_process';
-import { readFile, writeFile } from 'node:fs/promises';
+import { open, writeFile } from 'node:fs/promises';
 import { cpus, freemem, loadavg } from 'node:os';
 import { dirname, join } from 'node:path';
 import { monitorEventLoopDelay } from 'node:perf_hooks';
@@ -27,43 +27,64 @@ import {
 const RING = 4_000;
 const entries: ProtocolEntry[] = [];
 const markers = ['SEND ► ', '◀ RECV '] as const;
+const attachEvents = new Set([
+  'Target.attachedToTarget',
+  'Browser.attachedToTarget',
+  'Playwright.pageProxyCreated',
+]);
+/** Shortens an opaque protocol handle so the evidence stays readable. */
+const handle = (value: string | undefined) =>
+  value === undefined ? undefined : String(value).slice(0, 8);
 
-/** Reduces one pw:protocol line to its direction, id, method and session. */
+type Message = {
+  id?: number;
+  method?: string;
+  error?: { message?: string };
+  sessionId?: string;
+  pageProxyId?: string;
+  params?: { sessionId?: string; pageProxyId?: string };
+};
+
+/** A parsed message's id, method, error text and sessions. */
+const reduce = ({
+  id,
+  method,
+  error,
+  sessionId,
+  pageProxyId,
+  params,
+}: Message) => ({
+  id,
+  method,
+  error: error?.message?.slice(0, 200),
+  // Chromium and Firefox address a page by sessionId, WebKit by pageProxyId.
+  session: handle(sessionId ?? pageProxyId),
+  // The session a new target's attach event opens, so the verdict judges
+  // only the new page's own commands (ISSUE-284).
+  opens: attachEvents.has(method ?? '')
+    ? handle(params?.sessionId ?? params?.pageProxyId)
+    : undefined,
+});
+
+/** Reduces one pw:protocol line to its direction, id, method and sessions. */
 const entryOf = (text: string): ProtocolEntry | undefined => {
   const marker = markers.find((candidate) => text.includes(candidate));
   if (!marker) return undefined;
   const at = performance.now();
+  const direction = marker === markers[0] ? 'send' : 'recv';
   const body = text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1);
   try {
-    const { id, method, error, sessionId, pageProxyId } = JSON.parse(body) as {
-      id?: number;
-      method?: string;
-      error?: { message?: string };
-      sessionId?: string;
-      pageProxyId?: string;
-    };
-    // Chromium and Firefox address a page by sessionId, WebKit by
-    // pageProxyId; an opaque handle, shortened to stay readable.
-    const session = sessionId ?? pageProxyId;
-    return {
-      at,
-      direction: marker === markers[0] ? 'send' : 'recv',
-      id,
-      method,
-      error: error?.message?.slice(0, 200),
-      session: session === undefined ? undefined : String(session).slice(0, 8),
-    };
+    return { at, direction, ...reduce(JSON.parse(body) as Message) };
   } catch {
-    return { at, direction: marker === markers[0] ? 'send' : 'recv' };
+    return { at, direction };
   }
 };
 
 /**
  * Records Playwright's protocol log (pw:protocol) for the running test into
  * a bounded ring, keeping only each message's direction, id, method and
- * session, and
- * returns the function that stops recording. Other DEBUG namespaces keep
- * reaching the original log.
+ * sessions, and returns the function that stops recording. Other DEBUG
+ * namespaces keep reaching the original log.
  */
 export function recordProtocol(): () => void {
   const { debug } = utilsBundle;
@@ -89,7 +110,7 @@ export function recordProtocol(): () => void {
 const line = (entry: ProtocolEntry, from: number) =>
   `+${Math.round(entry.at - from)}ms ${entry.direction === 'send' ? 'SEND ►' : '◀ RECV'} ${
     entry.id === undefined ? 'event' : `#${entry.id}`
-  }${entry.method ? ` ${entry.method}` : ''}${entry.session ? ` [${entry.session}]` : ''}${entry.error ? ` error: ${entry.error}` : ''}`;
+  }${entry.method ? ` ${entry.method}` : ''}${entry.session ? ` [${entry.session}]` : ''}${entry.opens ? ` opens [${entry.opens}]` : ''}${entry.error ? ` error: ${entry.error}` : ''}`;
 
 /** The whole test's protocol tail, for a failed test's protocol.log. */
 export const protocolLog = () =>
@@ -104,12 +125,40 @@ export function startWindow() {
   return performance.now();
 }
 
+/**
+ * The whole evidence capture's budget, well inside the test's 30 s after a
+ * 15 s bound: the first captured stall spent its remaining 15 s on ps and
+ * the server log at load 222 and surfaced as a bare "Test timeout", not the
+ * named failure (ISSUE-282). Reading gets most of it; writing the rest.
+ */
+export const CAPTURE_BUDGET_MS = 3_000;
+const READ_BUDGET_MS = 2_000;
+
+/** `work`'s result, or a line saying it did not finish within `ms`. */
+const within = async (what: string, work: Promise<string>, ms: number) => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const cut = new Promise<string>((resolve) => {
+    timer = setTimeout(
+      () => resolve(`${what} did not finish within ${ms} ms`),
+      ms,
+    );
+  });
+  try {
+    return await Promise.race([
+      work.catch((error: Error) => `${what} failed: ${error.message}`),
+      cut,
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
 const ps = async () => {
   try {
     const { stdout } = await promisify(execFile)(
       'ps',
       ['-Ao', 'pid=,ppid=,stat=,pcpu=,comm='],
-      { timeout: 10_000 },
+      { timeout: READ_BUDGET_MS },
     );
     return stdout;
   } catch (error) {
@@ -130,65 +179,107 @@ const ps = async () => {
 };
 
 /**
+ * The last 256 KiB of the server log: the window is the last few seconds,
+ * and the whole log of a long run is megabytes to read and parse.
+ */
+const tail = async (path: string) => {
+  const file = await open(path, 'r');
+  try {
+    const { size } = await file.stat();
+    const length = Math.min(size, 256 * 1024);
+    const buffer = Buffer.alloc(length);
+    await file.read(buffer, 0, length, size - length);
+    return buffer.toString('utf8');
+  } finally {
+    await file.close();
+  }
+};
+
+/**
  * Writes stall-evidence.log for a page creation that started at `from` and
- * outlived its limit, and returns the layer the evidence names.
+ * outlived its limit, and returns the layer the evidence names, all within
+ * CAPTURE_BUDGET_MS. The verdict and the protocol are cut at the moment the
+ * bound fired; the process snapshot and the server log are what arrives
+ * within the read budget.
  */
 export async function recordStall(
   testInfo: TestInfo,
   { step, from, limitMs }: { step: string; from: number; limitMs: number },
+  processSnapshot: () => Promise<string> = ps,
 ): Promise<string> {
   const to = performance.now();
+  const window = entries.filter(({ at }) => at >= from && at <= to);
   // The bound's own timer firing late is the driver's delay too: a starved
   // loop runs it late (and may not have sampled the histogram yet).
   const lateMs = to - from - limitMs;
-  const driverMaxDelayMs = Math.max(loop.max / 1e6, lateMs);
+  const loopMaxMs = loop.max / 1e6;
+  const loopMeanMs = loop.mean / 1e6;
   const epoch = (at: number) => performance.timeOrigin + at;
   const serverLogPath = join(
     dirname(testInfo.config.configFile ?? '.'),
     'test-results',
     `server-${resolveE2EPorts(process.env).app}.log`,
   );
-  const serverLog = await readFile(serverLogPath, 'utf8').catch(
-    (error: Error) => `unreadable: ${error.message}`,
-  );
+  const [serverLog, processes] = await Promise.all([
+    within('the server log read', tail(serverLogPath), READ_BUDGET_MS),
+    within('the process snapshot', processSnapshot(), READ_BUDGET_MS),
+  ]);
   const server = serverWindow(serverLog, epoch(from), epoch(to));
-  const protocol = protocolVerdict(entries, from);
-  const verdict = judgeStall({ protocol, driverMaxDelayMs, server });
-  const processes = await ps();
-  const top = processes
-    .trim()
-    .split('\n')
-    .map((row) => row.trim().split(/\s+/))
-    .sort((a, b) => Number(b[3]) - Number(a[3]))
-    .slice(0, 10)
-    .map(([pid, , stat, cpu, ...comm]) => psRow(pid!, stat!, cpu!, comm));
+  const verdict = judgeStall({
+    protocol: protocolVerdict(window, from),
+    driverMaxDelayMs: Math.max(loopMaxMs, lateMs),
+    server,
+  });
+  // ps rows start with a pid and a ppid; anything else is why there are none.
+  const listed = /^\s*\d+\s+\d+\s/.test(processes);
+  const top = listed
+    ? processes
+        .trim()
+        .split('\n')
+        .map((row) => row.trim().split(/\s+/))
+        .sort((a, b) => Number(b[3]) - Number(a[3]))
+        .slice(0, 10)
+        .map(([pid, , stat, cpu, ...comm]) => psRow(pid!, stat!, cpu!, comm))
+    : [processes];
   const report = [
     `cause: ${verdict.layer}`,
     verdict.detail,
     `step: ${step}; limit ${limitMs} ms; the bound fired ${Math.round(lateMs)} ms late`,
-    `driver event loop: max ${Math.round(loop.max / 1e6)} ms, mean ${Math.round(loop.mean / 1e6)} ms`,
+    `driver event loop: max ${Math.round(loopMaxMs)} ms, mean ${Math.round(loopMeanMs)} ms`,
     `server event loop: ${server.loopSamples} samples, max ${server.loopMaxDelayMs} ms, longest silence ${Math.round(server.loopSilentMs)} ms; requests completed: ${server.requests}`,
+    // os.freemem excludes inactive and cached memory on macOS, so a low
+    // figure there is routine, not memory pressure.
     `host: load ${loadavg()
       .map((load) => load.toFixed(1))
-      .join(
-        ' ',
-      )} on ${cpus().length} CPUs, ${Math.round(freemem() / 2 ** 20)} MiB free`,
+      .join(' ')} on ${cpus().length} CPUs; os.freemem ${Math.round(
+      freemem() / 2 ** 20,
+    )} MiB`,
     '',
     `worker ${process.pid} and its processes (pid stat cpu command):`,
-    ...processTree(processes, process.pid),
+    ...(listed ? processTree(processes, process.pid) : [processes]),
     '',
     'top CPU on the host:',
     ...top,
     '',
-    'protocol in the window:',
-    ...entries.filter(({ at }) => at >= from).map((entry) => line(entry, from)),
+    'protocol in the window (to the moment the bound fired):',
+    ...window.map((entry) => line(entry, from)),
     '',
     `server log in the window (${serverLogPath}):`,
-    ...server.lines,
+    ...(server.lines.length
+      ? server.lines
+      : [
+          serverLog.startsWith('the server log read')
+            ? serverLog
+            : '(no server log lines in the window)',
+        ]),
   ];
-  await writeFile(
-    testInfo.outputPath('stall-evidence.log'),
-    `${report.join('\n')}\n`,
+  await within(
+    'writing stall-evidence.log',
+    writeFile(
+      testInfo.outputPath('stall-evidence.log'),
+      `${report.join('\n')}\n`,
+    ).then(() => ''),
+    CAPTURE_BUDGET_MS - READ_BUDGET_MS,
   );
   return verdict.layer;
 }
