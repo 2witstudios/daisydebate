@@ -153,6 +153,30 @@ describe('createAlertRecorder (AUTH-7.7)', () => {
     });
   });
 
+  test('counts each shed piece of handed-off mail work into the current minute bucket (ISSUE-220)', () => {
+    const { redis, calls } = fakeAlertRedis();
+    const recorder = createAlertRecorder({ redis, clock: fixedClock(NOW) });
+    const bucket = Math.floor(Date.parse(NOW) / 60_000);
+    recorder.observe('auth.mail.shed', {
+      operation: 'auth.after-response',
+      pending: 68,
+    });
+    recorder.observe('auth.mail.shed', {
+      operation: 'auth.after-response',
+      pending: 68,
+    });
+    assert({
+      given: 'two shed events in one minute',
+      should:
+        'increment that minute shed bucket twice under the 11-minute bucket TTL, keyed by time only',
+      actual: calls,
+      expected: [
+        { op: 'incrementWithExpiry', args: [`alert-mail-shed-${bucket}`, 660] },
+        { op: 'incrementWithExpiry', args: [`alert-mail-shed-${bucket}`, 660] },
+      ],
+    });
+  });
+
   test('ignores non-auth operations and completions without a numeric status', () => {
     const { redis, calls } = fakeAlertRedis();
     const recorder = createAlertRecorder({ redis, clock: fixedClock(NOW) });

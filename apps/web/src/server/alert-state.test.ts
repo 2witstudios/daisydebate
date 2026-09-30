@@ -18,6 +18,7 @@ const baseSnapshot: AlertSnapshot = {
   deliveryConsecutiveFailures: 0,
   authRequests: { total: 0, serverErrors: 0, windowMinutes: 10 },
   retentionLastSuccessIso: null,
+  mailShed: { count: 0, windowMinutes: 10 },
 };
 
 describe('evaluateAlerts (AUTH-7.7)', () => {
@@ -168,6 +169,31 @@ describe('evaluateAlerts (AUTH-7.7)', () => {
     });
   });
 
+  test('handed-off mail shed at the threshold over its window fires mail_shed; one under does not (ISSUE-220)', () => {
+    const shed = (count: number) =>
+      evaluateAlerts({
+        ...baseSnapshot,
+        retentionLastSuccessIso: NOW,
+        mailShed: { count, windowMinutes: 10 },
+      });
+    const [fired] = shed(ALERT_THRESHOLDS.mailShedCount);
+    assert({
+      given: `${ALERT_THRESHOLDS.mailShedCount - 1}, then ${ALERT_THRESHOLDS.mailShedCount}, shed tasks in the window`,
+      should:
+        'fire nothing, then mail_shed with the count and window only, pointing at its runbook section',
+      actual: [shed(ALERT_THRESHOLDS.mailShedCount - 1), fired],
+      expected: [
+        [],
+        {
+          id: 'mail_shed',
+          summary: `${ALERT_THRESHOLDS.mailShedCount} handed-off auth mail tasks shed in 10m: sign-in and sign-up mail is being dropped`,
+          runbook:
+            'docs/operations/auth-delivery.md#auth-mail-shed-past-the-bound',
+        },
+      ],
+    });
+  });
+
   test('every condition names its own runbook anchor', () => {
     const since = new Date(
       Date.parse(NOW) - ALERT_THRESHOLDS.unavailableMs - 1,
@@ -180,6 +206,7 @@ describe('evaluateAlerts (AUTH-7.7)', () => {
       deliveryConsecutiveFailures: 3,
       authRequests: { total: 100, serverErrors: 5, windowMinutes: 10 },
       retentionLastSuccessIso: null,
+      mailShed: { count: ALERT_THRESHOLDS.mailShedCount, windowMinutes: 10 },
     });
     assert({
       given: 'every alert condition firing at once',
@@ -206,11 +233,15 @@ describe('readAlertSnapshot (AUTH-7.7)', () => {
       [`alert-http-5xx-${currentBucket}`, '1'],
       [`alert-http-total-${currentBucket - 5}`, '60'],
       [`alert-http-5xx-${currentBucket - 5}`, '2'],
+      [`alert-mail-shed-${currentBucket}`, '15'],
+      [`alert-mail-shed-${currentBucket - 9}`, '7'],
+      [`alert-mail-shed-${currentBucket - 10}`, '100'],
     ]);
     const redis = { get: async (key: string) => values.get(key) ?? null };
     assert({
-      given: 'markers spread across the 10-minute request window',
-      should: 'assemble one snapshot summing every bucket in range',
+      given:
+        'markers spread across the 10-minute request and shed windows, and a shed bucket just outside',
+      should: 'assemble one snapshot summing every bucket in range only',
       actual: await readAlertSnapshot({ redis, clock, local: noLocalOutage }),
       expected: {
         nowIso: NOW,
@@ -220,6 +251,7 @@ describe('readAlertSnapshot (AUTH-7.7)', () => {
         deliveryConsecutiveFailures: 2,
         authRequests: { total: 100, serverErrors: 3, windowMinutes: 10 },
         retentionLastSuccessIso: '2026-09-25T11:00:00.000Z',
+        mailShed: { count: 22, windowMinutes: 10 },
       },
     });
   });
@@ -238,6 +270,7 @@ describe('readAlertSnapshot (AUTH-7.7)', () => {
         deliveryConsecutiveFailures: 0,
         authRequests: { total: 0, serverErrors: 0, windowMinutes: 10 },
         retentionLastSuccessIso: null,
+        mailShed: { count: 0, windowMinutes: 10 },
       },
     });
   });

@@ -23,7 +23,7 @@ describe('alert state with the limiter kept in process (ISSUE-191)', () => {
       given:
         'a snapshot whose Redis state could not be read, with the limiter unavailable for 2 minutes in process',
       should:
-        'fire limiter_unavailable and none of the Redis-backed conditions it could not read, cleanup_missed included',
+        'fire limiter_unavailable and none of the Redis-backed conditions it could not read, cleanup_missed and a stale shed count included',
       actual: evaluateAlerts({
         nowIso: NOW,
         redisState: 'unreachable',
@@ -32,6 +32,7 @@ describe('alert state with the limiter kept in process (ISSUE-191)', () => {
         deliveryConsecutiveFailures: 0,
         authRequests: { total: 0, serverErrors: 0, windowMinutes: 10 },
         retentionLastSuccessIso: null,
+        mailShed: { count: 500, windowMinutes: 10 },
       }).map((c) => c.id),
       expected: ['limiter_unavailable'],
     });
@@ -93,6 +94,7 @@ describe('alert state with the limiter kept in process (ISSUE-191)', () => {
         deliveryConsecutiveFailures: 0,
         authRequests: { total: 0, serverErrors: 0, windowMinutes: 10 },
         retentionLastSuccessIso: null,
+        mailShed: { count: 0, windowMinutes: 10 },
       },
     });
   });

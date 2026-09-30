@@ -77,8 +77,10 @@ before the account lookup and the send or drop, which finish afterwards
 auth.after-response` for a database failure in that work. That work is
 bounded (4 running, 64 waiting); past it a request's work is shed with no
 mail, logged as `auth.mail.shed` and counted as `auth_mail_shed_total` on
-`/api/ops/metrics`. A rising `auth_mail_shed_total` means a flood, or real
-sign-in volume above what the bound drains; it is not a mail outage.
+`/api/ops/metrics`. Sustained shedding fires the `mail_shed` alert (see
+"Alerting" and "Auth mail shed past the bound" below): it means a flood, or
+real sign-in volume above what the bound drains, and it is not a mail
+outage.
 
 The sign-in page offers passkeys in browser autofill, so every visible view
 spends one `/passkey/generate-authenticate-options` request (a challenge row
@@ -208,7 +210,7 @@ the process is draining. With them absent it says the response likely did
 not come from the app: Fly's proxy during a cold start, the start-up gate,
 or the app down.
 
-The four conditions, and the durable Redis marker each reads
+The conditions, and the durable Redis marker each reads
 (`apps/web/src/server/alert-recorder.ts` writes them by tapping the
 existing event stream — no new call sites):
 
@@ -219,6 +221,7 @@ existing event stream — no new call sites):
 | `delivery_failures`   | 3+ consecutive `auth.mail.failed`, reset by `auth.mail.sent`                                    | `alert-mail-consecutive-failures`                  |
 | `auth_5xx_rate`       | >1% of auth-operation requests are 5xx over the trailing 10 minutes, with at least 100 requests | per-minute `alert-http-total-*`/`alert-http-5xx-*` |
 | `cleanup_missed`      | the retention sweep has not completed successfully in 2+ hours, or never has                    | `alert-retention-last-success`                     |
+| `mail_shed`           | 20+ `auth.mail.shed` over the trailing 10 minutes (ISSUE-220)                                   | per-minute `alert-mail-shed-*`                     |
 
 `GET /api/ops/metrics` (same bearer token) exposes the bounded-cardinality
 Prometheus counters behind AUTH-7.7's dashboard criterion: auth HTTP
@@ -387,7 +390,8 @@ limiter_unavailable").
    `redisState: "unreachable"`, `limiter_unavailable` fires from the time
    the serving instance itself first saw the limiter unavailable, and the
    Redis-backed conditions (`storage_unavailable`, `delivery_failures`,
-   `auth_5xx_rate`, `cleanup_missed`) are not evaluated until Redis returns
+   `auth_5xx_rate`, `cleanup_missed`, `mail_shed`) are not evaluated until
+   Redis returns
    (`apps/web/integration/auth-ops-signals.integration.ts`, "a Redis outage
    that outlasts the threshold fires limiter_unavailable from when it
    began"). The probe posts that unread state even when readiness passes
@@ -474,3 +478,30 @@ least 100 requests fires; below either threshold does not").
    fully succeeds keeps this alert firing even while individual batches
    make progress — that is intentional (AUTH-7.7's "cleanup missed" names
    the failure to _complete_, not the failure to _attempt_).
+
+### Auth mail shed past the bound
+
+**Symptom:** the `mail_shed` alert fires: 20 or more pieces of magic-link
+work were shed in the trailing 10 minutes
+(`ALERT_THRESHOLDS.mailShedCount` and `mailShedWindowMinutes` in
+`apps/web/src/server/alert-state.ts`; proven through the composed app in
+`apps/web/integration/auth-mail-shed-alert.integration.ts`). While the
+global sign-up ceiling is saturated, every magic-link request's lookup and
+send or drop runs after its answer, at most 4 at once with 64 waiting
+(`after-response.ts`). Everything past that is shed, and **real sign-ins
+get no mail** as well as sign-ups (DEC-73). The person sees the ordinary
+success and must request another link, or use a passkey.
+
+1. Check `auth.rate_limit.denied` with `path: /sign-in/magic-link`. A
+   saturated global ceiling is the precondition for shedding. Sustained
+   denials with shedding mean a flood of new addresses (rotating clients,
+   plus-addressed recipients), or real volume above the ceilings.
+2. Check `auth_mail_shed_total` on `/api/ops/metrics` for the rate. The
+   alert carries counts only, never an address.
+3. A flood ends on its own when it stops. The ceiling's minute window
+   resets, and the backlog drains in about 17 provider round trips. If real
+   volume is the cause, raise the ceilings (`MAGIC_LINK_GLOBAL_RULES`,
+   `rate-limit.ts`, and ADR 0025) rather than the bound: the bound protects
+   the Postgres pool and the process's memory.
+4. Check `auth.mail.failed`: a slow or failing provider holds every slot
+   longer, so the bound fills sooner.

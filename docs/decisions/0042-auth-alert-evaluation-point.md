@@ -152,6 +152,19 @@ exactly one place.
   ran" — accepted trade-off: a fresh deploy can show this condition for the
   few seconds between boot and the `runOnStart` sweep's first completion,
   a window no probe run — at any cadence — is likely to land inside).
+- **Mail shed past the bound (ISSUE-220).** A saturated sign-up ceiling
+  hands each magic-link request's lookup and send or drop to bounded work
+  after its answer (ADR 0025, DEC-73). Work past the bound is shed and
+  logged as `auth.mail.shed`, and real sign-ins get no mail. The tap
+  increments a per-minute `alert-mail-shed-<minute>` counter (11-minute
+  TTL, like the 5xx buckets), and `readAlertSnapshot` sums the trailing
+  `ALERT_THRESHOLDS.mailShedWindowMinutes` (10) into `mailShed.count`.
+  `mail_shed` fires at `ALERT_THRESHOLDS.mailShedCount` (20). A saturated
+  minute with real sign-in traffic can shed a stray task, so it waits for
+  a sustained count, and any flood that fills the bound sheds far more:
+  every request past the 68 held tasks. The counter carries no address,
+  token or task identity. Like every Redis-backed condition, it is not
+  evaluated while Redis is unreadable.
 
 **Redis, not Postgres, holds every durable alert marker**, including the
 retention one (the limiter's in-process copy above is not durable), even
