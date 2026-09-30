@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/fixtures';
 
 test.describe('dashboard shell chrome', () => {
   test('sidebar marks the active route and navigates from the shell', async ({

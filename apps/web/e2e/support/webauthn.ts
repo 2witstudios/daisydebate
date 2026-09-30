@@ -1,6 +1,6 @@
 import { expect, type CDPSession, type Page } from '@playwright/test';
 import { boundedStep } from './bounded-step';
-import { recordDiagnostic, watchPage } from './browser-diagnostics';
+import { recordDiagnostic, watchPage } from './fixtures';
 import { hydrated } from './hydration';
 
 // Every CDP command below is a bounded step: Playwright gives CDP no timeout

@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import { type Page } from '@playwright/test';
+import { expect, test } from './support/fixtures';
 import { freshEmail, origin, resetRateLimits } from './support/accounts';
 import { expectFocusOn } from './support/focus';
 import { resendByKeyboard } from './support/forms';
