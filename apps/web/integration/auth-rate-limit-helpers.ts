@@ -52,24 +52,6 @@ export const elapse = async (testApp: TestApp, ...buckets: string[]) => {
 };
 
 /**
- * A fixed window held open: its real counter keeps its count and expires
- * `ms` from now, so a ceiling saturated by real requests stays saturated
- * for a whole measurement however loaded the machine is.
- */
-export const holdOpen = async (
-  testApp: TestApp,
-  bucket: string,
-  ms: number,
-) => {
-  const client = openTestRedis(testRedisUrl);
-  try {
-    await client.send('PEXPIRE', [limiterKey(testApp, bucket), String(ms)]);
-  } finally {
-    client.close();
-  }
-};
-
-/**
  * Holds a fixed window open only if it is saturated: its real counter is
  * past `max` and its key is still there (PEXPIRE answers 0 for a key that
  * expired). A window that elapsed while a loaded machine was still setting

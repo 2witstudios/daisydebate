@@ -1,6 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createCeilingFlows, GLOBAL_MINUTE } from './auth-ceiling-helpers';
-import { elapse, holdOpen, recipientBucket } from './auth-rate-limit-helpers';
+import {
+  createCeilingFlows,
+  saturateGlobalMinute,
+} from './auth-ceiling-helpers';
+import { elapse, recipientBucket } from './auth-rate-limit-helpers';
 import { createTestApp } from './fixtures';
 import { requireTestServices } from '@daisy/config';
 
@@ -63,15 +66,11 @@ const median = (sample: number[]) => {
 };
 
 /**
- * The real minute ceiling saturated by 120 new addresses, then held open
- * for the whole test so no sample lands in a fresh window.
+ * The real minute ceiling saturated by real requests, then held open for
+ * the whole test so no sample lands in a fresh window.
  */
-const saturate = async () => {
-  await elapseGlobalMinute();
-  await Promise.all(Array.from({ length: 120 }, () => magicLink(fresh())));
-  await settled();
-  await holdOpen(testApp, GLOBAL_MINUTE, 600_000);
-};
+const saturate = () =>
+  saturateGlobalMinute({ testApp, magicLink, fresh, settled });
 
 /** An existing account's own recipient windows elapsed (3/minute, 10/hour, 20/day). */
 const recipientRoom = (email: string) =>
@@ -190,9 +189,12 @@ describe('ISSUE-185 a saturated sign-up ceiling answers in the same time for any
       closing.routes.auth.POST(
         closing.jsonPost('/api/auth/sign-in/magic-link', { email }),
       );
-    await Promise.all(
-      Array.from({ length: 120 }, () => request(closing.freshEmail())),
-    );
+    await saturateGlobalMinute({
+      testApp: closing,
+      magicLink: request,
+      fresh: closing.freshEmail,
+      settled: () => closing.app.auth().settled(),
+    });
     const release = closing.mailbox.hold();
     const arrived = closing.mailbox.nextArrival();
     const { result, events } = await closing.withLoggedEvents(async () => {
