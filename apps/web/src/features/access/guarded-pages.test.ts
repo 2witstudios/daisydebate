@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { mock } from 'bun:test';
 import { Glob } from 'bun';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { isGuardedPath } from './decision';
+import { guardedAreaFor, isGuardedPath } from './decision';
 
 setupRitewayBun();
 
@@ -75,7 +75,7 @@ const guardRequestsOf = async (file: string) => {
     searchParams,
   });
   return guardCalls.map((call) => ({
-    root: call.path.split('/')[1],
+    root: guardedAreaFor(call.path),
     ownSearchParams: call.searchParams === searchParams,
   }));
 };
@@ -102,28 +102,28 @@ describe('guarded pages', () => {
       given: 'the page files the glob found under guarded roots',
       should: 'cover every guarded root, so an empty scan cannot pass',
       actual: [
-        ...new Set(guarded.map(({ route }) => route.split('/')[1])),
+        ...new Set(guarded.map(({ route }) => guardedAreaFor(route))),
       ].sort(),
       expected: [
-        'judge',
-        'lobby',
-        'play',
-        'prep',
-        'ranked',
-        'recordings',
-        'settings',
-        'train',
+        '/judge',
+        '/lobby',
+        '/play',
+        '/prep',
+        '/ranked',
+        '/recordings',
+        '/settings',
+        '/train',
       ],
     });
     const requests = await requestsOf(guarded);
     assert({
       given: `the ${guarded.length} page files under the guarded roots, each rendered`,
       should:
-        'call requireAccess once with its own root and its own search params (the requirement comes from the guarded-area table)',
+        'call requireAccess once with its own guarded area and its own search params (the requirement comes from the guarded-area table)',
       actual: requests,
       expected: guarded.map(({ file, route }) => ({
         file,
-        requests: [{ root: route.split('/')[1], ownSearchParams: true }],
+        requests: [{ root: guardedAreaFor(route), ownSearchParams: true }],
       })),
     });
   });
