@@ -1,8 +1,8 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { GLOBAL_MINUTE } from './auth-ceiling-helpers';
+import { saturateGlobalMinute } from './auth-ceiling-helpers';
 import { createAccountFlows } from './auth-account-helpers';
-import { elapse, holdOpen, recipientBucket } from './auth-rate-limit-helpers';
+import { elapse, recipientBucket } from './auth-rate-limit-helpers';
 import { createTestApp, type TestApp } from './fixtures';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 
@@ -18,14 +18,18 @@ import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
  * The full pool is one slot wide here (`afterResponseLimits`), so the
  * target's own work fills it; in production it takes a flood holding all
  * AFTER_RESPONSE_MAX_RUNNING slots (ADR 0025 gives the rate).
+ *
+ * No step waits on elapsed time (ISSUE-280). The provider round trip is a
+ * latch the test holds until the canary is decided: a real send holds its
+ * slot for exactly that long however loaded the machine is, and a dropped
+ * sign-up has released its slot before the canary is sent. The admit-or-shed
+ * decision is made before the canary's answer returns, so releasing the
+ * latch afterwards cannot change it. With a wall-clock round trip instead,
+ * a canary request slower than the round trip found the slot already free
+ * and was mailed (existing: 1, seen at a load average of 300).
  */
 requireTestServices(process.env);
 setupRitewayBun();
-
-const PROVIDER_ROUND_TRIP_MS = 400;
-
-/** Half a round trip: the target's send, if any, still holds its slot. */
-const CANARY_DELAY_MS = 200;
 
 const TRIALS = 10;
 
@@ -49,22 +53,30 @@ const canaryAttack = (testApp: TestApp) => {
     );
   const settled = () => testApp.app.auth().settled();
   return async () => {
-    await elapse(testApp, GLOBAL_MINUTE);
     const target = (await accounts.signUp()).email;
     const canary = (await accounts.signUp()).email;
-    await Promise.all(
-      Array.from({ length: 120 }, () => magicLink(testApp.freshEmail())),
-    );
-    await settled();
-    await holdOpen(testApp, GLOBAL_MINUTE, 600_000);
-    testApp.mailbox.setLatency(PROVIDER_ROUND_TRIP_MS);
-    const trial = async (targetEmail: string) => {
+    await saturateGlobalMinute({
+      testApp,
+      magicLink,
+      fresh: testApp.freshEmail,
+      settled,
+    });
+    const trial = async (targetEmail: string, exists: boolean) => {
       await room(targetEmail);
       await room(canary);
       const from = testApp.mailbox.mails.length;
-      await magicLink(targetEmail);
-      await new Promise((resolve) => setTimeout(resolve, CANARY_DELAY_MS));
-      await magicLink(canary);
+      const release = testApp.mailbox.hold();
+      try {
+        const arrival = testApp.mailbox.nextArrival();
+        await magicLink(targetEmail);
+        // A real send is in flight at the provider and holds its slot until
+        // the release below; a dropped sign-up never reaches the provider,
+        // so its slot is free once its work has settled.
+        await (exists ? arrival : settled());
+        await magicLink(canary);
+      } finally {
+        release();
+      }
       await settled();
       return testApp.mailbox.mails.slice(from).some(({ to }) => to === canary)
         ? 1
@@ -73,10 +85,9 @@ const canaryAttack = (testApp: TestApp) => {
     let existing = 0;
     let unknown = 0;
     for (let index = 0; index < TRIALS; index += 1) {
-      existing += await trial(target);
-      unknown += await trial(testApp.freshEmail());
+      existing += await trial(target, true);
+      unknown += await trial(testApp.freshEmail(), false);
     }
-    testApp.mailbox.setLatency(0);
     return { existing, unknown };
   };
 };
@@ -89,7 +100,7 @@ const full = canaryAttack(
 describe('ISSUE-185 residual: slot occupancy shows account existence only once the pool is full (DEC-76)', () => {
   test('while the occupancy pool has room, a canary is mailed behind any target', async () => {
     assert({
-      given: `a saturated ceiling, a ${PROVIDER_ROUND_TRIP_MS} ms provider, the production occupancy pool, and a canary ${CANARY_DELAY_MS} ms behind each of ${TRIALS} existing and ${TRIALS} unknown targets`,
+      given: `a saturated ceiling, a provider held until the canary is decided, the production occupancy pool, and a canary right behind each of ${TRIALS} existing and ${TRIALS} unknown targets`,
       should: 'mail every canary, whatever the target',
       actual: await withRoom(),
       expected: { existing: TRIALS, unknown: TRIALS },

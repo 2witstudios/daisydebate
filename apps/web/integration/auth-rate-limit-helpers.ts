@@ -69,6 +69,31 @@ export const holdOpen = async (
   }
 };
 
+/**
+ * Holds a fixed window open only if it is saturated: its real counter is
+ * past `max` and its key is still there (PEXPIRE answers 0 for a key that
+ * expired). A window that elapsed while a loaded machine was still setting
+ * up reads as not saturated, so the caller saturates again instead of
+ * holding open a window that never filled (ISSUE-281).
+ */
+export const holdOpenIfSaturated = async (
+  testApp: TestApp,
+  bucket: string,
+  max: number,
+  ms: number,
+) => {
+  const client = openTestRedis(testRedisUrl);
+  try {
+    const key = limiterKey(testApp, bucket);
+    const count = Number((await client.get(key)) ?? 0);
+    return (
+      count > max && (await client.send('PEXPIRE', [key, String(ms)])) === 1
+    );
+  } finally {
+    client.close();
+  }
+};
+
 export const statuses = (responses: Response[]) =>
   responses.reduce<Record<number, number>>((tally, response) => {
     tally[response.status] = (tally[response.status] ?? 0) + 1;
