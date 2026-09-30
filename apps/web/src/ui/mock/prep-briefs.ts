@@ -11,7 +11,7 @@ import { sampleTeamName } from './prep';
  * a sample constant the mock uses for the time bars. The screen never prints
  * it; it prints "[speech time]".
  */
-export const sampleSpeechLimitSeconds = 480;
+export const sampleSpeechLimitSeconds = 360;
 
 /** Placeholder spoken words: `n`-ish words that say plainly they are samples. */
 const filler = (label: string, n: number): string =>

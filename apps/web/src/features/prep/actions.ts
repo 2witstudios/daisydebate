@@ -56,5 +56,15 @@ export const inertActions = {
     reason: notBuilt('Adding a brief to a case'),
   },
   saveBrief: { label: 'Save changes', reason: notBuilt('Saving a brief') },
+  shareCase: { label: 'Share', reason: notBuilt('Sharing a case') },
+  addBlock: { label: 'Add to speech', reason: notBuilt('Adding to a speech') },
+  saveVersion: { label: 'Save version', reason: notBuilt('Saving a version') },
+  restoreVersion: {
+    label: 'Restore as a new version',
+    reason: notBuilt('Restoring a version'),
+  },
+  exportPdf: { label: 'Export PDF', reason: notBuilt('Exporting a file') },
+  print: { label: 'Print', reason: notBuilt('Printing') },
+  copyText: { label: 'Copy as text', reason: notBuilt('Copying as text') },
   deleteCard: { label: 'Delete card', reason: notBuilt('Deleting a card') },
 } as const satisfies Record<string, InertAction>;
