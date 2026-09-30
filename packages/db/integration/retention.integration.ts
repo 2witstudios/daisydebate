@@ -157,67 +157,48 @@ test("a batch deletes exactly its limit of its own rows, never another suite's, 
   const tag = `rt-${createId().slice(0, 10)}`;
   // Rows another suite could leave: older than this test's own, so a cutoff
   // that reached them would take them first (the batch deletes oldest first).
-  const decoy = `rt-${createId().slice(0, 10)}`;
+  const other = `rt-${createId().slice(0, 10)}`;
   // Year 1, not 2001: other suites date rows in 2001, and a cutoff there
   // makes this batch compete for them (ISSUE-255). Nothing else is this old,
   // so the cutoff reaches only this test's rows.
   const at = '0001-01-01T00:00:00.000Z';
-  const isolatedBefore = '0001-01-02T00:00:00.000Z';
   const [deliveries] = tables.filter(
     (table) => table.operation === 'purgeExpiredEmailDeliveries',
   );
   const database = createDatabase({ url, nextActorId: createId });
-  const ids = (sql: SQL, owner: string) =>
-    sql`select id from email_delivery where recipient_hash = ${owner} order by id` as Promise<
-      Array<{ id: string }>
-    >;
   try {
-    const [mine, decoys] = await withSql(async (sql) => {
+    await withSql(async (sql) => {
       for (let index = 0; index < 5; index += 1)
         await deliveries!.insert(sql, tag, at);
       for (let index = 0; index < 3; index += 1)
-        await deliveries!.insert(sql, decoy, '2000-12-31T00:00:00.000Z');
+        await deliveries!.insert(sql, other, '2000-12-31T00:00:00.000Z');
       await sql`insert into email_suppression (recipient_hash, reason, provider_message_id, created_at)
         values (${tag}, 'bounce', ${tag}, ${at})`;
-      return [await ids(sql, tag), await ids(sql, decoy)];
     });
     const deleted = await database.purgeExpiredEmailDeliveries({
-      before: isolatedBefore,
+      before: '0001-01-02T00:00:00.000Z',
       limit: 2,
     });
-    const [left, decoysLeft, suppressions] = await withSql(async (sql) => [
-      await ids(sql, tag),
-      await ids(sql, decoy),
+    const [left, othersLeft, suppressions] = await withSql(async (sql) => [
+      await deliveries!.left(sql, tag),
+      await deliveries!.left(sql, other),
       await count(
         sql`select count(*)::int as n from email_suppression where recipient_hash = ${tag}`,
       ),
     ]);
-    const gone = mine.filter((row) => !left.some((kept) => kept.id === row.id));
     assert({
       given:
         "five of this test's delivery rows and a suppression, three older rows another suite left, and a batch limit of two",
       should:
         "delete exactly two of this test's rows, leave the other suite's rows and the suppression",
-      actual: {
-        deleted,
-        goneOfMine: gone.length,
-        left: left.length,
-        decoysLeft: decoysLeft.length === decoys.length,
-        suppressions,
-      },
-      expected: {
-        deleted: 2,
-        goneOfMine: 2,
-        left: 3,
-        decoysLeft: true,
-        suppressions: 1,
-      },
+      actual: { deleted, left, othersLeft, suppressions },
+      expected: { deleted: 2, left: 3, othersLeft: 3, suppressions: 1 },
     });
   } finally {
     await database.close();
     await withSql(async (sql) => {
       await deliveries!.clear(sql, tag);
-      await deliveries!.clear(sql, decoy);
+      await deliveries!.clear(sql, other);
       await sql`delete from email_suppression where recipient_hash = ${tag}`;
     });
   }
