@@ -295,6 +295,32 @@ describe('restrictions every no-restricted-syntax list carries', () => {
     });
   });
 
+  test('rejects a Bun.serve that leaves its address to the default wildcard bind (ISSUE-252)', async () => {
+    const wildcard = "Bun.serve({ port: 0, fetch: () => new Response('') });";
+    const { actual, expected } = table([
+      [wildcard, 'scripts/x.test.ts', 1],
+      [wildcard, 'apps/web/integration/x.integration.ts', 1],
+      [
+        "Bun.serve({ hostname: '127.0.0.1', port: 0, fetch: () => new Response('') });",
+        'scripts/x.test.ts',
+        0,
+      ],
+      [
+        "const hostname = '127.0.0.1';\nBun.serve({ hostname, port: 0, fetch: () => new Response('') });",
+        'apps/web/integration/x.integration.ts',
+        0,
+      ],
+    ]);
+    assert({
+      given:
+        'a Bun.serve with no hostname, and ones binding 127.0.0.1 explicitly or through shorthand',
+      should:
+        'report the unbound one as an error in scripts and integration suites, and the bound ones not at all',
+      actual: await actual,
+      expected,
+    });
+  });
+
   test('rejects an argument-less toThrow in every kind of suite (ISSUE-11)', async () => {
     const [bare, named] = [
       ['', ''],

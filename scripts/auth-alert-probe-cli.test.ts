@@ -28,6 +28,7 @@ const HEALTHY_READINESS = () =>
 const probeAgainst = (answer: (path: string) => Promise<Response> | Response) =>
   withHttpsReceiver(async (receiver) => {
     using origin = Bun.serve({
+      hostname: '127.0.0.1',
       port: 0,
       // Never drop an unanswered request: a hung endpoint must stay hung.
       idleTimeout: 0,

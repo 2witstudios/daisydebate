@@ -12,7 +12,11 @@ const LIMITER_UNAVAILABLE = {
 
 /** `/api/ops/alerts` answering 200 with this body. */
 const fetchFrom = async (body: unknown) => {
-  using server = Bun.serve({ port: 0, fetch: () => Response.json(body) });
+  using server = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    fetch: () => Response.json(body),
+  });
   // Awaited here: `using` stops the server as this function returns.
   return await fetchAlertConditions(`http://127.0.0.1:${server.port}`, 'token');
 };

@@ -32,6 +32,21 @@ const bareToThrowRestriction = {
 };
 
 /**
+ * ISSUE-252: a Bun.serve with no hostname binds the wildcard address, and on
+ * macOS another process may hold the same port on 127.0.0.1; requests to
+ * 127.0.0.1 then reach that process instead (an Ollama or GitHub listener
+ * answered a probe test's request). Binding 127.0.0.1 explicitly makes the
+ * kernel refuse or avoid the taken port. Carried by every list, like the
+ * two above.
+ */
+const unboundServeRestriction = {
+  selector:
+    "CallExpression[callee.object.name='Bun'][callee.property.name='serve']:not(:has(Property[key.name='hostname']))",
+  message:
+    "Bind the server's address (hostname: '127.0.0.1'): a wildcard bind can share its port with another process's loopback listener.",
+};
+
+/**
  * ISSUE-7's process edge: app code receives configuration and resources as
  * arguments from a composition root, so nothing in an app may mutate
  * process.env or globalThis, tests included (each builds its own app).
@@ -162,6 +177,7 @@ const repoSyntaxRestrictions = [
   },
   exportStarRestriction,
   bareToThrowRestriction,
+  unboundServeRestriction,
   ...processMutationRestrictions,
 ];
 
@@ -392,6 +408,7 @@ export default [
         'error',
         exportStarRestriction,
         bareToThrowRestriction,
+        unboundServeRestriction,
       ],
     },
   },
@@ -404,6 +421,7 @@ export default [
         'error',
         exportStarRestriction,
         bareToThrowRestriction,
+        unboundServeRestriction,
         ...processMutationRestrictions,
       ],
     },
@@ -442,6 +460,7 @@ export default [
         'error',
         exportStarRestriction,
         bareToThrowRestriction,
+        unboundServeRestriction,
         ...processMutationRestrictions,
         ...processEdgeLoads,
       ],

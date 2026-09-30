@@ -285,6 +285,7 @@ describe('composeAlertMessage (AUTH-7.7)', () => {
 describe('fetchAlertConditions (ISSUE-156)', () => {
   test('returns the conditions from a healthy 200 response', async () => {
     using server = Bun.serve({
+      hostname: '127.0.0.1',
       port: 0,
       fetch: () =>
         Response.json({
@@ -324,6 +325,7 @@ describe('fetchAlertConditions (ISSUE-156)', () => {
 
   test('a non-2xx response from /api/ops/alerts resolves not-ok naming the status, never throws', async () => {
     using server = Bun.serve({
+      hostname: '127.0.0.1',
       port: 0,
       fetch: () => new Response('down', { status: 500 }),
     });
@@ -341,7 +343,11 @@ describe('fetchAlertConditions (ISSUE-156)', () => {
   });
 
   test('a 2xx body without a conditions array resolves not-ok, never ok with undefined conditions', async () => {
-    using server = Bun.serve({ port: 0, fetch: () => Response.json({}) });
+    using server = Bun.serve({
+      hostname: '127.0.0.1',
+      port: 0,
+      fetch: () => Response.json({}),
+    });
     const result = await fetchAlertConditions(
       `http://127.0.0.1:${server.port}`,
       'token',

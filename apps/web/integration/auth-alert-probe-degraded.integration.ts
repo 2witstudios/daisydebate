@@ -48,6 +48,7 @@ type IncidentsPost = { readonly body: string; readonly headers: Headers };
 function createIncidentsReceiver() {
   const posts: IncidentsPost[] = [];
   const capture = Bun.serve({
+    hostname: '127.0.0.1',
     port: 0,
     fetch: async (request) => {
       posts.push({ body: await request.text(), headers: request.headers });
@@ -131,6 +132,7 @@ describe('ISSUE-199 the probe over an unreadable alert state', () => {
     }).run();
     const headers = await productionHeaders();
     using origin = Bun.serve({
+      hostname: '127.0.0.1',
       port: 0,
       fetch: async (request) => {
         const path = new URL(request.url).pathname;
