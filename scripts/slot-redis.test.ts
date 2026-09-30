@@ -1,4 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { testRedisDatabase } from '@daisy/config';
 import {
   deriveSlot,
   slotEnvValues,
@@ -8,14 +9,10 @@ import {
 import {
   clearTestNamespaces,
   configValue,
-  expectedTestRedisDatabase,
   openOwnTestRedis,
   redisDatabaseRefusal,
   redisDatabasesNeeded,
   requireRedisDatabases,
-  testRedisRefusal,
-  testRedisRefusalOf,
-  testRedisDatabase,
 } from './slot-redis';
 
 setupRitewayBun();
@@ -128,158 +125,73 @@ describe('slot test Redis database (ISSUE-237)', () => {
     });
   });
 
-  test('derives the slot’s own database from its PORT', () => {
-    assert({
-      given:
-        'main (3000, or no PORT), worktree blocks 1, 11 and 499, and ports that name no block',
-      should:
-        'expect 1 for main and 2 + block for a worktree, and nothing for the rest',
-      actual: [
-        expectedTestRedisDatabase('3000'),
-        expectedTestRedisDatabase(undefined),
-        expectedTestRedisDatabase('13010'),
-        expectedTestRedisDatabase('13110'),
-        expectedTestRedisDatabase('17990'),
-        expectedTestRedisDatabase('13000'),
-        expectedTestRedisDatabase('13115'),
-        expectedTestRedisDatabase('18000'),
-        expectedTestRedisDatabase('abc'),
-        expectedTestRedisDatabase('13110', 'main'),
-      ],
-      expected: [
-        1,
-        1,
-        3,
-        13,
-        501,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        1,
-      ],
-    });
-  });
-
-  test('refuses every test Redis URL that is not exactly the slot’s own database', () => {
-    const own = 13;
-    const refusal = (url: string | undefined, expected: number | undefined) =>
-      testRedisRefusal(url, expected);
-    const wrong = (index: number | string) =>
-      `TEST_REDIS_URL names Redis database ${index}, expected this slot's own database ${own} (run bun slot:up)`;
-
-    assert({
-      given:
-        'a worktree on database 13 and URLs naming its own, another slot’s (5), dev (0, and by omission), e2e (2), main’s test (1), 512, a padded and a trailing-junk index',
-      should: 'accept only exactly 13 and name the database of every other',
-      actual: [
-        refusal('redis://localhost:6379/13', own),
-        refusal('redis://localhost:6379/5', own),
-        refusal('redis://localhost:6379/0', own),
-        refusal('redis://localhost:6379', own),
-        refusal('redis://localhost:6379/2', own),
-        refusal('redis://localhost:6379/1', own),
-        refusal('redis://localhost:6379/512', own),
-        refusal('redis://localhost:6379/013', own),
-        refusal('redis://localhost:6379/13x', own),
-      ],
-      expected: [
-        undefined,
-        wrong(5),
-        wrong(0),
-        wrong(0),
-        wrong(2),
-        wrong(1),
-        wrong(512),
-        wrong('013'),
-        wrong('13x'),
-      ],
-    });
-    assert({
-      given: 'the main slot (database 1) pointed at 0, 2, a worktree’s and 1',
-      should: 'accept only database 1',
-      actual: [
-        refusal('redis://localhost:6379/1', 1),
-        refusal('redis://localhost:6379/0', 1),
-        refusal('redis://localhost:6379/2', 1),
-        refusal('redis://localhost:6379/13', 1),
-      ],
-      expected: [
-        undefined,
-        "TEST_REDIS_URL names Redis database 0, expected this slot's own database 1 (run bun slot:up)",
-        "TEST_REDIS_URL names Redis database 2, expected this slot's own database 1 (run bun slot:up)",
-        "TEST_REDIS_URL names Redis database 13, expected this slot's own database 1 (run bun slot:up)",
-      ],
-    });
-    assert({
-      given: 'a slot whose PORT names no block, and no URL',
-      should: 'refuse rather than guess, and say what is unset',
-      actual: [
-        refusal('redis://localhost:6379/13', undefined),
-        refusal(undefined, own),
-      ],
-      expected: [
-        "PORT does not name this slot's port block, so its test Redis database cannot be derived (run bun slot:up)",
-        'TEST_REDIS_URL is unset',
-      ],
-    });
-  });
-
-  test('the runner’s guard reads TEST_REDIS_URL and PORT from the environment', () => {
-    const env = (url: string, port: string | undefined) => ({
-      TEST_REDIS_URL: url,
-      PORT: port,
-    });
-
-    assert({
-      given:
-        'a worktree (PORT 13110) on its own database, on another slot’s, and on dev 0; main (no PORT, CI) on 1 and on 0',
-      should: 'refuse every database that is not the slot’s own',
-      actual: [
-        testRedisRefusalOf(env('redis://h:6379/13', '13110')),
-        testRedisRefusalOf(env('redis://h:6379/5', '13110')) !== undefined,
-        testRedisRefusalOf(env('redis://h:6379/0', '13110')) !== undefined,
-        testRedisRefusalOf(env('redis://h:6379/1', undefined)),
-        testRedisRefusalOf(env('redis://h:6379/0', undefined)) !== undefined,
-      ],
-      expected: [undefined, true, true, undefined, true],
-    });
-  });
-
-  test('a client is opened only on the worktree’s own database', () => {
+  test('a client is opened only on the worktree’s own database and server', () => {
+    const server = 'redis://localhost:6379';
     const opened = [
-      ['redis://localhost:6379/13', '13110'],
-      ['redis://localhost:6379/5', '13110'],
-      ['redis://localhost:6379/0', '13110'],
-      ['redis://localhost:6379/2', '13110'],
-      ['redis://localhost:6379/512', '13110'],
-      ['redis://localhost:6379/1', '13110'],
-      ['redis://localhost:6379/13', '13115'],
-      [undefined, '13110'],
-    ].map(([url, port]) => openOwnTestRedis(url, port));
+      { TEST_REDIS_URL: `${server}/13`, REDIS_URL: server, PORT: '13110' },
+      { TEST_REDIS_URL: `${server}/5`, REDIS_URL: server, PORT: '13110' },
+      { TEST_REDIS_URL: `${server}/0`, REDIS_URL: server, PORT: '13110' },
+      { TEST_REDIS_URL: `${server}/2`, REDIS_URL: server, PORT: '13110' },
+      { TEST_REDIS_URL: `${server}/512`, REDIS_URL: server, PORT: '13110' },
+      { TEST_REDIS_URL: `${server}/1`, REDIS_URL: server, PORT: '13110' },
+      { TEST_REDIS_URL: `${server}/13`, REDIS_URL: server, PORT: '13115' },
+      {
+        TEST_REDIS_URL: 'redis://127.0.0.1:6391/13',
+        REDIS_URL: server,
+        PORT: '13110',
+      },
+      {
+        TEST_REDIS_URL: 'redis://cache.example.com:6379/13',
+        REDIS_URL: server,
+        PORT: '13110',
+      },
+      { TEST_REDIS_URL: `${server}/13`, PORT: '13110' },
+      { TEST_REDIS_URL: undefined, REDIS_URL: server, PORT: '13110' },
+      {
+        TEST_REDIS_URL: 'redis://127.0.0.1/13',
+        REDIS_URL: server,
+        PORT: '13110',
+      },
+    ].map(openOwnTestRedis);
 
     assert({
       given:
-        'its own database, another slot’s, dev, e2e, 512, main’s, a PORT that names no block, and no URL',
-      should: 'open exactly one client, for the first',
+        'its own database, another slot’s, dev, e2e, 512, main’s, a PORT naming no block, another port, another host, no REDIS_URL, no URL, and another spelling of the same server',
+      should: 'open a client for the first and the same-server spelling only',
       actual: opened.map((client) => client !== undefined),
-      expected: [true, false, false, false, false, false, false, false],
+      expected: [
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+      ],
     });
     for (const client of opened) client?.close();
   });
 
   test('doctor’s ownership check reports a test Redis that is not the slot’s own', () => {
     const slot = worktreeSlot('abc');
-    const own = slotEnvValues({ slot, env, portBlock: 11 });
+    const own = { ...env, ...slotEnvValues({ slot, env, portBlock: 11 }) };
     const mismatches = (url: string) =>
       slotMismatches(slot, { ...own, TEST_REDIS_URL: url });
-    const main = slotEnvValues({
-      slot: deriveSlot({
-        checkout: '/repo/daisy',
-        mainCheckout: '/repo/daisy',
+    const main = {
+      ...env,
+      ...slotEnvValues({
+        slot: deriveSlot({
+          checkout: '/repo/daisy',
+          mainCheckout: '/repo/daisy',
+        }),
+        env,
       }),
-      env,
-    });
+    };
 
     assert({
       given:
@@ -290,6 +202,8 @@ describe('slot test Redis database (ISSUE-237)', () => {
         mismatches('redis://localhost:6379/5'),
         mismatches('redis://localhost:6379/0'),
         mismatches('redis://localhost:6379/2'),
+        mismatches('redis://127.0.0.1:6391/13'),
+        mismatches('redis://127.0.0.1:6379/13'),
         slotMismatches(
           deriveSlot({ checkout: '/repo/daisy', mainCheckout: '/repo/daisy' }),
           main,
@@ -310,6 +224,10 @@ describe('slot test Redis database (ISSUE-237)', () => {
         [
           "TEST_REDIS_URL names Redis database 2, expected this slot's own database 13 (run bun slot:up)",
         ],
+        [
+          "TEST_REDIS_URL names a different Redis server than REDIS_URL, expected this slot's shared Redis (run bun slot:up)",
+        ],
+        [],
         [],
         [
           "TEST_REDIS_URL names Redis database 0, expected this slot's own database 1 (run bun slot:up)",

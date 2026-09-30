@@ -1,4 +1,12 @@
 import { z } from 'zod';
+import { databaseUrl, redisUrl } from './urls';
+
+export { requireTestServices } from './test-services';
+export {
+  expectedTestRedisDatabase,
+  testRedisDatabase,
+  testRedisRefusal,
+} from './test-redis';
 
 /**
  * Fields whose value is a credential or carries one (a password inside a
@@ -14,18 +22,6 @@ const secret = <Schema extends z.ZodType>(schema: Schema): Schema => {
 /** `AUTH_TRUSTED_PROXIES` keyword: trust this machine's default gateway. */
 export const TRUSTED_PROXY_GATEWAY = 'gateway';
 
-const databaseUrl = z
-  .url()
-  .refine(
-    (value) => ['postgres:', 'postgresql:'].includes(new URL(value).protocol),
-    'Expected PostgreSQL URL',
-  );
-const redisUrl = z
-  .url()
-  .refine(
-    (value) => ['redis:', 'rediss:'].includes(new URL(value).protocol),
-    'Expected Redis URL',
-  );
 const requireHttpsOrigin = (url: string, ctx: z.RefinementCtx) => {
   if (!url.startsWith('https:'))
     ctx.addIssue({
@@ -331,39 +327,6 @@ export function readBrowserConfig(env: Record<string, string | undefined>) {
     .object({ PUBLIC_APP_URL: z.url() })
     .parse({ PUBLIC_APP_URL: env.PUBLIC_APP_URL });
 }
-const testServicesSchema = z.object({
-  TEST_DATABASE_URL: databaseUrl.refine(
-    (value) => new URL(value).pathname.endsWith('_test'),
-    'must name a database ending in _test',
-  ),
-  TEST_REDIS_URL: redisUrl,
-});
-/**
- * The one guard every integration suite calls (ISSUE-11; `bun evidence`
- * checks each suite imports it). A missing or non-test service throws,
- * naming the fields and never their values: a suite never skips.
- */
-export function requireTestServices(env: Record<string, string | undefined>): {
-  readonly databaseUrl: string;
-  readonly redisUrl: string;
-} {
-  const result = testServicesSchema.safeParse(env);
-  if (!result.success)
-    throw new Error(
-      `Integration suites require isolated test services: ${result.error.issues
-        .map((issue) =>
-          issue.code === 'custom'
-            ? `${issue.path.join('.')} (${issue.message})`
-            : issue.path.join('.'),
-        )
-        .join(', ')}`,
-    );
-  return {
-    databaseUrl: result.data.TEST_DATABASE_URL,
-    redisUrl: result.data.TEST_REDIS_URL,
-  };
-}
-
 const unwrapOptional = (schema: z.ZodType): z.ZodType =>
   schema instanceof z.ZodOptional
     ? unwrapOptional(schema.unwrap() as z.ZodType)

@@ -1,4 +1,4 @@
-import { RedisClient } from 'bun';
+import type { RedisClient } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
@@ -9,6 +9,7 @@ import {
 } from '../src/namespaces';
 import {
   createBoundedTestClient,
+  openTestRedis,
   testNamespace,
   TEST_KEY_TTL_MAX_MS,
 } from '../src/testing';
@@ -25,7 +26,7 @@ async function withClients<T>(
     readonly namespace: string;
   }) => Promise<T>,
 ): Promise<T> {
-  const raw = new RedisClient(url);
+  const raw = openTestRedis(url);
   const bounded = createBoundedTestClient(url);
   const namespace = testNamespace(createId());
   try {
@@ -159,7 +160,7 @@ test('ISSUE-237-AC1: the post-run scan finds and removes a key with no expiry, a
     await raw.send('SET', [forever, '1']);
     await raw.send('SET', [soon, '1', 'EX', '600']);
 
-    const removed = await deleteKeysWithoutExpiry(raw);
+    const removed = await deleteKeysWithoutExpiry(raw, `${namespace}:*`);
 
     assert({
       given: 'one immortal key and one expiring key in the test database',

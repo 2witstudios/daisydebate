@@ -213,14 +213,18 @@ describe('orphan detection', () => {
 
 describe('.env ownership check', () => {
   const slot = worktreeSlot('abc');
-  const own = slotEnvValues({
-    slot,
-    env: {
-      DATABASE_URL: 'postgres://daisy:pw@localhost:15432/daisy',
-      REDIS_URL: 'redis://localhost:6379',
-    },
-    portBlock: 1,
-  });
+  // A real .env carries REDIS_URL beside the values slot:up writes.
+  const own = {
+    REDIS_URL: 'redis://localhost:6379',
+    ...slotEnvValues({
+      slot,
+      env: {
+        DATABASE_URL: 'postgres://daisy:pw@localhost:15432/daisy',
+        REDIS_URL: 'redis://localhost:6379',
+      },
+      portBlock: 1,
+    }),
+  };
 
   test('accepts a .env written for this slot', () => {
     assert({

@@ -1,3 +1,4 @@
+import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { deleteKeysWithoutExpiry, sweepIdleNamespaces } from './namespaces';
 
@@ -163,5 +164,32 @@ describe('deleteKeysWithoutExpiry', () => {
       actual: { removed, left: redis.keys() },
       expected: { removed: ['a:v1:forever'], left: ['a:v1:soon'] },
     });
+  });
+
+  test('a pattern under one namespace scopes it, and a foreign key is never touched', async () => {
+    const redis = fakeKeyspace({
+      'a:v1:forever': { idleSeconds: 1, pttl: -1 },
+      'b:v1:forever': { idleSeconds: 1, pttl: -1 },
+    });
+
+    const removed = await deleteKeysWithoutExpiry(redis, 'a:*');
+
+    assert({
+      given: 'an immortal key in this namespace and one in another',
+      should: 'remove only the one matching the pattern',
+      actual: { removed, left: redis.keys() },
+      expected: { removed: ['a:v1:forever'], left: ['b:v1:forever'] },
+    });
+  });
+
+  test('refuses a pattern that is neither everything nor one namespace', async () => {
+    const redis = fakeKeyspace({});
+
+    await expect(deleteKeysWithoutExpiry(redis, 'a*')).rejects.toThrow(
+      'Invalid key pattern',
+    );
+    await expect(deleteKeysWithoutExpiry(redis, '*:v1:x')).rejects.toThrow(
+      'Invalid key pattern',
+    );
   });
 });

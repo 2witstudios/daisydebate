@@ -4,7 +4,11 @@ import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { buildUserInboxTopic } from '@daisy/protocol';
 import { deleteNamespace } from '@daisy/redis/namespaces';
-import { createBoundedTestClient, testNamespace } from '@daisy/redis/testing';
+import {
+  createBoundedTestClient,
+  openTestRedis,
+  testNamespace,
+} from '@daisy/redis/testing';
 import { systemClock, systemId } from '@daisy/clock';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import { createApp } from '../src/server/app';
@@ -60,7 +64,7 @@ async function withNamespaceKeys<T>(
   namespace: string,
   work: (client: RedisClient, keys: string[]) => Promise<T>,
 ) {
-  const client = new RedisClient(testRedisUrl as string);
+  const client = openTestRedis(testRedisUrl);
   try {
     const keys = (await client.send('KEYS', [`${namespace}:*`])) as string[];
     return await work(client, keys);
@@ -139,7 +143,7 @@ export function createTestApp(
   // One UNLINK per SCAN page: a DEL per key overran the 30 s teardown for
   // the ~12,000 keys the global-day ceiling suite leaves (ISSUE-192).
   const clearRedisNamespace = async () => {
-    const client = new RedisClient(testRedisUrl as string);
+    const client = openTestRedis(testRedisUrl);
     await deleteNamespace(client, redisNamespace).finally(() => client.close());
   };
   const redisKeys = () =>

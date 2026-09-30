@@ -105,13 +105,22 @@ block` (3 to 501), written to `TEST_REDIS_URL` by `slot:up`. The port block
   `docker compose -f infra/compose.yaml up -d --force-recreate redis`.
   `slot:up` never recreates a running stack itself (that would drop every
   checkout's Redis state), so the operator runs it once. Every path that
-  deletes from the test database checks that `TEST_REDIS_URL` names exactly
-  the slot's own database (main 1, a worktree `2 + block`, derived from
-  `PORT`) and refuses anything else, whether dev (0), e2e (2), another slot's
-  or past the server's 512 (ISSUE-244): `bun doctor` reports the mismatch,
-  the runner exits before its sweep or post-run scan, and `slot:down` opens
-  no client, so a hand-edited `.env` can never make a run delete another
-  database's keys.
+  writes or deletes test keys checks that `TEST_REDIS_URL` names exactly the
+  slot's own database (main 1, a worktree `2 + block`, derived from `PORT`)
+  on the slot's own Redis server (the host and port `REDIS_URL` names; any
+  spelling of this machine is the same server), and refuses anything else:
+  dev (0), e2e (2), another slot's, past the server's 512, or another
+  server (ISSUE-244, ISSUE-245). `requireTestServices`, which every suite
+  must call, carries the check, so running any integration file directly
+  against the wrong Redis refuses at import; `bun doctor` reports the
+  mismatch; the runner (which calls the same function) exits before its
+  sweep or post-run scan; `slot:down` opens no client. An integration file
+  reaches Redis only through `openTestRedis` (`@daisy/redis/testing`), which
+  accepts only a URL `requireTestServices` returned, and a lint rule fails
+  any integration file that creates a raw `RedisClient`, scans or lists the
+  whole database, or flushes; the only database-wide scan is the runner's,
+  after the check, so a hand-edited `.env` can never make a run delete
+  another database's keys.
 - **Why not per-namespace key tracking.** Tracking each run's keys in a set
   needs every write attributed to a namespace at the seam: the presence
   scripts build a hash key inside Lua, and the slot tooling must still SCAN

@@ -149,7 +149,7 @@ export function openServices(
     ]),
   ];
   const redis = redisUrls.map((url) => new RedisClient(url));
-  const testRedis = openOwnTestRedis(env.TEST_REDIS_URL, env.PORT);
+  const testRedis = openOwnTestRedis(env);
   return {
     admin,
     connect,

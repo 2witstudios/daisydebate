@@ -20,6 +20,17 @@ export const TEST_KEY_TTL_MAX_MS = 2 * TEST_RUN_MAX_MS;
 export const testNamespace = (id: string): string =>
   `${TEST_NAMESPACE_PREFIX}${id.slice(0, 10)}`;
 
+/**
+ * A TEST_REDIS_URL that `requireTestServices` (`@daisy/config`) accepted: this
+ * slot's own database on its own server. Only such a URL opens a test client,
+ * so an integration file cannot reach another database through these helpers.
+ */
+export type GuardedTestRedisUrl = string & { readonly ownTestRedis: true };
+
+/** The one way an integration file opens Redis: a plain client on the slot's own database. */
+export const openTestRedis = (url: GuardedTestRedisUrl): RedisClient =>
+  new RedisClient(url);
+
 type Send = (command: string, args: string[]) => Promise<unknown>;
 
 // Commands that only read, delete or manage scripts: they create no key.
@@ -174,7 +185,7 @@ export function withBoundedExpiry(
 
 /** The client a suite hands to the code under test: the adapter's own dialing options, expiry bounded. */
 export const createBoundedTestClient = (
-  url: string,
+  url: GuardedTestRedisUrl,
   maxTtlMs: number = TEST_KEY_TTL_MAX_MS,
 ): RedisClient =>
   withBoundedExpiry(new RedisClient(url, redisClientOptions), maxTtlMs);

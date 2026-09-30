@@ -32,6 +32,43 @@ const bareToThrowRestriction = {
 };
 
 /**
+ * ISSUE-245: an integration file reaches Redis only through the guarded
+ * helper (`openTestRedis`, whose URL came from `requireTestServices`, which
+ * refuses any database or server that is not the slot's own) and never
+ * deletes database-wide, so running any one file directly can never touch
+ * another slot's, dev's or e2e's keys.
+ */
+const testRedisRestrictions = [
+  {
+    selector: "NewExpression[callee.name='RedisClient']",
+    message:
+      "Open Redis with openTestRedis(url) from @daisy/redis/testing: it takes only a URL requireTestServices guarded as the slot's own database.",
+  },
+  {
+    selector:
+      "CallExpression[callee.name='deleteKeysWithoutExpiry'][arguments.length<2]",
+    message:
+      'Never scan the whole database in a suite: pass deleteKeysWithoutExpiry a pattern under your own namespace.',
+  },
+  {
+    selector: 'Literal[value=/^(?:FLUSHDB|FLUSHALL)$/i]',
+    message: 'Never FLUSHDB or FLUSHALL: delete exactly your own namespace.',
+  },
+  {
+    selector:
+      "CallExpression[callee.property.name='send'][arguments.0.value='SCAN'][arguments.1.elements.2.value='*']",
+    message:
+      'Never SCAN the whole database in a suite: match your own namespace.',
+  },
+  {
+    selector:
+      "CallExpression[callee.property.name='send'][arguments.0.value='KEYS'][arguments.1.elements.0.value='*']",
+    message:
+      'Never list every key of the database in a suite: match your own namespace.',
+  },
+];
+
+/**
  * ISSUE-7's process edge: app code receives configuration and resources as
  * arguments from a composition root, so nothing in an app may mutate
  * process.env or globalThis, tests included (each builds its own app).
@@ -395,6 +432,17 @@ export default [
       ],
     },
   },
+  {
+    files: ['**/integration/**/*.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        exportStarRestriction,
+        bareToThrowRestriction,
+        ...testRedisRestrictions,
+      ],
+    },
+  },
   // Integration setup may read ambient time, but app suites still never
   // mutate process-wide state (the exemption above replaced the list).
   {
@@ -405,6 +453,7 @@ export default [
         exportStarRestriction,
         bareToThrowRestriction,
         ...processMutationRestrictions,
+        ...testRedisRestrictions,
       ],
     },
   },
@@ -444,6 +493,7 @@ export default [
         bareToThrowRestriction,
         ...processMutationRestrictions,
         ...processEdgeLoads,
+        ...testRedisRestrictions,
       ],
     },
   },

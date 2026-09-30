@@ -8,21 +8,17 @@
  */
 
 import { RedisClient } from 'bun';
+import {
+  expectedTestRedisDatabase,
+  testRedisDatabase,
+  testRedisRefusal,
+} from '@daisy/config';
 import { deleteNamespace, listNamespaces } from '@daisy/redis/namespaces';
 import { TEST_NAMESPACE_PREFIX } from '@daisy/redis/testing';
 
 type Commands = {
   readonly send: (command: string, args: string[]) => Promise<unknown>;
 };
-
-const mainTestRedisDatabase = 1;
-const worktreeTestRedisDatabaseBase = 2;
-
-/** The Redis database a slot's integration suites use (`undefined` block: main). */
-export const testRedisDatabase = (block?: number): number =>
-  block === undefined
-    ? mainTestRedisDatabase
-    : worktreeTestRedisDatabaseBase + block;
 
 /** How many databases the Redis server must offer for that block's test database. */
 export const redisDatabasesNeeded = (block?: number): number =>
@@ -77,74 +73,24 @@ export async function requireRedisDatabases(
   if (refusal) throw new Error(refusal);
 }
 
-const databaseIndex = (url: string): number | string => {
-  try {
-    const path = new URL(url).pathname.slice(1);
-    if (path === '') return 0;
-    return /^(?:0|[1-9][0-9]*)$/.test(path) ? Number(path) : path;
-  } catch {
-    return 'unreadable';
-  }
-};
-
-/**
- * The test database this slot owns, from the PORT `slot:up` wrote: main
- * (3000, or no PORT as in CI) is 1, worktree port block n (PORT 13000 + 10n)
- * is 2 + n; any other PORT names no block. `kind` is inferred when omitted.
- */
-export function expectedTestRedisDatabase(
-  port: string | undefined,
-  kind: 'main' | 'worktree' | undefined = port === undefined || port === '3000'
-    ? 'main'
-    : 'worktree',
-): number | undefined {
-  if (kind === 'main') return testRedisDatabase();
-  const offset = Number(port) - 13_000;
-  const block = offset / 10;
-  return Number.isInteger(block) && block >= 1 && block <= 499
-    ? testRedisDatabase(block)
-    : undefined;
-}
-
-/**
- * Why a URL is not this slot's own test database, or undefined when it is.
- * Every path that deletes from the test database (the runner's sweep and
- * post-run scan, slot:down) checks this first: exactly the slot's own
- * database, never another slot's, dev (0), e2e (2) or one past the server's.
- */
-export function testRedisRefusal(
-  url: string | undefined,
-  expected: number | undefined,
-): string | undefined {
-  if (url === undefined) return 'TEST_REDIS_URL is unset';
-  if (expected === undefined)
-    return "PORT does not name this slot's port block, so its test Redis database cannot be derived (run bun slot:up)";
-  const actual = databaseIndex(url);
-  return actual === expected
-    ? undefined
-    : `TEST_REDIS_URL names Redis database ${actual}, expected this slot's own database ${expected} (run bun slot:up)`;
-}
-
-/** The runner's guard: TEST_REDIS_URL against the PORT in the same environment. */
-export const testRedisRefusalOf = (
-  env: Readonly<Record<string, string | undefined>>,
-): string | undefined =>
-  testRedisRefusal(env.TEST_REDIS_URL, expectedTestRedisDatabase(env.PORT));
-
 /**
  * The client slot:down clears the test database with (it refuses main): one
  * on the worktree's own database, and only that. Any other database, shared
  * or another slot's, gets undefined, so slot:down never deletes another
  * checkout's keys.
  */
-export const openOwnTestRedis = (
-  url: string | undefined,
-  port: string | undefined,
-): RedisClient | undefined =>
-  url !== undefined &&
-  testRedisRefusal(url, expectedTestRedisDatabase(port, 'worktree')) ===
-    undefined
-    ? new RedisClient(url)
+export const openOwnTestRedis = (env: {
+  readonly TEST_REDIS_URL?: string | undefined;
+  readonly REDIS_URL?: string | undefined;
+  readonly PORT?: string | undefined;
+}): RedisClient | undefined =>
+  env.TEST_REDIS_URL !== undefined &&
+  testRedisRefusal({
+    testRedisUrl: env.TEST_REDIS_URL,
+    redisUrl: env.REDIS_URL,
+    expected: expectedTestRedisDatabase(env.PORT, 'worktree'),
+  }) === undefined
+    ? new RedisClient(env.TEST_REDIS_URL)
     : undefined;
 
 /** slot:down's release of a slot's test database: every `t3-` namespace a run left, by SCAN and UNLINK. */

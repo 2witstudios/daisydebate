@@ -106,15 +106,20 @@ export async function sweepIdleNamespaces(
 }
 
 /**
- * ISSUE-237: unlinks every key of the (dedicated test) database that has no
- * expiry and returns their names, so a run that left an immortal key fails
- * loudly instead of feeding the next run's SCANs forever.
+ * ISSUE-237: unlinks every key that has no expiry and returns their names, so
+ * a run that left an immortal key fails loudly instead of feeding the next
+ * run's SCANs forever. With no pattern it walks the whole database, which
+ * only the runner does, after `requireTestServices` proved TEST_REDIS_URL is
+ * this slot's own database (ISSUE-245); a suite passes `<namespace>:*`.
  */
 export async function deleteKeysWithoutExpiry(
   client: RedisCommands,
+  pattern = '*',
 ): Promise<string[]> {
+  if (pattern !== '*' && !/^[a-z][a-z0-9-]{0,40}:\*$/.test(pattern))
+    throw new Error('Invalid key pattern');
   const immortal: string[] = [];
-  await scanKeys(client, '*', async (keys) => {
+  await scanKeys(client, pattern, async (keys) => {
     const ttls = await Promise.all(
       keys.map((key) => client.send('PTTL', [key])),
     );

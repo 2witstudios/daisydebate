@@ -9,7 +9,7 @@ import {
   expectedTestRedisDatabase,
   testRedisDatabase,
   testRedisRefusal,
-} from './slot-redis';
+} from '@daisy/config';
 
 export type Slot = {
   readonly kind: 'main' | 'worktree';
@@ -237,10 +237,11 @@ export function slotMismatches(slot: Slot, env: Env): readonly string[] {
   const testRedis =
     env.TEST_REDIS_URL === undefined
       ? undefined
-      : testRedisRefusal(
-          env.TEST_REDIS_URL,
-          expectedTestRedisDatabase(env.PORT, slot.kind),
-        );
+      : testRedisRefusal({
+          testRedisUrl: env.TEST_REDIS_URL,
+          redisUrl: env.REDIS_URL,
+          expected: expectedTestRedisDatabase(env.PORT, slot.kind),
+        });
   const sharedRedis = testRedis === undefined ? [] : [testRedis];
   const server = serverOf(env.DATABASE_URL);
   const servers = (['TEST_DATABASE_URL', 'E2E_DATABASE_URL'] as const)

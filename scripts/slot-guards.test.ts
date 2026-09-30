@@ -129,11 +129,14 @@ describe('one server per slot', () => {
   });
 
   test('flags test or e2e URLs that name another server', () => {
-    const own = slotEnvValues({
-      slot,
-      env: { DATABASE_URL: shared, REDIS_URL: 'redis://localhost:6379' },
-      portBlock: 1,
-    });
+    const own = {
+      REDIS_URL: 'redis://localhost:6379',
+      ...slotEnvValues({
+        slot,
+        env: { DATABASE_URL: shared, REDIS_URL: 'redis://localhost:6379' },
+        portBlock: 1,
+      }),
+    };
     assert({
       given: 'slot URLs whose names match but whose server differs',
       should: 'name each URL on the wrong server',

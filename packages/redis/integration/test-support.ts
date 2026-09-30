@@ -2,11 +2,16 @@ import { RedisClient } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { createRedis, redisKey } from '../src';
 import { deleteNamespace } from '../src/namespaces';
-import { createBoundedTestClient, testNamespace } from '../src/testing';
+import {
+  createBoundedTestClient,
+  openTestRedis,
+  testNamespace,
+  type GuardedTestRedisUrl,
+} from '../src/testing';
 
 /** A raw client for assertions our own package's API cannot make: PTTL, EXISTS, and direct key manipulation. */
-export async function rawClient(url: string) {
-  const client = new RedisClient(url);
+export async function rawClient(url: GuardedTestRedisUrl) {
+  const client = openTestRedis(url);
   await client.connect();
   return client;
 }
@@ -28,7 +33,7 @@ const PAST_MS = '1';
  * holds is removed afterwards, so a test cleans exactly what it created.
  */
 export async function withRedis<T>(
-  url: string,
+  url: GuardedTestRedisUrl,
   work: (context: {
     readonly namespace: string;
     readonly redis: ReturnType<typeof createRedis>;

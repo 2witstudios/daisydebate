@@ -117,7 +117,10 @@ describe('slot checks', () => {
     assert({
       given: 'the values slot:up writes',
       should: 'pass naming the slot',
-      actual: slotCheck(slot, slotEnvValues({ slot, env, portBlock: 1 })),
+      actual: slotCheck(slot, {
+        REDIS_URL: env.REDIS_URL,
+        ...slotEnvValues({ slot, env, portBlock: 1 }),
+      }),
       expected: { name: 'slot', status: 'pass', detail: 'abc' },
     });
   });

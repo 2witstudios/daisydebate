@@ -10,7 +10,6 @@
 import { constants } from 'node:os';
 import { RedisClient, SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
-import { testRedisRefusalOf } from './slot-redis';
 import {
   deleteKeysWithoutExpiry,
   sweepIdleNamespaces,
@@ -154,13 +153,6 @@ if (import.meta.main) {
     process.exit(1);
   }
   const { databaseUrl, redisUrl } = requireTestServices(process.env);
-  // ISSUE-244: the sweep and the post-run scan delete keys, so they run only
-  // on this slot's own Redis database.
-  const wrongRedis = testRedisRefusalOf(process.env);
-  if (wrongRedis) {
-    process.stderr.write(`test-integration: ${wrongRedis}\n`);
-    process.exit(1);
-  }
   // ISSUE-237: whatever a crashed, killed or timed-out run left in this
   // slot's test Redis database goes first, so no run pays for an earlier one.
   const sweptMessage = redisSweepMessage(
