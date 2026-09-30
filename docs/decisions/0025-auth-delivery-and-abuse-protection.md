@@ -178,10 +178,14 @@ token>` as the `verification.identifier`. The subject (the email for
   runs after the answer (`after-response.ts`): the account lookup, then
   either the sign-in link's send to an existing account or, for a sign-up,
   the dropped mail and the deletion of its unmailed token. Only a sign-up is
-  held back. Draining the ceilings alone never denies sign-in: rotating
-  IPv6 /128 client addresses and plus-addressed recipients (`victim+1@…`,
-  `victim+2@…`) slip past every per-client and per-recipient bucket, but a
-  drained ceiling only delays new sign-ups. A drained ceiling together
+  held back. Draining the ceilings alone never denies sign-in. The
+  per-client buckets are per IPv4 address or per IPv6 /64 (Better Auth's
+  `getIP` collapses an IPv6 client to its /64), and plus-addressed
+  recipients (`victim+1@…`, `victim+2@…`) each get their own recipient
+  buckets, so an attacker rotating the /64s of one /56 (256 of them, about
+  12.8 magic-link requests a second at 3 a minute each) or one /48 (65,536,
+  about 3,277 a second) slips past both; the aggregate network buckets
+  below cap that (AUTH-3.10). A drained ceiling only delays new sign-ups. A drained ceiling together
   with a flood past the handed-off work's bound (below) does stop sign-in
   mail: real sign-ins are shed with everything else until the flood ends
   (DEC-73, confirmed by the owner). Existing accounts' mail stays bounded by the
@@ -215,15 +219,44 @@ token>` as the `verification.identifier`. The subject (the email for
   expires unused, and `auth.mail.shed` is logged with the backlog's size
   only and counted as `auth_mail_shed_total` on `/api/ops/metrics`. A flood
   that fills the bound sheds real sign-ins too: availability yields to a
-  bounded backlog (DEC-73). Measured on the development host (a
-  steady flood of new addresses from rotating clients, a 300 ms provider,
-  10 real sign-ins spread through each run), the pool stayed far from full
-  up to 700 a second (peak occupancy 40, nothing shed, 10 of 10 sign-ins
-  mailed, as at 24 and 40 a second) and was full at 800 a second (3,573
-  shed, 3 of 10 sign-ins mailed). So it takes on the order of 750 new
-  addresses a second, far past any per-client limit, to stop sign-in mail;
-  production's smaller machine will saturate lower, and the `mail_shed`
-  alert reports it (ISSUE-220).
+  bounded backlog (DEC-73). Where the pool fills depends on the host and
+  its load. On the development host (a steady flood of new addresses from
+  rotating clients, a 300 ms provider, 10 real sign-ins spread through each
+  run) it stayed far from full up to 700 a second at load about 300
+  (nothing shed, 10 of 10 sign-ins mailed, as at 24 and 40 a second) and
+  was full at 800 a second (3,573 shed, 3 of 10 mailed); at load about 10
+  the review measured the edge at 1,000 to 1,200 a second. Production's
+  `shared-cpu-1x` machine is unmeasured and will fill lower. Before the
+  aggregate buckets, one /48 could send about 3,277 a second, past every
+  one of those edges; the `mail_shed` alert reports a full pool
+  (ISSUE-220).
+
+  **Aggregate limits per network (AUTH-3.10, DEC-78).** Every magic-link
+  request also spends a bucket for its client's IPv6 /56 (30 a minute) and
+  /48 (120 a minute), or its IPv4 /24 (120 a minute)
+  (`MAGIC_LINK_NETWORK_RULES`, `rate-limit.ts`; the networks come from the
+  trusted client address, `client-networks.ts`). They are atomic Redis
+  buckets like the others, spent at the gate after the per-client bucket
+  and before any account lookup, so a request over one is refused with the
+  same `429` and `Retry-After` whatever the address (DEC-41, DEC-77). It is
+  logged as `auth.rate_limit.network_denied` with the scope only, counted
+  as `auth_rate_limit_network_denied_total{scope}` on `/api/ops/metrics`,
+  and fires the `network_limited` alert past a sustained count (ADR 0042).
+  The limits are sized against the pool edge: one /48 or /24 may send 2 a
+  second and one /56 half a second, against an edge of 700 to 1,200 a
+  second on the development host, so filling the pool takes hundreds of
+  distinct /48s or /24s rather than one. A /56 is a typical household or
+  small site, and a /48 or IPv4 /24 a typical organization, host or
+  carrier NAT pool, so ordinary sign-in from one stays well inside them.
+  Proven on the composed app at production bounds with real services
+  (`auth-network-limits.integration.ts`): a flood from every /64 of one
+  /48 at 3,250 a second for 10 s had 120 requests admitted and 32,650
+  refused, the pool's occupancy peaked at 14, nothing was shed, and 10 of
+  10 real sign-ins from outside the /48 were mailed. Without the aggregate
+  buckets the same flood reached only 1,513 a second (every request doing
+  full work), filled the pool (576), shed 31,967 and mailed 0 of 10. A
+  /56 and a /24 are each capped at their own limit, and removing any one
+  bucket turns its own flood red.
 
   **Residual: slot occupancy and account existence (DEC-76, qualifying
   DEC-41).** A real send holds its slot for a provider round trip; a
@@ -244,7 +277,8 @@ token>` as the `verification.identifier`. The subject (the email for
   200 behind an unknown one: a difference of −1.5 points (95 % CI −7.4
   to +4.4, z −0.49), so the flood-held residual was not measurable at that
   sample size.
-  So the attack needs a flood above about 750 new addresses a second held
+  So the attack needs a flood that holds the pool full (above the host's
+  edge, which after AUTH-3.10 takes hundreds of distinct /48s or /24s)
   for as long as it samples, timing that lands its probes in the moments
   the pool is full, many samples, and its own accounts; each probe of one
   target is also capped by the recipient windows (20 a day). The owner
