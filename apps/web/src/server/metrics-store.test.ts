@@ -48,21 +48,28 @@ describe('createMetricsStore (AUTH-7.7)', () => {
     store.observe('auth.mail.failed', {});
     store.observe('auth.mail.shed', { pending: 68 });
     store.observe('auth.mail.shed', { pending: 68 });
+    store.observe('auth.rate_limit.network_denied', { scope: 'ipv6_48' });
+    store.observe('auth.rate_limit.network_denied', { scope: 'ipv6_48' });
+    store.observe('auth.rate_limit.network_denied', { scope: 'ipv4_24' });
+    store.observe('auth.rate_limit.network_denied', { scope: 'ipv6_32' });
     assert({
       given:
-        '2 denials, 1 limiter outage, 1 mail failure, 2 shed pieces of work',
+        '2 denials, 1 limiter outage, 1 mail failure, 2 shed pieces of work, and network denials for two known scopes and one unknown',
       should: 'count each independently',
       actual: {
         rateLimitDeniedTotal: store.snapshot().rateLimitDeniedTotal,
         rateLimitUnavailableTotal: store.snapshot().rateLimitUnavailableTotal,
         mailDeliveryFailuresTotal: store.snapshot().mailDeliveryFailuresTotal,
         authMailShedTotal: store.snapshot().authMailShedTotal,
+        networkDeniedByScope: store.snapshot().networkDeniedByScope,
       },
       expected: {
         rateLimitDeniedTotal: 2,
         rateLimitUnavailableTotal: 1,
         mailDeliveryFailuresTotal: 1,
         authMailShedTotal: 2,
+        // An unknown scope is not a label: cardinality stays bounded.
+        networkDeniedByScope: { ipv6_56: 0, ipv6_48: 2, ipv4_24: 1 },
       },
     });
   });
@@ -95,6 +102,7 @@ describe('createMetricsStore (AUTH-7.7)', () => {
         rateLimitUnavailableTotal: 0,
         mailDeliveryFailuresTotal: 0,
         authMailShedTotal: 0,
+        networkDeniedByScope: { ipv6_56: 0, ipv6_48: 0, ipv4_24: 0 },
         retentionSweepFailuresByOperation: {},
         latencyMsByOperation: {},
       },

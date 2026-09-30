@@ -5,21 +5,13 @@ import {
   readAlertSnapshot,
   type AlertSnapshot,
 } from './alert-state';
+import { emptySnapshot } from './alert-state.test-support';
 
 setupRitewayBun();
 
 const NOW = '2026-09-25T12:00:00.000Z';
 
-const baseSnapshot: AlertSnapshot = {
-  nowIso: NOW,
-  redisState: 'read',
-  storageUnavailableSinceIso: null,
-  limiterUnavailableSinceIso: null,
-  deliveryConsecutiveFailures: 0,
-  authRequests: { total: 0, serverErrors: 0, windowMinutes: 10 },
-  retentionLastSuccessIso: null,
-  mailShed: { count: 0, windowMinutes: 10 },
-};
+const baseSnapshot: AlertSnapshot = emptySnapshot(NOW);
 
 describe('evaluateAlerts (AUTH-7.7)', () => {
   test('a healthy snapshot with a recent sweep fires no conditions', () => {
@@ -194,6 +186,31 @@ describe('evaluateAlerts (AUTH-7.7)', () => {
     });
   });
 
+  test('network denials at the threshold over their window fire network_limited; one under does not (AUTH-3.10)', () => {
+    const denied = (count: number) =>
+      evaluateAlerts({
+        ...baseSnapshot,
+        retentionLastSuccessIso: NOW,
+        networkDenied: { count, windowMinutes: 10 },
+      });
+    const [fired] = denied(ALERT_THRESHOLDS.networkDeniedCount);
+    assert({
+      given: `${ALERT_THRESHOLDS.networkDeniedCount - 1}, then ${ALERT_THRESHOLDS.networkDeniedCount}, magic-link requests denied for their network in the window`,
+      should:
+        'fire nothing, then network_limited with the count and window only, pointing at its runbook section',
+      actual: [denied(ALERT_THRESHOLDS.networkDeniedCount - 1), fired],
+      expected: [
+        [],
+        {
+          id: 'network_limited',
+          summary: `${ALERT_THRESHOLDS.networkDeniedCount} magic-link requests denied for their network in 10m: one network is flooding sign-in`,
+          runbook:
+            'docs/operations/auth-delivery.md#magic-link-requests-limited-per-network',
+        },
+      ],
+    });
+  });
+
   test('every condition names its own runbook anchor', () => {
     const since = new Date(
       Date.parse(NOW) - ALERT_THRESHOLDS.unavailableMs - 1,
@@ -205,6 +222,10 @@ describe('evaluateAlerts (AUTH-7.7)', () => {
       deliveryConsecutiveFailures: 3,
       authRequests: { total: 100, serverErrors: 5, windowMinutes: 10 },
       mailShed: { count: ALERT_THRESHOLDS.mailShedCount, windowMinutes: 10 },
+      networkDenied: {
+        count: ALERT_THRESHOLDS.networkDeniedCount,
+        windowMinutes: 10,
+      },
     });
     assert({
       given: 'every alert condition firing at once, mail_shed included',
@@ -234,6 +255,8 @@ describe('readAlertSnapshot (AUTH-7.7)', () => {
       [`alert-mail-shed-${currentBucket}`, '15'],
       [`alert-mail-shed-${currentBucket - 9}`, '7'],
       [`alert-mail-shed-${currentBucket - 10}`, '100'],
+      [`alert-network-denied-${currentBucket - 1}`, '400'],
+      [`alert-network-denied-${currentBucket - 10}`, '9000'],
     ]);
     const redis = { get: async (key: string) => values.get(key) ?? null };
     assert({
@@ -250,6 +273,7 @@ describe('readAlertSnapshot (AUTH-7.7)', () => {
         authRequests: { total: 100, serverErrors: 3, windowMinutes: 10 },
         retentionLastSuccessIso: '2026-09-25T11:00:00.000Z',
         mailShed: { count: 22, windowMinutes: 10 },
+        networkDenied: { count: 400, windowMinutes: 10 },
       },
     });
   });

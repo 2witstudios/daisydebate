@@ -37,6 +37,10 @@ type AlertSnapshotBody = {
   };
   readonly retentionLastSuccessIso: string | null;
   readonly mailShed: { readonly count: number; readonly windowMinutes: number };
+  readonly networkDenied: {
+    readonly count: number;
+    readonly windowMinutes: number;
+  };
 };
 
 export async function serveEdge({

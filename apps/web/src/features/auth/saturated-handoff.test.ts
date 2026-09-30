@@ -5,6 +5,7 @@ import {
 } from './after-response';
 import {
   create,
+  observableAnswer,
   existingAccount,
   magicLinkRequest,
 } from './abuse.test-support';
@@ -91,15 +92,10 @@ describe('a saturated ceiling answers before any account-dependent work (ISSUE-1
     for (let index = 0; index < bound; index += 1)
       await harness.server.instance.handler(magicLinkRequest());
     const tokensBefore = harness.db.verification.length;
-    const answer = async (response: Response) => ({
-      status: response.status,
-      body: await response.text(),
-      headers: [...response.headers.entries()],
-    });
-    const knownAnswer = await answer(
+    const knownAnswer = await observableAnswer(
       await harness.server.instance.handler(magicLinkRequest()),
     );
-    const unknownAnswer = await answer(
+    const unknownAnswer = await observableAnswer(
       await harness.server.instance.handler(
         magicLinkRequest({}, 'newcomer@daisy.example.com'),
       ),

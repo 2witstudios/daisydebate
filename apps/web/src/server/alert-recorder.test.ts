@@ -153,7 +153,7 @@ describe('createAlertRecorder (AUTH-7.7)', () => {
     });
   });
 
-  test('counts each shed piece of handed-off mail work into the current minute bucket (ISSUE-220)', () => {
+  test('counts shed work and network denials into their minute buckets, keyed by time only (ISSUE-220, AUTH-3.10)', () => {
     const { redis, calls } = fakeAlertRedis();
     const recorder = createAlertRecorder({ redis, clock: fixedClock(NOW) });
     const bucket = Math.floor(Date.parse(NOW) / 60_000);
@@ -161,18 +161,22 @@ describe('createAlertRecorder (AUTH-7.7)', () => {
       operation: 'auth.after-response',
       pending: 68,
     });
-    recorder.observe('auth.mail.shed', {
-      operation: 'auth.after-response',
-      pending: 68,
+    recorder.observe('auth.rate_limit.network_denied', { scope: 'ipv6_48' });
+    recorder.observe('auth.rate_limit.network_denied', { scope: 'ipv4_24' });
+    const increment = (key: string) => ({
+      op: 'incrementWithExpiry',
+      args: [`${key}-${bucket}`, 660],
     });
     assert({
-      given: 'two shed events in one minute',
+      given:
+        'one shed piece of work and two network denials of different scopes in one minute',
       should:
-        'increment that minute shed bucket twice under the 11-minute bucket TTL, keyed by time only',
+        'increment that minute’s shed bucket once and its network bucket twice, under the 11-minute bucket TTL, with no scope or network in the key',
       actual: calls,
       expected: [
-        { op: 'incrementWithExpiry', args: [`alert-mail-shed-${bucket}`, 660] },
-        { op: 'incrementWithExpiry', args: [`alert-mail-shed-${bucket}`, 660] },
+        increment('alert-mail-shed'),
+        increment('alert-network-denied'),
+        increment('alert-network-denied'),
       ],
     });
   });

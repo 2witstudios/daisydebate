@@ -148,6 +148,15 @@ export function createAlertRecorder({
             ),
           );
           return;
+        case 'auth.rate_limit.network_denied':
+          // AUTH-3.10: a count per minute, no scope, network or client.
+          swallow(
+            redis.incrementWithExpiry(
+              `alert-network-denied-${minuteBucket(clock)}`,
+              HTTP_BUCKET_TTL_SECONDS,
+            ),
+          );
+          return;
         case 'auth.mail.sent':
           swallow(redis.delete('alert-mail-consecutive-failures'));
           return;

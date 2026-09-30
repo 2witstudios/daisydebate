@@ -66,6 +66,7 @@ diverge:
 | `invariant.violated`                     | error    | A request operation violated a registered invariant                                                                     |
 | `auth.rate_limit.denied`                 | warn     | The auth rate-limit gate denied a request (public 429)                                                                  |
 | `auth.rate_limit.unavailable`            | error    | The auth limiter or client resolution failed; denied with a public 503                                                  |
+| `auth.rate_limit.network_denied`         | warn     | A magic-link request was refused for its client's IPv6 /56 or /48 or IPv4 /24 (`scope` only; AUTH-3.10)                 |
 | `auth.session.unavailable`               | error    | The session store could not be read; guarded pages and the username claim answer 503, never a sign-out                  |
 | `auth.mail.sent`                         | info     | An auth email was handed to the mail transport                                                                          |
 | `auth.mail.failed`                       | error    | Auth email delivery failed                                                                                              |
