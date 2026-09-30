@@ -1,7 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createCeilingFlows, GLOBAL_MINUTE } from './auth-ceiling-helpers';
-import { elapse, holdOpen, statuses } from './auth-rate-limit-helpers';
+import { elapse, statuses } from './auth-rate-limit-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import { MAGIC_LINK_NETWORK_RULES } from '../src/features/auth/rate-limit';
 
@@ -143,7 +143,6 @@ describe('AUTH-3.10 aggregate magic-link limits per network', () => {
 
   test('a single IPv4 /24 is admitted at most its own limit a minute', async () => {
     await elapse(testApp, GLOBAL_MINUTE);
-    await holdOpen(testApp, GLOBAL_MINUTE, 120_000);
     const responses = await Promise.all(
       Array.from({ length: 254 * 3 }, (_, index) =>
         fromClient(fresh(), in24(index)),

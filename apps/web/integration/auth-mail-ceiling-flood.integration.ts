@@ -1,6 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createCeilingFlows, GLOBAL_MINUTE } from './auth-ceiling-helpers';
-import { holdOpen, statuses } from './auth-rate-limit-helpers';
+import {
+  createCeilingFlows,
+  saturateGlobalMinute,
+} from './auth-ceiling-helpers';
+import { statuses } from './auth-rate-limit-helpers';
 import {
   AFTER_RESPONSE_MAX_QUEUED,
   AFTER_RESPONSE_MAX_RUNNING,
@@ -75,18 +78,14 @@ const flood = async <T>(
 };
 
 /** One app's real minute ceiling saturated with fresh addresses and held open. */
-const saturate = async (
-  flows: Pick<
-    ReturnType<typeof createCeilingFlows>,
-    'magicLink' | 'fresh' | 'settled' | 'testApp'
-  > = { magicLink, fresh, settled, testApp },
-) => {
-  await Promise.all(
-    Array.from({ length: 120 }, () => flows.magicLink(flows.fresh())),
-  );
-  await flows.settled();
-  await holdOpen(flows.testApp, GLOBAL_MINUTE, 600_000);
-};
+const saturate = (
+  flows: Parameters<typeof saturateGlobalMinute>[0] = {
+    magicLink,
+    fresh,
+    settled,
+    testApp,
+  },
+) => saturateGlobalMinute(flows);
 
 /** Heap in use after a full collection, in megabytes. */
 const heapMb = () => {

@@ -1,8 +1,8 @@
 import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { GLOBAL_MINUTE } from './auth-ceiling-helpers';
-import { elapse, holdOpen } from './auth-rate-limit-helpers';
+import { GLOBAL_MINUTE, saturateGlobalMinute } from './auth-ceiling-helpers';
+import { elapse } from './auth-rate-limit-helpers';
 import { createAccountFlows } from './auth-account-helpers';
 import { createTestApp } from './fixtures';
 import { serveEdge } from './ops-edge';
@@ -47,11 +47,12 @@ describe('ISSUE-220 shedding past the bound raises an operator alert', () => {
       const before = await edge.alerts();
       await elapse(testApp, GLOBAL_MINUTE);
       const existing = (await accounts.signUp()).email;
-      await Promise.all(
-        Array.from({ length: 120 }, () => magicLink(freshEmail())),
-      );
-      await app.auth().settled();
-      await holdOpen(testApp, GLOBAL_MINUTE, 600_000);
+      await saturateGlobalMinute({
+        testApp,
+        magicLink,
+        fresh: freshEmail,
+        settled: () => app.auth().settled(),
+      });
       // A real sign-in whose send the provider holds fills the one slot.
       const release = mailbox.hold();
       await magicLink(existing);
