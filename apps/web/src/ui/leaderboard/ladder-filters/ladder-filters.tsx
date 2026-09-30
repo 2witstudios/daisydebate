@@ -38,43 +38,62 @@ export type LadderFiltersProps = {
   readonly hasStanding: boolean;
 };
 
-type Option = readonly [string, string];
+type Option = { readonly value: string; readonly label: string };
 
-function Select(props: {
+const option = (value: string, label: string): Option => ({ value, label });
+
+type SelectProps = {
   readonly name: string;
   readonly label: string;
   readonly value: string;
   readonly options: readonly Option[];
-  readonly className?: string;
-}): ReactNode {
+};
+
+/** A labelled select that submits with the form. */
+function Select({ name, label, value, options }: SelectProps): ReactNode {
   return (
     <select
-      name={props.name}
-      aria-label={props.label}
-      defaultValue={props.value}
-      className={`${controlClass} ${props.className ?? ''}`.trim()}
+      name={name}
+      aria-label={label}
+      defaultValue={value}
+      className={controlClass}
     >
-      {props.options.map(([value, label]) => (
-        <option key={value} value={value}>
-          {label}
+      {options.map((item) => (
+        <option key={item.value} value={item.value}>
+          {item.label}
         </option>
       ))}
     </select>
   );
 }
 
+/** The phone "Filters" button, with how many filters are active. */
+function FiltersSummary({ active }: { readonly active: number }): ReactNode {
+  return (
+    <summary className={summaryClass}>
+      <Icon name="dots" size={18} />
+      Filters
+      {active > 0 ? (
+        <span className="ml-1 rounded-round bg-accent px-2 text-xs font-bold text-accent-ink">
+          {active}
+        </span>
+      ) : null}
+    </summary>
+  );
+}
+
 const statusOptions: readonly Option[] = [
-  ['established', 'Established'],
-  ['provisional', 'Provisional'],
-  ['everyone', 'Everyone'],
+  option('established', 'Established'),
+  option('provisional', 'Provisional'),
+  option('everyone', 'Everyone'),
 ];
 const bandOptions: readonly Option[] = [
-  ['any', 'Any band'],
-  ...[...bloomBands].reverse().map((band): Option => [band, bloomLabel(band)]),
+  option('any', 'Any band'),
+  ...[...bloomBands].reverse().map((band) => option(band, bloomLabel(band))),
 ];
 const regionOptions: readonly Option[] = [
-  ['any', 'Any region'],
-  ...regions.map((region): Option => [region, regionLabel(region)]),
+  option('any', 'Any region'),
+  ...regions.map((region) => option(region, regionLabel(region))),
 ];
 
 /**
@@ -89,10 +108,12 @@ export function LadderFilters({
   hasStanding,
 }: LadderFiltersProps) {
   const active = activeFilterCount(query);
-  const seasonOptions = seasons.map((item): Option => [
-    String(item.id),
-    `${seasonLabel(item)} (${isClosed(item) ? 'closed' : 'current'})`,
-  ]);
+  const seasonOptions = seasons.map((item) =>
+    option(
+      String(item.id),
+      `${seasonLabel(item)} (${isClosed(item) ? 'closed' : 'current'})`,
+    ),
+  );
   return (
     <AutoSubmitForm
       action="/leaderboard"
@@ -144,15 +165,7 @@ export function LadderFilters({
         />
       </label>
       <details className={`contents ${panelClass}`}>
-        <summary className={summaryClass}>
-          <Icon name="dots" size={18} />
-          Filters
-          {active > 0 ? (
-            <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-round bg-accent px-2 text-xs font-bold text-accent-ink">
-              {active}
-            </span>
-          ) : null}
-        </summary>
+        <FiltersSummary active={active} />
         <div className="contents max-compact:grid max-compact:grid-cols-1 max-compact:gap-3">
           <Select
             name="status"
