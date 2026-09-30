@@ -84,7 +84,9 @@ export async function sweepIdleNamespaces(
       if (seconds === null || seconds === undefined) return;
       const namespace = namespaceOf(key);
       if (Number(seconds) * 1000 > idleMs) {
-        stale.set(namespace, [...(stale.get(namespace) ?? []), key]);
+        const members = stale.get(namespace);
+        if (members) members.push(key);
+        else stale.set(namespace, [key]);
       } else {
         fresh.add(namespace);
         stale.delete(namespace);

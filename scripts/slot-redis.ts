@@ -7,6 +7,7 @@
  * Redis needs `--databases 512` (infra/compose.yaml).
  */
 
+import { RedisClient } from 'bun';
 import { deleteNamespace, listNamespaces } from '@daisy/redis/namespaces';
 import { TEST_NAMESPACE_PREFIX } from '@daisy/redis/testing';
 
@@ -106,3 +107,16 @@ export async function clearTestNamespaces(client: Commands): Promise<number> {
     removed += await deleteNamespace(client, namespace);
   return removed;
 }
+
+/**
+ * The client slot:down clears the test database with (it refuses main): one
+ * on a worktree's own database. A worktree whose `.env` still names a shared
+ * database (0, 1 or 2) gets undefined, so its slot:down never deletes another
+ * checkout's keys.
+ */
+export const openOwnTestRedis = (
+  url: string | undefined,
+): RedisClient | undefined =>
+  url !== undefined && sharedTestRedisMismatch('worktree', url).length === 0
+    ? new RedisClient(url)
+    : undefined;

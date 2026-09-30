@@ -48,7 +48,11 @@ import {
   slotEnvValues,
   type Slot,
 } from './slot-model';
-import { clearTestNamespaces, requireRedisDatabases } from './slot-redis';
+import {
+  clearTestNamespaces,
+  openOwnTestRedis,
+  requireRedisDatabases,
+} from './slot-redis';
 
 const root = resolve(import.meta.dir, '..');
 const worktreeDatabases = 'daisy_wt_';
@@ -145,9 +149,7 @@ export function openServices(
     ]),
   ];
   const redis = redisUrls.map((url) => new RedisClient(url));
-  const testRedis = env.TEST_REDIS_URL
-    ? new RedisClient(env.TEST_REDIS_URL)
-    : undefined;
+  const testRedis = openOwnTestRedis(env.TEST_REDIS_URL);
   return {
     admin,
     connect,

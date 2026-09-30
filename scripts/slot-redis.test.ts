@@ -3,6 +3,7 @@ import { slotEnvValues, slotMismatches, worktreeSlot } from './slot-model';
 import {
   clearTestNamespaces,
   configValue,
+  openOwnTestRedis,
   redisDatabaseRefusal,
   redisDatabasesNeeded,
   requireRedisDatabases,
@@ -171,5 +172,24 @@ describe('slot test Redis database (ISSUE-237)', () => {
       actual: { removed, left: [...keys] },
       expected: { removed: 3, left: ['daisy-wt-abc:v1:session'] },
     });
+  });
+
+  test('only a database the worktree owns is ever cleared', () => {
+    const opened = [
+      'redis://localhost:6379/1',
+      'redis://localhost:6379',
+      'redis://localhost:6379/2',
+      'redis://localhost:6379/13',
+      undefined,
+    ].map(openOwnTestRedis);
+
+    assert({
+      given:
+        'a worktree still on the shared database 1 (or 0, 2), one on its own database, and no URL',
+      should: 'open a client only for the worktree’s own database',
+      actual: opened.map((client) => client !== undefined),
+      expected: [false, false, false, true, false],
+    });
+    for (const client of opened) client?.close();
   });
 });

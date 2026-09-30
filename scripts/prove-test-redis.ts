@@ -94,12 +94,14 @@ async function requireThrowawayRedis(): Promise<string> {
     throw new Error(
       "Set PROOF_REDIS_URL to a throwaway Redis (see the command in this file's header)",
     );
+  const parsed = new URL(base);
   if (
-    new URL(base).port === '6379' ||
-    !['', '/'].includes(new URL(base).pathname)
+    parsed.port === '' ||
+    parsed.port === '6379' ||
+    !['', '/'].includes(parsed.pathname)
   )
     throw new Error(
-      'PROOF_REDIS_URL must be a throwaway server on its own port (not the shared stack on 6379) and name no database',
+      'PROOF_REDIS_URL must be a throwaway server on its own port (an explicit port, not the shared stack on 6379) and name no database',
     );
   for (const database of [3, 4, 6]) {
     const client = new RedisClient(`${base}/${database}`);
