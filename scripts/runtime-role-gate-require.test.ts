@@ -20,6 +20,7 @@ const BOOT3 = 'apps/web/src/server/boot3.ts';
 const loads = (path: string, token: string) =>
   `start.ts loads ${path}, which bypasses the start-up gate with ${token}; start only through startProductionServer (ISSUE-228)`;
 const withBoot3 = `${START_IMPORT}import './boot3';\n`;
+const CALL_LISTEN_FIRST = `('./listen-first').startProductionServer(${NO_OP_OPTIONS});\n`;
 
 const harmless: readonly Row[] = [
   {
@@ -49,6 +50,57 @@ const harmless: readonly Row[] = [
 ];
 
 const refused: readonly Row[] = [
+  // ISSUE-239: createRequire refused under any name or access form, as main
+  // did, in start.ts and in a module it loads.
+  {
+    shape:
+      "ISSUE-239 review: import { createRequire as cr } from 'node:module'",
+    startTs: edit(
+      START_IMPORT,
+      `${START_IMPORT}import { createRequire as cr } from 'node:module';\n`,
+    ).concat(`cr(import.meta.url)${CALL_LISTEN_FIRST}`),
+    expected: bypass('createRequire('),
+  },
+  {
+    shape: 'ISSUE-239 review: import * as m, then m.createRequire(...)',
+    startTs: edit(
+      START_IMPORT,
+      `${START_IMPORT}import * as m from 'node:module';\n`,
+    ).concat(`m.createRequire(import.meta.url)${CALL_LISTEN_FIRST}`),
+    expected: bypass('createRequire('),
+  },
+  {
+    shape: "ISSUE-239: import * as m, then m['createRequire'](...)",
+    startTs: edit(
+      START_IMPORT,
+      `${START_IMPORT}import * as m from 'node:module';\n`,
+    ).concat(`m['createRequire'](import.meta.url)${CALL_LISTEN_FIRST}`),
+    expected: bypass('createRequire('),
+  },
+  {
+    shape:
+      "ISSUE-239 review: const { createRequire: cr } = process.getBuiltinModule('module')",
+    startTs: append(
+      `const { createRequire: cr } = process.getBuiltinModule('module');\ncr(import.meta.url)${CALL_LISTEN_FIRST}`,
+    ),
+    expected: bypass('createRequire('),
+  },
+  {
+    shape:
+      "ISSUE-239 review: process.getBuiltinModule('module').createRequire(...)",
+    startTs: append(
+      `process.getBuiltinModule('module').createRequire(import.meta.url)${CALL_LISTEN_FIRST}`,
+    ),
+    expected: bypass('createRequire('),
+  },
+  {
+    shape: 'ISSUE-239: an aliased createRequire in a module start.ts loads',
+    startTs: edit(START_IMPORT, withBoot3),
+    files: {
+      [BOOT3]: `import { createRequire as cr } from 'node:module';\ncr(import.meta.url)${CALL_LISTEN_FIRST}`,
+    },
+    expected: loads(BOOT3, 'createRequire('),
+  },
   // ISSUE-235: every require member read is a bypass, as on main, and a
   // declared (ambient) require or module is still the host's own binding.
   {

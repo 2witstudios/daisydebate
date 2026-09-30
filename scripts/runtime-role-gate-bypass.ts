@@ -10,6 +10,7 @@ const BYPASS_MEMBERS = new Map([
   ['listen', '.listen('],
   ['prepare', 'nextApp.prepare('],
   ['getRequestHandler', 'getRequestHandler('],
+  ['createRequire', 'createRequire('],
 ]);
 
 /** A module-loading or gate-bypassing step start.ts must never take
@@ -50,8 +51,9 @@ const identifierBypass = (
 ): string | null => {
   if (node.text === 'createProductionServer') return 'createProductionServer(';
   const loader = LOADERS.get(node.text);
-  if (node.text === 'createRequire' && isValueReference(node))
-    return 'createRequire(';
+  // Any identifier named createRequire, as main refused: an import alias,
+  // a namespace member or a destructured key reaches it too (ISSUE-239).
+  if (node.text === 'createRequire') return 'createRequire(';
   return loader && isValueReference(node) && isGlobal(checker, node)
     ? loader
     : null;

@@ -20,7 +20,9 @@ import { bypassToken } from './runtime-role-gate-bypass';
  *   reference to a require with no non-ambient declaration), any read of a
  *   `require` member off any owner, an import equals or a require-named
  *   import is refused; a key, interface member or local declared with
- *   that name is not (ISSUE-227, ISSUE-235). The same holds for every
+ *   that name is not (ISSUE-227, ISSUE-235). Any identifier or member
+ *   named createRequire is refused, however it is imported or reached
+ *   (ISSUE-239). The same holds for every
  *   relative module start.ts loads,
  *   outside listen-first.ts's own imports (ISSUE-228). Computed names such
  *   as `server['li' + 'sten']` are out of scope;
