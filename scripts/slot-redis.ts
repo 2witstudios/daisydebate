@@ -77,46 +77,83 @@ export async function requireRedisDatabases(
   if (refusal) throw new Error(refusal);
 }
 
-const databaseIndex = (url: string | undefined): number | undefined => {
-  if (!url) return undefined;
+const databaseIndex = (url: string): number | string => {
   try {
     const path = new URL(url).pathname.slice(1);
-    return path === '' ? 0 : Number(path);
+    if (path === '') return 0;
+    return /^(?:0|[1-9][0-9]*)$/.test(path) ? Number(path) : path;
   } catch {
-    return undefined;
+    return 'unreadable';
   }
 };
 
-/** The .env problem, if any, of a worktree whose test Redis is a shared database (0, 1 or 2). */
-export const sharedTestRedisMismatch = (
-  kind: 'main' | 'worktree',
+/**
+ * The test database this slot owns, from the PORT `slot:up` wrote: main
+ * (3000, or no PORT as in CI) is 1, worktree port block n (PORT 13000 + 10n)
+ * is 2 + n; any other PORT names no block. `kind` is inferred when omitted.
+ */
+export function expectedTestRedisDatabase(
+  port: string | undefined,
+  kind: 'main' | 'worktree' | undefined = port === undefined || port === '3000'
+    ? 'main'
+    : 'worktree',
+): number | undefined {
+  if (kind === 'main') return testRedisDatabase();
+  const offset = Number(port) - 13_000;
+  const block = offset / 10;
+  return Number.isInteger(block) && block >= 1 && block <= 499
+    ? testRedisDatabase(block)
+    : undefined;
+}
+
+/**
+ * Why a URL is not this slot's own test database, or undefined when it is.
+ * Every path that deletes from the test database (the runner's sweep and
+ * post-run scan, slot:down) checks this first: exactly the slot's own
+ * database, never another slot's, dev (0), e2e (2) or one past the server's.
+ */
+export function testRedisRefusal(
   url: string | undefined,
-): readonly string[] => {
-  const index = databaseIndex(url);
-  return kind === 'worktree' && index !== undefined && index <= 2
-    ? [
-        `TEST_REDIS_URL uses shared Redis database ${index}, expected this slot's own database (${worktreeTestRedisDatabaseBase + 1} or higher; run bun slot:up)`,
-      ]
-    : [];
-};
+  expected: number | undefined,
+): string | undefined {
+  if (url === undefined) return 'TEST_REDIS_URL is unset';
+  if (expected === undefined)
+    return "PORT does not name this slot's port block, so its test Redis database cannot be derived (run bun slot:up)";
+  const actual = databaseIndex(url);
+  return actual === expected
+    ? undefined
+    : `TEST_REDIS_URL names Redis database ${actual}, expected this slot's own database ${expected} (run bun slot:up)`;
+}
+
+/** The runner's guard: TEST_REDIS_URL against the PORT in the same environment. */
+export const testRedisRefusalOf = (
+  env: Readonly<Record<string, string | undefined>>,
+): string | undefined =>
+  testRedisRefusal(env.TEST_REDIS_URL, expectedTestRedisDatabase(env.PORT));
+
+/**
+ * The client slot:down clears the test database with (it refuses main): one
+ * on the worktree's own database, and only that. Any other database, shared
+ * or another slot's, gets undefined, so slot:down never deletes another
+ * checkout's keys.
+ */
+export const openOwnTestRedis = (
+  url: string | undefined,
+  port: string | undefined,
+): RedisClient | undefined =>
+  url !== undefined &&
+  testRedisRefusal(url, expectedTestRedisDatabase(port, 'worktree')) ===
+    undefined
+    ? new RedisClient(url)
+    : undefined;
 
 /** slot:down's release of a slot's test database: every `t3-` namespace a run left, by SCAN and UNLINK. */
-export async function clearTestNamespaces(client: Commands): Promise<number> {
+export async function clearTestNamespaces(
+  client: Commands | undefined,
+): Promise<number> {
+  if (!client) return 0;
   let removed = 0;
   for (const namespace of await listNamespaces(client, TEST_NAMESPACE_PREFIX))
     removed += await deleteNamespace(client, namespace);
   return removed;
 }
-
-/**
- * The client slot:down clears the test database with (it refuses main): one
- * on a worktree's own database. A worktree whose `.env` still names a shared
- * database (0, 1 or 2) gets undefined, so its slot:down never deletes another
- * checkout's keys.
- */
-export const openOwnTestRedis = (
-  url: string | undefined,
-): RedisClient | undefined =>
-  url !== undefined && sharedTestRedisMismatch('worktree', url).length === 0
-    ? new RedisClient(url)
-    : undefined;

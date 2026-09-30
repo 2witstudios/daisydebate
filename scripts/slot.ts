@@ -149,7 +149,7 @@ export function openServices(
     ]),
   ];
   const redis = redisUrls.map((url) => new RedisClient(url));
-  const testRedis = openOwnTestRedis(env.TEST_REDIS_URL);
+  const testRedis = openOwnTestRedis(env.TEST_REDIS_URL, env.PORT);
   return {
     admin,
     connect,
@@ -289,6 +289,7 @@ const envOf = (content: string) => ({
   REDIS_URL: readEnvValue(content, 'REDIS_URL'),
   E2E_REDIS_URL: readEnvValue(content, 'E2E_REDIS_URL'),
   TEST_REDIS_URL: readEnvValue(content, 'TEST_REDIS_URL'),
+  PORT: readEnvValue(content, 'PORT'),
 });
 
 const describeOrphans = (ids: readonly string[]) =>
@@ -380,8 +381,7 @@ async function down(checkout: Checkout, envPath: string) {
         for (const namespace of [slot.namespace, slot.e2eNamespace])
           removed += await deleteNamespace(client, namespace);
       // The slot's own test database: every namespace a run left behind.
-      if (services.testRedis)
-        removed += await clearTestNamespaces(services.testRedis);
+      removed += await clearTestNamespaces(services.testRedis);
       return removed;
     });
     process.stdout.write(

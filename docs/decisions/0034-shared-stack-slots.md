@@ -104,8 +104,14 @@ block` (3 to 501), written to `TEST_REDIS_URL` by `slot:up`. The port block
   server with too few, naming the one-time
   `docker compose -f infra/compose.yaml up -d --force-recreate redis`.
   `slot:up` never recreates a running stack itself (that would drop every
-  checkout's Redis state), so the operator runs it once. `bun doctor` flags a
-  worktree whose `TEST_REDIS_URL` still names database 0, 1 or 2.
+  checkout's Redis state), so the operator runs it once. Every path that
+  deletes from the test database checks that `TEST_REDIS_URL` names exactly
+  the slot's own database (main 1, a worktree `2 + block`, derived from
+  `PORT`) and refuses anything else, whether dev (0), e2e (2), another slot's
+  or past the server's 512 (ISSUE-244): `bun doctor` reports the mismatch,
+  the runner exits before its sweep or post-run scan, and `slot:down` opens
+  no client, so a hand-edited `.env` can never make a run delete another
+  database's keys.
 - **Why not per-namespace key tracking.** Tracking each run's keys in a set
   needs every write attributed to a namespace at the seam: the presence
   scripts build a hash key inside Lua, and the slot tooling must still SCAN

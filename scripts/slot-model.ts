@@ -5,7 +5,11 @@
  * effectful CLI lives in slot.ts.
  */
 import { basename } from 'node:path';
-import { sharedTestRedisMismatch, testRedisDatabase } from './slot-redis';
+import {
+  expectedTestRedisDatabase,
+  testRedisDatabase,
+  testRedisRefusal,
+} from './slot-redis';
 
 export type Slot = {
   readonly kind: 'main' | 'worktree';
@@ -230,7 +234,14 @@ export function slotMismatches(slot: Slot, env: Env): readonly string[] {
         ? `${key} is unset, expected "${expected}"`
         : `${key} names "${actual}", expected "${expected}"`,
     );
-  const sharedRedis = sharedTestRedisMismatch(slot.kind, env.TEST_REDIS_URL);
+  const testRedis =
+    env.TEST_REDIS_URL === undefined
+      ? undefined
+      : testRedisRefusal(
+          env.TEST_REDIS_URL,
+          expectedTestRedisDatabase(env.PORT, slot.kind),
+        );
+  const sharedRedis = testRedis === undefined ? [] : [testRedis];
   const server = serverOf(env.DATABASE_URL);
   const servers = (['TEST_DATABASE_URL', 'E2E_DATABASE_URL'] as const)
     .map((key) => [key, serverOf(env[key])] as const)
