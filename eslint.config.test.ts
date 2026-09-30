@@ -5,6 +5,19 @@ import {
   repositoryEslint,
   table,
   web,
+  type Problems,
+  props,
+  globals,
+  imports,
+  edgeImport,
+  reads,
+  mutations,
+  sixMutations,
+  route,
+  lazyEdge,
+  e2eServer,
+  escapes,
+  escapeRule,
 } from './eslint.config.test-support';
 
 setupRitewayBun();
@@ -35,41 +48,6 @@ describe('repository ESLint configuration', () => {
     });
   });
 });
-
-const [props, globals, imports] = ['properties', 'globals', 'imports'].map(
-  (kind) => [`no-restricted-${kind}`],
-);
-const edgeImport = (from: string, name = 'processApp', ext = '') =>
-  `import { ${name} } from '${from}process-app${ext}';\nexport const x = ${name};`;
-const reads =
-  'export const env = process.env;\nexport const g = globalThis as unknown;';
-const mutations = [
-  "process.env.FOUNDATION_PROOF_ENABLED = 'true';",
-  'delete process.env.DATABASE_URL;',
-  "Object.assign(process.env, { NODE_ENV: 'test' });",
-  'globalThis.fetch = (async () => new Response()) as typeof fetch;',
-  "Reflect.set(globalThis, 'daisyResources', {});",
-  "Reflect.deleteProperty(process.env, 'PUBLIC_APP_URL');",
-].join('\n');
-const sixMutations = Array.from({ length: 6 }, () => 'no-restricted-syntax');
-const route = web('app/api/health/ready/route.ts');
-const lazyEdge = (path: string) => `export const l = () => import('${path}');`;
-const suite = 'apps/web/integration/leak.integration.ts';
-const e2eServer = 'apps/web/e2e/support/server.ts';
-/** Every spelling that reaches the edge outside its entries (review 2). */
-const computed = "export const l = import(`./${'process-app'}`);";
-const escapes: ReadonlyArray<readonly [string, string]> = [
-  [edgeImport('../../server/', 'processApp', '.js'), web('features/x.ts')],
-  [edgeImport('/repo/apps/web/src/server/', 'processApp', '.ts'), web('x.ts')],
-  [lazyEdge('../../server/process-app'), web('features/x.ts')],
-  [lazyEdge('../../server/process-app.js'), route],
-  [computed, web('server/x.ts')],
-  [edgeImport('../src/server/'), suite],
-  [lazyEdge('../src/server/process-app'), suite],
-  [edgeImport('../../src/server/'), 'apps/web/e2e/journey.e2e.ts'],
-];
-const escapeRule = (code: string) =>
-  code.startsWith('import {') ? imports : ['no-restricted-syntax'];
 
 describe('process edge: one module reads process.env and globalThis (ISSUE-7)', () => {
   test('rejects ambient reads and edge imports outside the edge', async () => {
@@ -266,17 +244,41 @@ describe('restrictions every no-restricted-syntax list carries', () => {
     });
   });
 
-  test('rejects a Bun.serve that leaves its address to the wildcard bind (ISSUE-252)', async () => {
-    const serve = (bind: string) =>
-      `const hostname = '127.0.0.1';\nBun.serve({ ${bind}port: 0, fetch: () => new Response(hostname) });`;
+  test('rejects an unbound Bun.serve under every glob, beside the Redis guard in every integration workspace (ISSUE-252, ISSUE-259)', async () => {
+    const both = `const url = 'redis://x';\nnew RedisClient(url);\nBun.serve({ port: 0, fetch: () => new Response(url) });`;
+    const bound = `const hostname = '127.0.0.1';\nBun.serve({ hostname, port: 0, fetch: () => new Response(hostname) });`;
+    const integration = [
+      'packages/db',
+      'packages/redis',
+      'apps/realtime',
+      'apps/web',
+    ];
+    const elsewhere = [
+      'scripts/x.test.ts',
+      'apps/web/e2e/x.e2e.ts',
+      web('x.ts'),
+      'packages/clock/src/x.ts',
+      'packages/db/src/x.ts',
+      'apps/realtime/src/x.ts',
+    ];
     const { actual, expected } = table([
-      [serve(''), 'scripts/x.test.ts', 1],
-      [serve(''), 'apps/web/integration/x.integration.ts', 1],
-      [serve('hostname, '), 'scripts/x.test.ts', 0],
+      ...integration.map((root): Problems => [
+        both,
+        `${root}/integration/x.integration.ts`,
+        2,
+      ]),
+      ...elsewhere.map((path): Problems => [
+        both.replace('new RedisClient(url);\n', ''),
+        path,
+        1,
+      ]),
+      [bound, 'packages/db/integration/x.integration.ts', 0],
     ]);
     assert({
-      given: 'a Bun.serve with no hostname, and one binding it',
-      should: 'report only the unbound one, in scripts and integration suites',
+      given:
+        'an unbound Bun.serve and a raw RedisClient in each integration workspace, an unbound Bun.serve under every other glob, and a bound one',
+      should:
+        'report the serve everywhere and the Redis client in every integration workspace, and the bound serve nowhere',
       actual: await actual,
       expected,
     });

@@ -456,6 +456,7 @@ export default [
         'error',
         exportStarRestriction,
         bareToThrowRestriction,
+        unboundServeRestriction,
         ...testRedisRestrictions,
       ],
     },

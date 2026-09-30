@@ -40,3 +40,45 @@ export const expectedOf = (cases: readonly Case[]) =>
   cases.map(([, , ids]) => ids);
 
 export const web = (path: string) => `apps/web/src/${path}`;
+
+/** Fixtures for the process-edge tests (ISSUE-7). */
+export const [props, globals, imports] = [
+  'properties',
+  'globals',
+  'imports',
+].map((kind) => [`no-restricted-${kind}`]);
+export const edgeImport = (from: string, name = 'processApp', ext = '') =>
+  `import { ${name} } from '${from}process-app${ext}';\nexport const x = ${name};`;
+export const reads =
+  'export const env = process.env;\nexport const g = globalThis as unknown;';
+export const mutations = [
+  "process.env.FOUNDATION_PROOF_ENABLED = 'true';",
+  'delete process.env.DATABASE_URL;',
+  "Object.assign(process.env, { NODE_ENV: 'test' });",
+  'globalThis.fetch = (async () => new Response()) as typeof fetch;',
+  "Reflect.set(globalThis, 'daisyResources', {});",
+  "Reflect.deleteProperty(process.env, 'PUBLIC_APP_URL');",
+].join('\n');
+export const sixMutations = Array.from(
+  { length: 6 },
+  () => 'no-restricted-syntax',
+);
+export const route = web('app/api/health/ready/route.ts');
+export const lazyEdge = (path: string) =>
+  `export const l = () => import('${path}');`;
+const suite = 'apps/web/integration/leak.integration.ts';
+export const e2eServer = 'apps/web/e2e/support/server.ts';
+/** Every spelling that reaches the edge outside its entries (review 2). */
+export const computed = "export const l = import(`./${'process-app'}`);";
+export const escapes: ReadonlyArray<readonly [string, string]> = [
+  [edgeImport('../../server/', 'processApp', '.js'), web('features/x.ts')],
+  [edgeImport('/repo/apps/web/src/server/', 'processApp', '.ts'), web('x.ts')],
+  [lazyEdge('../../server/process-app'), web('features/x.ts')],
+  [lazyEdge('../../server/process-app.js'), route],
+  [computed, web('server/x.ts')],
+  [edgeImport('../src/server/'), suite],
+  [lazyEdge('../src/server/process-app'), suite],
+  [edgeImport('../../src/server/'), 'apps/web/e2e/journey.e2e.ts'],
+];
+export const escapeRule = (code: string) =>
+  code.startsWith('import {') ? imports : ['no-restricted-syntax'];
