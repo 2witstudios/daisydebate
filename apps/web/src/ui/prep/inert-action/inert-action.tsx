@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import type { InertAction } from '../../../features/prep/actions';
 import {
   buttonClass,
@@ -26,7 +27,7 @@ export function InertActionButton({
   className,
   label,
 }: InertActionButtonProps) {
-  const reasonId = `inert-${action.label.toLowerCase().replaceAll(/[^a-z]+/g, '-')}`;
+  const reasonId = useId();
   return (
     <>
       <button

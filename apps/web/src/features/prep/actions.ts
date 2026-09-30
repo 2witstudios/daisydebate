@@ -31,4 +31,16 @@ export const inertActions = {
     label: 'Create or join a team',
     reason: notBuilt('Teams'),
   },
+  addToBrief: {
+    label: 'Add to brief',
+    reason: notBuilt('Adding a card to a brief'),
+  },
+  copyCite: {
+    label: 'Copy cite',
+    reason:
+      'The citation format is an open product decision, so there is nothing to copy yet.',
+  },
+  share: { label: 'Share', reason: notBuilt('Sharing') },
+  edit: { label: 'Edit', reason: notBuilt('Editing a card') },
+  deleteCard: { label: 'Delete card', reason: notBuilt('Deleting a card') },
 } as const satisfies Record<string, InertAction>;

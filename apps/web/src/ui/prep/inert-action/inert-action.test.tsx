@@ -21,10 +21,10 @@ describe('InertActionButton', () => {
         /<button [^>]*disabled=""/.test(html),
         html.includes('Save this search'),
         html.includes('Saving a search needs the Prep service'),
-        html.includes('aria-describedby="inert-save-this-search"'),
-        html.includes('id="inert-save-this-search"'),
+        /aria-describedby="([^"]+)"/.exec(html)?.[1] ===
+          /<span id="([^"]+)"/.exec(html)?.[1],
       ],
-      expected: [true, true, true, true, true],
+      expected: [true, true, true, true],
     });
   });
 });

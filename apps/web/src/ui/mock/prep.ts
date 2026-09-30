@@ -9,7 +9,7 @@ import type { LibraryQuery } from '../../features/prep/library-query';
 const daysBefore = (now: string, days: number): string =>
   new Date(Date.parse(now) - days * 86_400_000).toISOString();
 
-const sampleTeamName = '[Team name]';
+export const sampleTeamName = '[Team name]';
 const team = { kind: 'team', teamName: sampleTeamName } as const;
 const mine = { kind: 'private' } as const;
 

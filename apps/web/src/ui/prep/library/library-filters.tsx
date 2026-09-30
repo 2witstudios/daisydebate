@@ -15,11 +15,8 @@ import { buttonClass } from '../../components/button/button-class';
 import { Icon } from '../../components/icon/icon';
 import { InertActionButton } from '../inert-action/inert-action';
 import { PrepIcon } from '../prep-icon/prep-icon';
-import {
-  controlClass,
-  panelClass,
-  summaryClass,
-} from './library-filters-class';
+import { controlClass } from '../form-controls/form-class';
+import { panelClass, summaryClass } from './library-filters-class';
 
 const sortLabels: Readonly<Record<LibrarySort, string>> = {
   recent: 'Recently edited',

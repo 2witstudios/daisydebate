@@ -18,10 +18,10 @@ describe('prep actions', () => {
   test('inert actions explain themselves', () => {
     assert({
       given: 'every inert action',
-      should: 'carry a label and a reason that says why',
+      should: 'carry a label and a full-sentence reason',
       actual: Object.values(inertActions).every(
         ({ label, reason }) =>
-          label.length > 0 && reason.endsWith('not built yet.'),
+          label.length > 0 && reason.length > 0 && reason.endsWith('.'),
       ),
       expected: true,
     });
