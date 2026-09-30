@@ -7,8 +7,8 @@ rules). Amends [ADR 0030](0030-effective-rules-and-growth-paths.md) (the lobby
 becomes a named, durable concept and replaces the `source` provenance key),
 [ADR 0031](0031-realtime-service.md) section 5 (one new topic family) and
 [ADR 0048](0048-authorization-core.md) sections 1 and 2 (unranked creation
-and the room capabilities; its 2026-09-30 amendment, members host ranked
-debates, is kept), each in its own `## Amendment` section when this record is
+and the room capabilities; hosting ranked play by anyone with an actor is
+kept), each in its own `## Amendment` section when this record is
 accepted. Decisions marked open at the end were made on the owner's behalf and
 stay open until the owner confirms or overrules them.
 
@@ -49,8 +49,9 @@ a room is one entry in it.
 ### 2. The room is a durable row and is not competitive truth
 
 A `rooms` row carries its cuid2 id, host actor, canonical format slug, draft
-rules overrides, visibility, lifecycle (`open`, `started`, `closed`), a
-nullable league and nullable creation context. A room with a league is a
+rules overrides, visibility, lifecycle (`open`, `started`, `closed`), whether
+it is ranked, a nullable league (a tenant's room, which LEAGUE-OPS adds and
+which is always unranked) and nullable creation context. A ranked room is a
 hosted ranked table (section 6). Seats and judge assignments are rows keyed by
 actor, with the actor's side or judge role and the ready flag. The
 `sandbox` seat driver ADR 0030 placed in Redis room state is a column on the
@@ -112,15 +113,14 @@ both members ready, then starts it through section 3, so queue-made,
 invite-made and tournament-made debates take one path. A ranked offer never
 exposes draft settings.
 
-A hosted ranked table is a room with a league, posted the way ADR 0048's
-2026-09-30 amendment describes: any active member of the league may host one
-(`debate.create` on the league), and a non-member of an open league is joined
-first through `league.join`. Hosting seats no one; who may take a seat (rating
+A hosted ranked table is a ranked room, posted the way ADR 0048 describes:
+any user with an actor may host one (`debate.create` on `ranked`). Hosting
+seats no one; who may take a seat (rating
 band, eligibility) is Ratings-epic seating policy. A ranked room carries no
 draft overrides: its rules are the format's canonical rules on a
 `ranked_eligible` format (ADR 0030 decision 2), its seats refuse non-human
 actors, and the start command refuses it through `rulesMatchFormat` otherwise.
-Unranked rooms have no league and apply the host's overrides. TOURN-1 adds its own nullable context key on the room
+Unranked rooms apply the host's overrides. TOURN-1 adds its own nullable context key on the room
 (its pairing) when it builds; this record adds none. Pre-assigned judges sit
 in the room before the start, which is what tabulation reads.
 
@@ -134,9 +134,9 @@ in the room before the start, which is what tabulation reads.
 - New capabilities `room.create`, `room.join` and `room.read` with resource
   kind `room` (vocabulary owned by `@daisy/protocol`). An unranked room is
   created under `room.create`, replacing the `unranked` resource kind of
-  `debate.create`. A ranked room is created under `debate.create` on its
-  league, which ADR 0048's 2026-09-30 amendment allows to any active member;
-  nothing in this record changes that rule. `debate.read` is unchanged.
+  `debate.create`. A ranked room is created under `debate.create` on
+  `ranked`, which ADR 0048 allows to any user with an actor; nothing in this
+  record changes that rule. `debate.read` is unchanged.
 - `debate:<id>` topics begin at start. Room chat is `room:<id>:chat`; its
   persistence belongs to the chat epic. `debate:<id>:chat` stays reserved.
 
@@ -168,8 +168,8 @@ builds against it.
 | Where                                                      | Conflict                                                                                                                                                  | Resolution                                                                                 |
 | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | AZC-3.3 (unranked create and by-id read), ADR 0048 sect. 1 | Creates a durable debate that seats no one, with seating "out of scope"                                                                                   | Create becomes room create plus start (sections 3 and 7); by-id read is unaffected         |
-| ADR 0048 sect. 2 vocabulary                                | `debate.create` with resource kind `unranked`; no room kind or capability                                                                                 | Add `room` kind and the three room capabilities; `debate.create` on a league is kept       |
-| ADR 0048 amendment of 2026-09-30, sect. 9 Ratings contract | One ranked-debate creation operation for hosted tables and matchmade pairings; seating is a separate step                                                 | The room is that operation's durable table (section 6); seat policy stays with Ratings     |
+| ADR 0048 sect. 2 vocabulary                                | `debate.create` with resource kind `unranked`; no room kind or capability                                                                                 | Add `room` kind and the three room capabilities; `debate.create` on `ranked` is kept       |
+| ADR 0048 sect. 8 Ratings contract                          | One ranked-debate creation operation for hosted tables and matchmade pairings; seating is a separate step                                                 | The room is that operation's durable table (section 6); seat policy stays with Ratings     |
 | ADR 0031 sect. 5, RT-2.5a                                  | No room topic family                                                                                                                                      | Add `room:<id>` and its presence topic, decided from Postgres rows                         |
 | ADR 0030 (lobby, `source` key, sandbox control in Redis)   | Lobby undefined; provenance was to be a nullable `source` key; sandbox seat control placed in Redis                                                       | `debates.room_id` replaces the `source` key for rooms; sandbox driver is a seat column     |
 | MTCH-2.1, MTCH-2.2 (Ranked match loop)                     | "Speech order and timeboxes" and a "judgeable transcript snapshot" duplicate RT-4.1 and RT-4.2 (turn structure and deterministic clocks)                  | MTCH-2.1 folds into RT-4.1/4.2; MTCH-2.2 (transcript snapshot) stays, the RT epic has none |

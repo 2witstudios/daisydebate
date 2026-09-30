@@ -115,7 +115,7 @@ nothing else:
 
 ### 5. Subscribe authorization table
 
-_(Amended by [ADR 0048](0048-authorization-core.md), section 8.)_ Every
+_(Amended by [ADR 0048](0048-authorization-core.md), section 7.)_ Every
 `subscribe` is decided by one pure function, `authorizeSubscribe`, owned by
 `@daisy/auth`. The topic vocabulary and parsing stay in `@daisy/protocol`
 (the family registry, added with its first consumer, RT-2.5a, is data owned
@@ -127,12 +127,12 @@ absent from the table is refused, and so is a decision that fails or cannot
 run (fail closed). `@daisy/db`'s read models settle the facts a rule needs;
 the table names the rule.
 
-| Topic family                          | `authorizeSubscribe` rule                                                                                                                                                                                                                                                                                                  |
-| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `debate:<id>`, `debate:<id>:presence` | `authorize(debate.read)` on the debate: a public or unlisted debate is open to every ticket holder; a private debate to its creator and the seated; a ranked debate that is public or unlisted to whoever holds `league.view` on its league, and any ranked debate, whatever its visibility, to its creator and the seated |
-| `debate:<id>:chat`                    | `authorize(debate.read)`, and for a `private` debate the seated fact as well, so a creator who is not seated is refused (the "seated roles only" narrowing; the chat epic may redefine it)                                                                                                                                 |
-| `user:<actorId>:inbox`                | `authorizeInbox`: the owning actor only, matched against the connecting ticket's `actorId` (never a `users.id`)                                                                                                                                                                                                            |
-| `standings:<seasonId>`                | `authorize(league.view)` on the season's league; the topic is keyed by the season's cuid2 id, not a slug                                                                                                                                                                                                                   |
+| Topic family                          | `authorizeSubscribe` rule                                                                                                                                                                  |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `debate:<id>`, `debate:<id>:presence` | `authorize(debate.read)` on the debate: a public or unlisted debate is open to every ticket holder, and a private debate to its creator and the seated                                     |
+| `debate:<id>:chat`                    | `authorize(debate.read)`, and for a `private` debate the seated fact as well, so a creator who is not seated is refused (the "seated roles only" narrowing; the chat epic may redefine it) |
+| `user:<actorId>:inbox`                | `authorizeInbox`: the owning actor only, matched against the connecting ticket's `actorId` (never a `users.id`)                                                                            |
+| `standings:<seasonId>`                | open to every ticket holder, because the ladder is public; the topic is keyed by the season's cuid2 id, not a slug                                                                         |
 
 `unlisted` is a listing flag, not access control: an unlisted debate is left
 out of listings, but anyone who has its id may read it and subscribe to it.
@@ -389,8 +389,8 @@ and the sentences that said the registry "performs no authorization of its
 own" and is "owned as data by `@daisy/protocol`". All five topic families
 (`debate`, `debate:presence`, `debate:chat`, `user:inbox`, `standings`) are
 decided by `authorizeSubscribe`, so `debate:<id>` and `debate:<id>:presence`
-no longer depend on "any signed-in member" alone, and `standings` follows
-`league.view` on the season's league and is keyed by season id. The registry
+no longer depend on "any signed-in member" alone, and `standings` is open to
+every ticket holder and is keyed by season id. The registry
 calls `authorizeSubscribe` through the shared composition. The topic
 vocabulary stays in `@daisy/protocol` and the decision is `@daisy/auth`'s.
 `unlisted` is a listing flag, and anyone with a debate's id may read an
