@@ -64,7 +64,7 @@ export function readLadder(
   };
 }
 
-export type SeasonPlayed = {
+type SeasonPlayed = {
   readonly season: Season;
   /** The debater's ranked line that season, or null if they did not play. */
   readonly entry: RankedEntry | null;

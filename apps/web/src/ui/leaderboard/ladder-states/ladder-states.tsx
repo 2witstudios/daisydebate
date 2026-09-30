@@ -198,7 +198,7 @@ export function PreviousChampion({
   );
 }
 
-export type EmptyKind = 'filtered' | 'provisional-hits' | 'new-season';
+type EmptyKind = 'filtered' | 'provisional-hits' | 'new-season';
 
 export type EmptyLadderProps = {
   readonly kind: EmptyKind;

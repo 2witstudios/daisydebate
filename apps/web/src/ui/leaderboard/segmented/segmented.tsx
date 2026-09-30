@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { segmentClass } from './segmented-class';
 
-export type Segment = {
+type Segment = {
   readonly label: string;
   readonly href: string;
   readonly selected: boolean;

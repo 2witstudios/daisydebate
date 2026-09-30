@@ -48,7 +48,7 @@ export type LadderEntry = {
  */
 export const PROVISIONAL_AFTER = 10;
 
-export const isProvisional = (entry: LadderEntry): boolean =>
+const isProvisional = (entry: LadderEntry): boolean =>
   entry.played < PROVISIONAL_AFTER;
 
 export type RankedEntry = LadderEntry & {

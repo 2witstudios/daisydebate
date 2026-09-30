@@ -34,7 +34,7 @@ export const linePath = (
     .join('');
 
 /** Chart size in viewBox units, and the plot's margins inside it. */
-export const CHART = {
+const CHART = {
   width: 420,
   height: 190,
   left: 40,

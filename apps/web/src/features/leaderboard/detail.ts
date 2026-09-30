@@ -15,7 +15,7 @@ import type { DebaterRead } from './read-leaderboard';
 import { seasonLabel, type Season } from './season';
 import { PROVISIONAL_AFTER, regionLabel, type RankedEntry } from './standing';
 
-export type SeasonPlayedRow = {
+type SeasonPlayedRow = {
   readonly label: string;
   readonly rating: string;
   readonly rank: string;
