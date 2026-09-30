@@ -55,6 +55,29 @@ see the corrected cadence below (ADR 0046/DEC-33). Each run it:
    `bun scripts/notify-drive.ts incidents --message`, naming each
    condition's own runbook section in `docs/operations/auth-delivery.md`.
 
+The probe never ends without posting when something is wrong (ISSUE-208,
+ISSUE-209). Each of its two requests is abandoned after
+`PROBE_FETCH_TIMEOUT_MS` (20 s) and each Incidents delivery attempt after
+`NOTIFY_ATTEMPT_TIMEOUT_MS` (20 s, three attempts), so a run where every
+request hangs still posts in about 100 s, well inside the job's 5-minute
+`timeout-minutes`. It validates the `/api/ops/alerts` body with a small,
+pure, hand-written validator (`parseAlertsBody`): a malformed body, an
+entry that is not a condition, or an unknown condition id posts as an
+unreadable alert state. Anything that throws before the decision posts a
+fail-closed message and exits 1.
+
+Its exit code says whether Incidents heard about it: 0 when the run is
+healthy or its alert was delivered, 1 when the post failed or the probe
+threw (after it tried to post), and 2 for a usage error.
+
+The probe and `notify-drive` run with nothing installed (ISSUE-225). They
+and every module they load import only relative modules and `node:`/`bun`
+builtins, never a package. The job has no install step and runs the probe
+with `bun --no-install`, so nothing is ever fetched, and a registry outage
+cannot stop the probe from posting. `scripts/verify-deploy-config.ts` walks
+their runtime import graph and refuses any package import, and it refuses a
+workflow that installs anything or drops `--no-install`.
+
 `scripts/auth-alert-probe.ts` is the workflow's script: pure
 `evaluateOriginProbe`/`composeAlertMessage` functions, unit-tested, plus a
 thin `main()` that performs the two fetches and shells out to
@@ -79,11 +102,26 @@ exactly one place.
   The limiter shares that Redis, so the recorder also keeps the limiter's
   since-time in process under the same bridging rule, and
   `readAlertSnapshot` reports the earlier of the two (ISSUE-191, DEC-63).
-  When the Redis read itself fails, the snapshot is marked
-  `redisState: 'unreachable'` and `evaluateAlerts` checks only
+  Each of those reads is bounded by `ALERT_STATE_READ_TIMEOUT_MS` (2 s,
+  readiness's own PING budget), so a Redis that stops answering counts
+  as a failed read (ISSUE-208). When the Redis read fails, the snapshot is
+  marked `redisState: 'unreachable'` and `evaluateAlerts` checks only
   `limiter_unavailable`, from the in-process since-time; every other
-  condition waits for Redis to return. Each instance serving auth traffic
-  sees the outage itself, so whichever one the probe reaches can report it.
+  condition waits for Redis to return, and the probe posts that unread
+  state as well as any condition that fired (ISSUE-199).
+
+  The in-process marker covers exactly one case: the instance answering
+  the probe itself saw a limiter failure at least 2 minutes earlier and
+  another within the last 3 minutes. It lives in one process's memory.
+  Staging is always on (DEC-40), but a deploy, restart or crash still
+  starts a new process whose marker is empty; an instance that served no
+  auth traffic during the outage has none; and with more than one web
+  machine each keeps its own, so the probe sees only the one it reaches
+  (ISSUE-200). Readiness covers every one of those cases: it answers 503
+  while Redis is unreachable, and the probe posts that. Running more than
+  one web machine needs a shared store for this marker, chosen under a new
+  ADR, before `limiter_unavailable` can be exact.
+
 - **Consecutive delivery-provider failures.** `auth.mail.failed` increments
   a bounded Redis counter (`incrementWithExpiry`, a new atomic
   `INCR`+`PEXPIRE`-on-first-hit primitive) with a 1-hour TTL;

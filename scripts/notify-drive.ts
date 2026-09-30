@@ -182,11 +182,20 @@ function requireHttpsWebhook(name: string, value: string): URL {
 
 export const DEFAULT_RETRY_DELAYS_MS: readonly number[] = [500, 2000];
 
+/**
+ * Each delivery attempt is abandoned after this long and counts as a
+ * failed attempt, so a hung webhook cannot hold a caller (the AUTH-7.7
+ * probe's job has a 5-minute limit) past its retries (ISSUE-208).
+ */
+export const NOTIFY_ATTEMPT_TIMEOUT_MS = 20_000;
+
 const isRetryableStatus = (status: number): boolean =>
   status === 429 || status >= 500;
 
 export type DeliveryOptions = {
   readonly delays?: readonly number[];
+  /** Per-attempt budget; `NOTIFY_ATTEMPT_TIMEOUT_MS` when omitted. */
+  readonly attemptTimeoutMs?: number;
   readonly delay?: (ms: number) => Promise<void>;
   readonly fetchImpl?: typeof fetch;
 };
@@ -239,6 +248,9 @@ async function postSignedWebhook(input: {
         return await fetchImpl(input.url, {
           method: 'POST',
           redirect: 'error',
+          signal: AbortSignal.timeout(
+            input.delivery?.attemptTimeoutMs ?? NOTIFY_ATTEMPT_TIMEOUT_MS,
+          ),
           headers: {
             'Content-Type': 'application/json',
             'x-pagespace-timestamp': String(timestampSeconds),
@@ -263,9 +275,10 @@ export async function postToDrive(
   channel: Channel,
   content: string,
   delivery?: DeliveryOptions,
+  env: Readonly<Record<string, string | undefined>> = process.env,
 ): Promise<void> {
-  const rawUrl = process.env[CHANNEL_ENV[channel].url];
-  const secret = process.env[CHANNEL_ENV[channel].secret];
+  const rawUrl = env[CHANNEL_ENV[channel].url];
+  const secret = env[CHANNEL_ENV[channel].secret];
   if (!rawUrl || !secret) {
     throw new Error(
       `Missing ${CHANNEL_ENV[channel].url} or ${CHANNEL_ENV[channel].secret}`,
