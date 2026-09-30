@@ -26,8 +26,13 @@ import {
   signInAddressGuardPlugin,
   type RevokeSessionUnlessAddressHeld,
 } from './sign-in-address-guard';
-import { deriveRecipientSubkey, recipientKey } from './recipient-key';
-import { type Deliver } from './deliver-or-unavailable';
+import { deriveRecipientSubkey } from './recipient-key';
+import { createSendMail } from './send-mail';
+import type { Deliver } from './deliver-or-unavailable';
+import {
+  createAfterResponse,
+  type AfterResponseLimits,
+} from './after-response';
 import { createSendMagicLink } from './sign-in-mail';
 import {
   SESSION_EXPIRES_IN_SECONDS,
@@ -76,6 +81,7 @@ const composeBetterAuth = (dependencies: {
   readonly revokeOtherSessions: RevokeSessions;
   readonly completeEmailChange: CompleteEmailChange;
   readonly revokeSessionUnlessAddressHeld: RevokeSessionUnlessAddressHeld;
+  readonly afterResponse: ReturnType<typeof createAfterResponse>;
 }) => {
   const { config, ledger, recipientSubkey } = dependencies;
   const origin = new URL(config.PUBLIC_APP_URL).origin;
@@ -177,6 +183,8 @@ const composeBetterAuth = (dependencies: {
             limiter: dependencies.limiter,
             logger: dependencies.logger,
           }),
+          afterResponse: dependencies.afterResponse.defer,
+          dbStep: dependencies.afterResponse.dbStep,
         }),
       }),
       passkey({
@@ -226,7 +234,9 @@ const composeBetterAuth = (dependencies: {
     ...instance,
     handler: async (request: Request): Promise<Response> => {
       try {
-        return await instance.handler(request);
+        return await dependencies.afterResponse.around(() =>
+          instance.handler(request),
+        );
       } catch (error) {
         dependencies.logger.log(
           'request.unhandled',
@@ -245,7 +255,7 @@ const composeBetterAuth = (dependencies: {
 /**
  * Only what production callers read off the result: the app's routes and
  * pages (`server/app.ts` composes it) use `config`, `instance`, `limiter`,
- * `clock` and `logger`. Mail delivery, `database`, `ledger` and `ids` stay
+ * `clock` and `logger`, and the app's close waits on `settled`. Mail delivery, `database`, `ledger` and `ids` stay
  * internal to composition; tests reach delivery through a real auth
  * request.
  */
@@ -255,6 +265,10 @@ export type AuthServer = {
   readonly limiter: AuthRateLimiter;
   readonly logger: Logger;
   readonly clock: Clock;
+  /** Resolves once work handed off past an answer has finished (ISSUE-185). */
+  readonly settled: () => Promise<void>;
+  /** Handed-off work not yet finished (bounded, ISSUE-185). */
+  readonly pendingWork: () => number;
 };
 
 /**
@@ -275,6 +289,8 @@ export function createAuthServer<
   readonly ids: IdGenerator;
   /** Mail receipts and suppressions (production supplies the @daisy/db one). */
   readonly ledger?: AuthDeliveryLedger | undefined;
+  /** The handed-off work's bounds; the production sizes unless a test narrows them. */
+  readonly afterResponseLimits?: AfterResponseLimits | undefined;
   /** RT-2.2: appends `session.revoked` after a confirmed self-service revoke. */
   readonly appendSessionRevoked: (userId: string) => Promise<void>;
   /**
@@ -292,63 +308,25 @@ export function createAuthServer<
 }): AuthServer {
   const { config } = dependencies;
   const recipientSubkey = deriveRecipientSubkey(config.RECIPIENT_HASH_SECRET);
-  const ledger = dependencies.ledger ?? noLedger;
-  // ISSUE-54: every auth mail, required or best-effort, goes through this
-  // one path, and it honours suppression before anything reaches the
-  // transport. A ledger outage is a failed send (callers fail closed or log),
-  // never an implicit allow.
-  const sendMail: Deliver = async (message) => {
-    const recipientHash = recipientKey(recipientSubkey, message.to);
-    if (await ledger.isSuppressed(recipientHash)) {
-      dependencies.logger.log(
-        'auth.mail.suppressed',
-        { operation: 'auth.mail.send' },
-        'Auth mail not sent: the recipient is suppressed',
-      );
-      return 'suppressed';
-    }
-    let receipt: Awaited<ReturnType<AuthEmailSender['send']>>;
-    try {
-      receipt = await dependencies.emailSender.send(message);
-    } catch (error) {
-      // Delivery failure is a generic retryable outcome: never surface
-      // or log the provider exception, recipient or message body here.
-      dependencies.logger.log(
-        'auth.mail.failed',
-        { operation: 'auth.mail.send', errorCode: 'INFRASTRUCTURE' },
-        'Auth mail delivery failed',
-      );
-      throw createAppError('INFRASTRUCTURE', undefined, error);
-    }
-    if (receipt) {
-      try {
-        await ledger.record({
-          providerMessageId: receipt.providerMessageId,
-          recipientHash,
-          at: dependencies.clock.now(),
-        });
-      } catch {
-        // The provider accepted the message, so the user has their email:
-        // report success. The opaque provider id (no recipient data) keeps
-        // the send reconcilable for bounce and complaint correlation.
-        dependencies.logger.log(
-          'auth.mail.receipt_failed',
-          {
-            operation: 'auth.mail.send',
-            errorCode: 'INFRASTRUCTURE',
-            providerMessageId: receipt.providerMessageId,
-          },
-          'Auth mail receipt was not recorded',
-        );
-      }
-    }
-    dependencies.logger.log(
-      'auth.mail.sent',
-      { operation: 'auth.mail.send' },
-      'Auth mail delivered',
-    );
-    return 'sent';
+  const afterResponse = createAfterResponse(
+    dependencies.logger,
+    dependencies.afterResponseLimits,
+  );
+  // Handed-off work's ledger steps go through its database gate; a request
+  // being answered is not gated.
+  const baseLedger = dependencies.ledger ?? noLedger;
+  const ledger: AuthDeliveryLedger = {
+    isSuppressed: (hash) =>
+      afterResponse.dbStep(() => baseLedger.isSuppressed(hash)),
+    record: (input) => afterResponse.dbStep(() => baseLedger.record(input)),
   };
+  const sendMail = createSendMail({
+    recipientSubkey,
+    ledger,
+    emailSender: dependencies.emailSender,
+    logger: dependencies.logger,
+    clock: dependencies.clock,
+  });
   return {
     config,
     instance: composeBetterAuth({
@@ -366,9 +344,12 @@ export function createAuthServer<
       completeEmailChange: dependencies.completeEmailChange,
       revokeSessionUnlessAddressHeld:
         dependencies.revokeSessionUnlessAddressHeld,
+      afterResponse,
     }),
     limiter: dependencies.limiter,
     logger: dependencies.logger,
     clock: dependencies.clock,
+    settled: afterResponse.settled,
+    pendingWork: afterResponse.pending,
   };
 }

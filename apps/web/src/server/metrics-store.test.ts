@@ -46,18 +46,30 @@ describe('createMetricsStore (AUTH-7.7)', () => {
     store.observe('auth.rate_limit.denied', {});
     store.observe('auth.rate_limit.unavailable', {});
     store.observe('auth.mail.failed', {});
+    store.observe('auth.mail.shed', { pending: 68 });
+    store.observe('auth.mail.shed', { pending: 68 });
+    store.observe('auth.rate_limit.network_denied', { scope: 'ipv6_48' });
+    store.observe('auth.rate_limit.network_denied', { scope: 'ipv6_48' });
+    store.observe('auth.rate_limit.network_denied', { scope: 'ipv4_24' });
+    store.observe('auth.rate_limit.network_denied', { scope: 'ipv6_32' });
     assert({
-      given: '2 denials, 1 limiter outage, 1 mail failure',
+      given:
+        '2 denials, 1 limiter outage, 1 mail failure, 2 shed pieces of work, and network denials for two known scopes and one unknown',
       should: 'count each independently',
       actual: {
         rateLimitDeniedTotal: store.snapshot().rateLimitDeniedTotal,
         rateLimitUnavailableTotal: store.snapshot().rateLimitUnavailableTotal,
         mailDeliveryFailuresTotal: store.snapshot().mailDeliveryFailuresTotal,
+        authMailShedTotal: store.snapshot().authMailShedTotal,
+        networkDeniedByScope: store.snapshot().networkDeniedByScope,
       },
       expected: {
         rateLimitDeniedTotal: 2,
         rateLimitUnavailableTotal: 1,
         mailDeliveryFailuresTotal: 1,
+        authMailShedTotal: 2,
+        // An unknown scope is not a label: cardinality stays bounded.
+        networkDeniedByScope: { ipv6_56: 0, ipv6_48: 2, ipv4_24: 1 },
       },
     });
   });
@@ -89,6 +101,8 @@ describe('createMetricsStore (AUTH-7.7)', () => {
         rateLimitDeniedTotal: 0,
         rateLimitUnavailableTotal: 0,
         mailDeliveryFailuresTotal: 0,
+        authMailShedTotal: 0,
+        networkDeniedByScope: { ipv6_56: 0, ipv6_48: 0, ipv4_24: 0 },
         retentionSweepFailuresByOperation: {},
         latencyMsByOperation: {},
       },
@@ -245,6 +259,33 @@ describe('formatPrometheusMetrics (AUTH-7.7)', () => {
         hasInfBucket: true,
         hasSum: true,
         hasCount: true,
+      },
+    });
+  });
+  test('the per-client denial counter says it excludes network denials, which have their own (AUTH-3.10.2)', () => {
+    const text = formatPrometheusMetrics(createMetricsStore().snapshot());
+    const help = (metric: string) =>
+      text.split('\n').find((line) => line.startsWith(`# HELP ${metric} `)) ??
+      '';
+    assert({
+      given: 'the exposition of both rate-limit denial counters',
+      should:
+        'say auth_rate_limit_denied_total excludes network denials, and that auth_rate_limit_network_denied_total counts them',
+      actual: {
+        deniedExcludesNetwork: /exclud\w* network/i.test(
+          help('auth_rate_limit_denied_total'),
+        ),
+        deniedPointsAtNetworkCounter: help(
+          'auth_rate_limit_denied_total',
+        ).includes('auth_rate_limit_network_denied_total'),
+        networkCounterDescribed: /network/i.test(
+          help('auth_rate_limit_network_denied_total'),
+        ),
+      },
+      expected: {
+        deniedExcludesNetwork: true,
+        deniedPointsAtNetworkCounter: true,
+        networkCounterDescribed: true,
       },
     });
   });

@@ -16,6 +16,7 @@ import {
   startRetentionSweep,
 } from './retention-sweep';
 import { startProductionServer } from './listen-first';
+import { SHUTDOWN_DRAIN_DEADLINE_MS } from './shutdown-budget';
 import { waitForHealthy } from './wait-for-healthy';
 
 // Refuses anything but NODE_ENV=production before building the app.
@@ -83,8 +84,10 @@ async function shutdown() {
     'Draining requests',
   );
   await drainWithDeadline({
-    deadlineMs: 25_000,
+    deadlineMs: SHUTDOWN_DRAIN_DEADLINE_MS,
     onDeadlineExceeded: () => {
+      // Announces any handed-off mail work the forced exit cuts off.
+      app.reportUnfinishedWork();
       server.closeAllConnections();
       process.exit(1);
     },

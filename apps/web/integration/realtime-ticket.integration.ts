@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { RedisClient } from 'bun';
+import { openTestRedis } from '@daisy/redis/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { ticketSchema } from '@daisy/protocol';
@@ -40,7 +40,7 @@ const postTicket = (cookie: string, headers: Record<string, string> = {}) =>
 
 /** Reads a Redis key's value and TTL through a fresh, short-lived client. */
 async function readRedisKey(key: string) {
-  const client = new RedisClient(testRedisUrl as string);
+  const client = openTestRedis(testRedisUrl);
   try {
     const [value, ttlMs] = await Promise.all([
       client.get(key),

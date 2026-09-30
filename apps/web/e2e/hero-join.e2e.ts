@@ -71,7 +71,7 @@ test('a refused link answers the same notice and returns focus to the email fiel
       ).toBe(200);
     await submit(page, path, email);
     await expectFocusOn(page, 'input', 'sign-in-email');
-    answers.push(await answerOf(page, 'Too many attempts for now.'));
+    answers.push(await answerOf(page, 'Too many sign-in requests right now.'));
   }
   expect(answers[0]).toEqual(answers[1]);
 });
@@ -93,7 +93,7 @@ test('a refused resend answers the same notice and returns focus to the email fi
     await expectFocusOn(page, 'h1', 'check-inbox-heading');
     await resendByKeyboard(page);
     await expectFocusOn(page, 'input', 'sign-in-email');
-    answers.push(await answerOf(page, 'Too many attempts for now.'));
+    answers.push(await answerOf(page, 'Too many sign-in requests right now.'));
   }
   expect(answers[0]).toEqual(answers[1]);
 });
@@ -113,5 +113,22 @@ test.describe('with JavaScript off', () => {
     ).toBeVisible();
     expect(page.url()).not.toContain(encodeURIComponent(email));
     expect(page.url()).not.toContain(email);
+  });
+  test('a refused link shows an alert naming a minute’s wait and passkey sign-in (AUTH-3.10.2)', async ({
+    page,
+  }) => {
+    const email = freshEmail();
+    for (let sent = 0; sent < 3; sent += 1)
+      await page.request.post('/api/auth/sign-in/magic-link', {
+        headers: { origin },
+        data: { email, callbackURL: '/' },
+      });
+    await page.goto('/');
+    await page.getByLabel('Email').fill(email);
+    await page.getByRole('button', { name: 'Join the waitlist' }).click();
+    const alert = page.getByRole('alert');
+    await expect(alert).toContainText('Too many sign-in requests right now.');
+    await expect(alert).toContainText('Wait a minute');
+    await expect(alert).toContainText('sign in with a passkey');
   });
 });

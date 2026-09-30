@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   create,
+  observableAnswer,
   existingAccount,
   magicLinkRequest,
 } from './abuse.test-support';
@@ -19,6 +20,7 @@ describe('global sign-up ceilings at the magic-link send', () => {
     });
     db.user.push(existingAccount);
     const response = await server.instance.handler(magicLinkRequest());
+    await server.settled();
     assert({
       given:
         'saturated global ceilings and a magic-link request for an address that has an account',
@@ -63,6 +65,7 @@ describe('global sign-up ceilings at the magic-link send', () => {
           : { allowed: true, retryAfterSeconds: 0 },
     });
     const response = await server.instance.handler(magicLinkRequest());
+    await server.settled();
     assert({
       given:
         'a limiter denying only the global per-minute bucket and a request for an address with no account',
@@ -116,17 +119,13 @@ describe('global sign-up ceilings at the magic-link send', () => {
     const unknown = saturated();
     const known = saturated();
     known.db.user.push(existingAccount);
-    const answer = async (response: Response) => ({
-      status: response.status,
-      body: await response.text(),
-      headers: [...response.headers.entries()],
-    });
-    const unknownAnswer = await answer(
+    const unknownAnswer = await observableAnswer(
       await unknown.server.instance.handler(magicLinkRequest()),
     );
-    const knownAnswer = await answer(
+    const knownAnswer = await observableAnswer(
       await known.server.instance.handler(magicLinkRequest()),
     );
+    await Promise.all([known.server.settled(), unknown.server.settled()]);
     assert({
       given:
         'saturated global ceilings and a failing mail transport, for an address with and without an account',

@@ -62,6 +62,10 @@ export type MetricsSnapshot = {
   readonly rateLimitDeniedTotal: number;
   readonly rateLimitUnavailableTotal: number;
   readonly mailDeliveryFailuresTotal: number;
+  /** Saturated sign-in/sign-up work shed past its bound (ISSUE-185, DEC-73). */
+  readonly authMailShedTotal: number;
+  /** Magic-link requests denied for their network, by scope (AUTH-3.10). */
+  readonly networkDeniedByScope: Readonly<Record<NetworkScopeLabel, number>>;
   /** Keyed by `retention-sweep.ts`'s own target names — a small, fixed set, never arbitrary input. */
   readonly retentionSweepFailuresByOperation: Readonly<Record<string, number>>;
   /** Keyed by the bounded `OperationLabel` set (`KNOWN_OPERATIONS` plus "other"). */
@@ -69,6 +73,12 @@ export type MetricsSnapshot = {
     Record<string, LatencyHistogramSnapshot>
   >;
 };
+
+/** The network scopes `rate-limit.ts` limits: the only labels counted. */
+const NETWORK_SCOPES = ['ipv6_56', 'ipv6_48', 'ipv4_24'] as const;
+type NetworkScopeLabel = (typeof NETWORK_SCOPES)[number];
+const isNetworkScope = (value: unknown): value is NetworkScopeLabel =>
+  (NETWORK_SCOPES as readonly unknown[]).includes(value);
 
 const statusClassOf = (status: number): StatusClass | undefined =>
   STATUS_CLASSES.find((cls) => cls[0] === String(Math.floor(status / 100)));
@@ -90,6 +100,12 @@ export function createMetricsStore() {
   let rateLimitDeniedTotal = 0;
   let rateLimitUnavailableTotal = 0;
   let mailDeliveryFailuresTotal = 0;
+  let authMailShedTotal = 0;
+  const networkDeniedByScope: Record<NetworkScopeLabel, number> = {
+    ipv6_56: 0,
+    ipv6_48: 0,
+    ipv4_24: 0,
+  };
   const retentionSweepFailuresByOperation = new Map<string, number>();
   const latencyByOperation = new Map<OperationLabel, LatencyHistogram>();
 
@@ -149,6 +165,13 @@ export function createMetricsStore() {
         case 'auth.mail.failed':
           mailDeliveryFailuresTotal += 1;
           return;
+        case 'auth.mail.shed':
+          authMailShedTotal += 1;
+          return;
+        case 'auth.rate_limit.network_denied':
+          if (isNetworkScope(fields.scope))
+            networkDeniedByScope[fields.scope] += 1;
+          return;
         case 'retention.sweep.failed':
           recordRetentionFailure(fields);
           return;
@@ -162,6 +185,8 @@ export function createMetricsStore() {
         rateLimitDeniedTotal,
         rateLimitUnavailableTotal,
         mailDeliveryFailuresTotal,
+        authMailShedTotal,
+        networkDeniedByScope: { ...networkDeniedByScope },
         retentionSweepFailuresByOperation: Object.fromEntries(
           retentionSweepFailuresByOperation,
         ),
@@ -196,7 +221,7 @@ export function formatPrometheusMetrics(snapshot: MetricsSnapshot): string {
       (cls) =>
         `auth_http_requests_total{status_class="${cls}"} ${snapshot.httpRequestsByStatusClass[cls]}`,
     ),
-    '# HELP auth_rate_limit_denied_total Auth requests denied by the rate limiter (429) since process start.',
+    '# HELP auth_rate_limit_denied_total Auth requests denied by a per-client or per-recipient rate limit (429) since process start; excludes network denials, which auth_rate_limit_network_denied_total counts.',
     '# TYPE auth_rate_limit_denied_total counter',
     `auth_rate_limit_denied_total ${snapshot.rateLimitDeniedTotal}`,
     '# HELP auth_rate_limit_unavailable_total Auth requests the rate limiter could not decide since process start.',
@@ -205,6 +230,15 @@ export function formatPrometheusMetrics(snapshot: MetricsSnapshot): string {
     '# HELP auth_mail_delivery_failures_total Auth email delivery failures since process start.',
     '# TYPE auth_mail_delivery_failures_total counter',
     `auth_mail_delivery_failures_total ${snapshot.mailDeliveryFailuresTotal}`,
+    '# HELP auth_mail_shed_total Auth mail work shed after the answer because its backlog was full, since process start.',
+    '# TYPE auth_mail_shed_total counter',
+    `auth_mail_shed_total ${snapshot.authMailShedTotal}`,
+    '# HELP auth_rate_limit_network_denied_total Magic-link requests denied for their network (IPv6 /56 or /48, IPv4 /24) since process start.',
+    '# TYPE auth_rate_limit_network_denied_total counter',
+    ...NETWORK_SCOPES.map(
+      (scope) =>
+        `auth_rate_limit_network_denied_total{scope="${scope}"} ${snapshot.networkDeniedByScope[scope]}`,
+    ),
     '# HELP retention_sweep_failures_total Retention sweep failures by target since process start.',
     '# TYPE retention_sweep_failures_total counter',
     ...Object.entries(snapshot.retentionSweepFailuresByOperation).map(
