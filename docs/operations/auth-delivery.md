@@ -506,7 +506,10 @@ the pool fills depends on the host and its load: 700 to 1,200 new
 addresses a second on the development host, unmeasured and lower on
 production's machine (ADR 0025). The aggregate network limits keep any
 one /48, /56 or IPv4 /24 far below that, so a full pool means a flood
-from many networks.
+from many networks: about (edge ÷ 2) of them at 2 a second each, which
+one IPv6 /40 (256 /48s) or a botnet across a few hundred /24s provides.
+This alert is the signal for that flood; blocking the offending ranges
+at the edge is the response.
 
 1. Check `auth.rate_limit.denied` with `path: /sign-in/magic-link`. A
    saturated global ceiling is the precondition for shedding. Sustained

@@ -57,4 +57,42 @@ describe('clientNetworks (AUTH-3.10)', () => {
       expected: [[], []],
     });
   });
+
+  test('an IPv4-mapped IPv6 address is keyed by its IPv4 /24, never an IPv6 network (AUTH-3.10.1)', () => {
+    const forms = [
+      '::ffff:1.2.3.4',
+      '::FFFF:1.2.3.4',
+      '::ffff:0102:0304',
+      '0:0:0:0:0:ffff:1.2.3.4',
+    ];
+    assert({
+      given: `the IPv4-mapped forms ${forms.join(', ')}`,
+      should: 'name only the IPv4 /24 1.2.3.0/24 for each',
+      actual: forms.map((form) => clientNetworks(form)),
+      expected: forms.map(() => [
+        { scope: 'ipv4_24' as const, network: '1.2.3.0/24' },
+      ]),
+    });
+  });
+
+  test('mapped addresses from different /24s never share a bucket (AUTH-3.10.1)', () => {
+    assert({
+      given: '::ffff:1.2.3.4 and ::ffff:5.6.7.8',
+      should: 'name two different networks',
+      actual:
+        clientNetworks('::ffff:1.2.3.4')[0]?.network ===
+        clientNetworks('::ffff:5.6.7.8')[0]?.network,
+      expected: false,
+    });
+  });
+
+  test('the unspecified and loopback IPv6 addresses are in no network (AUTH-3.10.1)', () => {
+    assert({
+      given: ':: and ::1 (never a real client through the ingress)',
+      should:
+        'name no network, never the one 0000:0000:0000::/48 every such client would share',
+      actual: [clientNetworks('::'), clientNetworks('::1')],
+      expected: [[], []],
+    });
+  });
 });
