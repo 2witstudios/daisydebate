@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { authEnv } from './auth-env.test-support';
+import { authEnv, webhookSecret } from './auth-env.test-support';
 import { readAuthConfig } from './index';
 
 setupRitewayBun();
@@ -19,7 +19,7 @@ describe('OPS_PROBE_TOKEN (AUTH-7.7)', () => {
     const production = {
       ...authEnv,
       NODE_ENV: 'production',
-      RESEND_WEBHOOK_SECRET: 'whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw',
+      RESEND_WEBHOOK_SECRET: webhookSecret,
     };
     let message = '';
     try {

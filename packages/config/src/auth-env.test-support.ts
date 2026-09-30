@@ -9,3 +9,6 @@ export const authEnv = {
   RESEND_API_KEY: 're_test_000000000000000000000000',
   AUTH_EMAIL_FROM: 'Daisy Debate <no-reply@daisy.example.com>',
 };
+
+/** Obvious placeholder fixture: a well-formed `whsec_` value, not a real signing secret. */
+export const webhookSecret = `whsec_${Buffer.from('placeholder-webhook-signing-key').toString('base64')}`;

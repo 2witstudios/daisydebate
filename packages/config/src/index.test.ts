@@ -1,6 +1,6 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { authEnv } from './auth-env.test-support';
+import { authEnv, webhookSecret } from './auth-env.test-support';
 import { readAuthConfig, readBrowserConfig, readServerConfig } from './index';
 
 setupRitewayBun();
@@ -230,7 +230,7 @@ describe('authentication configuration', () => {
           ...authEnv,
           NODE_ENV: 'production',
           PUBLIC_APP_URL: 'http://daisy.example.com',
-          RESEND_WEBHOOK_SECRET: 'whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw',
+          RESEND_WEBHOOK_SECRET: webhookSecret,
           OPS_PROBE_TOKEN: 'a'.repeat(32),
         }),
       ),
@@ -293,10 +293,10 @@ describe('authentication configuration', () => {
       should: 'validate and expose the secret',
       actual: readAuthConfig({
         ...production,
-        RESEND_WEBHOOK_SECRET: 'whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw',
+        RESEND_WEBHOOK_SECRET: webhookSecret,
         OPS_PROBE_TOKEN: 'a'.repeat(32),
       }).RESEND_WEBHOOK_SECRET,
-      expected: 'whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw',
+      expected: webhookSecret,
     });
     assert({
       given: 'a development environment without a webhook secret',
