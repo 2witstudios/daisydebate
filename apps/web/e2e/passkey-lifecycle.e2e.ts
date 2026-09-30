@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import {
   emailedLink,
   freshEmail,
@@ -13,6 +13,7 @@ import {
 } from './support/accounts';
 import { expectFocusOn, pressByKeyboard } from './support/focus';
 import { boundedStep, STEP_LIMIT_MS } from './support/bounded-step';
+import { expect, test } from './support/browser-diagnostics';
 import { effectsRan, hydrated } from './support/hydration';
 import { removeRowByClick, securityRows } from './support/security-rows';
 import {
@@ -259,6 +260,31 @@ test('a lost passkey recovers through magic link, and the recovered session can 
   await page.goto('/lobby');
   await expect(page).toHaveURL(/\/sign-in/);
   await boundedStep('closing the recovered device context', () => lost.close());
+});
+
+test('a passkey ceremony that never completes leaves a visible busy state the person can leave (ISSUE-234)', async ({
+  page,
+}) => {
+  const { setPresence } = await addVirtualAuthenticator(page);
+  await signUpMember(page.request);
+  await page.goto('/settings/security');
+  await expect(page.getByRole('heading', { name: 'Passkeys' })).toBeVisible();
+
+  // With user presence held, the authenticator never answers create(): the
+  // stall ISSUE-195 saw. Nothing of ours bounds that wait, so the page must
+  // say it is waiting and let the person go elsewhere.
+  await setPresence(false);
+  const add = page.getByRole('button', { name: 'Add a passkey' });
+  await hydrated(add);
+  await add.click();
+  await expect(
+    page.getByRole('button', { name: 'Waiting for your device…' }),
+  ).toBeDisabled();
+
+  // A beforeunload hold would be dismissed and keep the page; the link
+  // must actually take the person away.
+  await page.getByRole('link', { name: 'Daisy Debate home' }).click();
+  await expect(page).toHaveURL(/\/$/);
 });
 
 test('a cancelled passkey ceremony returns keyboard focus to the email field', async ({

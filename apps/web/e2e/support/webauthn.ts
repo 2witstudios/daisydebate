@@ -1,5 +1,6 @@
 import { expect, type CDPSession, type Page } from '@playwright/test';
 import { boundedStep } from './bounded-step';
+import { recordDiagnostic, watchPage } from './browser-diagnostics';
 import { hydrated } from './hydration';
 
 // Every CDP command below is a bounded step: Playwright gives CDP no timeout
@@ -14,6 +15,95 @@ const readCredentials = async (session: CDPSession, authenticatorId: string) =>
 type Credentials = Awaited<ReturnType<typeof readCredentials>>;
 
 /**
+ * Logs each navigator.credentials create() and get() the page makes, and
+ * how it settled, into the diagnostics log through an exposed binding
+ * (ISSUE-234). Every call passes through unchanged: a line for the call
+ * with none for its end means the ceremony never settled in the page.
+ */
+const traced = new WeakSet<Page>();
+
+async function traceCeremonies(page: Page) {
+  // A page can host a second authenticator (a replacement device); the
+  // page-side trace is installed once.
+  if (traced.has(page)) return;
+  traced.add(page);
+  watchPage(page);
+  await page.exposeFunction('__daisyWebAuthnTrace', (line: string) =>
+    recordDiagnostic(page, `[webauthn] ${line}`),
+  );
+  await page.addInitScript(() => {
+    const report = (line: string) =>
+      void (
+        window as unknown as { __daisyWebAuthnTrace?: (line: string) => void }
+      ).__daisyWebAuthnTrace?.(line);
+    const traceCall = <T>(
+      method: string,
+      mediation: string | undefined,
+      call: Promise<T>,
+    ) => {
+      report(`${method} called (mediation ${mediation ?? 'required'})`);
+      return call.then(
+        (result) => {
+          report(`${method} resolved`);
+          return result;
+        },
+        (error: unknown) => {
+          report(
+            `${method} rejected ${error instanceof Error ? error.name : String(error)}`,
+          );
+          throw error;
+        },
+      );
+    };
+    const credentials = navigator.credentials;
+    if (!credentials) return;
+    const create = credentials.create.bind(credentials);
+    const get = credentials.get.bind(credentials);
+    credentials.create = (options?: CredentialCreationOptions) =>
+      traceCall('create', undefined, create(options));
+    credentials.get = (options?: CredentialRequestOptions) =>
+      traceCall('get', options?.mediation, get(options));
+  });
+}
+
+/**
+ * Records every CDP WebAuthn event the virtual authenticator emits. Only
+ * non-secret fields: the payload's credential also carries its private key.
+ */
+function recordAuthenticatorEvents(page: Page, session: CDPSession) {
+  const describe = (credential: {
+    readonly credentialId: string;
+    readonly rpId?: string;
+    readonly signCount: number;
+  }) =>
+    `rp=${credential.rpId ?? '?'} id=${credential.credentialId.slice(0, 8)}… signCount=${credential.signCount}`;
+  session.on('WebAuthn.credentialAdded', ({ credential }) =>
+    recordDiagnostic(
+      page,
+      `CDP WebAuthn.credentialAdded ${describe(credential)}`,
+    ),
+  );
+  session.on('WebAuthn.credentialAsserted', ({ credential }) =>
+    recordDiagnostic(
+      page,
+      `CDP WebAuthn.credentialAsserted ${describe(credential)}`,
+    ),
+  );
+  session.on('WebAuthn.credentialUpdated', ({ credential }) =>
+    recordDiagnostic(
+      page,
+      `CDP WebAuthn.credentialUpdated ${describe(credential)}`,
+    ),
+  );
+  session.on('WebAuthn.credentialDeleted', ({ credentialId }) =>
+    recordDiagnostic(
+      page,
+      `CDP WebAuthn.credentialDeleted id=${credentialId.slice(0, 8)}…`,
+    ),
+  );
+}
+
+/**
  * A Chromium virtual WebAuthn authenticator (CDP
  * `WebAuthn.addVirtualAuthenticator`): a discoverable, user-verifying
  * platform credential store that answers real `navigator.credentials`
@@ -24,9 +114,11 @@ export async function addVirtualAuthenticator(
   page: Page,
   preloaded: Credentials = [],
 ) {
+  await traceCeremonies(page);
   const session = await boundedStep('CDP session for WebAuthn', () =>
     page.context().newCDPSession(page),
   );
+  recordAuthenticatorEvents(page, session);
   await boundedStep('CDP WebAuthn.enable', () =>
     session.send('WebAuthn.enable'),
   );

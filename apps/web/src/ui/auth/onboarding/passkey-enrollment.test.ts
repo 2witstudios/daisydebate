@@ -60,6 +60,24 @@ describe('createPasskeyEnrollment', () => {
     });
   });
 
+  test('a ceremony that rejects asynchronously is a failure, never a stall (ISSUE-234)', async () => {
+    const seam = createPasskeyEnrollment({
+      client: {
+        passkey: {
+          addPasskey: () =>
+            Promise.reject(new Error('The operation either timed out')),
+        },
+      },
+      supportsPasskeys: () => true,
+    });
+    assert({
+      given: 'a ceremony whose promise rejects after it has started',
+      should: 'end in the failed outcome the page shows as a notice',
+      actual: await enrollSafely(seam),
+      expected: { kind: 'failed' },
+    });
+  });
+
   test('a successful ceremony reports saved', async () => {
     const seam = createPasskeyEnrollment({
       client: clientWith(null),
