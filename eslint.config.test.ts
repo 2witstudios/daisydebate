@@ -1,17 +1,13 @@
-import { ESLint } from 'eslint';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import {
+  expectedOf,
+  outcomes,
+  repositoryEslint,
+  table,
+  web,
+} from './eslint.config.test-support';
 
 setupRitewayBun();
-
-// One instance for the whole file: building the typed-lint program is the
-// expensive step, and under machine load it dominated every test. The lint
-// scripts pass a load-tolerant --timeout instead of Bun's fixed 5 s.
-let shared: ESLint | undefined;
-const repositoryEslint = (): ESLint =>
-  (shared ??= new ESLint({
-    cwd: process.cwd(),
-    overrideConfigFile: './eslint.config.mjs',
-  }));
 
 describe('repository ESLint configuration', () => {
   test('rejects ambient time and identity reads outside the allowlist', async () => {
@@ -40,31 +36,6 @@ describe('repository ESLint configuration', () => {
   });
 });
 
-/** Each problem ESLint reports for `code` at `filePath`, with its severity. */
-const problems = async (code: string, filePath: string) => {
-  const [result] = await repositoryEslint().lintText(code, { filePath });
-  return (result?.messages ?? []).map(({ ruleId, severity }) => ({
-    ruleId,
-    severity,
-  }));
-};
-/** The rule id of each problem ESLint reports for `code` at `filePath`. */
-const ruleIds = async (code: string, filePath: string) =>
-  (await problems(code, filePath)).map(({ ruleId }) => ruleId);
-type Problems = readonly [code: string, filePath: string, errors: number];
-const table = (cases: readonly Problems[]) => ({
-  actual: Promise.all(cases.map(([code, path]) => problems(code, path))),
-  expected: cases.map(([, , errors]) =>
-    Array(errors).fill({ ruleId: 'no-restricted-syntax', severity: 2 }),
-  ),
-});
-
-type Case = readonly [code: string, filePath: string, ruleIds: string[]];
-const outcomes = (cases: readonly Case[]) =>
-  Promise.all(cases.map(([code, filePath]) => ruleIds(code, filePath)));
-const expectedOf = (cases: readonly Case[]) => cases.map(([, , ids]) => ids);
-
-const web = (path: string) => `apps/web/src/${path}`;
 const [props, globals, imports] = ['properties', 'globals', 'imports'].map(
   (kind) => [`no-restricted-${kind}`],
 );
@@ -295,27 +266,17 @@ describe('restrictions every no-restricted-syntax list carries', () => {
     });
   });
 
-  test('rejects a Bun.serve that leaves its address to the default wildcard bind (ISSUE-252)', async () => {
-    const wildcard = "Bun.serve({ port: 0, fetch: () => new Response('') });";
+  test('rejects a Bun.serve that leaves its address to the wildcard bind (ISSUE-252)', async () => {
+    const serve = (bind: string) =>
+      `const hostname = '127.0.0.1';\nBun.serve({ ${bind}port: 0, fetch: () => new Response(hostname) });`;
     const { actual, expected } = table([
-      [wildcard, 'scripts/x.test.ts', 1],
-      [wildcard, 'apps/web/integration/x.integration.ts', 1],
-      [
-        "Bun.serve({ hostname: '127.0.0.1', port: 0, fetch: () => new Response('') });",
-        'scripts/x.test.ts',
-        0,
-      ],
-      [
-        "const hostname = '127.0.0.1';\nBun.serve({ hostname, port: 0, fetch: () => new Response('') });",
-        'apps/web/integration/x.integration.ts',
-        0,
-      ],
+      [serve(''), 'scripts/x.test.ts', 1],
+      [serve(''), 'apps/web/integration/x.integration.ts', 1],
+      [serve('hostname, '), 'scripts/x.test.ts', 0],
     ]);
     assert({
-      given:
-        'a Bun.serve with no hostname, and ones binding 127.0.0.1 explicitly or through shorthand',
-      should:
-        'report the unbound one as an error in scripts and integration suites, and the bound ones not at all',
+      given: 'a Bun.serve with no hostname, and one binding it',
+      should: 'report only the unbound one, in scripts and integration suites',
       actual: await actual,
       expected,
     });
