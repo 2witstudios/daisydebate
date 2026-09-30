@@ -42,9 +42,9 @@ describe('FilterBar form contract', () => {
       .sort();
     assert({
       given: 'the filter form',
-      should: 'submit tab, q, mode, format, range and sort',
+      should: 'submit tab, q, mode, range and sort',
       actual: names,
-      expected: ['format', 'mode', 'q', 'range', 'sort', 'tab'],
+      expected: ['mode', 'q', 'range', 'sort', 'tab'],
     });
   });
 
@@ -53,7 +53,6 @@ describe('FilterBar form contract', () => {
       tab: 'live',
       mode: 'casual',
       q: 'spar',
-      format: 'public-forum',
       range: 200,
       sort: 'watched',
     });
@@ -63,14 +62,13 @@ describe('FilterBar form contract', () => {
       actual: [
         /name="tab" value="live"/.test(html),
         /value="spar"/.test(html),
-        /<option value="public-forum" selected=""/.test(html),
         /<option value="200" selected=""/.test(html),
         /<option value="watched" selected=""/.test(html),
         /value="casual"[^>]*checked=""|checked=""[^>]*value="casual"/.test(
           html,
         ),
       ],
-      expected: [true, true, true, true, true, true],
+      expected: [true, true, true, true, true],
     });
   });
 

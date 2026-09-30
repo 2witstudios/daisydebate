@@ -28,7 +28,6 @@ describe('parseLobbyQuery', () => {
         tab: 'open',
         mode: 'ranked',
         q: '  @Host  ',
-        format: 'public-forum',
         range: '200',
         sort: 'waiting',
       }),
@@ -36,10 +35,18 @@ describe('parseLobbyQuery', () => {
         tab: 'open',
         mode: 'ranked',
         q: '@Host',
-        format: 'public-forum',
         range: 200,
         sort: 'waiting',
       },
+    });
+  });
+
+  test('unknown parameters', () => {
+    assert({
+      given: 'a parameter the lobby does not read, such as format',
+      should: 'ignore it',
+      actual: parseLobbyQuery({ format: 'public-forum' }),
+      expected: defaultQuery,
     });
   });
 
@@ -50,7 +57,6 @@ describe('parseLobbyQuery', () => {
       actual: parseLobbyQuery({
         tab: 'closed',
         mode: 'RANKED',
-        format: 'chess',
         range: '250',
         sort: 'random',
       }),
@@ -116,7 +122,6 @@ describe('lobbyHref', () => {
       tab: 'live',
       mode: 'casual',
       q: 'spar',
-      format: 'parliamentary',
       range: 300,
       sort: 'watched',
     } as const;
@@ -141,7 +146,6 @@ describe('filter state', () => {
         tab: 'live',
         mode: 'ranked',
         q: 'x',
-        format: 'public-forum',
         range: 100,
         sort: 'high',
       }),
@@ -162,7 +166,7 @@ describe('filter state', () => {
     });
   });
 
-  test('the phone badge counts mode, format and range, not search', () => {
+  test('the phone badge counts mode and range, not search', () => {
     assert({
       given: 'queries with different filters set',
       should: 'count the panel filters only',
@@ -172,11 +176,10 @@ describe('filter state', () => {
         activeFilterCount({
           ...defaultQuery,
           mode: 'ranked',
-          format: 'public-forum',
           range: 200,
         }),
       ],
-      expected: [0, 0, 3],
+      expected: [0, 0, 2],
     });
   });
 });

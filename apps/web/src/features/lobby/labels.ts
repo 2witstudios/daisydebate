@@ -1,9 +1,4 @@
-import {
-  lobbyFormats,
-  type FormatSlug,
-  type RatingBand,
-  type RoomListItem,
-} from './room';
+import type { RatingBand, RoomListItem } from './room';
 
 export const bandLabel = ({ min, max }: RatingBand): string => {
   if (min !== null && max !== null) return `${min}–${max}`;
@@ -11,9 +6,6 @@ export const bandLabel = ({ min, max }: RatingBand): string => {
   if (max !== null) return `up to ${max}`;
   return 'any rating';
 };
-
-export const formatLabel = (slug: FormatSlug): string =>
-  lobbyFormats.find((format) => format.slug === slug)?.label ?? slug;
 
 export const modeLabel = (room: RoomListItem): string =>
   room.mode === 'ranked' ? 'Ranked' : 'Casual';

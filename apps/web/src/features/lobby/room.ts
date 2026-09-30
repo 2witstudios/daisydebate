@@ -4,18 +4,9 @@
  * stored room: the backend listing fills it from `rooms`, seats and presence.
  */
 
-/** Canonical format slugs the lobby can filter by (ADR 0030). */
-export const lobbyFormats = [
-  { slug: 'lincoln-douglas', label: 'Lincoln–Douglas' },
-  { slug: 'public-forum', label: 'Public Forum' },
-  { slug: 'parliamentary', label: 'Parliamentary' },
-] as const;
-
-export type FormatSlug = (typeof lobbyFormats)[number]['slug'];
-
 export type RoomMode = 'ranked' | 'casual';
 
-/** One seated debater: a public username and their rating for the format. */
+/** One seated debater: a public username and their rating. */
 type RoomPlayer = {
   readonly handle: string;
   readonly rating: number;
@@ -31,7 +22,6 @@ type RoomBase = {
   readonly id: string;
   /** Host-chosen display name. Not in ADR 0049's room yet. */
   readonly name: string;
-  readonly format: FormatSlug;
   readonly mode: RoomMode;
   /** Casual only: ranked always runs the canonical rules (ADR 0030). */
   readonly customRules: boolean;

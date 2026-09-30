@@ -16,7 +16,6 @@ const rooms = [
     id: 'b',
     name: 'Newcomers welcome',
     mode: 'casual',
-    format: 'public-forum',
     host: { handle: 'host-two', rating: 1180 },
   }),
   liveRoom({
@@ -29,7 +28,6 @@ const rooms = [
     id: 'd',
     name: 'Friendly spar',
     mode: 'casual',
-    format: 'parliamentary',
     host: { handle: 'debater-e', rating: 1260 },
     opponent: { handle: 'debater-f', rating: 1240 },
   }),
@@ -70,18 +68,6 @@ describe('filterRooms', () => {
         ['a', 'c'],
         ['b', 'd'],
       ],
-    });
-  });
-
-  test('format', () => {
-    assert({
-      given: 'a format',
-      should: 'keep only rooms in it',
-      actual: [
-        run({ format: 'public-forum' }),
-        run({ format: 'lincoln-douglas' }),
-      ],
-      expected: [['b'], ['a', 'c']],
     });
   });
 

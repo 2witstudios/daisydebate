@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import type { SearchParams } from '../access/decision';
-import { lobbyFormats, type FormatSlug } from './room';
 
 /** Tabs, modes, sorts and rating ranges as they appear in the URL. */
 const lobbyTabs = ['all', 'open', 'live'] as const;
@@ -25,7 +24,6 @@ export type LobbyQuery = {
   readonly tab: LobbyTab;
   readonly mode: LobbyMode;
   readonly q: string;
-  readonly format: 'all' | FormatSlug;
   readonly range: LobbyRange;
   readonly sort: LobbySort;
 };
@@ -34,15 +32,12 @@ export const defaultQuery: LobbyQuery = {
   tab: 'all',
   mode: 'any',
   q: '',
-  format: 'all',
   range: 0,
   sort: 'closest',
 };
 
 /** Longest search the lobby reads; the form's maxlength matches. */
 export const MAX_SEARCH_LENGTH = 80;
-
-const formatSlugs = lobbyFormats.map((format) => format.slug);
 
 // Every field falls back to its default on any bad value, so untrusted
 // parameters can never make parsing throw.
@@ -53,7 +48,6 @@ const querySchema = z.object({
     .string()
     .transform((value) => value.trim().slice(0, MAX_SEARCH_LENGTH).trim())
     .catch(defaultQuery.q),
-  format: z.enum(['all', ...formatSlugs]).catch(defaultQuery.format),
   range: z
     .enum(lobbyRanges.map(String) as [string, ...string[]])
     .transform((value) => Number(value) as LobbyRange)
@@ -70,7 +64,6 @@ export function parseLobbyQuery(params: SearchParams): LobbyQuery {
     tab: first(params['tab']),
     mode: first(params['mode']),
     q: first(params['q']),
-    format: first(params['format']),
     range: first(params['range']),
     sort: first(params['sort']),
   });
@@ -91,7 +84,6 @@ const withoutFilters = (query: LobbyQuery): LobbyQuery => ({
   ...query,
   mode: defaultQuery.mode,
   q: defaultQuery.q,
-  format: defaultQuery.format,
   range: defaultQuery.range,
 });
 
@@ -104,8 +96,6 @@ export const isFiltered = (query: LobbyQuery): boolean =>
 
 /** Filters living in the phone panel: search has its own field. */
 export const activeFilterCount = (query: LobbyQuery): number =>
-  [
-    query.mode !== defaultQuery.mode,
-    query.format !== defaultQuery.format,
-    query.range !== defaultQuery.range,
-  ].filter(Boolean).length;
+  [query.mode !== defaultQuery.mode, query.range !== defaultQuery.range].filter(
+    Boolean,
+  ).length;

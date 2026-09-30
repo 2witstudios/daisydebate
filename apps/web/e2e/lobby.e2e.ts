@@ -35,27 +35,29 @@ test.describe('lobby list', () => {
     ]);
     const first = rows(page).first();
     await expect(first).toContainText('Ranked');
-    await expect(first).toContainText('Parliamentary');
+    await expect(first).toContainText('Standard rules');
     await expect(first).toContainText('Open seat');
     await expect(first).toContainText('1200–1400');
     await expect(first).toContainText('Waiting 9 min');
   });
 
-  test('tab, mode, format, range, search and sort come from the URL', async ({
+  test('tab, mode, range, search and sort come from the URL', async ({
     page,
   }) => {
     await page.goto('/lobby?tab=live&sort=watched');
     expect(await names(page)).toEqual([
       'Finals rehearsal',
-      'Ranked LD, serious only',
+      'Ranked, serious only',
       'Friendly spar',
     ]);
     await expect(rows(page).first()).toContainText('31 watching');
 
-    await page.goto('/lobby?mode=ranked&format=lincoln-douglas&sort=low');
+    await page.goto('/lobby?mode=ranked&sort=low');
     expect(await names(page)).toEqual([
+      'Quarterfinal practice',
       'Tuesday night, no mercy',
-      'Ranked LD, serious only',
+      'Ranked, serious only',
+      'Finals rehearsal',
       'Top of the ladder',
     ]);
 
@@ -70,7 +72,7 @@ test.describe('lobby list', () => {
   });
 
   test('bad parameters fall back to the defaults', async ({ page }) => {
-    await page.goto('/lobby?tab=nope&sort=%00&range=9&format=chess');
+    await page.goto('/lobby?tab=nope&sort=%00&range=9');
     await expect(rows(page)).toHaveCount(8);
   });
 
@@ -127,17 +129,16 @@ test.describe('lobby list', () => {
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/lobby');
-    await expect(page.getByLabel('Format')).toBeVisible();
+    await expect(page.getByLabel('Rating range')).toBeVisible();
     await expect(
       page.getByRole('group', { name: 'Rated or casual' }),
     ).toBeVisible();
     await expect(page.getByText('Filters', { exact: true })).toBeHidden();
 
     await page.setViewportSize({ width: 390, height: 844 });
-    await expect(page.getByLabel('Format')).toBeHidden();
+    await expect(page.getByLabel('Rating range')).toBeHidden();
     await expect(page.getByText('8 rooms')).toBeVisible();
     await page.getByText('Filters', { exact: true }).click();
-    await expect(page.getByLabel('Format')).toBeVisible();
     await expect(page.getByLabel('Rating range')).toBeVisible();
     await expect(
       page.getByRole('group', { name: 'Rated or casual' }),
@@ -168,13 +169,13 @@ test.describe('lobby with JavaScript off', () => {
     await expect(page).toHaveURL(/mode=ranked/);
     await expect(page).toHaveURL(/sort=low/);
     expect(await names(page)).toEqual([
-      'Ranked LD, serious only',
+      'Ranked, serious only',
       'Finals rehearsal',
     ]);
     // The result is the same one the link gives a browser with script.
     await page.goto(page.url());
     expect(await names(page)).toEqual([
-      'Ranked LD, serious only',
+      'Ranked, serious only',
       'Finals rehearsal',
     ]);
   });
@@ -191,8 +192,8 @@ test.describe('lobby with JavaScript off', () => {
     await expect(rows(page)).toHaveCount(5);
 
     await page.setViewportSize({ width: 390, height: 844 });
-    await expect(page.getByLabel('Format')).toBeHidden();
+    await expect(page.getByLabel('Rating range')).toBeHidden();
     await page.getByText('Filters', { exact: true }).click();
-    await expect(page.getByLabel('Format')).toBeVisible();
+    await expect(page.getByLabel('Rating range')).toBeVisible();
   });
 });
