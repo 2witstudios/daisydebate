@@ -199,17 +199,15 @@ describe('evaluateAlerts (AUTH-7.7)', () => {
       Date.parse(NOW) - ALERT_THRESHOLDS.unavailableMs - 1,
     ).toISOString();
     const conditions = evaluateAlerts({
-      nowIso: NOW,
-      redisState: 'read',
+      ...baseSnapshot,
       storageUnavailableSinceIso: since,
       limiterUnavailableSinceIso: since,
       deliveryConsecutiveFailures: 3,
       authRequests: { total: 100, serverErrors: 5, windowMinutes: 10 },
-      retentionLastSuccessIso: null,
       mailShed: { count: ALERT_THRESHOLDS.mailShedCount, windowMinutes: 10 },
     });
     assert({
-      given: 'every alert condition firing at once',
+      given: 'every alert condition firing at once, mail_shed included',
       should: 'each name a runbook path into auth-delivery.md',
       actual: conditions.every((c) =>
         c.runbook.startsWith('docs/operations/auth-delivery.md#'),
@@ -262,16 +260,7 @@ describe('readAlertSnapshot (AUTH-7.7)', () => {
       given: 'no markers set at all',
       should: 'default counts to zero and timestamps to null',
       actual: await readAlertSnapshot({ redis, clock, local: noLocalOutage }),
-      expected: {
-        nowIso: NOW,
-        redisState: 'read',
-        storageUnavailableSinceIso: null,
-        limiterUnavailableSinceIso: null,
-        deliveryConsecutiveFailures: 0,
-        authRequests: { total: 0, serverErrors: 0, windowMinutes: 10 },
-        retentionLastSuccessIso: null,
-        mailShed: { count: 0, windowMinutes: 10 },
-      },
+      expected: baseSnapshot,
     });
   });
 });

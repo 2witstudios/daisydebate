@@ -118,7 +118,11 @@ export function createSecondInstances(testApp: TestApp) {
               setTimeout(resolve, overrides.providerRoundTripMs),
             );
           sent.push(message.to);
-          return { providerMessageId: `msg_${systemId.next()}` };
+          // Under the suite mailbox's prefix, so its teardown removes the
+          // receipts a real ledger records (ISSUE-192).
+          return {
+            providerMessageId: `${testApp.mailbox.messagePrefix}${systemId.next()}`,
+          };
         },
       },
       limiter: overrides.limiter ? overrides.limiter(base) : base,
