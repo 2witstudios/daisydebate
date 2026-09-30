@@ -127,42 +127,4 @@ describe('a saturated ceiling answers before any account-dependent work (ISSUE-1
       },
     });
   });
-
-  test('after the answer, a dropped sign-up occupies its slot as a real send does (DEC-41)', async () => {
-    const harness = create({
-      providerRoundTripMs: 250,
-      limiter: () => async (key) =>
-        key.startsWith('auth:magic-link:global:')
-          ? { allowed: false, retryAfterSeconds: 30 }
-          : { allowed: true, retryAfterSeconds: 0 },
-    });
-    harness.db.user.push(existingAccount);
-    const afterAnswer = async (request: Request) => {
-      await harness.server.instance.handler(request);
-      const from = harness.trace.length;
-      await harness.server.settled();
-      return harness.trace.slice(from);
-    };
-    const known = await afterAnswer(magicLinkRequest());
-    const tokensBefore = harness.db.verification.length;
-    const unknown = await afterAnswer(
-      magicLinkRequest({}, 'newcomer@daisy.example.com'),
-    );
-    assert({
-      given:
-        'saturated ceilings, a sign-in whose provider round trip takes 250 ms, then a sign-up',
-      should:
-        'run the same suppression read, then hold the slot for a measured round trip (the send, or a 250 ms wait), then write once (the receipt, or the token delete)',
-      actual: {
-        known,
-        unknown,
-        unknownTokenDeleted: harness.db.verification.length === tokensBefore,
-      },
-      expected: {
-        known: ['suppression', 'send', 'record'],
-        unknown: ['suppression', 'wait:250'],
-        unknownTokenDeleted: true,
-      },
-    });
-  });
 });

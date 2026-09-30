@@ -14,7 +14,6 @@ import type { RevokeSessions } from '../src/features/auth/revoke-sessions';
 import type { RevokeSessionUnlessAddressHeld } from '../src/features/auth/sign-in-address-guard';
 import { silentLogger } from '../src/server/test-loggers.test-support';
 import { authTestEnv } from '../src/features/auth/auth-server.test-support';
-import { systemSendPacing } from '../src/features/auth/send-pacing';
 
 /**
  * A Better Auth server over a given database adapter, built from the
@@ -69,7 +68,6 @@ export const createTestAuthServer = (
     // The composition mints entity ids from this injection; the durable
     // suites share one database, so they need the real cuid2 edge generator.
     ids: systemId,
-    pacing: systemSendPacing,
     appendSessionRevoked: options.appendSessionRevoked ?? (async () => {}),
     revokeOtherSessions: options.revokeOtherSessions ?? (async () => 0),
     completeEmailChange:

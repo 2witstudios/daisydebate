@@ -1,5 +1,6 @@
 import { createAccountFlows } from './auth-account-helpers';
 import { elapse } from './auth-rate-limit-helpers';
+import type { TestApp } from './fixtures';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 
 /** The global per-minute sign-up ceiling's bucket. */
@@ -10,8 +11,8 @@ export const GLOBAL_MINUTE = 'auth:magic-link:global:60';
  * request from its own client (or a given one), the minute window elapsing,
  * and the work a saturated request finishes after its answer.
  */
-export function createCeilingFlows() {
-  const accounts = createAccountFlows();
+export function createCeilingFlows(app?: TestApp) {
+  const accounts = createAccountFlows(app);
   const { flows } = accounts;
   const { testApp, newClient } = flows;
   const magicLink = (email: string, client = newClient()) =>

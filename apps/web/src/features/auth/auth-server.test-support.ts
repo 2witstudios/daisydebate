@@ -76,13 +76,6 @@ const memorySessionGuard =
     return true;
   };
 
-/** Pacing with no time passing: waits resolve at once, picks index 0. */
-const immediatePacing = {
-  elapsedMs: () => 0,
-  delay: async () => {},
-  pick: () => 0,
-};
-
 /** A mail seam that keeps every message it was asked to send. */
 export function capturingSender() {
   const sent: AuthEmailMessage[] = [];
@@ -115,7 +108,6 @@ export const composeAuthServer = (
     ids: sequentialId('auth'),
     appendSessionRevoked: async () => {},
     revokeOtherSessions: async () => 0,
-    pacing: immediatePacing,
     ...overrides,
   });
 

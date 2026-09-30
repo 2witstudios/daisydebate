@@ -16,8 +16,6 @@ export const create = (
     sendFailure?: boolean;
     /** The mail transport answers nothing until `release()` is called. */
     heldTransport?: boolean;
-    /** How long each send takes on the injected clock (default 0). */
-    providerRoundTripMs?: number;
     limiter?: (consumed: Consumed[]) => (
       key: string,
       rule: Consumed['rule'],
@@ -51,17 +49,6 @@ export const create = (
   const transportReached = new Promise<void>((resolve) => {
     reached = resolve;
   });
-  // One injected clock: a send advances it by the provider's round trip,
-  // and a paced wait is traced (`wait:<ms>`) and advances it by its length.
-  let now = 0;
-  const pacing = {
-    elapsedMs: () => now,
-    delay: async (ms: number) => {
-      trace.push(`wait:${ms}`);
-      now += ms;
-    },
-    pick: () => 0,
-  };
   const limit = options.limiter
     ? options.limiter(consumed)
     : async (key: string, rule: Consumed['rule']) => {
@@ -70,13 +57,11 @@ export const create = (
       };
   const server = composeAuthServer({
     database: memoryAdapter(db),
-    pacing,
     emailSender: {
       send: async (message) => {
         trace.push('send');
         reached();
         await held;
-        now += options.providerRoundTripMs ?? 0;
         if (options.sendFailure) throw new Error('transport down');
         sent.push(message);
         return { providerMessageId: `msg_${sent.length}` };

@@ -3,6 +3,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { GLOBAL_MINUTE } from './auth-ceiling-helpers';
 import { elapse, holdOpen } from './auth-rate-limit-helpers';
+import { createAccountFlows } from './auth-account-helpers';
 import { createTestApp } from './fixtures';
 import { serveEdge } from './ops-edge';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
@@ -18,7 +19,13 @@ requireTestServices(process.env);
 setupRitewayBun();
 
 const opsToken = `ops-${createId()}${createId()}`;
-const testApp = createTestApp({ OPS_PROBE_TOKEN: opsToken });
+// One slot and no queue, so one held send fills the handed-off work's
+// bound; production needs 577 (ADR 0025).
+const testApp = createTestApp(
+  { OPS_PROBE_TOKEN: opsToken },
+  { maxRunning: 1, maxQueued: 0, dbSteps: 4 },
+);
+const accounts = createAccountFlows(testApp);
 const { app, routes, mailbox, freshEmail, jsonPost, newClient } = testApp;
 
 const magicLink = (email: string) =>
@@ -30,31 +37,35 @@ const magicLink = (email: string) =>
     ),
   );
 
-/** A slow provider: every handed-off task holds its slot about a second. */
-const PROVIDER_ROUND_TRIP_MS = 1_000;
+/** New addresses behind the held send: all shed, well past the threshold. */
+const FLOOD = 40;
 
 describe('ISSUE-220 shedding past the bound raises an operator alert', () => {
   test('a flood that sheds handed-off work fires mail_shed on /api/ops/alerts, with counts only', async () => {
     const edge = await serveEdge({ app, routes, opsToken });
     try {
       const before = await edge.alerts();
-      mailbox.setLatency(PROVIDER_ROUND_TRIP_MS);
-      // 120 new addresses with room: each is really sent, so the app
-      // measures the slow provider, and the minute ceiling saturates.
       await elapse(testApp, GLOBAL_MINUTE);
+      const existing = (await accounts.signUp()).email;
       await Promise.all(
         Array.from({ length: 120 }, () => magicLink(freshEmail())),
       );
+      await app.auth().settled();
       await holdOpen(testApp, GLOBAL_MINUTE, 600_000);
+      // A real sign-in whose send the provider holds fills the one slot.
+      const release = mailbox.hold();
+      await magicLink(existing);
       const { events } = await testApp.withLoggedEvents(() =>
-        Promise.all(Array.from({ length: 200 }, () => magicLink(freshEmail()))),
+        Promise.all(
+          Array.from({ length: FLOOD }, () => magicLink(freshEmail())),
+        ),
       );
       const shed = events.filter((event) => event === 'auth.mail.shed').length;
       const after = await edge.alerts();
+      release();
       await app.auth().settled();
-      mailbox.setLatency(0);
       assert({
-        given: `the real minute ceiling saturated, a provider taking ${PROVIDER_ROUND_TRIP_MS} ms, then 200 new addresses at once (${shed} shed)`,
+        given: `the real minute ceiling saturated, the handed-off work's bound filled by a held send, then ${FLOOD} new addresses (${shed} shed)`,
         should:
           'fire mail_shed on /api/ops/alerts, where nothing fired for it before, with the shed count in the snapshot and no address in the condition',
         actual: {

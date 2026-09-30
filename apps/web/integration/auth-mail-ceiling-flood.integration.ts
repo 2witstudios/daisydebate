@@ -5,15 +5,20 @@ import {
   AFTER_RESPONSE_MAX_QUEUED,
   AFTER_RESPONSE_MAX_RUNNING,
 } from '../src/features/auth/after-response';
+import { createTestApp } from './fixtures';
 import { requireTestServices } from '@daisy/config';
 
 /**
  * ISSUE-185 (DEC-73): a saturated request hands its account lookup and its
  * send or drop to work that runs after the answer. That work is bounded:
- * at most AFTER_RESPONSE_MAX_RUNNING run and AFTER_RESPONSE_MAX_QUEUED
- * wait, and anything past that is shed before the lookup, logged and
- * counted, whatever the address. A flood can therefore not grow the
- * backlog with its request rate.
+ * at most AFTER_RESPONSE_MAX_RUNNING hold a slot and
+ * AFTER_RESPONSE_MAX_QUEUED wait, and anything past that is shed before the
+ * lookup, logged and counted, whatever the address. A flood can therefore
+ * not grow the backlog with its request rate.
+ *
+ * Filling the production pool takes 577 held real sends, so the shedding
+ * test runs the same code with the bounds narrowed (`NARROW_LIMITS`); the
+ * other tests use the production bounds.
  */
 requireTestServices(process.env);
 setupRitewayBun();
@@ -30,7 +35,9 @@ const {
 
 const BOUND = AFTER_RESPONSE_MAX_RUNNING + AFTER_RESPONSE_MAX_QUEUED;
 
-const pendingWork = () => testApp.app.auth().pendingWork();
+const NARROW_LIMITS = { maxRunning: 4, maxQueued: 64, dbSteps: 4 };
+const NARROW_BOUND = NARROW_LIMITS.maxRunning + NARROW_LIMITS.maxQueued;
+const narrow = createCeilingFlows(createTestApp({}, NARROW_LIMITS));
 
 /**
  * Runs `work` for every item over `connections` concurrent callers, the
@@ -42,6 +49,7 @@ const flood = async <T>(
   items: readonly T[],
   connections: number,
   work: (item: T) => Promise<Response>,
+  pendingWork = () => testApp.app.auth().pendingWork(),
 ) => {
   let peak = 0;
   let sampling = true;
@@ -66,11 +74,18 @@ const flood = async <T>(
   return { responses, peak };
 };
 
-/** The real minute ceiling saturated with fresh addresses and held open. */
-const saturate = async () => {
-  await Promise.all(Array.from({ length: 120 }, () => magicLink(fresh())));
-  await settled();
-  await holdOpen(testApp, GLOBAL_MINUTE, 600_000);
+/** One app's real minute ceiling saturated with fresh addresses and held open. */
+const saturate = async (
+  flows: Pick<
+    ReturnType<typeof createCeilingFlows>,
+    'magicLink' | 'fresh' | 'settled' | 'testApp'
+  > = { magicLink, fresh, settled, testApp },
+) => {
+  await Promise.all(
+    Array.from({ length: 120 }, () => flows.magicLink(flows.fresh())),
+  );
+  await flows.settled();
+  await holdOpen(flows.testApp, GLOBAL_MINUTE, 600_000);
 };
 
 /** Heap in use after a full collection, in megabytes. */
@@ -83,49 +98,51 @@ const shedCount = (events: readonly string[]) =>
   events.filter((event) => event === 'auth.mail.shed').length;
 
 describe('ISSUE-185 work handed off past a saturated answer is bounded', () => {
-  test('a flood of existing accounts over 20 connections never holds more than the bound, and sheds the rest', async () => {
-    await elapseGlobalMinute();
+  test('a flood of existing accounts over 20 connections never holds more than the bound, and sheds the rest (narrowed bounds)', async () => {
+    await narrow.elapseGlobalMinute();
     // One at a time: a sign-up finds its link by mailbox position.
     const existing: string[] = [];
     for (let index = 0; index < 100; index += 1)
-      existing.push((await accounts.signUp()).email);
-    await saturate();
-    const release = mailbox.hold();
-    const before = mailbox.mails.length;
-    const shedBefore = testApp.app.metrics.snapshot().authMailShedTotal;
+      existing.push((await narrow.accounts.signUp()).email);
+    await saturate(narrow);
+    const release = narrow.mailbox.hold();
+    const before = narrow.mailbox.mails.length;
+    const shedBefore = narrow.testApp.app.metrics.snapshot().authMailShedTotal;
     // Two requests per account stay inside its 3-a-minute recipient window
     // (the sign-up spent the first), so every one is admitted.
-    const { result, events } = await testApp.withLoggedEvents(() =>
+    const narrowPending = () => narrow.testApp.app.auth().pendingWork();
+    const { result, events } = await narrow.testApp.withLoggedEvents(() =>
       flood(
         existing.flatMap((email) => [email, email]),
         20,
-        (email) => magicLink(email),
+        (email) => narrow.magicLink(email),
+        narrowPending,
       ),
     );
-    const heldBacklog = pendingWork();
+    const heldBacklog = narrowPending();
     release();
-    await settled();
-    const mailed = mailbox.mails.length - before;
+    await narrow.settled();
+    const mailed = narrow.mailbox.mails.length - before;
 
     assert({
       given: `the real minute ceiling saturated, the provider not answering, and 200 requests for 100 existing accounts over 20 connections`,
-      should: `answer all 200 with 200, hold at most ${BOUND} tasks, shed and count every other before its lookup, and mail exactly the held ones once the provider answers`,
+      should: `answer all 200 with 200, hold at most ${NARROW_BOUND} tasks, shed and count every other before its lookup, and mail exactly the held ones once the provider answers`,
       actual: {
         statuses: statuses(result.responses),
-        withinBound: result.peak <= BOUND,
+        withinBound: result.peak <= NARROW_BOUND,
         heldBacklog,
         shedLogged: shedCount(events),
         shedCounted:
-          testApp.app.metrics.snapshot().authMailShedTotal - shedBefore,
+          narrow.testApp.app.metrics.snapshot().authMailShedTotal - shedBefore,
         mailed,
       },
       expected: {
         statuses: { 200: 200 },
         withinBound: true,
-        heldBacklog: BOUND,
-        shedLogged: 200 - BOUND,
-        shedCounted: 200 - BOUND,
-        mailed: BOUND,
+        heldBacklog: NARROW_BOUND,
+        shedLogged: 200 - NARROW_BOUND,
+        shedCounted: 200 - NARROW_BOUND,
+        mailed: NARROW_BOUND,
       },
     });
   }, 300_000);

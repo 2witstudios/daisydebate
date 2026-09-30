@@ -16,9 +16,7 @@ import type { AfterResponse } from './after-response';
  * the sign-in send (ISSUE-54: an existing account is still mailed) and the
  * sign-up's dropped mail and deleted token all run after the answer
  * (`afterResponse`), so neither the answer nor its timing reveals which
- * addresses have accounts (ISSUE-182, ISSUE-185, ISSUE-189). A dropped
- * sign-up stands in for the send before it deletes its token, so both
- * hold the handed-off work's capacity alike (DEC-41).
+ * addresses have accounts (ISSUE-182, ISSUE-185, ISSUE-189).
  */
 export const createSendMagicLink =
   (dependencies: {
@@ -27,11 +25,8 @@ export const createSendMagicLink =
     /** Spends the global ceilings; `false` when one is saturated. */
     readonly spendCeiling: () => Promise<boolean>;
     readonly afterResponse: AfterResponse;
-    /** A dropped sign-up's stand-in for the send (`createSendStandIn`). */
-    readonly standInForSend: (
-      to: string,
-      write: () => Promise<unknown>,
-    ) => Promise<void>;
+    /** Runs one database step of handed-off work behind its gate. */
+    readonly dbStep: <T>(step: () => Promise<T>) => Promise<T>;
   }) =>
   async (
     data: {
@@ -53,12 +48,17 @@ export const createSendMagicLink =
       });
     if (await dependencies.spendCeiling()) return send();
     const dropLink = () =>
-      internalAdapter.deleteVerificationByIdentifier(
-        emailedLinkIdentifier('sign-in', data.token),
+      dependencies.dbStep(() =>
+        internalAdapter.deleteVerificationByIdentifier(
+          emailedLinkIdentifier('sign-in', data.token),
+        ),
       );
     dependencies.afterResponse(async () => {
-      if (!(await internalAdapter.findUserByEmail(data.email))) {
-        await dependencies.standInForSend(data.email, dropLink);
+      const account = await dependencies.dbStep(() =>
+        internalAdapter.findUserByEmail(data.email),
+      );
+      if (!account) {
+        await dropLink();
         return;
       }
       try {

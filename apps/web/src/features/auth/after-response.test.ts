@@ -164,4 +164,37 @@ describe('createAfterResponse', () => {
       },
     });
   });
+
+  test('queues database steps only behind the gate, never more than the tasks holding a slot', async () => {
+    const { opened, open } = gate();
+    const limits = { maxRunning: 6, maxQueued: 3, dbSteps: 2 };
+    const { defer, settled, pending, dbStep, dbSteps } = createAfterResponse(
+      silentLogger,
+      limits,
+    );
+    let stepping = 0;
+    let steppingPeak = 0;
+    for (let index = 0; index < 20; index += 1)
+      defer(() =>
+        dbStep(async () => {
+          stepping += 1;
+          steppingPeak = Math.max(steppingPeak, stepping);
+          await opened;
+          stepping -= 1;
+        }),
+      );
+    await Promise.resolve();
+    await Promise.resolve();
+    const held = { pending: pending(), steps: dbSteps() };
+    open();
+    await settled();
+    assert({
+      given:
+        '20 pieces of work, each one database step that cannot finish yet, with 6 slots, 3 waiting and a gate of 2',
+      should:
+        'hold 9, run 2 steps at once, and queue no more steps than the 6 slot holders',
+      actual: { ...held, steppingPeak, after: dbSteps() },
+      expected: { pending: 9, steps: 6, steppingPeak: 2, after: 0 },
+    });
+  });
 });

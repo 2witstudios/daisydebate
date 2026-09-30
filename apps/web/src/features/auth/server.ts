@@ -27,8 +27,7 @@ import {
   type RevokeSessionUnlessAddressHeld,
 } from './sign-in-address-guard';
 import { deriveRecipientSubkey } from './recipient-key';
-import { createSendMail, createSendStandIn } from './send-mail';
-import { createProviderLatency, type SendPacing } from './send-pacing';
+import { createSendMail } from './send-mail';
 import type { Deliver } from './deliver-or-unavailable';
 import {
   createAfterResponse,
@@ -83,10 +82,6 @@ const composeBetterAuth = (dependencies: {
   readonly completeEmailChange: CompleteEmailChange;
   readonly revokeSessionUnlessAddressHeld: RevokeSessionUnlessAddressHeld;
   readonly afterResponse: ReturnType<typeof createAfterResponse>;
-  readonly standInForSend: (
-    to: string,
-    write: () => Promise<unknown>,
-  ) => Promise<void>;
 }) => {
   const { config, ledger, recipientSubkey } = dependencies;
   const origin = new URL(config.PUBLIC_APP_URL).origin;
@@ -189,7 +184,7 @@ const composeBetterAuth = (dependencies: {
             logger: dependencies.logger,
           }),
           afterResponse: dependencies.afterResponse.defer,
-          standInForSend: dependencies.standInForSend,
+          dbStep: dependencies.afterResponse.dbStep,
         }),
       }),
       passkey({
@@ -294,6 +289,8 @@ export function createAuthServer<
   readonly ids: IdGenerator;
   /** Mail receipts and suppressions (production supplies the @daisy/db one). */
   readonly ledger?: AuthDeliveryLedger | undefined;
+  /** The handed-off work's bounds; the production sizes unless a test narrows them. */
+  readonly afterResponseLimits?: AfterResponseLimits | undefined;
   /** RT-2.2: appends `session.revoked` after a confirmed self-service revoke. */
   readonly appendSessionRevoked: (userId: string) => Promise<void>;
   /**
@@ -308,27 +305,27 @@ export function createAuthServer<
    * moved off the address the link proved.
    */
   readonly revokeSessionUnlessAddressHeld: RevokeSessionUnlessAddressHeld;
-  /** Host time seams for pacing a dropped sign-up like a send (ISSUE-185). */
-  readonly pacing: SendPacing;
-  /** The handed-off work's bound; the production sizes unless a test narrows it. */
-  readonly afterResponseLimits?: AfterResponseLimits;
 }): AuthServer {
   const { config } = dependencies;
   const recipientSubkey = deriveRecipientSubkey(config.RECIPIENT_HASH_SECRET);
-  const ledger = dependencies.ledger ?? noLedger;
   const afterResponse = createAfterResponse(
     dependencies.logger,
     dependencies.afterResponseLimits,
   );
-  const latency = createProviderLatency(dependencies.pacing.pick);
+  // Handed-off work's ledger steps go through its database gate; a request
+  // being answered is not gated.
+  const baseLedger = dependencies.ledger ?? noLedger;
+  const ledger: AuthDeliveryLedger = {
+    isSuppressed: (hash) =>
+      afterResponse.dbStep(() => baseLedger.isSuppressed(hash)),
+    record: (input) => afterResponse.dbStep(() => baseLedger.record(input)),
+  };
   const sendMail = createSendMail({
     recipientSubkey,
     ledger,
     emailSender: dependencies.emailSender,
     logger: dependencies.logger,
     clock: dependencies.clock,
-    pacing: dependencies.pacing,
-    latency,
   });
   return {
     config,
@@ -348,12 +345,6 @@ export function createAuthServer<
       revokeSessionUnlessAddressHeld:
         dependencies.revokeSessionUnlessAddressHeld,
       afterResponse,
-      standInForSend: createSendStandIn({
-        recipientSubkey,
-        ledger,
-        pacing: dependencies.pacing,
-        latency,
-      }),
     }),
     limiter: dependencies.limiter,
     logger: dependencies.logger,

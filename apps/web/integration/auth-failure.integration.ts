@@ -6,7 +6,6 @@ import { createAuthRouteHandlers } from '../src/features/auth/handlers';
 import { createConfirmHandlers } from '../src/features/auth/confirm';
 import { createAuthServer } from '../src/features/auth/server';
 import { requireTestServices } from '@daisy/config';
-import { systemSendPacing } from '../src/features/auth/send-pacing';
 
 requireTestServices(process.env);
 setupRitewayBun();
@@ -39,7 +38,6 @@ const unreachableDatabase = () => {
     logger: silent,
     clock: systemClock,
     ids: systemId,
-    pacing: systemSendPacing,
   });
   const auth = () => ({
     handler: server.instance.handler,

@@ -7,6 +7,7 @@ import { deleteNamespace } from '@daisy/redis/namespaces';
 import { systemClock, systemId } from '@daisy/clock';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import { createApp } from '../src/server/app';
+import type { AfterResponseLimits } from '../src/features/auth/after-response';
 import { createRoutes } from '../src/server/routes';
 import { authTestEnv } from '../src/features/auth/auth-server.test-support';
 import { acquireIntegrationRunLock } from './integration-run-lock';
@@ -77,6 +78,7 @@ async function withNamespaceKeys<T>(
  */
 export function createTestApp(
   overrides: Readonly<Record<string, string | undefined>> = {},
+  afterResponseLimits?: AfterResponseLimits,
 ) {
   // Real Postgres/Redis and hundreds of concurrent requests: allow shared CI
   // machines headroom instead of a 5s default that fails on contention alone.
@@ -101,6 +103,7 @@ export function createTestApp(
     clock: systemClock,
     ids: systemId,
     logDestination: { write: (line) => logLines.push(line) },
+    ...(afterResponseLimits ? { afterResponseLimits } : {}),
   });
   const newClient = createClients();
   const jsonPost = (

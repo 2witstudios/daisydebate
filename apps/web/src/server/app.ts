@@ -12,7 +12,7 @@ import { createRedis } from '@daisy/redis';
 import { createResendSender, type Fetch } from '../features/auth/mail';
 import { createAuthRateLimiter } from '../features/auth/redis-limiter';
 import { createAuthServer, type AuthServer } from '../features/auth/server';
-import { systemSendPacing } from '../features/auth/send-pacing';
+import type { AfterResponseLimits } from '../features/auth/after-response';
 import { createResendWebhook } from '../features/auth/webhook';
 import { createAlertRecorder, withAlertRecording } from './alert-recorder';
 import { createMetricsStore, type MetricsStore } from './metrics-store';
@@ -26,6 +26,11 @@ export type AppDependencies = {
   readonly ids: IdGenerator;
   /** Where log lines go; standard output when omitted. */
   readonly logDestination?: { readonly write: (line: string) => void };
+  /**
+   * Narrower bounds for auth's handed-off work, for suites that must fill
+   * them with a few requests; production uses the defaults.
+   */
+  readonly afterResponseLimits?: AfterResponseLimits;
 };
 
 /**
@@ -46,6 +51,7 @@ export function createApp({
   clock,
   ids,
   logDestination,
+  afterResponseLimits,
 }: AppDependencies) {
   const config = readServerConfig(env);
   const baseLogger = createLogger({
@@ -101,7 +107,7 @@ export function createApp({
       logger,
       clock,
       ids,
-      pacing: systemSendPacing,
+      afterResponseLimits,
     });
   };
   const composeMailWebhook = () => {
