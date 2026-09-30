@@ -13,9 +13,21 @@
  *      run (and finishes cleanly); a suite started by hand against the slot
  *      database is refused; before the sweep the killed run's database is
  *      still there (the mechanism, not luck, removes it).
+ *   4. ISSUE-250: the runner's lock session is killed mid-run
+ *      (`pg_terminate_backend`). The run stops loudly, and no sweep drops the
+ *      database while its suites are still executing.
+ *   5. ISSUE-249: rows planted in another run's database and in another
+ *      slot's run database survive a suite started by hand against them,
+ *      which is refused.
  */
 import { SQL } from 'bun';
 import { requireTestSlotServices } from '@daisy/config';
+import {
+  claimTestRunDatabase,
+  dropTestRunDatabase,
+  sweepTestRunDatabases,
+  testRunDatabaseName,
+} from '@daisy/db/test-runs';
 import { proofSteps } from './proof-support';
 
 const root = `${import.meta.dir}/..`;
@@ -112,6 +124,114 @@ const descendants = (pid: number): number[] => {
     .flatMap((child) => [child, ...descendants(child)]);
 };
 
+/** Kills the runner's lock session mid-run; sweeps meanwhile must not drop the database. */
+async function proveLockLoss() {
+  const victim = runner(SLOW);
+  const victimLog = textOf(victim.stderr);
+  const database = await waitForBusyRun([]);
+  const [holder] = (await admin.unsafe(
+    `select pid from pg_locks where locktype = 'advisory' and granted
+     and ((classid::bigint << 32) | objid::bigint) = hashtextextended('${database}', 0)`,
+  )) as Array<{ pid: number }>;
+  if (!holder) throw new Error('the run holds no liveness lock');
+  await admin.unsafe(`select pg_terminate_backend(${holder.pid})`);
+  const violations: string[] = [];
+  let observed = 0;
+  let stopped = false;
+  void victim.exited.then(() => (stopped = true));
+  const sessionsOf = async () =>
+    (
+      (await admin.unsafe(
+        `select count(*)::int as sessions from pg_stat_activity where datname = '${database}' and pid <> pg_backend_pid()`,
+      )) as Array<{ sessions: number }>
+    )[0]?.sessions ?? 0;
+  while (!stopped) {
+    // The suites are executing while Postgres shows sessions on the run
+    // database both before and after the sweep.
+    const before = await sessionsOf();
+    const dropped = await sweepTestRunDatabases(admin, slotDatabase);
+    if (before > 0 && (await sessionsOf()) > 0) {
+      observed += 1;
+      if (dropped.includes(database)) violations.push(database);
+    }
+    await Bun.sleep(10);
+  }
+  const log = await victimLog;
+  if (process.env.PROOF_DEBUG)
+    process.stderr.write(
+      `--- victim (${victim.exitCode}) ---\n${log.slice(-1500)}\n`,
+    );
+  check(
+    observed > 0 && violations.length === 0,
+    `ISSUE-250: ${observed} sweeps ran while the suites were still executing after their lock session was killed, and none dropped ${database}`,
+  );
+  check(
+    victim.exitCode !== 0 && log.includes('liveness lock is gone'),
+    'ISSUE-250: the run whose lock session was killed stopped loudly (non-zero exit, named error) instead of continuing unlocked',
+  );
+  check(
+    !(await runDatabases()).includes(database),
+    'ISSUE-250: the stopped run dropped its own database, so nothing is left behind',
+  );
+}
+
+/** Rows planted in other databases survive a suite started by hand against them. */
+async function provePlantedRows() {
+  const another = testRunDatabaseName(slotDatabase, 'a0a0a0a0');
+  const otherSlot = testRunDatabaseName('daisy_wt_zzzzzzzz_test', 'b1b1b1b1');
+  const planted = new SQL(urlOf('postgres'), { max: 1 });
+  try {
+    for (const name of [another, otherSlot]) {
+      await claimTestRunDatabase(planted, name);
+      const db = new SQL(urlOf(name), { max: 1 });
+      await db.unsafe('create table planted (id int)');
+      await db.unsafe('insert into planted values (1)');
+      await db.close();
+    }
+    const byHand = async (name: string, runDatabase: string | undefined) => {
+      const proc = Bun.spawn(
+        ['bun', `--env-file=${root}/.env`, 'test', `./${FAST}`],
+        {
+          cwd: web,
+          stdout: 'pipe',
+          stderr: 'pipe',
+          env: {
+            ...process.env,
+            TEST_DATABASE_URL: urlOf(name),
+            ...(runDatabase ? { TEST_RUN_DATABASE: runDatabase } : {}),
+          },
+        },
+      );
+      const log = await textOf(proc.stderr);
+      await proc.exited;
+      return { exit: proc.exitCode, log };
+    };
+    const results = [
+      await byHand(another, undefined),
+      await byHand(another, 'daisy_other_run'),
+      await byHand(otherSlot, otherSlot),
+    ];
+    const rows = await Promise.all(
+      [another, otherSlot].map((name) => rowsIn(name, 'planted')),
+    );
+    check(
+      results.every(({ exit }) => exit !== 0) &&
+        results[0]?.log.includes("run's own database") === true &&
+        results[1]?.log.includes("run's own database") === true &&
+        results[2]?.log.includes('database of this slot') === true,
+      'ISSUE-249: a suite started by hand against another run of this slot (URL alone, or with a wrong run name) and against another slot’s run database is refused at import',
+    );
+    check(
+      rows.every((count) => count === 1),
+      'ISSUE-249: the row planted in each of those databases survived',
+    );
+  } finally {
+    for (const name of [another, otherSlot])
+      await dropTestRunDatabase(planted, name);
+    await planted.close();
+  }
+}
+
 async function main() {
   const start = await runDatabases();
   check(start.length === 0, `no run database of ${slotDatabase} to begin with`);
@@ -197,6 +317,8 @@ async function main() {
     'AC control: a suite run by hand against the slot database is refused, so it cannot leak rows',
   );
 
+  await proveLockLoss();
+  await provePlantedRows();
   await admin.close();
   finish();
 }

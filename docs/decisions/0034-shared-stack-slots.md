@@ -194,24 +194,49 @@ no row that survives, by construction rather than by cleanup.
   one admin connection it holds for the whole run, before it creates the
   database. Postgres releases the lock the moment that connection ends,
   however the runner died. Before a run creates its own database it drops
-  every run database of its slot whose lock is free (`DROP DATABASE ... WITH
-(FORCE)`, which also stops a suite process the killed runner orphaned). A
-  live run, in this workspace's sibling run or another process, holds its lock
-  and is never touched; no idle-time or maximum-run-length guess can drop a
-  slow run. If a sweep runs in the few milliseconds before Postgres notices a
-  dead runner, it skips that database and the next run drops it.
+  every run database of its slot whose lock is free and that no session uses
+  (`DROP DATABASE ... WITH (FORCE)`). A suite process that outlives a
+  SIGKILLed runner is left to finish: its database is dropped by the first
+  sweep after its connections end, rows and all. A live run, in this
+  workspace's sibling run or another process, holds its lock and is never
+  touched; no idle-time or maximum-run-length guess can drop a slow run. If a
+  sweep runs in the few milliseconds before Postgres notices a dead runner,
+  it skips that database and the next run drops it.
+- **A lost lock stops the run (ISSUE-250).** The lock belongs to one
+  backend, and Bun silently reconnects a connection Postgres cut, which would
+  hold no lock. The runner therefore runs the suites as a child it supervises:
+  every 500 ms it checks that the admin connection is still the backend that
+  claimed the database (a query that fails on the dead connection counts as
+  lost), and on a loss it kills the suites and fails the run with a named
+  error, rather than let a concurrent sweep decide the run is dead. Two more
+  layers cover the moments before the runner notices: the sweep never drops a
+  database that any other session is connected to, and the check runs once
+  more when the suites exit. Proven by killing the runner's lock session
+  mid-run (`bun proof:test-postgres`): the run stops loudly, and the sweeps
+  run meanwhile never drop its database.
 - **Why not a row sweep.** Sweeping fixture rows by prefix and age would
   need every table's cascade and every future table's registration; a table
   someone forgets would leak again. Dropping a database has no such list. A
   per-run schema was rejected for the same reason plus the migrator: it is
   written for `public`.
-- **A suite cannot start by hand.** `requireTestServices` accepts only a
-  database ending `_test_run_<8 hex digits>`, so `bun test` on a suite file
-  fails naming the rule instead of writing to a shared database. The runner
-  takes a suite file as an argument (`bun ../../scripts/test-integration.ts
-integration/x.integration.ts` from the workspace), and gives it a run
-  database like any other. `requireTestSlotServices` still accepts the slot's
-  `_test` database for tooling.
+- **A suite cannot start by hand, and cannot reach another database
+  (ISSUE-249).** `requireTestServices` accepts a Postgres URL only when its
+  server (host and port; any spelling of this machine is the same server) is
+  the one `DATABASE_URL` names, its database is `<this slot's test
+database>_run_<8 hex digits>` (the slot is told from `DATABASE_URL`, which
+  `slot:up` writes), and it is exactly the database named by
+  `TEST_RUN_DATABASE`, which the runner sets for its suites and nothing else
+  does. So `bun test` on a suite file, another slot's or main's run
+  database, another run of this slot, and a well-formed name on another
+  server are all refused at import, naming the rule and never a host. The
+  runner's own reader (`requireTestSlotServices`) holds the slot's `_test`
+  database to the same slot and server rule before it creates or drops
+  anything. Someone who edits both `TEST_DATABASE_URL` and `TEST_RUN_DATABASE`
+  by hand to another run of the same slot, on the same server, is not told
+  from that run; only the database's liveness lock could, and a suite does not
+  hold a connection to it. The runner takes a suite file as an argument
+  (`bun ../../scripts/test-integration.ts integration/x.integration.ts` from
+  the workspace) and gives it a run database like any other.
 - **The slot's `_test` database remains** as the name run databases derive
   from and the target of `bun verify`'s migration-idempotency gate and
   `bun db:reset`; no suite writes to it. `_test_run_<8 hex>` is a reserved

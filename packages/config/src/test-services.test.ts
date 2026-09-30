@@ -6,8 +6,10 @@ setupRitewayBun();
 describe('requireTestServices', () => {
   // A worktree slot on port block 11: its own Redis database is 13.
   const testEnv = {
+    DATABASE_URL: 'postgres://user:secret@localhost:5432/daisy_wt_abc',
     TEST_DATABASE_URL:
-      'postgres://user:secret@localhost:5432/daisy_test_run_0a1b2c3d',
+      'postgres://user:secret@localhost:5432/daisy_wt_abc_test_run_0a1b2c3d',
+    TEST_RUN_DATABASE: 'daisy_wt_abc_test_run_0a1b2c3d',
     TEST_REDIS_URL: 'redis://localhost:6379/13',
     REDIS_URL: 'redis://localhost:6379',
     PORT: '13110',
@@ -159,6 +161,7 @@ describe('requireTestServices', () => {
 
 describe('requireTestSlotServices', () => {
   const slotEnv = {
+    DATABASE_URL: 'postgres://user:secret@localhost:5432/daisy',
     TEST_DATABASE_URL: 'postgres://user:secret@localhost:5432/daisy_test',
     TEST_REDIS_URL: 'redis://localhost:6379/1',
     REDIS_URL: 'redis://localhost:6379',

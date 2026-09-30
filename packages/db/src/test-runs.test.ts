@@ -2,6 +2,7 @@ import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   claimTestRunDatabase,
+  testRunLockLost,
   dropAllTestRunDatabases,
   slotDatabaseOfRun,
   sweepTestRunDatabases,
@@ -72,14 +73,27 @@ describe('test run database names', () => {
 function fakeAdmin({
   databases,
   busy = [],
+  connected = [],
+  backendPid = 4242,
 }: {
   readonly databases: readonly string[];
   readonly busy?: readonly string[];
+  /** Databases another session is connected to. */
+  readonly connected?: readonly string[];
+  /** The backend this fake admin connection currently is. */
+  readonly backendPid?: number;
 }) {
   const statements: string[] = [];
   const admin = Object.assign(async () => databases.map((name) => ({ name })), {
     unsafe: async (statement: string) => {
       statements.push(statement);
+      if (statement.includes('pg_backend_pid() as pid'))
+        return [{ pid: backendPid }];
+      const sessions = /from pg_stat_activity where datname = '([^']+)'/.exec(
+        statement,
+      );
+      if (sessions)
+        return [{ sessions: connected.includes(sessions[1] ?? '') ? 1 : 0 }];
       const lock = /pg_try_advisory_lock\(hashtextextended\('([^']+)'/.exec(
         statement,
       );
@@ -101,13 +115,15 @@ describe('claimTestRunDatabase', () => {
 
     assert({
       given: 'a free run name',
-      should: 'lock before it creates, so a sweep never sees it unlocked',
+      should:
+        'lock before it creates (so a sweep never sees it unlocked), then note which backend holds the lock',
       actual: statements.map(
         (statement) => statement.split(' ')[0] + ' ' + statement.split(' ')[1],
       ),
       expected: [
         "select pg_try_advisory_lock(hashtextextended('daisy_wt_abc_test_run_00000001',",
         'create database',
+        'select pg_backend_pid()',
       ],
     });
   });
@@ -171,6 +187,85 @@ describe('dropAllTestRunDatabases', () => {
       should: 'drop both with force and name them',
       actual: { dropped, drops: statements.length },
       expected: { dropped: [dead, live], drops: 2 },
+    });
+  });
+});
+
+describe('the liveness lock is tied to one session (ISSUE-250)', () => {
+  test('a claim reports the backend that holds the lock', async () => {
+    const { admin } = fakeAdmin({ databases: [], backendPid: 777 });
+
+    assert({
+      given: 'a claim made on backend 777',
+      should: 'return 777, the session the lock lives on',
+      actual: await claimTestRunDatabase(admin, dead),
+      expected: 777,
+    });
+  });
+
+  test('the lock is lost the moment the connection becomes another backend', async () => {
+    const same = fakeAdmin({ databases: [], backendPid: 777 });
+    const reconnected = fakeAdmin({ databases: [], backendPid: 778 });
+
+    assert({
+      given:
+        'the claiming backend 777, seen from a connection still on 777 and from one that silently reconnected as 778',
+      should: 'report the lock lost only after the reconnect',
+      actual: [
+        await testRunLockLost(same.admin, 777),
+        await testRunLockLost(reconnected.admin, 777),
+      ],
+      expected: [false, true],
+    });
+  });
+});
+
+describe('a cut connection counts as a lost lock (ISSUE-250)', () => {
+  test('a query that fails because the connection just died reports the lock lost, not an error', async () => {
+    const dying = Object.assign(async () => [], {
+      unsafe: async () => {
+        throw new Error('Connection closed');
+      },
+    });
+
+    assert({
+      given: 'the first query on a connection Postgres has just terminated',
+      should: 'report the lock lost instead of throwing out of the watcher',
+      actual: await testRunLockLost(dying as never, 777),
+      expected: true,
+    });
+  });
+});
+
+describe('a sweep never drops a database a session is using (ISSUE-250)', () => {
+  test('skips a free-lock database that still has a connected session, and drops it once none is', async () => {
+    const busyOnly = fakeAdmin({ databases: [dead], connected: [dead] });
+    const idle = fakeAdmin({ databases: [dead], connected: [] });
+
+    const whileConnected = await sweepTestRunDatabases(busyOnly.admin, base);
+    const afterwards = await sweepTestRunDatabases(idle.admin, base);
+
+    assert({
+      given:
+        'a run database whose lock is free (its runner’s connection was cut) but whose suites are still connected, then the same with no session',
+      should:
+        'leave it alone while a suite is connected (negative control: it is dropped once none is), and release the lock it took',
+      actual: {
+        whileConnected,
+        dropsWhileConnected: busyOnly.statements.filter((statement) =>
+          statement.startsWith('drop'),
+        ).length,
+        unlocked: busyOnly.statements.some((statement) =>
+          statement.includes('pg_advisory_unlock'),
+        ),
+        afterwards,
+      },
+      expected: {
+        whileConnected: [],
+        dropsWhileConnected: 0,
+        unlocked: true,
+        afterwards: [dead],
+      },
     });
   });
 });

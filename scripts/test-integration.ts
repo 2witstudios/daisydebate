@@ -15,7 +15,7 @@ import {
   sweepIdleNamespaces,
 } from '@daisy/redis/namespaces';
 import { TEST_NAMESPACE_PREFIX, TEST_RUN_MAX_MS } from '@daisy/redis/testing';
-import { withRunDatabase } from './test-run-database';
+import { superviseRun, withRunDatabase } from './test-run-database';
 
 export const INTEGRATION_RUNNER = 'bun ../../scripts/test-integration.ts';
 
@@ -205,26 +205,44 @@ if (import.meta.main) {
       const message = sweepMessage(dropped);
       if (message) process.stderr.write(`${message}\n`);
     },
-    work: async (runUrl) => {
-      const before = await rowCounts(runUrl);
-      const child = Bun.spawnSync(
+    work: async (run) => {
+      const before = await rowCounts(run.url);
+      const suites = Bun.spawn(
         ['bun', 'test', ...files.map((file) => `./${file}`), ...rest],
         {
           stdio: ['inherit', 'inherit', 'inherit'],
-          env: { ...process.env, TEST_DATABASE_URL: runUrl },
+          env: {
+            ...process.env,
+            TEST_DATABASE_URL: run.url,
+            TEST_RUN_DATABASE: run.name,
+          },
         },
       );
+      const verdict = await superviseRun({
+        exited: suites.exited,
+        kill: () => suites.kill('SIGKILL'),
+        lockLost: run.lockLost,
+      });
+      if (verdict === 'lost') {
+        process.stderr.write(
+          `test-integration: this run's Postgres connection was cut, so its liveness lock is gone and another run could drop ${run.name}; the suites were stopped (ISSUE-250). Run again.\n`,
+        );
+        return 1;
+      }
       const leaks = redisLeakMessages(
         await withRedis(redisUrl, deleteKeysWithoutExpiry),
       );
       for (const line of leaks) process.stderr.write(`${line}\n`);
-      const grown = grownTables(before, await rowCounts(runUrl));
+      const grown = grownTables(before, await rowCounts(run.url));
       for (const { table, before: from, after: to } of grown)
         process.stderr.write(
           `test-integration: ${table} grew from ${from} to ${to} rows; a suite left rows behind (ISSUE-192)\n`,
         );
       return (
-        exitCodeOf(child) || (grown.length > 0 || leaks.length > 0 ? 1 : 0)
+        exitCodeOf({
+          exitCode: suites.exitCode,
+          signalCode: suites.signalCode,
+        }) || (grown.length > 0 || leaks.length > 0 ? 1 : 0)
       );
     },
   });

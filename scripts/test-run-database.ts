@@ -13,6 +13,7 @@ import {
   dropTestRunDatabase,
   sweepTestRunDatabases,
   testRunDatabaseName,
+  testRunLockLost,
   testRunToken,
 } from '@daisy/db/test-runs';
 
@@ -21,6 +22,42 @@ const withDatabase = (url: string, database: string): string => {
   next.pathname = `/${database}`;
   return next.toString();
 };
+
+/**
+ * Watches a suite process while it runs (ISSUE-250): every `pollMs` it asks
+ * whether the run's liveness lock is gone (Postgres cut the runner's
+ * connection and Bun reconnected without it). A lost lock kills the suite at
+ * once, because a concurrent run's sweep could otherwise take the database
+ * out from under it, and reports `lost`; the run then fails loudly. Checked
+ * once more after the suite exits, so a lock lost at the very end still fails.
+ */
+export async function superviseRun({
+  exited,
+  kill,
+  lockLost,
+  pollMs = 500,
+  sleep = (ms: number) => Bun.sleep(ms),
+}: {
+  readonly exited: Promise<unknown>;
+  readonly kill: () => void;
+  readonly lockLost: () => Promise<boolean>;
+  readonly pollMs?: number;
+  readonly sleep?: (ms: number) => Promise<unknown>;
+}): Promise<'exited' | 'lost'> {
+  let done = false;
+  void exited.then(() => {
+    done = true;
+  });
+  while (!done) {
+    await Promise.race([exited, sleep(pollMs)]);
+    if (!done && (await lockLost())) {
+      kill();
+      await exited;
+      return 'lost';
+    }
+  }
+  return (await lockLost()) ? 'lost' : 'exited';
+}
 
 export async function withRunDatabase<T>({
   slotDatabaseUrl,
@@ -33,7 +70,13 @@ export async function withRunDatabase<T>({
   /** The checkout whose migrations the run applies. */
   readonly root: string;
   readonly onSweep: (dropped: readonly string[]) => void;
-  readonly work: (runDatabaseUrl: string) => Promise<T>;
+  readonly work: (run: {
+    readonly url: string;
+    /** The run database's name: what the runner hands its suites as TEST_RUN_DATABASE. */
+    readonly name: string;
+    /** Whether the liveness lock is gone (see `superviseRun`). */
+    readonly lockLost: () => Promise<boolean>;
+  }) => Promise<T>;
 }): Promise<T> {
   const slotDatabase = decodeURIComponent(
     new URL(slotDatabaseUrl).pathname.slice(1),
@@ -45,7 +88,7 @@ export async function withRunDatabase<T>({
   );
   try {
     onSweep(await sweepTestRunDatabases(admin, slotDatabase));
-    await claimTestRunDatabase(admin, name);
+    const claimedBy = await claimTestRunDatabase(admin, name);
     const runUrl = withDatabase(slotDatabaseUrl, name);
     try {
       const migrated = Bun.spawnSync(
@@ -61,9 +104,16 @@ export async function withRunDatabase<T>({
         throw new Error(
           `test-integration: migrating this run's database failed (exit ${migrated.exitCode})`,
         );
-      return await work(runUrl);
+      return await work({
+        url: runUrl,
+        name,
+        lockLost: () => testRunLockLost(admin, claimedBy),
+      });
     } finally {
-      await dropTestRunDatabase(admin, name);
+      // A cut connection fails its first query, then reconnects.
+      await dropTestRunDatabase(admin, name).catch(() =>
+        dropTestRunDatabase(admin, name),
+      );
     }
   } finally {
     await admin.close();

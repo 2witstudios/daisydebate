@@ -110,20 +110,42 @@ test(
       await inRun`insert into leaked select generate_series(1, 730)`;
       // The suites' own connection is still open when the runner is killed.
       await run.runner.close();
+      // Wait until Postgres has freed the dead runner's lock, so that only
+      // the open suite connection can be what keeps the database.
+      const key = `hashtextextended('${run.name}', 0)`;
+      const deadline = Date.now() + 5_000;
+      for (;;) {
+        const [{ free }] = (await sweeper.unsafe(
+          `select pg_try_advisory_lock(${key}) as free`,
+        )) as [{ free: boolean }];
+        if (free) await sweeper.unsafe(`select pg_advisory_unlock(${key})`);
+        if (free || Date.now() > deadline) break;
+        await Bun.sleep(25);
+      }
+      const whileConnected = await sweepTestRunDatabases(sweeper, base);
+      const keptWhileConnected = await exists(sweeper, run.name);
+      await inRun.close();
 
       const dropped = await sweepUntilDropped(sweeper, run.name);
 
       assert({
         given:
-          'a database holding 730 rows and an open connection, its runner killed',
-        should: 'be dropped by the next sweep, connection and rows with it',
+          'a database holding 730 rows and a suite connection still open, its runner killed (lock free)',
+        should:
+          'be kept while the suite is connected (a live run that lost its lock is never dropped under it), then dropped with its rows once the connection ends',
         actual: {
+          whileConnected,
+          keptWhileConnected,
           dropped,
           left: await exists(sweeper, run.name),
         },
-        expected: { dropped: [run.name], left: false },
+        expected: {
+          whileConnected: [],
+          keptWhileConnected: true,
+          dropped: [run.name],
+          left: false,
+        },
       });
-      await inRun.close().catch(() => undefined);
     } finally {
       await dropAllTestRunDatabases(sweeper, base);
       await sweeper.close();

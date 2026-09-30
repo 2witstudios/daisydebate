@@ -4,13 +4,8 @@ import {
   testRedisRefusal,
   type OwnTestRedisUrl,
 } from './test-redis';
+import { testDatabaseRefusal } from './test-database';
 import { databaseUrl, redisUrl } from './urls';
-
-/**
- * The suffix of a run's own database (ISSUE-238): the slot's `_test`
- * database name, `_run_`, and eight hex digits from the runner's CSPRNG.
- */
-const TEST_RUN_DATABASE_SUFFIX = /_test_run_[0-9a-f]{8}$/;
 
 type TestServices = {
   readonly databaseUrl: string;
@@ -23,15 +18,32 @@ type TestServices = {
  * started against another slot's, dev's or e2e's Redis is refused before it
  * writes or deletes a key. Only the database rule differs.
  */
-const testServicesSchema = (databaseRule: z.ZodType<string>) =>
+const testServicesSchema = (
+  databaseRule: z.ZodType<string>,
+  kind: 'slot' | 'run',
+) =>
   z
     .object({
       TEST_DATABASE_URL: databaseRule,
       TEST_REDIS_URL: redisUrl,
+      DATABASE_URL: z.string().optional(),
+      TEST_RUN_DATABASE: z.string().optional(),
       REDIS_URL: z.string().optional(),
       PORT: z.string().optional(),
     })
     .superRefine((env, ctx) => {
+      const database = testDatabaseRefusal({
+        kind,
+        testDatabaseUrl: env.TEST_DATABASE_URL,
+        databaseUrl: env.DATABASE_URL,
+        runDatabase: env.TEST_RUN_DATABASE,
+      });
+      if (database)
+        ctx.addIssue({
+          code: 'custom',
+          path: ['TEST_DATABASE_URL'],
+          message: database,
+        });
       const message = testRedisRefusal({
         testRedisUrl: env.TEST_REDIS_URL,
         redisUrl: env.REDIS_URL,
@@ -60,18 +72,8 @@ const readTestServices = (
     redisUrl: result.data.TEST_REDIS_URL as OwnTestRedisUrl,
   };
 };
-const runDatabaseSchema = testServicesSchema(
-  databaseUrl.refine(
-    (value) => TEST_RUN_DATABASE_SUFFIX.test(new URL(value).pathname),
-    "must name this run's database, ending in _test_run_ and 8 hex digits: run suites with bun test:integration, which creates and drops it",
-  ),
-);
-const slotDatabaseSchema = testServicesSchema(
-  databaseUrl.refine(
-    (value) => new URL(value).pathname.endsWith('_test'),
-    'must name a database ending in _test',
-  ),
-);
+const runDatabaseSchema = testServicesSchema(databaseUrl, 'run');
+const slotDatabaseSchema = testServicesSchema(databaseUrl, 'slot');
 /**
  * The one guard every integration suite calls (ISSUE-11; `bun evidence`
  * checks each suite imports it). A missing or non-test service throws,

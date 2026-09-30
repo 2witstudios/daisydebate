@@ -51,13 +51,41 @@ const lockKey = (name: string) => `hashtextextended('${name}', 0)`;
 export async function claimTestRunDatabase(
   admin: SQL,
   name: string,
-): Promise<void> {
+): Promise<number> {
   const quoted = quoteIdentifier(name);
   const [{ free }] = (await admin.unsafe(
     `select pg_try_advisory_lock(${lockKey(name)}) as free`,
   )) as [{ free: boolean }];
   if (!free) throw new Error(`Run database ${name} is already claimed`);
   await admin.unsafe(`create database ${quoted} template template0`);
+  return backendPid(admin);
+}
+
+const backendPid = async (admin: SQL): Promise<number> => {
+  const [{ pid }] = (await admin.unsafe('select pg_backend_pid() as pid')) as [
+    { pid: number },
+  ];
+  return pid;
+};
+
+/**
+ * Whether the liveness lock is gone: it belongs to the backend that claimed
+ * the database (`claimedBy`, from `claimTestRunDatabase`), and a connection
+ * that Postgres cut and Bun silently re-established is a different backend
+ * holding no lock. The runner checks this while the suites run and stops the
+ * run when it is true (ISSUE-250).
+ */
+export async function testRunLockLost(
+  admin: SQL,
+  claimedBy: number,
+): Promise<boolean> {
+  try {
+    return (await backendPid(admin)) !== claimedBy;
+  } catch {
+    // The first query on a connection Postgres just terminated fails before
+    // Bun reconnects: the same loss, seen a moment earlier.
+    return true;
+  }
 }
 
 /** Drops the run's database even while a forgotten connection holds it. */
@@ -80,10 +108,19 @@ async function runDatabasesOf(admin: SQL, slotTestDatabase: string) {
     .filter((name) => slotDatabaseOfRun(name) === slotTestDatabase);
 }
 
+async function hasSessions(admin: SQL, name: string): Promise<boolean> {
+  const [{ sessions }] = (await admin.unsafe(
+    `select count(*)::int as sessions from pg_stat_activity where datname = '${quoteIdentifier(name).slice(1, -1)}' and pid <> pg_backend_pid()`,
+  )) as [{ sessions: number }];
+  return sessions > 0;
+}
+
 /**
  * Drops every run database of this slot whose runner is gone: the ones whose
- * liveness lock is free. A live run holds its lock, so a sweep in another
- * process, or another workspace's run in the same slot, never touches it.
+ * liveness lock is free and that no session uses. A live run holds its lock,
+ * and a run that lost it (ISSUE-250) still has its suites connected, so a
+ * sweep in another process, or another workspace's run in the same slot,
+ * never touches it.
  * Returns the names dropped.
  */
 export async function sweepTestRunDatabases(
@@ -98,6 +135,9 @@ export async function sweepTestRunDatabases(
     )) as [{ free: boolean }];
     if (!free) continue;
     try {
+      // A free lock with a session still connected is a live run whose
+      // runner's connection was cut (ISSUE-250): never drop under a suite.
+      if (await hasSessions(admin, name)) continue;
       await dropTestRunDatabase(admin, name);
       dropped.push(name);
     } finally {
