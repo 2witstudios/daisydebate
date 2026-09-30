@@ -28,7 +28,14 @@ let main = '';
 let worktree = '';
 let stray = '';
 
+// git exports GIT_DIR and friends to hooks; they would point every git call
+// below at the real repository instead of the temp one.
+const savedGitEnv = Object.entries(process.env).filter(([key]) =>
+  key.startsWith('GIT_'),
+);
+
 beforeAll(() => {
+  for (const [key] of savedGitEnv) delete process.env[key];
   root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-session-')));
   main = join(root, 'main');
   worktree = join(root, 'wt');
@@ -58,7 +65,10 @@ beforeAll(() => {
   mkdirSync(join(worktree, '.pu/daisy/agents'), { recursive: true });
   writeFileSync(join(worktree, '.pu/daisy/agents/ag-forged.json'), record);
 });
-afterAll(() => rmSync(root, { recursive: true, force: true }));
+afterAll(() => {
+  rmSync(root, { recursive: true, force: true });
+  for (const [key, value] of savedGitEnv) process.env[key] = value;
+});
 
 const isAgent = (env: Record<string, string>, cwd = worktree) =>
   sessionIsAgent(env, mainCheckoutOf(cwd));

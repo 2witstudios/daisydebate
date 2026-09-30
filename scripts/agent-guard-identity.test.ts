@@ -74,7 +74,12 @@ describe('agent guard: the identity regime through the real hook', () => {
   // The hook reads the registry of the checkout it runs in, so the resumed
   // agent is registered in a throwaway repository, never the real one.
   const project = mkdtempSync(`${tmpdir()}/grd-6-project-`);
-  Bun.spawnSync(['git', 'init', '-q'], { cwd: project });
+  Bun.spawnSync(['git', 'init', '-q'], {
+    cwd: project,
+    env: Object.fromEntries(
+      Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')),
+    ),
+  });
   mkdirSync(`${project}/.pu/daisy/agents`, { recursive: true });
   writeFileSync(
     `${project}/.pu/daisy/agents/ag-resumed.json`,
@@ -88,6 +93,9 @@ describe('agent guard: the identity regime through the real hook', () => {
     const env: Record<string, string | undefined> = { ...process.env };
     delete env.GH_TOKEN;
     delete env.DAISY_AUTONOMOUS;
+    // git hooks export GIT_DIR, which would point the hook at the real repo.
+    for (const key of Object.keys(env))
+      if (key.startsWith('GIT_')) delete env[key];
     const run = Bun.spawnSync(
       ['bun', `${root}/scripts/agent-guard.ts`, 'hook'],
       {
