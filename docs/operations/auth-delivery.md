@@ -40,7 +40,14 @@ when the peer is in `AUTH_TRUSTED_PROXIES` — Fly's own authoritative
 `Fly-Client-IP` (AUTH-7.9, `client-ip.ts`), falling back to the first
 address from the **right** of `X-Forwarded-For` that is not itself a
 trusted hop only when `Fly-Client-IP` is absent or unusable, so an
-attacker-prepended left-most value never selects the bucket. Better Auth has
+attacker-prepended left-most value never selects the bucket. Whichever
+it reads, the ingress stamps the address in canonical form
+(`canonicalAddress`, `client-networks.ts`, ISSUE-257): an IPv6 zone id is
+dropped, and an IPv6 address that embeds an IPv4 one (mapped
+`::ffff:a.b.c.d`, SIIT `::ffff:0:a.b.c.d` or IPv4-compatible `::a.b.c.d`,
+in dotted or hex form) is stamped as that IPv4 address. Otherwise
+`getIP` would fold such clients into one all-zero /64 and share its
+bucket. Better Auth has
 no header list of its own to configure: `next dev` runs without the
 stamping ingress, so a dev-mode request simply carries no identity and
 shares one rate-limit bucket per path with every other unstamped request.

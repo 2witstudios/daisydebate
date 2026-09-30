@@ -95,4 +95,39 @@ describe('clientNetworks (AUTH-3.10)', () => {
       expected: [[], []],
     });
   });
+  const v4 = (network: string) => [{ scope: 'ipv4_24' as const, network }];
+  const v6 = (prefix: string) => [
+    { scope: 'ipv6_56' as const, network: `${prefix}:3400::/56` },
+    { scope: 'ipv6_48' as const, network: `${prefix}::/48` },
+  ];
+
+  /** Each IPv4-embedding or zone-id form, and the network it is its own (ISSUE-257). */
+  const forms = [
+    ['::ffff:0:1.2.3.4', v4('1.2.3.0/24')],
+    ['::ffff:0:5.6.7.8', v4('5.6.7.0/24')],
+    ['::ffff:0:0102:0304', v4('1.2.3.0/24')],
+    ['0:0:0:0:ffff:0:1.2.3.4', v4('1.2.3.0/24')],
+    ['::1.2.3.4', v4('1.2.3.0/24')],
+    ['::5.6.7.8', v4('5.6.7.0/24')],
+    ['::0102:0304', v4('1.2.3.0/24')],
+    ['::ffff:1.2.3.4%eth0', v4('1.2.3.0/24')],
+    ['::1.2.3.4%eth0', v4('1.2.3.0/24')],
+    ['2001:db8:12ab:34cd::1%eth0', v6('2001:0db8:12ab')],
+    ['2001:DB8:12AB:34CD::1%25', v6('2001:0db8:12ab')],
+    ['::1%lo0', []],
+    ['::%eth0', []],
+  ] as const;
+
+  for (const [form, expected] of forms)
+    test(`${form} keys its own network, never a shared /48 (ISSUE-257)`, () => {
+      assert({
+        given: `the client form ${form}`,
+        should:
+          expected.length === 0
+            ? 'name no network'
+            : `name ${expected.map(({ network }) => network).join(' and ')}`,
+        actual: clientNetworks(form),
+        expected,
+      });
+    });
 });

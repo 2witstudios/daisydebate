@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { BlockList, isIP } from 'node:net';
+import { canonicalAddress } from './client-networks';
 import { deriveSubkey } from './recipient-key';
 
 /** Internal header the ingress stamps; Better Auth reads only this one. */
@@ -26,10 +27,13 @@ export const deriveClientIdSubkey = (secret: string): string =>
 export const clientIdHash = (subkey: string, client: string): string =>
   createHash('sha3-256').update(`${subkey}\0${client}`).digest('hex');
 
-const unmap = (address: string) =>
-  address.toLowerCase().startsWith('::ffff:') && isIP(address.slice(7)) === 4
-    ? address.slice(7)
-    : address;
+/**
+ * Every address the ingress reads is stamped in its canonical form: no zone
+ * id, and an IPv4 address rather than any IPv6 form embedding one
+ * (ISSUE-257). A value that is not an address is kept, so the callers'
+ * `isIP` checks still reject it.
+ */
+const unmap = (address: string) => canonicalAddress(address) ?? address;
 
 function blockList(entries: readonly string[]) {
   const list = new BlockList();
