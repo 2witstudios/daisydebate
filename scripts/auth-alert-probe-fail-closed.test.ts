@@ -199,4 +199,20 @@ describe('parseAlertsBody (ISSUE-209, ISSUE-225)', () => {
       ],
     });
   });
+
+  test('accepts the shed and network conditions, so a flood is posted (ISSUE-220, AUTH-3.10)', () => {
+    const parsed = parseAlertsBody({
+      conditions: [
+        { id: 'mail_shed', summary: 's', runbook: 'r' },
+        { id: 'network_limited', summary: 's', runbook: 'r' },
+      ],
+      snapshot: READ,
+    });
+    assert({
+      given: 'a read body firing mail_shed and network_limited',
+      should: 'accept both as known conditions',
+      actual: parsed.ok && parsed.conditions.map(({ id }) => id),
+      expected: ['mail_shed', 'network_limited'],
+    });
+  });
 });

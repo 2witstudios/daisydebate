@@ -49,9 +49,12 @@ export { refuseSchemaAlteringRole } from './runtime-role';
  * from this surface — `packages/db`'s own tests reach them through
  * `test-only-operations.ts` and direct submodule imports instead.
  */
+/** Connections in one process's pool unless a caller asks for another size. */
+export const DEFAULT_MAX_CONNECTIONS = 10;
+
 export function createDatabase({
   url,
-  maxConnections = 10,
+  maxConnections = DEFAULT_MAX_CONNECTIONS,
   eventSink,
   client: injectedClient,
   nextActorId,

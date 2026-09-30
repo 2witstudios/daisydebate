@@ -12,6 +12,7 @@ import {
 import { systemClock, systemId } from '@daisy/clock';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import { createApp } from '../src/server/app';
+import type { AfterResponseLimits } from '../src/features/auth/after-response';
 import { createRoutes } from '../src/server/routes';
 import { authTestEnv } from '../src/features/auth/auth-server.test-support';
 import { createMailbox, removeMailRecords } from './mailbox';
@@ -36,13 +37,17 @@ export const { databaseUrl: testDatabaseUrl, redisUrl: testRedisUrl } =
 export const origin = authTestEnv.PUBLIC_APP_URL;
 export const webhookSecret = `whsec_${Buffer.from(createId() + createId()).toString('base64')}`;
 
-// 198.18.0.0/15 (RFC 2544, benchmarking): 131,070 usable addresses.
-const CLIENT_SPACE = 2 ** 17 - 2;
+// 198.18.0.0/15 (RFC 2544, benchmarking): 512 /24s of 254 hosts each.
+const CLIENT_NETWORKS = 512;
+const CLIENT_SPACE = CLIENT_NETWORKS * 254;
 
 /**
  * Fresh client identities, as the ingress would stamp them, from the
- * benchmarking range. Each call is a new address; the sequence refuses to
- * repeat rather than wrap into an address a rate limit already counted.
+ * benchmarking range. Each call is a new address, and consecutive calls are
+ * in different /24s, so a suite's clients are independent of the per-/24
+ * magic-link limit (AUTH-3.10) as well as the per-address one. The sequence
+ * refuses to repeat rather than wrap into an address a limit already
+ * counted.
  */
 function createClients() {
   let issued = 0;
@@ -50,7 +55,9 @@ function createClients() {
     issued += 1;
     if (issued > CLIENT_SPACE)
       throw new Error('Client address space exhausted for this suite');
-    return `198.${18 + (issued >> 16)}.${(issued >> 8) & 255}.${issued & 255}`;
+    const network = issued % CLIENT_NETWORKS;
+    const host = Math.floor(issued / CLIENT_NETWORKS) + 1;
+    return `198.${18 + (network >> 8)}.${network & 255}.${host}`;
   };
 }
 
@@ -77,6 +84,7 @@ async function withNamespaceKeys<T>(
  */
 export function createTestApp(
   overrides: Readonly<Record<string, string | undefined>> = {},
+  afterResponseLimits?: AfterResponseLimits,
 ) {
   // Real Postgres/Redis and hundreds of concurrent requests: allow shared CI
   // machines headroom instead of a 5s default that fails on contention alone.
@@ -103,6 +111,7 @@ export function createTestApp(
     logDestination: { write: (line) => logLines.push(line) },
     // ISSUE-237: no key the app writes can be immortal or outlive a run.
     redisClient: createBoundedTestClient(testRedisUrl),
+    ...(afterResponseLimits ? { afterResponseLimits } : {}),
   });
   const newClient = createClients();
   const jsonPost = (

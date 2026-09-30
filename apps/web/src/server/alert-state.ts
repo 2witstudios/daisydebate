@@ -23,6 +23,26 @@ export const ALERT_THRESHOLDS = {
   auth5xxMinRequests: 100,
   auth5xxRate: 0.01,
   retentionMissedMs: 2 * 60 * MINUTE_MS,
+  /**
+   * ISSUE-220: handed-off auth mail work shed past its bound (512 holding
+   * a slot, 64 waiting; DEC-73, DEC-76) over the trailing window. A
+   * saturated minute with some real sign-in traffic can shed a stray task,
+   * so it fires on a sustained count, 20 in 10 minutes, well below what any
+   * flood that fills the bound sheds (every request past the 576 held or
+   * waiting).
+   */
+  mailShedWindowMinutes: 10,
+  mailShedCount: 20,
+  /**
+   * AUTH-3.10: magic-link requests denied for their network (IPv6 /56 or
+   * /48, IPv4 /24) over the trailing window. A network over its limit is
+   * already refused, so this is for operators to see a flood, not to stop
+   * it: 300 in 10 minutes is more than a busy shared network trips by
+   * accident (each allows 30 to 120 a minute) and far less than a single
+   * /48 flooding at full rate (about 196,000 a minute).
+   */
+  networkDeniedWindowMinutes: 10,
+  networkDeniedCount: 300,
 } as const;
 
 export type AlertSnapshot = {
@@ -42,6 +62,16 @@ export type AlertSnapshot = {
     readonly windowMinutes: number;
   };
   readonly retentionLastSuccessIso: string | null;
+  /** `auth.mail.shed` events over the trailing window (ISSUE-220). */
+  readonly mailShed: {
+    readonly count: number;
+    readonly windowMinutes: number;
+  };
+  /** `auth.rate_limit.network_denied` events over the trailing window (AUTH-3.10). */
+  readonly networkDenied: {
+    readonly count: number;
+    readonly windowMinutes: number;
+  };
 };
 
 type AlertConditionId =
@@ -49,7 +79,9 @@ type AlertConditionId =
   | 'limiter_unavailable'
   | 'delivery_failures'
   | 'auth_5xx_rate'
-  | 'cleanup_missed';
+  | 'cleanup_missed'
+  | 'mail_shed'
+  | 'network_limited';
 
 export type AlertCondition = {
   readonly id: AlertConditionId;
@@ -63,6 +95,8 @@ const RUNBOOK_ANCHOR = {
   delivery_failures: '#delivery-provider-failing-repeatedly',
   auth_5xx_rate: '#auth-5xx-error-rate-elevated',
   cleanup_missed: '#retention-cleanup-missed',
+  mail_shed: '#auth-mail-shed-past-the-bound',
+  network_limited: '#magic-link-requests-limited-per-network',
 } as const satisfies Record<AlertConditionId, string>;
 
 const runbook = (id: AlertConditionId) =>
@@ -141,6 +175,26 @@ const checkCleanupMissed = (
       }
     : undefined;
 
+const checkMailShed = (snapshot: AlertSnapshot): AlertCondition | undefined =>
+  snapshot.mailShed.count >= ALERT_THRESHOLDS.mailShedCount
+    ? {
+        id: 'mail_shed',
+        summary: `${snapshot.mailShed.count} handed-off auth mail tasks shed in ${snapshot.mailShed.windowMinutes}m: sign-in and sign-up mail is being dropped`,
+        runbook: runbook('mail_shed'),
+      }
+    : undefined;
+
+const checkNetworkLimited = (
+  snapshot: AlertSnapshot,
+): AlertCondition | undefined =>
+  snapshot.networkDenied.count >= ALERT_THRESHOLDS.networkDeniedCount
+    ? {
+        id: 'network_limited',
+        summary: `${snapshot.networkDenied.count} magic-link requests denied for their network in ${snapshot.networkDenied.windowMinutes}m: one network is flooding sign-in`,
+        runbook: runbook('network_limited'),
+      }
+    : undefined;
+
 type AlertCheck = (snapshot: AlertSnapshot) => AlertCondition | undefined;
 
 const ALERT_CHECKS: readonly AlertCheck[] = [
@@ -149,6 +203,8 @@ const ALERT_CHECKS: readonly AlertCheck[] = [
   checkDeliveryFailures,
   checkAuth5xxRate,
   checkCleanupMissed,
+  checkMailShed,
+  checkNetworkLimited,
 ];
 
 /** The one check whose state this process keeps without Redis (ISSUE-191). */
@@ -188,6 +244,8 @@ const earlierOf = (left: string | null, right: string | null) =>
 
 const HTTP_TOTAL_KEY = (bucket: number) => `alert-http-total-${bucket}`;
 const HTTP_5XX_KEY = (bucket: number) => `alert-http-5xx-${bucket}`;
+const MAIL_SHED_KEY = (bucket: number) => `alert-mail-shed-${bucket}`;
+const NETWORK_DENIED_KEY = (bucket: number) => `alert-network-denied-${bucket}`;
 
 /**
  * Reads the durable, bounded-cardinality Redis state `alert-recorder.ts`
@@ -235,9 +293,20 @@ export async function readAlertSnapshot({
       deliveryConsecutiveFailures: 0,
       authRequests: { total: 0, serverErrors: 0, windowMinutes },
       retentionLastSuccessIso: null,
+      mailShed: {
+        count: 0,
+        windowMinutes: ALERT_THRESHOLDS.mailShedWindowMinutes,
+      },
+      networkDenied: {
+        count: 0,
+        windowMinutes: ALERT_THRESHOLDS.networkDeniedWindowMinutes,
+      },
     };
   }
 }
+
+const sumOf = (values: readonly (string | null)[]) =>
+  values.reduce((sum, value) => sum + Number(value ?? 0), 0);
 
 async function readRedisMarkers(
   redis: AlertStateRedis,
@@ -245,21 +314,28 @@ async function readRedisMarkers(
   windowMinutes: number,
 ): Promise<AlertSnapshot> {
   const currentBucket = Math.floor(Date.parse(nowIso) / MINUTE_MS);
-  const buckets = Array.from(
-    { length: windowMinutes },
-    (_, index) => currentBucket - index,
-  );
+  const trailing = (minutes: number) =>
+    Array.from({ length: minutes }, (_, index) => currentBucket - index);
+  const buckets = trailing(windowMinutes);
+  const shedBuckets = trailing(ALERT_THRESHOLDS.mailShedWindowMinutes);
+  const networkBuckets = trailing(ALERT_THRESHOLDS.networkDeniedWindowMinutes);
   const [
     storageSince,
     limiterSince,
     mailFailures,
     retentionLastSuccess,
+    shedValues,
+    networkValues,
     ...bucketValues
   ] = await Promise.all([
     redis.get('alert-unavailable-storage'),
     redis.get('alert-unavailable-limiter'),
     redis.get('alert-mail-consecutive-failures'),
     redis.get('alert-retention-last-success'),
+    Promise.all(shedBuckets.map((bucket) => redis.get(MAIL_SHED_KEY(bucket)))),
+    Promise.all(
+      networkBuckets.map((bucket) => redis.get(NETWORK_DENIED_KEY(bucket))),
+    ),
     ...buckets.flatMap((bucket) => [
       redis.get(HTTP_TOTAL_KEY(bucket)),
       redis.get(HTTP_5XX_KEY(bucket)),
@@ -279,5 +355,13 @@ async function readRedisMarkers(
     deliveryConsecutiveFailures: Number(mailFailures ?? 0),
     authRequests: { total, serverErrors, windowMinutes },
     retentionLastSuccessIso: retentionLastSuccess,
+    mailShed: {
+      count: sumOf(shedValues),
+      windowMinutes: ALERT_THRESHOLDS.mailShedWindowMinutes,
+    },
+    networkDenied: {
+      count: sumOf(networkValues),
+      windowMinutes: ALERT_THRESHOLDS.networkDeniedWindowMinutes,
+    },
   };
 }

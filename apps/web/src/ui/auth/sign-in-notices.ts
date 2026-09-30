@@ -18,10 +18,12 @@ export const signInNotices: Readonly<Record<SignInNotice, NoticeCopy>> = {
     title: 'We cannot send sign-in emails to this address.',
     body: 'Sign in with a passkey or use a different address.',
   },
+  // A 429 can come from a shared network's limit (AUTH-3.10), not the
+  // person's own requests, so it names the wait and the other way in.
   'rate-limited': {
     tone: 'error',
-    title: 'Too many attempts for now.',
-    body: 'Wait a few minutes, then try again. Links you already asked for still work.',
+    title: 'Too many sign-in requests right now.',
+    body: 'Wait a minute, then try again, or sign in with a passkey. Links you already asked for still work.',
   },
   unavailable: {
     tone: 'error',
