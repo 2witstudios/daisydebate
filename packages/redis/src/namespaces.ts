@@ -59,6 +59,79 @@ export async function deleteNamespace(
   return removed;
 }
 
+const namespaceOf = (key: string): string => key.split(':')[0] ?? key;
+
+/**
+ * ISSUE-237: removes every namespace under `prefix` whose newest key has been
+ * idle (no read or write, `OBJECT IDLETIME`) longer than `idleMs`, the
+ * debris of a run that crashed, was killed or timed out before its teardown.
+ * A namespace with any fresh key is a run in progress and stays whole. Reads
+ * run in pipelined pages; a key that expired mid-sweep is ignored.
+ */
+export async function sweepIdleNamespaces(
+  client: RedisCommands,
+  { prefix, idleMs }: { readonly prefix: string; readonly idleMs: number },
+): Promise<{ readonly namespaces: string[]; readonly keys: number }> {
+  const stale = new Map<string, string[]>();
+  const fresh = new Set<string>();
+  await scanKeys(client, `${requireNamespace(prefix)}*`, async (keys) => {
+    const undecided = keys.filter((key) => !fresh.has(namespaceOf(key)));
+    const idle = await Promise.all(
+      undecided.map((key) => client.send('OBJECT', ['IDLETIME', key])),
+    );
+    undecided.forEach((key, index) => {
+      const seconds = idle[index];
+      if (seconds === null || seconds === undefined) return;
+      const namespace = namespaceOf(key);
+      if (Number(seconds) * 1000 > idleMs) {
+        const members = stale.get(namespace);
+        if (members) members.push(key);
+        else stale.set(namespace, [key]);
+      } else {
+        fresh.add(namespace);
+        stale.delete(namespace);
+      }
+    });
+  });
+  const swept = [...stale.entries()].filter(
+    ([namespace]) => !fresh.has(namespace),
+  );
+  let keys = 0;
+  for (const [, members] of swept)
+    for (let from = 0; from < members.length; from += 500) {
+      const page = members.slice(from, from + 500);
+      keys += Number(await client.send('UNLINK', page));
+    }
+  return { namespaces: swept.map(([namespace]) => namespace).sort(), keys };
+}
+
+/**
+ * ISSUE-237: unlinks every key that has no expiry and returns their names, so
+ * a run that left an immortal key fails loudly instead of feeding the next
+ * run's SCANs forever. With no pattern it walks the whole database, which
+ * only the runner does, after `requireTestServices` proved TEST_REDIS_URL is
+ * this slot's own database (ISSUE-245); a suite passes `<namespace>:*`.
+ */
+export async function deleteKeysWithoutExpiry(
+  client: RedisCommands,
+  pattern = '*',
+): Promise<string[]> {
+  if (pattern !== '*' && !/^[a-z][a-z0-9-]{0,40}:\*$/.test(pattern))
+    throw new Error('Invalid key pattern');
+  const immortal: string[] = [];
+  await scanKeys(client, pattern, async (keys) => {
+    const ttls = await Promise.all(
+      keys.map((key) => client.send('PTTL', [key])),
+    );
+    keys.forEach((key, index) => {
+      if (Number(ttls[index]) === -1) immortal.push(key);
+    });
+  });
+  for (let from = 0; from < immortal.length; from += 500)
+    await client.send('UNLINK', immortal.slice(from, from + 500));
+  return immortal.sort();
+}
+
 /**
  * AUTH-7.6's post-restore step: deletes only the auth rate-limit counters
  * (`<namespace>:v1:rl:*`, the keys `consumeRateLimit` writes), leaving

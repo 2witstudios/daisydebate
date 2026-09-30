@@ -22,7 +22,11 @@ services:
       retries: 20
   redis:
     image: redis:8.6.1-alpine
-    command: ['redis-server', '--appendonly', 'no', '--save', '']
+    # 512 logical databases: each worktree slot's integration suites get
+    # their own (2 + its port block, up to 501), so a run's SCANs never walk
+    # another slot's keys (ADR 0034, ISSUE-237).
+    command:
+      ['redis-server', '--appendonly', 'no', '--save', '', '--databases', '512']
     ports: ['127.0.0.1:6379:6379']
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']

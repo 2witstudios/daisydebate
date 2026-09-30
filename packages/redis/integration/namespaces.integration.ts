@@ -1,5 +1,4 @@
 import { expect } from 'bun:test';
-import { RedisClient } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
@@ -8,17 +7,18 @@ import {
   listNamespaces,
 } from '../src/namespaces';
 import { requireTestServices } from '@daisy/config';
+import { openTestRedis, testNamespace } from '../src/testing';
 
 setupRitewayBun();
 
 const { redisUrl: url } = requireTestServices(process.env);
 
 // A unique prefix: these tests only ever see and delete their own keys.
-const prefix = `nsit${createId()}`;
+const prefix = testNamespace(createId());
 
 /** The real client, recording every command so the test can audit them. */
 const recordingClient = () => {
-  const client = new RedisClient(url);
+  const client = openTestRedis(url);
   const commands: string[] = [];
   return {
     commands,

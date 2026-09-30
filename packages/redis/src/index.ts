@@ -61,6 +61,13 @@ export type RateLimitRule = {
   readonly windowSeconds: number;
   readonly max: number;
 };
+/** How the adapter dials: fail fast, never queue commands while offline. */
+export const redisClientOptions = {
+  connectionTimeout: 2000,
+  enableOfflineQueue: false,
+  maxRetries: 2,
+} as const;
+
 export function createRedis({
   url,
   namespace,
@@ -72,13 +79,7 @@ export function createRedis({
   readonly client?: RedisClient;
 }) {
   redisKey(namespace);
-  const client =
-    injectedClient ??
-    new RedisClient(url, {
-      connectionTimeout: 2000,
-      enableOfflineQueue: false,
-      maxRetries: 2,
-    });
+  const client = injectedClient ?? new RedisClient(url, redisClientOptions);
   const reportFailure = (operation: string) =>
     eventSink?.('redis.command.failed', { operation }, 'Redis command failed');
   return {

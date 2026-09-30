@@ -4,6 +4,11 @@ import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { buildUserInboxTopic } from '@daisy/protocol';
 import { deleteNamespace } from '@daisy/redis/namespaces';
+import {
+  createBoundedTestClient,
+  openTestRedis,
+  testNamespace,
+} from '@daisy/redis/testing';
 import { systemClock, systemId } from '@daisy/clock';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 import { createApp } from '../src/server/app';
@@ -59,7 +64,7 @@ async function withNamespaceKeys<T>(
   namespace: string,
   work: (client: RedisClient, keys: string[]) => Promise<T>,
 ) {
-  const client = new RedisClient(testRedisUrl as string);
+  const client = openTestRedis(testRedisUrl);
   try {
     const keys = (await client.send('KEYS', [`${namespace}:*`])) as string[];
     return await work(client, keys);
@@ -81,7 +86,7 @@ export function createTestApp(
   // Real Postgres/Redis and hundreds of concurrent requests: allow shared CI
   // machines headroom instead of a 5s default that fails on contention alone.
   setDefaultTimeout(30_000);
-  const redisNamespace = `t3-${createId().slice(0, 10)}`;
+  const redisNamespace = testNamespace(createId());
   const env = {
     ...authTestEnv,
     DATABASE_URL: testDatabaseUrl,
@@ -101,6 +106,8 @@ export function createTestApp(
     clock: systemClock,
     ids: systemId,
     logDestination: { write: (line) => logLines.push(line) },
+    // ISSUE-237: no key the app writes can be immortal or outlive a run.
+    redisClient: createBoundedTestClient(testRedisUrl),
   });
   const newClient = createClients();
   const jsonPost = (
@@ -136,7 +143,7 @@ export function createTestApp(
   // One UNLINK per SCAN page: a DEL per key overran the 30 s teardown for
   // the ~12,000 keys the global-day ceiling suite leaves (ISSUE-192).
   const clearRedisNamespace = async () => {
-    const client = new RedisClient(testRedisUrl as string);
+    const client = openTestRedis(testRedisUrl);
     await deleteNamespace(client, redisNamespace).finally(() => client.close());
   };
   const redisKeys = () =>

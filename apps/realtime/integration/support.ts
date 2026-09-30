@@ -2,6 +2,7 @@ import { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
 import { systemClock, systemId } from '@daisy/clock';
 import { waitForOutboxFinality } from '@daisy/db/testing';
+import { testNamespace } from '@daisy/redis/testing';
 import { createRealtimeApp } from '../src/app';
 import { serveRealtime } from '../src/serve';
 import type { OutboxRowsSink } from '../src/outbox-drain';
@@ -37,7 +38,7 @@ export async function bootServer(
       NODE_ENV: 'test',
       DATABASE_URL: taggedUrl,
       REDIS_URL: redisUrl,
-      REDIS_NAMESPACE: `test-${systemId.next().slice(0, 10)}`,
+      REDIS_NAMESPACE: testNamespace(systemId.next()),
       LOG_LEVEL: 'silent',
     },
     clock: systemClock,

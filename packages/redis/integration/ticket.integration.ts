@@ -3,6 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { createHash } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
 import { createRedis, redisKey } from '../src';
+import { testNamespace } from '../src/testing';
 import { rawClient } from './test-support';
 
 const { redisUrl: url } = requireTestServices(process.env);
@@ -13,7 +14,7 @@ const sha3 = (value: string) =>
 /** A fresh namespace, binding and ticket hash for one test's own ticket. */
 function ticketFixture() {
   return {
-    namespace: `test-${createId()}`,
+    namespace: testNamespace(createId()),
     actorId: createId(),
     sessionId: createId(),
     origin: 'https://daisydebate.example',
