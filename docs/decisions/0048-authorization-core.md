@@ -52,9 +52,10 @@ The rules of the model:
   debates belong to no league and no tenant. Formats, their canonical rules
   and ranked eligibility are Daisy's rows (ADR 0030). No club, league or
   other tenant can create a ladder or a rating.
-- **Anyone with an actor can host.** A user with an actor may create a ranked
-  or an unranked debate, the way a chess.com seek is posted: a hosted ranked
-  table is an open challenge. Who may take a seat in a hosted ranked debate
+- **Anyone with an actor can host.** A user with an actor may host a ranked
+  debate (`debate.create` on `ranked`) or an unranked room (ADR 0049's
+  `room.create`), the way a chess.com seek is posted: a hosted ranked table is
+  an open challenge. Who may take a seat in a hosted ranked debate
   (rating band, format eligibility) is seating policy, owned by the Ratings
   epic, not an authorization capability.
 - **Creating a debate seats no one.** The engine starts every debate with no
@@ -80,14 +81,19 @@ Capabilities are a const array with a derived zod enum and per-capability
 metadata: `resourceKinds` lists what the capability can be asked of, and
 `read` says whether it is a read capability.
 
-| Capability      | `resourceKinds`      | Read | Allowed by (this epic)                                          |
-| --------------- | -------------------- | ---- | --------------------------------------------------------------- |
-| `debate.create` | `ranked`, `unranked` | no   | any user with an actor                                          |
-| `debate.read`   | `debate`             | yes  | the debate's visibility rules, seating and creation (section 3) |
+| Capability      | `resourceKinds` | Read | Allowed by (this epic)                                          |
+| --------------- | --------------- | ---- | --------------------------------------------------------------- |
+| `debate.create` | `ranked`        | no   | any user with an actor                                          |
+| `debate.read`   | `debate`        | yes  | the debate's visibility rules, seating and creation (section 3) |
 
-- **Resource kinds:** `debate | ranked | unranked`. `ranked` and `unranked` are
-  the resources asked when creating a debate: `{ kind: 'ranked' }` and
-  `{ kind: 'unranked' }`.
+- **Resource kinds:** `debate | ranked`. `ranked` is the resource asked when
+  creating a ranked debate: `{ kind: 'ranked' }`.
+- **Rooms are future here.** Unranked creation is a room, gated by
+  `room.create` on the `room` resource kind. The room capabilities
+  (`room.create`, `room.join`, `room.read`) and kind belong to
+  [ADR 0049](0049-room-debate-turn.md) and ship with the room epic; this
+  record adds none of them, and until they land no unranked creation gate
+  exists.
 - **Deny reasons:** `denied` (invalid resource kind), `account-erased`,
   `unauthenticated`, `missing-capability`. Every value has privacy category
   `none`, and the union is the `denyReason` log vocabulary (amendment to ADR
@@ -116,7 +122,7 @@ authorizeInbox({ principal, inboxActorId, denyFacts }) →
 A principal carries no permissions. A service holds a fixed capability list.
 
 **Resources:** `debate { debateId, visibility, createdByActorId, ranked }`,
-`ranked {}` and `unranked {}`.
+and `ranked {}`.
 
 **Context** (loaded, section 5):
 
@@ -134,11 +140,11 @@ A principal carries no permissions. A service holds a fixed capability list.
    seating and creation.
 2. **Service.** For a service principal, allow if and only if its scope
    matches the resource (`ranked` for the `ranked` resource or a ranked
-   debate, `unranked` for the `unranked` resource or an unranked debate) and
+   debate, `unranked` for an unranked debate) and
    it holds the capability. Otherwise deny with `missing-capability`. Rule 3
    never applies to services.
 3. **Fixed allowances** (not editable):
-   - `debate.create` on `ranked` or `unranked`: a user with an actor.
+   - `debate.create` on `ranked`: a user with an actor.
    - `debate.read`: `public` or `unlisted`, everyone; `private`, the creator
      and the seated. Ranked and unranked debates read the same way.
 4. **Otherwise deny,** with `unauthenticated` for an anonymous principal and
@@ -173,7 +179,7 @@ check or protected read:
 | Debate read by id (page, JSON), `debate:<id>` and `debate:<id>:presence` subscribe | `debate.read` on the debate                                                                                              |
 | `debate:<id>:chat` subscribe                                                       | `debate.read` on the debate, and for a `private` debate the seated fact as well (the chat family's narrowing, section 7) |
 | Ranked creation (hosting a ranked debate)                                          | `debate.create` on `ranked`                                                                                              |
-| Unranked creation                                                                  | `debate.create` on `unranked`                                                                                            |
+| Unranked creation (hosting an unranked room)                                       | `room.create` (ADR 0049; ships with the room epic)                                                                       |
 | `standings:<seasonId>` subscribe                                                   | a valid ticket (the ladder is public)                                                                                    |
 | `user:<actorId>:inbox` subscribe                                                   | `authorizeInbox`                                                                                                         |
 
@@ -188,7 +194,7 @@ resources and contexts:
 - **Fact locality:** seated and creator facts change only `debate.read` of
   their own debate.
 - **Service scope:** a service scoped to `ranked` is never allowed on an
-  unranked resource or debate, and the reverse.
+  unranked debate, and the reverse.
 
 The evaluator is delivered by AZC-1.3. `@daisy/auth` gains the edge to
 `@daisy/protocol` (section 9).
@@ -234,12 +240,13 @@ only way an operation reaches a protected read.
 loses `permissions`, and `requirePermission` and `Permission` are deleted
 with their tests in the same change, a total transition (ADR 0023). The
 foundation proof, which stays dev-only, becomes
-`{ kind: 'service', serviceId: 'foundation-proof', scope: { kind: 'unranked' }, capabilities: ['debate.create', 'debate.read'] }`
-and goes through `authorizeRequest`.
+`{ kind: 'service', serviceId: 'foundation-proof', scope: { kind: 'unranked' }, capabilities: ['debate.read'] }`
+and goes through `authorizeRequest`. Its create step follows ADR 0049's room
+operation when the room epic lands.
 
 **UI capability projection.** The server runs `authorize` for the
 capabilities a page needs and passes only booleans to client components (for
-example `{ canCreateRanked, canCreateUnranked }`). Loaded rows and deny facts
+example `{ canHostRanked, canHostUnranked }`). Loaded rows and deny facts
 never reach the browser, and a page never computes an access decision on the
 client.
 
@@ -335,7 +342,7 @@ failed decision refuses the subscribe.
 | `@daisy/auth`     | `authorize`, `authorizeInbox`, `authorizeSubscribe`, `toAuthorizationInput`, principal and resource types | `['errors']` becomes `['errors', 'protocol']`    |
 | `@daisy/db`       | `loadAuthorizationContext` (`packages/db/src/authorization/`)                                             | none                                             |
 | `@daisy/logger`   | `denyReason` in `loggableFields`                                                                          | none                                             |
-| `apps/web`        | `authorizeRequest`, the ranked and unranked create and read pages and API                                 | none                                             |
+| `apps/web`        | `authorizeRequest`, the ranked create and debate read pages and API                                       | none                                             |
 | `apps/realtime`   | Composes the loader and `authorizeSubscribe` for the registry                                             | declares `@daisy/auth` (already an allowed edge) |
 
 The `auth → protocol` edge is added by AZC-1.3 in `scripts/boundaries-rules.ts`
@@ -409,8 +416,8 @@ overrules them:
   work under this record, and replanning them is the owner's (`/task replan`).
 
 The evaluator and access semantics of the earlier record stand, less the
-league items: five deny reasons became four, `unranked` creation gained a
-`ranked` sibling, unranked by-id reads get a JSON route
+league items: five deny reasons became four, `debate.create` covers ranked
+debates only (unranked creation is ADR 0049's `room.create`), unranked by-id reads get a JSON route
 (`GET /api/debates/[id]`) for the realtime refetch hook, private chat stays
 seated-only, `unlisted` is a listing flag, an `unavailable` identity answers
 503 or fails closed, creation seats no one, and `standings` topics are keyed
