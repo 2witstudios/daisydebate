@@ -30,9 +30,10 @@ AIDD/Vitest guidance is overridden here by Bun and RITEway (ADR 0021).
    Redis database (`TEST_REDIS_URL`; a worktree's is `2 + its port block`).
    Name a suite's namespace with `testNamespace(createId())` from
    `@daisy/redis/testing`, so it is a `t3-` namespace the runner can sweep, and
-   open Redis only with `openTestRedis(url)` (a lint rule refuses any
-   `RedisClient` or `redis` import from `bun` in an integration file, and the
-   client refuses whole-database commands at run time) and hand code under test a client from
+   open Redis only with `openTestRedis(url)`, which returns a frozen wrapper
+   (no constructor, no raw client behind it) that allows a fixed set of
+   commands and scans only under one test namespace; lint refuses any
+   `RedisClient` or `redis` import from `bun` in an integration file and hand code under test a client from
    `createBoundedTestClient(url)`: no key it
    writes is immortal or outlives two hours. `scripts/test-integration.ts`
    removes stale `t3-` namespaces before a workspace's suites start (idle over

@@ -130,16 +130,39 @@ block` (3 to 501), written to `TEST_REDIS_URL` by `slot:up`. The port block
   mismatch; the runner (which calls the same function) exits before its
   sweep or post-run scan; `slot:down` opens no client. An integration file
   reaches Redis only through `openTestRedis` (`@daisy/redis/testing`), which
-  accepts only a URL `requireTestServices` returned. The client it hands out
-  refuses, at run time and however the call is spelled, FLUSHDB, FLUSHALL,
-  SELECT, SWAPDB, MOVE and any SCAN or KEYS that matches everything. A lint
-  rule fails any integration file that imports `RedisClient` or `redis` from
-  `bun` (a type-only import is fine), aliased, namespaced or default, that
-  names a command other than as a string literal, or that scans, lists or
-  flushes the whole database in any spelling. The only database-wide
-  operations are the runner's (`deleteAllKeysWithoutExpiry`, after the
-  check), so a hand-edited `.env` can never make a run delete another
-  database's keys (ISSUE-245, ISSUE-246).
+  accepts only a URL `requireTestServices` returned, and what it returns is
+  not a Redis client (ISSUE-274): a frozen object with no prototype, so no
+  `constructor` to build a raw client from and no handle to reach one, whose
+  only members (`send`, `get`, `getdel`, `del`, `exists`, `pttl`, `ping`,
+  `connect`, `close`, `connected`) each go through one allowlist. A command
+  outside the allowlist is refused, so FLUSHDB, FLUSHALL, SELECT, SWAPDB, MOVE,
+  CONFIG and DEBUG are refused however they are spelled, and so is any SCAN or
+  KEYS whose pattern does not begin with a literal `t3-` test namespace and at
+  least six literal id characters (no `*`, `**`, `?*`, `[a-z]*`, short prefix
+  or missing MATCH gets through). A test runs no Lua: EVAL, EVALSHA, SCRIPT and
+  FUNCTION are refused on it, and the client code under test gets
+  (`createBoundedTestClient`, the same shape) runs only scripts the adapter
+  registered with `defineScript`. Lint catches the same shapes in source, and
+  adds the routes to a raw client that source can name: a `bun` import of
+  `RedisClient` or `redis` (type-only is fine), aliased, namespaced, dynamic or
+  `require`d, `Bun.redis` and `Bun['redis']`, destructuring them, a
+  `.constructor` access, a command that is not a string literal. The one
+  whole-database operation, `deleteAllKeysWithoutExpiry`, is in `scripts/`,
+  in no package's `exports`, and the boundary check refuses any workspace file
+  that imports from `scripts/` (ISSUE-275): the runner calls it on a raw
+  client after the check, so a hand-edited `.env` can never make a run delete
+  another database's keys (ISSUE-245, ISSUE-246).
+- **Documented limits of the Redis test guard.** What lint and the wrapper
+  cannot see, stated rather than pretended: a test file that opens its own
+  socket to the Redis port (`Bun.connect`, `node:net`) or imports a Redis
+  client library other than Bun's (the boundary check refuses an undeclared
+  dependency, but a declared one would pass); code under test that is itself
+  wrong, since the registered scripts and the adapter are trusted; a test that
+  disables the lint rule for a line (review catches it, lint does not); and
+  the slot's own other namespaces, which a pattern anchored at a namespace id
+  of another concurrent run of this slot can still name. None reaches another
+  slot's, dev's or e2e's keys: `requireTestServices` pins the URL to this
+  slot's database on this slot's server before any of it runs.
 - **Why not per-namespace key tracking.** Tracking each run's keys in a set
   needs every write attributed to a namespace at the seam: the presence
   scripts build a hash key inside Lua, and the slot tooling must still SCAN
@@ -208,7 +231,9 @@ no row that survives, by construction rather than by cleanup.
   drop and its database removed, rows and all, so a hung orphan cannot keep a
   run database indefinitely (ISSUE-260). A live run, in this
   workspace's sibling run or another process, holds its lock and is never
-  touched; no idle-time or maximum-run-length guess can drop a slow run. If a
+  touched, and the runner caps every run at that same bound (it kills the
+  suites and fails the run, ISSUE-272), so a run older than the bound that
+  lost its lock is one the runner is about to stop anyway. If a
   sweep runs in the few milliseconds before Postgres notices a dead runner,
   it skips that database and the next run drops it.
 - **A lost lock stops the run (ISSUE-250).** The lock belongs to one
