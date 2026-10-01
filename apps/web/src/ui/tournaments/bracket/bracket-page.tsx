@@ -11,10 +11,9 @@ import {
 } from '../../../features/tournaments/labels';
 import { tournamentRoutes } from '../../../features/tournaments/routes';
 import type { Tournament } from '../../../features/tournaments/tournament';
-import { Breadcrumb } from '../breadcrumb/breadcrumb';
 import { DisabledAction } from '../inert-action/inert-action';
 import { LinkButton } from '../link-button/link-button';
-import { PageFrame } from '../page-frame/page-frame';
+import { PageFrame, PageTitle } from '../page-frame/page-frame';
 import { StatusBadge } from '../status-badge/status-badge';
 import { TabLinks } from '../tab-links/tab-links';
 import { BracketTree, RoundList } from './elimination';
@@ -63,25 +62,20 @@ export function BracketPage({
   const places = `${structureLabel(tournament.structure)}, ${tournament.entered} entrants, ${rulesLabel(tournament.rules).toLowerCase()}. Unrated.`;
   return (
     <PageFrame>
-      <div className="flex flex-col gap-3">
-        <Breadcrumb
-          trail={[
-            { label: 'Tournaments', href: tournamentRoutes.index },
-            {
-              label: tournament.name,
-              href: tournamentRoutes.detail(tournament.id),
-            },
-            { label: 'Bracket' },
-          ]}
-        />
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
-            {tournament.name}
-          </h1>
-          <StatusBadge status="live" />
-        </div>
+      <PageTitle
+        trail={[
+          { label: 'Tournaments', href: tournamentRoutes.index },
+          {
+            label: tournament.name,
+            href: tournamentRoutes.detail(tournament.id),
+          },
+          { label: 'Bracket' },
+        ]}
+        title={tournament.name}
+        badges={<StatusBadge status="live" />}
+      >
         <p className="text-base text-ink-muted">{places}</p>
-      </div>
+      </PageTitle>
       <div
         role="status"
         aria-live="polite"

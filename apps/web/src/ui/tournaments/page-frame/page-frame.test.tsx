@@ -1,7 +1,7 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { PageFrame, PageHeader } from './page-frame';
+import { PageFrame, PageHeader, PageTitle } from './page-frame';
 
 setupRitewayBun();
 
@@ -24,6 +24,33 @@ describe('PageFrame and PageHeader', () => {
         html.includes('Events.'),
         html.includes('>Go<'),
         html.includes('max-w-dash-column'),
+      ],
+      expected: [1, true, true, true],
+    });
+  });
+});
+
+describe('PageTitle', () => {
+  test('breadcrumb, one h1 with badges, then the lede', () => {
+    const html = renderToString(
+      h(PageTitle, {
+        trail: [
+          { label: 'Tournaments', href: '/tournaments' },
+          { label: 'Cup' },
+        ],
+        title: 'Cup',
+        badges: h('span', null, 'Live'),
+        children: h('p', null, 'Lede.'),
+      }),
+    );
+    assert({
+      given: 'a trail, a title, a badge and a lede',
+      should: 'render them in that order with one h1',
+      actual: [
+        html.match(/<h1 /g)?.length,
+        html.indexOf('Breadcrumb') < html.indexOf('<h1'),
+        html.indexOf('<h1') < html.indexOf('Live'),
+        html.indexOf('Live') < html.indexOf('Lede.'),
       ],
       expected: [1, true, true, true],
     });

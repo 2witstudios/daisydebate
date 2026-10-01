@@ -18,15 +18,18 @@ describe('FilterBar form contract', () => {
     const html = render(defaultQuery);
     assert({
       given: 'the default query',
-      should: 'be a search-landmark GET form with an Apply button',
+      should:
+        'be a GET form to the index, with a search role and a submit Apply',
       actual: [
-        /<form [^>]*method="get"/.test(html),
-        /<form [^>]*action="\/tournaments"/.test(html),
-        /<form [^>]*role="search"/.test(html),
+        html.match(/<form [^>]*>/)?.[0],
         /<button type="submit"[^>]*>Apply<\/button>/.test(html),
         html.includes('onChange'),
+      ].flat(),
+      expected: [
+        '<form role="search" aria-label="Filter tournaments" class="flex flex-wrap items-center gap-x-3 gap-y-4" action="/tournaments" method="get">',
+        true,
+        false,
       ],
-      expected: [true, true, true, true, false],
     });
   });
 

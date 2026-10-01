@@ -6,10 +6,9 @@ import {
   structureLabel,
 } from '../../../features/tournaments/labels';
 import { formatTime } from '../../../features/tournaments/dates';
-import { Breadcrumb } from '../breadcrumb/breadcrumb';
 import { DisabledAction } from '../inert-action/inert-action';
 import { LinkButton } from '../link-button/link-button';
-import { PageFrame } from '../page-frame/page-frame';
+import { PageFrame, PageTitle } from '../page-frame/page-frame';
 import { StatusBadge } from '../status-badge/status-badge';
 import { Hero } from './hero';
 import { cn } from '../../cn';
@@ -37,24 +36,24 @@ export function EventPage({ screen, tournament, finalAt }: EventPageProps) {
   const { pairing } = screen;
   return (
     <PageFrame>
-      <div className="flex flex-col gap-3">
-        <Breadcrumb
-          trail={[
-            { label: 'My events' },
-            {
-              label: tournament.name,
-              href: tournamentRoutes.detail(tournament.id),
-            },
-          ]}
-        />
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
-            {tournament.name}
-          </h1>
-          <StatusBadge status="live" />
-          <span className="text-base text-ink-muted">{screen.roundLabel}</span>
-        </div>
-      </div>
+      <PageTitle
+        trail={[
+          { label: 'My events' },
+          {
+            label: tournament.name,
+            href: tournamentRoutes.detail(tournament.id),
+          },
+        ]}
+        title={tournament.name}
+        badges={
+          <>
+            <StatusBadge status="live" />
+            <span className="text-base text-ink-muted">
+              {screen.roundLabel}
+            </span>
+          </>
+        }
+      />
       <div className="flex items-start gap-6 max-rail:flex-col">
         <div className="flex min-w-0 flex-1 flex-col gap-4 max-rail:w-full">
           <div aria-live="polite" className="flex flex-col gap-4">

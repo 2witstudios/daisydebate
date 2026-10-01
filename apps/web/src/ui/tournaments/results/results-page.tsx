@@ -13,10 +13,9 @@ import {
 import { tournamentRoutes } from '../../../features/tournaments/routes';
 import { Badge } from '../../components/badge/badge';
 import { Icon } from '../../components/icon/icon';
-import { Breadcrumb } from '../breadcrumb/breadcrumb';
 import { LinkButton } from '../link-button/link-button';
 import { Notice } from '../notice/notice';
-import { PageFrame } from '../page-frame/page-frame';
+import { PageFrame, PageTitle } from '../page-frame/page-frame';
 import { TabLinks } from '../tab-links/tab-links';
 import { Honours, Mine, Rounds, Standings } from './results-tabs';
 
@@ -42,27 +41,22 @@ export function ResultsPage({ data, query, viewerHandle }: ResultsPageProps) {
   );
   return (
     <PageFrame>
-      <div className="flex flex-col gap-3">
-        <Breadcrumb
-          trail={[
-            { label: 'Tournaments', href: tournamentRoutes.index },
-            {
-              label: tournament.name,
-              href: tournamentRoutes.detail(tournament.id),
-            },
-            { label: 'Results' },
-          ]}
-        />
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
-            {tournament.name}
-          </h1>
-          <Badge tone="accent">Results published</Badge>
-        </div>
+      <PageTitle
+        trail={[
+          { label: 'Tournaments', href: tournamentRoutes.index },
+          {
+            label: tournament.name,
+            href: tournamentRoutes.detail(tournament.id),
+          },
+          { label: 'Results' },
+        ]}
+        title={tournament.name}
+        badges={<Badge tone="accent">Results published</Badge>}
+      >
         <p className="text-base text-ink-muted">
           {`${structureLabel(tournament.structure)}, ${tournament.entered} entrants, ${rulesLabel(tournament.rules).toLowerCase()}. Organized by ${tournament.organizer}. Results published ${formatDay(data.publishedAt)}.`}
         </p>
-      </div>
+      </PageTitle>
       {champion ? (
         <section className="flex items-center gap-4 rounded-xl bg-surface-stage p-8 text-stage-ink shadow-1 max-compact:p-5">
           <span className="text-stage-accent">

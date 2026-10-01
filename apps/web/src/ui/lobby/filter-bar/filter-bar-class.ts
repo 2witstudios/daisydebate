@@ -1,6 +1,4 @@
-/** Shared by the search box and every select in the filter form. */
-export const controlClass =
-  'h-10 min-w-0 rounded-md border border-border bg-surface-raised px-3 text-base text-ink max-compact:h-12';
+export { controlClass } from '../../components/filter-form/filter-form';
 
 export const filterBarClass = 'flex flex-wrap items-center gap-x-3 gap-y-4';
 

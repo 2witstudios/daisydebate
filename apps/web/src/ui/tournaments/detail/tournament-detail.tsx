@@ -13,8 +13,7 @@ import { registrationPanel } from '../../../features/tournaments/panel';
 import { tournamentRoutes } from '../../../features/tournaments/routes';
 import { statusOf } from '../../../features/tournaments/tournament';
 import { Badge } from '../../components/badge/badge';
-import { Breadcrumb } from '../breadcrumb/breadcrumb';
-import { PageFrame } from '../page-frame/page-frame';
+import { PageFrame, PageTitle } from '../page-frame/page-frame';
 import { StatusBadge } from '../status-badge/status-badge';
 import { TabLinks } from '../tab-links/tab-links';
 import { RegistrationPanel } from './registration-panel';
@@ -56,19 +55,14 @@ export function TournamentDetail({ view, query }: TournamentDetailProps) {
   const { tournament } = view;
   return (
     <PageFrame>
-      <div className="flex flex-col gap-3">
-        <Breadcrumb
-          trail={[
-            { label: 'Tournaments', href: tournamentRoutes.index },
-            { label: tournament.name },
-          ]}
-        />
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
-            {tournament.name}
-          </h1>
-          <StatusBadge status={statusOf(tournament)} />
-        </div>
+      <PageTitle
+        trail={[
+          { label: 'Tournaments', href: tournamentRoutes.index },
+          { label: tournament.name },
+        ]}
+        title={tournament.name}
+        badges={<StatusBadge status={statusOf(tournament)} />}
+      >
         <div className="flex flex-wrap gap-2">
           <Badge>{structureLabel(tournament.structure)}</Badge>
           <Badge>{rulesLabel(tournament.rules)}</Badge>
@@ -77,7 +71,7 @@ export function TournamentDetail({ view, query }: TournamentDetailProps) {
         <p className="text-base text-ink-muted">
           {`Organized by ${tournament.organizer}.`}
         </p>
-      </div>
+      </PageTitle>
       <div className="flex items-start gap-6 max-rail:flex-col-reverse">
         <div className="flex min-w-0 flex-1 flex-col gap-4 max-rail:w-full">
           <TabLinks

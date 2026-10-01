@@ -1,9 +1,8 @@
 import type { ConsoleView } from '../../../../features/tournaments/console-view';
 import { tournamentRoutes } from '../../../../features/tournaments/routes';
 import { Badge } from '../../../components/badge/badge';
-import { Breadcrumb } from '../../breadcrumb/breadcrumb';
 import { LinkButton } from '../../link-button/link-button';
-import { PageFrame } from '../../page-frame/page-frame';
+import { PageFrame, PageTitle } from '../../page-frame/page-frame';
 import { TabLinks } from '../../tab-links/tab-links';
 import { EntrantsTab, RoundsTab } from './rounds';
 import { ModerationTab, PublishTab, ResultsTab } from './results';
@@ -28,33 +27,32 @@ export function ConsolePage({ view }: { readonly view: ConsoleView }) {
   const { tournament } = view.data;
   return (
     <PageFrame>
-      <div className="flex flex-col gap-3">
-        <Breadcrumb
-          trail={[
-            { label: 'Organize', href: tournamentRoutes.organize },
-            { label: tournament.name },
-          ]}
-        />
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
-            {`${tournament.name} console`}
-          </h1>
-          <Badge
-            tone={tournament.lifecycle === 'in-progress' ? 'live' : 'accent'}
-          >
-            {tournament.lifecycle === 'in-progress'
-              ? 'In progress'
-              : 'Registration closed'}
-          </Badge>
-          <LinkButton
-            href={tournamentRoutes.detail(tournament.id)}
-            variant="ghost"
-          >
-            View public page
-          </LinkButton>
-        </div>
+      <PageTitle
+        trail={[
+          { label: 'Organize', href: tournamentRoutes.organize },
+          { label: tournament.name },
+        ]}
+        title={`${tournament.name} console`}
+        badges={
+          <>
+            <Badge
+              tone={tournament.lifecycle === 'in-progress' ? 'live' : 'accent'}
+            >
+              {tournament.lifecycle === 'in-progress'
+                ? 'In progress'
+                : 'Registration closed'}
+            </Badge>
+            <LinkButton
+              href={tournamentRoutes.detail(tournament.id)}
+              variant="ghost"
+            >
+              View public page
+            </LinkButton>
+          </>
+        }
+      >
         <p className="text-base text-ink-muted">{view.phaseLabel}</p>
-      </div>
+      </PageTitle>
       <TabLinks label="Console sections" tabs={view.tabs} />
       <Body view={view} />
     </PageFrame>
