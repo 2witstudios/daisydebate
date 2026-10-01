@@ -1,7 +1,13 @@
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 import type { SearchParams } from '../../../features/access/decision';
+import { trainDestinations } from '../../../features/train/actions';
+import { getTrainingSummary } from '../../../features/train/get-summary';
+import { hubView } from '../../../features/train/hub';
+import { parseHubQuery } from '../../../features/train/query';
+import { isFirstVisit } from '../../../features/train/summary';
 import { requireAccess } from '../../../lib/access';
-import { RouteShell } from '../../ui/route-shell';
+import { TrainHub } from '../../../ui/train/hub/hub';
 
 export const metadata: Metadata = { title: 'Train' };
 
@@ -11,15 +17,10 @@ export default async function TrainPage({
   searchParams: Promise<SearchParams>;
 }) {
   await requireAccess('/train', searchParams);
+  const summary = getTrainingSummary();
+  if (isFirstVisit(summary)) redirect(trainDestinations.welcome);
+  const query = parseHubQuery(await searchParams);
   return (
-    <RouteShell
-      title="Train"
-      lede="Practice arguments and sharpen your mind."
-      planned={[
-        'Guided practice debates against paced prompts',
-        'Argument drills with instant structure feedback',
-        'Spaced review of your saved arguments',
-      ]}
-    />
+    <TrainHub view={hubView(summary, query)} summary={summary} query={query} />
   );
 }
