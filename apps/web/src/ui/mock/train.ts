@@ -19,7 +19,15 @@ export const sampleSummary: TrainingSummary = {
     parts: { claim: 92, warrant: 71, responding: 64, impact: 38 },
   },
   ruleSets: [
-    { id: 'longer-speeches', name: 'Longer speeches' },
-    { id: 'solo-one-side', name: 'Solo, one side' },
+    {
+      id: 'longer-speeches',
+      name: 'Longer speeches',
+      rules: { speechMinutes: 7, prepMinutes: 4, seats: 'both' },
+    },
+    {
+      id: 'solo-one-side',
+      name: 'Solo, one side',
+      rules: { speechMinutes: 5, prepMinutes: 4, seats: 'solo' },
+    },
   ],
 };

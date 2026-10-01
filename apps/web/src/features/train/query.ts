@@ -58,6 +58,12 @@ export function hubHref(query: HubQuery): string {
     : `${trainDestinations.hub}?${search}`;
 }
 
+/** The plan with one more item finished, in plan order. */
+export const withDone = (query: HubQuery, id: PlanItemId): HubQuery => ({
+  ...query,
+  did: planItemIds.filter((item) => item === id || query.did.includes(item)),
+});
+
 /** A flow's URL with the plan's time and finished items riding along. */
 export function withPlanContext(href: string, query: HubQuery): string {
   const search = contextParams(query);
