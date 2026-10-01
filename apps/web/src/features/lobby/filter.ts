@@ -29,7 +29,6 @@ export function filterRooms(
     (room) =>
       (query.tab === 'all' || room.status === query.tab) &&
       (query.mode === 'any' || room.mode === query.mode) &&
-      (query.format === 'all' || room.format === query.format) &&
       (query.range === 0 ||
         Math.abs(roomRating(room) - viewer.rating) <= query.range) &&
       matchesSearch(room, query.q),

@@ -10,7 +10,6 @@ import {
   lobbySorts,
   type LobbyQuery,
 } from '../../../features/lobby/query';
-import { lobbyFormats } from '../../../features/lobby/room';
 import { buttonClass } from '../../components/button/button-class';
 import { Icon } from '../../components/icon/icon';
 import { LobbyTabs } from '../lobby-tabs/lobby-tabs';
@@ -62,11 +61,6 @@ function Select(props: {
   );
 }
 
-const formatOptions = [
-  ['all', 'All formats'],
-  ...lobbyFormats.map((format) => [format.slug, format.label] as const),
-] as const;
-
 const rangeOptions = lobbyRanges.map(
   (range) =>
     [
@@ -79,8 +73,8 @@ const sortOptions = lobbySorts.map((sort) => [sort, sortLabels[sort]] as const);
 
 /**
  * Tabs plus every filter as one GET form: the URL carries the state, so the
- * list filters and sorts on the server with no script. On the phone the mode,
- * format and range controls live in a details panel behind "Filters".
+ * list filters and sorts on the server with no script. On the phone the mode
+ * and range controls live in a details panel behind "Filters".
  */
 export function FilterBar({ query, counts, resultCount }: FilterBarProps) {
   const active = activeFilterCount(query);
@@ -126,14 +120,7 @@ export function FilterBar({ query, counts, resultCount }: FilterBarProps) {
           value={query.mode}
           className="order-2 max-compact:order-none"
         />
-        <div className="contents max-compact:grid max-compact:grid-cols-2 max-compact:gap-3">
-          <Select
-            name="format"
-            label="Format"
-            value={query.format}
-            options={formatOptions}
-            className="order-5 max-compact:order-none"
-          />
+        <div className="contents max-compact:grid max-compact:grid-cols-1 max-compact:gap-3">
           <Select
             name="range"
             label="Rating range"

@@ -4,11 +4,10 @@ export const NOW = '2026-09-30T12:00:00.000Z';
 
 const anyBand: RatingBand = { min: null, max: null };
 
-/** An open ranked Lincoln–Douglas table; override any field. */
+/** An open ranked table; override any field. */
 export const openRoom = (over: Partial<OpenRoom> = {}): OpenRoom => ({
   id: 'open-1',
   name: 'Open table',
-  format: 'lincoln-douglas',
   mode: 'ranked',
   customRules: false,
   host: { handle: 'host-one', rating: 1500 },
@@ -18,11 +17,10 @@ export const openRoom = (over: Partial<OpenRoom> = {}): OpenRoom => ({
   ...over,
 });
 
-/** A live ranked Lincoln–Douglas room; override any field. */
+/** A live ranked room; override any field. */
 export const liveRoom = (over: Partial<LiveRoom> = {}): LiveRoom => ({
   id: 'live-1',
   name: 'Live room',
-  format: 'lincoln-douglas',
   mode: 'ranked',
   customRules: false,
   host: { handle: 'debater-a', rating: 1600 },

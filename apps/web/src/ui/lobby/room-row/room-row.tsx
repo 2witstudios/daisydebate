@@ -3,7 +3,6 @@ import { roomAction } from '../../../features/lobby/actions';
 import type { Viewer } from '../../../features/lobby/filter';
 import {
   bandLabel,
-  formatLabel,
   modeLabel,
   rulesLabel,
   statusLabel,
@@ -84,8 +83,7 @@ export function RoomRow({ room, viewer, now }: RoomRowProps) {
         <p className="text-sm text-ink-muted">
           <span className={modeClass(room.mode)}>{modeLabel(room)}</span>
           {' · '}
-          {formatLabel(room.format)}
-          <span className="max-compact:hidden"> · {rulesLabel(room)}</span>
+          {rulesLabel(room)}
         </p>
       </div>
       <div

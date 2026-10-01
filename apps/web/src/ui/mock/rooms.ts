@@ -16,7 +16,6 @@ export const sampleRooms = (now: string): readonly RoomListItem[] => [
   {
     id: 'room-tuesday-night',
     name: 'Tuesday night, no mercy',
-    format: 'lincoln-douglas',
     mode: 'ranked',
     customRules: false,
     host: { handle: 'host-one', rating: 1512 },
@@ -27,7 +26,6 @@ export const sampleRooms = (now: string): readonly RoomListItem[] => [
   {
     id: 'room-newcomers',
     name: 'Newcomers welcome',
-    format: 'public-forum',
     mode: 'casual',
     customRules: true,
     host: { handle: 'host-two', rating: 1180 },
@@ -38,7 +36,6 @@ export const sampleRooms = (now: string): readonly RoomListItem[] => [
   {
     id: 'room-quarterfinal',
     name: 'Quarterfinal practice',
-    format: 'parliamentary',
     mode: 'ranked',
     customRules: false,
     host: { handle: 'host-three', rating: 1390 },
@@ -49,7 +46,6 @@ export const sampleRooms = (now: string): readonly RoomListItem[] => [
   {
     id: 'room-anything-goes',
     name: 'Anything goes',
-    format: 'lincoln-douglas',
     mode: 'casual',
     customRules: true,
     host: { handle: 'host-four', rating: 1455 },
@@ -60,7 +56,6 @@ export const sampleRooms = (now: string): readonly RoomListItem[] => [
   {
     id: 'room-top-of-ladder',
     name: 'Top of the ladder',
-    format: 'lincoln-douglas',
     mode: 'ranked',
     customRules: false,
     host: { handle: 'host-five', rating: 1710 },
@@ -69,9 +64,8 @@ export const sampleRooms = (now: string): readonly RoomListItem[] => [
     waitingSince: minutesBefore(now, 4),
   },
   {
-    id: 'room-ranked-ld',
-    name: 'Ranked LD, serious only',
-    format: 'lincoln-douglas',
+    id: 'room-ranked-serious',
+    name: 'Ranked, serious only',
     mode: 'ranked',
     customRules: false,
     host: { handle: 'debater-a', rating: 1620 },
@@ -82,7 +76,6 @@ export const sampleRooms = (now: string): readonly RoomListItem[] => [
   {
     id: 'room-finals-rehearsal',
     name: 'Finals rehearsal',
-    format: 'public-forum',
     mode: 'ranked',
     customRules: false,
     host: { handle: 'debater-c', rating: 1705 },
@@ -93,7 +86,6 @@ export const sampleRooms = (now: string): readonly RoomListItem[] => [
   {
     id: 'room-friendly-spar',
     name: 'Friendly spar',
-    format: 'parliamentary',
     mode: 'casual',
     customRules: false,
     host: { handle: 'debater-e', rating: 1260 },

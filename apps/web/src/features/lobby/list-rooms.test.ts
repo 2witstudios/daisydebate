@@ -27,7 +27,7 @@ describe('listRooms', () => {
           'room-anything-goes',
           'room-tuesday-night',
           'room-friendly-spar',
-          'room-ranked-ld',
+          'room-ranked-serious',
           'room-newcomers',
           'room-finals-rehearsal',
           'room-top-of-ladder',
@@ -41,7 +41,7 @@ describe('listRooms', () => {
       given: 'the ranked live rooms sorted by most watched',
       should: 'list them by audience',
       actual: names({ tab: 'live', mode: 'ranked', sort: 'watched' }),
-      expected: ['Finals rehearsal', 'Ranked LD, serious only'],
+      expected: ['Finals rehearsal', 'Ranked, serious only'],
     });
   });
 

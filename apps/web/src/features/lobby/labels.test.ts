@@ -1,11 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  bandLabel,
-  formatLabel,
-  modeLabel,
-  rulesLabel,
-  statusLabel,
-} from './labels';
+import { bandLabel, modeLabel, rulesLabel, statusLabel } from './labels';
 import { NOW, liveRoom, openRoom } from './room.test-support';
 
 setupRitewayBun();
@@ -52,24 +46,17 @@ describe('statusLabel', () => {
 });
 
 describe('room labels', () => {
-  test('mode, rules and format', () => {
+  test('mode and rules', () => {
     assert({
       given: 'ranked and custom-rule casual rooms',
-      should: 'name mode, rules and format',
+      should: 'name mode and rules',
       actual: [
         modeLabel(openRoom({ mode: 'ranked' })),
         modeLabel(openRoom({ mode: 'casual' })),
         rulesLabel(openRoom({ customRules: false })),
         rulesLabel(openRoom({ mode: 'casual', customRules: true })),
-        formatLabel('public-forum'),
       ],
-      expected: [
-        'Ranked',
-        'Casual',
-        'Standard rules',
-        'Custom rules',
-        'Public Forum',
-      ],
+      expected: ['Ranked', 'Casual', 'Standard rules', 'Custom rules'],
     });
   });
 });

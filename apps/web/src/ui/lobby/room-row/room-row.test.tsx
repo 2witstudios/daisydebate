@@ -30,7 +30,6 @@ describe('RoomRow', () => {
       actual: [
         html.includes('Tuesday night'),
         html.includes('Ranked'),
-        html.includes('Lincoln–Douglas'),
         html.includes('Standard rules'),
         html.includes('@host-one'),
         html.includes('1512'),
@@ -38,7 +37,7 @@ describe('RoomRow', () => {
         html.includes('1300–1700'),
         html.includes('Waiting 2 min'),
       ],
-      expected: [true, true, true, true, true, true, true, true, true],
+      expected: [true, true, true, true, true, true, true, true],
     });
     assert({
       given: 'the same table',
@@ -49,6 +48,21 @@ describe('RoomRow', () => {
         html.split('<a ').length - 1,
       ],
       expected: [true, false, 1],
+    });
+  });
+
+  test('the rules label shows on every width', () => {
+    const html = render(
+      openRoom({ mode: 'casual', customRules: true }),
+    ).replaceAll('<!-- -->', '');
+    assert({
+      given: 'a casual table with custom rules',
+      should: 'name mode and rules in one line that is never hidden',
+      actual: [
+        html.includes('Casual</span> · Custom rules'),
+        html.includes('max-compact:hidden'),
+      ],
+      expected: [true, false],
     });
   });
 

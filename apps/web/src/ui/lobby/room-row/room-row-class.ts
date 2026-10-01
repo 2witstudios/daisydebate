@@ -4,7 +4,7 @@ export type RoomColumn = 'name' | 'players' | 'status' | 'action';
 
 /** One grid for the header and every row; the phone stacks three cells. */
 export const roomGridClass =
-  'grid grid-cols-12 items-center gap-x-5 max-compact:grid-cols-3 max-compact:gap-x-3';
+  'grid grid-cols-12 items-center gap-x-6 max-compact:grid-cols-3 max-compact:gap-x-3';
 
 const columns: Readonly<Record<RoomColumn, string>> = {
   name: 'col-span-4 min-w-0 max-compact:col-span-2',

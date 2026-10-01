@@ -15,7 +15,7 @@ describe('room row classes', () => {
       should: 'use twelve columns, three on the phone',
       actual: roomGridClass,
       expected:
-        'grid grid-cols-12 items-center gap-x-5 max-compact:grid-cols-3 max-compact:gap-x-3',
+        'grid grid-cols-12 items-center gap-x-6 max-compact:grid-cols-3 max-compact:gap-x-3',
     });
   });
 
