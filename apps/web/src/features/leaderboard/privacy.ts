@@ -3,14 +3,11 @@
  * Categories and visibilities follow ADR 0036: a personal field has a
  * visibility, nothing else does.
  */
-type PrivacyCategory =
-  'none' | 'identifier' | 'personal' | 'sensitive' | 'secret';
-
 export type PrivacyRow = {
   readonly title: string;
   readonly where: string;
   readonly note?: string;
-  /** The ADR 0036 category, or a short label for a rule with no data. */
+  /** The ADR 0036 category (none, identifier, personal, sensitive, secret), or a short label for a rule with no data. */
   readonly tag: string;
   readonly visibility?: 'public' | 'private';
   /** A field no column holds yet: its classification ships with its PR. */
