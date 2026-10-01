@@ -29,12 +29,6 @@ export const changeGoal: InertAction = {
   reason: 'Weekly goals can be changed once your training is saved.',
 };
 
-/** The daily review cap is a setting the account does not store yet. */
-export const changeDailyCap: InertAction = {
-  kind: 'inert',
-  reason: 'The daily review cap can be changed once your training is saved.',
-};
-
 /**
  * Said beside every "saved" state: the screen shows what saving will be like
  * (the mock flow's next step) but nothing is stored until an account keeps

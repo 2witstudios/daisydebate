@@ -1,7 +1,7 @@
 import type { StructurePart } from '../../features/train/summary';
 
 /** Sample prompt for one round of a drill. */
-export type DrillPrompt = {
+type DrillPrompt = {
   readonly motion: string;
   readonly task: string;
 };

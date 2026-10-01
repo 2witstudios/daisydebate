@@ -12,7 +12,7 @@ export type DrillText = Readonly<Record<DrillPart, string>>;
 
 export const emptyText: DrillText = { claim: '', warrant: '', impact: '' };
 
-export type PartStatus = 'clear' | 'needs-work' | 'missing';
+type PartStatus = 'clear' | 'needs-work' | 'missing';
 
 export type PartCheck = {
   readonly part: DrillPart;
@@ -29,9 +29,9 @@ export type StructureCheck = {
 };
 
 /** Sample thresholds: the check is a rule of thumb, not a judgement. */
-export const MIN_CLAIM = 15;
-export const MIN_WARRANT = 50;
-export const MIN_IMPACT = 40;
+const MIN_CLAIM = 15;
+const MIN_WARRANT = 50;
+const MIN_IMPACT = 40;
 /** Longest a part may be; the form's field and the server both cap at this. */
 export const MAX_PART = 600;
 
@@ -105,11 +105,10 @@ export const IMPACT_STEM = 'This matters because ';
 export const withImpactStem = (text: DrillText): DrillText =>
   text.impact.trim() === '' ? { ...text, impact: IMPACT_STEM } : text;
 
-export const drillModes = ['write', 'speak'] as const;
-export type DrillMode = (typeof drillModes)[number];
+const drillModes = ['write', 'speak'] as const;
+type DrillMode = (typeof drillModes)[number];
 
-export const drillPhases = ['edit', 'checked', 'saved'] as const;
-export type DrillPhase = (typeof drillPhases)[number];
+type DrillPhase = 'edit' | 'checked' | 'saved';
 
 export type DrillState = {
   readonly phase: DrillPhase;

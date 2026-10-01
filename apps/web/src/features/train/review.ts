@@ -72,7 +72,7 @@ const reviewHref = (
   );
 };
 
-export type QueueRow = {
+type QueueRow = {
   readonly label: string;
   readonly state: 'done' | 'current' | 'todo';
 };
