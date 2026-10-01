@@ -11,10 +11,7 @@ import { isClosed } from '../../../features/leaderboard/season';
 import { buttonClass } from '../../components/button/button-class';
 import { cn } from '../../cn';
 import { LadderRow } from '../ladder-row/ladder-row';
-import {
-  ladderColumnClass,
-  ladderGridClass,
-} from '../ladder-row/ladder-row-class';
+import { LadderHeading } from '../ladder-row/ladder-heading';
 import { EmptyLadder } from '../ladder-states/ladder-states';
 import { Podium } from '../podium/podium';
 
@@ -22,11 +19,6 @@ export type LadderTableProps = {
   readonly view: LadderView;
   readonly query: LadderQuery;
 };
-
-const heading = cn(
-  ladderGridClass,
-  'px-5 py-3 text-2xs font-bold tracking-wider text-ink-faint uppercase max-compact:hidden',
-);
 
 const pagerLink = cn(
   buttonClass('secondary'),
@@ -90,16 +82,7 @@ export function LadderTable({ view, query }: LadderTableProps) {
         aria-label="Ladder"
         className="overflow-hidden rounded-lg border border-border bg-surface shadow-1"
       >
-        <div className={heading} aria-hidden="true">
-          <span className={ladderColumnClass('rank')}>Rank</span>
-          <span className={ladderColumnClass('name')}>Debater</span>
-          <span className={ladderColumnClass('band')}>Band</span>
-          <span className={ladderColumnClass('rating')}>Rating</span>
-          <span className={ladderColumnClass('record')}>W–L</span>
-          <span className={ladderColumnClass('move')}>
-            {closed ? 'Season' : '7 days'}
-          </span>
-        </div>
+        <LadderHeading closed={closed} />
         {view.around ? (
           <p className="border-t border-border bg-surface-overlay px-5 py-2 text-sm text-ink-muted">
             {view.gapNote}
