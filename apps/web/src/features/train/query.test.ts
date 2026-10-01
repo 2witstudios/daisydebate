@@ -4,6 +4,7 @@ import {
   hubHref,
   parseHubQuery,
   parseWelcomeGoal,
+  withDone,
   withPlanContext,
 } from './query';
 
@@ -93,6 +94,20 @@ describe('parseWelcomeGoal', () => {
         parseWelcomeGoal({ goal: '4' }),
       ],
       expected: [3, 0, 0],
+    });
+  });
+});
+
+describe('withDone', () => {
+  test('adds an item once, in plan order', () => {
+    assert({
+      given: 'review done, then the impact drill added twice',
+      should: 'list both once in plan order and leave mins alone',
+      actual: withDone(
+        withDone({ mins: 10, did: ['impact-drill'] }, 'review'),
+        'impact-drill',
+      ),
+      expected: { mins: 10, did: ['review', 'impact-drill'] },
     });
   });
 });
