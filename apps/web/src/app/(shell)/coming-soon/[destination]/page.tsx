@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { findDestination } from '../../../../features/coming-soon/destinations';
-import { launched, liveHref } from '../../../../features/coming-soon/launch';
+import { resolveExplainer } from '../../../../features/coming-soon/resolve';
 import { notifyAction } from '../../../../features/coming-soon/notify';
 import { requestIdentity } from '../../../../lib/request-session';
 import { Explainer } from '../../../../ui/coming-soon/explainer/explainer';
@@ -16,9 +16,10 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 /** Public: the explainer for a destination that is not open yet. */
 export default async function ComingSoonPage({ params }: Params) {
-  const destination = findDestination((await params).destination);
-  if (destination === null) notFound();
-  if (launched[destination.slug]) redirect(liveHref(destination.slug));
+  const resolution = resolveExplainer((await params).destination);
+  if (resolution.kind === 'not-found') notFound();
+  if (resolution.kind === 'redirect') redirect(resolution.to);
+  const { destination } = resolution;
   const identity = await requestIdentity();
   return (
     <Explainer

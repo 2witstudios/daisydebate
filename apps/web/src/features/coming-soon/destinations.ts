@@ -138,7 +138,7 @@ export const destinations: Readonly<Record<DestinationSlug, Destination>> = {
       },
       {
         title: 'Score the round',
-        body: 'Fill in a structured ballot and explain your reasons.',
+        body: 'Use a structured ballot: argumentation, refutation, evidence, delivery.',
       },
       {
         title: 'Submit your decision',

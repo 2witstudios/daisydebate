@@ -19,7 +19,9 @@ describe('HeroBanner', () => {
       given: 'the hero banner',
       should: 'render the headline as the h1 and the registered alt text',
       actual: [
-        /<h1[^>]*>Debate is a sport now\.<\/h1>/.test(html),
+        /<h1[^>]*>Better arguments\. A more thoughtful world\.<\/h1>/.test(
+          html,
+        ),
         html.includes(`alt="${art.heroRidge.alt}"`),
       ],
       expected: [true, true],
@@ -30,14 +32,14 @@ describe('HeroBanner', () => {
     const html = render();
     assert({
       given: 'the hero banner',
-      should: 'show the eyebrow and the line exactly',
+      should: 'show the landing mock line and no eyebrow',
       actual: [
-        html.includes('The #1 place to compete in debate online'),
+        html.includes('The #1 place'),
         html.includes(
-          'Live 1v1 rounds. Instant verdicts. Ratings on the line. A crowd watching.',
+          'Daisy Debate is opening in stages. Explore what is coming, and be the first to know when each part opens.',
         ),
       ],
-      expected: [true, true],
+      expected: [false, true],
     });
   });
 
