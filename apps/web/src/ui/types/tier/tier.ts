@@ -7,5 +7,3 @@ export type Tier =
   | 'elite'
   | 'master'
   | 'grandmaster';
-
-export { label } from './public';

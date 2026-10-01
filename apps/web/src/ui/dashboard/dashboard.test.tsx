@@ -2,6 +2,7 @@ import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { Dashboard } from './dashboard';
 import { tiles } from './tiles';
+import { tournament } from '../mock/tournament';
 import { initialLinkForm } from '../auth/request-link';
 import { occurrences, renderInStore } from '../test-support/render-in-store';
 
@@ -40,6 +41,22 @@ describe('Dashboard', () => {
         occurrences(html, '<main'),
       ],
       expected: [1, 0, 0],
+    });
+  });
+
+  test('shows coming-soon cards instead of sample tournament and live data', () => {
+    const html = render();
+    assert({
+      given: 'the home dashboard while nothing is launched',
+      should:
+        'carry ten Coming soon tags (eight tiles, two cards) and no sample event',
+      actual: [
+        occurrences(html, 'Coming soon'),
+        html.includes('href="/coming-soon/tournaments"'),
+        html.includes(tournament.name),
+        html.includes('Live Now'),
+      ],
+      expected: [10, true, false, false],
     });
   });
 });

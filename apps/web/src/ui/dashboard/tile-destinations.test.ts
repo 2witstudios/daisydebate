@@ -1,5 +1,7 @@
 import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { destinationSlugs } from '../../features/coming-soon/destinations';
+import { liveHref } from '../../features/coming-soon/launch';
 import { tiles } from './tiles';
 import { statusDotClass } from '../components/status-line/status-line-class';
 import { actionTileTintClass } from './action-tile/action-tile-class';
@@ -16,6 +18,17 @@ describe('tile destinations', () => {
       should: 'have an app router page for every destination',
       actual: tiles
         .map((tile) => tile.href)
+        .filter((href) => !routeExists(appDirectory, href)),
+      expected: [],
+    });
+  });
+
+  test('have a live route ready for every destination that launches', () => {
+    assert({
+      given: 'each destination flipped to launched',
+      should: 'have an app router page at its live route',
+      actual: destinationSlugs
+        .map(liveHref)
         .filter((href) => !routeExists(appDirectory, href)),
       expected: [],
     });

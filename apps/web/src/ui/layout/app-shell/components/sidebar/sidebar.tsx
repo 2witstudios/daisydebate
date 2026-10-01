@@ -10,6 +10,7 @@ const baseNavigation = [
     label: 'Play / Lobby',
     children: [
       { href: '/play', label: 'Play' },
+      { href: '/ranked', label: 'Ranked' },
       { href: '/lobby', label: 'Lobby' },
     ],
   },
@@ -24,6 +25,7 @@ const baseNavigation = [
       { href: '/recordings', label: 'Recordings' },
     ],
   },
+  { href: '/judge', icon: 'gavel', label: 'Judge' },
   { href: '/train', icon: 'bolt', label: 'Train' },
   { href: '/prep', icon: 'book', label: 'Prep' },
 ] as const;

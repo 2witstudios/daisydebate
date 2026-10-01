@@ -34,7 +34,7 @@ describe('ActionTile', () => {
         glyph: 'swords',
         title: 'Ranked',
         description: 'd',
-        status: { tone: 'online', text: '1,248 online' },
+        status: { tone: 'online', text: 'Open' },
       }),
     );
     const withoutStatus = renderToString(
@@ -48,11 +48,51 @@ describe('ActionTile', () => {
     assert({
       given: 'tiles with and without a status',
       should: 'render the status text only when provided',
-      actual: [
-        withStatus.includes('1,248 online'),
-        withoutStatus.includes('1,248 online'),
-      ],
+      actual: [withStatus.includes('Open'), withoutStatus.includes('Open')],
       expected: [true, false],
+    });
+  });
+
+  test('marks a destination that is not open yet', () => {
+    const html = renderToString(
+      h(ActionTile, {
+        href: '/coming-soon/ranked',
+        glyph: 'swords',
+        title: 'Ranked',
+        description: 'd',
+        comingSoon: true,
+        status: { tone: 'online', text: 'Open' },
+      }),
+    );
+    assert({
+      given: 'a coming-soon tile',
+      should:
+        'link to the explainer with a Coming soon tag and Learn more, and no status line',
+      actual: [
+        html.includes('href="/coming-soon/ranked"'),
+        html.includes('Coming soon'),
+        html.includes('Learn more'),
+        html.includes('Open'),
+      ],
+      expected: [true, true, true, false],
+    });
+  });
+
+  test('does not tag a launched destination', () => {
+    const html = renderToString(
+      h(ActionTile, {
+        href: '/ranked',
+        glyph: 'swords',
+        title: 'Ranked',
+        description: 'd',
+        status: { tone: 'online', text: 'Open' },
+      }),
+    );
+    assert({
+      given: 'a launched tile',
+      should: 'show neither the tag nor Learn more',
+      actual: [html.includes('Coming soon'), html.includes('Learn more')],
+      expected: [false, false],
     });
   });
 });
