@@ -1,3 +1,5 @@
+import type { PracticeRules } from './rules';
+
 /**
  * What the Train hub knows about one account: a read model for the hub and
  * its side column, not stored entities. The backend read that summarises an
@@ -16,6 +18,7 @@ export type WeakSpot = {
 type RuleSetEntry = {
   readonly id: string;
   readonly name: string;
+  readonly rules: PracticeRules;
 };
 
 export type TrainingSummary = {
