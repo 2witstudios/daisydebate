@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../features/access/decision';
+import { driveMatch } from '../../../features/ranked/drive-match';
+import { parseRankedQuery } from '../../../features/ranked/ranked-query';
 import { requireAccess } from '../../../lib/access';
-import { RouteShell } from '../../ui/route-shell';
+import { Ranked } from '../../../ui/ranked/ranked';
 
 export const metadata: Metadata = { title: 'Ranked' };
 
@@ -11,15 +13,5 @@ export default async function RankedPage({
   searchParams: Promise<SearchParams>;
 }) {
   await requireAccess('/ranked', searchParams);
-  return (
-    <RouteShell
-      title="Ranked"
-      lede="Rated competitive debates with seasonal standing."
-      planned={[
-        'Rating-adjacent matchmaking',
-        'Season ladders and decay policy',
-        'Ranked eligibility and conduct rules',
-      ]}
-    />
-  );
+  return <Ranked screen={driveMatch(parseRankedQuery(await searchParams))} />;
 }
