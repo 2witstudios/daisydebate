@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../features/access/decision';
+import { getJudgeRating } from '../../../features/judge/get-judge-rating';
+import { listJudgeResources } from '../../../features/judge/list-judge-resources';
 import { requireAccess } from '../../../lib/access';
-import { RouteShell } from '../../ui/route-shell';
+import { JudgeHub } from '../../../ui/judge/judge-hub/judge-hub';
 
 export const metadata: Metadata = { title: 'Judge' };
 
@@ -12,14 +14,6 @@ export default async function JudgePage({
 }) {
   await requireAccess('/judge', searchParams);
   return (
-    <RouteShell
-      title="Judge"
-      lede="Evaluate assigned debates and submit ballots."
-      planned={[
-        'Judge assignment and availability',
-        'Structured ballot submission',
-        'Ballot conflict and review policy',
-      ]}
-    />
+    <JudgeHub rating={getJudgeRating()} resources={listJudgeResources()} />
   );
 }
