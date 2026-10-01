@@ -1,7 +1,10 @@
+import { systemClock } from '@daisy/clock';
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../features/access/decision';
+import { parseLibraryQuery } from '../../../features/prep/library-query';
+import { listLibrary } from '../../../features/prep/list-library';
 import { requireAccess } from '../../../lib/access';
-import { RouteShell } from '../../ui/route-shell';
+import { Library } from '../../../ui/prep/library/library';
 
 export const metadata: Metadata = { title: 'Prep' };
 
@@ -11,16 +14,8 @@ export default async function PrepPage({
   searchParams: Promise<SearchParams>;
 }) {
   await requireAccess('/prep', searchParams);
+  const query = parseLibraryQuery(await searchParams);
   return (
-    <RouteShell
-      title="Prep"
-      lede="Briefs, cases, and evidence cards — your debate library."
-      planned={[
-        'Briefs: structured case files with contentions and framing',
-        'Evidence cards with citation provenance and tags',
-        'Cases: assembly, versions, and sharing across teams',
-        'Search and filtering across the whole library',
-      ]}
-    />
+    <Library listing={listLibrary(query, systemClock.now())} query={query} />
   );
 }

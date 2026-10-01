@@ -66,6 +66,28 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
     '(shell)/recordings/[debateId]/page.tsx': () =>
       import('../../app/(shell)/recordings/[debateId]/page'),
     '(shell)/prep/page.tsx': () => import('../../app/(shell)/prep/page'),
+    '(shell)/prep/cards/new/page.tsx': () =>
+      import('../../app/(shell)/prep/cards/new/page'),
+    '(shell)/prep/cards/[id]/page.tsx': () =>
+      import('../../app/(shell)/prep/cards/[id]/page'),
+    '(shell)/prep/cards/[id]/delete/page.tsx': () =>
+      import('../../app/(shell)/prep/cards/[id]/delete/page'),
+    '(shell)/prep/briefs/[id]/page.tsx': () =>
+      import('../../app/(shell)/prep/briefs/[id]/page'),
+    '(shell)/prep/briefs/new/page.tsx': () =>
+      import('../../app/(shell)/prep/briefs/new/page'),
+    '(shell)/prep/cases/[id]/page.tsx': () =>
+      import('../../app/(shell)/prep/cases/[id]/page'),
+    '(shell)/prep/briefs/[id]/review/page.tsx': () =>
+      import('../../app/(shell)/prep/briefs/[id]/review/page'),
+    '(shell)/prep/teams/[id]/page.tsx': () =>
+      import('../../app/(shell)/prep/teams/[id]/page'),
+    '(shell)/prep/privacy/page.tsx': () =>
+      import('../../app/(shell)/prep/privacy/page'),
+    '(shell)/prep/in-debate/page.tsx': () =>
+      import('../../app/(shell)/prep/in-debate/page'),
+    '(shell)/prep/start/page.tsx': () =>
+      import('../../app/(shell)/prep/start/page'),
     '(shell)/train/page.tsx': () => import('../../app/(shell)/train/page'),
     '(shell)/train/welcome/page.tsx': () =>
       import('../../app/(shell)/train/welcome/page'),
