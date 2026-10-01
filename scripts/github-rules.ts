@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * The main ruleset and repository settings as code (ADR 0035).
+ * The main ruleset and repository settings as code.
  *
  *   bun github:rules            dry run: diff policy/github/repository.json
  *                               against live GitHub

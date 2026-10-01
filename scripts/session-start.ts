@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Session-start check (ADR 0035): the main checkout must stay on main, and
+ * Session-start check: the main checkout must stay on main, and
  * a session that finds it elsewhere is warned at once instead of a day
  * later. Runs as the committed Claude Code SessionStart hook and as the
  * `checkout` check of bun doctor, which every agent runs.

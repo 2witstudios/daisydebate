@@ -5,8 +5,7 @@ the Daisy Debate PageSpace drive, under `Reviews/<Epic>`, not in the
 repository — point-in-time documents rot into misinformation when committed
 at the root. The template below is the contract; keep sections in this order.
 
-The record is also what gates autonomous merges
-([ADR 0035](../decisions/0035-autonomy-guardrails.md)). Its page title ends
+The record is also what gates autonomous merges. Its page title ends
 with the full 40-character head SHA, and its `Candidate:` line names that
 SHA, the PR, the builder the PR body declares and the reviewer. When the
 record's link lands on the PR, the review-record workflow reads it and sets
@@ -98,7 +97,7 @@ unfixed.
 Rules:
 
 - The verdict line is the first line under the last `Verdict` heading,
-  and the `review-record` check (ADR 0035) takes the verdict from nowhere
+  and the `review-record` check takes the verdict from nowhere
   else: it accepts exactly `APPROVE` or `APPROVE WITH MINORS`, and refuses
   an approval that counts an open blocker or major.
 - A verdict with no findings is refused unless the reviewer ran the

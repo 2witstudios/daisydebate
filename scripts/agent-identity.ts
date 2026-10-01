@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Which GitHub identity a session acts under (ADR 0035). Autonomous agents
+ * Which GitHub identity a session acts under. Autonomous agents
  * must act as the machine user from `.env.agent`; the owner's keyring token
  * and SSH key are the owner's alone. `assessAgentEnv` gates the pu launcher
  * and `assessGithubIdentity` is the `github-identity` check of bun doctor.

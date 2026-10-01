@@ -1,5 +1,5 @@
 /**
- * Pure rules that keep the board following git (ADR 0035): which task pages
+ * Pure rules that keep the board following git: which task pages
  * a PR names, the status a merge moves them to, when a merge after the
  * enforcement cutoff leaves review debt, and which tasks drifted from git.
  * The merge workflow (merge-followup.ts) and `bun board:stale` share them.

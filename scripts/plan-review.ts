@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * `bun plan:review <planPageId>` (ADR 0035): the automated external plan
+ * `bun plan:review <planPageId>`: the automated external plan
  * review of the epic pipeline. Codex reads the plan with AGENTS.md and the
  * accepted ADRs in hand, before any tasking, so a plan that contradicts a
  * decision (a backfill under ADR 0023, UUIDs under ADR 0018) is caught

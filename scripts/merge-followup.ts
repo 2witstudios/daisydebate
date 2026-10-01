@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /**
- * Runs after every merge to main (.github/workflows/notify-merge.yml,
- * ADR 0035). It moves each task the PR names to Merged, where the task waits
+ * Runs after every merge to main (.github/workflows/notify-merge.yml). It
+ * moves each task the PR names to Merged, where the task waits
  * for an independent review to grant Done. After the enforcement cutoff
  * (policy/github/repository.json), a merge whose head SHA has no successful
  * review-record status also leaves post-merge review debt: an ISSUE-n in the

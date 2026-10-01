@@ -1,12 +1,12 @@
 #!/usr/bin/env bun
 /**
  * `bun decision:record "<decision>" --context <pageId> [--why "<reason>"]`
- * (ADR 0035). A decision an agent makes on the owner's behalf goes on the
+ *. A decision an agent makes on the owner's behalf goes on the
  * drive's Pending decisions list as an open DEC-n task, linked to where it
  * was made, and the owner is notified in Epic Updates. It stays open (To Do)
  * until the owner moves it to Confirmed or Overruled.
  */
-import { sessionIsAgent, thisRepoMainCheckout } from './agent-session';
+import { sessionIsAgent } from './agent-session';
 import { runBoard } from './board';
 
 export const PENDING_DECISIONS_ID = 'jdesqcu11mczngtmahbcybc3';
@@ -89,8 +89,8 @@ if (import.meta.main) {
           {
             pagespace: run,
             readFile: () => '',
-            // A registered agent is an agent, as in the guard (ADR 0035 section 6).
-            autonomous: sessionIsAgent(process.env, thisRepoMainCheckout()),
+            // A registered agent is an agent, as in the guard.
+            autonomous: sessionIsAgent(process.env),
             scratch: (name) =>
               `${process.env.TMPDIR ?? '/tmp'}/decision-${process.pid}-${name}`,
             out: (text) => void lines.push(text),

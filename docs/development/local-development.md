@@ -57,9 +57,7 @@ handler logic yet beyond rejecting every connection (RT-2.3a).
 | `bun db:roles`                                                | Provision the test logins on a loopback `DATABASE_URL` (CI; `slot:up` and `db:reset` already do it)                                                     |
 | `bun infra:logs`                                              | Follow the shared stack's Compose logs                                                                                                                  |
 | `bun adr:next`                                                | Next ADR number free across origin/main and every open PR                                                                                               |
-| `bun github:rules [--apply]`                                  | Diff the committed main ruleset and repository settings against GitHub; `--apply` is owner-only (ADR 0035)                                              |
-| `bun agent:spawn -- …` / `bun agent:send`                     | Spawn a pu agent with prerequisite and superseded-term checks, slot set-up, parent registry and confirmed submission / send, confirmed the same way     |
-| `bun loop:escalate` / `loop:close` / `loop:resume`            | Pause a PR loop and notify the parent / end or restart it (parent or owner only)                                                                        |
+| `bun github:rules [--apply]`                                  | Diff the committed main ruleset and repository settings against GitHub; `--apply` is owner-only                                                         |
 | `bun board:read` / `status` / `create` / `relate` / `replace` | PageSpace board operations: raw reads, task status (never Done for agents), leaves and ISSUE-n, Related pages, hash-guarded replaces (`board:hash`)     |
 | `bun board:stale [--apply]`                                   | List tasks whose status disagrees with git; `--apply` moves them to their pre-Done status                                                               |
 | `bun decision:record`                                         | Record a decision made on the owner's behalf on Pending decisions and notify the owner                                                                  |
@@ -170,9 +168,7 @@ session-start hook also warns about.
 
 `bun check` and `bun policy` read open PRs through `gh` to catch ADR
 numbers claimed twice, so they need the network and an
-authenticated `gh`; without either they fail rather than pass. The guard (`scripts/agent-guard.ts`) runs from the pre-push hook
-below and from the committed Claude Code hook in `.claude/settings.json`; see
-[pu workflow](pu-workflow.md#the-guard).
+authenticated `gh`; without either they fail rather than pass.
 
 ## Editor
 
@@ -189,9 +185,7 @@ and TypeScript project discovery. Open the main checkout, not the parent of
 bun hooks:install   # git config core.hooksPath .githooks
 ```
 
-After that every `git push` first runs the agent guard, which refuses an
-autonomous push to `main` and asks the owner at a terminal before one, then
-runs `bun check:affected` against `origin/main` (run `git fetch origin` if the
+After that every `git push` runs `bun check:affected` against `origin/main` (run `git fetch origin` if the
 base is missing) and aborts the push on failure. Agent sessions get the hook
 without opting in: `.env.agent` sets `core.hooksPath` for them.
 

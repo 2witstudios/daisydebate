@@ -39,7 +39,7 @@ jobs:
           --tasks "$NOTIFY_TASKS"
 
   # Moves the PR's tasks to Merged and, after the review enforcement cutoff,
-  # records post-merge review debt for a merge without review-record (ADR 0035).
+  # records post-merge review debt for a merge without review-record.
   board:
     name: Move merged tasks and record review debt
     runs-on: ubuntu-24.04

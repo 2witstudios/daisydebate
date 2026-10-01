@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /**
  * `bun board:*`: the common PageSpace board operations, committed so agents
- * stop rediscovering the pagespace CLI (ADR 0035). Every command parses its
+ * stop rediscovering the pagespace CLI. Every command parses its
  * arguments purely (board-model.ts) and then drives the pagespace CLI
  * through an injected runner.
  */
@@ -20,7 +20,7 @@ import {
   parseBoardArgs,
   type BoardCommand,
 } from './board-model';
-import { sessionIsAgent, thisRepoMainCheckout } from './agent-session';
+import { sessionIsAgent } from './agent-session';
 
 type Result = { readonly code: number; readonly stdout: string };
 
@@ -240,8 +240,8 @@ if (import.meta.main) {
         return { code: result.exitCode, stdout: result.stdout.toString() };
       },
       readFile: (path) => readFileSync(path, 'utf8'),
-      // A registered agent is an agent, as in the guard (ADR 0035 section 6).
-      autonomous: sessionIsAgent(process.env, thisRepoMainCheckout()),
+      // A registered agent is an agent, as in the guard.
+      autonomous: sessionIsAgent(process.env),
       scratch: (name) =>
         join(tmpdir(), `board-${branch}-${process.pid}-${name}`),
       out: (text) => process.stdout.write(text),

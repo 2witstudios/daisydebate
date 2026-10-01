@@ -82,7 +82,7 @@ Options considered:
   pull between apps, which this decision does not rely on.
 - The owner must create the migrator app and its token, move the secret,
   and rotate the owner password, because the old value sat on web
-  machines. Agents never do these steps (ADR 0035). The exact commands are
+  machines. Agents never do these steps. The exact commands are
   in [deploy-staging](../operations/deploy-staging.md). Until the owner
   does them, the next staging deploy fails at the migrate step (the
   migrator app does not exist) or at web startup (the web app still holds
