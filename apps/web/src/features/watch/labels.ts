@@ -1,4 +1,10 @@
-import type { DebateMode, Side, Visibility, WatchDebate } from './debate';
+import type {
+  Ballots,
+  DebateMode,
+  Side,
+  Visibility,
+  WatchDebate,
+} from './debate';
 
 export const modeLabel = (mode: DebateMode): string =>
   mode === 'ranked' ? 'Ranked' : 'Casual';
@@ -32,3 +38,34 @@ export function durationLabel(seconds: number): string {
   const whole = Math.max(0, Math.floor(seconds));
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
 }
+
+/** "Neg wins 2–1"; pending ballots have no result yet. */
+export const resultLabel = (ballots: Ballots): string =>
+  ballots.state === 'pending'
+    ? 'Result pending'
+    : `${sideLabel(ballots.winner)} wins ${ballots.judgesFor}–${ballots.judgesAgainst}`;
+
+const months = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+] as const;
+
+/** "Sep 29": the UTC day of an ISO timestamp. */
+export const dayLabel = (iso: string): string => {
+  const date = new Date(iso);
+  return `${months[date.getUTCMonth()]} ${date.getUTCDate()}`;
+};
+
+/** "30 min": a recording's length, rounded to whole minutes. */
+export const minutesLabel = (seconds: number): string =>
+  `${Math.round(seconds / 60)} min`;
