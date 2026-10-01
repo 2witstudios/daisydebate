@@ -15,7 +15,7 @@ export type AccessDecision =
 
 /**
  * Areas that need an account, and what each needs. Spectator routes are
- * absent, so they stay public. Descendants inherit their root's entry.
+ * absent, so they stay public. Descendants inherit the longest matching entry.
  */
 const GUARDED_AREAS: Readonly<Record<string, Requirement>> = {
   '/play': 'participant',
@@ -26,12 +26,35 @@ const GUARDED_AREAS: Readonly<Record<string, Requirement>> = {
   '/prep': 'participant',
   '/train': 'participant',
   '/settings': 'account',
+  // A public root (Tournaments) holds guarded areas: the organizer console
+  // (any organizer, never an admin surface, ADR 0043), a participant's own
+  // events and the registration flow.
+  '/tournaments/organize': 'participant',
+  '/tournaments/mine': 'participant',
+  '/tournaments/enter': 'participant',
 };
 
-/** The requirement for a guarded root or descendant, or null when public. */
+/**
+ * The guarded area a path belongs to: the longest entry that is a whole
+ * leading run of its segments, or null. The first segment is read exactly as
+ * it always was (so `//lobby` and `/lobbyist` stay public); later empty
+ * segments are dropped, so a doubled slash cannot step out of an area.
+ */
+export const guardedAreaFor = (pathname: string): string | null => {
+  const [, first = '', ...rest] = pathname.split('/');
+  if (first === '') return null;
+  const segments = [first, ...rest.filter((segment) => segment !== '')];
+  for (let depth = segments.length; depth > 0; depth -= 1) {
+    const area = `/${segments.slice(0, depth).join('/')}`;
+    if (area in GUARDED_AREAS) return area;
+  }
+  return null;
+};
+
+/** The requirement for a guarded area or descendant, or null when public. */
 export const requirementFor = (pathname: string): Requirement | null => {
-  const root = `/${pathname.split('/')[1] ?? ''}`;
-  return GUARDED_AREAS[root] ?? null;
+  const area = guardedAreaFor(pathname);
+  return area === null ? null : (GUARDED_AREAS[area] ?? null);
 };
 
 /** True for a guarded root or any descendant of one. */
