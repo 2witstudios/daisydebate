@@ -35,7 +35,7 @@ describe('Sidebar', () => {
       given: 'every link in the sidebar, flyouts included',
       should: 'cover the core destinations and resolve to an app router page',
       actual: [
-        ['/', '/lobby', '/recordings', '/settings'].filter(
+        ['/', '/ranked', '/lobby', '/judge', '/recordings', '/settings'].filter(
           (href) => !hrefs.includes(href),
         ),
         hrefs.filter((href) => !routeExists(appDirectory, href)),
@@ -58,6 +58,24 @@ describe('Sidebar', () => {
         memberHtml.includes('href="/profile/ada-byron"'),
       ],
       expected: [false, true],
+    });
+  });
+
+  test('lists Ranked with Play and Lobby, and Judge after Watch', () => {
+    const html = renderToString(h(Sidebar, { account: member }));
+    const hrefs = [...html.matchAll(/<a [^>]*href="([^"]+)"/g)].map(
+      (match) => match[1] ?? '',
+    );
+    const at = (href: string) => hrefs.indexOf(href);
+    assert({
+      given: 'the sidebar',
+      should:
+        'order Play, Ranked, Lobby together, and place Judge between Watch and Train',
+      actual: [
+        at('/play') < at('/ranked') && at('/ranked') < at('/lobby'),
+        at('/watch') < at('/judge') && at('/judge') < at('/train'),
+      ],
+      expected: [true, true],
     });
   });
 });

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { IconName } from '../../components/icon/icon';
+import { Badge } from '../../components/badge/badge';
 import { Icon } from '../../components/icon/icon';
 import { StatusLine } from '../../components/status-line/status-line';
 import type { ActionTileTint } from './action-tile-class';
@@ -18,6 +19,11 @@ export type ActionTileProps = {
     readonly tone: 'online' | 'live' | 'neutral';
     readonly text: ReactNode;
   };
+  /**
+   * The destination is not open yet: the tile carries a "Coming soon" tag and
+   * "Learn more" in place of a status line, and `href` is its explainer.
+   */
+  readonly comingSoon?: boolean;
 };
 
 export function ActionTile({
@@ -27,6 +33,7 @@ export function ActionTile({
   description,
   tint = 'neutral',
   status,
+  comingSoon = false,
 }: ActionTileProps) {
   return (
     <Link
@@ -48,11 +55,18 @@ export function ActionTile({
         </p>
       </div>
       <div className="flex min-h-tile-footer-min items-center justify-between gap-3">
-        {status ? (
+        {comingSoon ? (
+          <Badge tone="accent">Coming soon</Badge>
+        ) : status ? (
           <StatusLine tone={status.tone}>{status.text}</StatusLine>
         ) : (
           <span />
         )}
+        {comingSoon ? (
+          <span className="ml-auto text-sm text-ink-muted transition duration-140 ease-standard group-hover:text-ink">
+            Learn more
+          </span>
+        ) : null}
         <span
           className="text-xl leading-none text-ink-faint transition duration-140 ease-standard group-hover:translate-x-tile-nudge group-hover:text-ink"
           aria-hidden="true"

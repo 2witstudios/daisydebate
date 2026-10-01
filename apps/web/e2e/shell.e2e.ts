@@ -75,11 +75,5 @@ test.describe('dashboard shell chrome', () => {
     await expect(
       page.locator('header').getByRole('link', { name: 'Sign in' }),
     ).toBeVisible();
-    await expect(
-      page.getByRole('link', { name: 'Challenge Maya Singh' }),
-    ).toBeAttached();
-    await expect(
-      page.getByRole('img', { name: 'online' }).first(),
-    ).toBeAttached();
   });
 });

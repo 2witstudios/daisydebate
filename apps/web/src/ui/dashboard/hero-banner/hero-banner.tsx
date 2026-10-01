@@ -33,15 +33,12 @@ export function HeroBanner({
         </>
       }
     >
-      <p className="text-xs font-bold tracking-widest text-ink-on-media/80 uppercase">
-        The #1 place to compete in debate online
-      </p>
       <h1 className="font-display text-display-sm leading-display font-semibold tracking-display text-balance text-ink-on-media text-shadow-hero-headline max-tiles:text-3xl">
-        Debate is a sport now.
+        Better arguments. A more thoughtful world.
       </h1>
       <p className="text-lg text-ink-on-media/85 text-shadow-hero-sub">
-        Live 1v1 rounds. Instant verdicts. Ratings on the line. A crowd
-        watching.
+        Daisy Debate is opening in stages. Explore what is coming, and be the
+        first to know when each part opens.
       </p>
     </HeroJoin>
   );

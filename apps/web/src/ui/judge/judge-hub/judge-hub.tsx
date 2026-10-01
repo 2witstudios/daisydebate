@@ -1,7 +1,7 @@
 import type { JudgeRating } from '../../../features/judge/rating';
 import type { JudgeResource } from '../../../features/judge/resources';
 import { hubResources } from '../../../features/judge/resources';
-import { PageHeader } from '../page-header/page-header';
+import { PageHeader } from '../../components/page-header/page-header';
 import { RatingCard } from '../rating-card/rating-card';
 import { ResourceList } from '../resource-list/resource-list';
 import { StartJudging } from '../start-judging/start-judging';

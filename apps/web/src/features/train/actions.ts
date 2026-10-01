@@ -28,3 +28,10 @@ export const changeGoal: InertAction = {
   kind: 'inert',
   reason: 'Weekly goals can be changed once your training is saved.',
 };
+
+/**
+ * Said beside every "saved" state: the screen shows what saving will be like
+ * (the mock flow's next step) but nothing is stored until an account keeps
+ * training history, and the interface does not claim otherwise.
+ */
+export const previewSaveNote = 'Preview: saving is not connected yet.';

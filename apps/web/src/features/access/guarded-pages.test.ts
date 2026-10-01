@@ -26,9 +26,9 @@ mock.module(join(import.meta.dir, '../../lib/access.ts'), () => ({
     return { state: 'anonymous' };
   },
 }));
-// Public pages that only read who is asking (the watch pages, and the
-// leaderboard, which pins the viewer's line) get an anonymous visitor
-// instead of the request's cookies.
+// Public pages that only read who is asking (the watch pages, the
+// leaderboard, which pins the viewer's line, and the Tournaments index) get
+// an anonymous visitor instead of the request's cookies.
 mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestIdentity: async () => ({ state: 'anonymous' }),
 }));
@@ -66,7 +66,31 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
     '(shell)/recordings/[debateId]/page.tsx': () =>
       import('../../app/(shell)/recordings/[debateId]/page'),
     '(shell)/prep/page.tsx': () => import('../../app/(shell)/prep/page'),
+    '(shell)/prep/cards/new/page.tsx': () =>
+      import('../../app/(shell)/prep/cards/new/page'),
+    '(shell)/prep/cards/[id]/page.tsx': () =>
+      import('../../app/(shell)/prep/cards/[id]/page'),
+    '(shell)/prep/cards/[id]/delete/page.tsx': () =>
+      import('../../app/(shell)/prep/cards/[id]/delete/page'),
+    '(shell)/prep/briefs/[id]/page.tsx': () =>
+      import('../../app/(shell)/prep/briefs/[id]/page'),
+    '(shell)/prep/briefs/new/page.tsx': () =>
+      import('../../app/(shell)/prep/briefs/new/page'),
+    '(shell)/prep/cases/[id]/page.tsx': () =>
+      import('../../app/(shell)/prep/cases/[id]/page'),
+    '(shell)/prep/briefs/[id]/review/page.tsx': () =>
+      import('../../app/(shell)/prep/briefs/[id]/review/page'),
+    '(shell)/prep/teams/[id]/page.tsx': () =>
+      import('../../app/(shell)/prep/teams/[id]/page'),
+    '(shell)/prep/privacy/page.tsx': () =>
+      import('../../app/(shell)/prep/privacy/page'),
+    '(shell)/prep/in-debate/page.tsx': () =>
+      import('../../app/(shell)/prep/in-debate/page'),
+    '(shell)/prep/start/page.tsx': () =>
+      import('../../app/(shell)/prep/start/page'),
     '(shell)/train/page.tsx': () => import('../../app/(shell)/train/page'),
+    '(shell)/train/drill/page.tsx': () =>
+      import('../../app/(shell)/train/drill/page'),
     '(shell)/train/welcome/page.tsx': () =>
       import('../../app/(shell)/train/welcome/page'),
     '(shell)/train/practice/page.tsx': () =>
@@ -91,6 +115,22 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
       import('../../app/(shell)/leaderboard/page'),
     '(shell)/tournaments/page.tsx': () =>
       import('../../app/(shell)/tournaments/page'),
+    '(shell)/tournaments/enter/[id]/page.tsx': () =>
+      import('../../app/(shell)/tournaments/enter/[id]/page'),
+    '(shell)/tournaments/enter/[id]/withdraw/page.tsx': () =>
+      import('../../app/(shell)/tournaments/enter/[id]/withdraw/page'),
+    '(shell)/tournaments/mine/[id]/page.tsx': () =>
+      import('../../app/(shell)/tournaments/mine/[id]/page'),
+    '(shell)/tournaments/mine/[id]/room/[round]/page.tsx': () =>
+      import('../../app/(shell)/tournaments/mine/[id]/room/[round]/page'),
+    '(bare)/tournaments/mine/[id]/certificate/page.tsx': () =>
+      import('../../app/(bare)/tournaments/mine/[id]/certificate/page'),
+    '(shell)/tournaments/organize/page.tsx': () =>
+      import('../../app/(shell)/tournaments/organize/page'),
+    '(shell)/tournaments/organize/new/page.tsx': () =>
+      import('../../app/(shell)/tournaments/organize/new/page'),
+    '(shell)/tournaments/organize/[id]/page.tsx': () =>
+      import('../../app/(shell)/tournaments/organize/[id]/page'),
   };
 
 /** What a page asked the guard when rendered with its own search params. */
@@ -100,10 +140,20 @@ const guardRequestsOf = async (file: string) => {
   const page = (await load()).default as Page;
   const searchParams = Promise.resolve({ from: 'test' });
   guardCalls.length = 0;
-  await page({
-    params: Promise.resolve({ username: 'someone', id: 'x', debateId: 'x' }),
-    searchParams,
-  });
+  try {
+    await page({
+      params: Promise.resolve({ username: 'someone', id: 'x', debateId: 'x' }),
+      searchParams,
+    });
+  } catch (error) {
+    // A page may answer 404 for the placeholder id; the guard ran first.
+    if (
+      !String((error as { digest?: unknown }).digest).startsWith(
+        'NEXT_HTTP_ERROR_FALLBACK',
+      )
+    )
+      throw error;
+  }
   return guardCalls.map((call) => ({
     root: guardedAreaFor(call.path),
     ownSearchParams: call.searchParams === searchParams,
@@ -142,6 +192,9 @@ describe('guarded pages', () => {
         '/ranked',
         '/recordings',
         '/settings',
+        '/tournaments/enter',
+        '/tournaments/mine',
+        '/tournaments/organize',
         '/train',
       ],
     });

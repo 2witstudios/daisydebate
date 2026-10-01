@@ -9,7 +9,7 @@ import { Badge } from '../../components/badge/badge';
 import { Panel } from '../../components/panel/panel';
 import { BackLink } from '../back-link/back-link';
 import { Notice } from '../notice/notice';
-import { PageHeader } from '../page-header/page-header';
+import { PageHeader } from '../../components/page-header/page-header';
 import { ProgressBar } from '../progress-bar/progress-bar';
 import { RatingChart } from './rating-chart';
 import { RecentBallots } from './recent-ballots';
