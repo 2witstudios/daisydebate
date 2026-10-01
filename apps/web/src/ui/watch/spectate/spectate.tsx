@@ -16,7 +16,8 @@ import { Matchup } from './matchup';
 import { PhaseTimeline } from './phase-timeline';
 import { ReportDialog } from './report-dialog';
 import { SpeechList } from './speech-list';
-import { paneClass, paneTabClass } from './spectate-class';
+import { PaneTabs } from '../pane-tabs/pane-tabs';
+import { paneClass } from './spectate-class';
 
 export type SpectateProps = {
   readonly view: SpectateView;
@@ -147,25 +148,17 @@ export function Spectate({ view }: SpectateProps) {
         <div className="flex min-w-0 flex-1 flex-col gap-4 max-compact:w-full">
           <Matchup view={view} />
           <PhaseTimeline timeline={view.timeline} />
-          <nav
-            aria-label="Pane"
-            className="hidden border-b border-border max-compact:flex"
-          >
-            {panes.map((pane) => (
-              <Link
-                key={pane.id}
-                href={spectateHref(view.id, {
-                  ...view.query,
-                  pane: pane.id,
-                  report: null,
-                })}
-                aria-current={active === pane.id ? 'page' : undefined}
-                className={paneTabClass(active === pane.id)}
-              >
-                {pane.label}
-              </Link>
-            ))}
-          </nav>
+          <PaneTabs
+            panes={panes.map((pane) => ({
+              ...pane,
+              href: spectateHref(view.id, {
+                ...view.query,
+                pane: pane.id,
+                report: null,
+              }),
+              active: active === pane.id,
+            }))}
+          />
           <div
             className={cn('flex flex-col gap-4', paneClass('speeches', active))}
           >

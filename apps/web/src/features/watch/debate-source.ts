@@ -2,6 +2,7 @@ import {
   sampleChat,
   sampleChatRules,
   sampleDelaySeconds,
+  sampleDensity,
   sampleFollowing,
   sampleHistory,
   samplePhases,
@@ -57,6 +58,10 @@ export const debateContext = (
   season: sampleSeason,
   delaySeconds: sampleDelaySeconds,
 });
+
+/** The reaction density drawn under a replay's timeline. */
+export const replayDensity = (_debate: WatchDebate): readonly number[] =>
+  sampleDensity;
 
 /** Seconds spectators watch behind the debate. */
 export const spectatorDelaySeconds = sampleDelaySeconds;

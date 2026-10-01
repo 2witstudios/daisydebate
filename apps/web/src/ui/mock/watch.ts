@@ -46,6 +46,12 @@ export const sampleTurns: readonly SampleTurn[] = sampleTurnTexts.map(
   }),
 );
 
+/** Sample anonymous reaction density across a replay: 60 slots, 0 to 5. */
+export const sampleDensity: readonly number[] = Array.from(
+  { length: 60 },
+  (_, index) => (index * 7 + 3) % 6,
+);
+
 export const sampleResolution = 'Resolved: [resolution].';
 export const sampleSeason = '[N]';
 /** The delay spectators watch behind the debate, in seconds (a sample). */

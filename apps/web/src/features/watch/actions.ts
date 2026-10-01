@@ -5,7 +5,13 @@
  * these entries and nowhere else.
  */
 export type InertAction =
-  'follow' | 'react' | 'chat' | 'report' | 'notify' | 'clearHistory';
+  | 'follow'
+  | 'react'
+  | 'chat'
+  | 'report'
+  | 'notify'
+  | 'clearHistory'
+  | 'saveVisibility';
 
 const reasons: Readonly<Record<InertAction, string>> = {
   follow: 'Following is not available in this preview.',
@@ -14,6 +20,7 @@ const reasons: Readonly<Record<InertAction, string>> = {
   report: 'Sending reports is not available in this preview.',
   notify: 'Notifications are not available in this preview.',
   clearHistory: 'Clearing history is not available in this preview.',
+  saveVisibility: 'Saving visibility is not available in this preview.',
 };
 
 /** Why the action does nothing yet; shown with the disabled control. */
