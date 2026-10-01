@@ -21,6 +21,10 @@ const guardedTitles: Record<string, string> = {
   '/train': 'Train',
 };
 
+// Pages whose heading is not their metadata title: Recordings is a section of
+// the Watch hub, so its page heading is "Watch".
+const headings: Record<string, string> = { '/recordings': 'Watch' };
+
 const expectShell = async (page: Page, route: string, title: string) => {
   await page.goto(route);
   await expect(page).toHaveURL(new RegExp(`${route}$`));
@@ -30,7 +34,7 @@ const expectShell = async (page: Page, route: string, title: string) => {
       : new RegExp(`^${title} · Daisy Debate$`),
   );
   await expect(page.locator('main h1')).toHaveText(
-    route === '/' ? 'Debate is a sport now.' : title,
+    route === '/' ? 'Debate is a sport now.' : (headings[route] ?? title),
   );
 };
 
