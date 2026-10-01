@@ -15,7 +15,7 @@ import { DisabledAction } from '../inert-action/inert-action';
 import { LinkButton } from '../link-button/link-button';
 import { PageFrame, PageTitle } from '../page-frame/page-frame';
 import { StatusBadge } from '../status-badge/status-badge';
-import { TabLinks } from '../tab-links/tab-links';
+import { TabLinks } from '../../components/tab-links/tab-links';
 import { BracketTree, RoundList } from './elimination';
 import { ResultsGrid, RobinRounds, StandingsTable } from './robin';
 

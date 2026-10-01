@@ -2,7 +2,12 @@ import { z } from 'zod';
 import type { SearchParams } from '../access/decision';
 import { drillContent } from '../../ui/mock/train-drill';
 import { trainDestinations } from './actions';
-import { parseHubQuery, withDone, withPlanContext, type HubQuery } from './query';
+import {
+  parseHubQuery,
+  withDone,
+  withPlanContext,
+  type HubQuery,
+} from './query';
 import type { PlanItemId } from './plan';
 import type { StructurePart } from './summary';
 

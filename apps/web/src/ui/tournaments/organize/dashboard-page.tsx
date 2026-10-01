@@ -7,7 +7,8 @@ import { Badge } from '../../components/badge/badge';
 import type { BadgeTone } from '../../components/badge/badge-class';
 import { LinkButton } from '../link-button/link-button';
 import { Notice } from '../notice/notice';
-import { PageFrame, PageHeader } from '../page-frame/page-frame';
+import { PageHeader } from '../../components/page-header/page-header';
+import { PageFrame } from '../page-frame/page-frame';
 import { StatusLine } from '../../components/status-line/status-line';
 
 const phaseLabels: Readonly<Record<OrganizePhase, string>> = {

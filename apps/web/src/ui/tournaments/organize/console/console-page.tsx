@@ -3,7 +3,7 @@ import { tournamentRoutes } from '../../../../features/tournaments/routes';
 import { Badge } from '../../../components/badge/badge';
 import { LinkButton } from '../../link-button/link-button';
 import { PageFrame, PageTitle } from '../../page-frame/page-frame';
-import { TabLinks } from '../../tab-links/tab-links';
+import { TabLinks } from '../../../components/tab-links/tab-links';
 import { EntrantsTab, RoundsTab } from './rounds';
 import { ModerationTab, PublishTab, ResultsTab } from './results';
 

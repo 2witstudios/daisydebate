@@ -2,7 +2,12 @@ import { z } from 'zod';
 import type { SearchParams } from '../access/decision';
 import { drillHref } from './plan';
 import { trainDestinations } from './actions';
-import { parseHubQuery, withDone, withPlanContext, type HubQuery } from './query';
+import {
+  parseHubQuery,
+  withDone,
+  withPlanContext,
+  type HubQuery,
+} from './query';
 
 /** A saved argument, as reviewed: the claim is the cue, the rest is recalled. */
 export type ReviewCard = {
@@ -157,7 +162,11 @@ export function reviewView(
     card,
     revealed: query.reveal,
     lastLine: last ? `${last.label}: back in ${last.when}` : null,
-    revealHref: reviewHref(query, { card: query.card, reveal: true, last: query.last }),
+    revealHref: reviewHref(query, {
+      card: query.card,
+      reveal: true,
+      last: query.last,
+    }),
     rate: ratings.map((rating) => ({
       label: rating.label,
       when: rating.when,

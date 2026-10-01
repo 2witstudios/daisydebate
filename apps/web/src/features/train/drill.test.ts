@@ -39,13 +39,21 @@ describe('checkStructure', () => {
     assert({
       given: 'nothing written',
       should: 'mark every part missing and none clear',
-      actual: [check.parts.map((p) => p.status), check.clearCount, check.allClear],
+      actual: [
+        check.parts.map((p) => p.status),
+        check.clearCount,
+        check.allClear,
+      ],
       expected: [['missing', 'missing', 'missing'], 0, false],
     });
   });
 
   test('missing impact says to use a stem', () => {
-    const [, , impactCheck] = checkStructure({ claim, warrant, impact: '' }).parts;
+    const [, , impactCheck] = checkStructure({
+      claim,
+      warrant,
+      impact: '',
+    }).parts;
     assert({
       given: 'no impact',
       should: 'say it is missing and suggest a stem',
@@ -94,8 +102,10 @@ describe('checkStructure', () => {
       given: 'a claim of exactly 15 characters and one of 14',
       should: 'clear the first only',
       actual: [
-        checkStructure({ ...emptyText, claim: 'a'.repeat(15) }).parts[0]?.status,
-        checkStructure({ ...emptyText, claim: 'a'.repeat(14) }).parts[0]?.status,
+        checkStructure({ ...emptyText, claim: 'a'.repeat(15) }).parts[0]
+          ?.status,
+        checkStructure({ ...emptyText, claim: 'a'.repeat(14) }).parts[0]
+          ?.status,
       ],
       expected: ['clear', 'needs-work'],
     });
@@ -105,7 +115,8 @@ describe('checkStructure', () => {
     assert({
       given: 'a claim of spaces',
       should: 'be missing',
-      actual: checkStructure({ ...emptyText, claim: '      ' }).parts[0]?.status,
+      actual: checkStructure({ ...emptyText, claim: '      ' }).parts[0]
+        ?.status,
       expected: 'missing',
     });
   });
@@ -134,7 +145,9 @@ const input = (over: Partial<DrillInput>): DrillInput => ({
 
 describe('stepDrill', () => {
   test('check moves to checked with the result', () => {
-    const state = stepDrill(input({ intent: 'check', text: { claim, warrant, impact: '' } }));
+    const state = stepDrill(
+      input({ intent: 'check', text: { claim, warrant, impact: '' } }),
+    );
     assert({
       given: 'a check with the impact missing',
       should: 'be checked with two parts clear, text kept',
@@ -169,7 +182,9 @@ describe('stepDrill', () => {
       should: 'save only the first; the second stays checked',
       actual: [
         stepDrill(input({ intent: 'save' })).phase,
-        stepDrill(input({ intent: 'save', text: { claim, warrant, impact: '' } })).phase,
+        stepDrill(
+          input({ intent: 'save', text: { claim, warrant, impact: '' } }),
+        ).phase,
       ],
       expected: ['saved', 'checked'],
     });
@@ -213,18 +228,31 @@ describe('parseDrillForm', () => {
       actual: parseDrillForm(
         form({ intent: 'check', mode: 'speak', claim, warrant, impact }),
       ),
-      expected: { intent: 'check', mode: 'speak', text: { claim, warrant, impact } },
+      expected: {
+        intent: 'check',
+        mode: 'speak',
+        text: { claim, warrant, impact },
+      },
     });
   });
 
   test('untrusted input falls back and is capped', () => {
     const parsed = parseDrillForm(
-      form({ intent: 'delete-everything', mode: 'both', claim: 'x'.repeat(5000) }),
+      form({
+        intent: 'delete-everything',
+        mode: 'both',
+        claim: 'x'.repeat(5000),
+      }),
     );
     assert({
       given: 'an unknown intent and mode and a 5000 character claim',
       should: 'drop the intent, default the mode and cap the text at 600',
-      actual: [parsed.intent, parsed.mode, parsed.text.claim.length, parsed.text.warrant],
+      actual: [
+        parsed.intent,
+        parsed.mode,
+        parsed.text.claim.length,
+        parsed.text.warrant,
+      ],
       expected: [null, 'write', 600, ''],
     });
   });

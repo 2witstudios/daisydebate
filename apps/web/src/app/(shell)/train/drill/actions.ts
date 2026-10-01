@@ -19,5 +19,7 @@ export async function drillAction(
   form: unknown,
 ): Promise<DrillState> {
   await requireAccess('/train/drill', Promise.resolve({}));
-  return stepDrill(parseDrillForm(form instanceof FormData ? form : new FormData()));
+  return stepDrill(
+    parseDrillForm(form instanceof FormData ? form : new FormData()),
+  );
 }

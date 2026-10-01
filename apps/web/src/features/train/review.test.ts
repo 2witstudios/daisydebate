@@ -80,7 +80,8 @@ describe('reviewView', () => {
     const v = view({ card: '2', reveal: '1', last: 'hard' });
     assert({
       given: 'card 2 revealed after a Hard on card 1',
-      should: 'offer each rating as a link to card 3 with its choice, and say the last',
+      should:
+        'offer each rating as a link to card 3 with its choice, and say the last',
       actual:
         v.kind === 'card'
           ? [
@@ -115,7 +116,13 @@ describe('reviewView', () => {
       should: 'be caught up, with tomorrow and a hub that counts review done',
       actual:
         v.kind === 'done'
-          ? [v.reviewed, v.nextLine, v.backHref, v.queue.every((q) => q.state === 'done'), v.left]
+          ? [
+              v.reviewed,
+              v.nextLine,
+              v.backHref,
+              v.queue.every((q) => q.state === 'done'),
+              v.left,
+            ]
           : null,
       expected: [
         6,
@@ -138,7 +145,10 @@ describe('reviewView', () => {
   });
 
   test('an empty library', () => {
-    const v = reviewView([], parseReviewQuery({}), { total: 0, dueTomorrow: 0 });
+    const v = reviewView([], parseReviewQuery({}), {
+      total: 0,
+      dueTomorrow: 0,
+    });
     assert({
       given: 'no saved arguments at all',
       should: 'be the empty state with the way to a drill',
@@ -165,10 +175,7 @@ describe('reviewView', () => {
     assert({
       given: 'a ten minute plan',
       should: 'keep it in the rating links and the edit link',
-      actual:
-        v.kind === 'card'
-          ? [v.rate[2]?.href, v.editHref]
-          : null,
+      actual: v.kind === 'card' ? [v.rate[2]?.href, v.editHref] : null,
       expected: [
         '/train/review?card=3&last=good&mins=10&did=review',
         '/train/drill?kind=impact&mins=10&did=review',

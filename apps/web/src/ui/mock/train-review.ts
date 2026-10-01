@@ -6,16 +6,14 @@ export const sampleReviewCards: readonly ReviewCard[] = [
     id: 'transit-access',
     motion: 'Cities should fund public transit before roads.',
     claim: 'Access comes before any one budget line.',
-    warrant:
-      'Clinics, schools and jobs only serve people who can reach them.',
+    warrant: 'Clinics, schools and jobs only serve people who can reach them.',
     impact: 'Households with no car lose the most when they cannot.',
   },
   {
     id: 'phones-attention',
     motion: 'Schools should ban phones in class.',
     claim: 'A phone in the room takes attention from everyone.',
-    warrant:
-      'Notifications interrupt work even when a student does not look.',
+    warrant: 'Notifications interrupt work even when a student does not look.',
     impact:
       'Lost attention adds up to lost learning, most for students who are already behind.',
   },

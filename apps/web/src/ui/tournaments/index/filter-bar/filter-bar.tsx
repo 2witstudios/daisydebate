@@ -22,7 +22,7 @@ import {
   panelClass,
   summaryClass,
 } from '../../../lobby/filter-bar/filter-bar-class';
-import { TabLinks } from '../../tab-links/tab-links';
+import { TabLinks } from '../../../components/tab-links/tab-links';
 
 export type FilterBarProps = {
   readonly query: TournamentsQuery;

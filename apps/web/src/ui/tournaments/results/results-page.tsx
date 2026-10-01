@@ -16,7 +16,7 @@ import { Icon } from '../../components/icon/icon';
 import { LinkButton } from '../link-button/link-button';
 import { Notice } from '../notice/notice';
 import { PageFrame, PageTitle } from '../page-frame/page-frame';
-import { TabLinks } from '../tab-links/tab-links';
+import { TabLinks } from '../../components/tab-links/tab-links';
 import { Honours, Mine, Rounds, Standings } from './results-tabs';
 
 const tabLabels: Readonly<Record<ResultsTab, string>> = {

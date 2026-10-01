@@ -45,6 +45,12 @@ const statusWords: Readonly<Record<PartCheck['status'], string>> = {
   missing: 'Missing',
 };
 
+const statusIcon: Readonly<Record<PartCheck['status'], string>> = {
+  clear: 'check',
+  'needs-work': 'alert',
+  missing: 'alert',
+};
+
 const pillClass = (status: PartCheck['status']): string =>
   cn(
     'rounded-round px-3 py-1 text-xs font-bold',
@@ -92,7 +98,7 @@ function CheckedPart({
         ) : null}
       </div>
       <p className="flex items-start gap-2 text-sm text-ink-muted">
-        <Icon name={check.status === 'clear' ? 'check' : 'alert'} size={16} />
+        <Icon name={statusIcon[check.status]} size={16} />
         {check.message}
       </p>
     </>
@@ -111,7 +117,10 @@ function Field({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
-        <label htmlFor={`drill-${part}`} className="text-base font-strong text-ink">
+        <label
+          htmlFor={`drill-${part}`}
+          className="text-base font-strong text-ink"
+        >
           {labels[part]}
         </label>
         {checked ? (
@@ -189,13 +198,19 @@ function Saved({
       <div className="flex flex-wrap gap-3">
         <Link
           href={screen.afterSave.href}
-          className={cn(buttonClass('secondary'), 'no-underline hover:no-underline')}
+          className={cn(
+            buttonClass('secondary'),
+            'no-underline hover:no-underline',
+          )}
         >
           {screen.afterSave.label}
         </Link>
         <Link
           href={screen.reviewHref}
-          className={cn(buttonClass('primary'), 'no-underline hover:no-underline')}
+          className={cn(
+            buttonClass('primary'),
+            'no-underline hover:no-underline',
+          )}
         >
           Open review queue
         </Link>

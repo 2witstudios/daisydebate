@@ -5,7 +5,10 @@ import {
   initialDrill,
   type DrillState,
 } from '../../../features/train/drill';
-import { drillScreen, parseDrillQuery } from '../../../features/train/drill-view';
+import {
+  drillScreen,
+  parseDrillQuery,
+} from '../../../features/train/drill-view';
 import { renderDrillForm } from './drill-form.render';
 
 setupRitewayBun();
@@ -39,7 +42,9 @@ describe('renderDrillForm', () => {
       should: 'show the prompt, three named fields and Check structure',
       actual: [
         out.includes('Motion: Cities should fund public transit before roads.'),
-        ['claim', 'warrant', 'impact'].every((n) => out.includes(`name="${n}"`)),
+        ['claim', 'warrant', 'impact'].every((n) =>
+          out.includes(`name="${n}"`),
+        ),
         out.includes('Check structure'),
         out.includes('Use a stem for impact'),
         out.includes('Suggested: 2 min'),
@@ -57,7 +62,9 @@ describe('renderDrillForm', () => {
       should: 'carry intents on submit buttons, including both modes',
       actual: [
         out.includes('<form'),
-        /<button[^>]*name="intent"[^>]*value="check"|<button[^>]*value="check"[^>]*name="intent"/.test(out),
+        /<button[^>]*name="intent"[^>]*value="check"|<button[^>]*value="check"[^>]*name="intent"/.test(
+          out,
+        ),
         out.includes('value="mode-speak"'),
         out.includes('value="mode-write"'),
         out.includes('aria-pressed="true"'),
@@ -70,7 +77,8 @@ describe('renderDrillForm', () => {
     const out = html({ ...initialDrill, mode: 'speak' });
     assert({
       given: 'the speak mode',
-      should: 'say plainly that speaking is not connected, and fake no recording',
+      should:
+        'say plainly that speaking is not connected, and fake no recording',
       actual: [
         out.includes('Speaking is not connected yet.'),
         out.includes('Recording'),
@@ -83,7 +91,8 @@ describe('renderDrillForm', () => {
     const out = html(checked({ claim, warrant: vague, impact: '' }));
     assert({
       given: 'a vague warrant and no impact, checked',
-      should: 'count one clear, mark the phrase, show statuses and offer Revise',
+      should:
+        'count one clear, mark the phrase, show statuses and offer Revise',
       actual: [
         out.includes('1 of 3 parts clear'),
         out.includes('<mark'),

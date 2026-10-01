@@ -6,7 +6,8 @@ import {
 import { tournamentRoutes } from '../../../features/tournaments/routes';
 import { Breadcrumb } from '../breadcrumb/breadcrumb';
 import { FactList } from '../fact-list/fact-list';
-import { PageFrame, PageHeader } from '../page-frame/page-frame';
+import { PageHeader } from '../../components/page-header/page-header';
+import { PageFrame } from '../page-frame/page-frame';
 import { RefusalCard } from './refusal';
 import { Stepper } from './stepper';
 import { DoneStep, EligibilityStep, EntryStep, ReviewStep } from './steps';

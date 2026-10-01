@@ -1,9 +1,7 @@
 import { tournamentRoutes } from '../../../../features/tournaments/routes';
 import { LinkButton } from '../../../../ui/tournaments/link-button/link-button';
-import {
-  PageFrame,
-  PageHeader,
-} from '../../../../ui/tournaments/page-frame/page-frame';
+import { PageHeader } from '../../../../ui/components/page-header/page-header';
+import { PageFrame } from '../../../../ui/tournaments/page-frame/page-frame';
 
 export default function TournamentNotFound() {
   return (

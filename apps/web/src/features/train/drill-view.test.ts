@@ -30,7 +30,8 @@ describe('parseDrillQuery', () => {
 
   test('the round is held to the plan', () => {
     assert({
-      given: 'round 2 and round 9 in a ten minute plan (one round) and a long one',
+      given:
+        'round 2 and round 9 in a ten minute plan (one round) and a long one',
       should: 'clamp to the rounds the plan allows',
       actual: [
         parseDrillQuery({ round: '2', mins: '10' }).round,
@@ -76,7 +77,12 @@ describe('drillScreen', () => {
     assert({
       given: 'the last responding round with review done',
       should: 'go back to a hub with the responding drill done too',
-      actual: [screen.title, screen.progress, screen.afterSave, screen.reviewHref],
+      actual: [
+        screen.title,
+        screen.progress,
+        screen.afterSave,
+        screen.reviewHref,
+      ],
       expected: [
         'Responding drill',
         50,
@@ -96,7 +102,12 @@ describe('drillScreen', () => {
       actual: (['claim', 'warrant', 'responding', 'impact'] as const).map(
         (kind) => drillScreen(parseDrillQuery({ kind })).title,
       ),
-      expected: ['Claim drill', 'Warrant drill', 'Responding drill', 'Impact drill'],
+      expected: [
+        'Claim drill',
+        'Warrant drill',
+        'Responding drill',
+        'Impact drill',
+      ],
     });
   });
 });

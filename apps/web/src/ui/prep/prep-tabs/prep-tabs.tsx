@@ -1,5 +1,4 @@
-import Link from 'next/link';
-import { prepTabClass } from './prep-tabs-class';
+import { TabLinks } from '../../components/tab-links/tab-links';
 
 type PrepTab = {
   readonly id: string;
@@ -15,26 +14,13 @@ export type PrepTabsProps = {
   readonly current: string;
 };
 
-/** Tabs are links, so they work before hydration and keep the URL honest. */
+/** Prep's tab row: the shared link tabs, with the current id selected. */
 export function PrepTabs({ label, tabs, current }: PrepTabsProps) {
   return (
-    <nav aria-label={label} className="overflow-x-auto border-b border-border">
-      <ul className="flex gap-1">
-        {tabs.map((tab) => (
-          <li key={tab.id}>
-            <Link
-              href={tab.href}
-              className={prepTabClass(tab.id === current)}
-              aria-current={tab.id === current ? 'page' : undefined}
-            >
-              {tab.label}
-              {tab.count === undefined ? null : (
-                <span className="font-book text-ink-faint">{tab.count}</span>
-              )}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </nav>
+    <TabLinks
+      label={label}
+      tabs={tabs.map((tab) => ({ ...tab, selected: tab.id === current }))}
+      className="border-b border-border"
+    />
   );
 }

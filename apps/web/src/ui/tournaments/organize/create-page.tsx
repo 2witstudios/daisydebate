@@ -11,7 +11,8 @@ import { LinkButton } from '../link-button/link-button';
 import { Notice } from '../notice/notice';
 import { hint } from './create-fields';
 import { StepBody } from './create-steps-rules';
-import { PageFrame, PageHeader } from '../page-frame/page-frame';
+import { PageHeader } from '../../components/page-header/page-header';
+import { PageFrame } from '../page-frame/page-frame';
 import { cn } from '../../cn';
 import Link from 'next/link';
 

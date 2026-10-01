@@ -15,7 +15,7 @@ import { statusOf } from '../../../features/tournaments/tournament';
 import { Badge } from '../../components/badge/badge';
 import { PageFrame, PageTitle } from '../page-frame/page-frame';
 import { StatusBadge } from '../status-badge/status-badge';
-import { TabLinks } from '../tab-links/tab-links';
+import { TabLinks } from '../../components/tab-links/tab-links';
 import { RegistrationPanel } from './registration-panel';
 import { BracketTab, Entrants, Overview, RulesTab } from './sections';
 

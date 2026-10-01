@@ -5,7 +5,7 @@ import { buttonClass } from '../../components/button/button-class';
 import { Icon } from '../../components/icon/icon';
 import { BackLink } from '../back-link/back-link';
 import { Notice } from '../notice/notice';
-import { PageHeader } from '../page-header/page-header';
+import { PageHeader } from '../../components/page-header/page-header';
 import { resourceIcon } from '../resource-list/resource-icon';
 
 export type ResourcesPageProps = {

@@ -1,7 +1,8 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { PageFrame, PageHeader, PageTitle } from './page-frame';
+import { PageHeader } from '../../components/page-header/page-header';
+import { PageFrame, PageTitle } from './page-frame';
 
 setupRitewayBun();
 

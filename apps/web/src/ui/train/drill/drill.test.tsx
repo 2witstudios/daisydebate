@@ -1,7 +1,10 @@
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { initialDrill } from '../../../features/train/drill';
-import { drillScreen, parseDrillQuery } from '../../../features/train/drill-view';
+import {
+  drillScreen,
+  parseDrillQuery,
+} from '../../../features/train/drill-view';
 import { Drill } from './drill';
 
 setupRitewayBun();

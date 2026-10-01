@@ -8,7 +8,8 @@ import type { TournamentsListing } from '../../../features/tournaments/list-tour
 import { tournamentRoutes } from '../../../features/tournaments/routes';
 import { LinkButton } from '../link-button/link-button';
 import { Notice } from '../notice/notice';
-import { PageFrame, PageHeader } from '../page-frame/page-frame';
+import { PageHeader } from '../../components/page-header/page-header';
+import { PageFrame } from '../page-frame/page-frame';
 import { FeaturedTournament } from './featured/featured-tournament';
 import { FilterBar } from './filter-bar/filter-bar';
 import { NoMatches, NothingOpen } from './list-states/list-states';

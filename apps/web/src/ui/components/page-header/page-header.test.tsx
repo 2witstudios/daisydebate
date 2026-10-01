@@ -6,17 +6,17 @@ import { PageHeader } from './page-header';
 setupRitewayBun();
 
 describe('PageHeader', () => {
-  test('title, lede and aside', () => {
+  test('title, lede and actions', () => {
     const html = renderToString(
       h(PageHeader, {
         title: 'Judge',
         lede: 'Click to judge.',
-        aside: h('b', null, 'Offer'),
+        actions: h('b', null, 'Offer'),
       }),
     );
     assert({
-      given: 'a title, a lede and an aside',
-      should: 'render one h1, the lede and the aside',
+      given: 'a title, a lede and actions',
+      should: 'render one h1, the lede and the actions',
       actual: [
         html.match(/<h1 /g)?.length,
         html.includes('Click to judge.'),

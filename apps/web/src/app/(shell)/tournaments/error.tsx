@@ -1,9 +1,7 @@
 'use client';
 
-import {
-  PageFrame,
-  PageHeader,
-} from '../../../ui/tournaments/page-frame/page-frame';
+import { PageHeader } from '../../../ui/components/page-header/page-header';
+import { PageFrame } from '../../../ui/tournaments/page-frame/page-frame';
 import { LoadFailed } from '../../../ui/tournaments/index/list-states/list-states';
 
 /** The Tournaments segment could not render; retry re-runs it. */
