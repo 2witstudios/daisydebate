@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * `bun board:stale [--apply]` (ADR 0035): lists tasks whose status disagrees
+ * `bun board:stale [--apply]`: lists tasks whose status disagrees
  * with git — merged but not yet In Review, or Done without a review record —
  * and with --apply moves each to its correct pre-Done status (Merged, or In
  * Review when unmerged). It never marks anything Done and never files review

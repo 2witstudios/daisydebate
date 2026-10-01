@@ -11,7 +11,7 @@ description: >
 
 You are operating inside PurePoint, an agent-first coding workspace. PurePoint spawns AI coding agents in isolated git worktrees so multiple agents can work in parallel without conflicts.
 
-This file is committed in the Daisy repository (ADR 0035) so that `pu` never replaces it with its generic default. `AGENTS.md` is the operating map and wins over anything here.
+This file is committed in the Daisy repository so that `pu` never replaces it with its generic default. `AGENTS.md` is the operating map and wins over anything here.
 
 ## Your Role
 
@@ -26,11 +26,10 @@ Check `pu status --json` to see where you fit in the current workspace.
 
 Agents started by `pu` run autonomously (`DAISY_AUTONOMOUS=1`) under the
 agent machine identity, never the owner's GitHub token or SSH key. The
-guard rails — what the guard refuses, when a merge may be requested with
-`gh pr merge --auto --merge` versus reported as "ready for owner merge",
-and how to pause a loop with `bun loop:escalate` — are decided once in
-[ADR 0035](../docs/decisions/0035-autonomy-guardrails.md) and not restated
-here.
+guard rails: a merge may be requested with `gh pr merge --auto --merge`
+only once the live `main` ruleset requires `review-record`, otherwise
+report "ready for owner merge" to your parent and wait. See
+[pu workflow](../docs/development/pu-workflow.md).
 
 ## Long-Horizon Expectations
 
@@ -63,5 +62,5 @@ Use `/pu` for the full CLI reference. Key commands:
 - `pu status` — see all agents and worktrees
 - `pu logs <agent_id>` — read agent output
 - `pu send <agent_id> "message"` — send input to an agent
-- `bun agent:spawn -- <pu spawn arguments>` — spawn a child agent, record you as its parent, and confirm its prompt was submitted
+- `pu spawn -n <name> "<prompt>"` — spawn a child agent in its own worktree
 - `pu kill --agent <agent_id>` — stop an agent

@@ -11,13 +11,10 @@
 #   - commit equals HEAD (tags are peeled): verified once by the check;
 #   - commit already on a remote-tracking branch: nothing new, allowed;
 #   - anything else: refused, because this hook cannot verify it.
-# Before any of that, the agent guard (scripts/agent-guard.ts, ADR 0035)
-# refuses an autonomous push to main and asks the owner before one.
 set -eu
 
 refs=$(cat)
 cd "$(git rev-parse --show-toplevel)"
-printf '%s\n' "$refs" | bun scripts/agent-guard.ts pre-push
 
 head_commit=$(git rev-parse --verify --quiet 'HEAD^{commit}' || true)
 needs_check=0

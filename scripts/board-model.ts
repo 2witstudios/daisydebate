@@ -236,7 +236,7 @@ export function parseBoardArgs(
   const [command = '', first = '', ...rest] = argv;
   if (autonomous && command === 'status' && rest[0] === DONE)
     return fail(
-      "A registered agent (a builder or reviewer from bun agent:spawn, or any DAISY_AUTONOMOUS session) never marks a task Done: Done is granted from an independent review record, by the owner or the owner's own orchestrator session, which has a PU_AGENT_ID but no registration.",
+      "A registered agent (a builder or reviewer started by pu, or any DAISY_AUTONOMOUS session) never marks a task Done: Done is granted from an independent review record, by the owner or the owner's own orchestrator session, which has a PU_AGENT_ID but no registration.",
     );
   if (command === 'create') return parseCreate(argv.slice(1));
   if (command === 'replace') return parseReplace(argv.slice(1));

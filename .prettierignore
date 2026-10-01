@@ -14,5 +14,4 @@ packages/db/migrations/*/snapshot.json
 # browser, not authored source.
 apps/web/src/features/auth/mail/__fixtures__
 
-# Ralph loop state files (bun loop:escalate) are local, not authored source.
 .claude/ralph-loop.*.md

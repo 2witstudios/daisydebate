@@ -1,7 +1,7 @@
 /**
  * The Daisy Debate drive and the shared low-level I/O for the review-record
  * check: reading a linked record page from PageSpace, and a PR's live head
- * SHA, body and comments through gh (ADR 0035). review-record.ts's pure
+ * SHA, body and comments through gh. review-record.ts's pure
  * verifier and its self-check command (`bun review:check`, ISSUE-122) both
  * read through this module, so there is exactly one copy of each call.
  */

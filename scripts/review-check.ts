@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /**
  * bun review:check <recordPageId> --pr <n> [--sha <sha>] [--dispatch]
- * (ISSUE-122, ADR 0035)
+ * (ISSUE-122)
  *
  * Runs the exact `verifyReviewRecord` decision the review-record GitHub
  * check runs, against a specific record page and the PR's live head SHA and

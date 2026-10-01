@@ -24,7 +24,7 @@ and detailed procedures in the linked documents, not here.
 - Structural change recipes: [extending the repository](docs/development/extending.md).
 - Parallel sessions, branches, and vertical ownership: [parallel work](docs/development/parallel-work.md).
 - Preferred multi-agent orchestration: [pu workflow](docs/development/pu-workflow.md).
-- Merges, the two operating modes and agent guardrails: [ADR 0035](docs/decisions/0035-autonomy-guardrails.md).
+- Merges and the two operating modes: see "Two modes" below and [pu workflow](docs/development/pu-workflow.md).
 - New epics: the repository skill [epic-pipeline](.claude/skills/epic-pipeline/SKILL.md) (plan, automated plan review, owner approval, tasking, orchestration).
 
 ## Dependency rules
@@ -213,24 +213,15 @@ the main checkout's `.env.agent`, never the owner's token or SSH key
 (`bun doctor` checks it). Until the owner creates that file (GRD-6.2),
 agents act as the owner and `bun doctor` warns. An autonomous agent never
 merges. It requests a merge with `gh pr merge --auto --merge` only after
-confirming the live `main` ruleset requires `review-record` (the command is
-in ADR 0035 section 4); GitHub then merges only once every required check
+confirming the live `main` ruleset requires `review-record`; GitHub then merges only once every required check
 passes, including `review-record`, which only an independent review record
 for the exact head SHA can mint. Without that ruleset it reports "ready for
-owner merge" to its parent and waits. A guard in `.githooks/pre-push`
-and the committed Claude Code hook refuses pushes to `main`, direct merges,
-rule changes, unscoped kills and cleanup of the shared stack or another
-slot. In owner sessions it asks before a merge or a push to `main`.
+owner merge" to its parent and waits.
 
-- Spawn agents with `bun agent:spawn` and message them with `bun agent:send`;
-  both confirm the text was submitted. Builders report to their parent (the
-  one `bun agent:spawn` registered) directly; the owner is not the message
-  bus.
-- Code-writing help is a `bun agent:spawn` child in its own worktree, never a
+- Spawn agents with `pu spawn` and message them with `pu send`. Builders
+  report to whoever spawned them directly; the owner is not the message bus.
+- Code-writing help is a `pu` child in its own worktree, never a
   worktree-isolated subagent or fork; subagents and forks do read-only work.
-- A PR loop runs the Library "Converge loop" prompt. A loop that cannot
-  truthfully finish is paused with `bun loop:escalate`; only the parent or the
-  owner ends it (`bun loop:close`) or restarts it (`bun loop:resume`).
 - Take ADR numbers from `bun adr:next`; `bun policy` fails a
   number an earlier open PR holds.
 - A decision made on the owner's behalf is recorded with

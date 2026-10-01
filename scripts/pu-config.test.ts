@@ -62,17 +62,15 @@ describe('committed pu agent context', () => {
     });
   });
 
-  test('states the autonomous merge and loop rules', () => {
+  test('states the autonomous merge rule', () => {
     assert({
       given: 'the context pu injects into every agent',
-      should:
-        'make the auto-merge request conditional on the live ruleset, and name the loop escalation',
+      should: 'make the auto-merge request conditional on the live ruleset',
       actual: [
         context.includes('gh pr merge --auto --merge'),
         context.includes('ready for owner merge'),
-        context.includes('bun loop:escalate'),
       ],
-      expected: [true, true, true],
+      expected: [true, true],
     });
   });
 });

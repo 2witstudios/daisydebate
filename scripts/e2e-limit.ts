@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Machine-wide limit on concurrent browser e2e runs (ADR 0035). Every
+ * Machine-wide limit on concurrent browser e2e runs. Every
  * checkout on the machine shares one slot directory, fixed at
  * /tmp/daisy-e2e-slots so that TMPDIR (per user on macOS, and stripped by
  * turbo) never splits the pool; turbo.json passes E2E_ENV through. A run

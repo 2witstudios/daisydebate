@@ -31,7 +31,7 @@ reference.
    `scripts/workflow-hardening.ts`, over every file in `.github/workflows`.
 5. **The repository Actions policy is an owner setting.** It allows only
    GitHub-authored actions, verified creators and an explicit list. Agents
-   do not change repository settings (ADR 0035).
+   do not change repository settings.
 
 ## Consequences
 

@@ -1,6 +1,6 @@
 name: Review record
 # Sets the review-record commit status on a PR head SHA from its published
-# independent review record (ADR 0035). The main ruleset accepts that status
+# independent review record. The main ruleset accepts that status
 # only from the review-record GitHub App, and the App key lives in the
 # `review-record` environment, which only main may use. Every trigger below
 # runs the workflow as it is on main and never checks out PR code.

@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * The review-record status (ADR 0035). A PR's head SHA gets `review-record`
+ * The review-record status. A PR's head SHA gets `review-record`
  * success only from a published independent review record for that exact
  * SHA: its Candidate line names the SHA, the PR, the builder the PR body
  * declares and a different reviewer, and its verdict approves. Only the

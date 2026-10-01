@@ -1,5 +1,5 @@
 #!/bin/sh
-# pu agent launcher (ADR 0035). .pu/config.yaml runs every agent through this
+# pu agent launcher. .pu/config.yaml runs every agent through this
 # script: it exports the machine identity from .env.agent and then becomes
 # the agent, so gh and git never act as the owner.
 #

@@ -8,7 +8,7 @@ description: >
 
 # Epic pipeline
 
-Repository-owned (ADR 0035). It exists so the owner stops being the message bus: each stage runs on
+Repository-owned. It exists so the owner stops being the message bus: each stage runs on
 from the previous one, and the owner is asked exactly once, at approval. Codex and OpenCode sessions
 follow this file too; AGENTS.md points here.
 
@@ -37,11 +37,11 @@ Stages {
 
 4. Tasking
    Create the epic, phases and leaves with `bun board:create` (criteria as "Given X, should Y"; Related pages: plan, prerequisites on a `Prerequisite:` line).
-   Before creating each leaf, check it for superseded terms (policy/superseded-terms.json); `bun agent:spawn --task` refuses them later anyway.
+   Before creating each leaf, check it for superseded terms (policy/superseded-terms.json).
    Human-only leaves are marked so in their title and never delegated.
 
 5. Orchestration
-   Follow the Library "Orchestrator stage loop": `bun board:stale`, read Issues, commit Ready leaves, write prompts from the Builder and Reviewer contracts, spawn with `bun agent:spawn` (prerequisites, superseded terms, slot, parent, submission), reviews with `/review`, loops with the Library "Converge loop".
+   Follow the Library "Orchestrator stage loop": `bun board:stale`, read Issues, commit Ready leaves, write prompts from the Builder and Reviewer contracts, spawn with `pu spawn`, reviews with `/review`, loops with the Library "Converge loop".
    Stop again only at a human-only leaf or a decision only the owner can make; everything else continues.
    }
 

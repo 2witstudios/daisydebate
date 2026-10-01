@@ -27,7 +27,6 @@ apps/web/scripts/auth-load/reports/
 !.opencode/commands/review.md
 # Agent worktrees only; the rest of .claude/ stays visible to git.
 .claude/worktrees/
-# Ralph loop state (active and escalated); see bun loop:escalate.
 .claude/ralph-loop.*.md
 
 # A proof's temporary hold suite (scripts/proof-postgres-support.ts); removed when the proof ends.
