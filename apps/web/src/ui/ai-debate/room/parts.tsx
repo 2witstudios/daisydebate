@@ -1,3 +1,5 @@
+'use client';
+
 import type { Ballot } from '@daisy/ai-voice';
 import {
   ipdaTurns,
@@ -5,42 +7,25 @@ import {
   type AiDebateSide,
   type AiDebateState,
 } from '@daisy/debate-engine';
+import { useRef, useState } from 'react';
 import { buttonClass } from '../../components/button/button-class';
-import { cn } from '../../cn';
 import { TrainCard } from '../../train/card/train-card';
 import type { RoomView } from './store';
-
-const clock = (ms: number) => {
-  const seconds = Math.max(0, Math.ceil(ms / 1000));
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
-};
 
 export const sideName = (side: string) =>
   side === 'affirmative' ? 'Affirmative' : 'Negative';
 
 export function stageTitle(state: AiDebateState) {
-  if (state.phase === 'waiting') return 'Ready when you are';
-  if (state.phase === 'prep')
-    return `Prep before your ${ipdaTurns[state.turnIndex]?.name ?? 'speech'}`;
-  if (state.phase === 'live')
-    return ipdaTurns[state.turnIndex]?.label ?? 'Live';
-  if (state.phase === 'aborted') return 'Debate ended early';
-  return 'Debate over';
-}
-
-export function Timer({ state }: { readonly state: AiDebateState }) {
-  const style =
-    'font-display text-display-sm font-strong text-ink tabular-nums';
-  if (state.phase === 'live')
-    return <p className={style}>{clock(state.remainingMs)}</p>;
-  if (state.phase === 'prep')
-    return (
-      <p className={style}>
-        {clock(state.prepLeftMs)}{' '}
-        <span className="text-base text-ink-muted">prep left</span>
-      </p>
-    );
-  return null;
+  const turn = 'turnIndex' in state ? ipdaTurns[state.turnIndex] : undefined;
+  const titles: Record<AiDebateState['phase'], string> = {
+    waiting: 'Ready when you are',
+    prep: `Prep before your ${turn?.name ?? 'speech'}`,
+    countdown: `Up next: ${turn?.label ?? 'the next turn'}`,
+    live: turn?.label ?? 'Live',
+    ended: 'Debate over',
+    aborted: 'Debate ended early',
+  };
+  return titles[state.phase];
 }
 
 export type ControlActions = {
@@ -50,6 +35,41 @@ export type ControlActions = {
   readonly onYield: () => void;
   readonly onAbort: () => void;
 };
+
+/**
+ * A button that ends something: the first press arms it, a second within
+ * three seconds confirms, so a stray tap never ends a speech.
+ */
+function EndButton({
+  label,
+  variant,
+  onConfirm,
+}: {
+  readonly label: string;
+  readonly variant: 'primary' | 'secondary' | 'ghost';
+  readonly onConfirm: () => void;
+}) {
+  const [armed, setArmed] = useState(false);
+  const disarm = useRef<ReturnType<typeof setTimeout>>(undefined);
+  return (
+    <button
+      type="button"
+      className={buttonClass(variant)}
+      onClick={() => {
+        clearTimeout(disarm.current);
+        if (armed) {
+          setArmed(false);
+          onConfirm();
+          return;
+        }
+        setArmed(true);
+        disarm.current = setTimeout(() => setArmed(false), 3_000);
+      }}
+    >
+      {armed ? 'Tap again to confirm' : label}
+    </button>
+  );
+}
 
 function LiveControls({
   state,
@@ -75,30 +95,26 @@ function LiveControls({
         </button>
       ) : null}
       {yours ? (
-        <button
-          type="button"
-          className={buttonClass('primary')}
-          onClick={actions.onYield}
-        >
-          End my speech
-        </button>
+        <EndButton
+          key={`speech-${turn.index}`}
+          label="End my speech"
+          variant="primary"
+          onConfirm={actions.onYield}
+        />
       ) : null}
       {turn?.kind === 'cross-examination' ? (
-        <button
-          type="button"
-          className={buttonClass('secondary')}
-          onClick={actions.onYield}
-        >
-          End cross-examination
-        </button>
+        <EndButton
+          key={`cx-${turn.index}`}
+          label="End cross-examination"
+          variant="secondary"
+          onConfirm={actions.onYield}
+        />
       ) : null}
-      <button
-        type="button"
-        className={buttonClass('ghost')}
-        onClick={actions.onAbort}
-      >
-        End debate
-      </button>
+      <EndButton
+        label="End debate"
+        variant="ghost"
+        onConfirm={actions.onAbort}
+      />
     </div>
   );
 }
@@ -147,48 +163,6 @@ export function Controls({
     );
   return (
     <LiveControls state={state} personSide={personSide} actions={actions} />
-  );
-}
-
-export function RoundList({
-  state,
-  personSide,
-}: {
-  readonly state: AiDebateState;
-  readonly personSide: AiDebateSide;
-}) {
-  const at =
-    state.phase === 'live' || state.phase === 'prep' ? state.turnIndex : null;
-  return (
-    <TrainCard title="Round" level={3}>
-      <ol className="flex flex-col gap-2">
-        {ipdaTurns.map((turn) => {
-          const roles = turnRoles(turn, personSide);
-          const who = roles.speaker === 'person' ? 'You' : 'AI';
-          const done =
-            state.phase === 'ended' || (at !== null && turn.index < at);
-          return (
-            <li
-              key={turn.index}
-              className={cn(
-                'flex items-center justify-between rounded-sm px-2 py-1 text-sm',
-                at === turn.index
-                  ? 'bg-accent-soft font-strong text-ink'
-                  : done
-                    ? 'text-ink-muted'
-                    : 'text-ink',
-              )}
-            >
-              <span>
-                {turn.name} ·{' '}
-                {turn.kind === 'cross-examination' ? `${who} asks` : who}
-              </span>
-              <span className="tabular-nums">{clock(turn.durationMs)}</span>
-            </li>
-          );
-        })}
-      </ol>
-    </TrainCard>
   );
 }
 

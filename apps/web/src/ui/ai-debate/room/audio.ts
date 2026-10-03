@@ -39,6 +39,8 @@ export type AudioEngine = {
   level(): number;
   record(): Recording;
   play(mp3: ArrayBuffer): Promise<Playback>;
+  /** A soft bell: a turn has begun. */
+  chime(): void;
   /** Whether an output device reports itself as a headset. */
   usingHeadset(): Promise<boolean>;
   close(): void;
@@ -126,6 +128,18 @@ export async function openAudioEngine(): Promise<AudioEngine> {
           }
         },
       };
+    },
+    chime() {
+      const at = context.currentTime;
+      const tone = context.createOscillator();
+      const gain = context.createGain();
+      tone.frequency.value = 880;
+      gain.gain.setValueAtTime(0.0001, at);
+      gain.gain.exponentialRampToValueAtTime(0.12, at + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.7);
+      tone.connect(gain).connect(context.destination);
+      tone.start(at);
+      tone.stop(at + 0.75);
     },
     async usingHeadset() {
       try {

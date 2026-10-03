@@ -4,114 +4,25 @@ import {
   worthTranscribing,
 } from '@daisy/ai-voice';
 import { aiDebateApi, encodeRecording, type SpeechEvent } from './api';
-import type { AudioEngine, Playback, Recording } from './audio';
-
-export type TurnContext = {
-  readonly id: string;
-  readonly turnIndex: number;
-  readonly engine: AudioEngine;
-  /** Aborted when the turn ends (by time, a yield or leaving the page). */
-  readonly signal: AbortSignal;
-  /** Something was added to the transcript: refresh the view. */
-  readonly onLine: () => void;
-  readonly onStatus: (status: string) => void;
-  readonly onCaption: (text: string) => void;
-  readonly onError: (message: string) => void;
-};
-
-/** Resolves when the signal aborts. */
-const aborted = (signal: AbortSignal) =>
-  new Promise<void>((resolve) => {
-    if (signal.aborted) resolve();
-    else signal.addEventListener('abort', () => resolve(), { once: true });
-  });
-
-const sleep = (ms: number, signal: AbortSignal) =>
-  Promise.race([
-    new Promise<void>((resolve) => setTimeout(resolve, ms)),
-    aborted(signal),
-  ]);
-
-/** Plays an AI line sentence by sentence; resolves to how far it got if cut off. */
-async function playLine({
-  context,
-  utteranceId,
-  sentenceAt,
-  stopWhen,
-  setPlaying,
-}: {
-  readonly context: TurnContext;
-  readonly utteranceId: () => string | null;
-  /** Waits for sentence `index`; resolves to null when the line has no more. */
-  readonly sentenceAt: (index: number) => Promise<string | null>;
-  /** Resolves when playback must stop (the turn ended, or a barge-in). */
-  readonly stopWhen: Promise<void>;
-  readonly setPlaying?: (playback: Playback | null) => void;
-}): Promise<'finished' | 'stopped'> {
-  const audio = new Map<number, Promise<ArrayBuffer>>();
-  const fetchAudio = (index: number) => {
-    const id = utteranceId();
-    if (!id) return Promise.reject(new Error('no line'));
-    let pending = audio.get(index);
-    if (!pending) {
-      pending = aiDebateApi.speak(context.id, id, index);
-      pending.catch(() => undefined);
-      audio.set(index, pending);
-    }
-    return pending;
-  };
-  let stopped = false;
-  void stopWhen.then(() => (stopped = true));
-  for (let index = 0; ; index += 1) {
-    const text = await Promise.race([
-      sentenceAt(index),
-      stopWhen.then(() => null),
-    ]);
-    if (stopped) return 'stopped';
-    if (text === null) return 'finished';
-    const clip = await Promise.race([
-      fetchAudio(index),
-      stopWhen.then(() => null),
-    ]);
-    if (stopped || !clip) return 'stopped';
-    // Fetch the next sentence's voice while this one plays.
-    void sentenceAt(index + 1).then((next) => {
-      if (next !== null && !stopped)
-        void fetchAudio(index + 1).catch(() => undefined);
-    });
-    const playback = await context.engine.play(clip);
-    setPlaying?.(playback);
-    context.onCaption(text);
-    await Promise.race([playback.finished, stopWhen]);
-    setPlaying?.(null);
-    if (stopped) {
-      playback.stop();
-      const id = utteranceId();
-      if (id)
-        void aiDebateApi
-          .heard({
-            id: context.id,
-            utteranceId: id,
-            sentenceIndex: index,
-            playedMs: Math.round(playback.playedMs()),
-            totalMs: Math.round(playback.durationMs),
-          })
-          .catch(() => undefined);
-      return 'stopped';
-    }
-  }
-}
+import type { Playback, Recording } from './audio';
+import {
+  aborted,
+  playLine,
+  sleep,
+  untilLive,
+  type TurnContext,
+} from './play-line';
 
 /**
- * The AI's speech: written by the model as it streams, voiced a sentence at
- * a time. When the AI finishes before the clock, `onFinishedEarly` yields
- * the turn; when the clock runs out first, the voice stops mid-sentence.
+ * The AI's speech: written by the model as it streams (from the countdown,
+ * so it is ready to speak when the turn begins), voiced a sentence at a
+ * time. When the AI finishes before the clock, `onFinishedEarly` yields the
+ * turn; when the clock runs out first, the voice stops mid-sentence.
  */
 export async function runAiSpeech(
   context: TurnContext,
   onFinishedEarly: () => void,
 ) {
-  context.onStatus('Your opponent is preparing to speak…');
   let utteranceId: string | null = null;
   const sentences: string[] = [];
   let done = false;
@@ -147,6 +58,9 @@ export async function runAiSpeech(
       done = true;
       wake();
     });
+  if (!(await untilLive(context))) return;
+  if (sentences.length === 0)
+    context.onStatus('Your opponent is gathering their thoughts…');
   const first = await Promise.race([
     sentenceAt(0),
     aborted(context.signal).then(() => null),
@@ -175,6 +89,7 @@ export async function runPersonSpeech(
   context: TurnContext,
   segmentMs = 30_000,
 ) {
+  if (!(await untilLive(context))) return;
   context.onStatus('You have the floor. Your speech is being recorded.');
   let uploads = Promise.resolve();
   const upload = (recording: Recording) => {
@@ -252,21 +167,13 @@ export async function runCrossExamination(
     if (!context.signal.aborted && !live.recording) listening();
   };
 
-  const send = async (clip: Recording | null) => {
+  type Exchange = Awaited<ReturnType<typeof aiDebateApi.crossExamine>>;
+  const exchange = async (pending: () => Promise<Exchange | null>) => {
     live.busy = true;
     context.onStatus('Thinking…');
     try {
-      const recorded = clip ? await clip.stop() : null;
-      const audio =
-        recorded && worthTranscribing(recorded)
-          ? await encodeRecording(recorded.blob)
-          : undefined;
-      if (clip && !audio) return;
-      const result = await aiDebateApi.crossExamine(
-        context.id,
-        context.turnIndex,
-        audio,
-      );
+      const result = await pending();
+      if (!result) return;
       context.onLine();
       await playReply(result.reply);
     } catch {
@@ -278,7 +185,24 @@ export async function runCrossExamination(
     }
   };
 
-  if (aiAsks) await send(null);
+  const send = (clip: Recording) =>
+    exchange(async () => {
+      const recorded = await clip.stop();
+      if (!worthTranscribing(recorded)) return null;
+      return aiDebateApi.crossExamine(
+        context.id,
+        context.turnIndex,
+        await encodeRecording(recorded.blob),
+      );
+    });
+
+  // The AI's opening question is prepared during the countdown.
+  const opening = aiAsks
+    ? aiDebateApi.crossExamine(context.id, context.turnIndex)
+    : null;
+  opening?.catch(() => undefined);
+  if (!(await untilLive(context))) return;
+  if (opening) await exchange(() => opening);
   else listening();
 
   const tick = setInterval(() => {

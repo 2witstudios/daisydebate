@@ -13,8 +13,8 @@ import {
   runAiSpeech,
   runCrossExamination,
   runPersonSpeech,
-  type TurnContext,
 } from './controllers';
+import type { TurnContext } from './play-line';
 
 export type RoomView = AiDebateView & { readonly receivedAt: number };
 
@@ -44,10 +44,33 @@ const initial: RoomSnapshot = {
   busy: false,
 };
 
-const turnKeyOf = (state: AiDebateState) =>
-  state.phase === 'live' || state.phase === 'prep'
-    ? `${state.phase}-${state.turnIndex}`
-    : state.phase;
+// A turn's countdown and its live time share one controller, so the AI
+// can prepare its words while the countdown runs.
+const turnKeyOf = (state: AiDebateState) => {
+  if (state.phase === 'live' || state.phase === 'countdown')
+    return `turn-${state.turnIndex}`;
+  if (state.phase === 'prep') return `prep-${state.turnIndex}`;
+  return state.phase;
+};
+
+const hasTurn = (
+  state: AiDebateState,
+): state is Extract<AiDebateState, { phase: 'live' | 'countdown' }> =>
+  state.phase === 'live' || state.phase === 'countdown';
+
+type Turn = {
+  readonly key: string;
+  readonly controller: AbortController | null;
+  readonly goLive: () => void;
+  wentLive: boolean;
+};
+
+const idle = (key: string): Turn => ({
+  key,
+  controller: null,
+  goLive: () => undefined,
+  wentLive: false,
+});
 
 /**
  * The debate room's state outside React: the server view (polled, and
@@ -64,10 +87,7 @@ export function createRoomStore({
   let snapshot = initial;
   const listeners = new Set<() => void>();
   let engine: AudioEngine | null = null;
-  let turn: { key: string; controller: AbortController | null } = {
-    key: 'waiting',
-    controller: null,
-  };
+  let turn = idle('waiting');
   let judging = false;
   const now = () => Date.parse(clock.now());
   const set = (patch: Partial<RoomSnapshot>) => {
@@ -99,16 +119,19 @@ export function createRoomStore({
     await refresh();
   };
 
-  const startController = (state: AiDebateState, view: RoomView) => {
-    if (state.phase !== 'live' || !engine) return null;
+  const startTurn = (state: AiDebateState, view: RoomView, key: string) => {
+    if (!hasTurn(state) || !engine) return idle(key);
     const current = ipdaTurns[state.turnIndex]!;
     const roles = turnRoles(current, view.personSide);
     const controller = new AbortController();
+    let goLive = () => undefined as void;
+    const live = new Promise<void>((resolve) => (goLive = resolve));
     const context: TurnContext = {
       id,
       turnIndex: current.index,
       engine,
       signal: controller.signal,
+      live,
       onLine: () => void refresh(),
       onStatus: (status) => set({ status }),
       onCaption: (caption) => set({ caption }),
@@ -122,7 +145,15 @@ export function createRoomStore({
         () => void command({ type: 'yield', turnIndex: current.index }),
       );
     else void runPersonSpeech(context);
-    return controller;
+    return { key, controller, goLive, wentLive: false };
+  };
+
+  /** The turn goes live: release its controller, with a bell on the cut. */
+  const goLive = (previous: AiDebateState) => {
+    turn.wentLive = true;
+    turn.goLive();
+    if (previous.phase === 'countdown' || previous.phase === 'prep')
+      engine?.chime();
   };
 
   const requestBallot = async (attempt = 0): Promise<void> => {
@@ -138,6 +169,12 @@ export function createRoomStore({
     }
   };
 
+  const judgeWhenOver = (state: AiDebateState) => {
+    if (state.phase !== 'ended' || snapshot.ballot || judging) return;
+    set({ status: 'The judge is deciding…' });
+    void requestBallot();
+  };
+
   const tick = () => {
     const view = snapshot.view;
     if (!view) return;
@@ -147,18 +184,17 @@ export function createRoomStore({
       now: now() + (view.serverNow - view.receivedAt),
     });
     const key = turnKeyOf(state);
-    if (
-      key !== turn.key ||
-      (turn.controller === null && engine && state.phase === 'live')
-    ) {
+    const previous = snapshot.state;
+    // A new turn, or the microphone joined during this one.
+    const restart = turn.controller === null && engine !== null;
+    if (key !== turn.key || (restart && hasTurn(state))) {
       turn.controller?.abort();
-      turn = { key, controller: startController(state, view) };
+      turn = startTurn(state, view, key);
       set({ state, caption: '', status: '' });
     } else set({ state });
-    if (state.phase === 'ended' && !snapshot.ballot && !judging) {
-      set({ status: 'The judge is deciding…' });
-      void requestBallot();
-    }
+    if (state.phase === 'live' && turn.controller && !turn.wentLive)
+      goLive(previous);
+    judgeWhenOver(state);
   };
 
   return {

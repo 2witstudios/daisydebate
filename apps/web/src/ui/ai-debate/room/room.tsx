@@ -4,25 +4,24 @@ import { ipdaTurns } from '@daisy/debate-engine';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { Badge } from '../../components/badge/badge';
 import { TrainCard } from '../../train/card/train-card';
-import { TrainColumns, TrainPage } from '../../train/train-page/train-page';
+import { TrainPage } from '../../train/train-page/train-page';
 import {
   BallotCard,
   Controls,
-  RoundList,
-  Timer,
   Transcript,
   sideName,
   stageTitle,
 } from './parts';
+import { RoundClock } from './round-clock';
 import { createRoomStore, type RoomSnapshot } from './store';
 
 function StageNotes({ snapshot }: { readonly snapshot: RoomSnapshot }) {
-  const { state, status, caption, problem, headset } = snapshot;
+  const { view, state, status, caption, problem, headset } = snapshot;
   const live = state.phase === 'live';
   const cx = live && ipdaTurns[state.turnIndex]?.kind === 'cross-examination';
   return (
     <div aria-live="polite" className="flex flex-col gap-3">
-      <Timer state={state} />
+      {view ? <RoundClock state={state} personSide={view.personSide} /> : null}
       {status ? <p className="text-ink">{status}</p> : null}
       {caption && live ? (
         <blockquote className="rounded-md border border-border bg-surface-sunken p-4 text-lg text-ink">
@@ -58,8 +57,8 @@ export function AiDebateRoom({ id }: { readonly id: string }) {
     );
   const aiSide = view.personSide === 'affirmative' ? 'negative' : 'affirmative';
   const turnIndex = state.phase === 'live' ? state.turnIndex : null;
-  const main = (
-    <>
+  return (
+    <TrainPage>
       <TrainCard title={view.resolution}>
         <div className="flex flex-wrap items-center gap-2 text-sm text-ink-muted">
           <Badge tone="accent">You: {sideName(view.personSide)}</Badge>
@@ -90,15 +89,6 @@ export function AiDebateRoom({ id }: { readonly id: string }) {
         <BallotCard ballot={ballot} personSide={view.personSide} />
       ) : null}
       <Transcript view={view} />
-    </>
-  );
-  return (
-    <TrainPage>
-      <TrainColumns
-        main={main}
-        aside={<RoundList state={state} personSide={view.personSide} />}
-        asideLabel="Round order"
-      />
     </TrainPage>
   );
 }

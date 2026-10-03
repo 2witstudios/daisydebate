@@ -21,13 +21,24 @@ test.use({
   permissions: ['microphone'],
 });
 
-const heading = (page: import('@playwright/test').Page, name: string) =>
+type Page = import('@playwright/test').Page;
+
+const heading = (page: Page, name: string) =>
   page.getByRole('heading', { name, exact: true });
+
+// Every turn without prep opens with a ten-second countdown.
+const afterCountdown = { timeout: 20_000 };
+
+/** Ending something takes a second tap, so a stray one never does. */
+const end = async (page: Page, name: string) => {
+  await page.getByRole('button', { name }).click();
+  await page.getByRole('button', { name: 'Tap again to confirm' }).click();
+};
 
 test('a member plays a full IPDA debate against the AI by voice and gets a ballot', async ({
   page,
 }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(240_000);
   await signUpMember(page.request);
 
   await page.goto('/ai-debate');
@@ -40,41 +51,53 @@ test('a member plays a full IPDA debate against the AI by voice and gets a ballo
 
   await page.getByRole('button', { name: 'Begin debate' }).click();
 
+  // The countdown into the AC, with the round laid out as a timeline.
+  await expect(
+    heading(page, 'Up next: Affirmative constructive'),
+  ).toBeVisible();
+  await expect(page.getByText('until you speak')).toBeVisible();
+  await expect(
+    page.getByRole('list', { name: 'Round timeline' }).getByRole('listitem'),
+  ).toHaveCount(7);
+
   // AC: the person speaks, then ends their speech early.
-  await expect(heading(page, 'Affirmative constructive')).toBeVisible();
+  await expect(heading(page, 'Affirmative constructive')).toBeVisible(
+    afterCountdown,
+  );
+  await expect(page.getByText('left in your speech')).toBeVisible();
   // The fake microphone "speaks" for a few seconds: shorter clips are
   // dropped as silence before transcription.
   await page.waitForTimeout(4_000);
-  await page.getByRole('button', { name: 'End my speech' }).click();
+  await end(page, 'End my speech');
 
   // First CX: the AI asks its opening question out loud.
   await expect(
     heading(page, 'Cross-examination of the affirmative'),
-  ).toBeVisible();
+  ).toBeVisible(afterCountdown);
   await expect(page.getByText(STUB_REPLY).first()).toBeVisible({
     timeout: 15_000,
   });
-  await page.getByRole('button', { name: 'End cross-examination' }).click();
+  await end(page, 'End cross-examination');
 
   // NC: the AI speaks and yields when it is done; the person then asks.
   await expect(heading(page, 'Cross-examination of the negative')).toBeVisible({
-    timeout: 30_000,
+    timeout: 45_000,
   });
-  await page.getByRole('button', { name: 'End cross-examination' }).click();
+  await end(page, 'End cross-examination');
 
-  // Prep, then the 1AR.
+  // Prep (no countdown: prep is the break), then the 1AR.
   await expect(heading(page, 'Prep before your 1AR')).toBeVisible();
   await page.getByRole('button', { name: 'Start my speech' }).click();
   await expect(heading(page, 'First affirmative rebuttal')).toBeVisible();
-  await page.getByRole('button', { name: 'End my speech' }).click();
+  await end(page, 'End my speech');
 
   // NR by the AI, then prep and the 2AR.
   await expect(heading(page, 'Prep before your 2AR')).toBeVisible({
-    timeout: 30_000,
+    timeout: 45_000,
   });
   await page.getByRole('button', { name: 'Start my speech' }).click();
   await expect(heading(page, 'Second affirmative rebuttal')).toBeVisible();
-  await page.getByRole('button', { name: 'End my speech' }).click();
+  await end(page, 'End my speech');
 
   // The judge's ballot.
   await expect(heading(page, 'You won the round')).toBeVisible({
