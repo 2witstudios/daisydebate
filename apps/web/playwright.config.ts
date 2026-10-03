@@ -240,6 +240,9 @@ export default defineConfig({
         // AUTH-7.7: gates /api/ops/alerts and /api/ops/metrics; no probe
         // workflow runs against this local e2e server.
         OPS_PROBE_TOKEN: 'e2e-ops-probe-token-placeholder-not-a-credential',
+        // AI debates: an inert placeholder; the e2e server answers OpenRouter
+        // with a local stub (e2e/support/openrouter-stub.ts).
+        OPENROUTER_API_KEY: 'sk-or-e2e-placeholder-not-a-credential',
       },
     },
     {
