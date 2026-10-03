@@ -3,8 +3,12 @@ import { leaderboardDestinations } from '../../features/leaderboard/actions';
 import type { DebaterDetail } from '../../features/leaderboard/detail';
 import type { LadderView } from '../../features/leaderboard/ladder-view';
 import { ladderHref, type LadderQuery } from '../../features/leaderboard/query';
-import { isClosed, seasonLabel } from '../../features/leaderboard/season';
-import { Badge } from '../components/badge/badge';
+import {
+  isClosed,
+  seasonCountdown,
+  seasonLabel,
+} from '../../features/leaderboard/season';
+import { PROVISIONAL_AFTER } from '../../features/leaderboard/standing';
 import { DebaterDrawer } from './debater-drawer/debater-drawer';
 import { LadderFilters } from './ladder-filters/ladder-filters';
 import {
@@ -16,7 +20,6 @@ import {
   PreviousChampion,
 } from './ladder-states/ladder-states';
 import { LadderTable } from './ladder-table/ladder-table';
-import { SeasonCard } from './season-card/season-card';
 import { YouBar } from './you-bar/you-bar';
 
 export type LeaderboardProps = {
@@ -61,17 +64,19 @@ export function Leaderboard({
             )}
             {closed
               ? `${seasonLabel(view.season)} final standings`
-              : `${seasonLabel(view.season)} is live. Ratings update after every ranked debate.`}
+              : `${seasonLabel(view.season)} is live. ${seasonCountdown(view.season, now)}`}
           </p>
         </div>
-        <Badge tone="neutral">Sample data</Badge>
+        <nav
+          aria-label="About the ladder"
+          className="flex gap-4 text-sm font-strong"
+        >
+          <Link href={leaderboardDestinations.seasons}>Seasons</Link>
+          <Link href={leaderboardDestinations.howRatingWorks}>
+            How ratings work
+          </Link>
+        </nav>
       </header>
-      <LadderFilters
-        query={query}
-        seasons={view.seasons}
-        season={view.season}
-        hasStanding={view.hasStanding}
-      />
       {judging ? <JudgeNotice /> : null}
       {closed ? <FinalBanner season={view.season} /> : null}
       {view.early ? (
@@ -84,18 +89,28 @@ export function Leaderboard({
       ) : null}
       {view.empty === 'new-season' ? (
         <NewSeasonHero season={view.season} now={now} />
-      ) : (
-        <SeasonCard season={view.season} now={now} />
-      )}
+      ) : null}
       <LiveNotice
         changes={view.pendingChanges}
         refreshHref={ladderHref(query)}
       />
-      <LadderTable view={view} query={query} />
+      <LadderTable
+        view={view}
+        query={query}
+        toolbar={
+          <LadderFilters
+            query={query}
+            seasons={view.seasons}
+            season={view.season}
+            hasStanding={view.hasStanding}
+          />
+        }
+      />
       {view.empty === 'new-season' && view.previousChampion ? (
         <PreviousChampion champion={view.previousChampion} />
       ) : null}
       <p className="text-sm text-ink-faint">
+        {`A hollow marker and a question mark mean provisional: fewer than ${PROVISIONAL_AFTER} ranked debates. Provisional debaters are not ranked. `}
         <Link href={leaderboardDestinations.privacy}>
           What the ladder shows about you
         </Link>

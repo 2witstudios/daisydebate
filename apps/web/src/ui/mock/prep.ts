@@ -24,7 +24,6 @@ export const sampleLibrary = (now: string): readonly LibraryItem[] => [
     tags: ['framework', 'rights'],
     visibility: team,
     editedAt: daysBefore(now, 2),
-    openedAt: daysBefore(now, 0),
     usedIn: 2,
   },
   {
@@ -40,7 +39,6 @@ export const sampleLibrary = (now: string): readonly LibraryItem[] => [
     tags: ['costs', 'implementation'],
     visibility: team,
     editedAt: daysBefore(now, 2),
-    openedAt: daysBefore(now, 1),
     usedIn: 3,
   },
   {
@@ -53,7 +51,6 @@ export const sampleLibrary = (now: string): readonly LibraryItem[] => [
     tags: ['aff', 'rights'],
     visibility: team,
     editedAt: daysBefore(now, 2),
-    openedAt: daysBefore(now, 2),
     usedIn: 0,
   },
   {
@@ -69,7 +66,6 @@ export const sampleLibrary = (now: string): readonly LibraryItem[] => [
     tags: ['evidence quality'],
     visibility: mine,
     editedAt: daysBefore(now, 9),
-    openedAt: daysBefore(now, 6),
     usedIn: 1,
   },
   {
@@ -82,7 +78,6 @@ export const sampleLibrary = (now: string): readonly LibraryItem[] => [
     tags: ['costs', 'implementation'],
     visibility: mine,
     editedAt: daysBefore(now, 8),
-    openedAt: daysBefore(now, 5),
     usedIn: 1,
   },
   {
@@ -95,7 +90,6 @@ export const sampleLibrary = (now: string): readonly LibraryItem[] => [
     tags: ['framing'],
     visibility: mine,
     editedAt: daysBefore(now, 22),
-    openedAt: daysBefore(now, 15),
     usedIn: 1,
   },
   {
@@ -108,7 +102,6 @@ export const sampleLibrary = (now: string): readonly LibraryItem[] => [
     tags: ['framing'],
     visibility: team,
     editedAt: daysBefore(now, 9),
-    openedAt: daysBefore(now, 9),
     usedIn: 0,
   },
   {
@@ -124,7 +117,6 @@ export const sampleLibrary = (now: string): readonly LibraryItem[] => [
     tags: ['framework', 'rights'],
     visibility: mine,
     editedAt: daysBefore(now, 12),
-    openedAt: daysBefore(now, 12),
     usedIn: 0,
   },
   {
@@ -140,7 +132,6 @@ export const sampleLibrary = (now: string): readonly LibraryItem[] => [
     tags: ['rights'],
     visibility: mine,
     editedAt: daysBefore(now, 30),
-    openedAt: daysBefore(now, 30),
     usedIn: 2,
   },
   {
@@ -156,7 +147,6 @@ export const sampleLibrary = (now: string): readonly LibraryItem[] => [
     tags: ['implementation'],
     visibility: team,
     editedAt: daysBefore(now, 21),
-    openedAt: daysBefore(now, 21),
     usedIn: 1,
   },
   {
@@ -169,7 +159,6 @@ export const sampleLibrary = (now: string): readonly LibraryItem[] => [
     tags: ['neg', 'costs'],
     visibility: mine,
     editedAt: daysBefore(now, 8),
-    openedAt: daysBefore(now, 8),
     usedIn: 0,
   },
 ];

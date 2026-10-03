@@ -15,25 +15,18 @@ describe('listLibrary', () => {
     const listing = run({});
     assert({
       given: 'the default query',
-      should:
-        'list every item, newest edit first, with tab counts and jump-back cards',
+      should: 'list every item, newest edit first, with tab counts',
       actual: [
         listing.rows.length,
         listing.total,
         listing.counts,
         listing.rows[0]?.title,
-        listing.jumpBackIn.map((row) => row.title),
       ],
       expected: [
         11,
         11,
         { all: 11, briefs: 4, cards: 5, cases: 2 },
         'Affirmative case: rights-based framework',
-        [
-          'Affirmative case: rights-based framework',
-          'Cost estimates depend on assumed take-up',
-          'Affirmative, rights-based',
-        ],
       ],
     });
   });
@@ -47,13 +40,13 @@ describe('listLibrary', () => {
     });
   });
 
-  test('search and filters narrow counts and hide jump-back', () => {
+  test('search and filters narrow counts', () => {
     const listing = run({ tag: 'costs' });
     assert({
       given: 'the costs tag',
-      should: 'count matches per tab and drop the jump-back cards',
-      actual: [listing.counts, listing.jumpBackIn.length],
-      expected: [{ all: 3, briefs: 1, cards: 1, cases: 1 }, 0],
+      should: 'count matches per tab',
+      actual: listing.counts,
+      expected: { all: 3, briefs: 1, cards: 1, cases: 1 },
     });
   });
 

@@ -14,19 +14,17 @@ const item = (id: string) => {
 describe('toRow', () => {
   test('a brief', () => {
     assert({
-      given: 'a team brief edited two days ago and opened today',
-      should: 'read its subtitle, link, edit age and opened label',
-      actual: (({ subtitle, href, meta, opened }) => ({
+      given: 'a team brief edited two days ago',
+      should: 'read its subtitle, link and edit age',
+      actual: (({ subtitle, href, meta }) => ({
         subtitle,
         href,
         meta,
-        opened,
       }))(toRow(item('rights-framework'), now)),
       expected: {
         subtitle: '[Motion A] · Aff · 3 contentions',
         href: '/prep/briefs/rights-framework',
         meta: 'Edited 2 days ago',
-        opened: 'Opened today',
       },
     });
   });

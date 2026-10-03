@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import type { LadderView } from '../../../features/leaderboard/ladder-view';
 import {
   clearFiltersHref,
@@ -18,6 +19,8 @@ import { Podium } from '../podium/podium';
 export type LadderTableProps = {
   readonly view: LadderView;
   readonly query: LadderQuery;
+  /** Controls for this list, shown as its first row (search and filters). */
+  readonly toolbar?: ReactNode;
 };
 
 const pagerLink = cn(
@@ -26,7 +29,7 @@ const pagerLink = cn(
 );
 const pagerOff = cn(buttonClass('secondary'), 'pointer-events-none opacity-60');
 
-function Pager({ view, query }: LadderTableProps) {
+function Pager({ view, query }: Omit<LadderTableProps, 'toolbar'>) {
   const { page, pageCount } = view;
   return (
     <div className="flex items-center justify-between gap-4 border-t border-border px-5 py-3 max-compact:px-4">
@@ -67,8 +70,11 @@ function Pager({ view, query }: LadderTableProps) {
   );
 }
 
-/** The podium and the ranked list, or the ladder's empty state. */
-export function LadderTable({ view, query }: LadderTableProps) {
+/**
+ * The podium and the ranked list, or the ladder's empty state. The toolbar
+ * is part of the list's own card, so its filters read as filtering this list.
+ */
+export function LadderTable({ view, query, toolbar }: LadderTableProps) {
   const closed = isClosed(view.season);
   const before = view.seasons.find(
     (season) => season.id === view.season.id - 1,
@@ -82,6 +88,11 @@ export function LadderTable({ view, query }: LadderTableProps) {
         aria-label="Ladder"
         className="overflow-hidden rounded-lg border border-border bg-surface shadow-1"
       >
+        {toolbar ? (
+          <div className="border-b border-border px-5 py-3 max-compact:px-4">
+            {toolbar}
+          </div>
+        ) : null}
         <LadderHeading closed={closed} />
         {view.around ? (
           <p className="border-t border-border bg-surface-overlay px-5 py-2 text-sm text-ink-muted">
