@@ -56,15 +56,40 @@ describe('newLinkFor', () => {
   });
 });
 
+describe('newLinkFor with no address', () => {
+  test('the newest link to anyone', () => {
+    assert({
+      given: 'links to two people',
+      should: 'return the newest regardless of address',
+      actual: newLinkFor(
+        [
+          mail('a@example.test', 'http://x/a'),
+          mail('b@example.test', 'http://x/b'),
+        ],
+        null,
+        0,
+      ),
+      expected: 'http://x/b',
+    });
+  });
+});
+
 describe('parseArgs', () => {
   test('defaults and flags', () => {
     assert({
-      given: 'no arguments, an address, and the print flag',
-      should: 'use the default address, the given one, and not open',
-      actual: [parseArgs([]), parseArgs(['a@example.test', '--print'])],
+      given: 'no arguments, an address, and the flags',
+      should: 'default the address, and read print and latest',
+      actual: [
+        parseArgs([]),
+        parseArgs(['a@example.test', '--print']),
+        parseArgs(['--latest']),
+        parseArgs(['a@example.test', '--latest']),
+      ],
       expected: [
-        { email: defaultEmail, print: false },
-        { email: 'a@example.test', print: true },
+        { email: defaultEmail, print: false, latest: false },
+        { email: 'a@example.test', print: true, latest: false },
+        { email: null, print: false, latest: true },
+        { email: 'a@example.test', print: false, latest: true },
       ],
     });
   });

@@ -107,6 +107,7 @@ Then run:
 ```
 bun dev:login            # signs in as dev@example.test
 bun dev:login me@example.test --print   # print the link instead of opening it
+bun dev:login --latest   # open the newest captured link (after using the sign-in form)
 ```
 
 The command asks the dev server for a link, reads it from the file, and opens

@@ -1,11 +1,13 @@
 import { existsSync, readFileSync } from 'node:fs';
 
 /**
- * `bun dev:login [email] [--print]`: signs in to the local dev server without
- * real email. It asks the running server for a magic link, reads the message
- * the server captured to `DEV_MAIL_CAPTURE` (a local-development file; see
- * docs/development/local-development.md), and opens the confirm page in the
- * browser. The real sign-in flow runs; only the mail is read from a file.
+ * `bun dev:login [email] [--print] [--latest]`: signs in to the local dev
+ * server without real email. It asks the running server for a magic link,
+ * reads the message the server captured to `DEV_MAIL_CAPTURE` (a
+ * local-development file; see docs/development/local-development.md), and
+ * opens the confirm page in the browser. With `--latest` it requests nothing:
+ * it opens the newest captured link, for when the sign-in form was already
+ * used. The real sign-in flow runs; only the mail is read from a file.
  */
 
 export const defaultEmail = 'dev@example.test';
@@ -20,16 +22,19 @@ const parseLine = (line: string): CapturedLine => {
   }
 };
 
-/** The confirm link in the newest message to `email` after the first `seen` lines. */
+/**
+ * The confirm link in the newest message after the first `seen` lines: the
+ * one to `email`, or to anyone when `email` is null.
+ */
 export function newLinkFor(
   lines: readonly string[],
-  email: string,
+  email: string | null,
   seen: number,
 ): string | null {
-  const wanted = email.toLowerCase();
+  const wanted = email?.toLowerCase() ?? null;
   for (const line of lines.slice(seen).reverse()) {
     const mail = parseLine(line);
-    if (mail.to !== wanted) continue;
+    if (wanted !== null && mail.to !== wanted) continue;
     const link = mail.text?.match(/https?:\/\/\S+/)?.[0];
     if (link) return link;
   }
@@ -44,20 +49,23 @@ const linesOf = (file: string): readonly string[] =>
     : [];
 
 type Options = {
-  readonly email: string;
+  /** The address to sign in as; null with `--latest` and no address. */
+  readonly email: string | null;
   readonly print: boolean;
+  readonly latest: boolean;
 };
 
 export function parseArgs(args: readonly string[]): Options {
   const print = args.includes('--print');
-  const email = args.find((arg) => !arg.startsWith('--')) ?? defaultEmail;
-  return { email, print };
+  const latest = args.includes('--latest');
+  const given = args.find((arg) => !arg.startsWith('--'));
+  return { email: given ?? (latest ? null : defaultEmail), print, latest };
 }
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function main() {
-  const { email, print } = parseArgs(Bun.argv.slice(2));
+  const { email, print, latest } = parseArgs(Bun.argv.slice(2));
   const file = process.env.DEV_MAIL_CAPTURE;
   const appUrl = process.env.PUBLIC_APP_URL;
   if (!file || !appUrl) {
@@ -66,11 +74,24 @@ async function main() {
     );
     process.exit(1);
   }
+  if (latest) {
+    const link = newLinkFor(linesOf(file), email, 0);
+    if (!link) {
+      console.error(
+        'No captured sign-in mail yet. Use the form, or run `bun dev:login`.',
+      );
+      process.exit(1);
+    }
+    console.log(`Sign in: ${link}`);
+    if (!print) Bun.spawn(['open', link]);
+    return;
+  }
+  const requested = email ?? defaultEmail;
   const seen = linesOf(file).length;
   const response = await fetch(`${appUrl}/api/auth/sign-in/magic-link`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', origin: appUrl },
-    body: JSON.stringify({ email, callbackURL: '/train' }),
+    body: JSON.stringify({ email: requested, callbackURL: '/train' }),
   }).catch(() => null);
   if (!response?.ok) {
     console.error(
@@ -79,9 +100,9 @@ async function main() {
     process.exit(1);
   }
   for (let attempt = 0; attempt < 40; attempt += 1) {
-    const link = newLinkFor(linesOf(file), email, seen);
+    const link = newLinkFor(linesOf(file), requested, seen);
     if (link) {
-      console.log(`Sign in as ${email}: ${link}`);
+      console.log(`Sign in as ${requested}: ${link}`);
       if (!print) Bun.spawn(['open', link]);
       return;
     }
