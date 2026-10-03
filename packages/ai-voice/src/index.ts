@@ -22,8 +22,16 @@ export {
 } from './prompts';
 export { ballotSchema, parseBallot, type Ballot } from './judge';
 export {
+  createTurnTaking,
+  defaultTurnTakingSettings,
+  type TurnTaking,
+  type TurnTakingEvent,
+  type TurnTakingSettings,
+} from './turn-taking';
+export {
   DEFAULT_WORDS_PER_MINUTE,
   createSentenceBuffer,
+  heardText,
   splitSentences,
   wordBudget,
 } from './speech';

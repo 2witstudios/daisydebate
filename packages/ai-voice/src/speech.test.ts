@@ -1,5 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createSentenceBuffer, splitSentences, wordBudget } from './speech';
+import {
+  createSentenceBuffer,
+  heardText,
+  splitSentences,
+  wordBudget,
+} from './speech';
 
 setupRitewayBun();
 
@@ -60,6 +65,29 @@ describe('createSentenceBuffer', () => {
       should: 'flush the unfinished tail as a sentence',
       actual: rest,
       expected: ['Second'],
+    });
+  });
+});
+
+describe('heardText', () => {
+  test('keeps the words played before an interruption', () => {
+    assert({
+      given: 'half of a reply played',
+      should: 'keep the first half, cut at a word boundary',
+      actual: heardText('One two three four five six', 500, 1000),
+      expected: 'One two three',
+    });
+    assert({
+      given: 'the whole reply played',
+      should: 'keep all of it',
+      actual: heardText('One two.', 1000, 1000),
+      expected: 'One two.',
+    });
+    assert({
+      given: 'nothing played',
+      should: 'keep nothing',
+      actual: heardText('One two.', 0, 1000),
+      expected: '',
     });
   });
 });

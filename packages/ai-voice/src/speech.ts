@@ -42,3 +42,16 @@ export function createSentenceBuffer() {
     },
   };
 }
+
+/**
+ * The part of a spoken reply the listener heard before it was cut off, by
+ * the share of its audio that played, cut back to a word boundary. The
+ * voice returns no word timings, so this is a proportional estimate.
+ */
+export function heardText(text: string, playedMs: number, totalMs: number) {
+  if (totalMs <= 0 || playedMs >= totalMs) return text;
+  if (playedMs <= 0) return '';
+  const cut = Math.floor((playedMs / totalMs) * text.length);
+  const boundary = text.slice(0, cut + 1).lastIndexOf(' ');
+  return (boundary > 0 ? text.slice(0, boundary) : text.slice(0, cut)).trim();
+}
