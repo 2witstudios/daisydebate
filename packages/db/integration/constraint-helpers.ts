@@ -53,6 +53,8 @@ const purgeOrder: ReadonlyArray<readonly [table: string, key: string]> = [
   ['debate_participants', 'debate_id'],
   ['debate_commands', 'command_id'],
   ['debates', 'id'],
+  // Commands, utterances and ballots cascade from their AI debate.
+  ['ai_debates', 'id'],
   ['seasons', 'id'],
   ['role_grants', 'id'],
   ['actors', 'id'],

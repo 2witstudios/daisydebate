@@ -115,9 +115,10 @@ test('every jsonb column carries a database CHECK for object shape (ISSUE-24)', 
   });
   assert({
     given: 'the jsonb columns the audit counted',
-    should: 'be exactly the five known columns',
+    should: 'be exactly the six known columns',
     actual: rows.map((row: { col: string }) => row.col),
     expected: [
+      'ai_debate_ballots.ballot',
       'ballots.scores',
       'debate_commands.result',
       'debates.snapshot',
