@@ -139,7 +139,11 @@ export const aiDebateOperations = ({
     });
   },
 
-  /** Appends a line after the last one; a lost race is a `CONFLICT`. */
+  /**
+   * Appends a line after the last one. Lines of one AI debate are numbered
+   * one at a time under a lock on its row, so lines arriving together (a
+   * late speech chunk and the next turn's first line) all land, in order.
+   */
   async appendAiDebateUtterance(input: {
     readonly id: string;
     readonly aiDebateId: string;
@@ -148,20 +152,17 @@ export const aiDebateOperations = ({
     readonly text: string;
   }): Promise<void> {
     await instrumented(eventSink, 'appendAiDebateUtterance', async () => {
-      try {
-        await database.insert(aiDebateUtterances).values({
+      await database.transaction(async (tx) => {
+        await tx
+          .select({ id: aiDebates.id })
+          .from(aiDebates)
+          .where(eq(aiDebates.id, input.aiDebateId))
+          .for('update');
+        await tx.insert(aiDebateUtterances).values({
           ...input,
           sequence: sql`(select coalesce(max(${aiDebateUtterances.sequence}) + 1, 0) from ${aiDebateUtterances} where ${aiDebateUtterances.aiDebateId} = ${input.aiDebateId})`,
         });
-      } catch (error) {
-        if (isUniqueViolation(error))
-          throw createAppError(
-            'CONFLICT',
-            'Another line was added first',
-            error,
-          );
-        throw error;
-      }
+      });
     });
   },
 

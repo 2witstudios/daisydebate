@@ -1,6 +1,11 @@
 import { signUpMember } from './support/accounts';
 import { expect, test } from './support/fixtures';
-import { STUB_BALLOT, STUB_REPLY } from './support/openrouter-stub';
+import {
+  STUB_BALLOT,
+  STUB_REPLY,
+  STUB_SPEECH,
+  STUB_TRANSCRIPT,
+} from './support/openrouter-stub';
 
 // Chromium's fake microphone (a steady tone) stands in for the person, and
 // the server's OpenRouter stub stands in for the AI, so the real routes,
@@ -37,6 +42,9 @@ test('a member plays a full IPDA debate against the AI by voice and gets a ballo
 
   // AC: the person speaks, then ends their speech early.
   await expect(heading(page, 'Affirmative constructive')).toBeVisible();
+  // The fake microphone "speaks" for a few seconds: shorter clips are
+  // dropped as silence before transcription.
+  await page.waitForTimeout(4_000);
   await page.getByRole('button', { name: 'End my speech' }).click();
 
   // First CX: the AI asks its opening question out loud.
@@ -74,4 +82,11 @@ test('a member plays a full IPDA debate against the AI by voice and gets a ballo
   });
   await expect(page.getByText(STUB_BALLOT.reason)).toBeVisible();
   await expect(page.getByText('The AI').first()).toBeHidden();
+
+  // The transcript holds the person's transcribed speech and the AI's words.
+  const transcript = page.locator('section', {
+    has: heading(page, 'Transcript'),
+  });
+  await expect(transcript.getByText(STUB_TRANSCRIPT).first()).toBeVisible();
+  await expect(transcript.getByText(STUB_SPEECH).first()).toBeVisible();
 });

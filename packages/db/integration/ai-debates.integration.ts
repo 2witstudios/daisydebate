@@ -185,4 +185,27 @@ describe('AI debates (AIDB-3.1)', () => {
       });
     });
   });
+
+  test('lines appended at the same moment all land, in some order', async () => {
+    await withDebate(async ({ database, id }) => {
+      await Promise.all(
+        [0, 1, 2, 3, 4, 5].map((n) =>
+          database.appendAiDebateUtterance({
+            id: createId(),
+            aiDebateId: id,
+            turnIndex: 1,
+            role: n % 2 ? 'ai' : 'person',
+            text: `line ${n}`,
+          }),
+        ),
+      );
+      const found = await database.getAiDebate(id);
+      assert({
+        given: 'six lines appended concurrently',
+        should: 'keep all six with distinct sequences',
+        actual: found?.utterances.map((u) => u.sequence),
+        expected: [0, 1, 2, 3, 4, 5],
+      });
+    });
+  });
 });
