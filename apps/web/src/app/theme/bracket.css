@@ -1,0 +1,53 @@
+/* A bracket drawn as one tree: each match sits after the feeders that lead to
+   it. The lines belong to the branches, so they meet the cards whatever their
+   heights. A feeder draws its own arm and half of the trunk it shares with
+   its pair; the stub carries the trunk's middle on to the match. */
+
+@utility bracket-card {
+  width: 13rem;
+  flex: none;
+}
+
+@utility bracket-end {
+  width: 8rem;
+  flex: none;
+}
+
+@utility bracket-stub {
+  width: 0.75rem;
+  flex: none;
+  border-top: 2px solid var(--color-border-strong);
+}
+
+@utility bracket-feeder {
+  position: relative;
+  display: flex;
+  padding: 0.5rem 0.75rem 0.5rem 0;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: 0;
+    width: 0.75rem;
+    border-top: 2px solid var(--color-border-strong);
+  }
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: 0;
+    bottom: 0;
+    border-right: 2px solid var(--color-border-strong);
+  }
+
+  &:last-child::before {
+    top: 0;
+    bottom: 50%;
+  }
+
+  &:only-child::before {
+    display: none;
+  }
+}

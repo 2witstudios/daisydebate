@@ -14,13 +14,13 @@ export type JudgeHubProps = {
   readonly assigned: readonly AssignedDebate[];
 };
 
-/** Judge: click to judge, your rating, and the resources to judge well. */
+/** Judge: one action to judge, your rating, and the resources to judge well. */
 export function JudgeHub({ rating, resources, assigned }: JudgeHubProps) {
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
       <PageHeader
         title="Judge"
-        lede="Click to judge. Daisy assigns the round and you judge it. Ratings stay hidden while you judge."
+        lede="Daisy assigns the round and you judge it. Ratings stay hidden while you judge."
       />
       <AssignedDebates debates={assigned} />
       <StartJudging />

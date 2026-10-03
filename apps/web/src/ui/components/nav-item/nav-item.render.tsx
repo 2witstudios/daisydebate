@@ -28,9 +28,7 @@ export function renderNavItem(props: NavItemRenderProps): ReactNode {
         aria-current={active ? 'page' : undefined}
       >
         <Icon name={icon} size={18} />
-        <span className="flex-1 whitespace-nowrap max-compact:sr-only">
-          {label}
-        </span>
+        <span className="flex-1 whitespace-nowrap icons:sr-only">{label}</span>
         {hasChildren ? (
           <span className={navCaretClass(active)} aria-hidden="true">
             <Icon name="chevronRight" size={14} />
