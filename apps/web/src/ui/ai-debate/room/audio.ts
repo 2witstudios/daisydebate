@@ -23,7 +23,7 @@ export type Playback = {
   stop(): void;
 };
 
-export type Clip = {
+type Clip = {
   readonly blob: Blob;
   /** How long the microphone heard a voice while recording. */
   readonly voicedMs: number;

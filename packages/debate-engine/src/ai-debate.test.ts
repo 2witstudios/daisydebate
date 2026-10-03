@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   acceptAiDebateCommand,
+  aiDebateLongestMs,
   deriveAiDebate,
   ipdaPrepMs,
   ipdaTurns,
@@ -280,6 +281,17 @@ describe('acceptAiDebateCommand', () => {
         command: { type: 'abort', at: s(20), reason: 'person' },
       }),
       expected: { ok: false, reason: 'finished' },
+    });
+  });
+});
+
+describe('aiDebateLongestMs', () => {
+  test('every turn plus the whole prep budget', () => {
+    assert({
+      given: 'strict IPDA',
+      should: 'be 30 minutes of turns plus 4 of prep',
+      actual: aiDebateLongestMs(),
+      expected: 34 * 60_000,
     });
   });
 });
