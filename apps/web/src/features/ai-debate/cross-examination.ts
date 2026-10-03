@@ -1,4 +1,4 @@
-import { cxMessages, splitSentences } from '@daisy/ai-voice';
+import { DEFAULT_REASONING, cxMessages, splitSentences } from '@daisy/ai-voice';
 import type { AiDebateRecord } from '@daisy/db';
 import { turnRoles, type AiDebateTurn } from '@daisy/debate-engine';
 import {
@@ -76,6 +76,7 @@ export function crossExaminationOperations({
       messages,
       maxTokens: CX_REPLY_TOKENS,
       temperature: 0.7,
+      reasoning: DEFAULT_REASONING.cx,
     });
     await store.recordAiDebateUsage({
       aiDebateId: record.id,

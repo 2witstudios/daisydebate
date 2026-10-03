@@ -78,6 +78,27 @@ describe('complete', () => {
   });
 });
 
+describe('reasoning', () => {
+  test('sends the reasoning effort and keeps reasoning out of the answer', async () => {
+    const { calls, fetch } = recording(() =>
+      Response.json({ choices: [{ message: { content: 'Ok.' } }] }),
+    );
+    const client = createOpenRouter({ apiKey: 'k', fetch });
+    await client.complete({
+      model: 'm',
+      messages: [],
+      maxTokens: 9,
+      reasoning: 'none',
+    });
+    assert({
+      given: 'a request with a reasoning effort',
+      should: 'send the effort with reasoning excluded from the answer',
+      actual: bodyOf(calls[0]!).reasoning,
+      expected: { effort: 'none', exclude: true },
+    });
+  });
+});
+
 describe('stream', () => {
   test('yields the content deltas of a server-sent event stream', async () => {
     const events = [

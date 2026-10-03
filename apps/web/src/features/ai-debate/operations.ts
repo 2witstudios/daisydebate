@@ -1,6 +1,7 @@
 import {
   AI_VOICES,
   DEFAULT_MODELS,
+  DEFAULT_REASONING,
   judgeMessages,
   parseBallot,
   type Ballot,
@@ -229,9 +230,10 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
           personSide: record.personSide,
           transcript: transcriptOf(record),
         }),
-        maxTokens: 1_800,
+        maxTokens: 6_000,
         temperature: 0.2,
         json: true,
+        reasoning: DEFAULT_REASONING.judge,
       });
       await store.recordAiDebateUsage({
         aiDebateId: id,

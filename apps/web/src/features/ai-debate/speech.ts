@@ -1,4 +1,5 @@
 import {
+  DEFAULT_REASONING,
   createSentenceBuffer,
   heardText,
   speechMessages,
@@ -107,8 +108,9 @@ export function speechOperations({
       for await (const delta of voice().stream({
         model: record.speechModel,
         messages,
-        maxTokens: 2_400,
+        maxTokens: 4_000,
         temperature: 0.8,
+        reasoning: DEFAULT_REASONING.speech,
       })) {
         written += delta.length;
         yield* save(buffer.push(delta));

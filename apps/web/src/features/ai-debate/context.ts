@@ -99,11 +99,7 @@ export const transcriptOf = (record: AiDebateRecord): TranscriptEntry[] =>
     .map(({ turnIndex, role, text }) => ({ turnIndex, role, text }));
 
 /** True when `turnIndex` is live now, or was until the grace period ago. */
-const isLiveTurn = (
-  record: AiDebateRecord,
-  turnIndex: number,
-  now: number,
-) =>
+const isLiveTurn = (record: AiDebateRecord, turnIndex: number, now: number) =>
   [now, now - GRACE_MS].some((at) => {
     const state = stateAt(record, at);
     return state.phase === 'live' && state.turnIndex === turnIndex;

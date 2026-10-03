@@ -16,6 +16,11 @@ export type CompletionRequest = {
   readonly temperature?: number;
   /** Ask the model for a JSON object (structured output). */
   readonly json?: boolean;
+  /**
+   * How hard the model thinks before answering; its reasoning is never
+   * returned. Some models require reasoning and refuse 'none'.
+   */
+  readonly reasoning?: 'none' | 'low' | 'medium' | 'high';
 };
 
 const BASE = 'https://openrouter.ai/api/v1';
@@ -108,6 +113,9 @@ export function createOpenRouter({
       ? { temperature: request.temperature }
       : {}),
     ...(request.json ? { response_format: { type: 'json_object' } } : {}),
+    ...(request.reasoning
+      ? { reasoning: { effort: request.reasoning, exclude: true } }
+      : {}),
     ...(stream ? { stream: true } : {}),
     provider: DATA_POLICY,
   });
