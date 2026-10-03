@@ -95,6 +95,25 @@ locally (`next dev` runs without the stamping ingress, so no request carries
 an identity anyway, and every request shares one rate-limit bucket per
 path). See [production operations](../operations/production.md#releases).
 
+## Signing in locally without Resend
+
+`bun dev` sends sign-in mail through Resend, which needs owner-provisioned
+credentials. For local work, set `DEV_MAIL_CAPTURE` in `.env` to an absolute
+file path (for example `<checkout>/.dev-mail/mail.jsonl`; `.dev-mail/` is
+ignored by git) and restart `bun dev`. The real magic-link flow still runs;
+the server keeps the outgoing message in that file instead of sending it.
+Then run:
+
+```
+bun dev:login            # signs in as dev@example.test
+bun dev:login me@example.test --print   # print the link instead of opening it
+```
+
+The command asks the dev server for a link, reads it from the file, and opens
+the confirm page; select its button to finish, then claim a username as any
+new account would. Production refuses to start with `DEV_MAIL_CAPTURE` set
+([ADR 0050](../decisions/0050-dev-mail-capture.md)).
+
 ## Parallel sessions on one machine
 
 Every checkout on the machine (the main checkout and each git worktree or
