@@ -8,6 +8,12 @@ import { PageHeader } from '../../components/page-header/page-header';
 import { cn } from '../../cn';
 
 const linkButton = 'no-underline hover:no-underline';
+
+const winnerText = {
+  affirmative: 'Affirmative wins',
+  negative: 'Negative wins',
+  draw: 'A draw',
+} as const;
 const panel = 'flex flex-col gap-4 rounded-xl bg-surface p-6 shadow-1';
 const shell =
   'mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4';
@@ -107,6 +113,12 @@ function Body({
         ) : null}
       </section>
     );
+  return <Result view={view} />;
+}
+
+type Completed = Extract<DebateView, { kind: 'completed' }>;
+
+function Result({ view }: { readonly view: Completed }) {
   return (
     <section aria-label="Result" className={panel}>
       <div className="flex flex-wrap items-center gap-2">
@@ -116,21 +128,26 @@ function Body({
         ) : null}
       </div>
       <h2 className="font-display text-3xl leading-tight font-bold text-ink">
-        {view.winner === 'affirmative' ? 'Affirmative wins' : 'Negative wins'}
+        {winnerText[view.winner]}
       </h2>
       <p className="text-base text-ink-muted">{view.reason}</p>
       <div className="flex flex-wrap gap-3">
+        {view.rematchHref ? (
+          <Link
+            href={view.rematchHref}
+            className={cn(buttonClass('primary'), linkButton)}
+          >
+            Rematch
+          </Link>
+        ) : null}
         <Link
-          href={view.rematchHref}
-          className={cn(buttonClass('primary'), linkButton)}
+          href={view.roomHref ?? '/debates'}
+          className={cn(
+            buttonClass(view.rematchHref ? 'secondary' : 'primary'),
+            linkButton,
+          )}
         >
-          Rematch
-        </Link>
-        <Link
-          href={view.roomHref}
-          className={cn(buttonClass('secondary'), linkButton)}
-        >
-          Back to the room
+          {view.roomHref ? 'Back to the room' : 'My debates'}
         </Link>
       </div>
     </section>
@@ -164,11 +181,11 @@ export function DebatePage({ view }: { readonly view: DebateView }) {
   return (
     <div className={shell}>
       <Link
-        href={view.roomHref}
+        href={view.roomHref ?? '/debates'}
         className="inline-flex min-h-10 w-fit items-center gap-2 text-base font-strong text-ink-muted no-underline hover:text-ink hover:no-underline"
       >
         <span aria-hidden="true">&lsaquo;</span>
-        The room
+        {view.roomHref ? 'The room' : 'My debates'}
       </Link>
       <PageHeader title={view.title} />
       <div className="flex items-start gap-6 max-compact:flex-col max-compact:gap-4">

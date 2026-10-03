@@ -105,6 +105,18 @@ export function judgeLine(judge: MyDebate['judge']): string {
     : 'Judge assigned by Daisy';
 }
 
-/** The completed result page for a debate in the history. */
-export const resultHref = (debate: MyDebate): string =>
-  `/debates/${debate.id}?turn=6&kind=${debate.judge.kind === 'ai' ? 'ai' : 'person'}&by=${debate.judge.kind === 'ai' ? 'ai' : 'person'}`;
+/** Who won, from the recorded result and the side the viewer was on. */
+const outcomeOf = (debate: MyDebate): 'affirmative' | 'negative' | 'draw' => {
+  if (debate.result === 'draw') return 'draw';
+  const other = debate.side === 'affirmative' ? 'negative' : 'affirmative';
+  return debate.result === 'won' ? debate.side : other;
+};
+
+/**
+ * The completed result page for a debate in the history, carrying the
+ * recorded outcome so the page shows it instead of working one out.
+ */
+export const resultHref = (debate: MyDebate): string => {
+  const by = debate.judge.kind === 'ai' ? 'ai' : 'person';
+  return `/debates/${debate.id}?turn=6&kind=${by}&by=${by}&win=${outcomeOf(debate)}`;
+};

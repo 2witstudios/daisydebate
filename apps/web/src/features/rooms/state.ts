@@ -10,6 +10,8 @@ import type { SearchParams } from '../access/decision';
 
 type Occupant = 'you' | 'them' | 'empty';
 export type JudgeKind = 'person' | 'ai';
+/** A room's judge: a person, the placeholder AI, or Daisy's assignment (ranked). */
+export type RoomJudge = JudgeKind | 'assigned';
 export type Lifecycle = 'open' | 'started' | 'closed';
 type ViewerRole = 'host' | 'member' | 'outsider';
 export type SeatId = 'affirmative' | 'negative' | 'judge';
@@ -20,7 +22,7 @@ export type RoomState = {
   readonly negative: Occupant;
   /** A person judge; the placeholder AI judge fills the seat itself. */
   readonly judge: Occupant;
-  readonly judgeKind: JudgeKind;
+  readonly judgeKind: RoomJudge;
   readonly ready: readonly SeatId[];
   readonly lifecycle: Lifecycle;
   /** The ready flags live in Redis: when it is down, readiness is unknown. */
@@ -73,8 +75,15 @@ export const createdState: RoomState = {
   notice: null,
 };
 
-/** The state a room has before any control has been used. */
-export const presetFor = (roomId: string): RoomState => {
+/**
+ * The state a room has before any control has been used. A room with no
+ * preset (a lobby table) starts as a member's view of an open table with the
+ * judge it was listed with.
+ */
+export const presetFor = (
+  roomId: string,
+  judge: RoomJudge = 'person',
+): RoomState => {
   switch (roomId) {
     case 'created':
       return createdState;
@@ -113,7 +122,12 @@ export const presetFor = (roomId: string): RoomState => {
     case 'private':
       return { ...createdState, role: 'outsider' };
     default:
-      return { ...createdState, affirmative: 'them', role: 'member' };
+      return {
+        ...createdState,
+        affirmative: 'them',
+        judgeKind: judge,
+        role: 'member',
+      };
   }
 };
 
@@ -121,8 +135,9 @@ export const presetFor = (roomId: string): RoomState => {
 export function parseRoomState(
   roomId: string,
   params: SearchParams,
+  judge: RoomJudge = 'person',
 ): RoomState {
-  const base = presetFor(roomId);
+  const base = presetFor(roomId, judge);
   const occupant = (key: string, fallback: Occupant): Occupant =>
     occupantSchema.catch(fallback).parse(first(params[key]) ?? fallback);
   const noticeValue = first(params['notice']);
@@ -131,7 +146,7 @@ export function parseRoomState(
     negative: occupant('neg', base.negative),
     judge: occupant('judge', base.judge),
     judgeKind: z
-      .enum(['person', 'ai'])
+      .enum(['person', 'ai', 'assigned'])
       .catch(base.judgeKind)
       .parse(first(params['kind']) ?? base.judgeKind),
     ready:
@@ -183,11 +198,13 @@ export const mySeat = (state: RoomState): SeatId | null =>
 
 /** Whether a seat is filled: by a person, or by the AI judge. */
 export const filled = (state: RoomState, seat: SeatId): boolean =>
-  seat === 'judge' && state.judgeKind === 'ai' ? true : state[seat] !== 'empty';
+  seat === 'judge' && state.judgeKind !== 'person'
+    ? true
+    : state[seat] !== 'empty';
 
-/** Seats that need a person's ready flag: every filled seat but an AI judge. */
+/** Seats that need a person's ready flag: every filled seat but a judge who is not a person here. */
 export const needsReady = (state: RoomState, seat: SeatId): boolean =>
-  filled(state, seat) && !(seat === 'judge' && state.judgeKind === 'ai');
+  filled(state, seat) && !(seat === 'judge' && state.judgeKind !== 'person');
 
 /** Why the room cannot start yet, or null when it can. */
 export function startBlock(state: RoomState): string | null {
@@ -229,7 +246,10 @@ export type DemoStep =
 /** Takes a seat, leaving the one held before. A refused take says why. */
 function takeSeat(state: RoomState, seat: SeatId): RoomState {
   if (state.lifecycle !== 'open') return state;
-  if (state[seat] !== 'empty' || (seat === 'judge' && state.judgeKind === 'ai'))
+  if (
+    state[seat] !== 'empty' ||
+    (seat === 'judge' && state.judgeKind !== 'person')
+  )
     return { ...state, notice: 'seat-taken' };
   const mine = mySeat(state);
   const cleared = mine === null ? state : { ...state, [mine]: 'empty' };

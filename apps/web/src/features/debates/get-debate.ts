@@ -19,5 +19,7 @@ export function getDebateInfo(id: string, now: string): RoomInfo | null {
         title: past.title,
         mode: past.mode,
         hostHandle: past.opponent,
+        judge: past.judge.kind,
+        fromHistory: true,
       };
 }

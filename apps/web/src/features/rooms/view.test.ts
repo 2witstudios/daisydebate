@@ -9,6 +9,7 @@ const info = (mode: 'practice' | 'ranked' = 'practice'): RoomInfo => ({
   title: 'Newcomers welcome',
   mode,
   hostHandle: 'host-two',
+  judge: 'person',
 });
 
 const room = (view: ReturnType<typeof roomView>) => {

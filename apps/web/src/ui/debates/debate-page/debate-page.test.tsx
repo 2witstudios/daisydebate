@@ -16,6 +16,7 @@ const info: RoomInfo = {
   title: 'Evening round',
   mode: 'practice',
   hostHandle: 'host-two',
+  judge: 'person',
 };
 const render = (change: Partial<DebateQuery> = {}) =>
   renderToString(
@@ -69,6 +70,34 @@ describe('DebatePage', () => {
         html.includes('Back to the room'),
       ],
       expected: [true, true, true, true],
+    });
+  });
+
+  test('a past result from your history', () => {
+    const html = renderToString(
+      h(DebatePage, {
+        view: debateView(
+          { ...info, fromHistory: true },
+          {
+            ...parseDebateQuery({}),
+            turn: 6,
+            judgeKind: 'person',
+            ruledBy: 'person',
+            outcome: 'draw',
+          },
+        ),
+      }),
+    );
+    assert({
+      given: 'a drawn debate opened from My debates',
+      should: 'say it was a draw and offer no rematch or room, only the list',
+      actual: [
+        html.includes('A draw'),
+        html.includes('Rematch'),
+        html.includes('Back to the room'),
+        html.includes('My debates'),
+      ],
+      expected: [true, false, false, true],
     });
   });
 

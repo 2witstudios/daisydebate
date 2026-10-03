@@ -17,6 +17,7 @@ const info: RoomInfo = {
   title: 'Newcomers welcome',
   mode: 'practice',
   hostHandle: 'host-two',
+  judge: 'person',
 };
 
 const settingsAction = async () => initialMockForm;

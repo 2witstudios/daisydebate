@@ -24,12 +24,14 @@ export async function saveRoomSettingsAction(
   form: unknown,
 ): Promise<MockFormState> {
   const id = typeof roomId === 'string' ? roomId : '';
-  const known = getRoomInfo(id, systemClock.now()) !== null;
+  const info = getRoomInfo(id, systemClock.now());
+  const known = info !== null;
   const current = parseRoomState(
     id,
     Object.fromEntries(
       new URLSearchParams(typeof search === 'string' ? search : ''),
     ),
+    info?.judge,
   );
   return runMockForm(form, parseTimings, () =>
     known ? roomHref(id, settingsSaved(current)) : '/lobby',

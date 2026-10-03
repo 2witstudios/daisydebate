@@ -30,7 +30,7 @@ export default async function RoomRoute({
   ).toString();
   return (
     <RoomPage
-      view={roomView(info, parseRoomState(id, query))}
+      view={roomView(info, parseRoomState(id, query, info.judge))}
       settingsAction={saveRoomSettingsAction.bind(null, id, search)}
     />
   );

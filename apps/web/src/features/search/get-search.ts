@@ -42,12 +42,15 @@ const catalog = (now: string): readonly SearchItem[] => [
     detail: `Run by ${tournament.organizer}`,
     href: `/tournaments/${tournament.id}`,
   })),
-  ...sampleRooms(now).map((room) => ({
-    kind: 'room' as const,
-    label: room.name,
-    detail: `Hosted by ${room.host.handle}`,
-    href: `/rooms/${room.id}`,
-  })),
+  // Only open tables have a room page; a live room is a debate to watch.
+  ...sampleRooms(now)
+    .filter((room) => room.status === 'open')
+    .map((room) => ({
+      kind: 'room' as const,
+      label: room.name,
+      detail: `Hosted by ${room.host.handle}`,
+      href: `/rooms/${room.id}`,
+    })),
 ];
 
 /**

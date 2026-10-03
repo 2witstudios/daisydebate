@@ -16,7 +16,21 @@ describe('getRoomInfo', () => {
         title: 'Your practice room',
         mode: 'practice',
         hostHandle: 'you',
+        judge: 'person',
       },
+    });
+  });
+
+  test('a lobby room keeps the judge it was listed with', () => {
+    assert({
+      given: 'a person-judged table, an AI-judged one and a ranked one',
+      should: 'carry person, ai and assigned',
+      actual: [
+        getRoomInfo('room-newcomers', now)?.judge,
+        getRoomInfo('room-anything-goes', now)?.judge,
+        getRoomInfo('room-tuesday-night', now)?.judge,
+      ],
+      expected: ['person', 'ai', 'assigned'],
     });
   });
 

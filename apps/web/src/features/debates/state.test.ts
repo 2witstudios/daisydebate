@@ -15,6 +15,7 @@ describe('parseDebateQuery', () => {
         judgeKind: 'person',
         viewer: 'debater',
         ruledBy: null,
+        outcome: null,
       },
     });
   });
@@ -34,6 +35,7 @@ describe('parseDebateQuery', () => {
         judgeKind: 'person',
         viewer: 'debater',
         ruledBy: null,
+        outcome: null,
       },
     });
   });
@@ -44,6 +46,7 @@ describe('parseDebateQuery', () => {
       judgeKind: 'ai' as const,
       viewer: 'judge' as const,
       ruledBy: 'ai' as const,
+      outcome: 'draw' as const,
     };
     const params = Object.fromEntries(
       new URL(debateHref('demo', query), 'https://x').searchParams,

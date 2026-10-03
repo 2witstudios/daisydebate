@@ -1,9 +1,10 @@
 import { sampleRooms } from '../../ui/mock/rooms';
 import { presetIds } from './state';
+import { presetFor } from './state';
 import type { RoomInfo } from './view';
 
 const presetInfo: Readonly<
-  Record<(typeof presetIds)[number], Omit<RoomInfo, 'id'>>
+  Record<(typeof presetIds)[number], Omit<RoomInfo, 'id' | 'judge'>>
 > = {
   created: { title: 'Your practice room', mode: 'practice', hostHandle: 'you' },
   'created-ai': {
@@ -45,7 +46,8 @@ const isPreset = (id: string): id is (typeof presetIds)[number] =>
  * An unknown id is not a room.
  */
 export function getRoomInfo(id: string, now: string): RoomInfo | null {
-  if (isPreset(id)) return { id, ...presetInfo[id] };
+  if (isPreset(id))
+    return { id, ...presetInfo[id], judge: presetFor(id).judgeKind };
   const room = sampleRooms(now).find(
     (candidate) => candidate.id === id && candidate.status === 'open',
   );
@@ -56,5 +58,6 @@ export function getRoomInfo(id: string, now: string): RoomInfo | null {
         title: room.name,
         mode: room.mode === 'ranked' ? 'ranked' : 'practice',
         hostHandle: room.host.handle,
+        judge: room.judge,
       };
 }

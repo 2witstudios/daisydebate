@@ -18,7 +18,11 @@ export type DebateQuery = {
   readonly viewer: Viewer;
   /** Who made the ruling, once there is one. */
   readonly ruledBy: JudgeKind | null;
+  /** A recorded result (a debate from history), which a ruling must not recompute. */
+  readonly outcome: Outcome | null;
 };
+
+export type Outcome = 'affirmative' | 'negative' | 'draw';
 
 const first = (value: string | readonly string[] | undefined) =>
   typeof value === 'string' ? value : value?.[0];
@@ -45,6 +49,11 @@ export function parseDebateQuery(params: SearchParams): DebateQuery {
       .nullable()
       .catch(null)
       .parse(first(params['by']) ?? null),
+    outcome: z
+      .enum(['affirmative', 'negative', 'draw'])
+      .nullable()
+      .catch(null)
+      .parse(first(params['win']) ?? null),
   };
 }
 
@@ -55,6 +64,7 @@ export const debateHref = (id: string, query: DebateQuery): string => {
     as: query.viewer,
   });
   if (query.ruledBy) params.set('by', query.ruledBy);
+  if (query.outcome) params.set('win', query.outcome);
   return `/debates/${id}?${params.toString()}`;
 };
 

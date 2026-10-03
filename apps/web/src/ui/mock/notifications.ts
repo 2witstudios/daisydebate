@@ -13,7 +13,7 @@ export const sampleNotifications: readonly MockNotification[] = [
   {
     id: 'ballot-ready',
     text: 'A judge submitted the ballot for your debate with debater-b.',
-    href: '/debates/ballot-ready',
+    href: '/debates/started?turn=6&kind=person&by=person',
     minutesAgo: 12,
     unread: true,
   },

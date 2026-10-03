@@ -112,8 +112,23 @@ describe('labels', () => {
         'Judge @judge-one',
         'Placeholder AI judge',
         'Judge assigned by Daisy',
-        '/debates/d-ai-spar?turn=6&kind=ai&by=ai',
+        '/debates/d-ai-spar?turn=6&kind=ai&by=ai&win=affirmative',
       ],
+    });
+  });
+
+  test('the result link carries the recorded outcome', () => {
+    const byId = (id: string) => all.find((debate) => debate.id === id)!;
+    assert({
+      given: 'a win, a loss as the negative, and a draw from the history',
+      should:
+        'name the winning side, or a draw, rather than leave the page to work it out',
+      actual: [
+        resultHref(byId('d-evening-round')),
+        resultHref(byId('d-ladder-climb')),
+        resultHref(byId('d-semifinal-rehearsal')),
+      ].map((href) => new URL(href, 'https://x').searchParams.get('win')),
+      expected: ['affirmative', 'affirmative', 'draw'],
     });
   });
 });

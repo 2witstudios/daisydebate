@@ -8,6 +8,7 @@ import {
   type JudgeKind,
   type Lifecycle,
   type Notice,
+  type RoomJudge,
   type RoomAction,
   type RoomState,
   type SeatId,
@@ -20,6 +21,10 @@ export type RoomInfo = {
   readonly mode: 'practice' | 'ranked';
   /** The public name of the host. */
   readonly hostHandle: string;
+  /** Who judges when the room opens: a person, the AI, or Daisy's assignment. */
+  readonly judge: RoomJudge;
+  /** A debate known only from the account's history: there is no room to go back to. */
+  readonly fromHistory?: boolean;
 };
 
 type OccupantView =
@@ -139,7 +144,7 @@ const judgeValue = (state: RoomState, ranked: boolean): string => {
 };
 
 const debateLink = (info: RoomInfo, state: RoomState): string =>
-  `/debates/${info.id}?${new URLSearchParams({ kind: state.judgeKind }).toString()}`;
+  `/debates/${info.id}?${new URLSearchParams({ kind: state.judgeKind === 'assigned' ? 'person' : state.judgeKind }).toString()}`;
 
 const next = (info: RoomInfo, state: RoomState, action: RoomAction): string =>
   roomHref(info.id, applyAction(state, action));

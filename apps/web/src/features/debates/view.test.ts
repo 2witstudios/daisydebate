@@ -10,6 +10,7 @@ const info: RoomInfo = {
   title: 'Evening round',
   mode: 'practice',
   hostHandle: 'host-two',
+  judge: 'person',
 };
 const view = (change: Partial<DebateQuery> = {}) =>
   debateView(info, { ...parseDebateQuery({}), ...change });
@@ -101,7 +102,7 @@ describe('debateView', () => {
         v.kind === 'completed' &&
           ['affirmative', 'negative'].includes(v.winner),
         v.kind === 'completed' && v.reason.includes('chose at random'),
-        v.kind === 'completed' && v.rematchHref.startsWith('/rooms/demo?'),
+        v.kind === 'completed' && v.rematchHref?.startsWith('/rooms/demo?'),
       ],
       expected: ['completed', true, true, true],
     });
@@ -113,6 +114,37 @@ describe('debateView', () => {
       should: 'be refused, naming nothing about it',
       actual: view({ viewer: 'outsider' }),
       expected: { kind: 'denied', lobbyHref: '/lobby' },
+    });
+  });
+
+  test('a recorded result from history', () => {
+    const history = {
+      ...info,
+      id: 'd-ladder-climb',
+      fromHistory: true as const,
+    };
+    const result = (win: 'affirmative' | 'negative' | 'draw') =>
+      debateView(history, {
+        turn: 6,
+        judgeKind: 'person',
+        viewer: 'debater',
+        ruledBy: 'person',
+        outcome: win,
+      });
+    const [lost, draw] = [result('affirmative'), result('draw')];
+    assert({
+      given:
+        'a finished debate known only from history, recorded as a win and a draw',
+      should:
+        'show the recorded winner, explain a draw, and offer no room or rematch',
+      actual: [
+        lost.kind === 'completed' && lost.winner,
+        draw.kind === 'completed' && draw.winner,
+        draw.kind === 'completed' && draw.reason.includes('level'),
+        lost.kind === 'completed' && lost.rematchHref,
+        lost.kind === 'completed' && lost.roomHref,
+      ],
+      expected: ['affirmative', 'draw', true, null, null],
     });
   });
 });

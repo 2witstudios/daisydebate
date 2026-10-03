@@ -46,6 +46,61 @@ describe('presetFor', () => {
   });
 });
 
+describe('a lobby room with its own judge', () => {
+  test('an AI-judged table has no judge seat to fill', () => {
+    const state = parseRoomState('room-anything-goes', {}, 'ai');
+    assert({
+      given: 'a lobby table listed with the AI judge',
+      should:
+        'start as AI-judged, count the judge seat as filled, and ask only for the debaters',
+      actual: [
+        state.judgeKind,
+        filled(state, 'judge'),
+        startBlock(state),
+        startBlock(
+          applyAction(applyAction(state, { kind: 'take', seat: 'negative' }), {
+            kind: 'ready',
+          }),
+        ),
+      ],
+      expected: [
+        'ai',
+        true,
+        'Both debater seats must be filled.',
+        'Everyone seated must be ready.',
+      ],
+    });
+  });
+
+  test('a ranked table can start without a human judge', () => {
+    const seated = applyAction(
+      parseRoomState('room-tuesday-night', {}, 'assigned'),
+      { kind: 'take', seat: 'negative' },
+    );
+    const ready = applyAction(seated, { kind: 'demo', what: 'everyone-ready' });
+    assert({
+      given:
+        'a ranked table whose judge Daisy assigns, both debaters seated and ready',
+      should: 'never wait on a judge seat, and refuse a person taking it',
+      actual: [
+        seated.judgeKind,
+        startBlock(ready),
+        applyAction(seated, { kind: 'take', seat: 'judge' }).notice,
+      ],
+      expected: ['assigned', null, 'seat-taken'],
+    });
+  });
+
+  test("an unknown kind in the address falls back to the room's own", () => {
+    assert({
+      given: 'a nonsense kind for an AI-judged table',
+      should: 'keep the listed judge',
+      actual: parseRoomState('room-x', { kind: 'nope' }, 'ai').judgeKind,
+      expected: 'ai',
+    });
+  });
+});
+
 describe('parseRoomState and roomHref', () => {
   test('round trip', () => {
     const state = take(presetFor('needs-judge'), 'negative');

@@ -1,6 +1,11 @@
 import type { RoomInfo } from '../rooms/view';
 import { presetFor, roomHref } from '../rooms/state';
-import { debateHref, placeholderOutcome, type DebateQuery } from './state';
+import {
+  debateHref,
+  placeholderOutcome,
+  type DebateQuery,
+  type Outcome,
+} from './state';
 import {
   endedTurn,
   formatSeconds,
@@ -18,7 +23,8 @@ export type TimelineRow = {
 type Common = {
   readonly id: string;
   readonly title: string;
-  readonly roomHref: string;
+  /** The room this debate came from; null for a debate known only from history. */
+  readonly roomHref: string | null;
   readonly timeline: readonly TimelineRow[];
   readonly demo: readonly { readonly label: string; readonly href: string }[];
 };
@@ -43,10 +49,10 @@ export type DebateView =
     })
   | (Common & {
       readonly kind: 'completed';
-      readonly winner: Side;
+      readonly winner: Outcome;
       readonly by: 'person' | 'ai';
       readonly reason: string;
-      readonly rematchHref: string;
+      readonly rematchHref: string | null;
     });
 
 const timelineFor = (turn: number): readonly TimelineRow[] =>
@@ -55,6 +61,8 @@ const timelineFor = (turn: number): readonly TimelineRow[] =>
     length: formatSeconds(row.seconds),
     state: row.number < turn ? 'done' : row.number === turn ? 'now' : 'next',
   }));
+
+const drawReason = 'The judge scored both sides level, so neither side wins.';
 
 const reasonFor = (by: 'person' | 'ai'): string =>
   by === 'ai'
@@ -70,13 +78,17 @@ function completedView(
   return {
     ...common,
     kind: 'completed',
-    winner: by === 'ai' ? placeholderOutcome(info.id) : 'affirmative',
+    winner:
+      query.outcome ??
+      (by === 'ai' ? placeholderOutcome(info.id) : 'affirmative'),
     by,
-    reason: reasonFor(by),
-    rematchHref: roomHref(info.id, {
-      ...presetFor('rematch'),
-      judgeKind: query.judgeKind,
-    }),
+    reason: query.outcome === 'draw' ? drawReason : reasonFor(by),
+    rematchHref: info.fromHistory
+      ? null
+      : roomHref(info.id, {
+          ...presetFor('rematch'),
+          judgeKind: query.judgeKind,
+        }),
   };
 }
 
@@ -130,7 +142,7 @@ export function debateView(info: RoomInfo, query: DebateQuery): DebateView {
   const common: Common = {
     id: info.id,
     title: info.title,
-    roomHref: roomHref(info.id, presetFor('started')),
+    roomHref: info.fromHistory ? null : roomHref(info.id, presetFor('started')),
     timeline: timelineFor(query.turn),
     demo: [
       {
