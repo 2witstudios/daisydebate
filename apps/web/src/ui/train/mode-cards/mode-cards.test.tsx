@@ -15,9 +15,9 @@ describe('ModeCards', () => {
     );
     assert({
       given: 'the working-the-plan cards',
-      should: 'link practice, drills and review',
+      should: 'link the AI debate, drills and review',
       actual: [
-        html.includes('href="/train/practice"'),
+        html.includes('href="/ai-debate"'),
         html.includes('href="/train/drill"'),
         html.includes('href="/train/review"'),
         html.includes('6 due today'),
