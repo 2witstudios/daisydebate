@@ -1,5 +1,7 @@
 import { systemClock, systemId } from '@daisy/clock';
 import { createApp, type App } from './app';
+import type { Fetch } from '../features/auth/mail';
+import { captureMail, fileRecorder, readDevMailFile } from './dev-mail';
 import { createProcessEdge, type ProcessHolder } from './process-edge';
 import { createRouteBinder } from './route-binding';
 import { createRoutes, type Routes } from './routes';
@@ -23,13 +25,29 @@ const stateFor = (app: App): ProcessState => ({
   routes: createRoutes(app),
 });
 
+/**
+ * Outbound HTTP: the network, except in local development with
+ * `DEV_MAIL_CAPTURE` set, where sign-in mail is kept in that file instead of
+ * sent (production refuses the variable).
+ */
+const outboundFetch = (env: Record<string, string | undefined>): Fetch => {
+  const file = readDevMailFile(env);
+  return file === null
+    ? globalThis.fetch
+    : captureMail({
+        downstream: globalThis.fetch,
+        record: fileRecorder(file),
+        clock: systemClock,
+      });
+};
+
 const edge = createProcessEdge(
   globalThis as typeof globalThis & ProcessHolder<ProcessState>,
   () =>
     stateFor(
       createApp({
         env: process.env,
-        fetch: globalThis.fetch,
+        fetch: outboundFetch(process.env),
         clock: systemClock,
         ids: systemId,
       }),

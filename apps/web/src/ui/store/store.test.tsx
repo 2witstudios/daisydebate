@@ -12,16 +12,14 @@ describe('UI store state', () => {
     const state = createInitialState();
     assert({
       given: 'a freshly created UI state',
-      should:
-        'seed six users, two live debates, four activities, and the resources',
+      should: 'seed six users, two live debates, and the resources',
       actual: [
         state.collections.onlineUsers.length,
         state.collections.liveDebates.length,
-        state.collections.activities.length,
         state.resources.onlineCount,
         state.resources.tournament.name,
       ],
-      expected: [6, 2, 4, 1248, 'Global Debate Championship'],
+      expected: [6, 2, 1248, 'Global Debate Championship'],
     });
   });
 
@@ -38,20 +36,40 @@ describe('UI store state', () => {
       expected: ['Maya Singh', 1810, 1762],
     });
   });
-
-  test('keeps system activities distinguishable from persona activities', () => {
-    const state = createInitialState();
-    assert({
-      given: 'four seeded activities, one a system announcement',
-      should: 'carry an actor name for exactly three',
-      actual: state.collections.activities.filter((a) => a.actor !== null)
-        .length,
-      expected: 3,
-    });
-  });
 });
 
 describe('UI store transactions', () => {
+  test('setNav changes only the sidebar', () => {
+    const state = createInitialState();
+    const next = transactions.setNav(state, 'collapsed');
+    assert({
+      given: 'the seeded state and a sidebar choice',
+      should: 'start on auto, take the choice, and leave the dock alone',
+      actual: [
+        state.resources.nav,
+        next.resources.nav,
+        next.resources.dock === state.resources.dock,
+      ],
+      expected: ['auto', 'collapsed', true],
+    });
+  });
+
+  test('setDock changes only the dock', () => {
+    const state = createInitialState();
+    const next = transactions.setDock(state, 'closed');
+    assert({
+      given: 'the seeded state and a dock choice',
+      should: 'start on auto, take the choice, and leave the rest alone',
+      actual: [
+        state.resources.dock,
+        next.resources.dock,
+        next.resources.searchQuery === state.resources.searchQuery,
+        state.resources.dock,
+      ],
+      expected: ['auto', 'closed', true, 'auto'],
+    });
+  });
+
   test('are pure: they return new state and leave the original untouched', () => {
     const state = createInitialState();
     const next = transactions.setSearchQuery(state, 'ranked');

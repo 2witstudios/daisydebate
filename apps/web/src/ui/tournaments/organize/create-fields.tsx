@@ -1,6 +1,11 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { cn } from '../../cn';
+import type {
+  Draft,
+  DraftEdits,
+  WizardQuery,
+} from '../../../features/tournaments/create-wizard';
 
 export const field =
   'h-10 w-full rounded-md border border-border bg-surface-raised px-3 text-base text-ink disabled:opacity-60';
@@ -65,3 +70,10 @@ export function Segmented({
     </nav>
   );
 }
+
+/** What every wizard step reads: the choices in the address and the draft. */
+export type StepProps = {
+  readonly query: WizardQuery;
+  readonly draft: Draft;
+  readonly edits: DraftEdits;
+};

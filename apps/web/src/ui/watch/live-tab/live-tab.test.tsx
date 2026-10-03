@@ -69,12 +69,10 @@ describe('LiveTab', () => {
     const html = render(defaultLiveQuery, empty);
     assert({
       given: 'no live debates at all',
-      should: 'explain, offer an inert notify, the archive and the lobby',
+      should: 'explain, offer a working notify, the archive and the lobby',
       actual: [
         html.includes('No debates are live right now'),
-        /<button [^>]*disabled=""[^>]*>Tell me when ranked debates start/.test(
-          html,
-        ),
+        html.includes('href="?did=Notify+me"'),
         html.includes('href="/recordings"'),
         html.includes('href="/lobby"'),
         html.includes('role="search"'),

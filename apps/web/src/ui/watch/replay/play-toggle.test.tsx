@@ -1,17 +1,13 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { mockNextRouter } from '../../../lib/testing/mock-router';
 
 setupRitewayBun();
 
 // The toggle reads the Next router, which only exists in a running app, so
 // the server render is checked through a stub router.
-import { mock } from 'bun:test';
-const actual = await import('next/navigation');
-mock.module('next/navigation', () => ({
-  ...actual,
-  useRouter: () => ({ replace: () => undefined }),
-}));
+await mockNextRouter();
 const { PlayToggle } = await import('./play-toggle');
 
 describe('PlayToggle', () => {

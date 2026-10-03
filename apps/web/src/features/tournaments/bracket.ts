@@ -188,3 +188,35 @@ export function resultsGrid(data: RobinData): readonly {
     }),
   }));
 }
+
+/** One match and the earlier matches that feed its seats. */
+export type TreeNode = {
+  readonly match: Match;
+  readonly feeders: readonly TreeNode[];
+};
+
+type Rounds = EliminationData['rounds'];
+
+/**
+ * The bracket as one tree rooted at the final. Match i of a round is fed by
+ * matches 2i and 2i + 1 of the round before it (a lone one for a bye). Null
+ * when the rounds do not narrow to a single final that way, so a malformed
+ * bracket is never drawn as a wrong tree.
+ */
+export function bracketTree(rounds: Rounds): TreeNode | null {
+  const counts = rounds.map((round) => round.matches.length);
+  const narrows = (count: number, index: number): boolean =>
+    count > 0 &&
+    (index === 0 || Math.ceil((counts[index - 1] ?? 0) / 2) === count);
+  if (counts.at(-1) !== 1 || !counts.every(narrows)) return null;
+  const node = (round: number, index: number): TreeNode => ({
+    match: rounds[round]?.matches[index] as Match,
+    feeders:
+      round === 0
+        ? []
+        : [index * 2, index * 2 + 1]
+            .filter((feeder) => feeder < (counts[round - 1] ?? 0))
+            .map((feeder) => node(round - 1, feeder)),
+  });
+  return node(rounds.length - 1, 0);
+}

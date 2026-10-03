@@ -72,6 +72,15 @@ and never the only carrier of meaning.
 - **Leaderboard rows**: rank, a bloom marker, name and rating, on ranked
   panels and leaderboards.
 
+## Area hues
+
+Four muted secondary colours let areas tell themselves apart on a screen
+that would otherwise be all green ([ADR 0051](../decisions/0051-area-hues.md)):
+clay (competition), sky (practice), teal (rooms) and plum (bots and judging), each with a
+`-soft` tint. Use them for an icon chip, a tinted surface or a hover border,
+never for body text, status or a primary button, and always beside a label.
+Gold stays for honours and events, and the live red for "live".
+
 ## Contrast
 
 Every text and UI pairing you add in markup (a new `text-*` on a new

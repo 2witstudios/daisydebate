@@ -26,24 +26,41 @@ const render = (id: string, view?: BracketView, signedIn = true) => {
 };
 
 describe('BracketPage, single elimination', () => {
-  test('the bracket: live strip, view links, four round columns and your path', () => {
+  test('the bracket: live strip, view links, one tree ending at the champion and your path', () => {
     const html = render('harvest-cup');
     assert({
       given: 'Harvest Cup on the bracket view',
       should:
-        'show one h1, the live line, both views, the champion slot and mark the viewer',
+        'show one h1, the live line, both views, the champion at the end of the tree and mark the viewer',
       actual: [
         html.match(/<h1 /g)?.length,
         /role="status"[^>]*>.*Live\./.test(html),
         html.includes('Semifinals in progress. Next: Final today'),
         html.includes('aria-label="View"'),
         html.includes('href="/tournaments/harvest-cup/bracket?view=rounds"'),
-        html.includes('The champion blooms here when the final is decided'),
+        html.includes('Decided after the final'),
         html.includes('Live, 31 watching'),
         html.includes('border-accent'),
         html.includes('Open my event'),
       ],
       expected: [1, true, true, true, true, true, true, true, true],
+    });
+  });
+
+  test('the tree has every match, joined by branches, and no dangling line', () => {
+    const html = render('harvest-cup');
+    assert({
+      given: 'Harvest Cup, eight entrants',
+      should:
+        'draw seven matches and the champion, one feeder branch per match but the champion, and the quarterfinals as leaves',
+      actual: [
+        (html.match(/Quarterfinal \d, done/g) ?? []).length,
+        html.match(/class="bracket-card"/g)?.length,
+        html.match(/class="bracket-end"/g)?.length,
+        html.match(/class="bracket-feeder"/g)?.length,
+        html.includes('class="bracket-stub"'),
+      ],
+      expected: [4, 7, 1, 7, true],
     });
   });
 

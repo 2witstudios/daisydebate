@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import type { Champion } from '../../../features/leaderboard/ladder-view';
 import { leaderboardDestinations } from '../../../features/leaderboard/actions';
 import {
+  seasonCountdown,
   seasonDates,
   seasonLabel,
   seasonProgress,
@@ -255,9 +256,7 @@ export function EmptyLadder(props: EmptyLadderProps): ReactNode {
   );
 }
 
-/** "This season" and "How ratings work", beside the table on wide screens. */
+/** A season's dates and how long it has left. */
 export function seasonEnds(season: Season, now: string): string {
-  const { day, length } = seasonProgress(season, now);
-  const left = length - day;
-  return `${seasonDates(season)}. ${left === 0 ? 'Ends today.' : `Ends in ${left} ${left === 1 ? 'day' : 'days'}.`}`;
+  return `${seasonDates(season)}. ${seasonCountdown(season, now)}`;
 }

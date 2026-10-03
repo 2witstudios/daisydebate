@@ -6,7 +6,7 @@ import {
   structureLabel,
 } from '../../../features/tournaments/labels';
 import { formatTime } from '../../../features/tournaments/dates';
-import { DisabledAction } from '../inert-action/inert-action';
+import { SampleButton } from '../inert-action/inert-action';
 import { LinkButton } from '../link-button/link-button';
 import { PageFrame, PageTitle } from '../page-frame/page-frame';
 import { StatusBadge } from '../status-badge/status-badge';
@@ -139,15 +139,8 @@ export function EventPage({ screen, tournament, finalAt }: EventPageProps) {
               Something wrong with your pairing, room or judge? The organizer
               and moderators are told straight away.
             </p>
-            <DisabledAction
-              label="Contact the organizer"
-              reason="Messaging needs the organizer service."
-            />
-            <DisabledAction
-              label="Report a problem"
-              reason="Reporting needs the organizer service."
-              variant="ghost"
-            />
+            <SampleButton label="Contact the organizer" />
+            <SampleButton label="Report a problem" variant="ghost" />
           </section>
         </aside>
       </div>

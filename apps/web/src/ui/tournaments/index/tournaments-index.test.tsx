@@ -51,13 +51,13 @@ describe('TournamentsIndex', () => {
     });
   });
 
-  test('upcoming shows an inert reminder, not a fake link', () => {
+  test('upcoming shows a working reminder and a waitlist link', () => {
     const html = render({ ...defaultQuery, tab: 'upcoming' });
     assert({
       given: 'the upcoming tab',
-      should: 'show a disabled Remind me and a Join waitlist link',
+      should: 'show a Remind me sample action and a Join waitlist link',
       actual: [
-        html.includes('Remind me (Reminders arrive with notifications.)'),
+        html.includes('href="?did=Remind+me"'),
         /href="\/tournaments\/enter\/night-owl-open"[^>]*>Join waitlist</.test(
           html,
         ),

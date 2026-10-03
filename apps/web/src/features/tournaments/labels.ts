@@ -96,7 +96,6 @@ export type RowAction =
   | {
       readonly kind: 'inert';
       readonly label: string;
-      readonly reason: string;
       readonly id: InertActionId;
     };
 

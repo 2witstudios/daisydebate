@@ -1,7 +1,7 @@
 import type { ConsoleView } from '../../../../features/tournaments/console-view';
 import { Icon } from '../../../components/icon/icon';
 import { buttonClass } from '../../../components/button/button-class';
-import { DisabledAction } from '../../inert-action/inert-action';
+import { SampleButton } from '../../inert-action/inert-action';
 import { LinkButton } from '../../link-button/link-button';
 import { Notice } from '../../notice/notice';
 import { Person } from '../../person/person';
@@ -15,16 +15,8 @@ export function EntrantsTab({ view }: { readonly view: ConsoleView }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-md font-strong text-ink">{view.entrantsHeading}</h2>
         <span className="flex gap-2">
-          <DisabledAction
-            label="Invite entrant"
-            reason="Inviting needs the organizer service."
-            variant="ghost"
-          />
-          <DisabledAction
-            label="Export list"
-            reason="Exports need the organizer service."
-            variant="ghost"
-          />
+          <SampleButton label="Invite entrant" variant="ghost" />
+          <SampleButton label="Export list" variant="ghost" />
         </span>
       </div>
       <ul>
@@ -44,16 +36,8 @@ export function EntrantsTab({ view }: { readonly view: ConsoleView }) {
             </span>
             <span className="text-sm text-ink-muted">{entrant.status}</span>
             <span className="flex gap-1">
-              <DisabledAction
-                label="Remove"
-                reason="Removing needs the organizer service."
-                variant="ghost"
-              />
-              <DisabledAction
-                label="Disqualify"
-                reason="Disqualifying needs the organizer service."
-                variant="ghost"
-              />
+              <SampleButton label="Remove" variant="ghost" />
+              <SampleButton label="Disqualify" variant="ghost" />
             </span>
           </li>
         ))}

@@ -1,11 +1,13 @@
 /**
  * Where each Train action goes. There is no backend yet, so each is a
- * navigation to the next mock screen, or an explicitly inert control with
- * its reason. The real operations replace these in this file and nowhere
- * else.
+ * navigation to the next mock screen. The real operations replace these in
+ * this file and nowhere else.
  */
 export const trainDestinations = {
-  hub: '/train',
+  /** The bot selector, the landing of Train. */
+  bots: '/train',
+  /** Your plan and progress: the page the plan flows come back to. */
+  hub: '/train/progress',
   welcome: '/train/welcome',
   practice: '/train/practice',
   practiceLive: '/train/practice/live',
@@ -16,22 +18,3 @@ export const trainDestinations = {
   customRules: '/train/rules',
   findRanked: '/lobby?mode=ranked',
 } as const;
-
-export type InertAction = {
-  readonly kind: 'inert';
-  /** Why the control does nothing, said to the person who meets it. */
-  readonly reason: string;
-};
-
-/** Saving a weekly goal needs an account-level training record. */
-export const changeGoal: InertAction = {
-  kind: 'inert',
-  reason: 'Weekly goals can be changed once your training is saved.',
-};
-
-/**
- * Said beside every "saved" state: the screen shows what saving will be like
- * (the mock flow's next step) but nothing is stored until an account keeps
- * training history, and the interface does not claim otherwise.
- */
-export const previewSaveNote = 'Preview: saving is not connected yet.';

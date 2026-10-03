@@ -14,9 +14,8 @@ type ItemBase = {
   readonly title: string;
   readonly tags: readonly string[];
   readonly visibility: Visibility;
-  /** ISO timestamps. */
+  /** ISO timestamp. */
   readonly editedAt: string;
-  readonly openedAt: string;
   readonly usedIn: number;
 };
 

@@ -124,6 +124,26 @@ const declaredPairs: readonly Pair[] = [
       ['--surface', '--surface-raised'].map((base) => ({ ...pair, base })),
   ),
   { fg: '--live', bg: '--live-soft', base: '--surface', min: TEXT },
+  // The area hues (ADR 0051): ink on the page's cards, and on its own tint.
+  ...on(
+    ['--hue-clay', '--hue-sky', '--hue-teal', '--hue-plum'],
+    ['--background', '--surface', '--surface-raised'],
+    TEXT,
+  ),
+  // A solid hue disc carries the page background as its icon colour.
+  ...on(
+    ['--background'],
+    ['--hue-clay', '--hue-sky', '--hue-teal', '--hue-plum', '--gold'],
+    TEXT,
+  ),
+  ...(['clay', 'sky', 'teal', 'plum'] as const).flatMap((hue) =>
+    ['--surface', '--surface-raised'].map((base) => ({
+      fg: `--hue-${hue}`,
+      bg: `--hue-${hue}-soft`,
+      base,
+      min: TEXT,
+    })),
+  ),
   { fg: '--gold', bg: '--gold-soft', base: '--surface', min: TEXT },
   // The stage is forest in both schemes and carries its own ink.
   ...on(['--stage-text', '--stage-text-muted'], ['--surface-stage'], TEXT),

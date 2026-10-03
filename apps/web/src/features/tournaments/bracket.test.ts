@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { sampleBracket } from '../../ui/mock/tournament-brackets';
 import {
+  bracketTree,
   bracketHref,
   parseBracketView,
   resultsGrid,
@@ -151,6 +152,89 @@ describe('sampleBracket', () => {
         (id) => sampleBracket(id, NOW)?.kind ?? null,
       ),
       expected: ['elimination', 'round-robin', null],
+    });
+  });
+});
+
+describe('bracketTree', () => {
+  const m = (id: string) => ({
+    id,
+    label: id,
+    a: null,
+    b: null,
+    state: 'pending' as const,
+    winner: null,
+    judge: null,
+    watching: null,
+    note: null,
+  });
+  const round = (...ids: string[]) => ({
+    label: ids[0] ?? '',
+    matches: ids.map(m),
+  });
+  const ids = (node: ReturnType<typeof bracketTree>): unknown =>
+    node && { id: node.match.id, from: node.feeders.map(ids) };
+
+  test('four, two, one: the final is fed by both semifinals', () => {
+    assert({
+      given: 'quarterfinals, semifinals and a final',
+      should: 'root the tree at the final, each match fed by its pair',
+      actual: ids(
+        bracketTree([
+          round('q1', 'q2', 'q3', 'q4'),
+          round('s1', 's2'),
+          round('f'),
+        ]),
+      ),
+      expected: {
+        id: 'f',
+        from: [
+          {
+            id: 's1',
+            from: [
+              { id: 'q1', from: [] },
+              { id: 'q2', from: [] },
+            ],
+          },
+          {
+            id: 's2',
+            from: [
+              { id: 'q3', from: [] },
+              { id: 'q4', from: [] },
+            ],
+          },
+        ],
+      },
+    });
+  });
+
+  test('a bye leaves a lone feeder', () => {
+    assert({
+      given: 'three matches into two into a final',
+      should: 'give the last semifinal a single feeder',
+      actual: bracketTree([
+        round('q1', 'q2', 'q3'),
+        round('s1', 's2'),
+        round('f'),
+      ])?.feeders[1]?.feeders.length,
+      expected: 1,
+    });
+  });
+
+  test('rounds that do not narrow to a final give no tree', () => {
+    assert({
+      given: 'no rounds, two finals, and rounds that do not halve',
+      should: 'return null for each',
+      actual: [
+        bracketTree([]),
+        bracketTree([round('a', 'b')]),
+        bracketTree([
+          round('a', 'b', 'c', 'd'),
+          round('x', 'y', 'z'),
+          round('f'),
+        ]),
+      ],
+      expected: [null, null, null],
     });
   });
 });

@@ -88,7 +88,7 @@ describe('drillScreen', () => {
         50,
         {
           label: 'Back to Train',
-          href: '/train?did=review%2Cresponding-drill',
+          href: '/train/progress?did=review%2Cresponding-drill',
         },
         '/train/review?did=review',
       ],

@@ -64,14 +64,12 @@ export function EligibilityStep({ flow }: { readonly flow: Flow }) {
           <textarea
             id="conflicts"
             rows={3}
-            disabled
             placeholder="Clubs, schools or debaters you should not be paired against or judged by"
-            className="w-full rounded-md border border-border bg-surface-raised p-3 text-base text-ink disabled:opacity-60"
+            className="w-full rounded-md border border-border bg-surface-raised p-3 text-base text-ink"
           />
           <p className="text-sm text-ink-faint">
             Private: only the pairing system reads this, and it is never shown
-            to other entrants. Recording conflicts needs the registration
-            service, so this box is off for now.
+            to other entrants.
           </p>
         </div>
         <div className="flex justify-end">

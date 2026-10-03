@@ -32,16 +32,15 @@ describe('StateAlert', () => {
     });
   });
 
-  test('navigation actions are links and mutations are disabled buttons', () => {
+  test('navigation actions are links and mutations are sample actions', () => {
     const html = render(deleteInUse(3, '/prep/cards/x'));
     assert({
       given: 'the delete-in-use notice',
-      should: 'link Keep card, disable Delete card and colour it red',
+      should:
+        'link Keep card, answer Delete card as a sample action and colour it red',
       actual: [
         html.includes('href="/prep/cards/x"'),
-        /<button [^>]*disabled=""[^>]*>Delete card/.test(html) ||
-          /disabled=""[^>]*class="[^"]*border-live[^"]*"/.test(html) ||
-          /class="[^"]*border-live[^"]*"[^>]*disabled=""/.test(html),
+        /<a class="[^"]*border-live[^"]*" href="\?did=Delete\+card"/.test(html),
         html.includes('This card is used in 3 places'),
       ],
       expected: [true, true, true],

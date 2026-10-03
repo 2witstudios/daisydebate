@@ -58,10 +58,10 @@ describe('nav-item presentation', () => {
     );
     assert({
       given:
-        'a link whose icon is aria-hidden and whose label is visually hidden at compact widths',
+        'a link whose icon is aria-hidden and whose label is visually hidden in icons-only mode',
       should:
         'keep the label readable to assistive tech (sr-only), never display:none it',
-      actual: [html.includes('sr-only'), html.includes('max-compact:hidden')],
+      actual: [html.includes('icons:sr-only'), html.includes('icons:hidden')],
       expected: [true, false],
     });
   });

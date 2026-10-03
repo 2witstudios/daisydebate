@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { useFormAction } from '../../form-action/form-action';
+import { useMovedOn } from '../../form-action/use-moved-on';
 import {
   claimUnavailable,
   initialUsernameForm,
@@ -39,10 +39,7 @@ export function Onboarding({
     claimUnavailable,
   );
   const [local, setLocal] = useState<LocalNotice>(undefined);
-  const router = useRouter();
-  useEffect(() => {
-    if (answered.next !== undefined) router.replace(answered.next);
-  }, [answered.next, router]);
+  useMovedOn(answered.next);
   // Moving on keeps the form busy until the next page replaces it.
   const pending = posting || answered.next !== undefined;
   return (

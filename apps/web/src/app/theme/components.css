@@ -10,6 +10,8 @@
   --radius-badge: 4px;
   --text-badge: 0.625rem;
   --container-search: 420px;
+  /* A readable measure for long copy and single-column forms. */
+  --spacing-reading: 44rem;
   --spacing-search-x: 2px;
   --spacing-search-y: 1px;
   /* Unstyled route copy keeps the browser's default rhythm (em, so it scales

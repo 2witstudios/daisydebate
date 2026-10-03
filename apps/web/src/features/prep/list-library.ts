@@ -4,14 +4,12 @@ import {
   inView,
   matching,
   matchingSearch,
-  recentlyOpened,
   sortItems,
   viewCounts,
   type ViewCounts,
 } from './library-filter';
 import {
   defaultLibraryQuery,
-  hasFilters,
   libraryHref,
   type LibraryQuery,
 } from './library-query';
@@ -40,14 +38,10 @@ export type LibraryListing = {
   readonly rows: readonly LibraryRow[];
   /** Items the search finds before the filters narrow it. */
   readonly searchMatches: number;
-  /** The last items opened: shown on the unfiltered All tab only. */
-  readonly jumpBackIn: readonly LibraryRow[];
   readonly options: ReturnType<typeof filterOptions>;
   readonly savedSearches: readonly SavedSearch[];
   readonly teams: readonly TeamSummary[];
 };
-
-const JUMP_BACK_COUNT = 3;
 
 /**
  * The library's one data seam. It returns the owner's items for a query at
@@ -57,8 +51,6 @@ const JUMP_BACK_COUNT = 3;
 export function listLibrary(query: LibraryQuery, now: string): LibraryListing {
   const all = sampleLibrary(now);
   const found = matching(all, query);
-  const isPlainAll =
-    query.view === 'all' && query.q === '' && !hasFilters(query);
   return {
     total: all.length,
     counts: viewCounts(found),
@@ -66,9 +58,6 @@ export function listLibrary(query: LibraryQuery, now: string): LibraryListing {
       toRow(item, now),
     ),
     searchMatches: matchingSearch(all, query).length,
-    jumpBackIn: isPlainAll
-      ? recentlyOpened(all, JUMP_BACK_COUNT).map((item) => toRow(item, now))
-      : [],
     options: filterOptions(all),
     savedSearches: sampleSavedSearches.map((saved) => {
       const savedQuery = { ...defaultLibraryQuery, ...saved.query };

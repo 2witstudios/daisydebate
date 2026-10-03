@@ -97,15 +97,6 @@ export function sortItems(
   return [...items].sort(compare[sort]);
 }
 
-/** The most recently opened items, newest first. */
-export const recentlyOpened = (
-  items: readonly LibraryItem[],
-  count: number,
-): readonly LibraryItem[] =>
-  [...items]
-    .sort((a, b) => Date.parse(b.openedAt) - Date.parse(a.openedAt))
-    .slice(0, count);
-
 /** The distinct choices a filter select offers, sorted. */
 export function filterOptions(items: readonly LibraryItem[]) {
   const unique = (values: readonly string[]) =>

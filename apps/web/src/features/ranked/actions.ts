@@ -6,19 +6,10 @@
  * nothing else.
  */
 export const rankedDestinations = {
-  /** Where "Enter room" leads: the room page does not exist yet. */
-  room: '/play',
+  /** Where "Enter room" leads: the ranked room. */
+  room: '/rooms/room-tuesday-night',
   /** Posted tables and casual hosting both live in the lobby. */
   lobby: '/lobby',
   hostTable: '/ranked/host',
   ranked: '/ranked',
-} as const;
-
-/**
- * The optional table name cannot be kept: naming a table is part of the room
- * the backend will create, and a typed name must never ride in a URL
- * (ui-conventions, mutating forms), so the field stays disabled for now.
- */
-export const tableNameInert = {
-  reason: 'Naming a table arrives with hosting.',
 } as const;

@@ -133,7 +133,7 @@ describe('Debrief', () => {
         html.includes('Automated notes'),
         html.includes('Save arguments to review'),
         html.includes('Practice again'),
-        html.includes('href="/train"'),
+        html.includes('href="/train/progress"'),
       ],
       expected: [true, false, false, true, true],
     });
@@ -143,7 +143,7 @@ describe('Debrief', () => {
     assert({
       given: 'a finished practice on the default plan',
       should: 'return to a hub with guided practice done',
-      actual: render().includes('href="/train?did=guided-practice"'),
+      actual: render().includes('href="/train/progress?did=guided-practice"'),
       expected: true,
     });
   });
