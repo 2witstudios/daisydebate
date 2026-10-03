@@ -51,6 +51,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@better-auth/passkey": "1.7.5",
+        "@daisy/ai-voice": "workspace:*",
         "@daisy/auth": "workspace:*",
         "@daisy/clock": "workspace:*",
         "@daisy/config": "workspace:*",
