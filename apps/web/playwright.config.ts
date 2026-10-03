@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { OPENROUTER_E2E_PLACEHOLDER } from './e2e/support/openrouter-stub';
 
 type Env = Readonly<Record<string, string | undefined>>;
 
@@ -240,9 +241,12 @@ export default defineConfig({
         // AUTH-7.7: gates /api/ops/alerts and /api/ops/metrics; no probe
         // workflow runs against this local e2e server.
         OPS_PROBE_TOKEN: 'e2e-ops-probe-token-placeholder-not-a-credential',
-        // AI debates: an inert placeholder; the e2e server answers OpenRouter
-        // with a local stub (e2e/support/openrouter-stub.ts).
-        OPENROUTER_API_KEY: 'sk-or-e2e-placeholder-not-a-credential',
+        // AI debates: an inert placeholder, which the e2e server answers
+        // with a local stub (e2e/support/openrouter-stub.ts). Setting
+        // E2E_OPENROUTER_API_KEY runs the same server against real
+        // OpenRouter, for a live check by hand.
+        OPENROUTER_API_KEY:
+          process.env.E2E_OPENROUTER_API_KEY ?? OPENROUTER_E2E_PLACEHOLDER,
       },
     },
     {

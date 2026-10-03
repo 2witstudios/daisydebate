@@ -7,6 +7,10 @@
  */
 const OPENROUTER = 'https://openrouter.ai/api/v1/';
 
+/** The e2e server stubs OpenRouter whenever its key is this placeholder. */
+export const OPENROUTER_E2E_PLACEHOLDER =
+  'sk-or-e2e-placeholder-not-a-credential';
+
 export const STUB_SPEECH =
   'Thank you, judge. I stand firmly against the resolution.';
 export const STUB_REPLY = 'What is your strongest example?';
