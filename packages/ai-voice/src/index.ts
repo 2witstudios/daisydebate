@@ -14,7 +14,12 @@ export {
 } from './prompts';
 export { parseBallot, type Ballot } from './judge';
 export { createTurnTaking, defaultTurnTakingSettings } from './turn-taking';
-export { createSentenceBuffer, heardText, splitSentences } from './speech';
+export {
+  createSentenceBuffer,
+  heardText,
+  splitSentences,
+  worthTranscribing,
+} from './speech';
 
 /**
  * Default OpenRouter models per role, until the dashboard versions them

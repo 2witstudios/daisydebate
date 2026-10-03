@@ -1,4 +1,8 @@
-import { createTurnTaking, defaultTurnTakingSettings } from '@daisy/ai-voice';
+import {
+  createTurnTaking,
+  defaultTurnTakingSettings,
+  worthTranscribing,
+} from '@daisy/ai-voice';
 import { aiDebateApi, encodeRecording, type SpeechEvent } from './api';
 import type { AudioEngine, Playback, Recording } from './audio';
 
@@ -176,8 +180,8 @@ export async function runPersonSpeech(
   const upload = (recording: Recording) => {
     const clip = recording.stop();
     uploads = uploads.then(async () => {
-      const blob = await clip;
-      if (blob.size < 2_000) return;
+      const { blob, voicedMs } = await clip;
+      if (!worthTranscribing({ voicedMs })) return;
       try {
         await aiDebateApi.transcribe(
           context.id,
@@ -252,9 +256,11 @@ export async function runCrossExamination(
     live.busy = true;
     context.onStatus('Thinking…');
     try {
-      const blob = clip ? await clip.stop() : null;
+      const recorded = clip ? await clip.stop() : null;
       const audio =
-        blob && blob.size >= 2_000 ? await encodeRecording(blob) : undefined;
+        recorded && worthTranscribing(recorded)
+          ? await encodeRecording(recorded.blob)
+          : undefined;
       if (clip && !audio) return;
       const result = await aiDebateApi.crossExamine(
         context.id,
@@ -297,8 +303,8 @@ export async function runCrossExamination(
   clearInterval(tick);
   live.barge?.();
   if (live.recording) {
-    const blob = await live.recording.stop();
-    if (blob.size >= 2_000)
+    const { blob, voicedMs } = await live.recording.stop();
+    if (worthTranscribing({ voicedMs }))
       await aiDebateApi
         .crossExamine(
           context.id,

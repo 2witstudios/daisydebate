@@ -1,3 +1,5 @@
+import { defaultTurnTakingSettings } from '@daisy/ai-voice';
+
 /**
  * The browser side of the AI debate's audio: the microphone (with echo
  * cancellation) and its live level, recording in segments the transcriber
@@ -21,9 +23,15 @@ export type Playback = {
   stop(): void;
 };
 
+export type Clip = {
+  readonly blob: Blob;
+  /** How long the microphone heard a voice while recording. */
+  readonly voicedMs: number;
+};
+
 export type Recording = {
   /** Stops and resolves to the recorded clip (empty when nothing was captured). */
-  stop(): Promise<Blob>;
+  stop(): Promise<Clip>;
 };
 
 export type AudioEngine = {
@@ -54,13 +62,14 @@ export async function openAudioEngine(): Promise<AudioEngine> {
   const mimeType = RECORDING_TYPES.find((type) =>
     MediaRecorder.isTypeSupported(type),
   );
+  const level = () => {
+    analyser.getFloatTimeDomainData(samples);
+    let sum = 0;
+    for (const sample of samples) sum += sample * sample;
+    return Math.sqrt(sum / samples.length);
+  };
   return {
-    level() {
-      analyser.getFloatTimeDomainData(samples);
-      let sum = 0;
-      for (const sample of samples) sum += sample * sample;
-      return Math.sqrt(sum / samples.length);
-    },
+    level,
     record() {
       const recorder = new MediaRecorder(
         stream,
@@ -70,16 +79,24 @@ export async function openAudioEngine(): Promise<AudioEngine> {
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) chunks.push(event.data);
       };
+      let voicedMs = 0;
+      const listen = setInterval(() => {
+        if (level() >= defaultTurnTakingSettings.speechLevel) voicedMs += 100;
+      }, 100);
+      const clip = () => ({
+        blob: new Blob(chunks, { type: recorder.mimeType }),
+        voicedMs,
+      });
       recorder.start();
       return {
         stop: () =>
-          new Promise<Blob>((resolve) => {
+          new Promise<Clip>((resolve) => {
+            clearInterval(listen);
             if (recorder.state === 'inactive') {
-              resolve(new Blob(chunks, { type: recorder.mimeType }));
+              resolve(clip());
               return;
             }
-            recorder.onstop = () =>
-              resolve(new Blob(chunks, { type: recorder.mimeType }));
+            recorder.onstop = () => resolve(clip());
             recorder.stop();
           }),
       };

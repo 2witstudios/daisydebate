@@ -55,3 +55,17 @@ export function heardText(text: string, playedMs: number, totalMs: number) {
   const boundary = text.slice(0, cut + 1).lastIndexOf(' ');
   return (boundary > 0 ? text.slice(0, boundary) : text.slice(0, cut)).trim();
 }
+
+/** Voice under this long in a clip is silence, breath or a cough. */
+const MIN_VOICED_MS = 500;
+
+/**
+ * Whether a recorded clip is worth transcribing. Speech-to-text models
+ * invent words ("Thank you.") from silence and noise, so a clip with too
+ * little voice in it is never sent.
+ */
+export const worthTranscribing = ({
+  voicedMs,
+}: {
+  readonly voicedMs: number;
+}) => voicedMs >= MIN_VOICED_MS;

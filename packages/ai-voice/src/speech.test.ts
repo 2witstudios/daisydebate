@@ -4,6 +4,7 @@ import {
   heardText,
   splitSentences,
   wordBudget,
+  worthTranscribing,
 } from './speech';
 
 setupRitewayBun();
@@ -88,6 +89,23 @@ describe('heardText', () => {
       should: 'keep nothing',
       actual: heardText('One two.', 0, 1000),
       expected: '',
+    });
+  });
+});
+
+describe('worthTranscribing', () => {
+  test('sends a clip only when someone was speaking in it', () => {
+    assert({
+      given: 'a clip with two seconds of voice',
+      should: 'be sent for transcription',
+      actual: worthTranscribing({ voicedMs: 2_000 }),
+      expected: true,
+    });
+    assert({
+      given: 'a clip of silence or a cough (under half a second of voice)',
+      should: 'not be sent, so the transcriber cannot invent words',
+      actual: worthTranscribing({ voicedMs: 300 }),
+      expected: false,
     });
   });
 });
