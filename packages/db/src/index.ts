@@ -35,7 +35,7 @@ export type {
   AiDebateRecord,
   AiDebateUtteranceRecord,
   NewAiDebate,
-} from './ai-debate-operations';
+} from './ai-debate-record';
 export type { DatabaseEventSink } from './instrumented';
 export {
   encodeOutboxCursor,
