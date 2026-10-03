@@ -47,7 +47,7 @@ describe('liveLinks', () => {
         'link the next turn, the hint, the end flow and the problem report',
       actual: links,
       expected: {
-        leave: '/train?did=review',
+        leave: '/train/progress?did=review',
         hint: '/train/practice/live?turn=2&hint=1&did=review',
         next: {
           href: '/train/practice/live?turn=3&did=review',
@@ -126,7 +126,7 @@ describe('unavailableLinks', () => {
         'retry the turn, continue solo from it, or end with earlier speeches',
       actual: unavailableLinks(defaultConfig, defaultHubQuery, 2),
       expected: {
-        leave: '/train',
+        leave: '/train/progress',
         tryAgain: '/train/practice/live?turn=2',
         continueSolo: '/train/practice/live?opp=solo&turn=2',
         end: '/train/practice/debrief?upto=2',

@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { privacySections, settingsProposal } from './privacy';
+import { privacySections, privacySettingRows } from './privacy';
 
 setupRitewayBun();
 
@@ -47,15 +47,26 @@ describe('privacy rows', () => {
   });
 });
 
-describe('settingsProposal', () => {
-  test('both settings start as the proposal', () => {
+describe('privacySettingRows', () => {
+  test('rows follow the account answers', () => {
     assert({
-      given: 'the proposed settings',
-      should: 'default region off and ladder on',
-      actual: settingsProposal.map((s) => [s.id, s.on]),
+      given: 'the default answers and a changed set',
+      should: 'show each setting as the account has it',
+      actual: [
+        privacySettingRows({ ladder: true, showRegion: false }).map((s) => [
+          s.id,
+          s.on,
+        ]),
+        privacySettingRows({ ladder: false, showRegion: true }).map(
+          (s) => s.on,
+        ),
+      ],
       expected: [
-        ['show-region', false],
-        ['appear-on-ladder', true],
+        [
+          ['show-region', false],
+          ['appear-on-ladder', true],
+        ],
+        [true, false],
       ],
     });
   });

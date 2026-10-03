@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { HelpTopic } from '../../../features/help/topics';
 import { PageHeader } from '../../components/page-header/page-header';
+import { ReadingPage } from '../../components/reading-page/reading-page';
 
 /** Common questions. Native disclosure, so it works without JavaScript. */
 export function HelpPage({
@@ -9,7 +10,7 @@ export function HelpPage({
   readonly topics: readonly HelpTopic[];
 }) {
   return (
-    <div className="flex max-w-reading flex-col gap-6">
+    <ReadingPage>
       <PageHeader
         title="Help"
         lede="Answers to the questions people ask most."
@@ -41,6 +42,6 @@ export function HelpPage({
           </li>
         ))}
       </ul>
-    </div>
+    </ReadingPage>
   );
 }

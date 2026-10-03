@@ -8,6 +8,7 @@ import { Badge } from '../../components/badge/badge';
 import { PageHeader } from '../../components/page-header/page-header';
 import { Panel } from '../../components/panel/panel';
 import { TabLinks } from '../../components/tab-links/tab-links';
+import { ReadingPage } from '../../components/reading-page/reading-page';
 
 type NotificationsPageProps = {
   readonly query: NotificationsQuery;
@@ -22,7 +23,7 @@ export function NotificationsPage({
   unread,
 }: NotificationsPageProps) {
   return (
-    <div className="flex max-w-reading flex-col gap-6">
+    <ReadingPage>
       <PageHeader
         title="Notifications"
         lede={unread === 0 ? 'You are all caught up.' : `${unread} unread.`}
@@ -76,6 +77,6 @@ export function NotificationsPage({
           </ul>
         )}
       </Panel>
-    </div>
+    </ReadingPage>
   );
 }

@@ -1,5 +1,6 @@
 import type { LegalDocument } from '../../../features/legal/documents';
 import { PageHeader } from '../../components/page-header/page-header';
+import { ReadingPage } from '../../components/reading-page/reading-page';
 
 /**
  * A legal document: a title and version, a contents list, and each section
@@ -7,7 +8,7 @@ import { PageHeader } from '../../components/page-header/page-header';
  */
 export function LegalPage({ document }: { readonly document: LegalDocument }) {
   return (
-    <div className="flex max-w-reading flex-col gap-8">
+    <ReadingPage>
       <PageHeader
         title={document.title}
         lede={`${document.lede} Version ${document.version}.`}
@@ -50,6 +51,6 @@ export function LegalPage({ document }: { readonly document: LegalDocument }) {
           ))}
         </section>
       ))}
-    </div>
+    </ReadingPage>
   );
 }

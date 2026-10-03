@@ -3,6 +3,7 @@ import type { HitKind, SearchGroup } from '../../../features/search/search';
 import { Badge } from '../../components/badge/badge';
 import { PageHeader } from '../../components/page-header/page-header';
 import { Panel } from '../../components/panel/panel';
+import { ReadingPage } from '../../components/reading-page/reading-page';
 
 const groupTitle: Readonly<Record<HitKind, string>> = {
   person: 'People',
@@ -26,7 +27,7 @@ function Summary({ query, total }: Pick<SearchPageProps, 'query' | 'total'>) {
 /** Search across people, debates, tournaments and rooms. A plain GET form. */
 export function SearchPage({ query, groups, total }: SearchPageProps) {
   return (
-    <div className="flex max-w-reading flex-col gap-6">
+    <ReadingPage>
       <PageHeader
         title="Search"
         lede={<Summary query={query} total={total} />}
@@ -70,6 +71,6 @@ export function SearchPage({ query, groups, total }: SearchPageProps) {
           </ul>
         </Panel>
       ))}
-    </div>
+    </ReadingPage>
   );
 }

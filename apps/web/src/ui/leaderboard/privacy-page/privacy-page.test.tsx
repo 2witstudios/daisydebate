@@ -25,18 +25,19 @@ describe('PrivacyPage', () => {
     });
   });
 
-  test('the settings are switches in their proposed state', () => {
+  test('the settings show their current answers and link to Settings', () => {
     assert({
-      given: 'the proposed privacy settings',
-      should: 'render two working switches, region off and ladder on',
+      given: 'the account privacy settings',
+      should:
+        'show region off and ladder on, with no switches, and link to change them',
       actual: [
-        html.match(/role="switch"/g)?.length,
-        html.match(/disabled=""/g)?.length,
-        html.match(/checked=""/g)?.length,
-        html.includes('Proposal'),
-        html.includes('<form'),
+        html.includes('Your privacy settings'),
+        html.includes('role="switch"'),
+        html.includes('>On<'),
+        html.includes('>Off<'),
+        html.includes('href="/settings#privacy"'),
       ],
-      expected: [2, undefined, 1, true, false],
+      expected: [true, false, true, true, true],
     });
   });
 

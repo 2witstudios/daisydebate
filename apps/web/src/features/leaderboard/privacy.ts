@@ -128,29 +128,36 @@ export const privacySections: readonly PrivacySection[] = [
   },
 ];
 
-export type SettingProposal = {
+type PrivacySetting = {
   readonly id: 'show-region' | 'appear-on-ladder';
   readonly label: string;
   readonly help: string;
-  readonly on: boolean;
 };
 
-/**
- * The two privacy settings the design proposes. Both are undecided (owner
- * decision pending) and there is no settings backend, so neither saves: the
- * switches start in their proposed state and move on the page only.
- */
-export const settingsProposal: readonly SettingProposal[] = [
+export type PrivacySettingRow = PrivacySetting & { readonly on: boolean };
+
+const privacySettings: readonly PrivacySetting[] = [
   {
     id: 'show-region',
     label: 'Show my region on leaderboards',
     help: 'Lets other debaters filter by region and see yours. Off until you turn it on.',
-    on: false,
   },
   {
     id: 'appear-on-ladder',
     label: 'Appear on public leaderboards',
-    help: 'Needs an owner decision. Today the ladder is public (ADR 0048). If this is allowed, a hidden debater still keeps a rating and still appears as “[private debater]” so ranks do not shift.',
-    on: true,
+    help: 'A hidden debater still keeps a rating and still appears as “[private debater]” so ranks do not shift.',
   },
 ];
+
+/**
+ * The two ladder settings with the account's current answers. They are
+ * changed in Settings, which is the one place a privacy choice is made.
+ */
+export const privacySettingRows = (privacy: {
+  readonly ladder: boolean;
+  readonly showRegion: boolean;
+}): readonly PrivacySettingRow[] =>
+  privacySettings.map((setting) => ({
+    ...setting,
+    on: setting.id === 'show-region' ? privacy.showRegion : privacy.ladder,
+  }));

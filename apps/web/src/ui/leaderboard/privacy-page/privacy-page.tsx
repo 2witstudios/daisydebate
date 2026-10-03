@@ -1,8 +1,10 @@
+import Link from 'next/link';
 import {
   privacySections,
-  settingsProposal,
+  privacySettingRows,
   type PrivacyRow,
 } from '../../../features/leaderboard/privacy';
+import { getPreferences } from '../../../features/settings/preferences';
 import { Badge } from '../../components/badge/badge';
 import { Icon } from '../../components/icon/icon';
 
@@ -27,45 +29,41 @@ function Row({ row }: { readonly row: PrivacyRow }) {
   );
 }
 
-/**
- * The toggles are proposals: they render in the proposed state, disabled,
- * and say why. A settings backend and an owner decision come first.
- */
-function SettingsProposal() {
+/** The two ladder settings as the account has them, changed in Settings. */
+function YourSettings() {
+  const rows = privacySettingRows(getPreferences().privacy);
   return (
     <section className={card}>
       <div className="flex items-center gap-2">
-        <h2 className="text-lg font-bold">Privacy settings</h2>
-        <Badge tone="gold">Proposal</Badge>
+        <h2 className="text-lg font-bold">Your privacy settings</h2>
       </div>
       <p className="text-sm text-ink-muted">
-        Where a debater controls what the ladder shows.
+        Where you control what the ladder shows.
       </p>
       <ul className="flex flex-col gap-4">
-        {settingsProposal.map((setting) => (
+        {rows.map((setting) => (
           <li
             key={setting.id}
             className="flex items-start justify-between gap-4"
           >
-            <label htmlFor={setting.id} className="flex min-w-0 flex-col">
+            <span className="flex min-w-0 flex-col">
               <span className="font-strong">{setting.label}</span>
               <span className="text-sm text-ink-muted">{setting.help}</span>
-            </label>
-            <input
-              id={setting.id}
-              type="checkbox"
-              role="switch"
-              defaultChecked={setting.on}
-              className="mt-1 size-5 accent-accent"
-            />
+            </span>
+            <Badge tone={setting.on ? 'accent' : 'neutral'}>
+              {setting.on ? 'On' : 'Off'}
+            </Badge>
           </li>
         ))}
       </ul>
+      <Link href="/settings#privacy" className="text-sm font-bold">
+        Change in settings
+      </Link>
     </section>
   );
 }
 
-/** What another debater sees of you: a sample card. */
+/** What another debater sees of you. */
 function Preview() {
   return (
     <section className={card}>
@@ -115,7 +113,7 @@ export function PrivacyPage() {
         ))}
       </div>
       <div className="grid grid-cols-2 gap-4 max-compact:grid-cols-1">
-        <SettingsProposal />
+        <YourSettings />
         <Preview />
       </div>
     </div>

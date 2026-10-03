@@ -127,7 +127,7 @@ describe('reviewView', () => {
       expected: [
         6,
         'Next review: tomorrow, 2 arguments.',
-        '/train?did=review%2Cimpact-drill',
+        '/train/progress?did=review%2Cimpact-drill',
         true,
         0,
       ],

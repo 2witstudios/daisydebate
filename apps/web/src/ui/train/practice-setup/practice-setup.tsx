@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { trainDestinations } from '../../../features/train/actions';
+import { selectBotHref, type Bot } from '../../../features/train/bots';
 import {
   customRulesHref,
   parseCustomRulesQuery,
@@ -27,6 +28,8 @@ import { TrainPage } from '../train-page/train-page';
 export type PracticeSetupProps = {
   readonly config: PracticeConfig;
   readonly plan: HubQuery;
+  /** The bot chosen on the Train landing, if one was. */
+  readonly bot?: Bot | null;
 };
 
 const link = 'no-underline hover:no-underline';
@@ -45,7 +48,11 @@ function Hidden({ name, value }: { name: string; value: string }) {
  * summary beside it is the form's own answer, so it works with no script; a
  * script only applies a choice at once.
  */
-export function PracticeSetup({ config, plan }: PracticeSetupProps) {
+export function PracticeSetup({
+  config,
+  plan,
+  bot = null,
+}: PracticeSetupProps) {
   const summary = practiceSummary(config);
   const { rules } = config;
   return (
@@ -61,6 +68,7 @@ export function PracticeSetup({ config, plan }: PracticeSetupProps) {
         <Hidden name="speech" value={String(rules.speechMinutes)} />
         <Hidden name="prep" value={String(rules.prepMinutes)} />
         <Hidden name="seats" value={rules.seats} />
+        {bot ? <Hidden name="bot" value={bot.id} /> : null}
         {plan.mins !== 20 ? (
           <Hidden name="mins" value={String(plan.mins)} />
         ) : null}
@@ -68,6 +76,17 @@ export function PracticeSetup({ config, plan }: PracticeSetupProps) {
           <Hidden name="did" value={plan.did.join(',')} />
         ) : null}
         <div className="flex min-w-0 flex-1 flex-col gap-4 max-compact:w-full">
+          {bot ? (
+            <p className="flex flex-wrap items-center gap-2 rounded-lg bg-accent-soft px-4 py-3 text-base text-ink">
+              <span>
+                Your opponent: <strong>{bot.name}</strong>,{' '}
+                {bot.tagline.toLowerCase()}.
+              </span>
+              <Link href={selectBotHref(bot.id)} className={link}>
+                Choose another
+              </Link>
+            </p>
+          ) : null}
           <header className="flex flex-col gap-1">
             <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
               Set up a practice debate
