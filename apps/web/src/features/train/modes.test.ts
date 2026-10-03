@@ -9,12 +9,22 @@ const statuses = (cards: ReturnType<typeof modeCards>) =>
   cards.map((card) => card.status);
 
 describe('modeCards', () => {
+  test('the first card is a voice debate against the AI', () => {
+    const [first] = modeCards(sampleSummary, 'plan');
+    assert({
+      given: 'the train hub',
+      should: 'offer a full AI debate by voice, opening the AI debate room',
+      actual: { title: first?.title, href: first?.cta?.href },
+      expected: { title: 'Debate the AI', href: '/ai-debate' },
+    });
+  });
+
   test('working the plan', () => {
     assert({
       given: 'an account with six arguments due',
       should: 'show times and the due count',
       actual: statuses(modeCards(sampleSummary, 'plan')),
-      expected: ['25 to 45 min', '5 to 10 min', '6 due today'],
+      expected: ['About 45 min', '5 to 10 min', '6 due today'],
     });
   });
 
@@ -33,7 +43,7 @@ describe('modeCards', () => {
       given: 'an account that has saved nothing',
       should: 'point at drills and offer no review',
       actual: [statuses(cards), cards[2]?.cta],
-      expected: [['25 to 45 min', 'Start here', 'Nothing saved yet'], null],
+      expected: [['About 45 min', 'Start here', 'Nothing saved yet'], null],
     });
   });
 
