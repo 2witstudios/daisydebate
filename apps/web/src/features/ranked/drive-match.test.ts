@@ -93,7 +93,11 @@ describe('screenFor', () => {
       actual: [at('waiting'), at('ready'), at('entering')].map((screen) =>
         'advance' in screen ? screen.advance.href : null,
       ),
-      expected: ['/ranked?step=ready', '/ranked?step=entering', '/play'],
+      expected: [
+        '/ranked?step=ready',
+        '/ranked?step=entering',
+        '/rooms/room-tuesday-night',
+      ],
     });
   });
 
@@ -103,7 +107,7 @@ describe('screenFor', () => {
       given: 'the entering step',
       should: 'link Enter room to /play',
       actual: entering.step === 'entering' && entering.enterHref,
-      expected: '/play',
+      expected: '/rooms/room-tuesday-night',
     });
   });
 

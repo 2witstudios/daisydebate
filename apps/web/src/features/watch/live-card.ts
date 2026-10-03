@@ -20,6 +20,8 @@ export type LiveCard = {
   readonly ranked: boolean;
   readonly mode: string;
   readonly rules: string;
+  /** Casual only: ranked always runs the standard rules. */
+  readonly customRules: boolean;
   readonly watching: number;
   readonly aff: CardSeat;
   readonly neg: CardSeat;
@@ -63,6 +65,7 @@ export function liveCardOf(
     ranked: debate.mode === 'ranked',
     mode: modeLabel(debate.mode),
     rules: rulesLabel(debate),
+    customRules: debate.customRules,
     watching: debate.state.watching,
     aff: seatOf(debate, 'aff', speaking),
     neg: seatOf(debate, 'neg', speaking),

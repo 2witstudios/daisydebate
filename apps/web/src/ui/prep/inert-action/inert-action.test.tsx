@@ -7,7 +7,7 @@ import { InertActionButton } from './inert-action';
 setupRitewayBun();
 
 describe('InertActionButton', () => {
-  test('disabled with its reason', () => {
+  test('a working link worded by the action', () => {
     const html = renderToString(
       h(InertActionButton, {
         action: inertActions.saveSearch,
@@ -16,15 +16,30 @@ describe('InertActionButton', () => {
     );
     assert({
       given: 'the save-search action',
-      should: 'render a disabled button described by its reason',
+      should:
+        'render a link to the same page with the label, not a disabled button',
       actual: [
-        /<button [^>]*disabled=""/.test(html),
+        html.includes('href="?did=Save+this+search"'),
         html.includes('Save this search'),
-        html.includes('Saving a search needs the Prep service'),
-        /aria-describedby="([^"]+)"/.exec(html)?.[1] ===
-          /<span id="([^"]+)"/.exec(html)?.[1],
+        html.includes('disabled=""'),
+        html.includes('<button'),
       ],
-      expected: [true, true, true, true],
+      expected: [true, true, false, false],
+    });
+  });
+
+  test('a label the screen words differently', () => {
+    const html = renderToString(
+      h(InertActionButton, {
+        action: inertActions.saveSearch,
+        label: 'Save',
+      }),
+    );
+    assert({
+      given: 'an overriding label',
+      should: 'carry the overriding label to the banner',
+      actual: html.includes('href="?did=Save"'),
+      expected: true,
     });
   });
 });

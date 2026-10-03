@@ -13,6 +13,7 @@
   "scripts": {
     "dev": "bun --env-file=.env run turbo run dev",
     "dev:agent": "bun scripts/dev-agent.ts",
+    "dev:login": "bun --env-file=.env scripts/dev-login.ts",
     "build": "NODE_ENV=production turbo run build && bun run check:build-isolation",
     "check:build-isolation": "bun scripts/check-build-artifact-isolation.ts",
     "start": "bun run --cwd apps/web start",

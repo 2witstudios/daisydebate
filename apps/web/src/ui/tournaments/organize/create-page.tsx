@@ -1,12 +1,14 @@
 import {
-  wizardHref,
+  editPairs,
   wizardMarks,
   type Draft,
+  type DraftEdits,
   type WizardQuery,
 } from '../../../features/tournaments/create-wizard';
 import { tournamentRoutes } from '../../../features/tournaments/routes';
 import { Icon } from '../../components/icon/icon';
 import { Breadcrumb } from '../breadcrumb/breadcrumb';
+import { buttonClass } from '../../components/button/button-class';
 import { LinkButton } from '../link-button/link-button';
 import { Notice } from '../notice/notice';
 import { hint } from './create-fields';
@@ -22,11 +24,14 @@ const order = ['basics', 'size', 'schedule', 'rules', 'review'] as const;
 export function CreatePage({
   query,
   draft,
+  edits,
 }: {
   readonly query: WizardQuery;
   readonly draft: Draft;
+  /** What the organizer has typed so far, carried in the address. */
+  readonly edits: DraftEdits;
 }) {
-  const marks = wizardMarks(query);
+  const marks = wizardMarks(query, edits);
   const at = order.indexOf(query.step);
   const before = order[at - 1];
   const after = order[at + 1];
@@ -40,8 +45,8 @@ export function CreatePage({
       />
       <PageHeader title="Create a tournament" />
       <Notice icon="alert">
-        This is the sample draft “{draft.name}”. Its fields are read-only until
-        drafts can be saved. Structure and size work and stay in the address.
+        This is the draft “{draft.name}”. Structure and size stay in the address
+        as you move between steps.
       </Notice>
       <div className="flex items-start gap-6 max-rail:flex-col">
         <nav
@@ -85,28 +90,44 @@ export function CreatePage({
             publish.
           </p>
         </nav>
-        <div className="flex min-w-0 flex-1 flex-col gap-4 max-rail:w-full">
-          <StepBody query={query} draft={draft} />
+        <form
+          action={tournamentRoutes.create}
+          method="get"
+          className="flex min-w-0 flex-1 flex-col gap-4 max-rail:w-full"
+        >
+          <input type="hidden" name="structure" value={query.structure} />
+          <input type="hidden" name="places" value={query.places} />
+          {editPairs(edits, query.step).map(([name, value]) => (
+            <input key={name} type="hidden" name={name} value={value} />
+          ))}
+          <StepBody query={query} draft={draft} edits={edits} />
           {query.step === 'review' ? null : (
             <div className="flex justify-between gap-3">
               {before ? (
-                <LinkButton href={wizardHref({ ...query, step: before })}>
+                <button
+                  type="submit"
+                  name="step"
+                  value={before}
+                  className={buttonClass('secondary')}
+                >
                   Back
-                </LinkButton>
+                </button>
               ) : (
                 <LinkButton href={tournamentRoutes.organize}>Cancel</LinkButton>
               )}
               {after ? (
-                <LinkButton
-                  href={wizardHref({ ...query, step: after })}
-                  variant="primary"
+                <button
+                  type="submit"
+                  name="step"
+                  value={after}
+                  className={buttonClass('primary')}
                 >
                   Continue
-                </LinkButton>
+                </button>
               ) : null}
             </div>
           )}
-        </div>
+        </form>
       </div>
     </PageFrame>
   );

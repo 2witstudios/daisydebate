@@ -3,6 +3,7 @@ import { roomAction } from '../../../features/lobby/actions';
 import type { Viewer } from '../../../features/lobby/filter';
 import {
   bandLabel,
+  judgeLabel,
   modeLabel,
   rulesLabel,
   statusLabel,
@@ -84,6 +85,8 @@ export function RoomRow({ room, viewer, now }: RoomRowProps) {
           <span className={modeClass(room.mode)}>{modeLabel(room)}</span>
           {' · '}
           {rulesLabel(room)}
+          {' · '}
+          {judgeLabel(room)}
         </p>
       </div>
       <div

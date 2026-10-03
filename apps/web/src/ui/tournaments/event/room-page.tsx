@@ -8,7 +8,7 @@ import { tournamentRoutes } from '../../../features/tournaments/routes';
 import { formatTime } from '../../../features/tournaments/dates';
 import { Badge } from '../../components/badge/badge';
 import { Breadcrumb } from '../breadcrumb/breadcrumb';
-import { DisabledAction } from '../inert-action/inert-action';
+import { DisabledAction, SampleButton } from '../inert-action/inert-action';
 import { LinkButton } from '../link-button/link-button';
 import { Notice } from '../notice/notice';
 import { PageFrame } from '../page-frame/page-frame';
@@ -70,11 +70,7 @@ function Action({ action }: { readonly action: RoomAction }) {
               reason="Forfeits are confirmed by the organizer."
               variant="primary"
             />
-            <DisabledAction
-              label="Contact the organizer"
-              reason="Messaging needs the organizer service."
-              variant="ghost"
-            />
+            <SampleButton label="Contact the organizer" variant="ghost" />
           </div>
         </div>
       );

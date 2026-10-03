@@ -88,16 +88,16 @@ describe('BriefEditor', () => {
     });
   });
 
-  test('mutations are inert; Share goes to the review page', () => {
+  test('mutations are sample actions; Share goes to the review page', () => {
     const html = render('rights-framework');
     assert({
       given: 'the editor header',
       should:
-        'disable save and add to case, and link Share to the share dialog',
+        'answer save and add to case as sample actions, and link Share to the share dialog',
       actual: [
         html.includes('href="/prep/briefs/rights-framework/review?share=open"'),
-        /<button [^>]*disabled=""[^>]*>.*Add to case/s.test(html),
-        /<button [^>]*disabled=""[^>]*>.*Save changes/s.test(html),
+        html.includes('href="?did=Add+to+case"'),
+        html.includes('href="?did=Save+changes"'),
       ],
       expected: [true, true, true],
     });

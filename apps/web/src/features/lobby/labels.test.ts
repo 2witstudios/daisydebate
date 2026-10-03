@@ -1,5 +1,11 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { bandLabel, modeLabel, rulesLabel, statusLabel } from './labels';
+import {
+  bandLabel,
+  judgeLabel,
+  modeLabel,
+  rulesLabel,
+  statusLabel,
+} from './labels';
 import { NOW, liveRoom, openRoom } from './room.test-support';
 
 setupRitewayBun();
@@ -57,6 +63,27 @@ describe('room labels', () => {
         rulesLabel(openRoom({ mode: 'casual', customRules: true })),
       ],
       expected: ['Ranked', 'Casual', 'Standard rules', 'Custom rules'],
+    });
+  });
+});
+
+describe('judgeLabel', () => {
+  test('each way a room is judged', () => {
+    assert({
+      given: 'assigned, AI, and person judges in open and live rooms',
+      should: 'say who judges, and that an open person-judged room needs one',
+      actual: [
+        judgeLabel(openRoom()),
+        judgeLabel(openRoom({ mode: 'casual', judge: 'ai' })),
+        judgeLabel(openRoom({ mode: 'casual', judge: 'person' })),
+        judgeLabel(liveRoom({ mode: 'casual', judge: 'person' })),
+      ],
+      expected: [
+        'Judge assigned by Daisy',
+        'AI judge',
+        'Needs a judge',
+        'Person judging',
+      ],
     });
   });
 });

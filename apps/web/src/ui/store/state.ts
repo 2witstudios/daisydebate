@@ -1,7 +1,6 @@
 import type { PresenceStatus as Presence } from '@daisy/protocol';
 import type { Tier } from '../types/tier/tier';
 import type { TournamentSummary } from '../types/tournament-summary/tournament-summary';
-import { activities } from '../mock/activities';
 import { debates } from '../mock/debates';
 import { topic } from '../mock/topic';
 import { tournament } from '../mock/tournament';
@@ -23,23 +22,27 @@ type LiveDebateRow = {
   readonly defenderRating: number;
 };
 
-type ActivityRow = {
-  readonly headline: string;
-  readonly meta: string;
-  readonly actor: string | null;
-};
+/**
+ * The friends dock: `auto` follows the screen (open when wide, closed when
+ * narrow); a visitor's own choice, `open` or `closed`, wins over it.
+ */
+export type DockState = 'auto' | 'open' | 'closed';
+
+/** The left sidebar: `auto` follows the screen; `collapsed` is icons only. */
+export type NavState = 'auto' | 'collapsed';
 
 type UiResources = {
   readonly searchQuery: string;
   readonly onlineCount: number;
   readonly todaysTopic: string;
+  readonly dock: DockState;
+  readonly nav: NavState;
   readonly tournament: TournamentSummary;
 };
 
 type UiCollections = {
   readonly onlineUsers: readonly OnlineUserRow[];
   readonly liveDebates: readonly LiveDebateRow[];
-  readonly activities: readonly ActivityRow[];
 };
 
 export type UiState = {
@@ -53,6 +56,8 @@ export const createInitialState = (): UiState => ({
     searchQuery: '',
     onlineCount: 1248,
     todaysTopic: topic,
+    dock: 'auto',
+    nav: 'auto',
     tournament,
   },
   collections: {
@@ -71,11 +76,6 @@ export const createInitialState = (): UiState => ({
       defender: debate.defender,
       defenderRating:
         users.find((user) => user.name === debate.defender)?.rating ?? 0,
-    })),
-    activities: activities.map((activity) => ({
-      headline: activity.headline,
-      meta: activity.meta,
-      actor: activity.actor,
     })),
   },
 });

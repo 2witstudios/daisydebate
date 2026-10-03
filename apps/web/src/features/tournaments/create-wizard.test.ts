@@ -1,6 +1,8 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { sampleDraft } from '../../ui/mock/tournament-organizer';
 import {
+  applyEdits,
+  parseEdits,
   parseWizardQuery,
   reviewFacts,
   sizesFor,
@@ -163,6 +165,61 @@ describe('withStructure', () => {
         { step: 'basics', structure: 'round-robin', places: 8 },
         { step: 'basics', structure: 'single-elimination', places: 32 },
       ],
+    });
+  });
+});
+
+describe('wizard edits', () => {
+  test('only named, bounded fields are read from the address', () => {
+    assert({
+      given:
+        'a known field, an unknown one, an oversized name and a repeated box',
+      should: 'keep the known field and the last answer, and drop the rest',
+      actual: parseEdits({
+        name: 'Spring Cup',
+        nonsense: 'x',
+        desc: 'd'.repeat(601),
+        waitlist: ['off', 'on'],
+        'round-2-time': '15:00',
+      }),
+      expected: {
+        name: 'Spring Cup',
+        waitlist: 'on',
+        'round-2-time': '15:00',
+      },
+    });
+  });
+
+  test('valid edits replace the sample draft and invalid ones do not', () => {
+    const draft = applyEdits(sampleDraft, {
+      name: 'Spring Cup',
+      vis: 'unlisted',
+      seeding: 'not a choice',
+      waitlist: 'off',
+      opens: 'tomorrow',
+      rules: 'custom',
+    });
+    assert({
+      given: 'edits, some of them invalid',
+      should: 'apply the valid ones over the sample',
+      actual: [
+        draft.name,
+        draft.listed,
+        draft.seeding === sampleDraft.seeding,
+        draft.waitlist,
+        draft.registrationOpens === sampleDraft.registrationOpens,
+        draft.rules,
+      ],
+      expected: ['Spring Cup', false, true, false, true, 'custom'],
+    });
+  });
+
+  test('step links keep what was typed', () => {
+    assert({
+      given: 'an edit and a step link',
+      should: 'carry the edit in the address',
+      actual: wizardHref({ ...base, step: 'schedule' }, { name: 'Spring Cup' }),
+      expected: '/tournaments/organize/new?step=schedule&name=Spring+Cup',
     });
   });
 });

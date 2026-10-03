@@ -3,7 +3,7 @@ import type {
   Pairing,
 } from '../../../features/tournaments/event';
 import { StatusLine } from '../../components/status-line/status-line';
-import { DisabledAction } from '../inert-action/inert-action';
+import { DisabledAction, SampleButton } from '../inert-action/inert-action';
 import { LinkButton } from '../link-button/link-button';
 import { Notice } from '../notice/notice';
 import { PairingCards } from './pairing-cards';
@@ -56,14 +56,22 @@ export function Hero({
             </LinkButton>
           ) : null,
         )}
-        {hero.inert.map((item, index) => (
-          <DisabledAction
-            key={item.label}
-            label={item.label}
-            reason={item.reason}
-            variant={index === 0 ? 'primary' : 'ghost'}
-          />
-        ))}
+        {hero.inert.map((item, index) =>
+          item.reason === undefined ? (
+            <SampleButton
+              key={item.label}
+              label={item.label}
+              variant={index === 0 ? 'primary' : 'ghost'}
+            />
+          ) : (
+            <DisabledAction
+              key={item.label}
+              label={item.label}
+              reason={item.reason}
+              variant={index === 0 ? 'primary' : 'ghost'}
+            />
+          ),
+        )}
       </div>
     </section>
   );

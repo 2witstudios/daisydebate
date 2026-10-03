@@ -41,9 +41,9 @@ describe('RoomRow', () => {
     });
     assert({
       given: 'the same table',
-      should: 'offer one enabled Take seat link to /play',
+      should: 'offer one enabled Take seat link to the room',
       actual: [
-        /<a [^>]*href="\/play"[^>]*>Take seat<\/a>/.test(html),
+        /<a [^>]*href="\/rooms\/open-1"[^>]*>Take seat<\/a>/.test(html),
         html.includes('disabled=""'),
         html.split('<a ').length - 1,
       ],

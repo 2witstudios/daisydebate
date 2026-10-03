@@ -61,16 +61,12 @@ describe('Host, editing', () => {
     });
   });
 
-  test('the table name is inert and says why', () => {
+  test('nothing typed rides in the URL', () => {
     assert({
-      given: 'the table name field',
-      should: 'be disabled with a reason and no name to submit',
-      actual: [
-        /<input[^>]*id="host-title"[^>]*disabled/.test(html),
-        /<input[^>]*id="host-title"[^>]*name=/.test(html),
-        html.includes('Naming a table arrives with hosting.'),
-      ],
-      expected: [true, false, true],
+      given: 'the host form',
+      should: 'have no free-text field, only the band and the step buttons',
+      actual: /<input[^>]*type="text"/.test(html),
+      expected: false,
     });
   });
 

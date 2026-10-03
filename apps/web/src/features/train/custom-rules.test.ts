@@ -146,7 +146,7 @@ describe('customRulesView', () => {
         customRulesHref(query),
       ],
       expected: [
-        '/train?mins=10&did=review',
+        '/train/progress?mins=10&did=review',
         '/train/rules?speech=7&prep=4&seats=both&name=Longer+speeches&saved=1&mins=10&did=review',
         '/train/rules?speech=7&prep=4&seats=both&name=Longer+speeches&mins=10&did=review',
       ],

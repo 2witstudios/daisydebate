@@ -229,8 +229,8 @@ describe('debrief links and fields', () => {
       should: 'mark guided practice done only with a speech',
       actual: [backToTrainHref(plan, true), backToTrainHref(plan, false)],
       expected: [
-        '/train?mins=10&did=review%2Cguided-practice',
-        '/train?mins=10&did=review',
+        '/train/progress?mins=10&did=review%2Cguided-practice',
+        '/train/progress?mins=10&did=review',
       ],
     });
   });

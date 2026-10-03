@@ -1,10 +1,10 @@
 import {
+  seedingChoices,
+  type Draft,
   sizesFor,
   wizardHref,
   withStructure,
   wizardSummary,
-  type Draft,
-  type WizardQuery,
 } from '../../../features/tournaments/create-wizard';
 import { structureLabel } from '../../../features/tournaments/labels';
 import { structures } from '../../../features/tournaments/tournament';
@@ -16,6 +16,7 @@ import {
   field,
   hint,
   labelClass,
+  type StepProps,
 } from './create-fields';
 
 export function Basics({ draft }: { readonly draft: Draft }) {
@@ -29,28 +30,28 @@ export function Basics({ draft }: { readonly draft: Draft }) {
       >
         <input
           id="t-name"
-          disabled
-          value={draft.name}
-          readOnly
+          name="name"
+          maxLength={60}
+          defaultValue={draft.name}
           className={field}
         />
       </Field>
       <Field id="t-desc" label="Description">
         <textarea
           id="t-desc"
+          name="desc"
           rows={4}
-          disabled
-          value={draft.description}
-          readOnly
+          defaultValue={draft.description}
           className={`${field} h-auto p-3`}
         />
       </Field>
-      <fieldset className="flex flex-col gap-2" disabled>
+      <fieldset className="flex flex-col gap-2">
         <legend className={labelClass}>Who can find it</legend>
         <label className="flex items-start gap-3 text-base text-ink">
           <input
             type="radio"
             name="vis"
+            value="listed"
             defaultChecked={draft.listed}
             className="mt-1"
           />
@@ -62,6 +63,7 @@ export function Basics({ draft }: { readonly draft: Draft }) {
           <input
             type="radio"
             name="vis"
+            value="unlisted"
             defaultChecked={!draft.listed}
             className="mt-1"
           />
@@ -74,13 +76,7 @@ export function Basics({ draft }: { readonly draft: Draft }) {
   );
 }
 
-export function Size({
-  query,
-  draft,
-}: {
-  readonly query: WizardQuery;
-  readonly draft: Draft;
-}) {
+export function Size({ query, draft, edits }: StepProps) {
   const summary = wizardSummary(query);
   return (
     <div className={card}>
@@ -92,7 +88,7 @@ export function Size({
           options={structures.map((structure) => ({
             key: structure,
             text: structureLabel(structure),
-            href: wizardHref(withStructure(query, structure)),
+            href: wizardHref(withStructure(query, structure), edits),
             on: structure === query.structure,
           }))}
         />
@@ -107,7 +103,7 @@ export function Size({
           options={sizesFor(query.structure).map((places) => ({
             key: String(places),
             text: String(places),
-            href: wizardHref({ ...query, places }),
+            href: wizardHref({ ...query, places }, edits),
             on: places === query.places,
           }))}
         />
@@ -116,19 +112,21 @@ export function Size({
       <Field id="seeding" label="Seeding">
         <select
           id="seeding"
-          disabled
+          name="seeding"
           className={field}
           defaultValue={draft.seeding}
         >
-          <option>{draft.seeding}</option>
-          <option>Random draw</option>
+          {seedingChoices.map((choice) => (
+            <option key={choice}>{choice}</option>
+          ))}
         </select>
       </Field>
       <div className="grid grid-cols-2 gap-4 max-compact:grid-cols-1">
         <Field id="rmin" label="Lowest rating allowed (optional)">
           <input
             id="rmin"
-            disabled
+            name="rmin"
+            defaultValue={edits['rmin']}
             placeholder="No minimum"
             className={field}
           />
@@ -140,16 +138,19 @@ export function Size({
         >
           <input
             id="rmax"
-            disabled
+            name="rmax"
+            defaultValue={edits['rmax']}
             placeholder="No maximum"
             className={field}
           />
         </Field>
       </div>
       <label className="flex items-start gap-3 text-base text-ink">
+        <input type="hidden" name="waitlist" value="off" />
         <input
           type="checkbox"
-          disabled
+          name="waitlist"
+          value="on"
           defaultChecked={draft.waitlist}
           className="mt-1"
         />
@@ -162,13 +163,7 @@ export function Size({
   );
 }
 
-export function Schedule({
-  query,
-  draft,
-}: {
-  readonly query: WizardQuery;
-  readonly draft: Draft;
-}) {
+export function Schedule({ query, draft, edits }: StepProps) {
   const summary = wizardSummary(query);
   return (
     <div className={card}>
@@ -177,10 +172,9 @@ export function Schedule({
         <Field id="reg-open" label="Registration opens">
           <input
             id="reg-open"
+            name="opens"
             type="datetime-local"
-            disabled
-            value={draft.registrationOpens}
-            readOnly
+            defaultValue={draft.registrationOpens}
             className={field}
           />
         </Field>
@@ -191,41 +185,38 @@ export function Schedule({
         >
           <input
             id="reg-close"
+            name="closes"
             type="datetime-local"
-            disabled
-            value={draft.registrationCloses}
-            readOnly
+            defaultValue={draft.registrationCloses}
             className={field}
           />
         </Field>
       </div>
       <Field id="tz" label="Time zone" note="Times are shown in UTC for now.">
-        <select id="tz" disabled className={field}>
+        <select id="tz" className={field}>
           <option>{draft.timeZone}</option>
         </select>
       </Field>
       <div className="flex flex-col gap-2">
         <h3 className={labelClass}>Round times</h3>
         <ul className="flex flex-col gap-2">
-          {summary.roundRows.map((row) => (
+          {summary.roundRows.map((row, index) => (
             <li key={row.label} className="flex flex-wrap items-center gap-3">
               <span className="w-1/4 text-base text-ink-muted max-compact:w-full">
                 {row.label}
               </span>
               <input
                 type="date"
+                name={`round-${index}-date`}
                 aria-label={`${row.label} date`}
-                disabled
-                value={row.date}
-                readOnly
+                defaultValue={edits[`round-${index}-date`] ?? row.date}
                 className={`${field} w-1/3`}
               />
               <input
                 type="time"
+                name={`round-${index}-time`}
                 aria-label={`${row.label} time`}
-                disabled
-                value={row.time}
-                readOnly
+                defaultValue={edits[`round-${index}-time`] ?? row.time}
                 className={`${field} w-1/4`}
               />
             </li>
@@ -234,7 +225,7 @@ export function Schedule({
       </div>
       <div className="grid grid-cols-2 gap-4 max-compact:grid-cols-1">
         <Field id="checkin" label="Check-in opens before each round">
-          <select id="checkin" disabled className={field}>
+          <select id="checkin" className={field}>
             <option>{draft.checkIn}</option>
           </select>
         </Field>
@@ -243,7 +234,7 @@ export function Schedule({
           label="Forfeit grace after start"
           note="After this an absent debater can be recorded as a forfeit."
         >
-          <select id="grace" disabled className={field}>
+          <select id="grace" className={field}>
             <option>{draft.grace}</option>
           </select>
         </Field>

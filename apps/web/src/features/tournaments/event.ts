@@ -84,10 +84,13 @@ export type Hero = {
   readonly status: string | null;
   readonly reason: boolean;
   readonly ctas: readonly Cta[];
-  /** Controls with no backend: disabled, named and explained. */
+  /**
+   * Extra controls. One with a `reason` is unavailable right now and says
+   * why; one without is a sample action, since its operation has no backend.
+   */
   readonly inert: readonly {
     readonly label: string;
-    readonly reason: string;
+    readonly reason?: string;
   }[];
 };
 export type EventScreen = {
@@ -105,10 +108,7 @@ const link = (
   variant: 'primary' | 'secondary' | 'ghost' = 'primary',
 ): Cta => ({ kind: 'link', label, href, variant });
 
-const reportConflict = {
-  label: 'Report a conflict',
-  reason: 'Reporting needs the organizer service.',
-};
+const reportConflict = { label: 'Report a conflict' };
 const disabledCheckIn = (opens: string) => ({
   label: `Check in (opens ${opens})`,
   reason: `Check-in opens ${CHECK_IN_MINUTES} minutes before the round.`,

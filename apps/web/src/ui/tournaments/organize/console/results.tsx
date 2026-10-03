@@ -2,7 +2,7 @@ import type { ConsoleView } from '../../../../features/tournaments/console-view'
 import { buttonClass } from '../../../components/button/button-class';
 import { Badge } from '../../../components/badge/badge';
 import { StatusLine } from '../../../components/status-line/status-line';
-import { DisabledAction } from '../../inert-action/inert-action';
+import { SampleButton } from '../../inert-action/inert-action';
 import { LinkButton } from '../../link-button/link-button';
 import { Notice } from '../../notice/notice';
 import { tournamentRoutes } from '../../../../features/tournaments/routes';
@@ -53,18 +53,10 @@ export function ResultsTab({ view }: { readonly view: ConsoleView }) {
                   </Badge>
                 )}
                 {row.status === 'Ballot in' ? (
-                  <DisabledAction
-                    label="Correct"
-                    reason="Corrections need the organizer service."
-                    variant="ghost"
-                  />
+                  <SampleButton label="Correct" variant="ghost" />
                 ) : null}
                 {row.status === 'Forfeit to confirm' ? (
-                  <DisabledAction
-                    label="Confirm"
-                    reason="Confirming needs the organizer service."
-                    variant="ghost"
-                  />
+                  <SampleButton label="Confirm" variant="ghost" />
                 ) : null}
               </span>
             </li>
@@ -86,10 +78,7 @@ export function ResultsTab({ view }: { readonly view: ConsoleView }) {
           <div className="grid grid-cols-2 gap-4 max-compact:grid-cols-1">
             <label className="flex flex-col gap-2 text-base font-strong text-ink">
               Winner
-              <select
-                disabled
-                className="h-10 rounded-md border border-border bg-surface-raised px-3 text-base font-book text-ink disabled:opacity-60"
-              >
+              <select className="h-10 rounded-md border border-border bg-surface-raised px-3 text-base font-book text-ink">
                 <option>{`Affirmative, @${enterResult.a}`}</option>
                 <option>{`Negative, @${enterResult.b}`}</option>
               </select>
@@ -97,9 +86,8 @@ export function ResultsTab({ view }: { readonly view: ConsoleView }) {
             <label className="flex flex-col gap-2 text-base font-strong text-ink">
               Reason (required)
               <input
-                disabled
                 placeholder="Why you are entering this result"
-                className="h-10 rounded-md border border-border bg-surface-raised px-3 text-base font-book text-ink disabled:opacity-60"
+                className="h-10 rounded-md border border-border bg-surface-raised px-3 text-base font-book text-ink"
               />
             </label>
           </div>
@@ -108,11 +96,7 @@ export function ResultsTab({ view }: { readonly view: ConsoleView }) {
             for now.
           </p>
           <div className="flex justify-end gap-3">
-            <DisabledAction
-              label="Save result"
-              reason="Saving needs the organizer service."
-              variant="primary"
-            />
+            <SampleButton label="Save result" variant="primary" />
           </div>
         </section>
       ) : null}
@@ -160,12 +144,7 @@ export function ModerationTab({ view }: { readonly view: ConsoleView }) {
           </p>
           <div className="flex flex-wrap gap-2">
             {reportActions.map((label) => (
-              <DisabledAction
-                key={label}
-                label={label}
-                reason="Decisions need the organizer service."
-                variant="ghost"
-              />
+              <SampleButton key={label} label={label} variant="ghost" />
             ))}
           </div>
         </section>
@@ -181,16 +160,8 @@ export function ModerationTab({ view }: { readonly view: ConsoleView }) {
           </div>
           <p className="text-base text-ink-muted">{`${view.forfeit.detail} Confirming advances the other debater.`}</p>
           <div className="flex flex-wrap gap-2">
-            <DisabledAction
-              label="Confirm forfeit"
-              reason="Confirming needs the organizer service."
-              variant="ghost"
-            />
-            <DisabledAction
-              label="Give them 5 more minutes"
-              reason="Extensions need the organizer service."
-              variant="ghost"
-            />
+            <SampleButton label="Confirm forfeit" variant="ghost" />
+            <SampleButton label="Give them 5 more minutes" variant="ghost" />
           </div>
         </section>
       ) : null}
@@ -216,10 +187,7 @@ export function ModerationTab({ view }: { readonly view: ConsoleView }) {
           ))}
         </ul>
         <div>
-          <DisabledAction
-            label="Invite moderator"
-            reason="Inviting needs the organizer service."
-          />
+          <SampleButton label="Invite moderator" />
         </div>
       </section>
       <p className="text-sm text-ink-faint">
@@ -262,14 +230,18 @@ export function PublishTab({ view }: { readonly view: ConsoleView }) {
         amended result.
       </Notice>
       <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          disabled
-          aria-disabled="true"
-          className={buttonClass('primary')}
-        >
-          Publish results
-        </button>
+        {publish.ready ? (
+          <SampleButton label="Publish results" variant="primary" />
+        ) : (
+          <button
+            type="button"
+            disabled
+            aria-disabled="true"
+            className={buttonClass('primary')}
+          >
+            Publish results
+          </button>
+        )}
         <LinkButton href={tournamentRoutes.results(view.data.tournament.id)}>
           Preview the results page
         </LinkButton>

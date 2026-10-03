@@ -27,7 +27,7 @@ describe('Drill', () => {
         html.includes('It does not decide whether you are right.'),
         html.includes('Round'),
         html.includes('1 of 2'),
-        html.includes('href="/train"'),
+        html.includes('href="/train/progress"'),
       ],
       expected: [1, true, true, true, true, true, true],
     });

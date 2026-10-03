@@ -10,10 +10,12 @@ import type { RoomListItem } from './room';
  */
 export const lobbyDestinations = {
   findMatch: '/ranked',
-  openTable: '/play',
-  takeSeat: '/play',
+  openTable: '/play/room',
   spectate: '/watch',
 } as const;
+
+/** The room a seat is taken in. */
+export const roomHref = (roomId: string): string => `/rooms/${roomId}`;
 
 export type RoomAction = {
   readonly kind: 'take-seat' | 'spectate';
@@ -27,7 +29,7 @@ export const roomAction = (room: RoomListItem, viewer: Viewer): RoomAction =>
   room.status === 'open'
     ? {
         kind: 'take-seat',
-        href: lobbyDestinations.takeSeat,
+        href: roomHref(room.id),
         enabled: canTakeSeat(room, viewer),
       }
     : { kind: 'spectate', href: lobbyDestinations.spectate, enabled: true };
