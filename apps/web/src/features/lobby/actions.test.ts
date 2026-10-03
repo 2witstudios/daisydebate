@@ -57,7 +57,7 @@ describe('lobbyDestinations', () => {
       expected: [
         {
           findMatch: '/ranked',
-          openTable: '/play',
+          openTable: '/play/room',
           spectate: '/watch',
         },
         '/rooms/room-newcomers',

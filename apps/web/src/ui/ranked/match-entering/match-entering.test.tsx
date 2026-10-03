@@ -28,7 +28,7 @@ describe('MatchEntering', () => {
         html.includes('>Your room is ready</h1>'),
         html.includes('Ranked · standard rules · sides are Aff and Neg'),
         html.includes('@rival'),
-        /href="\/play"[^>]*>Enter room/.test(html),
+        /href="\/rooms\/room-tuesday-night"[^>]*>Enter room/.test(html),
       ],
       expected: [true, true, true, true],
     });
@@ -37,8 +37,8 @@ describe('MatchEntering', () => {
   test('enters the room by itself with no script', () => {
     assert({
       given: 'the entering step',
-      should: 'refresh to /play',
-      actual: html.includes('content="4;url=/play"'),
+      should: 'refresh to the ranked room',
+      actual: html.includes('content="4;url=/rooms/room-tuesday-night"'),
       expected: true,
     });
   });

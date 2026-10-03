@@ -10,7 +10,7 @@ import type { RoomListItem } from './room';
  */
 export const lobbyDestinations = {
   findMatch: '/ranked',
-  openTable: '/play',
+  openTable: '/play/room',
   spectate: '/watch',
 } as const;
 

@@ -22,7 +22,7 @@ describe('Lobby', () => {
         html.match(/<h1 /g)?.length,
         html.includes('Your rating 1400'),
         /href="\/ranked"[^>]*>Find a match</.test(html),
-        /href="\/play"[^>]*>Open a table</.test(html),
+        /href="\/play\/room"[^>]*>Open a table</.test(html),
         html.match(/<li class="[^"]*border-t/g)?.length,
         html.includes('Tuesday night, no mercy'),
       ],

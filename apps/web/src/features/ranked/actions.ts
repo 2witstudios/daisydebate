@@ -6,8 +6,8 @@
  * nothing else.
  */
 export const rankedDestinations = {
-  /** Where "Enter room" leads: the room page does not exist yet. */
-  room: '/play',
+  /** Where "Enter room" leads: the ranked room. */
+  room: '/rooms/room-tuesday-night',
   /** Posted tables and casual hosting both live in the lobby. */
   lobby: '/lobby',
   hostTable: '/ranked/host',
