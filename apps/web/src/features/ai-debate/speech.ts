@@ -46,8 +46,8 @@ export function speechOperations({
 
   return {
     /**
-     * Writes the AI's speech for a live AI speech turn, sentence by
-     * sentence as the model produces it. The speech is saved as it grows,
+     * Writes the AI's speech for an AI speech turn (from its countdown on),
+     * sentence by sentence as the model produces it. The speech is saved as it grows,
      * so the voice can be fetched per sentence and a reload resumes it. A
      * second call for the same turn replays the saved speech.
      */
@@ -66,6 +66,7 @@ export function speechOperations({
         turnIndex,
         nowMs(clock),
         (roles, kind) => kind === 'speech' && roles.speaker === 'ai',
+        { early: true },
       );
       const existing = record.utterances.find(
         (u) => u.turnIndex === turnIndex && u.role === 'ai',

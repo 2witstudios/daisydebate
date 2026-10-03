@@ -3,8 +3,9 @@
  * folded from an append-only command log and an injected time. Pure: no
  * clock, ids or I/O. Turns advance by time. Before each of the person's own
  * speeches (except the opening one) their prep clock runs until they start
- * the speech or the prep runs out; the AI never preps. Either side may yield
- * a live turn early, and the next one begins at that moment.
+ * the speech or the prep runs out; the AI never preps. Every other turn
+ * opens with a short countdown, so nobody is caught mid-breath. Either side
+ * may yield a live turn early, and the next one's countdown begins then.
  */
 export type AiDebateSide = 'affirmative' | 'negative';
 export type AiDebateRole = 'person' | 'ai';
@@ -63,6 +64,9 @@ export const ipdaTurns: readonly AiDebateTurn[] = [
 /** The person's elective prep budget; the AI takes none. */
 export const ipdaPrepMs = 240_000;
 
+/** The countdown into each turn that has no prep before it. */
+export const ipdaCountdownMs = 10_000;
+
 const other = (side: AiDebateSide): AiDebateSide =>
   side === 'affirmative' ? 'negative' : 'affirmative';
 
@@ -96,6 +100,13 @@ export type AiDebateCommand =
 export type AiDebateState =
   | { readonly phase: 'waiting' }
   | {
+      readonly phase: 'countdown';
+      readonly turnIndex: number;
+      readonly startsAt: number;
+      readonly remainingMs: number;
+      readonly prepLeftMs: number;
+    }
+  | {
       readonly phase: 'prep';
       readonly turnIndex: number;
       readonly prepStartedAt: number;
@@ -121,17 +132,64 @@ const isPrepGate = (turn: AiDebateTurn, personSide: AiDebateSide) =>
   turn.kind === 'speech' &&
   turnRoles(turn, personSide).speaker === 'person';
 
-/** When a turn starts: at the cursor, or after the person's elective prep. */
-function turnStartFor(
+type Gap = {
+  readonly turn: AiDebateTurn;
+  readonly prepped: boolean;
+  readonly cursor: number;
+  readonly turnStart: number;
+  /** Prep left as the gap opens. */
+  readonly prepLeft: number;
+  /** Prep left once the turn starts. */
+  readonly prepAfter: number;
+};
+
+/** The gap before a turn: the person's elective prep, or a countdown. */
+function gapBefore(
   turn: AiDebateTurn,
   personSide: AiDebateSide,
   cursor: number,
   prepLeft: number,
   speechStarts: readonly number[],
-) {
-  if (!isPrepGate(turn, personSide)) return cursor;
+  countdownMs: number,
+): Gap {
+  if (!isPrepGate(turn, personSide))
+    return {
+      turn,
+      prepped: false,
+      cursor,
+      turnStart: cursor + countdownMs,
+      prepLeft,
+      prepAfter: prepLeft,
+    };
   const deadline = cursor + prepLeft;
-  return speechStarts.find((at) => at >= cursor && at < deadline) ?? deadline;
+  const turnStart =
+    speechStarts.find((at) => at >= cursor && at < deadline) ?? deadline;
+  return {
+    turn,
+    prepped: true,
+    cursor,
+    turnStart,
+    prepLeft,
+    prepAfter: prepLeft - (turnStart - cursor),
+  };
+}
+
+/** The state while `now` falls inside a gap. */
+function inGap(gap: Gap, now: number): AiDebateState {
+  if (gap.prepped)
+    return {
+      phase: 'prep',
+      turnIndex: gap.turn.index,
+      prepStartedAt: gap.cursor,
+      prepLeftMs: gap.prepLeft - (now - gap.cursor),
+    };
+  return {
+    phase: 'countdown',
+    turnIndex: gap.turn.index,
+    startsAt: gap.turnStart,
+    remainingMs: gap.turnStart - now,
+    prepLeftMs: gap.prepLeft,
+  };
 }
 
 /** When a turn ends: at its length, or earlier at a yield inside it. */
@@ -162,12 +220,14 @@ export function deriveAiDebate({
   now,
   turns = ipdaTurns,
   prepMs = ipdaPrepMs,
+  countdownMs = ipdaCountdownMs,
 }: {
   readonly personSide: AiDebateSide;
   readonly commands: readonly AiDebateCommand[];
   readonly now: number;
   readonly turns?: readonly AiDebateTurn[];
   readonly prepMs?: number;
+  readonly countdownMs?: number;
 }): AiDebateState {
   const seen = commands.filter((command) => command.at <= now);
   const started = seen.find((command) => command.type === 'start');
@@ -181,21 +241,17 @@ export function deriveAiDebate({
   let cursor = started.at;
   let prepLeft = prepMs;
   for (const turn of turns) {
-    const turnStart = turnStartFor(
+    const gap = gapBefore(
       turn,
       personSide,
       cursor,
       prepLeft,
       speechStarts,
+      countdownMs,
     );
-    if (now < turnStart)
-      return {
-        phase: 'prep',
-        turnIndex: turn.index,
-        prepStartedAt: cursor,
-        prepLeftMs: prepLeft - (now - cursor),
-      };
-    prepLeft -= turnStart - cursor;
+    if (now < gap.turnStart) return inGap(gap, now);
+    const turnStart = gap.turnStart;
+    prepLeft = gap.prepAfter;
     const turnEnd = turnEndFor(turn, turnStart, seen);
     if (now < turnEnd)
       return {
@@ -264,10 +320,13 @@ export function acceptAiDebateCommand({
 }
 
 /**
- * The latest the debate can end if nobody yields or starts early: every
- * turn plus the person's whole prep budget. Used to count live debates.
+ * An upper bound on when the debate ends if nobody yields or starts early:
+ * every turn, a countdown before each, and the person's whole prep budget.
+ * Used to count live debates.
  */
 export const aiDebateLongestMs = (
   turns: readonly AiDebateTurn[] = ipdaTurns,
   prepMs = ipdaPrepMs,
-) => turns.reduce((sum, turn) => sum + turn.durationMs, 0) + prepMs;
+  countdownMs = ipdaCountdownMs,
+) =>
+  turns.reduce((sum, turn) => sum + turn.durationMs + countdownMs, 0) + prepMs;

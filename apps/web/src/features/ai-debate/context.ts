@@ -98,11 +98,22 @@ export const transcriptOf = (record: AiDebateRecord): TranscriptEntry[] =>
     .filter((utterance) => utterance.text.trim().length > 0)
     .map(({ turnIndex, role, text }) => ({ turnIndex, role, text }));
 
-/** True when `turnIndex` is live now, or was until the grace period ago. */
-const isLiveTurn = (record: AiDebateRecord, turnIndex: number, now: number) =>
+/**
+ * True when `turnIndex` is live now, or was until the grace period ago, or
+ * (when `early`) is counting down: the AI prepares its words in the
+ * countdown so it speaks the moment the turn begins.
+ */
+const isOpenTurn = (
+  record: AiDebateRecord,
+  turnIndex: number,
+  now: number,
+  early: boolean,
+) =>
   [now, now - GRACE_MS].some((at) => {
     const state = stateAt(record, at);
-    return state.phase === 'live' && state.turnIndex === turnIndex;
+    const open =
+      state.phase === 'live' || (early && state.phase === 'countdown');
+    return open && state.turnIndex === turnIndex;
   });
 
 /** The actor's own AI debate, or NOT_FOUND (never another person's). */
@@ -116,15 +127,20 @@ export const ownedBy = async (
   return record;
 };
 
-/** The live turn, refusing when it is not live or not the caller's kind. */
+/**
+ * The live turn, refusing when it is not live or not the caller's kind.
+ * `early` also accepts the turn's countdown (AI work only, never the
+ * person's speech).
+ */
 export const requireLiveTurn = (
   record: AiDebateRecord,
   turnIndex: number,
   now: number,
   allowed: (roles: ReturnType<typeof turnRoles>, kind: string) => boolean,
+  { early = false }: { readonly early?: boolean } = {},
 ): AiDebateTurn => {
   const turn = ipdaTurns[turnIndex];
-  if (!turn || !isLiveTurn(record, turnIndex, now))
+  if (!turn || !isOpenTurn(record, turnIndex, now, early))
     throw createAppError('CONFLICT', 'That turn is not live');
   if (!allowed(turnRoles(turn, record.personSide), turn.kind))
     throw createAppError('CONFLICT', 'Not your turn');

@@ -158,6 +158,7 @@ export {
   acceptAiDebateCommand,
   aiDebateLongestMs,
   deriveAiDebate,
+  ipdaCountdownMs,
   ipdaTurns,
   turnRoles,
   type AiDebateCommand,

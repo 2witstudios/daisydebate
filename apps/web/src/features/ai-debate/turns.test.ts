@@ -13,8 +13,9 @@ describe('the AI speech', () => {
     );
     const utteranceId = events[0]?.type === 'utterance' ? events[0].id : '';
     assert({
-      given: 'the AC with the AI on the affirmative',
-      should: 'emit the utterance and each sentence in order',
+      given: 'the countdown into the AC with the AI on the affirmative',
+      should:
+        'write the speech early, emitting the utterance and each sentence in order',
       actual: events
         .filter((e) => e.type === 'sentence')
         .map((e) => e.type === 'sentence' && e.text),
@@ -82,7 +83,20 @@ describe("the person's speech and cross-examination", () => {
       personSide: 'affirmative',
     });
     const id = await begin();
-    time.advance(301); // one second after the AC ended
+    await assertRejects({
+      given: 'a chunk during the countdown into the AC',
+      should: 'refuse it: the person speaks only once the turn is live',
+      actual: () =>
+        operations.transcribe({
+          actorId: 'actor-1',
+          id,
+          turnIndex: 0,
+          audioBase64: 'AA',
+          format: 'webm',
+        }),
+      code: 'CONFLICT',
+    });
+    time.advance(311); // one second after the AC ended
     const { text } = await operations.transcribe({
       actorId: 'actor-1',
       id,
@@ -124,12 +138,25 @@ describe("the person's speech and cross-examination", () => {
   test('the AI opens cross-examination with a question, then answers the next exchange', async () => {
     const { operations, begin, time } = setup({ personSide: 'affirmative' });
     const id = await begin();
-    time.advance(310); // the first CX: the negative (AI) asks
+    time.advance(310); // the countdown into the first CX: the AI asks
     const opening = await operations.crossExamine({
       actorId: 'actor-1',
       id,
       turnIndex: 1,
     });
+    await assertRejects({
+      given: "the person's audio before the CX is live",
+      should: 'refuse it',
+      actual: () =>
+        operations.crossExamine({
+          actorId: 'actor-1',
+          id,
+          turnIndex: 1,
+          audio: { base64: 'AA', format: 'webm' },
+        }),
+      code: 'CONFLICT',
+    });
+    time.advance(10); // the CX is live
     const next = await operations.crossExamine({
       actorId: 'actor-1',
       id,
@@ -137,8 +164,8 @@ describe("the person's speech and cross-examination", () => {
       audio: { base64: 'AA', format: 'webm' },
     });
     assert({
-      given: 'the AI asking and nothing said yet',
-      should: 'reply with its opening question',
+      given: 'the AI asking and nothing said yet, during the countdown',
+      should: 'prepare its opening question early',
       actual: opening.reply?.sentences,
       expected: ['Is that your strongest example?'],
     });

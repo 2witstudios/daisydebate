@@ -1,6 +1,10 @@
 import { DEFAULT_REASONING, cxMessages, splitSentences } from '@daisy/ai-voice';
 import type { AiDebateRecord } from '@daisy/db';
-import { turnRoles, type AiDebateTurn } from '@daisy/debate-engine';
+import {
+  turnRoles,
+  type AiDebateState,
+  type AiDebateTurn,
+} from '@daisy/debate-engine';
 import {
   aiSideOf,
   nowMs,
@@ -13,6 +17,15 @@ import {
 } from './context';
 
 const CX_REPLY_TOKENS = 180;
+
+/** The AI replies while the turn is live; its opening also in the countdown. */
+const repliesNow = (
+  state: AiDebateState,
+  turnIndex: number,
+  opening: boolean,
+) =>
+  (state.phase === 'live' || (opening && state.phase === 'countdown')) &&
+  state.turnIndex === turnIndex;
 
 export type CrossExamination = {
   /** What the person said, transcribed. */
@@ -100,8 +113,8 @@ export function crossExaminationOperations({
     /**
      * The person's utterance (if any) is transcribed, then the AI asks or
      * answers. With the AI asking and nothing said yet, it opens with its
-     * first question. Speech arriving in the grace period after the turn
-     * is kept but gets no reply.
+     * first question, which it may prepare during the countdown. Speech
+     * arriving in the grace period after the turn is kept but gets no reply.
      */
     async crossExamine({
       actorId,
@@ -123,6 +136,7 @@ export function crossExaminationOperations({
         turnIndex,
         nowMs(clock),
         (_, kind) => kind === 'cross-examination',
+        { early: !audio },
       );
       const aiRole =
         turnRoles(turn, record.personSide).asker === 'ai'
@@ -133,9 +147,12 @@ export function crossExaminationOperations({
         aiRole === 'asker' &&
         !audio &&
         !record.utterances.some((u) => u.turnIndex === turnIndex);
-      const now = stateAt(record, nowMs(clock));
-      const stillLive = now.phase === 'live' && now.turnIndex === turnIndex;
-      if ((!heard && !opening) || !stillLive) return { heard, reply: null };
+      const replying = repliesNow(
+        stateAt(record, nowMs(clock)),
+        turnIndex,
+        opening,
+      );
+      if ((!heard && !opening) || !replying) return { heard, reply: null };
       return { heard, reply: await reply(record, turn, aiRole, heard) };
     },
   };
