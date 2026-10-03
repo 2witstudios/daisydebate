@@ -211,7 +211,7 @@ export function deriveAiDebate({
   return { phase: 'ended', endedAt: cursor };
 }
 
-export type AiDebateRefusal =
+type AiDebateRefusal =
   | 'already-started'
   | 'not-started'
   | 'out-of-order'
