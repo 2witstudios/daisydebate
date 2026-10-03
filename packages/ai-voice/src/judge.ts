@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 const text = z.string().trim().min(1).max(2000);
 
-export const ballotSchema = z.object({
+const ballotSchema = z.object({
   winner: z.enum(['affirmative', 'negative']),
   reason: text,
   speeches: z

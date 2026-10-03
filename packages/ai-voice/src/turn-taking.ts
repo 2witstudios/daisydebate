@@ -34,6 +34,41 @@ export function createTurnTaking(settings: TurnTakingSettings) {
   let aboveSince: number | null = null;
   let quietSince: number | null = null;
   let bargeSince: number | null = null;
+  const reset = () => {
+    speaking = false;
+    aboveSince = null;
+    quietSince = null;
+    bargeSince = null;
+  };
+  /** While the AI plays: only a loud, sustained voice counts. */
+  const whilePlaying = (at: number, level: number): TurnTakingEvent | null => {
+    if (level < settings.bargeLevel) {
+      bargeSince = null;
+      return null;
+    }
+    bargeSince ??= at;
+    if (at - bargeSince < settings.bargeMs) return null;
+    reset();
+    speaking = true;
+    return 'barge-in';
+  };
+  const whileSpeaking = (at: number): TurnTakingEvent | null => {
+    aboveSince = null;
+    if (!speaking) return null;
+    quietSince ??= at;
+    if (at - quietSince < settings.endOfTurnMs) return null;
+    reset();
+    return 'end-of-turn';
+  };
+  const whileListening = (at: number): TurnTakingEvent | null => {
+    quietSince = null;
+    if (speaking) return null;
+    aboveSince ??= at;
+    if (at - aboveSince < settings.minSpeechMs) return null;
+    speaking = true;
+    aboveSince = null;
+    return 'speech-start';
+  };
   return {
     /** One level sample; returns the event it completes, if any. */
     feed({
@@ -45,49 +80,13 @@ export function createTurnTaking(settings: TurnTakingSettings) {
       readonly level: number;
       readonly aiPlaying: boolean;
     }): TurnTakingEvent | null {
-      if (aiPlaying) {
-        if (level >= settings.bargeLevel) {
-          bargeSince ??= at;
-          if (at - bargeSince >= settings.bargeMs) {
-            bargeSince = null;
-            speaking = true;
-            aboveSince = null;
-            quietSince = null;
-            return 'barge-in';
-          }
-        } else bargeSince = null;
-        return null;
-      }
+      if (aiPlaying) return whilePlaying(at, level);
       bargeSince = null;
-      if (level >= settings.speechLevel) {
-        quietSince = null;
-        if (speaking) return null;
-        aboveSince ??= at;
-        if (at - aboveSince >= settings.minSpeechMs) {
-          speaking = true;
-          aboveSince = null;
-          return 'speech-start';
-        }
-        return null;
-      }
-      aboveSince = null;
-      if (!speaking) return null;
-      quietSince ??= at;
-      if (at - quietSince >= settings.endOfTurnMs) {
-        speaking = false;
-        quietSince = null;
-        return 'end-of-turn';
-      }
-      return null;
+      return level >= settings.speechLevel
+        ? whileListening(at)
+        : whileSpeaking(at);
     },
     /** Forget any speech in progress (a new turn begins). */
-    reset() {
-      speaking = false;
-      aboveSince = null;
-      quietSince = null;
-      bargeSince = null;
-    },
+    reset,
   };
 }
-
-export type TurnTaking = ReturnType<typeof createTurnTaking>;

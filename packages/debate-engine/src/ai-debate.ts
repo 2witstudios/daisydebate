@@ -81,7 +81,7 @@ export function turnRoles(
   };
 }
 
-export type AiDebateAbortReason = 'person' | 'vendor-failure';
+type AiDebateAbortReason = 'person' | 'vendor-failure';
 
 export type AiDebateCommand =
   | { readonly type: 'start'; readonly at: number }
@@ -121,6 +121,36 @@ const isPrepGate = (turn: AiDebateTurn, personSide: AiDebateSide) =>
   turn.kind === 'speech' &&
   turnRoles(turn, personSide).speaker === 'person';
 
+/** When a turn starts: at the cursor, or after the person's elective prep. */
+function turnStartFor(
+  turn: AiDebateTurn,
+  personSide: AiDebateSide,
+  cursor: number,
+  prepLeft: number,
+  speechStarts: readonly number[],
+) {
+  if (!isPrepGate(turn, personSide)) return cursor;
+  const deadline = cursor + prepLeft;
+  return speechStarts.find((at) => at >= cursor && at < deadline) ?? deadline;
+}
+
+/** When a turn ends: at its length, or earlier at a yield inside it. */
+function turnEndFor(
+  turn: AiDebateTurn,
+  turnStart: number,
+  seen: readonly AiDebateCommand[],
+) {
+  const plannedEnd = turnStart + turn.durationMs;
+  const early = seen.find(
+    (command) =>
+      command.type === 'yield' &&
+      command.turnIndex === turn.index &&
+      command.at >= turnStart &&
+      command.at < plannedEnd,
+  );
+  return early ? early.at : plannedEnd;
+}
+
 /**
  * The state at `now`, from the commands at or before it. Commands are
  * assumed accepted (see `acceptAiDebateCommand`); the fold reads each in
@@ -143,7 +173,7 @@ export function deriveAiDebate({
   const started = seen.find((command) => command.type === 'start');
   if (!started) return { phase: 'waiting' };
   const abort = seen.find((command) => command.type === 'abort');
-  if (abort && abort.type === 'abort')
+  if (abort?.type === 'abort')
     return { phase: 'aborted', at: abort.at, reason: abort.reason };
   const speechStarts = seen
     .filter((command) => command.type === 'startSpeech')
@@ -151,29 +181,22 @@ export function deriveAiDebate({
   let cursor = started.at;
   let prepLeft = prepMs;
   for (const turn of turns) {
-    let turnStart = cursor;
-    if (isPrepGate(turn, personSide)) {
-      const deadline = cursor + prepLeft;
-      const chosen = speechStarts.find((at) => at >= cursor && at < deadline);
-      turnStart = chosen ?? deadline;
-      if (now < turnStart)
-        return {
-          phase: 'prep',
-          turnIndex: turn.index,
-          prepStartedAt: cursor,
-          prepLeftMs: prepLeft - (now - cursor),
-        };
-      prepLeft -= turnStart - cursor;
-    }
-    const plannedEnd = turnStart + turn.durationMs;
-    const early = seen.find(
-      (command) =>
-        command.type === 'yield' &&
-        command.turnIndex === turn.index &&
-        command.at >= turnStart &&
-        command.at < plannedEnd,
+    const turnStart = turnStartFor(
+      turn,
+      personSide,
+      cursor,
+      prepLeft,
+      speechStarts,
     );
-    const turnEnd = early ? early.at : plannedEnd;
+    if (now < turnStart)
+      return {
+        phase: 'prep',
+        turnIndex: turn.index,
+        prepStartedAt: cursor,
+        prepLeftMs: prepLeft - (now - cursor),
+      };
+    prepLeft -= turnStart - cursor;
+    const turnEnd = turnEndFor(turn, turnStart, seen);
     if (now < turnEnd)
       return {
         phase: 'live',
@@ -196,6 +219,26 @@ export type AiDebateRefusal =
   | 'turn-not-live'
   | 'finished';
 
+type Verdict =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly reason: AiDebateRefusal };
+
+const allow: Verdict = { ok: true };
+const refuse = (reason: AiDebateRefusal): Verdict => ({ ok: false, reason });
+
+/** Whether a command fits the state it would apply to. */
+function fitsState(command: AiDebateCommand, state: AiDebateState): Verdict {
+  if (state.phase === 'ended' || state.phase === 'aborted')
+    return refuse('finished');
+  if (command.type === 'startSpeech')
+    return state.phase === 'prep' ? allow : refuse('not-in-prep');
+  if (command.type === 'yield')
+    return state.phase === 'live' && state.turnIndex === command.turnIndex
+      ? allow
+      : refuse('turn-not-live');
+  return allow;
+}
+
 /**
  * Whether `command` may be appended to `commands`. A refused command leaves
  * the log, and so the state, unchanged.
@@ -204,42 +247,20 @@ export function acceptAiDebateCommand({
   personSide,
   commands,
   command,
-  turns,
-  prepMs,
 }: {
   readonly personSide: AiDebateSide;
   readonly commands: readonly AiDebateCommand[];
   readonly command: AiDebateCommand;
-  readonly turns?: readonly AiDebateTurn[];
-  readonly prepMs?: number;
-}):
-  | { readonly ok: true }
-  | { readonly ok: false; readonly reason: AiDebateRefusal } {
+}): Verdict {
   if (command.type === 'start')
-    return commands.length === 0
-      ? { ok: true }
-      : { ok: false, reason: 'already-started' };
-  if (commands.length === 0) return { ok: false, reason: 'not-started' };
-  const last = commands[commands.length - 1]!;
-  if (command.at < last.at) return { ok: false, reason: 'out-of-order' };
-  const state = deriveAiDebate({
-    personSide,
-    commands,
-    now: command.at,
-    ...(turns ? { turns } : {}),
-    ...(prepMs !== undefined ? { prepMs } : {}),
-  });
-  if (state.phase === 'ended' || state.phase === 'aborted')
-    return { ok: false, reason: 'finished' };
-  if (command.type === 'startSpeech')
-    return state.phase === 'prep'
-      ? { ok: true }
-      : { ok: false, reason: 'not-in-prep' };
-  if (command.type === 'yield')
-    return state.phase === 'live' && state.turnIndex === command.turnIndex
-      ? { ok: true }
-      : { ok: false, reason: 'turn-not-live' };
-  return { ok: true };
+    return commands.length === 0 ? allow : refuse('already-started');
+  const last = commands.at(-1);
+  if (!last) return refuse('not-started');
+  if (command.at < last.at) return refuse('out-of-order');
+  return fitsState(
+    command,
+    deriveAiDebate({ personSide, commands, now: command.at }),
+  );
 }
 
 /**

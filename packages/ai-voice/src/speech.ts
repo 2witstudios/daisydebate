@@ -1,5 +1,5 @@
 /** A speaking rate for budgeting speeches, in words per minute. */
-export const DEFAULT_WORDS_PER_MINUTE = 150;
+const DEFAULT_WORDS_PER_MINUTE = 150;
 
 /**
  * How many words to ask for so a speech fits its slot: the rate times the

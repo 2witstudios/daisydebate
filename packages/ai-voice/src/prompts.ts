@@ -40,7 +40,7 @@ export function renderTranscript(
 }
 
 /** The default persona for the AI debater (versioned and tunable later). */
-export const DEFAULT_PERSONA = [
+const DEFAULT_PERSONA = [
   'You are a sharp, fair collegiate IPDA debater speaking aloud in a live round.',
   'IPDA is judged by lay judges: be persuasive, clear and accessible, never jargon-heavy, never spread.',
   'Write for the ear. No markdown, bullet points, headings, emojis or stage directions; only the words you say.',
@@ -138,7 +138,7 @@ export function cxMessages({
 }
 
 /** The default judging instructions (versioned and tunable later). */
-export const DEFAULT_RUBRIC = [
+const DEFAULT_RUBRIC = [
   'You are an experienced, fair IPDA judge who judges like a thoughtful lay person.',
   'Decide who did the better job of persuading you the resolution is true or false, based only on what was said.',
   'Weigh clash, the quality of reasoning and examples, arguments that were dropped or extended, and cross-examination.',

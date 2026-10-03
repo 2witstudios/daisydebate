@@ -1,5 +1,6 @@
 import { createAppError } from '@daisy/errors';
 import { z } from 'zod';
+import { readLines } from './lines';
 
 export type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -136,34 +137,24 @@ export function createOpenRouter({
         chatBody(request, true),
         request.signal,
       );
-      const reader = response.body?.getReader();
-      if (!reader)
+      if (!response.body)
         throw createAppError('INFRASTRUCTURE', 'OpenRouter stream had no body');
-      const decoder = new TextDecoder();
-      let buffered = '';
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffered += decoder.decode(value, { stream: true });
-        const lines = buffered.split('\n');
-        buffered = lines.pop() ?? '';
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const data = line.slice('data: '.length).trim();
-          if (data === '[DONE]') return;
-          let event: unknown;
-          try {
-            event = JSON.parse(data);
-          } catch {
-            throw createAppError(
-              'INFRASTRUCTURE',
-              'OpenRouter stream sent malformed data',
-            );
-          }
-          const delta = parse(deltaSchema, event, '/chat/completions')
-            .choices[0]?.delta.content;
-          if (delta) yield delta;
+      for await (const line of readLines(response.body)) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice('data: '.length).trim();
+        if (data === '[DONE]') return;
+        let event: unknown;
+        try {
+          event = JSON.parse(data);
+        } catch {
+          throw createAppError(
+            'INFRASTRUCTURE',
+            'OpenRouter stream sent malformed data',
+          );
         }
+        const delta = parse(deltaSchema, event, '/chat/completions').choices[0]
+          ?.delta.content;
+        if (delta) yield delta;
       }
     },
     async speak({
