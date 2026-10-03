@@ -91,7 +91,7 @@ export function LiveTab({ query, listing }: LiveTabProps) {
         <ul className="grid grid-cols-3 gap-4 max-rail:grid-cols-2 max-compact:grid-cols-1">
           {listing.rows.map((card) => (
             <li key={card.id} className="contents">
-              <LiveCard card={card} delaySeconds={listing.delaySeconds} />
+              <LiveCard card={card} />
             </li>
           ))}
         </ul>
