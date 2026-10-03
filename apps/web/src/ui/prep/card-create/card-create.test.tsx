@@ -111,12 +111,12 @@ describe('CardCreate', () => {
     assert({
       given: 'the cite step',
       should:
-        'show every citation field, warn about the missing date and leave saving inert',
+        'show every citation field, warn about the missing date and offer saving as a sample action',
       actual: [
         html.match(/<label /g)?.length,
         html.includes('The publication date is missing'),
         html.includes('Missing: publication date, credibility note'),
-        /<button [^>]*disabled=""[^>]*>.*Save card/.test(html),
+        html.includes('href="?did=Save+card"'),
         html.includes('Save and add to brief'),
       ],
       expected: [10, true, true, true, true],

@@ -84,7 +84,7 @@ describe('InDebatePage with a case', () => {
     assert({
       given: 'a card open, then Send to room asking',
       should:
-        'mark it read only, ask before sending exactly one card, and keep Send card inert',
+        'mark it read only, ask before sending exactly one card, and answer Send card as a sample action',
       actual: [
         reading.includes('Read only'),
         reading.includes('Send this card to the room?'),
@@ -92,7 +92,7 @@ describe('InDebatePage with a case', () => {
         asking.includes(
           'Your opponent and the judge will see this one card and its citation.',
         ),
-        /<button [^>]*disabled=""[^>]*>Send card/.test(asking),
+        asking.includes('href="?did=Send+card"'),
         asking.includes('>Cancel<'),
       ],
       expected: [true, false, true, true, true, true],

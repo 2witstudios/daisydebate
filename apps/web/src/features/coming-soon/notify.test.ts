@@ -16,12 +16,12 @@ describe('notifyAction', () => {
     });
   });
 
-  test('gives a signed-in member an inert control with its reason', () => {
+  test('gives a signed-in member a sample action', () => {
     assert({
       given: 'a signed-in member',
-      should: 'not fake a subscription',
+      should: 'answer on the same page without sending them to sign in',
       actual: notifyAction('ranked', true).kind,
-      expected: 'inert',
+      expected: 'sample',
     });
   });
 });

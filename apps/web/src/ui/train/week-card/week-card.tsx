@@ -1,4 +1,3 @@
-import { changeGoal } from '../../../features/train/actions';
 import {
   weekGoalMet,
   weekSessions,
@@ -23,7 +22,7 @@ export function WeekCard({ summary }: { readonly summary: TrainingSummary }) {
       </p>
       <div className="flex items-center justify-between gap-2 text-sm text-ink-muted">
         <span>{`Practiced ${week.practicedDaysLast30} of the last 30 days`}</span>
-        <InertButton action={changeGoal}>Change goal</InertButton>
+        <InertButton>Change goal</InertButton>
       </div>
     </TrainCard>
   );

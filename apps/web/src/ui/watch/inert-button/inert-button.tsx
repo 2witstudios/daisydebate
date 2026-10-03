@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react';
-import { inertReason, type InertAction } from '../../../features/watch/actions';
+import { actionLabel, type InertAction } from '../../../features/watch/actions';
 import { cn } from '../../cn';
 import {
   buttonClass,
   type ButtonVariant,
 } from '../../components/button/button-class';
+import { SampleAction } from '../../components/sample-action/sample-action';
 
 export type InertButtonProps = {
   readonly action: InertAction;
@@ -14,8 +15,8 @@ export type InertButtonProps = {
 };
 
 /**
- * A control whose operation does not exist yet. It is disabled and says why,
- * to a screen reader and on hover, so it never fakes a mutation.
+ * A control with no backend: it answers on the same page with the
+ * sample-action banner, labelled by the action's own words.
  */
 export function InertButton({
   action,
@@ -23,16 +24,12 @@ export function InertButton({
   className,
   children,
 }: InertButtonProps) {
-  const reason = inertReason(action);
   return (
-    <button
-      type="button"
-      disabled
-      title={reason}
+    <SampleAction
+      label={actionLabel(action)}
       className={cn(buttonClass(variant), className)}
     >
       {children}
-      <span className="sr-only">{`. ${reason}`}</span>
-    </button>
+    </SampleAction>
   );
 }

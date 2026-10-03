@@ -4,7 +4,6 @@ import type { SpectateQuery } from '../../../features/watch/spectate-query';
 import { spectateHref } from '../../../features/watch/spectate-query';
 import { InertButton } from '../inert-button/inert-button';
 import { cn } from '../../cn';
-import { inertReason } from '../../../features/watch/actions';
 
 /**
  * Spectator reactions and chat. Both are sample, non-mutating UI for now:
@@ -109,11 +108,9 @@ export function Chat({ id, query, social, open, className }: ChatProps) {
             <input
               id="chat-draft"
               type="text"
-              disabled
               maxLength={200}
               placeholder="Be civil. 200 characters."
-              title={inertReason('chat')}
-              className="h-10 min-w-0 flex-1 rounded-md border border-border bg-surface-raised px-3 text-base text-ink disabled:opacity-60"
+              className="h-10 min-w-0 flex-1 rounded-md border border-border bg-surface-raised px-3 text-base text-ink"
             />
             <InertButton action="chat" variant="primary">
               Send

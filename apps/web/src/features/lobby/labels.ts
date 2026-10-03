@@ -13,6 +13,17 @@ export const modeLabel = (room: RoomListItem): string =>
 export const rulesLabel = (room: RoomListItem): string =>
   room.customRules ? 'Custom rules' : 'Standard rules';
 
+const judgeLabels = {
+  ai: 'AI judge',
+  assigned: 'Judge assigned by Daisy',
+} as const;
+
+/** Who judges; an open room with a person judge still needs one to join. */
+export function judgeLabel(room: RoomListItem): string {
+  if (room.judge !== 'person') return judgeLabels[room.judge];
+  return room.status === 'open' ? 'Needs a judge' : 'Person judging';
+}
+
 /** "Waiting 2 min" for an open table, "14 watching" for a live room. */
 export function statusLabel(room: RoomListItem, now: string): string {
   if (room.status === 'live') return `${room.watching} watching`;

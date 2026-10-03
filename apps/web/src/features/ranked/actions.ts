@@ -13,12 +13,3 @@ export const rankedDestinations = {
   hostTable: '/ranked/host',
   ranked: '/ranked',
 } as const;
-
-/**
- * The optional table name cannot be kept: naming a table is part of the room
- * the backend will create, and a typed name must never ride in a URL
- * (ui-conventions, mutating forms), so the field stays disabled for now.
- */
-export const tableNameInert = {
-  reason: 'Naming a table arrives with hosting.',
-} as const;

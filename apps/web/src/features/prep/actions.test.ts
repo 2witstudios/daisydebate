@@ -15,13 +15,12 @@ describe('prep actions', () => {
     });
   });
 
-  test('inert actions explain themselves', () => {
+  test('inert actions are named', () => {
     assert({
       given: 'every inert action',
-      should: 'carry a label and a full-sentence reason',
+      should: 'carry a label for the control and the shell banner',
       actual: Object.values(inertActions).every(
-        ({ label, reason }) =>
-          label.length > 0 && reason.length > 0 && reason.endsWith('.'),
+        ({ label }) => label.length > 0,
       ),
       expected: true,
     });

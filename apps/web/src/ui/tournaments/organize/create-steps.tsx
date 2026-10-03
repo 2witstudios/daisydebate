@@ -27,25 +27,17 @@ export function Basics({ draft }: { readonly draft: Draft }) {
         label="Name"
         note="Shown on the tournaments list and the bracket. Up to 60 characters."
       >
-        <input
-          id="t-name"
-          disabled
-          value={draft.name}
-          readOnly
-          className={field}
-        />
+        <input id="t-name" defaultValue={draft.name} className={field} />
       </Field>
       <Field id="t-desc" label="Description">
         <textarea
           id="t-desc"
           rows={4}
-          disabled
-          value={draft.description}
-          readOnly
+          defaultValue={draft.description}
           className={`${field} h-auto p-3`}
         />
       </Field>
-      <fieldset className="flex flex-col gap-2" disabled>
+      <fieldset className="flex flex-col gap-2">
         <legend className={labelClass}>Who can find it</legend>
         <label className="flex items-start gap-3 text-base text-ink">
           <input
@@ -114,42 +106,26 @@ export function Size({
       </div>
       <Notice icon="calendar">{summary.calc}</Notice>
       <Field id="seeding" label="Seeding">
-        <select
-          id="seeding"
-          disabled
-          className={field}
-          defaultValue={draft.seeding}
-        >
+        <select id="seeding" className={field} defaultValue={draft.seeding}>
           <option>{draft.seeding}</option>
           <option>Random draw</option>
         </select>
       </Field>
       <div className="grid grid-cols-2 gap-4 max-compact:grid-cols-1">
         <Field id="rmin" label="Lowest rating allowed (optional)">
-          <input
-            id="rmin"
-            disabled
-            placeholder="No minimum"
-            className={field}
-          />
+          <input id="rmin" placeholder="No minimum" className={field} />
         </Field>
         <Field
           id="rmax"
           label="Highest rating allowed (optional)"
           note="Provisional players are allowed unless you limit by rating."
         >
-          <input
-            id="rmax"
-            disabled
-            placeholder="No maximum"
-            className={field}
-          />
+          <input id="rmax" placeholder="No maximum" className={field} />
         </Field>
       </div>
       <label className="flex items-start gap-3 text-base text-ink">
         <input
           type="checkbox"
-          disabled
           defaultChecked={draft.waitlist}
           className="mt-1"
         />
@@ -178,9 +154,7 @@ export function Schedule({
           <input
             id="reg-open"
             type="datetime-local"
-            disabled
-            value={draft.registrationOpens}
-            readOnly
+            defaultValue={draft.registrationOpens}
             className={field}
           />
         </Field>
@@ -192,15 +166,13 @@ export function Schedule({
           <input
             id="reg-close"
             type="datetime-local"
-            disabled
-            value={draft.registrationCloses}
-            readOnly
+            defaultValue={draft.registrationCloses}
             className={field}
           />
         </Field>
       </div>
       <Field id="tz" label="Time zone" note="Times are shown in UTC for now.">
-        <select id="tz" disabled className={field}>
+        <select id="tz" className={field}>
           <option>{draft.timeZone}</option>
         </select>
       </Field>
@@ -215,17 +187,13 @@ export function Schedule({
               <input
                 type="date"
                 aria-label={`${row.label} date`}
-                disabled
-                value={row.date}
-                readOnly
+                defaultValue={row.date}
                 className={`${field} w-1/3`}
               />
               <input
                 type="time"
                 aria-label={`${row.label} time`}
-                disabled
-                value={row.time}
-                readOnly
+                defaultValue={row.time}
                 className={`${field} w-1/4`}
               />
             </li>
@@ -234,7 +202,7 @@ export function Schedule({
       </div>
       <div className="grid grid-cols-2 gap-4 max-compact:grid-cols-1">
         <Field id="checkin" label="Check-in opens before each round">
-          <select id="checkin" disabled className={field}>
+          <select id="checkin" className={field}>
             <option>{draft.checkIn}</option>
           </select>
         </Field>
@@ -243,7 +211,7 @@ export function Schedule({
           label="Forfeit grace after start"
           note="After this an absent debater can be recorded as a forfeit."
         >
-          <select id="grace" disabled className={field}>
+          <select id="grace" className={field}>
             <option>{draft.grace}</option>
           </select>
         </Field>

@@ -12,22 +12,30 @@ export type SearchInputRenderProps = {
 export function renderSearchInput(props: SearchInputRenderProps): ReactNode {
   const { value, placeholder, label, typeSearchQuery } = props;
   return (
-    <label
-      className={
-        'flex max-w-search min-w-0 flex-1 items-center gap-2 rounded-sm border border-border bg-surface-sunken px-4 py-2 text-ink-muted transition-colors duration-120 ease-standard focus-within:border-border-strong focus-within:bg-surface hover:border-border-strong'
-      }
+    <form
+      role="search"
+      action="/search"
+      method="get"
+      className="flex max-w-search min-w-0 flex-1"
     >
-      <Icon name="search" size={16} />
-      <span className="sr-only">{label}</span>
-      <input
-        type="search"
-        value={value}
-        placeholder={placeholder}
+      <label
         className={
-          'min-w-0 flex-1 border-none bg-transparent px-search-x py-search-y text-base text-ink outline-none placeholder:text-ink-faint'
+          'flex max-w-search min-w-0 flex-1 items-center gap-2 rounded-sm border border-border bg-surface-sunken px-4 py-2 text-ink-muted transition-colors duration-120 ease-standard focus-within:border-border-strong focus-within:bg-surface hover:border-border-strong'
         }
-        onChange={(event) => typeSearchQuery(event.currentTarget.value)}
-      />
-    </label>
+      >
+        <Icon name="search" size={16} />
+        <span className="sr-only">{label}</span>
+        <input
+          type="search"
+          name="q"
+          value={value}
+          placeholder={placeholder}
+          className={
+            'min-w-0 flex-1 border-none bg-transparent px-search-x py-search-y text-base text-ink outline-none placeholder:text-ink-faint'
+          }
+          onChange={(event) => typeSearchQuery(event.currentTarget.value)}
+        />
+      </label>
+    </form>
   );
 }

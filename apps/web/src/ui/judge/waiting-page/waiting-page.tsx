@@ -6,7 +6,7 @@ import { Icon } from '../../components/icon/icon';
 import { Panel } from '../../components/panel/panel';
 import { cn } from '../../cn';
 import { BackLink } from '../back-link/back-link';
-import { Notice } from '../notice/notice';
+import { Notice } from '../../components/notice/notice';
 
 export type WaitingPageProps = { readonly view: WaitingView };
 

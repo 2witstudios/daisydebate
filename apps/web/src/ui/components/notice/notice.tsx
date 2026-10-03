@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Icon, type IconName } from '../../components/icon/icon';
+import { Icon, type IconName } from '../icon/icon';
 import { noticeClass, noticeIconClass, type NoticeTone } from './notice-class';
 
 export type NoticeProps = {

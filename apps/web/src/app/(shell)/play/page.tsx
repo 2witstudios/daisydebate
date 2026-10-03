@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../features/access/decision';
 import { requireAccess } from '../../../lib/access';
-import { RouteShell } from '../../ui/route-shell';
+import { CreateRoomPage } from '../../../ui/rooms/create-room/create-room-page';
+import { createRoomAction } from './actions';
 
-export const metadata: Metadata = { title: 'Play' };
+export const metadata: Metadata = { title: 'Open a practice room' };
 
 export default async function PlayPage({
   searchParams,
@@ -11,15 +12,5 @@ export default async function PlayPage({
   searchParams: Promise<SearchParams>;
 }) {
   await requireAccess('/play', searchParams);
-  return (
-    <RouteShell
-      title="Play"
-      lede="Start a debate or join an open table."
-      planned={[
-        'Casual and ranked debate creation',
-        'Format and resolution selection',
-        'Readiness and clock configuration',
-      ]}
-    />
-  );
+  return <CreateRoomPage action={createRoomAction} />;
 }
