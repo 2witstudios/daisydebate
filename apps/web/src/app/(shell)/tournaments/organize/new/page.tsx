@@ -1,6 +1,10 @@
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../../../features/access/decision';
-import { parseWizardQuery } from '../../../../../features/tournaments/create-wizard';
+import {
+  applyEdits,
+  parseEdits,
+  parseWizardQuery,
+} from '../../../../../features/tournaments/create-wizard';
 import { getDraft } from '../../../../../features/tournaments/get-draft';
 import { requireAccess } from '../../../../../lib/access';
 import { CreatePage } from '../../../../../ui/tournaments/organize/create-page';
@@ -13,10 +17,13 @@ export default async function CreateRoute({
   searchParams: Promise<SearchParams>;
 }) {
   await requireAccess('/tournaments/organize/new', searchParams);
+  const params = await searchParams;
+  const edits = parseEdits(params);
   return (
     <CreatePage
-      query={parseWizardQuery(await searchParams)}
-      draft={getDraft()}
+      query={parseWizardQuery(params)}
+      draft={applyEdits(getDraft(), edits)}
+      edits={edits}
     />
   );
 }

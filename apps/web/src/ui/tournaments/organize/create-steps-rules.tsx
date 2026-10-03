@@ -2,23 +2,21 @@ import {
   reviewFacts,
   wizardHref,
   wizardSummary,
-  type Draft,
-  type WizardQuery,
 } from '../../../features/tournaments/create-wizard';
 import { FactList } from '../fact-list/fact-list';
 import { SampleButton } from '../inert-action/inert-action';
 import { LinkButton } from '../link-button/link-button';
 import { Notice } from '../notice/notice';
 import { Basics, Schedule, Size } from './create-steps';
-import { Field, card, field, labelClass } from './create-fields';
+import {
+  Field,
+  card,
+  field,
+  labelClass,
+  type StepProps,
+} from './create-fields';
 
-function Rules({
-  query,
-  draft,
-}: {
-  readonly query: WizardQuery;
-  readonly draft: Draft;
-}) {
+function Rules({ query, draft, edits }: StepProps) {
   const summary = wizardSummary(query);
   return (
     <div className={card}>
@@ -26,14 +24,26 @@ function Rules({
       <fieldset className="flex flex-col gap-2">
         <legend className={labelClass}>Rules</legend>
         <label className="flex items-start gap-3 text-base text-ink">
-          <input type="radio" name="rules" defaultChecked className="mt-1" />
+          <input
+            type="radio"
+            name="rules"
+            value="standard"
+            defaultChecked={draft.rules === 'standard'}
+            className="mt-1"
+          />
           <span>
             Standard rules. Exactly the rules of Ranked: seats, speech length
             and prep time. Recommended.
           </span>
         </label>
         <label className="flex items-start gap-3 text-base text-ink">
-          <input type="radio" name="rules" className="mt-1" />
+          <input
+            type="radio"
+            name="rules"
+            value="custom"
+            defaultChecked={draft.rules === 'custom'}
+            className="mt-1"
+          />
           <span>
             Custom rules. Change the seats, speech length or prep time. Shown
             clearly to every entrant.
@@ -61,7 +71,13 @@ function Rules({
         note="Moderators can review reports, warn and record forfeits. Only you can disqualify or publish."
       >
         <div className="flex gap-2">
-          <input id="mod" placeholder="@handle" className={field} />
+          <input
+            id="mod"
+            name="mod"
+            defaultValue={edits['mod']}
+            placeholder="@handle"
+            className={field}
+          />
           <SampleButton label="Invite" />
         </div>
       </Field>
@@ -69,13 +85,7 @@ function Rules({
   );
 }
 
-function Review({
-  query,
-  draft,
-}: {
-  readonly query: WizardQuery;
-  readonly draft: Draft;
-}) {
+function Review({ query, draft, edits }: StepProps) {
   const summary = wizardSummary(query);
   return (
     <div className={card}>
@@ -86,7 +96,7 @@ function Review({
         volunteer list and tells you if there are too few.
       </Notice>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <LinkButton href={wizardHref({ ...query, step: 'rules' })}>
+        <LinkButton href={wizardHref({ ...query, step: 'rules' }, edits)}>
           Back
         </LinkButton>
         <span className="flex flex-wrap gap-3">
@@ -98,23 +108,17 @@ function Review({
   );
 }
 
-export function StepBody({
-  query,
-  draft,
-}: {
-  readonly query: WizardQuery;
-  readonly draft: Draft;
-}) {
+export function StepBody({ query, draft, edits }: StepProps) {
   switch (query.step) {
     case 'basics':
       return <Basics draft={draft} />;
     case 'size':
-      return <Size query={query} draft={draft} />;
+      return <Size query={query} draft={draft} edits={edits} />;
     case 'schedule':
-      return <Schedule query={query} draft={draft} />;
+      return <Schedule query={query} draft={draft} edits={edits} />;
     case 'rules':
-      return <Rules query={query} draft={draft} />;
+      return <Rules query={query} draft={draft} edits={edits} />;
     case 'review':
-      return <Review query={query} draft={draft} />;
+      return <Review query={query} draft={draft} edits={edits} />;
   }
 }

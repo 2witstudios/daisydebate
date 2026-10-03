@@ -1,10 +1,10 @@
 import {
+  seedingChoices,
+  type Draft,
   sizesFor,
   wizardHref,
   withStructure,
   wizardSummary,
-  type Draft,
-  type WizardQuery,
 } from '../../../features/tournaments/create-wizard';
 import { structureLabel } from '../../../features/tournaments/labels';
 import { structures } from '../../../features/tournaments/tournament';
@@ -16,6 +16,7 @@ import {
   field,
   hint,
   labelClass,
+  type StepProps,
 } from './create-fields';
 
 export function Basics({ draft }: { readonly draft: Draft }) {
@@ -27,11 +28,18 @@ export function Basics({ draft }: { readonly draft: Draft }) {
         label="Name"
         note="Shown on the tournaments list and the bracket. Up to 60 characters."
       >
-        <input id="t-name" defaultValue={draft.name} className={field} />
+        <input
+          id="t-name"
+          name="name"
+          maxLength={60}
+          defaultValue={draft.name}
+          className={field}
+        />
       </Field>
       <Field id="t-desc" label="Description">
         <textarea
           id="t-desc"
+          name="desc"
           rows={4}
           defaultValue={draft.description}
           className={`${field} h-auto p-3`}
@@ -43,6 +51,7 @@ export function Basics({ draft }: { readonly draft: Draft }) {
           <input
             type="radio"
             name="vis"
+            value="listed"
             defaultChecked={draft.listed}
             className="mt-1"
           />
@@ -54,6 +63,7 @@ export function Basics({ draft }: { readonly draft: Draft }) {
           <input
             type="radio"
             name="vis"
+            value="unlisted"
             defaultChecked={!draft.listed}
             className="mt-1"
           />
@@ -66,13 +76,7 @@ export function Basics({ draft }: { readonly draft: Draft }) {
   );
 }
 
-export function Size({
-  query,
-  draft,
-}: {
-  readonly query: WizardQuery;
-  readonly draft: Draft;
-}) {
+export function Size({ query, draft, edits }: StepProps) {
   const summary = wizardSummary(query);
   return (
     <div className={card}>
@@ -84,7 +88,7 @@ export function Size({
           options={structures.map((structure) => ({
             key: structure,
             text: structureLabel(structure),
-            href: wizardHref(withStructure(query, structure)),
+            href: wizardHref(withStructure(query, structure), edits),
             on: structure === query.structure,
           }))}
         />
@@ -99,33 +103,54 @@ export function Size({
           options={sizesFor(query.structure).map((places) => ({
             key: String(places),
             text: String(places),
-            href: wizardHref({ ...query, places }),
+            href: wizardHref({ ...query, places }, edits),
             on: places === query.places,
           }))}
         />
       </div>
       <Notice icon="calendar">{summary.calc}</Notice>
       <Field id="seeding" label="Seeding">
-        <select id="seeding" className={field} defaultValue={draft.seeding}>
-          <option>{draft.seeding}</option>
-          <option>Random draw</option>
+        <select
+          id="seeding"
+          name="seeding"
+          className={field}
+          defaultValue={draft.seeding}
+        >
+          {seedingChoices.map((choice) => (
+            <option key={choice}>{choice}</option>
+          ))}
         </select>
       </Field>
       <div className="grid grid-cols-2 gap-4 max-compact:grid-cols-1">
         <Field id="rmin" label="Lowest rating allowed (optional)">
-          <input id="rmin" placeholder="No minimum" className={field} />
+          <input
+            id="rmin"
+            name="rmin"
+            defaultValue={edits['rmin']}
+            placeholder="No minimum"
+            className={field}
+          />
         </Field>
         <Field
           id="rmax"
           label="Highest rating allowed (optional)"
           note="Provisional players are allowed unless you limit by rating."
         >
-          <input id="rmax" placeholder="No maximum" className={field} />
+          <input
+            id="rmax"
+            name="rmax"
+            defaultValue={edits['rmax']}
+            placeholder="No maximum"
+            className={field}
+          />
         </Field>
       </div>
       <label className="flex items-start gap-3 text-base text-ink">
+        <input type="hidden" name="waitlist" value="off" />
         <input
           type="checkbox"
+          name="waitlist"
+          value="on"
           defaultChecked={draft.waitlist}
           className="mt-1"
         />
@@ -138,13 +163,7 @@ export function Size({
   );
 }
 
-export function Schedule({
-  query,
-  draft,
-}: {
-  readonly query: WizardQuery;
-  readonly draft: Draft;
-}) {
+export function Schedule({ query, draft, edits }: StepProps) {
   const summary = wizardSummary(query);
   return (
     <div className={card}>
@@ -153,6 +172,7 @@ export function Schedule({
         <Field id="reg-open" label="Registration opens">
           <input
             id="reg-open"
+            name="opens"
             type="datetime-local"
             defaultValue={draft.registrationOpens}
             className={field}
@@ -165,6 +185,7 @@ export function Schedule({
         >
           <input
             id="reg-close"
+            name="closes"
             type="datetime-local"
             defaultValue={draft.registrationCloses}
             className={field}
@@ -179,21 +200,23 @@ export function Schedule({
       <div className="flex flex-col gap-2">
         <h3 className={labelClass}>Round times</h3>
         <ul className="flex flex-col gap-2">
-          {summary.roundRows.map((row) => (
+          {summary.roundRows.map((row, index) => (
             <li key={row.label} className="flex flex-wrap items-center gap-3">
               <span className="w-1/4 text-base text-ink-muted max-compact:w-full">
                 {row.label}
               </span>
               <input
                 type="date"
+                name={`round-${index}-date`}
                 aria-label={`${row.label} date`}
-                defaultValue={row.date}
+                defaultValue={edits[`round-${index}-date`] ?? row.date}
                 className={`${field} w-1/3`}
               />
               <input
                 type="time"
+                name={`round-${index}-time`}
                 aria-label={`${row.label} time`}
-                defaultValue={row.time}
+                defaultValue={edits[`round-${index}-time`] ?? row.time}
                 className={`${field} w-1/4`}
               />
             </li>

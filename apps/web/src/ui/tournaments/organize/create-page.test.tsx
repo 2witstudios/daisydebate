@@ -15,9 +15,12 @@ const base: WizardQuery = {
   structure: 'single-elimination',
   places: 16,
 };
-const render = (query: Partial<WizardQuery> = {}) =>
+const render = (
+  query: Partial<WizardQuery> = {},
+  edits: Record<string, string> = {},
+) =>
   renderToString(
-    h(CreatePage, { query: { ...base, ...query }, draft: getDraft() }),
+    h(CreatePage, { query: { ...base, ...query }, draft: getDraft(), edits }),
   );
 
 describe('CreatePage', () => {
@@ -145,14 +148,25 @@ describe('CreatePage', () => {
       should: 'offer Cancel on the first, Back and Continue in the middle',
       actual: [
         /href="\/tournaments\/organize"[^>]*>Cancel</.test(first),
-        /href="\/tournaments\/organize\/new\?step=size"[^>]*>Back</.test(
-          middle,
-        ),
-        /href="\/tournaments\/organize\/new\?step=rules"[^>]*>Continue</.test(
-          middle,
-        ),
+        /<button[^>]*value="size"[^>]*>Back</.test(middle),
+        /<button[^>]*value="rules"[^>]*>Continue</.test(middle),
       ],
       expected: [true, true, true],
+    });
+  });
+
+  test("Continue submits the step's fields and carries the other steps' edits", () => {
+    const html = render({ step: 'size' }, { name: 'Spring Cup', rmin: '1200' });
+    assert({
+      given: 'the size step after a name was typed on the basics step',
+      should: 'wrap the step in a GET form that carries the name and moves on',
+      actual: [
+        html.includes('action="/tournaments/organize/new" method="get"'),
+        html.includes('type="hidden" name="name" value="Spring Cup"'),
+        html.includes('type="submit" value="schedule"'),
+        html.includes('name="rmin"'),
+      ],
+      expected: [true, true, true, true],
     });
   });
 });
