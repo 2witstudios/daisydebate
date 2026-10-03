@@ -50,17 +50,12 @@ function SettingsProposal() {
             <label htmlFor={setting.id} className="flex min-w-0 flex-col">
               <span className="font-strong">{setting.label}</span>
               <span className="text-sm text-ink-muted">{setting.help}</span>
-              <span className="text-sm text-ink-faint">
-                {setting.inertReason}
-              </span>
             </label>
             <input
               id={setting.id}
               type="checkbox"
               role="switch"
-              checked={setting.on}
-              disabled
-              readOnly
+              defaultChecked={setting.on}
               className="mt-1 size-5 accent-accent"
             />
           </li>

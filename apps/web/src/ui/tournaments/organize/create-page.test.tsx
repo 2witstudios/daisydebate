@@ -37,14 +37,15 @@ describe('CreatePage', () => {
     });
   });
 
-  test('the sample draft is read-only and says so', () => {
+  test('the draft is editable and says what stays in the address', () => {
     const html = render();
     assert({
       given: 'the basics step',
-      should: 'explain the read-only draft and disable every field',
+      should: 'name the draft and leave every field editable',
       actual: [
-        html.includes('read-only'),
-        /<input id="t-name"[^>]*disabled=""/.test(html),
+        html.includes('stay in the address'),
+        /<input id="t-name"/.test(html) &&
+          !/<input id="t-name"[^>]*disabled=""/.test(html),
         html.includes('Winter Open'),
         html.includes('Listed on Tournaments'),
       ],
@@ -113,21 +114,22 @@ describe('CreatePage', () => {
         html.includes('Unrated'),
         html.includes('You cannot choose judges or rounds.'),
         html.includes('up to 8 judges'),
-        /<button type="button" disabled=""[^>]*>Invite</.test(html),
+        html.includes('href="?did=Invite"'),
       ],
       expected: [true, true, true, true],
     });
   });
 
-  test('review: facts and two disabled actions, no fake publish', () => {
+  test('review: facts and two sample actions', () => {
     const html = render({ step: 'review' });
     assert({
       given: 'the review step',
-      should: 'list the draft, disable Save draft and Publish, and link Back',
+      should:
+        'list the draft, answer Save draft and Publish as sample actions, and link Back',
       actual: [
         html.includes('Opens 12 Oct, closes 5 Nov, 18:00 UTC'),
-        /<button type="button" disabled=""[^>]*>Save draft</.test(html),
-        /<button type="button" disabled=""[^>]*>Publish tournament</.test(html),
+        html.includes('href="?did=Save+draft"'),
+        html.includes('href="?did=Publish+tournament"'),
         html.includes('href="/tournaments/organize/new?step=rules"'),
         html.includes('>Continue<'),
       ],

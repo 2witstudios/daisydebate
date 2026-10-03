@@ -3,9 +3,9 @@ import type { ReactNode } from 'react';
 import type { Destination } from '../../../features/coming-soon/destinations';
 import type { NotifyAction } from '../../../features/coming-soon/notify';
 import { Badge } from '../../components/badge/badge';
-import { Button } from '../../components/button/button';
 import { buttonClass } from '../../components/button/button-class';
 import { Icon } from '../../components/icon/icon';
+import { SampleAction } from '../../components/sample-action/sample-action';
 import { cn } from '../../cn';
 import { destinationGlyph } from '../destination-glyph';
 import { PreviewFrame } from '../preview-frame/preview-frame';
@@ -109,11 +109,6 @@ export function Explainer({ destination, notify, preview }: ExplainerProps) {
             Daisy Debate is opening in stages. Sign in to be told when{' '}
             {destination.title} opens.
           </p>
-          {notify.kind === 'inert' ? (
-            <p id={notifyId} className="text-sm text-ink-faint">
-              {notify.reason}
-            </p>
-          ) : null}
         </div>
         <div className="flex flex-wrap gap-3">
           {notify.kind === 'sign-in' ? (
@@ -124,9 +119,12 @@ export function Explainer({ destination, notify, preview }: ExplainerProps) {
               Get notified
             </Link>
           ) : (
-            <Button disabled aria-describedby={notifyId}>
+            <SampleAction
+              label="Get notified"
+              className={cn(buttonClass('primary'), linkButton)}
+            >
               Get notified
-            </Button>
+            </SampleAction>
           )}
           <Link href="/" className={cn(buttonClass('secondary'), linkButton)}>
             Back to home

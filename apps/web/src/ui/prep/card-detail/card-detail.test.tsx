@@ -48,14 +48,14 @@ describe('CardDetail', () => {
     });
   });
 
-  test('the actions are inert except delete, which is a link', () => {
+  test('the actions are sample actions; delete is a link to its page', () => {
     const html = render({});
     assert({
       given: 'the action row',
       should:
-        'disable Add to brief, Copy cite, Share and Edit and link Delete card',
+        'answer Add to brief, Copy cite, Share and Edit as sample actions and link Delete card',
       actual: [
-        html.match(/<button [^>]*disabled=""/g)?.length,
+        html.match(/href="\?did=[^"]*"/g)?.length,
         html.includes('href="/prep/cards/cost-estimates/delete"'),
         html.includes('aria-label="More actions"'),
       ],

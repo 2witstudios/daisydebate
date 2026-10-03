@@ -1,3 +1,5 @@
+import { Suspense } from 'react';
+import { SampleActionNotice } from '../../ui/components/sample-action/sample-action-notice';
 import { AppShell } from '../../ui/layout/app-shell/app-shell';
 import { UiStoreProvider } from '../../ui/store/store';
 import { TopicCard } from '../../ui/dashboard/topic-card/topic-card';
@@ -11,7 +13,8 @@ import { requestIdentity } from '../../lib/request-session';
  * nav, content column, community rail) and resolves the account once per
  * request, so every route in this group inherits the chrome instead of each
  * page composing it for itself. The root layout above keeps only <html>,
- * theme and fonts.
+ * theme and fonts. The sample-action banner sits above every page: a control
+ * with no backend answers with it on the same page.
  */
 export default async function ShellLayout({
   children,
@@ -29,6 +32,9 @@ export default async function ShellLayout({
           </>
         }
       >
+        <Suspense fallback={null}>
+          <SampleActionNotice />
+        </Suspense>
         {children}
       </AppShell>
     </UiStoreProvider>

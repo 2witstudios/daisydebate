@@ -6,7 +6,7 @@ import {
   type WizardQuery,
 } from '../../../features/tournaments/create-wizard';
 import { FactList } from '../fact-list/fact-list';
-import { DisabledAction } from '../inert-action/inert-action';
+import { SampleButton } from '../inert-action/inert-action';
 import { LinkButton } from '../link-button/link-button';
 import { Notice } from '../notice/notice';
 import { Basics, Schedule, Size } from './create-steps';
@@ -23,7 +23,7 @@ function Rules({
   return (
     <div className={card}>
       <h2 className="text-lg font-strong text-ink">Rules and judging</h2>
-      <fieldset className="flex flex-col gap-2" disabled>
+      <fieldset className="flex flex-col gap-2">
         <legend className={labelClass}>Rules</legend>
         <label className="flex items-start gap-3 text-base text-ink">
           <input type="radio" name="rules" defaultChecked className="mt-1" />
@@ -45,7 +45,7 @@ function Rules({
         cannot be turned on. Ratings come from Ranked play on the Daisy ladder.
       </Notice>
       <Field id="panel" label="Judges per debate">
-        <select id="panel" disabled className={field}>
+        <select id="panel" className={field}>
           <option>{draft.panel}</option>
         </select>
       </Field>
@@ -61,11 +61,8 @@ function Rules({
         note="Moderators can review reports, warn and record forfeits. Only you can disqualify or publish."
       >
         <div className="flex gap-2">
-          <input id="mod" disabled placeholder="@handle" className={field} />
-          <DisabledAction
-            label="Invite"
-            reason="Inviting needs the organizer service."
-          />
+          <input id="mod" placeholder="@handle" className={field} />
+          <SampleButton label="Invite" />
         </div>
       </Field>
     </div>
@@ -93,15 +90,8 @@ function Review({
           Back
         </LinkButton>
         <span className="flex flex-wrap gap-3">
-          <DisabledAction
-            label="Save draft"
-            reason="Saving drafts needs the tournament service."
-          />
-          <DisabledAction
-            label="Publish tournament"
-            reason="Publishing needs the tournament service."
-            variant="primary"
-          />
+          <SampleButton label="Save draft" />
+          <SampleButton label="Publish tournament" variant="primary" />
         </span>
       </div>
     </div>

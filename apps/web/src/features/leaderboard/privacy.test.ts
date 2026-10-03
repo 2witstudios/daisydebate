@@ -48,19 +48,14 @@ describe('privacy rows', () => {
 });
 
 describe('settingsProposal', () => {
-  test('both settings are inert proposals', () => {
+  test('both settings start as the proposal', () => {
     assert({
       given: 'the proposed settings',
-      should:
-        'default region off and ladder on, each with a reason it does nothing',
-      actual: settingsProposal.map((s) => [
-        s.id,
-        s.on,
-        s.inertReason.startsWith('Proposed.'),
-      ]),
+      should: 'default region off and ladder on',
+      actual: settingsProposal.map((s) => [s.id, s.on]),
       expected: [
-        ['show-region', false, true],
-        ['appear-on-ladder', true, true],
+        ['show-region', false],
+        ['appear-on-ladder', true],
       ],
     });
   });

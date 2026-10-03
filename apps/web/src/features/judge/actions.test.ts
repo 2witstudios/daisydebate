@@ -18,11 +18,11 @@ describe('resourceAction', () => {
   test('a guide and the practice debates', () => {
     assert({
       given: 'a guide and the practice resource',
-      should: 'be inert with a reason that names what is missing',
+      should: 'be sample actions worded by the resource’s own call to action',
       actual: [resourceAction(resource(false)), resourceAction(resource(true))],
       expected: [
-        { kind: 'inert', reason: 'This guide is not written yet.' },
-        { kind: 'inert', reason: 'Practice debates are not recorded yet.' },
+        { kind: 'sample', label: resource(false).cta },
+        { kind: 'sample', label: resource(true).cta },
       ],
     });
   });

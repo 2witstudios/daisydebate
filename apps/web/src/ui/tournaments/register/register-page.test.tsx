@@ -45,14 +45,15 @@ describe('RegisterPage', () => {
     });
   });
 
-  test('the conflicts box is off, never a silent drop', () => {
+  test('the conflicts box is typeable and private', () => {
     const html = render('weeknight-sprint');
     assert({
       given: 'the conflicts field',
-      should: 'be disabled and say why',
+      should: 'be enabled and say only the pairing system reads it',
       actual: [
-        /<textarea[^>]*disabled=""/.test(html),
-        html.includes('needs the registration service'),
+        /<textarea[^>]*id="conflicts"/.test(html) &&
+          !/<textarea[^>]*disabled/.test(html),
+        html.includes('only the pairing system reads this'),
       ],
       expected: [true, true],
     });

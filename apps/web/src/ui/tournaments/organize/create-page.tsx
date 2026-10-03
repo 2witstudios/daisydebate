@@ -40,8 +40,8 @@ export function CreatePage({
       />
       <PageHeader title="Create a tournament" />
       <Notice icon="alert">
-        This is the sample draft “{draft.name}”. Its fields are read-only until
-        drafts can be saved. Structure and size work and stay in the address.
+        This is the draft “{draft.name}”. Structure and size stay in the address
+        as you move between steps.
       </Notice>
       <div className="flex items-start gap-6 max-rail:flex-col">
         <nav

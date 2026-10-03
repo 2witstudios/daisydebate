@@ -25,19 +25,18 @@ describe('PrivacyPage', () => {
     });
   });
 
-  test('the settings are inert proposals', () => {
+  test('the settings are switches in their proposed state', () => {
     assert({
       given: 'the proposed privacy settings',
-      should:
-        'render disabled switches in their proposed state, each with its reason',
+      should: 'render two working switches, region off and ladder on',
       actual: [
         html.match(/role="switch"/g)?.length,
         html.match(/disabled=""/g)?.length,
+        html.match(/checked=""/g)?.length,
         html.includes('Proposal'),
-        html.match(/Proposed\. Saving needs the settings backend/g)?.length,
         html.includes('<form'),
       ],
-      expected: [2, 2, true, 2, false],
+      expected: [2, undefined, 1, true, false],
     });
   });
 

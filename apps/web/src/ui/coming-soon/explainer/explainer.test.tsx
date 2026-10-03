@@ -91,18 +91,18 @@ describe('Explainer', () => {
     });
   });
 
-  test('gives a signed-in member an inert control with its reason', () => {
+  test('gives a signed-in member a working Get notified', () => {
     const html = render('ranked', true);
     assert({
       given: 'a signed-in member',
-      should: 'disable Get notified and explain why, without a sign-in link',
+      should: 'answer Get notified on the same page, without a sign-in link',
       actual: [
+        html.includes('href="?did=Get+notified"'),
         html.includes('disabled=""'),
-        html.includes('Notifications are not built yet'),
-        html.includes('aria-describedby="notify-ranked"'),
+        html.includes('not built yet'),
         html.includes('/sign-in'),
       ],
-      expected: [true, true, true, false],
+      expected: [true, false, false, false],
     });
   });
 });

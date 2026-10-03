@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import type { HostScreen } from '../../../features/ranked/drive-host';
-import { tableNameInert } from '../../../features/ranked/actions';
 import { Icon } from '../../components/icon/icon';
 import { cn } from '../../cn';
 import { AutoSubmitForm } from '../../lobby/filter-bar/auto-submit-form';
@@ -14,8 +13,8 @@ const note =
 
 /**
  * The host form: a GET to the same route. The band select applies at once
- * once hydrated; Post table moves to the mock confirmation. The table name
- * stays disabled so typed text never rides in a URL.
+ * once hydrated; Post table moves to the mock confirmation. Nothing typed
+ * rides in the address: a ranked table has only the band to choose.
  */
 export function HostTable({ screen }: { readonly screen: HostScreen }) {
   return (
@@ -50,22 +49,6 @@ export function HostTable({ screen }: { readonly screen: HostScreen }) {
             ))}
           </select>
           <p className="text-sm text-ink-muted">{screen.seatText}</p>
-        </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="host-title" className="text-base font-strong">
-            Table name
-          </label>
-          <input
-            id="host-title"
-            type="text"
-            disabled
-            aria-describedby="host-title-why"
-            placeholder="Optional, for example Tuesday night table"
-            className={cn(controlClass, 'disabled:opacity-60')}
-          />
-          <p id="host-title-why" className="text-sm text-ink-muted">
-            {tableNameInert.reason}
-          </p>
         </div>
         <div className={note}>
           <span className="mt-1 text-accent">

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { SearchInput } from '../../../../components/search-input/search-input';
 import { Avatar } from '../../../../components/avatar/avatar';
+import { Icon } from '../../../../components/icon/icon';
 import { DaisyLogo } from '../../../../components/daisy-mark/daisy-mark';
 
 /** Who the shell is showing: derived on the server from the durable session. */
@@ -61,6 +62,15 @@ export function Topbar({ account }: { readonly account: ShellAccount }) {
         <SearchInput />
       </div>
       <div className="flex shrink-0 items-center gap-4">
+        {account.state === 'member' ? (
+          <Link
+            href="/notifications"
+            aria-label="Notifications"
+            className="flex shrink-0 items-center rounded-md p-2 text-ink-muted hover:bg-surface-overlay hover:no-underline"
+          >
+            <Icon name="bell" size={20} />
+          </Link>
+        ) : null}
         <AccountControl account={account} />
       </div>
     </header>

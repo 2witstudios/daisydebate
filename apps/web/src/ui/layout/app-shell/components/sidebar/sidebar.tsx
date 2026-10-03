@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { NavItem } from '../../../../components/nav-item/nav-item';
 import { Icon } from '../../../../components/icon/icon';
 import type { ShellAccount } from '../topbar/topbar';
@@ -32,6 +33,12 @@ const baseNavigation = [
 
 const trailingNavigation = [
   { href: '/settings', icon: 'dots', label: 'More' },
+] as const;
+
+const footerLinks = [
+  { href: '/help', label: 'Help' },
+  { href: '/terms', label: 'Terms' },
+  { href: '/privacy', label: 'Privacy' },
 ] as const;
 
 export type SidebarProps = {
@@ -77,6 +84,15 @@ export function Sidebar({ account }: SidebarProps) {
           <br />A more thoughtful world.
         </span>
       </p>
+      <ul className="mx-5 flex list-none flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted max-compact:hidden">
+        {footerLinks.map((link) => (
+          <li key={link.href}>
+            <Link href={link.href} className="text-ink-muted">
+              {link.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
     </nav>
   );
 }

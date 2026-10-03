@@ -1,10 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { inertReason, type InertAction } from './actions';
+import { actionLabel, type InertAction } from './actions';
 
 setupRitewayBun();
 
-describe('inert actions', () => {
-  test('each action says why it does nothing', () => {
+describe('watch actions', () => {
+  test('each action has its own label', () => {
     const all: readonly InertAction[] = [
       'follow',
       'react',
@@ -15,11 +15,11 @@ describe('inert actions', () => {
       'saveVisibility',
     ];
     assert({
-      given: 'every inert action',
-      should: 'give a distinct, non-empty reason',
+      given: 'every Watch action',
+      should: 'give a distinct, non-empty label for the banner',
       actual:
-        new Set(all.map(inertReason)).size === all.length &&
-        all.every((action) => inertReason(action).length > 0),
+        new Set(all.map(actionLabel)).size === all.length &&
+        all.every((action) => actionLabel(action).length > 0),
       expected: true,
     });
   });
