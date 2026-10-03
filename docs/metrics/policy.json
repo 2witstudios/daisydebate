@@ -1,5 +1,6 @@
 {
   "coverage": {
+    "@daisy/ai-voice": { "lines": 90, "functions": 90 },
     "@daisy/auth": { "lines": 100, "functions": 100 },
     "@daisy/config": { "lines": 75, "functions": 85 },
     "@daisy/db": { "lines": 90, "functions": 30 },
