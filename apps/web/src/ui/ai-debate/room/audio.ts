@@ -43,6 +43,8 @@ export type AudioEngine = {
   level(): number;
   /** The playback timeline's current time, in milliseconds. */
   now(): number;
+  /** Runs `run` when the timeline reaches `time`; returns the cancel. */
+  at(time: number, run: () => void): () => void;
   record(): Recording;
   /**
    * Decodes a clip, trims the silence around its voice, and schedules it to
@@ -114,6 +116,13 @@ export async function openAudioEngine(): Promise<AudioEngine> {
       };
     },
     now: () => context.currentTime * 1000,
+    at(time, run) {
+      const timer = setTimeout(
+        run,
+        Math.max(0, time - context.currentTime * 1000),
+      );
+      return () => clearTimeout(timer);
+    },
     async play(mp3, at = 0) {
       const decoded = await context.decodeAudioData(mp3.slice(0));
       const buffer = trimmed(context, decoded);

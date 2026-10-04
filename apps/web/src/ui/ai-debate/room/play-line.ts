@@ -1,3 +1,4 @@
+import { splitSentences } from '@daisy/ai-voice';
 import type { AiDebateApi } from './api';
 import type { AudioEngine, Playback } from './audio';
 
@@ -76,6 +77,14 @@ export async function playLine({
   void stopWhen.then(() => (stopped = true));
   const scheduled: Scheduled[] = [];
   const show = shower(context, setPlaying, () => stopped);
+  /** The first phrase with no clip queued yet. */
+  let upNext = 0;
+  /**
+   * Stops every queued clip and tells the server what was heard: the phrase
+   * cut off and how much of it played, or, with nothing playing (still
+   * loading, or in the breath between phrases), that the next phrase went
+   * unheard, so no unspoken words stay in the transcript.
+   */
   const cut = () => {
     for (const { playback } of scheduled) playback.stop();
     show.done();
@@ -83,7 +92,12 @@ export async function playLine({
       ({ playback }) => playback.playedMs() < playback.durationMs,
     );
     if (playing)
-      reportHeard(context, utteranceId(), playing.index, playing.playback);
+      reportHeard(context, utteranceId(), playing.index, {
+        playedMs: playing.playback.playedMs(),
+        totalMs: playing.playback.durationMs,
+      });
+    else
+      reportHeard(context, utteranceId(), upNext, { playedMs: 0, totalMs: 1 });
     return 'stopped' as const;
   };
   /** The phrase's voice, queued; null when stopped first; SKIPPED on failure. */
@@ -93,7 +107,11 @@ export async function playLine({
         fetchAudio(index),
         stopWhen.then(() => null),
       ]);
-      return clip ? await context.engine.play(clip, at) : null;
+      if (!clip) return null;
+      const playback = await context.engine.play(clip, at);
+      // Cut off while this clip was decoding: it must never be heard.
+      if (stopped) playback.stop();
+      return stopped ? null : playback;
     } catch {
       context.onError("Part of your opponent's speech could not be voiced.");
       return SKIPPED;
@@ -107,11 +125,13 @@ export async function playLine({
     ]);
     if (stopped) return cut();
     if (text === null) break;
+    upNext = index;
     prefetch(index + 1);
     const playback = await voiceOf(index, nextAt);
     if (playback === SKIPPED) continue;
     if (stopped || !playback) return cut();
     scheduled.push({ index, playback });
+    upNext = index + 1;
     show.at(playback, text);
     nextAt = playback.endsAt + BREATH_MS;
     // Keep one phrase queued behind the one playing, no more.
@@ -159,30 +179,43 @@ export function createVoices(
   return { fetchAudio, prefetch };
 }
 
-/** Shows each phrase's caption, and that the opponent speaks, as it starts. */
+/**
+ * Shows that the opponent speaks as each phrase starts, and steps the
+ * caption through the phrase's sentences as the voice reaches them. The
+ * voice returns no word timings, so each sentence is placed by its share of
+ * the phrase's characters.
+ */
 function shower(
   context: TurnContext,
   setPlaying: ((playback: Playback | null) => void) | undefined,
   stopped: () => boolean,
 ) {
-  const timers = new Set<ReturnType<typeof setTimeout>>();
+  const cancels = new Set<() => void>();
+  const when = (time: number, run: () => void) => {
+    cancels.add(
+      context.engine.at(time, () => {
+        if (!stopped()) run();
+      }),
+    );
+  };
   return {
     at(playback: Playback, text: string) {
-      const timer = setTimeout(
-        () => {
-          timers.delete(timer);
-          if (stopped()) return;
-          setPlaying?.(playback);
-          context.onSpeaking(true);
-          context.onCaption(text);
-        },
-        Math.max(0, playback.startsAt - context.engine.now()),
-      );
-      timers.add(timer);
+      when(playback.startsAt, () => {
+        setPlaying?.(playback);
+        context.onSpeaking(true);
+      });
+      let before = 0;
+      for (const sentence of splitSentences(text)) {
+        const share = before / text.length;
+        when(playback.startsAt + playback.durationMs * share, () =>
+          context.onCaption(sentence),
+        );
+        before += sentence.length + 1;
+      }
     },
     done() {
-      for (const timer of timers) clearTimeout(timer);
-      timers.clear();
+      for (const cancel of cancels) cancel();
+      cancels.clear();
       setPlaying?.(null);
       context.onSpeaking(false);
     },
@@ -194,7 +227,10 @@ function reportHeard(
   context: TurnContext,
   id: string | null,
   phraseIndex: number,
-  playback: Playback,
+  {
+    playedMs,
+    totalMs,
+  }: { readonly playedMs: number; readonly totalMs: number },
 ) {
   if (!id) return;
   void context.api
@@ -202,8 +238,8 @@ function reportHeard(
       id: context.id,
       utteranceId: id,
       phraseIndex,
-      playedMs: Math.round(playback.playedMs()),
-      totalMs: Math.round(playback.durationMs),
+      playedMs: Math.round(playedMs),
+      totalMs: Math.round(totalMs),
     })
     .catch(() => undefined);
 }

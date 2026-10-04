@@ -20,6 +20,7 @@ export {
   createSentenceBuffer,
   heardText,
   phrasesOf,
+  splitSentences,
   worthTranscribing,
 } from './speech';
 
