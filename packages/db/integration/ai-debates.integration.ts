@@ -35,7 +35,8 @@ const withDebate = async (
         actorId,
         resolution: 'Social media does more harm than good',
         personSide: 'negative',
-        voice: 'am_michael',
+        opponent: 'wren',
+        voice: 'bf_emma',
         expectedEndAt: new Date(Date.UTC(2026, 9, 3, 19)),
         ...models,
       });

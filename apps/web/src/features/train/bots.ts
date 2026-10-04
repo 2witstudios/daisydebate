@@ -28,9 +28,8 @@ export const selectBotHref = (id: string): string =>
     ? trainDestinations.bots
     : `${trainDestinations.bots}?bot=${id}`;
 
-/** Where "debate this bot" goes: the practice setup, with the bot named. */
-export const debateBotHref = (id: string): string =>
-  `${trainDestinations.practice}?bot=${id}`;
+/** Where "debate this bot" goes: the room before a real debate against it. */
+export const debateBotHref = (id: string): string => `/ai-debate?bot=${id}`;
 
 type CarouselCard = {
   readonly bot: Bot;

@@ -11,6 +11,7 @@ import {
   approximateTokens,
   nowMs,
   ownedBy,
+  personaOf,
   requireLiveTurn,
   transcriptOf,
   type AiDebateDependencies,
@@ -91,6 +92,7 @@ export function speechOperations({
         aiSide: aiSideOf(record),
         turn,
         transcript: transcriptOf(record),
+        persona: personaOf(record),
       });
       const buffer = createSentenceBuffer();
       const spoken: string[] = [];

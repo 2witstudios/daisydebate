@@ -1,7 +1,8 @@
-import { ipdaTurns } from '@daisy/debate-engine';
+import { aiDebateTurns } from '@daisy/debate-engine';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   cxMessages,
+  debaterPersona,
   judgeMessages,
   renderTranscript,
   speechMessages,
@@ -36,7 +37,7 @@ describe('speechMessages', () => {
   const messages = speechMessages({
     resolution,
     aiSide: 'negative',
-    turn: ipdaTurns[2]!,
+    turn: aiDebateTurns[2]!,
     transcript,
     persona: 'PERSONA',
   });
@@ -70,7 +71,7 @@ describe('cxMessages', () => {
     const user = cxMessages({
       resolution,
       aiSide: 'negative',
-      turn: ipdaTurns[1]!,
+      turn: aiDebateTurns[1]!,
       aiRole: 'asker',
       transcript,
       persona: 'P',
@@ -99,6 +100,34 @@ describe('judgeMessages', () => {
         user.includes('"winner"') &&
         user.includes('Several longitudinal studies.'),
       expected: true,
+    });
+  });
+});
+
+describe('debaterPersona', () => {
+  const persona = debaterPersona({
+    name: 'Wren',
+    tagline: 'Quick-witted and dry',
+    personality: 'Sarcastic in a friendly way, always has a comeback.',
+  });
+  test('a character over the debating rules', () => {
+    assert({
+      given: "a bot's name, tagline and personality",
+      should: 'speak as that character',
+      actual: [
+        persona.includes('You are Wren, quick-witted and dry.'),
+        persona.includes('Sarcastic in a friendly way, always has a comeback.'),
+      ],
+      expected: [true, true],
+    });
+    assert({
+      given: 'the same persona',
+      should: 'keep the rules that make it a fair, spoken debater',
+      actual: [
+        persona.includes('Write for the ear.'),
+        persona.includes('Never invent specific studies'),
+      ],
+      expected: [true, true],
     });
   });
 });

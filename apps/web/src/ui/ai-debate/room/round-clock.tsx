@@ -1,6 +1,6 @@
 import {
-  ipdaCountdownMs,
-  ipdaTurns,
+  aiDebateCountdownMs,
+  aiDebateTurns,
   turnRoles,
   type AiDebateSide,
   type AiDebateState,
@@ -48,11 +48,11 @@ function readingOf(
   if (state.phase === 'countdown')
     return {
       time: seconds(state.remainingMs),
-      caption: untilCaption(ipdaTurns[state.turnIndex]!, personSide),
+      caption: untilCaption(aiDebateTurns[state.turnIndex]!, personSide),
       tone: 'calm',
     };
   if (state.phase === 'prep')
-    return state.prepLeftMs <= ipdaCountdownMs
+    return state.prepLeftMs <= aiDebateCountdownMs
       ? {
           time: seconds(state.prepLeftMs),
           caption: 'until your speech starts',
@@ -62,7 +62,7 @@ function readingOf(
   if (state.phase !== 'live') return null;
   return {
     time: minutes(state.remainingMs),
-    caption: liveCaption(ipdaTurns[state.turnIndex]!, personSide),
+    caption: liveCaption(aiDebateTurns[state.turnIndex]!, personSide),
     tone:
       state.remainingMs <= 30_000
         ? 'urgent'
@@ -109,9 +109,12 @@ const width: Record<number, string> = {
 export function RoundClock({
   state,
   personSide,
+  opponent,
 }: {
   readonly state: AiDebateState;
   readonly personSide: AiDebateSide;
+  /** The opponent's name, for the legend. */
+  readonly opponent: string;
 }) {
   if (state.phase === 'aborted') return null;
   const reading = readingOf(state, personSide);
@@ -136,7 +139,7 @@ export function RoundClock({
         </p>
       ) : null}
       <ol aria-label="Round timeline" className="flex gap-px">
-        {ipdaTurns.map((turn) => {
+        {aiDebateTurns.map((turn) => {
           const owner = ownerOf(turn, personSide);
           const here = turn.index === current;
           return (
@@ -147,7 +150,7 @@ export function RoundClock({
                 width[turn.durationMs / 60_000] ?? 'grow',
               )}
               aria-current={here ? 'step' : undefined}
-              title={`${turn.label} · ${minutes(turn.durationMs)} · ${owner === 'person' ? 'You' : 'AI'}`}
+              title={`${turn.label} · ${minutes(turn.durationMs)} · ${owner === 'person' ? 'You' : opponent}`}
             >
               <progress
                 max={100}
@@ -175,7 +178,7 @@ export function RoundClock({
           <span className={cn('size-2 rounded-full', fill.person)} /> You
         </span>
         <span className="flex items-center gap-1">
-          <span className={cn('size-2 rounded-full', fill.ai)} /> AI
+          <span className={cn('size-2 rounded-full', fill.ai)} /> {opponent}
         </span>
       </p>
     </div>

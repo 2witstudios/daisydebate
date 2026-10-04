@@ -8,6 +8,7 @@ export { createOpenRouter, type OpenRouter } from './openrouter';
 export { readLines } from './lines';
 export {
   cxMessages,
+  debaterPersona,
   judgeMessages,
   speechMessages,
   type TranscriptEntry,

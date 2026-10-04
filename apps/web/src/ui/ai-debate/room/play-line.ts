@@ -14,6 +14,8 @@ export type TurnContext = {
   readonly onLine: () => void;
   readonly onStatus: (status: string) => void;
   readonly onCaption: (text: string) => void;
+  /** The opponent's voice started or stopped. */
+  readonly onSpeaking: (speaking: boolean) => void;
   readonly onError: (message: string) => void;
 };
 
@@ -79,8 +81,10 @@ export async function playLine({
     });
     const playback = await context.engine.play(clip);
     setPlaying?.(playback);
+    context.onSpeaking(true);
     context.onCaption(text);
     await Promise.race([playback.finished, stopWhen]);
+    context.onSpeaking(false);
     setPlaying?.(null);
     if (stopped) {
       playback.stop();

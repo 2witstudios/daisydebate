@@ -29,17 +29,17 @@ describe('start and view', () => {
     });
   });
 
-  test('refuses an unknown voice and an empty resolution', async () => {
+  test('refuses an unknown opponent and an empty resolution', async () => {
     const { operations } = setup();
     await assertRejects({
-      given: 'a voice not on the list',
+      given: 'an opponent no Train bot is',
       should: 'refuse with VALIDATION',
       actual: () =>
         operations.start({
           actorId: 'a',
           resolution: 'Resolved: x y',
           personSide: 'negative',
-          voice: 'robot',
+          opponent: 'robot',
         }),
       code: 'VALIDATION',
     });
@@ -51,7 +51,7 @@ describe('start and view', () => {
           actorId: 'a',
           resolution: 'ok',
           personSide: 'negative',
-          voice: 'am_michael',
+          opponent: 'wren',
         }),
       code: 'VALIDATION',
     });

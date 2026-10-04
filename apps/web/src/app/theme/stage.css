@@ -1,0 +1,14 @@
+/* The live round's video tiles: each debater keeps a video-shaped box,
+   whether it shows a camera or (for now) a portrait. */
+
+@utility video-tile {
+  aspect-ratio: 16 / 9;
+}
+
+/* A bot's own portrait, blurred and enlarged behind it to fill its tile,
+   the way a video call softens a background. */
+@utility video-backdrop {
+  filter: blur(40px);
+  opacity: 0.7;
+  transform: scale(1.5);
+}

@@ -30,11 +30,11 @@ export const modeCards = (
 ): readonly ModeCard[] => [
   {
     id: 'practice',
-    title: 'Debate the AI',
+    title: 'Guided practice',
     blurb:
-      'A full IPDA round by voice: speeches, cross-examination and a ballot from an AI judge.',
-    status: 'About 45 min',
-    cta: { label: 'Start an AI debate', href: '/ai-debate' },
+      'Debate a paced prompt, turn by turn, with a timer and coach prompts.',
+    status: '25 to 45 min',
+    cta: { label: 'Start a practice debate', href: trainDestinations.practice },
   },
   {
     id: 'drills',

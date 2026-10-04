@@ -27,7 +27,7 @@ describe('TrainHub', () => {
         html.match(/<h1/g)?.length,
         html.includes('Today&#x27;s plan'),
         html.includes('Recommended next'),
-        html.includes('Debate the AI'),
+        html.includes('Guided practice'),
         html.includes('Structure on the first check'),
         html.includes('Strongest and weakest parts'),
         html.includes('This week'),

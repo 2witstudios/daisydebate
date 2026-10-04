@@ -2,7 +2,7 @@
 
 import type { Ballot } from '@daisy/ai-voice';
 import {
-  ipdaTurns,
+  aiDebateTurns,
   turnRoles,
   type AiDebateSide,
   type AiDebateState,
@@ -16,7 +16,8 @@ export const sideName = (side: string) =>
   side === 'affirmative' ? 'Affirmative' : 'Negative';
 
 export function stageTitle(state: AiDebateState) {
-  const turn = 'turnIndex' in state ? ipdaTurns[state.turnIndex] : undefined;
+  const turn =
+    'turnIndex' in state ? aiDebateTurns[state.turnIndex] : undefined;
   const titles: Record<AiDebateState['phase'], string> = {
     waiting: 'Ready when you are',
     prep: `Prep before your ${turn?.name ?? 'speech'}`,
@@ -80,7 +81,8 @@ function LiveControls({
   readonly personSide: AiDebateSide;
   readonly actions: ControlActions;
 }) {
-  const turn = state.phase === 'live' ? ipdaTurns[state.turnIndex] : undefined;
+  const turn =
+    state.phase === 'live' ? aiDebateTurns[state.turnIndex] : undefined;
   const yours =
     turn?.kind === 'speech' && turnRoles(turn, personSide).speaker === 'person';
   return (
@@ -137,8 +139,8 @@ export function Controls({
     return (
       <div className="flex flex-col gap-3">
         <p className="text-ink-muted">
-          You will debate by voice. Daisy transcribes your speeches for the AI
-          and the judge; no audio is kept. Headphones work best.
+          You will debate by voice. Daisy transcribes your speeches for your
+          opponent and the judge; no audio is kept. Headphones work best.
         </p>
         <button
           type="button"
@@ -166,7 +168,13 @@ export function Controls({
   );
 }
 
-export function Transcript({ view }: { readonly view: RoomView }) {
+export function Transcript({
+  view,
+  opponent,
+}: {
+  readonly view: RoomView;
+  readonly opponent: string;
+}) {
   const lines = view.utterances.filter((line) => line.text);
   return (
     <TrainCard title="Transcript">
@@ -179,8 +187,8 @@ export function Transcript({ view }: { readonly view: RoomView }) {
           {lines.map((line) => (
             <li key={line.id} className="flex flex-col gap-1">
               <span className="text-xs font-strong tracking-wide text-ink-muted uppercase">
-                {ipdaTurns[line.turnIndex]?.name} ·{' '}
-                {line.role === 'person' ? 'You' : 'AI'}
+                {aiDebateTurns[line.turnIndex]?.name} ·{' '}
+                {line.role === 'person' ? 'You' : opponent}
               </span>
               <span className="text-ink">{line.text}</span>
             </li>
@@ -194,16 +202,18 @@ export function Transcript({ view }: { readonly view: RoomView }) {
 export function BallotCard({
   ballot,
   personSide,
+  opponent,
 }: {
   readonly ballot: Ballot;
   readonly personSide: AiDebateSide;
+  readonly opponent: string;
 }) {
   return (
     <TrainCard
       title={
         ballot.winner === personSide
           ? 'You won the round'
-          : 'The AI won this round'
+          : `${opponent} won this round`
       }
     >
       <p className="text-ink">
@@ -220,7 +230,7 @@ export function BallotCard({
               className="flex flex-col gap-1"
             >
               <span className="text-xs font-strong tracking-wide text-ink-muted uppercase">
-                {speech.turn} · {speech.side === personSide ? 'You' : 'AI'}
+                {speech.turn} · {speech.side === personSide ? 'You' : opponent}
               </span>
               <span className="text-ink">Worked: {speech.strengths}</span>
               <span className="text-ink">Next time: {speech.improvements}</span>

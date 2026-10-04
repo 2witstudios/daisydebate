@@ -2,7 +2,7 @@ import type { Ballot } from '@daisy/ai-voice';
 import { systemClock, type Clock } from '@daisy/clock';
 import {
   deriveAiDebate,
-  ipdaTurns,
+  aiDebateTurns,
   turnRoles,
   type AiDebateState,
 } from '@daisy/debate-engine';
@@ -28,6 +28,10 @@ export type RoomSnapshot = {
   readonly ballot: Ballot | null;
   readonly joined: boolean;
   readonly busy: boolean;
+  /** The opponent's voice is playing. */
+  readonly speaking: boolean;
+  /** The microphone's level, 0..1, while joined. */
+  readonly level: number;
 };
 
 export type RoomCommand = Parameters<typeof aiDebateApi.command>[2];
@@ -42,6 +46,8 @@ const initial: RoomSnapshot = {
   ballot: null,
   joined: false,
   busy: false,
+  speaking: false,
+  level: 0,
 };
 
 // A turn's countdown and its live time share one controller, so the AI
@@ -121,7 +127,7 @@ export function createRoomStore({
 
   const startTurn = (state: AiDebateState, view: RoomView, key: string) => {
     if (!hasTurn(state) || !engine) return idle(key);
-    const current = ipdaTurns[state.turnIndex]!;
+    const current = aiDebateTurns[state.turnIndex]!;
     const roles = turnRoles(current, view.personSide);
     const controller = new AbortController();
     let goLive = () => undefined as void;
@@ -135,6 +141,7 @@ export function createRoomStore({
       onLine: () => void refresh(),
       onStatus: (status) => set({ status }),
       onCaption: (caption) => set({ caption }),
+      onSpeaking: (speaking) => set({ speaking }),
       onError: (problem) => set({ problem }),
     };
     if (current.kind === 'cross-examination')
@@ -175,6 +182,16 @@ export function createRoomStore({
     void requestBallot();
   };
 
+  /** A new turn, or the microphone joined during this one: (re)start it. */
+  const advance = (state: AiDebateState, view: RoomView) => {
+    const key = turnKeyOf(state);
+    const restart = turn.controller === null && engine !== null;
+    if (key === turn.key && !(restart && hasTurn(state))) return false;
+    turn.controller?.abort();
+    turn = startTurn(state, view, key);
+    return true;
+  };
+
   const tick = () => {
     const view = snapshot.view;
     if (!view) return;
@@ -183,15 +200,10 @@ export function createRoomStore({
       commands: view.commands,
       now: now() + (view.serverNow - view.receivedAt),
     });
-    const key = turnKeyOf(state);
     const previous = snapshot.state;
-    // A new turn, or the microphone joined during this one.
-    const restart = turn.controller === null && engine !== null;
-    if (key !== turn.key || (restart && hasTurn(state))) {
-      turn.controller?.abort();
-      turn = startTurn(state, view, key);
-      set({ state, caption: '', status: '' });
-    } else set({ state });
+    if (advance(state, view))
+      set({ state, caption: '', status: '', speaking: false });
+    else set({ state, level: engine?.level() ?? 0 });
     if (state.phase === 'live' && turn.controller && !turn.wentLive)
       goLive(previous);
     judgeWhenOver(state);

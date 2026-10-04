@@ -7,7 +7,7 @@ import type {
 } from '@daisy/db';
 import {
   deriveAiDebate,
-  ipdaTurns,
+  aiDebateTurns,
   turnRoles,
   type AiDebateCommand,
   type AiDebateSide,
@@ -15,6 +15,7 @@ import {
   type AiDebateTurn,
 } from '@daisy/debate-engine';
 import { createAppError } from '@daisy/errors';
+import { opponentFor } from './opponents';
 
 export type AiDebateStore = Pick<
   Database,
@@ -57,6 +58,8 @@ export type AiDebateView = {
   readonly id: string;
   readonly resolution: string;
   readonly personSide: AiDebateSide;
+  /** The Train bot debated. */
+  readonly opponent: string;
   readonly voice: string;
   readonly serverNow: number;
   readonly commands: readonly AiDebateCommand[];
@@ -89,6 +92,10 @@ export const stateAt = (record: AiDebateRecord, at: number): AiDebateState =>
     commands: record.commands.map(toEngine),
     now: at,
   });
+
+/** The opponent's persona; the default debater if its bot has gone. */
+export const personaOf = (record: AiDebateRecord): string | undefined =>
+  opponentFor(record.opponent)?.persona;
 
 export const aiSideOf = (record: AiDebateRecord): AiDebateSide =>
   record.personSide === 'affirmative' ? 'negative' : 'affirmative';
@@ -139,7 +146,7 @@ export const requireLiveTurn = (
   allowed: (roles: ReturnType<typeof turnRoles>, kind: string) => boolean,
   { early = false }: { readonly early?: boolean } = {},
 ): AiDebateTurn => {
-  const turn = ipdaTurns[turnIndex];
+  const turn = aiDebateTurns[turnIndex];
   if (!turn || !isOpenTurn(record, turnIndex, now, early))
     throw createAppError('CONFLICT', 'That turn is not live');
   if (!allowed(turnRoles(turn, record.personSide), turn.kind))

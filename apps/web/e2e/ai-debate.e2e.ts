@@ -35,19 +35,29 @@ const end = async (page: Page, name: string) => {
   await page.getByRole('button', { name: 'Tap again to confirm' }).click();
 };
 
-test('a member plays a full IPDA debate against the AI by voice and gets a ballot', async ({
+test('a member picks a Train bot, plays a full debate against it by voice and gets a ballot', async ({
   page,
 }) => {
   test.setTimeout(240_000);
   await signUpMember(page.request);
 
-  await page.goto('/ai-debate');
+  // Train: the bot carousel opens on Wren; debate Wren from its room.
+  await page.goto('/train');
+  await page.getByRole('link', { name: 'Debate Wren' }).click();
+  await expect(heading(page, 'Debate Wren')).toBeVisible();
+  await page.getByText('Affirmative', { exact: true }).click();
   await page
-    .getByLabel('Resolution')
+    .getByLabel('Or write your own')
     .fill('Cities should make public transit free');
-  await page.getByLabel('Affirmative', { exact: true }).check();
-  await page.getByRole('button', { name: 'Go to the debate room' }).click();
+  await page.getByRole('button', { name: 'Start debate' }).click();
   await expect(page).toHaveURL(/\/ai-debate\/[a-z0-9]+$/);
+
+  // The debaters as video tiles: Wren's portrait and you.
+  const debaters = page.getByRole('list', { name: 'Debaters' });
+  await expect(debaters.getByRole('img', { name: /^Wren/ })).toBeVisible();
+  await expect(
+    debaters.getByText('You', { exact: true }).first(),
+  ).toBeVisible();
 
   await page.getByRole('button', { name: 'Begin debate' }).click();
 
@@ -65,9 +75,10 @@ test('a member plays a full IPDA debate against the AI by voice and gets a ballo
     afterCountdown,
   );
   await expect(page.getByText('left in your speech')).toBeVisible();
-  // The fake microphone "speaks" for a few seconds: shorter clips are
-  // dropped as silence before transcription.
-  await page.waitForTimeout(4_000);
+  // Chromium's fake microphone beeps briefly about once a second, and a
+  // clip with under 500 ms of voice is dropped as silence, so it "speaks"
+  // for eight seconds to clear that bar with room to spare.
+  await page.waitForTimeout(8_000);
   await end(page, 'End my speech');
 
   // First CX: the AI asks its opening question out loud.
@@ -104,7 +115,7 @@ test('a member plays a full IPDA debate against the AI by voice and gets a ballo
     timeout: 30_000,
   });
   await expect(page.getByText(STUB_BALLOT.reason)).toBeVisible();
-  await expect(page.getByText('The AI').first()).toBeHidden();
+  await expect(page.getByText('Wren won this round')).toBeHidden();
 
   // The transcript holds the person's transcribed speech and the AI's words.
   const transcript = page.locator('section', {

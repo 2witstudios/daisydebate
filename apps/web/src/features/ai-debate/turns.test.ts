@@ -6,7 +6,9 @@ setupRitewayBun();
 
 describe('the AI speech', () => {
   test('streams sentences, saves them and voices one sentence', async () => {
-    const { operations, begin, store } = setup({ personSide: 'negative' });
+    const { operations, begin, store, voice } = setup({
+      personSide: 'negative',
+    });
     const id = await begin();
     const events = await collect(
       operations.speech({ actorId: 'actor-1', id, turnIndex: 0 }),
@@ -52,6 +54,18 @@ describe('the AI speech', () => {
         tts: store.records.get(id)?.ttsCharacters,
       },
       expected: { bytes: 1, tts: 'My first contention is safety.'.length },
+    });
+    assert({
+      given: 'a debate against Wren',
+      should:
+        "write the speech in Wren's character and voice it in Wren's voice",
+      actual: {
+        persona: voice.personas[0]?.includes('You are Wren'),
+        voiced: voice.calls.includes(
+          'speak:bf_emma:My first contention is safety.',
+        ),
+      },
+      expected: { persona: true, voiced: true },
     });
     const replay = await collect(
       operations.speech({ actorId: 'actor-1', id, turnIndex: 0 }),

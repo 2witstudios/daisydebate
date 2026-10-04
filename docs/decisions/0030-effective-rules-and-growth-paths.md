@@ -94,7 +94,7 @@ not, and this ADR decides them now.
 
 ## Consequences
 
-- `formats.id` is a canonical slug (`foundation`, `ipda`), the one documented
+- `formats.id` is a canonical slug (`foundation`, `parli`), the one documented
   exception to cuid2 application identifiers (ADR 0018, ADR 0023): a format
   is a human-chosen name that must read the same in URLs, seeds and rating
   ladders, and it is never a bearer of anything.

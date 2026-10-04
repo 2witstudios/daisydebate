@@ -1,5 +1,5 @@
 import {
-  ipdaTurns,
+  aiDebateTurns,
   type AiDebateSide,
   type AiDebateTurn,
 } from '@daisy/debate-engine';
@@ -32,24 +32,50 @@ export function renderTranscript(
 ): string {
   return transcript
     .map((entry) => {
-      const name = ipdaTurns[entry.turnIndex]?.name ?? '?';
+      const name = aiDebateTurns[entry.turnIndex]?.name ?? '?';
       const who = entry.role === 'ai' ? you : them;
       return `[${name} — ${sideOf(entry.role, aiSide)} (${who})] ${entry.text}`;
     })
     .join('\n');
 }
 
-/** The default persona for the AI debater (versioned and tunable later). */
-const DEFAULT_PERSONA = [
-  'You are a sharp, fair collegiate IPDA debater speaking aloud in a live round.',
-  'IPDA is judged by lay judges: be persuasive, clear and accessible, never jargon-heavy, never spread.',
+/** How every AI debater argues, whatever its character. */
+const DEBATING_RULES = [
+  'The round is judged by a lay judge: be persuasive, clear and accessible, never jargon-heavy, never spread.',
   'Write for the ear. No markdown, bullet points, headings, emojis or stage directions; only the words you say.',
   'Signpost clearly ("My first contention...", "Turning to my opponent\'s second point...").',
   'Clash directly with what your opponent actually said, quoting or paraphrasing them.',
   'Use reasoning, examples and widely known facts. Never invent specific studies, statistics, quotes or citations.',
   'Speak numbers and abbreviations the way a person says them aloud.',
+].join(' ');
+
+/** The default persona for the AI debater (versioned and tunable later). */
+const DEFAULT_PERSONA = [
+  'You are a sharp, fair collegiate debater speaking aloud in a live one-on-one round.',
+  DEBATING_RULES,
   'Be confident and a little witty, but respectful.',
 ].join(' ');
+
+/**
+ * A bot opponent's persona: its character colours how it talks, while the
+ * debating rules keep it a fair, spoken debater that tries to win.
+ */
+export function debaterPersona({
+  name,
+  tagline,
+  personality,
+}: {
+  readonly name: string;
+  readonly tagline: string;
+  readonly personality: string;
+}): string {
+  return [
+    `You are ${name}, ${tagline.charAt(0).toLowerCase()}${tagline.slice(1)}. ${personality}`,
+    'You are debating a person aloud in a live one-on-one round. Stay in character in how you talk, but argue as well as you can.',
+    DEBATING_RULES,
+    'Stay respectful to your opponent.',
+  ].join(' ');
+}
 
 const SPEECH_GOALS: Record<string, string> = {
   AC: 'Open the round: briefly define key terms, then present two or three clear contentions that prove the resolution, each with a claim, reasoning and an example or impact.',
@@ -72,7 +98,7 @@ export function speechMessages({
   readonly aiSide: AiDebateSide;
   readonly turn: AiDebateTurn;
   readonly transcript: readonly TranscriptEntry[];
-  readonly persona?: string;
+  readonly persona?: string | undefined;
 }): ChatMessage[] {
   const words = wordBudget(turn.durationMs);
   const history = transcript.length
@@ -106,7 +132,7 @@ export function cxMessages({
   readonly turn: AiDebateTurn;
   readonly aiRole: 'asker' | 'answerer';
   readonly transcript: readonly TranscriptEntry[];
-  readonly persona?: string;
+  readonly persona?: string | undefined;
 }): ChatMessage[] {
   const exchange = transcript.filter((entry) => entry.turnIndex === turn.index);
   const earlier = transcript.filter((entry) => entry.turnIndex < turn.index);
@@ -139,7 +165,7 @@ export function cxMessages({
 
 /** The default judging instructions (versioned and tunable later). */
 const DEFAULT_RUBRIC = [
-  'You are an experienced, fair IPDA judge who judges like a thoughtful lay person.',
+  'You are an experienced, fair debate judge who judges like a thoughtful lay person.',
   'Decide who did the better job of persuading you the resolution is true or false, based only on what was said.',
   'Weigh clash, the quality of reasoning and examples, arguments that were dropped or extended, and cross-examination.',
   'Do not reward invented evidence. Ignore transcription glitches. Do not intervene with your own arguments.',

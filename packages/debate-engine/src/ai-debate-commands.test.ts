@@ -95,7 +95,7 @@ describe('acceptAiDebateCommand', () => {
 describe('aiDebateLongestMs', () => {
   test('every turn, countdown and the whole prep budget', () => {
     assert({
-      given: 'strict IPDA',
+      given: 'the AI debate format',
       should: 'be 30 minutes of turns, 4 of prep and a countdown per turn',
       actual: aiDebateLongestMs(),
       expected: 34 * 60_000 + 7 * 10_000,

@@ -9,6 +9,7 @@ import {
   aiSideOf,
   nowMs,
   ownedBy,
+  personaOf,
   requireLiveTurn,
   stateAt,
   transcriptOf,
@@ -83,6 +84,7 @@ export function crossExaminationOperations({
           ? [{ turnIndex: turn.index, role: 'person' as const, text: heard }]
           : []),
       ],
+      persona: personaOf(record),
     });
     const answer = await voice().complete({
       model: record.cxModel,

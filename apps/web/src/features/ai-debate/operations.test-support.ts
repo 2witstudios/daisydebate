@@ -105,10 +105,16 @@ export function scriptedVoice({
   readonly reply?: string;
   readonly transcript?: string;
   readonly ballot?: Record<string, unknown>;
-} = {}): AiDebateVoice & { readonly calls: string[] } {
+} = {}): AiDebateVoice & {
+  readonly calls: string[];
+  /** Each streamed request's system message (the persona). */
+  readonly personas: string[];
+} {
   const calls: string[] = [];
+  const personas: string[] = [];
   return {
     calls,
+    personas,
     async complete(request) {
       calls.push(`complete:${request.model}`);
       return {
@@ -119,10 +125,11 @@ export function scriptedVoice({
     },
     async *stream(request) {
       calls.push(`stream:${request.model}`);
+      personas.push(request.messages[0]?.content ?? '');
       for (const word of speech.split(/(?<= )/)) yield word;
     },
-    async speak({ text }) {
-      calls.push(`speak:${text}`);
+    async speak({ text, voice }) {
+      calls.push(`speak:${voice}:${text}`);
       return { audio: new Uint8Array([7]).buffer, characters: text.length };
     },
     async transcribe() {
@@ -159,7 +166,7 @@ export const setup = ({
       actorId: 'actor-1',
       resolution: '  Social media does   more harm than good ',
       personSide,
-      voice: 'am_michael',
+      opponent: 'wren',
     });
     await operations.command({
       actorId: 'actor-1',

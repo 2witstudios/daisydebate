@@ -70,6 +70,7 @@ export const aiDebateOperations = ({
         resolution: row.resolution,
         personSide:
           row.personSide === 'affirmative' ? 'affirmative' : 'negative',
+        opponent: row.opponent,
         voice: row.voice,
         speechModel: row.speechModel,
         cxModel: row.cxModel,

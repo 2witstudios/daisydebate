@@ -1,21 +1,21 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   deriveAiDebate,
-  ipdaCountdownMs,
-  ipdaPrepMs,
-  ipdaTurns,
+  aiDebateCountdownMs,
+  aiDebatePrepMs,
+  aiDebateTurns,
   turnRoles,
 } from './ai-debate';
 import { s, start } from './ai-debate.test-support';
 
 setupRitewayBun();
 
-describe('ipda turns', () => {
-  test('the strict IPDA order and lengths', () => {
+describe('the AI debate turns', () => {
+  test('the order and lengths', () => {
     assert({
-      given: 'the IPDA turn table',
+      given: 'the turn table',
       should: 'list AC, CX, NC, CX, 1AR, NR, 2AR with their lengths in ms',
-      actual: ipdaTurns.map((turn) => `${turn.name}:${turn.durationMs}`),
+      actual: aiDebateTurns.map((turn) => `${turn.name}:${turn.durationMs}`),
       expected: [
         'AC:300000',
         'CX:180000',
@@ -29,13 +29,13 @@ describe('ipda turns', () => {
     assert({
       given: 'the countdown into each turn',
       should: 'be ten seconds',
-      actual: ipdaCountdownMs,
+      actual: aiDebateCountdownMs,
       expected: 10000,
     });
     assert({
-      given: 'the IPDA prep budget',
+      given: 'the prep budget',
       should: 'be four minutes for the person',
-      actual: ipdaPrepMs,
+      actual: aiDebatePrepMs,
       expected: 240000,
     });
   });
@@ -44,13 +44,13 @@ describe('ipda turns', () => {
     assert({
       given: 'the first cross-examination with the person on the affirmative',
       should: 'have the AI (negative) ask and the person answer',
-      actual: turnRoles(ipdaTurns[1]!, 'affirmative'),
+      actual: turnRoles(aiDebateTurns[1]!, 'affirmative'),
       expected: { speaker: 'ai', asker: 'ai', answerer: 'person' },
     });
     assert({
       given: 'the NC with the person on the affirmative',
       should: 'be spoken by the AI',
-      actual: turnRoles(ipdaTurns[2]!, 'affirmative').speaker,
+      actual: turnRoles(aiDebateTurns[2]!, 'affirmative').speaker,
       expected: 'ai',
     });
   });

@@ -33,7 +33,7 @@ const schemas = {
   start: z.object({
     resolution: z.string().min(3).max(200),
     personSide: z.enum(['affirmative', 'negative']),
-    voice: z.string().min(1).max(40),
+    opponent: z.string().min(1).max(40),
   }),
   command: z.object({
     id,

@@ -25,6 +25,8 @@ export type NewAiDebate = {
   readonly actorId: string;
   readonly resolution: string;
   readonly personSide: AiDebateSide;
+  /** The Train bot debated. */
+  readonly opponent: string;
   readonly voice: string;
   readonly speechModel: string;
   readonly cxModel: string;

@@ -1,5 +1,5 @@
 /**
- * The AI debate timeline: a strict IPDA round between a person and an AI,
+ * The AI debate timeline: a one-on-one round between a person and an AI,
  * folded from an append-only command log and an injected time. Pure: no
  * clock, ids or I/O. Turns advance by time. Before each of the person's own
  * speeches (except the opening one) their prep clock runs until they start
@@ -12,7 +12,7 @@ export type AiDebateRole = 'person' | 'ai';
 
 export type AiDebateTurn = {
   readonly index: number;
-  /** The IPDA name: AC, CX, NC, 1AR, NR, 2AR. */
+  /** The short name: AC, CX, NC, 1AR, NR, 2AR. */
   readonly name: string;
   readonly label: string;
   readonly kind: 'speech' | 'cross-examination';
@@ -37,7 +37,7 @@ const turn = (
   durationMs: minutes * 60_000,
 });
 
-export const ipdaTurns: readonly AiDebateTurn[] = [
+export const aiDebateTurns: readonly AiDebateTurn[] = [
   turn(0, 'AC', 'Affirmative constructive', 'speech', 'affirmative', 5),
   turn(
     1,
@@ -62,10 +62,10 @@ export const ipdaTurns: readonly AiDebateTurn[] = [
 ];
 
 /** The person's elective prep budget; the AI takes none. */
-export const ipdaPrepMs = 240_000;
+export const aiDebatePrepMs = 240_000;
 
 /** The countdown into each turn that has no prep before it. */
-export const ipdaCountdownMs = 10_000;
+export const aiDebateCountdownMs = 10_000;
 
 const other = (side: AiDebateSide): AiDebateSide =>
   side === 'affirmative' ? 'negative' : 'affirmative';
@@ -218,9 +218,9 @@ export function deriveAiDebate({
   personSide,
   commands,
   now,
-  turns = ipdaTurns,
-  prepMs = ipdaPrepMs,
-  countdownMs = ipdaCountdownMs,
+  turns = aiDebateTurns,
+  prepMs = aiDebatePrepMs,
+  countdownMs = aiDebateCountdownMs,
 }: {
   readonly personSide: AiDebateSide;
   readonly commands: readonly AiDebateCommand[];
@@ -325,8 +325,8 @@ export function acceptAiDebateCommand({
  * Used to count live debates.
  */
 export const aiDebateLongestMs = (
-  turns: readonly AiDebateTurn[] = ipdaTurns,
-  prepMs = ipdaPrepMs,
-  countdownMs = ipdaCountdownMs,
+  turns: readonly AiDebateTurn[] = aiDebateTurns,
+  prepMs = aiDebatePrepMs,
+  countdownMs = aiDebateCountdownMs,
 ) =>
   turns.reduce((sum, turn) => sum + turn.durationMs + countdownMs, 0) + prepMs;

@@ -1,27 +1,52 @@
 'use client';
 
-import { ipdaTurns } from '@daisy/debate-engine';
+import { aiDebateTurns, turnRoles } from '@daisy/debate-engine';
+import Link from 'next/link';
 import { useEffect, useState, useSyncExternalStore } from 'react';
+import {
+  botSelector,
+  selectBotHref,
+  type Bot,
+} from '../../../features/train/bots';
 import { Badge } from '../../components/badge/badge';
+import { PageHeader } from '../../components/page-header/page-header';
 import { TrainCard } from '../../train/card/train-card';
 import { TrainPage } from '../../train/train-page/train-page';
-import {
-  BallotCard,
-  Controls,
-  Transcript,
-  sideName,
-  stageTitle,
-} from './parts';
+import { BallotCard, Controls, Transcript, stageTitle } from './parts';
 import { RoundClock } from './round-clock';
+import { Stage } from './stage';
 import { createRoomStore, type RoomSnapshot } from './store';
 
-function StageNotes({ snapshot }: { readonly snapshot: RoomSnapshot }) {
+/** The microphone is open in the person's speeches and in cross-examination. */
+function listeningOf({ view, state, joined }: RoomSnapshot) {
+  if (!view || !joined || state.phase !== 'live') return false;
+  const turn = aiDebateTurns[state.turnIndex]!;
+  return (
+    turn.kind === 'cross-examination' ||
+    turnRoles(turn, view.personSide).speaker === 'person'
+  );
+}
+
+function StageNotes({
+  snapshot,
+  bot,
+}: {
+  readonly snapshot: RoomSnapshot;
+  readonly bot: Bot;
+}) {
   const { view, state, status, caption, problem, headset } = snapshot;
   const live = state.phase === 'live';
-  const cx = live && ipdaTurns[state.turnIndex]?.kind === 'cross-examination';
+  const cx =
+    live && aiDebateTurns[state.turnIndex]?.kind === 'cross-examination';
   return (
     <div aria-live="polite" className="flex flex-col gap-3">
-      {view ? <RoundClock state={state} personSide={view.personSide} /> : null}
+      {view ? (
+        <RoundClock
+          state={state}
+          personSide={view.personSide}
+          opponent={bot.name}
+        />
+      ) : null}
       {status ? <p className="text-ink">{status}</p> : null}
       {caption && live ? (
         <blockquote className="rounded-md border border-border bg-surface-sunken p-4 text-lg text-ink">
@@ -31,7 +56,7 @@ function StageNotes({ snapshot }: { readonly snapshot: RoomSnapshot }) {
       {problem ? <p className="text-sm text-live">{problem}</p> : null}
       {cx && !headset ? (
         <p className="text-sm text-ink-muted">
-          Tip: headphones stop your opponent&apos;s voice from echoing into your
+          Tip: headphones stop {bot.name}&apos;s voice from echoing into your
           microphone.
         </p>
       ) : null}
@@ -39,7 +64,7 @@ function StageNotes({ snapshot }: { readonly snapshot: RoomSnapshot }) {
   );
 }
 
-/** The AI debate room: a strict IPDA round by voice against the AI. */
+/** A debate against a Train bot: a one-on-one round by voice. */
 export function AiDebateRoom({ id }: { readonly id: string }) {
   const [store] = useState(() => createRoomStore({ id }));
   useEffect(() => store.start(), [store]);
@@ -55,19 +80,36 @@ export function AiDebateRoom({ id }: { readonly id: string }) {
         <p className="text-ink-muted">Loading your debate…</p>
       </TrainPage>
     );
-  const aiSide = view.personSide === 'affirmative' ? 'negative' : 'affirmative';
+  const bot = botSelector(view.opponent).selected;
   const turnIndex = state.phase === 'live' ? state.turnIndex : null;
   return (
     <TrainPage>
-      <TrainCard title={view.resolution}>
-        <div className="flex flex-wrap items-center gap-2 text-sm text-ink-muted">
-          <Badge tone="accent">You: {sideName(view.personSide)}</Badge>
-          <Badge>AI: {sideName(aiSide)}</Badge>
-          <span>Strict IPDA · 4:00 prep</span>
-        </div>
-      </TrainCard>
+      <Link
+        href={selectBotHref(bot.id)}
+        className="inline-flex min-h-10 w-fit items-center gap-2 text-base font-strong text-ink-muted no-underline hover:text-ink hover:no-underline"
+      >
+        <span aria-hidden="true">&lsaquo;</span>
+        Train
+      </Link>
+      <PageHeader
+        title={view.resolution}
+        lede={
+          <span className="inline-flex flex-wrap items-center gap-2">
+            <Badge tone="neutral">Practice</Badge>
+            <Badge tone="neutral">One on one · 4:00 prep</Badge>
+          </span>
+        }
+      />
+      <Stage
+        bot={bot}
+        personSide={view.personSide}
+        state={state}
+        speaking={snapshot.speaking}
+        level={snapshot.level}
+        listening={listeningOf(snapshot)}
+      />
       <TrainCard title={stageTitle(state)}>
-        <StageNotes snapshot={snapshot} />
+        <StageNotes snapshot={snapshot} bot={bot} />
         <Controls
           state={state}
           personSide={view.personSide}
@@ -86,9 +128,13 @@ export function AiDebateRoom({ id }: { readonly id: string }) {
         />
       </TrainCard>
       {ballot ? (
-        <BallotCard ballot={ballot} personSide={view.personSide} />
+        <BallotCard
+          ballot={ballot}
+          personSide={view.personSide}
+          opponent={bot.name}
+        />
       ) : null}
-      <Transcript view={view} />
+      <Transcript view={view} opponent={bot.name} />
     </TrainPage>
   );
 }

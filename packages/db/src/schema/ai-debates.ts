@@ -46,6 +46,8 @@ export const aiDebates = pgTable(
       .references(() => actors.id, { onDelete: 'restrict' }),
     resolution: text('resolution').notNull(),
     personSide: text('person_side').notNull(),
+    /** The Train bot the person debates; its persona and voice. */
+    opponent: text('opponent').notNull(),
     voice: text('voice').notNull(),
     speechModel: text('speech_model').notNull(),
     cxModel: text('cx_model').notNull(),

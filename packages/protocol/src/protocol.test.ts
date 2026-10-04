@@ -240,11 +240,11 @@ describe('snapshot rules', () => {
     assert({
       given: 'format slugs',
       should: 'accept lowercase slugs and reject other shapes',
-      actual: ['ipda', 'lincoln-douglas-2', 'Foundation', 'a b', ''].map(
+      actual: ['parli', 'lincoln-douglas-2', 'Foundation', 'a b', ''].map(
         (format) => parseOutcome(debateSnapshotSchema, { ...snapshot, format }),
       ),
       expected: [
-        { data: { ...snapshot, format: 'ipda' } },
+        { data: { ...snapshot, format: 'parli' } },
         { data: { ...snapshot, format: 'lincoln-douglas-2' } },
         { issues: ['format'] },
         { issues: ['format'] },

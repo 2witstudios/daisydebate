@@ -1,5 +1,4 @@
 import {
-  AI_VOICES,
   DEFAULT_MODELS,
   DEFAULT_REASONING,
   judgeMessages,
@@ -25,6 +24,7 @@ import {
   type AudioFormat,
 } from './context';
 import { crossExaminationOperations } from './cross-examination';
+import { opponentFor } from './opponents';
 import { speechOperations } from './speech';
 
 export type { AiDebateView } from './context';
@@ -86,18 +86,19 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
       actorId,
       resolution,
       personSide,
-      voice: chosenVoice,
+      opponent: opponentId,
     }: {
       readonly actorId: string;
       readonly resolution: string;
       readonly personSide: AiDebateSide;
-      readonly voice: string;
+      /** The Train bot to debate. */
+      readonly opponent: string;
     }): Promise<{ readonly id: string }> {
       const trimmed = tidy(resolution);
       if (trimmed.length < 3 || trimmed.length > 200)
         throw createAppError('VALIDATION', 'Resolution length');
-      if (!AI_VOICES.some((option) => option.id === chosenVoice))
-        throw createAppError('VALIDATION', 'Unknown voice');
+      const opponent = opponentFor(opponentId);
+      if (!opponent) throw createAppError('VALIDATION', 'Unknown opponent');
       voice(); // refuse before writing anything when AI debates are unavailable
       const now = nowMs(clock);
       await refuseOverLimits(actorId, now);
@@ -107,7 +108,8 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
         actorId,
         resolution: trimmed,
         personSide,
-        voice: chosenVoice,
+        opponent: opponent.id,
+        voice: opponent.voice,
         speechModel: DEFAULT_MODELS.speech,
         cxModel: DEFAULT_MODELS.cx,
         judgeModel: DEFAULT_MODELS.judge,
@@ -130,6 +132,7 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
         id: record.id,
         resolution: record.resolution,
         personSide: record.personSide,
+        opponent: record.opponent,
         voice: record.voice,
         serverNow: nowMs(clock),
         commands: record.commands.map(toEngine),
