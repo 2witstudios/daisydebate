@@ -41,7 +41,7 @@ export const DEFAULT_MODELS = {
 export const AI_VOICES = [
   { id: 'aura-2-thalia-en', label: 'Thalia' },
   { id: 'aura-2-aurora-en', label: 'Aurora' },
-  { id: 'aura-2-jupiter-en', label: 'Jupiter' },
+  { id: 'aura-2-arcas-en', label: 'Arcas' },
 ] as const;
 
 /** Reasoning effort per role: quick for live turns, deeper for the judge. */

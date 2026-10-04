@@ -2,7 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { runAiSpeech } from './controllers';
 import { playLine } from './play-line';
 import type { TurnContext } from './play-line';
-import { fakeApi, fakeEngine, handClock } from './room.test-support';
+import { fakeApi, fakeEngine, handClock, settle } from './room.test-support';
 
 setupRitewayBun();
 
@@ -93,6 +93,60 @@ describe('playLine', () => {
           .map((start, index) => Math.round(start - (starts[index]! + 100))),
       },
       expected: { outcome: 'finished', breaths: [80, 80] },
+    });
+  });
+});
+
+describe('runAiSpeech, in the countdown', () => {
+  test('fetches the first phrases’ voices before the turn goes live', async () => {
+    const log: string[] = [];
+    const time = handClock();
+    const fetched: number[] = [];
+    let goLive: () => void = () => undefined;
+    const live = new Promise<void>((resolve) => (goLive = resolve));
+    const api = fakeApi({
+      log,
+      at: time.at,
+      overrides: {
+        speech: async (_id, _turn, onEvent) => {
+          onEvent({ type: 'utterance', id: 'line-1' });
+          ['One.', 'Two.', 'Three.', 'Four.'].forEach((text, index) =>
+            onEvent({ type: 'phrase', index, text }),
+          );
+          onEvent({ type: 'done' });
+        },
+        speak: async (_id, _line, index) => {
+          fetched.push(index);
+          return new ArrayBuffer(1);
+        },
+      },
+    });
+    const speaking = runAiSpeech(
+      {
+        id: 'd1',
+        turnIndex: 2,
+        api,
+        engine: fakeEngine(log),
+        signal: new AbortController().signal,
+        live,
+        onLine: () => undefined,
+        onStatus: () => undefined,
+        onCaption: () => undefined,
+        onSpeaking: () => undefined,
+        onError: () => undefined,
+        setFinish: () => undefined,
+      },
+      () => undefined,
+    );
+    await settle();
+    const beforeLive = [...fetched];
+    goLive();
+    await speaking;
+    assert({
+      given: 'a speech written during the countdown',
+      should: 'have its first three phrases voiced before the turn begins',
+      actual: beforeLive,
+      expected: [0, 1, 2],
     });
   });
 });

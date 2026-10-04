@@ -58,6 +58,7 @@ export async function playLine({
   phraseAt,
   stopWhen,
   setPlaying,
+  voices,
 }: {
   readonly context: TurnContext;
   readonly utteranceId: () => string | null;
@@ -66,14 +67,12 @@ export async function playLine({
   /** Resolves when playback must stop (the turn ended, or a barge-in). */
   readonly stopWhen: Promise<void>;
   readonly setPlaying?: (playback: Playback | null) => void;
+  /** Voices already being fetched (from the countdown); made here if not. */
+  readonly voices?: Voices;
 }): Promise<'finished' | 'stopped'> {
   let stopped = false;
-  const { fetchAudio, prefetch } = voices(
-    context,
-    utteranceId,
-    phraseAt,
-    () => stopped,
-  );
+  const { fetchAudio, prefetch } =
+    voices ?? createVoices(context, utteranceId, phraseAt, () => stopped);
   void stopWhen.then(() => (stopped = true));
   const scheduled: Scheduled[] = [];
   const show = shower(context, setPlaying, () => stopped);
@@ -129,8 +128,10 @@ export async function playLine({
 const ended = (entry: Scheduled | undefined) =>
   entry ? entry.playback.finished : Promise.resolve();
 
+export type Voices = ReturnType<typeof createVoices>;
+
 /** Each phrase's voice, fetched once, and fetched ahead of need. */
-function voices(
+export function createVoices(
   context: TurnContext,
   utteranceId: () => string | null,
   phraseAt: (index: number) => Promise<string | null>,

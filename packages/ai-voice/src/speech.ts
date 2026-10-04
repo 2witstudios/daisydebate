@@ -51,10 +51,17 @@ export function createSentenceBuffer() {
 const PHRASE_CHARS = 320;
 
 /**
+ * The second phrase's limit: short, so it is written and voiced while the
+ * opening sentence plays, before phrases grow to full length.
+ */
+const SECOND_PHRASE_CHARS = 160;
+
+/**
  * Groups whole sentences into phrases, each voiced in one request so the
  * voice flows across sentence boundaries. The first phrase is one sentence
- * alone, so the speaker starts quickly; later ones take sentences while
- * they fit `maxChars` (a longer sentence stands alone). A phrase closes
+ * alone and the second stays short, so the speaker starts quickly; later
+ * ones take sentences while they fit `maxChars` (a longer sentence stands
+ * alone). A phrase closes
  * only when the next sentence does not fit or the speech ends, so phrases
  * built as sentences stream in equal those of the finished text.
  */
@@ -73,7 +80,9 @@ export function createPhraseBuffer(maxChars = PHRASE_CHARS) {
         open = [sentence];
         return [close()];
       }
-      const fits = [...open, sentence].join(' ').length <= maxChars;
+      const limit =
+        emitted === 1 ? Math.min(maxChars, SECOND_PHRASE_CHARS) : maxChars;
+      const fits = [...open, sentence].join(' ').length <= limit;
       if (open.length === 0 || fits) {
         open.push(sentence);
         return [];

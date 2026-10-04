@@ -11,6 +11,7 @@ import {
   sleep,
   untilLive,
   type TurnContext,
+  createVoices,
 } from './play-line';
 
 /**
@@ -58,6 +59,15 @@ export async function runAiSpeech(
       done = true;
       wake();
     });
+  // Voice the opening phrases during the countdown, so the first words are
+  // in hand when the turn begins and the second follows without a wait.
+  const voices = createVoices(
+    context,
+    () => utteranceId,
+    phraseAt,
+    () => context.signal.aborted,
+  );
+  voices.prefetch(0);
   if (!(await untilLive(context))) return;
   if (phrases.length === 0)
     context.onStatus('Your opponent is gathering their thoughts…');
@@ -78,6 +88,7 @@ export async function runAiSpeech(
     utteranceId: () => utteranceId,
     phraseAt,
     stopWhen: aborted(context.signal),
+    voices,
   });
   context.onLine();
   if (failed) context.onError("Part of your opponent's speech failed to load.");

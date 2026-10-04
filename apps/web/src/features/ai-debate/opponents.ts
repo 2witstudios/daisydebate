@@ -7,7 +7,7 @@ type VoiceId = (typeof AI_VOICES)[number]['id'];
 const VOICES: Readonly<Record<string, VoiceId>> = {
   juno: 'aura-2-aurora-en',
   wren: 'aura-2-thalia-en',
-  bram: 'aura-2-jupiter-en',
+  bram: 'aura-2-arcas-en',
 };
 
 export type Opponent = {

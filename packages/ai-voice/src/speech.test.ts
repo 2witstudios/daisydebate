@@ -153,3 +153,21 @@ describe('phrases', () => {
     });
   });
 });
+
+describe('phrases, ramping up', () => {
+  test('the second phrase stays short so the speaker gets going', () => {
+    // Each sentence is 39 characters long.
+    const sentence = (n: number) =>
+      `Sentence number ${n} says one plain thing.`;
+    const text = Array.from({ length: 12 }, (_, n) => sentence(n + 1)).join(
+      ' ',
+    );
+    assert({
+      given: 'twelve 39-character sentences and the default limits',
+      should:
+        'voice one sentence, then up to 160 characters, then up to 320, each a whole number of sentences',
+      actual: phrasesOf(text).map((phrase) => splitSentences(phrase).length),
+      expected: [1, 4, 7],
+    });
+  });
+});
