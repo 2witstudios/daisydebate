@@ -14,7 +14,6 @@ import { tournamentRoutes } from '../../../features/tournaments/routes';
 import { Badge } from '../../components/badge/badge';
 import { Icon } from '../../components/icon/icon';
 import { LinkButton } from '../link-button/link-button';
-import { Notice } from '../notice/notice';
 import { PageFrame, PageTitle } from '../page-frame/page-frame';
 import { TabLinks } from '../../components/tab-links/tab-links';
 import { Honours, Mine, Rounds, Standings } from './results-tabs';
@@ -68,7 +67,7 @@ export function ResultsPage({ data, query, viewerHandle }: ResultsPageProps) {
             </p>
             <h2 className="font-display text-2xl leading-tight font-bold tracking-tight">{`@${champion.handle}`}</h2>
             <p className="text-sm text-stage-ink-muted">
-              {`Seed ${champion.seed}, rating ${champion.rating}. ${structureLabel(tournament.structure)}, ${tournament.entered} entrants. ${formatDay(tournament.startsAt)}. Unrated.`}
+              {`Seed ${champion.seed} · ${champion.rating} · ${structureLabel(tournament.structure)} · ${tournament.entered} entrants · ${formatDay(tournament.startsAt)}`}
             </p>
           </div>
         </section>
@@ -106,10 +105,6 @@ export function ResultsUnpublished({
         <h1 className="font-display text-3xl leading-tight font-bold tracking-tight">
           {`${name} has no published results`}
         </h1>
-        <Notice icon="clock">
-          Results appear here once the organizer publishes them after the final
-          round.
-        </Notice>
         <div>
           <LinkButton href={tournamentRoutes.detail(id)} variant="primary">
             Back to the tournament

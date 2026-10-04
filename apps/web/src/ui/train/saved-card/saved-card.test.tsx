@@ -27,8 +27,8 @@ describe('SavedCard', () => {
     const html = renderToString(h(SavedCard, { summary: emptySummary }));
     assert({
       given: 'no saved arguments',
-      should: 'explain where they come from and offer no library',
-      actual: [html.includes('None yet.'), html.includes('Open library')],
+      should: 'say none yet and offer no library',
+      actual: [html.includes('None yet'), html.includes('Open library')],
       expected: [true, false],
     });
   });

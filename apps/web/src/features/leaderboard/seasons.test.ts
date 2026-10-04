@@ -54,7 +54,7 @@ describe('buildSeasonsView', () => {
         'Standings now',
         10,
         'debater-b',
-        'Day 17 of 28. The final snapshot is taken when the season closes.',
+        'Day 17 of 28',
         61,
         [
           ['Season 4 · current', true],

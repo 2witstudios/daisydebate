@@ -7,7 +7,7 @@ import { InertActionButton } from './inert-action';
 setupRitewayBun();
 
 describe('InertActionButton', () => {
-  test('disabled with its reason', () => {
+  test('disabled', () => {
     const html = renderToString(
       h(InertActionButton, {
         action: inertActions.saveSearch,
@@ -16,15 +16,12 @@ describe('InertActionButton', () => {
     );
     assert({
       given: 'the save-search action',
-      should: 'render a disabled button described by its reason',
+      should: 'render a disabled button with its label',
       actual: [
         /<button [^>]*disabled=""/.test(html),
         html.includes('Save this search'),
-        html.includes('Saving a search needs the Prep service'),
-        /aria-describedby="([^"]+)"/.exec(html)?.[1] ===
-          /<span id="([^"]+)"/.exec(html)?.[1],
       ],
-      expected: [true, true, true, true],
+      expected: [true, true],
     });
   });
 });

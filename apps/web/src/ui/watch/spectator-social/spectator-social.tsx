@@ -4,11 +4,10 @@ import type { SpectateQuery } from '../../../features/watch/spectate-query';
 import { spectateHref } from '../../../features/watch/spectate-query';
 import { InertButton } from '../inert-button/inert-button';
 import { cn } from '../../cn';
-import { inertReason } from '../../../features/watch/actions';
 
 /**
  * Spectator reactions and chat. Both are sample, non-mutating UI for now:
- * every control is inert and says why. The realtime chat and reaction
+ * every control is inert. The realtime chat and reaction
  * operations replace this one module.
  */
 
@@ -32,11 +31,9 @@ export function Reactions({ reactions, open }: ReactionsProps) {
           </InertButton>
         ))}
       </div>
-      <p className="text-xs text-ink-faint">
-        {open
-          ? 'Anonymous totals. Debaters and judges see them only after the debate ends.'
-          : 'Reactions are closed.'}
-      </p>
+      {open ? null : (
+        <p className="text-xs text-ink-faint">Reactions are closed.</p>
+      )}
     </section>
   );
 }
@@ -102,7 +99,7 @@ export function Chat({ id, query, social, open, className }: ChatProps) {
       </ul>
       {open ? (
         <div className="flex flex-col gap-2 border-t border-border p-4">
-          <label htmlFor="chat-draft" className="text-sm font-strong text-ink">
+          <label htmlFor="chat-draft" className="sr-only">
             Message the spectators
           </label>
           <div className="flex gap-2">
@@ -111,8 +108,7 @@ export function Chat({ id, query, social, open, className }: ChatProps) {
               type="text"
               disabled
               maxLength={200}
-              placeholder="Be civil. 200 characters."
-              title={inertReason('chat')}
+              placeholder="Message"
               className="h-10 min-w-0 flex-1 rounded-md border border-border bg-surface-raised px-3 text-base text-ink disabled:opacity-60"
             />
             <InertButton action="chat" variant="primary">
@@ -123,7 +119,7 @@ export function Chat({ id, query, social, open, className }: ChatProps) {
         </div>
       ) : (
         <p className="border-t border-border p-4 text-sm text-ink-muted">
-          Chat closed when the debate ended. The replay has no chat.
+          Chat closed
         </p>
       )}
     </aside>

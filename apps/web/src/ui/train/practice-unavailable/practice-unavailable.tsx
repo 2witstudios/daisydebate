@@ -5,7 +5,6 @@ import { Badge } from '../../components/badge/badge';
 import { buttonClass } from '../../components/button/button-class';
 import { cn } from '../../cn';
 import { BackLink } from '../back-link/back-link';
-import { TrainCard } from '../card/train-card';
 import { TurnList } from '../turn-list/turn-list';
 import { TrainColumns, TrainPage } from '../train-page/train-page';
 
@@ -42,7 +41,7 @@ export function PracticeUnavailable({
                 The AI debater did not answer.
               </h1>
               <p className="text-base text-ink-muted">
-                {`It stopped during turn ${view.number}. Your speeches are saved. Your clock is stopped while the opponent is unavailable, which only happens in practice debates.`}
+                {`Stopped during turn ${view.number}. Your speeches are saved and the clock is paused.`}
               </p>
               <div className="flex flex-wrap gap-3">
                 <Link
@@ -65,17 +64,6 @@ export function PracticeUnavailable({
                 </Link>
               </div>
             </section>
-            <TrainCard title="What happens next">
-              <p className="text-base text-ink-muted">
-                Try again asks the opponent for the speech again. Continue solo
-                turns the rest of the debate into speeches with prompts, and
-                nobody answers.
-              </p>
-              <p className="text-base text-ink-muted">
-                No rating is affected either way. No error details are shown
-                here; we log the problem without your speech text.
-              </p>
-            </TrainCard>
           </>
         }
         aside={<TurnList rows={view.rows} />}

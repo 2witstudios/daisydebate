@@ -9,7 +9,6 @@ export function TournamentsPreview() {
     <PreviewPage>
       <PreviewHeader
         title="Tournaments"
-        lede="Organized bracket and round-robin events."
         actions={<Button>Create a tournament</Button>}
       />
       <Panel title="Events">

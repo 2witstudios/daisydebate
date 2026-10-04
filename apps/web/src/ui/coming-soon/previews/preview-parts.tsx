@@ -3,14 +3,14 @@ import type { PreviewRowData } from '../../mock/coming-soon';
 import { Avatar } from '../../components/avatar/avatar';
 import { Badge } from '../../components/badge/badge';
 
-/** The page title and lede at the top of every preview. */
+/** The page title, an optional lede and actions at the top of a preview. */
 export function PreviewHeader({
   title,
   lede,
   actions,
 }: {
   readonly title: string;
-  readonly lede: string;
+  readonly lede?: string;
   readonly actions?: ReactNode;
 }) {
   return (
@@ -19,7 +19,7 @@ export function PreviewHeader({
         <p className="font-display text-2xl font-semibold tracking-tight text-ink">
           {title}
         </p>
-        <p className="text-base text-ink-muted">{lede}</p>
+        {lede ? <p className="text-base text-ink-muted">{lede}</p> : null}
       </div>
       {actions ? (
         <div className="flex items-center gap-2">{actions}</div>

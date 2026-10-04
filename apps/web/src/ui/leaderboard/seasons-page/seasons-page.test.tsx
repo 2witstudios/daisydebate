@@ -28,7 +28,7 @@ describe('SeasonsPage', () => {
         html.includes('Standings now'),
         html.match(/<li class="border-t/g)?.length,
         html.includes('id="how-rating-works"'),
-        html.includes('provisional until they have played 10 ranked debates'),
+        html.includes('Unranked until 10 ranked debates.'),
         html.includes('Current season'),
         html.match(/href="\/leaderboard\?season=4"/g)?.length,
       ],

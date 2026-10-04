@@ -53,10 +53,7 @@ export function scheduleFor(tournament: Tournament): ScheduleItem[] {
         tournament.structure === 'round-robin'
           ? 'Pairings posted'
           : 'Bracket published',
-      note:
-        tournament.structure === 'round-robin'
-          ? 'Every entrant meets every other once'
-          : 'Byes go to the top seeds',
+      note: '',
       at: shiftMinutes(registrationClosesAt, BRACKET_DELAY_MINUTES),
     });
   }
@@ -67,10 +64,7 @@ export function scheduleFor(tournament: Tournament): ScheduleItem[] {
       note:
         index === 0
           ? `Check-in opens ${formatTime(shiftMinutes(at, -CHECK_IN_MINUTES))}`
-          : index === rounds.length - 1 &&
-              tournament.structure === 'single-elimination'
-            ? 'Open to spectators'
-            : '',
+          : '',
       at,
     });
   });

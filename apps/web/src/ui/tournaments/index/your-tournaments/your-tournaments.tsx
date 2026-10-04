@@ -63,19 +63,11 @@ export function YourTournaments({
       <section className={section}>
         <h2 className={heading}>Your tournaments</h2>
         {!signedIn ? (
-          <div className="flex flex-col gap-3 text-base text-ink-muted">
-            <p>
-              Signed out: anyone can browse and follow events. Register,
-              withdraw and volunteer to judge need an account.
-            </p>
-            <LinkButton href={signInHref(tournamentRoutes.index)}>
-              Sign in
-            </LinkButton>
-          </div>
+          <LinkButton href={signInHref(tournamentRoutes.index)}>
+            Sign in
+          </LinkButton>
         ) : yours.length === 0 ? (
-          <p className="text-base text-ink-muted">
-            Tournaments you enter appear here.
-          </p>
+          <p className="text-base text-ink-muted">None yet</p>
         ) : (
           <ul>
             {yours.map((item) => (
@@ -86,22 +78,9 @@ export function YourTournaments({
       </section>
       <section className={section}>
         <h2 className={heading}>Organize</h2>
-        <div className="flex flex-col gap-3 text-base text-ink-muted">
-          <p>
-            Run a tournament on Daisy. Pairings, judges and results are handled
-            for you.
-          </p>
-          <LinkButton href={tournamentRoutes.create}>
-            Create a tournament
-          </LinkButton>
-        </div>
-      </section>
-      <section className={section}>
-        <h2 className={heading}>Judge</h2>
-        <p className="text-base text-ink-muted">
-          Volunteer to judge an event. Daisy assigns your rounds and checks
-          conflicts first. You cannot pick.
-        </p>
+        <LinkButton href={tournamentRoutes.create}>
+          Create a tournament
+        </LinkButton>
       </section>
     </aside>
   );

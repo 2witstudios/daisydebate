@@ -71,14 +71,9 @@ export function ShareDialog({ share }: { readonly share: Share }) {
             <PrepIcon name="x" size={18} />
           </Link>
         </header>
-        <p className="flex items-start gap-2 rounded-md bg-accent-soft p-3 text-sm">
-          <PrepIcon name="lock" size={16} className="mt-1 text-accent" />
-          <span>
-            <strong className="block text-base">
-              Private to you by default
-            </strong>
-            Nothing is visible to anyone until you add them below.
-          </span>
+        <p className="flex items-center gap-2 rounded-md bg-accent-soft p-3 text-sm">
+          <PrepIcon name="lock" size={16} className="text-accent" />
+          Private to you until you add someone
         </p>
         <h3 className="text-sm font-bold text-ink-muted">People with access</h3>
         {share.grants.length === 0 ? (
@@ -148,19 +143,8 @@ export function ShareDialog({ share }: { readonly share: Share }) {
             defaultChecked={share.includeCards}
             className="mt-1 size-5 accent-accent"
           />
-          <span className="flex flex-col">
-            {`Include the ${share.cardCount} attached cards`}
-            <span className="text-sm text-ink-muted">
-              They can read each card and its citation, as view only. Your
-              credibility notes and private notes are never shared.
-            </span>
-          </span>
+          <span>{`Include the ${share.cardCount} attached cards (view only)`}</span>
         </label>
-        <p className="flex items-start gap-2 text-xs text-ink-faint">
-          <PrepIcon name="eyeOff" size={14} className="mt-1" />
-          There are no public links. Opponents, judges and spectators cannot be
-          added to your prep.
-        </p>
         <footer className="flex items-center justify-between gap-3">
           <InertActionButton
             action={inertActions.stopSharing}

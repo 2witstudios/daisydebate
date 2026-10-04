@@ -9,10 +9,7 @@ export type PhaseTimelineProps = {
 export function PhaseTimeline({ timeline }: PhaseTimelineProps) {
   return (
     <section aria-label="Phase timeline" className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-ink-muted">
-        <span>Phase timeline · sample timings</span>
-        <span>{timeline.caption}</span>
-      </div>
+      <p className="text-sm text-ink-muted">{timeline.caption}</p>
       <ol className="flex gap-1">
         {timeline.steps.map((step) => (
           <li

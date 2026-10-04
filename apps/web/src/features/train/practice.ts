@@ -177,24 +177,17 @@ export const setupHref = (config: PracticeConfig, plan: HubQuery): string =>
 const sideLabels: Readonly<Record<SideChoice, string>> = {
   aff: 'Aff (Affirmative)',
   neg: 'Neg (Negative)',
-  random: 'Random, picked at the start',
+  random: 'Random',
 };
 
 const opponentLabels: Readonly<Record<Opponent, string>> = {
-  ai: 'AI debater (sandbox seat)',
-  both: 'You, on both sides (two sandbox seats)',
-  solo: 'Solo, one seat',
-};
-
-const opponentNotes: Readonly<Record<Opponent, string>> = {
-  ai: 'The AI debater takes one sandbox seat. Sandbox seats are practice only.',
-  both: 'Two sandbox seats are made for you. Nobody else can join.',
-  solo: 'Only your seat is used. The debate runs with one participant.',
+  ai: 'AI debater',
+  both: 'You, on both sides',
+  solo: 'Solo',
 };
 
 export type PracticeSummary = {
   readonly rows: readonly (readonly [label: string, value: string])[];
-  readonly note: string;
 };
 
 /** The "Your practice" recap beside the set-up choices. */
@@ -210,6 +203,5 @@ export function practiceSummary(config: PracticeConfig): PracticeSummary {
       ],
       ['Rules', isStandard(config.rules) ? 'Standard rules' : 'Custom rules'],
     ],
-    note: opponentNotes[config.opponent],
   };
 }

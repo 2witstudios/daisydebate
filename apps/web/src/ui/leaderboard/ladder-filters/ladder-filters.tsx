@@ -14,11 +14,7 @@ import {
   seasonLabel,
   type Season,
 } from '../../../features/leaderboard/season';
-import {
-  PROVISIONAL_AFTER,
-  regionLabel,
-  regions,
-} from '../../../features/leaderboard/standing';
+import { regionLabel, regions } from '../../../features/leaderboard/standing';
 import { buttonClass } from '../../components/button/button-class';
 import { Icon } from '../../components/icon/icon';
 import { AutoSubmitForm } from '../../lobby/filter-bar/auto-submit-form';
@@ -181,7 +177,7 @@ export function LadderFilters({
           />
           <Select
             name="region"
-            label="Region, shown only for debaters who chose to show one"
+            label="Region"
             value={query.region}
             options={regionOptions}
           />
@@ -198,9 +194,6 @@ export function LadderFilters({
       <button type="submit" className={buttonClass('secondary')}>
         Apply
       </button>
-      <p className="basis-full text-xs text-ink-faint">
-        {`Hollow marker and a question mark mean provisional: fewer than ${PROVISIONAL_AFTER} ranked debates. Provisional debaters are not ranked.`}
-      </p>
     </AutoSubmitForm>
   );
 }

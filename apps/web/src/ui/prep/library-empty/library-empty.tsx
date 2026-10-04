@@ -20,11 +20,6 @@ export function NoResults({ query }: { readonly query: LibraryQuery }) {
     <section className={box} aria-label="No results">
       <PrepIcon name="search" size={28} className="text-ink-faint" />
       <h2 className="text-lg font-bold">{`No results for “${query.q}”`}</h2>
-      <p className="max-w-prose text-base text-ink-muted">
-        {query.in === 'text'
-          ? 'Nothing in the full text matches either. Check the spelling, or try fewer words.'
-          : 'Check the spelling, or search the full text of your cards instead of titles and tags.'}
-      </p>
       {query.in === 'text' ? null : (
         <Link
           href={libraryHref({ ...query, in: 'text' })}
@@ -50,9 +45,7 @@ export function FiltersHideEverything(props: {
   return (
     <section className={box} aria-label="No items match these filters">
       <h2 className="text-lg font-bold">Nothing matches these filters</h2>
-      <p className="max-w-prose text-base text-ink-muted">
-        {`${what}, but none match your filters.`}
-      </p>
+      <p className="max-w-prose text-base text-ink-muted">{what}</p>
       <ul className="flex flex-wrap justify-center gap-2" aria-label="Filters">
         {filterChips(query).map((chip) => (
           <li

@@ -49,7 +49,6 @@ const render = (
       view,
       query,
       now: NOW,
-      username,
       judging: options.judging ?? false,
       detail: null,
     }),
@@ -62,20 +61,17 @@ describe('Leaderboard', () => {
     assert({
       given: 'a live season for a visitor',
       should:
-        'have one h1, say the season is live, filter, list and invite sign-in',
+        'have one h1, say the season is live, filter, list, and pin no standing bar',
       actual: [
         html.match(/<h1/g)?.length,
-        html.includes(
-          'Season 5 is live. Ratings update after every ranked debate.',
-        ),
+        html.includes('Season 5 is live'),
         html.includes('role="search"'),
         html.includes('aria-label="Top three"'),
         html.includes('aria-label="Ladder"'),
-        html.includes('Sign in'),
-        html.includes('Sample data'),
+        html.includes('aria-label="Your standing"'),
         html.includes('Final'),
       ],
-      expected: [1, true, true, true, true, true, true, false],
+      expected: [1, true, true, true, true, false, false],
     });
   });
 
@@ -86,7 +82,7 @@ describe('Leaderboard', () => {
       should: 'say final standings and show the Final banner',
       actual: [
         html.includes('Season 4 final standings'),
-        html.includes('These standings will not change.'),
+        html.includes('Season 4 is closed'),
         html.includes('is live'),
       ],
       expected: [true, true, false],
@@ -116,8 +112,8 @@ describe('Leaderboard', () => {
     const html = render(field(3));
     assert({
       given: 'three established debaters in a live season',
-      should: 'explain that everyone is showing',
-      actual: html.includes('Showing everyone.'),
+      should: 'count the established and provisional debaters',
+      actual: html.includes('3 established, '),
       expected: true,
     });
   });
@@ -156,7 +152,6 @@ describe('Leaderboard', () => {
         view,
         query,
         now: NOW,
-        username: null,
         judging: false,
         detail,
       }),

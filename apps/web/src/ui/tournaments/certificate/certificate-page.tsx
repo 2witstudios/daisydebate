@@ -15,15 +15,9 @@ export function CertificatePage({
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 py-8 max-compact:px-4">
       <header className="flex flex-wrap items-center justify-between gap-3 print:hidden">
-        <div className="flex flex-col gap-1">
-          <h1 className="font-display text-2xl leading-tight font-bold tracking-tight">
-            {`${tournament.name} certificate`}
-          </h1>
-          <p className="text-base text-ink-muted">
-            Use your browser’s print command to print this page or save it as a
-            PDF.
-          </p>
-        </div>
+        <h1 className="font-display text-2xl leading-tight font-bold tracking-tight">
+          {`${tournament.name} certificate`}
+        </h1>
         <LinkButton href={tournamentRoutes.results(tournament.id)}>
           Back to results
         </LinkButton>

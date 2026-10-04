@@ -38,7 +38,7 @@ describe('BracketPage, single elimination', () => {
         html.includes('Semifinals in progress. Next: Final today'),
         html.includes('aria-label="View"'),
         html.includes('href="/tournaments/harvest-cup/bracket?view=rounds"'),
-        html.includes('The champion blooms here when the final is decided'),
+        html.includes('>TBD<'),
         html.includes('Live, 31 watching'),
         html.includes('border-accent'),
         html.includes('Open my event'),
@@ -80,22 +80,21 @@ describe('BracketPage, single elimination', () => {
 });
 
 describe('BracketPage, round robin', () => {
-  test('standings is the default with the sample tiebreak note', () => {
+  test('standings is the default', () => {
     const html = render('club-championship');
     assert({
       given: 'Club Championship',
-      should: 'show the table with eight rows, the next round and the note',
+      should: 'show the table with eight rows and the next round',
       actual: [
         html.includes('<caption class="sr-only">Standings</caption>'),
         html.match(/<tr class="border-t/g)?.length,
         html.includes('R3 vs @debater-j'),
-        html.includes('the organizer sets the real'),
         html.includes('Round 3 of 7 begins at'),
         html.includes(
           'href="/tournaments/club-championship/bracket?view=grid"',
         ),
       ],
-      expected: [true, 8, true, true, true, true],
+      expected: [true, 8, true, true, true],
     });
   });
 
@@ -111,9 +110,8 @@ describe('BracketPage, round robin', () => {
         grid.includes('>W<'),
         rounds.indexOf('Round 3') < rounds.indexOf('Round 2'),
         rounds.includes('beat @debater-j'),
-        rounds.includes('Rounds 4 to 7 are scheduled'),
       ],
-      expected: [true, true, true, true, true, true],
+      expected: [true, true, true, true, true],
     });
   });
 });

@@ -11,7 +11,7 @@ import type {
   TournamentView,
 } from '../../../features/tournaments/get-tournament';
 import { tournamentRoutes } from '../../../features/tournaments/routes';
-import { isFull, statusOf } from '../../../features/tournaments/tournament';
+import { statusOf } from '../../../features/tournaments/tournament';
 import { Icon } from '../../components/icon/icon';
 import { InertAction } from '../inert-action/inert-action';
 import { LinkButton } from '../link-button/link-button';
@@ -69,9 +69,6 @@ export function Overview({ view }: { readonly view: TournamentView }) {
             </li>
           ))}
         </ul>
-        <p className="text-sm text-ink-faint">
-          Honours are recognition only. They do not change ratings.
-        </p>
       </section>
     </div>
   );
@@ -114,12 +111,7 @@ export function Entrants({
   }`;
   return (
     <section className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-md font-strong text-ink">{title}</h2>
-        <p className="text-sm text-ink-muted">
-          Rating shown. Seeds are set when registration closes.
-        </p>
-      </div>
+      <h2 className="text-md font-strong text-ink">{title}</h2>
       {entrants.length === 0 ? (
         <p className="rounded-lg border border-border bg-surface p-5 text-base text-ink-muted">
           No one has entered yet.
@@ -155,15 +147,13 @@ export function BracketTab({ view }: { readonly view: TournamentView }) {
   return (
     <section className={card}>
       <h2 className="text-md font-strong text-ink">
-        {posted
-          ? 'Follow the bracket'
-          : 'The bracket posts when registration closes'}
+        {posted ? 'Bracket' : 'Bracket not posted yet'}
       </h2>
-      <p className="text-base text-ink-muted">
-        {posted
-          ? 'Seeds, pairings and results, updated as ballots arrive.'
-          : `${post ? `${formatDay(post.at)}, ${formatTime(post.at)} UTC. ` : ''}Seeds follow rating${isFull(tournament) ? '' : ', top seeds get byes'} and you will see your path and your first opponent the moment it is published.`}
-      </p>
+      {!posted && post ? (
+        <p className="text-base text-ink-muted">
+          {`Posts ${formatDay(post.at)}, ${formatTime(post.at)} UTC`}
+        </p>
+      ) : null}
       <div className="flex flex-wrap gap-3">
         {posted ? (
           <LinkButton

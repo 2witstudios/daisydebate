@@ -43,16 +43,12 @@ export function Debrief({ view, config, plan, query }: DebriefProps) {
           <p className="text-base text-ink-muted">{view.intro}</p>
         </div>
         <p className="flex items-center gap-2">
-          <Badge tone="accent">Practice · Unrated</Badge>
-          <Badge>Rating unchanged</Badge>
+          <Badge tone="accent">Practice</Badge>
         </p>
       </header>
       {view.empty ? (
         <TrainCard title="No speeches yet">
-          <p className="text-base text-ink-muted">
-            You ended before your first speech, so there is nothing to review
-            yet. Nothing was saved and your rating did not change.
-          </p>
+          <p className="text-base text-ink-muted">Nothing to review</p>
         </TrainCard>
       ) : (
         <>

@@ -56,7 +56,7 @@ export function BracketTree({ data, viewerHandle }: Props) {
           {winner ? (
             <p className="font-strong text-ink">{`@${winner}`}</p>
           ) : (
-            <p>The champion blooms here when the final is decided</p>
+            <p>TBD</p>
           )}
         </div>
       </section>

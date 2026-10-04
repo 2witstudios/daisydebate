@@ -18,7 +18,7 @@ describe('PrivacyPage', () => {
         html.includes('Never part of a debate'),
         html.includes('<caption'),
         html.includes('What each person sees in a debate'),
-        html.includes('No sign that a panel exists'),
+        html.includes('No prep panel'),
         html.match(/<tr /g)?.length,
         /ADR|Proposed classification|owner decision/i.test(html),
       ],

@@ -15,15 +15,9 @@ export function PrivacyPage() {
       <Breadcrumb
         crumbs={[{ label: 'Prep', href: '/prep' }, { label: 'Privacy' }]}
       />
-      <header className="flex flex-col gap-1">
-        <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
-          What stays private
-        </h1>
-        <p className="text-base text-ink-muted">
-          Prep is your own work. Daisy treats it as user content that belongs to
-          you.
-        </p>
-      </header>
+      <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
+        What stays private
+      </h1>
       <ul className="grid grid-cols-3 gap-4 max-compact:grid-cols-1">
         {privacyPromises.map((promise) => (
           <li

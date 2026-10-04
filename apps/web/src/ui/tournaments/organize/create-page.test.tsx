@@ -37,18 +37,17 @@ describe('CreatePage', () => {
     });
   });
 
-  test('the sample draft is read-only and says so', () => {
+  test('the sample draft is read-only', () => {
     const html = render();
     assert({
       given: 'the basics step',
-      should: 'explain the read-only draft and disable every field',
+      should: 'disable every field',
       actual: [
-        html.includes('read-only'),
         /<input id="t-name"[^>]*disabled=""/.test(html),
         html.includes('Winter Open'),
-        html.includes('Listed on Tournaments'),
+        html.includes('>Public<'),
       ],
-      expected: [true, true, true, true],
+      expected: [true, true, true],
     });
   });
 
@@ -66,9 +65,7 @@ describe('CreatePage', () => {
           html,
         ),
         (html.match(/aria-current="true"/g) ?? []).length,
-        html.includes(
-          '32 places: 5 rounds. If fewer enter, the top seeds get byes.',
-        ),
+        html.includes('5 rounds'),
       ],
       expected: [true, true, 2, true],
     });
@@ -78,11 +75,11 @@ describe('CreatePage', () => {
     const html = render({ step: 'size', structure: 'round-robin', places: 6 });
     assert({
       given: 'a round robin of 6',
-      should: 'offer 4 to 12 and explain five rounds',
+      should: 'offer 4 to 12 and show five rounds',
       actual: [
         html.includes('>12<'),
         html.includes('>64<'),
-        html.includes('6 entrants: each meets every other once, 5 rounds.'),
+        html.includes('5 rounds, everyone meets once'),
       ],
       expected: [true, false, true],
     });
@@ -103,19 +100,16 @@ describe('CreatePage', () => {
     });
   });
 
-  test('rules and judging: unrated, assigned by Daisy, never picked', () => {
+  test('rules and judging: judges needed, invite disabled', () => {
     const html = render({ step: 'rules' });
     assert({
       given: 'the rules step',
-      should:
-        'say unrated and judges assigned by Daisy, with the judges needed',
+      should: 'show the judges needed and a disabled invite',
       actual: [
-        html.includes('Unrated'),
-        html.includes('You cannot choose judges or rounds.'),
         html.includes('up to 8 judges'),
         /<button type="button" disabled=""[^>]*>Invite</.test(html),
       ],
-      expected: [true, true, true, true],
+      expected: [true, true],
     });
   });
 

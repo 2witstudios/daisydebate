@@ -104,13 +104,7 @@ export function CaseExport({ view }: { readonly view: CaseView }) {
         className="flex items-start gap-3 rounded-md bg-accent-soft p-4 text-sm"
       >
         <PrepIcon name="info" size={18} className="mt-1 text-accent" />
-        <span>
-          <strong className="block text-base">
-            An export is a file you hold
-          </strong>
-          Anyone you give it to can read it, and Daisy cannot take it back.
-          Share inside Daisy when you want to control who sees it.
-        </span>
+        <span>Exports cannot be taken back once shared.</span>
       </p>
     </div>
   );

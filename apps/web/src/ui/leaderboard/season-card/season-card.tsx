@@ -6,7 +6,6 @@ import {
   seasonProgress,
   type Season,
 } from '../../../features/leaderboard/season';
-import { PROVISIONAL_AFTER } from '../../../features/leaderboard/standing';
 import { seasonEnds } from '../ladder-states/ladder-states';
 
 export type SeasonCardProps = {
@@ -34,7 +33,7 @@ export function SeasonCard({ season, now }: SeasonCardProps) {
           {seasonLabel(season)}
         </span>
         <span className="text-sm text-ink-muted">
-          {closed ? 'Final standings are frozen.' : seasonEnds(season, now)}
+          {closed ? 'Final standings' : seasonEnds(season, now)}
         </span>
         <progress
           value={closed ? length : day}
@@ -50,16 +49,11 @@ export function SeasonCard({ season, now }: SeasonCardProps) {
         </Link>
       </section>
       <section className={card}>
-        <span className={eyebrow}>How ratings work</span>
-        <p className="text-sm text-ink-muted">
-          Every ranked debate moves your rating. New debaters are provisional
-          until they have played {PROVISIONAL_AFTER} ranked debates.
-        </p>
         <Link
           href={leaderboardDestinations.howRatingWorks}
           className="text-sm font-strong"
         >
-          Read the explainer
+          How ratings work
         </Link>
       </section>
     </aside>

@@ -49,10 +49,6 @@ export function RulesCards({ view, query }: Props) {
   return (
     <>
       <TrainCard title="Rules">
-        <p className="text-sm text-ink-muted">
-          Same debate and same sides. Sample standard values: speech 5 min, prep
-          4 min.
-        </p>
         {view.steppers.map((stepper) => (
           <div
             key={stepper.label}

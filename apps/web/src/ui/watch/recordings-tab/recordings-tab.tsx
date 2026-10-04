@@ -5,7 +5,6 @@ import {
   type RecordingsQuery,
 } from '../../../features/watch/recordings-query';
 import { watchRoutes } from '../../../features/watch/routes';
-import { Icon } from '../../components/icon/icon';
 import { cn } from '../../cn';
 import { FilterForm } from '../filter-form/filter-form';
 import { ActionLink } from '../action-link/action-link';
@@ -62,18 +61,13 @@ function Empty({ query, listing }: RecordingsTabProps) {
             Clear filters
           </ActionLink>
         }
-      >
-        <p>
-          Try another search, or clear the filters to see every recording in
-          this list.
-        </p>
-      </StateCard>
+      />
     );
   if (query.scope === 'mine')
     return (
       <StateCard
         icon="play"
-        title="You have no recorded debates yet"
+        title="No recorded debates yet"
         actions={
           <>
             <ActionLink href={watchRoutes.findMatch} variant="primary">
@@ -82,24 +76,14 @@ function Empty({ query, listing }: RecordingsTabProps) {
             <ActionLink href={watchRoutes.lobby}>Open the lobby</ActionLink>
           </>
         }
-      >
-        <p>
-          Every debate you play is recorded when it ends. It starts with the
-          visibility you chose for the room, and you can change it later.
-        </p>
-      </StateCard>
+      />
     );
   return (
     <StateCard
       icon="play"
       title="No recordings yet"
       actions={<ActionLink href={watchRoutes.hub}>See what is live</ActionLink>}
-    >
-      <p>
-        Public debates are added to the archive when they end. The first ones
-        will show up here with their timeline and ballot.
-      </p>
-    </StateCard>
+    />
   );
 }
 
@@ -108,12 +92,6 @@ export function RecordingsTab({ query, listing }: RecordingsTabProps) {
   return (
     <div className="flex flex-col gap-4">
       <Filters query={query} />
-      <p className="flex items-center gap-2 text-sm text-ink-muted">
-        <Icon name="globe" size={16} />
-        The public archive lists public debates only. My debates also shows your
-        unlisted and private ones, which only you and the people seated can
-        open.
-      </p>
       {listing.rows.length === 0 ? (
         <Empty query={query} listing={listing} />
       ) : (

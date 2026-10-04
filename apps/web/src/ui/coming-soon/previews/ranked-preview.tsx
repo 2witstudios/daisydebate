@@ -9,7 +9,7 @@ import { PreviewHeader, PreviewPage, PreviewRows } from './preview-parts';
 export function RankedPreview() {
   return (
     <PreviewPage>
-      <PreviewHeader title="Ranked" lede="Season [N] · [N] days left" />
+      <PreviewHeader title="Ranked" lede="Season 3 · 12 days left" />
       <Panel title="Your rating">
         <div className="mb-2 flex items-center gap-3">
           <span className="font-display text-3xl font-semibold text-ink">

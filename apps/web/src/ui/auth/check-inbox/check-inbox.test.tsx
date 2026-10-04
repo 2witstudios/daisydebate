@@ -25,15 +25,14 @@ describe('CheckInbox', () => {
     const page = html();
     assert({
       given: 'a sent link',
-      should: 'hedge on delivery, name the limits, and show the next steps',
+      should: 'hedge on delivery and name the limits',
       actual: [
         page.includes('If <strong'),
         page.includes('can<!-- --> receive email') ||
           page.includes('can receive email'),
         page.includes('expires') && page.includes('5 minutes'),
-        page.includes('<ol'),
       ],
-      expected: [true, true, true, true],
+      expected: [true, true, true],
     });
   });
 

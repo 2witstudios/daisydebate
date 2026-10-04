@@ -41,10 +41,9 @@ describe('CardDetail', () => {
         html.includes('Where it has been used'),
         html.includes('href="/prep/cases/aff-rights"'),
         html.includes('Highlight changed'),
-        html.includes('Changing this card updates all 3.'),
         /aria-current="page"[^>]*>Read view/.test(html),
       ],
-      expected: [1, true, true, true, true, true, true, true],
+      expected: [1, true, true, true, true, true, true],
     });
   });
 
@@ -86,7 +85,7 @@ describe('CardDetail', () => {
       given: 'version 2',
       should: 'warn it is not current and link back',
       actual: [
-        html.includes('You are looking at version 2'),
+        html.includes('Version 2</p>') || html.includes('Version 2<'),
         html.includes('Back to the current version'),
       ],
       expected: [true, true],
@@ -122,7 +121,7 @@ describe('CardDelete', () => {
       actual: [
         used.includes('This card is used in 3 places'),
         used.includes('role="alert"'),
-        free.includes('Nothing uses this card.'),
+        free.includes('This cannot be undone.'),
         free.includes('role="alert"'),
       ],
       expected: [true, true, true, false],

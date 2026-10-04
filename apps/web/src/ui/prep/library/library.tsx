@@ -65,14 +65,9 @@ export function Library({ listing, query }: LibraryProps) {
     <div className="mx-auto flex w-full max-w-dash-column gap-8 px-6 pt-5 pb-8 max-rail:flex-col max-compact:gap-4 max-compact:px-4">
       <div className="flex min-w-0 flex-1 flex-col gap-5">
         <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
-          <div className="flex min-w-0 flex-col gap-1">
-            <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
-              Prep
-            </h1>
-            <p className="text-base text-ink-muted max-compact:hidden">
-              Your debate library: briefs, evidence cards and cases.
-            </p>
-          </div>
+          <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
+            Prep
+          </h1>
           <div className="flex flex-wrap gap-3 max-compact:w-full">
             <Link
               href={prepDestinations.importSource}

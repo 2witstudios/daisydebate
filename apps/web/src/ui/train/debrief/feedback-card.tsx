@@ -17,7 +17,7 @@ export function FeedbackCard({ config, plan, query }: Props) {
           className="flex items-center gap-2 rounded-md bg-accent-soft p-3 text-base text-accent"
         >
           <Icon name="check" size={16} />
-          Thanks. Your feedback was sent without your speech text.
+          Thanks for the feedback
         </p>
       ) : (
         <DebriefForm

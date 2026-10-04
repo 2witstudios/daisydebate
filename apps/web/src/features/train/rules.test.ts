@@ -30,9 +30,9 @@ describe('rules', () => {
         seats: 'solo',
       }),
       expected: [
-        'Speech length is 7 min. The standard rules use 5.',
-        'Prep time is 6 min. The standard rules use 4.',
-        'Only one seat is filled, so nobody answers.',
+        'Speech 7 min (standard 5)',
+        'Prep 6 min (standard 4)',
+        'Solo: nobody answers',
       ],
     });
   });
@@ -47,10 +47,8 @@ describe('rules', () => {
         rankedRefusal(standardRules).length,
       ],
       expected: [
-        ['Ranked runs only the standard rules. These rules are custom.'],
-        [
-          'Ranked needs a person in every seat. A solo or sandbox seat is for practice only.',
-        ],
+        ['Ranked uses the standard rules only.'],
+        ['Ranked needs a person in every seat.'],
         1,
       ],
     });

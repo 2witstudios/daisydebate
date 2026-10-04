@@ -18,16 +18,15 @@ describe('LiveTab', () => {
     const html = render();
     assert({
       given: 'the sample live debates',
-      should: 'show the filters, the delay notice, the feature and 7 cards',
+      should: 'show the filters, the feature and 7 cards',
       actual: [
         html.includes('role="search"'),
         html.includes('method="get"'),
-        html.includes('about 30 seconds behind'),
         html.includes('Featured live debate'),
         html.split('<article').length - 1,
         html.includes('No live debates match'),
       ],
-      expected: [true, true, true, true, 7, false],
+      expected: [true, true, true, 7, false],
     });
   });
 
@@ -69,9 +68,9 @@ describe('LiveTab', () => {
     const html = render(defaultLiveQuery, empty);
     assert({
       given: 'no live debates at all',
-      should: 'explain, offer an inert notify, the archive and the lobby',
+      should: 'offer an inert notify, the archive and the lobby',
       actual: [
-        html.includes('No debates are live right now'),
+        html.includes('Nothing live right now'),
         /<button [^>]*disabled=""[^>]*>Tell me when ranked debates start/.test(
           html,
         ),

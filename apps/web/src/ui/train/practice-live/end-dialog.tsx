@@ -28,9 +28,6 @@ export function EndDialog({ links }: { readonly links: LiveLinks }) {
           </Link>
         </>
       }
-    >
-      You get a debrief for the speeches you have given so far. The debate is
-      saved as practice and does not change your rating.
-    </Modal>
+    />
   );
 }

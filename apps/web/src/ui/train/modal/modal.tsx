@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 export type ModalProps = {
   readonly label: string;
   readonly title: string;
-  readonly children: ReactNode;
+  readonly children?: ReactNode;
   readonly actions: ReactNode;
 };
 
@@ -21,7 +21,9 @@ export function Modal({ label, title, children, actions }: ModalProps) {
         className="flex w-full max-w-search flex-col gap-4 rounded-lg border border-border bg-surface-raised p-6 shadow-3"
       >
         <h2 className="font-display text-xl font-bold text-ink">{title}</h2>
-        <p className="text-base text-ink-muted">{children}</p>
+        {children ? (
+          <p className="text-base text-ink-muted">{children}</p>
+        ) : null}
         <div className="flex flex-wrap gap-3">{actions}</div>
       </div>
     </div>

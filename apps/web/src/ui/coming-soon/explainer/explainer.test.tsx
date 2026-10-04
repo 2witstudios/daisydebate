@@ -24,23 +24,16 @@ describe('Explainer', () => {
   test('shows the whole explainer for every destination', () => {
     assert({
       given: 'each destination',
-      should:
-        'render the badge, what it is, four numbered steps, abilities, preview and both exits',
+      should: 'render the badge, the tagline, the preview and both exits',
       actual: destinationSlugs.filter((slug) => {
         const html = render(slug);
         const copy = destinations[slug];
         return !(
           html.includes('Coming soon') &&
-          html.includes(copy.what) &&
-          copy.steps.every((step) => html.includes(step.title)) &&
-          copy.abilities.every((ability) => html.includes(ability)) &&
-          html.includes(
-            'Sample data. The finished page will look like this.',
-          ) &&
+          html.includes(copy.tagline) &&
+          html.includes('<figure') &&
           html.includes('Get notified') &&
-          html.includes('Back to home') &&
-          html.includes('How it will work') &&
-          html.includes('What you will be able to do')
+          html.includes('Back to home')
         );
       }),
       expected: [],
@@ -91,18 +84,13 @@ describe('Explainer', () => {
     });
   });
 
-  test('gives a signed-in member an inert control with its reason', () => {
+  test('gives a signed-in member an inert control', () => {
     const html = render('ranked', true);
     assert({
       given: 'a signed-in member',
-      should: 'disable Get notified and explain why, without a sign-in link',
-      actual: [
-        html.includes('disabled=""'),
-        html.includes('Notifications are not built yet'),
-        html.includes('aria-describedby="notify-ranked"'),
-        html.includes('/sign-in'),
-      ],
-      expected: [true, true, true, false],
+      should: 'disable Get notified, without a sign-in link',
+      actual: [html.includes('disabled=""'), html.includes('/sign-in')],
+      expected: [true, false],
     });
   });
 });

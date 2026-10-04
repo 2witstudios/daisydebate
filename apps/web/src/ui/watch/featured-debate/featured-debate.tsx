@@ -48,9 +48,7 @@ export function FeaturedDebate({ card, delaySeconds }: FeaturedDebateProps) {
         </span>
       </div>
       <div className="flex flex-col gap-1">
-        <span className="text-xs text-stage-ink-muted">
-          Featured. Highest-rated ranked debate live now, picked by rating only.
-        </span>
+        <span className="text-xs text-stage-ink-muted">Featured</span>
         <h2 className="font-display text-2xl font-bold tracking-tight">
           {card.title}
         </h2>

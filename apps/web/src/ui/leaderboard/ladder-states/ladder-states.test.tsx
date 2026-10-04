@@ -72,9 +72,9 @@ describe('notices', () => {
   test('judge', () => {
     assert({
       given: 'a judge',
-      should: 'explain that the assigned debaters are hidden until the ballot',
+      should: 'say ratings are hidden while judging',
       actual: renderToString(h(JudgeNotice)).includes(
-        'until you submit your ballot',
+        'Ratings are hidden while you judge.',
       ),
       expected: true,
     });
@@ -116,10 +116,7 @@ describe('notices', () => {
           }),
         ).replace(/<!-- -->/g, ''),
       ].map((x) => (typeof x === 'string' ? x.replace(/<[^>]+>/g, '') : x)),
-      expected: [
-        true,
-        'Day 3 of Season 5. 6 debaters are established and 41 are provisional. Showing everyone.',
-      ],
+      expected: [true, 'Day 3 of Season 5 · 6 established, 41 provisional'],
     });
   });
 
@@ -139,10 +136,7 @@ describe('empty ladder', () => {
     assert({
       given: 'filters that match nothing',
       should: 'offer Clear filters',
-      actual: [
-        html.includes('No debaters match these filters.'),
-        html.includes('Clear filters'),
-      ],
+      actual: [html.includes('No matches'), html.includes('Clear filters')],
       expected: [true, true],
     });
   });
@@ -154,11 +148,7 @@ describe('empty ladder', () => {
       actual: [1, 2].map((n) =>
         empty({ kind: 'provisional-hits', provisionalHits: n })
           .replace(/<!-- -->/g, '')
-          .includes(
-            n === 1
-              ? '1 provisional debater matches.'
-              : '2 provisional debaters match.',
-          ),
+          .includes(n === 1 ? '1 provisional match' : '2 provisional matches'),
       ),
       expected: [true, true],
     });
@@ -172,7 +162,7 @@ describe('empty ladder', () => {
     }).replace(/<!-- -->/g, '');
     assert({
       given: 'a season nobody is ranked in',
-      should: 'explain and link to Everyone and the last final standings',
+      should: 'link to Everyone and the last final standings',
       actual: [
         html.includes('No one is ranked yet'),
         html.includes('href="/leaderboard?status=everyone"'),

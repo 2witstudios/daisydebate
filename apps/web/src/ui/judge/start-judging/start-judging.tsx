@@ -14,10 +14,6 @@ export function StartJudging() {
       <h2 className="font-display text-3xl leading-tight font-bold text-stage-ink max-compact:text-2xl">
         Ready to judge?
       </h2>
-      <p className="max-w-1/2 text-md leading-normal text-stage-ink-muted max-compact:max-w-full">
-        Press one button. Daisy assigns you the next Ranked debate that needs a
-        judge. You never choose the debate, the debaters or the sides.
-      </p>
       <div className="flex flex-col items-start gap-2 max-compact:items-stretch">
         <Link
           href={judgeRoutes.waiting}
@@ -25,9 +21,6 @@ export function StartJudging() {
         >
           Start judging
         </Link>
-        <span className="text-sm text-stage-ink-muted">
-          You are qualified to judge Ranked debates.
-        </span>
       </div>
     </section>
   );

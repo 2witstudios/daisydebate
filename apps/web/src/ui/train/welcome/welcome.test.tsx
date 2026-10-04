@@ -10,18 +10,17 @@ describe('TrainWelcome', () => {
     const html = renderToString(h(TrainWelcome, { goal: 0 }));
     assert({
       given: 'an account that has never trained',
-      should: 'lead with the first drill and explain the empty progress',
+      should: 'lead with the first drill',
       actual: [
         html.match(/<h1/g)?.length,
         html.includes('Start with one argument.'),
         html.includes('href="/train/drill?kind=impact"'),
-        html.includes('After your first drill, your progress shows here.'),
-        html.includes('None yet.'),
+        html.includes('None yet'),
         html.includes('Nothing saved yet'),
         html.includes('Start here'),
         html.includes('href="/train/review"'),
       ],
-      expected: [1, true, true, true, true, true, true, false],
+      expected: [1, true, true, true, true, true, false],
     });
   });
 

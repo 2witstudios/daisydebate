@@ -26,9 +26,7 @@ export function CardDelete({ card }: { readonly card: Card }) {
         <StateAlert notice={deleteInUse(card.uses.length, back)} />
       ) : (
         <div className="flex flex-col gap-3">
-          <p className="text-base text-ink-muted">
-            Nothing uses this card. Deleting it cannot be undone.
-          </p>
+          <p className="text-base text-ink-muted">This cannot be undone.</p>
           <div className="flex gap-3">
             <InertActionButton action={inertActions.deleteCard} />
             <Link href={back} className="self-center">

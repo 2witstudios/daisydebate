@@ -18,18 +18,15 @@ describe('TeamPage', () => {
     const html = render('items');
     assert({
       given: 'the items tab',
-      should:
-        'list the items as links with permissions, and the privacy and leave cards',
+      should: 'list the items as links with permissions, and the leave card',
       actual: [
         html.match(/<h1 /g)?.length,
         html.includes('href="/prep/cases/aff-rights"'),
         html.includes('Shared by @debater-b · Last week'),
         html.includes('Permission for Sources on enforcement'),
-        html.includes('What this team can see'),
         html.includes('Leave this team'),
-        html.includes('Cannot see: '),
       ],
-      expected: [1, true, true, true, true, true, true],
+      expected: [1, true, true, true, true],
     });
   });
 
@@ -38,12 +35,12 @@ describe('TeamPage', () => {
     assert({
       given: 'the members tab as the admin',
       should:
-        'mark the viewer, offer Manage only for others, and the invite field and the expiry placeholder',
+        'mark the viewer, offer Manage only for others, the invite field and the pending count',
       actual: [
         html.includes('@debater-a (you)'),
         html.match(/>Manage</g)?.length,
         html.includes('Invite by @handle'),
-        html.includes('expire after [7] days'),
+        html.includes('invitations pending'),
       ],
       expected: [true, 3, true, true],
     });

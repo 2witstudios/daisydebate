@@ -154,20 +154,8 @@ export function customRulesView(query: CustomRulesQuery): CustomRulesView {
     custom: !isStandard(rules),
     differences: describeDifferences(rules),
     steppers: [
-      step(
-        query,
-        'speechMinutes',
-        speechRange,
-        'Speech length',
-        'Every speech uses this length.',
-      ),
-      step(
-        query,
-        'prepMinutes',
-        prepRange,
-        'Prep time',
-        'Total for each side.',
-      ),
+      step(query, 'speechMinutes', speechRange, 'Speech length', 'Per speech'),
+      step(query, 'prepMinutes', prepRange, 'Prep time', 'Per side'),
     ],
     seats: [
       {

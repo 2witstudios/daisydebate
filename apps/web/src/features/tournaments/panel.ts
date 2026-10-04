@@ -80,7 +80,6 @@ const builders: Readonly<Record<RegistrationState, Build>> = {
     headline: 'Registration open',
     places: true,
     body: closes(view),
-    callout: 'You can browse the entrants and rules without an account.',
     ctas: [
       link(
         'Sign in to register',
@@ -94,7 +93,7 @@ const builders: Readonly<Record<RegistrationState, Build>> = {
       ...empty,
       headline: 'You are registered',
       places: true,
-      callout: `Seeds are set when registration closes. You will see your bracket on ${post ? formatWhen(post.at) : 'the day it posts'}.`,
+      callout: post ? `Bracket posts ${formatWhen(post.at)}` : null,
       firstRound: `${formatWhen(tournament.startsAt)} (check-in ${formatTime(shiftMinutes(tournament.startsAt, -CHECK_IN_MINUTES))})`,
       ctas: [
         { kind: 'inert', id: 'calendar' },
@@ -106,15 +105,13 @@ const builders: Readonly<Record<RegistrationState, Build>> = {
     ...empty,
     headline: 'Full, waitlist open',
     places: true,
-    body: `All ${tournament.places} places are taken and ${tournament.waitlisted} people are waiting. If someone withdraws, the first person on the waitlist is entered and told straight away.`,
+    body: `${tournament.waitlisted} on the waitlist`,
     ctas: [link('Join the waitlist', tournamentRoutes.enter(tournament.id))],
   }),
   waitlisted: ({ tournament, entry }) => ({
     ...empty,
     headline: `Waitlisted, position ${entry?.kind === 'waitlisted' ? entry.position : tournament.waitlisted}`,
     places: true,
-    callout:
-      'If one place opens you are entered automatically and we tell you. You can leave the waitlist any time.',
     ctas: [
       link(
         'Leave the waitlist',
@@ -127,7 +124,7 @@ const builders: Readonly<Record<RegistrationState, Build>> = {
     ...empty,
     headline: 'Registration closed',
     places: true,
-    body: `Registration closed ${when(tournament.registrationClosesAt, 'already')}. Round 1 starts ${formatWhen(tournament.startsAt)}. You can follow along and watch.`,
+    body: `Round 1 starts ${formatWhen(tournament.startsAt)}`,
     ctas: [
       link('Follow this tournament', tournamentRoutes.bracket(tournament.id)),
     ],
@@ -141,7 +138,7 @@ const builders: Readonly<Record<RegistrationState, Build>> = {
   'in-progress': ({ tournament }) => ({
     ...empty,
     headline: 'In progress',
-    body: `Registration is closed. ${slotsLabel(tournament)} debaters are competing. You can follow along and watch.`,
+    body: `${slotsLabel(tournament)} debaters competing`,
     ctas: [
       link('Follow this tournament', tournamentRoutes.bracket(tournament.id)),
     ],
@@ -149,7 +146,6 @@ const builders: Readonly<Record<RegistrationState, Build>> = {
   competing: ({ tournament }) => ({
     ...empty,
     headline: 'You are competing',
-    body: 'Your pairing, room and judge are in your event.',
     ctas: [
       link('Open my event', tournamentRoutes.myEvent(tournament.id)),
       link(

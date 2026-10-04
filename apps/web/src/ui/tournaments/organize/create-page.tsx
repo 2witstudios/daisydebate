@@ -5,11 +5,8 @@ import {
   type WizardQuery,
 } from '../../../features/tournaments/create-wizard';
 import { tournamentRoutes } from '../../../features/tournaments/routes';
-import { Icon } from '../../components/icon/icon';
 import { Breadcrumb } from '../breadcrumb/breadcrumb';
 import { LinkButton } from '../link-button/link-button';
-import { Notice } from '../notice/notice';
-import { hint } from './create-fields';
 import { StepBody } from './create-steps-rules';
 import { PageHeader } from '../../components/page-header/page-header';
 import { PageFrame } from '../page-frame/page-frame';
@@ -39,10 +36,6 @@ export function CreatePage({
         ]}
       />
       <PageHeader title="Create a tournament" />
-      <Notice icon="alert">
-        This is the sample draft “{draft.name}”. Its fields are read-only until
-        drafts can be saved. Structure and size work and stay in the address.
-      </Notice>
       <div className="flex items-start gap-6 max-rail:flex-col">
         <nav
           aria-label="Steps"
@@ -79,11 +72,6 @@ export function CreatePage({
               </li>
             ))}
           </ol>
-          <p className={cn(hint, 'flex items-start gap-2 pt-2')}>
-            <Icon name="clock" size={16} />
-            Each step will save when you continue. Nothing is public until you
-            publish.
-          </p>
         </nav>
         <div className="flex min-w-0 flex-1 flex-col gap-4 max-rail:w-full">
           <StepBody query={query} draft={draft} />

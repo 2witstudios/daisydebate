@@ -19,15 +19,12 @@ export function StructureTrend({ trend }: StructureTrendProps) {
   const from = trend[0];
   const to = trend[trend.length - 1];
   return (
-    <TrainCard title="Structure on the first check" level={3} sample>
-      <p className="text-sm text-ink-muted">
-        Arguments with a claim, warrant and impact the first time you checked,
-        by week.
-      </p>
+    <TrainCard title="Structure on the first check" level={3}>
+      <p className="text-sm text-ink-muted">Complete arguments, by week</p>
       <svg
         viewBox="0 0 440 190"
         role="img"
-        aria-label={`Sample chart: arguments with claim, warrant and impact on the first check, from ${from} to ${to} percent over ${trend.length} weeks`}
+        aria-label={`Complete arguments on the first check, from ${from} to ${to} percent over ${trend.length} weeks`}
         className="block w-full max-w-search"
       >
         {gridlines.map((line) => (

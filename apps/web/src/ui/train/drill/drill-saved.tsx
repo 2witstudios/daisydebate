@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { drillParts, type DrillState } from '../../../features/train/drill';
 import type { DrillScreen } from '../../../features/train/drill-view';
-import { previewSaveNote } from '../../../features/train/actions';
 import { buttonClass } from '../../components/button/button-class';
 import { Icon } from '../../components/icon/icon';
 import { cn } from '../../cn';
@@ -25,10 +24,7 @@ export function Saved({
           <h2 className="font-display text-xl font-bold text-ink">
             Saved to review
           </h2>
-          <p className="text-base text-ink-muted">
-            First review: tomorrow. After that, the gaps grow as you recall it.
-          </p>
-          <p className="text-sm text-ink-faint">{previewSaveNote}</p>
+          <p className="text-base text-ink-muted">First review: tomorrow</p>
         </div>
       </div>
       <p className="flex flex-col gap-2 rounded-md bg-surface-sunken p-4 text-base text-ink">

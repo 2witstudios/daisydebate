@@ -185,7 +185,7 @@ export function briefEditorView(
     outline,
     section,
     time,
-    paceLabel: `[${pace}]`,
+    paceLabel: String(pace),
     reviewHref: `/prep/briefs/${brief.id}/review`,
     shareHref: `/prep/briefs/${brief.id}/review?share=open`,
   };

@@ -43,20 +43,18 @@ export function PracticeLive({ view, links, query }: PracticeLiveProps) {
             <CoachCard view={view} hintOpen={query.hint} />
             <TurnList
               rows={view.rows}
-              note="The number of turns and speech length come from the rules."
               footer={{ label: 'Prep time left', value: view.prepLabel }}
             />
-            <TrainCard title="AI debater" level={3}>
-              <p className="text-sm text-ink-muted">{view.opponentNote}</p>
-              {links.reportProblem !== null ? (
+            {links.reportProblem !== null ? (
+              <TrainCard title="AI debater" level={3}>
                 <Link
                   href={links.reportProblem}
                   className="text-sm font-strong text-ink-muted"
                 >
                   Report a problem with the opponent
                 </Link>
-              ) : null}
-            </TrainCard>
+              </TrainCard>
+            ) : null}
           </>
         }
       />

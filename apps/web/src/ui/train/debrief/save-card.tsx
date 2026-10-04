@@ -12,17 +12,14 @@ type Props = DebriefContext & {
 /** Choose arguments to keep; saving is the next step of the mock flow. */
 export function SaveCard({ view, config, plan, query }: Props) {
   return (
-    <TrainCard title="Save arguments to review" sample>
-      <p className="text-sm text-ink-muted">
-        Arguments from your speeches. Saved ones come back on a spaced schedule.
-      </p>
+    <TrainCard title="Save arguments to review">
       {view.savedCount > 0 ? (
         <p
           role="status"
           className="flex items-center gap-2 rounded-md bg-accent-soft p-3 text-base text-accent"
         >
           <Icon name="check" size={16} />
-          {`Saved ${view.savedCount}. The first review is tomorrow.`}
+          {`Saved ${view.savedCount}. First review tomorrow.`}
         </p>
       ) : (
         <DebriefForm

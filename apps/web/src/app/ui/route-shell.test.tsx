@@ -10,33 +10,14 @@ const textsOf = (html: string, tag: string): readonly string[] =>
     (match) => match[1] ?? '',
   );
 
-const html = renderToString(
-  h(RouteShell, {
-    title: 'Ranked',
-    lede: 'Rated competitive debates.',
-    planned: ['Matchmaking', 'Season ladders', 'Conduct rules'],
-  }),
-);
-
 describe('RouteShell', () => {
-  test('titles the page with a single h1 and shows the lede', () => {
+  test('titles the page with a single h1 and says it is coming', () => {
+    const html = renderToString(h(RouteShell, { title: 'Ranked' }));
     assert({
-      given: 'a title and a lede',
-      should: 'render the title as the only h1 and the lede as text',
-      actual: [
-        textsOf(html, 'h1'),
-        html.includes('Rated competitive debates.'),
-      ],
+      given: 'a title',
+      should: 'render the title as the only h1 and say coming soon',
+      actual: [textsOf(html, 'h1'), html.includes('Coming soon.')],
       expected: [['Ranked'], true],
-    });
-  });
-
-  test('lists the planned capabilities in order', () => {
-    assert({
-      given: 'three planned capabilities',
-      should: 'render each as a list item, in the order given',
-      actual: textsOf(html, 'li'),
-      expected: ['Matchmaking', 'Season ladders', 'Conduct rules'],
     });
   });
 });

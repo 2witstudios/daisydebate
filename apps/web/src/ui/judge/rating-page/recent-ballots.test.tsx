@@ -57,13 +57,4 @@ describe('RecentBallots', () => {
       expected: [true, false, true, true],
     });
   });
-
-  test('the privacy note', () => {
-    assert({
-      given: 'any list',
-      should: 'say comments never show who wrote them',
-      actual: render([]).includes('Comments never show who wrote them.'),
-      expected: true,
-    });
-  });
 });

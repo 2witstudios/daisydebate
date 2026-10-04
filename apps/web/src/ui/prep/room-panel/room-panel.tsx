@@ -46,11 +46,6 @@ export function RoomPanel({ view, loadedAt }: RoomPanelProps) {
           <PrepIcon name="x" size={18} />
         </Link>
       </header>
-      <p className="flex items-start gap-2 rounded-md bg-accent-soft p-3 text-sm">
-        <PrepIcon name="eyeOff" size={16} className="mt-1 text-accent" />
-        Your opponent, the judge and spectators cannot see this panel or what
-        you open in it. It is not in the recording.
-      </p>
       <PanelOffline
         since={loadedAt}
         retry={
@@ -70,10 +65,6 @@ export function RoomPanel({ view, loadedAt }: RoomPanelProps) {
           className="flex flex-col gap-3"
         >
           <h3 className="text-base font-bold">No case attached</h3>
-          <p className="text-sm text-ink-muted">
-            Choose a case to bring into this debate. It is pinned now, so edits
-            you make later do not change it mid-round.
-          </p>
           <label className="flex flex-col gap-1 text-xs font-strong text-ink-muted">
             Bring a case
             <select
@@ -138,7 +129,6 @@ export function RoomPanel({ view, loadedAt }: RoomPanelProps) {
           Open Prep in a new tab
           <PrepIcon name="external" size={14} />
         </Link>
-        Read only here. Edit your prep after the debate.
       </footer>
     </aside>
   );

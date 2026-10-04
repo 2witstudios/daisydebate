@@ -11,15 +11,5 @@ export default async function PlayPage({
   searchParams: Promise<SearchParams>;
 }) {
   await requireAccess('/play', searchParams);
-  return (
-    <RouteShell
-      title="Play"
-      lede="Start a debate or join an open table."
-      planned={[
-        'Casual and ranked debate creation',
-        'Format and resolution selection',
-        'Readiness and clock configuration',
-      ]}
-    />
-  );
+  return <RouteShell title="Play" />;
 }

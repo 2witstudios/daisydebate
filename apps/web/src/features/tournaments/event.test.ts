@@ -57,10 +57,7 @@ describe('eventFlow', () => {
         screen(moment).roundLabel,
       ]),
       expected: [
-        [
-          'You won the quarterfinal. Semifinal pairings come next.',
-          'Quarterfinals complete',
-        ],
+        ['You won the quarterfinal', 'Quarterfinals complete'],
         ['Your semifinal is set', 'Semifinal, starts 12:18'],
         ['Check in to enter your room', 'Semifinal, check-in open'],
         ['Your debate is in progress', 'Semifinal, in progress'],
@@ -107,8 +104,8 @@ describe('eventFlow', () => {
         [
           'Check in and open room -> /tournaments/mine/harvest-cup/room/semifinal-1',
         ],
-        '@debater-c has checked in. @judge-k has joined the room.',
-        'Check in by 12:28 or the round can be forfeited',
+        '@debater-c and @judge-k are in the room',
+        'Check in by 12:28',
       ],
     });
   });

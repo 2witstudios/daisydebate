@@ -18,7 +18,7 @@ export const sampleJudgeRating: JudgeRating = {
   recent: [
     {
       id: 'ballot-3',
-      debateLabel: 'Debate [N]',
+      debateLabel: 'Debate 214',
       daysAgo: 3,
       decision: 'neg',
       helpful: 2,
@@ -29,7 +29,7 @@ export const sampleJudgeRating: JudgeRating = {
     },
     {
       id: 'ballot-2',
-      debateLabel: 'Debate [N]',
+      debateLabel: 'Debate 198',
       daysAgo: 8,
       decision: 'aff',
       helpful: 3,
@@ -40,7 +40,7 @@ export const sampleJudgeRating: JudgeRating = {
     },
     {
       id: 'ballot-1',
-      debateLabel: 'Debate [N]',
+      debateLabel: 'Debate 176',
       daysAgo: 13,
       decision: 'aff',
       helpful: 1,

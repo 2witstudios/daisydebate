@@ -228,7 +228,7 @@ export function consoleView(
     tabs: tabLinks(data, query),
     entrantsHeading: `${data.entrants.length} entered, ${data.withdrawn} withdrawn, waitlist empty`,
     entrantsShown: data.entrants.slice(0, SHOWN),
-    entrantsNote: `Showing ${Math.min(SHOWN, data.entrants.length)} of ${data.entrants.length}. Removing an entrant before round 1 gives their opponent a bye. Removing or disqualifying after a round starts is recorded in the log and needs a reason.`,
+    entrantsNote: `Showing ${Math.min(SHOWN, data.entrants.length)} of ${data.entrants.length}`,
     steps: stepsOf(tournament.id, state),
     ...plan,
     enterResult: enterResultOf(plan.results, plan.pairings?.debates ?? []),

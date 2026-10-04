@@ -1,6 +1,5 @@
 import { onboardingHref } from '../../../features/access/decision';
-import { bandLabel, slotsLabel } from '../../../features/tournaments/labels';
-import { formatDay, formatTime } from '../../../features/tournaments/dates';
+import { bandLabel } from '../../../features/tournaments/labels';
 import type { Refusal } from '../../../features/tournaments/register-flow';
 import { registerHref } from '../../../features/tournaments/register-flow';
 import { tournamentRoutes } from '../../../features/tournaments/routes';
@@ -24,15 +23,12 @@ function copyFor(
   tournament: Tournament,
   viewer: Viewer | null,
 ): Copy {
-  const { id, name } = tournament;
+  const { id } = tournament;
   switch (reason) {
     case 'outside-band':
       return {
         title: `This tournament is for ratings ${bandLabel(tournament.band)}`,
-        paragraphs: [
-          `Your rating is ${viewer?.rating ?? 'not set'}, outside the band the organizer set for this event. You cannot register, and no one can override this for you.`,
-          'Open events for your level are on the tournaments list.',
-        ],
+        paragraphs: [`Your rating is ${viewer?.rating ?? 'not set'}.`],
         actions: [
           {
             label: 'See events open to me',
@@ -48,9 +44,7 @@ function copyFor(
     case 'closed':
       return {
         title: 'Registration is closed',
-        paragraphs: [
-          `Registration for ${name} closed${tournament.registrationClosesAt ? ` ${formatDay(tournament.registrationClosesAt)}, ${formatTime(tournament.registrationClosesAt)} UTC` : ''}. You can still follow the bracket and watch debates. ${slotsLabel(tournament)} places were taken.`,
-        ],
+        paragraphs: [],
         actions: [
           {
             label: 'Follow this tournament',
@@ -63,9 +57,7 @@ function copyFor(
     case 'no-profile':
       return {
         title: 'Create a debater profile first',
-        paragraphs: [
-          'You need a username to enter a tournament, so you have a handle and a rating. It takes a minute and you can debate in casual lobbies straight away.',
-        ],
+        paragraphs: [],
         actions: [
           {
             label: 'Create my profile',

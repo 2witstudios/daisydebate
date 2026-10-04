@@ -13,7 +13,7 @@ export type TimeBarProps = {
   readonly spareText?: string;
 };
 
-/** A reading time against the speech limit, with the limit left as a placeholder. */
+/** A reading time against the speech limit. */
 export function TimeBar({
   label,
   clock,
@@ -28,7 +28,7 @@ export function TimeBar({
         <span
           className={budget.over ? 'font-strong text-live' : 'text-ink-muted'}
         >
-          {`${clock} of [speech time]`}
+          {clock}
         </span>
       </div>
       <progress

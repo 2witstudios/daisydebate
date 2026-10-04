@@ -7,11 +7,8 @@ import { PreviewHeader, PreviewPage, PreviewRows } from './preview-parts';
 export function LeaderboardPreview() {
   return (
     <PreviewPage>
-      <PreviewHeader title="Leaderboard" lede="Ratings and rankings." />
-      <Panel
-        title="Season [N]"
-        action={<Badge tone="accent">One ladder</Badge>}
-      >
+      <PreviewHeader title="Leaderboard" />
+      <Panel title="Season 3" action={<Badge tone="accent">One ladder</Badge>}>
         <PreviewRows rows={leaderboardRows} />
       </Panel>
     </PreviewPage>

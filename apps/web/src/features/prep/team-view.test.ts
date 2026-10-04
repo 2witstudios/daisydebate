@@ -78,7 +78,7 @@ describe('teamView', () => {
         '@debater-a (you)',
         '@debater-b',
         true,
-        '2 invitations pending. Invitations expire after [7] days.',
+        '2 invitations pending',
       ],
     });
   });

@@ -58,10 +58,4 @@ export const confirmPanelStyles = `.af-panel {
   line-height: 1.15;
   letter-spacing: -0.02em;
   text-wrap: balance;
-}
-
-.af-panel-body {
-  margin: 0;
-  color: var(--af-stage-ink-muted);
-  line-height: 1.55;
 }`;

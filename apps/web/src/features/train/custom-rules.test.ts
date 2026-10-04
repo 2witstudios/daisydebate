@@ -104,12 +104,7 @@ describe('customRulesView', () => {
         customRulesView(sample).custom,
         customRulesView(sample).differences,
       ],
-      expected: [
-        false,
-        [],
-        true,
-        ['Speech length is 7 min. The standard rules use 5.'],
-      ],
+      expected: [false, [], true, ['Speech 7 min (standard 5)']],
     });
   });
 

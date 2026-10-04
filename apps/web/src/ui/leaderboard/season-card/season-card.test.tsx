@@ -24,10 +24,9 @@ describe('SeasonCard', () => {
         html.includes('Ends in 25 days.'),
         html.includes('href="/leaderboard/seasons"'),
         html.includes('href="/leaderboard/seasons#how-rating-works"'),
-        html.includes('ten') || html.includes('10 ranked debates'),
         html.includes('max-compact:hidden'),
       ],
-      expected: [true, true, true, true, true, true, true],
+      expected: [true, true, true, true, true, true],
     });
   });
 
@@ -37,9 +36,9 @@ describe('SeasonCard', () => {
     );
     assert({
       given: 'a closed season',
-      should: 'say the standings are frozen and the bar is full',
+      should: 'say final standings and fill the bar',
       actual: [
-        html.includes('Final standings are frozen.'),
+        html.includes('Final standings'),
         html.includes('value="27" max="27"'),
       ],
       expected: [true, true],

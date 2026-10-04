@@ -19,9 +19,6 @@ export function NotFoundPanel({
     <div className="mx-auto flex w-full max-w-dash-column flex-col items-center gap-3 px-6 py-12 text-center">
       <PrepIcon name="search" size={28} className="text-ink-faint" />
       <h1 className="font-display text-2xl leading-tight font-bold">{`We can’t find that ${what}`}</h1>
-      <p className="max-w-prose text-base text-ink-muted">
-        {`It may have been deleted, or it was never yours to open. Prep only shows what you own or what was shared with you.`}
-      </p>
       <Link
         href={backHref}
         className={`${buttonClass('secondary')} no-underline hover:no-underline`}

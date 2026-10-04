@@ -207,14 +207,6 @@ export function renderDrillForm({
         <p className="text-base text-ink">{`Motion: ${screen.motion}`}</p>
         <p className="text-base text-ink-muted">{screen.task}</p>
       </div>
-      {state.mode === 'speak' ? (
-        <p className="flex items-start gap-3 rounded-md border border-border p-4 text-sm text-ink-muted">
-          <Icon name="message" size={18} />
-          Speaking is not connected yet. Type your argument in the boxes below;
-          once speech is connected it will fill them for you to fix before you
-          check.
-        </p>
-      ) : null}
       {state.notice === 'nothing-to-check' ? (
         <p role="alert" className="text-sm font-strong text-live">
           Write at least one part before you check.

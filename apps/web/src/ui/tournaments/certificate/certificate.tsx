@@ -36,7 +36,7 @@ export function Certificate({
       </p>
       <div className="flex w-full flex-wrap justify-between gap-4 border-t border-border pt-4 text-sm text-ink-muted">
         <p>{`${certificate.organizer}, organizer`}</p>
-        <p>{`Certificate ${certificate.id} (sample). Verification link to come.`}</p>
+        <p>{`Certificate ${certificate.id}`}</p>
       </div>
     </article>
   );

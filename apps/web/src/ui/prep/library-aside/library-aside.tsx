@@ -34,10 +34,7 @@ export function LibraryAside({
       <section className={card}>
         <h2 className={heading}>Saved searches</h2>
         {empty ? (
-          <p className="text-sm text-ink-muted">
-            Run a search with filters, then choose Save this search. It will
-            wait here.
-          </p>
+          <p className="text-sm text-ink-muted">None yet</p>
         ) : (
           <ul>
             {savedSearches.map((saved) => (
@@ -64,13 +61,7 @@ export function LibraryAside({
       <section className={card}>
         <h2 className={heading}>Teams</h2>
         {empty ? (
-          <>
-            <p className="text-sm text-ink-muted">
-              Teams share briefs and cases you choose. Nothing is shared until
-              you do it.
-            </p>
-            <InertActionButton action={inertActions.createOrJoinTeam} />
-          </>
+          <InertActionButton action={inertActions.createOrJoinTeam} />
         ) : (
           <>
             <ul>
@@ -108,10 +99,7 @@ export function LibraryAside({
           </>
         )}
       </section>
-      <PrivacyNote>
-        Your library is private to you. Teammates see only what you share with
-        them. Opponents and spectators never see it.
-      </PrivacyNote>
+      <PrivacyNote />
     </aside>
   );
 }

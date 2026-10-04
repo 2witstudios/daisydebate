@@ -15,10 +15,9 @@ describe('StartJudging', () => {
       actual: [
         /<a [^>]*href="\/judge\/waiting"[^>]*>Start judging<\/a>/.test(html),
         html.split('<a ').length - 1,
-        html.includes('You never choose the debate'),
         html.includes('<li'),
       ],
-      expected: [true, 1, true, false],
+      expected: [true, 1, false],
     });
   });
 });

@@ -3,7 +3,6 @@ import type { Tier } from '../types/tier/tier';
 import type { TournamentSummary } from '../types/tournament-summary/tournament-summary';
 import { activities } from '../mock/activities';
 import { debates } from '../mock/debates';
-import { topic } from '../mock/topic';
 import { tournament } from '../mock/tournament';
 import { users } from '../mock/users';
 
@@ -32,7 +31,6 @@ type ActivityRow = {
 type UiResources = {
   readonly searchQuery: string;
   readonly onlineCount: number;
-  readonly todaysTopic: string;
   readonly tournament: TournamentSummary;
 };
 
@@ -52,7 +50,6 @@ export const createInitialState = (): UiState => ({
   resources: {
     searchQuery: '',
     onlineCount: 1248,
-    todaysTopic: topic,
     tournament,
   },
   collections: {

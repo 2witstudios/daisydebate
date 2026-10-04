@@ -137,11 +137,7 @@ export function LibraryFilters({ query, options }: LibraryFiltersProps) {
           />
         </div>
       </details>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-prose text-sm text-ink-faint">
-          Filters are in the address, so a search can be bookmarked or shared
-          with a teammate who can open the same items.
-        </p>
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <div className="flex items-center gap-1">
           <label className="flex items-center gap-2 text-sm text-ink-faint">
             <span>Sort</span>

@@ -16,10 +16,7 @@ export function ResultsTab({ view }: { readonly view: ConsoleView }) {
   if (view.results.length === 0)
     return (
       <section className={card}>
-        <p className="text-base text-ink-muted">
-          No results yet. Results appear here once debates start, and ballots
-          arrive by themselves.
-        </p>
+        <p className="text-base text-ink-muted">No results yet</p>
       </section>
     );
   const { enterResult } = view;
@@ -53,18 +50,10 @@ export function ResultsTab({ view }: { readonly view: ConsoleView }) {
                   </Badge>
                 )}
                 {row.status === 'Ballot in' ? (
-                  <DisabledAction
-                    label="Correct"
-                    reason="Corrections need the organizer service."
-                    variant="ghost"
-                  />
+                  <DisabledAction label="Correct" variant="ghost" />
                 ) : null}
                 {row.status === 'Forfeit to confirm' ? (
-                  <DisabledAction
-                    label="Confirm"
-                    reason="Confirming needs the organizer service."
-                    variant="ghost"
-                  />
+                  <DisabledAction label="Confirm" variant="ghost" />
                 ) : null}
               </span>
             </li>
@@ -81,7 +70,7 @@ export function ResultsTab({ view }: { readonly view: ConsoleView }) {
             <Badge>Audit logged</Badge>
           </div>
           <p className="text-base text-ink-muted">
-            {`@${enterResult.a} vs @${enterResult.b}. The judge disconnected before submitting a ballot. Enter the result from the room record, with a reason. Both debaters and the tournament log see it.`}
+            {`@${enterResult.a} vs @${enterResult.b}. The judge disconnected before submitting a ballot.`}
           </p>
           <div className="grid grid-cols-2 gap-4 max-compact:grid-cols-1">
             <label className="flex flex-col gap-2 text-base font-strong text-ink">
@@ -98,21 +87,13 @@ export function ResultsTab({ view }: { readonly view: ConsoleView }) {
               Reason (required)
               <input
                 disabled
-                placeholder="Why you are entering this result"
+
                 className="h-10 rounded-md border border-border bg-surface-raised px-3 text-base font-book text-ink disabled:opacity-60"
               />
             </label>
           </div>
-          <p className="text-sm text-ink-faint">
-            Entering results needs the organizer service, so this form is off
-            for now.
-          </p>
           <div className="flex justify-end gap-3">
-            <DisabledAction
-              label="Save result"
-              reason="Saving needs the organizer service."
-              variant="primary"
-            />
+            <DisabledAction label="Save result" variant="primary" />
           </div>
         </section>
       ) : null}
@@ -156,16 +137,11 @@ export function ModerationTab({ view }: { readonly view: ConsoleView }) {
             <Badge tone="gold">Open</Badge>
           </div>
           <p className="text-base text-ink-muted">
-            {`Reported by @${report.by}. The report text appears here, quoting the flagged message. Reporter and reported are hidden from each other until you decide.`}
+            {`Reported by @${report.by}`}
           </p>
           <div className="flex flex-wrap gap-2">
             {reportActions.map((label) => (
-              <DisabledAction
-                key={label}
-                label={label}
-                reason="Decisions need the organizer service."
-                variant="ghost"
-              />
+              <DisabledAction key={label} label={label} variant="ghost" />
             ))}
           </div>
         </section>
@@ -181,25 +157,14 @@ export function ModerationTab({ view }: { readonly view: ConsoleView }) {
           </div>
           <p className="text-base text-ink-muted">{`${view.forfeit.detail} Confirming advances the other debater.`}</p>
           <div className="flex flex-wrap gap-2">
-            <DisabledAction
-              label="Confirm forfeit"
-              reason="Confirming needs the organizer service."
-              variant="ghost"
-            />
-            <DisabledAction
-              label="Give them 5 more minutes"
-              reason="Extensions need the organizer service."
-              variant="ghost"
-            />
+            <DisabledAction label="Confirm forfeit" variant="ghost" />
+            <DisabledAction label="Give them 5 more minutes" variant="ghost" />
           </div>
         </section>
       ) : null}
       {view.state !== 'running' ? (
         <section className={card}>
-          <p className="text-base text-ink-muted">
-            No reports or forfeit requests yet. They appear here once debates
-            start.
-          </p>
+          <p className="text-base text-ink-muted">No reports yet</p>
         </section>
       ) : null}
       <section className={card}>
@@ -216,17 +181,9 @@ export function ModerationTab({ view }: { readonly view: ConsoleView }) {
           ))}
         </ul>
         <div>
-          <DisabledAction
-            label="Invite moderator"
-            reason="Inviting needs the organizer service."
-          />
+          <DisabledAction label="Invite moderator" />
         </div>
       </section>
-      <p className="text-sm text-ink-faint">
-        Moderators can dismiss, warn and record forfeits. Disqualifying,
-        correcting a published result and publishing are organizer-only. Every
-        action is logged with who took it.
-      </p>
     </div>
   );
 }
@@ -255,11 +212,8 @@ export function PublishTab({ view }: { readonly view: ConsoleView }) {
         </ul>
       </section>
       <Notice icon="trophy">
-        Publishing puts the final standings on the public results page, awards
-        the champion, runner-up and semifinalist honours, and makes a
-        certificate for every placed entrant. A published result can only be
-        changed by an organizer with a reason, and the change is shown as an
-        amended result.
+        Publishing posts the final standings, awards honours and issues
+        certificates.
       </Notice>
       <div className="flex flex-wrap items-center gap-3">
         <button

@@ -120,7 +120,7 @@ const summaryOf = (tournament: Tournament, viewer: Viewer): readonly Fact[] => [
     'Entering as',
     `@${viewer.handle}, ${viewer.established ? 'established' : 'provisional'}`,
   ],
-  ['Rating effect', 'None. Tournament debates are unrated.'],
+  ['Rating effect', 'None'],
 ];
 
 /** Why the viewer cannot enter, or null. An entered viewer is never refused. */

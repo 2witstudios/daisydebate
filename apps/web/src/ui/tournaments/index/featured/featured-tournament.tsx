@@ -37,7 +37,7 @@ export function FeaturedTournament({
           {tournament.name}
         </h2>
         <p className="max-w-prose text-base text-stage-ink-muted">
-          {`${structureLabel(tournament.structure)}, ${rulesLabel(tournament.rules).toLowerCase()}, ${tournament.places} places. ${whenLabel(tournament)}. Unrated. The champion earns a Daisy honour.`}
+          {`${structureLabel(tournament.structure)}, ${rulesLabel(tournament.rules).toLowerCase()}, ${tournament.places} places. ${whenLabel(tournament)}.`}
         </p>
         <div className="flex max-w-rail flex-col gap-2 text-sm text-stage-ink-muted">
           <FillBar

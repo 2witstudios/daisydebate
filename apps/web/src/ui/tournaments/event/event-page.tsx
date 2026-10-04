@@ -135,19 +135,8 @@ export function EventPage({ screen, tournament, finalAt }: EventPageProps) {
           </section>
           <section className={card}>
             <h2 className={h3}>Need help?</h2>
-            <p className="text-base text-ink-muted">
-              Something wrong with your pairing, room or judge? The organizer
-              and moderators are told straight away.
-            </p>
-            <DisabledAction
-              label="Contact the organizer"
-              reason="Messaging needs the organizer service."
-            />
-            <DisabledAction
-              label="Report a problem"
-              reason="Reporting needs the organizer service."
-              variant="ghost"
-            />
+            <DisabledAction label="Contact the organizer" />
+            <DisabledAction label="Report a problem" variant="ghost" />
           </section>
         </aside>
       </div>
@@ -169,9 +158,6 @@ export function NotInEvent({
             ? `You are not competing in ${tournament.name}`
             : 'We could not find that event'}
         </h1>
-        <p className="text-base text-ink-muted">
-          Events you compete in appear here once the pairing is released.
-        </p>
         <div>
           <LinkButton
             href={

@@ -1,6 +1,6 @@
 import { Button } from '../../components/button/button';
 import { Icon } from '../../components/icon/icon';
-import { AuthFrame, AuthHeading } from '../auth-frame/auth-frame';
+import { AuthFrame, AuthHeading, taglinePanel } from '../auth-frame/auth-frame';
 import { formatCountdown } from '../sign-in-state';
 
 export type CheckInboxProps = {
@@ -14,12 +14,6 @@ export type CheckInboxProps = {
 
 /** The inbox step's headline, where focus lands when a link is sent. */
 export const CHECK_INBOX_HEADING_ID = 'check-inbox-heading';
-
-const nextSteps = [
-  'Open the email titled “Sign in to Daisy Debate”.',
-  'Select the link inside it, on any device.',
-  'Confirm on the page that opens. You are signed in on that device.',
-] as const;
 
 const resendLabel = (resendInMs: number, resending: boolean): string => {
   if (resending) return 'Sending…';
@@ -40,25 +34,7 @@ export function CheckInbox({
   changeEmail,
 }: CheckInboxProps) {
   return (
-    <AuthFrame
-      panel={{
-        eyebrow: 'What happens next',
-        title: 'Open the email, then confirm.',
-        body: (
-          <ol className="flex flex-col gap-4">
-            {nextSteps.map((step, index) => (
-              <li key={step} className="flex items-start gap-3">
-                <span className="flex size-auth-step shrink-0 items-center justify-center rounded-full border border-stage-ink-muted text-sm font-bold text-stage-ink">
-                  {index + 1}
-                </span>
-                <span>{step}</span>
-              </li>
-            ))}
-          </ol>
-        ),
-      }}
-      footer="Opened the link on your phone? You will be signed in there, and this tab stays as it is."
-    >
+    <AuthFrame panel={taglinePanel}>
       <AuthHeading
         id={CHECK_INBOX_HEADING_ID}
         eyebrow="Link on its way"
@@ -70,11 +46,7 @@ export function CheckInbox({
       </AuthHeading>
       <div className="flex items-start gap-3 rounded-md border border-border bg-surface p-4 text-base text-ink-muted">
         <Icon name="clock" className="mt-1 text-accent" />
-        <p>
-          <strong className="font-semibold text-ink">School email?</strong>{' '}
-          Filters can hold messages for a few minutes. Check spam or quarantine
-          for “Sign in to Daisy Debate”.
-        </p>
+        <p>Not there? Check spam or quarantine.</p>
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <Button

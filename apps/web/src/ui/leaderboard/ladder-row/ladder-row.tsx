@@ -64,9 +64,7 @@ function HoverCard({ row }: { row: Row }): ReactNode {
           {`±${row.range} · ${row.rank === null ? 'Unranked' : `#${row.rank}`}`}
         </span>
       </span>
-      <span className="text-sm text-ink-faint">
-        {`${recordText(row)} W–L · Enter opens the full detail`}
-      </span>
+      <span className="text-sm text-ink-faint">{`${recordText(row)} W–L`}</span>
     </span>
   );
 }

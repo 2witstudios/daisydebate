@@ -24,7 +24,7 @@ export function RankedHub({ screen }: { readonly screen: HubScreen }) {
             href={screen.openRulesHref}
             className={linkButtonClass('ghost')}
           >
-            Ranked rules and how it works
+            Ranked rules
           </Link>
           <Link href={screen.hostHref} className={linkButtonClass('ghost')}>
             Host a ranked table

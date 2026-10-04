@@ -19,34 +19,22 @@ describe('PrivacyPage', () => {
         html.includes('>Hidden on purpose<'),
         html.includes('Ratings while you judge'),
         html.includes('Deleted accounts'),
-        html.includes('ADR 0036'),
+        html.includes('ADR'),
       ],
-      expected: [1, true, true, true, true, true, true],
+      expected: [1, true, true, true, true, true, false],
     });
   });
 
   test('the settings are inert proposals', () => {
     assert({
       given: 'the proposed privacy settings',
-      should:
-        'render disabled switches in their proposed state, each with its reason',
+      should: 'render disabled switches in their proposed state',
       actual: [
         html.match(/role="switch"/g)?.length,
         html.match(/disabled=""/g)?.length,
-        html.includes('Proposal'),
-        html.match(/Proposed\. Saving needs the settings backend/g)?.length,
         html.includes('<form'),
       ],
-      expected: [2, 2, true, 2, false],
-    });
-  });
-
-  test('the region is marked proposed', () => {
-    assert({
-      given: 'the region row',
-      should: 'carry the proposed marker',
-      actual: html.includes('>proposed<'),
-      expected: true,
+      expected: [2, 2, false],
     });
   });
 });

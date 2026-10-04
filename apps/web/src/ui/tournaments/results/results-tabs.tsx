@@ -81,7 +81,7 @@ export function Standings({
         </table>
         {hidden > 0 ? (
           <p className="border-t border-border px-4 py-3 text-base text-ink-muted">
-            {`Places ${PAGE + 1} to ${data.standings.length}: ${hidden} more entrants, placed equal ${PAGE + 1}th. `}
+            {`${hidden} more, equal ${PAGE + 1}th. `}
             <a
               href={resultsHref(data.tournament.id, {
                 tab: 'standings',
@@ -94,10 +94,6 @@ export function Standings({
           </p>
         ) : null}
       </div>
-      <p className="text-sm text-ink-faint">
-        Place is set by how far a debater went. Debaters who lost in the same
-        round share a place. Record is rounds won and lost.
-      </p>
     </div>
   );
 }
@@ -122,10 +118,6 @@ export function Rounds({ data }: { readonly data: ResultsData }) {
           </li>
         ))}
       </ul>
-      <p className="text-sm text-ink-faint">
-        Watch any of these debates from the recordings. Every debate was judged
-        by one judge assigned by Daisy.
-      </p>
     </div>
   );
 }
@@ -152,10 +144,6 @@ export function Honours({ data }: { readonly data: ResultsData }) {
           </li>
         ))}
       </ul>
-      <p className="text-sm text-ink-faint">
-        Honours are recognition only. They show on profiles and never change
-        ratings.
-      </p>
     </div>
   );
 }
@@ -178,10 +166,7 @@ export function Mine({ data }: { readonly data: ResultsData }) {
           >
             View certificate
           </LinkButton>
-          <DisabledAction
-            label="Copy link to results"
-            reason="Copying needs script. Use the address bar."
-          />
+          <DisabledAction label="Copy link to results" />
           <LinkButton href="/recordings" variant="ghost">
             Watch my rounds
           </LinkButton>

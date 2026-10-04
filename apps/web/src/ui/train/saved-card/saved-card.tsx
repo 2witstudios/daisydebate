@@ -13,10 +13,7 @@ export function SavedCard({ summary }: { readonly summary: TrainingSummary }) {
   if (saved.total === 0)
     return (
       <TrainCard title="Saved arguments">
-        <p className="text-sm text-ink-muted">
-          None yet. Save arguments from drills and from practice debriefs, and
-          they come back here to review.
-        </p>
+        <p className="text-sm text-ink-muted">None yet</p>
       </TrainCard>
     );
   return (

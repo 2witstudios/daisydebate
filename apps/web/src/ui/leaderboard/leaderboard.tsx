@@ -4,7 +4,6 @@ import type { DebaterDetail } from '../../features/leaderboard/detail';
 import type { LadderView } from '../../features/leaderboard/ladder-view';
 import { ladderHref, type LadderQuery } from '../../features/leaderboard/query';
 import { isClosed, seasonLabel } from '../../features/leaderboard/season';
-import { Badge } from '../components/badge/badge';
 import { DebaterDrawer } from './debater-drawer/debater-drawer';
 import { LadderFilters } from './ladder-filters/ladder-filters';
 import {
@@ -17,15 +16,12 @@ import {
 } from './ladder-states/ladder-states';
 import { LadderTable } from './ladder-table/ladder-table';
 import { SeasonCard } from './season-card/season-card';
-import { YouBar } from './you-bar/you-bar';
 
 export type LeaderboardProps = {
   readonly view: LadderView;
   readonly query: LadderQuery;
   /** ISO timestamp the season's day counts from. */
   readonly now: string;
-  /** The signed-in viewer's public username, or null for a visitor. */
-  readonly username: string | null;
   /** True while the viewer is assigned to judge a debate. */
   readonly judging: boolean;
   /** The open debater's detail, or null when the detail is closed. */
@@ -40,7 +36,6 @@ export function Leaderboard({
   view,
   query,
   now,
-  username,
   judging,
   detail,
 }: LeaderboardProps) {
@@ -61,10 +56,9 @@ export function Leaderboard({
             )}
             {closed
               ? `${seasonLabel(view.season)} final standings`
-              : `${seasonLabel(view.season)} is live. Ratings update after every ranked debate.`}
+              : `${seasonLabel(view.season)} is live`}
           </p>
         </div>
-        <Badge tone="neutral">Sample data</Badge>
       </header>
       <LadderFilters
         query={query}
@@ -96,11 +90,8 @@ export function Leaderboard({
         <PreviousChampion champion={view.previousChampion} />
       ) : null}
       <p className="text-sm text-ink-faint">
-        <Link href={leaderboardDestinations.privacy}>
-          What the ladder shows about you
-        </Link>
+        <Link href={leaderboardDestinations.privacy}>Ladder privacy</Link>
       </p>
-      <YouBar view={view} query={query} username={username} />
       {detail ? <DebaterDrawer detail={detail} query={query} /> : null}
     </div>
   );

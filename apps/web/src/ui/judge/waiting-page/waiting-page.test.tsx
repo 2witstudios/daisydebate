@@ -23,14 +23,12 @@ describe('WaitingPage', () => {
         html.includes('Looking for a debate'),
         html.includes('0:14'),
         html.includes('2 min'),
-        html.includes('There is no list of debates to browse'),
         /<a [^>]*href="\/judge\/waiting\?step=left"[^>]*>Cancel<\/a>/.test(
           html,
         ),
-        html.includes('What happens next'),
         html.includes('Keep this page open'),
       ],
-      expected: [1, true, true, true, true, true, true, true, true],
+      expected: [1, true, true, true, true, true, true],
     });
   });
 
@@ -38,17 +36,15 @@ describe('WaitingPage', () => {
     const html = render('left');
     assert({
       given: 'a judge who cancelled',
-      should:
-        'say they left, record nothing against them and offer Start judging and Back to Judge',
+      should: 'say they left and offer Start judging and Back to Judge',
       actual: [
         html.match(/<h1 /g)?.length,
         html.includes('You left the judge pool'),
-        html.includes('nothing is recorded against you'),
         /<a [^>]*href="\/judge\/waiting"[^>]*>Start judging<\/a>/.test(html),
         /<a [^>]*href="\/judge"[^>]*>Back to Judge<\/a>/.test(html),
         html.includes('In the judge pool'),
       ],
-      expected: [1, true, true, true, true, false],
+      expected: [1, true, true, true, false],
     });
   });
 });

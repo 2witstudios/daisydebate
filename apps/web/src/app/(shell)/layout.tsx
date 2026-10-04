@@ -1,6 +1,5 @@
 import { AppShell } from '../../ui/layout/app-shell/app-shell';
 import { UiStoreProvider } from '../../ui/store/store';
-import { TopicCard } from '../../ui/dashboard/topic-card/topic-card';
 import { ActivityFeed } from '../../ui/dashboard/activity-feed/activity-feed';
 import { QuoteCard } from '../../ui/dashboard/quote-card/quote-card';
 import { shellAccount } from '../../lib/shell-account';
@@ -23,7 +22,6 @@ export default async function ShellLayout({
         account={shellAccount(identity)}
         rail={
           <>
-            <TopicCard />
             <ActivityFeed />
             <QuoteCard />
           </>

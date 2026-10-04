@@ -1,9 +1,9 @@
 import type { HubView } from '../../../features/train/hub';
+import { PageHeader } from '../../components/page-header/page-header';
 import { modeCards } from '../../../features/train/modes';
 import type { HubQuery } from '../../../features/train/query';
 import type { TrainingSummary } from '../../../features/train/summary';
 import { CustomRulesBanner } from '../custom-rules-banner/custom-rules-banner';
-import { TrainHeader } from '../header/train-header';
 import { ModeCards } from '../mode-cards/mode-cards';
 import { NextCard } from '../next-card/next-card';
 import { PlanPanel } from '../plan-panel/plan-panel';
@@ -29,10 +29,7 @@ export function TrainHub({ view, summary, query }: TrainHubProps) {
   const { structure } = summary;
   return (
     <TrainPage>
-      <TrainHeader
-        title="Train"
-        lede="Practice arguments. Sharpen your mind."
-      />
+      <PageHeader title="Train" />
       <TrainColumns
         asideLabel="Training summary"
         main={
@@ -64,10 +61,6 @@ export function TrainHub({ view, summary, query }: TrainHubProps) {
             {summary.ruleSets.length > 0 ? (
               <RuleSetsCard summary={summary} />
             ) : null}
-            <p className="text-sm text-ink-faint">
-              Training never changes your rating. Only ranked debates against
-              people do.
-            </p>
           </>
         }
       />

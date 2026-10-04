@@ -8,10 +8,7 @@ import { PreviewHeader, PreviewPage, PreviewRows } from './preview-parts';
 export function WatchPreview() {
   return (
     <PreviewPage>
-      <PreviewHeader
-        title="Watch"
-        lede="Follow live debates, then replay them."
-      />
+      <PreviewHeader title="Watch" />
       <Panel title="Live now">
         <div className="mb-3 flex items-center gap-3">
           <Badge tone="live">Live</Badge>

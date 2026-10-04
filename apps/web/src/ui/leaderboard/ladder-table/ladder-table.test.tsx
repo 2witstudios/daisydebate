@@ -64,7 +64,7 @@ describe('LadderTable', () => {
       given: 'a search nobody matches',
       should: 'show the empty state with Clear filters and no pager links',
       actual: [
-        html.includes('No debaters match these filters.'),
+        html.includes('No matches'),
         html.includes('href="/leaderboard"'),
         html.includes('0 debaters'),
       ],

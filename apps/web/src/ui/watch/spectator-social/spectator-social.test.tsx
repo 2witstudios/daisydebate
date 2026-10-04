@@ -1,7 +1,6 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { inertReason } from '../../../features/watch/actions';
 import {
   spectatorSocial,
   findDebate,
@@ -22,14 +21,12 @@ describe('Reactions', () => {
     );
     assert({
       given: 'an open audience',
-      should: 'show every total on a disabled button with its reason',
+      should: 'show every total on a disabled button',
       actual: [
         html.includes('Sharp point 38'),
         (html.match(/disabled=""/g) ?? []).length,
-        html.includes(inertReason('react')),
-        html.includes('Anonymous totals.'),
       ],
-      expected: [true, 4, true, true],
+      expected: [true, 4],
     });
   });
 
@@ -80,7 +77,7 @@ describe('Chat', () => {
       given: 'chat after the debate ends',
       should: 'say it closed and offer no composer or report links',
       actual: [
-        html.includes('Chat closed when the debate ended.'),
+        html.includes('Chat closed'),
         html.includes('chat-draft'),
         html.includes('Report this message'),
       ],

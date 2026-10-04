@@ -115,5 +115,5 @@ export function certificateText(
   const kind = structureLabel(tournament.structure)
     .toLowerCase()
     .replace(' ', '-');
-  return `${certificate.placing} in the ${tournament.name}, a ${kind} tournament of ${tournament.entered} entrants held on ${formatLongDate(tournament.startsAt)}. This tournament was unrated.`;
+  return `${certificate.placing} in the ${tournament.name}, a ${kind} tournament of ${tournament.entered} entrants held on ${formatLongDate(tournament.startsAt)}.`;
 }

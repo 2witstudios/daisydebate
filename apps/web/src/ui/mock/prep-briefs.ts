@@ -8,8 +8,7 @@ import { sampleTeamName } from './prep';
 
 /**
  * The debate rules' speech limit: Daisy has no speech times yet, so this is
- * a sample constant the mock uses for the time bars. The screen never prints
- * it; it prints "[speech time]".
+ * a sample constant the mock uses for the time bars.
  */
 export const sampleSpeechLimitSeconds = 360;
 

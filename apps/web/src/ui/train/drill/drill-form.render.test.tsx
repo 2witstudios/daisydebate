@@ -73,17 +73,13 @@ describe('renderDrillForm', () => {
     });
   });
 
-  test('speak mode says speaking is not connected', () => {
+  test('speak mode fakes no recording', () => {
     const out = html({ ...initialDrill, mode: 'speak' });
     assert({
       given: 'the speak mode',
-      should:
-        'say plainly that speaking is not connected, and fake no recording',
-      actual: [
-        out.includes('Speaking is not connected yet.'),
-        out.includes('Recording'),
-      ],
-      expected: [true, false],
+      should: 'fake no recording',
+      actual: out.includes('Recording'),
+      expected: false,
     });
   });
 
@@ -123,23 +119,22 @@ describe('renderDrillForm', () => {
     });
   });
 
-  test('saved: the argument, the preview note and where to go', () => {
+  test('saved: the argument and where to go', () => {
     const out = html({
       ...checked({ claim, warrant, impact }),
       phase: 'saved',
     });
     assert({
       given: 'a saved argument',
-      should: 'confirm, say saving is a preview and link on',
+      should: 'confirm and link on',
       actual: [
         out.includes('Saved to review'),
-        out.includes('Preview: saving is not connected yet.'),
         out.includes(claim),
         out.includes('Another drill'),
         out.includes('href="/train/review"'),
         out.includes('<form'),
       ],
-      expected: [true, true, true, true, true, false],
+      expected: [true, true, true, true, false],
     });
   });
 

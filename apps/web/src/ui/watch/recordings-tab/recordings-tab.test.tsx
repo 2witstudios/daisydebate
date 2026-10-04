@@ -27,14 +27,13 @@ describe('RecordingsTab', () => {
     const html = render(defaultRecordingsQuery);
     assert({
       given: 'the default query',
-      should: 'show the GET filter form, the scope note and six rows',
+      should: 'show the GET filter form and six rows',
       actual: [
         /<form [^>]*action="\/recordings"/.test(html),
         html.includes('method="get"'),
-        html.includes('The public archive lists public debates only.'),
         (html.match(/aria-label="Replay /g) ?? []).length,
       ],
-      expected: [true, true, true, 6],
+      expected: [true, true, 6],
     });
   });
 
@@ -60,7 +59,7 @@ describe('RecordingsTab', () => {
       given: 'an empty my-debates scope',
       should: 'invite to find a match or open the lobby',
       actual: [
-        html.includes('You have no recorded debates yet'),
+        html.includes('No recorded debates yet'),
         html.includes('href="/ranked"'),
         html.includes('href="/lobby"'),
       ],

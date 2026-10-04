@@ -64,9 +64,7 @@ export function buildSeasonsView(data: LadderData, now: string): SeasonsView {
     closed,
     tag: closed ? 'Closed' : 'Current season',
     dates: seasonDates(season),
-    statusLine: closed
-      ? 'Closed on the last day. Final standings are frozen and cannot change.'
-      : `Day ${day} of ${length}. The final snapshot is taken when the season closes.`,
+    statusLine: closed ? 'Final standings' : `Day ${day} of ${length}`,
     percent: closed ? 100 : percent,
     chips: data.seasons.map((item) => ({
       label: `${seasonLabel(item)}${isClosed(item) ? '' : ' · current'}`,

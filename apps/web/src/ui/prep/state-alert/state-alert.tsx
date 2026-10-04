@@ -25,10 +25,7 @@ function ActionButton({ action }: { readonly action: NoticeAction }) {
   if (action.href === undefined)
     return (
       <InertActionButton
-        action={{
-          label: action.label,
-          reason: `${action.label} needs the Prep service, which is not built yet.`,
-        }}
+        action={{ label: action.label }}
         variant={action.variant === 'danger' ? 'secondary' : action.variant}
         className={action.variant === 'danger' ? dangerButtonClass : ''}
         {...(action.symbol === undefined ? {} : { symbol: action.symbol })}

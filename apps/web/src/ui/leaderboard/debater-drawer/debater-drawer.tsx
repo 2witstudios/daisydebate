@@ -95,8 +95,7 @@ function Body({ detail, query }: DebaterDrawerProps): ReactNode {
     return (
       <p className="flex items-start gap-3 rounded-md bg-surface-overlay p-4 text-base text-ink-muted">
         <Icon name="eye" size={20} />
-        Hidden while you judge. Their rating, rank and history return after you
-        submit your ballot.
+        Hidden while you judge
       </p>
     );
   if (detail.kind === 'none')
@@ -104,9 +103,6 @@ function Body({ detail, query }: DebaterDrawerProps): ReactNode {
       <div className="flex flex-col items-center gap-2 py-8 text-center text-base text-ink-muted">
         <Icon name="chart" size={28} className="text-ink-faint" />
         <p>{detail.text}</p>
-        <p className="text-sm text-ink-faint">
-          Only ranked debates count toward a rating.
-        </p>
       </div>
     );
   return (

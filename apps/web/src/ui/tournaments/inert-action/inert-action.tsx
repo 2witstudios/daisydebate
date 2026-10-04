@@ -7,18 +7,16 @@ import {
 
 export type DisabledActionProps = {
   readonly label: string;
-  readonly reason: string;
   readonly variant?: ButtonVariant;
   readonly className?: string;
 };
 
 /**
- * A control whose real operation does not exist yet. It is disabled and says
- * why, never a link or a submit that pretends to work.
+ * A control whose real operation does not exist yet: disabled, never a link
+ * or a submit that pretends to work.
  */
 export function DisabledAction({
   label,
-  reason,
   variant = 'secondary',
   className,
 }: DisabledActionProps) {
@@ -26,8 +24,6 @@ export function DisabledAction({
     <button
       type="button"
       disabled
-      title={reason}
-      aria-label={`${label} (${reason})`}
       className={`${buttonClass(variant)} ${className ?? ''}`.trim()}
     >
       {label}
@@ -45,7 +41,7 @@ export type InertActionProps = {
 export function InertAction({ id, variant, className }: InertActionProps) {
   return (
     <DisabledAction
-      {...inertActions[id]}
+      label={inertActions[id]}
       {...(variant ? { variant } : {})}
       {...(className ? { className } : {})}
     />

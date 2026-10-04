@@ -30,8 +30,7 @@ describe('Debrief', () => {
       should: 'show stats, speeches, notes, work, saving and feedback',
       actual: [
         html.match(/<h1/g)?.length,
-        html.includes('Practice · Unrated'),
-        html.includes('Rating unchanged'),
+        html.includes('>Practice<'),
         html.includes('3 of 4'),
         html.includes('4 of 5'),
         html.includes('96%'),
@@ -44,7 +43,7 @@ describe('Debrief', () => {
         html.includes('href="/train/practice"'),
         html.includes('Practice again'),
       ],
-      expected: Array(14)
+      expected: Array(13)
         .fill(true)
         .map((_, i) => (i === 0 ? 1 : true)),
     });
@@ -89,7 +88,7 @@ describe('Debrief', () => {
       given: 'two saved, and a save pressed with none',
       should: 'confirm the first review, and ask for a choice in the second',
       actual: [
-        saved.includes('Saved 2. The first review is tomorrow.'),
+        saved.includes('Saved 2. First review tomorrow.'),
         saved.includes('name="save"'),
         empty.includes('Choose at least one argument to save.'),
       ],
@@ -106,9 +105,7 @@ describe('Debrief', () => {
       actual: [
         /<textarea[^>]*name=/.test(html),
         /<button[^>]*name="sent"/.test(html),
-        sent.includes(
-          'Thanks. Your feedback was sent without your speech text.',
-        ),
+        sent.includes('Thanks for the feedback'),
         /<button[^>]*name="sent"/.test(sent),
       ],
       expected: [false, true, true, false],

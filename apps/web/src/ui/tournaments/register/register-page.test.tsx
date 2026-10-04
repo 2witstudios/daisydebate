@@ -49,12 +49,9 @@ describe('RegisterPage', () => {
     const html = render('weeknight-sprint');
     assert({
       given: 'the conflicts field',
-      should: 'be disabled and say why',
-      actual: [
-        /<textarea[^>]*disabled=""/.test(html),
-        html.includes('needs the registration service'),
-      ],
-      expected: [true, true],
+      should: 'be disabled',
+      actual: /<textarea[^>]*disabled=""/.test(html),
+      expected: true,
     });
   });
 
@@ -116,15 +113,14 @@ describe('RegisterPage', () => {
       should: 'say registered, or the waitlist position, with withdraw links',
       actual: [
         registered.includes('You are registered'),
-        registered.includes('What happens next'),
         registered.includes(
           'href="/tournaments/enter/weeknight-sprint/withdraw"',
         ),
         waitlisted.includes('You are on the waitlist'),
-        waitlisted.includes('Position 3.'),
+        waitlisted.includes('Position 3'),
         waitlisted.includes('Leave the waitlist'),
       ],
-      expected: [true, true, true, true, true, true],
+      expected: [true, true, true, true, true],
     });
   });
 
@@ -132,8 +128,8 @@ describe('RegisterPage', () => {
     const html = render('night-owl-open');
     assert({
       given: 'a full tournament, first step',
-      should: 'explain the waitlist',
-      actual: html.includes('This tournament is full. All 8 places are taken'),
+      should: 'say it joins the waitlist',
+      actual: html.includes('Full. You will join the waitlist.'),
       expected: true,
     });
   });

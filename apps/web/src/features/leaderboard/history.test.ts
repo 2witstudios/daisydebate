@@ -150,7 +150,7 @@ describe('readoutAt', () => {
         {
           heading: 'Season start',
           value: '1500 ± 700',
-          detail: 'Everyone starts at the season’s starting rating.',
+          detail: 'Starting rating',
         },
         {
           heading: 'Debate 2 of 3',

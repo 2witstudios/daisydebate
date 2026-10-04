@@ -20,9 +20,8 @@ describe('NoResults', () => {
       actual: [
         titles.includes('Search full text'),
         text.includes('Search full text'),
-        text.includes('Nothing in the full text matches either'),
       ],
-      expected: [true, false, true],
+      expected: [true, false],
     });
   });
 });
@@ -39,7 +38,7 @@ describe('FiltersHideEverything', () => {
       given: 'a tag filter with no search and one item in the library',
       should: 'speak of the library rather than a search, singular',
       actual: [
-        html.includes('1 item in your library, but none match your filters.'),
+        html.includes('1 item in your library'),
         html.includes('href="/prep"'),
       ],
       expected: [true, true],

@@ -59,8 +59,7 @@ export function SignInForm({
         eyebrow="Sign in or create an account"
         title="Take the floor."
       >
-        Enter your email and we&apos;ll send you a link. Saved a passkey? Your
-        browser will offer it.
+        Enter your email and we&apos;ll send you a link.
       </AuthHeading>
       <form
         action={action}

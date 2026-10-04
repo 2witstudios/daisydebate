@@ -31,23 +31,21 @@ export const modeCards = (
   {
     id: 'practice',
     title: 'Guided practice',
-    blurb:
-      'Debate a paced prompt, turn by turn, with a timer and coach prompts.',
+    blurb: 'A timed debate with coach prompts.',
     status: '25 to 45 min',
     cta: { label: 'Start a practice debate', href: trainDestinations.practice },
   },
   {
     id: 'drills',
     title: 'Argument drills',
-    blurb:
-      'Write or say one claim, warrant and impact. See what is missing, revise, save.',
+    blurb: 'One claim, warrant and impact. Check, revise, save.',
     status: stage === 'first' ? 'Start here' : '5 to 10 min',
     cta: { label: 'Start a drill', href: trainDestinations.drill },
   },
   {
     id: 'review',
     title: 'Spaced review',
-    blurb: 'Saved arguments come back just before you would forget them.',
+    blurb: 'Saved arguments on a spaced schedule.',
     status: reviewStatus(summary, stage),
     cta:
       summary.saved.total === 0

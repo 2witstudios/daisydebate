@@ -67,10 +67,7 @@ export function buildResult(
     kind: 'published',
     headline: `${sideLabel(ballots.winner)} wins, ${ballots.judgesFor} to ${ballots.judgesAgainst}`,
     lines: ratingLines(debate, ballots),
-    note:
-      debate.mode === 'ranked'
-        ? `Ranked, standard rules, season ${season}. Ratings shown are sample values.`
-        : 'Casual debates are not rated, so nothing changes on the ladder.',
+    note: debate.mode === 'ranked' ? `Ranked · season ${season}` : 'Unrated',
     judges: ballots.judges.map((judge, index) => ({
       title: `Judge ${index + 1}`,
       summary: `${sideLabel(judge.winner)} · Aff ${judge.affPoints}, Neg ${judge.negPoints}`,
@@ -80,11 +77,9 @@ export function buildResult(
 }
 
 const DESCRIPTIONS: Readonly<Record<Visibility, string>> = {
-  public: 'Listed in the public archive. Anyone with an account can replay it.',
-  unlisted:
-    'Not listed anywhere. Anyone with an account who has the link can replay it, so share it only with people you trust.',
-  private:
-    'Only the people seated in this debate can replay it. The link stops working for everyone else.',
+  public: 'Anyone with an account can replay it.',
+  unlisted: 'Anyone with the link can replay it.',
+  private: 'Only the debaters can replay it.',
 };
 
 const OPTIONS: readonly {
@@ -95,17 +90,17 @@ const OPTIONS: readonly {
   {
     value: 'public',
     label: 'Public',
-    text: 'Listed in the archive. Anyone with an account can open it.',
+    text: 'Listed in the archive',
   },
   {
     value: 'unlisted',
     label: 'Unlisted',
-    text: 'Not listed. Anyone with an account and the link can open it.',
+    text: 'Link only',
   },
   {
     value: 'private',
     label: 'Private',
-    text: 'Only the people seated. Not available for ranked debates, so their ballots and rating changes can be checked.',
+    text: 'Debaters only. Not for ranked debates.',
   },
 ];
 
@@ -125,7 +120,6 @@ export type SharePanel = {
   }[];
   readonly unchanged: boolean;
   readonly linkPath: string;
-  readonly retention: string;
 };
 
 /** Who can replay, the owner's visibility manager and the link to share. */
@@ -148,8 +142,6 @@ export function buildShare(
     })),
     unchanged: draft === debate.visibility,
     linkPath: replayHref(debate.id),
-    retention:
-      'Kept for [N] days after the debate, then deleted under the retention policy. The result and rating change stay on the ladder.',
   };
 }
 

@@ -9,11 +9,7 @@ import { PreviewHeader, PreviewPage, PreviewRows } from './preview-parts';
 export function PrepPreview() {
   return (
     <PreviewPage>
-      <PreviewHeader
-        title="Prep"
-        lede="Briefs, cases and evidence cards: your debate library."
-        actions={<Button>New brief</Button>}
-      />
+      <PreviewHeader title="Prep" actions={<Button>New brief</Button>} />
       <div className="flex items-center gap-2 rounded-md bg-surface-sunken px-4 py-3 text-base text-ink-faint">
         <Icon name="search" size={16} />
         Search briefs, cases and evidence cards

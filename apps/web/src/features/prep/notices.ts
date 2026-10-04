@@ -31,7 +31,7 @@ export const importUnreachable = (
 ): Notice => ({
   tone: 'danger',
   title: 'We could not open that page',
-  body: 'The site did not answer. Check the link, or paste the text you can read.',
+  body: 'The site did not answer.',
   actions: [
     {
       label: 'Try again',
@@ -50,7 +50,7 @@ export const importLoginWall = (
 ): Notice => ({
   tone: 'warning',
   title: 'This page asks for a login',
-  body: `We only saw the first ${words} words. Paste the full text you can read, or upload the PDF.`,
+  body: `We only saw the first ${words} words.`,
   actions: [
     secondary('Paste text', pasteHref),
     {
@@ -65,7 +65,7 @@ export const importLoginWall = (
 export const importScanPdf = (chooseHref: string): Notice => ({
   tone: 'warning',
   title: 'This PDF is a scan with no selectable text',
-  body: 'Text recognition takes about a minute. You check the result before anything is saved.',
+  body: 'Text recognition takes about a minute.',
   actions: [
     secondary('Run text recognition'),
     secondary('Choose another', chooseHref),
@@ -90,7 +90,7 @@ export const importDuplicate = (
 export const citationIncomplete = (missing: string): Notice => ({
   tone: 'warning',
   title: `The ${missing} is missing`,
-  body: 'The card can be saved. It shows an amber mark in the library until it is added.',
+  body: 'You can still save it.',
   actions: [secondary('Add it', '#citation'), secondary('Save anyway')],
 });
 
@@ -112,7 +112,7 @@ export const shareNotAllowed = (
 ): Notice => ({
   tone: 'danger',
   title: 'Only team members can be given access',
-  body: `To share with ${teamName}, ask a team admin to invite you. Your brief stays private to you.`,
+  body: `Ask a ${teamName} admin to invite you.`,
   actions: [
     secondary('Choose another team', chooseHref),
     secondary('Keep private', keepHref),
@@ -122,14 +122,14 @@ export const shareNotAllowed = (
 export const cardDeletedInCase = (): Notice => ({
   tone: 'warning',
   title: 'A card in this case was deleted',
-  body: 'Its slot is kept so speech time stays accurate. Saved versions still hold their own copy.',
+  body: 'Its slot is kept.',
   actions: [secondary('Replace card'), secondary('Remove slot')],
 });
 
 export const deleteInUse = (uses: number, keepHref: string): Notice => ({
   tone: 'danger',
   title: `This card is used in ${uses} ${uses === 1 ? 'place' : 'places'}`,
-  body: 'Briefs show a removed-card placeholder. Saved case versions keep their copy. This cannot be undone.',
+  body: 'This cannot be undone.',
   actions: [
     { label: 'Delete card', variant: 'danger' },
     secondary('Keep card', keepHref),
@@ -144,7 +144,7 @@ export const caseChangedElsewhere = (
 ): Notice => ({
   tone: 'info',
   title: 'This case changed elsewhere',
-  body: `You saved v${latest} on another device. This debate keeps v${pinned} so your notes stay where you expect.`,
+  body: `You saved v${latest} on another device.`,
   actions: [
     secondary(`Switch to v${latest}`, switchHref),
     { label: `Keep v${pinned}`, variant: 'ghost', href: keepHref },

@@ -6,19 +6,18 @@ import { IconButtonInert } from './icon-button-inert';
 setupRitewayBun();
 
 describe('IconButtonInert', () => {
-  test('named, disabled and explained', () => {
+  test('named and disabled', () => {
     const html = renderToString(
       h(IconButtonInert, { label: 'Detach card', symbol: 'x' }),
     );
     assert({
       given: 'a detach control',
-      should: 'be a disabled button with an accessible name and a reason',
+      should: 'be a disabled button with an accessible name',
       actual: [
         /<button [^>]*disabled=""/.test(html),
         html.includes('aria-label="Detach card"'),
-        html.includes('Detach card needs the Prep service'),
       ],
-      expected: [true, true, true],
+      expected: [true, true],
     });
   });
 });

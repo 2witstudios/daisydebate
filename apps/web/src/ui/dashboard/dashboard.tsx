@@ -35,18 +35,13 @@ export function Dashboard({
         ) : (
           <ComingSoonCard
             title="Featured tournament"
-            body="The next big event will be featured here, with its bracket and how to enter."
             href={explainerHref('tournaments')}
           />
         )}
         {launched.watch ? (
           <LiveNow />
         ) : (
-          <ComingSoonCard
-            title="Live now"
-            body="Debates in progress will appear here so you can jump in and watch."
-            href={explainerHref('watch')}
-          />
+          <ComingSoonCard title="Live now" href={explainerHref('watch')} />
         )}
       </div>
     </div>

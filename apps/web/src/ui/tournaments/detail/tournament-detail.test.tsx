@@ -82,7 +82,7 @@ describe('TournamentDetail', () => {
       given: 'an open tournament and a live one',
       should: 'explain the post time, then link to the bracket',
       actual: [
-        before.includes('The bracket posts when registration closes'),
+        before.includes('Bracket not posted yet'),
         before.includes('Get a message when it posts'),
         after.includes('href="/tournaments/harvest-cup/bracket"'),
       ],
@@ -97,7 +97,7 @@ describe('TournamentDetail', () => {
       should: 'show the custom rules card, the judging card and six headings',
       actual: [
         html.includes('Custom rules'),
-        html.includes('Judges are assigned by Daisy'),
+        html.includes('Judges are assigned'),
         html.match(/<h2 /g)?.length,
       ],
       expected: [true, true, 6], // five rule cards and the registration panel

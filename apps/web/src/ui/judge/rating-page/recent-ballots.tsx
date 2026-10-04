@@ -63,9 +63,6 @@ export function RecentBallots({ ballots }: RecentBallotsProps) {
           </li>
         ))}
       </ul>
-      <p className="border-t border-border px-5 py-3 text-sm text-ink-faint">
-        Sample data. Comments never show who wrote them.
-      </p>
     </section>
   );
 }

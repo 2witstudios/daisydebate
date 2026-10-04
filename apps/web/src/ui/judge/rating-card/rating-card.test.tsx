@@ -18,7 +18,7 @@ describe('RatingCard', () => {
         html.includes('Provisional'),
         html.includes('7 of 15 ballots with feedback to become established'),
         html.includes('aria-valuenow="47"'),
-        html.includes('Private to you. Sample data.'),
+        html.includes('Private to you'),
         /<a [^>]*href="\/judge\/rating"[^>]*>Rating and recent ballots/.test(
           html,
         ),

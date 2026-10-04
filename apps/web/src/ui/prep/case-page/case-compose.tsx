@@ -73,8 +73,7 @@ export function CaseCompose({ view }: { readonly view: CaseView }) {
           label="Reading time"
           clock={time.clock}
           budget={time.budget}
-          overText={`Over [speech time] by [${time.overClock}].`}
-          spareText="Within the speech time."
+          overText={`${time.overClock} over`}
         />
       </div>
       <ul
@@ -85,10 +84,6 @@ export function CaseCompose({ view }: { readonly view: CaseView }) {
           <Row key={row.id} row={row} />
         ))}
       </ul>
-      <p className="text-xs text-ink-faint">
-        Use the arrows to reorder. Each block is a live link: editing the brief
-        updates it here until you save a version.
-      </p>
     </div>
   );
 }

@@ -23,24 +23,24 @@ export const rankedRules = ({
     id: 'standard-rules',
     icon: 'book',
     title: 'Standard rules',
-    body: 'Every ranked debate runs the same standard rules, with nothing customised, so a rating means the same thing for everyone. Only casual tables can use custom rules.',
+    body: 'Every ranked debate uses the standard rules. Custom rules are for casual tables.',
   },
   {
     id: 'assigned-judge',
     icon: 'gavel',
     title: 'Assigned judge',
-    body: 'Daisy assigns the judge. You cannot choose or request one, and judges never see ratings while judging.',
+    body: 'You cannot choose a judge. Judges never see ratings.',
   },
   {
     id: 'conduct',
     icon: 'users',
     title: 'Conduct',
-    body: `One debater profile per person, human debaters only, no outside help. Be in the room within ${checkInGraceSeconds} seconds of a speech starting or it is a forfeit, which counts as a rated loss.`,
+    body: `One profile per person, no outside help. Missing a speech by ${checkInGraceSeconds} seconds is a forfeit and a rated loss.`,
   },
   {
     id: 'how-it-works',
     icon: 'chart',
     title: 'How ranked works',
-    body: `You have one rating per season. It is provisional until you finish ${provisionalDebates} ranked debates, then established. You are matched near your rating, and a new season starts ratings fresh.`,
+    body: `One rating per season, provisional for your first ${provisionalDebates} debates. You are matched near your rating.`,
   },
 ];

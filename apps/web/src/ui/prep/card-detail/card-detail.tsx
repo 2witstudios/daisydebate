@@ -51,7 +51,7 @@ function Provenance({ view }: { readonly view: CardDetailView }) {
             'Source copy',
             <span key="copy" className="inline-flex items-center gap-1">
               <PrepIcon name="check" size={14} className="text-online" />
-              Full text saved when you added the card. Words unchanged.
+              Saved, unchanged
             </span>,
           ],
           ['Link check', `Reachable on ${card.retrieved}`],
@@ -120,7 +120,7 @@ export function CardDetail({ view }: { readonly view: CardDetailView }) {
             className="flex flex-wrap items-center gap-3 rounded-md border border-gold-border bg-gold-soft p-4 text-sm"
           >
             <PrepIcon name="history" size={18} className="text-gold" />
-            {`You are looking at version ${view.pastVersion.version}, not the current card.`}
+            {`Version ${view.pastVersion.version}`}
             <Link href={view.pastVersion.currentHref}>
               Back to the current version
             </Link>
@@ -145,7 +145,7 @@ export function CardDetail({ view }: { readonly view: CardDetailView }) {
               <SourceText segments={view.readSegments} />
             </p>
             <p className="text-sm text-ink-faint">
-              {`Reads in about ${view.readClock}. Underlined text and the rest of the source are hidden in this view. Choose Full source to see them.`}
+              {`Reads in about ${view.readClock}`}
             </p>
           </section>
         ) : null}
@@ -199,11 +199,6 @@ export function CardDetail({ view }: { readonly view: CardDetailView }) {
                 </li>
               ))}
             </ul>
-          )}
-          {card.uses.length === 0 ? null : (
-            <p className="text-xs text-ink-faint">
-              {`Changing this card updates all ${card.uses.length}. Each case version keeps the card as it was saved.`}
-            </p>
           )}
         </section>
         <section className="flex flex-col gap-3">

@@ -18,9 +18,7 @@ export function MatchEnded({ screen }: { readonly screen: EndedScreen }) {
       <h1 className={cn(cardTitleClass, 'text-2xl')}>
         The match did not go ahead
       </h1>
-      <p className="text-md text-ink-muted">
-        It was declined or timed out. Nothing changed on your rating.
-      </p>
+      <p className="text-md text-ink-muted">It was declined or timed out.</p>
       <Link
         href={screen.restartHref}
         className={linkButtonClass('primary', 'w-full')}

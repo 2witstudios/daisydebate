@@ -39,9 +39,7 @@ function Banners({ view }: SpectateProps) {
       {view.connection === 'reconnecting' ? (
         <div role="status" className={strip}>
           <span className="text-base text-ink-muted">
-            <b className="text-ink">Connection lost. Reconnecting.</b> Your
-            place in the room is kept. The clock and speeches catch up when you
-            are back.
+            <b className="text-ink">Connection lost. Reconnecting.</b>
           </span>
           <ActionLink href={liveHref(view.id)}>Try now</ActionLink>
         </div>
@@ -49,9 +47,7 @@ function Banners({ view }: SpectateProps) {
       {banner?.kind === 'pending' ? (
         <div role="status" className={strip}>
           <span className="text-base text-ink-muted">
-            <b className="text-ink">This debate has ended.</b> Judges are
-            finishing their ballots. The result appears here once every ballot
-            is in, so nobody sees a partial count.
+            <b className="text-ink">This debate has ended.</b>
           </span>
           <ActionLink href={banner.replayHref}>Open the recording</ActionLink>
         </div>
@@ -139,9 +135,9 @@ export function Spectate({ view }: SpectateProps) {
         </h1>
         <p className="text-base text-ink-muted">{view.subtitle}</p>
       </header>
-      <p className="flex items-start gap-2 rounded-md bg-surface-overlay p-3 text-sm text-ink-muted">
-        <Icon name="clock" size={16} className="mt-1 shrink-0" />
-        {`You are about ${view.about.delaySeconds} seconds behind the debate, so nothing you post can reach a debater. Chat and reactions are for spectators only. Debaters and judges see reactions after the debate ends, and never see chat. Ratings shown are the debaters' ratings for this season.`}
+      <p className="flex items-center gap-2 text-sm text-ink-muted">
+        <Icon name="clock" size={16} className="shrink-0" />
+        {`${view.about.delaySeconds} s delay`}
       </p>
       <Banners view={view} />
       <div className="flex items-start gap-6 max-compact:flex-col">
@@ -178,10 +174,6 @@ export function Spectate({ view }: SpectateProps) {
             <p>{`Rules: ${view.about.rules}`}</p>
             <p>{`Season ${view.about.season}`}</p>
             <p>{`Delay ${view.about.delaySeconds} s`}</p>
-            <p>
-              Anyone with an account can watch a public debate. Private debates
-              never appear here.
-            </p>
           </section>
         </div>
         <Chat
@@ -207,7 +199,7 @@ export function Spectate({ view }: SpectateProps) {
           role="status"
           className="fixed right-4 bottom-4 z-50 rounded-md bg-surface-raised p-4 text-base text-ink shadow-3"
         >
-          Report sent. Moderators will review it.
+          Report sent
         </div>
       ) : null}
     </div>

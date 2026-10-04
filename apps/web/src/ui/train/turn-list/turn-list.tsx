@@ -28,7 +28,7 @@ export type TurnListProps = {
 /** The debate's turns, in order, with where it stands. */
 export function TurnList({ rows, note, footer }: TurnListProps) {
   return (
-    <TrainCard title="Turns" sample>
+    <TrainCard title="Turns">
       {note ? <p className="text-sm text-ink-muted">{note}</p> : null}
       <ol className="flex flex-col gap-1">
         {rows.map((row) => (

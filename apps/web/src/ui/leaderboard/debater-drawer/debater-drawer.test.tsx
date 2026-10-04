@@ -110,13 +110,12 @@ describe('DebaterDrawer', () => {
     const html = render('sam', 2, { username: 'sam', blinded: [] });
     assert({
       given: 'a season before the viewer’s first debate',
-      should: 'say so and that only ranked debates count',
+      should: 'say so',
       actual: [
         html.includes('You have no ranked debates in Season 2.'),
-        html.includes('Only ranked debates count toward a rating.'),
         html.includes('role="img"'),
       ],
-      expected: [true, true, false],
+      expected: [true, false],
     });
   });
 

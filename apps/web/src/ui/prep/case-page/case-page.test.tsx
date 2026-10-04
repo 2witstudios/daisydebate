@@ -37,7 +37,7 @@ describe('CasePage compose', () => {
         html.includes('Shared with [Team name]: can comment'),
         html.includes('href="/prep/cases/aff-rights?view=compare"'),
         html.includes('href="/prep/cases/aff-rights?speech=s2"'),
-        html.includes('Over [speech time] by ['),
+        /\d+:\d\d over/.test(html),
         html.includes('aria-label="Add from your library"'),
         html.includes('Save as v5'),
         html.includes('Unsaved changes:'),
@@ -100,9 +100,8 @@ describe('CasePage compare', () => {
         /<del[^>]*> ?outweigh<\/del>/.test(html),
         /<ins[^>]*> ?defeat<\/ins>/.test(html),
         html.includes('Restore v3 as a new version'),
-        html.includes('Restoring never deletes anything.'),
       ],
-      expected: [true, true, true, true, true, true, true, true, true],
+      expected: [true, true, true, true, true, true, true, true],
     });
   });
 
@@ -125,15 +124,15 @@ describe('CasePage compare', () => {
     const html = render('aff-rights', { view: 'compare', from: '4', to: '4' });
     assert({
       given: 'v4 against v4',
-      should: 'say nothing changed',
-      actual: html.includes('Nothing changed between them.'),
+      should: 'say there are no changes',
+      actual: html.includes('No changes'),
       expected: true,
     });
   });
 });
 
 describe('CasePage export', () => {
-  test('formats, options and the file-you-hold warning', () => {
+  test('formats, options and the export warning', () => {
     const html = render('aff-rights', { view: 'export' });
     assert({
       given: 'the export view',
@@ -143,8 +142,8 @@ describe('CasePage export', () => {
         html.includes('href="/prep/cases/aff-rights?view=export&amp;fmt=flow"'),
         html.match(/type="checkbox"/g)?.length,
         html.includes('name="set" value="1"'),
-        html.includes('[SPEECH 1] · [SPEECH TIME]'),
-        html.includes('An export is a file you hold'),
+        html.includes('[SPEECH 1]'),
+        html.includes('Exports cannot be taken back once shared.'),
         html.match(
           /<button [^>]*disabled=""[^>]*>.*?(Export PDF|Print|Copy as text)/gs,
         )?.length,

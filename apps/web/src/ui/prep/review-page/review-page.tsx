@@ -47,7 +47,6 @@ export function ReviewPage({ view }: { readonly view: ReviewView }) {
         <p className="flex flex-wrap items-center gap-3 text-sm text-ink-muted">
           <Badge tone="accent">{view.sharedLine}</Badge>
           You are the owner.
-          {view.threads.length > 0 ? ' Others can comment.' : ''}
         </p>
         {contention === null ? null : (
           <section

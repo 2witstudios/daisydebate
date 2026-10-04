@@ -4,13 +4,12 @@ import type { Tournament } from '../../../features/tournaments/tournament';
 import { Breadcrumb } from '../breadcrumb/breadcrumb';
 import { InertAction } from '../inert-action/inert-action';
 import { LinkButton } from '../link-button/link-button';
-import { Notice } from '../notice/notice';
+
 import { PageFrame } from '../page-frame/page-frame';
 
 type Copy = {
   readonly title: string;
-  readonly body: string;
-  readonly notice: string | null;
+  readonly body: string | null;
   readonly confirm: 'withdraw' | 'withdrawLate' | 'leaveWaitlist' | null;
   readonly reason: boolean;
   readonly keep: string;
@@ -21,8 +20,7 @@ function copyFor(screen: WithdrawScreen, tournament: Tournament): Copy {
     case 'before-bracket':
       return {
         title: `Withdraw from ${tournament.name}?`,
-        body: 'Your place goes to the first person on the waitlist. You can register again while places remain.',
-        notice: 'Registration is open, so this costs you nothing.',
+        body: 'Your place goes to the next person on the waitlist.',
         confirm: 'withdraw',
         reason: false,
         keep: 'Keep my place',
@@ -30,8 +28,7 @@ function copyFor(screen: WithdrawScreen, tournament: Tournament): Copy {
     case 'leave-waitlist':
       return {
         title: `Leave the waitlist of ${tournament.name}?`,
-        body: `You give up position ${screen.position}. You can join the waitlist again while the tournament is full and registration is open.`,
-        notice: null,
+        body: `You give up position ${screen.position}.`,
         confirm: 'leaveWaitlist',
         reason: false,
         keep: 'Stay on the waitlist',
@@ -39,8 +36,7 @@ function copyFor(screen: WithdrawScreen, tournament: Tournament): Copy {
     case 'after-bracket':
       return {
         title: 'Withdraw after the bracket is out?',
-        body: `${screen.opponent ? `Your round 1 opponent, @${screen.opponent}, is given a bye` : 'Your round 1 opponent is given a bye'} and the organizer is told. A late withdrawal is recorded on the tournament log.`,
-        notice: null,
+        body: `${screen.opponent ? `@${screen.opponent} gets a bye in round 1` : 'Your round 1 opponent gets a bye'}. Late withdrawals are recorded in the tournament log.`,
         confirm: 'withdrawLate',
         reason: true,
         keep: 'Keep my place',
@@ -48,8 +44,7 @@ function copyFor(screen: WithdrawScreen, tournament: Tournament): Copy {
     case 'not-entered':
       return {
         title: `You are not entered in ${tournament.name}`,
-        body: 'There is nothing to withdraw from.',
-        notice: null,
+        body: null,
         confirm: null,
         reason: false,
         keep: 'Back to the tournament',
@@ -88,12 +83,13 @@ export function WithdrawPage({
         >
           {copy.title}
         </h1>
-        <p className="text-base text-ink-muted">{copy.body}</p>
-        {copy.notice ? <Notice icon="check">{copy.notice}</Notice> : null}
+        {copy.body ? (
+          <p className="text-base text-ink-muted">{copy.body}</p>
+        ) : null}
         {copy.reason ? (
           <div className="flex flex-col gap-2">
             <label htmlFor="reason" className="text-base font-strong text-ink">
-              Reason (optional, shown to the organizer only)
+              Reason (optional, organizer only)
             </label>
             <input
               id="reason"
@@ -102,10 +98,6 @@ export function WithdrawPage({
               placeholder="For example: illness"
               className="h-10 rounded-md border border-border bg-surface-raised px-3 text-base text-ink disabled:opacity-60"
             />
-            <p className="text-sm text-ink-faint">
-              Recording a reason needs the registration service, so this box is
-              off for now.
-            </p>
           </div>
         ) : null}
         <div className="flex flex-wrap gap-3">

@@ -32,10 +32,6 @@ export function SpectateRefusal({ screen }: SpectateRefusalProps) {
             </>
           }
         >
-          <p>
-            Live rooms need an account so chat stays accountable and debaters
-            can be protected.
-          </p>
           {screen.teaser ? (
             <p className="rounded-md bg-surface-overlay p-3 text-sm">
               <span className="font-strong text-live">Live</span>{' '}
@@ -59,12 +55,7 @@ export function SpectateRefusal({ screen }: SpectateRefusalProps) {
               </ActionLink>
             </>
           }
-        >
-          <p>
-            It may be private, it may have been removed, or the link may be
-            wrong. Daisy does not say which, so private debates stay private.
-          </p>
-        </StateCard>
+        />
       );
     case 'conflict':
       return (
@@ -80,13 +71,7 @@ export function SpectateRefusal({ screen }: SpectateRefusalProps) {
               {backToLive('Back to live debates')}
             </>
           }
-        >
-          <p>
-            You are seated in it or assigned to judge it. To keep the round
-            fair, debaters and judges never watch their own debate as
-            spectators.
-          </p>
-        </StateCard>
+        />
       );
     case 'revoked':
       return (
@@ -95,13 +80,7 @@ export function SpectateRefusal({ screen }: SpectateRefusalProps) {
           level="h1"
           title="You can no longer watch this debate"
           actions={backToLive('See live debates')}
-        >
-          <p>
-            The host changed who can watch it, so your access ended. Nothing you
-            posted in chat is shown any more. Other public debates are still
-            live.
-          </p>
-        </StateCard>
+        />
       );
     case 'full':
       return (
@@ -110,12 +89,7 @@ export function SpectateRefusal({ screen }: SpectateRefusalProps) {
           level="h1"
           title="This debate is full of spectators"
           actions={backToLive('Back to live debates')}
-        >
-          <p>
-            It has reached its limit of [N] spectators. Try again in a moment,
-            or watch the recording once it ends. Debaters are never affected.
-          </p>
-        </StateCard>
+        />
       );
     case 'upcoming':
       return (
@@ -125,9 +99,7 @@ export function SpectateRefusal({ screen }: SpectateRefusalProps) {
           title="This debate has not started"
           actions={backToLive('See live debates')}
         >
-          <p>
-            {`${screen.title} begins when both debaters are ready. Stay on this page and you will be taken in as soon as it starts. Spectators join about 30 seconds behind the debaters.`}
-          </p>
+          <p>{screen.title}</p>
           <ul className="mt-2 flex flex-col gap-2 text-left">
             {screen.seats.map((seat) => (
               <li

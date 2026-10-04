@@ -107,8 +107,7 @@ export const sampleResults = (
         ? {
             honour: 'Runner-up',
             headline: 'You placed second.',
-            summary:
-              'You won 3 of 4 rounds and lost the final to @debater-c. The Runner-up honour is now on your profile.',
+            summary: 'Won 3 of 4 rounds. Lost the final to @debater-c.',
             rounds: [
               { label: 'Round of 16', opponent: 'debater-k', result: 'Won' },
               { label: 'Quarterfinal', opponent: 'debater-h', result: 'Won' },

@@ -153,7 +153,7 @@ describe('configParams and practiceHref', () => {
 });
 
 describe('summary', () => {
-  test('rows and note', () => {
+  test('rows', () => {
     const summary = practiceSummary({
       ...defaultConfig,
       side: 'random',
@@ -162,17 +162,14 @@ describe('summary', () => {
     });
     assert({
       given: 'a random side, both seats and hints off',
-      should: 'say each choice and the sandbox-seat note',
-      actual: [summary.rows.map(([, value]) => value), summary.note],
+      should: 'say each choice',
+      actual: summary.rows.map(([, value]) => value),
       expected: [
-        [
-          'Random, picked at the start',
-          'Cities should fund public transit before roads.',
-          'You, on both sides (two sandbox seats)',
-          'Coach prompts on, hints off',
-          'Standard rules',
-        ],
-        'Two sandbox seats are made for you. Nobody else can join.',
+        'Random',
+        'Cities should fund public transit before roads.',
+        'You, on both sides',
+        'Coach prompts on, hints off',
+        'Standard rules',
       ],
     });
   });

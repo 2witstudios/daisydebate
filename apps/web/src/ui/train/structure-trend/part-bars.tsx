@@ -23,10 +23,8 @@ export function PartBars({ parts }: PartBarsProps) {
     entry[1] < low[1] ? entry : low,
   )[0];
   return (
-    <TrainCard title="Strongest and weakest parts" level={3} sample>
-      <p className="text-sm text-ink-muted">
-        Complete on the first check, last 30 days.
-      </p>
+    <TrainCard title="Strongest and weakest parts" level={3}>
+      <p className="text-sm text-ink-muted">Last 30 days</p>
       <ul className="flex flex-col gap-4">
         {entries.map(([part, value]) => (
           <li key={part} className="flex flex-col gap-2">

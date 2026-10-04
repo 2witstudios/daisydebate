@@ -94,8 +94,8 @@ const headOf = (
 
 const statusNoteFor = (entry: RankedEntry): string =>
   entry.provisional
-    ? `${entry.played} of ${PROVISIONAL_AFTER} ranked debates. Unranked until ${PROVISIONAL_AFTER}.`
-    : 'Rating range is narrow enough to rank.';
+    ? `${entry.played} of ${PROVISIONAL_AFTER} ranked debates`
+    : 'Established';
 
 /** The stats, chart and lists of a debater who played the season. */
 function playerDetail(

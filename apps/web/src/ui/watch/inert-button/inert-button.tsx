@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { inertReason, type InertAction } from '../../../features/watch/actions';
+import type { InertAction } from '../../../features/watch/actions';
 import { cn } from '../../cn';
 import {
   buttonClass,
@@ -14,8 +14,8 @@ export type InertButtonProps = {
 };
 
 /**
- * A control whose operation does not exist yet. It is disabled and says why,
- * to a screen reader and on hover, so it never fakes a mutation.
+ * A control whose operation does not exist yet. It is disabled, so it never
+ * fakes a mutation.
  */
 export function InertButton({
   action,
@@ -23,16 +23,14 @@ export function InertButton({
   className,
   children,
 }: InertButtonProps) {
-  const reason = inertReason(action);
   return (
     <button
       type="button"
       disabled
-      title={reason}
+      data-action={action}
       className={cn(buttonClass(variant), className)}
     >
       {children}
-      <span className="sr-only">{`. ${reason}`}</span>
     </button>
   );
 }

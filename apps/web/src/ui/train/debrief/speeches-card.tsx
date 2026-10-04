@@ -20,11 +20,7 @@ type Props = {
 /** The speeches given, each a link that opens its notes. */
 export function SpeechesCard({ view, config, plan, query }: Props) {
   return (
-    <TrainCard title="Your speeches" sample>
-      <p className="text-sm text-ink-muted">
-        Select a speech to read the coach notes. Opponent speeches are not
-        graded.
-      </p>
+    <TrainCard title="Your speeches">
       <nav aria-label="Your speeches">
         <ul className="flex flex-col gap-2">
           {view.speeches.map((speech) => (

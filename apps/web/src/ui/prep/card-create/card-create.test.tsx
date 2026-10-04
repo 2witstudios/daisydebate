@@ -49,7 +49,7 @@ describe('CardCreate', () => {
       actual: [
         /<form [^>]*method="get"/.test(html),
         html.includes('value="https://x.org/article"'),
-        html.includes('Page fetched.'),
+        html.includes('Page fetched'),
         html.includes('Author A]'),
         html.includes('Next: highlight'),
       ],
@@ -80,12 +80,9 @@ describe('CardCreate', () => {
     const html = render({ src: 'file' });
     assert({
       given: 'the file mode',
-      should: 'offer the dropzone and say nothing is uploaded yet',
-      actual: [
-        html.includes('type="file"'),
-        html.includes('Nothing is uploaded yet'),
-      ],
-      expected: [true, true],
+      should: 'offer the dropzone',
+      actual: html.includes('type="file"'),
+      expected: true,
     });
   });
 
@@ -97,7 +94,7 @@ describe('CardCreate', () => {
         'mark the tool, show words read and read time, and the layered text',
       actual: [
         /aria-current="true"[^>]*>.*Keep, do not read/.test(html),
-        html.includes('at your pace of [160] words a minute'),
+        html.includes(' words · about '),
         html.includes('<mark'),
         html.includes('href="/prep/cards/new?tool=keep"'),
         html.includes('Next: cite and save'),

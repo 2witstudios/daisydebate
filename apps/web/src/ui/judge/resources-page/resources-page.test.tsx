@@ -14,17 +14,14 @@ describe('ResourcesPage', () => {
     assert({
       given: 'the six sample resources',
       should:
-        'have one h1, six cards, the qualify badge once and six inert buttons with reasons',
+        'have one h1, six cards, the qualify badge once and six inert buttons',
       actual: [
         html.match(/<h1 /g)?.length,
         html.match(/<h2 /g)?.length,
         html.split('Needed to qualify').length - 1,
         html.match(/<button [^>]*disabled=""/g)?.length,
-        html.includes('This guide is not written yet.'),
-        html.includes('Practice debates are not recorded yet.'),
-        html.includes('Ratings stay hidden while you judge'),
       ],
-      expected: [1, 6, 1, 6, true, true, true],
+      expected: [1, 6, 1, 6],
     });
   });
 });

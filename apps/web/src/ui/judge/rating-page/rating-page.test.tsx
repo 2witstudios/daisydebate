@@ -12,7 +12,7 @@ describe('RatingPage', () => {
     assert({
       given: 'the sample provisional judge',
       should:
-        'have one h1, the rating, progress, the three inputs, the ballots and the design note',
+        'have one h1, the rating, progress, the three inputs, the ballots and the back link',
       actual: [
         html.match(/<h1 /g)?.length,
         html.includes('1,388'),
@@ -22,10 +22,9 @@ describe('RatingPage', () => {
         html.includes('Review outcomes'),
         html.includes('Agreement with the panel'),
         html.includes('Your recent ballots'),
-        html.includes('Design assumption'),
         /<a [^>]*href="\/judge"/.test(html),
       ],
-      expected: [1, true, true, true, true, true, true, true, true, true],
+      expected: [1, true, true, true, true, true, true, true, true],
     });
   });
 

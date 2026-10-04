@@ -1,4 +1,3 @@
-import { useId } from 'react';
 import type { InertAction } from '../../../features/prep/actions';
 import {
   buttonClass,
@@ -16,10 +15,7 @@ export type InertActionButtonProps = {
   readonly label?: string;
 };
 
-/**
- * A mutation with no backend: a disabled button whose reason is described to
- * assistive tech and shown on hover. It posts nothing.
- */
+/** A mutation with no backend: a disabled button. It posts nothing. */
 export function InertActionButton({
   action,
   variant = 'secondary',
@@ -27,22 +23,14 @@ export function InertActionButton({
   className,
   label,
 }: InertActionButtonProps) {
-  const reasonId = useId();
   return (
-    <>
-      <button
-        type="button"
-        disabled
-        title={action.reason}
-        aria-describedby={reasonId}
-        className={cn(buttonClass(variant), className)}
-      >
-        {symbol === undefined ? null : <PrepIcon name={symbol} size={18} />}
-        {label ?? action.label}
-      </button>
-      <span id={reasonId} className="sr-only">
-        {action.reason}
-      </span>
-    </>
+    <button
+      type="button"
+      disabled
+      className={cn(buttonClass(variant), className)}
+    >
+      {symbol === undefined ? null : <PrepIcon name={symbol} size={18} />}
+      {label ?? action.label}
+    </button>
   );
 }

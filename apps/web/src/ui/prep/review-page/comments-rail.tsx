@@ -21,12 +21,9 @@ export function CommentsRail({ view }: { readonly view: ReviewView }) {
         </h2>
         <p className="text-sm text-ink-muted">{view.threadSummary}</p>
       </div>
-      <p className="text-sm text-ink-muted">
-        Comments reach only people this brief is shared with.
-      </p>
       {view.threads.length === 0 ? (
         <p className="rounded-md border border-border bg-surface p-4 text-sm text-ink-muted">
-          No comments yet. Share the brief and a teammate can start one.
+          No comments yet
         </p>
       ) : (
         <ul className="flex flex-col gap-4">

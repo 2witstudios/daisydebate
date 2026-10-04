@@ -19,16 +19,16 @@ const render = (id: string) => {
 };
 
 describe('WithdrawPage', () => {
-  test('before the bracket: costs nothing, confirm is off, keep links back', () => {
+  test('before the bracket: the place passes on, confirm is off, keep links back', () => {
     const html = render('autumn-open');
     assert({
       given: 'a registered viewer before the bracket',
       should:
-        'explain, disable Withdraw with its reason and link Keep my place',
+        'say the place passes on, disable Withdraw and link Keep my place',
       actual: [
         html.match(/<h1 /g)?.length,
         html.includes('Withdraw from Autumn Open?'),
-        html.includes('Registration is open, so this costs you nothing.'),
+        html.includes('Your place goes to the next person on the waitlist.'),
         /<button type="button" disabled=""[^>]*>Withdraw</.test(html),
         /href="\/tournaments\/autumn-open"[^>]*>Keep my place</.test(html),
       ],
@@ -59,7 +59,7 @@ describe('WithdrawPage', () => {
       actual: [
         html.includes('Withdraw after the bracket is out?'),
         html.includes('@debater-k'),
-        html.includes('recorded on the tournament log'),
+        html.includes('recorded in the tournament log'),
         /<input id="reason"[^>]*disabled=""/.test(html),
         html.includes('Withdraw and give a bye'),
       ],

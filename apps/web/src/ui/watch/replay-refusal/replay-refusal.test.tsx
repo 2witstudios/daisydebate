@@ -33,13 +33,12 @@ describe('ReplayRefusal', () => {
     const page = html('older-round');
     assert({
       given: 'a recording past retention',
-      should: 'say it is no longer kept and that the ladder keeps the result',
+      should: 'say it is no longer kept',
       actual: [
         page.includes('This recording is no longer kept'),
-        page.includes('stay on the ladder'),
         page.includes('Browse recordings'),
       ],
-      expected: [true, true, true],
+      expected: [true, true],
     });
   });
 
