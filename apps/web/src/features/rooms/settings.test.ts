@@ -42,7 +42,7 @@ describe('parseCreateRoom', () => {
   test('each refusal', () => {
     const refusals = [
       { name: 'x'.repeat(61) },
-      { format: 'ipda' },
+      { format: 'parli' },
       { speech: '7' },
       { prep: '9' },
       { judge: 'robot' },

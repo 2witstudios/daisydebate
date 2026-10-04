@@ -4,6 +4,7 @@ import {
   readServerConfig,
   type AuthConfig,
 } from '@daisy/config';
+import { createOpenRouter, type OpenRouter } from '@daisy/ai-voice';
 import { createDatabase } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
 import { createLogger } from '@daisy/logger';
@@ -128,6 +129,7 @@ export function createApp({
       apply: (input) => database.applyEmailDeliveryEvent(input),
     });
   };
+  let aiVoice: OpenRouter | undefined;
   const drainState = createDrainState([database, redis]);
   return {
     config,
@@ -152,6 +154,19 @@ export function createApp({
       const token = readAuth().OPS_PROBE_TOKEN;
       if (!token) throw createAppError('INFRASTRUCTURE');
       return token;
+    },
+    /**
+     * The OpenRouter voice layer for AI debates (AIDB), built on first use;
+     * refuses (AI debates unavailable) when `OPENROUTER_API_KEY` is unset.
+     */
+    aiVoice: (): OpenRouter => {
+      if (!config.OPENROUTER_API_KEY)
+        throw createAppError('INFRASTRUCTURE', 'AI debates are not configured');
+      return (aiVoice ??= createOpenRouter({
+        apiKey: config.OPENROUTER_API_KEY,
+        fetch,
+        appUrl: config.PUBLIC_APP_URL,
+      }));
     },
     /** The Resend delivery webhook; refuses when the signing secret is unset. */
     mailWebhook: () => (mailWebhook ??= composeMailWebhook()),

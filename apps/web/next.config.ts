@@ -20,6 +20,7 @@ const config: NextConfig = {
     },
   },
   transpilePackages: [
+    '@daisy/ai-voice',
     '@daisy/debate-engine',
     '@daisy/protocol',
     '@daisy/errors',
@@ -52,6 +53,17 @@ const config: NextConfig = {
       {
         source: '/auth/confirm',
         headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }],
+      },
+      // AIDB: the AI debate room records the person's voice; every other
+      // page keeps the microphone off (later entries win).
+      {
+        source: '/ai-debate/:id',
+        headers: [
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(self), geolocation=()',
+          },
+        ],
       },
     ];
   },

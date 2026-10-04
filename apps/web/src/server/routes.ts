@@ -6,6 +6,8 @@ import { createUsernameHandler } from '../features/account/username';
 import { createConfirmEmailHandlers } from '../features/auth/confirm-email';
 import { createConfirmHandlers } from '../features/auth/confirm';
 import { createAuthRouteHandlers } from '../features/auth/handlers';
+import { createAiDebateHandlers } from '../features/ai-debate/handlers';
+import { createAiDebateOperations } from '../features/ai-debate/operations';
 import { createProofHandlers } from '../features/foundation/handlers';
 import { createAlertsHandler } from '../features/ops/alerts';
 import { createMetricsHandler } from '../features/ops/metrics';
@@ -22,6 +24,12 @@ import { createReadinessHandler } from './readiness';
  */
 export function createRoutes(app: App) {
   const { logger, database } = app;
+  const aiDebateOperations = createAiDebateOperations({
+    store: database,
+    voice: app.aiVoice,
+    clock: app.clock,
+    ids: app.ids,
+  });
   const origin = () => app.auth().config.PUBLIC_APP_URL;
   const confirmAuth = () => {
     const { instance, config } = app.auth();
@@ -94,6 +102,14 @@ export function createRoutes(app: App) {
           ),
       }),
     },
+    aiDebate: createAiDebateHandlers({
+      logger,
+      origin,
+      identify: (request) => identify(app.auth(), request.headers),
+      limiter: () => app.auth().limiter,
+      getActorByUserId: (userId) => database.getActorByUserId(userId),
+      operations: () => aiDebateOperations,
+    }),
     /** Provider-signed, server-to-server: authenticity replaces the origin check. */
     mailWebhook: {
       POST: (request: Request) =>

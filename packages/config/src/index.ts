@@ -99,6 +99,9 @@ const serverFields = {
     .default('false')
     .transform((value) => value === 'true'),
   PUBLIC_APP_URL: z.url(),
+  // AIDB: OpenRouter for AI debates (chat, TTS, STT). Optional: without it
+  // AI debates are unavailable and nothing calls out.
+  OPENROUTER_API_KEY: secret(z.string().regex(/^\S+$/)).optional(),
 };
 const serverConfigSchema = z
   .object(serverFields)

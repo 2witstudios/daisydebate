@@ -153,3 +153,16 @@ export function createDebateRuntime(input: {
     participants: [],
   });
 }
+
+export {
+  acceptAiDebateCommand,
+  aiDebateLongestMs,
+  deriveAiDebate,
+  aiDebateCountdownMs,
+  aiDebateTurns,
+  turnRoles,
+  type AiDebateCommand,
+  type AiDebateSide,
+  type AiDebateState,
+  type AiDebateTurn,
+} from './ai-debate';

@@ -56,7 +56,7 @@ describe('hrefs', () => {
         selectBotHref('bram'),
         debateBotHref('bram'),
       ],
-      expected: ['/train', '/train?bot=bram', '/train/practice?bot=bram'],
+      expected: ['/train', '/train?bot=bram', '/ai-debate?bot=bram'],
     });
   });
 });

@@ -17,12 +17,13 @@ describe('BotSelectorPage', () => {
     const html = render('wren');
     assert({
       given: 'wren chosen',
-      should: 'show its personality, voice and traits and link to a practice',
+      should:
+        'show its personality, voice and traits and link to a debate against it',
       actual: [
         html.includes('Quick-witted and dry'),
         html.includes('Crisp and quick, with a dry edge'),
         html.includes('Witty'),
-        html.includes('href="/train/practice?bot=wren"'),
+        html.includes('href="/ai-debate?bot=wren"'),
         html.includes('Debate Wren'),
       ],
       expected: [true, true, true, true, true],
