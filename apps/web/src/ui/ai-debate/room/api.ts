@@ -134,3 +134,5 @@ export const aiDebateApi = {
     return (await response.json()) as Ballot;
   },
 };
+
+export type AiDebateApi = typeof aiDebateApi;

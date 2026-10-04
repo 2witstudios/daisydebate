@@ -1,4 +1,5 @@
 import { signUpMember } from './support/accounts';
+import { fakeVoiceFile } from './support/fake-voice';
 import { expect, test } from './support/fixtures';
 import {
   STUB_BALLOT,
@@ -7,7 +8,7 @@ import {
   STUB_TRANSCRIPT,
 } from './support/openrouter-stub';
 
-// Chromium's fake microphone (a steady tone) stands in for the person, and
+// Chromium's fake microphone (a voice-like sound) stands in for the person, and
 // the server's OpenRouter stub stands in for the AI, so the real routes,
 // timeline, recorder, player and turn-taking run end to end.
 test.use({
@@ -16,6 +17,7 @@ test.use({
       '--ignore-certificate-errors',
       '--use-fake-ui-for-media-stream',
       '--use-fake-device-for-media-stream',
+      `--use-file-for-fake-audio-capture=${fakeVoiceFile()}`,
     ],
   },
   permissions: ['microphone'],
@@ -75,10 +77,10 @@ test('a member picks a Train bot, plays a full debate against it by voice and ge
     afterCountdown,
   );
   await expect(page.getByText('left in your speech')).toBeVisible();
-  // Chromium's fake microphone beeps briefly about once a second, and a
-  // clip with under 500 ms of voice is dropped as silence, so it "speaks"
-  // for eight seconds to clear that bar with room to spare.
-  await page.waitForTimeout(8_000);
+  // The fake microphone plays a voice-like sound (support/fake-voice.ts);
+  // a clip with under 500 ms of voice is dropped as silence, so it speaks
+  // for three seconds.
+  await page.waitForTimeout(3_000);
   await end(page, 'End my speech');
 
   // First CX: the AI asks its opening question out loud.

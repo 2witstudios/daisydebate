@@ -8,6 +8,7 @@ import {
   selectBotHref,
   type Bot,
 } from '../../../features/train/bots';
+import { trainDestinations } from '../../../features/train/actions';
 import { Badge } from '../../components/badge/badge';
 import { PageHeader } from '../../components/page-header/page-header';
 import { TrainCard } from '../../train/card/train-card';
@@ -38,8 +39,9 @@ function StageNotes({
   const live = state.phase === 'live';
   const cx =
     live && aiDebateTurns[state.turnIndex]?.kind === 'cross-examination';
+  // The clock is not announced (it changes every second); what happens is.
   return (
-    <div aria-live="polite" className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3">
       {view ? (
         <RoundClock
           state={state}
@@ -47,19 +49,21 @@ function StageNotes({
           opponent={bot.name}
         />
       ) : null}
-      {status ? <p className="text-ink">{status}</p> : null}
-      {caption && live ? (
-        <blockquote className="rounded-md border border-border bg-surface-sunken p-4 text-lg text-ink">
-          {caption}
-        </blockquote>
-      ) : null}
-      {problem ? <p className="text-sm text-live">{problem}</p> : null}
-      {cx && !headset ? (
-        <p className="text-sm text-ink-muted">
-          Tip: headphones stop {bot.name}&apos;s voice from echoing into your
-          microphone.
-        </p>
-      ) : null}
+      <div aria-live="polite" className="flex flex-col gap-3">
+        {status ? <p className="text-ink">{status}</p> : null}
+        {caption && live ? (
+          <blockquote className="rounded-md border border-border bg-surface-sunken p-4 text-lg text-ink">
+            {caption}
+          </blockquote>
+        ) : null}
+        {problem ? <p className="text-sm text-live">{problem}</p> : null}
+        {cx && !headset ? (
+          <p className="text-sm text-ink-muted">
+            Tip: headphones stop {bot.name}&apos;s voice from echoing into your
+            microphone.
+          </p>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -74,10 +78,23 @@ export function AiDebateRoom({ id }: { readonly id: string }) {
     store.getServerSnapshot,
   );
   const { view, state, ballot } = snapshot;
+  if (snapshot.missing)
+    return (
+      <TrainPage>
+        <PageHeader title="This debate is not here" />
+        <p className="text-ink-muted">
+          It may have been removed, or it belongs to someone else.
+        </p>
+        <Link href={trainDestinations.bots}>Back to Train</Link>
+      </TrainPage>
+    );
   if (!view)
     return (
       <TrainPage>
         <p className="text-ink-muted">Loading your debate…</p>
+        {snapshot.problem ? (
+          <p className="text-sm text-live">{snapshot.problem}</p>
+        ) : null}
       </TrainPage>
     );
   const bot = botSelector(view.opponent).selected;
@@ -120,8 +137,7 @@ export function AiDebateRoom({ id }: { readonly id: string }) {
             onRejoin: () => void store.join(false),
             onStartSpeech: () => void store.command({ type: 'startSpeech' }),
             onYield: () => {
-              if (turnIndex !== null)
-                void store.command({ type: 'yield', turnIndex });
+              if (turnIndex !== null) void store.finishTurn(turnIndex);
             },
             onAbort: () => void store.command({ type: 'abort' }),
           }}

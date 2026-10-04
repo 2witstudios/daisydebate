@@ -220,3 +220,14 @@ export const collect = async <T>(source: AsyncIterable<T>) => {
   for await (const item of source) items.push(item);
   return items;
 };
+
+/** A debate with the AI on the affirmative whose AC speech has been written. */
+export const withSpokenAc = async () => {
+  const context = setup({ personSide: 'negative' });
+  const id = await context.begin();
+  const events = await collect(
+    context.operations.speech({ actorId: 'actor-1', id, turnIndex: 0 }),
+  );
+  const utteranceId = events[0]?.type === 'utterance' ? events[0].id : '';
+  return { ...context, id, events, utteranceId };
+};

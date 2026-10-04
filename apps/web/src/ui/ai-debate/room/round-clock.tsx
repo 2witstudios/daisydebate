@@ -122,7 +122,7 @@ export function RoundClock({
   return (
     <div className="flex flex-col gap-3">
       {reading ? (
-        <p className="flex items-baseline gap-2">
+        <p role="timer" className="flex items-baseline gap-2">
           <span
             className={cn(
               'font-display text-display-sm font-strong tabular-nums transition-colors',

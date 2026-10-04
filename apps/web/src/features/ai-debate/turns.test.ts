@@ -1,19 +1,18 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { collect, scriptedVoice, setup } from './operations.test-support';
+import {
+  collect,
+  scriptedVoice,
+  setup,
+  withSpokenAc,
+} from './operations.test-support';
 
 setupRitewayBun();
 
 describe('the AI speech', () => {
   test('streams sentences, saves them and voices one sentence', async () => {
-    const { operations, begin, store, voice } = setup({
-      personSide: 'negative',
-    });
-    const id = await begin();
-    const events = await collect(
-      operations.speech({ actorId: 'actor-1', id, turnIndex: 0 }),
-    );
-    const utteranceId = events[0]?.type === 'utterance' ? events[0].id : '';
+    const { operations, id, store, voice, events, utteranceId } =
+      await withSpokenAc();
     assert({
       given: 'the countdown into the AC with the AI on the affirmative',
       should:

@@ -7,7 +7,7 @@ import {
   type AiDebateState,
 } from '@daisy/debate-engine';
 import type { AiDebateView } from '../../../features/ai-debate/operations';
-import { aiDebateApi, AiDebateRequestError } from './api';
+import { aiDebateApi, AiDebateRequestError, type AiDebateApi } from './api';
 import { openAudioEngine, type AudioEngine } from './audio';
 import {
   runAiSpeech,
@@ -28,13 +28,15 @@ export type RoomSnapshot = {
   readonly ballot: Ballot | null;
   readonly joined: boolean;
   readonly busy: boolean;
+  /** The debate does not exist, or is not this person's. */
+  readonly missing: boolean;
   /** The opponent's voice is playing. */
   readonly speaking: boolean;
   /** The microphone's level, 0..1, while joined. */
   readonly level: number;
 };
 
-export type RoomCommand = Parameters<typeof aiDebateApi.command>[2];
+export type RoomCommand = Parameters<AiDebateApi['command']>[2];
 
 const initial: RoomSnapshot = {
   view: null,
@@ -46,6 +48,7 @@ const initial: RoomSnapshot = {
   ballot: null,
   joined: false,
   busy: false,
+  missing: false,
   speaking: false,
   level: 0,
 };
@@ -69,6 +72,8 @@ type Turn = {
   readonly controller: AbortController | null;
   readonly goLive: () => void;
   wentLive: boolean;
+  /** Wraps the turn up early, when its controller registered how. */
+  finish: (() => Promise<void>) | null;
 };
 
 const idle = (key: string): Turn => ({
@@ -76,6 +81,7 @@ const idle = (key: string): Turn => ({
   controller: null,
   goLive: () => undefined,
   wentLive: false,
+  finish: null,
 });
 
 /**
@@ -83,18 +89,34 @@ const idle = (key: string): Turn => ({
  * refreshed after every action), the timeline folded each tick on the
  * server's clock, the controller for the live turn, and the ballot.
  */
+/** Runs `run` every `ms` milliseconds; returns the stop. */
+type Every = (run: () => void, ms: number) => () => void;
+
+const everyInterval: Every = (run, ms) => {
+  const handle = setInterval(run, ms);
+  return () => clearInterval(handle);
+};
+
 export function createRoomStore({
   id,
   clock = systemClock,
+  api = aiDebateApi,
+  openEngine = openAudioEngine,
+  every = everyInterval,
 }: {
   readonly id: string;
   readonly clock?: Clock;
+  readonly api?: AiDebateApi;
+  readonly openEngine?: () => Promise<AudioEngine>;
+  readonly every?: Every;
 }) {
   let snapshot = initial;
   const listeners = new Set<() => void>();
   let engine: AudioEngine | null = null;
   let turn = idle('waiting');
   let judging = false;
+  let stopped = false;
+  let stopPolling: () => void = () => undefined;
   const now = () => Date.parse(clock.now());
   const set = (patch: Partial<RoomSnapshot>) => {
     snapshot = { ...snapshot, ...patch };
@@ -103,13 +125,16 @@ export function createRoomStore({
 
   const refresh = async () => {
     try {
-      const view = await aiDebateApi.view(id);
+      const view = await api.view(id);
       set({
         view: { ...view, receivedAt: now() },
         ...(view.ballot ? { ballot: view.ballot } : {}),
       });
-    } catch {
-      set({ problem: 'Lost touch with the server. Retrying…' });
+    } catch (error) {
+      if (error instanceof AiDebateRequestError && error.status === 404) {
+        stopPolling();
+        set({ missing: true });
+      } else set({ problem: 'Lost touch with the server. Retrying…' });
     }
   };
 
@@ -117,7 +142,7 @@ export function createRoomStore({
     const view = snapshot.view;
     if (!view) return;
     try {
-      await aiDebateApi.command(id, view.commands.length, next);
+      await api.command(id, view.commands.length, next);
     } catch (error) {
       if (!(error instanceof AiDebateRequestError && error.status === 409))
         set({ problem: 'That did not go through. Try again.' });
@@ -135,6 +160,7 @@ export function createRoomStore({
     const context: TurnContext = {
       id,
       turnIndex: current.index,
+      api,
       engine,
       signal: controller.signal,
       live,
@@ -142,6 +168,9 @@ export function createRoomStore({
       onStatus: (status) => set({ status }),
       onCaption: (caption) => set({ caption }),
       onSpeaking: (speaking) => set({ speaking }),
+      setFinish: (finish) => {
+        if (turn.controller === controller) turn.finish = finish;
+      },
       onError: (problem) => set({ problem }),
     };
     if (current.kind === 'cross-examination')
@@ -152,7 +181,7 @@ export function createRoomStore({
         () => void command({ type: 'yield', turnIndex: current.index }),
       );
     else void runPersonSpeech(context);
-    return { key, controller, goLive, wentLive: false };
+    return { key, controller, goLive, wentLive: false, finish: null };
   };
 
   /** The turn goes live: release its controller, with a bell on the cut. */
@@ -166,7 +195,7 @@ export function createRoomStore({
   const requestBallot = async (attempt = 0): Promise<void> => {
     judging = true;
     try {
-      set({ ballot: await aiDebateApi.ballot(id), status: '' });
+      set({ ballot: await api.ballot(id), status: '' });
     } catch {
       if (attempt < 3) {
         await new Promise((resolve) => setTimeout(resolve, 3_000));
@@ -218,22 +247,38 @@ export function createRoomStore({
     getServerSnapshot: () => initial,
     /** Starts loading, polling and the clock; returns the stop. */
     start() {
+      stopped = false;
+      stopPolling = every(() => void refresh(), 5_000);
+      const stopTicking = every(tick, 250);
       void refresh();
-      const poll = setInterval(() => void refresh(), 5_000);
-      const ticker = setInterval(tick, 250);
       return () => {
-        clearInterval(poll);
-        clearInterval(ticker);
+        stopped = true;
+        stopPolling();
+        stopTicking();
         turn.controller?.abort();
         engine?.close();
         engine = null;
       };
     },
+    /**
+     * Ends the live turn early: the person's own speech first sends its last
+     * words while the turn is live, then the turn is yielded.
+     */
+    async finishTurn(turnIndex: number) {
+      await turn.finish?.();
+      await command({ type: 'yield', turnIndex });
+    },
     /** Opens the microphone (a user gesture), and on a first visit starts. */
     async join(begin: boolean) {
       set({ busy: true, problem: '' });
       try {
-        engine = await openAudioEngine();
+        const opened = await openEngine();
+        // Left the room while the browser asked for the microphone: let go.
+        if (stopped) {
+          opened.close();
+          return;
+        }
+        engine = opened;
         set({ joined: true, headset: await engine.usingHeadset() });
         if (begin) await command({ type: 'start' });
       } catch {
