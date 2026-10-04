@@ -203,3 +203,56 @@ describe('transcribe', () => {
     });
   });
 });
+
+describe('unreadable answers', () => {
+  const failingBody = () =>
+    new Response(
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('data: {"choices":'));
+          controller.error(new TypeError('connection reset'));
+        },
+      }),
+    );
+
+  test('every unreadable answer is an infrastructure error', async () => {
+    const malformed = createOpenRouter({
+      apiKey: 'k',
+      fetch: async () => new Response('not json', { status: 200 }),
+    });
+    await assertRejects({
+      given: 'a completion answer that is not JSON',
+      should: 'reject with INFRASTRUCTURE, not a raw SyntaxError',
+      actual: () =>
+        malformed.complete({
+          model: 'm',
+          messages: [{ role: 'user', content: 'Hi' }],
+          maxTokens: 5,
+        }),
+      code: 'INFRASTRUCTURE',
+    });
+    const dropped = createOpenRouter({
+      apiKey: 'k',
+      fetch: async () => failingBody(),
+    });
+    await assertRejects({
+      given: 'a stream whose connection drops mid-answer',
+      should: 'reject with INFRASTRUCTURE',
+      actual: async () => {
+        for await (const delta of dropped.stream({
+          model: 'm',
+          messages: [{ role: 'user', content: 'Hi' }],
+          maxTokens: 5,
+        }))
+          void delta;
+      },
+      code: 'INFRASTRUCTURE',
+    });
+    await assertRejects({
+      given: 'speech audio whose body drops mid-read',
+      should: 'reject with INFRASTRUCTURE',
+      actual: () => dropped.speak({ model: 'm', voice: 'v', text: 'Hi.' }),
+      code: 'INFRASTRUCTURE',
+    });
+  });
+});

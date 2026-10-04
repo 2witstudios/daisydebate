@@ -1,6 +1,7 @@
 import { debateSides } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   check,
   index,
   integer,
@@ -127,6 +128,8 @@ export const aiDebateUtterances = pgTable(
     turnIndex: integer('turn_index').notNull(),
     role: text('role').notNull(),
     text: text('text').notNull(),
+    /** False while the AI is still writing it, or if writing it failed. */
+    complete: boolean('complete').notNull().default(true),
     createdAt: createdAtColumn(),
   },
   (table) => [

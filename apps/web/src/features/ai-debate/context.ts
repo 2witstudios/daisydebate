@@ -27,8 +27,6 @@ export type AiDebateStore = Pick<
   | 'recordAiDebateUsage'
   | 'finishAiDebate'
   | 'saveAiDebateBallot'
-  | 'countLiveAiDebates'
-  | 'countCountedAiDebates'
 >;
 
 export type AiDebateVoice = Pick<

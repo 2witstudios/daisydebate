@@ -18,10 +18,25 @@ function memoryStore(): AiDebateStore & {
   };
   return {
     records,
-    async createAiDebate(input) {
-      records.set(input.id, {
-        ...input,
-        createdAt: new Date(0),
+    async createAiDebate({ debate, now, limits }) {
+      const open = (r: AiDebateRecord) =>
+        r.finishedAt === null && r.expectedEndAt > now;
+      const all = [...records.values()];
+      const today = all.filter(
+        (r) =>
+          r.actorId === debate.actorId &&
+          r.createdAt.getTime() >= now.getTime() - 24 * 60 * 60_000,
+      ).length;
+      if (today >= limits.perDay) return 'daily-limit';
+      const others = all.filter(
+        (r) => r.actorId !== debate.actorId && open(r),
+      ).length;
+      if (others >= limits.live) return 'busy';
+      for (const r of all)
+        if (r.actorId === debate.actorId && open(r)) r.finishedAt = now;
+      records.set(debate.id, {
+        ...debate,
+        createdAt: now,
         countedAt: null,
         finishedAt: null,
         ttsCharacters: 0,
@@ -32,28 +47,49 @@ function memoryStore(): AiDebateStore & {
         utterances: [],
         ballot: null,
       });
+      return 'created';
     },
     async getAiDebate(id) {
       const record = records.get(id);
       return record ? structuredClone(record) : null;
     },
-    async appendAiDebateCommand({ aiDebateId, expectedSequence, command }) {
+    async appendAiDebateCommand({
+      aiDebateId,
+      expectedSequence,
+      command,
+      expectedEndAt,
+    }) {
       const record = get(aiDebateId);
       if (record.commands.length !== expectedSequence)
         throw Object.assign(new Error('moved on'), { code: 'CONFLICT' });
       record.commands = [...record.commands, command];
+      if (expectedEndAt) record.expectedEndAt = expectedEndAt;
     },
-    async appendAiDebateUtterance({ id, aiDebateId, turnIndex, role, text }) {
+    async appendAiDebateUtterance({
+      id,
+      aiDebateId,
+      turnIndex,
+      role,
+      text,
+      complete = true,
+    }) {
       const record = get(aiDebateId);
       record.utterances = [
         ...record.utterances,
-        { id, sequence: record.utterances.length, turnIndex, role, text },
+        {
+          id,
+          sequence: record.utterances.length,
+          turnIndex,
+          role,
+          text,
+          complete,
+        },
       ];
     },
-    async replaceAiDebateUtterance({ id, aiDebateId, text }) {
+    async replaceAiDebateUtterance({ id, aiDebateId, text, complete }) {
       const record = get(aiDebateId);
       record.utterances = record.utterances.map((u) =>
-        u.id === id ? { ...u, text } : u,
+        u.id === id ? { ...u, text, complete: complete ?? u.complete } : u,
       );
     },
     async recordAiDebateUsage({
@@ -78,14 +114,6 @@ function memoryStore(): AiDebateStore & {
       record.ballot ??= { winner, ballot };
       return record.ballot;
     },
-    async countLiveAiDebates() {
-      return [...records.values()].filter((r) => r.finishedAt === null).length;
-    },
-    async countCountedAiDebates({ actorId }) {
-      return [...records.values()].filter(
-        (r) => r.actorId === actorId && r.countedAt !== null,
-      ).length;
-    },
   };
 }
 
@@ -109,12 +137,16 @@ export function scriptedVoice({
   readonly calls: string[];
   /** Each streamed request's system message (the persona). */
   readonly personas: string[];
+  /** Each streamed request's abort signal. */
+  readonly signals: (AbortSignal | undefined)[];
 } {
   const calls: string[] = [];
   const personas: string[] = [];
+  const signals: (AbortSignal | undefined)[] = [];
   return {
     calls,
     personas,
+    signals,
     async complete(request) {
       calls.push(`complete:${request.model}`);
       return {
@@ -126,6 +158,7 @@ export function scriptedVoice({
     async *stream(request) {
       calls.push(`stream:${request.model}`);
       personas.push(request.messages[0]?.content ?? '');
+      signals.push(request.signal);
       for (const word of speech.split(/(?<= )/)) yield word;
     },
     async speak({ text, voice }) {
@@ -149,9 +182,11 @@ const movableClock = (start = T0) => {
 export const setup = ({
   personSide = 'negative',
   voice = scriptedVoice(),
+  limits,
 }: {
   personSide?: 'affirmative' | 'negative';
   voice?: ReturnType<typeof scriptedVoice>;
+  limits?: { live: number; perDay: number };
 } = {}) => {
   const store = memoryStore();
   const time = movableClock();
@@ -160,6 +195,7 @@ export const setup = ({
     voice: () => voice,
     clock: time.clock,
     ids: sequentialId('x'),
+    ...(limits ? { limits } : {}),
   });
   const begin = async () => {
     const { id } = await operations.start({

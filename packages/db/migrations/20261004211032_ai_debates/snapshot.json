@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "89af11ee-d4c4-48bb-81f4-bea905040e54",
+  "id": "2e999732-6a19-49de-9643-a870826cea1b",
   "prevIds": [
-    "369b7f6d-ab1f-4ebc-9b6d-1b5ff559a003"
+    "dab285a7-ab4f-48a2-95d6-b867e6e54dc0"
   ],
   "ddl": [
     {
@@ -432,6 +432,19 @@
       "generated": null,
       "identity": null,
       "name": "text",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ai_debate_utterances"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "true",
+      "generated": null,
+      "identity": null,
+      "name": "complete",
       "entityType": "columns",
       "schema": "public",
       "table": "ai_debate_utterances"

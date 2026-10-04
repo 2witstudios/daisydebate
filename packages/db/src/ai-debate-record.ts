@@ -18,6 +18,8 @@ export type AiDebateUtteranceRecord = {
   readonly turnIndex: number;
   readonly role: 'person' | 'ai';
   readonly text: string;
+  /** False while the AI is still writing the line, or if writing it failed. */
+  readonly complete: boolean;
 };
 
 export type NewAiDebate = {

@@ -5,6 +5,8 @@ import {
   speechMessages,
   splitSentences,
 } from '@daisy/ai-voice';
+import type { AiDebateRecord } from '@daisy/db';
+import type { AiDebateTurn } from '@daisy/debate-engine';
 import { createAppError } from '@daisy/errors';
 import {
   aiSideOf,
@@ -42,24 +44,33 @@ export function speechOperations({
       (u) => u.id === utteranceId && u.role === 'ai',
     );
     if (!utterance) throw createAppError('NOT_FOUND');
+    // Only while the line's turn is open (countdown, live or the grace
+    // after it): a finished turn's words are never re-voiced or rewritten.
+    requireLiveTurn(record, utterance.turnIndex, nowMs(clock), () => true, {
+      early: true,
+    });
     return { record, sentences: splitSentences(utterance.text) };
   };
 
   return {
     /**
      * Writes the AI's speech for an AI speech turn (from its countdown on),
-     * sentence by sentence as the model produces it. The speech is saved as it grows,
-     * so the voice can be fetched per sentence and a reload resumes it. A
-     * second call for the same turn replays the saved speech.
+     * sentence by sentence as the model produces it. The speech is saved as
+     * it grows, so the voice can be fetched per sentence, and marked whole
+     * only when the model finishes. A later call replays a whole speech and
+     * writes an unfinished one (a failure, or a listener who left) again.
+     * `signal` ends the model's stream when the listener goes.
      */
     async *speech({
       actorId,
       id,
       turnIndex,
+      signal,
     }: {
       readonly actorId: string;
       readonly id: string;
       readonly turnIndex: number;
+      readonly signal?: AbortSignal;
     }): AsyncGenerator<SpeechEvent> {
       const record = await ownedBy(store, actorId, id);
       const turn = requireLiveTurn(
@@ -72,60 +83,31 @@ export function speechOperations({
       const existing = record.utterances.find(
         (u) => u.turnIndex === turnIndex && u.role === 'ai',
       );
-      if (existing) {
+      if (existing?.complete) {
         yield { type: 'utterance', id: existing.id };
         for (const [index, text] of splitSentences(existing.text).entries())
           yield { type: 'sentence', index, text };
         return;
       }
-      const utteranceId = ids.next();
-      await store.appendAiDebateUtterance({
-        id: utteranceId,
-        aiDebateId: id,
-        turnIndex,
-        role: 'ai',
-        text: '',
-      });
+      const utteranceId = existing?.id ?? ids.next();
+      if (existing)
+        await store.replaceAiDebateUtterance({
+          id: utteranceId,
+          aiDebateId: id,
+          text: '',
+          complete: false,
+        });
+      else
+        await store.appendAiDebateUtterance({
+          id: utteranceId,
+          aiDebateId: id,
+          turnIndex,
+          role: 'ai',
+          text: '',
+          complete: false,
+        });
       yield { type: 'utterance', id: utteranceId };
-      const messages = speechMessages({
-        resolution: record.resolution,
-        aiSide: aiSideOf(record),
-        turn,
-        transcript: transcriptOf(record),
-        persona: personaOf(record),
-      });
-      const buffer = createSentenceBuffer();
-      const spoken: string[] = [];
-      let written = 0;
-      const save = async function* (sentences: readonly string[]) {
-        for (const text of sentences) {
-          spoken.push(text);
-          await store.replaceAiDebateUtterance({
-            id: utteranceId,
-            aiDebateId: id,
-            text: spoken.join(' '),
-          });
-          yield { type: 'sentence' as const, index: spoken.length - 1, text };
-        }
-      };
-      for await (const delta of voice().stream({
-        model: record.speechModel,
-        messages,
-        maxTokens: 4_000,
-        temperature: 0.8,
-        reasoning: DEFAULT_REASONING.speech,
-      })) {
-        written += delta.length;
-        yield* save(buffer.push(delta));
-      }
-      yield* save(buffer.flush());
-      await store.recordAiDebateUsage({
-        aiDebateId: id,
-        promptTokens: approximateTokens(
-          messages.reduce((sum, message) => sum + message.content.length, 0),
-        ),
-        completionTokens: approximateTokens(written),
-      });
+      yield* writeSpeech({ store, voice, record, turn, utteranceId, signal });
     },
 
     /** The voice for one sentence of an AI line, as mp3 bytes. */
@@ -190,4 +172,67 @@ export function speechOperations({
       });
     },
   };
+}
+
+/** Streams the model's speech into its line, sentence by sentence. */
+async function* writeSpeech({
+  store,
+  voice,
+  record,
+  turn,
+  utteranceId,
+  signal,
+}: Pick<AiDebateDependencies, 'store' | 'voice'> & {
+  readonly record: AiDebateRecord;
+  readonly turn: AiDebateTurn;
+  readonly utteranceId: string;
+  readonly signal: AbortSignal | undefined;
+}): AsyncGenerator<SpeechEvent> {
+  const messages = speechMessages({
+    resolution: record.resolution,
+    aiSide: aiSideOf(record),
+    turn,
+    transcript: transcriptOf(record),
+    persona: personaOf(record),
+  });
+  const buffer = createSentenceBuffer();
+  const spoken: string[] = [];
+  let written = 0;
+  const save = async function* (sentences: readonly string[], whole = false) {
+    for (const text of sentences) {
+      spoken.push(text);
+      await store.replaceAiDebateUtterance({
+        id: utteranceId,
+        aiDebateId: record.id,
+        text: spoken.join(' '),
+      });
+      yield { type: 'sentence' as const, index: spoken.length - 1, text };
+    }
+    if (whole)
+      await store.replaceAiDebateUtterance({
+        id: utteranceId,
+        aiDebateId: record.id,
+        text: spoken.join(' '),
+        complete: true,
+      });
+  };
+  for await (const delta of voice().stream({
+    model: record.speechModel,
+    messages,
+    maxTokens: 4_000,
+    temperature: 0.8,
+    reasoning: DEFAULT_REASONING.speech,
+    ...(signal ? { signal } : {}),
+  })) {
+    written += delta.length;
+    yield* save(buffer.push(delta));
+  }
+  yield* save(buffer.flush(), true);
+  await store.recordAiDebateUsage({
+    aiDebateId: record.id,
+    promptTokens: approximateTokens(
+      messages.reduce((sum, message) => sum + message.content.length, 0),
+    ),
+    completionTokens: approximateTokens(written),
+  });
 }

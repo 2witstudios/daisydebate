@@ -10,6 +10,7 @@ import {
   requireSameOriginRead,
   requireSignedIn,
 } from '../../server/http';
+import { eventStream } from './event-stream';
 import type { AiDebateOperations } from './operations';
 
 type Dependencies = {
@@ -174,31 +175,27 @@ export function createAiDebateHandlers(dependencies: Dependencies) {
     },
     speech: {
       POST: post('speech', schemas.speech, 512, async (actorId, body) => {
-        const events = ops().speech({ actorId, ...body });
+        const leaving = new AbortController();
+        const events = ops().speech({
+          actorId,
+          ...body,
+          signal: leaving.signal,
+        });
         // Read the first event before answering, so a refusal (not the AI's
         // turn) maps to its status; later failures end the stream with an
-        // error line the browser handles.
+        // error line the browser handles. A listener who leaves stops the
+        // model.
         const first = await events.next();
-        const encoder = new TextEncoder();
-        const line = (value: unknown) =>
-          encoder.encode(`${JSON.stringify(value)}\n`);
-        const stream = new ReadableStream<Uint8Array>({
-          async start(controller) {
-            try {
-              if (!first.done) controller.enqueue(line(first.value));
-              for await (const event of events) controller.enqueue(line(event));
-              controller.enqueue(line({ type: 'done' }));
-            } catch (error) {
-              dependencies.logger.log(
-                'ai_debate.speech.failed',
-                { errorCode: (error as { code?: string }).code ?? 'INTERNAL' },
-                'AI speech stream failed',
-              );
-              controller.enqueue(line({ type: 'error' }));
-            } finally {
-              controller.close();
-            }
-          },
+        const stream = eventStream({
+          first,
+          events,
+          abort: () => leaving.abort(),
+          onFailure: (error) =>
+            dependencies.logger.log(
+              'ai_debate.speech.failed',
+              { errorCode: (error as { code?: string }).code ?? 'INTERNAL' },
+              'AI speech stream failed',
+            ),
         });
         return new Response(stream, {
           headers: { 'Content-Type': 'application/x-ndjson' },

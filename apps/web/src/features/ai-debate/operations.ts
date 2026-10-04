@@ -32,7 +32,6 @@ export type { AiDebateView } from './context';
 const DEFAULT_LIMITS = { live: 25, perDay: 20 } as const;
 /** A created AI debate has this long to start before it stops counting as live. */
 const START_WINDOW_MS = 15 * 60_000;
-const DAY_MS = 24 * 60 * 60_000;
 
 export type PersonCommand =
   | { readonly type: 'start' }
@@ -67,17 +66,6 @@ const tidy = (resolution: string) => resolution.trim().replace(/\s+/g, ' ');
 export function createAiDebateOperations(dependencies: AiDebateDependencies) {
   const { store, voice, clock, ids, limits = DEFAULT_LIMITS } = dependencies;
 
-  const refuseOverLimits = async (actorId: string, now: number) => {
-    if ((await store.countLiveAiDebates(new Date(now))) >= limits.live)
-      throw createAppError('RATE_LIMIT', 'Too many live AI debates');
-    const today = await store.countCountedAiDebates({
-      actorId,
-      since: new Date(now - DAY_MS),
-    });
-    if (today >= limits.perDay)
-      throw createAppError('RATE_LIMIT', 'Daily AI debate limit');
-  };
-
   return {
     ...speechOperations(dependencies),
     ...crossExaminationOperations(dependencies),
@@ -101,22 +89,33 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
       if (!opponent) throw createAppError('VALIDATION', 'Unknown opponent');
       voice(); // refuse before writing anything when AI debates are unavailable
       const now = nowMs(clock);
-      await refuseOverLimits(actorId, now);
       const id = ids.next();
-      await store.createAiDebate({
-        id,
-        actorId,
-        resolution: trimmed,
-        personSide,
-        opponent: opponent.id,
-        voice: opponent.voice,
-        speechModel: DEFAULT_MODELS.speech,
-        cxModel: DEFAULT_MODELS.cx,
-        judgeModel: DEFAULT_MODELS.judge,
-        ttsModel: DEFAULT_MODELS.tts,
-        sttModel: DEFAULT_MODELS.stt,
-        expectedEndAt: new Date(now + START_WINDOW_MS + aiDebateLongestMs()),
+      const created = await store.createAiDebate({
+        now: new Date(now),
+        limits,
+        debate: {
+          id,
+          actorId,
+          resolution: trimmed,
+          personSide,
+          opponent: opponent.id,
+          voice: opponent.voice,
+          speechModel: DEFAULT_MODELS.speech,
+          cxModel: DEFAULT_MODELS.cx,
+          judgeModel: DEFAULT_MODELS.judge,
+          ttsModel: DEFAULT_MODELS.tts,
+          sttModel: DEFAULT_MODELS.stt,
+          // Unstarted, it holds a seat only for the start window.
+          expectedEndAt: new Date(now + START_WINDOW_MS),
+        },
       });
+      if (created !== 'created')
+        throw createAppError(
+          'RATE_LIMIT',
+          created === 'busy'
+            ? 'Too many live AI debates'
+            : 'Daily AI debate limit',
+        );
       return { id };
     },
 
@@ -163,7 +162,13 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
       readonly expectedSequence: number;
     }): Promise<void> {
       const record = await ownedBy(store, actorId, id);
-      const timed = atTime(command, nowMs(clock));
+      const now = nowMs(clock);
+      if (
+        command.type === 'start' &&
+        now > record.createdAt.getTime() + START_WINDOW_MS
+      )
+        throw createAppError('CONFLICT', 'The start window has closed');
+      const timed = atTime(command, now);
       const verdict = acceptAiDebateCommand({
         personSide: record.personSide,
         commands: record.commands.map(toEngine),
@@ -174,6 +179,11 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
         aiDebateId: id,
         expectedSequence,
         command: asRecord(timed),
+        // Once started, it holds its seat until the longest debate ends.
+        expectedEndAt:
+          timed.type === 'start'
+            ? new Date(now + aiDebateLongestMs())
+            : undefined,
       });
       if (timed.type === 'abort') await store.finishAiDebate(id);
     },

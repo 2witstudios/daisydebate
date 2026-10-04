@@ -1,5 +1,5 @@
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { and, asc, count, eq, gt, isNull, sql } from 'drizzle-orm';
+import { and, asc, count, eq, gt, gte, isNull, ne, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import {
   aiDebateBallots,
@@ -19,6 +19,16 @@ import {
   type NewAiDebate,
 } from './ai-debate-record';
 
+const DAY_MS = 24 * 60 * 60_000;
+
+/** Caps on AI debates: live at once across everyone, and per person per day. */
+export type AiDebateLimits = {
+  readonly live: number;
+  readonly perDay: number;
+};
+
+export type AiDebateCreation = 'created' | 'busy' | 'daily-limit';
+
 /**
  * The AI debate area (AIDB): plain record adapters. The engine folds the
  * command log in `apps/web`; this module never imports it. `sequence` is the
@@ -32,10 +42,53 @@ export const aiDebateOperations = ({
   readonly database: BunSQLDatabase;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
-  async createAiDebate(input: NewAiDebate): Promise<void> {
-    await instrumented(eventSink, 'createAiDebate', async () => {
-      await database.insert(aiDebates).values(input);
-    });
+  /**
+   * Creates an AI debate if the limits allow it, as one atomic step: a
+   * transaction-scoped lock serializes creation, so a burst cannot all see
+   * room and overshoot. Starting a new debate finishes the actor's other
+   * open ones, so one person holds one live seat. A refusal writes nothing.
+   */
+  async createAiDebate({
+    debate,
+    now,
+    limits,
+  }: {
+    readonly debate: NewAiDebate;
+    readonly now: Date;
+    readonly limits: AiDebateLimits;
+  }): Promise<AiDebateCreation> {
+    return instrumented(eventSink, 'createAiDebate', async () =>
+      database.transaction(async (tx) => {
+        await tx.execute(
+          sql`select pg_advisory_xact_lock(hashtext('ai_debates.create'))`,
+        );
+        const open = and(
+          isNull(aiDebates.finishedAt),
+          gt(aiDebates.expectedEndAt, now),
+        );
+        const [today] = await tx
+          .select({ n: count() })
+          .from(aiDebates)
+          .where(
+            and(
+              eq(aiDebates.actorId, debate.actorId),
+              gte(aiDebates.createdAt, new Date(now.getTime() - DAY_MS)),
+            ),
+          );
+        if ((today?.n ?? 0) >= limits.perDay) return 'daily-limit';
+        const [others] = await tx
+          .select({ n: count() })
+          .from(aiDebates)
+          .where(and(open, ne(aiDebates.actorId, debate.actorId)));
+        if ((others?.n ?? 0) >= limits.live) return 'busy';
+        await tx
+          .update(aiDebates)
+          .set({ finishedAt: now })
+          .where(and(eq(aiDebates.actorId, debate.actorId), open));
+        await tx.insert(aiDebates).values(debate);
+        return 'created';
+      }),
+    );
   },
 
   async getAiDebate(id: string): Promise<AiDebateRecord | null> {
@@ -92,6 +145,7 @@ export const aiDebateOperations = ({
           turnIndex: u.turnIndex,
           role: u.role === 'ai' ? 'ai' : 'person',
           text: u.text,
+          complete: u.complete,
         })),
         ballot: ballot
           ? {
@@ -109,10 +163,13 @@ export const aiDebateOperations = ({
     aiDebateId,
     expectedSequence,
     command,
+    expectedEndAt,
   }: {
     readonly aiDebateId: string;
     readonly expectedSequence: number;
     readonly command: AiDebateCommandRecord;
+    /** Moves the debate's latest end (set when it starts). */
+    readonly expectedEndAt?: Date | undefined;
   }): Promise<void> {
     await instrumented(eventSink, 'appendAiDebateCommand', async () => {
       try {
@@ -131,6 +188,11 @@ export const aiDebateOperations = ({
             turnIndex: command.type === 'yield' ? command.turnIndex : null,
             reason: command.type === 'abort' ? command.reason : null,
           });
+          if (expectedEndAt)
+            await tx
+              .update(aiDebates)
+              .set({ expectedEndAt })
+              .where(eq(aiDebates.id, aiDebateId));
         });
       } catch (error) {
         if (isUniqueViolation(error))
@@ -151,6 +213,8 @@ export const aiDebateOperations = ({
     readonly turnIndex: number;
     readonly role: 'person' | 'ai';
     readonly text: string;
+    /** False for an AI line the model is still writing. */
+    readonly complete?: boolean;
   }): Promise<void> {
     await instrumented(eventSink, 'appendAiDebateUtterance', async () => {
       await database.transaction(async (tx) => {
@@ -167,20 +231,26 @@ export const aiDebateOperations = ({
     });
   },
 
-  /** Replaces a line's text (the part of an interrupted reply that was heard). */
+  /**
+   * Replaces a line's text (a speech as it grows, or the part of an
+   * interrupted reply that was heard), and with `complete` marks whether the
+   * line is whole.
+   */
   async replaceAiDebateUtterance({
     id,
     aiDebateId,
     text,
+    complete,
   }: {
     readonly id: string;
     readonly aiDebateId: string;
     readonly text: string;
+    readonly complete?: boolean;
   }): Promise<void> {
     await instrumented(eventSink, 'replaceAiDebateUtterance', async () => {
       await database
         .update(aiDebateUtterances)
-        .set({ text })
+        .set(complete === undefined ? { text } : { text, complete })
         .where(
           and(
             eq(aiDebateUtterances.id, id),
@@ -255,41 +325,6 @@ export const aiDebateOperations = ({
         winner: stored.winner === 'affirmative' ? 'affirmative' : 'negative',
         ballot: stored.ballot,
       };
-    });
-  },
-
-  /** AI debates not finished whose latest possible end is after `now`. */
-  async countLiveAiDebates(now: Date): Promise<number> {
-    return instrumented(eventSink, 'countLiveAiDebates', async () => {
-      const [row] = await database
-        .select({ n: count() })
-        .from(aiDebates)
-        .where(
-          and(isNull(aiDebates.finishedAt), gt(aiDebates.expectedEndAt, now)),
-        );
-      return row?.n ?? 0;
-    });
-  },
-
-  /** How many of an actor's AI debates started counting at or after `since`. */
-  async countCountedAiDebates({
-    actorId,
-    since,
-  }: {
-    readonly actorId: string;
-    readonly since: Date;
-  }): Promise<number> {
-    return instrumented(eventSink, 'countCountedAiDebates', async () => {
-      const [row] = await database
-        .select({ n: count() })
-        .from(aiDebates)
-        .where(
-          and(
-            eq(aiDebates.actorId, actorId),
-            sql`${aiDebates.countedAt} >= ${since}`,
-          ),
-        );
-      return row?.n ?? 0;
     });
   },
 });

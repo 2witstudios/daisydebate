@@ -17,6 +17,20 @@ const models = {
   sttModel: 'openai/whisper-large-v3-turbo',
 };
 
+/** Limits no test here comes near unless it means to. */
+const roomy = { live: 1_000_000, perDay: 1_000_000 };
+
+const newDebate = (id: string, actorId: string, expectedEndAt: Date) => ({
+  id,
+  actorId,
+  resolution: 'Social media does more harm than good',
+  personSide: 'negative' as const,
+  opponent: 'wren',
+  voice: 'bf_emma',
+  expectedEndAt,
+  ...models,
+});
+
 const withDebate = async (
   run: (input: {
     database: ReturnType<typeof createDatabase>;
@@ -31,14 +45,9 @@ const withDebate = async (
     fixture.track('ai_debates', id);
     try {
       await database.createAiDebate({
-        id,
-        actorId,
-        resolution: 'Social media does more harm than good',
-        personSide: 'negative',
-        opponent: 'wren',
-        voice: 'bf_emma',
-        expectedEndAt: new Date(Date.UTC(2026, 9, 3, 19)),
-        ...models,
+        debate: newDebate(id, actorId, new Date(Date.UTC(2026, 9, 3, 19))),
+        now: new Date(Date.UTC(2026, 9, 3, 18)),
+        limits: roomy,
       });
       await run({ database, id, actorId });
     } finally {
@@ -107,7 +116,7 @@ describe('AI debates (AIDB-3.1)', () => {
     });
   });
 
-  test('utterances, usage, the ballot and the live count', async () => {
+  test('utterances, usage and the ballot', async () => {
     await withDebate(async ({ database, id }) => {
       await database.appendAiDebateUtterance({
         id: createId(),
@@ -145,13 +154,6 @@ describe('AI debates (AIDB-3.1)', () => {
         winner: 'affirmative',
         ballot: { winner: 'affirmative' },
       });
-      const live = await database.countLiveAiDebates(
-        new Date(Date.UTC(2026, 9, 3, 18)),
-      );
-      await database.finishAiDebate(id);
-      const liveAfter = await database.countLiveAiDebates(
-        new Date(Date.UTC(2026, 9, 3, 18)),
-      );
       const found = await database.getAiDebate(id);
       assert({
         given: 'two utterances, one replaced',
@@ -178,12 +180,6 @@ describe('AI debates (AIDB-3.1)', () => {
         actual: [saved.winner, again.winner, found?.ballot?.winner],
         expected: ['negative', 'negative', 'negative'],
       });
-      assert({
-        given: 'an unfinished debate before its expected end, then finished',
-        should: 'count it as live, then one fewer once finished',
-        actual: { counted: live >= 1, dropped: live - liveAfter },
-        expected: { counted: true, dropped: 1 },
-      });
     });
   });
 
@@ -207,6 +203,84 @@ describe('AI debates (AIDB-3.1)', () => {
         actual: found?.utterances.map((u) => u.sequence),
         expected: [0, 1, 2, 3, 4, 5],
       });
+    });
+  });
+
+  test('a burst of starts never overshoots the live cap', async () => {
+    await withFixture(url, async (fixture) => {
+      const database = createDatabase({ url, nextActorId: createId });
+      // Far in the future, so no other suite's debate is still open.
+      const now = new Date(Date.UTC(2100, 0, 1));
+      try {
+        const actors = await Promise.all(
+          [0, 1, 2, 3, 4, 5, 6, 7].map(async () =>
+            fixture.actor(await fixture.user()),
+          ),
+        );
+        const results = await Promise.all(
+          actors.map((actorId) => {
+            const id = createId();
+            fixture.track('ai_debates', id);
+            return database.createAiDebate({
+              debate: newDebate(id, actorId, new Date(now.getTime() + 60_000)),
+              now,
+              limits: { live: 3, perDay: 10 },
+            });
+          }),
+        );
+        assert({
+          given: 'eight people starting at once with a live cap of three',
+          should: 'create exactly three and refuse the rest as busy',
+          actual: [
+            results.filter((r) => r === 'created').length,
+            results.filter((r) => r === 'busy').length,
+          ],
+          expected: [3, 5],
+        });
+      } finally {
+        await database.close();
+      }
+    });
+  });
+
+  test('a person holds one live debate, within a daily cap', async () => {
+    await withFixture(url, async (fixture) => {
+      const database = createDatabase({ url, nextActorId: createId });
+      const now = new Date();
+      const actorId = await fixture.actor(await fixture.user());
+      const start = async () => {
+        const id = createId();
+        fixture.track('ai_debates', id);
+        const result = await database.createAiDebate({
+          debate: newDebate(id, actorId, new Date(now.getTime() + 60_000)),
+          now,
+          limits: { live: 1_000_000, perDay: 2 },
+        });
+        return { id, result };
+      };
+      try {
+        const first = await start();
+        const second = await start();
+        const third = await start();
+        const [a, b] = await Promise.all([
+          database.getAiDebate(first.id),
+          database.getAiDebate(second.id),
+        ]);
+        assert({
+          given:
+            'a person starting two debates, then a third over a daily cap of two',
+          should: 'finish the first, keep the second open, refuse the third',
+          actual: [
+            a?.finishedAt instanceof Date,
+            b?.finishedAt,
+            third.result,
+            await database.getAiDebate(third.id),
+          ],
+          expected: [true, null, 'daily-limit', null],
+        });
+      } finally {
+        await database.close();
+      }
     });
   });
 });

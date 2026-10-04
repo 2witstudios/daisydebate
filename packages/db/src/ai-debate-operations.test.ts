@@ -43,7 +43,7 @@ describe('getAiDebate', () => {
         ['debate-1', 2, 'yield', at, 3, null],
         ['debate-1', 3, 'abort', at, null, 'vendor-failure'],
       ],
-      [['line-1', 'debate-1', 0, 0, 'ai', 'I affirm.', at]],
+      [['line-1', 'debate-1', 0, 0, 'ai', 'I affirm.', true, at]],
       [['debate-1', 'affirmative', { winner: 'affirmative' }, at]],
     ]);
     const found = await database.getAiDebate('debate-1');
@@ -75,6 +75,7 @@ describe('getAiDebate', () => {
             turnIndex: 0,
             role: 'ai',
             text: 'I affirm.',
+            complete: true,
           },
         ],
         ballot: { winner: 'affirmative', ballot: { winner: 'affirmative' } },
@@ -186,54 +187,84 @@ describe('lines, usage, ballot and counts', () => {
     });
   });
 
-  test('the stored ballot wins and the counts read back', async () => {
+  test('the stored ballot wins', async () => {
     const { database } = createTestDatabase([
       [],
       [['debate-1', 'negative', { winner: 'negative' }, at]],
-      [[3]],
-      [[2]],
     ]);
     const saved = await database.saveAiDebateBallot({
       aiDebateId: 'debate-1',
       winner: 'affirmative',
       ballot: { winner: 'affirmative' },
     });
-    const live = await database.countLiveAiDebates(new Date(at));
-    const counted = await database.countCountedAiDebates({
-      actorId: 'actor-1',
-      since: new Date(at),
-    });
     assert({
-      given: 'a ballot already stored and two counts',
-      should: 'return the stored ruling and each count',
-      actual: { winner: saved.winner, live, counted },
-      expected: { winner: 'negative', live: 3, counted: 2 },
+      given: 'a ballot already stored',
+      should: 'return the stored ruling',
+      actual: saved.winner,
+      expected: 'negative',
+    });
+  });
+});
+
+describe('createAiDebate', () => {
+  const debate = {
+    id: 'debate-1',
+    actorId: 'actor-1',
+    resolution: 'Cities should make public transit free',
+    personSide: 'negative' as const,
+    opponent: 'wren',
+    voice: 'bf_emma',
+    speechModel: 's',
+    cxModel: 'c',
+    judgeModel: 'j',
+    ttsModel: 't',
+    sttModel: 'w',
+    expectedEndAt: new Date(at),
+  };
+  const limits = { live: 2, perDay: 3 };
+  const create = (script: unknown[][]) => {
+    const { database, queries } = createTestDatabase(script as never);
+    return {
+      queries,
+      result: database.createAiDebate({ debate, now: new Date(at), limits }),
+    };
+  };
+  const kinds = (queries: readonly { query: string }[]) =>
+    queries.map((q) => q.query.split(' ').slice(0, 2).join(' '));
+
+  test("creates under a lock, finishing the actor's open debate", async () => {
+    const { queries, result } = create([[], [[0]], [[1]], [], []]);
+    assert({
+      given: 'room under both caps',
+      should: "lock, count, finish the actor's open debate and insert",
+      actual: { result: await result, kinds: kinds(queries) },
+      expected: {
+        result: 'created',
+        kinds: [
+          "select pg_advisory_xact_lock(hashtext('ai_debates.create'))",
+          'select count(*)',
+          'select count(*)',
+          'update "ai_debates"',
+          'insert into',
+        ],
+      },
     });
   });
 
-  test('a new AI debate is inserted', async () => {
-    const { database, queries } = createTestDatabase([[]]);
-    await database.createAiDebate({
-      id: 'debate-1',
-      actorId: 'actor-1',
-      resolution: 'Cities should make public transit free',
-      personSide: 'negative',
-      opponent: 'wren',
-      voice: 'bf_emma',
-      speechModel: 's',
-      cxModel: 'c',
-      judgeModel: 'j',
-      ttsModel: 't',
-      sttModel: 'w',
-      expectedEndAt: new Date(at),
-    });
+  test('refuses over a cap and writes nothing', async () => {
+    const daily = create([[], [[3]]]);
+    const busy = create([[], [[0]], [[2]]]);
     assert({
-      given: 'a new AI debate',
-      should: 'insert one row',
-      actual:
-        queries.length === 1 &&
-        queries[0]!.query.startsWith('insert into "ai_debates"'),
-      expected: true,
+      given: 'three debates today, then two other people already debating',
+      should: 'refuse each without an update or an insert',
+      actual: [
+        await daily.result,
+        await busy.result,
+        [...daily.queries, ...busy.queries].some((q) =>
+          /^(update|insert)/.test(q.query),
+        ),
+      ],
+      expected: ['daily-limit', 'busy', false],
     });
   });
 });

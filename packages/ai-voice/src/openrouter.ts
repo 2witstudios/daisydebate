@@ -1,4 +1,4 @@
-import { createAppError } from '@daisy/errors';
+import { createAppError, isAppError } from '@daisy/errors';
 import { z } from 'zod';
 import { readLines } from './lines';
 
@@ -105,6 +105,42 @@ export function createOpenRouter({
       );
     return result.data;
   };
+  /** Reads an answer's body; a failure mid-read is an INFRASTRUCTURE error. */
+  const reading = async <T>(path: string, read: () => Promise<T>) => {
+    try {
+      return await read();
+    } catch (cause) {
+      if (isAppError(cause)) throw cause;
+      throw createAppError(
+        'INFRASTRUCTURE',
+        `OpenRouter ${path} answer could not be read`,
+        cause,
+      );
+    }
+  };
+  /** The text deltas in a chat completion's server-sent event lines. */
+  async function* deltasOf(lines: AsyncGenerator<string>) {
+    for (;;) {
+      const next = await reading('/chat/completions', () => lines.next());
+      if (next.done) return;
+      const line = next.value;
+      if (!line.startsWith('data: ')) continue;
+      const data = line.slice('data: '.length).trim();
+      if (data === '[DONE]') return;
+      let event: unknown;
+      try {
+        event = JSON.parse(data);
+      } catch {
+        throw createAppError(
+          'INFRASTRUCTURE',
+          'OpenRouter stream sent malformed data',
+        );
+      }
+      const delta = parse(deltaSchema, event, '/chat/completions').choices[0]
+        ?.delta.content;
+      if (delta) yield delta;
+    }
+  }
   const chatBody = (request: CompletionRequest, stream: boolean) => ({
     model: request.model,
     messages: request.messages,
@@ -127,7 +163,7 @@ export function createOpenRouter({
       );
       const body = parse(
         completionSchema,
-        await response.json(),
+        await reading('/chat/completions', () => response.json()),
         '/chat/completions',
       );
       return {
@@ -147,22 +183,11 @@ export function createOpenRouter({
       );
       if (!response.body)
         throw createAppError('INFRASTRUCTURE', 'OpenRouter stream had no body');
-      for await (const line of readLines(response.body)) {
-        if (!line.startsWith('data: ')) continue;
-        const data = line.slice('data: '.length).trim();
-        if (data === '[DONE]') return;
-        let event: unknown;
-        try {
-          event = JSON.parse(data);
-        } catch {
-          throw createAppError(
-            'INFRASTRUCTURE',
-            'OpenRouter stream sent malformed data',
-          );
-        }
-        const delta = parse(deltaSchema, event, '/chat/completions').choices[0]
-          ?.delta.content;
-        if (delta) yield delta;
+      const lines = readLines(response.body);
+      try {
+        yield* deltasOf(lines);
+      } finally {
+        await lines.return(undefined);
       }
     },
     async speak({
@@ -181,7 +206,10 @@ export function createOpenRouter({
         response_format: 'mp3',
         provider: DATA_POLICY,
       });
-      return { audio: await response.arrayBuffer(), characters: text.length };
+      return {
+        audio: await reading('/audio/speech', () => response.arrayBuffer()),
+        characters: text.length,
+      };
     },
     async transcribe({
       model,
@@ -200,7 +228,7 @@ export function createOpenRouter({
       });
       const body = parse(
         transcriptionSchema,
-        await response.json(),
+        await reading('/audio/transcriptions', () => response.json()),
         '/audio/transcriptions',
       );
       return { text: body.text.trim() };

@@ -130,6 +130,7 @@ describe("the person's speech and cross-examination", () => {
           turnIndex: 0,
           role: 'person',
           text: 'I think the evidence is clear.',
+          complete: true,
         },
       },
     });
