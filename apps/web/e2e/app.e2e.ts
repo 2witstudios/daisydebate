@@ -4,13 +4,13 @@ import { signUpMember } from './support/accounts';
 
 const publicTitles: Record<string, string> = {
   '/': 'Daisy Debate',
-  '/debates': 'Debates',
   '/watch': 'Watch',
   '/leaderboard': 'Leaderboard',
   '/tournaments': 'Tournaments',
 };
 // Participant areas (and Settings) need an account (AUTH-4.5, ISSUE-167: /prep and /train too).
 const guardedTitles: Record<string, string> = {
+  '/debates': 'My debates',
   '/play': 'Play',
   '/ranked': 'Ranked',
   '/lobby': 'Lobby',

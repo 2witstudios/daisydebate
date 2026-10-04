@@ -88,7 +88,7 @@ test.describe('lobby list', () => {
     const tuesday = rows(page).filter({ hasText: 'Tuesday night' });
     await expect(
       tuesday.getByRole('link', { name: /^Take seat/ }),
-    ).toHaveAttribute('href', '/play');
+    ).toHaveAttribute('href', '/rooms/room-tuesday-night');
     const spar = page.getByRole('link', { name: /^Spectate, Friendly spar/ });
     await page.goto('/lobby?tab=live');
     await expect(spar).toHaveAttribute('href', '/watch');
