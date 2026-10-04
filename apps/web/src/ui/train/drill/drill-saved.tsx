@@ -2,11 +2,15 @@ import Link from 'next/link';
 import { drillParts, type DrillState } from '../../../features/train/drill';
 import type { DrillScreen } from '../../../features/train/drill-view';
 import { buttonClass } from '../../components/button/button-class';
+import { sampleActionMessage } from '../../components/sample-action/sample-action-href';
 import { Icon } from '../../components/icon/icon';
 import { cn } from '../../cn';
 import { labels } from './drill-labels';
 
-/** The drill's saved confirmation: what was kept and where to go next. */
+/**
+ * After Save argument: the argument and where to go next. Nothing persists
+ * yet, so it answers with the sample-action message, never a saved claim.
+ */
 export function Saved({
   state,
   screen,
@@ -22,9 +26,8 @@ export function Saved({
         </span>
         <div className="flex flex-col gap-1">
           <h2 className="font-display text-xl font-bold text-ink">
-            Saved to review
+            {sampleActionMessage('Save argument')}
           </h2>
-          <p className="text-base text-ink-muted">First review: tomorrow</p>
         </div>
       </div>
       <p className="flex flex-col gap-2 rounded-md bg-surface-sunken p-4 text-base text-ink">

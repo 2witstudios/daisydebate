@@ -83,6 +83,20 @@ describe('renderDrillForm', () => {
     });
   });
 
+  test('speak is unavailable until speech exists', () => {
+    const out = html(initialDrill);
+    assert({
+      given: 'the input mode choice',
+      should: 'disable Speak and keep Write',
+      actual: [
+        /<button [^>]*value="mode-speak"[^>]*disabled=""/.test(out) ||
+          /<button [^>]*disabled=""[^>]*value="mode-speak"/.test(out),
+        /<button [^>]*value="mode-write"[^>]*disabled=""/.test(out),
+      ],
+      expected: [true, false],
+    });
+  });
+
   test('checked with parts needing work: statuses, the mark and Revise', () => {
     const out = html(checked({ claim, warrant: vague, impact: '' }));
     assert({
@@ -127,8 +141,9 @@ describe('renderDrillForm', () => {
     assert({
       given: 'a saved argument',
       should:
-        'confirm, show the argument, link on and carry no placeholder note',
+        'say it ran on sample data, never claim a save, show the argument and link on',
       actual: [
+        out.includes('Save argument: done on sample data. Nothing was saved'),
         out.includes('Saved to review'),
         out.includes('not connected'),
         out.includes(claim),
@@ -136,7 +151,7 @@ describe('renderDrillForm', () => {
         out.includes('href="/train/review"'),
         out.includes('<form'),
       ],
-      expected: [true, false, true, true, true, false],
+      expected: [true, false, false, true, true, true, false],
     });
   });
 

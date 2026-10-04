@@ -78,8 +78,8 @@ export function buildResult(
 
 const DESCRIPTIONS: Readonly<Record<Visibility, string>> = {
   public: 'Anyone with an account can replay it.',
-  unlisted: 'Anyone with the link can replay it.',
-  private: 'Only the debaters can replay it.',
+  unlisted: 'Anyone signed in with the link can replay it.',
+  private: 'Only the debaters and judges can replay it.',
 };
 
 const OPTIONS: readonly {
@@ -95,12 +95,12 @@ const OPTIONS: readonly {
   {
     value: 'unlisted',
     label: 'Unlisted',
-    text: 'Link only',
+    text: 'Signed-in link holders only',
   },
   {
     value: 'private',
     label: 'Private',
-    text: 'Debaters only. Not for ranked debates.',
+    text: 'Debaters and judges only. Not for ranked debates.',
   },
 ];
 

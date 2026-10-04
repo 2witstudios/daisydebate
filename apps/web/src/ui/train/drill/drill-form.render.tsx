@@ -188,9 +188,11 @@ export function renderDrillForm({
               type="submit"
               name="intent"
               value={`mode-${value}`}
+              disabled={value === 'speak'}
               aria-pressed={state.mode === value}
               className={cn(
                 chipClass,
+                'disabled:cursor-not-allowed disabled:opacity-60',
                 state.mode === value &&
                   'border-accent bg-accent-soft text-accent',
               )}

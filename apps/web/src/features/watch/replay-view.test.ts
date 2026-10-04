@@ -193,6 +193,33 @@ describe('the replay result', () => {
 });
 
 describe('the visibility manager', () => {
+  test('the visibility text matches who can open the replay', () => {
+    const unlisted = viewOf('fast-rounds').share;
+    const options = viewOf('fast-rounds', {
+      ...defaultReplayQuery,
+      manage: true,
+    }).share.options;
+    const privateOne = viewOf('practice-with-a-friend').share;
+    assert({
+      given: 'an unlisted and a private recording, and the manager options',
+      should: 'say unlisted needs an account and private includes the judges',
+      actual: [
+        unlisted.description,
+        privateOne.description,
+        options.map((option) => option.text),
+      ],
+      expected: [
+        'Anyone signed in with the link can replay it.',
+        'Only the debaters and judges can replay it.',
+        [
+          'Listed in the archive',
+          'Signed-in link holders only',
+          'Debaters and judges only. Not for ranked debates.',
+        ],
+      ],
+    });
+  });
+
   test('only the people seated manage; ranked cannot go private', () => {
     const mine = viewOf('fast-rounds', {
       ...defaultReplayQuery,
