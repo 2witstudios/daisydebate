@@ -15,10 +15,10 @@ describe('prep actions', () => {
     });
   });
 
-  test('inert actions are labelled', () => {
+  test('inert actions are named', () => {
     assert({
       given: 'every inert action',
-      should: 'carry a label',
+      should: 'carry a label for the control and the shell banner',
       actual: Object.values(inertActions).every(
         ({ label }) => label.length > 0,
       ),

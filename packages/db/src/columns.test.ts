@@ -52,9 +52,10 @@ describe('jsonb columns (ISSUE-24)', () => {
     const jsonb = columnsOf((column) => column.getSQLType() === 'jsonb');
     assert({
       given: 'every jsonb column in the schema',
-      should: 'be the five known columns',
+      should: 'be the six known columns',
       actual: jsonb.map(({ name }) => name).sort(),
       expected: [
+        'ai_debate_ballots.ballot',
         'ballots.scores',
         'debate_commands.result',
         'debates.snapshot',

@@ -63,11 +63,12 @@ export function EligibilityStep({ flow }: { readonly flow: Flow }) {
           <textarea
             id="conflicts"
             rows={3}
-            disabled
             placeholder="Clubs, schools or debaters"
-            className="w-full rounded-md border border-border bg-surface-raised p-3 text-base text-ink disabled:opacity-60"
+            className="w-full rounded-md border border-border bg-surface-raised p-3 text-base text-ink"
           />
-          <p className="text-sm text-ink-faint">Private</p>
+          <p className="text-sm text-ink-faint">
+            Private: only the pairing system reads this.
+          </p>
         </div>
         <div className="flex justify-end">
           <LinkButton

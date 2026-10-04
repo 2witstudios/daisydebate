@@ -36,6 +36,14 @@ export function seasonProgress(season: Season, now: string): SeasonProgress {
   };
 }
 
+/** "Ends in 25 days." or "Ends today." for a live season. */
+export function seasonCountdown(season: Season, now: string): string {
+  const { day, length } = seasonProgress(season, now);
+  const left = length - day;
+  if (left === 0) return 'Ends today.';
+  return `Ends in ${left} ${left === 1 ? 'day' : 'days'}.`;
+}
+
 const months = [
   'Jan',
   'Feb',

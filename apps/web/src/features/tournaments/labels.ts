@@ -122,7 +122,7 @@ export function rowAction(
         ? link('View', tournamentRoutes.detail(id))
         : link('Join waitlist', tournamentRoutes.enter(id), true);
     case 'not-open':
-      return { kind: 'inert', id: 'remind', label: inertActions.remind };
+      return { kind: 'inert', id: 'remind', ...inertActions.remind };
     case 'closed':
       return link('View', tournamentRoutes.detail(id));
     case 'live':

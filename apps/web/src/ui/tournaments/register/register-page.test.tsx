@@ -45,13 +45,17 @@ describe('RegisterPage', () => {
     });
   });
 
-  test('the conflicts box is off, never a silent drop', () => {
+  test('the conflicts box is typeable and private', () => {
     const html = render('weeknight-sprint');
     assert({
       given: 'the conflicts field',
-      should: 'be disabled',
-      actual: /<textarea[^>]*disabled=""/.test(html),
-      expected: true,
+      should: 'be enabled and say only the pairing system reads it',
+      actual: [
+        /<textarea[^>]*id="conflicts"/.test(html) &&
+          !/<textarea[^>]*disabled/.test(html),
+        html.includes('only the pairing system reads this'),
+      ],
+      expected: [true, true],
     });
   });
 
@@ -113,6 +117,7 @@ describe('RegisterPage', () => {
       should: 'say registered, or the waitlist position, with withdraw links',
       actual: [
         registered.includes('You are registered'),
+
         registered.includes(
           'href="/tournaments/enter/weeknight-sprint/withdraw"',
         ),

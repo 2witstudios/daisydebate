@@ -13,13 +13,14 @@ const note =
 
 /**
  * The host form: a GET to the same route. The band select applies at once
- * once hydrated; Post table moves to the mock confirmation. The table name
- * stays disabled so typed text never rides in a URL.
+ * once hydrated; Post table moves to the mock confirmation. Nothing typed
+ * rides in the address: a ranked table has only the band to choose.
  */
 export function HostTable({ screen }: { readonly screen: HostScreen }) {
   return (
     <RankedCard>
       <h1 className={cn(cardTitleClass, 'text-2xl')}>Host a ranked table</h1>
+
       <AutoSubmitForm
         action={screen.formAction}
         aria-label="Host a ranked table"
@@ -46,18 +47,6 @@ export function HostTable({ screen }: { readonly screen: HostScreen }) {
           </select>
           <p className="text-sm text-ink-muted">{screen.seatText}</p>
         </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="host-title" className="text-base font-strong">
-            Table name
-          </label>
-          <input
-            id="host-title"
-            type="text"
-            disabled
-            placeholder="Optional"
-            className={cn(controlClass, 'disabled:opacity-60')}
-          />
-        </div>
         <div className={note}>
           <span className="mt-1 text-accent">
             <Icon name="book" size={18} />
@@ -70,6 +59,7 @@ export function HostTable({ screen }: { readonly screen: HostScreen }) {
             </p>
           </div>
         </div>
+
         <div className="flex gap-3">
           <Link
             href={screen.cancelHref}

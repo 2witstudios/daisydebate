@@ -5,6 +5,9 @@
 @import './theme/dashboard.css';
 @import './theme/auth.css';
 @import './theme/brand.css';
+@import './theme/portrait.css';
+@import './theme/bracket.css';
+@import './theme/stage.css';
 
 /* Tailwind v4 is configured here and nowhere else (ADR 0028): no
    tailwind.config.*, no arbitrary values, no default palette. Class names
@@ -106,6 +109,29 @@
   --gold-border: light-dark(rgba(126, 92, 18, 0.4), rgba(240, 207, 122, 0.35));
   --tier-diamond: light-dark(#275f9c, #86c3ef);
 
+  /* Area hues (ADR 0051) — four muted, earthy secondary colours that sit
+     with forest and cream, so areas can tell themselves apart: clay for
+     competition, sky for practice, teal for rooms, plum for bots. Each is
+     text ink on the page's cards, with a soft tint behind chips and icons.
+     Gold stays for honours and events. */
+  --hue-clay: light-dark(#a64a2c, #e8957a);
+  --hue-clay-soft: light-dark(
+    rgba(166, 74, 44, 0.1),
+    rgba(232, 149, 122, 0.14)
+  );
+  --hue-sky: light-dark(#2a62a3, #7fb8e8);
+  --hue-sky-soft: light-dark(rgba(42, 98, 163, 0.1), rgba(127, 184, 232, 0.14));
+  --hue-teal: light-dark(#1b6b60, #72d0c0);
+  --hue-teal-soft: light-dark(
+    rgba(27, 107, 96, 0.1),
+    rgba(114, 208, 192, 0.14)
+  );
+  --hue-plum: light-dark(#6a47a8, #b9a4e6);
+  --hue-plum-soft: light-dark(
+    rgba(106, 71, 168, 0.1),
+    rgba(185, 164, 230, 0.14)
+  );
+
   /* Ink over dark-graded photography (scrims guarantee contrast). */
   /* Photo scrim ink: the same in both schemes on purpose, because the
      photography is always dark-graded. Fade it with color-mix(). */
@@ -165,6 +191,14 @@
   --color-gold-soft: var(--gold-soft);
   --color-gold-border: var(--gold-border);
   --color-tier-diamond: var(--tier-diamond);
+  --color-hue-clay: var(--hue-clay);
+  --color-hue-clay-soft: var(--hue-clay-soft);
+  --color-hue-sky: var(--hue-sky);
+  --color-hue-sky-soft: var(--hue-sky-soft);
+  --color-hue-teal: var(--hue-teal);
+  --color-hue-teal-soft: var(--hue-teal-soft);
+  --color-hue-plum: var(--hue-plum);
+  --color-hue-plum-soft: var(--hue-plum-soft);
   --color-scrim: var(--scrim);
 
   --shadow-1: var(--elevation-1);
@@ -244,10 +278,23 @@
   /* Layout metrics. */
   --spacing-sidebar: 232px;
   --spacing-rail: 316px;
+  /* The friends dock: as wide as the left sidebar, no wider than a list needs. */
+  --spacing-dock: 232px;
   --spacing-topbar: 60px;
 }
 
 @custom-variant short (@media (max-height: 660px));
+
+/* Icon-only navigation: on a narrow screen, or when the sidebar is collapsed
+   by choice (`data-nav` on the shell grid). */
+@custom-variant icons {
+  @media (width < 901px) {
+    @slot;
+  }
+  &:where([data-nav='collapsed'] *) {
+    @slot;
+  }
+}
 
 @layer base {
   body {

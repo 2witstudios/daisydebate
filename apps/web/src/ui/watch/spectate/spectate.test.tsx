@@ -41,17 +41,19 @@ describe('Spectate: live', () => {
     });
   });
 
-  test('actions are links or inert, never fake mutations', () => {
+  test('every action is a link or a sample action, none disabled', () => {
     assert({
       given: 'the live view',
       should:
-        'link Leave to the hub and Report to its dialog; chat, reactions, follow are disabled',
+        'link Leave to the hub and Report to its dialog; chat, reactions and follow answer as sample actions',
       actual: [
         html.includes('href="/watch?report=debate"') ||
           html.includes('href="/watch/top-of-the-ladder?report=debate"'),
         html.includes('href="/watch"'),
-        /<input id="chat-draft"[^>]*disabled=""/.test(html),
-        (html.match(/disabled=""/g) ?? []).length >= 7,
+        /<input id="chat-draft"/.test(html) &&
+          !/<input id="chat-draft"[^>]*disabled/.test(html),
+        (html.match(/href="\?did=/g) ?? []).length >= 5 &&
+          !html.includes('disabled=""'),
         html.includes('role="dialog"'),
       ],
       expected: [true, true, true, true, false],
@@ -85,13 +87,14 @@ describe('Spectate: report dialog', () => {
     );
     assert({
       given: 'a report open on the debate',
-      should: 'show the dialog with reasons, a Cancel link and an inert Send',
+      should:
+        'show the dialog with reasons, a Cancel link and a Send that answers as a sample action',
       actual: [
         html.includes('role="dialog"'),
         html.includes('Report the debate'),
         html.includes('Cheating or outside help'),
         /href="\/watch\/top-of-the-ladder"[^>]*>Cancel/.test(html),
-        /<button [^>]*disabled=""[^>]*>Send report/.test(html),
+        html.includes('href="?did=Send+report"'),
       ],
       expected: [true, true, true, true, true],
     });

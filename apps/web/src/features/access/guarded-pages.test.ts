@@ -49,7 +49,18 @@ type Page = (props: {
 // Loaded lazily, after the mocks above, so no page pulls in the real guard.
 const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
   {
+    '(shell)/debates/page.tsx': () => import('../../app/(shell)/debates/page'),
+    '(shell)/debates/[id]/page.tsx': () =>
+      import('../../app/(shell)/debates/[id]/page'),
+    '(shell)/rooms/[id]/page.tsx': () =>
+      import('../../app/(shell)/rooms/[id]/page'),
+    '(shell)/play/room/page.tsx': () =>
+      import('../../app/(shell)/play/room/page'),
+    '(shell)/notifications/page.tsx': () =>
+      import('../../app/(shell)/notifications/page'),
     '(shell)/judge/page.tsx': () => import('../../app/(shell)/judge/page'),
+    '(shell)/judge/ballot/[debateId]/page.tsx': () =>
+      import('../../app/(shell)/judge/ballot/[debateId]/page'),
     '(shell)/judge/rating/page.tsx': () =>
       import('../../app/(shell)/judge/rating/page'),
     '(shell)/judge/resources/page.tsx': () =>
@@ -89,6 +100,10 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
     '(shell)/prep/start/page.tsx': () =>
       import('../../app/(shell)/prep/start/page'),
     '(shell)/train/page.tsx': () => import('../../app/(shell)/train/page'),
+    '(shell)/train/progress/page.tsx': () =>
+      import('../../app/(shell)/train/progress/page'),
+    '(shell)/train/review/page.tsx': () =>
+      import('../../app/(shell)/train/review/page'),
     '(shell)/train/drill/page.tsx': () =>
       import('../../app/(shell)/train/drill/page'),
     '(shell)/train/welcome/page.tsx': () =>
@@ -111,6 +126,10 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
     '(shell)/watch/page.tsx': () => import('../../app/(shell)/watch/page'),
     '(shell)/watch/[debateId]/page.tsx': () =>
       import('../../app/(shell)/watch/[debateId]/page'),
+    '(shell)/ai-debate/page.tsx': () =>
+      import('../../app/(shell)/ai-debate/page'),
+    '(shell)/ai-debate/[id]/page.tsx': () =>
+      import('../../app/(shell)/ai-debate/[id]/page'),
     '(shell)/leaderboard/page.tsx': () =>
       import('../../app/(shell)/leaderboard/page'),
     '(shell)/tournaments/page.tsx': () =>
@@ -185,12 +204,16 @@ describe('guarded pages', () => {
         ...new Set(guarded.map(({ route }) => guardedAreaFor(route))),
       ].sort(),
       expected: [
+        '/ai-debate',
+        '/debates',
         '/judge',
         '/lobby',
+        '/notifications',
         '/play',
         '/prep',
         '/ranked',
         '/recordings',
+        '/rooms',
         '/settings',
         '/tournaments/enter',
         '/tournaments/mine',

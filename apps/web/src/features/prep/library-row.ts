@@ -18,8 +18,6 @@ export type LibraryRow = {
   readonly visibility: Visibility;
   /** "Edited 2 days ago", "Used in 3", "Not used yet". */
   readonly meta: string;
-  /** "Opened yesterday"; shown on the jump-back cards. */
-  readonly opened: string;
 };
 
 export const usedLabel = (usedIn: number): string =>
@@ -38,6 +36,5 @@ export function toRow(item: LibraryItem, now: string): LibraryRow {
       item.kind === 'card'
         ? usedLabel(item.usedIn)
         : `Edited ${ago(now, item.editedAt)}`,
-    opened: `Opened ${ago(now, item.openedAt)}`,
   };
 }

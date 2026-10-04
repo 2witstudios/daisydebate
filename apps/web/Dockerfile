@@ -19,6 +19,7 @@ WORKDIR /app
 FROM base AS deps
 COPY package.json bun.lock .bun-version ./
 COPY apps/web/package.json apps/web/package.json
+COPY packages/ai-voice/package.json packages/ai-voice/package.json
 COPY packages/auth/package.json packages/auth/package.json
 COPY packages/clock/package.json packages/clock/package.json
 COPY packages/config/package.json packages/config/package.json
@@ -49,6 +50,7 @@ RUN NODE_ENV=production bun run --cwd apps/web build \
 FROM base AS prod-deps
 COPY package.json bun.lock .bun-version ./
 COPY apps/web/package.json apps/web/package.json
+COPY packages/ai-voice/package.json packages/ai-voice/package.json
 COPY packages/auth/package.json packages/auth/package.json
 COPY packages/clock/package.json packages/clock/package.json
 COPY packages/config/package.json packages/config/package.json
@@ -97,6 +99,7 @@ COPY --chown=daisy:daisy packages/db/src packages/db/src
 # applies are not otherwise reachable from the runtime stage.
 COPY --chown=daisy:daisy packages/db/scripts packages/db/scripts
 COPY --chown=daisy:daisy packages/db/migrations packages/db/migrations
+COPY --chown=daisy:daisy packages/ai-voice/src packages/ai-voice/src
 COPY --chown=daisy:daisy packages/debate-engine/src packages/debate-engine/src
 COPY --chown=daisy:daisy packages/errors/src packages/errors/src
 COPY --chown=daisy:daisy packages/logger/src packages/logger/src

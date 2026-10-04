@@ -3,6 +3,7 @@ import {
   buttonClass,
   type ButtonVariant,
 } from '../../components/button/button-class';
+import { SampleAction } from '../../components/sample-action/sample-action';
 import { cn } from '../../cn';
 import { PrepIcon, type PrepIconName } from '../prep-icon/prep-icon';
 
@@ -15,7 +16,10 @@ export type InertActionButtonProps = {
   readonly label?: string;
 };
 
-/** A mutation with no backend: a disabled button. It posts nothing. */
+/**
+ * A mutation with no backend: it answers on the same page with the
+ * sample-action banner and saves nothing.
+ */
 export function InertActionButton({
   action,
   variant = 'secondary',
@@ -23,14 +27,11 @@ export function InertActionButton({
   className,
   label,
 }: InertActionButtonProps) {
+  const text = label ?? action.label;
   return (
-    <button
-      type="button"
-      disabled
-      className={cn(buttonClass(variant), className)}
-    >
+    <SampleAction label={text} className={cn(buttonClass(variant), className)}>
       {symbol === undefined ? null : <PrepIcon name={symbol} size={18} />}
-      {label ?? action.label}
-    </button>
+      {text}
+    </SampleAction>
   );
 }

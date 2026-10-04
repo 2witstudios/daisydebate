@@ -25,6 +25,8 @@ export const adobeIsolationIssue = (
 /** Workspace suffixes (after `@daisy/`) each workspace may depend on. */
 export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
   'debate-engine': ['errors', 'protocol'],
+  // AIDB: the OpenRouter voice layer reads the engine's turn table only.
+  'ai-voice': ['debate-engine', 'errors'],
   protocol: [],
   auth: ['errors'],
   errors: ['protocol'],

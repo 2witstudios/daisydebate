@@ -25,7 +25,7 @@ describe('Drill', () => {
         html.includes('Responding drill'),
         html.includes('Round'),
         html.includes('1 of 2'),
-        html.includes('href="/train"'),
+        html.includes('href="/train/progress"'),
       ],
       expected: [1, true, true, true, true],
     });

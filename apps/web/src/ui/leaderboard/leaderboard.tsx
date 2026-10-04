@@ -3,7 +3,11 @@ import { leaderboardDestinations } from '../../features/leaderboard/actions';
 import type { DebaterDetail } from '../../features/leaderboard/detail';
 import type { LadderView } from '../../features/leaderboard/ladder-view';
 import { ladderHref, type LadderQuery } from '../../features/leaderboard/query';
-import { isClosed, seasonLabel } from '../../features/leaderboard/season';
+import {
+  isClosed,
+  seasonCountdown,
+  seasonLabel,
+} from '../../features/leaderboard/season';
 import { DebaterDrawer } from './debater-drawer/debater-drawer';
 import { LadderFilters } from './ladder-filters/ladder-filters';
 import {
@@ -15,13 +19,15 @@ import {
   PreviousChampion,
 } from './ladder-states/ladder-states';
 import { LadderTable } from './ladder-table/ladder-table';
-import { SeasonCard } from './season-card/season-card';
+import { YouBar } from './you-bar/you-bar';
 
 export type LeaderboardProps = {
   readonly view: LadderView;
   readonly query: LadderQuery;
   /** ISO timestamp the season's day counts from. */
   readonly now: string;
+  /** The signed-in viewer's public username, or null for a visitor. */
+  readonly username: string | null;
   /** True while the viewer is assigned to judge a debate. */
   readonly judging: boolean;
   /** The open debater's detail, or null when the detail is closed. */
@@ -36,6 +42,7 @@ export function Leaderboard({
   view,
   query,
   now,
+  username,
   judging,
   detail,
 }: LeaderboardProps) {
@@ -56,16 +63,19 @@ export function Leaderboard({
             )}
             {closed
               ? `${seasonLabel(view.season)} final standings`
-              : `${seasonLabel(view.season)} is live`}
+              : `${seasonLabel(view.season)} is live. ${seasonCountdown(view.season, now)}`}
           </p>
         </div>
+        <nav
+          aria-label="About the ladder"
+          className="flex gap-4 text-sm font-strong"
+        >
+          <Link href={leaderboardDestinations.seasons}>Seasons</Link>
+          <Link href={leaderboardDestinations.howRatingWorks}>
+            How ratings work
+          </Link>
+        </nav>
       </header>
-      <LadderFilters
-        query={query}
-        seasons={view.seasons}
-        season={view.season}
-        hasStanding={view.hasStanding}
-      />
       {judging ? <JudgeNotice /> : null}
       {closed ? <FinalBanner season={view.season} /> : null}
       {view.early ? (
@@ -78,20 +88,30 @@ export function Leaderboard({
       ) : null}
       {view.empty === 'new-season' ? (
         <NewSeasonHero season={view.season} now={now} />
-      ) : (
-        <SeasonCard season={view.season} now={now} />
-      )}
+      ) : null}
       <LiveNotice
         changes={view.pendingChanges}
         refreshHref={ladderHref(query)}
       />
-      <LadderTable view={view} query={query} />
+      <LadderTable
+        view={view}
+        query={query}
+        toolbar={
+          <LadderFilters
+            query={query}
+            seasons={view.seasons}
+            season={view.season}
+            hasStanding={view.hasStanding}
+          />
+        }
+      />
       {view.empty === 'new-season' && view.previousChampion ? (
         <PreviousChampion champion={view.previousChampion} />
       ) : null}
       <p className="text-sm text-ink-faint">
         <Link href={leaderboardDestinations.privacy}>Ladder privacy</Link>
       </p>
+      <YouBar view={view} query={query} username={username} />
       {detail ? <DebaterDrawer detail={detail} query={query} /> : null}
     </div>
   );

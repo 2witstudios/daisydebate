@@ -24,18 +24,20 @@ describe('Library', () => {
     assert({
       given: 'the default library',
       should:
-        'have one h1, the three header actions, tabs with counts, jump-back cards and the aside',
+        'have one h1, the three header actions, tabs with counts, the toolbar inside the one list card, and no side column or jump-back strip',
       actual: [
         html.match(/<h1 /g)?.length,
         /href="\/prep\/cards\/new\?src=file"[^>]*>.*Import source/.test(html),
         /href="\/prep\/briefs\/new"[^>]*>.*New brief/.test(html),
         /href="\/prep\/cards\/new"[^>]*>.*Add evidence/.test(html),
         html.includes('href="/prep?view=cards"'),
+        html.indexOf('aria-label="Your library"') <
+          html.indexOf('aria-label="Search your library"'),
         html.includes('Jump back in'),
-        html.includes('11 items, newest first'),
+        html.includes('Saved searches'),
         html.includes('aria-label="Library"'),
       ],
-      expected: [1, true, true, true, true, true, true, true],
+      expected: [1, true, true, true, true, true, false, true, false],
     });
   });
 
@@ -44,7 +46,7 @@ describe('Library', () => {
     assert({
       given: 'a cards view filtered by a tag',
       should:
-        'post the form as GET to /prep, keep the view, and drop jump-back',
+        'post the form as GET to /prep, keep the view, and say how many it found',
       actual: [
         /<form [^>]*action="\/prep"[^>]*method="get"|<form [^>]*method="get"[^>]*action="\/prep"/.test(
           html,

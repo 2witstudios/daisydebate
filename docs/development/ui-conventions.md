@@ -89,10 +89,11 @@ the gaps it cannot.
 - Say a policy once, on the page that owns it (Ranked rules, the privacy
   pages, how ratings work), and link to it; never repeat a reassurance such
   as "never changes your rating" across screens.
-- A control with no backend is disabled and labelled, nothing more. Never
-  show build status ("needs the organizer service", "not built yet",
-  "preview"), "Sample data" badges, spec placeholders (`[N]`,
-  `[speech time]`) or owner-decision notes to people.
+- A control with no backend is a sample action (the shell banner answers
+  it); it carries no explanation of its own. Never show build status
+  ("needs the organizer service", "not built yet", "no backend"), "Sample
+  data" badges, spec placeholders (`[N]`, `[speech time]`) or
+  owner-decision notes to people.
 - No ledes that restate the page title, and no slogan pairs ("Practice
   arguments. Sharpen your mind.") outside the landing hero and the auth
   brand panel.

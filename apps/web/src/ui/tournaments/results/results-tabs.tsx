@@ -6,7 +6,7 @@ import { tournamentRoutes } from '../../../features/tournaments/routes';
 import { Badge } from '../../components/badge/badge';
 import { Icon } from '../../components/icon/icon';
 import { Certificate } from '../certificate/certificate';
-import { DisabledAction } from '../inert-action/inert-action';
+import { SampleButton } from '../inert-action/inert-action';
 import { LinkButton } from '../link-button/link-button';
 import { cn } from '../../cn';
 
@@ -166,7 +166,7 @@ export function Mine({ data }: { readonly data: ResultsData }) {
           >
             View certificate
           </LinkButton>
-          <DisabledAction label="Copy link to results" />
+          <SampleButton label="Copy link to results" />
           <LinkButton href="/recordings" variant="ghost">
             Watch my rounds
           </LinkButton>

@@ -11,7 +11,7 @@ import {
 } from '../../../features/tournaments/labels';
 import { tournamentRoutes } from '../../../features/tournaments/routes';
 import type { Tournament } from '../../../features/tournaments/tournament';
-import { DisabledAction } from '../inert-action/inert-action';
+import { SampleButton } from '../inert-action/inert-action';
 import { LinkButton } from '../link-button/link-button';
 import { PageFrame, PageTitle } from '../page-frame/page-frame';
 import { StatusBadge } from '../status-badge/status-badge';
@@ -96,7 +96,7 @@ export function BracketPage({
           }))}
         />
         <div className="flex gap-3">
-          <DisabledAction label="Share" variant="ghost" />
+          <SampleButton label="Share" variant="ghost" />
           {myEvent ? (
             <LinkButton href={tournamentRoutes.myEvent(tournament.id)}>
               Open my event
@@ -120,6 +120,7 @@ export function NotPosted({ tournament }: { readonly tournament: Tournament }) {
             ? `${tournament.name} is over`
             : `The ${tournament.name} bracket is not out yet`}
         </h1>
+
         <div className="flex flex-wrap gap-3">
           <LinkButton
             href={

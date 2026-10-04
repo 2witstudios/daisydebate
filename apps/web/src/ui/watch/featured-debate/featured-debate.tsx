@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import type { LiveCard } from '../../../features/watch/live-card';
 import { buttonClass } from '../../components/button/button-class';
+import { Badge } from '../../components/badge/badge';
 import { Icon } from '../../components/icon/icon';
+import { StatusLine } from '../../components/status-line/status-line';
 import { cn } from '../../cn';
 import { LiveClock } from '../live-clock/live-clock';
 
@@ -13,14 +15,14 @@ export type FeaturedDebateProps = {
 function Seat({ seat }: { seat: LiveCard['aff'] }) {
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-1 max-compact:w-full">
-      <span className="text-2xs font-bold tracking-wider text-stage-ink-muted uppercase">
+      <span className="text-2xs font-bold tracking-wider text-ink-faint uppercase">
         {seat.label}
       </span>
       <span className="truncate text-lg font-bold">{`@${seat.handle}`}</span>
-      <span className="text-sm text-stage-ink-muted tabular-nums">
+      <span className="text-sm text-ink-muted tabular-nums">
         {`${seat.rating} ${seat.standing === 'est.' ? 'established' : 'provisional'}`}
       </span>
-      <span className="text-sm text-stage-accent">
+      <span className="text-sm text-accent">
         {seat.speaking ? 'Speaking' : 'Listening'}
       </span>
     </div>
@@ -29,26 +31,26 @@ function Seat({ seat }: { seat: LiveCard['aff'] }) {
 
 /**
  * The featured live debate: the highest-rated ranked debate live now, picked
- * by rating alone. It sits on the stage surface so it leads the page.
+ * by rating alone. It leads the page on a wash of the ranked hue (clay,
+ * ADR 0051) instead of a flat green slab.
  */
 export function FeaturedDebate({ card, delaySeconds }: FeaturedDebateProps) {
   return (
     <section
       aria-label="Featured live debate"
-      className="flex flex-col gap-4 rounded-xl bg-surface-stage p-6 text-stage-ink shadow-2 max-compact:p-4"
+      className="flex flex-col gap-4 rounded-xl border border-border bg-hue-clay-soft p-6 text-ink shadow-1 max-compact:p-4"
     >
-      <div className="flex flex-wrap items-center gap-2 text-sm text-stage-ink-muted">
-        <span className="font-bold text-stage-accent">Live</span>
-        <span>{card.mode}</span>
-        <span aria-hidden="true">·</span>
-        <span>{card.rules}</span>
+      <div className="flex flex-wrap items-center gap-2 text-sm text-ink-muted">
+        <StatusLine tone="live">Live</StatusLine>
+        <Badge tone="clay">{card.mode}</Badge>
+        {card.customRules ? <Badge tone="neutral">{card.rules}</Badge> : null}
         <span className="ml-auto flex items-center gap-1 whitespace-nowrap tabular-nums">
           <Icon name="eye" size={16} />
           {`${card.watching} watching`}
         </span>
       </div>
       <div className="flex flex-col gap-1">
-        <span className="text-xs text-stage-ink-muted">Featured</span>
+        <span className="text-xs text-ink-muted">Featured</span>
         <h2 className="font-display text-2xl font-bold tracking-tight">
           {card.title}
         </h2>
@@ -56,12 +58,12 @@ export function FeaturedDebate({ card, delaySeconds }: FeaturedDebateProps) {
       <div className="flex items-center gap-6 max-compact:flex-col max-compact:items-stretch max-compact:gap-4">
         <Seat seat={card.aff} />
         <div className="flex flex-col items-center gap-1 text-center">
-          <span className="text-sm text-stage-ink-muted">{card.phaseName}</span>
+          <span className="text-sm text-ink-muted">{card.phaseName}</span>
           <LiveClock
             initialSeconds={card.secondsLeft}
             className="font-display text-2xl font-bold tabular-nums"
           />
-          <span className="text-xs text-stage-ink-muted">{`delayed ${delaySeconds} s`}</span>
+          <span className="text-xs text-ink-muted">{`delayed ${delaySeconds} s`}</span>
         </div>
         <Seat seat={card.neg} />
       </div>
@@ -71,22 +73,22 @@ export function FeaturedDebate({ card, delaySeconds }: FeaturedDebateProps) {
             key={index}
             className={cn(
               'h-1 flex-1 rounded-round',
-              step === 'done' && 'bg-stage-accent',
-              step === 'current' && 'bg-stage-accent opacity-50',
-              step === 'upcoming' && 'bg-stage-ink-muted opacity-50',
+              step === 'done' && 'bg-hue-clay',
+              step === 'current' && 'bg-hue-clay opacity-50',
+              step === 'upcoming' && 'bg-surface-overlay',
             )}
           />
         ))}
       </div>
-      <p className="text-base text-stage-ink-muted">
-        <span className="font-strong text-stage-ink">{`@${card.speaker}`}</span>
+      <p className="text-base text-ink-muted">
+        <span className="font-strong text-ink">{`@${card.speaker}`}</span>
         {` ${card.excerpt}`}
       </p>
       <Link
         href={card.href}
         className={cn(
           buttonClass('primary'),
-          'self-start bg-stage-accent text-stage-accent-ink no-underline hover:bg-stage-accent-strong hover:no-underline max-compact:w-full',
+          'self-start no-underline hover:no-underline max-compact:w-full',
         )}
       >
         Watch live

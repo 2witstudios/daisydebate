@@ -83,16 +83,14 @@ describe('ResultsPage', () => {
     assert({
       given: 'the viewer’s result',
       should:
-        'show the placing, link the certificate, disable copy and preview it',
+        'show the placing, link the certificate, answer copy as a sample action and preview it',
       actual: [
         html.includes('You placed second.'),
         html.includes('Runner-up, honour earned'),
         html.includes(
           'href="/tournaments/mine/summer-invitational/certificate"',
         ),
-        /<button type="button" disabled=""[^>]*>Copy link to results</.test(
-          html,
-        ),
+        html.includes('href="?did=Copy+link+to+results"'),
         html.includes('aria-label="Certificate preview"'),
         html.includes('Final</span>') || html.includes('Final vs @debater-c'),
       ],

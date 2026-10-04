@@ -27,9 +27,9 @@ describe('PlanPanel', () => {
       given: 'a twenty minute plan with review done',
       should: 'link each time, mark twenty current and keep done items',
       actual: [
-        html.includes('href="/train?mins=10&amp;did=review"'),
-        html.includes('href="/train?did=review"'),
-        html.includes('href="/train?mins=40&amp;did=review"'),
+        html.includes('href="/train/progress?mins=10&amp;did=review"'),
+        html.includes('href="/train/progress?did=review"'),
+        html.includes('href="/train/progress?mins=40&amp;did=review"'),
         /aria-current="true"[^>]*>20 min/.test(html),
         html.includes('About 20 minutes'),
       ],

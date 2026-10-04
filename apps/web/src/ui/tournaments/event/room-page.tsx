@@ -8,7 +8,7 @@ import { tournamentRoutes } from '../../../features/tournaments/routes';
 import { formatTime } from '../../../features/tournaments/dates';
 import { Badge } from '../../components/badge/badge';
 import { Breadcrumb } from '../breadcrumb/breadcrumb';
-import { DisabledAction } from '../inert-action/inert-action';
+import { DisabledAction, SampleButton } from '../inert-action/inert-action';
 import { LinkButton } from '../link-button/link-button';
 import { Notice } from '../notice/notice';
 import { PageFrame } from '../page-frame/page-frame';
@@ -67,9 +67,10 @@ function Action({ action }: { readonly action: RoomAction }) {
           <div className="flex flex-wrap gap-3">
             <DisabledAction
               label={`Claim forfeit (available ${action.claimAt})`}
+              reason="Forfeits are confirmed by the organizer."
               variant="primary"
             />
-            <DisabledAction label="Contact the organizer" variant="ghost" />
+            <SampleButton label="Contact the organizer" variant="ghost" />
           </div>
         </div>
       );
@@ -128,6 +129,7 @@ export function RoomPage({ screen, tournament, startsAt }: RoomPageProps) {
           <h2 className="text-xs font-bold tracking-widest text-ink-muted uppercase">
             Rules for this debate
           </h2>
+
           <Badge tone="accent">Unrated</Badge>
           <FactList
             facts={[

@@ -3,9 +3,9 @@ import type { ReactNode } from 'react';
 import type { Destination } from '../../../features/coming-soon/destinations';
 import type { NotifyAction } from '../../../features/coming-soon/notify';
 import { Badge } from '../../components/badge/badge';
-import { Button } from '../../components/button/button';
 import { buttonClass } from '../../components/button/button-class';
 import { Icon } from '../../components/icon/icon';
+import { SampleAction } from '../../components/sample-action/sample-action';
 import { cn } from '../../cn';
 import { destinationGlyph } from '../destination-glyph';
 import { PreviewFrame } from '../preview-frame/preview-frame';
@@ -66,7 +66,12 @@ export function Explainer({ destination, notify, preview }: ExplainerProps) {
                 Get notified
               </Link>
             ) : (
-              <Button disabled>Get notified</Button>
+              <SampleAction
+                label="Get notified"
+                className={cn(buttonClass('primary'), linkButton)}
+              >
+                Get notified
+              </SampleAction>
             )}
             <Link href="/" className={cn(buttonClass('secondary'), linkButton)}>
               Back to home

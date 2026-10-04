@@ -1,7 +1,7 @@
 import Link from 'next/link';
+import { HiddenWhileJudging } from '../../components/hidden-while-judging/hidden-while-judging';
 import type { ReactNode } from 'react';
 import type { DebaterDetail } from '../../../features/leaderboard/detail';
-import type { ResultRow } from '../../../features/leaderboard/history';
 import {
   closeDetailHref,
   viewHref,
@@ -12,59 +12,18 @@ import { Badge } from '../../components/badge/badge';
 import { Icon } from '../../components/icon/icon';
 import { cn } from '../../cn';
 import { RatingChart } from '../rating-chart/rating-chart';
+import {
+  heading,
+  RatingSummary,
+  ResultLine,
+  resultTone,
+} from '../detail-parts/detail-parts';
 import { Segmented } from '../segmented/segmented';
 
 export type DebaterDrawerProps = {
   readonly detail: DebaterDetail;
   readonly query: LadderQuery;
 };
-
-const heading = 'text-xs font-bold tracking-widest text-ink-muted uppercase';
-const resultTone = (up: boolean) => (up ? 'text-online' : 'text-ink-muted');
-
-function Stat({
-  label,
-  value,
-  note,
-}: {
-  label: string;
-  value: ReactNode;
-  note: string;
-}) {
-  return (
-    <div className="flex flex-col rounded-md bg-surface-overlay p-3">
-      <span className="text-2xs font-bold tracking-wider text-ink-faint uppercase">
-        {label}
-      </span>
-      <span className="font-display text-xl font-bold tabular-nums">
-        {value}
-      </span>
-      <span className="text-xs text-ink-muted tabular-nums">{note}</span>
-    </div>
-  );
-}
-
-function ResultLine({ row }: { row: ResultRow }) {
-  return (
-    <li className="flex items-center gap-3 py-2 text-sm">
-      <span
-        className={cn('w-10 font-strong', resultTone(row.result === 'Won'))}
-      >
-        {row.result}
-      </span>
-      <span className="min-w-0 flex-1 truncate">
-        {`vs @${row.opponent}`}
-        <span className="block text-xs text-ink-faint">{`Debate ${row.game}`}</span>
-      </span>
-      <span className={cn('tabular-nums', resultTone(row.up))}>
-        {row.change}
-      </span>
-      <span className="w-12 text-right font-strong tabular-nums">
-        {row.rating}
-      </span>
-    </li>
-  );
-}
 
 function Header({ detail, query }: DebaterDrawerProps): ReactNode {
   return (
@@ -91,13 +50,7 @@ function Header({ detail, query }: DebaterDrawerProps): ReactNode {
 }
 
 function Body({ detail, query }: DebaterDrawerProps): ReactNode {
-  if (detail.kind === 'hidden')
-    return (
-      <p className="flex items-start gap-3 rounded-md bg-surface-overlay p-4 text-base text-ink-muted">
-        <Icon name="eye" size={20} />
-        Hidden while you judge
-      </p>
-    );
+  if (detail.kind === 'hidden') return <HiddenWhileJudging />;
   if (detail.kind === 'none')
     return (
       <div className="flex flex-col items-center gap-2 py-8 text-center text-base text-ink-muted">
@@ -107,18 +60,7 @@ function Body({ detail, query }: DebaterDrawerProps): ReactNode {
     );
   return (
     <>
-      <div className="grid grid-cols-2 gap-3">
-        <Stat label="Rating" value={detail.rating} note={detail.range} />
-        <Stat label="Rank" value={detail.rank} note={detail.band} />
-        <Stat label="Record" value={detail.record} note="W–L" />
-        <Stat label="Peak" value={detail.peak} note="this season" />
-      </div>
-      <p className="flex items-center gap-2 text-sm text-ink-muted">
-        <Badge tone={detail.established ? 'accent' : 'neutral'}>
-          {detail.established ? 'Established' : 'Provisional'}
-        </Badge>
-        {detail.statusNote}
-      </p>
+      <RatingSummary detail={detail} gridClass="grid-cols-2" />
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-3">
           <h3 className={heading}>Rating history</h3>

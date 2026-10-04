@@ -31,7 +31,6 @@ function GrantRow({ grant }: { readonly grant: Share['grants'][number] }) {
       >{`Permission for ${grant.name}`}</label>
       <select
         id={selectId}
-        disabled
         defaultValue={grant.permission}
         className={controlClass}
       >
@@ -48,8 +47,8 @@ function GrantRow({ grant }: { readonly grant: Share['grants'][number] }) {
 
 /**
  * The share dialog. Open and close are links (the state is in the URL); the
- * add row is a GET form that checks the target; changing a grant needs the
- * service, so the permission selects are shown but disabled.
+ * add row is a GET form that checks the target; the permission selects change
+ * on the page only, since a grant has no backend yet.
  */
 export function ShareDialog({ share }: { readonly share: Share }) {
   const { target } = share;
@@ -139,7 +138,6 @@ export function ShareDialog({ share }: { readonly share: Share }) {
         <label className="flex items-start gap-3 text-base">
           <input
             type="checkbox"
-            disabled
             defaultChecked={share.includeCards}
             className="mt-1 size-5 accent-accent"
           />

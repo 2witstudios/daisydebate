@@ -113,31 +113,31 @@ describe('ConsolePage', () => {
     });
   });
 
-  test('entrants: seeds, statuses and disabled remove and disqualify', () => {
+  test('entrants: seeds, statuses and sample remove and disqualify', () => {
     const html = render('autumn-open', { tab: 'entrants' });
     assert({
       given: 'the entrants tab',
-      should: 'list nine, show byes, and never offer a working remove',
+      should:
+        'list nine, show byes and offer Remove on each as a sample action',
       actual: [
         html.includes('24 entered, 1 withdrawn, waitlist empty'),
         html.match(/>Bye</g)?.length,
         html.includes('Showing 9 of 24'),
-        (html.match(/<button type="button" disabled=""[^>]*>Remove</g) ?? [])
-          .length,
+        (html.match(/href="\?did=Remove"/g) ?? []).length,
       ],
       expected: [true, 8, true, 9],
     });
   });
 
-  test('results running: a needs-result form that is off, and the log', () => {
+  test('results running: a needs-result form with a sample save, and the log', () => {
     const html = render('autumn-open', { tab: 'results', round: 'running' });
     assert({
       given: 'running debates',
-      should: 'show the eight rows, the D5 form disabled and the log',
+      should: 'show the eight rows, the D5 form with a sample save and the log',
       actual: [
         html.includes('Enter result for D5'),
         html.includes('Audit logged'),
-        /<button type="button" disabled=""[^>]*>Save result</.test(html),
+        html.includes('href="?did=Save+result"'),
         html.includes('Tournament log'),
         html.includes('Judge disconnected, no ballot for 18 minutes.'),
         html.includes('Forfeit to confirm'),
@@ -157,7 +157,7 @@ describe('ConsolePage', () => {
     });
   });
 
-  test('moderation: report, forfeit and moderators, every decision disabled', () => {
+  test('moderation: report, forfeit and moderators, every decision a sample action', () => {
     const html = render('autumn-open', { tab: 'moderation', round: 'running' });
     assert({
       given: 'a running round',
@@ -168,7 +168,7 @@ describe('ConsolePage', () => {
         html.includes('@moderator-one'),
         (
           html.match(
-            /<button type="button" disabled=""[^>]*>(Dismiss|Warn|Forfeit the round|Disqualify)</g,
+            /href="\?did=(Dismiss|Warn|Forfeit\+the\+round|Disqualify)"/g,
           ) ?? []
         ).length,
       ],

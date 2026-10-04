@@ -21,10 +21,14 @@ const GUARDED_AREAS: Readonly<Record<string, Requirement>> = {
   '/play': 'participant',
   '/ranked': 'participant',
   '/lobby': 'participant',
+  '/rooms': 'participant',
+  '/debates': 'participant',
   '/judge': 'participant',
+  '/notifications': 'participant',
   '/recordings': 'participant',
   '/prep': 'participant',
   '/train': 'participant',
+  '/ai-debate': 'participant',
   '/settings': 'account',
   // A public root (Tournaments) holds guarded areas: the organizer console
   // (any organizer, never an admin surface, ADR 0043), a participant's own

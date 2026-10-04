@@ -53,9 +53,9 @@ describe('hubHref', () => {
         hubHref({ mins: 20, did: ['review', 'impact-drill'] }),
       ],
       expected: [
-        '/train',
-        '/train?mins=10',
-        '/train?did=review%2Cimpact-drill',
+        '/train/progress',
+        '/train/progress?mins=10',
+        '/train/progress?did=review%2Cimpact-drill',
       ],
     });
   });

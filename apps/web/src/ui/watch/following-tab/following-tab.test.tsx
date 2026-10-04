@@ -24,7 +24,7 @@ describe('FollowingTab', () => {
         html.includes('Live now in Quarterfinal practice'),
         html.includes('href="/watch/quarterfinal-practice"'),
         html.includes('href="/recordings/semifinal-rehearsal"'),
-        /<button [^>]*disabled=""/.test(html),
+        html.includes('href="?did=Clear+history"'),
       ],
       expected: [true, true, true, true],
     });

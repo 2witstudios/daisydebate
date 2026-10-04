@@ -4,7 +4,7 @@ import {
   type TrainingSummary,
 } from '../../../features/train/summary';
 import { TrainCard } from '../card/train-card';
-import { Button } from '../../components/button/button';
+import { InertButton } from '../inert-button/inert-button';
 import { WeekStrip } from './week-strip';
 
 /** This week's sessions against the goal; rest days never count against it. */
@@ -19,9 +19,7 @@ export function WeekCard({ summary }: { readonly summary: TrainingSummary }) {
       </p>
       <div className="flex items-center justify-between gap-2 text-sm text-ink-muted">
         <span>{`Practiced ${week.practicedDaysLast30} of the last 30 days`}</span>
-        <Button variant="ghost" disabled>
-          Change goal
-        </Button>
+        <InertButton>Change goal</InertButton>
       </div>
     </TrainCard>
   );

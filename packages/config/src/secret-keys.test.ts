@@ -14,6 +14,7 @@ describe('secret configuration keys', () => {
         'BETTER_AUTH_SECRET',
         'DATABASE_URL',
         'MIGRATION_DATABASE_URL',
+        'OPENROUTER_API_KEY',
         'OPS_PROBE_TOKEN',
         'RECIPIENT_HASH_SECRET',
         'REDIS_URL',

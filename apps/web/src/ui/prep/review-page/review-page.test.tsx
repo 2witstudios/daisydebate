@@ -46,13 +46,17 @@ describe('ReviewPage', () => {
     assert({
       given: 'the dialog open',
       should:
-        'name the dialog, list both grants with disabled permissions, note privacy and offer Done and Close as links',
+        'name the dialog, list both grants with editable permissions, explain privacy and offer Done and Close as links',
       actual: [
         html.includes('aria-label="Share this brief"'),
         html.includes('Private to you until you add someone'),
         html.includes('@debater-d'),
-        html.match(/<select [^>]*disabled=""/g)?.length,
+        html.match(/<select /g)?.length === 3 &&
+        !/<select [^>]*disabled/.test(html)
+          ? 3
+          : 0,
         html.includes('Include the 4 attached cards'),
+
         /href="\/prep\/briefs\/rights-framework\/review"[^>]*aria-label="Close"|aria-label="Close"[^>]*href="\/prep\/briefs\/rights-framework\/review"/.test(
           html,
         ),
@@ -60,7 +64,7 @@ describe('ReviewPage', () => {
         html.includes('Stop sharing'),
         html.includes('aria-expanded="true"'),
       ],
-      expected: [true, true, true, 2, true, true, true, true, true],
+      expected: [true, true, true, 3, true, true, true, true, true],
     });
   });
 

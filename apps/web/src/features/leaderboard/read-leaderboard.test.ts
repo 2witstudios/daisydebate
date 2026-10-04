@@ -38,9 +38,13 @@ describe('readLadder', () => {
     assert({
       given: 'season three and a signed-in viewer',
       should:
-        'give the viewer a standing and name the season before’s champion',
-      actual: [data.season.id, view.hasStanding, data.previousChampion],
-      expected: [3, true, { season: 2, username: 'debater-b', rating: 1721 }],
+        'pin the viewer’s final rank and name the season before’s champion',
+      actual: [
+        data.season.id,
+        view.pinned.kind === 'established' && view.pinned.rank,
+        data.previousChampion,
+      ],
+      expected: [3, 100, { season: 2, username: 'debater-b', rating: 1721 }],
     });
   });
 

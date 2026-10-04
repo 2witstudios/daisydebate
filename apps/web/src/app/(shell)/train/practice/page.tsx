@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../../features/access/decision';
+import { findBot } from '../../../../features/train/bots';
 import { parsePracticeConfig } from '../../../../features/train/practice';
 import { parseHubQuery } from '../../../../features/train/query';
 import { requireAccess } from '../../../../lib/access';
@@ -18,6 +19,7 @@ export default async function PracticeSetupPage({
     <PracticeSetup
       config={parsePracticeConfig(params)}
       plan={parseHubQuery(params)}
+      bot={findBot(params)}
     />
   );
 }

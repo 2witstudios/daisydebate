@@ -40,6 +40,7 @@ export default async function LeaderboardPage({
       view={view}
       query={query}
       now={now}
+      username={username}
       judging={(viewer?.blinded.length ?? 0) > 0}
       detail={detail}
     />

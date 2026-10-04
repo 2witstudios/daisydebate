@@ -6,7 +6,7 @@ import {
   structureLabel,
 } from '../../../features/tournaments/labels';
 import { formatTime } from '../../../features/tournaments/dates';
-import { DisabledAction } from '../inert-action/inert-action';
+import { SampleButton } from '../inert-action/inert-action';
 import { LinkButton } from '../link-button/link-button';
 import { PageFrame, PageTitle } from '../page-frame/page-frame';
 import { StatusBadge } from '../status-badge/status-badge';
@@ -135,8 +135,8 @@ export function EventPage({ screen, tournament, finalAt }: EventPageProps) {
           </section>
           <section className={card}>
             <h2 className={h3}>Need help?</h2>
-            <DisabledAction label="Contact the organizer" />
-            <DisabledAction label="Report a problem" variant="ghost" />
+            <SampleButton label="Contact the organizer" />
+            <SampleButton label="Report a problem" variant="ghost" />
           </section>
         </aside>
       </div>
@@ -158,6 +158,7 @@ export function NotInEvent({
             ? `You are not competing in ${tournament.name}`
             : 'We could not find that event'}
         </h1>
+
         <div>
           <LinkButton
             href={

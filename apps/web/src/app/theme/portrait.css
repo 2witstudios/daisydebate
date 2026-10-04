@@ -1,0 +1,96 @@
+/* Idle life for a bot portrait: breathing, blinking, a slow sway, and a
+   mouth that moves while the bot speaks (or while it is pointed at). The
+   global reduced-motion rule shortens every animation to its end state. */
+
+/* The framed picture of a bot: a fixed width and a portrait ratio. */
+@utility portrait-frame {
+  width: 15rem;
+  aspect-ratio: 5 / 6;
+}
+
+/* The drawing itself. While speaking (or pointed at) the open mouth moves and
+   the closed one steps aside. */
+@utility portrait {
+  &[data-speaking='true'] .portrait-mouth-open,
+  &:hover .portrait-mouth-open {
+    animation: portrait-speak 0.62s ease-in-out infinite;
+  }
+
+  &[data-speaking='true'] .portrait-mouth-closed,
+  &:hover .portrait-mouth-closed {
+    opacity: 0;
+  }
+}
+
+@utility portrait-breathe {
+  animation: portrait-breathe 4.2s ease-in-out infinite;
+}
+
+@utility portrait-sway {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: portrait-sway 8s ease-in-out infinite;
+}
+
+@utility portrait-blink {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: portrait-blink 5.6s infinite;
+}
+
+@utility portrait-mouth-open {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scaleY(0);
+}
+
+@utility portrait-mouth-closed {
+  transition: opacity 80ms;
+}
+
+@keyframes portrait-breathe {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(1.6px);
+  }
+}
+
+@keyframes portrait-sway {
+  0%,
+  100% {
+    transform: rotate(-0.8deg);
+  }
+  50% {
+    transform: rotate(0.8deg);
+  }
+}
+
+@keyframes portrait-blink {
+  0%,
+  92%,
+  100% {
+    transform: scaleY(1);
+  }
+  95% {
+    transform: scaleY(0.08);
+  }
+}
+
+@keyframes portrait-speak {
+  0%,
+  100% {
+    transform: scaleY(0.15);
+  }
+  25% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(0.4);
+  }
+  75% {
+    transform: scaleY(0.85);
+  }
+}

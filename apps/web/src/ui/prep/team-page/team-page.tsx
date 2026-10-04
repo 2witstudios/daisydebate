@@ -37,7 +37,6 @@ function SharedItems({ view }: { readonly view: TeamView }) {
           >{`Permission for ${item.title}`}</label>
           <select
             id={item.id}
-            disabled
             defaultValue={item.permission}
             className={controlClass}
           >

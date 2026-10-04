@@ -46,19 +46,18 @@ describe('CasePage compose', () => {
     });
   });
 
-  test('block controls are inert and named', () => {
+  test('block controls are named sample actions', () => {
     assert({
       given: 'the block rows',
-      should: 'name the move and remove buttons and disable them',
+      should:
+        'name the move and remove controls and answer them as sample actions',
       actual: [
         html.includes('aria-label="Move up"'),
         html.includes('aria-label="Remove from speech"'),
         html.includes(
           'aria-label="Add Framing pack: burden and standards to speech"',
         ),
-        /<button [^>]*disabled=""[^>]*aria-label="Move up"/.test(html) ||
-          /aria-label="Move up"[^>]*disabled=""/.test(html) ||
-          /disabled=""[^>]*aria-label="Move up"/.test(html),
+        html.includes('href="?did=Move+up"'),
       ],
       expected: [true, true, true, true],
     });
@@ -137,16 +136,14 @@ describe('CasePage export', () => {
     assert({
       given: 'the export view',
       should:
-        'offer three formats as links, the options as a GET form, a preview and inert export actions',
+        'offer three formats as links, the options as a GET form, a preview and export actions that answer as sample actions',
       actual: [
         html.includes('href="/prep/cases/aff-rights?view=export&amp;fmt=flow"'),
         html.match(/type="checkbox"/g)?.length,
         html.includes('name="set" value="1"'),
         html.includes('[SPEECH 1]'),
         html.includes('Exports cannot be taken back once shared.'),
-        html.match(
-          /<button [^>]*disabled=""[^>]*>.*?(Export PDF|Print|Copy as text)/gs,
-        )?.length,
+        html.match(/href="\?did=(Export\+PDF|Print|Copy\+as\+text)"/g)?.length,
       ],
       expected: [true, 5, true, true, true, 3],
     });

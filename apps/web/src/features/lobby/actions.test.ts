@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { lobbyDestinations, roomAction } from './actions';
+import { lobbyDestinations, roomAction, roomHref } from './actions';
 import { liveRoom, openRoom } from './room.test-support';
 
 setupRitewayBun();
@@ -12,7 +12,7 @@ describe('roomAction', () => {
       actual: roomAction(openRoom(), { rating: 1500 }),
       expected: {
         kind: 'take-seat',
-        href: lobbyDestinations.takeSeat,
+        href: roomHref(openRoom().id),
         enabled: true,
       },
     });
@@ -28,7 +28,7 @@ describe('roomAction', () => {
       ),
       expected: {
         kind: 'take-seat',
-        href: lobbyDestinations.takeSeat,
+        href: roomHref(openRoom().id),
         enabled: false,
       },
     });
@@ -52,14 +52,16 @@ describe('lobbyDestinations', () => {
   test('every action points at an existing route', () => {
     assert({
       given: 'no backend operations yet',
-      should: 'point each lobby action at its nearest existing route',
-      actual: lobbyDestinations,
-      expected: {
-        findMatch: '/ranked',
-        openTable: '/play',
-        takeSeat: '/play',
-        spectate: '/watch',
-      },
+      should: 'point each lobby action at the screen it opens',
+      actual: [lobbyDestinations, roomHref('room-newcomers')],
+      expected: [
+        {
+          findMatch: '/ranked',
+          openTable: '/play/room',
+          spectate: '/watch',
+        },
+        '/rooms/room-newcomers',
+      ],
     });
   });
 });

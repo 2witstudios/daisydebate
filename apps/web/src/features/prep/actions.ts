@@ -1,8 +1,8 @@
 /**
- * Where each Prep action goes, and which ones cannot work yet. There is no
- * backend, so a navigation points at the next mock screen and a mutation is
- * an explicitly inert control. The real operations replace these entries
- * here and nowhere else.
+ * Where each Prep action goes, and which ones have no operation yet. There
+ * is no backend, so a navigation points at the next mock screen and a
+ * mutation answers on the same page with the shell banner. The real
+ * operations replace these entries here and nowhere else.
  */
 export const prepDestinations = {
   library: '/prep',
@@ -13,7 +13,10 @@ export const prepDestinations = {
   privacy: '/prep/privacy',
 } as const;
 
-/** A control the backend will bring to life: shown and disabled. */
+/**
+ * A control the backend will bring to life. Until then it answers on the
+ * same page with the shell banner and saves nothing.
+ */
 export type InertAction = {
   readonly label: string;
 };

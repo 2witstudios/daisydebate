@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../features/access/decision';
+import { getAssignedDebates } from '../../../features/judge/get-assigned';
 import { getJudgeRating } from '../../../features/judge/get-judge-rating';
 import { listJudgeResources } from '../../../features/judge/list-judge-resources';
 import { requireAccess } from '../../../lib/access';
@@ -14,6 +15,10 @@ export default async function JudgePage({
 }) {
   await requireAccess('/judge', searchParams);
   return (
-    <JudgeHub rating={getJudgeRating()} resources={listJudgeResources()} />
+    <JudgeHub
+      rating={getJudgeRating()}
+      resources={listJudgeResources()}
+      assigned={getAssignedDebates()}
+    />
   );
 }

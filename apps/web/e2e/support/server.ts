@@ -2,16 +2,19 @@ import { systemClock, systemId } from '@daisy/clock';
 import { createApp } from '../../src/server/app';
 import { adoptProcessApp } from '../../src/server/process-app';
 import { createMailCapture } from './mail-capture';
+import { OPENROUTER_E2E_PLACEHOLDER, openRouterStub } from './openrouter-stub';
 import { createSelfSignedTlsEdge } from './tls-edge';
 
 /**
- * The browser suite's production server, with exactly two additions around it
+ * The browser suite's production server, with exactly three additions around it
  * and nothing inside it:
  *   1. the outbound mail transport is captured (the real Resend sender runs
  *      unchanged; only its HTTP call is answered locally), readable at
  *      `GET /mails?to=<address>` on the loopback capture port;
  *   2. a loopback TLS edge, because production configuration requires an
- *      HTTPS origin and a real browser needs it for Secure cookies.
+ *      HTTPS origin and a real browser needs it for Secure cookies;
+ *   3. OpenRouter (AI debates) answered by a local stub, unless a real key
+ *      was given for a live check by hand.
  * Test-only: nothing under src/ imports it.
  */
 const env = (name: string) => {
@@ -22,6 +25,10 @@ const env = (name: string) => {
 const appPort = Number(env('PORT'));
 const edgePort = Number(env('E2E_EDGE_PORT'));
 const mailPort = Number(env('E2E_MAIL_PORT'));
+
+// A real key (E2E_OPENROUTER_API_KEY, set by hand) reaches OpenRouter.
+const stubOpenRouter =
+  process.env.OPENROUTER_API_KEY === OPENROUTER_E2E_PLACEHOLDER;
 
 const mailCapture = createMailCapture({
   port: mailPort,
@@ -34,7 +41,11 @@ const mailCapture = createMailCapture({
 adoptProcessApp(
   createApp({
     env: process.env,
-    fetch: mailCapture.captureFetch,
+    // OpenRouter (AI debates) is answered locally; everything else goes
+    // through the mail capture.
+    fetch: async (input, init) =>
+      (stubOpenRouter ? openRouterStub(input, init) : null) ??
+      mailCapture.captureFetch(input, init),
     clock: systemClock,
     ids: systemId,
   }),

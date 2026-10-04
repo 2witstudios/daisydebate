@@ -49,6 +49,7 @@ const render = (
       view,
       query,
       now: NOW,
+      username,
       judging: options.judging ?? false,
       detail: null,
     }),
@@ -61,17 +62,18 @@ describe('Leaderboard', () => {
     assert({
       given: 'a live season for a visitor',
       should:
-        'have one h1, say the season is live, filter, list, and pin no standing bar',
+        'have one h1, say the season is live, filter, list and invite sign-in',
       actual: [
         html.match(/<h1/g)?.length,
-        html.includes('Season 5 is live'),
+        html.includes('Season 5 is live. Ends in 25 days.'),
         html.includes('role="search"'),
         html.includes('aria-label="Top three"'),
         html.includes('aria-label="Ladder"'),
-        html.includes('aria-label="Your standing"'),
+        html.includes('Sign in'),
+        html.includes('How ratings work'),
         html.includes('Final'),
       ],
-      expected: [1, true, true, true, true, false, false],
+      expected: [1, true, true, true, true, true, true, false],
     });
   });
 
@@ -97,14 +99,30 @@ describe('Leaderboard', () => {
     assert({
       given: 'a season with nobody established',
       should:
-        'welcome the season, say no one is ranked and name last season’s champion, without the season card',
+        'welcome the season, say no one is ranked and name last season’s champion',
       actual: [
         html.includes('has started'),
         html.includes('No one is ranked yet'),
         html.includes('@ada'),
-        html.includes('How ratings work'),
+        html.includes('This season'),
       ],
       expected: [true, true, true, false],
+    });
+  });
+
+  test('the filters belong to the list, and no explainer cards lead', () => {
+    const html = render(field(40));
+    assert({
+      given: 'a live season',
+      should:
+        'put the filters inside the ladder card, and show no season card or sample badge',
+      actual: [
+        html.indexOf('aria-label="Ladder"') <
+          html.indexOf('aria-label="Filter the ladder"'),
+        html.includes('This season'),
+        html.includes('Sample data'),
+      ],
+      expected: [true, false, false],
     });
   });
 
@@ -152,6 +170,7 @@ describe('Leaderboard', () => {
         view,
         query,
         now: NOW,
+        username: null,
         judging: false,
         detail,
       }),

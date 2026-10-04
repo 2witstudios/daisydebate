@@ -43,6 +43,25 @@ export type LadderRow = {
   readonly href: string | null;
 };
 
+export type Pinned =
+  | { readonly kind: 'signed-out' }
+  | { readonly kind: 'absent' }
+  | {
+      readonly kind: 'established';
+      readonly rank: number;
+      readonly row: LadderRow;
+      readonly jumpHref: string;
+    }
+  | {
+      readonly kind: 'provisional';
+      readonly row: LadderRow;
+      readonly played: number;
+      readonly remaining: number;
+      readonly percent: number;
+      readonly wouldRank: number;
+      readonly jumpHref: string;
+    };
+
 export type Champion = {
   readonly season: number;
   readonly username: string;
@@ -79,6 +98,7 @@ export type LadderView = {
   /** A live season with few established debaters: Everyone is showing. */
   readonly early: boolean;
   readonly status: LadderStatus;
+  readonly pinned: Pinned;
   /** Whether the viewer has a line in this season (shows "Around me"). */
   readonly hasStanding: boolean;
   readonly previousChampion: Champion | null;

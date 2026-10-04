@@ -8,11 +8,11 @@ test.describe('dashboard shell chrome', () => {
     const home = page.getByRole('link', { name: 'Home', exact: true });
     await expect(home).toHaveAttribute('aria-current', 'page');
     await expect(
-      page.getByRole('link', { name: 'Play / Lobby' }),
+      page.getByRole('link', { name: 'Play', exact: true }),
     ).not.toHaveAttribute('aria-current', 'page');
 
     // Play is a participant area: a visitor is sent to sign-in on the way.
-    await page.getByRole('link', { name: 'Play / Lobby' }).click();
+    await page.getByRole('link', { name: 'Play', exact: true }).click();
     await expect(page).toHaveURL(/\/sign-in\?next=%2Fplay$/);
   });
 
@@ -61,13 +61,9 @@ test.describe('dashboard shell chrome', () => {
 
     // Keyboard: focusing the parent link opens the flyout via :focus-within.
     await page.goto('/');
-    const lobby = page.locator('nav[aria-label="Primary"] a[href="/lobby"]');
-    await expect(lobby).not.toBeVisible();
-    await expect(
-      page.getByRole('link', { name: 'Play / Lobby' }),
-    ).toBeVisible();
-    await page.getByRole('link', { name: 'Play / Lobby' }).focus();
-    await expect(lobby).toBeVisible();
+    await expect(recordings).not.toBeVisible();
+    await page.getByRole('link', { name: 'Watch', exact: true }).focus();
+    await expect(recordings).toBeVisible();
   });
 
   test('interactive controls carry accessible names', async ({ page }) => {

@@ -20,6 +20,16 @@
       "owner": "debate-engine",
       "adr": "docs/decisions/0039-dated-dependency-audit-exceptions.md",
       "reviewBy": "2026-12-23"
+    },
+    {
+      "advisory": "GHSA-vfj7-8cjw-p6xm",
+      "packages": ["braces"],
+      "dependencyPath": "eslint-config-next > @next/eslint-plugin-next > fast-glob > micromatch > braces 3.0.3 (devDependency of apps/web).",
+      "reason": "Stack exhaustion on deeply nested brace patterns, a denial of service (high). Every published braces release, 3.0.3 included, is affected; no patched version exists yet.",
+      "unreachable": "Dev-only: braces is reached only through eslint-config-next's lint tooling, which globs Daisy's own source files and never parses untrusted input, and no production image installs dev dependencies.",
+      "owner": "platform",
+      "adr": "docs/decisions/0052-braces-audit-exception.md",
+      "reviewBy": "2026-12-23"
     }
   ]
 }

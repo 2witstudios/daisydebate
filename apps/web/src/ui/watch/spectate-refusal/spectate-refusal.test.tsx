@@ -63,7 +63,7 @@ describe('SpectateRefusal', () => {
       should: "show each one's heading and way out",
       actual: [
         html('your-own-debate').includes('You cannot spectate this debate'),
-        html('your-own-debate').includes('href="/play"'),
+        html('your-own-debate').includes('href="/rooms/started"'),
         html('host-restricted').includes('You can no longer watch this debate'),
         html('packed-house').includes('This debate is full of spectators'),
         html('starting-soon').includes('This debate has not started'),

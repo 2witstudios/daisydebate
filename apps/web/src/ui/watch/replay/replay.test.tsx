@@ -1,7 +1,7 @@
-import { mock } from 'bun:test';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { mockNextRouter } from '../../../lib/testing/mock-router';
 import { watchViewer } from '../../../features/watch/debate-source';
 import { openReplay } from '../../../features/watch/open-replay';
 import {
@@ -12,11 +12,7 @@ import {
 setupRitewayBun();
 
 // The play toggle reads the Next router, which only exists in a running app.
-const actual = await import('next/navigation');
-mock.module('next/navigation', () => ({
-  ...actual,
-  useRouter: () => ({ replace: () => undefined }),
-}));
+await mockNextRouter();
 const { Replay } = await import('./replay');
 
 const render = (id: string, query: ReplayQuery = defaultReplayQuery) => {
@@ -84,12 +80,12 @@ describe('Replay: a published result', () => {
     assert({
       given: "someone else's public recording",
       should:
-        'show visibility and the link, but no Manage control, and inert Report',
+        'show visibility and the link, but no Manage control, and a Report that answers as a sample action',
       actual: [
         html.includes('Share and visibility'),
         html.includes('Manage visibility'),
         html.includes('value="/recordings/semifinal-rehearsal"'),
-        /<button [^>]*disabled=""[^>]*>Report/.test(html),
+        html.includes('href="?did=Send+report"'),
       ],
       expected: [true, false, true, true],
     });
@@ -122,7 +118,7 @@ describe('Replay: the visibility manager', () => {
     assert({
       given: 'the manager open with Public chosen',
       should:
-        'show three radios (Private locked for ranked), a GET form, an inert Save and a Close link',
+        'show three radios (Private locked for ranked), a GET form, a Save that answers as a sample action and a Close link',
       actual: [
         (html.match(/type="radio"/g) ?? []).length,
         /value="private"[^>]*disabled=""|disabled=""[^>]*value="private"/.test(
@@ -131,7 +127,7 @@ describe('Replay: the visibility manager', () => {
         /value="public"[^>]*checked=""|checked=""[^>]*value="public"/.test(
           html,
         ),
-        /<button [^>]*disabled=""[^>]*>Save visibility/.test(html),
+        html.includes('href="?did=Save+visibility"'),
         />Use this choice</.test(html),
         />Close</.test(html),
         html.includes('Not for ranked debates'),

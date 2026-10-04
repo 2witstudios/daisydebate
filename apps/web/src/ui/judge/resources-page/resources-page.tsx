@@ -1,6 +1,8 @@
+import { resourceAction } from '../../../features/judge/actions';
 import type { JudgeResource } from '../../../features/judge/resources';
 import { Badge } from '../../components/badge/badge';
 import { buttonClass } from '../../components/button/button-class';
+import { SampleAction } from '../../components/sample-action/sample-action';
 import { Icon } from '../../components/icon/icon';
 import { BackLink } from '../back-link/back-link';
 import { PageHeader } from '../../components/page-header/page-header';
@@ -11,6 +13,7 @@ export type ResourcesPageProps = {
 };
 
 function ResourceCard({ resource }: { readonly resource: JudgeResource }) {
+  const action = resourceAction(resource);
   const tint = resource.neededToQualify
     ? 'bg-gold-soft text-gold'
     : 'bg-accent-soft text-accent';
@@ -29,13 +32,12 @@ function ResourceCard({ resource }: { readonly resource: JudgeResource }) {
       <h2 className="text-xl leading-tight font-bold">{resource.title}</h2>
       <p className="text-md leading-normal text-ink-muted">{resource.blurb}</p>
       <p className="text-sm text-ink-faint">{resource.meta}</p>
-      <button
-        type="button"
-        disabled
+      <SampleAction
+        label={action.label}
         className={`${buttonClass('secondary')} self-start`}
       >
         {resource.cta}
-      </button>
+      </SampleAction>
     </li>
   );
 }

@@ -6,6 +6,9 @@
 
 export type RoomMode = 'ranked' | 'casual';
 
+/** Who judges: a person, the placeholder AI judge, or Daisy's assignment. */
+type RoomJudge = 'person' | 'ai' | 'assigned';
+
 /** One seated debater: a public username and their rating. */
 type RoomPlayer = {
   readonly handle: string;
@@ -25,6 +28,8 @@ type RoomBase = {
   readonly mode: RoomMode;
   /** Casual only: ranked always runs the canonical rules (ADR 0030). */
   readonly customRules: boolean;
+  /** Ranked rooms always have Daisy assign the judge. */
+  readonly judge: RoomJudge;
   readonly host: RoomPlayer;
 };
 

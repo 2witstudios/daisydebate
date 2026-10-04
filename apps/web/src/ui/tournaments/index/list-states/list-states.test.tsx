@@ -30,11 +30,11 @@ describe('list states', () => {
     const html = renderToString(h(NothingOpen));
     assert({
       given: 'an empty tab',
-      should: 'offer a disabled notify action and a create link',
+      should: 'explain, offer a working notify action and a create link',
       actual: [
         html.includes('No open tournaments'),
         html.includes('Tell me about new events'),
-        /disabled=""/.test(html),
+        html.includes('href="?did=Tell+me+about+new+events"'),
         html.includes('href="/tournaments/organize/new"'),
       ],
       expected: [true, true, true, true],

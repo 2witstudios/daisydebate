@@ -10,7 +10,7 @@ export const watchRoutes = {
   hub: '/watch',
   recordings: '/recordings',
   /** Where a seated debater goes to return to their own debate. */
-  yourDebate: '/play',
+  yourDebate: '/rooms/started',
   lobby: '/lobby',
   findMatch: '/ranked',
 } as const;

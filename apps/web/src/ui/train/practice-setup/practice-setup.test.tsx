@@ -2,6 +2,7 @@ import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { defaultConfig } from '../../../features/train/practice';
+import { listBots } from '../../../features/train/bots';
 import { defaultHubQuery } from '../../../features/train/query';
 import { PracticeSetup } from './practice-setup';
 
@@ -73,7 +74,7 @@ describe('PracticeSetup', () => {
         html.includes('name="speech" value="7"'),
         html.includes('name="mins" value="10"'),
         html.includes('name="did" value="review"'),
-        html.includes('href="/train?mins=10&amp;did=review"'),
+        html.includes('href="/train/progress?mins=10&amp;did=review"'),
         html.includes('speech=7'),
         html.includes('Custom rules'),
       ],
@@ -88,6 +89,23 @@ describe('PracticeSetup', () => {
       should: 'link to custom rules from this practice',
       actual: html.includes('href="/train/rules?'),
       expected: true,
+    });
+  });
+
+  test('a chosen bot is named and kept through the form', () => {
+    const bot = listBots()[1] ?? null;
+    const html = renderToString(
+      h(PracticeSetup, { config: defaultConfig, plan: defaultHubQuery, bot }),
+    ).replaceAll('<!-- -->', '');
+    assert({
+      given: 'a practice set up against a chosen bot',
+      should: 'name it, offer another, and carry it in a hidden field',
+      actual: [
+        html.includes(`Your opponent: <strong>${bot?.name}</strong>`),
+        html.includes('Choose another'),
+        html.includes(`name="bot" value="${bot?.id}"`),
+      ],
+      expected: [true, true, true],
     });
   });
 });

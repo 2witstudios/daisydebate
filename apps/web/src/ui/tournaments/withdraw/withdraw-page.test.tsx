@@ -19,17 +19,17 @@ const render = (id: string) => {
 };
 
 describe('WithdrawPage', () => {
-  test('before the bracket: the place passes on, confirm is off, keep links back', () => {
+  test('before the bracket: costs nothing, withdraw answers as a sample action, keep links back', () => {
     const html = render('autumn-open');
     assert({
       given: 'a registered viewer before the bracket',
       should:
-        'say the place passes on, disable Withdraw and link Keep my place',
+        'explain, answer Withdraw as a sample action and link Keep my place',
       actual: [
         html.match(/<h1 /g)?.length,
         html.includes('Withdraw from Autumn Open?'),
         html.includes('Your place goes to the next person on the waitlist.'),
-        /<button type="button" disabled=""[^>]*>Withdraw</.test(html),
+        html.includes('href="?did=Withdraw"'),
         /href="\/tournaments\/autumn-open"[^>]*>Keep my place</.test(html),
       ],
       expected: [1, true, true, true, true],
@@ -50,17 +50,18 @@ describe('WithdrawPage', () => {
     });
   });
 
-  test('after the bracket: the opponent gets a bye, the reason box is off', () => {
+  test('after the bracket: the opponent gets a bye, the reason box is typeable', () => {
     const html = render('hollow-cup');
     assert({
       given: 'a registered viewer after the bracket',
       should:
-        'name the opponent, log the late withdrawal and show a disabled reason',
+        'name the opponent, log the late withdrawal and offer a typeable reason',
       actual: [
         html.includes('Withdraw after the bracket is out?'),
         html.includes('@debater-k'),
         html.includes('recorded in the tournament log'),
-        /<input id="reason"[^>]*disabled=""/.test(html),
+        /<input id="reason"/.test(html) &&
+          !/<input id="reason"[^>]*disabled/.test(html),
         html.includes('Withdraw and give a bye'),
       ],
       expected: [true, true, true, true, true],

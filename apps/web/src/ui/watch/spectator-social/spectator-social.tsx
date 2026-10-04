@@ -106,10 +106,9 @@ export function Chat({ id, query, social, open, className }: ChatProps) {
             <input
               id="chat-draft"
               type="text"
-              disabled
               maxLength={200}
-              placeholder="Message"
-              className="h-10 min-w-0 flex-1 rounded-md border border-border bg-surface-raised px-3 text-base text-ink disabled:opacity-60"
+              placeholder="Be civil. 200 characters."
+              className="h-10 min-w-0 flex-1 rounded-md border border-border bg-surface-raised px-3 text-base text-ink"
             />
             <InertButton action="chat" variant="primary">
               Send

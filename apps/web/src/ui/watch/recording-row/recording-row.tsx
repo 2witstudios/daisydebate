@@ -3,7 +3,6 @@ import type { RecordingRow as RowModel } from '../../../features/watch/recording
 import { Badge } from '../../components/badge/badge';
 import { buttonClass } from '../../components/button/button-class';
 import { cn } from '../../cn';
-import { modeTextClass } from '../live-card/live-card-class';
 
 export type RecordingRowProps = {
   readonly row: RowModel;
@@ -35,9 +34,9 @@ export function RecordingRow({ row }: RecordingRowProps) {
     >
       <div className="col-span-5 flex min-w-0 flex-col gap-1 max-compact:col-span-2">
         <p className="truncate text-md font-strong text-ink">{row.title}</p>
-        <p className="text-sm text-ink-muted">
-          <span className={modeTextClass(row.ranked)}>{row.mode}</span>
-          {` · ${row.rules} · ${row.length} · ${row.date}`}
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-muted">
+          <Badge tone={row.ranked ? 'clay' : 'sky'}>{row.mode}</Badge>
+          {`${row.rules} · ${row.length} · ${row.date}`}
         </p>
         {row.own ? (
           <p className="flex items-center gap-2 text-xs text-ink-faint">

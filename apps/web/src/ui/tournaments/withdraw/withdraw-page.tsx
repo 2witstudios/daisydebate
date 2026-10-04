@@ -94,9 +94,8 @@ export function WithdrawPage({
             <input
               id="reason"
               type="text"
-              disabled
               placeholder="For example: illness"
-              className="h-10 rounded-md border border-border bg-surface-raised px-3 text-base text-ink disabled:opacity-60"
+              className="h-10 rounded-md border border-border bg-surface-raised px-3 text-base text-ink"
             />
           </div>
         ) : null}

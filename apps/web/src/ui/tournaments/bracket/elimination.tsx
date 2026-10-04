@@ -1,6 +1,9 @@
-import type {
-  EliminationData,
-  Match,
+import type { ReactNode } from 'react';
+import {
+  bracketTree,
+  type EliminationData,
+  type Match,
+  type TreeNode,
 } from '../../../features/tournaments/bracket';
 import { Icon } from '../../components/icon/icon';
 import { StatusLine } from '../../components/status-line/status-line';
@@ -18,48 +21,100 @@ const champion = (data: EliminationData): string | null => {
   return (final.winner === 'a' ? final.a : final.b)?.handle ?? null;
 };
 
-/** The bracket as columns, round by round, ending at the champion. Desktop. */
+/** Feeders on the left, joined by a trunk, then the match they lead to. */
+function Branch({
+  feeders,
+  cardClass = 'bracket-card',
+  children,
+}: {
+  readonly feeders: readonly ReactNode[];
+  /** The width of the card at the end of this branch. */
+  readonly cardClass?: string;
+  readonly children: ReactNode;
+}) {
+  return (
+    <div className="flex items-center">
+      {feeders.length > 0 ? (
+        <>
+          <div className="flex flex-col">
+            {feeders.map((feeder, index) => (
+              <div key={index} className="bracket-feeder">
+                {feeder}
+              </div>
+            ))}
+          </div>
+          <span aria-hidden="true" className="bracket-stub" />
+        </>
+      ) : null}
+      <div className={cardClass}>{children}</div>
+    </div>
+  );
+}
+
+function MatchBranch({
+  node,
+  viewerHandle,
+}: {
+  readonly node: TreeNode;
+  readonly viewerHandle: string | null;
+}) {
+  return (
+    <Branch
+      feeders={node.feeders.map((feeder) => (
+        <MatchBranch
+          key={feeder.match.id}
+          node={feeder}
+          viewerHandle={viewerHandle}
+        />
+      ))}
+    >
+      <MatchCard match={node.match} viewerHandle={viewerHandle} />
+    </Branch>
+  );
+}
+
+/** The end of the tree: who won the final, or that it is still to come. */
+function ChampionCard({ winner }: { readonly winner: string | null }) {
+  return (
+    <div className="flex flex-col items-center gap-2 rounded-lg border border-border bg-surface-raised p-3 text-center">
+      <span className="text-gold">
+        <Icon name="trophy" size={24} />
+      </span>
+      <p className="text-xs font-bold tracking-widest text-ink-muted uppercase">
+        Champion
+      </p>
+      <p className={winner ? 'font-strong text-ink' : 'text-sm text-ink-muted'}>
+        {winner ? `@${winner}` : 'Decided after the final'}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * The bracket as one tree: the quarterfinals on the left feed the semifinals,
+ * which feed the final, which ends at the champion. Desktop. A bracket that
+ * does not narrow to one final falls back to the list of rounds.
+ */
 export function BracketTree({ data, viewerHandle }: Props) {
-  const winner = champion(data);
+  const root = bracketTree(data.rounds);
+  if (!root) return <RoundList data={data} viewerHandle={viewerHandle} />;
   return (
     <div
       aria-label="Bracket"
-      className="flex gap-4 overflow-x-auto rounded-lg border border-border bg-surface p-4 max-compact:hidden"
+      className="overflow-x-auto rounded-lg border border-border bg-surface p-4 max-compact:hidden"
     >
-      {data.rounds.map((round) => (
-        <section
-          key={round.label}
-          className="flex min-w-0 flex-1 flex-col gap-3"
-        >
-          <h2 className="text-xs font-bold tracking-widest text-ink-muted uppercase">
-            {round.label}
-          </h2>
-          <div className="flex flex-1 flex-col justify-around gap-4">
-            {round.matches.map((match) => (
-              <MatchCard
-                key={match.id}
-                match={match}
-                viewerHandle={viewerHandle}
-              />
-            ))}
-          </div>
-        </section>
-      ))}
-      <section className="flex min-w-0 flex-1 flex-col gap-3">
-        <h2 className="text-xs font-bold tracking-widest text-ink-muted uppercase">
-          Champion
-        </h2>
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center text-base text-ink-muted">
-          <span className="text-gold">
-            <Icon name="trophy" size={28} />
-          </span>
-          {winner ? (
-            <p className="font-strong text-ink">{`@${winner}`}</p>
-          ) : (
-            <p>TBD</p>
-          )}
-        </div>
-      </section>
+      <Branch
+        cardClass="bracket-end"
+        feeders={[
+          <MatchBranch
+            key={root.match.id}
+            node={root}
+            viewerHandle={viewerHandle}
+          />,
+        ]}
+      >
+        <ChampionCard winner={champion(data)} />
+      </Branch>
     </div>
   );
 }

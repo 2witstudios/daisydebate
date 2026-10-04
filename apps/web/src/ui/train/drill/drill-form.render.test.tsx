@@ -126,15 +126,17 @@ describe('renderDrillForm', () => {
     });
     assert({
       given: 'a saved argument',
-      should: 'confirm and link on',
+      should:
+        'confirm, show the argument, link on and carry no placeholder note',
       actual: [
         out.includes('Saved to review'),
+        out.includes('not connected'),
         out.includes(claim),
         out.includes('Another drill'),
         out.includes('href="/train/review"'),
         out.includes('<form'),
       ],
-      expected: [true, true, true, true, false],
+      expected: [true, false, true, true, true, false],
     });
   });
 
