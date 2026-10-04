@@ -206,6 +206,32 @@ describe('AI debates (AIDB-3.1)', () => {
     });
   });
 
+  test('a burst of voice requests never overshoots the speech budget', async () => {
+    await withDebate(async ({ database, id }) => {
+      const results = await Promise.all(
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(() =>
+          database.reserveAiDebateSpeech({
+            aiDebateId: id,
+            characters: 100,
+            budget: 350,
+          }),
+        ),
+      );
+      const found = await database.getAiDebate(id);
+      assert({
+        given: 'ten 100-character reservations at once against a budget of 350',
+        should:
+          'grant exactly three, count 300 characters and start counting the debate',
+        actual: {
+          granted: results.filter(Boolean).length,
+          counted: found?.ttsCharacters,
+          started: found?.countedAt instanceof Date,
+        },
+        expected: { granted: 3, counted: 300, started: true },
+      });
+    });
+  });
+
   test('a burst of starts never overshoots the live cap', async () => {
     await withFixture(url, async (fixture) => {
       const database = createDatabase({ url, nextActorId: createId });

@@ -109,4 +109,33 @@ describe('the AI speech, kept honest', () => {
       expected: true,
     });
   });
+
+  test('a debate can only buy so much voice', async () => {
+    const { operations, begin, voice } = setup({
+      personSide: 'negative',
+      limits: { live: 25, perDay: 20, speechCharacters: 70 },
+    });
+    const id = await begin();
+    const events = await collect(
+      operations.speech({ actorId: 'actor-1', id, turnIndex: 0 }),
+    );
+    const utteranceId = events[0]?.type === 'utterance' ? events[0].id : '';
+    const speak = (phraseIndex: number) =>
+      operations.speak({ actorId: 'actor-1', id, utteranceId, phraseIndex });
+    await speak(0); // 17 characters
+    await speak(0); // the same phrase again still spends: 34
+    const calls = voice.calls.length;
+    await assertRejects({
+      given: 'a 60-character phrase that would pass a 70-character budget',
+      should: 'refuse with RATE_LIMIT',
+      actual: () => speak(1),
+      code: 'RATE_LIMIT',
+    });
+    assert({
+      given: 'the refusal',
+      should: 'never reach the voice vendor',
+      actual: voice.calls.length,
+      expected: calls,
+    });
+  });
 });

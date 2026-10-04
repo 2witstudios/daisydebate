@@ -25,6 +25,7 @@ export type AiDebateStore = Pick<
   | 'appendAiDebateUtterance'
   | 'replaceAiDebateUtterance'
   | 'recordAiDebateUsage'
+  | 'reserveAiDebateSpeech'
   | 'finishAiDebate'
   | 'saveAiDebateBallot'
 >;
@@ -45,6 +46,8 @@ export type AiDebateDependencies = {
     readonly live: number;
     /** AI debates one person may start counting per rolling day. */
     readonly perDay: number;
+    /** Characters of voice one debate may buy; see `SPEECH_BUDGET`. */
+    readonly speechCharacters?: number;
   };
 };
 

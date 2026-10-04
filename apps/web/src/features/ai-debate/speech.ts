@@ -28,13 +28,24 @@ export type SpeechEvent =
       readonly text: string;
     };
 
+/**
+ * Characters of voice one debate may buy. The bot speaks about 12,500
+ * characters in its longest debate (13 minutes of speeches plus
+ * cross-examination); this leaves room for phrases fetched ahead and then
+ * cut off, and for rejoining, while capping what a replayed request can
+ * cost.
+ */
+const SPEECH_BUDGET = 30_000;
+
 /** The AI's spoken lines: its speeches, their voice, and what was heard. */
 export function speechOperations({
   store,
   voice,
   clock,
   ids,
+  limits,
 }: AiDebateDependencies) {
+  const speechBudget = limits?.speechCharacters ?? SPEECH_BUDGET;
   const phrasesOfLine = async (
     actorId: string,
     id: string,
@@ -112,7 +123,11 @@ export function speechOperations({
       yield* writeSpeech({ store, voice, record, turn, utteranceId, signal });
     },
 
-    /** The voice for one phrase of an AI line, as mp3 bytes. */
+    /**
+     * The voice for one phrase of an AI line, as mp3 bytes. Every request
+     * spends from the debate's speech budget before the vendor is called,
+     * so asking again and again for a phrase has a ceiling.
+     */
     async speak({
       actorId,
       id,
@@ -127,14 +142,17 @@ export function speechOperations({
       const { record, phrases } = await phrasesOfLine(actorId, id, utteranceId);
       const text = phrases[phraseIndex];
       if (!text) throw createAppError('NOT_FOUND');
-      const { audio, characters } = await voice().speak({
+      const speaker = voice();
+      const reserved = await store.reserveAiDebateSpeech({
+        aiDebateId: id,
+        characters: text.length,
+        budget: speechBudget,
+      });
+      if (!reserved) throw createAppError('RATE_LIMIT', 'Speech budget spent');
+      const { audio } = await speaker.speak({
         model: record.ttsModel,
         voice: record.voice,
         text,
-      });
-      await store.recordAiDebateUsage({
-        aiDebateId: id,
-        ttsCharacters: characters,
       });
       return audio;
     },
