@@ -15,7 +15,7 @@ import {
 
 /**
  * The AI's speech: written by the model as it streams (from the countdown,
- * so it is ready to speak when the turn begins), voiced a sentence at a
+ * so it is ready to speak when the turn begins), voiced a phrase at a
  * time. When the AI finishes before the clock, `onFinishedEarly` yields the
  * turn; when the clock runs out first, the voice stops mid-sentence.
  */
@@ -24,16 +24,16 @@ export async function runAiSpeech(
   onFinishedEarly: () => void,
 ) {
   let utteranceId: string | null = null;
-  const sentences: string[] = [];
+  const phrases: string[] = [];
   let done = false;
   let failed = false;
   const waiters: Array<() => void> = [];
   const wake = () => {
     for (const waiter of waiters.splice(0)) waiter();
   };
-  const sentenceAt = async (index: number): Promise<string | null> => {
+  const phraseAt = async (index: number): Promise<string | null> => {
     for (;;) {
-      if (index < sentences.length) return sentences[index]!;
+      if (index < phrases.length) return phrases[index]!;
       if (done || context.signal.aborted) return null;
       await new Promise<void>((resolve) => waiters.push(resolve));
     }
@@ -44,7 +44,7 @@ export async function runAiSpeech(
       context.turnIndex,
       (event: SpeechEvent) => {
         if (event.type === 'utterance') utteranceId = event.id;
-        else if (event.type === 'sentence') sentences[event.index] = event.text;
+        else if (event.type === 'phrase') phrases[event.index] = event.text;
         else if (event.type === 'error') failed = true;
         if (event.type === 'done' || event.type === 'error') done = true;
         wake();
@@ -59,10 +59,10 @@ export async function runAiSpeech(
       wake();
     });
   if (!(await untilLive(context))) return;
-  if (sentences.length === 0)
+  if (phrases.length === 0)
     context.onStatus('Your opponent is gathering their thoughts…');
   const first = await Promise.race([
-    sentenceAt(0),
+    phraseAt(0),
     aborted(context.signal).then(() => null),
   ]);
   if (first === null) {
@@ -76,7 +76,7 @@ export async function runAiSpeech(
   const outcome = await playLine({
     context,
     utteranceId: () => utteranceId,
-    sentenceAt,
+    phraseAt,
     stopWhen: aborted(context.signal),
   });
   context.onLine();
@@ -164,7 +164,7 @@ export async function runCrossExamination(
     );
 
   const playReply = async (
-    reply: { utteranceId: string; sentences: string[] } | null,
+    reply: { utteranceId: string; phrases: string[] } | null,
   ) => {
     if (!reply || context.signal.aborted) return;
     context.onStatus(
@@ -176,7 +176,7 @@ export async function runCrossExamination(
     await playLine({
       context,
       utteranceId: () => reply.utteranceId,
-      sentenceAt: async (index) => reply.sentences[index] ?? null,
+      phraseAt: async (index) => reply.phrases[index] ?? null,
       stopWhen: Promise.race([stopped, aborted(context.signal)]),
       setPlaying: (playback) => {
         live.playing = playback;

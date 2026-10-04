@@ -5,9 +5,9 @@ type VoiceId = (typeof AI_VOICES)[number]['id'];
 
 /** The voice each bot speaks with, matched to how its card says it sounds. */
 const VOICES: Readonly<Record<string, VoiceId>> = {
-  juno: 'af_heart',
-  wren: 'bf_emma',
-  bram: 'bm_george',
+  juno: 'aura-2-aurora-en',
+  wren: 'aura-2-thalia-en',
+  bram: 'aura-2-jupiter-en',
 };
 
 export type Opponent = {
@@ -30,7 +30,7 @@ export function opponentFor(
   return {
     id: bot.id,
     name: bot.name,
-    voice: VOICES[bot.id] ?? 'am_michael',
+    voice: VOICES[bot.id] ?? 'aura-2-thalia-en',
     persona: debaterPersona(bot),
   };
 }

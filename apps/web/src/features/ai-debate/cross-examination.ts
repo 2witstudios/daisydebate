@@ -1,4 +1,4 @@
-import { DEFAULT_REASONING, cxMessages, splitSentences } from '@daisy/ai-voice';
+import { DEFAULT_REASONING, cxMessages, phrasesOf } from '@daisy/ai-voice';
 import type { AiDebateRecord } from '@daisy/db';
 import {
   turnRoles,
@@ -34,7 +34,7 @@ export type CrossExamination = {
   /** The AI's question or answer, if it replies. */
   readonly reply: {
     readonly utteranceId: string;
-    readonly sentences: readonly string[];
+    readonly phrases: readonly string[];
   } | null;
 };
 
@@ -108,7 +108,7 @@ export function crossExaminationOperations({
       role: 'ai',
       text,
     });
-    return { utteranceId, sentences: splitSentences(text) };
+    return { utteranceId, phrases: phrasesOf(text) };
   };
 
   return {

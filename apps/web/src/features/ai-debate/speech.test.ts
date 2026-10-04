@@ -16,14 +16,14 @@ describe('the AI speech, kept honest', () => {
     time.advance(10 + 300 + 4); // the AC is over, grace included
     const vendorCalls = voice.calls.length;
     await assertRejects({
-      given: 'a request to voice a sentence of the AC after the AC',
+      given: 'a request to voice a phrase of the AC after the AC',
       should: 'refuse with CONFLICT and never call the voice vendor',
       actual: () =>
         operations.speak({
           actorId: 'actor-1',
           id,
           utteranceId,
-          sentenceIndex: 0,
+          phraseIndex: 0,
         }),
       code: 'CONFLICT',
     });
@@ -35,7 +35,7 @@ describe('the AI speech, kept honest', () => {
           actorId: 'actor-1',
           id,
           utteranceId,
-          sentenceIndex: 0,
+          phraseIndex: 0,
           playedMs: 0,
           totalMs: 1000,
         }),
@@ -79,12 +79,11 @@ describe('the AI speech, kept honest', () => {
       given: 'the same speech asked for again',
       should: 'write the whole speech anew rather than replay the fragment',
       actual: retried
-        .filter((e) => e.type === 'sentence')
-        .map((e) => e.type === 'sentence' && e.text),
+        .filter((e) => e.type === 'phrase')
+        .map((e) => e.type === 'phrase' && e.text),
       expected: [
         'Thank you, judge.',
-        'My first contention is safety.',
-        'I urge an affirmative ballot.',
+        'My first contention is safety. I urge an affirmative ballot.',
       ],
     });
   });
@@ -100,7 +99,7 @@ describe('the AI speech, kept honest', () => {
       signal: leaving.signal,
     });
     await events.next(); // the line
-    await events.next(); // its first sentence: the model is streaming
+    await events.next(); // its first phrase: the model is streaming
     leaving.abort();
     await events.return(undefined);
     assert({

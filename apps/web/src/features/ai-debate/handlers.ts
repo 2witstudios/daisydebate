@@ -51,7 +51,7 @@ const schemas = {
   speak: z.object({
     id,
     utteranceId: id,
-    sentenceIndex: z.number().int().min(0).max(400),
+    phraseIndex: z.number().int().min(0).max(400),
   }),
   crossExamine: z.object({
     id,
@@ -61,7 +61,7 @@ const schemas = {
   heard: z.object({
     id,
     utteranceId: id,
-    sentenceIndex: z.number().int().min(0).max(400),
+    phraseIndex: z.number().int().min(0).max(400),
     playedMs: z.number().min(0).max(600_000),
     totalMs: z.number().min(0).max(600_000),
   }),

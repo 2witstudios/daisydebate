@@ -30,33 +30,61 @@ export const handTimers = () => {
 /** Lets pending promise callbacks run. */
 export const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-const playback = (): Playback => ({
-  finished: Promise.resolve(),
-  durationMs: 100,
-  playedMs: () => 100,
-  stop: () => undefined,
-});
-
-/** An audio engine that records into a log instead of a microphone. */
-export const fakeEngine = (log: string[]): AudioEngine => ({
-  level: () => 0.05,
-  record: () => {
-    log.push('record');
-    return {
-      stop: async () => {
-        log.push('stop');
-        return {
-          blob: new Blob(['voice'], { type: 'audio/webm' }),
-          voicedMs: 2_000,
-        };
-      },
-    };
-  },
-  play: async () => playback(),
-  chime: () => undefined,
-  usingHeadset: async () => true,
-  close: () => log.push('close'),
-});
+/**
+ * An audio engine that records into a log instead of a microphone. Its
+ * timeline runs in real time from creation; every clip lasts 100 ms and
+ * starts when it was scheduled (or now, if that has passed). `onPlay` sees
+ * each requested start.
+ */
+export const fakeEngine = (
+  log: string[],
+  { onPlay = () => undefined }: { readonly onPlay?: (at: number) => void } = {},
+): AudioEngine => {
+  const origin = performance.now();
+  const now = () => performance.now() - origin;
+  return {
+    level: () => 0.05,
+    now,
+    record: () => {
+      log.push('record');
+      return {
+        stop: async () => {
+          log.push('stop');
+          return {
+            blob: new Blob(['voice'], { type: 'audio/webm' }),
+            voicedMs: 2_000,
+          };
+        },
+      };
+    },
+    play: async (_mp3, at = 0) => {
+      onPlay(at);
+      const startsAt = Math.max(at, now());
+      let stoppedAt: number | null = null;
+      let end: () => void = () => undefined;
+      const finished = new Promise<void>((resolve) => {
+        end = resolve;
+        setTimeout(resolve, startsAt + 100 - now());
+      });
+      const playback: Playback = {
+        finished,
+        startsAt,
+        endsAt: startsAt + 100,
+        durationMs: 100,
+        playedMs: () =>
+          Math.min(100, Math.max(0, (stoppedAt ?? now()) - startsAt)),
+        stop: () => {
+          stoppedAt ??= now();
+          end();
+        },
+      };
+      return playback;
+    },
+    chime: () => undefined,
+    usingHeadset: async () => true,
+    close: () => log.push('close'),
+  };
+};
 
 type ApiOverrides = Partial<AiDebateApi>;
 
@@ -79,7 +107,7 @@ export const fakeApi = ({
     resolution: 'Schools should ban phones in class.',
     personSide,
     opponent: 'wren',
-    voice: 'bf_emma',
+    voice: 'aura-2-thalia-en',
     serverNow: at(),
     commands: [...commands],
     utterances: [],

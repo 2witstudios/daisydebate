@@ -44,6 +44,60 @@ export function createSentenceBuffer() {
 }
 
 /**
+ * The longest phrase voiced in one request, in characters: two or three
+ * sentences, so intonation carries across them, yet short enough that one
+ * phrase plays for longer than the next takes to voice.
+ */
+const PHRASE_CHARS = 320;
+
+/**
+ * Groups whole sentences into phrases, each voiced in one request so the
+ * voice flows across sentence boundaries. The first phrase is one sentence
+ * alone, so the speaker starts quickly; later ones take sentences while
+ * they fit `maxChars` (a longer sentence stands alone). A phrase closes
+ * only when the next sentence does not fit or the speech ends, so phrases
+ * built as sentences stream in equal those of the finished text.
+ */
+export function createPhraseBuffer(maxChars = PHRASE_CHARS) {
+  let open: string[] = [];
+  let emitted = 0;
+  const close = () => {
+    const phrase = open.join(' ');
+    open = [];
+    emitted += 1;
+    return phrase;
+  };
+  return {
+    push(sentence: string): string[] {
+      if (emitted === 0 && open.length === 0) {
+        open = [sentence];
+        return [close()];
+      }
+      const fits = [...open, sentence].join(' ').length <= maxChars;
+      if (open.length === 0 || fits) {
+        open.push(sentence);
+        return [];
+      }
+      const done = close();
+      open = [sentence];
+      return [done];
+    },
+    flush(): string[] {
+      return open.length ? [close()] : [];
+    },
+  };
+}
+
+/** The phrases of finished text, exactly as they were voiced. */
+export function phrasesOf(text: string, maxChars = PHRASE_CHARS): string[] {
+  const buffer = createPhraseBuffer(maxChars);
+  return [
+    ...splitSentences(text).flatMap((sentence) => buffer.push(sentence)),
+    ...buffer.flush(),
+  ];
+}
+
+/**
  * The part of a spoken reply the listener heard before it was cut off, by
  * the share of its audio that played, cut back to a word boundary. The
  * voice returns no word timings, so this is a proportional estimate.

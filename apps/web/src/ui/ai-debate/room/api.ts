@@ -51,7 +51,7 @@ export async function encodeRecording(blob: Blob): Promise<RecordedAudio> {
 
 export type SpeechEvent =
   | { readonly type: 'utterance'; readonly id: string }
-  | { readonly type: 'sentence'; readonly index: number; readonly text: string }
+  | { readonly type: 'phrase'; readonly index: number; readonly text: string }
   | { readonly type: 'done' }
   | { readonly type: 'error' };
 
@@ -83,7 +83,7 @@ export const aiDebateApi = {
     });
     return (await response.json()) as { text: string };
   },
-  /** Streams the AI's speech: an utterance id, then each sentence as written. */
+  /** Streams the AI's speech: an utterance id, then each phrase as written. */
   async speech(
     id: string,
     turnIndex: number,
@@ -104,9 +104,9 @@ export const aiDebateApi = {
   async speak(
     id: string,
     utteranceId: string,
-    sentenceIndex: number,
+    phraseIndex: number,
   ): Promise<ArrayBuffer> {
-    const response = await post('speak', { id, utteranceId, sentenceIndex });
+    const response = await post('speak', { id, utteranceId, phraseIndex });
     return response.arrayBuffer();
   },
   async crossExamine(id: string, turnIndex: number, audio?: RecordedAudio) {
@@ -117,13 +117,13 @@ export const aiDebateApi = {
     });
     return (await response.json()) as {
       heard: string;
-      reply: { utteranceId: string; sentences: string[] } | null;
+      reply: { utteranceId: string; phrases: string[] } | null;
     };
   },
   async heard(input: {
     id: string;
     utteranceId: string;
-    sentenceIndex: number;
+    phraseIndex: number;
     playedMs: number;
     totalMs: number;
   }) {

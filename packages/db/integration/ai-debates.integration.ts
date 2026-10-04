@@ -13,7 +13,7 @@ const models = {
   speechModel: 'anthropic/claude-sonnet-5.5',
   cxModel: 'openai/gpt-6-luna',
   judgeModel: 'anthropic/claude-sonnet-5.5',
-  ttsModel: 'hexgrad/kokoro-82m',
+  ttsModel: 'deepgram/aura-2',
   sttModel: 'openai/whisper-large-v3-turbo',
 };
 
@@ -26,7 +26,7 @@ const newDebate = (id: string, actorId: string, expectedEndAt: Date) => ({
   resolution: 'Social media does more harm than good',
   personSide: 'negative' as const,
   opponent: 'wren',
-  voice: 'bf_emma',
+  voice: 'aura-2-thalia-en',
   expectedEndAt,
   ...models,
 });
