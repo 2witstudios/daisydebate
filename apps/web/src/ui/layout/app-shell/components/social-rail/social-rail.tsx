@@ -163,6 +163,31 @@ function Strip({ username, groups, online, setDock }: ViewProps) {
   );
 }
 
+const visitorLink =
+  'flex min-h-12 items-center justify-center gap-2 rounded-md bg-accent px-4 text-sm font-bold whitespace-nowrap text-accent-ink no-underline hover:bg-accent-strong hover:no-underline max-compact:px-3';
+
+/**
+ * The account corner for someone without a member account: their way in,
+ * where a member's avatar is, and no friends.
+ */
+function AccountCorner({ account }: { readonly account: ShellAccount }) {
+  const [href, label] =
+    account.state === 'anonymous'
+      ? ['/sign-in', 'Sign in']
+      : ['/onboarding/username', 'Finish sign-up'];
+  return (
+    <aside
+      aria-label="Account"
+      className="account-corner flex h-16 items-center justify-center px-2"
+    >
+      <Link href={href} aria-label={label} className={visitorLink}>
+        <Icon name="person" size={18} className="hidden max-compact:block" />
+        <span className="max-compact:sr-only">{label}</span>
+      </Link>
+    </aside>
+  );
+}
+
 /**
  * The right rail for a signed-in member: you at the top (your account and
  * notifications), then your friends. Open, it is a panel beside the page on
@@ -173,7 +198,7 @@ function Strip({ username, groups, online, setDock }: ViewProps) {
 export function SocialRail({ account }: { readonly account: ShellAccount }) {
   const store = useUiStore();
   const users = useUiState((state) => state.collections.onlineUsers);
-  if (account.state !== 'member') return null;
+  if (account.state !== 'member') return <AccountCorner account={account} />;
   const setDock = (dock: DockState) =>
     dispatch(store, transactions.setDock, dock);
   const props = {

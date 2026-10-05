@@ -27,13 +27,9 @@ type LiveDebateRow = {
  */
 export type DockState = 'auto' | 'open' | 'closed';
 
-/** The left sidebar: `auto` follows the screen; `collapsed` is icons only. */
-export type NavState = 'auto' | 'collapsed';
-
 type UiResources = {
   readonly onlineCount: number;
   readonly dock: DockState;
-  readonly nav: NavState;
   readonly tournament: TournamentSummary;
 };
 
@@ -52,7 +48,6 @@ export const createInitialState = (): UiState => ({
   resources: {
     onlineCount: 1248,
     dock: 'auto',
-    nav: 'auto',
     tournament,
   },
   collections: {

@@ -20,17 +20,14 @@ test.describe('dashboard shell chrome', () => {
     page,
   }) => {
     // 200% zoom of a 1280 by 800 window: the sidebar is taller than the
-    // viewport, so pinning it would strand Sign in below it.
+    // viewport, so pinning it would strand its foot below it.
     await page.setViewportSize({ width: 1280, height: 400 });
     await page.goto('/');
-    const nav = page.getByRole('navigation', { name: 'Primary' });
-    for (const control of [
-      nav.getByRole('link', { name: 'Sign in' }),
-      nav.getByRole('button', { name: 'Collapse sidebar' }),
-    ]) {
-      await control.scrollIntoViewIfNeeded();
-      await expect(control).toBeInViewport();
-    }
+    const privacy = page
+      .getByRole('navigation', { name: 'Primary' })
+      .getByRole('link', { name: 'Privacy' });
+    await privacy.scrollIntoViewIfNeeded();
+    await expect(privacy).toBeInViewport();
   });
 
   test('the sidebar column runs the full height of the page', async ({
@@ -104,7 +101,7 @@ test.describe('dashboard shell chrome', () => {
     await page.goto('/');
     await expect(
       page
-        .getByRole('navigation', { name: 'Primary' })
+        .getByRole('complementary', { name: 'Account' })
         .getByRole('link', { name: 'Sign in' }),
     ).toBeVisible();
   });

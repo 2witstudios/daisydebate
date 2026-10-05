@@ -62,15 +62,22 @@ describe('SocialRail', () => {
     });
   });
 
-  test('nothing for a visitor or someone mid sign-up', () => {
+  test('only the way in for a visitor or someone mid sign-up', () => {
+    const visitor = render({ state: 'anonymous' });
+    const provisional = render({ state: 'provisional' });
     assert({
       given: 'an anonymous visitor and a provisional account',
-      should: 'render nothing',
+      should:
+        'render the account corner with Sign in or Finish sign-up, and no friends',
       actual: [
-        render({ state: 'anonymous' }),
-        render({ state: 'provisional' }),
+        visitor.includes('aria-label="Account"'),
+        visitor.includes('href="/sign-in"'),
+        provisional.includes('href="/onboarding/username"'),
+        provisional.includes('>Finish sign-up<'),
+        visitor.includes('Friends'),
+        visitor.includes('id="social-rail"'),
       ],
-      expected: ['', ''],
+      expected: [true, true, true, true, false, false],
     });
   });
 });

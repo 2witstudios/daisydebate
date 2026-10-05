@@ -19,7 +19,7 @@ describe('AppShell', () => {
       given:
         'the shell for a visitor and a member, with the root layout rendering no landmark of its own',
       should:
-        'render one main and one primary nav, no topbar, and the social rail only for the member',
+        "render one main and one primary nav, no topbar, and one aside: the account corner or the member's rail",
       actual: [
         occurrences(html, '<main'),
         occurrences(html, '<nav'),
@@ -28,7 +28,7 @@ describe('AppShell', () => {
         occurrences(signedIn, '<aside'),
         signedIn.indexOf('<header') > signedIn.indexOf('<aside'),
       ],
-      expected: [1, 1, 0, 0, 1, true],
+      expected: [1, 1, 0, 1, 1, true],
     });
   });
 
@@ -67,21 +67,22 @@ describe('AppShell', () => {
     });
   });
 
-  test('the social rail is for members only; a visitor signs in from the sidebar', () => {
+  test('the account sits top right: the rail for a member, Sign in for a visitor', () => {
     const visitor = render();
     const signedIn = render(member);
     assert({
       given: 'a visitor and a member',
       should:
-        'give the member the rail with their account, and the visitor a Sign in link instead',
+        'give the member the rail with their account, and the visitor Sign in in the account corner, not the sidebar',
       actual: [
         visitor.includes('id="social-rail"'),
         signedIn.includes('id="social-rail"'),
-        visitor.includes('href="/sign-in"'),
+        /<aside[^>]*aria-label="Account"[^>]*>.*href="\/sign-in"/.test(visitor),
+        visitor.indexOf('href="/sign-in"') > visitor.indexOf('</nav>'),
         signedIn.includes('href="/sign-in"'),
         signedIn.includes('aria-label="Account settings for ada-byron"'),
       ],
-      expected: [false, true, true, false, true],
+      expected: [false, true, true, true, false, true],
     });
   });
 
@@ -89,13 +90,13 @@ describe('AppShell', () => {
     assert({
       given: 'a visitor and a member',
       should:
-        'reserve no column for a visitor, and follow the screen (auto) for a member',
+        'mark the visitor as railless, follow the screen (auto) for a member, and carry no sidebar state',
       actual: [
         render().includes('data-dock="none"'),
         render(member).includes('data-dock="auto"'),
-        render().includes('data-nav="auto"'),
+        render(member).includes('data-nav'),
       ],
-      expected: [true, true, true],
+      expected: [true, true, false],
     });
   });
 });

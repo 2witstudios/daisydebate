@@ -44,30 +44,21 @@ describe('Sidebar', () => {
     });
   });
 
-  test('the brand and the collapse control on top, a way in at the foot', () => {
+  test('the brand on top and nothing to collapse or sign in with', () => {
     const visitor = renderInStore(
       h(Sidebar, { account: { state: 'anonymous' } }),
     );
-    const provisional = renderInStore(
-      h(Sidebar, { account: { state: 'provisional' } }),
-    );
-    const signedIn = renderInStore(h(Sidebar, { account: member }));
-    const at = (html: string, needle: string) => html.indexOf(needle);
-    const brand = at(visitor, 'aria-label="Daisy Debate home"');
-    const collapse = at(visitor, 'aria-label="Collapse sidebar"');
+    const brand = visitor.indexOf('aria-label="Daisy Debate home"');
     assert({
-      given: 'a visitor, an account mid sign-up and a member',
+      given: 'the sidebar for a visitor',
       should:
-        'lead with the home brand and the collapse button, then the links, then the way in',
+        'lead with the home brand, then the links, and leave Sign in to the account corner',
       actual: [
-        brand >= 0 && brand < collapse,
-        collapse < at(visitor, 'href="/play"'),
-        at(visitor, 'href="/play"') < at(visitor, 'href="/sign-in"'),
-        provisional.includes('href="/onboarding/username"'),
-        signedIn.includes('href="/sign-in"'),
-        signedIn.includes('aria-label="Collapse sidebar"'),
+        brand >= 0 && brand < visitor.indexOf('href="/play"'),
+        visitor.includes('href="/sign-in"'),
+        visitor.includes('<button'),
       ],
-      expected: [true, true, true, true, false, true],
+      expected: [true, false, false],
     });
   });
 

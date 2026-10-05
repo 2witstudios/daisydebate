@@ -2,10 +2,11 @@ import { expect, type Page } from '@playwright/test';
 
 /**
  * From the first paint until `settle`, checks on every frame that the
- * topmost element at the centre of each primary-navigation link named in
- * `names` (its aria-label, else its text) is that link: never a rail or
- * panel layer painted over the sidebar (ISSUE-19), nor another control laid
- * over it, as the search box once covered the logo on phones (ISSUE-67).
+ * topmost element at the centre of each shell link (the primary navigation
+ * and the account corner) named in `names` (its aria-label, else its text)
+ * is that link: never a rail or panel layer painted over the sidebar
+ * (ISSUE-19), nor another control laid over it, as the search box once
+ * covered the logo on phones (ISSUE-67).
  * Call before the navigation it should watch.
  */
 export async function watchShellLinks(page: Page, names: readonly string[]) {
@@ -20,7 +21,9 @@ export async function watchShellLinks(page: Page, names: readonly string[]) {
       const nameOf = (link: Element) =>
         link.getAttribute('aria-label') ?? link.textContent?.trim() ?? '';
       const links = Array.from(
-        document.querySelectorAll('nav[aria-label="Primary"] a'),
+        document.querySelectorAll(
+          'nav[aria-label="Primary"] a, aside[aria-label="Account"] a',
+        ),
       ).filter((link) => watched.includes(nameOf(link)));
       for (const link of links) {
         const box = link.getBoundingClientRect();

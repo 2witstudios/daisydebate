@@ -16,24 +16,27 @@
 
 /* Named grid areas and minmax() tracks have no token-locked utility.
    Three columns: navigation, the page, and the social rail. The rail is a
-   strip of icons unless open; a visitor has no rail (`data-dock="none"`). */
+   strip of icons unless open; a visitor has no rail (`data-dock="none"`),
+   only the account corner with their way in. */
 @utility grid-shell {
   --nav-width: var(--spacing-sidebar);
   --social-width: var(--spacing-shell-icons);
   grid-template-columns: var(--nav-width) minmax(0, 1fr) var(--social-width);
   grid-template-areas: 'sidebar main dock';
 
-  /* The sidebar is icons only on a narrow screen, or when collapsed. */
-  &[data-nav='collapsed'] {
-    --nav-width: var(--spacing-shell-icons);
-  }
-
+  /* The sidebar is icons only on a narrow screen. */
   @media (width < 901px) {
     --nav-width: var(--spacing-shell-icons);
   }
 
+  /* No rail for a visitor: the column is only as wide as their way in,
+     and on a narrow screen as wide as a member's strip. */
   &[data-dock='none'] {
-    --social-width: var(--spacing-0);
+    --social-width: auto;
+
+    @media (width < 901px) {
+      --social-width: var(--spacing-shell-icons);
+    }
   }
 
   /* Open beside the page on a wide screen: by default, or by choice. */
@@ -43,6 +46,16 @@
       --social-width: var(--spacing-dock);
     }
   }
+}
+
+/* A visitor's account corner: the top of the right-hand column, where a
+   member's avatar is, pinned as the rail is. */
+@utility account-corner {
+  grid-area: dock;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  align-self: start;
 }
 
 @utility area-sidebar {
