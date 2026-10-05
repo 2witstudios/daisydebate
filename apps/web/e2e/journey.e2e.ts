@@ -296,15 +296,19 @@ test('a fresh session makes no refresh call, and neither does a visitor', async 
   expect(calls).toEqual([]);
 });
 
-test('a visitor can reach the logo and Sign in in the sidebar', async ({
+test('a visitor can reach the logo, and Sign in at the top right', async ({
   page,
 }) => {
   const shell = await watchShellLinks(page, ['Daisy Debate home', 'Sign in']);
   await page.goto('/');
   const signIn = page
-    .getByRole('navigation', { name: 'Primary' })
+    .getByRole('banner')
     .getByRole('link', { name: 'Sign in' });
   await expect(signIn).toBeVisible();
+  // Where a member's avatar is: the right end of the top bar.
+  const box = await signIn.boundingBox();
+  const width = page.viewportSize()?.width ?? 0;
+  expect(box !== null && box.x > width / 2 && box.y < 64).toBe(true);
   const { covered, inspected } = await shell.settle();
   expect(Object.keys(inspected).sort()).toEqual([
     'Daisy Debate home',

@@ -15,13 +15,17 @@
 }
 
 /* Named grid areas and minmax() tracks have no token-locked utility.
-   Three columns: navigation, the page, and the social rail. The rail is a
-   strip of icons unless open; a visitor has no rail (`data-dock="none"`). */
+   The top bar across the page, and under it three columns: navigation, the
+   page, and the social rail. The rail is a strip of icons unless open; a
+   visitor has no rail (`data-dock="none"`). */
 @utility grid-shell {
   --nav-width: var(--spacing-sidebar);
   --social-width: var(--spacing-shell-icons);
   grid-template-columns: var(--nav-width) minmax(0, 1fr) var(--social-width);
-  grid-template-areas: 'sidebar main dock';
+  grid-template-rows: var(--spacing-topbar) minmax(0, 1fr);
+  grid-template-areas:
+    'topbar topbar topbar'
+    'sidebar main dock';
 
   /* The sidebar is icons only on a narrow screen, or when collapsed. */
   &[data-nav='collapsed'] {
@@ -45,6 +49,15 @@
   }
 }
 
+@utility area-topbar {
+  grid-area: topbar;
+}
+
+/* A side column pinned under the top bar fills the rest of the screen. */
+@utility h-below-topbar {
+  height: calc(100vh - var(--spacing-topbar));
+}
+
 @utility area-sidebar {
   grid-area: sidebar;
 }
@@ -53,16 +66,17 @@
   grid-area: main;
 }
 
-/* The social rail: sticky beside the page, as tall as the screen. It holds
+/* The social rail: pinned under the top bar, as tall as the rest of the
+   screen. It holds
    two views and shows one. Open (`social-full`): wide, the column itself;
    narrower, a panel over the page's right edge while the strip keeps its
    column. Collapsed (`social-strip`): a column of icons. */
 @utility social-rail {
   grid-area: dock;
   position: sticky;
-  top: 0;
+  top: var(--spacing-topbar);
   z-index: 30;
-  height: 100vh;
+  height: calc(100vh - var(--spacing-topbar));
   display: flex;
 }
 
@@ -83,7 +97,7 @@
 
   @media (width < 1101px) {
     position: fixed;
-    inset: 0 0 0 auto;
+    inset: var(--spacing-topbar) 0 0 auto;
     z-index: 40;
     box-shadow: var(--shadow-3);
   }

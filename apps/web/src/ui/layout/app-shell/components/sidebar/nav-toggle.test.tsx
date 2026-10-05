@@ -11,12 +11,12 @@ describe('NavToggle', () => {
     assert({
       given: 'the sidebar in its default state',
       should:
-        'be a labelled button that collapses it, expanded, and hidden where it is icons only anyway',
+        'be a tab off the sidebar edge, named for what it does, expanded, and hidden where it is icons only anyway',
       actual: [
         html.includes('aria-label="Collapse sidebar"'),
         html.includes('aria-expanded="true"'),
         html.includes('max-compact:hidden'),
-        html.includes('>Collapse</span>'),
+        html.includes('left-full'),
       ],
       expected: [true, true, true, true],
     });
