@@ -94,14 +94,14 @@ export function ReadyStep({
       </h1>
       <div className="flex flex-wrap gap-3">
         <Link href="/train" className={`${card} bg-surface-raised text-ink`}>
-          <span className="flex items-center gap-3 font-display text-2xl font-semibold">
+          <span className="flex items-center gap-3 font-display text-2xl font-semibold max-narrow:text-xl">
             <Icon name="bolt" size={22} />
             Debate a bot
           </span>
           <span className="text-base text-ink-muted">{orList(botNames)}</span>
         </Link>
         <Link href="/play" className={`${card} bg-accent text-accent-ink`}>
-          <span className="flex items-center gap-3 font-display text-2xl font-semibold">
+          <span className="flex items-center gap-3 font-display text-2xl font-semibold max-narrow:text-xl">
             <Icon name="users" size={22} />
             Debate a real person
           </span>
