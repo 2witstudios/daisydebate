@@ -1,11 +1,10 @@
 import Link from 'next/link';
-import { DaisyLogo } from '../../../../components/daisy-mark/daisy-mark';
+import { Icon } from '../../../../components/icon/icon';
 import { NavItem } from '../../../../components/nav-item/nav-item';
 import {
   navFlyoutClass,
   navFlyoutLinkClass,
 } from '../../../../components/nav-item/nav-item-class';
-import { Icon } from '../../../../components/icon/icon';
 import type { ShellAccount } from '../../account';
 import { NavToggle } from './nav-toggle';
 
@@ -43,35 +42,14 @@ export type SidebarProps = {
   readonly account: ShellAccount;
 };
 
-const visitorLink =
-  'mx-4 mb-4 flex min-h-12 items-center justify-center gap-2 rounded-md bg-accent px-4 text-sm font-bold whitespace-nowrap text-accent-ink no-underline hover:bg-accent-strong hover:no-underline icons:mx-2 icons:mb-3 icons:px-0';
-
 /**
- * A visitor's way in. A member has none here: their account sits at the top
- * of the social rail with their friends.
- */
-function VisitorAccount({ account }: { readonly account: ShellAccount }) {
-  if (account.state === 'member') return null;
-  const [href, label] =
-    account.state === 'anonymous'
-      ? ['/sign-in', 'Sign in']
-      : ['/onboarding/username', 'Finish sign-up'];
-  return (
-    <Link href={href} aria-label={label} className={visitorLink}>
-      <Icon name="person" size={18} className="hidden icons:block" />
-      <span className="icons:sr-only">{label}</span>
-    </Link>
-  );
-}
-
-/**
- * Help, Terms and Privacy, always the last row of the sidebar. Icon only, a
- * help icon whose flyout lists them, on hover and keyboard focus.
+ * Help, Terms and Privacy, always the sidebar's last row. Icon only, a help
+ * icon whose flyout lists them, on hover and keyboard focus.
  */
 function LegalLinks() {
   return (
     <>
-      <ul className="flex list-none gap-x-4 border-t border-border px-5 pt-3 pb-4 text-xs icons:hidden">
+      <ul className="mx-6 flex list-none flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted icons:hidden">
         {legalLinks.map((link) => (
           <li key={link.href}>
             <Link href={link.href} className="text-ink-muted">
@@ -80,7 +58,7 @@ function LegalLinks() {
           </li>
         ))}
       </ul>
-      <div className="hidden justify-center border-t border-border py-2 icons:flex">
+      <div className="hidden justify-center icons:flex">
         <span className="group relative block">
           <Link
             href="/help"
@@ -122,22 +100,10 @@ export function Sidebar({ account }: SidebarProps) {
     ...trailingNavigation,
   ];
   return (
-    <nav aria-label="Primary" className="flex h-full flex-col">
-      <div className="flex shrink-0 items-center gap-2 pr-2 pl-5 icons:flex-col icons:gap-0 icons:px-0 icons:pb-2">
-        <Link
-          href="/"
-          aria-label="Daisy Debate home"
-          className="flex h-16 min-w-0 flex-1 items-center gap-2 text-ink no-underline hover:no-underline icons:flex-none icons:justify-center"
-        >
-          <DaisyLogo />
-          <span className="font-display text-xl leading-shell-brand font-semibold tracking-tight whitespace-nowrap text-ink icons:hidden">
-            Daisy Debate
-          </span>
-        </Link>
-        <NavToggle />
-      </div>
+    <nav aria-label="Primary" className="flex h-full flex-col pb-4">
+      <NavToggle />
       <div className="flex-1">
-        <ul className="flex list-none flex-col gap-1 p-4 icons:px-2 icons:py-0">
+        <ul className="flex list-none flex-col gap-1 px-2 py-2">
           {navigation.map((item) => (
             <li key={item.href}>
               <NavItem
@@ -150,7 +116,6 @@ export function Sidebar({ account }: SidebarProps) {
           ))}
         </ul>
       </div>
-      <VisitorAccount account={account} />
       <LegalLinks />
     </nav>
   );

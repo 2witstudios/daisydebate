@@ -22,7 +22,7 @@ export function ShellGrid({
     <div
       data-dock={hasDock ? dock : 'none'}
       data-nav={nav}
-      className="grid min-h-screen grid-shell items-start"
+      className="grid min-h-screen grid-shell items-start bg-surface"
     >
       {children}
     </div>

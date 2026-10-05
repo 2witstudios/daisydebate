@@ -11,21 +11,19 @@ const render = (account: ShellAccount) =>
   renderInStore(h(SocialRail, { account }));
 
 describe('SocialRail', () => {
-  test('you first, then your friends', () => {
+  test('your friends, with your account left to the top bar', () => {
     const html = render(member);
     assert({
       given: 'a signed-in member',
-      should:
-        'render the rail with your account and notifications above the friends list',
+      should: 'render the friends rail without the account or notifications',
       actual: [
         html.includes('id="social-rail"'),
-        html.includes('aria-label="You and your friends"'),
-        html.includes('aria-label="Account settings for ada-byron"'),
+        html.includes('aria-label="Friends"'),
+        html.includes('>Friends'),
+        html.includes('Account settings for'),
         html.includes('href="/notifications"'),
-        html.indexOf('Account settings for ada-byron') <
-          html.indexOf('>Friends'),
       ],
-      expected: [true, true, true, true, true],
+      expected: [true, true, true, false, false],
     });
   });
 
@@ -34,36 +32,19 @@ describe('SocialRail', () => {
     assert({
       given: 'the rail before any script',
       should:
-        'carry the open panel with a collapse button and the strip with an expand button',
+        'carry the open panel with a collapse tab and the strip with an expand tab, each ahead of its friends',
       actual: [
         html.includes('social-full'),
         html.includes('social-strip'),
         /aria-label="Collapse friends"[^>]*aria-expanded="true"/.test(html),
         /aria-label="Expand friends"[^>]*aria-expanded="false"/.test(html),
         (html.match(/aria-controls="social-rail"/g) ?? []).length,
+        html.indexOf('aria-label="Collapse friends"') <
+          html.indexOf('>Friends'),
+        html.indexOf('aria-label="Expand friends"') <
+          html.indexOf(' on</span>'),
       ],
-      expected: [true, true, true, true, 2],
-    });
-  });
-
-  test('each view leads with you, then its collapse control', () => {
-    const html = render(member);
-    const full = html.slice(
-      html.indexOf('social-full'),
-      html.indexOf('social-strip'),
-    );
-    const strip = html.slice(html.indexOf('social-strip'));
-    assert({
-      given: 'the open panel and the strip',
-      should:
-        'put the toggle on the page side of the open header, and right below your avatar in the strip, before notifications',
-      actual: [
-        full.indexOf('Collapse friends') < full.indexOf('Account settings for'),
-        strip.indexOf('Account settings for') < strip.indexOf('Expand friends'),
-        strip.indexOf('Expand friends') <
-          strip.indexOf('href="/notifications"'),
-      ],
-      expected: [true, true, true],
+      expected: [true, true, true, true, 2, true, true],
     });
   });
 
@@ -86,7 +67,7 @@ describe('SocialRail', () => {
   test('nothing for a visitor or someone mid sign-up', () => {
     assert({
       given: 'an anonymous visitor and a provisional account',
-      should: 'render nothing',
+      should: 'render no rail: their way in is in the top bar',
       actual: [
         render({ state: 'anonymous' }),
         render({ state: 'provisional' }),

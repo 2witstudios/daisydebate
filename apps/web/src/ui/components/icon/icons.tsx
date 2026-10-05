@@ -92,35 +92,7 @@ export const iconPaths: Record<string, ReactNode> = {
       <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
     </>
   ),
-  /* Panel toggles: the chevron points the way the panel will move. */
-  panelLeftClose: (
-    <>
-      <rect x="3" y="4" width="18" height="16" rx="2" />
-      <path d="M9 4v16" />
-      <path d="m16 15-3-3 3-3" />
-    </>
-  ),
-  panelLeftOpen: (
-    <>
-      <rect x="3" y="4" width="18" height="16" rx="2" />
-      <path d="M9 4v16" />
-      <path d="m13 9 3 3-3 3" />
-    </>
-  ),
-  panelRightClose: (
-    <>
-      <rect x="3" y="4" width="18" height="16" rx="2" />
-      <path d="M15 4v16" />
-      <path d="m8 9 3 3-3 3" />
-    </>
-  ),
-  panelRightOpen: (
-    <>
-      <rect x="3" y="4" width="18" height="16" rx="2" />
-      <path d="M15 4v16" />
-      <path d="m11 15-3-3 3-3" />
-    </>
-  ),
+  chevronLeft: <path d="m15 18-6-6 6-6" />,
   help: (
     <>
       <circle cx="12" cy="12" r="10" />

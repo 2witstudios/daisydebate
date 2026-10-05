@@ -12,23 +12,23 @@ const render = (account: ShellAccount = { state: 'anonymous' }): string =>
   renderInStore(h(AppShell, { account, children: h('p', null, 'page') }));
 
 describe('AppShell', () => {
-  test('owns the single main landmark, with no topbar', () => {
+  test('owns the single main landmark, under one top bar', () => {
     const html = render();
     const signedIn = render(member);
     assert({
       given:
         'the shell for a visitor and a member, with the root layout rendering no landmark of its own',
       should:
-        'render one main and one primary nav, no topbar, and the social rail only for the member',
+        'render the top bar first, then one primary nav and one main, and the friends rail only for the member',
       actual: [
-        occurrences(html, '<main'),
-        occurrences(html, '<nav'),
         occurrences(html, '<header'),
+        html.indexOf('<header') < html.indexOf('<nav'),
+        occurrences(html, '<nav'),
+        occurrences(html, '<main'),
         occurrences(html, '<aside'),
         occurrences(signedIn, '<aside'),
-        signedIn.indexOf('<header') > signedIn.indexOf('<aside'),
       ],
-      expected: [1, 1, 0, 0, 1, true],
+      expected: [1, true, 1, 1, 0, 1],
     });
   });
 
@@ -67,21 +67,40 @@ describe('AppShell', () => {
     });
   });
 
-  test('the social rail is for members only; a visitor signs in from the sidebar', () => {
+  test('the brand and the account live in the top bar, outside the columns', () => {
     const visitor = render();
     const signedIn = render(member);
+    const bar = (html: string) =>
+      html.slice(html.indexOf('<header'), html.indexOf('</header>'));
     assert({
       given: 'a visitor and a member',
       should:
-        'give the member the rail with their account, and the visitor a Sign in link instead',
+        'put the brand and the way in or the account in the top bar, and the friends rail only for the member',
       actual: [
+        bar(visitor).includes('aria-label="Daisy Debate home"'),
+        bar(visitor).includes('href="/sign-in"'),
+        bar(signedIn).includes('aria-label="Account settings for ada-byron"'),
+        bar(signedIn).includes('href="/notifications"'),
         visitor.includes('id="social-rail"'),
         signedIn.includes('id="social-rail"'),
-        visitor.includes('href="/sign-in"'),
-        signedIn.includes('href="/sign-in"'),
-        signedIn.includes('aria-label="Account settings for ada-byron"'),
       ],
-      expected: [false, true, true, false, true],
+      expected: [true, true, true, true, false, true],
+    });
+  });
+
+  test('the page is one sheet set into the frame', () => {
+    const main = (html: string) =>
+      /<main[^>]*class="([^"]*)"/.exec(html)?.[1] ?? '';
+    assert({
+      given: 'a visitor and a member',
+      should:
+        'round and outline the page against the frame, with a margin on the right only where no rail sits',
+      actual: [
+        main(render()).includes('rounded-t-xl'),
+        main(render()).includes('mr-3'),
+        main(render(member)).includes('mr-3'),
+      ],
+      expected: [true, true, false],
     });
   });
 
@@ -89,11 +108,11 @@ describe('AppShell', () => {
     assert({
       given: 'a visitor and a member',
       should:
-        'reserve no column for a visitor, and follow the screen (auto) for a member',
+        'mark the visitor as railless, and follow the screen (auto) for the rail and the sidebar',
       actual: [
         render().includes('data-dock="none"'),
         render(member).includes('data-dock="auto"'),
-        render().includes('data-nav="auto"'),
+        render(member).includes('data-nav="auto"'),
       ],
       expected: [true, true, true],
     });
