@@ -7,7 +7,8 @@ import { useUiState, useUiStore } from '../../../../store/store';
 import type { DockState } from '../../../../store/state';
 import { dispatch, transactions } from '../../../../transactions';
 import type { ShellAccount } from '../../account';
-import { EdgeTab } from '../edge-tab/edge-tab';
+import { Icon } from '../../../../components/icon/icon';
+import { panelToggleClass } from '../panel-toggle-class';
 import { dockGroups, onlineNow, type DockGroup } from './dock-people';
 
 /** What both views of the rail read. */
@@ -20,21 +21,26 @@ type ViewProps = {
 function Full({ groups, online, setDock }: ViewProps) {
   return (
     <div className="social-full flex-col bg-surface">
-      <EdgeTab
-        side="left"
-        label="Collapse friends"
-        expanded
-        icon="chevronRight"
-        controls="social-rail"
-        onClick={() => setDock('closed')}
-      />
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-3 py-4">
-        <h2 className="flex items-baseline gap-2 px-2 text-sm font-strong text-ink">
-          Friends
-          <span className="text-xs font-semibold text-ink-faint tabular-nums">
-            {`${online} online`}
-          </span>
-        </h2>
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-3 pt-2 pb-4">
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            aria-label="Collapse friends"
+            title="Collapse friends"
+            aria-expanded="true"
+            aria-controls="social-rail"
+            onClick={() => setDock('closed')}
+            className={panelToggleClass}
+          >
+            <Icon name="panelRightClose" size={20} />
+          </button>
+          <h2 className="flex items-baseline gap-2 text-sm font-strong text-ink">
+            Friends
+            <span className="text-xs font-semibold text-ink-faint tabular-nums">
+              {`${online} online`}
+            </span>
+          </h2>
+        </div>
         {groups.map((group) => (
           <div key={group.status} className="flex flex-col">
             <h3 className="px-2 pb-1 text-xs text-ink-faint">{group.label}</h3>
@@ -77,15 +83,18 @@ function Full({ groups, online, setDock }: ViewProps) {
 
 function Strip({ groups, online, setDock }: ViewProps) {
   return (
-    <div className="social-strip flex-col items-center gap-2 overflow-y-auto py-4">
-      <EdgeTab
-        side="left"
-        label="Expand friends"
-        expanded={false}
-        icon="chevronLeft"
-        controls="social-rail"
+    <div className="social-strip flex-col items-center gap-2 overflow-y-auto pt-2 pb-4">
+      <button
+        type="button"
+        aria-label="Expand friends"
+        title="Expand friends"
+        aria-expanded="false"
+        aria-controls="social-rail"
         onClick={() => setDock('open')}
-      />
+        className={panelToggleClass}
+      >
+        <Icon name="panelRightOpen" size={20} />
+      </button>
       <span className="text-xs font-bold text-online tabular-nums">
         {`${online} on`}
       </span>
@@ -117,7 +126,7 @@ function Strip({ groups, online, setDock }: ViewProps) {
  * The right rail for a signed-in member: their friends, under the top bar
  * that holds their account. Open, it is a panel beside the page on a wide
  * screen and over it on a narrower one; collapsed, it is a strip of avatars.
- * Each view has its tab to switch to the other. Both views are always in
+ * Each view has a panel button at its top to switch to the other. Both views are always in
  * the markup and the layout shows one, so the page is right before any
  * script.
  */

@@ -109,10 +109,12 @@ collapses: the brand on the left, its logo centred over the nav icons, and
 the account on the right (a member's bell and avatar, name and status as
 one rounded control, or a visitor's Sign in, Finish sign-up mid sign-up).
 Under it, navigation on the left and a member's friends on the right each
-collapse with a tab on the seam between column and page, halfway down
-(`EdgeTab`): it rests small with its chevron showing, points the way the
-column will move, and grows on hover and focus. Collapsed, the sidebar is
-icons and the rail a strip of avatars, each keeping its tab. A visitor has
+collapse with a panel button at the top of the column, on the side facing
+the page ([the toggle design](https://claude.ai/artifact/Eaa6XtndWDpt6kPUYBujrt),
+option A, owner decision 2026-10-05): a plain icon whose chevron points the
+way the column will move. Collapsed, the sidebar is icons and the rail a
+strip of avatars, each with its button at the top. Collapsed to icons, the
+sidebar's Help, Terms and Privacy sit behind a help icon at its foot. A visitor has
 no rail; their sheet keeps a margin on the right. Both views of the rail
 are in the markup and CSS shows one, so the shell is right before any
 script runs.

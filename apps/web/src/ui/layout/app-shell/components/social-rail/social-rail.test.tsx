@@ -32,7 +32,7 @@ describe('SocialRail', () => {
     assert({
       given: 'the rail before any script',
       should:
-        'carry the open panel with a collapse tab and the strip with an expand tab, each ahead of its friends',
+        'carry the open panel with a collapse button and the strip with an expand button, each a panel icon at the top ahead of its friends',
       actual: [
         html.includes('social-full'),
         html.includes('social-strip'),
@@ -43,8 +43,10 @@ describe('SocialRail', () => {
           html.indexOf('>Friends'),
         html.indexOf('aria-label="Expand friends"') <
           html.indexOf(' on</span>'),
+        (html.match(/d="M15 4v16"/g) ?? []).length,
+        html.includes('left-full') || html.includes('right-full'),
       ],
-      expected: [true, true, true, true, 2, true, true],
+      expected: [true, true, true, true, 2, true, true, 2, false],
     });
   });
 

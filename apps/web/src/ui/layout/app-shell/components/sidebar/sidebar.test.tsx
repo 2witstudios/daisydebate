@@ -62,6 +62,26 @@ describe('Sidebar', () => {
     });
   });
 
+  test('ends with Help, Terms and Privacy, collapsed or not', () => {
+    const html = renderInStore(h(Sidebar, { account: member }));
+    const iconsOnly = html.slice(
+      html.indexOf('aria-label="Help, terms and privacy"'),
+    );
+    assert({
+      given: 'the sidebar foot',
+      should:
+        'list the legal links after the nav, and give the icon-only sidebar a help icon whose flyout lists them',
+      actual: [
+        html.indexOf('href="/help"') > html.indexOf('href="/settings"'),
+        html.includes('aria-label="Help, terms and privacy"'),
+        ['/help', '/terms', '/privacy'].every((href) =>
+          iconsOnly.includes(`href="${href}"`),
+        ),
+      ],
+      expected: [true, true, true],
+    });
+  });
+
   test('derives the Profile link from the signed-in account', () => {
     const anonymousHtml = renderInStore(
       h(Sidebar, { account: { state: 'anonymous' } }),

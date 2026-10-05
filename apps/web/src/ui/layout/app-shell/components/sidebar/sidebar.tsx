@@ -1,5 +1,10 @@
 import Link from 'next/link';
+import { Icon } from '../../../../components/icon/icon';
 import { NavItem } from '../../../../components/nav-item/nav-item';
+import {
+  navFlyoutClass,
+  navFlyoutLinkClass,
+} from '../../../../components/nav-item/nav-item-class';
 import type { ShellAccount } from '../../account';
 import { NavToggle } from './nav-toggle';
 
@@ -26,7 +31,7 @@ const trailingNavigation = [
   { href: '/settings', icon: 'dots', label: 'More' },
 ] as const;
 
-const footerLinks = [
+const legalLinks = [
   { href: '/help', label: 'Help' },
   { href: '/terms', label: 'Terms' },
   { href: '/privacy', label: 'Privacy' },
@@ -36,6 +41,49 @@ export type SidebarProps = {
   /** Signed-in members get a Profile link to their own page. */
   readonly account: ShellAccount;
 };
+
+/**
+ * Help, Terms and Privacy, always the sidebar's last row. Icon only, a help
+ * icon whose flyout lists them, on hover and keyboard focus.
+ */
+function LegalLinks() {
+  return (
+    <>
+      <ul className="mx-6 flex list-none flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted icons:hidden">
+        {legalLinks.map((link) => (
+          <li key={link.href}>
+            <Link href={link.href} className="text-ink-muted">
+              {link.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+      <div className="hidden justify-center icons:flex">
+        <span className="group relative block">
+          <Link
+            href="/help"
+            aria-label="Help, terms and privacy"
+            title="Help, terms and privacy"
+            className="flex size-12 items-center justify-center rounded-md text-ink-muted no-underline hover:bg-surface-overlay hover:text-ink hover:no-underline"
+          >
+            <Icon name="help" size={20} />
+          </Link>
+          <span className={navFlyoutClass('bottom')}>
+            {legalLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={navFlyoutLinkClass}
+              >
+                {link.label}
+              </Link>
+            ))}
+          </span>
+        </span>
+      </div>
+    </>
+  );
+}
 
 export function Sidebar({ account }: SidebarProps) {
   const navigation = [
@@ -53,7 +101,9 @@ export function Sidebar({ account }: SidebarProps) {
   ];
   return (
     <nav aria-label="Primary" className="flex h-full flex-col pb-4">
-      <NavToggle />
+      <div className="flex justify-end px-2 pt-2 max-compact:hidden icons:justify-center">
+        <NavToggle />
+      </div>
       <div className="flex-1">
         <ul className="flex list-none flex-col gap-1 px-2 py-2">
           {navigation.map((item) => (
@@ -68,15 +118,7 @@ export function Sidebar({ account }: SidebarProps) {
           ))}
         </ul>
       </div>
-      <ul className="mx-6 flex list-none flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted icons:hidden">
-        {footerLinks.map((link) => (
-          <li key={link.href}>
-            <Link href={link.href} className="text-ink-muted">
-              {link.label}
-            </Link>
-          </li>
-        ))}
-      </ul>
+      <LegalLinks />
     </nav>
   );
 }
