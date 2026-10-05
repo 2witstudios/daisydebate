@@ -12,18 +12,20 @@ const render = (account: ShellAccount = { state: 'anonymous' }): string =>
   renderInStore(h(AppShell, { account, children: h('p', null, 'page') }));
 
 describe('AppShell', () => {
-  test('owns the single main landmark, as a sibling of header, nav, and the topic banner', () => {
+  test('owns the single main landmark, as a sibling of header and nav', () => {
     const html = render();
     assert({
-      given: 'the shell, with the root layout rendering no landmark of its own',
-      should: 'render exactly one main, one banner, one primary nav, one aside',
+      given:
+        'the shell for a visitor, with the root layout rendering no landmark of its own',
+      should:
+        'render exactly one main, one banner, one primary nav and no aside',
       actual: [
         occurrences(html, '<main'),
         occurrences(html, '<header'),
         occurrences(html, '<nav'),
         occurrences(html, '<aside'),
       ],
-      expected: [1, 1, 1, 1],
+      expected: [1, 1, 1, 0],
     });
   });
 
@@ -31,27 +33,24 @@ describe('AppShell', () => {
     const html = render();
     assert({
       given: 'the shell landmarks',
-      should: 'label the navigation "Primary" and the banner "Today\'s topic"',
-      actual: [
-        /<nav[^>]* aria-label="Primary"/.test(html),
-        /<aside[^>]* aria-label="Today&#x27;s topic"/.test(html),
-      ],
-      expected: [true, true],
+      should: 'label the navigation "Primary"',
+      actual: /<nav[^>]* aria-label="Primary"/.test(html),
+      expected: true,
     });
   });
 
-  test('places the page in the content column, below the topic banner', () => {
+  test('places the page in the content column, with no topic banner', () => {
     const html = render();
     const main = html.slice(html.indexOf('<main'), html.indexOf('</main>'));
     assert({
       given: 'page content',
-      should: 'render the page inside main and the topic banner outside it',
+      should: "render the page inside main and no today's topic anywhere",
       actual: [
         main.includes('<p>page</p>'),
-        main.includes('Join the discussion'),
-        html.indexOf('Join the discussion') < html.indexOf('<main'),
+        html.includes('Today&#x27;s topic') || html.includes('Today’s topic'),
+        html.includes('Join the discussion'),
       ],
-      expected: [true, false, true],
+      expected: [true, false, false],
     });
   });
 

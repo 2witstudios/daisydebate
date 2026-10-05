@@ -3,7 +3,6 @@ import { Sidebar } from './components/sidebar/sidebar';
 import { Topbar, type ShellAccount } from './components/topbar/topbar';
 import { ChatDock } from './components/chat-dock/chat-dock';
 import { ShellGrid } from './components/dock/shell-grid';
-import { TopicBanner } from './components/topic-banner/topic-banner';
 
 export type AppShellProps = {
   /** Main content column. */
@@ -13,8 +12,8 @@ export type AppShellProps = {
 };
 
 /**
- * Full-viewport chrome: fixed sidebar, topbar over the content column, the
- * topic banner under it, and the friends dock on the right.
+ * Full-viewport chrome: fixed sidebar, topbar over the content column, and
+ * the friends dock on the right.
  * Owns interior layout only; content owns its own appearance. This component
  * owns the page's single <main> landmark: the root layout renders no landmark
  * of its own, so header, nav, main and aside are siblings here, not nested
@@ -29,7 +28,6 @@ export function AppShell({ children, account }: AppShellProps) {
       <div className="sticky top-0 z-10 border-b border-border bg-surface area-topbar">
         <Topbar account={account} />
       </div>
-      <TopicBanner />
       <main className="min-w-0 area-main">{children}</main>
       <ChatDock account={account} />
     </ShellGrid>

@@ -18,10 +18,9 @@
 @utility grid-shell {
   --nav-width: var(--spacing-sidebar);
   grid-template-columns: var(--nav-width) minmax(0, 1fr);
-  grid-template-rows: auto auto 1fr;
+  grid-template-rows: auto 1fr;
   grid-template-areas:
     'sidebar topbar'
-    'sidebar banner'
     'sidebar main';
 
   /* The sidebar is icons only on a narrow screen, or when collapsed. */
@@ -34,7 +33,7 @@
   }
 
   /* On a wide screen the friends dock is a column beside the page, below the
-     navbar and topic banner, unless it has been closed (a visitor has none,
+     navbar, unless it has been closed (a visitor has none,
      so the grid is always `closed` for them and no column is reserved). */
   @media (width >= 1101px) {
     &:not([data-dock='closed']) {
@@ -43,7 +42,6 @@
         var(--spacing-dock);
       grid-template-areas:
         'sidebar topbar topbar'
-        'sidebar banner banner'
         'sidebar main dock';
     }
   }
@@ -59,10 +57,6 @@
 
 @utility area-main {
   grid-area: main;
-}
-
-@utility area-banner {
-  grid-area: banner;
 }
 
 /* The friends dock. Hidden unless open. Wide and open it is the column
