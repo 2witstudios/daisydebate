@@ -275,15 +275,15 @@
   --breakpoint-narrow: 641px;
   --breakpoint-tiny: 561px;
 
-  /* Layout metrics. */
-  --spacing-sidebar: 232px;
+  /* Layout metrics. The sidebar and the open social rail match. */
+  --spacing-sidebar: 272px;
   --spacing-rail: 316px;
   /* The social rail open: you, your notifications and your friends. */
   --spacing-dock: 272px;
 }
 
 /* A viewport tall enough to pin the whole sidebar (its tallest content is
-   about 46rem). Below it the sidebar scrolls with the page, so its foot stays
+   about 43rem). Below it the sidebar scrolls with the page, so its foot stays
    reachable without a scroll box that would clip the nav flyouts. */
 @custom-variant tall (@media (min-height: 47rem));
 

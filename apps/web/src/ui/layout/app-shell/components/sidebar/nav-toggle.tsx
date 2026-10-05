@@ -5,9 +5,10 @@ import { useUiState, useUiStore } from '../../../../store/store';
 import { dispatch, transactions } from '../../../../transactions';
 
 /**
- * Collapses the sidebar to icons and expands it again, at the foot of the
- * sidebar it controls. Only where there is room to choose: on a narrow
- * screen the sidebar is icons only already, so the button is hidden.
+ * Collapses the sidebar to icons and expands it again, at the top of the
+ * sidebar it controls, as the social rail's control is at the top of the
+ * rail. Only where there is room to choose: on a narrow screen the sidebar
+ * is icons only already, so the button is hidden.
  */
 export function NavToggle() {
   const store = useUiStore();
@@ -22,10 +23,9 @@ export function NavToggle() {
       onClick={() =>
         dispatch(store, transactions.setNav, collapsed ? 'auto' : 'collapsed')
       }
-      className="mx-4 flex min-h-12 cursor-pointer items-center gap-3 rounded-md border border-border bg-surface-raised px-3 text-sm font-semibold text-ink-muted hover:bg-surface-overlay hover:text-ink max-compact:hidden icons:mx-2 icons:justify-center icons:px-0"
+      className="flex size-12 shrink-0 cursor-pointer items-center justify-center rounded-md border border-border bg-surface-raised text-ink-muted hover:bg-surface-overlay hover:text-ink max-compact:hidden"
     >
       <Icon name="sidebar" size={20} />
-      <span className="icons:hidden">Collapse</span>
     </button>
   );
 }

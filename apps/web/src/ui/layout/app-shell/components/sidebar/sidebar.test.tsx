@@ -44,7 +44,7 @@ describe('Sidebar', () => {
     });
   });
 
-  test('the brand on top, a way in and the collapse control at the foot', () => {
+  test('the brand and the collapse control on top, a way in at the foot', () => {
     const visitor = renderInStore(
       h(Sidebar, { account: { state: 'anonymous' } }),
     );
@@ -53,17 +53,16 @@ describe('Sidebar', () => {
     );
     const signedIn = renderInStore(h(Sidebar, { account: member }));
     const at = (html: string, needle: string) => html.indexOf(needle);
+    const brand = at(visitor, 'aria-label="Daisy Debate home"');
+    const collapse = at(visitor, 'aria-label="Collapse sidebar"');
     assert({
       given: 'a visitor, an account mid sign-up and a member',
       should:
-        'lead with the home brand, then the links, then the way in and the collapse button',
+        'lead with the home brand and the collapse button, then the links, then the way in',
       actual: [
-        at(visitor, 'aria-label="Daisy Debate home"') >= 0 &&
-          at(visitor, 'aria-label="Daisy Debate home"') <
-            at(visitor, 'href="/play"'),
+        brand >= 0 && brand < collapse,
+        collapse < at(visitor, 'href="/play"'),
         at(visitor, 'href="/play"') < at(visitor, 'href="/sign-in"'),
-        at(visitor, 'href="/sign-in"') <
-          at(visitor, 'aria-label="Collapse sidebar"'),
         provisional.includes('href="/onboarding/username"'),
         signedIn.includes('href="/sign-in"'),
         signedIn.includes('aria-label="Collapse sidebar"'),
