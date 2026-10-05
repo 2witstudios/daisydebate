@@ -16,17 +16,17 @@ const renderWith = (account: ShellAccount = { state: 'anonymous' }): string =>
   );
 
 describe('Topbar', () => {
-  test('is the banner with a home brand link and labelled controls', () => {
+  test('is the banner with a home brand link and no search', () => {
     const html = renderWith();
     assert({
       given: 'the topbar',
-      should: 'render a header, link the brand home, and name its controls',
+      should: 'render a header, link the brand home, and carry no search field',
       actual: [
         html.includes('<header'),
         /<a [^>]*href="\/"/.test(html),
         html.includes('type="search"'),
       ],
-      expected: [true, true, true],
+      expected: [true, true, false],
     });
   });
 

@@ -31,7 +31,6 @@ export type DockState = 'auto' | 'open' | 'closed';
 export type NavState = 'auto' | 'collapsed';
 
 type UiResources = {
-  readonly searchQuery: string;
   readonly onlineCount: number;
   readonly dock: DockState;
   readonly nav: NavState;
@@ -51,7 +50,6 @@ export type UiState = {
 /** Deterministic seed from the mock fixtures (the future wiring swap point). */
 export const createInitialState = (): UiState => ({
   resources: {
-    searchQuery: '',
     onlineCount: 1248,
     dock: 'auto',
     nav: 'auto',

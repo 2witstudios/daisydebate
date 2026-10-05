@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { SearchInput } from '../../../../components/search-input/search-input';
 import { Avatar } from '../../../../components/avatar/avatar';
 import { Icon } from '../../../../components/icon/icon';
 import { DockToggle } from '../dock/dock-toggle';
@@ -59,10 +58,7 @@ export function Topbar({ account }: { readonly account: ShellAccount }) {
           <br />A brighter world.
         </span>
       </Link>
-      <div className="flex min-w-0 flex-1 justify-center">
-        <SearchInput />
-      </div>
-      <div className="flex shrink-0 items-center gap-4">
+      <div className="ml-auto flex shrink-0 items-center gap-4">
         {account.state === 'member' ? <DockToggle /> : null}
         {account.state === 'member' ? (
           <Link

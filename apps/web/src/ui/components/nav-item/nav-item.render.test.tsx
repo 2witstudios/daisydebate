@@ -2,7 +2,6 @@ import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { renderNavItem } from './nav-item.render';
-import { renderSearchInput } from '../search-input/search-input.render';
 
 setupRitewayBun();
 
@@ -63,27 +62,6 @@ describe('nav-item presentation', () => {
         'keep the label readable to assistive tech (sr-only), never display:none it',
       actual: [html.includes('icons:sr-only'), html.includes('icons:hidden')],
       expected: [true, false],
-    });
-  });
-});
-
-describe('search-input presentation', () => {
-  test('renders a labelled, controlled search field', () => {
-    const html = String(
-      renderToString(
-        h(renderSearchInput, {
-          value: 'ranked',
-          placeholder: 'Search users, topics, or debates…',
-          label: 'Search',
-          typeSearchQuery: () => {},
-        }),
-      ),
-    );
-    assert({
-      given: 'a search input with a query',
-      should: 'render the value and accessible label',
-      actual: [html.includes('value="ranked"'), html.includes('Search')],
-      expected: [true, true],
     });
   });
 });
