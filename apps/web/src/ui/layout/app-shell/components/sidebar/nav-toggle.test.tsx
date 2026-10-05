@@ -11,14 +11,15 @@ describe('NavToggle', () => {
     assert({
       given: 'the sidebar in its default state',
       should:
-        'be a tab off the sidebar edge, named for what it does, expanded, and hidden where it is icons only anyway',
+        'be a panel button at the top of the sidebar, not a tab on its edge, named for what it does, expanded, and hidden where it is icons only anyway',
       actual: [
         html.includes('aria-label="Collapse sidebar"'),
         html.includes('aria-expanded="true"'),
         html.includes('max-compact:hidden'),
         html.includes('left-full'),
+        html.includes('d="M9 4v16"'),
       ],
-      expected: [true, true, true, true],
+      expected: [true, true, true, false, true],
     });
   });
 });

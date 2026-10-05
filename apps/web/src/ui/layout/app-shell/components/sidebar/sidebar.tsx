@@ -101,7 +101,9 @@ export function Sidebar({ account }: SidebarProps) {
   ];
   return (
     <nav aria-label="Primary" className="flex h-full flex-col pb-4">
-      <NavToggle />
+      <div className="flex justify-end px-2 pt-2 max-compact:hidden icons:justify-center">
+        <NavToggle />
+      </div>
       <div className="flex-1">
         <ul className="flex list-none flex-col gap-1 px-2 py-2">
           {navigation.map((item) => (

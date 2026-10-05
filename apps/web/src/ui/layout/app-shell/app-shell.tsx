@@ -27,7 +27,7 @@ export function AppShell({ children, account }: AppShellProps) {
       <Topbar account={account} />
       {/* The column runs the page's full height; only its content is pinned. */}
       <div className="z-20 self-stretch bg-surface area-sidebar">
-        <div className="relative tall:sticky tall:top-topbar tall:h-below-topbar">
+        <div className="tall:sticky tall:top-topbar tall:h-below-topbar">
           <Sidebar account={account} />
         </div>
       </div>
