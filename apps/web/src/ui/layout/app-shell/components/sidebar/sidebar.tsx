@@ -55,7 +55,7 @@ export function Sidebar({ account }: SidebarProps) {
     <nav aria-label="Primary" className="flex h-full flex-col pb-4">
       <NavToggle />
       <div className="flex-1">
-        <ul className="flex list-none flex-col gap-1 p-4 icons:px-2 icons:py-0">
+        <ul className="flex list-none flex-col gap-1 px-2 py-2">
           {navigation.map((item) => (
             <li key={item.href}>
               <NavItem
@@ -68,7 +68,7 @@ export function Sidebar({ account }: SidebarProps) {
           ))}
         </ul>
       </div>
-      <ul className="mx-5 flex list-none flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted icons:hidden">
+      <ul className="mx-6 flex list-none flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted icons:hidden">
         {footerLinks.map((link) => (
           <li key={link.href}>
             <Link href={link.href} className="text-ink-muted">

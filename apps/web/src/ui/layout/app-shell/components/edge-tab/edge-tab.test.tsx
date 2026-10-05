@@ -34,17 +34,18 @@ describe('EdgeTab', () => {
     });
   });
 
-  test('hangs off the edge it is given, and grows on hover and focus', () => {
+  test('sits on the seam it is given, and grows on hover and focus', () => {
     const left = render('left');
     const right = render('right');
     assert({
       given: 'a tab on each side',
       should:
-        'sit outside its column on that side, open to the column, and widen on hover and focus',
+        'sit centred on the seam on that side, and grow on hover and focus',
       actual: [
-        left.includes('right-full') && left.includes('border-r-0'),
-        right.includes('left-full') && right.includes('border-l-0'),
-        left.includes('hover:w-8') && left.includes('focus-visible:w-8'),
+        left.includes('right-full') && left.includes('translate-x-1/2'),
+        right.includes('left-full') && right.includes('-translate-x-1/2'),
+        left.includes('group-hover:w-6') &&
+          left.includes('group-focus-visible:w-6'),
       ],
       expected: [true, true, true],
     });

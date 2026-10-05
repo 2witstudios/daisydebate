@@ -22,7 +22,7 @@ function Account({ account }: { readonly account: ShellAccount }) {
         <Link
           href="/settings"
           aria-label={`Account settings for ${account.username}`}
-          className="flex min-w-0 items-center gap-3 rounded-md px-2 py-1 text-ink no-underline hover:bg-surface-overlay hover:no-underline"
+          className="flex min-w-0 items-center gap-3 rounded-round py-1 pr-4 pl-1 text-ink no-underline hover:bg-surface-overlay hover:no-underline max-compact:pr-1"
         >
           <Avatar name={account.username} presence={viewerStatus} size="md" />
           <span className="flex min-w-0 flex-col max-compact:hidden">
@@ -55,7 +55,7 @@ export function Topbar({ account }: { readonly account: ShellAccount }) {
   return (
     <header
       id="topbar"
-      className="sticky top-0 z-40 flex h-topbar items-center justify-between gap-4 border-b border-border bg-surface pr-4 pl-4 area-topbar max-compact:pr-2"
+      className="sticky top-0 z-40 flex h-topbar items-center justify-between gap-4 bg-surface pr-4 pl-4 area-topbar max-compact:pr-2"
     >
       <Link
         href="/"

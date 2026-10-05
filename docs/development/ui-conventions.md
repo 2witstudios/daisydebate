@@ -100,18 +100,22 @@ the gaps it cannot.
 
 ## App shell
 
-Owner decision, 2026-10-05. A bar across the top that never collapses, and
-under it three columns: navigation on the left, the page, and a member's
-friends on the right. The bar holds the brand on the left and the account
-on the right: a member's notifications and avatar, or a visitor's Sign in
-(Finish sign-up mid sign-up). Only what is under it collapses. Each side
-column runs from the bar to the foot of the page and collapses with a tab
-hanging off its inner edge (`EdgeTab`): it shares the column's surface and
-border, its chevron points the way the column will move, and it widens on
-hover and focus. Collapsed, the sidebar is icons and the rail a strip of
-avatars, each keeping its tab, never hidden. A visitor has no rail. Both
-views of the rail are in the markup and CSS shows one, so the shell is
-right before any script runs.
+Owner decision, 2026-10-05 ([the shell
+design](https://claude.ai/artifact/BpZVQgWaDZEnuqiS7kejja), option A). The
+bar and the side columns are one frame on the surface colour, with no
+borders between them; the page is one sheet set into it, outlined and
+rounded at the top, so it is the only edge on the screen. The bar never
+collapses: the brand on the left, its logo centred over the nav icons, and
+the account on the right (a member's bell and avatar, name and status as
+one rounded control, or a visitor's Sign in, Finish sign-up mid sign-up).
+Under it, navigation on the left and a member's friends on the right each
+collapse with a tab on the seam between column and page, halfway down
+(`EdgeTab`): it rests small with its chevron showing, points the way the
+column will move, and grows on hover and focus. Collapsed, the sidebar is
+icons and the rail a strip of avatars, each keeping its tab. A visitor has
+no rail; their sheet keeps a margin on the right. Both views of the rail
+are in the markup and CSS shows one, so the shell is right before any
+script runs.
 
 The sidebar's column always runs the page's full height. Its content is
 pinned to the viewport only when the viewport can hold all of it (the

@@ -88,6 +88,22 @@ describe('AppShell', () => {
     });
   });
 
+  test('the page is one sheet set into the frame', () => {
+    const main = (html: string) =>
+      /<main[^>]*class="([^"]*)"/.exec(html)?.[1] ?? '';
+    assert({
+      given: 'a visitor and a member',
+      should:
+        'round and outline the page against the frame, with a margin on the right only where no rail sits',
+      actual: [
+        main(render()).includes('rounded-t-xl'),
+        main(render()).includes('mr-3'),
+        main(render(member)).includes('mr-3'),
+      ],
+      expected: [true, true, false],
+    });
+  });
+
   test('the grid carries the dock state for the layout', () => {
     assert({
       given: 'a visitor and a member',

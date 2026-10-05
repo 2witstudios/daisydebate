@@ -26,12 +26,17 @@ export function AppShell({ children, account }: AppShellProps) {
     <ShellGrid hasDock={account.state === 'member'}>
       <Topbar account={account} />
       {/* The column runs the page's full height; only its content is pinned. */}
-      <div className="z-20 self-stretch border-r border-border bg-surface area-sidebar">
+      <div className="z-20 self-stretch bg-surface area-sidebar">
         <div className="relative tall:sticky tall:top-topbar tall:h-below-topbar">
           <Sidebar account={account} />
         </div>
       </div>
-      <main className="min-w-0 area-main">{children}</main>
+      {/* The page is one sheet set into the frame of bar and columns. */}
+      <main
+        className={`min-w-0 rounded-t-xl border border-b-0 border-border bg-background area-main ${account.state === 'member' ? '' : 'mr-3'}`}
+      >
+        {children}
+      </main>
       <SocialRail account={account} />
     </ShellGrid>
   );

@@ -19,7 +19,7 @@ type ViewProps = {
 
 function Full({ groups, online, setDock }: ViewProps) {
   return (
-    <div className="social-full flex-col border-l border-border bg-surface">
+    <div className="social-full flex-col bg-surface">
       <EdgeTab
         side="left"
         label="Collapse friends"
@@ -77,7 +77,7 @@ function Full({ groups, online, setDock }: ViewProps) {
 
 function Strip({ groups, online, setDock }: ViewProps) {
   return (
-    <div className="social-strip flex-col items-center gap-2 overflow-y-auto border-l border-border py-4">
+    <div className="social-strip flex-col items-center gap-2 overflow-y-auto py-4">
       <EdgeTab
         side="left"
         label="Expand friends"

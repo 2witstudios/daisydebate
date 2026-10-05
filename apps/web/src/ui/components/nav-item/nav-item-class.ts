@@ -9,7 +9,7 @@ export const navItemClass = (active: boolean): string =>
     navItemBase,
     active
       ? 'bg-accent-soft text-accent-strong hover:bg-accent-soft hover:text-accent-strong'
-      : 'text-ink-muted hover:bg-surface hover:text-ink',
+      : 'text-ink-muted hover:bg-surface-overlay hover:text-ink',
   );
 
 /** Classes for the flyout caret; it shows while the wrapper is hovered or focused. */
