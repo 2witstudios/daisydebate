@@ -3,11 +3,9 @@
 import { useFormAction, type FormAction } from '../../form-action/form-action';
 import { useMovedOn } from '../../form-action/use-moved-on';
 import { skipClass } from '../frame/frame';
-import {
-  initialStepForm,
-  stepUnavailable,
-  type StepFormState,
-} from './step-form-state';
+import { initialStepForm, type StepFormState } from './step-form-state';
+
+const skipUnavailable = (): StepFormState => ({ refused: true });
 
 /**
  * Skip, as a form posting to its server action: it records that the
@@ -22,7 +20,7 @@ export function SkipForm({
   const [answered, post, posting] = useFormAction(
     action,
     initialStepForm,
-    stepUnavailable,
+    skipUnavailable,
   );
   useMovedOn(answered.next);
   const pending = posting || answered.next !== undefined;

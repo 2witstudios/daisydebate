@@ -12,11 +12,8 @@ import {
 } from '../../form-action/form-action';
 import { useMovedOn } from '../../form-action/use-moved-on';
 import { AboutStep, ExperienceStep, TopicsStep } from './questions';
-import {
-  initialStepForm,
-  stepUnavailable,
-  type StepFormState,
-} from './step-form-state';
+import { initialStepForm, type StepFormState } from './step-form-state';
+import { refusedStep } from './submit-step';
 
 const steps = {
   about: AboutStep,
@@ -47,7 +44,7 @@ export function QuestionForm({
   const [answered, post, posting] = useFormAction(
     action,
     initialStepForm,
-    stepUnavailable,
+    refusedStep(step),
   );
   useMovedOn(answered.next);
   const pending = posting || answered.next !== undefined;
@@ -55,7 +52,7 @@ export function QuestionForm({
   const Step = steps[step];
   return (
     <Step
-      answers={answers}
+      answers={{ ...answers, ...answered.posted }}
       action={post}
       pending={pending}
       refused={answered.refused === true}

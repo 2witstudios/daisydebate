@@ -36,7 +36,7 @@ export function OnboardingFrame({
         aria-labelledby={titleId}
         className="flex min-h-onboarding-card w-full max-w-onboarding flex-col gap-6 rounded-xl border border-border bg-surface-raised px-12 pt-6 pb-10 shadow-3 max-narrow:min-h-dvh max-narrow:rounded-none max-narrow:border-0 max-narrow:px-5 max-narrow:pt-4 max-narrow:pb-6"
       >
-        <div className="flex min-h-onboarding-touch items-center justify-between gap-4">
+        <div className="flex min-h-onboarding-touch flex-wrap items-center justify-between gap-4">
           {step === null ? (
             <span className="font-display text-xl font-semibold text-ink">
               Daisy
@@ -48,7 +48,7 @@ export function OnboardingFrame({
                   <span
                     key={index}
                     data-segment={index < step ? 'done' : 'todo'}
-                    className={`h-2 w-onboarding-segment rounded-round ${index < step ? 'bg-accent' : 'bg-border'}`}
+                    className={`h-2 w-onboarding-segment rounded-round max-narrow:w-4 ${index < step ? 'bg-accent' : 'bg-border'}`}
                   />
                 ))}
               </div>

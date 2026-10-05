@@ -1,4 +1,9 @@
-import type { QuestionStep } from '../../../features/onboarding/answers';
+import {
+  parseStepAnswers,
+  type OnboardingAnswers,
+  type QuestionStep,
+} from '../../../features/onboarding/answers';
+import type { StepFormState } from './step-form-state';
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -56,3 +61,25 @@ export const createSubmitStep =
     if (response.ok) return 'saved';
     return response.status === 400 ? 'refused' : 'unavailable';
   };
+
+/**
+ * The posted choices that are on their lists, as answers the step can
+ * show again; a post the parser refuses shows nothing new.
+ */
+export function postedAnswers(
+  step: QuestionStep,
+  form: FormData,
+): Partial<OnboardingAnswers> {
+  const parsed = parseStepAnswers(stepBody(step, form));
+  if (!parsed.ok) return {};
+  const { step: _step, ...answers } = parsed.value;
+  return answers;
+}
+
+/** A step's answer when its save was refused or never arrived. */
+export const refusedStep =
+  (step: QuestionStep) =>
+  (form: FormData): StepFormState => ({
+    refused: true,
+    posted: postedAnswers(step, form),
+  });

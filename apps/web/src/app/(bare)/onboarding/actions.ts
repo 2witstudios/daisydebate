@@ -12,6 +12,7 @@ import { inProcessFetch } from '../../../server/in-process-fetch';
 import { processRoute } from '../../../server/process-app';
 import {
   createSubmitStep,
+  refusedStep,
   stepBody,
 } from '../../../ui/onboarding/questions/submit-step';
 import type { StepFormState } from '../../../ui/onboarding/questions/step-form-state';
@@ -45,14 +46,14 @@ export async function saveStepAction(
   const destination = returnableDestination(
     typeof next === 'string' ? next : undefined,
   );
+  const posted = form instanceof FormData ? form : new FormData();
   const incoming = new Headers(await headers());
   const submit = createSubmitStep(inProcessFetch(onboardingRoute, incoming));
-  const saved = await submit(
-    stepBody(step, form instanceof FormData ? form : new FormData()),
-  );
-  if (saved !== 'saved') return { refused: true };
-  if (step === 'topics' && (await submit({ step: 'finish' })) !== 'saved')
-    return { refused: true };
+  if (
+    (await submit(stepBody(step, posted))) !== 'saved' ||
+    (step === 'topics' && (await submit({ step: 'finish' })) !== 'saved')
+  )
+    return refusedStep(step)(posted);
   return moveOn(incoming, onboardingStepHref(following[step], destination));
 }
 

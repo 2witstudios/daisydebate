@@ -125,16 +125,18 @@ export function ReadyStep({
             <dt className="w-onboarding-label shrink-0 text-sm text-ink-muted">
               {label}
             </dt>
-            <dd className="m-0 min-w-0 flex-1 text-base font-strong text-ink">
-              {value === '' ? none : value}
+            <dd className="m-0 flex min-w-0 flex-1 items-center justify-between gap-3">
+              <span className="min-w-0 text-base font-strong text-ink">
+                {value === '' ? none : value}
+              </span>
+              <Link
+                href={edit}
+                aria-label={`Edit ${label.toLowerCase()}`}
+                className="inline-flex min-h-onboarding-touch shrink-0 items-center px-2 text-sm font-strong"
+              >
+                Edit
+              </Link>
             </dd>
-            <Link
-              href={edit}
-              aria-label={`Edit ${label.toLowerCase()}`}
-              className="inline-flex min-h-onboarding-touch items-center px-2 text-sm font-strong"
-            >
-              Edit
-            </Link>
           </div>
         ))}
       </dl>

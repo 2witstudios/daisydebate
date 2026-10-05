@@ -31,7 +31,7 @@ export function WhyStep({ nextHref, backHref, skip }: IntroStepProps) {
       <div className="flex flex-col gap-8 rounded-lg bg-surface-stage p-10 text-stage-ink max-narrow:p-6">
         <h1
           id="onboarding-title"
-          className="max-w-reading font-display text-display-sm leading-display font-semibold tracking-display text-balance max-narrow:text-3xl"
+          className="max-w-reading font-display text-display-sm leading-display font-semibold tracking-display text-balance max-narrow:text-2xl"
         >
           Debate is{' '}
           <span className="bg-yolk box-decoration-clone px-2 text-stage-accent-ink">

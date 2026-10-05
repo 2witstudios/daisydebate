@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { postedForm } from '../../../lib/testing/posted-form';
-import { createSubmitStep, stepBody } from './submit-step';
+import { createSubmitStep, refusedStep, stepBody } from './submit-step';
 
 setupRitewayBun();
 
@@ -65,6 +65,28 @@ describe('createSubmitStep', () => {
         'unavailable',
         'unavailable',
       ],
+    });
+  });
+});
+
+describe('refusedStep', () => {
+  test('a refused post keeps what was chosen', () => {
+    assert({
+      given: 'an about post that was refused',
+      should: 'answer refused with the posted choices to show again',
+      actual: refusedStep('about')(
+        postedForm({ wants: ['judge'], club: 'starting' }),
+      ),
+      expected: {
+        refused: true,
+        posted: { wants: ['judge'], club: 'starting' },
+      },
+    });
+    assert({
+      given: 'a post carrying a value off the list',
+      should: 'show nothing new rather than a value the step cannot hold',
+      actual: refusedStep('topics')(postedForm({ topics: 'astrology' })),
+      expected: { refused: true, posted: {} },
     });
   });
 });
