@@ -1,12 +1,12 @@
 import { createId } from '@paralleldrive/cuid2';
-import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { createDatabase } from '../src';
+import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { withFixture } from './constraint-helpers';
-
-setupRitewayBun();
+import { createDatabase } from '../src';
 
 const { databaseUrl: url } = requireTestServices(process.env);
+
+setupRitewayBun();
 
 const withDatabase = async <T>(
   run: (database: ReturnType<typeof createDatabase>) => Promise<T>,

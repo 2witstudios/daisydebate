@@ -3,6 +3,7 @@ import type { Identity } from '@daisy/auth';
 import type { OnboardingStepWrite } from '@daisy/db';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import { createOnboardingHandler } from './save-answers';
+import { allowEvery, type ConsumeStub } from '../auth/limiter.test-support';
 
 setupRitewayBun();
 
@@ -16,10 +17,10 @@ const NOW = '2026-10-05T12:00:00.000Z';
 
 const handlerWith = ({
   identity = member,
-  consume = async () => ({ allowed: true, retryAfterSeconds: 0 }),
+  consume = allowEvery,
 }: {
   identity?: Identity;
-  consume?: () => Promise<{ allowed: boolean; retryAfterSeconds: number }>;
+  consume?: ConsumeStub;
 } = {}) => {
   const saved: Array<{ userId: string; answers: OnboardingStepWrite }> = [];
   const completed: Array<{ userId: string; at: string }> = [];
