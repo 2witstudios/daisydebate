@@ -13,15 +13,12 @@ setupRitewayBun();
 
 const frame = (step: number | null, skip?: string) =>
   renderToString(
-    h(
-      OnboardingFrame,
-      {
-        step,
-        titleId: 'step-title',
-        skip: skip ? h('form', null, h('button', null, skip)) : undefined,
-      },
-      h('h1', { id: 'step-title' }, 'About you'),
-    ),
+    h(OnboardingFrame, {
+      step,
+      titleId: 'step-title',
+      ...(skip ? { skip: h('form', null, h('button', null, skip)) } : {}),
+      children: h('h1', { id: 'step-title' }, 'About you'),
+    }),
   );
 
 const count = (html: string, needle: string) => html.split(needle).length - 1;
@@ -69,7 +66,7 @@ describe('StepFooter', () => {
     const html = renderToString(
       h(StepFooter, {
         backHref: '/onboarding/daisy?next=%2Flobby',
-        next: h(NextLink, { href: '/onboarding/about' }, 'Next'),
+        next: h(NextLink, { href: '/onboarding/about', children: 'Next' }),
       }),
     );
     assert({
@@ -88,7 +85,7 @@ describe('StepFooter', () => {
     const html = renderToString(
       h(StepFooter, {
         backHref: null,
-        next: h(NextButton, null, 'Finish'),
+        next: h(NextButton, { children: 'Finish' }),
       }),
     );
     assert({
