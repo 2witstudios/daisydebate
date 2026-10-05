@@ -102,16 +102,16 @@ the gaps it cannot.
 
 Owner decision, 2026-10-05 (option A of the shell design). Three columns,
 no topbar: navigation on the left, the page, and the right-hand column.
-Both side columns run the full height. The top of the right-hand column is
-the account corner for everyone: a member's avatar, name and
-notifications, or a visitor's Sign in (Finish sign-up mid sign-up). For a
-member the column is the social rail: their account, then their friends,
-with the app's one collapse control at the end of its header row;
-collapsed, it is a strip of avatars with the control to open it again,
-never hidden. A visitor has no rail, only the account corner. The
-navigation does not collapse: it is full on a wide screen and icons only
-on a narrow one, with nothing to toggle. Both views of the rail are in the
-markup and CSS shows one, so the shell is right before any script runs.
+Both side columns run the full height, are the same width when open, and
+carry their collapse control at the top on their inner edge: the end of
+the sidebar's brand row, the start of the rail's header. Collapsed, the
+sidebar is icons with the logo over its expand button, and the rail is a
+strip of avatars with its expand button on top, never hidden. The head of
+the right-hand column is the account corner for everyone: a member's
+avatar, name and notifications, or a visitor's Sign in (Finish sign-up mid
+sign-up) in a column with the same border, surface and 64px header but no
+friends. Both views of the rail are in the markup and CSS shows one, so
+the shell is right before any script runs.
 
 The sidebar's column always runs the page's full height. Its content is
 pinned to the viewport only when the viewport can hold all of it (the

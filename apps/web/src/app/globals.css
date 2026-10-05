@@ -275,8 +275,8 @@
   --breakpoint-narrow: 641px;
   --breakpoint-tiny: 561px;
 
-  /* Layout metrics. */
-  --spacing-sidebar: 232px;
+  /* Layout metrics. The sidebar and the open social rail match. */
+  --spacing-sidebar: 272px;
   --spacing-rail: 316px;
   /* The social rail open: you, your notifications and your friends. */
   --spacing-dock: 272px;
@@ -287,8 +287,16 @@
    reachable without a scroll box that would clip the nav flyouts. */
 @custom-variant tall (@media (min-height: 47rem));
 
-/* Icon-only navigation: on a narrow screen. */
-@custom-variant icons (@media (width < 901px));
+/* Icon-only navigation: on a narrow screen, or when the sidebar is collapsed
+   by choice (`data-nav` on the shell grid). */
+@custom-variant icons {
+  @media (width < 901px) {
+    @slot;
+  }
+  &:where([data-nav='collapsed'] *) {
+    @slot;
+  }
+}
 
 @layer base {
   body {

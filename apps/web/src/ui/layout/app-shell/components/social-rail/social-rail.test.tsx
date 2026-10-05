@@ -34,15 +34,19 @@ describe('SocialRail', () => {
     assert({
       given: 'the rail before any script',
       should:
-        'carry the open panel with a collapse button and the strip with an expand button',
+        'carry the open panel with a collapse button and the strip with an expand button, each on the inner edge ahead of your account',
       actual: [
         html.includes('social-full'),
         html.includes('social-strip'),
         /aria-label="Collapse friends"[^>]*aria-expanded="true"/.test(html),
         /aria-label="Expand friends"[^>]*aria-expanded="false"/.test(html),
         (html.match(/aria-controls="social-rail"/g) ?? []).length,
+        html.indexOf('aria-label="Collapse friends"') <
+          html.indexOf('Account settings for ada-byron'),
+        html.indexOf('aria-label="Expand friends"') <
+          html.lastIndexOf('Account settings for ada-byron'),
       ],
-      expected: [true, true, true, true, 2],
+      expected: [true, true, true, true, 2, true, true],
     });
   });
 

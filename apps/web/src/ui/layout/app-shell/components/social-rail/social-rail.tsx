@@ -39,7 +39,18 @@ function Notifications() {
 function Full({ username, groups, online, setDock }: ViewProps) {
   return (
     <div className="social-full flex-col border-l border-border bg-surface">
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b border-border pr-2 pl-4">
+      <header className="flex h-16 shrink-0 items-center gap-2 border-b border-border px-2">
+        <button
+          type="button"
+          aria-label="Collapse friends"
+          aria-expanded="true"
+          aria-controls="social-rail"
+          title="Collapse friends"
+          onClick={() => setDock('closed')}
+          className={`${control} border border-border bg-surface-raised`}
+        >
+          <Icon name="sidebarRight" size={20} />
+        </button>
         <Link
           href="/settings"
           aria-label={`Account settings for ${username}`}
@@ -54,17 +65,6 @@ function Full({ username, groups, online, setDock }: ViewProps) {
           </span>
         </Link>
         <Notifications />
-        <button
-          type="button"
-          aria-label="Collapse friends"
-          aria-expanded="true"
-          aria-controls="social-rail"
-          title="Collapse friends"
-          onClick={() => setDock('closed')}
-          className={`${control} border border-border bg-surface-raised`}
-        >
-          <Icon name="sidebarRight" size={20} />
-        </button>
       </header>
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-3 py-4">
         <h2 className="flex items-baseline gap-2 px-2 text-sm font-strong text-ink">
@@ -116,14 +116,6 @@ function Full({ username, groups, online, setDock }: ViewProps) {
 function Strip({ username, groups, online, setDock }: ViewProps) {
   return (
     <div className="social-strip flex-col items-center gap-2 overflow-y-auto border-l border-border py-2">
-      <Link
-        href="/settings"
-        aria-label={`Account settings for ${username}`}
-        className="flex size-12 shrink-0 items-center justify-center no-underline hover:no-underline"
-      >
-        <Avatar name={username} presence={viewerStatus} size="md" />
-      </Link>
-      <Notifications />
       <button
         type="button"
         aria-label="Expand friends"
@@ -135,6 +127,14 @@ function Strip({ username, groups, online, setDock }: ViewProps) {
       >
         <Icon name="sidebarRight" size={20} />
       </button>
+      <Link
+        href="/settings"
+        aria-label={`Account settings for ${username}`}
+        className="flex size-12 shrink-0 items-center justify-center no-underline hover:no-underline"
+      >
+        <Avatar name={username} presence={viewerStatus} size="md" />
+      </Link>
+      <Notifications />
       <span aria-hidden="true" className="my-1 h-px w-8 bg-border" />
       <span className="text-xs font-bold text-online tabular-nums">
         {`${online} on`}
@@ -167,8 +167,8 @@ const visitorLink =
   'flex min-h-12 items-center justify-center gap-2 rounded-md bg-accent px-4 text-sm font-bold whitespace-nowrap text-accent-ink no-underline hover:bg-accent-strong hover:no-underline max-compact:px-3';
 
 /**
- * The account corner for someone without a member account: their way in,
- * where a member's avatar is, and no friends.
+ * The right-hand column for someone without a member account: their way in
+ * at its head, where a member's avatar is, and no friends.
  */
 function AccountCorner({ account }: { readonly account: ShellAccount }) {
   const [href, label] =
@@ -178,12 +178,14 @@ function AccountCorner({ account }: { readonly account: ShellAccount }) {
   return (
     <aside
       aria-label="Account"
-      className="account-corner flex h-16 items-center justify-center px-2"
+      className="account-corner border-l border-border bg-surface"
     >
-      <Link href={href} aria-label={label} className={visitorLink}>
-        <Icon name="person" size={18} className="hidden max-compact:block" />
-        <span className="max-compact:sr-only">{label}</span>
-      </Link>
+      <div className="sticky top-0 flex h-16 items-center justify-center border-b border-border px-3 max-compact:px-0">
+        <Link href={href} aria-label={label} className={visitorLink}>
+          <Icon name="person" size={18} className="hidden max-compact:block" />
+          <span className="max-compact:sr-only">{label}</span>
+        </Link>
+      </div>
     </aside>
   );
 }

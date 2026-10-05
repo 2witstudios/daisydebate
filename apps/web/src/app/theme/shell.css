@@ -24,13 +24,17 @@
   grid-template-columns: var(--nav-width) minmax(0, 1fr) var(--social-width);
   grid-template-areas: 'sidebar main dock';
 
-  /* The sidebar is icons only on a narrow screen. */
+  /* The sidebar is icons only on a narrow screen, or when collapsed. */
+  &[data-nav='collapsed'] {
+    --nav-width: var(--spacing-shell-icons);
+  }
+
   @media (width < 901px) {
     --nav-width: var(--spacing-shell-icons);
   }
 
-  /* No rail for a visitor: the column is only as wide as their way in,
-     and on a narrow screen as wide as a member's strip. */
+  /* No rail for a visitor: the column is only as wide as the header that
+     holds their way in, and on a narrow screen as wide as a member's strip. */
   &[data-dock='none'] {
     --social-width: auto;
 
@@ -48,14 +52,12 @@
   }
 }
 
-/* A visitor's account corner: the top of the right-hand column, where a
-   member's avatar is, pinned as the rail is. */
+/* A visitor's right-hand column: the page's full height, with their way in
+   at its head where a member's avatar is. */
 @utility account-corner {
   grid-area: dock;
-  position: sticky;
-  top: 0;
   z-index: 30;
-  align-self: start;
+  align-self: stretch;
 }
 
 @utility area-sidebar {

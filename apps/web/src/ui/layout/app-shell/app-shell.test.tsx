@@ -90,13 +90,13 @@ describe('AppShell', () => {
     assert({
       given: 'a visitor and a member',
       should:
-        'mark the visitor as railless, follow the screen (auto) for a member, and carry no sidebar state',
+        'mark the visitor as railless, and follow the screen (auto) for the rail and the sidebar',
       actual: [
         render().includes('data-dock="none"'),
         render(member).includes('data-dock="auto"'),
-        render(member).includes('data-nav'),
+        render(member).includes('data-nav="auto"'),
       ],
-      expected: [true, true, false],
+      expected: [true, true, true],
     });
   });
 });
