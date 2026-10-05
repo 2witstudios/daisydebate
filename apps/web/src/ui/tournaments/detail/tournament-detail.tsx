@@ -68,9 +68,6 @@ export function TournamentDetail({ view, query }: TournamentDetailProps) {
           <Badge>{rulesLabel(tournament.rules)}</Badge>
           <Badge tone="accent">Unrated</Badge>
         </div>
-        <p className="text-base text-ink-muted">
-          {`Organized by ${tournament.organizer}.`}
-        </p>
       </PageTitle>
       <div className="flex items-start gap-6 max-rail:flex-col-reverse">
         <div className="flex min-w-0 flex-1 flex-col gap-4 max-rail:w-full">

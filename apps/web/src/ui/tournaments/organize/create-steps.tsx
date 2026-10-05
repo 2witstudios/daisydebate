@@ -14,7 +14,6 @@ import {
   Segmented,
   card,
   field,
-  hint,
   labelClass,
   type StepProps,
 } from './create-fields';
@@ -23,11 +22,7 @@ export function Basics({ draft }: { readonly draft: Draft }) {
   return (
     <div className={card}>
       <h2 className="text-lg font-strong text-ink">Basics</h2>
-      <Field
-        id="t-name"
-        label="Name"
-        note="Shown on the tournaments list and the bracket. Up to 60 characters."
-      >
+      <Field id="t-name" label="Name" note="Up to 60 characters">
         <input
           id="t-name"
           name="name"
@@ -55,9 +50,7 @@ export function Basics({ draft }: { readonly draft: Draft }) {
             defaultChecked={draft.listed}
             className="mt-1"
           />
-          <span>
-            Listed on Tournaments. Anyone can find it, register and watch.
-          </span>
+          <span>Public</span>
         </label>
         <label className="flex items-start gap-3 text-base text-ink">
           <input
@@ -67,9 +60,7 @@ export function Basics({ draft }: { readonly draft: Draft }) {
             defaultChecked={!draft.listed}
             className="mt-1"
           />
-          <span>
-            Unlisted, link only. Only people with the link can see and enter it.
-          </span>
+          <span>Link only</span>
         </label>
       </fieldset>
     </div>
@@ -92,9 +83,6 @@ export function Size({ query, draft, edits }: StepProps) {
             on: structure === query.structure,
           }))}
         />
-        <span className={hint}>
-          Bracket and round-robin events are supported.
-        </span>
       </div>
       <div className="flex flex-col gap-2">
         <p className={labelClass}>Number of places</p>
@@ -131,11 +119,7 @@ export function Size({ query, draft, edits }: StepProps) {
             className={field}
           />
         </Field>
-        <Field
-          id="rmax"
-          label="Highest rating allowed (optional)"
-          note="Provisional players are allowed unless you limit by rating."
-        >
+        <Field id="rmax" label="Highest rating allowed (optional)">
           <input
             id="rmax"
             name="rmax"
@@ -154,10 +138,7 @@ export function Size({ query, draft, edits }: StepProps) {
           defaultChecked={draft.waitlist}
           className="mt-1"
         />
-        <span>
-          Keep a waitlist when full. The first person on the waitlist is entered
-          automatically when someone withdraws.
-        </span>
+        <span>Keep a waitlist when full</span>
       </label>
     </div>
   );
@@ -178,11 +159,7 @@ export function Schedule({ query, draft, edits }: StepProps) {
             className={field}
           />
         </Field>
-        <Field
-          id="reg-close"
-          label="Registration closes"
-          note="Seeds and the bracket are made after this."
-        >
+        <Field id="reg-close" label="Registration closes">
           <input
             id="reg-close"
             name="closes"
@@ -192,7 +169,7 @@ export function Schedule({ query, draft, edits }: StepProps) {
           />
         </Field>
       </div>
-      <Field id="tz" label="Time zone" note="Times are shown in UTC for now.">
+      <Field id="tz" label="Time zone">
         <select id="tz" className={field}>
           <option>{draft.timeZone}</option>
         </select>
@@ -229,11 +206,7 @@ export function Schedule({ query, draft, edits }: StepProps) {
             <option>{draft.checkIn}</option>
           </select>
         </Field>
-        <Field
-          id="grace"
-          label="Forfeit grace after start"
-          note="After this an absent debater can be recorded as a forfeit."
-        >
+        <Field id="grace" label="Forfeit grace after start">
           <select id="grace" className={field}>
             <option>{draft.grace}</option>
           </select>

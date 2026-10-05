@@ -7,7 +7,7 @@ import {
 import type { TournamentsListing } from '../../../features/tournaments/list-tournaments';
 import { tournamentRoutes } from '../../../features/tournaments/routes';
 import { LinkButton } from '../link-button/link-button';
-import { Notice } from '../notice/notice';
+
 import { PageHeader } from '../../components/page-header/page-header';
 import { PageFrame } from '../page-frame/page-frame';
 import { FeaturedTournament } from './featured/featured-tournament';
@@ -50,7 +50,6 @@ export function TournamentsIndex({ listing, query }: TournamentsIndexProps) {
     <PageFrame>
       <PageHeader
         title="Tournaments"
-        lede="Organized bracket and round-robin events. Tournament debates are unrated."
         actions={
           <LinkButton
             href={tournamentRoutes.create}
@@ -84,10 +83,6 @@ export function TournamentsIndex({ listing, query }: TournamentsIndexProps) {
             </div>
             <List listing={listing} query={query} />
           </section>
-          <Notice icon="bell">
-            Your rating comes from Ranked play on the Daisy ladder. Tournament
-            debates are unrated, so a tournament never changes your rating.
-          </Notice>
         </div>
         <div className="w-rail shrink-0 max-rail:w-full">
           <YourTournaments

@@ -84,7 +84,7 @@ describe('Leaderboard', () => {
       should: 'say final standings and show the Final banner',
       actual: [
         html.includes('Season 4 final standings'),
-        html.includes('These standings will not change.'),
+        html.includes('Season 4 is closed'),
         html.includes('is live'),
       ],
       expected: [true, true, false],
@@ -130,8 +130,8 @@ describe('Leaderboard', () => {
     const html = render(field(3));
     assert({
       given: 'three established debaters in a live season',
-      should: 'explain that everyone is showing',
-      actual: html.includes('Showing everyone.'),
+      should: 'count the established and provisional debaters',
+      actual: html.includes('3 established, '),
       expected: true,
     });
   });

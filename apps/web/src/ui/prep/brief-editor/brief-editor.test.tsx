@@ -57,14 +57,12 @@ describe('BriefEditor', () => {
     const html = render('rights-framework');
     assert({
       given: 'the sample brief',
-      should: 'warn it is over [speech time] and never print a real limit',
+      should: 'warn how far over it is and how much to cut',
       actual: [
         html.includes('Time against the debate rules'),
-        /Over \[speech time\] by \[\d+:\d\d\]\. Trimming about \[\d+\] words fits it\./.test(
-          html,
-        ),
+        /\d+:\d\d over · cut about \d+ words/.test(html),
         html.includes('Whole brief, read as one speech'),
-        html.includes('[160] words a minute'),
+        html.includes('160 words a minute'),
         html.includes('Framing'),
       ],
       expected: [true, true, true, true, true],

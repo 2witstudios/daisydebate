@@ -82,7 +82,7 @@ export function BracketPage({
         className="flex flex-wrap items-center gap-x-2 rounded-lg border border-border bg-surface px-4 py-3 text-base text-ink-muted"
       >
         <span className="font-strong text-live">Live.</span>
-        <span>{`${data.liveLine} Results appear here as ballots arrive.`}</span>
+        <span>{data.liveLine}</span>
         <span className="ml-auto text-sm text-ink-faint">{`Updated ${formatTime(data.updatedAt)}`}</span>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -120,11 +120,7 @@ export function NotPosted({ tournament }: { readonly tournament: Tournament }) {
             ? `${tournament.name} is over`
             : `The ${tournament.name} bracket is not out yet`}
         </h1>
-        <p className="text-base text-ink-muted">
-          {over
-            ? 'The final standings, honours and every round are on the results page.'
-            : 'The bracket posts once registration closes. You will see seeds, byes and the first round the moment it is published.'}
-        </p>
+
         <div className="flex flex-wrap gap-3">
           <LinkButton
             href={

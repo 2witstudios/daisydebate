@@ -45,10 +45,7 @@ export function SeatCard({ seat }: { readonly seat: SeatView }) {
         ) : null}
       </p>
       {seat.occupant.kind === 'ai' ? (
-        <p className="text-sm text-ink-muted">
-          Rules at random between the two sides. It does not listen to the
-          round, and it never judges ranked debates.
-        </p>
+        <p className="text-sm text-ink-muted">Rules at random</p>
       ) : null}
       {seat.action ? (
         <Link

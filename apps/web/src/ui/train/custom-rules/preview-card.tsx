@@ -21,7 +21,7 @@ type Props = {
 /** What the rules make, how they differ, and where they can and cannot go. */
 export function PreviewCard({ view, query }: Props) {
   return (
-    <TrainCard title="Preview" sample>
+    <TrainCard title="Preview">
       <p className="font-display text-xl font-bold text-ink">{view.name}</p>
       <p className="flex flex-wrap gap-2">
         <Badge tone="accent">Practice only</Badge>
@@ -39,9 +39,7 @@ export function PreviewCard({ view, query }: Props) {
           ))}
         </ul>
       ) : (
-        <p className="text-base text-ink-muted">
-          Same as the standard rules. Change a value to make custom rules.
-        </p>
+        <p className="text-base text-ink-muted">Standard rules</p>
       )}
       {view.saved ? (
         <p
@@ -49,7 +47,7 @@ export function PreviewCard({ view, query }: Props) {
           className="flex items-center gap-2 rounded-md bg-accent-soft p-3 text-base text-accent"
         >
           <Icon name="check" size={16} />
-          Saved. Only you can see it.
+          Saved
         </p>
       ) : (
         <Link

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Button } from '../../components/button/button';
 import type { ButtonVariant } from '../../components/button/button-class';
 import { Icon } from '../../components/icon/icon';
-import { AuthFrame, AuthHeading } from '../auth-frame/auth-frame';
+import { AuthFrame, AuthHeading, taglinePanel } from '../auth-frame/auth-frame';
 import { Notice } from '../notice/notice';
 
 export type SavePasskeyProps = {
@@ -20,12 +20,6 @@ export type SavePasskeyProps = {
   /** Why the last attempt saved nothing; never a success. */
   readonly notice?: string | undefined;
 };
-
-const savedFacts = [
-  'Stays on your device or in your password manager',
-  'Works only on Daisy Debate, so look-alike sites get nothing',
-  'Email links keep working as a backup',
-] as const;
 
 /** A choice that leaves without a passkey; unavailable while one is saving. */
 function DeclineButton({
@@ -68,33 +62,15 @@ export function SavePasskey({
 }: SavePasskeyProps) {
   return (
     <AuthFrame
-      panel={{
-        eyebrow: 'What gets saved',
-        title: 'A key that only opens Daisy Debate.',
-        body: (
-          <ul className="flex flex-col gap-3">
-            {savedFacts.map((fact) => (
-              <li key={fact} className="flex items-start gap-3">
-                <Icon
-                  name="check"
-                  size={18}
-                  className="mt-1 text-stage-accent"
-                />
-                <span>{fact}</span>
-              </li>
-            ))}
-          </ul>
-        ),
-      }}
-      footer="On a school or library computer, choose shared. You will keep signing in by email there, and we will not ask again on it."
+      panel={taglinePanel}
+      footer="On a school or library computer, choose shared."
     >
       <p className="flex items-center gap-2 self-start rounded-round bg-accent-soft px-3 py-1 text-sm font-semibold text-accent-strong">
         <Icon name="check" size={16} />
         Signed in as {username}
       </p>
       <AuthHeading eyebrow="Faster next time" title="Next time, one tap.">
-        Save a passkey and sign in with your face, fingerprint, or screen lock.
-        No inbox wait, and nothing a fake site can steal.
+        Sign in with your face, fingerprint, or screen lock.
       </AuthHeading>
       <div className="flex flex-col items-start gap-3">
         <div className="flex flex-wrap gap-3">

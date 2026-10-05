@@ -43,9 +43,7 @@ export function Hero({
           <p className="text-xs font-bold tracking-wider text-ink-faint uppercase">
             Reason for decision
           </p>
-          <p className="text-base text-ink-muted">
-            The judge’s written reason appears here once the judge submits it.
-          </p>
+          <p className="text-base text-ink-muted">Not submitted yet.</p>
         </div>
       ) : null}
       <div className="flex flex-wrap gap-3">

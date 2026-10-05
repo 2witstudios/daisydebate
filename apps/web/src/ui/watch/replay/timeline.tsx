@@ -40,9 +40,7 @@ export function Timeline({ timeline, density }: TimelineProps) {
           <span key={index} className={densityBarClass(level)} />
         ))}
       </div>
-      <p className="text-xs text-ink-faint">
-        Reaction density: anonymous totals, no names
-      </p>
+      <p className="text-xs text-ink-faint">Reactions</p>
     </section>
   );
 }

@@ -18,10 +18,7 @@ export type JudgeHubProps = {
 export function JudgeHub({ rating, resources, assigned }: JudgeHubProps) {
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
-      <PageHeader
-        title="Judge"
-        lede="Daisy assigns the round and you judge it. Ratings stay hidden while you judge."
-      />
+      <PageHeader title="Judge" />
       <AssignedDebates debates={assigned} />
       <StartJudging />
       <div className="grid grid-cols-12 items-start gap-6 max-compact:grid-cols-1 max-compact:gap-4">

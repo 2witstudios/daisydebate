@@ -64,16 +64,15 @@ describe('Replay: a published result', () => {
   test('result and judges', () => {
     assert({
       given: 'a ranked result',
-      should: 'show the headline, rating changes and judge disclosures',
+      should: 'show the headline, rating changes and judges',
       actual: [
         html.includes('Neg wins, 2 to 1'),
         html.includes('1655 to 1646'),
         html.includes('-9'),
         html.includes('+9'),
         (html.match(/>Judge \d</g) ?? []).length,
-        html.includes('their handles stay private'),
       ],
-      expected: [true, true, true, true, 3, true],
+      expected: [true, true, true, true, 3],
     });
   });
 
@@ -104,9 +103,8 @@ describe('Replay: the visibility manager', () => {
           html,
         ),
         html.includes('Unlisted'),
-        html.includes('Kept for [N] days'),
       ],
-      expected: [true, true, true],
+      expected: [true, true],
     });
   });
 
@@ -132,8 +130,8 @@ describe('Replay: the visibility manager', () => {
         html.includes('href="?did=Save+visibility"'),
         />Use this choice</.test(html),
         />Close</.test(html),
-        html.includes('Not available for ranked debates'),
-        html.includes('signs out anyone still watching'),
+        html.includes('Not for ranked debates'),
+        html.includes('ends anyone watching'),
       ],
       expected: [3, true, true, true, true, true, true, true],
     });
@@ -169,10 +167,9 @@ describe('Replay: other states', () => {
       actual: [
         html.includes('Result pending'),
         html.includes('2 of 3 ballots are in'),
-        html.includes('nobody, including the'),
         html.includes('>Judge 1<'),
       ],
-      expected: [true, true, true, false],
+      expected: [true, true, false],
     });
   });
 

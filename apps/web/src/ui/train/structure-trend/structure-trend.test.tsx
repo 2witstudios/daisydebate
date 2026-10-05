@@ -11,13 +11,12 @@ describe('StructureTrend', () => {
     const html = renderToString(h(StructureTrend, { trend: [48, 52, 74] }));
     assert({
       given: 'a rising trend',
-      should: 'label the image with its start and end, marked as sample',
+      should: 'label the image with its start and end',
       actual: [
         html.includes('from 48 to 74 percent over 3 weeks'),
-        html.includes('Sample'),
         html.includes('74%'),
       ],
-      expected: [true, true, true],
+      expected: [true, true],
     });
   });
 });

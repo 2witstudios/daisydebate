@@ -18,7 +18,6 @@ export type EmailConfirmView =
 const PANEL: PanelContent = {
   kicker: 'Account security',
   title: 'Confirm it’s you, on both ends.',
-  body: 'Changing the email on your account takes a click from the old address and the new one, so neither alone can move your account.',
 };
 
 const confirmFrame = (
@@ -27,10 +26,8 @@ const confirmFrame = (
   body:
     '<p class="af-eyebrow">Account security</p>' +
     '<h1>Confirm this email change.</h1>' +
-    '<p class="af-lede">Select the button to continue changing this account’s email.</p>' +
     `<form class="af-form" method="post" action="${CONFIRM_EMAIL_PATH}">${hiddenInput('token', view.token)}<button class="af-btn" type="submit">Continue</button></form>`,
-  footer:
-    'Didn’t request this? Close this page. Nothing changes until you select the button.',
+  footer: 'Didn’t request this? Close this page.',
   panel: PANEL,
 });
 
@@ -38,7 +35,7 @@ const expiredFrame: AuthFrameContent = {
   body:
     '<p class="af-eyebrow af-muted">Link expired</p>' +
     '<h1>This link can no longer be used.</h1>' +
-    '<p class="af-lede">It may have expired or already been used. Start the email change again from account security settings.</p>',
+    '<p class="af-lede">Start the email change again from account security settings.</p>',
   footer: 'Nothing changed on your account.',
   panel: PANEL,
 };
@@ -47,7 +44,7 @@ const undeliverableFrame: AuthFrameContent = {
   body:
     '<p class="af-eyebrow af-muted">Cannot receive email</p>' +
     '<h1>The new address cannot receive email.</h1>' +
-    '<p class="af-lede">Mail to that address bounced or was reported, so we cannot send it the confirmation and the change cannot finish. Start the email change again from account security settings with a different address.</p>',
+    '<p class="af-lede">Start the email change again with a different address.</p>',
   footer: 'Nothing changed on your account.',
   panel: PANEL,
 };

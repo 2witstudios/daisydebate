@@ -6,7 +6,6 @@ import { tournamentRoutes } from '../../../features/tournaments/routes';
 import { Badge } from '../../components/badge/badge';
 import type { BadgeTone } from '../../components/badge/badge-class';
 import { LinkButton } from '../link-button/link-button';
-import { Notice } from '../notice/notice';
 import { PageHeader } from '../../components/page-header/page-header';
 import { PageFrame } from '../page-frame/page-frame';
 import { StatusLine } from '../../components/status-line/status-line';
@@ -38,7 +37,6 @@ export function DashboardPage({
     <PageFrame>
       <PageHeader
         title="Organize"
-        lede="Create and run tournaments. Daisy pairs, assigns judges and keeps the record."
         actions={
           <LinkButton href={tournamentRoutes.create} variant="primary">
             Create a tournament
@@ -95,11 +93,6 @@ export function DashboardPage({
               ))}
             </ul>
           </section>
-          <Notice icon="gavel">
-            Tournaments you run here are unrated and use Daisy’s standard rules
-            unless you choose custom rules. Judges are assigned by the system,
-            never by the organizer.
-          </Notice>
         </div>
         <aside
           aria-label="Needs attention"
@@ -125,14 +118,6 @@ export function DashboardPage({
                 </li>
               ))}
             </ul>
-          </section>
-          <section className={card}>
-            <h2 className={h2}>Running a league?</h2>
-            <p className="text-base text-ink-muted">
-              Leagues get their own branded space for members, rounds and
-              results. It opens later. Events you run here are listed publicly
-              under Tournaments.
-            </p>
           </section>
         </aside>
       </div>

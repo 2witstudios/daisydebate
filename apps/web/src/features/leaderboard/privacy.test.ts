@@ -36,15 +36,6 @@ describe('privacy rows', () => {
       expected: false,
     });
   });
-
-  test('region is proposed', () => {
-    assert({
-      given: 'the region field',
-      should: 'be marked proposed',
-      actual: rows.filter((row) => row.proposed).map((row) => row.title),
-      expected: ['Region'],
-    });
-  });
 });
 
 describe('privacySettingRows', () => {

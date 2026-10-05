@@ -17,9 +17,6 @@ export function WeekCard({ summary }: { readonly summary: TrainingSummary }) {
         <b className="font-strong">{`${weekSessions(summary)} of ${week.goal} sessions`}</b>
         {weekGoalMet(summary) ? ': goal met.' : '.'}
       </p>
-      <p className="text-sm text-ink-muted">
-        Rest days count. Missing a day resets nothing.
-      </p>
       <div className="flex items-center justify-between gap-2 text-sm text-ink-muted">
         <span>{`Practiced ${week.practicedDaysLast30} of the last 30 days`}</span>
         <InertButton>Change goal</InertButton>

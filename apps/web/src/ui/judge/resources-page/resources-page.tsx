@@ -5,7 +5,6 @@ import { buttonClass } from '../../components/button/button-class';
 import { SampleAction } from '../../components/sample-action/sample-action';
 import { Icon } from '../../components/icon/icon';
 import { BackLink } from '../back-link/back-link';
-import { Notice } from '../../components/notice/notice';
 import { PageHeader } from '../../components/page-header/page-header';
 import { resourceIcon } from '../resource-list/resource-icon';
 
@@ -48,23 +47,12 @@ export function ResourcesPage({ resources }: ResourcesPageProps) {
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
       <BackLink />
-      <PageHeader
-        title="Judging resources"
-        lede="Everything you need to judge fairly. New judges start with the guide and practice judging."
-      />
+      <PageHeader title="Judging resources" />
       <ul className="grid grid-cols-3 gap-4 max-reflow:grid-cols-2 max-compact:grid-cols-1">
         {resources.map((resource) => (
           <ResourceCard key={resource.kind} resource={resource} />
         ))}
       </ul>
-      <Notice
-        tone="accent"
-        icon="eye"
-        title="Ratings stay hidden while you judge"
-      >
-        Guides and examples use sample names. Nothing here shows a real
-        debater’s rating or record.
-      </Notice>
     </div>
   );
 }

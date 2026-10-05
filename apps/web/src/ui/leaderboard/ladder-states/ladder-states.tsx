@@ -33,9 +33,6 @@ export function LadderError({
     >
       <Icon name="alert" size={28} className="text-ink-faint" />
       <h2 className="text-lg font-bold">The ladder could not load</h2>
-      <p className="text-base text-ink-muted">
-        Your season and filters are kept. Try again in a moment.
-      </p>
       {onRetry ? (
         <button
           type="button"
@@ -86,8 +83,7 @@ export function JudgeNotice() {
       className="flex items-center gap-3 rounded-lg border border-border bg-surface-overlay px-4 py-3 text-base text-ink-muted"
     >
       <Icon name="eye" size={20} />
-      Ratings are hidden while you judge. The two debaters in your current
-      debate stay hidden until you submit your ballot.
+      Ratings are hidden while you judge.
     </p>
   );
 }
@@ -115,7 +111,7 @@ export function FinalBanner({ season }: { readonly season: Season }) {
   return (
     <p className="flex items-center gap-3 rounded-lg border border-gold-border bg-gold-soft px-4 py-3 text-base">
       <Badge tone="gold">Final</Badge>
-      {`${seasonLabel(season)} is closed. These standings will not change.`}
+      {`${seasonLabel(season)} is closed`}
     </p>
   );
 }
@@ -134,7 +130,7 @@ export function EarlyBanner({
   const { day } = seasonProgress(season, now);
   return (
     <p className="rounded-lg border border-border bg-surface-overlay px-4 py-3 text-base text-ink-muted">
-      {`Day ${day} of ${seasonLabel(season)}. ${established} ${established === 1 ? 'debater is' : 'debaters are'} established and ${provisional} ${provisional === 1 ? 'is' : 'are'} provisional. Showing everyone.`}
+      {`Day ${day} of ${seasonLabel(season)} · ${established} established, ${provisional} provisional`}
     </p>
   );
 }
@@ -160,10 +156,6 @@ export function NewSeasonHero({
         <h2 className="font-display text-2xl font-bold">
           {`${seasonLabel(season)} has started`}
         </h2>
-        <p className="text-base text-ink-muted">
-          Everyone starts provisional at the starting rating. The ladder fills
-          in as debaters finish their first ranked debates.
-        </p>
       </div>
       <Link
         href={leaderboardDestinations.findMatch}
@@ -220,10 +212,6 @@ export function EmptyLadder(props: EmptyLadderProps): ReactNode {
       {props.kind === 'new-season' ? (
         <>
           <h2 className="text-lg font-bold text-ink">No one is ranked yet</h2>
-          <p>
-            A debater appears here with a rank once their rating is established.
-            Provisional debaters are listed under Everyone, without a rank.
-          </p>
           <div className="flex flex-wrap justify-center gap-3">
             <Link href={props.everyoneHref} className={secondary}>
               Show provisional debaters
@@ -238,7 +226,7 @@ export function EmptyLadder(props: EmptyLadderProps): ReactNode {
       ) : props.kind === 'provisional-hits' ? (
         <>
           <p>
-            {`No established debater matches this search. ${props.provisionalHits} provisional ${props.provisionalHits === 1 ? 'debater matches' : 'debaters match'}.`}
+            {`${props.provisionalHits} provisional ${props.provisionalHits === 1 ? 'match' : 'matches'}`}
           </p>
           <Link href={props.everyoneHref} className={secondary}>
             Show provisional debaters
@@ -246,7 +234,7 @@ export function EmptyLadder(props: EmptyLadderProps): ReactNode {
         </>
       ) : (
         <>
-          <p>No debaters match these filters.</p>
+          <p>No matches</p>
           <Link href={props.clearHref} className={secondary}>
             Clear filters
           </Link>

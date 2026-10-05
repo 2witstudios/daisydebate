@@ -73,15 +73,25 @@ describe('renderDrillForm', () => {
     });
   });
 
-  test('speak mode says speaking is not connected', () => {
+  test('speak mode fakes no recording', () => {
     const out = html({ ...initialDrill, mode: 'speak' });
     assert({
       given: 'the speak mode',
-      should:
-        'say plainly that speaking is not connected, and fake no recording',
+      should: 'fake no recording',
+      actual: out.includes('Recording'),
+      expected: false,
+    });
+  });
+
+  test('speak is unavailable until speech exists', () => {
+    const out = html(initialDrill);
+    assert({
+      given: 'the input mode choice',
+      should: 'disable Speak and keep Write',
       actual: [
-        out.includes('Speaking is not connected yet.'),
-        out.includes('Recording'),
+        /<button [^>]*value="mode-speak"[^>]*disabled=""/.test(out) ||
+          /<button [^>]*disabled=""[^>]*value="mode-speak"/.test(out),
+        /<button [^>]*value="mode-write"[^>]*disabled=""/.test(out),
       ],
       expected: [true, false],
     });
@@ -131,8 +141,9 @@ describe('renderDrillForm', () => {
     assert({
       given: 'a saved argument',
       should:
-        'confirm, show the argument, link on and carry no placeholder note',
+        'say it ran on sample data, never claim a save, show the argument and link on',
       actual: [
+        out.includes('Save argument: done on sample data. Nothing was saved'),
         out.includes('Saved to review'),
         out.includes('not connected'),
         out.includes(claim),
@@ -140,7 +151,7 @@ describe('renderDrillForm', () => {
         out.includes('href="/train/review"'),
         out.includes('<form'),
       ],
-      expected: [true, false, true, true, true, false],
+      expected: [true, false, false, true, true, true, false],
     });
   });
 

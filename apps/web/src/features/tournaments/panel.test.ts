@@ -87,7 +87,7 @@ describe('registrationPanel', () => {
         ctaLabels('novice-cup'),
       ],
       expected: [
-        'All 8 places are taken and 2 people are waiting. If someone withdraws, the first person on the waitlist is entered and told straight away.',
+        '2 on the waitlist',
         ['Join the waitlist -> /tournaments/enter/night-owl-open'],
         'Waitlisted, position 2',
         ['Leave the waitlist -> /tournaments/enter/novice-cup/withdraw'],
@@ -98,7 +98,7 @@ describe('registrationPanel', () => {
   test('signed out sends sign-in through the entry flow', () => {
     assert({
       given: 'an anonymous visitor on an open tournament',
-      should: 'offer Sign in to register and say browsing needs no account',
+      should: 'offer Sign in to register',
       actual: [
         ctaLabels('autumn-open', false),
         panel('autumn-open', false).callout,
@@ -107,7 +107,7 @@ describe('registrationPanel', () => {
         [
           'Sign in to register -> /sign-in?next=%2Ftournaments%2Fenter%2Fautumn-open',
         ],
-        'You can browse the entrants and rules without an account.',
+        null,
       ],
     });
   });

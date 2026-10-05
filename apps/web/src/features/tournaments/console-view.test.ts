@@ -180,7 +180,7 @@ describe('consoleView: tabs and entrants', () => {
       actual: [
         v.entrantsShown.length,
         v.entrantsShown[0]?.status,
-        v.entrantsNote.startsWith('Showing 9 of 24.'),
+        v.entrantsNote === 'Showing 9 of 24',
       ],
       expected: [9, 'Bye', true],
     });

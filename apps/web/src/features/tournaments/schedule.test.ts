@@ -40,10 +40,10 @@ describe('scheduleFor', () => {
       ]),
       expected: [
         ['Registration closes', 'Seeds are set by rating', '10-08T18:00'],
-        ['Bracket published', 'Byes go to the top seeds', '10-08T19:00'],
+        ['Bracket published', '', '10-08T19:00'],
         ['Quarterfinals', 'Check-in opens 13:50', '10-10T14:00'],
         ['Semifinals', '', '10-10T15:30'],
-        ['Final', 'Open to spectators', '10-10T17:00'],
+        ['Final', '', '10-10T17:00'],
       ],
     });
   });

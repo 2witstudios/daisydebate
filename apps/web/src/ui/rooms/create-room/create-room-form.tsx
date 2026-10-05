@@ -10,13 +10,12 @@ const judgeOptions = [
   {
     value: 'person',
     label: 'A person',
-    helper: 'The room waits until someone takes the judge seat.',
+    helper: 'Waits for someone to take the judge seat',
   },
   {
     value: 'ai',
     label: 'Placeholder AI judge',
-    helper:
-      'Rules at random between the two sides. It does not hear the round. Practice rooms only.',
+    helper: 'Rules at random. It does not hear the round.',
   },
 ] as const;
 
@@ -41,7 +40,7 @@ export function CreateRoomForm({
           <FormField
             id="room-name"
             label="Room name (optional)"
-            helper="Shown in the lobby. Up to 60 characters."
+            helper="Up to 60 characters"
           >
             <input
               id="room-name"

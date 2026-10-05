@@ -74,3 +74,26 @@ JavaScript only enhances it.
 
 Forms that predate this rule are tracked as issues in the PageSpace `Issues`
 list. Bring each one into line when you next change it.
+
+## Copy says what the interface cannot
+
+Owner decision, 2026-10-04. The interface explains itself; copy fills only
+the gaps it cannot.
+
+- Keep text that is data, a heading or label, an error that says what to do,
+  or the consequence of an action the person is about to take (a bye given
+  away, an export that cannot be recalled).
+- Do not explain what a control does, why the system works the way it does,
+  or what will appear here later. Empty states are a short title and one
+  action, not a paragraph.
+- Say a policy once, on the page that owns it (Ranked rules, the privacy
+  pages, how ratings work), and link to it; never repeat a reassurance such
+  as "never changes your rating" across screens.
+- A control with no backend is a sample action (the shell banner answers
+  it); it carries no explanation of its own. Never show build status
+  ("needs the organizer service", "not built yet", "no backend"), "Sample
+  data" badges, spec placeholders (`[N]`, `[speech time]`) or
+  owner-decision notes to people.
+- No ledes that restate the page title, and no slogan pairs ("Practice
+  arguments. Sharpen your mind.") outside the landing hero and the auth
+  brand panel.

@@ -217,7 +217,7 @@ describe('caseView export', () => {
         ['Cards packet'],
         ['cite', 'break', 'large'],
         [
-          '[SPEECH 1] · [SPEECH TIME]',
+          '[SPEECH 1]',
           'Card: The framework applies to institutions…',
           'Full citation under each card',
         ],

@@ -18,7 +18,7 @@ describe('renderPanelOffline', () => {
       actual: [
         renderPanelOffline({ offline: false, since: '12:04', retry: null }),
         renderToString(offline).includes('Prep cannot reach the server'),
-        renderToString(offline).includes('Showing what was loaded at 12:04.'),
+        renderToString(offline).includes('Read only, as of 12:04'),
         renderToString(offline).includes('Try again'),
       ],
       expected: [null, true, true, true],

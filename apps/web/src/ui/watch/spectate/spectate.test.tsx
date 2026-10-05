@@ -32,7 +32,7 @@ describe('Spectate: live', () => {
       actual: [
         html.includes('<h1'),
         html.includes('Top of the ladder'),
-        html.includes('about 30 seconds behind'),
+        html.includes('30 s delay'),
         html.includes('03:48'),
         html.includes('142 watching'),
         html.includes('Delayed 30 s'),
@@ -123,7 +123,7 @@ describe('Spectate: report dialog', () => {
     assert({
       given: 'a sent report',
       should: 'confirm it',
-      actual: html.includes('Report sent. Moderators will review it.'),
+      actual: html.includes('Report sent'),
       expected: true,
     });
   });
@@ -160,7 +160,7 @@ describe('Spectate: ended', () => {
         html.includes('href="/recordings/evening-round"'),
         html.includes('Open the recording'),
         html.includes('Reactions are closed.'),
-        html.includes('Chat closed when the debate ended.'),
+        html.includes('Chat closed'),
         html.includes('Final transcript'),
         html.includes('Ballots are being collected'),
         html.includes('03:48'),

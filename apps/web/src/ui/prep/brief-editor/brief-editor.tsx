@@ -130,10 +130,6 @@ export function BriefEditor({ view }: { readonly view: BriefEditorView }) {
               </li>
             ))}
           </ul>
-          <p className="flex items-start gap-1 text-xs text-ink-faint max-compact:hidden">
-            <PrepIcon name="lock" size={14} className="mt-1" />
-            Private notes stay out of shares and exports.
-          </p>
         </nav>
         <div className="flex min-w-0 flex-1 flex-col gap-4">
           <FramingSection view={view} />

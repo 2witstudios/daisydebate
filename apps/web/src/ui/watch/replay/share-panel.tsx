@@ -66,8 +66,7 @@ function Manager({ id, query, share }: SharePanelProps) {
         </button>
       </AutoSubmitForm>
       <p className="text-sm text-ink-muted">
-        Making a debate less visible removes it from the archive at once and
-        signs out anyone still watching. It does not erase the rating change.
+        Less visible removes it from the archive and ends anyone watching.
       </p>
       <div className="flex items-center gap-3">
         <InertButton action="saveVisibility" variant="primary">
@@ -121,7 +120,6 @@ export function SharePanel({ id, query, share }: SharePanelProps) {
       {share.manageOpen ? (
         <Manager id={id} query={query} share={share} />
       ) : null}
-      <p className="text-xs text-ink-faint">{share.retention}</p>
     </section>
   );
 }

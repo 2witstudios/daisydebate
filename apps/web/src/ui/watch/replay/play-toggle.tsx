@@ -38,11 +38,6 @@ export function PlayToggle({ tickHref, tickMs }: PlayToggleProps) {
     <button
       type="button"
       disabled={!ready || tickHref === null}
-      title={
-        ready
-          ? undefined
-          : 'Playing needs JavaScript. Use the links and the position field.'
-      }
       aria-label={running ? 'Pause' : 'Play'}
       aria-pressed={running}
       onClick={() => setPlaying(!running)}

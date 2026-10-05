@@ -11,7 +11,6 @@ export type PrivacyRow = {
   readonly tag: string;
   readonly visibility?: 'public' | 'private';
   /** A field no column holds yet: its classification ships with its PR. */
-  readonly proposed?: boolean;
 };
 
 export type PrivacySection = {
@@ -54,10 +53,9 @@ export const privacySections: readonly PrivacySection[] = [
       {
         title: 'Region',
         where: 'Only if the debater chose to show it',
-        note: 'A new column. Off by default. Needs its classification in the PR that adds it.',
+
         tag: 'personal',
         visibility: 'public',
-        proposed: true,
       },
     ],
   },
@@ -85,8 +83,7 @@ export const privacySections: readonly PrivacySection[] = [
       },
       {
         title: 'Who judged a debate, and ballots',
-        where:
-          'Judges are assigned by the system. Identities stay off the ladder and profiles.',
+        where: 'Never on the ladder or profiles',
         tag: 'identifier',
       },
       {
@@ -102,27 +99,23 @@ export const privacySections: readonly PrivacySection[] = [
     rows: [
       {
         title: 'Ratings while you judge',
-        where:
-          'If you are assigned a debate, the two debaters show Hidden until your ballot is in.',
+        where: 'The two debaters show Hidden until your ballot is in.',
         tag: 'blind judging',
       },
       {
         title: 'Deleted accounts',
-        where:
-          'Name and image are removed. The rating, rank and history stay so other ranks do not move.',
+        where: 'Name and image removed. Rating and history stay.',
         tag: 'tombstone',
       },
       {
         title: 'Provisional debaters',
-        where:
-          'Listed only under Everyone, with no rank, so a lucky start is not a headline.',
+        where: 'Listed under Everyone, with no rank.',
         tag: 'unranked',
       },
       {
         title: 'Logs and analytics',
-        where:
-          'Record the route pattern and never a handle, email or search text.',
-        tag: 'ADR 0036',
+        where: 'Never record your handle, email or search text.',
+        tag: 'minimised',
       },
     ],
   },
@@ -140,12 +133,12 @@ const privacySettings: readonly PrivacySetting[] = [
   {
     id: 'show-region',
     label: 'Show my region on leaderboards',
-    help: 'Lets other debaters filter by region and see yours. Off until you turn it on.',
+    help: 'Lets others filter by your region.',
   },
   {
     id: 'appear-on-ladder',
     label: 'Appear on public leaderboards',
-    help: 'A hidden debater still keeps a rating and still appears as “[private debater]” so ranks do not shift.',
+    help: 'Hidden debaters keep a rating and show as “private debater”.',
   },
 ];
 

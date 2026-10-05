@@ -113,7 +113,7 @@ describe('briefEditorView', () => {
         v.paceLabel,
         v.time.sections.length,
       ],
-      expected: [true, true, '[160]', 4],
+      expected: [true, true, '160', 4],
     });
   });
 

@@ -18,7 +18,6 @@ export function CreateRoomPage({
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
       <PageHeader
         title="Open a practice room"
-        lede="Pick the settings, then wait for an opponent in the lobby."
         actions={
           <Link
             href="/lobby"
@@ -39,14 +38,8 @@ export function CreateRoomPage({
           aria-label="About practice rooms"
           className="flex w-rail shrink-0 flex-col gap-4 max-compact:w-full"
         >
-          <Notice tone="neutral" icon="gavel" title="Every room has a judge">
-            A person takes the judge seat, or the placeholder AI judge rules
-            when the debate ends. Ranked tables always get a judge assigned by
-            Daisy.
-          </Notice>
           <Notice tone="accent" icon="trophy" title="Practice is unranked">
-            Results never change a rating. Want a rating on the line?{' '}
-            <Link href="/ranked/host">Host a ranked table</Link>.
+            <Link href="/ranked/host">Host a ranked table</Link>
           </Notice>
         </aside>
       </div>

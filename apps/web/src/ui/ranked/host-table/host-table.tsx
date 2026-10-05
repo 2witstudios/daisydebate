@@ -20,10 +20,7 @@ export function HostTable({ screen }: { readonly screen: HostScreen }) {
   return (
     <RankedCard>
       <h1 className={cn(cardTitleClass, 'text-2xl')}>Host a ranked table</h1>
-      <p className="text-md text-ink-muted">
-        Post an open table for anyone in your rating band. Hosting does not use
-        your search.
-      </p>
+
       <AutoSubmitForm
         action={screen.formAction}
         aria-label="Host a ranked table"
@@ -57,22 +54,12 @@ export function HostTable({ screen }: { readonly screen: HostScreen }) {
           <div className="flex flex-col gap-1">
             <h2 className="text-md font-bold text-ink">Standard rules</h2>
             <p>
-              Ranked tables cannot customise the rules. Want custom rules?{' '}
-              <Link href={screen.lobbyHref}>
-                Host a casual table in the lobby.
-              </Link>
+              For custom rules,{' '}
+              <Link href={screen.lobbyHref}>host a casual table</Link>.
             </p>
           </div>
         </div>
-        <div className={note}>
-          <span className="mt-1 text-accent">
-            <Icon name="gavel" size={18} />
-          </span>
-          <p>
-            Daisy assigns the judge when the debate starts. You cannot choose
-            one.
-          </p>
-        </div>
+
         <div className="flex gap-3">
           <Link
             href={screen.cancelHref}
@@ -89,10 +76,6 @@ export function HostTable({ screen }: { readonly screen: HostScreen }) {
             Post table
           </button>
         </div>
-        <p className="text-sm text-ink-muted">
-          Posting opens a room in the lobby. You take your seat there, and the
-          other seat stays open until a player in the band takes it.
-        </p>
       </AutoSubmitForm>
     </RankedCard>
   );

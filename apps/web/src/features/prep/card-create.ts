@@ -119,7 +119,6 @@ export type CardCreateView = {
     readonly completeness: Completeness;
     readonly notice: Notice | null;
   };
-  readonly paceLabel: string;
 };
 
 const stepIndex = (step: CreateStep): number => steps.indexOf(step);
@@ -218,6 +217,5 @@ export function cardCreateView(
         ? citationIncomplete('publication date')
         : null,
     },
-    paceLabel: `[${pace}]`,
   };
 }

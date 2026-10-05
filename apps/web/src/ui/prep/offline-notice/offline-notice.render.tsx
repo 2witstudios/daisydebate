@@ -9,8 +9,7 @@ export function renderOfflineNotice(props: { readonly offline: boolean }) {
       <span className="inline-flex items-center gap-1 rounded-round bg-gold-soft px-3 py-1 text-2xs font-heavy tracking-wider text-gold uppercase">
         Offline
       </span>
-      You are offline. Nothing you change here is stored on this device yet, so
-      reconnect before you rely on it.
+      Changes here are not saved.
     </p>
   );
 }

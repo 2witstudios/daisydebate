@@ -6,12 +6,11 @@ import {
   type WizardQuery,
 } from '../../../features/tournaments/create-wizard';
 import { tournamentRoutes } from '../../../features/tournaments/routes';
-import { Icon } from '../../components/icon/icon';
+
 import { Breadcrumb } from '../breadcrumb/breadcrumb';
 import { buttonClass } from '../../components/button/button-class';
 import { LinkButton } from '../link-button/link-button';
-import { Notice } from '../notice/notice';
-import { hint } from './create-fields';
+
 import { StepBody } from './create-steps-rules';
 import { PageHeader } from '../../components/page-header/page-header';
 import { PageFrame } from '../page-frame/page-frame';
@@ -44,10 +43,6 @@ export function CreatePage({
         ]}
       />
       <PageHeader title="Create a tournament" />
-      <Notice icon="alert">
-        This is the draft “{draft.name}”. Structure and size stay in the address
-        as you move between steps.
-      </Notice>
       <div className="flex items-start gap-6 max-rail:flex-col">
         <nav
           aria-label="Steps"
@@ -84,11 +79,6 @@ export function CreatePage({
               </li>
             ))}
           </ol>
-          <p className={cn(hint, 'flex items-start gap-2 pt-2')}>
-            <Icon name="clock" size={16} />
-            Each step will save when you continue. Nothing is public until you
-            publish.
-          </p>
         </nav>
         <form
           action={tournamentRoutes.create}

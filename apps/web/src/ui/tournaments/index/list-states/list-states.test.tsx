@@ -32,7 +32,7 @@ describe('list states', () => {
       given: 'an empty tab',
       should: 'explain, offer a working notify action and a create link',
       actual: [
-        html.includes('No tournaments are open for registration'),
+        html.includes('No open tournaments'),
         html.includes('Tell me about new events'),
         html.includes('href="?did=Tell+me+about+new+events"'),
         html.includes('href="/tournaments/organize/new"'),
@@ -49,7 +49,7 @@ describe('list states', () => {
       given: 'filters that match nothing on the live tab',
       should: 'link Clear filters to the tab URL',
       actual: [
-        html.includes('No tournaments match these filters'),
+        html.includes('No matches'),
         /href="\/tournaments\?tab=live"[^>]*>Clear filters</.test(html),
       ],
       expected: [true, true],

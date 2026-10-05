@@ -49,14 +49,14 @@ describe('ReviewPage', () => {
         'name the dialog, list both grants with editable permissions, explain privacy and offer Done and Close as links',
       actual: [
         html.includes('aria-label="Share this brief"'),
-        html.includes('Private to you by default'),
+        html.includes('Private to you until you add someone'),
         html.includes('@debater-d'),
         html.match(/<select /g)?.length === 3 &&
         !/<select [^>]*disabled/.test(html)
           ? 3
           : 0,
         html.includes('Include the 4 attached cards'),
-        html.includes('There are no public links.'),
+
         /href="\/prep\/briefs\/rights-framework\/review"[^>]*aria-label="Close"|aria-label="Close"[^>]*href="\/prep\/briefs\/rights-framework\/review"/.test(
           html,
         ),
@@ -64,7 +64,7 @@ describe('ReviewPage', () => {
         html.includes('Stop sharing'),
         html.includes('aria-expanded="true"'),
       ],
-      expected: [true, true, true, 3, true, true, true, true, true, true],
+      expected: [true, true, true, 3, true, true, true, true, true],
     });
   });
 
@@ -79,7 +79,7 @@ describe('ReviewPage', () => {
       actual: [
         html.includes('Only team members can be given access'),
         html.includes('role="alert"'),
-        html.includes('ask a team admin'),
+        html.includes('admin to invite you'),
       ],
       expected: [true, true, true],
     });
@@ -107,10 +107,10 @@ describe('ReviewPage', () => {
     const html = render('framing-pack');
     assert({
       given: 'a brief nobody can see',
-      should: 'say it is private and invite the first comment',
+      should: 'say it is private and has no comments',
       actual: [
         html.includes('Private to you'),
-        html.includes('No comments yet.'),
+        html.includes('No comments yet'),
       ],
       expected: [true, true],
     });

@@ -26,10 +26,7 @@ function Denied({
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 pt-5 pb-8 max-compact:px-4">
       <PageHeader title="You cannot see this room" />
-      <Notice tone="neutral" icon="key" title="This room is private">
-        Only people the host invited can open it. Open tables you can join are
-        in the lobby.
-      </Notice>
+      <Notice tone="neutral" icon="key" title="This room is private" />
       <Link
         href={view.lobbyHref}
         className={cn(buttonClass('primary'), linkButton, 'w-fit')}
@@ -241,9 +238,7 @@ export function RoomPage({
         </Notice>
       ) : null}
       {view.closed ? (
-        <Notice tone="neutral" icon="key" title="This room is closed">
-          Nobody can take a seat. Open tables are in the lobby.
-        </Notice>
+        <Notice tone="neutral" icon="key" title="This room is closed" />
       ) : null}
       <div className="flex items-start gap-6 max-compact:flex-col max-compact:gap-4">
         <div className="flex min-w-0 flex-1 flex-col gap-6 max-compact:w-full max-compact:gap-4">
@@ -259,10 +254,7 @@ export function RoomPage({
           className="flex w-rail shrink-0 flex-col gap-4 max-compact:w-full"
         >
           <Settings view={view} settingsAction={settingsAction} />
-          <DemoControls
-            blurb="This room has no backend. These stand in for other people acting in it."
-            items={view.demo}
-          />
+          <DemoControls items={view.demo} />
         </aside>
       </div>
     </div>

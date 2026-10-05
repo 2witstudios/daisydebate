@@ -1,13 +1,10 @@
 import type { ReactNode } from 'react';
-import { Badge } from '../../components/badge/badge';
 import { cn } from '../../cn';
 
 export type TrainCardProps = {
   readonly title: string;
   /** Heading level: a page section is 2, a card inside one is 3. */
   readonly level?: 2 | 3;
-  /** Marks content that is sample logic or sample data. */
-  readonly sample?: boolean;
   readonly children: ReactNode;
   readonly className?: string;
 };
@@ -16,7 +13,6 @@ export type TrainCardProps = {
 export function TrainCard({
   title,
   level = 2,
-  sample = false,
   children,
   className,
 }: TrainCardProps) {
@@ -28,12 +24,7 @@ export function TrainCard({
         className,
       )}
     >
-      <div className="flex items-center gap-2">
-        <Heading className="flex-1 text-md font-strong text-ink">
-          {title}
-        </Heading>
-        {sample ? <Badge>Sample</Badge> : null}
-      </div>
+      <Heading className="text-md font-strong text-ink">{title}</Heading>
       {children}
     </section>
   );

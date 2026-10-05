@@ -32,9 +32,8 @@ describe('TrainHub', () => {
         html.includes('Strongest and weakest parts'),
         html.includes('This week'),
         html.includes('Practice with custom rules'),
-        html.includes('Training never changes your rating'),
       ],
-      expected: [1, true, true, true, true, true, true, true, true],
+      expected: [1, true, true, true, true, true, true, true],
     });
   });
 
@@ -44,7 +43,7 @@ describe('TrainHub', () => {
       given: 'a finished plan',
       should: 'offer the optional drill and say the review is caught up',
       actual: [
-        html.includes('You finished today&#x27;s plan'),
+        html.includes('Done for today'),
         html.includes('Optional'),
         html.includes('All caught up'),
         html.includes('Recommended next'),

@@ -153,9 +153,8 @@ const heroes: Readonly<Record<EventMoment, (context: Context) => Hero>> = {
   waiting: ({ data }) => ({
     ...empty,
     eyebrow: 'Waiting',
-    note: 'Semifinal pairings release when the last quarterfinal ends',
-    title: 'You won the quarterfinal. Semifinal pairings come next.',
-    body: 'One quarterfinal is still in progress. As soon as it ends, the system pairs the semifinals, assigns judges and rooms, and tells you. You do not need to do anything.',
+    note: 'One quarterfinal still in progress',
+    title: 'You won the quarterfinal',
     ctas: [
       link(
         'Watch the last quarterfinal',
@@ -175,10 +174,10 @@ const heroes: Readonly<Record<EventMoment, (context: Context) => Hero>> = {
   checkin: ({ data, byTime, room }) => ({
     ...empty,
     eyebrow: 'Check-in open',
-    note: `Check in by ${byTime} or the round can be forfeited`,
+    note: `Check in by ${byTime}`,
     title: 'Check in to enter your room',
     showPairing: true,
-    status: `@${data.pairing.opponent.handle} has checked in. @${data.pairing.judge} has joined the room.`,
+    status: `@${data.pairing.opponent.handle} and @${data.pairing.judge} are in the room`,
     ctas: [link('Check in and open room', room)],
     inert: [reportConflict],
   }),
@@ -188,14 +187,14 @@ const heroes: Readonly<Record<EventMoment, (context: Context) => Hero>> = {
     note: `${data.watching} watching`,
     live: true,
     title: 'Your debate is in progress',
-    body: `You are the ${data.pairing.side} in the room. If you lose your connection you can rejoin. The clock keeps running.`,
+    body: `You are ${data.pairing.side}`,
     ctas: [link('Return to room', room)],
   }),
   won: ({ data }) => ({
     ...empty,
     eyebrow: 'Advanced',
     title: 'You won. You are in the final.',
-    body: `@${data.pairing.judge} voted ${data.pairing.side}. The organizer has not corrected this result. Your final is today at ${formatTime(data.final.startsAt)} UTC and the pairing releases once the other semifinal ends.`,
+    body: `@${data.pairing.judge} voted ${data.pairing.side}. Final today at ${formatTime(data.final.startsAt)} UTC.`,
     reason: true,
     ctas: [
       link('See the bracket', tournamentRoutes.bracket(data.tournament.id)),
@@ -206,7 +205,7 @@ const heroes: Readonly<Record<EventMoment, (context: Context) => Hero>> = {
     ...empty,
     eyebrow: 'Eliminated',
     title: 'You lost the semifinal. You finish equal third.',
-    body: 'Your run ends here. You earn the Semifinalist honour, which appears on your profile when the organizer publishes results. Thank you for competing.',
+    body: 'Honour earned: Semifinalist',
     ctas: [
       link('Watch the final', tournamentRoutes.bracket(data.tournament.id)),
       link('Watch your recording', '/recordings', 'secondary'),

@@ -19,8 +19,8 @@ type SearchPageProps = {
 };
 
 function Summary({ query, total }: Pick<SearchPageProps, 'query' | 'total'>) {
-  if (query === '') return 'Type a name, a topic, or a room to search.';
-  if (total === 0) return `Nothing matches “${query}”. Try a shorter word.`;
+  if (query === '') return '';
+  if (total === 0) return `Nothing matches “${query}”`;
   return `${total} ${total === 1 ? 'result' : 'results'} for “${query}”.`;
 }
 

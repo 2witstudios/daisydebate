@@ -51,15 +51,12 @@ describe('CreateRoomPage', () => {
     });
   });
 
-  test('the judge is always there', () => {
+  test('the AI judge is labelled a placeholder', () => {
     assert({
       given: 'the create-room page',
-      should: 'say every room has a judge and label the AI judge a placeholder',
-      actual: [
-        html.includes('Every room has a judge'),
-        html.includes('Placeholder AI judge'),
-      ],
-      expected: [true, true],
+      should: 'label the AI judge a placeholder',
+      actual: html.includes('Placeholder AI judge'),
+      expected: true,
     });
   });
 });

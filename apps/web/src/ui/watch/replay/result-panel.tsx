@@ -33,11 +33,6 @@ export function ResultPanel({ result }: ResultPanelProps) {
             />
           ))}
         </div>
-        <p className="text-sm text-ink-muted">
-          The decision, the judges&apos; reasons and the rating changes appear
-          together once every ballot is in. Until then nobody, including the
-          debaters, sees how any judge voted.
-        </p>
       </section>
     );
   return (
@@ -76,10 +71,6 @@ export function ResultPanel({ result }: ResultPanelProps) {
           </details>
         ))}
       </div>
-      <p className="text-xs text-ink-faint">
-        Judges were assigned by Daisy and their ratings were hidden from them.
-        They are shown as numbers here, and their handles stay private.
-      </p>
     </section>
   );
 }

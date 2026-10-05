@@ -31,14 +31,13 @@ export function describeDifferences(rules: PracticeRules): readonly string[] {
   const lines: string[] = [];
   if (rules.speechMinutes !== standardRules.speechMinutes)
     lines.push(
-      `Speech length is ${rules.speechMinutes} min. The standard rules use ${standardRules.speechMinutes}.`,
+      `Speech ${rules.speechMinutes} min (standard ${standardRules.speechMinutes})`,
     );
   if (rules.prepMinutes !== standardRules.prepMinutes)
     lines.push(
-      `Prep time is ${rules.prepMinutes} min. The standard rules use ${standardRules.prepMinutes}.`,
+      `Prep ${rules.prepMinutes} min (standard ${standardRules.prepMinutes})`,
     );
-  if (rules.seats === 'solo')
-    lines.push('Only one seat is filled, so nobody answers.');
+  if (rules.seats === 'solo') lines.push('Solo: nobody answers');
   return lines;
 }
 
@@ -49,18 +48,10 @@ export function rankedRefusal(rules: PracticeRules): readonly string[] {
     rules.speechMinutes !== standardRules.speechMinutes ||
     rules.prepMinutes !== standardRules.prepMinutes
   )
-    reasons.push(
-      'Ranked runs only the standard rules. These rules are custom.',
-    );
+    reasons.push('Ranked uses the standard rules only.');
   if (rules.seats === 'solo')
-    reasons.push(
-      'Ranked needs a person in every seat. A solo or sandbox seat is for practice only.',
-    );
-  return reasons.length > 0
-    ? reasons
-    : [
-        'Ranked is played against people, from a table in the Lobby. A practice never counts toward a rating.',
-      ];
+    reasons.push('Ranked needs a person in every seat.');
+  return reasons.length > 0 ? reasons : ['Ranked is played from the Lobby.'];
 }
 
 const clamp = (value: number, min: number, max: number): number =>

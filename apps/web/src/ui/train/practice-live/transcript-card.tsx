@@ -5,7 +5,7 @@ import { TrainCard } from '../card/train-card';
 /** What is being said: your speech as heard, or theirs with a notes box. */
 export function TranscriptCard({ view }: { readonly view: SpeechView }) {
   return (
-    <TrainCard title={view.yours ? 'Your speech' : 'Their speech'} sample>
+    <TrainCard title={view.yours ? 'Your speech' : 'Their speech'}>
       {view.yours ? (
         <>
           <p className="flex items-center gap-2 text-sm font-strong text-accent">
@@ -13,15 +13,10 @@ export function TranscriptCard({ view }: { readonly view: SpeechView }) {
             Listening to you
           </p>
           <p className="text-md text-ink">{view.text}</p>
-          <p className="text-sm text-ink-muted">
-            Speak, or type your speech if you are not in a place to talk.
-          </p>
         </>
       ) : (
         <>
-          <p className="text-sm font-strong text-ink-muted">
-            AI debater · Sample output
-          </p>
+          <p className="text-sm font-strong text-ink-muted">AI debater</p>
           <p className="text-md text-ink">{view.text}</p>
           <label htmlFor="notes" className="text-sm font-strong text-ink">
             Your notes

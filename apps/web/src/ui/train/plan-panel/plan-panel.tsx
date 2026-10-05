@@ -50,13 +50,11 @@ export function PlanPanel({
   return (
     <TrainCard title="Today's plan">
       {done ? (
-        <p className="text-sm text-ink-muted">
-          You finished today&apos;s plan. Nothing else is due.
-        </p>
+        <p className="text-sm text-ink-muted">Done for today</p>
       ) : (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-ink-muted">
-            {`About ${totalMinutes} minutes. Pick how long you have.`}
+            {`About ${totalMinutes} minutes`}
           </p>
           <nav aria-label="Time available">
             <ul className="flex gap-2">
@@ -118,7 +116,7 @@ export function PlanPanel({
             <span className="text-base font-strong text-ink">
               Next review: tomorrow
             </span>
-            {`${dueTomorrow} ${dueTomorrow === 1 ? 'argument' : 'arguments'} due. The queue is never more than you set.`}
+            {`${dueTomorrow} ${dueTomorrow === 1 ? 'argument' : 'arguments'} due`}
           </p>
           <Link
             href={trainDestinations.practice}

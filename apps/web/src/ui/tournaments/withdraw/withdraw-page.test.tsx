@@ -28,7 +28,7 @@ describe('WithdrawPage', () => {
       actual: [
         html.match(/<h1 /g)?.length,
         html.includes('Withdraw from Autumn Open?'),
-        html.includes('Registration is open, so this costs you nothing.'),
+        html.includes('Your place goes to the next person on the waitlist.'),
         html.includes('href="?did=Withdraw"'),
         /href="\/tournaments\/autumn-open"[^>]*>Keep my place</.test(html),
       ],
@@ -59,7 +59,7 @@ describe('WithdrawPage', () => {
       actual: [
         html.includes('Withdraw after the bracket is out?'),
         html.includes('@debater-k'),
-        html.includes('recorded on the tournament log'),
+        html.includes('recorded in the tournament log'),
         /<input id="reason"/.test(html) &&
           !/<input id="reason"[^>]*disabled/.test(html),
         html.includes('Withdraw and give a bye'),

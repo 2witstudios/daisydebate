@@ -23,20 +23,20 @@ const openLadder = 'text-base font-strong';
 
 const howItWorks: readonly { title: string; body: string }[] = [
   {
-    title: 'Every ranked debate is a rating period',
-    body: 'Win or lose, your rating moves after each ranked debate. Beating a higher-rated debater moves it more.',
+    title: 'Every ranked debate counts',
+    body: 'Beating a higher-rated debater moves your rating more.',
   },
   {
     title: 'Rating comes with a range',
-    body: 'Daisy also tracks how sure it is of your rating. The range narrows as you play and widens if you are away.',
+    body: 'It narrows as you play and widens while you are away.',
   },
   {
     title: 'Provisional until the range settles',
-    body: `New debaters are provisional until they have played ${PROVISIONAL_AFTER} ranked debates. They are not ranked until then.`,
+    body: `Unranked until ${PROVISIONAL_AFTER} ranked debates.`,
   },
   {
     title: 'One ladder per season',
-    body: 'Every ranked debate runs on the standard rules, so a rating means the same thing for everyone. A new season starts a new ladder.',
+    body: 'A new season starts a new ladder.',
   },
 ];
 
@@ -87,18 +87,10 @@ export function SeasonsPage({ view }: SeasonsPageProps) {
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-5 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
       <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
-        <div className="flex flex-col gap-1">
-          <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
-            Seasons
-          </h1>
-          <p className="text-base text-ink-muted">
-            One ladder, renewed every season.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <Badge tone="neutral">Sample data</Badge>
-          <Segmented label="Season" segments={view.chips} />
-        </div>
+        <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
+          Seasons
+        </h1>
+        <Segmented label="Season" segments={view.chips} />
       </header>
       <section className={card}>
         <Badge tone={view.closed ? 'gold' : 'accent'}>{view.tag}</Badge>
@@ -168,10 +160,6 @@ export function SeasonsPage({ view }: SeasonsPageProps) {
         </section>
         <section className={card}>
           <h2 className={eyebrow}>Provisional and established</h2>
-          <p className="text-sm text-ink-muted">
-            A rating is a best guess with a range around it. Provisional ratings
-            move quickly because the range is wide. Sample ranges shown.
-          </p>
           <RangePicture />
           <p className="text-xs text-ink-faint">
             Hollow marker: provisional. Filled marker: established.

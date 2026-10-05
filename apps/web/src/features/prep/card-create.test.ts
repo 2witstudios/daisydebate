@@ -108,8 +108,8 @@ describe('cardCreateView content', () => {
     assert({
       given: 'the sample draft at 160 words a minute',
       should: 'count the read layer and show the pace in brackets',
-      actual: [v.draft.readWords > 0, v.draft.readClock, v.paceLabel],
-      expected: [true, '0:10', '[160]'],
+      actual: [v.draft.readWords > 0, v.draft.readClock],
+      expected: [true, '0:10'],
     });
   });
 

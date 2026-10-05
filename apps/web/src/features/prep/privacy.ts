@@ -9,17 +9,17 @@ export const privacyPromises: readonly {
 }[] = [
   {
     title: 'Private by default',
-    body: 'Every card, brief and case starts visible to you alone. There is no setting to turn on.',
+    body: 'Every card, brief and case starts visible to you alone.',
     symbol: 'lock',
   },
   {
     title: 'Sharing is named and reversible',
-    body: 'You pick the team or person and the permission. Stopping removes their access at once.',
+    body: 'You pick who and the permission. Stopping removes access at once.',
     symbol: 'share',
   },
   {
     title: 'Never part of a debate',
-    body: 'Opponents, judges, spectators and recordings have no path to your prep, even while you read it in the room.',
+    body: 'Opponents, judges, spectators and recordings never see your prep.',
     symbol: 'eyeOff',
   },
 ];
@@ -66,17 +66,17 @@ export const whoSeesInDebate: readonly {
 }[] = [
   {
     who: 'You',
-    sees: 'The room plus your own prep panel. Hide it any time.',
+    sees: 'The room plus your prep panel.',
     hasPanel: true,
   },
   {
     who: 'Your opponent',
-    sees: 'The room only. No sign that a panel exists or what is in it.',
+    sees: 'The room only.',
     hasPanel: false,
   },
   {
     who: 'Judge and spectators',
-    sees: 'The room only. Recordings also leave prep out.',
+    sees: 'The room only.',
     hasPanel: false,
   },
 ];

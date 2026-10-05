@@ -13,14 +13,8 @@ import { StateAlert } from '../state-alert/state-alert';
 import { citeFields, type CiteField } from './create-fields';
 
 const inert = {
-  save: {
-    label: 'Save card',
-    reason: 'Saving a card needs the Prep service, which is not built yet.',
-  },
-  saveAdd: {
-    label: 'Save and add to brief',
-    reason: 'Saving a card needs the Prep service, which is not built yet.',
-  },
+  save: { label: 'Save card' },
+  saveAdd: { label: 'Save and add to brief' },
 } as const;
 
 const valueOf = (field: CiteField, view: CardCreateView): string => {

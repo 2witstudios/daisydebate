@@ -39,22 +39,17 @@ const nav = [
 function Section({
   id,
   title,
-  lede,
   children,
 }: {
   readonly id: string;
   readonly title: string;
-  readonly lede: string;
   readonly children: ReactNode;
 }) {
   return (
     <section id={id} aria-labelledby={`${id}-heading`} className={panel}>
-      <div className="flex flex-col gap-1">
-        <h2 id={`${id}-heading`} className={heading}>
-          {title}
-        </h2>
-        <p className="text-base text-ink-muted">{lede}</p>
-      </div>
+      <h2 id={`${id}-heading`} className={heading}>
+        {title}
+      </h2>
       {children}
     </section>
   );
@@ -84,10 +79,7 @@ export function SettingsPage({
 }: SettingsPageProps) {
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
-      <PageHeader
-        title="Settings"
-        lede="Your profile, notifications, privacy and security."
-      />
+      <PageHeader title="Settings" />
       {saved ? (
         <Notice
           tone="accent"
@@ -112,11 +104,7 @@ export function SettingsPage({
           ))}
         </nav>
         <div className="flex min-w-0 flex-1 flex-col gap-6 max-compact:w-full max-compact:gap-4">
-          <Section
-            id="profile"
-            title="Profile"
-            lede="What other debaters see on your public profile."
-          >
+          <Section id="profile" title="Profile">
             <p className="text-base text-ink">
               {username ? (
                 <>
@@ -132,39 +120,26 @@ export function SettingsPage({
             </p>
             <ProfileForm action={profileAction} prefs={preferences.profile} />
           </Section>
-          <Section
-            id="notifications"
-            title="Notifications"
-            lede="Choose the email Daisy sends you."
-          >
+          <Section id="notifications" title="Notifications">
             <NotificationsForm
               action={notificationsAction}
               prefs={preferences.notifications}
             />
           </Section>
-          <Section
-            id="privacy"
-            title="Privacy and data"
-            lede="What is public, and the optional data you allow. Not answering counts as no."
-          >
+          <Section id="privacy" title="Privacy and data">
+            <p className="text-sm text-ink-muted">
+              Not answering counts as no.
+            </p>
             <PrivacyForm action={privacyAction} prefs={preferences.privacy} />
             <p className="text-sm text-ink-muted">
               Read the <Link href="/privacy">privacy policy</Link> and the{' '}
               <Link href="/terms">terms of service</Link>.
             </p>
           </Section>
-          <Section
-            id="appearance"
-            title="Appearance"
-            lede="Choose a theme, or follow your device setting."
-          >
+          <Section id="appearance" title="Appearance">
             <ThemeSwitcher />
           </Section>
-          <Section
-            id="security"
-            title="Security"
-            lede="Manage your passkeys, sessions and recovery email."
-          >
+          <Section id="security" title="Security">
             <Link
               href="/settings/security"
               className={cn(
@@ -175,11 +150,7 @@ export function SettingsPage({
               Account security
             </Link>
           </Section>
-          <Section
-            id="account"
-            title="Your account"
-            lede="Take your data with you, or remove it."
-          >
+          <Section id="account" title="Your account">
             <div className="flex flex-wrap gap-3">
               <SampleAction
                 label="Export my data"

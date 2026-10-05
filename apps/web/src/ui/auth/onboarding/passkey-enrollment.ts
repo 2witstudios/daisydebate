@@ -85,7 +85,7 @@ export const enrollmentNotices: Readonly<
   Record<Exclude<PasskeyEnrollment['kind'], 'saved'>, string>
 > = {
   unavailable:
-    'Saving a passkey is not available yet, so nothing was saved. Email links keep working.',
+    'Saving a passkey is unavailable right now. Email links keep working.',
   cancelled: 'Nothing was saved. You can try again or continue.',
   failed: 'We could not save a passkey. Email links keep working.',
   'stale-session':

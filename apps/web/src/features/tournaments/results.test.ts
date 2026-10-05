@@ -56,11 +56,10 @@ describe('certificateText', () => {
     if (!data || !mine) throw new Error('no sample result');
     assert({
       given: 'the runner-up certificate for Summer Invitational',
-      should:
-        'name the placing, tournament, size, date and that it was unrated',
+      should: 'name the placing, tournament, size and date',
       actual: certificateText(data.tournament, mine.certificate),
       expected:
-        'placed second as runner-up in the Summer Invitational, a single-elimination tournament of 16 entrants held on Saturday 29 August 2026. This tournament was unrated.',
+        'placed second as runner-up in the Summer Invitational, a single-elimination tournament of 16 entrants held on Saturday 29 August 2026.',
     });
   });
 });

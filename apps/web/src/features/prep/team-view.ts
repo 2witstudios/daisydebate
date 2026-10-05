@@ -75,6 +75,6 @@ export function teamView(team: Team, query: TeamQuery): TeamView {
     }),
     activity: team.activity,
     isAdmin,
-    pendingLine: `${team.pendingInvites} ${team.pendingInvites === 1 ? 'invitation' : 'invitations'} pending. Invitations expire after [7] days.`,
+    pendingLine: `${team.pendingInvites} ${team.pendingInvites === 1 ? 'invitation' : 'invitations'} pending`,
   };
 }

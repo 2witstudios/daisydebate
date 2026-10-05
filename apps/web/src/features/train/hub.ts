@@ -42,8 +42,7 @@ export function hubView(summary: TrainingSummary, query: HubQuery): HubView {
         ? {
             kind: 'optional',
             title: 'Responding drill',
-            reason:
-              'You have time to spare? Practice answering one opposing point in 60 seconds.',
+            reason: 'Answer one opposing point in 60 seconds.',
             minutes: 5,
             href: drillHref('responding'),
           }

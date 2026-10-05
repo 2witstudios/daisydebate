@@ -134,8 +134,8 @@ export function RoundsTab({ view }: { readonly view: ConsoleView }) {
             </ul>
             <p className="border-t border-border px-4 py-3 text-sm text-ink-muted">
               {pairings.byes.length > 0
-                ? `Byes: ${pairings.byes.map((entrant) => `@${entrant.handle}`).join(', ')} (seeds 1 to ${pairings.byes.length} go straight to round 2)`
-                : 'No byes: every place is filled.'}
+                ? `Byes: ${pairings.byes.map((entrant) => `@${entrant.handle}`).join(', ')}`
+                : 'No byes'}
             </p>
           </>
         ) : (
@@ -144,16 +144,10 @@ export function RoundsTab({ view }: { readonly view: ConsoleView }) {
               <Icon name="swords" size={28} />
             </span>
             <p className="text-md font-strong text-ink">No pairings yet</p>
-            <p className="max-w-prose text-base text-ink-muted">
-              Generate pairings to pair the remaining seeds and give the top
-              seeds a bye. Nothing is visible to entrants until you release it.
-            </p>
           </div>
         )}
       </section>
-      <Notice icon="gavel">
-        {`You cannot pick judges. Daisy assigns them from the ${view.data.volunteers} volunteers after checking conflicts, and tells you if a judge was swapped for a conflict. If a judge drops out later, Daisy assigns another.`}
-      </Notice>
+      <Notice icon="gavel">{`${view.data.volunteers} volunteer judges`}</Notice>
     </div>
   );
 }

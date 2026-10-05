@@ -161,7 +161,7 @@ describe('registerFlow', () => {
         'Starts: Wed 21 Oct, 20:00 UTC',
         'Places: 8 of 8 places taken, 2 waiting',
         'Entering as: @debater-a, established',
-        'Rating effect: None. Tournament debates are unrated.',
+        'Rating effect: None',
       ],
     });
   });

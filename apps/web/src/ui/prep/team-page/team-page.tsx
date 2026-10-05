@@ -103,14 +103,6 @@ function Activity({ view }: { readonly view: TeamView }) {
   );
 }
 
-const canSee: readonly (readonly [boolean, string])[] = [
-  [true, 'Items you choose to share, at the permission you set'],
-  [true, 'Text and citations of cards inside a shared brief'],
-  [false, 'Your other library items'],
-  [false, 'Credibility notes and private notes'],
-  [false, 'What you open during a debate'],
-];
-
 /** A team in Prep: what it shares, who is in it, what happened. */
 export function TeamPage({ view }: { readonly view: TeamView }) {
   const { team } = view;
@@ -124,14 +116,9 @@ export function TeamPage({ view }: { readonly view: TeamView }) {
         ]}
       />
       <header className="flex flex-wrap items-end gap-4">
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
-            {team.name}
-          </h1>
-          <p className="text-base text-ink-muted">
-            Briefs, cases and cards this team shares. Nothing here is public.
-          </p>
-        </div>
+        <h1 className="min-w-0 flex-1 font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
+          {team.name}
+        </h1>
         <span className="inline-flex -space-x-2">
           {team.members.map((member) => (
             <Avatar
@@ -170,34 +157,10 @@ export function TeamPage({ view }: { readonly view: TeamView }) {
           aria-label="Team privacy"
           className="flex w-rail shrink-0 flex-col gap-4 max-rail:w-full"
         >
-          <section className="flex flex-col gap-3 rounded-lg bg-surface p-5 shadow-1">
-            <h2 className="text-base font-bold">What this team can see</h2>
-            <ul className="flex flex-col gap-2">
-              {canSee.map(([yes, text]) => (
-                <li
-                  key={text}
-                  className="flex items-start gap-2 text-sm text-ink-muted"
-                >
-                  <PrepIcon
-                    name={yes ? 'check' : 'x'}
-                    size={15}
-                    className={`mt-1 ${yes ? 'text-online' : 'text-live'}`}
-                  />
-                  <span>
-                    <span className="sr-only">
-                      {yes ? 'Can see: ' : 'Cannot see: '}
-                    </span>
-                    {text}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
           <section className="flex flex-col items-start gap-3 rounded-lg bg-surface p-5 shadow-1">
             <h2 className="text-base font-bold">Leave this team</h2>
             <p className="text-sm text-ink-muted">
-              Items you shared stay yours. Leaving only removes access for you
-              and for items others shared.
+              Items you shared stay yours.
             </p>
             <InertActionButton action={inertActions.leaveTeam} />
           </section>

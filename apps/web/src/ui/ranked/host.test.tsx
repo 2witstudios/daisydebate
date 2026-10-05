@@ -42,13 +42,12 @@ describe('Host, editing', () => {
     });
   });
 
-  test('states the rules and the judge and the band', () => {
+  test('states the rules and the band', () => {
     assert({
       given: 'a provisional host within 200',
-      should: 'say standard rules, the assigned judge and the rating span',
+      should: 'say standard rules and the rating span',
       actual: [
-        html.includes('Ranked tables cannot customise the rules.'),
-        html.includes('Daisy assigns the judge'),
+        html.includes('Standard rules'),
         html.includes(
           'Your rating: <strong class="text-ink">1412 (provisional)',
         ),
@@ -57,7 +56,7 @@ describe('Host, editing', () => {
           '<option value="200" selected="">Within 200 of my rating',
         ),
       ],
-      expected: [true, true, true, true, true],
+      expected: [true, true, true, true],
     });
   });
 
@@ -87,7 +86,7 @@ describe('Host, editing', () => {
     assert({
       given: 'the rules note',
       should: 'link hosting a casual table to the lobby',
-      actual: /href="\/lobby"[^>]*>Host a casual table in the lobby/.test(html),
+      actual: /href="\/lobby"[^>]*>host a casual table/.test(html),
       expected: true,
     });
   });

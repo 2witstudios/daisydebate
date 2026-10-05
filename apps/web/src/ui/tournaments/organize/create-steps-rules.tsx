@@ -31,10 +31,7 @@ function Rules({ query, draft, edits }: StepProps) {
             defaultChecked={draft.rules === 'standard'}
             className="mt-1"
           />
-          <span>
-            Standard rules. Exactly the rules of Ranked: seats, speech length
-            and prep time. Recommended.
-          </span>
+          <span>Standard rules (same as Ranked)</span>
         </label>
         <label className="flex items-start gap-3 text-base text-ink">
           <input
@@ -44,31 +41,20 @@ function Rules({ query, draft, edits }: StepProps) {
             defaultChecked={draft.rules === 'custom'}
             className="mt-1"
           />
-          <span>
-            Custom rules. Change the seats, speech length or prep time. Shown
-            clearly to every entrant.
-          </span>
+          <span>Custom rules</span>
         </label>
       </fieldset>
-      <Notice icon="check">
-        Unrated. Tournament debates never change ratings. This is fixed and
-        cannot be turned on. Ratings come from Ranked play on the Daisy ladder.
-      </Notice>
+
       <Field id="panel" label="Judges per debate">
         <select id="panel" className={field}>
           <option>{draft.panel}</option>
         </select>
       </Field>
-      <Notice icon="gavel">
-        Judges are assigned by Daisy. You cannot choose judges or rounds. Daisy
-        picks from the volunteers who signed up and checks conflicts first: same
-        club, recent debates with an entrant, and declared conflicts.{' '}
-        {summary.judgesNote}
-      </Notice>
+      <Notice icon="gavel">{summary.judgesNote}</Notice>
       <Field
         id="mod"
         label="Moderators (optional)"
-        note="Moderators can review reports, warn and record forfeits. Only you can disqualify or publish."
+        note="Can review reports, warn and record forfeits."
       >
         <div className="flex gap-2">
           <input
@@ -91,10 +77,7 @@ function Review({ query, draft, edits }: StepProps) {
     <div className={card}>
       <h2 className="text-lg font-strong text-ink">Review and publish</h2>
       <FactList facts={reviewFacts(query, draft)} />
-      <Notice icon="gavel">
-        Before you publish: {summary.judgesNote} Daisy recruits from the
-        volunteer list and tells you if there are too few.
-      </Notice>
+      <Notice icon="gavel">{summary.judgesNote}</Notice>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <LinkButton href={wizardHref({ ...query, step: 'rules' }, edits)}>
           Back

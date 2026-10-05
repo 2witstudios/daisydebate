@@ -29,28 +29,22 @@ describe('InDebatePage before a case', () => {
       actual: [
         html.includes('aria-label="Your prep"'),
         html.includes('Only you'),
-        html.includes('cannot see this panel or what you open in it'),
         html.includes('No case attached'),
         /<form [^>]*action="\/prep\/in-debate"[^>]*method="get"/.test(html) ||
           /<form [^>]*method="get"[^>]*action="\/prep\/in-debate"/.test(html),
         html.includes('Bring to this debate'),
         html.includes('href="/prep/in-debate?pin=none"'),
-        html.includes('Read only here. Edit your prep after the debate.'),
       ],
-      expected: [true, true, true, true, true, true, true, true],
+      expected: [true, true, true, true, true, true],
     });
   });
 
   test('the room is context only', () => {
     assert({
       given: 'the room beside the panel',
-      should: 'use sample values and never say standard rules or a format',
-      actual: [
-        html.includes('Room stage shown for context, with sample values.'),
-        html.includes('[speech time]'),
-        /Standard rules|Lincoln|Public Forum|Parliamentary/.test(html),
-      ],
-      expected: [true, true, false],
+      should: 'never say standard rules or a format',
+      actual: /Standard rules|Lincoln|Public Forum|Parliamentary/.test(html),
+      expected: false,
     });
   });
 });
@@ -67,10 +61,9 @@ describe('InDebatePage with a case', () => {
         html.includes('href="/prep/in-debate?pin=aff-rights&amp;tab=cards"'),
         html.match(/type="checkbox"/g)?.length,
         html.includes('>2:45<'),
-        html.includes('Ticks stay on this page only.'),
         html.includes('Now: [Speech 1]'),
       ],
-      expected: [true, true, 3, true, true, true],
+      expected: [true, true, 3, true, true],
     });
   });
 
@@ -90,7 +83,7 @@ describe('InDebatePage with a case', () => {
         reading.includes('Send this card to the room?'),
         asking.includes('Send this card to the room?'),
         asking.includes(
-          'Your opponent and the judge will see this one card and its citation.',
+          'Your opponent and the judge will see this card and its citation.',
         ),
         asking.includes('href="?did=Send+card"'),
         asking.includes('>Cancel<'),
@@ -118,13 +111,12 @@ describe('InDebatePage with a case', () => {
     const html = render({ pin: 'aff-rights', tab: 'search', q: 'cost' });
     assert({
       given: 'a search on the search tab',
-      should: 'show read-only results and say nothing is sent to the room',
+      should: 'show read-only results',
       actual: [
-        html.includes('Nothing you type is sent to the room.'),
         html.includes('Cost estimates depend on assumed take-up'),
         html.includes('card=cost-estimates'),
       ],
-      expected: [true, true, true],
+      expected: [true, true],
     });
   });
 });

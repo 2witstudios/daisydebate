@@ -37,17 +37,17 @@ export const exportSettings: readonly ExportSettingDef[] = [
   {
     id: 'large',
     label: 'Large type for reading aloud',
-    help: 'Large body text',
+    help: null,
   },
   {
     id: 'notes',
     label: 'Include my private notes',
-    help: 'Off. Notes stay out unless you turn this on.',
+    help: null,
   },
   {
     id: 'cred',
     label: 'Include credibility notes',
-    help: 'Off. These are for you, not for a file you hand around.',
+    help: null,
   },
 ];
 
@@ -72,7 +72,7 @@ export function previewLines(
         : b.title,
     );
   return [
-    `${speech.label.toUpperCase()} · [SPEECH TIME]`,
+    speech.label.toUpperCase(),
     ...lines,
     ...(options.includes('cite') && format !== 'flow'
       ? ['Full citation under each card']

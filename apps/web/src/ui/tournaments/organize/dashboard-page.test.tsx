@@ -7,7 +7,7 @@ import { DashboardPage } from './dashboard-page';
 setupRitewayBun();
 
 describe('DashboardPage', () => {
-  test('counts, tournaments, attention and the league note', () => {
+  test('counts, tournaments and attention', () => {
     const html = renderToString(
       h(DashboardPage, { dashboard: getOrganizeDashboard() }),
     );
@@ -30,23 +30,8 @@ describe('DashboardPage', () => {
         ),
         html.includes('Harvest Cup: ballot missing'),
         html.includes('Autumn Open: judges needed'),
-        html.includes('Running a league?'),
-        html.includes('never by the organizer'),
       ],
-      expected: [
-        1,
-        true,
-        3,
-        true,
-        true,
-        true,
-        true,
-        true,
-        true,
-        true,
-        true,
-        true,
-      ],
+      expected: [1, true, 3, true, true, true, true, true, true, true],
     });
   });
 

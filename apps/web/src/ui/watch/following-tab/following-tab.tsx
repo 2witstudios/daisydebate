@@ -31,12 +31,7 @@ export function FollowingTab({ following, signInHref }: FollowingTabProps) {
             Sign in
           </ActionLink>
         }
-      >
-        <p>
-          Who you follow and what you watched are kept for your account. Live
-          debates and the archive are open from the other tabs.
-        </p>
-      </StateCard>
+      />
     );
   return (
     <div className="flex flex-col gap-4">
@@ -94,10 +89,6 @@ export function FollowingTab({ following, signInHref }: FollowingTabProps) {
           </ul>
         </section>
       </div>
-      <p className="text-sm text-ink-muted">
-        Who you follow and what you watched are private to you. Nobody can see
-        either, and debaters are never told who watched.
-      </p>
     </div>
   );
 }

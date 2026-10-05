@@ -23,7 +23,6 @@ function Row({ row }: { readonly row: PrivacyRow }) {
       <div className="flex shrink-0 flex-col items-end gap-1">
         <Badge tone="neutral">{row.tag}</Badge>
         {row.visibility ? <Badge tone="accent">{row.visibility}</Badge> : null}
-        {row.proposed ? <Badge tone="gold">proposed</Badge> : null}
       </div>
     </li>
   );
@@ -79,9 +78,6 @@ function Preview() {
           </span>
         </span>
       </p>
-      <p className="text-sm text-ink-muted">
-        No email, no region unless you chose it, no judge information.
-      </p>
     </section>
   );
 }
@@ -90,15 +86,9 @@ function Preview() {
 export function PrivacyPage() {
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-5 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
-      <header className="flex flex-col gap-1">
-        <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
-          Leaderboard privacy
-        </h1>
-        <p className="text-base text-ink-muted">
-          What the ladder shows, what stays private, and what is hidden on
-          purpose. Categories follow ADR 0036.
-        </p>
-      </header>
+      <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
+        Leaderboard privacy
+      </h1>
       <div className="grid grid-cols-3 gap-4 max-compact:grid-cols-1">
         {privacySections.map((section) => (
           <section key={section.title} className={card}>

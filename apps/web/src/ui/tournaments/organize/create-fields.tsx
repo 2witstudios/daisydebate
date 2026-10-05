@@ -10,7 +10,7 @@ import type {
 export const field =
   'h-10 w-full rounded-md border border-border bg-surface-raised px-3 text-base text-ink disabled:opacity-60';
 export const labelClass = 'text-base font-strong text-ink';
-export const hint = 'text-sm text-ink-faint';
+const hint = 'text-sm text-ink-faint';
 export const card = 'flex flex-col gap-5 rounded-xl bg-surface p-6 shadow-1';
 
 export function Field({

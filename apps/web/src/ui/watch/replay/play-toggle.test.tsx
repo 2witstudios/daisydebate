@@ -11,19 +11,18 @@ await mockNextRouter();
 const { PlayToggle } = await import('./play-toggle');
 
 describe('PlayToggle', () => {
-  test('before hydration it is disabled and says why', () => {
+  test('before hydration it is disabled', () => {
     const html = renderToString(
       h(PlayToggle, { tickHref: '/recordings/a?t=1', tickMs: 1000 }),
     );
     assert({
       given: 'a server render',
-      should: 'show a disabled Play button explaining it needs JavaScript',
+      should: 'show a disabled Play button',
       actual: [
         /<button [^>]*disabled=""/.test(html),
         html.includes('aria-label="Play"'),
-        html.includes('needs JavaScript'),
       ],
-      expected: [true, true, true],
+      expected: [true, true],
     });
   });
 });

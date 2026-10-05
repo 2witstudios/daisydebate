@@ -87,19 +87,10 @@ export function PracticeSetup({
               </Link>
             </p>
           ) : null}
-          <header className="flex flex-col gap-1">
-            <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
-              Set up a practice debate
-            </h1>
-            <p className="text-base text-ink-muted">
-              Pick a side, a motion, an opponent and how you want to be paced.
-              You can start in under a minute.
-            </p>
-          </header>
+          <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
+            Set up a practice debate
+          </h1>
           <TrainCard title="Your side">
-            <p className="text-sm text-ink-muted">
-              Aff argues for the motion. Neg argues against it.
-            </p>
             <Chips
               name="side"
               legend="Side"
@@ -112,9 +103,6 @@ export function PracticeSetup({
             />
           </TrainCard>
           <TrainCard title="Motion">
-            <p className="text-sm text-ink-muted">
-              Sample motions. Pick one or write your own.
-            </p>
             <Cards
               name="motion"
               legend="Motion"
@@ -147,48 +135,22 @@ export function PracticeSetup({
             ) : null}
           </TrainCard>
           <TrainCard title="Opponent">
-            <p className="text-sm text-ink-muted">
-              Practice debates never need another person.
-            </p>
             <Cards
               name="opp"
               legend="Opponent"
               value={config.opponent}
               options={[
-                {
-                  value: 'ai',
-                  title: 'AI debater',
-                  description:
-                    'An AI debater takes the other side and answers your points. It sits in a sandbox seat, not as a person.',
-                },
-                {
-                  value: 'both',
-                  title: 'Drive both sides',
-                  description:
-                    'You give every speech from two seats. Good for testing a case against itself.',
-                },
-                {
-                  value: 'solo',
-                  title: 'Solo speeches',
-                  description:
-                    'Only your seat. The clock and prompts run, and nobody answers.',
-                },
+                { value: 'ai', title: 'AI debater' },
+                { value: 'both', title: 'Drive both sides' },
+                { value: 'solo', title: 'Solo speeches' },
               ]}
             />
           </TrainCard>
           <TrainCard title="Pacing">
-            <p className="text-sm text-ink-muted">
-              How much help you get while you speak.
-            </p>
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="flex flex-col">
-                <span className="text-base font-strong text-ink">
-                  Coach prompts
-                </span>
-                <span className="text-sm text-ink-muted">
-                  Shows what to cover in each speech.
-                </span>
-              </p>
+              <span className="text-base font-strong text-ink">
+                Coach prompts
+              </span>
               <Chips
                 name="coach"
                 legend="Coach prompts"
@@ -197,12 +159,7 @@ export function PracticeSetup({
               />
             </div>
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="flex flex-col">
-                <span className="text-base font-strong text-ink">Hints</span>
-                <span className="text-sm text-ink-muted">
-                  Reveal a hint when you are stuck. Free in practice.
-                </span>
-              </p>
+              <span className="text-base font-strong text-ink">Hints</span>
               <Chips
                 name="hints"
                 legend="Hints"
@@ -228,11 +185,7 @@ export function PracticeSetup({
                 </div>
               ))}
             </dl>
-            <p className="text-sm text-ink-muted">{summary.note}</p>
-            <p className="rounded-md bg-surface-sunken p-3 text-sm text-ink-muted">
-              This never changes your rating. Ranked debates are played against
-              people, on the standard rules.
-            </p>
+
             <button type="submit" className={cn(buttonClass('secondary'))}>
               Update summary
             </button>
@@ -250,7 +203,7 @@ export function PracticeSetup({
               })}
               className={cn(buttonClass('ghost'), link)}
             >
-              Use custom rules for this practice
+              Custom rules
             </Link>
           </TrainCard>
         </aside>

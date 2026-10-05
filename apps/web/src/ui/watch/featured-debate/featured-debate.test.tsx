@@ -14,10 +14,9 @@ describe('FeaturedDebate', () => {
     const html = renderToString(h(FeaturedDebate, { card, delaySeconds: 30 }));
     assert({
       given: 'the top-of-the-ladder card',
-      should:
-        'show why it is featured, both seats, a static clock and one link',
+      should: 'mark it featured, both seats, a static clock and one link',
       actual: [
-        html.includes('Featured. Highest-rated ranked debate live now'),
+        html.includes('>Featured<'),
         html.includes('@debater-a'),
         html.includes('Speaking'),
         html.includes('Listening'),

@@ -48,9 +48,8 @@ describe('TurnList', () => {
         html.includes(', opponent unavailable'),
         html.includes(', to come'),
         html.includes('Prep time left'),
-        html.includes('Sample'),
       ],
-      expected: [true, 3, true, true, true, true, true],
+      expected: [true, 3, true, true, true, true],
     });
   });
 });

@@ -4,7 +4,6 @@ import { buttonClass } from '../../components/button/button-class';
 import {
   controlClass,
   fieldClass,
-  helperClass,
   labelClass,
   textareaClass,
 } from '../form-controls/form-class';
@@ -42,12 +41,9 @@ function FetchedPage(props: {
     <div className="flex flex-col gap-3 rounded-md border border-border bg-surface-raised p-4">
       <p className="flex items-center gap-2 text-base font-strong">
         <PrepIcon name="check" size={18} className="text-online" />
-        Page fetched. We filled in what we could find.
+        Page fetched
       </p>
       <DetailList rows={rows} />
-      <p className="text-xs text-ink-faint">
-        Guessed details are suggestions. You confirm each one in step 3.
-      </p>
     </div>
   );
 }
@@ -90,10 +86,6 @@ export function CreateSourceStep({ view }: { readonly view: CardCreateView }) {
               placeholder="Paste the article or excerpt here"
               className={textareaClass}
             />
-            <p className={helperClass}>
-              Paste the surrounding text, not just the passage. You choose what
-              to read aloud in the next step.
-            </p>
           </div>
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm text-ink-muted">
@@ -158,10 +150,7 @@ export function CreateSourceStep({ view }: { readonly view: CardCreateView }) {
             <span className="text-base font-strong">
               Drop a PDF or DOCX here, or choose a file
             </span>
-            <span className="text-sm text-ink-muted">
-              Up to 20 MB. Scanned pages need text recognition, which adds a
-              minute.
-            </span>
+            <span className="text-sm text-ink-muted">Up to 20 MB</span>
             <input
               id="src-file"
               name="src-file"
@@ -170,10 +159,6 @@ export function CreateSourceStep({ view }: { readonly view: CardCreateView }) {
               className="text-sm"
             />
           </label>
-          <p className={helperClass}>
-            Nothing is uploaded yet: reading a file needs the Prep service,
-            which is not built yet. Next opens the sample source.
-          </p>
           <div className="flex justify-end">
             {view.nextHref === null ? null : <NextLink href={view.nextHref} />}
           </div>

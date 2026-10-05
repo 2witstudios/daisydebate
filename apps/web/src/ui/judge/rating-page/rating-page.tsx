@@ -8,7 +8,6 @@ import {
 import { Badge } from '../../components/badge/badge';
 import { Panel } from '../../components/panel/panel';
 import { BackLink } from '../back-link/back-link';
-import { Notice } from '../../components/notice/notice';
 import { PageHeader } from '../../components/page-header/page-header';
 import { ProgressBar } from '../progress-bar/progress-bar';
 import { RatingChart } from './rating-chart';
@@ -23,17 +22,17 @@ const moves: readonly {
 }[] = [
   {
     title: 'Debater feedback on your reasons',
-    body: 'Debaters mark a reason helpful or not helpful, with an optional comment. This is the main input.',
+    body: 'Debaters mark your reasons helpful or not.',
     tag: 'Moves rating',
   },
   {
     title: 'Review outcomes',
-    body: 'A review can leave your ballot standing, or void it for a conflict or a reason that contradicts its decision.',
+    body: 'A review can void a ballot.',
     tag: 'Moves rating',
   },
   {
     title: 'Agreement with the panel',
-    body: 'Shown for context only. Disagreeing with the other judges, or with who won, never lowers your rating.',
+    body: 'Disagreeing never lowers your rating.',
     tag: 'Context only',
   },
 ];
@@ -44,10 +43,7 @@ export function RatingPage({ rating }: RatingPageProps) {
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
       <BackLink />
-      <PageHeader
-        title="Your judge rating"
-        lede="One rating, like a player’s rating. Private to you, and separate from your player rating."
-      />
+      <PageHeader title="Your judge rating" />
       <div className="grid grid-cols-12 items-start gap-6 max-compact:grid-cols-1 max-compact:gap-4">
         <div className="col-span-6 flex flex-col gap-4 max-compact:col-span-1">
           <section
@@ -98,11 +94,6 @@ export function RatingPage({ rating }: RatingPageProps) {
         </div>
         <div className="col-span-6 flex flex-col gap-4 max-compact:col-span-1">
           <RecentBallots ballots={rating.recent} />
-          <Notice tone="gold" icon="alert" title="Design assumption">
-            The owner has not defined judge rating. This shows one plausible
-            model. Weights, the ballot threshold and the rating scale are
-            placeholders, and the rating is private to you.
-          </Notice>
         </div>
       </div>
     </div>

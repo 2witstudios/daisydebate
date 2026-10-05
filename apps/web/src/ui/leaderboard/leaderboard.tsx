@@ -8,7 +8,6 @@ import {
   seasonCountdown,
   seasonLabel,
 } from '../../features/leaderboard/season';
-import { PROVISIONAL_AFTER } from '../../features/leaderboard/standing';
 import { DebaterDrawer } from './debater-drawer/debater-drawer';
 import { LadderFilters } from './ladder-filters/ladder-filters';
 import {
@@ -110,10 +109,7 @@ export function Leaderboard({
         <PreviousChampion champion={view.previousChampion} />
       ) : null}
       <p className="text-sm text-ink-faint">
-        {`A hollow marker and a question mark mean provisional: fewer than ${PROVISIONAL_AFTER} ranked debates. Provisional debaters are not ranked. `}
-        <Link href={leaderboardDestinations.privacy}>
-          What the ladder shows about you
-        </Link>
+        <Link href={leaderboardDestinations.privacy}>Ladder privacy</Link>
       </p>
       <YouBar view={view} query={query} username={username} />
       {detail ? <DebaterDrawer detail={detail} query={query} /> : null}

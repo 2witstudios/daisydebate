@@ -46,13 +46,12 @@ const panelMarkSvg = () =>
 export type PanelContent = {
   readonly kicker: string;
   readonly title: string;
-  readonly body: string;
 };
 
 /** The forest stage panel, hidden under the rail breakpoint (AUTH-4.7). */
 const panel = (content: PanelContent | undefined) =>
   content
-    ? `<aside class="af-panel" aria-hidden="true">${panelMarkSvg()}<p class="af-panel-kicker">${escapeHtml(content.kicker)}</p><p class="af-panel-title">${escapeHtml(content.title)}</p><p class="af-panel-body">${escapeHtml(content.body)}</p></aside>`
+    ? `<aside class="af-panel" aria-hidden="true">${panelMarkSvg()}<p class="af-panel-kicker">${escapeHtml(content.kicker)}</p><p class="af-panel-title">${escapeHtml(content.title)}</p></aside>`
     : '';
 
 export type AuthFrameContent = {

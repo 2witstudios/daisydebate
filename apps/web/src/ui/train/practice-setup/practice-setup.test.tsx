@@ -37,7 +37,7 @@ describe('PracticeSetup', () => {
       should: 'say so in the summary and start with them',
       actual: [
         html.includes('Neg (Negative)'),
-        html.includes('Solo, one seat'),
+        html.includes('>Solo<'),
         html.includes('Practice · Unrated'),
         html.includes('href="/train/practice/live?side=neg&amp;opp=solo"'),
       ],

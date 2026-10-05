@@ -137,7 +137,7 @@ export function readoutAt(
     return {
       heading: 'Season start',
       value: `${point?.rating ?? 0} ± ${RANGE * (point?.deviation ?? 0)}`,
-      detail: 'Everyone starts at the season’s starting rating.',
+      detail: 'Starting rating',
     };
   return {
     heading: `Debate ${at} of ${last}`,

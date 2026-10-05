@@ -66,11 +66,7 @@ export function ReportDialog({ id, query, target }: ReportDialogProps) {
             className="rounded-md border border-border bg-surface px-3 py-2 text-base text-ink placeholder:text-ink-faint"
           />
         </div>
-        <p className="text-sm text-ink-muted">
-          Reports go to Daisy moderators, not to the debaters or the chat. The
-          person you report is never told who reported. A cheating report on a
-          ranked debate is reviewed before its ballot is final.
-        </p>
+        <p className="text-sm text-ink-muted">Only moderators see reports.</p>
         <div className="flex justify-end gap-3">
           <Link
             href={close}

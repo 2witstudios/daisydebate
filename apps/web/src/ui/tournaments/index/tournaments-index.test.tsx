@@ -29,9 +29,8 @@ describe('TournamentsIndex', () => {
         html.includes('aria-label="Filter tournaments"'),
         html.includes('aria-label="Your tournaments"'),
         html.includes('Weeknight Sprint'),
-        html.includes('a tournament never changes your rating'),
       ],
-      expected: [1, true, 4, true, true, true, true],
+      expected: [1, true, 4, true, true, true],
     });
   });
 
@@ -72,7 +71,7 @@ describe('TournamentsIndex', () => {
       given: 'a search with no match',
       should: 'show the no-match state with its clear link and 0 tournaments',
       actual: [
-        html.includes('No tournaments match these filters'),
+        html.includes('No matches'),
         html.includes('0 tournaments'),
         html.includes('href="/tournaments"'),
       ],

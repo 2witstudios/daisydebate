@@ -7,10 +7,7 @@ import { PreviewHeader, PreviewPage, PreviewRows } from './preview-parts';
 export function TrainPreview() {
   return (
     <PreviewPage>
-      <PreviewHeader
-        title="Train"
-        lede="Practice arguments and sharpen your mind."
-      />
+      <PreviewHeader title="Train" />
       <Panel title="Modes">
         <PreviewRows rows={trainModes} />
       </Panel>

@@ -6,14 +6,7 @@ import {
 import { motionText, type PracticeConfig } from './practice';
 import type { OpponentAdapter } from './opponent';
 import { formatClock } from './speech-clock';
-import {
-  buildTurns,
-  effectiveOpponent,
-  lengthLabel,
-  turnAt,
-  type Side,
-  type Turn,
-} from './turns';
+import { buildTurns, lengthLabel, turnAt, type Side, type Turn } from './turns';
 
 export type TurnRow = {
   readonly seq: number;
@@ -42,7 +35,6 @@ export type SpeechView = {
   readonly prepLabel: string;
   readonly youAre: string;
   readonly motion: string;
-  readonly opponentNote: string;
 };
 
 /** The opponent could not give its speech; the practice pauses on it. */
@@ -74,12 +66,6 @@ const rowsFor = (
           ? 'done'
           : 'todo',
   }));
-
-const opponentNotes = {
-  ai: 'Sandbox actor. Practice only.',
-  both: 'You drive both sandbox seats. Practice only.',
-  solo: 'No opponent. Only your seat speaks.',
-} as const;
 
 const scriptFor = (yours: boolean, ordinal: number) =>
   yours
@@ -176,6 +162,5 @@ function speechView({
     prepLabel: prepLabel(config.rules.prepMinutes),
     youAre: `You are ${side === 'aff' ? 'Aff' : 'Neg'}`,
     motion: motionText(config),
-    opponentNote: opponentNotes[effectiveOpponent(config)],
   };
 }

@@ -26,19 +26,14 @@ export function BallotPage({
         <span aria-hidden="true">&lsaquo;</span>
         Judge
       </Link>
-      <PageHeader
-        title="Your ballot"
-        lede={`${view.title}. Ratings stay hidden while you judge.`}
-      />
+      <PageHeader title="Your ballot" lede={view.title} />
       {view.kind === 'waiting' ? (
         <>
           <Notice
             tone="gold"
             icon="clock"
             title="The ballot opens when the last turn ends"
-          >
-            You can follow the debate while you wait.
-          </Notice>
+          />
           <div className="flex flex-wrap gap-3">
             <Link
               href={view.debateHref}
@@ -69,8 +64,7 @@ export function BallotPage({
             title="Ballot submitted"
             role="status"
           >
-            One ballot per judge seat: it cannot be sent again. The result shows
-            when every judge has submitted.
+            It cannot be sent again.
           </Notice>
           <div className="flex flex-wrap gap-3">
             <Link

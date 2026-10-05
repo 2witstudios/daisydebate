@@ -178,7 +178,7 @@ export function LadderFilters({
           />
           <Select
             name="region"
-            label="Region, shown only for debaters who chose to show one"
+            label="Region"
             value={query.region}
             options={regionOptions}
           />

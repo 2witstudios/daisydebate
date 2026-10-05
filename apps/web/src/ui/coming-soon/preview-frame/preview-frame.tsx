@@ -13,13 +13,8 @@ export type PreviewFrameProps = {
 export function PreviewFrame({ children }: PreviewFrameProps) {
   return (
     <figure className="flex flex-col gap-3">
-      <figcaption className="flex flex-col gap-1">
-        <span className="text-xs font-bold tracking-widest text-ink-muted uppercase">
-          Preview
-        </span>
-        <span className="text-sm text-ink-faint">
-          Sample data. The finished page will look like this.
-        </span>
+      <figcaption className="text-xs font-bold tracking-widest text-ink-muted uppercase">
+        Preview
       </figcaption>
       <div
         inert

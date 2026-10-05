@@ -67,9 +67,6 @@ export function ConsoleUnavailable() {
         <h1 className="font-display text-3xl leading-tight font-bold tracking-tight">
           We could not find that tournament
         </h1>
-        <p className="text-base text-ink-muted">
-          You can only manage tournaments you organize.
-        </p>
         <div>
           <LinkButton href={tournamentRoutes.organize} variant="primary">
             Back to Organize

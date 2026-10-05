@@ -70,16 +70,15 @@ describe('PracticeLive', () => {
     const html = render(2);
     assert({
       given: "the AI debater's turn",
-      should: 'show its sample output and a notes field',
+      should: 'show its output and a notes field',
       actual: [
         html.includes('The AI debater is speaking'),
-        html.includes('Sample output'),
         html.includes('id="notes"'),
         html.includes('role="dialog"'),
         html.includes('Report a problem with the opponent'),
         html.includes('href="/train/practice/unavailable?turn=2"'),
       ],
-      expected: [true, true, true, false, true, true],
+      expected: [true, true, false, true, true],
     });
   });
 

@@ -59,7 +59,7 @@ describe('PlanPanel', () => {
       given: 'a finished ten minute plan',
       should: 'say so, hide the picker and point at tomorrow',
       actual: [
-        html.includes('You finished today&#x27;s plan. Nothing else is due.'),
+        html.includes('Done for today'),
         html.includes('aria-label="Time available"'),
         html.includes('Next review: tomorrow'),
         html.includes('2 arguments due'),

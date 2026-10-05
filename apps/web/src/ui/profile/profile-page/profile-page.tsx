@@ -1,9 +1,9 @@
 import Link from 'next/link';
+import { HiddenWhileJudging } from '../../components/hidden-while-judging/hidden-while-judging';
 import type { Profile } from '../../../features/profile/get-profile';
 import { Avatar } from '../../components/avatar/avatar';
 import { Badge } from '../../components/badge/badge';
 import { buttonClass } from '../../components/button/button-class';
-import { Icon } from '../../components/icon/icon';
 import { cn } from '../../cn';
 import {
   heading,
@@ -16,21 +16,11 @@ const card = 'flex flex-col gap-4 rounded-xl bg-surface p-6 shadow-1';
 
 function Rating({ profile }: { readonly profile: Profile }) {
   const { detail } = profile;
-  if (detail.kind === 'hidden')
-    return (
-      <p className="flex items-start gap-3 rounded-md bg-surface-overlay p-4 text-base text-ink-muted">
-        <Icon name="eye" size={20} />
-        Hidden while you judge. Their rating and history return after you submit
-        your ballot.
-      </p>
-    );
+  if (detail.kind === 'hidden') return <HiddenWhileJudging />;
   if (detail.kind === 'none')
     return (
       <div className="flex flex-col items-start gap-2 text-base text-ink-muted">
         <p>{detail.text}</p>
-        <p className="text-sm text-ink-faint">
-          Only ranked debates count toward a rating.
-        </p>
       </div>
     );
   return (
@@ -111,9 +101,6 @@ export function ProfilePage({ profile }: { readonly profile: Profile }) {
               ))}
             </ul>
           )}
-          <p className="text-sm text-ink-faint">
-            Honours are recognition only and never change a rating.
-          </p>
         </section>
         <section aria-label="Achievements" className={card}>
           <h2 className={heading}>Achievements</h2>

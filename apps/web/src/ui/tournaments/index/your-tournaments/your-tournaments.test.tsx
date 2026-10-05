@@ -37,13 +37,12 @@ describe('YourTournaments', () => {
     const html = render(false);
     assert({
       given: 'an anonymous visitor',
-      should: 'explain the public rules and offer Sign in',
+      should: 'offer Sign in',
       actual: [
-        html.includes('Signed out: anyone can browse'),
         html.includes('href="/sign-in?next=%2Ftournaments"'),
         html.includes('Harvest Cup'),
       ],
-      expected: [true, true, false],
+      expected: [true, false],
     });
   });
 
@@ -53,8 +52,8 @@ describe('YourTournaments', () => {
     );
     assert({
       given: 'no entries',
-      should: 'say entries appear here',
-      actual: html.includes('Tournaments you enter appear here.'),
+      should: 'say none yet',
+      actual: html.includes('None yet'),
       expected: true,
     });
   });

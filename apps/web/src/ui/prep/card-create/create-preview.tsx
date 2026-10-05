@@ -1,5 +1,4 @@
 import type { CardCreateView } from '../../../features/prep/card-create';
-import { PrepIcon } from '../prep-icon/prep-icon';
 import { SourceText } from '../source-text/source-text';
 
 /** The rail beside every step: a live look at the card and its citation. */
@@ -12,25 +11,15 @@ export function CreatePreview({ view }: { readonly view: CardCreateView }) {
     >
       <section className="flex flex-col gap-3 rounded-lg bg-surface p-5 shadow-1">
         <h2 className="font-display text-lg leading-tight font-bold">
-          [Tag line: the claim this card proves]
+          Untitled card
         </h2>
         <p className="text-sm text-ink-muted">
-          <strong className="text-ink">{`${fields.author} [year]`}</strong>
+          <strong className="text-ink">{fields.author}</strong>
           {` · ${fields.qualifications}, ${fields.publication}`}
         </p>
         <p className="text-base leading-normal text-ink-muted">
           <SourceText segments={view.draft.segments} />
         </p>
-        <ul className="flex gap-2" aria-label="Tags">
-          {['[tag]', '[tag]'].map((tag, index) => (
-            <li
-              key={index}
-              className="rounded-sm bg-surface-overlay px-2 py-1 text-xs font-semibold text-ink-muted"
-            >
-              {tag}
-            </li>
-          ))}
-        </ul>
       </section>
       <section className="flex flex-col gap-2 rounded-lg bg-surface p-5 shadow-1">
         <div className="flex items-center justify-between">
@@ -45,14 +34,10 @@ export function CreatePreview({ view }: { readonly view: CardCreateView }) {
         />
         <p className="text-sm text-ink-muted">
           {completeness.missing.length === 0
-            ? 'Every citation field is filled.'
-            : `Missing: ${completeness.missing.join(', ')}. A card can be saved without them. It shows an amber mark until they are filled.`}
+            ? 'Citation complete'
+            : `Missing: ${completeness.missing.join(', ')}`}
         </p>
       </section>
-      <p className="flex items-start gap-2 text-sm text-ink-muted">
-        <PrepIcon name="lock" size={16} className="mt-1" />
-        Saved as private to you. Share it later from the card or from a brief.
-      </p>
     </aside>
   );
 }

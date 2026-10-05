@@ -33,7 +33,7 @@ describe('passkeyOfferReducer', () => {
           step: 'offer',
           saving: false,
           notice:
-            'Saving a passkey is not available yet, so nothing was saved. Email links keep working.',
+            'Saving a passkey is unavailable right now. Email links keep working.',
         },
       ],
     });

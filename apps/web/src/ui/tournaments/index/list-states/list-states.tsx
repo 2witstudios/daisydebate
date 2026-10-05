@@ -60,11 +60,7 @@ export function ListSkeleton() {
 /** A tab with nothing in it and no filters set. */
 export function NothingOpen() {
   return (
-    <StateCard icon="trophy" title="No tournaments are open for registration">
-      <p className="max-w-prose text-base text-ink-muted">
-        New events appear here as organizers publish them. Ask to be told about
-        the next one, or run your own.
-      </p>
+    <StateCard icon="trophy" title="No open tournaments">
       <div className="flex flex-wrap justify-center gap-3">
         <InertAction id="notifyNew" />
         <LinkButton href={tournamentRoutes.create}>
@@ -78,11 +74,7 @@ export function NothingOpen() {
 /** Filters that match nothing. */
 export function NoMatches({ clearHref }: { readonly clearHref: string }) {
   return (
-    <StateCard icon="search" title="No tournaments match these filters">
-      <p className="max-w-prose text-base text-ink-muted">
-        Try another structure, or clear the filters to see every event in this
-        tab.
-      </p>
+    <StateCard icon="search" title="No matches">
       <LinkButton href={clearHref}>Clear filters</LinkButton>
     </StateCard>
   );
@@ -92,10 +84,6 @@ export function NoMatches({ clearHref }: { readonly clearHref: string }) {
 export function LoadFailed({ retry }: { readonly retry: () => void }) {
   return (
     <StateCard icon="alert" title="Tournaments did not load" live="alert">
-      <p className="max-w-prose text-base text-ink-muted">
-        The list could not be fetched. Nothing you entered was lost. Try again
-        in a moment.
-      </p>
       <button type="button" onClick={retry} className={buttonClass('primary')}>
         Try again
       </button>

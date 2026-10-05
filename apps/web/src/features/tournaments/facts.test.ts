@@ -15,10 +15,10 @@ describe('overviewFacts', () => {
       expected: [
         'Structure: Single elimination, 4 rounds',
         'Rules: Standard rules',
-        'Places: 16 (top seeds get byes if fewer enter)',
-        'Rating: Unrated tournament',
-        'Judging: One judge, assigned by Daisy',
-        'Who can enter: Any debater with a username and a rating',
+        'Places: 16',
+        'Rating: Unrated',
+        'Judging: One judge',
+        'Who can enter: Anyone',
         'Organizer: Daisy Debate',
       ],
     });
@@ -38,7 +38,7 @@ describe('overviewFacts', () => {
       given: 'a round robin of 8 limited to 1000 to 1400',
       should: 'show 7 rounds, plain places and the band',
       actual: [facts['Structure'], facts['Places'], facts['Who can enter']],
-      expected: ['Round robin, 7 rounds', '8', 'Debaters rated 1000 to 1400'],
+      expected: ['Round robin, 7 rounds', '8', 'Rated 1000 to 1400'],
     });
   });
 });
@@ -58,7 +58,7 @@ describe('ruleCards', () => {
       expected: [
         [
           'Standard rules',
-          'Judges are assigned by Daisy',
+          'Judges are assigned',
           'Check-in and forfeits',
           'Results and corrections',
           'Unrated',

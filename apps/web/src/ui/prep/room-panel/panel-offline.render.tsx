@@ -19,7 +19,7 @@ export function renderPanelOffline(props: {
           <strong className="block text-base">
             Prep cannot reach the server
           </strong>
-          {`Showing what was loaded at ${props.since}. It is read only. The debate itself is not affected.`}
+          {`Read only, as of ${props.since}`}
         </span>
       </p>
       {props.retry}

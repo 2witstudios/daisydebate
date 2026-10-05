@@ -10,21 +10,19 @@ describe('ComingSoonCard', () => {
     const html = renderToString(
       h(ComingSoonCard, {
         title: 'Live now',
-        body: 'Debates in progress will appear here.',
         href: '/coming-soon/watch',
       }),
     );
     assert({
       given: 'a coming-soon card',
-      should: 'carry the title, body, Coming soon tag and a Learn more link',
+      should: 'carry the title, Coming soon tag and a Learn more link',
       actual: [
         html.includes('Live now'),
-        html.includes('Debates in progress will appear here.'),
         html.includes('Coming soon'),
         html.includes('href="/coming-soon/watch"'),
         html.includes('Learn more'),
       ],
-      expected: [true, true, true, true, true],
+      expected: [true, true, true, true],
     });
   });
 });

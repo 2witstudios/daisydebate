@@ -82,11 +82,6 @@ export function StandingsTable({
           </tbody>
         </table>
       </div>
-      <p className="text-sm text-ink-faint">
-        Ranked by rounds won, then by the total wins of the debaters met, then
-        by handle. The tiebreak order is a sample; the organizer sets the real
-        one.
-      </p>
     </div>
   );
 }
@@ -149,10 +144,6 @@ export function ResultsGrid({ data }: { readonly data: RobinData }) {
           </tbody>
         </table>
       </div>
-      <p className="text-sm text-ink-faint">
-        W and L are results. R3 to R7 show the round each pair will meet. Every
-        debater meets every other debater once.
-      </p>
     </div>
   );
 }
@@ -199,10 +190,6 @@ export function RobinRounds({ data }: { readonly data: RobinData }) {
             </ul>
           </section>
         ))}
-      <p className="text-sm text-ink-faint">
-        Rounds 4 to 7 are scheduled on later days. Pairings release before each
-        round.
-      </p>
     </div>
   );
 }

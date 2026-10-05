@@ -21,20 +21,18 @@ describe('PracticeUnavailable', () => {
     );
     assert({
       given: 'the opponent unavailable on turn 2',
-      should:
-        'name the turn, the stopped clock, the three actions and show no error details',
+      should: 'name the turn, the paused clock and the three actions',
       actual: [
         html.match(/<h1/g)?.length,
         html.includes('The AI debater did not answer.'),
-        html.includes('It stopped during turn 2.'),
-        html.includes('clock is stopped'),
+        html.includes('Stopped during turn 2.'),
+        html.includes('clock is paused'),
         html.includes('href="/train/practice/live?turn=2"'),
         html.includes('href="/train/practice/live?opp=solo&amp;turn=2"'),
         html.includes('href="/train/practice/debrief?upto=2"'),
         html.includes(', opponent unavailable'),
-        html.includes('without your speech text'),
       ],
-      expected: [1, true, true, true, true, true, true, true, true],
+      expected: [1, true, true, true, true, true, true, true],
     });
   });
 });

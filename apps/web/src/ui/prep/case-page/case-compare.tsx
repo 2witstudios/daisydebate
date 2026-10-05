@@ -117,7 +117,7 @@ export function CaseCompare({ view }: { readonly view: CaseView }) {
           role="status"
           className="rounded-md border border-border bg-surface-raised p-6 text-center text-base text-ink-muted"
         >
-          These two are the same. Nothing changed between them.
+          No changes
         </p>
       ) : (
         <>
@@ -178,11 +178,6 @@ export function CaseCompare({ view }: { readonly view: CaseView }) {
           ))}
         </>
       )}
-      <p className="text-xs text-ink-faint">
-        {compare.restoreVersion === null
-          ? 'Restoring never deletes anything.'
-          : `Restoring never deletes anything. It saves v${compare.restoreVersion} as v${view.nextVersion} and keeps the rest.`}
-      </p>
     </div>
   );
 }

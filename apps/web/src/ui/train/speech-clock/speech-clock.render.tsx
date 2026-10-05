@@ -46,7 +46,7 @@ export function renderSpeechClock({
       </div>
       <Meter value={percent} label="Speech time used" />
       <p aria-live="polite" className="min-h-6 text-base font-strong text-live">
-        {timeUp ? 'Time is up. End the speech when you are ready.' : ''}
+        {timeUp ? 'Time is up' : ''}
       </p>
       <div className="flex flex-wrap gap-3">
         {actions}
@@ -75,10 +75,7 @@ export function renderSpeechClock({
               {endHref}
             </>
           }
-        >
-          The clock is stopped. Only practice debates can pause. Ranked clocks
-          never stop.
-        </Modal>
+        />
       ) : null}
     </>
   );

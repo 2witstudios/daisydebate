@@ -33,12 +33,11 @@ describe('RoomPage', () => {
         html.includes('Affirmative'),
         html.includes('Negative'),
         html.includes('@judge-k'),
-        html.includes('Rating hidden while judging'),
         /href="\/tournaments\/mine\/harvest-cup\/room\/semifinal-1\?state=ready"[^>]*>I am ready</.test(
           html,
         ),
       ],
-      expected: [1, true, true, true, true, true, true, true],
+      expected: [1, true, true, true, true, true, true],
     });
   });
 
@@ -46,7 +45,7 @@ describe('RoomPage', () => {
     assert({
       given: 'the viewer ready',
       should: 'say waiting for the opponent',
-      actual: render('ready').includes('Waiting for @debater-c to be ready.'),
+      actual: render('ready').includes('Waiting for @debater-c'),
       expected: true,
     });
   });
@@ -82,12 +81,12 @@ describe('RoomPage', () => {
     const html = render('not-ready');
     assert({
       given: 'the rules aside',
-      should: 'say standard rules, unrated and no swaps',
+      should: 'say standard rules, unrated and fixed seats',
       actual: [
         html.includes('aria-label="Rules for this debate"'),
-        html.includes('the same as Ranked'),
+        html.includes('Standard'),
         html.includes('>Unrated<'),
-        html.includes('Fixed by the pairing. No swaps.'),
+        html.includes('Fixed'),
         html.includes('31 watching, public'),
       ],
       expected: [true, true, true, true, true],

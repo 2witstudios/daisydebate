@@ -53,7 +53,7 @@ export const sampleDensity: readonly number[] = Array.from(
 );
 
 export const sampleResolution = 'Resolved: [resolution].';
-export const sampleSeason = '[N]';
+export const sampleSeason = '3';
 /** The delay spectators watch behind the debate, in seconds (a sample). */
 export const sampleDelaySeconds = 30;
 /** Sample spectator chat, reactions and their house rules. */
@@ -90,8 +90,7 @@ export const sampleChat = [
     text: 'Neg is pressing on that point now.',
   },
 ] as const;
-export const sampleChatRules =
-  'Links are blocked. One message every 10 s. Only spectators see chat, never the debaters or judges.';
+export const sampleChatRules = 'Links blocked · 1 message per 10 s';
 
 /** Sample follows and watch history, private to the viewer. */
 export const sampleFollowing: readonly Followed[] = [

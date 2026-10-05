@@ -239,9 +239,9 @@ export function wizardSummary(query: WizardQuery): WizardSummary {
     debates,
     calc:
       query.structure === 'single-elimination'
-        ? `${query.places} places: ${labels.length} rounds. If fewer enter, the top seeds get byes.`
-        : `${query.places} entrants: each meets every other once, ${labels.length} rounds.`,
-    judgesNote: `Round 1 can run up to ${debates} debates at once, so you need up to ${debates} judges.`,
+        ? `${labels.length} rounds`
+        : `${labels.length} rounds, everyone meets once`,
+    judgesNote: `Round 1 needs up to ${debates} judges.`,
     roundRows: labels.map((label, index) => ({
       label,
       date: index < 3 ? '2026-11-07' : '2026-11-08',
@@ -262,7 +262,7 @@ export function reviewFacts(query: WizardQuery, draft: Draft): readonly Fact[] {
       'Rules',
       `${draft.rules === 'standard' ? 'Standard rules' : 'Custom rules'}, unrated`,
     ],
-    ['Judging', '1 judge, assigned by Daisy'],
+    ['Judging', '1 judge'],
     ['Listing', draft.listed ? 'Public' : 'Link only'],
   ];
 }

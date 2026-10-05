@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { HiddenWhileJudging } from '../../components/hidden-while-judging/hidden-while-judging';
 import type { ReactNode } from 'react';
 import type { DebaterDetail } from '../../../features/leaderboard/detail';
 import {
@@ -49,22 +50,12 @@ function Header({ detail, query }: DebaterDrawerProps): ReactNode {
 }
 
 function Body({ detail, query }: DebaterDrawerProps): ReactNode {
-  if (detail.kind === 'hidden')
-    return (
-      <p className="flex items-start gap-3 rounded-md bg-surface-overlay p-4 text-base text-ink-muted">
-        <Icon name="eye" size={20} />
-        Hidden while you judge. Their rating, rank and history return after you
-        submit your ballot.
-      </p>
-    );
+  if (detail.kind === 'hidden') return <HiddenWhileJudging />;
   if (detail.kind === 'none')
     return (
       <div className="flex flex-col items-center gap-2 py-8 text-center text-base text-ink-muted">
         <Icon name="chart" size={28} className="text-ink-faint" />
         <p>{detail.text}</p>
-        <p className="text-sm text-ink-faint">
-          Only ranked debates count toward a rating.
-        </p>
       </div>
     );
   return (

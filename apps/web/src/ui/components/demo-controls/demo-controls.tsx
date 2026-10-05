@@ -8,10 +8,8 @@ import { cn } from '../../cn';
  * from the page's own controls by a dashed edge.
  */
 export function DemoControls({
-  blurb,
   items,
 }: {
-  readonly blurb: string;
   readonly items: readonly { readonly label: string; readonly href: string }[];
 }) {
   return (
@@ -20,7 +18,6 @@ export function DemoControls({
       className="flex flex-col gap-3 rounded-xl border border-dashed border-border-strong p-5"
     >
       <h2 className="text-sm font-strong text-ink">Demo controls</h2>
-      <p className="text-sm text-ink-muted">{blurb}</p>
       <ul className="flex flex-wrap gap-2">
         {items.map((item) => (
           <li key={item.label}>

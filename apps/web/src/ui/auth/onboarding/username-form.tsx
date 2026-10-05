@@ -61,8 +61,7 @@ export function UsernameForm({
   return (
     <AuthFrame panel={taglinePanel}>
       <AuthHeading eyebrow="One last step" title="Choose your username.">
-        This is the name opponents and spectators see. You can play once you
-        have one.
+        Opponents and spectators see this name.
       </AuthHeading>
       <form
         action={action}

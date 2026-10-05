@@ -50,25 +50,16 @@ const retryNoticeHtml = (notice: Notice | undefined) =>
 const SIGN_IN_PANEL: PanelContent = {
   kicker: 'Sign in',
   title: 'One click keeps your link yours.',
-  body: 'Security scanners open links in email. Nothing happens until you press the button, so a scanner can’t use your link before you do.',
-};
-
-const RETRY_PANEL: PanelContent = {
-  kicker: 'Sign in',
-  title: 'One click keeps your link yours.',
-  body: 'If sign‑in is briefly unavailable, the page says so and keeps your link ready to try again.',
 };
 
 const EXPIRED_PANEL: PanelContent = {
   kicker: 'Links are single-use',
   title: 'Fresh links, every time.',
-  body: 'Each sign‑in link works once and only for five minutes, so a forwarded or old email can’t be used to get into your account.',
 };
 
 const SENT_PANEL: PanelContent = {
   kicker: 'Link sent',
   title: 'Nearly there.',
-  body: 'Open the newest email from Daisy Debate on this device and select the button to finish signing in.',
 };
 
 const confirmFrame = (
@@ -78,15 +69,10 @@ const confirmFrame = (
     '<p class="af-eyebrow">Sign in</p>' +
     '<h1>Finish signing in.</h1>' +
     retryNoticeHtml(view.notice) +
-    // The mock's retry state has no lede: the notice takes its place.
-    (view.notice
-      ? ''
-      : '<p class="af-lede">Select the button to sign in to Daisy Debate on this device.</p>') +
     `<form class="af-form" method="post" action="${CONFIRM_PATH}">${hiddenInput('token', view.token)}${hiddenInputs(view.hidden)}<button class="af-btn" type="submit">Sign in to Daisy Debate</button></form>` +
     '<p class="af-why">We ask for this click so email security scanners that open links can’t use your link before you do.</p>',
-  footer:
-    'Didn’t request this? Close this page. Nothing happens until you select the button.',
-  panel: view.notice ? RETRY_PANEL : SIGN_IN_PANEL,
+  footer: 'Didn’t request this? Close this page.',
+  panel: SIGN_IN_PANEL,
 });
 
 const expiredFrame = (
@@ -96,11 +82,10 @@ const expiredFrame = (
     '<p class="af-eyebrow af-muted">Link expired</p>' +
     '<h1>This sign‑in link can no longer be used.</h1>' +
     noticeHtml(view.notice) +
-    '<p class="af-lede">Links expire after 5 minutes and work once. Enter your email and we’ll send a new one.</p>' +
+    '<p class="af-lede">Links work once, for 5 minutes. Enter your email for a new one.</p>' +
     `<form class="af-form" method="post" action="${CONFIRM_PATH}">${hiddenInput('intent', 'resend')}${hiddenInputs(view.hidden)}<div class="af-field"><label for="email">Email</label><input class="af-input" id="email" name="email" type="email" autocomplete="email" placeholder="you@school.edu" required></div><button class="af-btn" type="submit">Email me a new link</button></form>` +
     `<div class="af-links"><a class="af-link" href="${escapeHtml(signInHref(view.hidden.callbackURL))}">Back to sign in</a><a class="af-link" href="${escapeHtml(view.hidden.callbackURL)}">Already signed in? Continue to Daisy Debate</a></div>`,
-  footer:
-    'Clicked the button twice? You’re probably already signed in. Use “Continue to Daisy Debate”.',
+  footer: '',
   panel: EXPIRED_PANEL,
 });
 
@@ -109,9 +94,9 @@ const sentFrame: AuthFrameContent = {
     '<p class="af-eyebrow">Link sent</p>' +
     '<h1>Check your inbox.</h1>' +
     '<p class="af-lede">If that address can sign in to Daisy Debate, a new link is on its way. It expires in 5 minutes.</p>' +
-    '<p class="af-why"><strong>School email?</strong> Filters can hold messages for a few minutes. Check spam or quarantine before requesting another.</p>' +
+    '<p class="af-why">Not there? Check spam or quarantine.</p>' +
     '<div class="af-links"><a class="af-link" href="/sign-in">Back to sign in</a></div>',
-  footer: 'You can close this tab. The new link opens a fresh page.',
+  footer: 'You can close this tab.',
   panel: SENT_PANEL,
 };
 

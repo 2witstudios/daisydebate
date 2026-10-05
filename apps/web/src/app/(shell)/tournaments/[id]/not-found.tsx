@@ -8,7 +8,6 @@ export default function TournamentNotFound() {
     <PageFrame>
       <PageHeader
         title="We could not find that tournament"
-        lede="It may have been removed, or the link is wrong."
         actions={
           <LinkButton href={tournamentRoutes.index} variant="primary">
             Browse tournaments

@@ -43,7 +43,7 @@ export const lobbyRooms: readonly PreviewRowData[] = [
   },
   {
     id: 'l4',
-    title: 'Sample live debate',
+    title: 'Quarterfinal practice',
     detail: '@debater-a 1620 vs @debater-b 1588',
     tag: { tone: 'live', text: 'Live' },
     trailing: '14 watching',
@@ -168,7 +168,7 @@ export const prepLibrary: readonly PreviewRowData[] = [
   {
     id: 'p1',
     title: '[Brief title]',
-    detail: '4 contentions · updated [date]',
+    detail: '4 contentions · updated 2 Oct',
     tag: { tone: 'accent', text: 'Brief' },
   },
   {
@@ -180,7 +180,7 @@ export const prepLibrary: readonly PreviewRowData[] = [
   {
     id: 'p3',
     title: '[Case title]',
-    detail: '3 versions · shared with [team]',
+    detail: '3 versions · shared with Riverside',
     tag: { tone: 'gold', text: 'Case' },
   },
 ];

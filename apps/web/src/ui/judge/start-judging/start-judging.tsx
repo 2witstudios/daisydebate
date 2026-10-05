@@ -23,13 +23,6 @@ export function StartJudging() {
         <h2 className="font-display text-2xl leading-tight font-bold text-ink">
           Ready to judge?
         </h2>
-        <p className="max-w-prose text-base leading-normal text-ink-muted">
-          Daisy assigns the next Ranked debate that needs a judge. You never
-          choose the debate, the debaters or the sides.
-        </p>
-        <span className="text-sm text-ink-faint">
-          You are qualified to judge Ranked debates.
-        </span>
       </div>
       <Link
         href={judgeRoutes.waiting}

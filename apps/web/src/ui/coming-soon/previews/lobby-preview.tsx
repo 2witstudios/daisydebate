@@ -9,7 +9,6 @@ export function LobbyPreview() {
     <PreviewPage>
       <PreviewHeader
         title="Lobby"
-        lede="Open tables and live rooms to watch."
         actions={
           <>
             <Button variant="secondary">Open a table</Button>

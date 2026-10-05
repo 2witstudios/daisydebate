@@ -53,9 +53,9 @@ describe('SearchPage', () => {
     );
     assert({
       given: 'no query',
-      should: 'invite one and offer a search form',
-      actual: [html.includes('Type a name'), html.includes('action="/search"')],
-      expected: [true, true],
+      should: 'offer a search form and no result summary',
+      actual: [html.includes('result'), html.includes('action="/search"')],
+      expected: [false, true],
     });
   });
 });

@@ -23,13 +23,7 @@ export function ReplayRefusal({ screen }: ReplayRefusalProps) {
             Back to recordings
           </ActionLink>
         }
-      >
-        <p>
-          Recordings are ready a few minutes after a debate ends. The transcript
-          and timeline will appear here, and the result follows once every
-          ballot is in.
-        </p>
-      </StateCard>
+      />
     );
   return (
     <StateCard
@@ -39,11 +33,6 @@ export function ReplayRefusal({ screen }: ReplayRefusalProps) {
       actions={
         <ActionLink href={watchRoutes.recordings}>Browse recordings</ActionLink>
       }
-    >
-      <p>
-        Recordings are deleted after [N] days under the retention policy. The
-        result and the rating change stay on the ladder.
-      </p>
-    </StateCard>
+    />
   );
 }

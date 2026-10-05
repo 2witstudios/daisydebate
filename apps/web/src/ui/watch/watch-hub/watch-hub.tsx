@@ -12,14 +12,9 @@ export type WatchHubProps = {
 export function WatchHub({ active, counts, children }: WatchHubProps) {
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
-      <header className="flex flex-col gap-1">
-        <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
-          Watch
-        </h1>
-        <p className="text-base text-ink-muted">
-          Follow live debates, then replay them.
-        </p>
-      </header>
+      <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
+        Watch
+      </h1>
       <WatchTabs active={active} counts={counts} />
       {children}
     </div>

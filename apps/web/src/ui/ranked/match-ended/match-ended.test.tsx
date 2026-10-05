@@ -23,12 +23,10 @@ describe('MatchEnded', () => {
   test('one neutral message and two ways on', () => {
     assert({
       given: 'the ended step',
-      should: 'say nothing changed and link a new search and the hub',
+      should: 'say why and link a new search and the hub',
       actual: [
         html.includes('The match did not go ahead'),
-        html.includes(
-          'It was declined or timed out. Nothing changed on your rating.',
-        ),
+        html.includes('It was declined or timed out.'),
         html.includes('href="/ranked?step=search"'),
         html.includes('href="/ranked"'),
       ],

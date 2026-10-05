@@ -129,8 +129,7 @@ export function Library({ listing, query }: LibraryProps) {
         )}
       </section>
       <p className="text-sm text-ink-faint">
-        Your library is private to you. Teammates see only what you share with
-        them.
+        Private to you.
         {listing.teams.length > 0 ? (
           <>
             {' '}

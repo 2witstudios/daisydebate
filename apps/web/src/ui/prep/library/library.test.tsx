@@ -79,7 +79,7 @@ describe('Library', () => {
       given: 'a search whose matches the filters all exclude',
       should: 'say so, offer a removable chip per filter and Clear filters',
       actual: [
-        html.includes('none match your filters'),
+        html.includes('Nothing matches these filters'),
         html.includes('aria-label="Remove Side: Neg"'),
         html.includes('aria-label="Remove Tag: rights"'),
         html.includes('Clear filters'),

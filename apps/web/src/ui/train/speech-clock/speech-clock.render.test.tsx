@@ -68,19 +68,18 @@ describe('renderSpeechClock', () => {
     });
   });
 
-  test('paused: a dialog that says practice only', () => {
+  test('paused: a dialog', () => {
     const out = html({ paused: true });
     assert({
       given: 'a paused clock',
-      should: 'open the Paused dialog with Resume and the ranked warning',
+      should: 'open the Paused dialog with Resume',
       actual: [
         out.includes('role="dialog"'),
         out.includes('aria-label="Paused"'),
-        out.includes('Ranked clocks never stop.'),
         out.includes('Resume'),
         out.includes('END'),
       ],
-      expected: [true, true, true, true, true],
+      expected: [true, true, true, true],
     });
   });
 

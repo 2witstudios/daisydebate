@@ -49,7 +49,7 @@ function Action({ action }: { readonly action: RoomAction }) {
     case 'waiting':
       return (
         <p className="text-base text-ink-muted">
-          {`Waiting for @${action.opponent} to be ready. The debate starts as soon as both debaters are ready.`}
+          {`Waiting for @${action.opponent}`}
         </p>
       );
     case 'starting':
@@ -62,7 +62,7 @@ function Action({ action }: { readonly action: RoomAction }) {
       return (
         <div className="flex flex-col gap-3">
           <Notice icon="clock">
-            {`@${action.opponent} has not checked in. You can claim a forfeit at ${action.claimAt}, 10 minutes after the start. The organizer confirms it.`}
+            {`@${action.opponent} has not checked in.`}
           </Notice>
           <div className="flex flex-wrap gap-3">
             <DisabledAction
@@ -114,9 +114,6 @@ export function RoomPage({ screen, tournament, startsAt }: RoomPageProps) {
           <div className={seatCard}>
             <p className={label}>Judge</p>
             <Person handle={screen.judge} />
-            <p className="text-sm text-ink-muted">
-              In the room. Assigned by Daisy. Rating hidden while judging.
-            </p>
           </div>
           <div
             aria-live="polite"
@@ -132,16 +129,14 @@ export function RoomPage({ screen, tournament, startsAt }: RoomPageProps) {
           <h2 className="text-xs font-bold tracking-widest text-ink-muted uppercase">
             Rules for this debate
           </h2>
-          <p className="text-base text-ink-muted">
-            Standard rules, the same as Ranked. The tournament adds no custom
-            rules.
-          </p>
+
           <Badge tone="accent">Unrated</Badge>
           <FactList
             facts={[
               ['Starts', `${formatTime(startsAt)} UTC`],
-              ['Judges', 'One, fixed by the pairing'],
-              ['Seats', 'Fixed by the pairing. No swaps.'],
+              ['Rules', 'Standard'],
+              ['Judges', 'One'],
+              ['Seats', 'Fixed'],
               ['Spectators', `${screen.watching} watching, public`],
             ]}
           />

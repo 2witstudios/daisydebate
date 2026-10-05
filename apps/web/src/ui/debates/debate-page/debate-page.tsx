@@ -167,9 +167,7 @@ export function DebatePage({ view }: { readonly view: DebateView }) {
           tone="neutral"
           icon="eye"
           title="Only the people in it can open it"
-        >
-          Debates you can watch are on the Watch page.
-        </Notice>
+        />
         <Link
           href="/watch"
           className={cn(buttonClass('primary'), linkButton, 'w-fit')}
@@ -197,10 +195,7 @@ export function DebatePage({ view }: { readonly view: DebateView }) {
           className="flex w-rail shrink-0 flex-col gap-4 max-compact:w-full"
         >
           <Timeline rows={view.timeline} />
-          <DemoControls
-            blurb="This debate has no backend clock. These step through its turns."
-            items={view.demo}
-          />
+          <DemoControls items={view.demo} />
         </aside>
       </div>
     </div>

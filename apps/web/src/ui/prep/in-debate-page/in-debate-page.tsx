@@ -52,9 +52,6 @@ export function InDebatePage({ view, loadedAt }: InDebatePageProps) {
               <span className="font-display text-3xl font-bold tabular-nums">
                 0:00
               </span>
-              <span className="text-sm text-stage-ink-muted">
-                of [speech time]
-              </span>
             </p>
           </div>
         </section>
@@ -74,10 +71,6 @@ export function InDebatePage({ view, loadedAt }: InDebatePageProps) {
             <Badge tone="neutral">Listening</Badge>
           </li>
         </ul>
-        <p className="text-xs text-ink-faint">
-          Room stage shown for context, with sample values. The room itself is
-          built with the rooms. The judge is assigned by the system.
-        </p>
       </div>
       {query.open ? <div aria-hidden="true" className={scrimClass} /> : null}
       <RoomPanel view={view} loadedAt={loadedAt} />

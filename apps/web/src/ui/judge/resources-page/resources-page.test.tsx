@@ -22,9 +22,8 @@ describe('ResourcesPage', () => {
         html.match(/href="\?did=/g)?.length,
         html.includes('disabled=""'),
         html.includes('not written yet'),
-        html.includes('Ratings stay hidden while you judge'),
       ],
-      expected: [1, 6, 1, 6, false, false, true],
+      expected: [1, 6, 1, 6, false, false],
     });
   });
 });

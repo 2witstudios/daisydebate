@@ -53,14 +53,12 @@ describe('liveView', () => {
         view.verb,
         view.text.startsWith('The motion assumes'),
         view.rows.map((row) => row.state),
-        view.opponentNote,
       ],
       expected: [
         false,
         'The AI debater is speaking',
         true,
         ['done', 'current', 'todo', 'todo', 'todo'],
-        'Sandbox actor. Practice only.',
       ],
     });
   });
@@ -141,9 +139,9 @@ describe('liveView', () => {
     );
     assert({
       given: 'solo speeches',
-      should: 'run three turns with the solo note',
-      actual: [view.total, view.opponentNote],
-      expected: [3, 'No opponent. Only your seat speaks.'],
+      should: 'run three turns',
+      actual: view.total,
+      expected: 3,
     });
   });
 });

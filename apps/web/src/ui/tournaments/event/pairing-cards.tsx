@@ -24,23 +24,17 @@ export function PairingCards({ pairing }: { readonly pairing: Pairing }) {
       <div className={card}>
         <p className={label}>Your side</p>
         <p className="text-md font-strong text-ink">{pairing.side}</p>
-        <p className="text-sm text-ink-muted">Sides are set by the pairing</p>
       </div>
       <div className={card}>
         <p className={label}>Room and time</p>
         <p className="text-md font-strong text-ink">{pairing.room}</p>
         <p className="text-sm text-ink-muted">
-          {`${formatDay(pairing.startsAt)}, ${formatTime(pairing.startsAt)} UTC. Room opens at ${formatTime(shiftMinutes(pairing.startsAt, -CHECK_IN_MINUTES))}.`}
+          {`${formatDay(pairing.startsAt)}, ${formatTime(pairing.startsAt)} UTC · opens ${formatTime(shiftMinutes(pairing.startsAt, -CHECK_IN_MINUTES))}`}
         </p>
       </div>
       <div className={card}>
         <p className={label}>Your judge</p>
         <Person handle={pairing.judge} />
-        <p className="text-sm text-ink-muted">
-          Assigned by Daisy. Judges are chosen by the system after a conflict
-          check. Their rating is hidden while they judge. You cannot pick or
-          strike a judge.
-        </p>
       </div>
     </div>
   );

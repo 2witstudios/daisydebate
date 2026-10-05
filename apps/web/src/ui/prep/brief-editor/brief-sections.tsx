@@ -16,19 +16,12 @@ export function FramingSection({ view }: { readonly view: BriefEditorView }) {
       <h2 id="sec-heading" className="text-lg font-bold">
         Motion and framing
       </h2>
-      <WordField
-        id="res"
-        label="Motion"
-        single
-        value={brief.framing.motion}
-        helper="Filled from the motion list when you choose one."
-      />
+      <WordField id="res" label="Motion" single value={brief.framing.motion} />
       <WordField
         id="burden"
         label="Burden and weighing"
         value={brief.framing.burden}
         words={wordCount(brief.framing.burden)}
-        helper="The standard your contentions are weighed against."
       />
       <EvidenceList cards={brief.framing.cards} showCount={false} />
     </section>
@@ -57,14 +50,12 @@ export function ContentionSection({
         label="Tag line"
         single
         value={contention.tag}
-        helper="The line that appears in the outline and on the flow."
       />
       <WordField
         id={`cl-${contention.id}`}
         label="Claim"
         value={contention.claim}
         words={section.claimWords}
-        helper="What you are asking the judge to accept."
       />
       <WordField
         id={`wa-${contention.id}`}
@@ -72,14 +63,12 @@ export function ContentionSection({
         rows={6}
         value={contention.warrant}
         words={section.warrantWords}
-        helper="Why the claim is true. Attach cards below as proof."
       />
       <WordField
         id={`im-${contention.id}`}
         label="Impact"
         value={contention.impact}
         words={section.impactWords}
-        helper="Why it matters, and how it compares."
       />
       <EvidenceList
         cards={contention.cards}
@@ -102,8 +91,8 @@ export function ContentionSection({
         label={`Contention ${number} on its own`}
         clock={section.clock}
         budget={section.own}
-        overText={`Over [speech time] by [${time.overClock}].`}
-        spareText={`[${section.own.spareClock}] to spare`}
+        overText={`${time.overClock} over`}
+        spareText={`${section.own.spareClock} to spare`}
       />
     </section>
   );

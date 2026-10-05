@@ -17,7 +17,7 @@ export function CoachCard({
       </TrainCard>
     );
   return (
-    <TrainCard title="Coach prompts" sample>
+    <TrainCard title="Coach prompts">
       <ul className="flex flex-col gap-2">
         {view.prompts.map((prompt) => (
           <li key={prompt} className="flex gap-3 text-base text-ink">
@@ -34,9 +34,6 @@ export function CoachCard({
           <b className="font-strong text-gold">Hint.</b> {hint}
         </p>
       )}
-      <p className="text-sm text-ink-faint">
-        Prompts and hints are free. They are not scored.
-      </p>
     </TrainCard>
   );
 }

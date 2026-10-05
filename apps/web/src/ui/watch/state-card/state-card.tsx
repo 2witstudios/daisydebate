@@ -7,7 +7,7 @@ export type StateCardProps = {
   readonly title: string;
   /** `h1` when the card is the whole page, `h2` inside a list. */
   readonly level?: 'h1' | 'h2';
-  readonly children: ReactNode;
+  readonly children?: ReactNode;
   readonly actions?: ReactNode;
 };
 
@@ -28,9 +28,11 @@ export function StateCard({
       <Heading className="font-display text-xl font-bold tracking-tight text-ink">
         {title}
       </Heading>
-      <div className="flex max-w-search flex-col gap-2 text-base text-ink-muted">
-        {children}
-      </div>
+      {children ? (
+        <div className="flex max-w-search flex-col gap-2 text-base text-ink-muted">
+          {children}
+        </div>
+      ) : null}
       {actions ? (
         <div className="mt-2 flex flex-wrap items-center justify-center gap-3 max-compact:w-full max-compact:flex-col">
           {actions}

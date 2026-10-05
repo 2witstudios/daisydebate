@@ -46,20 +46,18 @@ describe('EventPage', () => {
     const html = render('released');
     assert({
       given: 'the released moment',
-      should:
-        'show opponent, side, room and judge, and a disabled check-in with its reason',
+      should: 'show opponent, side, room and judge, and a disabled check-in',
       actual: [
         html.includes('Your opponent'),
         html.includes('@debater-c'),
         html.includes('Negative'),
         html.includes('Harvest Cup, Semifinal 1'),
         html.includes('@judge-k'),
-        html.includes('You cannot pick or strike a judge'),
         /<button type="button" disabled=""[^>]*>Check in \(opens 12:08\)</.test(
           html,
         ),
       ],
-      expected: [true, true, true, true, true, true, true],
+      expected: [true, true, true, true, true, true],
     });
   });
 

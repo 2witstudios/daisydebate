@@ -37,20 +37,13 @@ describe('destinations', () => {
     });
   });
 
-  test('has complete copy for every destination', () => {
+  test('has copy for every destination', () => {
     assert({
       given: 'every destination',
-      should: 'carry a tagline, a description, four steps and abilities',
+      should: 'carry a title and a tagline',
       actual: destinationSlugs.filter((slug) => {
         const copy = destinations[slug];
-        return (
-          copy.title === '' ||
-          copy.tagline === '' ||
-          copy.what === '' ||
-          copy.steps.length !== 4 ||
-          copy.steps.some((step) => step.title === '' || step.body === '') ||
-          copy.abilities.length < 3
-        );
+        return copy.title === '' || copy.tagline === '';
       }),
       expected: [],
     });

@@ -176,10 +176,6 @@ function Empty({ view }: { readonly view: ReviewView }) {
       <h2 className="font-display text-2xl font-bold text-ink">
         Nothing to review yet
       </h2>
-      <p className="text-base text-ink-muted">
-        Save an argument from a drill and it comes back here on a schedule that
-        spaces out as you recall it.
-      </p>
       <Link
         href={view.drillHref}
         className={cn(buttonClass('primary'), linkButton, 'w-fit')}
@@ -195,14 +191,9 @@ export function ReviewPage({ view }: { readonly view: ReviewView }) {
   return (
     <TrainPage>
       <BackLink href={view.backHref}>Train</BackLink>
-      <header className="flex flex-col gap-1">
-        <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
-          Review
-        </h1>
-        <p className="text-base text-ink-muted">
-          Recall each argument from its claim, then see how you did.
-        </p>
-      </header>
+      <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
+        Review
+      </h1>
       <TrainColumns
         asideLabel="Review queue"
         main={

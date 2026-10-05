@@ -12,21 +12,6 @@ export type WaitingPageProps = { readonly view: WaitingView };
 
 const link = 'no-underline hover:no-underline';
 
-const next: readonly { readonly title: string; readonly body: string }[] = [
-  {
-    title: 'The system picks a debate',
-    body: 'It checks for conflicts and never uses who is debating.',
-  },
-  {
-    title: 'You get one offer',
-    body: 'You see the topic and a response window. Debaters stay hidden.',
-  },
-  {
-    title: 'Accept or decline',
-    body: 'Declining costs you nothing. Accepting reveals the debaters and opens the debate.',
-  },
-];
-
 function InPool({ view }: WaitingPageProps) {
   return (
     <section
@@ -43,10 +28,6 @@ function InPool({ view }: WaitingPageProps) {
       <h1 className="font-display text-3xl leading-tight font-bold text-stage-ink">
         Looking for a debate
       </h1>
-      <p className="max-w-1/2 text-md leading-normal text-stage-ink-muted max-compact:max-w-full">
-        You are in the judge pool. There is no list of debates to browse. When a
-        debate needs a judge, you get one offer.
-      </p>
       <dl className="flex flex-wrap gap-8">
         <div className="flex flex-col gap-1">
           <dt className="text-sm text-stage-ink-muted">Waiting</dt>
@@ -89,10 +70,6 @@ function Left({ view }: WaitingPageProps) {
       <h1 className="font-display text-2xl font-bold">
         You left the judge pool
       </h1>
-      <p className="text-md leading-normal text-ink-muted">
-        No debate was assigned and nothing is recorded against you. Start again
-        whenever you are ready.
-      </p>
       <div className="flex flex-wrap gap-3">
         <Link
           href={view.restartHref}
@@ -125,35 +102,11 @@ export function WaitingPage({ view }: WaitingPageProps) {
           )}
         </div>
         <div className="col-span-5 flex flex-col gap-4 max-compact:col-span-1">
-          <Panel title="What happens next">
-            <ol className="flex flex-col gap-5">
-              {next.map(({ title, body }, index) => (
-                <li key={title} className="flex items-start gap-4">
-                  <span
-                    aria-hidden="true"
-                    className="inline-flex size-8 shrink-0 items-center justify-center rounded-round bg-accent-soft text-base font-bold text-accent"
-                  >
-                    {index + 1}
-                  </span>
-                  <div className="flex flex-col gap-1">
-                    <p className="text-md font-strong">{title}</p>
-                    <p className="text-base leading-normal text-ink-muted">
-                      {body}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </Panel>
           <Notice tone="accent" icon="bell" title="Keep this page open">
-            You see the offer here. If notifications are on, Daisy also alerts
-            you. Leaving without cancelling lets an offer expire.
+            Offers expire if you leave.
           </Notice>
           <Panel title="While you wait">
             <div className="flex flex-col gap-3">
-              <p className="text-base leading-normal text-ink-muted">
-                Read the ballot criteria or practise on a recorded debate.
-              </p>
               <div className="flex flex-wrap gap-3">
                 <Link
                   href={judgeRoutes.resources}

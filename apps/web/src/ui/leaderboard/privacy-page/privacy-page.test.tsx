@@ -19,9 +19,9 @@ describe('PrivacyPage', () => {
         html.includes('>Hidden on purpose<'),
         html.includes('Ratings while you judge'),
         html.includes('Deleted accounts'),
-        html.includes('ADR 0036'),
+        html.includes('ADR'),
       ],
-      expected: [1, true, true, true, true, true, true],
+      expected: [1, true, true, true, true, true, false],
     });
   });
 
@@ -38,15 +38,6 @@ describe('PrivacyPage', () => {
         html.includes('href="/settings#privacy"'),
       ],
       expected: [true, false, true, true, true],
-    });
-  });
-
-  test('the region is marked proposed', () => {
-    assert({
-      given: 'the region row',
-      should: 'carry the proposed marker',
-      actual: html.includes('>proposed<'),
-      expected: true,
     });
   });
 });

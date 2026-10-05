@@ -5,7 +5,6 @@ import {
   type LiveQuery,
 } from '../../../features/watch/live-query';
 import { watchRoutes } from '../../../features/watch/routes';
-import { Icon } from '../../components/icon/icon';
 import { ActionLink } from '../action-link/action-link';
 import { FilterForm } from '../filter-form/filter-form';
 import { FeaturedDebate } from '../featured-debate/featured-debate';
@@ -50,7 +49,7 @@ export function LiveTab({ query, listing }: LiveTabProps) {
     return (
       <StateCard
         icon="eye"
-        title="No debates are live right now"
+        title="Nothing live right now"
         actions={
           <>
             <InertButton action="notify" variant="primary">
@@ -64,23 +63,13 @@ export function LiveTab({ query, listing }: LiveTabProps) {
             </ActionLink>
           </>
         }
-      >
-        <p>
-          Public ranked and casual debates appear here while they run, and leave
-          when they end. Unlisted and private rooms are never listed. Recent
-          debates are in the recordings archive.
-        </p>
-      </StateCard>
+      />
     );
 
   const nothingMatches = listing.featured === null && listing.rows.length === 0;
   return (
     <div className="flex flex-col gap-4">
       <Filters query={query} />
-      <p className="flex items-center gap-2 text-sm text-ink-muted">
-        <Icon name="clock" size={16} />
-        {`Spectators see every debate about ${listing.delaySeconds} seconds behind, so nobody can relay moves to a debater. Only public debates are listed.`}
-      </p>
       {listing.featured ? (
         <FeaturedDebate
           card={listing.featured}
@@ -105,12 +94,7 @@ export function LiveTab({ query, listing }: LiveTabProps) {
               Clear filters
             </ActionLink>
           }
-        >
-          <p>
-            Try a different search or mode, or clear the filters to see
-            everything that is live.
-          </p>
-        </StateCard>
+        />
       ) : null}
     </div>
   );

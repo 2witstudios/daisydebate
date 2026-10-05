@@ -103,7 +103,6 @@ export function DebatesPage({
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
       <PageHeader
         title="My debates"
-        lede="Every debate you have finished, with its result and ballot."
         actions={
           <Link href="/play" className={cn(buttonClass('primary'), linkButton)}>
             Open a practice room
@@ -128,10 +127,6 @@ export function DebatesPage({
           <h2 className="font-display text-xl font-bold text-ink">
             No debates here yet
           </h2>
-          <p className="text-base text-ink-muted">
-            Open a practice room or take a seat in the lobby, and the result
-            lands here.
-          </p>
           <Link
             href="/lobby"
             className={cn(buttonClass('secondary'), linkButton)}

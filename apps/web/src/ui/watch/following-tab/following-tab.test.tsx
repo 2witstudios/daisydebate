@@ -19,16 +19,14 @@ describe('FollowingTab', () => {
     );
     assert({
       given: 'a member with follows and history',
-      should:
-        'link a live follow to its debate, history to replays, and say it is private',
+      should: 'link a live follow to its debate and history to replays',
       actual: [
         html.includes('Live now in Quarterfinal practice'),
         html.includes('href="/watch/quarterfinal-practice"'),
         html.includes('href="/recordings/semifinal-rehearsal"'),
         html.includes('href="?did=Clear+history"'),
-        html.includes('private to you'),
       ],
-      expected: [true, true, true, true, true],
+      expected: [true, true, true, true],
     });
   });
 

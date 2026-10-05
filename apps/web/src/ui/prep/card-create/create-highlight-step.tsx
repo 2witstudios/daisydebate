@@ -53,17 +53,11 @@ export function CreateHighlightStep({
           </ul>
         </nav>
         <p className="text-sm text-ink-muted">
-          {`Read aloud: ${draft.readWords} words · about ${draft.readClock} at your pace of ${view.paceLabel} words a minute`}
+          {`${draft.readWords} words · about ${draft.readClock}`}
         </p>
       </div>
       <p className="rounded-lg bg-surface-raised p-5 text-md leading-normal text-ink-muted">
         <SourceText segments={draft.segments} />
-      </p>
-      <p className="flex items-start gap-2 text-sm text-ink-muted">
-        <PrepIcon name="info" size={16} className="mt-1" />
-        Select words, then choose a tool. Highlighting is a layer on top of the
-        original text. The words themselves cannot be edited, so anyone can
-        check the passage against the source.
       </p>
       <div className="flex items-center justify-between gap-3">
         {view.backHref === null ? null : (

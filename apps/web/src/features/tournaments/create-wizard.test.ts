@@ -108,10 +108,10 @@ describe('wizardSummary', () => {
         rr.roundRows.length,
       ],
       expected: [
-        '32 places: 5 rounds. If fewer enter, the top seeds get byes.',
-        'Round 1 can run up to 16 debates at once, so you need up to 16 judges.',
+        '5 rounds',
+        'Round 1 needs up to 16 judges.',
         ['Round of 32', 'Round of 16', 'Quarterfinals', 'Semifinals', 'Final'],
-        '8 entrants: each meets every other once, 7 rounds.',
+        '7 rounds, everyone meets once',
         7,
         7,
       ],
@@ -145,7 +145,7 @@ describe('reviewFacts', () => {
         'Places: 16, 4 rounds',
         'Registration: Opens 12 Oct, closes 5 Nov, 18:00 UTC',
         'Rules: Standard rules, unrated',
-        'Judging: 1 judge, assigned by Daisy',
+        'Judging: 1 judge',
         'Listing: Public',
       ],
     });

@@ -212,17 +212,17 @@ test('confirmPageStylesheet: the panel is the forest stage with its own ink, and
   assert({
     given: 'the confirm pages stylesheet',
     should:
-      'paint the panel with the stage surface and stage ink, its kicker and body with the muted stage ink, and name no emerald token',
+      'paint the panel with the stage surface and stage ink, its kicker with the muted stage ink, and name no emerald token',
     actual: {
       panel: [
         rule('.af-panel').includes('background: var(--af-surface-stage);'),
         rule('.af-panel').includes('color: var(--af-stage-ink);'),
       ],
-      muted: [rule('.af-panel-kicker'), rule('.af-panel-body')].map((body) =>
-        body.includes('color: var(--af-stage-ink-muted);'),
+      muted: rule('.af-panel-kicker').includes(
+        'color: var(--af-stage-ink-muted);',
       ),
       emerald: /emerald/i.test(css),
     },
-    expected: { panel: [true, true], muted: [true, true], emerald: false },
+    expected: { panel: [true, true], muted: true, emerald: false },
   });
 });

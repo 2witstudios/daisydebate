@@ -110,10 +110,6 @@ export function SearchBox({
           className="min-w-0 flex-1 bg-transparent text-ink placeholder:text-ink-faint"
         />
       </label>
-      <p className="text-xs text-ink-faint">
-        Searches your whole library, read only. Nothing you type is sent to the
-        room.
-      </p>
     </form>
   );
 }
@@ -174,8 +170,7 @@ function ReadingCard({
             <strong className="block text-base">
               Send this card to the room?
             </strong>
-            Your opponent and the judge will see this one card and its citation.
-            Nothing else from your prep is shared.
+            Your opponent and the judge will see this card and its citation.
           </p>
           <div className="flex gap-2">
             <InertActionButton
@@ -218,9 +213,8 @@ export function PinnedBody({
       />
       {body.tab === 'speech' ? (
         <div className="flex flex-col gap-3">
-          <p className="flex items-baseline justify-between text-sm">
+          <p className="text-sm">
             <strong>{`Now: ${body.speech.label}`}</strong>
-            <span className="text-ink-muted">[speech time]</span>
           </p>
           <ul className="flex flex-col gap-2">
             {body.speech.rows.map((row) => (
@@ -254,9 +248,6 @@ export function PinnedBody({
               )}
             </div>
           )}
-          <p className="text-xs text-ink-faint">
-            Ticks stay on this page only.
-          </p>
         </div>
       ) : null}
       {body.tab === 'cards' ? (
@@ -265,7 +256,7 @@ export function PinnedBody({
             ...c,
             href: roomPanelHref({ ...query, card: c.id }),
           }))}
-          empty="No cards in this case yet. Search your library."
+          empty="No cards in this case yet"
         />
       ) : null}
       {body.tab === 'search' ? (

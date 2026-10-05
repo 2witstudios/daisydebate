@@ -87,7 +87,7 @@ describe('ConsolePage', () => {
       actual: [
         html.includes('@judge-01'),
         html.includes('Reassigned'),
-        html.includes('You cannot pick judges.'),
+        html.includes('volunteer judges'),
         /href="\/tournaments\/organize\/autumn-open\?round=released"[^>]*>Release to entrants</.test(
           html,
         ),
@@ -122,7 +122,7 @@ describe('ConsolePage', () => {
       actual: [
         html.includes('24 entered, 1 withdrawn, waitlist empty'),
         html.match(/>Bye</g)?.length,
-        html.includes('Showing 9 of 24.'),
+        html.includes('Showing 9 of 24'),
         (html.match(/href="\?did=Remove"/g) ?? []).length,
       ],
       expected: [true, 8, true, 9],
@@ -151,7 +151,7 @@ describe('ConsolePage', () => {
       given: 'a round not yet running',
       should: 'say no results yet',
       actual: render('autumn-open', { tab: 'results' }).includes(
-        'No results yet.',
+        'No results yet',
       ),
       expected: true,
     });
@@ -171,9 +171,8 @@ describe('ConsolePage', () => {
             /href="\?did=(Dismiss|Warn|Forfeit\+the\+round|Disqualify)"/g,
           ) ?? []
         ).length,
-        html.includes('organizer-only'),
       ],
-      expected: [true, true, true, 4, true],
+      expected: [true, true, true, 4],
     });
   });
 
@@ -182,7 +181,7 @@ describe('ConsolePage', () => {
       given: 'a setup round',
       should: 'say no reports yet',
       actual: render('autumn-open', { tab: 'moderation' }).includes(
-        'No reports or forfeit requests yet.',
+        'No reports yet',
       ),
       expected: true,
     });
@@ -220,13 +219,13 @@ describe('ConsolePage', () => {
 });
 
 describe('ConsoleUnavailable', () => {
-  test('explains and links back to Organize', () => {
+  test('links back to Organize', () => {
     const html = renderToString(h(ConsoleUnavailable));
     assert({
       given: 'an unknown tournament',
-      should: 'say you can only manage your own',
+      should: 'say it was not found and link back',
       actual: [
-        html.includes('You can only manage tournaments you organize.'),
+        html.includes('We could not find that tournament'),
         html.includes('href="/tournaments/organize"'),
       ],
       expected: [true, true],

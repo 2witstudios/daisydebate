@@ -66,16 +66,15 @@ describe('ResultsPage', () => {
     const honours = render('summer-invitational', { tab: 'honours' });
     assert({
       given: 'the rounds and honours tabs',
-      should: 'list the final, and the four honours with the no-rating note',
+      should: 'list the final, and the four honours',
       actual: [
         rounds.includes('@debater-c</b> beat @debater-a'),
         rounds.includes('Judge @judge-a'),
         honours.match(
           /<li class="flex items-start gap-3 rounded-lg border border-gold-border/g,
         )?.length,
-        honours.includes('never change'),
       ],
-      expected: [true, true, 4, true],
+      expected: [true, true, 4],
     });
   });
 
@@ -152,7 +151,7 @@ describe('Certificate', () => {
         certificate.includes('Certificate of Recognition'),
         certificate.includes('@debater-a'),
         certificate.includes('placed second as runner-up'),
-        certificate.includes('Certificate cert-sample-0001 (sample)'),
+        certificate.includes('Certificate cert-sample-0001'),
         page.match(/<h1 /g)?.length,
         page.includes('print:hidden'),
         page.includes('href="/tournaments/summer-invitational/results"'),

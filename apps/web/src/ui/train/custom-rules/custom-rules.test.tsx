@@ -28,19 +28,18 @@ describe('CustomRules', () => {
     const html = render();
     assert({
       given: 'the page opened with no choices',
-      should: 'say practice only and show the rules, preview and difference',
+      should: 'show the rules, preview and difference',
       actual: [
         html.match(/<h1/g)?.length,
-        html.includes('Practice only. Never rated.'),
         html.includes('7 min'),
         html.includes('4 min'),
         html.includes('Custom rules'),
-        html.includes('Speech length is 7 min. The standard rules use 5.'),
+        html.includes('Speech 7 min (standard 5)'),
         html.includes('Longer speeches'),
         html.includes('Save to my rule sets'),
         html.includes('Practice with these rules'),
       ],
-      expected: [1, true, true, true, true, true, true, true, true],
+      expected: [1, true, true, true, true, true, true, true],
     });
   });
 
@@ -79,7 +78,7 @@ describe('CustomRules', () => {
       should: 'say so and list no differences',
       actual: [
         html.includes('Standard rules'),
-        html.includes('Same as the standard rules.'),
+        html.includes('Standard rules</p>'),
       ],
       expected: [true, true],
     });
@@ -93,9 +92,7 @@ describe('CustomRules', () => {
       actual: [
         html.includes('role="alert"'),
         html.includes('Ranked cannot use this table'),
-        html.includes(
-          'Ranked runs only the standard rules. These rules are custom.',
-        ),
+        html.includes('Ranked uses the standard rules only.'),
         html.includes('href="/lobby?mode=ranked"'),
         html.includes('Keep it as practice'),
       ],
@@ -115,7 +112,7 @@ describe('CustomRules', () => {
       given: 'the set saved',
       should: 'confirm and drop the save link',
       actual: [
-        html.includes('Saved. Only you can see it.'),
+        html.includes('Saved</p>'),
         html.includes('Save to my rule sets'),
       ],
       expected: [true, false],
@@ -138,19 +135,17 @@ describe('CustomRules', () => {
     });
   });
 
-  test('your rule sets are unrated and start practices', () => {
+  test('your rule sets start practices', () => {
     const html = render();
     assert({
       given: 'the two sample rule sets',
-      should: 'list both as Unrated with a Practice link each',
+      should: 'list both with a Practice link each',
       actual: [
         html.includes('Solo, one side'),
-        html.match(/Unrated/g)?.length,
         html.includes('aria-label="Practice: Solo, one side"'),
         html.includes('href="/train/practice?opp=solo&amp;seats=solo"'),
-        html.includes('Running a tournament?'),
       ],
-      expected: [true, 2, true, true, true],
+      expected: [true, true, true],
     });
   });
 });

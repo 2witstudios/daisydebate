@@ -12,14 +12,13 @@ describe('WeekCard', () => {
     const html = renderToString(h(WeekCard, { summary: sampleSummary }));
     assert({
       given: 'three sessions against a goal of three',
-      should: 'say the goal is met and that rest days cost nothing',
+      should: 'say the goal is met',
       actual: [
         html.includes('3 of 3 sessions'),
         html.includes(': goal met.'),
-        html.includes('Missing a day resets nothing'),
         html.includes('Practiced 12 of the last 30 days'),
       ],
-      expected: [true, true, true, true],
+      expected: [true, true, true],
     });
   });
 

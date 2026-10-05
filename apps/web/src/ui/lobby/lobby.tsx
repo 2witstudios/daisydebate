@@ -28,13 +28,8 @@ export function Lobby({ listing, query, now }: LobbyProps) {
           <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
             Lobby
           </h1>
-          <p className="text-base text-ink-muted">
-            <span className="max-compact:hidden">
-              Open tables and live rooms to watch.{' '}
-            </span>
-            <span className="text-ink-faint">
-              {`Your rating ${listing.viewer.rating}`}
-            </span>
+          <p className="text-base text-ink-faint">
+            {`Your rating ${listing.viewer.rating}`}
           </p>
         </div>
         <div className="flex gap-3 max-compact:contents">

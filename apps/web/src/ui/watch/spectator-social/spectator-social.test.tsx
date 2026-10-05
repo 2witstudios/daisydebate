@@ -26,9 +26,8 @@ describe('Reactions', () => {
         html.includes('Sharp point 38'),
         (html.match(/href="\?did=React"/g) ?? []).length,
         html.includes('disabled=""'),
-        html.includes('Anonymous totals.'),
       ],
-      expected: [true, 4, false, true],
+      expected: [true, 4, false],
     });
   });
 
@@ -80,7 +79,7 @@ describe('Chat', () => {
       given: 'chat after the debate ends',
       should: 'say it closed and offer no composer or report links',
       actual: [
-        html.includes('Chat closed when the debate ended.'),
+        html.includes('Chat closed'),
         html.includes('chat-draft'),
         html.includes('Report this message'),
       ],

@@ -19,12 +19,12 @@ describe('rankedRules', () => {
     const copy = rules.map(({ body }) => body).join(' ');
     assert({
       given: 'a grace of 40 seconds and 10 provisional debates',
-      should: 'state both numbers, a forfeit and only casual custom rules',
+      should: 'state both numbers, a forfeit and casual-only custom rules',
       actual: [
-        copy.includes('within 40 seconds'),
-        copy.includes('finish 10 ranked debates'),
+        copy.includes('by 40 seconds'),
+        copy.includes('first 10 debates'),
         copy.includes('forfeit'),
-        copy.includes('Only casual tables can use custom rules'),
+        copy.includes('Custom rules are for casual tables'),
       ],
       expected: [true, true, true, true],
     });
