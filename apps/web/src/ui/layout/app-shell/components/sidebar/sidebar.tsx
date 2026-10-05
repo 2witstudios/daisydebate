@@ -1,6 +1,10 @@
 import Link from 'next/link';
 import { DaisyLogo } from '../../../../components/daisy-mark/daisy-mark';
 import { NavItem } from '../../../../components/nav-item/nav-item';
+import {
+  navFlyoutClass,
+  navFlyoutLinkClass,
+} from '../../../../components/nav-item/nav-item-class';
 import { Icon } from '../../../../components/icon/icon';
 import type { ShellAccount } from '../../account';
 import { NavToggle } from './nav-toggle';
@@ -28,7 +32,7 @@ const trailingNavigation = [
   { href: '/settings', icon: 'dots', label: 'More' },
 ] as const;
 
-const footerLinks = [
+const legalLinks = [
   { href: '/help', label: 'Help' },
   { href: '/terms', label: 'Terms' },
   { href: '/privacy', label: 'Privacy' },
@@ -40,7 +44,7 @@ export type SidebarProps = {
 };
 
 const visitorLink =
-  'mx-4 flex min-h-12 items-center justify-center gap-2 rounded-md bg-accent px-4 text-sm font-bold whitespace-nowrap text-accent-ink no-underline hover:bg-accent-strong hover:no-underline icons:mx-2 icons:px-0';
+  'mx-4 mb-4 flex min-h-12 items-center justify-center gap-2 rounded-md bg-accent px-4 text-sm font-bold whitespace-nowrap text-accent-ink no-underline hover:bg-accent-strong hover:no-underline icons:mx-2 icons:mb-3 icons:px-0';
 
 /**
  * A visitor's way in. A member has none here: their account sits at the top
@@ -60,6 +64,49 @@ function VisitorAccount({ account }: { readonly account: ShellAccount }) {
   );
 }
 
+/**
+ * Help, Terms and Privacy, always the last row of the sidebar. Icon only, a
+ * help icon whose flyout lists them, on hover and keyboard focus.
+ */
+function LegalLinks() {
+  return (
+    <>
+      <ul className="flex list-none gap-x-4 border-t border-border px-5 pt-3 pb-4 text-xs icons:hidden">
+        {legalLinks.map((link) => (
+          <li key={link.href}>
+            <Link href={link.href} className="text-ink-muted">
+              {link.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+      <div className="hidden justify-center border-t border-border py-2 icons:flex">
+        <span className="group relative block">
+          <Link
+            href="/help"
+            aria-label="Help, terms and privacy"
+            title="Help, terms and privacy"
+            className="flex size-12 items-center justify-center rounded-md text-ink-muted no-underline hover:bg-surface-overlay hover:text-ink hover:no-underline"
+          >
+            <Icon name="help" size={20} />
+          </Link>
+          <span className={navFlyoutClass('bottom')}>
+            {legalLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={navFlyoutLinkClass}
+              >
+                {link.label}
+              </Link>
+            ))}
+          </span>
+        </span>
+      </div>
+    </>
+  );
+}
+
 export function Sidebar({ account }: SidebarProps) {
   const navigation = [
     ...baseNavigation,
@@ -75,17 +122,20 @@ export function Sidebar({ account }: SidebarProps) {
     ...trailingNavigation,
   ];
   return (
-    <nav aria-label="Primary" className="flex h-full flex-col pb-4">
-      <Link
-        href="/"
-        aria-label="Daisy Debate home"
-        className="flex h-16 shrink-0 items-center gap-2 px-5 text-ink no-underline hover:no-underline icons:justify-center icons:px-0"
-      >
-        <DaisyLogo />
-        <span className="font-display text-xl leading-shell-brand font-semibold tracking-tight whitespace-nowrap text-ink icons:hidden">
-          Daisy Debate
-        </span>
-      </Link>
+    <nav aria-label="Primary" className="flex h-full flex-col">
+      <div className="flex shrink-0 items-center gap-2 pr-2 pl-5 icons:flex-col icons:gap-0 icons:px-0 icons:pb-2">
+        <Link
+          href="/"
+          aria-label="Daisy Debate home"
+          className="flex h-16 min-w-0 flex-1 items-center gap-2 text-ink no-underline hover:no-underline icons:flex-none icons:justify-center"
+        >
+          <DaisyLogo />
+          <span className="font-display text-xl leading-shell-brand font-semibold tracking-tight whitespace-nowrap text-ink icons:hidden">
+            Daisy Debate
+          </span>
+        </Link>
+        <NavToggle />
+      </div>
       <div className="flex-1">
         <ul className="flex list-none flex-col gap-1 p-4 icons:px-2 icons:py-0">
           {navigation.map((item) => (
@@ -100,19 +150,8 @@ export function Sidebar({ account }: SidebarProps) {
           ))}
         </ul>
       </div>
-      <ul className="mx-5 flex list-none flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted icons:hidden">
-        {footerLinks.map((link) => (
-          <li key={link.href}>
-            <Link href={link.href} className="text-ink-muted">
-              {link.label}
-            </Link>
-          </li>
-        ))}
-      </ul>
-      <div className="mt-4 flex flex-col gap-3">
-        <VisitorAccount account={account} />
-        <NavToggle />
-      </div>
+      <VisitorAccount account={account} />
+      <LegalLinks />
     </nav>
   );
 }

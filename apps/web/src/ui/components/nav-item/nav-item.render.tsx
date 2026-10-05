@@ -1,7 +1,12 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { Icon, type IconName } from '../icon/icon';
-import { navCaretClass, navItemClass } from './nav-item-class';
+import {
+  navCaretClass,
+  navFlyoutClass,
+  navFlyoutLinkClass,
+  navItemClass,
+} from './nav-item-class';
 
 export type NavItemChild = {
   readonly href: string;
@@ -36,12 +41,12 @@ export function renderNavItem(props: NavItemRenderProps): ReactNode {
         ) : null}
       </Link>
       {hasChildren ? (
-        <span className="invisible absolute top-0 left-full z-30 ml-2 flex min-w-flyout -translate-x-flyout-shift flex-col gap-1 rounded-md border border-border bg-surface-raised p-2 opacity-0 shadow-3 transition-all duration-120 ease-standard group-focus-within:visible group-focus-within:translate-x-0 group-focus-within:opacity-100 group-hover:visible group-hover:translate-x-0 group-hover:opacity-100">
+        <span className={navFlyoutClass('top')}>
           {subItems.map((child) => (
             <Link
               key={child.href}
               href={child.href}
-              className="block rounded-sm px-3 py-2 text-sm font-semibold whitespace-nowrap text-ink-muted no-underline hover:bg-surface-overlay hover:text-ink hover:no-underline"
+              className={navFlyoutLinkClass}
             >
               {child.label}
             </Link>

@@ -46,6 +46,27 @@ describe('SocialRail', () => {
     });
   });
 
+  test('each view leads with you, then its collapse control', () => {
+    const html = render(member);
+    const full = html.slice(
+      html.indexOf('social-full'),
+      html.indexOf('social-strip'),
+    );
+    const strip = html.slice(html.indexOf('social-strip'));
+    assert({
+      given: 'the open panel and the strip',
+      should:
+        'put the toggle on the page side of the open header, and right below your avatar in the strip, before notifications',
+      actual: [
+        full.indexOf('Collapse friends') < full.indexOf('Account settings for'),
+        strip.indexOf('Account settings for') < strip.indexOf('Expand friends'),
+        strip.indexOf('Expand friends') <
+          strip.indexOf('href="/notifications"'),
+      ],
+      expected: [true, true, true],
+    });
+  });
+
   test('grouped, with what you can do', () => {
     const html = render(member);
     assert({

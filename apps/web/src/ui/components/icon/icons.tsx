@@ -92,16 +92,40 @@ export const iconPaths: Record<string, ReactNode> = {
       <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
     </>
   ),
-  sidebar: (
+  /* Panel toggles: the chevron points the way the panel will move. */
+  panelLeftClose: (
     <>
       <rect x="3" y="4" width="18" height="16" rx="2" />
       <path d="M9 4v16" />
+      <path d="m16 15-3-3 3-3" />
     </>
   ),
-  sidebarRight: (
+  panelLeftOpen: (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M9 4v16" />
+      <path d="m13 9 3 3-3 3" />
+    </>
+  ),
+  panelRightClose: (
     <>
       <rect x="3" y="4" width="18" height="16" rx="2" />
       <path d="M15 4v16" />
+      <path d="m8 9 3 3-3 3" />
+    </>
+  ),
+  panelRightOpen: (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M15 4v16" />
+      <path d="m11 15-3-3 3-3" />
+    </>
+  ),
+  help: (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3" />
+      <path d="M12 17h.01" />
     </>
   ),
   chevronRight: <path d="m9 18 6-6-6-6" />,

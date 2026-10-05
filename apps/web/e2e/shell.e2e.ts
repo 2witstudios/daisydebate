@@ -20,13 +20,14 @@ test.describe('dashboard shell chrome', () => {
     page,
   }) => {
     // 200% zoom of a 1280 by 800 window: the sidebar is taller than the
-    // viewport, so pinning it would strand Sign in and Collapse below it.
+    // viewport, so pinning it would strand Sign in and the legal links below
+    // it.
     await page.setViewportSize({ width: 1280, height: 400 });
     await page.goto('/');
     const nav = page.getByRole('navigation', { name: 'Primary' });
     for (const control of [
       nav.getByRole('link', { name: 'Sign in' }),
-      nav.getByRole('button', { name: 'Collapse sidebar' }),
+      nav.getByRole('link', { name: 'Privacy', exact: true }),
     ]) {
       await control.scrollIntoViewIfNeeded();
       await expect(control).toBeInViewport();

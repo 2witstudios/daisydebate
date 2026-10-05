@@ -39,7 +39,18 @@ function Notifications() {
 function Full({ username, groups, online, setDock }: ViewProps) {
   return (
     <div className="social-full flex-col border-l border-border bg-surface">
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b border-border pr-2 pl-4">
+      <header className="flex h-16 shrink-0 items-center gap-2 border-b border-border px-2">
+        <button
+          type="button"
+          aria-label="Collapse friends"
+          aria-expanded="true"
+          aria-controls="social-rail"
+          title="Collapse friends"
+          onClick={() => setDock('closed')}
+          className={control}
+        >
+          <Icon name="panelRightClose" size={20} />
+        </button>
         <Link
           href="/settings"
           aria-label={`Account settings for ${username}`}
@@ -54,17 +65,6 @@ function Full({ username, groups, online, setDock }: ViewProps) {
           </span>
         </Link>
         <Notifications />
-        <button
-          type="button"
-          aria-label="Collapse friends"
-          aria-expanded="true"
-          aria-controls="social-rail"
-          title="Collapse friends"
-          onClick={() => setDock('closed')}
-          className={`${control} border border-border bg-surface-raised`}
-        >
-          <Icon name="sidebarRight" size={20} />
-        </button>
       </header>
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-3 py-4">
         <h2 className="flex items-baseline gap-2 px-2 text-sm font-strong text-ink">
@@ -123,7 +123,6 @@ function Strip({ username, groups, online, setDock }: ViewProps) {
       >
         <Avatar name={username} presence={viewerStatus} size="md" />
       </Link>
-      <Notifications />
       <button
         type="button"
         aria-label="Expand friends"
@@ -131,10 +130,11 @@ function Strip({ username, groups, online, setDock }: ViewProps) {
         aria-controls="social-rail"
         title="Expand friends"
         onClick={() => setDock('open')}
-        className={`${control} border border-border bg-surface-raised`}
+        className={control}
       >
-        <Icon name="sidebarRight" size={20} />
+        <Icon name="panelRightOpen" size={20} />
       </button>
+      <Notifications />
       <span aria-hidden="true" className="my-1 h-px w-8 bg-border" />
       <span className="text-xs font-bold text-online tabular-nums">
         {`${online} on`}

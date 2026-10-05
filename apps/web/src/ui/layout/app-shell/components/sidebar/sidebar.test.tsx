@@ -44,7 +44,7 @@ describe('Sidebar', () => {
     });
   });
 
-  test('the brand on top, a way in and the collapse control at the foot', () => {
+  test('the brand and collapse control on top, a way in and the legal links at the foot', () => {
     const visitor = renderInStore(
       h(Sidebar, { account: { state: 'anonymous' } }),
     );
@@ -53,22 +53,47 @@ describe('Sidebar', () => {
     );
     const signedIn = renderInStore(h(Sidebar, { account: member }));
     const at = (html: string, needle: string) => html.indexOf(needle);
+    const last = (html: string, needle: string) => html.lastIndexOf(needle);
     assert({
       given: 'a visitor, an account mid sign-up and a member',
       should:
-        'lead with the home brand, then the links, then the way in and the collapse button',
+        'lead with the home brand and the collapse button, then the links, then the way in, and end with Help, Terms and Privacy',
       actual: [
         at(visitor, 'aria-label="Daisy Debate home"') >= 0 &&
           at(visitor, 'aria-label="Daisy Debate home"') <
-            at(visitor, 'href="/play"'),
+            at(visitor, 'aria-label="Collapse sidebar"'),
+        at(visitor, 'aria-label="Collapse sidebar"') <
+          at(visitor, 'href="/play"'),
         at(visitor, 'href="/play"') < at(visitor, 'href="/sign-in"'),
-        at(visitor, 'href="/sign-in"') <
-          at(visitor, 'aria-label="Collapse sidebar"'),
+        at(visitor, 'href="/sign-in"') < at(visitor, 'href="/help"'),
+        ['/help', '/terms', '/privacy'].every(
+          (href) =>
+            last(visitor, `href="${href}"`) > at(visitor, 'href="/sign-in"'),
+        ),
         provisional.includes('href="/onboarding/username"'),
         signedIn.includes('href="/sign-in"'),
         signedIn.includes('aria-label="Collapse sidebar"'),
       ],
-      expected: [true, true, true, true, false, true],
+      expected: [true, true, true, true, true, true, false, true],
+    });
+  });
+
+  test('keeps the legal links when collapsed to icons', () => {
+    const html = renderInStore(h(Sidebar, { account: member }));
+    const iconsOnly = html.slice(
+      html.indexOf('aria-label="Help, terms and privacy"'),
+    );
+    assert({
+      given: 'the sidebar foot',
+      should:
+        'carry a help icon whose flyout lists Help, Terms and Privacy for the icon-only sidebar',
+      actual: [
+        html.includes('aria-label="Help, terms and privacy"'),
+        ['/help', '/terms', '/privacy'].every((href) =>
+          iconsOnly.includes(`href="${href}"`),
+        ),
+      ],
+      expected: [true, true],
     });
   });
 
