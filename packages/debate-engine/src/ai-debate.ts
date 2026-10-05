@@ -45,7 +45,7 @@ export const aiDebateTurns: readonly AiDebateTurn[] = [
     'Cross-examination of the affirmative',
     'cross-examination',
     'negative',
-    3,
+    2,
   ),
   turn(2, 'NC', 'Negative constructive', 'speech', 'negative', 6),
   turn(
@@ -54,7 +54,7 @@ export const aiDebateTurns: readonly AiDebateTurn[] = [
     'Cross-examination of the negative',
     'cross-examination',
     'affirmative',
-    3,
+    2,
   ),
   turn(4, '1AR', 'First affirmative rebuttal', 'speech', 'affirmative', 5),
   turn(5, 'NR', 'Negative rebuttal', 'speech', 'negative', 5),
