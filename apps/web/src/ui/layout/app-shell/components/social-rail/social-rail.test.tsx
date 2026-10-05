@@ -11,21 +11,19 @@ const render = (account: ShellAccount) =>
   renderInStore(h(SocialRail, { account }));
 
 describe('SocialRail', () => {
-  test('you first, then your friends', () => {
+  test('your friends, with your account left to the top bar', () => {
     const html = render(member);
     assert({
       given: 'a signed-in member',
-      should:
-        'render the rail with your account and notifications above the friends list',
+      should: 'render the friends rail without the account or notifications',
       actual: [
         html.includes('id="social-rail"'),
-        html.includes('aria-label="You and your friends"'),
-        html.includes('aria-label="Account settings for ada-byron"'),
+        html.includes('aria-label="Friends"'),
+        html.includes('>Friends'),
+        html.includes('Account settings for'),
         html.includes('href="/notifications"'),
-        html.indexOf('Account settings for ada-byron') <
-          html.indexOf('>Friends'),
       ],
-      expected: [true, true, true, true, true],
+      expected: [true, true, true, false, false],
     });
   });
 
@@ -34,7 +32,7 @@ describe('SocialRail', () => {
     assert({
       given: 'the rail before any script',
       should:
-        'carry the open panel with a collapse button and the strip with an expand button, each on the inner edge ahead of your account',
+        'carry the open panel with a collapse tab and the strip with an expand tab, each ahead of its friends',
       actual: [
         html.includes('social-full'),
         html.includes('social-strip'),
@@ -42,9 +40,9 @@ describe('SocialRail', () => {
         /aria-label="Expand friends"[^>]*aria-expanded="false"/.test(html),
         (html.match(/aria-controls="social-rail"/g) ?? []).length,
         html.indexOf('aria-label="Collapse friends"') <
-          html.indexOf('Account settings for ada-byron'),
+          html.indexOf('>Friends'),
         html.indexOf('aria-label="Expand friends"') <
-          html.lastIndexOf('Account settings for ada-byron'),
+          html.indexOf(' on</span>'),
       ],
       expected: [true, true, true, true, 2, true, true],
     });
@@ -66,22 +64,15 @@ describe('SocialRail', () => {
     });
   });
 
-  test('only the way in for a visitor or someone mid sign-up', () => {
-    const visitor = render({ state: 'anonymous' });
-    const provisional = render({ state: 'provisional' });
+  test('nothing for a visitor or someone mid sign-up', () => {
     assert({
       given: 'an anonymous visitor and a provisional account',
-      should:
-        'render the account corner with Sign in or Finish sign-up, and no friends',
+      should: 'render no rail: their way in is in the top bar',
       actual: [
-        visitor.includes('aria-label="Account"'),
-        visitor.includes('href="/sign-in"'),
-        provisional.includes('href="/onboarding/username"'),
-        provisional.includes('>Finish sign-up<'),
-        visitor.includes('Friends'),
-        visitor.includes('id="social-rail"'),
+        render({ state: 'anonymous' }),
+        render({ state: 'provisional' }),
       ],
-      expected: [true, true, true, true, false, false],
+      expected: ['', ''],
     });
   });
 });

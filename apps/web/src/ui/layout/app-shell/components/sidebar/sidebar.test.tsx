@@ -44,22 +44,21 @@ describe('Sidebar', () => {
     });
   });
 
-  test('the brand and its collapse control on top, and no way in', () => {
+  test('only the links and their collapse tab; the brand and the way in are in the top bar', () => {
     const visitor = renderInStore(
       h(Sidebar, { account: { state: 'anonymous' } }),
     );
-    const brand = visitor.indexOf('aria-label="Daisy Debate home"');
     const collapse = visitor.indexOf('aria-label="Collapse sidebar"');
     assert({
       given: 'the sidebar for a visitor',
       should:
-        'lead with the home brand and the collapse button, then the links, and leave Sign in to the account corner',
+        'lead with the collapse tab, then the links, with no brand and no Sign in',
       actual: [
-        brand >= 0 && brand < collapse,
-        collapse < visitor.indexOf('href="/play"'),
+        collapse >= 0 && collapse < visitor.indexOf('href="/play"'),
+        visitor.includes('Daisy Debate home'),
         visitor.includes('href="/sign-in"'),
       ],
-      expected: [true, true, false],
+      expected: [true, false, false],
     });
   });
 

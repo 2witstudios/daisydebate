@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { DaisyLogo } from '../../../../components/daisy-mark/daisy-mark';
 import { NavItem } from '../../../../components/nav-item/nav-item';
 import type { ShellAccount } from '../../account';
 import { NavToggle } from './nav-toggle';
@@ -54,16 +53,6 @@ export function Sidebar({ account }: SidebarProps) {
   ];
   return (
     <nav aria-label="Primary" className="flex h-full flex-col pb-4">
-      <Link
-        href="/"
-        aria-label="Daisy Debate home"
-        className="flex h-16 shrink-0 items-center gap-2 px-5 text-ink no-underline hover:no-underline icons:justify-center icons:px-0"
-      >
-        <DaisyLogo />
-        <span className="font-display text-xl leading-shell-brand font-semibold tracking-tight whitespace-nowrap text-ink icons:hidden">
-          Daisy Debate
-        </span>
-      </Link>
       <NavToggle />
       <div className="flex-1">
         <ul className="flex list-none flex-col gap-1 p-4 icons:px-2 icons:py-0">

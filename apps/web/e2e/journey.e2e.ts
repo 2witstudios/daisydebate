@@ -302,10 +302,10 @@ test('a visitor can reach the logo, and Sign in at the top right', async ({
   const shell = await watchShellLinks(page, ['Daisy Debate home', 'Sign in']);
   await page.goto('/');
   const signIn = page
-    .getByRole('complementary', { name: 'Account' })
+    .getByRole('banner')
     .getByRole('link', { name: 'Sign in' });
   await expect(signIn).toBeVisible();
-  // Where a member's avatar is: the top of the right-hand column.
+  // Where a member's avatar is: the right end of the top bar.
   const box = await signIn.boundingBox();
   const width = page.viewportSize()?.width ?? 0;
   expect(box !== null && box.x > width / 2 && box.y < 64).toBe(true);

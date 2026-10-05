@@ -12,23 +12,23 @@ const render = (account: ShellAccount = { state: 'anonymous' }): string =>
   renderInStore(h(AppShell, { account, children: h('p', null, 'page') }));
 
 describe('AppShell', () => {
-  test('owns the single main landmark, with no topbar', () => {
+  test('owns the single main landmark, under one top bar', () => {
     const html = render();
     const signedIn = render(member);
     assert({
       given:
         'the shell for a visitor and a member, with the root layout rendering no landmark of its own',
       should:
-        "render one main and one primary nav, no topbar, and one aside: the account corner or the member's rail",
+        'render the top bar first, then one primary nav and one main, and the friends rail only for the member',
       actual: [
-        occurrences(html, '<main'),
-        occurrences(html, '<nav'),
         occurrences(html, '<header'),
+        html.indexOf('<header') < html.indexOf('<nav'),
+        occurrences(html, '<nav'),
+        occurrences(html, '<main'),
         occurrences(html, '<aside'),
         occurrences(signedIn, '<aside'),
-        signedIn.indexOf('<header') > signedIn.indexOf('<aside'),
       ],
-      expected: [1, 1, 0, 1, 1, true],
+      expected: [1, true, 1, 1, 0, 1],
     });
   });
 
@@ -67,22 +67,24 @@ describe('AppShell', () => {
     });
   });
 
-  test('the account sits top right: the rail for a member, Sign in for a visitor', () => {
+  test('the brand and the account live in the top bar, outside the columns', () => {
     const visitor = render();
     const signedIn = render(member);
+    const bar = (html: string) =>
+      html.slice(html.indexOf('<header'), html.indexOf('</header>'));
     assert({
       given: 'a visitor and a member',
       should:
-        'give the member the rail with their account, and the visitor Sign in in the account corner, not the sidebar',
+        'put the brand and the way in or the account in the top bar, and the friends rail only for the member',
       actual: [
+        bar(visitor).includes('aria-label="Daisy Debate home"'),
+        bar(visitor).includes('href="/sign-in"'),
+        bar(signedIn).includes('aria-label="Account settings for ada-byron"'),
+        bar(signedIn).includes('href="/notifications"'),
         visitor.includes('id="social-rail"'),
         signedIn.includes('id="social-rail"'),
-        /<aside[^>]*aria-label="Account"[^>]*>.*href="\/sign-in"/.test(visitor),
-        visitor.indexOf('href="/sign-in"') > visitor.indexOf('</nav>'),
-        signedIn.includes('href="/sign-in"'),
-        signedIn.includes('aria-label="Account settings for ada-byron"'),
       ],
-      expected: [false, true, true, true, false, true],
+      expected: [true, true, true, true, false, true],
     });
   });
 

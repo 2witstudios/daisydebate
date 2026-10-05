@@ -3,41 +3,21 @@
 import Link from 'next/link';
 import { avatarSrc } from '../../../../assets';
 import { Avatar } from '../../../../components/avatar/avatar';
-import { Icon } from '../../../../components/icon/icon';
 import { useUiState, useUiStore } from '../../../../store/store';
 import type { DockState } from '../../../../store/state';
 import { dispatch, transactions } from '../../../../transactions';
 import type { ShellAccount } from '../../account';
 import { EdgeTab } from '../edge-tab/edge-tab';
-import {
-  dockGroups,
-  onlineNow,
-  statusLabel,
-  viewerStatus,
-  type DockGroup,
-} from './dock-people';
-
-const control =
-  'flex size-12 shrink-0 cursor-pointer items-center justify-center rounded-md text-ink-muted hover:bg-surface-overlay hover:text-ink';
+import { dockGroups, onlineNow, type DockGroup } from './dock-people';
 
 /** What both views of the rail read. */
 type ViewProps = {
-  readonly username: string;
   readonly groups: readonly DockGroup[];
   readonly online: number;
   readonly setDock: (dock: DockState) => void;
 };
 
-/** Bell to the notifications page; the same control in both views. */
-function Notifications() {
-  return (
-    <Link href="/notifications" aria-label="Notifications" className={control}>
-      <Icon name="bell" size={20} />
-    </Link>
-  );
-}
-
-function Full({ username, groups, online, setDock }: ViewProps) {
+function Full({ groups, online, setDock }: ViewProps) {
   return (
     <div className="social-full flex-col border-l border-border bg-surface">
       <EdgeTab
@@ -48,22 +28,6 @@ function Full({ username, groups, online, setDock }: ViewProps) {
         controls="social-rail"
         onClick={() => setDock('closed')}
       />
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b border-border pr-2 pl-4">
-        <Link
-          href="/settings"
-          aria-label={`Account settings for ${username}`}
-          className="flex min-w-0 flex-1 items-center gap-3 text-ink no-underline hover:no-underline"
-        >
-          <Avatar name={username} presence={viewerStatus} size="md" />
-          <span className="flex min-w-0 flex-col">
-            <span className="truncate text-sm font-bold">{username}</span>
-            <span className="text-xs text-ink-muted">
-              {statusLabel[viewerStatus]}
-            </span>
-          </span>
-        </Link>
-        <Notifications />
-      </header>
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-3 py-4">
         <h2 className="flex items-baseline gap-2 px-2 text-sm font-strong text-ink">
           Friends
@@ -111,9 +75,9 @@ function Full({ username, groups, online, setDock }: ViewProps) {
   );
 }
 
-function Strip({ username, groups, online, setDock }: ViewProps) {
+function Strip({ groups, online, setDock }: ViewProps) {
   return (
-    <div className="social-strip flex-col items-center gap-2 overflow-y-auto border-l border-border py-2">
+    <div className="social-strip flex-col items-center gap-2 overflow-y-auto border-l border-border py-4">
       <EdgeTab
         side="left"
         label="Expand friends"
@@ -122,15 +86,6 @@ function Strip({ username, groups, online, setDock }: ViewProps) {
         controls="social-rail"
         onClick={() => setDock('open')}
       />
-      <Link
-        href="/settings"
-        aria-label={`Account settings for ${username}`}
-        className="flex size-12 shrink-0 items-center justify-center no-underline hover:no-underline"
-      >
-        <Avatar name={username} presence={viewerStatus} size="md" />
-      </Link>
-      <Notifications />
-      <span aria-hidden="true" className="my-1 h-px w-8 bg-border" />
       <span className="text-xs font-bold text-online tabular-nums">
         {`${online} on`}
       </span>
@@ -158,48 +113,21 @@ function Strip({ username, groups, online, setDock }: ViewProps) {
   );
 }
 
-const visitorLink =
-  'flex min-h-12 items-center justify-center gap-2 rounded-md bg-accent px-4 text-sm font-bold whitespace-nowrap text-accent-ink no-underline hover:bg-accent-strong hover:no-underline max-compact:px-3';
-
 /**
- * The right-hand column for someone without a member account: their way in
- * at its head, where a member's avatar is, and no friends.
- */
-function AccountCorner({ account }: { readonly account: ShellAccount }) {
-  const [href, label] =
-    account.state === 'anonymous'
-      ? ['/sign-in', 'Sign in']
-      : ['/onboarding/username', 'Finish sign-up'];
-  return (
-    <aside
-      aria-label="Account"
-      className="account-corner border-l border-border bg-surface"
-    >
-      <div className="sticky top-0 flex h-16 items-center justify-center border-b border-border px-3 max-compact:px-0">
-        <Link href={href} aria-label={label} className={visitorLink}>
-          <Icon name="person" size={18} className="hidden max-compact:block" />
-          <span className="max-compact:sr-only">{label}</span>
-        </Link>
-      </div>
-    </aside>
-  );
-}
-
-/**
- * The right rail for a signed-in member: you at the top (your account and
- * notifications), then your friends. Open, it is a panel beside the page on
- * a wide screen and over it on a narrower one; collapsed, it is a strip of
- * avatars with the control to open it again. Both views are always in the
- * markup and the layout shows one, so the page is right before any script.
+ * The right rail for a signed-in member: their friends, under the top bar
+ * that holds their account. Open, it is a panel beside the page on a wide
+ * screen and over it on a narrower one; collapsed, it is a strip of avatars.
+ * Each view has its tab to switch to the other. Both views are always in
+ * the markup and the layout shows one, so the page is right before any
+ * script.
  */
 export function SocialRail({ account }: { readonly account: ShellAccount }) {
   const store = useUiStore();
   const users = useUiState((state) => state.collections.onlineUsers);
-  if (account.state !== 'member') return <AccountCorner account={account} />;
+  if (account.state !== 'member') return null;
   const setDock = (dock: DockState) =>
     dispatch(store, transactions.setDock, dock);
   const props = {
-    username: account.username,
     groups: dockGroups(users),
     online: onlineNow(users),
     setDock,
@@ -207,7 +135,7 @@ export function SocialRail({ account }: { readonly account: ShellAccount }) {
   return (
     <aside
       id="social-rail"
-      aria-label="You and your friends"
+      aria-label="Friends"
       className="social-rail bg-surface"
     >
       <Full {...props} />

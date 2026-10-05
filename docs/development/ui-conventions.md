@@ -100,18 +100,18 @@ the gaps it cannot.
 
 ## App shell
 
-Owner decision, 2026-10-05 (option A of the shell design). Three columns,
-no topbar: navigation on the left, the page, and the right-hand column.
-Both side columns run the full height. Each collapses with a tab hanging
-off its inner edge, level with its header (`EdgeTab`): it shares the
-column's surface and border, its chevron points the way the column will
-move, and it widens on hover and focus. Collapsed, the sidebar is icons
-and the rail a strip of avatars, each keeping its tab, never hidden. The
-head of the right-hand column is the account corner for everyone: a
-member's avatar, name and notifications, or a visitor's Sign in (Finish
-sign-up mid sign-up) in a column with the rail's border, surface and 64px
-header but no friends. Both views of the rail are in the markup and CSS
-shows one, so the shell is right before any script runs.
+Owner decision, 2026-10-05. A bar across the top that never collapses, and
+under it three columns: navigation on the left, the page, and a member's
+friends on the right. The bar holds the brand on the left and the account
+on the right: a member's notifications and avatar, or a visitor's Sign in
+(Finish sign-up mid sign-up). Only what is under it collapses. Each side
+column runs from the bar to the foot of the page and collapses with a tab
+hanging off its inner edge (`EdgeTab`): it shares the column's surface and
+border, its chevron points the way the column will move, and it widens on
+hover and focus. Collapsed, the sidebar is icons and the rail a strip of
+avatars, each keeping its tab, never hidden. A visitor has no rail. Both
+views of the rail are in the markup and CSS shows one, so the shell is
+right before any script runs.
 
 The sidebar's column always runs the page's full height. Its content is
 pinned to the viewport only when the viewport can hold all of it (the

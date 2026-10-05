@@ -30,20 +30,31 @@ test.describe('dashboard shell chrome', () => {
     await expect(privacy).toBeInViewport();
   });
 
-  test('the sidebar column runs the full height of the page', async ({
+  test('the sidebar column runs from the top bar to the foot of the page', async ({
     page,
   }) => {
     for (const height of [400, 900]) {
       await page.setViewportSize({ width: 1280, height });
       await page.goto('/');
-      const [column, document] = await page
+      const [top, bottom, bar, document] = await page
         .getByRole('navigation', { name: 'Primary' })
-        .evaluate((nav) => [
+        .evaluate((nav) => {
           // The column is the shell grid's own child.
-          nav.closest('[data-dock] > *')?.getBoundingClientRect().height ?? 0,
-          nav.ownerDocument.documentElement.scrollHeight,
-        ]);
-      expect(Math.round(column)).toBe(document);
+          const column = nav
+            .closest('[data-dock] > *')
+            ?.getBoundingClientRect();
+          return [
+            column?.top ?? 0,
+            (column?.bottom ?? 0) + window.scrollY,
+            nav.ownerDocument.getElementById('topbar')?.getBoundingClientRect()
+              .bottom ?? -1,
+            nav.ownerDocument.documentElement.scrollHeight,
+          ];
+        });
+      expect([Math.round(top), Math.round(bottom)]).toEqual([
+        Math.round(bar),
+        document,
+      ]);
     }
   });
 
@@ -100,9 +111,7 @@ test.describe('dashboard shell chrome', () => {
   test('interactive controls carry accessible names', async ({ page }) => {
     await page.goto('/');
     await expect(
-      page
-        .getByRole('complementary', { name: 'Account' })
-        .getByRole('link', { name: 'Sign in' }),
+      page.getByRole('banner').getByRole('link', { name: 'Sign in' }),
     ).toBeVisible();
   });
 });
