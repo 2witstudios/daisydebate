@@ -4,6 +4,7 @@ import {
   type SearchParams,
 } from '../../../../features/access/decision';
 import { DebateStep } from '../../../../ui/onboarding/intro/intro';
+import { stepSkip } from '../skip';
 import { readStepEntry, stepRobots } from '../step-entry';
 
 export const metadata: Metadata = {
@@ -21,7 +22,7 @@ export default async function OnboardingDebateStepPage({
     <DebateStep
       nextHref={onboardingStepHref('about', destination)}
       backHref={onboardingStepHref('daisy', destination)}
-      skip={null}
+      skip={stepSkip(destination)}
     />
   );
 }
