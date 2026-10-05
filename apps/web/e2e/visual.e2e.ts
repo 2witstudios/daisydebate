@@ -35,6 +35,23 @@ async function themedPage(
   return openPage(context, 'the visual page');
 }
 
+/**
+ * Writes a fixed name over every rendering of the run's random username.
+ * Masking hides the pixels but not the width: a wider random name wraps
+ * the settings profile line and changes the page height.
+ */
+async function pinUsername(page: Page, username: string): Promise<void> {
+  await page.evaluate((name) => {
+    const walker = document.createTreeWalker(
+      document.body,
+      NodeFilter.SHOW_TEXT,
+    );
+    for (let node = walker.nextNode(); node; node = walker.nextNode())
+      if (node.nodeValue?.includes(name))
+        node.nodeValue = node.nodeValue.replaceAll(name, 'visual-member');
+  }, username);
+}
+
 /** Fonts settled, then the deterministic full-page baseline comparison. */
 async function matchesBaseline(
   page: Page,
@@ -84,7 +101,7 @@ const routes = [
  * the dashboard, settings and the onboarding screens (ISSUE-77) across
  * themes and widths. The theme is pinned through the saved-preference cookie
  * (ADR 0027), motion is frozen, and the pages render static mock data, so
- * the frames are deterministic. The random per-run username is masked.
+ * the frames are deterministic. The random per-run username is pinned and masked.
  * Baselines are Linux-only; see docs/development/testing.md ("Visual
  * parity").
  */
@@ -96,15 +113,20 @@ for (const viewport of viewports) {
         baseURL,
       }) => {
         const page = await themedPage(browser, baseURL, viewport, theme);
-        // The social rail and the passkey offer show the random username
-        // signUpMember claims, so both are masked below.
-        if (route.account === 'member')
-          await signUpMember(page.context().request);
+        const member =
+          route.account === 'member'
+            ? await signUpMember(page.context().request)
+            : null;
         if (route.account === 'provisional')
           await signUpProvisional(page.context().request);
         await page.goto(route.path);
-        // The search placeholder is thin, low-contrast text a headless
-        // renderer antialiases a few subpixels differently run to run.
+        if (member) {
+          // Hydrated first, so React does not write the random name back.
+          await page.waitForLoadState('networkidle');
+          await pinUsername(page, member.username);
+        }
+        // The rail's avatar and the passkey offer still derive from the
+        // random name, so both stay masked.
         await matchesBaseline(
           page,
           `${route.name}-${theme}-${viewport.name}.png`,
