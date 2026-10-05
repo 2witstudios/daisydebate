@@ -58,8 +58,9 @@ describe('Sidebar', () => {
       should:
         'lead with the home brand, then the links, then the way in and the collapse button',
       actual: [
-        at(visitor, 'aria-label="Daisy Debate home"') <
-          at(visitor, 'href="/play"'),
+        at(visitor, 'aria-label="Daisy Debate home"') >= 0 &&
+          at(visitor, 'aria-label="Daisy Debate home"') <
+            at(visitor, 'href="/play"'),
         at(visitor, 'href="/play"') < at(visitor, 'href="/sign-in"'),
         at(visitor, 'href="/sign-in"') <
           at(visitor, 'aria-label="Collapse sidebar"'),

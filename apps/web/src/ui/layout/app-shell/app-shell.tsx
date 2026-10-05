@@ -23,7 +23,7 @@ export type AppShellProps = {
 export function AppShell({ children, account }: AppShellProps) {
   return (
     <ShellGrid hasDock={account.state === 'member'}>
-      <div className="sticky top-0 z-20 h-screen border-r border-border bg-surface area-sidebar">
+      <div className="z-20 min-h-screen self-start border-r border-border bg-surface area-sidebar tall:sticky tall:top-0 tall:h-screen">
         <Sidebar account={account} />
       </div>
       <main className="min-w-0 area-main">{children}</main>

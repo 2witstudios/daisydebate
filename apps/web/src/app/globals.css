@@ -282,6 +282,11 @@
   --spacing-dock: 272px;
 }
 
+/* A viewport tall enough to pin the whole sidebar (its tallest content is
+   about 46rem). Below it the sidebar scrolls with the page, so its foot stays
+   reachable without a scroll box that would clip the nav flyouts. */
+@custom-variant tall (@media (min-height: 47rem));
+
 /* Icon-only navigation: on a narrow screen, or when the sidebar is collapsed
    by choice (`data-nav` on the shell grid). */
 @custom-variant icons {

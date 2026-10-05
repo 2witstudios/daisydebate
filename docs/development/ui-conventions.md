@@ -109,3 +109,7 @@ strip of avatars with the control to open it again, never hidden. A visitor
 has no rail: their Sign in sits at the foot of the sidebar. Both views of
 the rail are in the markup and CSS shows one, so the shell is right before
 any script runs.
+
+The sidebar is pinned to the viewport only when the viewport can hold all of
+it (the `tall:` variant); on a shorter one it scrolls with the page. It never
+becomes a scroll box of its own, because that would clip the nav flyouts.
