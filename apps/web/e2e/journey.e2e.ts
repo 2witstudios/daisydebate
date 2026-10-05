@@ -10,7 +10,11 @@ import {
   reachOnboarding,
   sessionUsername,
 } from './support/accounts';
-import { claimUsername, declineOfferToLobby } from './support/forms';
+import {
+  claimUsername,
+  declineOfferToLobby,
+  skipOnboarding,
+} from './support/forms';
 import { effectsRan } from './support/hydration';
 import { watchShellLinks } from './support/shell-links';
 
@@ -151,7 +155,7 @@ test('declining the passkey offer after onboarding from a protected page other t
     page.getByRole('heading', { name: /next time, one tap/i }),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Not now' }).click();
-  await expect(page).toHaveURL(/\/ranked$/);
+  await skipOnboarding(page, /\/ranked$/);
 });
 
 test('return destinations are validated and spectator routes stay public', async ({
@@ -168,7 +172,7 @@ test('return destinations are validated and spectator routes stay public', async
   await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)lobby$/);
   await claimUsername(page, uniqueName('safe'));
   await page.getByRole('button', { name: 'Not now' }).click();
-  await expect(page).toHaveURL(/\/lobby$/);
+  await skipOnboarding(page, /\/lobby$/);
 });
 
 test('sign-in works by keyboard alone and every control has an accessible name', async ({
@@ -236,7 +240,7 @@ test('an emailed link opened in a different browser than the one that requested 
     otherPage.getByRole('heading', { name: /next time, one tap/i }),
   ).toBeVisible();
   await otherPage.getByRole('button', { name: 'Not now' }).click();
-  await expect(otherPage).toHaveURL(/\/lobby$/);
+  await skipOnboarding(otherPage, /\/lobby$/);
 
   // The requesting page never redeemed the link itself and stays anonymous.
   await page.goto('/lobby');

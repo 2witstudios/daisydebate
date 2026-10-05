@@ -2,6 +2,7 @@
 
 import { headers } from 'next/headers';
 import { returnableDestination } from '../../../../features/auth/redirect';
+import { afterPasskey } from '../../../../lib/onboarding-answers';
 import { moveOn } from '../../../../server/form-action';
 import type { DeclineState } from '../../../../ui/auth/onboarding/decline-offer';
 
@@ -9,7 +10,8 @@ import type { DeclineState } from '../../../../ui/auth/onboarding/decline-offer'
  * The passkey offer's decline choices (shared computer, or not now), as a
  * server action: both are real form POSTs, so they work before hydration
  * and without JavaScript. `next` is validated again here with the same
- * helper the page used, never trusted as a redirect target as posted.
+ * helper the page used, never trusted as a redirect target as posted. A
+ * member who has not finished onboarding continues into it.
  */
 export async function declinePasskeyAction(
   next: unknown,
@@ -19,5 +21,5 @@ export async function declinePasskeyAction(
   const destination = returnableDestination(
     typeof next === 'string' ? next : undefined,
   );
-  return moveOn(new Headers(await headers()), destination);
+  return moveOn(new Headers(await headers()), await afterPasskey(destination));
 }
