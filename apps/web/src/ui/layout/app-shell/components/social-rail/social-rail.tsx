@@ -8,6 +8,7 @@ import { useUiState, useUiStore } from '../../../../store/store';
 import type { DockState } from '../../../../store/state';
 import { dispatch, transactions } from '../../../../transactions';
 import type { ShellAccount } from '../../account';
+import { EdgeTab } from '../edge-tab/edge-tab';
 import {
   dockGroups,
   onlineNow,
@@ -39,18 +40,15 @@ function Notifications() {
 function Full({ username, groups, online, setDock }: ViewProps) {
   return (
     <div className="social-full flex-col border-l border-border bg-surface">
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b border-border px-2">
-        <button
-          type="button"
-          aria-label="Collapse friends"
-          aria-expanded="true"
-          aria-controls="social-rail"
-          title="Collapse friends"
-          onClick={() => setDock('closed')}
-          className={`${control} border border-border bg-surface-raised`}
-        >
-          <Icon name="sidebarRight" size={20} />
-        </button>
+      <EdgeTab
+        side="left"
+        label="Collapse friends"
+        expanded
+        icon="chevronRight"
+        controls="social-rail"
+        onClick={() => setDock('closed')}
+      />
+      <header className="flex h-16 shrink-0 items-center gap-2 border-b border-border pr-2 pl-4">
         <Link
           href="/settings"
           aria-label={`Account settings for ${username}`}
@@ -116,17 +114,14 @@ function Full({ username, groups, online, setDock }: ViewProps) {
 function Strip({ username, groups, online, setDock }: ViewProps) {
   return (
     <div className="social-strip flex-col items-center gap-2 overflow-y-auto border-l border-border py-2">
-      <button
-        type="button"
-        aria-label="Expand friends"
-        aria-expanded="false"
-        aria-controls="social-rail"
-        title="Expand friends"
+      <EdgeTab
+        side="left"
+        label="Expand friends"
+        expanded={false}
+        icon="chevronLeft"
+        controls="social-rail"
         onClick={() => setDock('open')}
-        className={`${control} border border-border bg-surface-raised`}
-      >
-        <Icon name="sidebarRight" size={20} />
-      </button>
+      />
       <Link
         href="/settings"
         aria-label={`Account settings for ${username}`}

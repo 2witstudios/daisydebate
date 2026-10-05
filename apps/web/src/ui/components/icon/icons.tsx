@@ -92,18 +92,7 @@ export const iconPaths: Record<string, ReactNode> = {
       <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
     </>
   ),
-  sidebar: (
-    <>
-      <rect x="3" y="4" width="18" height="16" rx="2" />
-      <path d="M9 4v16" />
-    </>
-  ),
-  sidebarRight: (
-    <>
-      <rect x="3" y="4" width="18" height="16" rx="2" />
-      <path d="M15 4v16" />
-    </>
-  ),
+  chevronLeft: <path d="m15 18-6-6 6-6" />,
   chevronRight: <path d="m9 18 6-6-6-6" />,
   chevronDown: <path d="m6 9 6 6 6-6" />,
   calendar: (

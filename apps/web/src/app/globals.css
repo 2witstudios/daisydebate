@@ -275,8 +275,8 @@
   --breakpoint-narrow: 641px;
   --breakpoint-tiny: 561px;
 
-  /* Layout metrics. The sidebar and the open social rail match. */
-  --spacing-sidebar: 272px;
+  /* Layout metrics. */
+  --spacing-sidebar: 232px;
   --spacing-rail: 316px;
   /* The social rail open: you, your notifications and your friends. */
   --spacing-dock: 272px;
