@@ -96,7 +96,7 @@ for (const viewport of viewports) {
         baseURL,
       }) => {
         const page = await themedPage(browser, baseURL, viewport, theme);
-        // The shell's topbar and the passkey offer show the random username
+        // The social rail and the passkey offer show the random username
         // signUpMember claims, so both are masked below.
         if (route.account === 'member')
           await signUpMember(page.context().request);

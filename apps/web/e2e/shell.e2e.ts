@@ -69,7 +69,9 @@ test.describe('dashboard shell chrome', () => {
   test('interactive controls carry accessible names', async ({ page }) => {
     await page.goto('/');
     await expect(
-      page.locator('header').getByRole('link', { name: 'Sign in' }),
+      page
+        .getByRole('navigation', { name: 'Primary' })
+        .getByRole('link', { name: 'Sign in' }),
     ).toBeVisible();
   });
 });

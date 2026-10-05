@@ -278,12 +278,9 @@
   /* Layout metrics. */
   --spacing-sidebar: 232px;
   --spacing-rail: 316px;
-  /* The friends dock: as wide as the left sidebar, no wider than a list needs. */
-  --spacing-dock: 232px;
-  --spacing-topbar: 60px;
+  /* The social rail open: you, your notifications and your friends. */
+  --spacing-dock: 272px;
 }
-
-@custom-variant short (@media (max-height: 660px));
 
 /* Icon-only navigation: on a narrow screen, or when the sidebar is collapsed
    by choice (`data-nav` on the shell grid). */

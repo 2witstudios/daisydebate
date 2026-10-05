@@ -12,7 +12,7 @@ import {
 } from './support/accounts';
 import { claimUsername, declineOfferToLobby } from './support/forms';
 import { effectsRan } from './support/hydration';
-import { watchTopbarLinks } from './support/topbar';
+import { watchShellLinks } from './support/shell-links';
 
 // The whole sign-in journey in a real browser against the production build:
 // request a link on /sign-in, open the emailed link, get a session, pick a
@@ -296,14 +296,16 @@ test('a fresh session makes no refresh call, and neither does a visitor', async 
   expect(calls).toEqual([]);
 });
 
-test('a visitor can reach the topbar logo and Sign in', async ({ page }) => {
-  const topbar = await watchTopbarLinks(page, ['Daisy Debate home', 'Sign in']);
+test('a visitor can reach the logo and Sign in in the sidebar', async ({
+  page,
+}) => {
+  const shell = await watchShellLinks(page, ['Daisy Debate home', 'Sign in']);
   await page.goto('/');
   const signIn = page
-    .getByRole('banner')
+    .getByRole('navigation', { name: 'Primary' })
     .getByRole('link', { name: 'Sign in' });
   await expect(signIn).toBeVisible();
-  const { covered, inspected } = await topbar.settle();
+  const { covered, inspected } = await shell.settle();
   expect(Object.keys(inspected).sort()).toEqual([
     'Daisy Debate home',
     'Sign in',

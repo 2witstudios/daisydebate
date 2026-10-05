@@ -1,7 +1,7 @@
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { AppShell } from './app-shell';
-import type { ShellAccount } from './components/topbar/topbar';
+import type { ShellAccount } from './account';
 import { occurrences, renderInStore } from '../../test-support/render-in-store';
 
 setupRitewayBun();
@@ -12,20 +12,23 @@ const render = (account: ShellAccount = { state: 'anonymous' }): string =>
   renderInStore(h(AppShell, { account, children: h('p', null, 'page') }));
 
 describe('AppShell', () => {
-  test('owns the single main landmark, as a sibling of header and nav', () => {
+  test('owns the single main landmark, with no topbar', () => {
     const html = render();
+    const signedIn = render(member);
     assert({
       given:
-        'the shell for a visitor, with the root layout rendering no landmark of its own',
+        'the shell for a visitor and a member, with the root layout rendering no landmark of its own',
       should:
-        'render exactly one main, one banner, one primary nav and no aside',
+        'render one main and one primary nav, no topbar, and the social rail only for the member',
       actual: [
         occurrences(html, '<main'),
-        occurrences(html, '<header'),
         occurrences(html, '<nav'),
+        occurrences(html, '<header'),
         occurrences(html, '<aside'),
+        occurrences(signedIn, '<aside'),
+        signedIn.indexOf('<header') > signedIn.indexOf('<aside'),
       ],
-      expected: [1, 1, 1, 0],
+      expected: [1, 1, 0, 0, 1, true],
     });
   });
 
@@ -64,20 +67,21 @@ describe('AppShell', () => {
     });
   });
 
-  test('the friends dock is for members only, with a toggle in the topbar', () => {
+  test('the social rail is for members only; a visitor signs in from the sidebar', () => {
     const visitor = render();
     const signedIn = render(member);
     assert({
       given: 'a visitor and a member',
       should:
-        'give the member the column and the topbar toggle, and the visitor neither',
+        'give the member the rail with their account, and the visitor a Sign in link instead',
       actual: [
-        visitor.includes('id="friends-dock"'),
-        signedIn.includes('id="friends-dock"'),
-        visitor.includes('aria-controls="friends-dock"'),
-        signedIn.includes('aria-controls="friends-dock"'),
+        visitor.includes('id="social-rail"'),
+        signedIn.includes('id="social-rail"'),
+        visitor.includes('href="/sign-in"'),
+        signedIn.includes('href="/sign-in"'),
+        signedIn.includes('aria-label="Account settings for ada-byron"'),
       ],
-      expected: [false, true, false, true],
+      expected: [false, true, true, false, true],
     });
   });
 
@@ -87,7 +91,7 @@ describe('AppShell', () => {
       should:
         'reserve no column for a visitor, and follow the screen (auto) for a member',
       actual: [
-        render().includes('data-dock="closed"'),
+        render().includes('data-dock="none"'),
         render(member).includes('data-dock="auto"'),
         render().includes('data-nav="auto"'),
       ],

@@ -98,6 +98,12 @@ export const iconPaths: Record<string, ReactNode> = {
       <path d="M9 4v16" />
     </>
   ),
+  sidebarRight: (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M15 4v16" />
+    </>
+  ),
   chevronRight: <path d="m9 18 6-6-6-6" />,
   chevronDown: <path d="m6 9 6 6 6-6" />,
   calendar: (
@@ -106,12 +112,6 @@ export const iconPaths: Record<string, ReactNode> = {
       <path d="M16 2v4" />
       <path d="M8 2v4" />
       <path d="M3 10h18" />
-    </>
-  ),
-  quote: (
-    <>
-      <path d="M10 11H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v6a4 4 0 0 1-4 4" />
-      <path d="M20 11h-4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v6a4 4 0 0 1-4 4" />
     </>
   ),
   bolt: <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8Z" />,

@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { Sidebar } from './sidebar';
-import type { ShellAccount } from '../topbar/topbar';
+import type { ShellAccount } from '../../account';
 import { renderInStore } from '../../../../test-support/render-in-store';
 import { routeExists } from '../../../../test-support/route-exists';
 
@@ -41,6 +41,33 @@ describe('Sidebar', () => {
         hrefs.filter((href) => !routeExists(appDirectory, href)),
       ],
       expected: [[], []],
+    });
+  });
+
+  test('the brand on top, a way in and the collapse control at the foot', () => {
+    const visitor = renderInStore(
+      h(Sidebar, { account: { state: 'anonymous' } }),
+    );
+    const provisional = renderInStore(
+      h(Sidebar, { account: { state: 'provisional' } }),
+    );
+    const signedIn = renderInStore(h(Sidebar, { account: member }));
+    const at = (html: string, needle: string) => html.indexOf(needle);
+    assert({
+      given: 'a visitor, an account mid sign-up and a member',
+      should:
+        'lead with the home brand, then the links, then the way in and the collapse button',
+      actual: [
+        at(visitor, 'aria-label="Daisy Debate home"') <
+          at(visitor, 'href="/play"'),
+        at(visitor, 'href="/play"') < at(visitor, 'href="/sign-in"'),
+        at(visitor, 'href="/sign-in"') <
+          at(visitor, 'aria-label="Collapse sidebar"'),
+        provisional.includes('href="/onboarding/username"'),
+        signedIn.includes('href="/sign-in"'),
+        signedIn.includes('aria-label="Collapse sidebar"'),
+      ],
+      expected: [true, true, true, true, false, true],
     });
   });
 
