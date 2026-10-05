@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { emptyAnswers, parseStepAnswers, topicChoices } from './answers';
+import { topicChoices } from '@daisy/protocol';
+import { emptyAnswers, parseStepAnswers } from './answers';
 
 setupRitewayBun();
 
