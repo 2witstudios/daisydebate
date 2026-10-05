@@ -33,6 +33,23 @@ test.describe('dashboard shell chrome', () => {
     }
   });
 
+  test('the sidebar column runs the full height of the page', async ({
+    page,
+  }) => {
+    for (const height of [400, 900]) {
+      await page.setViewportSize({ width: 1280, height });
+      await page.goto('/');
+      const [column, document] = await page
+        .getByRole('navigation', { name: 'Primary' })
+        .evaluate((nav) => [
+          // The column is the shell grid's own child.
+          nav.closest('[data-dock] > *')?.getBoundingClientRect().height ?? 0,
+          nav.ownerDocument.documentElement.scrollHeight,
+        ]);
+      expect(Math.round(column)).toBe(document);
+    }
+  });
+
   test('menu tiles share one uniform shape', async ({ page }) => {
     await page.goto('/');
     const grid = page.getByRole('list', { name: 'Debate destinations' });

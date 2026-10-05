@@ -23,8 +23,11 @@ export type AppShellProps = {
 export function AppShell({ children, account }: AppShellProps) {
   return (
     <ShellGrid hasDock={account.state === 'member'}>
-      <div className="z-20 min-h-screen self-start border-r border-border bg-surface area-sidebar tall:sticky tall:top-0 tall:h-screen">
-        <Sidebar account={account} />
+      {/* The column runs the page's full height; only its content is pinned. */}
+      <div className="z-20 self-stretch border-r border-border bg-surface area-sidebar">
+        <div className="tall:sticky tall:top-0 tall:h-screen">
+          <Sidebar account={account} />
+        </div>
       </div>
       <main className="min-w-0 area-main">{children}</main>
       <SocialRail account={account} />
