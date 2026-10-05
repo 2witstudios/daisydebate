@@ -139,8 +139,8 @@ describe('speak', () => {
     );
     const client = createOpenRouter({ apiKey: 'k', fetch });
     const result = await client.speak({
-      model: 'hexgrad/kokoro-82m',
-      voice: 'am_michael',
+      model: 'deepgram/aura-2',
+      voice: 'aura-2-thalia-en',
       text: 'Hi there.',
     });
     assert({
@@ -150,9 +150,9 @@ describe('speak', () => {
       expected: {
         url: 'https://openrouter.ai/api/v1/audio/speech',
         body: {
-          model: 'hexgrad/kokoro-82m',
+          model: 'deepgram/aura-2',
           input: 'Hi there.',
-          voice: 'am_michael',
+          voice: 'aura-2-thalia-en',
           response_format: 'mp3',
           provider: { zdr: true },
         },

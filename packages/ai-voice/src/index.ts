@@ -16,8 +16,10 @@ export {
 export { parseBallot, type Ballot } from './judge';
 export { createTurnTaking, defaultTurnTakingSettings } from './turn-taking';
 export {
+  createPhraseBuffer,
   createSentenceBuffer,
   heardText,
+  phrasesOf,
   splitSentences,
   worthTranscribing,
 } from './speech';
@@ -32,16 +34,15 @@ export const DEFAULT_MODELS = {
   speech: 'anthropic/claude-sonnet-5.5',
   cx: 'openai/gpt-6-luna',
   judge: 'anthropic/claude-sonnet-5.5',
-  tts: 'hexgrad/kokoro-82m',
+  tts: 'deepgram/aura-2',
   stt: 'openai/whisper-large-v3-turbo',
 } as const;
 
-/** Kokoro voices the person can pick for their AI opponent. */
+/** Deepgram Aura-2 voices the bots speak in. */
 export const AI_VOICES = [
-  { id: 'am_michael', label: 'Michael (US)' },
-  { id: 'af_heart', label: 'Heart (US)' },
-  { id: 'bm_george', label: 'George (UK)' },
-  { id: 'bf_emma', label: 'Emma (UK)' },
+  { id: 'aura-2-thalia-en', label: 'Thalia' },
+  { id: 'aura-2-aurora-en', label: 'Aurora' },
+  { id: 'aura-2-arcas-en', label: 'Arcas' },
 ] as const;
 
 /** Reasoning effort per role: quick for live turns, deeper for the judge. */

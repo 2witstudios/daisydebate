@@ -1,7 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  createPhraseBuffer,
   createSentenceBuffer,
   heardText,
+  phrasesOf,
   splitSentences,
   wordBudget,
   worthTranscribing,
@@ -106,6 +108,66 @@ describe('worthTranscribing', () => {
       should: 'not be sent, so the transcriber cannot invent words',
       actual: worthTranscribing({ voicedMs: 300 }),
       expected: false,
+    });
+  });
+});
+
+describe('phrases', () => {
+  const text =
+    'Thank you, judge. My opponent never showed you where the money comes from. Let me give you a quick roadmap. First, the negative case. Then the affirmative, point by point. My first contention is about service, and it matters more than anything else said today.';
+
+  test('groups whole sentences, opening with one sentence alone', () => {
+    const phrases = phrasesOf(text, 80);
+    assert({
+      given: 'six sentences and an 80-character group limit',
+      should:
+        'open with the first sentence alone, then group whole sentences up to the limit',
+      actual: phrases,
+      expected: [
+        'Thank you, judge.',
+        'My opponent never showed you where the money comes from.',
+        'Let me give you a quick roadmap. First, the negative case.',
+        'Then the affirmative, point by point.',
+        'My first contention is about service, and it matters more than anything else said today.',
+      ],
+    });
+    assert({
+      given: 'those phrases joined back into the saved speech',
+      should: 'give the same phrases again',
+      actual: phrasesOf(phrases.join(' '), 80),
+      expected: phrases,
+    });
+  });
+
+  test('streamed sentences group exactly as the saved speech does', () => {
+    const buffer = createPhraseBuffer(80);
+    const streamed = [
+      ...splitSentences(text).flatMap((sentence) => buffer.push(sentence)),
+      ...buffer.flush(),
+    ];
+    assert({
+      given: 'the same sentences arriving one by one',
+      should: 'emit the same phrases as grouping the finished text',
+      actual: streamed,
+      expected: phrasesOf(text, 80),
+    });
+  });
+});
+
+describe('phrases, ramping up', () => {
+  test('the second phrase stays short so the speaker gets going', () => {
+    // Each sentence is 39 characters long.
+    const sentence = (n: number) =>
+      `Sentence number ${n} says one plain thing.`;
+    const text = Array.from({ length: 12 }, (_, n) => sentence(n + 1)).join(
+      ' ',
+    );
+    assert({
+      given: 'twelve 39-character sentences and the default limits',
+      should:
+        'voice one sentence, then up to 160 characters, then up to 320, each a whole number of sentences',
+      actual: phrasesOf(text).map((phrase) => splitSentences(phrase).length),
+      expected: [1, 4, 7],
     });
   });
 });

@@ -1,9 +1,10 @@
 import {
   DEFAULT_REASONING,
+  createPhraseBuffer,
   createSentenceBuffer,
   heardText,
   speechMessages,
-  splitSentences,
+  phrasesOf,
 } from '@daisy/ai-voice';
 import type { AiDebateRecord } from '@daisy/db';
 import type { AiDebateTurn } from '@daisy/debate-engine';
@@ -22,10 +23,19 @@ import {
 export type SpeechEvent =
   | { readonly type: 'utterance'; readonly id: string }
   | {
-      readonly type: 'sentence';
+      readonly type: 'phrase';
       readonly index: number;
       readonly text: string;
     };
+
+/**
+ * Characters of voice one debate may buy. The bot speaks about 12,500
+ * characters in its longest debate (13 minutes of speeches plus
+ * cross-examination); this leaves room for phrases fetched ahead and then
+ * cut off, and for rejoining, while capping what a replayed request can
+ * cost.
+ */
+const SPEECH_BUDGET = 30_000;
 
 /** The AI's spoken lines: its speeches, their voice, and what was heard. */
 export function speechOperations({
@@ -33,8 +43,10 @@ export function speechOperations({
   voice,
   clock,
   ids,
+  limits,
 }: AiDebateDependencies) {
-  const sentencesOf = async (
+  const speechBudget = limits?.speechCharacters ?? SPEECH_BUDGET;
+  const phrasesOfLine = async (
     actorId: string,
     id: string,
     utteranceId: string,
@@ -49,14 +61,15 @@ export function speechOperations({
     requireLiveTurn(record, utterance.turnIndex, nowMs(clock), () => true, {
       early: true,
     });
-    return { record, sentences: splitSentences(utterance.text) };
+    return { record, phrases: phrasesOf(utterance.text) };
   };
 
   return {
     /**
      * Writes the AI's speech for an AI speech turn (from its countdown on),
-     * sentence by sentence as the model produces it. The speech is saved as
-     * it grows, so the voice can be fetched per sentence, and marked whole
+     * phrase by phrase (two or three sentences) as the model produces it.
+     * The speech is saved as it grows, so the voice can be fetched per
+     * phrase, and marked whole
      * only when the model finishes. A later call replays a whole speech and
      * writes an unfinished one (a failure, or a listener who left) again.
      * `signal` ends the model's stream when the listener goes.
@@ -85,8 +98,8 @@ export function speechOperations({
       );
       if (existing?.complete) {
         yield { type: 'utterance', id: existing.id };
-        for (const [index, text] of splitSentences(existing.text).entries())
-          yield { type: 'sentence', index, text };
+        for (const [index, text] of phrasesOf(existing.text).entries())
+          yield { type: 'phrase', index, text };
         return;
       }
       const utteranceId = existing?.id ?? ids.next();
@@ -110,58 +123,65 @@ export function speechOperations({
       yield* writeSpeech({ store, voice, record, turn, utteranceId, signal });
     },
 
-    /** The voice for one sentence of an AI line, as mp3 bytes. */
+    /**
+     * The voice for one phrase of an AI line, as mp3 bytes. Every request
+     * spends from the debate's speech budget before the vendor is called,
+     * so asking again and again for a phrase has a ceiling.
+     */
     async speak({
       actorId,
       id,
       utteranceId,
-      sentenceIndex,
+      phraseIndex,
     }: {
       readonly actorId: string;
       readonly id: string;
       readonly utteranceId: string;
-      readonly sentenceIndex: number;
+      readonly phraseIndex: number;
     }): Promise<ArrayBuffer> {
-      const { record, sentences } = await sentencesOf(actorId, id, utteranceId);
-      const text = sentences[sentenceIndex];
+      const { record, phrases } = await phrasesOfLine(actorId, id, utteranceId);
+      const text = phrases[phraseIndex];
       if (!text) throw createAppError('NOT_FOUND');
-      const { audio, characters } = await voice().speak({
+      const speaker = voice();
+      const reserved = await store.reserveAiDebateSpeech({
+        aiDebateId: id,
+        characters: text.length,
+        budget: speechBudget,
+      });
+      if (!reserved) throw createAppError('RATE_LIMIT', 'Speech budget spent');
+      const { audio } = await speaker.speak({
         model: record.ttsModel,
         voice: record.voice,
         text,
-      });
-      await store.recordAiDebateUsage({
-        aiDebateId: id,
-        ttsCharacters: characters,
       });
       return audio;
     },
 
     /**
      * Keeps only what the person heard of an AI line cut short (a barge-in
-     * or the end of the turn): whole sentences before the one playing, and
+     * or the end of the turn): whole phrases before the one playing, and
      * the played share of that one.
      */
     async heard({
       actorId,
       id,
       utteranceId,
-      sentenceIndex,
+      phraseIndex,
       playedMs,
       totalMs,
     }: {
       readonly actorId: string;
       readonly id: string;
       readonly utteranceId: string;
-      readonly sentenceIndex: number;
+      readonly phraseIndex: number;
       readonly playedMs: number;
       readonly totalMs: number;
     }): Promise<void> {
-      const { sentences } = await sentencesOf(actorId, id, utteranceId);
-      if (sentenceIndex >= sentences.length) return;
+      const { phrases } = await phrasesOfLine(actorId, id, utteranceId);
+      if (phraseIndex >= phrases.length) return;
       const kept = [
-        ...sentences.slice(0, sentenceIndex),
-        heardText(sentences[sentenceIndex]!, playedMs, totalMs),
+        ...phrases.slice(0, phraseIndex),
+        heardText(phrases[phraseIndex]!, playedMs, totalMs),
       ]
         .filter(Boolean)
         .join(' ');
@@ -174,7 +194,7 @@ export function speechOperations({
   };
 }
 
-/** Streams the model's speech into its line, sentence by sentence. */
+/** Streams the model's speech into its line, phrase by phrase. */
 async function* writeSpeech({
   store,
   voice,
@@ -195,18 +215,21 @@ async function* writeSpeech({
     transcript: transcriptOf(record),
     persona: personaOf(record),
   });
-  const buffer = createSentenceBuffer();
+  const sentences = createSentenceBuffer();
+  const phrases = createPhraseBuffer();
+  const grouped = (done: readonly string[]) =>
+    done.flatMap((sentence) => phrases.push(sentence));
   const spoken: string[] = [];
   let written = 0;
-  const save = async function* (sentences: readonly string[], whole = false) {
-    for (const text of sentences) {
+  const save = async function* (phrases: readonly string[], whole = false) {
+    for (const text of phrases) {
       spoken.push(text);
       await store.replaceAiDebateUtterance({
         id: utteranceId,
         aiDebateId: record.id,
         text: spoken.join(' '),
       });
-      yield { type: 'sentence' as const, index: spoken.length - 1, text };
+      yield { type: 'phrase' as const, index: spoken.length - 1, text };
     }
     if (whole)
       await store.replaceAiDebateUtterance({
@@ -225,9 +248,9 @@ async function* writeSpeech({
     ...(signal ? { signal } : {}),
   })) {
     written += delta.length;
-    yield* save(buffer.push(delta));
+    yield* save(grouped(sentences.push(delta)));
   }
-  yield* save(buffer.flush(), true);
+  yield* save([...grouped(sentences.flush()), ...phrases.flush()], true);
   await store.recordAiDebateUsage({
     aiDebateId: record.id,
     promptTokens: approximateTokens(

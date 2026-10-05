@@ -8,13 +8,13 @@ describe('opponentFor', () => {
     const wren = opponentFor('wren');
     assert({
       given: 'the Wren bot',
-      should: 'debate as Wren in a crisp British voice',
+      should: "debate as Wren in Deepgram Aura-2's Thalia voice",
       actual: {
         name: wren?.name,
         voice: wren?.voice,
         inCharacter: wren?.persona.includes('You are Wren'),
       },
-      expected: { name: 'Wren', voice: 'bf_emma', inCharacter: true },
+      expected: { name: 'Wren', voice: 'aura-2-thalia-en', inCharacter: true },
     });
     assert({
       given: 'every bot on the roster',

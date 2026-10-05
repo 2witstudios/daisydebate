@@ -1,3 +1,4 @@
+import { splitSentences } from '@daisy/ai-voice';
 import type { AiDebateApi } from './api';
 import type { AudioEngine, Playback } from './audio';
 
@@ -37,26 +38,125 @@ export const sleep = (ms: number, signal: AbortSignal) =>
 
 const SKIPPED = Symbol('skipped');
 
+/** The breath between one phrase and the next, in milliseconds. */
+const BREATH_MS = 80;
+/** Phrases whose voice is fetched ahead of the one being scheduled. */
+const PREFETCH = 3;
+
+type Scheduled = { readonly index: number; readonly playback: Playback };
+
 /**
- * Plays an AI line sentence by sentence; resolves to how far it got if cut
- * off. A sentence whose voice fails to load or decode is skipped with a
+ * Plays an AI line phrase by phrase, each starting a short breath after the
+ * last ends on the audio timeline, so nothing waits on the network between
+ * phrases: the next phrase's voice is fetched while this one plays, and it
+ * is decoded and queued before this one ends. Resolves to how far it got if
+ * cut off. A phrase whose voice fails to load or decode is skipped with a
  * notice, so one bad clip never silences the rest of the line.
  */
 export async function playLine({
   context,
   utteranceId,
-  sentenceAt,
+  phraseAt,
   stopWhen,
   setPlaying,
+  voices,
 }: {
   readonly context: TurnContext;
   readonly utteranceId: () => string | null;
-  /** Waits for sentence `index`; resolves to null when the line has no more. */
-  readonly sentenceAt: (index: number) => Promise<string | null>;
+  /** Waits for phrase `index`; resolves to null when the line has no more. */
+  readonly phraseAt: (index: number) => Promise<string | null>;
   /** Resolves when playback must stop (the turn ended, or a barge-in). */
   readonly stopWhen: Promise<void>;
   readonly setPlaying?: (playback: Playback | null) => void;
+  /** Voices already being fetched (from the countdown); made here if not. */
+  readonly voices?: Voices;
 }): Promise<'finished' | 'stopped'> {
+  let stopped = false;
+  const { fetchAudio, prefetch } =
+    voices ?? createVoices(context, utteranceId, phraseAt, () => stopped);
+  void stopWhen.then(() => (stopped = true));
+  const scheduled: Scheduled[] = [];
+  const show = shower(context, setPlaying, () => stopped);
+  /** The first phrase with no clip queued yet. */
+  let upNext = 0;
+  /**
+   * Stops every queued clip and tells the server what was heard: the phrase
+   * cut off and how much of it played, or, with nothing playing (still
+   * loading, or in the breath between phrases), that the next phrase went
+   * unheard, so no unspoken words stay in the transcript.
+   */
+  const cut = () => {
+    for (const { playback } of scheduled) playback.stop();
+    show.done();
+    const playing = scheduled.find(
+      ({ playback }) => playback.playedMs() < playback.durationMs,
+    );
+    if (playing)
+      reportHeard(context, utteranceId(), playing.index, {
+        playedMs: playing.playback.playedMs(),
+        totalMs: playing.playback.durationMs,
+      });
+    else
+      reportHeard(context, utteranceId(), upNext, { playedMs: 0, totalMs: 1 });
+    return 'stopped' as const;
+  };
+  /** The phrase's voice, queued; null when stopped first; SKIPPED on failure. */
+  const voiceOf = async (index: number, at: number) => {
+    try {
+      const clip = await Promise.race([
+        fetchAudio(index),
+        stopWhen.then(() => null),
+      ]);
+      if (!clip) return null;
+      const playback = await context.engine.play(clip, at);
+      // Cut off while this clip was decoding: it must never be heard.
+      if (stopped) playback.stop();
+      return stopped ? null : playback;
+    } catch {
+      context.onError("Part of your opponent's speech could not be voiced.");
+      return SKIPPED;
+    }
+  };
+  let nextAt = 0;
+  for (let index = 0; ; index += 1) {
+    const text = await Promise.race([
+      phraseAt(index),
+      stopWhen.then(() => null),
+    ]);
+    if (stopped) return cut();
+    if (text === null) break;
+    upNext = index;
+    prefetch(index + 1);
+    const playback = await voiceOf(index, nextAt);
+    if (playback === SKIPPED) continue;
+    if (stopped || !playback) return cut();
+    scheduled.push({ index, playback });
+    upNext = index + 1;
+    show.at(playback, text);
+    nextAt = playback.endsAt + BREATH_MS;
+    // Keep one phrase queued behind the one playing, no more.
+    await Promise.race([ended(scheduled.at(-2)), stopWhen]);
+    if (stopped) return cut();
+  }
+  await Promise.race([ended(scheduled.at(-1)), stopWhen]);
+  if (stopped) return cut();
+  show.done();
+  return 'finished';
+}
+
+/** Resolves when a queued phrase has played (at once when there is none). */
+const ended = (entry: Scheduled | undefined) =>
+  entry ? entry.playback.finished : Promise.resolve();
+
+export type Voices = ReturnType<typeof createVoices>;
+
+/** Each phrase's voice, fetched once, and fetched ahead of need. */
+export function createVoices(
+  context: TurnContext,
+  utteranceId: () => string | null,
+  phraseAt: (index: number) => Promise<string | null>,
+  stopped: () => boolean,
+) {
   const audio = new Map<number, Promise<ArrayBuffer>>();
   const fetchAudio = (index: number) => {
     const id = utteranceId();
@@ -69,76 +169,77 @@ export async function playLine({
     }
     return pending;
   };
-  let stopped = false;
-  void stopWhen.then(() => (stopped = true));
-  /** The sentence's voice, playing; null when stopped first; SKIPPED on failure. */
-  const voiceOf = async (index: number) => {
-    try {
-      const clip = await Promise.race([
-        fetchAudio(index),
-        stopWhen.then(() => null),
-      ]);
-      return clip ? await context.engine.play(clip) : null;
-    } catch {
-      context.onError("Part of your opponent's speech could not be voiced.");
-      return SKIPPED;
-    }
+  const prefetch = (from: number) => {
+    for (let index = from; index < from + PREFETCH; index += 1)
+      void phraseAt(index).then((next) => {
+        if (next !== null && !stopped())
+          void fetchAudio(index).catch(() => undefined);
+      });
   };
-  for (let index = 0; ; index += 1) {
-    const text = await Promise.race([
-      sentenceAt(index),
-      stopWhen.then(() => null),
-    ]);
-    if (stopped) return 'stopped';
-    if (text === null) return 'finished';
-    // Fetch the next sentence's voice while this one plays.
-    void sentenceAt(index + 1).then((next) => {
-      if (next !== null && !stopped)
-        void fetchAudio(index + 1).catch(() => undefined);
-    });
-    const playback = await voiceOf(index);
-    if (playback === SKIPPED) continue;
-    if (stopped || !playback) return 'stopped';
-    if (await played(context, playback, text, stopWhen, setPlaying)) continue;
-    playback.stop();
-    reportHeard(context, utteranceId(), index, playback);
-    return 'stopped';
-  }
+  return { fetchAudio, prefetch };
 }
 
-/** Plays one clip with its caption; false when cut off first. */
-async function played(
+/**
+ * Shows that the opponent speaks as each phrase starts, and steps the
+ * caption through the phrase's sentences as the voice reaches them. The
+ * voice returns no word timings, so each sentence is placed by its share of
+ * the phrase's characters.
+ */
+function shower(
   context: TurnContext,
-  playback: Playback,
-  text: string,
-  stopWhen: Promise<void>,
-  setPlaying?: (playback: Playback | null) => void,
+  setPlaying: ((playback: Playback | null) => void) | undefined,
+  stopped: () => boolean,
 ) {
-  let cut = false;
-  setPlaying?.(playback);
-  context.onSpeaking(true);
-  context.onCaption(text);
-  await Promise.race([playback.finished, stopWhen.then(() => (cut = true))]);
-  context.onSpeaking(false);
-  setPlaying?.(null);
-  return !cut;
+  const cancels = new Set<() => void>();
+  const when = (time: number, run: () => void) => {
+    cancels.add(
+      context.engine.at(time, () => {
+        if (!stopped()) run();
+      }),
+    );
+  };
+  return {
+    at(playback: Playback, text: string) {
+      when(playback.startsAt, () => {
+        setPlaying?.(playback);
+        context.onSpeaking(true);
+      });
+      let before = 0;
+      for (const sentence of splitSentences(text)) {
+        const share = before / text.length;
+        when(playback.startsAt + playback.durationMs * share, () =>
+          context.onCaption(sentence),
+        );
+        before += sentence.length + 1;
+      }
+    },
+    done() {
+      for (const cancel of cancels) cancel();
+      cancels.clear();
+      setPlaying?.(null);
+      context.onSpeaking(false);
+    },
+  };
 }
 
 /** Tells the server how much of a cut-off line was heard. */
 function reportHeard(
   context: TurnContext,
   id: string | null,
-  sentenceIndex: number,
-  playback: Playback,
+  phraseIndex: number,
+  {
+    playedMs,
+    totalMs,
+  }: { readonly playedMs: number; readonly totalMs: number },
 ) {
   if (!id) return;
   void context.api
     .heard({
       id: context.id,
       utteranceId: id,
-      sentenceIndex,
-      playedMs: Math.round(playback.playedMs()),
-      totalMs: Math.round(playback.durationMs),
+      phraseIndex,
+      playedMs: Math.round(playedMs),
+      totalMs: Math.round(totalMs),
     })
     .catch(() => undefined);
 }

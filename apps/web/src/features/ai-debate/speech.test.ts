@@ -16,14 +16,14 @@ describe('the AI speech, kept honest', () => {
     time.advance(10 + 300 + 4); // the AC is over, grace included
     const vendorCalls = voice.calls.length;
     await assertRejects({
-      given: 'a request to voice a sentence of the AC after the AC',
+      given: 'a request to voice a phrase of the AC after the AC',
       should: 'refuse with CONFLICT and never call the voice vendor',
       actual: () =>
         operations.speak({
           actorId: 'actor-1',
           id,
           utteranceId,
-          sentenceIndex: 0,
+          phraseIndex: 0,
         }),
       code: 'CONFLICT',
     });
@@ -35,7 +35,7 @@ describe('the AI speech, kept honest', () => {
           actorId: 'actor-1',
           id,
           utteranceId,
-          sentenceIndex: 0,
+          phraseIndex: 0,
           playedMs: 0,
           totalMs: 1000,
         }),
@@ -79,12 +79,11 @@ describe('the AI speech, kept honest', () => {
       given: 'the same speech asked for again',
       should: 'write the whole speech anew rather than replay the fragment',
       actual: retried
-        .filter((e) => e.type === 'sentence')
-        .map((e) => e.type === 'sentence' && e.text),
+        .filter((e) => e.type === 'phrase')
+        .map((e) => e.type === 'phrase' && e.text),
       expected: [
         'Thank you, judge.',
-        'My first contention is safety.',
-        'I urge an affirmative ballot.',
+        'My first contention is safety. I urge an affirmative ballot.',
       ],
     });
   });
@@ -100,7 +99,7 @@ describe('the AI speech, kept honest', () => {
       signal: leaving.signal,
     });
     await events.next(); // the line
-    await events.next(); // its first sentence: the model is streaming
+    await events.next(); // its first phrase: the model is streaming
     leaving.abort();
     await events.return(undefined);
     assert({
@@ -108,6 +107,35 @@ describe('the AI speech, kept honest', () => {
       should: 'pass its signal to the model stream, which sees it aborted',
       actual: voice.signals.at(-1)?.aborted,
       expected: true,
+    });
+  });
+
+  test('a debate can only buy so much voice', async () => {
+    const { operations, begin, voice } = setup({
+      personSide: 'negative',
+      limits: { live: 25, perDay: 20, speechCharacters: 70 },
+    });
+    const id = await begin();
+    const events = await collect(
+      operations.speech({ actorId: 'actor-1', id, turnIndex: 0 }),
+    );
+    const utteranceId = events[0]?.type === 'utterance' ? events[0].id : '';
+    const speak = (phraseIndex: number) =>
+      operations.speak({ actorId: 'actor-1', id, utteranceId, phraseIndex });
+    await speak(0); // 17 characters
+    await speak(0); // the same phrase again still spends: 34
+    const calls = voice.calls.length;
+    await assertRejects({
+      given: 'a 60-character phrase that would pass a 70-character budget',
+      should: 'refuse with RATE_LIMIT',
+      actual: () => speak(1),
+      code: 'RATE_LIMIT',
+    });
+    assert({
+      given: 'the refusal',
+      should: 'never reach the voice vendor',
+      actual: voice.calls.length,
+      expected: calls,
     });
   });
 });

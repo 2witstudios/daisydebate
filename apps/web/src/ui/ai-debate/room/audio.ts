@@ -1,4 +1,5 @@
 import { defaultTurnTakingSettings } from '@daisy/ai-voice';
+import { voicedRange } from './trim';
 
 /**
  * The browser side of the AI debate's audio: the microphone (with echo
@@ -17,6 +18,9 @@ const RECORDING_TYPES = [
 export type Playback = {
   /** Resolves when the clip ends or is stopped. */
   readonly finished: Promise<void>;
+  /** When it starts and ends on the engine's timeline (`now`), in ms. */
+  readonly startsAt: number;
+  readonly endsAt: number;
   readonly durationMs: number;
   /** How much has played so far, in milliseconds. */
   playedMs(): number;
@@ -37,8 +41,16 @@ export type Recording = {
 export type AudioEngine = {
   /** The microphone's RMS level, 0..1. */
   level(): number;
+  /** The playback timeline's current time, in milliseconds. */
+  now(): number;
+  /** Runs `run` when the timeline reaches `time`; returns the cancel. */
+  at(time: number, run: () => void): () => void;
   record(): Recording;
-  play(mp3: ArrayBuffer): Promise<Playback>;
+  /**
+   * Decodes a clip, trims the silence around its voice, and schedules it to
+   * start at `at` on the timeline (or at once, if `at` has passed).
+   */
+  play(mp3: ArrayBuffer, at?: number): Promise<Playback>;
   /** A soft bell: a turn has begun. */
   chime(): void;
   /** Whether an output device reports itself as a headset. */
@@ -103,24 +115,40 @@ export async function openAudioEngine(): Promise<AudioEngine> {
           }),
       };
     },
-    async play(mp3) {
-      const buffer = await context.decodeAudioData(mp3.slice(0));
+    now: () => context.currentTime * 1000,
+    at(time, run) {
+      const timer = setTimeout(
+        run,
+        Math.max(0, time - context.currentTime * 1000),
+      );
+      return () => clearTimeout(timer);
+    },
+    async play(mp3, at = 0) {
+      const decoded = await context.decodeAudioData(mp3.slice(0));
+      const buffer = trimmed(context, decoded);
       const source = context.createBufferSource();
       source.buffer = buffer;
       source.connect(context.destination);
-      const startedAt = context.currentTime;
+      const startsAt = Math.max(at, context.currentTime * 1000);
+      const durationMs = buffer.duration * 1000;
       let stoppedAt: number | null = null;
       const finished = new Promise<void>((resolve) => {
         source.onended = () => resolve();
       });
-      source.start();
+      source.start(startsAt / 1000);
       return {
         finished,
-        durationMs: buffer.duration * 1000,
-        playedMs: () => ((stoppedAt ?? context.currentTime) - startedAt) * 1000,
+        startsAt,
+        endsAt: startsAt + durationMs,
+        durationMs,
+        playedMs: () =>
+          Math.min(
+            durationMs,
+            Math.max(0, (stoppedAt ?? context.currentTime * 1000) - startsAt),
+          ),
         stop: () => {
           if (stoppedAt !== null) return;
-          stoppedAt = context.currentTime;
+          stoppedAt = context.currentTime * 1000;
           try {
             source.stop();
           } catch {
@@ -158,4 +186,24 @@ export async function openAudioEngine(): Promise<AudioEngine> {
       void context.close();
     },
   };
+}
+
+/** The clip with the silence before and after its voice cut away. */
+function trimmed(context: AudioContext, buffer: AudioBuffer): AudioBuffer {
+  const { start, end } = voicedRange(
+    buffer.getChannelData(0),
+    buffer.sampleRate,
+  );
+  if (start === 0 && end === buffer.length) return buffer;
+  const cut = context.createBuffer(
+    buffer.numberOfChannels,
+    end - start,
+    buffer.sampleRate,
+  );
+  for (let channel = 0; channel < buffer.numberOfChannels; channel += 1)
+    cut.copyToChannel(
+      buffer.getChannelData(channel).subarray(start, end),
+      channel,
+    );
+  return cut;
 }

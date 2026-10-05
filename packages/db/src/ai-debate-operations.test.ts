@@ -13,7 +13,7 @@ const debateRow = [
   'Cities should make public transit free',
   'negative',
   'wren',
-  'bf_emma',
+  'aura-2-thalia-en',
   'speech-model',
   'cx-model',
   'judge-model',
@@ -206,6 +206,26 @@ describe('lines, usage, ballot and counts', () => {
   });
 });
 
+describe('reserveAiDebateSpeech', () => {
+  test('reserves characters in one conditional update', async () => {
+    const within = createTestDatabase([[['debate-1']]]);
+    const over = createTestDatabase([[]]);
+    const input = { aiDebateId: 'debate-1', characters: 120, budget: 1_000 };
+    assert({
+      given: 'a debate with room in its speech budget, then one without',
+      should: 'answer true, then false, each from a single guarded update',
+      actual: [
+        await within.database.reserveAiDebateSpeech(input),
+        await over.database.reserveAiDebateSpeech(input),
+        within.queries.length,
+        within.queries[0]?.query.startsWith('update "ai_debates"') &&
+          within.queries[0]?.query.includes('"tts_characters" +'),
+      ],
+      expected: [true, false, 1, true],
+    });
+  });
+});
+
 describe('createAiDebate', () => {
   const debate = {
     id: 'debate-1',
@@ -213,7 +233,7 @@ describe('createAiDebate', () => {
     resolution: 'Cities should make public transit free',
     personSide: 'negative' as const,
     opponent: 'wren',
-    voice: 'bf_emma',
+    voice: 'aura-2-thalia-en',
     speechModel: 's',
     cxModel: 'c',
     judgeModel: 'j',

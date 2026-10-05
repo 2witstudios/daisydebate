@@ -51,7 +51,7 @@ const schemas = {
   speak: z.object({
     id,
     utteranceId: id,
-    sentenceIndex: z.number().int().min(0).max(400),
+    phraseIndex: z.number().int().min(0).max(400),
   }),
   crossExamine: z.object({
     id,
@@ -61,7 +61,7 @@ const schemas = {
   heard: z.object({
     id,
     utteranceId: id,
-    sentenceIndex: z.number().int().min(0).max(400),
+    phraseIndex: z.number().int().min(0).max(400),
     playedMs: z.number().min(0).max(600_000),
     totalMs: z.number().min(0).max(600_000),
   }),
@@ -82,7 +82,8 @@ const rules = {
   command: { windowSeconds: 60, max: 60 },
   transcribe: { windowSeconds: 60, max: 90 },
   speech: { windowSeconds: 60, max: 20 },
-  speak: { windowSeconds: 60, max: 400 },
+  // Phrases, not sentences: a speech is a few dozen requests in all.
+  speak: { windowSeconds: 60, max: 40 },
   crossExamine: { windowSeconds: 60, max: 60 },
   heard: { windowSeconds: 60, max: 60 },
   ballot: { windowSeconds: 60, max: 10 },

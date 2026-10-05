@@ -13,7 +13,7 @@ const models = {
   speechModel: 'anthropic/claude-sonnet-5.5',
   cxModel: 'openai/gpt-6-luna',
   judgeModel: 'anthropic/claude-sonnet-5.5',
-  ttsModel: 'hexgrad/kokoro-82m',
+  ttsModel: 'deepgram/aura-2',
   sttModel: 'openai/whisper-large-v3-turbo',
 };
 
@@ -26,7 +26,7 @@ const newDebate = (id: string, actorId: string, expectedEndAt: Date) => ({
   resolution: 'Social media does more harm than good',
   personSide: 'negative' as const,
   opponent: 'wren',
-  voice: 'bf_emma',
+  voice: 'aura-2-thalia-en',
   expectedEndAt,
   ...models,
 });
@@ -202,6 +202,32 @@ describe('AI debates (AIDB-3.1)', () => {
         should: 'keep all six with distinct sequences',
         actual: found?.utterances.map((u) => u.sequence),
         expected: [0, 1, 2, 3, 4, 5],
+      });
+    });
+  });
+
+  test('a burst of voice requests never overshoots the speech budget', async () => {
+    await withDebate(async ({ database, id }) => {
+      const results = await Promise.all(
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(() =>
+          database.reserveAiDebateSpeech({
+            aiDebateId: id,
+            characters: 100,
+            budget: 350,
+          }),
+        ),
+      );
+      const found = await database.getAiDebate(id);
+      assert({
+        given: 'ten 100-character reservations at once against a budget of 350',
+        should:
+          'grant exactly three, count 300 characters and start counting the debate',
+        actual: {
+          granted: results.filter(Boolean).length,
+          counted: found?.ttsCharacters,
+          started: found?.countedAt instanceof Date,
+        },
+        expected: { granted: 3, counted: 300, started: true },
       });
     });
   });

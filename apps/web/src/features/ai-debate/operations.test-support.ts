@@ -106,6 +106,13 @@ function memoryStore(): AiDebateStore & {
       record.completionTokens += completionTokens;
       record.countedAt ??= new Date(1);
     },
+    async reserveAiDebateSpeech({ aiDebateId, characters, budget }) {
+      const record = get(aiDebateId);
+      if (record.ttsCharacters + characters > budget) return false;
+      record.ttsCharacters += characters;
+      record.countedAt ??= new Date(1);
+      return true;
+    },
     async finishAiDebate(id) {
       get(id).finishedAt ??= new Date(2);
     },
@@ -186,7 +193,7 @@ export const setup = ({
 }: {
   personSide?: 'affirmative' | 'negative';
   voice?: ReturnType<typeof scriptedVoice>;
-  limits?: { live: number; perDay: number };
+  limits?: { live: number; perDay: number; speechCharacters?: number };
 } = {}) => {
   const store = memoryStore();
   const time = movableClock();

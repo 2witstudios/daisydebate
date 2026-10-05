@@ -7,6 +7,7 @@ import {
   aiDebates,
   aiDebateUtterances,
 } from './schema/ai-debates';
+import { aiDebateUsageOperations } from './ai-debate-usage';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { isUniqueViolation } from './unique-violation';
 
@@ -42,6 +43,8 @@ export const aiDebateOperations = ({
   readonly database: BunSQLDatabase;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
+  ...aiDebateUsageOperations({ database, eventSink }),
+
   /**
    * Creates an AI debate if the limits allow it, as one atomic step: a
    * transaction-scoped lock serializes creation, so a burst cannot all see
@@ -257,37 +260,6 @@ export const aiDebateOperations = ({
             eq(aiDebateUtterances.aiDebateId, aiDebateId),
           ),
         );
-    });
-  },
-
-  /**
-   * Adds vendor usage to the debate's internal cost and, on the first call,
-   * stamps `counted_at`: from then the debate counts against an allowance.
-   */
-  async recordAiDebateUsage({
-    aiDebateId,
-    ttsCharacters = 0,
-    sttRequests = 0,
-    promptTokens = 0,
-    completionTokens = 0,
-  }: {
-    readonly aiDebateId: string;
-    readonly ttsCharacters?: number;
-    readonly sttRequests?: number;
-    readonly promptTokens?: number;
-    readonly completionTokens?: number;
-  }): Promise<void> {
-    await instrumented(eventSink, 'recordAiDebateUsage', async () => {
-      await database
-        .update(aiDebates)
-        .set({
-          ttsCharacters: sql`${aiDebates.ttsCharacters} + ${ttsCharacters}`,
-          sttRequests: sql`${aiDebates.sttRequests} + ${sttRequests}`,
-          promptTokens: sql`${aiDebates.promptTokens} + ${promptTokens}`,
-          completionTokens: sql`${aiDebates.completionTokens} + ${completionTokens}`,
-          countedAt: sql`coalesce(${aiDebates.countedAt}, statement_timestamp())`,
-        })
-        .where(eq(aiDebates.id, aiDebateId));
     });
   },
 

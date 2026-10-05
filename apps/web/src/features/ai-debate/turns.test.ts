@@ -10,20 +10,19 @@ import {
 setupRitewayBun();
 
 describe('the AI speech', () => {
-  test('streams sentences, saves them and voices one sentence', async () => {
+  test('streams phrases, saves them and voices one phrase', async () => {
     const { operations, id, store, voice, events, utteranceId } =
       await withSpokenAc();
     assert({
       given: 'the countdown into the AC with the AI on the affirmative',
       should:
-        'write the speech early, emitting the utterance and each sentence in order',
+        'write the speech early: the first sentence alone, then the rest grouped into a phrase',
       actual: events
-        .filter((e) => e.type === 'sentence')
-        .map((e) => e.type === 'sentence' && e.text),
+        .filter((e) => e.type === 'phrase')
+        .map((e) => e.type === 'phrase' && e.text),
       expected: [
         'Thank you, judge.',
-        'My first contention is safety.',
-        'I urge an affirmative ballot.',
+        'My first contention is safety. I urge an affirmative ballot.',
       ],
     });
     assert({
@@ -43,16 +42,20 @@ describe('the AI speech', () => {
       actorId: 'actor-1',
       id,
       utteranceId,
-      sentenceIndex: 1,
+      phraseIndex: 1,
     });
     assert({
-      given: "a request for the second sentence's voice",
+      given: "a request for the second phrase's voice",
       should: 'return audio and count its characters',
       actual: {
         bytes: audio.byteLength,
         tts: store.records.get(id)?.ttsCharacters,
       },
-      expected: { bytes: 1, tts: 'My first contention is safety.'.length },
+      expected: {
+        bytes: 1,
+        tts: 'My first contention is safety. I urge an affirmative ballot.'
+          .length,
+      },
     });
     assert({
       given: 'a debate against Wren',
@@ -61,7 +64,7 @@ describe('the AI speech', () => {
       actual: {
         persona: voice.personas[0]?.includes('You are Wren'),
         voiced: voice.calls.includes(
-          'speak:bf_emma:My first contention is safety.',
+          'speak:aura-2-thalia-en:My first contention is safety. I urge an affirmative ballot.',
         ),
       },
       expected: { persona: true, voiced: true },
@@ -71,9 +74,9 @@ describe('the AI speech', () => {
     );
     assert({
       given: 'a second request for the same speech (a reload)',
-      should: 'replay the saved sentences without asking the model again',
+      should: 'replay the saved phrases without asking the model again',
       actual: replay.length,
-      expected: 4,
+      expected: 3,
     });
   });
 
@@ -180,13 +183,13 @@ describe("the person's speech and cross-examination", () => {
     assert({
       given: 'the AI asking and nothing said yet, during the countdown',
       should: 'prepare its opening question early',
-      actual: opening.reply?.sentences,
+      actual: opening.reply?.phrases,
       expected: ['Is that your strongest example?'],
     });
     assert({
       given: "the person's answer",
       should: 'transcribe it and reply with the next question',
-      actual: { heard: next.heard, reply: next.reply?.sentences },
+      actual: { heard: next.heard, reply: next.reply?.phrases },
       expected: {
         heard: 'I think the evidence is clear.',
         reply: ['Is that your strongest example?'],
@@ -212,13 +215,13 @@ describe("the person's speech and cross-examination", () => {
       actorId: 'actor-1',
       id,
       utteranceId: opening.reply!.utteranceId,
-      sentenceIndex: 1,
+      phraseIndex: 1,
       playedMs: 0,
       totalMs: 1000,
     });
     assert({
-      given: 'a barge-in at the start of the second sentence',
-      should: 'keep only the first sentence',
+      given: 'a barge-in at the start of the second phrase',
+      should: 'keep only the first phrase',
       actual: store.records.get(id)?.utterances.at(-1)?.text,
       expected: 'First question here.',
     });
