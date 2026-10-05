@@ -113,7 +113,7 @@ export function BotRoom({
             <Seat
               label="Debater"
               name="You"
-              detail="By voice: allow your microphone when the debate opens"
+              detail="By voice"
               portrait={
                 <span className="flex size-full items-center justify-center font-display text-xl font-bold text-ink-muted">
                   You
@@ -195,7 +195,6 @@ export function BotRoom({
             </button>
           </section>
           <p className="text-center text-sm text-ink-muted">
-            Training never changes your rating.{' '}
             <Link href={trainDestinations.hub} className={plain}>
               Your plan and progress
             </Link>

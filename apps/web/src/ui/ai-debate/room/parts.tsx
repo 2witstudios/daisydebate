@@ -137,20 +137,14 @@ export function Controls({
   if (state.phase === 'ended' || state.phase === 'aborted') return null;
   if (state.phase === 'waiting')
     return (
-      <div className="flex flex-col gap-3">
-        <p className="text-ink-muted">
-          You will debate by voice. Daisy transcribes your speeches for your
-          opponent and the judge; no audio is kept. Headphones work best.
-        </p>
-        <button
-          type="button"
-          className={buttonClass('primary')}
-          disabled={busy}
-          onClick={actions.onBegin}
-        >
-          Begin debate
-        </button>
-      </div>
+      <button
+        type="button"
+        className={buttonClass('primary')}
+        disabled={busy}
+        onClick={actions.onBegin}
+      >
+        Begin debate
+      </button>
     );
   if (!joined)
     return (
@@ -179,9 +173,7 @@ export function Transcript({
   return (
     <TrainCard title="Transcript">
       {lines.length === 0 ? (
-        <p className="text-ink-muted">
-          What you and your opponent say will appear here.
-        </p>
+        <p className="text-ink-muted">Nothing said yet</p>
       ) : (
         <ol className="flex flex-col gap-3">
           {lines.map((line) => (

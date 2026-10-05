@@ -140,7 +140,6 @@ export function BotSelectorPage({ view }: { readonly view: BotSelector }) {
           </ul>
         </nav>
         <p className="text-center text-sm text-ink-muted">
-          Training never changes your rating.{' '}
           <Link href={trainDestinations.hub}>Your plan and progress</Link>
         </p>
       </section>
