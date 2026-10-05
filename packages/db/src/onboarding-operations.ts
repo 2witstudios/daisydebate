@@ -41,6 +41,36 @@ export type OnboardingRecord = {
   readonly completedAt: string | null;
 };
 
+type OnboardingRow = typeof memberOnboarding.$inferSelect;
+
+/** A member with no onboarding row has answered nothing. */
+const noRow = {
+  club: null,
+  experience: null,
+  formats: [],
+  length: null,
+  completedAt: null,
+} as const;
+
+const rowAnswers = (row: OnboardingRow) => ({
+  club: row.club as Club | null,
+  experience: row.experience as Experience | null,
+  formats: row.formats as Format[],
+  length: row.length as Length | null,
+  completedAt: row.completedAt === null ? null : row.completedAt.toISOString(),
+});
+
+/** The stored rows as a record. */
+const toRecord = (
+  row: OnboardingRow | undefined,
+  wants: readonly { readonly value: string }[],
+  topics: readonly { readonly value: string }[],
+): OnboardingRecord => ({
+  ...(row === undefined ? noRow : rowAnswers(row)),
+  wants: wants.map(({ value }) => value as Want),
+  topics: topics.map(({ value }) => value as Topic),
+});
+
 const touched = {
   updatedAt: sql`now()`,
   version: sql`${memberOnboarding.version} + 1`,
@@ -134,15 +164,7 @@ export const onboardingOperations = ({
         .from(memberTopics)
         .where(eq(memberTopics.userId, userId))
         .orderBy(asc(memberTopics.topic));
-      return {
-        wants: wants.map(({ value }) => value as Want),
-        club: (row?.club ?? null) as Club | null,
-        experience: (row?.experience ?? null) as Experience | null,
-        formats: (row?.formats ?? []) as Format[],
-        length: (row?.length ?? null) as Length | null,
-        topics: topics.map(({ value }) => value as Topic),
-        completedAt: row?.completedAt?.toISOString() ?? null,
-      };
+      return toRecord(row, wants, topics);
     });
   },
 });

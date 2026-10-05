@@ -66,14 +66,15 @@ export const createSubmitStep =
  * The posted choices that are on their lists, as answers the step can
  * show again; a post the parser refuses shows nothing new.
  */
-export function postedAnswers(
+function postedAnswers(
   step: QuestionStep,
   form: FormData,
 ): Partial<OnboardingAnswers> {
   const parsed = parseStepAnswers(stepBody(step, form));
   if (!parsed.ok) return {};
-  const { step: _step, ...answers } = parsed.value;
-  return answers;
+  const answers: Record<string, unknown> = { ...parsed.value };
+  delete answers.step;
+  return answers as Partial<OnboardingAnswers>;
 }
 
 /** A step's answer when its save was refused or never arrived. */

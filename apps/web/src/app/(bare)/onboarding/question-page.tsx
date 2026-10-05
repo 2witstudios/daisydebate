@@ -4,7 +4,7 @@ import {
   type SearchParams,
 } from '../../../features/access/decision';
 import type { QuestionStep } from '../../../features/onboarding/answers';
-import { readOnboardingAnswers } from '../../../lib/onboarding-answers';
+import { readOnboardingAnswers } from './actions';
 import { QuestionForm } from '../../../ui/onboarding/questions/question-form';
 import { saveStepAction } from './actions';
 import { stepSkip } from './skip';
@@ -24,12 +24,12 @@ export async function QuestionPage({
   readonly step: QuestionStep;
   readonly searchParams: Promise<SearchParams>;
 }) {
-  const { destination, userId } = await readStepEntry(searchParams, step);
+  const { destination } = await readStepEntry(searchParams, step);
   return (
     <QuestionForm
       step={step}
       action={saveStepAction.bind(null, step, destination)}
-      answers={await readOnboardingAnswers(userId)}
+      answers={await readOnboardingAnswers()}
       backHref={onboardingStepHref(previous[step], destination)}
       skip={stepSkip(destination)}
     />

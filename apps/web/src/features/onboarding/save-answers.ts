@@ -4,10 +4,12 @@ import { createAppError } from '@daisy/errors';
 import type { Identity } from '@daisy/auth';
 import type { OnboardingStepWrite } from '@daisy/db';
 import { consumeOrThrow, type AuthRateLimiter } from '../auth/rate-limit';
+import type { OnboardingRecord } from '@daisy/db';
 import {
   handleOperation,
   readJson,
   requireSameOrigin,
+  requireSameOriginRead,
   requireSignedIn,
 } from '../../server/http';
 import { parseStepAnswers } from './answers';
@@ -28,6 +30,16 @@ type OnboardingDependencies = {
   ) => Promise<void>;
   readonly complete: (userId: string, at: Date) => Promise<void>;
 };
+
+/** The session's member id, refusing anyone without a username. */
+async function memberId(
+  identify: (request: Request) => Promise<Identity>,
+  request: Request,
+): Promise<string> {
+  const identity = requireSignedIn(await identify(request));
+  if (identity.state !== 'member') throw createAppError('AUTHORIZATION');
+  return identity.principal.userId;
+}
 
 const isFinish = (body: unknown) =>
   typeof body === 'object' &&
@@ -50,9 +62,7 @@ export function createOnboardingHandler(dependencies: OnboardingDependencies) {
       'account.onboarding.save',
       async () => {
         requireSameOrigin(request, dependencies.origin());
-        const identity = requireSignedIn(await dependencies.identify(request));
-        if (identity.state !== 'member') throw createAppError('AUTHORIZATION');
-        const { userId } = identity.principal;
+        const userId = await memberId(dependencies.identify, request);
         await consumeOrThrow(
           dependencies.limiter(),
           `account:onboarding:${userId}`,
@@ -72,6 +82,30 @@ export function createOnboardingHandler(dependencies: OnboardingDependencies) {
         if (!parsed.ok) throw createAppError('VALIDATION');
         await dependencies.save(userId, parsed.value);
         return Response.json({ saved: parsed.value.step });
+      },
+    );
+}
+
+/**
+ * GET /api/account/onboarding: the session member's own answers, for the
+ * onboarding pages' server render. A same-origin read for a member only;
+ * the id is the session's, never the request's.
+ */
+export function createOnboardingReadHandler(dependencies: {
+  readonly logger: Logger;
+  readonly origin: () => string;
+  readonly identify: (request: Request) => Promise<Identity>;
+  readonly read: (userId: string) => Promise<OnboardingRecord>;
+}) {
+  return (request: Request) =>
+    handleOperation(
+      dependencies.logger,
+      request,
+      'account.onboarding.read',
+      async () => {
+        requireSameOriginRead(request, dependencies.origin());
+        const userId = await memberId(dependencies.identify, request);
+        return Response.json(await dependencies.read(userId));
       },
     );
 }

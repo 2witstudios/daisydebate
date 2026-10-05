@@ -4,3 +4,5 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export const POST = processRoute((routes) => routes.onboarding.POST);
+
+export const GET = processRoute((routes) => routes.onboarding.GET);

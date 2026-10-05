@@ -3,7 +3,7 @@ import {
   onboardingStepHref,
   type SearchParams,
 } from '../../../../features/access/decision';
-import { DebateStep } from '../../../../ui/onboarding/intro/intro';
+import { DebateStep } from '../../../../ui/onboarding/intro/debate-step';
 import { stepSkip } from '../skip';
 import { readStepEntry, stepRobots } from '../step-entry';
 

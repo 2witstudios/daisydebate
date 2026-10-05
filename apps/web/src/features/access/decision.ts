@@ -87,17 +87,9 @@ export const onboardingHref = (destination: string): string =>
 export const passkeyOfferHref = (destination: string): string =>
   `/onboarding/passkey?next=${encodeURIComponent(destination)}`;
 
-/** The onboarding steps after the passkey offer, in order. */
-export const onboardingStepOrder = [
-  'welcome',
-  'daisy',
-  'debate',
-  'about',
-  'experience',
-  'topics',
-  'ready',
-] as const;
-export type OnboardingStep = (typeof onboardingStepOrder)[number];
+/** The onboarding steps after the passkey offer. */
+export type OnboardingStep =
+  'welcome' | 'daisy' | 'debate' | 'about' | 'experience' | 'topics' | 'ready';
 
 /** One onboarding step, then the already validated destination. */
 export const onboardingStepHref = (

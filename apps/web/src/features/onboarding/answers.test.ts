@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { topicChoices } from '@daisy/protocol';
-import { emptyAnswers, parseStepAnswers } from './answers';
+import { emptyAnswers, parseStepAnswers, parseStoredAnswers } from './answers';
 
 setupRitewayBun();
 
@@ -155,6 +155,36 @@ describe('emptyAnswers', () => {
         topics: [],
         completedAt: null,
       },
+    });
+  });
+});
+
+describe('parseStoredAnswers', () => {
+  test('what the read endpoint returns', () => {
+    const stored = {
+      wants: ['debate'],
+      club: 'own',
+      experience: 'new',
+      formats: [],
+      length: null,
+      topics: ['law'],
+      completedAt: '2026-10-05T12:00:00.000Z',
+    } as const;
+    assert({
+      given: 'stored answers on their lists',
+      should: 'return them as answers',
+      actual: parseStoredAnswers(stored),
+      expected: stored,
+    });
+    assert({
+      given: 'a stored value off its list, or a malformed time',
+      should: 'refuse the whole read',
+      actual: [
+        parseStoredAnswers({ ...stored, club: 'secret' }),
+        parseStoredAnswers({ ...stored, completedAt: 'yesterday' }),
+        parseStoredAnswers('nothing'),
+      ],
+      expected: [null, null, null],
     });
   });
 });

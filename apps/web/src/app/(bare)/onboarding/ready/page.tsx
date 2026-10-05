@@ -4,7 +4,7 @@ import {
   type SearchParams,
 } from '../../../../features/access/decision';
 import { listBots } from '../../../../features/train/bots';
-import { readOnboardingAnswers } from '../../../../lib/onboarding-answers';
+import { readOnboardingAnswers } from '../actions';
 import { ReadyStep } from '../../../../ui/onboarding/ready/ready';
 import { readStepEntry, stepRobots } from '../step-entry';
 
@@ -19,10 +19,10 @@ export default async function OnboardingReadyPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const { destination, userId } = await readStepEntry(searchParams, 'ready');
+  const { destination } = await readStepEntry(searchParams, 'ready');
   return (
     <ReadyStep
-      answers={await readOnboardingAnswers(userId)}
+      answers={await readOnboardingAnswers()}
       botNames={listBots().map((bot) => bot.name)}
       homeHref={destination}
       editHrefs={{

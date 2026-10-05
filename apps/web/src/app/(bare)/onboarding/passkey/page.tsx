@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { readOnboardingEntry } from '../../../../lib/auth-entry';
-import { afterPasskey } from '../../../../lib/onboarding-answers';
+import { afterPasskey } from '../actions';
 import {
   onboardingHref,
   passkeyOfferHref,

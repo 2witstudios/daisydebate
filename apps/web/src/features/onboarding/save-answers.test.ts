@@ -2,7 +2,11 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { Identity } from '@daisy/auth';
 import type { OnboardingStepWrite } from '@daisy/db';
 import { silentLogger } from '../../server/test-loggers.test-support';
-import { createOnboardingHandler } from './save-answers';
+import { emptyAnswers } from './answers';
+import {
+  createOnboardingHandler,
+  createOnboardingReadHandler,
+} from './save-answers';
 import { allowEvery, type ConsumeStub } from '../auth/limiter.test-support';
 
 setupRitewayBun();
@@ -170,6 +174,61 @@ describe('POST /api/account/onboarding answers', () => {
         completed,
       ],
       expected: [400, []],
+    });
+  });
+});
+
+describe('GET /api/account/onboarding', () => {
+  const reader = (identity: Identity = member) => {
+    const reads: string[] = [];
+    const handler = createOnboardingReadHandler({
+      logger: silentLogger,
+      origin: () => 'http://localhost:3000',
+      identify: async () => identity,
+      read: async (userId) => {
+        reads.push(userId);
+        return { ...emptyAnswers, topics: ['law'] };
+      },
+    });
+    return { handler, reads };
+  };
+  const get = () =>
+    new Request('http://localhost:3000/api/account/onboarding', {
+      headers: { 'sec-fetch-site': 'same-origin' },
+    });
+
+  test('a member reads their own answers', async () => {
+    const { handler, reads } = reader();
+    const response = await handler(get());
+    assert({
+      given: 'a member',
+      should: 'answer their stored answers, read by the session id',
+      actual: [response.status, await response.json(), reads],
+      expected: [200, { ...emptyAnswers, topics: ['law'] }, ['user1']],
+    });
+  });
+
+  test('anyone else reads nothing', async () => {
+    const provisional = reader({
+      state: 'provisional',
+      principal: { kind: 'user', userId: 'user1', permissions: [] },
+    });
+    const crossSite = reader();
+    assert({
+      given: 'an account with no username, and a cross-site read',
+      should: 'answer 403 to both and read nothing',
+      actual: [
+        (await provisional.handler(get())).status,
+        (
+          await crossSite.handler(
+            new Request('http://localhost:3000/api/account/onboarding', {
+              headers: { 'sec-fetch-site': 'cross-site' },
+            }),
+          )
+        ).status,
+        provisional.reads.length + crossSite.reads.length,
+      ],
+      expected: [403, 403, 0],
     });
   });
 });

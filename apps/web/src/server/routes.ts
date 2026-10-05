@@ -2,7 +2,10 @@ import {
   createListSessionsHandler,
   createRevokeSessionHandler,
 } from '../features/account/sessions';
-import { createOnboardingHandler } from '../features/onboarding/save-answers';
+import {
+  createOnboardingHandler,
+  createOnboardingReadHandler,
+} from '../features/onboarding/save-answers';
 import { createUsernameHandler } from '../features/account/username';
 import { createConfirmEmailHandlers } from '../features/auth/confirm-email';
 import { createConfirmHandlers } from '../features/auth/confirm';
@@ -78,6 +81,12 @@ export function createRoutes(app: App) {
       }),
     },
     onboarding: {
+      GET: createOnboardingReadHandler({
+        logger,
+        origin,
+        identify: (request) => identify(app.auth(), request.headers),
+        read: (userId) => database.readOnboarding(userId),
+      }),
       POST: createOnboardingHandler({
         logger,
         origin,

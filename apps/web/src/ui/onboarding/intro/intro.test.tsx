@@ -3,7 +3,8 @@ import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { routeExists } from '../../test-support/route-exists';
-import { DaisyStep, DebateStep, WhyStep, type IntroStepProps } from './intro';
+import { DebateStep } from './debate-step';
+import { DaisyStep, WhyStep, type IntroStepProps } from './intro';
 
 setupRitewayBun();
 

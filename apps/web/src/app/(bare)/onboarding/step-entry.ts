@@ -15,13 +15,13 @@ import {
 export async function readStepEntry(
   searchParams: Promise<SearchParams>,
   step: OnboardingStep,
-): Promise<{ readonly destination: string; readonly userId: string }> {
+): Promise<{ readonly destination: string }> {
   const { destination, identity } = await readOnboardingEntry(
     searchParams,
     (next) => onboardingStepHref(step, next),
   );
   if (identity.state === 'provisional') redirect(onboardingHref(destination));
-  return { destination, userId: identity.principal.userId };
+  return { destination };
 }
 
 /** Every onboarding step is a private page. */
