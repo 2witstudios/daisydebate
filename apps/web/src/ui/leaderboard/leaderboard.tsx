@@ -19,15 +19,12 @@ import {
   PreviousChampion,
 } from './ladder-states/ladder-states';
 import { LadderTable } from './ladder-table/ladder-table';
-import { YouBar } from './you-bar/you-bar';
 
 export type LeaderboardProps = {
   readonly view: LadderView;
   readonly query: LadderQuery;
   /** ISO timestamp the season's day counts from. */
   readonly now: string;
-  /** The signed-in viewer's public username, or null for a visitor. */
-  readonly username: string | null;
   /** True while the viewer is assigned to judge a debate. */
   readonly judging: boolean;
   /** The open debater's detail, or null when the detail is closed. */
@@ -42,7 +39,6 @@ export function Leaderboard({
   view,
   query,
   now,
-  username,
   judging,
   detail,
 }: LeaderboardProps) {
@@ -111,7 +107,6 @@ export function Leaderboard({
       <p className="text-sm text-ink-faint">
         <Link href={leaderboardDestinations.privacy}>Ladder privacy</Link>
       </p>
-      <YouBar view={view} query={query} username={username} />
       {detail ? <DebaterDrawer detail={detail} query={query} /> : null}
     </div>
   );

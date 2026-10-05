@@ -10,7 +10,6 @@ import {
   applyFilters,
   hasFilters,
   matchesSearch,
-  pinnedFor,
   toRow,
   type RowContext,
 } from './ladder-rows';
@@ -136,7 +135,6 @@ export function buildLadder(
     provisionalHits,
     early,
     status,
-    pinned: pinnedFor(ranked, context),
     hasStanding: mine !== undefined,
     previousChampion: data.previousChampion,
     pendingChanges: data.pendingChanges,
