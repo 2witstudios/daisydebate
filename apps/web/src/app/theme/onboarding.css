@@ -1,0 +1,10 @@
+/* Onboarding-owned size tokens (ADR 0028). Theme variables only; classes stay in the markup. */
+@theme {
+  --container-onboarding: 800px;
+  --spacing-onboarding-card: 700px;
+  --spacing-onboarding-touch: 44px;
+  --spacing-onboarding-tile: 56px;
+  --spacing-onboarding-segment: 28px;
+  --spacing-onboarding-bar: 52px;
+  --spacing-onboarding-cta: 120px;
+}
