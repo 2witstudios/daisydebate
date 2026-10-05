@@ -1,7 +1,7 @@
 import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createInitialState, type UiState } from './state';
+import { createInitialState, type NavState, type UiState } from './state';
 import { createUiStore, useUiState, UiStoreProvider } from './store';
 import { transactions } from '../transactions';
 
@@ -63,7 +63,7 @@ describe('UI store transactions', () => {
       actual: [
         state.resources.dock,
         next.resources.dock,
-        next.resources.searchQuery === state.resources.searchQuery,
+        next.resources.nav === state.resources.nav,
         state.resources.dock,
       ],
       expected: ['auto', 'closed', true, 'auto'],
@@ -72,16 +72,12 @@ describe('UI store transactions', () => {
 
   test('are pure: they return new state and leave the original untouched', () => {
     const state = createInitialState();
-    const next = transactions.setSearchQuery(state, 'ranked');
+    const next = transactions.setNav(state, 'collapsed');
     assert({
-      given: 'a search transaction over seeded state',
-      should: 'update the search query without mutating the original',
-      actual: [
-        next.resources.searchQuery,
-        state.resources.searchQuery,
-        next === state,
-      ],
-      expected: ['ranked', '', false],
+      given: 'a nav transaction over seeded state',
+      should: 'update the nav without mutating the original',
+      actual: [next.resources.nav, state.resources.nav, next === state],
+      expected: ['collapsed', 'auto', false],
     });
   });
 });
@@ -95,10 +91,10 @@ describe('UI store snapshot subscription', () => {
       notifications += 1;
     });
     store.setUiState(state);
-    const next = transactions.setSearchQuery(state, 'ranked');
+    const next = transactions.setNav(state, 'collapsed');
     store.setUiState(next);
     unsubscribe();
-    store.setUiState(transactions.setSearchQuery(next, 'elo'));
+    store.setUiState(transactions.setNav(next, 'auto'));
     assert({
       given:
         'a subscriber across identical, changed, and post-unsubscribe swaps',
@@ -110,13 +106,9 @@ describe('UI store snapshot subscription', () => {
 });
 
 function Probe() {
-  const searchQuery = useUiState((state) => state.resources.searchQuery);
+  const nav = useUiState((state) => state.resources.nav);
   const user = useUiState((state) => state.collections.onlineUsers[0]);
-  return h(
-    'p',
-    null,
-    `${user?.name ?? 'none'}:${searchQuery === '' ? 'empty' : searchQuery}`,
-  );
+  return h('p', null, `${user?.name ?? 'none'}:${nav}`);
 }
 
 describe('useUiState SSR snapshot', () => {
@@ -131,7 +123,7 @@ describe('useUiState SSR snapshot', () => {
       given: 'a component reading the store rendered to string',
       should: 'render the seeded content through the server snapshot',
       actual: html,
-      expected: '<p>Alex Chen:empty</p>',
+      expected: '<p>Alex Chen:auto</p>',
     });
   });
 });
@@ -145,27 +137,27 @@ describe('useUiState SSR snapshot', () => {
  */
 async function simulateRequest(
   store: { getUiState: () => UiState; setUiState: (next: UiState) => void },
-  query: string,
-): Promise<string> {
+  nav: NavState,
+): Promise<NavState> {
   await Promise.resolve();
-  store.setUiState(transactions.setSearchQuery(store.getUiState(), query));
+  store.setUiState(transactions.setNav(store.getUiState(), nav));
   await Promise.resolve();
-  return store.getUiState().resources.searchQuery;
+  return store.getUiState().resources.nav;
 }
 
 describe('UI store request scoping (ADR 0024)', () => {
   test('two concurrent renders never see each other state', async () => {
     const requestA = createUiStore(createInitialState());
     const requestB = createUiStore(createInitialState());
-    const [queryA, queryB] = await Promise.all([
-      simulateRequest(requestA, 'alpha'),
-      simulateRequest(requestB, 'beta'),
+    const [navA, navB] = await Promise.all([
+      simulateRequest(requestA, 'collapsed'),
+      simulateRequest(requestB, 'auto'),
     ]);
     assert({
       given: 'two concurrent requests, each with its own store instance',
-      should: 'each keep only the query it wrote itself',
-      actual: [queryA, queryB],
-      expected: ['alpha', 'beta'],
+      should: 'each keep only the nav it wrote itself',
+      actual: [navA, navB],
+      expected: ['collapsed', 'auto'],
     });
   });
 
@@ -181,14 +173,14 @@ describe('UI store request scoping (ADR 0024)', () => {
         globalState = next;
       },
     };
-    const [queryA, queryB] = await Promise.all([
-      simulateRequest(globalStore, 'alpha'),
-      simulateRequest(globalStore, 'beta'),
+    const [navA, navB] = await Promise.all([
+      simulateRequest(globalStore, 'collapsed'),
+      simulateRequest(globalStore, 'auto'),
     ]);
     assert({
       given: 'two concurrent requests sharing one module-global store',
       should: 'cross-contaminate: both observe whichever write ran last',
-      actual: [queryA === queryB, new Set([queryA, queryB]).size],
+      actual: [navA === navB, new Set([navA, navB]).size],
       expected: [true, 1],
     });
   });
@@ -199,7 +191,7 @@ describe('UI store request scoping (ADR 0024)', () => {
       ...createInitialState(),
       resources: {
         ...createInitialState().resources,
-        searchQuery: 'from-b',
+        nav: 'collapsed' as const,
       },
     };
     const htmlA = renderToString(
@@ -212,7 +204,7 @@ describe('UI store request scoping (ADR 0024)', () => {
       given: 'two provider trees rendered with different seeded state',
       should: 'render each tree from its own store, not a shared one',
       actual: [htmlA, htmlB],
-      expected: ['<p>Alex Chen:empty</p>', '<p>Alex Chen:from-b</p>'],
+      expected: ['<p>Alex Chen:auto</p>', '<p>Alex Chen:collapsed</p>'],
     });
   });
 });

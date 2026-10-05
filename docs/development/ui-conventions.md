@@ -97,3 +97,19 @@ the gaps it cannot.
 - No ledes that restate the page title, and no slogan pairs ("Practice
   arguments. Sharpen your mind.") outside the landing hero and the auth
   brand panel.
+
+## App shell
+
+Owner decision, 2026-10-05 (option A of the shell design). Three columns,
+no topbar: navigation on the left, the page, and the social rail on the
+right. Both side columns run the full height and carry their own collapse
+control, on the column they control. The social rail starts with the
+member (account and notifications), then their friends; collapsed, it is a
+strip of avatars with the control to open it again, never hidden. A visitor
+has no rail: their Sign in sits at the foot of the sidebar. Both views of
+the rail are in the markup and CSS shows one, so the shell is right before
+any script runs.
+
+The sidebar is pinned to the viewport only when the viewport can hold all of
+it (the `tall:` variant); on a shorter one it scrolls with the page. It never
+becomes a scroll box of its own, because that would clip the nav flyouts.

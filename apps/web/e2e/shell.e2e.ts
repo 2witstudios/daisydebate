@@ -16,6 +16,23 @@ test.describe('dashboard shell chrome', () => {
     await expect(page).toHaveURL(/\/sign-in\?next=%2Fplay$/);
   });
 
+  test('the sidebar foot stays reachable on a short viewport', async ({
+    page,
+  }) => {
+    // 200% zoom of a 1280 by 800 window: the sidebar is taller than the
+    // viewport, so pinning it would strand Sign in and Collapse below it.
+    await page.setViewportSize({ width: 1280, height: 400 });
+    await page.goto('/');
+    const nav = page.getByRole('navigation', { name: 'Primary' });
+    for (const control of [
+      nav.getByRole('link', { name: 'Sign in' }),
+      nav.getByRole('button', { name: 'Collapse sidebar' }),
+    ]) {
+      await control.scrollIntoViewIfNeeded();
+      await expect(control).toBeInViewport();
+    }
+  });
+
   test('menu tiles share one uniform shape', async ({ page }) => {
     await page.goto('/');
     const grid = page.getByRole('list', { name: 'Debate destinations' });
@@ -69,7 +86,9 @@ test.describe('dashboard shell chrome', () => {
   test('interactive controls carry accessible names', async ({ page }) => {
     await page.goto('/');
     await expect(
-      page.locator('header').getByRole('link', { name: 'Sign in' }),
+      page
+        .getByRole('navigation', { name: 'Primary' })
+        .getByRole('link', { name: 'Sign in' }),
     ).toBeVisible();
   });
 });

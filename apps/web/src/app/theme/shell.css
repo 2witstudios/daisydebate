@@ -14,15 +14,14 @@
   --leading-shell-count: 16px;
 }
 
-/* Named grid areas and minmax() tracks have no token-locked utility. */
+/* Named grid areas and minmax() tracks have no token-locked utility.
+   Three columns: navigation, the page, and the social rail. The rail is a
+   strip of icons unless open; a visitor has no rail (`data-dock="none"`). */
 @utility grid-shell {
   --nav-width: var(--spacing-sidebar);
-  grid-template-columns: var(--nav-width) minmax(0, 1fr);
-  grid-template-rows: auto auto 1fr;
-  grid-template-areas:
-    'sidebar topbar'
-    'sidebar banner'
-    'sidebar main';
+  --social-width: var(--spacing-shell-icons);
+  grid-template-columns: var(--nav-width) minmax(0, 1fr) var(--social-width);
+  grid-template-areas: 'sidebar main dock';
 
   /* The sidebar is icons only on a narrow screen, or when collapsed. */
   &[data-nav='collapsed'] {
@@ -33,18 +32,15 @@
     --nav-width: var(--spacing-shell-icons);
   }
 
-  /* On a wide screen the friends dock is a column beside the page, below the
-     navbar and topic banner, unless it has been closed (a visitor has none,
-     so the grid is always `closed` for them and no column is reserved). */
+  &[data-dock='none'] {
+    --social-width: var(--spacing-0);
+  }
+
+  /* Open beside the page on a wide screen: by default, or by choice. */
   @media (width >= 1101px) {
-    &:not([data-dock='closed']) {
-      grid-template-columns:
-        var(--nav-width) minmax(0, 1fr)
-        var(--spacing-dock);
-      grid-template-areas:
-        'sidebar topbar topbar'
-        'sidebar banner banner'
-        'sidebar main dock';
+    &[data-dock='auto'],
+    &[data-dock='open'] {
+      --social-width: var(--spacing-dock);
     }
   }
 }
@@ -53,45 +49,54 @@
   grid-area: sidebar;
 }
 
-@utility area-topbar {
-  grid-area: topbar;
-}
-
 @utility area-main {
   grid-area: main;
 }
 
-@utility area-banner {
-  grid-area: banner;
-}
-
-/* The friends dock. Hidden unless open. Wide and open it is the column
-   beside the page, as tall as what is left under the navbar; narrower than
-   that it is a panel over the page's right edge, only when opened. */
-@utility dock-panel {
-  display: none;
+/* The social rail: sticky beside the page, as tall as the screen. It holds
+   two views and shows one. Open (`social-full`): wide, the column itself;
+   narrower, a panel over the page's right edge while the strip keeps its
+   column. Collapsed (`social-strip`): a column of icons. */
+@utility social-rail {
   grid-area: dock;
   position: sticky;
-  top: var(--spacing-topbar);
+  top: 0;
   z-index: 30;
-  width: var(--spacing-dock);
-  height: calc(100vh - var(--spacing-topbar));
+  height: 100vh;
+  display: flex;
+}
 
-  @media (width >= 1101px) {
-    [data-dock]:not([data-dock='closed']) & {
-      display: flex;
-    }
-  }
+@utility social-full {
+  display: none;
+  width: var(--spacing-dock);
+  height: 100%;
 
   [data-dock='open'] & {
     display: flex;
+  }
+
+  @media (width >= 1101px) {
+    [data-dock='auto'] & {
+      display: flex;
+    }
   }
 
   @media (width < 1101px) {
     position: fixed;
     inset: 0 0 0 auto;
     z-index: 40;
-    height: auto;
     box-shadow: var(--shadow-3);
+  }
+}
+
+@utility social-strip {
+  display: flex;
+  width: var(--spacing-shell-icons);
+
+  @media (width >= 1101px) {
+    [data-dock='auto'] &,
+    [data-dock='open'] & {
+      display: none;
+    }
   }
 }

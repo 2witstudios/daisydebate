@@ -1,17 +1,7 @@
-import {
-  debaterHref,
-  ladderHref,
-  type LadderQuery,
-  type LadderStatus,
-} from './query';
-import type { Change, LadderRow, LadderViewer, Pinned } from './ladder-view';
+import { debaterHref, type LadderQuery, type LadderStatus } from './query';
+import type { Change, LadderRow, LadderViewer } from './ladder-view';
 import { isClosed, type Season } from './season';
-import {
-  PROVISIONAL_AFTER,
-  type LadderEntry,
-  type RankedEntry,
-} from './standing';
-import { PAGE_SIZE } from './ladder-view';
+import type { LadderEntry, RankedEntry } from './standing';
 
 /** Rows shown either side of the viewer in "Around me". */
 const AROUND = 5;
@@ -115,48 +105,5 @@ export function aroundWindow(
     note: mine.provisional
       ? `Where you would sit: around rank ${above.length + 1} at rating ${mine.rating}`
       : `Ranks ${shown[0]?.rank ?? ''} to ${shown.at(-1)?.rank ?? ''}`,
-  };
-}
-
-/** A link to the page of the ladder that holds the viewer's own row. */
-function jumpHref(
-  ranked: readonly RankedEntry[],
-  entry: RankedEntry,
-  query: LadderQuery,
-): string {
-  const list = ranked.filter((row) => entry.provisional || !row.provisional);
-  return ladderHref({
-    ...query,
-    scope: 'top',
-    q: '',
-    band: 'any',
-    region: 'any',
-    status: entry.provisional ? 'everyone' : 'established',
-    page: Math.floor(list.indexOf(entry) / PAGE_SIZE) + 1,
-    debater: null,
-  });
-}
-
-/** The viewer's line pinned under the table. */
-export function pinnedFor(
-  ranked: readonly RankedEntry[],
-  context: RowContext,
-): Pinned {
-  const { viewer, mine, query } = context;
-  if (viewer === null) return { kind: 'signed-out' };
-  if (!mine) return { kind: 'absent' };
-  const row = toRow(mine, context);
-  const jump = jumpHref(ranked, mine, query);
-  if (!mine.provisional)
-    return { kind: 'established', rank: mine.rank ?? 0, row, jumpHref: jump };
-  return {
-    kind: 'provisional',
-    row,
-    played: mine.played,
-    remaining: PROVISIONAL_AFTER - mine.played,
-    percent: Math.round((mine.played / PROVISIONAL_AFTER) * 100),
-    wouldRank:
-      ranked.filter((e) => !e.provisional && e.rating > mine.rating).length + 1,
-    jumpHref: jump,
   };
 }

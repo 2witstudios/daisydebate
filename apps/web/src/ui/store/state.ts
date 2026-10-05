@@ -2,7 +2,6 @@ import type { PresenceStatus as Presence } from '@daisy/protocol';
 import type { Tier } from '../types/tier/tier';
 import type { TournamentSummary } from '../types/tournament-summary/tournament-summary';
 import { debates } from '../mock/debates';
-import { topic } from '../mock/topic';
 import { tournament } from '../mock/tournament';
 import { users } from '../mock/users';
 
@@ -32,9 +31,7 @@ export type DockState = 'auto' | 'open' | 'closed';
 export type NavState = 'auto' | 'collapsed';
 
 type UiResources = {
-  readonly searchQuery: string;
   readonly onlineCount: number;
-  readonly todaysTopic: string;
   readonly dock: DockState;
   readonly nav: NavState;
   readonly tournament: TournamentSummary;
@@ -53,9 +50,7 @@ export type UiState = {
 /** Deterministic seed from the mock fixtures (the future wiring swap point). */
 export const createInitialState = (): UiState => ({
   resources: {
-    searchQuery: '',
     onlineCount: 1248,
-    todaysTopic: topic,
     dock: 'auto',
     nav: 'auto',
     tournament,

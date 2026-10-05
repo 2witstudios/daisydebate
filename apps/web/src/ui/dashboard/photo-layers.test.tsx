@@ -35,7 +35,7 @@ describe('dashboard photographs (ISSUE-19)', () => {
     assert({
       given: 'each dashboard surface that lays a photograph under its content',
       should:
-        'carry the photo with its intrinsic size and layer it by class (absolute inset-0 size-full), so without the stylesheet it cannot span the viewport over the topbar',
+        'carry the photo with its intrinsic size and layer it by class (absolute inset-0 size-full), so without the stylesheet it cannot span the viewport over the shell',
       actual: surfaces.map(([name, surface]) => ({
         name,
         ...photoOf(renderInStore(h(surface))),

@@ -5,9 +5,9 @@ import { useUiState } from '../../../../store/store';
 
 /**
  * The shell's grid. It carries the sidebar's state as `data-nav` and the
- * dock's as `data-dock`, which the layout reads: a third column for the dock while it is open on a wide
- * screen. With no dock (a visitor) it is always `closed`, so no column is
- * reserved for it.
+ * social rail's as `data-dock`, which the layout reads: the rail's column
+ * is a strip of icons, or the open panel on a wide screen. A visitor has no
+ * rail (`none`), so no column is reserved for it.
  */
 export function ShellGrid({
   hasDock,
@@ -20,7 +20,7 @@ export function ShellGrid({
   const nav = useUiState((state) => state.resources.nav);
   return (
     <div
-      data-dock={hasDock ? dock : 'closed'}
+      data-dock={hasDock ? dock : 'none'}
       data-nav={nav}
       className="grid min-h-screen grid-shell items-start"
     >

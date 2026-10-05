@@ -177,7 +177,7 @@ export function DebaterDrawer(props: DebaterDrawerProps) {
       />
       <aside
         aria-label="Debater detail"
-        className="relative flex h-full w-full max-w-search flex-col gap-5 overflow-y-auto bg-surface p-6 shadow-3 max-compact:mt-topbar max-compact:h-auto max-compact:max-w-none max-compact:rounded-t-xl max-compact:p-4"
+        className="relative flex h-full w-full max-w-search flex-col gap-5 overflow-y-auto bg-surface p-6 shadow-3 max-compact:h-auto max-compact:max-w-none max-compact:rounded-t-xl max-compact:p-4"
       >
         <Header {...props} />
         <Body {...props} />

@@ -93,25 +93,15 @@ describe('Tailwind theme (ADR 0028)', () => {
   });
 
   test('keeps the desktop-first ranges as max-* variants', async () => {
-    const css = await compile('max-rail:p-2 short:p-2');
+    const css = await compile('max-rail:p-2');
     assert({
-      given: 'a named breakpoint and the short-viewport variant',
-      should:
-        'emit a max-width range inclusive of 1100px and a max-height query',
-      actual: [
-        rulesOf(css).get('.max-rail\\:p-2'),
-        rulesOf(css).get('.short\\:p-2'),
-      ],
-      expected: [
-        {
-          media: '(width < 1101px)',
-          declarations: { padding: 'var(--spacing-2)' },
-        },
-        {
-          media: '(max-height: 660px)',
-          declarations: { padding: 'var(--spacing-2)' },
-        },
-      ],
+      given: 'a named breakpoint',
+      should: 'emit a max-width range inclusive of 1100px',
+      actual: rulesOf(css).get('.max-rail\\:p-2'),
+      expected: {
+        media: '(width < 1101px)',
+        declarations: { padding: 'var(--spacing-2)' },
+      },
     });
   });
 });

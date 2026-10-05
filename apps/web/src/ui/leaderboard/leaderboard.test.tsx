@@ -49,7 +49,6 @@ const render = (
       view,
       query,
       now: NOW,
-      username,
       judging: options.judging ?? false,
       detail: null,
     }),
@@ -61,19 +60,17 @@ describe('Leaderboard', () => {
     const html = render(field(40));
     assert({
       given: 'a live season for a visitor',
-      should:
-        'have one h1, say the season is live, filter, list and invite sign-in',
+      should: 'have one h1, say the season is live, filter and list',
       actual: [
         html.match(/<h1/g)?.length,
         html.includes('Season 5 is live. Ends in 25 days.'),
         html.includes('role="search"'),
         html.includes('aria-label="Top three"'),
         html.includes('aria-label="Ladder"'),
-        html.includes('Sign in'),
         html.includes('How ratings work'),
         html.includes('Final'),
       ],
-      expected: [1, true, true, true, true, true, true, false],
+      expected: [1, true, true, true, true, true, false],
     });
   });
 
@@ -170,7 +167,6 @@ describe('Leaderboard', () => {
         view,
         query,
         now: NOW,
-        username: null,
         judging: false,
         detail,
       }),

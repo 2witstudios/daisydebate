@@ -1,5 +1,5 @@
 import type { Identity } from '@daisy/auth';
-import type { ShellAccount } from '../ui/layout/app-shell/components/topbar/topbar';
+import type { ShellAccount } from '../ui/layout/app-shell/account';
 
 /**
  * The only fields the client shell learns: never ids, roles or permissions.
