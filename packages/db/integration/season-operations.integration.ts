@@ -152,4 +152,41 @@ describe('season operations (RATE-1.2)', () => {
       });
     });
   });
+
+  test('rolls back the close when opening the next season fails', async () => {
+    await withFixture(url, async (fixture) => {
+      const current = tracked(fixture);
+      await withSeasons(url, async (seasons) => {
+        await seasons.openSeason({
+          id: current,
+          name: 'Season 1',
+          startsAt: october,
+        });
+        const [{ count: before }] = (await fixture.sql.unsafe(
+          'select count(*)::int as count from seasons',
+        )) as Array<{ count: number }>;
+        await assertRejects({
+          given:
+            'a rollover whose close succeeds but whose next season reuses an existing id',
+          should: 'refuse the rollover',
+          actual: () =>
+            seasons.rolloverSeason({
+              closeId: current,
+              open: { id: current, name: 'Season 2', startsAt: january },
+            }),
+          code: 'CONFLICT',
+        });
+        const [{ count: after }] = (await fixture.sql.unsafe(
+          'select count(*)::int as count from seasons',
+        )) as Array<{ count: number }>;
+        assert({
+          given: 'an open that fails after the close ran in the same rollover',
+          should:
+            'roll the close back, leaving the current season active with no end and no row added',
+          actual: [await statusOf(fixture, current), after - before],
+          expected: [{ status: 'active', endsAt: undefined }, 0],
+        });
+      });
+    });
+  });
 });
