@@ -210,18 +210,22 @@ describe('rateDebate', () => {
   });
 
   test('refuses an unparseable timestamp', async () => {
-    await assertRejects({
-      given: 'an occurredAt that is not an ISO timestamp',
-      should: 'refuse as a validation error',
-      actual: () =>
-        rateDebate({
-          affirmative: { ...newcomer, lastRatedAt: at },
-          negative: newcomer,
-          outcome: 'draw',
-          occurredAt: 'yesterday',
-        }),
-      code: 'VALIDATION',
-    });
+    for (const [given, affirmative] of [
+      ['two newcomers', newcomer],
+      ['a debater rated before', { ...newcomer, lastRatedAt: at }],
+    ] as const)
+      await assertRejects({
+        given: `${given} and an occurredAt that is not an ISO timestamp`,
+        should: 'refuse as a validation error before rating',
+        actual: () =>
+          rateDebate({
+            affirmative,
+            negative: newcomer,
+            outcome: 'draw',
+            occurredAt: 'yesterday',
+          }),
+        code: 'VALIDATION',
+      });
   });
 });
 

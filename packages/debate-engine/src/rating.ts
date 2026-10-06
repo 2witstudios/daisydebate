@@ -160,6 +160,8 @@ export function rateDebate(input: {
   readonly occurredAt: string;
 }): RatedDebate {
   const { affirmative, negative, outcome, occurredAt } = input;
+  // Validated here, not only while widening: two newcomers never widen.
+  instant(occurredAt);
   assertBounded(affirmative.state);
   assertBounded(negative.state);
   const affirmativeNow = inflateDeviation(

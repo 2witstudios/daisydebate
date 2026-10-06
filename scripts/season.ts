@@ -25,14 +25,43 @@ export type SeasonCommand =
   | { readonly kind: 'usage'; readonly message: string };
 
 const ISO_INSTANT =
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(\.\d+)?(Z|[+-](\d{2}):(\d{2}))$/;
 
-/** An ISO 8601 instant with an offset, or undefined when absent. */
+const daysIn = (year: number, month: number) =>
+  new Date(Date.UTC(year, month, 0)).getUTCDate();
+
+/**
+ * Whether every calendar and clock component is real: `Date.parse` would
+ * roll 2026-02-30 over to March 2 rather than refuse it.
+ */
+function realInstant(match: RegExpExecArray): boolean {
+  const part = (index: number) => Number(match[index] ?? 0);
+  const [year, month] = [part(1), part(2)];
+  const bounds: ReadonlyArray<readonly [number, number, number]> = [
+    [month, 1, 12],
+    [part(3), 1, daysIn(year, month)],
+    [part(4), 0, 23],
+    [part(5), 0, 59],
+    [part(6), 0, 59],
+    [part(9), 0, 23],
+    [part(10), 0, 59],
+  ];
+  return bounds.every(([value, low, high]) => value >= low && value <= high);
+}
+
+/** An ISO 8601 instant with an offset, null when malformed, undefined when absent. */
 const instant = (value: string | undefined): Date | null | undefined => {
   if (value === undefined) return undefined;
-  return ISO_INSTANT.test(value) && !Number.isNaN(Date.parse(value))
-    ? new Date(value)
-    : null;
+  const match = ISO_INSTANT.exec(value);
+  return match && realInstant(match) ? new Date(value) : null;
+};
+
+/** The flags each command takes; any other flag is refused, never ignored. */
+const allowedFlags: Readonly<Record<string, readonly string[]>> = {
+  list: [],
+  open: ['name', 'starts'],
+  rollover: ['name', 'starts'],
+  close: ['id', 'ends'],
 };
 
 type Flags = {
@@ -69,9 +98,11 @@ function readFlags(argv: readonly string[]): Flags | null {
   const { id } = parsed.values;
   const starts = instant(parsed.values.starts);
   const ends = instant(parsed.values.ends);
+  const allowed = allowedFlags[command ?? ''] ?? [];
   const valid =
     command !== undefined &&
     parsed.positionals.length === 1 &&
+    Object.keys(parsed.values).every((flag) => allowed.includes(flag)) &&
     starts !== null &&
     ends !== null &&
     validName(name) &&
