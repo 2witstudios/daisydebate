@@ -68,11 +68,11 @@ describe('RoundClock', () => {
   });
 
   test('a timer that is not announced', () => {
-    const html = clock(live(1, 90_000, 180_000));
+    const html = clock(live(1, 60_000, 120_000));
     assert({
       given: 'the first CX half done',
       should: 'mark the clock as a timer showing the time left',
-      actual: html.includes('role="timer"') && html.includes('1:30'),
+      actual: html.includes('role="timer"') && html.includes('1:00'),
       expected: true,
     });
   });

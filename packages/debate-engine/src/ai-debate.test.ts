@@ -18,9 +18,9 @@ describe('the AI debate turns', () => {
       actual: aiDebateTurns.map((turn) => `${turn.name}:${turn.durationMs}`),
       expected: [
         'AC:300000',
-        'CX:180000',
+        'CX:120000',
         'NC:360000',
-        'CX:180000',
+        'CX:120000',
         '1AR:300000',
         'NR:300000',
         '2AR:180000',
@@ -122,7 +122,7 @@ describe('deriveAiDebate', () => {
     });
     assert({
       given: 'the person on the negative, 20 s into the first CX',
-      should: 'have the first CX live with 2:40 left',
+      should: 'have the first CX live with 1:40 left',
       actual: deriveAiDebate({
         personSide: 'negative',
         commands: [start],
@@ -132,8 +132,8 @@ describe('deriveAiDebate', () => {
         phase: 'live',
         turnIndex: 1,
         startedAt: s(320),
-        endsAt: s(500),
-        remainingMs: 160000,
+        endsAt: s(440),
+        remainingMs: 100000,
         prepLeftMs: 240000,
       },
     });
@@ -146,12 +146,12 @@ describe('deriveAiDebate', () => {
       actual: deriveAiDebate({
         personSide: 'negative',
         commands: [start],
-        now: s(520),
+        now: s(460),
       }),
       expected: {
         phase: 'prep',
         turnIndex: 2,
-        prepStartedAt: s(500),
+        prepStartedAt: s(440),
         prepLeftMs: 220000,
       },
     });
@@ -160,14 +160,14 @@ describe('deriveAiDebate', () => {
       should: 'start the NC then and keep 3:30 of prep',
       actual: deriveAiDebate({
         personSide: 'negative',
-        commands: [start, { type: 'startSpeech', at: s(530) }],
-        now: s(540),
+        commands: [start, { type: 'startSpeech', at: s(470) }],
+        now: s(480),
       }),
       expected: {
         phase: 'live',
         turnIndex: 2,
-        startedAt: s(530),
-        endsAt: s(890),
+        startedAt: s(470),
+        endsAt: s(830),
         remainingMs: 350000,
         prepLeftMs: 210000,
       },
@@ -178,13 +178,13 @@ describe('deriveAiDebate', () => {
       actual: deriveAiDebate({
         personSide: 'negative',
         commands: [start],
-        now: s(500 + 240 + 10),
+        now: s(440 + 240 + 10),
       }),
       expected: {
         phase: 'live',
         turnIndex: 2,
-        startedAt: s(740),
-        endsAt: s(1100),
+        startedAt: s(680),
+        endsAt: s(1040),
         remainingMs: 350000,
         prepLeftMs: 0,
       },
@@ -204,8 +204,8 @@ describe('deriveAiDebate', () => {
         phase: 'live',
         turnIndex: 1,
         startedAt: s(250),
-        endsAt: s(430),
-        remainingMs: 170000,
+        endsAt: s(370),
+        remainingMs: 110000,
         prepLeftMs: 240000,
       },
     });
@@ -214,7 +214,7 @@ describe('deriveAiDebate', () => {
   test('the end and an abort', () => {
     // Five countdowns: every turn but the person's two prepped rebuttals.
     const affirmativeEnd =
-      300 + 180 + 360 + 180 + 300 + 300 + 180 + 240 + 5 * 10;
+      300 + 120 + 360 + 120 + 300 + 300 + 180 + 240 + 5 * 10;
     assert({
       given: 'the person on the affirmative, one second before that end',
       should: 'still be live in the 2AR',

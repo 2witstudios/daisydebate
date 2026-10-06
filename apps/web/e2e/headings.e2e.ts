@@ -32,6 +32,18 @@ const expectServerRenderedH1s = async (page: Page) => {
   await signUpMember(page.request);
   await page.goto('/onboarding/passkey?next=%2Flobby');
   await expectOneH1(page, /next time, one tap/i);
+  for (const [step, name] of [
+    ['welcome', /self-defense for free speech/i],
+    ['daisy', /how daisy works/i],
+    ['debate', /how a debate works/i],
+    ['about', /about you/i],
+    ['experience', /experience/i],
+    ['topics', /topics/i],
+    ['ready', /your first debate/i],
+  ] as const) {
+    await page.goto(`/onboarding/${step}?next=%2Flobby`);
+    await expectOneH1(page, name);
+  }
   await page.goto('/settings/security');
   await expectOneH1(page, /account security/i);
 };

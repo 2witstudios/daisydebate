@@ -6,6 +6,11 @@ import { debateCommands } from './schema/debate-commands';
 import { debateParticipants } from './schema/debate-participants';
 import { debates } from './schema/debates';
 import { formats } from './schema/formats';
+import {
+  memberInterests,
+  memberOnboarding,
+  memberTopics,
+} from './schema/onboarding';
 import { ratingChanges, ratings, seasons } from './schema/ratings';
 import { roleGrants } from './schema/role-grants';
 import { users } from './schema/users';
@@ -235,6 +240,31 @@ describe('competitive schema rules', () => {
         ],
         uniques: [],
         namedKeys: [],
+      },
+    });
+  });
+});
+
+describe('onboarding schema rules', () => {
+  test('the answers are pinned to their closed vocabularies', () => {
+    assert({
+      given: 'the member interests, topics and onboarding tables',
+      should: 'declare a CHECK per closed vocabulary and the version CHECK',
+      actual: {
+        interests: rules(memberInterests).checks,
+        topics: rules(memberTopics).checks,
+        onboarding: rules(memberOnboarding).checks,
+      },
+      expected: {
+        interests: ['member_interests_interest_check'],
+        topics: ['member_topics_topic_check'],
+        onboarding: [
+          'member_onboarding_club_check',
+          'member_onboarding_experience_check',
+          'member_onboarding_formats_check',
+          'member_onboarding_length_check',
+          'member_onboarding_version_positive',
+        ],
       },
     });
   });

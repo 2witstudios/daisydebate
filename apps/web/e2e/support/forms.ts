@@ -12,18 +12,30 @@ export const changeEmail = async (page: Page, newEmail: string) => {
   await page.getByRole('button', { name: 'Change email' }).click();
 };
 
-/** Declines the passkey offer and lands on the lobby. */
+/**
+ * Skips the onboarding flow the passkey offer leads into: Skip on the
+ * first step, then Go to home on the last, landing on the destination.
+ */
+export const skipOnboarding = async (page: Page, destination: RegExp) => {
+  await expect(page).toHaveURL(/\/onboarding\/welcome\?next=/);
+  await page.getByRole('button', { name: 'Skip' }).click();
+  await expect(page).toHaveURL(/\/onboarding\/ready\?next=/);
+  await page.getByRole('link', { name: 'Go to home' }).click();
+  await expect(page).toHaveURL(destination);
+};
+
+/** Declines the passkey offer, skips onboarding and lands on the lobby. */
 export const declineOfferToLobby = async (page: Page) => {
   await page.getByRole('button', { name: 'Not now' }).click();
-  await expect(page).toHaveURL(/\/lobby$/);
+  await skipOnboarding(page, /\/lobby$/);
   await expect(page.getByRole('heading', { name: 'Lobby' })).toBeVisible();
 };
 
 /**
  * Reaches one of the passkey offer's decline choices with the keyboard
  * alone (plain Tab, in every engine — ISSUE-75: WebKit skipped them on Tab
- * while they were links) and activates it with Enter, landing on the
- * destination.
+ * while they were links) and activates it with Enter, landing on the first
+ * onboarding step on the way to the destination.
  */
 export const declineByKeyboard = async (
   page: Page,
@@ -39,7 +51,7 @@ export const declineByKeyboard = async (
     await page.keyboard.press('Tab');
   await expect(control).toBeFocused();
   await page.keyboard.press('Enter');
-  await expect(page).toHaveURL(/\/lobby$/);
+  await expect(page).toHaveURL(/\/onboarding\/welcome\?next=(\/|%2F)lobby$/);
 };
 
 /** Drops every server-action POST the page makes, as a lost connection would. */

@@ -10,6 +10,13 @@ export type HelpTopic = {
 /** The help topics, in the order people usually need them. */
 export const helpTopics: readonly HelpTopic[] = [
   {
+    id: 'onboarding',
+    question: 'Where do I see the introduction again?',
+    answer:
+      'The introduction covers why debate, how Daisy works and how a debate runs, then asks what you want to do here. Your answers stay editable from its last step.',
+    links: [{ label: 'Start the introduction', href: '/onboarding/welcome' }],
+  },
+  {
     id: 'start-a-debate',
     question: 'How do I start a debate?',
     answer:

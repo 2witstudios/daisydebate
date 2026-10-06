@@ -8,6 +8,7 @@ import {
 } from './support/accounts';
 import { claimUsername } from './support/forms';
 import { effectsRan } from './support/hydration';
+import { walkOnboarding } from './support/onboarding';
 
 // The username step with JavaScript on: what the hydrated page adds to the
 // form's POST. The same step with JavaScript off is proven in
@@ -75,4 +76,60 @@ test('a new claim hides the last refusal while it is pending', async ({
   await expect(
     page.getByRole('heading', { name: /next time, one tap/i }),
   ).toBeVisible();
+});
+
+test('a new member walks onboarding with JavaScript and the answers stay saved', async ({
+  page,
+}) => {
+  await signUpProvisional(page.request);
+  await page.goto('/onboarding/username?next=%2Flobby');
+  await effectsRan(page);
+  await claimUsername(page, uniqueName('walker'));
+  await page.getByRole('button', { name: 'Not now' }).click();
+  await walkOnboarding(page);
+
+  // Edit reopens a step with the saved answers ticked.
+  await page.getByRole('link', { name: 'Edit topics' }).click();
+  await expect(page.getByRole('checkbox', { name: 'Law' })).toBeChecked();
+  await expect(
+    page.getByRole('checkbox', { name: 'Politics' }),
+  ).not.toBeChecked();
+
+  // A member who finished goes straight on after the passkey offer.
+  await page.goto('/onboarding/passkey?next=%2Flobby');
+  await page.getByRole('button', { name: 'Not now' }).click();
+  await expect(page).toHaveURL(/\/lobby$/);
+});
+
+test('Skip finishes onboarding from any step and lands on the last step', async ({
+  page,
+}) => {
+  await signUpMember(page.request);
+  await page.goto('/onboarding/daisy?next=%2Franked');
+  await page.getByRole('button', { name: 'Skip' }).click();
+  await expect(page).toHaveURL(/\/onboarding\/ready\?next=(\/|%2F)ranked$/);
+  await page.getByRole('link', { name: 'Go to home' }).click();
+  await expect(page).toHaveURL(/\/ranked$/);
+});
+
+test('a member who follows a link from another site to any onboarding step gets the step, not an error', async ({
+  page,
+}) => {
+  await signUpMember(page.request);
+  // A top-level navigation from another site carries these headers; the
+  // page render must not run an API's cross-site read check on them.
+  for (const step of ['welcome', 'about', 'ready', 'passkey'] as const) {
+    const response = await page.request.get(
+      `/onboarding/${step}?next=%2Flobby`,
+      {
+        headers: {
+          'sec-fetch-site': 'cross-site',
+          'sec-fetch-mode': 'navigate',
+          'sec-fetch-dest': 'document',
+        },
+        maxRedirects: 0,
+      },
+    );
+    expect(response.status(), step).toBe(200);
+  }
 });
