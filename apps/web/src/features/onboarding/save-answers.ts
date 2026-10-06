@@ -4,12 +4,10 @@ import { createAppError } from '@daisy/errors';
 import type { Identity } from '@daisy/auth';
 import type { OnboardingStepWrite } from '@daisy/db';
 import { consumeOrThrow, type AuthRateLimiter } from '../auth/rate-limit';
-import type { OnboardingRecord } from '@daisy/db';
 import {
   handleOperation,
   readJson,
   requireSameOrigin,
-  requireSameOriginRead,
   requireSignedIn,
 } from '../../server/http';
 import { parseStepAnswers } from './answers';
@@ -82,30 +80,6 @@ export function createOnboardingHandler(dependencies: OnboardingDependencies) {
         if (!parsed.ok) throw createAppError('VALIDATION');
         await dependencies.save(userId, parsed.value);
         return Response.json({ saved: parsed.value.step });
-      },
-    );
-}
-
-/**
- * GET /api/account/onboarding: the session member's own answers, for the
- * onboarding pages' server render. A same-origin read for a member only;
- * the id is the session's, never the request's.
- */
-export function createOnboardingReadHandler(dependencies: {
-  readonly logger: Logger;
-  readonly origin: () => string;
-  readonly identify: (request: Request) => Promise<Identity>;
-  readonly read: (userId: string) => Promise<OnboardingRecord>;
-}) {
-  return (request: Request) =>
-    handleOperation(
-      dependencies.logger,
-      request,
-      'account.onboarding.read',
-      async () => {
-        requireSameOriginRead(request, dependencies.origin());
-        const userId = await memberId(dependencies.identify, request);
-        return Response.json(await dependencies.read(userId));
       },
     );
 }

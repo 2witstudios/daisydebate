@@ -1,6 +1,7 @@
 import { cache } from 'react';
 import { headers } from 'next/headers';
 import type { Identity } from '@daisy/auth';
+import type { OnboardingAnswers } from '../features/onboarding/answers';
 import { sessionRefreshDue } from '../features/auth/session-policy';
 import { processApp } from '../server/process-app';
 import { resolveSession } from './identity';
@@ -30,3 +31,16 @@ export const sessionRefreshDueNow = async (): Promise<boolean> => {
     sessionRefreshDue(sessionExpiresAt, processApp().clock.now())
   );
 };
+
+/**
+ * The signed-in member's own onboarding answers, read once for this
+ * server-component render; null for anyone who is not a member. The id is
+ * the session's, never one the request names.
+ */
+export const requestOnboardingAnswers = cache(
+  async (): Promise<OnboardingAnswers | null> => {
+    const identity = await requestIdentity();
+    if (identity.state !== 'member') return null;
+    return processApp().database.readOnboarding(identity.principal.userId);
+  },
+);

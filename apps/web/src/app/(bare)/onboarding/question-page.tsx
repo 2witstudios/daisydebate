@@ -4,7 +4,7 @@ import {
   type SearchParams,
 } from '../../../features/access/decision';
 import type { QuestionStep } from '../../../features/onboarding/answers';
-import { readOnboardingAnswers } from './actions';
+import { readOnboardingAnswers } from './answers';
 import { QuestionForm } from '../../../ui/onboarding/questions/question-form';
 import { saveStepAction } from './actions';
 import { stepSkip } from './skip';

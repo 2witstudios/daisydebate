@@ -4,7 +4,7 @@ import {
   type SearchParams,
 } from '../../../../features/access/decision';
 import { listBots } from '../../../../features/train/bots';
-import { readOnboardingAnswers } from '../actions';
+import { readOnboardingAnswers } from '../answers';
 import { ReadyStep } from '../../../../ui/onboarding/ready/ready';
 import { readStepEntry, stepRobots } from '../step-entry';
 

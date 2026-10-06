@@ -111,3 +111,25 @@ test('Skip finishes onboarding from any step and lands on the last step', async 
   await page.getByRole('link', { name: 'Go to home' }).click();
   await expect(page).toHaveURL(/\/ranked$/);
 });
+
+test('a member who follows a link from another site to any onboarding step gets the step, not an error', async ({
+  page,
+}) => {
+  await signUpMember(page.request);
+  // A top-level navigation from another site carries these headers; the
+  // page render must not run an API's cross-site read check on them.
+  for (const step of ['welcome', 'about', 'ready', 'passkey'] as const) {
+    const response = await page.request.get(
+      `/onboarding/${step}?next=%2Flobby`,
+      {
+        headers: {
+          'sec-fetch-site': 'cross-site',
+          'sec-fetch-mode': 'navigate',
+          'sec-fetch-dest': 'document',
+        },
+        maxRedirects: 0,
+      },
+    );
+    expect(response.status(), step).toBe(200);
+  }
+});

@@ -3,7 +3,7 @@
 import { headers } from 'next/headers';
 import { passkeyOfferHref } from '../../../../features/access/decision';
 import { returnableDestination } from '../../../../features/auth/redirect';
-import { afterPasskey } from '../actions';
+import { afterPasskey } from '../answers';
 import { moveOn } from '../../../../server/form-action';
 import { processRoute } from '../../../../server/process-app';
 import {

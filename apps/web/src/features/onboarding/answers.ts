@@ -86,7 +86,7 @@ const fieldsOf: Record<QuestionStep, readonly string[]> = {
   topics: ['topics'],
 };
 
-const isQuestionStep = (value: unknown): value is QuestionStep =>
+export const isQuestionStep = (value: unknown): value is QuestionStep =>
   typeof value === 'string' && Object.hasOwn(fieldsOf, value);
 
 function read(
@@ -130,34 +130,6 @@ export function parseStepAnswers(input: unknown): ParsedStep {
     return { ok: true, value: read(body.step, body) };
   } catch (error) {
     if (error instanceof Refused) return { ok: false, reason: error.reason };
-    throw error;
-  }
-}
-
-const isIsoTime = (value: unknown): value is string =>
-  typeof value === 'string' && !Number.isNaN(Date.parse(value));
-
-/**
- * A member's stored answers as the read endpoint returns them, checked
- * against the same lists a post is; null when any part is off them.
- */
-export function parseStoredAnswers(input: unknown): OnboardingAnswers | null {
-  if (typeof input !== 'object' || input === null) return null;
-  const body = input as Readonly<Record<string, unknown>>;
-  const { completedAt } = body;
-  if (completedAt !== null && !isIsoTime(completedAt)) return null;
-  try {
-    return {
-      wants: many(wantChoices, body.wants),
-      club: one(clubChoices, body.club),
-      experience: one(experienceChoices, body.experience),
-      formats: many(formatChoices, body.formats),
-      length: one(lengthChoices, body.length),
-      topics: many(topicChoices, body.topics),
-      completedAt,
-    };
-  } catch (error) {
-    if (error instanceof Refused) return null;
     throw error;
   }
 }

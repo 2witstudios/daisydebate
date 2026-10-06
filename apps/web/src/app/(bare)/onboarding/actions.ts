@@ -1,19 +1,15 @@
 'use server';
 
 import { headers } from 'next/headers';
-import { createAppError } from '@daisy/errors';
-import {
-  parseStoredAnswers,
-  type OnboardingAnswers,
-} from '../../../features/onboarding/answers';
-import { afterPasskeyHref } from '../../../features/onboarding/continue';
-import { requestIdentity } from '../../../lib/request-session';
 
 import {
   onboardingStepHref,
   type OnboardingStep,
 } from '../../../features/access/decision';
-import type { QuestionStep } from '../../../features/onboarding/answers';
+import {
+  isQuestionStep,
+  type QuestionStep,
+} from '../../../features/onboarding/answers';
 import { returnableDestination } from '../../../features/auth/redirect';
 import { moveOn } from '../../../server/form-action';
 import { inProcessFetch } from '../../../server/in-process-fetch';
@@ -32,9 +28,6 @@ const following: Record<QuestionStep, OnboardingStep> = {
   experience: 'topics',
   topics: 'ready',
 };
-
-const isQuestionStep = (value: unknown): value is QuestionStep =>
-  typeof value === 'string' && Object.hasOwn(following, value);
 
 /**
  * A questionnaire step's POST, as a server action: it works before
@@ -81,37 +74,4 @@ export async function skipAction(
   const submit = createSubmitStep(inProcessFetch(onboardingRoute, incoming));
   if ((await submit({ step: 'finish' })) !== 'saved') return { refused: true };
   return moveOn(incoming, onboardingStepHref('ready', destination));
-}
-
-const readRoute = processRoute((routes) => routes.onboarding.GET);
-
-/**
- * This request's member's stored answers, for a step's server render (never
- * bound to a client form): GET
- * /api/account/onboarding in process with the request's own headers, so
- * the route's gates decide whose answers come back.
- */
-export async function readOnboardingAnswers(): Promise<OnboardingAnswers> {
-  const response = await inProcessFetch(
-    readRoute,
-    new Headers(await headers()),
-  )('/api/account/onboarding', { method: 'GET' });
-  const answers = response.ok
-    ? parseStoredAnswers(await response.json())
-    : null;
-  if (answers === null) throw createAppError('INFRASTRUCTURE');
-  return answers;
-}
-
-/**
- * Where this request's account goes after the passkey offer: onboarding
- * unless it already finished it. Anyone but a member goes to the
- * destination, where the access guard decides.
- */
-export async function afterPasskey(destination: string): Promise<string> {
-  if ((await requestIdentity()).state !== 'member') return destination;
-  return afterPasskeyHref(
-    destination,
-    (await readOnboardingAnswers()).completedAt,
-  );
 }
