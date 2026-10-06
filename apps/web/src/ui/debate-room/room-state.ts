@@ -54,7 +54,8 @@ export type RoomState = {
   readonly transcriptFilter: string;
   readonly paletteOpen: boolean;
   readonly endSpeech: EndSpeechState;
-  readonly page: PageTone;
+  /** Each document's page tone; a document not listed is dark. */
+  readonly pages: Readonly<Record<string, PageTone>>;
 };
 
 export type RoomAction =
@@ -118,7 +119,11 @@ export type RoomAction =
   | { readonly type: 'palette/close' }
   | { readonly type: 'end/press' }
   | { readonly type: 'end/cancel' }
-  | { readonly type: 'page/tone'; readonly tone: PageTone };
+  | {
+      readonly type: 'page/tone';
+      readonly documentId: string;
+      readonly tone: PageTone;
+    };
 
 const CHAT_MAX_LENGTH = 2000;
 
@@ -144,9 +149,13 @@ export function initialRoomState(round: RoundSnapshot): RoomState {
     transcriptFilter: 'all',
     paletteOpen: false,
     endSpeech: 'idle',
-    page: 'dark',
+    pages: {},
   };
 }
+
+/** The page tone a document is shown on. */
+export const pageToneOf = (state: RoomState, documentId: string): PageTone =>
+  state.pages[documentId] ?? 'dark';
 
 const withDocument = (
   state: RoomState,
@@ -258,7 +267,10 @@ const reducers: { readonly [T in RoomAction['type']]: Reducer<T> } = {
   'palette/close': (s) => ({ ...s, paletteOpen: false }),
   'end/press': (s) => ({ ...s, endSpeech: pressEndSpeech(s.endSpeech) }),
   'end/cancel': (s) => ({ ...s, endSpeech: cancelEndSpeech(s.endSpeech) }),
-  'page/tone': (s, a) => ({ ...s, page: a.tone }),
+  'page/tone': (s, a) => ({
+    ...s,
+    pages: { ...s.pages, [a.documentId]: a.tone },
+  }),
 };
 
 /** The room's one transition: every change a debater makes goes through it. */

@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { sampleRound } from '../mock/debate-room';
-import { initialRoomState, reduceRoom } from './room-state';
+import { initialRoomState, pageToneOf, reduceRoom } from './room-state';
 
 setupRitewayBun();
 
@@ -156,6 +156,22 @@ describe('reduceRoom doc/loaded and doc/add', () => {
       should: 'add it, open it and close the palette',
       actual: { active: state.tabs.active, paletteOpen: state.paletteOpen },
       expected: { active: 'doc-new', paletteOpen: false },
+    });
+  });
+});
+
+describe('reduceRoom page/tone', () => {
+  test('one document’s page', () => {
+    const state = reduceRoom(practice)(initialRoomState(practice), {
+      type: 'page/tone',
+      documentId: 'doc-flow',
+      tone: 'light',
+    });
+    assert({
+      given: 'Light chosen for Flow',
+      should: 'make Flow light and leave CX dark',
+      actual: [pageToneOf(state, 'doc-flow'), pageToneOf(state, 'doc-cx')],
+      expected: ['light', 'dark'],
     });
   });
 });

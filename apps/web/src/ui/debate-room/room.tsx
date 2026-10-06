@@ -25,6 +25,7 @@ import { DocumentTabs, FileTree, TRANSCRIPT_ID } from './file-tree';
 import { PaneDivider } from './pane-divider';
 import {
   initialRoomState,
+  pageToneOf,
   reduceRoom,
   type RoomAction,
   type RoomState,
@@ -143,8 +144,10 @@ function Workspace({
             key={doc.id}
             document={doc}
             access={doc.folder === 'club' ? 'Club' : 'Only you'}
-            page={state.page}
-            onPage={(tone) => dispatch({ type: 'page/tone', tone })}
+            page={pageToneOf(state, doc.id)}
+            onPage={(tone) =>
+              dispatch({ type: 'page/tone', documentId: doc.id, tone })
+            }
             onChange={(html) => {
               dispatch({
                 type: 'doc/update',
