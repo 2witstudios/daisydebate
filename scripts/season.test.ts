@@ -1,0 +1,125 @@
+import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { createAppError } from '@daisy/errors';
+import { parseSeasonCommand, refusalLine } from './season';
+
+setupRitewayBun();
+
+const now = '2026-10-05T12:00:00.000Z';
+const id = 'k2v9x0f4m8q3w1z7c5n6b4d2';
+const edge = { now, newId: () => id };
+
+describe('parseSeasonCommand', () => {
+  test('reads each command with the injected clock and id', () => {
+    assert({
+      given: 'list',
+      should: 'list the seasons',
+      actual: parseSeasonCommand(['list'], edge),
+      expected: { kind: 'list' },
+    });
+    assert({
+      given: 'open with a name and no start',
+      should: 'open a new season starting now',
+      actual: parseSeasonCommand(['open', '--name', 'Season 1'], edge),
+      expected: {
+        kind: 'open',
+        season: { id, name: 'Season 1', startsAt: new Date(now) },
+      },
+    });
+    assert({
+      given: 'close with an id and an end',
+      should: 'close that season at that end',
+      actual: parseSeasonCommand(
+        ['close', '--id', id, '--ends', '2026-12-31T00:00:00Z'],
+        edge,
+      ),
+      expected: {
+        kind: 'close',
+        id,
+        endsAt: new Date('2026-12-31T00:00:00Z'),
+      },
+    });
+    assert({
+      given: 'rollover with a name and a start',
+      should: 'open the next season at that start',
+      actual: parseSeasonCommand(
+        ['rollover', '--name', 'Season 2', '--starts', '2027-01-01T00:00:00Z'],
+        edge,
+      ),
+      expected: {
+        kind: 'rollover',
+        season: {
+          id,
+          name: 'Season 2',
+          startsAt: new Date('2027-01-01T00:00:00Z'),
+        },
+      },
+    });
+  });
+
+  test('refuses malformed input with usage', () => {
+    const refusals = [
+      ['an unknown command', ['reset']],
+      ['no command', []],
+      ['open without a name', ['open']],
+      [
+        'a start that is not ISO 8601',
+        ['open', '--name', 'S', '--starts', 'tomorrow'],
+      ],
+      ['close with an id that is not a cuid2', ['close', '--id', 'season-1']],
+      ['an unknown flag', ['list', '--force']],
+      [
+        'close given --starts instead of --ends',
+        ['close', '--id', id, '--starts', '2026-12-31T00:00:00Z'],
+      ],
+      ['list given a name', ['list', '--name', 'S']],
+      ['open given an id', ['open', '--name', 'S', '--id', id]],
+      [
+        'rollover given an end',
+        ['rollover', '--name', 'S', '--ends', '2027-01-01T00:00:00Z'],
+      ],
+      [
+        'an impossible calendar date',
+        ['open', '--name', 'S', '--starts', '2026-02-30T00:00:00Z'],
+      ],
+      [
+        'an impossible hour',
+        ['open', '--name', 'S', '--starts', '2026-03-01T24:00:00Z'],
+      ],
+      [
+        'an impossible offset',
+        ['open', '--name', 'S', '--starts', '2026-03-01T10:00:00+25:00'],
+      ],
+    ] as const;
+    for (const [given, argv] of refusals)
+      assert({
+        given,
+        should: 'refuse with the usage text',
+        actual: parseSeasonCommand(argv, edge).kind,
+        expected: 'usage',
+      });
+  });
+});
+
+describe('refusalLine', () => {
+  test('prints an operation refusal as its code and message only', () => {
+    const refusal = createAppError(
+      'CONFLICT',
+      'A season is already active',
+      Object.assign(new Error('insert into seasons ... params'), {
+        errno: '23505',
+      }),
+    );
+    assert({
+      given: 'an app error refusing the operation, carrying a SQL cause',
+      should: 'print its code and message, never the stack, SQL or params',
+      actual: refusalLine(refusal),
+      expected: 'CONFLICT: A season is already active',
+    });
+    assert({
+      given: 'an error that is not an app error',
+      should: 'leave it to fail loudly',
+      actual: refusalLine(new Error('boom')),
+      expected: null,
+    });
+  });
+});

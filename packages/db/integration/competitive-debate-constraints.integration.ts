@@ -33,6 +33,9 @@ describe('debates (DATA-2.1)', () => {
       const badMode = await rejected(() =>
         fixture.debate({ mode: 'friendly' }),
       );
+      const quickMode = !(await rejected(() =>
+        fixture.debate({ mode: 'quick' }),
+      ));
       const badVisibility = await rejected(() =>
         fixture.debate({ visibility: 'secret' }),
       );
@@ -48,13 +51,14 @@ describe('debates (DATA-2.1)', () => {
         given:
           'debates authored by a user id, an unknown actor and a real actor',
         should:
-          'accept only the actor, keep it undeletable, and reject values outside each vocabulary',
+          'accept only the actor, keep it undeletable, accept quick mode and reject values outside each vocabulary',
         actual: {
           byUser,
           byUnknownActor,
           byActor,
           actorDeleteBlocked,
           badMode,
+          quickMode,
           badVisibility,
           badOutcome,
         },
@@ -64,6 +68,7 @@ describe('debates (DATA-2.1)', () => {
           byActor: true,
           actorDeleteBlocked: true,
           badMode: true,
+          quickMode: true,
           badVisibility: true,
           badOutcome: true,
         },

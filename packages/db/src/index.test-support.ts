@@ -26,7 +26,7 @@ type ScriptedResult =
  * (drizzle-orm 1.0's bun-sql session uses unsafe().values() plus begin() for
  * transactions).
  */
-function fakeSql(script: ScriptedResult[]): {
+export function fakeSql(script: ScriptedResult[]): {
   client: SQL;
   queries: RecordedQuery[];
 } {

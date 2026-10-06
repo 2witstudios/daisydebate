@@ -1,6 +1,8 @@
 import {
+  debateModes,
   debateSides,
   debateSnapshotSchema,
+  type DebateMode,
   phaseSchema,
   type DebatePhase,
 } from '@daisy/protocol';
@@ -20,8 +22,6 @@ import {
 } from './columns';
 import { formats } from './formats';
 
-export const debateModes = ['casual', 'ranked', 'practice'] as const;
-export type DebateMode = (typeof debateModes)[number];
 export const debateVisibilities = ['public', 'unlisted', 'private'] as const;
 export type DebateVisibility = (typeof debateVisibilities)[number];
 /** A side wins (the protocol's side vocabulary), or nobody does. */

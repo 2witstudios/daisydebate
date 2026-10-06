@@ -189,6 +189,7 @@ describe('competitive schema rules', () => {
         ratings: {
           checks: [
             'ratings_deviation_positive',
+            'ratings_ladder_check',
             'ratings_rating_range',
             'ratings_version_positive',
             'ratings_volatility_positive',
@@ -200,6 +201,7 @@ describe('competitive schema rules', () => {
         changes: {
           checks: [
             'rating_changes_deviation_positive',
+            'rating_changes_ladder_check',
             'rating_changes_rating_range',
             'rating_changes_volatility_positive',
           ],

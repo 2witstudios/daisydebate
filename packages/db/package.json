@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./dev-seed": "./src/dev-seed.ts",
+    "./seasons": "./src/seasons.ts",
     "./slots": "./src/slots.ts",
     "./test-runs": "./src/test-runs.ts",
     "./testing": "./src/testing.ts"

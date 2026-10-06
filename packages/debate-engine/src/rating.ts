@@ -1,4 +1,5 @@
 import { createAppError, createInvariantError } from '@daisy/errors';
+import type { DebateMode, RatingLadder } from '@daisy/protocol';
 import {
   GLICKO2_SCALE,
   ratePeriod,
@@ -34,8 +35,6 @@ export const ratingPolicy = {
     volatility: { max: 0.1 },
   },
 } as const;
-
-export type RatingLadder = 'ranked' | 'quick';
 
 export type RatedOutcome = 'affirmative' | 'negative' | 'draw';
 
@@ -142,7 +141,7 @@ export function isProvisional(deviation: number): boolean {
 }
 
 /** The ladder a debate mode rates on, or null when the mode never rates. */
-export function ladderForMode(mode: string): RatingLadder | null {
+export function ladderForMode(mode: DebateMode): RatingLadder | null {
   return mode === 'ranked' || mode === 'quick' ? mode : null;
 }
 
