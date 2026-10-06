@@ -78,10 +78,24 @@ function assertBounded(state: Glicko2State): void {
     );
 }
 
+const UTC_INSTANT = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d+))?Z$/;
+
+/**
+ * Milliseconds since the epoch of a UTC ISO 8601 instant, at any fractional
+ * precision. Anything else is refused: `Date.parse` reads an offset-free
+ * time in the host's zone and rolls an impossible date into the next month,
+ * either of which would make a rating depend on the machine computing it.
+ */
 function instant(timestamp: string): number {
-  const ms = Date.parse(timestamp);
-  if (Number.isNaN(ms))
-    throw createAppError('VALIDATION', 'A rating timestamp is not ISO 8601');
+  const match = UTC_INSTANT.exec(timestamp);
+  const fraction = (match?.[2] ?? '').slice(0, 3).padEnd(3, '0');
+  const canonical = match ? `${match[1]}.${fraction}Z` : '';
+  const ms = Date.parse(canonical);
+  if (Number.isNaN(ms) || new Date(ms).toISOString() !== canonical)
+    throw createAppError(
+      'VALIDATION',
+      'A rating timestamp is not UTC ISO 8601',
+    );
   return ms;
 }
 
