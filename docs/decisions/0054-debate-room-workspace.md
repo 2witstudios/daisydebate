@@ -69,5 +69,5 @@ document. Daisy builds this itself rather than embedding another product.
 - Account erasure keeps the `users` row, so `ON DELETE CASCADE` does not
   remove a person's documents on erasure; the erasure transaction must
   delete them explicitly.
-- Upgrading Tiptap moves all six packages together and re-checks that no
+- Upgrading Tiptap moves all seven packages together and re-checks that no
   extension added later injects a style tag or a style attribute.
