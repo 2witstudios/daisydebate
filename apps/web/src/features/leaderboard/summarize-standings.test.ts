@@ -199,4 +199,36 @@ describe('summarizeStandings', () => {
       ],
     });
   });
+
+  test('counts a posting exactly at the week boundary', () => {
+    const boundary = '2026-10-01T00:00:00.000Z';
+    const read: StandingsRead = {
+      ratings: [
+        {
+          seasonId: 's1',
+          actorId: 'ada',
+          username: 'ada',
+          rating: 1516,
+          deviation: 290,
+        },
+      ],
+      changes: [
+        posting(
+          'ada',
+          'd1',
+          1500,
+          1516,
+          boundary,
+          'affirmative',
+          'affirmative',
+        ),
+      ],
+    };
+    assert({
+      given: 'a posting at exactly the start of the week',
+      should: 'count it in the week change',
+      actual: summarizeStandings(read, boundary)[0]?.weekChange,
+      expected: 16,
+    });
+  });
 });

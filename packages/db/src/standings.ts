@@ -1,4 +1,5 @@
-import type { RatingLadder } from '@daisy/protocol';
+import { createAppError } from '@daisy/errors';
+import { debateSides, type RatingLadder } from '@daisy/protocol';
 import { and, asc, desc, eq, inArray, ne } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
@@ -8,7 +9,7 @@ import { debates } from './schema/debates';
 import { formats } from './schema/formats';
 import { ratingChanges, ratings, seasons } from './schema/ratings';
 import { users } from './schema/users';
-import { toSeasonRecord, type SeasonRecord } from './seasons';
+import { toSeasonRecord, type SeasonRecord } from './season-record';
 
 /**
  * The leaderboard's reads (ADR 0055): the seasons a ladder can show, the
@@ -44,8 +45,27 @@ export type StandingsRead = {
   readonly changes: readonly StandingChange[];
 };
 
-const ratedOutcome = (outcome: string | null): StandingChange['outcome'] =>
-  outcome === 'affirmative' || outcome === 'negative' ? outcome : 'draw';
+/**
+ * A posting's seat and outcome as a rated result. A ledger row is only ever
+ * written for a debater's side of a decided debate, so anything else is
+ * corrupt data and is refused rather than guessed.
+ */
+function ratedSeat(
+  role: string,
+  outcome: string | null,
+): Pick<StandingChange, 'role' | 'outcome'> {
+  const side = role === 'affirmative' || role === 'negative' ? role : null;
+  const result =
+    outcome === 'affirmative' || outcome === 'negative' || outcome === 'draw'
+      ? outcome
+      : null;
+  if (side === null || result === null)
+    throw createAppError(
+      'INTERNAL',
+      'A ledger posting has no rated seat or outcome',
+    );
+  return { role: side, outcome: result };
+}
 
 export const standingsOperations = ({
   database,
@@ -88,52 +108,59 @@ export const standingsOperations = ({
   }): Promise<StandingsRead> {
     return instrumented(eventSink, 'readStandings', async () => {
       if (input.seasonIds.length === 0) return { ratings: [], changes: [] };
-      const ratingRows = await database
-        .select({
-          seasonId: ratings.seasonId,
-          actorId: ratings.actorId,
-          username: users.username,
-          rating: ratings.rating,
-          deviation: ratings.deviation,
-        })
-        .from(ratings)
-        .innerJoin(actors, eq(actors.id, ratings.actorId))
-        .leftJoin(users, eq(users.id, actors.userId))
-        .where(
-          and(
-            eq(ratings.formatId, input.formatId),
-            eq(ratings.ladder, input.ladder),
-            inArray(ratings.seasonId, [...input.seasonIds]),
-          ),
-        );
-      const changeRows = await database
-        .select({
-          seasonId: ratingChanges.seasonId,
-          actorId: ratingChanges.actorId,
-          debateId: ratingChanges.debateId,
-          ratingBefore: ratingChanges.ratingBefore,
-          ratingAfter: ratingChanges.ratingAfter,
-          occurredAt: ratingChanges.occurredAt,
-          role: debateParticipants.role,
-          outcome: debates.outcome,
-        })
-        .from(ratingChanges)
-        .innerJoin(debates, eq(debates.id, ratingChanges.debateId))
-        .innerJoin(
-          debateParticipants,
-          and(
-            eq(debateParticipants.debateId, ratingChanges.debateId),
-            eq(debateParticipants.actorId, ratingChanges.actorId),
-          ),
-        )
-        .where(
-          and(
-            eq(ratingChanges.formatId, input.formatId),
-            eq(ratingChanges.ladder, input.ladder),
-            inArray(ratingChanges.seasonId, [...input.seasonIds]),
-          ),
-        )
-        .orderBy(asc(ratingChanges.occurredAt));
+      // One snapshot: a rating committed between the two selects must not
+      // appear in one set and not the other.
+      const { ratingRows, changeRows } = await database.transaction(
+        async (tx) => ({
+          ratingRows: await tx
+            .select({
+              seasonId: ratings.seasonId,
+              actorId: ratings.actorId,
+              username: users.username,
+              rating: ratings.rating,
+              deviation: ratings.deviation,
+            })
+            .from(ratings)
+            .innerJoin(actors, eq(actors.id, ratings.actorId))
+            .leftJoin(users, eq(users.id, actors.userId))
+            .where(
+              and(
+                eq(ratings.formatId, input.formatId),
+                eq(ratings.ladder, input.ladder),
+                inArray(ratings.seasonId, [...input.seasonIds]),
+              ),
+            ),
+          changeRows: await tx
+            .select({
+              seasonId: ratingChanges.seasonId,
+              actorId: ratingChanges.actorId,
+              debateId: ratingChanges.debateId,
+              ratingBefore: ratingChanges.ratingBefore,
+              ratingAfter: ratingChanges.ratingAfter,
+              occurredAt: ratingChanges.occurredAt,
+              role: debateParticipants.role,
+              outcome: debates.outcome,
+            })
+            .from(ratingChanges)
+            .innerJoin(debates, eq(debates.id, ratingChanges.debateId))
+            .innerJoin(
+              debateParticipants,
+              and(
+                eq(debateParticipants.debateId, ratingChanges.debateId),
+                eq(debateParticipants.actorId, ratingChanges.actorId),
+              ),
+            )
+            .where(
+              and(
+                eq(ratingChanges.formatId, input.formatId),
+                eq(ratingChanges.ladder, input.ladder),
+                inArray(ratingChanges.seasonId, [...input.seasonIds]),
+                inArray(debateParticipants.role, [...debateSides]),
+              ),
+            ),
+        }),
+        { isolationLevel: 'repeatable read', accessMode: 'read only' },
+      );
       return {
         ratings: ratingRows.map((row) => ({
           ...row,
@@ -142,8 +169,7 @@ export const standingsOperations = ({
         changes: changeRows.map((row) => ({
           ...row,
           occurredAt: row.occurredAt.toISOString(),
-          role: row.role === 'negative' ? 'negative' : 'affirmative',
-          outcome: ratedOutcome(row.outcome),
+          ...ratedSeat(row.role, row.outcome),
         })),
       };
     });

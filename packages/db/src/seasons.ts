@@ -3,8 +3,9 @@ import { createAppError, type ErrorCode } from '@daisy/errors';
 import { desc, eq, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { seasons, type seasonStatuses } from './schema/ratings';
+import { seasons } from './schema/ratings';
 import { isUniqueViolation } from './unique-violation';
+import { toSeasonRecord, type SeasonRecord } from './season-record';
 
 /**
  * Season operations for the `bun season` CLI (ADR 0055): a season is opened,
@@ -13,14 +14,7 @@ import { isUniqueViolation } from './unique-violation';
  * index `seasons_single_active` is the arbiter.
  */
 
-export type SeasonRecord = {
-  readonly id: string;
-  readonly name: string;
-  readonly startsAt: string;
-  readonly endsAt: string | null;
-  readonly status: (typeof seasonStatuses)[number];
-  readonly version: number;
-};
+export type { SeasonRecord } from './season-record';
 
 type NewSeason = {
   readonly id: string;
@@ -52,17 +46,6 @@ const refusalMessages = {
   CONFLICT: 'Only the active season can be closed',
   VALIDATION: 'A season must end after it starts',
 } as const;
-
-export const toSeasonRecord = (
-  row: typeof seasons.$inferSelect,
-): SeasonRecord => ({
-  id: row.id,
-  name: row.name,
-  startsAt: row.startsAt.toISOString(),
-  endsAt: row.endsAt?.toISOString() ?? null,
-  status: row.status as SeasonRecord['status'],
-  version: row.version,
-});
 
 async function close(
   tx: Tx,

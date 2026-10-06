@@ -1,3 +1,4 @@
+import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createTestDatabase } from './index.test-support';
 
@@ -53,6 +54,8 @@ describe('standings reads', () => {
 
   test('maps rating and ledger rows', async () => {
     const { database } = createTestDatabase([
+      // The snapshot's SET TRANSACTION statement.
+      [],
       [
         ['s1', 'a1', 'ada', 1516, 290],
         ['s1', 'a2', null, 1484, 290],
@@ -88,5 +91,48 @@ describe('standings reads', () => {
         ['affirmative', 'draw', at.toISOString()],
       ],
     });
+  });
+
+  test('reads both sets from one read-only snapshot', async () => {
+    const { database, queries } = createTestDatabase([[], [], []]);
+    await database.readStandings({
+      formatId: 'parli',
+      ladder: 'ranked',
+      seasonIds: ['s1'],
+    });
+    assert({
+      given: 'a standings read',
+      should: 'run its selects in one repeatable-read, read-only transaction',
+      actual: queries.some(
+        ({ query }) =>
+          /repeatable read/i.test(query) && /read only/i.test(query),
+      ),
+      expected: true,
+    });
+  });
+
+  test('refuses a posting that cannot be rated', async () => {
+    for (const [given, role, outcome] of [
+      ['a judge seat', 'judge', 'affirmative'],
+      ['an abandoned outcome', 'affirmative', 'abandoned'],
+      ['no outcome', 'negative', null],
+    ] as const) {
+      const { database } = createTestDatabase([
+        [],
+        [],
+        [['s1', 'a1', 'd1', 1500, 1516, at, role, outcome]],
+      ]);
+      await assertRejects({
+        given: `a ledger row with ${given}`,
+        should: 'refuse as an internal error rather than guess a result',
+        actual: () =>
+          database.readStandings({
+            formatId: 'parli',
+            ladder: 'ranked',
+            seasonIds: ['s1'],
+          }),
+        code: 'INTERNAL',
+      });
+    }
   });
 });
