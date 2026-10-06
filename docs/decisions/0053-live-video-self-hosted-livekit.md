@@ -100,19 +100,22 @@ The server then:
 2. compares the result with each participant's current rights;
 3. updates only the participants that differ.
 
-The route is rate-limited per actor, at a limit that tolerates three clients
-calling at every boundary of the shortest turn and on every other
-participant's connect. Calls are coalesced per media session: a call answered
-by a reconcile computed after the last connect and within the same turn is
-served from it without counting, so a client that rejoins over and over with a
-still-valid refreshed token cannot spend the opponent's or the judge's budget,
-and a boundary call in a new turn is always served. The capture worker's
-hidden participant is not a seat; reconcile never touches it.
+A seated caller is never refused. Instead, reconcile runs as a single flight
+per media session: at most one reconcile per minimum interval (configuration,
+default 500 ms), and every call that arrives while one is pending or within the
+interval receives the result of the next run, which starts at or after the
+call. A client that rejoins over and over with a still-valid refreshed token
+therefore cannot spend anyone else's allowance or delay a boundary call by
+more than the interval, and the load on LiveKit's API is bounded per session,
+not per caller. The capture worker's participant is not a seat; reconcile
+never touches it.
 
 This bounds a debater who never calls reconcile. The other debater wants their
 own mic opened at the boundary, and their call closes this one too. The judge's
-client covers prep turns and an absent opponent. When nobody is connected,
-LiveKit's room `empty_timeout` and `departure_timeout` close the session.
+client covers prep turns and an absent opponent. When no seated participant is
+connected, LiveKit's room `empty_timeout` and `departure_timeout` close the
+room: the capture worker joins with the agent participant kind, which LiveKit
+does not count when deciding a room is empty (section 9).
 
 ### 5. Tokens and teardown
 
@@ -198,10 +201,12 @@ debate page sends no audio to any Daisy route.
    and `apps/web` refuses a stale one, so a paused worker whose lease was
    taken cannot write.
 3. **Capture.** For each leased session the worker joins the LiveKit room as a
-   hidden, subscribe-only participant with no publish rights and subscribes to
-   each debater's microphone as 16 kHz mono PCM. It stays, rejoining after any
-   disconnect, until the debate completes, the judging window passes or the
-   room is deleted.
+   hidden, subscribe-only participant of the agent kind with no publish
+   rights, and subscribes to each debater's microphone as 16 kHz mono PCM.
+   Because it is an agent, it never holds an otherwise empty room open. It
+   stays, rejoining after any disconnect, until the debate completes or the
+   judging window passes. When LiveKit has closed the room empty, the worker
+   waits and rejoins once a seated participant's token mint recreates it.
 4. **Clips.** A pure clip cutter in `@daisy/media` takes the turn boundaries
    (from the timetable at an injected `now`) as input. It cuts at every
    boundary, drops audio from turns the seat does not speak in (the mic
