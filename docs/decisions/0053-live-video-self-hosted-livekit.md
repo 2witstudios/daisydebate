@@ -64,8 +64,11 @@ an injected `now`), and the judging window.
 | Judge   | any time                                              | nothing                | yes        | yes    |
 | Anyone  | debate completed, or the judging window has passed    | nothing (session over) | —          | —      |
 
-- **Never granted:** data publishing, metadata updates and screen share. Each
-  would be a side channel around mic gating or judge anonymity.
+- **Never granted:** data publishing, metadata updates and screen share, each
+  a side channel around mic gating or judge anonymity; and the room-level
+  grants `roomCreate`, `roomAdmin`, `roomList` and `roomRecord`. A join token
+  carries `roomJoin` for its own room and nothing more, so a refreshed token
+  can never create, administer or record a room (section 5).
 - **Cross-examination:** both debaters speak, so both mics are open.
 - **Judging window:** bounds a debate stuck waiting for a ballot (ROOM DEC-K).
   It is configuration, defaulting to 30 minutes after the timetable ends.
@@ -246,3 +249,5 @@ never decide an outcome.
    until the owner sets the recording and transcript retention policy.
 6. DEC-109: the Ready check covers debater seats only, and Ready needs
    JavaScript.
+7. DEC-113: LiveKit runs with `room.auto_create` off. Daisy creates a debate's
+   room on mint when it is missing and deletes it at teardown (section 5).
