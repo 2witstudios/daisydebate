@@ -4,6 +4,8 @@ import { referenceFormats } from './reference-formats';
 import {
   createDebateRuntime,
   debateInvariantIds,
+  rateDebate,
+  ratePeriod,
   restoreDebateRuntime,
 } from '@daisy/debate-engine';
 
@@ -166,6 +168,25 @@ const fixtures: Readonly<Record<string, Fixture>> = {
       runtime.dispose();
     }
   },
+  'rating-state-bounded': () =>
+    rateDebate({
+      affirmative: {
+        state: { rating: 1500, deviation: 0, volatility: 0.06 },
+        lastRatedAt: null,
+      },
+      negative: {
+        state: { rating: 1500, deviation: 350, volatility: 0.06 },
+        lastRatedAt: null,
+      },
+      outcome: 'draw',
+      occurredAt: '2026-01-01T00:00:00.000Z',
+    }),
+  'rating-volatility-converges': () =>
+    ratePeriod(
+      { rating: 1500, deviation: 200, volatility: 0.06 },
+      [{ opponent: { rating: 1700, deviation: 300 }, score: 1 }],
+      { tau: 0.5, epsilon: 1e-6, maxIterations: 0 },
+    ),
 };
 
 const registryIds = Object.values(debateInvariantIds);

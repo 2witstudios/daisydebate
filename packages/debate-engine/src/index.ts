@@ -167,3 +167,6 @@ export {
   type AiDebateState,
   type AiDebateTurn,
 } from './ai-debate';
+
+export { ratePeriod } from './glicko2';
+export { rateDebate } from './rating';

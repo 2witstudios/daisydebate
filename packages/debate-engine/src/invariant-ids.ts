@@ -16,4 +16,6 @@ export const debateInvariantIds = {
   completedIsTerminal: 'debate.phase.completed.terminal',
   seatsWithinFormat: 'debate.seats.within-format',
   seatsCapacitySupported: 'debate.seats.capacity-supported',
+  ratingStateBounded: 'debate.rating.state-bounded',
+  ratingVolatilityConverges: 'debate.rating.volatility-converges',
 } as const;
