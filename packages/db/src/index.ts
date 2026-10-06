@@ -14,6 +14,7 @@ import { debateDocumentOperations } from './debate-document-operations';
 import { onboardingOperations } from './onboarding-operations';
 import { actorOperations } from './actor-operations';
 import { rateCompletedDebate } from './rating-operations';
+import { standingsOperations } from './standings';
 import type { RateDebateInput } from './rating-facts';
 import { emailDeliveryOperations } from './email-delivery-operations';
 import { outboxOperations } from './outbox';
@@ -40,6 +41,7 @@ export type {
   RatingDecision,
 } from './rating-facts';
 export type { FormatRecord } from './debate-operations';
+export type { StandingsRead } from './standings';
 export type {
   AiDebateCommandRecord,
   AiDebateRecord,
@@ -170,6 +172,7 @@ export function createDatabase({
     ...aiDebateOperations({ database, eventSink }),
     ...debateDocumentOperations({ database, eventSink }),
     ...onboardingOperations({ database, eventSink }),
+    ...standingsOperations({ database, eventSink }),
     /**
      * Rates a completed debate with the caller's domain decision (ADR 0055);
      * see `rateCompletedDebate`. Its consumer is the ratings feature; no
