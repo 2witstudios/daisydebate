@@ -2,6 +2,8 @@
 
 import { Placeholder } from '@tiptap/extensions';
 import { EditorContent, useEditor } from '@tiptap/react';
+import { useEffect } from 'react';
+import { sameDocumentHtml } from '../../../features/debate-room/document-lines';
 import { documentExtensions } from '../../../features/debate-room/document-schema';
 import type { WorkspaceDocument } from '../../../features/debate-room/documents';
 import type { PageTone } from '../room-state';
@@ -17,7 +19,7 @@ type Props = {
 
 /**
  * The round document: Tiptap on the room's page surface. One editor per
- * document id; base CSS comes from the stylesheet (injectCSS off, the CSP
+ * document id, kept in step with the stored HTML; base CSS comes from the stylesheet (injectCSS off, the CSP
  * refuses its un-nonced style tag).
  */
 export function DocumentEditor({
@@ -46,6 +48,13 @@ export function DocumentEditor({
     },
     [document.id],
   );
+
+  // A change from outside the editor (an applied agent edit, a server load)
+  // goes into the open editor without echoing back as a local update.
+  useEffect(() => {
+    if (!editor || sameDocumentHtml(editor.getHTML(), document.html)) return;
+    editor.commands.setContent(document.html, { emitUpdate: false });
+  }, [editor, document.html]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">

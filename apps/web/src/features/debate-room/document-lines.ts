@@ -29,6 +29,14 @@ export function breakLines(html: string): string {
     .replace(/\n+$/, '');
 }
 
+/** Removes the storage newlines beside tags; newlines inside text stay. */
+export const joinLines = (html: string): string =>
+  html.replace(/\n(?=<)|(?<=>)\n/g, '');
+
+/** True when two HTML strings differ only by storage line breaks. */
+export const sameDocumentHtml = (a: string, b: string): boolean =>
+  joinLines(a) === joinLines(b);
+
 /** The stored lines, one per array entry. */
 export const linesOf = (html: string): readonly string[] =>
   html === '' ? [] : breakLines(html).split('\n');

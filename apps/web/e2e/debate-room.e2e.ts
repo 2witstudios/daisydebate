@@ -67,16 +67,19 @@ test('a rated round keeps the sidebar to the round chat', async ({ page }) => {
 test('an agent edit applies to the document it names', async ({ page }) => {
   await signUpMember(page.request);
   await page.goto(`${room}?phase=prep`);
+  const tab = page
+    .getByRole('group', { name: 'Open files' })
+    .getByRole('button', { name: 'NR plan', exact: true });
+  // The NR plan is already open in the editor when the edit lands.
+  await tab.click();
+  const plan = page.getByRole('textbox', { name: 'NR plan' });
+  await expect(plan).toContainText('N3 hospital exemption New in 1AR');
   await page.getByRole('tab', { name: 'AI' }).click();
   await page.getByRole('button', { name: 'Apply' }).click();
-  await expect(
-    page
-      .getByRole('group', { name: 'Open files' })
-      .getByRole('button', { name: 'NR plan', exact: true }),
-  ).toHaveAttribute('aria-current', 'page');
-  await expect(page.getByRole('textbox', { name: 'NR plan' })).toContainText(
-    'extra time on N2 weighing',
-  );
+  await expect(tab).toHaveAttribute('aria-current', 'page');
+  await expect(plan).toContainText('extra time on N2 weighing');
+  await expect(plan).toContainText('call it out and move on');
+  await expect(plan).not.toContainText('New in 1AR');
 });
 
 test('the room has no serious or critical accessibility findings', async ({

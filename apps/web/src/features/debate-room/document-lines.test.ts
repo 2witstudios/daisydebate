@@ -6,6 +6,7 @@ import {
   linesOf,
   numberedLines,
   replaceLines,
+  sameDocumentHtml,
 } from './document-lines';
 
 setupRitewayBun();
@@ -166,6 +167,35 @@ describe('insertAtAnchor', () => {
         content: 'x',
         position: 'after',
       }).ok,
+      expected: false,
+    });
+  });
+});
+
+describe('sameDocumentHtml', () => {
+  test('stored and editor forms', () => {
+    assert({
+      given: 'the stored line-broken form and the editor’s one-line form',
+      should: 'be the same document',
+      actual: sameDocumentHtml(breakLines(editorHtml), editorHtml),
+      expected: true,
+    });
+  });
+
+  test('a changed line', () => {
+    assert({
+      given: 'a document whose text changed',
+      should: 'not be the same document',
+      actual: sameDocumentHtml('<p>a</p>', '<p>ab</p>'),
+      expected: false,
+    });
+  });
+
+  test('a newline inside text', () => {
+    assert({
+      given: 'a newline between words rather than beside a tag',
+      should: 'count as a difference',
+      actual: sameDocumentHtml('<p>a\nb</p>', '<p>ab</p>'),
       expected: false,
     });
   });

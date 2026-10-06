@@ -1,5 +1,5 @@
 import { generateHTML, generateJSON } from '@tiptap/html/server';
-import { breakLines, isHtmlDocument } from './document-lines';
+import { breakLines, isHtmlDocument, joinLines } from './document-lines';
 import { documentExtensions } from './document-schema';
 
 /** Largest document body accepted, in UTF-8 bytes. */
@@ -23,10 +23,7 @@ export function normalizeDocumentHtml(input: string): Normalized {
   if (input.trim() === '') return { ok: true, html: breakLines(EMPTY) };
   if (!isHtmlDocument(input)) return { ok: false, reason: 'not-html' };
   // Storage newlines sit beside tags; newlines inside text stay word breaks.
-  const json = generateJSON(
-    input.replace(/\n(?=<)|(?<=>)\n/g, ''),
-    documentExtensions,
-  );
+  const json = generateJSON(joinLines(input), documentExtensions);
   const html = generateHTML(json, documentExtensions);
   return { ok: true, html: breakLines(html === '' ? EMPTY : html) };
 }
