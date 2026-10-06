@@ -85,14 +85,16 @@ describe('LadderRow', () => {
     });
     assert({
       given: 'a masked row',
-      should: 'say Hidden and show no rating, record or hover card',
+      should:
+        'say Hidden, show no rating, record or hover card, and start the name with no icon so it lines up with every other row',
       actual: [
         html.includes('Hidden'),
         html.includes('>0<'),
         html.includes('12–5'),
         html.includes('Enter opens the full detail'),
+        html.includes('<svg'),
       ],
-      expected: [true, false, false, false],
+      expected: [true, false, false, false, false],
     });
   });
 
