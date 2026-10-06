@@ -119,12 +119,16 @@ Every run is bounded, so a slow LiveKit call cannot hold the queue:
   next run starts at once and re-diffs from LiveKit's current state.
 - **Fail closed.** When a call that would close a mic misses its deadline in
   two consecutive runs, the run removes that participant from the room
-  instead; it rejoins with a freshly minted token that carries only the
-  current grants.
+  instead. Removal has the same deadline; a removal that misses it is retried
+  in every following run until it succeeds, and each miss is reported to the
+  error tracker. A removed client may rejoin with a token LiveKit refreshed
+  for it earlier, which can still grant the mic; the reconcile that every
+  seated client runs when another participant connects corrects that rejoin.
 
-So a boundary call takes effect within the minimum interval plus one deadline
-(default 2.5 s). Beyond that the stale mic is either closed or its holder is
-out of the room.
+So in the worst case a stale mic is closed, or its holder removed, within the
+minimum interval plus two call deadlines plus the removal's own deadline
+(default 6.5 s). A LiveKit API that stays unavailable longer than that is an
+outage: the removal keeps retrying and alerting until it succeeds.
 
 This bounds a debater who never calls reconcile. The other debater wants their
 own mic opened at the boundary, and their call closes this one too. The judge's
@@ -321,9 +325,10 @@ never decide an outcome.
   already running need a one-time `docker compose -f infra/compose.yaml up -d`,
   because `bun slot:up` never recreates a running stack.
 - **Ready without JavaScript:** a debater cannot ready up with JavaScript off.
-- **Delay:** mic changes lag a turn boundary by at most the reconcile interval
-  plus one LiveKit call deadline (default 2.5 s), after which a mic that could
-  not be closed is closed by removing its holder.
+- **Delay:** mic changes lag a turn boundary by the reconcile interval plus
+  one LiveKit call deadline when LiveKit answers in time (default 2.5 s), and
+  by at most the interval plus three deadlines (default 6.5 s) before a mic
+  that cannot be closed is closed by removing its holder.
   Clients are never trusted, but a speaker whose opponent and judge are both
   offline keeps an open mic until the session times out. Nobody can hear them
   then, because no one else is connected.
