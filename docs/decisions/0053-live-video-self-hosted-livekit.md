@@ -3,9 +3,10 @@
 Status: proposed. Fulfils the media decision that
 [ADR 0031](0031-realtime-service.md) section 1 defers to "a separate LiveKit
 service with its own ADR (VIDEO-1)", and uses the `mediaSession` name that
-[ADR 0049](0049-room-debate-turn.md) section 8 reserves. It amends neither.
-Decisions marked open at the end were made on the owner's behalf and stay
-open until the owner confirms or overrules them.
+[ADR 0049](0049-room-debate-turn.md) section 8 reserves. It amends neither,
+and adds a third deployment, `apps/media-worker`, under
+[ADR 0003](0003-modular-monolith.md)'s extraction seam. The decisions listed
+at the end were made on the owner's behalf and confirmed by the owner.
 
 ## Context
 
@@ -33,10 +34,12 @@ even as an interim step. The reason is cost: recording through self-hosted
 Egress costs about $0.03–0.06 a debate, against $0.60–0.80 on LiveKit Cloud
 (BILL seed). That difference decides whether free play can include video.
 
-The server SDK (`livekit-server-sdk`) is used only inside a new adapter package,
-`@daisy/media`. The browser uses `livekit-client`. Media never passes through
-`apps/realtime`. Token minting, permission changes, teardown and transcription
-run in `apps/web`.
+The LiveKit server SDKs (`livekit-server-sdk`, and `@livekit/rtc-node` for
+transcript capture) are used only inside a new adapter package, `@daisy/media`.
+The browser uses `livekit-client`. Media never passes through `apps/realtime`.
+Token minting, permission changes, teardown and transcript storage run in
+`apps/web`; transcript capture runs in a new deployment, `apps/media-worker`
+(section 9).
 
 ### 2. Media sessions and identities
 
@@ -98,7 +101,13 @@ The server then:
 3. updates only the participants that differ.
 
 The route is rate-limited per actor, at a limit that tolerates three clients
-calling at every boundary of the shortest turn.
+calling at every boundary of the shortest turn and on every other
+participant's connect. Calls are coalesced per media session: a call answered
+by a reconcile computed after the last connect and within the same turn is
+served from it without counting, so a client that rejoins over and over with a
+still-valid refreshed token cannot spend the opponent's or the judge's budget,
+and a boundary call in a new turn is always served. The capture worker's
+hidden participant is not a seat; reconcile never touches it.
 
 This bounds a debater who never calls reconcile. The other debater wants their
 own mic opened at the boundary, and their call closes this one too. The judge's
@@ -169,36 +178,62 @@ The Content-Security-Policy is global (`apps/web/src/server/proxy-handler.ts`).
 On the debate route only, `connect-src` adds the LiveKit public origin as both
 `wss` and `https`.
 
-### 9. Transcripts, not recordings
+### 9. Transcripts, captured on the server
 
 Every human debate gets a live transcript, because the AI judge rules every
-debate:
+debate. The owner ruled (2026-10-05, DEC-114 overruled) that it is captured on
+the server from the media server's own copy of each debater's audio, never
+from browser uploads, so a modified client cannot feed it other audio. The
+debate page sends no audio to any Daisy route.
 
-1. The speaking debater's browser records its own microphone, but only while
-   its seat speaks in the live turn. It never records the open-mic time before
-   the first turn or after the last.
-2. Each segment is sent with its turn index.
-3. The server accepts a segment only from a seat that speaks in that turn,
-   while the turn is live or within a short configured grace window after it
-   ends.
-4. It transcribes the segment through `@daisy/ai-voice` with zero data
-   retention, and stores the text.
-
-No audio is stored.
-
-**The live transcript is not authoritative.** The checks above authenticate the
-uploader, the turn and the time, but not that the uploaded audio is what the
-debater actually said in the call: a modified browser could upload other
-audio or leave its real speech out. So a transcript built from browser
-uploads is for the live display, the debaters' own notes and unrated AI
-rulings only. It never decides a rated result. A rated outcome that rests on
-the AI ruling (the Quick match ladder) waits for a transcript taken from the
-media server's own copy of each track, which REC-1 builds with server-side
-capture (DEC-114, open).
+1. **Where it runs.** `apps/media-worker` is a third long-lived Bun
+   deployment beside `apps/web` and `apps/realtime`, through ADR 0003's
+   extraction seam. A Next.js route cannot hold a media subscriber, and ADR
+   0031 keeps media out of `apps/realtime`. Its database access is exact,
+   under its own role: SELECT on `debates`, `debate_participants`,
+   `media_sessions` and `media_participants`, and writes to
+   `media_worker_leases` only. Every transcript write goes through `apps/web`.
+2. **Leases.** The worker leases each active media session. Every takeover
+   raises the lease's `epoch`, the worker sends its epoch with every request,
+   and `apps/web` refuses a stale one, so a paused worker whose lease was
+   taken cannot write.
+3. **Capture.** For each leased session the worker joins the LiveKit room as a
+   hidden, subscribe-only participant with no publish rights and subscribes to
+   each debater's microphone as 16 kHz mono PCM. It stays, rejoining after any
+   disconnect, until the debate completes, the judging window passes or the
+   room is deleted.
+4. **Clips.** A pure clip cutter in `@daisy/media` takes the turn boundaries
+   (from the timetable at an injected `now`) as input. It cuts at every
+   boundary, drops audio from turns the seat does not speak in (the mic
+   closes one reconcile round trip late), never cuts the open-mic time before
+   the first turn or after the last, and splits a speech into chunks of about
+   60 seconds, preferring silence. A clip's key is its track id and its start
+   offset within the turn, so a resend is idempotent across a takeover.
+5. **Transcription and handoff.** Each clip is transcribed through
+   `@daisy/ai-voice` with zero data retention and posted to `apps/web`'s
+   internal route. Requests are signed with HMAC-SHA256 over method, path,
+   timestamp and body using `MEDIA_WORKER_SECRET`, within a bounded clock
+   skew, compared in constant time; without the secret the route refuses with
+   `INFRASTRUCTURE`. `apps/web` checks that the seat speaks in that turn and
+   accepts clips until the turn is sealed or the judging window ends.
+6. **Seals.** When a turn's end boundary passes, the worker posts a seal for
+   each speaking seat: the number of chunks it posted for that seat across all
+   of the seat's streams in the turn. A seat that published no mic all turn,
+   while the worker held the lease for the whole turn, is sealed with zero
+   chunks. `apps/web` seals the turn only when every counted chunk is stored.
+7. **Missing audio never saves anyone (DEC-118).** A crash, a takeover
+   mid-turn, a dropped clip or a missed seal leaves a turn unsealed. The
+   ruling waits for every seal until a seal deadline after the timetable ends
+   (configuration, default 2 minutes); then each unsealed turn counts as
+   partial, using its stored chunks, with the gap noted on the ballot, and the
+   ruling and its rating proceed. Dropping, staying silent or a capture
+   failure never voids or unrates a rated debate.
+8. **Memory.** Clips wait in memory until `apps/web` stores them, capped by
+   count and age; past the cap the oldest clip is dropped and its turn cannot
+   seal. Audio never touches disk, and no audio is stored anywhere.
 
 This supersedes the room epic's ROOM DEC-C ("no transcript stored") for
-transcripts. Speech still travels over Daisy's own media session, not a
-channel the debaters arrange themselves.
+transcripts.
 
 ### 10. Recording is out of scope here
 
@@ -228,13 +263,21 @@ never decide an outcome.
 | `debate_utterances.text`                                                  | personal   | private    | 180 days (DEC-101; deletion is ISSUE-322) |
 | `debate_utterances.id`, `.debate_id`, `.turn_index`, `.seat`, `.sequence` | identifier | —          | with the text                             |
 | `debate_utterances.created_at`                                            | none       | —          | with the text                             |
+| `debate_utterances.clip_key`                                              | identifier | —          | with the text                             |
+| `transcript_turns.debate_id`, `.turn_index`, `.seat`                      | identifier | —          | with the text                             |
+| `transcript_turns.chunk_count`, `.sealed_at`                              | none       | —          | with the text                             |
+| `media_worker_leases.media_session_id`, `.worker_id`                      | identifier | —          | until the session ends                    |
+| `media_worker_leases.epoch`, `.expires_at`                                | none       | —          | until the session ends                    |
 
 - **Who can read a transcript:** the seated debaters and the judge, and no one else.
 - **Secrets:** the LiveKit API key and secret are composition-boundary secrets
-  (ADR 0019). They are read through `secret()` configuration and never logged.
-- **Logs:** tokens, transcript text and media identities are never logged.
-- **Vendor processing:** each speech segment's audio goes to OpenRouter and
-  its speech-to-text provider for transcription. It is personal and private,
+  (ADR 0019), now held by two deployments, `apps/web` and `apps/media-worker`.
+  `MEDIA_WORKER_SECRET`, which signs the worker's requests, is held by the
+  same two. All are read through `secret()` configuration and never logged.
+- **Logs:** tokens, transcript text, audio and media identities are never
+  logged, by either deployment.
+- **Vendor processing:** each clip's audio goes from `apps/media-worker` to
+  OpenRouter and its speech-to-text provider for transcription. It is personal and private,
   processed for transcribing the debate, and sent with zero data retention,
   so the vendor keeps nothing. The OpenRouter subprocessor entry in
   `docs/operations/privacy.md`, which the AI debates already need, is
@@ -243,10 +286,16 @@ never decide an outcome.
 ## Consequences
 
 - **What this enables:** two debaters see and hear each other, mics follow the
-  turns, the judge watches unseen, and every speech becomes text the AI judge
-  and the judgeable transcript snapshot (MTCH-2.2) can read.
+  turns, the judge watches unseen, and every speech becomes server-captured
+  text that the AI judge and the judgeable transcript snapshot (MTCH-2.2) read
+  once the transcript is ready: every turn sealed, or partial after the seal
+  deadline.
 - **Operations:** Daisy runs a media server in production, with a domain, TLS,
-  TURN and open UDP ports. That is a human-only provisioning step.
+  TURN and open UDP ports, and a third deployment, `apps/media-worker`, under
+  its own database role with a health signal. That is a human-only
+  provisioning step.
+- **Worker locally and in CI:** `bun dev` starts the worker, and the e2e
+  workflow runs it with a fake speech-to-text.
 - **Local stack and CI:** both gain a LiveKit container. Checkouts with a stack
   already running need a one-time `docker compose -f infra/compose.yaml up -d`,
   because `bun slot:up` never recreates a running stack.
@@ -256,7 +305,7 @@ never decide an outcome.
   offline keeps an open mic until the session times out. Nobody can hear them
   then, because no one else is connected.
 
-## Open decisions (made on the owner's behalf)
+## Decisions confirmed by the owner (2026-10-05)
 
 1. DEC-97: mics follow turns through `canPublishSources`, set by client-driven
    reconcile with no scheduler. Both debater mics are open before the first
@@ -272,6 +321,10 @@ never decide an outcome.
    JavaScript.
 7. DEC-113: LiveKit runs with `room.auto_create` off. Daisy creates a debate's
    room on mint when it is missing and deletes it at teardown (section 5).
-8. DEC-114: a transcript built from browser uploads never decides a rated
-   result; a rated AI ruling waits for a transcript from the media server's
-   own copy of each track, built in REC-1 (section 9).
+8. DEC-114, overruled: transcripts are captured on the server in this record's
+   scope, not from browser uploads (section 9).
+9. DEC-117: capture is a hidden, subscribe-only `@livekit/rtc-node`
+   participant in `apps/media-worker` that hands text to `apps/web` over a
+   signed internal route (section 9).
+10. DEC-118: missing audio never voids or unrates a rated debate; unsealed
+    turns are ruled as partial after the seal deadline (section 9).
