@@ -1,0 +1,83 @@
+// The one rule that lets a foundation ship before its reader exists: an export
+// with no consumer today may be declared in `policy/planned-readers.json` when
+// it names the committed task that will read it and a date to be judged by.
+// `bun policy` validates the registry; ADR 0023 decides how long a declaration
+// may outlive the mistake that required it.
+//
+// This is a declaration, not a suppression: a declared reader still fails the
+// dead-code gate on its review date, so a foundation nobody adopts goes red
+// again instead of sitting in the repository forever. It exists because the
+// alternative is worse — building the box and its reader in one change, or
+// letting a table with no reader pass unnoticed because a test happened to
+// reference it.
+
+import {
+  adrProblems,
+  pathProblems,
+  registryShapeProblems,
+  requiredFieldProblems,
+  reviewDateProblems,
+  type RegistryEntryOptions,
+} from './policy-registry';
+import { utcToday } from './review-date';
+
+export type PlannedReader = {
+  /** The file the export lives in. One named export, never a tree. */
+  readonly path: string;
+  /** The exported symbol that has no reader yet. */
+  readonly export: string;
+  /** The committed task that will read it (PageSpace task id). */
+  readonly task: string;
+  readonly owner: string;
+  readonly adr: string;
+  readonly reason: string;
+  /** A real UTC calendar day; the declaration fails the gate the day after. */
+  readonly reviewBy: string;
+};
+
+export type PlannedReaderValidationOptions = RegistryEntryOptions;
+
+type ReaderEntry = Partial<PlannedReader>;
+
+const requiredFields = [
+  'path',
+  'export',
+  'task',
+  'owner',
+  'adr',
+  'reason',
+  'reviewBy',
+] as const;
+
+function referenceProblems(
+  entry: ReaderEntry,
+  prefix: string,
+  knownPaths: ReadonlySet<string> | undefined,
+): readonly string[] {
+  return [
+    ...pathProblems(entry.path, prefix, knownPaths),
+    ...adrProblems(entry.adr, prefix, knownPaths),
+  ];
+}
+
+export function validatePlannedReaders(
+  registry: { version?: unknown; readers?: unknown },
+  options: PlannedReaderValidationOptions = {},
+): readonly string[] {
+  const problems: string[] = [...registryShapeProblems(registry, 'readers')];
+  const today = options.today ?? utcToday();
+  const knownPaths = options.knownPaths;
+  if (!Array.isArray(registry.readers)) return problems;
+  const seen = new Set<string>();
+  for (const [index, value] of registry.readers.entries()) {
+    const entry = value as ReaderEntry;
+    const prefix = `readers[${index}]`;
+    problems.push(...requiredFieldProblems(entry, prefix, requiredFields));
+    problems.push(...referenceProblems(entry, prefix, knownPaths));
+    problems.push(...reviewDateProblems(entry.reviewBy, prefix, today));
+    const key = `${entry.path}|${entry.export}`;
+    if (seen.has(key)) problems.push(`${prefix}: duplicate ${key}`);
+    seen.add(key);
+  }
+  return problems;
+}

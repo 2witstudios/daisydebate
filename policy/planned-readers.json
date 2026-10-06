@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "readers": [
+    {
+      "path": "packages/db/src/schema/role-grants.ts",
+      "export": "roleGrants",
+      "task": "ID-1",
+      "owner": "platform",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "Scoped grants are reserved for club/org membership (grantScopeTypes widens from 'global'). The reader is principal resolution: resolveIdentity hardcodes permissions today instead of deriving them from these rows.",
+      "reviewBy": "2027-01-15"
+    },
+    {
+      "path": "apps/web/src/features/realtime/browser-adapters.ts",
+      "export": "createBrowserConnectionStore",
+      "task": "RT-2.6a",
+      "owner": "realtime",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "The production-wired browser WebSocket store has no page that constructs it yet; only the e2e harness references it. Its reader is the room that subscribes to realtime instead of polling.",
+      "reviewBy": "2026-12-01"
+    },
+    {
+      "path": "apps/realtime/src/outbox-drain.ts",
+      "export": "startOutboxDrain",
+      "task": "RT-2.3c",
+      "owner": "realtime",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "The outbox drain runs with a no-op sink; fan-out to subscribed sockets is the reader (RT-2.3c). Until then the drain drains nothing.",
+      "reviewBy": "2026-12-01"
+    }
+  ]
+}
