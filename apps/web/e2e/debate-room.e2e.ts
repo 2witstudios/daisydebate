@@ -1,5 +1,6 @@
 import { signUpMember } from './support/accounts';
 import { assertNoSeriousFindings } from './support/axe';
+import { watchCspViolations } from './support/csp';
 import { expect, test } from './support/fixtures';
 
 // The room's own mode decides the round: a casual room plays unrated, a
@@ -11,6 +12,7 @@ test('the round room: palette, editor, marks and dividers', async ({
   page,
 }) => {
   await signUpMember(page.request);
+  const violations = await watchCspViolations(page);
   await page.goto(room);
   await expect(page.getByRole('timer')).toContainText('2:46');
 
@@ -53,6 +55,12 @@ test('the round room: palette, editor, marks and dividers', async ({
   await divider.focus();
   await page.keyboard.press('ArrowLeft');
   await expect(divider).toHaveAttribute('aria-valuenow', '284');
+
+  // Typing, marking, the palette and the dividers ran under the nonce CSP.
+  expect(await violations.read()).toEqual({
+    eventViolations: [],
+    consoleViolations: [],
+  });
 });
 
 test('a rated round keeps the sidebar to the round chat', async ({ page }) => {
@@ -99,6 +107,7 @@ test('a bot round keeps the debater’s files across a reload', async ({
   page,
 }) => {
   await signUpMember(page.request);
+  const violations = await watchCspViolations(page);
   await page.goto('/ai-debate?bot=wren');
   await page.getByText('Negative', { exact: true }).click();
   await page.getByRole('button', { name: 'Start debate' }).click();
@@ -106,6 +115,9 @@ test('a bot round keeps the debater’s files across a reload', async ({
   await expect(
     page.getByRole('button', { name: 'Begin debate' }),
   ).toBeVisible();
+  // The bot pages' shared chunk already reports Zod's eval probe on load
+  // (ISSUE-344); what is proven here is that editing adds nothing.
+  const loaded = await violations.read();
 
   // A new flow from the palette, written into and saved.
   await page.keyboard.press('ControlOrMeta+k');
@@ -122,6 +134,17 @@ test('a bot round keeps the debater’s files across a reload', async ({
       response.ok(),
   );
   await saved;
+
+  // Creating, typing and saving in the bot room ran under the nonce CSP.
+  const edited = await violations.read();
+  expect({
+    eventViolations: edited.eventViolations.slice(
+      loaded.eventViolations.length,
+    ),
+    consoleViolations: edited.consoleViolations.slice(
+      loaded.consoleViolations.length,
+    ),
+  }).toEqual({ eventViolations: [], consoleViolations: [] });
 
   await page.reload();
   await page
