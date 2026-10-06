@@ -63,6 +63,10 @@ export function activateTab(tabs: TabsState, id: string): TabsState {
   return tabs.open.includes(id) ? { ...tabs, active: id } : tabs;
 }
 
+/** A ranked room plays rated rounds; every other room plays unrated ones. */
+export const roundKindOf = (mode: 'practice' | 'ranked'): RoundKind =>
+  mode === 'ranked' ? 'rated' : 'unrated';
+
 export type SidebarTab = 'chat' | 'ai';
 
 export function sidebarTabs(kind: RoundKind): readonly SidebarTab[] {

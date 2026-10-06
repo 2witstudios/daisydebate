@@ -2,7 +2,10 @@ import { signUpMember } from './support/accounts';
 import { assertNoSeriousFindings } from './support/axe';
 import { expect, test } from './support/fixtures';
 
-const room = '/rooms/room-tuesday-night/round';
+// The room's own mode decides the round: a casual room plays unrated, a
+// ranked room plays rated.
+const room = '/rooms/room-newcomers/round';
+const rankedRoom = '/rooms/room-tuesday-night/round';
 
 test('the round room: palette, editor, marks and dividers', async ({
   page,
@@ -54,7 +57,7 @@ test('the round room: palette, editor, marks and dividers', async ({
 
 test('a rated round keeps the sidebar to the round chat', async ({ page }) => {
   await signUpMember(page.request);
-  await page.goto(`${room}?rated=1`);
+  await page.goto(rankedRoom);
   const sidebar = page.getByRole('tablist', { name: 'Sidebar' });
   await expect(sidebar.getByRole('tab', { name: 'Chat' })).toBeVisible();
   await expect(sidebar.getByRole('tab', { name: 'AI' })).toHaveCount(0);

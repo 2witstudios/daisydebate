@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import type { SearchParams } from '../../../../../features/access/decision';
 import type { RoundPhase } from '../../../../../features/debate-room/layout';
+import { roundKindOf } from '../../../../../features/debate-room/workspace';
 import { getRoomInfo } from '../../../../../features/rooms/get-room';
 import { requireAccess } from '../../../../../lib/access';
 import { DebateRoom } from '../../../../../ui/debate-room/room';
@@ -31,13 +32,11 @@ export default async function RoundRoute({
   const { id } = await params;
   const query = await searchParams;
   await requireAccess(`/rooms/${id}/round`, searchParams);
-  if (getRoomInfo(id, systemClock.now()) === null) notFound();
+  const info = getRoomInfo(id, systemClock.now());
+  if (info === null) notFound();
   return (
     <DebateRoom
-      round={sampleRound(
-        phaseOf(query.phase),
-        query.rated === '1' ? 'rated' : 'unrated',
-      )}
+      round={sampleRound(phaseOf(query.phase), roundKindOf(info.mode))}
     />
   );
 }

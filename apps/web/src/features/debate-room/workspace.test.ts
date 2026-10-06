@@ -5,6 +5,7 @@ import {
   buildTree,
   closeTab,
   openTab,
+  roundKindOf,
   sidebarTabs,
   visibleAgents,
   visibleChannels,
@@ -162,6 +163,17 @@ describe('rated rounds', () => {
         visibleAgents(agents, 'unrated').map((a) => a.id),
       ],
       expected: [['chat', 'ai'], ['r', 'c'], ['g']],
+    });
+  });
+});
+
+describe('roundKindOf', () => {
+  test('the room decides the round', () => {
+    assert({
+      given: 'a ranked room and a practice room',
+      should: 'make the ranked round rated and the practice round unrated',
+      actual: [roundKindOf('ranked'), roundKindOf('practice')],
+      expected: ['rated', 'unrated'],
     });
   });
 });
