@@ -95,7 +95,8 @@ function AgentPane({
             turnId: turn.id,
             outcome,
             documentId: turn.edit.documentId,
-            lines: turn.edit.added,
+            removed: turn.edit.removed,
+            added: turn.edit.added,
             now: clock.now(),
           })
         }

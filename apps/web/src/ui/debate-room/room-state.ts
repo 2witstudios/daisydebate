@@ -8,9 +8,9 @@ import {
   pressEndSpeech,
   type EndSpeechState,
 } from '../../features/debate-room/clock';
+import { applyProposal } from '../../features/debate-room/document-edits';
 import {
   createDocument,
-  escapeHtml,
   updateDocumentHtml,
   type FolderId,
   type TemplateId,
@@ -109,7 +109,8 @@ export type RoomAction =
       readonly turnId: string;
       readonly outcome: EditOutcome;
       readonly documentId: string;
-      readonly lines: readonly string[];
+      readonly removed: readonly string[];
+      readonly added: readonly string[];
       readonly now: string;
     }
   | { readonly type: 'transcript/filter'; readonly speechId: string }
@@ -145,13 +146,6 @@ export function initialRoomState(round: RoundSnapshot): RoomState {
     endSpeech: 'idle',
     page: 'dark',
   };
-}
-
-/** Appends the agent's lines to a document as one bullet list. */
-export function appendBullets(html: string, lines: readonly string[]): string {
-  if (lines.length === 0) return html;
-  const items = lines.map((line) => `<li><p>${escapeHtml(line)}</p></li>`);
-  return `${html}<ul>${items.join('')}</ul>`;
 }
 
 const withDocument = (
@@ -255,7 +249,7 @@ const reducers: { readonly [T in RoomAction['type']]: Reducer<T> } = {
     const marked = { ...s, edits: { ...s.edits, [a.turnId]: a.outcome } };
     if (a.outcome === 'discarded') return marked;
     const applied = withDocument(marked, a.documentId, (doc) =>
-      updateDocumentHtml(doc, appendBullets(doc.html, a.lines), a.now),
+      updateDocumentHtml(doc, applyProposal(doc.html, a), a.now),
     );
     return { ...applied, tabs: openTab(applied.tabs, a.documentId) };
   },

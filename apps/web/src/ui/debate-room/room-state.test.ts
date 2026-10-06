@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { sampleRound } from '../mock/debate-room';
-import { appendBullets, initialRoomState, reduceRoom } from './room-state';
+import { initialRoomState, reduceRoom } from './room-state';
 
 setupRitewayBun();
 
@@ -53,7 +53,11 @@ describe('reduceRoom agent/edit', () => {
     turnId: 'a2',
     outcome: 'applied',
     documentId: 'doc-nr',
-    lines: ['0:15 extra time on N2 weighing'],
+    removed: ['0:30 N3 hospital exemption New in 1AR'],
+    added: [
+      '0:15 N3 hospital exemption, call it out and move on',
+      '0:15 extra time on N2 weighing',
+    ],
     now,
   } as const;
 
@@ -63,17 +67,22 @@ describe('reduceRoom agent/edit', () => {
     const doc = after.documents.find((d) => d.id === 'doc-nr');
     assert({
       given: 'an agent edit applied to the NR plan',
-      should: 'append its lines, record the outcome and open the document',
+      should:
+        'replace the removed line with the added ones in place, record the outcome and open the document',
       actual: {
-        added: doc?.html.endsWith(
-          '<ul><li><p>0:15 extra time on N2 weighing</p></li></ul>',
+        removed: doc?.html.includes('N3 hospital exemption <span'),
+        inPlace: doc?.html.includes(
+          '<li><p>0:15 N3 hospital exemption, call it out and move on</p></li>' +
+            '<li><p>0:15 extra time on N2 weighing</p></li>' +
+            '<li><p><strong>0:30</strong> voters</p></li></ul>',
         ),
         outcome: after.edits.a2,
         active: after.tabs.active,
         updatedAt: doc?.updatedAt,
       },
       expected: {
-        added: true,
+        removed: false,
+        inPlace: true,
         outcome: 'applied',
         active: 'doc-nr',
         updatedAt: now,
@@ -112,26 +121,6 @@ describe('reduceRoom sidebar/tab', () => {
       actual: reduceRoom(rated)(before, { type: 'sidebar/tab', tab: 'ai' })
         .sidebar,
       expected: 'chat',
-    });
-  });
-});
-
-describe('appendBullets', () => {
-  test('no lines', () => {
-    assert({
-      given: 'no lines to add',
-      should: 'return the document unchanged',
-      actual: appendBullets('<p>a</p>', []),
-      expected: '<p>a</p>',
-    });
-  });
-
-  test('escaping', () => {
-    assert({
-      given: 'a line with markup characters',
-      should: 'escape it inside a new bullet',
-      actual: appendBullets('<p>a</p>', ['<b>x</b>']),
-      expected: '<p>a</p><ul><li><p>&lt;b&gt;x&lt;/b&gt;</p></li></ul>',
     });
   });
 });
