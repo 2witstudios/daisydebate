@@ -94,6 +94,41 @@ const routes = [
     path: '/onboarding/passkey?next=%2Flobby',
     account: 'member',
   },
+  {
+    name: 'onboarding-welcome',
+    path: '/onboarding/welcome?next=%2Flobby',
+    account: 'member',
+  },
+  {
+    name: 'onboarding-daisy',
+    path: '/onboarding/daisy?next=%2Flobby',
+    account: 'member',
+  },
+  {
+    name: 'onboarding-debate',
+    path: '/onboarding/debate?next=%2Flobby',
+    account: 'member',
+  },
+  {
+    name: 'onboarding-about',
+    path: '/onboarding/about?next=%2Flobby',
+    account: 'member',
+  },
+  {
+    name: 'onboarding-experience',
+    path: '/onboarding/experience?next=%2Flobby',
+    account: 'member',
+  },
+  {
+    name: 'onboarding-topics',
+    path: '/onboarding/topics?next=%2Flobby',
+    account: 'member',
+  },
+  {
+    name: 'onboarding-ready',
+    path: '/onboarding/ready?next=%2Flobby',
+    account: 'member',
+  },
 ] as const;
 
 /**

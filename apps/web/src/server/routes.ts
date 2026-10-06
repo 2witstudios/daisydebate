@@ -2,6 +2,7 @@ import {
   createListSessionsHandler,
   createRevokeSessionHandler,
 } from '../features/account/sessions';
+import { createOnboardingHandler } from '../features/onboarding/save-answers';
 import { createUsernameHandler } from '../features/account/username';
 import { createConfirmEmailHandlers } from '../features/auth/confirm-email';
 import { createConfirmHandlers } from '../features/auth/confirm';
@@ -74,6 +75,17 @@ export function createRoutes(app: App) {
         identify: (request) => identify(app.auth(), request.headers),
         limiter: () => app.auth().limiter,
         claim: (input) => database.claimUsername(input),
+      }),
+    },
+    onboarding: {
+      POST: createOnboardingHandler({
+        logger,
+        origin,
+        identify: (request) => identify(app.auth(), request.headers),
+        limiter: () => app.auth().limiter,
+        clock: app.clock,
+        save: (userId, answers) => database.saveOnboardingStep(userId, answers),
+        complete: (userId, at) => database.completeOnboarding(userId, at),
       }),
     },
     ticket: {

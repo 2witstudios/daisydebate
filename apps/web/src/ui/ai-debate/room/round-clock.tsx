@@ -97,6 +97,7 @@ const bar = {
 
 /** Each turn's share of the bar: as wide as it is long, in minutes. */
 const width: Record<number, string> = {
+  2: 'grow-2',
   3: 'grow-3',
   5: 'grow-5',
   6: 'grow-6',

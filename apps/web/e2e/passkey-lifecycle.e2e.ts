@@ -14,6 +14,7 @@ import {
 import { expectFocusOn, pressByKeyboard } from './support/focus';
 import { boundedStep, STEP_LIMIT_MS } from './support/bounded-step';
 import { expect, openPage, test } from './support/fixtures';
+import { skipOnboarding } from './support/forms';
 import { effectsRan, hydrated } from './support/hydration';
 import { removeRowByClick, securityRows } from './support/security-rows';
 import {
@@ -86,7 +87,7 @@ test('a passkey saved during onboarding is usable to sign back in later', async 
   await page.getByLabel('Username').fill(uniqueName('ada'));
   await page.getByRole('button', { name: 'Continue' }).click();
   await savePasskeyOffer(page);
-  await expect(page).toHaveURL(/\/lobby$/);
+  await skipOnboarding(page, /\/lobby$/);
 
   // The onboarding save used the real ceremony (not the stage-4 stub): the
   // account now owns exactly one passkey.
@@ -139,7 +140,7 @@ test('completing onboarding and saving a passkey from a protected page other tha
   await page.getByLabel('Username').fill(uniqueName('destined'));
   await page.getByRole('button', { name: 'Continue' }).click();
   await savePasskeyOffer(page);
-  await expect(page).toHaveURL(/\/ranked$/);
+  await skipOnboarding(page, /\/ranked$/);
 });
 
 test('a returning user who starts from a protected page other than /lobby returns there after signing in with a passkey (AUTH-5.2-AC3, ISSUE-159)', async ({

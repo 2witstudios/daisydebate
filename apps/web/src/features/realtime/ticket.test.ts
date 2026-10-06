@@ -4,6 +4,7 @@ import type { Identity } from '@daisy/auth';
 import { ticketSchema } from '@daisy/protocol';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import { createTicketHandler } from './ticket';
+import { allowEvery } from '../auth/limiter.test-support';
 
 setupRitewayBun();
 
@@ -15,7 +16,7 @@ const member: Identity = {
 
 const handlerWith = ({
   identity = member,
-  consume = async () => ({ allowed: true, retryAfterSeconds: 0 }),
+  consume = allowEvery,
   sessionId = async () => 'session1',
   actor = { id: 'actor1' } as { readonly id: string } | null,
   issue = async () => {},
