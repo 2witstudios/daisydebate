@@ -158,7 +158,7 @@ describe('normalizeDocumentHtml bounds', () => {
         'flat, deeply nested, mark-heavy and list-heavy documents at the bounds',
       should: 'each normalize within 150 ms (tens of milliseconds in practice)',
       actual: timed,
-      expected: Object.keys(shapes).map((name) => [name, true]),
+      expected: Object.keys(shapes).map((name) => [name, true] as const),
     });
   });
 });
