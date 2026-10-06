@@ -126,13 +126,14 @@ test('a bot round keeps the debater’s files across a reload', async ({
     .fill('new flow');
   await page.keyboard.press('Enter');
   const flow = page.getByRole('textbox', { name: 'Flow', exact: true });
-  await flow.locator('li p').first().click();
-  await page.keyboard.type('they dropped the turn');
+  // Listen before typing: on a fast save the response could otherwise land first.
   const saved = page.waitForResponse(
     (response) =>
       response.url().endsWith('/api/debate-room/documents/save') &&
       response.ok(),
   );
+  await flow.locator('li p').first().click();
+  await page.keyboard.type('they dropped the turn');
   await saved;
 
   // Creating, typing and saving in the bot room ran under the nonce CSP.
