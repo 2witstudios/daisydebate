@@ -1,11 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { linesOf } from './document-lines';
-import {
-  DOCUMENT_MAX_BYTES,
-  MAX_DEPTH,
-  MAX_ELEMENTS,
-  normalizeDocumentHtml,
-} from './normalize-html';
+import { MAX_DEPTH, MAX_ELEMENTS } from './document-scan';
+import { DOCUMENT_MAX_BYTES, normalizeDocumentHtml } from './normalize-html';
 
 setupRitewayBun();
 
@@ -15,16 +11,25 @@ const html = (input: string) => {
 };
 
 describe('normalizeDocumentHtml', () => {
-  test('unsafe markup', () => {
-    const out = html(
-      '<p onclick="steal()" style="color:red">hi<script>alert(1)</script><img src=x onerror=alert(1)></p><iframe src="https://evil.example"></iframe>',
-    );
+  test('unsafe attributes on allowed tags', () => {
     assert({
-      given:
-        'HTML carrying a script, a handler, a style attribute, an image and an iframe',
-      should: 'keep only what the document schema knows',
-      actual: out,
+      given: 'a paragraph carrying an event handler and a style attribute',
+      should: 'keep the paragraph and drop what the schema does not know',
+      actual: html('<p onclick="steal()" style="color:red">hi</p>'),
       expected: '<p>\nhi\n</p>',
+    });
+  });
+
+  test('elements the editor never writes', () => {
+    assert({
+      given: 'a script, an image with a handler and an iframe',
+      should: 'refuse the document as malformed rather than store any of it',
+      actual: [
+        html('<p>hi<script>alert(1)</script></p>'),
+        html('<p>hi<img src=x onerror=alert(1)></p>'),
+        html('<p>hi</p><iframe src="https://evil.example"></iframe>'),
+      ],
+      expected: ['malformed', 'malformed', 'malformed'],
     });
   });
 
@@ -166,7 +171,7 @@ describe('normalizeDocumentHtml bounds', () => {
       given:
         'closing tags inside comments, CDATA and script, style and textarea text, each 2,900 times',
       should:
-        'scan what the parser reads and refuse the hidden depth as too complex',
+        'refuse each as malformed: the scan reads only markup the editor writes',
       actual: [
         html(hiding((close) => `<!--${close}-->`)),
         html(hiding((close) => `<![CDATA[${close}]]>`)),
@@ -175,11 +180,11 @@ describe('normalizeDocumentHtml bounds', () => {
         html(hiding((close) => `<textarea>${close}</textarea>`)),
       ],
       expected: [
-        'too-complex',
-        'too-complex',
-        'too-complex',
-        'too-complex',
-        'too-complex',
+        'malformed',
+        'malformed',
+        'malformed',
+        'malformed',
+        'malformed',
       ],
     });
   });
@@ -187,13 +192,15 @@ describe('normalizeDocumentHtml bounds', () => {
   test('comments and raw text in ordinary documents', () => {
     assert({
       given:
-        'a document with a doctype, a comment, a style element and an unterminated comment',
-      should: 'drop them and keep the content',
+        'a document with a doctype, a comment, a style element, or an unterminated comment',
+      should: 'refuse it rather than guess how the parser reads it',
       actual: [
-        html('<!DOCTYPE html><p>a<!-- note --></p><style>p{}</style><p>b</p>'),
+        html('<!DOCTYPE html><p>a</p>'),
+        html('<p>a<!-- note --></p>'),
+        html('<p>a</p><style>p{}</style>'),
         html('<p>a</p><!-- <p>b</p>'),
       ],
-      expected: ['<p>\na\n</p>\n<p>\nb\n</p>', '<p>\na\n</p>'],
+      expected: ['not-html', 'malformed', 'malformed', 'malformed'],
     });
   });
 
@@ -209,13 +216,14 @@ describe('normalizeDocumentHtml bounds', () => {
   test('non-void tags written self-closing', () => {
     assert({
       given: 'blocks written with "/>", which the parser opens anyway',
-      should: 'count each as open and refuse the hidden depth',
+      should:
+        'refuse each as malformed: "/>" is only honoured on void elements',
       actual: [
         html(`<p>a</p>${'<blockquote/>'.repeat(2_999)}`),
         html(`<p>a</p>${'<ul/><li/><p/>'.repeat(999)}`),
         html(`<p>a</p>${'<blockquote/><p>x</p>'.repeat(1_499)}`),
       ],
-      expected: ['too-complex', 'malformed', 'too-complex'],
+      expected: ['malformed', 'malformed', 'malformed'],
     });
   });
 
@@ -228,7 +236,7 @@ describe('normalizeDocumentHtml bounds', () => {
     });
   });
 
-  test('the refused shapes are refused quickly', () => {
+  test('the refused shapes are refused before any parse', () => {
     const refused = [
       `<p>a</p>${'<p><ul><li></p>'.repeat(999)}`,
       `<p>a</p>${'<p><blockquote></p>'.repeat(1_499)}`,
@@ -241,21 +249,22 @@ describe('normalizeDocumentHtml bounds', () => {
       `<p>a</p>${'<ul/><li/><p/>'.repeat(999)}`,
       `<p>a</p>${'<blockquote/><p>x</p>'.repeat(1_499)}`,
     ];
-    const timed = refused.map((input) => {
-      const started = performance.now();
+    // Only the linear scan refuses as malformed or too complex; a refusal
+    // from the parse would be "not-html". So none of these reached it.
+    const reasons = refused.map((input) => {
       const result = normalizeDocumentHtml(input);
-      return !result.ok && performance.now() - started < 50;
+      return result.ok ? 'stored' : result.reason;
     });
     assert({
       given:
         'implied-close, stray-close, deep-nesting, hidden-close and self-closing attacks',
-      should: 'each be refused within 50 ms, before any parse',
-      actual: timed,
-      expected: refused.map(() => true),
+      should: 'each be refused by the scan, before any parse',
+      actual: reasons.every((r) => r === 'malformed' || r === 'too-complex'),
+      expected: true,
     });
   });
 
-  test('the costliest accepted shapes are quick', () => {
+  test('the costliest accepted shapes stay cheap', () => {
     const shapes = {
       flat: `<p>${'word '.repeat(10)}</p>`.repeat(MAX_ELEMENTS),
       nested:
@@ -268,12 +277,15 @@ describe('normalizeDocumentHtml bounds', () => {
     const timed = Object.entries(shapes).map(([name, input]) => {
       const started = performance.now();
       const result = normalizeDocumentHtml(input);
-      return [name, result.ok && performance.now() - started < 150] as const;
+      // The scan caps the work (3,000 elements, depth 32); measured cost is
+      // 24-38 ms. The ceiling only catches a return to super-linear work,
+      // never machine load.
+      return [name, result.ok && performance.now() - started < 2_000] as const;
     });
     assert({
       given:
         'flat, deeply nested, mark-heavy and list-heavy documents at the bounds',
-      should: 'each normalize within 150 ms (tens of milliseconds in practice)',
+      should: 'each normalize well inside a generous 2 s ceiling',
       actual: timed,
       expected: Object.keys(shapes).map((name) => [name, true] as const),
     });
@@ -283,13 +295,15 @@ describe('normalizeDocumentHtml bounds', () => {
 describe('normalizeDocumentHtml list types', () => {
   test('free-text and known list types', () => {
     assert({
-      given: 'an ordered list with a free-text type, and one with type "a"',
-      should: 'drop the free text and keep the known type',
+      given:
+        'an ordered list with a free-text type, one whose type holds ">", and one with type "a"',
+      should: 'drop the free text, refuse the ">", and keep the known type',
       actual: [
-        html('<ol type="x>y"><li><p>1</p></li></ol>').startsWith('<ol>'),
+        html('<ol type="x y"><li><p>1</p></li></ol>').startsWith('<ol>'),
+        html('<ol type="x>y"><li><p>1</p></li></ol>'),
         html('<ol type="a"><li><p>1</p></li></ol>').includes('type="a"'),
       ],
-      expected: [true, true],
+      expected: [true, 'malformed', true],
     });
   });
 });

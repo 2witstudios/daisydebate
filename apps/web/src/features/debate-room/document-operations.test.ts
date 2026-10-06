@@ -131,12 +131,12 @@ describe('saveDocument', () => {
     const { operations, documents } = operationsOver([stored()]);
     const saved = await operations.saveDocument(me, {
       id: 'doc-1',
-      html: '<p onclick="x()">hi</p><script>bad()</script>',
+      html: '<p onclick="x()">hi</p>',
       expectedRevision: 1,
     });
     assert({
-      given: 'HTML with a handler and a script',
-      should: 'store it without them and bump the revision',
+      given: 'HTML with an event handler',
+      should: 'store it without the handler and bump the revision',
       actual: [saved, documents.get('doc-1')?.html.includes('onclick')],
       expected: [{ revision: 2 }, false],
     });

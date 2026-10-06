@@ -28,10 +28,16 @@ document. Daisy builds this itself rather than embedding another product.
    the server-side round trip below.
 3. **HTML is the stored source of truth**, as PageSpace stores its pages,
    so an AI reads and edits a document in the form it is stored. Every
-   write (editor or agent) is parsed through the one document schema
+   write (editor or agent) is first scanned (`document-scan.ts`): only
+   strictly nested markup from the tags the editor writes is accepted
+   (no comments, raw-text or foreign elements, no raw `<` or `>` in text
+   or attribute values, nothing the HTML parser would re-nest), within a
+   depth of 32 and 3,000 elements, so the parser reads exactly what was
+   scanned; a seeded differential test checks this against the real
+   parser. It is then parsed through the one document schema
    (`features/debate-room/document-schema.ts`) on the server and
-   serialized back (`normalize-html.ts`), so script, handlers, style
-   attributes and unknown tags never survive; then it is line-broken by
+   serialized back (`normalize-html.ts`), so handlers, style attributes
+   and unknown attributes never survive; then it is line-broken by
    only adding newlines (`document-lines.ts`, idempotent), so a line
    number means the same thing to every reader. Agents edit by line range
    or anchor through that one module, with the expected line count and a
