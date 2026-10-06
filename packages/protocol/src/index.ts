@@ -85,6 +85,20 @@ export type {
   EmailSuppressionReason,
 } from './email-delivery';
 export { buildUserInboxTopic, buildDebateTopic } from './topics';
+export {
+  clubChoices,
+  experienceChoices,
+  formatChoices,
+  lengthChoices,
+  topicChoices,
+  wantChoices,
+  type Club,
+  type Experience,
+  type Format,
+  type Length,
+  type Topic,
+  type Want,
+} from './onboarding';
 export { closeCodeTable } from './close-codes';
 export type { CloseCodeReason } from './close-codes';
 export {

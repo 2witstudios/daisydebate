@@ -3,8 +3,13 @@ import {
   defaultTurnTakingSettings,
   worthTranscribing,
 } from '@daisy/ai-voice';
+import {
+  recordInSegments,
+  sendIfVoiced,
+  type Recording,
+} from '../../speech/segments';
 import { encodeRecording, type SpeechEvent } from './api';
-import type { Playback, Recording } from './audio';
+import type { Playback } from './audio';
 import {
   aborted,
   playLine,
@@ -107,44 +112,28 @@ export async function runPersonSpeech(
 ) {
   if (!(await untilLive(context))) return;
   context.onStatus('You have the floor. Your speech is being recorded.');
-  const uploads = new Set<Promise<void>>();
-  const upload = (recording: Recording) => {
-    const sent = transcribeClip(context, recording);
-    uploads.add(sent);
-    void sent.finally(() => uploads.delete(sent));
-  };
-  let current: Recording | null = null;
-  let wrapUp: () => void = () => undefined;
-  const wrappingUp = new Promise<void>((resolve) => (wrapUp = resolve));
-  let finishing: Promise<void> | null = null;
-  const finish = () =>
-    (finishing ??= (async () => {
-      wrapUp();
-      if (current) upload(current);
-      current = null;
-      await Promise.all([...uploads]);
-    })());
-  context.setFinish(finish);
-  while (!context.signal.aborted && !finishing) {
-    current = context.engine.record();
-    await Promise.race([sleep(segmentMs, context.signal), wrappingUp]);
-    if (current) upload(current);
-    current = null;
-  }
-  await finish();
+  const speech = recordInSegments({
+    record: () => context.engine.record(),
+    upload: (recording) => transcribeClip(context, recording),
+    segmentMs,
+    wait: sleep,
+    signal: context.signal,
+  });
+  context.setFinish(speech.finish);
+  await speech.done;
 }
 
 /** Stops a recording and sends it for transcription if it holds a voice. */
 async function transcribeClip(context: TurnContext, recording: Recording) {
-  const { blob, voicedMs } = await recording.stop();
-  if (!worthTranscribing({ voicedMs })) return;
   try {
-    await context.api.transcribe(
-      context.id,
-      context.turnIndex,
-      await encodeRecording(blob),
-    );
-    context.onLine();
+    const sent = await sendIfVoiced(recording, async (blob) => {
+      await context.api.transcribe(
+        context.id,
+        context.turnIndex,
+        await encodeRecording(blob),
+      );
+    });
+    if (sent) context.onLine();
   } catch {
     context.onError('Part of your speech could not be transcribed.');
   }

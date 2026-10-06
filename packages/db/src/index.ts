@@ -10,6 +10,7 @@ import { claimUsername } from './username-claim';
 import { authOperations } from './auth-operations';
 import { debateOperations } from './debate-operations';
 import { aiDebateOperations } from './ai-debate-operations';
+import { onboardingOperations } from './onboarding-operations';
 import { actorOperations } from './actor-operations';
 import { rateCompletedDebate } from './rating-operations';
 import type { RateDebateInput } from './rating-facts';
@@ -27,6 +28,10 @@ export type { DebateMode } from '@daisy/protocol';
 export type { DebateOutcome, DebateVisibility } from './schema/debates';
 export type { DebateRecord, NewDebate } from './debate-record';
 export type { UsernameClaim } from './username-claim';
+export type {
+  OnboardingRecord,
+  OnboardingStepWrite,
+} from './onboarding-operations';
 export type { ActorRecord } from './actor-operations';
 export type {
   RateDebateInput,
@@ -156,6 +161,7 @@ export function createDatabase({
     ...outboxOperations({ database, eventSink }),
     ...debateOperations({ database, eventSink }),
     ...aiDebateOperations({ database, eventSink }),
+    ...onboardingOperations({ database, eventSink }),
     /**
      * Rates a completed debate with the caller's domain decision (ADR 0055);
      * see `rateCompletedDebate`. Its caller is the ratings feature, which

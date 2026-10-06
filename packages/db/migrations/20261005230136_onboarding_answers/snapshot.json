@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "c92b68ba-2d6e-43b1-bd25-d91b867b5f01",
+  "id": "91ce3ce5-dd06-44bd-bfa5-e093d4f24e39",
   "prevIds": [
     "2e999732-6a19-49de-9643-a870826cea1b"
   ],
@@ -105,6 +105,24 @@
     {
       "isRlsEnabled": false,
       "name": "formats",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "member_interests",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "member_onboarding",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "member_topics",
       "entityType": "tables",
       "schema": "public"
     },
@@ -2062,6 +2080,175 @@
       "table": "formats"
     },
     {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "member_interests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "interest",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "member_interests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "member_onboarding"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "club",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "member_onboarding"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "experience",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "member_onboarding"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 1,
+      "default": "'{}'",
+      "generated": null,
+      "identity": null,
+      "name": "formats",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "member_onboarding"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "length",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "member_onboarding"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "completed_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "member_onboarding"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "member_onboarding"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "member_onboarding"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1",
+      "generated": null,
+      "identity": null,
+      "name": "version",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "member_onboarding"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "member_topics"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "topic",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "member_topics"
+    },
+    {
       "type": "bigserial",
       "typeSchema": null,
       "notNull": true,
@@ -2218,19 +2405,6 @@
       "table": "rating_changes"
     },
     {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "ladder",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rating_changes"
-    },
-    {
       "type": "double precision",
       "typeSchema": null,
       "notNull": true,
@@ -2369,19 +2543,6 @@
       "generated": null,
       "identity": null,
       "name": "season_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ratings"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "ladder",
       "entityType": "columns",
       "schema": "public",
       "table": "ratings"
@@ -3581,13 +3742,6 @@
           "opclass": null
         },
         {
-          "value": "ladder",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
           "value": "occurred_at",
           "isExpression": false,
           "asc": true,
@@ -3687,13 +3841,6 @@
         },
         {
           "value": "season_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "ladder",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -4179,6 +4326,57 @@
     {
       "nameExplicit": false,
       "columns": [
+        "user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "member_interests_user_id_users_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "member_interests"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "member_onboarding_user_id_users_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "member_onboarding"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "member_topics_user_id_users_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "member_topics"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
         "debate_id"
       ],
       "schemaTo": "public",
@@ -4391,10 +4589,31 @@
     },
     {
       "columns": [
+        "user_id",
+        "interest"
+      ],
+      "nameExplicit": false,
+      "name": "member_interests_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "member_interests"
+    },
+    {
+      "columns": [
+        "user_id",
+        "topic"
+      ],
+      "nameExplicit": false,
+      "name": "member_topics_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "member_topics"
+    },
+    {
+      "columns": [
         "actor_id",
         "format_id",
-        "season_id",
-        "ladder"
+        "season_id"
       ],
       "nameExplicit": false,
       "name": "ratings_pkey",
@@ -4550,6 +4769,16 @@
       "name": "formats_pkey",
       "schema": "public",
       "table": "formats",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "user_id"
+      ],
+      "nameExplicit": false,
+      "name": "member_onboarding_pkey",
+      "schema": "public",
+      "table": "member_onboarding",
       "entityType": "pks"
     },
     {
@@ -4861,7 +5090,7 @@
       "table": "debates"
     },
     {
-      "value": "\"mode\" in ('casual', 'ranked', 'quick', 'practice')",
+      "value": "\"mode\" in ('casual', 'ranked', 'practice')",
       "name": "debates_mode_check",
       "entityType": "checks",
       "schema": "public",
@@ -4931,18 +5160,60 @@
       "table": "formats"
     },
     {
+      "value": "\"interest\" in ('debate', 'coach', 'judge', 'watch')",
+      "name": "member_interests_interest_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "member_interests"
+    },
+    {
+      "value": "\"club\" is null or \"club\" in ('joining', 'starting', 'own')",
+      "name": "member_onboarding_club_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "member_onboarding"
+    },
+    {
+      "value": "\"experience\" is null or \"experience\" in ('new', 'class', 'circuit', 'veteran')",
+      "name": "member_onboarding_experience_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "member_onboarding"
+    },
+    {
+      "value": "\"formats\" <@ array['one-on-one', 'teams']::text[]",
+      "name": "member_onboarding_formats_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "member_onboarding"
+    },
+    {
+      "value": "\"length\" is null or \"length\" in ('quick', 'full')",
+      "name": "member_onboarding_length_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "member_onboarding"
+    },
+    {
+      "value": "\"version\" > 0",
+      "name": "member_onboarding_version_positive",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "member_onboarding"
+    },
+    {
+      "value": "\"topic\" in ('politics', 'economics', 'philosophy', 'ethics', 'law', 'science-and-tech', 'environment', 'education', 'health', 'international', 'culture', 'sports')",
+      "name": "member_topics_topic_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "member_topics"
+    },
+    {
       "value": "jsonb_typeof(\"payload\") = 'object'",
       "name": "outbox_payload_is_object",
       "entityType": "checks",
       "schema": "public",
       "table": "outbox"
-    },
-    {
-      "value": "\"ladder\" in ('ranked', 'quick')",
-      "name": "rating_changes_ladder_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "rating_changes"
     },
     {
       "value": "\"rating_before\" between 0 and 4000 and \"rating_after\" between 0 and 4000",
@@ -4964,13 +5235,6 @@
       "entityType": "checks",
       "schema": "public",
       "table": "rating_changes"
-    },
-    {
-      "value": "\"ladder\" in ('ranked', 'quick')",
-      "name": "ratings_ladder_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "ratings"
     },
     {
       "value": "\"rating\" between 0 and 4000",

@@ -13,6 +13,7 @@ import {
   sessionUsername,
 } from './support/accounts';
 import { reachSentState, requestConfirmLink } from './support/confirm-page';
+import { walkOnboarding } from './support/onboarding';
 import { changeEmail, claimUsername, declineByKeyboard } from './support/forms';
 
 /**
@@ -73,6 +74,10 @@ test.describe('with JavaScript off', () => {
     await declineByKeyboard(page, 'Not now');
 
     expect(await sessionUsername(page)).toBe(name);
+
+    // The onboarding flow the offer leads into: every step is a link or a
+    // form POST, so it saves and moves on with no script at all.
+    await walkOnboarding(page);
   });
 
   test('an email change starts through a POST and mails the address on file', async ({

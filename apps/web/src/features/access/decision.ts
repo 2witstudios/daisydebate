@@ -87,6 +87,20 @@ export const onboardingHref = (destination: string): string =>
 export const passkeyOfferHref = (destination: string): string =>
   `/onboarding/passkey?next=${encodeURIComponent(destination)}`;
 
+/** The onboarding steps after the passkey offer. */
+export type OnboardingStep =
+  'welcome' | 'daisy' | 'debate' | 'about' | 'experience' | 'topics' | 'ready';
+
+/** One onboarding step, then the already validated destination. */
+export const onboardingStepHref = (
+  step: OnboardingStep,
+  destination: string,
+): string => `/onboarding/${step}?next=${encodeURIComponent(destination)}`;
+
+/** The first onboarding step, where the passkey offer's exits lead. */
+export const welcomeHref = (destination: string): string =>
+  onboardingStepHref('welcome', destination);
+
 /** The requested page as a local path with its query, for the return trip. */
 export const requestedPath = (path: string, search: SearchParams): string => {
   const query = new URLSearchParams();

@@ -1,19 +1,12 @@
-import { defaultTurnTakingSettings } from '@daisy/ai-voice';
+import { microphoneFrom, requestMicrophone } from '../../speech/microphone';
+import type { Recording } from '../../speech/segments';
 import { voicedRange } from './trim';
 
 /**
- * The browser side of the AI debate's audio: the microphone (with echo
- * cancellation) and its live level, recording in segments the transcriber
- * can read on their own, and the AI's voice played through Web Audio, which
- * reports exactly how much of a line was heard when it is cut off.
+ * The browser side of the AI debate's audio: the shared microphone
+ * (`ui/speech/microphone`) and the AI's voice played through Web Audio,
+ * which reports exactly how much of a line was heard when it is cut off.
  */
-
-const RECORDING_TYPES = [
-  'audio/webm;codecs=opus',
-  'audio/webm',
-  'audio/mp4',
-  'audio/ogg',
-];
 
 export type Playback = {
   /** Resolves when the clip ends or is stopped. */
@@ -25,17 +18,6 @@ export type Playback = {
   /** How much has played so far, in milliseconds. */
   playedMs(): number;
   stop(): void;
-};
-
-type Clip = {
-  readonly blob: Blob;
-  /** How long the microphone heard a voice while recording. */
-  readonly voicedMs: number;
-};
-
-export type Recording = {
-  /** Stops and resolves to the recorded clip (empty when nothing was captured). */
-  stop(): Promise<Clip>;
 };
 
 export type AudioEngine = {
@@ -60,61 +42,13 @@ export type AudioEngine = {
 
 /** Must be called from a user gesture: it opens the microphone and audio output. */
 export async function openAudioEngine(): Promise<AudioEngine> {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: {
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true,
-    },
-  });
+  const stream = await requestMicrophone();
   const context = new AudioContext();
   await context.resume();
-  const analyser = context.createAnalyser();
-  analyser.fftSize = 1024;
-  context.createMediaStreamSource(stream).connect(analyser);
-  const samples = new Float32Array(analyser.fftSize);
-  const mimeType = RECORDING_TYPES.find((type) =>
-    MediaRecorder.isTypeSupported(type),
-  );
-  const level = () => {
-    analyser.getFloatTimeDomainData(samples);
-    let sum = 0;
-    for (const sample of samples) sum += sample * sample;
-    return Math.sqrt(sum / samples.length);
-  };
+  const microphone = microphoneFrom(stream, context);
   return {
-    level,
-    record() {
-      const recorder = new MediaRecorder(
-        stream,
-        mimeType ? { mimeType } : undefined,
-      );
-      const chunks: Blob[] = [];
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) chunks.push(event.data);
-      };
-      let voicedMs = 0;
-      const listen = setInterval(() => {
-        if (level() >= defaultTurnTakingSettings.speechLevel) voicedMs += 100;
-      }, 100);
-      const clip = () => ({
-        blob: new Blob(chunks, { type: recorder.mimeType }),
-        voicedMs,
-      });
-      recorder.start();
-      return {
-        stop: () =>
-          new Promise<Clip>((resolve) => {
-            clearInterval(listen);
-            if (recorder.state === 'inactive') {
-              resolve(clip());
-              return;
-            }
-            recorder.onstop = () => resolve(clip());
-            recorder.stop();
-          }),
-      };
-    },
+    level: microphone.level,
+    record: microphone.record,
     now: () => context.currentTime * 1000,
     at(time, run) {
       const timer = setTimeout(
@@ -182,7 +116,7 @@ export async function openAudioEngine(): Promise<AudioEngine> {
       }
     },
     close() {
-      for (const track of stream.getTracks()) track.stop();
+      microphone.close();
       void context.close();
     },
   };
