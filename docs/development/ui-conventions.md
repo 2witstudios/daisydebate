@@ -72,6 +72,14 @@ JavaScript only enhances it.
   still run and reveal what a script-less browser never sees. See the
   "with JavaScript off" block in `apps/web/e2e/journey.e2e.ts`.
 
+Recorded exceptions:
+
+- A debater's Ready in a room needs JavaScript. Ready waits on a local
+  microphone and camera check, which cannot run without script. So with
+  JavaScript off, the server render shows the debater's Ready control
+  disabled, with the reason ([ADR 0053](../decisions/0053-live-video-self-hosted-livekit.md)
+  section 7, DEC-109). The judge's Ready still works without JavaScript.
+
 Forms that predate this rule are tracked as issues in the PageSpace `Issues`
 list. Bring each one into line when you next change it.
 
