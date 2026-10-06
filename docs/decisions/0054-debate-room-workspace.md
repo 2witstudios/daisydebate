@@ -34,7 +34,8 @@ document. Daisy builds this itself rather than embedding another product.
    or attribute values, nothing the HTML parser would re-nest), within a
    depth of 32 and 3,000 elements, so the parser reads exactly what was
    scanned; a seeded differential test checks this against the real
-   parser. It is then parsed through the one document schema
+   parser, and that switching off any one depth defence lets a document
+   past the bound. It is then parsed through the one document schema
    (`features/debate-room/document-schema.ts`) on the server and
    serialized back (`normalize-html.ts`), so handlers, style attributes
    and unknown attributes never survive; then it is line-broken by

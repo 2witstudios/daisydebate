@@ -56,7 +56,40 @@ const TAG = new RegExp(
   `<(/?)([a-zA-Z][\\w-]*)((?:${ATTRIBUTE})*)\\s*(/?)>`,
   'g',
 );
+const LOOSE_TAG = /<(\/?)([a-zA-Z][\w-]*)()[^>]*?(\/?)>/g;
 const RAW = /[<>]/;
+
+/**
+ * The scan's defences, each closing one way the parser could nest deeper
+ * than the scan counts. Production always runs all of them; the
+ * differential test switches each off to prove it would catch the escape.
+ */
+export type Defences = {
+  /** Tags only from the allowlist. */
+  readonly allowlist: boolean;
+  /** Quoted attribute values without < or >, so a value cannot hide a tag. */
+  readonly strictAttributes: boolean;
+  /** No raw < or > outside tags (comments, CDATA, stray markup). */
+  readonly rawText: boolean;
+  /** A close must match the innermost open element. */
+  readonly matchingCloses: boolean;
+  /** Refuse elements the parser would re-nest (p, li and heading closes). */
+  readonly impliedCloses: boolean;
+  /** "/>" only on void elements. */
+  readonly selfClosing: boolean;
+  /** A void element counts at its own depth. */
+  readonly voidDepth: boolean;
+};
+
+export const allDefences: Defences = {
+  allowlist: true,
+  strictAttributes: true,
+  rawText: true,
+  matchingCloses: true,
+  impliedCloses: true,
+  selfClosing: true,
+  voidDepth: true,
+};
 
 /** An li above the nearest list: the parser closes it when another li opens. */
 const openItem = (open: readonly string[]) => {
@@ -76,45 +109,70 @@ function impliesClose(open: readonly string[], name: string): boolean {
 
 type Step = { readonly open: string[]; readonly elements: number };
 
-/** One tag's effect on the open stack, or the reason to refuse. */
-function step(
-  state: Step,
-  closing: boolean,
-  name: string,
-  slash: boolean,
-): Step | Scan {
-  if (!ALLOWED.has(name)) return 'malformed';
-  if (closing) return state.open.pop() === name ? state : 'malformed';
-  if (impliesClose(state.open, name)) return 'malformed';
-  if (VOID.has(name))
-    // A void element sits one level inside what is open.
-    return state.open.length + 1 > MAX_DEPTH
+type Tag = {
+  readonly closing: boolean;
+  readonly name: string;
+  readonly slash: boolean;
+};
+
+/** A close: it must match the innermost open element. */
+function close(state: Step, name: string, defences: Defences): Step | Scan {
+  const popped = state.open.pop();
+  return popped === name || !defences.matchingCloses ? state : 'malformed';
+}
+
+/** A void element, or a non-void one written with "/>". */
+function selfContained(state: Step, tag: Tag, defences: Defences): Step | Scan {
+  // A void element sits one level inside what is open.
+  const depth = state.open.length + (defences.voidDepth ? 1 : 0);
+  if (VOID.has(tag.name))
+    return depth > MAX_DEPTH
       ? 'too-complex'
       : { ...state, elements: state.elements + 1 };
   // The parser ignores "/>" on a non-void element and opens it.
-  if (slash) return 'malformed';
-  state.open.push(name);
+  return defences.selfClosing
+    ? 'malformed'
+    : { ...state, elements: state.elements + 1 };
+}
+
+/** One tag's effect on the open stack, or the reason to refuse. */
+function step(state: Step, tag: Tag, defences: Defences): Step | Scan {
+  if (defences.allowlist && !ALLOWED.has(tag.name)) return 'malformed';
+  if (tag.closing) return close(state, tag.name, defences);
+  if (defences.impliedCloses && impliesClose(state.open, tag.name))
+    return 'malformed';
+  if (VOID.has(tag.name) || tag.slash)
+    return selfContained(state, tag, defences);
+  state.open.push(tag.name);
   return { ...state, elements: state.elements + 1 };
 }
 
+/** Text between tags: raw < or > is markup the scan did not read. */
+const rawIn = (text: string, defences: Defences) =>
+  defences.rawText && RAW.test(text);
+
 /** Scans document HTML (without storage line breaks) before it is parsed. */
-export function scanDocument(input: string): Scan {
+export function scanDocument(
+  input: string,
+  defences: Defences = allDefences,
+): Scan {
   let state: Step = { open: [], elements: 0 };
   let last = 0;
-  for (const match of input.matchAll(TAG)) {
-    if (RAW.test(input.slice(last, match.index))) return 'malformed';
+  const tags = defences.strictAttributes ? TAG : LOOSE_TAG;
+  for (const match of input.matchAll(tags)) {
+    if (rawIn(input.slice(last, match.index), defences)) return 'malformed';
     last = match.index + match[0].length;
     const [, closing, rawName = '', , slash] = match;
-    const next = step(
-      state,
-      closing === '/',
-      rawName.toLowerCase(),
-      slash === '/',
-    );
+    const tag = {
+      closing: closing === '/',
+      name: rawName.toLowerCase(),
+      slash: slash === '/',
+    };
+    const next = step(state, tag, defences);
     if (typeof next === 'string') return next;
     state = next;
     if (state.open.length > MAX_DEPTH || state.elements > MAX_ELEMENTS)
       return 'too-complex';
   }
-  return RAW.test(input.slice(last)) ? 'malformed' : 'ok';
+  return rawIn(input.slice(last), defences) ? 'malformed' : 'ok';
 }

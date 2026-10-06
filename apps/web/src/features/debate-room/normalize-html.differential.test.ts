@@ -1,7 +1,12 @@
 import { Window } from 'happy-dom';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { MAX_DEPTH } from './document-scan';
-import { normalizeDocumentHtml } from './normalize-html';
+import { joinLines } from './document-lines';
+import {
+  allDefences,
+  type Defences,
+  MAX_DEPTH,
+  scanDocument,
+} from './document-scan';
 
 setupRitewayBun();
 
@@ -153,44 +158,84 @@ const parsedDepth = (html: string): number => {
   return depthOf(window.document.body as unknown as Node);
 };
 
-/** Refused before the parse: the scan saw too much depth or markup it does not read as the parser does. */
-const refusedByScan = (html: string) => {
-  const result = normalizeDocumentHtml(html);
-  return !result.ok && result.reason !== 'not-html';
+/**
+ * Shapes that hide depth from a weaker scan, each one level per use: a
+ * non-void self-closed, a close hidden in a comment or an attribute, a stray
+ * close, a void at the edge, and a table's implied tbody.
+ */
+const HIDING = [
+  '<blockquote/>',
+  '<blockquote><!--</blockquote>-->',
+  '<blockquote t="></blockquote><i t="></i>',
+  '</span><blockquote>',
+  '<hr>',
+  '<table><tr><td>',
+] as const;
+
+/**
+ * Valid nesting near the bound, then one hiding shape a few times, left
+ * open: a document need not close what it opens.
+ */
+const attackOf = (random: () => number): string => {
+  const pick = pickFrom(random);
+  const open = Array.from({ length: 24 + Math.floor(random() * 9) }, () =>
+    pick(['<blockquote>', '<div>']),
+  );
+  const hiding = pick(HIDING).repeat(1 + Math.floor(random() * 4));
+  return `<p>a</p>${open.join('')}${hiding}<p>x</p>`;
 };
 
-describe('normalizeDocumentHtml against the real parser', () => {
+/** The seeded corpus, each document parsed once and shared by every test. */
+const corpus = (() => {
+  const random = seeded(337);
+  const documents = [
+    ...Array.from({ length: 3_000 }, () => documentOf(random)),
+    ...Array.from({ length: 500 }, () => attackOf(random)),
+  ];
+  return documents.map((html) => ({ html, depth: parsedDepth(html) }));
+})();
+
+/** Documents the scan accepts that the parser nests past the bound. */
+const escapesUnder = (defences: Defences) =>
+  corpus.flatMap(({ html, depth }) =>
+    depth > MAX_DEPTH && scanDocument(joinLines(html), defences) === 'ok'
+      ? [{ depth, html: html.slice(0, 160) }]
+      : [],
+  );
+
+/**
+ * The defences that guard depth. The implied-close check is not among them:
+ * while closes must match, an implied close only makes the parser shallower,
+ * so it guards the parse reading as written rather than the bound.
+ */
+const DEPTH_DEFENCES = [
+  'allowlist',
+  'strictAttributes',
+  'rawText',
+  'matchingCloses',
+  'selfClosing',
+  'voidDepth',
+] as const;
+
+describe('scanDocument against the real parser', () => {
   test('whatever the scan accepts, the parser builds within the depth bound', () => {
-    const random = seeded(337);
-    const escapes = Array.from({ length: 3_000 }, () =>
-      documentOf(random),
-    ).flatMap((html) => {
-      if (refusedByScan(html)) return [];
-      const depth = parsedDepth(html);
-      return depth > MAX_DEPTH ? [{ depth, html: html.slice(0, 160) }] : [];
-    });
     assert({
       given:
         '3,000 seeded documents of allowed, stray, self-closed, hidden and quoted markup',
       should: 'never accept one the parser nests deeper than MAX_DEPTH',
-      actual: escapes,
+      actual: escapesUnder(allDefences),
       expected: [],
     });
   });
 
-  test('the comparison has teeth', () => {
-    const random = seeded(337);
-    const documents = Array.from({ length: 3_000 }, () => documentOf(random));
-    const deep = documents.filter(
-      (html) => parsedDepth(html) > MAX_DEPTH,
-    ).length;
-    const accepted = documents.filter((html) => !refusedByScan(html)).length;
+  test('each defence is load-bearing', () => {
     assert({
-      given: 'the same seeded documents',
-      should:
-        'include hundreds the parser nests past MAX_DEPTH, and hundreds the scan accepts',
-      actual: { deep: deep > 300, accepted: accepted > 300 },
-      expected: { deep: true, accepted: true },
+      given: 'the same documents scanned with one defence switched off',
+      should: 'let at least one document past the depth bound',
+      actual: DEPTH_DEFENCES.filter(
+        (name) => escapesUnder({ ...allDefences, [name]: false }).length === 0,
+      ),
+      expected: [],
     });
   });
 });
