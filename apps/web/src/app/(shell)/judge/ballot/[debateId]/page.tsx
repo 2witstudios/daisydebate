@@ -31,7 +31,7 @@ export default async function BallotRoute({
         debateId,
         info.title,
         parseBallotState(await searchParams),
-        getBallotDebaters(),
+        getBallotDebaters(debateId),
       )}
       action={submitBallotAction.bind(null, debateId)}
     />

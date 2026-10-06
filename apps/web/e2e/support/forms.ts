@@ -1,5 +1,11 @@
 import { expect, type Page } from '@playwright/test';
 
+/** Form values must never reach the address bar, history or referrers. */
+export const expectNotInUrl = (page: Page, value: string) => {
+  expect(page.url()).not.toContain(value);
+  expect(page.url()).not.toContain(encodeURIComponent(value));
+};
+
 /** Types a name into the username step and submits it. */
 export const claimUsername = async (page: Page, name: string) => {
   await page.getByLabel('Username').fill(name);

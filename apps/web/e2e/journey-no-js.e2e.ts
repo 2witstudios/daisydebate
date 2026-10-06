@@ -1,4 +1,3 @@
-import { type Page } from '@playwright/test';
 import { expect, test } from './support/fixtures';
 import {
   emailedLink,
@@ -14,7 +13,12 @@ import {
 } from './support/accounts';
 import { reachSentState, requestConfirmLink } from './support/confirm-page';
 import { walkOnboarding } from './support/onboarding';
-import { changeEmail, claimUsername, declineByKeyboard } from './support/forms';
+import {
+  changeEmail,
+  claimUsername,
+  declineByKeyboard,
+  expectNotInUrl,
+} from './support/forms';
 
 /**
  * Every mutating form works with JavaScript off (docs/development/
@@ -28,12 +32,6 @@ test.beforeEach(async ({ request }) => {
 
 test.describe('with JavaScript off', () => {
   test.use({ javaScriptEnabled: false });
-
-  /** Form values must never reach the address bar, history or referrers. */
-  const expectNotInUrl = (page: Page, value: string) => {
-    expect(page.url()).not.toContain(value);
-    expect(page.url()).not.toContain(encodeURIComponent(value));
-  };
 
   test('sign-in emails a link through a POST and shows the inbox step', async ({
     page,

@@ -10,7 +10,7 @@ const render = (winner: 'affirmative' | 'negative' | null) =>
   renderToString(
     h(WinnerChoice, {
       debaters: sampleBallotDebaters,
-      winner,
+      initial: winner,
       onPick: () => undefined,
     }),
   );

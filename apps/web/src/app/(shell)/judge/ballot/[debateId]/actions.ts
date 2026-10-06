@@ -6,6 +6,7 @@ import {
   ballotDestination,
   parseBallot,
 } from '../../../../../features/judge/ballot';
+import { getBallotDebaters } from '../../../../../features/judge/get-ballots';
 import type { MockFormState } from '../../../../../features/mock-form/form';
 import { runMockForm } from '../../../../../server/mock-form-action';
 
@@ -22,7 +23,10 @@ export async function submitBallotAction(
 ): Promise<MockFormState> {
   const id = typeof debateId === 'string' ? debateId : '';
   const known = getDebateInfo(id, systemClock.now()) !== null;
-  return runMockForm(form, parseBallot, () =>
-    known ? ballotDestination(id) : '/judge',
+  const debaters = getBallotDebaters(id);
+  return runMockForm(
+    form,
+    (posted) => parseBallot(posted, debaters),
+    () => (known ? ballotDestination(id) : '/judge'),
   );
 }

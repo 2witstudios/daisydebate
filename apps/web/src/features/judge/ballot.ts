@@ -4,14 +4,14 @@ import {
   ballotLimits,
   ballotRubricVersion,
   ballotSchema,
+  ballotScoreMax,
+  debateSides,
   isLowPointWin,
   type Ballot,
 } from '@daisy/protocol';
 import type { SearchParams } from '../access/decision';
 import { accept, field, refuse, type Parsed } from '../mock-form/form';
 import type { Side } from '../debates/turns';
-
-const sides = ['affirmative', 'negative'] as const satisfies readonly Side[];
 
 /** A debater as the ballot shows them: their name and, when set, a photo. */
 type BallotDebater = {
@@ -31,26 +31,33 @@ export type PostedBallot = {
   readonly reportConduct: boolean;
 };
 
-const score = (value: string): number | null => {
-  const number = Number(value);
-  return value !== '' && Number.isInteger(number) ? number : null;
-};
+const scorePattern = new RegExp(`^[1-${ballotScoreMax}]$`);
+
+/** A posted score: a single digit from 1 to the maximum, or nothing. */
+export const readScore = (value: string | undefined): number | null =>
+  value !== undefined && scorePattern.test(value) ? Number(value) : null;
 
 /**
  * A ballot, read from the posted form. One ballot per judge seat. The
  * judge must pick a winner (no draws), score all ten categories for both
  * sides, give a reason, and confirm a win on fewer points.
  */
-export function parseBallot(form: FormData): Parsed<PostedBallot> {
+export function parseBallot(
+  form: FormData,
+  debaters: BallotDebaters,
+): Parsed<PostedBallot> {
   const winner = field(form, 'winner');
-  if (!sides.some((side) => side === winner)) return refuse('Pick who won.');
+  if (!debateSides.some((side) => side === winner))
+    return refuse(
+      `Pick who won: ${debaters.affirmative.name} or ${debaters.negative.name}.`,
+    );
   const scores = Object.fromEntries(
-    sides.map((side) => [
+    debateSides.map((side) => [
       side,
       Object.fromEntries(
         ballotCategories.map((category) => [
           category,
-          score(field(form, scoreField(side, category))),
+          readScore(field(form, scoreField(side, category))),
         ]),
       ),
     ]),
@@ -62,7 +69,7 @@ export function parseBallot(form: FormData): Parsed<PostedBallot> {
       `A reason is up to ${ballotLimits.reason} characters. Shorten it.`,
     );
   const feedback = Object.fromEntries(
-    sides
+    debateSides
       .map((side) => [side, field(form, feedbackField(side))] as const)
       .filter(([, text]) => text !== ''),
   );

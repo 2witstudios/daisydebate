@@ -57,14 +57,14 @@ describe('BallotPage', () => {
     assert({
       given: 'an open ballot before anything is entered',
       should:
-        'start every score at 3, total 30 a side, name no winner and ask for no low-point confirmation',
+        'start every score at 3, leave the totals and the vote to script, and ask for no low-point confirmation',
       actual: [
         count(html, /value="3"/g),
         count(html, />30</g),
         html.includes('No winner picked'),
         html.includes('name="low-point"'),
       ],
-      expected: [20, 2, true, false],
+      expected: [20, 0, false, false],
     });
   });
 

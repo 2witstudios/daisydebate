@@ -37,7 +37,7 @@ describe('parseBallot', () => {
     assert({
       given: 'a winner, twenty scores, a reason and feedback for one side',
       should: 'accept it on the current rubric with the scores read as numbers',
-      actual: parseBallot(postedForm(valid)),
+      actual: parseBallot(postedForm(valid), debaters),
       expected: {
         ok: true,
         value: {
@@ -55,7 +55,10 @@ describe('parseBallot', () => {
   });
 
   test('a conduct report', () => {
-    const result = parseBallot(postedForm({ ...valid, conduct: 'report' }));
+    const result = parseBallot(
+      postedForm({ ...valid, conduct: 'report' }),
+      debaters,
+    );
     assert({
       given: 'a ballot with the conduct box ticked',
       should: 'accept it and ask for a report',
@@ -70,21 +73,27 @@ describe('parseBallot', () => {
       { winner: '' },
       { 'negative-thesis': '6' },
       { 'affirmative-delivery': '' },
+      { 'negative-impact': '4.0' },
+      { 'negative-impact': '0x4' },
+      { 'negative-impact': '4e0' },
       { reason: '   ' },
       { reason: 'x'.repeat(601) },
       { 'feedback-affirmative': 'x'.repeat(281) },
     ].map((change) => {
-      const result = parseBallot(postedForm({ ...valid, ...change }));
+      const result = parseBallot(postedForm({ ...valid, ...change }), debaters);
       return result.ok ? null : result.error;
     });
     assert({
       given:
-        'a draw, no winner, a bad or missing score, a missing or long reason and long feedback',
+        'a draw, no winner, a bad, missing or non-digit score, a missing or long reason and long feedback',
       should: 'refuse each with its own message',
       actual: refusals,
       expected: [
-        'Pick who won.',
-        'Pick who won.',
+        'Pick who won: Maya Singh or Daniel Kim.',
+        'Pick who won: Maya Singh or Daniel Kim.',
+        'Score every category from 1 to 5.',
+        'Score every category from 1 to 5.',
+        'Score every category from 1 to 5.',
         'Score every category from 1 to 5.',
         'Score every category from 1 to 5.',
         'Write the reason for your decision.',
@@ -96,9 +105,10 @@ describe('parseBallot', () => {
 
   test('a low-point win', () => {
     const lowPoint = { ...valid, winner: 'negative' };
-    const refused = parseBallot(postedForm(lowPoint));
+    const refused = parseBallot(postedForm(lowPoint), debaters);
     const confirmed = parseBallot(
       postedForm({ ...lowPoint, 'low-point': 'confirmed' }),
+      debaters,
     );
     assert({
       given: 'a winner on fewer points, unconfirmed and then confirmed',

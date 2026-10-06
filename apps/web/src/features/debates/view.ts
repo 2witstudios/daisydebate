@@ -1,4 +1,4 @@
-import { getRoundBallots, type RoundBallots } from '../judge/get-ballots';
+import type { RoundBallots } from '../judge/get-ballots';
 import type { RoomInfo } from '../rooms/view';
 import { presetFor, roomHref } from '../rooms/state';
 import {
@@ -52,9 +52,10 @@ export type DebateView =
       readonly kind: 'completed';
       readonly winner: Outcome;
       readonly by: 'person' | 'ai';
-      readonly reason: string;
-      /** A person's ruling: their ballot beside the AI judge's. */
-      readonly ballots: RoundBallots | null;
+      /** A person's ruling shows the ballots; otherwise one line says why. */
+      readonly ruling:
+        | { readonly kind: 'ballots'; readonly ballots: RoundBallots }
+        | { readonly kind: 'reason'; readonly reason: string };
       readonly rematchHref: string | null;
     });
 
@@ -77,26 +78,35 @@ function completedView(
   query: DebateQuery,
   common: Common,
   by: 'person' | 'ai',
+  ballots: RoundBallots | null,
 ): DebateView {
-  const winner =
-    query.outcome ??
-    (by === 'ai' ? placeholderOutcome(info.id) : 'affirmative');
-  const ballots = by === 'person' ? getRoundBallots(winner) : null;
-  return {
+  const ruled = {
     ...common,
-    kind: 'completed',
-    winner,
+    kind: 'completed' as const,
     by,
-    reason:
-      ballots?.judge.reason ??
-      (query.outcome === 'draw' ? drawReason : reasonFor(by)),
-    ballots,
     rematchHref: info.fromHistory
       ? null
       : roomHref(info.id, {
           ...presetFor('rematch'),
           judgeKind: query.judgeKind,
         }),
+  };
+  // A person's ballot decides the debate, unless the demo asks for an outcome.
+  if (by === 'person' && ballots !== null && query.outcome === null)
+    return {
+      ...ruled,
+      winner: ballots.judge.winner,
+      ruling: { kind: 'ballots', ballots },
+    };
+  return {
+    ...ruled,
+    winner:
+      query.outcome ??
+      (by === 'ai' ? placeholderOutcome(info.id) : 'affirmative'),
+    ruling: {
+      kind: 'reason',
+      reason: query.outcome === 'draw' ? drawReason : reasonFor(by),
+    },
   };
 }
 
@@ -141,8 +151,15 @@ function liveView(query: DebateQuery, common: Common): DebateView {
   };
 }
 
-/** What the debate page shows for a state. Pure: links carry the next state. */
-export function debateView(info: RoomInfo, query: DebateQuery): DebateView {
+/**
+ * What the debate page shows for a state. Pure: links carry the next state,
+ * and a finished debate's ballots come in from the page's read.
+ */
+export function debateView(
+  info: RoomInfo,
+  query: DebateQuery,
+  ballots: RoundBallots | null = null,
+): DebateView {
   if (query.viewer === 'outsider')
     return { kind: 'denied', lobbyHref: '/lobby' };
   const at = (change: Partial<DebateQuery>) =>
@@ -165,7 +182,7 @@ export function debateView(info: RoomInfo, query: DebateQuery): DebateView {
     ],
   };
   if (query.ruledBy !== null)
-    return completedView(info, query, common, query.ruledBy);
+    return completedView(info, query, common, query.ruledBy, ballots);
   if (query.turn < endedTurn) return liveView(query, common);
   return {
     ...common,

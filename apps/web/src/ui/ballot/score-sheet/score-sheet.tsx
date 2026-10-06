@@ -3,6 +3,7 @@
 import {
   ballotRubric,
   ballotScoreMax,
+  debateSides,
   speakerTotal,
   type BallotCategory,
 } from '@daisy/protocol';
@@ -20,9 +21,8 @@ import {
 } from '../ballot-class';
 import { firstName, sideShort } from '../ballot-labels';
 
-const sides = ['affirmative', 'negative'] as const satisfies readonly Side[];
 const anchorLevels = [1, 3, 5] as const;
-const rowClass = 'border-t border-border px-5 max-narrow:px-4';
+const rowClass = 'border-t border-border px-5 max-narrow:px-3';
 
 export type SheetScores = Readonly<
   Record<Side, Readonly<Record<BallotCategory, number>>>
@@ -31,16 +31,26 @@ export type SheetScores = Readonly<
 /**
  * The speaker scores: one row per rubric category, a 1–5 slider for each
  * debater, and each side's total out of 50. Every slider is a named range
- * input, so the sheet posts without JavaScript; the category name opens
- * what a 1, a 3 and a 5 look like.
+ * input the browser owns (`defaultValue`), so the sheet posts without
+ * JavaScript and a form reset after a refusal restores what was posted; the
+ * category name opens what a 1, a 3 and a 5 look like. The numbers beside
+ * the sliders and the totals follow the sliders only with script running,
+ * so without it they are left out rather than shown stale.
  */
 export function ScoreSheet({
   debaters,
+  initial,
   scores,
+  live,
   onScore,
 }: {
   readonly debaters: BallotDebaters;
+  /** The scores to render with: the last posted ones, or the start value. */
+  readonly initial: SheetScores;
+  /** The scores as the sliders now stand. */
   readonly scores: SheetScores;
+  /** Whether script is running, so the read-outs can follow the sliders. */
+  readonly live: boolean;
   readonly onScore: (
     side: Side,
     category: BallotCategory,
@@ -61,7 +71,7 @@ export function ScoreSheet({
         )}
       >
         <span className={ballotLabelCellClass}>Category</span>
-        {sides.map((side) => (
+        {debateSides.map((side) => (
           <span
             key={side}
             className={cn(ballotSideCellClass, sideTextClass(side))}
@@ -80,7 +90,7 @@ export function ScoreSheet({
               key={category.id}
               className={cn(
                 ballotGridClass,
-                'px-5 py-3 max-narrow:px-4',
+                'px-5 py-3 max-narrow:px-3',
                 index > 0 && 'border-t border-border',
               )}
             >
@@ -102,14 +112,14 @@ export function ScoreSheet({
                   ))}
                 </dl>
               </details>
-              {sides.map((side) => {
+              {debateSides.map((side) => {
                 const value = scores[side][category.id];
                 return (
                   <label
                     key={side}
                     className={cn(
                       ballotSideCellClass,
-                      'flex items-center gap-3 max-narrow:pt-2',
+                      'flex items-center gap-3 max-narrow:flex-wrap max-narrow:gap-y-0',
                     )}
                   >
                     <span className="sr-only">
@@ -118,7 +128,7 @@ export function ScoreSheet({
                     <span
                       aria-hidden="true"
                       className={cn(
-                        'hidden max-narrow:inline',
+                        'hidden max-narrow:block max-narrow:basis-full',
                         ballotEyebrowClass,
                         sideTextClass(side),
                       )}
@@ -131,7 +141,7 @@ export function ScoreSheet({
                       min={1}
                       max={ballotScoreMax}
                       step={1}
-                      value={value}
+                      defaultValue={initial[side][category.id]}
                       onChange={(event) =>
                         onScore(side, category.id, Number(event.target.value))
                       }
@@ -140,15 +150,17 @@ export function ScoreSheet({
                         sideControlClass(side),
                       )}
                     />
-                    <span
-                      aria-hidden="true"
-                      className={cn(
-                        'w-4 text-right font-bold tabular-nums',
-                        sideTextClass(side),
-                      )}
-                    >
-                      {value}
-                    </span>
+                    {live ? (
+                      <span
+                        aria-hidden="true"
+                        className={cn(
+                          'w-4 text-right font-bold tabular-nums',
+                          sideTextClass(side),
+                        )}
+                      >
+                        {value}
+                      </span>
+                    ) : null}
                   </label>
                 );
               })}
@@ -156,36 +168,46 @@ export function ScoreSheet({
           ))}
         </div>
       ))}
-      <div
-        className={cn(
-          ballotGridClass,
-          'border-t border-border-strong bg-surface px-5 py-4 max-narrow:px-4',
-        )}
-      >
-        <span className={cn(ballotLabelCellClass, 'font-bold text-ink')}>
-          Speaker score
-        </span>
-        {sides.map((side) => (
-          <span
-            key={side}
-            className={cn(
-              ballotSideCellClass,
-              'flex items-baseline gap-1 max-narrow:pt-2',
-            )}
-            aria-label={`${debaters[side].name}, ${speakerTotal(scores[side])} of ${max}`}
-          >
-            <span
-              className={cn(
-                'font-display text-2xl leading-tight font-bold tabular-nums',
-                sideTextClass(side),
-              )}
-            >
-              {speakerTotal(scores[side])}
-            </span>
-            <span className="text-sm text-ink-faint">{`/ ${max}`}</span>
+      {live ? (
+        <div
+          className={cn(
+            ballotGridClass,
+            'border-t border-border-strong bg-surface px-5 py-4 max-narrow:px-3',
+          )}
+        >
+          <span className={cn(ballotLabelCellClass, 'font-bold text-ink')}>
+            Speaker score
           </span>
-        ))}
-      </div>
+          {debateSides.map((side) => (
+            <p
+              key={side}
+              className={cn(ballotSideCellClass, 'flex items-baseline gap-1')}
+            >
+              <span
+                className={cn(
+                  ballotEyebrowClass,
+                  'w-16 shrink-0 truncate',
+                  sideTextClass(side),
+                  'hidden max-narrow:inline',
+                )}
+                aria-hidden="true"
+              >
+                {firstName(debaters[side].name)}
+              </span>
+              <span className="sr-only">{`${debaters[side].name}: `}</span>
+              <span
+                className={cn(
+                  'font-display text-2xl leading-tight font-bold tabular-nums',
+                  sideTextClass(side),
+                )}
+              >
+                {speakerTotal(scores[side])}
+              </span>
+              <span className="text-sm text-ink-faint">{`/ ${max}`}</span>
+            </p>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

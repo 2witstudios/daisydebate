@@ -13,13 +13,18 @@ const at = (score: number) =>
     number
   >;
 
-const html = renderToString(
-  h(ScoreSheet, {
-    debaters: sampleBallotDebaters,
-    scores: { affirmative: at(4), negative: { ...at(3), delivery: 5 } },
-    onScore: () => undefined,
-  }),
-);
+const scores = { affirmative: at(4), negative: { ...at(3), delivery: 5 } };
+const render = (live: boolean) =>
+  renderToString(
+    h(ScoreSheet, {
+      debaters: sampleBallotDebaters,
+      initial: scores,
+      scores,
+      live,
+      onScore: () => undefined,
+    }),
+  );
+const html = render(true);
 
 describe('ScoreSheet', () => {
   test('sliders', () => {
@@ -43,12 +48,27 @@ describe('ScoreSheet', () => {
       given: 'ten 4s for one side and nine 3s and a 5 for the other',
       should: 'total 40 and 32 out of 50, and carry each category’s anchors',
       actual: [
-        html.includes('Maya Singh, 40 of 50'),
-        html.includes('Daniel Kim, 32 of 50'),
+        /Maya Singh: <\/span><span[^>]*>40<\/span><span[^>]*>\/ 50/.test(html),
+        /Daniel Kim: <\/span><span[^>]*>32<\/span><span[^>]*>\/ 50/.test(html),
         (html.match(/<details/g) ?? []).length,
         html.includes('Set the terms the round was judged on'),
       ],
       expected: [true, true, 10, true],
+    });
+  });
+
+  test('without script', () => {
+    const still = render(false);
+    assert({
+      given: 'a sheet rendered before script runs',
+      should:
+        'post the same sliders seeded with the scores, and show no totals or numbers that would go stale',
+      actual: [
+        (still.match(/type="range"/g) ?? []).length,
+        still.includes('name="negative-delivery"') && /value="5"/.test(still),
+        still.includes('Speaker score'),
+      ],
+      expected: [20, true, false],
     });
   });
 });

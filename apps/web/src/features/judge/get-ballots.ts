@@ -4,7 +4,6 @@ import {
   sampleBallotDebaters,
   sampleJudgeBallot,
 } from '../../ui/mock/judge';
-import type { Outcome } from '../debates/state';
 import type { BallotDebaters } from './ballot';
 
 /** A judged round's two ballots: the person who judged it and the AI judge. */
@@ -15,17 +14,18 @@ export type RoundBallots = {
 };
 
 /**
- * The ballot's data seams: who debated, and a finished round's ballots. The
- * backend reads of the debate's seats and its stored ballots replace these
- * functions and nothing else. The sample backs an affirmative win only.
+ * The ballot's data seams. `getBallotDebaters` is who sits in a debate's two
+ * seats; `getRoundBallots` is a finished debate's stored ballots, or null
+ * when no person has judged it. The debate page passes the ballots into the
+ * debate view, which takes the winner from the judge's ballot, so the
+ * backend reads replace these two functions. The sample is one round the
+ * affirmative won, the same for every debate.
  */
-export const getBallotDebaters = (): BallotDebaters => sampleBallotDebaters;
+export const getBallotDebaters = (_debateId: string): BallotDebaters =>
+  sampleBallotDebaters;
 
-export const getRoundBallots = (winner: Outcome): RoundBallots | null =>
-  winner === sampleJudgeBallot.winner
-    ? {
-        debaters: sampleBallotDebaters,
-        judge: sampleJudgeBallot,
-        ai: sampleAiBallot,
-      }
-    : null;
+export const getRoundBallots = (_debateId: string): RoundBallots | null => ({
+  debaters: sampleBallotDebaters,
+  judge: sampleJudgeBallot,
+  ai: sampleAiBallot,
+});
