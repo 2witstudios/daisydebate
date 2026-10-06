@@ -1,3 +1,4 @@
+import { getRoundBallots, type RoundBallots } from '../judge/get-ballots';
 import type { RoomInfo } from '../rooms/view';
 import { presetFor, roomHref } from '../rooms/state';
 import {
@@ -52,6 +53,8 @@ export type DebateView =
       readonly winner: Outcome;
       readonly by: 'person' | 'ai';
       readonly reason: string;
+      /** A person's ruling: their ballot beside the AI judge's. */
+      readonly ballots: RoundBallots | null;
       readonly rematchHref: string | null;
     });
 
@@ -75,14 +78,19 @@ function completedView(
   common: Common,
   by: 'person' | 'ai',
 ): DebateView {
+  const winner =
+    query.outcome ??
+    (by === 'ai' ? placeholderOutcome(info.id) : 'affirmative');
+  const ballots = by === 'person' ? getRoundBallots(winner) : null;
   return {
     ...common,
     kind: 'completed',
-    winner:
-      query.outcome ??
-      (by === 'ai' ? placeholderOutcome(info.id) : 'affirmative'),
+    winner,
     by,
-    reason: query.outcome === 'draw' ? drawReason : reasonFor(by),
+    reason:
+      ballots?.judge.reason ??
+      (query.outcome === 'draw' ? drawReason : reasonFor(by)),
+    ballots,
     rematchHref: info.fromHistory
       ? null
       : roomHref(info.id, {

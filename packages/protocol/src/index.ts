@@ -93,3 +93,15 @@ export {
   ticketSchema,
 } from './realtime';
 export type { PresenceActivity, PresenceStatus } from './realtime';
+export {
+  ballotCategories,
+  ballotDefaultScore,
+  ballotLimits,
+  ballotRubric,
+  ballotRubricVersion,
+  ballotSchema,
+  ballotScoreMax,
+  isLowPointWin,
+  speakerTotal,
+} from './ballot';
+export type { Ballot, BallotCategory } from './ballot';

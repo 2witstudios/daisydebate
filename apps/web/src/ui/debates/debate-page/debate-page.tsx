@@ -1,3 +1,5 @@
+import { BallotSummary } from '../../ballot/ballot-summary/ballot-summary';
+import { ScoreComparison } from '../../ballot/score-comparison/score-comparison';
 import Link from 'next/link';
 import type { DebateView, TimelineRow } from '../../../features/debates/view';
 import { Badge } from '../../components/badge/badge';
@@ -130,7 +132,25 @@ function Result({ view }: { readonly view: Completed }) {
       <h2 className="font-display text-3xl leading-tight font-bold text-ink">
         {winnerText[view.winner]}
       </h2>
-      <p className="text-base text-ink-muted">{view.reason}</p>
+      {view.ballots === null ? (
+        <p className="text-base text-ink-muted">{view.reason}</p>
+      ) : (
+        <>
+          <ScoreComparison {...view.ballots} />
+          <div className="grid grid-cols-2 gap-4 max-compact:grid-cols-1">
+            <BallotSummary
+              title="Judge"
+              ballot={view.ballots.judge}
+              debaters={view.ballots.debaters}
+            />
+            <BallotSummary
+              title="AI judge"
+              ballot={view.ballots.ai}
+              debaters={view.ballots.debaters}
+            />
+          </div>
+        </>
+      )}
       <div className="flex flex-wrap gap-3">
         {view.rematchHref ? (
           <Link

@@ -108,6 +108,24 @@ describe('debateView', () => {
     });
   });
 
+  test('a person’s ruling carries both ballots', () => {
+    const person = view({ turn: 6, judgeKind: 'person', ruledBy: 'person' });
+    const ai = view({ turn: 6, judgeKind: 'ai', ruledBy: 'ai' });
+    assert({
+      given: 'a debate a person judged, and one only the AI judge ruled',
+      should:
+        'give the person’s ballot beside the AI judge’s, the reason from the person’s ballot, and no ballots for the AI ruling',
+      actual: [
+        person.kind === 'completed' && person.ballots?.judge.winner,
+        person.kind === 'completed' && person.ballots?.ai.rubricVersion,
+        person.kind === 'completed' &&
+          person.reason === person.ballots?.judge.reason,
+        ai.kind === 'completed' && ai.ballots,
+      ],
+      expected: ['affirmative', 'speaker-10@1', true, null],
+    });
+  });
+
   test('an outsider', () => {
     assert({
       given: 'a viewer who is not in the debate',
