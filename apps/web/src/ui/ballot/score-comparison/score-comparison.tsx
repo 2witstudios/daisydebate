@@ -56,7 +56,7 @@ function Pair({
   return (
     <span
       className={cn(
-        'flex gap-2 font-bold tabular-nums @ballot-compare:gap-3',
+        'flex flex-wrap gap-x-2 font-bold tabular-nums @ballot-compare:gap-x-3',
         className,
       )}
     >
@@ -75,7 +75,7 @@ function CellLabel({ children }: { readonly children: ReactNode }) {
   return (
     <span
       aria-hidden="true"
-      className={cn('@ballot-compare:hidden', ballotEyebrowClass)}
+      className={cn('break-words @ballot-compare:hidden', ballotEyebrowClass)}
     >
       {children}
     </span>
@@ -98,7 +98,7 @@ function CategoryName({
       {category.name}
       {split ? (
         <span className="ml-2 align-middle">
-          <Badge tone="clay">Split</Badge>
+          <Badge tone="neutral">Split</Badge>
         </span>
       ) : null}
     </>
@@ -155,14 +155,12 @@ export function ScoreComparison({
         aria-label="Speaker scores"
         className="overflow-hidden rounded-lg border border-border bg-background"
       >
-        <div role="rowgroup">
+        {/* Narrow, the head row is visually hidden but still heads each
+            column for a screen reader; the row keeps its own padding. */}
+        <div role="rowgroup" className="sr-only @ballot-compare:not-sr-only">
           <div
             role="row"
-            className={cn(
-              rowClass,
-              'sr-only bg-surface @ballot-compare:not-sr-only',
-              ballotEyebrowClass,
-            )}
+            className={cn(rowClass, 'bg-surface', ballotEyebrowClass)}
           >
             <span role="columnheader" className={labelClass}>
               Category

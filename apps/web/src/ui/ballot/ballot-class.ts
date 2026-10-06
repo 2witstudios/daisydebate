@@ -6,7 +6,7 @@ import type { Side } from '../../features/debates/turns';
  * two sides share a line; narrow, the category heads one row per side.
  */
 export const ballotGridClass =
-  'grid grid-cols-2 items-center gap-x-4 @ballot-sheet:grid-cols-4 @ballot-sheet:gap-x-6';
+  'grid grid-cols-2 items-center gap-x-4 @ballot-sheet:grid-cols-4';
 
 /** The category column: a full line when narrow, half the row when wide. */
 export const ballotLabelCellClass = 'col-span-2 min-w-0';

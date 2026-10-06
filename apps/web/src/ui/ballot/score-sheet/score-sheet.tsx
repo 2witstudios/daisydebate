@@ -65,7 +65,7 @@ export function ScoreSheet({
     <div className="@container overflow-hidden rounded-lg border border-border bg-background">
       <div
         className={cn(
-          'hidden grid-cols-4 items-center gap-x-6 bg-surface px-5 py-3 @ballot-sheet:grid',
+          'hidden grid-cols-4 items-center gap-x-4 bg-surface px-5 py-3 @ballot-sheet:grid',
           ballotEyebrowClass,
         )}
       >
@@ -124,31 +124,18 @@ export function ScoreSheet({
                     <span className="sr-only">
                       {`${category.name}, ${debaters[side].name}`}
                     </span>
+                    {/* Narrow: the name and the number share a line above a
+                        full-width slider. Wide: the slider, then its number. */}
                     <span
                       aria-hidden="true"
                       className={cn(
-                        'block basis-full @ballot-sheet:hidden',
+                        'min-w-0 flex-1 break-words @ballot-sheet:hidden',
                         ballotEyebrowClass,
                         sideTextClass(side),
                       )}
                     >
                       {firstName(debaters[side].name)}
                     </span>
-                    <input
-                      type="range"
-                      name={scoreField(side, category.id)}
-                      min={1}
-                      max={ballotScoreMax}
-                      step={1}
-                      defaultValue={initial[side][category.id]}
-                      onChange={(event) =>
-                        onScore(side, category.id, Number(event.target.value))
-                      }
-                      className={cn(
-                        'h-6 min-w-0 flex-1 cursor-pointer',
-                        sideControlClass(side),
-                      )}
-                    />
                     {live ? (
                       <span
                         aria-hidden="true"
@@ -160,6 +147,21 @@ export function ScoreSheet({
                         {value}
                       </span>
                     ) : null}
+                    <input
+                      type="range"
+                      name={scoreField(side, category.id)}
+                      min={1}
+                      max={ballotScoreMax}
+                      step={1}
+                      defaultValue={initial[side][category.id]}
+                      onChange={(event) =>
+                        onScore(side, category.id, Number(event.target.value))
+                      }
+                      className={cn(
+                        'h-6 min-w-0 basis-full cursor-pointer @ballot-sheet:order-first @ballot-sheet:flex-1 @ballot-sheet:basis-auto',
+                        sideControlClass(side),
+                      )}
+                    />
                   </label>
                 );
               })}
@@ -180,14 +182,16 @@ export function ScoreSheet({
           {debateSides.map((side) => (
             <p
               key={side}
-              className={cn(ballotSideCellClass, 'flex items-baseline gap-1')}
+              className={cn(
+                ballotSideCellClass,
+                'flex flex-wrap items-baseline gap-x-1',
+              )}
             >
               <span
                 className={cn(
                   ballotEyebrowClass,
-                  'w-16 shrink-0 truncate',
+                  'basis-full break-words @ballot-sheet:hidden',
                   sideTextClass(side),
-                  'inline @ballot-sheet:hidden',
                 )}
                 aria-hidden="true"
               >

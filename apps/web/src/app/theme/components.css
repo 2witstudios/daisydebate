@@ -12,8 +12,10 @@
   --container-search: 420px;
   /* The ballot lays out by its own width, not the viewport's: the page
      around it decides how much it gets. From this width the score sheet sets
-     the two sides beside the category; narrower, each side gets a row. */
-  --container-ballot-sheet: 40rem;
+     the two sides beside the category with a slider of at least 100 px each
+     (two 1/4 tracks after the row's padding and gaps, less the number);
+     narrower, each side gets a row. */
+  --container-ballot-sheet: 37.5rem;
   /* From this width the score comparison puts the category and both judges
      on one line; narrower, the category heads its row. */
   --container-ballot-compare: 26rem;

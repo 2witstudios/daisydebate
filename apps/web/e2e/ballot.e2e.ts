@@ -4,6 +4,7 @@ import { assertNoSeriousFindings } from './support/axe';
 import { resetRateLimits, signUpMember } from './support/accounts';
 import { expectNotInUrl } from './support/forms';
 import { effectsRan } from './support/hydration';
+import { gotoWithTheme } from './support/theme';
 
 /**
  * The judge's ballot (ISSUE-348): one real POST that works with and without
@@ -135,16 +136,23 @@ test('no winner: the refusal names both debaters', async ({ page }) => {
   );
 });
 
-for (const width of [360, 641, 768]) {
+const sheet = (page: Page) =>
+  page.locator('section[aria-labelledby="ballot-scores"]');
+
+for (const width of [320, 360, 641, 768, 1024, 1280]) {
+  // From 1024 px the sheet has room to set both sides beside the category.
+  const wide = width >= 1024;
   test(`at ${width} px every slider is usable and the names are whole`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 780 });
     await page.goto(ballotUrl);
+    const boxes = [];
     for (const name of ['Maya Singh', 'Daniel Kim']) {
       const box = await slider(page, 'Delivery', name).boundingBox();
       // Five stops a thumb can tell apart: at least 20 px each.
       expect(box?.width ?? 0).toBeGreaterThanOrEqual(100);
+      boxes.push(box);
       const label = page.locator('label', { hasText: name }).first();
       await expect(label.getByText(name, { exact: true })).toBeVisible();
       const fits = await label
@@ -152,6 +160,10 @@ for (const width of [360, 641, 768]) {
         .evaluate((node) => node.scrollWidth <= node.clientWidth);
       expect(fits).toBe(true);
     }
+    // Side by side when wide, one row per side when narrow.
+    expect(Math.abs((boxes[0]?.y ?? 0) - (boxes[1]?.y ?? 0)) < 2).toBe(wide);
+    // Every name, number and "/ 50" sits inside its own cell.
+    expect(await overflowing(sheet(page), 'label, p')).toEqual([]);
     // Scanned with a winner picked, so the unpicked card is in the scan too.
     await pick(page, 'Daniel Kim');
     await assertNoSeriousFindings(page);
@@ -159,18 +171,17 @@ for (const width of [360, 641, 768]) {
 }
 
 /**
- * Every cell's visible text, numbers and labels included, as laid out:
- * any text that runs past its own cell or the table's edge is reported.
- * Measuring the text, not the cells, is what catches a number printed over
+ * Every box's visible text, numbers and labels included, as laid out: any
+ * text that runs past its own box or the scope's edge is reported.
+ * Measuring the text, not the boxes, is what catches a number printed over
  * its neighbour, since a grid track is always inside its table. Text kept
  * for screen readers only is visually hidden and left out.
  */
-const overflowing = (table: Locator): Promise<string[]> =>
-  table.evaluate((node) => {
+const overflowing = (scope: Locator, boxes: string): Promise<string[]> =>
+  scope.evaluate((node, selector) => {
     const edge = node.getBoundingClientRect();
     const range = document.createRange();
-    const cells = node.querySelectorAll('[role="cell"], [role="rowheader"]');
-    return [...cells].flatMap((cell) => {
+    return [...node.querySelectorAll(selector)].flatMap((cell) => {
       const box = cell.getBoundingClientRect();
       const right = Math.min(box.right, edge.right) + 0.5;
       const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
@@ -184,9 +195,9 @@ const overflowing = (table: Locator): Promise<string[]> =>
       }
       return out;
     });
-  });
+  }, boxes);
 
-for (const width of [360, 390, 768, 920, 1024, 1280, 1440]) {
+for (const width of [320, 360, 390, 768, 920, 1024, 1280, 1440]) {
   test(`the result shows every judge's scores whole at ${width} px`, async ({
     page,
   }) => {
@@ -204,7 +215,51 @@ for (const width of [360, 390, 768, 920, 1024, 1280, 1440]) {
     await expect(table.getByRole('row').last().getByRole('cell')).toHaveCount(
       2,
     );
-    expect(await overflowing(table)).toEqual([]);
+    expect(
+      await overflowing(table, '[role="cell"], [role="rowheader"]'),
+    ).toEqual([]);
     await assertNoSeriousFindings(page);
   });
 }
+
+test('a confirmation given for one result is dropped when the result changes', async ({
+  page,
+}) => {
+  await page.goto(ballotUrl);
+  await pick(page, 'Daniel Kim');
+  await slider(page, 'Thesis', 'Maya Singh').fill('5');
+  const confirm = page.getByLabel('Confirm the decision');
+  await confirm.check();
+  await submit(page);
+  // Refused for the reason; the confirmation for 30 to 32 comes back ticked.
+  await expect(page.locator('#ballot-refusal')).toHaveText(
+    'Write the reason for your decision.',
+  );
+  await expect(confirm).toBeChecked();
+  // A different low-point result asks again, and the server agrees.
+  await slider(page, 'Delivery', 'Maya Singh').fill('5');
+  await expect(
+    page.getByText('Daniel Kim wins with fewer points: 30 to 34'),
+  ).toBeVisible();
+  await expect(confirm).not.toBeChecked();
+  await page.getByLabel('Reason for decision').fill('A close round.');
+  await submit(page);
+  await expect(page.locator('#ballot-refusal')).toHaveText(
+    'Confirm the low-point win, or change the scores.',
+  );
+});
+
+test('the ballot and the result pass axe in the light theme', async ({
+  page,
+}) => {
+  await gotoWithTheme(page, ballotUrl, 'light');
+  await pick(page, 'Daniel Kim');
+  await assertNoSeriousFindings(page);
+  await gotoWithTheme(
+    page,
+    '/debates/started?turn=6&kind=person&as=judge&by=person',
+    'light',
+  );
+  await expect(page.getByText('Split')).toBeVisible();
+  await assertNoSeriousFindings(page);
+});
