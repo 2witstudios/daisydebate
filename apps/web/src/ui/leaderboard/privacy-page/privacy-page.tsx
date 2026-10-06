@@ -28,7 +28,7 @@ function Row({ row }: { readonly row: PrivacyRow }) {
   );
 }
 
-/** The two ladder settings as the account has them, changed in Settings. */
+/** The ladder setting as the account has it, changed in Settings. */
 function YourSettings() {
   const rows = privacySettingRows(getPreferences().privacy);
   return (

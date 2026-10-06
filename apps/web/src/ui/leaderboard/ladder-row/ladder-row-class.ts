@@ -7,8 +7,8 @@ export const ladderGridClass =
   'grid grid-cols-12 items-center gap-x-4 max-compact:gap-x-2';
 
 const columns: Readonly<Record<LadderColumn, string>> = {
-  rank: 'col-span-1',
-  name: 'col-span-6 min-w-0 max-compact:col-span-6',
+  rank: 'col-span-1 max-compact:col-span-2',
+  name: 'col-span-6 min-w-0 max-compact:col-span-5',
   rating: 'col-span-2 max-compact:col-span-2',
   record: 'col-span-2 max-compact:hidden',
   move: 'col-span-1 max-compact:col-span-3',

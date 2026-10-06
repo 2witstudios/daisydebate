@@ -77,7 +77,7 @@ export function ProfileForm({
           <FormField
             id="region"
             label="Region"
-            helper="Optional. Lets other debaters filter the ladder by region."
+            helper="Optional. Shown on your profile."
           >
             <select
               id="region"

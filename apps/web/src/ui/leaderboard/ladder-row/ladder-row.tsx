@@ -10,7 +10,6 @@ import {
   rowLabel,
 } from '../../../features/leaderboard/labels';
 import { Badge } from '../../components/badge/badge';
-import { Icon } from '../../components/icon/icon';
 import { cn } from '../../cn';
 import {
   ladderColumnClass,
@@ -36,12 +35,10 @@ function HoverCard({ row }: { row: Row }): ReactNode {
       aria-hidden="true"
       className="pointer-events-none invisible absolute top-full left-16 z-10 flex w-rail flex-col gap-2 rounded-lg border border-border-strong bg-surface-raised p-4 text-left opacity-0 shadow-3 transition-opacity delay-500 duration-120 group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100 max-compact:hidden"
     >
-      <span className="flex items-center gap-3">
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-base font-bold">{`@${row.username}`}</span>
-          <span className="block text-sm text-ink-muted">
-            {row.provisional ? 'Provisional' : 'Established'}
-          </span>
+      <span className="min-w-0">
+        <span className="block truncate text-base font-bold">{`@${row.username}`}</span>
+        <span className="block text-sm text-ink-muted">
+          {row.provisional ? 'Provisional' : 'Established'}
         </span>
       </span>
       <span className="flex items-baseline gap-2">
@@ -76,11 +73,6 @@ function Cells({ row, closed }: LadderRowProps): ReactNode {
           'flex items-center gap-3 text-left',
         )}
       >
-        {row.masked ? (
-          <span className="hidden shrink-0 max-compact:block">
-            <Icon name="eye" size={24} className="text-ink-faint" />
-          </span>
-        ) : null}
         <span className="flex min-w-0 flex-col">
           <span className="flex items-center gap-2">
             <span
