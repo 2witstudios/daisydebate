@@ -224,3 +224,19 @@ test('an email change lost in transport returns focus to the new-address field',
   await expectFocusOn(page, 'input', 'new-email');
   await assertNoSeriousFindings(page);
 });
+
+test('an onboarding step whose save fails in transport keeps the choices and focuses the heading', async ({
+  page,
+}) => {
+  await signUpMember(page.request);
+  await page.goto('/onboarding/about?next=%2Flobby');
+  await effectsRan(page);
+  await page.locator('label', { hasText: 'Judge' }).click();
+  await dropServerActions(page);
+  await pressByKeyboard(page.getByRole('button', { name: 'Next' }));
+  await expect(page.getByRole('status')).toContainText(
+    'Your answers weren’t saved',
+  );
+  await expectFocusOn(page, 'h1', 'onboarding-title');
+  await expect(page.getByRole('checkbox', { name: 'Judge' })).toBeChecked();
+});

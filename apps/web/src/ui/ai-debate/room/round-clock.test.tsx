@@ -24,6 +24,26 @@ const live = (turnIndex: number, remainingMs: number, lengthMs: number) =>
   }) as const;
 
 describe('RoundClock', () => {
+  test('each turn is as wide as it is long', () => {
+    const html = clock(live(0, 60_000, 300_000));
+    assert({
+      given: 'the seven turns of 5, 2, 6, 2, 5, 5 and 3 minutes',
+      should: 'give each its own grow factor in order',
+      actual: [...html.matchAll(/basis-0 flex-col gap-1 (grow(?:-\d)?)/g)].map(
+        (match) => match[1],
+      ),
+      expected: [
+        'grow-5',
+        'grow-2',
+        'grow-6',
+        'grow-2',
+        'grow-5',
+        'grow-5',
+        'grow-3',
+      ],
+    });
+  });
+
   test('reads the moment', () => {
     assert({
       given: 'the countdown into the AC with the person affirmative',
@@ -65,7 +85,7 @@ describe('RoundClock', () => {
   });
 
   test('a timer that is not announced, over a timeline of every turn', () => {
-    const html = clock(live(1, 90_000, 180_000));
+    const html = clock(live(1, 60_000, 120_000));
     assert({
       given: 'the first CX half done',
       should:

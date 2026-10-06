@@ -159,6 +159,7 @@ export {
   aiDebateLongestMs,
   deriveAiDebate,
   aiDebateCountdownMs,
+  aiDebatePrepMs,
   aiDebateTurns,
   turnRoles,
   type AiDebateCommand,

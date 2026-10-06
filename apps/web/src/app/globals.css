@@ -4,6 +4,7 @@
 @import './theme/shell.css';
 @import './theme/dashboard.css';
 @import './theme/auth.css';
+@import './theme/onboarding.css';
 @import './theme/brand.css';
 @import './theme/portrait.css';
 @import './theme/bracket.css';
