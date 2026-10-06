@@ -2,6 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { Identity } from '@daisy/auth';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import { createUsernameHandler } from './username';
+import { allowEvery, type ConsumeStub } from '../auth/limiter.test-support';
 
 setupRitewayBun();
 
@@ -12,10 +13,10 @@ const member: Identity = {
 
 const handlerWith = ({
   identity = member,
-  consume = async () => ({ allowed: true, retryAfterSeconds: 0 }),
+  consume = allowEvery,
 }: {
   identity?: Identity;
-  consume?: () => Promise<{ allowed: boolean; retryAfterSeconds: number }>;
+  consume?: ConsumeStub;
 } = {}) => {
   const claims: unknown[] = [];
   const handler = createUsernameHandler({

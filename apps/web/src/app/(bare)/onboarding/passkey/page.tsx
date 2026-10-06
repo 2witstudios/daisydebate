@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { readOnboardingEntry } from '../../../../lib/auth-entry';
+import { afterPasskey } from '../answers';
 import {
   onboardingHref,
   passkeyOfferHref,
@@ -32,7 +33,7 @@ export default async function OnboardingPasskeyPage({
   return (
     <PasskeyOffer
       username={identity.username}
-      destination={destination}
+      destination={await afterPasskey(destination)}
       decline={declinePasskeyAction.bind(null, destination)}
     />
   );
