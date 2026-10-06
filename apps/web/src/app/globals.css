@@ -8,6 +8,7 @@
 @import './theme/portrait.css';
 @import './theme/bracket.css';
 @import './theme/stage.css';
+@import './theme/room.css';
 
 /* Tailwind v4 is configured here and nowhere else (ADR 0028): no
    tailwind.config.*, no arbitrary values, no default palette. Class names
@@ -40,13 +41,14 @@
   color-scheme: light dark;
 }
 
-/* The brand sheet's preview panels (ADR 0045) re-declare the tokens, because
-   the browser resolves light-dark() where a custom property is declared: an
-   inherited token keeps the page's scheme, a re-declared one takes the
-   panel's. */
+/* The brand sheet's preview panels (ADR 0045) and the round room's document
+   page (ADR 0054) re-declare the tokens, because the browser resolves
+   light-dark() where a custom property is declared: an inherited token keeps
+   the page's scheme, a re-declared one takes the panel's. */
 :root,
 .preview-scheme-light,
-.preview-scheme-dark {
+.preview-scheme-dark,
+[data-room-page] {
   /* Brand primitives — the board's forest, sage, deep sage, cream and
      butter. Light keeps the board values; dark lifts forest and deep sage so
      they still read on the forest-black page. Chrome takes the semantic

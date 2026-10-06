@@ -142,6 +142,8 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
       import('../../app/(shell)/tournaments/mine/[id]/page'),
     '(shell)/tournaments/mine/[id]/room/[round]/page.tsx': () =>
       import('../../app/(shell)/tournaments/mine/[id]/room/[round]/page'),
+    '(bare)/rooms/[id]/round/page.tsx': () =>
+      import('../../app/(bare)/rooms/[id]/round/page'),
     '(bare)/tournaments/mine/[id]/certificate/page.tsx': () =>
       import('../../app/(bare)/tournaments/mine/[id]/certificate/page'),
     '(shell)/tournaments/organize/page.tsx': () =>
