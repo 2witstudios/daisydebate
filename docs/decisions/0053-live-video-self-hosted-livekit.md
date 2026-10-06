@@ -105,10 +105,26 @@ per media session: at most one reconcile per minimum interval (configuration,
 default 500 ms), and every call that arrives while one is pending or within the
 interval receives the result of the next run, which starts at or after the
 call. A client that rejoins over and over with a still-valid refreshed token
-therefore cannot spend anyone else's allowance or delay a boundary call by
-more than the interval, and the load on LiveKit's API is bounded per session,
-not per caller. The capture worker's participant is not a seat; reconcile
-never touches it.
+therefore cannot spend anyone else's allowance, and the load on LiveKit's API
+is bounded per session, not per caller. The capture worker's participant is
+not a seat; reconcile never touches it.
+
+Every run is bounded, so a slow LiveKit call cannot hold the queue:
+
+- **Closes first.** A run applies every change that removes `microphone`
+  before any change that adds it, so the previous speaker's mic closes before
+  the next speaker's opens.
+- **Hard deadline.** Each `updateParticipant` call has a deadline
+  (configuration, default 2 s). A run whose calls miss it is abandoned, and the
+  next run starts at once and re-diffs from LiveKit's current state.
+- **Fail closed.** When a call that would close a mic misses its deadline in
+  two consecutive runs, the run removes that participant from the room
+  instead; it rejoins with a freshly minted token that carries only the
+  current grants.
+
+So a boundary call takes effect within the minimum interval plus one deadline
+(default 2.5 s). Beyond that the stale mic is either closed or its holder is
+out of the room.
 
 This bounds a debater who never calls reconcile. The other debater wants their
 own mic opened at the boundary, and their call closes this one too. The judge's
@@ -305,7 +321,9 @@ never decide an outcome.
   already running need a one-time `docker compose -f infra/compose.yaml up -d`,
   because `bun slot:up` never recreates a running stack.
 - **Ready without JavaScript:** a debater cannot ready up with JavaScript off.
-- **Delay:** mic changes lag a turn boundary by one reconcile round trip.
+- **Delay:** mic changes lag a turn boundary by at most the reconcile interval
+  plus one LiveKit call deadline (default 2.5 s), after which a mic that could
+  not be closed is closed by removing its holder.
   Clients are never trusted, but a speaker whose opponent and judge are both
   offline keeps an open mic until the session times out. Nobody can hear them
   then, because no one else is connected.
