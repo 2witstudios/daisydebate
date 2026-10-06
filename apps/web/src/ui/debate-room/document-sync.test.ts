@@ -151,24 +151,33 @@ describe('createDocumentSync', () => {
   });
 });
 
+/** An api over one stored document whose saves run `answer`; records each HTML sent. */
+const recordingApi = (
+  answer: (input: { html: string; expectedRevision: number }) => SaveResult,
+) => {
+  const sent: string[] = [];
+  const api: DocumentsApi = {
+    list: async () => [stored('a', 3)],
+    create: async () => stored('new'),
+    save: async (input) => {
+      sent.push(input.html);
+      return answer(input);
+    },
+  };
+  return { api, sent };
+};
+
 describe('createDocumentSync when a save fails', () => {
   /** An api whose first `failures` saves reject, then saves succeed. */
   const flakyApi = (failures: number) => {
-    const sent: string[] = [];
     let left = failures;
-    const api: DocumentsApi = {
-      list: async () => [stored('a', 3)],
-      create: async () => stored('new'),
-      save: async (input) => {
-        sent.push(input.html);
-        if (left > 0) {
-          left -= 1;
-          throw new Error('network');
-        }
-        return bumping(input.expectedRevision);
-      },
-    };
-    return { api, sent };
+    return recordingApi((input) => {
+      if (left > 0) {
+        left -= 1;
+        throw new Error('network');
+      }
+      return bumping(input.expectedRevision);
+    });
   };
 
   test('later edits still save', async () => {
@@ -222,18 +231,10 @@ describe('createDocumentSync when a save fails', () => {
 
 describe('createDocumentSync when the server refuses a save', () => {
   /** An api that always refuses saves with the given status. */
-  const refusingApi = (status: number) => {
-    const sent: string[] = [];
-    const api: DocumentsApi = {
-      list: async () => [stored('a', 3)],
-      create: async () => stored('new'),
-      save: async (input) => {
-        sent.push(input.html);
-        throw Object.assign(new Error('refused'), { status });
-      },
-    };
-    return { api, sent };
-  };
+  const refusingApi = (status: number) =>
+    recordingApi(() => {
+      throw Object.assign(new Error('refused'), { status });
+    });
 
   test('a refusal is not retried', async () => {
     const { api, sent } = refusingApi(422);
