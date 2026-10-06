@@ -102,16 +102,24 @@ LiveKit's room `empty_timeout` and `departure_timeout` close the session.
 ### 5. Tokens and teardown
 
 - **Join tokens** last 60 seconds and carry exactly the policy's grants at
-  mint time. A token's TTL gates only the initial connection: LiveKit
-  refreshes a connected client's token itself. So the TTL never ends a
-  session, and a client that reconnects after it expires asks for a fresh
-  token.
+  mint time. A token's TTL gates only the initial connection. LiveKit sends
+  each connected client a fresh token about every 5 minutes, valid for 10
+  minutes and carrying the client's current rights. So the TTL never ends a
+  session, and a client that reconnects after its token expires asks Daisy
+  for a fresh one.
+- **Daisy creates and deletes the LiveKit room.** The server runs with
+  `room.auto_create: false`. The token route creates the session's room
+  whenever it does not exist (the first join, or after LiveKit closed it
+  empty), and teardown deletes it. A client holding a
+  still-valid refreshed token therefore cannot rejoin, or recreate the
+  room, after its debate ends.
 - **Refusals:** the token route refuses a caller who is not seated, a
   signed-out caller, a completed debate, and any request past the judging
   window.
 - **Teardown:** when a debate completes (its last ballot or AI ruling), the
-  completing command removes every participant and records the session's end
-  after its transaction commits. A LiveKit failure during teardown is logged
+  completing command deletes the session's LiveKit room, which disconnects
+  every participant, and records the session's end after its transaction
+  commits. A LiveKit failure during teardown is logged
   and never changes the debate's result. Reconcile performs the same
   teardown when it finds a completed debate or a passed judging window.
 
@@ -141,11 +149,15 @@ of the room's ready command.
 
 ### 8. Browser permissions
 
-`Permissions-Policy` stays `camera=()` and `microphone=()` on every route except
-these two, which send `camera=(self) microphone=(self)`:
+`Permissions-Policy` stays `camera=()` on every route except these two, which
+send `camera=(self) microphone=(self)`:
 
 - the room route, for the Ready check;
 - the debate route.
+
+`microphone=()` stays on every other route except the AI debate route
+(`/ai-debate/:id`), which already sends `microphone=(self)` for its voice
+opponent and keeps it.
 
 The Content-Security-Policy is global (`apps/web/src/server/proxy-handler.ts`).
 On the debate route only, `connect-src` adds the LiveKit public origin as both
@@ -189,14 +201,16 @@ never decide an outcome.
 
 ### 11. Persistence and privacy
 
-| Column                                                             | Category   | Visibility | Retention                                 |
-| ------------------------------------------------------------------ | ---------- | ---------- | ----------------------------------------- |
-| `media_sessions.id`, `.room_name`                                  | identifier | —          | with the debate                           |
-| `media_sessions.debate_id`, `.created_at`, `.ended_at`             | none       | —          | with the debate                           |
-| `media_participants.identity`                                      | identifier | —          | with the debate                           |
-| `media_participants.actor_id`, `.seat`                             | identifier | —          | with the debate                           |
-| `debate_utterances.text`                                           | personal   | private    | 180 days (DEC-101; deletion is ISSUE-322) |
-| `debate_utterances.debate_id`, `.turn_index`, `.seat`, `.sequence` | identifier | —          | with the text                             |
+| Column                                                                    | Category   | Visibility | Retention                                 |
+| ------------------------------------------------------------------------- | ---------- | ---------- | ----------------------------------------- |
+| `media_sessions.id`, `.room_name`                                         | identifier | —          | with the debate                           |
+| `media_sessions.debate_id`, `.created_at`, `.ended_at`                    | none       | —          | with the debate                           |
+| `media_participants.identity`                                             | identifier | —          | with the debate                           |
+| `media_participants.media_session_id`, `.actor_id`, `.seat`               | identifier | —          | with the debate                           |
+| `media_participants.created_at`                                           | none       | —          | with the debate                           |
+| `debate_utterances.text`                                                  | personal   | private    | 180 days (DEC-101; deletion is ISSUE-322) |
+| `debate_utterances.id`, `.debate_id`, `.turn_index`, `.seat`, `.sequence` | identifier | —          | with the text                             |
+| `debate_utterances.created_at`                                            | none       | —          | with the text                             |
 
 - **Who can read a transcript:** the seated debaters and the judge, and no one else.
 - **Secrets:** the LiveKit API key and secret are composition-boundary secrets
