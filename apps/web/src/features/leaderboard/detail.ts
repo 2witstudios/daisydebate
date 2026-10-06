@@ -77,7 +77,6 @@ const seasonRow = (
 const headOf = (
   username: string,
   season: Season,
-  entry: RankedEntry | null,
   viewer: LadderViewer | null,
 ): DetailHead => ({
   username,
@@ -139,7 +138,7 @@ export function buildDetail(
   const entry =
     read.seasonsPlayed.find((played) => played.season.id === season.id)
       ?.entry ?? null;
-  const head = headOf(username, season, entry, viewer);
+  const head = headOf(username, season, viewer);
   if (viewer?.blinded.includes(username)) return { ...head, kind: 'hidden' };
   if (!entry || read.points.length === 0)
     return {
