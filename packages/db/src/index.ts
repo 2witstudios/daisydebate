@@ -21,11 +21,8 @@ import {
   type RuntimeRoleFactsRow,
 } from './runtime-role';
 import { RUNTIME_SESSION } from './session-bounds';
-export type {
-  DebateMode,
-  DebateOutcome,
-  DebateVisibility,
-} from './schema/debates';
+export type { DebateMode } from '@daisy/protocol';
+export type { DebateOutcome, DebateVisibility } from './schema/debates';
 export type { DebateRecord, NewDebate } from './debate-record';
 export type { UsernameClaim } from './username-claim';
 export type { ActorRecord } from './actor-operations';
