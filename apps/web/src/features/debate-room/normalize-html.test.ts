@@ -123,9 +123,39 @@ describe('normalizeDocumentHtml bounds', () => {
     assert({
       given:
         'blockquotes opened 2,999 times, each followed by a stray closing tag',
-      should: 'see the real nesting and refuse it as too complex',
+      should: 'refuse the unmatched closes as malformed',
       actual: html(`<p>a</p>${'<blockquote></x>'.repeat(2_999)}`),
-      expected: 'too-complex',
+      expected: 'malformed',
+    });
+  });
+
+  test('nesting the parser would build differently', () => {
+    assert({
+      given:
+        'blocks opened inside a paragraph, and a close that does not match the innermost element',
+      should: 'refuse each as malformed instead of storing hidden depth',
+      actual: [
+        html(`<p>a</p>${'<p><ul><li></p>'.repeat(999)}`),
+        html(`<p>a</p>${'<p><blockquote></p>'.repeat(1_499)}`),
+        html('<p><strong>a</p></strong>'),
+      ],
+      expected: ['malformed', 'malformed', 'malformed'],
+    });
+  });
+
+  test('editor output passes the strict scan', () => {
+    const editor =
+      '<h1>Flow</h1><ul><li><p><strong>FW</strong> harm <span data-debate-mark="dropped">C3</span></p></li></ul>' +
+      '<ul data-type="taskList"><li data-checked="true" data-type="taskItem"><label><input type="checkbox" checked="checked"><span></span></label><div><p>Q</p></div></li></ul>' +
+      '<blockquote><p>quote</p></blockquote><ol type="a"><li><p>one<br>two</p></li></ol><hr><p></p>';
+    assert({
+      given: 'HTML shaped as the editor writes it',
+      should: 'normalize, and stay stable when normalized again',
+      actual: ((once: string) => [
+        once.startsWith('<h1>'),
+        html(once) === once,
+      ])(html(editor)),
+      expected: [true, true],
     });
   });
 
@@ -135,6 +165,26 @@ describe('normalizeDocumentHtml bounds', () => {
       should: 'refuse it as too complex',
       actual: html('<p>x</p>'.repeat(MAX_ELEMENTS + 1)),
       expected: 'too-complex',
+    });
+  });
+
+  test('the refused shapes are refused quickly', () => {
+    const refused = [
+      `<p>a</p>${'<p><ul><li></p>'.repeat(999)}`,
+      `<p>a</p>${'<p><blockquote></p>'.repeat(1_499)}`,
+      `<p>a</p>${'<blockquote></x>'.repeat(2_999)}`,
+      `${'<blockquote>'.repeat(7_500)}x${'</blockquote>'.repeat(7_500)}`,
+    ];
+    const timed = refused.map((input) => {
+      const started = performance.now();
+      const result = normalizeDocumentHtml(input);
+      return !result.ok && performance.now() - started < 50;
+    });
+    assert({
+      given: 'implied-close, stray-close and deep-nesting attacks',
+      should: 'each be refused within 50 ms, before any parse',
+      actual: timed,
+      expected: refused.map(() => true),
     });
   });
 

@@ -14,7 +14,7 @@ export type Normalized =
   | { readonly ok: true; readonly html: string }
   | {
       readonly ok: false;
-      readonly reason: 'too-large' | 'not-html' | 'too-complex';
+      readonly reason: 'too-large' | 'not-html' | 'too-complex' | 'malformed';
     };
 
 const VOID = new Set([
@@ -35,35 +35,69 @@ const VOID = new Set([
 ]);
 const TAG = /<(\/?)([a-zA-Z][\w-]*)\b[^>]*?(\/?)>/g;
 
-/**
- * Closes the innermost open element with this name and everything opened
- * inside it, as an HTML parser does; a closing tag with no open match is
- * ignored, so stray closes never hide real nesting.
- */
-function close(open: string[], name: string): void {
-  const at = open.lastIndexOf(name);
-  if (at !== -1) open.length = at;
-}
+/** Elements whose opening makes the HTML parser close an open `<p>` first. */
+const CLOSES_P = new Set([
+  'address',
+  'article',
+  'aside',
+  'blockquote',
+  'details',
+  'div',
+  'dl',
+  'fieldset',
+  'figure',
+  'footer',
+  'form',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'header',
+  'hr',
+  'main',
+  'menu',
+  'nav',
+  'ol',
+  'p',
+  'pre',
+  'section',
+  'table',
+  'ul',
+]);
+
+type Scan = 'ok' | 'too-complex' | 'malformed';
+
+/** An opening tag the parser would read differently from its nesting as written. */
+const impliesClose = (open: readonly string[], name: string) =>
+  (open.at(-1) === 'p' && CLOSES_P.has(name)) ||
+  (open.at(-1) === 'li' && name === 'li');
 
 /**
- * A cheap linear scan before the recursive parse: refuses nesting deeper
- * than MAX_DEPTH or more than MAX_ELEMENTS elements, which would otherwise
- * overflow the stack or hold the event loop.
+ * A cheap linear scan before the recursive parse. It accepts only strictly
+ * nested HTML, which the editor always writes: every close matches the
+ * innermost open element, and nothing opens that the parser would close
+ * an element for, so the scanned depth is the depth the parser builds.
+ * Nesting deeper than MAX_DEPTH or more than MAX_ELEMENTS elements would
+ * otherwise overflow the stack or hold the event loop.
  */
-function withinBounds(input: string): boolean {
+function scan(input: string): Scan {
   const open: string[] = [];
   let elements = 0;
   for (const [, closing, rawName = '', selfClosing] of input.matchAll(TAG)) {
     const name = rawName.toLowerCase();
     if (closing) {
-      close(open, name);
+      if (open.pop() !== name) return 'malformed';
       continue;
     }
+    if (impliesClose(open, name)) return 'malformed';
     elements += 1;
     if (!selfClosing && !VOID.has(name)) open.push(name);
-    if (open.length > MAX_DEPTH || elements > MAX_ELEMENTS) return false;
+    if (open.length > MAX_DEPTH || elements > MAX_ELEMENTS)
+      return 'too-complex';
   }
-  return true;
+  return 'ok';
 }
 
 /** The schema round trip; a parser failure is a refusal, never a 500. */
@@ -90,7 +124,8 @@ export function normalizeDocumentHtml(input: string): Normalized {
     return { ok: false, reason: 'too-large' };
   if (input.trim() === '') return { ok: true, html: breakLines(EMPTY) };
   if (!isHtmlDocument(input)) return { ok: false, reason: 'not-html' };
-  if (!withinBounds(input)) return { ok: false, reason: 'too-complex' };
+  const scanned = scan(joinLines(input));
+  if (scanned !== 'ok') return { ok: false, reason: scanned };
   const html = roundTrip(input);
   if (html === null) return { ok: false, reason: 'not-html' };
   return { ok: true, html: breakLines(html === '' ? EMPTY : html) };
