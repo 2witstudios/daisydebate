@@ -83,6 +83,8 @@ function memoryStore(): AiDebateStore & {
           role,
           text,
           complete,
+          // Deterministic: one second per line recorded.
+          createdAt: new Date(record.utterances.length * 1000),
         },
       ];
     },

@@ -133,6 +133,7 @@ describe("the person's speech and cross-examination", () => {
           role: 'person',
           text: 'I think the evidence is clear.',
           complete: true,
+          createdAt: new Date(0),
         },
       },
     });

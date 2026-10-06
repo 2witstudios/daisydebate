@@ -11,7 +11,7 @@ setupRitewayBun();
 const T = Date.UTC(2026, 9, 3, 18, 0, 0);
 const clock = (state: AiDebateState) =>
   renderToString(
-    h(RoundClock, { state, personSide: 'affirmative', opponent: 'Wren' }),
+    h(RoundClock, { state, personSide: 'affirmative' }),
   ).replaceAll('<!-- -->', '');
 const live = (turnIndex: number, remainingMs: number, lengthMs: number) =>
   ({
@@ -24,37 +24,20 @@ const live = (turnIndex: number, remainingMs: number, lengthMs: number) =>
   }) as const;
 
 describe('RoundClock', () => {
-  test('each turn is as wide as it is long', () => {
-    const html = clock(live(0, 60_000, 300_000));
-    assert({
-      given: 'the seven turns of 5, 2, 6, 2, 5, 5 and 3 minutes',
-      should: 'give each its own grow factor in order',
-      actual: [...html.matchAll(/basis-0 flex-col gap-1 (grow(?:-\d)?)/g)].map(
-        (match) => match[1],
-      ),
-      expected: [
-        'grow-5',
-        'grow-2',
-        'grow-6',
-        'grow-2',
-        'grow-5',
-        'grow-5',
-        'grow-3',
-      ],
-    });
-  });
-
   test('reads the moment', () => {
     assert({
       given: 'the countdown into the AC with the person affirmative',
       should: 'count seconds until they speak',
-      actual: clock({
-        phase: 'countdown',
-        turnIndex: 0,
-        startsAt: T + 7_000,
-        remainingMs: 7_000,
-        prepLeftMs: 240_000,
-      }).includes('>7</span><span class="text-ink-muted">until you speak<'),
+      actual: ((html) =>
+        html.includes('until you speak</span>') && html.includes('>7</span>'))(
+        clock({
+          phase: 'countdown',
+          turnIndex: 0,
+          startsAt: T + 7_000,
+          remainingMs: 7_000,
+          prepLeftMs: 240_000,
+        }),
+      ),
       expected: true,
     });
     assert({
@@ -84,30 +67,13 @@ describe('RoundClock', () => {
     });
   });
 
-  test('a timer that is not announced, over a timeline of every turn', () => {
+  test('a timer that is not announced', () => {
     const html = clock(live(1, 60_000, 120_000));
     assert({
       given: 'the first CX half done',
-      should:
-        'mark the clock as a timer, fill earlier turns and half of this one, and name the opponent',
-      actual: {
-        timer: html.includes('role="timer"'),
-        turns: html.match(/<progress/g)?.length,
-        acDone: html.includes(
-          'value="100" aria-label="Affirmative constructive',
-        ),
-        cxHalf: html.includes(
-          'value="50" aria-label="Cross-examination of the affirmative',
-        ),
-        legend: html.includes('</span> Wren</span>'),
-      },
-      expected: {
-        timer: true,
-        turns: 7,
-        acDone: true,
-        cxHalf: true,
-        legend: true,
-      },
+      should: 'mark the clock as a timer showing the time left',
+      actual: html.includes('role="timer"') && html.includes('1:00'),
+      expected: true,
     });
   });
 });

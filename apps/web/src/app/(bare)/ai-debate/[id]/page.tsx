@@ -18,7 +18,7 @@ export default async function AiDebateRoomPage({
   return (
     <>
       <noscript>
-        <p className="mx-auto max-w-dash-column px-6 pt-5 text-ink">
+        <p className="px-6 pt-5 text-ink">
           A voice debate needs JavaScript to use your microphone. Turn it on to
           debate the AI.
         </p>

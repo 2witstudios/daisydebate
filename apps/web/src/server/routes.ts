@@ -9,6 +9,8 @@ import { createConfirmHandlers } from '../features/auth/confirm';
 import { createAuthRouteHandlers } from '../features/auth/handlers';
 import { createAiDebateHandlers } from '../features/ai-debate/handlers';
 import { createAiDebateOperations } from '../features/ai-debate/operations';
+import { createDebateRoomDocumentHandlers } from '../features/debate-room/document-handlers';
+import { createDebateDocumentOperations } from '../features/debate-room/document-operations';
 import { createProofHandlers } from '../features/foundation/handlers';
 import { createAlertsHandler } from '../features/ops/alerts';
 import { createMetricsHandler } from '../features/ops/metrics';
@@ -31,7 +33,20 @@ export function createRoutes(app: App) {
     clock: app.clock,
     ids: app.ids,
   });
+  const documentOperations = createDebateDocumentOperations({
+    store: database,
+    clock: app.clock,
+    ids: app.ids,
+  });
   const origin = () => app.auth().config.PUBLIC_APP_URL;
+  /** Same origin, signed-in member, rate limit and actor: the member routes' gates. */
+  const memberGates = {
+    logger,
+    origin,
+    identify: (request: Request) => identify(app.auth(), request.headers),
+    limiter: () => app.auth().limiter,
+    getActorByUserId: (userId: string) => database.getActorByUserId(userId),
+  };
   const confirmAuth = () => {
     const { instance, config } = app.auth();
     return { handler: instance.handler, config };
@@ -115,12 +130,12 @@ export function createRoutes(app: App) {
       }),
     },
     aiDebate: createAiDebateHandlers({
-      logger,
-      origin,
-      identify: (request) => identify(app.auth(), request.headers),
-      limiter: () => app.auth().limiter,
-      getActorByUserId: (userId) => database.getActorByUserId(userId),
+      ...memberGates,
       operations: () => aiDebateOperations,
+    }),
+    debateRoomDocuments: createDebateRoomDocumentHandlers({
+      ...memberGates,
+      operations: () => documentOperations,
     }),
     /** Provider-signed, server-to-server: authenticity replaces the origin check. */
     mailWebhook: {

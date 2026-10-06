@@ -76,6 +76,8 @@ describe('getAiDebate', () => {
             role: 'ai',
             text: 'I affirm.',
             complete: true,
+            // The fake driver hands back the row's raw value.
+            createdAt: at,
           },
         ],
         ballot: { winner: 'affirmative', ballot: { winner: 'affirmative' } },

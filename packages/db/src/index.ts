@@ -10,6 +10,7 @@ import { claimUsername } from './username-claim';
 import { authOperations } from './auth-operations';
 import { debateOperations } from './debate-operations';
 import { aiDebateOperations } from './ai-debate-operations';
+import { debateDocumentOperations } from './debate-document-operations';
 import { onboardingOperations } from './onboarding-operations';
 import { actorOperations } from './actor-operations';
 import { rateCompletedDebate } from './rating-operations';
@@ -47,6 +48,12 @@ export type {
   AiDebateUtteranceRecord,
   NewAiDebate,
 } from './ai-debate-record';
+export type {
+  DebateDocumentFolder,
+  DebateDocumentRecord,
+  DebateDocumentSave,
+  NewDebateDocument,
+} from './debate-document-record';
 export type { DatabaseEventSink } from './instrumented';
 export {
   encodeOutboxCursor,
@@ -163,6 +170,7 @@ export function createDatabase({
     ...outboxOperations({ database, eventSink }),
     ...debateOperations({ database, eventSink }),
     ...aiDebateOperations({ database, eventSink }),
+    ...debateDocumentOperations({ database, eventSink }),
     ...onboardingOperations({ database, eventSink }),
     ...standingsOperations({ database, eventSink }),
     /**

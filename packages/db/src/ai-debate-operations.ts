@@ -149,6 +149,7 @@ export const aiDebateOperations = ({
           role: u.role === 'ai' ? 'ai' : 'person',
           text: u.text,
           complete: u.complete,
+          createdAt: u.createdAt,
         })),
         ballot: ballot
           ? {

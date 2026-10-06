@@ -212,6 +212,51 @@ export const iconPaths: Record<string, ReactNode> = {
       <path d="M12 16.5h.01" />
     </>
   ),
+  // The round room (ADR 0054).
+  mic: (
+    <>
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+    </>
+  ),
+  file: (
+    <>
+      <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+      <path d="M14 3v6h6M8 13h8M8 17h5" />
+    </>
+  ),
+  hash: <path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18" />,
+  plus: <path d="M12 5v14M5 12h14" />,
+  close: <path d="M18 6 6 18M6 6l12 12" />,
+  send: (
+    <>
+      <path d="M21 3 10 14" />
+      <path d="M21 3 14 21l-4-7-7-4Z" />
+    </>
+  ),
+  sparkle: (
+    <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" />
+  ),
+  lock: (
+    <>
+      <rect x="4" y="11" width="16" height="10" rx="2" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </>
+  ),
+  leave: (
+    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l-5-5 5-5M5 12h11" />
+  ),
+  wave: <path d="M3 10v4M7 6v12M11 9v6M15 4v16M19 8v8" />,
+  bold: <path d="M7 5h6a3.5 3.5 0 0 1 0 7H7zM7 12h7a3.5 3.5 0 0 1 0 7H7z" />,
+  italic: <path d="M19 4h-9M14 20H5M15 4 9 20" />,
+  heading: <path d="M6 4v16M18 4v16M6 12h12" />,
+  list: <path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01" />,
+  checklist: (
+    <>
+      <path d="m3 7 2 2 4-4M3 17l2 2 4-4" />
+      <path d="M13 7h8M13 17h8" />
+    </>
+  ),
 };
 
 export type IconName = keyof typeof iconPaths;

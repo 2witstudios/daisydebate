@@ -20,6 +20,7 @@ export type AiDebateUtteranceRecord = {
   readonly text: string;
   /** False while the AI is still writing the line, or if writing it failed. */
   readonly complete: boolean;
+  readonly createdAt: Date;
 };
 
 export type NewAiDebate = {

@@ -5,13 +5,6 @@ import type { ReactNode } from 'react';
  * When a second destination needs one, it moves to the shared set.
  */
 export const prepGlyphs = {
-  lock: (
-    <>
-      <rect x="4" y="11" width="16" height="10" rx="2" />
-      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
-    </>
-  ),
-  plus: <path d="M12 5v14M5 12h14" />,
   upload: (
     <>
       <path d="M12 16V4" />
@@ -120,12 +113,6 @@ export const prepGlyphs = {
   ),
   arrowUp: <path d="M12 19V5M6 11l6-6 6 6" />,
   arrowDown: <path d="M12 5v14M6 13l6 6 6-6" />,
-  send: (
-    <>
-      <path d="M21 3 10 14" />
-      <path d="M21 3 14 21l-4-7-7-4Z" />
-    </>
-  ),
   refresh: (
     <>
       <path d="M20 12a8 8 0 1 1-2.3-5.7L20 8" />
