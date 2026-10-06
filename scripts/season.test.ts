@@ -66,6 +66,28 @@ describe('parseSeasonCommand', () => {
       ],
       ['close with an id that is not a cuid2', ['close', '--id', 'season-1']],
       ['an unknown flag', ['list', '--force']],
+      [
+        'close given --starts instead of --ends',
+        ['close', '--id', id, '--starts', '2026-12-31T00:00:00Z'],
+      ],
+      ['list given a name', ['list', '--name', 'S']],
+      ['open given an id', ['open', '--name', 'S', '--id', id]],
+      [
+        'rollover given an end',
+        ['rollover', '--name', 'S', '--ends', '2027-01-01T00:00:00Z'],
+      ],
+      [
+        'an impossible calendar date',
+        ['open', '--name', 'S', '--starts', '2026-02-30T00:00:00Z'],
+      ],
+      [
+        'an impossible hour',
+        ['open', '--name', 'S', '--starts', '2026-03-01T24:00:00Z'],
+      ],
+      [
+        'an impossible offset',
+        ['open', '--name', 'S', '--starts', '2026-03-01T10:00:00+25:00'],
+      ],
     ] as const;
     for (const [given, argv] of refusals)
       assert({
