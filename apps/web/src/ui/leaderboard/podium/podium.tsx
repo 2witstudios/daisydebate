@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import type { LadderRow } from '../../../features/leaderboard/ladder-view';
 import {
-  bandText,
   changeText,
   displayName,
   ratingText,
@@ -10,7 +9,6 @@ import {
   rowLabel,
 } from '../../../features/leaderboard/labels';
 import { cn } from '../../cn';
-import { BloomGlyph } from '../bloom-glyph/bloom-glyph';
 import { moveClass } from '../ladder-row/ladder-row-class';
 
 export type PodiumProps = {
@@ -35,13 +33,8 @@ export function Podium({ rows, closed }: PodiumProps) {
               row.rank === 1 ? 'border-gold-border' : 'border-border',
             )}
           >
-            <span className="flex items-center justify-between">
-              <span className="font-display text-3xl leading-none font-bold text-gold tabular-nums max-compact:text-2xl">
-                {rankText(row)}
-              </span>
-              <span className="max-compact:hidden">
-                <BloomGlyph bloom={row.bloom} size={36} />
-              </span>
+            <span className="font-display text-3xl leading-none font-bold text-gold tabular-nums max-compact:text-2xl">
+              {rankText(row)}
             </span>
             <span className="truncate font-strong">{displayName(row)}</span>
             <span className="flex items-baseline justify-between gap-2">
@@ -58,7 +51,7 @@ export function Podium({ rows, closed }: PodiumProps) {
               </span>
             </span>
             <span className="text-sm text-ink-muted tabular-nums max-compact:hidden">
-              {`${bandText(row)} · ${recordText(row)} W–L`}
+              {`${recordText(row)} W–L`}
             </span>
           </Link>
         </li>

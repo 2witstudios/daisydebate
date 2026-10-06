@@ -52,14 +52,14 @@ describe('LadderRow', () => {
     assert({
       given: 'a provisional debater',
       should:
-        'show a dash for rank, a question mark on the rating and the hollow marker',
+        'show a dash for rank and a question mark on the rating, with no tier marker',
       actual: [
         html.includes('>–<'),
         html.includes('1412?'),
         html.includes('stroke-dasharray'),
         html.includes('Provisional'),
       ],
-      expected: [true, true, true, true],
+      expected: [true, true, false, true],
     });
   });
 

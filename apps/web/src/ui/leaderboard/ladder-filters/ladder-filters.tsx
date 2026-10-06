@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { bloomBands, bloomLabel } from '../../../features/leaderboard/bloom';
 import {
   MAX_SEARCH_LENGTH,
   activeFilterCount,
@@ -14,7 +13,6 @@ import {
   seasonLabel,
   type Season,
 } from '../../../features/leaderboard/season';
-import { regionLabel, regions } from '../../../features/leaderboard/standing';
 import { buttonClass } from '../../components/button/button-class';
 import { Icon } from '../../components/icon/icon';
 import { AutoSubmitForm } from '../../lobby/filter-bar/auto-submit-form';
@@ -79,20 +77,12 @@ const statusOptions: readonly Option[] = [
   option('provisional', 'Provisional'),
   option('everyone', 'Everyone'),
 ];
-const bandOptions: readonly Option[] = [
-  option('any', 'Any band'),
-  ...[...bloomBands].reverse().map((band) => option(band, bloomLabel(band))),
-];
-const regionOptions: readonly Option[] = [
-  option('any', 'Any region'),
-  ...regions.map((region) => option(region, regionLabel(region))),
-];
 
 /**
- * Season, scope, search and the status, band and region filters as one GET
- * form: the URL carries the state, so the ladder filters on the server with
- * no script. Scope and search sit in the first row; season, status, band and
- * region live behind one "Filters" line, open when any is active.
+ * Season, scope, search and the status filter as one GET form: the URL
+ * carries the state, so the ladder filters on the server with no script.
+ * Scope and search sit in the first row; season and status live behind one
+ * "Filters" line, open when either is active.
  */
 export function LadderFilters({
   query,
@@ -169,18 +159,6 @@ export function LadderFilters({
             label="Status"
             value={query.status}
             options={statusOptions}
-          />
-          <Select
-            name="band"
-            label="Band"
-            value={query.band}
-            options={bandOptions}
-          />
-          <Select
-            name="region"
-            label="Region"
-            value={query.region}
-            options={regionOptions}
           />
           {isFiltered(query) ? (
             <Link

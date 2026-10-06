@@ -1,7 +1,5 @@
 import { z } from 'zod';
 import type { SearchParams } from '../access/decision';
-import { bloomBands, type BloomBand } from './bloom';
-import { regions, type Region } from './standing';
 
 const scopes = ['top', 'around'] as const;
 const statuses = ['established', 'provisional', 'everyone'] as const;
@@ -17,8 +15,6 @@ export type LadderQuery = {
   readonly scope: LadderScope;
   readonly q: string;
   readonly status: LadderStatus;
-  readonly band: 'any' | BloomBand;
-  readonly region: 'any' | Region;
   readonly page: number;
   /** Username of the debater whose detail is open, if any. */
   readonly debater: string | null;
@@ -32,8 +28,6 @@ export const defaultQuery: LadderQuery = {
   scope: 'top',
   q: '',
   status: 'established',
-  band: 'any',
-  region: 'any',
   page: 1,
   debater: null,
   view: 'chart',
@@ -58,8 +52,6 @@ const querySchema = z.object({
     .transform((value) => value.trim().slice(0, MAX_SEARCH_LENGTH).trim())
     .catch(defaultQuery.q),
   status: z.enum(statuses).catch(defaultQuery.status),
-  band: z.enum(['any', ...bloomBands]).catch(defaultQuery.band),
-  region: z.enum(['any', ...regions]).catch(defaultQuery.region),
   page: count.transform((page) => Math.max(1, page)).catch(defaultQuery.page),
   debater: z
     .string()
@@ -101,28 +93,19 @@ const withoutFilters = (query: LadderQuery): LadderQuery => ({
   ...query,
   q: defaultQuery.q,
   status: defaultQuery.status,
-  band: defaultQuery.band,
-  region: defaultQuery.region,
   page: defaultQuery.page,
 });
 
 export const clearFiltersHref = (query: LadderQuery): string =>
   ladderHref(withoutFilters(query));
 
-/** True when a search or a status, band or region filter is set. */
+/** True when a search or a status filter is set. */
 export const isFiltered = (query: LadderQuery): boolean =>
-  query.q !== defaultQuery.q ||
-  query.status !== defaultQuery.status ||
-  query.band !== defaultQuery.band ||
-  query.region !== defaultQuery.region;
+  query.q !== defaultQuery.q || query.status !== defaultQuery.status;
 
 /** The filters living in the phone panel; search has its own field. */
 export const activeFilterCount = (query: LadderQuery): number =>
-  [
-    query.status !== defaultQuery.status,
-    query.band !== defaultQuery.band,
-    query.region !== defaultQuery.region,
-  ].filter(Boolean).length;
+  query.status !== defaultQuery.status ? 1 : 0;
 
 /** A link to the same ladder with another debater's detail open. */
 export const debaterHref = (query: LadderQuery, username: string): string =>

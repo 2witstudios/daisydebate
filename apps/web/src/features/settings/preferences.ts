@@ -21,7 +21,6 @@ export type NotificationPrefs = {
 };
 export type PrivacyPrefs = {
   readonly ladder: boolean;
-  readonly showRegion: boolean;
   readonly analytics: boolean;
   readonly replay: boolean;
 };
@@ -47,7 +46,7 @@ export const getPreferences = (): Preferences => ({
     results: true,
     newsletter: false,
   },
-  privacy: { ladder: true, showRegion: false, analytics: false, replay: false },
+  privacy: { ladder: true, analytics: false, replay: false },
 });
 
 const on = (form: FormData, name: string): boolean =>
@@ -79,7 +78,6 @@ export const parseNotificationsForm = (
 export const parsePrivacyForm = (form: FormData): Parsed<PrivacyPrefs> =>
   accept({
     ladder: on(form, 'ladder'),
-    showRegion: on(form, 'show-region'),
     analytics: on(form, 'analytics'),
     replay: on(form, 'replay'),
   });

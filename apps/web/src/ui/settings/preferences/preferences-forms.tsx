@@ -172,11 +172,6 @@ export function PrivacyForm({
             helper="Hidden debaters keep their rating and show as a private debater so ranks do not shift."
             checked={prefs.ladder}
           />
-          <Check
-            name="show-region"
-            label="Show my region on the ladder"
-            checked={prefs.showRegion}
-          />
           <fieldset className="flex flex-col gap-3 border-t border-border pt-4">
             <legend className="mb-1 text-sm font-strong text-ink">
               Data we may use

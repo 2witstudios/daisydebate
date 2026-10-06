@@ -1,28 +1,7 @@
-import { bloomBand, type Bloom } from './bloom';
-
-export type Region =
-  'americas' | 'europe' | 'asia-pacific' | 'africa-middle-east';
-
-export const regions: readonly Region[] = [
-  'americas',
-  'europe',
-  'asia-pacific',
-  'africa-middle-east',
-];
-
-const regionLabels: Readonly<Record<Region, string>> = {
-  americas: 'Americas',
-  europe: 'Europe',
-  'asia-pacific': 'Asia-Pacific',
-  'africa-middle-east': 'Africa and Middle East',
-};
-
-export const regionLabel = (region: Region): string => regionLabels[region];
-
 /**
  * A debater's line on one season's ladder: the shape of a `ratings` row with
- * its `rating_changes` ledger already summed (ADR 0029). Provisional status,
- * rank and band are derived for display, never stored.
+ * its `rating_changes` ledger already summed (ADR 0029). Provisional status
+ * and rank are derived for display, never stored. Debaters have no tiers.
  */
 export type LadderEntry = {
   /** Application id (cuid2); never shown. */
@@ -38,8 +17,6 @@ export type LadderEntry = {
   readonly weekChange: number;
   /** Rating change over the whole season (a closed season's movement). */
   readonly seasonChange: number;
-  /** Only when the debater chose to show one (proposed, ADR 0036). */
-  readonly region: Region | null;
 };
 
 /**
@@ -55,7 +32,6 @@ export type RankedEntry = LadderEntry & {
   /** One-based, established debaters only. */
   readonly rank: number | null;
   readonly provisional: boolean;
-  readonly bloom: Bloom;
   readonly losses: number;
 };
 
@@ -78,7 +54,6 @@ export function rankEntries(
       ...entry,
       rank: provisional ? null : rank,
       provisional,
-      bloom: provisional ? 'provisional' : bloomBand(entry.rating),
       losses: entry.played - entry.wins,
     };
   });

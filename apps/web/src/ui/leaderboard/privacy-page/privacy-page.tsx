@@ -74,7 +74,7 @@ function Preview() {
         <span className="flex flex-col">
           <span className="font-strong">@your-username</span>
           <span className="text-sm text-ink-muted tabular-nums">
-            Bloom · #63 · 1538 · 19–12
+            #63 · 1538 · 19–12
           </span>
         </span>
       </p>

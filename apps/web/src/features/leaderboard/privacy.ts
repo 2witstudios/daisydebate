@@ -37,7 +37,7 @@ export const privacySections: readonly PrivacySection[] = [
         visibility: 'public',
       },
       {
-        title: 'Rating, rank, band, W–L',
+        title: 'Rating, rank, W–L',
         where: 'Everywhere on the ladder',
         note: 'Competitive result, not personal data.',
         tag: 'none',
@@ -50,13 +50,6 @@ export const privacySections: readonly PrivacySection[] = [
         visibility: 'public',
       },
       { title: 'Seasons played', where: 'Detail', tag: 'none' },
-      {
-        title: 'Region',
-        where: 'Only if the debater chose to show it',
-
-        tag: 'personal',
-        visibility: 'public',
-      },
     ],
   },
   {
@@ -122,7 +115,7 @@ export const privacySections: readonly PrivacySection[] = [
 ];
 
 type PrivacySetting = {
-  readonly id: 'show-region' | 'appear-on-ladder';
+  readonly id: 'appear-on-ladder';
   readonly label: string;
   readonly help: string;
 };
@@ -131,11 +124,6 @@ export type PrivacySettingRow = PrivacySetting & { readonly on: boolean };
 
 const privacySettings: readonly PrivacySetting[] = [
   {
-    id: 'show-region',
-    label: 'Show my region on leaderboards',
-    help: 'Lets others filter by your region.',
-  },
-  {
     id: 'appear-on-ladder',
     label: 'Appear on public leaderboards',
     help: 'Hidden debaters keep a rating and show as “private debater”.',
@@ -143,14 +131,10 @@ const privacySettings: readonly PrivacySetting[] = [
 ];
 
 /**
- * The two ladder settings with the account's current answers. They are
- * changed in Settings, which is the one place a privacy choice is made.
+ * The ladder setting with the account's current answer. It is changed in
+ * Settings, which is the one place a privacy choice is made.
  */
 export const privacySettingRows = (privacy: {
   readonly ladder: boolean;
-  readonly showRegion: boolean;
 }): readonly PrivacySettingRow[] =>
-  privacySettings.map((setting) => ({
-    ...setting,
-    on: setting.id === 'show-region' ? privacy.showRegion : privacy.ladder,
-  }));
+  privacySettings.map((setting) => ({ ...setting, on: privacy.ladder }));

@@ -11,14 +11,14 @@ describe('LadderHeading', () => {
     assert({
       given: 'a live and a closed season',
       should:
-        'hide from assistive tech, list six heads and name the movement column',
+        'hide from assistive tech, list five heads and name the movement column',
       actual: [
         live.includes('aria-hidden="true"'),
         live.match(/<span/g)?.length,
         live.includes('>7 days<'),
         renderToString(h(LadderHeading, { closed: true })).includes('>Season<'),
       ],
-      expected: [true, 6, true, true],
+      expected: [true, 5, true, true],
     });
   });
 });

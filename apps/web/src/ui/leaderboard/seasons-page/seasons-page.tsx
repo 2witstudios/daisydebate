@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { rangeBars } from '../../../features/leaderboard/explainer';
-import { bloomLabel } from '../../../features/leaderboard/bloom';
 import {
   displayName,
   ratingText,
@@ -9,7 +8,6 @@ import {
 import { PROVISIONAL_AFTER } from '../../../features/leaderboard/standing';
 import type { SeasonsView } from '../../../features/leaderboard/seasons';
 import { Badge } from '../../components/badge/badge';
-import { BloomGlyph } from '../bloom-glyph/bloom-glyph';
 import { LadderRow } from '../ladder-row/ladder-row';
 import { LadderHeading } from '../ladder-row/ladder-heading';
 import { Segmented } from '../segmented/segmented';
@@ -109,7 +107,6 @@ export function SeasonsPage({ view }: SeasonsPageProps) {
           aria-label={view.championLabel}
           className={cn(card, 'flex-row items-center gap-4')}
         >
-          <BloomGlyph bloom={champion.bloom} size={44} />
           <div className="flex min-w-0 flex-1 flex-col">
             <span
               className={eyebrow}
@@ -118,7 +115,7 @@ export function SeasonsPage({ view }: SeasonsPageProps) {
               {displayName(champion)}
             </span>
             <span className="text-sm text-ink-muted tabular-nums">
-              {`${ratingText(champion)} · ${recordText(champion)} W–L · ${bloomLabel(champion.bloom)}`}
+              {`${ratingText(champion)} · ${recordText(champion)} W–L`}
             </span>
           </div>
           <Link href={view.ladderHref} className={openLadder}>

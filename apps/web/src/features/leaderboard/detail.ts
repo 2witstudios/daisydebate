@@ -1,4 +1,3 @@
-import { bloomLabel } from './bloom';
 import {
   chartGeometry,
   lastStep,
@@ -13,7 +12,7 @@ import type { LadderViewer } from './ladder-view';
 import type { HistoryView, LadderQuery } from './query';
 import type { DebaterRead } from './read-leaderboard';
 import { seasonLabel, type Season } from './season';
-import { PROVISIONAL_AFTER, regionLabel, type RankedEntry } from './standing';
+import { PROVISIONAL_AFTER, type RankedEntry } from './standing';
 
 type SeasonPlayedRow = {
   readonly label: string;
@@ -26,7 +25,7 @@ type SeasonPlayedRow = {
 type DetailHead = {
   readonly username: string;
   readonly me: boolean;
-  /** "Season 4", with the region after it when the debater shows one. */
+  /** The season the detail shows, as "Season 4". */
   readonly subtitle: string;
 };
 
@@ -39,7 +38,6 @@ export type DebaterDetail =
       /** The 95% range, as "±N". */
       readonly range: string;
       readonly rank: string;
-      readonly band: string;
       readonly record: string;
       readonly peak: number;
       readonly established: boolean;
@@ -84,12 +82,7 @@ const headOf = (
 ): DetailHead => ({
   username,
   me: viewer?.username === username,
-  subtitle: [
-    seasonLabel(season),
-    entry?.region ? regionLabel(entry.region) : null,
-  ]
-    .filter(Boolean)
-    .join(' · '),
+  subtitle: seasonLabel(season),
 });
 
 const statusNoteFor = (entry: RankedEntry): string =>
@@ -114,7 +107,6 @@ function playerDetail(
     rating: entry.rating,
     range: `±${2 * entry.deviation}`,
     rank: established ? `#${entry.rank}` : 'Unranked',
-    band: bloomLabel(entry.bloom),
     record: record(entry),
     peak: peakRating(read.points),
     established,
