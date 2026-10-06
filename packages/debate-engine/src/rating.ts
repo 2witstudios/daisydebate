@@ -122,6 +122,11 @@ export function inflateDeviation(
   };
 }
 
+/** Whether a debater's last rating comes after `at`, read as UTC instants. */
+export function ratedAfter(lastRatedAt: string | null, at: string): boolean {
+  return lastRatedAt !== null && instant(lastRatedAt) > instant(at);
+}
+
 /** A previous season's state as it starts the next one. */
 export function carryOver(previous: Glicko2State): Glicko2State {
   return {

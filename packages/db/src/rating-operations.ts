@@ -1,6 +1,7 @@
 import { createAppError } from '@daisy/errors';
 import {
   debateSides,
+  formatRulesSchema,
   type DebateRole,
   type DebaterStanding,
   type PlannedRatingChange,
@@ -130,6 +131,22 @@ async function writeProjection(
   if (written.length !== 1) throw new StaleProjection();
 }
 
+/**
+ * The debate's format, its rules parsed at the trust boundary as `getFormat`
+ * does: the CHECK keeps only their outline.
+ */
+async function loadFormat(tx: Tx, formatId: string) {
+  const [format] = await tx
+    .select({ rules: formats.rules, rankedEligible: formats.rankedEligible })
+    .from(formats)
+    .where(eq(formats.id, formatId));
+  if (!format) throw createAppError('INTERNAL', 'A debate has no format');
+  const rules = formatRulesSchema.safeParse(format.rules);
+  if (!rules.success)
+    throw createAppError('INTERNAL', 'Stored format rules are invalid');
+  return { rules: rules.data, rankedEligible: format.rankedEligible };
+}
+
 async function rateOnce(
   tx: Tx,
   { debateId, changeIds, decide }: RateDebateInput,
@@ -140,11 +157,7 @@ async function rateOnce(
     .where(eq(debates.id, debateId))
     .for('update');
   if (!debate) throw createAppError('NOT_FOUND', 'No such debate');
-  const [format] = await tx
-    .select({ rules: formats.rules, rankedEligible: formats.rankedEligible })
-    .from(formats)
-    .where(eq(formats.id, debate.formatId));
-  if (!format) throw createAppError('INTERNAL', 'A debate has no format');
+  const format = await loadFormat(tx, debate.formatId);
   const [rated] = await tx
     .select({ id: ratingChanges.id })
     .from(ratingChanges)
@@ -222,7 +235,12 @@ async function rateOnce(
       occurredAt: new Date(plan.occurredAt),
     })),
   );
-  for (const change of plan.changes) await writeProjection(tx, scope, change);
+  // Stable actor order: two debates between the same pair with sides swapped
+  // would otherwise lock the two projections in opposite orders and deadlock.
+  const byActor = [...plan.changes].sort((a, b) =>
+    a.actorId < b.actorId ? -1 : a.actorId > b.actorId ? 1 : 0,
+  );
+  for (const change of byActor) await writeProjection(tx, scope, change);
   return {
     kind: 'rated',
     ladder: plan.ladder,

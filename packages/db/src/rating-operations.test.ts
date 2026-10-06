@@ -104,6 +104,25 @@ describe('rateDebate', () => {
     });
   });
 
+  test('refuses stored format rules that do not parse', async () => {
+    const { database } = createTestDatabase([
+      [completedRow('ranked')],
+      [[{ version: 1, seats: snapshot.rules.seats, clock: {} }, true]],
+      [],
+    ]);
+    await assertRejects({
+      given: 'format rules missing their clock durations',
+      should: 'refuse as an internal error before deciding anything',
+      actual: () =>
+        database.rateDebate({
+          debateId,
+          changeIds: ['c1', 'c2'],
+          decide: recording([]),
+        }),
+      code: 'INTERNAL',
+    });
+  });
+
   test('returns an unrated decision without reading further', async () => {
     const seen: unknown[] = [];
     const { database, queries } = createTestDatabase([

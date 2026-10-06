@@ -137,4 +137,34 @@ describe('rateDebate (RATE-1.3)', () => {
       });
     });
   });
+
+  test('rates debates with swapped sides concurrently without deadlocking', async () => {
+    await withRatings(url, async ({ fixture, rate, seated }) => {
+      const results = [];
+      for (let round = 0; round < 5; round += 1) {
+        const one = await seated({ minute: 30 + round });
+        const two = await seated({
+          formatId: one.formatId,
+          affirmative: one.negative,
+          negative: one.affirmative,
+          minute: 30 + round,
+        });
+        results.push(
+          ...(await Promise.all([rate(one.debateId), rate(two.debateId)])),
+        );
+        assert({
+          given: `round ${round}: two debates between the same pair with sides swapped`,
+          should: 'leave both projections at version 2',
+          actual: (await ratingsOf(fixture, one.affirmative))[0]?.version,
+          expected: 2,
+        });
+      }
+      assert({
+        given: 'ten concurrent ratings in reversed side orders',
+        should: 'rate every debate',
+        actual: results.every(({ kind }) => kind === 'rated'),
+        expected: true,
+      });
+    });
+  });
 });

@@ -7,7 +7,13 @@ import type {
   RatingPlanFacts,
   RatingState,
 } from '@daisy/protocol';
-import { carryOver, ladderForMode, rateDebate, ratingPolicy } from './rating';
+import {
+  carryOver,
+  ladderForMode,
+  rateDebate,
+  ratedAfter,
+  ratingPolicy,
+} from './rating';
 import { rulesMatchFormat } from './rules-match';
 
 /**
@@ -80,6 +86,16 @@ export function planRating(input: RatingPlanFacts): RatingPlan {
   };
   const affirmativeStanding = standingOf(affirmative);
   const negativeStanding = standingOf(negative);
+  // The ledger is ordered by completion: a debate that completed before a
+  // debater's last rating would rewrite history, so it is refused.
+  if (
+    ratedAfter(affirmativeStanding.lastRatedAt, input.occurredAt) ||
+    ratedAfter(negativeStanding.lastRatedAt, input.occurredAt)
+  )
+    throw createAppError(
+      'CONFLICT',
+      'A debater was already rated for a later debate',
+    );
   const rated = rateDebate({
     affirmative: {
       state: startingState(affirmativeStanding),

@@ -224,6 +224,16 @@ describe('planRating', () => {
       code: 'CONFLICT',
     });
     await assertRejects({
+      given: 'a debater already rated for a debate that completed later',
+      should: 'refuse as a conflict rather than rewrite the ledger order',
+      actual: () =>
+        plan({
+          aff: { ...newcomer, lastRatedAt: '2026-10-05T13:00:00.000Z' },
+          neg: newcomer,
+        }),
+      code: 'CONFLICT',
+    });
+    await assertRejects({
       given: 'a seat whose standing was not loaded',
       should: 'refuse as an internal error',
       actual: () => plan({ aff: newcomer }),

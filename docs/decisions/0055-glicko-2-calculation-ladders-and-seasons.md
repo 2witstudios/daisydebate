@@ -55,6 +55,10 @@ abandoned debate never rates. A forfeit has a side outcome (ADR 0033) and
 rates exactly like a judged result, so rating reads `outcome` and ignores
 `outcome_reason`.
 
+The ledger is ordered by completion. A debate that completed before either
+debater's last rating on that format and ladder is refused as a conflict,
+so a delayed retry can never apply an older result on top of a newer one.
+
 ### 3. Idle time widens the deviation
 
 Because every period holds one debate, Glicko-2's per-period growth alone
