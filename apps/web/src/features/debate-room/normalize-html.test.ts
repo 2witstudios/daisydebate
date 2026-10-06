@@ -1,6 +1,11 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { linesOf } from './document-lines';
-import { DOCUMENT_MAX_BYTES, normalizeDocumentHtml } from './normalize-html';
+import {
+  DOCUMENT_MAX_BYTES,
+  MAX_DEPTH,
+  MAX_ELEMENTS,
+  normalizeDocumentHtml,
+} from './normalize-html';
 
 setupRitewayBun();
 
@@ -86,6 +91,53 @@ describe('normalizeDocumentHtml', () => {
       should: 'store one empty paragraph',
       actual: html('  '),
       expected: '<p>\n</p>',
+    });
+  });
+});
+
+describe('normalizeDocumentHtml bounds', () => {
+  const nested = (depth: number) =>
+    `<p>${'<strong>'.repeat(depth)}x${'</strong>'.repeat(depth)}</p>`;
+
+  test('deep nesting', () => {
+    assert({
+      given: '7,500 nested blockquotes, under the size cap',
+      should: 'refuse it as too complex instead of overflowing the stack',
+      actual: html(
+        `${'<blockquote>'.repeat(7_500)}x${'</blockquote>'.repeat(7_500)}`,
+      ),
+      expected: 'too-complex',
+    });
+  });
+
+  test('nesting within the bound', () => {
+    assert({
+      given: 'marks nested to the depth limit',
+      should: 'normalize it',
+      actual: html(nested(MAX_DEPTH - 1)).startsWith('<p>'),
+      expected: true,
+    });
+  });
+
+  test('too many elements', () => {
+    assert({
+      given: 'a flat document with more elements than the limit',
+      should: 'refuse it as too complex',
+      actual: html('<p>x</p>'.repeat(MAX_ELEMENTS + 1)),
+      expected: 'too-complex',
+    });
+  });
+
+  test('the largest accepted document is quick', () => {
+    const largest = `<p>${'word '.repeat(10)}</p>`.repeat(MAX_ELEMENTS);
+    const started = performance.now();
+    const result = normalizeDocumentHtml(largest);
+    const elapsed = performance.now() - started;
+    assert({
+      given: 'a document at the element limit',
+      should: 'normalize within half a second',
+      actual: { ok: result.ok, quick: elapsed < 500 },
+      expected: { ok: true, quick: true },
     });
   });
 });

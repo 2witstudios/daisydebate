@@ -184,6 +184,15 @@ describe('saveDocument', () => {
       code: 'VALIDATION',
     });
     await assertRejects({
+      given: 'nesting deeper than the document bound',
+      should: 'refuse it as invalid, never a server error',
+      actual: () =>
+        save(
+          `${'<blockquote>'.repeat(7_500)}x${'</blockquote>'.repeat(7_500)}`,
+        ),
+      code: 'VALIDATION',
+    });
+    await assertRejects({
       given: 'another person’s document',
       should: 'refuse it as not found',
       actual: () => save('<p>b</p>', stranger),
