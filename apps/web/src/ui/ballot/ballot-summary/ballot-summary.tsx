@@ -1,10 +1,7 @@
-import type { Ballot } from '@daisy/protocol';
-import type { Side } from '../../../features/debates/turns';
+import { debateSides, type Ballot } from '@daisy/protocol';
 import type { BallotDebaters } from '../../../features/judge/ballot';
 import { Avatar } from '../../components/avatar/avatar';
 import { ballotEyebrowClass, ballotHeadingClass } from '../ballot-class';
-
-const sides = ['affirmative', 'negative'] as const satisfies readonly Side[];
 
 /**
  * One judge's written ballot: who they voted for, the reason both debaters
@@ -19,7 +16,7 @@ export function BallotSummary({
   readonly ballot: Ballot;
   readonly debaters: BallotDebaters;
 }) {
-  const feedback = sides.flatMap((side) => {
+  const feedback = debateSides.flatMap((side) => {
     const text = ballot.feedback[side];
     return text === undefined ? [] : [{ side, text }];
   });
