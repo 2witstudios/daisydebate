@@ -25,6 +25,7 @@ export const debateSideSchema = z.enum(debateSides);
  */
 export const debateRoles = [...debateSides, 'judge'] as const;
 export const debateRoleSchema = z.enum(debateRoles);
+export type DebateRole = (typeof debateRoles)[number];
 
 /**
  * The debate modes (ADR 0029, ADR 0055). `ranked` and `quick` are rated, each

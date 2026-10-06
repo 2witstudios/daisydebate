@@ -12,6 +12,8 @@ import { debateOperations } from './debate-operations';
 import { aiDebateOperations } from './ai-debate-operations';
 import { onboardingOperations } from './onboarding-operations';
 import { actorOperations } from './actor-operations';
+import { rateCompletedDebate } from './rating-operations';
+import type { RateDebateInput } from './rating-facts';
 import { emailDeliveryOperations } from './email-delivery-operations';
 import { outboxOperations } from './outbox';
 import { instrumented, type DatabaseEventSink } from './instrumented';
@@ -31,6 +33,11 @@ export type {
   OnboardingStepWrite,
 } from './onboarding-operations';
 export type { ActorRecord } from './actor-operations';
+export type {
+  RateDebateInput,
+  RateDebateResult,
+  RatingDecision,
+} from './rating-facts';
 export type { FormatRecord } from './debate-operations';
 export type {
   AiDebateCommandRecord,
@@ -155,6 +162,15 @@ export function createDatabase({
     ...debateOperations({ database, eventSink }),
     ...aiDebateOperations({ database, eventSink }),
     ...onboardingOperations({ database, eventSink }),
+    /**
+     * Rates a completed debate with the caller's domain decision (ADR 0055);
+     * see `rateCompletedDebate`. Its consumer is the ratings feature; no
+     * production path calls that feature yet (RATE-2).
+     */
+    rateDebate: (input: RateDebateInput) =>
+      instrumented(eventSink, 'rateDebate', () =>
+        rateCompletedDebate(database, input),
+      ),
     /** Server-owned onboarding claim; see `claimUsername`. */
     claimUsername: (input: { userId: string; username: string }) =>
       claimUsername(database, input, nextActorId, eventSink),

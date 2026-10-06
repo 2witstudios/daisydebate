@@ -58,7 +58,23 @@ export {
   ratingLadders,
   errorSchema,
 } from './primitives';
-export type { DebateMode, ProtocolError, RatingLadder } from './primitives';
+export type {
+  DebateMode,
+  DebateRole,
+  ProtocolError,
+  RatingLadder,
+} from './primitives';
+export type {
+  DebaterStanding,
+  PlannedRatingChange,
+  RatedOutcome,
+  RatingEligibility,
+  RatingEligibilityFacts,
+  RatingPlan,
+  RatingPlanFacts,
+  RatingState,
+  RatingUnrated,
+} from './ratings';
 export {
   emailDeliveryStatuses,
   emailDeliveryStatusRank,

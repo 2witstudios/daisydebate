@@ -1,5 +1,5 @@
 import { createAppError, createInvariantError } from '@daisy/errors';
-import type { DebateMode, RatingLadder } from '@daisy/protocol';
+import type { DebateMode, RatedOutcome, RatingLadder } from '@daisy/protocol';
 import {
   GLICKO2_SCALE,
   ratePeriod,
@@ -35,8 +35,6 @@ export const ratingPolicy = {
     volatility: { max: 0.1 },
   },
 } as const;
-
-export type RatedOutcome = 'affirmative' | 'negative' | 'draw';
 
 export type DebaterRating = {
   /** The stored state, before any idle-time widening. */
@@ -122,6 +120,24 @@ export function inflateDeviation(
     ...state,
     deviation: Math.min(widened, ratingPolicy.initial.deviation),
   };
+}
+
+/**
+ * When a rated debate is posted to the ledger: at its completion, unless a
+ * debater was already posted at or after it (another debate rated first, or
+ * a delayed retry). Then it is posted one millisecond after that debater's
+ * latest posting, so each debater's ledger stays strictly ordered and a late
+ * debate is still rated rather than lost.
+ */
+export function postingInstant(
+  completedAt: string,
+  lastRatedAts: readonly (string | null)[],
+): string {
+  const completed = instant(completedAt);
+  const latest = Math.max(
+    ...lastRatedAts.map((at) => (at === null ? -Infinity : instant(at))),
+  );
+  return latest < completed ? completedAt : new Date(latest + 1).toISOString();
 }
 
 /** A previous season's state as it starts the next one. */
