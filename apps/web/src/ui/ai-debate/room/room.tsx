@@ -13,6 +13,7 @@ import { PageHeader } from '../../components/page-header/page-header';
 import { TrainPage } from '../../train/train-page/train-page';
 import { createDocumentSync } from '../../debate-room/document-sync';
 import { documentsApi } from '../../debate-room/documents-api';
+import { RETRYING_NOTICE, refusedNotice } from '../../debate-room/save-notice';
 import { DebateRoom } from '../../debate-room/room';
 import { BallotCard, Controls, stageTitle } from './parts';
 import { RoundClock } from './round-clock';
@@ -81,8 +82,8 @@ export function AiDebateRoom({ id }: { readonly id: string }) {
         api: documentsApi,
         aiDebateId: id,
         onConflict: () => setConflicts((n) => n + 1),
-        onSaveFailed: () =>
-          setSaveProblem('Your latest changes are not saved yet. Retrying.'),
+        onSaveFailed: () => setSaveProblem(RETRYING_NOTICE),
+        onSaveRefused: (_id, status) => setSaveProblem(refusedNotice(status)),
         onSaved: () => setSaveProblem(null),
       }),
     // A conflict starts a fresh sync, which reloads the server's copy.

@@ -219,3 +219,76 @@ describe('createDocumentSync when a save fails', () => {
     });
   });
 });
+
+describe('createDocumentSync when the server refuses a save', () => {
+  /** An api that always refuses saves with the given status. */
+  const refusingApi = (status: number) => {
+    const sent: string[] = [];
+    const api: DocumentsApi = {
+      list: async () => [stored('a', 3)],
+      create: async () => stored('new'),
+      save: async (input) => {
+        sent.push(input.html);
+        throw Object.assign(new Error('refused'), { status });
+      },
+    };
+    return { api, sent };
+  };
+
+  test('a refusal is not retried', async () => {
+    const { api, sent } = refusingApi(422);
+    const { timers, fire } = manualTimers();
+    const refused: number[] = [];
+    const sync = createDocumentSync({
+      api,
+      aiDebateId: 'd',
+      onConflict: () => {},
+      onSaveRefused: (_id, status) => refused.push(status),
+      timers,
+    });
+    await sync.load();
+    sync.change('a', '<p>too much</p>');
+    await sync.flush();
+    fire();
+    await sync.flush();
+    assert({
+      given: 'a save the server refuses as invalid',
+      should: 'report the refusal once and not retry it',
+      actual: { sent, refused },
+      expected: { sent: ['<p>too much</p>'], refused: [422] },
+    });
+  });
+
+  test('a later edit is still sent', async () => {
+    const { api, sent } = refusingApi(413);
+    const sync = quietSync(api);
+    await sync.load();
+    sync.change('a', '<p>huge</p>');
+    await sync.flush();
+    sync.change('a', '<p>shorter</p>');
+    await sync.flush();
+    assert({
+      given: 'a refused save followed by a new edit',
+      should: 'send the new edit',
+      actual: sent,
+      expected: ['<p>huge</p>', '<p>shorter</p>'],
+    });
+  });
+
+  test('a rate limit is retried', async () => {
+    const { api, sent } = refusingApi(429);
+    const { timers, fire } = manualTimers();
+    const sync = quietSync(api, timers);
+    await sync.load();
+    sync.change('a', '<p>x</p>');
+    await sync.flush();
+    fire();
+    await sync.flush();
+    assert({
+      given: 'a save refused for the rate limit',
+      should: 'retry it',
+      actual: sent.length > 1,
+      expected: true,
+    });
+  });
+});
