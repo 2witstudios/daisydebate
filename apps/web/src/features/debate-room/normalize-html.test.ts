@@ -119,6 +119,16 @@ describe('normalizeDocumentHtml bounds', () => {
     });
   });
 
+  test('stray closing tags', () => {
+    assert({
+      given:
+        'blockquotes opened 2,999 times, each followed by a stray closing tag',
+      should: 'see the real nesting and refuse it as too complex',
+      actual: html(`<p>a</p>${'<blockquote></x>'.repeat(2_999)}`),
+      expected: 'too-complex',
+    });
+  });
+
   test('too many elements', () => {
     assert({
       given: 'a flat document with more elements than the limit',
@@ -128,16 +138,27 @@ describe('normalizeDocumentHtml bounds', () => {
     });
   });
 
-  test('the largest accepted document is quick', () => {
-    const largest = `<p>${'word '.repeat(10)}</p>`.repeat(MAX_ELEMENTS);
-    const started = performance.now();
-    const result = normalizeDocumentHtml(largest);
-    const elapsed = performance.now() - started;
+  test('the costliest accepted shapes are quick', () => {
+    const shapes = {
+      flat: `<p>${'word '.repeat(10)}</p>`.repeat(MAX_ELEMENTS),
+      nested:
+        `${'<blockquote>'.repeat(MAX_DEPTH - 1)}<p>x</p>${'</blockquote>'.repeat(MAX_DEPTH - 1)}`.repeat(
+          Math.floor(MAX_ELEMENTS / MAX_DEPTH),
+        ),
+      marks: `<p>${'<strong>a</strong><em>b</em>'.repeat(1_400)}</p>`,
+      list: `<ul>${'<li><p>x</p></li>'.repeat(1_499)}</ul>`,
+    };
+    const timed = Object.entries(shapes).map(([name, input]) => {
+      const started = performance.now();
+      const result = normalizeDocumentHtml(input);
+      return [name, result.ok && performance.now() - started < 150] as const;
+    });
     assert({
-      given: 'a document at the element limit',
-      should: 'normalize within half a second',
-      actual: { ok: result.ok, quick: elapsed < 500 },
-      expected: { ok: true, quick: true },
+      given:
+        'flat, deeply nested, mark-heavy and list-heavy documents at the bounds',
+      should: 'each normalize within 150 ms (tens of milliseconds in practice)',
+      actual: timed,
+      expected: Object.keys(shapes).map((name) => [name, true]),
     });
   });
 });

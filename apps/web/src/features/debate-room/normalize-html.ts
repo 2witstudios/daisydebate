@@ -36,21 +36,32 @@ const VOID = new Set([
 const TAG = /<(\/?)([a-zA-Z][\w-]*)\b[^>]*?(\/?)>/g;
 
 /**
+ * Closes the innermost open element with this name and everything opened
+ * inside it, as an HTML parser does; a closing tag with no open match is
+ * ignored, so stray closes never hide real nesting.
+ */
+function close(open: string[], name: string): void {
+  const at = open.lastIndexOf(name);
+  if (at !== -1) open.length = at;
+}
+
+/**
  * A cheap linear scan before the recursive parse: refuses nesting deeper
  * than MAX_DEPTH or more than MAX_ELEMENTS elements, which would otherwise
  * overflow the stack or hold the event loop.
  */
 function withinBounds(input: string): boolean {
-  let depth = 0;
+  const open: string[] = [];
   let elements = 0;
-  for (const [, closing, name = '', selfClosing] of input.matchAll(TAG)) {
+  for (const [, closing, rawName = '', selfClosing] of input.matchAll(TAG)) {
+    const name = rawName.toLowerCase();
     if (closing) {
-      depth = Math.max(0, depth - 1);
+      close(open, name);
       continue;
     }
     elements += 1;
-    if (!selfClosing && !VOID.has(name.toLowerCase())) depth += 1;
-    if (depth > MAX_DEPTH || elements > MAX_ELEMENTS) return false;
+    if (!selfClosing && !VOID.has(name)) open.push(name);
+    if (open.length > MAX_DEPTH || elements > MAX_ELEMENTS) return false;
   }
   return true;
 }
