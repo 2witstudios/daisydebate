@@ -13,7 +13,11 @@ import { PageHeader } from '../../components/page-header/page-header';
 import { TrainPage } from '../../train/train-page/train-page';
 import { createDocumentSync } from '../../debate-room/document-sync';
 import { documentsApi } from '../../debate-room/documents-api';
-import { RETRYING_NOTICE, refusedNotice } from '../../debate-room/save-notice';
+import {
+  CONFLICT_NOTICE,
+  RETRYING_NOTICE,
+  refusedNotice,
+} from '../../debate-room/save-notice';
 import { DebateRoom } from '../../debate-room/room';
 import { BallotCard, Controls, stageTitle } from './parts';
 import { RoundClock } from './round-clock';
@@ -74,21 +78,19 @@ export function AiDebateRoom({ id }: { readonly id: string }) {
     store.getSnapshot,
     store.getServerSnapshot,
   );
-  const [conflicts, setConflicts] = useState(0);
+  const [conflicted, setConflicted] = useState(false);
   const [saveProblem, setSaveProblem] = useState<string | null>(null);
   const sync = useMemo(
     () =>
       createDocumentSync({
         api: documentsApi,
         aiDebateId: id,
-        onConflict: () => setConflicts((n) => n + 1),
+        onConflict: () => setConflicted(true),
         onSaveFailed: () => setSaveProblem(RETRYING_NOTICE),
         onSaveRefused: (_id, status) => setSaveProblem(refusedNotice(status)),
         onSaved: () => setSaveProblem(null),
       }),
-    // A conflict starts a fresh sync, which reloads the server's copy.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id, conflicts],
+    [id],
   );
   const { view, state, ballot } = snapshot;
   if (snapshot.missing)
@@ -116,10 +118,9 @@ export function AiDebateRoom({ id }: { readonly id: string }) {
   const round = botRoundSnapshot({ view, state, bot, listening });
   return (
     <DebateRoom
-      key={conflicts}
       round={round}
       sync={sync}
-      notice={saveProblem}
+      notice={conflicted ? CONFLICT_NOTICE : saveProblem}
       parts={{
         stage: (
           <Stage

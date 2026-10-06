@@ -1,3 +1,4 @@
+import { sameDocumentHtml } from '../../features/debate-room/document-lines';
 import type {
   FolderId,
   TemplateId,
@@ -62,8 +63,12 @@ const retryable = (status: number | null) =>
 
 /**
  * Saves each document once typing pauses, against the revision it was
- * read at. A conflict (another tab saved first) is handed to `onConflict`
- * with nothing overwritten; the room then reloads the server's copy. A
+ * read at. A 409 after a save that got no answer may be that save, which
+ * the server committed: if the server holds it at the next revision, the
+ * sync adopts that revision and sends what was typed since. Any other
+ * conflict (another tab saved first) is handed to `onConflict` with
+ * nothing overwritten and the local edit left in place; that document is
+ * not saved again until the room reloads. A
  * failed save keeps the edit waiting and retries with a growing delay; a
  * refusal that cannot pass later (invalid, too large, signed out) is not
  * retried until the debater edits again. `onSaveFailed`, `onSaveRefused`
@@ -110,17 +115,39 @@ export function createDocumentSync({
     );
   };
 
-  const saved = (id: string, html: string, result: SaveResult) => {
-    revisions.set(id, result.revision);
+  /** Saves sent at the current revision that got no answer; the server may hold one. */
+  const unanswered = new Map<string, Set<string>>();
+  /** Documents another writer changed; not saved again until reload. */
+  const conflicted = new Set<string>();
+
+  const saved = (id: string, html: string, revision: number) => {
+    revisions.set(id, revision);
     failures.delete(id);
+    unanswered.delete(id);
     // An edit typed while this one was in flight stays waiting.
     if (waiting.get(id) === html) waiting.delete(id);
-    if (result.status === 'conflict') {
-      waiting.delete(id);
+    onSaved(id);
+  };
+
+  /** The server's copy, when it is one of our unanswered saves at the next revision. */
+  const ownCommit = async (id: string, revision: number) => {
+    const sent = unanswered.get(id);
+    if (!sent || revision !== (revisions.get(id) ?? 0) + 1) return null;
+    const doc = (await api.list(aiDebateId)).find((one) => one.id === id);
+    if (!doc || doc.revision !== revision) return null;
+    return [...sent].find((html) => sameDocumentHtml(doc.html, html)) ?? null;
+  };
+
+  /** A 409: adopt our own committed save and send what follows, or report it. */
+  const conflict = async (id: string, revision: number) => {
+    const html = await ownCommit(id, revision);
+    if (html === null) {
+      conflicted.add(id);
       onConflict(id);
       return;
     }
-    onSaved(id);
+    saved(id, html, revision);
+    return attempt(id);
   };
 
   const failed = (id: string, html: string, error: unknown) => {
@@ -130,25 +157,34 @@ export function createDocumentSync({
       onSaveRefused(id, status);
       return;
     }
+    // No answer, or a failure after the server may have committed it.
+    unanswered.set(id, (unanswered.get(id) ?? new Set()).add(html));
     const attempts = (failures.get(id) ?? 0) + 1;
     failures.set(id, attempts);
     onSaveFailed(id, attempts);
     schedule(id, Math.min(delayMs * 2 ** attempts, MAX_RETRY_MS));
   };
 
+  /** Sends the waiting edit, if there is one to send. */
+  function attempt(id: string): Promise<void> | undefined {
+    const html = waiting.get(id);
+    const expectedRevision = revisions.get(id);
+    if (html === undefined || expectedRevision === undefined) return;
+    if (refused.get(id) === html || conflicted.has(id)) return;
+    // Never rejects: a failure keeps the edit waiting and retries later.
+    return api
+      .save({ id, html, expectedRevision })
+      .then((result) =>
+        result.status === 'saved'
+          ? saved(id, html, result.revision)
+          : conflict(id, result.revision),
+      )
+      .catch((error: unknown) => failed(id, html, error));
+  }
+
   /** One save per document at a time: each waits for the one before it. */
   function saveNow(id: string): Promise<void> {
-    const run = (saving.get(id) ?? Promise.resolve()).then(() => {
-      const html = waiting.get(id);
-      const expectedRevision = revisions.get(id);
-      if (html === undefined || expectedRevision === undefined) return;
-      if (refused.get(id) === html) return;
-      // Never rejects: a failure keeps the edit waiting and retries later.
-      return api.save({ id, html, expectedRevision }).then(
-        (result) => saved(id, html, result),
-        (error: unknown) => failed(id, html, error),
-      );
-    });
+    const run = (saving.get(id) ?? Promise.resolve()).then(() => attempt(id));
     saving.set(id, run);
     return run;
   }
