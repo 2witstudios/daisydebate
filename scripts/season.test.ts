@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { parseSeasonCommand } from './season';
+import { createAppError } from '@daisy/errors';
+import { parseSeasonCommand, refusalLine } from './season';
 
 setupRitewayBun();
 
@@ -96,5 +97,29 @@ describe('parseSeasonCommand', () => {
         actual: parseSeasonCommand(argv, edge).kind,
         expected: 'usage',
       });
+  });
+});
+
+describe('refusalLine', () => {
+  test('prints an operation refusal as its code and message only', () => {
+    const refusal = createAppError(
+      'CONFLICT',
+      'A season is already active',
+      Object.assign(new Error('insert into seasons ... params'), {
+        errno: '23505',
+      }),
+    );
+    assert({
+      given: 'an app error refusing the operation, carrying a SQL cause',
+      should: 'print its code and message, never the stack, SQL or params',
+      actual: refusalLine(refusal),
+      expected: 'CONFLICT: A season is already active',
+    });
+    assert({
+      given: 'an error that is not an app error',
+      should: 'leave it to fail loudly',
+      actual: refusalLine(new Error('boom')),
+      expected: null,
+    });
   });
 });

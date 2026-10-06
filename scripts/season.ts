@@ -7,6 +7,7 @@
 import { parseArgs } from 'node:util';
 import { systemClock, systemId } from '@daisy/clock';
 import { withSeasons, type SeasonRecord } from '@daisy/db/seasons';
+import { isAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 
 const usage = `usage:
@@ -137,6 +138,15 @@ export function parseSeasonCommand(
   return refusal;
 }
 
+/**
+ * How an operation's refusal reaches the operator: its code and message.
+ * Never the stack, nor the cause chain, which carries the failed SQL and its
+ * parameters. Null for anything else, which is left to fail loudly.
+ */
+export function refusalLine(error: unknown): string | null {
+  return isAppError(error) ? `${error.code}: ${error.message}` : null;
+}
+
 const line = (season: SeasonRecord) =>
   [
     season.id,
@@ -185,4 +195,10 @@ async function main() {
   });
 }
 
-if (import.meta.main) await main();
+if (import.meta.main)
+  await main().catch((error: unknown) => {
+    const refusal = refusalLine(error);
+    if (refusal === null) throw error;
+    console.error(refusal);
+    process.exit(1);
+  });
