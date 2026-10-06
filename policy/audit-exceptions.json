@@ -30,6 +30,26 @@
       "owner": "platform",
       "adr": "docs/decisions/0052-braces-audit-exception.md",
       "reviewBy": "2026-12-23"
+    },
+    {
+      "advisory": "GHSA-5gmw-xhrv-c9v3",
+      "reason": "Prototype pollution gadget in worker options leading to remote code execution (critical). Fixed in tinypool 2.1.1, but vitest 3.x pins tinypool ^1 and riteway 9.x hard-depends on vitest ^3.2.4.",
+      "packages": ["tinypool"],
+      "dependencyPath": "riteway 9.3.0 (devDependency of every testing workspace) > vitest 3.2.7 > tinypool 1.1.1. better-auth lists vitest only as an optional peer, so riteway is what installs it.",
+      "unreachable": "Dev-only and never loaded: tinypool is vitest's worker pool, Daisy's tests run on bun:test through riteway/bun, nothing imports riteway/vitest, vitest or better-auth/test, and no production image installs dev dependencies.",
+      "owner": "platform",
+      "adr": "docs/decisions/0056-tinypool-audit-exceptions.md",
+      "reviewBy": "2026-12-23"
+    },
+    {
+      "advisory": "GHSA-85c8-ppgw-ccpr",
+      "reason": "Prototype pollution gadget in run() options leading to remote code execution (critical). Fixed in tinypool 2.1.2, but vitest 3.x pins tinypool ^1 and riteway 9.x hard-depends on vitest ^3.2.4.",
+      "packages": ["tinypool"],
+      "dependencyPath": "riteway 9.3.0 (devDependency of every testing workspace) > vitest 3.2.7 > tinypool 1.1.1. better-auth lists vitest only as an optional peer, so riteway is what installs it.",
+      "unreachable": "Dev-only and never loaded: tinypool is vitest's worker pool, Daisy's tests run on bun:test through riteway/bun, nothing imports riteway/vitest, vitest or better-auth/test, and no production image installs dev dependencies.",
+      "owner": "platform",
+      "adr": "docs/decisions/0056-tinypool-audit-exceptions.md",
+      "reviewBy": "2026-12-23"
     }
   ]
 }
