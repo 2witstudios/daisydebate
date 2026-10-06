@@ -200,3 +200,45 @@ describe('sameDocumentHtml', () => {
     });
   });
 });
+
+describe('breakLines and attributes', () => {
+  test('a quoted attribute holding tag-like text', () => {
+    const html = '<ol type="a>b</p>c"><li><p>x</p></li></ol>';
+    assert({
+      given: 'an attribute value containing ">" and "</p>"',
+      should: 'keep the whole tag on one line',
+      actual: linesOf(html)[0],
+      expected: '<ol type="a>b</p>c">',
+    });
+  });
+});
+
+describe('insertAtAnchor staleness', () => {
+  test('a stale line count', () => {
+    assert({
+      given: 'an anchor edit addressed to a different line count',
+      should: 'refuse it as stale and report the current count',
+      actual: insertAtAnchor('<h2>NC</h2><p>a</p>', {
+        anchor: '</h2>',
+        content: '<p>b</p>',
+        position: 'after',
+        expectedTotalLines: 9,
+      }),
+      expected: { ok: false, reason: 'stale', totalLines: 6 },
+    });
+  });
+
+  test('a current line count', () => {
+    assert({
+      given: 'an anchor edit addressed to the current line count',
+      should: 'apply it',
+      actual: insertAtAnchor('<h2>NC</h2><p>a</p>', {
+        anchor: '</h2>',
+        content: '<p>b</p>',
+        position: 'after',
+        expectedTotalLines: 6,
+      }).ok,
+      expected: true,
+    });
+  });
+});

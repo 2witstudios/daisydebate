@@ -141,3 +141,17 @@ describe('normalizeDocumentHtml bounds', () => {
     });
   });
 });
+
+describe('normalizeDocumentHtml list types', () => {
+  test('free-text and known list types', () => {
+    assert({
+      given: 'an ordered list with a free-text type, and one with type "a"',
+      should: 'drop the free text and keep the known type',
+      actual: [
+        html('<ol type="x>y"><li><p>1</p></li></ol>').startsWith('<ol>'),
+        html('<ol type="a"><li><p>1</p></li></ol>').includes('type="a"'),
+      ],
+      expected: [true, true],
+    });
+  });
+});

@@ -6,27 +6,61 @@
  * settle into the same stored text.
  */
 
-const BLOCK =
-  'p|h[1-6]|ul|ol|li|blockquote|pre|div|label|table|thead|tbody|tr|td|th';
-const OPENING = new RegExp(`(<(?:${BLOCK})(?:\\s[^>]*)?>)(?!\\n)`, 'g');
-const CLOSING = new RegExp(`(?<!\\n)(</(?:${BLOCK})>)`, 'g');
-const BETWEEN = new RegExp(`(</(?:${BLOCK})>)(?!\\n)`, 'g');
-const VOID = /(<(?:br|hr)\s*\/?>)(?!\n)/g;
-const HTML_DOCUMENT = new RegExp(`^\\s*<(?:${BLOCK})(?:\\s[^>]*)?>`);
+const BLOCK = new Set([
+  'p',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'ul',
+  'ol',
+  'li',
+  'blockquote',
+  'pre',
+  'div',
+  'label',
+  'table',
+  'thead',
+  'tbody',
+  'tr',
+  'td',
+  'th',
+]);
+// A whole tag: quoted attribute values may hold ">" or tag-like text.
+const ATTRIBUTES = `(?:\\s(?:[^>"']|"[^"]*"|'[^']*')*)?`;
+const TAG = new RegExp(`<(/?)([a-zA-Z][\\w-]*)${ATTRIBUTES}/?>`, 'g');
+const HTML_DOCUMENT = new RegExp(
+  `^\\s*<(?:${[...BLOCK].join('|')})${ATTRIBUTES}>`,
+);
 
 /** True when the text opens with a block tag; anchored, never "contains a tag". */
 export const isHtmlDocument = (text: string): boolean =>
   HTML_DOCUMENT.test(text);
 
-/** Puts each block tag on its own line, adding newlines and removing none. */
+const breaksAfter = (name: string) =>
+  BLOCK.has(name) || name === 'br' || name === 'hr';
+
+/**
+ * Puts each block tag on its own line, adding newlines and removing none.
+ * Tags are read whole, so nothing inside an attribute value is ever split.
+ */
 export function breakLines(html: string): string {
   if (!isHtmlDocument(html)) return html;
-  return html
-    .replace(OPENING, '$1\n')
-    .replace(CLOSING, '\n$1')
-    .replace(BETWEEN, '$1\n')
-    .replace(VOID, '$1\n')
-    .replace(/\n+$/, '');
+  let out = '';
+  let last = 0;
+  for (const match of html.matchAll(TAG)) {
+    const [tag, closing, rawName = ''] = match;
+    const name = rawName.toLowerCase();
+    const end = match.index + tag.length;
+    out += html.slice(last, match.index);
+    if (closing && BLOCK.has(name) && !out.endsWith('\n')) out += '\n';
+    out += tag;
+    if (breaksAfter(name) && html[end] !== '\n') out += '\n';
+    last = end;
+  }
+  return (out + html.slice(last)).replace(/\n+$/, '');
 }
 
 /** Removes the storage newlines beside tags; newlines inside text stay. */
@@ -93,16 +127,25 @@ export function replaceLines(
   return { ok: true, html: stored, totalLines: linesOf(stored).length };
 }
 
-/** Inserts `content` before or after the first line containing `anchor`. */
+/**
+ * Inserts `content` before or after the first line containing `anchor`;
+ * `expectedTotalLines`, when given, refuses an edit to a changed document.
+ */
 export function insertAtAnchor(
   html: string,
   edit: {
     readonly anchor: string;
     readonly content: string;
     readonly position: 'before' | 'after';
+    readonly expectedTotalLines?: number;
   },
 ): LineEdit {
   const lines = linesOf(html);
+  if (
+    edit.expectedTotalLines !== undefined &&
+    edit.expectedTotalLines !== lines.length
+  )
+    return { ok: false, reason: 'stale', totalLines: lines.length };
   const at = lines.findIndex((line) => line.includes(edit.anchor));
   if (edit.anchor === '' || at === -1)
     return { ok: false, reason: 'range', totalLines: lines.length };
