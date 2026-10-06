@@ -43,6 +43,8 @@ describe('audit command', () => {
         '--ignore=GHSA-82fw-gwwq-j7x9',
         '--ignore=GHSA-qpx9-hpmf-5gmw',
         '--ignore=GHSA-vfj7-8cjw-p6xm',
+        '--ignore=GHSA-5gmw-xhrv-c9v3',
+        '--ignore=GHSA-85c8-ppgw-ccpr',
       ],
     });
   });
@@ -95,7 +97,7 @@ describe('live advisories', () => {
 describe('audit exception registry', () => {
   test('accepts the committed registry shape against its live advisories', () => {
     assert({
-      given: 'the committed registry, its ADRs and all three advisories live',
+      given: 'the committed registry, its ADRs and all five advisories live',
       should: 'report no problems',
       actual: validateAuditExceptions(committed, {
         today: '2026-09-23',
@@ -104,6 +106,8 @@ describe('audit exception registry', () => {
           ['GHSA-82fw-gwwq-j7x9', ['@vitest/mocker', 'vitest']],
           ['GHSA-qpx9-hpmf-5gmw', ['underscore']],
           ['GHSA-vfj7-8cjw-p6xm', ['braces']],
+          ['GHSA-5gmw-xhrv-c9v3', ['tinypool']],
+          ['GHSA-85c8-ppgw-ccpr', ['tinypool']],
         ]),
       }),
       expected: [],
