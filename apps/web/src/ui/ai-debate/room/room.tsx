@@ -74,12 +74,16 @@ export function AiDebateRoom({ id }: { readonly id: string }) {
     store.getServerSnapshot,
   );
   const [conflicts, setConflicts] = useState(0);
+  const [saveProblem, setSaveProblem] = useState<string | null>(null);
   const sync = useMemo(
     () =>
       createDocumentSync({
         api: documentsApi,
         aiDebateId: id,
         onConflict: () => setConflicts((n) => n + 1),
+        onSaveFailed: () =>
+          setSaveProblem('Your latest changes are not saved yet. Retrying.'),
+        onSaved: () => setSaveProblem(null),
       }),
     // A conflict starts a fresh sync, which reloads the server's copy.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -114,6 +118,7 @@ export function AiDebateRoom({ id }: { readonly id: string }) {
       key={conflicts}
       round={round}
       sync={sync}
+      notice={saveProblem}
       parts={{
         stage: (
           <Stage

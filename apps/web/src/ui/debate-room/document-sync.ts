@@ -47,21 +47,30 @@ export type DocumentSync = {
   readonly flush: () => Promise<void>;
 };
 
+/** The longest wait between retries of a failed save. */
+const MAX_RETRY_MS = 30_000;
+
 /**
  * Saves each document once typing pauses, against the revision it was
  * read at. A conflict (another tab saved first) is handed to `onConflict`
- * with nothing overwritten; the room then reloads the server's copy.
+ * with nothing overwritten; the room then reloads the server's copy. A
+ * failed save keeps the edit waiting and retries with a growing delay;
+ * `onSaveFailed` and `onSaved` let the room say so.
  */
 export function createDocumentSync({
   api,
   aiDebateId,
   onConflict,
+  onSaveFailed = () => {},
+  onSaved = () => {},
   delayMs = 1000,
   timers = browserTimers,
 }: {
   readonly api: DocumentsApi;
   readonly aiDebateId: string;
   readonly onConflict: (id: string) => void;
+  readonly onSaveFailed?: (id: string, attempts: number) => void;
+  readonly onSaved?: (id: string) => void;
   readonly delayMs?: number;
   readonly timers?: Timers;
 }): DocumentSync {
@@ -75,22 +84,51 @@ export function createDocumentSync({
     return docs;
   };
 
-  const saveNow = async (id: string): Promise<void> => {
-    await saving.get(id);
-    const html = waiting.get(id);
-    const expectedRevision = revisions.get(id);
-    if (html === undefined || expectedRevision === undefined) return;
-    waiting.delete(id);
-    const run = api.save({ id, html, expectedRevision }).then((result) => {
-      revisions.set(id, result.revision);
-      if (result.status === 'conflict') {
-        waiting.delete(id);
-        onConflict(id);
-      }
+  const failures = new Map<string, number>();
+
+  const schedule = (id: string, ms: number) => {
+    timers.clear(handles.get(id));
+    handles.set(
+      id,
+      timers.set(() => void saveNow(id), ms),
+    );
+  };
+
+  const saved = (id: string, html: string, result: SaveResult) => {
+    revisions.set(id, result.revision);
+    failures.delete(id);
+    // An edit typed while this one was in flight stays waiting.
+    if (waiting.get(id) === html) waiting.delete(id);
+    if (result.status === 'conflict') {
+      waiting.delete(id);
+      onConflict(id);
+      return;
+    }
+    onSaved(id);
+  };
+
+  const failed = (id: string) => {
+    const attempts = (failures.get(id) ?? 0) + 1;
+    failures.set(id, attempts);
+    onSaveFailed(id, attempts);
+    schedule(id, Math.min(delayMs * 2 ** attempts, MAX_RETRY_MS));
+  };
+
+  /** One save per document at a time: each waits for the one before it. */
+  function saveNow(id: string): Promise<void> {
+    const run = (saving.get(id) ?? Promise.resolve()).then(() => {
+      const html = waiting.get(id);
+      const expectedRevision = revisions.get(id);
+      if (html === undefined || expectedRevision === undefined) return;
+      // Never rejects: a failure keeps the edit waiting and retries later.
+      return api.save({ id, html, expectedRevision }).then(
+        (result) => saved(id, html, result),
+        () => failed(id),
+      );
     });
     saving.set(id, run);
-    await run;
-  };
+    return run;
+  }
 
   return {
     load: async () => remember(await api.list(aiDebateId)),
@@ -101,11 +139,7 @@ export function createDocumentSync({
     },
     change: (id, html) => {
       waiting.set(id, html);
-      timers.clear(handles.get(id));
-      handles.set(
-        id,
-        timers.set(() => void saveNow(id), delayMs),
-      );
+      schedule(id, delayMs);
     },
     flush: async () => {
       for (const handle of handles.values()) timers.clear(handle);

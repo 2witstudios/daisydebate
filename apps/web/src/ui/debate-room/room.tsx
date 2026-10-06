@@ -190,11 +190,14 @@ export function DebateRoom({
   round,
   parts,
   sync,
+  notice = null,
 }: {
   readonly round: RoundSnapshot;
   readonly parts?: RoomParts;
   /** Server-backed documents; without it the room keeps them in memory. */
   readonly sync?: DocumentSync;
+  /** A standing problem the round's owner reports (saves failing). */
+  readonly notice?: string | null;
 }) {
   const reducer = useMemo(() => reduceRoom(round), [round]);
   const [state, dispatch] = useReducer(reducer, round, initialRoomState);
@@ -246,9 +249,9 @@ export function DebateRoom({
         />
       )}
       {parts?.below}
-      {problem ? (
+      {(problem ?? notice) ? (
         <p role="alert" className="px-3 py-1 text-sm text-live">
-          {problem}
+          {problem ?? notice}
         </p>
       ) : null}
       <PaneDivider

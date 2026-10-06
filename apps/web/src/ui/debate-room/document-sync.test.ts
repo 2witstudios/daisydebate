@@ -150,3 +150,72 @@ describe('createDocumentSync', () => {
     });
   });
 });
+
+describe('createDocumentSync when a save fails', () => {
+  /** An api whose first `failures` saves reject, then saves succeed. */
+  const flakyApi = (failures: number) => {
+    const sent: string[] = [];
+    let left = failures;
+    const api: DocumentsApi = {
+      list: async () => [stored('a', 3)],
+      create: async () => stored('new'),
+      save: async (input) => {
+        sent.push(input.html);
+        if (left > 0) {
+          left -= 1;
+          throw new Error('network');
+        }
+        return bumping(input.expectedRevision);
+      },
+    };
+    return { api, sent };
+  };
+
+  test('later edits still save', async () => {
+    const { api, sent } = flakyApi(1);
+    const sync = quietSync(api);
+    await sync.load();
+    sync.change('a', '<p>first</p>');
+    await sync.flush();
+    sync.change('a', '<p>second</p>');
+    await sync.flush();
+    sync.change('a', '<p>third</p>');
+    await sync.flush();
+    assert({
+      given: 'a failed save followed by two more edits',
+      should: 'send every later edit instead of stopping after the failure',
+      actual: sent,
+      expected: ['<p>first</p>', '<p>second</p>', '<p>third</p>'],
+    });
+  });
+
+  test('the edit is kept and retried', async () => {
+    const { api, sent } = flakyApi(1);
+    const { timers, fire } = manualTimers();
+    const failed: number[] = [];
+    const saved: string[] = [];
+    const sync = createDocumentSync({
+      api,
+      aiDebateId: 'd',
+      onConflict: () => {},
+      onSaveFailed: (_id, attempts) => failed.push(attempts),
+      onSaved: (id) => saved.push(id),
+      timers,
+    });
+    await sync.load();
+    sync.change('a', '<p>mine</p>');
+    await sync.flush();
+    fire();
+    await sync.flush();
+    assert({
+      given: 'a save that fails once',
+      should: 'report the failure, retry the same edit and report it saved',
+      actual: { sent, failed, saved },
+      expected: {
+        sent: ['<p>mine</p>', '<p>mine</p>'],
+        failed: [1],
+        saved: ['a'],
+      },
+    });
+  });
+});
