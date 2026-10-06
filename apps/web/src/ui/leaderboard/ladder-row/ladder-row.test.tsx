@@ -15,7 +15,7 @@ describe('LadderRow', () => {
     assert({
       given: 'an established debater',
       should:
-        'be one link named with rank and rating, showing band, record and move',
+        'be one link named with rank and rating, showing record and move and no band',
       actual: [
         html.match(/<a /g)?.length,
         html.includes('aria-label="@ada, rank 4, rating 1650"'),
@@ -25,7 +25,7 @@ describe('LadderRow', () => {
         html.includes('▲ 3'),
         html.includes('>You<'),
       ],
-      expected: [1, true, true, true, true, true, false],
+      expected: [1, true, true, false, true, true, false],
     });
   });
 
@@ -47,20 +47,19 @@ describe('LadderRow', () => {
     const html = render({
       provisional: true,
       rank: null,
-      bloom: 'provisional',
       rating: 1412,
     });
     assert({
       given: 'a provisional debater',
       should:
-        'show a dash for rank, a question mark on the rating and the hollow marker',
+        'show a dash for rank and a question mark on the rating, with no tier marker',
       actual: [
         html.includes('>–<'),
         html.includes('1412?'),
         html.includes('stroke-dasharray'),
         html.includes('Provisional'),
       ],
-      expected: [true, true, true, true],
+      expected: [true, true, false, true],
     });
   });
 
@@ -83,18 +82,19 @@ describe('LadderRow', () => {
       masked: true,
       rank: null,
       rating: 0,
-      bloom: 'provisional',
     });
     assert({
       given: 'a masked row',
-      should: 'say Hidden and show no rating, record or hover card',
+      should:
+        'say Hidden, show no rating, record or hover card, and start the name with no icon so it lines up with every other row',
       actual: [
         html.includes('Hidden'),
         html.includes('>0<'),
         html.includes('12–5'),
         html.includes('Enter opens the full detail'),
+        html.includes('<svg'),
       ],
-      expected: [true, false, false, false],
+      expected: [true, false, false, false, false],
     });
   });
 

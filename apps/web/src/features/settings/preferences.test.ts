@@ -84,7 +84,6 @@ describe('checkbox forms', () => {
         ok: true,
         value: {
           ladder: false,
-          showRegion: false,
           analytics: false,
           replay: false,
         },

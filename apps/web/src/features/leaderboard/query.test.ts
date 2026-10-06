@@ -26,8 +26,9 @@ describe('parseLadderQuery', () => {
 
   test('valid parameters', () => {
     assert({
-      given: 'every parameter set to a valid value',
-      should: 'parse each one',
+      given:
+        'every parameter set to a valid value, plus retired band and region filters',
+      should: 'parse each one and read no band or region',
       actual: parseLadderQuery({
         season: '3',
         scope: 'around',
@@ -45,8 +46,6 @@ describe('parseLadderQuery', () => {
         scope: 'around',
         q: '@Debater-A',
         status: 'everyone',
-        band: 'bloom',
-        region: 'europe',
         page: 4,
         debater: 'debater-a',
         view: 'table',
@@ -118,7 +117,6 @@ describe('hrefs', () => {
       season: 3,
       q: 'abc',
       status: 'everyone',
-      band: 'bud',
       page: 2,
     } as const;
     assert({
@@ -130,7 +128,7 @@ describe('hrefs', () => {
         activeFilterCount(query),
         clearFiltersHref(query),
       ],
-      expected: [true, false, 2, '/leaderboard?season=3'],
+      expected: [true, false, 1, '/leaderboard?season=3'],
     });
   });
 

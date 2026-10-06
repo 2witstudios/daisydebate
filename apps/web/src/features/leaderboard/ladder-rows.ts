@@ -18,7 +18,7 @@ export const matchesSearch = (entry: RankedEntry, q: string): boolean =>
   q === '' ||
   (entry.username !== null && entry.username.toLowerCase().includes(needle(q)));
 
-/** The entries that satisfy the status, band, region and search filters. */
+/** The entries that satisfy the status filter and the search. */
 export const applyFilters = (
   ranked: readonly RankedEntry[],
   query: LadderQuery,
@@ -28,18 +28,12 @@ export const applyFilters = (
     (entry) =>
       (status === 'everyone' ||
         (status === 'established') === !entry.provisional) &&
-      (query.band === 'any' ||
-        (!entry.provisional && entry.bloom === query.band)) &&
-      (query.region === 'any' || entry.region === query.region) &&
       matchesSearch(entry, query.q),
   );
 
-/** True when a search or a status, band or region filter is set. */
+/** True when a search or a status filter is set. */
 export const hasFilters = (query: LadderQuery): boolean =>
-  query.q !== '' ||
-  query.status !== 'established' ||
-  query.band !== 'any' ||
-  query.region !== 'any';
+  query.q !== '' || query.status !== 'established';
 
 export type RowContext = {
   readonly season: Season;
@@ -70,7 +64,6 @@ export function toRow(entry: RankedEntry, context: RowContext): LadderRow {
       rank: null,
       rating: 0,
       range: 0,
-      bloom: 'provisional',
       provisional: false,
       wins: 0,
       losses: 0,
@@ -81,7 +74,6 @@ export function toRow(entry: RankedEntry, context: RowContext): LadderRow {
     rank: entry.rank,
     rating: entry.rating,
     range: 2 * entry.deviation,
-    bloom: entry.bloom,
     provisional: entry.provisional,
     wins: entry.wins,
     losses: entry.losses,

@@ -2,7 +2,6 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { LadderRow as Row } from '../../../features/leaderboard/ladder-view';
 import {
-  bandText,
   changeText,
   displayName,
   ratingText,
@@ -10,11 +9,8 @@ import {
   recordText,
   rowLabel,
 } from '../../../features/leaderboard/labels';
-import { bloomLabel } from '../../../features/leaderboard/bloom';
 import { Badge } from '../../components/badge/badge';
-import { Icon } from '../../components/icon/icon';
 import { cn } from '../../cn';
-import { BloomGlyph } from '../bloom-glyph/bloom-glyph';
 import {
   ladderColumnClass,
   ladderGridClass,
@@ -31,14 +27,6 @@ export type LadderRowProps = {
 
 const numeric = 'tabular-nums';
 
-function Glyph({ row, size }: { row: Row; size: number }): ReactNode {
-  return row.masked ? (
-    <Icon name="eye" size={size - 4} className="text-ink-faint" />
-  ) : (
-    <BloomGlyph bloom={row.bloom} size={size} />
-  );
-}
-
 /** What appears after a pause over a row, or when it takes focus. */
 function HoverCard({ row }: { row: Row }): ReactNode {
   if (row.masked || row.username === null) return null;
@@ -47,14 +35,11 @@ function HoverCard({ row }: { row: Row }): ReactNode {
       aria-hidden="true"
       className="pointer-events-none invisible absolute top-full left-16 z-10 flex w-rail flex-col gap-2 rounded-lg border border-border-strong bg-surface-raised p-4 text-left opacity-0 shadow-3 transition-opacity delay-500 duration-120 group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100 max-compact:hidden"
     >
-      <span className="flex items-center gap-3">
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-base font-bold">{`@${row.username}`}</span>
-          <span className="block text-sm text-ink-muted">
-            {`${bloomLabel(row.bloom)} · ${row.provisional ? 'Provisional' : 'Established'}`}
-          </span>
+      <span className="min-w-0">
+        <span className="block truncate text-base font-bold">{`@${row.username}`}</span>
+        <span className="block text-sm text-ink-muted">
+          {row.provisional ? 'Provisional' : 'Established'}
         </span>
-        <BloomGlyph bloom={row.bloom} size={32} />
       </span>
       <span className="flex items-baseline gap-2">
         <span className="font-display text-xl font-bold tabular-nums">
@@ -88,9 +73,6 @@ function Cells({ row, closed }: LadderRowProps): ReactNode {
           'flex items-center gap-3 text-left',
         )}
       >
-        <span className="hidden shrink-0 max-compact:block">
-          <Glyph row={row} size={28} />
-        </span>
         <span className="flex min-w-0 flex-col">
           <span className="flex items-center gap-2">
             <span
@@ -104,20 +86,9 @@ function Cells({ row, closed }: LadderRowProps): ReactNode {
             {row.me ? <Badge tone="accent">You</Badge> : null}
           </span>
           <span className="hidden text-sm text-ink-muted tabular-nums max-compact:block">
-            {row.masked
-              ? bandText(row)
-              : `${bandText(row)} · ${recordText(row)}`}
+            {row.masked ? 'Hidden' : recordText(row)}
           </span>
         </span>
-      </span>
-      <span
-        className={cn(
-          ladderColumnClass('band'),
-          'flex items-center gap-2 text-ink-muted',
-        )}
-      >
-        <Glyph row={row} size={24} />
-        {bandText(row)}
       </span>
       <span
         className={cn(

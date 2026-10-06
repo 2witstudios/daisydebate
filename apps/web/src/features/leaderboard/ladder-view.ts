@@ -1,4 +1,3 @@
-import type { Bloom } from './bloom';
 import type { LadderStatus } from './query';
 import type { Season } from './season';
 import type { LadderEntry } from './standing';
@@ -10,7 +9,7 @@ export const EARLY_SEASON_ESTABLISHED = 10;
 
 /**
  * Who is looking. `blinded` names the debaters of the viewer's current
- * assignment as a judge: their rating, rank and band stay hidden until the
+ * assignment as a judge: their rating and rank stay hidden until the
  * ballot is submitted (mock assumption, flagged for the owner).
  */
 export type LadderViewer = {
@@ -30,13 +29,12 @@ export type LadderRow = {
   readonly rating: number;
   /** The 95% range around the rating: twice its deviation. */
   readonly range: number;
-  readonly bloom: Bloom;
   readonly provisional: boolean;
   readonly wins: number;
   readonly losses: number;
   readonly change: Change;
   readonly me: boolean;
-  /** True while the viewer judges this debater: no rating, rank or band. */
+  /** True while the viewer judges this debater: no rating or rank. */
   readonly masked: boolean;
   readonly selected: boolean;
   /** Opens the detail; null for a deleted account, which is not a link. */

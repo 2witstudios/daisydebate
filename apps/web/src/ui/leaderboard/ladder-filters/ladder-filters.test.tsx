@@ -27,7 +27,7 @@ describe('LadderFilters', () => {
     assert({
       given: 'the default query',
       should:
-        'be a search-role GET form with search, season, status, band, region and Apply',
+        'be a search-role GET form with search, season, status and Apply, and no band or region',
       actual: [
         html.includes('action="/leaderboard"'),
         html.includes('method="get"'),
@@ -40,7 +40,7 @@ describe('LadderFilters', () => {
         html.includes('>Apply<'),
         html.includes('Clear'),
       ],
-      expected: [true, true, true, true, true, true, true, true, true, false],
+      expected: [true, true, true, true, true, true, false, false, true, false],
     });
   });
 
@@ -48,14 +48,14 @@ describe('LadderFilters', () => {
     const html = render();
     assert({
       given: 'two seasons',
-      should: 'label current and closed, list bands high to low',
+      should: 'label current and closed, and list no bands or regions',
       actual: [
         html.includes('Season 5 (current)'),
         html.includes('Season 4 (closed)'),
-        html.indexOf('Full bloom') < html.indexOf('Sprout'),
+        html.includes('Full bloom'),
         html.includes('Africa and Middle East'),
       ],
-      expected: [true, true, true, true],
+      expected: [true, true, false, false],
     });
   });
 
@@ -77,16 +77,15 @@ describe('LadderFilters', () => {
         ...defaultQuery,
         scope: 'around',
         status: 'everyone',
-        band: 'bud',
         q: 'x',
       },
     });
     assert({
       given: 'filters set and the around-me scope',
-      should: 'count two in the phone panel, carry scope and offer Clear',
+      should: 'count one in the phone panel, carry scope and offer Clear',
       actual: [
         html.includes('name="scope" value="around"'),
-        html.includes('>2<'),
+        html.includes('>1<'),
         html.includes('Clear'),
         html.includes('href="/leaderboard?scope=around"'),
       ],

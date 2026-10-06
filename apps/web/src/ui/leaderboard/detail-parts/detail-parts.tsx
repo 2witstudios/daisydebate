@@ -16,7 +16,7 @@ function Stat({
 }: {
   label: string;
   value: ReactNode;
-  note: string;
+  note?: string;
 }) {
   return (
     <div className="flex flex-col rounded-md bg-surface-overlay p-3">
@@ -26,7 +26,9 @@ function Stat({
       <span className="font-display text-xl font-bold tabular-nums">
         {value}
       </span>
-      <span className="text-xs text-ink-muted tabular-nums">{note}</span>
+      {note ? (
+        <span className="text-xs text-ink-muted tabular-nums">{note}</span>
+      ) : null}
     </div>
   );
 }
@@ -66,7 +68,7 @@ export function RatingSummary({
     <>
       <div className={cn('grid gap-3', gridClass)}>
         <Stat label="Rating" value={detail.rating} note={detail.range} />
-        <Stat label="Rank" value={detail.rank} note={detail.band} />
+        <Stat label="Rank" value={detail.rank} />
         <Stat label="Record" value={detail.record} note="W–L" />
         <Stat label="Peak" value={detail.peak} note="this season" />
       </div>

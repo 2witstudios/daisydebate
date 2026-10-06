@@ -1,4 +1,3 @@
-import { bloomLabel } from './bloom';
 import { signed } from './history';
 import type { Change, LadderRow } from './ladder-view';
 
@@ -28,9 +27,6 @@ export const ratingText = (
 
 export const rankText = (row: Pick<LadderRow, 'rank'>): string =>
   row.rank === null ? '–' : String(row.rank);
-
-export const bandText = (row: Pick<LadderRow, 'bloom' | 'masked'>): string =>
-  row.masked ? 'Hidden' : bloomLabel(row.bloom);
 
 /** The row's accessible name: who, where they stand and their rating. */
 export function rowLabel(row: LadderRow): string {
