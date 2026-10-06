@@ -10,8 +10,9 @@ const ratingDecision: RatingDecision = {
 
 /**
  * Rates a completed debate on its ladder: the adapter locks and writes, the
- * engine decides. Idempotent, so the completion path may call it again after
- * a retry. Ledger ids come from the caller's id source.
+ * engine decides. Idempotent, so a caller may retry it. No production path
+ * calls it yet; the debate completion path will (RATE-2). Ledger ids come
+ * from the caller's id source.
  */
 export function rateCompletedDebate(
   database: Pick<Database, 'rateDebate'>,

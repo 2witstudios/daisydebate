@@ -164,8 +164,8 @@ export function createDatabase({
     ...onboardingOperations({ database, eventSink }),
     /**
      * Rates a completed debate with the caller's domain decision (ADR 0055);
-     * see `rateCompletedDebate`. Its caller is the ratings feature, which
-     * the debate completion path calls once judging lands.
+     * see `rateCompletedDebate`. Its consumer is the ratings feature; no
+     * production path calls that feature yet (RATE-2).
      */
     rateDebate: (input: RateDebateInput) =>
       instrumented(eventSink, 'rateDebate', () =>

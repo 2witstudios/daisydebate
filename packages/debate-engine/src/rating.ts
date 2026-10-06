@@ -122,9 +122,22 @@ export function inflateDeviation(
   };
 }
 
-/** Whether a debater's last rating comes after `at`, read as UTC instants. */
-export function ratedAfter(lastRatedAt: string | null, at: string): boolean {
-  return lastRatedAt !== null && instant(lastRatedAt) > instant(at);
+/**
+ * When a rated debate is posted to the ledger: at its completion, unless a
+ * debater was already posted at or after it (another debate rated first, or
+ * a delayed retry). Then it is posted one millisecond after that debater's
+ * latest posting, so each debater's ledger stays strictly ordered and a late
+ * debate is still rated rather than lost.
+ */
+export function postingInstant(
+  completedAt: string,
+  lastRatedAts: readonly (string | null)[],
+): string {
+  const completed = instant(completedAt);
+  const latest = Math.max(
+    ...lastRatedAts.map((at) => (at === null ? -Infinity : instant(at))),
+  );
+  return latest < completed ? completedAt : new Date(latest + 1).toISOString();
 }
 
 /** A previous season's state as it starts the next one. */

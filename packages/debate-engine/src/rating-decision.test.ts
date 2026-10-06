@@ -103,6 +103,26 @@ describe('ratingEligibility', () => {
       actual: ratingEligibility({ ...completed, alreadyRated: true }),
       expected: { kind: 'already-rated' },
     });
+    assert({
+      given: 'a rerun after the format left ranked play or changed its rules',
+      should: 'still report it as already rated',
+      actual: [
+        ratingEligibility({
+          ...completed,
+          alreadyRated: true,
+          format: { rules, rankedEligible: false },
+        }),
+        ratingEligibility({
+          ...completed,
+          alreadyRated: true,
+          format: {
+            rules: { ...rules, version: 1, clock: { speechMs: 1, prepMs: 0 } },
+            rankedEligible: true,
+          },
+        }),
+      ],
+      expected: [{ kind: 'already-rated' }, { kind: 'already-rated' }],
+    });
   });
 
   test('refuses a debate that has not completed', async () => {
@@ -206,6 +226,37 @@ describe('planRating', () => {
     });
   });
 
+  test('posts a late debate just after the debaters latest posting', () => {
+    const later = '2026-10-05T13:00:00.000Z';
+    const late = plan({
+      aff: { ...newcomer, lastRatedAt: later },
+      neg: newcomer,
+    });
+    assert({
+      given: 'a debater already posted for a debate that completed later',
+      should:
+        'rate it anyway, posted one millisecond after that posting so the ledger stays ordered',
+      actual: [late.occurredAt, late.changes.length],
+      expected: ['2026-10-05T13:00:00.001Z', 2],
+    });
+    assert({
+      given: 'a debater whose latest posting is exactly this completion',
+      should: 'post one millisecond after it',
+      actual: plan({ aff: { ...newcomer, lastRatedAt: at }, neg: newcomer })
+        .occurredAt,
+      expected: '2026-10-05T12:00:00.001Z',
+    });
+    assert({
+      given: 'debaters last posted before this completion',
+      should: 'post at the completion',
+      actual: plan({
+        aff: { ...newcomer, lastRatedAt: '2026-10-04T12:00:00.000Z' },
+        neg: newcomer,
+      }).occurredAt,
+      expected: at,
+    });
+  });
+
   test('refuses without an active season or a debater per side', async () => {
     await assertRejects({
       given: 'no active season',
@@ -221,16 +272,6 @@ describe('planRating', () => {
           { aff: newcomer },
           { seats: [{ actorId: 'aff', role: 'affirmative' }] },
         ),
-      code: 'CONFLICT',
-    });
-    await assertRejects({
-      given: 'a debater already rated for a debate that completed later',
-      should: 'refuse as a conflict rather than rewrite the ledger order',
-      actual: () =>
-        plan({
-          aff: { ...newcomer, lastRatedAt: '2026-10-05T13:00:00.000Z' },
-          neg: newcomer,
-        }),
       code: 'CONFLICT',
     });
     await assertRejects({

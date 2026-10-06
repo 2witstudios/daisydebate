@@ -11,7 +11,7 @@ import {
   carryOver,
   ladderForMode,
   rateDebate,
-  ratedAfter,
+  postingInstant,
   ratingPolicy,
 } from './rating';
 import { rulesMatchFormat } from './rules-match';
@@ -36,6 +36,8 @@ export function ratingEligibility(
     throw createAppError('CONFLICT', 'Only a completed debate can be rated');
   const ladder = ladderForMode(input.mode);
   if (ladder === null) return { kind: 'unrated', reason: 'mode' };
+  // Before the rules: a rerun after the format changed is still a rerun.
+  if (input.alreadyRated) return { kind: 'already-rated' };
   if (input.outcome === 'abandoned')
     return { kind: 'unrated', reason: 'abandoned' };
   if (
@@ -43,7 +45,6 @@ export function ratingEligibility(
     !rulesMatchFormat(input.rules, input.format.rules)
   )
     return { kind: 'unrated', reason: 'rules' };
-  if (input.alreadyRated) return { kind: 'already-rated' };
   if (input.outcome === null || input.completedAt === null)
     throw createAppError('CONFLICT', 'A completed debate has no outcome');
   return {
@@ -86,16 +87,10 @@ export function planRating(input: RatingPlanFacts): RatingPlan {
   };
   const affirmativeStanding = standingOf(affirmative);
   const negativeStanding = standingOf(negative);
-  // The ledger is ordered by completion: a debate that completed before a
-  // debater's last rating would rewrite history, so it is refused.
-  if (
-    ratedAfter(affirmativeStanding.lastRatedAt, input.occurredAt) ||
-    ratedAfter(negativeStanding.lastRatedAt, input.occurredAt)
-  )
-    throw createAppError(
-      'CONFLICT',
-      'A debater was already rated for a later debate',
-    );
+  const postedAt = postingInstant(input.occurredAt, [
+    affirmativeStanding.lastRatedAt,
+    negativeStanding.lastRatedAt,
+  ]);
   const rated = rateDebate({
     affirmative: {
       state: startingState(affirmativeStanding),
@@ -106,13 +101,13 @@ export function planRating(input: RatingPlanFacts): RatingPlan {
       lastRatedAt: negativeStanding.lastRatedAt,
     },
     outcome: input.outcome,
-    occurredAt: input.occurredAt,
+    occurredAt: postedAt,
   });
   const [affirmativeId, negativeId] = input.changeIds;
   return {
     ladder: input.ladder,
     seasonId: input.seasonId,
-    occurredAt: input.occurredAt,
+    occurredAt: postedAt,
     calculationVersion: rated.calculationVersion,
     changes: [
       {
