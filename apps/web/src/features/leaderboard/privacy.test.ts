@@ -41,24 +41,28 @@ describe('privacy rows', () => {
 describe('privacySettingRows', () => {
   test('rows follow the account answers', () => {
     assert({
-      given: 'the default answers and a changed set',
-      should: 'show each setting as the account has it',
+      given: 'the account on the ladder and then off it',
+      should:
+        'show the one ladder setting as the account has it, and no region setting',
       actual: [
-        privacySettingRows({ ladder: true, showRegion: false }).map((s) => [
-          s.id,
-          s.on,
-        ]),
-        privacySettingRows({ ladder: false, showRegion: true }).map(
-          (s) => s.on,
-        ),
+        privacySettingRows({ ladder: true }).map((s) => [s.id, s.on]),
+        privacySettingRows({ ladder: false }).map((s) => s.on),
       ],
-      expected: [
-        [
-          ['show-region', false],
-          ['appear-on-ladder', true],
-        ],
-        [true, false],
-      ],
+      expected: [[['appear-on-ladder', true]], [false]],
+    });
+  });
+});
+
+describe('privacySections', () => {
+  test('no band or region', () => {
+    const titles = privacySections.flatMap((section) =>
+      section.rows.map((row) => row.title),
+    );
+    assert({
+      given: 'every row the privacy page lists',
+      should: 'list no band and no region',
+      actual: titles.some((title) => /band|region/i.test(title)),
+      expected: false,
     });
   });
 });

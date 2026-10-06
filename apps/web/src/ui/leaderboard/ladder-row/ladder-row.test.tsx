@@ -15,7 +15,7 @@ describe('LadderRow', () => {
     assert({
       given: 'an established debater',
       should:
-        'be one link named with rank and rating, showing band, record and move',
+        'be one link named with rank and rating, showing record and move and no band',
       actual: [
         html.match(/<a /g)?.length,
         html.includes('aria-label="@ada, rank 4, rating 1650"'),
@@ -25,7 +25,7 @@ describe('LadderRow', () => {
         html.includes('▲ 3'),
         html.includes('>You<'),
       ],
-      expected: [1, true, true, true, true, true, false],
+      expected: [1, true, true, false, true, true, false],
     });
   });
 
@@ -47,7 +47,6 @@ describe('LadderRow', () => {
     const html = render({
       provisional: true,
       rank: null,
-      bloom: 'provisional',
       rating: 1412,
     });
     assert({
@@ -83,7 +82,6 @@ describe('LadderRow', () => {
       masked: true,
       rank: null,
       rating: 0,
-      bloom: 'provisional',
     });
     assert({
       given: 'a masked row',

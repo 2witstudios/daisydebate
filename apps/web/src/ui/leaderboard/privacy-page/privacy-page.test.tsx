@@ -29,15 +29,15 @@ describe('PrivacyPage', () => {
     assert({
       given: 'the account privacy settings',
       should:
-        'show region off and ladder on, with no switches, and link to change them',
+        'show the ladder setting on with no switches and no region setting, and link to change it',
       actual: [
         html.includes('Your privacy settings'),
         html.includes('role="switch"'),
         html.includes('>On<'),
-        html.includes('>Off<'),
+        /region/i.test(html),
         html.includes('href="/settings#privacy"'),
       ],
-      expected: [true, false, true, true, true],
+      expected: [true, false, true, false, true],
     });
   });
 });

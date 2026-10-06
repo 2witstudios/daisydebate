@@ -62,7 +62,6 @@ export const rowFixture = (overrides: Partial<LadderRow> = {}): LadderRow => ({
   rank: 4,
   rating: 1650,
   range: 120,
-  bloom: 'full-bloom',
   provisional: false,
   wins: 12,
   losses: 5,

@@ -13,14 +13,13 @@ describe('ladder row classes', () => {
     assert({
       given: 'each column',
       should:
-        'place it on the twelve-column grid and hide band and record on the phone',
-      actual: (
-        ['rank', 'name', 'band', 'rating', 'record', 'move'] as const
-      ).map(ladderColumnClass),
+        'place it on the twelve-column grid, with no band column, and hide record on the phone',
+      actual: (['rank', 'name', 'rating', 'record', 'move'] as const).map(
+        ladderColumnClass,
+      ),
       expected: [
         'col-span-1',
-        'col-span-4 min-w-0 max-compact:col-span-6',
-        'col-span-2 max-compact:hidden',
+        'col-span-6 min-w-0 max-compact:col-span-6',
         'col-span-2 max-compact:col-span-2',
         'col-span-2 max-compact:hidden',
         'col-span-1 max-compact:col-span-3',

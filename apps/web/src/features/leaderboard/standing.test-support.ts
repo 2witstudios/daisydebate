@@ -10,6 +10,5 @@ export const entry = (overrides: Partial<LadderEntry> = {}): LadderEntry => ({
   wins: 10,
   weekChange: 0,
   seasonChange: 0,
-  region: null,
   ...overrides,
 });
