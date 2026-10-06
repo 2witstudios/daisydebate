@@ -3,10 +3,26 @@ import { validatePlannedReaders } from './planned-readers';
 
 setupRitewayBun();
 
+/** Stands in for the gate's index of what each source file really exports. */
+const exportNames = new Map([
+  ['packages/db/src/schema/role-grants.ts', ['grantRoles', 'roleGrants']],
+]);
+
 const knownPaths = new Set([
   'packages/db/src/schema/role-grants.ts',
   'docs/decisions/0057-planned-readers.md',
 ]);
+
+/** One declaration that satisfies every field, so a test varies only what it is about. */
+const declaration = {
+  path: 'packages/db/src/schema/role-grants.ts',
+  export: 'roleGrants',
+  task: 'ID-1',
+  owner: 'platform',
+  adr: 'docs/decisions/0057-planned-readers.md',
+  reason: 'why',
+  reviewBy: '2027-01-01',
+};
 
 describe('planned readers: a foundation may ship before its reader', () => {
   test('accepts a declaration naming a live task and a review date', () => {
@@ -264,6 +280,75 @@ describe('planned readers: a foundation may ship before its reader', () => {
         { knownPaths, today: '2026-10-06' },
       ),
       expected: ['readers[0]: task is required'],
+    });
+  });
+
+  test('refuses a declaration naming an export the file does not have', () => {
+    assert({
+      given: 'a declaration for a symbol the file never exports',
+      should: 'report it, so the registry cannot rot into fiction',
+      actual: validatePlannedReaders(
+        { version: 1, readers: [{ ...declaration, export: 'madeUpThing' }] },
+        {
+          knownPaths,
+          today: '2026-10-06',
+          exportNames,
+        },
+      ),
+      expected: [
+        'readers[0]: packages/db/src/schema/role-grants.ts does not export madeUpThing',
+      ],
+    });
+  });
+
+  test('accepts a declaration naming an export the file really has', () => {
+    assert({
+      given: 'a declaration for a symbol the file exports',
+      should: 'report nothing',
+      actual: validatePlannedReaders(
+        { version: 1, readers: [declaration] },
+        {
+          knownPaths,
+          today: '2026-10-06',
+          exportNames,
+        },
+      ),
+      expected: [],
+    });
+  });
+
+  test('reports a non-object entry instead of crashing the gate', () => {
+    assert({
+      given: 'entries that are not objects at all',
+      should: 'name each one, and never throw',
+      actual: [
+        ...validatePlannedReaders(
+          { version: 1, readers: [null] },
+          { knownPaths, today: '2026-10-06' },
+        ),
+        ...validatePlannedReaders(
+          { version: 1, readers: ['nope', 42, [1, 2]] },
+          { knownPaths, today: '2026-10-06' },
+        ),
+      ],
+      expected: [
+        'readers[0]: entry must be an object',
+        'readers[0]: entry must be an object',
+        'readers[1]: entry must be an object',
+        'readers[2]: entry must be an object',
+      ],
+    });
+  });
+
+  test('skips the export check when the file content is unavailable', () => {
+    assert({
+      given: 'no export index supplied',
+      should: 'fall back to the declaration of intent rather than fail',
+      actual: validatePlannedReaders(
+        { version: 1, readers: [declaration] },
+        { knownPaths, today: '2026-10-06' },
+      ),
+      expected: [],
     });
   });
 });

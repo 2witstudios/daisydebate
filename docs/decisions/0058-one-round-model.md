@@ -218,9 +218,15 @@ leaves, and the PageSpace boundary remains open.
   may carry engine state, never participants. ADR 0054 §3 — documents leave the round FK.
   ADR 0055 §5 — modes and ladders; `quick` becomes a preset dimension and ranked rounds are
   constructed from presets rather than validated against a format.
-- **Left open, deliberately.** Whether an abandoned ranked round rates. Whether ranked
-  eligibility is enforced as an application rule or a deferred-CHECK trigger. Whether prep
+- **Left open, deliberately.** Whether an abandoned ranked round rates. Whether prep
   lives in Daisy or a PageSpace drive — and, if external, the ADR 0036 data-processor
   question that `under-13` age banding raises. None of these changes what a Round _is_.
+- **Settled here, with the mechanism open.** Ranked eligibility itself is decided in §4 and §8:
+  it is a construction-time invariant, because a ranked round resolves from a sanctioned preset
+  or it does not exist. What stays open is only _where_ that is physically enforced — a
+  deferrable constraint trigger, a composite provenance FK the compiler's inputs already imply,
+  or transactional enforcement in the application. (Postgres has no deferrable `CHECK`; a
+  constraint _trigger_ can be deferred.) The mechanism cannot weaken the decision, since every
+  option refuses to admit an invalid ranked round.
 - **Not settled here.** A persisted `Room` had been deferred; it is now required (§7), which
   is a change from the earlier framing of this work rather than a clarification of it.

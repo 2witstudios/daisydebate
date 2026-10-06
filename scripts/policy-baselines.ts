@@ -9,6 +9,7 @@
 
 import {
   adrProblems,
+  entryObjectProblems,
   registryShapeProblems,
   requiredFieldProblems,
   reviewDateProblems,
@@ -64,13 +65,14 @@ export function validateMigrationBaselines(
   const today = options.today ?? utcToday();
   if (!Array.isArray(registry.baselines)) return problems;
   for (const [index, value] of registry.baselines.entries()) {
+    const prefix = `baselines[${index}]`;
+    const shape = entryObjectProblems(value, prefix);
+    if (shape.length > 0) {
+      problems.push(...shape);
+      continue;
+    }
     problems.push(
-      ...baselineProblems(
-        value as BaselineEntry,
-        `baselines[${index}]`,
-        options,
-        today,
-      ),
+      ...baselineProblems(value as BaselineEntry, prefix, options, today),
     );
   }
   return problems;

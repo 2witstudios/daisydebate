@@ -18,6 +18,7 @@ export { validateMigrationBaselines } from './policy-baselines';
 export type { MigrationBaseline } from './policy-baselines';
 import { validatePlannedReaders, type PlannedReader } from './planned-readers';
 import {
+  entryObjectProblems,
   registryShapeProblems,
   requiredFieldProblems as sharedRequiredFieldProblems,
   reviewDateProblems,
@@ -258,8 +259,13 @@ export function validatePolicyRegistry(
   if (!Array.isArray(registry.exceptions)) return problems;
   const seen = new Set<string>();
   for (const [index, value] of registry.exceptions.entries()) {
-    const entry = value as RegistryEntry;
     const prefix = `registry[${index}]`;
+    const shape = entryObjectProblems(value, prefix);
+    if (shape.length > 0) {
+      problems.push(...shape);
+      continue;
+    }
+    const entry = value as RegistryEntry;
     problems.push(...exceptionProblems(entry, prefix, options, today));
     const key = `${entry.path}|${entry.rule}`;
     if (seen.has(key)) problems.push(`${prefix}: duplicate ${key}`);
@@ -308,6 +314,43 @@ async function filesIn(
   return files;
 }
 
+/** `export const|function|class|type|interface|enum NAME`, one source file. */
+const exportedName = new RegExp(
+  String.raw`^export\s+(?:declare\s+)?(?:default\s+)?(?:async\s+)?(?:const|let|var|function\*?|class|type|interface|enum)\s+([A-Za-z_$][\w$]*)`,
+  'm',
+);
+const reExported = /\bexport\s*\{([^}]*)\}/g;
+
+/**
+ * The symbols each TypeScript source file really declares, so a registry entry
+ * cannot name an export that does not exist. A `export { a, b as c }` list is
+ * read for the local names it re-exports.
+ */
+export async function collectExportNames(
+  files: readonly string[],
+  knownPaths: ReadonlySet<string>,
+): Promise<ReadonlyMap<string, readonly string[]>> {
+  const index = new Map<string, string[]>();
+  for (const file of files) {
+    if (!file.endsWith('.ts') && !file.endsWith('.tsx')) continue;
+    const relativePath = relative(root, file);
+    if (!knownPaths.has(relativePath)) continue;
+    const source = await readFile(file, 'utf8');
+    const names = new Set<string>();
+    for (const line of source.split('\n')) {
+      const declared = exportedName.exec(line);
+      if (declared?.[1]) names.add(declared[1]);
+      for (const group of line.matchAll(reExported))
+        for (const item of group[1].split(',')) {
+          const name = item.split(/\s+as\s+/)[0]?.trim();
+          if (name) names.add(name);
+        }
+    }
+    index.set(relativePath, [...names]);
+  }
+  return index;
+}
+
 export async function collectPolicy(): Promise<PolicyReport> {
   const registry = JSON.parse(await readFile(registryPath, 'utf8')) as {
     version?: unknown;
@@ -335,7 +378,10 @@ export async function collectPolicy(): Promise<PolicyReport> {
     ...validatePolicyRegistry(registry, { knownPaths }),
     ...(await auditPolicyProblems(knownPaths)),
     ...validateMigrationBaselines(baselinesRegistry, { knownPaths }),
-    ...validatePlannedReaders(readersRegistry, { knownPaths }),
+    ...validatePlannedReaders(readersRegistry, {
+      knownPaths,
+      exportNames: await collectExportNames(repositoryFiles, knownPaths),
+    }),
     ...duplicateAdrNumberProblems(knownPaths),
     ...numberCollisionProblems(),
     ...collectWorkflowHardeningProblems(root),

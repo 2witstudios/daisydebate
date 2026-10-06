@@ -15,6 +15,20 @@ export type RegistryEntryOptions = {
 
 type Fields = Readonly<Record<string, unknown>>;
 
+/**
+ * A registry entry must be a plain object. This is validation code, so it may
+ * not assume well-formed input: a `null`, a string or a number in the array
+ * must be reported, not crash the gate with a TypeError.
+ */
+export function entryObjectProblems(
+  entry: unknown,
+  prefix: string,
+): readonly string[] {
+  return typeof entry === 'object' && entry !== null && !Array.isArray(entry)
+    ? []
+    : [`${prefix}: entry must be an object`];
+}
+
 /** One problem per missing field, in the order the fields are listed. */
 export function requiredFieldProblems(
   entry: Fields,
@@ -57,6 +71,25 @@ export function adrProblems(
   return knownPaths && !knownPaths.has(adr)
     ? [`${prefix}: ADR does not exist: ${adr}`]
     : [];
+}
+
+/**
+ * A named export that the file really declares. An index the caller supplies
+ * lets the gate prove the declaration names a symbol rather than a fiction;
+ * with no index available the check is skipped rather than guessed.
+ */
+export function exportedSymbolProblems(
+  path: unknown,
+  symbol: unknown,
+  prefix: string,
+  exportNames: ReadonlyMap<string, readonly string[]> | undefined,
+): readonly string[] {
+  if (typeof path !== 'string' || typeof symbol !== 'string') return [];
+  const declared = exportNames?.get(path);
+  if (declared === undefined) return [];
+  return declared.includes(symbol)
+    ? []
+    : [`${prefix}: ${path} does not export ${symbol}`];
 }
 
 /**
