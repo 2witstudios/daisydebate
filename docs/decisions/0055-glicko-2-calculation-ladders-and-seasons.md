@@ -108,8 +108,11 @@ bands.
   is no default or backfill.
 - The rating write is one transaction that locks the debate, posts two ledger
   rows and updates the projection under its version. Re-rating a debate is a
-  no-op. Until ballots or completion call it, it is composed as a test-only
-  operation.
+  no-op. `@daisy/db`'s `rateDebate` decides nothing: the engine's
+  `ratingEligibility` and `planRating` are injected as its decision, because
+  the adapter sits below the domain and never imports it. The
+  `apps/web` ratings feature (`rateCompletedDebate`) composes the two, and
+  the debate completion path calls it once judging lands.
 - The leaderboard and profile read real standings, with Ranked and Quick match
   shown separately. They are empty until a ranked-eligible format and an
   active season exist; opening the first production season is a human-only

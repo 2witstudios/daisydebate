@@ -1,5 +1,5 @@
 import { createAppError, createInvariantError } from '@daisy/errors';
-import type { DebateMode, RatingLadder } from '@daisy/protocol';
+import type { DebateMode, RatedOutcome, RatingLadder } from '@daisy/protocol';
 import {
   GLICKO2_SCALE,
   ratePeriod,
@@ -35,8 +35,6 @@ export const ratingPolicy = {
     volatility: { max: 0.1 },
   },
 } as const;
-
-export type RatedOutcome = 'affirmative' | 'negative' | 'draw';
 
 export type DebaterRating = {
   /** The stored state, before any idle-time widening. */
