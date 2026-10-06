@@ -29,6 +29,13 @@ const statusOf = async (fixture: Fixture, id: string) => {
     : null;
 };
 
+const seasonCount = async (fixture: Fixture) => {
+  const [row] = (await fixture.sql.unsafe(
+    'select count(*)::int as count from seasons',
+  )) as Array<{ count: number }>;
+  return row?.count ?? 0;
+};
+
 describe('season operations (RATE-1.2)', () => {
   test('opens one active season and refuses a second', async () => {
     await withFixture(url, async (fixture) => {
@@ -148,6 +155,39 @@ describe('season operations (RATE-1.2)', () => {
             'close the current season at the next start and open the next',
           actual: [closed.status, closed.endsAt, opened.status, opened.id],
           expected: ['closed', january.toISOString(), 'active', next],
+        });
+      });
+    });
+  });
+
+  test('rolls back the close when opening the next season fails', async () => {
+    await withFixture(url, async (fixture) => {
+      const current = tracked(fixture);
+      await withSeasons(url, async (seasons) => {
+        await seasons.openSeason({
+          id: current,
+          name: 'Season 1',
+          startsAt: october,
+        });
+        const before = await seasonCount(fixture);
+        await assertRejects({
+          given:
+            'a rollover whose close succeeds but whose next season reuses an existing id',
+          should: 'refuse the rollover',
+          actual: () =>
+            seasons.rolloverSeason({
+              closeId: current,
+              open: { id: current, name: 'Season 2', startsAt: january },
+            }),
+          code: 'CONFLICT',
+        });
+        const after = await seasonCount(fixture);
+        assert({
+          given: 'an open that fails after the close ran in the same rollover',
+          should:
+            'roll the close back, leaving the current season active with no end and no row added',
+          actual: [await statusOf(fixture, current), after - before],
+          expected: [{ status: 'active', endsAt: undefined }, 0],
         });
       });
     });
