@@ -84,6 +84,9 @@ There is no server scheduler, because no turn boundary is stored. Instead, every
 seated client, the judge's included, calls an idempotent reconcile route:
 
 - when it connects;
+- when any other participant connects, so a client that rejoins with an
+  older token, which a self-hosted server does not invalidate when rights
+  change, is corrected within one round trip by whoever is already there;
 - at each turn boundary it computes from the timetable;
 - after End my turn;
 - when the judging window ends.
@@ -183,6 +186,16 @@ debate:
 
 No audio is stored.
 
+**The live transcript is not authoritative.** The checks above authenticate the
+uploader, the turn and the time, but not that the uploaded audio is what the
+debater actually said in the call: a modified browser could upload other
+audio or leave its real speech out. So a transcript built from browser
+uploads is for the live display, the debaters' own notes and unrated AI
+rulings only. It never decides a rated result. A rated outcome that rests on
+the AI ruling (the Quick match ladder) waits for a transcript taken from the
+media server's own copy of each track, which REC-1 builds with server-side
+capture (DEC-114, open).
+
 This supersedes the room epic's ROOM DEC-C ("no transcript stored") for
 transcripts. Speech still travels over Daisy's own media session, not a
 channel the debaters arrange themselves.
@@ -207,7 +220,8 @@ never decide an outcome.
 | Column                                                                    | Category   | Visibility | Retention                                 |
 | ------------------------------------------------------------------------- | ---------- | ---------- | ----------------------------------------- |
 | `media_sessions.id`, `.room_name`                                         | identifier | —          | with the debate                           |
-| `media_sessions.debate_id`, `.created_at`, `.ended_at`                    | none       | —          | with the debate                           |
+| `media_sessions.debate_id`                                                | identifier | —          | with the debate                           |
+| `media_sessions.created_at`, `.ended_at`                                  | none       | —          | with the debate                           |
 | `media_participants.identity`                                             | identifier | —          | with the debate                           |
 | `media_participants.media_session_id`, `.actor_id`, `.seat`               | identifier | —          | with the debate                           |
 | `media_participants.created_at`                                           | none       | —          | with the debate                           |
@@ -219,6 +233,12 @@ never decide an outcome.
 - **Secrets:** the LiveKit API key and secret are composition-boundary secrets
   (ADR 0019). They are read through `secret()` configuration and never logged.
 - **Logs:** tokens, transcript text and media identities are never logged.
+- **Vendor processing:** each speech segment's audio goes to OpenRouter and
+  its speech-to-text provider for transcription. It is personal and private,
+  processed for transcribing the debate, and sent with zero data retention,
+  so the vendor keeps nothing. The OpenRouter subprocessor entry in
+  `docs/operations/privacy.md`, which the AI debates already need, is
+  ISSUE-333.
 
 ## Consequences
 
@@ -228,7 +248,8 @@ never decide an outcome.
 - **Operations:** Daisy runs a media server in production, with a domain, TLS,
   TURN and open UDP ports. That is a human-only provisioning step.
 - **Local stack and CI:** both gain a LiveKit container. Checkouts with a stack
-  already running need a one-time `docker compose up -d`.
+  already running need a one-time `docker compose -f infra/compose.yaml up -d`,
+  because `bun slot:up` never recreates a running stack.
 - **Ready without JavaScript:** a debater cannot ready up with JavaScript off.
 - **Delay:** mic changes lag a turn boundary by one reconcile round trip.
   Clients are never trusted, but a speaker whose opponent and judge are both
@@ -251,3 +272,6 @@ never decide an outcome.
    JavaScript.
 7. DEC-113: LiveKit runs with `room.auto_create` off. Daisy creates a debate's
    room on mint when it is missing and deletes it at teardown (section 5).
+8. DEC-114: a transcript built from browser uploads never decides a rated
+   result; a rated AI ruling waits for a transcript from the media server's
+   own copy of each track, built in REC-1 (section 9).
