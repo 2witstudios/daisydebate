@@ -159,6 +159,66 @@ describe('normalizeDocumentHtml bounds', () => {
     });
   });
 
+  test('tags hidden in comments and raw text', () => {
+    const hiding = (wrap: (close: string) => string) =>
+      `<p>a</p>${`<blockquote>${wrap('</blockquote>')}`.repeat(2_900)}`;
+    assert({
+      given:
+        'closing tags inside comments, CDATA and script, style and textarea text, each 2,900 times',
+      should:
+        'scan what the parser reads and refuse the hidden depth as too complex',
+      actual: [
+        html(hiding((close) => `<!--${close}-->`)),
+        html(hiding((close) => `<![CDATA[${close}]]>`)),
+        html(hiding((close) => `<script>${close}</script>`)),
+        html(hiding((close) => `<STYLE>${close}</style>`)),
+        html(hiding((close) => `<textarea>${close}</textarea>`)),
+      ],
+      expected: [
+        'too-complex',
+        'too-complex',
+        'too-complex',
+        'too-complex',
+        'too-complex',
+      ],
+    });
+  });
+
+  test('comments and raw text in ordinary documents', () => {
+    assert({
+      given:
+        'a document with a doctype, a comment, a style element and an unterminated comment',
+      should: 'drop them and keep the content',
+      actual: [
+        html('<!DOCTYPE html><p>a<!-- note --></p><style>p{}</style><p>b</p>'),
+        html('<p>a</p><!-- <p>b</p>'),
+      ],
+      expected: ['<p>\na\n</p>\n<p>\nb\n</p>', '<p>\na\n</p>'],
+    });
+  });
+
+  test('markup formed by removing a comment', () => {
+    assert({
+      given: 'a script tag split by a comment',
+      should: 'refuse it as malformed',
+      actual: html('<p>a</p><scr<!---->ipt></blockquote></script>'),
+      expected: 'malformed',
+    });
+  });
+
+  test('non-void tags written self-closing', () => {
+    assert({
+      given: 'blocks written with "/>", which the parser opens anyway',
+      should: 'count each as open and refuse the hidden depth',
+      actual: [
+        html(`<p>a</p>${'<blockquote/>'.repeat(2_999)}`),
+        html(`<p>a</p>${'<ul/><li/><p/>'.repeat(999)}`),
+        html(`<p>a</p>${'<blockquote/><p>x</p>'.repeat(1_499)}`),
+      ],
+      expected: ['too-complex', 'malformed', 'too-complex'],
+    });
+  });
+
   test('too many elements', () => {
     assert({
       given: 'a flat document with more elements than the limit',
@@ -174,6 +234,12 @@ describe('normalizeDocumentHtml bounds', () => {
       `<p>a</p>${'<p><blockquote></p>'.repeat(1_499)}`,
       `<p>a</p>${'<blockquote></x>'.repeat(2_999)}`,
       `${'<blockquote>'.repeat(7_500)}x${'</blockquote>'.repeat(7_500)}`,
+      `<p>a</p>${'<blockquote><!--</blockquote>-->'.repeat(2_900)}`,
+      `<p>a</p>${'<blockquote><![CDATA[</blockquote>]]>'.repeat(2_900)}`,
+      `<p>a</p>${'<blockquote><script></blockquote></script>'.repeat(2_900)}`,
+      `<p>a</p>${'<blockquote/>'.repeat(2_999)}`,
+      `<p>a</p>${'<ul/><li/><p/>'.repeat(999)}`,
+      `<p>a</p>${'<blockquote/><p>x</p>'.repeat(1_499)}`,
     ];
     const timed = refused.map((input) => {
       const started = performance.now();
@@ -181,7 +247,8 @@ describe('normalizeDocumentHtml bounds', () => {
       return !result.ok && performance.now() - started < 50;
     });
     assert({
-      given: 'implied-close, stray-close and deep-nesting attacks',
+      given:
+        'implied-close, stray-close, deep-nesting, hidden-close and self-closing attacks',
       should: 'each be refused within 50 ms, before any parse',
       actual: timed,
       expected: refused.map(() => true),

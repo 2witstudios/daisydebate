@@ -33,7 +33,41 @@ const VOID = new Set([
   'track',
   'param',
 ]);
-const TAG = /<(\/?)([a-zA-Z][\w-]*)\b[^>]*?(\/?)>/g;
+const TAG = /<(\/?)([a-zA-Z][\w-]*)\b[^>]*?>/g;
+
+/** Elements whose content the HTML parser reads as text, not markup. */
+const RAW_TEXT =
+  'script|style|textarea|title|xmp|noscript|iframe|noembed|noframes|plaintext';
+/**
+ * Comments, CDATA, doctypes and other markup declarations, and raw-text
+ * elements with their content. The parser reads tags inside them as text;
+ * an unterminated one runs to the end of the input.
+ */
+const HIDDEN = new RegExp(
+  [
+    '<!--(?:-?>|[\\s\\S]*?(?:--!?>|$))',
+    '<!\\[CDATA\\[[\\s\\S]*?(?:\\]\\]>|$)',
+    '<[!?][^>]*>?',
+    '<\\/(?![a-zA-Z])[^>]*>?',
+    `<(${RAW_TEXT})(?![\\w-])[^>]*>[\\s\\S]*?(?:<\\/\\1(?![\\w-])[^>]*>|$)`,
+  ].join('|'),
+  'gi',
+);
+/** Hidden markup that removing other hidden markup put together. */
+const STILL_HIDDEN = new RegExp(
+  `<[!?]|<\\/(?![a-zA-Z])|<(?:${RAW_TEXT})(?![\\w-])`,
+  'i',
+);
+
+/**
+ * The input without the regions the parser reads as text, so the scan and
+ * the parser read the same markup; the schema drops these regions anyway.
+ * Null when removing them formed new hidden markup.
+ */
+function stripHidden(input: string): string | null {
+  const stripped = input.replace(HIDDEN, '');
+  return STILL_HIDDEN.test(stripped) ? null : stripped;
+}
 
 /** Elements whose opening makes the HTML parser close an open `<p>` first. */
 const CLOSES_P = new Set([
@@ -85,7 +119,7 @@ const impliesClose = (open: readonly string[], name: string) =>
 function scan(input: string): Scan {
   const open: string[] = [];
   let elements = 0;
-  for (const [, closing, rawName = '', selfClosing] of input.matchAll(TAG)) {
+  for (const [, closing, rawName = ''] of input.matchAll(TAG)) {
     const name = rawName.toLowerCase();
     if (closing) {
       if (open.pop() !== name) return 'malformed';
@@ -93,7 +127,8 @@ function scan(input: string): Scan {
     }
     if (impliesClose(open, name)) return 'malformed';
     elements += 1;
-    if (!selfClosing && !VOID.has(name)) open.push(name);
+    // The parser ignores "/>" on a non-void element and opens it.
+    if (!VOID.has(name)) open.push(name);
     if (open.length > MAX_DEPTH || elements > MAX_ELEMENTS)
       return 'too-complex';
   }
@@ -123,10 +158,12 @@ export function normalizeDocumentHtml(input: string): Normalized {
   if (new TextEncoder().encode(input).length > DOCUMENT_MAX_BYTES)
     return { ok: false, reason: 'too-large' };
   if (input.trim() === '') return { ok: true, html: breakLines(EMPTY) };
-  if (!isHtmlDocument(input)) return { ok: false, reason: 'not-html' };
-  const scanned = scan(joinLines(input));
+  const visible = stripHidden(input);
+  if (visible === null) return { ok: false, reason: 'malformed' };
+  if (!isHtmlDocument(visible)) return { ok: false, reason: 'not-html' };
+  const scanned = scan(joinLines(visible));
   if (scanned !== 'ok') return { ok: false, reason: scanned };
-  const html = roundTrip(input);
+  const html = roundTrip(visible);
   if (html === null) return { ok: false, reason: 'not-html' };
   return { ok: true, html: breakLines(html === '' ? EMPTY : html) };
 }
