@@ -53,7 +53,9 @@ const refusalMessages = {
   VALIDATION: 'A season must end after it starts',
 } as const;
 
-const toRecord = (row: typeof seasons.$inferSelect): SeasonRecord => ({
+export const toSeasonRecord = (
+  row: typeof seasons.$inferSelect,
+): SeasonRecord => ({
   id: row.id,
   name: row.name,
   startsAt: row.startsAt.toISOString(),
@@ -92,7 +94,7 @@ async function close(
     .where(eq(seasons.id, input.id))
     .returning();
   if (!closed) throw createAppError('CONFLICT', 'The season changed');
-  return toRecord(closed);
+  return toSeasonRecord(closed);
 }
 
 async function open(tx: Tx, input: NewSeason): Promise<SeasonRecord> {
@@ -103,7 +105,7 @@ async function open(tx: Tx, input: NewSeason): Promise<SeasonRecord> {
       .returning();
     if (!opened)
       throw createAppError('INTERNAL', 'Season insert returned no row');
-    return toRecord(opened);
+    return toSeasonRecord(opened);
   } catch (error) {
     if (isUniqueViolation(error))
       throw createAppError('CONFLICT', 'A season is already active', error);
@@ -118,7 +120,7 @@ const seasonOperations = (database: BunSQLDatabase) => ({
       .select()
       .from(seasons)
       .orderBy(desc(seasons.startsAt));
-    return rows.map(toRecord);
+    return rows.map(toSeasonRecord);
   },
 
   openSeason(input: NewSeason): Promise<SeasonRecord> {
