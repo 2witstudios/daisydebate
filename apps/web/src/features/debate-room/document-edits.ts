@@ -87,7 +87,7 @@ const asParagraphs = (lines: readonly string[]): string =>
   lines.map((line) => `<p>${escapeHtml(line)}</p>`).join('');
 
 /** Appends lines to a document as one bullet list. */
-export function appendBullets(html: string, lines: readonly string[]): string {
+function appendBullets(html: string, lines: readonly string[]): string {
   return lines.length === 0 ? html : `${html}<ul>${asItems(lines)}</ul>`;
 }
 
