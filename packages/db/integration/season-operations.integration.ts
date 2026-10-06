@@ -29,6 +29,13 @@ const statusOf = async (fixture: Fixture, id: string) => {
     : null;
 };
 
+const seasonCount = async (fixture: Fixture) => {
+  const [row] = (await fixture.sql.unsafe(
+    'select count(*)::int as count from seasons',
+  )) as Array<{ count: number }>;
+  return row?.count ?? 0;
+};
+
 describe('season operations (RATE-1.2)', () => {
   test('opens one active season and refuses a second', async () => {
     await withFixture(url, async (fixture) => {
@@ -162,9 +169,7 @@ describe('season operations (RATE-1.2)', () => {
           name: 'Season 1',
           startsAt: october,
         });
-        const [{ count: before }] = (await fixture.sql.unsafe(
-          'select count(*)::int as count from seasons',
-        )) as Array<{ count: number }>;
+        const before = await seasonCount(fixture);
         await assertRejects({
           given:
             'a rollover whose close succeeds but whose next season reuses an existing id',
@@ -176,9 +181,7 @@ describe('season operations (RATE-1.2)', () => {
             }),
           code: 'CONFLICT',
         });
-        const [{ count: after }] = (await fixture.sql.unsafe(
-          'select count(*)::int as count from seasons',
-        )) as Array<{ count: number }>;
+        const after = await seasonCount(fixture);
         assert({
           given: 'an open that fails after the close ran in the same rollover',
           should:
