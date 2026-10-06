@@ -19,7 +19,7 @@ const refused = {
   'feedback-affirmative': 'Slow down in the rebuttal.',
   'feedback-negative': 'Weigh the impacts.',
   conduct: 'report',
-  'low-point': 'confirmed',
+  'low-point': 'negative:40:30',
 };
 
 const render = (
@@ -62,7 +62,7 @@ describe('BallotFields', () => {
         html.includes('Slow down in the rebuttal.') &&
           html.includes('Weigh the impacts.'),
         inputFor(html, 'conduct', 'report').includes('checked'),
-        inputFor(html, 'low-point', 'confirmed').includes('checked'),
+        inputFor(html, 'low-point', 'negative:40:30').includes('checked'),
       ],
       expected: [true, true, false, 10, true, true, true, true],
     });
@@ -77,8 +77,8 @@ describe('BallotFields', () => {
         'ask for a confirmation naming the winner and both totals, and ask nothing on level points',
       actual: [
         fresh.includes('Daniel Kim wins with fewer points: 30 to 40'),
-        inputFor(fresh, 'low-point', 'confirmed') !== '' &&
-          !inputFor(fresh, 'low-point', 'confirmed').includes('checked'),
+        inputFor(fresh, 'low-point', 'negative:40:30') !== '' &&
+          !inputFor(fresh, 'low-point', 'negative:40:30').includes('checked'),
         level.includes('name="low-point"'),
       ],
       expected: [true, true, false],

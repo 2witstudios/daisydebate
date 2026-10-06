@@ -123,17 +123,28 @@ describe('parseBallot', () => {
   });
 
   test('a low-point win', () => {
+    // The negative wins on 30 to 40; a key is winner, then the affirmative's total, then the negative's.
     const lowPoint = { ...valid, winner: 'negative' };
-    const refused = parseBallot(postedForm(lowPoint), debaters);
-    const confirmed = parseBallot(
-      postedForm({ ...lowPoint, 'low-point': 'confirmed' }),
-      debaters,
-    );
+    const confirmedFor = (key: string) =>
+      parseBallot(postedForm({ ...lowPoint, 'low-point': key }), debaters);
+    const unconfirmed = parseBallot(postedForm(lowPoint), debaters);
+    const stale = confirmedFor('negative:32:30');
+    const confirmed = confirmedFor('negative:40:30');
     assert({
-      given: 'a winner on fewer points, unconfirmed and then confirmed',
-      should: 'refuse it until the judge confirms, then accept it',
-      actual: [refused.ok ? null : refused.error, confirmed.ok],
-      expected: ['Confirm the low-point win, or change the scores.', true],
+      given:
+        'a winner on fewer points: unconfirmed, confirmed for an earlier result, then for this one',
+      should:
+        'refuse it until the confirmation names this winner and these totals, then accept it',
+      actual: [
+        unconfirmed.ok ? null : unconfirmed.error,
+        stale.ok ? null : stale.error,
+        confirmed.ok,
+      ],
+      expected: [
+        'Confirm the low-point win, or change the scores.',
+        'Confirm the low-point win, or change the scores.',
+        true,
+      ],
     });
   });
 });

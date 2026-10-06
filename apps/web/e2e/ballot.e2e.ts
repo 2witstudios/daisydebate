@@ -42,6 +42,8 @@ for (const javaScriptEnabled of [true, false]) {
       await expect(page.locator('#ballot-refusal')).toHaveText(
         'Write the reason for your decision.',
       );
+      // The refusal heads the form, so the reloaded page shows it at once.
+      await expect(page.locator('#ballot-refusal')).toBeInViewport();
       await expect(radio(page, 'Daniel Kim')).toBeChecked();
       await expect(slider(page, 'Thesis', 'Maya Singh')).toHaveValue('5');
       await expect(page.getByLabel('Feedback for Maya')).toHaveValue(
@@ -133,40 +135,59 @@ test('no winner: the refusal names both debaters', async ({ page }) => {
   );
 });
 
-test('on a phone every slider is usable and the names are whole', async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 360, height: 780 });
-  await page.goto(ballotUrl);
-  for (const name of ['Maya Singh', 'Daniel Kim']) {
-    const box = await slider(page, 'Delivery', name).boundingBox();
-    // Five stops a thumb can tell apart: at least 20 px each.
-    expect(box?.width ?? 0).toBeGreaterThanOrEqual(100);
-    const label = page.locator('label', { hasText: name }).first();
-    await expect(label.getByText(name, { exact: true })).toBeVisible();
-    const fits = await label
-      .getByText(name, { exact: true })
-      .evaluate((node) => node.scrollWidth <= node.clientWidth);
-    expect(fits).toBe(true);
-  }
-  await assertNoSeriousFindings(page);
-});
-
-/** The right edge of a box, or 0 when the element is not laid out. */
-const rightEdge = (box: { x: number; width: number } | null): number =>
-  box === null ? 0 : box.x + box.width;
-
-/** Every given cell ends inside the table: nothing is clipped. */
-async function expectInside(table: Locator, cells: readonly Locator[]) {
-  const right = rightEdge(await table.boundingBox());
-  for (const cell of cells)
-    expect(rightEdge(await cell.boundingBox())).toBeLessThanOrEqual(right);
+for (const width of [360, 641, 768]) {
+  test(`at ${width} px every slider is usable and the names are whole`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 780 });
+    await page.goto(ballotUrl);
+    for (const name of ['Maya Singh', 'Daniel Kim']) {
+      const box = await slider(page, 'Delivery', name).boundingBox();
+      // Five stops a thumb can tell apart: at least 20 px each.
+      expect(box?.width ?? 0).toBeGreaterThanOrEqual(100);
+      const label = page.locator('label', { hasText: name }).first();
+      await expect(label.getByText(name, { exact: true })).toBeVisible();
+      const fits = await label
+        .getByText(name, { exact: true })
+        .evaluate((node) => node.scrollWidth <= node.clientWidth);
+      expect(fits).toBe(true);
+    }
+    // Scanned with a winner picked, so the unpicked card is in the scan too.
+    await pick(page, 'Daniel Kim');
+    await assertNoSeriousFindings(page);
+  });
 }
 
-for (const width of [390, 1024, 1280]) {
-  // A phone drops the head row and names the judge in each cell instead.
-  const phone = width < 641;
-  test(`the result shows every judge's scores at ${width} px`, async ({
+/**
+ * Every cell's visible text, numbers and labels included, as laid out:
+ * any text that runs past its own cell or the table's edge is reported.
+ * Measuring the text, not the cells, is what catches a number printed over
+ * its neighbour, since a grid track is always inside its table. Text kept
+ * for screen readers only is visually hidden and left out.
+ */
+const overflowing = (table: Locator): Promise<string[]> =>
+  table.evaluate((node) => {
+    const edge = node.getBoundingClientRect();
+    const range = document.createRange();
+    const cells = node.querySelectorAll('[role="cell"], [role="rowheader"]');
+    return [...cells].flatMap((cell) => {
+      const box = cell.getBoundingClientRect();
+      const right = Math.min(box.right, edge.right) + 0.5;
+      const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+      const out: string[] = [];
+      for (let text = walker.nextNode(); text; text = walker.nextNode()) {
+        if (text.parentElement?.closest('.sr-only')) continue;
+        range.selectNodeContents(text);
+        for (const rect of range.getClientRects())
+          if (rect.right > right || rect.left < box.left - 0.5)
+            out.push(text.textContent ?? '');
+      }
+      return out;
+    });
+  });
+
+for (const width of [360, 390, 768, 920, 1024, 1280, 1440]) {
+  test(`the result shows every judge's scores whole at ${width} px`, async ({
     page,
   }) => {
     await page.setViewportSize({ width, height: 900 });
@@ -175,15 +196,15 @@ for (const width of [390, 1024, 1280]) {
       page.getByRole('heading', { name: 'Maya Singh wins' }),
     ).toBeVisible();
     const table = page.getByRole('table', { name: 'Speaker scores' });
-    const headers = phone
-      ? []
-      : ['Judge', 'AI judge'].map((name) =>
-          table.getByRole('columnheader', { name, exact: true }),
-        );
-    for (const header of headers) await expect(header).toBeInViewport();
-    const totals = table.getByRole('row').last().getByRole('cell');
-    await expect(totals).toHaveCount(2);
-    await expectInside(table, [...headers, ...(await totals.all())]);
+    // Both judges head their columns for a screen reader at every width.
+    for (const name of ['Judge', 'AI judge'])
+      await expect(
+        table.getByRole('columnheader', { name, exact: true }),
+      ).toHaveCount(1);
+    await expect(table.getByRole('row').last().getByRole('cell')).toHaveCount(
+      2,
+    );
+    expect(await overflowing(table)).toEqual([]);
     await assertNoSeriousFindings(page);
   });
 }

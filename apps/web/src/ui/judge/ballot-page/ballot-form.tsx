@@ -13,6 +13,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { Side } from '../../../features/debates/turns';
 import {
   feedbackField,
+  lowPointKey,
   readScore,
   scoreField,
   type BallotDebaters,
@@ -54,10 +55,6 @@ const postedScores = (values: Readonly<Record<string, string>>): SheetScores =>
       ),
     ]),
   ) as SheetScores;
-
-/** A result the judge confirms: who won, on which totals. */
-const resultKey = (winner: Side | null, scores: SheetScores): string =>
-  `${winner ?? 'none'}:${speakerTotal(scores.affirmative)}:${speakerTotal(scores.negative)}`;
 
 const noSubscription = () => () => {};
 
@@ -104,13 +101,14 @@ export function BallotFields({
     }));
   const loser = winner === 'affirmative' ? 'negative' : 'affirmative';
   const lowPoint = winner !== null && isLowPointWin(winner, scores);
-  const result = resultKey(winner, scores);
   // A confirmation carries over only for the result it was given for.
-  const confirmed =
-    values['low-point'] === 'confirmed' &&
-    result === resultKey(postedWinner, posted);
+  const result = winner === null ? '' : lowPointKey(winner, scores);
+  const confirmed = values['low-point'] === result;
   return (
     <div ref={root} className="contents">
+      <div id={REFUSAL_ID} tabIndex={-1} className="empty:hidden">
+        <FormError error={error} />
+      </div>
       <section aria-labelledby="ballot-winner" className={ballotSectionClass}>
         <h2 id="ballot-winner" className={ballotHeadingClass}>
           Who won?
@@ -143,7 +141,7 @@ export function BallotFields({
                 key={result}
                 type="checkbox"
                 name="low-point"
-                value="confirmed"
+                value={result}
                 defaultChecked={confirmed}
                 className={checkClass}
               />
@@ -204,9 +202,6 @@ export function BallotFields({
         </label>
       </section>
 
-      <div id={REFUSAL_ID} tabIndex={-1}>
-        <FormError error={error} />
-      </div>
       <div className="flex flex-wrap items-center gap-4">
         <button
           type="submit"

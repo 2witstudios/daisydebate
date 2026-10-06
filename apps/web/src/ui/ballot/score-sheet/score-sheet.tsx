@@ -62,11 +62,10 @@ export function ScoreSheet({
     0,
   );
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-background">
+    <div className="@container overflow-hidden rounded-lg border border-border bg-background">
       <div
         className={cn(
-          ballotGridClass,
-          'bg-surface px-5 py-3 max-narrow:hidden',
+          'hidden grid-cols-4 items-center gap-x-6 bg-surface px-5 py-3 @ballot-sheet:grid',
           ballotEyebrowClass,
         )}
       >
@@ -119,7 +118,7 @@ export function ScoreSheet({
                     key={side}
                     className={cn(
                       ballotSideCellClass,
-                      'flex items-center gap-3 max-narrow:flex-wrap max-narrow:gap-y-0',
+                      'flex flex-wrap items-center gap-x-3 @ballot-sheet:flex-nowrap',
                     )}
                   >
                     <span className="sr-only">
@@ -128,7 +127,7 @@ export function ScoreSheet({
                     <span
                       aria-hidden="true"
                       className={cn(
-                        'hidden max-narrow:block max-narrow:basis-full',
+                        'block basis-full @ballot-sheet:hidden',
                         ballotEyebrowClass,
                         sideTextClass(side),
                       )}
@@ -188,7 +187,7 @@ export function ScoreSheet({
                   ballotEyebrowClass,
                   'w-16 shrink-0 truncate',
                   sideTextClass(side),
-                  'hidden max-narrow:inline',
+                  'inline @ballot-sheet:hidden',
                 )}
                 aria-hidden="true"
               >

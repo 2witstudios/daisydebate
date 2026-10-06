@@ -1,14 +1,19 @@
 import type { Side } from '../../features/debates/turns';
 
-/** One grid for the score sheet's header, rows and total; the phone stacks the category over one row per side. */
+/**
+ * One grid for the score sheet's rows and total. Its tracks follow the
+ * sheet's own width (`@container` on the sheet): wide, the category and the
+ * two sides share a line; narrow, the category heads one row per side.
+ */
 export const ballotGridClass =
-  'grid grid-cols-12 items-center gap-x-6 max-narrow:grid-cols-2 max-narrow:gap-x-4';
+  'grid grid-cols-2 items-center gap-x-4 @ballot-sheet:grid-cols-4 @ballot-sheet:gap-x-6';
 
-/** The category column, full width on a phone. */
-export const ballotLabelCellClass = 'col-span-6 min-w-0 max-narrow:col-span-2';
+/** The category column: a full line when narrow, half the row when wide. */
+export const ballotLabelCellClass = 'col-span-2 min-w-0';
 
-/** One side's column; a full row of its own on a phone. */
-export const ballotSideCellClass = 'col-span-3 min-w-0 max-narrow:col-span-2';
+/** One side's column; a full row of its own when the sheet is narrow. */
+export const ballotSideCellClass =
+  'col-span-2 min-w-0 @ballot-sheet:col-span-1';
 
 /** A section of the ballot: a tone-separated card with a display heading. */
 export const ballotSectionClass =

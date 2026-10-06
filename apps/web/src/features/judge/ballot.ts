@@ -7,7 +7,9 @@ import {
   ballotScoreMax,
   debateSides,
   isLowPointWin,
+  speakerTotal,
   type Ballot,
+  type BallotCategory,
 } from '@daisy/protocol';
 import type { SearchParams } from '../access/decision';
 import { accept, field, refuse, type Parsed } from '../mock-form/form';
@@ -36,6 +38,17 @@ const scorePattern = new RegExp(`^[1-${ballotScoreMax}]$`);
 /** A posted score: a single digit from 1 to the maximum, or nothing. */
 export const readScore = (value: string | undefined): number | null =>
   value !== undefined && scorePattern.test(value) ? Number(value) : null;
+
+/**
+ * What a low-point confirmation is given for: the winner and both totals.
+ * The confirmation posts this as its value, so one given for one result
+ * never confirms another.
+ */
+export const lowPointKey = (
+  winner: Side,
+  scores: Readonly<Record<Side, Readonly<Record<BallotCategory, number>>>>,
+): string =>
+  `${winner}:${speakerTotal(scores.affirmative)}:${speakerTotal(scores.negative)}`;
 
 /**
  * A text field as the judge counted it: the browser posts each line break as
@@ -97,7 +110,7 @@ export function parseBallot(
   const ballot = parsed.data;
   if (
     isLowPointWin(ballot.winner, ballot.scores) &&
-    field(form, 'low-point') !== 'confirmed'
+    field(form, 'low-point') !== lowPointKey(ballot.winner, ballot.scores)
   )
     return refuse('Confirm the low-point win, or change the scores.');
   return accept({ ballot, reportConduct: field(form, 'conduct') === 'report' });

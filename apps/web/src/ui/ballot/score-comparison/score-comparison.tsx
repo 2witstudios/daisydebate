@@ -16,14 +16,15 @@ import { firstName } from '../ballot-labels';
 const splitGap = 2;
 
 /**
- * Category, judge, AI judge. Four tracks so the scores stay visible in the
- * narrow result column; a phone gives the category its own line.
+ * Category, judge, AI judge, laid out by the comparison's own width
+ * (`@container`), since the result column it sits in can be narrow at any
+ * viewport. Wide, the three share a line; narrow, the category heads its
+ * row and each judge's cell names the judge above its numbers.
  */
 const rowClass =
-  'grid grid-cols-4 items-start gap-x-4 px-4 py-3 max-narrow:grid-cols-2 max-narrow:gap-y-1 max-narrow:px-3';
+  'grid grid-cols-2 items-start gap-x-3 gap-y-2 px-3 py-3 @ballot-compare:grid-cols-4 @ballot-compare:gap-x-4 @ballot-compare:gap-y-0 @ballot-compare:px-4';
 const labelClass = 'col-span-2 min-w-0';
-const cellClass =
-  'col-span-1 min-w-0 max-narrow:flex max-narrow:items-baseline max-narrow:gap-2';
+const cellClass = 'col-span-1 flex min-w-0 flex-col gap-1';
 const judges = [
   { key: 'judge', title: 'Judge' },
   { key: 'ai', title: 'AI judge' },
@@ -53,7 +54,12 @@ function Pair({
   readonly className?: string;
 }) {
   return (
-    <span className={cn('flex gap-3 font-bold tabular-nums', className)}>
+    <span
+      className={cn(
+        'flex gap-2 font-bold tabular-nums @ballot-compare:gap-3',
+        className,
+      )}
+    >
       {debateSides.map((side) => (
         <span key={side} className={sideTextClass(side)}>
           <span className="sr-only">{`${debaters[side].name} `}</span>
@@ -64,12 +70,12 @@ function Pair({
   );
 }
 
-/** The judge a cell belongs to, said on a phone where the header is hidden. */
+/** The judge a cell belongs to, shown when narrow, where the head row is hidden. */
 function CellLabel({ children }: { readonly children: ReactNode }) {
   return (
     <span
       aria-hidden="true"
-      className={cn('hidden max-narrow:inline', ballotEyebrowClass)}
+      className={cn('@ballot-compare:hidden', ballotEyebrowClass)}
     >
       {children}
     </span>
@@ -136,7 +142,7 @@ export function ScoreComparison({
 }) {
   const ballots = { judge, ai } as const;
   return (
-    <div className="flex flex-col gap-3">
+    <div className="@container flex flex-col gap-3">
       <p className="flex flex-wrap gap-x-4 text-sm font-strong">
         {debateSides.map((side) => (
           <span key={side} className={sideTextClass(side)}>
@@ -154,7 +160,7 @@ export function ScoreComparison({
             role="row"
             className={cn(
               rowClass,
-              'bg-surface max-narrow:hidden',
+              'sr-only bg-surface @ballot-compare:not-sr-only',
               ballotEyebrowClass,
             )}
           >
@@ -173,7 +179,7 @@ export function ScoreComparison({
             <p
               aria-hidden="true"
               className={cn(
-                'border-t border-border px-4 pt-4 pb-1 max-narrow:px-3',
+                'border-t border-border px-3 pt-4 pb-1 @ballot-compare:px-4',
                 ballotEyebrowClass,
               )}
             >
@@ -222,7 +228,7 @@ export function ScoreComparison({
                 <Pair
                   debaters={debaters}
                   values={(side) => speakerTotal(ballots[key].scores[side])}
-                  className="font-display text-xl"
+                  className="font-display text-md @ballot-compare:text-xl"
                 />
               </span>
             ))}
