@@ -80,6 +80,22 @@
         "path": "packages/debate-engine/src/rules.test.ts",
         "name": "refuses more than one seat per side until slots are modelled"
       }
+    },
+    {
+      "id": "debate.rating.state-bounded",
+      "check": "rating-state-bounded",
+      "testReference": {
+        "path": "packages/debate-engine/src/glicko2.test.ts",
+        "name": "rejects a rating state outside the ledger bounds"
+      }
+    },
+    {
+      "id": "debate.rating.volatility-converges",
+      "check": "rating-volatility-converges",
+      "testReference": {
+        "path": "packages/debate-engine/src/glicko2.test.ts",
+        "name": "rejects a volatility iteration that does not converge"
+      }
     }
   ]
 }
