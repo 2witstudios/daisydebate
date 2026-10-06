@@ -78,7 +78,7 @@ describe('debate room documents over PostgreSQL', () => {
       });
       const saved = await operations.saveDocument(me, {
         id: flow.id,
-        html: '<p>Turn<script>x()</script></p>',
+        html: '<p onclick="x()">Turn</p>',
         expectedRevision: 1,
       });
       const stale = await operations
