@@ -55,6 +55,14 @@ abandoned debate never rates. A forfeit has a side outcome (ADR 0033) and
 rates exactly like a judged result, so rating reads `outcome` and ignores
 `outcome_reason`.
 
+Each debater's ledger is ordered by posting, and a late debate is never
+lost. A debate is posted at its completion. If either debater was already
+posted at or after that instant, it is posted one millisecond after the
+latest such posting instead. This happens when another debate sharing a
+debater was rated first, or when a retry was delayed. So `before(n) =
+after(n - 1)` holds in `occurred_at` order for every debater, and the
+result never depends on which transaction committed first.
+
 ### 3. Idle time widens the deviation
 
 Because every period holds one debate, Glicko-2's per-period growth alone
@@ -92,7 +100,8 @@ season, their latest earlier-season state on the same format and ladder
 starts the season with the rating and volatility kept and the deviation
 raised to at least 150. A debater with no earlier state starts at 1500.
 A debate is posted to the season that is active when it is rated, and its
-`occurred_at` is the debate's `completed_at`.
+`occurred_at` is its posting instant (section 2): the debate's
+`completed_at`, unless a debater was already posted later.
 
 ### 7. Provisional is derived from the deviation
 
@@ -108,8 +117,12 @@ bands.
   is no default or backfill.
 - The rating write is one transaction that locks the debate, posts two ledger
   rows and updates the projection under its version. Re-rating a debate is a
-  no-op. Until ballots or completion call it, it is composed as a test-only
-  operation.
+  no-op. `@daisy/db`'s `rateDebate` decides nothing: the engine's
+  `ratingEligibility` and `planRating` are injected as its decision, because
+  the adapter sits below the domain and never imports it. The
+  `apps/web` ratings feature (`rateCompletedDebate`) composes the two.
+  Nothing calls it yet. Wiring it into the debate completion path is task
+  RATE-2.
 - The leaderboard and profile read real standings, with Ranked and Quick match
   shown separately. They are empty until a ranked-eligible format and an
   active season exist; opening the first production season is a human-only

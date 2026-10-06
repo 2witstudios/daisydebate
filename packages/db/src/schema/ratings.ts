@@ -1,3 +1,4 @@
+import { ratingLadders, type RatingLadder } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { PgColumn } from 'drizzle-orm/pg-core';
 import {
@@ -74,10 +75,12 @@ const ratingScope = () => ({
   seasonId: text('season_id')
     .notNull()
     .references(() => seasons.id, { onDelete: 'restrict' }),
+  /** Ranked or Quick match (ADR 0055): each is its own ladder. */
+  ladder: text('ladder').$type<RatingLadder>().notNull(),
 });
 
 /**
- * Current Glicko-2 state per actor, format and season: a projection of
+ * Current Glicko-2 state per actor, format, season and ladder: a projection of
  * `rating_changes`, written in the same transaction. Provisional status,
  * tier, games played, peak and last-rated time are derived, never stored.
  */
@@ -92,13 +95,17 @@ export const ratings = pgTable(
     version: versionColumn(),
   },
   (table) => [
-    primaryKey({ columns: [table.actorId, table.formatId, table.seasonId] }),
+    primaryKey({
+      columns: [table.actorId, table.formatId, table.seasonId, table.ladder],
+    }),
     index('ratings_leaderboard_idx').on(
       table.formatId,
       table.seasonId,
+      table.ladder,
       table.rating.desc(),
     ),
     index('ratings_season_idx').on(table.seasonId),
+    check('ratings_ladder_check', oneOf(table.ladder, ratingLadders)),
     check('ratings_rating_range', ratingBand(table.rating)),
     check('ratings_deviation_positive', positiveFinite(table.deviation)),
     check('ratings_volatility_positive', positiveFinite(table.volatility)),
@@ -149,6 +156,7 @@ export const ratingChanges = pgTable(
     index('rating_changes_actor_format_occurred_idx').on(
       table.actorId,
       table.formatId,
+      table.ladder,
       table.occurredAt,
     ),
     index('rating_changes_debate_format_idx').on(
@@ -157,6 +165,7 @@ export const ratingChanges = pgTable(
     ),
     index('rating_changes_format_idx').on(table.formatId),
     index('rating_changes_season_idx').on(table.seasonId),
+    check('rating_changes_ladder_check', oneOf(table.ladder, ratingLadders)),
     check(
       'rating_changes_rating_range',
       sql`${ratingBand(table.ratingBefore)} and ${ratingBand(table.ratingAfter)}`,

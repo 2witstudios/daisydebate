@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "6e50b6c1-cbe0-4116-be58-97a823bb91db",
+  "id": "72669b5d-8689-4f30-90f4-d48f584b360b",
   "prevIds": [
-    "91ce3ce5-dd06-44bd-bfa5-e093d4f24e39"
+    "643a9ed6-6d99-4f84-9b87-813441193cd6"
   ],
   "ddl": [
     {
@@ -2541,6 +2541,19 @@
       "table": "rating_changes"
     },
     {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "ladder",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rating_changes"
+    },
+    {
       "type": "double precision",
       "typeSchema": null,
       "notNull": true,
@@ -2679,6 +2692,19 @@
       "generated": null,
       "identity": null,
       "name": "season_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ratings"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "ladder",
       "entityType": "columns",
       "schema": "public",
       "table": "ratings"
@@ -3955,6 +3981,13 @@
           "opclass": null
         },
         {
+          "value": "ladder",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
           "value": "occurred_at",
           "isExpression": false,
           "asc": true,
@@ -4054,6 +4087,13 @@
         },
         {
           "value": "season_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "ladder",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -4860,7 +4900,8 @@
       "columns": [
         "actor_id",
         "format_id",
-        "season_id"
+        "season_id",
+        "ladder"
       ],
       "nameExplicit": false,
       "name": "ratings_pkey",
@@ -5375,7 +5416,7 @@
       "table": "debates"
     },
     {
-      "value": "\"mode\" in ('casual', 'ranked', 'practice')",
+      "value": "\"mode\" in ('casual', 'ranked', 'quick', 'practice')",
       "name": "debates_mode_check",
       "entityType": "checks",
       "schema": "public",
@@ -5501,6 +5542,13 @@
       "table": "outbox"
     },
     {
+      "value": "\"ladder\" in ('ranked', 'quick')",
+      "name": "rating_changes_ladder_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "rating_changes"
+    },
+    {
       "value": "\"rating_before\" between 0 and 4000 and \"rating_after\" between 0 and 4000",
       "name": "rating_changes_rating_range",
       "entityType": "checks",
@@ -5520,6 +5568,13 @@
       "entityType": "checks",
       "schema": "public",
       "table": "rating_changes"
+    },
+    {
+      "value": "\"ladder\" in ('ranked', 'quick')",
+      "name": "ratings_ladder_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "ratings"
     },
     {
       "value": "\"rating\" between 0 and 4000",

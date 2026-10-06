@@ -1,12 +1,12 @@
 import {
   debateSnapshotSchema,
+  type DebateMode,
   type DebatePhase,
   type DebateSnapshot,
 } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import type {
   debates,
-  DebateMode,
   DebateOutcome,
   DebateVisibility,
 } from './schema/debates';

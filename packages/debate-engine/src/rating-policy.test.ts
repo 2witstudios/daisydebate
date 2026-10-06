@@ -1,4 +1,5 @@
 import { assertRejects } from '@daisy/errors/testing';
+import { debateModes } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   carryOver,
@@ -105,8 +106,8 @@ describe('ladderForMode', () => {
     assert({
       given: 'every debate mode',
       should: 'rate ranked and quick on their own ladders only',
-      actual: ['ranked', 'quick', 'casual', 'practice'].map(ladderForMode),
-      expected: ['ranked', 'quick', null, null],
+      actual: debateModes.map(ladderForMode),
+      expected: [null, 'ranked', 'quick', null],
     });
   });
 });

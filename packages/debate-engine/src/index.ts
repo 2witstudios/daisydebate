@@ -1,6 +1,5 @@
 import { createAppError, createInvariantError } from '@daisy/errors';
 import {
-  debateRoles,
   debateSides,
   debateSnapshotSchema,
   type DebateSnapshot,
@@ -11,6 +10,7 @@ import {
 import { createAdapter } from './ecs-adapter';
 import { debateInvariantIds } from './invariant-ids';
 export { debateInvariantIds } from './invariant-ids';
+export { rulesMatchFormat } from './rules-match';
 export type {
   DebateSnapshot,
   FormatRules,
@@ -24,22 +24,6 @@ export type DebateRuntime = {
   transition(phase: DebatePhase): void;
   dispose(): void;
 };
-/**
- * True when `rules` are exactly the canonical rules of the format (key order
- * ignored). A ranked debate must run under canonical rules (ADR 0030); a
- * lobby may override them, and then its result never reaches the ladder.
- */
-export function rulesMatchFormat(
-  rules: FormatRules,
-  canonical: FormatRules,
-): boolean {
-  return (
-    rules.version === canonical.version &&
-    debateRoles.every((role) => rules.seats[role] === canonical.seats[role]) &&
-    rules.clock.speechMs === canonical.clock.speechMs &&
-    rules.clock.prepMs === canonical.clock.prepMs
-  );
-}
 function validateSnapshot(input: unknown): DebateSnapshot {
   const result = debateSnapshotSchema.safeParse(input);
   if (!result.success)
@@ -169,4 +153,5 @@ export {
 } from './ai-debate';
 
 export { ratePeriod } from './glicko2';
-export { rateDebate } from './rating';
+export { rateDebate, ratingPolicy } from './rating';
+export { planRating, ratingEligibility } from './rating-decision';

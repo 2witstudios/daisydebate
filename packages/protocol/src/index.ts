@@ -50,8 +50,31 @@ export type DebatePhase = z.infer<typeof phaseSchema>;
  * added in the same change as its first consumer (knip's
  * `includeEntryExports` fails an export nobody imports).
  */
-export { idSchema, debateSides, debateRoles, errorSchema } from './primitives';
-export type { ProtocolError } from './primitives';
+export {
+  idSchema,
+  debateSides,
+  debateRoles,
+  debateModes,
+  ratingLadders,
+  errorSchema,
+} from './primitives';
+export type {
+  DebateMode,
+  DebateRole,
+  ProtocolError,
+  RatingLadder,
+} from './primitives';
+export type {
+  DebaterStanding,
+  PlannedRatingChange,
+  RatedOutcome,
+  RatingEligibility,
+  RatingEligibilityFacts,
+  RatingPlan,
+  RatingPlanFacts,
+  RatingState,
+  RatingUnrated,
+} from './ratings';
 export {
   emailDeliveryStatuses,
   emailDeliveryStatusRank,
