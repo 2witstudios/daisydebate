@@ -38,6 +38,13 @@ export const readScore = (value: string | undefined): number | null =>
   value !== undefined && scorePattern.test(value) ? Number(value) : null;
 
 /**
+ * A text field as the judge counted it: the browser posts each line break as
+ * two characters (CRLF) where the textarea's own limit counted one.
+ */
+const text = (form: FormData, name: string): string =>
+  field(form, name).replace(/\r\n/g, '\n');
+
+/**
  * A ballot, read from the posted form. One ballot per judge seat. The
  * judge must pick a winner (no draws), score all ten categories for both
  * sides, give a reason, and confirm a win on fewer points.
@@ -62,7 +69,7 @@ export function parseBallot(
       ),
     ]),
   );
-  const reason = field(form, 'reason');
+  const reason = text(form, 'reason');
   if (reason === '') return refuse('Write the reason for your decision.');
   if (reason.length > ballotLimits.reason)
     return refuse(
@@ -70,7 +77,7 @@ export function parseBallot(
     );
   const feedback = Object.fromEntries(
     debateSides
-      .map((side) => [side, field(form, feedbackField(side))] as const)
+      .map((side) => [side, text(form, feedbackField(side))] as const)
       .filter(([, text]) => text !== ''),
   );
   if (

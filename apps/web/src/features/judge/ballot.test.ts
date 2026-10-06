@@ -103,6 +103,25 @@ describe('parseBallot', () => {
     });
   });
 
+  test('line breaks', () => {
+    // 540 letters and 59 line breaks: 599 as the textarea counts them.
+    const lines = Array.from({ length: 60 }, () => 'x'.repeat(9)).join('\r\n');
+    const result = parseBallot(
+      postedForm({ ...valid, reason: lines, 'feedback-negative': 'a\r\nb' }),
+      debaters,
+    );
+    assert({
+      given:
+        'a reason within the textarea’s limit whose line breaks the browser posts as two characters',
+      should: 'accept it, counting and keeping each line break once',
+      actual: result.ok && [
+        result.value.ballot.reason.length,
+        result.value.ballot.feedback.negative,
+      ],
+      expected: [599, 'a\nb'],
+    });
+  });
+
   test('a low-point win', () => {
     const lowPoint = { ...valid, winner: 'negative' };
     const refused = parseBallot(postedForm(lowPoint), debaters);

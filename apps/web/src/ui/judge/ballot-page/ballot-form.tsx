@@ -9,7 +9,7 @@ import {
   speakerTotal,
   type BallotCategory,
 } from '@daisy/protocol';
-import { useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { Side } from '../../../features/debates/turns';
 import {
   feedbackField,
@@ -17,6 +17,7 @@ import {
   scoreField,
   type BallotDebaters,
 } from '../../../features/judge/ballot';
+import { formValues } from '../../../features/mock-form/form';
 import {
   ballotHeadingClass,
   ballotSectionClass,
@@ -65,6 +66,8 @@ const noSubscription = () => () => {};
  * values after a refusal, or a fresh sheet. The controls are uncontrolled,
  * seeded from those values, so a refusal restores what was posted with or
  * without JavaScript; state only drives the read-outs that follow them.
+ * A judge can pick and score before the page hydrates, so on mount the
+ * read-outs start from what the controls hold, not from the answer.
  */
 export function BallotFields({
   debaters,
@@ -86,6 +89,14 @@ export function BallotFields({
   const postedWinner = readSide(values['winner']);
   const [winner, setWinner] = useState<Side | null>(postedWinner);
   const [scores, setScores] = useState<SheetScores>(posted);
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const form = root.current?.closest('form');
+    if (!form) return;
+    const held = formValues(new FormData(form));
+    setWinner(readSide(held['winner']));
+    setScores(postedScores(held));
+  }, []);
   const setScore = (side: Side, category: BallotCategory, score: number) =>
     setScores((current) => ({
       ...current,
@@ -99,7 +110,7 @@ export function BallotFields({
     values['low-point'] === 'confirmed' &&
     result === resultKey(postedWinner, posted);
   return (
-    <>
+    <div ref={root} className="contents">
       <section aria-labelledby="ballot-winner" className={ballotSectionClass}>
         <h2 id="ballot-winner" className={ballotHeadingClass}>
           Who won?
@@ -217,7 +228,7 @@ export function BallotFields({
           </p>
         ) : null}
       </div>
-    </>
+    </div>
   );
 }
 

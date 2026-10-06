@@ -3,6 +3,7 @@ import { expect, test } from './support/fixtures';
 import { assertNoSeriousFindings } from './support/axe';
 import { resetRateLimits, signUpMember } from './support/accounts';
 import { expectNotInUrl } from './support/forms';
+import { effectsRan } from './support/hydration';
 
 /**
  * The judge's ballot (ISSUE-348): one real POST that works with and without
@@ -72,6 +73,56 @@ for (const javaScriptEnabled of [true, false]) {
     });
   });
 }
+
+/** Holds the page's scripts until `release` runs, so input lands before hydration. */
+async function holdScripts(page: Page): Promise<() => void> {
+  let release: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  // Only the scripts: the stylesheets live beside them and block painting.
+  const script = (url: URL) =>
+    url.pathname.startsWith('/_next/static/') && url.pathname.endsWith('.js');
+  await page.route(script, async (route) => {
+    await gate;
+    await route.continue();
+  });
+  return release;
+}
+
+test('input made before hydration is kept, shown and posted', async ({
+  page,
+}) => {
+  const release = await holdScripts(page);
+  // The held chunks keep the load events from firing; wait for the markup.
+  await page.goto(ballotUrl, { waitUntil: 'commit' });
+  await expect(slider(page, 'Delivery', 'Daniel Kim')).toBeVisible();
+  await pick(page, 'Daniel Kim');
+  await slider(page, 'Thesis', 'Maya Singh').fill('5');
+  release();
+  await effectsRan(page);
+
+  // The read-outs start from the controls, not from a fresh sheet.
+  await expect(
+    page.locator('p', { hasText: 'Your vote: Daniel Kim wins' }),
+  ).toBeVisible();
+  await expect(
+    page.getByText('Daniel Kim wins with fewer points: 30 to 32'),
+  ).toBeVisible();
+
+  // A later change leaves the earlier input alone, and the refusal keeps it.
+  await slider(page, 'Delivery', 'Daniel Kim').fill('4');
+  await expect(radio(page, 'Daniel Kim')).toBeChecked();
+  await page.getByLabel('Reason for decision').fill('A close round.');
+  await submit(page);
+  await expect(page.locator('#ballot-refusal')).toHaveText(
+    'Confirm the low-point win, or change the scores.',
+  );
+  await expect(radio(page, 'Daniel Kim')).toBeChecked();
+  await expect(slider(page, 'Thesis', 'Maya Singh')).toHaveValue('5');
+  await expect(slider(page, 'Delivery', 'Daniel Kim')).toHaveValue('4');
+  await expect(page.getByLabel('Confirm the decision')).toBeVisible();
+});
 
 test('no winner: the refusal names both debaters', async ({ page }) => {
   await page.goto(ballotUrl);
