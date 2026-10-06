@@ -25,7 +25,7 @@ const document = (
   title,
   folder,
   templateId: 'blank',
-  content: { type: 'doc' },
+  html: '<p></p>',
   createdAt,
   updatedAt: createdAt,
 });

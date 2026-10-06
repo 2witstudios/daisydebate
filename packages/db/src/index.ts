@@ -10,6 +10,7 @@ import { claimUsername } from './username-claim';
 import { authOperations } from './auth-operations';
 import { debateOperations } from './debate-operations';
 import { aiDebateOperations } from './ai-debate-operations';
+import { debateDocumentOperations } from './debate-document-operations';
 import { actorOperations } from './actor-operations';
 import { emailDeliveryOperations } from './email-delivery-operations';
 import { outboxOperations } from './outbox';
@@ -36,6 +37,12 @@ export type {
   AiDebateUtteranceRecord,
   NewAiDebate,
 } from './ai-debate-record';
+export type {
+  DebateDocumentFolder,
+  DebateDocumentRecord,
+  DebateDocumentSave,
+  NewDebateDocument,
+} from './debate-document-record';
 export type { DatabaseEventSink } from './instrumented';
 export {
   encodeOutboxCursor,
@@ -152,6 +159,7 @@ export function createDatabase({
     ...outboxOperations({ database, eventSink }),
     ...debateOperations({ database, eventSink }),
     ...aiDebateOperations({ database, eventSink }),
+    ...debateDocumentOperations({ database, eventSink }),
     /** Server-owned onboarding claim; see `claimUsername`. */
     claimUsername: (input: { userId: string; username: string }) =>
       claimUsername(database, input, nextActorId, eventSink),

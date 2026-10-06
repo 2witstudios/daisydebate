@@ -65,15 +65,15 @@ describe('reduceRoom agent/edit', () => {
       given: 'an agent edit applied to the NR plan',
       should: 'append its lines, record the outcome and open the document',
       actual: {
-        blocks: doc?.content.content?.length,
+        added: doc?.html.endsWith(
+          '<ul><li><p>0:15 extra time on N2 weighing</p></li></ul>',
+        ),
         outcome: after.edits.a2,
         active: after.tabs.active,
         updatedAt: doc?.updatedAt,
       },
       expected: {
-        blocks:
-          (before.documents.find((d) => d.id === 'doc-nr')?.content.content
-            ?.length ?? 0) + 1,
+        added: true,
         outcome: 'applied',
         active: 'doc-nr',
         updatedAt: now,
@@ -118,12 +118,55 @@ describe('reduceRoom sidebar/tab', () => {
 
 describe('appendBullets', () => {
   test('no lines', () => {
-    const content = { type: 'doc', content: [] };
     assert({
       given: 'no lines to add',
-      should: 'return the content unchanged',
-      actual: appendBullets(content, []),
-      expected: content,
+      should: 'return the document unchanged',
+      actual: appendBullets('<p>a</p>', []),
+      expected: '<p>a</p>',
+    });
+  });
+
+  test('escaping', () => {
+    assert({
+      given: 'a line with markup characters',
+      should: 'escape it inside a new bullet',
+      actual: appendBullets('<p>a</p>', ['<b>x</b>']),
+      expected: '<p>a</p><ul><li><p>&lt;b&gt;x&lt;/b&gt;</p></li></ul>',
+    });
+  });
+});
+
+describe('reduceRoom doc/loaded and doc/add', () => {
+  const reduce = reduceRoom(practice);
+  const flow = practice.documents.find((d) => d.id === 'doc-flow')!;
+
+  test('the server’s documents arrive', () => {
+    const empty = { ...initialRoomState({ ...practice, documents: [] }) };
+    const state = reduce(empty, { type: 'doc/loaded', documents: [flow] });
+    assert({
+      given: 'a room with no documents loading the server’s',
+      should: 'hold them and open the round documents',
+      actual: { ids: state.documents.map((d) => d.id), tabs: state.tabs },
+      expected: {
+        ids: ['doc-flow'],
+        tabs: { open: ['doc-flow'], active: 'doc-flow' },
+      },
+    });
+  });
+
+  test('a document the server created', () => {
+    const state = reduce(
+      { ...initialRoomState(practice), paletteOpen: true },
+      {
+        type: 'doc/add',
+        document: { ...flow, id: 'doc-new', title: 'Flow 2' },
+      },
+    );
+    assert({
+      given: 'a document created on the server',
+      should: 'add it, open it and close the palette',
+      actual: { active: state.tabs.active, paletteOpen: state.paletteOpen },
+      expected: { active: 'doc-new', paletteOpen: false },
     });
   });
 });

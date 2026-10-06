@@ -1,17 +1,6 @@
 import { formatClock as formatSeconds } from '../judge/clock';
 import { formatClock } from './clock';
 
-type Attrs = Readonly<Record<string, unknown>>;
-
-/** A Tiptap-compatible JSON node, described without importing Tiptap. */
-export type DocJSON = {
-  readonly type: string;
-  readonly attrs?: Attrs;
-  readonly content?: readonly DocJSON[];
-  readonly text?: string;
-  readonly marks?: readonly { readonly type: string; readonly attrs?: Attrs }[];
-};
-
 export type DebateMark = 'aff' | 'neg' | 'extend' | 'dropped' | 'new';
 export const debateMarks: readonly DebateMark[] = [
   'aff',
@@ -58,33 +47,22 @@ export type TemplateContext = {
   readonly currentIndex?: number;
 };
 
-const text = (value: string): DocJSON => ({ type: 'text', text: value });
-const paragraph = (value = ''): DocJSON =>
-  value === ''
-    ? { type: 'paragraph' }
-    : { type: 'paragraph', content: [text(value)] };
-const heading = (level: number, value: string): DocJSON => ({
-  type: 'heading',
-  attrs: { level },
-  content: [text(value)],
-});
-const bulletList = (items: readonly string[] = ['']): DocJSON => ({
-  type: 'bulletList',
-  content: items.map((item) => ({
-    type: 'listItem',
-    content: [paragraph(item)],
-  })),
-});
-const taskList = (): DocJSON => ({
-  type: 'taskList',
-  content: [
-    { type: 'taskItem', attrs: { checked: false }, content: [paragraph()] },
-  ],
-});
-const doc = (content: readonly DocJSON[]): DocJSON => ({
-  type: 'doc',
-  content,
-});
+/** Text for an HTML document, with markup characters escaped. */
+export const escapeHtml = (value: string): string =>
+  value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+
+const paragraph = (value = '') => `<p>${escapeHtml(value)}</p>`;
+const heading = (level: 1 | 2, value: string) =>
+  `<h${level}>${escapeHtml(value)}</h${level}>`;
+const bulletList = (items: readonly string[] = ['']) =>
+  `<ul>${items.map((item) => `<li>${paragraph(item)}</li>`).join('')}</ul>`;
+const taskList = () =>
+  '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p></p></li></ul>';
+const doc = (blocks: readonly string[]) => blocks.join('');
 
 const sideLabel: Readonly<Record<Side, string>> = { aff: 'Aff', neg: 'Neg' };
 
@@ -92,7 +70,7 @@ const titleOf = (id: TemplateId, context: TemplateContext) =>
   context.title.trim() ||
   (documentTemplates.find((t) => t.id === id)?.title ?? 'Untitled');
 
-function flowTemplate(context: TemplateContext): DocJSON {
+function flowTemplate(context: TemplateContext): string {
   const sections = context.speeches
     .filter((slot) => slot.kind === 'speech')
     .flatMap((slot) => {
@@ -105,7 +83,7 @@ function flowTemplate(context: TemplateContext): DocJSON {
   return doc([heading(1, titleOf('flow', context)), ...sections]);
 }
 
-function crossExTemplate(context: TemplateContext): DocJSON {
+function crossExTemplate(context: TemplateContext): string {
   return doc([
     heading(1, titleOf('cross-ex', context)),
     heading(2, 'Questions'),
@@ -121,7 +99,7 @@ const planRows = [
   { share: 0.8, label: 'Voters' },
 ] as const;
 
-function speechPlanTemplate(context: TemplateContext): DocJSON {
+function speechPlanTemplate(context: TemplateContext): string {
   const next = nextOwnSpeech(
     context.speeches,
     context.side,
@@ -140,11 +118,11 @@ function speechPlanTemplate(context: TemplateContext): DocJSON {
   ]);
 }
 
-/** A template's starting content as a 'doc' node. */
+/** A template's starting content as an HTML document (Tiptap's shape). */
 export function buildTemplate(
   id: TemplateId,
   context: TemplateContext,
-): DocJSON {
+): string {
   if (id === 'flow') return flowTemplate(context);
   if (id === 'cross-ex') return crossExTemplate(context);
   if (id === 'speech-plan') return speechPlanTemplate(context);
@@ -158,7 +136,8 @@ export type WorkspaceDocument = {
   readonly title: string;
   readonly folder: FolderId;
   readonly templateId: TemplateId;
-  readonly content: DocJSON;
+  /** The document as HTML, the stored source of truth (ADR 0054). */
+  readonly html: string;
   readonly createdAt: string;
   readonly updatedAt: string;
 };
@@ -190,18 +169,19 @@ export function createDocument(input: {
     title,
     folder: input.folder,
     templateId: input.templateId,
-    content: buildTemplate(input.templateId, { ...input.context, title }),
+    html: buildTemplate(input.templateId, { ...input.context, title }),
     createdAt: input.now,
     updatedAt: input.now,
   };
 }
 
-export function updateDocumentContent(
+export function updateDocumentHtml(
   document: WorkspaceDocument,
-  content: DocJSON,
+  html: string,
   now: string,
 ): WorkspaceDocument {
-  return { ...document, content, updatedAt: now };
+  if (html === document.html) return document;
+  return { ...document, html, updatedAt: now };
 }
 
 export function renameDocument(

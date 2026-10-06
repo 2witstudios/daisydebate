@@ -58,7 +58,7 @@ function Tile({
     <li
       aria-current={onFloor ? 'true' : undefined}
       className={cn(
-        'relative video-tile overflow-hidden rounded-xl bg-surface-stage shadow-1 transition-shadow',
+        'relative room-video-tile overflow-hidden rounded-md bg-surface-stage transition-shadow',
         onFloor && 'ring-2 ring-stage-accent',
       )}
     >
@@ -103,7 +103,7 @@ export function Stage({
   return (
     <ul
       aria-label="Debaters"
-      className="grid grid-cols-2 gap-4 max-compact:grid-cols-1"
+      className="flex justify-center gap-2 border-b border-border bg-surface-sunken p-2"
     >
       <Tile name={bot.name} side={aiSide} onFloor={floor === 'ai'}>
         {/* Its own backdrop, blurred across the tile like a call's background. */}

@@ -7,6 +7,7 @@ import {
   useReducer,
   useRef,
   type Dispatch,
+  type ReactNode,
 } from 'react';
 import { systemClock, systemId } from '@daisy/clock';
 import {
@@ -17,7 +18,8 @@ import {
 import { groupTranscript } from '../../features/debate-room/transcript';
 import { buildTree } from '../../features/debate-room/workspace';
 import { CommandPalette, type PaletteChoice } from './command-palette';
-import { RoundControls } from './controls';
+import { LayoutGroup, RoundControls } from './controls';
+import type { DocumentSync } from './document-sync';
 import { DocumentEditor } from './editor/document-editor';
 import { DocumentTabs, FileTree, TRANSCRIPT_ID } from './file-tree';
 import { PaneDivider } from './pane-divider';
@@ -31,6 +33,7 @@ import type { RoundSnapshot } from './round';
 import { RoomSidebar } from './sidebar';
 import { RoundHeader, VideoStage } from './stage';
 import { TranscriptView } from './transcript-view';
+import { useDocumentSync } from './use-document-sync';
 
 /** Writes the pane sizes as custom properties (CSSOM, so the CSP allows it). */
 function usePaneVariables(round: RoundSnapshot, state: RoomState) {
@@ -61,14 +64,20 @@ function usePaletteShortcut(dispatch: Dispatch<RoomAction>) {
   }, [dispatch]);
 }
 
+/** The sidebar exists when the round has channels or agents to show. */
+const hasSidebar = (round: RoundSnapshot) =>
+  round.channels.length > 0 || round.agents.length > 0;
+
 function Workspace({
   round,
   state,
   dispatch,
+  onEdit,
 }: {
   readonly round: RoundSnapshot;
   readonly state: RoomState;
   readonly dispatch: Dispatch<RoomAction>;
+  readonly onEdit?: ((id: string, html: string) => void) | undefined;
 }) {
   const tree = useMemo(
     () => buildTree(state.documents, round.clubName),
@@ -136,18 +145,19 @@ function Workspace({
             access={doc.folder === 'club' ? 'Club' : 'Only you'}
             page={state.page}
             onPage={(tone) => dispatch({ type: 'page/tone', tone })}
-            onChange={(content) =>
+            onChange={(html) => {
               dispatch({
                 type: 'doc/update',
                 id: doc.id,
-                content,
+                html,
                 now: systemClock.now(),
-              })
-            }
+              });
+              onEdit?.(doc.id, html);
+            }}
           />
         ) : null}
       </section>
-      {state.layout.sidebarOpen ? (
+      {state.layout.sidebarOpen && hasSidebar(round) ? (
         <>
           <PaneDivider
             pane="sidebar"
@@ -165,23 +175,55 @@ function Workspace({
   );
 }
 
+/** A round with its own stage and controls (a bot round's voice and clock). */
+export type RoomParts = {
+  readonly stage: ReactNode;
+  readonly controls: (layout: ReactNode) => ReactNode;
+  readonly below?: ReactNode;
+};
+
 /** The debater's round: videos, controls with the clock, then the workspace. */
-export function DebateRoom({ round }: { readonly round: RoundSnapshot }) {
+export function DebateRoom({
+  round,
+  parts,
+  sync,
+}: {
+  readonly round: RoundSnapshot;
+  readonly parts?: RoomParts;
+  /** Server-backed documents; without it the room keeps them in memory. */
+  readonly sync?: DocumentSync;
+}) {
   const reducer = useMemo(() => reduceRoom(round), [round]);
   const [state, dispatch] = useReducer(reducer, round, initialRoomState);
   const { root, video } = usePaneVariables(round, state);
   usePaletteShortcut(dispatch);
+  const { problem, setProblem } = useDocumentSync(sync, dispatch);
 
-  const choose = (choice: PaletteChoice) =>
-    choice.kind === 'open'
-      ? dispatch({ type: 'tabs/open', id: choice.documentId })
-      : dispatch({
-          type: 'doc/create',
-          id: systemId.next(),
-          now: systemClock.now(),
-          templateId: choice.templateId,
-          folder: choice.folder,
-        });
+  const choose = (choice: PaletteChoice) => {
+    if (choice.kind === 'open')
+      return dispatch({ type: 'tabs/open', id: choice.documentId });
+    if (!sync)
+      return dispatch({
+        type: 'doc/create',
+        id: systemId.next(),
+        now: systemClock.now(),
+        templateId: choice.templateId,
+        folder: choice.folder,
+      });
+    if (choice.folder === 'club') return;
+    sync
+      .create(choice.folder, choice.templateId)
+      .then((document) => dispatch({ type: 'doc/add', document }))
+      .catch(() => setProblem('That file was not created. Try again.'));
+  };
+  const layout = (
+    <LayoutGroup
+      round={round}
+      state={state}
+      dispatch={dispatch}
+      sidebar={hasSidebar(round)}
+    />
+  );
 
   return (
     <div
@@ -189,8 +231,23 @@ export function DebateRoom({ round }: { readonly round: RoundSnapshot }) {
       className="flex min-h-screen flex-col bg-background text-ink"
     >
       <RoundHeader round={round} />
-      <VideoStage round={round} />
-      <RoundControls round={round} state={state} dispatch={dispatch} />
+      {parts ? parts.stage : <VideoStage round={round} />}
+      {parts ? (
+        parts.controls(layout)
+      ) : (
+        <RoundControls
+          round={round}
+          state={state}
+          dispatch={dispatch}
+          layout={layout}
+        />
+      )}
+      {parts?.below}
+      {problem ? (
+        <p role="alert" className="px-3 py-1 text-sm text-live">
+          {problem}
+        </p>
+      ) : null}
       <PaneDivider
         pane="video"
         label="Resize video and workspace"
@@ -202,7 +259,12 @@ export function DebateRoom({ round }: { readonly round: RoundSnapshot }) {
           dispatch({ type: 'layout/nudge', pane: 'video', key })
         }
       />
-      <Workspace round={round} state={state} dispatch={dispatch} />
+      <Workspace
+        round={round}
+        state={state}
+        dispatch={dispatch}
+        onEdit={sync?.change}
+      />
       <CommandPalette
         open={state.paletteOpen}
         documents={state.documents}

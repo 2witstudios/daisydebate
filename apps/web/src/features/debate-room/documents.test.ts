@@ -6,8 +6,8 @@ import {
   nextOwnSpeech,
   renameDocument,
   uniqueTitle,
-  updateDocumentContent,
-  type DocJSON,
+  escapeHtml,
+  updateDocumentHtml,
   type SpeechSlot,
   type TemplateContext,
 } from './documents';
@@ -31,12 +31,19 @@ const context: TemplateContext = { side: 'aff', speeches, title: '' };
 const now = '2026-10-05T12:00:00.000Z';
 const later = '2026-10-05T12:05:00.000Z';
 
-const headings = (node: DocJSON): readonly string[] =>
-  (node.content ?? []).flatMap((child) =>
-    child.type === 'heading' ? [child.content?.[0]?.text ?? ''] : [],
+const headings = (html: string): readonly string[] =>
+  [...html.matchAll(/<h\d>(.*?)<\/h\d>/g)].map((match) => match[1] ?? '');
+/** The top-level blocks (templates never nest lists), named as the editor names them. */
+const blockName = [
+  ['<h', 'heading'],
+  ['<ul data-type="taskList">', 'taskList'],
+  ['<ul>', 'bulletList'],
+  ['<p>', 'paragraph'],
+] as const;
+const types = (html: string) =>
+  (html.match(/<h\d>.*?<\/h\d>|<ul[^>]*>.*?<\/ul>|<p>.*?<\/p>/g) ?? []).map(
+    (block) => blockName.find(([prefix]) => block.startsWith(prefix))?.[1],
   );
-const types = (node: DocJSON) =>
-  (node.content ?? []).map((child) => child.type);
 
 describe('documentTemplates', () => {
   test('catalog', () => {
@@ -99,8 +106,8 @@ describe('buildTemplate', () => {
 
   test('speech-plan', () => {
     const plan = buildTemplate('speech-plan', { ...context, side: 'neg' });
-    const rows = (plan.content?.[2]?.content ?? []).map(
-      (item) => item.content?.[0]?.content?.[0]?.text,
+    const rows = [...plan.matchAll(/<li><p>(.*?)<\/p><\/li>/g)].map(
+      (match) => match[1],
     );
     assert({
       given: 'a speech plan for the neg',
@@ -143,17 +150,7 @@ describe('buildTemplate', () => {
       given: 'the evidence template',
       should: 'be a heading and an empty paragraph',
       actual: buildTemplate('evidence', context),
-      expected: {
-        type: 'doc',
-        content: [
-          {
-            type: 'heading',
-            attrs: { level: 1 },
-            content: [{ type: 'text', text: 'Evidence' }],
-          },
-          { type: 'paragraph' },
-        ],
-      },
+      expected: '<h1>Evidence</h1><p></p>',
     });
   });
 });
@@ -201,7 +198,7 @@ describe('createDocument', () => {
     assert({
       given: 'the generated title',
       should: 'use it as the document heading',
-      actual: headings(created.content)[0],
+      actual: headings(created.html)[0],
       expected: 'Flow 2',
     });
   });
@@ -226,13 +223,24 @@ describe('editing', () => {
     context,
   });
 
-  test('updateDocumentContent', () => {
-    const content: DocJSON = { type: 'doc', content: [] };
+  test('updateDocumentHtml', () => {
     assert({
-      given: 'new content',
-      should: 'replace it and bump updatedAt',
-      actual: updateDocumentContent(created, content, later),
-      expected: { ...created, content, updatedAt: later },
+      given: 'new HTML, then the same HTML again',
+      should: 'replace it and bump updatedAt, then leave it unchanged',
+      actual: [
+        updateDocumentHtml(created, '<p>x</p>', later),
+        updateDocumentHtml(created, created.html, later),
+      ],
+      expected: [{ ...created, html: '<p>x</p>', updatedAt: later }, created],
+    });
+  });
+
+  test('escapeHtml', () => {
+    assert({
+      given: 'a title with markup characters',
+      should: 'escape them',
+      actual: escapeHtml('A & <b>"B"</b>'),
+      expected: 'A &amp; &lt;b&gt;&quot;B&quot;&lt;/b&gt;',
     });
   });
 

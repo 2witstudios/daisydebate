@@ -10,8 +10,8 @@ import {
 } from '../../features/debate-room/clock';
 import {
   createDocument,
-  updateDocumentContent,
-  type DocJSON,
+  escapeHtml,
+  updateDocumentHtml,
   type FolderId,
   type TemplateId,
   type WorkspaceDocument,
@@ -83,9 +83,14 @@ export type RoomAction =
   | {
       readonly type: 'doc/update';
       readonly id: string;
-      readonly content: DocJSON;
+      readonly html: string;
       readonly now: string;
     }
+  | {
+      readonly type: 'doc/loaded';
+      readonly documents: readonly WorkspaceDocument[];
+    }
+  | { readonly type: 'doc/add'; readonly document: WorkspaceDocument }
   | { readonly type: 'sidebar/tab'; readonly tab: SidebarTab }
   | {
       readonly type: 'sidebar/channel';
@@ -143,19 +148,10 @@ export function initialRoomState(round: RoundSnapshot): RoomState {
 }
 
 /** Appends the agent's lines to a document as one bullet list. */
-export function appendBullets(
-  content: DocJSON,
-  lines: readonly string[],
-): DocJSON {
-  if (lines.length === 0) return content;
-  const list: DocJSON = {
-    type: 'bulletList',
-    content: lines.map((line) => ({
-      type: 'listItem',
-      content: [{ type: 'paragraph', content: [{ type: 'text', text: line }] }],
-    })),
-  };
-  return { ...content, content: [...(content.content ?? []), list] };
+export function appendBullets(html: string, lines: readonly string[]): string {
+  if (lines.length === 0) return html;
+  const items = lines.map((line) => `<li><p>${escapeHtml(line)}</p></li>`);
+  return `${html}<ul>${items.join('')}</ul>`;
 }
 
 const withDocument = (
@@ -209,9 +205,29 @@ const reducers: { readonly [T in RoomAction['type']]: Reducer<T> } = {
     };
   },
   'doc/update': (s, a) =>
-    withDocument(s, a.id, (doc) =>
-      updateDocumentContent(doc, a.content, a.now),
-    ),
+    withDocument(s, a.id, (doc) => updateDocumentHtml(doc, a.html, a.now)),
+  'doc/loaded': (s, a) => {
+    const ids = new Set(a.documents.map((d) => d.id));
+    const open = s.tabs.open.filter(
+      (id) => ids.has(id) || !s.documents.some((d) => d.id === id),
+    );
+    const round = a.documents
+      .filter((d) => d.folder === 'round')
+      .map((d) => d.id);
+    const kept = open.length > 0 ? open : round;
+    const active =
+      s.tabs.active !== null && kept.includes(s.tabs.active)
+        ? s.tabs.active
+        : (kept[0] ?? null);
+    const tabs = { open: kept, active };
+    return { ...s, documents: a.documents, tabs };
+  },
+  'doc/add': (s, a) => ({
+    ...s,
+    documents: [...s.documents, a.document],
+    tabs: openTab(s.tabs, a.document.id),
+    paletteOpen: false,
+  }),
   'sidebar/tab': (s, a, r) =>
     sidebarTabs(r.kind).includes(a.tab) ? { ...s, sidebar: a.tab } : s,
   'sidebar/channel': (s, a) => ({
@@ -239,7 +255,7 @@ const reducers: { readonly [T in RoomAction['type']]: Reducer<T> } = {
     const marked = { ...s, edits: { ...s.edits, [a.turnId]: a.outcome } };
     if (a.outcome === 'discarded') return marked;
     const applied = withDocument(marked, a.documentId, (doc) =>
-      updateDocumentContent(doc, appendBullets(doc.content, a.lines), a.now),
+      updateDocumentHtml(doc, appendBullets(doc.html, a.lines), a.now),
     );
     return { ...applied, tabs: openTab(applied.tabs, a.documentId) };
   },

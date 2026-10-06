@@ -136,11 +136,12 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
         serverNow: nowMs(clock),
         commands: record.commands.map(toEngine),
         utterances: record.utterances.map(
-          ({ id: utteranceId, turnIndex, role, text }) => ({
+          ({ id: utteranceId, turnIndex, role, text, createdAt }) => ({
             id: utteranceId,
             turnIndex,
             role,
             text,
+            at: createdAt.getTime(),
           }),
         ),
         ballot: record.ballot

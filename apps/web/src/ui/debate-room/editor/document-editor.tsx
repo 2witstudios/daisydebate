@@ -1,15 +1,10 @@
 'use client';
 
-import { TaskItem, TaskList } from '@tiptap/extension-list';
 import { Placeholder } from '@tiptap/extensions';
-import { EditorContent, useEditor, type JSONContent } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import type {
-  DocJSON,
-  WorkspaceDocument,
-} from '../../../features/debate-room/documents';
+import { EditorContent, useEditor } from '@tiptap/react';
+import { documentExtensions } from '../../../features/debate-room/document-schema';
+import type { WorkspaceDocument } from '../../../features/debate-room/documents';
 import type { PageTone } from '../room-state';
-import { DebateMarkExtension } from './debate-mark';
 import { EditorToolbar } from './editor-toolbar';
 
 type Props = {
@@ -17,11 +12,8 @@ type Props = {
   readonly access: string;
   readonly page: PageTone;
   readonly onPage: (tone: PageTone) => void;
-  readonly onChange: (content: DocJSON) => void;
+  readonly onChange: (html: string) => void;
 };
-
-// The editor's own output: ProseMirror only emits nodes its schema knows.
-const fromEditor = (json: JSONContent): DocJSON => json as DocJSON;
 
 /**
  * The round document: Tiptap on the room's page surface. One editor per
@@ -40,21 +32,17 @@ export function DocumentEditor({
       immediatelyRender: false,
       injectCSS: false,
       extensions: [
-        StarterKit.configure({ link: false, code: false, codeBlock: false }),
-        TaskList,
-        TaskItem.configure({ nested: true }),
+        ...documentExtensions,
         Placeholder.configure({ placeholder: 'Write' }),
-        DebateMarkExtension,
       ],
-      content: document.content as JSONContent,
+      content: document.html,
       editorProps: {
         attributes: {
           class: 'room-doc min-h-full',
           'aria-label': document.title,
         },
       },
-      onUpdate: ({ editor: current }) =>
-        onChange(fromEditor(current.getJSON())),
+      onUpdate: ({ editor: current }) => onChange(current.getHTML()),
     },
     [document.id],
   );

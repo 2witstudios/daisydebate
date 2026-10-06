@@ -1,8 +1,5 @@
 import { Mark, mergeAttributes } from '@tiptap/core';
-import {
-  debateMarks,
-  type DebateMark,
-} from '../../../features/debate-room/documents';
+import { debateMarks, type DebateMark } from './documents';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {

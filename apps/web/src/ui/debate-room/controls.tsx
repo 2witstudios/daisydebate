@@ -1,6 +1,6 @@
 'use client';
 
-import type { Dispatch } from 'react';
+import type { Dispatch, ReactNode } from 'react';
 import {
   clockUrgency,
   formatClock,
@@ -82,7 +82,13 @@ const presetNames = {
   focus: 'Focus',
 } as const;
 
-function LayoutGroup({ round, state, dispatch }: Props) {
+/** Panel toggles and the layout presets; Auto picks one by phase. */
+export function LayoutGroup({
+  round,
+  state,
+  dispatch,
+  sidebar,
+}: Props & { readonly sidebar: boolean }) {
   const shown = effectivePreset(state.layout, round.phase);
   const segment = (on: boolean, hinted: boolean) =>
     cn(
@@ -124,15 +130,17 @@ function LayoutGroup({ round, state, dispatch }: Props) {
           {presetNames[mode]}
         </button>
       ))}
-      <button
-        type="button"
-        aria-label="Sidebar"
-        aria-pressed={state.layout.sidebarOpen}
-        className={panelButton(state.layout.sidebarOpen)}
-        onClick={() => dispatch({ type: 'layout/panel', panel: 'sidebar' })}
-      >
-        <Icon name="panelRightOpen" size={18} />
-      </button>
+      {sidebar ? (
+        <button
+          type="button"
+          aria-label="Sidebar"
+          aria-pressed={state.layout.sidebarOpen}
+          className={panelButton(state.layout.sidebarOpen)}
+          onClick={() => dispatch({ type: 'layout/panel', panel: 'sidebar' })}
+        >
+          <Icon name="panelRightOpen" size={18} />
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -144,7 +152,12 @@ type Props = {
 };
 
 /** Mic and prep on the left, the clock centred and large, actions right. */
-export function RoundControls({ round, state, dispatch }: Props) {
+export function RoundControls({
+  round,
+  state,
+  dispatch,
+  layout,
+}: Props & { readonly layout: ReactNode }) {
   const remaining = round.clock.remainingMs;
   return (
     <nav
@@ -203,7 +216,7 @@ export function RoundControls({ round, state, dispatch }: Props) {
         >
           <Icon name="leave" size={18} />
         </button>
-        <LayoutGroup round={round} state={state} dispatch={dispatch} />
+        {layout}
       </div>
     </nav>
   );

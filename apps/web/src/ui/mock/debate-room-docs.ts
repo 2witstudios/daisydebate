@@ -1,56 +1,40 @@
-import type {
-  DebateMark,
-  DocJSON,
-  FolderId,
-  TemplateId,
-  WorkspaceDocument,
+import {
+  escapeHtml,
+  type FolderId,
+  type TemplateId,
+  type WorkspaceDocument,
 } from '../../features/debate-room/documents';
 
 /** Inline text: plain, bold (`**x**`) or a debate mark (`{dropped:x}`). */
-const inline = (source: string): DocJSON[] =>
+const inline = (source: string): string =>
   source
     .split(/(\*\*.+?\*\*|\{\w+:.+?\})/)
     .filter((part) => part !== '')
     .map((part) => {
       const bold = /^\*\*(.+)\*\*$/.exec(part);
-      if (bold)
-        return { type: 'text', text: bold[1]!, marks: [{ type: 'bold' }] };
+      if (bold) return `<strong>${escapeHtml(bold[1]!)}</strong>`;
       const mark = /^\{(\w+):(.+)\}$/.exec(part);
       if (mark)
-        return {
-          type: 'text',
-          text: mark[2]!,
-          marks: [
-            { type: 'debateMark', attrs: { kind: mark[1] as DebateMark } },
-          ],
-        };
-      return { type: 'text', text: part };
-    });
+        return `<span data-debate-mark="${mark[1]}">${escapeHtml(mark[2]!)}</span>`;
+      return escapeHtml(part);
+    })
+    .join('');
 
-const heading = (level: 1 | 2, text: string): DocJSON => ({
-  type: 'heading',
-  attrs: { level },
-  content: inline(text),
-});
+const heading = (level: 1 | 2, text: string) =>
+  `<h${level}>${inline(text)}</h${level}>`;
 
-const bullets = (...items: string[]): DocJSON => ({
-  type: 'bulletList',
-  content: items.map((item) => ({
-    type: 'listItem',
-    content: [{ type: 'paragraph', content: inline(item) }],
-  })),
-});
+const bullets = (...items: string[]) =>
+  `<ul>${items.map((item) => `<li><p>${inline(item)}</p></li>`).join('')}</ul>`;
 
-const tasks = (...items: (readonly [boolean, string])[]): DocJSON => ({
-  type: 'taskList',
-  content: items.map(([checked, item]) => ({
-    type: 'taskItem',
-    attrs: { checked },
-    content: [{ type: 'paragraph', content: inline(item) }],
-  })),
-});
+const tasks = (...items: (readonly [boolean, string])[]) =>
+  `<ul data-type="taskList">${items
+    .map(
+      ([checked, item]) =>
+        `<li data-type="taskItem" data-checked="${checked}"><p>${inline(item)}</p></li>`,
+    )
+    .join('')}</ul>`;
 
-const doc = (...content: DocJSON[]): DocJSON => ({ type: 'doc', content });
+const doc = (...blocks: string[]) => blocks.join('');
 
 const at = '2026-10-05T18:00:00.000Z';
 
@@ -59,13 +43,13 @@ const sample = (
   title: string,
   folder: FolderId,
   templateId: TemplateId,
-  content: DocJSON,
+  html: string,
 ): WorkspaceDocument => ({
   id,
   title,
   folder,
   templateId,
-  content,
+  html,
   createdAt: at,
   updatedAt: at,
 });

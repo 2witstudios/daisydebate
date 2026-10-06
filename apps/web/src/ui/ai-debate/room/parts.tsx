@@ -10,7 +10,6 @@ import {
 import { useRef, useState } from 'react';
 import { buttonClass } from '../../components/button/button-class';
 import { TrainCard } from '../../train/card/train-card';
-import type { RoomView } from './store';
 
 export const sideName = (side: string) =>
   side === 'affirmative' ? 'Affirmative' : 'Negative';
@@ -159,35 +158,6 @@ export function Controls({
     );
   return (
     <LiveControls state={state} personSide={personSide} actions={actions} />
-  );
-}
-
-export function Transcript({
-  view,
-  opponent,
-}: {
-  readonly view: RoomView;
-  readonly opponent: string;
-}) {
-  const lines = view.utterances.filter((line) => line.text);
-  return (
-    <TrainCard title="Transcript">
-      {lines.length === 0 ? (
-        <p className="text-ink-muted">Nothing said yet</p>
-      ) : (
-        <ol className="flex flex-col gap-3">
-          {lines.map((line) => (
-            <li key={line.id} className="flex flex-col gap-1">
-              <span className="text-xs font-strong tracking-wide text-ink-muted uppercase">
-                {aiDebateTurns[line.turnIndex]?.name} ·{' '}
-                {line.role === 'person' ? 'You' : opponent}
-              </span>
-              <span className="text-ink">{line.text}</span>
-            </li>
-          ))}
-        </ol>
-      )}
-    </TrainCard>
   );
 }
 

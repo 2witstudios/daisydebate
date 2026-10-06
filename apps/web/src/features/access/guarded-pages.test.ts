@@ -128,8 +128,8 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
       import('../../app/(shell)/watch/[debateId]/page'),
     '(shell)/ai-debate/page.tsx': () =>
       import('../../app/(shell)/ai-debate/page'),
-    '(shell)/ai-debate/[id]/page.tsx': () =>
-      import('../../app/(shell)/ai-debate/[id]/page'),
+    '(bare)/ai-debate/[id]/page.tsx': () =>
+      import('../../app/(bare)/ai-debate/[id]/page'),
     '(shell)/leaderboard/page.tsx': () =>
       import('../../app/(shell)/leaderboard/page'),
     '(shell)/tournaments/page.tsx': () =>

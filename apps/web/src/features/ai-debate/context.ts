@@ -69,6 +69,8 @@ export type AiDebateView = {
     readonly turnIndex: number;
     readonly role: 'person' | 'ai';
     readonly text: string;
+    /** When the line was recorded, in epoch milliseconds. */
+    readonly at: number;
   }[];
   readonly ballot: Ballot | null;
 };

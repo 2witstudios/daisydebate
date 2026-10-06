@@ -1,8 +1,7 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { Controls, Transcript, type ControlActions } from './parts';
-import type { RoomView } from './store';
+import { Controls, type ControlActions } from './parts';
 
 setupRitewayBun();
 
@@ -25,23 +24,6 @@ describe('Controls', () => {
       should: 'offer Begin debate with no explanation around it',
       actual: [html.includes('>Begin debate<'), html.includes('<p')],
       expected: [true, false],
-    });
-  });
-});
-
-describe('Transcript', () => {
-  test('nothing said yet', () => {
-    const html = renderToString(
-      h(Transcript, {
-        view: { utterances: [] } as unknown as RoomView,
-        opponent: 'Wren',
-      }),
-    );
-    assert({
-      given: 'a debate with no speech yet',
-      should: 'say nothing has been said',
-      actual: html.includes('Nothing said yet'),
-      expected: true,
     });
   });
 });

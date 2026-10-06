@@ -88,3 +88,41 @@ test('the room has no serious or critical accessibility findings', async ({
   await page.getByRole('tab', { name: 'AI' }).click();
   await assertNoSeriousFindings(page);
 });
+
+test('a bot round keeps the debater’s files across a reload', async ({
+  page,
+}) => {
+  await signUpMember(page.request);
+  await page.goto('/ai-debate?bot=wren');
+  await page.getByText('Negative', { exact: true }).click();
+  await page.getByRole('button', { name: 'Start debate' }).click();
+  await expect(page).toHaveURL(/\/ai-debate\/[a-z0-9]+$/);
+  await expect(
+    page.getByRole('button', { name: 'Begin debate' }),
+  ).toBeVisible();
+
+  // A new flow from the palette, written into and saved.
+  await page.keyboard.press('ControlOrMeta+k');
+  await page
+    .getByRole('combobox', { name: 'Search commands' })
+    .fill('new flow');
+  await page.keyboard.press('Enter');
+  const flow = page.getByRole('textbox', { name: 'Flow', exact: true });
+  await flow.locator('li p').first().click();
+  await page.keyboard.type('they dropped the turn');
+  const saved = page.waitForResponse(
+    (response) =>
+      response.url().endsWith('/api/debate-room/documents/save') &&
+      response.ok(),
+  );
+  await saved;
+
+  await page.reload();
+  await page
+    .getByRole('navigation', { name: 'Files' })
+    .getByRole('button', { name: 'Flow', exact: true })
+    .click();
+  await expect(
+    page.getByRole('textbox', { name: 'Flow', exact: true }),
+  ).toContainText('they dropped the turn');
+});
