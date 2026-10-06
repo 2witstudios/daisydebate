@@ -22,6 +22,8 @@ export const KNOWN_OPERATIONS = [
   'account.sessions.list',
   'account.sessions.revoke',
   'account.username.claim',
+  'account.onboarding.save',
+  'account.onboarding.read',
   'realtime.ticket.issue',
   'ai_debate.start',
   'ai_debate.view',
