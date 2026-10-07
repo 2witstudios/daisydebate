@@ -255,7 +255,16 @@ export function crossExaminationOperations(
         : '';
 
       const lines = await store.listRoundUtterances(id);
-      const opening = aiAsks && !audio && lines.length === 0;
+      // "Nothing has been said **in this exchange**", counted on this
+      // segment's rows only. The round's whole transcript is never empty once
+      // the constructive has been spoken, so counting all of it made this
+      // false exactly when the AI was supposed to open — the AI could ask its
+      // first question only if the debate began with cross-examination, and
+      // after the constructive it sat silent while its own segment ran.
+      const saidInExchange = lines.filter(
+        (line) => line.segmentId === segment.id,
+      ).length;
+      const opening = aiAsks && !audio && saidInExchange === 0;
       // The AI replies while its segment is live, or in the countdown when
       // it opens the exchange; a grace-period line gets no reply.
       const replying =
