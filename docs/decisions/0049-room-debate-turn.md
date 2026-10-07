@@ -194,3 +194,71 @@ affected: rooms are not Redis state.
    rewriting the engine and its invariants for a transient state.
 4. Ready flags are persisted with the seat. If write volume proves a problem,
    moving them to Redis is an additive change that touches no result.
+
+The four amendments below were drafted on 2026-10-07, while this record is
+still proposed, because [ADR 0058](0058-one-round-model.md) — accepted
+2026-10-06 — contradicts it in four places. Each amendment reconciles one and
+cites the section it applies. They take effect when the owner accepts this
+record in one action; until then the body above stands as written.
+
+## Amendment (2026-10-07, draft): the stored noun is the round
+
+[ADR 0058](0058-one-round-model.md) §1 renames `debates` to `rounds` and
+makes the Round the one competitive record, so section 1 no longer holds that
+"round" is not a stored or domain noun here. Every occurrence of the stored
+noun in this record reads `round`/`rounds`: the table's **Debate** row is the
+**Round** row (one contest under fixed rules — the snapshot, ballots, rating
+changes), the Turn row reads "one speech inside a round", and "the stored and
+coded noun is `debate`" reads "the stored and coded noun is `round`".
+Tournament brackets keep `tournament_rounds` (ADR 0030) as their pairing
+context; a bracket node is not the competitive record. Section 3's start
+operation creates a round; section 4's nullable `debates.room_id` is
+`rounds.room_id`; section 5's title, "no round entity is added", meant no
+per-turn row and survives unchanged — turns stay computed from `startedAt`
+and the rules, with no entity between the round and its turns; the
+Consequences bullet that adds one nullable column to `debates` adds it to
+`rounds`. Section 7's topic and capability names are authorization
+vocabulary owned by ADR 0048 and the realtime records, not the stored noun,
+and this amendment does not rename them.
+
+## Amendment (2026-10-07, draft): ranked play is constructed, not validated
+
+[ADR 0058](0058-one-round-model.md) §4 deletes `rulesMatchFormat()` along
+with the validation responsibility it named: a ranked round resolves from an
+approved `RoomConfig` — a sanctioned preset — or it does not exist, so an
+invalid ranked configuration is unrepresentable rather than detectable
+afterwards. Section 3's "ranked refuses overrides through
+`rulesMatchFormat`" and section 6's "the start command refuses it through
+`rulesMatchFormat` otherwise" are superseded by that construction rule.
+Section 6's rule that a ranked room carries no draft overrides stands: the
+preset, not the host, fixes ranked rules, which is the same statement without
+the deleted check.
+
+## Amendment (2026-10-07, draft): ready flags are expendable Redis state
+
+[ADR 0058](0058-one-round-model.md) §7 enumerates what the durable Room
+holds — config, pinned versions, the resolved `rules_snapshot`, seated
+participants, the pre-round prep anchor — and readiness is not in it. The
+Playable-debate owner decision (DEC-83) keeps ready flags in expendable Redis
+state keyed to the room version. Section 2's seat rows carry the actor's side
+or judge role, not a ready-flag column, and the Consequences bullet that made
+every ready toggle a database write and an outbox row is superseded: a ready
+toggle is a Redis write, and losing it never touches competitive truth.
+Section 3's start gate stands — every offered seat filled and ready — read
+from the readiness state at start rather than a seat column. Open decision 4
+is overruled here, not deferred: persistence was the part the owner's
+decision corrects.
+
+## Amendment (2026-10-07, draft): both seats take human and bot actors
+
+[ADR 0058](0058-one-round-model.md) §1 invariant 2 puts human, bot and future
+participant types in the same seats, and §6 makes the AI an actor
+implementation that submits the same legal operation a human would. Section
+6's "its seats refuse non-human actors" is superseded: ranked and unrated
+seats alike take human and bot actors. `formats.ranked_eligible` leaves the
+schema with ADR 0058 §4's consequences, so section 6's "canonical rules on a
+`ranked_eligible` format" reads "the sanctioned preset's resolved rules".
+What makes play ranked is the sanctioned construction and `competition_type`
+(ADR 0058 §8), never the occupant kind of a seat: rated eligibility is a
+construction-time invariant, so whether a round rates is fixed by how it was
+constructed, not by who occupies a seat.
