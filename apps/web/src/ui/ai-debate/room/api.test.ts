@@ -1,6 +1,7 @@
 import { describe, test } from 'riteway/bun';
 import { assert } from 'riteway/bun';
 import { setupRitewayBun } from 'riteway/bun';
+import { spyOn } from 'bun:test';
 import { aiDebateApi } from './api';
 import { schemas } from '../../../features/ai-debate/handlers';
 
@@ -14,32 +15,56 @@ setupRitewayBun();
  * cutover's `expectedSequence` → `expectedVersion` and `turnIndex` →
  * `segmentIndex` both shipped that way.
  *
- * So: capture what the client actually puts on the wire, and parse it with
- * the handler's real schema. A rename on either side now fails here.
+ * So: capture what the client actually puts on the wire, and parse it with the
+ * handler's real schema. A rename on either side now fails here.
  */
-const bodiesOf = async (
+const capture = async (
   call: () => Promise<unknown>,
 ): Promise<Record<string, unknown>> => {
   const sent: Record<string, unknown>[] = [];
-  const original = globalThis.fetch;
-  globalThis.fetch = (async (_input: unknown, init?: RequestInit) => {
+  const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation((async (
+    _input: RequestInfo | URL,
+    init?: RequestInit,
+  ) => {
     sent.push(JSON.parse(String(init?.body)));
     return new Response('{}', {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
-  }) as typeof fetch;
+  }) as unknown as typeof fetch);
   try {
     await call();
   } finally {
-    globalThis.fetch = original;
+    fetchSpy.mockRestore();
+  }
+  return sent[0] ?? {};
+};
+
+/** The streaming `speech` call reads the response body, so it needs a stream. */
+const captureStream = async (
+  call: () => Promise<unknown>,
+): Promise<Record<string, unknown>> => {
+  const sent: Record<string, unknown>[] = [];
+  const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation((async (
+    _input: RequestInfo | URL,
+    init?: RequestInit,
+  ) => {
+    sent.push(JSON.parse(String(init?.body)));
+    return new Response(new ReadableStream({ start: (c) => c.close() }), {
+      status: 200,
+    });
+  }) as unknown as typeof fetch);
+  try {
+    await call();
+  } finally {
+    fetchSpy.mockRestore();
   }
   return sent[0] ?? {};
 };
 
 describe('the browser speaks the schema the handler parses', () => {
   test('command carries expectedVersion', async () => {
-    const body = await bodiesOf(() =>
+    const body = await capture(() =>
       aiDebateApi.command('round-1', 7, { type: 'startPrep' }),
     );
     assert({
@@ -51,7 +76,7 @@ describe('the browser speaks the schema the handler parses', () => {
   });
 
   test('transcribe carries segmentIndex', async () => {
-    const body = await bodiesOf(() =>
+    const body = await capture(() =>
       aiDebateApi.transcribe('round-1', 3, {
         base64: 'QUJDRA==',
         format: 'webm',
@@ -66,7 +91,7 @@ describe('the browser speaks the schema the handler parses', () => {
   });
 
   test('crossExamine carries segmentIndex', async () => {
-    const body = await bodiesOf(() =>
+    const body = await capture(() =>
       aiDebateApi.crossExamine('round-1', 2, {
         base64: 'QUJDRA==',
         format: 'webm',
@@ -81,7 +106,7 @@ describe('the browser speaks the schema the handler parses', () => {
   });
 
   test('crossExamine without audio satisfies the schema', async () => {
-    const body = await bodiesOf(() => aiDebateApi.crossExamine('round-1', 2));
+    const body = await capture(() => aiDebateApi.crossExamine('round-1', 2));
     assert({
       given: 'an AI-led cross-examination with no recording',
       should: 'satisfy the handler schema, which makes audio optional',
@@ -91,10 +116,8 @@ describe('the browser speaks the schema the handler parses', () => {
   });
 
   test('speak and heard satisfy the handler schemas', async () => {
-    const speak = await bodiesOf(() =>
-      aiDebateApi.speak('round-1', 'utt-1', 0),
-    );
-    const heard = await bodiesOf(() =>
+    const speak = await capture(() => aiDebateApi.speak('round-1', 'utt-1', 0));
+    const heard = await capture(() =>
       aiDebateApi.heard({
         id: 'round-1',
         utteranceId: 'utt-1',
@@ -114,24 +137,12 @@ describe('the browser speaks the schema the handler parses', () => {
     });
   });
 
-  // `speech` streams through fetch rather than `post`, so it gets its own case.
   test('the speech stream request satisfies the handler schema', async () => {
-    const original = globalThis.fetch;
-    let body: Record<string, unknown> = {};
-    globalThis.fetch = (async (_input: unknown, init?: RequestInit) => {
-      body = JSON.parse(String(init?.body));
-      // An empty readable stream ends the loop immediately.
-      return new Response(new ReadableStream({ start: (c) => c.close() }), {
-        status: 200,
-      });
-    }) as typeof fetch;
-    try {
-      await aiDebateApi
+    const body = await captureStream(() =>
+      aiDebateApi
         .speech('round-1', 4, () => undefined, new AbortController().signal)
-        .catch(() => undefined);
-    } finally {
-      globalThis.fetch = original;
-    }
+        .catch(() => undefined),
+    );
     assert({
       given: 'a speech stream opened by the browser',
       should: 'satisfy the handler schema',

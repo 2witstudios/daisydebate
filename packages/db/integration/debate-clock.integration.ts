@@ -136,7 +136,6 @@ test('started_at, segment instants and completed_at come from the injected datab
             segmentCloses: [],
           },
         });
-        const after = await databaseNow();
         const row = (await stamps()).row;
         assert({
           given: `a still-active execution ${digest} after the round started`,
