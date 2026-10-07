@@ -2,6 +2,7 @@ import { createInvariantError } from '@daisy/errors';
 import {
   debateSides,
   runtimeCheckpointSchema,
+  seatSlotsComplete,
   type DebateRole,
   type DebateSide,
   type HydratedRound,
@@ -15,7 +16,7 @@ import {
 } from '@daisy/protocol';
 import { createRoundClock } from './round-clock';
 import { applyRoundCommand, type Queues } from './round-commands';
-import { roundPositionOf, stageOf } from './round-position';
+import { lifecycleStampsOf, roundPositionOf, stageOf } from './round-position';
 import { debateInvariantIds } from './invariant-ids';
 import {
   captureRoundStore,
@@ -37,8 +38,6 @@ import {
 
 /** The queues the runtime projects from; a scratch run discards its own. */
 const queues = (): Queues => ({ inserts: [], closes: [], effects: [] });
-
-const iso = (ms: number): string => new Date(ms).toISOString();
 
 /**
  * Creates the runtime from durable rows, the frozen rules and an injected
@@ -175,10 +174,7 @@ export function createRoundRuntime(input: {
         .filter((seat) => seat.role === role)
         .map((seat) => seat.slot)
         .sort((a, b) => a - b);
-      if (
-        held.length !== wanted ||
-        !held.every((slot, index) => slot === index)
-      )
+      if (!seatSlotsComplete(wanted, held))
         throw createInvariantError(
           debateInvariantIds.seatCompleteness,
           `Held ${role} slots are not exactly 0..${wanted - 1}`,
@@ -221,11 +217,7 @@ export function createRoundRuntime(input: {
     return {
       status: lifecycle.status,
       currentStage: stageOf(on, lifecycle.status),
-      startedAt:
-        lifecycle.startedAtMs === null ? null : iso(lifecycle.startedAtMs),
-      completedAt:
-        lifecycle.completedAtMs === null ? null : iso(lifecycle.completedAtMs),
-      outcome: lifecycle.outcome,
+      ...lifecycleStampsOf(lifecycle),
       checkpoint: on.checkpoint(),
     };
   };

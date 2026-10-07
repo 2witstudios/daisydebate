@@ -1,66 +1,15 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { RoundRules } from '@daisy/protocol';
-import { createRoundRuntime } from './round-runtime';
-import { practiceRules, sequentialSegmentIds } from './runtime.test-support';
+import {
+  completedSchedule,
+  practiceCast,
+  runtimeWorld as runtime,
+} from './runtime.test-support';
 
 setupRitewayBun();
 
-const rules: RoundRules = practiceRules();
+const { rules, at, person, opponent } = practiceCast();
 
-const t0 = '2026-10-06T09:00:00.000Z';
-const at = (ms: number) => new Date(Date.parse(t0) + ms).toISOString();
-const person = 'k2v9x0f4m8q3w1z7c5n6b4d2';
-const opponent = 'a7b3c9d1e5f2k4m6n8p1r3t5';
-const judge = 'c8d4e2f6a1b3k5m7n9p2r4t6';
-
-const seats = [
-  {
-    id: 'm3w8k1z5c9b2n7p4r6t0v2x4',
-    actorId: person,
-    role: 'affirmative',
-    slot: 0,
-  },
-  {
-    id: 'q5x2v8t0r4p6n2b8c1z7k3m9w',
-    actorId: opponent,
-    role: 'negative',
-    slot: 0,
-  },
-  { id: 'd6y3h9j1f5a7s3g8l2q6e4u0i', actorId: judge, role: 'judge', slot: 0 },
-] as const;
-
-interface Options {
-  readonly status?: 'scheduled' | 'active' | 'completed' | 'abandoned';
-  readonly segments?: Parameters<typeof createRoundRuntime>[0]['segments'];
-  readonly checkpoint?: unknown;
-}
-
-const runtime = ({
-  status = 'scheduled',
-  segments = [],
-  checkpoint = {
-    version: 1,
-    prep_consumed_ms: { affirmative: 0, negative: 0 },
-    active_prep: null,
-    floor: null,
-  },
-}: Options = {}) =>
-  createRoundRuntime({
-    round: {
-      id: 'round-1',
-      status,
-      currentStage: null,
-      startedAt: null,
-      completedAt: null,
-      outcome: null,
-    },
-    rules,
-    participants: [...seats],
-    checkpoint,
-    segments,
-    nextSegmentId: sequentialSegmentIds(),
-  });
 describe('round runtime lifecycle', () => {
   describe('round runtime commands', () => {
     test('refuses a speech that no prep opened', async () => {
@@ -180,13 +129,7 @@ describe('round runtime lifecycle', () => {
     });
 
     test("completes only after the final segment's time, with an outcome, and is then terminal", async () => {
-      const world = runtime();
-      world.execute({ command: { type: 'start' }, actorId: null, now: at(0) });
-      // Advance through every segment by time: seven countdowns plus speech.
-      const totalMs =
-        7 * 10_000 +
-        rules.segments.reduce((sum, segment) => sum + segment.durationMs, 0);
-      world.tick(at(totalMs));
+      const { world, totalMs } = completedSchedule(rules);
       await assertRejects({
         given: "a completion one millisecond before the last segment's end",
         should: 'refuse with the final-segment invariant',

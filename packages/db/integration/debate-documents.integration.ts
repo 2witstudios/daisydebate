@@ -2,11 +2,33 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createDatabase } from '../src';
+import { foundationDefinition } from '../src/reference-formats';
+import { validRules } from './round-fixtures';
 import { withFixture, type Fixture } from './constraint-helpers';
 
 setupRitewayBun();
 
 const { databaseUrl: url } = requireTestServices(process.env);
+
+/** The one-speech variant: the foundation grammar cut to its opening segment. */
+const singleSpeechDefinition = {
+  ...foundationDefinition,
+  segments: [foundationDefinition.segments[0]!],
+  configurable: {
+    ...foundationDefinition.configurable,
+    timing: {
+      ...foundationDefinition.configurable.timing,
+      segmentDurationMs: { AC: { min: 60_000, max: 600_000 } },
+    },
+  },
+};
+
+/** The rules a one-speech fixture round freezes, with no in-round prep. */
+const singleSpeechRules = {
+  ...validRules,
+  segments: [validRules.segments[0]!],
+  inRoundPrep: null,
+};
 
 /** The fixture round: the tester's actor holds its negative seat. */
 const withOwner = async (
@@ -27,37 +49,7 @@ const withOwner = async (
       {
         format_id: formatId,
         version: 1,
-        definition: {
-          version: 1,
-          seats: { affirmative: 1, negative: 1, judge: 0 },
-          segments: [
-            {
-              key: 'AC',
-              label: 'Affirmative constructive',
-              type: 'speech',
-              side: 'affirmative',
-              slot: 0,
-              defaultDurationMs: 240_000,
-            },
-          ],
-          configurable: {
-            timing: {
-              segmentDurationMs: { AC: { min: 60_000, max: 600_000 } },
-              countdownMs: { min: 0, max: 60_000 },
-            },
-            inRoundPrep: {
-              budgetMsPerSide: { min: 0, max: 600_000 },
-              spendableBefore: ['speech'],
-              expiresAtSegment: null,
-            },
-            preRoundPrep: null,
-            interaction: {
-              crossExModes: ['ordered'],
-              interruptions: null,
-              yield: null,
-            },
-          },
-        },
+        definition: singleSpeechDefinition,
       },
       'format_id',
     );
@@ -74,27 +66,7 @@ const withOwner = async (
       length: 'full',
       format_id: formatId,
       format_version: 1,
-      rules_snapshot: {
-        version: 2,
-        seats: { affirmative: 1, negative: 1, judge: 0 },
-        segments: [
-          {
-            key: 'AC',
-            label: 'Affirmative constructive',
-            type: 'speech',
-            side: 'affirmative',
-            slot: 0,
-            durationMs: 240_000,
-          },
-        ],
-        inRoundPrep: null,
-        countdownMs: 10_000,
-        interaction: {
-          crossExMode: 'ordered',
-          yield: null,
-          interruptions: null,
-        },
-      },
+      rules_snapshot: singleSpeechRules,
       status: 'scheduled',
     });
     await fixture.insert('round_participants', {

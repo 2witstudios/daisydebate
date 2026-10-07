@@ -7,9 +7,7 @@ import type { FakeRoundState } from './round-store-state.test-support';
  * reservation order.
  */
 export const usageMethods = (state: FakeRoundState) => ({
-  async recordAgentRun(
-    input: Parameters<RoundStore['recordAgentRun']>[0],
-  ) {
+  async recordAgentRun(input: Parameters<RoundStore['recordAgentRun']>[0]) {
     state.runRows.push({
       id: input.id,
       roundParticipantId: input.roundParticipantId,
@@ -70,10 +68,7 @@ export const usageMethods = (state: FakeRoundState) => ({
     state.reservationActors.set(input.actorId, [...held, input.roundId]);
   },
 
-  async markReservationCounted(_input: {
-    actorId: string;
-    roundId: string;
-  }) {},
+  async markReservationCounted(_input: { actorId: string; roundId: string }) {},
 
   async countRecentAiPractice(input: { actorId: string }) {
     return (state.reservationActors.get(input.actorId) ?? []).length;

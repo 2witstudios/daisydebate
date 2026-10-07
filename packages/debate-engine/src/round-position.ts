@@ -16,6 +16,14 @@ type StoreRow = ReturnType<RoundStore['rows']>[number];
 /** What the store says about the round's own lifecycle. */
 type Lifecycle = ReturnType<RoundStore['lifecycle']>;
 
+/** The lifecycle columns a position and a projection both carry, as ISO. */
+export const lifecycleStampsOf = (lifecycle: Lifecycle) => ({
+  startedAt: lifecycle.startedAtMs === null ? null : iso(lifecycle.startedAtMs),
+  completedAt:
+    lifecycle.completedAtMs === null ? null : iso(lifecycle.completedAtMs),
+  outcome: lifecycle.outcome,
+});
+
 /** The stage the round is in, derived from its store; null when not active. */
 export const stageOf = (
   on: RoundStore,
@@ -164,11 +172,7 @@ export const roundPositionOf = (
   return {
     status: lifecycle.status,
     stage: stageOf(on, lifecycle.status),
-    startedAt:
-      lifecycle.startedAtMs === null ? null : iso(lifecycle.startedAtMs),
-    completedAt:
-      lifecycle.completedAtMs === null ? null : iso(lifecycle.completedAtMs),
-    outcome: lifecycle.outcome,
+    ...lifecycleStampsOf(lifecycle),
     openSegment: openSegmentOf(
       open,
       rules,

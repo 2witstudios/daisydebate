@@ -18,17 +18,11 @@ export const proofPrincipal: Principal = Object.freeze({
   permissions: Object.freeze(['debate:create', 'debate:read'] as const),
 });
 
-const proofFormat = 'foundation';
+import { foundationConfig } from '@daisy/db/reference-formats';
 
-/** The proof room's config: the foundation format at its defaults. */
-const proofConfig = {
-  preRoundPrep: { enabled: false },
-  inRoundPrep: { enabled: true, budgetMsPerSide: 120_000 },
-  speechTiming: { countdownMs: 10_000, segmentDurationOverrides: {} },
-  crossExamination: { crossExMode: 'ordered' },
-  interruptions: null,
-  yielding: null,
-} as const;
+const proofConfig = foundationConfig;
+
+const proofFormat = 'foundation';
 
 /** Everything the proof operations touch, injected by the composition root. */
 export type ProofDependencies = {

@@ -10,6 +10,14 @@ import type { FormatDefinition, RoomConfig } from '@daisy/protocol';
  * pointer, never rewrites this one.
  */
 
+/** The prep capability both reference formats grant: 0-10 minutes per side, spendable before speeches. */
+const referenceInRoundPrepCapability: FormatDefinition['configurable']['inRoundPrep'] =
+  {
+    budgetMsPerSide: { min: 0, max: 600_000 },
+    spendableBefore: ['speech'],
+    expiresAtSegment: null,
+  };
+
 /** The one-on-one format: the schedule, defaults and capabilities. */
 export const oneOnOneDefinition: FormatDefinition = {
   version: 1,
@@ -85,11 +93,7 @@ export const oneOnOneDefinition: FormatDefinition = {
       },
       countdownMs: { min: 0, max: 60_000 },
     },
-    inRoundPrep: {
-      budgetMsPerSide: { min: 0, max: 600_000 },
-      spendableBefore: ['speech'],
-      expiresAtSegment: null,
-    },
+    inRoundPrep: referenceInRoundPrepCapability,
     preRoundPrep: { durationMs: { min: 0, max: 1_200_000 } },
     interaction: {
       crossExModes: ['ordered', 'free'],
@@ -135,11 +139,7 @@ export const foundationDefinition: FormatDefinition = {
       },
       countdownMs: { min: 0, max: 60_000 },
     },
-    inRoundPrep: {
-      budgetMsPerSide: { min: 0, max: 600_000 },
-      spendableBefore: ['speech'],
-      expiresAtSegment: null,
-    },
+    inRoundPrep: referenceInRoundPrepCapability,
     preRoundPrep: null,
     interaction: {
       crossExModes: ['ordered'],
@@ -147,6 +147,16 @@ export const foundationDefinition: FormatDefinition = {
       yield: null,
     },
   },
+};
+
+/** The foundation room's config: the proof format at its sanctioned defaults. */
+export const foundationConfig: RoomConfig = {
+  preRoundPrep: { enabled: false },
+  inRoundPrep: { enabled: true, budgetMsPerSide: 120_000 },
+  speechTiming: { countdownMs: 10_000, segmentDurationOverrides: {} },
+  crossExamination: { crossExMode: 'ordered' },
+  interruptions: null,
+  yielding: null,
 };
 
 export const referenceFormats: ReadonlyArray<{

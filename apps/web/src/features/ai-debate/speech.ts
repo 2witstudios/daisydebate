@@ -6,6 +6,7 @@ import {
   personSideOf,
   requireOpenSegment,
   type AiDebateDependencies,
+  type RecordUsage,
 } from './context';
 import { opponentForActor } from './opponents';
 import { writeSpeech, type SpeechEvent } from './speech-writer';
@@ -23,22 +24,17 @@ type Hydrated = {
   readonly now: number;
 };
 type Hydrate = (actorId: string, id: string) => Promise<Hydrated>;
-type Usage = (
-  roundId: string,
-  participantId: string,
-  actorId: string,
-  usage: {
-    readonly kind: 'speech' | 'cross_ex' | 'tts' | 'stt' | 'judging';
-    readonly model: string;
-    readonly inputTokens?: number;
-    readonly outputTokens?: number;
-    readonly characters?: number;
-    readonly requests?: number;
-  },
-) => Promise<void>;
-
 const participantRoleOfLine = (round: RoundHydration, participantId: string) =>
   round.participants.find((seat) => seat.id === participantId)?.role ?? 'judge';
+
+/** The bot's seat: the AI side's only participant; throws when unseated. */
+const botSeatOf = (round: RoundHydration, actorId: string) => {
+  const seat = round.participants.find(
+    (candidate) => candidate.role === aiSideOf(personSideOf(round, actorId)),
+  );
+  if (!seat) throw createAppError('INTERNAL', 'The bot has no seat');
+  return seat;
+};
 
 /**
  * Characters of voice one debate may buy. The bot speaks about 12,500
@@ -53,7 +49,7 @@ const SPEECH_BUDGET = 30_000;
 export function speechOperations(
   { store, voice, ids, limits }: AiDebateDependencies,
   hydrated: Hydrate,
-  recordUsage: Usage,
+  recordUsage: RecordUsage,
 ) {
   const speechBudget = limits?.speechCharacters ?? SPEECH_BUDGET;
 
@@ -158,10 +154,7 @@ export function speechOperations(
         { early: true },
       );
       const personSide = personSideOf(round, actorId);
-      const seatId = round.participants.find(
-        (candidate) => candidate.role === aiSideOf(personSide),
-      )?.id;
-      if (!seatId) throw createAppError('INTERNAL', 'The bot has no seat');
+      const seatId = botSeatOf(round, actorId).id;
       const lines = await store.listRoundUtterances(id);
       const existing = lines.find((line) => {
         const rowIndex = round.segments.findIndex(
@@ -228,16 +221,8 @@ export function speechOperations(
       const text = phrases[phraseIndex];
       if (!text) throw createAppError('NOT_FOUND');
       const speaker = voice();
-      const personSide = personSideOf(round, actorId);
-      const seatId = round.participants.find(
-        (candidate) => candidate.role === aiSideOf(personSide),
-      )?.id;
-      if (!seatId) throw createAppError('INTERNAL', 'The bot has no seat');
-      const bot = opponentForActor(
-        round.participants.find(
-          (candidate) => candidate.role === aiSideOf(personSide),
-        )?.actorId,
-      );
+      const { id: seatId, actorId: botActorId } = botSeatOf(round, actorId);
+      const bot = opponentForActor(botActorId);
       const claimed = await store.reserveSpokenCharacters({
         id: ids.next(),
         roundParticipantId: seatId,

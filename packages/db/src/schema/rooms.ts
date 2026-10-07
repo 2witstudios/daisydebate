@@ -6,7 +6,6 @@ import {
   roundLengthSchema,
   roundRulesSchema,
   type CompetitionType,
-  type DebateRole,
   type RoundLength,
 } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
@@ -28,9 +27,9 @@ import {
   timestampColumn,
   updatedAtColumn,
 } from './columns';
-import { actors } from './actors';
 import { formatPresets } from './format-presets';
 import { formatRevisions } from './format-revisions';
+import { seatActorId, seatRole, seatSlot, seatSlotCheck } from './seats';
 import { formats } from './formats';
 
 /** The Room's assembly lifecycle, before and after its freeze. */
@@ -142,11 +141,9 @@ export const roomParticipants = pgTable(
     roomId: text('room_id')
       .notNull()
       .references(() => rooms.id, { onDelete: 'cascade' }),
-    actorId: text('actor_id')
-      .notNull()
-      .references(() => actors.id, { onDelete: 'restrict' }),
-    role: text('role').$type<DebateRole>().notNull(),
-    slot: integer('slot').notNull().default(0),
+    actorId: seatActorId(),
+    role: seatRole(),
+    slot: seatSlot(),
   },
   (table) => [
     uniqueIndex('room_participants_actor_unique').on(
@@ -160,6 +157,6 @@ export const roomParticipants = pgTable(
     ),
     index('room_participants_actor_idx').on(table.actorId),
     check('room_participants_role_check', oneOf(table.role, debateRoles)),
-    check('room_participants_slot_check', sql`${table.slot} >= 0`),
+    check('room_participants_slot_check', seatSlotCheck(table.slot)),
   ],
 );

@@ -19,11 +19,7 @@ export const crossExModeSchema = z.enum(crossExModes);
  * A three-state policy, not a boolean: "interruptions on" and "interruptions
  * during cross-examination only" are different debates (ADR 0058).
  */
-const interruptionModes = [
-  'disabled',
-  'cross_ex_only',
-  'enabled',
-] as const;
+const interruptionModes = ['disabled', 'cross_ex_only', 'enabled'] as const;
 export const interruptionModeSchema = z.enum(interruptionModes);
 
 /** An inclusive millisecond range a room's chosen value must land inside. */
@@ -32,7 +28,8 @@ const boundSchema = z.strictObject({
   max: z.int().min(0),
 });
 
-const segmentSchema = z.strictObject({
+/** The segment identity both the definition's grammar and the resolved rules carry. */
+const segmentIdentity = {
   /** The stable short name: AC, CX, NC, 1AR, NR, 2AR. */
   key: z.string().trim().min(1).max(8),
   /** The displayed name: 'Affirmative constructive'. */
@@ -41,6 +38,10 @@ const segmentSchema = z.strictObject({
   /** The speaking side; for cross-examination, the asking side. */
   side: debateSideSchema,
   slot: z.int().min(0),
+};
+
+const segmentSchema = z.strictObject({
+  ...segmentIdentity,
   /** The format's own timing: the default a room may override per segment. */
   defaultDurationMs: z.int().positive(),
 });
@@ -120,11 +121,7 @@ export type FormatDefinition = z.infer<typeof formatDefinitionSchema>;
 
 /** One resolved segment: the definition's identity, the room's duration. */
 const rulesSegmentSchema = z.strictObject({
-  key: z.string().trim().min(1).max(8),
-  label: z.string().trim().min(1).max(80),
-  type: segmentTypeSchema,
-  side: debateSideSchema,
-  slot: z.int().min(0),
+  ...segmentIdentity,
   /** Resolved, not a range: override within bounds, else the default. */
   durationMs: z.int().positive(),
 });

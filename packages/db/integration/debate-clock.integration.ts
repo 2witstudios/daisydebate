@@ -77,10 +77,8 @@ const stamps = async (fixture: Fixture, roundId: string) => {
   return { row, segments };
 };
 
-
 /** The version each still-active execution claims: one per digest. */
-const expectedVersionOf = (digest: string): number =>
-  digest === 'c' ? 2 : 3;
+const expectedVersionOf = (digest: string): number => (digest === 'c' ? 2 : 3);
 
 /** What the stored round row says about the start instant. */
 const startEvidence = (
@@ -195,8 +193,15 @@ const assertCompletionInWindow = async (inputs: {
   readonly startWindow: { readonly from: number; readonly to: number };
   readonly started: Awaited<ReturnType<typeof stamps>>;
 }) => {
-  const { database, fixture, roundId, rules, callerInstant, startWindow, started } =
-    inputs;
+  const {
+    database,
+    fixture,
+    roundId,
+    rules,
+    callerInstant,
+    startWindow,
+    started,
+  } = inputs;
   if (!started.row) throw new Error('the round row vanished');
   const beforeComplete = Date.parse(await database.databaseNow());
   const completeInstant = new Date(await database.databaseNow()).toISOString();
@@ -218,13 +223,10 @@ const assertCompletionInWindow = async (inputs: {
       'a round started and completed through one injected database instant per execution, with a caller instant of 2001 in the projection it ignored',
     should:
       'stamp the start, the segment and the completion inside their own database-clock windows, never with the caller instant',
-    actual: completionEvidence(
-      started,
-      completed,
-      callerInstant,
-      startWindow,
-      { from: beforeComplete, to: afterComplete },
-    ),
+    actual: completionEvidence(started, completed, callerInstant, startWindow, {
+      from: beforeComplete,
+      to: afterComplete,
+    }),
     expected: {
       startedAt: true,
       startedSegmentInWindow: true,

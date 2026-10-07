@@ -8,6 +8,25 @@ import { agentRuns } from './schema/agent-runs';
 import { usageReservations } from './schema/usage-reservations';
 import { roundParticipants } from './schema/round-participants';
 
+/** The TTS characters a seat has already spent this round, summed. */
+const spentOnSpeech = (
+  client:
+    | Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0]
+    | BunSQLDatabase,
+  roundParticipantId: string,
+) =>
+  client
+    .select({
+      characters: sql<number>`coalesce(sum(${agentRuns.characters}), 0)`,
+    })
+    .from(agentRuns)
+    .where(
+      and(
+        eq(agentRuns.roundParticipantId, roundParticipantId),
+        eq(agentRuns.kind, 'tts'),
+      ),
+    );
+
 /**
  * The AI area on the shared model (ADR 0058 §8): one row per execution in
  * `agent_runs`, and entitlement accounting in `usage_reservations` — kept
@@ -90,17 +109,7 @@ export const agentOperations = ({
           .where(eq(roundParticipants.id, input.roundParticipantId))
           .for('update');
         if (!seat) return false;
-        const [spent] = await tx
-          .select({
-            characters: sql<number>`coalesce(sum(${agentRuns.characters}), 0)`,
-          })
-          .from(agentRuns)
-          .where(
-            and(
-              eq(agentRuns.roundParticipantId, input.roundParticipantId),
-              eq(agentRuns.kind, 'tts'),
-            ),
-          );
+        const [spent] = await spentOnSpeech(tx, input.roundParticipantId);
         if (Number(spent?.characters ?? 0) + input.characters > input.budget)
           return false;
         await tx.insert(agentRuns).values({
@@ -127,17 +136,7 @@ export const agentOperations = ({
     readonly roundParticipantId: string;
   }): Promise<number> {
     return instrumented(eventSink, 'spokenCharactersFor', async () => {
-      const [row] = await database
-        .select({
-          characters: sql<number>`coalesce(sum(${agentRuns.characters}), 0)`,
-        })
-        .from(agentRuns)
-        .where(
-          and(
-            eq(agentRuns.roundParticipantId, input.roundParticipantId),
-            eq(agentRuns.kind, 'tts'),
-          ),
-        );
+      const [row] = await spentOnSpeech(database, input.roundParticipantId);
       return Number(row?.characters ?? 0);
     });
   },

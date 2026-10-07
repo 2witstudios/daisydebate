@@ -18,8 +18,9 @@ setupRitewayBun();
  * So: capture what the client actually puts on the wire, and parse it with the
  * handler's real schema. A rename on either side now fails here.
  */
-const capture = async (
+const withCapturedFetch = async (
   call: () => Promise<unknown>,
+  respond: () => Response,
 ): Promise<Record<string, unknown>> => {
   const sent: Record<string, unknown>[] = [];
   const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation((async (
@@ -27,10 +28,7 @@ const capture = async (
     init?: RequestInit,
   ) => {
     sent.push(JSON.parse(String(init?.body)));
-    return new Response('{}', {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return respond();
   }) as unknown as typeof fetch);
   try {
     await call();
@@ -40,27 +38,25 @@ const capture = async (
   return sent[0] ?? {};
 };
 
+const capture = (call: () => Promise<unknown>) =>
+  withCapturedFetch(
+    call,
+    () =>
+      new Response('{}', {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+  );
+
 /** The streaming `speech` call reads the response body, so it needs a stream. */
-const captureStream = async (
-  call: () => Promise<unknown>,
-): Promise<Record<string, unknown>> => {
-  const sent: Record<string, unknown>[] = [];
-  const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation((async (
-    _input: RequestInfo | URL,
-    init?: RequestInit,
-  ) => {
-    sent.push(JSON.parse(String(init?.body)));
-    return new Response(new ReadableStream({ start: (c) => c.close() }), {
-      status: 200,
-    });
-  }) as unknown as typeof fetch);
-  try {
-    await call();
-  } finally {
-    fetchSpy.mockRestore();
-  }
-  return sent[0] ?? {};
-};
+const captureStream = (call: () => Promise<unknown>) =>
+  withCapturedFetch(
+    call,
+    () =>
+      new Response(new ReadableStream({ start: (c) => c.close() }), {
+        status: 200,
+      }),
+  );
 
 describe('the browser speaks the schema the handler parses', () => {
   test('command carries expectedVersion', async () => {

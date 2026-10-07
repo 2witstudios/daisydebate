@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { getTableConfig, type PgTable } from 'drizzle-orm/pg-core';
+import { schemaRules as rules } from './schema.test-support';
 import { ratingChanges, ratings, seasons } from './schema/ratings';
 import { roleGrants } from './schema/role-grants';
 import {
@@ -9,24 +9,6 @@ import {
 } from './schema/onboarding';
 
 setupRitewayBun();
-
-const rules = (table: PgTable) => {
-  const config = getTableConfig(table);
-  return {
-    checks: config.checks.map((check) => check.name).sort(),
-    indexes: config.indexes
-      .map(
-        (index) =>
-          `${index.config.unique ? 'unique ' : ''}${index.config.name}`,
-      )
-      .sort(),
-    uniques: config.uniqueConstraints.map((unique) => unique.name).sort(),
-    namedKeys: config.foreignKeys
-      .map((key) => key.reference().name)
-      .filter((name): name is string => name !== undefined)
-      .sort(),
-  };
-};
 
 describe('ratings schema rules', () => {
   test('ratings and role grants keep their ladder and scope rules', () => {

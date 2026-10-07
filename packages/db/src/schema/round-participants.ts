@@ -1,16 +1,8 @@
-import { debateRoles, type DebateRole } from '@daisy/protocol';
-import { sql } from 'drizzle-orm';
-import {
-  check,
-  index,
-  integer,
-  pgTable,
-  text,
-  uniqueIndex,
-} from 'drizzle-orm/pg-core';
-import { actors } from './actors';
+import { debateRoles } from '@daisy/protocol';
+import { check, index, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { oneOf } from './columns';
 import { rounds } from './rounds';
+import { seatActorId, seatRole, seatSlot, seatSlotCheck } from './seats';
 
 /**
  * One row per seat, keyed by surrogate id (ADR 0058 §2): the authoritative
@@ -27,11 +19,9 @@ export const roundParticipants = pgTable(
     roundId: text('round_id')
       .notNull()
       .references(() => rounds.id, { onDelete: 'cascade' }),
-    actorId: text('actor_id')
-      .notNull()
-      .references(() => actors.id, { onDelete: 'restrict' }),
-    role: text('role').$type<DebateRole>().notNull(),
-    slot: integer('slot').notNull().default(0),
+    actorId: seatActorId(),
+    role: seatRole(),
+    slot: seatSlot(),
   },
   (table) => [
     uniqueIndex('round_participants_actor_unique').on(
@@ -50,6 +40,6 @@ export const roundParticipants = pgTable(
     ),
     index('round_participants_actor_idx').on(table.actorId),
     check('round_participants_role_check', oneOf(table.role, debateRoles)),
-    check('round_participants_slot_check', sql`${table.slot} >= 0`),
+    check('round_participants_slot_check', seatSlotCheck(table.slot)),
   ],
 );

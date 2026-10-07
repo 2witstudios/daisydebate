@@ -1,5 +1,8 @@
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
-import { foundationDefinition } from '@daisy/db/reference-formats';
+import {
+  foundationConfig,
+  foundationDefinition,
+} from '@daisy/db/reference-formats';
 
 export const agentSeedVersion = 'agent-seed-v5';
 
@@ -32,14 +35,10 @@ const agentSeedResolution =
  * are the two agent actors on the sides. Bump `agentSeedVersion` whenever
  * this content changes.
  */
-const resolved = resolveRoomConfiguration(foundationDefinition, {
-  preRoundPrep: { enabled: false },
-  inRoundPrep: { enabled: true, budgetMsPerSide: 120_000 },
-  speechTiming: { countdownMs: 10_000, segmentDurationOverrides: {} },
-  crossExamination: { crossExMode: 'ordered' },
-  interruptions: null,
-  yielding: null,
-});
+const resolved = resolveRoomConfiguration(
+  foundationDefinition,
+  foundationConfig,
+);
 if (!resolved.ok)
   throw new Error(`Seed round refuses to resolve: ${resolved.refusal.message}`);
 

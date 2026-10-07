@@ -2,9 +2,66 @@ import { createAppError } from '@daisy/errors';
 import { and, eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { RoundProjection } from '@daisy/protocol';
+import type { z } from 'zod';
+import { jsonObjectSchema } from './schema/columns';
 import { isUniqueViolation } from './unique-violation';
+import { roundCommands } from './schema/round-commands';
 import { roundSegments } from './schema/round-segments';
 import { rounds } from './schema/rounds';
+
+type Tx = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
+
+/**
+ * Locks the round row and refuses when it moved on: the optimistic-version
+ * gate every durable round write shares, so a round that moved under a
+ * concurrent write refuses with CONFLICT and writes nothing.
+ */
+export async function lockedRoundVersion(
+  tx: Tx,
+  roundId: string,
+  expectedVersion: number,
+): Promise<number> {
+  const [round] = await tx
+    .select({ version: rounds.version })
+    .from(rounds)
+    .where(eq(rounds.id, roundId))
+    .for('update');
+  if (!round) throw createAppError('NOT_FOUND', 'No such round');
+  if (round.version !== expectedVersion)
+    throw createAppError('CONFLICT', 'The round moved on');
+  return round.version;
+}
+
+/**
+ * Writes the applied command row — idempotency and audit — with the version
+ * the execution leaves the round at. Null command, no row.
+ */
+export async function insertCommandRow(
+  tx: Tx,
+  roundId: string,
+  command: {
+    readonly commandId: string;
+    readonly actorId: string | null;
+    readonly serviceId: string | null;
+    readonly type: string;
+    readonly payloadDigest: string;
+    readonly result: z.infer<typeof jsonObjectSchema>;
+  } | null,
+  resultingVersion: number,
+): Promise<void> {
+  if (command === null) return;
+  await tx.insert(roundCommands).values({
+    commandId: command.commandId,
+    roundId,
+    actorId: command.actorId,
+    serviceId: command.serviceId,
+    type: command.type,
+    payloadDigest: command.payloadDigest,
+    result: command.result,
+    resultingVersion,
+    appliedAt: sql`statement_timestamp()` as unknown as Date,
+  });
+}
 
 /**
  * The durable instant for a lifecycle column (ADR 0033 §3.2, ISSUE-37):

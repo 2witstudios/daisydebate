@@ -1,6 +1,7 @@
 import { createId } from '@paralleldrive/cuid2';
 import { fixedIds } from '@daisy/clock';
 import { createDatabase } from '@daisy/db';
+import { validRules } from '@daisy/db/testing';
 import { rateCompletedRound } from '../src/features/ratings/rate-debate';
 import { testDatabaseUrl, withSql } from './fixtures';
 
@@ -21,22 +22,11 @@ const config = {
   yielding: { allowed: true, returnsTime: true },
 };
 
+/** The one-speech arena rules: the shared fixture cut to its opening segment. */
 const rules = {
-  version: 2,
-  seats: { affirmative: 1, negative: 1, judge: 0 },
-  segments: [
-    {
-      key: 'AC',
-      label: 'Affirmative constructive',
-      type: 'speech',
-      side: 'affirmative',
-      slot: 0,
-      durationMs: 240_000,
-    },
-  ],
+  ...validRules,
+  segments: [validRules.segments[0]!],
   inRoundPrep: null,
-  countdownMs: 10_000,
-  interaction: { crossExMode: 'ordered', yield: null, interruptions: null },
 };
 
 export const minute = (n: number) =>

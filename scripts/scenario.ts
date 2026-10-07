@@ -1,5 +1,9 @@
+import { invariantIdOf as invariantId } from './invariant-error';
 import { fixedIds, type IdGenerator } from '@daisy/clock';
-import { referenceFormats } from '@daisy/db/reference-formats';
+import {
+  foundationConfig,
+  referenceFormats,
+} from '@daisy/db/reference-formats';
 import {
   createRoundRuntime,
   resolveRoomConfiguration,
@@ -15,14 +19,10 @@ if (!foundation) throw new Error('foundation format seed missing');
 
 /** The one compiler, resolved once: the scenario's rules and seat order. */
 const resolved = (() => {
-  const outcome = resolveRoomConfiguration(foundation.definition, {
-    preRoundPrep: { enabled: false },
-    inRoundPrep: { enabled: true, budgetMsPerSide: 120_000 },
-    speechTiming: { countdownMs: 10_000, segmentDurationOverrides: {} },
-    crossExamination: { crossExMode: 'ordered' },
-    interruptions: null,
-    yielding: null,
-  });
+  const outcome = resolveRoomConfiguration(
+    foundation.definition,
+    foundationConfig,
+  );
   if (!outcome.ok) throw new Error(outcome.refusal.message);
   return outcome.rules;
 })();
@@ -227,13 +227,6 @@ function seatActor(run: Run, actor: number): string {
   if (id === undefined)
     throw new Error(`Scenario actor index ${actor} is not configured`);
   return id;
-}
-
-function invariantId(error: unknown): string | undefined {
-  if (error === null || typeof error !== 'object' || !('invariantId' in error))
-    return undefined;
-  const value = (error as { invariantId?: unknown }).invariantId;
-  return typeof value === 'string' ? value : undefined;
 }
 
 function assertScenario(

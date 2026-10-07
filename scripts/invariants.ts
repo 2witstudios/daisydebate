@@ -1,3 +1,4 @@
+import { invariantIdOf as invariantId } from './invariant-error';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import {
@@ -229,13 +230,6 @@ const fixtures: Readonly<Record<string, Fixture>> = {
 };
 
 const registryIds = Object.values(debateInvariantIds);
-
-function invariantId(error: unknown): string | undefined {
-  if (error === null || typeof error !== 'object' || !('invariantId' in error))
-    return undefined;
-  const value = (error as { invariantId?: unknown }).invariantId;
-  return typeof value === 'string' ? value : undefined;
-}
 
 export function checkInvariantSpec(
   spec: InvariantSpec,

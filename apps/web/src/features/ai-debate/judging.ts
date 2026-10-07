@@ -19,6 +19,7 @@ import {
   type AiDebateDependencies,
   type AiDebateView,
   type AiDebateViewUtterance,
+  type RecordUsage,
 } from './context';
 import { opponentForActor } from './opponents';
 
@@ -28,21 +29,6 @@ type Hydrated = {
   readonly runtime: ReturnType<typeof runtimeOf>;
   readonly now: number;
 };
-
-/** The usage writes one billable AI call records. */
-type RecordUsage = (
-  roundId: string,
-  participantId: string,
-  actorId: string,
-  usage: {
-    readonly kind: 'speech' | 'cross_ex' | 'tts' | 'stt' | 'judging';
-    readonly model: string;
-    readonly inputTokens?: number | undefined;
-    readonly outputTokens?: number | undefined;
-    readonly characters?: number | undefined;
-    readonly requests?: number | undefined;
-  },
-) => Promise<void>;
 
 type StoredBallot = Awaited<
   ReturnType<AiDebateDependencies['store']['getBallot']>

@@ -1,11 +1,9 @@
-import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { requireTestServices } from '@daisy/config';
+import { assert, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { roundAuthoring, withFixture } from './constraint-helpers';
+import { integrationSuite } from './suite.test-support';
 
-setupRitewayBun();
-
-const { databaseUrl: url } = requireTestServices(process.env);
+const { databaseUrl: url } = integrationSuite();
 
 /**
  * The global ceiling on live AI practice. The cutover deleted

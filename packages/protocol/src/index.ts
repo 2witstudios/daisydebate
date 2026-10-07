@@ -23,11 +23,7 @@ export {
   roundRulesSchema,
   segmentTypes,
 } from './format';
-export type {
-  FormatDefinition,
-  RoundRules,
-  SegmentType,
-} from './format';
+export type { FormatDefinition, RoundRules, SegmentType } from './format';
 export { roomConfigSchema, roomExecutionPlanSchema } from './room';
 export type { RoomConfig, RoomExecutionPlan } from './room';
 export type {
@@ -43,6 +39,7 @@ export type {
 } from './runtime';
 export {
   competitionTypes,
+  seatSlotsComplete,
   roundLengths,
   roundLengthSchema,
   roundStatuses,

@@ -1,12 +1,9 @@
 import { expect } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
-import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { requireTestServices } from '@daisy/config';
-import { lease, withRedis } from './test-support';
+import { assert, test } from 'riteway/bun';
+import { lease, redisSuite, withRedis } from './test-support';
 
-setupRitewayBun();
-
-const { redisUrl: url } = requireTestServices(process.env);
+const { redisUrl: url } = redisSuite();
 
 test('readActorConnections omits members scored in the past, one at a time, without deleting them', () =>
   // Simulates a crashed instance whose leases were never refreshed: each

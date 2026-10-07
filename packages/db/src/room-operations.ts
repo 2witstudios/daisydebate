@@ -1,3 +1,4 @@
+import { seatSlotsComplete } from '@daisy/protocol';
 import type {
   RoomConfig,
   RoomExecutionPlan,
@@ -177,10 +178,7 @@ export const roomOperations = ({
             .filter((seat) => seat.role === role)
             .map((seat) => seat.slot)
             .sort((a, b) => a - b);
-          if (
-            held.length !== wanted ||
-            !held.every((slot, index) => slot === index)
-          )
+          if (!seatSlotsComplete(wanted, held))
             throw createAppError(
               'INVARIANT',
               `Held ${role} seats are not exactly 0..${wanted - 1}`,

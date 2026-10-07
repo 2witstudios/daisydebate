@@ -2,6 +2,7 @@ import { ballotSchema, type Ballot } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import { ballotRowOf } from './ballot-row';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
@@ -40,18 +41,13 @@ export const ballotOperations = ({
           throw createAppError('INVARIANT', 'Only a judge seat holds a ballot');
         const inserted = await tx
           .insert(ballots)
-          .values({
-            id: input.ballotId,
-            judgeParticipantId: input.judgeParticipantId,
-            rubricVersion: parsed.rubricVersion,
-            winner: parsed.winner,
-            scores: parsed.scores,
-            reason: parsed.reason,
-            feedback: parsed.feedback,
-            citations: parsed.citations ?? null,
-            status: 'submitted',
-            submittedAt: sql`statement_timestamp()` as unknown as Date,
-          })
+          .values(
+            ballotRowOf({
+              ballotId: input.ballotId,
+              judgeParticipantId: input.judgeParticipantId,
+              ballot: parsed,
+            }),
+          )
           .onConflictDoNothing()
           .returning({ id: ballots.id });
         return { stored: inserted.length === 1 };

@@ -198,7 +198,10 @@ function resolveInterruptions(
   if (config.interruptions === null) return { ok: true, value: null };
   const capability = definition.configurable.interaction.interruptions;
   if (capability === null)
-    return stepRefused('capability-forbidden', 'The format forbids interruptions');
+    return stepRefused(
+      'capability-forbidden',
+      'The format forbids interruptions',
+    );
   if (!capability.modes.includes(config.interruptions.mode))
     return stepRefused(
       'invalid-choice',

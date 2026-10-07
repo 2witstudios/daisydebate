@@ -13,22 +13,9 @@ import {
   personSideOf,
   transcriptOf,
   type AiDebateDependencies,
+  type RecordUsage,
 } from './context';
 import { opponentForActor } from './opponents';
-
-type Usage = (
-  roundId: string,
-  participantId: string,
-  actorId: string,
-  usage: {
-    readonly kind: 'speech' | 'cross_ex' | 'tts' | 'stt' | 'judging';
-    readonly model: string;
-    readonly inputTokens?: number;
-    readonly outputTokens?: number;
-    readonly characters?: number;
-    readonly requests?: number;
-  },
-) => Promise<void>;
 
 export type SpeechEvent =
   | { readonly type: 'utterance'; readonly id: string }
@@ -68,7 +55,7 @@ export async function* writeSpeech({
     id: string,
     sequence: number,
   ) => Promise<{ readonly segmentId: string }>;
-  readonly recordUsage: Usage;
+  readonly recordUsage: RecordUsage;
   readonly signal: AbortSignal | undefined;
 }): AsyncGenerator<SpeechEvent> {
   const personSide = personSideOf(round, actorId);

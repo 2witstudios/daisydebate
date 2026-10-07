@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  ballotCategories,
   ballotScoresSchema,
   roomConfigSchema,
   roundRulesSchema,
@@ -180,32 +181,10 @@ describe('runtime checkpoint', () => {
 describe('ballot scores', () => {
   const scores = {
     affirmative: Object.fromEntries(
-      [
-        'thesis',
-        'framework',
-        'analysis',
-        'refutation',
-        'impact',
-        'weighing',
-        'questioning',
-        'answering',
-        'organization',
-        'delivery',
-      ].map((category, index) => [category, (index % 5) + 1]),
+      ballotCategories.map((category, index) => [category, (index % 5) + 1]),
     ),
     negative: Object.fromEntries(
-      [
-        'thesis',
-        'framework',
-        'analysis',
-        'refutation',
-        'impact',
-        'weighing',
-        'questioning',
-        'answering',
-        'organization',
-        'delivery',
-      ].map((category) => [category, 3]),
+      ballotCategories.map((category) => [category, 3]),
     ),
   };
 

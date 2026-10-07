@@ -1,16 +1,17 @@
-import type {
-  Ballot,
-  RoundProjection,
-  RoundRules,
-} from '@daisy/protocol';
+import type { Ballot, RoundProjection, RoundRules } from '@daisy/protocol';
 import { eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { ballotSchema } from '@daisy/protocol';
+import { ballotRowOf } from './ballot-row';
 import type { z } from 'zod';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { hydrateRound, type RoundHydration } from './round-hydration';
-import { writeProjection } from './round-projection-writer';
+import {
+  insertCommandRow,
+  lockedRoundVersion,
+  writeProjection,
+} from './round-projection-writer';
 import { isUniqueViolation } from './unique-violation';
 import { roundParticipants } from './schema/round-participants';
 import { roundCommands } from './schema/round-commands';
@@ -113,7 +114,9 @@ export const roundOperations = ({
 
   /** The hydration view: durable truth for one round, in one read. */
   async getRound(id: string): Promise<RoundHydration | null> {
-    return instrumented(eventSink, 'getRound', () => hydrateRound(database, id));
+    return instrumented(eventSink, 'getRound', () =>
+      hydrateRound(database, id),
+    );
   },
 
   /**
@@ -145,14 +148,11 @@ export const roundOperations = ({
     await instrumented(eventSink, 'applyRoundCompletion', async () => {
       const parsed = ballotSchema.parse(input.ballot.ballot);
       await database.transaction(async (tx) => {
-        const [round] = await tx
-          .select({ version: rounds.version })
-          .from(rounds)
-          .where(eq(rounds.id, input.roundId))
-          .for('update');
-        if (!round) throw createAppError('NOT_FOUND', 'No such round');
-        if (round.version !== input.expectedVersion)
-          throw createAppError('CONFLICT', 'The round moved on');
+        const roundVersion = await lockedRoundVersion(
+          tx,
+          input.roundId,
+          input.expectedVersion,
+        );
         const [seat] = await tx
           .select({ role: roundParticipants.role })
           .from(roundParticipants)
@@ -161,32 +161,20 @@ export const roundOperations = ({
         if (!seat) throw createAppError('NOT_FOUND', 'No such seat');
         if (seat.role !== 'judge')
           throw createAppError('INVARIANT', 'Only a judge seat holds a ballot');
-        await tx.insert(ballots).values({
-          id: input.ballot.ballotId,
-          judgeParticipantId: input.ballot.judgeParticipantId,
-          rubricVersion: parsed.rubricVersion,
-          winner: parsed.winner,
-          scores: parsed.scores,
-          reason: parsed.reason,
-          feedback: parsed.feedback,
-          citations: parsed.citations ?? null,
-          status: 'submitted',
-          submittedAt: sql`statement_timestamp()` as unknown as Date,
-        });
+        await tx.insert(ballots).values(
+          ballotRowOf({
+            ballotId: input.ballot.ballotId,
+            judgeParticipantId: input.ballot.judgeParticipantId,
+            ballot: parsed,
+          }),
+        );
         await writeProjection(tx, input.roundId, input.projection);
-        if (input.command !== null) {
-          await tx.insert(roundCommands).values({
-            commandId: input.command.commandId,
-            roundId: input.roundId,
-            actorId: input.command.actorId,
-            serviceId: input.command.serviceId,
-            type: input.command.type,
-            payloadDigest: input.command.payloadDigest,
-            result: input.command.result,
-            resultingVersion: round.version + 1,
-            appliedAt: sql`statement_timestamp()` as unknown as Date,
-          });
-        }
+        await insertCommandRow(
+          tx,
+          input.roundId,
+          input.command,
+          roundVersion + 1,
+        );
       });
     });
   },
@@ -215,28 +203,18 @@ export const roundOperations = ({
           if (existing)
             throw createAppError('CONFLICT', 'The command was already applied');
         }
-        const [round] = await tx
-          .select({ version: rounds.version })
-          .from(rounds)
-          .where(eq(rounds.id, input.roundId))
-          .for('update');
-        if (!round) throw createAppError('NOT_FOUND', 'No such round');
-        if (round.version !== input.expectedVersion)
-          throw createAppError('CONFLICT', 'The round moved on');
+        const roundVersion = await lockedRoundVersion(
+          tx,
+          input.roundId,
+          input.expectedVersion,
+        );
         await writeProjection(tx, input.roundId, input.projection);
-        if (input.command !== null) {
-          await tx.insert(roundCommands).values({
-            commandId: input.command.commandId,
-            roundId: input.roundId,
-            actorId: input.command.actorId,
-            serviceId: input.command.serviceId,
-            type: input.command.type,
-            payloadDigest: input.command.payloadDigest,
-            result: input.command.result,
-            resultingVersion: round.version + 1,
-            appliedAt: sql`statement_timestamp()` as unknown as Date,
-          });
-        }
+        await insertCommandRow(
+          tx,
+          input.roundId,
+          input.command,
+          roundVersion + 1,
+        );
       });
     });
   },

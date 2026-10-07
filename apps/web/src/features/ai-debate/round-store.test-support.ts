@@ -151,8 +151,7 @@ export function createInMemoryRoundStore() {
         if (round.version !== input.expectedVersion)
           throw createAppError('CONFLICT', 'The round moved on');
         const existing = state.ballotRows.get(input.ballot.judgeParticipantId);
-        if (existing)
-          throw createAppError('CONFLICT', 'The ballot is on file');
+        if (existing) throw createAppError('CONFLICT', 'The ballot is on file');
         state.ballotRows.set(input.ballot.judgeParticipantId, {
           id: input.ballot.ballotId,
           judgeParticipantId: input.ballot.judgeParticipantId,

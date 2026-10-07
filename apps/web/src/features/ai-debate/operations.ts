@@ -11,6 +11,7 @@ import {
   type AiDebateDependencies,
   type AiDebateView,
   type AudioFormat,
+  type RecordUsage,
 } from './context';
 import { crossExaminationOperations } from './cross-examination';
 import { judgingOperations, viewOf } from './judging';
@@ -27,7 +28,6 @@ export type PersonCommand =
   | { readonly type: 'startSpeech' }
   | { readonly type: 'yield' }
   | { readonly type: 'abort' };
-
 
 /**
  * The AI practice application operations (AIDB on the one Round model,
@@ -88,19 +88,12 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
   };
 
   /** The usage and allowance writes for one billable AI call. */
-  const recordUsage = async (
-    roundId: string,
-    participantId: string,
-    actorId: string,
-    usage: {
-      readonly kind: 'speech' | 'cross_ex' | 'tts' | 'stt' | 'judging';
-      readonly model: string;
-      readonly inputTokens?: number | undefined;
-      readonly outputTokens?: number | undefined;
-      readonly characters?: number | undefined;
-      readonly requests?: number | undefined;
-    },
-  ): Promise<void> => {
+  const recordUsage: RecordUsage = async (
+    roundId,
+    participantId,
+    actorId,
+    usage,
+  ) => {
     await store.recordAgentRun({
       id: ids.next(),
       roundParticipantId: participantId,
@@ -114,7 +107,6 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
     });
     await store.markReservationCounted({ actorId, roundId });
   };
-
 
   return {
     ...speechOperations(dependencies, hydrated, recordUsage),

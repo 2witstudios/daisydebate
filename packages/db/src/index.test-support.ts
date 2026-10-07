@@ -1,7 +1,8 @@
 import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
-import type { RoundRules, RoundStatus } from '@daisy/protocol';
+import type { RoundStatus } from '@daisy/protocol';
 import { createDatabase } from './index';
+import { foundationDefinition } from './reference-formats';
 import { createTestOnlyOperations } from './test-only-operations';
 import type { DatabaseEventSink } from './instrumented';
 
@@ -167,85 +168,7 @@ export const sampleFormat = () => ({
   id: 'foundation',
   name: 'Foundation (architectural proof)',
   version: 1,
-  definition: sampleDefinition(),
+  definition: foundationDefinition,
 });
 
-/** The foundation definition, as the protocol schema validates it. */
-const sampleDefinition = () =>
-  ({
-    version: 1,
-    seats: { affirmative: 1, negative: 1, judge: 0 },
-    segments: [
-      {
-        key: 'AC',
-        label: 'Affirmative constructive',
-        type: 'speech',
-        side: 'affirmative',
-        slot: 0,
-        defaultDurationMs: 240_000,
-      },
-      {
-        key: 'NC',
-        label: 'Negative constructive',
-        type: 'speech',
-        side: 'negative',
-        slot: 0,
-        defaultDurationMs: 240_000,
-      },
-    ],
-    configurable: {
-      timing: {
-        segmentDurationMs: {
-          AC: { min: 60_000, max: 600_000 },
-          NC: { min: 60_000, max: 600_000 },
-        },
-        countdownMs: { min: 0, max: 60_000 },
-      },
-      inRoundPrep: {
-        budgetMsPerSide: { min: 0, max: 600_000 },
-        spendableBefore: ['speech'],
-        expiresAtSegment: null,
-      },
-      preRoundPrep: null,
-      interaction: {
-        crossExModes: ['ordered'],
-        interruptions: null,
-        yield: null,
-      },
-    },
-  }) as const;
-
-/** The resolved rules every fixture round freezes, for tests that write rounds. */
-export const validRules: RoundRules = {
-  version: 2,
-  seats: { affirmative: 1, negative: 1, judge: 0 },
-  segments: [
-    {
-      key: 'AC',
-      label: 'Affirmative constructive',
-      type: 'speech',
-      side: 'affirmative',
-      slot: 0,
-      durationMs: 240_000,
-    },
-    {
-      key: 'NC',
-      label: 'Negative constructive',
-      type: 'speech',
-      side: 'negative',
-      slot: 0,
-      durationMs: 240_000,
-    },
-  ],
-  inRoundPrep: {
-    budgetMsPerSide: 120_000,
-    spendableBefore: ['speech'],
-    expiresAtSegment: null,
-  },
-  countdownMs: 10_000,
-  interaction: {
-    crossExMode: 'ordered',
-    yield: null,
-    interruptions: null,
-  },
-};
+export { validRules } from './testing';

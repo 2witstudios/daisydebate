@@ -1,6 +1,6 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { setup } from './operations.test-support';
+import { setup, speakOpeningConstructive } from './operations.test-support';
 
 setupRitewayBun();
 
@@ -99,14 +99,7 @@ describe('the AI speech, on the one Round model', () => {
   test('refuses to voice or rewrite the person’s own utterance', async () => {
     const { operations, begin, clock } = setup();
     const id = await begin();
-    clock.advance(11); // the AC opens: the person's own speech
-    await operations.transcribe({
-      actorId: 'actor-1',
-      id,
-      segmentIndex: 0,
-      audioBase64: 'QUJDRA==',
-      format: 'webm',
-    });
+    await speakOpeningConstructive(operations, clock, id);
     const view = await operations.view({ actorId: 'actor-1', id });
     const spoken = view.utterances.find((line) => line.role === 'person');
     if (!spoken) throw new Error('the person’s line did not land');

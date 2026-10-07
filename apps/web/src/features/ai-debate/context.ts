@@ -5,6 +5,21 @@ import { createRoundRuntime, type RoundPosition } from '@daisy/debate-engine';
 import type { RoundRules } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 
+/** The usage writes one billable AI call records. */
+export type RecordUsage = (
+  roundId: string,
+  participantId: string,
+  actorId: string,
+  usage: {
+    readonly kind: 'speech' | 'cross_ex' | 'tts' | 'stt' | 'judging';
+    readonly model: string;
+    readonly inputTokens?: number | undefined;
+    readonly outputTokens?: number | undefined;
+    readonly characters?: number | undefined;
+    readonly requests?: number | undefined;
+  },
+) => Promise<void>;
+
 /**
  * The command log's payload digest: SHA3-256 over the command's content
  * (ADR 0019). The runtime refuses by state rather than payload, so the

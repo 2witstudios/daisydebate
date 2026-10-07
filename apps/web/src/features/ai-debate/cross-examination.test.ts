@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { setup } from './operations.test-support';
+import { setup, speakOpeningConstructive } from './operations.test-support';
 
 setupRitewayBun();
 
@@ -23,14 +23,7 @@ describe('the AI opens its own cross-examination', () => {
 
     // Speak the constructive first, so the round transcript is non-empty —
     // the state in which the AI used to stay silent.
-    clock.advance(11); // the AC opens: the person's speech
-    await operations.transcribe({
-      actorId: 'actor-1',
-      id,
-      segmentIndex: 0,
-      audioBase64: 'QUJDRA==',
-      format: 'webm',
-    });
+    await speakOpeningConstructive(operations, clock, id);
     await operations.speech({
       actorId: 'actor-1',
       id,

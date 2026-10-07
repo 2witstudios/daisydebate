@@ -1,6 +1,10 @@
 import type { OpenRouter } from '@daisy/ai-voice';
+import { ballotCategories } from '@daisy/protocol';
 import type { Clock, IdGenerator } from '@daisy/clock';
-import { createAiDebateOperations } from './operations';
+import {
+  createAiDebateOperations,
+  type AiDebateOperations,
+} from './operations';
 import { createInMemoryRoundStore } from './round-store.test-support';
 import type { RoundStore } from './context';
 
@@ -39,32 +43,10 @@ const fakeVoice = () => {
           winner: 'affirmative',
           scores: {
             affirmative: Object.fromEntries(
-              [
-                'thesis',
-                'framework',
-                'analysis',
-                'refutation',
-                'impact',
-                'weighing',
-                'questioning',
-                'answering',
-                'organization',
-                'delivery',
-              ].map((category) => [category, 4]),
+              ballotCategories.map((category) => [category, 4]),
             ),
             negative: Object.fromEntries(
-              [
-                'thesis',
-                'framework',
-                'analysis',
-                'refutation',
-                'impact',
-                'weighing',
-                'questioning',
-                'answering',
-                'organization',
-                'delivery',
-              ].map((category) => [category, 3]),
+              ballotCategories.map((category) => [category, 3]),
             ),
           },
           reason: 'The affirmative carried its case.',
@@ -140,3 +122,19 @@ export function setup(limits?: {
   };
   return { operations, begin, memory, clock, calls, store };
 }
+
+/** The person speaks their opening constructive through the transcribe path. */
+export const speakOpeningConstructive = async (
+  operations: AiDebateOperations,
+  clock: { readonly advance: (seconds: number) => void },
+  id: string,
+) => {
+  clock.advance(11); // the AC opens: the person's speech
+  await operations.transcribe({
+    actorId: 'actor-1',
+    id,
+    segmentIndex: 0,
+    audioBase64: 'QUJDRA==',
+    format: 'webm',
+  });
+};

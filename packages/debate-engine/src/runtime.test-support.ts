@@ -126,7 +126,7 @@ export const practiceRules = (): RoundRules => {
 };
 
 /** Sequential segment ids, so projections are deterministic in tests. */
-export const sequentialSegmentIds = (): (() => string) => {
+const sequentialSegmentIds = (): (() => string) => {
   let next = 0;
   return () => {
     next += 1;
@@ -214,3 +214,26 @@ export const runtimeWorld = ({
     segments,
     nextSegmentId: sequentialSegmentIds(),
   });
+
+/** The practice round's full span: one countdown per segment plus speech time. */
+const practiceRoundTotalMs = (rules: RoundRules): number =>
+  rules.segments.length * rules.countdownMs +
+  rules.segments.reduce((sum, segment) => sum + segment.durationMs, 0);
+
+/** The practice world's rules, actors and clock, as the runtime tests bind them. */
+export const practiceCast = () => ({
+  rules: practiceRules(),
+  at: roundAt,
+  person: practiceActors.affirmative,
+  opponent: practiceActors.negative,
+  judge: practiceActors.judge,
+});
+
+/** A started practice world, ticked to the instant its final segment is due. */
+export const completedSchedule = (rules: RoundRules) => {
+  const world = runtimeWorld();
+  world.execute({ command: { type: 'start' }, actorId: null, now: roundAt(0) });
+  const totalMs = practiceRoundTotalMs(rules);
+  world.tick(roundAt(totalMs));
+  return { world, totalMs };
+};

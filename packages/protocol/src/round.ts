@@ -73,3 +73,14 @@ export const emptyRuntimeCheckpoint: RuntimeCheckpoint = {
   active_prep: null,
   floor: null,
 };
+
+/**
+ * True when the held slots are exactly 0..wanted-1: a role's seats are
+ * complete. Both write paths enforce it — the room freeze and the round
+ * start — so the predicate lives on the contract they both read.
+ */
+export const seatSlotsComplete = (
+  wanted: number,
+  held: readonly number[],
+): boolean =>
+  held.length === wanted && held.every((slot, index) => slot === index);

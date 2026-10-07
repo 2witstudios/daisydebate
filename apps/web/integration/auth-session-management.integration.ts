@@ -1,17 +1,10 @@
-import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createPasskeyFlows } from './auth-passkey-flows';
+import { authFlows } from './auth-flows.test-support';
+import { assert, describe, test } from 'riteway/bun';
 import { origin } from './fixtures';
 import { trackRevocations } from './auth-outbox-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
-import { requireTestServices } from '@daisy/config';
 
-requireTestServices(process.env);
-setupRitewayBun();
-
-const flows = await createPasskeyFlows();
-const { recordedEvents } = flows;
-const { newClient } = flows.account.flows;
-const { signUp } = flows.account;
+const { flows, recordedEvents, newClient, signUp } = await authFlows();
 const { authRoute } = flows;
 
 /** Reads the current session with cookie caching disabled, as production does. */
