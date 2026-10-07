@@ -174,6 +174,20 @@ const citationSchema = z.strictObject({
 export const ballotScoresSchema = z.record(debateSideSchema, sideScoresSchema);
 export type BallotScores = z.infer<typeof ballotScoresSchema>;
 
+/** The per-side feedback the ballot may carry, as its column stores it. */
+export const ballotFeedbackSchema = z.partialRecord(
+  debateSideSchema,
+  z.string().trim().min(1).max(ballotFeedbackMax),
+);
+export type BallotFeedback = z.infer<typeof ballotFeedbackSchema>;
+
+/** The turn behind each score, as its column stores it. */
+export const ballotCitationsSchema = z.partialRecord(
+  debateSideSchema,
+  z.partialRecord(categorySchema, citationSchema),
+);
+export type BallotCitations = z.infer<typeof ballotCitationsSchema>;
+
 /**
  * One judge's ballot. The judge picks a winner (there are no draws), scores
  * every category for both sides, and gives a reason both debaters see.

@@ -20,9 +20,9 @@ import {
   versionColumn,
   versionPositive,
 } from './columns';
-import { debateParticipants } from './debate-participants';
-import { debates } from './debates';
 import { formats } from './formats';
+import { roundParticipants } from './round-participants';
+import { rounds } from './rounds';
 
 export const seasonStatuses = ['scheduled', 'active', 'closed'] as const;
 
@@ -123,9 +123,9 @@ export const ratingChanges = pgTable(
   'rating_changes',
   {
     id: text('id').primaryKey(),
-    debateId: text('debate_id')
+    roundId: text('round_id')
       .notNull()
-      .references(() => debates.id, { onDelete: 'restrict' }),
+      .references(() => rounds.id, { onDelete: 'restrict' }),
     ...ratingScope(),
     ratingBefore: doublePrecision('rating_before').notNull(),
     ratingAfter: doublePrecision('rating_after').notNull(),
@@ -137,20 +137,20 @@ export const ratingChanges = pgTable(
     occurredAt: timestampColumn('occurred_at').notNull(),
   },
   (table) => [
-    /** Only a seat holder in that debate can be rated for it. */
+    /** Only a seat holder in that round can be rated for it. */
     foreignKey({
       name: 'rating_changes_participant_fk',
-      columns: [table.debateId, table.actorId],
-      foreignColumns: [debateParticipants.debateId, debateParticipants.actorId],
+      columns: [table.roundId, table.actorId],
+      foreignColumns: [roundParticipants.roundId, roundParticipants.actorId],
     }).onDelete('restrict'),
-    /** The change is posted to the debate's own format, never another. */
+    /** The change is posted to the round's own format, never another. */
     foreignKey({
-      name: 'rating_changes_debate_format_fk',
-      columns: [table.debateId, table.formatId],
-      foreignColumns: [debates.id, debates.formatId],
+      name: 'rating_changes_round_format_fk',
+      columns: [table.roundId, table.formatId],
+      foreignColumns: [rounds.id, rounds.formatId],
     }).onDelete('restrict'),
-    uniqueIndex('rating_changes_debate_actor_unique').on(
-      table.debateId,
+    uniqueIndex('rating_changes_round_actor_unique').on(
+      table.roundId,
       table.actorId,
     ),
     index('rating_changes_actor_format_occurred_idx').on(
@@ -159,10 +159,7 @@ export const ratingChanges = pgTable(
       table.ladder,
       table.occurredAt,
     ),
-    index('rating_changes_debate_format_idx').on(
-      table.debateId,
-      table.formatId,
-    ),
+    index('rating_changes_round_format_idx').on(table.roundId, table.formatId),
     index('rating_changes_format_idx').on(table.formatId),
     index('rating_changes_season_idx').on(table.seasonId),
     check('rating_changes_ladder_check', oneOf(table.ladder, ratingLadders)),

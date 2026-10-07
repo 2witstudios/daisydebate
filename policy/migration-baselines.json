@@ -7,6 +7,13 @@
       "owner": "platform",
       "reason": "One-time squash of the five drizzle-kit 0.x migrations (0000-0004) into one drizzle-kit 1.0 baseline carrying the runtime roles, constraints, indexes and reference data before first ship (ISSUE-6); inert once the baseline lands on the default branch.",
       "reviewBy": "2026-10-31"
+    },
+    {
+      "baseMigrationsHash": "sha256:fa51f261546c58109c76be12fa8b2e70be5e13cefa28c7d3aa9144ff92d01238",
+      "adr": "docs/decisions/0058-one-round-model.md",
+      "owner": "platform",
+      "reason": "One-time squash of the eight migrations carrying the two-stack schema (debates, ai_debates, debate_documents and friends) into one baseline carrying the one-Round model of ADR 0058: formats with immutable revisions and presets, durable rooms, rounds with segments, utterances, ballots on the shared contract, agent runs and usage reservations, and documents owned by actors. Daisy is pre-ship with no deployed consumers (ADR 0023); no data is migrated, so every local and test database resets once. Inert once the baseline lands on the default branch.",
+      "reviewBy": "2026-11-30"
     }
   ]
 }

@@ -38,6 +38,18 @@ export type {
 } from './format';
 export { roomConfigSchema, roomExecutionPlanSchema } from './room';
 export type { RoomConfig, RoomExecutionPlan } from './room';
+export { roundCommandSchema } from './runtime';
+export type {
+  HydratedRound,
+  HydratedSegment,
+  RoundParticipantSeat,
+  RoundCommand,
+  SegmentInsert,
+  SegmentClose,
+  RoundEffect,
+  RoundProjection,
+  RoundPosition,
+} from './runtime';
 export {
   competitionTypes,
   competitionTypeSchema,
@@ -60,6 +72,8 @@ export type {
 export {
   ballotSchema,
   ballotScoresSchema,
+  ballotFeedbackSchema,
+  ballotCitationsSchema,
   ballotRubric,
   ballotRubricVersion,
   ballotCategories,

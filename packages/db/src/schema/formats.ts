@@ -1,41 +1,34 @@
-import { formatRulesSchema } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import { boolean, check, pgTable, text } from 'drizzle-orm/pg-core';
-import {
-  createdAtColumn,
-  jsonbColumn,
-  jsonbIsObject,
-  updatedAtColumn,
-  versionColumn,
-  versionPositive,
-} from './columns';
+import { check, foreignKey, integer, pgTable, text } from 'drizzle-orm/pg-core';
+import { createdAtColumn, updatedAtColumn } from './columns';
+import { formatRevisions } from './format-revisions';
 
 /**
- * Debate formats: reference data (ADR 0038). `id` is the slug
- * (`'foundation'`); rows ship in the baseline and forward migrations, never
- * in the dev seed. Every Drizzle write parses `rules` with the protocol
- * `formatRulesSchema`, whose `seats` map is exhaustive over `debateRoles`;
- * the database keeps the version-1 shape (`version`, `seats`, `clock`) as a
- * floor.
+ * Debate formats: identity plus a pointer to the current definition
+ * revision (ADR 0058 §2a). Reference rows ship in the baseline and forward
+ * migrations, never in the dev seed (ADR 0038). A definition is never
+ * rewritten in place: publishing a revision appends to `format_revisions`
+ * and moves the pointer, so a preset or round pinning an older
+ * `format_version` still resolves. The pointer's composite FK to
+ * `format_revisions` is DEFERRABLE INITIALLY DEFERRED in the committed
+ * baseline SQL — drizzle-kit cannot express it, and the pointer and the
+ * first revision must commit together.
  */
 export const formats = pgTable(
   'formats',
   {
     id: text('id').primaryKey(),
     name: text('name').notNull(),
-    rules: jsonbColumn('rules', formatRulesSchema).notNull(),
-    rankedEligible: boolean('ranked_eligible').notNull(),
+    currentVersion: integer('current_version').notNull(),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
-    version: versionColumn(),
   },
   (table) => [
-    jsonbIsObject('formats', table.rules),
-    check(
-      'formats_rules_shape',
-      // coalesce: a missing key yields NULL, and a NULL CHECK passes.
-      sql`coalesce(${table.rules}->>'version', '') = '1' and coalesce(jsonb_typeof(${table.rules}->'seats'), '') = 'object' and coalesce(jsonb_typeof(${table.rules}->'clock'), '') = 'object'`,
-    ),
-    versionPositive('formats', table.version),
+    foreignKey({
+      name: 'formats_current_revision_fk',
+      columns: [table.id, table.currentVersion],
+      foreignColumns: [formatRevisions.formatId, formatRevisions.version],
+    }),
+    check('formats_current_version_positive', sql`${table.currentVersion} > 0`),
   ],
 );

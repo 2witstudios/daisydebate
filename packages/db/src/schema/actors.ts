@@ -9,14 +9,15 @@ import {
 } from './columns';
 import { users } from './users';
 
-/** Widened by forward migration when agents arrive (ADR 0029). */
-export const actorKinds = ['human'] as const;
+/** Widened when bots arrived as round participants (ADR 0058 §8). */
+export const actorKinds = ['human', 'bot'] as const;
 
 /**
  * Competitive identity, separate from the Better Auth account. Competitive
  * rows reference actors so that tombstoning a user (`users.deleted_at`) never
  * touches history. Public identity (`username`) stays on `users`; actors hold
- * no PII.
+ * no PII. Nothing here constrains ratings: ratedness comes from a round's
+ * `competition_type`, never from who is seated.
  */
 export const actors = pgTable(
   'actors',
