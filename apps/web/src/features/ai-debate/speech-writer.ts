@@ -6,7 +6,6 @@ import {
   speechMessages,
 } from '@daisy/ai-voice';
 import type { RoundHydration } from '@daisy/db';
-import type { createRoundRuntime } from '@daisy/debate-engine';
 import type { RoundStore } from './context';
 import {
   aiSideOf,
@@ -17,13 +16,6 @@ import {
 } from './context';
 import { opponentForActor } from './opponents';
 
-type Runtime = ReturnType<typeof createRoundRuntime>;
-
-type Hydrated = {
-  readonly round: RoundHydration;
-  readonly runtime: Runtime;
-  readonly now: number;
-};
 type Usage = (
   roundId: string,
   participantId: string,
