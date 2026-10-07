@@ -85,10 +85,38 @@ describe('start and view', () => {
 });
 
 describe('commands and the ballot', () => {
+  test('a stale version is refused before the engine sees the command', async () => {
+    const { operations, begin } = setup();
+    const id = await begin();
+    const { version } = await operations.view({ actorId: 'actor-1', id });
+    await assertRejects({
+      given: 'a command carrying a version one behind the round',
+      should: 'refuse with CONFLICT, leaving the round where it was',
+      actual: () =>
+        operations.command({
+          actorId: 'actor-1',
+          id,
+          command: { type: 'start' },
+          expectedVersion: version - 1,
+        }),
+      code: 'CONFLICT',
+    });
+    assert({
+      given: 'the refused command',
+      should: 'leave the round at its own version',
+      actual: (await operations.view({ actorId: 'actor-1', id })).version,
+      expected: version,
+    });
+  });
+
   test('a refused command changes nothing', async () => {
     const { operations, begin, clock } = setup();
     const id = await begin();
     clock.advance(11); // the AC opens
+    // The version the round is actually at: a command carrying a stale one is
+    // refused before the engine ever sees it.
+    const expectedVersion = (await operations.view({ actorId: 'actor-1', id }))
+      .version;
     await assertRejects({
       given: 'a startSpeech while the AC is live',
       should: 'refuse with the prep invariant',
@@ -97,7 +125,7 @@ describe('commands and the ballot', () => {
           actorId: 'actor-1',
           id,
           command: { type: 'startSpeech' },
-          expectedVersion: 2,
+          expectedVersion,
         }),
       code: 'INVARIANT',
       invariantId: 'round.speech.requires-prep',

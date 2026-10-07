@@ -314,6 +314,12 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
       readonly expectedVersion: number;
     }): Promise<void> {
       const { round, runtime, now } = await hydrated(actorId, id);
+      // The caller's version is the optimistic-concurrency claim the handler
+      // validated on the way in. Comparing it here is what makes that check
+      // mean something: persisting with the freshly hydrated version instead
+      // would let a stale browser win every race it lost.
+      if (round.version !== expectedVersion)
+        throw createAppError('CONFLICT', 'The round moved on');
       const mapped: RoundCommand =
         command.type === 'startPrep'
           ? { type: 'start_prep' }

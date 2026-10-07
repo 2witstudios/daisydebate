@@ -24,7 +24,6 @@ type Hydrated = {
   readonly runtime: Runtime;
   readonly now: number;
 };
-type Hydrate = (actorId: string, id: string) => Promise<Hydrated>;
 type Usage = (
   roundId: string,
   participantId: string,
