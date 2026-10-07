@@ -168,4 +168,19 @@ describe('round runtime prep', () => {
       expected: before,
     });
   });
+
+  test('exposes the checkpoint it executes against', () => {
+    const world = runtimeWorld();
+    assert({
+      given: 'a fresh practice world',
+      should: 'parse its checkpoint with the runtime schema',
+      actual: world.checkpoint(),
+      expected: {
+        version: 1,
+        prep_consumed_ms: { affirmative: 0, negative: 0 },
+        active_prep: null,
+        floor: null,
+      },
+    });
+  });
 });
