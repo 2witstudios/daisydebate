@@ -1,13 +1,12 @@
 import { expect } from 'bun:test';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { practiceRules } from '../../debate-engine/src/runtime.test-support';
-import { createTestDatabase, roundRow } from './index.test-support';
+import { createTestDatabase, roundRow, validRules } from './index.test-support';
 import { emptyRuntimeCheckpoint } from '@daisy/protocol';
 
 setupRitewayBun();
 
-const rules = practiceRules();
+const rules = validRules;
 const checkpoint = emptyRuntimeCheckpoint;
 
 describe('round persistence', () => {

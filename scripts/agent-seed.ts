@@ -1,8 +1,5 @@
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
-import {
-  foundationDefinition,
-  referenceFormats,
-} from '@daisy/db/reference-formats';
+import { foundationDefinition } from '@daisy/db/reference-formats';
 
 export const agentSeedVersion = 'agent-seed-v5';
 

@@ -2,21 +2,10 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
 import { applyDevSeed } from '../src/dev-seed';
-import { foundationDefinition } from '@daisy/db/reference-formats';
-import { resolveRoomConfiguration } from '@daisy/debate-engine';
+import { validRules } from './round-fixtures';
 
-const seedRules = (() => {
-  const resolved = resolveRoomConfiguration(foundationDefinition, {
-    preRoundPrep: { enabled: false },
-    inRoundPrep: { enabled: true, budgetMsPerSide: 120_000 },
-    speechTiming: { countdownMs: 10_000, segmentDurationOverrides: {} },
-    crossExamination: { crossExMode: 'ordered' },
-    interruptions: null,
-    yielding: null,
-  });
-  if (!resolved.ok) throw new Error(resolved.refusal.message);
-  return resolved.rules;
-})();
+/** The rules every seeded round freezes: the resolved foundation grammar. */
+const seedRules = validRules;
 
 setupRitewayBun();
 

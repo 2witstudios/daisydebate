@@ -7,6 +7,7 @@ import type {
   RatedOutcome,
   SegmentClose,
   SegmentInsert,
+  SegmentType,
   RoundEffect,
 } from '@daisy/protocol';
 import { debateInvariantIds } from './invariant-ids';
@@ -80,22 +81,15 @@ const start = (c: CommandContext): void => {
 };
 
 /**
- * Elective in-round prep: only a seated debater, only before their own
- * segment, only while the format's prep bounds and budget allow it.
+ * The segment the prepping side may spend prep before, or a named refusal:
+ * it must exist, be the prepping side's own, sit inside the spendable
+ * window, and not have passed the budget's expiry segment.
  */
-const startPrep = (c: CommandContext): void => {
-  if (c.on.openRow() !== undefined)
-    refuse('CONFLICT', 'A segment is already live');
-  if (c.on.checkpoint().active_prep !== null)
-    refuse('CONFLICT', 'Prep is already running');
-  const { inRoundPrep } = c.rules;
-  if (inRoundPrep === null)
-    invariant(
-      debateInvariantIds.prepRequiresCapability,
-      'The resolved rules have no in-round prep',
-    );
-  const side = c.sideOf(c.actorId);
-  if (side === null) refuse('CONFLICT', 'Prep belongs to a seated debater');
+const spendableSegmentOf = (
+  c: CommandContext,
+  inRoundPrep: NonNullable<RoundRules['inRoundPrep']>,
+  side: DebateSide,
+): { readonly key: string; readonly type: SegmentType } => {
   const sequence = c.closedCount();
   const upcoming = c.rules.segments[sequence];
   if (!upcoming)
@@ -123,6 +117,27 @@ const startPrep = (c: CommandContext): void => {
       debateInvariantIds.prepRequiresSpendableSegment,
       `Prep expired at segment ${expiresAt}`,
     );
+  return upcoming;
+};
+
+/**
+ * Elective in-round prep: only a seated debater, only before their own
+ * segment, only while the format's prep bounds and budget allow it.
+ */
+const startPrep = (c: CommandContext): void => {
+  if (c.on.openRow() !== undefined)
+    refuse('CONFLICT', 'A segment is already live');
+  if (c.on.checkpoint().active_prep !== null)
+    refuse('CONFLICT', 'Prep is already running');
+  const { inRoundPrep } = c.rules;
+  if (inRoundPrep === null)
+    invariant(
+      debateInvariantIds.prepRequiresCapability,
+      'The resolved rules have no in-round prep',
+    );
+  const side = c.sideOf(c.actorId);
+  if (side === null) refuse('CONFLICT', 'Prep belongs to a seated debater');
+  spendableSegmentOf(c, inRoundPrep, side);
   if (c.on.checkpoint().prep_consumed_ms[side] >= inRoundPrep.budgetMsPerSide)
     invariant(
       debateInvariantIds.prepRequiresBudget,

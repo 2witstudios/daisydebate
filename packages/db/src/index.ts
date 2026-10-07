@@ -40,7 +40,8 @@ export type {
   FormatPresetRecord,
 } from './format-operations';
 export type { NewRoom, RoomRecord } from './room-operations';
-export type { RoundHydration, RoundExecutionWrite } from './round-operations';
+export type { RoundHydration } from './round-hydration';
+export type { RoundExecutionWrite } from './round-operations';
 export type { DocumentRecord, DocumentSave } from './document-operations';
 export type { ActorRecord } from './actor-operations';
 export type { UsernameClaim } from './username-claim';

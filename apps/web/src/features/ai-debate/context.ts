@@ -5,6 +5,18 @@ import { createRoundRuntime, type RoundPosition } from '@daisy/debate-engine';
 import type { RoundRules } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 
+/**
+ * The command log's payload digest: SHA3-256 over the command's content
+ * (ADR 0019). The runtime refuses by state rather than payload, so the
+ * type alone is the content today; a payload-carrying command widens this
+ * input, never the encoding.
+ */
+export const digestOf = (command: { readonly type: string }): string => {
+  const hasher = new Bun.CryptoHasher('sha3-256');
+  hasher.update(command.type);
+  return hasher.digest('hex');
+};
+
 export type RoundStore = Pick<
   Database,
   | 'databaseNow'

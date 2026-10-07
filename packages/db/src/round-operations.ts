@@ -1,58 +1,23 @@
 import type {
   Ballot,
-  DebateRole,
   RoundProjection,
   RoundRules,
-  RuntimeCheckpoint,
-  SegmentType,
 } from '@daisy/protocol';
-import { and, eq, sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { ballotSchema } from '@daisy/protocol';
 import type { z } from 'zod';
 import { instrumented, type DatabaseEventSink } from './instrumented';
+import { hydrateRound, type RoundHydration } from './round-hydration';
+import { writeProjection } from './round-projection-writer';
 import { isUniqueViolation } from './unique-violation';
 import { roundParticipants } from './schema/round-participants';
 import { roundCommands } from './schema/round-commands';
 import { ballots } from './schema/ballots';
 import { rounds } from './schema/rounds';
-import { roundSegments } from './schema/round-segments';
 import { jsonObjectSchema } from './schema/columns';
 
-/**
- * A round hydrated for the runtime (ADR 0058 §4): the durable rows plus the
- * frozen rules and the checkpoint, everything `createRoundRuntime` needs.
- */
-export type RoundHydration = {
-  readonly id: string;
-  readonly formatId: string;
-  readonly formatVersion: number;
-  readonly resolution: string;
-  readonly status: 'scheduled' | 'active' | 'completed' | 'abandoned';
-  readonly currentStage: 'countdown' | 'prep' | 'live' | null;
-  readonly startedAt: string | null;
-  readonly completedAt: string | null;
-  readonly outcome: 'affirmative' | 'negative' | 'draw' | null;
-  readonly rules: RoundRules;
-  readonly checkpoint: RuntimeCheckpoint;
-  readonly version: number;
-  readonly participants: readonly {
-    readonly id: string;
-    readonly actorId: string;
-    readonly role: DebateRole;
-    readonly slot: number;
-  }[];
-  readonly segments: readonly {
-    readonly id: string;
-    readonly sequence: number;
-    readonly type: SegmentType;
-    readonly rulesSegmentKey: string;
-    readonly startedAt: string;
-    readonly endedAt: string | null;
-    readonly durationMs: number;
-  }[];
-};
 /**
  * A runtime projection plus the command that produced it, persisted as one
  * transaction: the command row for idempotency and audit, the projection's
@@ -72,100 +37,9 @@ export type RoundExecutionWrite = {
 };
 
 /**
- * The durable instant for a lifecycle column (ADR 0033 §3.2, ISSUE-37):
- * `coalesce` on the *stored* column, so only the write that fills it in
- * chooses an instant and every write after it keeps the one already recorded.
- *
- * The previous form took the transition from the projection's status, which
- * meant any write made while the round was active re-stamped `started_at` — a
- * segment closing halfway through a debate moved the round's start forward,
- * and the timetable and rating window read exactly this column. Comparing
- * against the stored column is what makes it a transition again: the round
- * that opens at T keeps its start at T however many commands follow, and two
- * concurrent writers cannot both claim to be the one that started it.
- *
- * The projected value is never written. These columns are PostgreSQL's alone,
- * so no caller chooses them: hydration reads them back into the runtime and
- * the runtime carries them through.
+ * The durable instant for a lifecycle column (ADR 0033 §3.2, ISSUE-37)
+ * lives with the write that stamps it: `round-projection-writer.ts`.
  */
-const lifecycleInstant = (
-  column: typeof rounds.startedAt,
-  projected: string | null,
-  recorded: string,
-) =>
-  projected === recorded
-    ? sql`coalesce(${column}, statement_timestamp())`
-    : column;
-
-/** Writes one projection's round row and segment changes inside `tx`. */
-async function writeProjection(
-  tx: Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0],
-  roundId: string,
-  projection: RoundProjection,
-): Promise<void> {
-  // `null` means no round-row column changed, so there is no lifecycle to
-  // record. A scheduled round that a projection leaves scheduled writes its
-  // `started_at` back unchanged, which is what makes the instant a transition.
-  if (projection.round !== null) {
-    await tx
-      .update(rounds)
-      .set({
-        status: projection.round.status,
-        currentStage: projection.round.currentStage,
-        // The durable lifecycle instants are PostgreSQL's, never the
-        // projection's (ADR 0033 §3.2, ISSUE-37): the timetable and the
-        // rating window read these columns, so no caller may choose them, and
-        // a later write must not restate the instant the transition recorded.
-        // The runtime is still pure — it receives `now` from `databaseNow()`,
-        // the same clock — so segment instants agree with these to within the
-        // request's latency rather than drifting onto a second clock.
-        startedAt: lifecycleInstant(
-          rounds.startedAt,
-          projection.round.status,
-          'active',
-        ),
-        completedAt: lifecycleInstant(
-          rounds.completedAt,
-          projection.round.status,
-          'completed',
-        ),
-        outcome: projection.round.outcome,
-        runtimeState: projection.round.checkpoint,
-        version: sql`${rounds.version} + 1`,
-        updatedAt: sql`statement_timestamp()`,
-      })
-      .where(eq(rounds.id, roundId));
-  }
-  for (const insert of projection.segmentInserts) {
-    try {
-      await tx.insert(roundSegments).values({
-        id: insert.id,
-        roundId,
-        sequence: insert.sequence,
-        type: insert.type,
-        rulesSegmentKey: insert.rulesSegmentKey,
-        startedAt: new Date(insert.startedAt),
-        durationMs: insert.durationMs,
-      });
-    } catch (error) {
-      if (isUniqueViolation(error))
-        throw createAppError(
-          'INVARIANT',
-          'A segment opened over an open row',
-          error,
-        );
-      throw error;
-    }
-  }
-  for (const close of projection.segmentCloses) {
-    await tx
-      .update(roundSegments)
-      .set({ endedAt: new Date(close.endedAt) })
-      .where(
-        and(eq(roundSegments.id, close.id), eq(roundSegments.roundId, roundId)),
-      );
-  }
-}
 
 export const roundOperations = ({
   database,
@@ -239,55 +113,7 @@ export const roundOperations = ({
 
   /** The hydration view: durable truth for one round, in one read. */
   async getRound(id: string): Promise<RoundHydration | null> {
-    return instrumented(eventSink, 'getRound', async () => {
-      const [row] = await database
-        .select()
-        .from(rounds)
-        .where(eq(rounds.id, id))
-        .limit(1);
-      if (!row) return null;
-      const participants = await database
-        .select({
-          id: roundParticipants.id,
-          actorId: roundParticipants.actorId,
-          role: roundParticipants.role,
-          slot: roundParticipants.slot,
-        })
-        .from(roundParticipants)
-        .where(eq(roundParticipants.roundId, id));
-      const segments = await database
-        .select({
-          id: roundSegments.id,
-          sequence: roundSegments.sequence,
-          type: roundSegments.type,
-          rulesSegmentKey: roundSegments.rulesSegmentKey,
-          startedAt: roundSegments.startedAt,
-          endedAt: roundSegments.endedAt,
-          durationMs: roundSegments.durationMs,
-        })
-        .from(roundSegments)
-        .where(eq(roundSegments.roundId, id));
-      return {
-        id: row.id,
-        formatId: row.formatId,
-        formatVersion: row.formatVersion,
-        resolution: row.resolution,
-        status: row.status,
-        currentStage: row.currentStage,
-        startedAt: row.startedAt?.toISOString() ?? null,
-        completedAt: row.completedAt?.toISOString() ?? null,
-        outcome: row.outcome,
-        rules: row.rulesSnapshot as RoundHydration['rules'],
-        checkpoint: row.runtimeState as RoundHydration['checkpoint'],
-        version: row.version,
-        participants,
-        segments: segments.map((segment) => ({
-          ...segment,
-          startedAt: segment.startedAt.toISOString(),
-          endedAt: segment.endedAt?.toISOString() ?? null,
-        })),
-      };
-    });
+    return instrumented(eventSink, 'getRound', () => hydrateRound(database, id));
   },
 
   /**

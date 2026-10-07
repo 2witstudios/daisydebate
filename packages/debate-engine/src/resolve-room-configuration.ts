@@ -190,6 +190,62 @@ function resolveInRoundPrep(
   };
 }
 
+/** Resolves the interruption policy, or refuses when the choice is not permitted. */
+function resolveInterruptions(
+  definition: FormatDefinition,
+  config: RoomConfig,
+): Step<Interaction['interruptions']> {
+  if (config.interruptions === null) return { ok: true, value: null };
+  const capability = definition.configurable.interaction.interruptions;
+  if (capability === null)
+    return stepRefused('capability-forbidden', 'The format forbids interruptions');
+  if (!capability.modes.includes(config.interruptions.mode))
+    return stepRefused(
+      'invalid-choice',
+      `Interruption mode ${config.interruptions.mode} is not permitted`,
+    );
+  if (!within(config.interruptions.minRemainingMs, capability.minRemainingMs))
+    return stepRefused(
+      'out-of-range',
+      `Interruption minimum remaining ${config.interruptions.minRemainingMs}ms is outside ${capability.minRemainingMs.min}-${capability.minRemainingMs.max}ms`,
+    );
+  return {
+    ok: true,
+    value: {
+      allowed: config.interruptions.mode,
+      minRemainingMs: config.interruptions.minRemainingMs,
+    },
+  };
+}
+
+/** Resolves the yield policy, or refuses when the choice is not permitted. */
+function resolveYieldRule(
+  definition: FormatDefinition,
+  config: RoomConfig,
+): Step<Interaction['yield']> {
+  if (config.yielding === null) return { ok: true, value: null };
+  const capability = definition.configurable.interaction.yield;
+  if (capability === null)
+    return stepRefused('capability-forbidden', 'The format forbids yielding');
+  if (!capability.enabledChoices.includes(config.yielding.allowed))
+    return stepRefused(
+      'invalid-choice',
+      `Yielding ${config.yielding.allowed ? 'allowed' : 'disallowed'} is not a permitted choice`,
+    );
+  if (!capability.returnsTimeChoices.includes(config.yielding.returnsTime))
+    return stepRefused(
+      'invalid-choice',
+      `Returning time on yield ${config.yielding.returnsTime ? 'enabled' : 'disabled'} is not a permitted choice`,
+    );
+  return {
+    ok: true,
+    value: {
+      allowed: config.yielding.allowed,
+      returnsTime: config.yielding.returnsTime,
+    },
+  };
+}
+
 /** Resolves the interaction rules: CX mode, yield and interruptions. */
 function resolveInteraction(
   definition: FormatDefinition,
@@ -201,55 +257,16 @@ function resolveInteraction(
       'invalid-choice',
       `Cross-examination mode ${config.crossExamination.crossExMode} is not permitted`,
     );
-  let interruptions: Interaction['interruptions'] = null;
-  if (config.interruptions !== null) {
-    const capability = interaction.interruptions;
-    if (capability === null)
-      return stepRefused(
-        'capability-forbidden',
-        'The format forbids interruptions',
-      );
-    if (!capability.modes.includes(config.interruptions.mode))
-      return stepRefused(
-        'invalid-choice',
-        `Interruption mode ${config.interruptions.mode} is not permitted`,
-      );
-    if (!within(config.interruptions.minRemainingMs, capability.minRemainingMs))
-      return stepRefused(
-        'out-of-range',
-        `Interruption minimum remaining ${config.interruptions.minRemainingMs}ms is outside ${capability.minRemainingMs.min}-${capability.minRemainingMs.max}ms`,
-      );
-    interruptions = {
-      allowed: config.interruptions.mode,
-      minRemainingMs: config.interruptions.minRemainingMs,
-    };
-  }
-  let yieldRule: Interaction['yield'] = null;
-  if (config.yielding !== null) {
-    const capability = interaction.yield;
-    if (capability === null)
-      return stepRefused('capability-forbidden', 'The format forbids yielding');
-    if (!capability.enabledChoices.includes(config.yielding.allowed))
-      return stepRefused(
-        'invalid-choice',
-        `Yielding ${config.yielding.allowed ? 'allowed' : 'disallowed'} is not a permitted choice`,
-      );
-    if (!capability.returnsTimeChoices.includes(config.yielding.returnsTime))
-      return stepRefused(
-        'invalid-choice',
-        `Returning time on yield ${config.yielding.returnsTime ? 'enabled' : 'disabled'} is not a permitted choice`,
-      );
-    yieldRule = {
-      allowed: config.yielding.allowed,
-      returnsTime: config.yielding.returnsTime,
-    };
-  }
+  const interruptions = resolveInterruptions(definition, config);
+  if (!interruptions.ok) return interruptions;
+  const yieldRule = resolveYieldRule(definition, config);
+  if (!yieldRule.ok) return yieldRule;
   return {
     ok: true,
     value: {
       crossExMode: config.crossExamination.crossExMode,
-      yield: yieldRule,
-      interruptions,
+      yield: yieldRule.value,
+      interruptions: interruptions.value,
     },
   };
 }
