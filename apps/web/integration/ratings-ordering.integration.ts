@@ -7,16 +7,16 @@ setupRitewayBun();
 
 describe('rating order with the engine decision (RATE-1.3)', () => {
   test('loses no rating when debates sharing a debater are rated concurrently', async () => {
-    await inArena(async ({ actor, debate, rate, ledger }) => {
-      for (let round = 0; round < 8; round += 1) {
+    await inArena(async ({ actor, round, rate, ledger }) => {
+      for (let pass = 0; pass < 8; pass += 1) {
         const shared = await actor();
-        const earlier = await debate({
+        const earlier = await round({
           affirmative: shared,
           negative: await actor(),
           outcome: 'affirmative',
           completedAt: minute(30),
         });
-        const later = await debate({
+        const later = await round({
           affirmative: shared,
           negative: await actor(),
           outcome: 'affirmative',
@@ -27,7 +27,7 @@ describe('rating order with the engine decision (RATE-1.3)', () => {
         );
         const rows = await ledger(shared);
         assert({
-          given: `round ${round}: two debates won by one debater, rated concurrently`,
+          given: `pass ${pass}: two rounds won by one debater, rated concurrently`,
           should:
             'rate both and keep that debater ledger chained in posting order',
           actual: { kinds, postings: rows.length, chained: chained(rows) },
@@ -37,15 +37,15 @@ describe('rating order with the engine decision (RATE-1.3)', () => {
     });
   });
 
-  test('rates a delayed earlier debate after a later one, posted just after it', async () => {
-    await inArena(async ({ actor, debate, rate, ledger }) => {
+  test('rates a delayed earlier round after a later one, posted just after it', async () => {
+    await inArena(async ({ actor, round, rate, ledger }) => {
       const shared = await actor();
-      const earlier = await debate({
+      const earlier = await round({
         affirmative: shared,
         negative: await actor(),
         completedAt: minute(30),
       });
-      const later = await debate({
+      const later = await round({
         affirmative: shared,
         negative: await actor(),
         completedAt: minute(40),
@@ -54,12 +54,12 @@ describe('rating order with the engine decision (RATE-1.3)', () => {
       const delayed = await rate(earlier);
       const rows = await ledger(shared);
       assert({
-        given: 'the earlier-completed debate rated only after the later one',
+        given: 'the earlier-completed round rated only after the later one',
         should:
           'rate it, posted one millisecond after the later posting, with the ledger chained',
         actual: {
           kind: delayed.kind,
-          order: rows.map(({ debate_id }) => debate_id),
+          order: rows.map(({ round_id }) => round_id),
           postedAt: rows[1]?.occurred_at.toISOString(),
           chained: chained(rows),
         },

@@ -2,7 +2,6 @@ import {
   competitionTypes,
   debateSides,
   type CompetitionType,
-  type DebateRole,
   emptyRuntimeCheckpoint,
   ratingLadders,
   roundLengthSchema,
@@ -113,8 +112,23 @@ export const rounds = pgTable(
         table.formatId,
         table.completedAt,
       ),
+      // Every foreign key gets an index leading with its columns, so a
+      // RESTRICT probe and the provenance joins never scan the table.
+      index('rounds_room_idx').on(table.roomId),
+      index('rounds_created_by_actor_idx').on(table.createdByActorId),
+      index('rounds_definition_revision_idx').on(
+        table.formatId,
+        table.formatVersion,
+      ),
+      index('rounds_preset_provenance_idx').on(
+        table.formatId,
+        table.length,
+        table.presetVersion,
+        table.formatVersion,
+      ),
       versionPositive('rounds', table.version),
       jsonbIsObject('rounds', table.runtimeState),
+      jsonbIsObject('rounds', table.rulesSnapshot),
       check(
         'rounds_completed_after_started',
         notBefore(table.completedAt, table.startedAt),

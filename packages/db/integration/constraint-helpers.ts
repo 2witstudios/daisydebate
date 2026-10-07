@@ -1,4 +1,10 @@
 import { SQL } from 'bun';
+import {
+  foundationDefinition,
+  validConfig,
+  validRules,
+} from './round-fixtures';
+import type { RoundRules } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { createDatabase } from '../src';
 import { createTestOnlyOperations } from '../src/test-only-operations';
@@ -10,7 +16,7 @@ type PostgresFailure = { errno?: unknown; constraint?: unknown };
  * 23, integrity constraint violation), or null when it was accepted. Any
  * other error is a broken test, not a rejection, and is rethrown.
  */
-const rejectedBy = async (
+export const rejectedBy = async (
   attempt: () => Promise<unknown>,
 ): Promise<string | null> => {
   try {
@@ -50,24 +56,30 @@ const purgeOrder: ReadonlyArray<readonly [table: string, key: string]> = [
   ['ballots', 'id'],
   ['rating_changes', 'id'],
   ['ratings', 'actor_id'],
-  ['debate_participants', 'debate_id'],
-  ['debate_commands', 'command_id'],
-  ['debates', 'id'],
-  // Commands, utterances and ballots cascade from their AI debate.
-  ['ai_debates', 'id'],
+  // Agent runs and utterances hang off the seats and the live segments.
+  ['agent_runs', 'id'],
+  ['utterances', 'id'],
+  ['round_commands', 'command_id'],
+  ['round_segments', 'id'],
+  ['round_participants', 'id'],
+  ['usage_reservations', 'id'],
+  ['round_document_refs', 'round_id'],
+  ['rounds', 'id'],
+  ['room_participants', 'id'],
+  ['rooms', 'id'],
+  ['documents', 'id'],
   ['seasons', 'id'],
   ['role_grants', 'id'],
   ['actors', 'id'],
   ['users', 'id'],
+  // `formats.current_version` and `format_presets.format_version` both point
+  // into `format_revisions`, so the pointer rows go first.
   ['formats', 'id'],
+  ['format_presets', 'format_id'],
+  ['format_revisions', 'format_id'],
 ];
 
 // jsonb parameters are objects: Bun SQL JSON-encodes a string a second time.
-const validRules = {
-  version: 1,
-  seats: { affirmative: 1, negative: 1, judge: 0 },
-  clock: { speechMs: 1000, prepMs: 0 },
-};
 
 /**
  * Per-test fixture over one connection. Every inserted key is tracked and
@@ -129,67 +141,125 @@ export class Fixture {
     return id;
   }
 
+  /**
+   * A format plus its first definition revision. The revision is inserted
+   * first: `formats_current_revision_fk` is DEFERRABLE, but each statement
+   * here autocommits, so the target row has to exist before the pointer.
+   */
   async format() {
     const id = `fmt-${createId()}`;
+    await this.insert(
+      'format_revisions',
+      { format_id: id, version: 1, definition: foundationDefinition },
+      'format_id',
+    );
     await this.insert('formats', {
       id,
       name: 'Fixture format',
-      rules: validRules,
-      ranked_eligible: false,
+      current_version: 1,
     });
     return id;
   }
 
-  /** A waiting debate; `overrides` set or null out lifecycle columns. */
-  async debate(overrides: Row = {}) {
+  /**
+   * A sanctioned ranked preset for a format. A ranked round is constructed
+   * from one (ADR 0058 §4), so the `rounds_preset_provenance_fk` and the
+   * ranked-preset equivalence both need this row to exist.
+   */
+  async preset(
+    formatId: string,
+    length: 'full' | 'quick' = 'full',
+    version = 1,
+  ) {
+    // Idempotent: several rounds may resolve from the one sanctioned preset
+    // for a format, and `format_presets_pkey` is (format_id, length, version).
+    // The config binds as an object: Bun SQL JSON-encodes a string twice.
+    await this.sql.unsafe(
+      `insert into format_presets (format_id, length, version, format_version, config, approved_at)
+       values ($1, $2, $3, 1, $4::jsonb, statement_timestamp())
+       on conflict (format_id, length, version) do nothing`,
+      [formatId, length, version, validConfig],
+    );
+    this.track('format_presets', formatId);
+    return version;
+  }
+
+  /**
+   * A scheduled round carrying resolved rules; `overrides` set or null out
+   * the lifecycle, ladder and provenance columns the CHECKs tie together.
+   */
+  async round(overrides: Row = {}) {
     const id = createId();
-    await this.insert('debates', {
+    await this.insert('rounds', {
       id,
+      room_id: null,
       created_by_actor_id: null,
-      resolution: 'r',
+      resolution: 'A resolution',
+      competition_type: 'casual',
+      length: 'full',
       format_id: await this.format(),
-      snapshot: {},
-      mode: 'casual',
-      phase: 'waiting',
-      visibility: 'public',
+      format_version: 1,
+      preset_version: null,
+      rules_snapshot: validRules,
+      status: 'scheduled',
+      current_stage: null,
+      outcome: null,
+      ladder_id: null,
+      started_at: null,
+      completed_at: null,
       ...overrides,
     });
     return id;
   }
 
-  /** Seats an actor (a new one by default); returns the seated actor id. */
-  async participant(
-    debateId: string,
-    role: string,
-    slot = 0,
-    actorId?: string,
-  ) {
+  /**
+   * Seats an actor (a new one by default) in one round, returning the actor id.
+   * Use `seat` when the caller needs the participant row's own surrogate id
+   * (ADR 0058 §2) — a ballot names its judge seat, not the judge actor.
+   */
+  async participant(roundId: string, role: string, slot = 0, actorId?: string) {
+    return (await this.seat(roundId, role, slot, actorId)).actorId;
+  }
+
+  /** The authoritative participant row, with its surrogate seat id. */
+  async seat(roundId: string, role: string, slot = 0, actorId?: string) {
     const seated = actorId ?? (await this.actor());
-    await this.insert(
-      'debate_participants',
-      {
-        debate_id: debateId,
-        actor_id: seated,
-        role,
-        slot,
-        status: 'joined',
-        joined_at: new Date('2026-01-01T00:00:00.000Z'),
-      },
-      'debate_id',
-    );
-    return seated;
+    const id = createId();
+    await this.insert('round_participants', {
+      id,
+      round_id: roundId,
+      actor_id: seated,
+      role,
+      slot,
+    });
+    return { id, actorId: seated };
   }
 
   async purge() {
+    // Documents are created through the adapter, never inserted here, and
+    // they RESTRICT their owner. Clearing them by owner means every document
+    // a fixture's actors own goes with the fixture, however it was written.
+    await this.deleteWhere(
+      'documents',
+      'owner_actor_id',
+      this.tracked.get('actors'),
+    );
     for (const [table, key] of purgeOrder) {
-      const keys = this.tracked.get(table);
-      if (!keys || keys.length === 0) continue;
-      // Positional placeholders: `unsafe` flattens an array argument to CSV.
-      await this.sql.unsafe(
-        `delete from ${table} where ${key} in (${keys.map((_, index) => `$${index + 1}`).join(', ')})`,
-        keys,
-      );
+      await this.deleteWhere(table, key, this.tracked.get(table));
     }
+  }
+
+  private async deleteWhere(
+    table: string,
+    column: string,
+    keys: string[] | undefined,
+  ) {
+    if (!keys || keys.length === 0) return;
+    // Positional placeholders: `unsafe` flattens an array argument to CSV.
+    await this.sql.unsafe(
+      `delete from ${table} where ${column} in (${keys.map((_, index) => `$${index + 1}`).join(', ')})`,
+      keys,
+    );
   }
 }
 
@@ -211,41 +281,35 @@ export const withFixture = async (
 };
 
 /**
- * What a durable debate test writes through the adapter: a tracked debate
- * id, an author actor and a format, a database over the fixture's server
- * and the test-only operations on the fixture's connection. The caller
- * closes `database`; the fixture purges the rows.
+ * What a durable round test writes through the adapter: a tracked round id, an
+ * author actor and a format, a database over the fixture's server and the
+ * test-only operations on the fixture's connection. The caller closes
+ * `database`; the fixture purges the rows.
  */
-export const debateAuthoring = async (fixture: Fixture, url: string) => {
-  const id = createId();
-  fixture.track('debates', id);
+export const roundAuthoring = async (fixture: Fixture, url: string) => {
+  const formatId = await fixture.format();
+  const roundId = createId();
+  // Tracked before the row exists: the caller creates the round through the
+  // adapter, so this is the only record the purge gets. Deleting the round
+  // cascades to its participants, segments, commands and refs.
+  fixture.track('rounds', roundId);
   return {
-    id,
+    roundId,
     actorId: await fixture.actor(),
-    formatId: await fixture.format(),
+    formatId,
+    rules: validRules,
     database: createDatabase({ url, nextActorId: createId }),
     testOnly: createTestOnlyOperations({ client: fixture.sql }),
   };
 };
 
-/** A snapshot of a debate in a phase with the given seats. */
-export const snapshotOf = (
-  id: string,
-  phase: 'waiting' | 'active' | 'completed',
-  participants: ReadonlyArray<{
-    id: string;
-    side: 'affirmative' | 'negative';
-    ready: boolean;
-  }>,
-) => snapshotFor(id, { phase, participants });
-
 /**
- * A debate id and `count` human actors (each with a user) on one
- * single-connection fixture, a database over the test server and the
- * test-only operations; `cleanup` removes the debate, actors and users and
- * closes both connections.
+ * A round id and `count` human actors (each with a user) seated on it, over one
+ * single-connection fixture, a database over the test server and the test-only
+ * operations; `cleanup` removes the round, actors and users and closes both
+ * connections.
  */
-export const seatedDebate = async (url: string, count: number) => {
+export const seatedRound = async (url: string, count: number) => {
   const fixture = new SQL(url, { max: 1 });
   const database = createDatabase({ url, nextActorId: createId });
   const users = Array.from({ length: count }, () => createId());
@@ -254,18 +318,28 @@ export const seatedDebate = async (url: string, count: number) => {
     await fixture`insert into users (id) values (${users[index]})`;
     await fixture`insert into actors (id, kind, user_id) values (${actorId}, 'human', ${users[index]})`;
   }
-  const debateId = createId();
+  const formatId = `fmt-${createId()}`;
+  await fixture`insert into format_revisions (format_id, version, definition) values (${formatId}, 1, ${JSON.stringify(foundationDefinition)}::jsonb)`;
+  await fixture`insert into formats (id, name, current_version) values (${formatId}, 'Fixture format', 1)`;
+  const roundId = createId();
+  await fixture`insert into rounds (id, resolution, competition_type, length, format_id, format_version, rules_snapshot, status) values (${roundId}, 'A resolution', 'casual', 'full', ${formatId}, 1, ${JSON.stringify(validRules)}::jsonb, 'scheduled')`;
+  for (const [index, actorId] of actors.entries()) {
+    await fixture`insert into round_participants (id, round_id, actor_id, role, slot) values (${createId()}, ${roundId}, ${actorId}, ${index === 0 ? 'affirmative' : 'negative'}, 0)`;
+  }
   return {
     fixture,
     database,
     testOnly: createTestOnlyOperations({ client: fixture }),
-    debateId,
+    roundId,
     actors,
     cleanup: async () => {
       await database.close();
-      await fixture`delete from debates where id = ${debateId}`;
+      await fixture`delete from rounds where id = ${roundId}`;
       await fixture`delete from actors where id in ${fixture(actors)}`;
       await fixture`delete from users where id in ${fixture(users)}`;
+      // The pointer row before the revision it names: `formats_current_revision_fk`.
+      await fixture`delete from formats where id = ${formatId}`;
+      await fixture`delete from format_revisions where format_id = ${formatId}`;
       await fixture.close();
     },
   };
@@ -290,34 +364,3 @@ export const columnNames = async (fixture: Fixture, table: string) =>
       [table],
     )) as Array<{ column_name: string }>
   ).map((row) => row.column_name);
-
-/**
- * A debate snapshot that satisfies the protocol schema every snapshot write
- * parses (ISSUE-24); `participants` are actor ids and sides.
- */
-export const snapshotFor = (
-  id: string,
-  overrides: Readonly<{
-    phase?: 'waiting' | 'active' | 'completed';
-    resolution?: string;
-    format?: string;
-    participants?: ReadonlyArray<{
-      id: string;
-      side: 'affirmative' | 'negative';
-      ready: boolean;
-    }>;
-  }> = {},
-) => ({
-  version: 1 as const,
-  id,
-  resolution: overrides.resolution ?? 'integration proof',
-  format: overrides.format ?? 'foundation',
-  rules: {
-    version: 1 as const,
-    seats: { affirmative: 1, negative: 1, judge: 0 },
-    clock: { speechMs: 240_000, prepMs: 120_000 },
-  },
-  phase: overrides.phase ?? 'waiting',
-  createdAt: '2026-01-01T00:00:00.000Z',
-  participants: [...(overrides.participants ?? [])],
-});

@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { roundSegments } from './schema/round-segments';
@@ -92,6 +92,24 @@ export const utteranceOperations = ({
         .from(utterances)
         .where(eq(utterances.segmentId, segmentId));
       return rows.sort((a, b) => a.sequence - b.sequence);
+    });
+  },
+
+  /** A round's whole transcript, in insertion order. */
+  async listRoundUtterances(roundId: string) {
+    return instrumented(eventSink, 'listRoundUtterances', async () => {
+      return database
+        .select({
+          id: utterances.id,
+          segmentId: utterances.segmentId,
+          roundParticipantId: utterances.roundParticipantId,
+          text: utterances.text,
+          complete: utterances.complete,
+          createdAt: utterances.createdAt,
+        })
+        .from(utterances)
+        .where(eq(utterances.roundId, roundId))
+        .orderBy(asc(utterances.createdAt), asc(utterances.sequence));
     });
   },
 });

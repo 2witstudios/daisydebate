@@ -8,12 +8,7 @@ import {
   primaryKey,
   text,
 } from 'drizzle-orm/pg-core';
-import {
-  createdAtColumn,
-  oneOf,
-  timestampColumn,
-  updatedAtColumn,
-} from './columns';
+import { createdAtColumn, oneOf, updatedAtColumn } from './columns';
 import { actors } from './actors';
 import { rounds } from './rounds';
 
@@ -97,6 +92,9 @@ export const roundDocumentRefs = pgTable(
   },
   (table) => [
     primaryKey({ columns: [table.roundId, table.documentId] }),
+    // The primary key leads with round_id, so it cannot serve the document
+    // side of either relationship.
+    index('round_document_refs_document_idx').on(table.documentId),
     foreignKey({
       name: 'round_document_refs_round_fk',
       columns: [table.roundId],

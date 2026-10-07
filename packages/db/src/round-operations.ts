@@ -1,7 +1,9 @@
 import type {
+  DebateRole,
   RoundProjection,
   RoundRules,
   RuntimeCheckpoint,
+  SegmentType,
 } from '@daisy/protocol';
 import { and, eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -21,6 +23,9 @@ import { jsonObjectSchema } from './schema/columns';
  */
 export type RoundHydration = {
   readonly id: string;
+  readonly formatId: string;
+  readonly formatVersion: number;
+  readonly resolution: string;
   readonly status: 'scheduled' | 'active' | 'completed' | 'abandoned';
   readonly currentStage: 'countdown' | 'prep' | 'live' | null;
   readonly startedAt: string | null;
@@ -32,13 +37,13 @@ export type RoundHydration = {
   readonly participants: readonly {
     readonly id: string;
     readonly actorId: string;
-    readonly role: string;
+    readonly role: DebateRole;
     readonly slot: number;
   }[];
   readonly segments: readonly {
     readonly id: string;
     readonly sequence: number;
-    readonly type: string;
+    readonly type: SegmentType;
     readonly rulesSegmentKey: string;
     readonly startedAt: string;
     readonly endedAt: string | null;
@@ -63,6 +68,86 @@ export type RoundExecutionWrite = {
   readonly projection: RoundProjection;
 };
 
+/**
+ * The durable instant for a lifecycle column: this transaction's clock when
+ * the projection is moving the round into the state that records it, and null
+ * when it is not. A projection that merely re-states a lifecycle the round
+ * already holds leaves the timestamp it already has.
+ */
+function lifecycleInstant(
+  projected: string | null,
+  transition: boolean,
+): Date | ReturnType<typeof sql> | null {
+  if (projected === null) return null;
+  return transition
+    ? (sql`statement_timestamp()` as unknown as Date)
+    : new Date(projected);
+}
+
+/** Writes one projection's round row and segment changes inside `tx`. */
+async function writeProjection(
+  tx: Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0],
+  roundId: string,
+  projection: RoundProjection,
+): Promise<void> {
+  if (projection.round !== null) {
+    await tx
+      .update(rounds)
+      .set({
+        status: projection.round.status,
+        currentStage: projection.round.currentStage,
+        // The durable lifecycle instants are PostgreSQL's, never the
+        // projection's (ADR 0033 §3.2, ISSUE-37): the timetable and the
+        // rating window read these columns, so no caller may choose them.
+        // The runtime is still pure — it receives `now` from `databaseNow()`,
+        // the same clock — so segment instants agree with these to within the
+        // request's latency rather than drifting onto a second clock.
+        startedAt: lifecycleInstant(
+          projection.round.startedAt,
+          projection.round.status === 'active',
+        ),
+        completedAt: lifecycleInstant(
+          projection.round.completedAt,
+          projection.round.status === 'completed',
+        ),
+        outcome: projection.round.outcome,
+        runtimeState: projection.round.checkpoint,
+        version: sql`${rounds.version} + 1`,
+        updatedAt: sql`statement_timestamp()`,
+      })
+      .where(eq(rounds.id, roundId));
+  }
+  for (const insert of projection.segmentInserts) {
+    try {
+      await tx.insert(roundSegments).values({
+        id: insert.id,
+        roundId,
+        sequence: insert.sequence,
+        type: insert.type,
+        rulesSegmentKey: insert.rulesSegmentKey,
+        startedAt: new Date(insert.startedAt),
+        durationMs: insert.durationMs,
+      });
+    } catch (error) {
+      if (isUniqueViolation(error))
+        throw createAppError(
+          'INVARIANT',
+          'A segment opened over an open row',
+          error,
+        );
+      throw error;
+    }
+  }
+  for (const close of projection.segmentCloses) {
+    await tx
+      .update(roundSegments)
+      .set({ endedAt: new Date(close.endedAt) })
+      .where(
+        and(eq(roundSegments.id, close.id), eq(roundSegments.roundId, roundId)),
+      );
+  }
+}
+
 export const roundOperations = ({
   database,
   eventSink,
@@ -70,6 +155,24 @@ export const roundOperations = ({
   readonly database: BunSQLDatabase;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
+  /**
+   * One PostgreSQL instant for a whole execution (ADR 0033 §3.2, as amended
+   * by ADR 0058): the caller reads it once, injects it as the runtime's
+   * `now`, and every durable row that execution writes — the round row's
+   * lifecycle columns and its segments — derives from it, so one aggregate
+   * is never written from two clocks.
+   */
+  async databaseNow(): Promise<string> {
+    return instrumented(eventSink, 'databaseNow', async () => {
+      const [row] = (await database.execute(
+        sql`select statement_timestamp() as now`,
+      )) as unknown as Array<{ now: Date }>;
+      if (!row)
+        throw createAppError('INFRASTRUCTURE', 'The clock is unreadable');
+      return row.now.toISOString();
+    });
+  },
+
   /**
    * Creates a round that froze without a Room — the foundation proof and
    * service-created rounds. Every value is already resolved by the caller;
@@ -147,13 +250,16 @@ export const roundOperations = ({
         .where(eq(roundSegments.roundId, id));
       return {
         id: row.id,
+        formatId: row.formatId,
+        formatVersion: row.formatVersion,
+        resolution: row.resolution,
         status: row.status,
         currentStage: row.currentStage,
         startedAt: row.startedAt?.toISOString() ?? null,
         completedAt: row.completedAt?.toISOString() ?? null,
         outcome: row.outcome,
-        rules: row.rulesSnapshot,
-        checkpoint: row.runtimeState,
+        rules: row.rulesSnapshot as RoundHydration['rules'],
+        checkpoint: row.runtimeState as RoundHydration['checkpoint'],
         version: row.version,
         participants,
         segments: segments.map((segment) => ({
@@ -182,7 +288,7 @@ export const roundOperations = ({
       await database.transaction(async (tx) => {
         if (input.command !== null) {
           const [existing] = await tx
-            .select({ result: rounds.id })
+            .select({ commandId: roundCommands.commandId })
             .from(roundCommands)
             .where(eq(roundCommands.commandId, input.command.commandId))
             .limit(1);
@@ -197,58 +303,7 @@ export const roundOperations = ({
         if (!round) throw createAppError('NOT_FOUND', 'No such round');
         if (round.version !== input.expectedVersion)
           throw createAppError('CONFLICT', 'The round moved on');
-        const { projection } = input;
-        if (projection.round !== null) {
-          await tx
-            .update(rounds)
-            .set({
-              status: projection.round.status,
-              currentStage: projection.round.currentStage,
-              startedAt: projection.round.startedAt
-                ? new Date(projection.round.startedAt)
-                : null,
-              completedAt: projection.round.completedAt
-                ? new Date(projection.round.completedAt)
-                : null,
-              outcome: projection.round.outcome,
-              runtimeState: projection.round.checkpoint,
-              version: sql`${rounds.version} + 1`,
-              updatedAt: sql`statement_timestamp()`,
-            })
-            .where(eq(rounds.id, input.roundId));
-        }
-        for (const insert of projection.segmentInserts) {
-          try {
-            await tx.insert(roundSegments).values({
-              id: insert.id,
-              roundId: input.roundId,
-              sequence: insert.sequence,
-              type: insert.type,
-              rulesSegmentKey: insert.rulesSegmentKey,
-              startedAt: new Date(insert.startedAt),
-              durationMs: insert.durationMs,
-            });
-          } catch (error) {
-            if (isUniqueViolation(error))
-              throw createAppError(
-                'INVARIANT',
-                'A segment opened over an open row',
-                error,
-              );
-            throw error;
-          }
-        }
-        for (const close of projection.segmentCloses) {
-          await tx
-            .update(roundSegments)
-            .set({ endedAt: new Date(close.endedAt) })
-            .where(
-              and(
-                eq(roundSegments.id, close.id),
-                eq(roundSegments.roundId, input.roundId),
-              ),
-            );
-        }
+        await writeProjection(tx, input.roundId, input.projection);
         if (input.command !== null) {
           await tx.insert(roundCommands).values({
             commandId: input.command.commandId,

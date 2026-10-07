@@ -6,7 +6,7 @@ setupRitewayBun();
 
 const posting = (
   actorId: string,
-  debateId: string,
+  roundId: string,
   before: number,
   after: number,
   occurredAt: string,
@@ -15,7 +15,7 @@ const posting = (
 ) => ({
   seasonId: 's1',
   actorId,
-  debateId,
+  roundId,
   ratingBefore: before,
   ratingAfter: after,
   occurredAt,

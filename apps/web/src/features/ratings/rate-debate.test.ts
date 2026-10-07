@@ -2,20 +2,20 @@ import { fixedIds } from '@daisy/clock';
 import type { RateDebateInput } from '@daisy/db';
 import { planRating, ratingEligibility } from '@daisy/debate-engine';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { rateCompletedDebate } from './rate-debate';
+import { rateCompletedRound } from './rate-debate';
 
 setupRitewayBun();
 
-describe('rateCompletedDebate', () => {
+describe('rateCompletedRound', () => {
   test('rates through the adapter with the engine decision and fresh ids', async () => {
     const calls: RateDebateInput[] = [];
     const database = {
-      rateDebate: async (input: RateDebateInput) => {
+      rateRound: async (input: RateDebateInput) => {
         calls.push(input);
         return { kind: 'already-rated' } as const;
       },
     };
-    const result = await rateCompletedDebate(
+    const result = await rateCompletedRound(
       database,
       'debate-1',
       fixedIds(['change-aff', 'change-neg']),
@@ -26,14 +26,14 @@ describe('rateCompletedDebate', () => {
         'pass the debate, two change ids and the engine decision to the adapter and return its result',
       actual: {
         result,
-        debateId: calls[0]?.debateId,
+        roundId: calls[0]?.roundId,
         changeIds: calls[0]?.changeIds,
         eligibility: calls[0]?.decide.eligibility === ratingEligibility,
         plan: calls[0]?.decide.plan === planRating,
       },
       expected: {
         result: { kind: 'already-rated' },
-        debateId: 'debate-1',
+        roundId: 'debate-1',
         changeIds: ['change-aff', 'change-neg'],
         eligibility: true,
         plan: true,

@@ -1,14 +1,27 @@
-import type { AiDebateState } from '@daisy/debate-engine';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { AiDebateView } from '../../../features/ai-debate/operations';
+import { resolveRoomConfiguration } from '@daisy/debate-engine';
+import {
+  oneOnOneDefinition,
+  practiceRoomConfig,
+} from '@daisy/db/reference-formats';
+import type {
+  AiDebateView,
+  UiState,
+} from '../../../features/ai-debate/context';
 import {
   botRoundSnapshot,
-  botSpeeches,
   phaseOf,
+  speechesOf,
   transcriptOf,
 } from './round-snapshot';
 
 setupRitewayBun();
+
+const resolved = resolveRoomConfiguration(
+  oneOnOneDefinition,
+  practiceRoomConfig,
+);
+if (!resolved.ok) throw new Error(resolved.refusal.message);
 
 const view: AiDebateView = {
   id: 'd1',
@@ -17,54 +30,71 @@ const view: AiDebateView = {
   opponent: 'wren',
   voice: 'v',
   serverNow: 0,
-  commands: [],
+  version: 1,
+  status: 'active',
+  startedAt: 0,
+  rules: resolved.rules,
+  segments: [],
+  checkpoint: {
+    version: 1,
+    prep_consumed_ms: { affirmative: 0, negative: 0 },
+    active_prep: null,
+    floor: null,
+  },
   utterances: [
     {
       id: 'u1',
-      turnIndex: 0,
+      segmentIndex: 0,
       role: 'ai',
       text: 'Homework harms sleep.',
+      complete: true,
       at: 10_000,
     },
     {
       id: 'u2',
-      turnIndex: 2,
+      segmentIndex: 2,
       role: 'person',
       text: 'Sleep is not the point.',
+      complete: true,
       at: 400_000,
     },
     {
       id: 'u3',
-      turnIndex: 2,
+      segmentIndex: 2,
       role: 'person',
       text: 'Practice is.',
+      complete: true,
       at: 430_000,
     },
-    { id: 'u4', turnIndex: 4, role: 'ai', text: '', at: 900_000 },
+    {
+      id: 'u4',
+      segmentIndex: 4,
+      role: 'ai',
+      text: '',
+      complete: true,
+      at: 900_000,
+    },
   ],
   ballot: null,
 };
 
-const live = (turnIndex: number): AiDebateState => ({
+const live = (segmentIndex: number): UiState => ({
   phase: 'live',
-  turnIndex,
-  startedAt: 0,
-  endsAt: 300_000,
+  segmentIndex,
   remainingMs: 120_000,
-  prepLeftMs: 200_000,
 });
 
-describe('botSpeeches', () => {
-  test('the turns', () => {
+describe('speechesOf', () => {
+  test('the resolved schedule', () => {
     assert({
-      given: 'the bot round turns',
+      given: "the practice room's resolved segments",
       should: 'become the room speeches with their codes and kinds',
-      actual: botSpeeches.map((s) => `${s.code}:${s.side}:${s.kind}`),
+      actual: speechesOf(view).map((s) => `${s.code}:${s.side}:${s.kind}`),
       expected: [
         'AC:aff:speech',
-        'CX:neg:cross-ex',
+        'CX1:neg:cross-ex',
         'NC:neg:speech',
-        'CX:aff:cross-ex',
+        'CX2:aff:cross-ex',
         '1AR:aff:speech',
         'NR:neg:speech',
         '2AR:aff:speech',
@@ -79,11 +109,12 @@ describe('phaseOf', () => {
       given: 'a negative debater in the AC, the first CX, the NC and prep',
       should: 'lean to the opponent, cross-ex, their own speech and prep',
       actual: [
-        phaseOf(live(0), 'negative'),
-        phaseOf(live(1), 'negative'),
-        phaseOf(live(2), 'negative'),
+        phaseOf(live(0), view, 'negative'),
+        phaseOf(live(1), view, 'negative'),
+        phaseOf(live(2), view, 'negative'),
         phaseOf(
-          { phase: 'prep', turnIndex: 5, prepStartedAt: 0, prepLeftMs: 1 },
+          { phase: 'prep', segmentIndex: 5, remainingMs: 1 },
+          view,
           'negative',
         ),
       ],
@@ -96,7 +127,8 @@ describe('transcriptOf', () => {
   test('lines', () => {
     assert({
       given: 'the persisted lines',
-      should: 'drop empty lines and time each from the first line of its turn',
+      should:
+        'drop empty lines and time each from the first line of its segment',
       actual: transcriptOf(view).map((s) => [s.speechId, s.offsetMs]),
       expected: [
         ['t0', 0],
@@ -108,7 +140,7 @@ describe('transcriptOf', () => {
 });
 
 describe('botRoundSnapshot', () => {
-  test('a live turn', () => {
+  test('a live segment', () => {
     const round = botRoundSnapshot({
       view,
       state: live(2),
@@ -117,12 +149,11 @@ describe('botRoundSnapshot', () => {
     });
     assert({
       given: 'the NC live for a negative debater',
-      should: 'light the NC, run its clock and carry their prep',
+      should: 'light the NC and run its clock',
       actual: {
         kind: round.kind,
         liveIndex: round.liveIndex,
         clock: round.clock,
-        prep: round.prepMs,
         mic: round.micLive,
         sides: [round.self.side, round.opponent.side],
       },
@@ -130,7 +161,6 @@ describe('botRoundSnapshot', () => {
         kind: 'unrated',
         liveIndex: 2,
         clock: { label: 'NC', remainingMs: 120_000 },
-        prep: { neg: 200_000, aff: 0 },
         mic: true,
         sides: ['neg', 'aff'],
       },
@@ -138,7 +168,7 @@ describe('botRoundSnapshot', () => {
   });
 
   test('before and after', () => {
-    const at = (state: AiDebateState) =>
+    const at = (state: UiState) =>
       botRoundSnapshot({
         view,
         state,
@@ -150,7 +180,7 @@ describe('botRoundSnapshot', () => {
       should: 'light no speech, then every speech as past',
       actual: [
         at({ phase: 'waiting' }).liveIndex,
-        at({ phase: 'ended', endedAt: 1 }).liveIndex,
+        at({ phase: 'ended' }).liveIndex,
       ],
       expected: [-1, 7],
     });

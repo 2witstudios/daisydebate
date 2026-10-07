@@ -2,6 +2,11 @@ import { createId } from '@paralleldrive/cuid2';
 import { fixedClock, systemId } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
 import { createDatabase } from '@daisy/db';
+import {
+  oneOnOneDefinition,
+  oneOnOneFullConfig,
+} from '@daisy/db/reference-formats';
+import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
@@ -15,16 +20,27 @@ requireTestServices(process.env);
 
 const NOW = '2026-10-05T18:00:00.000Z';
 
+/**
+ * The round's frozen rules, resolved through the one compiler rather than
+ * hand-written, so the document templates read the real segment grammar.
+ */
+const resolved = resolveRoomConfiguration(
+  oneOnOneDefinition,
+  oneOnOneFullConfig,
+);
+if (!resolved.ok) throw new Error(resolved.refusal.message);
+const rules = resolved.rules;
+
 /** A user, their actor and their AI debate; removed with everything after. */
 const withDebater = async (
   run: (input: {
     operations: ReturnType<typeof createDebateDocumentOperations>;
     me: { userId: string; actorId: string };
     stranger: { userId: string; actorId: string };
-    aiDebateId: string;
+    roundId: string;
   }) => Promise<void>,
 ) => {
-  const [userId, actorId, otherUser, otherActor, aiDebateId] = [
+  const [userId, actorId, otherUser, otherActor, roundId] = [
     createId(),
     createId(),
     createId(),
@@ -34,8 +50,11 @@ const withDebater = async (
   await withSql(async (sql) => {
     await sql`insert into users (id) values (${userId}), (${otherUser})`;
     await sql`insert into actors (id, kind, user_id) values (${actorId}, 'human', ${userId}), (${otherActor}, 'human', ${otherUser})`;
-    await sql`insert into ai_debates (id, actor_id, resolution, person_side, opponent, voice, speech_model, cx_model, judge_model, tts_model, stt_model, expected_end_at)
-      values (${aiDebateId}, ${actorId}, 'Cities should make transit free', 'affirmative', 'wren', 'v', 'm', 'm', 'm', 'm', 'm', ${new Date(NOW)})`;
+    await sql`insert into rounds (id, created_by_actor_id, resolution, competition_type, length, format_id, format_version, rules_snapshot, status)
+      values (${roundId}, ${actorId}, 'Cities should make transit free', 'practice', 'full', 'one-on-one', 1, ${rules}, 'scheduled')`;
+    // A round's workspace is reachable only by its own seats.
+    await sql`insert into round_participants (id, round_id, actor_id, role, slot)
+      values (${createId()}, ${roundId}, ${actorId}, 'affirmative', 0)`;
   });
   const database = createDatabase({
     url: testDatabaseUrl,
@@ -50,13 +69,15 @@ const withDebater = async (
       }),
       me: { userId, actorId },
       stranger: { userId: otherUser, actorId: otherActor },
-      aiDebateId,
+      roundId,
     });
   } finally {
     await database.close();
     await withSql(async (sql) => {
-      // Documents cascade from their owner and their AI debate.
-      await sql`delete from ai_debates where id = ${aiDebateId}`;
+      // Documents RESTRICT their owner, so they go before the actors; the round's
+      // refs cascade from it (ADR 0058 §9).
+      await sql`delete from rounds where id = ${roundId}`;
+      await sql`delete from documents where owner_actor_id in (${actorId}, ${otherActor})`;
       await sql`delete from actors where id in (${actorId}, ${otherActor})`;
       await sql`delete from users where id in (${userId}, ${otherUser})`;
     });
@@ -65,14 +86,14 @@ const withDebater = async (
 
 describe('debate room documents over PostgreSQL', () => {
   test('create, save, rename and list round-trip for the owner only', async () => {
-    await withDebater(async ({ operations, me, stranger, aiDebateId }) => {
+    await withDebater(async ({ operations, me, stranger, roundId }) => {
       const flow = await operations.createDocument(me, {
-        aiDebateId,
+        roundId,
         folder: 'round',
         templateId: 'flow',
       });
       const library = await operations.createDocument(me, {
-        aiDebateId,
+        roundId,
         folder: 'library',
         templateId: 'case',
       });
@@ -89,7 +110,7 @@ describe('debate room documents over PostgreSQL', () => {
         })
         .catch((error: unknown) => error);
       await operations.renameDocument(me, { id: library.id, title: ' Aff ' });
-      const listed = await operations.listDocuments(me, { aiDebateId });
+      const listed = await operations.listDocuments(me, { roundId });
       assert({
         given: 'a round flow, a library case, a save, a stale save, a rename',
         should:
@@ -113,7 +134,7 @@ describe('debate room documents over PostgreSQL', () => {
       await assertRejects({
         given: 'another person opening the debate',
         should: 'refuse it as not found',
-        actual: () => operations.listDocuments(stranger, { aiDebateId }),
+        actual: () => operations.listDocuments(stranger, { roundId }),
         code: 'NOT_FOUND',
       });
       await assertRejects({

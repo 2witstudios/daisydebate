@@ -568,6 +568,27 @@ ALTER TABLE "usage_reservations" ADD CONSTRAINT "usage_reservations_round_id_rou
 ALTER TABLE "utterances" ADD CONSTRAINT "utterances_segment_round_fk" FOREIGN KEY ("segment_id","round_id") REFERENCES "round_segments"("id","round_id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "utterances" ADD CONSTRAINT "utterances_participant_round_fk" FOREIGN KEY ("round_participant_id","round_id") REFERENCES "round_participants"("id","round_id") ON DELETE RESTRICT;
 
+--> Baseline integrity, folded rather than shipped as a forward step: the
+--> squash has not reached the default branch and Daisy has no deployed
+--> consumers (ADR 0023), so a second step over an unshipped baseline is
+--> exactly the compat history this repository refuses to accrete.
+ALTER TABLE "ballots" ADD COLUMN "updated_at" timestamp with time zone DEFAULT now() NOT NULL;
+CREATE INDEX "round_document_refs_document_idx" ON "round_document_refs" ("document_id");
+CREATE INDEX "format_presets_revision_idx" ON "format_presets" ("format_id","format_version");
+CREATE INDEX "formats_current_revision_idx" ON "formats" ("id","current_version");
+CREATE INDEX "room_participants_actor_idx" ON "room_participants" ("actor_id");
+CREATE INDEX "rooms_definition_revision_idx" ON "rooms" ("format_id","format_version");
+CREATE INDEX "rounds_room_idx" ON "rounds" ("room_id");
+CREATE INDEX "rounds_created_by_actor_idx" ON "rounds" ("created_by_actor_id");
+CREATE INDEX "rounds_definition_revision_idx" ON "rounds" ("format_id","format_version");
+CREATE INDEX "rounds_preset_provenance_idx" ON "rounds" ("format_id","length","preset_version","format_version");
+CREATE INDEX "usage_reservations_round_idx" ON "usage_reservations" ("round_id");
+CREATE INDEX "utterances_segment_round_idx" ON "utterances" ("segment_id","round_id");
+CREATE INDEX "utterances_participant_round_idx" ON "utterances" ("round_participant_id","round_id");
+ALTER TABLE "ballots" ADD CONSTRAINT "ballots_feedback_is_object" CHECK (jsonb_typeof("feedback") = 'object');
+ALTER TABLE "ballots" ADD CONSTRAINT "ballots_citations_is_object" CHECK (jsonb_typeof("citations") = 'object');
+ALTER TABLE "rounds" ADD CONSTRAINT "rounds_rules_snapshot_is_object" CHECK (jsonb_typeof("rules_snapshot") = 'object');
+
 --> statement-breakpoint
 --> Reference data ships in migrations, never in the seed (ADR 0038).
 --> The rows mirror scripts/reference-formats.ts; the sync test fails when
@@ -593,3 +614,57 @@ INSERT INTO "bot_profiles" ("actor_id", "name", "persona", "voice", "difficulty"
   ('w2r5e8n1b4o7t0a3n6i9c2e5', 'Wren', 'Sarcastic in a friendly way, always has a comeback, and is never quite as unimpressed as it sounds.', 'aura-2-thalia-en', 'intermediate'),
   ('b1r4a7m0b3r6a9n2c5h8e1s4', 'Bram', 'Steady and methodical, prefers structure over flourishes, and answers exactly what was asked.', 'aura-2-arcas-en', 'advanced'),
   ('a1i2j3u4d5g6e7a8i9j0u1d2', 'The Panel', 'A careful judge that rules only on what the round said.', 'aura-2-thalia-en', 'advanced');
+--> statement-breakpoint
+--> Runtime roles, their grants and the reference data above: none of it
+--> drizzle-kit generates. Roles are cluster-wide and every local slot shares
+--> one cluster, so each is created only if missing. No password is set:
+--> production provisions runtime credentials out of band
+--> (docs/operations/database.md), and the migration credential needs
+--> CREATEROLE.
+-->
+--> daisy_web: the web application's runtime role. DML on every table and
+--> use of every sequence (a bigserial default calls nextval()), nothing that
+--> alters schema: no CREATE on public, no TRUNCATE, REFERENCES or TRIGGER,
+--> and no access to the drizzle migrations schema. Default privileges extend
+--> the same grants to tables and sequences later migrations create.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'daisy_web') THEN
+    CREATE ROLE daisy_web LOGIN;
+  END IF;
+END
+$$;
+--> statement-breakpoint
+GRANT USAGE ON SCHEMA public TO daisy_web;
+--> statement-breakpoint
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO daisy_web;
+--> statement-breakpoint
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO daisy_web;
+--> statement-breakpoint
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO daisy_web;
+--> statement-breakpoint
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT USAGE, SELECT ON SEQUENCES TO daisy_web;
+--> statement-breakpoint
+--> daisy_realtime: the realtime service's only credential (ADR 0032 §7).
+--> SELECT on the outbox delivery log and the competitive read models;
+--> `actors` and `session` are column-scoped and `users` gets no grant (identity
+--> resolves through actors.user_id, which carries no PII; never `token`, the
+--> bearer credential). Explicit grants only: default privileges never reach
+--> it, so a new table stays invisible to realtime until a migration grants it.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'daisy_realtime') THEN
+    CREATE ROLE daisy_realtime LOGIN;
+  END IF;
+END
+$$;
+--> statement-breakpoint
+GRANT USAGE ON SCHEMA public TO daisy_realtime;
+--> statement-breakpoint
+GRANT SELECT ON outbox, rounds, round_participants TO daisy_realtime;
+--> statement-breakpoint
+GRANT SELECT (id, user_id) ON actors TO daisy_realtime;
+--> statement-breakpoint
+GRANT SELECT (id, user_id, expires_at) ON session TO daisy_realtime;

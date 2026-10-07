@@ -1,5 +1,25 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
+import { foundationDefinition } from '@daisy/db/reference-formats';
+import type { RoundRules } from '@daisy/protocol';
+
+const foundationToRules = (
+  definition: typeof foundationDefinition | undefined,
+): RoundRules => ({
+  version: 2,
+  seats: definition?.seats ?? { affirmative: 1, negative: 1, judge: 0 },
+  segments: (definition?.segments ?? []).map((segment) => ({
+    key: segment.key,
+    label: segment.label,
+    type: segment.type,
+    side: segment.side,
+    slot: segment.slot,
+    durationMs: segment.defaultDurationMs,
+  })),
+  inRoundPrep: null,
+  countdownMs: 10_000,
+  interaction: { crossExMode: 'ordered', yield: null, interruptions: null },
+});
 import { createDatabase } from '@daisy/db';
 import { buildUserInboxTopic } from '@daisy/protocol';
 import { createPasskeyFlows } from './auth-passkey-flows';
@@ -164,27 +184,21 @@ describe('AUTH-5.4 recover from a lost passkey through verified email', () => {
     });
     const actor = await database.getActorByUserId(userId);
     const actorId = actor!.id;
-    const debateId = createId();
+    const roundId = createId();
     const resolution = 'A representative resolution';
-    await database.createDebate({
-      id: debateId,
-      createdBy: actorId,
+    const foundation = await database.getFormat('foundation');
+    await database.createRound({
+      id: roundId,
+      createdByActorId: actorId,
       resolution,
-      format: 'foundation',
-      snapshot: {
-        version: 1,
-        id: debateId,
-        resolution,
-        format: 'foundation',
-        rules: (await database.getFormat('foundation'))?.rules,
-        phase: 'waiting',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        participants: [],
-      },
-      mode: 'casual',
-      visibility: 'unlisted',
+      competitionType: 'casual',
+      length: 'full',
+      formatId: 'foundation',
+      formatVersion: foundation?.version ?? 1,
+      presetVersion: null,
+      rules: foundationToRules(foundation?.definition),
     });
-    const debateBefore = await database.getDebate(debateId);
+    const roundBefore = await database.getRound(roundId);
 
     // Lose every authenticator: recover through the emailed magic link, not
     // the still-valid original session.
@@ -209,7 +223,7 @@ describe('AUTH-5.4 recover from a lost passkey through verified email', () => {
 
     const recoveredIdentity = await flows.account.sessionAs(recoveredCookie);
     const originalAfterRevoke = await flows.account.sessionAs(originalCookie);
-    const debateAfter = await database.getDebate(debateId);
+    const roundAfter = await database.getRound(roundId);
     await database.close();
     // The account itself is torn down by this file's shared afterAll; the
     // fixture rows this test provisioned directly must go first, or that
@@ -217,7 +231,7 @@ describe('AUTH-5.4 recover from a lost passkey through verified email', () => {
     // `revokeOtherSessions` call above appends a `session.revoked` row on
     // this actor's inbox (RT-2.2v minor 2): delete it too, or it survives
     // as an orphan once the actor row below is gone.
-    await withSql((sql) => sql`DELETE FROM debates WHERE id = ${debateId}`);
+    await withSql((sql) => sql`DELETE FROM rounds WHERE id = ${roundId}`);
     await withSql(
       (sql) =>
         sql`DELETE FROM outbox WHERE kind = 'session.revoked' AND topic = ${buildUserInboxTopic(actorId)}`,
@@ -228,7 +242,7 @@ describe('AUTH-5.4 recover from a lost passkey through verified email', () => {
       given:
         'an account that loses every passkey, recovers by email, removes the lost credential, revokes its other sessions and enrolls a replacement',
       should:
-        'keep the same user id, username and debate history, end the pre-recovery session and finish with only the replacement passkey stored',
+        'keep the same user id, username and round history, end the pre-recovery session and finish with only the replacement passkey stored',
       actual: {
         enrolledLostOk: enrolledLost.verifyResponse.ok,
         recoveredUserId: identityUserId(recoveredIdentity.identity),
@@ -236,7 +250,7 @@ describe('AUTH-5.4 recover from a lost passkey through verified email', () => {
           recoveredIdentity.identity.state === 'member'
             ? recoveredIdentity.identity.username
             : null,
-        debateAfter,
+        roundAfter,
         droppedLostOk: droppedLost.ok,
         enrolledReplacementOk: enrolledReplacement.verifyResponse.ok,
         finalPasskeyNames: finalPasskeys.map((row) => row.name),
@@ -246,7 +260,7 @@ describe('AUTH-5.4 recover from a lost passkey through verified email', () => {
         enrolledLostOk: true,
         recoveredUserId: userId,
         recoveredUsername: username,
-        debateAfter: debateBefore,
+        roundAfter: roundBefore,
         droppedLostOk: true,
         enrolledReplacementOk: true,
         finalPasskeyNames: ['Replacement device'],

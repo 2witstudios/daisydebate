@@ -13,6 +13,7 @@ import { sql } from 'drizzle-orm';
 import {
   check,
   foreignKey,
+  index,
   integer,
   pgTable,
   text,
@@ -82,6 +83,12 @@ export const rooms = pgTable(
   },
   (table) => [
     unique('rooms_id_format_unique').on(table.id, table.formatId),
+    // Leading with each foreign key's own columns, so the provenance joins
+    // and the RESTRICT probes are index lookups rather than scans.
+    index('rooms_definition_revision_idx').on(
+      table.formatId,
+      table.formatVersion,
+    ),
     uniqueIndex('rooms_single_preset_version').on(
       table.formatId,
       table.length,
@@ -151,6 +158,7 @@ export const roomParticipants = pgTable(
       table.role,
       table.slot,
     ),
+    index('room_participants_actor_idx').on(table.actorId),
     check('room_participants_role_check', oneOf(table.role, debateRoles)),
     check('room_participants_slot_check', sql`${table.slot} >= 0`),
   ],

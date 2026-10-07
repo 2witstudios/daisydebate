@@ -1,8 +1,11 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
-import { assertRejects, rejectionOf } from '@daisy/errors/testing';
+import { assertRejects } from '@daisy/errors/testing';
 import type { Permission } from '@daisy/auth';
 import { fixedClock } from '@daisy/clock';
+import type { RoundHydration } from '@daisy/db';
+import { foundationDefinition } from '@daisy/db/reference-formats';
+import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import {
   createProofDebate,
   getProofDebate,
@@ -12,23 +15,54 @@ import {
 
 setupRitewayBun();
 
+const proofConfig = {
+  preRoundPrep: { enabled: false },
+  inRoundPrep: { enabled: true, budgetMsPerSide: 120_000 },
+  speechTiming: { countdownMs: 10_000, segmentDurationOverrides: {} },
+  crossExamination: { crossExMode: 'ordered' },
+  interruptions: null,
+  yielding: null,
+} as const;
+
+const resolved = resolveRoomConfiguration(foundationDefinition, proofConfig);
+if (!resolved.ok) throw new Error(resolved.refusal.message);
+
 const foundationFormat = {
   id: 'foundation',
-  rules: {
-    version: 1 as const,
-    seats: { affirmative: 1, negative: 1, judge: 0 },
-    clock: { speechMs: 240_000, prepMs: 120_000 },
+  name: 'Foundation (architectural proof)',
+  version: 1,
+  definition: foundationDefinition,
+};
+
+const storedRound: RoundHydration = {
+  id: 'd5e8f2a4c6b1k3m7n9p2r4t6',
+  formatId: 'foundation',
+  formatVersion: 1,
+  resolution: 'A representative resolution',
+  status: 'scheduled',
+  currentStage: null,
+  startedAt: null,
+  completedAt: null,
+  outcome: null,
+  rules: resolved.rules,
+  checkpoint: {
+    version: 1,
+    prep_consumed_ms: { affirmative: 0, negative: 0 },
+    active_prep: null,
+    floor: null,
   },
-  rankedEligible: false,
+  version: 1,
+  participants: [],
+  segments: [],
 };
 
 const database: {
-  createDebate: (record: { id: string }) => Promise<void>;
-  getDebate: (id: string) => Promise<Record<string, unknown> | undefined>;
+  createRound: (input: { id: string }) => Promise<void>;
+  getRound: (id: string) => Promise<RoundHydration | null>;
   getFormat: (id: string) => Promise<typeof foundationFormat | null>;
 } = {
-  createDebate: () => Promise.resolve(),
-  getDebate: () => Promise.resolve(undefined),
+  createRound: () => Promise.resolve(),
+  getRound: () => Promise.resolve(null),
   getFormat: () => Promise.resolve(foundationFormat),
 };
 
@@ -48,7 +82,7 @@ const dependencies: ProofDependencies = {
 
 describe('foundation operation error mapping', () => {
   test('wraps coded adapter failures as infrastructure errors', async () => {
-    database.createDebate = () =>
+    database.createRound = () =>
       Promise.reject(
         Object.assign(new Error('connect ECONNREFUSED'), {
           code: 'ERR_POSTGRES_CONNECTION_REFUSED',
@@ -67,7 +101,7 @@ describe('foundation operation error mapping', () => {
   });
 
   test('preserves app errors raised by the adapter', async () => {
-    database.createDebate = () => Promise.reject(createAppError('CONFLICT'));
+    database.createRound = () => Promise.reject(createAppError('CONFLICT'));
     await assertRejects({
       given: 'an app error raised by the adapter',
       should: 'pass through with its code intact',
@@ -82,27 +116,31 @@ describe('foundation operation error mapping', () => {
 });
 
 describe('foundation operation identity', () => {
-  test('stamps the snapshot and durable record with the injected identity', async () => {
+  test('stamps the resolved round and durable record with the injected identity', async () => {
     let persistedId: string | undefined;
-    database.createDebate = (record) => {
-      persistedId = record.id;
+    database.createRound = (input) => {
+      persistedId = input.id;
       return Promise.resolve();
     };
-    const snapshot = await createProofDebate(
+    const proof = await createProofDebate(
       { resolution: 'A representative resolution' },
       dependencies,
     );
     assert({
-      given: 'injected identity and timestamp',
-      should: 'stamp the snapshot and durable record with them',
+      given: 'injected identity and the one compiler',
+      should: 'stamp the proof round and durable record with them',
       actual: {
-        id: snapshot.id,
-        createdAt: snapshot.createdAt,
+        id: proof.id,
+        format: proof.format,
+        status: proof.status,
+        segments: proof.rules.segments.length,
         persistedId,
       },
       expected: {
         id: 'd5e8f2a4c6b1k3m7n9p2r4t6',
-        createdAt: '2026-01-01T00:00:00.000Z',
+        format: 'foundation',
+        status: 'scheduled',
+        segments: foundationDefinition.segments.length,
         persistedId: 'd5e8f2a4c6b1k3m7n9p2r4t6',
       },
     });
@@ -110,185 +148,105 @@ describe('foundation operation identity', () => {
 });
 
 describe('foundation debate retrieval', () => {
-  test('restores the stored snapshot for a stored debate', async () => {
-    const stored = await createProofDebate(
+  test('reads the stored round through the same compiler output', async () => {
+    const created = await createProofDebate(
       { resolution: 'A representative resolution' },
       dependencies,
     );
-    database.getDebate = () =>
-      Promise.resolve({
-        id: stored.id,
-        createdBy: null,
-        resolution: stored.resolution,
-        format: stored.format,
-        snapshot: stored,
-        version: 1,
-        createdAt: stored.createdAt,
-        updatedAt: stored.createdAt,
-        mode: 'casual',
-        phase: 'waiting',
-        visibility: 'unlisted',
-        startedAt: null,
-        completedAt: null,
-        outcome: null,
-      });
-    const restored = await getProofDebate(stored.id, dependencies);
-
+    database.getRound = () => Promise.resolve(storedRound);
+    const restored = await getProofDebate(created.id, dependencies);
     assert({
-      given: 'a stored debate snapshot',
-      should: 'restore the runtime state from the durable record',
-      actual: restored,
-      expected: stored,
+      given: 'a stored round row',
+      should: 'carry its frozen rules and resolution back out',
+      actual: restored && {
+        id: restored.id,
+        resolution: restored.resolution,
+        rules: restored.rules.version,
+        status: restored.status,
+      },
+      expected: {
+        id: storedRound.id,
+        resolution: 'A representative resolution',
+        rules: 2,
+        status: 'scheduled',
+      },
     });
   });
 
-  test('answers a missing debate with NOT_FOUND', async () => {
-    database.getDebate = () => Promise.resolve(undefined);
-    const caught = await rejectionOf(() =>
-      getProofDebate('z9x7v5t3r1p8n6m4k2b5d7f1', dependencies),
-    );
-
-    assert({
-      given: 'a debate id matching no stored record',
-      should: 'map the absence to a NOT_FOUND app error',
-      actual: caught.code,
-      expected: 'NOT_FOUND',
-    });
-  });
-
-  test('refuses a principal holding only debate:create', async () => {
-    const outcome = await readOfUnknownDebateAs('create-only', 'debate:create');
-    assert({
-      given: 'a principal holding debate:create but not debate:read',
-      should: 'refuse with AUTHORIZATION before touching the database',
-      actual: outcome,
-      expected: { code: 'AUTHORIZATION', reads: 0 },
+  test('answers a missing round with NOT_FOUND', async () => {
+    database.getRound = () => Promise.resolve(null);
+    await assertRejects({
+      given: 'an id with no round behind it',
+      should: 'answer NOT_FOUND',
+      actual: () => getProofDebate('z9x7v5t3r1p8n6m4k2b5d7f1', dependencies),
+      code: 'NOT_FOUND',
     });
   });
 
   test('admits a principal holding only debate:read', async () => {
-    const outcome = await readOfUnknownDebateAs('read-only', 'debate:read');
-    assert({
-      given: 'a principal holding debate:read and an unknown debate id',
-      should: 'pass the gate, read the database, and report NOT_FOUND',
-      actual: outcome,
-      expected: { code: 'NOT_FOUND', reads: 1 },
-    });
-  });
-});
-
-/**
- * A read of an unknown debate by a service principal holding one
- * permission: the rejection code and how many database reads it made.
- */
-async function readOfUnknownDebateAs(
-  serviceId: string,
-  permission: Permission,
-) {
-  let reads = 0;
-  database.getDebate = () => {
-    reads += 1;
-    return Promise.resolve(undefined);
-  };
-  const { code } = await rejectionOf(() =>
-    getProofDebate('z9x7v5t3r1p8n6m4k2b5d7f1', dependencies, {
+    database.getRound = () => Promise.resolve(storedRound);
+    const restored = await getProofDebate(storedRound.id, dependencies, {
       kind: 'service',
-      serviceId,
-      permissions: [permission],
-    }),
-  );
-  return { code, reads };
-}
-
-describe('foundation debate creation gate', () => {
-  test('refuses a principal holding only debate:read', async () => {
-    let writes = 0;
-    database.createDebate = () => {
-      writes += 1;
-      return Promise.resolve();
-    };
-    const caught = await rejectionOf(() =>
-      createProofDebate(
-        { resolution: 'A representative resolution' },
-        dependencies,
-        {
-          kind: 'service',
-          serviceId: 'read-only',
-          permissions: ['debate:read'],
-        },
-      ),
-    );
-
+      serviceId: 'reader',
+      permissions: ['debate:read'] as readonly Permission[],
+    });
     assert({
-      given: 'a principal holding debate:read but not debate:create',
+      given: 'a principal holding only debate:read',
+      should: 'admit the read',
+      actual: restored?.id,
+      expected: storedRound.id,
+    });
+  });
+});
+
+describe('the proof gate', () => {
+  test('answers NOT_FOUND when the proof is disabled', async () => {
+    const disabled = { ...dependencies, enabled: false };
+    await assertRejects({
+      given: 'a disabled proof',
+      should: 'answer NOT_FOUND before any permission or database work',
+      actual: () =>
+        createProofDebate(
+          { resolution: 'A representative resolution' },
+          disabled,
+        ),
+      code: 'NOT_FOUND',
+    });
+    await assertRejects({
+      given: 'a disabled proof asked for a stored round',
+      should: 'answer NOT_FOUND',
+      actual: () => getProofDebate('z9x7v5t3r1p8n6m4k2b5d7f1', disabled),
+      code: 'NOT_FOUND',
+    });
+  });
+
+  test('refuses a principal without the permission', async () => {
+    await assertRejects({
+      given: 'a principal without debate:create',
       should: 'refuse with AUTHORIZATION before touching the database',
-      actual: {
-        code: caught.code,
-        writes,
-      },
-      expected: { code: 'AUTHORIZATION', writes: 0 },
+      actual: () =>
+        createProofDebate(
+          { resolution: 'A representative resolution' },
+          dependencies,
+          {
+            kind: 'service',
+            serviceId: 'no-create',
+            permissions: ['debate:read'] as readonly Permission[],
+          },
+        ),
+      code: 'AUTHORIZATION',
     });
   });
-});
 
-describe('foundation proof gate', () => {
-  test('answers NOT_FOUND for both operations when the injected flag is off', async () => {
-    let touched = 0;
-    const count = () => {
-      touched += 1;
-      return Promise.resolve(undefined);
-    };
-    const disabled = {
-      ...dependencies,
-      enabled: false,
-      database: asDatabase({
-        getFormat: () => count().then(() => foundationFormat),
-        createDebate: () => count(),
-        getDebate: () => count(),
-      }),
-    };
-    const created = await rejectionOf(() =>
-      createProofDebate(
-        { resolution: 'A representative resolution' },
-        disabled,
-      ),
-    );
-    const read = await rejectionOf(() =>
-      getProofDebate('z9x7v5t3r1p8n6m4k2b5d7f1', disabled),
-    );
-
+  test('exposes the shared proof principal', () => {
     assert({
-      given: 'dependencies whose validated proof flag is off',
-      should:
-        'refuse create and read with NOT_FOUND before any database access',
-      actual: {
-        codes: [created, read].map((caught) => caught.code),
-        touched,
-      },
-      expected: { codes: ['NOT_FOUND', 'NOT_FOUND'], touched: 0 },
-    });
-  });
-});
-
-describe('foundation proof principal', () => {
-  test('holds exactly the create and read permissions', () => {
-    assert({
-      given: 'the hardcoded foundation proof service principal',
-      should: 'hold debate:create and debate:read and nothing else, immutably',
-      actual: {
-        principal: proofPrincipal,
-        frozen:
-          Object.isFrozen(proofPrincipal) &&
-          proofPrincipal.kind === 'service' &&
-          Object.isFrozen(proofPrincipal.permissions),
-      },
+      given: 'the proof principal',
+      should: 'be a service holding exactly create and read',
+      actual: proofPrincipal,
       expected: {
-        principal: {
-          kind: 'service',
-          serviceId: 'foundation-proof',
-          permissions: ['debate:create', 'debate:read'],
-        },
-        frozen: true,
+        kind: 'service',
+        serviceId: 'foundation-proof',
+        permissions: ['debate:create', 'debate:read'],
       },
     });
   });

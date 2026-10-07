@@ -22,6 +22,7 @@ import {
   notBefore,
   oneOf,
   timestampColumn,
+  updatedAtColumn,
 } from './columns';
 import { actors } from './actors';
 import { roundParticipants } from './round-participants';
@@ -52,6 +53,7 @@ export const ballots = pgTable(
     voidedAt: timestampColumn('voided_at'),
     voidedByActorId: text('voided_by_actor_id'),
     createdAt: createdAtColumn(),
+    updatedAt: updatedAtColumn(),
   },
   (table) => [
     // RESTRICT: a seat carrying a submitted ballot cannot be deleted.
@@ -82,5 +84,7 @@ export const ballots = pgTable(
       notBefore(table.voidedAt, table.submittedAt),
     ),
     jsonbIsObject('ballots', table.scores),
+    jsonbIsObject('ballots', table.feedback),
+    jsonbIsObject('ballots', table.citations),
   ],
 );

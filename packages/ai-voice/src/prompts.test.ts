@@ -1,5 +1,5 @@
-import { aiDebateTurns } from '@daisy/debate-engine';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import type { SpeechTurn } from './prompts';
 import {
   cxMessages,
   debaterPersona,
@@ -13,10 +13,27 @@ setupRitewayBun();
 
 const resolution = 'Social media does more harm than good';
 const transcript: TranscriptEntry[] = [
-  { turnIndex: 0, role: 'person', text: 'I affirm. Social media harms teens.' },
-  { turnIndex: 1, role: 'ai', text: 'What evidence links use to harm?' },
-  { turnIndex: 1, role: 'person', text: 'Several longitudinal studies.' },
+  { turn: 'AC', role: 'person', text: 'I affirm. Social media harms teens.' },
+  { turn: 'CX1', role: 'ai', text: 'What evidence links use to harm?' },
+  { turn: 'CX1', role: 'person', text: 'Several longitudinal studies.' },
 ];
+
+const ncTurn: SpeechTurn = {
+  index: 2,
+  name: 'NC',
+  label: 'Negative constructive',
+  kind: 'speech',
+  side: 'negative',
+  durationMs: 360_000,
+};
+const cxCrossTurn: SpeechTurn = {
+  index: 1,
+  name: 'CX1',
+  label: 'Cross-examination of the affirmative',
+  kind: 'cross-examination',
+  side: 'negative',
+  durationMs: 120_000,
+};
 
 describe('renderTranscript', () => {
   test('labels each line with its turn and speaker', () => {
@@ -26,8 +43,8 @@ describe('renderTranscript', () => {
       actual: renderTranscript(transcript, 'negative'),
       expected: [
         '[AC — affirmative (opponent)] I affirm. Social media harms teens.',
-        '[CX — negative (you)] What evidence links use to harm?',
-        '[CX — affirmative (opponent)] Several longitudinal studies.',
+        '[CX1 — negative (you)] What evidence links use to harm?',
+        '[CX1 — affirmative (opponent)] Several longitudinal studies.',
       ].join('\n'),
     });
   });
@@ -37,7 +54,7 @@ describe('speechMessages', () => {
   const messages = speechMessages({
     resolution,
     aiSide: 'negative',
-    turn: aiDebateTurns[2]!,
+    turn: ncTurn,
     transcript,
     persona: 'PERSONA',
   });
@@ -71,7 +88,7 @@ describe('cxMessages', () => {
     const user = cxMessages({
       resolution,
       aiSide: 'negative',
-      turn: aiDebateTurns[1]!,
+      turn: cxCrossTurn,
       aiRole: 'asker',
       transcript,
       persona: 'P',

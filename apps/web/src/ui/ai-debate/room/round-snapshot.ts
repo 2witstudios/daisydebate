@@ -1,56 +1,55 @@
+import type { DebateSide } from '@daisy/protocol';
 import {
-  aiDebateTurns,
-  turnRoles,
-  type AiDebateSide,
-  type AiDebateState,
-} from '@daisy/debate-engine';
-import type { AiDebateView } from '../../../features/ai-debate/operations';
+  segmentAt,
+  type AiDebateView,
+  type UiState,
+} from '../../../features/ai-debate/context';
 import type { Side, SpeechSlot } from '../../../features/debate-room/documents';
 import type { RoundPhase } from '../../../features/debate-room/layout';
 import type { TranscriptSegment } from '../../../features/debate-room/transcript';
 import type { Debater, RoundSnapshot } from '../../debate-room/round';
 
-const sideOf = (side: AiDebateSide): Side =>
+const sideOf = (side: DebateSide): Side =>
   side === 'affirmative' ? 'aff' : 'neg';
 
-/** The bot round's seven turns as the room's speeches. */
-export const botSpeeches: readonly SpeechSlot[] = aiDebateTurns.map((turn) => ({
-  id: `t${turn.index}`,
-  code: turn.name,
-  side: sideOf(turn.side),
-  kind: turn.kind === 'cross-examination' ? 'cross-ex' : 'speech',
-  durationMs: turn.durationMs,
-}));
+/** The round's resolved schedule as the room's speeches. */
+export const speechesOf = (view: AiDebateView): readonly SpeechSlot[] =>
+  view.rules.segments.map((segment, index) => ({
+    id: `t${index}`,
+    code: segment.key,
+    side: sideOf(segment.side),
+    kind: segment.type === 'cross_ex' ? 'cross-ex' : 'speech',
+    durationMs: segment.durationMs,
+  }));
 
-const turnOf = (state: AiDebateState) =>
-  'turnIndex' in state ? state.turnIndex : null;
+const segmentIndexOf = (state: UiState) =>
+  'segmentIndex' in state ? state.segmentIndex : null;
 
-/** Which way the room leans: who holds the floor in the current turn. */
+/** Which way the room leans: who holds the floor in the current segment. */
 export function phaseOf(
-  state: AiDebateState,
-  personSide: AiDebateSide,
+  state: UiState,
+  view: AiDebateView,
+  personSide: DebateSide,
 ): RoundPhase {
   if (state.phase === 'prep') return 'prep';
-  const index = turnOf(state);
+  const index = segmentIndexOf(state);
   if (index === null) return 'prep';
-  const turn = aiDebateTurns[index]!;
-  if (turn.kind === 'cross-examination') return 'cross-ex';
-  return turnRoles(turn, personSide).speaker === 'person'
-    ? 'own-speech'
-    : 'opponent-speaking';
+  const segment = segmentAt(view, index);
+  if (segment.kind === 'cross-examination') return 'cross-ex';
+  return segment.side === personSide ? 'own-speech' : 'opponent-speaking';
 }
 
-function clockOf(state: AiDebateState): RoundSnapshot['clock'] {
+function clockOf(state: UiState, view: AiDebateView): RoundSnapshot['clock'] {
   if (state.phase === 'prep')
-    return { label: 'Your prep', remainingMs: state.prepLeftMs };
+    return { label: 'Your prep', remainingMs: state.remainingMs };
   if (state.phase === 'countdown')
     return {
-      label: `${aiDebateTurns[state.turnIndex]!.name} starts in`,
+      label: `${segmentAt(view, state.segmentIndex).name} starts in`,
       remainingMs: state.remainingMs,
     };
   if (state.phase === 'live')
     return {
-      label: aiDebateTurns[state.turnIndex]!.name,
+      label: segmentAt(view, state.segmentIndex).name,
       remainingMs: state.remainingMs,
     };
   return {
@@ -59,17 +58,18 @@ function clockOf(state: AiDebateState): RoundSnapshot['clock'] {
   };
 }
 
-/** Each line, timed from the first line of its turn (the view has no turn start). */
+/** Each line, timed from the first line of its segment. */
 export function transcriptOf(view: AiDebateView): readonly TranscriptSegment[] {
   const firstAt = new Map<number, number>();
   for (const line of view.utterances)
-    if (!firstAt.has(line.turnIndex)) firstAt.set(line.turnIndex, line.at);
+    if (!firstAt.has(line.segmentIndex))
+      firstAt.set(line.segmentIndex, line.at);
   return view.utterances
     .filter((line) => line.text.trim() !== '')
     .map((line) => ({
       id: line.id,
-      speechId: `t${line.turnIndex}`,
-      offsetMs: line.at - (firstAt.get(line.turnIndex) ?? line.at),
+      speechId: `t${line.segmentIndex}`,
+      offsetMs: line.at - (firstAt.get(line.segmentIndex) ?? line.at),
       text: line.text,
     }));
 }
@@ -80,7 +80,7 @@ export function transcriptOf(view: AiDebateView): readonly TranscriptSegment[] {
  */
 export function botRoundSnapshot(input: {
   readonly view: AiDebateView;
-  readonly state: AiDebateState;
+  readonly state: UiState;
   readonly bot: { readonly id: string; readonly name: string };
   readonly listening: boolean;
 }): RoundSnapshot {
@@ -101,17 +101,18 @@ export function botRoundSnapshot(input: {
     side: other,
     rating: 0,
   };
-  const index = turnOf(state);
-  const prepLeft = 'prepLeftMs' in state ? state.prepLeftMs : 0;
+  const index = segmentIndexOf(state);
+  const prepLeft = state.phase === 'prep' ? state.remainingMs : 0;
+  const speeches = speechesOf(view);
   return {
     resolution: view.resolution,
     kind: 'unrated',
-    phase: phaseOf(state, view.personSide),
+    phase: phaseOf(state, view, view.personSide),
     self: person,
     opponent,
-    speeches: botSpeeches,
-    liveIndex: index ?? (state.phase === 'waiting' ? -1 : botSpeeches.length),
-    clock: clockOf(state),
+    speeches,
+    liveIndex: index ?? (state.phase === 'waiting' ? -1 : speeches.length),
+    clock: clockOf(state, view),
     prepMs: { [self]: prepLeft, [other]: 0 } as Record<Side, number>,
     micLive: input.listening,
     clubName: null,

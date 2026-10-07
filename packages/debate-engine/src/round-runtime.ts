@@ -265,55 +265,90 @@ export function createRoundRuntime(input: {
   });
   let pending: Queues = queues();
 
-  const openRow = () => store.openRow();
-  const rows = () => store.rows();
-  const closedCount = () =>
-    rows().filter((row) => row.endedAtMs !== null).length;
-
-  /**
-   * Time advancement: closes expired segments, expires running prep at its
-   * budget, and opens segments whose countdown has elapsed. Repeats until
-   * `now` falls inside whatever is current, so a restart catches up.
-   */
-  const advance = (on: RoundStore, into: Queues, now: number): void => {
-    if (on.lifecycle().status !== 'active') return;
-    for (;;) {
-      const open = on.openRow();
-      if (open !== undefined) {
-        const endsAt = open.startedAtMs + open.durationMs;
-        if (now < endsAt) return;
-        // The final segment stays open past its time: the round is spoken
-        // but not completed, and the open row remains the live interval
-        // until `complete` closes it with the outcome.
-        if (open.sequence === rules.segments.length - 1) return;
-        closeRow(on, into, open, endsAt);
-        continue;
-      }
-      const checkpoint = on.checkpoint();
-      if (closedCountOn(on) >= rules.segments.length) return;
-      const active = checkpoint.active_prep;
-      if (active !== null) {
-        const startedAtMs = Date.parse(active.started_at);
-        const budget = rules.inRoundPrep?.budgetMsPerSide ?? 0;
-        const expiresAt =
-          startedAtMs +
-          Math.max(0, budget - checkpoint.prep_consumed_ms[active.side]);
-        if (now < expiresAt) return;
-        on.setPrepConsumed(active.side, budget);
-        on.endPrep();
-        openRowOn(on, into, expiresAt);
-        continue;
-      }
-      const lifecycle = on.lifecycle();
-      const countdownEndsAt =
-        (lifecycle.gapAnchorMs ?? now) + rules.countdownMs;
-      if (now < countdownEndsAt) return;
-      openRowOn(on, into, countdownEndsAt);
-    }
+  /** Why the loop stops here: nothing is due at `now`. */
+  const segmentDueAt = (
+    on: RoundStore,
+    open: NonNullable<ReturnType<RoundStore['openRow']>>,
+    now: number,
+  ): number | null => {
+    const endsAt = open.startedAtMs + open.durationMs;
+    // The final segment stays open past its time: the round is spoken but
+    // not completed, and the open row remains the live interval until
+    // `complete` closes it with the outcome.
+    if (now < endsAt || open.sequence === rules.segments.length - 1)
+      return null;
+    return endsAt;
   };
 
   const closedCountOn = (on: RoundStore): number =>
     on.rows().filter((row) => row.endedAtMs !== null).length;
+
+  /** Prep expiry: the instant the budget runs out, or null while it lasts. */
+  const prepExpiresAt = (on: RoundStore): number | null => {
+    const active = on.checkpoint().active_prep;
+    if (active === null) return null;
+    const startedAtMs = Date.parse(active.started_at);
+    const budget = rules.inRoundPrep?.budgetMsPerSide ?? 0;
+    return (
+      startedAtMs +
+      Math.max(0, budget - on.checkpoint().prep_consumed_ms[active.side])
+    );
+  };
+
+  /** True when the open segment is still inside its time and not final. */
+  const openStillRunning = (on: RoundStore, now: number): boolean => {
+    const open = on.openRow();
+    if (open === undefined) return false;
+    if (now < open.startedAtMs + open.durationMs) return true;
+    // The final segment stays open past its time: the round is spoken but
+    // not completed, and the open row remains the live interval until
+    // `complete` closes it with the outcome.
+    return open.sequence === rules.segments.length - 1;
+  };
+
+  /** The open segment's due instant, once its time is spent. */
+  const dueAtOf = (on: RoundStore, now: number): number =>
+    on.openRow()!.startedAtMs + on.openRow()!.durationMs;
+
+  /** Closes the live segment and returns; false when nothing was due. */
+  const closeIfDue = (on: RoundStore, into: Queues, now: number): boolean => {
+    if (openStillRunning(on, now)) return false;
+    const open = on.openRow();
+    if (open === undefined) return false;
+    closeRow(on, into, open, dueAtOf(on, now));
+    return true;
+  };
+
+  /** Runs one prep-or-countdown step; false when the gap is not over. */
+  const advanceGap = (on: RoundStore, into: Queues, now: number): boolean => {
+    if (closedCountOn(on) >= rules.segments.length) return false;
+    const expiresAt = prepExpiresAt(on);
+    if (expiresAt !== null) {
+      if (now < expiresAt) return false;
+      const active = on.checkpoint().active_prep!;
+      on.setPrepConsumed(active.side, rules.inRoundPrep?.budgetMsPerSide ?? 0);
+      on.endPrep();
+      openRowOn(on, into, expiresAt);
+      return true;
+    }
+    const countdownEndsAt =
+      (on.lifecycle().gapAnchorMs ?? now) + rules.countdownMs;
+    if (now < countdownEndsAt) return false;
+    openRowOn(on, into, countdownEndsAt);
+    return true;
+  };
+
+  const advance = (on: RoundStore, into: Queues, now: number): void => {
+    if (on.lifecycle().status !== 'active') return;
+    for (;;) {
+      if (on.openRow() !== undefined) {
+        // A live segment: the only work time can do is close it when due.
+        if (!closeIfDue(on, into, now)) return;
+        continue;
+      }
+      if (!advanceGap(on, into, now)) return;
+    }
+  };
 
   const closeRow = (
     on: RoundStore,

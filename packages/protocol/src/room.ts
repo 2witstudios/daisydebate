@@ -1,9 +1,5 @@
 import { z } from 'zod';
-import {
-  crossExModeSchema,
-  interruptionModeSchema,
-  segmentTypeSchema,
-} from './format';
+import { crossExModeSchema, interruptionModeSchema } from './format';
 
 /**
  * "Available and declined" has exactly one spelling per level (ADR 0058):

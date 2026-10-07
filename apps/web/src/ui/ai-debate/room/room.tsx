@@ -1,6 +1,6 @@
 'use client';
 
-import { aiDebateTurns, turnRoles } from '@daisy/debate-engine';
+import { segmentAt } from '../../../features/ai-debate/context';
 import Link from 'next/link';
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import {
@@ -28,10 +28,9 @@ import { createRoomStore, type RoomSnapshot } from './store';
 /** The microphone is open in the person's speeches and in cross-examination. */
 function listeningOf({ view, state, joined }: RoomSnapshot) {
   if (!view || !joined || state.phase !== 'live') return false;
-  const turn = aiDebateTurns[state.turnIndex]!;
+  const segment = segmentAt(view, state.segmentIndex);
   return (
-    turn.kind === 'cross-examination' ||
-    turnRoles(turn, view.personSide).speaker === 'person'
+    segment.kind === 'cross-examination' || segment.side === view.personSide
   );
 }
 
@@ -45,11 +44,16 @@ function StageNotes({
   const { state, status, caption, problem, headset } = snapshot;
   const live = state.phase === 'live';
   const cx =
-    live && aiDebateTurns[state.turnIndex]?.kind === 'cross-examination';
+    live && snapshot.view
+      ? segmentAt(snapshot.view, state.segmentIndex).kind ===
+        'cross-examination'
+      : false;
   // The clock is not announced (it changes every second); what happens is.
   return (
     <div className="flex min-w-0 flex-col gap-1">
-      <h2 className="text-sm font-strong text-ink">{stageTitle(state)}</h2>
+      <h2 className="text-sm font-strong text-ink">
+        {stageTitle(state, snapshot.view)}
+      </h2>
       <div aria-live="polite" className="flex flex-col gap-1 text-sm">
         {status ? <p className="text-ink">{status}</p> : null}
         {caption && live ? (
@@ -84,7 +88,7 @@ export function AiDebateRoom({ id }: { readonly id: string }) {
     () =>
       createDocumentSync({
         api: documentsApi,
-        aiDebateId: id,
+        roundId: id,
         onConflict: () => setConflicted(true),
         onSaveFailed: () => setSaveProblem(RETRYING_NOTICE),
         onSaveRefused: (_id, status) => setSaveProblem(refusedNotice(status)),
@@ -113,7 +117,7 @@ export function AiDebateRoom({ id }: { readonly id: string }) {
       </TrainPage>
     );
   const bot = botSelector(view.opponent).selected;
-  const turnIndex = state.phase === 'live' ? state.turnIndex : null;
+  const segmentIndex = 'segmentIndex' in state ? state.segmentIndex : null;
   const listening = listeningOf(snapshot);
   const round = botRoundSnapshot({ view, state, bot, listening });
   return (
@@ -126,6 +130,7 @@ export function AiDebateRoom({ id }: { readonly id: string }) {
           <Stage
             bot={bot}
             personSide={view.personSide}
+            view={view}
             state={state}
             speaking={snapshot.speaking}
             level={snapshot.level}
@@ -138,7 +143,11 @@ export function AiDebateRoom({ id }: { readonly id: string }) {
             className="grid grid-cols-3 items-center gap-x-4 gap-y-2 bg-background px-3 py-2"
           >
             <StageNotes snapshot={snapshot} bot={bot} />
-            <RoundClock state={state} personSide={view.personSide} />
+            <RoundClock
+              state={state}
+              view={view}
+              personSide={view.personSide}
+            />
             <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
               <Link
                 href={selectBotHref(bot.id)}
@@ -148,6 +157,7 @@ export function AiDebateRoom({ id }: { readonly id: string }) {
               </Link>
               <Controls
                 state={state}
+                view={view}
                 personSide={view.personSide}
                 joined={snapshot.joined}
                 busy={snapshot.busy}
@@ -157,7 +167,8 @@ export function AiDebateRoom({ id }: { readonly id: string }) {
                   onStartSpeech: () =>
                     void store.command({ type: 'startSpeech' }),
                   onYield: () => {
-                    if (turnIndex !== null) void store.finishTurn(turnIndex);
+                    if (segmentIndex !== null)
+                      void store.finishTurn(segmentIndex);
                   },
                   onAbort: () => void store.command({ type: 'abort' }),
                 }}

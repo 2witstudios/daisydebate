@@ -6,69 +6,212 @@ import {
   type Ballot,
 } from '@daisy/ai-voice';
 import {
-  acceptAiDebateCommand,
-  aiDebateLongestMs,
-  type AiDebateCommand,
-  type AiDebateSide,
+  resolveRoomConfiguration as resolveRoom,
+  type RoundCommand,
+  type RoundProjection,
 } from '@daisy/debate-engine';
 import { createAppError } from '@daisy/errors';
 import {
-  nowMs,
+  practiceRoomConfig,
+  referenceAiJudge,
+} from '@daisy/db/reference-formats';
+import type { RoundHydration } from '@daisy/db';
+import type { RoundStore } from './context';
+import {
   ownedBy,
-  requireLiveTurn,
-  stateAt,
-  toEngine,
+  participantIdOf,
+  participantRoleOf,
+  personSideOf,
+  runtimeOf,
+  segmentIndexOf,
   transcriptOf,
+  aiSideOf,
   type AiDebateDependencies,
   type AiDebateView,
+  type AiDebateViewUtterance,
   type AudioFormat,
 } from './context';
 import { crossExaminationOperations } from './cross-examination';
-import { opponentFor } from './opponents';
+import { opponentFor, opponentForActor } from './opponents';
 import { speechOperations } from './speech';
 
 export type { AiDebateView } from './context';
 
 const DEFAULT_LIMITS = { live: 25, perDay: 20 } as const;
-/** A created AI debate has this long to start before it stops counting as live. */
-const START_WINDOW_MS = 15 * 60_000;
 
 export type PersonCommand =
   | { readonly type: 'start' }
+  | { readonly type: 'startPrep' }
   | { readonly type: 'startSpeech' }
-  | { readonly type: 'yield'; readonly turnIndex: number }
+  | { readonly type: 'yield' }
   | { readonly type: 'abort' };
-
-const atTime = (command: PersonCommand, at: number): AiDebateCommand => {
-  if (command.type === 'yield')
-    return { type: 'yield', at, turnIndex: command.turnIndex };
-  if (command.type === 'abort') return { type: 'abort', at, reason: 'person' };
-  return { type: command.type, at };
-};
-
-const asRecord = (command: AiDebateCommand) => {
-  const at = new Date(command.at);
-  if (command.type === 'yield')
-    return { type: 'yield' as const, at, turnIndex: command.turnIndex };
-  if (command.type === 'abort')
-    return { type: 'abort' as const, at, reason: command.reason };
-  return { type: command.type, at };
-};
 
 const tidy = (resolution: string) => resolution.trim().replace(/\s+/g, ' ');
 
 /**
- * The AI debate application operations (AIDB): every call names its actor,
- * reads only that actor's own AI debate, and takes time and ids from the
- * injected clock and generator. Speeches and cross-examination live in
- * their own modules and are composed here.
+ * The command log's payload digest: SHA3-256 over the command's content
+ * (ADR 0019). The runtime refuses by state rather than payload, so the
+ * type alone is the content today; a payload-carrying command widens this
+ * input, never the encoding.
+ */
+const digestOf = (command: { readonly type: string }): string => {
+  const hasher = new Bun.CryptoHasher('sha3-256');
+  hasher.update(command.type);
+  return hasher.digest('hex');
+};
+
+/**
+ * Reassembles the ballot contract from its columns, for a judge seat whose
+ * ballot is on file; null before any ruling.
+ */
+type StoredBallot = Awaited<
+  ReturnType<AiDebateDependencies['store']['getBallot']>
+>;
+
+const ballotOf = (stored: StoredBallot) =>
+  stored && stored.status === 'submitted'
+    ? parseBallot(
+        JSON.stringify({
+          rubricVersion: stored.rubricVersion,
+          winner: stored.winner,
+          scores: stored.scores,
+          reason: stored.reason,
+          feedback: stored.feedback ?? {},
+          ...(stored.citations ? { citations: stored.citations } : {}),
+        }),
+      )
+    : null;
+
+/**
+ * The AI practice application operations (AIDB on the one Round model,
+ * ADR 0058): a practice Room resolves the one-on-one format against the
+ * practice config, seats the person, the bot and the AI judge, and the
+ * startRound freeze creates the Round. Every later operation drives the
+ * same runtime the durable rows persist, so the person's browser, the bot
+ * and the judge are actors on one machine.
  */
 export function createAiDebateOperations(dependencies: AiDebateDependencies) {
-  const { store, voice, clock, ids, limits = DEFAULT_LIMITS } = dependencies;
+  const { store, voice, ids, limits = DEFAULT_LIMITS } = dependencies;
+
+  /** Persists one execution; a concurrent writer wins and the caller re-hydrates. */
+  const persist = async (
+    roundId: string,
+    expectedVersion: number,
+    command: Parameters<RoundStore['applyRoundExecution']>[0]['command'],
+    projection: RoundProjection,
+  ): Promise<boolean> => {
+    try {
+      await store.applyRoundExecution({
+        roundId,
+        expectedVersion,
+        command,
+        projection,
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  /**
+   * Hydrates one of the actor's rounds, materializing whatever time moved:
+   * the durable rows are the live interval, so a tick that opened or
+   * closed segments is persisted before anything reads position. The
+   * instant is the database's, read once here and used for the tick, any
+   * command this operation applies, and the view's serverNow — one clock
+   * for the whole execution (ADR 0033 §3.2, as amended by ADR 0058).
+   */
+  const hydrated = async (actorId: string, id: string) => {
+    const owned = await ownedBy(store, actorId, id, () => ids.next());
+    const { round, runtime } = owned;
+    const now = Date.parse(await store.databaseNow());
+    const ticked = runtime.tick(new Date(now).toISOString());
+    const moved =
+      ticked.segmentInserts.length > 0 || ticked.segmentCloses.length > 0;
+    if (moved && (await persist(round.id, round.version, null, ticked))) {
+      const fresh = await store.getRound(id);
+      if (fresh)
+        return {
+          round: fresh,
+          runtime: runtimeOf(fresh, () => ids.next()),
+          now,
+        };
+    }
+    return { round, runtime, now };
+  };
+
+  /** The usage and allowance writes for one billable AI call. */
+  const recordUsage = async (
+    roundId: string,
+    participantId: string,
+    actorId: string,
+    usage: {
+      readonly kind: 'speech' | 'cross_ex' | 'tts' | 'stt' | 'judging';
+      readonly model: string;
+      readonly inputTokens?: number | undefined;
+      readonly outputTokens?: number | undefined;
+      readonly characters?: number | undefined;
+      readonly requests?: number | undefined;
+    },
+  ): Promise<void> => {
+    await store.recordAgentRun({
+      id: ids.next(),
+      roundParticipantId: participantId,
+      kind: usage.kind,
+      model: usage.model,
+      provider: 'openrouter',
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      characters: usage.characters,
+      requests: usage.requests,
+    });
+    await store.markReservationCounted({ actorId, roundId });
+  };
+
+  const viewOf = async (
+    round: RoundHydration,
+    now: number,
+  ): Promise<AiDebateView> => {
+    const personSide = personSideOf(round);
+    const opponent = opponentForActor(
+      round.participants.find((seat) => seat.role === aiSideOf(personSide))
+        ?.actorId,
+    );
+    const judgeSeat = round.participants.find((seat) => seat.role === 'judge');
+    const lines = await store.listRoundUtterances(round.id);
+    const utterances: AiDebateViewUtterance[] = lines.map((line) => {
+      const role = participantRoleOf(round, line.roundParticipantId);
+      return {
+        id: line.id,
+        segmentIndex: segmentIndexOf(round, line.segmentId),
+        role: role === personSide ? 'person' : 'ai',
+        text: line.text,
+        complete: line.complete,
+        at: line.createdAt.getTime(),
+      };
+    });
+    const stored = judgeSeat ? await store.getBallot(judgeSeat.id) : null;
+    return {
+      id: round.id,
+      resolution: round.resolution,
+      personSide,
+      opponent: opponent?.id ?? '',
+      voice: opponent?.voice ?? 'aura-2-thalia-en',
+      serverNow: now,
+      version: round.version,
+      status: round.status,
+      startedAt: round.startedAt === null ? null : Date.parse(round.startedAt),
+      rules: round.rules,
+      segments: round.segments,
+      checkpoint: round.checkpoint,
+      utterances,
+      ballot: ballotOf(stored),
+    };
+  };
 
   return {
-    ...speechOperations(dependencies),
-    ...crossExaminationOperations(dependencies),
+    ...speechOperations(dependencies, hydrated, recordUsage),
+    ...crossExaminationOperations(dependencies, hydrated, recordUsage),
 
     async start({
       actorId,
@@ -78,7 +221,7 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
     }: {
       readonly actorId: string;
       readonly resolution: string;
-      readonly personSide: AiDebateSide;
+      readonly personSide: 'affirmative' | 'negative';
       /** The Train bot to debate. */
       readonly opponent: string;
     }): Promise<{ readonly id: string }> {
@@ -88,35 +231,63 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
       const opponent = opponentFor(opponentId);
       if (!opponent) throw createAppError('VALIDATION', 'Unknown opponent');
       voice(); // refuse before writing anything when AI debates are unavailable
-      const now = nowMs(clock);
-      const id = ids.next();
-      const created = await store.createAiDebate({
-        now: new Date(now),
-        limits,
-        debate: {
-          id,
-          actorId,
-          resolution: trimmed,
-          personSide,
-          opponent: opponent.id,
-          voice: opponent.voice,
-          speechModel: DEFAULT_MODELS.speech,
-          cxModel: DEFAULT_MODELS.cx,
-          judgeModel: DEFAULT_MODELS.judge,
-          ttsModel: DEFAULT_MODELS.tts,
-          sttModel: DEFAULT_MODELS.stt,
-          // Unstarted, it holds a seat only for the start window.
-          expectedEndAt: new Date(now + START_WINDOW_MS),
-        },
+      const now = Date.parse(await store.databaseNow());
+      const recent = await store.countRecentAiPractice({
+        actorId,
+        since: new Date(now - 24 * 60 * 60_000),
       });
-      if (created !== 'created')
+      if (recent >= limits.perDay)
+        throw createAppError('RATE_LIMIT', 'Daily AI debate limit');
+      const format = await store.getFormat('one-on-one');
+      if (!format)
+        throw createAppError('INFRASTRUCTURE', 'The format is missing');
+      const resolved = resolveRoom(format.definition, practiceRoomConfig);
+      if (!resolved.ok)
         throw createAppError(
-          'RATE_LIMIT',
-          created === 'busy'
-            ? 'Too many live AI debates'
-            : 'Daily AI debate limit',
+          'INFRASTRUCTURE',
+          `The practice room refuses to resolve: ${resolved.refusal.message}`,
         );
-      return { id };
+      const roomId = ids.next();
+      await store.createRoom({
+        id: roomId,
+        formatId: format.id,
+        formatVersion: format.version,
+        presetVersion: null,
+        competitionType: 'practice',
+        length: 'full',
+        config: practiceRoomConfig,
+        executionPlan: resolved.roomPlan,
+        rules: resolved.rules,
+      });
+      await store.seatRoomParticipant({
+        roomId,
+        participantId: ids.next(),
+        actorId,
+        role: personSide,
+        slot: 0,
+      });
+      await store.seatRoomParticipant({
+        roomId,
+        participantId: ids.next(),
+        actorId: opponent.actorId,
+        role: aiSideOf(personSide),
+        slot: 0,
+      });
+      await store.seatRoomParticipant({
+        roomId,
+        participantId: ids.next(),
+        actorId: referenceAiJudge.actorId,
+        role: 'judge',
+        slot: 0,
+      });
+      const roundId = ids.next();
+      await store.startRound({ roomId, roundId, resolution: trimmed });
+      await store.reserveAiPractice({
+        id: ids.next(),
+        actorId,
+        roundId,
+      });
+      return { id: roundId };
     },
 
     async view({
@@ -126,105 +297,102 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
       readonly actorId: string;
       readonly id: string;
     }): Promise<AiDebateView> {
-      const record = await ownedBy(store, actorId, id);
-      return {
-        id: record.id,
-        resolution: record.resolution,
-        personSide: record.personSide,
-        opponent: record.opponent,
-        voice: record.voice,
-        serverNow: nowMs(clock),
-        commands: record.commands.map(toEngine),
-        utterances: record.utterances.map(
-          ({ id: utteranceId, turnIndex, role, text, createdAt }) => ({
-            id: utteranceId,
-            turnIndex,
-            role,
-            text,
-            at: createdAt.getTime(),
-          }),
-        ),
-        ballot: record.ballot
-          ? parseBallot(JSON.stringify(record.ballot.ballot))
-          : null,
-      };
+      const { round, now } = await hydrated(actorId, id);
+      return viewOf(round, now);
     },
 
-    /** Appends a timeline command at the server's time, or refuses it. */
+    /** Applies one legal command at the server's time, or refuses it. */
     async command({
       actorId,
       id,
       command,
-      expectedSequence,
+      expectedVersion,
     }: {
       readonly actorId: string;
       readonly id: string;
       readonly command: PersonCommand;
-      readonly expectedSequence: number;
+      readonly expectedVersion: number;
     }): Promise<void> {
-      const record = await ownedBy(store, actorId, id);
-      const now = nowMs(clock);
-      if (
-        command.type === 'start' &&
-        now > record.createdAt.getTime() + START_WINDOW_MS
-      )
-        throw createAppError('CONFLICT', 'The start window has closed');
-      const timed = atTime(command, now);
-      const verdict = acceptAiDebateCommand({
-        personSide: record.personSide,
-        commands: record.commands.map(toEngine),
-        command: timed,
+      const { round, runtime, now } = await hydrated(actorId, id);
+      const mapped: RoundCommand =
+        command.type === 'startPrep'
+          ? { type: 'start_prep' }
+          : command.type === 'startSpeech'
+            ? { type: 'start_speech' }
+            : command.type === 'abort'
+              ? { type: 'forfeit' }
+              : { type: command.type };
+      const executed = runtime.execute({
+        command: mapped,
+        actorId: command.type === 'start' ? null : actorId,
+        now: new Date(now).toISOString(),
       });
-      if (!verdict.ok) throw createAppError('CONFLICT', verdict.reason);
-      await store.appendAiDebateCommand({
-        aiDebateId: id,
-        expectedSequence,
-        command: asRecord(timed),
-        // Once started, it holds its seat until the longest debate ends.
-        expectedEndAt:
-          timed.type === 'start'
-            ? new Date(now + aiDebateLongestMs())
-            : undefined,
-      });
-      if (timed.type === 'abort') await store.finishAiDebate(id);
+      const applied = await persist(
+        round.id,
+        round.version,
+        {
+          commandId: ids.next(),
+          actorId: command.type === 'start' ? null : actorId,
+          serviceId: command.type === 'start' ? 'ai-debate' : null,
+          type: mapped.type,
+          payloadDigest: digestOf(mapped),
+          result: { ok: true },
+        },
+        executed,
+      );
+      if (!applied) throw createAppError('CONFLICT', 'The round moved on');
     },
 
     /** Transcribes a chunk of the person's speech into the transcript. */
     async transcribe({
       actorId,
       id,
-      turnIndex,
+      segmentIndex,
       audioBase64,
       format,
     }: {
       readonly actorId: string;
       readonly id: string;
-      readonly turnIndex: number;
+      readonly segmentIndex: number;
       readonly audioBase64: string;
       readonly format: AudioFormat;
     }): Promise<{ readonly text: string }> {
-      const record = await ownedBy(store, actorId, id);
-      requireLiveTurn(record, turnIndex, nowMs(clock), (roles, kind) =>
-        kind === 'speech' ? roles.speaker === 'person' : true,
+      const { round, runtime, now } = await hydrated(actorId, id);
+      const position = runtime.position(new Date(now).toISOString());
+      const open = position.openSegment;
+      if (
+        !open ||
+        open.sequence !== segmentIndex ||
+        (open.type === 'speech' && open.side !== personSideOf(round))
+      )
+        throw createAppError('CONFLICT', 'That segment is not live');
+      const row = round.segments.find(
+        (segment) => segment.sequence === open.sequence,
       );
+      if (!row) throw createAppError('CONFLICT', 'That segment is not open');
+      const model = DEFAULT_MODELS.stt;
       const { text } = await voice().transcribe({
-        model: record.sttModel,
+        model,
         audioBase64,
         format,
       });
-      await store.recordAiDebateUsage({ aiDebateId: id, sttRequests: 1 });
+      await recordUsage(id, participantIdOf(round, actorId), actorId, {
+        kind: 'stt',
+        model,
+        requests: 1,
+      });
       if (text)
-        await store.appendAiDebateUtterance({
+        await store.appendUtterance({
           id: ids.next(),
-          aiDebateId: id,
-          turnIndex,
-          role: 'person',
+          roundId: id,
+          segmentId: row.id,
+          roundParticipantId: participantIdOf(round, actorId),
           text,
         });
       return { text };
     },
 
-    /** The judge's ballot, decided once after the last turn. */
+    /** The judge's ballot, decided once after the last segment. */
     async ballot({
       actorId,
       id,
@@ -232,36 +400,80 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
       readonly actorId: string;
       readonly id: string;
     }): Promise<Ballot> {
-      const record = await ownedBy(store, actorId, id);
-      if (record.ballot)
-        return parseBallot(JSON.stringify(record.ballot.ballot));
-      if (stateAt(record, nowMs(clock)).phase !== 'ended')
+      const { round, runtime, now } = await hydrated(actorId, id);
+      const judgeSeat = round.participants.find(
+        (seat) => seat.role === 'judge',
+      );
+      if (!judgeSeat)
+        throw createAppError('INTERNAL', 'The round has no judge');
+      const stored = await store.getBallot(judgeSeat.id);
+      if (stored && stored.status === 'submitted') {
+        const view = await viewOf(round, now);
+        return view.ballot!;
+      }
+      const position = runtime.position(new Date(now).toISOString());
+      if (!position.awaitingBallot)
         throw createAppError('CONFLICT', 'The debate is not over');
+      const personSide = personSideOf(round);
+      const lines = await store.listRoundUtterances(id);
+      const transcript = transcriptOf(
+        round.rules,
+        lines.map((line) => ({
+          id: line.id,
+          segmentIndex: segmentIndexOf(round, line.segmentId),
+          role:
+            participantRoleOf(round, line.roundParticipantId) === personSide
+              ? ('person' as const)
+              : ('ai' as const),
+          text: line.text,
+          complete: line.complete,
+          at: line.createdAt.getTime(),
+        })),
+      );
       const answer = await voice().complete({
-        model: record.judgeModel,
+        model: DEFAULT_MODELS.judge,
         messages: judgeMessages({
-          resolution: record.resolution,
-          personSide: record.personSide,
-          transcript: transcriptOf(record),
+          resolution: round.resolution,
+          personSide,
+          transcript,
         }),
         maxTokens: 6_000,
         temperature: 0.2,
         json: true,
         reasoning: DEFAULT_REASONING.judge,
       });
-      await store.recordAiDebateUsage({
-        aiDebateId: id,
-        promptTokens: answer.promptTokens,
-        completionTokens: answer.completionTokens,
+      await recordUsage(id, judgeSeat.id, actorId, {
+        kind: 'judging',
+        model: DEFAULT_MODELS.judge,
+        inputTokens: answer.promptTokens,
+        outputTokens: answer.completionTokens,
       });
       const ballot = parseBallot(answer.text);
-      const saved = await store.saveAiDebateBallot({
-        aiDebateId: id,
-        winner: ballot.winner,
+      await store.submitBallot({
+        ballotId: ids.next(),
+        judgeParticipantId: judgeSeat.id,
         ballot,
       });
-      await store.finishAiDebate(id);
-      return parseBallot(JSON.stringify(saved.ballot));
+      const completed = runtime.execute({
+        command: { type: 'complete', outcome: ballot.winner },
+        actorId: null,
+        now: new Date(now).toISOString(),
+      });
+      const applied = await persist(
+        round.id,
+        round.version,
+        {
+          commandId: ids.next(),
+          actorId: null,
+          serviceId: 'ai-judge',
+          type: 'complete',
+          payloadDigest: digestOf({ type: 'complete' }),
+          result: { outcome: ballot.winner },
+        },
+        completed,
+      );
+      if (!applied) throw createAppError('CONFLICT', 'The round moved on');
+      return ballot;
     },
   };
 }

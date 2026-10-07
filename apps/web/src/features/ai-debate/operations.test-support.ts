@@ -1,242 +1,146 @@
-import type { Clock } from '@daisy/clock';
-import { sequentialId } from '@daisy/clock';
+import type { OpenRouter } from '@daisy/ai-voice';
+import type { Clock, IdGenerator } from '@daisy/clock';
+import {
+  practiceRoomConfig,
+  referenceAiJudge,
+} from '@daisy/db/reference-formats';
 import { createAiDebateOperations } from './operations';
-import type { AiDebateRecord } from '@daisy/db';
-import type { AiDebateStore, AiDebateVoice } from './context';
+import { createInMemoryRoundStore } from './round-store.test-support';
+import type { RoundStore } from './context';
 
-type Mutable<T> = { -readonly [K in keyof T]: T[K] };
-
-/** An in-memory AI debate store with the database adapter's semantics. */
-function memoryStore(): AiDebateStore & {
-  readonly records: Map<string, Mutable<AiDebateRecord>>;
-} {
-  const records = new Map<string, Mutable<AiDebateRecord>>();
-  const get = (id: string) => {
-    const record = records.get(id);
-    if (!record) throw new Error(`no AI debate ${id}`);
-    return record;
-  };
+/** A clock the test moves, so the runtime's ticks are deterministic. */
+const testClock = (): Clock & {
+  readonly advance: (seconds: number) => void;
+} => {
+  let ms = Date.parse('2026-10-06T09:00:00.000Z');
   return {
-    records,
-    async createAiDebate({ debate, now, limits }) {
-      const open = (r: AiDebateRecord) =>
-        r.finishedAt === null && r.expectedEndAt > now;
-      const all = [...records.values()];
-      const today = all.filter(
-        (r) =>
-          r.actorId === debate.actorId &&
-          r.createdAt.getTime() >= now.getTime() - 24 * 60 * 60_000,
-      ).length;
-      if (today >= limits.perDay) return 'daily-limit';
-      const others = all.filter(
-        (r) => r.actorId !== debate.actorId && open(r),
-      ).length;
-      if (others >= limits.live) return 'busy';
-      for (const r of all)
-        if (r.actorId === debate.actorId && open(r)) r.finishedAt = now;
-      records.set(debate.id, {
-        ...debate,
-        createdAt: now,
-        countedAt: null,
-        finishedAt: null,
-        ttsCharacters: 0,
-        sttRequests: 0,
-        promptTokens: 0,
-        completionTokens: 0,
-        commands: [],
-        utterances: [],
-        ballot: null,
-      });
-      return 'created';
-    },
-    async getAiDebate(id) {
-      const record = records.get(id);
-      return record ? structuredClone(record) : null;
-    },
-    async appendAiDebateCommand({
-      aiDebateId,
-      expectedSequence,
-      command,
-      expectedEndAt,
-    }) {
-      const record = get(aiDebateId);
-      if (record.commands.length !== expectedSequence)
-        throw Object.assign(new Error('moved on'), { code: 'CONFLICT' });
-      record.commands = [...record.commands, command];
-      if (expectedEndAt) record.expectedEndAt = expectedEndAt;
-    },
-    async appendAiDebateUtterance({
-      id,
-      aiDebateId,
-      turnIndex,
-      role,
-      text,
-      complete = true,
-    }) {
-      const record = get(aiDebateId);
-      record.utterances = [
-        ...record.utterances,
-        {
-          id,
-          sequence: record.utterances.length,
-          turnIndex,
-          role,
-          text,
-          complete,
-          // Deterministic: one second per line recorded.
-          createdAt: new Date(record.utterances.length * 1000),
-        },
-      ];
-    },
-    async replaceAiDebateUtterance({ id, aiDebateId, text, complete }) {
-      const record = get(aiDebateId);
-      record.utterances = record.utterances.map((u) =>
-        u.id === id ? { ...u, text, complete: complete ?? u.complete } : u,
-      );
-    },
-    async recordAiDebateUsage({
-      aiDebateId,
-      ttsCharacters = 0,
-      sttRequests = 0,
-      promptTokens = 0,
-      completionTokens = 0,
-    }) {
-      const record = get(aiDebateId);
-      record.ttsCharacters += ttsCharacters;
-      record.sttRequests += sttRequests;
-      record.promptTokens += promptTokens;
-      record.completionTokens += completionTokens;
-      record.countedAt ??= new Date(1);
-    },
-    async reserveAiDebateSpeech({ aiDebateId, characters, budget }) {
-      const record = get(aiDebateId);
-      if (record.ttsCharacters + characters > budget) return false;
-      record.ttsCharacters += characters;
-      record.countedAt ??= new Date(1);
-      return true;
-    },
-    async finishAiDebate(id) {
-      get(id).finishedAt ??= new Date(2);
-    },
-    async saveAiDebateBallot({ aiDebateId, winner, ballot }) {
-      const record = get(aiDebateId);
-      record.ballot ??= { winner, ballot };
-      return record.ballot;
+    now: () => new Date(ms).toISOString(),
+    advance: (seconds) => {
+      ms += seconds * 1000;
     },
   };
-}
+};
 
-/** A scripted voice: canned speech, CX replies, transcripts and a ballot. */
-export function scriptedVoice({
-  speech = 'Thank you, judge. My first contention is safety. I urge an affirmative ballot.',
-  reply = 'Is that your strongest example?',
-  transcript = 'I think the evidence is clear.',
-  ballot = {
-    winner: 'affirmative',
-    reason: 'The affirmative answered every negative argument.',
-    speeches: [],
-    tips: ['Signpost more.'],
-  },
-}: {
-  readonly speech?: string;
-  readonly reply?: string;
-  readonly transcript?: string;
-  readonly ballot?: Record<string, unknown>;
-} = {}): AiDebateVoice & {
-  readonly calls: string[];
-  /** Each streamed request's system message (the persona). */
-  readonly personas: string[];
-  /** Each streamed request's abort signal. */
-  readonly signals: (AbortSignal | undefined)[];
-} {
+const sequentialIds: IdGenerator = (() => {
+  let next = 0;
+  return {
+    next: () => {
+      next += 1;
+      return `id-${String(next).padStart(4, '0')}`;
+    },
+  };
+})();
+
+/** A voice layer that answers exactly, recording which calls were made. */
+const fakeVoice = () => {
   const calls: string[] = [];
-  const personas: string[] = [];
-  const signals: (AbortSignal | undefined)[] = [];
-  return {
-    calls,
-    personas,
-    signals,
-    async complete(request) {
-      calls.push(`complete:${request.model}`);
+  const voice: OpenRouter = {
+    async complete() {
+      calls.push('complete');
       return {
-        text: request.json ? JSON.stringify(ballot) : reply,
+        text: JSON.stringify({
+          rubricVersion: 'speaker-10@1',
+          winner: 'affirmative',
+          scores: {
+            affirmative: Object.fromEntries(
+              [
+                'thesis',
+                'framework',
+                'analysis',
+                'refutation',
+                'impact',
+                'weighing',
+                'questioning',
+                'answering',
+                'organization',
+                'delivery',
+              ].map((category) => [category, 4]),
+            ),
+            negative: Object.fromEntries(
+              [
+                'thesis',
+                'framework',
+                'analysis',
+                'refutation',
+                'impact',
+                'weighing',
+                'questioning',
+                'answering',
+                'organization',
+                'delivery',
+              ].map((category) => [category, 3]),
+            ),
+          },
+          reason: 'The affirmative carried its case.',
+          feedback: {
+            affirmative: 'Keep the through-line.',
+            negative: 'Answer the case directly.',
+          },
+        }),
         promptTokens: 10,
-        completionTokens: 5,
+        completionTokens: 10,
       };
     },
-    async *stream(request) {
-      calls.push(`stream:${request.model}`);
-      personas.push(request.messages[0]?.content ?? '');
-      signals.push(request.signal);
-      for (const word of speech.split(/(?<= )/)) yield word;
+    async *stream() {
+      calls.push('stream');
+      yield 'A short speech.';
     },
-    async speak({ text, voice }) {
-      calls.push(`speak:${voice}:${text}`);
-      return { audio: new Uint8Array([7]).buffer, characters: text.length };
+    async speak() {
+      calls.push('speak');
+      return { audio: new ArrayBuffer(4) };
     },
     async transcribe() {
       calls.push('transcribe');
-      return { text: transcript };
+      return { text: 'I affirm.' };
     },
-  };
-}
-
-const T0 = Date.UTC(2026, 9, 3, 18, 0, 0);
-const movableClock = (start = T0) => {
-  let now = start;
-  const clock: Clock = { now: () => new Date(now).toISOString() };
-  return { clock, advance: (seconds: number) => (now += seconds * 1000) };
+  } as unknown as OpenRouter;
+  return { voice: () => voice, calls };
 };
 
-export const setup = ({
-  personSide = 'negative',
-  voice = scriptedVoice(),
-  limits,
-}: {
-  personSide?: 'affirmative' | 'negative';
-  voice?: ReturnType<typeof scriptedVoice>;
-  limits?: { live: number; perDay: number; speechCharacters?: number };
-} = {}) => {
-  const store = memoryStore();
-  const time = movableClock();
+/**
+ * An in-memory RoundStore with the operations' real write semantics — the
+ * version check, the command dedupe, the seat uniqueness, the first ballot
+ * — so the application operations run their full flows against rows
+ * exactly as the adapter would persist them. Nothing here decides domain
+ * rules: the operations drive the real runtime.
+ */
+/**
+ * The full application operations over the in-memory store, with a movable
+ * clock and a scripted voice; `begin` starts one of the actor's debates.
+ */
+export function setup(limits?: {
+  readonly live: number;
+  readonly perDay: number;
+}) {
+  const memory = createInMemoryRoundStore();
+  const clock = testClock();
+  const { voice, calls } = fakeVoice();
+  // The fake database's clock is the test's: the operations read the
+  // database instant exactly as production reads PostgreSQL's.
+  const store = {
+    ...memory.store,
+    databaseNow: async () => clock.now(),
+  } as RoundStore;
   const operations = createAiDebateOperations({
     store,
-    voice: () => voice,
-    clock: time.clock,
-    ids: sequentialId('x'),
+    voice,
+    ids: sequentialIds,
     ...(limits ? { limits } : {}),
   });
   const begin = async () => {
     const { id } = await operations.start({
       actorId: 'actor-1',
-      resolution: '  Social media does   more harm than good ',
-      personSide,
+      resolution: '  Social   media does more harm than good  ',
+      personSide: 'affirmative',
       opponent: 'wren',
     });
     await operations.command({
       actorId: 'actor-1',
       id,
       command: { type: 'start' },
-      expectedSequence: 0,
+      expectedVersion: 1,
     });
     return id;
   };
-  return { store, time, operations, voice, begin };
-};
-
-export const collect = async <T>(source: AsyncIterable<T>) => {
-  const items: T[] = [];
-  for await (const item of source) items.push(item);
-  return items;
-};
-
-/** A debate with the AI on the affirmative whose AC speech has been written. */
-export const withSpokenAc = async () => {
-  const context = setup({ personSide: 'negative' });
-  const id = await context.begin();
-  const events = await collect(
-    context.operations.speech({ actorId: 'actor-1', id, turnIndex: 0 }),
-  );
-  const utteranceId = events[0]?.type === 'utterance' ? events[0].id : '';
-  return { ...context, id, events, utteranceId };
-};
+  return { operations, begin, memory, clock, calls };
+}

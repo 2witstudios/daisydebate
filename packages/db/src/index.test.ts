@@ -3,7 +3,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { getTableName } from 'drizzle-orm';
 import { getTableConfig } from 'drizzle-orm/pg-core';
-import { debates } from './schema/debates';
+import { rounds } from './schema/rounds';
 import { users } from './schema/users';
 import * as packageEntry from './index';
 import { createDatabase } from './index';
@@ -40,8 +40,8 @@ describe('persistence schema', () => {
     assert({
       given: 'the durable debate and user tables',
       should: 'map to independent PostgreSQL tables',
-      actual: [getTableName(debates), getTableName(users)],
-      expected: ['debates', 'users'],
+      actual: [getTableName(rounds), getTableName(users)],
+      expected: ['rounds', 'users'],
     });
   });
 

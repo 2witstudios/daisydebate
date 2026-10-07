@@ -1,7 +1,6 @@
 import { createAppError, createInvariantError } from '@daisy/errors';
 import {
   debateSides,
-  type DebateRole,
   type DebaterStanding,
   type PlannedRatingChange,
   type RatingLadder,

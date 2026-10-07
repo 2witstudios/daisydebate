@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "f5b668af-be9a-42c4-a0ac-4ee703fc7035",
+  "id": "648097f9-0bdb-4981-97a5-8c16e10b1d0d",
   "prevIds": [
-    "00000000-0000-0000-0000-000000000000"
+    "f5b668af-be9a-42c4-a0ac-4ee703fc7035"
   ],
   "ddl": [
     {
@@ -1103,6 +1103,19 @@
       "generated": null,
       "identity": null,
       "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ballots"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
       "entityType": "columns",
       "schema": "public",
       "table": "ballots"
@@ -4018,6 +4031,27 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "document_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_document_refs_document_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_document_refs"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "provider_message_id",
           "isExpression": false,
           "asc": true,
@@ -4188,6 +4222,62 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "format_presets"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "format_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "format_version",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "format_presets_revision_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "format_presets"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "current_version",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "formats_current_revision_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "formats"
     },
     {
       "nameExplicit": true,
@@ -4634,6 +4724,55 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "room_participants_actor_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "room_participants"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "format_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "format_version",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "rooms_definition_revision_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "rooms"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "format_id",
           "isExpression": false,
           "asc": true,
@@ -5026,6 +5165,118 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "room_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "rounds_room_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "rounds"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "created_by_actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "rounds_created_by_actor_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "rounds"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "format_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "format_version",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "rounds_definition_revision_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "rounds"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "format_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "length",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "preset_version",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "format_version",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "rounds_preset_provenance_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "rounds"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "actor_id",
           "isExpression": false,
           "asc": true,
@@ -5074,6 +5325,27 @@
       "method": "btree",
       "concurrently": false,
       "name": "usage_reservations_counted_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "usage_reservations"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "usage_reservations_round_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "usage_reservations"
@@ -5165,6 +5437,62 @@
       "method": "btree",
       "concurrently": false,
       "name": "utterances_participant_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "utterances"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "segment_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "utterances_segment_round_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "utterances"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "round_participant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "utterances_participant_round_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "utterances"
@@ -6437,6 +6765,20 @@
       "table": "ballots"
     },
     {
+      "value": "jsonb_typeof(\"feedback\") = 'object'",
+      "name": "ballots_feedback_is_object",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "ballots"
+    },
+    {
+      "value": "jsonb_typeof(\"citations\") = 'object'",
+      "name": "ballots_citations_is_object",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "ballots"
+    },
+    {
       "value": "\"difficulty\" in ('beginner', 'intermediate', 'advanced')",
       "name": "bot_profiles_difficulty_check",
       "entityType": "checks",
@@ -6845,6 +7187,13 @@
     {
       "value": "jsonb_typeof(\"runtime_state\") = 'object'",
       "name": "rounds_runtime_state_is_object",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "rounds"
+    },
+    {
+      "value": "jsonb_typeof(\"rules_snapshot\") = 'object'",
+      "name": "rounds_rules_snapshot_is_object",
       "entityType": "checks",
       "schema": "public",
       "table": "rounds"

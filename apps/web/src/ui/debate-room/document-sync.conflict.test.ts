@@ -46,7 +46,7 @@ const watchedSync = (api: DocumentsApi) => {
   const saved: string[] = [];
   const sync = createDocumentSync({
     api,
-    aiDebateId: 'd',
+    roundId: 'd',
     onConflict: (id) => conflicts.push(id),
     onSaved: (id) => saved.push(id),
     timers,

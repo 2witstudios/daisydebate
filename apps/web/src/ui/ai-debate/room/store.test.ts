@@ -89,7 +89,6 @@ describe('the room store', () => {
       api: fakeApi({
         log,
         at: time.at,
-        commands: [{ type: 'start', at: T0 }],
       }),
     });
     store.start();

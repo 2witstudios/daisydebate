@@ -2,7 +2,21 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
 import { applyDevSeed } from '../src/dev-seed';
-import { snapshotFor } from './constraint-helpers';
+import { foundationDefinition } from '@daisy/db/reference-formats';
+import { resolveRoomConfiguration } from '@daisy/debate-engine';
+
+const seedRules = (() => {
+  const resolved = resolveRoomConfiguration(foundationDefinition, {
+    preRoundPrep: { enabled: false },
+    inRoundPrep: { enabled: true, budgetMsPerSide: 120_000 },
+    speechTiming: { countdownMs: 10_000, segmentDurationOverrides: {} },
+    crossExamination: { crossExMode: 'ordered' },
+    interruptions: null,
+    yielding: null,
+  });
+  if (!resolved.ok) throw new Error(resolved.refusal.message);
+  return resolved.rules;
+})();
 
 setupRitewayBun();
 
@@ -10,7 +24,7 @@ const { databaseUrl: url } = requireTestServices(process.env);
 
 const userId = 'z1x2c3v4b5n6m7a8s9d0f1g2';
 const actorId = 'h3j4k5l6q7w8e9r0t1y2u3i4';
-const debateId = 'o5p6a7s8d9f0g1h2j3k4l5z6';
+const roundId = 'o5p6a7s8d9f0g1h2j3k4l5z6';
 const resolution = 'Resolved: a reseed must not wipe an unrelated field.';
 
 const seedWith = (person: {
@@ -23,14 +37,21 @@ const seedWith = (person: {
       name: 'email-preservation-test',
       version: '1',
       people: [{ userId, actorId, username: 'preservation-tester', ...person }],
-      debate: {
-        id: debateId,
-        createdBy: actorId,
+      round: {
+        id: roundId,
+        createdByActorId: actorId,
         resolution,
-        format: 'foundation',
-        mode: 'practice',
-        visibility: 'private',
-        snapshot: snapshotFor(debateId, { resolution }),
+        formatId: 'foundation',
+        formatVersion: 1,
+        rules: seedRules,
+        seats: [
+          {
+            id: 's1e2a3t4a5b6c7d8e9f0a1b2',
+            actorId,
+            role: 'affirmative' as const,
+            slot: 0,
+          },
+        ],
       },
     },
   });
@@ -66,7 +87,7 @@ describe('applyDevSeed preserves email/emailVerified it does not specify', () =>
       });
     } finally {
       try {
-        await database`delete from debates where id = ${debateId}`;
+        await database`delete from rounds where id = ${roundId}`;
         await database`delete from actors where id = ${actorId}`;
         await database`delete from users where id = ${userId}`;
         await database`delete from seed_versions where seed_name = 'email-preservation-test'`;

@@ -30,7 +30,11 @@ import {
   type RuntimeRoleFactsRow,
 } from './runtime-role';
 import { RUNTIME_SESSION } from './session-bounds';
-export type { RateDebateInput, RateDebateResult } from './rating-facts';
+export type {
+  RateDebateInput,
+  RateDebateResult,
+  RatingDecision,
+} from './rating-facts';
 export type {
   FormatRevisionRecord,
   FormatPresetRecord,

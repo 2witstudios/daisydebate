@@ -1,18 +1,15 @@
-import type { Clock, IdGenerator } from '@daisy/clock';
+import type { IdGenerator } from '@daisy/clock';
 import type { Database } from '@daisy/db';
 import { createAppError, isAppError } from '@daisy/errors';
 import { requirePermission, type Principal } from '@daisy/auth';
-import {
-  createDebateRuntime,
-  restoreDebateRuntime,
-  type DebateSnapshot,
-} from '@daisy/debate-engine';
+import { resolveRoomConfiguration as resolveRoom } from '@daisy/debate-engine';
+import type { RoundStatus, RoundRules } from '@daisy/protocol';
 import { parseValidated } from '../../server/http';
 import { proofDebateIdSchema, proofDebateInputSchema } from './schemas';
 
 /**
  * Development-only architectural proof: transport → validated operation →
- * domain runtime → durable adapter → PostgreSQL. Gated by
+ * domain compiler → durable adapter → PostgreSQL. Gated by
  * FOUNDATION_PROOF_ENABLED; production configuration forbids enabling it.
  */
 export const proofPrincipal: Principal = Object.freeze({
@@ -23,12 +20,21 @@ export const proofPrincipal: Principal = Object.freeze({
 
 const proofFormat = 'foundation';
 
+/** The proof room's config: the foundation format at its defaults. */
+const proofConfig = {
+  preRoundPrep: { enabled: false },
+  inRoundPrep: { enabled: true, budgetMsPerSide: 120_000 },
+  speechTiming: { countdownMs: 10_000, segmentDurationOverrides: {} },
+  crossExamination: { crossExMode: 'ordered' },
+  interruptions: null,
+  yielding: null,
+} as const;
+
 /** Everything the proof operations touch, injected by the composition root. */
 export type ProofDependencies = {
   /** `FOUNDATION_PROOF_ENABLED` from validated server config. */
   readonly enabled: boolean;
-  readonly database: Pick<Database, 'getFormat' | 'createDebate' | 'getDebate'>;
-  readonly clock: Clock;
+  readonly database: Pick<Database, 'getFormat' | 'createRound' | 'getRound'>;
   readonly ids: IdGenerator;
 };
 
@@ -45,44 +51,60 @@ async function withDurableContext<T>(operation: () => Promise<T>): Promise<T> {
   }
 }
 
+export type ProofRound = {
+  readonly id: string;
+  readonly resolution: string;
+  readonly format: string;
+  readonly formatVersion: number;
+  readonly rules: RoundRules;
+  readonly status: RoundStatus;
+};
+
+/**
+ * Resolves the proof round through the one compiler and freezes it as a
+ * scheduled casual round — the canonical foundation rules, unmodified
+ * (ADR 0030), resolved exactly as a room would resolve them.
+ */
 export async function createProofDebate(
   input: unknown,
   dependencies: ProofDependencies,
   principal: Principal = proofPrincipal,
-): Promise<DebateSnapshot> {
+): Promise<ProofRound> {
   requireProofEnabled(dependencies);
   requirePermission(principal, 'debate:create');
   const { resolution } = parseValidated(proofDebateInputSchema, input);
-  // The proof runs under the canonical foundation rules, unmodified (ADR 0030).
   const format = await withDurableContext(() =>
     dependencies.database.getFormat(proofFormat),
   );
   if (!format) throw createAppError('INFRASTRUCTURE');
-  const runtime = createDebateRuntime({
-    id: dependencies.ids.next(),
+  const resolved = resolveRoom(format.definition, proofConfig);
+  if (!resolved.ok)
+    throw createAppError(
+      'INFRASTRUCTURE',
+      `The proof room refuses to resolve: ${resolved.refusal.message}`,
+    );
+  const id = dependencies.ids.next();
+  await withDurableContext(() =>
+    dependencies.database.createRound({
+      id,
+      createdByActorId: null,
+      resolution,
+      competitionType: 'casual',
+      length: 'full',
+      formatId: format.id,
+      formatVersion: format.version,
+      presetVersion: null,
+      rules: resolved.rules,
+    }),
+  );
+  return {
+    id,
     resolution,
-    createdAt: dependencies.clock.now(),
     format: format.id,
-    rules: format.rules,
-  });
-  try {
-    const snapshot = runtime.snapshot();
-    return await withDurableContext(async () => {
-      // A service-created proof: no author, not ranked, reachable by id only.
-      await dependencies.database.createDebate({
-        id: snapshot.id,
-        createdBy: null,
-        resolution: snapshot.resolution,
-        format: snapshot.format,
-        snapshot,
-        mode: 'casual',
-        visibility: 'unlisted',
-      });
-      return snapshot;
-    });
-  } finally {
-    runtime.dispose();
-  }
+    formatVersion: format.version,
+    rules: resolved.rules,
+    status: 'scheduled',
+  };
 }
 
 /**
@@ -94,18 +116,20 @@ export async function getProofDebate(
   id: string,
   dependencies: ProofDependencies,
   principal: Principal = proofPrincipal,
-): Promise<DebateSnapshot> {
+): Promise<ProofRound> {
   requireProofEnabled(dependencies);
   requirePermission(principal, 'debate:read');
-  const debateId = parseValidated(proofDebateIdSchema, id);
+  const roundId = parseValidated(proofDebateIdSchema, id);
   return withDurableContext(async () => {
-    const record = await dependencies.database.getDebate(debateId);
-    if (!record) throw createAppError('NOT_FOUND');
-    const runtime = restoreDebateRuntime(record.snapshot);
-    try {
-      return runtime.snapshot();
-    } finally {
-      runtime.dispose();
-    }
+    const round = await dependencies.database.getRound(roundId);
+    if (!round) throw createAppError('NOT_FOUND');
+    return {
+      id: round.id,
+      resolution: round.resolution,
+      format: round.formatId,
+      formatVersion: round.formatVersion,
+      rules: round.rules,
+      status: round.status,
+    };
   });
 }

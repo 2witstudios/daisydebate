@@ -1,18 +1,97 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { referenceFormats } from './reference-formats';
 import {
-  createDebateRuntime,
+  oneOnOneDefinition,
+  practiceRoomConfig,
+} from '@daisy/db/reference-formats';
+import {
+  createRoundRuntime,
   debateInvariantIds,
   rateDebate,
   ratePeriod,
-  restoreDebateRuntime,
+  resolveRoomConfiguration,
 } from '@daisy/debate-engine';
+import type {
+  HydratedSegment,
+  RoundParticipantSeat,
+  RoundRules,
+  RoundStatus,
+  RuntimeCheckpoint,
+} from '@daisy/protocol';
 
 const root = resolve(import.meta.dir, '..');
-const firstId = 'k2v9x0f4m8q3w1z7c5n6b4d2';
-const secondId = 'a7b3c9d1e5f2k4m6n8p1r3t5';
-const thirdId = 'c8d4e2f6a1b3k5m7n9p2r4t6';
+const t0 = '2026-01-01T00:00:00.000Z';
+const roundId = 'k2v9x0f4m8q3w1z7c5n6b4d2';
+const person = 'a7b3c9d1e5f2k4m6n8p1r3t5';
+const opponent = 'c8d4e2f6a1b3k5m7n9p2r4t6';
+const judge = 'd5e8f2a4c6b1k3m7n9p2r4t6';
+
+/** The one-on-one practice rules the fixtures drive; throws when refused. */
+const rules = (config = practiceRoomConfig): RoundRules => {
+  const outcome = resolveRoomConfiguration(oneOnOneDefinition, config);
+  if (!outcome.ok) throw new Error(outcome.refusal.message);
+  return outcome.rules;
+};
+
+const seats: readonly RoundParticipantSeat[] = [
+  {
+    id: 'm3w8k1z5c9b2n7p4r6t0v2x4',
+    actorId: person,
+    role: 'affirmative',
+    slot: 0,
+  },
+  {
+    id: 'q5x2v8t0r4p6n2b8c1z7k3m9w',
+    actorId: opponent,
+    role: 'negative',
+    slot: 0,
+  },
+  { id: 'd6y3h9j1f5a7s3g8l2q6e4u0i', actorId: judge, role: 'judge', slot: 0 },
+];
+
+const freshCheckpoint: RuntimeCheckpoint = {
+  version: 1,
+  prep_consumed_ms: { affirmative: 0, negative: 0 },
+  active_prep: null,
+  floor: null,
+};
+
+/** The AC, closed, so the fixture stands where the AC's own speaker does. */
+const closedAc: readonly HydratedSegment[] = [
+  {
+    id: 'segment-1',
+    sequence: 0,
+    type: 'speech',
+    rulesSegmentKey: 'AC',
+    startedAt: t0,
+    endedAt: '2026-01-01T00:05:00.000Z',
+    durationMs: 300_000,
+  },
+];
+
+/** One runtime, driven only as far as the fixture needs. */
+const round = (input: {
+  readonly status?: RoundStatus;
+  readonly segments?: readonly HydratedSegment[];
+  readonly checkpoint?: unknown;
+  readonly participants?: readonly RoundParticipantSeat[];
+  readonly rules?: RoundRules;
+}) =>
+  createRoundRuntime({
+    round: {
+      id: roundId,
+      status: input.status ?? 'scheduled',
+      currentStage: null,
+      startedAt: input.status === 'active' ? t0 : null,
+      completedAt: null,
+      outcome: null,
+    },
+    rules: input.rules ?? rules(),
+    participants: input.participants ?? seats,
+    checkpoint: input.checkpoint ?? freshCheckpoint,
+    segments: input.segments ?? [],
+    nextSegmentId: () => 'segment-fixture',
+  });
 
 export type InvariantSpecEntry = {
   readonly id: string;
@@ -43,131 +122,91 @@ export type InvariantReport = {
 type Fixture = () => void;
 type TestSources = Readonly<Record<string, string>>;
 
-const foundation = referenceFormats.find(
-  (format) => format.id === 'foundation',
-);
-if (!foundation) throw new Error('foundation format seed missing');
-
-const createRuntime = () =>
-  createDebateRuntime({
-    id: firstId,
-    resolution: 'A representative resolution',
-    createdAt: '2026-01-01T00:00:00.000Z',
-    format: foundation.id,
-    rules: foundation.rules,
-  });
-
-const createActiveRuntime = () => {
-  const runtime = createRuntime();
-  runtime.join({ participantId: firstId, side: 'affirmative' });
-  runtime.join({ participantId: secondId, side: 'negative' });
-  runtime.markReady(firstId);
-  runtime.markReady(secondId);
-  runtime.transition('active');
-  return runtime;
-};
-
 const fixtures: Readonly<Record<string, Fixture>> = {
-  'participant-identities-unique': () => {
-    const participant = { id: firstId, side: 'affirmative', ready: false };
-    const runtime = createRuntime();
-    try {
-      restoreDebateRuntime({
-        ...runtime.snapshot(),
-        participants: [participant, participant],
-      });
-    } finally {
-      runtime.dispose();
-    }
-  },
-  'participant-seats-unique': () => {
-    const runtime = createRuntime();
-    try {
-      restoreDebateRuntime({
-        ...runtime.snapshot(),
-        participants: [
-          { id: firstId, side: 'affirmative', ready: false },
-          { id: secondId, side: 'affirmative', ready: false },
-        ],
-      });
-    } finally {
-      runtime.dispose();
-    }
-  },
-  'active-requires-ready-participants': () =>
-    createRuntime().transition('active'),
-  'seats-capacity-supported': () => {
-    const runtime = createRuntime();
-    try {
-      restoreDebateRuntime({
-        ...runtime.snapshot(),
-        rules: {
-          ...foundation.rules,
-          seats: { affirmative: 2, negative: 1, judge: 0 },
+  'completed-is-terminal': () =>
+    round({ status: 'completed' }).execute({
+      command: { type: 'start' },
+      actorId: null,
+      now: t0,
+    }),
+  'segment-matches-rules': () =>
+    round({
+      status: 'active',
+      segments: [{ ...closedAc[0]!, durationMs: 299_000 }],
+    }),
+  'live-open-segment-count': () =>
+    round({
+      status: 'active',
+      segments: [
+        { ...closedAc[0]!, endedAt: null },
+        {
+          id: 'segment-2',
+          sequence: 1,
+          type: 'cross_ex',
+          rulesSegmentKey: 'CX1',
+          startedAt: '2026-01-01T00:05:00.000Z',
+          endedAt: null,
+          durationMs: 120_000,
         },
-      });
-    } finally {
-      runtime.dispose();
-    }
-  },
-  'seats-within-format': () => {
-    const runtime = createDebateRuntime({
-      id: firstId,
-      resolution: 'A representative resolution',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      format: 'solo-practice',
-      rules: {
-        ...foundation.rules,
-        seats: { affirmative: 1, negative: 0, judge: 0 },
+      ],
+    }),
+  'seats-complete': () =>
+    round({
+      participants: [seats[0]!, seats[2]!],
+    }).execute({ command: { type: 'start' }, actorId: null, now: t0 }),
+  'prep-requires-capability': () =>
+    round({
+      status: 'active',
+      rules: rules({ ...practiceRoomConfig, inRoundPrep: { enabled: false } }),
+    }).execute({
+      command: { type: 'start_prep' },
+      actorId: person,
+      now: t0,
+    }),
+  'prep-requires-spendable-segment': () =>
+    round({ status: 'active', segments: closedAc }).execute({
+      command: { type: 'start_prep' },
+      actorId: opponent,
+      now: t0,
+    }),
+  'prep-requires-budget': () =>
+    round({
+      status: 'active',
+      checkpoint: {
+        version: 1,
+        prep_consumed_ms: { affirmative: 240_000, negative: 0 },
+        active_prep: null,
+        floor: null,
       },
-    });
-    try {
-      runtime.join({ participantId: firstId, side: 'negative' });
-    } finally {
-      runtime.dispose();
-    }
-  },
-  'joining-requires-waiting-phase': () => {
-    const runtime = createActiveRuntime();
-    try {
-      runtime.join({ participantId: thirdId, side: 'affirmative' });
-    } finally {
-      runtime.dispose();
-    }
-  },
-  'readiness-requires-waiting-phase': () => {
-    const runtime = createActiveRuntime();
-    try {
-      runtime.markReady(firstId);
-    } finally {
-      runtime.dispose();
-    }
-  },
-  'readiness-requires-join': () => {
-    const runtime = createRuntime();
-    try {
-      runtime.markReady(firstId);
-    } finally {
-      runtime.dispose();
-    }
-  },
-  'legal-phase-transition': () => {
-    const runtime = createRuntime();
-    try {
-      runtime.transition('completed');
-    } finally {
-      runtime.dispose();
-    }
-  },
-  'completed-is-terminal': () => {
-    const runtime = createActiveRuntime();
-    try {
-      runtime.transition('completed');
-      runtime.transition('active');
-    } finally {
-      runtime.dispose();
-    }
-  },
+    }).execute({
+      command: { type: 'start_prep' },
+      actorId: person,
+      now: t0,
+    }),
+  'speech-requires-prep': () =>
+    round({ status: 'active' }).execute({
+      command: { type: 'start_speech' },
+      actorId: person,
+      now: t0,
+    }),
+  'yield-requires-floor': () =>
+    round({ status: 'active' }).execute({
+      command: { type: 'yield' },
+      actorId: person,
+      now: t0,
+    }),
+  'interrupt-requires-policy': () =>
+    round({ status: 'active' }).execute({
+      command: { type: 'interrupt' },
+      actorId: opponent,
+      now: t0,
+    }),
+  'complete-after-final-segment': () =>
+    round({ status: 'active' }).execute({
+      command: { type: 'complete', outcome: 'affirmative' },
+      actorId: null,
+      now: t0,
+    }),
   'rating-state-bounded': () =>
     rateDebate({
       affirmative: {
@@ -179,7 +218,7 @@ const fixtures: Readonly<Record<string, Fixture>> = {
         lastRatedAt: null,
       },
       outcome: 'draw',
-      occurredAt: '2026-01-01T00:00:00.000Z',
+      occurredAt: t0,
     }),
   'rating-volatility-converges': () =>
     ratePeriod(

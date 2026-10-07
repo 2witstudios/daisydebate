@@ -1,14 +1,16 @@
 export { debateInvariantIds } from './invariant-ids';
-export {
-  createRoundRuntime,
-  type HydratedRound,
-  type HydratedSegment,
-  type RoundCommand,
-  type RoundEffect,
-  type RoundParticipantSeat,
-  type RoundPosition,
-  type RoundProjection,
-} from './round-runtime';
+export { createRoundRuntime } from './round-runtime';
+export type {
+  HydratedRound,
+  HydratedSegment,
+  RoundCommand,
+  RoundEffect,
+  RoundParticipantSeat,
+  RoundPosition,
+  RoundProjection,
+  SegmentClose,
+  SegmentInsert,
+} from '@daisy/protocol';
 export {
   resolveRoomConfiguration,
   type ResolveOutcome,

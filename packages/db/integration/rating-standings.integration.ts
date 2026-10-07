@@ -35,13 +35,13 @@ describe('rateDebate standings and refusals (RATE-1.3)', () => {
         },
         'actor_id',
       );
-      const { seasonId, debateId, negative } = await seated({
+      const { seasonId, roundId, negative } = await seated({
         formatId,
         affirmative: veteran,
-        mode: 'quick',
+        length: 'quick',
       });
       const seen: RatingPlanFacts[] = [];
-      await rate(debateId, stub(seen));
+      await rate(roundId, stub(seen));
       assert({
         given: 'a quick match by a debater rated only in an earlier season',
         should:
@@ -73,17 +73,19 @@ describe('rateDebate standings and refusals (RATE-1.3)', () => {
 
   test('writes nothing for an unrated debate and refuses an unknown one', async () => {
     await withRatings(url, async ({ fixture, rate, seated }) => {
-      const { debateId, affirmative } = await seated({ mode: 'casual' });
-      const result = await rate(debateId);
+      const { roundId, affirmative } = await seated({
+        competitionType: 'casual',
+      });
+      const result = await rate(roundId);
       assert({
         given: 'a completed casual debate',
         should: 'report it unrated and write nothing',
         actual: [
           result,
-          (await ledgerOf(fixture, debateId)).length,
+          (await ledgerOf(fixture, roundId)).length,
           await ratingsOf(fixture, affirmative),
         ],
-        expected: [{ kind: 'unrated', reason: 'mode' }, 0, []],
+        expected: [{ kind: 'unrated', reason: 'competition' }, 0, []],
       });
       await assertRejects({
         given: 'an unknown debate id',

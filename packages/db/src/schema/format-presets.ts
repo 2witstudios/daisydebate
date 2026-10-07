@@ -48,6 +48,10 @@ export const formatPresets = pgTable(
     uniqueIndex('format_presets_single_current')
       .on(table.formatId, table.length)
       .where(sql`${table.supersededAt} is null`),
+    index('format_presets_revision_idx').on(
+      table.formatId,
+      table.formatVersion,
+    ),
     foreignKey({
       name: 'format_presets_revision_fk',
       columns: [table.formatId, table.formatVersion],

@@ -8,136 +8,184 @@ setupRitewayBun();
 
 const { databaseUrl: url } = requireTestServices(process.env);
 
-const at = (minute: number) => new Date(Date.UTC(2026, 9, 5, 18, minute));
-
-/** A user who owns one AI debate, and a database over the test server. */
+/** The fixture round: the tester's actor holds its negative seat. */
 const withOwner = async (
   run: (input: {
     database: ReturnType<typeof createDatabase>;
     fixture: Fixture;
     userId: string;
-    aiDebateId: string;
+    actorId: string;
+    roundId: string;
   }) => Promise<void>,
 ) =>
   withFixture(url, async (fixture) => {
     const userId = await fixture.user();
     const actorId = await fixture.actor(userId);
-    const aiDebateId = createId();
-    await fixture.insert('ai_debates', {
-      id: aiDebateId,
-      actor_id: actorId,
+    const formatId = `fmt-${createId()}`;
+    await fixture.insert(
+      'format_revisions',
+      {
+        format_id: formatId,
+        version: 1,
+        definition: {
+          version: 1,
+          seats: { affirmative: 1, negative: 1, judge: 0 },
+          segments: [
+            {
+              key: 'AC',
+              label: 'Affirmative constructive',
+              type: 'speech',
+              side: 'affirmative',
+              slot: 0,
+              defaultDurationMs: 240_000,
+            },
+          ],
+          configurable: {
+            timing: {
+              segmentDurationMs: { AC: { min: 60_000, max: 600_000 } },
+              countdownMs: { min: 0, max: 60_000 },
+            },
+            inRoundPrep: {
+              budgetMsPerSide: { min: 0, max: 600_000 },
+              spendableBefore: ['speech'],
+              expiresAtSegment: null,
+            },
+            preRoundPrep: null,
+            interaction: {
+              crossExModes: ['ordered'],
+              interruptions: null,
+              yield: null,
+            },
+          },
+        },
+      },
+      'format_id',
+    );
+    await fixture.insert('formats', {
+      id: formatId,
+      name: 'Fixture format',
+      current_version: 1,
+    });
+    const roundId = createId();
+    await fixture.insert('rounds', {
+      id: roundId,
       resolution: 'Cities should make public transit free',
-      person_side: 'affirmative',
-      opponent: 'wren',
-      voice: 'v',
-      speech_model: 'm',
-      cx_model: 'm',
-      judge_model: 'm',
-      tts_model: 'm',
-      stt_model: 'm',
-      expected_end_at: at(59),
+      competition_type: 'practice',
+      length: 'full',
+      format_id: formatId,
+      format_version: 1,
+      rules_snapshot: {
+        version: 2,
+        seats: { affirmative: 1, negative: 1, judge: 0 },
+        segments: [
+          {
+            key: 'AC',
+            label: 'Affirmative constructive',
+            type: 'speech',
+            side: 'affirmative',
+            slot: 0,
+            durationMs: 240_000,
+          },
+        ],
+        inRoundPrep: null,
+        countdownMs: 10_000,
+        interaction: {
+          crossExMode: 'ordered',
+          yield: null,
+          interruptions: null,
+        },
+      },
+      status: 'scheduled',
+    });
+    await fixture.insert('round_participants', {
+      id: createId(),
+      round_id: roundId,
+      actor_id: actorId,
+      role: 'negative',
+      slot: 0,
     });
     const database = createDatabase({ url, nextActorId: createId });
     try {
-      await run({ database, fixture, userId, aiDebateId });
+      await run({ database, fixture, userId, actorId, roundId });
     } finally {
       await database.close();
     }
   });
 
 const document = (
-  ownerUserId: string,
-  aiDebateId: string | null,
+  ownerActorId: string,
+  folder: 'library' | 'scratch',
   title: string,
-  minute: number,
 ) => ({
   id: createId(),
-  ownerUserId,
-  aiDebateId,
-  folder: aiDebateId === null ? ('library' as const) : ('round' as const),
+  ownerActorId,
+  folder,
   templateId: 'flow',
   title,
   html: '<h1>Flow</h1>',
-  createdAt: at(minute),
 });
 
-describe('debate documents', () => {
-  test('lists the debate round documents and the library, oldest first', async () => {
-    await withOwner(async ({ database, fixture, userId, aiDebateId }) => {
-      const otherDebate = createId();
-      await fixture.insert('ai_debates', {
-        id: otherDebate,
-        actor_id: await fixture.actor(await fixture.user()),
-        resolution: 'Another resolution',
-        person_side: 'negative',
-        opponent: 'wren',
-        voice: 'v',
-        speech_model: 'm',
-        cx_model: 'm',
-        judge_model: 'm',
-        tts_model: 'm',
-        stt_model: 'm',
-        expected_end_at: at(59),
+describe('documents', () => {
+  test('lists the owner’s documents plus the round’s refs, title order', async () => {
+    await withOwner(async ({ database, fixture, actorId, roundId }) => {
+      const stranger = await fixture.actor();
+      const mine = await database.createDocument(
+        document(actorId, 'scratch', 'Flow'),
+      );
+      await database.createDocument(document(actorId, 'library', 'Case'));
+      await database.createDocument(document(actorId, 'library', 'Block'));
+      const theirs = await database.createDocument(
+        document(stranger, 'library', 'Theirs'),
+      );
+      await database.attachRoundDocument({
+        roundId,
+        documentId: theirs.id,
+        role: 'flow',
       });
-      const stranger = await fixture.user();
-      const created = await database.createDebateDocument(
-        document(userId, aiDebateId, 'Flow', 2),
-      );
-      await database.createDebateDocument(document(userId, null, 'Case', 1));
-      await database.createDebateDocument(document(userId, null, 'Block', 1));
-      await database.createDebateDocument(
-        document(stranger, otherDebate, 'Theirs', 0),
-      );
-      await database.createDebateDocument(document(stranger, null, 'Lib', 0));
-      const listed = await database.listDebateDocuments({
-        ownerUserId: userId,
-        aiDebateId,
+      const listed = await database.listDocuments({
+        ownerActorId: actorId,
+        roundId,
       });
       assert({
-        given: 'a round document, two library documents and a stranger’s',
-        should: 'list only the owner’s, by creation time then title',
-        actual: listed.map((d) => [d.title, d.folder, d.revision]),
+        given:
+          'two library documents, one scratch round document and a scoped stranger’s',
+        should: 'list the owner’s and the round’s view, by title',
+        actual: listed.map((d) => [d.title, d.folder]),
         expected: [
-          ['Block', 'library', 1],
-          ['Case', 'library', 1],
-          ['Flow', 'round', 1],
+          ['Block', 'library'],
+          ['Case', 'library'],
+          ['Flow', 'scratch'],
+          ['Theirs', 'library'],
         ],
       });
-      assert({
-        given: 'a created document',
-        should: 'read back its timestamps as created',
-        actual: [created.createdAt, created.updatedAt],
-        expected: [at(2), at(2)],
-      });
+      void mine;
     });
   });
 
   test('saves compare and swap on the revision', async () => {
-    await withOwner(async ({ database, fixture, userId, aiDebateId }) => {
-      const { id } = await database.createDebateDocument(
-        document(userId, aiDebateId, 'Flow', 0),
+    await withOwner(async ({ database, actorId }) => {
+      const { id } = await database.createDocument(
+        document(actorId, 'scratch', 'Flow'),
       );
-      const save = (expectedRevision: number, ownerUserId = userId) =>
-        database.saveDebateDocument({
+      const save = (expectedRevision: number, ownerActorId = actorId) =>
+        database.saveDocument({
           id,
-          ownerUserId,
+          ownerActorId,
           html: `<p>r${expectedRevision}</p>`,
           expectedRevision,
-          updatedAt: at(5),
         });
       const first = await save(1);
       const stale = await save(1);
-      const stranger = await save(2, await fixture.user());
-      const missing = await database.saveDebateDocument({
+      const stranger = await save(2, createId());
+      const missing = await database.saveDocument({
         id: createId(),
-        ownerUserId: userId,
+        ownerActorId: actorId,
         html: '<p></p>',
         expectedRevision: 1,
-        updatedAt: at(5),
       });
-      const [stored] = await database.listDebateDocuments({
-        ownerUserId: userId,
-        aiDebateId,
+      const [stored] = await database.listDocuments({
+        ownerActorId: actorId,
+        roundId: null,
       });
       assert({
         given: 'a save, a stale save, a stranger’s save and an unknown id',
@@ -153,83 +201,94 @@ describe('debate documents', () => {
       assert({
         given: 'the stored document',
         should: 'hold the first save only',
-        actual: [stored?.html, stored?.revision, stored?.updatedAt],
-        expected: ['<p>r1</p>', 2, at(5)],
+        actual: [stored?.html, stored?.revision],
+        expected: ['<p>r1</p>', 2],
       });
     });
   });
 
   test('renames keep the revision and refuse a stranger', async () => {
-    await withOwner(async ({ database, fixture, userId }) => {
-      const { id } = await database.createDebateDocument(
-        document(userId, null, 'Case', 0),
+    await withOwner(async ({ database, actorId }) => {
+      const { id } = await database.createDocument(
+        document(actorId, 'library', 'Case'),
       );
-      const renamed = await database.renameDebateDocument({
+      const renamed = await database.renameDocument({
         id,
-        ownerUserId: userId,
+        ownerActorId: actorId,
         title: 'Plan',
-        updatedAt: at(3),
       });
-      const refused = await database.renameDebateDocument({
+      const refused = await database.renameDocument({
         id,
-        ownerUserId: await fixture.user(),
+        ownerActorId: createId(),
         title: 'Mine',
-        updatedAt: at(4),
       });
       assert({
         given: 'a rename by the owner, then one by a stranger',
         should: 'rename once and leave the revision',
-        actual: [
-          renamed?.title,
-          renamed?.revision,
-          renamed?.updatedAt,
-          refused,
-        ],
-        expected: ['Plan', 1, at(3), null],
+        actual: [renamed?.title, renamed?.revision, refused],
+        expected: ['Plan', 1, null],
       });
     });
   });
 
-  test('the folder and debate agree, and titles are bounded', async () => {
-    await withOwner(async ({ fixture, userId, aiDebateId }) => {
+  test('the document constraints: folders, templates, titles, revisions', async () => {
+    await withOwner(async ({ fixture, actorId }) => {
       const row = (overrides: Record<string, unknown>) => ({
         id: createId(),
-        owner_user_id: userId,
-        ai_debate_id: null,
+        owner_actor_id: actorId,
         folder: 'library',
         template_id: 'blank',
         title: 'Notes',
         html: '<p></p>',
+        revision: 1,
         ...overrides,
       });
       assert({
         given: 'rows that break the document constraints',
         should: 'be refused by the named CHECK',
         actual: [
+          await fixture.rejectedBy('documents', row({ folder: 'round' })),
+          await fixture.rejectedBy('documents', row({ folder: 'club' })),
+          await fixture.rejectedBy('documents', row({ template_id: 'essay' })),
+          await fixture.rejectedBy('documents', row({ title: '' })),
           await fixture.rejectedBy(
-            'debate_documents',
-            row({ folder: 'round' }),
-          ),
-          await fixture.rejectedBy(
-            'debate_documents',
-            row({ ai_debate_id: aiDebateId }),
-          ),
-          await fixture.rejectedBy('debate_documents', row({ folder: 'club' })),
-          await fixture.rejectedBy('debate_documents', row({ title: '' })),
-          await fixture.rejectedBy(
-            'debate_documents',
+            'documents',
             row({ title: 'x'.repeat(121) }),
           ),
-          await fixture.rejectedBy('debate_documents', row({ revision: 0 })),
+          await fixture.rejectedBy('documents', row({ revision: 0 })),
         ],
         expected: [
-          'debate_documents_round_has_debate',
-          'debate_documents_round_has_debate',
-          'debate_documents_folder_check',
-          'debate_documents_title_length',
-          'debate_documents_title_length',
-          'debate_documents_revision_positive',
+          'documents_folder_check',
+          'documents_folder_check',
+          'documents_template_check',
+          'documents_title_length',
+          'documents_title_length',
+          'documents_revision_positive',
         ],
+      });
+    });
+  });
+
+  test('round refs are scope, not existence', async () => {
+    await withOwner(async ({ database, fixture, actorId, roundId }) => {
+      const created = await database.createDocument(
+        document(actorId, 'scratch', 'Flow'),
+      );
+      await database.attachRoundDocument({
+        roundId,
+        documentId: created.id,
+        role: 'flow',
+      });
+      await fixture.sql.unsafe('delete from rounds where id = $1', [roundId]);
+      const [survivor] = await database.listDocuments({
+        ownerActorId: actorId,
+        roundId: null,
+      });
+      assert({
+        given: 'a round deleted with its refs',
+        should: 'leave the owned document standing (ADR 0058 §9)',
+        actual: survivor?.id,
+        expected: created.id,
       });
     });
   });

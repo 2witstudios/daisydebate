@@ -2,7 +2,6 @@ import { z } from 'zod';
 import { and, eq, gte, isNull, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
-import { roundParticipants } from './schema/round-participants';
 import { jsonObjectSchema } from './schema/columns';
 import { rounds } from './schema/rounds';
 import { agentRuns } from './schema/agent-runs';
@@ -30,12 +29,13 @@ export const agentOperations = ({
     readonly kind: 'speech' | 'cross_ex' | 'tts' | 'stt' | 'judging';
     readonly model: string | null;
     readonly provider: string;
-    readonly configurationSnapshot?: z.infer<typeof jsonObjectSchema>;
-    readonly inputTokens?: number;
-    readonly outputTokens?: number;
-    readonly characters?: number;
-    readonly requests?: number;
-    readonly endedAt?: Date | null;
+    readonly configurationSnapshot?:
+      z.infer<typeof jsonObjectSchema> | undefined;
+    readonly inputTokens?: number | undefined;
+    readonly outputTokens?: number | undefined;
+    readonly characters?: number | undefined;
+    readonly requests?: number | undefined;
+    readonly endedAt?: Date | null | undefined;
   }): Promise<void> {
     await instrumented(eventSink, 'recordAgentRun', async () => {
       await database.insert(agentRuns).values({

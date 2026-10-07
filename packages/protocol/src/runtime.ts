@@ -1,6 +1,6 @@
 import type { DebateRole, DebateSide } from './primitives';
 import type { RatedOutcome } from './ratings';
-import type { RoundRules, SegmentType } from './format';
+import type { SegmentType } from './format';
 import type { RoundStage, RoundStatus, RuntimeCheckpoint } from './round';
 import { z } from 'zod';
 

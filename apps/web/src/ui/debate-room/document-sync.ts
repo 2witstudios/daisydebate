@@ -13,9 +13,9 @@ export type SaveResult =
 
 /** The server's document routes, as the room calls them. */
 export type DocumentsApi = {
-  readonly list: (aiDebateId: string) => Promise<readonly StoredDocument[]>;
+  readonly list: (roundId: string) => Promise<readonly StoredDocument[]>;
   readonly create: (input: {
-    readonly aiDebateId: string;
+    readonly roundId: string;
     readonly folder: Exclude<FolderId, 'club'>;
     readonly templateId: TemplateId;
   }) => Promise<StoredDocument>;
@@ -76,7 +76,7 @@ const retryable = (status: number | null) =>
  */
 export function createDocumentSync({
   api,
-  aiDebateId,
+  roundId,
   onConflict,
   onSaveFailed = () => {},
   onSaveRefused = () => {},
@@ -85,7 +85,7 @@ export function createDocumentSync({
   timers = browserTimers,
 }: {
   readonly api: DocumentsApi;
-  readonly aiDebateId: string;
+  readonly roundId: string;
   readonly onConflict: (id: string) => void;
   readonly onSaveFailed?: (id: string, attempts: number) => void;
   readonly onSaveRefused?: (id: string, status: number) => void;
@@ -133,7 +133,7 @@ export function createDocumentSync({
   const ownCommit = async (id: string, revision: number) => {
     const sent = unanswered.get(id);
     if (!sent || revision !== (revisions.get(id) ?? 0) + 1) return null;
-    const doc = (await api.list(aiDebateId)).find((one) => one.id === id);
+    const doc = (await api.list(roundId)).find((one) => one.id === id);
     if (!doc || doc.revision !== revision) return null;
     return [...sent].find((html) => sameDocumentHtml(doc.html, html)) ?? null;
   };
@@ -190,9 +190,9 @@ export function createDocumentSync({
   }
 
   return {
-    load: async () => remember(await api.list(aiDebateId)),
+    load: async () => remember(await api.list(roundId)),
     create: async (folder, templateId) => {
-      const doc = await api.create({ aiDebateId, folder, templateId });
+      const doc = await api.create({ roundId, folder, templateId });
       remember([doc]);
       return doc;
     },

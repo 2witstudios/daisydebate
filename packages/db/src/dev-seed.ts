@@ -123,6 +123,9 @@ export async function applyDevSeed({
             ladderId: sql`excluded.ladder_id`,
             startedAt: null,
             completedAt: null,
+            // The checkpoint is lifecycle too: a seeded round that ran a prep
+            // must come back with no active prep and nothing consumed.
+            runtimeState: sql`excluded.runtime_state`,
           },
         });
       await tx

@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { idSchema } from './primitives';
 /** A format's slug identity (`formats.id`): lowercase, digits and hyphens. */
 export const formatIdSchema = z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/);
 /**

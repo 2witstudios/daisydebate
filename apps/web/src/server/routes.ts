@@ -30,7 +30,6 @@ export function createRoutes(app: App) {
   const aiDebateOperations = createAiDebateOperations({
     store: database,
     voice: app.aiVoice,
-    clock: app.clock,
     ids: app.ids,
   });
   const documentOperations = createDebateDocumentOperations({
@@ -148,7 +147,6 @@ export function createRoutes(app: App) {
       enabled: app.config.FOUNDATION_PROOF_ENABLED,
       origin: app.config.PUBLIC_APP_URL,
       database,
-      clock: app.clock,
       ids: app.ids,
       logger,
     }),

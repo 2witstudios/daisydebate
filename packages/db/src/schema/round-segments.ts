@@ -1,4 +1,4 @@
-import { segmentTypes } from '@daisy/protocol';
+import { segmentTypes, type SegmentType } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -27,7 +27,7 @@ export const roundSegments = pgTable(
       .notNull()
       .references(() => rounds.id, { onDelete: 'cascade' }),
     sequence: integer('sequence').notNull(),
-    type: text('type').notNull(),
+    type: text('type').$type<SegmentType>().notNull(),
     /** Joins `RoundRules.segments[].key`. */
     rulesSegmentKey: text('rules_segment_key').notNull(),
     /** Not null: a row exists because the interval opened. */

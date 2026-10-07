@@ -68,8 +68,9 @@ export const aiDebateApi = {
     expectedSequence: number,
     command:
       | { type: 'start' }
+      | { type: 'startPrep' }
       | { type: 'startSpeech' }
-      | { type: 'yield'; turnIndex: number }
+      | { type: 'yield' }
       | { type: 'abort' },
   ) {
     await post('command', { id, expectedSequence, command });

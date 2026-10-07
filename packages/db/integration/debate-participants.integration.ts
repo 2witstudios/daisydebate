@@ -1,228 +1,210 @@
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { seatedDebate, snapshotOf } from './constraint-helpers';
 import { requireTestServices } from '@daisy/config';
+import { rejected, rejectedBy, withFixture } from './constraint-helpers';
 
 setupRitewayBun();
 
 const { databaseUrl: url } = requireTestServices(process.env);
 
+/** The named constraint a statement was refused by, or null when accepted. */
+const constraintOf = (attempt: () => Promise<unknown>) => rejectedBy(attempt);
+
 /**
- * ISSUE-6: `debate_participants` is a projection of the snapshot's
- * `participants` (ADR 0029: snapshot participant ids are actor ids), so it
- * is written in the same transaction as every snapshot write and always
- * equals the snapshot's seats.
+ * ADR 0058 §2: `round_participants` is the authoritative seat record, with
+ * a surrogate id. The database enforces seat and actor uniqueness per
+ * round; seat COMPLETENESS against the frozen rules is the write-path
+ * invariant `startRound` owns (a CHECK cannot read jsonb against rows).
  */
-test('debate_participants is written in the snapshot transaction and always equals the snapshot seats', async () => {
-  const {
-    fixture,
-    database,
-    testOnly,
-    debateId,
-    actors: [first, second],
-    cleanup,
-  } = await seatedDebate(url, 2);
-  const seats = () => fixture`
-    select actor_id, role, slot, status
-    from debate_participants where debate_id = ${debateId}
-    order by role
-  `;
-  try {
-    await database.createDebate({
-      id: debateId,
-      createdBy: null,
-      resolution: 'integration proof',
-      format: 'foundation',
-      snapshot: snapshotOf(debateId, 'waiting', [
-        { id: first!, side: 'affirmative', ready: false },
-      ]),
-      mode: 'casual',
-      visibility: 'unlisted',
-    });
-    const afterCreate = await seats();
-    await testOnly.saveSnapshot({
-      id: debateId,
-      expectedVersion: 1,
-      snapshot: snapshotOf(debateId, 'waiting', [
-        { id: first!, side: 'affirmative', ready: true },
-        { id: second!, side: 'negative', ready: false },
-      ]),
-      updatedAt: '2026-01-01T00:01:00.000Z',
-    });
-    const afterJoin = await seats();
-    await testOnly.saveSnapshot({
-      id: debateId,
-      expectedVersion: 2,
-      snapshot: snapshotOf(debateId, 'waiting', [
-        { id: second!, side: 'negative', ready: true },
-      ]),
-      updatedAt: '2026-01-01T00:02:00.000Z',
-    });
-    const afterLeave = await seats();
+test('round_participants is the authoritative seat record', async () => {
+  await withFixture(url, async (fixture) => {
+    const roundId = await fixture.round();
+    const [first, second, third] = [createId(), createId(), createId()];
+    await fixture.insert(
+      'round_participants',
+      {
+        id: first,
+        round_id: roundId,
+        actor_id: await fixture.actor(),
+        role: 'affirmative',
+        slot: 0,
+      },
+      'id',
+    );
+    const sameActor = await fixture.rejects(
+      'round_participants',
+      {
+        id: second,
+        round_id: roundId,
+        actor_id: (
+          (await fixture.sql.unsafe(
+            'select actor_id from round_participants where id = $1',
+            [first],
+          )) as Array<{ actor_id: string }>
+        )[0]!.actor_id,
+        role: 'negative',
+        slot: 0,
+      },
+      'id',
+    );
+    const sameSeat = await fixture.rejects(
+      'round_participants',
+      {
+        id: second,
+        round_id: roundId,
+        actor_id: await fixture.actor(),
+        role: 'affirmative',
+        slot: 0,
+      },
+      'id',
+    );
+    const unknownRole = await fixture.rejects(
+      'round_participants',
+      {
+        id: second,
+        round_id: roundId,
+        actor_id: await fixture.actor(),
+        role: 'spectator',
+        slot: 0,
+      },
+      'id',
+    );
+    const negativeSlot = await fixture.rejects(
+      'round_participants',
+      {
+        id: second,
+        round_id: roundId,
+        actor_id: await fixture.actor(),
+        role: 'negative',
+        slot: -1,
+      },
+      'id',
+    );
+    const missingRound = await fixture.rejects(
+      'round_participants',
+      {
+        id: second,
+        round_id: createId(),
+        actor_id: await fixture.actor(),
+        role: 'negative',
+        slot: 0,
+      },
+      'id',
+    );
+    const surrogate = !(await fixture.rejects(
+      'round_participants',
+      {
+        id: third,
+        round_id: roundId,
+        actor_id: await fixture.actor(),
+        role: 'judge',
+        slot: 0,
+      },
+      'id',
+    ));
+    const witness =
+      (
+        (await fixture.sql.unsafe(
+          `select indexname from pg_indexes
+             where tablename = 'round_participants'
+               and indexname = 'round_participants_id_round_unique'`,
+        )) as Array<{ indexname: string }>
+      )[0]?.indexname ?? null;
     assert({
-      given: 'a debate created, joined and left through snapshot writes',
-      should: 'hold exactly the snapshot participants after every write',
-      actual: { afterCreate, afterJoin, afterLeave },
+      given: 'seats varying actor, seat, role, slot, round and surrogate id',
+      should:
+        'enforce one actor and one occupant per round seat, closed roles, non-negative slots and an existing round, and carry the (id, round_id) key utterances reference as their consistency witness',
+      actual: {
+        sameActor,
+        sameSeat,
+        unknownRole,
+        negativeSlot,
+        missingRound,
+        surrogate,
+        witness,
+      },
       expected: {
-        afterCreate: [
-          { actor_id: first, role: 'affirmative', slot: 0, status: 'joined' },
-        ],
-        afterJoin: [
-          { actor_id: first, role: 'affirmative', slot: 0, status: 'ready' },
-          { actor_id: second, role: 'negative', slot: 0, status: 'joined' },
-        ],
-        afterLeave: [
-          { actor_id: second, role: 'negative', slot: 0, status: 'ready' },
-        ],
+        sameActor: true,
+        sameSeat: true,
+        unknownRole: true,
+        negativeSlot: true,
+        missingRound: true,
+        surrogate: true,
+        witness: 'round_participants_id_round_unique',
       },
     });
-
-    const version = await (async () => {
-      try {
-        await testOnly.saveSnapshot({
-          id: debateId,
-          expectedVersion: 3,
-          snapshot: snapshotOf(debateId, 'waiting', [
-            { id: createId(), side: 'affirmative', ready: false },
-          ]),
-          updatedAt: '2026-01-01T00:03:00.000Z',
-        });
-        return 'saved';
-      } catch {
-        const [row] =
-          await fixture`select version from debates where id = ${debateId}`;
-        return row?.version;
-      }
-    })();
-    assert({
-      given: 'a snapshot naming a participant that is not an actor',
-      should:
-        'refuse the whole write, leaving the snapshot version and seats unchanged',
-      actual: { version, seats: await seats() },
-      expected: { version: 3, seats: afterLeave },
-    });
-  } finally {
-    await cleanup();
-  }
+  });
 });
 
 /**
- * ISSUE-43: the snapshot owns only the debater seats (its `participants`
- * carry `affirmative`/`negative` sides). A judge seat is written by the
- * judging path, and `ballots` cascade from it, so a snapshot write that
- * deleted every seat it does not name would wipe judges and their ballots on
- * any write, even a ready toggle.
+ * ADR 0058 §6: a seat carrying a submitted ballot cannot be deleted —
+ * the FK is RESTRICT. Retirement is voiding, which records who and when.
  */
-test('a snapshot write never touches a judge seat or its ballot', async () => {
-  const {
-    fixture,
-    database,
-    testOnly,
-    debateId,
-    actors: [debater, other, judge],
-    cleanup,
-  } = await seatedDebate(url, 3);
-  const ballots = () => fixture`
-    select id, judge_actor_id, decision, status, version
-    from ballots where debate_id = ${debateId}
-  `;
-  const judgeSeat = () => fixture`
-    select role, slot, status, joined_at, version
-    from debate_participants where debate_id = ${debateId} and role = 'judge'
-  `;
-  try {
-    await database.createDebate({
-      id: debateId,
-      createdBy: null,
-      resolution: 'integration proof',
-      format: 'foundation',
-      snapshot: snapshotOf(debateId, 'waiting', [
-        { id: debater!, side: 'affirmative', ready: false },
-      ]),
-      mode: 'casual',
-      visibility: 'unlisted',
-    });
-    await fixture`
-      insert into debate_participants (debate_id, actor_id, role, slot, status, joined_at)
-      values (${debateId}, ${judge}, 'judge', 0, 'joined', now())
-    `;
-    await fixture`
-      insert into ballots (id, debate_id, judge_actor_id, decision, scores, reason, status, submitted_at)
-      values (${createId()}, ${debateId}, ${judge}, 'affirmative', '{}'::jsonb, 'probe', 'submitted', now())
-    `;
-    const ballotsBefore = await ballots();
-    const seatBefore = await judgeSeat();
-    // The reviewer's probe: a ready toggle.
-    await testOnly.saveSnapshot({
-      id: debateId,
-      expectedVersion: 1,
-      snapshot: snapshotOf(debateId, 'waiting', [
-        { id: debater!, side: 'affirmative', ready: true },
-      ]),
-      updatedAt: '2026-01-01T00:01:00.000Z',
-    });
-    const afterToggle = { ballots: await ballots(), seat: await judgeSeat() };
-    // A join and a leave rewrite the debater seats around the judge.
-    await testOnly.saveSnapshot({
-      id: debateId,
-      expectedVersion: 2,
-      snapshot: snapshotOf(debateId, 'waiting', [
-        { id: debater!, side: 'affirmative', ready: true },
-        { id: other!, side: 'negative', ready: false },
-      ]),
-      updatedAt: '2026-01-01T00:02:00.000Z',
-    });
-    await testOnly.saveSnapshot({
-      id: debateId,
-      expectedVersion: 3,
-      snapshot: snapshotOf(debateId, 'waiting', []),
-      updatedAt: '2026-01-01T00:03:00.000Z',
-    });
-    const afterLeave = { ballots: await ballots(), seat: await judgeSeat() };
-    assert({
-      given:
-        'a judge seat with a submitted ballot, then a ready toggle, a join and every debater leaving',
-      should:
-        'leave the judge seat and its ballot exactly as they were after every snapshot write',
-      actual: { afterToggle, afterLeave, submitted: ballotsBefore.length },
-      expected: {
-        afterToggle: { ballots: ballotsBefore, seat: seatBefore },
-        afterLeave: { ballots: ballotsBefore, seat: seatBefore },
-        submitted: 1,
+test('a judge seat with a submitted ballot is RESTRICTed from deletion', async () => {
+  await withFixture(url, async (fixture) => {
+    const roundId = await fixture.round();
+    const seat = await fixture.seat(roundId, 'judge');
+    await fixture.insert(
+      'ballots',
+      {
+        id: createId(),
+        judge_participant_id: seat.id,
+        rubric_version: 'speaker-10@1',
+        winner: 'affirmative',
+        scores: {
+          affirmative: Object.fromEntries(
+            [
+              'thesis',
+              'framework',
+              'analysis',
+              'refutation',
+              'impact',
+              'weighing',
+              'questioning',
+              'answering',
+              'organization',
+              'delivery',
+            ].map((c) => [c, 3]),
+          ),
+          negative: Object.fromEntries(
+            [
+              'thesis',
+              'framework',
+              'analysis',
+              'refutation',
+              'impact',
+              'weighing',
+              'questioning',
+              'answering',
+              'organization',
+              'delivery',
+            ].map((c) => [c, 3]),
+          ),
+        },
+        reason: 'probe',
+        status: 'submitted',
+        submitted_at: new Date(),
       },
-    });
-
-    const refused = await testOnly
-      .saveSnapshot({
-        id: debateId,
-        expectedVersion: 4,
-        snapshot: snapshotOf(debateId, 'waiting', [
-          { id: judge!, side: 'affirmative', ready: false },
-        ]),
-        updatedAt: '2026-01-01T00:04:00.000Z',
-      })
-      .then(() => 'saved')
-      .catch(() => 'refused');
-    const [{ version } = {}] =
-      await fixture`select version from debates where id = ${debateId}`;
+      'id',
+    );
+    const seatDelete = await constraintOf(
+      () => fixture.sql`delete from round_participants where id = ${seat.id}`,
+    );
+    const roundDelete = await rejected(
+      () => fixture.sql`delete from rounds where id = ${roundId}`,
+    );
     assert({
-      given: 'a snapshot that seats the debate’s judge as a debater',
+      given: 'a judge seat holding a submitted ballot',
       should:
-        'refuse the whole write, leaving the judge seat, its ballot and the snapshot version unchanged',
+        'refuse deleting the seat directly and refuse the round delete that would cascade into it',
       actual: {
-        refused,
-        version,
-        ballots: await ballots(),
-        seat: await judgeSeat(),
+        seatDelete,
+        roundDelete: roundDelete !== null,
       },
       expected: {
-        refused: 'refused',
-        version: 4,
-        ballots: ballotsBefore,
-        seat: seatBefore,
+        seatDelete: 'ballots_judge_seat_fk',
+        roundDelete: true,
       },
     });
-  } finally {
-    await cleanup();
-  }
+  });
 });

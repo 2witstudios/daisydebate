@@ -1,5 +1,12 @@
 import { sql } from 'drizzle-orm';
-import { check, foreignKey, integer, pgTable, text } from 'drizzle-orm/pg-core';
+import {
+  check,
+  foreignKey,
+  index,
+  integer,
+  pgTable,
+  text,
+} from 'drizzle-orm/pg-core';
 import { createdAtColumn, updatedAtColumn } from './columns';
 import { formatRevisions } from './format-revisions';
 
@@ -24,6 +31,7 @@ export const formats = pgTable(
     updatedAt: updatedAtColumn(),
   },
   (table) => [
+    index('formats_current_revision_idx').on(table.id, table.currentVersion),
     foreignKey({
       name: 'formats_current_revision_fk',
       columns: [table.id, table.currentVersion],

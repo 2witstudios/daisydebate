@@ -1,4 +1,3 @@
-import { sql } from 'drizzle-orm';
 import { check, index, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { oneOf, timestampColumn } from './columns';
 import { actors } from './actors';
@@ -33,6 +32,7 @@ export const usageReservations = pgTable(
       table.kind,
     ),
     index('usage_reservations_counted_idx').on(table.countedAt),
+    index('usage_reservations_round_idx').on(table.roundId),
     check(
       'usage_reservations_kind_check',
       oneOf(table.kind, usageReservationKinds),

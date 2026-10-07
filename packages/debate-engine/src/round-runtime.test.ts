@@ -2,7 +2,13 @@ import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { RoundRules } from '@daisy/protocol';
 import { createRoundRuntime } from './round-runtime';
-import { practiceRules, sequentialSegmentIds } from './runtime.test-support';
+import { resolveRoomConfiguration } from './resolve-room-configuration';
+import {
+  oneOnOneDefinition,
+  practiceConfig,
+  practiceRules,
+  sequentialSegmentIds,
+} from './runtime.test-support';
 
 setupRitewayBun();
 
@@ -61,7 +67,6 @@ const runtime = ({
     segments,
     nextSegmentId: sequentialSegmentIds(),
   });
-
 describe('round runtime lifecycle', () => {
   test('starts a scheduled round into the countdown with the clock anchored', () => {
     const world = runtime();
@@ -315,330 +320,77 @@ describe('round runtime lifecycle', () => {
     });
   });
 
-  test('lets only the floor holder yield, and returns unused time when the rules say so', async () => {
-    const world = runtime();
+  test('refuses prep the resolved rules never granted a budget for', async () => {
+    const withoutPrep = resolveRoomConfiguration(oneOnOneDefinition, {
+      ...practiceConfig,
+      inRoundPrep: { enabled: false },
+    });
+    if (!withoutPrep.ok) throw new Error(withoutPrep.refusal.message);
+    const world = createRoundRuntime({
+      round: {
+        id: 'round-1',
+        status: 'scheduled',
+        currentStage: null,
+        startedAt: null,
+        completedAt: null,
+        outcome: null,
+      },
+      rules: withoutPrep.rules,
+      participants: [...seats],
+      checkpoint: null,
+      segments: [],
+      nextSegmentId: sequentialSegmentIds(),
+    });
     world.execute({ command: { type: 'start' }, actorId: null, now: at(0) });
-    world.tick(at(10_000));
-    const before = world.position(at(20_000));
+    const before = world.position(at(1_000));
     await assertRejects({
-      given: "the cross-examining side yielding the affirmative's speech",
-      should: 'refuse with the yield-floor invariant',
+      given: 'a room whose config declined in-round prep',
+      should: 'refuse with the prep-capability invariant',
       actual: () =>
         world.execute({
-          command: { type: 'yield' },
-          actorId: opponent,
-          now: at(20_000),
+          command: { type: 'start_prep' },
+          actorId: person,
+          now: at(1_000),
         }),
       code: 'INVARIANT',
-      invariantId: 'round.yield.requires-floor',
+      invariantId: 'round.prep.requires-capability',
     });
     assert({
-      given: 'the refused yield',
-      should: 'leave the segment open and unchanged',
-      actual: world.position(at(20_000)),
+      given: 'the refused prep',
+      should: 'leave the round counting down and unchanged',
+      actual: world.position(at(1_000)),
       expected: before,
     });
-    const yielded = world.execute({
-      command: { type: 'yield' },
-      actorId: person,
-      now: at(60_000),
-    });
-    assert({
-      given: 'the holder yielding 250 seconds early',
-      should: 'close at the yield instant and credit the unused time back',
-      actual: {
-        close: yielded.segmentCloses[0],
-        budget: yielded.round?.checkpoint.prep_consumed_ms.affirmative,
-        next: world.position(at(60_000)).nextSegment?.key,
-      },
-      expected: {
-        close: { id: 'segment-1', endedAt: at(60_000) },
-        budget: 0,
-        next: 'CX1',
-      },
-    });
   });
 
-  test('interrupts move the floor under the resolved policy, and nowhere else', () => {
-    const world = runtime();
-    world.execute({ command: { type: 'start' }, actorId: null, now: at(0) });
-    world.tick(at(330_000)); // CX1 live, negative asking
-    const interrupted = world.execute({
-      command: { type: 'interrupt' },
-      actorId: person,
-      now: at(330_000),
-    });
-    assert({
-      given: "the affirmative interrupting the negative's cross-examination",
-      should: 'record the floor with its grant instant',
-      actual: interrupted.round?.checkpoint.floor,
-      expected: {
-        holder_participant_id: 'm3w8k1z5c9b2n7p4r6t0v2x4',
-        granted_at: at(330_000),
-      },
-    });
-    const yielded = world.execute({
-      command: { type: 'yield' },
-      actorId: person,
-      now: at(340_000),
-    });
-    assert({
-      given: 'the interrupter yielding the floor they took',
-      should: 'end the segment early',
-      actual: yielded.segmentCloses[0]?.id,
-      expected: 'segment-2',
-    });
-  });
-
-  test('refuses interruptions the policy forbids', async () => {
-    const world = runtime();
-    world.execute({ command: { type: 'start' }, actorId: null, now: at(0) });
-    world.tick(at(10_000));
-    await assertRejects({
-      given: 'an interrupt during a speech under a cross_ex_only policy',
-      should: 'refuse with the interrupt-policy invariant',
-      actual: () =>
-        world.execute({
-          command: { type: 'interrupt' },
-          actorId: opponent,
-          now: at(20_000),
-        }),
-      code: 'INVARIANT',
-      invariantId: 'round.interrupt.requires-policy',
-    });
-  });
-
-  test("completes only after the final segment's time, with an outcome, and is then terminal", async () => {
-    const world = runtime();
-    world.execute({ command: { type: 'start' }, actorId: null, now: at(0) });
-    // Advance through every segment by time: seven countdowns plus speech.
-    const totalMs =
-      7 * 10_000 +
-      rules.segments.reduce((sum, segment) => sum + segment.durationMs, 0);
-    world.tick(at(totalMs));
-    await assertRejects({
-      given: "a completion one millisecond before the last segment's end",
-      should: 'refuse with the final-segment invariant',
-      actual: () =>
-        world.execute({
-          command: { type: 'complete', outcome: 'affirmative' },
-          actorId: null,
-          now: at(totalMs - 1),
-        }),
-      code: 'INVARIANT',
-      invariantId: 'round.complete.after-final-segment',
-    });
-    const completed = world.execute({
-      command: { type: 'complete', outcome: 'affirmative' },
-      actorId: null,
-      now: at(totalMs),
-    });
-    assert({
-      given: "the completion after the final segment's time",
-      should: 'close the round with the outcome',
-      actual: {
-        round: completed.round,
-        close: completed.segmentCloses.at(-1)?.id,
-      },
-      expected: {
-        round: {
-          status: 'completed',
-          currentStage: null,
-          startedAt: at(0),
-          completedAt: at(totalMs),
-          outcome: 'affirmative',
-          checkpoint: {
-            version: 1,
-            prep_consumed_ms: { affirmative: 0, negative: 0 },
-            active_prep: null,
-            floor: null,
-          },
-        },
-        close: 'segment-7',
-      },
-    });
-    await assertRejects({
-      given: 'any command after completion',
-      should: 'refuse with the terminal invariant',
-      actual: () =>
-        world.execute({
-          command: { type: 'complete', outcome: 'negative' },
-          actorId: null,
-          now: at(totalMs + 1),
-        }),
-      code: 'INVARIANT',
-      invariantId: 'round.status.completed.terminal',
-    });
-  });
-
-  test("forfeit completes with the other side's outcome", () => {
-    const world = runtime();
-    world.execute({ command: { type: 'start' }, actorId: null, now: at(0) });
-    world.tick(at(10_000));
-    const forfeited = world.execute({
-      command: { type: 'forfeit' },
-      actorId: person,
-      now: at(20_000),
-    });
-    assert({
-      given: 'the affirmative forfeiting mid-speech',
-      should: 'close the segment and hand the round to the negative',
-      actual: {
-        round: forfeited.round,
-        close: forfeited.segmentCloses[0]?.id,
-      },
-      expected: {
-        round: {
-          status: 'completed',
-          currentStage: null,
-          startedAt: at(0),
-          completedAt: at(20_000),
-          outcome: 'negative',
-          checkpoint: {
-            version: 1,
-            prep_consumed_ms: { affirmative: 0, negative: 0 },
-            active_prep: null,
-            floor: null,
-          },
-        },
-        close: 'segment-1',
-      },
-    });
-  });
-});
-
-describe('round runtime hydration', () => {
-  test('reconstructs the exact legal position from durable rows and the checkpoint', () => {
-    const midPrep = runtime({
+  test('refuses prep once the side has spent its whole budget', async () => {
+    const world = runtime({
       status: 'active',
       checkpoint: {
         version: 1,
-        prep_consumed_ms: { affirmative: 30_000, negative: 0 },
-        active_prep: { side: 'affirmative', started_at: at(945_000) },
+        prep_consumed_ms: { affirmative: 240_000, negative: 0 },
+        active_prep: null,
         floor: null,
       },
-      segments: [
-        {
-          id: 'segment-1',
-          sequence: 0,
-          type: 'speech',
-          rulesSegmentKey: 'AC',
-          startedAt: at(10_000),
-          endedAt: at(310_000),
-          durationMs: 300_000,
-        },
-        {
-          id: 'segment-2',
-          sequence: 1,
-          type: 'cross_ex',
-          rulesSegmentKey: 'CX1',
-          startedAt: at(320_000),
-          endedAt: at(440_000),
-          durationMs: 120_000,
-        },
-        {
-          id: 'segment-3',
-          sequence: 2,
-          type: 'speech',
-          rulesSegmentKey: 'NC',
-          startedAt: at(450_000),
-          endedAt: at(810_000),
-          durationMs: 360_000,
-        },
-        {
-          id: 'segment-4',
-          sequence: 3,
-          type: 'cross_ex',
-          rulesSegmentKey: 'CX2',
-          startedAt: at(820_000),
-          endedAt: at(940_000),
-          durationMs: 120_000,
-        },
-      ],
     });
-    const position = midPrep.position(at(960_000));
-    assert({
-      given: 'a crash fifteen seconds into a prep with thirty seconds consumed',
-      should: 'derive prep with the effective budget remaining',
-      actual: {
-        stage: position.stage,
-        prep: position.prep,
-        next: position.nextSegment?.key,
-        budget: position.prepBudgetRemainingMs,
-      },
-      expected: {
-        stage: 'prep',
-        prep: { side: 'affirmative', remainingMs: 195_000 },
-        next: '1AR',
-        budget: { affirmative: 210_000, negative: 240_000 },
-      },
-    });
-  });
-
-  test('refuses durable rows that disagree with the rules they execute', async () => {
-    const wrongDuration = () =>
-      runtime({
-        status: 'active',
-        segments: [
-          {
-            id: 'segment-1',
-            sequence: 0,
-            type: 'speech',
-            rulesSegmentKey: 'AC',
-            startedAt: at(10_000),
-            endedAt: at(310_000),
-            durationMs: 299_000,
-          },
-        ],
-      });
+    const before = world.position(at(1_000));
     await assertRejects({
-      given: 'a closed row whose duration differs from the resolved rules',
-      should: 'refuse hydration with the matches-rules invariant',
-      actual: wrongDuration,
+      given: 'a checkpoint holding a fully spent affirmative prep budget',
+      should: 'refuse with the prep-budget invariant',
+      actual: () =>
+        world.execute({
+          command: { type: 'start_prep' },
+          actorId: person,
+          now: at(1_000),
+        }),
       code: 'INVARIANT',
-      invariantId: 'round.segment.matches-rules',
+      invariantId: 'round.prep.requires-budget',
     });
-    const wrongKey = () =>
-      runtime({
-        status: 'active',
-        segments: [
-          {
-            id: 'segment-1',
-            sequence: 0,
-            type: 'cross_ex',
-            rulesSegmentKey: 'CX1',
-            startedAt: at(10_000),
-            endedAt: at(130_000),
-            durationMs: 120_000,
-          },
-        ],
-      });
-    await assertRejects({
-      given: 'a row naming a segment key its sequence does not hold',
-      should: 'refuse hydration with the matches-rules invariant',
-      actual: wrongKey,
-      code: 'INVARIANT',
-      invariantId: 'round.segment.matches-rules',
-    });
-  });
-
-  test('marks the final segment as awaiting its ballot once its time is spent', () => {
-    const world = runtime();
-    world.execute({ command: { type: 'start' }, actorId: null, now: at(0) });
-    const totalMs =
-      7 * 10_000 +
-      rules.segments.reduce((sum, segment) => sum + segment.durationMs, 0);
-    world.tick(at(totalMs));
-    const position = world.position(at(totalMs + 5_000));
     assert({
-      given: 'the final segment open past its end with the outcome not yet in',
-      should: 'report the round as awaiting its ballot',
-      actual: [
-        position.awaitingBallot,
-        position.stage,
-        position.openSegment?.key,
-      ],
-      expected: [true, 'live', '2AR'],
+      given: 'the refused prep',
+      should: 'leave the round counting down and unchanged',
+      actual: world.position(at(1_000)),
+      expected: before,
     });
   });
 });

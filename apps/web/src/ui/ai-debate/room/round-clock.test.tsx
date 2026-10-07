@@ -1,27 +1,53 @@
-import type { AiDebateState } from '@daisy/debate-engine';
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { botSelector } from '../../../features/train/bots';
+import { resolveRoomConfiguration } from '@daisy/debate-engine';
+import {
+  oneOnOneDefinition,
+  practiceRoomConfig,
+} from '@daisy/db/reference-formats';
+import { sampleBots } from '../../../ui/mock/train-bots';
+import type {
+  AiDebateView,
+  UiState,
+} from '../../../features/ai-debate/context';
 import { RoundClock } from './round-clock';
 import { Stage } from './stage';
 
 setupRitewayBun();
 
-const T = Date.UTC(2026, 9, 3, 18, 0, 0);
-const clock = (state: AiDebateState) =>
+const resolved = resolveRoomConfiguration(
+  oneOnOneDefinition,
+  practiceRoomConfig,
+);
+if (!resolved.ok) throw new Error(resolved.refusal.message);
+
+const view: AiDebateView = {
+  id: 'c8d4e2f6a1b3k5m7n9p2r4t6',
+  resolution: 'A representative resolution',
+  personSide: 'affirmative',
+  opponent: 'wren',
+  voice: 'aura-2-thalia-en',
+  serverNow: 0,
+  version: 1,
+  status: 'active',
+  startedAt: 0,
+  rules: resolved.rules,
+  segments: [],
+  checkpoint: {
+    version: 1,
+    prep_consumed_ms: { affirmative: 0, negative: 0 },
+    active_prep: null,
+    floor: null,
+  },
+  utterances: [],
+  ballot: null,
+};
+
+const clock = (state: UiState) =>
   renderToString(
-    h(RoundClock, { state, personSide: 'affirmative' }),
+    h(RoundClock, { state, view, personSide: 'affirmative' }),
   ).replaceAll('<!-- -->', '');
-const live = (turnIndex: number, remainingMs: number, lengthMs: number) =>
-  ({
-    phase: 'live',
-    turnIndex,
-    startedAt: T,
-    endsAt: T + lengthMs,
-    remainingMs,
-    prepLeftMs: 240_000,
-  }) as const;
 
 describe('RoundClock', () => {
   test('reads the moment', () => {
@@ -30,13 +56,7 @@ describe('RoundClock', () => {
       should: 'count seconds until they speak',
       actual: ((html) =>
         html.includes('until you speak</span>') && html.includes('>7</span>'))(
-        clock({
-          phase: 'countdown',
-          turnIndex: 0,
-          startsAt: T + 7_000,
-          remainingMs: 7_000,
-          prepLeftMs: 240_000,
-        }),
+        clock({ phase: 'countdown', segmentIndex: 0, remainingMs: 7_000 }),
       ),
       expected: true,
     });
@@ -45,9 +65,8 @@ describe('RoundClock', () => {
       should: 'count down to the speech',
       actual: clock({
         phase: 'prep',
-        turnIndex: 4,
-        prepStartedAt: T,
-        prepLeftMs: 9_000,
+        segmentIndex: 4,
+        remainingMs: 9_000,
       }).includes('until your speech starts'),
       expected: true,
     });
@@ -58,53 +77,77 @@ describe('RoundClock', () => {
       given: 'a speech with 0:59, then 0:29, then 2:00 left',
       should: 'show it gold, then red, then plain',
       actual: [59_000, 29_000, 120_000].map((left) => {
-        const html = clock(live(0, left, 300_000));
-        return ['text-gold', 'text-live', 'text-ink tabular'].find((tone) =>
-          html.includes(tone),
-        );
+        const html = clock({
+          phase: 'live',
+          segmentIndex: 0,
+          remainingMs: left,
+        });
+        return html.includes('text-live')
+          ? 'urgent'
+          : html.includes('text-gold')
+            ? 'warm'
+            : 'calm';
       }),
-      expected: ['text-gold', 'text-live', undefined],
+      expected: ['warm', 'urgent', 'calm'],
     });
   });
 
-  test('a timer that is not announced', () => {
-    const html = clock(live(1, 60_000, 120_000));
+  test('no clock runs before it starts or after the debate', () => {
     assert({
-      given: 'the first CX half done',
-      should: 'mark the clock as a timer showing the time left',
-      actual: html.includes('role="timer"') && html.includes('1:00'),
-      expected: true,
+      given: 'waiting, ended and aborted states',
+      should: 'render nothing',
+      actual: [
+        clock({ phase: 'waiting' }),
+        clock({ phase: 'ended' }),
+        clock({ phase: 'aborted' }),
+      ].map((html) => html.includes('role="timer"')),
+      expected: [false, false, false],
     });
   });
 });
 
-describe('Stage', () => {
-  const stage = (state: AiDebateState, listening: boolean) =>
-    renderToString(
-      h(Stage, {
-        bot: botSelector('wren').selected,
-        personSide: 'affirmative',
-        state,
-        speaking: false,
-        level: 0.05,
-        listening,
-      }),
-    );
+const bot = sampleBots.find((candidate) => candidate.id === 'wren')!;
 
+describe('Stage', () => {
   test('outlines whoever holds the floor, and shows your microphone only when it is open', () => {
-    const yours = stage(live(0, 200_000, 300_000), true);
-    const theirs = stage(live(2, 200_000, 360_000), false);
+    const render = (state: UiState, listening: boolean) =>
+      renderToString(
+        h(Stage, {
+          bot,
+          personSide: 'affirmative',
+          view,
+          state,
+          speaking: false,
+          level: 0.2,
+          listening,
+        }),
+      ).replaceAll('<!-- -->', '');
+    const live = (segmentIndex: number) =>
+      ({ phase: 'live', segmentIndex, remainingMs: 30_000 }) as const;
     assert({
-      given: "the person's AC with the microphone open, then Wren's NC",
-      should:
-        'outline the person, then Wren, and show the meter only while listening',
+      given: 'the person speaking live with the microphone open',
+      should: 'outline them and show the meter',
       actual: [
-        yours.indexOf('aria-current="true"') > yours.indexOf('Wren'),
-        theirs.indexOf('aria-current="true"') < theirs.indexOf('You'),
-        yours.includes('w-1 rounded-round'),
-        theirs.includes('w-1 rounded-round'),
+        render(live(0), true).includes('aria-current="true"'),
+        render(live(0), true).includes('transition-opacity h-2 opacity-100'),
+        render(live(0), true).includes('aria-hidden="true"'),
       ],
-      expected: [true, true, true, false],
+      expected: [true, true, true],
+    });
+    assert({
+      given: 'the opponent speaking live with the microphone closed',
+      should: 'outline the opponent and show no meter',
+      actual: [
+        render(live(2), false).includes('aria-current="true"'),
+        render(live(2), false).includes('opacity-100'),
+      ],
+      expected: [true, false],
+    });
+    assert({
+      given: 'the microphone closed',
+      should: 'show no meter even on the floor',
+      actual: render(live(0), false).includes('opacity-100'),
+      expected: false,
     });
   });
 });
