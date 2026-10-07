@@ -2,10 +2,7 @@ import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { RoundRules } from '@daisy/protocol';
 import { createRoundRuntime } from './round-runtime';
-import {
-  practiceRules,
-  sequentialSegmentIds,
-} from './runtime.test-support';
+import { practiceRules, sequentialSegmentIds } from './runtime.test-support';
 
 setupRitewayBun();
 
