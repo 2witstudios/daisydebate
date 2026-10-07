@@ -7,49 +7,42 @@ import type {
   RatingPlanFacts,
   RatingState,
 } from '@daisy/protocol';
-import {
-  carryOver,
-  ladderForMode,
-  rateDebate,
-  postingInstant,
-  ratingPolicy,
-} from './rating';
-import { rulesMatchFormat } from './rules-match';
+import { carryOver, rateDebate, postingInstant, ratingPolicy } from './rating';
 
 /**
- * The domain decisions behind rating one completed debate (ADR 0055), as
- * pure functions over facts the persistence adapter loads. The adapter
- * locks, reads and writes; every rule (who rates, on which ladder, from
- * which starting state, to which result) is decided here.
+ * The domain decisions behind rating one completed round (ADR 0055,
+ * ADR 0058), as pure functions over facts the persistence adapter loads
+ * from the round's frozen columns. The adapter locks, reads and writes;
+ * every rule (who rates, on which ladder, from which starting state, to
+ * which result) is decided here.
  */
 
 /**
- * Whether a debate rates, and on which ladder. Ranked and Quick match rate;
- * casual and practice never do. Abandoned debates and debates off canonical
- * rules on a ranked-eligible format never rate. A forfeit carries a side
- * outcome and rates like a judged result.
+ * Whether a round rates, and on which ladder. Ratedness has one authority:
+ * the round's frozen `ladder_id`, whose derivation the schema constrains —
+ * a casual or practice round carries none and never rates. Ranked
+ * eligibility was decided when the round was constructed from a sanctioned
+ * preset, so this check re-decides nothing about the format; a mismatch
+ * there is corruption and fails as an invariant in the adapter's
+ * `assertRatedRoundIntegrity`, never as an unrated reason. A forfeit
+ * carries a side outcome and rates like a judged result.
  */
 export function ratingEligibility(
   input: RatingEligibilityFacts,
 ): RatingEligibility {
-  if (input.phase !== 'completed')
-    throw createAppError('CONFLICT', 'Only a completed debate can be rated');
-  const ladder = ladderForMode(input.mode);
-  if (ladder === null) return { kind: 'unrated', reason: 'mode' };
-  // Before the rules: a rerun after the format changed is still a rerun.
-  if (input.alreadyRated) return { kind: 'already-rated' };
-  if (input.outcome === 'abandoned')
+  if (input.status === 'abandoned')
     return { kind: 'unrated', reason: 'abandoned' };
-  if (
-    !input.format.rankedEligible ||
-    !rulesMatchFormat(input.rules, input.format.rules)
-  )
-    return { kind: 'unrated', reason: 'rules' };
+  if (input.status !== 'completed')
+    throw createAppError('CONFLICT', 'Only a completed round can be rated');
+  // Before the ladder: a rerun after the ledger moved is still a rerun.
+  if (input.alreadyRated) return { kind: 'already-rated' };
+  if (input.ladderId === null)
+    return { kind: 'unrated', reason: 'competition' };
   if (input.outcome === null || input.completedAt === null)
-    throw createAppError('CONFLICT', 'A completed debate has no outcome');
+    throw createAppError('CONFLICT', 'A completed round has no outcome');
   return {
     kind: 'rated',
-    ladder,
+    ladder: input.ladderId,
     outcome: input.outcome,
     occurredAt: input.completedAt,
   };

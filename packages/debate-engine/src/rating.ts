@@ -1,5 +1,5 @@
 import { createAppError, createInvariantError } from '@daisy/errors';
-import type { DebateMode, RatedOutcome, RatingLadder } from '@daisy/protocol';
+import type { RatedOutcome } from '@daisy/protocol';
 import {
   GLICKO2_SCALE,
   ratePeriod,
@@ -154,11 +154,6 @@ export function carryOver(previous: Glicko2State): Glicko2State {
 
 export function isProvisional(deviation: number): boolean {
   return deviation > ratingPolicy.provisionalDeviation;
-}
-
-/** The ladder a debate mode rates on, or null when the mode never rates. */
-export function ladderForMode(mode: DebateMode): RatingLadder | null {
-  return mode === 'ranked' || mode === 'quick' ? mode : null;
 }
 
 const toBounds = (state: Glicko2State): Glicko2State => ({
