@@ -14,6 +14,7 @@ export type RoundStore = Pick<
   | 'startRound'
   | 'getRound'
   | 'applyRoundExecution'
+  | 'applyRoundCompletion'
   | 'appendUtterance'
   | 'replaceUtterance'
   | 'listRoundUtterances'

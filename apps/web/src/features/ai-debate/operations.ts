@@ -10,6 +10,7 @@ import {
   type RoundCommand,
   type RoundProjection,
 } from '@daisy/debate-engine';
+import { ballotSchema } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import {
   practiceRoomConfig,
@@ -92,6 +93,73 @@ const ballotOf = (stored: StoredBallot) =>
  */
 export function createAiDebateOperations(dependencies: AiDebateDependencies) {
   const { store, voice, ids, limits = DEFAULT_LIMITS } = dependencies;
+
+  /**
+   * Records the judge's ruling and completes the round together.
+   *
+   * These used to be two commits with the completion second, and the completion
+   * is the one that can lose to a concurrent write — which left a ballot on file
+   * against a round still `active`, and the retry returned the stored ballot
+   * without ever completing the round. `applyRoundCompletion` refuses with
+   * CONFLICT and writes nothing, so a lost race costs a retry rather than
+   * stranding the round.
+   */
+  const completeWithBallot = async (input: {
+    readonly round: RoundHydration;
+    readonly runtime: ReturnType<typeof runtimeOf>;
+    readonly now: number;
+    readonly judgeSeatId: string;
+    readonly actorId: string;
+    readonly ballot: Ballot;
+    readonly ballotId: string;
+    /**
+     * False when the ruling is already on file and only the completion is
+     * missing, which is what the recovery path is for: the ballot is durable
+     * already, so it must not be written a second time.
+     */
+    readonly writeBallot: boolean;
+  }): Promise<void> => {
+    const completed = input.runtime.execute({
+      command: { type: 'complete', outcome: input.ballot.winner },
+      actorId: null,
+      now: new Date(input.now).toISOString(),
+    });
+    const command = {
+      commandId: ids.next(),
+      actorId: null,
+      serviceId: 'ai-judge',
+      type: 'complete' as const,
+      payloadDigest: digestOf({ type: 'complete' }),
+      result: { outcome: input.ballot.winner },
+    };
+    const applied = await (
+      input.writeBallot
+        ? store.applyRoundCompletion({
+            roundId: input.round.id,
+            expectedVersion: input.round.version,
+            ballot: {
+              ballotId: input.ballotId,
+              judgeParticipantId: input.judgeSeatId,
+              ballot: input.ballot,
+            },
+            command,
+            projection: completed,
+          })
+        : store.applyRoundExecution({
+            roundId: input.round.id,
+            expectedVersion: input.round.version,
+            command,
+            projection: completed,
+          })
+    )
+      .then(() => true)
+      .catch(() => false);
+    if (!applied) throw createAppError('CONFLICT', 'The round moved on');
+    await store.markReservationCounted({
+      actorId: input.actorId,
+      roundId: input.round.id,
+    });
+  };
 
   /** Persists one execution; a concurrent writer wins and the caller re-hydrates. */
   const persist = async (
@@ -420,11 +488,42 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
       if (!judgeSeat)
         throw createAppError('INTERNAL', 'The round has no judge');
       const stored = await store.getBallot(judgeSeat.id);
+      const position = runtime.position(new Date(now).toISOString());
+      // The durable status decides, not the derived position. A ruling on file
+      // against a round the database still calls `active` means the ballot
+      // landed and the completion did not — which used to strand the round for
+      // good, because this path returned the stored ruling and never completed
+      // it. `applyRoundCompletion` writes both or neither, so this can only be
+      // a round left by the old two-commit path; completing it now is the
+      // recovery, and it skips the model call because the ruling is stored.
       if (stored && stored.status === 'submitted') {
+        if (round.status === 'completed') {
+          const view = await viewOf(round, now, actorId);
+          return view.ballot!;
+        }
+        // Re-validated on the way out of the database: the columns are nullable
+        // and the contract is not, so a row that cannot satisfy the schema is
+        // a corrupt ruling rather than a round to complete from.
+        await completeWithBallot({
+          round,
+          runtime,
+          now,
+          judgeSeatId: judgeSeat.id,
+          actorId,
+          ballot: ballotSchema.parse({
+            rubricVersion: stored.rubricVersion,
+            winner: stored.winner,
+            scores: stored.scores,
+            reason: stored.reason,
+            feedback: stored.feedback,
+            citations: stored.citations ?? undefined,
+          }),
+          ballotId: ids.next(),
+          writeBallot: false,
+        });
         const view = await viewOf(round, now, actorId);
         return view.ballot!;
       }
-      const position = runtime.position(new Date(now).toISOString());
       if (!position.awaitingBallot)
         throw createAppError('CONFLICT', 'The debate is not over');
       const personSide = personSideOf(round, actorId);
@@ -462,30 +561,16 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
         outputTokens: answer.completionTokens,
       });
       const ballot = parseBallot(answer.text);
-      await store.submitBallot({
-        ballotId: ids.next(),
-        judgeParticipantId: judgeSeat.id,
+      await completeWithBallot({
+        round,
+        runtime,
+        now,
+        judgeSeatId: judgeSeat.id,
+        actorId,
         ballot,
+        ballotId: ids.next(),
+        writeBallot: true,
       });
-      const completed = runtime.execute({
-        command: { type: 'complete', outcome: ballot.winner },
-        actorId: null,
-        now: new Date(now).toISOString(),
-      });
-      const applied = await persist(
-        round.id,
-        round.version,
-        {
-          commandId: ids.next(),
-          actorId: null,
-          serviceId: 'ai-judge',
-          type: 'complete',
-          payloadDigest: digestOf({ type: 'complete' }),
-          result: { outcome: ballot.winner },
-        },
-        completed,
-      );
-      if (!applied) throw createAppError('CONFLICT', 'The round moved on');
       return ballot;
     },
   };

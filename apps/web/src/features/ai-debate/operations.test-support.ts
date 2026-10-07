@@ -138,5 +138,5 @@ export function setup(limits?: {
     });
     return id;
   };
-  return { operations, begin, memory, clock, calls };
+  return { operations, begin, memory, clock, calls, store };
 }

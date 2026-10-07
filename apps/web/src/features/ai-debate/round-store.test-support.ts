@@ -341,6 +341,39 @@ export function createInMemoryRoundStore() {
         return row ?? null;
       },
 
+      /**
+       * The ballot and the round completion in one step, like the real
+       * transaction. The version is checked *first* and nothing is written
+       * when it has moved, which is the whole point: the two-commit shape left
+       * a ballot on file against a round that was never completed.
+       */
+      async applyRoundCompletion(
+        input: Parameters<RoundStore['applyRoundCompletion']>[0],
+      ) {
+        const round = rounds.get(input.roundId);
+        if (!round) throw createAppError('NOT_FOUND', 'No such round');
+        if (round.version !== input.expectedVersion)
+          throw createAppError('CONFLICT', 'The round moved on');
+        const existing = ballotRows.get(input.ballot.judgeParticipantId);
+        if (existing) throw createAppError('CONFLICT', 'The ballot is on file');
+        ballotRows.set(input.ballot.judgeParticipantId, {
+          id: input.ballot.ballotId,
+          judgeParticipantId: input.ballot.judgeParticipantId,
+          rubricVersion: input.ballot.ballot.rubricVersion,
+          winner: input.ballot.ballot.winner,
+          scores: input.ballot.ballot.scores,
+          reason: input.ballot.ballot.reason,
+          feedback: input.ballot.ballot.feedback,
+          status: 'submitted',
+        });
+        await this.applyRoundExecution({
+          roundId: input.roundId,
+          expectedVersion: input.expectedVersion,
+          command: input.command,
+          projection: input.projection,
+        });
+      },
+
       async recordAgentRun(input: Parameters<RoundStore['recordAgentRun']>[0]) {
         runRows.push({
           id: input.id,
