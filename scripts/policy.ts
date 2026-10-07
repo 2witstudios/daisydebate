@@ -314,39 +314,81 @@ async function filesIn(
   return files;
 }
 
-/** `export const|function|class|type|interface|enum NAME`, one source file. */
-const exportedName = new RegExp(
-  String.raw`^export\s+(?:declare\s+)?(?:default\s+)?(?:async\s+)?(?:const|let|var|function\*?|class|type|interface|enum)\s+([A-Za-z_$][\w$]*)`,
-  'm',
-);
-const reExported = /\bexport\s*\{([^}]*)\}/g;
+/**
+ * The public names one TypeScript source file really exports, read from the
+ * AST so an `export { a as c }` list indexes the name a consumer imports (`c`)
+ * however many lines the list spans, and `export abstract class` indexes like
+ * any other declaration. Only top-level statements can carry `export`, and
+ * exports nested in a namespace are not directly importable, so the walk stays
+ * at the top level.
+ */
+export function exportedNames(path: string, source: string): readonly string[] {
+  const sourceFile = ts.createSourceFile(
+    path,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    path.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );
+  const names = new Set<string>();
+  for (const statement of sourceFile.statements) {
+    if (
+      ts.isExportDeclaration(statement) &&
+      statement.exportClause &&
+      ts.isNamedExports(statement.exportClause)
+    ) {
+      for (const element of statement.exportClause.elements)
+        names.add(element.name.text);
+      continue;
+    }
+    if (
+      ts.isExportDeclaration(statement) &&
+      statement.exportClause &&
+      ts.isNamespaceExport(statement.exportClause)
+    )
+      names.add(statement.exportClause.name.text);
+    const exported =
+      ts.canHaveModifiers(statement) &&
+      statement.modifiers?.some(
+        (modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword,
+      );
+    if (!exported) continue;
+    if (ts.isVariableStatement(statement)) {
+      for (const { name } of statement.declarationList.declarations)
+        if (ts.isIdentifier(name)) names.add(name.text);
+    } else if (
+      (ts.isFunctionDeclaration(statement) ||
+        ts.isClassDeclaration(statement) ||
+        ts.isInterfaceDeclaration(statement) ||
+        ts.isTypeAliasDeclaration(statement) ||
+        ts.isEnumDeclaration(statement) ||
+        ts.isModuleDeclaration(statement)) &&
+      statement.name
+    )
+      names.add(statement.name.text);
+  }
+  return [...names];
+}
 
 /**
  * The symbols each TypeScript source file really declares, so a registry entry
- * cannot name an export that does not exist. A `export { a, b as c }` list is
- * read for the local names it re-exports.
+ * cannot name an export that does not exist. Only `.ts` and `.tsx` files are
+ * indexed: any other declaration path stays out of the map, which the symbol
+ * check reports instead of accepting a name it cannot prove.
  */
 export async function collectExportNames(
   files: readonly string[],
   knownPaths: ReadonlySet<string>,
 ): Promise<ReadonlyMap<string, readonly string[]>> {
-  const index = new Map<string, string[]>();
+  const index = new Map<string, readonly string[]>();
   for (const file of files) {
     if (!file.endsWith('.ts') && !file.endsWith('.tsx')) continue;
     const relativePath = relative(root, file);
     if (!knownPaths.has(relativePath)) continue;
-    const source = await readFile(file, 'utf8');
-    const names = new Set<string>();
-    for (const line of source.split('\n')) {
-      const declared = exportedName.exec(line);
-      if (declared?.[1]) names.add(declared[1]);
-      for (const group of line.matchAll(reExported))
-        for (const item of group[1].split(',')) {
-          const name = item.split(/\s+as\s+/)[0]?.trim();
-          if (name) names.add(name);
-        }
-    }
-    index.set(relativePath, [...names]);
+    index.set(
+      relativePath,
+      exportedNames(relativePath, await readFile(file, 'utf8')),
+    );
   }
   return index;
 }

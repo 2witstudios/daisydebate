@@ -351,4 +351,31 @@ describe('planned readers: a foundation may ship before its reader', () => {
       expected: [],
     });
   });
+
+  test('refuses a declaration for a file the export index does not cover', () => {
+    assert({
+      given: 'a declaration on an existing file that is not an indexed source',
+      should: 'report it rather than accept any export name',
+      actual: validatePlannedReaders(
+        {
+          version: 1,
+          readers: [
+            {
+              path: 'docs/decisions/0057-planned-readers.md',
+              export: 'anything',
+              task: 'ID-1',
+              owner: 'platform',
+              adr: 'docs/decisions/0057-planned-readers.md',
+              reason: 'why',
+              reviewBy: '2027-01-01',
+            },
+          ],
+        },
+        { knownPaths, today: '2026-10-06', exportNames },
+      ),
+      expected: [
+        'readers[0]: no export index for docs/decisions/0057-planned-readers.md: only .ts and .tsx files are indexed',
+      ],
+    });
+  });
 });

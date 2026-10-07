@@ -75,8 +75,10 @@ export function adrProblems(
 
 /**
  * A named export that the file really declares. An index the caller supplies
- * lets the gate prove the declaration names a symbol rather than a fiction;
- * with no index available the check is skipped rather than guessed.
+ * lets the gate prove the declaration names a symbol rather than a fiction, so
+ * a path the supplied index does not cover is a problem, not a pass: a file
+ * the gate cannot prove must not carry any name at all. With no index
+ * available the check is skipped rather than guessed.
  */
 export function exportedSymbolProblems(
   path: unknown,
@@ -85,8 +87,12 @@ export function exportedSymbolProblems(
   exportNames: ReadonlyMap<string, readonly string[]> | undefined,
 ): readonly string[] {
   if (typeof path !== 'string' || typeof symbol !== 'string') return [];
-  const declared = exportNames?.get(path);
-  if (declared === undefined) return [];
+  if (exportNames === undefined) return [];
+  const declared = exportNames.get(path);
+  if (declared === undefined)
+    return [
+      `${prefix}: no export index for ${path}: only .ts and .tsx files are indexed`,
+    ];
   return declared.includes(symbol)
     ? []
     : [`${prefix}: ${path} does not export ${symbol}`];
