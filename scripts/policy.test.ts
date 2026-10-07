@@ -1,7 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { exportedNames } from './policy-exports';
 import {
   duplicateAdrNumberProblems,
-  exportedNames,
   scanPolicyText,
   validateMigrationBaselines,
   validatePolicyRegistry,
