@@ -30,7 +30,18 @@ const format = z.enum(['webm', 'ogg', 'mp4', 'wav']);
 /** About a minute of compressed speech, base64-encoded. */
 const audio = z.string().min(4).max(4_000_000);
 
-const schemas = {
+/**
+ * The request contracts, exported so the browser client can be checked against
+ * the real schemas rather than a hand-written copy of them.
+ *
+ * That check is not ceremony. The cutover renamed `turnIndex` to
+ * `segmentIndex` and `expectedSequence` to `expectedVersion` on this side
+ * while the browser kept posting the old names; nothing failed until a member
+ * pressed a button, because the browser and the handler were each tested
+ * against their own idea of the contract. Parsing what the client actually
+ * sends through these schemas closes that gap — see `api.test.ts`.
+ */
+export const schemas = {
   start: z.object({
     resolution: z.string().min(3).max(200),
     personSide: z.enum(['affirmative', 'negative']),

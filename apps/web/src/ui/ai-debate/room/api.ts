@@ -63,9 +63,15 @@ export const aiDebateApi = {
     if (!response.ok) throw new AiDebateRequestError(response.status, 'VIEW');
     return (await response.json()) as AiDebateView;
   },
+  /**
+   * Every round command carries the version the browser last saw, so the
+   * server can refuse a write from a tab that has missed one. `b9bb7994`
+   * made that check mean something; before it the field was validated on the
+   * way in and then ignored, which is how the stale name survived.
+   */
   async command(
     id: string,
-    expectedSequence: number,
+    expectedVersion: number,
     command:
       | { type: 'start' }
       | { type: 'startPrep' }
@@ -73,12 +79,12 @@ export const aiDebateApi = {
       | { type: 'yield' }
       | { type: 'abort' },
   ) {
-    await post('command', { id, expectedSequence, command });
+    await post('command', { id, expectedVersion, command });
   },
-  async transcribe(id: string, turnIndex: number, audio: RecordedAudio) {
+  async transcribe(id: string, segmentIndex: number, audio: RecordedAudio) {
     const response = await post('transcribe', {
       id,
-      turnIndex,
+      segmentIndex,
       audio: audio.base64,
       format: audio.format,
     });
@@ -87,14 +93,14 @@ export const aiDebateApi = {
   /** Streams the AI's speech: an utterance id, then each phrase as written. */
   async speech(
     id: string,
-    turnIndex: number,
+    segmentIndex: number,
     onEvent: (event: SpeechEvent) => void,
     signal: AbortSignal,
   ) {
     const response = await fetch('/api/ai-debate/speech', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, turnIndex }),
+      body: JSON.stringify({ id, segmentIndex }),
       signal,
     });
     if (!response.ok || !response.body)
@@ -110,10 +116,10 @@ export const aiDebateApi = {
     const response = await post('speak', { id, utteranceId, phraseIndex });
     return response.arrayBuffer();
   },
-  async crossExamine(id: string, turnIndex: number, audio?: RecordedAudio) {
+  async crossExamine(id: string, segmentIndex: number, audio?: RecordedAudio) {
     const response = await post('cross-examine', {
       id,
-      turnIndex,
+      segmentIndex,
       ...(audio ? { audio } : {}),
     });
     return (await response.json()) as {

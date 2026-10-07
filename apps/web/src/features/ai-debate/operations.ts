@@ -232,6 +232,12 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
       if (!opponent) throw createAppError('VALIDATION', 'Unknown opponent');
       voice(); // refuse before writing anything when AI debates are unavailable
       const now = Date.parse(await store.databaseNow());
+      // The global ceiling, checked before the personal one: `limits.live`
+      // bounds what the service can carry at once, and every member's own
+      // allowance multiplies out under it.
+      const live = await store.countLiveRounds();
+      if (live >= limits.live)
+        throw createAppError('RATE_LIMIT', 'Too many live AI debates');
       const recent = await store.countRecentAiPractice({
         actorId,
         since: new Date(now - 24 * 60 * 60_000),

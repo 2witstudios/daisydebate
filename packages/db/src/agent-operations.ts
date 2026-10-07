@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { and, eq, gte, isNull, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, isNull, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { jsonObjectSchema } from './schema/columns';
@@ -134,6 +134,32 @@ export const agentOperations = ({
             gte(rounds.createdAt, input.since),
           ),
         );
+      return Number(row?.n ?? 0);
+    });
+  },
+
+  /**
+   * Rounds nobody has finished, across everyone.
+   *
+   * This is the global ceiling on live AI practice: each live round holds
+   * seats, a reservation and a voice budget, so without a global count every
+   * member's personal allowance multiplies out. `scheduled` and `active` are
+   * the two unfinished statuses; `completed` and `abandoned` have given their
+   * resources back.
+   *
+   * The pre-cutover query also required the round's latest possible end to be
+   * still in the future, which counted a debate whose clock had run out as
+   * live. Under the one-Round model a round that has not been completed is
+   * still open work — nothing reaps it — so `status` is the whole truth here,
+   * and a stale `active` row correctly keeps counting until something finishes
+   * it rather than silently ceasing to occupy capacity.
+   */
+  async countLiveRounds(): Promise<number> {
+    return instrumented(eventSink, 'countLiveRounds', async () => {
+      const [row] = await database
+        .select({ n: sql<number>`count(*)` })
+        .from(rounds)
+        .where(inArray(rounds.status, ['scheduled', 'active'] as const));
       return Number(row?.n ?? 0);
     });
   },

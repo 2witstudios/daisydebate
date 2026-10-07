@@ -82,6 +82,28 @@ describe('start and view', () => {
       code: 'RATE_LIMIT',
     });
   });
+
+  // The cutover deleted `countLiveAiDebates` with the table it read, and left
+  // `limits.live` declared but unread: every member's personal allowance
+  // multiplied out with no global ceiling at all.
+  test('refuses a new debate once the live ceiling is reached, whoever asks', async () => {
+    const { operations } = setup({ live: 2, perDay: 50 });
+    const start = (actorId: string) =>
+      operations.start({
+        actorId,
+        resolution: 'Resolved: practice makes patterns',
+        personSide: 'affirmative',
+        opponent: 'wren',
+      });
+    await start('actor-1');
+    await start('actor-2');
+    await assertRejects({
+      given: 'a third actor starting while two rounds are still live',
+      should: 'refuse with RATE_LIMIT',
+      actual: () => start('actor-3'),
+      code: 'RATE_LIMIT',
+    });
+  });
 });
 
 describe('commands and the ballot', () => {

@@ -377,6 +377,13 @@ export function createInMemoryRoundStore() {
       async countRecentAiPractice(input: { actorId: string }) {
         return (reservationActors.get(input.actorId) ?? []).length;
       },
+
+      /** Unfinished rounds across everyone, matching `countLiveRounds`. */
+      async countLiveRounds() {
+        return [...rounds.values()].filter(
+          (row) => row.status === 'scheduled' || row.status === 'active',
+        ).length;
+      },
     },
     aiJudgeActorId: referenceAiJudge.actorId,
     practiceConfig: practiceRoomConfig,

@@ -24,6 +24,7 @@ export type RoundStore = Pick<
   | 'reserveAiPractice'
   | 'markReservationCounted'
   | 'countRecentAiPractice'
+  | 'countLiveRounds'
 >;
 
 export type AiDebateVoice = Pick<
