@@ -17,5 +17,20 @@ describe('afterPasskeyHref', () => {
       actual: afterPasskeyHref('/ranked?tab=a', '2026-10-05T12:00:00.000Z'),
       expected: '/ranked?tab=a',
     });
+    assert({
+      given: 'a new member whose destination is already an onboarding step',
+      should: 'go to that step once, not wrap onboarding inside onboarding',
+      actual: [
+        afterPasskeyHref('/onboarding/welcome', null),
+        afterPasskeyHref('/onboarding/about?next=%2Franked', null),
+      ],
+      expected: ['/onboarding/welcome', '/onboarding/about?next=%2Franked'],
+    });
+    assert({
+      given: 'a destination that only starts like an onboarding path',
+      should: 'still lead into onboarding',
+      actual: afterPasskeyHref('/onboardingx', null),
+      expected: '/onboarding/welcome?next=%2Fonboardingx',
+    });
   });
 });

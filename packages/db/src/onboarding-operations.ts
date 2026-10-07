@@ -147,24 +147,34 @@ export const onboardingOperations = ({
     });
   },
 
+  /**
+   * One read-only REPEATABLE READ snapshot: each statement under READ
+   * COMMITTED sees its own snapshot, so a step saved between them could
+   * pair old and new answers that never existed together.
+   */
   async readOnboarding(userId: string): Promise<OnboardingRecord> {
-    return instrumented(eventSink, 'readOnboarding', async () => {
-      const [row] = await database
-        .select()
-        .from(memberOnboarding)
-        .where(eq(memberOnboarding.userId, userId))
-        .limit(1);
-      const wants = await database
-        .select({ value: memberInterests.interest })
-        .from(memberInterests)
-        .where(eq(memberInterests.userId, userId))
-        .orderBy(asc(memberInterests.interest));
-      const topics = await database
-        .select({ value: memberTopics.topic })
-        .from(memberTopics)
-        .where(eq(memberTopics.userId, userId))
-        .orderBy(asc(memberTopics.topic));
-      return toRecord(row, wants, topics);
-    });
+    return instrumented(eventSink, 'readOnboarding', () =>
+      database.transaction(
+        async (tx) => {
+          const [row] = await tx
+            .select()
+            .from(memberOnboarding)
+            .where(eq(memberOnboarding.userId, userId))
+            .limit(1);
+          const wants = await tx
+            .select({ value: memberInterests.interest })
+            .from(memberInterests)
+            .where(eq(memberInterests.userId, userId))
+            .orderBy(asc(memberInterests.interest));
+          const topics = await tx
+            .select({ value: memberTopics.topic })
+            .from(memberTopics)
+            .where(eq(memberTopics.userId, userId))
+            .orderBy(asc(memberTopics.topic));
+          return toRecord(row, wants, topics);
+        },
+        { isolationLevel: 'repeatable read', accessMode: 'read only' },
+      ),
+    );
   },
 });
