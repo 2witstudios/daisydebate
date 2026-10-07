@@ -32,6 +32,45 @@ export function createInMemoryRoundStore() {
       ...assemblyMethods(state),
       ...usageMethods(state),
 
+      async admitAiPractice(
+        input: Parameters<RoundStore['admitAiPractice']>[0],
+      ) {
+        const live = [...state.rounds.values()].filter(
+          (round) =>
+            (round.status === 'scheduled' || round.status === 'active') &&
+            [...state.reservationActors.values()].some((ids) =>
+              ids.includes(round.id),
+            ),
+        ).length;
+        if (live >= input.limits.live)
+          throw createAppError('RATE_LIMIT', 'Too many live AI debates');
+        if (
+          (state.reservationActors.get(input.actorId) ?? []).length >=
+          input.limits.perDay
+        )
+          throw createAppError('RATE_LIMIT', 'Daily AI debate limit');
+        const assembly = assemblyMethods(state);
+        await assembly.createRoom(input.room);
+        for (const seat of input.seats)
+          await assembly.seatRoomParticipant({
+            roomId: input.room.id,
+            participantId: seat.id,
+            actorId: seat.actorId,
+            role: seat.role,
+            slot: 0,
+          });
+        await assembly.startRound({
+          roomId: input.room.id,
+          roundId: input.roundId,
+          resolution: input.resolution,
+        });
+        await usageMethods(state).reserveAiPractice({
+          id: input.reservationId,
+          actorId: input.actorId,
+          roundId: input.roundId,
+        });
+      },
+
       async databaseNow() {
         return new Date(state.now()).toISOString();
       },

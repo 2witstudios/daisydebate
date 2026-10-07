@@ -1,8 +1,10 @@
 import { assert, test } from 'riteway/bun';
+import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { roundAuthoring, withFixture } from './constraint-helpers';
 import { integrationSuite } from './suite.test-support';
 
+requireTestServices(process.env);
 const { databaseUrl: url } = integrationSuite();
 
 /**
@@ -11,7 +13,7 @@ const { databaseUrl: url } = integrationSuite();
  * `limits.live` declared but never read — so every member's personal
  * allowance multiplied out with no service-wide bound at all.
  *
- * What is counted is *unfinished* rounds: `scheduled` and `active` still hold
+ * What is counted is *reserved, unfinished AI practice* rounds: `scheduled` and `active` still hold
  * seats, a reservation and a voice budget. A round that has been completed or
  * abandoned has given those back.
  */
@@ -41,6 +43,17 @@ test('countLiveRounds counts unfinished rounds and stops counting finished ones'
       // Scheduled rounds are unfinished: they hold a reservation from the
       // moment they are created, before anyone presses start.
       const scheduled = await make();
+      assert({
+        given: 'an unfinished round without an AI reservation',
+        should: 'leave AI capacity available',
+        actual: (await database.countLiveRounds()) - baseline,
+        expected: 0,
+      });
+      await database.reserveAiPractice({
+        id: createId(),
+        actorId: await fixture.actor(),
+        roundId: scheduled,
+      });
       const afterScheduled = await database.countLiveRounds();
 
       assert({

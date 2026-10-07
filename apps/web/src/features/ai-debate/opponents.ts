@@ -30,7 +30,7 @@ export type Opponent = {
 };
 
 const byActorId = new Map(
-  Object.entries(ACTOR_IDS).map(([actorId, id]) => [actorId, id]),
+  Object.entries(ACTOR_IDS).map(([id, actorId]) => [actorId, id]),
 );
 
 /**

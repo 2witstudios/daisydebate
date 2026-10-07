@@ -63,19 +63,17 @@ test('a member picks a Train bot, plays a full debate against it by voice and ge
 
   await page.getByRole('button', { name: 'Begin debate' }).click();
 
-  // The countdown into the AC, with the round's speeches across the top.
-  await expect(
-    heading(page, 'Up next: Affirmative constructive'),
-  ).toBeVisible();
-  await expect(page.getByText('until you speak')).toBeVisible();
+  // The room opens the AC's prep for you: before your own speech there is
+  // no countdown to watch — prep is the break — and the speeches run across
+  // the top.
+  await expect(heading(page, 'Prep before your AC')).toBeVisible();
   await expect(
     page.getByRole('list', { name: 'Speeches' }).getByRole('listitem'),
   ).toHaveCount(7);
+  await page.getByRole('button', { name: 'Start my speech' }).click();
 
   // AC: the person speaks, then ends their speech early.
-  await expect(heading(page, 'Affirmative constructive')).toBeVisible(
-    afterCountdown,
-  );
+  await expect(heading(page, 'Affirmative constructive')).toBeVisible();
   await expect(page.getByText('left in your speech')).toBeVisible();
   // The fake microphone plays a voice-like sound (support/fake-voice.ts);
   // a clip with under 500 ms of voice is dropped as silence, so it speaks

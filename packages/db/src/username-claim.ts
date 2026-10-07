@@ -25,7 +25,7 @@ export type UsernameClaim = {
  * violation. A retry by the owner reports `unchanged` and inserts no actor.
  */
 export async function claimUsername(
-  database: BunSQLDatabase,
+  database: Pick<BunSQLDatabase, 'transaction'>,
   input: { readonly userId: string; readonly username: string },
   nextActorId: () => string,
   eventSink: DatabaseEventSink | undefined,

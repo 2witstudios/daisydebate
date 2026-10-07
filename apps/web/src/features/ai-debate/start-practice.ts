@@ -40,15 +40,6 @@ export const startPractice = async (
   if (!opponent) throw createAppError('VALIDATION', 'Unknown opponent');
   voice(); // refuse before writing anything when AI debates are unavailable
   const now = Date.parse(await store.databaseNow());
-  const live = await store.countLiveRounds();
-  if (live >= limits.live)
-    throw createAppError('RATE_LIMIT', 'Too many live AI debates');
-  const recent = await store.countRecentAiPractice({
-    actorId: input.actorId,
-    since: new Date(now - 24 * 60 * 60_000),
-  });
-  if (recent >= limits.perDay)
-    throw createAppError('RATE_LIMIT', 'Daily AI debate limit');
   const format = await store.getFormat('one-on-one');
   if (!format) throw createAppError('INFRASTRUCTURE', 'The format is missing');
   const resolved = resolveRoom(format.definition, practiceRoomConfig);
@@ -58,7 +49,7 @@ export const startPractice = async (
       `The practice room refuses to resolve: ${resolved.refusal.message}`,
     );
   const roomId = ids.next();
-  await store.createRoom({
+  const room = {
     id: roomId,
     formatId: format.id,
     formatVersion: format.version,
@@ -68,34 +59,30 @@ export const startPractice = async (
     config: practiceRoomConfig,
     executionPlan: resolved.roomPlan,
     rules: resolved.rules,
-  });
-  await store.seatRoomParticipant({
-    roomId,
-    participantId: ids.next(),
-    actorId: input.actorId,
-    role: input.personSide,
-    slot: 0,
-  });
-  await store.seatRoomParticipant({
-    roomId,
-    participantId: ids.next(),
-    actorId: opponent.actorId,
-    role: aiSideOf(input.personSide),
-    slot: 0,
-  });
-  await store.seatRoomParticipant({
-    roomId,
-    participantId: ids.next(),
-    actorId: referenceAiJudge.actorId,
-    role: 'judge',
-    slot: 0,
-  });
+  } as const;
+  const seats = [
+    { id: ids.next(), actorId: input.actorId, role: input.personSide },
+    {
+      id: ids.next(),
+      actorId: opponent.actorId,
+      role: aiSideOf(input.personSide),
+    },
+    {
+      id: ids.next(),
+      actorId: referenceAiJudge.actorId,
+      role: 'judge' as const,
+    },
+  ] as const;
   const roundId = ids.next();
-  await store.startRound({ roomId, roundId, resolution: trimmed });
-  await store.reserveAiPractice({
-    id: ids.next(),
-    actorId: input.actorId,
+  await store.admitAiPractice({
+    room,
+    seats,
     roundId,
+    resolution: trimmed,
+    reservationId: ids.next(),
+    actorId: input.actorId,
+    since: new Date(now - 24 * 60 * 60_000),
+    limits,
   });
   return { id: roundId };
 };

@@ -4801,12 +4801,12 @@
           "opclass": null
         }
       ],
-      "isUnique": true,
+      "isUnique": false,
       "where": null,
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "rooms_single_preset_version",
+      "name": "rooms_preset_version_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "rooms"

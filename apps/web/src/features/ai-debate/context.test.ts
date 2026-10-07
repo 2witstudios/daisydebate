@@ -1,6 +1,7 @@
 import { describe, test } from 'riteway/bun';
 import { assert } from 'riteway/bun';
 import { setupRitewayBun } from 'riteway/bun';
+import { assertRejects } from '@daisy/errors/testing';
 import type { RoundHydration } from '@daisy/db';
 import { personSideOf, participantIdOf } from './context';
 
@@ -89,18 +90,17 @@ describe("the person's side comes from their own seat", () => {
     });
   });
 
-  // The AI judge ballots and reads the view without holding a debater seat.
-  test('a judge, who holds no debater seat, reads affirmative rather than throwing', () => {
+  test('a judge cannot be presented as the human debater', async () => {
     const round = hydrationWith([
       seat('bot-1', 'affirmative'),
       seat('person-1', 'negative'),
       seat('judge-1', 'judge'),
     ]);
-    assert({
+    await assertRejects({
       given: 'a judge asking which side the person took',
-      should: 'read affirmative, the default for a seat that is not a debater',
-      actual: personSideOf(round, 'judge-1'),
-      expected: 'affirmative',
+      should: 'refuse a person side',
+      actual: () => personSideOf(round, 'judge-1'),
+      code: 'NOT_FOUND',
     });
   });
 });

@@ -125,6 +125,16 @@ export async function writeProjection(
       })
       .where(eq(rounds.id, roundId));
   }
+  // The open-segment index is immediate: close the previous interval before
+  // opening its successor in the same transaction.
+  for (const close of projection.segmentCloses) {
+    await tx
+      .update(roundSegments)
+      .set({ endedAt: new Date(close.endedAt) })
+      .where(
+        and(eq(roundSegments.id, close.id), eq(roundSegments.roundId, roundId)),
+      );
+  }
   for (const insert of projection.segmentInserts) {
     try {
       await tx.insert(roundSegments).values({
@@ -145,13 +155,5 @@ export async function writeProjection(
         );
       throw error;
     }
-  }
-  for (const close of projection.segmentCloses) {
-    await tx
-      .update(roundSegments)
-      .set({ endedAt: new Date(close.endedAt) })
-      .where(
-        and(eq(roundSegments.id, close.id), eq(roundSegments.roundId, roundId)),
-      );
   }
 }

@@ -1,4 +1,5 @@
 import { authFlows } from './auth-flows.test-support';
+import { requireTestServices } from '@daisy/config';
 import { assert, describe, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import {
@@ -13,6 +14,7 @@ import {
 import { trackRevocations } from './auth-outbox-helpers';
 import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
 
+requireTestServices(process.env);
 const { flows, recordedEvents, newClient, signUp } = await authFlows();
 
 const backdateSession = (token: string, hoursAgo: number) =>

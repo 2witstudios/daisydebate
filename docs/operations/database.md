@@ -27,8 +27,8 @@ out of band, never committed.
   `public`, no `TRUNCATE`, `REFERENCES` or `TRIGGER`, no access to the
   `drizzle` migration log.
 - `daisy_realtime`, the realtime service's only credential (ADR 0032:
-  "No web→realtime secret exists at all"): `SELECT` on `outbox`, `debates`
-  and `debate_participants`, a column-scoped `SELECT (id, user_id)` on
+  "No web→realtime secret exists at all"): `SELECT` on `outbox`, `rounds`
+  and `round_participants`, a column-scoped `SELECT (id, user_id)` on
   `actors`, and a column-scoped `SELECT (id, user_id, expires_at)` on
   `session` for the 60s continuous re-authorization check, never `token`,
   the bearer credential. No grant on `users` at all today: identity resolves

@@ -36,6 +36,39 @@ export type RoomRecord = {
   readonly rules: RoundRules;
 };
 
+export const newRoomValues = (
+  room: NewRoom,
+  status: 'assembling' | 'started',
+) => ({
+  id: room.id,
+  formatId: room.formatId,
+  formatVersion: room.formatVersion,
+  presetVersion: room.presetVersion,
+  competitionType: room.competitionType,
+  length: room.length,
+  config: room.config,
+  executionPlan: room.executionPlan,
+  rulesSnapshot: room.rules,
+  prepRemainingMs: room.executionPlan.preRoundPrep.enabled
+    ? room.executionPlan.preRoundPrep.durationMs
+    : null,
+  status,
+});
+
+const seatsComplete = (
+  required: RoundRules['seats'],
+  held: readonly { readonly role: string; readonly slot: number }[],
+): boolean =>
+  Object.entries(required).every(([role, wanted]) =>
+    seatSlotsComplete(
+      wanted,
+      held
+        .filter((seat) => seat.role === role)
+        .map((seat) => seat.slot)
+        .sort((a, b) => a - b),
+    ),
+  );
+
 /**
  * The Room area (ADR 0058 §5a): a durable pre-competition aggregate. The
  * caller resolves the configuration (the outer `resolveRoom` composition
@@ -55,18 +88,7 @@ export const roomOperations = ({
       try {
         const [row] = await database
           .insert(rooms)
-          .values({
-            id: room.id,
-            formatId: room.formatId,
-            formatVersion: room.formatVersion,
-            presetVersion: room.presetVersion,
-            competitionType: room.competitionType,
-            length: room.length,
-            config: room.config,
-            executionPlan: room.executionPlan,
-            rulesSnapshot: room.rules,
-            status: 'assembling',
-          })
+          .values(newRoomValues(room, 'assembling'))
           .returning();
         if (!row) throw new Error('Room insert returned no row');
         return {
@@ -102,15 +124,24 @@ export const roomOperations = ({
       try {
         await database.transaction(async (tx) => {
           const [room] = await tx
-            .select({ status: rooms.status })
+            .select({ status: rooms.status, rules: rooms.rulesSnapshot })
             .from(rooms)
             .where(eq(rooms.id, input.roomId))
             .for('update');
           if (!room) throw createAppError('NOT_FOUND', 'No such room');
-          if (room.status !== 'assembling' && room.status !== 'ready')
+          if (room.status !== 'assembling')
             throw createAppError(
               'CONFLICT',
-              'The room has started or been abandoned',
+              'The room is no longer assembling',
+            );
+          if (
+            !Number.isInteger(input.slot) ||
+            input.slot < 0 ||
+            input.slot >= room.rules.seats[input.role]
+          )
+            throw createAppError(
+              'VALIDATION',
+              'The seat is not declared by the room',
             );
           await tx.insert(roomParticipants).values({
             id: input.participantId,
@@ -119,7 +150,14 @@ export const roomOperations = ({
             role: input.role,
             slot: input.slot,
           });
-          if (room.status === 'assembling') {
+          const seats = await tx
+            .select({
+              role: roomParticipants.role,
+              slot: roomParticipants.slot,
+            })
+            .from(roomParticipants)
+            .where(eq(roomParticipants.roomId, input.roomId));
+          if (seatsComplete(room.rules.seats, seats)) {
             await tx
               .update(rooms)
               .set({ status: 'ready', updatedAt: sql`statement_timestamp()` })
@@ -135,6 +173,37 @@ export const roomOperations = ({
           );
         throw error;
       }
+    });
+  },
+
+  /** Anchor enabled pre-round prep on the database clock after seating. */
+  async startRoomPrep(roomId: string): Promise<void> {
+    await instrumented(eventSink, 'startRoomPrep', async () => {
+      await database.transaction(async (tx) => {
+        const [room] = await tx
+          .select({
+            status: rooms.status,
+            plan: rooms.executionPlan,
+            startedAt: rooms.prepStartedAt,
+          })
+          .from(rooms)
+          .where(eq(rooms.id, roomId))
+          .for('update');
+        if (!room) throw createAppError('NOT_FOUND', 'No such room');
+        if (
+          room.status !== 'ready' ||
+          room.startedAt !== null ||
+          !room.plan.preRoundPrep.enabled
+        )
+          throw createAppError('CONFLICT', 'Pre-round prep cannot start');
+        await tx
+          .update(rooms)
+          .set({
+            prepStartedAt: sql`statement_timestamp()`,
+            updatedAt: sql`statement_timestamp()`,
+          })
+          .where(eq(rooms.id, roomId));
+      });
     });
   },
 
@@ -163,6 +232,16 @@ export const roomOperations = ({
         if (!room) throw createAppError('NOT_FOUND', 'No such room');
         if (room.status !== 'ready')
           throw createAppError('CONFLICT', 'Only a ready room starts a round');
+        if (room.executionPlan.preRoundPrep.enabled) {
+          const [progress] = await tx
+            .select({
+              finished: sql<boolean>`${rooms.prepStartedAt} is not null and ${rooms.prepStartedAt} + (${rooms.prepRemainingMs} * interval '1 millisecond') <= statement_timestamp()`,
+            })
+            .from(rooms)
+            .where(eq(rooms.id, input.roomId));
+          if (!progress?.finished)
+            throw createAppError('CONFLICT', 'Pre-round prep is still running');
+        }
         const seats = await tx
           .select({
             participantId: roomParticipants.id,
@@ -172,18 +251,8 @@ export const roomOperations = ({
           })
           .from(roomParticipants)
           .where(eq(roomParticipants.roomId, input.roomId));
-        const declared = room.rulesSnapshot.seats as Record<string, number>;
-        for (const [role, wanted] of Object.entries(declared)) {
-          const held = seats
-            .filter((seat) => seat.role === role)
-            .map((seat) => seat.slot)
-            .sort((a, b) => a - b);
-          if (!seatSlotsComplete(wanted, held))
-            throw createAppError(
-              'INVARIANT',
-              `Held ${role} seats are not exactly 0..${wanted - 1}`,
-            );
-        }
+        if (!seatsComplete(room.rulesSnapshot.seats, seats))
+          throw createAppError('INVARIANT', 'The room has incomplete seats');
         const ladder =
           room.competitionType === 'ranked'
             ? room.length === 'full'

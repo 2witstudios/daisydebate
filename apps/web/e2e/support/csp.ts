@@ -23,7 +23,8 @@ export async function watchCspViolations(page: Page) {
       seen.push({
         directive: event.effectiveDirective,
         blocked: event.blockedURI,
-      });
+        source: `${event.sourceFile}:${event.lineNumber}:${event.columnNumber}`,
+      } as never);
     });
   });
   return {

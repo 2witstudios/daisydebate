@@ -18,7 +18,7 @@ const roomInput = () => ({
   competitionType: 'casual' as const,
   length: 'full' as const,
   config: practiceRoomConfig,
-  executionPlan: { preRoundPrep: { enabled: false } },
+  executionPlan: { preRoundPrep: { enabled: false as const } },
   rules,
 });
 
@@ -80,8 +80,12 @@ describe('roomOperations', () => {
     });
   });
 
-  test('seats an actor while assembling, then refuses once started', async () => {
-    const { database, queries } = createTestDatabase([[['assembling']], [], []]);
+  test('seats an actor while assembling without claiming readiness after one seat', async () => {
+    const { database, queries } = createTestDatabase([
+      [['assembling', rules]],
+      [],
+      [],
+    ]);
     await database.seatRoomParticipant({
       roomId,
       participantId: 'seat-1',
@@ -91,13 +95,15 @@ describe('roomOperations', () => {
     });
     assert({
       given: 'an assembling room',
-      should: 'lock it, seat the actor and mark it ready',
+      should:
+        'lock it and seat the actor while leaving incomplete assembly open',
       actual: [
         queries[0]?.query.includes('for update'),
         queries[1]?.query.includes('insert into "room_participants"'),
-        queries[2]?.query.includes('update'),
+        queries[2]?.query.includes('room_participants'),
+        queries.some((query) => query.query.startsWith('update')),
       ],
-      expected: [true, true, true],
+      expected: [true, true, true, false],
     });
     const started = createTestDatabase([[['started']]]);
     await assertRejects({
@@ -112,6 +118,34 @@ describe('roomOperations', () => {
           slot: 0,
         }),
       code: 'CONFLICT',
+    });
+    const ready = createTestDatabase([[['ready']]]);
+    await assertRejects({
+      given: 'a room whose declared cast is complete',
+      should: 'refuse an extra seat',
+      actual: () =>
+        ready.database.seatRoomParticipant({
+          roomId,
+          participantId: 'seat-extra',
+          actorId: 'actor-extra',
+          role: 'affirmative',
+          slot: 1,
+        }),
+      code: 'CONFLICT',
+    });
+    const undeclared = createTestDatabase([[['assembling', rules]]]);
+    await assertRejects({
+      given: 'a slot outside the Room rules',
+      should: 'refuse the claim before writing a seat',
+      actual: () =>
+        undeclared.database.seatRoomParticipant({
+          roomId,
+          participantId: 'seat-extra',
+          actorId: 'actor-extra',
+          role: 'affirmative',
+          slot: 1,
+        }),
+      code: 'VALIDATION',
     });
     const missing = createTestDatabase([[]]);
     await assertRejects({
@@ -131,7 +165,7 @@ describe('roomOperations', () => {
       new Error('duplicate key value violates unique constraint'),
       { code: '23505' },
     );
-    const replay = createTestDatabase([[['assembling']], duplicateSeat]);
+    const replay = createTestDatabase([[['assembling', rules]], duplicateSeat]);
     await assertRejects({
       given: 'a seat or actor already seated',
       should: 'refuse with a conflict',
@@ -176,7 +210,10 @@ describe('roomOperations', () => {
 
   test('refuses the freeze when a role holds the wrong seats', async () => {
     const shortSeats = [['seat-1', 'actor-1', 'affirmative', 0]];
-    const missing = createTestDatabase([[roomRow({ status: 'ready' })], shortSeats]);
+    const missing = createTestDatabase([
+      [roomRow({ status: 'ready' })],
+      shortSeats,
+    ]);
     await assertRejects({
       given: 'a room whose negative seat never arrived',
       should: 'refuse the freeze with the seat invariant',

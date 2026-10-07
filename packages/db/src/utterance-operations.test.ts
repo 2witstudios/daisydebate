@@ -16,6 +16,7 @@ describe('utteranceOperations', () => {
       segmentId,
       roundParticipantId: speakerId,
       text: 'The first constructive.',
+      requireOpen: false,
     });
     assert({
       given: 'an appended line',
@@ -35,12 +36,14 @@ describe('utteranceOperations', () => {
       id: 'u1',
       roundId,
       text: 'The heard words.',
+      requireOpen: false,
     });
     await database.replaceUtterance({
       id: 'u1',
       roundId,
       text: 'The whole line.',
       complete: true,
+      requireOpen: false,
     });
     assert({
       given: 'a replace without complete',

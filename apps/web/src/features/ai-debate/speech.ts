@@ -45,6 +45,17 @@ const botSeatOf = (round: RoundHydration, actorId: string) => {
  */
 const SPEECH_BUDGET = 30_000;
 
+const segmentClosed = (
+  status: string,
+  openSequence: number | null,
+  expected: number,
+  endedAt: string | null | undefined,
+): boolean =>
+  status === 'completed' ||
+  status === 'abandoned' ||
+  (openSequence !== null && openSequence > expected) ||
+  (endedAt !== null && endedAt !== undefined);
+
 /** The AI's spoken lines: its speeches, their voice, and what was heard. */
 export function speechOperations(
   { store, voice, ids, limits }: AiDebateDependencies,
@@ -69,8 +80,17 @@ export function speechOperations(
       const row = round.segments.find(
         (segment) => segment.sequence === sequence,
       );
-      if (open !== null && open.sequence >= sequence && row)
+      if (open?.sequence === sequence && row?.endedAt === null)
         return { segmentId: row.id };
+      if (
+        segmentClosed(
+          round.status,
+          open?.sequence ?? null,
+          sequence,
+          row?.endedAt,
+        )
+      )
+        throw createAppError('CONFLICT', 'That segment is closed');
       await new Promise((resolve) => setTimeout(resolve, 250));
     }
     throw createAppError('CONFLICT', 'That segment never opened');
@@ -176,6 +196,7 @@ export function speechOperations(
           roundId: id,
           text: '',
           complete: false,
+          requireOpen: true,
         });
       yield { type: 'utterance', id: utteranceId };
       yield* writeSpeech({
@@ -187,6 +208,7 @@ export function speechOperations(
         segmentKey: segment.key,
         seatId,
         utteranceId,
+        alreadyLanded: existing !== undefined,
         waitForSegment,
         recordUsage,
         signal,
@@ -275,6 +297,7 @@ export function speechOperations(
         id: utteranceId,
         roundId: id,
         text: kept,
+        requireOpen: false,
       });
     },
   };

@@ -154,13 +154,21 @@ export const roundOperations = ({
           input.expectedVersion,
         );
         const [seat] = await tx
-          .select({ role: roundParticipants.role })
+          .select({
+            role: roundParticipants.role,
+            roundId: roundParticipants.roundId,
+          })
           .from(roundParticipants)
           .where(eq(roundParticipants.id, input.ballot.judgeParticipantId))
           .for('share');
         if (!seat) throw createAppError('NOT_FOUND', 'No such seat');
         if (seat.role !== 'judge')
           throw createAppError('INVARIANT', 'Only a judge seat holds a ballot');
+        if (seat.roundId !== input.roundId)
+          throw createAppError(
+            'INVARIANT',
+            'The judge seat belongs to another round',
+          );
         await tx.insert(ballots).values(
           ballotRowOf({
             ballotId: input.ballot.ballotId,

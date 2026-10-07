@@ -125,6 +125,8 @@ const spendableSegmentOf = (
  * segment, only while the format's prep bounds and budget allow it.
  */
 const startPrep = (c: CommandContext): void => {
+  if (c.on.lifecycle().status !== 'active')
+    refuse('CONFLICT', 'Only an active round spends prep');
   if (c.on.openRow() !== undefined)
     refuse('CONFLICT', 'A segment is already live');
   if (c.on.checkpoint().active_prep !== null)
@@ -207,7 +209,7 @@ const yieldFloor = (c: CommandContext): void => {
 };
 
 /** The floor moves only where the resolved policy permits it. */
-const interrupt = (c: CommandContext): void => {
+const requireInterruptWindow = (c: CommandContext) => {
   const open = c.on.openRow();
   const policy = c.rules.interaction.interruptions;
   if (open === undefined || policy === null || policy.allowed === 'disabled')
@@ -226,8 +228,13 @@ const interrupt = (c: CommandContext): void => {
       debateInvariantIds.interruptRequiresPolicy,
       'Too little of the segment remains to interrupt',
     );
+};
+
+const interrupt = (c: CommandContext): void => {
+  requireInterruptWindow(c);
   const seat = c.seatOf(c.actorId);
-  if (seat === null) refuse('CONFLICT', 'Interruptions come from a seat');
+  if (seat === null || c.sideOf(c.actorId) === null)
+    refuse('CONFLICT', 'Only a seated debater interrupts');
   const holder = c.floorHolder(c.on);
   if (holder !== null && holder.id === seat.id)
     invariant(
@@ -250,16 +257,19 @@ const forfeit = (c: CommandContext): void => {
 /** Completion follows the final segment's spent time, and carries an outcome. */
 const complete = (c: CommandContext, outcome: RatedOutcome): void => {
   const open = c.on.openRow();
+  const finalClosed =
+    open === undefined && c.closedCount() === c.rules.segments.length;
   if (
-    open === undefined ||
-    open.sequence !== c.rules.segments.length - 1 ||
-    c.now < open.startedAtMs + open.durationMs
+    !finalClosed &&
+    (open === undefined ||
+      open.sequence !== c.rules.segments.length - 1 ||
+      c.now < open.startedAtMs + open.durationMs)
   )
     invariant(
       debateInvariantIds.completeAfterFinalSegment,
       'Completion follows the final segment’s time',
     );
-  c.closeRowAt(open.id, c.now);
+  if (open !== undefined) c.closeRowAt(open.id, c.now);
   c.on.endPrep();
   completeWith(c, outcome);
 };

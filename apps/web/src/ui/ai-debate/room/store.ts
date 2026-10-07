@@ -184,7 +184,11 @@ export function createRoomStore({
     if (segment.kind === 'cross-examination')
       void runCrossExamination(context, segment.side !== view.personSide);
     else if (segment.side !== view.personSide)
-      void runAiSpeech(context, () => void command({ type: 'yield' }));
+      void runAiSpeech(context, () => {
+        // Speech completion and the clock tick may each advance the durable
+        // version while this controller plays. Claim the current one.
+        void refresh().then(() => command({ type: 'yield' }));
+      });
     else void runPersonSpeech(context);
     return { key, controller, goLive, wentLive: false, finish: null };
   };
@@ -214,6 +218,14 @@ export function createRoomStore({
     if (state.phase !== 'ended' || snapshot.ballot || judging) return;
     set({ status: 'The judge is deciding…' });
     void requestBallot();
+  };
+
+  const isAnswerer = (view: RoomView | null, segmentIndex: number): boolean => {
+    if (view === null) return false;
+    const row = view.segments[segmentIndex];
+    if (row === undefined) return false;
+    const side = view.rules.segments[row.sequence]?.side;
+    return side !== undefined && side !== view.personSide;
   };
 
   /**
@@ -292,12 +304,19 @@ export function createRoomStore({
     },
     /**
      * Ends the live segment early: the person's own speech first sends its
-     * last words while the segment is live, then it is yielded.
+     * last words while the segment is live, then it is yielded. In a
+     * cross-examination the asker holds the floor — an answerer ending the
+     * exchange takes it first, then yields it closed.
      */
     async finishTurn(segmentIndex: number) {
       await turn.finish?.();
+      const view = snapshot.view;
+      if (isAnswerer(view, segmentIndex)) {
+        await command({ type: 'interrupt' });
+        await command({ type: 'yield' });
+        return;
+      }
       await command({ type: 'yield' });
-      void segmentIndex;
     },
     /** Opens the microphone (a user gesture), and on a first visit starts. */
     async join(begin: boolean) {

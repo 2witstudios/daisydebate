@@ -97,7 +97,7 @@ describe('competitive schema rules', () => {
           ],
           indexes: [
             'rooms_definition_revision_idx',
-            'unique rooms_single_preset_version',
+            'rooms_preset_version_idx',
           ],
           uniques: ['rooms_id_format_unique'],
           namedKeys: [

@@ -76,6 +76,7 @@ export const aiDebateApi = {
       | { type: 'start' }
       | { type: 'startPrep' }
       | { type: 'startSpeech' }
+      | { type: 'interrupt' }
       | { type: 'yield' }
       | { type: 'abort' },
   ) {

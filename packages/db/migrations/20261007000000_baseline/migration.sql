@@ -501,7 +501,7 @@ CREATE INDEX "role_grants_user_idx" ON "role_grants" ("user_id");--> statement-b
 CREATE INDEX "role_grants_granted_by_user_idx" ON "role_grants" ("granted_by_user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "room_participants_actor_unique" ON "room_participants" ("room_id","actor_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "room_participants_seat_unique" ON "room_participants" ("room_id","role","slot");--> statement-breakpoint
-CREATE UNIQUE INDEX "rooms_single_preset_version" ON "rooms" ("format_id","length","preset_version","format_version");--> statement-breakpoint
+CREATE INDEX "rooms_preset_version_idx" ON "rooms" ("format_id","length","preset_version","format_version");--> statement-breakpoint
 CREATE INDEX "round_commands_round_version_idx" ON "round_commands" ("round_id","resulting_version");--> statement-breakpoint
 CREATE INDEX "round_commands_actor_idx" ON "round_commands" ("actor_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "round_participants_actor_unique" ON "round_participants" ("round_id","actor_id");--> statement-breakpoint

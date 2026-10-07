@@ -1,7 +1,7 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createTestDatabase } from './index.test-support';
-import { foundationDefinition } from './reference-formats';
+import { foundationDefinition, practiceRoomConfig } from './reference-formats';
 
 setupRitewayBun();
 
@@ -44,7 +44,7 @@ describe('formatOperations', () => {
 
   test('getCurrentPreset reads the live preset for the length', async () => {
     const { database } = createTestDatabase([
-      [['one-on-one', 'full', 1, 1, { preRoundPrep: { enabled: false } }]],
+      [['one-on-one', 'full', 1, 1, practiceRoomConfig]],
     ]);
     const preset = await database.getCurrentPreset('one-on-one', 'full');
     assert({
@@ -56,7 +56,7 @@ describe('formatOperations', () => {
         length: 'full',
         version: 1,
         formatVersion: 1,
-        config: { preRoundPrep: { enabled: false } },
+        config: practiceRoomConfig,
       },
     });
   });
@@ -74,10 +74,7 @@ describe('formatOperations', () => {
 
   test('getFormatRevision reads a pinned historical revision', async () => {
     const { database } = createTestDatabase([[[foundationDefinition]]]);
-    const definition = await database.getFormatRevision(
-      'one-on-one',
-      1,
-    );
+    const definition = await database.getFormatRevision('one-on-one', 1);
     assert({
       given: 'the pinned revision row',
       should: 'return its definition',

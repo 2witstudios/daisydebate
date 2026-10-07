@@ -1,4 +1,5 @@
 import { and, asc, eq, sql } from 'drizzle-orm';
+import { createAppError } from '@daisy/errors';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { roundSegments } from './schema/round-segments';
@@ -23,11 +24,13 @@ export const utteranceOperations = ({
     readonly roundParticipantId: string;
     readonly text: string;
     readonly complete?: boolean;
+    /** Require the segment row to still be open when this line lands. */
+    readonly requireOpen: boolean;
   }): Promise<void> {
     await instrumented(eventSink, 'appendUtterance', async () => {
       await database.transaction(async (tx) => {
-        await tx
-          .select({ id: roundSegments.id })
+        const [segment] = await tx
+          .select({ endedAt: roundSegments.endedAt })
           .from(roundSegments)
           .where(
             and(
@@ -36,6 +39,9 @@ export const utteranceOperations = ({
             ),
           )
           .for('update');
+        if (!segment) throw createAppError('NOT_FOUND', 'No such segment');
+        if (input.requireOpen && segment.endedAt !== null)
+          throw createAppError('CONFLICT', 'The segment is closed');
         await tx.insert(utterances).values({
           id: input.id,
           roundId: input.roundId,
@@ -59,21 +65,51 @@ export const utteranceOperations = ({
     readonly roundId: string;
     readonly text: string;
     readonly complete?: boolean;
+    /** Require the line's segment to remain open during this replacement. */
+    readonly requireOpen: boolean;
   }): Promise<void> {
     await instrumented(eventSink, 'replaceUtterance', async () => {
-      await database
-        .update(utterances)
-        .set(
-          input.complete === undefined
-            ? { text: input.text }
-            : { text: input.text, complete: input.complete },
-        )
-        .where(
-          and(
-            eq(utterances.id, input.id),
-            eq(utterances.roundId, input.roundId),
-          ),
-        );
+      const update = async (tx: Pick<BunSQLDatabase, 'select' | 'update'>) => {
+        if (input.requireOpen) {
+          const [line] = await tx
+            .select({ segmentId: utterances.segmentId })
+            .from(utterances)
+            .where(
+              and(
+                eq(utterances.id, input.id),
+                eq(utterances.roundId, input.roundId),
+              ),
+            );
+          if (!line) throw createAppError('NOT_FOUND', 'No such utterance');
+          const [segment] = await tx
+            .select({ endedAt: roundSegments.endedAt })
+            .from(roundSegments)
+            .where(
+              and(
+                eq(roundSegments.id, line.segmentId),
+                eq(roundSegments.roundId, input.roundId),
+              ),
+            )
+            .for('update');
+          if (!segment || segment.endedAt !== null)
+            throw createAppError('CONFLICT', 'The segment is closed');
+        }
+        await tx
+          .update(utterances)
+          .set(
+            input.complete === undefined
+              ? { text: input.text }
+              : { text: input.text, complete: input.complete },
+          )
+          .where(
+            and(
+              eq(utterances.id, input.id),
+              eq(utterances.roundId, input.roundId),
+            ),
+          );
+      };
+      if (input.requireOpen) await database.transaction(update);
+      else await update(database);
     });
   },
 

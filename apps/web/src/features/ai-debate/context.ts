@@ -1,7 +1,12 @@
 import type { Ballot, OpenRouter, TranscriptEntry } from '@daisy/ai-voice';
 import type { IdGenerator } from '@daisy/clock';
 import type { Database, RoundHydration } from '@daisy/db';
-import { createRoundRuntime, type RoundPosition } from '@daisy/debate-engine';
+import {
+  advancedClockRowsOf,
+  clockRowsOf,
+  roundPositionOf,
+  type RoundPosition,
+} from '@daisy/debate-engine/position';
 import type { RoundRules } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 
@@ -54,6 +59,7 @@ export type RoundStore = Pick<
   | 'markReservationCounted'
   | 'countRecentAiPractice'
   | 'countLiveRounds'
+  | 'admitAiPractice'
 >;
 
 type AiDebateVoice = Pick<
@@ -112,44 +118,6 @@ export type AiDebateView = {
 };
 
 /**
- * The hydrated round's runtime, with segment ids minted from the injected
- * generator: every operation drives the same machine whose projection the
- * durable rows persist (ADR 0058 §4).
- */
-export const runtimeOf = (round: RoundHydration, nextSegmentId: () => string) =>
-  createRoundRuntime({
-    round: {
-      id: round.id,
-      status: round.status,
-      currentStage: round.currentStage,
-      startedAt: round.startedAt,
-      completedAt: round.completedAt,
-      outcome: round.outcome,
-    },
-    rules: round.rules,
-    participants: round.participants,
-    checkpoint: round.checkpoint,
-    segments: round.segments,
-    nextSegmentId,
-  });
-
-/** The actor's own round — the actor holds a seat — or NOT_FOUND. */
-export const ownedBy = async (
-  store: RoundStore,
-  actorId: string,
-  id: string,
-  nextSegmentId: () => string,
-) => {
-  const round = await store.getRound(id);
-  if (!round || !round.participants.some((seat) => seat.actorId === actorId))
-    throw createAppError('NOT_FOUND');
-  return {
-    round,
-    runtime: runtimeOf(round, nextSegmentId),
-  };
-};
-
-/**
  * The side the requesting actor debated.
  *
  * Resolved from that actor's own seat, not from "the first participant who is
@@ -160,9 +128,7 @@ export const ownedBy = async (
  * the person. Every caller already knows who is asking — the actor id is on
  * every operation — so the seat is looked up rather than guessed.
  *
- * A judge asking (the AI judge ballots, and reads the view) has no debater
- * seat; it reads as affirmative, which only affects how it labels lines it
- * does not own.
+ * A judge or unseated actor has no person side in the AI practice operation.
  */
 export const personSideOf = (
   round: RoundHydration,
@@ -171,7 +137,9 @@ export const personSideOf = (
   const seat = round.participants.find(
     (candidate) => candidate.actorId === actorId,
   );
-  return seat?.role === 'negative' ? 'negative' : 'affirmative';
+  if (seat?.role !== 'affirmative' && seat?.role !== 'negative')
+    throw createAppError('NOT_FOUND');
+  return seat.role;
 };
 
 /** The person's participant id in their own round. */
@@ -310,24 +278,37 @@ export const segmentAt = (view: AiDebateView, index: number): UiSegment => {
 export const positionOfView = (
   view: AiDebateView,
   atMs: number,
-): RoundPosition =>
-  runtimeOf(
+): RoundPosition => {
+  // The client derives its position from the same pure derivation the
+  // server runs, over a read-only view of the durable rows — never through
+  // the runtime, whose ECS codegen needs `unsafe-eval` the nonce CSP
+  // refuses (ADR 0024 §5).
+  const rows = clockRowsOf(view.segments);
+  const closed = rows.filter((row) => row.endedAtMs !== null);
+  const lastClosed = closed[closed.length - 1];
+  const lifecycle = {
+    status: view.status,
+    startedAtMs: view.startedAt,
+    completedAtMs: null,
+    outcome: null,
+    gapAnchorMs:
+      lastClosed !== undefined ? lastClosed.endedAtMs : view.startedAt,
+  };
+  const advanced = advancedClockRowsOf(
+    rows,
+    view.checkpoint,
+    lifecycle,
+    view.rules,
+    atMs,
+  );
+  return roundPositionOf(
     {
-      id: view.id,
-      resolution: view.resolution,
-      formatId: '',
-      formatVersion: 0,
-      status: view.status,
-      currentStage: null,
-      startedAt:
-        view.startedAt === null ? null : new Date(view.startedAt).toISOString(),
-      completedAt: null,
-      outcome: null,
-      rules: view.rules,
-      checkpoint: view.checkpoint,
-      version: view.version,
-      participants: [],
-      segments: view.segments,
+      rows: () => advanced.rows,
+      openRow: () => advanced.rows.find((row) => row.endedAtMs === null),
+      checkpoint: () => advanced.checkpoint,
+      lifecycle: () => lifecycle,
     },
-    () => '',
-  ).position(new Date(atMs).toISOString());
+    atMs,
+    view.rules,
+  );
+};

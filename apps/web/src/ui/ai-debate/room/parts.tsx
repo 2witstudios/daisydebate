@@ -1,6 +1,5 @@
 'use client';
 
-import { speakerTotal } from '@daisy/protocol';
 import type { Ballot } from '@daisy/ai-voice';
 import type { DebateSide } from '@daisy/protocol';
 import { useRef, useState } from 'react';
@@ -12,6 +11,15 @@ import {
   type UiSegment,
   type UiState,
 } from '../../../features/ai-debate/context';
+
+/**
+ * One side's speaker score: the sum of its ten category scores, out of 50.
+ * Local to the client on purpose: the protocol barrel carries the ballot
+ * schemas, and a value import from it would pull zod into this page's
+ * client chunk — whose eval probe the nonce CSP refuses (ISSUE-344).
+ */
+const speakerTotalOf = (scores: Ballot['scores'][keyof Ballot['scores']]) =>
+  Object.values(scores).reduce((total, score) => total + score, 0);
 
 export const sideName = (side: string) =>
   side === 'affirmative' ? 'Affirmative' : 'Negative';
@@ -205,8 +213,8 @@ export function BallotCard({
       <p className="text-ink">
         <span className="font-strong">
           Decision: {sideName(ballot.winner)} · Speakers{' '}
-          {speakerTotal(ballot.scores.affirmative)}–
-          {speakerTotal(ballot.scores.negative)}.
+          {speakerTotalOf(ballot.scores.affirmative)}–
+          {speakerTotalOf(ballot.scores.negative)}.
         </span>{' '}
         {ballot.reason}
       </p>
@@ -216,7 +224,7 @@ export function BallotCard({
             <div key={side} className="flex flex-col gap-1">
               <span className="text-xs font-strong tracking-wide text-ink-muted uppercase">
                 {side === personSide ? 'You' : opponent} ·{' '}
-                {speakerTotal(ballot.scores[side])}/50
+                {speakerTotalOf(ballot.scores[side])}/50
               </span>
               <span className="text-ink">{ballot.feedback[side]}</span>
             </div>

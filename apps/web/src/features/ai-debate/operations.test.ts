@@ -107,6 +107,80 @@ describe('start and view', () => {
 });
 
 describe('commands and the ballot', () => {
+  test('a command at the clock edge accepts the version before its own tick', async () => {
+    const { operations, begin, clock } = setup();
+    const id = await begin();
+    const version = (await operations.view({ actorId: 'actor-1', id })).version;
+    clock.advance(11);
+    await operations.command({
+      actorId: 'actor-1',
+      id,
+      command: { type: 'yield' },
+      expectedVersion: version,
+    });
+    assert({
+      given:
+        'the command itself materializes the first segment before yielding it',
+      should:
+        'apply both tick and command without treating its own tick as a rival writer',
+      actual: (await operations.view({ actorId: 'actor-1', id })).version,
+      expected: version + 2,
+    });
+  });
+
+  test('the browser ends a bot-held cross-examination only after its line is complete', async () => {
+    const { operations, begin, clock, store } = setup();
+    const id = await begin();
+    clock.advance(11);
+    await operations.command({
+      actorId: 'actor-1',
+      id,
+      command: { type: 'yield' },
+      expectedVersion: (await operations.view({ actorId: 'actor-1', id }))
+        .version,
+    });
+    clock.advance(11);
+    const before = await operations.view({ actorId: 'actor-1', id });
+    await assertRejects({
+      given:
+        'the bot holds the first cross-examination but has no finished line',
+      should: 'refuse the browser yield',
+      actual: () =>
+        operations.command({
+          actorId: 'actor-1',
+          id,
+          command: { type: 'yield' },
+          expectedVersion: before.version,
+        }),
+      code: 'CONFLICT',
+    });
+    const round = await store.getRound(id);
+    const segment = round?.segments.find((row) => row.sequence === 1);
+    const bot = round?.participants.find((seat) => seat.role === 'negative');
+    if (!segment || !bot) throw new Error('the bot turn did not open');
+    await store.appendUtterance({
+      id: 'bot-question',
+      roundId: id,
+      segmentId: segment.id,
+      roundParticipantId: bot.id,
+      text: 'A question?',
+      complete: true,
+      requireOpen: true,
+    });
+    await operations.command({
+      actorId: 'actor-1',
+      id,
+      command: { type: 'yield' },
+      expectedVersion: before.version,
+    });
+    assert({
+      given: 'the bot line is finished',
+      should: 'let the bot seat yield through the service command',
+      actual: (await operations.view({ actorId: 'actor-1', id })).version,
+      expected: before.version + 1,
+    });
+  });
+
   test('a stale version is refused before the engine sees the command', async () => {
     const { operations, begin } = setup();
     const id = await begin();

@@ -88,7 +88,7 @@ export const rooms = pgTable(
       table.formatId,
       table.formatVersion,
     ),
-    uniqueIndex('rooms_single_preset_version').on(
+    index('rooms_preset_version_idx').on(
       table.formatId,
       table.length,
       table.presetVersion,

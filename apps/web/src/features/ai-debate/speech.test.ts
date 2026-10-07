@@ -13,6 +13,53 @@ const eventsOf = async (
 };
 
 describe('the AI speech, on the one Round model', () => {
+  test('restarts an unfinished line by replacing it on the same segment', async () => {
+    const { operations, begin, clock, store } = setup();
+    const id = await begin();
+    clock.advance(451);
+    await operations.view({ actorId: 'actor-1', id });
+    const round = await store.getRound(id);
+    const segment = round?.segments.find((row) => row.sequence === 2);
+    const bot = round?.participants.find((seat) => seat.role === 'negative');
+    if (!segment || !bot) throw new Error('the bot speech did not open');
+    await store.appendUtterance({
+      id: 'unfinished-bot-line',
+      roundId: id,
+      segmentId: segment.id,
+      roundParticipantId: bot.id,
+      text: 'An interrupted start.',
+      complete: false,
+      requireOpen: true,
+    });
+    const events = await eventsOf(
+      operations.speech({ actorId: 'actor-1', id, segmentIndex: 2 }),
+    );
+    const view = await operations.view({ actorId: 'actor-1', id });
+    assert({
+      given:
+        'a resumed model stream with an incomplete line already on the segment',
+      should: 'finish that line without inserting the same id twice',
+      actual: {
+        events: events.map((event) => event.type),
+        lines: view.utterances.map((line) => ({
+          id: line.id,
+          text: line.text,
+          complete: line.complete,
+        })),
+      },
+      expected: {
+        events: ['utterance', 'phrase'],
+        lines: [
+          {
+            id: 'unfinished-bot-line',
+            text: 'A short speech.',
+            complete: true,
+          },
+        ],
+      },
+    });
+  });
+
   test('writes the line onto the open segment once time opens it', async () => {
     const { operations, begin, clock } = setup();
     const id = await begin();

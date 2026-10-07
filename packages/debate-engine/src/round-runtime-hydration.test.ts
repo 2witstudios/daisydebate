@@ -73,7 +73,7 @@ describe('round runtime hydration', () => {
         stage: 'prep',
         prep: { side: 'affirmative', remainingMs: 195_000 },
         next: '1AR',
-        budget: { affirmative: 210_000, negative: 240_000 },
+        budget: { affirmative: 195_000, negative: 240_000 },
       },
     });
   });
@@ -120,6 +120,29 @@ describe('round runtime hydration', () => {
       given: 'a row naming a segment key its sequence does not hold',
       should: 'refuse hydration with the matches-rules invariant',
       actual: wrongKey,
+      code: 'INVARIANT',
+      invariantId: 'round.segment.matches-rules',
+    });
+    const wrongType = () =>
+      runtime({
+        status: 'active',
+        segments: [
+          {
+            id: 'segment-1',
+            sequence: 0,
+            type: 'cross_ex',
+            rulesSegmentKey: 'AC',
+            startedAt: at(10_000),
+            endedAt: at(310_000),
+            durationMs: 300_000,
+          },
+        ],
+      });
+    await assertRejects({
+      given:
+        'a row with the right key and duration but the wrong interaction type',
+      should: 'refuse hydration with the matches-rules invariant',
+      actual: wrongType,
       code: 'INVARIANT',
       invariantId: 'round.segment.matches-rules',
     });

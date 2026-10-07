@@ -38,6 +38,7 @@ export async function* writeSpeech({
   segmentKey,
   seatId,
   utteranceId,
+  alreadyLanded,
   waitForSegment,
   recordUsage,
   signal,
@@ -50,6 +51,7 @@ export async function* writeSpeech({
   readonly segmentKey: string;
   readonly seatId: string;
   readonly utteranceId: string;
+  readonly alreadyLanded: boolean;
   readonly waitForSegment: (
     actorId: string,
     id: string,
@@ -102,7 +104,7 @@ export async function* writeSpeech({
   const grouped = (done: readonly string[]) =>
     done.flatMap((sentence) => phrases.push(sentence));
   const spoken: string[] = [];
-  let landed = false;
+  let landed = alreadyLanded;
   const save = async function* (incoming: readonly string[], whole = false) {
     for (const text of incoming) {
       spoken.push(text);
@@ -116,6 +118,7 @@ export async function* writeSpeech({
           roundParticipantId: seatId,
           text: spoken.join(' '),
           complete: false,
+          requireOpen: true,
         });
         landed = true;
         yield { type: 'phrase' as const, index: spoken.length - 1, text };
@@ -126,6 +129,7 @@ export async function* writeSpeech({
         roundId: round.id,
         text: spoken.join(' '),
         ...(whole ? { complete: true } : {}),
+        requireOpen: true,
       });
       yield { type: 'phrase' as const, index: spoken.length - 1, text };
     }
@@ -135,6 +139,7 @@ export async function* writeSpeech({
         roundId: round.id,
         text: spoken.join(' '),
         complete: true,
+        requireOpen: true,
       });
   };
   let written = 0;

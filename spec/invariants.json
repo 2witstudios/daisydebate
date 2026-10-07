@@ -29,7 +29,7 @@
       "id": "round.prep.requires-capability",
       "check": "prep-requires-capability",
       "testReference": {
-        "path": "packages/debate-engine/src/round-runtime.test.ts",
+        "path": "packages/debate-engine/src/round-runtime-prep.test.ts",
         "name": "refuse with the prep-capability invariant"
       }
     },
@@ -37,7 +37,7 @@
       "id": "round.prep.requires-spendable-segment",
       "check": "prep-requires-spendable-segment",
       "testReference": {
-        "path": "packages/debate-engine/src/round-runtime.test.ts",
+        "path": "packages/debate-engine/src/round-runtime-prep.test.ts",
         "name": "refuse with the spendable-segment invariant"
       }
     },
@@ -45,7 +45,7 @@
       "id": "round.prep.requires-budget",
       "check": "prep-requires-budget",
       "testReference": {
-        "path": "packages/debate-engine/src/round-runtime.test.ts",
+        "path": "packages/debate-engine/src/round-runtime-prep.test.ts",
         "name": "refuse with the prep-budget invariant"
       }
     },

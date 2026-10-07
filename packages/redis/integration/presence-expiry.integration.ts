@@ -1,8 +1,10 @@
 import { expect } from 'bun:test';
+import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, test } from 'riteway/bun';
 import { lease, redisSuite, withRedis } from './test-support';
 
+requireTestServices(process.env);
 const { redisUrl: url } = redisSuite();
 
 test('readActorConnections omits members scored in the past, one at a time, without deleting them', () =>

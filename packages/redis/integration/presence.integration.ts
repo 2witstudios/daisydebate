@@ -1,7 +1,9 @@
 import { createId } from '@paralleldrive/cuid2';
+import { requireTestServices } from '@daisy/config';
 import { assert, test } from 'riteway/bun';
 import { lease, redisSuite, withRedis } from './test-support';
 
+requireTestServices(process.env);
 const { redisUrl: url } = redisSuite();
 
 /**

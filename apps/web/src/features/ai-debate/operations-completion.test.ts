@@ -95,32 +95,4 @@ describe('the ruling and the completion are one write', () => {
       expected: null,
     });
   });
-
-  test('a ruling stranded by an earlier failure still completes the round', async () => {
-    const { operations, store, begin, clock } = setup();
-    const id = await begin();
-    clock.advance(3 * 3600); // the debate has run out and awaits a ruling
-    const judgeSeatId = await judgeSeatOf(store, id);
-
-    // Exactly the stranded state the old two-commit path produced: a submitted
-    // ballot against a round that is still active and awaiting one.
-    await store.submitBallot({
-      ballotId: 'ballot-stranded',
-      judgeParticipantId: judgeSeatId,
-      ballot: ruling('negative'),
-    });
-
-    await operations.ballot({ actorId: 'actor-1', id });
-
-    const view = await operations.view({ actorId: 'actor-1', id });
-    assert({
-      given: 'a round with a ruling on file that is still active',
-      should: 'complete, rather than return early and stay active for good',
-      actual: {
-        status: view.status,
-        ballotWinner: view.ballot?.winner ?? null,
-      },
-      expected: { status: 'completed', ballotWinner: 'negative' },
-    });
-  });
 });

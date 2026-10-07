@@ -16,7 +16,12 @@ import {
 } from '@daisy/protocol';
 import { createRoundClock } from './round-clock';
 import { applyRoundCommand, type Queues } from './round-commands';
-import { lifecycleStampsOf, roundPositionOf, stageOf } from './round-position';
+import {
+  clockRowsOf,
+  lifecycleStampsOf,
+  roundPositionOf,
+  stageOf,
+} from './round-position';
 import { debateInvariantIds } from './invariant-ids';
 import {
   captureRoundStore,
@@ -72,17 +77,9 @@ export function createRoundRuntime(input: {
     rules,
     nextSegmentId: input.nextSegmentId,
   });
-  const hydratedRows = input.segments
-    .map((segment) => ({
-      id: segment.id,
-      sequence: segment.sequence,
-      type: segment.type,
-      key: segment.rulesSegmentKey,
-      startedAtMs: Date.parse(segment.startedAt),
-      endedAtMs: segment.endedAt === null ? null : Date.parse(segment.endedAt),
-      durationMs: segment.durationMs,
-    }))
-    .sort((a, b) => a.sequence - b.sequence);
+  const hydratedRows = clockRowsOf(input.segments).sort(
+    (a, b) => a.sequence - b.sequence,
+  );
 
   // Hydration integrity: rows execute exactly the rules they name.
   hydratedRows.forEach((row, index) => {
@@ -91,6 +88,7 @@ export function createRoundRuntime(input: {
       !expected ||
       row.sequence !== index ||
       row.key !== expected.key ||
+      row.type !== expected.type ||
       row.durationMs !== expected.durationMs
     )
       throw createInvariantError(

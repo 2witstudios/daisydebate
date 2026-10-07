@@ -9,16 +9,15 @@ const judgeSeat = 'j3s1e7a5t9i2d6c4b8k2q1w5e9r3t7y';
 const actorId = 'k2v9x0f4m8q3w1z7c5n6b4d2';
 const ballotId = 'b1a2l3l4o5t6k7m8n9p1r3t5';
 
+const scoresFor = (score: number) =>
+  Object.fromEntries(ballotCategories.map((category) => [category, score]));
+
 const ballot = (): Ballot => ({
   rubricVersion: 'speaker-10@1',
   winner: 'affirmative',
   scores: {
-    affirmative: Object.fromEntries(
-      ballotCategories.map((category) => [category, 4]),
-    ),
-    negative: Object.fromEntries(
-      ballotCategories.map((category) => [category, 3]),
-    ),
+    affirmative: scoresFor(4),
+    negative: scoresFor(3),
   } as Ballot['scores'],
   reason: 'The reasoning was clearer.',
   feedback: {},

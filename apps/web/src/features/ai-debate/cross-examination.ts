@@ -51,6 +51,30 @@ export type CrossExamination = {
   } | null;
 };
 
+type ExchangeInput = {
+  readonly actorId: string;
+  readonly id: string;
+  readonly segmentIndex: number;
+  readonly audio?: {
+    readonly base64: string;
+    readonly format: AudioFormat;
+  };
+};
+
+const shouldReply = (
+  stage: 'live' | 'countdown' | 'prep' | null,
+  aiAsks: boolean,
+  hasAudio: boolean,
+  saidInExchange: number,
+  heard: string,
+): boolean => {
+  const opening = aiAsks && !hasAudio && saidInExchange === 0;
+  return (
+    (heard.length > 0 || opening) &&
+    (stage === 'live' || (opening && stage === 'countdown'))
+  );
+};
+
 /** One cross-examination exchange at a time. */
 export function crossExaminationOperations(
   { store, voice, ids }: AiDebateDependencies,
@@ -98,6 +122,7 @@ export function crossExaminationOperations(
         segmentId,
         roundParticipantId: personSeatId,
         text,
+        requireOpen: false,
       });
     return text;
   };
@@ -120,7 +145,9 @@ export function crossExaminationOperations(
     const row = round.segments.find(
       (candidate) => candidate.sequence === segment.sequence,
     );
-    if (!row) throw new Error('The segment is not open');
+    // The grace window: the position already shows the segment (early), but
+    // its durable row opens at the database's instant and may lag one ask.
+    if (!row) return null;
     return { position, segment: { ...segment, id: row.id } };
   };
 
@@ -205,6 +232,7 @@ export function crossExaminationOperations(
       segmentId: segment.id,
       roundParticipantId: aiSeatId,
       text,
+      requireOpen: true,
     });
     return { utteranceId, phrases: phrasesOf(text) };
   };
@@ -222,24 +250,43 @@ export function crossExaminationOperations(
       id,
       segmentIndex,
       audio,
-    }: {
-      readonly actorId: string;
-      readonly id: string;
-      readonly segmentIndex: number;
-      readonly audio?: {
-        readonly base64: string;
-        readonly format: AudioFormat;
-      };
-    }): Promise<CrossExamination> {
+    }: ExchangeInput): Promise<CrossExamination> {
+      // The opening ask is prepared during the countdown, so it can arrive
+      // before the segment's row exists: the durable row opens at the
+      // database's instant, and the browser's ask runs on its own clock.
+      // Re-read until the row is there or the wait is spent — the clock
+      // stays PostgreSQL's; the wait only bounds how long the ask lingers,
+      // and it spans the countdown the ask may have jumped into.
+      for (let attempt = 0; ; attempt += 1) {
+        const outcome = await this.exchange({
+          actorId,
+          id,
+          segmentIndex,
+          ...(audio ? { audio } : {}),
+        });
+        if (outcome !== null || attempt >= 12)
+          return outcome ?? { heard: '', reply: null };
+        await new Promise((resolve) => setTimeout(resolve, 900));
+      }
+    },
+
+    async exchange({
+      actorId,
+      id,
+      segmentIndex,
+      audio,
+    }: ExchangeInput): Promise<CrossExamination | null> {
       const { round, runtime, now } = await hydrated(actorId, id);
       const personSide = personSideOf(round, actorId);
-      const { position, segment } = openSegmentOf(
+      const opened = openSegmentOf(
         round,
         runtime,
         now,
         segmentIndex,
         audio !== undefined,
       );
+      if (opened === null) return null;
+      const { position, segment } = opened;
       const aiAsks = segment.side !== personSide;
       const seats = seatIdsOf(round, personSide);
 
@@ -264,13 +311,18 @@ export function crossExaminationOperations(
       const saidInExchange = lines.filter(
         (line) => line.segmentId === segment.id,
       ).length;
-      const opening = aiAsks && !audio && saidInExchange === 0;
       // The AI replies while its segment is live, or in the countdown when
       // it opens the exchange; a grace-period line gets no reply.
-      const replying =
-        position.stage === 'live' ||
-        (opening && position.stage === 'countdown');
-      if ((!heard && !opening) || !replying) return { heard, reply: null };
+      if (
+        !shouldReply(
+          position.stage,
+          aiAsks,
+          audio !== undefined,
+          saidInExchange,
+          heard,
+        )
+      )
+        return { heard, reply: null };
       const reply = await replyOf(
         round,
         segment,

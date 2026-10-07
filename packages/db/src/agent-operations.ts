@@ -1,12 +1,17 @@
 import { z } from 'zod';
-import { and, eq, gte, inArray, isNull, sql } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { jsonObjectSchema } from './schema/columns';
-import { rounds } from './schema/rounds';
 import { agentRuns } from './schema/agent-runs';
 import { usageReservations } from './schema/usage-reservations';
 import { roundParticipants } from './schema/round-participants';
+import {
+  admitAiPractice,
+  liveAiPracticeCount,
+  recentAiPracticeCount,
+  type AiPracticeAdmission,
+} from './ai-practice-admission';
 
 /** The TTS characters a seat has already spent this round, summed. */
 const spentOnSpeech = (
@@ -39,6 +44,8 @@ export const agentOperations = ({
   readonly database: BunSQLDatabase;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
+  admitAiPractice: (input: AiPracticeAdmission) =>
+    admitAiPractice(database, eventSink, input),
   /**
    * Records one execution's consumption. Cost accounting only: no rule
    * reads it, so a failure here must never fail the round.
@@ -189,26 +196,20 @@ export const agentOperations = ({
     readonly since: Date;
   }): Promise<number> {
     return instrumented(eventSink, 'countRecentAiPractice', async () => {
-      const [row] = await database
-        .select({ n: sql<number>`count(*)` })
-        .from(usageReservations)
-        .innerJoin(rounds, eq(rounds.id, usageReservations.roundId))
-        .where(
-          and(
-            eq(usageReservations.actorId, input.actorId),
-            eq(usageReservations.kind, 'ai_practice'),
-            gte(rounds.createdAt, input.since),
-          ),
-        );
+      const [row] = await recentAiPracticeCount(
+        database,
+        input.actorId,
+        input.since,
+      );
       return Number(row?.n ?? 0);
     });
   },
 
   /**
-   * Rounds nobody has finished, across everyone.
+   * AI-practice reservations whose rounds nobody has finished.
    *
-   * This is the global ceiling on live AI practice: each live round holds
-   * seats, a reservation and a voice budget, so without a global count every
+   * This is the global ceiling on live AI practice: each reserved round holds
+   * seats and a voice budget, so without a global count every
    * member's personal allowance multiplies out. `scheduled` and `active` are
    * the two unfinished statuses; `completed` and `abandoned` have given their
    * resources back.
@@ -222,10 +223,7 @@ export const agentOperations = ({
    */
   async countLiveRounds(): Promise<number> {
     return instrumented(eventSink, 'countLiveRounds', async () => {
-      const [row] = await database
-        .select({ n: sql<number>`count(*)` })
-        .from(rounds)
-        .where(inArray(rounds.status, ['scheduled', 'active'] as const));
+      const [row] = await liveAiPracticeCount(database);
       return Number(row?.n ?? 0);
     });
   },

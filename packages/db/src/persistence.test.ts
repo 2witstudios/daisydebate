@@ -8,6 +8,10 @@ setupRitewayBun();
 
 const rules = validRules;
 const checkpoint = emptyRuntimeCheckpoint;
+const isRepeatableReadOnly = (query: string | undefined) => {
+  const text = query?.toLowerCase() ?? '';
+  return text.includes('repeatable read') && text.includes('read only');
+};
 
 describe('round persistence', () => {
   test('createRound inserts the resolved rules and reports conflict on a replayed id', async () => {
@@ -78,7 +82,7 @@ describe('round persistence', () => {
       updatedAt: '2026-01-01T00:00:00.000Z',
       version: 2,
     });
-    const { database } = createTestDatabase([[row], [], []]);
+    const { database, queries } = createTestDatabase([[], [row], [], []]);
     const round = await database.getRound('c8d4e2f6a1b3k5m7n9p2r4t6');
     assert({
       given: 'an active round row with no participants or segments',
@@ -101,6 +105,12 @@ describe('round persistence', () => {
         segments: 0,
         version: 2,
       },
+    });
+    assert({
+      given: 'a Round hydration spanning parent, seats and segments',
+      should: 'read them under one repeatable-read, read-only snapshot',
+      actual: isRepeatableReadOnly(queries[0]?.query),
+      expected: true,
     });
   });
 

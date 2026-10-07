@@ -1,9 +1,11 @@
 import { assert, test } from 'riteway/bun';
+import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { roundAuthoring, withFixture } from './constraint-helpers';
 import { integrationSuite } from './suite.test-support';
 
 const { databaseUrl: url } = integrationSuite();
+requireTestServices(process.env);
 
 /**
  * The voice budget has to be a ceiling, not a suggestion.
