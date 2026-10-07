@@ -2,7 +2,6 @@ import type { DebateRole, DebateSide } from './primitives';
 import type { RatedOutcome } from './ratings';
 import type { SegmentType } from './format';
 import type { RoundStage, RoundStatus, RuntimeCheckpoint } from './round';
-import { z } from 'zod';
 
 /**
  * The round runtime contract (ADR 0058 §4) between `@daisy/db`, which
@@ -40,19 +39,14 @@ export type RoundParticipantSeat = {
   readonly slot: number;
 };
 
-export const roundCommandSchema = z.discriminatedUnion('type', [
-  z.strictObject({ type: z.literal('start') }),
-  z.strictObject({ type: z.literal('start_prep') }),
-  z.strictObject({ type: z.literal('start_speech') }),
-  z.strictObject({ type: z.literal('yield') }),
-  z.strictObject({ type: z.literal('interrupt') }),
-  z.strictObject({ type: z.literal('forfeit') }),
-  z.strictObject({
-    type: z.literal('complete'),
-    outcome: z.enum(['affirmative', 'negative', 'draw']),
-  }),
-]);
-export type RoundCommand = z.infer<typeof roundCommandSchema>;
+export type RoundCommand =
+  | { readonly type: 'start' }
+  | { readonly type: 'start_prep' }
+  | { readonly type: 'start_speech' }
+  | { readonly type: 'yield' }
+  | { readonly type: 'interrupt' }
+  | { readonly type: 'forfeit' }
+  | { readonly type: 'complete'; readonly outcome: RatedOutcome };
 
 /** A durable segment row the runtime opened and the caller must insert. */
 export type SegmentInsert = {

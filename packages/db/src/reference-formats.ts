@@ -190,7 +190,7 @@ export const oneOnOneFullConfig: RoomConfig = {
 };
 
 /** The sanctioned quick-length ranked config: the same debate, shortened. */
-export const oneOnOneQuickConfig: RoomConfig = {
+const oneOnOneQuickConfig: RoomConfig = {
   ...oneOnOneFullConfig,
   inRoundPrep: { enabled: true, budgetMsPerSide: 120_000 },
   speechTiming: {

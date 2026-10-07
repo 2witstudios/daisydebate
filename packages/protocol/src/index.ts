@@ -1,6 +1,3 @@
-import { z } from 'zod';
-/** A format's slug identity (`formats.id`): lowercase, digits and hyphens. */
-export const formatIdSchema = z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/);
 /**
  * Named re-exports, not `export *` (AGENTS.md: explicit exports, no
  * barrels). This is `@daisy/protocol`'s only public entry point: every
@@ -25,19 +22,14 @@ export {
   formatDefinitionSchema,
   roundRulesSchema,
   segmentTypes,
-  crossExModes,
-  interruptionModes,
 } from './format';
 export type {
   FormatDefinition,
   RoundRules,
   SegmentType,
-  CrossExMode,
-  InterruptionMode,
 } from './format';
 export { roomConfigSchema, roomExecutionPlanSchema } from './room';
 export type { RoomConfig, RoomExecutionPlan } from './room';
-export { roundCommandSchema } from './runtime';
 export type {
   HydratedRound,
   HydratedSegment,
@@ -51,12 +43,10 @@ export type {
 } from './runtime';
 export {
   competitionTypes,
-  competitionTypeSchema,
   roundLengths,
   roundLengthSchema,
   roundStatuses,
   roundStatusSchema,
-  roundStages,
   roundStageSchema,
   runtimeCheckpointSchema,
   emptyRuntimeCheckpoint,
@@ -76,13 +66,9 @@ export {
   ballotRubric,
   ballotRubricVersion,
   ballotCategories,
-  ballotDefaultScore,
-  ballotScoreMax,
-  ballotLimits,
   speakerTotal,
-  isLowPointWin,
 } from './ballot';
-export type { Ballot, BallotScores, BallotCategory } from './ballot';
+export type { Ballot } from './ballot';
 export type {
   DebaterStanding,
   PlannedRatingChange,

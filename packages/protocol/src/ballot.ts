@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { debateSideSchema, debateSides } from './primitives';
+import { debateSideSchema } from './primitives';
 
 /**
  * The speaker rubric every ballot scores against, human or AI. Ten
@@ -151,9 +151,8 @@ export const ballotCategories = [
 ] as const;
 export type BallotCategory = (typeof ballotCategories)[number];
 
-/** The score every category starts at on a new ballot. */
-export const ballotDefaultScore = 3;
-export const ballotScoreMax = 5;
+/** The top of the 1–5 category scale; the floor is 1. */
+const ballotScoreMax = 5;
 const ballotReasonMax = 600;
 const ballotFeedbackMax = 280;
 
@@ -172,21 +171,18 @@ const citationSchema = z.strictObject({
  * write path validates before the row is decomposed into its columns.
  */
 export const ballotScoresSchema = z.record(debateSideSchema, sideScoresSchema);
-export type BallotScores = z.infer<typeof ballotScoresSchema>;
 
 /** The per-side feedback the ballot may carry, as its column stores it. */
 export const ballotFeedbackSchema = z.partialRecord(
   debateSideSchema,
   z.string().trim().min(1).max(ballotFeedbackMax),
 );
-export type BallotFeedback = z.infer<typeof ballotFeedbackSchema>;
 
 /** The turn behind each score, as its column stores it. */
 export const ballotCitationsSchema = z.partialRecord(
   debateSideSchema,
   z.partialRecord(categorySchema, citationSchema),
 );
-export type BallotCitations = z.infer<typeof ballotCitationsSchema>;
 
 /**
  * One judge's ballot. The judge picks a winner (there are no draws), scores
@@ -199,16 +195,8 @@ export const ballotSchema = z.strictObject({
   winner: debateSideSchema,
   scores: ballotScoresSchema,
   reason: z.string().trim().min(1).max(ballotReasonMax),
-  feedback: z.partialRecord(
-    debateSideSchema,
-    z.string().trim().min(1).max(ballotFeedbackMax),
-  ),
-  citations: z
-    .partialRecord(
-      debateSideSchema,
-      z.partialRecord(categorySchema, citationSchema),
-    )
-    .optional(),
+  feedback: ballotFeedbackSchema,
+  citations: ballotCitationsSchema.optional(),
 });
 export type Ballot = z.infer<typeof ballotSchema>;
 
@@ -217,22 +205,3 @@ export const speakerTotal = (
   scores: Readonly<Record<BallotCategory, number>>,
 ): number =>
   ballotCategories.reduce((sum, category) => sum + scores[category], 0);
-
-/** True when the winner's speaker score is lower than the loser's. */
-export const isLowPointWin = (
-  winner: (typeof debateSides)[number],
-  scores: Readonly<
-    Record<
-      (typeof debateSides)[number],
-      Readonly<Record<BallotCategory, number>>
-    >
-  >,
-): boolean => {
-  const loser = debateSides.find((side) => side !== winner) ?? winner;
-  return speakerTotal(scores[winner]) < speakerTotal(scores[loser]);
-};
-
-export const ballotLimits = {
-  reason: ballotReasonMax,
-  feedback: ballotFeedbackMax,
-} as const;

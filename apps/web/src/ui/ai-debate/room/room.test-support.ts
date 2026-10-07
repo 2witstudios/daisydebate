@@ -17,7 +17,7 @@ const resolved = resolveRoomConfiguration(
 if (!resolved.ok) throw new Error(resolved.refusal.message);
 
 /** The hydration view one of the actor's live rounds carries. */
-export const testView = (
+const testView = (
   at: () => number,
   personSide: 'affirmative' | 'negative' = 'affirmative',
 ): AiDebateView => ({

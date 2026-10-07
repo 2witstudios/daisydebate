@@ -16,14 +16,14 @@ import type {
  * is what keeps its refusal set closed and its totality provable.
  */
 
-export type ResolveRefusalKind =
+type ResolveRefusalKind =
   | 'capability-forbidden'
   | 'out-of-range'
   | 'unknown-segment-key'
   | 'invalid-choice'
   | 'incomplete-timing';
 
-export type ResolveRefusal = {
+type ResolveRefusal = {
   readonly kind: ResolveRefusalKind;
   /** What was refused and why, for the operator and the logs. */
   readonly message: string;

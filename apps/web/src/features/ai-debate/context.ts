@@ -29,7 +29,7 @@ export type RoundStore = Pick<
   | 'countLiveRounds'
 >;
 
-export type AiDebateVoice = Pick<
+type AiDebateVoice = Pick<
   OpenRouter,
   'complete' | 'stream' | 'speak' | 'transcribe'
 >;

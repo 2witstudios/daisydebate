@@ -1,11 +1,11 @@
 import type {
   DebateSide,
+  RoundPosition,
   RoundRules,
   RoundStage,
   RoundStatus,
   RuntimeCheckpoint,
 } from '@daisy/protocol';
-import type { RoundPosition } from './round-contracts';
 import type { RoundStore } from './round-ecs-store';
 
 const iso = (ms: number): string => new Date(ms).toISOString();

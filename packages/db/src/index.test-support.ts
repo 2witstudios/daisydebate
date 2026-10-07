@@ -155,19 +155,6 @@ export const roundRow = (record: {
   record.version,
 ];
 
-export const sampleUser = () => ({
-  id: 'a7b3c9d1e5f2k4m6n8p1r3t5',
-  username: 'demo',
-  email: null,
-  emailVerified: false,
-  name: '',
-  image: null,
-  createdAt: new Date('2026-01-01T00:00:00.000Z'),
-  updatedAt: new Date('2026-01-01T00:00:00.000Z'),
-  version: 1,
-  deletedAt: null,
-});
-
 // The columns `getFormat` selects, in selection order.
 export const formatRow = (record: {
   id: string;
@@ -184,7 +171,7 @@ export const sampleFormat = () => ({
 });
 
 /** The foundation definition, as the protocol schema validates it. */
-export const sampleDefinition = () =>
+const sampleDefinition = () =>
   ({
     version: 1,
     seats: { affirmative: 1, negative: 1, judge: 0 },

@@ -68,6 +68,3 @@ export const agentSeedRound = {
     },
   ],
 } as const;
-
-// The reference formats stay importable for tooling that lists them.
-export const seedFormatIds = referenceFormats.map((format) => format.id);

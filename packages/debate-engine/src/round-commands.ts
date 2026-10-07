@@ -1,13 +1,23 @@
 import { createAppError, createInvariantError } from '@daisy/errors';
 import type {
   DebateSide,
+  RoundCommand,
   RoundParticipantSeat,
   RoundRules,
   RatedOutcome,
+  SegmentClose,
+  SegmentInsert,
+  RoundEffect,
 } from '@daisy/protocol';
 import { debateInvariantIds } from './invariant-ids';
-import type { Queues, RoundCommand } from './round-contracts';
 import type { RoundStore } from './round-ecs-store';
+
+/** The durable writes a command or tick queues for the caller to persist. */
+export type Queues = {
+  inserts: SegmentInsert[];
+  closes: SegmentClose[];
+  effects: RoundEffect[];
+};
 
 /**
  * What one command needs from the runtime it was composed by. The dispatcher

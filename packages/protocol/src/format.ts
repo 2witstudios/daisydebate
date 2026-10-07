@@ -7,33 +7,30 @@ import { debateRoleSchema, debateSideSchema } from './primitives';
  * so it is policy in the rules, never a segment (ADR 0058).
  */
 export const segmentTypes = ['speech', 'cross_ex'] as const;
-export const segmentTypeSchema = z.enum(segmentTypes);
+const segmentTypeSchema = z.enum(segmentTypes);
 export type SegmentType = (typeof segmentTypes)[number];
 
 /** How a cross-examination segment's floor may move. */
-export const crossExModes = ['ordered', 'free'] as const;
+const crossExModes = ['ordered', 'free'] as const;
 export const crossExModeSchema = z.enum(crossExModes);
-export type CrossExMode = (typeof crossExModes)[number];
 
 /**
  * Whether another participant may take the floor mid-segment, and where.
  * A three-state policy, not a boolean: "interruptions on" and "interruptions
  * during cross-examination only" are different debates (ADR 0058).
  */
-export const interruptionModes = [
+const interruptionModes = [
   'disabled',
   'cross_ex_only',
   'enabled',
 ] as const;
 export const interruptionModeSchema = z.enum(interruptionModes);
-export type InterruptionMode = (typeof interruptionModes)[number];
 
 /** An inclusive millisecond range a room's chosen value must land inside. */
 const boundSchema = z.strictObject({
   min: z.int().min(0),
   max: z.int().min(0),
 });
-export type Bound = z.infer<typeof boundSchema>;
 
 const segmentSchema = z.strictObject({
   /** The stable short name: AC, CX, NC, 1AR, NR, 2AR. */

@@ -4,20 +4,17 @@ import {
   runtimeCheckpointSchema,
   type DebateRole,
   type DebateSide,
-  type RoundRules,
-  type RuntimeCheckpoint,
-} from '@daisy/protocol';
-import { applyRoundCommand } from './round-commands';
-import { roundPositionOf, stageOf } from './round-position';
-import {
   type HydratedRound,
   type HydratedSegment,
-  type Queues,
   type RoundCommand,
   type RoundParticipantSeat,
   type RoundPosition,
   type RoundProjection,
-} from './round-contracts';
+  type RoundRules,
+  type RuntimeCheckpoint,
+} from '@daisy/protocol';
+import { applyRoundCommand, type Queues } from './round-commands';
+import { roundPositionOf, stageOf } from './round-position';
 import { debateInvariantIds } from './invariant-ids';
 import {
   captureRoundStore,

@@ -302,48 +302,6 @@ export const roundAuthoring = async (fixture: Fixture, url: string) => {
   };
 };
 
-/**
- * A round id and `count` human actors (each with a user) seated on it, over one
- * single-connection fixture, a database over the test server and the test-only
- * operations; `cleanup` removes the round, actors and users and closes both
- * connections.
- */
-export const seatedRound = async (url: string, count: number) => {
-  const fixture = new SQL(url, { max: 1 });
-  const database = createDatabase({ url, nextActorId: createId });
-  const users = Array.from({ length: count }, () => createId());
-  const actors = Array.from({ length: count }, () => createId());
-  for (const [index, actorId] of actors.entries()) {
-    await fixture`insert into users (id) values (${users[index]})`;
-    await fixture`insert into actors (id, kind, user_id) values (${actorId}, 'human', ${users[index]})`;
-  }
-  const formatId = `fmt-${createId()}`;
-  await fixture`insert into format_revisions (format_id, version, definition) values (${formatId}, 1, ${JSON.stringify(foundationDefinition)}::jsonb)`;
-  await fixture`insert into formats (id, name, current_version) values (${formatId}, 'Fixture format', 1)`;
-  const roundId = createId();
-  await fixture`insert into rounds (id, resolution, competition_type, length, format_id, format_version, rules_snapshot, status) values (${roundId}, 'A resolution', 'casual', 'full', ${formatId}, 1, ${JSON.stringify(validRules)}::jsonb, 'scheduled')`;
-  for (const [index, actorId] of actors.entries()) {
-    await fixture`insert into round_participants (id, round_id, actor_id, role, slot) values (${createId()}, ${roundId}, ${actorId}, ${index === 0 ? 'affirmative' : 'negative'}, 0)`;
-  }
-  return {
-    fixture,
-    database,
-    testOnly: createTestOnlyOperations({ client: fixture }),
-    roundId,
-    actors,
-    cleanup: async () => {
-      await database.close();
-      await fixture`delete from rounds where id = ${roundId}`;
-      await fixture`delete from actors where id in ${fixture(actors)}`;
-      await fixture`delete from users where id in ${fixture(users)}`;
-      // The pointer row before the revision it names: `formats_current_revision_fk`.
-      await fixture`delete from formats where id = ${formatId}`;
-      await fixture`delete from format_revisions where format_id = ${formatId}`;
-      await fixture.close();
-    },
-  };
-};
-
 export const at = new Date('2026-01-01T00:00:00.000Z');
 /** A well-formed SHA3-256 hex digest. */
 export const digest = 'a'.repeat(64);

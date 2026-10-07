@@ -7,7 +7,6 @@ import { debateSideSchema, idSchema } from './primitives';
  * competition type — `roundLengths` below.
  */
 export const competitionTypes = ['ranked', 'casual', 'practice'] as const;
-export const competitionTypeSchema = z.enum(competitionTypes);
 export type CompetitionType = (typeof competitionTypes)[number];
 
 /** The preset dimension (`format_presets.length`): full or quick. */
@@ -30,7 +29,7 @@ export const roundStatusSchema = z.enum(roundStatuses);
 export type RoundStatus = (typeof roundStatuses)[number];
 
 /** Where a running round is: what the clock is doing right now. */
-export const roundStages = ['countdown', 'prep', 'live'] as const;
+const roundStages = ['countdown', 'prep', 'live'] as const;
 export const roundStageSchema = z.enum(roundStages);
 export type RoundStage = (typeof roundStages)[number];
 
