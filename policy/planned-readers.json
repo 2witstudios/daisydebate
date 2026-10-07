@@ -2,15 +2,6 @@
   "version": 1,
   "readers": [
     {
-      "path": "packages/db/src/schema/role-grants.ts",
-      "export": "roleGrants",
-      "task": "ID-1",
-      "owner": "platform",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Scoped grants are reserved for club/org membership (grantScopeTypes widens from 'global'). The reader is principal resolution: resolveIdentity hardcodes permissions today instead of deriving them from these rows.",
-      "reviewBy": "2027-01-15"
-    },
-    {
       "path": "apps/web/src/features/realtime/browser-adapters.ts",
       "export": "createBrowserConnectionStore",
       "task": "RT-2.6a",

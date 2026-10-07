@@ -57,10 +57,15 @@ read it, and here is the date it is judged by".
    a committed leaf away. These are **planned runtime readers**: the entry means
    "consumed only by tests today, production consumer named and dated." It is not
    a permission for a genuinely unread export to ship.
-5. **Existing orphans are declared, not hidden.** `roleGrants`,
-   `createBrowserConnectionStore` and `startOutboxDrain` are backfilled with
-   their real future readers, so the list of foundations without readers is
-   visible and dated from this change onward.
+5. **Existing orphans are declared, not hidden.** `createBrowserConnectionStore`
+   and `startOutboxDrain` are backfilled with their real future readers, so the
+   list of foundations without readers is visible and dated from this change
+   onward. `roleGrants` is deliberately not declared: it has no future reader to
+   name. [ADR 0048](0048-authorization-core.md) records that `authorize` never
+   reads it and that LEAGUE-OPS will replace or drop it when grant tables land,
+   and [ADR 0058](0058-one-round-model.md) keeps it unread pending a separate
+   membership ADR. Naming a task here would assert a reader no committed leaf
+   provides — the exact move decision 1 forbids.
 6. **`AGENTS.md`'s "two real consumers" governs shared abstractions being
    invented, not a port or table whose consumer is a committed leaf.** A new
    general-purpose helper still needs two callers; a foundation for a named

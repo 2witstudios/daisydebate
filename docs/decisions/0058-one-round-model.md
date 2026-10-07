@@ -37,9 +37,9 @@ this is an architecture decision rather than a table cleanup:
    AC/CX/NC/1AR/NR/2AR schedule in TypeScript, `aiDebatePrepMs = 240_000` (`:65`) and
    `aiDebateCountdownMs = 10_000` (`:68`) are module constants, and
    `formatRulesSchema` (`protocol/src/index.ts:10`) carries only seat counts and two
-   generic clocks. IPDA, Foundation and a five-minute quick length are branches inside the
-   one implemented path, not configurations of it. Unifying the tables would have left
-   behaviour forked.
+   generic clocks. The one-on-one format, Foundation and a five-minute quick length are
+   branches inside the one implemented path, not configurations of it. Unifying the tables
+   would have left behaviour forked.
 
 The pattern across all four is _a second representation of something that already has
 one, justified as "this kind is different."_ Daisy is pre-ship, so ADR 0023 governs:
@@ -94,9 +94,9 @@ pre-round work      ↓
 the competitive occurrence.**
 
 Three rule categories, separately constrained. _Structure_ — seat counts and the ordered
-segment grammar — is fixed by the format, and is what makes IPDA and Foundation the same
-engine rather than two code paths. _Timing_ and _interaction_ are bounded by the
-definition and chosen in the Room. Capabilities are **permitted sets**
+segment grammar — is fixed by the format, and is what makes the one-on-one format and
+Foundation the same engine rather than two code paths. _Timing_ and _interaction_ are bounded
+by the definition and chosen in the Room. Capabilities are **permitted sets**
 (`crossExModes[]`, `interruptions.modes[]`, `yield.enabledChoices[]`), never typed values,
 because the distinction between what a format permits and what a Room chose _is_ this split.
 
@@ -202,8 +202,8 @@ leaves, and the PageSpace boundary remains open.
   existed only for them. `aiDebateTurns`, `aiDebatePrepMs`, `aiDebateCountdownMs`,
   `formats.ranked_eligible` and `rulesMatchFormat()` all leave the engine or the schema.
 - **The engine becomes one engine.** Formats are data rows configuring a shared runtime;
-  the schedule, prep budget and countdown are resolved rules rather than constants. IPDA and
-  Foundation differ in `segments`, not in code paths.
+  the schedule, prep budget and countdown are resolved rules rather than constants. The
+  one-on-one format and Foundation differ in `segments`, not in code paths.
 - **A new invariant can be registered.** A spec invariant that no AI-specific lifecycle table
   exists would fail the build if the fork returned — the failure mode this ADR exists to
   prevent.

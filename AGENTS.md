@@ -41,7 +41,7 @@ and detailed procedures in the linked documents, not here.
   consumers. A foundation whose reader is a committed leaf is the exception:
   declare it in `policy/planned-readers.json` with the task that reads it and a
   `reviewBy` date (ADR 0057), so a box may ship before its reader and still
-  goes red if nobody adopts it.
+  go red if nobody adopts it.
 - A new package requires a responsibility, owner, explicit public exports,
   allowed dependencies, tests, and a package-map row. Add package-specific
   `AGENTS.md` only when its rules differ from this contract.
