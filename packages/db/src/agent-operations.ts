@@ -6,6 +6,7 @@ import { jsonObjectSchema } from './schema/columns';
 import { rounds } from './schema/rounds';
 import { agentRuns } from './schema/agent-runs';
 import { usageReservations } from './schema/usage-reservations';
+import { roundParticipants } from './schema/round-participants';
 
 /**
  * The AI area on the shared model (ADR 0058 §8): one row per execution in
@@ -51,6 +52,72 @@ export const agentOperations = ({
         requests: input.requests ?? 0,
         startedAt: sql`statement_timestamp()` as unknown as Date,
         endedAt: input.endedAt ?? null,
+      });
+    });
+  },
+
+  /**
+   * Claims `characters` from a seat's voice budget, or reports that it could
+   * not. Returns whether the claim was made.
+   *
+   * Reading the total and then writing the usage was a check-then-act across
+   * the vendor call: two requests that asked for phrases at the same moment
+   * both read the same spent total, both passed, and both called the vendor —
+   * so the budget was a ceiling on paper only. This claims the characters
+   * first, in one transaction that locks the seat row, so concurrent requests
+   * queue on it and each sees the previous claim. The vendor call happens after
+   * this returns, never inside the lock.
+   *
+   * A vendor failure after the claim leaves the characters spent. That
+   * over-counts rather than under-counts, which is the safe direction for a
+   * budget that exists to cap spend.
+   */
+  async reserveSpokenCharacters(input: {
+    readonly id: string;
+    readonly roundParticipantId: string;
+    readonly characters: number;
+    readonly budget: number;
+    readonly model: string;
+    readonly provider: string;
+  }): Promise<boolean> {
+    return instrumented(eventSink, 'reserveSpokenCharacters', async () => {
+      return database.transaction(async (tx) => {
+        // Serialises concurrent claims on this seat. The row is otherwise
+        // untouched, so this is a lock and not a write.
+        const [seat] = await tx
+          .select({ id: roundParticipants.id })
+          .from(roundParticipants)
+          .where(eq(roundParticipants.id, input.roundParticipantId))
+          .for('update');
+        if (!seat) return false;
+        const [spent] = await tx
+          .select({
+            characters: sql<number>`coalesce(sum(${agentRuns.characters}), 0)`,
+          })
+          .from(agentRuns)
+          .where(
+            and(
+              eq(agentRuns.roundParticipantId, input.roundParticipantId),
+              eq(agentRuns.kind, 'tts'),
+            ),
+          );
+        if (Number(spent?.characters ?? 0) + input.characters > input.budget)
+          return false;
+        await tx.insert(agentRuns).values({
+          id: input.id,
+          roundParticipantId: input.roundParticipantId,
+          kind: 'tts',
+          model: input.model,
+          provider: input.provider,
+          configurationSnapshot: {},
+          inputTokens: 0,
+          outputTokens: 0,
+          characters: input.characters,
+          requests: 1,
+          startedAt: sql`statement_timestamp()` as unknown as Date,
+          endedAt: null,
+        });
+        return true;
       });
     });
   },

@@ -21,6 +21,7 @@ export type RoundStore = Pick<
   | 'getBallot'
   | 'recordAgentRun'
   | 'spokenCharactersFor'
+  | 'reserveSpokenCharacters'
   | 'reserveAiPractice'
   | 'markReservationCounted'
   | 'countRecentAiPractice'

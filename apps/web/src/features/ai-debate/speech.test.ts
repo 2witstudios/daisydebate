@@ -91,4 +91,63 @@ describe('the AI speech, on the one Round model', () => {
       code: 'RATE_LIMIT',
     });
   });
+
+  // `speak` and `heard` are both about the AI's voice: one fetches a phrase as
+  // mp3, the other rewrites a line down to what the listener actually heard.
+  // Both used to accept any utterance the round held, so a client could point
+  // either at the person's own transcript.
+  test('refuses to voice or rewrite the person’s own utterance', async () => {
+    const { operations, begin, clock } = setup();
+    const id = await begin();
+    clock.advance(11); // the AC opens: the person's own speech
+    await operations.transcribe({
+      actorId: 'actor-1',
+      id,
+      segmentIndex: 0,
+      audioBase64: 'QUJDRA==',
+      format: 'webm',
+    });
+    const view = await operations.view({ actorId: 'actor-1', id });
+    const spoken = view.utterances.find((line) => line.role === 'person');
+    if (!spoken) throw new Error('the person’s line did not land');
+
+    await assertRejects({
+      given: "a voice request naming the person's own utterance",
+      should: 'refuse, so the budget cannot be spent on their words',
+      actual: () =>
+        operations.speak({
+          actorId: 'actor-1',
+          id,
+          utteranceId: spoken.id,
+          phraseIndex: 0,
+        }),
+      code: 'NOT_FOUND',
+    });
+
+    const afterSpeak = await operations.view({ actorId: 'actor-1', id });
+
+    await assertRejects({
+      given: "a heard report naming the person's own utterance",
+      should: 'refuse, so their transcript is not rewritten',
+      actual: () =>
+        operations.heard({
+          actorId: 'actor-1',
+          id,
+          utteranceId: spoken.id,
+          phraseIndex: 0,
+          playedMs: 0,
+          totalMs: 100,
+        }),
+      code: 'NOT_FOUND',
+    });
+
+    assert({
+      given: 'both refused requests',
+      should: 'leave the person’s transcript exactly as they spoke it',
+      actual: (
+        await operations.view({ actorId: 'actor-1', id })
+      ).utterances.map((line) => line.text),
+      expected: afterSpeak.utterances.map((line) => line.text),
+    });
+  });
 });

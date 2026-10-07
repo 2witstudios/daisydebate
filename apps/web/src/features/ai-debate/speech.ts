@@ -80,6 +80,20 @@ export function speechOperations(
     throw createAppError('CONFLICT', 'That segment never opened');
   };
 
+  /**
+   * The phrases of one of the **bot's** lines.
+   *
+   * Both callers are about the AI's voice: `speak` fetches a phrase as mp3 and
+   * `heard` rewrites the line down to what the listener actually heard. This
+   * used to accept any utterance the round held, which let a client point
+   * either at the person's own transcript — spending the bot's character budget
+   * to speak the member's words back at them, and rewriting the member's
+   * record of what they said. So the line's seat has to be the bot's.
+   *
+   * A person's utterance is refused as `NOT_FOUND`, not as a permission error:
+   * from the caller's side these ids name lines that are not speakable, and
+   * saying so plainly would confirm the id exists.
+   */
   const phrasesOfLine = async (
     actorId: string,
     id: string,
@@ -93,15 +107,17 @@ export function speechOperations(
       (segment) => segment.id === line.segmentId,
     );
     const personSide = personSideOf(round, actorId);
+    const role =
+      participantRoleOfLine(round, line.roundParticipantId) === personSide
+        ? ('person' as const)
+        : ('ai' as const);
+    if (role !== 'ai') throw createAppError('NOT_FOUND');
     return {
       round,
       line: {
         id: line.id,
         segmentIndex,
-        role:
-          participantRoleOfLine(round, line.roundParticipantId) === personSide
-            ? ('person' as const)
-            : ('ai' as const),
+        role,
         text: line.text,
         complete: line.complete,
         at: line.createdAt.getTime(),
@@ -186,9 +202,15 @@ export function speechOperations(
 
     /**
      * The voice for one phrase of an AI line, as mp3 bytes. Every request
-     * spends from the round's speech budget — the seat's recorded TTS
+     * claims from the round's speech budget — the seat's recorded TTS
      * characters — before the vendor is called, so asking again and again
      * for a phrase has a ceiling.
+     *
+     * The claim is `reserveSpokenCharacters`, not a read of the total: reading
+     * the spent total and then calling the vendor was check-then-act, so two
+     * requests arriving together both passed the same check and both called
+     * the vendor, and the budget capped nothing. The claim serialises on the
+     * seat, and the vendor is only called once it is held.
      */
     async speak({
       actorId,
@@ -211,25 +233,27 @@ export function speechOperations(
         (candidate) => candidate.role === aiSideOf(personSide),
       )?.id;
       if (!seatId) throw createAppError('INTERNAL', 'The bot has no seat');
-      const spent = await store.spokenCharactersFor({
-        roundParticipantId: seatId,
-      });
-      if (spent + text.length > speechBudget)
-        throw createAppError('RATE_LIMIT', 'Speech budget spent');
       const bot = opponentForActor(
         round.participants.find(
           (candidate) => candidate.role === aiSideOf(personSide),
         )?.actorId,
       );
+      const claimed = await store.reserveSpokenCharacters({
+        id: ids.next(),
+        roundParticipantId: seatId,
+        characters: text.length,
+        budget: speechBudget,
+        model: DEFAULT_MODELS.tts,
+        provider: 'openrouter',
+      });
+      if (!claimed) throw createAppError('RATE_LIMIT', 'Speech budget spent');
+      // The claim is itself billable usage, so the reservation is counted from
+      // this point on exactly as it would have been by the old `recordUsage`.
+      await store.markReservationCounted({ actorId, roundId: id });
       const { audio } = await speaker.speak({
         model: DEFAULT_MODELS.tts,
         voice: bot?.voice ?? 'aura-2-thalia-en',
         text,
-      });
-      await recordUsage(id, seatId, actorId, {
-        kind: 'tts',
-        model: DEFAULT_MODELS.tts,
-        characters: text.length,
       });
       return audio;
     },

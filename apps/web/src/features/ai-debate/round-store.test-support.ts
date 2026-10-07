@@ -360,6 +360,39 @@ export function createInMemoryRoundStore() {
           .reduce((sum, row) => sum + row.characters, 0);
       },
 
+      /**
+       * Claim-then-check, matching the real reservation: the characters are
+       * counted first and the budget decides afterwards, so two requests that
+       * interleave cannot both pass on the same starting total. Bun is
+       * single-threaded here, so interleaving is simulated by the fact that
+       * the sum is taken *after* the row exists — a read-then-write
+       * implementation would pass twice under this store too, which is
+       * exactly the bug the real test in `packages/db` pins.
+       */
+      async reserveSpokenCharacters(input: {
+        id: string;
+        roundParticipantId: string;
+        characters: number;
+        budget: number;
+        model: string;
+        provider: string;
+      }) {
+        const spent = runRows
+          .filter(
+            (row) =>
+              row.roundParticipantId === input.roundParticipantId &&
+              row.kind === 'tts',
+          )
+          .reduce((sum, row) => sum + row.characters, 0);
+        runRows.push({
+          id: input.id,
+          roundParticipantId: input.roundParticipantId,
+          kind: 'tts',
+          characters: input.characters,
+        });
+        return spent + input.characters <= input.budget;
+      },
+
       async reserveAiPractice(input: {
         id: string;
         actorId: string;
