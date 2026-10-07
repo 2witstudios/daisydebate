@@ -1,4 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { exportedNames } from './policy-exports';
 import {
   duplicateAdrNumberProblems,
   scanPolicyText,
@@ -210,6 +211,84 @@ describe('policy scanner', () => {
         },
       ),
       expected: ['registry[1]: duplicate src/example.ts|direct-random-uuid'],
+    });
+  });
+});
+
+describe('export name collector', () => {
+  test('indexes every export declaration keyword, including abstract classes', () => {
+    assert({
+      given: 'one source file using each declaration form of export',
+      should: 'index each declared name',
+      actual: exportedNames(
+        'src/example.ts',
+        [
+          'export const alpha = 1;',
+          'export let alsoAlpha = 2;',
+          'export function beta() {}',
+          'export async function* gamma() {}',
+          'export abstract class Delta {}',
+          'export interface Epsilon {}',
+          'export type Zeta = string;',
+          'export const enum Eta {}',
+          'export declare function theta(): void;',
+          'export default class Omicron {}',
+        ].join('\n'),
+      ),
+      expected: [
+        'alpha',
+        'alsoAlpha',
+        'beta',
+        'gamma',
+        'Delta',
+        'Epsilon',
+        'Zeta',
+        'Eta',
+        'theta',
+        'Omicron',
+      ],
+    });
+  });
+
+  test('indexes the public name of an aliased export, not the local name', () => {
+    assert({
+      given: "an export list aliasing a local binding ('export { a as c }')",
+      should: 'index c, the name a consumer imports, and not a',
+      actual: exportedNames(
+        'src/example.ts',
+        ['const a = 1;', 'export { a as c };'].join('\n'),
+      ),
+      expected: ['c'],
+    });
+  });
+
+  test('indexes export lists that span multiple lines and re-exports from another module', () => {
+    assert({
+      given: 'a multiline export list and an aliased re-export with from',
+      should: 'index each public name across the lines',
+      actual: exportedNames(
+        'src/example.ts',
+        [
+          'export {',
+          '  first,',
+          '  second as third,',
+          '};',
+          "export { inner as outer } from './inner';",
+        ].join('\n'),
+      ),
+      expected: ['first', 'third', 'outer'],
+    });
+  });
+
+  test('does not index exports nested inside a namespace', () => {
+    assert({
+      given: 'a namespace carrying an internal export',
+      should: 'index only the namespace, which is what a consumer imports',
+      actual: exportedNames(
+        'src/example.ts',
+        ['export namespace N {', '  export const hidden = 1;', '}'].join('\n'),
+      ),
+      expected: ['N'],
     });
   });
 });
