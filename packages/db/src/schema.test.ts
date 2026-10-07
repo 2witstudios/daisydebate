@@ -8,8 +8,6 @@ import { agentRuns } from './schema/agent-runs';
 import { formatPresets } from './schema/format-presets';
 import { formatRevisions } from './schema/format-revisions';
 import { formats } from './schema/formats';
-import { ratingChanges, ratings, seasons } from './schema/ratings';
-import { roleGrants } from './schema/role-grants';
 import { roundCommands } from './schema/round-commands';
 import { roundParticipants } from './schema/round-participants';
 import { roundSegments } from './schema/round-segments';

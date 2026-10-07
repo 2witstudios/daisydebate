@@ -265,21 +265,6 @@ export function createRoundRuntime(input: {
   });
   let pending: Queues = queues();
 
-  /** Why the loop stops here: nothing is due at `now`. */
-  const segmentDueAt = (
-    on: RoundStore,
-    open: NonNullable<ReturnType<RoundStore['openRow']>>,
-    now: number,
-  ): number | null => {
-    const endsAt = open.startedAtMs + open.durationMs;
-    // The final segment stays open past its time: the round is spoken but
-    // not completed, and the open row remains the live interval until
-    // `complete` closes it with the outcome.
-    if (now < endsAt || open.sequence === rules.segments.length - 1)
-      return null;
-    return endsAt;
-  };
-
   const closedCountOn = (on: RoundStore): number =>
     on.rows().filter((row) => row.endedAtMs !== null).length;
 
@@ -307,7 +292,7 @@ export function createRoundRuntime(input: {
   };
 
   /** The open segment's due instant, once its time is spent. */
-  const dueAtOf = (on: RoundStore, now: number): number =>
+  const dueAtOf = (on: RoundStore): number =>
     on.openRow()!.startedAtMs + on.openRow()!.durationMs;
 
   /** Closes the live segment and returns; false when nothing was due. */
@@ -315,7 +300,7 @@ export function createRoundRuntime(input: {
     if (openStillRunning(on, now)) return false;
     const open = on.openRow();
     if (open === undefined) return false;
-    closeRow(on, into, open, dueAtOf(on, now));
+    closeRow(on, into, open, dueAtOf(on));
     return true;
   };
 

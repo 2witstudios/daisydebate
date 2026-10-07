@@ -1,9 +1,5 @@
 import type { OpenRouter } from '@daisy/ai-voice';
 import type { Clock, IdGenerator } from '@daisy/clock';
-import {
-  practiceRoomConfig,
-  referenceAiJudge,
-} from '@daisy/db/reference-formats';
 import { createAiDebateOperations } from './operations';
 import { createInMemoryRoundStore } from './round-store.test-support';
 import type { RoundStore } from './context';

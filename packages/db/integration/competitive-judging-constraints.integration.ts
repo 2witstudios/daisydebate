@@ -128,7 +128,6 @@ describe('ballots (DATA-3.1)', () => {
   test('a ballot cannot borrow a seat from another round', async () => {
     await withFixture(url, async (fixture) => {
       const roundA = await fixture.round();
-      const roundB = await fixture.round();
       const seatInA = await fixture.seat(roundA, 'judge');
       // The seat id is unique per round, so naming round A's seat is what
       // makes the ballot belong to round A; there is no round column to

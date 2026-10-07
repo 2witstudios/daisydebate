@@ -3,12 +3,9 @@ import type { RoundHydration } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
 import {
   aiSideOf,
-  approximateTokens,
   personSideOf,
   requireOpenSegment,
-  transcriptOf,
   type AiDebateDependencies,
-  type RoundStore,
 } from './context';
 import { opponentForActor } from './opponents';
 import { writeSpeech, type SpeechEvent } from './speech-writer';

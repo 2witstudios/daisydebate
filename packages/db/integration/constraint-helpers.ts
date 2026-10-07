@@ -4,7 +4,6 @@ import {
   validConfig,
   validRules,
 } from './round-fixtures';
-import type { RoundRules } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { createDatabase } from '../src';
 import { createTestOnlyOperations } from '../src/test-only-operations';
