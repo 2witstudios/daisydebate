@@ -69,20 +69,30 @@ export type RoundExecutionWrite = {
 };
 
 /**
- * The durable instant for a lifecycle column: this transaction's clock when
- * the projection is moving the round into the state that records it, and null
- * when it is not. A projection that merely re-states a lifecycle the round
- * already holds leaves the timestamp it already has.
+ * The durable instant for a lifecycle column (ADR 0033 §3.2, ISSUE-37):
+ * `coalesce` on the *stored* column, so only the write that fills it in
+ * chooses an instant and every write after it keeps the one already recorded.
+ *
+ * The previous form took the transition from the projection's status, which
+ * meant any write made while the round was active re-stamped `started_at` — a
+ * segment closing halfway through a debate moved the round's start forward,
+ * and the timetable and rating window read exactly this column. Comparing
+ * against the stored column is what makes it a transition again: the round
+ * that opens at T keeps its start at T however many commands follow, and two
+ * concurrent writers cannot both claim to be the one that started it.
+ *
+ * The projected value is never written. These columns are PostgreSQL's alone,
+ * so no caller chooses them: hydration reads them back into the runtime and
+ * the runtime carries them through.
  */
-function lifecycleInstant(
+const lifecycleInstant = (
+  column: typeof rounds.startedAt,
   projected: string | null,
-  transition: boolean,
-): Date | ReturnType<typeof sql> | null {
-  if (projected === null) return null;
-  return transition
-    ? (sql`statement_timestamp()` as unknown as Date)
-    : new Date(projected);
-}
+  recorded: string,
+) =>
+  projected === recorded
+    ? sql`coalesce(${column}, statement_timestamp())`
+    : column;
 
 /** Writes one projection's round row and segment changes inside `tx`. */
 async function writeProjection(
@@ -90,6 +100,9 @@ async function writeProjection(
   roundId: string,
   projection: RoundProjection,
 ): Promise<void> {
+  // `null` means no round-row column changed, so there is no lifecycle to
+  // record. A scheduled round that a projection leaves scheduled writes its
+  // `started_at` back unchanged, which is what makes the instant a transition.
   if (projection.round !== null) {
     await tx
       .update(rounds)
@@ -98,17 +111,20 @@ async function writeProjection(
         currentStage: projection.round.currentStage,
         // The durable lifecycle instants are PostgreSQL's, never the
         // projection's (ADR 0033 §3.2, ISSUE-37): the timetable and the
-        // rating window read these columns, so no caller may choose them.
+        // rating window read these columns, so no caller may choose them, and
+        // a later write must not restate the instant the transition recorded.
         // The runtime is still pure — it receives `now` from `databaseNow()`,
         // the same clock — so segment instants agree with these to within the
         // request's latency rather than drifting onto a second clock.
         startedAt: lifecycleInstant(
-          projection.round.startedAt,
-          projection.round.status === 'active',
+          rounds.startedAt,
+          projection.round.status,
+          'active',
         ),
         completedAt: lifecycleInstant(
-          projection.round.completedAt,
-          projection.round.status === 'completed',
+          rounds.completedAt,
+          projection.round.status,
+          'completed',
         ),
         outcome: projection.round.outcome,
         runtimeState: projection.round.checkpoint,

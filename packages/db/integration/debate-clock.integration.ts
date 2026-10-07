@@ -105,13 +105,63 @@ test('started_at, segment instants and completed_at come from the injected datab
       const started = await stamps();
       if (!started.row) throw new Error('the round row vanished');
 
+      // Still-active executions against the round that is already active: the
+      // shape a segment close takes. They run here, before the completion,
+      // because a completed round cannot go back to active — `rounds_lifecycle_check`
+      // requires `completed_at is null` for an active row, so the database
+      // refuses that transition outright rather than restating anything.
+      //
+      // Each must leave the start instant exactly as the start transition
+      // recorded it. Taking the transition from the *projected* status instead
+      // re-stamped `started_at` on every write, so a segment closing halfway
+      // through a debate moved the round's start forward.
+      for (const digest of ['c', 'd']) {
+        const before = await databaseNow();
+        await database.applyRoundExecution({
+          roundId,
+          expectedVersion: digest === 'c' ? 2 : 3,
+          command: {
+            commandId: createId(),
+            actorId: null,
+            serviceId: 'integration',
+            type: 'yield',
+            payloadDigest: digest.repeat(64),
+            result: { ok: true },
+          },
+          // Only the round row is under test here, so no segment rows: the
+          // start transition already opened sequence 0.
+          projection: {
+            ...projection(new Date(before).toISOString()),
+            segmentInserts: [],
+            segmentCloses: [],
+          },
+        });
+        const after = await databaseNow();
+        const row = (await stamps()).row;
+        assert({
+          given: `a still-active execution ${digest} after the round started`,
+          should: 'leave the start instant the start transition recorded',
+          actual: {
+            insideOriginalWindow: within(
+              row?.started_at ?? null,
+              beforeStart,
+              afterStart,
+            ),
+            notRestampedForward:
+              (row?.started_at?.getTime() ?? Number.POSITIVE_INFINITY) <=
+              afterStart,
+          },
+          expected: { insideOriginalWindow: true, notRestampedForward: true },
+        });
+      }
+
       const beforeComplete = await databaseNow();
       const completeInstant = new Date(
         await database.databaseNow(),
       ).toISOString();
       await database.applyRoundExecution({
         roundId,
-        expectedVersion: 2,
+        expectedVersion: 4,
         command: {
           commandId: createId(),
           actorId: null,
