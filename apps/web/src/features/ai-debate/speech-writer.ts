@@ -71,7 +71,7 @@ export async function* writeSpeech({
   readonly recordUsage: Usage;
   readonly signal: AbortSignal | undefined;
 }): AsyncGenerator<SpeechEvent> {
-  const personSide = personSideOf(round);
+  const personSide = personSideOf(round, actorId);
   const segment = round.rules.segments[segmentIndex]!;
   const lines = await store.listRoundUtterances(round.id);
   const messages = speechMessages({

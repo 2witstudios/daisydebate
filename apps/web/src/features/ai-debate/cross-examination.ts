@@ -232,7 +232,7 @@ export function crossExaminationOperations(
       };
     }): Promise<CrossExamination> {
       const { round, runtime, now } = await hydrated(actorId, id);
-      const personSide = personSideOf(round);
+      const personSide = personSideOf(round, actorId);
       const { position, segment } = openSegmentOf(
         round,
         runtime,

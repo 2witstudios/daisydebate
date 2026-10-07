@@ -120,12 +120,29 @@ export const ownedBy = async (
   };
 };
 
-/** The side the person debated, from the round's own seats. */
+/**
+ * The side the requesting actor debated.
+ *
+ * Resolved from that actor's own seat, not from "the first participant who is
+ * not the judge". Under the one-Round model a room's seats are authoritative
+ * `round_participants` rows and participant reads carry no ordering guarantee,
+ * so "first" is whichever row the database happened to return: with a bot in
+ * the room the two debaters are symmetric and the bot's seat could answer for
+ * the person. Every caller already knows who is asking — the actor id is on
+ * every operation — so the seat is looked up rather than guessed.
+ *
+ * A judge asking (the AI judge ballots, and reads the view) has no debater
+ * seat; it reads as affirmative, which only affects how it labels lines it
+ * does not own.
+ */
 export const personSideOf = (
   round: RoundHydration,
+  actorId: string,
 ): 'affirmative' | 'negative' => {
-  const debater = round.participants.find((seat) => seat.role !== 'judge');
-  return debater?.role === 'negative' ? 'negative' : 'affirmative';
+  const seat = round.participants.find(
+    (candidate) => candidate.actorId === actorId,
+  );
+  return seat?.role === 'negative' ? 'negative' : 'affirmative';
 };
 
 /** The person's participant id in their own round. */

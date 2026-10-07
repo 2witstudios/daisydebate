@@ -171,8 +171,9 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
   const viewOf = async (
     round: RoundHydration,
     now: number,
+    actorId: string,
   ): Promise<AiDebateView> => {
-    const personSide = personSideOf(round);
+    const personSide = personSideOf(round, actorId);
     const opponent = opponentForActor(
       round.participants.find((seat) => seat.role === aiSideOf(personSide))
         ?.actorId,
@@ -304,7 +305,7 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
       readonly id: string;
     }): Promise<AiDebateView> {
       const { round, now } = await hydrated(actorId, id);
-      return viewOf(round, now);
+      return viewOf(round, now, actorId);
     },
 
     /** Applies one legal command at the server's time, or refuses it. */
@@ -375,7 +376,7 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
       if (
         !open ||
         open.sequence !== segmentIndex ||
-        (open.type === 'speech' && open.side !== personSideOf(round))
+        (open.type === 'speech' && open.side !== personSideOf(round, actorId))
       )
         throw createAppError('CONFLICT', 'That segment is not live');
       const row = round.segments.find(
@@ -420,13 +421,13 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
         throw createAppError('INTERNAL', 'The round has no judge');
       const stored = await store.getBallot(judgeSeat.id);
       if (stored && stored.status === 'submitted') {
-        const view = await viewOf(round, now);
+        const view = await viewOf(round, now, actorId);
         return view.ballot!;
       }
       const position = runtime.position(new Date(now).toISOString());
       if (!position.awaitingBallot)
         throw createAppError('CONFLICT', 'The debate is not over');
-      const personSide = personSideOf(round);
+      const personSide = personSideOf(round, actorId);
       const lines = await store.listRoundUtterances(id);
       const transcript = transcriptOf(
         round.rules,

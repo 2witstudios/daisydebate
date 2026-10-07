@@ -92,7 +92,7 @@ export function speechOperations(
     const segmentIndex = round.segments.findIndex(
       (segment) => segment.id === line.segmentId,
     );
-    const personSide = personSideOf(round);
+    const personSide = personSideOf(round, actorId);
     return {
       round,
       line: {
@@ -137,10 +137,11 @@ export function speechOperations(
         position,
         segmentIndex,
         (candidate) =>
-          candidate.type === 'speech' && candidate.side !== personSideOf(round),
+          candidate.type === 'speech' &&
+          candidate.side !== personSideOf(round, actorId),
         { early: true },
       );
-      const personSide = personSideOf(round);
+      const personSide = personSideOf(round, actorId);
       const seatId = round.participants.find(
         (candidate) => candidate.role === aiSideOf(personSide),
       )?.id;
@@ -205,7 +206,7 @@ export function speechOperations(
       const text = phrases[phraseIndex];
       if (!text) throw createAppError('NOT_FOUND');
       const speaker = voice();
-      const personSide = personSideOf(round);
+      const personSide = personSideOf(round, actorId);
       const seatId = round.participants.find(
         (candidate) => candidate.role === aiSideOf(personSide),
       )?.id;
