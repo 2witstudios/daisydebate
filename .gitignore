@@ -20,6 +20,9 @@ apps/web/scripts/auth-load/reports/
 !.pu/config.yaml
 !.pu/agent-context.md
 .DS_Store
+# Local agent state.
+.agent/
+.codex/
 # OpenCode state stays local; the scoped review command is committed.
 .opencode/*
 !.opencode/commands/
