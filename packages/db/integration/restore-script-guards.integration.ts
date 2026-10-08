@@ -91,8 +91,8 @@ async function assertRefusesWithoutMutating(
 // (exactly the failure mode these tests exist to catch) never leaves rows
 // behind for the next run to trip over.
 async function cleanupStagingSeedRows(db: SQL): Promise<void> {
-  await db`delete from debate_participants where debate_id = 'n9o0p1q2r3s4t5u6v7w8x9y0'`;
-  await db`delete from debates where id = 'n9o0p1q2r3s4t5u6v7w8x9y0'`;
+  await db`delete from round_participants where round_id = 'n9o0p1q2r3s4t5u6v7w8x9y0'`;
+  await db`delete from rounds where id = 'n9o0p1q2r3s4t5u6v7w8x9y0'`;
   await db`delete from session where id in ('restore-seed-session-0', 'restore-seed-session-1')`;
   await db`delete from passkey where id in ('restore-seed-passkey-0', 'restore-seed-passkey-1')`;
   await db`delete from verification where id = 'restore-seed-verification-0'`;

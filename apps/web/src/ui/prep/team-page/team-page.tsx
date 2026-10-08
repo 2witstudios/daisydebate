@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { inertActions } from '../../../features/prep/actions';
 import { permissionLabel, permissions } from '../../../features/prep/sharing';
-import type { TeamView } from '../../../features/prep/team-view';
+import type { TeamView } from '../../../features/prep/teams/team-view';
 import { Avatar } from '../../components/avatar/avatar';
 import { Badge } from '../../components/badge/badge';
 import { Breadcrumb } from '../breadcrumb/breadcrumb';

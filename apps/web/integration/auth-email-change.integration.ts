@@ -1,6 +1,7 @@
-import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { authFlows } from './auth-flows.test-support';
+import { requireTestServices } from '@daisy/config';
+import { assert, describe, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
-import { createPasskeyFlows } from './auth-passkey-flows';
 import {
   cookieHeader,
   emailOf,
@@ -11,16 +12,10 @@ import {
   withSql,
 } from './fixtures';
 import { trackRevocations } from './auth-outbox-helpers';
-import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
-import { requireTestServices } from '@daisy/config';
+import { CLIENT_IP_HEADER } from '../src/features/auth/abuse/client-ip';
 
 requireTestServices(process.env);
-setupRitewayBun();
-
-const flows = await createPasskeyFlows();
-const { recordedEvents } = flows;
-const { newClient } = flows.account.flows;
-const { signUp } = flows.account;
+const { flows, recordedEvents, newClient, signUp } = await authFlows();
 
 const backdateSession = (token: string, hoursAgo: number) =>
   withSql(

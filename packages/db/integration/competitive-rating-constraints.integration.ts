@@ -69,6 +69,7 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
         actor_id: actorId,
         format_id: formatId,
         season_id: seasonId,
+        ladder: 'ranked',
         rating: 1500,
         deviation: 350,
         volatility: 0.06,
@@ -114,11 +115,21 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
         rating({ rating: 1600 }),
         'actor_id',
       );
+      const quickBesideRanked = !(await fixture.rejects(
+        'ratings',
+        rating({ ladder: 'quick' }),
+        'actor_id',
+      ));
+      const unknownLadder = await fixture.rejectedBy(
+        'ratings',
+        rating({ ladder: 'blitz' }),
+        'actor_id',
+      );
       const columns = await columnNames(fixture, 'ratings');
       assert({
         given: 'rating rows at and beyond the Glicko-2 bounds',
         should:
-          'accept one bounded row per (actor, format, season), reject the rest, and store no derived columns',
+          'accept one bounded row per (actor, format, season, ladder), reject the rest and unknown ladders, and store no derived columns',
         actual: {
           tooHigh,
           negative,
@@ -128,12 +139,14 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
           infiniteVolatility,
           accepted,
           duplicateKey,
+          quickBesideRanked,
+          unknownLadder,
           derived: columns.filter((column) =>
             ['games_played', 'peak_rating', 'last_rated_at'].includes(column),
           ),
           leaderboard: (
             await indexDefinition(fixture, 'ratings_leaderboard_idx')
-          )?.includes('(format_id, season_id, rating DESC'),
+          )?.includes('(format_id, season_id, ladder, rating DESC'),
         },
         expected: {
           tooHigh: true,
@@ -144,6 +157,8 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
           infiniteVolatility: 'ratings_volatility_positive',
           accepted: true,
           duplicateKey: true,
+          quickBesideRanked: true,
+          unknownLadder: 'ratings_ladder_check',
           derived: [],
           leaderboard: true,
         },
@@ -154,14 +169,15 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
   test('the ledger records one change per debate and actor', async () => {
     await withFixture(url, async (fixture) => {
       const { actorId, formatId, seasonId } = await rated(fixture);
-      const debateId = await fixture.debate({ format_id: formatId });
-      await fixture.participant(debateId, 'affirmative', 0, actorId);
+      const roundId = await fixture.round({ format_id: formatId });
+      await fixture.participant(roundId, 'affirmative', 0, actorId);
       const change = (overrides: Record<string, unknown>) => ({
         id: createId(),
-        debate_id: debateId,
+        round_id: roundId,
         actor_id: actorId,
         format_id: formatId,
         season_id: seasonId,
+        ladder: 'ranked',
         rating_before: 1500,
         rating_after: 1516,
         deviation_before: 350,
@@ -177,30 +193,34 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
         'rating_changes',
         change({}),
       );
-      const otherDebate = await fixture.debate({ format_id: formatId });
+      const otherDebate = await fixture.round({ format_id: formatId });
       await fixture.participant(otherDebate, 'affirmative', 0, actorId);
       const nonParticipant = await fixture.rejectedBy(
         'rating_changes',
-        change({ debate_id: otherDebate, actor_id: await fixture.actor() }),
+        change({ round_id: otherDebate, actor_id: await fixture.actor() }),
       );
       const foreignFormat = await fixture.rejectedBy(
         'rating_changes',
-        change({ debate_id: otherDebate, format_id: await fixture.format() }),
+        change({ round_id: otherDebate, format_id: await fixture.format() }),
       );
       const nanDeviation = await fixture.rejectedBy(
         'rating_changes',
-        change({ debate_id: otherDebate, deviation_after: 'NaN' }),
+        change({ round_id: otherDebate, deviation_after: 'NaN' }),
       );
       const zeroDeviation = await fixture.rejects(
         'rating_changes',
-        change({ debate_id: otherDebate, deviation_after: 0 }),
+        change({ round_id: otherDebate, deviation_after: 0 }),
       );
       const negativeRating = await fixture.rejects(
         'rating_changes',
-        change({ debate_id: otherDebate, rating_after: -1 }),
+        change({ round_id: otherDebate, rating_after: -1 }),
+      );
+      const unknownLadder = await fixture.rejectedBy(
+        'rating_changes',
+        change({ round_id: otherDebate, ladder: 'blitz' }),
       );
       const debateDeleteBlocked = await rejected(() =>
-        fixture.sql.unsafe('delete from debates where id = $1', [debateId]),
+        fixture.sql.unsafe('delete from rounds where id = $1', [roundId]),
       );
       const history = await indexDefinition(
         fixture,
@@ -209,7 +229,7 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
       assert({
         given: 'a rated debate with one ledger row',
         should:
-          'reject a second row for the same debate and actor, a non-participant, a foreign format, non-finite or zero deviation and a negative rating; keep the debate undeletable; index the actor history',
+          'reject a second row for the same debate and actor, a non-participant, a foreign format, non-finite or zero deviation and a negative rating and an unknown ladder; keep the debate undeletable; index the actor history',
         actual: {
           accepted,
           secondForDebate,
@@ -218,17 +238,21 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
           nanDeviation,
           zeroDeviation,
           negativeRating,
+          unknownLadder,
           debateDeleteBlocked,
-          indexed: history?.includes('(actor_id, format_id, occurred_at)'),
+          indexed: history?.includes(
+            '(actor_id, format_id, ladder, occurred_at)',
+          ),
         },
         expected: {
           accepted: true,
           secondForDebate: true,
           nonParticipant: 'rating_changes_participant_fk',
-          foreignFormat: 'rating_changes_debate_format_fk',
+          foreignFormat: 'rating_changes_round_format_fk',
           nanDeviation: 'rating_changes_deviation_positive',
           zeroDeviation: true,
           negativeRating: true,
+          unknownLadder: 'rating_changes_ladder_check',
           debateDeleteBlocked: true,
           indexed: true,
         },

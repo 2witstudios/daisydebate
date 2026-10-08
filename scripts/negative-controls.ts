@@ -30,7 +30,7 @@ const controls: readonly Control[] = [
   },
   {
     name: 'atomic rate limiting replaced with an always-allow adapter',
-    file: 'apps/web/src/features/auth/rate-limit.ts',
+    file: 'apps/web/src/features/auth/abuse/rate-limit.ts',
     find: `const readDecision = (decision: unknown) => {
   if (typeof decision !== 'object' || decision === null)
     throw new TypeError('Malformed limiter decision');
@@ -44,11 +44,11 @@ const controls: readonly Control[] = [
   // SABOTAGE: an always-allow adapter, ignoring the real limiter's verdict.
   return { allowed: true, retryAfterSeconds: 0 };
 };`,
-    testFile: 'apps/web/src/features/auth/rate-limit.test.ts',
+    testFile: 'apps/web/src/features/auth/abuse/rate-limit.test.ts',
   },
   {
     name: 'passkey credential ownership on rename and removal',
-    file: 'apps/web/src/features/auth/passkey-ownership-guard.ts',
+    file: 'apps/web/src/features/auth/passkeys/passkey-ownership-guard.ts',
     // AUTH-6.3.1: Better Auth's own `requireResourceOwnership` (vendored
     // @better-auth/passkey, untracked) also enforces this, but it cannot be
     // sabotaged as a reviewable repo diff. This app-owned guard duplicates
@@ -60,11 +60,12 @@ const controls: readonly Control[] = [
             });`,
     replace: `          // SABOTAGE: never refuses a mismatched owner.
           void passkey;`,
-    testFile: 'apps/web/src/features/auth/passkey-ownership-guard.test.ts',
+    testFile:
+      'apps/web/src/features/auth/passkeys/passkey-ownership-guard.test.ts',
   },
   {
     name: 'token replay on an already-consumed emailed-link token',
-    file: 'apps/web/src/features/auth/email-change.ts',
+    file: 'apps/web/src/features/auth/email-change/email-change.ts',
     // AUTH-6.3.1 / ISSUE-2: every emailed link (sign-in and email-change) is
     // an opaque, SHA3-hashed, single-use app-owned token. The magic-link
     // sign-in path's redemption is entirely vendored, but the email-change
@@ -77,7 +78,7 @@ const controls: readonly Control[] = [
     replace: `    const row = await ctx.context.internalAdapter.findVerificationValue(
       emailedLinkIdentifier(purpose, token),
     );`,
-    testFile: 'apps/web/src/features/auth/email-change.test.ts',
+    testFile: 'apps/web/src/features/auth/email-change/email-change.test.ts',
   },
 ];
 

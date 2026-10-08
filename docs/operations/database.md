@@ -27,8 +27,8 @@ out of band, never committed.
   `public`, no `TRUNCATE`, `REFERENCES` or `TRIGGER`, no access to the
   `drizzle` migration log.
 - `daisy_realtime`, the realtime service's only credential (ADR 0032:
-  "No web→realtime secret exists at all"): `SELECT` on `outbox`, `debates`
-  and `debate_participants`, a column-scoped `SELECT (id, user_id)` on
+  "No web→realtime secret exists at all"): `SELECT` on `outbox`, `rounds`
+  and `round_participants`, a column-scoped `SELECT (id, user_id)` on
   `actors`, and a column-scoped `SELECT (id, user_id, expires_at)` on
   `session` for the 60s continuous re-authorization check, never `token`,
   the bearer credential. No grant on `users` at all today: identity resolves
@@ -65,5 +65,7 @@ with its `operation`; a failing target never stops the others.
 of 200 rows, up to 200 batches per run (40,000 rows/run), sized against an
 expected write rate of 10 rows/s (36,000 rows/hour) so one run always clears
 a full hour's growth with headroom.
+
+**Rating seasons (ADR 0055).** `bun season list | open | close | rollover` is the only way to change a season; there is no route for it in `apps/web` (ADR 0043). `open --name "<name>" [--starts <ISO>]` opens a season as active and is refused while another is active; `close --id <id> [--ends <ISO>]` closes the active season; `rollover --name "<name>" [--starts <ISO>]` closes the active season at the new start and opens the next in one transaction. Ids come from cuid2 and the default time is now. Opening the first production season is a human-only task (RATE-H.1).
 
 Database availability is necessary but not sufficient readiness. Deployers must ensure migrations are applied, monitor storage/replication/backup lag, enforce TLS for remote database and Redis connections, and set network access policy. Local plaintext credentials are intentionally confined to loopback. Redis persistence is off locally to expose accidental reliance on durable cache state.

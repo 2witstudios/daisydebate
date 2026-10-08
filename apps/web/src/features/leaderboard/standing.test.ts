@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { PROVISIONAL_AFTER, rankEntries, regionLabel } from './standing';
+import { PROVISIONAL_AFTER, rankEntries } from './standing';
 import { entry } from './standing.test-support';
 
 setupRitewayBun();
@@ -43,9 +43,14 @@ describe('rankEntries', () => {
     assert({
       given: 'an established and a provisional entry',
       should:
-        'derive the bloom and the losses, and hide the band when provisional',
-      actual: [top?.bloom, top?.losses, prov?.bloom, prov?.losses],
-      expected: ['full-bloom', 5, 'provisional', 3],
+        'derive the losses and carry no bloom band (debaters have no tiers)',
+      actual: [
+        top?.losses,
+        prov?.losses,
+        top && 'bloom' in top,
+        prov && 'bloom' in prov,
+      ],
+      expected: [5, 3, false, false],
     });
   });
 
@@ -60,17 +65,6 @@ describe('rankEntries', () => {
       should: 'not reorder the caller’s array',
       actual: input.map((row) => row.id),
       expected: ['b', 'a'],
-    });
-  });
-});
-
-describe('regionLabel', () => {
-  test('label', () => {
-    assert({
-      given: 'a region',
-      should: 'give its display name',
-      actual: regionLabel('africa-middle-east'),
-      expected: 'Africa and Middle East',
     });
   });
 });

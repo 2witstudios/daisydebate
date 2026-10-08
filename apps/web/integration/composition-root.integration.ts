@@ -1,7 +1,7 @@
 import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createTestApp, withSql } from './fixtures';
-import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+import { CLIENT_IP_HEADER } from '../src/features/auth/abuse/client-ip';
 import { requireTestServices } from '@daisy/config';
 
 setupRitewayBun();
@@ -22,8 +22,7 @@ const shut = createTestApp({ FOUNDATION_PROOF_ENABLED: 'false' });
 const createdIds: string[] = [];
 afterAll(async () => {
   await withSql(async (sql) => {
-    for (const id of createdIds)
-      await sql`DELETE FROM debates WHERE id = ${id}`;
+    for (const id of createdIds) await sql`DELETE FROM rounds WHERE id = ${id}`;
   });
 });
 

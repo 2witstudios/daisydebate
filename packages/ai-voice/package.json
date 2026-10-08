@@ -11,8 +11,8 @@
     "test": "bun test src"
   },
   "dependencies": {
-    "@daisy/debate-engine": "workspace:*",
     "@daisy/errors": "workspace:*",
+    "@daisy/protocol": "workspace:*",
     "zod": "4.6.5"
   },
   "devDependencies": {

@@ -51,6 +51,12 @@ describe('SeasonsPage', () => {
       ],
       expected: [true, true, true, true, true],
     });
+    assert({
+      given: 'the closed season champion',
+      should: 'give only the rating and the W–L record, with no tier',
+      actual: /<span[^>]*>\d+ · \d+–\d+ W–L<\/span>/.test(html),
+      expected: true,
+    });
   });
 
   test('the range picture', () => {

@@ -6,6 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./dev-seed": "./src/dev-seed.ts",
+    "./reference-formats": "./src/reference-formats.ts",
+    "./seasons": "./src/seasons.ts",
     "./slots": "./src/slots.ts",
     "./test-runs": "./src/test-runs.ts",
     "./testing": "./src/testing.ts"

@@ -3,7 +3,7 @@ import type {
   BriefCardRef,
   BriefResponse,
   Contention,
-} from '../../features/prep/brief';
+} from '../../features/prep/briefs/brief';
 import { sampleTeamName } from './prep';
 
 /**

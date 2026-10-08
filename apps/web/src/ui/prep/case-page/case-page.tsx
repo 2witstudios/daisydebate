@@ -1,4 +1,4 @@
-import type { CaseView } from '../../../features/prep/case-view';
+import type { CaseView } from '../../../features/prep/cases/case-view';
 import { inertActions } from '../../../features/prep/actions';
 import { Badge } from '../../components/badge/badge';
 import { Breadcrumb } from '../breadcrumb/breadcrumb';

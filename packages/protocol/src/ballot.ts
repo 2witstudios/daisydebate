@@ -166,6 +166,26 @@ const citationSchema = z.strictObject({
 });
 
 /**
+ * The numeric scoring portion of the ballot contract alone: what the
+ * `ballots.scores` column stores (ADR 0058). The full `ballotSchema` —
+ * rubric version, winner, reason, feedback, citations together — is what a
+ * write path validates before the row is decomposed into its columns.
+ */
+export const ballotScoresSchema = z.record(debateSideSchema, sideScoresSchema);
+
+/** The per-side feedback the ballot may carry, as its column stores it. */
+export const ballotFeedbackSchema = z.partialRecord(
+  debateSideSchema,
+  z.string().trim().min(1).max(ballotFeedbackMax),
+);
+
+/** The turn behind each score, as its column stores it. */
+export const ballotCitationsSchema = z.partialRecord(
+  debateSideSchema,
+  z.partialRecord(categorySchema, citationSchema),
+);
+
+/**
  * One judge's ballot. The judge picks a winner (there are no draws), scores
  * every category for both sides, and gives a reason both debaters see.
  * Feedback for each debater is optional. An AI ballot adds the turn behind
@@ -174,18 +194,10 @@ const citationSchema = z.strictObject({
 export const ballotSchema = z.strictObject({
   rubricVersion: z.literal(ballotRubricVersion),
   winner: debateSideSchema,
-  scores: z.record(debateSideSchema, sideScoresSchema),
+  scores: ballotScoresSchema,
   reason: z.string().trim().min(1).max(ballotReasonMax),
-  feedback: z.partialRecord(
-    debateSideSchema,
-    z.string().trim().min(1).max(ballotFeedbackMax),
-  ),
-  citations: z
-    .partialRecord(
-      debateSideSchema,
-      z.partialRecord(categorySchema, citationSchema),
-    )
-    .optional(),
+  feedback: ballotFeedbackSchema,
+  citations: ballotCitationsSchema.optional(),
 });
 export type Ballot = z.infer<typeof ballotSchema>;
 

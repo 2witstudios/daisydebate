@@ -1,0 +1,208 @@
+/* The debater's round room (ADR 0054). Pane sizes are person-adjustable, so
+   they live in custom properties the room sets through the CSSOM (never a
+   style attribute, which the nonce CSP refuses); these utilities read them
+   with the defaults the room starts from. */
+
+@utility room-tree-pane {
+  flex: 0 0 var(--room-tree, 220px);
+}
+
+@utility room-sidebar-pane {
+  flex: 0 0 var(--room-sidebar, 340px);
+}
+
+@utility room-video-tile {
+  height: var(--room-video, 340px);
+  aspect-ratio: 16 / 9;
+  max-width: calc(50% - 4px);
+}
+
+@utility room-doc-column {
+  max-width: 760px;
+}
+
+@utility room-palette {
+  max-width: 36rem;
+}
+
+@utility room-palette-list {
+  max-height: 60vh;
+}
+
+@utility room-workspace {
+  min-height: var(--room-workspace, 516px);
+}
+
+/* Tiptap runs with injectCSS off (its style tag carries no nonce); these are
+   the ProseMirror base rules it would have injected. */
+.ProseMirror {
+  position: relative;
+  word-wrap: break-word;
+  white-space: break-spaces;
+  font-variant-ligatures: none;
+  font-feature-settings: 'liga' 0;
+  outline: none;
+}
+
+.ProseMirror [contenteditable='false'] {
+  white-space: normal;
+}
+
+.ProseMirror [contenteditable='false'] [contenteditable='true'] {
+  white-space: pre-wrap;
+}
+
+.ProseMirror pre {
+  white-space: pre-wrap;
+}
+
+img.ProseMirror-separator {
+  display: inline !important;
+  border: none !important;
+  margin: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.ProseMirror-gapcursor {
+  display: none;
+  pointer-events: none;
+  position: absolute;
+  margin: 0;
+}
+
+.ProseMirror-gapcursor::after {
+  content: '';
+  display: block;
+  position: absolute;
+  top: -2px;
+  width: 20px;
+  border-top: 1px solid var(--text);
+}
+
+.ProseMirror-focused .ProseMirror-gapcursor {
+  display: block;
+}
+
+/* The round document: type, lists, checklists and debate marks. */
+.room-doc {
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+  color: var(--text);
+}
+
+.room-doc h1 {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-tight);
+}
+
+.room-doc h2,
+.room-doc h3 {
+  margin: 14px 0 4px;
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.room-doc p {
+  margin: 0;
+}
+
+.room-doc ul,
+.room-doc ol {
+  margin: 2px 0;
+  padding-left: 22px;
+}
+
+.room-doc ul {
+  list-style: disc;
+}
+
+.room-doc ol {
+  list-style: decimal;
+}
+
+.room-doc li::marker {
+  color: var(--text-faint);
+}
+
+.room-doc ul[data-type='taskList'] {
+  list-style: none;
+  padding-left: 2px;
+}
+
+.room-doc ul[data-type='taskList'] li {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.room-doc ul[data-type='taskList'] li > label {
+  flex: 0 0 auto;
+}
+
+.room-doc ul[data-type='taskList'] li[data-checked='true'] > div {
+  color: var(--text-faint);
+  text-decoration: line-through;
+}
+
+.room-doc input[type='checkbox'] {
+  accent-color: var(--hue-teal);
+}
+
+.room-doc p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--text-faint);
+}
+
+.room-doc [data-debate-mark] {
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-weight: var(--font-weight-semibold);
+}
+
+.room-doc [data-debate-mark='aff'] {
+  background: var(--hue-sky-soft);
+  color: var(--hue-sky);
+}
+
+.room-doc [data-debate-mark='neg'] {
+  background: var(--hue-clay-soft);
+  color: var(--hue-clay);
+}
+
+.room-doc [data-debate-mark='extend'] {
+  background: var(--hue-teal-soft);
+  color: var(--hue-teal);
+}
+
+.room-doc [data-debate-mark='dropped'] {
+  background: var(--live-soft);
+  color: var(--text);
+  text-decoration: line-through;
+  text-decoration-color: var(--live);
+  text-decoration-thickness: 2px;
+}
+
+.room-doc [data-debate-mark='new'] {
+  background: var(--gold-soft);
+  color: var(--gold);
+}
+
+/* A light page inside a dark room, or the reverse: the page carries its own
+   scheme so light-dark() tokens resolve for it alone. */
+[data-room-page='light'] {
+  color-scheme: light;
+}
+
+[data-room-page='dark'] {
+  color-scheme: dark;
+}

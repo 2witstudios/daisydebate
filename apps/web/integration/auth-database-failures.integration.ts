@@ -74,24 +74,24 @@ test('pool lifecycle closes and the app failure boundary reports without SQL mat
   const orphanId = createId();
   const foundation = await database.getFormat('foundation');
   try {
-    await database.createDebate({
+    await database.createRound({
       id: orphanId,
-      createdBy: createId(),
-      resolution: 'Orphan debate',
-      format: 'foundation',
-      // A valid snapshot, so the failure is the author foreign key.
-      snapshot: {
-        version: 1,
-        id: orphanId,
-        resolution: 'Orphan debate',
-        format: 'foundation',
-        rules: foundation?.rules,
-        phase: 'waiting',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        participants: [],
-      },
-      mode: 'casual',
-      visibility: 'unlisted',
+      createdByActorId: createId(),
+      resolution: 'Orphan round',
+      competitionType: 'casual',
+      length: 'full',
+      formatId: 'foundation',
+      formatVersion: foundation?.version ?? 1,
+      presetVersion: null,
+      // Resolved rules, so the failure is the author foreign key.
+      rules: foundation!.definition.segments.map((segment) => ({
+        key: segment.key,
+        label: segment.label,
+        type: segment.type,
+        side: segment.side,
+        slot: segment.slot,
+        durationMs: segment.defaultDurationMs,
+      })) as never,
     });
   } catch {
     foreignKeyRejected = true;
@@ -129,7 +129,7 @@ test('pool lifecycle closes and the app failure boundary reports without SQL mat
       reported: [
         {
           event: 'db.query.failed',
-          fields: { operation: 'createDebate' },
+          fields: { operation: 'createRound' },
           message: 'Database query failed',
         },
       ],

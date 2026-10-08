@@ -206,7 +206,7 @@ new_secret=$(bun -e 'console.log(crypto.getRandomValues(new Uint8Array(32)).redu
 
 subkey_reconcile() {
   echo "$new_secret" | bun -e '
-    const { deriveRecipientSubkey, recipientKey } = await import("./apps/web/src/features/auth/recipient-key.ts");
+    const { deriveRecipientSubkey, recipientKey } = await import("./apps/web/src/features/auth/mail/recipient-key.ts");
     const secret = await new Promise((resolve) => {
       let data = "";
       process.stdin.on("data", (chunk) => (data += chunk));
@@ -337,7 +337,7 @@ grace window: "for 24 hours, payloads are signed with both the new and the
 previous secret" — that is Resend's outbound behavior (every delivery in
 that window carries a signature for each secret), not anything our side
 needs to hold both secrets for. Our verifier
-(`apps/web/src/features/auth/webhook.ts`, `resend.webhooks.verify({ ...,
+(`apps/web/src/features/auth/mail/webhook.ts`, `resend.webhooks.verify({ ...,
 webhookSecret: secret })`) checks against exactly the one `secret` value
 `RESEND_WEBHOOK_SECRET` currently holds — never a list, never both old and
 new. Two consequences follow:

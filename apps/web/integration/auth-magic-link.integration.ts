@@ -1,8 +1,8 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createFlows } from './auth-mounted-flows';
 import { counts, origin, tokenOf, withSql } from './fixtures';
-import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
-import { emailedLinkIdentifier } from '../src/features/auth/emailed-link-token';
+import { CLIENT_IP_HEADER } from '../src/features/auth/abuse/client-ip';
+import { emailedLinkIdentifier } from '../src/features/auth/confirmation/emailed-link-token';
 import { requireTestServices } from '@daisy/config';
 
 requireTestServices(process.env);

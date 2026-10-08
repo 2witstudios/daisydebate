@@ -1,13 +1,16 @@
 import Link from 'next/link';
 import { prepDestinations } from '../../../features/prep/actions';
-import { emptyKind, resultsLine } from '../../../features/prep/library-labels';
+import {
+  emptyKind,
+  resultsLine,
+} from '../../../features/prep/library/library-labels';
 import {
   hasFilters,
   libraryHref,
   type LibraryQuery,
   type LibraryView,
-} from '../../../features/prep/library-query';
-import type { LibraryListing } from '../../../features/prep/list-library';
+} from '../../../features/prep/library/library-query';
+import type { LibraryListing } from '../../../features/prep/library/list-library';
 import { buttonClass } from '../../components/button/button-class';
 import { FirstVisit } from '../first-visit/first-visit';
 import {

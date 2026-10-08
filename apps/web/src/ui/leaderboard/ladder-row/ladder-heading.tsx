@@ -13,7 +13,6 @@ export function LadderHeading({ closed }: { readonly closed: boolean }) {
     >
       <span className={ladderColumnClass('rank')}>Rank</span>
       <span className={ladderColumnClass('name')}>Debater</span>
-      <span className={ladderColumnClass('band')}>Band</span>
       <span className={ladderColumnClass('rating')}>Rating</span>
       <span className={ladderColumnClass('record')}>W–L</span>
       <span className={ladderColumnClass('move')}>

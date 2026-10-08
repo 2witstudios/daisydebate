@@ -1,3 +1,5 @@
+import { setupRitewayBun } from 'riteway/bun';
+import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { createRedis, redisKey } from '../src';
 import { deleteNamespace } from '../src/namespaces';
@@ -73,3 +75,9 @@ export async function withRedis<T>(
     raw.close();
   }
 }
+
+/** The suite header the redis integration files share: services and RITEway. */
+export const redisSuite = () => {
+  setupRitewayBun();
+  return requireTestServices(process.env);
+};

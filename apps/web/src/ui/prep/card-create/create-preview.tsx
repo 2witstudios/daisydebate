@@ -1,4 +1,4 @@
-import type { CardCreateView } from '../../../features/prep/card-create';
+import type { CardCreateView } from '../../../features/prep/cards/card-create';
 import { SourceText } from '../source-text/source-text';
 
 /** The rail beside every step: a live look at the card and its citation. */

@@ -2,8 +2,8 @@ import { memoryAdapter } from '@better-auth/memory-adapter';
 import { fixedClock, sequentialId } from '@daisy/clock';
 import { readAuthConfig } from '@daisy/config';
 import { silentLogger } from '../../server/test-loggers.test-support';
-import type { CompleteEmailChange } from './email-change';
-import type { RevokeSessionUnlessAddressHeld } from './sign-in-address-guard';
+import type { CompleteEmailChange } from './email-change/email-change';
+import type { RevokeSessionUnlessAddressHeld } from './abuse/sign-in-address-guard';
 import { createAuthServer, type AuthEmailMessage } from './server';
 
 /**

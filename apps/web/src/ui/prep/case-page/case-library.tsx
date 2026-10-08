@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import type { CaseView } from '../../../features/prep/case-view';
+import type { CaseView } from '../../../features/prep/cases/case-view';
 import { Icon } from '../../components/icon/icon';
 import { controlClass } from '../form-controls/form-class';
 import { IconButtonInert } from '../inert-action/icon-button-inert';

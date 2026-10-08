@@ -31,13 +31,14 @@ describe('buildDetail', () => {
     const view = detail('debater-b', 4);
     assert({
       given: 'the top debater in the live season',
-      should: 'give stats, chart and the three seasons played',
+      should:
+        'give stats with no bloom band, chart and the three seasons played',
       actual: view.kind === 'player' && {
         stats: [
           view.rating,
           view.range,
           view.rank,
-          view.band,
+          'band' in view,
           view.established,
           view.statusNote,
         ],
@@ -55,7 +56,7 @@ describe('buildDetail', () => {
           1716,
           '±' + (view.kind === 'player' ? view.range.slice(1) : ''),
           '#1',
-          'Full bloom',
+          false,
           true,
           'Established',
         ],
@@ -79,11 +80,12 @@ describe('buildDetail', () => {
     assert({
       given:
         'the signed-in viewer with seven ranked debates, on the table view at step 4',
-      should: 'say they are provisional and unranked with no established mark',
+      should:
+        'say they are provisional and unranked with no established mark, band or region',
       actual: view.kind === 'player' && [
         view.me,
         view.rank,
-        view.band,
+        'band' in view,
         view.statusNote,
         view.chart.establishedX,
         view.view,
@@ -94,13 +96,13 @@ describe('buildDetail', () => {
       expected: [
         true,
         'Unranked',
-        'Provisional',
+        false,
         '7 of 10 ranked debates',
         null,
         'table',
         4,
         'Debate 4 of 7',
-        'Season 4 · Europe',
+        'Season 4',
       ],
     });
   });

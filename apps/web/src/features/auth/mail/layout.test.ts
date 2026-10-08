@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { AUTH_BRAND_PALETTE } from '../brand-palette';
+import { AUTH_BRAND_PALETTE } from './brand-palette';
 import {
   inlineColoursWithoutDarkOverride,
   parseDarkRules,

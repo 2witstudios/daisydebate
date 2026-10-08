@@ -3,13 +3,13 @@ import type { SearchParams } from '../../../../../features/access/decision';
 import {
   briefEditorView,
   parseBriefEditorQuery,
-} from '../../../../../features/prep/brief-editor';
+} from '../../../../../features/prep/briefs/brief-editor';
 import {
   getBrief,
   NEW_BRIEF_ID,
   speechLimitSeconds,
-} from '../../../../../features/prep/get-brief';
-import { readingPace } from '../../../../../features/prep/get-card';
+} from '../../../../../features/prep/briefs/get-brief';
+import { readingPace } from '../../../../../features/prep/cards/get-card';
 import { requireAccess } from '../../../../../lib/access';
 import { BriefEditor } from '../../../../../ui/prep/brief-editor/brief-editor';
 

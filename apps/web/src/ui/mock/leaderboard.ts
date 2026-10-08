@@ -1,6 +1,6 @@
 import type { RatingPoint } from '../../features/leaderboard/history';
 import type { Season } from '../../features/leaderboard/season';
-import { regions, type LadderEntry } from '../../features/leaderboard/standing';
+import type { LadderEntry } from '../../features/leaderboard/standing';
 
 /**
  * Sample leaderboard data: two hundred forty debaters per season, made from
@@ -85,8 +85,6 @@ const generated = (season: number): readonly LadderEntry[] =>
       : Math.round(48 + varying() * 38);
     const weekChange = Math.round((varying() - 0.42) * 14);
     const seasonChange = Math.round((varying() - 0.4) * 44);
-    const chose = stable() < 0.45;
-    const region = regions[Math.floor(stable() * 4)] ?? null;
     return {
       id: `${season}-${i}`,
       username: i === DELETED_AT ? null : sampleUsername(i),
@@ -96,7 +94,6 @@ const generated = (season: number): readonly LadderEntry[] =>
       wins: Math.round(played * winRate),
       weekChange,
       seasonChange,
-      region: chose ? region : null,
     };
   });
 
@@ -122,7 +119,6 @@ export function sampleEntries(
       wins: line.wins,
       weekChange: line.change > 0 ? 3 : -2,
       seasonChange: line.change,
-      region: 'europe',
     },
   ];
 }

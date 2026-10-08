@@ -2,7 +2,7 @@ import { toNextJsHandler } from 'better-auth/next-js';
 import { createAppError, isAppError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import { handleOperation } from '../../server/http';
-import { EMAIL_CHANGE_VERIFY_PATH } from './email-change';
+import { EMAIL_CHANGE_VERIFY_PATH } from './email-change/email-change';
 import { logAuthLifecycle } from './lifecycle-events';
 
 type Handler = (request: Request) => Promise<Response>;

@@ -72,6 +72,17 @@ JavaScript only enhances it.
   still run and reveal what a script-less browser never sees. See the
   "with JavaScript off" block in `apps/web/e2e/journey.e2e.ts`.
 
+Recorded exceptions:
+
+- The planned media Ready check for a human debater needs JavaScript. It
+  must wait on a local microphone and camera check, which cannot run
+  without script. With JavaScript off, its server-rendered Ready control
+  must be disabled with the reason
+  ([ADR 0053](../decisions/0053-live-video-self-hosted-livekit.md) section 5,
+  DEC-109). Judge and server-operated bot seats need no human device check.
+  This exception specifies VIDEO-2.7; it does not claim that Ready or the
+  device check is already implemented.
+
 Forms that predate this rule are tracked as issues in the PageSpace `Issues`
 list. Bring each one into line when you next change it.
 

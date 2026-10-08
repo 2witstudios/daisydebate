@@ -20,15 +20,18 @@ describe('Podium', () => {
     );
     assert({
       given: 'three rows',
-      should: 'list three linked cards with the first in gold border',
+      should:
+        'list three linked cards with the first in gold border, each giving its W–L record with no tier label or glyph',
       actual: [
         html.includes('aria-label="Top three"'),
         html.match(/<a /g)?.length,
         html.match(/border-gold-border/g)?.length,
         html.includes('aria-label="@ada, rank 1, rating 1716"'),
         html.includes('▲ 3'),
+        html.match(/<span[^>]*>\d+–\d+ W–L<\/span>/g)?.length,
+        html.includes('<svg'),
       ],
-      expected: [true, 3, 1, true, false],
+      expected: [true, 3, 1, true, false, 3, false],
     });
   });
 

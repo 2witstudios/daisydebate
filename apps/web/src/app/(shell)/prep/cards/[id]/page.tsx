@@ -3,8 +3,11 @@ import type { SearchParams } from '../../../../../features/access/decision';
 import {
   cardDetailView,
   parseCardDetailQuery,
-} from '../../../../../features/prep/card-detail';
-import { getCard, readingPace } from '../../../../../features/prep/get-card';
+} from '../../../../../features/prep/cards/card-detail';
+import {
+  getCard,
+  readingPace,
+} from '../../../../../features/prep/cards/get-card';
 import { requireAccess } from '../../../../../lib/access';
 import { CardDetail } from '../../../../../ui/prep/card-detail/card-detail';
 import { NotFoundPanel } from '../../../../../ui/prep/not-found/not-found-panel';

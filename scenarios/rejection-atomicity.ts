@@ -1,24 +1,32 @@
-import type { DebateScenario } from '../scripts/scenario';
+import {
+  foundationScenarioIds,
+  type DebateScenario,
+} from '../scripts/scenario';
 
+/** A command the round's stage refuses leaves the rows exactly as they were. */
 const scenario: DebateScenario = {
   name: 'rejection-atomicity',
   given: {
-    clock: '2026-01-01T00:00:00.000Z',
-    ids: ['k2v9x0f4m8q3w1z7c5n6b4d2'],
-    resolution: 'A representative resolution',
+    ids: foundationScenarioIds,
   },
   when: [
+    { type: 'command', command: { type: 'start' }, actor: null },
+    { type: 'tick', atMs: 10_000 }, // the AC opens
     {
       type: 'expect-rejection',
-      operation: { type: 'transition', phase: 'active' },
-      invariantId: 'debate.phase.active.requires-ready-participants',
+      operation: {
+        type: 'command',
+        command: { type: 'start_speech' },
+        actor: 1,
+      },
+      invariantId: 'round.speech.requires-prep',
     },
   ],
   expect: {
     id: 'k2v9x0f4m8q3w1z7c5n6b4d2',
-    createdAt: '2026-01-01T00:00:00.000Z',
-    phase: 'waiting',
-    participantIds: [],
+    status: 'active',
+    stage: 'live',
+    opened: ['AC'],
   },
 };
 

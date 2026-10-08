@@ -63,19 +63,17 @@ test('a member picks a Train bot, plays a full debate against it by voice and ge
 
   await page.getByRole('button', { name: 'Begin debate' }).click();
 
-  // The countdown into the AC, with the round laid out as a timeline.
+  // The room opens the AC's prep for you: before your own speech there is
+  // no countdown to watch — prep is the break — and the speeches run across
+  // the top.
+  await expect(heading(page, 'Prep before your AC')).toBeVisible();
   await expect(
-    heading(page, 'Up next: Affirmative constructive'),
-  ).toBeVisible();
-  await expect(page.getByText('until you speak')).toBeVisible();
-  await expect(
-    page.getByRole('list', { name: 'Round timeline' }).getByRole('listitem'),
+    page.getByRole('list', { name: 'Speeches' }).getByRole('listitem'),
   ).toHaveCount(7);
+  await page.getByRole('button', { name: 'Start my speech' }).click();
 
   // AC: the person speaks, then ends their speech early.
-  await expect(heading(page, 'Affirmative constructive')).toBeVisible(
-    afterCountdown,
-  );
+  await expect(heading(page, 'Affirmative constructive')).toBeVisible();
   await expect(page.getByText('left in your speech')).toBeVisible();
   // The fake microphone plays a voice-like sound (support/fake-voice.ts);
   // a clip with under 500 ms of voice is dropped as silence, so it speaks
@@ -119,10 +117,12 @@ test('a member picks a Train bot, plays a full debate against it by voice and ge
   await expect(page.getByText(STUB_BALLOT.reason)).toBeVisible();
   await expect(page.getByText('Wren won this round')).toBeHidden();
 
-  // The transcript holds the person's transcribed speech and the AI's words.
-  const transcript = page.locator('section', {
-    has: heading(page, 'Transcript'),
-  });
+  // The transcript file holds the person's transcribed speech and the AI's words.
+  await page
+    .getByRole('navigation', { name: 'Files' })
+    .getByRole('button', { name: 'Transcript' })
+    .click();
+  const transcript = page.getByRole('region', { name: 'Document' });
   await expect(transcript.getByText(STUB_TRANSCRIPT).first()).toBeVisible();
   await expect(transcript.getByText(STUB_SPEECH).first()).toBeVisible();
 });

@@ -76,6 +76,29 @@ export const jsonbColumn = <T extends Record<string, unknown>>(
     },
   })(name);
 
+/**
+ * The nullable form: null passes through unvalidated (there is nothing to
+ * validate), anything present is parsed exactly as `jsonbColumn` parses it.
+ */
+export const jsonbColumnNullable = <T extends Record<string, unknown>>(
+  name: string,
+  schema: z.ZodType<T>,
+) =>
+  customType<{ data: T | null; driverData: T | null }>({
+    dataType: () => 'jsonb',
+    toDriver: (value) => {
+      if (value === null) return null;
+      const parsed = schema.safeParse(value);
+      if (!parsed.success)
+        throw createAppError(
+          'VALIDATION',
+          `Invalid value for jsonb column ${name}`,
+          parsed.error,
+        );
+      return parsed.data;
+    },
+  })(name);
+
 /** `<table>_<column>_is_object`: the database refuses a jsonb scalar or array. */
 export const jsonbIsObject = (table: string, column: PgColumn) =>
   check(

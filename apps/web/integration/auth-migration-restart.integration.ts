@@ -5,7 +5,7 @@ import type { Identity } from '@daisy/auth';
 import { systemClock, systemId } from '@daisy/clock';
 import { createPasskeyFlows } from './auth-passkey-flows';
 import { counts, removeAccount, testDatabaseUrl, withSql } from './fixtures';
-import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+import { CLIENT_IP_HEADER } from '../src/features/auth/abuse/client-ip';
 import { identify } from '../src/lib/identity';
 import { createApp } from '../src/server/app';
 import { requireTestServices } from '@daisy/config';
@@ -30,14 +30,14 @@ const userIdOf = (identity: Identity): string =>
         throw new Error('expected an authenticated identity');
       })();
 
-const debateOwner = (debateId: string) =>
+const debateOwner = (roundId: string) =>
   withSql(async (sql) => {
     const [row] = await sql`
-      SELECT a.user_id AS "userId", d.phase AS phase
-      FROM debates d JOIN actors a ON a.id = d.created_by_actor_id
-      WHERE d.id = ${debateId}
+      SELECT a.user_id AS "userId", r.status AS status
+      FROM rounds r JOIN actors a ON a.id = r.created_by_actor_id
+      WHERE r.id = ${roundId}
     `;
-    return row as { userId: string; phase: string } | undefined;
+    return row as { userId: string; status: string } | undefined;
   });
 
 test('a migration re-application and a resource restart preserve a live session, passkey and debate ownership', async () => {
@@ -52,17 +52,17 @@ test('a migration re-application and a resource restart preserve a live session,
   await withSql(async (sql) => {
     await sql`INSERT INTO actors (id, kind, user_id) VALUES (${actorId}, 'human', ${userId})`;
     await sql`
-      INSERT INTO debates (id, created_by_actor_id, resolution, format_id, snapshot, mode, phase, visibility)
-      VALUES (${debateId}, ${actorId}, 'Restart-survival proof', 'foundation', '{}'::jsonb, 'casual', 'waiting', 'public')
+      INSERT INTO rounds (id, created_by_actor_id, resolution, competition_type, length, format_id, format_version, rules_snapshot, status)
+      VALUES (${debateId}, ${actorId}, 'Restart-survival proof', 'casual', 'full', 'foundation', 1, '{}'::jsonb, 'scheduled')
     `;
   });
 
-  // ISSUE-20: the debate holds the actor, which holds the user (both
+  // ISSUE-20: the round holds the actor, which holds the user (both
   // RESTRICT), so this suite removes all three itself, the account keyed by
   // the user id signUp() created, leaving nothing for a later run to count.
   afterAll(async () => {
     await withSql(async (sql) => {
-      await sql`DELETE FROM debates WHERE id = ${debateId}`;
+      await sql`DELETE FROM rounds WHERE id = ${debateId}`;
       await sql`DELETE FROM actors WHERE id = ${actorId}`;
     });
     await removeAccount({ email, userId });
@@ -118,8 +118,8 @@ test('a migration re-application and a resource restart preserve a live session,
       identity: before.state,
       userId,
       passkeys: beforePasskeys,
-      ownerBefore: { userId, phase: 'waiting' },
-      ownerAfter: { userId, phase: 'waiting' },
+      ownerBefore: { userId, status: 'scheduled' },
+      ownerAfter: { userId, status: 'scheduled' },
     },
   });
   assert({

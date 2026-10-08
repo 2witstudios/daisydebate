@@ -63,7 +63,7 @@ describe('buildLadder filters', () => {
   const entries = [
     ...field(12),
     entry({ id: 'prov', username: 'prov', rating: 1800, played: 3 }),
-    entry({ id: 'eu', username: 'eu', rating: 1000, region: 'europe' }),
+    entry({ id: 'eu', username: 'eu', rating: 1000 }),
   ];
 
   test('status', () => {
@@ -77,16 +77,13 @@ describe('buildLadder filters', () => {
     });
   });
 
-  test('band and region', () => {
+  test('no tier on any row', () => {
+    const view = ladder(entries, { status: 'everyone' });
     assert({
-      given: 'a band and a region filter',
-      should: 'keep matching established debaters only',
-      actual: [
-        names(ladder(entries, { band: 'sprout' })),
-        names(ladder(entries, { region: 'europe' })),
-        ladder(entries, { band: 'sprout', status: 'everyone' }).total,
-      ],
-      expected: [['eu'], ['eu'], 1],
+      given: 'established and provisional debaters',
+      should: 'carry no bloom band on any row (debaters have no tiers)',
+      actual: [...view.podium, ...view.rows].some((row) => 'bloom' in row),
+      expected: false,
     });
   });
 
@@ -148,8 +145,8 @@ describe('buildLadder rows', () => {
     assert({
       given: 'a provisional debater',
       should: 'show no rank and no movement',
-      actual: [row?.rank, row?.change, row?.bloom, row?.provisional],
-      expected: [null, { kind: 'none' }, 'provisional', true],
+      actual: [row?.rank, row?.change, row?.provisional],
+      expected: [null, { kind: 'none' }, true],
     });
   });
 
@@ -179,10 +176,10 @@ describe('judge blinding', () => {
     assert({
       given: 'a masked row',
       should: 'carry none of the debater’s numbers',
-      actual: masked.map((row) => [row.rating, row.range, row.wins, row.bloom]),
+      actual: masked.map((row) => [row.rating, row.range, row.wins]),
       expected: [
-        [0, 0, 0, 'provisional'],
-        [0, 0, 0, 'provisional'],
+        [0, 0, 0],
+        [0, 0, 0],
       ],
     });
     assert({

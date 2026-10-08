@@ -1,48 +1,14 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { getTableConfig, type PgTable } from 'drizzle-orm/pg-core';
 import { actors } from './schema/actors';
-import { ballots } from './schema/ballots';
-import { debateCommands } from './schema/debate-commands';
-import { debateParticipants } from './schema/debate-participants';
-import { debates } from './schema/debates';
+import { formatPresets } from './schema/format-presets';
+import { formatRevisions } from './schema/format-revisions';
 import { formats } from './schema/formats';
-import {
-  memberInterests,
-  memberOnboarding,
-  memberTopics,
-} from './schema/onboarding';
-import { ratingChanges, ratings, seasons } from './schema/ratings';
-import { roleGrants } from './schema/role-grants';
+import { rounds } from './schema/rounds';
+import { rooms } from './schema/rooms';
 import { users } from './schema/users';
+import { schemaRules as rules } from './schema.test-support';
 
 setupRitewayBun();
-
-/**
- * The constraint and index names the integration suites and their negative
- * controls refer to (ADR 0029). A renamed rule fails here before it fails
- * against PostgreSQL.
- */
-const rules = (table: PgTable) => {
-  const config = getTableConfig(table);
-  return {
-    checks: config.checks.map((check) => check.name).sort(),
-    indexes: config.indexes
-      .map(
-        (index) =>
-          `${index.config.unique ? 'unique ' : ''}${index.config.name}`,
-      )
-      .sort(),
-    uniques: config.uniqueConstraints.map((unique) => unique.name).sort(),
-    // Only explicitly named keys: drizzle-orm 1.0's `getName()` default
-    // (`…_fk`) differs from the `…_fkey` name drizzle-kit 1.0 generates, so
-    // default names are checked against PostgreSQL in
-    // integration/baseline.integration.ts instead.
-    namedKeys: config.foreignKeys
-      .map((key) => key.reference().name)
-      .filter((name): name is string => name !== undefined)
-      .sort(),
-  };
-};
 
 describe('competitive schema rules', () => {
   test('users and actors carry the tombstone and identity rules', () => {
@@ -67,204 +33,109 @@ describe('competitive schema rules', () => {
     });
   });
 
-  test('formats and debates carry the lifecycle and vocabulary rules', () => {
+  test('formats, revisions and presets carry the provenance rules', () => {
     assert({
-      given: 'the formats and debates tables',
+      given: 'the format identity, its revisions and the presets',
       should:
-        'declare the object and rules shape CHECKs, every debates vocabulary CHECK, the lifecycle and ordering CHECKs, the indexes and the (id, format_id) key',
-      actual: { formats: rules(formats), debates: rules(debates) },
+        'declare the pointer positivity CHECK, the revision key, and the presets single-current and provenance keys',
+      actual: {
+        formats: rules(formats),
+        revisions: rules(formatRevisions),
+        presets: rules(formatPresets),
+      },
       expected: {
         formats: {
+          checks: ['formats_current_version_positive'],
+          indexes: ['formats_current_revision_idx'],
+          uniques: [],
+          namedKeys: ['formats_current_revision_fk'],
+        },
+        revisions: {
           checks: [
-            'formats_rules_is_object',
-            'formats_rules_shape',
-            'formats_version_positive',
+            'format_revisions_definition_is_object',
+            'format_revisions_version_positive',
           ],
           indexes: [],
           uniques: [],
           namedKeys: [],
         },
-        debates: {
+        presets: {
           checks: [
-            'debates_completed_after_started',
-            'debates_lifecycle_check',
-            'debates_mode_check',
-            'debates_outcome_check',
-            'debates_phase_check',
-            'debates_snapshot_is_object',
-            'debates_version_positive',
-            'debates_visibility_check',
+            'format_presets_config_is_object',
+            'format_presets_format_version_positive',
+            'format_presets_length_check',
+            'format_presets_version_positive',
           ],
           indexes: [
-            'debates_created_by_actor_idx',
-            'debates_format_completed_idx',
-            'debates_phase_mode_created_idx',
+            'format_presets_revision_idx',
+            'unique format_presets_provenance_unique',
+            'unique format_presets_single_current',
           ],
-          uniques: ['debates_id_format_unique'],
-          namedKeys: [],
+          uniques: [],
+          namedKeys: ['format_presets_revision_fk'],
         },
       },
     });
   });
 
-  test('participants, commands and ballots are keyed to their debate', () => {
+  test('rooms and rounds carry the lifecycle and provenance rules', () => {
     assert({
-      given: 'the debate children',
+      given: 'the rooms and rounds tables',
       should:
-        'declare seat uniqueness, one principal, the digest and object CHECKs and the composite judge-seat key on ballots',
-      actual: {
-        participants: rules(debateParticipants),
-        commands: rules(debateCommands),
-        ballots: rules(ballots),
-      },
+        'declare the room assembly CHECKs, every round vocabulary CHECK, the lifecycle, ladder and preset CHECKs, the indexes and the (id, format_id) key',
+      actual: { rooms: rules(rooms), rounds: rules(rounds) },
       expected: {
-        participants: {
+        rooms: {
           checks: [
-            'debate_participants_role_check',
-            'debate_participants_slot_check',
-            'debate_participants_status_check',
-            'debate_participants_version_positive',
+            'rooms_competition_type_check',
+            'rooms_config_is_object',
+            'rooms_execution_plan_is_object',
+            'rooms_length_check',
+            'rooms_ranked_has_preset_check',
+            'rooms_rules_snapshot_is_object',
+            'rooms_status_check',
           ],
           indexes: [
-            'debate_participants_actor_joined_idx',
-            'unique debate_participants_seat_unique',
+            'rooms_definition_revision_idx',
+            'rooms_preset_version_idx',
           ],
-          uniques: [],
-          namedKeys: [],
-        },
-        commands: {
-          checks: [
-            'debate_commands_digest_check',
-            'debate_commands_one_principal',
-            'debate_commands_result_is_object',
-          ],
-          indexes: [
-            'debate_commands_actor_idx',
-            'debate_commands_debate_version_idx',
-          ],
-          uniques: [],
-          namedKeys: [],
-        },
-        ballots: {
-          checks: [
-            'ballots_decision_check',
-            'ballots_scores_is_object',
-            'ballots_status_check',
-            'ballots_version_positive',
-            'ballots_voided_after_submitted',
-            'ballots_voided_fields_check',
-          ],
-          indexes: [
-            'ballots_voided_by_actor_idx',
-            'unique ballots_judge_seat_unique',
-          ],
-          uniques: [],
-          namedKeys: ['ballots_judge_seat_fk'],
-        },
-      },
-    });
-  });
-
-  test('seasons, ratings and the ledger carry the Glicko-2 rules', () => {
-    assert({
-      given: 'the rating tables',
-      should:
-        'declare one active season ending after it starts, finite bounded values, the leaderboard and key indexes and the ledger composite keys',
-      actual: {
-        seasons: rules(seasons),
-        ratings: rules(ratings),
-        changes: rules(ratingChanges),
-      },
-      expected: {
-        seasons: {
-          checks: [
-            'seasons_ends_after_starts',
-            'seasons_status_check',
-            'seasons_version_positive',
-          ],
-          indexes: ['unique seasons_single_active'],
-          uniques: [],
-          namedKeys: [],
-        },
-        ratings: {
-          checks: [
-            'ratings_deviation_positive',
-            'ratings_rating_range',
-            'ratings_version_positive',
-            'ratings_volatility_positive',
-          ],
-          indexes: ['ratings_leaderboard_idx', 'ratings_season_idx'],
-          uniques: [],
-          namedKeys: [],
-        },
-        changes: {
-          checks: [
-            'rating_changes_deviation_positive',
-            'rating_changes_rating_range',
-            'rating_changes_volatility_positive',
-          ],
-          indexes: [
-            'rating_changes_actor_format_occurred_idx',
-            'rating_changes_debate_format_idx',
-            'rating_changes_format_idx',
-            'rating_changes_season_idx',
-            'unique rating_changes_debate_actor_unique',
-          ],
-          uniques: [],
+          uniques: ['rooms_id_format_unique'],
           namedKeys: [
-            'rating_changes_debate_format_fk',
-            'rating_changes_participant_fk',
+            'rooms_definition_revision_fk',
+            'rooms_preset_provenance_fk',
           ],
         },
-      },
-    });
-  });
-
-  test('role grants allow one active grant per scope', () => {
-    assert({
-      given: 'the role_grants table',
-      should:
-        'declare the vocabulary CHECKs, the global scope and ordering rules, the key indexes and the partial active-grant index',
-      actual: rules(roleGrants),
-      expected: {
-        checks: [
-          'role_grants_global_scope_check',
-          'role_grants_revoked_after_granted',
-          'role_grants_role_check',
-          'role_grants_scope_type_check',
-        ],
-        indexes: [
-          'role_grants_granted_by_user_idx',
-          'role_grants_user_idx',
-          'unique role_grants_active_unique',
-        ],
-        uniques: [],
-        namedKeys: [],
-      },
-    });
-  });
-});
-
-describe('onboarding schema rules', () => {
-  test('the answers are pinned to their closed vocabularies', () => {
-    assert({
-      given: 'the member interests, topics and onboarding tables',
-      should: 'declare a CHECK per closed vocabulary and the version CHECK',
-      actual: {
-        interests: rules(memberInterests).checks,
-        topics: rules(memberTopics).checks,
-        onboarding: rules(memberOnboarding).checks,
-      },
-      expected: {
-        interests: ['member_interests_interest_check'],
-        topics: ['member_topics_topic_check'],
-        onboarding: [
-          'member_onboarding_club_check',
-          'member_onboarding_experience_check',
-          'member_onboarding_formats_check',
-          'member_onboarding_length_check',
-          'member_onboarding_version_positive',
-        ],
+        rounds: {
+          checks: [
+            'rounds_competition_type_check',
+            'rounds_completed_after_started',
+            'rounds_current_stage_check',
+            'rounds_ladder_check',
+            'rounds_ladder_derivation_check',
+            'rounds_length_check',
+            'rounds_lifecycle_check',
+            'rounds_outcome_check',
+            'rounds_ranked_has_preset_check',
+            'rounds_rated_ladder_check',
+            'rounds_rules_snapshot_is_object',
+            'rounds_runtime_state_is_object',
+            'rounds_status_check',
+            'rounds_version_positive',
+          ],
+          indexes: [
+            'rounds_created_by_actor_idx',
+            'rounds_definition_revision_idx',
+            'rounds_format_completed_idx',
+            'rounds_preset_provenance_idx',
+            'rounds_room_idx',
+            'rounds_status_competition_created_idx',
+          ],
+          uniques: ['rounds_id_format_unique'],
+          namedKeys: [
+            'rounds_definition_revision_fk',
+            'rounds_preset_provenance_fk',
+          ],
+        },
       },
     });
   });

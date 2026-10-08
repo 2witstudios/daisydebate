@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../../../../features/access/decision';
-import { getCard } from '../../../../../../features/prep/get-card';
+import { getCard } from '../../../../../../features/prep/cards/get-card';
 import { requireAccess } from '../../../../../../lib/access';
 import { CardDelete } from '../../../../../../ui/prep/card-detail/card-delete';
 import { NotFoundPanel } from '../../../../../../ui/prep/not-found/not-found-panel';

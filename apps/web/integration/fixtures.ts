@@ -11,7 +11,7 @@ import {
   type TestRedis,
 } from '@daisy/redis/testing';
 import { systemClock, systemId } from '@daisy/clock';
-import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+import { CLIENT_IP_HEADER } from '../src/features/auth/abuse/client-ip';
 import { createApp } from '../src/server/app';
 import type { AfterResponseLimits } from '../src/features/auth/after-response';
 import { createRoutes } from '../src/server/routes';

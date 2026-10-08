@@ -2,7 +2,7 @@ import type { ClientError } from '../auth/client-error';
 import {
   CURRENT_EMAIL_UNDELIVERABLE,
   EMAIL_UNDELIVERABLE,
-} from '../auth/undeliverable-codes';
+} from '../auth/mail/undeliverable-codes';
 
 /** Better Auth's stored passkey row, as `listUserPasskeys` returns it. */
 export type PasskeyRow = {

@@ -1,4 +1,4 @@
-import type { ItemKind } from '../../../features/prep/library-item';
+import type { ItemKind } from '../../../features/prep/library/library-item';
 
 const base =
   'inline-flex size-avatar-md shrink-0 items-center justify-center rounded-md';

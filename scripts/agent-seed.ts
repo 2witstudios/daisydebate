@@ -1,6 +1,10 @@
-import { referenceFormats } from './reference-formats';
+import { resolveRoomConfiguration } from '@daisy/debate-engine';
+import {
+  foundationConfig,
+  foundationDefinition,
+} from '@daisy/db/reference-formats';
 
-export const agentSeedVersion = 'agent-seed-v4';
+export const agentSeedVersion = 'agent-seed-v5';
 
 /**
  * One actor per agent user (ADR 0029): competitive rows reference the actor,
@@ -20,38 +24,43 @@ export const agentSeedUsers = [
   },
 ] as const;
 
-const agentSeedDebateId = 'c8d4e2f6a1b3k5m7n9p2r4t6';
-const foundationRules = referenceFormats.find(
-  (f) => f.id === 'foundation',
-)?.rules;
-if (!foundationRules) throw new Error('foundation reference format missing');
+const agentSeedRoundId = 'c8d4e2f6a1b3k5m7n9p2r4t6';
 const agentSeedResolution =
   'Resolved: a deterministic local seed makes agent development repeatable.';
-// Fixed so reseeding is byte-identical; the seed never reads a clock.
-const agentSeedCreatedAt = '2026-01-01T00:00:00.000Z';
 
 /**
- * The snapshot must satisfy the protocol `debateSnapshotSchema`, and the
- * searchable columns must repeat the snapshot's id, resolution, format and
- * phase. `createdBy` is the first agent's actor. Bump `agentSeedVersion`
- * whenever this content changes.
+ * The seeded round resolves the same way a room does — one compiler, the
+ * foundation definition against the practice config — so the seed's frozen
+ * rules are exactly what a casual round of this format would carry. Seats
+ * are the two agent actors on the sides. Bump `agentSeedVersion` whenever
+ * this content changes.
  */
-export const agentSeedDebate = {
-  debateId: agentSeedDebateId,
-  createdBy: agentSeedUsers[0].actorId,
+const resolved = resolveRoomConfiguration(
+  foundationDefinition,
+  foundationConfig,
+);
+if (!resolved.ok)
+  throw new Error(`Seed round refuses to resolve: ${resolved.refusal.message}`);
+
+export const agentSeedRound = {
+  id: agentSeedRoundId,
+  createdByActorId: agentSeedUsers[0].actorId,
   resolution: agentSeedResolution,
-  format: 'foundation',
-  mode: 'practice',
-  visibility: 'private',
-  snapshot: {
-    version: 1,
-    id: agentSeedDebateId,
-    resolution: agentSeedResolution,
-    format: 'foundation',
-    // The effective rules: the canonical foundation rules, unmodified.
-    rules: foundationRules,
-    phase: 'waiting',
-    createdAt: agentSeedCreatedAt,
-    participants: [],
-  },
+  formatId: 'foundation',
+  formatVersion: 1,
+  rules: resolved.rules,
+  seats: [
+    {
+      id: 'f1a2b3c4d5e6a7b8c9d0e1f2',
+      actorId: agentSeedUsers[0].actorId,
+      role: 'affirmative' as const,
+      slot: 0,
+    },
+    {
+      id: 'a1b2c3d4e5f6a7b8c9d0e1f3',
+      actorId: agentSeedUsers[1].actorId,
+      role: 'negative' as const,
+      slot: 0,
+    },
+  ],
 } as const;

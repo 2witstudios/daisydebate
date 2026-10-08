@@ -9,14 +9,14 @@ setupRitewayBun();
 
 describe('PrepIcon', () => {
   test('its own glyphs and the shared set', () => {
-    const own = renderToString(h(PrepIcon, { name: 'lock', size: 14 }));
+    const own = renderToString(h(PrepIcon, { name: 'upload', size: 14 }));
     const shared = renderToString(h(PrepIcon, { name: 'search' }));
     assert({
       given: 'a Prep glyph and a shared icon',
       should: 'draw both as decorative svgs at the requested size',
       actual: [
         own.includes('width="14"') && own.includes('aria-hidden="true"'),
-        own.includes('<rect'),
+        own.includes('d="M12 16V4"'),
         shared.includes('<circle'),
       ],
       expected: [true, true, true],

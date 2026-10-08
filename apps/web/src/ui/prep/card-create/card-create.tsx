@@ -1,4 +1,4 @@
-import type { CardCreateView } from '../../../features/prep/card-create';
+import type { CardCreateView } from '../../../features/prep/cards/card-create';
 import { Breadcrumb } from '../breadcrumb/breadcrumb';
 import { PrepTabs } from '../prep-tabs/prep-tabs';
 import { CreateCiteStep } from './create-cite-step';

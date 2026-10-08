@@ -1,12 +1,13 @@
 import type { Ballot } from '@daisy/ai-voice';
 import { systemClock, type Clock } from '@daisy/clock';
-import {
-  deriveAiDebate,
-  aiDebateTurns,
-  turnRoles,
-  type AiDebateState,
-} from '@daisy/debate-engine';
 import type { AiDebateView } from '../../../features/ai-debate/operations';
+import {
+  positionOfView,
+  segmentAt,
+  uiStateOf,
+  type UiSegment,
+  type UiState,
+} from '../../../features/ai-debate/context';
 import { aiDebateApi, AiDebateRequestError, type AiDebateApi } from './api';
 import { openAudioEngine, type AudioEngine } from './audio';
 import {
@@ -15,12 +16,13 @@ import {
   runPersonSpeech,
 } from './controllers';
 import type { TurnContext } from './play-line';
+import { hasSegment, idle, keyOf } from './store-turn';
 
 export type RoomView = AiDebateView & { readonly receivedAt: number };
 
 export type RoomSnapshot = {
   readonly view: RoomView | null;
-  readonly state: AiDebateState;
+  readonly state: UiState;
   readonly status: string;
   readonly caption: string;
   readonly problem: string;
@@ -53,42 +55,6 @@ const initial: RoomSnapshot = {
   level: 0,
 };
 
-// A turn's countdown and its live time share one controller, so the AI
-// can prepare its words while the countdown runs.
-const turnKeyOf = (state: AiDebateState) => {
-  if (state.phase === 'live' || state.phase === 'countdown')
-    return `turn-${state.turnIndex}`;
-  if (state.phase === 'prep') return `prep-${state.turnIndex}`;
-  return state.phase;
-};
-
-const hasTurn = (
-  state: AiDebateState,
-): state is Extract<AiDebateState, { phase: 'live' | 'countdown' }> =>
-  state.phase === 'live' || state.phase === 'countdown';
-
-type Turn = {
-  readonly key: string;
-  readonly controller: AbortController | null;
-  readonly goLive: () => void;
-  wentLive: boolean;
-  /** Wraps the turn up early, when its controller registered how. */
-  finish: (() => Promise<void>) | null;
-};
-
-const idle = (key: string): Turn => ({
-  key,
-  controller: null,
-  goLive: () => undefined,
-  wentLive: false,
-  finish: null,
-});
-
-/**
- * The debate room's state outside React: the server view (polled, and
- * refreshed after every action), the timeline folded each tick on the
- * server's clock, the controller for the live turn, and the ballot.
- */
 /** Runs `run` every `ms` milliseconds; returns the stop. */
 type Every = (run: () => void, ms: number) => () => void;
 
@@ -97,6 +63,7 @@ const everyInterval: Every = (run, ms) => {
   return () => clearInterval(handle);
 };
 
+/** Polled server view, clock-derived position, live controller and ballot. */
 export function createRoomStore({
   id,
   clock = systemClock,
@@ -115,8 +82,11 @@ export function createRoomStore({
   let engine: AudioEngine | null = null;
   let turn = idle('waiting');
   let judging = false;
+  let finalizing = Promise.resolve();
   let stopped = false;
   let stopPolling: () => void = () => undefined;
+  /** The gap whose prep this browser already asked for. */
+  let prepAsked = -1;
   const now = () => Date.parse(clock.now());
   const set = (patch: Partial<RoomSnapshot>) => {
     snapshot = { ...snapshot, ...patch };
@@ -140,26 +110,33 @@ export function createRoomStore({
 
   const command = async (next: RoomCommand) => {
     const view = snapshot.view;
-    if (!view) return;
+    if (!view) return false;
+    let succeeded = false;
     try {
-      await api.command(id, view.commands.length, next);
+      await api.command(id, view.version, next);
+      succeeded = true;
     } catch (error) {
       if (!(error instanceof AiDebateRequestError && error.status === 409))
         set({ problem: 'That did not go through. Try again.' });
     }
     await refresh();
+    return succeeded;
   };
 
-  const startTurn = (state: AiDebateState, view: RoomView, key: string) => {
-    if (!hasTurn(state) || !engine) return idle(key);
-    const current = aiDebateTurns[state.turnIndex]!;
-    const roles = turnRoles(current, view.personSide);
+  /** The segment a controller would run, with who speaks it. */
+  const segmentOf = (state: UiState, view: RoomView): UiSegment | null =>
+    'segmentIndex' in state ? segmentAt(view, state.segmentIndex) : null;
+
+  const startTurn = (state: UiState, view: RoomView, key: string) => {
+    if (!hasSegment(state) || !engine) return idle(key);
+    const segment = segmentOf(state, view);
+    if (!segment) return idle(key);
     const controller = new AbortController();
     let goLive = () => undefined as void;
     const live = new Promise<void>((resolve) => (goLive = resolve));
     const context: TurnContext = {
       id,
-      turnIndex: current.index,
+      turnIndex: segment.index,
       api,
       engine,
       signal: controller.signal,
@@ -173,19 +150,31 @@ export function createRoomStore({
       },
       onError: (problem) => set({ problem }),
     };
-    if (current.kind === 'cross-examination')
-      void runCrossExamination(context, roles.asker === 'ai');
-    else if (roles.speaker === 'ai')
-      void runAiSpeech(
-        context,
-        () => void command({ type: 'yield', turnIndex: current.index }),
-      );
-    else void runPersonSpeech(context);
-    return { key, controller, goLive, wentLive: false, finish: null };
+    let done: Promise<void>;
+    if (segment.kind === 'cross-examination')
+      done = runCrossExamination(context, segment.side !== view.personSide);
+    else if (segment.side !== view.personSide)
+      done = runAiSpeech(context, () => {
+        // Speech completion and the clock tick may each advance the durable
+        // version while this controller plays. Claim the current one.
+        void refresh().then(() =>
+          command({ type: 'yield', segmentIndex: segment.index }),
+        );
+      });
+    else done = runPersonSpeech(context);
+    // Observe failures even outside finalization; retain the rejection so
+    // the ballot barrier cannot accept an unsaved playback correction.
+    void done.catch(() =>
+      set({
+        problem:
+          'Your opponent’s playback could not be saved. Reload to try again.',
+      }),
+    );
+    return { key, controller, goLive, done, wentLive: false, finish: null };
   };
 
-  /** The turn goes live: release its controller, with a bell on the cut. */
-  const goLive = (previous: AiDebateState) => {
+  /** The segment goes live: release its controller, with a bell on the cut. */
+  const goLive = (previous: UiState) => {
     turn.wentLive = true;
     turn.goLive();
     if (previous.phase === 'countdown' || previous.phase === 'prep')
@@ -194,6 +183,16 @@ export function createRoomStore({
 
   const requestBallot = async (attempt = 0): Promise<void> => {
     judging = true;
+    try {
+      await finalizing;
+    } catch {
+      set({
+        problem:
+          'Your opponent’s playback could not be saved. Reload to try again.',
+      });
+      return;
+    }
+    if (stopped) return;
     try {
       set({ ballot: await api.ballot(id), status: '' });
     } catch {
@@ -205,31 +204,73 @@ export function createRoomStore({
     }
   };
 
-  const judgeWhenOver = (state: AiDebateState) => {
+  const judgeWhenOver = (state: UiState) => {
     if (state.phase !== 'ended' || snapshot.ballot || judging) return;
+    if (snapshot.view?.status === 'completed') {
+      set({
+        status: `Debate ended by forfeit. ${snapshot.view.outcome === snapshot.view.personSide ? 'You win.' : 'Your opponent wins.'}`,
+      });
+      return;
+    }
     set({ status: 'The judge is deciding…' });
     void requestBallot();
   };
 
-  /** A new turn, or the microphone joined during this one: (re)start it. */
-  const advance = (state: AiDebateState, view: RoomView) => {
-    const key = turnKeyOf(state);
+  const isAnswerer = (view: RoomView | null, segmentIndex: number): boolean => {
+    const row = view?.segments[segmentIndex];
+    const side = row && view?.rules.segments[row.sequence]?.side;
+    return side !== undefined && side !== view?.personSide;
+  };
+
+  /**
+   * Elective prep is commanded: before the person's own spendable segment,
+   * this browser asks for prep as the countdown runs, so the clock hands
+   * over without a control nobody asked for.
+   */
+  const askForPrep = (state: UiState, view: RoomView, remainingMs: number) => {
+    if (
+      state.phase !== 'countdown' ||
+      view.status !== 'active' ||
+      remainingMs <= 0
+    )
+      return;
+    const segment = segmentOf(state, view);
+    if (
+      !segment ||
+      segment.kind !== 'speech' ||
+      segment.side !== view.personSide ||
+      prepAsked === segment.index
+    )
+      return;
+    prepAsked = segment.index;
+    void command({ type: 'startPrep' }).then((succeeded) => {
+      if (!succeeded && prepAsked === segment.index) prepAsked = -1;
+    });
+  };
+
+  /** A new segment, or the microphone joined during this one: (re)start it. */
+  const advance = (state: UiState, view: RoomView) => {
+    const key = keyOf(state);
     const restart = turn.controller === null && engine !== null;
-    if (key === turn.key && !(restart && hasTurn(state))) return false;
+    if (key === turn.key && !(restart && hasSegment(state))) return false;
+    const finishing = state.phase === 'ended' ? turn.finish?.() : undefined;
     turn.controller?.abort();
+    if (state.phase === 'ended')
+      finalizing = Promise.all([finishing, turn.done]).then(() => undefined);
     turn = startTurn(state, view, key);
     return true;
   };
 
   const tick = () => {
-    const view = snapshot.view;
+    const { view, state: previous } = snapshot;
     if (!view) return;
-    const state = deriveAiDebate({
-      personSide: view.personSide,
-      commands: view.commands,
-      now: now() + (view.serverNow - view.receivedAt),
-    });
-    const previous = snapshot.state;
+    const position = positionOfView(
+      view,
+      now() + (view.serverNow - view.receivedAt),
+    );
+    const state = uiStateOf(position);
+    const prepLeft = position.prepBudgetRemainingMs?.[view.personSide] ?? 0;
+    askForPrep(state, view, prepLeft);
     if (advance(state, view))
       set({ state, caption: '', status: '', speaking: false });
     else set({ state, level: engine?.level() ?? 0 });
@@ -261,12 +302,16 @@ export function createRoomStore({
       };
     },
     /**
-     * Ends the live turn early: the person's own speech first sends its last
-     * words while the turn is live, then the turn is yielded.
+     * Ends the live segment early: the person's own speech first sends its
+     * last words while the segment is live, then it is yielded. In a
+     * cross-examination the asker holds the floor — an answerer ending the
+     * exchange takes it first, then yields it closed.
      */
-    async finishTurn(turnIndex: number) {
+    async finishTurn(segmentIndex: number) {
       await turn.finish?.();
-      await command({ type: 'yield', turnIndex });
+      const view = snapshot.view;
+      if (isAnswerer(view, segmentIndex)) await command({ type: 'interrupt' });
+      await command({ type: 'yield', segmentIndex });
     },
     /** Opens the microphone (a user gesture), and on a first visit starts. */
     async join(begin: boolean) {

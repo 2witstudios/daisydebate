@@ -3,8 +3,8 @@ import { createId } from '@paralleldrive/cuid2';
 import { buildUserInboxTopic } from '@daisy/protocol';
 import { createPasskeyFlows } from './auth-passkey-flows';
 import { cookieHeader, emailOf, userIdOf, withSql } from './fixtures';
-import { EMAIL_CHANGE_LINK_EXPIRES_IN_SECONDS } from '../src/features/auth/email-change';
-import { emailedLinkIdentifier } from '../src/features/auth/emailed-link-token';
+import { EMAIL_CHANGE_LINK_EXPIRES_IN_SECONDS } from '../src/features/auth/email-change/email-change';
+import { emailedLinkIdentifier } from '../src/features/auth/confirmation/emailed-link-token';
 import { requireTestServices } from '@daisy/config';
 
 /**

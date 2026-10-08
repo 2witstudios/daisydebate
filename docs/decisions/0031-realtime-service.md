@@ -299,7 +299,7 @@ string lands in proxy and access logs):
    trusted-proxy rule (the ingress-overwritten `x-daisy-client-ip`, with
    `AUTH_TRUSTED_PROXIES` for the first untrusted `X-Forwarded-For` hop;
    absent an identity, one shared fail-safe bucket). That rule moves from
-   `apps/web/src/features/auth/client-ip.ts` into `@daisy/auth`, already an
+   `apps/web/src/features/auth/abuse/client-ip.ts` into `@daisy/auth`, already an
    allowed edge, so both apps share one implementation and no
    client-writable header is ever trusted (a criterion on RT-2.4b).
 5. The first message must be `hello {protocolVersion, ticket}` within 5 s.

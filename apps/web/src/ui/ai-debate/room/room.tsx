@@ -1,30 +1,36 @@
 'use client';
 
-import { aiDebateTurns, turnRoles } from '@daisy/debate-engine';
+import { segmentAt } from '../../../features/ai-debate/context';
 import Link from 'next/link';
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import {
   botSelector,
   selectBotHref,
   type Bot,
 } from '../../../features/train/bots';
 import { trainDestinations } from '../../../features/train/actions';
-import { Badge } from '../../components/badge/badge';
 import { PageHeader } from '../../components/page-header/page-header';
-import { TrainCard } from '../../train/card/train-card';
 import { TrainPage } from '../../train/train-page/train-page';
-import { BallotCard, Controls, Transcript, stageTitle } from './parts';
+import { createDocumentSync } from '../../debate-room/document-sync';
+import { documentsApi } from '../../debate-room/documents-api';
+import {
+  CONFLICT_NOTICE,
+  RETRYING_NOTICE,
+  refusedNotice,
+} from '../../debate-room/save-notice';
+import { DebateRoom } from '../../debate-room/room';
+import { BallotCard, Controls, stageTitle } from './parts';
 import { RoundClock } from './round-clock';
+import { botRoundSnapshot } from './round-snapshot';
 import { Stage } from './stage';
 import { createRoomStore, type RoomSnapshot } from './store';
 
 /** The microphone is open in the person's speeches and in cross-examination. */
 function listeningOf({ view, state, joined }: RoomSnapshot) {
   if (!view || !joined || state.phase !== 'live') return false;
-  const turn = aiDebateTurns[state.turnIndex]!;
+  const segment = segmentAt(view, state.segmentIndex);
   return (
-    turn.kind === 'cross-examination' ||
-    turnRoles(turn, view.personSide).speaker === 'person'
+    segment.kind === 'cross-examination' || segment.side === view.personSide
   );
 }
 
@@ -35,24 +41,23 @@ function StageNotes({
   readonly snapshot: RoomSnapshot;
   readonly bot: Bot;
 }) {
-  const { view, state, status, caption, problem, headset } = snapshot;
+  const { state, status, caption, problem, headset } = snapshot;
   const live = state.phase === 'live';
   const cx =
-    live && aiDebateTurns[state.turnIndex]?.kind === 'cross-examination';
+    live && snapshot.view
+      ? segmentAt(snapshot.view, state.segmentIndex).kind ===
+        'cross-examination'
+      : false;
   // The clock is not announced (it changes every second); what happens is.
   return (
-    <div className="flex flex-col gap-3">
-      {view ? (
-        <RoundClock
-          state={state}
-          personSide={view.personSide}
-          opponent={bot.name}
-        />
-      ) : null}
-      <div aria-live="polite" className="flex flex-col gap-3">
+    <div className="flex min-w-0 flex-col gap-1">
+      <h2 className="text-sm font-strong text-ink">
+        {stageTitle(state, snapshot.view)}
+      </h2>
+      <div aria-live="polite" className="flex flex-col gap-1 text-sm">
         {status ? <p className="text-ink">{status}</p> : null}
         {caption && live ? (
-          <blockquote className="rounded-md border border-border bg-surface-sunken p-4 text-lg text-ink">
+          <blockquote className="rounded-sm border border-border bg-surface-sunken px-3 py-2 text-ink">
             {caption}
           </blockquote>
         ) : null}
@@ -68,7 +73,7 @@ function StageNotes({
   );
 }
 
-/** A debate against a Train bot: a one-on-one round by voice. */
+/** A debate against a Train bot, in the round room: voice above, files below. */
 export function AiDebateRoom({ id }: { readonly id: string }) {
   const [store] = useState(() => createRoomStore({ id }));
   useEffect(() => store.start(), [store]);
@@ -76,6 +81,20 @@ export function AiDebateRoom({ id }: { readonly id: string }) {
     store.subscribe,
     store.getSnapshot,
     store.getServerSnapshot,
+  );
+  const [conflicted, setConflicted] = useState(false);
+  const [saveProblem, setSaveProblem] = useState<string | null>(null);
+  const sync = useMemo(
+    () =>
+      createDocumentSync({
+        api: documentsApi,
+        roundId: id,
+        onConflict: () => setConflicted(true),
+        onSaveFailed: () => setSaveProblem(RETRYING_NOTICE),
+        onSaveRefused: (_id, status) => setSaveProblem(refusedNotice(status)),
+        onSaved: () => setSaveProblem(null),
+      }),
+    [id],
   );
   const { view, state, ballot } = snapshot;
   if (snapshot.missing)
@@ -98,59 +117,76 @@ export function AiDebateRoom({ id }: { readonly id: string }) {
       </TrainPage>
     );
   const bot = botSelector(view.opponent).selected;
-  const turnIndex = state.phase === 'live' ? state.turnIndex : null;
+  const segmentIndex = 'segmentIndex' in state ? state.segmentIndex : null;
+  const listening = listeningOf(snapshot);
+  const round = botRoundSnapshot({ view, state, bot, listening });
   return (
-    <TrainPage>
-      <Link
-        href={selectBotHref(bot.id)}
-        className="inline-flex min-h-10 w-fit items-center gap-2 text-base font-strong text-ink-muted no-underline hover:text-ink hover:no-underline"
-      >
-        <span aria-hidden="true">&lsaquo;</span>
-        Train
-      </Link>
-      <PageHeader
-        title={view.resolution}
-        lede={
-          <span className="inline-flex flex-wrap items-center gap-2">
-            <Badge tone="neutral">Practice</Badge>
-            <Badge tone="neutral">One on one · 4:00 prep</Badge>
-          </span>
-        }
-      />
-      <Stage
-        bot={bot}
-        personSide={view.personSide}
-        state={state}
-        speaking={snapshot.speaking}
-        level={snapshot.level}
-        listening={listeningOf(snapshot)}
-      />
-      <TrainCard title={stageTitle(state)}>
-        <StageNotes snapshot={snapshot} bot={bot} />
-        <Controls
-          state={state}
-          personSide={view.personSide}
-          joined={snapshot.joined}
-          busy={snapshot.busy}
-          actions={{
-            onBegin: () => void store.join(true),
-            onRejoin: () => void store.join(false),
-            onStartSpeech: () => void store.command({ type: 'startSpeech' }),
-            onYield: () => {
-              if (turnIndex !== null) void store.finishTurn(turnIndex);
-            },
-            onAbort: () => void store.command({ type: 'abort' }),
-          }}
-        />
-      </TrainCard>
-      {ballot ? (
-        <BallotCard
-          ballot={ballot}
-          personSide={view.personSide}
-          opponent={bot.name}
-        />
-      ) : null}
-      <Transcript view={view} opponent={bot.name} />
-    </TrainPage>
+    <DebateRoom
+      round={round}
+      sync={sync}
+      notice={conflicted ? CONFLICT_NOTICE : saveProblem}
+      parts={{
+        stage: (
+          <Stage
+            bot={bot}
+            personSide={view.personSide}
+            view={view}
+            state={state}
+            speaking={snapshot.speaking}
+            level={snapshot.level}
+            listening={listening}
+          />
+        ),
+        controls: (layout) => (
+          <nav
+            aria-label="Round controls"
+            className="grid grid-cols-3 items-center gap-x-4 gap-y-2 bg-background px-3 py-2"
+          >
+            <StageNotes snapshot={snapshot} bot={bot} />
+            <RoundClock
+              state={state}
+              view={view}
+              personSide={view.personSide}
+            />
+            <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+              <Link
+                href={selectBotHref(bot.id)}
+                className="text-sm text-ink-muted no-underline hover:text-ink"
+              >
+                Train
+              </Link>
+              <Controls
+                state={state}
+                view={view}
+                personSide={view.personSide}
+                joined={snapshot.joined}
+                busy={snapshot.busy}
+                actions={{
+                  onBegin: () => void store.join(true),
+                  onRejoin: () => void store.join(false),
+                  onStartSpeech: () =>
+                    void store.command({ type: 'startSpeech' }),
+                  onYield: () => {
+                    if (segmentIndex !== null)
+                      void store.finishTurn(segmentIndex);
+                  },
+                  onAbort: () => void store.command({ type: 'abort' }),
+                }}
+              />
+              {layout}
+            </div>
+          </nav>
+        ),
+        below: ballot ? (
+          <div className="px-3 pb-2">
+            <BallotCard
+              ballot={ballot}
+              personSide={view.personSide}
+              opponent={bot.name}
+            />
+          </div>
+        ) : null,
+      }}
+    />
   );
 }

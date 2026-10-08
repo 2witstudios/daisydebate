@@ -1,8 +1,47 @@
 import type { Clock } from '@daisy/clock';
-import type { AiDebateCommand } from '@daisy/debate-engine';
+import { resolveRoomConfiguration } from '@daisy/debate-engine';
+import {
+  oneOnOneDefinition,
+  practiceRoomConfig,
+} from '@daisy/db/reference-formats';
 import type { AiDebateApi, SpeechEvent } from './api';
+import type { RoomCommand } from './store';
 import type { AudioEngine, Playback } from './audio';
+import type { AiDebateView } from '../../../features/ai-debate/context';
 import type { TurnContext } from './play-line';
+
+const resolved = resolveRoomConfiguration(
+  oneOnOneDefinition,
+  practiceRoomConfig,
+);
+if (!resolved.ok) throw new Error(resolved.refusal.message);
+
+/** The hydration view one of the actor's live rounds carries. */
+const testView = (
+  at: () => number,
+  personSide: 'affirmative' | 'negative' = 'affirmative',
+): AiDebateView => ({
+  id: 'd1',
+  resolution: 'Schools should ban phones in class.',
+  personSide,
+  opponent: 'wren',
+  voice: 'aura-2-thalia-en',
+  serverNow: at(),
+  version: 7,
+  status: 'active',
+  outcome: null,
+  startedAt: at() - 10_000,
+  rules: resolved.rules,
+  segments: [],
+  checkpoint: {
+    version: 1,
+    prep_consumed_ms: { affirmative: 0, negative: 0 },
+    active_prep: null,
+    floor: null,
+  },
+  utterances: [],
+  ballot: null,
+});
 
 export const T0 = Date.UTC(2026, 9, 3, 18, 0, 0);
 
@@ -30,6 +69,14 @@ export const handTimers = () => {
 
 /** Lets pending promise callbacks run. */
 export const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+/** Records judging while holding its response for finalization tests. */
+export const holdBallot =
+  (log: string[]): AiDebateApi['ballot'] =>
+  async () => {
+    log.push('ballot');
+    return new Promise(() => undefined);
+  };
 
 export type FakeEngine = AudioEngine & {
   /** Moves the timeline on by `ms`, running everything due on the way. */
@@ -156,30 +203,13 @@ export const fakeApi = ({
   readonly log: string[];
   readonly at: () => number;
   readonly personSide?: 'affirmative' | 'negative';
-  readonly commands?: AiDebateCommand[];
+  readonly commands?: RoomCommand[];
   readonly overrides?: ApiOverrides;
 }): AiDebateApi => ({
-  view: async (id) => ({
-    id,
-    resolution: 'Schools should ban phones in class.',
-    personSide,
-    opponent: 'wren',
-    voice: 'aura-2-thalia-en',
-    serverNow: at(),
-    commands: [...commands],
-    utterances: [],
-    ballot: null,
-  }),
-  command: async (_id, _sequence, command) => {
+  view: async (id) => ({ ...testView(at, personSide), id }),
+  command: async (_id, _version, command) => {
     log.push(`command:${command.type}`);
-    const time = at();
-    commands.push(
-      command.type === 'yield'
-        ? { type: 'yield', at: time, turnIndex: command.turnIndex }
-        : command.type === 'abort'
-          ? { type: 'abort', at: time, reason: 'person' }
-          : { type: command.type, at: time },
-    );
+    commands.push(command);
   },
   transcribe: async () => {
     log.push('transcribe');
@@ -200,6 +230,15 @@ export const fakeApi = ({
   },
   ...overrides,
 });
+
+/** A loaded room fixture with its clock, timers and API under test control. */
+export async function roomFixture() {
+  const log: string[] = [];
+  const time = handClock();
+  const timers = handTimers();
+  const base = fakeApi({ log, at: time.at });
+  return { log, time, timers, base, view: await base.view('d1') };
+}
 
 /** A turn's context with every callback a no-op unless given. */
 export const turnContext = (

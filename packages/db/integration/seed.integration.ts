@@ -16,7 +16,10 @@ const seedActorIds = ['h3j7m1p5r9t2v6x0z4b8d2f6', 'q5s9u3w7y1a4c8e2g6j0l4n8'];
 
 /** Removes the rows the seeds insert, children first. */
 const removeSeedRows = async (database: SQL) => {
-  await database`delete from debates where id = ${seedIds[2]}`;
+  // Clear execution first: utterances restrict participant deletion.
+  await database`delete from round_segments where round_id = ${seedIds[2]}`;
+  // The seeded round's participants cascade from it.
+  await database`delete from rounds where id = ${seedIds[2]}`;
   await database`delete from actors where id in (${seedActorIds[0]}, ${seedActorIds[1]})`;
   await database`delete from users where id in (${seedIds[0]}, ${seedIds[1]})`;
   await database`delete from seed_versions where seed_name in ('agent', 'formats')`;
@@ -88,7 +91,7 @@ describe('agent seed', () => {
           (select jsonb_agg(to_jsonb(users) order by id) from users where id in (${seedIds[0]}, ${seedIds[1]})) as users,
           (select jsonb_agg(to_jsonb(actors) order by id) from actors where id in (${seedActorIds[0]}, ${seedActorIds[1]})) as actors,
           (select jsonb_agg(to_jsonb(formats) order by id) from formats where id = 'foundation') as formats,
-          (select jsonb_agg(to_jsonb(debates) order by id) from debates where id = ${seedIds[2]}) as debates,
+          (select jsonb_agg(to_jsonb(rounds) order by id) from rounds where id = ${seedIds[2]}) as debates,
           (select jsonb_agg(to_jsonb(seed_versions) order by seed_name) from seed_versions where seed_name in ('agent', 'formats')) as versions
       `;
 
@@ -98,7 +101,7 @@ describe('agent seed', () => {
           (select jsonb_agg(to_jsonb(users) order by id) from users where id in (${seedIds[0]}, ${seedIds[1]})) as users,
           (select jsonb_agg(to_jsonb(actors) order by id) from actors where id in (${seedActorIds[0]}, ${seedActorIds[1]})) as actors,
           (select jsonb_agg(to_jsonb(formats) order by id) from formats where id = 'foundation') as formats,
-          (select jsonb_agg(to_jsonb(debates) order by id) from debates where id = ${seedIds[2]}) as debates,
+          (select jsonb_agg(to_jsonb(rounds) order by id) from rounds where id = ${seedIds[2]}) as debates,
           (select jsonb_agg(to_jsonb(seed_versions) order by seed_name) from seed_versions where seed_name in ('agent', 'formats')) as versions
       `;
 
@@ -110,31 +113,58 @@ describe('agent seed', () => {
         expected: first,
       });
 
-      // A developer advanced the seed debate: reseeding must return every
-      // lifecycle projection to waiting, or the CHECK rolls the seed back.
+      // A developer advanced the seed round: reseeding must return every
+      // lifecycle projection to scheduled, or the CHECK rolls the seed back.
       await database`
-        update debates
-        set phase = 'active', started_at = now(), snapshot = snapshot || '{"phase":"active"}'::jsonb
+        update rounds
+        set status = 'active', current_stage = 'countdown', started_at = now(),
+            runtime_state = runtime_state || '{"active_prep":{"side":"affirmative","started_at":"2026-01-01T00:00:00.000Z"}}'::jsonb
         where id = ${seedIds[2]}
+      `;
+      await database`
+        insert into round_segments
+          (id, round_id, sequence, type, rules_segment_key, started_at, ended_at, duration_ms)
+        select 'seed-segment-' || sequence, id, sequence, segment->>'type',
+               segment->>'key', '2026-01-01T00:00:00Z'::timestamptz,
+               case when sequence = 0 then '2026-01-01T00:01:00Z'::timestamptz end,
+               (segment->>'durationMs')::int
+        from rounds,
+             lateral jsonb_array_elements(rules_snapshot->'segments') with ordinality as item(segment, ordinal),
+             lateral (select (ordinal - 1)::int as sequence) as position
+        where id = ${seedIds[2]} and sequence < 2
+      `;
+      await database`
+        insert into utterances (id, round_id, segment_id, round_participant_id, sequence, text)
+        select 'seed-spoken-line', round_id, 'seed-segment-0', id, 0, 'Previous speech'
+        from round_participants where round_id = ${seedIds[2]} and role = 'affirmative'
       `;
       await runSeed();
       const [reset] = await database`
-        select phase, started_at, completed_at, outcome, snapshot->>'phase' as snapshot_phase, jsonb_typeof(snapshot) as snapshot_type
-        from debates where id = ${seedIds[2]}
+        select status, current_stage, started_at, completed_at, outcome,
+               runtime_state->'active_prep' as active_prep,
+               jsonb_typeof(rules_snapshot) as rules_type,
+               jsonb_typeof(runtime_state) as runtime_type,
+               (select count(*)::int from round_segments where round_id = ${seedIds[2]}) as segments,
+               (select count(*)::int from utterances where round_id = ${seedIds[2]}) as utterances
+        from rounds where id = ${seedIds[2]}
       `;
       assert({
-        given: 'a seed debate that progressed to active before a reseed',
+        given: 'a seed round that progressed to active before a reseed',
         should:
-          'reset phase, snapshot and every lifecycle projection to waiting',
+          'reset lifecycle, checkpoint, open and closed segments and their utterances',
         actual: reset,
         expected: {
-          phase: 'waiting',
+          status: 'scheduled',
+          current_stage: null,
           started_at: null,
           completed_at: null,
           outcome: null,
-          snapshot_phase: 'waiting',
-          // Not a double-encoded JSON string: the engine must restore it.
-          snapshot_type: 'object',
+          active_prep: null,
+          // Not a double-encoded JSON string: the runtime must read it back.
+          rules_type: 'object',
+          runtime_type: 'object',
+          segments: 0,
+          utterances: 0,
         },
       });
     } finally {

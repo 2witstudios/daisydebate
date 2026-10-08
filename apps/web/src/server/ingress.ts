@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { stampClientIdentity } from '../features/auth/client-ip';
+import { stampClientIdentity } from '../features/auth/abuse/client-ip';
 
 type IngressDeps = {
   readonly isDraining: () => boolean;

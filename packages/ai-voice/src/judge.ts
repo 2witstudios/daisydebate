@@ -1,29 +1,10 @@
 import { createAppError } from '@daisy/errors';
-import { z } from 'zod';
-
-const text = z.string().trim().min(1).max(2000);
-
-const ballotSchema = z.object({
-  winner: z.enum(['affirmative', 'negative']),
-  reason: text,
-  speeches: z
-    .array(
-      z.object({
-        turn: z.string().max(8),
-        side: z.enum(['affirmative', 'negative']),
-        strengths: text,
-        improvements: text,
-      }),
-    )
-    .max(10),
-  tips: z.array(text).max(6),
-});
-
-export type Ballot = z.infer<typeof ballotSchema>;
+import { ballotSchema, type Ballot } from '@daisy/protocol';
 
 /**
- * The judge model's answer as a validated ballot. Models sometimes wrap
- * JSON in a code fence; anything that still is not a valid ballot is an
+ * The judge model's answer as a validated ballot — the one ballot contract
+ * the human judging UI produces (ADR 0058 §6). Models sometimes wrap JSON
+ * in a code fence; anything that still is not a valid ballot is an
  * infrastructure failure (the judge could not rule), never user input.
  */
 export function parseBallot(answer: string): Ballot {
@@ -50,3 +31,5 @@ export function parseBallot(answer: string): Ballot {
     );
   return result.data;
 }
+
+export type { Ballot };

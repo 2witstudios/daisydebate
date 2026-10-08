@@ -6,7 +6,7 @@ import {
 } from './auth-account-helpers';
 import { counts, tokenOf, withSql } from './fixtures';
 import { decideAccess } from '../src/features/access/decision';
-import { sessionRefreshDue } from '../src/features/auth/session-policy';
+import { sessionRefreshDue } from '../src/features/auth/sessions/session-policy';
 import { requireTestServices } from '@daisy/config';
 
 requireTestServices(process.env);

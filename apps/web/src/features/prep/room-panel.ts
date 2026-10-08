@@ -1,8 +1,13 @@
-import { currentVersion, readWords, type Card } from './card';
-import { blockClock, latestVersion, type Case, type Speech } from './case';
-import { findBlockSources } from './block-sources';
-import { getCard } from './get-card';
-import { getCase, listCases } from './get-case';
+import { currentVersion, readWords, type Card } from './cards/card';
+import {
+  blockClock,
+  latestVersion,
+  type Case,
+  type Speech,
+} from './cases/case';
+import { findBlockSources } from './cards/block-sources';
+import { getCard } from './cards/get-card';
+import { getCase, listCases } from './cases/get-case';
 import { caseChangedElsewhere, type Notice } from './notices';
 import { formatClock, readSeconds } from './reading-time';
 import {

@@ -8,10 +8,18 @@ import {
 } from './listen';
 import { claimUsername } from './username-claim';
 import { authOperations } from './auth-operations';
-import { debateOperations } from './debate-operations';
-import { aiDebateOperations } from './ai-debate-operations';
+import { formatOperations } from './format-operations';
+import { roomOperations } from './room-operations';
+import { roundOperations } from './round-operations';
+import { utteranceOperations } from './utterance-operations';
+import { ballotOperations } from './ballot-operations';
+import { agentOperations } from './agent-operations';
+import { documentOperations } from './document-operations';
 import { onboardingOperations } from './onboarding-operations';
 import { actorOperations } from './actor-operations';
+import { rateCompletedRound } from './rating-operations';
+import { standingsOperations } from './standings';
+import type { RateDebateInput } from './rating-facts';
 import { emailDeliveryOperations } from './email-delivery-operations';
 import { outboxOperations } from './outbox';
 import { instrumented, type DatabaseEventSink } from './instrumented';
@@ -23,24 +31,25 @@ import {
 } from './runtime-role';
 import { RUNTIME_SESSION } from './session-bounds';
 export type {
-  DebateMode,
-  DebateOutcome,
-  DebateVisibility,
-} from './schema/debates';
-export type { DebateRecord, NewDebate } from './debate-record';
+  RateDebateInput,
+  RateDebateResult,
+  RatingDecision,
+} from './rating-facts';
+export type {
+  FormatRevisionRecord,
+  FormatPresetRecord,
+} from './format-operations';
+export type { NewRoom, RoomRecord } from './room-operations';
+export type { RoundHydration } from './round-hydration';
+export type { RoundExecutionWrite } from './round-operations';
+export type { DocumentRecord, DocumentSave } from './document-operations';
+export type { ActorRecord } from './actor-operations';
 export type { UsernameClaim } from './username-claim';
 export type {
   OnboardingRecord,
   OnboardingStepWrite,
 } from './onboarding-operations';
-export type { ActorRecord } from './actor-operations';
-export type { FormatRecord } from './debate-operations';
-export type {
-  AiDebateCommandRecord,
-  AiDebateRecord,
-  AiDebateUtteranceRecord,
-  NewAiDebate,
-} from './ai-debate-record';
+export type { StandingsRead } from './standings';
 export type { DatabaseEventSink } from './instrumented';
 export {
   encodeOutboxCursor,
@@ -53,13 +62,12 @@ export {
 export { refuseSchemaAlteringRole } from './runtime-role';
 
 /**
- * Composes the auth, debates, actor, email and outbox areas over one
- * connection pool (ISSUE-8 AC1): every area receives only the opaque Drizzle
- * handle and the event sink, never the raw client, and returns records, not
- * rows. `transaction`, `createUser`, `saveSnapshot` and the raw `outbox`
- * table have no production consumer (review T5) and are deliberately absent
- * from this surface — `packages/db`'s own tests reach them through
- * `test-only-operations.ts` and direct submodule imports instead.
+ * Composes the auth, format, room, round, utterance, ballot, agent,
+ * document, actor, email and outbox areas over one connection pool
+ * (ISSUE-8 AC1): every area receives only the opaque Drizzle handle and
+ * the event sink, never the raw client, and returns records, not rows.
+ * The competitive kernel persists what the caller's domain decisions
+ * resolve — the composition root (the app) injects the engine.
  */
 /** Connections in one process's pool unless a caller asks for another size. */
 export const DEFAULT_MAX_CONNECTIONS = 10;
@@ -79,10 +87,7 @@ export function createDatabase({
   /**
    * The cuid2 source for actor rows created at onboarding (ACTOR-1). Required,
    * not defaulted: every caller states its id strategy explicitly rather than
-   * silently falling back to an ambient one. The application edge injects its
-   * clock/id source (`@daisy/clock`'s `systemId.next`); a caller with no
-   * production writes of its own (a read-only script, a fixture) still names
-   * one, such as `@paralleldrive/cuid2`'s `createId` directly.
+   * silently falling back to an ambient one.
    */
   nextActorId: () => string;
 }) {
@@ -104,12 +109,7 @@ export function createDatabase({
     },
     /**
      * The database this connection actually landed on, from the server
-     * itself (`current_database()`), never parsed back out of `url`. A
-     * connection URL's database name can be overridden by a `?database=`
-     * query parameter Bun's `SQL` client honors (standard libpq connection-
-     * string behavior), so a caller that must confirm which database it
-     * is about to act on — a destructive script guarding against the wrong
-     * target — checks this, not the URL string.
+     * itself (`current_database()`), never parsed back out of `url`.
      */
     async currentDatabaseName(): Promise<string> {
       return instrumented(eventSink, 'currentDatabaseName', async () => {
@@ -155,9 +155,24 @@ export function createDatabase({
     ...emailDeliveryOperations({ database, eventSink }),
     ...actorOperations({ database, eventSink }),
     ...outboxOperations({ database, eventSink }),
-    ...debateOperations({ database, eventSink }),
-    ...aiDebateOperations({ database, eventSink }),
+    ...formatOperations({ database, eventSink }),
+    ...roomOperations({ database, eventSink }),
+    ...roundOperations({ database, eventSink }),
+    ...utteranceOperations({ database, eventSink }),
+    ...ballotOperations({ database, eventSink }),
+    ...agentOperations({ database, eventSink }),
+    ...documentOperations({ database, eventSink }),
     ...onboardingOperations({ database, eventSink }),
+    ...standingsOperations({ database, eventSink }),
+    /**
+     * Rates a completed round with the caller's domain decision (ADR 0055,
+     * ADR 0058); see `rateCompletedRound`. Its consumer is the ratings
+     * feature; no production path calls that feature yet (RATE-2).
+     */
+    rateRound: (input: RateDebateInput) =>
+      instrumented(eventSink, 'rateRound', () =>
+        rateCompletedRound(database, input),
+      ),
     /** Server-owned onboarding claim; see `claimUsername`. */
     claimUsername: (input: { userId: string; username: string }) =>
       claimUsername(database, input, nextActorId, eventSink),

@@ -2,74 +2,97 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createDatabase } from '../src';
-import {
-  debateAuthoring,
-  snapshotFor,
-  withFixture,
-} from './constraint-helpers';
+import { roundAuthoring, withFixture } from './constraint-helpers';
 
 setupRitewayBun();
 
 const { databaseUrl: url } = requireTestServices(process.env);
 
-test('durable records survive reconnect; optimistic writes reject stale updates', () =>
+test('durable rounds survive reconnect; optimistic executions reject stale writers', () =>
   withFixture(url, async (fixture) => {
-    const { id, actorId, formatId, database, testOnly } = await debateAuthoring(
+    const { roundId, database, rules, formatId } = await roundAuthoring(
       fixture,
       url,
     );
     try {
       const healthy = await database.health();
-      await database.createDebate({
-        id,
-        createdBy: actorId,
+      await database.createRound({
+        id: roundId,
+        createdByActorId: null,
         resolution: 'Architecture proof',
-        format: formatId,
-        snapshot: snapshotFor(id, { format: formatId }),
-        mode: 'casual',
-        visibility: 'unlisted',
+        competitionType: 'casual',
+        length: 'full',
+        formatId,
+        formatVersion: 1,
+        presetVersion: null,
+        rules,
       });
       await database.close();
       const reopened = createDatabase({ url, nextActorId: createId });
       try {
-        const stored = await reopened.getDebate(id);
+        const stored = await reopened.getRound(roundId);
+        const command = {
+          commandId: createId(),
+          actorId: null,
+          serviceId: 'integration',
+          type: 'start',
+          payloadDigest: 'a'.repeat(64),
+          result: { ok: true },
+        };
         const outcomes = await Promise.all(
-          [1, 2].map((value) =>
-            testOnly.saveSnapshot({
-              id,
-              expectedVersion: 1,
-              snapshot: snapshotFor(id, {
-                format: formatId,
-                phase: 'active',
-                resolution: `attempt ${value}`,
-              }),
-              updatedAt: '2026-01-01T00:00:00.000Z',
-            }),
+          [1, 2].map(() =>
+            reopened
+              .applyRoundExecution({
+                roundId,
+                expectedVersion: 1,
+                command,
+                projection: {
+                  round: {
+                    status: 'active',
+                    currentStage: 'countdown',
+                    startedAt: '2001-01-01T00:00:00.000Z',
+                    completedAt: null,
+                    outcome: null,
+                    checkpoint: stored?.checkpoint ?? {
+                      version: 1,
+                      prep_consumed_ms: { affirmative: 0, negative: 0 },
+                      active_prep: null,
+                      floor: null,
+                    },
+                  },
+                  segmentInserts: [],
+                  segmentCloses: [],
+                  effects: [],
+                },
+              })
+              .then(() => true)
+              .catch(() => false),
           ),
         );
         const won = outcomes.filter(Boolean);
+        const after = await reopened.getRound(roundId);
         assert({
           given:
-            'a debate written, the connection reopened, and two concurrent writes against version 1',
+            'a round written, the connection reopened, and two executions against version 1',
           should:
-            'read back the stored snapshot and projections, and let exactly one write win, moving the phase projection with it and stamping started_at from the database clock, never the caller (ADR 0033 §3.2, ISSUE-37)',
+            'read the frozen rules back and let exactly one execution win, moving the round to active with a database-clock started_at, never the caller-provided one (ADR 0033 §3.2, ISSUE-37)',
           actual: {
             healthy,
-            snapshot: stored?.snapshot,
-            projections: [stored?.mode, stored?.phase, stored?.visibility],
+            rules: stored?.rules.version,
+            status: stored?.status,
             winners: won.length,
             winner: {
-              phase: won[0]?.phase,
-              callerTime: won[0]?.startedAt === '2026-01-01T00:00:00.000Z',
-              validTime: !Number.isNaN(Date.parse(won[0]?.startedAt ?? '')),
+              status: after?.status,
+              callerTime: after?.startedAt === '2001-01-01T00:00:00.000Z',
+              validTime: !Number.isNaN(Date.parse(after?.startedAt ?? '')),
             },
           },
           expected: {
             healthy: true,
-            snapshot: snapshotFor(id, { format: formatId }),
-            projections: ['casual', 'waiting', 'unlisted'],
+            rules: 2,
+            status: 'scheduled',
             winners: 1,
-            winner: { phase: 'active', callerTime: false, validTime: true },
+            winner: { status: 'active', callerTime: false, validTime: true },
           },
         });
       } finally {

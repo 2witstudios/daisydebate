@@ -1,4 +1,10 @@
-import { debateSides } from '@daisy/protocol';
+import {
+  ballotCitationsSchema,
+  ballotFeedbackSchema,
+  ballotRubricVersion,
+  ballotScoresSchema,
+  debateSides,
+} from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -8,71 +14,67 @@ import {
   text,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import { actors } from './actors';
 import {
   createdAtColumn,
   jsonbColumn,
+  jsonbColumnNullable,
   jsonbIsObject,
-  jsonObjectSchema,
   notBefore,
   oneOf,
   timestampColumn,
   updatedAtColumn,
-  versionColumn,
-  versionPositive,
 } from './columns';
-import { debateParticipants } from './debate-participants';
-import { debates } from './debates';
+import { actors } from './actors';
+import { roundParticipants } from './round-participants';
 
-export const ballotDecisions = [...debateSides, 'draw'] as const;
 export const ballotStatuses = ['submitted', 'voided'] as const;
 
 /**
- * One ballot per judge seat: `(debate_id, judge_actor_id)` is unique and
- * references the seat. That the seat is a judge is a domain invariant.
- * Voiding keeps the row and records who and when; the CHECK ties both to
- * the status.
+ * One ballot per judge seat (ADR 0058 §6): the contract's shape, decomposed
+ * into columns a write path validates with the full `ballotSchema` before
+ * filling. The judge-seat FK is RESTRICT — a seat carrying a submitted
+ * ballot cannot be deleted; retirement is voiding, which records who and
+ * when. Human and AI judges produce exactly this contract.
  */
 export const ballots = pgTable(
   'ballots',
   {
     id: text('id').primaryKey(),
-    debateId: text('debate_id')
-      .notNull()
-      .references(() => debates.id, { onDelete: 'cascade' }),
-    /** Bound to `debate_id` by the composite key below, never on its own. */
-    judgeActorId: text('judge_actor_id').notNull(),
-    decision: text('decision').notNull(),
-    scores: jsonbColumn('scores', jsonObjectSchema).notNull(),
+    judgeParticipantId: text('judge_participant_id').notNull(),
+    rubricVersion: text('rubric_version').notNull(),
+    /** The winner: a side. There are no draws (ADR 0058 §6, DEC-116). */
+    winner: text('winner').notNull(),
+    scores: jsonbColumn('scores', ballotScoresSchema).notNull(),
     reason: text('reason').notNull(),
+    feedback: jsonbColumnNullable('feedback', ballotFeedbackSchema),
+    citations: jsonbColumnNullable('citations', ballotCitationsSchema),
     status: text('status').notNull(),
     submittedAt: timestampColumn('submitted_at').notNull(),
     voidedAt: timestampColumn('voided_at'),
-    voidedByActorId: text('voided_by_actor_id').references(() => actors.id, {
-      onDelete: 'restrict',
-    }),
+    voidedByActorId: text('voided_by_actor_id'),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
-    version: versionColumn(),
   },
   (table) => [
-    /**
-     * The seat must belong to this ballot's debate: two independent keys
-     * would accept debate A with a seat from debate B, and either cascade
-     * could then remove the ballot.
-     */
+    // RESTRICT: a seat carrying a submitted ballot cannot be deleted.
     foreignKey({
       name: 'ballots_judge_seat_fk',
-      columns: [table.debateId, table.judgeActorId],
-      foreignColumns: [debateParticipants.debateId, debateParticipants.actorId],
-    }).onDelete('cascade'),
-    uniqueIndex('ballots_judge_seat_unique').on(
-      table.debateId,
-      table.judgeActorId,
-    ),
+      columns: [table.judgeParticipantId],
+      foreignColumns: [roundParticipants.id],
+    }),
+    foreignKey({
+      name: 'ballots_voided_by_actor_fk',
+      columns: [table.voidedByActorId],
+      foreignColumns: [actors.id],
+    }).onDelete('restrict'),
+    uniqueIndex('ballots_judge_seat_unique').on(table.judgeParticipantId),
     index('ballots_voided_by_actor_idx').on(table.voidedByActorId),
-    check('ballots_decision_check', oneOf(table.decision, ballotDecisions)),
     check('ballots_status_check', oneOf(table.status, ballotStatuses)),
+    check('ballots_winner_check', oneOf(table.winner, debateSides)),
+    check(
+      'ballots_rubric_version_check',
+      sql`${table.rubricVersion} = ${ballotRubricVersion}`,
+    ),
     check(
       'ballots_voided_fields_check',
       sql`(${table.status} = 'voided' and ${table.voidedAt} is not null and ${table.voidedByActorId} is not null) or (${table.status} <> 'voided' and ${table.voidedAt} is null and ${table.voidedByActorId} is null)`,
@@ -82,6 +84,7 @@ export const ballots = pgTable(
       notBefore(table.voidedAt, table.submittedAt),
     ),
     jsonbIsObject('ballots', table.scores),
-    versionPositive('ballots', table.version),
+    jsonbIsObject('ballots', table.feedback),
+    jsonbIsObject('ballots', table.citations),
   ],
 );

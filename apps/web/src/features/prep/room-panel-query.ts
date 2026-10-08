@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { SearchParams } from '../access/decision';
-import { MAX_FIELD_LENGTH } from './library-query';
+import { MAX_FIELD_LENGTH } from './library/library-query';
 
 const panels = ['speech', 'cards', 'search'] as const;
 export type PanelTab = (typeof panels)[number];

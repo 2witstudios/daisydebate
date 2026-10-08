@@ -1,8 +1,8 @@
 import { systemClock } from '@daisy/clock';
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../features/access/decision';
-import { parseLibraryQuery } from '../../../features/prep/library-query';
-import { listLibrary } from '../../../features/prep/list-library';
+import { parseLibraryQuery } from '../../../features/prep/library/library-query';
+import { listLibrary } from '../../../features/prep/library/list-library';
 import { requireAccess } from '../../../lib/access';
 import { Library } from '../../../ui/prep/library/library';
 

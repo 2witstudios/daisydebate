@@ -270,7 +270,7 @@ EMAIL_UNDELIVERABLE`) appears for addresses that should be deliverable.
    `recipientKey(deriveRecipientSubkey(RECIPIENT_HASH_SECRET), email)`
    (SHA3-256 of a domain-separated subkey of `RECIPIENT_HASH_SECRET` and the
    normalized address, never `BETTER_AUTH_SECRET`; ADR 0044, ISSUE-141;
-   `apps/web/src/features/auth/recipient-key.ts`), which cannot be
+   `apps/web/src/features/auth/mail/recipient-key.ts`), which cannot be
    recomputed from SQL alone — run `bun repl` (or a one-off script) importing
    `recipientKey`/`deriveRecipientSubkey` with the deployment's
    `RECIPIENT_HASH_SECRET` to look up
@@ -325,7 +325,7 @@ appears to stop working (every request allowed, or every request denied).
    never SQL text, bound parameters, or the raw driver exception
    (`apps/web/integration/auth-database-failures.integration.ts`, "pool
    lifecycle closes and the app failure boundary reports without SQL
-   material"; `apps/web/src/features/auth/rate-limit.ts`'s limiter outage
+   material"; `apps/web/src/features/auth/abuse/rate-limit.ts`'s limiter outage
    path, `apps/web/integration/auth-rate-limit.integration.ts`, "a Redis
    outage answers a safe 503 for every request and never counts locally").
 2. A Redis outage fails every rate-gated auth request closed (`503` +

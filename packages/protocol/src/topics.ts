@@ -3,9 +3,8 @@ import { idSchema } from './primitives';
 
 /**
  * `standings:<season>` names a season slug, not an entity id, so it is not
- * cuid2. Same shape as `formatIdSchema` in ./index (lowercase, digits and
- * hyphens), but a trailing hyphen is never valid: the slug must start and
- * end on an alphanumeric.
+ * cuid2: lowercase, digits and hyphens, but a trailing hyphen is never
+ * valid — the slug must start and end on an alphanumeric.
  */
 const seasonIdSchema = z.string().regex(/^[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?$/);
 

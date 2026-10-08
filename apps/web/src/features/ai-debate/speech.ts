@@ -1,32 +1,40 @@
-import {
-  DEFAULT_REASONING,
-  createPhraseBuffer,
-  createSentenceBuffer,
-  heardText,
-  speechMessages,
-  phrasesOf,
-} from '@daisy/ai-voice';
-import type { AiDebateRecord } from '@daisy/db';
-import type { AiDebateTurn } from '@daisy/debate-engine';
+import { DEFAULT_MODELS, heardText, phrasesOf } from '@daisy/ai-voice';
+import type { RoundHydration } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
 import {
   aiSideOf,
-  approximateTokens,
-  nowMs,
-  ownedBy,
-  personaOf,
-  requireLiveTurn,
-  transcriptOf,
+  personSideOf,
+  requireOpenSegment,
   type AiDebateDependencies,
+  type RecordUsage,
 } from './context';
+import { opponentForActor } from './opponents';
+import { writeSpeech, type SpeechEvent } from './speech-writer';
 
-export type SpeechEvent =
-  | { readonly type: 'utterance'; readonly id: string }
-  | {
-      readonly type: 'phrase';
-      readonly index: number;
-      readonly text: string;
-    };
+export type { SpeechEvent };
+
+import type { createRoundRuntime } from '@daisy/debate-engine';
+
+type Runtime = ReturnType<typeof createRoundRuntime>;
+
+/** The hydrated round each operation drives, after its time tick. */
+type Hydrated = {
+  readonly round: RoundHydration;
+  readonly runtime: Runtime;
+  readonly now: number;
+};
+type Hydrate = (actorId: string, id: string) => Promise<Hydrated>;
+const participantRoleOfLine = (round: RoundHydration, participantId: string) =>
+  round.participants.find((seat) => seat.id === participantId)?.role ?? 'judge';
+
+/** The bot's seat: the AI side's only participant; throws when unseated. */
+const botSeatOf = (round: RoundHydration, actorId: string) => {
+  const seat = round.participants.find(
+    (candidate) => candidate.role === aiSideOf(personSideOf(round, actorId)),
+  );
+  if (!seat) throw createAppError('INTERNAL', 'The bot has no seat');
+  return seat;
+};
 
 /**
  * Characters of voice one debate may buy. The bot speaks about 12,500
@@ -37,96 +45,206 @@ export type SpeechEvent =
  */
 const SPEECH_BUDGET = 30_000;
 
+const segmentClosed = (
+  status: string,
+  openSequence: number | null,
+  expected: number,
+  endedAt: string | null | undefined,
+): boolean =>
+  status === 'completed' ||
+  status === 'abandoned' ||
+  (openSequence !== null && openSequence > expected) ||
+  (endedAt !== null && endedAt !== undefined);
+
+/** A cutoff may report its final phrase for thirty seconds after closure. */
+const requirePlaybackWindow = (
+  round: RoundHydration,
+  segment: RoundHydration['segments'][number] | undefined,
+  now: number,
+) => {
+  if (round.status !== 'active' || !segment)
+    throw createAppError('CONFLICT', 'That segment is not live');
+  const start = Date.parse(segment.startedAt);
+  const end = Math.min(
+    start + segment.durationMs,
+    segment.endedAt === null ? Infinity : Date.parse(segment.endedAt),
+  );
+  if (now < start || now > end + 30_000)
+    throw createAppError('CONFLICT', 'That segment is not live');
+};
+
 /** The AI's spoken lines: its speeches, their voice, and what was heard. */
-export function speechOperations({
-  store,
-  voice,
-  clock,
-  ids,
-  limits,
-}: AiDebateDependencies) {
+export function speechOperations(
+  { store, voice, ids, limits }: AiDebateDependencies,
+  hydrated: Hydrate,
+  recordUsage: RecordUsage,
+) {
   const speechBudget = limits?.speechCharacters ?? SPEECH_BUDGET;
+
+  /**
+   * The open segment row for a sequence, waiting out the countdown that
+   * opens it: the AI prepares its words while the countdown runs, and the
+   * line lands on the row the moment time opens it.
+   */
+  const waitForSegment = async (
+    actorId: string,
+    id: string,
+    sequence: number,
+  ): Promise<{ readonly segmentId: string }> => {
+    for (let attempt = 0; attempt < 240; attempt += 1) {
+      const { round, runtime, now } = await hydrated(actorId, id);
+      const open = runtime.position(new Date(now).toISOString()).openSegment;
+      const row = round.segments.find(
+        (segment) => segment.sequence === sequence,
+      );
+      if (open?.sequence === sequence && row?.endedAt === null)
+        return { segmentId: row.id };
+      if (
+        segmentClosed(
+          round.status,
+          open?.sequence ?? null,
+          sequence,
+          row?.endedAt,
+        )
+      )
+        throw createAppError('CONFLICT', 'That segment is closed');
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    throw createAppError('CONFLICT', 'That segment never opened');
+  };
+
+  /**
+   * The phrases of one of the **bot's** lines.
+   *
+   * Both callers are about the AI's voice: `speak` fetches a phrase as mp3 and
+   * `heard` rewrites the line down to what the listener actually heard. This
+   * used to accept any utterance the round held, which let a client point
+   * either at the person's own transcript — spending the bot's character budget
+   * to speak the member's words back at them, and rewriting the member's
+   * record of what they said. So the line's seat has to be the bot's.
+   *
+   * A person's utterance is refused as `NOT_FOUND`, not as a permission error:
+   * from the caller's side these ids name lines that are not speakable, and
+   * saying so plainly would confirm the id exists.
+   */
   const phrasesOfLine = async (
     actorId: string,
     id: string,
     utteranceId: string,
   ) => {
-    const record = await ownedBy(store, actorId, id);
-    const utterance = record.utterances.find(
-      (u) => u.id === utteranceId && u.role === 'ai',
+    const { round, now } = await hydrated(actorId, id);
+    const lines = await store.listRoundUtterances(id);
+    const line = lines.find((candidate) => candidate.id === utteranceId);
+    if (!line) throw createAppError('NOT_FOUND');
+    const segmentIndex = round.segments.findIndex(
+      (segment) => segment.id === line.segmentId,
     );
-    if (!utterance) throw createAppError('NOT_FOUND');
-    // Only while the line's turn is open (countdown, live or the grace
-    // after it): a finished turn's words are never re-voiced or rewritten.
-    requireLiveTurn(record, utterance.turnIndex, nowMs(clock), () => true, {
-      early: true,
-    });
-    return { record, phrases: phrasesOf(utterance.text) };
+    const personSide = personSideOf(round, actorId);
+    const role =
+      participantRoleOfLine(round, line.roundParticipantId) === personSide
+        ? ('person' as const)
+        : ('ai' as const);
+    if (role !== 'ai') throw createAppError('NOT_FOUND');
+    requirePlaybackWindow(round, round.segments[segmentIndex], now);
+    return {
+      round,
+      line: {
+        id: line.id,
+        segmentIndex,
+        role,
+        text: line.text,
+        complete: line.complete,
+        at: line.createdAt.getTime(),
+      },
+      phrases: phrasesOf(line.text),
+    };
   };
 
   return {
     /**
-     * Writes the AI's speech for an AI speech turn (from its countdown on),
-     * phrase by phrase (two or three sentences) as the model produces it.
-     * The speech is saved as it grows, so the voice can be fetched per
-     * phrase, and marked whole
-     * only when the model finishes. A later call replays a whole speech and
-     * writes an unfinished one (a failure, or a listener who left) again.
+     * Writes the AI's speech for one of its speech segments (from the
+     * segment's live window), phrase by phrase as the model produces it.
+     * The segment row carries a durable generation claim before the model
+     * starts. The speech is saved as it grows and marked whole when the
+     * model finishes. A later call replays a whole speech; an unfinished
+     * line can be rewritten only after its claim expires.
      * `signal` ends the model's stream when the listener goes.
      */
     async *speech({
       actorId,
       id,
-      turnIndex,
+      segmentIndex,
       signal,
     }: {
       readonly actorId: string;
       readonly id: string;
-      readonly turnIndex: number;
+      readonly segmentIndex: number;
       readonly signal?: AbortSignal;
     }): AsyncGenerator<SpeechEvent> {
-      const record = await ownedBy(store, actorId, id);
-      const turn = requireLiveTurn(
-        record,
-        turnIndex,
-        nowMs(clock),
-        (roles, kind) => kind === 'speech' && roles.speaker === 'ai',
+      const { round, runtime, now } = await hydrated(actorId, id);
+      const position = runtime.position(new Date(now).toISOString());
+      const segment = requireOpenSegment(
+        position,
+        segmentIndex,
+        (candidate) =>
+          candidate.type === 'speech' &&
+          candidate.side !== personSideOf(round, actorId),
         { early: true },
       );
-      const existing = record.utterances.find(
-        (u) => u.turnIndex === turnIndex && u.role === 'ai',
-      );
-      if (existing?.complete) {
+      const seatId = botSeatOf(round, actorId).id;
+      const opened = await waitForSegment(actorId, id, segmentIndex);
+      const token = ids.next();
+      const claim = await store.claimSpeech({
+        id: ids.next(),
+        roundId: id,
+        segmentId: opened.segmentId,
+        roundParticipantId: seatId,
+        token,
+      });
+      if (claim.status === 'held')
+        throw createAppError('CONFLICT', 'Speech generation in progress');
+      if (claim.status === 'complete') {
+        const existing = (await store.listRoundUtterances(id)).find(
+          (line) => line.id === claim.utteranceId,
+        );
+        if (!existing) throw createAppError('INVARIANT', 'Speech line missing');
         yield { type: 'utterance', id: existing.id };
         for (const [index, text] of phrasesOf(existing.text).entries())
           yield { type: 'phrase', index, text };
         return;
       }
-      const utteranceId = existing?.id ?? ids.next();
-      if (existing)
-        await store.replaceAiDebateUtterance({
-          id: utteranceId,
-          aiDebateId: id,
-          text: '',
-          complete: false,
+      const utteranceId = claim.utteranceId;
+      try {
+        yield { type: 'utterance', id: utteranceId };
+        yield* writeSpeech({
+          store,
+          voice,
+          round,
+          actorId,
+          segmentIndex,
+          segmentKey: segment.key,
+          seatId,
+          utteranceId,
+          speechToken: token,
+          recordUsage,
+          signal,
         });
-      else
-        await store.appendAiDebateUtterance({
-          id: utteranceId,
-          aiDebateId: id,
-          turnIndex,
-          role: 'ai',
-          text: '',
-          complete: false,
-        });
-      yield { type: 'utterance', id: utteranceId };
-      yield* writeSpeech({ store, voice, record, turn, utteranceId, signal });
+      } finally {
+        await store.releaseSpeech({ utteranceId, roundId: id, token });
+      }
     },
 
     /**
      * The voice for one phrase of an AI line, as mp3 bytes. Every request
-     * spends from the debate's speech budget before the vendor is called,
-     * so asking again and again for a phrase has a ceiling.
+     * claims from the round's speech budget — the seat's recorded TTS
+     * characters — before the vendor is called, so asking again and again
+     * for a phrase has a ceiling.
+     *
+     * The claim is `reserveSpokenCharacters`, not a read of the total: reading
+     * the spent total and then calling the vendor was check-then-act, so two
+     * requests arriving together both passed the same check and both called
+     * the vendor, and the budget capped nothing. The claim serialises on the
+     * seat, and the vendor is only called once it is held.
      */
     async speak({
       actorId,
@@ -139,19 +257,27 @@ export function speechOperations({
       readonly utteranceId: string;
       readonly phraseIndex: number;
     }): Promise<ArrayBuffer> {
-      const { record, phrases } = await phrasesOfLine(actorId, id, utteranceId);
+      const { round, phrases } = await phrasesOfLine(actorId, id, utteranceId);
       const text = phrases[phraseIndex];
       if (!text) throw createAppError('NOT_FOUND');
       const speaker = voice();
-      const reserved = await store.reserveAiDebateSpeech({
-        aiDebateId: id,
+      const { id: seatId, actorId: botActorId } = botSeatOf(round, actorId);
+      const bot = opponentForActor(botActorId);
+      const claimed = await store.reserveSpokenCharacters({
+        id: ids.next(),
+        roundParticipantId: seatId,
         characters: text.length,
         budget: speechBudget,
+        model: DEFAULT_MODELS.tts,
+        provider: 'openrouter',
       });
-      if (!reserved) throw createAppError('RATE_LIMIT', 'Speech budget spent');
+      if (!claimed) throw createAppError('RATE_LIMIT', 'Speech budget spent');
+      // The claim is itself billable usage, so the reservation is counted from
+      // this point on exactly as it would have been by the old `recordUsage`.
+      await store.markReservationCounted({ actorId, roundId: id });
       const { audio } = await speaker.speak({
-        model: record.ttsModel,
-        voice: record.voice,
+        model: DEFAULT_MODELS.tts,
+        voice: bot?.voice ?? 'aura-2-thalia-en',
         text,
       });
       return audio;
@@ -159,7 +285,7 @@ export function speechOperations({
 
     /**
      * Keeps only what the person heard of an AI line cut short (a barge-in
-     * or the end of the turn): whole phrases before the one playing, and
+     * or the end of the segment): whole phrases before the one playing, and
      * the played share of that one.
      */
     async heard({
@@ -185,77 +311,12 @@ export function speechOperations({
       ]
         .filter(Boolean)
         .join(' ');
-      await store.replaceAiDebateUtterance({
+      await store.replaceUtterance({
         id: utteranceId,
-        aiDebateId: id,
+        roundId: id,
         text: kept,
+        requireOpen: false,
       });
     },
   };
-}
-
-/** Streams the model's speech into its line, phrase by phrase. */
-async function* writeSpeech({
-  store,
-  voice,
-  record,
-  turn,
-  utteranceId,
-  signal,
-}: Pick<AiDebateDependencies, 'store' | 'voice'> & {
-  readonly record: AiDebateRecord;
-  readonly turn: AiDebateTurn;
-  readonly utteranceId: string;
-  readonly signal: AbortSignal | undefined;
-}): AsyncGenerator<SpeechEvent> {
-  const messages = speechMessages({
-    resolution: record.resolution,
-    aiSide: aiSideOf(record),
-    turn,
-    transcript: transcriptOf(record),
-    persona: personaOf(record),
-  });
-  const sentences = createSentenceBuffer();
-  const phrases = createPhraseBuffer();
-  const grouped = (done: readonly string[]) =>
-    done.flatMap((sentence) => phrases.push(sentence));
-  const spoken: string[] = [];
-  let written = 0;
-  const save = async function* (phrases: readonly string[], whole = false) {
-    for (const text of phrases) {
-      spoken.push(text);
-      await store.replaceAiDebateUtterance({
-        id: utteranceId,
-        aiDebateId: record.id,
-        text: spoken.join(' '),
-      });
-      yield { type: 'phrase' as const, index: spoken.length - 1, text };
-    }
-    if (whole)
-      await store.replaceAiDebateUtterance({
-        id: utteranceId,
-        aiDebateId: record.id,
-        text: spoken.join(' '),
-        complete: true,
-      });
-  };
-  for await (const delta of voice().stream({
-    model: record.speechModel,
-    messages,
-    maxTokens: 4_000,
-    temperature: 0.8,
-    reasoning: DEFAULT_REASONING.speech,
-    ...(signal ? { signal } : {}),
-  })) {
-    written += delta.length;
-    yield* save(grouped(sentences.push(delta)));
-  }
-  yield* save([...grouped(sentences.flush()), ...phrases.flush()], true);
-  await store.recordAiDebateUsage({
-    aiDebateId: record.id,
-    promptTokens: approximateTokens(
-      messages.reduce((sum, message) => sum + message.content.length, 0),
-    ),
-    completionTokens: approximateTokens(written),
-  });
 }

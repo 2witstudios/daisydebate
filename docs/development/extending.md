@@ -56,16 +56,31 @@ Direct single-agent work may proceed without `pu`.
 4. Route handlers must not contain domain rules; the engine owns invariants.
 5. Extend `apps/web/e2e` if the route adds user-visible contracts.
 
+## Organizing feature internals
+
+Keep top-level feature names flat. Within a growing feature, group modules by
+capability: auth uses `confirmation/`, `email-change/`, `sessions/`, `passkeys/`,
+`abuse/` and `mail/`; prep uses `cards/`, `cases/`, `briefs/`, `teams/` and
+`library/`; debate-room owns its document modules in `documents/`.
+
+Keep implementations, tests and their support files together. Feature-wide
+composition stays at the feature root, and small features stay flat. Import
+modules directly; nesting alone does not justify a barrel or shared helper.
+API route folders describe URLs and need not mirror these internal folders.
+When moving modules, update consumers, resource paths and explicit lint,
+policy, evidence and duplication-baseline references in the same change.
+
 ## Adding a domain capability
 
-1. Extend `@daisy/protocol` first if state crosses a boundary: schema,
-   versioned snapshot/command/event shapes, tests.
+1. Extend `@daisy/protocol` first if state crosses a boundary: versioned
+   format, Room, Round, command or projection shapes, with tests.
 2. Implement invariants in `packages/debate-engine` as pure operations on
    the runtime; no I/O, no ambient time; failing preconditions must leave
    state unchanged. Engine tests prove the invariant and the atomicity.
-3. Durable effects go through an application operation:
-   load authoritative snapshot → engine operation → persist with optimistic
-   version → map infrastructure failures to stable public errors.
+3. Durable effects go through an application operation: hydrate authoritative
+   Round rows and frozen rules → engine operation with explicit principal and
+   database time → persist the projection with an optimistic version → map
+   infrastructure failures to stable public errors.
 4. Update `docs/domains/engine.md` when lifecycle or invariants change.
 
 ## Adding a product vertical
@@ -109,8 +124,8 @@ Write Tailwind utilities on the element (ADR 0028). There is no
 
 ## Adding a protocol message
 
-1. Add the message to the discriminated union (command or event) or snapshot
-   schema in `packages/protocol` with the current `version` literal.
+1. Add the message to the discriminated union (command or event) or the
+   relevant versioned contract in `packages/protocol`.
 2. Follow the evolution rules in ADR 0009: additive within a version, new
    version literal for breaking change, never repurpose fields.
 3. Add round-trip validation tests (parse → serialize → parse).

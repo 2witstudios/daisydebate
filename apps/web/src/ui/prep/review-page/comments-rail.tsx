@@ -1,4 +1,4 @@
-import type { ReviewView } from '../../../features/prep/brief-review';
+import type { ReviewView } from '../../../features/prep/briefs/brief-review';
 import { inertActions } from '../../../features/prep/actions';
 import { Avatar } from '../../components/avatar/avatar';
 import {

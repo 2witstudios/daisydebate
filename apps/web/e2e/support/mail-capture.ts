@@ -1,5 +1,5 @@
 import { RedisClient } from 'bun';
-import { resendRequest } from '../../src/features/auth/resend-capture.test-support';
+import { resendRequest } from '../../src/features/auth/mail/resend-capture.test-support';
 
 /**
  * A private mail sink for a production-mode local server: the real Resend

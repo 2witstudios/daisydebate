@@ -16,6 +16,7 @@ export const idSchema = z.string().regex(/^[a-z0-9]{24}$/);
  */
 export const debateSides = ['affirmative', 'negative'] as const;
 export const debateSideSchema = z.enum(debateSides);
+export type DebateSide = (typeof debateSides)[number];
 
 /**
  * The one debate role vocabulary (ADR 0029): the two sides plus the judge.
@@ -25,6 +26,15 @@ export const debateSideSchema = z.enum(debateSides);
  */
 export const debateRoles = [...debateSides, 'judge'] as const;
 export const debateRoleSchema = z.enum(debateRoles);
+export type DebateRole = (typeof debateRoles)[number];
+
+/**
+ * The rating ladders (ADR 0055): Ranked, judged by a person, and Quick
+ * match, judged by the AI. A ladder joins the rating key, and the ladder
+ * CHECKs on `ratings` and `rating_changes` derive from this array.
+ */
+export const ratingLadders = ['ranked', 'quick'] as const;
+export type RatingLadder = (typeof ratingLadders)[number];
 
 /**
  * The one public error-code vocabulary. `@daisy/errors` maps each code to

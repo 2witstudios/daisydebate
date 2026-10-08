@@ -4,7 +4,7 @@ import type { IdGenerator } from '@daisy/clock';
 import { isValidTraceparent } from '@daisy/observability';
 import { isGuardedPath, signInHref } from '../features/access/decision';
 import { returnableDestination } from '../features/auth/redirect';
-import { hasSessionCookie } from '../features/auth/session-cookie';
+import { hasSessionCookie } from '../features/auth/sessions/session-cookie';
 // A nonce never authorizes a `style="…"` attribute, and `next/image` always
 // server-renders one. Hash the exact strings it emits (`fill`, and the default)
 // so every other inline style attribute stays refused. The CSP e2e fails if a

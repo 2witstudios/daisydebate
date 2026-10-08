@@ -40,15 +40,24 @@ describe('the migration history (ISSUE-6)', () => {
     });
   });
 
-  test('is sanctioned by one live baseline entry, with the inert ADR 0023 entry gone', async () => {
+  test('is sanctioned by a live baseline entry for each squash, none expired', async () => {
     const registry = (await Bun.file(
       `${repository}policy/migration-baselines.json`,
-    ).json()) as { baselines: ReadonlyArray<{ adr: string }> };
+    ).json()) as {
+      baselines: ReadonlyArray<{ adr: string; reviewBy: string }>;
+    };
     assert({
       given: 'policy/migration-baselines.json',
-      should: 'hold only the ADR 0038 sanction for this squash',
-      actual: registry.baselines.map(({ adr }) => adr),
-      expected: ['docs/decisions/0038-drizzle-1-baseline.md'],
+      should:
+        'hold one sanction per squash — ADR 0038 for the drizzle 1.0 baseline and ADR 0058 for the one-Round baseline — each unexpired',
+      actual: registry.baselines.map(({ adr, reviewBy }) => ({
+        adr,
+        live: new Date(reviewBy) >= new Date('2026-10-06'),
+      })),
+      expected: [
+        { adr: 'docs/decisions/0038-drizzle-1-baseline.md', live: true },
+        { adr: 'docs/decisions/0058-one-round-model.md', live: true },
+      ],
     });
   });
 

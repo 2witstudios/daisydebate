@@ -3,7 +3,7 @@ import type { Identity } from '@daisy/auth';
 import { createAppError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import { ticketSchema } from '@daisy/protocol';
-import { consumeOrThrow, type AuthRateLimiter } from '../auth/rate-limit';
+import { consumeOrThrow, type AuthRateLimiter } from '../auth/abuse/rate-limit';
 import {
   handleOperation,
   requireSameOrigin,

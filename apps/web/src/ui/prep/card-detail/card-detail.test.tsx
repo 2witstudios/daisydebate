@@ -4,8 +4,8 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   cardDetailView,
   type CardDetailQuery,
-} from '../../../features/prep/card-detail';
-import { getCard } from '../../../features/prep/get-card';
+} from '../../../features/prep/cards/card-detail';
+import { getCard } from '../../../features/prep/cards/get-card';
 import { CardDelete } from './card-delete';
 import { CardDetail } from './card-detail';
 

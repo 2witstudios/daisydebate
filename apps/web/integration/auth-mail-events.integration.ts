@@ -6,7 +6,7 @@ import {
   deliveryRow,
   providerEvent,
 } from './auth-webhook-helpers';
-import { recipientKey } from '../src/features/auth/recipient-key';
+import { recipientKey } from '../src/features/auth/mail/recipient-key';
 import { requireTestServices } from '@daisy/config';
 
 requireTestServices(process.env);

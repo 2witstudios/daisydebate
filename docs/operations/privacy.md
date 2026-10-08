@@ -96,7 +96,8 @@ inventory becomes the single index:
 - [ADR 0029](../decisions/0029-competitive-schema-foundation.md): account
   deletion tombstones the user (below); competitive history, actors and
   ratings are retained indefinitely as the product's own record, holding no
-  PII.
+  PII. `ratings.ladder` and `rating_changes.ladder` (ADR 0055) are category
+  `none`.
 - **AUTH-7.5**: an expired `session` row (`ip_address` and `user_agent`
   travel with it) is purged 24 hours after `expires_at`, the same grace and
   the same sweep as `verification`. A revoked session is deleted

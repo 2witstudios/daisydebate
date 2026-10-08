@@ -56,7 +56,7 @@ kill_timeout = 35
   # (fdaa::/8). `gateway` trusts exactly that one address, read from
   # /proc/net/route at start (apps/web/src/server/trusted-proxies.ts); a
   # trusted peer's Fly-Client-IP then names the caller
-  # (apps/web/src/features/auth/client-ip.ts). DEC-39 (supersedes DEC-36):
+  # (apps/web/src/features/auth/abuse/client-ip.ts). DEC-39 (supersedes DEC-36):
   # no range is trusted — not 6PN, which every machine and WireGuard peer in
   # the org shares, nor 172.16.0.0/12 or Fly's public edge. With no single
   # gateway it trusts nothing and logs ingress.trusted_proxy.unresolved. See

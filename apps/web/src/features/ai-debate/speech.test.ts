@@ -1,23 +1,242 @@
-import { createAppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  collect,
-  scriptedVoice,
-  setup,
-  withSpokenAc,
-} from './operations.test-support';
+import { setup, speakOpeningConstructive } from './operations.test-support';
 
 setupRitewayBun();
 
-describe('the AI speech, kept honest', () => {
-  test('never voices or rewrites a line once its turn has passed', async () => {
-    const { operations, id, time, voice, utteranceId } = await withSpokenAc();
-    time.advance(10 + 300 + 4); // the AC is over, grace included
-    const vendorCalls = voice.calls.length;
+const eventsOf = async (
+  generator: AsyncGenerator<{ type: string; id?: string }>,
+) => {
+  const events: { type: string; id?: string }[] = [];
+  for await (const event of generator) events.push(event);
+  return events;
+};
+
+describe('the AI speech, on the one Round model', () => {
+  test('only one request owns an AI speech while generation is live', async () => {
+    const { operations, begin, clock } = setup();
+    const id = await begin();
+    clock.advance(451);
+    const first = operations.speech({
+      actorId: 'actor-1',
+      id,
+      segmentIndex: 2,
+    });
+    const claimed = await first.next();
     await assertRejects({
-      given: 'a request to voice a phrase of the AC after the AC',
-      should: 'refuse with CONFLICT and never call the voice vendor',
+      given: 'another stream for the same bot and segment',
+      should: 'refuse its duplicate generation while the claim is live',
+      actual: async () => {
+        const second = operations.speech({
+          actorId: 'actor-1',
+          id,
+          segmentIndex: 2,
+        });
+        await second.next();
+      },
+      code: 'CONFLICT',
+    });
+    await eventsOf(first);
+    const view = await operations.view({ actorId: 'actor-1', id });
+    assert({
+      given: 'the first stream completes after the duplicate was refused',
+      should: 'leave exactly one complete speech line',
+      actual: {
+        claimed: claimed.value?.type,
+        lines: view.utterances.map((line) => ({
+          text: line.text,
+          complete: line.complete,
+        })),
+      },
+      expected: {
+        claimed: 'utterance',
+        lines: [{ text: 'A short speech.', complete: true }],
+      },
+    });
+  });
+
+  test('an expired claim can be taken over and fences its old writer', async () => {
+    const { operations, begin, clock, memory } = setup();
+    const id = await begin();
+    clock.advance(451);
+    const old = operations.speech({ actorId: 'actor-1', id, segmentIndex: 2 });
+    await old.next();
+    clock.advance(121);
+    memory.tick(121_000);
+    const replacement = await eventsOf(
+      operations.speech({ actorId: 'actor-1', id, segmentIndex: 2 }),
+    );
+    await assertRejects({
+      given: 'the first stream resumes after its expired claim was replaced',
+      should: 'refuse its stale write',
+      actual: () => old.next(),
+      code: 'CONFLICT',
+    });
+    const view = await operations.view({ actorId: 'actor-1', id });
+    assert({
+      given: 'a replacement stream finished the same speech line',
+      should: 'store one complete line',
+      actual: {
+        replacement: replacement.map((event) => event.type),
+        lines: view.utterances.map((line) => ({
+          text: line.text,
+          complete: line.complete,
+        })),
+      },
+      expected: {
+        replacement: ['utterance', 'phrase'],
+        lines: [{ text: 'A short speech.', complete: true }],
+      },
+    });
+  });
+
+  test('a cancelled stream releases its claim for an immediate retry', async () => {
+    const { operations, begin, clock } = setup();
+    const id = await begin();
+    clock.advance(451);
+    const cancelled = operations.speech({
+      actorId: 'actor-1',
+      id,
+      segmentIndex: 2,
+    });
+    await cancelled.next();
+    await cancelled.return(undefined);
+    const retried = await eventsOf(
+      operations.speech({ actorId: 'actor-1', id, segmentIndex: 2 }),
+    );
+    const view = await operations.view({ actorId: 'actor-1', id });
+    assert({
+      given: 'a listener disconnects before its first phrase',
+      should: 'let the next request finish that same line immediately',
+      actual: {
+        events: retried.map((event) => event.type),
+        lines: view.utterances.map((line) => ({
+          text: line.text,
+          complete: line.complete,
+        })),
+      },
+      expected: {
+        events: ['utterance', 'phrase'],
+        lines: [{ text: 'A short speech.', complete: true }],
+      },
+    });
+  });
+
+  test('restarts an unfinished line by replacing it on the same segment', async () => {
+    const { operations, begin, clock, store } = setup();
+    const id = await begin();
+    clock.advance(451);
+    await operations.view({ actorId: 'actor-1', id });
+    const round = await store.getRound(id);
+    const segment = round?.segments.find((row) => row.sequence === 2);
+    const bot = round?.participants.find((seat) => seat.role === 'negative');
+    if (!segment || !bot) throw new Error('the bot speech did not open');
+    await store.appendUtterance({
+      id: 'unfinished-bot-line',
+      roundId: id,
+      segmentId: segment.id,
+      roundParticipantId: bot.id,
+      text: 'An interrupted start.',
+      complete: false,
+      requireOpen: true,
+    });
+    const events = await eventsOf(
+      operations.speech({ actorId: 'actor-1', id, segmentIndex: 2 }),
+    );
+    const view = await operations.view({ actorId: 'actor-1', id });
+    assert({
+      given:
+        'a resumed model stream with an incomplete line already on the segment',
+      should: 'finish that line without inserting the same id twice',
+      actual: {
+        events: events.map((event) => event.type),
+        lines: view.utterances.map((line) => ({
+          id: line.id,
+          text: line.text,
+          complete: line.complete,
+        })),
+      },
+      expected: {
+        events: ['utterance', 'phrase'],
+        lines: [
+          {
+            id: 'unfinished-bot-line',
+            text: 'A short speech.',
+            complete: true,
+          },
+        ],
+      },
+    });
+  });
+
+  test('writes the line onto the open segment once time opens it', async () => {
+    const { operations, begin, clock } = setup();
+    const id = await begin();
+    clock.advance(451); // AC and CX1 done; the AI's NC opens
+    const events = await eventsOf(
+      operations.speech({ actorId: 'actor-1', id, segmentIndex: 2 }),
+    );
+    const view = await operations.view({ actorId: 'actor-1', id });
+    assert({
+      given: "the model's answer, streamed while the AC is live",
+      should: 'name the line, then its phrase, and land it on the AC row',
+      actual: {
+        kinds: events.map((event) => event.type),
+        lines: view.utterances.map((line) => ({
+          segmentIndex: line.segmentIndex,
+          role: line.role,
+          text: line.text,
+          complete: line.complete,
+        })),
+      },
+      expected: {
+        kinds: ['utterance', 'phrase'],
+        lines: [
+          {
+            segmentIndex: 2,
+            role: 'ai',
+            text: 'A short speech.',
+            complete: true,
+          },
+        ],
+      },
+    });
+  });
+
+  test("refuses to speak over a segment that is not the AI's", async () => {
+    const { operations, begin, clock } = setup();
+    const id = await begin();
+    clock.advance(11); // the AC opens: the person's speech
+    await assertRejects({
+      given: "a speech request for the person's own segment",
+      should: 'refuse with CONFLICT',
+      actual: async () => {
+        const generator = operations.speech({
+          actorId: 'actor-1',
+          id,
+          segmentIndex: 0,
+        });
+        await generator.next();
+      },
+      code: 'CONFLICT',
+    });
+  });
+
+  test('the voice budget is spent as characters, per seat', async () => {
+    const { operations, begin, clock } = setup({
+      live: 25,
+      perDay: 20,
+      speechCharacters: 5,
+    } as never);
+    const id = await begin();
+    clock.advance(451);
+    const events = await eventsOf(
+      operations.speech({ actorId: 'actor-1', id, segmentIndex: 2 }),
+    );
+    const utteranceId = events.find((event) => event.type === 'utterance')!.id!;
+    await assertRejects({
+      given: 'a voice request once the characters are spent',
+      should: 'refuse with RATE_LIMIT',
       actual: () =>
         operations.speak({
           actorId: 'actor-1',
@@ -25,117 +244,59 @@ describe('the AI speech, kept honest', () => {
           utteranceId,
           phraseIndex: 0,
         }),
-      code: 'CONFLICT',
+      code: 'RATE_LIMIT',
     });
+  });
+
+  // `speak` and `heard` are both about the AI's voice: one fetches a phrase as
+  // mp3, the other rewrites a line down to what the listener actually heard.
+  // Both used to accept any utterance the round held, so a client could point
+  // either at the person's own transcript.
+  test('refuses to voice or rewrite the person’s own utterance', async () => {
+    const { operations, begin, clock } = setup();
+    const id = await begin();
+    await speakOpeningConstructive(operations, clock, id);
+    const view = await operations.view({ actorId: 'actor-1', id });
+    const spoken = view.utterances.find((line) => line.role === 'person');
+    if (!spoken) throw new Error('the person’s line did not land');
+
     await assertRejects({
-      given: 'a request to cut the AC down to what was heard, after the AC',
-      should: 'refuse with CONFLICT',
+      given: "a voice request naming the person's own utterance",
+      should: 'refuse, so the budget cannot be spent on their words',
+      actual: () =>
+        operations.speak({
+          actorId: 'actor-1',
+          id,
+          utteranceId: spoken.id,
+          phraseIndex: 0,
+        }),
+      code: 'NOT_FOUND',
+    });
+
+    const afterSpeak = await operations.view({ actorId: 'actor-1', id });
+
+    await assertRejects({
+      given: "a heard report naming the person's own utterance",
+      should: 'refuse, so their transcript is not rewritten',
       actual: () =>
         operations.heard({
           actorId: 'actor-1',
           id,
-          utteranceId,
+          utteranceId: spoken.id,
           phraseIndex: 0,
           playedMs: 0,
-          totalMs: 1000,
+          totalMs: 100,
         }),
-      code: 'CONFLICT',
+      code: 'NOT_FOUND',
     });
-    assert({
-      given: 'both refusals',
-      should: 'reach no vendor',
-      actual: voice.calls.length,
-      expected: vendorCalls,
-    });
-  });
 
-  test('a speech cut off by a vendor failure is written again, not replayed', async () => {
-    const base = scriptedVoice();
-    let failNext = true;
-    const voice = {
-      ...base,
-      async *stream(request: Parameters<typeof base.stream>[0]) {
-        if (failNext) {
-          failNext = false;
-          yield 'Thank you, judge. My first';
-          throw createAppError('INFRASTRUCTURE', 'vendor down');
-        }
-        yield* base.stream(request);
-      },
-    };
-    const { operations, begin } = setup({ personSide: 'negative', voice });
-    const id = await begin();
-    await assertRejects({
-      given: 'the model failing halfway through the AC',
-      should: 'reject the speech',
-      actual: () =>
-        collect(operations.speech({ actorId: 'actor-1', id, turnIndex: 0 })),
-      code: 'INFRASTRUCTURE',
-    });
-    const retried = await collect(
-      operations.speech({ actorId: 'actor-1', id, turnIndex: 0 }),
-    );
     assert({
-      given: 'the same speech asked for again',
-      should: 'write the whole speech anew rather than replay the fragment',
-      actual: retried
-        .filter((e) => e.type === 'phrase')
-        .map((e) => e.type === 'phrase' && e.text),
-      expected: [
-        'Thank you, judge.',
-        'My first contention is safety. I urge an affirmative ballot.',
-      ],
-    });
-  });
-
-  test('a speech whose listener leaves stops asking the model', async () => {
-    const { operations, begin, voice } = setup({ personSide: 'negative' });
-    const id = await begin();
-    const leaving = new AbortController();
-    const events = operations.speech({
-      actorId: 'actor-1',
-      id,
-      turnIndex: 0,
-      signal: leaving.signal,
-    });
-    await events.next(); // the line
-    await events.next(); // its first phrase: the model is streaming
-    leaving.abort();
-    await events.return(undefined);
-    assert({
-      given: 'a listener that leaves after the first event',
-      should: 'pass its signal to the model stream, which sees it aborted',
-      actual: voice.signals.at(-1)?.aborted,
-      expected: true,
-    });
-  });
-
-  test('a debate can only buy so much voice', async () => {
-    const { operations, begin, voice } = setup({
-      personSide: 'negative',
-      limits: { live: 25, perDay: 20, speechCharacters: 70 },
-    });
-    const id = await begin();
-    const events = await collect(
-      operations.speech({ actorId: 'actor-1', id, turnIndex: 0 }),
-    );
-    const utteranceId = events[0]?.type === 'utterance' ? events[0].id : '';
-    const speak = (phraseIndex: number) =>
-      operations.speak({ actorId: 'actor-1', id, utteranceId, phraseIndex });
-    await speak(0); // 17 characters
-    await speak(0); // the same phrase again still spends: 34
-    const calls = voice.calls.length;
-    await assertRejects({
-      given: 'a 60-character phrase that would pass a 70-character budget',
-      should: 'refuse with RATE_LIMIT',
-      actual: () => speak(1),
-      code: 'RATE_LIMIT',
-    });
-    assert({
-      given: 'the refusal',
-      should: 'never reach the voice vendor',
-      actual: voice.calls.length,
-      expected: calls,
+      given: 'both refused requests',
+      should: 'leave the person’s transcript exactly as they spoke it',
+      actual: (
+        await operations.view({ actorId: 'actor-1', id })
+      ).utterances.map((line) => line.text),
+      expected: afterSpeak.utterances.map((line) => line.text),
     });
   });
 });

@@ -58,10 +58,10 @@ package; this map lists only packages that exist today.
 
 ## State and runtime semantics
 
-- **PostgreSQL** owns durable competitive truth: users, debates, ballots,
+- **PostgreSQL** owns durable competitive truth: users, Rooms, Rounds, ballots,
   ratings, tournaments, recording metadata. Rows are persistence
   representations, never ECS entities or domain objects.
-- **Redis** is expendable: presence, queues, rate limits, ephemeral room
+- **Redis** is expendable: presence, queues, rate limits, ephemeral connection
   state. Keys are `<namespace>:v1:<validated-segment>` with mandatory expiry.
 - **Process-local state** is limited to one composed app per process
   (connection pools, the logger, auth and the draining flag) and the UI shell
@@ -95,9 +95,10 @@ package; this map lists only packages that exist today.
   per-request data, because that would bleed one request's state into
   another's HTML. Real per-request state must first move behind a
   request-scoped provider (ADR 0024, constraint 4).
-- **Debate runtime state** is in-memory scratch. Durable operations load the
-  authoritative snapshot from PostgreSQL, run a domain operation, and persist
-  with an explicit concurrency policy (optimistic version today).
+- **Round runtime state** is in-memory execution scratch. Durable operations
+  hydrate authoritative Round, participant and segment rows plus frozen rules
+  from PostgreSQL, run a domain operation at database time, and persist its
+  projection under the expected Round version.
 
 ## Layering rules
 
@@ -144,7 +145,7 @@ flat permission list described in the package map above.
   `scripts/boundaries-rules.ts` and `package.json`). `@daisy/db` may not
   import `@daisy/auth`; it returns a plain projection and `@daisy/auth`'s
   `toAuthorizationInput` maps it.
-- **Ranked is Daisy's; leagues are future tournament tenants.** Ranked debates
+- **Ranked is Daisy's; leagues are future tournament tenants.** Ranked Rounds
   belong to no league and count on Daisy's own ladder (one per format and
   season), and anyone with an actor may host ranked or unranked play. A
   league is an organizer's private tournament space with its own UI: it never

@@ -6,7 +6,7 @@ import {
   tokenOf,
   withSql,
 } from './fixtures';
-import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+import { CLIENT_IP_HEADER } from '../src/features/auth/abuse/client-ip';
 
 /**
  * Mounted-route flow harness: the REAL `/api/auth` and `/auth/confirm` route
