@@ -3,7 +3,7 @@ import type { Clock } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import type { Identity } from '@daisy/auth';
 import type { OnboardingStepWrite } from '@daisy/db';
-import { consumeOrThrow, type AuthRateLimiter } from '../auth/rate-limit';
+import { consumeOrThrow, type AuthRateLimiter } from '../auth/abuse/rate-limit';
 import {
   handleOperation,
   readJson,

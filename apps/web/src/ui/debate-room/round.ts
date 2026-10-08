@@ -3,7 +3,7 @@ import type {
   Side,
   SpeechSlot,
   WorkspaceDocument,
-} from '../../features/debate-room/documents';
+} from '../../features/debate-room/documents/documents';
 import type { RoundPhase } from '../../features/debate-room/layout';
 import type { TranscriptSegment } from '../../features/debate-room/transcript';
 import type {

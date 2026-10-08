@@ -2,7 +2,7 @@ import { cache } from 'react';
 import { headers } from 'next/headers';
 import type { Identity } from '@daisy/auth';
 import type { OnboardingAnswers } from '../features/onboarding/answers';
-import { sessionRefreshDue } from '../features/auth/session-policy';
+import { sessionRefreshDue } from '../features/auth/sessions/session-policy';
 import { processApp } from '../server/process-app';
 import { resolveSession } from './identity';
 

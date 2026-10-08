@@ -1,4 +1,4 @@
-import type { Visibility } from '../../../features/prep/library-item';
+import type { Visibility } from '../../../features/prep/library/library-item';
 import { Avatar } from '../../components/avatar/avatar';
 import { PrepIcon } from '../prep-icon/prep-icon';
 

@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../../../features/access/decision';
-import { getTeam } from '../../../../../features/prep/get-team';
+import { getTeam } from '../../../../../features/prep/teams/get-team';
 import {
   parseTeamQuery,
   teamView,
-} from '../../../../../features/prep/team-view';
+} from '../../../../../features/prep/teams/team-view';
 import { requireAccess } from '../../../../../lib/access';
 import { NotFoundPanel } from '../../../../../ui/prep/not-found/not-found-panel';
 import { TeamPage } from '../../../../../ui/prep/team-page/team-page';

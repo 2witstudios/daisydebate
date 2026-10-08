@@ -6,7 +6,7 @@ import type {
 } from '../../../features/prep/room-panel';
 import { roomPanelHref } from '../../../features/prep/room-panel-query';
 import { inertActions } from '../../../features/prep/actions';
-import { currentVersion } from '../../../features/prep/card';
+import { currentVersion } from '../../../features/prep/cards/card';
 import { Badge } from '../../components/badge/badge';
 import { buttonClass } from '../../components/button/button-class';
 import { Icon } from '../../components/icon/icon';

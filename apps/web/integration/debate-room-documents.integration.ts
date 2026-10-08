@@ -12,7 +12,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   conflictRevision,
   createDebateDocumentOperations,
-} from '../src/features/debate-room/document-operations';
+} from '../src/features/debate-room/documents/document-operations';
 import { testDatabaseUrl, withSql } from './fixtures';
 
 setupRitewayBun();

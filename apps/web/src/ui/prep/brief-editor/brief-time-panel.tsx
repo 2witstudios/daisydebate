@@ -1,4 +1,4 @@
-import type { BriefEditorView } from '../../../features/prep/brief-editor';
+import type { BriefEditorView } from '../../../features/prep/briefs/brief-editor';
 import { TimeBar } from '../time-bar/time-bar';
 
 /** Reading time against the debate rules, for the whole brief and by section. */

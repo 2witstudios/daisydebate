@@ -2,7 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { memoryAdapter } from '@better-auth/memory-adapter';
 import type { Logger } from '@daisy/logger';
 import { logsLeakSecrets } from './log-leaks';
-import type { AuthRateLimiter } from './rate-limit';
+import type { AuthRateLimiter } from './abuse/rate-limit';
 import {
   authTestEnv,
   composeAuthServer,

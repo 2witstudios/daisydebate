@@ -8,7 +8,7 @@ import {
 import type { Identity } from '@daisy/auth';
 import type { Logger } from '@daisy/logger';
 import { type ZodType } from 'zod';
-import { CLIENT_ID_HASH_HEADER } from '../features/auth/client-ip';
+import { CLIENT_ID_HASH_HEADER } from '../features/auth/abuse/client-ip';
 
 /** An `Identity` once anonymous and unavailable are ruled out. */
 export type SignedInIdentity = Extract<

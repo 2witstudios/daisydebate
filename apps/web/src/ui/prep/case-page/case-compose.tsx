@@ -1,5 +1,8 @@
 import Link from 'next/link';
-import type { BlockRow, CaseView } from '../../../features/prep/case-view';
+import type {
+  BlockRow,
+  CaseView,
+} from '../../../features/prep/cases/case-view';
 import { cardDeletedInCase } from '../../../features/prep/notices';
 import { IconButtonInert } from '../inert-action/icon-button-inert';
 import { PrepIcon, type PrepIconName } from '../prep-icon/prep-icon';

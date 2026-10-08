@@ -7,7 +7,7 @@ import {
   CLIENT_IP_HEADER,
   clientIdHash,
   deriveClientIdSubkey,
-} from '../features/auth/client-ip';
+} from '../features/auth/abuse/client-ip';
 import { createApp } from './app';
 import { createProductionServer } from './server-wiring';
 

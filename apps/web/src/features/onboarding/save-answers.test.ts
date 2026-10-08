@@ -3,7 +3,10 @@ import type { Identity } from '@daisy/auth';
 import type { OnboardingStepWrite } from '@daisy/db';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import { createOnboardingHandler } from './save-answers';
-import { allowEvery, type ConsumeStub } from '../auth/limiter.test-support';
+import {
+  allowEvery,
+  type ConsumeStub,
+} from '../auth/abuse/limiter.test-support';
 
 setupRitewayBun();
 

@@ -4,7 +4,7 @@ import { useEditorState, type Editor } from '@tiptap/react';
 import {
   debateMarks,
   type DebateMark,
-} from '../../../features/debate-room/documents';
+} from '../../../features/debate-room/documents/documents';
 import { cn } from '../../cn';
 import { Icon, type IconName } from '../../components/icon/icon';
 import type { PageTone } from '../room-state';

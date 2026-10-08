@@ -4,7 +4,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   cardCreateView,
   type CardCreateQuery,
-} from '../../../features/prep/card-create';
+} from '../../../features/prep/cards/card-create';
 import { CardCreate } from './card-create';
 
 setupRitewayBun();

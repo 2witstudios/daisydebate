@@ -1,4 +1,4 @@
-import type { Segment } from '../../../features/prep/card';
+import type { Segment } from '../../../features/prep/cards/card';
 
 /**
  * Source text with its layers: read-aloud passages marked, kept passages

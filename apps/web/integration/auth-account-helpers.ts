@@ -2,8 +2,8 @@ import { createId } from '@paralleldrive/cuid2';
 import type { Identity } from '@daisy/auth';
 import { createFlows } from './auth-mounted-flows';
 import { cookieHeader, withSql, type TestApp } from './fixtures';
-import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
-import { CONFIRM_PATH } from '../src/features/auth/confirm-page';
+import { CLIENT_IP_HEADER } from '../src/features/auth/abuse/client-ip';
+import { CONFIRM_PATH } from '../src/features/auth/confirmation/confirm-page';
 import { identify, resolveSession } from '../src/lib/identity';
 
 /**

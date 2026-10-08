@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { documentTemplates } from '../../features/debate-room/documents';
+import { documentTemplates } from '../../features/debate-room/documents/documents';
 import { sampleRoomDocuments } from '../mock/debate-room-docs';
 import { paletteCommands } from './command-palette';
 

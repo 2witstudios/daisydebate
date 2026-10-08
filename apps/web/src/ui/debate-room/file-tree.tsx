@@ -1,7 +1,7 @@
 'use client';
 
 import type { Dispatch } from 'react';
-import type { WorkspaceDocument } from '../../features/debate-room/documents';
+import type { WorkspaceDocument } from '../../features/debate-room/documents/documents';
 import type { TreeNode } from '../../features/debate-room/workspace';
 import { cn } from '../cn';
 import { Icon } from '../components/icon/icon';

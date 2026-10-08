@@ -35,7 +35,7 @@ token>` as the `verification.identifier`. The subject (the email for
   direct request for either redemption endpoint (`/magic-link/verify`,
   `/email-change/verify`; ISSUE-3). Tokens are not bound to a device, so a
   link opened in another browser still works. Implementation:
-  `apps/web/src/features/auth/emailed-link-token.ts`. Magic links use it
+  `apps/web/src/features/auth/confirmation/emailed-link-token.ts`. Magic links use it
   through the plugin's `generateToken` and a `custom-hasher` `storeToken`.
   Better Auth's `'hashed'` option would be SHA-256. The recovery-email
   change (AUTH-5.6) is Daisy's `daisy-email-change` plugin

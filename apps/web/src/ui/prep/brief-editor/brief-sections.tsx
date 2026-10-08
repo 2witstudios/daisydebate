@@ -1,4 +1,4 @@
-import type { BriefEditorView } from '../../../features/prep/brief-editor';
+import type { BriefEditorView } from '../../../features/prep/briefs/brief-editor';
 import { inertActions } from '../../../features/prep/actions';
 import { wordCount } from '../../../features/prep/reading-time';
 import { InertActionButton } from '../inert-action/inert-action';

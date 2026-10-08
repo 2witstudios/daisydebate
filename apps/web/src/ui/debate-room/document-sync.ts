@@ -1,9 +1,9 @@
-import { sameDocumentHtml } from '../../features/debate-room/document-lines';
+import { sameDocumentHtml } from '../../features/debate-room/documents/document-lines';
 import type {
   FolderId,
   TemplateId,
   WorkspaceDocument,
-} from '../../features/debate-room/documents';
+} from '../../features/debate-room/documents/documents';
 
 export type StoredDocument = WorkspaceDocument & { readonly revision: number };
 

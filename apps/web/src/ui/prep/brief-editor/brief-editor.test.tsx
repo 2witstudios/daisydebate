@@ -1,8 +1,11 @@
 import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { briefEditorView } from '../../../features/prep/brief-editor';
-import { getBrief, speechLimitSeconds } from '../../../features/prep/get-brief';
+import { briefEditorView } from '../../../features/prep/briefs/brief-editor';
+import {
+  getBrief,
+  speechLimitSeconds,
+} from '../../../features/prep/briefs/get-brief';
 import { BriefEditor } from './brief-editor';
 
 setupRitewayBun();

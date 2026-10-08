@@ -3,7 +3,7 @@ import {
   cardCreateHref,
   type CardCreateView,
   type MarkTool,
-} from '../../../features/prep/card-create';
+} from '../../../features/prep/cards/card-create';
 import { buttonClass } from '../../components/button/button-class';
 import { PrepIcon, type PrepIconName } from '../prep-icon/prep-icon';
 import { SourceText } from '../source-text/source-text';

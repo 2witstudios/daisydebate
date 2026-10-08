@@ -1,4 +1,4 @@
-import type { Card, CardUse, Segment } from '../../features/prep/card';
+import type { Card, CardUse, Segment } from '../../features/prep/cards/card';
 import { sampleTeamName } from './prep';
 
 /** The owner's words-a-minute setting: a sample, shown in brackets. */

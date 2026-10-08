@@ -190,7 +190,7 @@ if either class appears anywhere outside the brand sheet (DEC-32).
   primitives, not from new numbers.
 - Pages that the Next stylesheet never reaches (the AUTH-4.7 confirm pages
   and the auth email) read the palette as static values from
-  `apps/web/src/features/auth/brand-palette.ts`, which a test pins to
+  `apps/web/src/features/auth/mail/brand-palette.ts`, which a test pins to
   `globals.css`, stage tokens included. The confirm pages draw both marks
   from `bloomPetals`, and their panel is the forest stage with its own ink.
   The mark tokens are in the palette too.

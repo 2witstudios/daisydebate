@@ -1,4 +1,4 @@
-import { AUTH_BRAND_PALETTE } from '../brand-palette';
+import { AUTH_BRAND_PALETTE } from './brand-palette';
 import { escapeHtml } from './escape';
 
 /**

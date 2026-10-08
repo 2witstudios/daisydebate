@@ -1,5 +1,5 @@
 import { resolveIdentity, type Identity } from '@daisy/auth';
-import { hasSessionCookie } from '../features/auth/session-cookie';
+import { hasSessionCookie } from '../features/auth/sessions/session-cookie';
 import type { AuthServer } from '../features/auth/server';
 
 /** The slice of the composed auth server a session read needs. */
@@ -45,7 +45,7 @@ export async function resolveSession(
     readSession: async (header) => {
       const found = await instance.api.getSession({
         // A server Principal read: the rate-limit gate does not budget it
-        // (features/auth/rate-limit.ts, isServerPrincipalRead).
+        // (features/auth/abuse/rate-limit.ts, isServerPrincipalRead).
         headers: new Headers({ cookie: header }),
         query: { disableRefresh: true },
       });

@@ -243,7 +243,7 @@ are not best-effort HTTP.
   - The browser calls Better Auth's `/revoke-session` directly (AUTH-5.5);
     no Daisy-owned transaction wraps that internal delete. The writer is a
     Better Auth plugin registering `hooks.after` on it
-    (`apps/web/src/features/auth/session-revoked-outbox.ts`). The append is
+    (`apps/web/src/features/auth/sessions/session-revoked-outbox.ts`). The append is
     **best-effort**, appended **after** the delete is confirmed, in its own
     short transaction, never in the same transaction as the delete. A
     failed append is logged as a registered structured event and never

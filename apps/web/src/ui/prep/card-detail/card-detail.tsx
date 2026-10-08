@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import type { CardDetailView } from '../../../features/prep/card-detail';
+import type { CardDetailView } from '../../../features/prep/cards/card-detail';
 import { inertActions } from '../../../features/prep/actions';
 import { Badge } from '../../components/badge/badge';
 import { buttonClass } from '../../components/button/button-class';

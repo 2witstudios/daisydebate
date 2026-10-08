@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { SpeechSlot } from './documents';
+import type { SpeechSlot } from './documents/documents';
 import {
   filterSections,
   formatOffset,

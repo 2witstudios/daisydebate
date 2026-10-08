@@ -4,7 +4,10 @@ import {
   type AiDebateView,
   type UiState,
 } from '../../../features/ai-debate/context';
-import type { Side, SpeechSlot } from '../../../features/debate-room/documents';
+import type {
+  Side,
+  SpeechSlot,
+} from '../../../features/debate-room/documents/documents';
 import type { RoundPhase } from '../../../features/debate-room/layout';
 import type { TranscriptSegment } from '../../../features/debate-room/transcript';
 import type { Debater, RoundSnapshot } from '../../debate-room/round';

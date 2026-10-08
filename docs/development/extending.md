@@ -56,6 +56,20 @@ Direct single-agent work may proceed without `pu`.
 4. Route handlers must not contain domain rules; the engine owns invariants.
 5. Extend `apps/web/e2e` if the route adds user-visible contracts.
 
+## Organizing feature internals
+
+Keep top-level feature names flat. Within a growing feature, group modules by
+capability: auth uses `confirmation/`, `email-change/`, `sessions/`, `passkeys/`,
+`abuse/` and `mail/`; prep uses `cards/`, `cases/`, `briefs/`, `teams/` and
+`library/`; debate-room owns its document modules in `documents/`.
+
+Keep implementations, tests and their support files together. Feature-wide
+composition stays at the feature root, and small features stay flat. Import
+modules directly; nesting alone does not justify a barrel or shared helper.
+API route folders describe URLs and need not mirror these internal folders.
+When moving modules, update consumers, resource paths and explicit lint,
+policy, evidence and duplication-baseline references in the same change.
+
 ## Adding a domain capability
 
 1. Extend `@daisy/protocol` first if state crosses a boundary: versioned

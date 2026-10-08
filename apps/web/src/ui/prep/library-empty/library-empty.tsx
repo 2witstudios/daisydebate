@@ -4,7 +4,7 @@ import {
   libraryHref,
   clearFiltersHref,
   type LibraryQuery,
-} from '../../../features/prep/library-query';
+} from '../../../features/prep/library/library-query';
 import { inertActions } from '../../../features/prep/actions';
 import { buttonClass } from '../../components/button/button-class';
 import { InertActionButton } from '../inert-action/inert-action';

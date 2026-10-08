@@ -1,8 +1,8 @@
 import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { getTeam } from '../../../features/prep/get-team';
-import { teamView, type TeamTab } from '../../../features/prep/team-view';
+import { getTeam } from '../../../features/prep/teams/get-team';
+import { teamView, type TeamTab } from '../../../features/prep/teams/team-view';
 import { TeamPage } from './team-page';
 
 setupRitewayBun();

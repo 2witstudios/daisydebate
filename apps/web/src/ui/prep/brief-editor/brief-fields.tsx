@@ -1,5 +1,8 @@
 import Link from 'next/link';
-import type { BriefCardRef, BriefResponse } from '../../../features/prep/brief';
+import type {
+  BriefCardRef,
+  BriefResponse,
+} from '../../../features/prep/briefs/brief';
 import { inertActions } from '../../../features/prep/actions';
 import {
   fieldClass,

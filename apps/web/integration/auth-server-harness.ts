@@ -3,15 +3,15 @@ import { readAuthConfig } from '@daisy/config';
 import { createDatabase } from '@daisy/db';
 import { fixedClock, systemId } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
-import { createConfirmHandlers } from '../src/features/auth/confirm';
+import { createConfirmHandlers } from '../src/features/auth/confirmation/confirm';
 import type { RecordedLogs } from '../src/features/auth/log-leaks';
 import {
   createAuthServer,
   type AuthEmailMessage,
 } from '../src/features/auth/server';
-import type { CompleteEmailChange } from '../src/features/auth/email-change';
-import type { RevokeSessions } from '../src/features/auth/revoke-sessions';
-import type { RevokeSessionUnlessAddressHeld } from '../src/features/auth/sign-in-address-guard';
+import type { CompleteEmailChange } from '../src/features/auth/email-change/email-change';
+import type { RevokeSessions } from '../src/features/auth/sessions/revoke-sessions';
+import type { RevokeSessionUnlessAddressHeld } from '../src/features/auth/abuse/sign-in-address-guard';
 import { silentLogger } from '../src/server/test-loggers.test-support';
 import { authTestEnv } from '../src/features/auth/auth-server.test-support';
 

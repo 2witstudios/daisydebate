@@ -1,11 +1,11 @@
 import { systemClock } from '@daisy/clock';
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../../../features/access/decision';
-import { parseCaseQuery } from '../../../../../features/prep/case-query';
-import { caseView } from '../../../../../features/prep/case-view';
-import { getCase } from '../../../../../features/prep/get-case';
-import { speechLimitSeconds } from '../../../../../features/prep/get-brief';
-import { readingPace } from '../../../../../features/prep/get-card';
+import { parseCaseQuery } from '../../../../../features/prep/cases/case-query';
+import { caseView } from '../../../../../features/prep/cases/case-view';
+import { getCase } from '../../../../../features/prep/cases/get-case';
+import { speechLimitSeconds } from '../../../../../features/prep/briefs/get-brief';
+import { readingPace } from '../../../../../features/prep/cards/get-card';
 import { requireAccess } from '../../../../../lib/access';
 import { CasePage } from '../../../../../ui/prep/case-page/case-page';
 import { NotFoundPanel } from '../../../../../ui/prep/not-found/not-found-panel';

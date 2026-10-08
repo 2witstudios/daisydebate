@@ -6,7 +6,7 @@ import { requestFrom } from './socket-request';
 import {
   CLIENT_IP_HEADER,
   stampClientIdentity,
-} from '../src/features/auth/client-ip';
+} from '../src/features/auth/abuse/client-ip';
 import { requireTestServices } from '@daisy/config';
 
 requireTestServices(process.env);

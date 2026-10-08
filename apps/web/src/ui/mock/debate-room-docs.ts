@@ -3,7 +3,7 @@ import {
   type FolderId,
   type TemplateId,
   type WorkspaceDocument,
-} from '../../features/debate-room/documents';
+} from '../../features/debate-room/documents/documents';
 
 /** Inline text: plain, bold (`**x**`) or a debate mark (`{dropped:x}`). */
 const inline = (source: string): string =>

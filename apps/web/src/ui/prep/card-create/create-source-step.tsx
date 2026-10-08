@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import type { CardCreateView } from '../../../features/prep/card-create';
+import type { CardCreateView } from '../../../features/prep/cards/card-create';
 import { buttonClass } from '../../components/button/button-class';
 import {
   controlClass,

@@ -26,7 +26,7 @@ cookie's own value, and the browser client reads neither field.
 - Better Auth's mounted `/list-sessions` is disabled. The account UI lists and
   revokes through `/api/account/sessions`.
 - The `daisy-browser-session-shape` plugin
-  (`apps/web/src/features/auth/browser-session-shape.ts`) removes `token` and
+  (`apps/web/src/features/auth/sessions/browser-session-shape.ts`) removes `token` and
   `ipAddress` at any depth from every JSON response of the mounted
   `/api/auth/*` handler.
 - Server code reads sessions through `auth.api.*`, with no Request, and so

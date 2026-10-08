@@ -12,7 +12,7 @@ import {
   withSql,
 } from './fixtures';
 import { trackRevocations } from './auth-outbox-helpers';
-import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+import { CLIENT_IP_HEADER } from '../src/features/auth/abuse/client-ip';
 
 requireTestServices(process.env);
 const { flows, recordedEvents, newClient, signUp } = await authFlows();

@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { FolderId, WorkspaceDocument } from './documents';
+import type { FolderId, WorkspaceDocument } from './documents/documents';
 import {
   activateTab,
   buildTree,

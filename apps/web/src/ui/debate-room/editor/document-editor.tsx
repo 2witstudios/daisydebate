@@ -3,9 +3,9 @@
 import { Placeholder } from '@tiptap/extensions';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { useEffect } from 'react';
-import { sameDocumentHtml } from '../../../features/debate-room/document-lines';
-import { documentExtensions } from '../../../features/debate-room/document-schema';
-import type { WorkspaceDocument } from '../../../features/debate-room/documents';
+import { sameDocumentHtml } from '../../../features/debate-room/documents/document-lines';
+import { documentExtensions } from '../../../features/debate-room/documents/document-schema';
+import type { WorkspaceDocument } from '../../../features/debate-room/documents/documents';
 import type { PageTone } from '../room-state';
 import { EditorToolbar } from './editor-toolbar';
 
